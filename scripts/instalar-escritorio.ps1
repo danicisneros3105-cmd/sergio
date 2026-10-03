@@ -1,4 +1,4 @@
-# Instala a Sergio en Windows como compañero del cursor: sin ventana, una
+﻿# Instala a Sergio en Windows como compañero del cursor: sin ventana, una
 # esfera junto al puntero, voz ("Sergio, ..." o Ctrl+Espacio) y control de la
 # pantalla. No necesita administrador.
 # Se ejecuta desde Ubuntu con:  sergio escritorio instalar
@@ -44,8 +44,21 @@ $cfg | ConvertTo-Json | Set-Content -Encoding UTF8 $cfgPath
 
 Say "3/4 Instalando lo que necesita (la primera vez puede tardar 5-10 minutos)"
 $env:UV_PROJECT_ENVIRONMENT = $venv
-& $uv sync --project $app --python 3.12 --quiet
-if ($LASTEXITCODE -ne 0) { throw "No pude instalar las dependencias (uv sync)." }
+$env:UV_HTTP_TIMEOUT = "600"   # slow connections: big files need time
+$env:UV_HTTP_RETRIES = "8"
+$env:UV_CONCURRENT_DOWNLOADS = "2"
+# First try with the NVIDIA GPU extras (much better ear). They are ~1 GB, so
+# if the download fails we install without them: Sergio then hears on the CPU.
+& $uv sync --project $app --python 3.12 --quiet --extra gpu
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "   (No pude bajar el extra de la tarjeta NVIDIA; sigo sin el. Puedes reintentar luego.)"
+    & $uv sync --project $app --python 3.12 --quiet
+    if ($LASTEXITCODE -ne 0) {
+        Start-Sleep -Seconds 5
+        & $uv sync --project $app --python 3.12 --quiet
+    }
+    if ($LASTEXITCODE -ne 0) { throw "No pude instalar las dependencias (uv sync). Revisa tu internet y vuelve a intentar." }
+}
 
 Say "4/4 Arranque con Windows"
 $ico = Join-Path $dest "sergio.ico"
