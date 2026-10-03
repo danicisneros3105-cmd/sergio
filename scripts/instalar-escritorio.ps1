@@ -2,7 +2,7 @@
 # esfera junto al puntero, voz ("Sergio, ..." o Ctrl+Espacio) y control de la
 # pantalla. No necesita administrador.
 # Se ejecuta desde Ubuntu con:  sergio escritorio instalar
-param([Parameter(Mandatory = $true)][string]$Fuente)
+param([Parameter(Mandatory = $true)][string]$Fuente, [switch]$Gpu)
 $ErrorActionPreference = "Stop"
 function Say($m) { Write-Host "`n== $m" -ForegroundColor Cyan }
 
@@ -42,22 +42,21 @@ $cfg.server_url = "http://localhost:8000"
 $cfg.port = 8765
 $cfg | ConvertTo-Json | Set-Content -Encoding UTF8 $cfgPath
 
-Say "3/4 Instalando lo que necesita (la primera vez puede tardar 5-10 minutos)"
+Say "3/4 Instalando lo que necesita (verás el progreso; la primera vez tarda unos minutos)"
 $env:UV_PROJECT_ENVIRONMENT = $venv
-$env:UV_HTTP_TIMEOUT = "600"   # slow connections: big files need time
-$env:UV_HTTP_RETRIES = "8"
-$env:UV_CONCURRENT_DOWNLOADS = "2"
-# First try with the NVIDIA GPU extras (much better ear). They are ~1 GB, so
-# if the download fails we install without them: Sergio then hears on the CPU.
-& $uv sync --project $app --python 3.12 --quiet --extra gpu
+$env:UV_HTTP_TIMEOUT = "120"
+# --inexact keeps the optional NVIDIA extra if it was installed before.
+& $uv sync --project $app --python 3.12 --inexact
 if ($LASTEXITCODE -ne 0) {
-    Write-Host "   (No pude bajar el extra de la tarjeta NVIDIA; sigo sin el. Puedes reintentar luego.)"
-    & $uv sync --project $app --python 3.12 --quiet
-    if ($LASTEXITCODE -ne 0) {
-        Start-Sleep -Seconds 5
-        & $uv sync --project $app --python 3.12 --quiet
-    }
-    if ($LASTEXITCODE -ne 0) { throw "No pude instalar las dependencias (uv sync). Revisa tu internet y vuelve a intentar." }
+    Start-Sleep -Seconds 5
+    & $uv sync --project $app --python 3.12 --inexact
+}
+if ($LASTEXITCODE -ne 0) { throw "No pude instalar las dependencias (uv sync). Revisa tu internet y vuelve a intentar." }
+if ($Gpu) {
+    Say "Extra: oído con la tarjeta NVIDIA (~1 GB, puede tardar)"
+    $env:UV_HTTP_TIMEOUT = "900"
+    & $uv sync --project $app --python 3.12 --inexact --extra gpu
+    if ($LASTEXITCODE -ne 0) { Write-Host "   No pude bajarlo ahora; Sergio sigue funcionando con el procesador." -ForegroundColor Yellow }
 }
 
 Say "4/4 Arranque con Windows"

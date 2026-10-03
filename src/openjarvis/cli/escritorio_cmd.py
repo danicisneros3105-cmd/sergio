@@ -87,7 +87,13 @@ def escritorio() -> None:
     help=f"Also download a local vision model ({VISION_MODEL}, ~6 GB) so "
     "Sergio can describe images on screen.",
 )
-def instalar(vision: bool) -> None:
+@click.option(
+    "--gpu",
+    is_flag=True,
+    help="Also download the NVIDIA libraries (~1 GB) so Sergio hears with the "
+    "big Whisper model on the graphics card.",
+)
+def instalar(vision: bool, gpu: bool = False) -> None:
     """Install (or update) Sergio Escritorio in Windows."""
     from openjarvis.cli.phone_cmd import read_env, write_env
     from openjarvis.cli.service_cmd import env_file
@@ -117,7 +123,7 @@ def instalar(vision: bool) -> None:
 
     script = _wslpath(_REPO_ROOT / "scripts" / "instalar-escritorio.ps1")
     source = _wslpath(_REPO_ROOT / "windows")
-    console.print("Installing in Windows (2-5 minutes the first time)…")
+    console.print("Installing in Windows (a few minutes the first time)…")
     # The token travels as an environment variable (WSLENV), not on a
     # command line other programs could read.
     child_env = dict(os.environ, SERGIO_DESKTOP_TOKEN=token)
@@ -134,6 +140,7 @@ def instalar(vision: bool) -> None:
             script,
             "-Fuente",
             source,
+            *(["-Gpu"] if gpu else []),
         ],
         env=child_env,
         check=False,
