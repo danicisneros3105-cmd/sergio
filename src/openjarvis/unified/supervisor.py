@@ -8,6 +8,7 @@ tears down the whole tree. Pid files and logs live in
 
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import signal
@@ -70,6 +71,17 @@ def _pid_alive(pid: int) -> bool:
     return True
 
 
+def _start_token(pid: int) -> str | None:
+    """Kernel start time of *pid* (Linux), to detect a recycled pid."""
+    try:
+        stat = Path(f"/proc/{pid}/stat").read_text()
+    except OSError:
+        return None
+    # Field 22 (starttime) comes after the parenthesised command name.
+    fields = stat.rsplit(")", 1)[-1].split()
+    return fields[19] if len(fields) > 19 else None
+
+
 class Supervisor:
     """Manage the OpenClacky and globe services for one OpenJarvis config."""
 
@@ -79,9 +91,12 @@ class Supervisor:
         *,
         which: Callable[[str], str | None] = shutil.which,
         environ: dict[str, str] | None = None,
+        ui_ports: tuple[int, ...] = (),
     ) -> None:
         self._config = config
         self._which = which
+        # Ports the Sergio UI is served on (allowed to embed the globe).
+        self._ui_ports = ui_ports
         self._environ = dict(os.environ if environ is None else environ)
         self._state = state_dir()
 
@@ -147,7 +162,9 @@ class Supervisor:
             return svc
         # Let the OpenJarvis UI (Vite dev server or the API's static build)
         # embed the globe; the globe denies all other embedders.
-        ui_ports = sorted({5173, int(getattr(self._config.server, "port", 8000))})
+        ui_ports = sorted(
+            {5173, int(getattr(self._config.server, "port", 8000)), *self._ui_ports}
+        )
         svc.env = {
             "GLOBE_FRAME_ANCESTORS": " ".join(
                 f"http://{host}:{port}"
@@ -187,14 +204,32 @@ class Supervisor:
     def log_file(self, name: str) -> Path:
         return self._state / f"{name}.log"
 
+    def _write_pid(self, name: str, pid: int) -> None:
+        record = {"pid": pid, "start": _start_token(pid)}
+        self._pid_file(name).write_text(json.dumps(record))
+
     def _pid(self, name: str) -> int:
+        """Pid of our own process for *name*, or 0.
+
+        After a reboot the saved pid may belong to an unrelated program;
+        the recorded start time (Linux) rules that out, so ``stop`` never
+        signals a process this supervisor did not start.
+        """
         try:
-            return int(self._pid_file(name).read_text().strip())
-        except (OSError, ValueError):
+            raw = self._pid_file(name).read_text().strip()
+            record = json.loads(raw) if raw.startswith("{") else {"pid": int(raw)}
+            pid = int(record.get("pid", 0))
+        except (OSError, ValueError, TypeError, AttributeError):
             return 0
+        if not _pid_alive(pid):
+            return 0
+        expected = record.get("start")
+        if expected is not None and _start_token(pid) not in (None, expected):
+            return 0
+        return pid
 
     def running(self, svc: Service) -> bool:
-        return _pid_alive(self._pid(svc.name)) and port_open(svc.port)
+        return self._pid(svc.name) > 0 and port_open(svc.port)
 
     def start(self, svc: Service, *, wait: float = 60.0) -> str:
         """Start *svc*; return a short human-readable outcome."""
@@ -204,29 +239,35 @@ class Supervisor:
             return f"already running at {svc.url}"
         if port_open(svc.port):
             return f"port {svc.port} is busy (another program uses it)"
-        log = self.log_file(svc.name).open("ab")
         env = {**self._environ, **svc.env}
-        if svc.needs_install():
-            done = subprocess.run(
-                svc.install, cwd=svc.cwd, env=env, stdout=log, stderr=log, check=False
-            )
-            if done.returncode != 0:
-                return f"dependency install failed, see {self.log_file(svc.name)}"
         kwargs: dict[str, Any] = {}
         if _IS_WINDOWS:
             kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP  # type: ignore[attr-defined]
         else:
             kwargs["start_new_session"] = True
-        proc = subprocess.Popen(
-            svc.command,
-            cwd=svc.cwd,
-            env=env,
-            stdout=log,
-            stderr=subprocess.STDOUT,
-            stdin=subprocess.DEVNULL,
-            **kwargs,
-        )
-        self._pid_file(svc.name).write_text(str(proc.pid))
+        # The child keeps its own copy of the log descriptor; ours is closed.
+        with self.log_file(svc.name).open("ab") as log:
+            if svc.needs_install():
+                done = subprocess.run(
+                    svc.install,
+                    cwd=svc.cwd,
+                    env=env,
+                    stdout=log,
+                    stderr=log,
+                    check=False,
+                )
+                if done.returncode != 0:
+                    return f"dependency install failed, see {self.log_file(svc.name)}"
+            proc = subprocess.Popen(
+                svc.command,
+                cwd=svc.cwd,
+                env=env,
+                stdout=log,
+                stderr=subprocess.STDOUT,
+                stdin=subprocess.DEVNULL,
+                **kwargs,
+            )
+        self._write_pid(svc.name, proc.pid)
         deadline = time.monotonic() + wait
         while time.monotonic() < deadline:
             if proc.poll() is not None:
@@ -240,7 +281,7 @@ class Supervisor:
     def stop(self, name: str) -> bool:
         pid = self._pid(name)
         self._pid_file(name).unlink(missing_ok=True)
-        if not _pid_alive(pid):
+        if pid <= 0:
             return False
         if _IS_WINDOWS:
             subprocess.run(

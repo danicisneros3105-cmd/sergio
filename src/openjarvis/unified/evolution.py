@@ -153,7 +153,12 @@ def _engine_generate(config: Any) -> Callable[[list[Message]], str]:
     from openjarvis.engine import get_engine
 
     model = config.memory.extraction_model or config.intelligence.default_model
-    resolved = get_engine(config, None, model=model or None)
+    if not model:
+        raise RuntimeError(
+            "no model configured ([intelligence] default_model or "
+            "[memory] extraction_model)"
+        )
+    resolved = get_engine(config, None, model=model)
     if resolved is None:
         raise RuntimeError("no inference engine available")
     _, engine = resolved

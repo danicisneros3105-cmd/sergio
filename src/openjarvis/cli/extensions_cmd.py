@@ -12,24 +12,38 @@ console = Console()
 _NAMES = click.Choice(["all", "clacky", "globe"])
 
 
-def _supervisor():
+def _supervisor(ui_ports: tuple[int, ...] = ()):
     from openjarvis.core.config import load_config
     from openjarvis.unified.supervisor import Supervisor
 
-    return Supervisor(load_config())
+    return Supervisor(load_config(), ui_ports=ui_ports)
 
 
-def start_extensions(names: tuple[str, ...] = ("all",)) -> None:
-    """Start extensions and print one line per service (used by ``jarvis gui``)."""
-    sup = _supervisor()
+def start_extensions(
+    names: tuple[str, ...] = ("all",), ui_ports: tuple[int, ...] = ()
+) -> list[str]:
+    """Start extensions, print one line each; return the ones started now.
+
+    Services that were already running are not included, so a caller such
+    as ``sergio gui`` only stops what it started itself.
+    """
+    sup = _supervisor(ui_ports)
+    started: list[str] = []
     for svc in sup.services():
         if "all" in names or svc.name in names:
-            console.print(f"[cyan]{svc.title}[/cyan]: {escape(sup.start(svc))}")
+            was_running = sup.running(svc)
+            outcome = sup.start(svc)
+            console.print(f"[cyan]{svc.title}[/cyan]: {escape(outcome)}")
+            if not was_running and outcome.startswith(("running", "started")):
+                started.append(svc.name)
+    return started
 
 
-def stop_extensions() -> None:
-    for name, stopped in _supervisor().stop_all().items():
-        if stopped:
+def stop_extensions(names: tuple[str, ...] | None = None) -> None:
+    """Stop *names* (default: all extensions)."""
+    sup = _supervisor()
+    for name in names if names is not None else ("clacky", "globe"):
+        if sup.stop(name):
             console.print(f"[cyan]{name}[/cyan]: stopped")
 
 

@@ -28,6 +28,8 @@ export function ExtensionPage({ name }: { name: ExtensionName }) {
   const [starting, setStarting] = useState(false);
 
   const refresh = useCallback(async () => {
+    // Skip polls while the browser tab is in the background.
+    if (document.hidden) return;
     try {
       setState(await fetchExtensions());
       setError('');

@@ -42,6 +42,8 @@ uv run sergio gui                    # abre la app completa
 uv run sergio extensions status      # estado de Clacky y del globo
 uv run sergio extensions logs clacky # qué está haciendo Clacky
 uv run sergio gui --no-extensions    # solo OpenJarvis
+uv run sergio approvals list         # tareas esperando tu aprobación
+uv run sergio approvals approve ID   # aprobar desde la terminal
 ```
 
 Ejemplos de cosas que puedes pedir en el chat:
@@ -56,13 +58,9 @@ Ejemplos de cosas que puedes pedir en el chat:
 - *"Organiza mi carpeta Descargas por tipo de archivo"*: usa `clacky_task`.
   Aparece en la campana 🔔 de la app; cuando apruebas, Clacky lo ejecuta.
 
-Para activar esas herramientas en un agente, añádelas a su lista de tools:
-
-```toml
-[tools]
-enabled = ["web_search", "file_read", "clacky_task", "globe_view",
-           "live_flights", "live_earthquakes", "upcoming_launches"]
-```
+El instalador ya activa estas herramientas en `~/.openjarvis/config.toml`
+(sección `[tools] enabled`), además de compilar el motor nativo en Rust que
+usan la memoria de documentos y la búsqueda.
 
 ## Configuración (`~/.openjarvis/config.toml`)
 

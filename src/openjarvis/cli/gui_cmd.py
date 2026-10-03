@@ -144,19 +144,28 @@ def gui(
 
     from openjarvis.cli.extensions_cmd import start_extensions, stop_extensions
     from openjarvis.core.config import load_config
+    from openjarvis.unified.evolution import maybe_evolve_in_background
+    from openjarvis.unified.supervisor import Supervisor
 
     config = load_config()
     with_extensions = not no_extensions and config.extensions.autostart
-    if with_extensions:
-        start_extensions()
+    ui_ports = (frontend_port, api_port)
+    # Only stop what this session started: services that were already running
+    # (e.g. via `sergio extensions start`) keep running after the GUI closes.
+    started_here: tuple[str, ...] = ()
 
-    from openjarvis.unified.evolution import maybe_evolve_in_background
-
-    maybe_evolve_in_background(config)
-
-    # Stop the extensions on every exit path, including a frontend that
-    # fails to start.
+    # Stop the extensions on every exit path: Ctrl-C while they start, a
+    # failing frontend, or a normal exit.
     try:
+        if with_extensions:
+            sup = Supervisor(config, ui_ports=ui_ports)
+            already = {svc.name for svc in sup.services() if sup.running(svc)}
+            started_here = tuple(
+                svc.name for svc in sup.services() if svc.name not in already
+            )
+            start_extensions(ui_ports=ui_ports)
+        maybe_evolve_in_background(config)
+
         env = os.environ.copy()
         # Let browser requests use Vite's same-origin proxy at any frontend port.
         # VITE_API_URL is exposed to browser code, so clear an inherited override.
@@ -194,5 +203,5 @@ def gui(
             process.terminate()
             process.wait()
     finally:
-        if with_extensions:
-            stop_extensions()
+        if started_here:
+            stop_extensions(started_here)

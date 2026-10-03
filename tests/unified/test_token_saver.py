@@ -90,3 +90,18 @@ def test_links_survive_compression(config):
     )
     out, _ = maybe_compress("web_search", text, config)
     assert out.endswith("Links:\nhttps://example.com/a?x=1\nhttps://docs.example.org/b")
+
+
+def test_extract_links_handles_brackets_and_punctuation():
+    from openjarvis.unified.token_saver import extract_links
+
+    text = (
+        "See https://en.wikipedia.org/wiki/Mercury_(planet). "
+        "Also (https://example.com/page), [https://x.org/a] and "
+        "https://example.com/page."
+    )
+    assert extract_links(text) == [
+        "https://en.wikipedia.org/wiki/Mercury_(planet)",
+        "https://example.com/page",
+        "https://x.org/a",
+    ]

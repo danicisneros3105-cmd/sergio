@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import socket
 import sys
 import time
@@ -129,3 +130,28 @@ def test_failed_dependency_install_is_reported(tmp_path, monkeypatch):
 
 def test_pid_alive_handles_bad_pids():
     assert sup_mod._pid_alive(0) is False
+
+
+def test_recycled_pid_is_never_treated_as_ours(tmp_path, monkeypatch):
+    sup = Supervisor(_config(tmp_path), which=_which_all, environ={})
+    me = os.getpid()
+    sup._write_pid("globe", me)
+    assert sup._pid("globe") == me
+    # Same pid, different start time: a different process after a reboot.
+    monkeypatch.setattr(sup_mod, "_start_token", lambda pid: "999999999")
+    assert sup._pid("globe") == 0
+    assert sup.stop("globe") is False  # nothing signalled
+
+
+def test_legacy_plain_pid_files_still_work(tmp_path):
+    sup = Supervisor(_config(tmp_path), which=_which_all, environ={})
+    sup._pid_file("clacky").write_text(str(os.getpid()))
+    assert sup._pid("clacky") == os.getpid()
+    sup._pid_file("clacky").write_text("garbage")
+    assert sup._pid("clacky") == 0
+
+
+def test_ui_ports_are_allowed_to_embed_the_globe(tmp_path):
+    sup = Supervisor(_config(tmp_path), which=_which_all, environ={}, ui_ports=(3000,))
+    ancestors = sup.get("globe").env["GLOBE_FRAME_ANCESTORS"]
+    assert "http://127.0.0.1:3000" in ancestors and "http://localhost:5173" in ancestors

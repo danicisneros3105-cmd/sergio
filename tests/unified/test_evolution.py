@@ -93,3 +93,11 @@ def test_background_run_respects_interval(config, monkeypatch):
     assert evolution.maybe_evolve_in_background(config) is False
     monkeypatch.setattr(evolution, "_read_state", lambda: {})
     assert evolution.maybe_evolve_in_background(config) is True
+
+
+def test_missing_model_is_reported(config):
+    _store(config).add("Likes tea")
+    config.intelligence.default_model = ""
+    config.memory.extraction_model = ""
+    result = evolve_profile(config)
+    assert not result.changed and "no model configured" in result.reason

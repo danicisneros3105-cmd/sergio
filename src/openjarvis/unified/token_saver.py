@@ -23,8 +23,28 @@ logger = logging.getLogger(__name__)
 
 Compressor = Callable[[str, float], str]
 
-_URL = re.compile(r"https?://[^\s<>\"')\]]+")
+_URL = re.compile(r"https?://[^\s<>\"']+")
 _MAX_LINKS = 30
+
+
+def _clean_url(url: str) -> str:
+    """Drop sentence punctuation and unbalanced closing brackets at the end."""
+    while url:
+        if url[-1] in ".,;:!?\"'":
+            url = url[:-1]
+        elif url[-1] == ")" and url.count(")") > url.count("("):
+            url = url[:-1]
+        elif url[-1] == "]" and url.count("]") > url.count("["):
+            url = url[:-1]
+        else:
+            break
+    return url
+
+
+def extract_links(text: str) -> list[str]:
+    links = (_clean_url(u) for u in _URL.findall(text))
+    return list(dict.fromkeys(u for u in links if "://" in u))[:_MAX_LINKS]
+
 
 _lock = threading.Lock()
 _compressor: Compressor | None = None
@@ -93,7 +113,7 @@ def maybe_compress(tool_name: str, text: str, config: Any) -> tuple[str, dict]:
     if not short.strip() or len(short) >= len(text):
         return text, {}
     # Token dropping mangles URLs; keep every link verbatim after the summary.
-    links = list(dict.fromkeys(_URL.findall(text)))[:_MAX_LINKS]
+    links = extract_links(text)
     if links:
         short = short.rstrip() + "\n\nLinks:\n" + "\n".join(links)
         if len(short) >= len(text):

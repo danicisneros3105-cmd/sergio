@@ -283,6 +283,21 @@ class ApprovalStore:
             )
         self._conn.commit()
 
+    def transition(self, action_id: str, from_status: str, to_status: str) -> bool:
+        """Atomically move *action_id* from *from_status* to *to_status*.
+
+        Returns False when the action is not in *from_status* (for example a
+        concurrent caller already claimed it), so a decision is consumed once.
+        """
+        now = datetime.now(timezone.utc).isoformat()
+        cur = self._conn.execute(
+            "UPDATE pending_actions SET status = ?, decision_at = ? "
+            "WHERE id = ? AND status = ?",
+            (to_status, now, action_id, from_status),
+        )
+        self._conn.commit()
+        return cur.rowcount == 1
+
     def expire_stale(self) -> int:
         """Mark past-TTL pending actions as expired. Returns count."""
         now = datetime.now(timezone.utc).isoformat()

@@ -135,17 +135,26 @@ class ClackyTaskTool(BaseTool):
             self._approvals = ApprovalStore()
         return self._approvals
 
+    def _find_open(self, store: Any, payload: dict[str, Any]) -> Any:
+        """An earlier, still-open request for the same task (avoids duplicates)."""
+        for action in [*store.list_approved(), *store.list_pending()]:
+            if action.action_type == _TOOL_NAME and action.payload == payload:
+                return action
+        return None
+
     def _approve(self, params: dict[str, Any]) -> tuple[dict | None, ToolResult | None]:
         """Queue (or look up) the task and wait for the user's decision.
 
-        Returns ``(payload, None)`` when approved — the payload stored at
-        queue time is authoritative, so the task cannot change after the
-        user approved it — or ``(None, result)`` to return to the model.
+        Returns ``(payload, None)`` once the approval is claimed — the payload
+        stored at queue time is authoritative, so the task cannot change after
+        the user approved it, and the atomic claim means one approval runs the
+        task once — or ``(None, result)`` to return to the model.
         """
         from openjarvis.tools.approval_store import (
             STATUS_APPROVED,
             STATUS_EXECUTED,
             STATUS_PENDING,
+            TIER_HIGH,
         )
 
         store = self._store()
@@ -158,13 +167,16 @@ class ClackyTaskTool(BaseTool):
             task = str(params.get("task") or "").strip()
             if not task:
                 return None, self._fail("The 'task' parameter is required.")
-            workdir = str(params.get("working_dir") or Path.home())
-            action = store.queue_action(
+            payload = {
+                "task": task,
+                "working_dir": str(params.get("working_dir") or Path.home()),
+            }
+            action = self._find_open(store, payload) or store.queue_action(
                 action_type=_TOOL_NAME,
                 description=f"Clacky will do on your computer: {task}",
-                payload={"task": task, "working_dir": workdir},
+                payload=payload,
                 permission_key=_TOOL_NAME,
-                tier="confirm",
+                tier=TIER_HIGH,
             )
             action_id = action.id
 
@@ -175,8 +187,20 @@ class ClackyTaskTool(BaseTool):
             action = store.get_action(action_id)
             status = action.status if action else "missing"
             if status == STATUS_APPROVED:
-                store.update_status(action_id, STATUS_EXECUTED)
-                return dict(action.payload), None
+                workdir = Path(action.payload.get("working_dir", "")).expanduser()
+                if not workdir.is_dir():
+                    # Leave the approval unused so it can be retried later.
+                    return None, self._fail(
+                        f"Working directory does not exist: {workdir}"
+                    )
+                if store.transition(action_id, STATUS_APPROVED, STATUS_EXECUTED):
+                    return dict(action.payload), None
+                continue  # another call claimed it first; re-read the status
+            if status == STATUS_EXECUTED:
+                return None, self._fail(
+                    "This approval was already used: the task ran (or was "
+                    "attempted) once. Ask the user before requesting it again."
+                )
             if status != STATUS_PENDING:
                 return None, self._fail(
                     f"The user did not approve this task (status: {status}). "
@@ -186,10 +210,11 @@ class ClackyTaskTool(BaseTool):
                 return None, ToolResult(
                     tool_name=_TOOL_NAME,
                     content=(
-                        "Still waiting for the user's approval in the approval "
-                        f"bell (approval_id='{action_id}'). Tell the user, and "
-                        "call clacky_task again with this approval_id once they "
-                        "approve."
+                        "Still waiting for the user's approval "
+                        f"(approval_id='{action_id}'). They can approve it in the "
+                        "app's approval bell or with `sergio approvals approve "
+                        f"{action_id}`. Tell the user, and call clacky_task again "
+                        "with this approval_id once they approve."
                     ),
                     success=False,
                     metadata={"approval_id": action_id, "pending": True},
@@ -231,8 +256,6 @@ class ClackyTaskTool(BaseTool):
             return refusal
         task = str(approved["task"])
         workdir = Path(approved["working_dir"]).expanduser()
-        if not workdir.is_dir():
-            return self._fail(f"Working directory does not exist: {workdir}")
 
         cmd = [
             bundle, "exec", "ruby", str(root / "bin" / "clacky"), "agent",

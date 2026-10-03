@@ -45,8 +45,13 @@ async def start_extension(name: str, request: Request) -> dict[str, Any]:
         svc = sup.get(name)
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
-    outcome = await asyncio.to_thread(sup.start, svc)
-    return {"name": name, "outcome": outcome, "running": sup.running(svc)}
+
+    def start_and_check() -> tuple[str, bool]:
+        return sup.start(svc), sup.running(svc)
+
+    # Both calls block (process spawn, socket probes): keep them off the loop.
+    outcome, running = await asyncio.to_thread(start_and_check)
+    return {"name": name, "outcome": outcome, "running": running}
 
 
 @router.post("/{name}/stop")

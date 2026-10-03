@@ -355,3 +355,13 @@ class TestApprovalStoreIntegration:
         resp = client.get("/v1/approvals/pending")
         tiers = {a["tier"] for a in resp.json()["actions"]}
         assert tiers == {"trivial", "low", "medium", "high"}
+
+
+@pytest.mark.skipif(not HAS_FASTAPI, reason="fastapi not installed")
+def test_stale_click_cannot_revive_an_executed_action(client, approval_store):
+    action_id = _queue(approval_store)
+    approval_store.update_status(action_id, "executed")
+    resp = client.post(f"/v1/approvals/{action_id}/approve")
+    assert resp.status_code == 409
+    assert approval_store.get_action(action_id).status == "executed"
+    assert client.post(f"/v1/approvals/{action_id}/deny").status_code == 409

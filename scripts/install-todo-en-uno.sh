@@ -57,6 +57,15 @@ cd "$ROOT"
 EXTRAS=(--extra server --extra desktop --extra tools-search --extra inference-cloud)
 if $TOKEN_SAVER; then EXTRAS+=(--extra token-saver); fi
 uv sync "${EXTRAS[@]}"
+# Motor nativo en Rust: lo necesitan la memoria de documentos y la búsqueda.
+# Si falla, Sergio funciona igual pero sin esas funciones.
+if bash scripts/install/install-rust.sh \
+   && PATH="$HOME/.cargo/bin:$PATH" uv run --with "maturin>=1.12.6" \
+        maturin develop --release -m rust/crates/openjarvis-python/Cargo.toml; then
+  echo "Motor nativo instalado."
+else
+  echo "⚠ No se pudo compilar el motor nativo (memoria de documentos desactivada)." >&2
+fi
 
 say "5/6 Extensiones"
 ( cd extensions/clacky && bundle install )
@@ -75,6 +84,8 @@ add_section analytics "enabled = false"
 add_section intelligence "default_model = \"$MODEL\""
 # Evolución: Sergio aprende de cada conversación y consolida tu perfil.
 add_section memory "enabled = true"
+# Herramientas que Sergio puede usar en el chat (incluye Clacky y el globo).
+add_section tools 'enabled = ["think", "calculator", "web_search", "file_read", "user_profile_manage", "clacky_task", "globe_view", "live_flights", "live_earthquakes", "upcoming_launches"]'
 if $TOKEN_SAVER; then add_section compression "tool_output = true"; fi
 if ! $WITH_GLOBE; then add_section extensions.globe "enabled = false"; fi
 if command -v ollama >/dev/null; then

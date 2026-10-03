@@ -8,6 +8,7 @@ from typing import Any, Dict, Optional
 from openjarvis.tools.approval_store import (
     STATUS_APPROVED,
     STATUS_DENIED,
+    STATUS_PENDING,
     ApprovalStore,
     PendingAction,
 )
@@ -60,7 +61,12 @@ async def approve_action(action_id: str) -> Dict[str, Any]:
     action = store.get_action(action_id)
     if action is None:
         raise HTTPException(status_code=404, detail="Action not found")
-    store.update_status(action_id, STATUS_APPROVED)
+    # Only pending actions can be decided; an executed or expired one must
+    # never be revived by a stale click (it would run again).
+    if not store.transition(action_id, STATUS_PENDING, STATUS_APPROVED):
+        raise HTTPException(
+            status_code=409, detail=f"Action is not pending (status: {action.status})"
+        )
     logger.info("Action %s approved via UI", action_id)
     return {"status": "approved", "id": action_id}
 
@@ -71,7 +77,12 @@ async def deny_action(action_id: str) -> Dict[str, Any]:
     action = store.get_action(action_id)
     if action is None:
         raise HTTPException(status_code=404, detail="Action not found")
-    store.update_status(action_id, STATUS_DENIED)
+    # Only pending actions can be decided; an executed or expired one must
+    # never be revived by a stale click (it would run again).
+    if not store.transition(action_id, STATUS_PENDING, STATUS_DENIED):
+        raise HTTPException(
+            status_code=409, detail=f"Action is not pending (status: {action.status})"
+        )
     logger.info("Action %s denied via UI", action_id)
     return {"status": "denied", "id": action_id}
 
