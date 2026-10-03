@@ -30,6 +30,15 @@ DESKTOP_TOOLS = (
     "skill_guide",
     "web_search",
 )
+# Always on as well, so Sergio is never left with only the server defaults.
+BASE_TOOLS = (
+    "think",
+    "calculator",
+    "get_weather",
+    "globe_view",
+    "live_flights",
+    "live_earthquakes",
+)
 MIN_TURNS = 25  # a desktop task is many small look-then-act steps
 VISION_MODEL = "qwen2.5vl:7b"
 
@@ -51,11 +60,16 @@ def enable_tools(config_path: Path) -> None:
         else tomlkit.document()
     )
     tools = doc.setdefault("tools", tomlkit.table())
-    enabled = tools.get("enabled")
-    if enabled is not None:  # empty/missing = server defaults, leave alone
-        for name in DESKTOP_TOOLS:
-            if name not in enabled:
-                enabled.append(name)
+    current = tools.get("enabled") or []
+    if isinstance(current, str):
+        current = current.split(",")
+    # Missing/empty would mean the server defaults (only think, calculator and
+    # web_search): Sergio could not see the screen or the camera. Be explicit.
+    names = [str(n).strip() for n in current if str(n).strip()]
+    for name in (*BASE_TOOLS, *DESKTOP_TOOLS):
+        if name not in names:
+            names.append(name)
+    tools["enabled"] = names
     agent = doc.setdefault("agent", tomlkit.table())
     agent["max_turns"] = max(int(agent.get("max_turns", 10)), MIN_TURNS)
     config_path.parent.mkdir(parents=True, exist_ok=True)

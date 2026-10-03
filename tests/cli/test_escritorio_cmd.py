@@ -15,20 +15,25 @@ def test_enable_tools_adds_desktop_tools_and_turns(tmp_path):
     escritorio_cmd.enable_tools(cfg)
     text = cfg.read_text()
     assert (
-        'enabled = ["think", "screen_read", "desktop_action", "camera_look", '
-        '"video_edit", "blender_create", "face_approval", "face_enroll", '
-        '"skill_guide", "web_search"]'
+        'enabled = ["think", "screen_read", "calculator", "get_weather", '
+        '"globe_view", "live_flights", "live_earthquakes", "desktop_action", '
+        '"camera_look", "video_edit", "blender_create", "face_approval", '
+        '"face_enroll", "skill_guide", "web_search"]'
     ) in text
     assert "max_turns = 25" in text
     escritorio_cmd.enable_tools(cfg)  # idempotent
     assert cfg.read_text() == text
 
 
-def test_enable_tools_keeps_server_defaults_when_no_list(tmp_path):
+def test_enable_tools_without_a_list_turns_everything_on(tmp_path):
+    # No list would leave the server defaults: no screen, no camera.
     cfg = tmp_path / "config.toml"
-    cfg.write_text("[agent]\nmax_turns = 40\n")
+    cfg.write_text('[agent]\nmax_turns = 40\n[tools]\nenabled = "think,shell_exec"\n')
     escritorio_cmd.enable_tools(cfg)
-    assert "max_turns = 40" in cfg.read_text() and "enabled" not in cfg.read_text()
+    text = cfg.read_text()
+    assert "max_turns = 40" in text
+    for name in ("think", "shell_exec", "screen_read", "camera_look", "globe_view"):
+        assert f'"{name}"' in text
 
 
 def test_instalar_runs_powershell_with_token_in_env(tmp_path, monkeypatch):
