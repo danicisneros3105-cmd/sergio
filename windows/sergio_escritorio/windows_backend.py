@@ -35,7 +35,7 @@ INTERACTIVE = {
 MAX_ELEMENTS = 150
 MAX_DEPTH = 25
 TIME_BUDGET = 4.0  # seconds
-OWN_TITLES = ("Sergio",)
+OWN_TITLES = ("Sergio",)  # never treat our own (overlay) windows as the target
 
 
 def _visible_windows() -> list[tuple[int, str]]:
@@ -146,11 +146,17 @@ class WindowsBackend:
         return {"window": title, "windows": windows, "elements": elements}
 
     # -- acting ------------------------------------------------------------
+    def _glide(self, x: int, y: int) -> None:
+        # Travel visibly (the companion orb rides along) so the user always
+        # sees where Sergio is about to click.
+        self._gui.moveTo(x, y, duration=0.35, tween=self._gui.easeOutQuad)
+
     def click(self, x: int, y: int, button: str, clicks: int) -> None:
+        self._glide(x, y)
         self._gui.click(x, y, clicks=clicks, interval=0.08, button=button)
 
     def move(self, x: int, y: int) -> None:
-        self._gui.moveTo(x, y, duration=0.15)
+        self._glide(x, y)
 
     def type_text(self, text: str) -> None:
         import pyperclip

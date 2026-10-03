@@ -1,5 +1,6 @@
-# Instala "Sergio Escritorio" en Windows: ventana propia, icono junto al reloj,
-# atajos, voz y control de la pantalla. No necesita administrador.
+# Instala a Sergio en Windows como compañero del cursor: sin ventana, una
+# esfera junto al puntero, voz ("Sergio, ..." o Ctrl+Espacio) y control de la
+# pantalla. No necesita administrador.
 # Se ejecuta desde Ubuntu con:  sergio escritorio instalar
 param([Parameter(Mandatory = $true)][string]$Fuente)
 $ErrorActionPreference = "Stop"
@@ -27,21 +28,34 @@ Get-CimInstance Win32_Process -Filter "Name='pythonw.exe'" |
 New-Item -ItemType Directory -Force $app | Out-Null
 robocopy $Fuente $app /MIR /XD __pycache__ .venv /NFL /NDL /NJH /NJS /NP | Out-Null
 if ($LASTEXITCODE -ge 8) { throw "No pude copiar los archivos (robocopy $LASTEXITCODE)." }
-@{ token = $token; server_url = "http://localhost:8000"; port = 8765 } |
-    ConvertTo-Json | Set-Content -Encoding UTF8 (Join-Path $dest "config.json")
+# Conserva los ajustes del usuario (palabra "Sergio", mostrar junto al cursor).
+$cfgPath = Join-Path $dest "config.json"
+$cfg = @{ wake_word = $true; show_companion = $true }
+if (Test-Path $cfgPath) {
+    try {
+        $old = Get-Content $cfgPath -Raw | ConvertFrom-Json
+        foreach ($p in $old.PSObject.Properties) { $cfg[$p.Name] = $p.Value }
+    } catch { }
+}
+$cfg.token = $token
+$cfg.server_url = "http://localhost:8000"
+$cfg.port = 8765
+$cfg | ConvertTo-Json | Set-Content -Encoding UTF8 $cfgPath
 
 Say "3/4 Instalando lo que necesita (1-3 minutos la primera vez)"
 $env:UV_PROJECT_ENVIRONMENT = $venv
 & $uv sync --project $app --python 3.12 --quiet
 if ($LASTEXITCODE -ne 0) { throw "No pude instalar las dependencias (uv sync)." }
 
-Say "4/4 Accesos directos y arranque con Windows"
+Say "4/4 Arranque con Windows"
 $ico = Join-Path $dest "sergio.ico"
 & (Join-Path $venv "Scripts\python.exe") -c "from sergio_escritorio.app import make_icon; make_icon('idle').save(r'$ico', sizes=[(16,16),(32,32),(48,48),(64,64)])"
 $shell = New-Object -ComObject WScript.Shell
+# Sin icono en el escritorio: arranca con Windows y queda en el menú Inicio
+# por si lo cierras. Quita el acceso directo de versiones anteriores.
+Remove-Item (Join-Path ([Environment]::GetFolderPath("Desktop")) "Sergio.lnk") -ErrorAction SilentlyContinue
 $places = @(
     [Environment]::GetFolderPath("Startup"),
-    [Environment]::GetFolderPath("Desktop"),
     (Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs")
 )
 foreach ($dir in $places) {
@@ -54,4 +68,4 @@ foreach ($dir in $places) {
     $lnk.Save()
 }
 Start-Process $pyw -ArgumentList "-m", "sergio_escritorio" -WorkingDirectory $dest
-Write-Host "Sergio Escritorio instalado y abierto." -ForegroundColor Green
+Write-Host "Sergio está junto a tu cursor. Di «Sergio…» o pulsa Ctrl+Espacio." -ForegroundColor Green

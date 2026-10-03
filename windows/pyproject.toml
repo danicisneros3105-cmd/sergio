@@ -1,11 +1,10 @@
 [project]
 name = "sergio-escritorio"
 version = "0.1.0"
-description = "Sergio en Windows: ventana propia, icono en la bandeja, voz y control de la pantalla."
+description = "Sergio en Windows: compañero junto al cursor, voz y control de la pantalla."
 requires-python = ">=3.11"
 dependencies = [
-    "pywebview>=5.3",
-    "pystray>=0.19",
+    "PySide6-Essentials>=6.7",
     "pillow>=10.0",
     "pynput>=1.7",
     "mss>=9.0",

@@ -1,9 +1,10 @@
-"""Sergio Escritorio: Sergio's own window, tray icon, hotkeys, voice and hands.
+"""Sergio on Windows: a cursor companion you talk to. No app window.
 
-Hotkeys (anywhere in Windows):
-  Ctrl+Space       show / hide Sergio's window
-  Ctrl+Alt+Space   talk to Sergio (press, speak, press again)
-  Ctrl+Alt+End     pause / resume Sergio's control of mouse and keyboard
+* A small orb follows the mouse pointer and shows what Sergio is doing.
+* Say "Sergio, ..." (wake word) or press Ctrl+Space and speak.
+* Sergio can read the screen and use the mouse and keyboard like you.
+* Ctrl+Alt+End pauses / resumes that control at once.
+* A tray icon (next to the clock) holds the few settings and "Quit".
 """
 
 from __future__ import annotations
@@ -13,191 +14,84 @@ import logging
 import os
 import sys
 import threading
+import webbrowser
 from pathlib import Path
 from typing import Any
 
 HOME = Path(os.environ.get("LOCALAPPDATA", Path.home())) / "SergioEscritorio"
 CONFIG = HOME / "config.json"
 
-HOTKEY_WINDOW = "<ctrl>+<space>"
-HOTKEY_TALK = "<ctrl>+<alt>+<space>"
+HOTKEY_TALK = "<ctrl>+<space>"
 HOTKEY_STOP = "<ctrl>+<alt>+<end>"
 
-COLORS = {
-    "idle": (10, 108, 255),
-    "listening": (220, 50, 60),
-    "thinking": (240, 170, 30),
-    "speaking": (60, 180, 90),
-    "paused": (120, 120, 120),
+# What the companion says while Sergio uses the screen (by result prefix).
+ACTIVITY = {
+    "click": "Haciendo clic",
+    "double_click": "Doble clic",
+    "right_click": "Clic derecho",
+    "move": "Moviendo el puntero",
+    "typed": "Escribiendo",
+    "pressed": "Pulsando teclas",
+    "scrolled": "Desplazando",
 }
-
-LOADING_HTML = """<!doctype html><html><head><meta charset="utf-8">
-<style>body{margin:0;height:100vh;display:grid;place-items:center;background:#0d1117;
-color:#c9d1d9;font:16px system-ui}.dot{width:56px;height:56px;border-radius:50%%;
-background:#2596be;margin:0 auto 18px;animation:p 1.4s infinite}
-@keyframes p{50%%{transform:scale(.8);opacity:.6}}</style></head><body><div>
-<div class="dot"></div>Sergio está despertando…</div><script>
-const u=%(url)s;setInterval(()=>fetch(u+'/health',{mode:'no-cors'})
-.then(()=>location.replace(u)).catch(()=>{}),1500);</script></body></html>"""
 
 
 def load_config() -> dict[str, Any]:
     data = json.loads(CONFIG.read_text(encoding="utf-8-sig"))  # PowerShell adds a BOM
     data.setdefault("server_url", "http://localhost:8000")
     data.setdefault("port", 8765)
+    data.setdefault("wake_word", True)
+    data.setdefault("show_companion", True)
     return data
 
 
-def make_icon(state: str) -> Any:
-    from PIL import Image, ImageDraw
+def save_config(data: dict[str, Any]) -> None:
+    CONFIG.write_text(json.dumps(data, indent=2), encoding="utf-8")
 
-    size = 64
-    image = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-    draw = ImageDraw.Draw(image)
-    draw.ellipse((2, 2, size - 2, size - 2), fill=COLORS.get(state, COLORS["idle"]))
-    draw.ellipse((18, 18, size - 18, size - 18), outline=(255, 255, 255), width=5)
-    return image
+
+def activity_caption(result: str) -> str:
+    """Spanish caption for a control-server result like 'opened Spotify'."""
+    head, _, rest = result.partition(" ")
+    if head == "opened" and rest:
+        return f"Abriendo {rest}"
+    if head == "focused" and rest:
+        return f"Cambiando a {rest}"
+    return ACTIVITY.get(head, "")
 
 
 def single_instance() -> bool:
-    """False if Sergio Escritorio is already running (named mutex)."""
+    """False if Sergio is already running (named mutex)."""
     if sys.platform != "win32":
         return True
     import ctypes
 
-    ctypes.windll.kernel32.CreateMutexW(None, False, "SergioEscritorioUnico")
+    ctypes.windll.kernel32.CreateMutexW(None, False, "SergioCompanero")
     return ctypes.windll.kernel32.GetLastError() != 183  # ERROR_ALREADY_EXISTS
 
 
-class SergioDesktop:
-    def __init__(self, config: dict[str, Any]) -> None:
-        from sergio_escritorio.control import Controller, make_server
-        from sergio_escritorio.voice import SergioClient, VoiceChat
-        from sergio_escritorio.windows_backend import WindowsBackend
+def tray_icon(colour: Any) -> Any:
+    """The Sergio mark (filled circle + white ring) as a tray icon."""
+    from PySide6.QtCore import QPointF, Qt
+    from PySide6.QtGui import QIcon, QPainter, QPen, QPixmap
 
-        self.config = config
-        self.url = config["server_url"].rstrip("/")
-        self.window: Any = None
-        self.visible = True
-        self.tray: Any = None
-        self.state = "idle"
-        self.controller = Controller(WindowsBackend(), on_activity=self._activity)
-        self.server = make_server(self.controller, config["token"], int(config["port"]))
-        self.voice = VoiceChat(
-            SergioClient(self.url), notify=self.notify, on_state=self.set_state
-        )
-
-    # -- feedback ----------------------------------------------------------
-    def notify(self, message: str) -> None:
-        logging.info(message)
-        if self.tray is not None:
-            try:
-                self.tray.notify(message[:250], "Sergio")
-            except Exception:  # noqa: BLE001
-                pass
-
-    def set_state(self, state: str) -> None:
-        self.state = state
-        if self.tray is not None:
-            shown = (
-                "paused" if not self.controller.enabled and state == "idle" else state
-            )
-            self.tray.icon = make_icon(shown)
-
-    def _activity(self, what: str) -> None:
-        logging.info("control: %s", what)
-        if self.tray is not None:
-            self.tray.title = f"Sergio — {what}"
-
-    # -- actions -----------------------------------------------------------
-    def toggle_window(self) -> None:
-        if self.window is None:
-            return
-        if self.visible:
-            self.window.hide()
-        else:
-            self.window.show()
-            self.window.restore()
-        self.visible = not self.visible
-
-    def toggle_control(self) -> None:
-        self.controller.enabled = not self.controller.enabled
-        self.notify(
-            "Control de pantalla ACTIVADO"
-            if self.controller.enabled
-            else "Control de pantalla PAUSADO: Sergio no tocará el mouse ni el teclado"
-        )
-        self.set_state(self.state)
-
-    def quit(self) -> None:
-        self.server.shutdown()
-        if self.tray is not None:
-            self.tray.stop()
-        if self.window is not None:
-            self.window.destroy()
-
-    # -- wiring ------------------------------------------------------------
-    def _start_tray(self) -> None:
-        import pystray
-
-        menu = pystray.Menu(
-            pystray.MenuItem(
-                "Mostrar / ocultar  (Ctrl+Espacio)",
-                lambda: self.toggle_window(),
-                default=True,
-            ),
-            pystray.MenuItem("Hablar  (Ctrl+Alt+Espacio)", lambda: self.voice.toggle()),
-            pystray.MenuItem(
-                "Sergio puede usar mouse y teclado  (Ctrl+Alt+Fin)",
-                lambda: self.toggle_control(),
-                checked=lambda _item: self.controller.enabled,
-            ),
-            pystray.MenuItem("Salir", lambda: self.quit()),
-        )
-        self.tray = pystray.Icon("Sergio", make_icon("idle"), "Sergio", menu)
-        threading.Thread(target=self.tray.run, daemon=True).start()
-
-    def _start_hotkeys(self) -> None:
-        from pynput import keyboard
-
-        keyboard.GlobalHotKeys(
-            {
-                HOTKEY_WINDOW: self.toggle_window,
-                HOTKEY_TALK: self.voice.toggle,
-                HOTKEY_STOP: self.toggle_control,
-            }
-        ).start()
-
-    def run(self) -> None:
-        import webview
-
-        threading.Thread(target=self.server.serve_forever, daemon=True).start()
-        self._start_tray()
-        self._start_hotkeys()
-        self.window = webview.create_window(
-            "Sergio",
-            html=LOADING_HTML % {"url": json.dumps(self.url)},
-            width=480,
-            height=800,
-            min_size=(380, 500),
-            text_select=True,
-        )
-
-        def on_closing() -> bool:
-            # Closing the window only hides it: Sergio keeps living in the tray.
-            self.window.hide()
-            self.visible = False
-            return False
-
-        self.window.events.closing += on_closing
-        self.notify("Sergio está listo. Ctrl+Alt+Espacio para hablarle.")
-        webview.start(private_mode=False, storage_path=str(HOME / "webview"))
+    pix = QPixmap(64, 64)
+    pix.fill(Qt.GlobalColor.transparent)
+    p = QPainter(pix)
+    p.setRenderHint(QPainter.RenderHint.Antialiasing)
+    p.setPen(Qt.PenStyle.NoPen)
+    p.setBrush(colour)
+    p.drawEllipse(QPointF(32, 32), 29, 29)
+    p.setBrush(Qt.BrushStyle.NoBrush)
+    p.setPen(QPen(Qt.GlobalColor.white, 7))
+    p.drawEllipse(QPointF(32, 32), 12, 12)
+    p.end()
+    return QIcon(pix)
 
 
 def main() -> None:
     HOME.mkdir(parents=True, exist_ok=True)
     logging.basicConfig(
-        filename=HOME / "escritorio.log",
+        filename=HOME / "sergio.log",
         level=logging.INFO,
         format="%(asctime)s %(levelname)s %(message)s",
     )
@@ -205,12 +99,150 @@ def main() -> None:
         return
     from sergio_escritorio.windows_backend import set_dpi_aware
 
-    set_dpi_aware()  # before any window or screenshot exists
+    set_dpi_aware()  # before Qt creates anything
     try:
-        SergioDesktop(load_config()).run()
+        run(load_config())
     except Exception:
-        logging.exception("Sergio Escritorio crashed")
+        logging.exception("Sergio crashed")
         raise
+
+
+def run(config: dict[str, Any]) -> None:
+    from pynput import keyboard
+    from PySide6.QtCore import QObject, Signal
+    from PySide6.QtGui import QAction
+    from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
+
+    from sergio_escritorio.companion import STATE_COLORS, Companion
+    from sergio_escritorio.control import Controller, make_server
+    from sergio_escritorio.voice import Assistant, Ears, SergioClient
+    from sergio_escritorio.windows_backend import WindowsBackend
+
+    app = QApplication(sys.argv)
+    app.setQuitOnLastWindowClosed(False)
+    companion = Companion()
+
+    class Bridge(QObject):
+        """Thread-safe hop from worker threads to the Qt (UI) thread."""
+
+        state = Signal(str)
+        caption = Signal(str)
+        talk = Signal()
+        toggle = Signal()
+
+    bridge = Bridge()
+    bridge.state.connect(companion.set_state)
+    bridge.caption.connect(lambda text: companion.say(text))
+
+    class UIAdapter:
+        def state(self, name: str) -> None:
+            bridge.state.emit(name)
+
+        def say(self, text: str) -> None:
+            bridge.caption.emit(text)
+
+    def on_activity(result: str) -> None:
+        logging.info("control: %s", result)
+        bridge.state.emit("acting")
+        caption = activity_caption(result)
+        if caption:
+            bridge.caption.emit(caption)
+
+    controller = Controller(WindowsBackend(), on_activity=on_activity)
+    server = make_server(controller, config["token"], int(config["port"]))
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+
+    assistant = Assistant(SergioClient(config["server_url"]), ui=UIAdapter())
+    ears = Ears(assistant, wake_word=bool(config["wake_word"]))
+    try:
+        ears.start()
+    except Exception as exc:  # noqa: BLE001 — no microphone
+        logging.exception("microphone unavailable")
+        companion.say(f"No encuentro el micrófono: {exc}", 10)
+
+    # -- tray --------------------------------------------------------------
+    tray = QSystemTrayIcon(tray_icon(STATE_COLORS["idle"]))
+    tray.setToolTip("Sergio: di «Sergio…» o pulsa Ctrl+Espacio")
+    menu = QMenu()
+
+    def remember(key: str, value: bool) -> None:
+        config[key] = value
+        save_config(config)
+
+    talk_action = QAction("Hablar  (Ctrl+Espacio)", menu)
+    talk_action.triggered.connect(ears.talk)
+    menu.addAction(talk_action)
+    menu.addSeparator()
+
+    wake_action = QAction("Escuchar cuando digo «Sergio»", menu, checkable=True)
+    wake_action.setChecked(bool(config["wake_word"]))
+
+    def set_wake(on: bool) -> None:
+        ears.wake_word = on
+        remember("wake_word", on)
+
+    wake_action.toggled.connect(set_wake)
+    menu.addAction(wake_action)
+
+    control_action = QAction(
+        "Puede usar mouse y teclado  (Ctrl+Alt+Fin)", menu, checkable=True
+    )
+    control_action.setChecked(controller.enabled)
+
+    def set_control(enabled: bool) -> None:
+        if controller.enabled == enabled and control_action.isChecked() == enabled:
+            return
+        controller.enabled = enabled
+        control_action.setChecked(enabled)
+        tray.setIcon(tray_icon(STATE_COLORS["idle" if enabled else "paused"]))
+        companion.set_state("idle" if enabled else "paused")
+        companion.say(
+            "Puedo usar tu mouse y teclado otra vez."
+            if enabled
+            else "Listo, no tocaré el mouse ni el teclado.",
+            4,
+        )
+
+    control_action.toggled.connect(set_control)
+    menu.addAction(control_action)
+
+    show_action = QAction("Mostrar junto al cursor", menu, checkable=True)
+    show_action.setChecked(bool(config["show_companion"]))
+
+    def set_visible(on: bool) -> None:
+        companion.setVisible(on)
+        remember("show_companion", on)
+
+    show_action.toggled.connect(set_visible)
+    menu.addAction(show_action)
+    menu.addSeparator()
+
+    chat_action = QAction("Abrir el chat en el navegador", menu)
+    chat_action.triggered.connect(lambda: webbrowser.open(config["server_url"]))
+    menu.addAction(chat_action)
+    quit_action = QAction("Salir", menu)
+    quit_action.triggered.connect(app.quit)
+    menu.addAction(quit_action)
+    tray.setContextMenu(menu)
+    tray.activated.connect(
+        lambda reason: (
+            ears.talk() if reason == QSystemTrayIcon.ActivationReason.Trigger else None
+        )
+    )
+    tray.show()
+
+    # -- global hotkeys (pynput thread -> Qt thread via signals) ------------
+    bridge.talk.connect(ears.talk)
+    bridge.toggle.connect(lambda: set_control(not controller.enabled))
+    hotkeys = keyboard.GlobalHotKeys(
+        {HOTKEY_TALK: bridge.talk.emit, HOTKEY_STOP: bridge.toggle.emit}
+    )
+    hotkeys.start()
+
+    companion.setVisible(bool(config["show_companion"]))
+    companion.say("Hola, soy Sergio. Di «Sergio…» o pulsa Ctrl+Espacio.", 6)
+    app.aboutToQuit.connect(server.shutdown)
+    app.exec()
 
 
 if __name__ == "__main__":

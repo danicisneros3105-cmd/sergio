@@ -225,22 +225,28 @@ distintos mejoran el resultado). *Who is this?* dice quién aparece.
   `sergio rostros identificar foto.jpg`, `sergio rostros lista`,
   `sergio rostros olvidar NOMBRE` (borra todo lo de esa persona).
 
-## Sergio en Windows (ventana propia, voz y control de la pantalla)
+## Sergio en Windows: compañero del cursor
 
-El cerebro de Sergio corre en Ubuntu (WSL), que no puede ver ni tocar el
-escritorio de Windows. **Sergio Escritorio** es la parte que vive en Windows:
+Sin ventanas. Sergio vive junto a tu puntero como una pequeña esfera que te
+sigue, te escucha y usa la computadora por ti:
 
-- Ventana propia, sin pestañas ni barra de direcciones. Icono junto al reloj y
-  acceso directo en el escritorio. Arranca solo con Windows.
-- **Ctrl+Espacio**: mostrar u ocultar a Sergio desde cualquier programa.
-- **Ctrl+Alt+Espacio**: hablarle (pulsa, habla, pulsa otra vez). Contesta en
-  voz alta en español. Todo se procesa en tu laptop.
-- **Lee tu pantalla y la usa como tú**: ve la ventana activa y sus botones,
-  campos y enlaces (accesibilidad de Windows), y hace clic, escribe, pulsa
-  teclas, abre programas, páginas y archivos.
+- **Di «Sergio, …»** en cualquier momento («Sergio, abre Spotify», «oye
+  Sergio, ¿qué tengo en pantalla?»). Si solo dices «Sergio», responde «¿Sí?»
+  y escucha lo siguiente. **Ctrl+Espacio** también sirve, sin decir su nombre.
+- La esfera cambia según lo que hace: azul en reposo, roja escuchando, ámbar
+  pensando, verde hablando. Al lado aparece una burbuja con lo que oyó y lo
+  que responde, y contesta en voz alta en español.
+- **Usa tu pantalla como tú**: lee los botones, campos y enlaces de la ventana
+  activa (accesibilidad de Windows), y hace clic, escribe, pulsa teclas, abre
+  programas, páginas y archivos. El puntero viaja visible hasta cada botón
+  antes de hacer clic.
 - **Ctrl+Alt+Fin** pausa o reanuda al instante su control del mouse y del
   teclado. Llevar el mouse a la esquina superior izquierda también lo frena.
   No compra, paga, borra ni envía mensajes salvo que se lo pidas claramente.
+- Todo se procesa en tu laptop. Mientras habla no se escucha a sí mismo, y las
+  conversaciones que no empiezan con «Sergio» se ignoran.
+- Clic derecho en su icono junto al reloj: activar o quitar la palabra
+  «Sergio», ocultar la esfera, pausar el control, abrir el chat o salir.
 
 Instalar o actualizar (en Ubuntu):
 

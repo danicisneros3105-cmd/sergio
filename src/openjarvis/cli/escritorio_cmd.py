@@ -1,4 +1,4 @@
-"""``sergio escritorio`` — install Sergio's Windows side (window, voice, hands).
+"""``sergio escritorio`` — install Sergio's Windows side (cursor companion).
 
 Run from Ubuntu (WSL). It creates a shared secret, gives Sergio the
 screen tools, and runs ``scripts/instalar-escritorio.ps1`` in Windows, which
@@ -67,7 +67,7 @@ def pull_model(model: str) -> bool:
 
 @click.group()
 def escritorio() -> None:
-    """Sergio in Windows: own window, voice, and control of the screen."""
+    """Sergio in Windows: cursor companion, voice, and control of the screen."""
 
 
 @escritorio.command("instalar")
@@ -140,11 +140,11 @@ def instalar(vision: bool) -> None:
         check=False,
     )
     console.print(
-        "\n[green]Listo.[/green] Sergio vive ahora en Windows:\n"
-        "  Ctrl+Espacio        mostrar / ocultar a Sergio\n"
-        "  Ctrl+Alt+Espacio    hablarle (pulsa, habla, pulsa otra vez)\n"
-        "  Ctrl+Alt+Fin        pausar / reanudar su control del mouse y teclado\n"
-        "Su icono está junto al reloj y arranca solo con Windows."
+        "\n[green]Listo.[/green] Sergio vive junto a tu cursor (sin ventanas):\n"
+        "  Di «Sergio, …»        y pídele lo que quieras\n"
+        "  Ctrl+Espacio          hablarle sin decir su nombre\n"
+        "  Ctrl+Alt+Fin          pausar / reanudar su control del mouse y teclado\n"
+        "Ajustes y Salir: clic derecho en su icono junto al reloj."
     )
 
 

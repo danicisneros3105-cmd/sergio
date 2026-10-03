@@ -1,34 +1,51 @@
-"""Push-to-talk: press Ctrl+Alt+Space, talk, press it again; Sergio answers aloud.
+"""Talking to Sergio: say "Sergio, ..." or press Ctrl+Space and speak.
 
-Everything goes to the local Sergio server: speech-to-text (Whisper),
-the agent (with all of Sergio's tools, including screen control) and the
-Spanish voice. Nothing leaves the laptop unless a tool needs the internet.
+Everything goes to the local Sergio server: speech-to-text (Whisper), the
+agent (with all of Sergio's tools, including screen control) and the Spanish
+voice. Nothing leaves the laptop unless a tool needs the internet.
+
+* ``SergioClient``: transcribe, ask, speak.
+* ``Assistant``: one spoken turn (wake word check, answer, voice, captions).
+* ``Ears``: the microphone loop feeding utterances to the assistant.
 """
 
 from __future__ import annotations
 
 import io
 import logging
+import queue
 import threading
+import time
 import wave
-from typing import Any, Callable
+from typing import Any, Callable, Protocol
 
 import httpx
 
-RATE = 16_000
-MAX_SECONDS = 60
+from sergio_escritorio.listen import FRAME, RATE, Segmenter, parse_wake
+
 HISTORY_TURNS = 12
+FOLLOW_UP_SECONDS = 8.0  # after a bare "Sergio", the next sentence is the order
+PTT_TIMEOUT = 7.0  # Ctrl+Space with no speech gives up after this
+
+VOICE_STYLE = (
+    "You are talking out loud through Sergio's cursor companion on the user's "
+    "Windows laptop. Answer in Spanish in one or two short spoken sentences, "
+    "with no markdown or lists. To do things on the computer, look with "
+    "screen_read and act with desktop_action step by step, then say briefly "
+    "what you did."
+)
 
 log = logging.getLogger(__name__)
 
 
-def to_wav(chunks: list[bytes], rate: int = RATE) -> bytes:
+def to_wav(chunks: list[bytes] | bytes, rate: int = RATE) -> bytes:
+    raw = chunks if isinstance(chunks, bytes) else b"".join(chunks)
     buf = io.BytesIO()
     with wave.open(buf, "wb") as out:
         out.setnchannels(1)
         out.setsampwidth(2)
         out.setframerate(rate)
-        out.writeframes(b"".join(chunks))
+        out.writeframes(raw)
     return buf.getvalue()
 
 
@@ -45,6 +62,7 @@ class SergioClient:
         resp = self.http.post(
             f"{self.base}/v1/speech/transcribe",
             files={"file": ("voz.wav", wav, "audio/wav")},
+            data={"language": "es"},
         )
         resp.raise_for_status()
         return str(resp.json().get("text") or "").strip()
@@ -59,9 +77,10 @@ class SergioClient:
 
     def ask(self, text: str) -> str:
         self.history.append({"role": "user", "content": text})
+        messages = [{"role": "system", "content": VOICE_STYLE}, *self.history]
         resp = self.http.post(
             f"{self.base}/v1/chat/completions",
-            json={"model": self.model(), "messages": self.history, "stream": False},
+            json={"model": self.model(), "messages": messages, "stream": False},
         )
         resp.raise_for_status()
         answer = str(resp.json()["choices"][0]["message"].get("content") or "").strip()
@@ -89,93 +108,168 @@ def beep(freq: int) -> None:
     try:
         import winsound
 
-        winsound.Beep(freq, 120)
+        winsound.Beep(freq, 90)
     except Exception:  # noqa: BLE001
         pass
 
 
-class VoiceChat:
+class UI(Protocol):
+    def state(self, name: str) -> None: ...
+
+    def say(self, text: str) -> None: ...
+
+
+class Assistant:
+    """One spoken turn at a time; never listens to itself while talking."""
+
     def __init__(
         self,
         client: SergioClient,
         *,
-        notify: Callable[[str], None],
-        on_state: Callable[[str], None] = lambda _s: None,
+        ui: UI,
         player: Callable[[bytes], None] = play_wav,
+        chime: Callable[[int], None] = beep,
+        clock: Callable[[], float] = time.monotonic,
     ) -> None:
         self.client = client
-        self.notify = notify
-        self.on_state = on_state
+        self.ui = ui
         self.player = player
-        self._chunks: list[bytes] = []
-        self._stream: Any = None
-        self._lock = threading.Lock()
+        self.chime = chime
+        self.clock = clock
         self.busy = False
+        self._follow_up_until = 0.0
 
     @property
-    def recording(self) -> bool:
-        return self._stream is not None
+    def expecting(self) -> bool:
+        """True right after a bare "Sergio": the next sentence is for him."""
+        return self.clock() < self._follow_up_until
 
-    def toggle(self) -> None:
-        with self._lock:
-            if self._stream is None:
-                self._start()
-            else:
-                self._stop()
-
-    def _start(self) -> None:
+    def on_utterance(self, wav: bytes, *, addressed: bool) -> None:
+        """*addressed*: the user pressed Ctrl+Space (no wake word needed)."""
         if self.busy:
-            self.notify("Sergio todavía está respondiendo…")
             return
+        self.busy = True
+        try:
+            self._turn(wav, addressed)
+        except Exception as exc:  # noqa: BLE001
+            log.exception("voice turn failed")
+            self.ui.say(f"No pude responder: {exc}")
+        finally:
+            self.busy = False
+            self.ui.state("listening" if self.expecting else "idle")
+
+    def _turn(self, wav: bytes, addressed: bool) -> None:
+        if addressed or self.expecting:
+            self.ui.state("thinking")
+        text = self.client.transcribe(wav)
+        if not addressed and not self.expecting:
+            woke, text = parse_wake(text)
+            if not woke:
+                return  # conversation in the room, not for Sergio
+            if not text:
+                self._follow_up_until = self.clock() + FOLLOW_UP_SECONDS
+                self.chime(880)
+                self.ui.state("listening")
+                self.ui.say("¿Sí?")
+                return
+        self._follow_up_until = 0.0
+        if not text:
+            self.ui.say("No te escuché. Intenta otra vez.")
+            return
+        self.ui.state("thinking")
+        self.ui.say(f"«{text}»")
+        answer = self.client.ask(text)
+        if not answer:
+            return
+        self.ui.state("speaking")
+        self.ui.say(answer)
+        self.player(self.client.speak(answer))
+
+
+class Ears:
+    """Microphone loop: wake word always on (optional) plus push-to-talk."""
+
+    def __init__(
+        self,
+        assistant: Assistant,
+        *,
+        wake_word: bool = True,
+        segmenter: Segmenter | None = None,
+        clock: Callable[[], float] = time.monotonic,
+    ) -> None:
+        self.assistant = assistant
+        self.wake_word = wake_word
+        self.segmenter = segmenter or Segmenter()
+        self.clock = clock
+        self._ptt_until = 0.0
+        self._queue: queue.Queue[bytes] = queue.Queue(maxsize=200)
+        self._stream: Any = None
+
+    @property
+    def push_to_talk(self) -> bool:
+        return self.clock() < self._ptt_until
+
+    def talk(self) -> None:
+        """Ctrl+Space: listen to the next sentence, no wake word needed."""
+        if self.assistant.busy:
+            return
+        self.segmenter.reset()
+        self.segmenter.end_silence = 1.0
+        self._ptt_until = self.clock() + PTT_TIMEOUT
+        self.assistant.chime(880)
+        self.assistant.ui.state("listening")
+        self.assistant.ui.say("Te escucho…")
+
+    def feed(self, chunk: bytes) -> tuple[bytes, bool] | None:
+        """Process one frame; returns (utterance_wav, addressed) when ready."""
+        if self.assistant.busy:
+            self.segmenter.reset()  # don't hear our own voice
+            return None
+        ptt = self.push_to_talk
+        if self._ptt_until and not ptt and not self.segmenter.active:
+            self._ptt_until = 0.0  # push-to-talk timed out with no speech
+            self.segmenter.end_silence = 0.8
+            self.assistant.ui.state("idle")
+        if not (self.wake_word or ptt or self.assistant.expecting):
+            return None
+        utterance = self.segmenter.feed(chunk)
+        if utterance is None:
+            return None
+        addressed = bool(self._ptt_until)
+        self._ptt_until = 0.0
+        self.segmenter.end_silence = 0.8
+        return to_wav(utterance), addressed
+
+    def start(self) -> None:
         import sounddevice as sd
 
-        self._chunks = []
-
         def callback(indata: Any, _frames: int, _time: Any, _status: Any) -> None:
-            if len(self._chunks) * 1024 < RATE * MAX_SECONDS:
-                self._chunks.append(bytes(indata))
+            try:
+                self._queue.put_nowait(bytes(indata))
+            except queue.Full:
+                pass
 
         self._stream = sd.RawInputStream(
             samplerate=RATE,
             channels=1,
             dtype="int16",
-            blocksize=1024,
+            blocksize=FRAME,
             callback=callback,
         )
         self._stream.start()
-        beep(880)
-        self.on_state("listening")
+        threading.Thread(target=self._loop, daemon=True).start()
 
-    def _stop(self) -> None:
-        stream, self._stream = self._stream, None
-        stream.stop()
-        stream.close()
-        beep(660)
-        chunks, self._chunks = self._chunks, []
-        threading.Thread(
-            target=self.process, args=(to_wav(chunks),), daemon=True
-        ).start()
-
-    def process(self, wav: bytes) -> None:
-        self.busy = True
-        self.on_state("thinking")
-        try:
-            text = self.client.transcribe(wav)
-            if not text:
-                self.notify("No te escuché. Intenta otra vez.")
-                return
-            self.notify(f"Tú: {text}")
-            answer = self.client.ask(text)
-            self.notify(f"Sergio: {answer[:200]}")
-            self.on_state("speaking")
-            if answer:
-                self.player(self.client.speak(answer))
-        except Exception as exc:  # noqa: BLE001
-            log.exception("voice turn failed")
-            self.notify(f"No pude responder: {exc}")
-        finally:
-            self.busy = False
-            self.on_state("idle")
+    def _loop(self) -> None:
+        while True:
+            ready = self.feed(self._queue.get())
+            if ready is not None:
+                wav, addressed = ready
+                threading.Thread(
+                    target=self.assistant.on_utterance,
+                    args=(wav,),
+                    kwargs={"addressed": addressed},
+                    daemon=True,
+                ).start()
 
 
-__all__ = ["SergioClient", "VoiceChat", "to_wav"]
+__all__ = ["Assistant", "Ears", "SergioClient", "to_wav"]

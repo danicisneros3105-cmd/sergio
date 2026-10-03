@@ -1,68 +1,160 @@
-"""Push-to-talk turn: transcribe -> ask Sergio (agent) -> speak the answer."""
+"""Voice turns: wake word, follow-up, push-to-talk, never hearing itself."""
 
 import io
 import json
 import wave
 
 import httpx
-from sergio_escritorio.voice import SergioClient, VoiceChat, to_wav
+import numpy as np
+from sergio_escritorio.listen import FRAME
+from sergio_escritorio.voice import VOICE_STYLE, Assistant, Ears, SergioClient, to_wav
+
+WAV = to_wav([b"\x00\x00" * 1600])
 
 
-def _server(log):
+class UI:
+    def __init__(self):
+        self.states, self.captions = [], []
+
+    def state(self, name):
+        self.states.append(name)
+
+    def say(self, text):
+        self.captions.append(text)
+
+
+class Clock:
+    def __init__(self):
+        self.now = 100.0
+
+    def __call__(self):
+        return self.now
+
+
+def _server(heard, log):
     def handler(request):
         path = request.url.path
-        log.append(path)
         if path == "/v1/speech/transcribe":
-            assert b"RIFF" in request.content
-            return httpx.Response(200, json={"text": " abre Spotify "})
+            assert b"RIFF" in request.content and b"es" in request.content
+            return httpx.Response(200, json={"text": heard.pop(0)})
         if path == "/v1/models":
             return httpx.Response(200, json={"data": [{"id": "qwen3:8b"}]})
         if path == "/v1/chat/completions":
             body = json.loads(request.content)
-            assert body["model"] == "qwen3:8b" and body["stream"] is False
             log.append(body["messages"])
             return httpx.Response(
                 200,
                 json={"choices": [{"message": {"content": "Listo, abrí Spotify."}}]},
             )
         if path == "/v1/speech/synthesize":
-            assert json.loads(request.content)["text"] == "Listo, abrí Spotify."
             return httpx.Response(200, content=b"RIFFvoz")
         return httpx.Response(404)
 
     return httpx.Client(transport=httpx.MockTransport(handler))
 
 
-def test_full_voice_turn_and_history():
-    log, played, notes, states = [], [], [], []
-    client = SergioClient("http://sergio.test", http=_server(log))
-    chat = VoiceChat(
-        client, notify=notes.append, on_state=states.append, player=played.append
-    )
-    chat.process(to_wav([b"\x00\x00" * 1600]))
+def _assistant(heard):
+    log, played, chimes = [], [], []
+    ui, clock = UI(), Clock()
+    client = SergioClient("http://sergio.test", http=_server(list(heard), log))
+    a = Assistant(client, ui=ui, player=played.append, chime=chimes.append, clock=clock)
+    return a, ui, log, played, clock
+
+
+def test_wake_word_turn_answers_aloud():
+    a, ui, log, played, _ = _assistant(["Sergio, abre Spotify."])
+    a.on_utterance(WAV, addressed=False)
     assert played == [b"RIFFvoz"]
-    assert notes == ["Tú: abre Spotify", "Sergio: Listo, abrí Spotify."]
-    assert states == ["thinking", "speaking", "idle"]
-    assert client.history[-2:] == [
-        {"role": "user", "content": "abre Spotify"},
-        {"role": "assistant", "content": "Listo, abrí Spotify."},
+    assert ui.captions == ["«abre Spotify»", "Listo, abrí Spotify."]
+    assert ui.states[-3:] == ["thinking", "speaking", "idle"]
+    sent = log[0]
+    assert sent[0] == {"role": "system", "content": VOICE_STYLE}
+    assert sent[-1] == {"role": "user", "content": "abre Spotify"}
+
+
+def test_room_conversation_is_ignored_silently():
+    a, ui, log, played, _ = _assistant(["mañana vamos al cine con Sergio"])
+    a.on_utterance(WAV, addressed=False)
+    assert log == [] and played == [] and ui.captions == []
+    assert "thinking" not in ui.states  # the orb does not flicker for chatter
+
+
+def test_bare_name_then_command_within_follow_up_window():
+    a, ui, log, played, clock = _assistant(["Sergio", "pon música tranquila"])
+    a.on_utterance(WAV, addressed=False)
+    assert ui.captions == ["¿Sí?"] and a.expecting and ui.states[-1] == "listening"
+    clock.now += 3
+    a.on_utterance(WAV, addressed=False)
+    assert log[-1][-1]["content"] == "pon música tranquila" and played
+
+
+def test_follow_up_window_expires():
+    a, ui, log, _, clock = _assistant(["Sergio", "pon música"])
+    a.on_utterance(WAV, addressed=False)
+    clock.now += 9
+    a.on_utterance(WAV, addressed=False)
+    assert log == []
+
+
+def test_push_to_talk_needs_no_wake_word_and_history_is_kept():
+    a, _, log, _, _ = _assistant(["¿qué hora es?", "y mañana?"])
+    a.on_utterance(WAV, addressed=True)
+    a.on_utterance(WAV, addressed=True)
+    assert [m["content"] for m in log[-1][1:]] == [
+        "¿qué hora es?",
+        "Listo, abrí Spotify.",
+        "y mañana?",
     ]
-    chat.process(to_wav([b"\x00\x00"]))
-    sent = [entry for entry in log if isinstance(entry, list)][-1]
-    assert len(sent) == 3  # previous turn is remembered
 
 
-def test_failures_are_told_not_raised():
-    notes = []
+def test_errors_are_spoken_not_raised():
+    ui = UI()
     broken = httpx.Client(transport=httpx.MockTransport(lambda r: httpx.Response(500)))
-    chat = VoiceChat(
+    a = Assistant(
         SergioClient("http://x", http=broken),
-        notify=notes.append,
-        player=lambda _b: None,
+        ui=ui,
+        player=lambda b: None,
+        chime=lambda f: None,
     )
-    chat.process(b"")
-    assert notes and notes[0].startswith("No pude responder")
-    assert chat.busy is False
+    a.on_utterance(WAV, addressed=True)
+    assert ui.captions[-1].startswith("No pude responder") and a.busy is False
+
+
+def _tone(seconds, amp):
+    t = np.arange(int(16000 * seconds)) / 16000
+    return (amp * np.sin(2 * np.pi * 220 * t)).astype(np.int16).tobytes()
+
+
+def _frames(raw):
+    step = FRAME * 2
+    return [raw[i : i + step] for i in range(0, len(raw) - step + 1, step)]
+
+
+def test_ears_push_to_talk_and_mute_while_busy():
+    a, ui, _, _, clock = _assistant([])
+    ears = Ears(a, wake_word=False, clock=clock)
+    audio = _frames(_tone(1.0, 200) + _tone(1.0, 6000) + _tone(1.5, 100))
+    # wake word off and no push-to-talk: nothing is recorded
+    assert all(ears.feed(f) is None for f in audio)
+    ears.talk()
+    assert ui.captions[-1] == "Te escucho…" and ui.states[-1] == "listening"
+    results = [r for r in (ears.feed(f) for f in audio) if r]
+    assert len(results) == 1 and results[0][1] is True  # addressed
+    with wave.open(io.BytesIO(results[0][0])) as w:
+        assert w.getframerate() == 16000 and w.getnframes() > 16000 * 0.9
+    # while Sergio talks, the microphone is ignored (no self-hearing)
+    ears.wake_word = True
+    a.busy = True
+    assert all(ears.feed(f) is None for f in audio)
+
+
+def test_ears_push_to_talk_times_out():
+    a, ui, _, _, clock = _assistant([])
+    ears = Ears(a, wake_word=False, clock=clock)
+    ears.talk()
+    clock.now += 8
+    assert ears.feed(_frames(_tone(0.1, 100))[0]) is None
+    assert ui.states[-1] == "idle" and not ears.push_to_talk
 
 
 def test_wav_format():
