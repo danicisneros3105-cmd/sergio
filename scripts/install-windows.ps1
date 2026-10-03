@@ -8,7 +8,8 @@ $ErrorActionPreference = "Stop"
 function Say($m) { Write-Host "`n== $m" -ForegroundColor Cyan }
 
 Say "1/4 WSL2 + Ubuntu"
-$distros = (wsl.exe -l -q 2>$null) -replace "`0", ""
+# Sin WSL, wsl.exe escribe un error que con "Stop" abortaría el script.
+$distros = try { (& { $ErrorActionPreference = "Continue"; wsl.exe -l -q 2>&1 }) -join "`n" -replace "`0", "" } catch { "" }
 if (-not ($distros -match "Ubuntu")) {
     wsl.exe --install -d Ubuntu
     Write-Host "Reinicia Windows, abre 'Ubuntu' una vez para crear tu usuario y vuelve a ejecutar este script." -ForegroundColor Yellow
