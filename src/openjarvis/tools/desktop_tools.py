@@ -176,7 +176,8 @@ class DesktopActionTool(_DesktopTool):
                 "Blender with their hands); open "
                 "(target = web address, file or folder); focus (target = part of a "
                 "window title); wait (seconds). "
-                "One action per call; check with screen_read afterwards. Never "
+                "One action per call; the result says which window is now in "
+                "front, so check it worked (and screen_read when unsure). Never "
                 "buy, pay, delete, or send messages/emails on the user's behalf "
                 "unless they clearly asked for that exact thing."
             ),
@@ -487,7 +488,8 @@ class FaceEnrollTool(_DesktopTool):
             description=(
                 "Learn the user's face from the webcam (only when THEY ask, e.g. "
                 "'aprende mi cara'), so face_approval can recognise them. Takes "
-                "three photos a moment apart. 'name' is their name."
+                "five photos a moment apart: before calling, ask them to look "
+                "at the camera and turn their head slightly. 'name' is their name."
             ),
             parameters={
                 "type": "object",
@@ -508,7 +510,7 @@ class FaceEnrollTool(_DesktopTool):
 
             book = FaceBook()
             saved, problem = 0, ""
-            for _ in range(3):
+            for _ in range(5):  # a few angles recognise you better later
                 shot = self._call("GET", "/camera")
                 try:
                     saved = book.enroll(

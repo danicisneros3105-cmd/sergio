@@ -29,7 +29,7 @@ F, D = "gemini-3.8-flash", "gemini-3.1-pro-preview"
         (
             "qué clima hace hoy en Quito y mañana en Guayaquil por la tarde",
             "auto",
-            f"{F}@medium",
+            f"{F}@low",
         ),
         ("investiga las mejores laptops del 2026", "auto", f"{D}@high"),
         ("explícame paso a paso cómo instalar Blender", "auto", f"{D}@high"),

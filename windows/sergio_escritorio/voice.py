@@ -16,6 +16,7 @@ import json
 import logging
 import os
 import queue
+import re
 import threading
 import time
 import wave
@@ -25,6 +26,7 @@ from typing import Any, Callable, Protocol
 import httpx
 
 from sergio_escritorio.listen import FRAME, RATE, Segmenter, parse_wake
+from sergio_escritorio.quick import parse_quick
 
 HISTORY_TURNS = 12
 FOLLOW_UP_SECONDS = 8.0  # after a bare "Sergio", the next sentence is the order
@@ -130,11 +132,146 @@ _HARD_WORDS = {
 _HARD_PHRASES = ("paso a paso", "escribe un", "crea un", "explica por que")
 
 
+# Words that mean "do something / look something up": the agent with tools.
+_TOOL_WORDS = {
+    "abre",
+    "abrir",
+    "cierra",
+    "busca",
+    "buscar",
+    "investiga",
+    "clima",
+    "tiempo",
+    "temperatura",
+    "llueve",
+    "lluvia",
+    "noticias",
+    "precio",
+    "precios",
+    "cotiza",
+    "dolar",
+    "pantalla",
+    "camara",
+    "mira",
+    "mirame",
+    "ves",
+    "archivo",
+    "archivos",
+    "carpeta",
+    "carpetas",
+    "video",
+    "videos",
+    "blender",
+    "terminal",
+    "instala",
+    "descarga",
+    "globo",
+    "sismo",
+    "sismos",
+    "terremoto",
+    "vuelo",
+    "vuelos",
+    "lanzamiento",
+    "envia",
+    "envie",
+    "manda",
+    "llama",
+    "whatsapp",
+    "correo",
+    "email",
+    "recuerda",
+    "recordatorio",
+    "ordena",
+    "organiza",
+    "clic",
+    "click",
+    "escribe",
+    "publica",
+    "youtube",
+    "google",
+    "python",
+    "codigo",
+    "ejecuta",
+    "programa",
+    "web",
+    "internet",
+    "pagina",
+    "link",
+    "enlace",
+    "app",
+    "aplicacion",
+    "manos",
+    "mouse",
+    "cara",
+    "caras",
+    "foto",
+    "fotos",
+    "guia",
+    "ecc",
+    "calendario",
+    "agenda",
+    "musica",
+    "cancion",
+    "spotify",
+    "hoy",
+    "manana",
+    "ayer",
+    "partido",
+    "resultado",
+    "mapa",
+    "donde",
+    "ruta",
+    "copia",
+    "pega",
+    "borra",
+    "elimina",
+    "edita",
+    "crea",
+    "convierte",
+    "calcula",
+    "traduce",
+    "resume",
+    "lee",
+}
+_CONFIRM = {
+    "si",
+    "no",
+    "dale",
+    "ok",
+    "okay",
+    "claro",
+    "hazlo",
+    "adelante",
+    "listo",
+    "perfecto",
+    "va",
+    "bueno",
+    "exacto",
+    "correcto",
+    "cancela",
+    "espera",
+}
+
+
+def needs_agent(text: str, after_agent: bool = False) -> bool:
+    """True when the request needs tools (the agent); False for chatting.
+
+    Right after the agent did something, a short "sí"/"dale" continues that
+    task, so it goes back to the agent too.
+    """
+    words = set(_plain(text).split())
+    if words & _TOOL_WORDS:
+        return True
+    if after_agent and len(words) <= 4 and words & _CONFIRM:
+        return True
+    return False
+
+
 def choose_brain(text: str, effort: str, fast: str, deep: str) -> str:
     """Pick Flash or Pro and the thinking level ("model@level").
 
-    auto: short chat -> Flash low (instant); normal -> Flash medium;
-    hard tasks (research, code, videos, plans, long requests) -> Pro high.
+    auto: chat and simple tasks -> Flash low (fast); hard tasks (research,
+    code, videos, plans, long requests) -> Pro high.
     """
     if effort in EFFORTS:
         which, level = EFFORTS[effort]
@@ -146,9 +283,7 @@ def choose_brain(text: str, effort: str, fast: str, deep: str) -> str:
     )
     if words > 35 or hard:
         return f"{deep}@high"
-    if words <= 10:
-        return f"{fast}@low"
-    return f"{fast}@medium"
+    return f"{fast}@low"  # quick and natural; Pro is for the hard tasks
 
 
 class SergioClient:
@@ -157,6 +292,7 @@ class SergioClient:
     def __init__(self, base_url: str, http: httpx.Client | None = None) -> None:
         self.base = base_url.rstrip("/")
         self.http = http or httpx.Client(timeout=httpx.Timeout(300, connect=5))
+        self._voice_cache: dict[tuple[str, str], bytes] = {}
         self.history: list[dict[str, str]] = []
         self._model = ""
 
@@ -235,7 +371,52 @@ class SergioClient:
             timeout=httpx.Timeout(1800, connect=5),  # video edits take minutes
         )
 
+    last_route = ""  # "chat" or "agent", for "sí" after a task
+
+    def chat_fast(self, text: str) -> str:
+        """Plain conversation straight to the model (about a second)."""
+        import datetime
+
+        base = self.model()
+        model = f"{self.fast_model}@low" if base.startswith("gemini") else base
+        now = datetime.datetime.now()
+        context = (
+            f" Hoy es {now:%Y-%m-%d} y son las {now:%H:%M} (hora del usuario, "
+            "Ecuador). Si para responder necesitarías buscar en internet o usar "
+            "la computadora, dilo en una frase y ofrécete a hacerlo."
+        )
+        style = (
+            VOICE_STYLE + context + (f" {self.personality}" if self.personality else "")
+        )
+        messages = [
+            {"role": "system", "content": style},
+            *self.history[-HISTORY_TURNS * 2 :],
+        ]
+        messages.append({"role": "user", "content": text})
+        resp = self.http.post(
+            f"{self.base}/v1/voice/chat",
+            json={"model": model, "messages": messages},
+            timeout=httpx.Timeout(60, connect=5),
+        )
+        resp.raise_for_status()
+        answer = no_emoji(str(resp.json().get("content") or "").strip())
+        if not answer:
+            raise RuntimeError("respuesta vacía")
+        self.history += [
+            {"role": "user", "content": text},
+            {"role": "assistant", "content": answer},
+        ]
+        del self.history[: -HISTORY_TURNS * 2]
+        self.last_brain, self.last_route = model, "chat"
+        return answer
+
     def ask(self, text: str) -> str:
+        if not needs_agent(text, self.last_route == "agent"):
+            try:
+                return self.chat_fast(text)
+            except Exception:  # noqa: BLE001 — the agent can still answer
+                log.warning("fast chat failed; using the agent", exc_info=True)
+        self.last_route = "agent"
         self.history.append({"role": "user", "content": text})
         style = VOICE_STYLE + (f" {self.personality}" if self.personality else "")
         messages = [{"role": "system", "content": style}, *self.history]
@@ -248,7 +429,9 @@ class SergioClient:
             resp = self._chat(model, messages)
         self.last_brain = model
         resp.raise_for_status()
-        answer = str(resp.json()["choices"][0]["message"].get("content") or "").strip()
+        answer = no_emoji(
+            str(resp.json()["choices"][0]["message"].get("content") or "").strip()
+        )
         self.history.append({"role": "assistant", "content": answer})
         del self.history[: -HISTORY_TURNS * 2]
         return answer
@@ -257,6 +440,18 @@ class SergioClient:
     voice_rate = "+5%"  # Lenta -10% / Normal +5% / Rápida +20%
 
     def speak(self, text: str) -> bytes:
+        """Sergio's voice; short phrases are remembered (instant next time)."""
+        key = (self.voice, text)
+        if key in self._voice_cache:
+            return self._voice_cache[key]
+        wav = self._speak(text)
+        if len(text) <= 60:
+            if len(self._voice_cache) > 80:
+                self._voice_cache.pop(next(iter(self._voice_cache)))
+            self._voice_cache[key] = wav
+        return wav
+
+    def _speak(self, text: str) -> bytes:
         """Sergio's British voice (Gemini), else a neural voice, else local."""
         if self.voice.startswith("gemini:"):
             try:
@@ -386,6 +581,17 @@ HALLUCINATIONS = (
     "suscríbete",
     "gracias por ver",
 )
+
+
+_EMOJI = re.compile(
+    "[\U0001f300-\U0001faff\U00002600-\U000027bf\U0001f000-\U0001f2ff"
+    "\U0001f900-\U0001f9ff\ufe0f\u200d]"
+)
+
+
+def no_emoji(text: str) -> str:
+    """Sergio never shows or reads emojis."""
+    return " ".join(_EMOJI.sub("", text).split())
 
 
 def clean_transcript(text: str) -> str:
@@ -647,6 +853,26 @@ def target_point(
     return None
 
 
+def split_sentences(text: str) -> list[str]:
+    """Speakable chunks: the first short (starts fast), the rest grouped."""
+    pieces = [p for p in re.split(r"(?<=[.!?¿¡;:])\s+", text.strip()) if p]
+    if not pieces:
+        return []
+    out = [pieces[0]]
+    rest = ""
+    for piece in pieces[1:]:
+        if len(out[0]) < 40 and not rest and len(out) == 1:
+            out[0] = f"{out[0]} {piece}"  # a very short opener: join the next
+            continue
+        rest = f"{rest} {piece}".strip()
+        if len(rest) > 220:
+            out.append(rest)
+            rest = ""
+    if rest:
+        out.append(rest)
+    return out
+
+
 def wants_camera(text: str) -> bool:
     """Questions that need Sergio's eyes, answered straight by the camera."""
     plain = _plain(text)
@@ -676,6 +902,8 @@ class Assistant:
         self.screen = screen  # screenshot + elements, for screen help
         self.point = point  # fly the orb to a spot on screen
         self._clicky = False
+        self._interrupted = False
+        self.quick: Callable[[Any], str] | None = None  # instant commands
         self.last_heard = ""  # for diagnostics (sergio revisar)
         self.last_error = ""
         self.player = player
@@ -688,6 +916,7 @@ class Assistant:
 
     def stop_speaking(self) -> None:
         """Interrupt the current answer (Clicky: talking again cuts it off)."""
+        self._interrupted = True
         stop = getattr(self.player, "stop", None)
         if stop is not None:
             stop()
@@ -789,6 +1018,20 @@ class Assistant:
         self.ui.state("thinking")
         self.ui.say(f"«{text}»")
         answer = ""
+        action = parse_quick(text) if self.quick is not None else None
+        if action is not None:  # "abre Spotify": done now, no AI needed
+            try:
+                answer = self.quick(action)
+            except Exception as exc:  # noqa: BLE001 — let the agent try
+                log.warning("quick command failed: %s", exc)
+                answer = ""
+            else:
+                if not answer:
+                    return  # e.g. "cállate"
+                self.ui.state("speaking")
+                self.ui.say(answer)
+                self.say_aloud(answer)
+                return
         clicky = self._clicky and not starts_with_order(text)
         self._clicky = False
         if self.screen is not None and (clicky or wants_screen(text)):
@@ -816,18 +1059,40 @@ class Assistant:
                 log.exception("chat failed")
                 self._fail(f"El modelo no respondió: {explain(exc)}")
                 return
+        answer = no_emoji(answer)
         if not answer:
             return
         self.ui.state("speaking")
         self.ui.say(answer)
-        try:
-            audio = self.client.speak(answer)
-        except Exception:  # noqa: BLE001 — the text answer is already shown
-            log.exception("speech synthesis failed")
-            return
-        self.player(audio)
+        self.say_aloud(answer)
         # A conversation, not a command line: keep listening for your reply.
         self._follow_up_until = self.clock() + CONVERSATION_SECONDS
+
+    def say_aloud(self, answer: str) -> None:
+        """Speak, starting with the first sentence while the rest is made.
+
+        Long answers no longer wait for the whole audio: sentence 1 plays as
+        soon as it is ready and the next one is synthesised meanwhile.
+        """
+        parts = split_sentences(answer)
+        audio: queue.Queue[bytes | None] = queue.Queue()
+
+        def make() -> None:
+            for part in parts:
+                try:
+                    audio.put(self.client.speak(part))
+                except Exception:  # noqa: BLE001 — the text is already shown
+                    log.exception("speech synthesis failed")
+                    break
+            audio.put(None)
+
+        threading.Thread(target=make, daemon=True).start()
+        self._interrupted = False
+        while True:
+            wav = audio.get()
+            if wav is None or self._interrupted:
+                break
+            self.player(wav)
 
 
 class Ears:

@@ -13,6 +13,8 @@ from sergio_escritorio.hands import (
     Debounce,
     Hand,
     HandControl,
+    OneEuro,
+    Vote,
     blender_packet,
     gesture,
 )
@@ -59,8 +61,15 @@ def test_debounce_needs_a_steady_gesture():
     assert d.update("none", 1.6) is None
 
 
+def touching(tip):
+    """The real victory hand (index and middle out) with the thumb on a tip."""
+    lm = [list(p) for p in REAL["victory"][0]]
+    lm[4] = [lm[tip][0] + 0.004, lm[tip][1] + 0.004, lm[tip][2]]
+    return Hand([tuple(p) for p in lm])
+
+
 def test_air_mouse_move_click_drag_and_clutch():
-    m = AirMouse((1000, 800), smooth=1.0)
+    m = AirMouse((1000, 800), smooth=False)
     point = _hand("pointing_up")
     events = m.step(point, 0.0)
     assert events[0][0] == "move" and 0 <= events[0][1] < 1000
@@ -72,11 +81,46 @@ def test_air_mouse_move_click_drag_and_clutch():
     assert m.step(_hand("fist"), 2.0) == []  # fist: clutch, no movement
 
 
+def test_pinch_does_not_move_the_pointer():
+    """The pointer follows the knuckles, so pinching does not jump it."""
+    m = AirMouse((1000, 800), smooth=False)
+    before = m.step(_hand("pointing_up"), 0.0)[0][1:]
+    during = m.step(pinching(), 0.1)[0][1:]
+    assert before == during
+
+
+def test_right_click_and_scroll():
+    m = AirMouse((1000, 800), smooth=False)
+    # A plain pointing hand rests the thumb on the curled middle: no click.
+    assert [e[0] for e in m.step(_hand("pointing_up"), 0.0)] == ["move"]
+    assert [e[0] for e in m.step(touching(12), 0.1)] == ["move", "right"]
+    assert [e[0] for e in m.step(touching(12), 0.2)] == ["move"]  # once
+    up = [list(p) for p in REAL["victory"][0]]
+    m.step(Hand([tuple(p) for p in up]), 1.0)
+    lifted = [(x, y - 0.1, z) for x, y, z in up]
+    events = m.step(Hand(lifted), 1.1)
+    assert events and events[0][0] == "scroll" and events[0][1] > 0  # up = scroll up
+
+
 def test_air_mouse_is_mirrored_and_clamped():
-    m = AirMouse((1000, 800), smooth=1.0)
-    assert m.target((0.2, 0.2)) == (999, 0)  # left of the frame = right of screen
-    m2 = AirMouse((1000, 800), smooth=1.0)
-    assert m2.target((-1, 2)) == (999, 799)
+    m = AirMouse((1000, 800), smooth=False)
+    assert m.target((0.25, 0.2)) == (999, 0)  # left of the frame = right of screen
+    assert m.target((-1, 2)) == (999, 799)
+
+
+def test_one_euro_filter_steadies_jitter():
+    f = OneEuro()
+    values = [f(100 + (3 if i % 2 else -3), i / 30) for i in range(60)]
+    assert max(values[30:]) - min(values[30:]) < 3  # jitter of 6 px shrinks
+    fast = OneEuro()
+    moved = [fast(i * 20.0, i / 30) for i in range(30)]
+    assert moved[-1] > 500  # big real movements still follow
+
+
+def test_vote_ignores_single_frame_flickers():
+    v = Vote(5)
+    seen = [v(g) for g in ["open", "open", "fist", "open", "open"]]
+    assert seen[-1] == "open" and "fist" not in seen[2:]
 
 
 def test_gesture_mode_fires_actions():

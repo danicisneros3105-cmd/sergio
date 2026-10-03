@@ -2,13 +2,13 @@
 
 Modes (camera window "Manos" button, or by voice):
 
-* ``gestos`` — gestures are actions: 👍 says "sí" to Sergio (confirm),
-  ✋ open palm stops him talking, ✌️ asks him what he sees.
+* ``gestos`` — gestures are actions: thumbs up says "sí" to Sergio (confirm),
+  an open palm stops him talking, two fingers ask what he sees.
 * ``mouse`` — an air mouse: your index finger moves the pointer, a pinch
   (thumb + index) clicks, holding the pinch drags, a fist pauses.
 * ``3d`` — your hands drive Blender live (see :data:`BLENDER_BRIDGE`): pinch
   and move to rotate the selected object, pinch with both hands to scale,
-  a fist moves it, 👍 adds a shape, ✌️ duplicates.
+  a fist moves it, thumbs up adds a shape, two fingers duplicate.
 
 The gesture maths is pure (lists of 21 landmarks) so it is tested without a
 camera; MediaPipe only turns frames into landmarks.
@@ -101,7 +101,7 @@ def gesture(lm: Sequence[Point]) -> str:
     if pinch_ratio(lm) < 0.28 and reach > 1.1:
         return "pinch"
     if thumb and not any(others):
-        # 👍 only if the thumb points up (above the wrist on screen).
+        # Thumbs up only if the thumb points up (above the wrist on screen).
         return (
             "thumbs_up"
             if lm[THUMB_TIP][1] < lm[WRIST][1] - 0.4 * palm_size(lm)
@@ -164,11 +164,14 @@ class HandTracker:
 
         options = vision.HandLandmarkerOptions(
             base_options=BaseOptions(model_asset_path=str(model or ensure_model())),
+            # VIDEO: tracks the hand between frames — faster and steadier.
+            running_mode=vision.RunningMode.VIDEO,
             num_hands=max_hands,
             min_hand_detection_confidence=0.5,
             min_tracking_confidence=0.5,
         )
         self._mp = mp
+        self._last_ms = 0
         self._landmarker = vision.HandLandmarker.create_from_options(options)
 
     def detect(self, frame_bgr: Any) -> list[Hand]:
@@ -176,7 +179,9 @@ class HandTracker:
 
         rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
         image = self._mp.Image(image_format=self._mp.ImageFormat.SRGB, data=rgb)
-        result = self._landmarker.detect(image)
+        stamp = max(self._last_ms + 1, int(time.monotonic() * 1000))
+        self._last_ms = stamp
+        result = self._landmarker.detect_for_video(image, stamp)
         hands = []
         for i, marks in enumerate(result.hand_landmarks or []):
             side = ""
@@ -206,50 +211,141 @@ class Debounce:
         return None
 
 
+class OneEuro:
+    """One-Euro filter: steady when the hand is still, quick when it moves.
+
+    (Casiez et al., the standard for jitter-free pointers.)
+    """
+
+    def __init__(
+        self, min_cutoff: float = 1.2, beta: float = 0.02, d_cutoff: float = 1.0
+    ):
+        self.min_cutoff, self.beta, self.d_cutoff = min_cutoff, beta, d_cutoff
+        self._x: float | None = None
+        self._dx = 0.0
+        self._t: float | None = None
+
+    @staticmethod
+    def _alpha(cutoff: float, dt: float) -> float:
+        tau = 1.0 / (2 * math.pi * cutoff)
+        return 1.0 / (1.0 + tau / dt)
+
+    def __call__(self, x: float, t: float) -> float:
+        if self._x is None or self._t is None or t <= self._t:
+            self._x, self._t = x, t
+            return x
+        dt = t - self._t
+        dx = (x - self._x) / dt
+        a_d = self._alpha(self.d_cutoff, dt)
+        self._dx = a_d * dx + (1 - a_d) * self._dx
+        cutoff = self.min_cutoff + self.beta * abs(self._dx)
+        a = self._alpha(cutoff, dt)
+        self._x = a * x + (1 - a) * self._x
+        self._t = t
+        return self._x
+
+
+def anchor(lm: Sequence[Point]) -> tuple[float, float]:
+    """Where the pointer follows: the knuckles (steady while you pinch)."""
+    return (
+        (lm[INDEX_MCP][0] + lm[MIDDLE_MCP][0]) / 2,
+        (lm[INDEX_MCP][1] + lm[MIDDLE_MCP][1]) / 2,
+    )
+
+
+def right_pinch_ratio(lm: Sequence[Point]) -> float:
+    """Thumb–middle tip distance relative to the palm (right click)."""
+    return _d(lm[THUMB_TIP], lm[MIDDLE_TIP]) / palm_size(lm)
+
+
 @dataclass
 class AirMouse:
-    """Index finger -> pointer; pinch = click, held pinch = drag, fist = clutch."""
+    """Hand -> pointer.
+
+    Pinch (thumb + index) = click, held = drag; thumb + middle = right click;
+    two fingers moving up/down = scroll; a fist pauses (move your hand back
+    without moving the pointer). Pinches use hysteresis so they never flicker.
+    """
 
     screen: tuple[int, int]
-    box: tuple[float, float, float, float] = (0.2, 0.2, 0.8, 0.8)  # active area
-    smooth: float = 0.35
+    box: tuple[float, float, float, float] = (0.25, 0.2, 0.75, 0.7)  # active area
     drag_after: float = 0.6
+    pinch_on: float = 0.25
+    pinch_off: float = 0.4
+    smooth: bool = True
+    _fx: OneEuro = field(default_factory=OneEuro)
+    _fy: OneEuro = field(default_factory=OneEuro)
     _pos: tuple[float, float] | None = None
+    _pinching: bool = False
     _pinch_at: float | None = None
     _dragging: bool = False
+    _right: bool = False
+    _scroll_y: float | None = None
 
-    def target(self, tip: tuple[float, float], mirror: bool = True) -> tuple[int, int]:
+    def target(
+        self, point: tuple[float, float], now: float = 0.0, mirror: bool = True
+    ) -> tuple[int, int]:
         x0, y0, x1, y1 = self.box
-        u = (tip[0] - x0) / (x1 - x0)
-        v = (tip[1] - y0) / (y1 - y0)
+        u = (point[0] - x0) / (x1 - x0)
+        v = (point[1] - y0) / (y1 - y0)
         if mirror:  # the camera sees you mirrored
             u = 1 - u
         u, v = min(1.0, max(0.0, u)), min(1.0, max(0.0, v))
         x, y = u * (self.screen[0] - 1), v * (self.screen[1] - 1)
-        if self._pos is None:
-            self._pos = (x, y)
-        else:
-            px, py = self._pos
-            self._pos = (px + (x - px) * self.smooth, py + (y - py) * self.smooth)
-        return round(self._pos[0]), round(self._pos[1])
+        if self.smooth:
+            x, y = self._fx(x, now), self._fy(y, now)
+        self._pos = (x, y)
+        return round(x), round(y)
 
     def step(self, hand: Hand, now: float) -> list[tuple[str, int, int]]:
-        """Events for this frame: ('move'|'click'|'down'|'up', x, y)."""
+        """Events for this frame: ('move'|'click'|'down'|'up'|'right'|'scroll')."""
+        lm = hand.landmarks
         name = hand.gesture
         if name == "fist":  # clutch: re-centre your hand without moving
+            self._scroll_y = None
             return self._release()
-        x, y = self.target(hand.tip)
-        events: list[tuple[str, int, int]] = [("move", x, y)]
-        if name == "pinch":
-            if self._pinch_at is None:
-                self._pinch_at = now
-            elif not self._dragging and now - self._pinch_at >= self.drag_after:
-                self._dragging = True
-                events.append(("down", x, y))
-        else:
-            if self._pinch_at is not None and not self._dragging:
+        thumb_on_middle = (
+            right_pinch_ratio(lm) < self.pinch_on
+            and _d(lm[MIDDLE_TIP], lm[WRIST]) / palm_size(lm) > 1.1
+        )
+        if name == "victory" and not thumb_on_middle:  # two fingers: scroll
+            y = anchor(lm)[1]
+            events: list[tuple[str, int, int]] = []
+            if self._scroll_y is not None:
+                amount = round((self._scroll_y - y) * 40)
+                if amount:
+                    events.append(("scroll", amount, 0))
+                    self._scroll_y = y
+            else:
+                self._scroll_y = y
+            return events
+        self._scroll_y = None
+        x, y = self.target(anchor(lm), now)
+        events = [("move", x, y)]
+        ratio = pinch_ratio(lm)
+        # Hysteresis: start below pinch_on, end above pinch_off.
+        if not self._pinching and ratio < self.pinch_on:
+            self._pinching, self._pinch_at = True, now
+        elif self._pinching and ratio > self.pinch_off:
+            self._pinching = False
+            if not self._dragging:
                 events.append(("click", x, y))
             events += self._release()
+            return events
+        if (
+            self._pinching
+            and not self._dragging
+            and now - (self._pinch_at or now) >= self.drag_after
+        ):
+            self._dragging = True
+            events.append(("down", x, y))
+        # Right click: thumb + middle together (index away), once per touch.
+        # (In a plain pointing pose the thumb rests on the curled middle
+        # finger: only a middle finger reaching out counts.)
+        right = thumb_on_middle and ratio > self.pinch_off
+        if right and not self._right:
+            events.append(("right", x, y))
+        self._right = right
         return events
 
     def _release(self) -> list[tuple[str, int, int]]:
@@ -257,8 +353,23 @@ class AirMouse:
         if self._dragging and self._pos is not None:
             events.append(("up", round(self._pos[0]), round(self._pos[1])))
         self._dragging = False
+        self._pinching = False
         self._pinch_at = None
         return events
+
+
+class Vote:
+    """The gesture seen in most of the last frames (no one-frame flickers)."""
+
+    def __init__(self, size: int = 5) -> None:
+        from collections import deque
+
+        self._seen: deque[str] = deque(maxlen=size)
+
+    def __call__(self, name: str) -> str:
+        self._seen.append(name)
+        best = max(set(self._seen), key=list(self._seen).count)
+        return best if list(self._seen).count(best) > len(self._seen) // 2 else "none"
 
 
 def blender_packet(hands: list[Hand], now: float) -> dict:
@@ -292,6 +403,7 @@ class HandControl:
     error: str = ""
     _thread: threading.Thread | None = None
     _sock: Any = None
+    _vote: Vote = field(default_factory=Vote)
 
     def set_mode(self, mode: str) -> None:
         self.mode = mode if mode in MODES else "off"
@@ -307,7 +419,8 @@ class HandControl:
         self.hands = hands
         main = hands[0] if hands else None
         if self.mode == "gestos":
-            fired = debounce.update(main.gesture if main else "none", now)
+            seen = self._vote(main.gesture if main else "none")
+            fired = debounce.update(seen, now)
             if fired:
                 self.on_gesture(fired)
         elif self.mode == "mouse" and main is not None:
@@ -345,7 +458,7 @@ class HandControl:
                 log.exception("hand detection failed")
                 hands = []
             self.process(hands, time.monotonic(), debounce, mouse)
-            time.sleep(1 / 20)
+            time.sleep(1 / 30)
         self.hands = []
 
 
@@ -426,6 +539,9 @@ print("Sergio: control con las manos activo en el puerto", PORT)
 
 __all__ = [
     "AirMouse",
+    "OneEuro",
+    "Vote",
+    "anchor",
     "BLENDER_BRIDGE",
     "Debounce",
     "Hand",

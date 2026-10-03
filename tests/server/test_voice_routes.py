@@ -111,7 +111,7 @@ def test_transcribe_with_gemini(monkeypatch):
         "/v1/voice/transcribe", files={"file": ("v.wav", b"RIFF....", "audio/wav")}
     )
     assert resp.json() == {"text": "Sergio, ¿qué hora es?"}
-    assert models.calls[0][0] == "gemini-3.8-flash"
+    assert models.calls[0][0] == "gemini-3.1-flash-lite"  # fastest ears first
 
 
 def test_empty_transcripts():
@@ -142,3 +142,30 @@ def test_google_schema_cleaning():
         },
         "required": ["city"],
     }
+
+
+def test_fast_chat_goes_straight_to_the_model():
+    from openjarvis.server import voice_routes as vr
+
+    seen = {}
+
+    class Engine:
+        def generate(self, messages, *, model, temperature, max_tokens):
+            seen.update(model=model, roles=[m.role.value for m in messages])
+            return {"content": " Muy bien, gracias por preguntar. "}
+
+    app = FastAPI()
+    app.state.engine = Engine()
+    app.include_router(vr.router)
+    resp = TestClient(app).post(
+        "/v1/voice/chat",
+        json={
+            "model": "gemini-3.8-flash@low",
+            "messages": [
+                {"role": "system", "content": "Eres Sergio."},
+                {"role": "user", "content": "¿Cómo estás?"},
+            ],
+        },
+    )
+    assert resp.json() == {"content": "Muy bien, gracias por preguntar."}
+    assert seen == {"model": "gemini-3.8-flash@low", "roles": ["system", "user"]}

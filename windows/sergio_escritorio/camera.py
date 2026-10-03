@@ -161,6 +161,96 @@ def detect_faces(frame: Any) -> list[tuple[int, int, int, int]]:
 
 
 _CASCADE: Any = None
+
+
+class FaceWatcher:
+    """Automatic face recognition while the camera is on.
+
+    Every *interval* seconds the latest frame goes to Sergio's face models
+    (YuNet + SFace on the server); results carry names and boxes. When a
+    known person shows up (and was not seen for a while) ``on_person`` is
+    called once, so Sergio can greet them.
+    """
+
+    def __init__(
+        self,
+        frames: Callable[[], Any],
+        identify: Callable[[bytes], list[dict]],
+        *,
+        interval: float = 1.5,
+        greet_after: float = 600.0,
+        on_person: Callable[[str], None] = lambda _name: None,
+        clock: Callable[[], float] = time.monotonic,
+    ) -> None:
+        self.frames = frames
+        self.identify = identify
+        self.interval = interval
+        self.greet_after = greet_after
+        self.on_person = on_person
+        self.clock = clock
+        self.faces: list[dict] = []  # {"name", "score", "box" (frame px)}
+        self.updated = 0.0
+        self.error = ""
+        self._last_seen: dict[str, float] = {}
+        self._running = False
+
+    def start(self) -> None:
+        if not self._running:
+            self._running = True
+            threading.Thread(target=self._loop, daemon=True).start()
+
+    def stop(self) -> None:
+        self._running = False
+
+    def check(self, frame: Any) -> list[dict]:
+        """Recognise the faces in one frame (scaled down to 640 px wide)."""
+        import cv2
+
+        h, w = frame.shape[:2]
+        scale = min(1.0, 640 / max(1, w))
+        small = (
+            cv2.resize(frame, (int(w * scale), int(h * scale))) if scale < 1 else frame
+        )
+        ok, jpeg = cv2.imencode(".jpg", small, [cv2.IMWRITE_JPEG_QUALITY, 85])
+        if not ok:
+            return []
+        found = []
+        for face in self.identify(jpeg.tobytes()):
+            x, y, fw, fh = face.get("box") or (0, 0, 0, 0)
+            found.append(
+                {
+                    "name": face.get("name") or "",
+                    "score": float(face.get("score") or 0.0),
+                    "box": (x / scale, y / scale, fw / scale, fh / scale),
+                }
+            )
+        self.faces, self.updated = found, self.clock()
+        now = self.clock()
+        for face in found:
+            name = face["name"]
+            if not name:
+                continue
+            if now - self._last_seen.get(name, -1e9) > self.greet_after:
+                self.on_person(name)
+            self._last_seen[name] = now
+        return found
+
+    def fresh(self) -> list[dict]:
+        """Faces from the last few seconds (else nothing: they may be gone)."""
+        return self.faces if self.clock() - self.updated < 3 * self.interval else []
+
+    def _loop(self) -> None:
+        while self._running:
+            frame = self.frames()
+            if frame is not None:
+                try:
+                    self.check(frame)
+                    self.error = ""
+                except Exception as exc:  # noqa: BLE001 — server busy/offline
+                    self.error = str(exc)[:200]
+            time.sleep(self.interval)
+
+
 MARGIN = 10.0  # room for the soft shadow
 BUTTONS = (
     ("ask", "¿Qué ves?"),
@@ -221,6 +311,7 @@ class CameraWindow(QWidget):
         self.feed = feed
         self.on_ask = on_ask
         self.hands = hands  # HandControl (mode + latest hands), optional
+        self.watcher: FaceWatcher | None = None  # automatic face recognition
         self.scale = 1.0
         self.mirror = True
         self.overlay = ""
@@ -241,6 +332,8 @@ class CameraWindow(QWidget):
     def open(self) -> None:
         self.feed.keep_on = True
         self.feed.start()
+        if self.watcher is not None:
+            self.watcher.start()
         if not self.isVisible():
             screen = self.screen().availableGeometry()
             self.move(
@@ -250,6 +343,8 @@ class CameraWindow(QWidget):
         self._timer.start(33)
 
     def close_camera(self) -> None:
+        if self.watcher is not None:
+            self.watcher.stop()
         self.feed.keep_on = False
         self._timer.stop()
         self.hide()
@@ -341,10 +436,14 @@ class CameraWindow(QWidget):
             self.hands.set_mode(nxt)
             self.feed.keep_on = True
             tips = {
-                "gestos": "Gestos: 👍 sí · ✋ calla · ✌️ ¿qué ves?",
+                "gestos": (
+                    "Gestos: pulgar arriba = sí, mano abierta = calla, "
+                    "dos dedos = ¿qué ves?"
+                ),
                 "mouse": (
-                    "Mouse: el índice mueve, pellizco = clic "
-                    "(mantén = arrastrar), puño = pausa"
+                    "Mouse: mueve la mano; pellizco = clic (mantén = arrastrar), "
+                    "pulgar con el medio = clic derecho, dos dedos = desplazar, "
+                    "puño = pausa"
                 ),
                 "3d": (
                     "3D en Blender: pellizca y mueve para girar, "
@@ -433,18 +532,46 @@ class CameraWindow(QWidget):
         p.end()
 
     def _draw_faces(self, p: QPainter, origin: QPointF, shown_w: int) -> None:
-        if self._frame is None or not self._faces:
+        if self._frame is None:
+            return
+        named = self.watcher.fresh() if self.watcher is not None else []
+        faces = named or [
+            {"name": None, "score": 0.0, "box": box} for box in self._faces
+        ]
+        if not faces:
             return
         fw = self._frame.shape[1]
         k = shown_w / max(1, fw)
-        accent = QColor(10, 132, 255)
-        for x, y, w, h in self._faces:
+        for face in faces:
+            x, y, w, h = face["box"]
             if self.mirror:
                 x = fw - x - w
             rect = QRectF(origin.x() + x * k, origin.y() + y * k, w * k, h * k)
-            p.setPen(QPen(accent, 2))
-            p.setBrush(QColor(10, 132, 255, 28))
+            known = bool(face["name"])
+            colour = QColor(48, 209, 88) if known else QColor(10, 132, 255)
+            p.setPen(QPen(colour, 2))
+            fill = QColor(colour)
+            fill.setAlpha(28)
+            p.setBrush(fill)
             p.drawRoundedRect(rect, 12, 12)
+            if face["name"] is None:
+                continue  # quick local box, recognition pending
+            label = (
+                f"{face['name']}  {face['score'] * 100:.0f}%"
+                if known
+                else "Desconocido"
+            )
+            p.setFont(_font(8.5, QFont.Weight.DemiBold))
+            tw = p.fontMetrics().horizontalAdvance(label) + 16
+            top = rect.top() - 24
+            if top < MARGIN + 44:  # near the top edge: put it inside the box
+                top = rect.bottom() - 26 if rect.top() < MARGIN + 44 else rect.top() + 4
+            tag = QRectF(rect.left() + 4, top, tw, 20)
+            p.setPen(Qt.PenStyle.NoPen)
+            p.setBrush(colour)
+            p.drawRoundedRect(tag, 10, 10)
+            p.setPen(QColor(255, 255, 255))
+            p.drawText(tag, Qt.AlignmentFlag.AlignCenter, label)
 
     def _draw_hands(self, p: QPainter, origin: QPointF, w: int, h: int) -> None:
         hands = getattr(self.hands, "hands", None) or []
@@ -483,7 +610,9 @@ class CameraWindow(QWidget):
         p.drawEllipse(QPointF(pill.left() + 13, pill.center().y()), 4, 4)
         p.setPen(QColor(255, 255, 255))
         p.setFont(_font(8.5, QFont.Weight.DemiBold))
-        faces = f" · {len(self._faces)}" if self._faces else ""
+        count = len(self.watcher.fresh()) if self.watcher is not None else 0
+        count = count or len(self._faces)
+        faces = f" · {count}" if count else ""
         p.drawText(
             QRectF(pill.left() + 23, pill.top(), pill.width() - 26, pill.height()),
             Qt.AlignmentFlag.AlignVCenter,
@@ -545,4 +674,4 @@ def _font(size: float, weight: QFont.Weight = QFont.Weight.Normal) -> QFont:
     return font
 
 
-__all__ = ["CameraFeed", "CameraWindow", "detect_faces", "to_qimage"]
+__all__ = ["CameraFeed", "CameraWindow", "FaceWatcher", "detect_faces", "to_qimage"]

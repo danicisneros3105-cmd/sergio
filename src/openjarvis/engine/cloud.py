@@ -279,8 +279,10 @@ def google_config_kwargs(
     kwargs: Dict[str, Any] = {"max_output_tokens": max(max_tokens, 8192)}
     level = effort or os.environ.get("SERGIO_EFFORT", "").strip().lower()
     if level in EFFORTS:
-        if level == "minimal" and "flash" not in model:
-            level = "low"  # Pro has no minimal level
+        if level == "minimal" and not any(
+            m in model for m in ("flash-lite", "3.5-flash", "3-flash")
+        ):
+            level = "low"  # Pro and 3.8 Flash have no minimal level
         try:
             from google.genai import types as genai_types
 

@@ -247,6 +247,15 @@ class WindowsBackend:
                 return True
         return False
 
+    def active_window(self) -> str:
+        """Title of the window in front (to verify what an action did)."""
+        user32 = ctypes.windll.user32  # type: ignore[attr-defined]
+        hwnd = user32.GetForegroundWindow()
+        length = user32.GetWindowTextLengthW(hwnd)
+        buf = ctypes.create_unicode_buffer(length + 1)
+        user32.GetWindowTextW(hwnd, buf, length + 1)
+        return buf.value.strip()
+
     def close_app(self, name: str) -> list[str]:
         """Close windows whose title matches, like clicking their X (so the
         app can ask to save). Falls back to the process name."""

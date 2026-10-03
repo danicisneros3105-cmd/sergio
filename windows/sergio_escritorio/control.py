@@ -341,7 +341,31 @@ class Controller:
             self._sleep(seconds)
             result = f"waited {seconds:g}s"
         self._on_activity(result)
-        return result
+        return result + self._verify(kind)
+
+    VERIFY = {
+        "click",
+        "double_click",
+        "right_click",
+        "key",
+        "type",
+        "open_app",
+        "open",
+        "close_app",
+        "focus",
+    }
+
+    def _verify(self, kind: str) -> str:
+        """What is in front after the action, so Sergio can check it worked."""
+        active = getattr(self.backend, "active_window", None)
+        if kind not in self.VERIFY or active is None:
+            return ""
+        self._sleep(0.6 if kind in ("open_app", "open", "close_app") else 0.25)
+        try:
+            title = active() or "(escritorio)"
+        except Exception:  # noqa: BLE001 — a check must never break the action
+            return ""
+        return f" | now in front: {title[:80]}"
 
 
 def make_server(

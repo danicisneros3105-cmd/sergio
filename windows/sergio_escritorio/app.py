@@ -210,6 +210,7 @@ def run(config: dict[str, Any]) -> None:
         peek = Signal()  # open the camera window (Sergio is looking)
         point = Signal(int, int, str)  # fly the orb to a spot (screen help)
         clicked = Signal()  # a mouse click anywhere: he hops
+        camera_off = Signal()
 
     bridge = Bridge()
     bridge.state.connect(show_state)
@@ -486,12 +487,12 @@ def run(config: dict[str, Any]) -> None:
     from sergio_escritorio.hands import MODES, HandControl
 
     def hand_gesture(name: str) -> None:
-        if name == "open":  # ✋ stop talking
+        if name == "open":  # open palm: stop talking
             assistant.stop_speaking()
-            bridge.caption.emit("✋ Me callo.")
+            bridge.caption.emit("Me callo.")
         elif name in ("thumbs_up", "victory"):
             said = "Sí" if name == "thumbs_up" else "¿Qué ves?"
-            bridge.caption.emit("👍 Sí" if name == "thumbs_up" else "✌️ ¿Qué ves?")
+            bridge.caption.emit(said)
             threading.Thread(
                 target=assistant.on_text, args=(said,), daemon=True
             ).start()
@@ -510,6 +511,10 @@ def run(config: dict[str, Any]) -> None:
                 pyautogui.mouseDown(x, y, _pause=False)
             elif kind == "up":
                 pyautogui.mouseUp(x, y, _pause=False)
+            elif kind == "right":
+                pyautogui.rightClick(x, y, _pause=False)
+            elif kind == "scroll":
+                pyautogui.scroll(x * 40, _pause=False)  # x carries the amount
 
     def screen_size() -> tuple[int, int]:
         try:
@@ -540,6 +545,89 @@ def run(config: dict[str, Any]) -> None:
         return f"hands mode: {MODES[mode]}"
 
     controller.on_hands = set_hands
+    bridge.camera_off.connect(camera_window.close_camera)
+
+    # -- instant voice commands (no AI): "abre Spotify", "sube el volumen" ---
+    def run_quick(q: Any) -> str:
+        import datetime
+
+        from sergio_escritorio.control import ActionError
+        from sergio_escritorio.quick import spoken_date, spoken_time
+
+        now = datetime.datetime.now()
+        if q.kind == "stop":
+            assistant.stop_speaking()
+            return ""
+        if q.kind == "time":
+            return spoken_time(now)
+        if q.kind == "date":
+            return spoken_date(now)
+        if q.kind == "camera":
+            (bridge.peek if q.arg == "on" else bridge.camera_off).emit()
+            return q.say
+        if q.kind == "hands":
+            set_hands(q.arg)
+            return q.say
+        if q.kind == "globe":
+            resp = client.http.post(f"{client.base}/v1/world/open", timeout=240)
+            resp.raise_for_status()
+            open_app_window(resp.json()["url"])
+            return q.say
+        if q.kind == "screenshot":
+            folder = Path.home() / "Pictures" / "Sergio"
+            folder.mkdir(parents=True, exist_ok=True)
+            path = folder / f"captura-{now:%Y%m%d-%H%M%S}.png"
+            controller.backend.screenshot().save(path)
+            return q.say
+        try:
+            if q.kind == "open_url":
+                controller.act({"action": "open", "target": q.arg})
+            elif q.kind == "open_app":
+                controller.act({"action": "open_app", "target": q.arg})
+            elif q.kind == "close_app":
+                try:
+                    controller.act({"action": "close_app", "target": q.arg})
+                except ActionError:
+                    return f"No veo {q.arg.title()} abierto."
+            elif q.kind == "key":
+                controller.act({"action": "key", "keys": q.arg})
+            elif q.kind == "volume":
+                key = {"up": "volumeup", "down": "volumedown", "mute": "volumemute"}
+                for _ in range(1 if q.arg == "mute" else 5):
+                    controller.act({"action": "key", "keys": key[q.arg]})
+        except PermissionError:
+            return "El control está en pausa. Pulsa Ctrl+Alt+Fin para reanudarlo."
+        return q.say
+
+    assistant.quick = run_quick
+
+    # -- automatic face recognition while the camera is on -----------------
+    from sergio_escritorio.camera import FaceWatcher
+
+    def identify(jpeg: bytes) -> list[dict]:
+        resp = client.http.post(
+            f"{client.base}/v1/faces/identify",
+            files={"image": ("cara.jpg", jpeg, "image/jpeg")},
+            timeout=10,
+        )
+        resp.raise_for_status()
+        return list(resp.json().get("faces") or [])
+
+    def greet(name: str) -> None:
+        if assistant.busy or not config.get("greet_faces", True):
+            return
+
+        def run() -> None:
+            assistant.busy = True
+            try:
+                bridge.caption.emit(f"Hola, {name}.")
+                assistant.say_aloud(f"Hola, {name}.")
+            finally:
+                assistant.busy = False
+
+        threading.Thread(target=run, daemon=True).start()
+
+    camera_window.watcher = FaceWatcher(feed.frame, identify, on_person=greet)
     bridge.toggle.connect(lambda: set_control(not controller.enabled))
     hotkeys = keyboard.GlobalHotKeys(
         {

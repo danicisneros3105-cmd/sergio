@@ -103,7 +103,8 @@ def test_neural_voice_used_first_with_local_fallback(monkeypatch):
         raise OSError("no internet")
 
     monkeypatch.setattr(neural_voice, "synthesize", offline)
-    assert client.speak("hola") == b"RIFFlocal"
+    assert client.speak("hola") == b"RIFFneural:es-EC-LuisNeural"  # remembered
+    assert client.speak("buenas") == b"RIFFlocal"
 
 
 # -- direct camera route ("¿qué tengo en la mano?") -------------------------

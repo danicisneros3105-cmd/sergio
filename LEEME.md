@@ -56,7 +56,7 @@ Ejemplos de cosas que puedes pedir en el chat:
   (USGS).
 - *"¿Cuándo es el próximo lanzamiento de SpaceX?"*: usa `upcoming_launches`.
 - *"Organiza mi carpeta Descargas por tipo de archivo"*: usa `clacky_task`.
-  Aparece en la campana 🔔 de la app; cuando apruebas, Clacky lo ejecuta.
+  Aparece en la campana de la app; cuando apruebas, Clacky lo ejecuta.
 
 El instalador ya activa estas herramientas en `~/.openjarvis/config.toml`
 (sección `[tools] enabled`), además de compilar el motor nativo en Rust que
@@ -203,7 +203,7 @@ mesa para dos a las 5 pm a nombre de Dani"*.
 
 - Sergio **siempre dice que es un asistente de IA** al llamar a terceros.
 - Toda llamada o WhatsApp a alguien que no seas tú **espera tu aprobación**
-  en la campana 🔔 (o `sergio approvals approve <ID>`); a tus propios números
+  en la campana (o `sergio approvals approve <ID>`); a tus propios números
   va directo.
 - **Solo tus números** pueden hablar con Sergio por WhatsApp/SMS o llamarle;
   cualquier otro es ignorado o escucha un aviso y se cuelga.
@@ -254,6 +254,19 @@ sigue, te escucha y usa la computadora por ti:
   «Sergio», ocultar la esfera o el notch, pausar el control, abrir el chat o
   salir.
 
+- **Órdenes al instante** (sin esperar a la IA): «Sergio, abre Spotify»,
+  «cierra Chrome», «busca Nvidia», «abre YouTube y busca…», «busca recetas en
+  YouTube», «abre gmail», «sube/baja el volumen», «silencia», «pausa»,
+  «siguiente canción», «captura de pantalla», «minimiza todo», «¿qué hora
+  es?», «¿qué día es hoy?», «abre/cierra la cámara», «abre el globo», «modo
+  mouse», «modo gestos», «cállate».
+- **Más rápido**: la charla normal va directa al modelo (sin el agente de
+  herramientas), empieza a hablar con la primera frase mientras prepara el
+  resto, recuerda el audio de frases cortas y escucha con Gemini Flash-Lite.
+  Cada acción en pantalla comprueba qué ventana quedó al frente.
+- **Reconoce caras solo**: con la cámara abierta pone el nombre sobre cada
+  cara (o «Desconocido») y te saluda cuando apareces. «Sergio, aprende mi
+  cara» ahora toma cinco fotos (mueve un poco la cabeza).
 - **Conversación de verdad**: después de responder sigue escuchándote unos
   segundos, así que puedes contestarle sin volver a decir «Sergio». Habla
   como un caballero británico culto (y en español), recuerda lo que dijiste
@@ -263,10 +276,12 @@ sigue, te escucha y usa la computadora por ti:
   Gemini escucha lo que le dices a Sergio (mucho mejor que Whisper en el
   procesador). El Whisper local solo vigila la palabra «Sergio».
 - **Con tus manos** (cámara → botón *Manos*, o «Sergio, quiero usar las
-  manos»): *Gestos* (👍 sí · ✋ calla · ✌️ ¿qué ves?), *Mouse* (el índice
-  mueve el puntero, pellizco = clic, mantener = arrastrar, puño = pausa) y
+  manos»): *Gestos* (pulgar arriba = sí, mano abierta = calla, dos dedos = ¿qué ves?), *Mouse* (la mano
+  mueve el puntero sin temblar, pellizco = clic, mantener = arrastrar,
+  pulgar con el medio = clic derecho, dos dedos arriba/abajo = desplazar,
+  puño = pausa) y
   *3D* (en Blender: pellizca y mueve para girar, dos manos para escalar,
-  puño para mover, 👍 añade un cubo, ✌️ duplica). «Sergio, abre Blender y
+  puño para mover, pulgar arriba añade un cubo, dos dedos duplica). «Sergio, abre Blender y
   crea un jarrón que pueda moldear con las manos».
 - **Prueba de verdad**: `sergio probar` usa a Sergio en tu laptop —
   cerebro con herramientas, voz, oído, pantalla, abrir y cerrar el Bloc de
@@ -411,7 +426,7 @@ sergio ecc estado
 - `live_flights`, `live_earthquakes` y `upcoming_launches` están probadas con
   respuestas simuladas. Contra las APIs reales hay que probarlas en tu laptop.
 - `clacky_task` da a Clacky control total del ordenador mientras dura la
-  tarea, por eso cada tarea espera tu aprobación en la campana 🔔 (5 minutos;
+  tarea, por eso cada tarea espera tu aprobación en la campana (5 minutos;
   después puedes aprobarla y pedirle a Sergio que continúe). Lo aprobado no
   se puede cambiar después: Clacky ejecuta exactamente lo que aprobaste.
 - Qué tareas son viables y sus límites legales (correos masivos, Instagram,

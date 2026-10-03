@@ -497,7 +497,7 @@ class ControlCenter(QWidget):
         self.subtitle = _label("", "subtitle")
         texts.addWidget(self.subtitle)
         row.addLayout(texts, 1)
-        close = QPushButton("✕")
+        close = QPushButton("×")
         close.setFixedSize(30, 30)
         close.setStyleSheet("border-radius: 15px; padding: 0; font-size: 12px;")
         close.setCursor(Qt.CursorShape.PointingHandCursor)
