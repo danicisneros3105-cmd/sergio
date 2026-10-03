@@ -111,7 +111,7 @@ add_section intelligence "default_model = \"$MODEL\""
 # Evolución: Sergio aprende de cada conversación y consolida tu perfil.
 add_section memory "enabled = true"
 # Herramientas que Sergio puede usar en el chat (incluye Clacky y el globo).
-add_section tools 'enabled = ["think", "calculator", "web_search", "file_read", "user_profile_manage", "clacky_task", "globe_view", "live_flights", "live_earthquakes", "upcoming_launches", "phone_call", "phone_call_status", "whatsapp_send", "face_identify", "face_list"]'
+add_section tools 'enabled = ["think", "calculator", "web_search", "file_read", "user_profile_manage", "clacky_task", "globe_view", "live_flights", "live_earthquakes", "upcoming_launches", "phone_call", "phone_call_status", "whatsapp_send", "face_identify", "face_list", "skill_guide"]'
 if $TOKEN_SAVER; then add_section compression "tool_output = true"; fi
 if ! $WITH_GLOBE; then add_section extensions.globe "enabled = false"; fi
 # Voz en español, local: escucha con Whisper y habla con Kokoro.
@@ -132,6 +132,9 @@ if curl -fsS http://127.0.0.1:11434/api/tags >/dev/null 2>&1; then
 else
   echo "⚠ Ollama no responde: ábrelo en Windows y ejecuta en PowerShell 'ollama pull $MODEL'."
 fi
+
+# ECC: ~350 guías expertas que Sergio consulta solo cuando le sirven.
+uv run sergio ecc actualizar || echo "⚠ ECC no se pudo descargar; luego: sergio ecc actualizar"
 
 # Comando `sergio` disponible en cualquier carpeta.
 mkdir -p "$HOME/.local/bin"

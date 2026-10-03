@@ -252,6 +252,22 @@ sergio escritorio estado        # comprobar que está conectado
 Para que además describa imágenes de la pantalla (fotos, gráficos), añade
 `--vision`: descarga un modelo de visión local de unos 6 GB.
 
+## ECC: guías expertas bajo demanda
+
+Sergio incluye [ECC (Everything Claude Code)](https://github.com/affaan-m/ECC),
+licencia MIT: unas 290 skills y 60 guías de agentes sobre investigación,
+escritura, marketing, planificación, programación, seguridad y datos.
+
+Para no gastar tokens, no se meten en cada mensaje. Sergio tiene una sola
+herramienta (`skill_guide`): busca la guía que sirve y la lee solo cuando la
+necesita. El instalador la descarga (unos 12 MB, solo `skills/` y `agents/`).
+
+```bash
+sergio ecc actualizar           # descargar o actualizar
+sergio ecc buscar deep research # ver qué guías hay sobre un tema
+sergio ecc estado
+```
+
 ## Estado y límites
 
 - Comprobado en Linux: `sergio extensions start` levanta Clacky y el globo.
