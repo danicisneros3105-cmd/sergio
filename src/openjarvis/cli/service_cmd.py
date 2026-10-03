@@ -147,6 +147,9 @@ def instalar(puerto: int) -> None:
     from openjarvis.unified.paths import _REPO_ROOT
 
     _require_systemd(runner)
+    # Desde PowerShell (bash -lc) mise no está activado: añade sus shims para
+    # que npm/node/ruby se encuentren al construir la interfaz.
+    os.environ["PATH"] = _service_path()
     uv = shutil.which("uv")
     if uv is None:
         raise click.ClickException("uv is not installed (run the installer first).")
