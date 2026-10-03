@@ -312,6 +312,38 @@ def globe_target_file():
     return state_dir() / "globe_target.json"
 
 
+def ensure_globe(wait: float = 90.0) -> tuple[bool, str]:
+    """Start the 3D globe service if it is not answering yet.
+
+    Returns (running, url-or-reason). The background service normally keeps
+    it up; this covers a stopped service so "open the globe" never lands on
+    "localhost refused to connect".
+    """
+    from openjarvis.core.config import load_config
+    from openjarvis.unified.supervisor import Supervisor, port_open
+
+    config = load_config()
+    port = config.extensions.globe.port
+    url = f"http://127.0.0.1:{port}/"
+    if port_open(port):
+        return True, url
+    sup = Supervisor(config)
+    try:
+        svc = sup.get("globe")
+    except KeyError:
+        return False, "El globo 3D está desactivado ([extensions.globe] enabled)."
+    outcome = sup.start(svc, wait=wait)
+    if port_open(port):
+        return True, url
+    tail = ""
+    try:
+        lines = sup.log_file("globe").read_text(errors="replace").splitlines()
+        tail = " | ".join(line.strip() for line in lines[-4:] if line.strip())
+    except OSError:
+        pass
+    return False, f"El globo no arrancó: {outcome}" + (f" — {tail}" if tail else "")
+
+
 def read_globe_target() -> dict[str, Any] | None:
     try:
         return json.loads(globe_target_file().read_text())
@@ -343,7 +375,7 @@ class GlobeViewTool(_WorldTool):
                 },
             },
             category="world",
-            timeout_seconds=20.0,
+            timeout_seconds=150.0,  # first start may install the globe
         )
 
     def _run(self, params: dict[str, Any]) -> ToolResult:
@@ -378,9 +410,12 @@ class GlobeViewTool(_WorldTool):
         }
         path = globe_target_file()
         path.write_text(json.dumps(target))
+        running, detail = ensure_globe()
+        if not running:
+            return self._fail(detail)
         return self._ok(
-            f"Globe pointed at {label} ({style_key}). "
-            f"Open the Globe tab or {target['url']}",
+            f"Globe pointed at {label} ({style_key}). Show it to the user with "
+            f"desktop_action open target={target['url']} (opens in its own window).",
             **target,
         )
 
@@ -391,6 +426,7 @@ __all__ = [
     "LiveEarthquakesTool",
     "LiveFlightsTool",
     "UpcomingLaunchesTool",
+    "ensure_globe",
     "geocode",
     "read_globe_target",
 ]

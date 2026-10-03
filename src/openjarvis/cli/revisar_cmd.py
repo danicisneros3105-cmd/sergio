@@ -59,6 +59,41 @@ def _bad(name: str, why: str) -> None:
     console.print(f"[red]FALLA[/red] {name}: {escape(why)}")
 
 
+def _print_companion_diag(token: str) -> None:
+    """What the companion's ear is doing: microphone, levels, last errors."""
+    try:
+        diag = httpx.get(
+            "http://127.0.0.1:8765/diag",
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=5,
+        ).json()
+    except (httpx.HTTPError, ValueError):
+        return
+    mic = diag.get("microphone") or "ninguno"
+    peak = diag.get("peak_level")
+    console.print(f"  Micrófono: {escape(str(mic))}")
+    if peak is not None:
+        threshold = float(diag.get("threshold") or 110)
+        if float(peak) < threshold:
+            hint = (
+                " — MUY BAJO: no llega al nivel de voz "
+                f"({threshold:.0f}). Habla y vuelve a probar; si sigue bajo, sube "
+                "el volumen del micrófono en Windows → Sonido → Entrada."
+            )
+        else:
+            hint = " (bien: te oye)"
+        console.print(f"  Volumen más alto oído (últimos 30 s): {peak}{hint}")
+    for key, label in (
+        ("whisper", "Oído (Whisper)"),
+        ("brain", "Cerebro usado"),
+        ("last_heard", "Lo último que oyó"),
+        ("last_error", "Último error"),
+        ("log", "Registro"),
+    ):
+        if diag.get(key):
+            console.print(f"  {label}: {escape(str(diag[key]))[:300]}")
+
+
 def _probe_ollama(host: str, model: str) -> None:
     """Ask Ollama directly so its own error (memory, model) is visible."""
     console.print(f"  Preguntando directo a Ollama con {model}…")
@@ -222,7 +257,20 @@ def revisar() -> None:
                 elif model == model_for_ollama:
                     _probe_ollama(host, model)
 
-    # 6. Cursor companion (Windows side)
+    # 6. The 3D globe (God's Eye View): started on demand if needed
+    console.print("Probando: Globo 3D (God's Eye View)… (la 1.a vez tarda)")
+    try:
+        resp = httpx.post(f"{base}/v1/world/open", timeout=240)
+        if resp.status_code == 200:
+            _ok(f"Globo 3D en {resp.json().get('url')}")
+        else:
+            failures += 1
+            _bad("Globo 3D", _detail(resp))
+    except httpx.HTTPError as exc:
+        failures += 1
+        _bad("Globo 3D", str(exc))
+
+    # 7. Cursor companion (Windows side)
     token = read_env(env_file()).get("SERGIO_DESKTOP_TOKEN", "")
     if token:
         try:
@@ -233,6 +281,7 @@ def revisar() -> None:
             )
             if resp.status_code == 200:
                 _ok("Compañero del cursor conectado")
+                _print_companion_diag(token)
             else:
                 failures += 1
                 _bad("compañero del cursor", f"rechazó la clave ({resp.status_code})")

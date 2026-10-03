@@ -63,6 +63,17 @@ async def goto(req: GotoRequest) -> dict[str, Any]:
     return {"label": meta.get("label", req.place), "url": meta.get("url", "")}
 
 
+@router.post("/v1/world/open")
+async def open_globe() -> dict[str, Any]:
+    """Make sure the 3D globe is running (start it if needed)."""
+    from openjarvis.tools.live_world import ensure_globe
+
+    running, detail = await asyncio.to_thread(ensure_globe)
+    if not running:
+        raise HTTPException(status_code=503, detail=detail)
+    return {"url": detail}
+
+
 @router.get("/v1/ecc/guides")
 async def guides(q: str = "", limit: int = 40) -> dict[str, Any]:
     from openjarvis.unified.ecc import Library

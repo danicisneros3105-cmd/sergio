@@ -16,7 +16,8 @@ from rich.markup import escape
 console = Console()
 
 KIMI_PREFERENCE = ("kimi-k2.6", "kimi-k2.5", "kimi-k2-turbo")
-GEMINI_MODEL = "gemini-2.5-flash"  # fast, sees images, works with AQ. keys
+GEMINI_MODEL = "gemini-3.8-flash"  # fast, sees images, thinking levels
+GEMINI_DEEP_MODEL = "gemini-3.1-pro-preview"  # for hard tasks (effort "profundo")
 KIMI_URLS = ("https://api.moonshot.ai/v1", "https://api.moonshot.cn/v1")
 
 
@@ -125,7 +126,7 @@ def configurar(kimi_key: str, gemini_key: str, modelo: str) -> None:
     if gemini_key:
         updates["GEMINI_API_KEY"] = gemini_key
         done = subprocess.run(
-            ["uv", "pip", "install", "-q", "google-genai>=1.0"],
+            ["uv", "pip", "install", "-q", "-U", "google-genai>=2.0"],
             capture_output=True,
             text=True,
             check=False,

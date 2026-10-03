@@ -75,3 +75,49 @@ def test_ecc_guides(tmp_path, monkeypatch):
     data = _client().get("/v1/ecc/guides", params={"q": "video"}).json()
     assert data["installed"] and data["guides"][0]["name"] == "video-editing"
     assert _client().get("/v1/ecc/guides").json()["guides"][0]["kind"] == "skill"
+
+
+def test_open_globe_starts_it(monkeypatch):
+    from openjarvis.tools import live_world
+
+    monkeypatch.setattr(
+        live_world, "ensure_globe", lambda wait=90.0: (True, "http://127.0.0.1:4173/")
+    )
+    assert _client().post("/v1/world/open").json() == {"url": "http://127.0.0.1:4173/"}
+
+
+def test_open_globe_explains_why_not(monkeypatch):
+    from openjarvis.tools import live_world
+
+    monkeypatch.setattr(
+        live_world,
+        "ensure_globe",
+        lambda wait=90.0: (False, "El globo no arrancó: skipped: Node.js 24+ and npm"),
+    )
+    resp = _client().post("/v1/world/open")
+    assert resp.status_code == 503 and "Node.js" in resp.json()["detail"]
+
+
+def test_ensure_globe_reports_the_log(tmp_path, monkeypatch):
+    from openjarvis.tools import live_world
+    from openjarvis.unified import supervisor
+
+    class Sup:
+        def __init__(self, config):
+            pass
+
+        def get(self, name):
+            return object()
+
+        def start(self, svc, wait=90.0):
+            return "exited early, see globe.log"
+
+        def log_file(self, name):
+            log = tmp_path / "globe.log"
+            log.write_text("npm ERR! network timeout\n")
+            return log
+
+    monkeypatch.setattr(supervisor, "Supervisor", Sup)
+    monkeypatch.setattr(supervisor, "port_open", lambda port: False)
+    running, detail = live_world.ensure_globe()
+    assert not running and "exited early" in detail and "network timeout" in detail

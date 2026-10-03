@@ -29,6 +29,15 @@ def _plain(text: str) -> str:
     return "".join(c for c in text if not unicodedata.combining(c))
 
 
+WAKE_NAMES: list[str] = [WAKE]
+
+
+def set_wake_name(name: str) -> None:
+    """A custom name (personalisation) also wakes him; "Sergio" always does."""
+    custom = _plain(name or "").strip()
+    WAKE_NAMES[:] = [WAKE] + ([custom] if custom and custom != WAKE else [])
+
+
 def parse_wake(text: str) -> tuple[bool, str]:
     """(addressed_to_sergio, command). Tolerates Whisper spellings (Cergio, Sergió).
 
@@ -40,7 +49,10 @@ def parse_wake(text: str) -> tuple[bool, str]:
         word = _plain(match.group())
         if word in _FILLERS:
             continue
-        if difflib.SequenceMatcher(None, word, WAKE).ratio() >= 0.8:
+        if any(
+            difflib.SequenceMatcher(None, word, name).ratio() >= 0.8
+            for name in WAKE_NAMES
+        ):
             return True, text[match.end() :].strip(" ,.;:!?¡¿\n")
         break
     return False, ""

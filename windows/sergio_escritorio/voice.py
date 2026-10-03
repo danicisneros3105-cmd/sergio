@@ -19,6 +19,7 @@ import queue
 import threading
 import time
 import wave
+from collections import deque
 from typing import Any, Callable, Protocol
 
 import httpx
@@ -56,8 +57,9 @@ VOICE_STYLE = (
     "renaming or reading files. Terminal: terminal_run (PowerShell) for "
     "system tasks, installing apps with winget, git, pip. Apps: desktop_action "
     "open_app / close_app. "
-    "3D globe (God's Eye View): globe_view to fly to a place, live_flights / "
-    "live_earthquakes for live data, and open http://localhost:8000/globe. "
+    "3D globe (God's Eye View): call globe_view (it starts the globe) and then "
+    "desktop_action open with the URL it returns, which opens in its own "
+    "window; live_flights / live_earthquakes for live data. "
     "For long or complex tasks, first load the matching expert playbook (ECC) "
     "with skill_guide, plan the steps, then do them one by one. "
     "If you did not hear well, ask briefly instead of inventing. When done, "
@@ -76,6 +78,68 @@ def to_wav(chunks: list[bytes] | bytes, rate: int = RATE) -> bytes:
         out.setframerate(rate)
         out.writeframes(raw)
     return buf.getvalue()
+
+
+FAST_MODEL = "gemini-3.8-flash"
+DEEP_MODEL = "gemini-3.1-pro-preview"
+EFFORTS = {
+    "rapido": ("fast", "low"),
+    "equilibrado": ("fast", "medium"),
+    "profundo": ("deep", "high"),
+}
+_HARD_WORDS = {
+    "investiga",
+    "investigar",
+    "analiza",
+    "analizar",
+    "compara",
+    "comparar",
+    "planea",
+    "planifica",
+    "programa",
+    "programar",
+    "codigo",
+    "script",
+    "video",
+    "videos",
+    "blender",
+    "organiza",
+    "ordena",
+    "resume",
+    "resumen",
+    "estrategia",
+    "guia",
+    "ecc",
+    "calcula",
+    "disena",
+    "corrige",
+    "arregla",
+    "depura",
+    "traduce",
+    "redacta",
+}
+_HARD_PHRASES = ("paso a paso", "escribe un", "crea un", "explica por que")
+
+
+def choose_brain(text: str, effort: str, fast: str, deep: str) -> str:
+    """Pick Flash or Pro and the thinking level ("model@level").
+
+    auto: short chat -> Flash low (instant); normal -> Flash medium;
+    hard tasks (research, code, videos, plans, long requests) -> Pro high.
+    """
+    if effort in EFFORTS:
+        which, level = EFFORTS[effort]
+        return f"{fast if which == 'fast' else deep}@{level}"
+    plain = _plain(text)
+    words = len(plain.split())
+    hard = _HARD_WORDS.intersection(plain.split()) or any(
+        p in plain for p in _HARD_PHRASES
+    )
+    if words > 35 or hard:
+        return f"{deep}@high"
+    if words <= 10:
+        return f"{fast}@low"
+    return f"{fast}@medium"
 
 
 class SergioClient:
@@ -123,14 +187,38 @@ class SergioClient:
                 self._model = data[0].get("id") or "default"
         return self._model
 
-    def ask(self, text: str) -> str:
-        self.history.append({"role": "user", "content": text})
-        messages = [{"role": "system", "content": VOICE_STYLE}, *self.history]
-        resp = self.http.post(
+    effort = "auto"  # auto | rapido | equilibrado | profundo
+    fast_model = FAST_MODEL
+    deep_model = DEEP_MODEL
+    personality = ""  # extra style line from the personalisation
+    last_brain = ""
+
+    def brain(self, text: str) -> str:
+        """Model (with effort) for this request: Flash or Pro, low..high."""
+        base = self.model()
+        if not base.startswith("gemini"):
+            return base  # Kimi or the local model: no effort levels
+        return choose_brain(text, self.effort, self.fast_model, self.deep_model)
+
+    def _chat(self, model: str, messages: list[dict]) -> httpx.Response:
+        return self.http.post(
             f"{self.base}/v1/chat/completions",
-            json={"model": self.model(), "messages": messages, "stream": False},
+            json={"model": model, "messages": messages, "stream": False},
             timeout=httpx.Timeout(1800, connect=5),  # video edits take minutes
         )
+
+    def ask(self, text: str) -> str:
+        self.history.append({"role": "user", "content": text})
+        style = VOICE_STYLE + (f" {self.personality}" if self.personality else "")
+        messages = [{"role": "system", "content": style}, *self.history]
+        model = self.brain(text)
+        resp = self._chat(model, messages)
+        if resp.status_code >= 400 and model.startswith(self.deep_model):
+            # Pro can be unavailable for a key (quota, preview access):
+            # think hard with Flash instead of failing.
+            model = f"{self.fast_model}@high"
+            resp = self._chat(model, messages)
+        self.last_brain = model
         resp.raise_for_status()
         answer = str(resp.json()["choices"][0]["message"].get("content") or "").strip()
         self.history.append({"role": "assistant", "content": answer})
@@ -138,6 +226,7 @@ class SergioClient:
         return answer
 
     voice = ""  # neural voice id; "" = use the server's local voice
+    voice_rate = "+5%"  # Lenta -10% / Normal +5% / Rápida +20%
 
     def speak(self, text: str) -> bytes:
         """Natural neural voice when online; the server's local voice otherwise."""
@@ -145,7 +234,7 @@ class SergioClient:
             try:
                 from sergio_escritorio.neural_voice import synthesize
 
-                return synthesize(text, self.voice)
+                return synthesize(text, self.voice, self.voice_rate)
             except Exception:  # noqa: BLE001 — offline or service hiccup
                 log.exception("neural voice failed; using the local voice")
         return self.speak_on_server(text)
@@ -331,12 +420,45 @@ def local_whisper() -> LocalWhisper | None:
         return _LOCAL[0]
 
 
-def play_wav(data: bytes) -> None:
+def wav_seconds(data: bytes) -> float:
     try:
-        import winsound
-    except ImportError:  # not Windows (tests)
-        return
-    winsound.PlaySound(data, winsound.SND_MEMORY)
+        with wave.open(io.BytesIO(data)) as w:
+            return w.getnframes() / float(w.getframerate() or 1)
+    except (wave.Error, EOFError):
+        return 0.0
+
+
+class Player:
+    """Speaks a WAV; ``stop()`` cuts him off (talk again to interrupt)."""
+
+    def __init__(self) -> None:
+        self._stop = threading.Event()
+        self.playing = False
+
+    def __call__(self, data: bytes) -> None:
+        try:
+            import winsound
+        except ImportError:  # not Windows (tests)
+            return
+        import tempfile
+        from pathlib import Path
+
+        path = Path(tempfile.gettempdir()) / f"sergio-voz-{os.getpid()}.wav"
+        path.write_bytes(data)
+        self._stop.clear()
+        self.playing = True
+        try:
+            winsound.PlaySound(str(path), winsound.SND_FILENAME | winsound.SND_ASYNC)
+            if self._stop.wait(wav_seconds(data) + 0.15):
+                winsound.PlaySound(None, 0)  # interrupted
+        finally:
+            self.playing = False
+
+    def stop(self) -> None:
+        self._stop.set()
+
+
+play_wav = Player()
 
 
 def beep(freq: int) -> None:
@@ -452,10 +574,16 @@ def _plain(text: str) -> str:
     return " ".join("".join(c if c.isalnum() else " " for c in plain).split())
 
 
+def starts_with_order(text: str) -> bool:
+    """ "abre…", "haz clic…": an order the agent carries out."""
+    words = _plain(text).split()
+    return bool(words) and words[0] in _ACTION_VERBS
+
+
 def wants_screen(text: str) -> bool:
     """Questions about what is on screen: look, answer and point (Clicky)."""
     plain = _plain(text)
-    if plain.split()[:1] and plain.split()[0] in _ACTION_VERBS:
+    if starts_with_order(text):
         return False  # an order: the agent does it instead of pointing
     return any(phrase in plain for phrase in _SCREEN_PHRASES)
 
@@ -501,6 +629,9 @@ class Assistant:
         self.on_seen = on_seen  # show what Sergio saw (camera window)
         self.screen = screen  # screenshot + elements, for screen help
         self.point = point  # fly the orb to a spot on screen
+        self._clicky = False
+        self.last_heard = ""  # for diagnostics (sergio revisar)
+        self.last_error = ""
         self.player = player
         self.chime = chime
         self.clock = clock
@@ -509,21 +640,35 @@ class Assistant:
         self._last_stt_error = -1e9
         self._last_hint = -1e9
 
+    def stop_speaking(self) -> None:
+        """Interrupt the current answer (Clicky: talking again cuts it off)."""
+        stop = getattr(self.player, "stop", None)
+        if stop is not None:
+            stop()
+
+    def _fail(self, message: str) -> None:
+        self.last_error = f"{time.strftime('%H:%M:%S')} {message}"
+        self.ui.say(message)
+
     @property
     def expecting(self) -> bool:
         """True right after a bare "Sergio": the next sentence is for him."""
         return self.clock() < self._follow_up_until
 
-    def on_utterance(self, wav: bytes, *, addressed: bool) -> None:
-        """*addressed*: the user pressed Ctrl+Space (no wake word needed)."""
+    def on_utterance(
+        self, wav: bytes, *, addressed: bool, clicky: bool = False
+    ) -> None:
+        """*addressed*: Ctrl+Space (no wake word needed). *clicky*: held
+        Ctrl+Alt — Sergio looks at your screen with every question."""
         if self.busy:
             return
         self.busy = True
+        self._clicky = clicky
         try:
             self._turn(wav, addressed)
         except Exception as exc:  # noqa: BLE001 — never let a turn kill the loop
             log.exception("voice turn failed")
-            self.ui.say(f"Algo falló: {explain(exc)}")
+            self._fail(f"Algo falló: {explain(exc)}")
         finally:
             self.busy = False
             self.ui.state("listening" if self.expecting else "idle")
@@ -540,8 +685,9 @@ class Assistant:
             # report a broken speech-to-text once a minute, not per sound.
             if for_me or self.clock() - self._last_stt_error > 60:
                 self._last_stt_error = self.clock()
-                self.ui.say(f"No pude entender el audio: {explain(exc)}")
+                self._fail(f"No pude entender el audio: {explain(exc)}")
             return
+        self.last_heard = text
         if not for_me:
             heard = text
             woke, text = parse_wake(text)
@@ -577,7 +723,7 @@ class Assistant:
             self._respond(text)
         except Exception as exc:  # noqa: BLE001
             log.exception("typed turn failed")
-            self.ui.say(f"Algo falló: {explain(exc)}")
+            self._fail(f"Algo falló: {explain(exc)}")
         finally:
             self.busy = False
             self.ui.state("idle")
@@ -586,7 +732,9 @@ class Assistant:
         self.ui.state("thinking")
         self.ui.say(f"«{text}»")
         answer = ""
-        if self.screen is not None and wants_screen(text):
+        clicky = self._clicky and not starts_with_order(text)
+        self._clicky = False
+        if self.screen is not None and (clicky or wants_screen(text)):
             try:
                 png, elements, scale = self.screen()
                 reply = self.client.screen_help(png, text, elements)
@@ -596,20 +744,20 @@ class Assistant:
                     self.point(spot[0], spot[1], str(reply.get("label") or ""))
             except Exception as exc:  # noqa: BLE001 — fall back to the agent
                 log.exception("screen help failed")
-                self.ui.say(f"No pude ver tu pantalla: {explain(exc)}")
+                self._fail(f"No pude ver tu pantalla: {explain(exc)}")
         if not answer and self.eyes is not None and wants_camera(text):
             try:
                 answer = self.client.look(self.eyes(), text)
                 self.on_seen(answer)
             except Exception as exc:  # noqa: BLE001 — fall back to the agent
                 log.exception("camera look failed")
-                self.ui.say(f"No pude ver bien: {explain(exc)}")
+                self._fail(f"No pude ver bien: {explain(exc)}")
         if not answer:
             try:
                 answer = self.client.ask(text)
             except Exception as exc:  # noqa: BLE001
                 log.exception("chat failed")
-                self.ui.say(f"El modelo no respondió: {explain(exc)}")
+                self._fail(f"El modelo no respondió: {explain(exc)}")
                 return
         if not answer:
             return
@@ -644,6 +792,15 @@ class Ears:
         self._queue: queue.Queue[bytes] = queue.Queue(maxsize=200)
         self._stream: Any = None
         self.device_name = ""
+        self._peaks: deque[tuple[int, float]] = deque(maxlen=64)  # (second, rms)
+        self._hold = False  # Ctrl+Alt held (Clicky mode)
+        self._hold_frames: list[bytes] = []
+        self._hold_send = False
+
+    def peak(self, seconds: float = 30.0) -> int:
+        """Loudest sound (RMS) heard recently, for diagnostics."""
+        since = self.clock() - seconds
+        return int(max((lvl for t, lvl in self._peaks if t >= since), default=0))
 
     @property
     def push_to_talk(self) -> bool:
@@ -652,6 +809,7 @@ class Ears:
     def talk(self) -> None:
         """Ctrl+Space / click: record now, no wake word, until you stop talking."""
         if self.assistant.busy:
+            self.assistant.stop_speaking()  # pressing again cuts him off
             return
         if self._ptt_until:  # pressed again: send what we have
             self._ptt_until = self.clock()
@@ -663,10 +821,55 @@ class Ears:
         self.assistant.ui.state("listening")
         self.assistant.ui.say("Te escucho…")
 
-    def feed(self, chunk: bytes) -> tuple[bytes, bool] | None:
-        """Process one frame; returns (utterance_wav, addressed) when ready."""
+    # -- hold to talk (Clicky): hold Ctrl+Alt, speak, release to send --------
+    def hold_start(self) -> None:
+        if self.assistant.busy:
+            self.assistant.stop_speaking()  # talking again interrupts him
+            deadline = time.monotonic() + 0.8
+            while self.assistant.busy and time.monotonic() < deadline:
+                time.sleep(0.02)
+            if self.assistant.busy:
+                return
+        self._hold_frames = []
+        self._hold_send = False
+        self._hold = True
+        self.assistant.chime(880)
+        self.assistant.ui.state("listening")
+        self.assistant.ui.say("Te escucho y miro tu pantalla… suelta para enviar")
+
+    def hold_end(self) -> None:
+        if self._hold:
+            self._hold = False
+            self._hold_send = True
+
+    def hold_cancel(self) -> None:
+        """Another key was pressed with Ctrl+Alt: it was a shortcut, not talk."""
+        if self._hold or self._hold_send:
+            self._hold = self._hold_send = False
+            self._hold_frames = []
+            self.assistant.ui.state("idle")
+
+    def feed(self, chunk: bytes) -> tuple[bytes, bool, bool] | None:
+        """Process one frame; returns (wav, addressed, clicky) when ready."""
         level = Segmenter.level(chunk)
         self.on_level(min(1.0, level / max(1.0, self.segmenter.threshold() * 4)))
+        second = int(self.clock())
+        if self._peaks and self._peaks[-1][0] == second:
+            if level > self._peaks[-1][1]:
+                self._peaks[-1] = (second, level)
+        else:
+            self._peaks.append((second, level))
+        if self._hold:
+            if len(self._hold_frames) < 60 * RATE // FRAME:  # max one minute
+                self._hold_frames.append(chunk)
+            return None
+        if self._hold_send:
+            self._hold_send = False
+            frames, self._hold_frames = self._hold_frames, []
+            if len(frames) < 0.3 * RATE / FRAME:  # a tap, not speech
+                self.assistant.ui.state("idle")
+                return None
+            return to_wav(frames), True, True
         if self.assistant.busy:
             self.segmenter.reset()  # don't hear our own voice
             return None
@@ -679,13 +882,13 @@ class Ears:
                 return None
             self._ptt_until = 0.0
             self.segmenter.end_silence = 0.8
-            return to_wav(utterance), True
+            return to_wav(utterance), True, False
         if not (self.wake_word or self.assistant.expecting):
             return None
         utterance = self.segmenter.feed(chunk)
         if utterance is None:
             return None
-        return to_wav(utterance), False
+        return to_wav(utterance), False, False
 
     def start(self) -> None:
         import sounddevice as sd
@@ -714,13 +917,13 @@ class Ears:
         while True:
             ready = self.feed(self._queue.get())
             if ready is not None:
-                wav, addressed = ready
+                wav, addressed, clicky = ready
                 threading.Thread(
                     target=self.assistant.on_utterance,
                     args=(wav,),
-                    kwargs={"addressed": addressed},
+                    kwargs={"addressed": addressed, "clicky": clicky},
                     daemon=True,
                 ).start()
 
 
-__all__ = ["Assistant", "Ears", "SergioClient", "to_wav"]
+__all__ = ["Assistant", "Ears", "Player", "SergioClient", "to_wav"]

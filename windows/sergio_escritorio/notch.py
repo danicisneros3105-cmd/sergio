@@ -85,6 +85,7 @@ class Notch(QWidget):
         self._hidden_for_fullscreen = False
         self._last_fs_check = 0.0
         self.state = "idle"
+        self.name = "Sergio"  # personalisation can rename him
         self.caption = ""
         self._caption_until = 0.0
         self._caption_at = 0.0
@@ -268,7 +269,9 @@ class Notch(QWidget):
             return
 
         text_x = centre.x() + size + 14
-        label = LABELS.get(self.state, "Sergio")
+        label = LABELS.get(self.state, self.name)
+        if label == "Sergio":
+            label = self.name
         has_text = bool(self.lines())
         title_y = rect.top() + (24 if has_text else rect.height() / 2 + 4.5)
         p.setFont(self._title)

@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import time
 import uuid
 from collections.abc import AsyncIterator, Sequence
@@ -93,6 +94,10 @@ _ANTHROPIC_MODELS = [
     "claude-haiku-4-5-20251001",
 ]
 _GOOGLE_MODELS = [
+    "gemini-3.8-flash",
+    "gemini-3.5-flash",
+    "gemini-3.1-pro-preview",
+    "gemini-3.1-flash-lite",
     "gemini-2.5-pro",
     "gemini-2.5-flash",
     "gemini-3-pro",
@@ -239,6 +244,52 @@ def _is_google_model(model: str) -> bool:
         and not _is_openrouter_model(model)
         and not _is_atlascloud_model(model)
     )
+
+
+EFFORTS = ("minimal", "low", "medium", "high")
+
+
+def split_effort(model: str) -> tuple[str, str]:
+    """``gemini-3.8-flash@high`` -> (``gemini-3.8-flash``, ``high``).
+
+    Sergio asks for an effort (thinking) level per request this way, so the
+    OpenAI-compatible API does not need an extra field.
+    """
+    name, sep, effort = model.rpartition("@")
+    if sep and effort.lower() in EFFORTS:
+        return name, effort.lower()
+    return model, ""
+
+
+def _gemini_generation(model: str) -> float:
+    found = re.match(r"gemini-(\d+(?:\.\d+)?)", model)
+    return float(found.group(1)) if found else 0.0
+
+
+def google_config_kwargs(
+    model: str, temperature: float, max_tokens: int, effort: str = ""
+) -> Dict[str, Any]:
+    """GenerateContentConfig arguments for a Gemini model.
+
+    Gemini 3+ replaced temperature with ``thinking_level`` (low/medium/high);
+    thinking tokens share the output budget, so give it room.
+    """
+    if _gemini_generation(model) < 3:
+        return {"temperature": temperature, "max_output_tokens": max_tokens}
+    kwargs: Dict[str, Any] = {"max_output_tokens": max(max_tokens, 8192)}
+    level = effort or os.environ.get("SERGIO_EFFORT", "").strip().lower()
+    if level in EFFORTS:
+        if level == "minimal" and "flash" not in model:
+            level = "low"  # Pro has no minimal level
+        try:
+            from google.genai import types as genai_types
+
+            kwargs["thinking_config"] = genai_types.ThinkingConfig(
+                thinking_level=level.upper()
+            )
+        except Exception:  # noqa: BLE001 — older SDK: default thinking
+            pass
+    return kwargs
 
 
 # Positive prefix predicate for genuine OpenAI models. Kept in sync with
@@ -999,9 +1050,9 @@ class CloudEngine(InferenceEngine):
 
         from google.genai import types as genai_types
 
+        model, effort = split_effort(model)
         config = genai_types.GenerateContentConfig(
-            temperature=temperature,
-            max_output_tokens=max_tokens,
+            **google_config_kwargs(model, temperature, max_tokens, effort)
         )
         if system_text:
             config.system_instruction = system_text
@@ -1615,9 +1666,9 @@ class CloudEngine(InferenceEngine):
 
         from google.genai import types as genai_types
 
+        model, effort = split_effort(model)
         config = genai_types.GenerateContentConfig(
-            temperature=temperature,
-            max_output_tokens=max_tokens,
+            **google_config_kwargs(model, temperature, max_tokens, effort)
         )
         if system_text:
             config.system_instruction = system_text
@@ -1693,9 +1744,9 @@ class CloudEngine(InferenceEngine):
 
         from google.genai import types as genai_types
 
+        model, effort = split_effort(model)
         config = genai_types.GenerateContentConfig(
-            temperature=temperature,
-            max_output_tokens=max_tokens,
+            **google_config_kwargs(model, temperature, max_tokens, effort)
         )
         if system_text:
             config.system_instruction = system_text

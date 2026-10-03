@@ -222,8 +222,8 @@ def test_push_to_talk_records_quiet_voices_and_sends_on_timeout():
     quiet = _frames(_tone(0.5, 60))  # a very quiet laptop microphone
     assert all(ears.feed(f) is None for f in quiet)
     clock.now += 11
-    wav, addressed = ears.feed(quiet[0])
-    assert addressed is True and len(wav) > 16000  # sent anyway: Whisper decides
+    wav, addressed, clicky = ears.feed(quiet[0])
+    assert addressed is True and clicky is False and len(wav) > 16000
     assert not ears.push_to_talk
 
 

@@ -98,9 +98,11 @@ class Controller:
         on_activity: Callable[[str], None] | None = None,
         sleep: Callable[[float], None] = time.sleep,
         camera: Callable[[], bytes] | None = None,
+        diag: Callable[[], dict] | None = None,
     ) -> None:
         self.backend = backend
         self.camera = camera  # returns a JPEG of the webcam, or None
+        self.diag = diag or (lambda: {})  # what the ear is doing (revisar)
         self.enabled = True
         self._elements: dict[int, tuple[int, int]] = {}
         self._lock = threading.Lock()
@@ -361,6 +363,8 @@ def make_server(
                     self._send(200, controller.ui())
                 elif self.path == "/camera":
                     self._send(200, controller.camera_shot())
+                elif self.path == "/diag":
+                    self._send(200, {"ok": True, **controller.diag()})
                 else:
                     self._send(404, {"ok": False, "error": "not found"})
             except Exception as exc:  # noqa: BLE001

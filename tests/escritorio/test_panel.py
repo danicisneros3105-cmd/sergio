@@ -100,7 +100,30 @@ def test_personalise_saves_live(qt):
     panel.eyes.click()
     assert saved[-1]["theme"] == "Rosa" and saved[-1]["eyes"] is False
     assert SETTINGS["theme"] == "Rosa"
-    panel._save(theme="Océano", eyes=True)
+    # Muse-style: character, body colour, accessory, name, personality, brain
+    panel.style_seg.buttons["muse"].click()
+    assert SETTINGS["style"] == "muse" and saved[-1]["mouth"] == "sonrisa"
+    assert panel.colour_stack.currentIndex() == 1
+    next(b for b in panel.body_group.buttons() if b.toolTip() == "Cielo").click()
+    next(b for b in panel.chip_group.buttons() if b.key == "laurel").click()
+    panel.name.setText("Jolly")
+    panel.name.editingFinished.emit()
+    panel.persona.setCurrentText("Divertido")
+    panel.brain.buttons["profundo"].click()
+    last = saved[-1]
+    assert last["body"] == "#a8d8ff" and last["accessory"] == "laurel"
+    assert last["name"] == "Jolly" and panel.title.text() == "Jolly"
+    assert last["personality"] == "Divertido" and last["effort"] == "profundo"
+    panel.set_level(0.9)
+    assert panel.mic.level > 0
+    panel._save(
+        theme="Océano",
+        eyes=True,
+        style="orbe",
+        mouth="ninguna",
+        accessory="ninguno",
+        name="Sergio",
+    )
 
 
 def test_world_tab_loads_and_flies_the_globe(qt):

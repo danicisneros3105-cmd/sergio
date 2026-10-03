@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 from urllib.parse import parse_qs
 
+import pytest
+
 from openjarvis.tools.live_world import (
     GlobeViewTool,
     LiveEarthquakesTool,
@@ -151,7 +153,28 @@ def test_upcoming_launches_handles_list_and_detail_shapes():
     assert "Ariane 6 — 2026-10-05 — Kourou" in result.content
 
 
-def test_globe_view_writes_target_for_the_ui():
+@pytest.fixture
+def globe_up(monkeypatch):
+    from openjarvis.tools import live_world
+
+    monkeypatch.setattr(
+        live_world, "ensure_globe", lambda wait=90.0: (True, "http://127.0.0.1:4173/")
+    )
+
+
+def test_globe_view_explains_when_the_globe_cannot_start(monkeypatch):
+    from openjarvis.tools import live_world
+
+    monkeypatch.setattr(
+        live_world,
+        "ensure_globe",
+        lambda wait=90.0: (False, "El globo no arrancó: skipped: Node.js 24+"),
+    )
+    result = GlobeViewTool(http_get=FakeHttp(NOMINATIM)).execute(place="Madrid")
+    assert not result.success and "Node.js" in result.content
+
+
+def test_globe_view_writes_target_for_the_ui(globe_up):
     result = GlobeViewTool(http_get=FakeHttp(NOMINATIM)).execute(
         place="Madrid", style="night_vision", altitude_m=500_000
     )

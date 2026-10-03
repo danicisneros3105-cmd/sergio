@@ -48,6 +48,16 @@ def load_config() -> dict[str, Any]:
     data.setdefault("eyes", True)
     data.setdefault("cursor_size", 9.0)
     data.setdefault("voice", "es-EC-LuisNeural")
+    # Muse-style personalisation and the brain's effort.
+    data.setdefault("name", "Sergio")
+    data.setdefault("style", "orbe")
+    data.setdefault("body", "#f3e9d2")
+    data.setdefault("eye_style", "ovalos")
+    data.setdefault("mouth", "ninguna")
+    data.setdefault("accessory", "ninguno")
+    data.setdefault("personality", "Amable")
+    data.setdefault("voice_rate", "+5%")
+    data.setdefault("effort", "auto")
     return data
 
 
@@ -75,28 +85,6 @@ def make_icon(state: str = "idle") -> object:
     draw.ellipse((8, 8, 248, 248), fill=colours.get(state, colours["idle"]))
     draw.ellipse((80, 80, 176, 176), outline=(255, 255, 255), width=26)
     return image
-
-
-def open_app_window(url: str) -> None:
-    """Open a page (the 3D globe) as its own app window, without browser bars."""
-    import shutil
-    import subprocess
-
-    edge = shutil.which("msedge") or next(
-        (
-            p
-            for p in (
-                r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
-                r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
-            )
-            if os.path.exists(p)
-        ),
-        None,
-    )
-    if edge:
-        subprocess.Popen([edge, f"--app={url}", "--window-size=1280,800"])
-    else:
-        webbrowser.open(url)
 
 
 def single_instance() -> bool:
@@ -166,21 +154,34 @@ def run(config: dict[str, Any]) -> None:
     app.setQuitOnLastWindowClosed(False)
     from sergio_escritorio import companion as companion_mod
     from sergio_escritorio.camera import CameraFeed, CameraWindow
-    from sergio_escritorio.character import set_theme
+    from sergio_escritorio.character import PERSONALITIES, apply_config
+    from sergio_escritorio.launch import open_app_window
+    from sergio_escritorio.listen import set_wake_name
     from sergio_escritorio.panel import ControlCenter, PanelActions, Toggle
-    from sergio_escritorio.personalize import PersonalizeDialog
 
-    set_theme(config["theme"], config["eyes"])
+    apply_config(config)
+    set_wake_name(config["name"])
     companion_mod.ORB = float(config["cursor_size"])
     show_notch = bool(config["show_notch"])
     companion = Companion(captions=not show_notch)
     feed = CameraFeed()
-    camera_window = CameraWindow(feed)
+    camera_window = CameraWindow(
+        feed,
+        # "¿Qué ves?" button: same as asking out loud (assistant made below).
+        on_ask=lambda: threading.Thread(
+            target=lambda: assistant.on_text("¿Qué ves?"), daemon=True
+        ).start(),
+    )
     notch = Notch(fullscreen_app=foreground_is_fullscreen)
+    notch.name = config["name"]
 
     panels: list[ControlCenter] = []  # created once the tray actions exist
 
     def show_state(name: str) -> None:
+        # Hidden by the user? Like Clicky, he still shows up while he listens,
+        # thinks or talks, and leaves when done.
+        if not config.get("show_companion", True):
+            companion.setVisible(name != "idle" or companion.pointing)
         companion.set_state(name)
         notch.set_state(name)
         for panel in panels:
@@ -205,10 +206,13 @@ def run(config: dict[str, Any]) -> None:
         camera = Signal()
         peek = Signal()  # open the camera window (Sergio is looking)
         point = Signal(int, int, str)  # fly the orb to a spot (screen help)
+        clicked = Signal()  # a mouse click anywhere: he hops
 
     bridge = Bridge()
     bridge.state.connect(show_state)
     bridge.level.connect(notch.set_level)
+    bridge.level.connect(companion.set_level)
+    bridge.clicked.connect(companion.bounce)
     bridge.caption.connect(lambda text: show_text(text))
 
     class UIAdapter:
@@ -244,6 +248,19 @@ def run(config: dict[str, Any]) -> None:
     client = SergioClient(config["server_url"])
     client.voice = config["voice"]
 
+    def apply_brain(cfg: dict) -> None:
+        """Voice, personality and effort chosen in the notch."""
+        client.voice = cfg["voice"]
+        client.voice_rate = cfg["voice_rate"]
+        client.effort = cfg["effort"]
+        name = cfg["name"]
+        persona = PERSONALITIES.get(cfg["personality"], "")
+        client.personality = (
+            f"Tu nombre es {name}. {persona}" if name != "Sergio" else persona
+        )
+
+    apply_brain(config)
+
     def eyes() -> bytes:
         """Direct look for "¿qué tengo en la mano?": show the window too."""
         bridge.peek.emit()
@@ -264,6 +281,25 @@ def run(config: dict[str, Any]) -> None:
     ears = Ears(
         assistant, wake_word=bool(config["wake_word"]), on_level=bridge.level.emit
     )
+
+    def diag() -> dict:
+        """For `sergio revisar`: microphone, levels, ear, brain, last error."""
+        from sergio_escritorio.voice import _LOCAL
+
+        ear = getattr(_LOCAL[0], "name", "") if _LOCAL and _LOCAL[0] else ""
+        return {
+            "microphone": ears.device_name,
+            "peak_level": ears.peak(),
+            "threshold": round(ears.segmenter.threshold()),
+            "wake_word": ears.wake_word,
+            "whisper": ear or "del servidor (Whisper local no cargado)",
+            "brain": client.last_brain,
+            "last_heard": assistant.last_heard,
+            "last_error": assistant.last_error,
+            "log": str(HOME / "sergio.log"),
+        }
+
+    controller.diag = diag
     try:
         ears.start()
     except Exception as exc:  # noqa: BLE001 — no microphone
@@ -272,7 +308,10 @@ def run(config: dict[str, Any]) -> None:
 
     # -- tray --------------------------------------------------------------
     tray = QSystemTrayIcon(tray_icon(STATE_COLORS["idle"]))
-    tray.setToolTip("Sergio: di «Sergio…» o pulsa Ctrl+Espacio")
+    tray.setToolTip(
+        "Sergio: di «Sergio…», pulsa Ctrl+Espacio, o mantén Ctrl+Alt para "
+        "preguntarle por tu pantalla"
+    )
     menu = QMenu()
 
     def remember(key: str, value: bool) -> None:
@@ -343,21 +382,15 @@ def run(config: dict[str, Any]) -> None:
     menu.addAction(camera_action)
 
     def save_personalization(new: dict) -> None:
-        set_theme(new["theme"], new["eyes"])
+        apply_config(new)
         companion_mod.ORB = float(new["cursor_size"])
-        client.voice = new["voice"]
+        apply_brain(new)
+        set_wake_name(new["name"])
+        notch.name = new["name"]
         save_config(config)
         tray.setIcon(tray_icon(STATE_COLORS["idle"]))
 
     personalize_action = QAction("Personalizar a Sergio…", menu)
-    dialogs: list = []
-
-    def open_personalize() -> None:
-        dialog = PersonalizeDialog(config, save_personalization)
-        dialogs[:] = [dialog]  # keep a reference while it is open
-        dialog.show()
-
-    personalize_action.triggered.connect(open_personalize)
     menu.addAction(personalize_action)
 
     # -- control center (click the notch) ---------------------------------
@@ -404,6 +437,8 @@ def run(config: dict[str, Any]) -> None:
         )
     )
     panels.append(panel)
+    personalize_action.triggered.connect(lambda: (panel.open(), panel.show_tab(1)))
+    bridge.level.connect(panel.set_level)
     panel_action = QAction("Centro de control  (clic en el notch)", menu)
     panel_action.triggered.connect(panel.open)
     menu.insertAction(talk_action, panel_action)
@@ -443,10 +478,26 @@ def run(config: dict[str, Any]) -> None:
     )
     hotkeys.start()
 
+    # Clicky: hold Ctrl+Alt, talk while holding, release to send. Sergio looks
+    # at your screen with the question and points at what you need.
+    from pynput import mouse
+
+    from sergio_escritorio.hold import HoldDetector
+
+    detector = HoldDetector(ears.hold_start, ears.hold_end, ears.hold_cancel)
+    keyboard.Listener(on_press=detector.press, on_release=detector.release).start()
+    mouse.Listener(
+        on_click=lambda _x, _y, _b, pressed: bridge.clicked.emit() if pressed else None
+    ).start()
+
     notch.on_click = panel.toggle
     companion.setVisible(bool(config["show_companion"]))
     notch.setVisible(show_notch)
-    show_text("Hola, soy Sergio. Di «Sergio…» o pulsa Ctrl+Espacio.", 6)
+    show_text(
+        f"Hola, soy {config['name']}. Di «Sergio…», o mantén Ctrl+Alt y "
+        "pregúntame por lo que ves en pantalla.",
+        7,
+    )
     app.aboutToQuit.connect(server.shutdown)
     app.exec()
 

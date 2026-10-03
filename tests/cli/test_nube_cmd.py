@@ -97,4 +97,4 @@ def test_bad_kimi_key_still_saves_gemini(tmp_path, monkeypatch):
     env = (tmp_path / "sergio.env").read_text()
     assert "GEMINI_API_KEY=AQ.g" in env and "MOONSHOT_API_KEY=\n" in env
     cfg = (tmp_path / "config.toml").read_text()
-    assert 'default_model = "gemini-2.5-flash"' in cfg
+    assert 'default_model = "gemini-3.8-flash"' in cfg

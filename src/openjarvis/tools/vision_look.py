@@ -20,7 +20,7 @@ PROMPT = (
     "sorpresa, cansancio), dilo. No inventes lo que no se ve."
 )
 KIMI_VISION_MODELS = ("kimi-k2.6", "kimi-k2.5", "moonshot-v1-8k-vision-preview")
-GEMINI_VISION_MODELS = ("gemini-2.5-flash", "gemini-3-flash-preview")
+GEMINI_VISION_MODELS = ("gemini-3.8-flash", "gemini-3.5-flash", "gemini-2.5-flash")
 
 
 def _kimi(
@@ -75,6 +75,7 @@ def _gemini(jpeg: bytes, prompt: str, mime: str = "image/jpeg") -> str:
         raise RuntimeError("no Gemini key")
     from google.genai import types
 
+    from openjarvis.engine.cloud import google_config_kwargs
     from openjarvis.engine.google_client import SwitchingClient
 
     global _GEMINI
@@ -90,6 +91,10 @@ def _gemini(jpeg: bytes, prompt: str, mime: str = "image/jpeg") -> str:
                     types.Part.from_bytes(data=jpeg, mime_type=mime),
                     prompt,
                 ],
+                # Seeing should feel instant: think a little, not a lot.
+                config=types.GenerateContentConfig(
+                    **google_config_kwargs(model, 0.4, 1024, "low")
+                ),
             )
             return str(resp.text or "").strip()
         except Exception as exc:  # noqa: BLE001

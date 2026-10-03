@@ -68,7 +68,7 @@ def test_run_shell_output_and_timeout(tmp_path):
             "kimi-k2.5",
             None,
         ),
-        ("", {"GEMINI_API_KEY": "g"}, "gemini-2.5-flash", None),
+        ("", {"GEMINI_API_KEY": "g"}, "gemini-3.8-flash", None),
         ('[intelligence]\ndefault_model = "qwen3:8b"\n', {}, "", None),
     ],
 )
@@ -83,3 +83,12 @@ def test_prefer_cloud(tmp_path, config, env, brain, fallback):
         assert intel["default_model"] == brain
     if fallback:
         assert intel["fallback_model"] == fallback
+
+
+def test_old_gemini_default_is_upgraded(tmp_path):
+    cfg = tmp_path / "config.toml"
+    cfg.write_text('[intelligence]\ndefault_model = "gemini-2.5-flash"\n')
+    assert (
+        escritorio_cmd.prefer_cloud(cfg, {"GEMINI_API_KEY": "g"}) == "gemini-3.8-flash"
+    )
+    assert 'default_model = "gemini-3.8-flash"' in cfg.read_text()

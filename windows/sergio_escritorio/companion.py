@@ -8,6 +8,7 @@ Drawn with Qt so edges are antialiased and translucent on any wallpaper.
 
 from __future__ import annotations
 
+import math
 import time
 
 from PySide6.QtCore import QPointF, QRectF, Qt, QTimer
@@ -39,6 +40,9 @@ ORB = 9.0  # character radius
 BUBBLE_MAX_W = 300.0
 FONT_FAMILIES = ["Segoe UI Variable Text", "SF Pro Text", "Geist", "Segoe UI"]
 POINT_PAD = 34.0  # where the pointed spot sits inside the canvas
+TOP_PAD = 18.0  # room above the orb for hops and sleepy z's
+SLEEP_AFTER = 90.0  # seconds without mouse movement before he naps
+HAPPY_FOR = 3.0  # seconds of smile after answering
 POINT_SECONDS = 7.0
 
 
@@ -92,14 +96,63 @@ class Companion(QWidget):
         self._target: QPointF | None = None  # Clicky-style pointing
         self._target_until = 0.0
         self._target_label = ""
+        # Life: mood, motion, voice level.
+        self.level = 0.0
+        self.mood = ""
+        self._last_cursor = QPointF(QCursor.pos())
+        self._last_move = time.monotonic()
+        self._vel = QPointF(0, 0)
+        self._bounce_at = -10.0
+        self._happy_until = 0.0
+        self._sleeping = False
         self._timer = QTimer(self)
         self._timer.timeout.connect(self._tick)
         self._timer.start(16)
 
     # -- API (call from the Qt thread; use signals from other threads) -------
     def set_state(self, state: str) -> None:
-        self.state = state if state in STATE_COLORS else "idle"
+        state = state if state in STATE_COLORS else "idle"
+        if self.state == "speaking" and state == "idle":
+            self._happy_until = time.monotonic() + HAPPY_FOR  # answered: smile
+        if state != "idle":
+            self._wake()
+        self.state = state
         self.update()
+
+    def set_level(self, level: float) -> None:
+        self.level = max(0.0, min(1.0, level))
+
+    def bounce(self) -> None:
+        """A little hop (you clicked, or he woke up)."""
+        self._bounce_at = time.monotonic()
+
+    def _wake(self) -> None:
+        self._last_move = time.monotonic()
+        if self._sleeping:
+            self._sleeping = False
+            self.bounce()
+
+    def life(self, now: float) -> tuple[str, float, float]:
+        """(mood, squash, hop in px) from what happened recently."""
+        if self.state == "idle" and now - self._last_move > SLEEP_AFTER:
+            self._sleeping = True
+        if self._sleeping:
+            mood = "sleep"
+        elif self._target is not None:
+            mood = "curious"
+        elif now < self._happy_until:
+            mood = "happy"
+        else:
+            mood = ""
+        speed = (self._vel.x() ** 2 + self._vel.y() ** 2) ** 0.5
+        squash = 1.0 + min(0.16, speed * 0.006)  # stretches when moving fast
+        hop = 0.0
+        phase = now - self._bounce_at
+        if 0 <= phase < 0.6:
+            wave = math.sin(phase * math.pi / 0.3) * math.exp(-phase * 5)
+            squash *= 1.0 - 0.22 * wave
+            hop = max(0.0, math.sin(phase * math.pi / 0.6)) * ORB * 0.9
+        return mood, squash, hop
 
     def say(self, text: str, seconds: float = 0.0) -> None:
         """Show a caption; it fades after *seconds* (default: by length)."""
@@ -124,7 +177,14 @@ class Companion(QWidget):
 
     # -- motion -------------------------------------------------------------
     def _tick(self) -> None:
-        if self._target is not None and time.monotonic() > self._target_until:
+        now = time.monotonic()
+        cursor_now = QPointF(QCursor.pos())
+        moved = cursor_now - self._last_cursor
+        self._last_cursor = cursor_now
+        self._vel = self._vel * 0.7 + moved * 0.3
+        if abs(moved.x()) + abs(moved.y()) > 2:
+            self._wake()
+        if self._target is not None and now > self._target_until:
             self._target = None
         if self._target is not None:
             self._flip = False
@@ -144,9 +204,9 @@ class Companion(QWidget):
                 cursor.x() - (CANVAS_W - OFFSET.x() - 2 * ORB)
                 if self._flip
                 else cursor.x() + OFFSET.x() - 2 * ORB,
-                cursor.y() - CANVAS_H + 2 * ORB - OFFSET.y()
+                cursor.y() - CANVAS_H + 2 * ORB + TOP_PAD - OFFSET.y()
                 if drop
-                else cursor.y() + OFFSET.y() - 2 * ORB,
+                else cursor.y() + OFFSET.y() - 2 * ORB - TOP_PAD,
             )
             # Critically damped follow: smooth, never overshoots.
             self._pos += (anchor - self._pos) * 0.32
@@ -160,7 +220,7 @@ class Companion(QWidget):
         if self._target is not None:
             return QPointF(POINT_PAD + 22, POINT_PAD + 20)
         x = CANVAS_W - 2 * ORB if self._flip else 2 * ORB
-        return QPointF(x, 2 * ORB)
+        return QPointF(x, 2 * ORB + TOP_PAD)
 
     def paintEvent(self, _event: object) -> None:  # noqa: N802 (Qt API)
         painter = QPainter(self)
@@ -179,7 +239,47 @@ class Companion(QWidget):
         painter.end()
 
     def draw_orb(self, p: QPainter, t: float) -> None:
-        draw_character(p, self.orb_centre(), ORB, self.state, t, QPointF(-0.6, -0.8))
+        mood, squash, hop = self.life(time.monotonic())
+        self.mood = mood
+        centre = self.orb_centre() - QPointF(0, hop)
+        speed = (self._vel.x() ** 2 + self._vel.y() ** 2) ** 0.5
+        if speed > 1.5:  # look where we are going
+            look = QPointF(self._vel.x() / speed, self._vel.y() / speed)
+        else:
+            look = QPointF(-0.6, -0.8)  # at the pointer tip
+        level = self.level if self.state == "listening" else 0.0
+        draw_character(
+            p, centre, ORB, self.state, t, look, level, mood=mood, squash=squash
+        )
+        if self.state == "listening":
+            self._draw_wave(p, centre, t)
+        elif self.state in ("thinking", "acting"):
+            self._draw_dots(p, centre, t)
+
+    def _draw_wave(self, p: QPainter, centre: QPointF, t: float) -> None:
+        """Clicky-style live waveform beside him while he listens."""
+        side = -1 if self._flip else 1
+        x0 = centre.x() + side * (ORB * 1.9)
+        colour = STATE_COLORS["listening"].lighter(130)
+        p.setPen(Qt.PenStyle.NoPen)
+        p.setBrush(colour)
+        for i in range(5):
+            shape = 0.45 + 0.55 * abs(math.sin(t * 9 + i * 1.3))
+            h = max(3.0, ORB * 2.2 * min(1.0, 0.15 + self.level * 1.4) * shape)
+            x = x0 + side * i * 4.5
+            p.drawRoundedRect(QRectF(x - 1.25, centre.y() - h / 2, 2.5, h), 1.25, 1.25)
+
+    def _draw_dots(self, p: QPainter, centre: QPointF, t: float) -> None:
+        """Three dots orbiting him while he thinks."""
+        colour = STATE_COLORS[self.state].lighter(140)
+        p.setPen(Qt.PenStyle.NoPen)
+        for i in range(3):
+            a = t * 4.0 + i * 2.1
+            dot = centre + QPointF(math.cos(a) * ORB * 1.7, math.sin(a) * ORB * 1.7)
+            c = QColor(colour)
+            c.setAlphaF(0.45 + 0.55 * (i + 1) / 3)
+            p.setBrush(c)
+            p.drawEllipse(dot, 1.8, 1.8)
 
     def draw_spot(self, p: QPainter, t: float) -> None:
         """A soft pulsing ring on the spot Sergio is pointing at."""
@@ -214,7 +314,7 @@ class Companion(QWidget):
         if not lines:
             height -= 3
         centre = self.orb_centre()
-        gap = 2 * ORB + 4
+        gap = 2 * ORB + 4 + (26 if self.state == "listening" else 0)  # room for wave
         x = centre.x() - gap - width if self._flip else centre.x() + gap
         rect = QRectF(x, centre.y() - 12, width, height)
 

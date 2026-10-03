@@ -80,6 +80,9 @@ def enable_tools(config_path: Path) -> None:
 
 
 CLOUD_PREFIXES = ("kimi", "moonshot", "gemini")
+GEMINI_MAIN = "gemini-3.8-flash"
+# Older Gemini defaults Sergio used before; upgraded automatically.
+OLD_GEMINI = {"gemini-2.5-flash", "gemini-3-flash-preview", "gemini-3-flash"}
 
 
 def prefer_cloud(config_path: Path, env: dict[str, str]) -> str:
@@ -98,12 +101,16 @@ def prefer_cloud(config_path: Path, env: dict[str, str]) -> str:
     )
     intel = doc.setdefault("intelligence", tomlkit.table())
     current = str(intel.get("default_model", "") or "")
+    if current in OLD_GEMINI and env.get("GEMINI_API_KEY"):
+        intel["default_model"] = GEMINI_MAIN
+        config_path.write_text(tomlkit.dumps(doc))
+        return GEMINI_MAIN
     if current.lower().startswith(CLOUD_PREFIXES):
         return current
     if env.get("MOONSHOT_API_KEY"):
         chosen = "kimi-k2.6"
     elif env.get("GEMINI_API_KEY"):
-        chosen = "gemini-2.5-flash"
+        chosen = GEMINI_MAIN
     else:
         return ""
     intel["default_model"] = chosen

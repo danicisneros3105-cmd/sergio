@@ -49,15 +49,21 @@ from PySide6.QtWidgets import (
 )
 
 from sergio_escritorio.character import (
+    ACCESSORIES,
+    BODIES,
+    EYE_STYLES,
+    MOUTHS,
     PALETTES,
+    PERSONALITIES,
     SETTINGS,
+    STYLES,
     THEMES,
+    apply_config,
     draw_character,
-    set_theme,
 )
 from sergio_escritorio.neural_voice import VOICES
 
-WIDTH, HEIGHT = 468, 520
+WIDTH, HEIGHT = 468, 600
 RADIUS = 30.0
 FONTS = ["Segoe UI Variable Text", "SF Pro Text", "Segoe UI"]
 TEXT = "#f5f5f7"
@@ -65,6 +71,13 @@ SECONDARY = "#8e8e93"
 CARD = "#1c1c1e"
 ACCENT = "#0a84ff"
 SIZES = {"S": 7.0, "M": 9.0, "L": 12.0}
+BRAINS = {
+    "auto": "Auto",
+    "rapido": "Rápido",
+    "equilibrado": "Normal",
+    "profundo": "Profundo",
+}
+RATES = {"-10%": "Lenta", "+5%": "Normal", "+20%": "Rápida"}
 GLOBE_STYLES = {
     "Normal": "normal",
     "Visión nocturna": "night_vision",
@@ -95,6 +108,8 @@ QPushButton#primary:hover {{ background: #3395ff; }}
 QPushButton#seg {{ background: transparent; color: {SECONDARY}; border-radius: 13px;
                    padding: 6px 0; font-weight: 600; font-size: 12px; }}
 QPushButton#seg:checked {{ background: #3a3a3c; color: {TEXT}; }}
+QWidget#segbar {{ background: {CARD}; border-radius: 14px; }}
+QWidget#segbar QPushButton#seg {{ padding: 5px 10px; border-radius: 11px; }}
 QComboBox {{ background: {CARD}; border: 1px solid #2c2c2e; border-radius: 12px;
              padding: 6px 12px; }}
 QComboBox QAbstractItemView {{ background: {CARD}; color: {TEXT};
@@ -307,6 +322,125 @@ class Swatch(QAbstractButton):
         p.end()
 
 
+class ColorDot(QAbstractButton):
+    """A flat round colour (body colours), ringed when selected; "+" = custom."""
+
+    def __init__(self, colour: str, tip: str, plus: bool = False) -> None:
+        super().__init__()
+        self.colour = colour
+        self.plus = plus
+        self.setCheckable(not plus)
+        self.setToolTip(tip)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setFixedSize(34, 34)
+
+    def paintEvent(self, _event: Any) -> None:  # noqa: N802
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        centre = QPointF(17, 17)
+        p.setPen(QPen(QColor(255, 255, 255, 40), 1))
+        if self.plus:
+            p.setBrush(QColor("#2c2c2e"))
+            p.drawEllipse(centre, 12, 12)
+            p.setPen(QPen(QColor(TEXT), 1.8))
+            p.drawLine(QPointF(17, 11), QPointF(17, 23))
+            p.drawLine(QPointF(11, 17), QPointF(23, 17))
+        else:
+            p.setBrush(QColor(self.colour))
+            p.drawEllipse(centre, 12, 12)
+        if self.isChecked():
+            p.setPen(QPen(QColor(TEXT), 2))
+            p.setBrush(Qt.BrushStyle.NoBrush)
+            p.drawEllipse(centre, 15.5, 15.5)
+        p.end()
+
+
+class LookChip(QAbstractButton):
+    """A mini Sergio wearing one accessory (Muse-style picker)."""
+
+    def __init__(self, key: str) -> None:
+        super().__init__()
+        self.key = key
+        self.setCheckable(True)
+        self.setToolTip(ACCESSORIES[key])
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setFixedSize(44, 44)
+
+    def paintEvent(self, _event: Any) -> None:  # noqa: N802
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        rect = QRectF(1, 1, 42, 42)
+        p.setPen(QPen(QColor(TEXT), 2) if self.isChecked() else Qt.PenStyle.NoPen)
+        p.setBrush(QColor(CARD))
+        p.drawRoundedRect(rect, 14, 14)
+        saved = SETTINGS["accessory"]
+        SETTINGS["accessory"] = self.key
+        draw_character(p, QPointF(22, 25), 10, "idle", 1.0)
+        SETTINGS["accessory"] = saved
+        p.end()
+
+
+class Segmented(QWidget):
+    """Apple segmented control for a few named options."""
+
+    def __init__(
+        self, options: dict[str, str], current: str, on_change: Callable[[str], None]
+    ) -> None:
+        super().__init__()
+        self.setObjectName("segbar")
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        row = QHBoxLayout(self)
+        row.setContentsMargins(3, 3, 3, 3)
+        row.setSpacing(2)
+        self.group = QButtonGroup(self)
+        self.buttons: dict[str, QPushButton] = {}
+        for key, label in options.items():
+            b = QPushButton(label)
+            b.setObjectName("seg")
+            b.setCheckable(True)
+            b.setChecked(key == current)
+            b.setCursor(Qt.CursorShape.PointingHandCursor)
+            b.clicked.connect(lambda _c=False, k=key: on_change(k))
+            self.group.addButton(b)
+            self.buttons[key] = b
+            row.addWidget(b)
+
+    def select(self, key: str) -> None:
+        if key in self.buttons:
+            self.buttons[key].setChecked(True)
+
+
+class LevelBar(QWidget):
+    """Live microphone level, so you can see that Sergio hears you."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.level = 0.0
+        self.setFixedHeight(6)
+
+    def set_level(self, level: float) -> None:
+        self.level = self.level * 0.6 + max(0.0, min(1.0, level)) * 0.4
+        self.update()
+
+    def paintEvent(self, _event: Any) -> None:  # noqa: N802
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        rect = QRectF(self.rect())
+        p.setPen(Qt.PenStyle.NoPen)
+        p.setBrush(QColor("#2c2c2e"))
+        p.drawRoundedRect(rect, 3, 3)
+        p.setBrush(QColor("#30d158") if self.level > 0.25 else QColor("#8e8e93"))
+        p.drawRoundedRect(QRectF(0, 0, rect.width() * self.level, rect.height()), 3, 3)
+        p.end()
+
+
+def _row(label: str, widget: QWidget) -> QHBoxLayout:
+    row = QHBoxLayout()
+    row.addWidget(_label(label), 1)
+    row.addWidget(widget)
+    return row
+
+
 def _label(text: str, name: str = "", wrap: bool = False) -> QLabel:
     label = QLabel(text)
     if name:
@@ -344,6 +478,7 @@ class ControlCenter(QWidget):
         root.addLayout(self._header())
         root.addWidget(self._segmented())
         self.pages = QStackedWidget()
+        apply_config(self.actions.config)
         self.pages.addWidget(self._home())
         self.pages.addWidget(self._personalise())
         self.pages.addWidget(self._world())
@@ -357,7 +492,8 @@ class ControlCenter(QWidget):
         row.addWidget(Orb(10, lambda: self.state))
         texts = QVBoxLayout()
         texts.setSpacing(0)
-        texts.addWidget(_label("Sergio", "title"))
+        self.title = _label(str(self.actions.config.get("name") or "Sergio"), "title")
+        texts.addWidget(self.title)
         self.subtitle = _label("", "subtitle")
         texts.addWidget(self.subtitle)
         row.addLayout(texts, 1)
@@ -409,6 +545,17 @@ class ControlCenter(QWidget):
         for i, tile in enumerate(self.tiles):
             grid.addWidget(tile, i // 2, i % 2)
         col.addLayout(grid)
+        self.brain = Segmented(
+            BRAINS,
+            str(self.actions.config.get("effort", "auto")),
+            lambda k: self._save(effort=k),
+        )
+        col.addLayout(_row("Cerebro", self.brain))
+        mic = QHBoxLayout()
+        mic.addWidget(_label("Micrófono", "hint"))
+        self.mic = LevelBar()
+        mic.addWidget(self.mic, 1)
+        col.addLayout(mic)
         col.addWidget(_label("ÚLTIMA RESPUESTA", "section"))
         self.answer = _label("Pregúntame algo o dime «Sergio, …».", "answer", True)
         self.answer.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
@@ -419,18 +566,36 @@ class ControlCenter(QWidget):
         return page
 
     def _personalise(self) -> QWidget:
+        """Muse-style: name, look, face, accessory, personality and voice."""
         cfg = self.actions.config
         page = QWidget()
         col = QVBoxLayout(page)
-        col.setContentsMargins(0, 0, 0, 0)
-        col.setSpacing(12)
+        col.setContentsMargins(0, 0, 14, 0)
+        col.setSpacing(10)
         top = QHBoxLayout()
         top.addStretch(1)
-        top.addWidget(Orb(26))
+        self.preview = Orb(30, lambda: self.state)
+        top.addWidget(self.preview)
         top.addStretch(1)
         col.addLayout(top)
-        col.addWidget(_label("COLORES", "section"))
-        swatches = QHBoxLayout()
+        self.name = QLineEdit(str(cfg.get("name") or "Sergio"))
+        self.name.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.name.setPlaceholderText("Su nombre")
+        self.name.editingFinished.connect(
+            lambda: self._save(name=self.name.text().strip() or "Sergio")
+        )
+        col.addWidget(self.name)
+        col.addWidget(_label("Si le cambias el nombre, también responde a él.", "hint"))
+
+        self.style_seg = Segmented(STYLES, SETTINGS["style"], self._pick_style)
+        col.addLayout(_row("Estilo", self.style_seg))
+
+        col.addWidget(_label("COLOR", "section"))
+        self.colour_stack = QStackedWidget()
+        # Orb: colour themes. Character: body colours (+ your own).
+        orb_row = QWidget()
+        swatches = QHBoxLayout(orb_row)
+        swatches.setContentsMargins(0, 0, 0, 0)
         self.swatch_group = QButtonGroup(self)
         for name in THEMES:
             sw = Swatch(name)
@@ -439,37 +604,60 @@ class ControlCenter(QWidget):
             swatches.addWidget(sw)
         swatches.addStretch(1)
         self.swatch_group.buttonClicked.connect(lambda b: self._save(theme=b.name))
-        col.addLayout(swatches)
+        body_row = QWidget()
+        bodies = QHBoxLayout(body_row)
+        bodies.setContentsMargins(0, 0, 0, 0)
+        bodies.setSpacing(4)
+        self.body_group = QButtonGroup(self)
+        for name, colour in BODIES.items():
+            dot = ColorDot(colour, name)
+            dot.setChecked(colour == SETTINGS["body"])
+            self.body_group.addButton(dot)
+            bodies.addWidget(dot)
+        custom = ColorDot("", "Elegir otro color", plus=True)
+        custom.clicked.connect(self._custom_colour)
+        bodies.addWidget(custom)
+        bodies.addStretch(1)
+        self.body_group.buttonClicked.connect(lambda b: self._save(body=b.colour))
+        self.colour_stack.addWidget(orb_row)
+        self.colour_stack.addWidget(body_row)
+        self.colour_stack.setCurrentIndex(1 if SETTINGS["style"] == "muse" else 0)
+        self.colour_stack.setFixedHeight(40)
+        col.addWidget(self.colour_stack)
 
-        eyes = QHBoxLayout()
-        eyes.addWidget(_label("Mostrar sus ojos"), 1)
+        col.addWidget(_label("CARA", "section"))
+        self.eye_seg = Segmented(
+            EYE_STYLES, SETTINGS["eye_style"], lambda k: self._save(eye_style=k)
+        )
+        col.addLayout(_row("Ojos", self.eye_seg))
+        self.mouth_seg = Segmented(
+            MOUTHS, SETTINGS["mouth"], lambda k: self._save(mouth=k)
+        )
+        col.addLayout(_row("Boca", self.mouth_seg))
         self.eyes = Switch(bool(cfg.get("eyes", SETTINGS["eyes"])))
         self.eyes.toggled.connect(lambda on: self._save(eyes=on))
-        eyes.addWidget(self.eyes)
-        col.addLayout(eyes)
+        col.addLayout(_row("Mostrar su cara", self.eyes))
 
-        size = QHBoxLayout()
-        size.addWidget(_label("Tamaño junto al cursor"), 1)
-        holder = QWidget()
-        holder.setStyleSheet(f"background: {CARD}; border-radius: 14px;")
-        seg = QHBoxLayout(holder)
-        seg.setContentsMargins(3, 3, 3, 3)
-        self.size_group = QButtonGroup(self)
-        current = cfg.get("cursor_size", 9.0)
-        for key, value in SIZES.items():
-            b = QPushButton(key)
-            b.setObjectName("seg")
-            b.setCheckable(True)
-            b.setFixedWidth(42)
-            b.setChecked(value == current)
-            b.clicked.connect(lambda _c=False, v=value: self._save(cursor_size=v))
-            self.size_group.addButton(b)
-            seg.addWidget(b)
-        size.addWidget(holder)
-        col.addLayout(size)
+        col.addWidget(_label("ACCESORIO", "section"))
+        chips = QGridLayout()
+        chips.setSpacing(4)
+        self.chip_group = QButtonGroup(self)
+        for i, key in enumerate(ACCESSORIES):
+            chip = LookChip(key)
+            chip.setChecked(key == SETTINGS["accessory"])
+            self.chip_group.addButton(chip)
+            chips.addWidget(chip, i // 8, i % 8)
+        self.chip_group.buttonClicked.connect(lambda b: self._save(accessory=b.key))
+        col.addLayout(chips)
 
-        voice = QHBoxLayout()
-        voice.addWidget(_label("Voz"), 1)
+        col.addWidget(_label("PERSONALIDAD", "section"))
+        self.persona = QComboBox()
+        self.persona.addItems(list(PERSONALITIES))
+        self.persona.setCurrentText(str(cfg.get("personality", "Amable")))
+        self.persona.currentTextChanged.connect(lambda t: self._save(personality=t))
+        col.addLayout(_row("Forma de ser", self.persona))
+
+        col.addWidget(_label("VOZ Y TAMAÑO", "section"))
         self.voice = QComboBox()
         for voice_id, label in VOICES:
             self.voice.addItem(label, voice_id)
@@ -478,10 +666,43 @@ class ControlCenter(QWidget):
         self.voice.currentIndexChanged.connect(
             lambda _i: self._save(voice=self.voice.currentData() or "")
         )
-        voice.addWidget(self.voice)
-        col.addLayout(voice)
+        col.addLayout(_row("Voz", self.voice))
+        self.rate_seg = Segmented(
+            RATES, str(cfg.get("voice_rate", "+5%")), lambda k: self._save(voice_rate=k)
+        )
+        col.addLayout(_row("Velocidad", self.rate_seg))
+        sizes = {key: key for key in SIZES}
+        current = next(
+            (k for k, v in SIZES.items() if v == cfg.get("cursor_size", 9.0)), "M"
+        )
+        self.size_seg = Segmented(
+            sizes, current, lambda k: self._save(cursor_size=SIZES[k])
+        )
+        col.addLayout(_row("Tamaño junto al cursor", self.size_seg))
         col.addStretch(1)
-        return page
+
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll.setWidget(page)
+        return scroll
+
+    def _pick_style(self, style: str) -> None:
+        self.colour_stack.setCurrentIndex(1 if style == "muse" else 0)
+        if style == "muse" and SETTINGS["mouth"] == "ninguna":
+            self.mouth_seg.select("sonrisa")  # a character looks best smiling
+            self._save(style=style, mouth="sonrisa")
+        else:
+            self._save(style=style)
+
+    def _custom_colour(self) -> None:
+        from PySide6.QtWidgets import QColorDialog
+
+        chosen = QColorDialog.getColor(QColor(SETTINGS["body"]), self, "Su color")
+        if chosen.isValid():
+            for button in self.body_group.buttons():
+                button.setChecked(False)
+            self._save(body=chosen.name())
 
     def _world(self) -> QWidget:
         page = QWidget()
@@ -503,7 +724,7 @@ class ControlCenter(QWidget):
         fly.clicked.connect(self._goto)
         buttons.addWidget(fly, 1)
         whole = QPushButton("Abrir globo 3D")
-        whole.clicked.connect(lambda: self.actions.open_url(self._globe_url()))
+        whole.clicked.connect(self._open_globe)
         buttons.addWidget(whole, 1)
         col.addLayout(buttons)
         self.world_note = _label("", "hint", True)
@@ -608,8 +829,14 @@ class ControlCenter(QWidget):
     def _save(self, **changes: Any) -> None:
         cfg = self.actions.config
         cfg.update(changes)
-        set_theme(cfg.get("theme", "Océano"), bool(cfg.get("eyes", True)))
+        apply_config(cfg)
+        if "name" in changes:
+            self.title.setText(cfg["name"])
         self.actions.save_config(cfg)
+
+    def set_level(self, level: float) -> None:
+        if hasattr(self, "mic"):
+            self.mic.set_level(level)
 
     def _http(self) -> httpx.Client:
         if self.actions.http is None:
@@ -626,8 +853,20 @@ class ControlCenter(QWidget):
 
         threading.Thread(target=run, daemon=True).start()
 
-    def _globe_url(self) -> str:
-        return getattr(self, "_last_globe_url", "") or "http://localhost:4173/"
+    def _open_globe(self) -> None:
+        """Start the globe if needed (first time can take a minute), then open."""
+        self.world_note.setText("Abriendo el globo 3D…")
+
+        def job() -> dict:
+            resp = self._http().post(
+                f"{self.actions.server_url}/v1/world/open", timeout=200
+            )
+            data = resp.json()
+            if resp.status_code != 200:
+                raise RuntimeError(data.get("detail") or resp.text)
+            return {"goto": {"label": "el mundo", "url": data["url"]}}
+
+        self._background(job, self.world_ready)
 
     def _goto(self) -> None:
         place = self.place.text().strip()
@@ -640,6 +879,7 @@ class ControlCenter(QWidget):
             resp = self._http().post(
                 f"{self.actions.server_url}/v1/world/goto",
                 json={"place": place, "style": style},
+                timeout=200,  # the first start of the globe takes a while
             )
             data = resp.json()
             if resp.status_code != 200:

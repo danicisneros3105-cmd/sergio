@@ -227,6 +227,11 @@ class WindowsBackend:
         self._gui.press("enter")
 
     def open_target(self, target: str) -> None:
+        from sergio_escritorio.launch import is_app_page, open_app_window
+
+        if is_app_page(target):  # the 3D globe: its own window, no browser bars
+            open_app_window(target)
+            return
         if "://" in target or os.path.exists(target):
             os.startfile(target)  # type: ignore[attr-defined]  # Windows only
         else:

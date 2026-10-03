@@ -93,7 +93,9 @@ def test_neural_voice_used_first_with_local_fallback(monkeypatch):
     )
     client.voice = "es-EC-LuisNeural"
     monkeypatch.setattr(
-        neural_voice, "synthesize", lambda text, voice: b"RIFFneural:" + voice.encode()
+        neural_voice,
+        "synthesize",
+        lambda text, voice, rate="+5%": b"RIFFneural:" + voice.encode(),
     )
     assert client.speak("hola") == b"RIFFneural:es-EC-LuisNeural" and server == []
 
