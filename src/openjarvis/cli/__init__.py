@@ -112,6 +112,7 @@ if not _DATA_BOUNDARY_BOOTSTRAP:
     from openjarvis.cli.daemon_cmd import restart, start, status, stop
     from openjarvis.cli.digest_cmd import digest
     from openjarvis.cli.doctor_cmd import doctor
+    from openjarvis.cli.escritorio_cmd import escritorio
     from openjarvis.cli.eval_cmd import eval_group
     from openjarvis.cli.evolve_cmd import evolve
     from openjarvis.cli.extensions_cmd import extensions
@@ -178,6 +179,7 @@ if not _DATA_BOUNDARY_BOOTSTRAP:
     cli.add_command(servicio, "servicio")
     cli.add_command(telefono, "telefono")
     cli.add_command(rostros, "rostros")
+    cli.add_command(escritorio, "escritorio")
     cli.add_command(tool, "tool")
     cli.add_command(registry, "registry")
     cli.add_command(config, "config")

@@ -225,6 +225,33 @@ distintos mejoran el resultado). *Who is this?* dice quién aparece.
   `sergio rostros identificar foto.jpg`, `sergio rostros lista`,
   `sergio rostros olvidar NOMBRE` (borra todo lo de esa persona).
 
+## Sergio en Windows (ventana propia, voz y control de la pantalla)
+
+El cerebro de Sergio corre en Ubuntu (WSL), que no puede ver ni tocar el
+escritorio de Windows. **Sergio Escritorio** es la parte que vive en Windows:
+
+- Ventana propia, sin pestañas ni barra de direcciones. Icono junto al reloj y
+  acceso directo en el escritorio. Arranca solo con Windows.
+- **Ctrl+Espacio**: mostrar u ocultar a Sergio desde cualquier programa.
+- **Ctrl+Alt+Espacio**: hablarle (pulsa, habla, pulsa otra vez). Contesta en
+  voz alta en español. Todo se procesa en tu laptop.
+- **Lee tu pantalla y la usa como tú**: ve la ventana activa y sus botones,
+  campos y enlaces (accesibilidad de Windows), y hace clic, escribe, pulsa
+  teclas, abre programas, páginas y archivos.
+- **Ctrl+Alt+Fin** pausa o reanuda al instante su control del mouse y del
+  teclado. Llevar el mouse a la esquina superior izquierda también lo frena.
+  No compra, paga, borra ni envía mensajes salvo que se lo pidas claramente.
+
+Instalar o actualizar (en Ubuntu):
+
+```bash
+cd ~/sergio && git pull && sergio escritorio instalar
+sergio escritorio estado        # comprobar que está conectado
+```
+
+Para que además describa imágenes de la pantalla (fotos, gráficos), añade
+`--vision`: descarga un modelo de visión local de unos 6 GB.
+
 ## Estado y límites
 
 - Comprobado en Linux: `sergio extensions start` levanta Clacky y el globo.

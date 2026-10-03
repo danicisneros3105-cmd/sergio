@@ -44,6 +44,8 @@ wsl.exe -d Ubuntu -- bash -lc "test -d ~/sergio || $clone; cd ~/sergio && ./scri
 wsl.exe --shutdown
 wsl.exe -d Ubuntu -- bash -lc "cd ~/sergio && uv run sergio servicio instalar"
 & (Join-Path $PSScriptRoot "windows-autoarranque.ps1") -Activar
+# Sergio en Windows: ventana propia, voz (Ctrl+Alt+Espacio) y control de pantalla.
+wsl.exe -d Ubuntu -- bash -lc "cd ~/sergio && uv run sergio escritorio instalar"
 
-Write-Host "`nListo. Sergio queda siempre encendido en http://localhost:8000" -ForegroundColor Green
+Write-Host "`nListo. Sergio vive en Windows: icono junto al reloj, Ctrl+Espacio para abrirlo." -ForegroundColor Green
 Write-Host "Apagar/encender (en Ubuntu):  sergio servicio apagar | sergio servicio encender"

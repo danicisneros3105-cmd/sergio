@@ -1,0 +1,65 @@
+"""`sergio escritorio`: config changes and the Windows hand-off."""
+
+import subprocess
+
+from click.testing import CliRunner
+
+from openjarvis.cli import escritorio_cmd
+
+
+def test_enable_tools_adds_desktop_tools_and_turns(tmp_path):
+    cfg = tmp_path / "config.toml"
+    cfg.write_text(
+        '[tools]\nenabled = ["think", "screen_read"]\n\n[agent]\nmax_turns = 10\n'
+    )
+    escritorio_cmd.enable_tools(cfg)
+    text = cfg.read_text()
+    assert 'enabled = ["think", "screen_read", "desktop_action"]' in text
+    assert "max_turns = 25" in text
+    escritorio_cmd.enable_tools(cfg)  # idempotent
+    assert cfg.read_text() == text
+
+
+def test_enable_tools_keeps_server_defaults_when_no_list(tmp_path):
+    cfg = tmp_path / "config.toml"
+    cfg.write_text("[agent]\nmax_turns = 40\n")
+    escritorio_cmd.enable_tools(cfg)
+    assert "max_turns = 40" in cfg.read_text() and "enabled" not in cfg.read_text()
+
+
+def test_instalar_runs_powershell_with_token_in_env(tmp_path, monkeypatch):
+    calls = []
+
+    def fake_run(cmd, **kw):
+        calls.append((cmd, kw))
+        out = "\\\\wsl.localhost\\Ubuntu" + cmd[-1] if cmd[0] == "wslpath" else ""
+        return subprocess.CompletedProcess(cmd, 0, stdout=out, stderr="")
+
+    monkeypatch.setattr(
+        escritorio_cmd.shutil, "which", lambda _n: "/mnt/c/powershell.exe"
+    )
+    monkeypatch.setattr(escritorio_cmd.subprocess, "run", fake_run)
+    monkeypatch.setattr(
+        "openjarvis.cli.service_cmd.env_file", lambda: tmp_path / "sergio.env"
+    )
+    monkeypatch.setattr("openjarvis.core.paths.get_config_dir", lambda: tmp_path)
+    result = CliRunner().invoke(escritorio_cmd.escritorio, ["instalar"])
+    assert result.exit_code == 0, result.output
+    env_text = (tmp_path / "sergio.env").read_text()
+    token = env_text.split("SERGIO_DESKTOP_TOKEN=")[1].strip()
+    assert len(token) > 30
+    ps = [c for c in calls if c[0][0] == "powershell.exe"][0]
+    assert token not in " ".join(ps[0])  # never on the command line
+    assert ps[1]["env"]["SERGIO_DESKTOP_TOKEN"] == token
+    assert "SERGIO_DESKTOP_TOKEN" in ps[1]["env"]["WSLENV"]
+    assert ps[0][ps[0].index("-Fuente") + 1].endswith("windows")
+    # re-running keeps the same token (Windows side already has it)
+    CliRunner().invoke(escritorio_cmd.escritorio, ["instalar"])
+    assert (tmp_path / "sergio.env").read_text().count("SERGIO_DESKTOP_TOKEN") == 1
+    assert token in (tmp_path / "sergio.env").read_text()
+
+
+def test_instalar_outside_wsl_is_explained(monkeypatch):
+    monkeypatch.setattr(escritorio_cmd.shutil, "which", lambda _n: None)
+    result = CliRunner().invoke(escritorio_cmd.escritorio, ["instalar"])
+    assert result.exit_code != 0 and "WSL" in result.output

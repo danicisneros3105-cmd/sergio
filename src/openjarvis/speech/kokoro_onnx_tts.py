@@ -17,7 +17,9 @@ from typing import Any, List
 from openjarvis.core.registry import TTSRegistry
 from openjarvis.speech.tts import TTSBackend, TTSResult
 
-_RELEASE = "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0"
+_RELEASE = (
+    "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0"
+)
 _FILES = ("kokoro-v1.0.onnx", "voices-v1.0.bin")
 _DEFAULT_VOICE_ID = "em_alex"
 
@@ -45,9 +47,10 @@ def _download(url: str, dest: Path) -> None:
     dest.parent.mkdir(parents=True, exist_ok=True)
     fd, tmp = tempfile.mkstemp(dir=dest.parent, suffix=".part")
     try:
-        with os.fdopen(fd, "wb") as out, httpx.stream(
-            "GET", url, follow_redirects=True, timeout=300
-        ) as resp:
+        with (
+            os.fdopen(fd, "wb") as out,
+            httpx.stream("GET", url, follow_redirects=True, timeout=300) as resp,
+        ):
             resp.raise_for_status()
             for chunk in resp.iter_bytes():
                 out.write(chunk)
