@@ -290,8 +290,10 @@ export const useAppStore = create<AppState>((set, get) => {
     settings: loadSettings(),
 
     commandPaletteOpen: false,
-    sidebarOpen: true,
-    systemPanelOpen: true,
+    // Calm by default (Kimi): sidebar only when there is room, system panel
+    // on demand (button or Ctrl+I).
+    sidebarOpen: typeof window === 'undefined' || window.innerWidth >= 768,
+    systemPanelOpen: false,
 
     optInEnabled: localStorage.getItem(OPTIN_KEY) === 'true',
     optInDisplayName: localStorage.getItem(OPTIN_NAME_KEY) || '',

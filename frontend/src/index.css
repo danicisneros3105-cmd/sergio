@@ -4,161 +4,174 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
- * OpenJarvis design tokens.
- * Zinc/slate neutrals, blue accent. Light default, dark via class or system pref.
+ * Sergio design tokens: macOS-calm surfaces with a Kimi-style chat layout.
+ * Neutral greys (one cool family), one accent (system blue), ink-coloured
+ * primary buttons. Radius scale: controls 8px, cards 12px, composer 24px,
+ * round icon buttons full. Light by default, dark via class or system.
  */
 
 @layer base {
   :root {
-    --color-bg: #f9f9f9;
-    --color-bg-secondary: #f4f4f5;
-    --color-bg-tertiary: #e4e4e7;
+    --color-bg: #fcfcfd;
+    --color-bg-secondary: #f4f4f6;
+    --color-bg-tertiary: #e9e9ed;
     --color-surface: #ffffff;
-    --color-sidebar: rgba(250, 250, 250, 0.85);
-    --color-border: rgba(0, 0, 0, 0.08);
-    --color-border-subtle: rgba(0, 0, 0, 0.04);
+    --color-sidebar: rgba(240, 240, 244, 0.78);
+    --color-border: rgba(20, 20, 30, 0.09);
+    --color-border-subtle: rgba(20, 20, 30, 0.05);
 
-    --color-text: #09090b;
-    --color-text-secondary: #71717a;
-    --color-text-tertiary: #a1a1aa;
-    --color-text-inverse: #fafafa;
+    --color-text: #1d1d1f;
+    --color-text-secondary: #6e6e73;
+    --color-text-tertiary: #8e8e93;
+    --color-text-inverse: #fcfcfd;
 
-    --color-accent: #0891b2;
-    --color-accent-hover: #0e7490;
-    --color-accent-subtle: rgba(8, 145, 178, 0.08);
-    --color-accent-glow: rgba(8, 145, 178, 0.25);
+    /* One accent: macOS system blue. Primary buttons use the ink colour (Kimi). */
+    --color-accent: #0a6cff;
+    --color-accent-hover: #0059d6;
+    --color-accent-subtle: rgba(10, 108, 255, 0.09);
+    --color-accent-glow: rgba(10, 108, 255, 0.22);
 
-    --color-accent-amber: #f59e0b;
-    --color-accent-amber-hover: #d97706;
-    --color-accent-amber-subtle: rgba(245, 158, 11, 0.1);
-    --color-accent-purple: #8b5cf6;
-    --color-accent-purple-hover: #7c3aed;
-    --color-accent-purple-subtle: rgba(139, 92, 246, 0.1);
-    --color-accent-blue-subtle: rgba(8, 145, 178, 0.08);
+    /* Legacy secondary accents, folded into the single-accent palette. */
+    --color-accent-amber: #b7791f;
+    --color-accent-amber-hover: #975a16;
+    --color-accent-amber-subtle: rgba(183, 121, 31, 0.1);
+    --color-accent-purple: #0a6cff;
+    --color-accent-purple-hover: #0059d6;
+    --color-accent-purple-subtle: rgba(10, 108, 255, 0.09);
+    --color-accent-blue-subtle: rgba(10, 108, 255, 0.09);
 
-    --color-success: #16a34a;
-    --color-warning: #ca8a04;
-    --color-error: #dc2626;
+    --color-success: #1f9d55;
+    --color-warning: #b7791f;
+    --color-error: #d93a3a;
 
-    --color-code-bg: #f4f4f5;
+    --color-code-bg: #f4f4f6;
     --color-input-bg: #ffffff;
-    --color-input-border: #d4d4d8;
+    --color-input-border: rgba(20, 20, 30, 0.12);
 
-    --color-user-bubble: #0891b2;
-    --color-user-bubble-text: #ffffff;
+    --color-user-bubble: #f0f0f3;
+    --color-user-bubble-text: #1d1d1f;
     --color-on-accent: #ffffff;
-    --color-disabled-bg: #e4e4e7;
+    --color-ink: #1d1d1f;
+    --color-on-ink: #fcfcfd;
+    --color-disabled-bg: #e9e9ed;
 
-    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+    --shadow-sm: 0 1px 2px rgba(20, 20, 40, 0.06);
+    --shadow-md: 0 6px 20px -6px rgba(20, 20, 40, 0.14), 0 1px 3px rgba(20, 20, 40, 0.06);
+    --shadow-lg: 0 24px 60px -18px rgba(20, 20, 40, 0.22), 0 2px 6px rgba(20, 20, 40, 0.06);
 
     --radius-sm: 0.375rem;
     --radius-md: 0.5rem;
     --radius-lg: 0.75rem;
-    --radius-xl: 1rem;
+    --radius-xl: 1.125rem;
+    --radius-composer: 1.5rem;
     --radius-full: 9999px;
 
-    --sidebar-width: 260px;
-    --chat-max-width: 720px;
+    --sidebar-width: 264px;
+    --chat-max-width: 760px;
 
-    --font-display: 'Chakra Petch', 'Space Grotesk', system-ui, sans-serif;
-    --font-hud: 'IBM Plex Mono', 'SF Mono', 'JetBrains Mono', ui-monospace, monospace;
+    --font-sans: 'SF Pro Text', -apple-system, BlinkMacSystemFont, 'Geist Variable', 'Segoe UI Variable Text', system-ui, sans-serif;
+    --font-display: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Geist Variable', 'Segoe UI Variable Display', system-ui, sans-serif;
+    --font-hud: 'SF Mono', ui-monospace, 'JetBrains Mono', Menlo, Consolas, monospace;
+    --ease-mac: cubic-bezier(0.25, 1, 0.5, 1);
 
     color-scheme: light;
   }
 
   .dark {
-    --color-bg: #0a0a0b;
-    --color-bg-secondary: #121214;
-    --color-bg-tertiary: #18181b;
-    --color-surface: #121214;
-    --color-sidebar: rgba(12, 12, 14, 0.72);
+    --color-bg: #161618;
+    --color-bg-secondary: #1f1f22;
+    --color-bg-tertiary: #2a2a2e;
+    --color-surface: #1f1f22;
+    --color-sidebar: rgba(30, 30, 34, 0.72);
     --color-border: rgba(255, 255, 255, 0.09);
     --color-border-subtle: rgba(255, 255, 255, 0.05);
 
-    --color-text: #ededef;
-    --color-text-secondary: #8d8d93;
-    --color-text-tertiary: #5c5c63;
-    --color-text-inverse: #0a0a0b;
+    --color-text: #f2f2f4;
+    --color-text-secondary: #a1a1a8;
+    --color-text-tertiary: #7c7c84;
+    --color-text-inverse: #161618;
 
-    --color-accent: #22d3ee;
-    --color-accent-hover: #67e8f9;
-    --color-accent-subtle: rgba(34, 211, 238, 0.1);
-    --color-accent-glow: rgba(34, 211, 238, 0.3);
+    --color-accent: #3b8bff;
+    --color-accent-hover: #69a6ff;
+    --color-accent-subtle: rgba(59, 139, 255, 0.14);
+    --color-accent-glow: rgba(59, 139, 255, 0.3);
 
-    --color-accent-amber: #f5a524;
-    --color-accent-amber-hover: #fbbf24;
-    --color-accent-amber-subtle: rgba(245, 165, 36, 0.12);
-    --color-accent-purple: #b794ff;
-    --color-accent-purple-hover: #c9b0ff;
-    --color-accent-purple-subtle: rgba(183, 148, 255, 0.12);
-    --color-accent-blue-subtle: rgba(79, 209, 255, 0.12);
+    --color-accent-amber: #e0a34a;
+    --color-accent-amber-hover: #ecb86c;
+    --color-accent-amber-subtle: rgba(224, 163, 74, 0.14);
+    --color-accent-purple: #3b8bff;
+    --color-accent-purple-hover: #69a6ff;
+    --color-accent-purple-subtle: rgba(59, 139, 255, 0.14);
+    --color-accent-blue-subtle: rgba(59, 139, 255, 0.14);
 
-    --color-success: #3ddc97;
-    --color-warning: #f5a524;
+    --color-success: #4cc38a;
+    --color-warning: #e0a34a;
     --color-error: #ff6b6b;
 
-    --color-code-bg: #0c121a;
-    --color-input-bg: #0c121a;
-    --color-input-border: rgba(79, 209, 255, 0.12);
+    --color-code-bg: #1b1b1e;
+    --color-input-bg: #1f1f22;
+    --color-input-border: rgba(255, 255, 255, 0.1);
 
-    --color-user-bubble: rgba(79, 209, 255, 0.14);
-    --color-user-bubble-text: #e6f1ff;
-    --color-on-accent: #070b11;
-    --color-disabled-bg: #121a24;
+    --color-user-bubble: #2a2a2e;
+    --color-user-bubble-text: #f2f2f4;
+    --color-on-accent: #ffffff;
+    --color-ink: #f2f2f4;
+    --color-on-ink: #161618;
+    --color-disabled-bg: #2a2a2e;
 
-    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.4);
-    --shadow-md: 0 4px 14px -2px rgb(0 0 0 / 0.5), 0 0 0 1px rgba(79, 209, 255, 0.04);
-    --shadow-lg: 0 18px 40px -12px rgb(0 0 0 / 0.7), 0 0 0 1px rgba(79, 209, 255, 0.06);
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+    --shadow-md: 0 8px 24px -8px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.04);
+    --shadow-lg: 0 28px 70px -20px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.05);
 
     color-scheme: dark;
   }
 
   @media (prefers-color-scheme: dark) {
     :root:not(.light) {
-      --color-bg: #0a0a0b;
-      --color-bg-secondary: #121214;
-      --color-bg-tertiary: #18181b;
-      --color-surface: #121214;
-      --color-sidebar: rgba(12, 12, 14, 0.72);
+      --color-bg: #161618;
+      --color-bg-secondary: #1f1f22;
+      --color-bg-tertiary: #2a2a2e;
+      --color-surface: #1f1f22;
+      --color-sidebar: rgba(30, 30, 34, 0.72);
       --color-border: rgba(255, 255, 255, 0.09);
       --color-border-subtle: rgba(255, 255, 255, 0.05);
 
-      --color-text: #ededef;
-      --color-text-secondary: #8d8d93;
-      --color-text-tertiary: #5c5c63;
-      --color-text-inverse: #0a0a0b;
+      --color-text: #f2f2f4;
+      --color-text-secondary: #a1a1a8;
+      --color-text-tertiary: #7c7c84;
+      --color-text-inverse: #161618;
 
-      --color-accent: #22d3ee;
-      --color-accent-hover: #67e8f9;
-      --color-accent-subtle: rgba(34, 211, 238, 0.1);
-      --color-accent-glow: rgba(34, 211, 238, 0.3);
+      --color-accent: #3b8bff;
+      --color-accent-hover: #69a6ff;
+      --color-accent-subtle: rgba(59, 139, 255, 0.14);
+      --color-accent-glow: rgba(59, 139, 255, 0.3);
 
-      --color-accent-amber: #f5a524;
-      --color-accent-amber-hover: #fbbf24;
-      --color-accent-amber-subtle: rgba(245, 165, 36, 0.12);
-      --color-accent-purple: #b794ff;
-      --color-accent-purple-hover: #c9b0ff;
-      --color-accent-purple-subtle: rgba(183, 148, 255, 0.12);
-      --color-accent-blue-subtle: rgba(79, 209, 255, 0.12);
+      --color-accent-amber: #e0a34a;
+      --color-accent-amber-hover: #ecb86c;
+      --color-accent-amber-subtle: rgba(224, 163, 74, 0.14);
+      --color-accent-purple: #3b8bff;
+      --color-accent-purple-hover: #69a6ff;
+      --color-accent-purple-subtle: rgba(59, 139, 255, 0.14);
+      --color-accent-blue-subtle: rgba(59, 139, 255, 0.14);
 
-      --color-success: #3ddc97;
-      --color-warning: #f5a524;
+      --color-success: #4cc38a;
+      --color-warning: #e0a34a;
       --color-error: #ff6b6b;
 
-      --color-code-bg: #0c121a;
-      --color-input-bg: #0c121a;
-      --color-input-border: rgba(79, 209, 255, 0.12);
+      --color-code-bg: #1b1b1e;
+      --color-input-bg: #1f1f22;
+      --color-input-border: rgba(255, 255, 255, 0.1);
 
-      --color-user-bubble: rgba(79, 209, 255, 0.14);
-      --color-user-bubble-text: #e6f1ff;
-      --color-on-accent: #070b11;
-      --color-disabled-bg: #121a24;
+      --color-user-bubble: #2a2a2e;
+      --color-user-bubble-text: #f2f2f4;
+      --color-on-accent: #ffffff;
+      --color-ink: #f2f2f4;
+      --color-on-ink: #161618;
+      --color-disabled-bg: #2a2a2e;
 
-      --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.4);
-      --shadow-md: 0 4px 14px -2px rgb(0 0 0 / 0.5), 0 0 0 1px rgba(79, 209, 255, 0.04);
-      --shadow-lg: 0 18px 40px -12px rgb(0 0 0 / 0.7), 0 0 0 1px rgba(79, 209, 255, 0.06);
+      --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+      --shadow-md: 0 8px 24px -8px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.04);
+      --shadow-lg: 0 28px 70px -20px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.05);
 
       color-scheme: dark;
     }
@@ -177,10 +190,11 @@
   }
 
   body {
-    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-family: var(--font-sans);
     font-weight: 400;
-    line-height: 1.5;
-    letter-spacing: -0.01em;
+    font-size: 15px;
+    line-height: 1.55;
+    letter-spacing: -0.011em;
     background-color: var(--color-bg);
     color: var(--color-text);
     -webkit-font-smoothing: antialiased;
@@ -188,8 +202,7 @@
   }
 
   ::selection {
-    background-color: var(--color-accent);
-    color: white;
+    background-color: var(--color-accent-glow);
   }
 
   ::-webkit-scrollbar {
@@ -673,7 +686,7 @@
   --sidebar-ring: oklch(0.556 0 0);
 }
 @theme inline {
-  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-sans: 'SF Pro Text', -apple-system, BlinkMacSystemFont, 'Geist Variable', 'Segoe UI Variable Text', system-ui, sans-serif;
   /* shadcn component tokens — namespaced to avoid collision with OpenJarvis design tokens */
   --color-cn-sidebar-ring: var(--sidebar-ring);
   --color-cn-sidebar-border: var(--sidebar-border);
@@ -754,3 +767,218 @@
   background: var(--color-accent);
   text-decoration: none;
 }
+/* ------------------------------------------------------------------------
+ * Sergio skin: macOS-calm surfaces, Kimi-style chat.
+ * Unlayered on purpose so it wins over the legacy HUD rules above.
+ * ---------------------------------------------------------------------- */
+
+/* Retire the sci-fi HUD backdrop (grid, reticles, noise). Plain calm canvas. */
+.hud-backdrop,
+.hud-backdrop::before,
+.hud-backdrop::after,
+.hud-reticle,
+.hud-reticle::before,
+.hud-reticle::after {
+  display: none !important;
+}
+
+.hud-panel {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+.hud-panel:hover {
+  border-color: var(--color-border);
+  box-shadow: var(--shadow-md);
+}
+.hud-panel-head::after,
+.hud-panel > h3::after {
+  display: none !important;
+}
+.hud-label {
+  font-family: var(--font-sans);
+  text-transform: none;
+  letter-spacing: 0;
+}
+.hud-title {
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
+}
+
+/* Sidebar: translucent source list (macOS vibrancy approximation on the
+   web: backdrop-filter, not Apple's native material). */
+.mac-sidebar {
+  background: var(--color-sidebar);
+  backdrop-filter: blur(28px) saturate(170%);
+  -webkit-backdrop-filter: blur(28px) saturate(170%);
+  border-right: 1px solid var(--color-border);
+}
+/* As an overlay on narrow windows the sidebar must be opaque to stay legible. */
+@media (max-width: 767px) {
+  .mac-sidebar {
+    background: var(--color-bg-secondary);
+    box-shadow: var(--shadow-lg);
+  }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .mac-sidebar {
+    background: var(--color-bg-secondary);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
+.mac-row {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  width: 100%;
+  padding: 0.4rem 0.625rem;
+  border-radius: var(--radius-md);
+  font-size: 13.5px;
+  color: var(--color-text-secondary);
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 160ms var(--ease-mac), color 160ms var(--ease-mac);
+}
+.mac-row:hover {
+  background: color-mix(in srgb, var(--color-text) 6%, transparent);
+  color: var(--color-text);
+}
+.mac-row[data-active='true'] {
+  background: color-mix(in srgb, var(--color-text) 9%, transparent);
+  color: var(--color-text);
+  font-weight: 500;
+}
+.mac-row[data-active='true'] svg {
+  color: var(--color-accent);
+}
+
+.mac-icon-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: background-color 160ms var(--ease-mac), color 160ms var(--ease-mac),
+    transform 120ms var(--ease-mac);
+}
+.mac-icon-btn:hover {
+  background: color-mix(in srgb, var(--color-text) 7%, transparent);
+  color: var(--color-text);
+}
+.mac-icon-btn:active {
+  transform: scale(0.96);
+}
+
+.mac-field {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.625rem;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-text) 5%, transparent);
+  transition: box-shadow 160ms var(--ease-mac), background-color 160ms var(--ease-mac);
+}
+.mac-field:focus-within {
+  background: var(--color-surface);
+  box-shadow: 0 0 0 3px var(--color-accent-glow);
+}
+
+/* Composer: the large rounded Kimi input with a bottom toolbar. */
+.mac-composer {
+  background: var(--color-input-bg);
+  border: 1px solid var(--color-input-border);
+  border-radius: var(--radius-composer);
+  box-shadow: var(--shadow-md);
+  transition: border-color 180ms var(--ease-mac), box-shadow 180ms var(--ease-mac);
+}
+.mac-composer:focus-within {
+  border-color: color-mix(in srgb, var(--color-accent) 45%, var(--color-input-border));
+  box-shadow: var(--shadow-md), 0 0 0 4px var(--color-accent-subtle);
+}
+.mac-composer textarea::placeholder {
+  color: var(--color-text-tertiary);
+}
+
+.mac-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.75rem;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-border);
+  font-size: 12.5px;
+  color: var(--color-text-secondary);
+  background: transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 160ms var(--ease-mac), border-color 160ms var(--ease-mac),
+    color 160ms var(--ease-mac), transform 120ms var(--ease-mac);
+}
+.mac-chip:hover {
+  background: color-mix(in srgb, var(--color-text) 5%, transparent);
+  color: var(--color-text);
+}
+.mac-chip:active {
+  transform: scale(0.97);
+}
+.mac-chip[aria-pressed='true'] {
+  border-color: color-mix(in srgb, var(--color-accent) 40%, transparent);
+  background: var(--color-accent-subtle);
+  color: var(--color-accent);
+}
+
+/* Round ink send button (Kimi). */
+.mac-send {
+  display: inline-grid;
+  place-items: center;
+  width: 2.125rem;
+  height: 2.125rem;
+  border-radius: var(--radius-full);
+  background: var(--color-ink);
+  color: var(--color-on-ink);
+  cursor: pointer;
+  transition: transform 120ms var(--ease-mac), opacity 160ms var(--ease-mac),
+    background-color 160ms var(--ease-mac);
+}
+.mac-send:hover:not(:disabled) {
+  transform: scale(1.05);
+}
+.mac-send:active:not(:disabled) {
+  transform: scale(0.95);
+}
+.mac-send:disabled {
+  background: var(--color-disabled-bg);
+  color: var(--color-text-tertiary);
+  cursor: default;
+}
+
+/* Entry motion for the welcome screen, reduced-motion safe. */
+@media (prefers-reduced-motion: no-preference) {
+  .mac-rise {
+    animation: mac-rise 520ms var(--ease-mac) both;
+    animation-delay: calc(var(--i, 0) * 60ms);
+  }
+}
+@keyframes mac-rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.prose {
+  font-size: 15px;
+  line-height: 1.7;
+}
+
+.prose ul { list-style: disc; }
+.prose ol { list-style: decimal; }
+.prose li::marker { color: var(--color-text-tertiary); }

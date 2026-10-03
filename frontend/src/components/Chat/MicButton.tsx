@@ -13,16 +13,16 @@ export function MicButton({ state, onClick, disabled, reason }: MicButtonProps) 
 
   const tooltipText =
     reason === 'not-enabled'
-      ? 'Enable in Settings'
+      ? 'Actívalo en Ajustes'
       : reason === 'no-backend'
-        ? 'Speech backend not configured'
+        ? 'La voz no está disponible'
         : reason === 'streaming'
-          ? 'Wait for response'
+          ? 'Espera la respuesta'
           : state === 'recording'
-            ? 'Stop recording'
+            ? 'Detener'
             : state === 'transcribing'
-              ? 'Transcribing...'
-              : 'Voice input';
+              ? 'Transcribiendo…'
+              : 'Hablar';
 
   const isInactive = disabled || state === 'transcribing';
 
@@ -35,7 +35,8 @@ export function MicButton({ state, onClick, disabled, reason }: MicButtonProps) 
       <button
         onClick={onClick}
         disabled={isInactive}
-        className="p-2 rounded-xl transition-all shrink-0"
+        className="mac-icon-btn !rounded-full shrink-0"
+        aria-label={tooltipText}
         style={{
           background: state === 'recording'
             ? 'var(--color-error)'

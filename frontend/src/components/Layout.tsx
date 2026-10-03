@@ -25,8 +25,7 @@ export function Layout() {
   const navigate = useNavigate();
 
   return (
-    <div className="flex flex-col h-full w-full overflow-hidden relative" style={{ paddingTop: '3px' }}>
-      <div className="hud-backdrop" aria-hidden="true" />
+    <div className="flex flex-col h-full w-full overflow-hidden relative">
       <SystemPulse apiReachable={apiReachable} />
       <ApprovalBell />
 
@@ -44,13 +43,13 @@ export function Layout() {
             className="w-1.5 h-1.5 rounded-full shrink-0"
             style={{ background: 'var(--color-error)' }}
           />
-          <span>Cannot reach Sergio backend</span>
+          <span>No puedo conectar con Sergio. ¿Está encendido?</span>
           <button
             onClick={() => navigate('/settings')}
             className="text-sm underline cursor-pointer ml-auto shrink-0"
             style={{ color: 'var(--color-accent)' }}
           >
-            Change URL
+            Cambiar dirección
           </button>
         </div>
       )}

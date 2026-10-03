@@ -24,7 +24,7 @@ HOTKEY_TALK = "<ctrl>+<alt>+<space>"
 HOTKEY_STOP = "<ctrl>+<alt>+<end>"
 
 COLORS = {
-    "idle": (37, 150, 190),
+    "idle": (10, 108, 255),
     "listening": (220, 50, 60),
     "thinking": (240, 170, 30),
     "speaking": (60, 180, 90),

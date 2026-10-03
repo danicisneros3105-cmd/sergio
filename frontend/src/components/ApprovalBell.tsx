@@ -79,7 +79,7 @@ export function ApprovalBell() {
       {/* Bell trigger */}
       <button
         onClick={() => setOpen(o => !o)}
-        className="relative p-2 rounded-lg transition-colors cursor-pointer"
+        className="mac-icon-btn relative"
         title="Agent approvals"
         style={{
           color: count > 0 ? 'var(--color-text)' : 'var(--color-text-secondary)',

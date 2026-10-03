@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { Send, Square, Paperclip, Search } from 'lucide-react';
+import { ArrowUp, Square, Paperclip, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAppStore, generateId } from '../../lib/store';
 import { streamChat, streamResearch } from '../../lib/sse';
@@ -127,6 +127,23 @@ export function InputArea() {
     prevModelRef.current = selectedModel;
   }, [selectedModel, streamState.isStreaming, resetStream]);
 
+  // Welcome-screen suggestions fill the composer (see ChatArea).
+  useEffect(() => {
+    const onPrefill = (e: Event) => {
+      const text = (e as CustomEvent<string>).detail;
+      if (typeof text !== 'string') return;
+      setInput(text);
+      requestAnimationFrame(() => {
+        const el = textareaRef.current;
+        if (!el) return;
+        el.focus();
+        el.setSelectionRange(text.length, text.length);
+      });
+    };
+    window.addEventListener('sergio:prefill', onPrefill);
+    return () => window.removeEventListener('sergio:prefill', onPrefill);
+  }, []);
+
   const micDisabled = !speechEnabled || !speechAvailable || streamState.isStreaming;
   const micReason: 'not-enabled' | 'no-backend' | 'streaming' | undefined =
     !speechEnabled ? 'not-enabled'
@@ -235,7 +252,7 @@ export function InputArea() {
     setStreamState({
       conversationId: convId,
       isStreaming: true,
-      phase: deepResearch ? 'Researching...' : 'Generating...',
+      phase: deepResearch ? 'Investigando…' : 'Escribiendo…',
       elapsedMs: 0,
       activeToolCalls: [],
       content: '',
@@ -382,9 +399,9 @@ export function InputArea() {
         const eventName = sseEvent.event;
 
         if (eventName === 'agent_turn_start') {
-          setStreamState({ phase: 'Agent thinking...' });
+          setStreamState({ phase: 'Pensando…' });
         } else if (eventName === 'inference_start') {
-          setStreamState({ phase: 'Generating...' });
+          setStreamState({ phase: 'Escribiendo…' });
           useAppStore.getState().addLogEntry({
             timestamp: Date.now(), level: 'info', category: 'chat',
             message: `Generating with ${selectedModel}...`,
@@ -400,7 +417,7 @@ export function InputArea() {
             };
             toolCalls.push(tc);
             setStreamState({
-              phase: `Calling ${data.tool}...`,
+              phase: `Usando ${data.tool}…`,
               activeToolCalls: [...toolCalls],
             });
             updateLastAssistant(convId, accumulatedContent, [...toolCalls]);
@@ -421,7 +438,7 @@ export function InputArea() {
               tc.result = data.result;
             }
             setStreamState({
-              phase: 'Generating...',
+              phase: 'Escribiendo…',
               activeToolCalls: [...toolCalls],
             });
             updateLastAssistant(convId, accumulatedContent, [...toolCalls]);
@@ -456,7 +473,7 @@ export function InputArea() {
     } catch (err: any) {
       if (err.name === 'AbortError') {
         // User cancelled or model switch — keep whatever was accumulated
-        if (!accumulatedContent) accumulatedContent = '(Generation stopped)';
+        if (!accumulatedContent) accumulatedContent = '(Respuesta detenida)';
       } else {
         const errMsg = err?.message || String(err);
         accumulatedContent =
@@ -471,7 +488,7 @@ export function InputArea() {
       useAppStore.getState().setLiveEnergy(null);
     } finally {
       if (!accumulatedContent) {
-        accumulatedContent = 'No response was generated. Please try again.';
+        accumulatedContent = 'No llegó ninguna respuesta. Inténtalo otra vez.';
       }
       const totalMs = Date.now() - startTime;
       const appState = useAppStore.getState();
@@ -561,97 +578,81 @@ export function InputArea() {
     }
   };
 
+  const isWelcome = messages.length === 0 && !isCurrentChatStreaming;
+  const canSend = !streamState.isStreaming && !!input.trim() && !modelLoading && !!selectedModel;
+
   return (
-    <div className="px-4 pb-4 pt-2" style={{ maxWidth: 'var(--chat-max-width)', margin: '0 auto', width: '100%' }}>
-      <div className="mb-2 flex flex-col gap-1">
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setDeepResearch(!deepResearch)}
-            disabled={streamState.isStreaming}
-            aria-pressed={deepResearch}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs transition-colors cursor-pointer disabled:cursor-default disabled:opacity-50"
-            style={{
-              background: deepResearch ? 'var(--color-accent-subtle)' : 'transparent',
-              border: `1px solid ${deepResearch ? 'var(--color-accent)' : 'var(--color-border)'}`,
-              color: deepResearch ? 'var(--color-accent)' : 'var(--color-text-tertiary)',
-            }}
-            title={deepResearch ? 'Deep Research: on' : 'Deep Research: off'}
-          >
-            <Search size={12} />
-            Deep Research
-          </button>
-        </div>
-        {deepResearch && corpusSync.syncing && corpusSync.itemsSynced > 0 && (
-          <div
-            className="text-[11px] leading-snug"
-            style={{ color: 'var(--color-text-tertiary)' }}
-          >
-            Searching over{' '}
-            <span key={corpusSync.itemsSynced} className="sync-bump" style={{ color: 'var(--color-text-secondary)' }}>
-              {corpusSync.itemsSynced.toLocaleString()}
-            </span>{' '}
-            items — sync in progress, results will improve as more data is indexed.
-          </div>
-        )}
-      </div>
-      <div
-        className="flex items-center gap-2 rounded-2xl px-4 py-3 transition-shadow"
-        style={{
-          background: 'var(--color-input-bg)',
-          border: '1px solid var(--color-input-border)',
-          boxShadow: 'var(--shadow-sm)',
-        }}
-      >
+    <div className="px-4 pb-3 pt-2 w-full mx-auto" style={{ maxWidth: 'var(--chat-max-width)' }}>
+      <div className="mac-composer px-4 pt-3 pb-2.5">
         <textarea
           ref={textareaRef}
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder={selectedModel ? 'Message Sergio...' : 'Pick a model first (⌘K)...'}
-          rows={1}
-          className="flex-1 bg-transparent outline-none resize-none text-sm leading-relaxed"
+          placeholder={selectedModel ? 'Pregúntale a Sergio o pídele algo' : 'Elige un modelo primero'}
+          aria-label="Mensaje para Sergio"
+          rows={isWelcome ? 2 : 1}
+          className="w-full bg-transparent outline-none resize-none text-[15px] leading-relaxed"
           style={{ color: 'var(--color-text)', maxHeight: '200px' }}
           disabled={streamState.isStreaming || modelLoading}
         />
-        {isCurrentChatStreaming ? (
+        <div className="flex items-center gap-2 mt-1.5">
           <button
-            onClick={stopStreaming}
-            className="p-2 rounded-xl transition-colors shrink-0 cursor-pointer"
-            style={{ background: 'var(--color-error)', color: 'var(--color-on-accent)' }}
-            title="Stop generating"
+            type="button"
+            onClick={() => setDeepResearch(!deepResearch)}
+            disabled={streamState.isStreaming}
+            aria-pressed={deepResearch}
+            className="mac-chip disabled:opacity-50 disabled:cursor-default"
+            title="Busca en varias fuentes y responde con citas"
           >
-            <Square size={16} />
+            <Search size={13} strokeWidth={1.75} />
+            Investigación a fondo
           </button>
-        ) : (
-          <div className="flex items-center gap-1">
-            <MicButton
-              state={speechState}
-              onClick={handleMicClick}
-              disabled={micDisabled}
-              reason={micReason}
-            />
+          <div className="flex-1" />
+          {isCurrentChatStreaming ? (
             <button
-              onClick={sendMessage}
-              disabled={streamState.isStreaming || !input.trim() || modelLoading || !selectedModel}
-              title={selectedModel ? 'Send message' : 'Pick a model first (⌘K)'}
-              className="p-2 rounded-xl transition-colors shrink-0 cursor-pointer disabled:opacity-30 disabled:cursor-default"
-              style={{
-                background: input.trim() ? 'var(--color-accent)' : 'var(--color-bg-tertiary)',
-                color: input.trim() ? 'white' : 'var(--color-text-tertiary)',
-              }}
+              onClick={stopStreaming}
+              className="mac-send"
+              title="Detener"
+              aria-label="Detener la respuesta"
             >
-              <Send size={16} />
+              <Square size={11} fill="currentColor" strokeWidth={0} />
             </button>
-          </div>
-        )}
+          ) : (
+            <>
+              <MicButton
+                state={speechState}
+                onClick={handleMicClick}
+                disabled={micDisabled}
+                reason={micReason}
+              />
+              <button
+                onClick={sendMessage}
+                disabled={!canSend}
+                title={selectedModel ? 'Enviar' : 'Elige un modelo primero'}
+                aria-label="Enviar mensaje"
+                className="mac-send"
+              >
+                <ArrowUp size={17} strokeWidth={2.25} />
+              </button>
+            </>
+          )}
+        </div>
       </div>
-      <div className="flex items-center justify-center mt-2 text-[11px]" style={{ color: 'var(--color-text-tertiary)' }}>
-        <span>
-          <kbd className="font-mono">Enter</kbd> to send &middot;{' '}
-          <kbd className="font-mono">Shift+Enter</kbd> for new line
-        </span>
-      </div>
+      {deepResearch && corpusSync.syncing && corpusSync.itemsSynced > 0 && (
+        <p className="mt-2 px-2 text-[11.5px] leading-snug" style={{ color: 'var(--color-text-tertiary)' }}>
+          Buscando en{' '}
+          <span key={corpusSync.itemsSynced} className="sync-bump" style={{ color: 'var(--color-text-secondary)' }}>
+            {corpusSync.itemsSynced.toLocaleString('es')}
+          </span>{' '}
+          elementos. La sincronización sigue, así que los resultados irán mejorando.
+        </p>
+      )}
+      {!isWelcome && (
+        <p className="mt-2 text-center text-[11.5px]" style={{ color: 'var(--color-text-tertiary)' }}>
+          Enter para enviar, Shift+Enter para una línea nueva
+        </p>
+      )}
     </div>
   );
 }

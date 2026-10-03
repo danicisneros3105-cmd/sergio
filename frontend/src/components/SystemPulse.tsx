@@ -6,7 +6,7 @@ type PulseState = 'idle' | 'inferencing' | 'agent-active' | 'hidden';
 
 const PULSE_CONFIG: Record<Exclude<PulseState, 'hidden'>, { color: string; animation: string }> = {
   idle: {
-    color: 'color-mix(in srgb, var(--color-accent) 22%, transparent)',
+    color: 'transparent',
     animation: 'none',
   },
   inferencing: {
@@ -14,7 +14,7 @@ const PULSE_CONFIG: Record<Exclude<PulseState, 'hidden'>, { color: string; anima
     animation: 'pulse-glow 2s ease-in-out infinite',
   },
   'agent-active': {
-    color: 'var(--color-accent-purple)',
+    color: 'var(--color-accent)',
     animation: 'pulse-travel 3s linear infinite',
   },
 };
@@ -47,7 +47,7 @@ export function SystemPulse({ apiReachable }: { apiReachable: boolean | null }) 
 
   return (
     <div
-      className="fixed top-0 left-0 right-0 h-[3px] z-50"
+      className="fixed top-0 left-0 right-0 h-[2px] z-50 pointer-events-none"
       style={{
         background: isTravel
           ? `linear-gradient(90deg, transparent, ${config.color}, transparent)`

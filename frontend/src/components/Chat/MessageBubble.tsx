@@ -65,7 +65,7 @@ function CodeBlockPre({ children, ...props }: any) {
           onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--color-text-tertiary)')}
         >
           {copied ? <Check size={12} /> : <Copy size={12} />}
-          {copied ? 'Copied' : 'Copy'}
+          {copied ? 'Copiado' : 'Copiar'}
         </button>
       </div>
       <pre {...props} style={{ margin: 0, borderRadius: 0 }}>
@@ -89,7 +89,8 @@ function CopyMessageButton({ content }: { content: string }) {
       onClick={handleCopy}
       className="p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
       style={{ color: 'var(--color-text-tertiary)' }}
-      title="Copy message"
+      title="Copiar mensaje"
+      aria-label="Copiar mensaje"
     >
       {copied ? <Check size={14} /> : <Copy size={14} />}
     </button>
@@ -121,11 +122,11 @@ export function MessageBubble({ message, isLive = false }: Props) {
     return (
       <div className="flex justify-end mb-4">
         <div
-          className="max-w-[85%] px-4 py-2.5 text-sm leading-relaxed"
+          className="max-w-[80%] px-4 py-2.5 text-[15px] leading-relaxed"
           style={{
             background: 'var(--color-user-bubble)',
             color: 'var(--color-user-bubble-text)',
-            borderRadius: 'var(--radius-xl) var(--radius-xl) var(--radius-sm) var(--radius-xl)',
+            borderRadius: 'var(--radius-xl)',
             whiteSpace: 'pre-wrap',
             wordBreak: 'break-word',
           }}

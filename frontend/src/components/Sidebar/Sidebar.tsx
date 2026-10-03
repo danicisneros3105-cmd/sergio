@@ -8,7 +8,6 @@ import {
   Search,
   PanelLeftClose,
   PanelLeft,
-  Cpu,
   Rocket,
   Bot,
   Sun,
@@ -20,9 +19,52 @@ import {
   Globe,
   MousePointerClick,
   ScanFace,
+  ChevronsUpDown,
 } from 'lucide-react';
 import { ConversationList } from './ConversationList';
 import { useAppStore } from '../../lib/store';
+
+const STROKE = 1.75;
+const IS_MAC = typeof navigator !== 'undefined' && /Mac/.test(navigator.platform);
+const THEME_LABEL = { light: 'claro', dark: 'oscuro', system: 'automático' } as const;
+
+/** Sergio's mark: a single geometric ring, the same as the Windows tray icon. */
+export function SergioMark({ size = 22 }: { size?: number }) {
+  return (
+    <span
+      aria-hidden="true"
+      className="inline-grid place-items-center rounded-full shrink-0"
+      style={{
+        width: size,
+        height: size,
+        background: 'var(--color-accent)',
+        boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.25)',
+      }}
+    >
+      <span
+        className="rounded-full"
+        style={{
+          width: size * 0.42,
+          height: size * 0.42,
+          border: `${Math.max(2, size / 11)}px solid rgba(255,255,255,0.95)`,
+        }}
+      />
+    </span>
+  );
+}
+
+const NAV_ITEMS = [
+  { path: '/', icon: MessageSquare, label: 'Chat' },
+  { path: '/globe', icon: Globe, label: 'Globo' },
+  { path: '/clacky', icon: MousePointerClick, label: 'Clacky' },
+  { path: '/faces', icon: ScanFace, label: 'Rostros' },
+  { path: '/agents', icon: Bot, label: 'Agentes' },
+  { path: '/data-sources', icon: Database, label: 'Fuentes de datos' },
+  { path: '/dashboard', icon: BarChart3, label: 'Panel' },
+  { path: '/logs', icon: ScrollText, label: 'Registro' },
+  { path: '/get-started', icon: Rocket, label: 'Primeros pasos' },
+  { path: '/settings', icon: Settings, label: 'Ajustes' },
+];
 
 export function Sidebar() {
   const navigate = useNavigate();
@@ -55,185 +97,131 @@ export function Sidebar() {
     navigate('/');
   };
 
-  const navItems = [
-    { path: '/', icon: MessageSquare, label: 'Chat' },
-    { path: '/dashboard', icon: BarChart3, label: 'Dashboard' },
-    { path: '/data-sources', icon: Database, label: 'Data Sources' },
-    { path: '/agents', icon: Bot, label: 'Agents' },
-    { path: '/globe', icon: Globe, label: 'Globe' },
-    { path: '/clacky', icon: MousePointerClick, label: 'Clacky' },
-    { path: '/faces', icon: ScanFace, label: 'Faces' },
-    { path: '/logs', icon: ScrollText, label: 'Logs' },
-    { path: '/settings', icon: Settings, label: 'Settings' },
-    { path: '/get-started', icon: Rocket, label: 'Get Started' },
-  ];
-
   return (
     <>
-      {/* Collapse button when sidebar is closed */}
       {!sidebarOpen && (
         <button
           onClick={toggleSidebar}
-          className="fixed top-3 left-3 z-30 p-2 rounded-lg transition-colors cursor-pointer"
-          style={{ color: 'var(--color-text-secondary)', background: 'var(--color-bg-secondary)' }}
-          onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--color-bg-tertiary)')}
-          onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--color-bg-secondary)')}
+          className="mac-icon-btn fixed top-3 left-3 z-30"
+          title="Mostrar barra lateral"
+          aria-label="Mostrar barra lateral"
         >
-          <PanelLeft size={18} />
+          <PanelLeft size={18} strokeWidth={STROKE} />
         </button>
       )}
 
       <aside
-        className={`
-          flex flex-col h-full shrink-0 transition-all duration-200 ease-in-out overflow-hidden
-          fixed md:relative z-30
-          ${sidebarOpen ? 'w-[260px]' : 'w-0'}
-        `}
-        style={{
-          background: 'var(--color-sidebar)',
-          backdropFilter: 'blur(20px)',
-          WebkitBackdropFilter: 'blur(20px)',
-          borderRight: sidebarOpen ? '1px solid var(--color-border)' : 'none',
-        }}
+        className={`mac-sidebar flex flex-col h-full shrink-0 overflow-hidden fixed md:relative z-30
+          transition-[width] duration-300 ${sidebarOpen ? 'w-[264px]' : 'w-0 border-r-0'}`}
+        style={{ transitionTimingFunction: 'var(--ease-mac)' }}
+        aria-label="Barra lateral"
       >
-        <div className="flex flex-col h-full w-[260px]">
-          {/* Header */}
-          <div className="flex items-center justify-between px-3 pt-3 pb-2">
+        <div className="flex flex-col h-full w-[264px]">
+          {/* Title bar */}
+          <div className="flex items-center gap-2.5 px-4 pt-4 pb-3">
+            <SergioMark />
+            <span
+              className="text-[15px] font-semibold flex-1"
+              style={{ fontFamily: 'var(--font-display)', letterSpacing: '-0.02em', color: 'var(--color-text)' }}
+            >
+              Sergio
+            </span>
             <button
               onClick={toggleSidebar}
-              className="p-2 rounded-lg transition-colors cursor-pointer"
-              style={{ color: 'var(--color-text-secondary)' }}
-              onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--color-bg-tertiary)')}
-              onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+              className="mac-icon-btn"
+              title="Ocultar barra lateral"
+              aria-label="Ocultar barra lateral"
             >
-              <PanelLeftClose size={18} />
+              <PanelLeftClose size={17} strokeWidth={STROKE} />
             </button>
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => updateSettings({ theme: nextTheme })}
-                className="p-2 rounded-lg transition-colors cursor-pointer"
-                style={{ color: 'var(--color-text-secondary)' }}
-                onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--color-bg-tertiary)')}
-                onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-                title={`Theme: ${settings.theme} (click for ${nextTheme})`}
-              >
-                <ThemeIcon size={16} />
-              </button>
-              <button
-                onClick={handleNewChat}
-                className="p-2 rounded-lg transition-colors cursor-pointer"
-                style={{ color: 'var(--color-text-secondary)' }}
-                onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--color-bg-tertiary)')}
-                onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-                title="New chat"
-              >
-                <Plus size={18} />
-              </button>
-            </div>
           </div>
 
-          {/* Model badge */}
-          <button
-            onClick={() => setCommandPaletteOpen(true)}
-            className="mx-3 mb-2 flex items-center gap-2 px-3 py-2 rounded-lg text-xs transition-colors cursor-pointer"
-            style={{
-              background: 'var(--color-bg-secondary)',
-              color: 'var(--color-text-secondary)',
-              border: '1px solid var(--color-border)',
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--color-bg-tertiary)')}
-            onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--color-bg-secondary)')}
-          >
-            {modelLoading ? (
-              <Loader2 size={14} className="animate-spin" style={{ color: 'var(--color-accent)' }} />
-            ) : (
-              <Cpu size={14} />
-            )}
-            <div className="flex-1 min-w-0">
-              <span
-                className="truncate block text-left"
-                style={{ color: deepResearch ? 'var(--color-accent)' : 'var(--color-text)' }}
-              >
-                {deepResearch
-                  ? 'Deep Research'
-                  : selectedModel || serverInfo?.model || 'Select model'}
-              </span>
-              {modelLoading && (
-                <span className="text-[10px] block text-left" style={{ color: 'var(--color-accent)' }}>
-                  Loading model...
-                </span>
-              )}
-            </div>
-            {!modelLoading && (
-              <kbd
-                className="text-[10px] px-1.5 py-0.5 rounded font-mono"
-                style={{ background: 'var(--color-bg-tertiary)', color: 'var(--color-text-tertiary)' }}
-              >
-                ⌘K
-              </kbd>
-            )}
-          </button>
-
-          {/* Search */}
-          <div className="px-3 mb-2">
-            <div
-              className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm"
-              style={{ background: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)' }}
+          <div className="px-3 flex flex-col gap-2">
+            <button
+              onClick={handleNewChat}
+              className="flex items-center gap-2 w-full px-3 py-2 rounded-[10px] text-[13.5px] font-medium cursor-pointer transition-[transform,box-shadow] duration-150 active:scale-[0.98]"
+              style={{
+                background: 'var(--color-surface)',
+                color: 'var(--color-text)',
+                border: '1px solid var(--color-border)',
+                boxShadow: 'var(--shadow-sm)',
+              }}
             >
-              <Search size={14} style={{ color: 'var(--color-text-tertiary)' }} />
+              <Plus size={16} strokeWidth={STROKE} />
+              Nueva conversación
+            </button>
+
+            <label className="mac-field text-[13px]">
+              <Search size={14} strokeWidth={STROKE} style={{ color: 'var(--color-text-tertiary)' }} />
               <input
                 type="text"
-                placeholder="Search chats..."
+                placeholder="Buscar"
+                aria-label="Buscar conversaciones"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="flex-1 bg-transparent outline-none text-sm"
+                className="flex-1 bg-transparent outline-none min-w-0"
                 style={{ color: 'var(--color-text)' }}
               />
-            </div>
+            </label>
           </div>
 
-          {/* Conversation list */}
+          {/* Conversations */}
+          <div className="px-4 pt-4 pb-1 text-[12px] font-medium" style={{ color: 'var(--color-text-tertiary)' }}>
+            Recientes
+          </div>
           <div className="flex-1 overflow-y-auto px-2">
             <ConversationList searchQuery={searchQuery} />
           </div>
 
-          {/* Bottom nav */}
-          <nav className="px-2 pb-3 pt-2 flex flex-col gap-0.5" style={{ borderTop: '1px solid var(--color-border)' }}>
-            {navItems.map((item) => {
+          {/* Sections */}
+          <nav className="px-2 pt-2 pb-1 flex flex-col gap-px" aria-label="Secciones">
+            {NAV_ITEMS.map((item) => {
               const isActive = location.pathname === item.path;
               return (
                 <button
                   key={item.path}
                   onClick={() => navigate(item.path)}
-                  className="relative flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors w-full text-left cursor-pointer"
-                  style={{
-                    background: isActive ? 'var(--color-accent-subtle)' : 'transparent',
-                    color: isActive ? 'var(--color-text)' : 'var(--color-text-secondary)',
-                    fontWeight: isActive ? 500 : 400,
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!isActive) e.currentTarget.style.background = 'var(--color-bg-secondary)';
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!isActive) e.currentTarget.style.background = 'transparent';
-                  }}
+                  className="mac-row"
+                  data-active={isActive}
+                  aria-current={isActive ? 'page' : undefined}
                 >
-                  {isActive && (
-                    <span
-                      aria-hidden="true"
-                      className="absolute left-0 top-1.5 bottom-1.5 w-[2px] rounded-full"
-                      style={{
-                        background: 'var(--color-accent)',
-                        boxShadow: '0 0 8px var(--color-accent-glow)',
-                      }}
-                    />
-                  )}
-                  <item.icon size={16} style={isActive ? { color: 'var(--color-accent)' } : undefined} />
+                  <item.icon size={16} strokeWidth={STROKE} />
                   {item.label}
                 </button>
               );
             })}
           </nav>
+
+          {/* Model + appearance */}
+          <div className="flex items-center gap-1 px-2 pb-3 pt-1" style={{ borderTop: '1px solid var(--color-border-subtle)' }}>
+            <button
+              onClick={() => setCommandPaletteOpen(true)}
+              className="mac-row flex-1 min-w-0"
+              title={`Cambiar modelo (${IS_MAC ? '⌘' : 'Ctrl'}+K)`}
+            >
+              {modelLoading ? (
+                <Loader2 size={15} strokeWidth={STROKE} className="animate-spin" style={{ color: 'var(--color-accent)' }} />
+              ) : (
+                <SergioMark size={15} />
+              )}
+              <span className="truncate flex-1 text-[12.5px]">
+                {modelLoading
+                  ? 'Cargando modelo…'
+                  : deepResearch
+                    ? 'Investigación a fondo'
+                    : selectedModel || serverInfo?.model || 'Elegir modelo'}
+              </span>
+              <ChevronsUpDown size={13} strokeWidth={STROKE} style={{ color: 'var(--color-text-tertiary)' }} />
+            </button>
+            <button
+              onClick={() => updateSettings({ theme: nextTheme })}
+              className="mac-icon-btn shrink-0"
+              title={`Apariencia: ${THEME_LABEL[settings.theme as keyof typeof THEME_LABEL] ?? settings.theme}`}
+              aria-label="Cambiar apariencia"
+            >
+              <ThemeIcon size={15} strokeWidth={STROKE} />
+            </button>
+          </div>
         </div>
       </aside>
     </>

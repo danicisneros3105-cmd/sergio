@@ -10,7 +10,11 @@ export function ChatPage() {
       <div className="flex-1 min-w-0">
         <ChatArea />
       </div>
-      {systemPanelOpen && <SystemPanel />}
+      {systemPanelOpen && (
+        <div className="hidden lg:flex">
+          <SystemPanel />
+        </div>
+      )}
     </div>
   );
 }
