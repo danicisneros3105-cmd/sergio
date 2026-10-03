@@ -29,6 +29,7 @@ DESKTOP_TOOLS = (
     "face_enroll",
     "files_organize",
     "python_run",
+    "terminal_run",
     "skill_guide",
     "web_search",
 )
@@ -76,6 +77,41 @@ def enable_tools(config_path: Path) -> None:
     agent["max_turns"] = max(int(agent.get("max_turns", 10)), MIN_TURNS)
     config_path.parent.mkdir(parents=True, exist_ok=True)
     config_path.write_text(tomlkit.dumps(doc))
+
+
+CLOUD_PREFIXES = ("kimi", "moonshot", "gemini")
+
+
+def prefer_cloud(config_path: Path, env: dict[str, str]) -> str:
+    """Use Kimi (or Gemini) as the brain when its key is saved.
+
+    The local model is slow with Sergio's long instructions and some GPUs
+    crash on them, so a saved cloud key always wins; the local model stays as
+    the fallback. Returns the model in use ("" if only the local one).
+    """
+    import tomlkit
+
+    doc = (
+        tomlkit.parse(config_path.read_text())
+        if config_path.exists()
+        else tomlkit.document()
+    )
+    intel = doc.setdefault("intelligence", tomlkit.table())
+    current = str(intel.get("default_model", "") or "")
+    if current.lower().startswith(CLOUD_PREFIXES):
+        return current
+    if env.get("MOONSHOT_API_KEY"):
+        chosen = "kimi-k2.6"
+    elif env.get("GEMINI_API_KEY"):
+        chosen = "gemini-3-flash-preview"
+    else:
+        return ""
+    intel["default_model"] = chosen
+    if current and not intel.get("fallback_model"):
+        intel["fallback_model"] = current
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    config_path.write_text(tomlkit.dumps(doc))
+    return chosen
 
 
 def pull_model(model: str) -> bool:
@@ -136,6 +172,15 @@ def instalar(vision: bool, gpu: bool = False) -> None:
             )
     write_env(env_path, updates)
     enable_tools(get_config_dir() / "config.toml")
+    brain = prefer_cloud(get_config_dir() / "config.toml", env)
+    if brain:
+        console.print(f"Sergio piensa con [bold]{brain}[/bold] (nube).")
+    else:
+        console.print(
+            "[yellow]Sergio usa el modelo local, que es lento y en algunas "
+            "tarjetas se cae. Pon tu clave de Kimi: sergio nube configurar"
+            "[/yellow]"
+        )
 
     script = _wslpath(_REPO_ROOT / "scripts" / "instalar-escritorio.ps1")
     source = _wslpath(_REPO_ROOT / "windows")

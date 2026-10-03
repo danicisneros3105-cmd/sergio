@@ -167,8 +167,10 @@ class DesktopActionTool(_DesktopTool):
                 "double_click, right_click, move (element id from screen_read, or "
                 "x,y); type (text into the focused field); key ('enter', 'ctrl+s', "
                 "'alt+tab'); scroll (amount, negative = down); open_app (target = "
-                "app name, via the Start menu); open (target = web address, file or "
-                "folder); focus (target = part of a window title); wait (seconds). "
+                "app name, via the Start menu); close_app (target = app or window "
+                "name; closes it like its X button, so it can ask to save); open "
+                "(target = web address, file or folder); focus (target = part of a "
+                "window title); wait (seconds). "
                 "One action per call; check with screen_read afterwards. Never "
                 "buy, pay, delete, or send messages/emails on the user's behalf "
                 "unless they clearly asked for that exact thing."
@@ -187,6 +189,7 @@ class DesktopActionTool(_DesktopTool):
                             "key",
                             "scroll",
                             "open_app",
+                            "close_app",
                             "open",
                             "focus",
                             "wait",
@@ -599,6 +602,54 @@ class PythonRunTool(_DesktopTool):
         )
 
 
+@ToolRegistry.register("terminal_run")
+class TerminalRunTool(_DesktopTool):
+    tool_id = "terminal_run"
+
+    @property
+    def spec(self) -> ToolSpec:
+        return ToolSpec(
+            name="terminal_run",
+            description=(
+                "Run a PowerShell command on the user's Windows laptop (in their "
+                "home folder) and get its output: list or find files, check disk "
+                "space, see running apps (Get-Process), install apps with "
+                "winget, git, pip, npm, change settings... Prefer one clear "
+                "command at a time and read the output. Before anything that "
+                "deletes files, uninstalls, changes system settings or shuts "
+                "down, tell the user exactly what will happen and get their "
+                "OK (face_approval for deleting)."
+            ),
+            parameters={
+                "type": "object",
+                "properties": {
+                    "command": {"type": "string", "description": "PowerShell."},
+                    "seconds": {"type": "number", "description": "Time limit."},
+                },
+                "required": ["command"],
+            },
+            category="desktop",
+            timeout_seconds=960,
+        )
+
+    def execute(self, **params: Any) -> ToolResult:
+        action = {
+            "action": "terminal",
+            "command": str(params.get("command") or ""),
+            "seconds": params.get("seconds") or 120,
+        }
+        try:
+            data = self._call("POST", "/act", json=action, timeout=960)
+        except RuntimeError as exc:
+            return self._fail(f"No pude usar la terminal: {exc}")
+        result = str(data.get("result", ""))
+        return ToolResult(
+            tool_name=self.tool_id,
+            content=result,
+            success=result.startswith("exit code 0"),
+        )
+
+
 __all__ = [
     "BlenderCreateTool",
     "CameraLookTool",
@@ -608,5 +659,6 @@ __all__ = [
     "FilesOrganizeTool",
     "PythonRunTool",
     "ScreenReadTool",
+    "TerminalRunTool",
     "VideoEditTool",
 ]

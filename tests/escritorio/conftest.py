@@ -75,6 +75,14 @@ class FakeDesktop:
         self.calls.append(("python", code, timeout))
         return {"exit_code": 0, "stdout": "42\n", "stderr": "", "script": "s.py"}
 
+    def close_app(self, name):
+        self.calls.append(("close_app", name))
+        return ["Spotify Premium"] if name.lower() == "spotify" else []
+
+    def shell(self, command, timeout):
+        self.calls.append(("shell", command, timeout))
+        return {"exit_code": 0, "stdout": "C:\\Users\\dani\n", "stderr": ""}
+
     def blender(self, script):
         self.calls.append(("blender", script))
         return r"C:\Users\dani\AppData\Local\SergioEscritorio\blender\escena.py"

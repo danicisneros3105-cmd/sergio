@@ -43,6 +43,8 @@ ACTIONS = (
     "organize",
     "undo_organize",
     "python",
+    "close_app",
+    "terminal",
 )
 
 
@@ -76,6 +78,10 @@ class Backend(Protocol):
     def undo_organize(self) -> int: ...  # files put back
 
     def python(self, code: str, timeout: float) -> dict: ...
+
+    def close_app(self, name: str) -> list[str]: ...  # titles closed
+
+    def shell(self, command: str, timeout: float) -> dict: ...
 
 
 class ActionError(ValueError):
@@ -272,6 +278,24 @@ class Controller:
             result = (
                 f"exit code {ran['exit_code']} (script {ran['script']})\n"
                 f"stdout:\n{ran['stdout']}\nstderr:\n{ran['stderr']}"
+            )
+        elif kind == "close_app":
+            name = str(action.get("target") or "").strip()
+            if len(name) < 2:
+                raise ActionError("'target' is the app or window name to close.")
+            closed = b.close_app(name)
+            if not closed:
+                raise ActionError(f"No open app matches {name!r}.")
+            result = "asked to close: " + " | ".join(closed)
+        elif kind == "terminal":
+            command = str(action.get("command") or "")
+            if not command.strip() or len(command) > 20_000:
+                raise ActionError("'command' is the PowerShell command to run.")
+            timeout = min(max(float(action.get("seconds") or 120), 5), 900)
+            ran = b.shell(command, timeout)
+            result = (
+                f"exit code {ran['exit_code']}\n"
+                f"output:\n{ran['stdout']}\nerrors:\n{ran['stderr']}"
             )
         else:  # wait
             seconds = min(max(float(action.get("seconds") or 1), 0.1), 10)

@@ -152,4 +152,47 @@ def run_python(code: str, timeout: float = 120, workdir: str = "") -> dict:
     }
 
 
-__all__ = ["KINDS", "organize", "run_python", "undo"]
+def shell_command(command: str) -> list[str]:
+    """PowerShell command line with UTF-8 output (pure, testable)."""
+    prelude = (
+        "[Console]::OutputEncoding=[Text.Encoding]::UTF8; "
+        "$ProgressPreference='SilentlyContinue'; "
+    )
+    return [
+        "powershell.exe",
+        "-NoProfile",
+        "-NonInteractive",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        prelude + command,
+    ]
+
+
+def run_shell(
+    command: str, timeout: float = 120, workdir: str = "", argv: list[str] | None = None
+) -> dict:
+    """Run a PowerShell command in the user's home and return its output."""
+    folder = Path(workdir) if workdir else Path.home()
+    flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+    try:
+        done = subprocess.run(
+            argv or shell_command(command),
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=timeout,
+            cwd=folder,
+            creationflags=flags,
+            check=False,
+        )
+        out, err, code = done.stdout, done.stderr, done.returncode
+    except subprocess.TimeoutExpired:
+        out, err, code = "", f"Se pasó de {timeout:g} s y lo detuve.", -1
+    except OSError as exc:
+        out, err, code = "", str(exc), -1
+    return {"exit_code": code, "stdout": out[-MAX_OUTPUT:], "stderr": err[-MAX_OUTPUT:]}
+
+
+__all__ = ["KINDS", "organize", "run_python", "run_shell", "shell_command", "undo"]

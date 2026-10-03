@@ -38,7 +38,7 @@ TIME_BUDGET = 4.0  # seconds
 OWN_TITLES = ("Sergio",)  # never treat our own (overlay) windows as the target
 
 
-def _visible_windows() -> list[tuple[int, str]]:
+def _visible_windows(minimized: bool = False) -> list[tuple[int, str]]:
     """Top-level windows in z-order (front first): (handle, title)."""
     from ctypes import wintypes
 
@@ -49,7 +49,9 @@ def _visible_windows() -> list[tuple[int, str]]:
         wintypes.BOOL, wintypes.HWND, wintypes.LPARAM
     )
     def collect(hwnd: int, _lparam: int) -> bool:
-        if not user32.IsWindowVisible(hwnd) or user32.IsIconic(hwnd):
+        if not user32.IsWindowVisible(hwnd):
+            return True
+        if user32.IsIconic(hwnd) and not minimized:
             return True
         length = user32.GetWindowTextLengthW(hwnd)
         if length == 0:
@@ -239,6 +241,34 @@ class WindowsBackend:
                 user32.SetForegroundWindow(hwnd)
                 return True
         return False
+
+    def close_app(self, name: str) -> list[str]:
+        """Close windows whose title matches, like clicking their X (so the
+        app can ask to save). Falls back to the process name."""
+        needle = name.lower().removesuffix(".exe")
+        user32 = ctypes.windll.user32  # type: ignore[attr-defined]
+        closed = []
+        for hwnd, title in _visible_windows(minimized=True):
+            low = title.lower()
+            if needle in low and "sergio" not in low:
+                user32.PostMessageW(hwnd, 0x0010, 0, 0)  # WM_CLOSE
+                closed.append(title)
+        if not closed:
+            done = subprocess.run(
+                ["taskkill", "/im", f"{needle}.exe"],
+                capture_output=True,
+                text=True,
+                check=False,
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+            )
+            if done.returncode == 0:
+                closed.append(f"{needle}.exe")
+        return closed
+
+    def shell(self, command: str, timeout: float) -> dict:
+        from sergio_escritorio import files
+
+        return files.run_shell(command, timeout=timeout)
 
     def make_video(self, options: dict) -> str:
         from sergio_escritorio import media

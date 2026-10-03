@@ -182,7 +182,14 @@ def revisar() -> None:
             failures += 1
             _bad(name, f"{resp.status_code} {_detail(resp)}")
             if name.startswith("Chat"):
-                if model == model_for_ollama:
+                detail = _detail(resp)
+                if "CUDA error" in detail or "0xc0000409" in detail:
+                    console.print(
+                        "  El modelo local se cae en tu tarjeta gráfica con las "
+                        "instrucciones largas de Sergio. Solución: usa Kimi "
+                        "(sergio nube configurar --kimi TU_CLAVE)."
+                    )
+                elif model == model_for_ollama:
                     _probe_ollama(host, model)
 
     # 6. Cursor companion (Windows side)
