@@ -18,7 +18,7 @@ def test_enable_tools_adds_desktop_tools_and_turns(tmp_path):
         'enabled = ["think", "screen_read", "calculator", "get_weather", '
         '"globe_view", "live_flights", "live_earthquakes", "desktop_action", '
         '"camera_look", "video_edit", "blender_create", "face_approval", '
-        '"face_enroll", "skill_guide", "web_search"]'
+        '"face_enroll", "files_organize", "python_run", "skill_guide", "web_search"]'
     ) in text
     assert "max_turns = 25" in text
     escritorio_cmd.enable_tools(cfg)  # idempotent

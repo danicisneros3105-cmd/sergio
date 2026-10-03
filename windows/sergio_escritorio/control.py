@@ -40,6 +40,9 @@ ACTIONS = (
     "wait",
     "make_video",
     "blender",
+    "organize",
+    "undo_organize",
+    "python",
 )
 
 
@@ -67,6 +70,12 @@ class Backend(Protocol):
     def make_video(self, options: dict) -> str: ...  # path of the new video
 
     def blender(self, script: str) -> str: ...  # path of the saved script
+
+    def organize(self, folder: str, by: str, apply: bool) -> dict: ...
+
+    def undo_organize(self) -> int: ...  # files put back
+
+    def python(self, code: str, timeout: float) -> dict: ...
 
 
 class ActionError(ValueError):
@@ -241,6 +250,29 @@ class Controller:
             if not script.strip() or len(script) > 60_000:
                 raise ActionError("'script' is Blender Python (bpy) code.")
             result = "Blender opened with script " + b.blender(script)
+        elif kind == "organize":
+            folder = str(action.get("target") or "").strip()
+            if not folder:
+                raise ActionError("'target' is the folder to organise.")
+            by = "month" if action.get("by") == "month" else "type"
+            plan = b.organize(folder, by, bool(action.get("apply")))
+            groups = ", ".join(f"{k}: {v}" for k, v in plan["groups"].items())
+            verb = "moved" if plan["applied"] else "would move (preview, nothing moved)"
+            result = (
+                f"{verb} {plan['files']} files in {plan['folder']} -> {groups or '-'}"
+            )
+        elif kind == "undo_organize":
+            result = f"put back {b.undo_organize()} files"
+        elif kind == "python":
+            code = str(action.get("code") or "")
+            if not code.strip() or len(code) > 60_000:
+                raise ActionError("'code' is the Python program to run.")
+            timeout = min(max(float(action.get("seconds") or 120), 5), 900)
+            ran = b.python(code, timeout)
+            result = (
+                f"exit code {ran['exit_code']} (script {ran['script']})\n"
+                f"stdout:\n{ran['stdout']}\nstderr:\n{ran['stderr']}"
+            )
         else:  # wait
             seconds = min(max(float(action.get("seconds") or 1), 0.1), 10)
             self._sleep(seconds)

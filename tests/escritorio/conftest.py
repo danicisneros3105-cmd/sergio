@@ -58,6 +58,23 @@ class FakeDesktop:
         self.calls.append(("make_video", options))
         return r"C:\Users\dani\Videos\Sergio\viaje.mp4"
 
+    def organize(self, folder, by, apply):
+        self.calls.append(("organize", folder, by, apply))
+        return {
+            "folder": r"C:\\Users\\dani\\Downloads",
+            "files": 3,
+            "groups": {"Imágenes": 2, "Documentos": 1},
+            "applied": apply,
+        }
+
+    def undo_organize(self):
+        self.calls.append(("undo_organize",))
+        return 3
+
+    def python(self, code, timeout):
+        self.calls.append(("python", code, timeout))
+        return {"exit_code": 0, "stdout": "42\n", "stderr": "", "script": "s.py"}
+
     def blender(self, script):
         self.calls.append(("blender", script))
         return r"C:\Users\dani\AppData\Local\SergioEscritorio\blender\escena.py"

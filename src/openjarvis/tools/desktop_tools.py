@@ -505,12 +505,108 @@ class FaceEnrollTool(_DesktopTool):
         return self._ok(f"Listo, ya conozco la cara de {name}.")
 
 
+@ToolRegistry.register("files_organize")
+class FilesOrganizeTool(_DesktopTool):
+    tool_id = "files_organize"
+
+    @property
+    def spec(self) -> ToolSpec:
+        return ToolSpec(
+            name="files_organize",
+            description=(
+                "Tidy a folder on the user's Windows laptop: moves its loose "
+                "files into subfolders by kind (Imágenes, Videos, Documentos, "
+                "Música, Instaladores...) or by month. 'target' can be a path or "
+                "a folder name said out loud (Descargas, Escritorio, Documentos). "
+                "ALWAYS call first with apply=false to get the preview, tell the "
+                "user what will happen, and only call again with apply=true "
+                "after they agree. Nothing is deleted or overwritten, and "
+                "undo=true puts the last tidy-up back."
+            ),
+            parameters={
+                "type": "object",
+                "properties": {
+                    "target": {"type": "string", "description": "Folder."},
+                    "by": {"type": "string", "enum": ["type", "month"]},
+                    "apply": {"type": "boolean"},
+                    "undo": {"type": "boolean"},
+                },
+            },
+            category="desktop",
+            timeout_seconds=300,
+        )
+
+    def execute(self, **params: Any) -> ToolResult:
+        if params.get("undo"):
+            action: dict[str, Any] = {"action": "undo_organize"}
+        else:
+            action = {
+                "action": "organize",
+                "target": str(params.get("target") or ""),
+                "by": params.get("by") or "type",
+                "apply": bool(params.get("apply")),
+            }
+        try:
+            data = self._call("POST", "/act", json=action, timeout=300)
+        except RuntimeError as exc:
+            return self._fail(f"No pude ordenar la carpeta: {exc}")
+        return self._ok(str(data.get("result", "listo")))
+
+
+@ToolRegistry.register("python_run")
+class PythonRunTool(_DesktopTool):
+    tool_id = "python_run"
+
+    @property
+    def spec(self) -> ToolSpec:
+        return ToolSpec(
+            name="python_run",
+            description=(
+                "Run a Python program on the user's Windows laptop and get what "
+                "it printed (numpy, Pillow and OpenCV are available; the "
+                "working folder is Documents\\Sergio). Use it for calculations, "
+                "converting or resizing images, renaming many files, reading "
+                "CSVs, making charts... print() the results. Ask the user "
+                "before code that deletes or overwrites their files."
+            ),
+            parameters={
+                "type": "object",
+                "properties": {
+                    "code": {"type": "string", "description": "Python code."},
+                    "seconds": {"type": "number", "description": "Time limit."},
+                },
+                "required": ["code"],
+            },
+            category="desktop",
+            timeout_seconds=960,
+        )
+
+    def execute(self, **params: Any) -> ToolResult:
+        action = {
+            "action": "python",
+            "code": str(params.get("code") or ""),
+            "seconds": params.get("seconds") or 120,
+        }
+        try:
+            data = self._call("POST", "/act", json=action, timeout=960)
+        except RuntimeError as exc:
+            return self._fail(f"No pude ejecutar Python: {exc}")
+        result = str(data.get("result", ""))
+        return ToolResult(
+            tool_name=self.tool_id,
+            content=result,
+            success=result.startswith("exit code 0"),
+        )
+
+
 __all__ = [
     "BlenderCreateTool",
     "CameraLookTool",
     "DesktopActionTool",
     "FaceApprovalTool",
     "FaceEnrollTool",
+    "FilesOrganizeTool",
+    "PythonRunTool",
     "ScreenReadTool",
     "VideoEditTool",
 ]

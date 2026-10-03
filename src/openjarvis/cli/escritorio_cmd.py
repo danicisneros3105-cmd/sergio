@@ -27,6 +27,8 @@ DESKTOP_TOOLS = (
     "blender_create",
     "face_approval",
     "face_enroll",
+    "files_organize",
+    "python_run",
     "skill_guide",
     "web_search",
 )

@@ -287,6 +287,15 @@ sigue, te escucha y usa la computadora por ti:
   script de Blender que construye el modelo y abre Blender con el resultado
   para que sigas editándolo. Instala Blender antes:
   `winget install BlenderFoundation.Blender`.
+- **Ordenar archivos**: «Sergio, ordena mi carpeta de Descargas». Primero te
+  dice qué va a mover (Imágenes, Videos, Documentos, Instaladores…) y solo lo
+  hace si le dices que sí. Nunca borra ni sobrescribe; «Sergio, deshaz el
+  orden» lo deja todo como estaba. También puede ordenar por mes.
+- **Python**: «Sergio, calcula…», «convierte estas fotos a PNG», «renombra los
+  archivos de esta carpeta»: escribe y ejecuta un programa de Python en tu
+  laptop (carpeta *Documentos\\Sergio*) y te dice el resultado.
+- **Tareas largas**: primero carga la guía experta de ECC que corresponde,
+  planea los pasos y los hace uno por uno.
 - **Mejor oído**: con la tarjeta NVIDIA usa el modelo grande de Whisper
   (large-v3-turbo) en la GPU; si no puede, usa el pequeño en el procesador.
   Sube el volumen de tu voz y revisa en Windows → Sonido → Entrada que esté

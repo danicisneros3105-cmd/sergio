@@ -259,5 +259,20 @@ class WindowsBackend:
 
         return media.run_blender(script)
 
+    def organize(self, folder: str, by: str, apply: bool) -> dict:
+        from sergio_escritorio import files
+
+        return files.organize(folder, by=by, apply=apply)
+
+    def undo_organize(self) -> int:
+        from sergio_escritorio import files
+
+        return files.undo()
+
+    def python(self, code: str, timeout: float) -> dict:
+        from sergio_escritorio import files
+
+        return files.run_python(code, timeout=timeout)
+
 
 __all__ = ["WindowsBackend"]
