@@ -80,12 +80,29 @@ def revisar() -> None:
         _bad("Ollama", f"no responde en {host} ({exc}). Abre la app Ollama en Windows.")
 
     # 2. Sergio's server
-    try:
-        httpx.get(f"{base}/health", timeout=5).raise_for_status()
-        _ok("Sergio está encendido")
-    except httpx.HTTPError:
-        _bad("Sergio", "no está encendido: ejecuta `sergio servicio encender`")
-        raise SystemExit(1)
+    # It may have just been (re)started: give it up to two minutes.
+    import subprocess
+    import time
+
+    deadline = time.monotonic() + 120
+    while True:
+        try:
+            httpx.get(f"{base}/health", timeout=5).raise_for_status()
+            _ok("Sergio está encendido")
+            break
+        except httpx.HTTPError:
+            if time.monotonic() > deadline:
+                log = subprocess.run(
+                    ["journalctl", "--user", "-u", "sergio", "-n", "25", "--no-pager"],
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                ).stdout
+                _bad("Sergio", "no arranca. Últimas líneas de su registro:")
+                console.print(escape(log or "(sin registro)"))
+                raise SystemExit(1)
+            console.print("Esperando a que Sergio arranque…")
+            time.sleep(5)
 
     # 3. Chat, 4. voice, 5. hearing
     checks = [

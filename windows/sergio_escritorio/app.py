@@ -59,6 +59,18 @@ def activity_caption(result: str) -> str:
     return ACTIVITY.get(head, "")
 
 
+def make_icon(state: str = "idle") -> object:
+    """Sergio's mark as a Pillow image (used for the .ico of the shortcuts)."""
+    from PIL import Image, ImageDraw
+
+    colours = {"idle": (10, 108, 255), "paused": (142, 142, 147)}
+    image = Image.new("RGBA", (256, 256), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(image)
+    draw.ellipse((8, 8, 248, 248), fill=colours.get(state, colours["idle"]))
+    draw.ellipse((80, 80, 176, 176), outline=(255, 255, 255), width=26)
+    return image
+
+
 def single_instance() -> bool:
     """False if Sergio is already running (named mutex)."""
     if sys.platform != "win32":
