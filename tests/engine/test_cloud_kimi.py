@@ -128,3 +128,9 @@ def test_aq_google_keys_use_vertex_express(monkeypatch):
     monkeypatch.setenv("GEMINI_API_KEY", "AIzaTest")
     cloud.CloudEngine()
     assert made == [{"vertexai": True, "api_key": "AQ.test"}, {"api_key": "AIzaTest"}]
+
+
+def test_engine_cleans_fullwidth_keys(monkeypatch, engine):
+    monkeypatch.setenv("MOONSHOT_API_KEY", "sk-ｔｅｓｔ")
+    cloud.CloudEngine()
+    assert FakeOpenAI.instances[-1].api_key == "sk-test"

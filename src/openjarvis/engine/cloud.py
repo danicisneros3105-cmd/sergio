@@ -173,6 +173,22 @@ def _is_kimi_model(model: str) -> bool:
     return model.lower().startswith(("kimi", "moonshot"))
 
 
+def _env_key(*names: str) -> str:
+    """API key from the environment, cleaned of copy-paste damage."""
+    import unicodedata
+
+    for name in names:
+        raw = os.environ.get(name, "")
+        if raw:
+            key = unicodedata.normalize("NFKC", raw)
+            key = "".join(c for c in key if c.isprintable() and not c.isspace())
+            key = key.strip("'\"`")
+            if key.isascii():
+                return key
+            logger.warning("%s contains non-ASCII characters; ignoring it", name)
+    return ""
+
+
 def _kimi_create(client: Any, create_kwargs: Dict[str, Any]) -> Any:
     """Kimi chat call: instant mode (no long thinking) when the model has it.
 
@@ -473,9 +489,7 @@ class CloudEngine(InferenceEngine):
                 self._anthropic_client = anthropic.Anthropic()
             except ImportError:
                 pass
-        gemini_key = os.environ.get("GEMINI_API_KEY") or os.environ.get(
-            "GOOGLE_API_KEY"
-        )
+        gemini_key = _env_key("GEMINI_API_KEY", "GOOGLE_API_KEY")
         if gemini_key:
             try:
                 from google import genai
@@ -534,7 +548,7 @@ class CloudEngine(InferenceEngine):
                 )
             except ImportError:
                 pass
-        kimi_key = os.environ.get("MOONSHOT_API_KEY") or os.environ.get("KIMI_API_KEY")
+        kimi_key = _env_key("MOONSHOT_API_KEY", "KIMI_API_KEY")
         if kimi_key:
             try:
                 import openai

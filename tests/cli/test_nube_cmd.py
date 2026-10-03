@@ -60,3 +60,14 @@ def test_configurar_keeps_keys_private_and_sets_main_model(tmp_path, monkeypatch
     assert "secret" not in result.output
     assert any(c[:3] == ["uv", "pip", "install"] for c in ran)
     assert ["systemctl", "--user", "try-restart", "sergio.service"] in ran
+
+
+def test_clean_key_repairs_copy_paste_damage():
+    import click
+    import pytest
+
+    fullwidth = "sk-Ehu9Ｓｉ１Ｊ９ＢＺＺ"  # what some apps paste
+    assert nube_cmd.clean_key(fullwidth) == "sk-Ehu9Si1J9BZZ"
+    assert nube_cmd.clean_key(" 'sk-abc'​\n") == "sk-abc"
+    with pytest.raises(click.ClickException, match="caracteres extraños"):
+        nube_cmd.clean_key("sk-Ехu")  # Cyrillic lookalikes cannot be repaired

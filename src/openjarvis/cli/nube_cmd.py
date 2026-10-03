@@ -19,6 +19,22 @@ KIMI_PREFERENCE = ("kimi-k2.6", "kimi-k2.5", "kimi-k2-turbo")
 KIMI_URLS = ("https://api.moonshot.ai/v1", "https://api.moonshot.cn/v1")
 
 
+def clean_key(raw: str) -> str:
+    """Undo copy-paste damage: full-width letters, invisible chars, quotes."""
+    import unicodedata
+
+    key = unicodedata.normalize("NFKC", raw or "")
+    key = "".join(c for c in key if c.isprintable() and not c.isspace())
+    key = key.strip("'\"`")
+    if not key.isascii():
+        bad = "".join(sorted({c for c in key if not c.isascii()}))
+        raise click.ClickException(
+            f"La clave tiene caracteres extraños ({bad!r}). Cópiala de nuevo "
+            "desde la página de Kimi/Google y pégala en el Bloc de notas primero."
+        )
+    return key
+
+
 def kimi_models(key: str, base_url: str, http: httpx.Client | None = None) -> list[str]:
     """Model ids the key can use; raises httpx.HTTPStatusError on a bad key."""
     client = http or httpx.Client(timeout=20)
@@ -76,8 +92,8 @@ def configurar(kimi_key: str, gemini_key: str, modelo: str) -> None:
             hide_input=True,
             show_default=False,
         ).strip()
-    kimi_key = kimi_key or env.get("MOONSHOT_API_KEY", "")
-    gemini_key = gemini_key or env.get("GEMINI_API_KEY", "")
+    kimi_key = clean_key(kimi_key or env.get("MOONSHOT_API_KEY", ""))
+    gemini_key = clean_key(gemini_key or env.get("GEMINI_API_KEY", ""))
     if not kimi_key and not gemini_key:
         raise click.ClickException("No keys given.")
 
