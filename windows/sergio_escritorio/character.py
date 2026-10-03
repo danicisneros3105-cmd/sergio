@@ -70,8 +70,15 @@ ACCESSORIES = {
     "mono": "Moño",
     "fiesta": "Gorro de fiesta",
     "corona": "Corona",
+    "copa": "Sombrero de copa",
+    "monoculo": "Monóculo",
+    "corbatin": "Corbatín",
 }
 PERSONALITIES = {
+    "Caballero británico": (
+        "Eres elegante, sereno y brillante, con humor seco e ironía amable, "
+        "como un millonario británico culto; nunca pedante."
+    ),
     "Amable": "Habla con calidez y paciencia, como un buen amigo.",
     "Divertido": "Usa humor ligero y alguna broma corta cuando encaje.",
     "Profesional": "Sé directo, preciso y sin rodeos.",
@@ -578,6 +585,43 @@ def _accessory(p: QPainter, centre: QPointF, rx: float, ry: float, r: float) -> 
                 r * 0.035,
                 r * 0.035,
             )
+    elif kind == "copa":  # top hat
+        black = QColor(24, 24, 28)
+        p.setPen(Qt.PenStyle.NoPen)
+        p.setBrush(black)
+        p.drawRoundedRect(
+            QRectF(x - r * 0.55, top + ry * 0.02, r * 1.1, r * 0.14), r * 0.06, r * 0.06
+        )
+        p.drawRoundedRect(
+            QRectF(x - r * 0.34, top - r * 0.62, r * 0.68, r * 0.68), r * 0.06, r * 0.06
+        )
+        p.setBrush(QColor("#8e1b2c"))
+        p.drawRect(QRectF(x - r * 0.34, top - r * 0.08, r * 0.68, r * 0.1))
+    elif kind == "monoculo":
+        gold = QColor("#d4a017")
+        eye = QPointF(x + r * 0.3, centre.y() - r * 0.08)
+        p.setPen(QPen(gold, max(1.0, r * 0.05)))
+        p.setBrush(QColor(255, 255, 255, 35))
+        p.drawEllipse(eye, r * 0.17, r * 0.17)
+        p.setPen(QPen(gold, max(0.6, r * 0.025)))
+        p.drawLine(eye + QPointF(r * 0.12, r * 0.12), eye + QPointF(r * 0.32, r * 0.6))
+    elif kind == "corbatin":  # bow tie under the face
+        bow = QColor("#1c1c1e")
+        bx, by = x, centre.y() + ry * 0.68
+        p.setPen(Qt.PenStyle.NoPen)
+        p.setBrush(bow)
+        for side in (-1, 1):
+            p.drawPolygon(
+                QPolygonF(
+                    [
+                        QPointF(bx, by),
+                        QPointF(bx + side * r * 0.32, by - r * 0.15),
+                        QPointF(bx + side * r * 0.32, by + r * 0.15),
+                    ]
+                )
+            )
+        p.setBrush(bow.lighter(180))
+        p.drawEllipse(QPointF(bx, by), r * 0.07, r * 0.06)
     elif kind == "corona":
         gold = QColor("#ffd60a")
         crown = QPolygonF(

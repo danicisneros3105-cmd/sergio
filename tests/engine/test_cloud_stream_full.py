@@ -523,14 +523,12 @@ async def test_stream_full_google_preserves_tool_calls(monkeypatch: pytest.Monke
     assert engine._thought_sigs[tool_call["id"]] == b"sig"
     assert result[-1].finish_reason == "tool_calls"
     config = client.models.generate_content_stream.call_args.kwargs["config"]
+    # A tool without arguments is declared without "parameters": Gemini
+    # rejects an OBJECT schema with no properties.
     assert config.tools == [
         {
             "function_declarations": [
-                {
-                    "name": "get_weather",
-                    "description": "Get weather",
-                    "parameters": {"type": "object", "properties": {}},
-                }
+                {"name": "get_weather", "description": "Get weather"}
             ]
         }
     ]

@@ -162,7 +162,38 @@ def detect_faces(frame: Any) -> list[tuple[int, int, int, int]]:
 
 _CASCADE: Any = None
 MARGIN = 10.0  # room for the soft shadow
-BUTTONS = (("ask", "¿Qué ves?"), ("mirror", "Espejo"), ("photo", "Foto"))
+BUTTONS = (
+    ("ask", "¿Qué ves?"),
+    ("hands", "Manos"),
+    ("mirror", "Espejo"),
+    ("photo", "Foto"),
+)
+HAND_MODES = ("off", "gestos", "mouse", "3d")
+HAND_LABELS = {"off": "Manos", "gestos": "Gestos", "mouse": "Mouse", "3d": "3D"}
+# MediaPipe hand skeleton (pairs of landmark indices).
+BONES = (
+    (0, 1),
+    (1, 2),
+    (2, 3),
+    (3, 4),
+    (0, 5),
+    (5, 6),
+    (6, 7),
+    (7, 8),
+    (5, 9),
+    (9, 10),
+    (10, 11),
+    (11, 12),
+    (9, 13),
+    (13, 14),
+    (14, 15),
+    (15, 16),
+    (13, 17),
+    (17, 18),
+    (18, 19),
+    (19, 20),
+    (0, 17),
+)
 
 
 class CameraWindow(QWidget):
@@ -175,7 +206,10 @@ class CameraWindow(QWidget):
     BASE = (360.0, 270.0)
 
     def __init__(
-        self, feed: CameraFeed, on_ask: Callable[[], None] | None = None
+        self,
+        feed: CameraFeed,
+        on_ask: Callable[[], None] | None = None,
+        hands: Any = None,
     ) -> None:
         super().__init__(
             None,
@@ -186,6 +220,7 @@ class CameraWindow(QWidget):
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.feed = feed
         self.on_ask = on_ask
+        self.hands = hands  # HandControl (mode + latest hands), optional
         self.scale = 1.0
         self.mirror = True
         self.overlay = ""
@@ -263,7 +298,7 @@ class CameraWindow(QWidget):
 
     def button_rects(self) -> dict[str, QRectF]:
         c = self.card()
-        widths = {"ask": 92.0, "mirror": 70.0, "photo": 58.0}
+        widths = {"ask": 86.0, "hands": 70.0, "mirror": 64.0, "photo": 52.0}
         total = sum(widths.values()) + 8 * (len(widths) - 1)
         x = c.center().x() - total / 2
         rects = {}
@@ -300,7 +335,25 @@ class CameraWindow(QWidget):
         self._drag = event.globalPosition() - QPointF(self.pos())
 
     def _press(self, key: str) -> None:
-        if key == "ask" and self.on_ask is not None:
+        if key == "hands" and self.hands is not None:
+            current = getattr(self.hands, "mode", "off")
+            nxt = HAND_MODES[(HAND_MODES.index(current) + 1) % len(HAND_MODES)]
+            self.hands.set_mode(nxt)
+            self.feed.keep_on = True
+            tips = {
+                "gestos": "Gestos: 👍 sí · ✋ calla · ✌️ ¿qué ves?",
+                "mouse": (
+                    "Mouse: el índice mueve, pellizco = clic "
+                    "(mantén = arrastrar), puño = pausa"
+                ),
+                "3d": (
+                    "3D en Blender: pellizca y mueve para girar, "
+                    "dos manos para escalar, puño mueve"
+                ),
+                "off": "Control con las manos apagado",
+            }
+            self.show_overlay(tips[nxt], 6)
+        elif key == "ask" and self.on_ask is not None:
             self.show_overlay("Mirando…", 30)
             self.on_ask()
         elif key == "mirror":
@@ -348,6 +401,7 @@ class CameraWindow(QWidget):
             )
             p.drawImage(origin, img)
             self._draw_faces(p, origin, img.width())
+            self._draw_hands(p, origin, img.width(), img.height())
         else:
             p.setPen(QColor(200, 200, 210))
             p.setFont(_font(10))
@@ -391,6 +445,31 @@ class CameraWindow(QWidget):
             p.setPen(QPen(accent, 2))
             p.setBrush(QColor(10, 132, 255, 28))
             p.drawRoundedRect(rect, 12, 12)
+
+    def _draw_hands(self, p: QPainter, origin: QPointF, w: int, h: int) -> None:
+        hands = getattr(self.hands, "hands", None) or []
+        if not hands or getattr(self.hands, "mode", "off") == "off":
+            return
+        green = QColor(48, 209, 88)
+        for hand in hands:
+            pts = [
+                QPointF(
+                    origin.x() + ((1 - x) if self.mirror else x) * w,
+                    origin.y() + y * h,
+                )
+                for x, y, *_ in hand.landmarks
+            ]
+            p.setPen(QPen(QColor(255, 255, 255, 170), 2))
+            for a, b in BONES:
+                p.drawLine(pts[a], pts[b])
+            p.setPen(Qt.PenStyle.NoPen)
+            p.setBrush(green)
+            for pt in pts:
+                p.drawEllipse(pt, 3, 3)
+            tip = pts[8]
+            p.setPen(QColor(255, 255, 255))
+            p.setFont(_font(8, QFont.Weight.DemiBold))
+            p.drawText(tip + QPointF(8, -8), hand.gesture)
 
     def _draw_pill(self, p: QPainter, card: QRectF, t: float) -> None:
         pill = QRectF(card.left() + 10, card.top() + 10, 104, 26)
@@ -437,9 +516,14 @@ class CameraWindow(QWidget):
 
     def _draw_buttons(self, p: QPainter) -> None:
         p.setFont(_font(8.5, QFont.Weight.DemiBold))
+        mode = getattr(self.hands, "mode", "off")
         for key, label in BUTTONS:
             rect = self.button_rects()[key]
-            active = key == "mirror" and self.mirror
+            active = (key == "mirror" and self.mirror) or (
+                key == "hands" and mode != "off"
+            )
+            if key == "hands":
+                label = HAND_LABELS.get(mode, "Manos")
             p.setPen(QPen(QColor(255, 255, 255, 50), 1))
             p.setBrush(
                 QColor(255, 255, 255, 230) if key == "ask" else QColor(30, 30, 34, 190)

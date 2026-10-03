@@ -21,6 +21,8 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# Hands: gestures, air mouse and 3D modelling with your hands (MediaPipe).
+manos = ["mediapipe>=1.0"]
 # NVIDIA GPU for a much better ear (Whisper large-v3-turbo). Big download
 # (~1 GB); the installer tries it but Sergio works on the CPU without it.
 gpu = [

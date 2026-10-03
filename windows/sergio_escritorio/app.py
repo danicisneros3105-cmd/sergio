@@ -47,15 +47,18 @@ def load_config() -> dict[str, Any]:
     data.setdefault("theme", "Océano")
     data.setdefault("eyes", True)
     data.setdefault("cursor_size", 9.0)
-    data.setdefault("voice", "es-EC-LuisNeural")
+    # Sergio's own voice: the British gentleman (Gemini). The old default
+    # neural voice is upgraded; a voice the user picked is kept.
+    if data.get("voice") in (None, "es-EC-LuisNeural"):
+        data["voice"] = "gemini:Algieba"
     # Muse-style personalisation and the brain's effort.
-    data.setdefault("name", "Sergio")
+    data["name"] = "Sergio"  # his name is fixed
     data.setdefault("style", "orbe")
     data.setdefault("body", "#f3e9d2")
     data.setdefault("eye_style", "ovalos")
     data.setdefault("mouth", "ninguna")
     data.setdefault("accessory", "ninguno")
-    data.setdefault("personality", "Amable")
+    data.setdefault("personality", "Caballero británico")
     data.setdefault("voice_rate", "+5%")
     data.setdefault("effort", "auto")
     return data
@@ -282,6 +285,14 @@ def run(config: dict[str, Any]) -> None:
         assistant, wake_word=bool(config["wake_word"]), on_level=bridge.level.emit
     )
 
+    def hands_status() -> str:
+        try:
+            import mediapipe  # noqa: F401
+        except Exception as exc:  # noqa: BLE001
+            return f"no instalado ({exc}); vuelve a ejecutar sergio escritorio instalar"
+        mode = getattr(camera_window.hands, "mode", "off")
+        return f"ok (modo {mode})"
+
     def diag() -> dict:
         """For `sergio revisar`: microphone, levels, ear, brain, last error."""
         from sergio_escritorio.voice import _LOCAL
@@ -297,6 +308,7 @@ def run(config: dict[str, Any]) -> None:
             "last_heard": assistant.last_heard,
             "last_error": assistant.last_error,
             "log": str(HOME / "sergio.log"),
+            "hands": hands_status(),
         }
 
     controller.diag = diag
@@ -468,6 +480,66 @@ def run(config: dict[str, Any]) -> None:
         companion.point_at(x, y, label)
 
     bridge.point.connect(point_at)
+    controller.on_point = lambda x, y, label: bridge.point.emit(x, y, label)
+
+    # -- hands: gestures, air mouse, 3D in Blender ---------------------------
+    from sergio_escritorio.hands import MODES, HandControl
+
+    def hand_gesture(name: str) -> None:
+        if name == "open":  # ✋ stop talking
+            assistant.stop_speaking()
+            bridge.caption.emit("✋ Me callo.")
+        elif name in ("thumbs_up", "victory"):
+            said = "Sí" if name == "thumbs_up" else "¿Qué ves?"
+            bridge.caption.emit("👍 Sí" if name == "thumbs_up" else "✌️ ¿Qué ves?")
+            threading.Thread(
+                target=assistant.on_text, args=(said,), daemon=True
+            ).start()
+
+    def hand_mouse(events: list) -> None:
+        if not controller.enabled:  # Ctrl+Alt+Fin pauses the hands too
+            return
+        import pyautogui
+
+        for kind, x, y in events:
+            if kind == "move":
+                pyautogui.moveTo(x, y, _pause=False)
+            elif kind == "click":
+                pyautogui.click(x, y, _pause=False)
+            elif kind == "down":
+                pyautogui.mouseDown(x, y, _pause=False)
+            elif kind == "up":
+                pyautogui.mouseUp(x, y, _pause=False)
+
+    def screen_size() -> tuple[int, int]:
+        try:
+            import pyautogui
+
+            width, height = pyautogui.size()
+            return int(width), int(height)
+        except Exception:  # noqa: BLE001
+            return 1920, 1080
+
+    hand_control = HandControl(
+        frames=feed.frame,
+        on_gesture=hand_gesture,
+        mouse_events=hand_mouse,
+        screen=screen_size(),
+    )
+    camera_window.hands = hand_control
+
+    def set_hands(mode: str) -> str:
+        """For Sergio (desktop_action hands / blender with hands)."""
+        if mode not in MODES:
+            return f"unknown hands mode {mode!r}; use one of {', '.join(MODES)}"
+        hand_control.set_mode(mode)
+        feed.keep_on = mode != "off"
+        if mode != "off":
+            feed.start()
+            bridge.peek.emit()  # show the camera so you see your hands
+        return f"hands mode: {MODES[mode]}"
+
+    controller.on_hands = set_hands
     bridge.toggle.connect(lambda: set_control(not controller.enabled))
     hotkeys = keyboard.GlobalHotKeys(
         {

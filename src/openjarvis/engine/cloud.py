@@ -492,14 +492,72 @@ def _convert_tools_to_google(
     declarations = []
     for tool in openai_tools:
         func = tool.get("function", {})
-        declarations.append(
-            {
-                "name": func.get("name", ""),
-                "description": func.get("description", ""),
-                "parameters": func.get("parameters", {}),
-            }
-        )
+        declaration: Dict[str, Any] = {
+            "name": func.get("name", ""),
+            "description": func.get("description", ""),
+        }
+        params = google_schema(func.get("parameters") or {})
+        if params.get("properties"):
+            declaration["parameters"] = params
+        declarations.append(declaration)
     return declarations
+
+
+# JSON-Schema keys the Gemini API accepts in function parameters; others
+# (additionalProperties, $schema, oneOf, const, ...) make it reject the call.
+_GOOGLE_SCHEMA_KEYS = {
+    "type",
+    "format",
+    "description",
+    "nullable",
+    "enum",
+    "properties",
+    "required",
+    "items",
+    "anyOf",
+    "minimum",
+    "maximum",
+    "minItems",
+    "maxItems",
+    "minLength",
+    "maxLength",
+    "pattern",
+    "title",
+}
+
+
+def google_schema(schema: Any) -> Dict[str, Any]:
+    """A JSON Schema reduced to what Gemini function declarations accept."""
+    if not isinstance(schema, dict):
+        return {"type": "string"}
+    out: Dict[str, Any] = {}
+    for key, value in schema.items():
+        if key not in _GOOGLE_SCHEMA_KEYS:
+            continue
+        if key == "type" and isinstance(value, list):  # ["string", "null"]
+            kinds = [v for v in value if v != "null"]
+            out["type"] = kinds[0] if kinds else "string"
+            if "null" in value:
+                out["nullable"] = True
+        elif key == "properties" and isinstance(value, dict):
+            out["properties"] = {k: google_schema(v) for k, v in value.items()}
+        elif key == "items":
+            out["items"] = google_schema(value)
+        elif key == "anyOf" and isinstance(value, list):
+            out["anyOf"] = [google_schema(v) for v in value]
+        elif key == "enum" and isinstance(value, list):
+            out["enum"] = [str(v) for v in value]  # Gemini enums are strings
+        else:
+            out[key] = value
+    if "oneOf" in schema and "anyOf" not in out:
+        out["anyOf"] = [google_schema(v) for v in schema["oneOf"]]
+    if out.get("type") == "array" and "items" not in out:
+        out["items"] = {"type": "string"}
+    if "required" in out and isinstance(out.get("properties"), dict):
+        out["required"] = [r for r in out["required"] if r in out["properties"]]
+    if "type" not in out and "anyOf" not in out:
+        out["type"] = "object" if "properties" in out else "string"
+    return out
 
 
 @EngineRegistry.register("cloud")

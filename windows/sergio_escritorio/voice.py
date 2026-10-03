@@ -28,14 +28,20 @@ from sergio_escritorio.listen import FRAME, RATE, Segmenter, parse_wake
 
 HISTORY_TURNS = 12
 FOLLOW_UP_SECONDS = 8.0  # after a bare "Sergio", the next sentence is the order
+CONVERSATION_SECONDS = 7.0  # after he answers, you can reply without "Sergio"
 PTT_TIMEOUT = 10.0  # longest push-to-talk recording
 
 VOICE_STYLE = (
-    "You are Sergio, a capable assistant living on the user's Windows laptop, "
-    "talking out loud through the cursor companion. Reply in Spanish in one or "
-    "two short, warm, natural spoken sentences, with no markdown, lists or "
-    "emojis. Think about what the user really wants and DO it with your tools "
-    "instead of guessing or only explaining. "
+    "You are Sergio, a refined, very intelligent British gentleman of about "
+    "forty who lives on the user's Windows laptop and talks with them out "
+    "loud, in Spanish. This is a real conversation, not a command line: "
+    "answer like a person would, in one or two natural spoken sentences, "
+    "warm, composed and quietly witty; remember what was said, react to it, "
+    "and ask a short question back when it helps. Never announce what you "
+    "are about to do or read out instructions; just do it and tell them how "
+    "it went. No markdown, lists or emojis. If a request is a task, DO it "
+    "with your tools instead of guessing or only explaining. If you did not "
+    "understand, ask briefly. "
     "Web and screen tasks, step by step: to search, use desktop_action open "
     "with target https://www.google.com/search?q=<words>; then screen_read, "
     "click the result (e.g. the first link) by its element number, screen_read "
@@ -51,7 +57,10 @@ VOICE_STYLE = (
     "it says APROBADO. To publish on YouTube open "
     "https://studio.youtube.com with desktop_action and upload through the "
     "page (screen_read/desktop_action), filling title and description. "
-    "Blender: write a complete bpy script and call blender_create. "
+    "Blender: write a complete bpy script and call blender_create (hands=true "
+    "if they want to shape it with their hands). To show the user where "
+    "something is, desktop_action point. To let them use the computer with "
+    "their hands: desktop_action hands target=gestos, mouse or 3d (off to stop). "
     "Files: files_organize (preview first, apply only after the user agrees; "
     "undo=true reverts). Python: python_run for calculations, images, "
     "renaming or reading files. Terminal: terminal_run (PowerShell) for "
@@ -151,8 +160,18 @@ class SergioClient:
         self.history: list[dict[str, str]] = []
         self._model = ""
 
-    def transcribe(self, wav: bytes) -> str:
-        """Hear on Windows itself (Whisper on the CPU); the server is a backup."""
+    def transcribe(self, wav: bytes, precise: bool = False) -> str:
+        """What was said.
+
+        *precise* (the words are for Sergio): Gemini listens — far better
+        with laptop microphones. Otherwise (just checking for "Sergio" in the
+        room) the free local Whisper does it.
+        """
+        if precise:
+            try:
+                return self.transcribe_with_gemini(wav)
+            except Exception:  # noqa: BLE001 — no key / offline: Whisper
+                log.warning("Gemini ears unavailable; using Whisper", exc_info=True)
         local = local_whisper()
         if local is not None:
             try:
@@ -160,6 +179,15 @@ class SergioClient:
             except Exception:  # noqa: BLE001
                 log.exception("local transcription failed; asking the server")
         return self.transcribe_on_server(wav)
+
+    def transcribe_with_gemini(self, wav: bytes) -> str:
+        resp = self.http.post(
+            f"{self.base}/v1/voice/transcribe",
+            files={"file": ("voz.wav", wav, "audio/wav")},
+            timeout=httpx.Timeout(30, connect=5),
+        )
+        resp.raise_for_status()
+        return clean_transcript(str(resp.json().get("text") or ""))
 
     def transcribe_on_server(self, wav: bytes) -> str:
         resp = self.http.post(
@@ -229,7 +257,25 @@ class SergioClient:
     voice_rate = "+5%"  # Lenta -10% / Normal +5% / Rápida +20%
 
     def speak(self, text: str) -> bytes:
-        """Natural neural voice when online; the server's local voice otherwise."""
+        """Sergio's British voice (Gemini), else a neural voice, else local."""
+        if self.voice.startswith("gemini:"):
+            try:
+                resp = self.http.post(
+                    f"{self.base}/v1/voice/speak",
+                    json={"text": text[:2500], "voice": self.voice.split(":", 1)[1]},
+                    timeout=httpx.Timeout(60, connect=5),
+                )
+                resp.raise_for_status()
+                return resp.content
+            except Exception:  # noqa: BLE001 — fall back to the free voice
+                log.exception("Gemini voice failed; using the neural voice")
+            try:
+                from sergio_escritorio.neural_voice import EDGE_FALLBACK, synthesize
+
+                return synthesize(text, EDGE_FALLBACK, self.voice_rate)
+            except Exception:  # noqa: BLE001
+                log.exception("neural voice failed; using the local voice")
+            return self.speak_on_server(text)
         if self.voice:
             try:
                 from sergio_escritorio.neural_voice import synthesize
@@ -678,7 +724,7 @@ class Assistant:
         if for_me:
             self.ui.state("thinking")
         try:
-            text = self.client.transcribe(wav)
+            text = self.client.transcribe(wav, precise=for_me)
         except Exception as exc:  # noqa: BLE001
             log.exception("transcription failed")
             # With the wake word on, every sound in the room is transcribed:
@@ -707,9 +753,20 @@ class Assistant:
                 self.ui.state("listening")
                 self.ui.say("¿Sí?")
                 return
+            # The order is for Sergio: listen to it again, carefully (Gemini).
+            try:
+                careful = self.client.transcribe(wav, precise=True)
+            except Exception:  # noqa: BLE001
+                careful = ""
+            if careful:
+                woke, command = parse_wake(careful)
+                text = command if woke and command else careful
+                self.last_heard = careful
+        in_conversation = not addressed and self.expecting
         self._follow_up_until = 0.0
         if not text:
-            self.ui.say("No te escuché. Intenta otra vez.")
+            if not in_conversation:  # silence after an answer is just silence
+                self.ui.say("No te escuché. Intenta otra vez.")
             return
         self._respond(text)
 
@@ -769,6 +826,8 @@ class Assistant:
             log.exception("speech synthesis failed")
             return
         self.player(audio)
+        # A conversation, not a command line: keep listening for your reply.
+        self._follow_up_until = self.clock() + CONVERSATION_SECONDS
 
 
 class Ears:

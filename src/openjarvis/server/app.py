@@ -531,6 +531,10 @@ def create_app(
     from openjarvis.server.notch_routes import router as notch_router
 
     app.include_router(notch_router)
+    # Sergio's Gemini voice (British gentleman) and ears.
+    from openjarvis.server.voice_routes import router as voice_router
+
+    app.include_router(voice_router)
     include_all_routes(app)
 
     # Restore SendBlue channel bindings from database on startup

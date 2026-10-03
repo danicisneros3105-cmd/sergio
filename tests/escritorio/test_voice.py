@@ -66,7 +66,8 @@ def test_wake_word_turn_answers_aloud():
     a.on_utterance(WAV, addressed=False)
     assert played == [b"RIFFvoz"]
     assert ui.captions == ["«abre Spotify»", "Listo, abrí Spotify."]
-    assert ui.states[-3:] == ["thinking", "speaking", "idle"]
+    # after answering he keeps listening for your reply (a conversation)
+    assert ui.states[-3:] == ["thinking", "speaking", "listening"]
     sent = log[0]
     assert sent[0] == {"role": "system", "content": VOICE_STYLE}
     assert sent[-1] == {"role": "user", "content": "abre Spotify"}

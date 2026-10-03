@@ -52,6 +52,9 @@ if ($LASTEXITCODE -ne 0) {
     & $uv sync --project $app --python 3.12 --inexact
 }
 if ($LASTEXITCODE -ne 0) { throw "No pude instalar las dependencias (uv sync). Revisa tu internet y vuelve a intentar." }
+Write-Host "   Manos (gestos y 3D con la cámara)…"
+& $uv sync --project $app --python 3.12 --inexact --extra manos
+if ($LASTEXITCODE -ne 0) { Write-Host "   No pude instalar el control con las manos ahora; lo demás funciona." -ForegroundColor Yellow }
 if ($Gpu) {
     Say "Extra: oído con la tarjeta NVIDIA (~1 GB, puede tardar)"
     $env:UV_HTTP_TIMEOUT = "900"

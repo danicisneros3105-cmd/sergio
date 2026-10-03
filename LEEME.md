@@ -254,6 +254,23 @@ sigue, te escucha y usa la computadora por ti:
   «Sergio», ocultar la esfera o el notch, pausar el control, abrir el chat o
   salir.
 
+- **Conversación de verdad**: después de responder sigue escuchándote unos
+  segundos, así que puedes contestarle sin volver a decir «Sergio». Habla
+  como un caballero británico culto (y en español), recuerda lo que dijiste
+  y te pregunta cuando no entiende.
+- **Voz y oído de Gemini**: voz humana y nítida de caballero británico de
+  unos cuarenta años (Gemini TTS; puedes elegir entre varias en el notch), y
+  Gemini escucha lo que le dices a Sergio (mucho mejor que Whisper en el
+  procesador). El Whisper local solo vigila la palabra «Sergio».
+- **Con tus manos** (cámara → botón *Manos*, o «Sergio, quiero usar las
+  manos»): *Gestos* (👍 sí · ✋ calla · ✌️ ¿qué ves?), *Mouse* (el índice
+  mueve el puntero, pellizco = clic, mantener = arrastrar, puño = pausa) y
+  *3D* (en Blender: pellizca y mueve para girar, dos manos para escalar,
+  puño para mover, 👍 añade un cubo, ✌️ duplica). «Sergio, abre Blender y
+  crea un jarrón que pueda moldear con las manos».
+- **Prueba de verdad**: `sergio probar` usa a Sergio en tu laptop —
+  cerebro con herramientas, voz, oído, pantalla, abrir y cerrar el Bloc de
+  notas, terminal, cámara, visión, caras, manos y globo— y dice qué falla.
 - **Mantén Ctrl+Alt y habla (como Clicky)**: mientras mantienes las teclas
   te escucha; al soltarlas mira tu pantalla, te responde como un maestro
   paciente y la esfera vuela a señalar el botón. Si vuelves a hablar mientras
@@ -271,10 +288,11 @@ sigue, te escucha y usa la computadora por ti:
   - *Inicio*: escríbele a Sergio (útil si no te oye bien) o pulsa Hablar, y
     botones estilo iPhone para «Escuchar Sergio», control de pantalla,
     cámara y la esfera junto al cursor.
-  - *Sergio* (estilo Muse de Meta): nombre (también responde a él),
+  - *Sergio* (estilo Muse de Meta; su nombre es siempre Sergio):
     estilo *Orbe de luz* o *Personaje*, color (o el tuyo), ojos, boca,
-    accesorio (laurel, gorra, gafas, audífonos, moño, gorro de fiesta,
-    corona), personalidad, voz, velocidad y tamaño — todo en vivo.
+    accesorio (sombrero de copa, monóculo, corbatín, laurel, gorra, gafas,
+    audífonos, moño, gorro de fiesta, corona), personalidad (por defecto
+    *Caballero británico*), voz, velocidad y tamaño — todo en vivo.
   - *Mundo* (God's Eye View): sismos de las últimas 24 h y próximos
     lanzamientos, y «Ir a un lugar» abre el globo 3D en su propia ventana
     (sin barras de navegador).

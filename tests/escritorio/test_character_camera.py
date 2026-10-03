@@ -125,7 +125,19 @@ def test_camera_window_buttons(qt, tmp_path, monkeypatch):
     w._tick()
     assert w._faces == [(10, 10, 50, 50)]
     rects = w.button_rects()
-    assert set(rects) == {"ask", "mirror", "photo"}
+    assert set(rects) == {"ask", "hands", "mirror", "photo"}
+
+    class Hands:
+        mode = "off"
+        hands = []
+
+        def set_mode(self, mode):
+            self.mode = mode
+
+    w.hands = Hands()
+    for expected in ("gestos", "mouse", "3d", "off"):
+        w._press("hands")
+        assert w.hands.mode == expected
     w._press("ask")
     assert asked == [1] and w.overlay == "Mirando…"
     w._press("mirror")

@@ -492,7 +492,7 @@ class ControlCenter(QWidget):
         row.addWidget(Orb(10, lambda: self.state))
         texts = QVBoxLayout()
         texts.setSpacing(0)
-        self.title = _label(str(self.actions.config.get("name") or "Sergio"), "title")
+        self.title = _label("Sergio", "title")
         texts.addWidget(self.title)
         self.subtitle = _label("", "subtitle")
         texts.addWidget(self.subtitle)
@@ -578,15 +578,6 @@ class ControlCenter(QWidget):
         top.addWidget(self.preview)
         top.addStretch(1)
         col.addLayout(top)
-        self.name = QLineEdit(str(cfg.get("name") or "Sergio"))
-        self.name.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.name.setPlaceholderText("Su nombre")
-        self.name.editingFinished.connect(
-            lambda: self._save(name=self.name.text().strip() or "Sergio")
-        )
-        col.addWidget(self.name)
-        col.addWidget(_label("Si le cambias el nombre, también responde a él.", "hint"))
-
         self.style_seg = Segmented(STYLES, SETTINGS["style"], self._pick_style)
         col.addLayout(_row("Estilo", self.style_seg))
 
@@ -646,14 +637,14 @@ class ControlCenter(QWidget):
             chip = LookChip(key)
             chip.setChecked(key == SETTINGS["accessory"])
             self.chip_group.addButton(chip)
-            chips.addWidget(chip, i // 8, i % 8)
+            chips.addWidget(chip, i // 6, i % 6)
         self.chip_group.buttonClicked.connect(lambda b: self._save(accessory=b.key))
         col.addLayout(chips)
 
         col.addWidget(_label("PERSONALIDAD", "section"))
         self.persona = QComboBox()
         self.persona.addItems(list(PERSONALITIES))
-        self.persona.setCurrentText(str(cfg.get("personality", "Amable")))
+        self.persona.setCurrentText(str(cfg.get("personality", "Caballero británico")))
         self.persona.currentTextChanged.connect(lambda t: self._save(personality=t))
         col.addLayout(_row("Forma de ser", self.persona))
 
@@ -830,8 +821,6 @@ class ControlCenter(QWidget):
         cfg = self.actions.config
         cfg.update(changes)
         apply_config(cfg)
-        if "name" in changes:
-            self.title.setText(cfg["name"])
         self.actions.save_config(cfg)
 
     def set_level(self, level: float) -> None:

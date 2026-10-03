@@ -45,6 +45,8 @@ ACTIONS = (
     "python",
     "close_app",
     "terminal",
+    "point",
+    "hands",
 )
 
 
@@ -103,6 +105,10 @@ class Controller:
         self.backend = backend
         self.camera = camera  # returns a JPEG of the webcam, or None
         self.diag = diag or (lambda: {})  # what the ear is doing (revisar)
+        # The companion flies to a spot to show the user something.
+        self.on_point: Callable[[int, int, str], None] = lambda _x, _y, _l: None
+        # Hand control mode ("off", "gestos", "mouse", "3d"); returns a status.
+        self.on_hands: Callable[[str], str] = lambda _mode: "hands unavailable"
         self.enabled = True
         self._elements: dict[int, tuple[int, int]] = {}
         self._lock = threading.Lock()
@@ -275,6 +281,11 @@ class Controller:
             script = str(action.get("script") or "")
             if not script.strip() or len(script) > 60_000:
                 raise ActionError("'script' is Blender Python (bpy) code.")
+            if action.get("hands"):  # model it with your hands, live
+                from sergio_escritorio.hands import BLENDER_BRIDGE
+
+                script = script.rstrip() + "\n\n" + BLENDER_BRIDGE
+                self.on_hands("3d")
             result = "Blender opened with script " + b.blender(script)
         elif kind == "organize":
             folder = str(action.get("target") or "").strip()
@@ -299,6 +310,14 @@ class Controller:
                 f"exit code {ran['exit_code']} (script {ran['script']})\n"
                 f"stdout:\n{ran['stdout']}\nstderr:\n{ran['stderr']}"
             )
+        elif kind == "hands":
+            mode = str(action.get("target") or "off").strip().lower()
+            result = self.on_hands(mode)
+        elif kind == "point":
+            x, y = self._point(action)
+            label = str(action.get("text") or action.get("target") or "")[:40]
+            self.on_point(x, y, label)
+            result = f"pointed at ({x}, {y})"
         elif kind == "close_app":
             name = str(action.get("target") or "").strip()
             if len(name) < 2:

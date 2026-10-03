@@ -168,7 +168,12 @@ class DesktopActionTool(_DesktopTool):
                 "x,y); type (text into the focused field); key ('enter', 'ctrl+s', "
                 "'alt+tab'); scroll (amount, negative = down); open_app (target = "
                 "app name, via the Start menu); close_app (target = app or window "
-                "name; closes it like its X button, so it can ask to save); open "
+                "name; closes it like its X button, so it can ask to save); point "
+                "(element or x,y, text = short label: the companion flies there to "
+                "SHOW the user something, without clicking); hands (target = "
+                "gestos | mouse | 3d | off: let the user control the computer with "
+                "hand gestures, move the pointer with a finger, or shape things in "
+                "Blender with their hands); open "
                 "(target = web address, file or folder); focus (target = part of a "
                 "window title); wait (seconds). "
                 "One action per call; check with screen_read afterwards. Never "
@@ -190,6 +195,8 @@ class DesktopActionTool(_DesktopTool):
                             "scroll",
                             "open_app",
                             "close_app",
+                            "point",
+                            "hands",
                             "open",
                             "focus",
                             "wait",
@@ -367,12 +374,17 @@ class BlenderCreateTool(_DesktopTool):
                 "opens running it so the user sees the result and can keep "
                 "editing. For big models use loops, modifiers (array, mirror, "
                 "subdivision) and geometry instead of thousands of manual lines. "
-                "Start by clearing the default scene."
+                "Start by clearing the default scene. Set hands=true when the "
+                "user wants to shape/rotate/scale it with their hands (webcam)."
             ),
             parameters={
                 "type": "object",
                 "properties": {
                     "script": {"type": "string", "description": "bpy code."},
+                    "hands": {
+                        "type": "boolean",
+                        "description": "Live hand control of the model.",
+                    },
                 },
                 "required": ["script"],
             },
@@ -384,7 +396,13 @@ class BlenderCreateTool(_DesktopTool):
         script = str(params.get("script") or "")
         try:
             data = self._call(
-                "POST", "/act", json={"action": "blender", "script": script}
+                "POST",
+                "/act",
+                json={
+                    "action": "blender",
+                    "script": script,
+                    "hands": bool(params.get("hands")),
+                },
             )
         except RuntimeError as exc:
             return self._fail(f"No pude abrir Blender: {exc}")

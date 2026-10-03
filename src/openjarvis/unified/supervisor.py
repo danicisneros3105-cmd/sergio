@@ -84,6 +84,33 @@ def _start_token(pid: int) -> str | None:
     return fields[19] if len(fields) > 19 else None
 
 
+def tool_dirs(home: Path | None = None) -> list[str]:
+    """Folders where Node/Ruby usually live but a service PATH may miss.
+
+    The installer puts Node 24 under mise; nvm, volta and /usr/local are
+    covered too, newest Node first.
+    """
+    home = home or Path.home()
+    dirs = [
+        home / ".local" / "share" / "mise" / "shims",
+        home / ".local" / "bin",
+        home / ".volta" / "bin",
+        Path("/usr/local/bin"),
+    ]
+    for pattern in (
+        ".local/share/mise/installs/node/*/bin",
+        ".nvm/versions/node/*/bin",
+    ):
+        dirs += sorted(home.glob(pattern), reverse=True)
+    return [str(d) for d in dirs if d.is_dir()]
+
+
+def find_tool(name: str) -> str | None:
+    """``shutil.which`` that also looks in :func:`tool_dirs`."""
+    path = os.pathsep.join([os.environ.get("PATH", ""), *tool_dirs()])
+    return shutil.which(name, path=path)
+
+
 class Supervisor:
     """Manage the OpenClacky and globe services for one OpenJarvis config."""
 
@@ -91,7 +118,7 @@ class Supervisor:
         self,
         config: Any,
         *,
-        which: Callable[[str], str | None] = shutil.which,
+        which: Callable[[str], str | None] = find_tool,
         environ: dict[str, str] | None = None,
         ui_ports: tuple[int, ...] = (),
         server_port: int | None = None,
@@ -219,12 +246,16 @@ class Supervisor:
         # Let the OpenJarvis UI (Vite dev server or the API's static build)
         # embed the globe; the globe denies all other embedders.
         ui_ports = sorted({5173, self.server_port(), *self._ui_ports})
+        # npm runs `node` from its own folder: make sure the globe sees it.
+        node_dir = str(Path(npm).resolve().parent)
+        path = os.pathsep.join([node_dir, self._environ.get("PATH", ""), *tool_dirs()])
         svc.env = {
+            "PATH": path,
             "GLOBE_FRAME_ANCESTORS": " ".join(
                 f"http://{host}:{port}"
                 for port in ui_ports
                 for host in ("127.0.0.1", "localhost")
-            )
+            ),
         }
         svc.install = [npm, "ci"]
         modules = svc.cwd / "node_modules"

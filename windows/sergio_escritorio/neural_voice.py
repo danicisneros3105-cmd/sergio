@@ -10,18 +10,24 @@ import asyncio
 import io
 import wave
 
-# Spanish neural voices worth offering (id, label).
+# Voices worth offering (id, label). "gemini:" voices are Sergio's own: a
+# refined British gentleman speaking Spanish (Gemini TTS, via the server).
 VOICES = [
+    ("gemini:Algieba", "Sergio británico (suave)"),
+    ("gemini:Charon", "Sergio británico (informativo)"),
+    ("gemini:Sadaltager", "Sergio británico (erudito)"),
+    ("gemini:Orus", "Sergio británico (firme)"),
+    ("es-ES-AlvaroNeural", "Álvaro (España)"),
     ("es-EC-LuisNeural", "Luis (Ecuador)"),
     ("es-EC-AndreaNeural", "Andrea (Ecuador)"),
     ("es-MX-JorgeNeural", "Jorge (México)"),
     ("es-MX-DaliaNeural", "Dalia (México)"),
     ("es-CO-GonzaloNeural", "Gonzalo (Colombia)"),
-    ("es-ES-AlvaroNeural", "Álvaro (España)"),
     ("es-ES-ElviraNeural", "Elvira (España)"),
     ("es-AR-TomasNeural", "Tomás (Argentina)"),
 ]
-DEFAULT_VOICE = "es-EC-LuisNeural"
+DEFAULT_VOICE = "gemini:Algieba"
+EDGE_FALLBACK = "es-ES-AlvaroNeural"  # closest free voice when Gemini fails
 
 
 async def _mp3(text: str, voice: str, rate: str) -> bytes:

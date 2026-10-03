@@ -131,6 +131,7 @@ if not _DATA_BOUNDARY_BOOTSTRAP:
     from openjarvis.cli.optimize_cmd import optimize_group
     from openjarvis.cli.pearl_cmd import pearl
     from openjarvis.cli.phone_cmd import telefono
+    from openjarvis.cli.probar_cmd import probar
     from openjarvis.cli.quickstart_cmd import quickstart
     from openjarvis.cli.registry_cmd import registry
     from openjarvis.cli.revisar_cmd import revisar
@@ -185,6 +186,7 @@ if not _DATA_BOUNDARY_BOOTSTRAP:
     cli.add_command(escritorio, "escritorio")
     cli.add_command(ecc, "ecc")
     cli.add_command(revisar, "revisar")
+    cli.add_command(probar, "probar")
     cli.add_command(nube, "nube")
     cli.add_command(tool, "tool")
     cli.add_command(registry, "registry")

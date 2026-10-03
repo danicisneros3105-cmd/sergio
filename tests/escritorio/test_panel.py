@@ -106,13 +106,11 @@ def test_personalise_saves_live(qt):
     assert panel.colour_stack.currentIndex() == 1
     next(b for b in panel.body_group.buttons() if b.toolTip() == "Cielo").click()
     next(b for b in panel.chip_group.buttons() if b.key == "laurel").click()
-    panel.name.setText("Jolly")
-    panel.name.editingFinished.emit()
     panel.persona.setCurrentText("Divertido")
     panel.brain.buttons["profundo"].click()
     last = saved[-1]
     assert last["body"] == "#a8d8ff" and last["accessory"] == "laurel"
-    assert last["name"] == "Jolly" and panel.title.text() == "Jolly"
+    assert panel.title.text() == "Sergio"  # his name is fixed
     assert last["personality"] == "Divertido" and last["effort"] == "profundo"
     panel.set_level(0.9)
     assert panel.mic.level > 0
