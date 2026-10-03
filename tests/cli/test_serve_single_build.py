@@ -61,10 +61,23 @@ def _repopulate_registries() -> None:
         ToolRegistry,
     )
 
+    def _registers(mod_name: str) -> bool:
+        # Reload only modules that run @Registry.register decorators. Reloading
+        # helpers such as openjarvis.agents.errors would replace their classes
+        # and break isinstance checks in tests that run later in the session.
+        path = getattr(sys.modules.get(mod_name), "__file__", None) or ""
+        try:
+            with open(path, encoding="utf-8") as fh:
+                return "Registry.register" in fh.read()
+        except OSError:
+            return False
+
     if not AgentRegistry.keys():
         for mod_name in list(sys.modules):
-            if mod_name.startswith("openjarvis.agents.") and not mod_name.endswith(
-                "_stubs"
+            if (
+                mod_name.startswith("openjarvis.agents.")
+                and not mod_name.endswith("_stubs")
+                and _registers(mod_name)
             ):
                 try:
                     importlib.reload(sys.modules[mod_name])
@@ -77,6 +90,7 @@ def _repopulate_registries() -> None:
                 mod_name.startswith("openjarvis.tools.")
                 and not mod_name.endswith("_stubs")
                 and not mod_name.endswith("agent_tools")
+                and _registers(mod_name)
             ):
                 try:
                     importlib.reload(sys.modules[mod_name])
@@ -85,9 +99,11 @@ def _repopulate_registries() -> None:
 
     if not MemoryRegistry.keys():
         for mod_name in list(sys.modules):
-            if mod_name.startswith(
-                "openjarvis.tools.storage."
-            ) and not mod_name.endswith("_stubs"):
+            if (
+                mod_name.startswith("openjarvis.tools.storage.")
+                and not mod_name.endswith("_stubs")
+                and _registers(mod_name)
+            ):
                 try:
                     importlib.reload(sys.modules[mod_name])
                 except Exception:
