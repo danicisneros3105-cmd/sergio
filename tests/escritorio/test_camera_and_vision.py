@@ -102,3 +102,71 @@ def test_neural_voice_used_first_with_local_fallback(monkeypatch):
 
     monkeypatch.setattr(neural_voice, "synthesize", offline)
     assert client.speak("hola") == b"RIFFlocal"
+
+
+# -- direct camera route ("¿qué tengo en la mano?") -------------------------
+import pytest  # noqa: E402
+from sergio_escritorio.voice import wants_camera  # noqa: E402
+
+
+@pytest.mark.parametrize(
+    ("text", "camera"),
+    [
+        ("¿Qué tengo en la mano?", True),
+        ("que tengo en la mano", True),
+        ("Mírame, ¿cómo me veo?", True),
+        ("¿Cuántos dedos te muestro?", True),
+        ("¿Quién está aquí?", True),
+        ("abre Google y busca Nvidia", False),
+        ("qué hora es", False),
+    ],
+)
+def test_wants_camera(text, camera):
+    assert wants_camera(text) is camera
+
+
+def test_look_endpoint_answers_with_vision(monkeypatch):
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from openjarvis.faces import routes
+
+    class Book:
+        def identify(self, _data):
+            return [type("M", (), {"name": "Dani"})()]
+
+    monkeypatch.setattr(routes, "_get_book", lambda: Book())
+    monkeypatch.setattr(
+        vision_look, "ask_vision", lambda data, q: f"Una taza azul ({q})"
+    )
+    app = FastAPI()
+    app.include_router(routes.router)
+    resp = TestClient(app).post(
+        "/v1/faces/look",
+        data={"question": "¿qué tengo?"},
+        files={"image": ("c.jpg", JPEG, "image/jpeg")},
+    )
+    assert resp.status_code == 200
+    assert resp.json() == {
+        "answer": "Veo a Dani. Una taza azul (¿qué tengo?)",
+        "people": ["Dani"],
+    }
+
+
+def test_look_endpoint_reports_vision_failure(monkeypatch):
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from openjarvis.faces import routes
+
+    def broken(_data, _q):
+        raise RuntimeError("Ningún modelo con visión respondió")
+
+    monkeypatch.setattr(routes, "_get_book", lambda: None)
+    monkeypatch.setattr(vision_look, "ask_vision", broken)
+    app = FastAPI()
+    app.include_router(routes.router)
+    resp = TestClient(app).post(
+        "/v1/faces/look", files={"image": ("c.jpg", JPEG, "image/jpeg")}
+    )
+    assert resp.status_code == 502 and "visión" in resp.json()["detail"]

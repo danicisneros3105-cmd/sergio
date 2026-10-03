@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import io
 import os
 import wave
@@ -30,6 +31,24 @@ def _detail(resp: httpx.Response) -> str:
         return str(resp.json().get("detail") or resp.text)[:300]
     except ValueError:
         return resp.text[:300]
+
+
+# A 64x64 red square: the vision check asks its colour.
+_RED_JPEG_B64 = (
+    "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAoHBwgHBgoICAgLCgoLDhgQDg0NDh0VFhEYIx8l"
+    "JCIfIiEmKzcvJik0KSEiMEExNDk7Pj4+JS5ESUM8SDc9Pjv/2wBDAQoLCw4NDhwQEBw7KCIo"
+    "Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozv/wAAR"
+    "CABAAEADASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAA"
+    "AgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkK"
+    "FhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWG"
+    "h4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl"
+    "5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREA"
+    "AgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYk"
+    "NOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOE"
+    "hYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk"
+    "5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwDmaKKK8Q/UAooooAKKKKACiiigAooooAKK"
+    "KKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigD//Z"
+)
 
 
 def _ok(name: str) -> None:
@@ -156,6 +175,17 @@ def revisar() -> None:
             "Voz (Sergio habla)",
             lambda: httpx.post(
                 f"{base}/v1/speech/synthesize", json={"text": "Hola"}, timeout=600
+            ),
+        ),
+        (
+            "Vista (la cámara: Kimi/Gemini ven imágenes)",
+            lambda: httpx.post(
+                f"{base}/v1/faces/look",
+                files={
+                    "image": ("rojo.jpg", base64.b64decode(_RED_JPEG_B64), "image/jpeg")
+                },
+                data={"question": "¿De qué color es este cuadrado? Una palabra."},
+                timeout=200,
             ),
         ),
         (

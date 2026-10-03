@@ -174,6 +174,7 @@ def run(config: dict[str, Any]) -> None:
         talk = Signal()
         toggle = Signal()
         camera = Signal()
+        peek = Signal()  # open the camera window (Sergio is looking)
 
     bridge = Bridge()
     bridge.state.connect(show_state)
@@ -212,7 +213,13 @@ def run(config: dict[str, Any]) -> None:
     threading.Thread(target=local_whisper, daemon=True).start()
     client = SergioClient(config["server_url"])
     client.voice = config["voice"]
-    assistant = Assistant(client, ui=UIAdapter())
+
+    def eyes() -> bytes:
+        """Direct look for "¿qué tengo en la mano?": show the window too."""
+        bridge.peek.emit()
+        return camera_shot()
+
+    assistant = Assistant(client, ui=UIAdapter(), eyes=eyes)
     ears = Ears(
         assistant, wake_word=bool(config["wake_word"]), on_level=bridge.level.emit
     )
@@ -330,6 +337,7 @@ def run(config: dict[str, Any]) -> None:
     # -- global hotkeys (pynput thread -> Qt thread via signals) ------------
     bridge.talk.connect(ears.talk)
     bridge.camera.connect(camera_window.toggle)
+    bridge.peek.connect(camera_window.open)
     bridge.toggle.connect(lambda: set_control(not controller.enabled))
     hotkeys = keyboard.GlobalHotKeys(
         {

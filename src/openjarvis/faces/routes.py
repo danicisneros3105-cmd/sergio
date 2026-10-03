@@ -70,6 +70,33 @@ async def enroll(
     return {"name": name.strip(), "samples": samples}
 
 
+def _look(data: bytes, question: str) -> dict[str, Any]:
+    from openjarvis.tools.vision_look import ask_vision
+
+    people: list[str] = []
+    try:
+        people = sorted({m.name for m in _get_book().identify(data) if m.name})
+    except Exception:  # noqa: BLE001 — recognition is a bonus here
+        pass
+    answer = ask_vision(data, question)
+    if people:
+        answer = f"Veo a {', '.join(people)}. {answer}"
+    return {"answer": answer, "people": people}
+
+
+@router.post("/look")
+async def look(
+    question: str = Form("¿Qué ves?"),
+    image: UploadFile = File(...),
+) -> dict[str, Any]:
+    """The companion's eyes: answer a question about a webcam photo."""
+    data = await _read(image)
+    try:
+        return await asyncio.to_thread(_look, data, question)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
 @router.delete("/{name}")
 async def forget(name: str) -> dict[str, Any]:
     if not _get_book().forget(name):

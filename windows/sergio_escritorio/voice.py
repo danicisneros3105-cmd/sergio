@@ -149,6 +149,29 @@ class SergioClient:
                 log.exception("neural voice failed; using the local voice")
         return self.speak_on_server(text)
 
+    def look(self, jpeg: bytes, question: str) -> str:
+        """Ask the server's vision model about a webcam photo."""
+        resp = self.http.post(
+            f"{self.base}/v1/faces/look",
+            files={"image": ("camara.jpg", jpeg, "image/jpeg")},
+            data={"question": question},
+            timeout=httpx.Timeout(150, connect=5),
+        )
+        if resp.status_code != 200:
+            try:
+                why = resp.json().get("detail") or resp.text
+            except ValueError:
+                why = resp.text
+            raise RuntimeError(str(why)[:300])
+        answer = str(resp.json().get("answer") or "").strip()
+        # Keep it in the conversation so "¿y de qué color es?" works next.
+        self.history += [
+            {"role": "user", "content": question},
+            {"role": "assistant", "content": f"(Mirando por la cámara) {answer}"},
+        ]
+        del self.history[: -HISTORY_TURNS * 2]
+        return answer
+
     def speak_on_server(self, text: str) -> bytes:
         resp = self.http.post(
             f"{self.base}/v1/speech/synthesize", json={"text": text[:3000]}
@@ -318,6 +341,40 @@ class UI(Protocol):
     def say(self, text: str) -> None: ...
 
 
+_CAMERA_PHRASES = (
+    "que tengo en la mano",
+    "que tengo aqui",
+    "que tengo en las manos",
+    "que es esto",
+    "que ves",
+    "que estas viendo",
+    "mirame",
+    "mira esto",
+    "mira la camara",
+    "por la camara",
+    "con la camara",
+    "como me veo",
+    "que gesto",
+    "cuantos dedos",
+    "quien esta",
+    "quien soy",
+    "me reconoces",
+    "que cara",
+    "que expresion",
+    "que llevo puesto",
+)
+
+
+def wants_camera(text: str) -> bool:
+    """Questions that need Sergio's eyes, answered straight by the camera."""
+    import unicodedata
+
+    plain = unicodedata.normalize("NFKD", text.lower())
+    plain = "".join(c for c in plain if not unicodedata.combining(c))
+    plain = " ".join("".join(c if c.isalnum() else " " for c in plain).split())
+    return any(phrase in plain for phrase in _CAMERA_PHRASES)
+
+
 class Assistant:
     """One spoken turn at a time; never listens to itself while talking."""
 
@@ -329,9 +386,13 @@ class Assistant:
         player: Callable[[bytes], None] = play_wav,
         chime: Callable[[int], None] = beep,
         clock: Callable[[], float] = time.monotonic,
+        eyes: Callable[[], bytes] | None = None,
+        on_seen: Callable[[str], None] = lambda _text: None,
     ) -> None:
         self.client = client
         self.ui = ui
+        self.eyes = eyes  # webcam photo (JPEG); None = no camera
+        self.on_seen = on_seen  # show what Sergio saw (camera window)
         self.player = player
         self.chime = chime
         self.clock = clock
@@ -398,12 +459,21 @@ class Assistant:
             return
         self.ui.state("thinking")
         self.ui.say(f"«{text}»")
-        try:
-            answer = self.client.ask(text)
-        except Exception as exc:  # noqa: BLE001
-            log.exception("chat failed")
-            self.ui.say(f"El modelo no respondió: {explain(exc)}")
-            return
+        answer = ""
+        if self.eyes is not None and wants_camera(text):
+            try:
+                answer = self.client.look(self.eyes(), text)
+                self.on_seen(answer)
+            except Exception as exc:  # noqa: BLE001 — fall back to the agent
+                log.exception("camera look failed")
+                self.ui.say(f"No pude ver bien: {explain(exc)}")
+        if not answer:
+            try:
+                answer = self.client.ask(text)
+            except Exception as exc:  # noqa: BLE001
+                log.exception("chat failed")
+                self.ui.say(f"El modelo no respondió: {explain(exc)}")
+                return
         if not answer:
             return
         self.ui.state("speaking")

@@ -20,6 +20,7 @@ from PySide6.QtWidgets import QWidget
 
 log = logging.getLogger(__name__)
 IDLE_OFF_SECONDS = 20.0  # camera turns off this long after its last use
+WARM_UP_SECONDS = 1.5  # webcams start dark/blurry while exposure settles
 
 
 class CameraFeed:
@@ -32,6 +33,7 @@ class CameraFeed:
         self._last_use = 0.0
         self.keep_on = False  # True while the window is visible
         self.error = ""
+        self._first_frame_at = 0.0
 
     # -- control ------------------------------------------------------------
     def start(self) -> None:
@@ -57,8 +59,8 @@ class CameraFeed:
             if hasattr(cv2, "CAP_DSHOW")
             else cv2.VideoCapture(self.index)
         )
-        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)  # detail for objects in hand
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
         if not cap.isOpened():
             self.error = "No encuentro la cámara (¿la usa otra app?)"
             self._running = False
@@ -69,6 +71,8 @@ class CameraFeed:
                 ok, frame = cap.read()
                 if ok:
                     with self._lock:
+                        if self._frame is None:
+                            self._first_frame_at = time.monotonic()
                         self._frame = frame
                 idle = time.monotonic() - self._last_use > IDLE_OFF_SECONDS
                 if idle and not self.keep_on:
@@ -99,7 +103,13 @@ class CameraFeed:
             frame = self.frame()
         if frame is None:
             raise RuntimeError(self.error or "La cámara no dio imagen a tiempo")
-        ok, data = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 85])
+        settle = self._first_frame_at + WARM_UP_SECONDS - time.monotonic()
+        if settle > 0:  # just switched on: let exposure and focus settle
+            time.sleep(settle)
+            latest = self.frame()
+            if latest is not None:
+                frame = latest
+        ok, data = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 90])
         if not ok:
             raise RuntimeError("No pude codificar la imagen")
         return data.tobytes()

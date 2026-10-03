@@ -282,3 +282,62 @@ def test_hearing_happens_on_windows_first_then_server(monkeypatch):
     monkeypatch.setattr(voice, "_LOCAL", [Local(fail=True)])
     assert client.transcribe(WAV) == "desde el servidor"
     assert server_calls == ["/v1/speech/transcribe"]
+
+
+def _look_assistant(heard, look_status=200):
+    log, played, seen, shots = [], [], [], []
+    base = _server(list(heard), log)
+
+    def handler(request):
+        if request.url.path == "/v1/faces/look":
+            assert b"image/jpeg" in request.content
+            if look_status != 200:
+                return httpx.Response(look_status, json={"detail": "sin visión"})
+            return httpx.Response(200, json={"answer": "Tienes una taza azul."})
+        return base.send(request)
+
+    client = SergioClient(
+        "http://sergio.test", http=httpx.Client(transport=httpx.MockTransport(handler))
+    )
+    ui = UI()
+
+    def eyes():
+        shots.append(1)
+        return b"\xff\xd8jpeg"
+
+    a = Assistant(
+        client,
+        ui=ui,
+        player=played.append,
+        chime=lambda f: None,
+        eyes=eyes,
+        on_seen=seen.append,
+    )
+    return a, ui, log, played, shots, seen
+
+
+def test_camera_question_goes_straight_to_the_eyes():
+    a, ui, log, played, shots, seen = _look_assistant(
+        ["Sergio, ¿qué tengo en la mano?"]
+    )
+    a.on_utterance(WAV, addressed=False)
+    assert shots == [1] and seen == ["Tienes una taza azul."]
+    assert log == []  # the agent was not needed
+    assert ui.captions[-1] == "Tienes una taza azul." and played == [b"RIFFvoz"]
+    assert a.client.history[-1]["content"].endswith("Tienes una taza azul.")
+
+
+def test_camera_failure_falls_back_to_the_agent():
+    a, ui, log, played, shots, _ = _look_assistant(
+        ["Sergio, ¿qué ves?"], look_status=502
+    )
+    a.on_utterance(WAV, addressed=False)
+    assert shots == [1] and len(log) == 1
+    assert any("No pude ver bien" in c for c in ui.captions)
+    assert ui.captions[-1] == "Listo, abrí Spotify."
+
+
+def test_normal_orders_do_not_use_the_camera():
+    a, ui, log, played, shots, _ = _look_assistant(["Sergio, abre Spotify."])
+    a.on_utterance(WAV, addressed=False)
+    assert shots == [] and len(log) == 1
