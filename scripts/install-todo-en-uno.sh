@@ -6,16 +6,19 @@
 #   ./scripts/install-todo-en-uno.sh --sin-globo   # sin el globo 3D
 #   ./scripts/install-todo-en-uno.sh --modelo qwen3:4b
 #   ./scripts/install-todo-en-uno.sh --ahorro-tokens  # + LLMLingua (descarga ~2 GB)
+#   ./scripts/install-todo-en-uno.sh --permanente     # dejarlo siempre encendido
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 WITH_GLOBE=true
 TOKEN_SAVER=false
+PERMANENT=false
 MODEL="qwen3:8b"
 while [[ $# -gt 0 ]]; do
   case $1 in
     --sin-globo) WITH_GLOBE=false ;;
     --ahorro-tokens) TOKEN_SAVER=true ;;
+    --permanente) PERMANENT=true ;;
     --modelo) MODEL=$2; shift ;;
     *) echo "Opción desconocida: $1" >&2; exit 2 ;;
   esac
@@ -30,6 +33,18 @@ if command -v apt-get >/dev/null; then
     zlib1g-dev libffi-dev pkg-config unzip ca-certificates
 else
   echo "Distribución no Debian: instala git, curl y herramientas de compilación a mano."
+fi
+
+# En WSL, systemd hace falta para el modo permanente (`sergio servicio`).
+NEEDS_WSL_RESTART=false
+if grep -qi microsoft /proc/version 2>/dev/null \
+   && ! grep -qs '^systemd=true' /etc/wsl.conf; then
+  if grep -qs '^\[boot\]' /etc/wsl.conf; then
+    sudo sed -i '/^\[boot\]/a systemd=true' /etc/wsl.conf
+  else
+    printf '\n[boot]\nsystemd=true\n' | sudo tee -a /etc/wsl.conf >/dev/null
+  fi
+  NEEDS_WSL_RESTART=true
 fi
 
 say "2/6 Ruby 3.3 y Node 24 (con mise)"
@@ -94,11 +109,32 @@ if command -v ollama >/dev/null; then
   ollama pull "$MODEL"
 fi
 
+# Comando `sergio` disponible en cualquier carpeta.
+mkdir -p "$HOME/.local/bin"
+cat > "$HOME/.local/bin/sergio" <<EOS
+#!/bin/sh
+exec uv run --project "$ROOT" sergio "\$@"
+EOS
+chmod +x "$HOME/.local/bin/sergio"
+
+if $PERMANENT; then
+  if systemctl --user show-environment >/dev/null 2>&1; then
+    uv run sergio servicio instalar
+  else
+    echo "⚠ systemd aún no está activo: reinicia WSL (en PowerShell: wsl --shutdown)"
+    echo "  y luego ejecuta: cd $ROOT && uv run sergio servicio instalar"
+  fi
+fi
+if $NEEDS_WSL_RESTART; then
+  echo "ℹ Activé systemd en WSL: ejecuta 'wsl --shutdown' en PowerShell una vez."
+fi
+
 cat <<EOF
 
 ✅ Listo. Abre una terminal nueva y ejecuta:
 
-   cd $ROOT && uv run sergio gui
+   sergio gui                 # abrir la app ahora
+   sergio servicio instalar   # dejarla siempre encendida (http://localhost:8000)
 
 Se abre una sola app con Chat, Globe y Clacky en la barra lateral.
 Configuración: $CONFIG

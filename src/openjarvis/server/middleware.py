@@ -4,7 +4,45 @@ from __future__ import annotations
 
 from typing import Any
 
-__all__ = ["SECURITY_HEADERS", "create_security_middleware"]
+__all__ = [
+    "SECURITY_HEADERS",
+    "content_security_policy",
+    "create_security_middleware",
+]
+
+# Ports of the bundled extensions (OpenClacky, 3D globe) that the UI embeds.
+_DEFAULT_EMBED_PORTS = (7070, 4173)
+
+
+def content_security_policy(embed_ports: tuple[int, ...] = _DEFAULT_EMBED_PORTS) -> str:
+    """CSP for the served UI.
+
+    * media-src blob: plays synthesized speech (arrives as a blob URL).
+    * img-src/font-src data: — the built UI inlines small fonts and images.
+    * frame-src lists only the local extension servers the UI embeds.
+    """
+    frames = " ".join(
+        f"http://{host}:{port}"
+        for port in embed_ports
+        for host in ("127.0.0.1", "localhost")
+    )
+    return (
+        "default-src 'self' 'unsafe-inline' 'unsafe-eval'; "
+        "media-src 'self' blob:; "
+        "img-src 'self' data: blob:; "
+        "font-src 'self' data:; "
+        f"frame-src 'self' {frames}"
+    )
+
+
+def _embed_ports() -> tuple[int, ...]:
+    try:
+        from openjarvis.core.config import load_config
+
+        ext = load_config().extensions
+        return (int(ext.clacky.port), int(ext.globe.port))
+    except Exception:  # noqa: BLE001 — fall back to the default ports
+        return _DEFAULT_EMBED_PORTS
 
 
 def create_security_middleware() -> Any:
@@ -30,6 +68,8 @@ def create_security_middleware() -> Any:
     except ImportError:
         return None
 
+    csp = content_security_policy(_embed_ports())
+
     class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         async def dispatch(self, request: Request, call_next: Any) -> Response:
             # Let CORS preflight requests pass through without
@@ -50,12 +90,7 @@ def create_security_middleware() -> Any:
             response.headers["Permissions-Policy"] = (
                 "camera=(), microphone=(self), geolocation=()"
             )
-            # media-src blob: lets the UI play synthesized speech, which arrives
-            # as a blob URL; default-src alone refused it.
-            response.headers["Content-Security-Policy"] = (
-                "default-src 'self' 'unsafe-inline' 'unsafe-eval'; "
-                "media-src 'self' blob:"
-            )
+            response.headers["Content-Security-Policy"] = csp
             return response
 
     return SecurityHeadersMiddleware
@@ -69,7 +104,5 @@ SECURITY_HEADERS = {
     "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
     "Referrer-Policy": "strict-origin-when-cross-origin",
     "Permissions-Policy": "camera=(), microphone=(self), geolocation=()",
-    "Content-Security-Policy": (
-        "default-src 'self' 'unsafe-inline' 'unsafe-eval'; media-src 'self' blob:"
-    ),
+    "Content-Security-Policy": content_security_policy(),
 }

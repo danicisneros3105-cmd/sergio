@@ -96,3 +96,46 @@ def logs(name: str, lines: int) -> None:
         raise click.ClickException(f"No log yet at {path}")
     tail = path.read_text(errors="replace").splitlines()[-lines:]
     click.echo("\n".join(tail))
+
+
+def watch_extensions(
+    sup, *, interval: float = 30.0, should_stop=lambda: False, sleep=None
+) -> None:
+    """Keep every available extension running; restart any that died."""
+    import time
+
+    sleep = sleep or time.sleep
+    while not should_stop():
+        for svc in sup.services():
+            if svc.problem or sup.running(svc):
+                continue
+            console.print(f"[cyan]{svc.title}[/cyan]: {escape(sup.start(svc))}")
+        waited = 0.0
+        while waited < interval and not should_stop():
+            sleep(1.0)
+            waited += 1.0
+
+
+@extensions.command("run")
+@click.option("--interval", default=30.0, show_default=True, help="Health check, s.")
+def run(interval: float) -> None:
+    """Run in the foreground for a service manager (systemd).
+
+    Starts the extensions, restarts them if they crash, and stops them on
+    SIGTERM/Ctrl-C.
+    """
+    import signal
+
+    stop = {"flag": False}
+
+    def _terminate(signum, frame):  # noqa: ARG001
+        stop["flag"] = True
+
+    signal.signal(signal.SIGTERM, _terminate)
+    sup = _supervisor()
+    try:
+        watch_extensions(sup, interval=interval, should_stop=lambda: stop["flag"])
+    except KeyboardInterrupt:
+        pass
+    finally:
+        stop_extensions()

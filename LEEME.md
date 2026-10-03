@@ -62,6 +62,29 @@ El instalador ya activa estas herramientas en `~/.openjarvis/config.toml`
 (sección `[tools] enabled`), además de compilar el motor nativo en Rust que
 usan la memoria de documentos y la búsqueda.
 
+## Modo permanente (siempre encendido)
+
+Sergio puede vivir en segundo plano y arrancar solo cada vez que enciendes el
+PC. Lo abres cuando quieras en **http://localhost:8000**.
+
+```bash
+sergio servicio instalar      # instalar y encender (una sola vez)
+sergio servicio apagar        # apagarlo; sigue apagado tras reiniciar
+sergio servicio encender      # volver a encenderlo
+sergio servicio estado        # ¿está corriendo?
+sergio servicio desinstalar   # quitar el servicio (tus datos se conservan)
+```
+
+- Son dos servicios de systemd: `sergio.service` (servidor e interfaz) y
+  `sergio-extensiones.service` (Clacky y el globo, con un vigilante que los
+  reinicia si se caen). Si algo falla, systemd lo reinicia; al arrancar el
+  PC, reintenta hasta que Ollama esté listo.
+- **En Windows:** `scripts\windows-autoarranque.ps1 -Activar` hace que WSL
+  arranque al iniciar sesión, sin ventanas. `-Desactivar` lo quita.
+  `install-windows.ps1` ya hace todo esto por ti.
+- **Claves de API en modo servicio:** ponlas en `~/.openjarvis/sergio.env`
+  (`ANTHROPIC_API_KEY=...`), porque los servicios no leen tu terminal.
+
 ## Configuración (`~/.openjarvis/config.toml`)
 
 ```toml

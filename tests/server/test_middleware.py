@@ -138,3 +138,13 @@ class TestSpeechHeaders:
         policy = SECURITY_HEADERS["Permissions-Policy"]
         assert "camera=()" in policy
         assert "geolocation=()" in policy
+
+
+def test_csp_allows_only_local_extension_frames_and_inline_assets():
+    from openjarvis.server.middleware import content_security_policy
+
+    csp = content_security_policy((7070, 4173))
+    assert "frame-src 'self' http://127.0.0.1:7070 http://localhost:7070" in csp
+    assert "http://127.0.0.1:4173" in csp and "https://" not in csp
+    assert "font-src 'self' data:" in csp and "img-src 'self' data: blob:" in csp
+    assert "media-src 'self' blob:" in csp

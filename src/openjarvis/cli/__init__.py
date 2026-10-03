@@ -131,6 +131,7 @@ if not _DATA_BOUNDARY_BOOTSTRAP:
     from openjarvis.cli.scheduler_cmd import scheduler
     from openjarvis.cli.self_update_cmd import self_update
     from openjarvis.cli.serve import serve
+    from openjarvis.cli.service_cmd import servicio
     from openjarvis.cli.skill_cmd import skill
     from openjarvis.cli.telemetry_cmd import telemetry
     from openjarvis.cli.tool_cmd import tool
@@ -172,6 +173,7 @@ if not _DATA_BOUNDARY_BOOTSTRAP:
     cli.add_command(extensions, "extensions")
     cli.add_command(evolve, "evolve")
     cli.add_command(approvals, "approvals")
+    cli.add_command(servicio, "servicio")
     cli.add_command(tool, "tool")
     cli.add_command(registry, "registry")
     cli.add_command(config, "config")

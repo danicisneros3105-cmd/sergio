@@ -28,10 +28,17 @@ if (-not (Get-Command ollama -ErrorAction SilentlyContinue)) {
 Say "3/4 Chrome (para que el agente pueda usar tu navegador)"
 winget install -e --id Google.Chrome --accept-source-agreements --accept-package-agreements 2>$null
 
-Say "4/4 Clonar e instalar dentro de Ubuntu"
+Say "4/4 Clonar, instalar y dejar Sergio siempre encendido"
 $repo = Read-Host "URL de tu repo (ej. https://github.com/TU_USUARIO/sergio.git)"
 $branch = Read-Host "Rama (Enter para la rama por defecto)"
 $clone = if ($branch) { "git clone -b '$branch' '$repo' ~/sergio" } else { "git clone '$repo' ~/sergio" }
 wsl.exe -d Ubuntu -- bash -lc "test -d ~/sergio || $clone; cd ~/sergio && ./scripts/install-todo-en-uno.sh"
 
-Write-Host "`nListo. Abre 'Ubuntu' y escribe:  cd ~/sergio && uv run sergio gui" -ForegroundColor Green
+# Modo permanente: reiniciar WSL (activa systemd), instalar los servicios y
+# hacer que WSL arranque con Windows.
+wsl.exe --shutdown
+wsl.exe -d Ubuntu -- bash -lc "cd ~/sergio && uv run sergio servicio instalar"
+& (Join-Path $PSScriptRoot "windows-autoarranque.ps1") -Activar
+
+Write-Host "`nListo. Sergio queda siempre encendido en http://localhost:8000" -ForegroundColor Green
+Write-Host "Apagar/encender (en Ubuntu):  sergio servicio apagar | sergio servicio encender"
