@@ -264,6 +264,25 @@ sergio escritorio estado        # comprobar que está conectado
 Para que además describa imágenes de la pantalla (fotos, gráficos), añade
 `--vision`: descarga un modelo de visión local de unos 6 GB.
 
+## Modelos en la nube: Kimi y Gemini
+
+Para respuestas más rápidas e inteligentes que el modelo local, Sergio puede
+pensar con **Kimi** (Moonshot) o **Gemini** (Google):
+
+```bash
+sergio nube configurar      # pide las claves (no se ven al escribir)
+```
+
+- Comprueba la clave de Kimi, elige su mejor modelo (p. ej. `kimi-k2.6`) y lo
+  deja como principal; `qwen3:8b` queda de respaldo si no hay internet.
+- Las claves se guardan **solo** en `~/.openjarvis/sergio.env` (privado), nunca
+  en el repositorio ni en `config.toml`.
+- Kimi usa su modo rápido (sin "pensamiento largo") para que la voz responda
+  ágil, y puede usar todas las herramientas de Sergio (pantalla, llamadas...).
+- Claves nuevas de Google que empiezan con `AQ.` funcionan (modo express).
+- Lo que dices y las respuestas viajan al proveedor de la nube; el oído
+  (Whisper) y la voz de Sergio siguen en tu laptop.
+
 ## ECC: guías expertas bajo demanda
 
 Sergio incluye [ECC (Everything Claude Code)](https://github.com/affaan-m/ECC),

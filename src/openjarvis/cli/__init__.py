@@ -126,6 +126,7 @@ if not _DATA_BOUNDARY_BOOTSTRAP:
     from openjarvis.cli.memory_cmd import memory
     from openjarvis.cli.mine_cmd import mine
     from openjarvis.cli.model import model
+    from openjarvis.cli.nube_cmd import nube
     from openjarvis.cli.operators_cmd import operators
     from openjarvis.cli.optimize_cmd import optimize_group
     from openjarvis.cli.pearl_cmd import pearl
@@ -184,6 +185,7 @@ if not _DATA_BOUNDARY_BOOTSTRAP:
     cli.add_command(escritorio, "escritorio")
     cli.add_command(ecc, "ecc")
     cli.add_command(revisar, "revisar")
+    cli.add_command(nube, "nube")
     cli.add_command(tool, "tool")
     cli.add_command(registry, "registry")
     cli.add_command(config, "config")

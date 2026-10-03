@@ -1,6 +1,7 @@
 """Cloud inference engine.
 
-OpenAI, Anthropic, Google, MiniMax, DeepSeek, and Atlas Cloud API backends.
+OpenAI, Anthropic, Google, MiniMax, DeepSeek, Kimi (Moonshot) and Atlas Cloud API
+backends.
 """
 
 from __future__ import annotations
@@ -111,6 +112,14 @@ _DEEPSEEK_MODELS = [
     "deepseek-v4-flash",
     "deepseek-v4-pro",
 ]
+# Kimi (Moonshot). The live list comes from the API; this is the fallback.
+_KIMI_MODELS = [
+    "kimi-k2.6",
+    "kimi-k2.5",
+    "kimi-k2-turbo",
+    "kimi-k2-thinking",
+]
+KIMI_DEFAULT_BASE_URL = "https://api.moonshot.ai/v1"
 
 # OpenRouter models — prefixed with "openrouter/" so they can be identified
 _OPENROUTER_POPULAR = [
@@ -158,6 +167,32 @@ def _is_minimax_model(model: str) -> bool:
 
 def _is_deepseek_model(model: str) -> bool:
     return model.lower().startswith("deepseek")
+
+
+def _is_kimi_model(model: str) -> bool:
+    return model.lower().startswith(("kimi", "moonshot"))
+
+
+def _kimi_create(client: Any, create_kwargs: Dict[str, Any]) -> Any:
+    """Kimi chat call: instant mode (no long thinking) when the model has it.
+
+    K2.5/K2.6 think by default, which is slow for voice; ``thinking: disabled``
+    turns that off. Models without the switch reject it, so retry without.
+    """
+    model = str(create_kwargs.get("model", "")).lower()
+    if model.startswith("kimi-k2.") and "thinking" not in model:
+        try:
+            return _chat_completion_with_temperature_retry(
+                client,
+                {**create_kwargs, "extra_body": {"thinking": {"type": "disabled"}}},
+            )
+        except Exception as exc:  # noqa: BLE001
+            if "thinking" not in str(exc).lower():
+                raise
+    return _chat_completion_with_temperature_retry(client, create_kwargs)
+
+
+_KIMI_PASSTHROUGH = ("tools", "tool_choice", "top_p", "stop", "response_format")
 
 
 def _is_openrouter_model(model: str) -> bool:
@@ -416,6 +451,8 @@ class CloudEngine(InferenceEngine):
         self._atlascloud_client: Any = None
         self._minimax_client: Any = None
         self._deepseek_client: Any = None
+        self._kimi_client: Any = None
+        self._kimi_live_models: List[str] | None = None
         self._codex_client: Any = None
         # Gemini thought_signatures: tool_call_id -> signature bytes
         self._thought_sigs: Dict[str, bytes] = {}
@@ -443,7 +480,14 @@ class CloudEngine(InferenceEngine):
             try:
                 from google import genai
 
-                self._google_client = genai.Client(api_key=gemini_key)
+                if gemini_key.startswith("AQ."):
+                    # New-style Google keys (AQ.) authenticate against Vertex
+                    # AI (express mode), not the classic AIza endpoint.
+                    self._google_client = genai.Client(
+                        vertexai=True, api_key=gemini_key
+                    )
+                else:
+                    self._google_client = genai.Client(api_key=gemini_key)
             except ImportError:
                 pass
         openrouter_key = os.environ.get("OPENROUTER_API_KEY")
@@ -487,6 +531,17 @@ class CloudEngine(InferenceEngine):
                 self._deepseek_client = openai.OpenAI(
                     base_url="https://api.deepseek.com/v1",
                     api_key=deepseek_key,
+                )
+            except ImportError:
+                pass
+        kimi_key = os.environ.get("MOONSHOT_API_KEY") or os.environ.get("KIMI_API_KEY")
+        if kimi_key:
+            try:
+                import openai
+
+                self._kimi_client = openai.OpenAI(
+                    base_url=os.environ.get("MOONSHOT_BASE_URL", KIMI_DEFAULT_BASE_URL),
+                    api_key=kimi_key,
                 )
             except ImportError:
                 pass
@@ -1208,6 +1263,82 @@ class CloudEngine(InferenceEngine):
             ]
         return result
 
+    def _generate_kimi(
+        self,
+        messages: Sequence[Message],
+        *,
+        model: str,
+        temperature: float,
+        max_tokens: int,
+        **kwargs: Any,
+    ) -> Dict[str, Any]:
+        if self._kimi_client is None:
+            raise EngineConnectionError(
+                "Kimi client not available — set MOONSHOT_API_KEY"
+            )
+        create_kwargs: Dict[str, Any] = {
+            "model": model,
+            "messages": messages_to_dicts(messages),
+            "max_tokens": max_tokens,
+            "temperature": temperature,
+            **{k: kwargs[k] for k in _KIMI_PASSTHROUGH if kwargs.get(k) is not None},
+        }
+        t0 = time.monotonic()
+        resp = _kimi_create(self._kimi_client, create_kwargs)
+        elapsed = time.monotonic() - t0
+        choice = _first_choice_or_raise(resp, provider="Kimi", model=model)
+        usage = resp.usage
+        prompt_tokens = usage.prompt_tokens if usage else 0
+        completion_tokens = usage.completion_tokens if usage else 0
+        result: Dict[str, Any] = {
+            "content": choice.message.content or "",
+            "usage": {
+                "prompt_tokens": prompt_tokens,
+                "completion_tokens": completion_tokens,
+                "total_tokens": (usage.total_tokens if usage else 0),
+            },
+            "model": resp.model,
+            "finish_reason": choice.finish_reason or "stop",
+            "cost_usd": estimate_cost(model, prompt_tokens, completion_tokens),
+            "ttft": elapsed,
+        }
+        if getattr(choice.message, "tool_calls", None):
+            result["tool_calls"] = [
+                {
+                    "id": tc.id,
+                    "name": tc.function.name,
+                    "arguments": tc.function.arguments,
+                }
+                for tc in choice.message.tool_calls
+            ]
+        return result
+
+    async def _stream_kimi(
+        self,
+        messages: Sequence[Message],
+        *,
+        model: str,
+        temperature: float,
+        max_tokens: int,
+        **kwargs: Any,
+    ) -> AsyncIterator[str]:
+        if self._kimi_client is None:
+            raise EngineConnectionError("Kimi client not available")
+        resp = _kimi_create(
+            self._kimi_client,
+            {
+                "model": model,
+                "messages": messages_to_dicts(messages),
+                "max_tokens": max_tokens,
+                "temperature": temperature,
+                "stream": True,
+            },
+        )
+        for chunk in resp:
+            delta = chunk.choices[0].delta if chunk.choices else None
+            if delta and delta.content:
+                yield delta.content
+
     def _generate_deepseek(
         self,
         messages: Sequence[Message],
@@ -1283,6 +1414,8 @@ class CloudEngine(InferenceEngine):
             return self._generate_atlascloud(messages, **kw)
         if _is_minimax_model(model):
             return self._generate_minimax(messages, **kw)
+        if _is_kimi_model(model):
+            return self._generate_kimi(messages, **kw)
         if _is_deepseek_model(model):
             return self._generate_deepseek(messages, **kw)
         if _is_anthropic_model(model):
@@ -1317,6 +1450,9 @@ class CloudEngine(InferenceEngine):
                 yield token
         elif _is_minimax_model(model):
             async for token in self._stream_minimax(messages, **kw):
+                yield token
+        elif _is_kimi_model(model):
+            async for token in self._stream_kimi(messages, **kw):
                 yield token
         elif _is_deepseek_model(model):
             async for token in self._stream_deepseek(messages, **kw):
@@ -1824,6 +1960,18 @@ class CloudEngine(InferenceEngine):
                 "stream": True,
                 **kwargs,
             }
+        elif _is_kimi_model(model):
+            client = self._kimi_client
+            if client is None:
+                raise EngineConnectionError("Kimi client not available")
+            create_kwargs = {
+                "model": model,
+                "messages": messages_to_dicts(messages),
+                "max_tokens": max_tokens,
+                "temperature": temperature,
+                "stream": True,
+                **kwargs,
+            }
         elif _is_deepseek_model(model):
             client = self._deepseek_client
             if client is None:
@@ -2006,9 +2154,21 @@ class CloudEngine(InferenceEngine):
             models.extend(_MINIMAX_MODELS)
         if self._deepseek_client is not None:
             models.extend(_DEEPSEEK_MODELS)
+        if self._kimi_client is not None:
+            models.extend(self._kimi_models())
         if self._codex_client is not None:
             models.extend(_CODEX_MODELS)
         return models
+
+    def _kimi_models(self) -> List[str]:
+        """Kimi's live model list (cached), falling back to the known ids."""
+        if self._kimi_live_models is None:
+            try:
+                listed = [m.id for m in self._kimi_client.models.list().data]
+                self._kimi_live_models = [m for m in listed if _is_kimi_model(m)]
+            except Exception:  # noqa: BLE001 — offline, bad key, old SDK
+                self._kimi_live_models = []
+        return self._kimi_live_models or list(_KIMI_MODELS)
 
     def _client_for_model(self, model: str) -> Any:
         """Return the provider client ``generate``/``stream`` will dispatch to
@@ -2031,6 +2191,8 @@ class CloudEngine(InferenceEngine):
             return self._atlascloud_client
         if _is_minimax_model(model):
             return self._minimax_client
+        if _is_kimi_model(model):
+            return self._kimi_client
         if _is_deepseek_model(model):
             return self._deepseek_client
         if _is_anthropic_model(model):
@@ -2063,6 +2225,7 @@ class CloudEngine(InferenceEngine):
             or self._atlascloud_client is not None
             or self._minimax_client is not None
             or self._deepseek_client is not None
+            or self._kimi_client is not None
             or self._codex_client is not None
         )
 
@@ -2095,6 +2258,10 @@ class CloudEngine(InferenceEngine):
             if hasattr(self._deepseek_client, "close"):
                 self._deepseek_client.close()
             self._deepseek_client = None
+        if self._kimi_client is not None:
+            if hasattr(self._kimi_client, "close"):
+                self._kimi_client.close()
+            self._kimi_client = None
         if self._codex_client is not None:
             self._codex_client = None
 

@@ -68,11 +68,20 @@ class SergioClient:
         return str(resp.json().get("text") or "").strip()
 
     def model(self) -> str:
+        """The server's main model (e.g. Kimi), else the first one listed."""
         if not self._model:
-            resp = self.http.get(f"{self.base}/v1/models")
-            resp.raise_for_status()
-            data = resp.json().get("data") or [{}]
-            self._model = data[0].get("id") or "default"
+            try:
+                info = self.http.get(f"{self.base}/v1/info")
+                self._model = (
+                    str(info.json().get("model") or "") if info.is_success else ""
+                )
+            except (httpx.HTTPError, ValueError):
+                self._model = ""
+            if not self._model:
+                resp = self.http.get(f"{self.base}/v1/models")
+                resp.raise_for_status()
+                data = resp.json().get("data") or [{}]
+                self._model = data[0].get("id") or "default"
         return self._model
 
     def ask(self, text: str) -> str:

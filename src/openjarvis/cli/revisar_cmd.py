@@ -84,22 +84,31 @@ def revisar() -> None:
         host = "http://" + host
     base = f"http://127.0.0.1:{cfg.server.port}"
 
-    # 1. Ollama and the model
+    # 1. Ollama and the model (cloud models are checked by the chat test)
+    cloud_prefixes = ("kimi", "moonshot", "gemini", "gpt", "claude", "deepseek")
+    if model.lower().startswith(cloud_prefixes):
+        _ok(f"Modelo en la nube: {model} (respaldo local: qwen3:8b)")
+        model_for_ollama = cfg.intelligence.fallback_model or DEFAULT_MODEL
+    else:
+        model_for_ollama = model
+    local = model_for_ollama
     try:
         tags = httpx.get(f"{host}/api/tags", timeout=5).json()
         names = {m.get("name") for m in tags.get("models", [])}
-        if model in names or f"{model}:latest" in names:
-            _ok(f"Ollama y el modelo {model}")
+        if local in names or f"{local}:latest" in names:
+            _ok(f"Ollama y el modelo {local}")
         else:
-            console.print(f"Descargando el modelo {model} (unos 5 GB, solo una vez)…")
+            console.print(f"Descargando el modelo {local} (unos 5 GB, solo una vez)…")
             resp = httpx.post(
-                f"{host}/api/pull", json={"model": model, "stream": False}, timeout=None
+                f"{host}/api/pull",
+                json={"model": local, "stream": False},
+                timeout=None,
             )
             if resp.status_code == 200:
-                _ok(f"Modelo {model} descargado")
+                _ok(f"Modelo {local} descargado")
             else:
                 failures += 1
-                _bad(f"modelo {model}", _detail(resp))
+                _bad(f"modelo {local}", _detail(resp))
     except httpx.HTTPError as exc:
         failures += 1
         _bad("Ollama", f"no responde en {host} ({exc}). Abre la app Ollama en Windows.")
@@ -173,7 +182,8 @@ def revisar() -> None:
             failures += 1
             _bad(name, f"{resp.status_code} {_detail(resp)}")
             if name.startswith("Chat"):
-                _probe_ollama(host, model)
+                if model == model_for_ollama:
+                    _probe_ollama(host, model)
 
     # 6. Cursor companion (Windows side)
     token = read_env(env_file()).get("SERGIO_DESKTOP_TOKEN", "")

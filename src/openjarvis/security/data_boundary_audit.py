@@ -58,6 +58,7 @@ API_KEY_ENV_VARS = {
         {"cartesia", "text_to_speech"},
     ),
     "DEEPSEEK_API_KEY": ("DeepSeek cloud inference", {"deepseek"}),
+    "MOONSHOT_API_KEY": ("Kimi (Moonshot) cloud inference", {"kimi", "moonshot"}),
     "GEMINI_API_KEY": ("Google/Gemini cloud inference", {"google", "gemini"}),
     "GOOGLE_API_KEY": ("Google/Gemini cloud inference", {"google", "gemini"}),
     "MINIMAX_API_KEY": ("MiniMax cloud inference", {"minimax"}),
