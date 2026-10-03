@@ -1,0 +1,65 @@
+"""Natural voice: Microsoft's neural voices (the ones in Edge "Read aloud").
+
+Free, no key, much more human than a small local TTS. Needs internet; when
+it fails Sergio falls back to the local voice on the server.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import io
+import wave
+
+# Spanish neural voices worth offering (id, label).
+VOICES = [
+    ("es-EC-LuisNeural", "Luis (Ecuador)"),
+    ("es-EC-AndreaNeural", "Andrea (Ecuador)"),
+    ("es-MX-JorgeNeural", "Jorge (México)"),
+    ("es-MX-DaliaNeural", "Dalia (México)"),
+    ("es-CO-GonzaloNeural", "Gonzalo (Colombia)"),
+    ("es-ES-AlvaroNeural", "Álvaro (España)"),
+    ("es-ES-ElviraNeural", "Elvira (España)"),
+    ("es-AR-TomasNeural", "Tomás (Argentina)"),
+]
+DEFAULT_VOICE = "es-EC-LuisNeural"
+
+
+async def _mp3(text: str, voice: str, rate: str) -> bytes:
+    import edge_tts
+
+    out = bytearray()
+    async for chunk in edge_tts.Communicate(text, voice, rate=rate).stream():
+        if chunk.get("type") == "audio":
+            out += chunk["data"]
+    if not out:
+        raise RuntimeError("the neural voice returned no audio")
+    return bytes(out)
+
+
+def mp3_to_wav(mp3: bytes, rate: int = 24_000) -> bytes:
+    """Decode MP3 to 16-bit mono WAV (Windows plays WAV natively)."""
+    import av
+
+    pcm = bytearray()
+    with av.open(io.BytesIO(mp3)) as container:
+        resampler = av.AudioResampler(format="s16", layout="mono", rate=rate)
+        for frame in container.decode(audio=0):
+            for out in resampler.resample(frame):
+                pcm += bytes(out.planes[0])[: out.samples * 2]
+        for out in resampler.resample(None):
+            pcm += bytes(out.planes[0])[: out.samples * 2]
+    buf = io.BytesIO()
+    with wave.open(buf, "wb") as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(rate)
+        w.writeframes(bytes(pcm))
+    return buf.getvalue()
+
+
+def synthesize(text: str, voice: str = DEFAULT_VOICE, rate: str = "+5%") -> bytes:
+    """WAV bytes of *text* spoken by *voice*."""
+    return mp3_to_wav(asyncio.run(_mp3(text[:3000], voice, rate)))
+
+
+__all__ = ["DEFAULT_VOICE", "VOICES", "mp3_to_wav", "synthesize"]

@@ -76,8 +76,10 @@ class Controller:
         *,
         on_activity: Callable[[str], None] | None = None,
         sleep: Callable[[float], None] = time.sleep,
+        camera: Callable[[], bytes] | None = None,
     ) -> None:
         self.backend = backend
+        self.camera = camera  # returns a JPEG of the webcam, or None
         self.enabled = True
         self._elements: dict[int, tuple[int, int]] = {}
         self._lock = threading.Lock()
@@ -85,6 +87,12 @@ class Controller:
         self._sleep = sleep
 
     # -- reading -----------------------------------------------------------
+    def camera_shot(self) -> dict:
+        if self.camera is None:
+            raise ActionError("No camera available.")
+        jpeg = self.camera()
+        return {"image_jpeg_b64": base64.b64encode(jpeg).decode("ascii")}
+
     def screen(self) -> dict:
         image = self.backend.screenshot()
         width, height = image.size
@@ -248,6 +256,8 @@ def make_server(
                     self._send(200, controller.screen())
                 elif self.path == "/ui":
                     self._send(200, controller.ui())
+                elif self.path == "/camera":
+                    self._send(200, controller.camera_shot())
                 else:
                     self._send(404, {"ok": False, "error": "not found"})
             except Exception as exc:  # noqa: BLE001

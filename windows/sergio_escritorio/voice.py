@@ -28,11 +28,16 @@ FOLLOW_UP_SECONDS = 8.0  # after a bare "Sergio", the next sentence is the order
 PTT_TIMEOUT = 10.0  # longest push-to-talk recording
 
 VOICE_STYLE = (
-    "You are talking out loud through Sergio's cursor companion on the user's "
-    "Windows laptop. Answer in Spanish in one or two short spoken sentences, "
-    "with no markdown or lists. To do things on the computer, look with "
-    "screen_read and act with desktop_action step by step, then say briefly "
-    "what you did."
+    "You are Sergio, talking out loud through the cursor companion on the "
+    "user's Windows laptop. Answer in Spanish in one or two short, warm, "
+    "natural spoken sentences, with no markdown, lists or emojis. Use your "
+    "tools instead of guessing: web_search for anything current (news, "
+    "weather, prices); camera_look to see the user (objects in their hand, "
+    "gestures, expressions, who is there); screen_read then desktop_action "
+    "to do things on the computer, step by step; to show the 3D globe "
+    "(God's Eye View) open http://localhost:8000/globe with desktop_action "
+    "open; skill_guide for expert playbooks (ECC) on bigger tasks. After "
+    "acting, say briefly what you did."
 )
 
 log = logging.getLogger(__name__)
@@ -107,7 +112,20 @@ class SergioClient:
         del self.history[: -HISTORY_TURNS * 2]
         return answer
 
+    voice = ""  # neural voice id; "" = use the server's local voice
+
     def speak(self, text: str) -> bytes:
+        """Natural neural voice when online; the server's local voice otherwise."""
+        if self.voice:
+            try:
+                from sergio_escritorio.neural_voice import synthesize
+
+                return synthesize(text, self.voice)
+            except Exception:  # noqa: BLE001 — offline or service hiccup
+                log.exception("neural voice failed; using the local voice")
+        return self.speak_on_server(text)
+
+    def speak_on_server(self, text: str) -> bytes:
         resp = self.http.post(
             f"{self.base}/v1/speech/synthesize", json={"text": text[:3000]}
         )
@@ -118,7 +136,7 @@ class SergioClient:
 class LocalWhisper:
     """Speech-to-text inside the Windows companion (no WSL, no GPU needed)."""
 
-    def __init__(self, size: str = "base") -> None:
+    def __init__(self, size: str = "small") -> None:
         from faster_whisper import WhisperModel
 
         self.model = WhisperModel(size, device="cpu", compute_type="int8")
@@ -132,7 +150,13 @@ class LocalWhisper:
         audio = pcm.astype(np.float32) / 32768.0
         with self.lock:
             segments, _info = self.model.transcribe(
-                audio, language="es", vad_filter=True, beam_size=1
+                audio,
+                language="es",
+                vad_filter=True,
+                beam_size=5,
+                # Bias towards the assistant's name and everyday orders.
+                initial_prompt="Sergio, abre, busca, llama, escribe, la cámara.",
+                condition_on_previous_text=False,
             )
             return "".join(seg.text for seg in segments).strip()
 

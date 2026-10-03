@@ -31,8 +31,33 @@ PALETTES = {
     "acting": ("#1b4dff", "#00c2ff", "#7cf3ff", "#2f8bff"),
     "paused": ("#5b5b66", "#8a8a96", "#c4c4cc", "#7a7a86"),
 }
+# Personalisation: themes recolour Sergio at rest / acting / speaking.
+# Listening (warm) and thinking (violet) keep their meaning in every theme.
+THEMES = {
+    "Océano": ("#1b4dff", "#7b5cff", "#3fd6ff", "#4c7dff"),
+    "Atardecer": ("#ff6a3d", "#ff3b8d", "#ffc46b", "#ff7a59"),
+    "Aurora": ("#00c389", "#7b5cff", "#3fd6ff", "#2fd6a0"),
+    "Rosa": ("#ff4fa3", "#b65cff", "#ffc2e2", "#ff6ab8"),
+    "Menta": ("#00b894", "#55efc4", "#dff9fb", "#1dd1a1"),
+    "Grafito": ("#3a3a44", "#8e8e9a", "#e5e5ea", "#9a9aa6"),
+}
+SETTINGS = {"theme": "Océano", "eyes": True}
+
 # Kept for code that only needs one representative colour per state.
 STATE_COLORS = {k: QColor(v[3]) for k, v in PALETTES.items()}
+
+
+def set_theme(name: str, eyes: bool | None = None) -> None:
+    """Apply a colour theme (and optionally show/hide the eyes) everywhere."""
+    colours = THEMES.get(name, THEMES["Océano"])
+    SETTINGS["theme"] = name if name in THEMES else "Océano"
+    PALETTES["idle"] = colours
+    PALETTES["acting"] = (colours[0], colours[2], colours[2], colours[3])
+    STATE_COLORS["idle"] = QColor(colours[3])
+    STATE_COLORS["acting"] = QColor(colours[3])
+    if eyes is not None:
+        SETTINGS["eyes"] = bool(eyes)
+
 
 BLINK_EVERY = 4.6
 BLINK_TIME = 0.16
@@ -132,7 +157,7 @@ def draw_character(
     p.drawEllipse(centre, r * 0.97, r * 0.97)
 
     # Soft eyes (hidden when tiny): blink, follow the pointer, close in pause.
-    if eyes and radius >= 7:
+    if eyes and SETTINGS["eyes"] and radius >= 7:
         openness = 0.12 if state == "paused" else _blink(t)
         gaze = QPointF(look.x() * r * 0.12, look.y() * r * 0.1)
         if state == "thinking":
@@ -151,4 +176,11 @@ def draw_character(
     p.restore()
 
 
-__all__ = ["PALETTES", "STATE_COLORS", "draw_character"]
+__all__ = [
+    "PALETTES",
+    "SETTINGS",
+    "STATE_COLORS",
+    "THEMES",
+    "draw_character",
+    "set_theme",
+]

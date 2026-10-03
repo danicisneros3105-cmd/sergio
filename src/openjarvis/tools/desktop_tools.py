@@ -219,4 +219,60 @@ class DesktopActionTool(_DesktopTool):
         return self._ok(str(data.get("result", "done")))
 
 
-__all__ = ["DesktopActionTool", "ScreenReadTool"]
+@ToolRegistry.register("camera_look")
+class CameraLookTool(_DesktopTool):
+    tool_id = "camera_look"
+
+    @property
+    def spec(self) -> ToolSpec:
+        return ToolSpec(
+            name="camera_look",
+            description=(
+                "Look through the user's webcam and answer a question about it: "
+                "the object in their hand, a gesture (thumbs up, pointing, "
+                "counting fingers), their expression, or what is in front of the "
+                "camera. Also says who is there if the face was enrolled. Use it "
+                "whenever the user says 'mira', 'qué tengo', 'qué ves', or "
+                "guides you with gestures."
+            ),
+            parameters={
+                "type": "object",
+                "properties": {
+                    "question": {
+                        "type": "string",
+                        "description": "What to find out, in Spanish.",
+                    }
+                },
+                "required": ["question"],
+            },
+            category="desktop",
+            timeout_seconds=150,
+        )
+
+    def execute(self, **params: Any) -> ToolResult:
+        import base64
+
+        from openjarvis.tools.vision_look import ask_vision
+
+        try:
+            shot = self._call("GET", "/camera")
+        except RuntimeError as exc:
+            return self._fail(f"No pude ver por la cámara: {exc}")
+        jpeg = base64.b64decode(shot["image_jpeg_b64"])
+        people = ""
+        try:
+            from openjarvis.faces import FaceBook
+
+            names = [m.name for m in FaceBook().identify(jpeg) if m.name]
+            if names:
+                people = "Personas reconocidas: " + ", ".join(sorted(set(names))) + ". "
+        except Exception:  # noqa: BLE001 — face recognition is optional
+            pass
+        try:
+            seen = ask_vision(jpeg, str(params.get("question") or ""), self._client())
+        except RuntimeError as exc:
+            return self._fail(people + str(exc))
+        return self._ok(people + seen)
+
+
+__all__ = ["CameraLookTool", "DesktopActionTool", "ScreenReadTool"]

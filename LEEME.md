@@ -254,6 +254,19 @@ sigue, te escucha y usa la computadora por ti:
   «Sergio», ocultar la esfera o el notch, pausar el control, abrir el chat o
   salir.
 
+- **Cámara flotante** (Ctrl+Alt+C o clic derecho en el icono → Cámara): una
+  ventanita redonda que arrastras a donde quieras (la rueda del mouse cambia
+  su tamaño). Pregúntale «Sergio, ¿qué tengo en la mano?», «¿qué gesto
+  hago?» o «¿quién está aquí?»: mira por la cámara con un modelo con visión
+  (Kimi o Gemini) y reconoce a las personas que registraste en Rostros. La
+  cámara se apaga sola 20 s después de usarla.
+- **Voz natural**: voces neuronales de Microsoft (Luis o Andrea de Ecuador,
+  México, Colombia, España, Argentina). Sin internet usa la voz local.
+- **Personalizar a Sergio** (clic derecho en el icono): colores (Océano,
+  Atardecer, Aurora, Rosa, Menta, Grafito), ojos, tamaño junto al cursor y voz.
+- Por voz también usa la búsqueda web, el globo 3D (God's Eye View) y las
+  guías expertas de ECC.
+
 Instalar o actualizar (en Ubuntu):
 
 ```bash

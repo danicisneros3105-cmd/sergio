@@ -19,7 +19,13 @@ from rich.console import Console
 
 console = Console()
 
-DESKTOP_TOOLS = ("screen_read", "desktop_action")
+DESKTOP_TOOLS = (
+    "screen_read",
+    "desktop_action",
+    "camera_look",
+    "skill_guide",
+    "web_search",
+)
 MIN_TURNS = 25  # a desktop task is many small look-then-act steps
 VISION_MODEL = "qwen2.5vl:7b"
 

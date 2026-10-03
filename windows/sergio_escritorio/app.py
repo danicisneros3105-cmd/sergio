@@ -23,6 +23,7 @@ CONFIG = HOME / "config.json"
 
 HOTKEY_TALK = "<ctrl>+<space>"
 HOTKEY_STOP = "<ctrl>+<alt>+<end>"
+HOTKEY_CAMERA = "<ctrl>+<alt>+c"
 
 # What the companion says while Sergio uses the screen (by result prefix).
 ACTIVITY = {
@@ -43,6 +44,10 @@ def load_config() -> dict[str, Any]:
     data.setdefault("wake_word", True)
     data.setdefault("show_companion", True)
     data.setdefault("show_notch", True)
+    data.setdefault("theme", "Océano")
+    data.setdefault("eyes", True)
+    data.setdefault("cursor_size", 9.0)
+    data.setdefault("voice", "es-EC-LuisNeural")
     return data
 
 
@@ -137,8 +142,17 @@ def run(config: dict[str, Any]) -> None:
 
     app = QApplication(sys.argv)
     app.setQuitOnLastWindowClosed(False)
+    from sergio_escritorio import companion as companion_mod
+    from sergio_escritorio.camera import CameraFeed, CameraWindow
+    from sergio_escritorio.character import set_theme
+    from sergio_escritorio.personalize import PersonalizeDialog
+
+    set_theme(config["theme"], config["eyes"])
+    companion_mod.ORB = float(config["cursor_size"])
     show_notch = bool(config["show_notch"])
     companion = Companion(captions=not show_notch)
+    feed = CameraFeed()
+    camera_window = CameraWindow(feed)
     notch = Notch(fullscreen_app=foreground_is_fullscreen)
 
     def show_state(name: str) -> None:
@@ -148,6 +162,8 @@ def run(config: dict[str, Any]) -> None:
     def show_text(text: str, seconds: float = 0.0) -> None:
         companion.say(text, seconds)
         notch.say(text, seconds)
+        if camera_window.isVisible():
+            camera_window.show_overlay(text)
 
     class Bridge(QObject):
         """Thread-safe hop from worker threads to the Qt (UI) thread."""
@@ -157,6 +173,7 @@ def run(config: dict[str, Any]) -> None:
         level = Signal(float)
         talk = Signal()
         toggle = Signal()
+        camera = Signal()
 
     bridge = Bridge()
     bridge.state.connect(show_state)
@@ -177,7 +194,15 @@ def run(config: dict[str, Any]) -> None:
         if caption:
             bridge.caption.emit(caption)
 
-    controller = Controller(WindowsBackend(), on_activity=on_activity)
+    def camera_shot() -> bytes:
+        """Sergio looks through the webcam (asked by the agent's camera tool)."""
+        bridge.state.emit("acting")
+        bridge.caption.emit("Mirando por la cámara…")
+        return feed.jpeg()
+
+    controller = Controller(
+        WindowsBackend(), on_activity=on_activity, camera=camera_shot
+    )
     server = make_server(controller, config["token"], int(config["port"]))
     threading.Thread(target=server.serve_forever, daemon=True).start()
 
@@ -185,7 +210,9 @@ def run(config: dict[str, Any]) -> None:
     from sergio_escritorio.voice import local_whisper
 
     threading.Thread(target=local_whisper, daemon=True).start()
-    assistant = Assistant(SergioClient(config["server_url"]), ui=UIAdapter())
+    client = SergioClient(config["server_url"])
+    client.voice = config["voice"]
+    assistant = Assistant(client, ui=UIAdapter())
     ears = Ears(
         assistant, wake_word=bool(config["wake_word"]), on_level=bridge.level.emit
     )
@@ -263,6 +290,29 @@ def run(config: dict[str, Any]) -> None:
     menu.addAction(notch_action)
     menu.addSeparator()
 
+    camera_action = QAction("Cámara  (Ctrl+Alt+C)", menu)
+    camera_action.triggered.connect(camera_window.toggle)
+    menu.addAction(camera_action)
+
+    def save_personalization(new: dict) -> None:
+        set_theme(new["theme"], new["eyes"])
+        companion_mod.ORB = float(new["cursor_size"])
+        client.voice = new["voice"]
+        save_config(config)
+        tray.setIcon(tray_icon(STATE_COLORS["idle"]))
+
+    personalize_action = QAction("Personalizar a Sergio…", menu)
+    dialogs: list = []
+
+    def open_personalize() -> None:
+        dialog = PersonalizeDialog(config, save_personalization)
+        dialogs[:] = [dialog]  # keep a reference while it is open
+        dialog.show()
+
+    personalize_action.triggered.connect(open_personalize)
+    menu.addAction(personalize_action)
+    menu.addSeparator()
+
     chat_action = QAction("Abrir el chat en el navegador", menu)
     chat_action.triggered.connect(lambda: webbrowser.open(config["server_url"]))
     menu.addAction(chat_action)
@@ -279,9 +329,14 @@ def run(config: dict[str, Any]) -> None:
 
     # -- global hotkeys (pynput thread -> Qt thread via signals) ------------
     bridge.talk.connect(ears.talk)
+    bridge.camera.connect(camera_window.toggle)
     bridge.toggle.connect(lambda: set_control(not controller.enabled))
     hotkeys = keyboard.GlobalHotKeys(
-        {HOTKEY_TALK: bridge.talk.emit, HOTKEY_STOP: bridge.toggle.emit}
+        {
+            HOTKEY_TALK: bridge.talk.emit,
+            HOTKEY_STOP: bridge.toggle.emit,
+            HOTKEY_CAMERA: bridge.camera.emit,
+        }
     )
     hotkeys.start()
 
