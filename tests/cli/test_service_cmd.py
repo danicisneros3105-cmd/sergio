@@ -58,10 +58,10 @@ def test_instalar_writes_units_enables_and_lingers(system, tmp_path):
     assert (unit_dir / "sergio-extensiones.service").exists()
     cmds = [" ".join(c) for c in system.calls]
     assert "systemctl --user daemon-reload" in cmds
-    assert (
-        "systemctl --user enable --now sergio.service sergio-extensiones.service"
-        in cmds
-    )
+    units = "sergio.service sergio-extensiones.service"
+    assert f"systemctl --user enable {units}" in cmds
+    # restart, so re-running after an update loads the new code
+    assert f"systemctl --user restart {units}" in cmds
     assert any(c.startswith("loginctl enable-linger") for c in cmds)
     assert "http://localhost:8123" in result.output
 

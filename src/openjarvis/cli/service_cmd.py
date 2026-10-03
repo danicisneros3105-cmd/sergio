@@ -119,9 +119,17 @@ def _require_systemd(runner: Runner) -> None:
         )
 
 
+def _ui_outdated(frontend: Path, static: Path) -> bool:
+    """True when the frontend sources changed after the last build (git pull)."""
+    built = static.stat().st_mtime
+    sources = [frontend / "index.html", frontend / "package.json"]
+    sources += (frontend / "src").rglob("*")
+    return any(p.is_file() and p.stat().st_mtime > built for p in sources)
+
+
 def _build_ui(root: Path, runner: Runner) -> None:
     static = root / "src" / "openjarvis" / "server" / "static" / "index.html"
-    if static.exists():
+    if static.exists() and not _ui_outdated(root / "frontend", static):
         return
     frontend = root / "frontend"
     console.print("Building the web interface (one time)…")
@@ -168,7 +176,10 @@ def instalar(puerto: int) -> None:
         env_file().chmod(0o600)
 
     _systemctl(runner, "daemon-reload")
-    done = _systemctl(runner, "enable", "--now", *UNITS)
+    done = _systemctl(runner, "enable", *UNITS)
+    if done.returncode == 0:
+        # restart (not start) so re-running after `git pull` loads the new code.
+        done = _systemctl(runner, "restart", *UNITS)
     if done.returncode != 0:
         raise click.ClickException(f"systemctl failed: {done.stderr.strip()}")
     # Keep the services running without an open session (boot / closed WSL).

@@ -120,9 +120,10 @@ function loadSettings(): Settings {
     defaultAgent: '',
     temperature: 0.7,
     maxTokens: 4096,
-    speechEnabled: false,
-    voiceOutputEnabled: false,
-    voiceAutoplay: false,
+    // Sergio habla y escucha por defecto (todo local).
+    speechEnabled: true,
+    voiceOutputEnabled: true,
+    voiceAutoplay: true,
   };
   try {
     const raw = localStorage.getItem(SETTINGS_KEY);

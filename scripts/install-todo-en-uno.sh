@@ -114,10 +114,23 @@ add_section memory "enabled = true"
 add_section tools 'enabled = ["think", "calculator", "web_search", "file_read", "user_profile_manage", "clacky_task", "globe_view", "live_flights", "live_earthquakes", "upcoming_launches", "phone_call", "phone_call_status", "whatsapp_send", "face_identify", "face_list"]'
 if $TOKEN_SAVER; then add_section compression "tool_output = true"; fi
 if ! $WITH_GLOBE; then add_section extensions.globe "enabled = false"; fi
+# Voz en español, local: escucha con Whisper y habla con Kokoro.
+add_section speech 'language = "es"
+compute_type = "int8"
+tts_backend = "kokoro_onnx"
+voice_id = "em_alex"'
 if command -v ollama >/dev/null; then
   curl -fsS http://127.0.0.1:11434/api/tags >/dev/null 2>&1 || (ollama serve >/dev/null 2>&1 &)
   sleep 2
-  ollama pull "$MODEL"
+fi
+# Descarga el modelo por la API: funciona también con el Ollama de Windows,
+# cuyo comando `ollama` no existe dentro de WSL.
+if curl -fsS http://127.0.0.1:11434/api/tags >/dev/null 2>&1; then
+  echo "Descargando el modelo $MODEL (unos 5 GB, solo la primera vez)…"
+  curl -fsS http://127.0.0.1:11434/api/pull -d "{\"model\": \"$MODEL\", \"stream\": false}" >/dev/null \
+    && echo "Modelo listo." || echo "⚠ No pude descargar $MODEL: en PowerShell ejecuta 'ollama pull $MODEL'."
+else
+  echo "⚠ Ollama no responde: ábrelo en Windows y ejecuta en PowerShell 'ollama pull $MODEL'."
 fi
 
 # Comando `sergio` disponible en cualquier carpeta.
