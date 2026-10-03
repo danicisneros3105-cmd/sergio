@@ -23,6 +23,11 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
+def _gpu_runtime_error(exc: Exception) -> bool:
+    text = str(exc).lower()
+    return any(k in text for k in ("cublas", "cudnn", "cuda", "libcu", "gpu"))
+
+
 @SpeechRegistry.register("faster-whisper")
 class FasterWhisperBackend(SpeechBackend):
     """Local speech-to-text using Faster-Whisper (CTranslate2)."""
@@ -87,11 +92,20 @@ class FasterWhisperBackend(SpeechBackend):
                 )
                 raise ImportError(self._last_error)
             compute_type = self._resolve_compute_type()
-            self._model = WhisperModel(
-                self._model_size,
-                device=self._device,
-                compute_type=compute_type,
-            )
+            try:
+                self._model = WhisperModel(
+                    self._model_size,
+                    device=self._device,
+                    compute_type=compute_type,
+                )
+            except Exception as exc:
+                if self._device == "cpu" or not _gpu_runtime_error(exc):
+                    raise
+                logger.warning("GPU unavailable for Whisper (%s); using CPU", exc)
+                self._device, self._compute_type = "cpu", "int8"
+                self._model = WhisperModel(
+                    self._model_size, device="cpu", compute_type="int8"
+                )
         self._last_error = None
         return self._model
 
@@ -102,7 +116,25 @@ class FasterWhisperBackend(SpeechBackend):
         format: str = "wav",
         language: Optional[str] = None,
     ) -> TranscriptionResult:
-        """Transcribe audio bytes using Faster-Whisper."""
+        """Transcribe audio bytes; fall back to the CPU if the GPU libs fail."""
+        try:
+            return self._transcribe(audio, format=format, language=language)
+        except Exception as exc:
+            if self._device == "cpu" or not _gpu_runtime_error(exc):
+                raise
+            # e.g. WSL with an NVIDIA card but no CUDA/cuBLAS libraries:
+            # "Library libcublas.so.12 is not found or cannot be loaded".
+            logger.warning("GPU transcription failed (%s); switching to CPU", exc)
+            self._device, self._compute_type, self._model = "cpu", "int8", None
+            return self._transcribe(audio, format=format, language=language)
+
+    def _transcribe(
+        self,
+        audio: bytes,
+        *,
+        format: str = "wav",
+        language: Optional[str] = None,
+    ) -> TranscriptionResult:
         try:
             model = self._ensure_model()
 

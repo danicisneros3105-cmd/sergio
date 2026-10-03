@@ -243,10 +243,23 @@ def create_app(
     )
 
     app = FastAPI(
-        title="OpenJarvis API",
-        description="OpenAI-compatible API server for OpenJarvis",
+        title="Sergio API",
+        description="OpenAI-compatible API server for Sergio",
         version="0.1.0",
     )
+
+    from fastapi import Request as _Request
+    from fastapi.responses import JSONResponse
+
+    @app.exception_handler(Exception)
+    async def _explain_unexpected_error(request: _Request, exc: Exception):
+        # Without this an engine error (e.g. Ollama "model requires more
+        # memory") reaches the user as a bare "500 Internal Server Error".
+        logger.exception("Unhandled error on %s", request.url.path)
+        return JSONResponse(
+            status_code=500,
+            content={"detail": f"{type(exc).__name__}: {exc}"[:600]},
+        )
 
     from fastapi.middleware.cors import CORSMiddleware
 

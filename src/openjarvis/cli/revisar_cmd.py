@@ -40,6 +40,31 @@ def _bad(name: str, why: str) -> None:
     console.print(f"[red]FALLA[/red] {name}: {escape(why)}")
 
 
+def _probe_ollama(host: str, model: str) -> None:
+    """Ask Ollama directly so its own error (memory, model) is visible."""
+    console.print(f"  Preguntando directo a Ollama con {model}…")
+    try:
+        resp = httpx.post(
+            f"{host}/api/chat",
+            json={
+                "model": model,
+                "messages": [{"role": "user", "content": "di ok"}],
+                "stream": False,
+                "think": False,
+            },
+            timeout=600,
+        )
+    except httpx.HTTPError as exc:
+        console.print(f"  Ollama no respondió: {escape(str(exc))}")
+        return
+    if resp.status_code == 200:
+        console.print(
+            "  Ollama responde bien solo: el fallo está en Sergio (envía esto)."
+        )
+    else:
+        console.print(f"  Ollama dice: {escape(_detail(resp))}")
+
+
 @click.command("revisar")
 def revisar() -> None:
     """Check Ollama, the model, chat, voice, hearing and the cursor companion."""
@@ -147,6 +172,8 @@ def revisar() -> None:
         else:
             failures += 1
             _bad(name, f"{resp.status_code} {_detail(resp)}")
+            if name.startswith("Chat"):
+                _probe_ollama(host, model)
 
     # 6. Cursor companion (Windows side)
     token = read_env(env_file()).get("SERGIO_DESKTOP_TOKEN", "")
