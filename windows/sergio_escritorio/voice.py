@@ -59,6 +59,16 @@ class SergioClient:
         self._model = ""
 
     def transcribe(self, wav: bytes) -> str:
+        """Hear on Windows itself (Whisper on the CPU); the server is a backup."""
+        local = local_whisper()
+        if local is not None:
+            try:
+                return local.transcribe(wav)
+            except Exception:  # noqa: BLE001
+                log.exception("local transcription failed; asking the server")
+        return self.transcribe_on_server(wav)
+
+    def transcribe_on_server(self, wav: bytes) -> str:
         resp = self.http.post(
             f"{self.base}/v1/speech/transcribe",
             files={"file": ("voz.wav", wav, "audio/wav")},
@@ -103,6 +113,42 @@ class SergioClient:
         )
         resp.raise_for_status()
         return resp.content
+
+
+class LocalWhisper:
+    """Speech-to-text inside the Windows companion (no WSL, no GPU needed)."""
+
+    def __init__(self, size: str = "base") -> None:
+        from faster_whisper import WhisperModel
+
+        self.model = WhisperModel(size, device="cpu", compute_type="int8")
+        self.lock = threading.Lock()
+
+    def transcribe(self, wav: bytes) -> str:
+        import numpy as np
+
+        with wave.open(io.BytesIO(wav)) as w:
+            pcm = np.frombuffer(w.readframes(w.getnframes()), dtype=np.int16)
+        audio = pcm.astype(np.float32) / 32768.0
+        with self.lock:
+            segments, _info = self.model.transcribe(
+                audio, language="es", vad_filter=True, beam_size=1
+            )
+            return "".join(seg.text for seg in segments).strip()
+
+
+_LOCAL: list[LocalWhisper | None] = []
+
+
+def local_whisper() -> LocalWhisper | None:
+    """Load once; None if faster-whisper is missing or the model can't load."""
+    if not _LOCAL:
+        try:
+            _LOCAL.append(LocalWhisper())
+        except Exception:  # noqa: BLE001
+            log.exception("local Whisper unavailable; using the server")
+            _LOCAL.append(None)
+    return _LOCAL[0]
 
 
 def play_wav(data: bytes) -> None:

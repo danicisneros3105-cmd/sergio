@@ -73,3 +73,11 @@ def control_server(desktop):
     thread.start()
     yield controller, f"http://127.0.0.1:{server.server_address[1]}"
     server.shutdown()
+
+
+@pytest.fixture(autouse=True)
+def _no_local_whisper(monkeypatch):
+    """Tests use the (mocked) server for hearing, never a real Whisper model."""
+    from sergio_escritorio import voice
+
+    monkeypatch.setattr(voice, "_LOCAL", [None])

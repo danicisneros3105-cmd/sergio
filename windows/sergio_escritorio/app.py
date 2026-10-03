@@ -179,6 +179,10 @@ def run(config: dict[str, Any]) -> None:
     server = make_server(controller, config["token"], int(config["port"]))
     threading.Thread(target=server.serve_forever, daemon=True).start()
 
+    # Load Whisper on Windows in the background so the first phrase is fast.
+    from sergio_escritorio.voice import local_whisper
+
+    threading.Thread(target=local_whisper, daemon=True).start()
     assistant = Assistant(SergioClient(config["server_url"]), ui=UIAdapter())
     ears = Ears(assistant, wake_word=bool(config["wake_word"]))
     try:

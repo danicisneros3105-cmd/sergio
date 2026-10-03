@@ -8,8 +8,8 @@ def test_speech_config_defaults():
     assert cfg.backend == "auto"
     assert cfg.model == "base"
     assert cfg.language == ""
-    assert cfg.device == "auto"
-    assert cfg.compute_type == "float16"
+    assert cfg.device == "cpu"
+    assert cfg.compute_type == "int8"
 
 
 def test_jarvis_config_has_speech():

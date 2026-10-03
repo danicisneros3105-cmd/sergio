@@ -224,3 +224,31 @@ def test_wav_format():
             w.getframerate(),
             w.getnframes(),
         ) == (1, 2, 16000, 160)
+
+
+def test_hearing_happens_on_windows_first_then_server(monkeypatch):
+    from sergio_escritorio import voice
+
+    class Local:
+        def __init__(self, fail=False):
+            self.fail = fail
+
+        def transcribe(self, wav):
+            if self.fail:
+                raise RuntimeError("no model")
+            return "Sergio, abre Spotify"
+
+    server_calls = []
+
+    def handler(request):
+        server_calls.append(request.url.path)
+        return httpx.Response(200, json={"text": "desde el servidor"})
+
+    client = SergioClient(
+        "http://x", http=httpx.Client(transport=httpx.MockTransport(handler))
+    )
+    monkeypatch.setattr(voice, "_LOCAL", [Local()])
+    assert client.transcribe(WAV) == "Sergio, abre Spotify" and server_calls == []
+    monkeypatch.setattr(voice, "_LOCAL", [Local(fail=True)])
+    assert client.transcribe(WAV) == "desde el servidor"
+    assert server_calls == ["/v1/speech/transcribe"]

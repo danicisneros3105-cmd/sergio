@@ -1675,8 +1675,10 @@ class SpeechConfig:
     backend: str = "auto"  # "auto", "faster-whisper", "openai", "deepgram"
     model: str = "base"  # Whisper model size: tiny, base, small, medium, large-v3
     language: str = ""  # Empty = auto-detect
-    device: str = "auto"  # "auto", "cpu", "cuda"
-    compute_type: str = "float16"  # "float16", "int8", "float32"
+    # CPU by default: on WSL/laptops "auto" picks a GPU whose CUDA libraries
+    # are often missing (libcublas), which breaks hearing. "cuda" to opt in.
+    device: str = "cpu"  # "auto", "cpu", "cuda"
+    compute_type: str = "int8"  # "float16", "int8", "float32"
     # Text-to-speech. ``voice_id`` is interpreted by ``tts_backend`` only --
     # voice IDs are not portable between backends, so if voice output falls
     # back to a different backend that backend's own default voice is used.
