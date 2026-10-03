@@ -233,7 +233,12 @@ sigue, te escucha y usa la computadora por ti:
 - **Di «Sergio, …»** en cualquier momento («Sergio, abre Spotify», «oye
   Sergio, ¿qué tengo en pantalla?»). Si solo dices «Sergio», responde «¿Sí?»
   y escucha lo siguiente. **Ctrl+Espacio** también sirve, sin decir su nombre.
-- La esfera cambia según lo que hace: azul en reposo, roja escuchando, ámbar
+- **El notch**: arriba al centro de la pantalla, como en un MacBook, vive el
+  personaje de Sergio: una carita que parpadea y te sigue con la mirada.
+  Pequeño en reposo; crece para mostrar lo que oye, piensa y responde. Un clic
+  en él para hablarle. Se esconde solo si ves un video o juegas a pantalla
+  completa (y reaparece cuando Sergio habla).
+- La esfera junto al cursor cambia según lo que hace: azul en reposo, roja escuchando, ámbar
   pensando, verde hablando. Al lado aparece una burbuja con lo que oyó y lo
   que responde, y contesta en voz alta en español.
 - **Usa tu pantalla como tú**: lee los botones, campos y enlaces de la ventana
@@ -246,7 +251,8 @@ sigue, te escucha y usa la computadora por ti:
 - Todo se procesa en tu laptop. Mientras habla no se escucha a sí mismo, y las
   conversaciones que no empiezan con «Sergio» se ignoran.
 - Clic derecho en su icono junto al reloj: activar o quitar la palabra
-  «Sergio», ocultar la esfera, pausar el control, abrir el chat o salir.
+  «Sergio», ocultar la esfera o el notch, pausar el control, abrir el chat o
+  salir.
 
 Instalar o actualizar (en Ubuntu):
 

@@ -41,3 +41,72 @@ def test_companion_draws_every_state():
     companion.set_state("nonsense")
     assert companion.state == "idle"
     app.processEvents()
+
+
+def _qt():
+    pytest.importorskip("PySide6")
+    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+    try:
+        from PySide6.QtWidgets import QApplication
+    except ImportError as exc:
+        pytest.skip(str(exc))
+    return QApplication.instance() or QApplication([])
+
+
+def test_notch_grows_with_text_and_shrinks_back():
+    _qt()
+    from sergio_escritorio import notch as notch_mod
+
+    clicks = []
+    n = notch_mod.Notch(on_click=lambda: clicks.append(1))
+    for _ in range(80):
+        n._tick()
+    assert (round(n._w), round(n._h)) == tuple(map(round, notch_mod.COMPACT))
+    n.set_state("listening")
+    for _ in range(80):
+        n._tick()
+    assert round(n._w) == round(notch_mod.MEDIUM[0])
+    n.say(
+        "Listo, abrí Spotify y puse una lista tranquila. ¿Quieres que suba el volumen?",
+        30,
+    )
+    for _ in range(80):
+        n._tick()
+    assert round(n._w) == round(notch_mod.EXPANDED_W) and n._h > 58
+    n.set_state("idle")
+    n._caption_until = 0
+    for _ in range(80):
+        n._tick()
+    assert round(n._w) == round(notch_mod.COMPACT[0])
+    n.mousePressEvent(None)
+    assert clicks == [1]
+
+
+def test_notch_hides_over_fullscreen_apps_unless_active():
+    _qt()
+    from sergio_escritorio.notch import Notch
+
+    fullscreen = [True]
+    n = Notch(fullscreen_app=lambda: fullscreen[0])
+    n._last_fs_check = -10
+    n._respect_fullscreen()
+    assert n.windowOpacity() == 0.0
+    n.set_state("speaking")  # Sergio talks: show it even over a video
+    n._last_fs_check = -10
+    n._respect_fullscreen()
+    assert n.windowOpacity() == 1.0
+
+
+def test_character_draws_every_state():
+    _qt()
+    from PySide6.QtCore import QPointF
+    from PySide6.QtGui import QColor, QImage, QPainter
+    from sergio_escritorio.character import STATE_COLORS, draw_character
+
+    for state in STATE_COLORS:
+        img = QImage(80, 80, QImage.Format.Format_ARGB32)
+        img.fill(QColor(0, 0, 0, 0))
+        p = QPainter(img)
+        draw_character(p, QPointF(40, 40), 20, state, 1.0)
+        p.end()
+        assert img.pixelColor(40, 52).alpha() > 200  # body painted

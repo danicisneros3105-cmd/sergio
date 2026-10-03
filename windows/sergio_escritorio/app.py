@@ -42,6 +42,7 @@ def load_config() -> dict[str, Any]:
     data.setdefault("port", 8765)
     data.setdefault("wake_word", True)
     data.setdefault("show_companion", True)
+    data.setdefault("show_notch", True)
     return data
 
 
@@ -127,12 +128,26 @@ def run(config: dict[str, Any]) -> None:
 
     from sergio_escritorio.companion import STATE_COLORS, Companion
     from sergio_escritorio.control import Controller, make_server
+    from sergio_escritorio.notch import Notch
     from sergio_escritorio.voice import Assistant, Ears, SergioClient
-    from sergio_escritorio.windows_backend import WindowsBackend
+    from sergio_escritorio.windows_backend import (
+        WindowsBackend,
+        foreground_is_fullscreen,
+    )
 
     app = QApplication(sys.argv)
     app.setQuitOnLastWindowClosed(False)
-    companion = Companion()
+    show_notch = bool(config["show_notch"])
+    companion = Companion(captions=not show_notch)
+    notch = Notch(fullscreen_app=foreground_is_fullscreen)
+
+    def show_state(name: str) -> None:
+        companion.set_state(name)
+        notch.set_state(name)
+
+    def show_text(text: str, seconds: float = 0.0) -> None:
+        companion.say(text, seconds)
+        notch.say(text, seconds)
 
     class Bridge(QObject):
         """Thread-safe hop from worker threads to the Qt (UI) thread."""
@@ -143,8 +158,8 @@ def run(config: dict[str, Any]) -> None:
         toggle = Signal()
 
     bridge = Bridge()
-    bridge.state.connect(companion.set_state)
-    bridge.caption.connect(lambda text: companion.say(text))
+    bridge.state.connect(show_state)
+    bridge.caption.connect(lambda text: show_text(text))
 
     class UIAdapter:
         def state(self, name: str) -> None:
@@ -170,7 +185,7 @@ def run(config: dict[str, Any]) -> None:
         ears.start()
     except Exception as exc:  # noqa: BLE001 — no microphone
         logging.exception("microphone unavailable")
-        companion.say(f"No encuentro el micrófono: {exc}", 10)
+        show_text(f"No encuentro el micrófono: {exc}", 10)
 
     # -- tray --------------------------------------------------------------
     tray = QSystemTrayIcon(tray_icon(STATE_COLORS["idle"]))
@@ -207,8 +222,8 @@ def run(config: dict[str, Any]) -> None:
         controller.enabled = enabled
         control_action.setChecked(enabled)
         tray.setIcon(tray_icon(STATE_COLORS["idle" if enabled else "paused"]))
-        companion.set_state("idle" if enabled else "paused")
-        companion.say(
+        show_state("idle" if enabled else "paused")
+        show_text(
             "Puedo usar tu mouse y teclado otra vez."
             if enabled
             else "Listo, no tocaré el mouse ni el teclado.",
@@ -227,6 +242,17 @@ def run(config: dict[str, Any]) -> None:
 
     show_action.toggled.connect(set_visible)
     menu.addAction(show_action)
+
+    notch_action = QAction("Mostrar el notch arriba", menu, checkable=True)
+    notch_action.setChecked(show_notch)
+
+    def set_notch(on: bool) -> None:
+        notch.setVisible(on)
+        companion.captions = not on  # texts live in the notch when it is shown
+        remember("show_notch", on)
+
+    notch_action.toggled.connect(set_notch)
+    menu.addAction(notch_action)
     menu.addSeparator()
 
     chat_action = QAction("Abrir el chat en el navegador", menu)
@@ -251,8 +277,10 @@ def run(config: dict[str, Any]) -> None:
     )
     hotkeys.start()
 
+    notch.on_click = bridge.talk.emit
     companion.setVisible(bool(config["show_companion"]))
-    companion.say("Hola, soy Sergio. Di «Sergio…» o pulsa Ctrl+Espacio.", 6)
+    notch.setVisible(show_notch)
+    show_text("Hola, soy Sergio. Di «Sergio…» o pulsa Ctrl+Espacio.", 6)
     app.aboutToQuit.connect(server.shutdown)
     app.exec()
 

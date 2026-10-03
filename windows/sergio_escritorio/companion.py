@@ -8,7 +8,6 @@ Drawn with Qt so edges are antialiased and translucent on any wallpaper.
 
 from __future__ import annotations
 
-import math
 import time
 
 from PySide6.QtCore import QPointF, QRectF, Qt, QTimer
@@ -23,15 +22,9 @@ from PySide6.QtGui import (
 )
 from PySide6.QtWidgets import QWidget
 
+from sergio_escritorio.character import STATE_COLORS, draw_character
+
 # One accent (system blue) plus semantic state colours, as in the web UI.
-STATE_COLORS = {
-    "idle": QColor(10, 108, 255),
-    "listening": QColor(255, 69, 58),
-    "thinking": QColor(255, 159, 10),
-    "speaking": QColor(48, 209, 88),
-    "acting": QColor(10, 108, 255),
-    "paused": QColor(142, 142, 147),
-}
 STATE_LABELS = {
     "listening": "Te escucho",
     "thinking": "Pensando",
@@ -42,7 +35,7 @@ STATE_LABELS = {
 
 OFFSET = QPointF(18, 20)  # orb sits below-right of the pointer tip
 CANVAS_W, CANVAS_H = 380, 132
-ORB = 7.0  # radius at rest
+ORB = 9.0  # character radius
 BUBBLE_MAX_W = 300.0
 FONT_FAMILIES = ["Segoe UI Variable Text", "SF Pro Text", "Geist", "Segoe UI"]
 
@@ -56,7 +49,7 @@ def _font(size: float, weight: QFont.Weight = QFont.Weight.Normal) -> QFont:
 
 
 class Companion(QWidget):
-    def __init__(self, *, follow: bool = True) -> None:
+    def __init__(self, *, follow: bool = True, captions: bool = True) -> None:
         super().__init__(
             None,
             Qt.WindowType.FramelessWindowHint
@@ -76,6 +69,7 @@ class Companion(QWidget):
         self._pos = QPointF(QCursor.pos())
         self._flip = False
         self.follow = follow
+        self.captions = captions  # off when the notch shows the text
         self._timer = QTimer(self)
         self._timer.timeout.connect(self._tick)
         self._timer.start(16)
@@ -130,45 +124,12 @@ class Companion(QWidget):
         t = time.monotonic() - self._t0
         self.draw_orb(painter, t)
         label = STATE_LABELS.get(self.state, "")
-        if self.caption or (label and self.state != "speaking"):
+        if self.captions and (self.caption or (label and self.state != "speaking")):
             self.draw_bubble(painter, label, self.caption)
         painter.end()
 
     def draw_orb(self, p: QPainter, t: float) -> None:
-        colour = STATE_COLORS[self.state]
-        centre = self.orb_centre()
-        radius = ORB
-        if self.state == "idle":
-            radius *= 1.0 + 0.06 * math.sin(t * 1.6)  # slow breathing
-        # Soft shadow so it reads on white and black wallpapers alike.
-        p.setPen(Qt.PenStyle.NoPen)
-        p.setBrush(QColor(0, 0, 0, 55))
-        p.drawEllipse(centre + QPointF(0, 1.2), radius + 1.6, radius + 1.6)
-        if self.state in ("listening", "speaking", "acting"):
-            phase = (t * (1.4 if self.state == "listening" else 1.0)) % 1.0
-            ring = QColor(colour)
-            ring.setAlphaF(0.45 * (1 - phase))
-            p.setBrush(Qt.BrushStyle.NoBrush)
-            p.setPen(QPen(ring, 2.0))
-            p.drawEllipse(centre, radius + 3 + 9 * phase, radius + 3 + 9 * phase)
-            p.setPen(Qt.PenStyle.NoPen)
-        p.setBrush(colour)
-        p.drawEllipse(centre, radius, radius)
-        # White ring: the same mark as the tray icon and the web app.
-        p.setBrush(Qt.BrushStyle.NoBrush)
-        p.setPen(QPen(QColor(255, 255, 255, 240), max(1.6, radius * 0.28)))
-        p.drawEllipse(centre, radius * 0.42, radius * 0.42)
-        if self.state == "thinking":
-            arc = QPen(colour, 2.2)
-            arc.setCapStyle(Qt.PenCapStyle.RoundCap)
-            p.setPen(arc)
-            box = QRectF(
-                centre.x() - radius - 4,
-                centre.y() - radius - 4,
-                2 * radius + 8,
-                2 * radius + 8,
-            )
-            p.drawArc(box, int(-t * 360 * 16) % (360 * 16), 100 * 16)
+        draw_character(p, self.orb_centre(), ORB, self.state, t, QPointF(-0.6, -0.8))
 
     def draw_bubble(self, p: QPainter, label: str, text: str) -> None:
         title_font = _font(8.5, QFont.Weight.DemiBold)

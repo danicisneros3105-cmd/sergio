@@ -81,6 +81,39 @@ def set_dpi_aware() -> None:
             pass
 
 
+def foreground_is_fullscreen() -> bool:
+    """True when the active window covers its whole monitor (video, game)."""
+    from ctypes import wintypes
+
+    user32 = ctypes.windll.user32  # type: ignore[attr-defined]
+    hwnd = user32.GetForegroundWindow()
+    if not hwnd or hwnd in (user32.GetDesktopWindow(), user32.GetShellWindow()):
+        return False
+    rect = wintypes.RECT()
+    user32.GetWindowRect(hwnd, ctypes.byref(rect))
+
+    class MONITORINFO(ctypes.Structure):
+        _fields_ = [
+            ("cbSize", wintypes.DWORD),
+            ("rcMonitor", wintypes.RECT),
+            ("rcWork", wintypes.RECT),
+            ("dwFlags", wintypes.DWORD),
+        ]
+
+    info = MONITORINFO()
+    info.cbSize = ctypes.sizeof(MONITORINFO)
+    monitor = user32.MonitorFromWindow(hwnd, 2)  # MONITOR_DEFAULTTONEAREST
+    if not user32.GetMonitorInfoW(monitor, ctypes.byref(info)):
+        return False
+    m = info.rcMonitor
+    return (rect.left, rect.top, rect.right, rect.bottom) == (
+        m.left,
+        m.top,
+        m.right,
+        m.bottom,
+    )
+
+
 class WindowsBackend:
     def __init__(self) -> None:
         set_dpi_aware()
