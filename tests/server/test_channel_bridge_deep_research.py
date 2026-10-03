@@ -17,6 +17,7 @@ def test_handle_chat_uses_deep_research_agent() -> None:
         channels={},
         session_store=SessionStore(db_path=":memory:"),
         bus=MagicMock(),
+        owner_numbers=["+15551234567"],
         deep_research_agent=mock_agent,
     )
 
@@ -42,6 +43,7 @@ def test_handle_chat_falls_back_to_system() -> None:
         channels={},
         session_store=SessionStore(db_path=":memory:"),
         bus=MagicMock(),
+        owner_numbers=["+15551234567"],
         system=mock_system,
     )
 

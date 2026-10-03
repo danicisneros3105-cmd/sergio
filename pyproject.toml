@@ -149,6 +149,11 @@ channel-twitch = ["twitchio>=2.6"]
 channel-nostr = ["pynostr>=0.6"]
 channel-twilio = ["twilio>=9.0"]
 token-saver = ["llmlingua>=0.2.2"]
+phone = [
+    "pipecat-ai[websocket,silero,kokoro,whisper,openai,anthropic]>=1.12,<2; python_version >= '3.11'",
+    "twilio>=9.0",
+]
+faces = ["opencv-python-headless>=4.10"]
 channel-gmail = [
     "google-api-python-client>=2.0",
     "google-auth-oauthlib>=1.0",

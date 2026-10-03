@@ -67,9 +67,20 @@ elif ! command -v ollama >/dev/null; then
   curl -fsSL https://ollama.com/install.sh | sh
 fi
 
+# ngrok: dirección pública fija para llamadas y WhatsApp (cuenta gratuita).
+if ! command -v ngrok >/dev/null && command -v apt-get >/dev/null; then
+  curl -sSL https://ngrok-agent.s3.amazonaws.com/ngrok.asc \
+    | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null \
+    && echo "deb https://ngrok-agent.s3.amazonaws.com buster main" \
+    | sudo tee /etc/apt/sources.list.d/ngrok.list >/dev/null \
+    && sudo apt-get update -y && sudo apt-get install -y ngrok \
+    || echo "⚠ No se pudo instalar ngrok (solo hace falta para llamadas/WhatsApp)."
+fi
+
 say "4/6 OpenJarvis"
 cd "$ROOT"
-EXTRAS=(--extra server --extra desktop --extra tools-search --extra inference-cloud)
+EXTRAS=(--extra server --extra desktop --extra tools-search --extra inference-cloud
+        --extra phone --extra faces)
 if $TOKEN_SAVER; then EXTRAS+=(--extra token-saver); fi
 uv sync "${EXTRAS[@]}"
 # Motor nativo en Rust: lo necesitan la memoria de documentos y la búsqueda.
@@ -100,7 +111,7 @@ add_section intelligence "default_model = \"$MODEL\""
 # Evolución: Sergio aprende de cada conversación y consolida tu perfil.
 add_section memory "enabled = true"
 # Herramientas que Sergio puede usar en el chat (incluye Clacky y el globo).
-add_section tools 'enabled = ["think", "calculator", "web_search", "file_read", "user_profile_manage", "clacky_task", "globe_view", "live_flights", "live_earthquakes", "upcoming_launches"]'
+add_section tools 'enabled = ["think", "calculator", "web_search", "file_read", "user_profile_manage", "clacky_task", "globe_view", "live_flights", "live_earthquakes", "upcoming_launches", "phone_call", "phone_call_status", "whatsapp_send", "face_identify", "face_list"]'
 if $TOKEN_SAVER; then add_section compression "tool_output = true"; fi
 if ! $WITH_GLOBE; then add_section extensions.globe "enabled = false"; fi
 if command -v ollama >/dev/null; then

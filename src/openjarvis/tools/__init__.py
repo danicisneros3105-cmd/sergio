@@ -53,6 +53,16 @@ except ImportError:
     pass
 
 try:
+    import openjarvis.tools.phone_tools  # noqa: F401
+except ImportError:
+    pass
+
+try:
+    import openjarvis.tools.face_tools  # noqa: F401
+except ImportError:
+    pass
+
+try:
     import openjarvis.tools.code_interpreter  # noqa: F401
 except ImportError:
     pass

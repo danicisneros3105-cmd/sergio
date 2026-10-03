@@ -12,6 +12,8 @@ from openjarvis.server.session_store import SessionStore
 
 logger = logging.getLogger(__name__)
 
+_PHONE_CHANNELS = frozenset({"whatsapp", "twilio", "sendblue"})
+
 _DEFAULT_MAX_LENGTH = 4000
 _SMS_MAX_LENGTH = 1600
 
@@ -52,8 +54,11 @@ class ChannelBridge:
         system: Any = None,
         agent_manager: Any = None,
         deep_research_agent: Any = None,
+        owner_numbers: Optional[List[str]] = None,
     ) -> None:
         self._channels = channels
+        # Phone-number channels only answer the owner (None = read config).
+        self._owner_numbers = owner_numbers
         self._session_store = session_store
         self._bus = bus
         self._system = system
@@ -121,6 +126,12 @@ class ChannelBridge:
         metadata: Optional[Dict[str, Any]] = None,
         max_length: int = _DEFAULT_MAX_LENGTH,
     ) -> str:
+        if not self._sender_allowed(sender_id, channel_type):
+            logger.warning(
+                "Ignored %s message from a number that is not an owner number",
+                channel_type,
+            )
+            return ""
         self._session_store.get_or_create(sender_id, channel_type)
 
         # Command routing
@@ -132,6 +143,27 @@ class ChannelBridge:
 
         # Regular chat — route to JarvisSystem.ask()
         return self._handle_chat(sender_id, stripped, channel_type, max_length)
+
+    def _sender_allowed(self, sender_id: str, channel_type: str) -> bool:
+        """Phone-number channels (WhatsApp/SMS) only serve the owner.
+
+        Anyone can text a public number, and the assistant behind it can read
+        the user's files and profile, so these channels fail closed: with no
+        ``[phone] owner_numbers`` configured, nobody is answered.
+        """
+        if channel_type not in _PHONE_CHANNELS:
+            return True
+        from openjarvis.phone.numbers import is_owner, owner_numbers
+
+        owners = self._owner_numbers
+        if owners is None:
+            try:
+                from openjarvis.core.config import load_config
+
+                owners = owner_numbers(load_config())
+            except Exception:  # noqa: BLE001 — fail closed
+                owners = []
+        return is_owner(sender_id, owners)
 
     # --------------------------------------------------------------
     # Command parsing

@@ -1257,6 +1257,35 @@ class GlobeExtensionConfig:
 
 
 @dataclass(slots=True)
+class PhoneConfig:
+    """Voice calls (Twilio + Pipecat) and phone-number based channels.
+
+    Secrets come from the environment: TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN,
+    TWILIO_PHONE_NUMBER (and WHATSAPP_* for WhatsApp).
+    """
+
+    enabled: bool = False
+    # Only these numbers may talk to Sergio by WhatsApp/SMS/phone, and calls
+    # or messages to them need no approval. E.164, e.g. "+593991234567".
+    owner_numbers: List[str] = field(default_factory=list)
+    owner_name: str = ""  # Used in "calling on behalf of …"
+    public_url: str = ""  # https URL of the tunnel that reaches this server
+    language: str = "es"
+    stt_model: str = "small"  # faster-whisper model for calls
+    tts_voice: str = "em_alex"  # Kokoro voice (es: em_alex, em_santa, ef_dora)
+    max_call_minutes: int = 10
+    approval_wait_seconds: float = 300.0
+
+
+@dataclass(slots=True)
+class TunnelConfig:
+    """Public tunnel so Twilio/WhatsApp can reach the local server."""
+
+    provider: str = ""  # "ngrok" | "cloudflare" | "" (disabled)
+    domain: str = ""  # ngrok static domain, e.g. "sergio-abc.ngrok-free.app"
+
+
+@dataclass(slots=True)
 class ExtensionsConfig:
     """Bundled extensions that run next to OpenJarvis as one product."""
 
@@ -1838,6 +1867,8 @@ class JarvisConfig:
     digest: DigestConfig = field(default_factory=DigestConfig)
     proactive: ProactiveConfig = field(default_factory=ProactiveConfig)
     extensions: ExtensionsConfig = field(default_factory=ExtensionsConfig)
+    phone: PhoneConfig = field(default_factory=PhoneConfig)
+    tunnel: TunnelConfig = field(default_factory=TunnelConfig)
     mining: Optional["MiningConfig"] = None
 
     @property
@@ -2153,6 +2184,9 @@ def load_config(path: Optional[Path] = None) -> JarvisConfig:
             "system_prompt",
             "compression",
             "skills",
+            "extensions",
+            "phone",
+            "tunnel",
         )
         for section_name in top_sections:
             if section_name in data:

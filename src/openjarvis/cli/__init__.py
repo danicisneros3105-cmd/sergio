@@ -115,6 +115,7 @@ if not _DATA_BOUNDARY_BOOTSTRAP:
     from openjarvis.cli.eval_cmd import eval_group
     from openjarvis.cli.evolve_cmd import evolve
     from openjarvis.cli.extensions_cmd import extensions
+    from openjarvis.cli.faces_cmd import rostros
     from openjarvis.cli.feedback_cmd import feedback_group
     from openjarvis.cli.gateway_cmd import gateway
     from openjarvis.cli.gui_cmd import gui
@@ -126,6 +127,7 @@ if not _DATA_BOUNDARY_BOOTSTRAP:
     from openjarvis.cli.operators_cmd import operators
     from openjarvis.cli.optimize_cmd import optimize_group
     from openjarvis.cli.pearl_cmd import pearl
+    from openjarvis.cli.phone_cmd import telefono
     from openjarvis.cli.quickstart_cmd import quickstart
     from openjarvis.cli.registry_cmd import registry
     from openjarvis.cli.scheduler_cmd import scheduler
@@ -174,6 +176,8 @@ if not _DATA_BOUNDARY_BOOTSTRAP:
     cli.add_command(evolve, "evolve")
     cli.add_command(approvals, "approvals")
     cli.add_command(servicio, "servicio")
+    cli.add_command(telefono, "telefono")
+    cli.add_command(rostros, "rostros")
     cli.add_command(tool, "tool")
     cli.add_command(registry, "registry")
     cli.add_command(config, "config")
@@ -212,9 +216,30 @@ if not _DATA_BOUNDARY_BOOTSTRAP:
         pass
 
 
+def _load_sergio_env() -> None:
+    """Load ~/.openjarvis/sergio.env (API keys, Twilio, WhatsApp…).
+
+    The systemd services read it via EnvironmentFile; this gives `sergio gui`
+    and every other command the same keys. Real environment variables win.
+    """
+    import os
+
+    try:
+        from openjarvis.cli.phone_cmd import read_env
+        from openjarvis.cli.service_cmd import env_file
+
+        for key, value in read_env(env_file()).items():
+            if key and value:
+                os.environ.setdefault(key, value)
+    except Exception:  # noqa: BLE001 — a broken file must not block the CLI
+        pass
+
+
 def main() -> None:
     """Entry point registered as ``jarvis`` console script."""
     import sys
+
+    _load_sergio_env()
 
     if sys.platform == "win32":
         for _stream in (sys.stdout, sys.stderr):

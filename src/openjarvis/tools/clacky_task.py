@@ -135,91 +135,52 @@ class ClackyTaskTool(BaseTool):
             self._approvals = ApprovalStore()
         return self._approvals
 
-    def _find_open(self, store: Any, payload: dict[str, Any]) -> Any:
-        """An earlier, still-open request for the same task (avoids duplicates)."""
-        for action in [*store.list_approved(), *store.list_pending()]:
-            if action.action_type == _TOOL_NAME and action.payload == payload:
-                return action
-        return None
-
     def _approve(self, params: dict[str, Any]) -> tuple[dict | None, ToolResult | None]:
-        """Queue (or look up) the task and wait for the user's decision.
+        """Queue (or resume) the task and wait for the user's decision.
 
-        Returns ``(payload, None)`` once the approval is claimed — the payload
-        stored at queue time is authoritative, so the task cannot change after
-        the user approved it, and the atomic claim means one approval runs the
-        task once — or ``(None, result)`` to return to the model.
+        See :mod:`openjarvis.unified.approvals`: the payload stored at queue
+        time is authoritative and one approval runs the task once.
         """
-        from openjarvis.tools.approval_store import (
-            STATUS_APPROVED,
-            STATUS_EXECUTED,
-            STATUS_PENDING,
-            TIER_HIGH,
-        )
+        from openjarvis.unified.approvals import request_approval
 
-        store = self._store()
-        action_id = str(params.get("approval_id") or "").strip()
-        if action_id:
-            action = store.get_action(action_id)
-            if action is None or action.action_type != _TOOL_NAME:
-                return None, self._fail(f"Unknown approval_id '{action_id}'.")
-        else:
-            task = str(params.get("task") or "").strip()
-            if not task:
-                return None, self._fail("The 'task' parameter is required.")
-            payload = {
+        task = str(params.get("task") or "").strip()
+        approval_id = str(params.get("approval_id") or "").strip()
+        if not approval_id and not task:
+            return None, self._fail("The 'task' parameter is required.")
+
+        def validate(payload: dict) -> str:
+            workdir = Path(payload.get("working_dir", "")).expanduser()
+            return (
+                ""
+                if workdir.is_dir()
+                else f"Working directory does not exist: {workdir}"
+            )
+
+        decision = request_approval(
+            self._store(),
+            action_type=_TOOL_NAME,
+            description=f"Clacky will do on your computer: {task}",
+            payload={
                 "task": task,
                 "working_dir": str(params.get("working_dir") or Path.home()),
-            }
-            action = self._find_open(store, payload) or store.queue_action(
-                action_type=_TOOL_NAME,
-                description=f"Clacky will do on your computer: {task}",
-                payload=payload,
-                permission_key=_TOOL_NAME,
-                tier=TIER_HIGH,
-            )
-            action_id = action.id
-
-        deadline = self._clock() + float(
-            self._config.extensions.clacky.approval_wait_seconds
+            },
+            approval_id=approval_id,
+            wait_seconds=float(self._config.extensions.clacky.approval_wait_seconds),
+            validate=validate,
+            sleep=self._sleep,
+            clock=self._clock,
         )
-        while True:
-            action = store.get_action(action_id)
-            status = action.status if action else "missing"
-            if status == STATUS_APPROVED:
-                workdir = Path(action.payload.get("working_dir", "")).expanduser()
-                if not workdir.is_dir():
-                    # Leave the approval unused so it can be retried later.
-                    return None, self._fail(
-                        f"Working directory does not exist: {workdir}"
-                    )
-                if store.transition(action_id, STATUS_APPROVED, STATUS_EXECUTED):
-                    return dict(action.payload), None
-                continue  # another call claimed it first; re-read the status
-            if status == STATUS_EXECUTED:
-                return None, self._fail(
-                    "This approval was already used: the task ran (or was "
-                    "attempted) once. Ask the user before requesting it again."
-                )
-            if status != STATUS_PENDING:
-                return None, self._fail(
-                    f"The user did not approve this task (status: {status}). "
-                    "Do not retry unless the user asks again."
-                )
-            if self._clock() >= deadline:
-                return None, ToolResult(
-                    tool_name=_TOOL_NAME,
-                    content=(
-                        "Still waiting for the user's approval "
-                        f"(approval_id='{action_id}'). They can approve it in the "
-                        "app's approval bell or with `sergio approvals approve "
-                        f"{action_id}`. Tell the user, and call clacky_task again "
-                        "with this approval_id once they approve."
-                    ),
-                    success=False,
-                    metadata={"approval_id": action_id, "pending": True},
-                )
-            self._sleep(1.0)
+        if decision.payload is not None:
+            return decision.payload, None
+        pending = decision.status == "pending"
+        return None, ToolResult(
+            tool_name=_TOOL_NAME,
+            content=decision.message.replace("this tool", "clacky_task"),
+            success=False,
+            metadata={"approval_id": decision.action_id, "pending": True}
+            if pending
+            else {},
+        )
 
     def _fail(self, message: str) -> ToolResult:
         return ToolResult(tool_name=_TOOL_NAME, content=message, success=False)

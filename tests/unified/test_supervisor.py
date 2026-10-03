@@ -155,3 +155,58 @@ def test_ui_ports_are_allowed_to_embed_the_globe(tmp_path):
     sup = Supervisor(_config(tmp_path), which=_which_all, environ={}, ui_ports=(3000,))
     ancestors = sup.get("globe").env["GLOBE_FRAME_ANCESTORS"]
     assert "http://127.0.0.1:3000" in ancestors and "http://localhost:5173" in ancestors
+
+
+def test_config_toml_sections_for_sergio_are_loaded(tmp_path, monkeypatch):
+    from openjarvis.core.config import load_config
+
+    path = tmp_path / "config.toml"
+    path.write_text(
+        "[extensions.globe]\nenabled = false\nport = 4999\n"
+        '[phone]\nowner_numbers = ["+593991234567"]\nowner_name = "Dani"\n'
+        '[tunnel]\nprovider = "ngrok"\ndomain = "x.ngrok-free.app"\n'
+    )
+    cfg = load_config(path)
+    assert cfg.extensions.globe.enabled is False and cfg.extensions.globe.port == 4999
+    assert cfg.phone.owner_numbers == ["+593991234567"]
+    assert cfg.tunnel.provider == "ngrok"
+
+
+def test_tunnel_service_reports_missing_setup_and_builds_commands(tmp_path):
+    cfg = _config(tmp_path)
+    cfg.tunnel.provider = "ngrok"
+    sup = Supervisor(cfg, which=_which_all, environ={})
+    assert "NGROK_AUTHTOKEN" in sup.get("tunnel").problem
+    sup = Supervisor(cfg, which=_which_all, environ={"NGROK_AUTHTOKEN": "t"})
+    assert "domain" in sup.get("tunnel").problem
+    cfg.tunnel.domain = "sergio-x.ngrok-free.app"
+    tunnel = Supervisor(cfg, which=_which_all, environ={"NGROK_AUTHTOKEN": "t"}).get(
+        "tunnel"
+    )
+    assert tunnel.command == [
+        "/usr/bin/ngrok",
+        "http",
+        "--url=sergio-x.ngrok-free.app",
+        "8000",
+    ]
+    assert tunnel.url == "https://sergio-x.ngrok-free.app" and not tunnel.listens
+
+    cfg.tunnel.provider = "cloudflare"
+    cf = Supervisor(
+        cfg, which=_which_all, environ={"CLOUDFLARE_TUNNEL_TOKEN": "tok"}
+    ).get("tunnel")
+    assert cf.command[-1] == "run" and cf.env == {"TUNNEL_TOKEN": "tok"}
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX process groups")
+def test_portless_service_is_running_while_alive(tmp_path):
+    cfg = _config(tmp_path)
+    cfg.tunnel.provider = "ngrok"
+    cfg.tunnel.domain = "d"
+    sup = Supervisor(cfg, which=_which_all, environ={"NGROK_AUTHTOKEN": "t"})
+    svc = sup.get("tunnel")
+    svc.command = [sys.executable, "-c", "import time; time.sleep(60)"]
+    assert sup.start(svc, wait=8).startswith("running")
+    assert sup.running(svc)
+    assert sup.stop("tunnel") is True
+    assert not sup.running(svc)

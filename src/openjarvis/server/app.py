@@ -501,6 +501,14 @@ def create_app(
     app.include_router(research_router)
     app.include_router(analytics_router)
     app.include_router(extensions_router)
+    # Voice calls (Twilio webhooks + media stream). Pipecat loads lazily.
+    from openjarvis.phone.routes import router as phone_router
+
+    app.include_router(phone_router)
+    # Local face recognition (Faces page). OpenCV loads lazily.
+    from openjarvis.faces.routes import router as faces_router
+
+    app.include_router(faces_router)
     include_all_routes(app)
 
     # Restore SendBlue channel bindings from database on startup

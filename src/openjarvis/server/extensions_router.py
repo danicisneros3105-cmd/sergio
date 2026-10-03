@@ -56,7 +56,7 @@ async def start_extension(name: str, request: Request) -> dict[str, Any]:
 
 @router.post("/{name}/stop")
 async def stop_extension(name: str, request: Request) -> dict[str, Any]:
-    if name not in ("clacky", "globe"):
+    if name not in ("clacky", "globe", "tunnel"):
         raise HTTPException(status_code=404, detail=f"Unknown extension: {name}")
     stopped = await asyncio.to_thread(_supervisor(request).stop, name)
     return {"name": name, "stopped": stopped}

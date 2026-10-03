@@ -168,30 +168,62 @@ uv run sergio memory list       # ver todo lo que ha aprendido
   configurarlo). La evolución también ahorra tokens: envía un perfil
   consolidado en lugar de cientos de datos sueltos.
 
-## Llamadas y WhatsApp (siguiente fase)
+## Llamadas y WhatsApp
 
-**Repos gratis que hacen falta** (se añaden como dependencias de Python):
+Sergio puede **llamar por teléfono** (a ti o a un restaurante), **recibir tus
+llamadas** y **escribir por WhatsApp**. Lo que dice lo oye la otra persona
+con una voz en español generada en tu PC (Kokoro), y entiende lo que le
+dicen con Whisper. Piensa con el mismo modelo que el chat.
 
-| Repo | Para qué | Licencia |
-|---|---|---|
-| [pipecat-ai/pipecat](https://github.com/pipecat-ai/pipecat) | Motor de voz en tiempo real: oye, piensa y habla sin pausas en una llamada | BSD-2 |
-| [pipecat-ai/pipecat-flows](https://github.com/pipecat-ai/pipecat-flows) | Guiones de conversación paso a paso (reservar una mesa: saludo, fecha, hora, personas, confirmar) para que no se pierda en la llamada | BSD-2 |
+**Necesitas tres cuentas** (las de Twilio y ngrok tienen nivel gratis):
 
-**Ya incluidos en Sergio:** WhatsApp (API oficial de Meta en
-`channels/whatsapp.py`), voz a texto (faster-whisper) y texto a voz (Kokoro,
-con voces en español).
+1. **Twilio** (twilio.com): un número de teléfono virtual. Llamar cuesta
+   céntimos por minuto según el país. En la cuenta de prueba solo puedes
+   llamar a números que verifiques en Twilio.
+2. **ngrok** (ngrok.com): una dirección pública fija y gratuita para que
+   Twilio y WhatsApp lleguen a tu PC. En el panel copia el *Authtoken* y crea
+   tu *static domain* gratis.
+3. **WhatsApp Business** (developers.facebook.com, opcional): registra allí
+   el mismo número de Twilio. Copia *Access token*, *Phone number ID* y
+   *App secret*.
 
-**Lo único que no es gratis es la línea telefónica**, porque ningún software
-puede llamar a un teléfono real sin un operador:
+Luego, en Ubuntu:
 
-- **Una cuenta en Twilio o Telnyx con un número virtual.** Sirve para llamar
-  a Ecuador y a otros países. Se paga por minuto según el país de destino.
-- **Ese mismo número se registra en WhatsApp Business** (API oficial de Meta).
-  Así Sergio tiene su propio WhatsApp sin que necesites el tuyo.
-- **Hablar con Sergio desde el navegador** (PC o móvil) no usa línea
-  telefónica: es gratis.
-- **En toda llamada a terceros, Sergio dice primero que es un asistente de
-  IA**, y no marca ningún número sin tu confirmación.
+```bash
+sergio telefono configurar    # te pide los datos uno a uno y lo deja listo
+sergio servicio apagar && sergio servicio encender
+sergio telefono probar        # Sergio te llama para probar
+sergio telefono estado        # qué falta (nunca muestra tus claves)
+```
+
+En el chat: *"Llama al restaurante La Pizzería al +593 2 222 2222 y reserva
+mesa para dos a las 5 pm a nombre de Dani"*.
+
+**Reglas de seguridad (están en el código):**
+
+- Sergio **siempre dice que es un asistente de IA** al llamar a terceros.
+- Toda llamada o WhatsApp a alguien que no seas tú **espera tu aprobación**
+  en la campana 🔔 (o `sergio approvals approve <ID>`); a tus propios números
+  va directo.
+- **Solo tus números** pueden hablar con Sergio por WhatsApp/SMS o llamarle;
+  cualquier otro es ignorado o escucha un aviso y se cuelga.
+- Las llamadas duran como máximo `max_call_minutes` (10 por defecto) y
+  Sergio cuelga solo al terminar.
+- WhatsApp solo permite texto libre a quien te escribió en las últimas 24 h.
+
+## Reconocimiento facial (Faces)
+
+Pestaña **Faces** de la app: enciende la cámara, escribe un nombre, marca que
+esa persona **está de acuerdo** y pulsa *Save face* (3–5 fotos desde ángulos
+distintos mejoran el resultado). *Who is this?* dice quién aparece.
+
+- Todo ocurre **en tu PC** (OpenCV YuNet + SFace); se guardan solo
+  "huellas" numéricas de la cara, no las fotos.
+- Sergio **solo reconoce a quien registraste**; el resto sale como
+  "desconocido". Él no puede registrar caras por su cuenta.
+- Terminal: `sergio rostros registrar NOMBRE foto.jpg`,
+  `sergio rostros identificar foto.jpg`, `sergio rostros lista`,
+  `sergio rostros olvidar NOMBRE` (borra todo lo de esa persona).
 
 ## Estado y límites
 

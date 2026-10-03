@@ -19,6 +19,7 @@ import {
   Database,
   Globe,
   MousePointerClick,
+  ScanFace,
 } from 'lucide-react';
 import { ConversationList } from './ConversationList';
 import { useAppStore } from '../../lib/store';
@@ -61,6 +62,7 @@ export function Sidebar() {
     { path: '/agents', icon: Bot, label: 'Agents' },
     { path: '/globe', icon: Globe, label: 'Globe' },
     { path: '/clacky', icon: MousePointerClick, label: 'Clacky' },
+    { path: '/faces', icon: ScanFace, label: 'Faces' },
     { path: '/logs', icon: ScrollText, label: 'Logs' },
     { path: '/settings', icon: Settings, label: 'Settings' },
     { path: '/get-started', icon: Rocket, label: 'Get Started' },

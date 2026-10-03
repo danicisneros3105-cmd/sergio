@@ -9,7 +9,7 @@ from rich.table import Table
 
 console = Console()
 
-_NAMES = click.Choice(["all", "clacky", "globe"])
+_NAMES = click.Choice(["all", "clacky", "globe", "tunnel"])
 
 
 def _supervisor(ui_ports: tuple[int, ...] = ()):
@@ -42,7 +42,7 @@ def start_extensions(
 def stop_extensions(names: tuple[str, ...] | None = None) -> None:
     """Stop *names* (default: all extensions)."""
     sup = _supervisor()
-    for name in names if names is not None else ("clacky", "globe"):
+    for name in names if names is not None else ("clacky", "globe", "tunnel"):
         if sup.stop(name):
             console.print(f"[cyan]{name}[/cyan]: stopped")
 
@@ -87,7 +87,7 @@ def stop(name: str) -> None:
 
 
 @extensions.command("logs")
-@click.argument("name", type=click.Choice(["clacky", "globe"]))
+@click.argument("name", type=click.Choice(["clacky", "globe", "tunnel"]))
 @click.option("-n", "--lines", default=40, show_default=True)
 def logs(name: str, lines: int) -> None:
     """Print the last lines of an extension's log."""

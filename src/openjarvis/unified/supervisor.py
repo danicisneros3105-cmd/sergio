@@ -40,10 +40,12 @@ class Service:
     # Returns True when dependencies must be installed before starting.
     needs_install: Callable[[], bool] = lambda: False
     problem: str = ""  # Why it cannot run (empty when it can)
+    listens: bool = True  # False for clients such as the tunnel (no local port)
+    display_url: str = ""
 
     @property
     def url(self) -> str:
-        return f"http://127.0.0.1:{self.port}"
+        return self.display_url or f"http://127.0.0.1:{self.port}"
 
 
 def port_open(port: int, host: str = "127.0.0.1", timeout: float = 0.3) -> bool:
@@ -111,7 +113,49 @@ class Supervisor:
             out.append(self._clacky(ext.clacky))
         if ext.globe.enabled:
             out.append(self._globe(ext.globe))
+        tunnel = getattr(self._config, "tunnel", None)
+        if tunnel is not None and tunnel.provider:
+            out.append(self._tunnel(tunnel))
         return out
+
+    def _tunnel(self, cfg: Any) -> Service:
+        """Public HTTPS tunnel so Twilio/WhatsApp can reach the local server."""
+        port = int(getattr(self._config.server, "port", 8000))
+        svc = Service(
+            "tunnel",
+            "Public tunnel (calls/WhatsApp)",
+            port,
+            Path.home(),
+            listens=False,
+            display_url=getattr(self._config.phone, "public_url", "") or "",
+        )
+        if cfg.provider == "ngrok":
+            ngrok = self._which("ngrok")
+            if ngrok is None:
+                svc.problem = "ngrok is not installed (run the installer)"
+            elif not self._environ.get("NGROK_AUTHTOKEN"):
+                svc.problem = "NGROK_AUTHTOKEN missing in ~/.openjarvis/sergio.env"
+            elif not cfg.domain:
+                svc.problem = "set [tunnel] domain to your free ngrok static domain"
+            else:
+                svc.command = [ngrok, "http", f"--url={cfg.domain}", str(port)]
+                svc.display_url = svc.display_url or f"https://{cfg.domain}"
+        elif cfg.provider == "cloudflare":
+            cloudflared = self._which("cloudflared")
+            if cloudflared is None:
+                svc.problem = "cloudflared is not installed"
+            elif not self._environ.get("CLOUDFLARE_TUNNEL_TOKEN"):
+                svc.problem = (
+                    "CLOUDFLARE_TUNNEL_TOKEN missing in ~/.openjarvis/sergio.env"
+                )
+            else:
+                svc.command = [cloudflared, "tunnel", "--no-autoupdate", "run"]
+                svc.env = {"TUNNEL_TOKEN": self._environ["CLOUDFLARE_TUNNEL_TOKEN"]}
+        else:
+            svc.problem = (
+                f"unknown tunnel provider '{cfg.provider}' (ngrok or cloudflare)"
+            )
+        return svc
 
     def _clacky(self, cfg: Any) -> Service:
         svc = Service(
@@ -229,7 +273,7 @@ class Supervisor:
         return pid
 
     def running(self, svc: Service) -> bool:
-        return self._pid(svc.name) > 0 and port_open(svc.port)
+        return self._pid(svc.name) > 0 and (not svc.listens or port_open(svc.port))
 
     def start(self, svc: Service, *, wait: float = 60.0) -> str:
         """Start *svc*; return a short human-readable outcome."""
@@ -237,7 +281,7 @@ class Supervisor:
             return f"skipped: {svc.problem}"
         if self.running(svc):
             return f"already running at {svc.url}"
-        if port_open(svc.port):
+        if svc.listens and port_open(svc.port):
             return f"port {svc.port} is busy (another program uses it)"
         env = {**self._environ, **svc.env}
         kwargs: dict[str, Any] = {}
@@ -273,8 +317,10 @@ class Supervisor:
             if proc.poll() is not None:
                 self._pid_file(svc.name).unlink(missing_ok=True)
                 return f"exited early, see {self.log_file(svc.name)}"
-            if port_open(svc.port):
+            if svc.listens and port_open(svc.port):
                 return f"running at {svc.url}"
+            if not svc.listens and time.monotonic() > deadline - wait + 5:
+                return f"running at {svc.url}"  # still alive after 5 s
             time.sleep(0.5)
         return f"started but not answering yet, see {self.log_file(svc.name)}"
 
@@ -307,7 +353,7 @@ class Supervisor:
         return {svc.name: self.start(svc) for svc in self.services()}
 
     def stop_all(self) -> dict[str, bool]:
-        return {name: self.stop(name) for name in ("clacky", "globe")}
+        return {name: self.stop(name) for name in ("clacky", "globe", "tunnel")}
 
     def status(self) -> list[dict[str, Any]]:
         rows = []

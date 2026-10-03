@@ -82,6 +82,27 @@ def _format_for_sms(text: str) -> str:
     return text.strip()
 
 
+_WHATSAPP_MAX_CHARS = 4096
+
+
+def _answer_whatsapp(bridge: Any, sender: str, text: str) -> None:
+    """Run the message through Sergio and send the reply back on WhatsApp.
+
+    The bridge ignores non-owner numbers (empty reply), so strangers get
+    no answer at all.
+    """
+    reply = bridge.handle_incoming(sender, text, "whatsapp")
+    if not reply:
+        return
+    from openjarvis.channels.whatsapp import WhatsAppChannel
+
+    channel = WhatsAppChannel()
+    for start in range(0, len(reply), _WHATSAPP_MAX_CHARS):
+        if not channel.send(sender, reply[start : start + _WHATSAPP_MAX_CHARS]):
+            logger.warning("WhatsApp reply to the owner could not be sent")
+            return
+
+
 def create_webhook_router(
     bridge: Any,
     twilio_auth_token: str = "",
@@ -348,12 +369,7 @@ def create_webhook_router(
                     text = message.get("text", {}).get("body", "")
 
                     task = asyncio.create_task(
-                        asyncio.to_thread(
-                            bridge.handle_incoming,
-                            sender,
-                            text,
-                            "whatsapp",
-                        )
+                        asyncio.to_thread(_answer_whatsapp, bridge, sender, text)
                     )
                     task.add_done_callback(_log_task_exception)
 

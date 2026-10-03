@@ -112,3 +112,19 @@ def test_watchdog_restarts_only_dead_available_services():
         sup, interval=1, should_stop=lambda: next(ticks, True), sleep=lambda s: None
     )
     assert sup.started == ["clacky"]
+
+
+def test_sergio_env_is_loaded_without_overriding_real_env(tmp_path, monkeypatch):
+    import os
+
+    from openjarvis.cli import _load_sergio_env
+
+    env = tmp_path / "sergio.env"
+    env.write_text("# keys\nTWILIO_PHONE_NUMBER=+1555\nANTHROPIC_API_KEY=from-file\n")
+    monkeypatch.setattr(service_cmd, "env_file", lambda: env)
+    monkeypatch.delenv("TWILIO_PHONE_NUMBER", raising=False)
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "real")
+    _load_sergio_env()
+    assert os.environ["TWILIO_PHONE_NUMBER"] == "+1555"
+    assert os.environ["ANTHROPIC_API_KEY"] == "real"
+    monkeypatch.delenv("TWILIO_PHONE_NUMBER")
