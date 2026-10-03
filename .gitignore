@@ -131,3 +131,6 @@ learning.db
 minion_logs/
 *.oj-debug.json
 oj-debug.*.json
+
+# TypeScript build cache (rewritten by every build)
+*.tsbuildinfo
