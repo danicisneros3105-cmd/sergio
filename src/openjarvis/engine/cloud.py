@@ -492,16 +492,13 @@ class CloudEngine(InferenceEngine):
         gemini_key = _env_key("GEMINI_API_KEY", "GOOGLE_API_KEY")
         if gemini_key:
             try:
-                from google import genai
+                from google import genai  # noqa: F401 — fail early if missing
 
-                if gemini_key.startswith("AQ."):
-                    # New-style Google keys (AQ.) authenticate against Vertex
-                    # AI (express mode), not the classic AIza endpoint.
-                    self._google_client = genai.Client(
-                        vertexai=True, api_key=gemini_key
-                    )
-                else:
-                    self._google_client = genai.Client(api_key=gemini_key)
+                from openjarvis.engine.google_client import SwitchingClient
+
+                # Gemini API or Vertex AI: the client finds which one the
+                # key belongs to (AQ. keys can be either).
+                self._google_client = SwitchingClient(gemini_key)
             except ImportError:
                 pass
         openrouter_key = os.environ.get("OPENROUTER_API_KEY")

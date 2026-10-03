@@ -66,18 +66,21 @@ def _kimi(
     raise RuntimeError(f"Kimi vision failed: {last}")
 
 
+_GEMINI: Any = None  # remembers which Google service the key works with
+
+
 def _gemini(jpeg: bytes, prompt: str, mime: str = "image/jpeg") -> str:
     key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
     if not key:
         raise RuntimeError("no Gemini key")
-    from google import genai
     from google.genai import types
 
-    client = (
-        genai.Client(vertexai=True, api_key=key)
-        if key.startswith("AQ.")
-        else genai.Client(api_key=key)
-    )
+    from openjarvis.engine.google_client import SwitchingClient
+
+    global _GEMINI
+    if _GEMINI is None or _GEMINI.key != key:
+        _GEMINI = SwitchingClient(key)
+    client = _GEMINI
     last: Exception | None = None
     for model in GEMINI_VISION_MODELS:
         try:

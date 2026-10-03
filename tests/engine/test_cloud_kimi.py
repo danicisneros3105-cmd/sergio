@@ -107,27 +107,20 @@ def test_base_url_override(monkeypatch, engine):
     assert FakeOpenAI.instances[-1].base_url == "https://api.moonshot.cn/v1"
 
 
-def test_aq_google_keys_use_vertex_express(monkeypatch):
-    made = []
-
-    class FakeGenai:
-        @staticmethod
-        def Client(**kw):  # noqa: N802
-            made.append(kw)
-            return object()
+def test_google_keys_get_a_switching_client(monkeypatch):
+    from openjarvis.engine.google_client import SwitchingClient
 
     google = types.ModuleType("google")
-    google.genai = FakeGenai
+    google.genai = types.ModuleType("google.genai")
     monkeypatch.setitem(sys.modules, "google", google)
-    monkeypatch.setitem(sys.modules, "google.genai", FakeGenai)
+    monkeypatch.setitem(sys.modules, "google.genai", google.genai)
     for key in list(__import__("os").environ):
         if key.endswith("_API_KEY"):
             monkeypatch.delenv(key, raising=False)
     monkeypatch.setenv("GEMINI_API_KEY", "AQ.test")
-    cloud.CloudEngine()
-    monkeypatch.setenv("GEMINI_API_KEY", "AIzaTest")
-    cloud.CloudEngine()
-    assert made == [{"vertexai": True, "api_key": "AQ.test"}, {"api_key": "AIzaTest"}]
+    engine = cloud.CloudEngine()
+    assert isinstance(engine._google_client, SwitchingClient)
+    assert engine._google_client.key == "AQ.test"
 
 
 def test_engine_cleans_fullwidth_keys(monkeypatch, engine):
