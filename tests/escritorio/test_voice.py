@@ -72,11 +72,20 @@ def test_wake_word_turn_answers_aloud():
     assert sent[-1] == {"role": "user", "content": "abre Spotify"}
 
 
-def test_room_conversation_is_ignored_silently():
-    a, ui, log, played, _ = _assistant(["mañana vamos al cine con Sergio"])
+def test_room_conversation_is_ignored_with_an_occasional_hint():
+    a, ui, log, played, clock = _assistant(
+        ["mañana vamos al cine con Sergio", "busca en la web el clima", "hola"]
+    )
     a.on_utterance(WAV, addressed=False)
-    assert log == [] and played == [] and ui.captions == []
+    assert log == [] and played == []
     assert "thinking" not in ui.states  # the orb does not flicker for chatter
+    assert ui.captions[0].startswith("Oí «mañana vamos al cine con Sergio»")
+    assert "Ctrl+Espacio" in ui.captions[0]
+    a.on_utterance(WAV, addressed=False)  # within two minutes: no new hint
+    assert len(ui.captions) == 1
+    clock.now += 121
+    a.on_utterance(WAV, addressed=False)  # one word: not an order, no hint
+    assert len(ui.captions) == 1
 
 
 def test_bare_name_then_command_within_follow_up_window():
@@ -206,13 +215,34 @@ def test_ears_push_to_talk_and_mute_while_busy():
     assert all(ears.feed(f) is None for f in audio)
 
 
-def test_ears_push_to_talk_times_out():
+def test_push_to_talk_records_quiet_voices_and_sends_on_timeout():
     a, ui, _, _, clock = _assistant([])
     ears = Ears(a, wake_word=False, clock=clock)
     ears.talk()
-    clock.now += 8
-    assert ears.feed(_frames(_tone(0.1, 100))[0]) is None
-    assert ui.states[-1] == "idle" and not ears.push_to_talk
+    quiet = _frames(_tone(0.5, 60))  # a very quiet laptop microphone
+    assert all(ears.feed(f) is None for f in quiet)
+    clock.now += 11
+    wav, addressed = ears.feed(quiet[0])
+    assert addressed is True and len(wav) > 16000  # sent anyway: Whisper decides
+    assert not ears.push_to_talk
+
+
+def test_pressing_again_sends_immediately():
+    a, _, _, _, clock = _assistant([])
+    ears = Ears(a, wake_word=False, clock=clock)
+    ears.talk()
+    ears.feed(_frames(_tone(0.3, 3000))[0])
+    ears.talk()  # second press = "done"
+    assert ears.feed(_frames(_tone(0.1, 60))[0])[1] is True
+
+
+def test_microphone_level_is_reported():
+    a, _, _, _, clock = _assistant([])
+    levels = []
+    ears = Ears(a, wake_word=True, clock=clock, on_level=levels.append)
+    for f in _frames(_tone(0.2, 50) + _tone(0.2, 4000)):
+        ears.feed(f)
+    assert levels[0] < 0.2 and max(levels) > 0.8
 
 
 def test_wav_format():

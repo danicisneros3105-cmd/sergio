@@ -56,11 +56,15 @@ class Segmenter:
     end_silence: float = 0.8  # seconds of quiet that end an utterance
     max_seconds: float = 15.0
     pre_roll: float = 0.3
-    min_level: float = 350.0  # int16 RMS; quieter is never speech
-    floor: float = 200.0
+    # Laptop microphones are quiet (speech is often 150-600 RMS), so the
+    # absolute minimum is low and the threshold follows the room's noise.
+    min_level: float = 110.0  # int16 RMS; quieter is never speech
+    floor: float = 60.0
+    ratio: float = 2.5  # speech must be this much louder than the room
     _voiced: int = 0
     _quiet: int = 0
     _active: bool = False
+    _heard: bool = False
     _frames: list = field(default_factory=list)
     _pre: deque = field(default_factory=deque)
 
@@ -78,11 +82,22 @@ class Segmenter:
         return self._active
 
     def threshold(self) -> float:
-        return max(self.min_level, self.floor * 3.0)
+        return max(self.min_level, self.floor * self.ratio)
+
+    def force_start(self) -> None:
+        """Start recording now (push-to-talk), whatever the volume."""
+        self.reset()
+        self._active = True
+        self._heard = False
+
+    @property
+    def heard_speech(self) -> bool:
+        return self._heard
 
     def reset(self) -> None:
         self._voiced = self._quiet = 0
         self._active = False
+        self._heard = False
         self._frames = []
         self._pre.clear()
 
@@ -101,12 +116,15 @@ class Segmenter:
             self._pre.append(chunk)
             if self._voiced >= self.start_frames:
                 self._active = True
+                self._heard = True
                 self._frames = list(self._pre)
                 self._pre.clear()
                 self._quiet = 0
             return None
         self._frames.append(chunk)
-        self._quiet = 0 if speech else self._quiet + 1
+        self._heard = self._heard or speech
+        # Before any speech (push-to-talk just pressed) silence doesn't end it.
+        self._quiet = 0 if (speech or not self._heard) else self._quiet + 1
         seconds = len(self._frames) * self.frame / self.rate
         if seconds >= self.max_seconds and self._steady():
             # A long, even sound (TV, fan, music) is the room, not a person:
@@ -122,6 +140,12 @@ class Segmenter:
             self.reset()
             return utterance
         return None
+
+    def flush(self) -> bytes:
+        """Return whatever is being recorded and stop."""
+        data = b"".join(self._frames)
+        self.reset()
+        return data
 
     def _levels(self) -> np.ndarray:
         return np.array([self.level(f) for f in self._frames], dtype=np.float32)

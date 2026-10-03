@@ -154,11 +154,13 @@ def run(config: dict[str, Any]) -> None:
 
         state = Signal(str)
         caption = Signal(str)
+        level = Signal(float)
         talk = Signal()
         toggle = Signal()
 
     bridge = Bridge()
     bridge.state.connect(show_state)
+    bridge.level.connect(notch.set_level)
     bridge.caption.connect(lambda text: show_text(text))
 
     class UIAdapter:
@@ -184,7 +186,9 @@ def run(config: dict[str, Any]) -> None:
 
     threading.Thread(target=local_whisper, daemon=True).start()
     assistant = Assistant(SergioClient(config["server_url"]), ui=UIAdapter())
-    ears = Ears(assistant, wake_word=bool(config["wake_word"]))
+    ears = Ears(
+        assistant, wake_word=bool(config["wake_word"]), on_level=bridge.level.emit
+    )
     try:
         ears.start()
     except Exception as exc:  # noqa: BLE001 — no microphone

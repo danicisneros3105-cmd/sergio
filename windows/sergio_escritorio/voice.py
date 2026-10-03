@@ -25,7 +25,7 @@ from sergio_escritorio.listen import FRAME, RATE, Segmenter, parse_wake
 
 HISTORY_TURNS = 12
 FOLLOW_UP_SECONDS = 8.0  # after a bare "Sergio", the next sentence is the order
-PTT_TIMEOUT = 7.0  # Ctrl+Space with no speech gives up after this
+PTT_TIMEOUT = 10.0  # longest push-to-talk recording
 
 VOICE_STYLE = (
     "You are talking out loud through Sergio's cursor companion on the user's "
@@ -138,17 +138,19 @@ class LocalWhisper:
 
 
 _LOCAL: list[LocalWhisper | None] = []
+_LOCAL_LOCK = threading.Lock()
 
 
 def local_whisper() -> LocalWhisper | None:
-    """Load once; None if faster-whisper is missing or the model can't load."""
-    if not _LOCAL:
-        try:
-            _LOCAL.append(LocalWhisper())
-        except Exception:  # noqa: BLE001
-            log.exception("local Whisper unavailable; using the server")
-            _LOCAL.append(None)
-    return _LOCAL[0]
+    """Load once (thread-safe); None if faster-whisper or the model is missing."""
+    with _LOCAL_LOCK:  # a second caller waits for the first load, not a 2nd one
+        if not _LOCAL:
+            try:
+                _LOCAL.append(LocalWhisper())
+            except Exception:  # noqa: BLE001
+                log.exception("local Whisper unavailable; using the server")
+                _LOCAL.append(None)
+        return _LOCAL[0]
 
 
 def play_wav(data: bytes) -> None:
@@ -207,6 +209,7 @@ class Assistant:
         self.busy = False
         self._follow_up_until = 0.0
         self._last_stt_error = -1e9
+        self._last_hint = -1e9
 
     @property
     def expecting(self) -> bool:
@@ -242,8 +245,17 @@ class Assistant:
                 self.ui.say(f"No pude entender el audio: {explain(exc)}")
             return
         if not for_me:
+            heard = text
             woke, text = parse_wake(text)
             if not woke:
+                # Not for Sergio. If it sounded like an order, remind how to
+                # call him (at most every two minutes).
+                if len(heard.split()) >= 2 and self.clock() - self._last_hint > 120:
+                    self._last_hint = self.clock()
+                    self.ui.say(
+                        f"Oí «{heard[:60]}». Para pedirme algo di «Sergio, …» "
+                        "o pulsa Ctrl+Espacio."
+                    )
                 return  # conversation in the room, not for Sergio
             if not text:
                 self._follow_up_until = self.clock() + FOLLOW_UP_SECONDS
@@ -285,25 +297,31 @@ class Ears:
         wake_word: bool = True,
         segmenter: Segmenter | None = None,
         clock: Callable[[], float] = time.monotonic,
+        on_level: Callable[[float], None] = lambda _v: None,
     ) -> None:
         self.assistant = assistant
         self.wake_word = wake_word
         self.segmenter = segmenter or Segmenter()
         self.clock = clock
+        self.on_level = on_level
         self._ptt_until = 0.0
         self._queue: queue.Queue[bytes] = queue.Queue(maxsize=200)
         self._stream: Any = None
+        self.device_name = ""
 
     @property
     def push_to_talk(self) -> bool:
-        return self.clock() < self._ptt_until
+        return bool(self._ptt_until)
 
     def talk(self) -> None:
-        """Ctrl+Space: listen to the next sentence, no wake word needed."""
+        """Ctrl+Space / click: record now, no wake word, until you stop talking."""
         if self.assistant.busy:
             return
-        self.segmenter.reset()
-        self.segmenter.end_silence = 1.0
+        if self._ptt_until:  # pressed again: send what we have
+            self._ptt_until = self.clock()
+            return
+        self.segmenter.force_start()
+        self.segmenter.end_silence = 1.2
         self._ptt_until = self.clock() + PTT_TIMEOUT
         self.assistant.chime(880)
         self.assistant.ui.state("listening")
@@ -311,23 +329,27 @@ class Ears:
 
     def feed(self, chunk: bytes) -> tuple[bytes, bool] | None:
         """Process one frame; returns (utterance_wav, addressed) when ready."""
+        level = Segmenter.level(chunk)
+        self.on_level(min(1.0, level / max(1.0, self.segmenter.threshold() * 4)))
         if self.assistant.busy:
             self.segmenter.reset()  # don't hear our own voice
             return None
-        ptt = self.push_to_talk
-        if self._ptt_until and not ptt and not self.segmenter.active:
-            self._ptt_until = 0.0  # push-to-talk timed out with no speech
+        if self._ptt_until:
+            utterance = self.segmenter.feed(chunk)
+            if utterance is None and self.clock() >= self._ptt_until:
+                # Time is up (or pressed again): send it, Whisper decides.
+                utterance = self.segmenter.flush()
+            if utterance is None:
+                return None
+            self._ptt_until = 0.0
             self.segmenter.end_silence = 0.8
-            self.assistant.ui.state("idle")
-        if not (self.wake_word or ptt or self.assistant.expecting):
+            return to_wav(utterance), True
+        if not (self.wake_word or self.assistant.expecting):
             return None
         utterance = self.segmenter.feed(chunk)
         if utterance is None:
             return None
-        addressed = bool(self._ptt_until)
-        self._ptt_until = 0.0
-        self.segmenter.end_silence = 0.8
-        return to_wav(utterance), addressed
+        return to_wav(utterance), False
 
     def start(self) -> None:
         import sounddevice as sd
@@ -338,6 +360,10 @@ class Ears:
             except queue.Full:
                 pass
 
+        try:
+            self.device_name = str(sd.query_devices(kind="input")["name"])
+        except Exception:  # noqa: BLE001
+            self.device_name = ""
         self._stream = sd.RawInputStream(
             samplerate=RATE,
             channels=1,
