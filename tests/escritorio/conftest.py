@@ -54,6 +54,14 @@ class FakeDesktop:
         self.calls.append(("focus", title))
         return title.lower() in "whatsapp"
 
+    def make_video(self, options):
+        self.calls.append(("make_video", options))
+        return r"C:\Users\dani\Videos\Sergio\viaje.mp4"
+
+    def blender(self, script):
+        self.calls.append(("blender", script))
+        return r"C:\Users\dani\AppData\Local\SergioEscritorio\blender\escena.py"
+
 
 @pytest.fixture
 def desktop():

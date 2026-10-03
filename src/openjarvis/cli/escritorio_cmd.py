@@ -23,6 +23,10 @@ DESKTOP_TOOLS = (
     "screen_read",
     "desktop_action",
     "camera_look",
+    "video_edit",
+    "blender_create",
+    "face_approval",
+    "face_enroll",
     "skill_guide",
     "web_search",
 )

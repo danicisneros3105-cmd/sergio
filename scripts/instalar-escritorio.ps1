@@ -42,7 +42,7 @@ $cfg.server_url = "http://localhost:8000"
 $cfg.port = 8765
 $cfg | ConvertTo-Json | Set-Content -Encoding UTF8 $cfgPath
 
-Say "3/4 Instalando lo que necesita (1-3 minutos la primera vez)"
+Say "3/4 Instalando lo que necesita (la primera vez puede tardar 5-10 minutos)"
 $env:UV_PROJECT_ENVIRONMENT = $venv
 & $uv sync --project $app --python 3.12 --quiet
 if ($LASTEXITCODE -ne 0) { throw "No pude instalar las dependencias (uv sync)." }

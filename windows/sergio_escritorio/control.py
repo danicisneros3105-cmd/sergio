@@ -38,6 +38,8 @@ ACTIONS = (
     "open",
     "focus",
     "wait",
+    "make_video",
+    "blender",
 )
 
 
@@ -61,6 +63,10 @@ class Backend(Protocol):
     def open_target(self, target: str) -> None: ...
 
     def focus(self, title: str) -> bool: ...
+
+    def make_video(self, options: dict) -> str: ...  # path of the new video
+
+    def blender(self, script: str) -> str: ...  # path of the saved script
 
 
 class ActionError(ValueError):
@@ -212,6 +218,29 @@ class Controller:
             if not title or not b.focus(title):
                 raise ActionError(f"No open window matches {title!r}.")
             result = f"focused {title}"
+        elif kind == "make_video":
+            source = str(action.get("source") or "").strip()
+            if not source:
+                raise ActionError("'source' is the folder or file with the clips.")
+            options = {
+                k: action[k]
+                for k in (
+                    "source",
+                    "aspect",
+                    "clip_seconds",
+                    "max_seconds",
+                    "title",
+                    "music",
+                    "name",
+                )
+                if action.get(k) not in (None, "")
+            }
+            result = "video ready: " + b.make_video(options)
+        elif kind == "blender":
+            script = str(action.get("script") or "")
+            if not script.strip() or len(script) > 60_000:
+                raise ActionError("'script' is Blender Python (bpy) code.")
+            result = "Blender opened with script " + b.blender(script)
         else:  # wait
             seconds = min(max(float(action.get("seconds") or 1), 0.1), 10)
             self._sleep(seconds)
@@ -270,7 +299,7 @@ def make_server(
                 self._send(404, {"ok": False, "error": "not found"})
                 return
             try:
-                length = min(int(self.headers.get("Content-Length") or 0), 64_000)
+                length = min(int(self.headers.get("Content-Length") or 0), 128_000)
                 action = json.loads(self.rfile.read(length) or b"{}")
                 if not isinstance(action, dict):
                     raise ActionError("Send a JSON object.")

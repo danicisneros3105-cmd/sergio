@@ -275,4 +275,242 @@ class CameraLookTool(_DesktopTool):
         return self._ok(people + seen)
 
 
-__all__ = ["CameraLookTool", "DesktopActionTool", "ScreenReadTool"]
+def _config_owner() -> str:
+    try:
+        from openjarvis.core.config import load_config
+
+        return (load_config().phone.owner_name or "").strip()
+    except Exception:  # noqa: BLE001
+        return ""
+
+
+def _owner_name(people: list[str]) -> str:
+    """Who may approve: SERGIO_OWNER_NAME, else phone.owner_name, else the
+    only enrolled person."""
+    name = os.environ.get("SERGIO_OWNER_NAME", "").strip() or _config_owner()
+    if not name and len(people) == 1:
+        name = people[0]
+    return name
+
+
+@ToolRegistry.register("video_edit")
+class VideoEditTool(_DesktopTool):
+    tool_id = "video_edit"
+
+    @property
+    def spec(self) -> ToolSpec:
+        return ToolSpec(
+            name="video_edit",
+            description=(
+                "Edit a video on the user's Windows laptop from their clips: cuts "
+                "each clip, joins them in name order, reframes to 16:9 (YouTube), "
+                "9:16 (Shorts/TikTok/Reels) or 1:1, adds an opening title and "
+                "background music, then OPENS the result so the user can review "
+                "it (saved in Videos\\Sergio). 'source' can be a full path or "
+                "just the folder/file name the user said (searched in Videos, "
+                "Escritorio, Descargas, Documentos, OneDrive). To imitate a "
+                "channel's style, first research it with web_search (format, "
+                "clip length, pacing, titles) and choose the options from that."
+            ),
+            parameters={
+                "type": "object",
+                "properties": {
+                    "source": {"type": "string", "description": "Folder or file."},
+                    "aspect": {"type": "string", "enum": ["16:9", "9:16", "1:1"]},
+                    "clip_seconds": {
+                        "type": "number",
+                        "description": "Seconds kept from each clip (0 = all).",
+                    },
+                    "max_seconds": {
+                        "type": "number",
+                        "description": "Max total length (0 = no limit).",
+                    },
+                    "title": {"type": "string", "description": "Opening title."},
+                    "music": {"type": "string", "description": "Music file."},
+                    "name": {"type": "string", "description": "Output name."},
+                },
+                "required": ["source"],
+            },
+            category="desktop",
+            timeout_seconds=1800,
+        )
+
+    def execute(self, **params: Any) -> ToolResult:
+        action = {k: v for k, v in params.items() if v not in (None, "")}
+        action["action"] = "make_video"
+        try:
+            data = self._call("POST", "/act", json=action, timeout=1800)
+        except RuntimeError as exc:
+            return self._fail(f"No pude editar el video: {exc}")
+        return self._ok(
+            str(data.get("result", "listo"))
+            + ". Ya lo abrí para que el usuario lo revise; no lo publiques sin "
+            "su aprobación con face_approval."
+        )
+
+
+@ToolRegistry.register("blender_create")
+class BlenderCreateTool(_DesktopTool):
+    tool_id = "blender_create"
+
+    @property
+    def spec(self) -> ToolSpec:
+        return ToolSpec(
+            name="blender_create",
+            description=(
+                "Build a 3D model or scene in Blender on the user's laptop. Write "
+                "a complete Blender Python script (import bpy) that creates the "
+                "objects, materials (Principled BSDF), lights and camera; Blender "
+                "opens running it so the user sees the result and can keep "
+                "editing. For big models use loops, modifiers (array, mirror, "
+                "subdivision) and geometry instead of thousands of manual lines. "
+                "Start by clearing the default scene."
+            ),
+            parameters={
+                "type": "object",
+                "properties": {
+                    "script": {"type": "string", "description": "bpy code."},
+                },
+                "required": ["script"],
+            },
+            category="desktop",
+            timeout_seconds=120,
+        )
+
+    def execute(self, **params: Any) -> ToolResult:
+        script = str(params.get("script") or "")
+        try:
+            data = self._call(
+                "POST", "/act", json={"action": "blender", "script": script}
+            )
+        except RuntimeError as exc:
+            return self._fail(f"No pude abrir Blender: {exc}")
+        return self._ok(str(data.get("result", "Blender abierto")))
+
+
+def _camera_faces(tool: _DesktopTool) -> tuple[bytes, list[str], list[str]]:
+    """(jpeg, names seen, enrolled names)."""
+    import base64
+
+    from openjarvis.faces import FaceBook
+
+    shot = tool._call("GET", "/camera")
+    jpeg = base64.b64decode(shot["image_jpeg_b64"])
+    book = FaceBook()
+    seen = [m.name for m in book.identify(jpeg)]
+    enrolled = [p["name"] for p in book.people()]
+    return jpeg, seen, enrolled
+
+
+@ToolRegistry.register("face_approval")
+class FaceApprovalTool(_DesktopTool):
+    tool_id = "face_approval"
+
+    @property
+    def spec(self) -> ToolSpec:
+        return ToolSpec(
+            name="face_approval",
+            description=(
+                "Confirm with face recognition that the OWNER (not someone else) "
+                "approves something. REQUIRED before publishing/uploading, "
+                "sending, buying, paying or deleting. Ask the user to look at "
+                "the camera, then call it; only go ahead if it says APROBADO."
+            ),
+            parameters={
+                "type": "object",
+                "properties": {
+                    "what": {"type": "string", "description": "What is approved."},
+                },
+                "required": ["what"],
+            },
+            category="desktop",
+            timeout_seconds=120,
+        )
+
+    def execute(self, **params: Any) -> ToolResult:
+        what = str(params.get("what") or "la acción")
+        try:
+            _jpeg, seen, enrolled = _camera_faces(self)
+        except RuntimeError as exc:
+            return self._fail(f"NO APROBADO: no pude ver por la cámara ({exc}).")
+        except Exception as exc:  # noqa: BLE001 — models missing, etc.
+            return self._fail(
+                f"NO APROBADO: reconocimiento facial no disponible ({exc})."
+            )
+        owner = _owner_name(enrolled)
+        lookup = {n.lower(): n for n in enrolled}
+        owner = lookup.get(owner.lower(), "")
+        if not owner:
+            return self._fail(
+                "NO APROBADO: todavía no conozco la cara del dueño. Pídele que "
+                "diga 'Sergio, aprende mi cara' mirando a la cámara."
+            )
+        if not seen:
+            return self._fail("NO APROBADO: no veo ninguna cara; que mire a la cámara.")
+        if owner in seen:
+            return self._ok(
+                f"APROBADO: {owner} aprobó {what} (cara reconocida).", approved=True
+            )
+        others = ", ".join(n or "desconocido" for n in seen)
+        return self._fail(f"NO APROBADO: veo a {others}, no a {owner}.")
+
+
+@ToolRegistry.register("face_enroll")
+class FaceEnrollTool(_DesktopTool):
+    tool_id = "face_enroll"
+
+    @property
+    def spec(self) -> ToolSpec:
+        return ToolSpec(
+            name="face_enroll",
+            description=(
+                "Learn the user's face from the webcam (only when THEY ask, e.g. "
+                "'aprende mi cara'), so face_approval can recognise them. Takes "
+                "three photos a moment apart. 'name' is their name."
+            ),
+            parameters={
+                "type": "object",
+                "properties": {"name": {"type": "string"}},
+                "required": ["name"],
+            },
+            category="desktop",
+            timeout_seconds=120,
+        )
+
+    def execute(self, **params: Any) -> ToolResult:
+        import base64
+        import time
+
+        name = str(params.get("name") or "").strip() or _owner_name([]) or "Dueño"
+        try:
+            from openjarvis.faces import FaceBook
+
+            book = FaceBook()
+            saved, problem = 0, ""
+            for _ in range(3):
+                shot = self._call("GET", "/camera")
+                try:
+                    saved = book.enroll(
+                        name, base64.b64decode(shot["image_jpeg_b64"]), consent=True
+                    )
+                except ValueError as exc:  # no clear face here; try again
+                    problem = str(exc)
+                time.sleep(0.6)
+        except Exception as exc:  # noqa: BLE001
+            return self._fail(f"No pude aprender la cara: {exc}")
+        if not saved:
+            return self._fail(
+                "No vi una cara clara; que mire de frente con buena luz. " + problem
+            )
+        return self._ok(f"Listo, ya conozco la cara de {name}.")
+
+
+__all__ = [
+    "BlenderCreateTool",
+    "CameraLookTool",
+    "DesktopActionTool",
+    "FaceApprovalTool",
+    "FaceEnrollTool",
+    "ScreenReadTool",
+    "VideoEditTool",
+]

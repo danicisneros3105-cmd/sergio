@@ -16,6 +16,7 @@ def test_enable_tools_adds_desktop_tools_and_turns(tmp_path):
     text = cfg.read_text()
     assert (
         'enabled = ["think", "screen_read", "desktop_action", "camera_look", '
+        '"video_edit", "blender_create", "face_approval", "face_enroll", '
         '"skill_guide", "web_search"]'
     ) in text
     assert "max_turns = 25" in text

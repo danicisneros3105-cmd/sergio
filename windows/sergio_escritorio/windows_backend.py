@@ -240,5 +240,24 @@ class WindowsBackend:
                 return True
         return False
 
+    def make_video(self, options: dict) -> str:
+        from sergio_escritorio import media
+
+        source = options.pop("source")
+        return media.make_video(
+            source,
+            aspect=str(options.get("aspect") or "16:9"),
+            clip_seconds=float(options.get("clip_seconds") or 0),
+            max_seconds=float(options.get("max_seconds") or 0),
+            title=str(options.get("title") or ""),
+            music=str(options.get("music") or ""),
+            name=str(options.get("name") or ""),
+        )
+
+    def blender(self, script: str) -> str:
+        from sergio_escritorio import media
+
+        return media.run_blender(script)
+
 
 __all__ = ["WindowsBackend"]

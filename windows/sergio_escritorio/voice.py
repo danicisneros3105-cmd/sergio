@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import io
 import logging
+import os
 import queue
 import threading
 import time
@@ -28,16 +29,31 @@ FOLLOW_UP_SECONDS = 8.0  # after a bare "Sergio", the next sentence is the order
 PTT_TIMEOUT = 10.0  # longest push-to-talk recording
 
 VOICE_STYLE = (
-    "You are Sergio, talking out loud through the cursor companion on the "
-    "user's Windows laptop. Answer in Spanish in one or two short, warm, "
-    "natural spoken sentences, with no markdown, lists or emojis. Use your "
-    "tools instead of guessing: web_search for anything current (news, "
-    "weather, prices); camera_look to see the user (objects in their hand, "
-    "gestures, expressions, who is there); screen_read then desktop_action "
-    "to do things on the computer, step by step; to show the 3D globe "
-    "(God's Eye View) open http://localhost:8000/globe with desktop_action "
-    "open; skill_guide for expert playbooks (ECC) on bigger tasks. After "
-    "acting, say briefly what you did."
+    "You are Sergio, a capable assistant living on the user's Windows laptop, "
+    "talking out loud through the cursor companion. Reply in Spanish in one or "
+    "two short, warm, natural spoken sentences, with no markdown, lists or "
+    "emojis. Think about what the user really wants and DO it with your tools "
+    "instead of guessing or only explaining. "
+    "Web and screen tasks, step by step: to search, use desktop_action open "
+    "with target https://www.google.com/search?q=<words>; then screen_read, "
+    "click the result (e.g. the first link) by its element number, screen_read "
+    "again to check, and continue until the whole request is done. "
+    "Current facts (news, weather, prices): web_search. "
+    "Camera (objects in the hand, gestures, expressions, who is there): "
+    "camera_look. 'Aprende mi cara': face_enroll. "
+    "Videos: to imitate a channel, research its style with web_search first "
+    "(format, length, pacing, titles); then video_edit with the folder the "
+    "user named; it opens the result for review. Ask if they approve. "
+    "Before publishing, uploading, sending, paying or deleting ANYTHING, ask "
+    "the user to look at the camera and call face_approval; continue only if "
+    "it says APROBADO. To publish on YouTube open "
+    "https://studio.youtube.com with desktop_action and upload through the "
+    "page (screen_read/desktop_action), filling title and description. "
+    "Blender: write a complete bpy script and call blender_create. "
+    "3D globe (God's Eye View): open http://localhost:8000/globe. "
+    "skill_guide has expert playbooks (ECC) for bigger tasks. "
+    "If you did not hear well, ask briefly instead of inventing. When done, "
+    "say briefly what you did."
 )
 
 log = logging.getLogger(__name__)
@@ -105,6 +121,7 @@ class SergioClient:
         resp = self.http.post(
             f"{self.base}/v1/chat/completions",
             json={"model": self.model(), "messages": messages, "stream": False},
+            timeout=httpx.Timeout(1800, connect=5),  # video edits take minutes
         )
         resp.raise_for_status()
         answer = str(resp.json()["choices"][0]["message"].get("content") or "").strip()
@@ -133,32 +150,113 @@ class SergioClient:
         return resp.content
 
 
-class LocalWhisper:
-    """Speech-to-text inside the Windows companion (no WSL, no GPU needed)."""
+PROMPT = (
+    "Sergio, abre Google y busca, entra al primer link, abre YouTube, "
+    "edita un video con la carpeta, canal, publica, Blender, la cámara, "
+    "qué tengo en la mano, Nvidia, WhatsApp."
+)
 
-    def __init__(self, size: str = "small") -> None:
+
+def _cuda_dlls() -> None:
+    """Let CTranslate2 find the CUDA DLLs shipped as pip packages on Windows."""
+    import importlib.util
+
+    for pkg in ("nvidia.cublas", "nvidia.cudnn", "nvidia.cuda_runtime"):
+        try:
+            spec = importlib.util.find_spec(pkg)
+        except (ImportError, ValueError):
+            continue
+        for root in (spec.submodule_search_locations or []) if spec else []:
+            for sub in ("bin", "lib"):
+                folder = os.path.join(root, sub)
+                if os.path.isdir(folder):
+                    os.environ["PATH"] = (
+                        folder + os.pathsep + os.environ.get("PATH", "")
+                    )
+                    if hasattr(os, "add_dll_directory"):
+                        os.add_dll_directory(folder)
+
+
+def normalise(audio):  # noqa: ANN001, ANN201 — numpy array in, out
+    """Quiet laptop mics: lift the voice to a healthy level before Whisper."""
+    import numpy as np
+
+    audio = audio - float(np.mean(audio))
+    peak = float(np.max(np.abs(audio))) if audio.size else 0.0
+    if 0.0 < peak < 0.6:
+        audio = audio * min(0.9 / peak, 12.0)
+    return audio.astype(np.float32)
+
+
+# Things Whisper "hears" in silence or noise.
+HALLUCINATIONS = (
+    "amara.org",
+    "subtítulos",
+    "suscríbete",
+    "gracias por ver",
+)
+
+
+def clean_transcript(text: str) -> str:
+    low = text.lower().strip(" .,!¡")
+    echo = len(low) > 25 and low in PROMPT.lower()  # Whisper repeating its prompt
+    if not low or echo or any(h in low for h in HALLUCINATIONS):
+        return ""
+    return text
+
+
+class LocalWhisper:
+    """Speech-to-text inside the Windows companion.
+
+    Uses the NVIDIA GPU with the big, accurate ``large-v3-turbo`` model when
+    it can, otherwise ``small`` on the CPU.
+    """
+
+    def __init__(self, size: str = "auto") -> None:
         from faster_whisper import WhisperModel
 
-        self.model = WhisperModel(size, device="cpu", compute_type="int8")
         self.lock = threading.Lock()
+        self.model = None
+        if size in ("auto", "gpu"):
+            try:
+                import numpy as np
+
+                _cuda_dlls()
+                model = WhisperModel(
+                    "large-v3-turbo", device="cuda", compute_type="float16"
+                )
+                list(
+                    model.transcribe(np.zeros(16000, dtype=np.float32), language="es")[
+                        0
+                    ]
+                )
+                self.model, self.name = model, "large-v3-turbo (GPU)"
+            except Exception:  # noqa: BLE001 — no GPU/DLLs: use the CPU
+                log.info("GPU Whisper unavailable; using the CPU", exc_info=True)
+        if self.model is None:
+            cpu = "small" if size in ("auto", "gpu") else size
+            self.model = WhisperModel(cpu, device="cpu", compute_type="int8")
+            self.name = f"{cpu} (CPU)"
+        log.info("Whisper: %s", self.name)
 
     def transcribe(self, wav: bytes) -> str:
         import numpy as np
 
         with wave.open(io.BytesIO(wav)) as w:
             pcm = np.frombuffer(w.readframes(w.getnframes()), dtype=np.int16)
-        audio = pcm.astype(np.float32) / 32768.0
+        audio = normalise(pcm.astype(np.float32) / 32768.0)
         with self.lock:
             segments, _info = self.model.transcribe(
                 audio,
                 language="es",
-                vad_filter=True,
+                vad_filter=False,  # the companion already cut the speech
                 beam_size=5,
-                # Bias towards the assistant's name and everyday orders.
-                initial_prompt="Sergio, abre, busca, llama, escribe, la cámara.",
+                initial_prompt=PROMPT,
                 condition_on_previous_text=False,
+                no_speech_threshold=0.5,
             )
-            return "".join(seg.text for seg in segments).strip()
+            text = "".join(seg.text for seg in segments).strip()
+        return clean_transcript(text)
 
 
 _LOCAL: list[LocalWhisper | None] = []

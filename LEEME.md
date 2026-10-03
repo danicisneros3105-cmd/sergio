@@ -266,6 +266,31 @@ sigue, te escucha y usa la computadora por ti:
   Atardecer, Aurora, Rosa, Menta, Grafito), ojos, tamaño junto al cursor y voz.
 - Por voz también usa la búsqueda web, el globo 3D (God's Eye View) y las
   guías expertas de ECC.
+- **Tareas de varios pasos**: «Sergio, abre Google, busca Nvidia y entra al
+  primer link»: abre la búsqueda, lee la página, hace clic y sigue hasta
+  terminar.
+- **Editar videos**: «Sergio, edita un video con la carpeta *Viaje* al estilo
+  del canal *X*, vertical para Shorts». Busca cómo son los videos de ese canal,
+  corta y une tus clips (16:9, 9:16 o 1:1), pone título y música, lo guarda en
+  *Videos\\Sergio* y te lo abre para que lo revises. Basta con decir el nombre
+  de la carpeta: la busca en Videos, Escritorio, Descargas, Documentos y
+  OneDrive. «Inspirado en un canal» es una aproximación (formato, ritmo,
+  títulos), no una copia exacta.
+- **Aprobar con tu cara**: primero di «Sergio, aprende mi cara» mirando a la
+  cámara. Antes de publicar, subir, enviar, pagar o borrar algo, Sergio te
+  pide mirar a la cámara y solo sigue si reconoce **tu** cara (si hay más
+  personas registradas, pon tu nombre en `SERGIO_OWNER_NAME` dentro de
+  `~/.openjarvis/sergio.env`). Publica en YouTube subiendo el video desde
+  YouTube Studio en tu navegador, como lo harías tú (tu sesión debe estar
+  abierta).
+- **Blender**: «Sergio, abre Blender y crea un castillo enorme». Escribe un
+  script de Blender que construye el modelo y abre Blender con el resultado
+  para que sigas editándolo. Instala Blender antes:
+  `winget install BlenderFoundation.Blender`.
+- **Mejor oído**: con la tarjeta NVIDIA usa el modelo grande de Whisper
+  (large-v3-turbo) en la GPU; si no puede, usa el pequeño en el procesador.
+  Sube el volumen de tu voz y revisa en Windows → Sonido → Entrada que esté
+  elegido el micrófono correcto.
 
 Instalar o actualizar (en Ubuntu):
 
