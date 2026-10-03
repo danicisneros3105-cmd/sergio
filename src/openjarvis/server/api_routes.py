@@ -995,6 +995,15 @@ async def transcribe_speech(request: Request):
     """Transcribe uploaded audio to text."""
     backend = getattr(request.app.state, "speech_backend", None)
     if backend is None:
+        # The model download may have failed at startup (no internet yet):
+        # try again now instead of staying deaf until a restart.
+        config = getattr(request.app.state, "config", None)
+        if config is not None:
+            from openjarvis.speech._discovery import get_speech_backend
+
+            backend = await asyncio.to_thread(get_speech_backend, config)
+            request.app.state.speech_backend = backend
+    if backend is None:
         raise HTTPException(status_code=501, detail="Speech backend not configured")
 
     form = await request.form()

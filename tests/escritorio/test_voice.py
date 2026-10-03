@@ -117,7 +117,65 @@ def test_errors_are_spoken_not_raised():
         chime=lambda f: None,
     )
     a.on_utterance(WAV, addressed=True)
-    assert ui.captions[-1].startswith("No pude responder") and a.busy is False
+    assert ui.captions[-1].startswith("No pude entender el audio") and a.busy is False
+
+
+def test_each_failing_step_is_named_and_voice_failure_keeps_the_text():
+    def handler(request):
+        path = request.url.path
+        if path == "/v1/speech/transcribe":
+            return httpx.Response(200, json={"text": "hola"})
+        if path == "/v1/models":
+            return httpx.Response(200, json={"data": [{"id": "m"}]})
+        if path == "/v1/chat/completions":
+            return httpx.Response(
+                200, json={"choices": [{"message": {"content": "Hola."}}]}
+            )
+        return httpx.Response(500, json={"detail": "Speech synthesis failed"})
+
+    ui, played = UI(), []
+    client = SergioClient(
+        "http://x", http=httpx.Client(transport=httpx.MockTransport(handler))
+    )
+    a = Assistant(client, ui=ui, player=played.append, chime=lambda f: None)
+    a.on_utterance(WAV, addressed=True)
+    assert ui.captions[-1] == "Hola." and played == []  # answer shown, no crash
+
+    def no_model(request):
+        if request.url.path == "/v1/speech/transcribe":
+            return httpx.Response(200, json={"text": "hola"})
+        return httpx.Response(500, json={"detail": "model 'qwen3:8b' not found"})
+
+    ui = UI()
+    client = SergioClient(
+        "http://x", http=httpx.Client(transport=httpx.MockTransport(no_model))
+    )
+    Assistant(client, ui=ui, player=played.append, chime=lambda f: None).on_utterance(
+        WAV, addressed=True
+    )
+    assert ui.captions[-1] == "El modelo no respondió: model 'qwen3:8b' not found"
+
+
+def test_broken_hearing_is_reported_once_a_minute_in_wake_mode():
+    ui, clock = UI(), Clock()
+    broken = httpx.Client(
+        transport=httpx.MockTransport(
+            lambda r: httpx.Response(500, json={"detail": "no whisper"})
+        )
+    )
+    a = Assistant(
+        SergioClient("http://x", http=broken),
+        ui=ui,
+        player=lambda b: None,
+        chime=lambda f: None,
+        clock=clock,
+    )
+    for _ in range(5):
+        a.on_utterance(WAV, addressed=False)
+    assert ui.captions == ["No pude entender el audio: no whisper"]
+    clock.now += 61
+    a.on_utterance(WAV, addressed=False)
+    assert len(ui.captions) == 2
 
 
 def _tone(seconds, amp):

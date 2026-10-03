@@ -132,6 +132,7 @@ if not _DATA_BOUNDARY_BOOTSTRAP:
     from openjarvis.cli.phone_cmd import telefono
     from openjarvis.cli.quickstart_cmd import quickstart
     from openjarvis.cli.registry_cmd import registry
+    from openjarvis.cli.revisar_cmd import revisar
     from openjarvis.cli.scheduler_cmd import scheduler
     from openjarvis.cli.self_update_cmd import self_update
     from openjarvis.cli.serve import serve
@@ -182,6 +183,7 @@ if not _DATA_BOUNDARY_BOOTSTRAP:
     cli.add_command(rostros, "rostros")
     cli.add_command(escritorio, "escritorio")
     cli.add_command(ecc, "ecc")
+    cli.add_command(revisar, "revisar")
     cli.add_command(tool, "tool")
     cli.add_command(registry, "registry")
     cli.add_command(config, "config")

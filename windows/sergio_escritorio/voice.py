@@ -113,6 +113,19 @@ def beep(freq: int) -> None:
         pass
 
 
+def explain(exc: Exception) -> str:
+    """Short reason for a failed call, using the server's own detail if any."""
+    if isinstance(exc, httpx.HTTPStatusError):
+        try:
+            detail = exc.response.json().get("detail")
+        except ValueError:
+            detail = None
+        return str(detail or f"error {exc.response.status_code}")[:160]
+    if isinstance(exc, httpx.TransportError):
+        return "Sergio no está encendido en Ubuntu (sergio servicio encender)"
+    return str(exc)[:160]
+
+
 class UI(Protocol):
     def state(self, name: str) -> None: ...
 
@@ -138,6 +151,7 @@ class Assistant:
         self.clock = clock
         self.busy = False
         self._follow_up_until = 0.0
+        self._last_stt_error = -1e9
 
     @property
     def expecting(self) -> bool:
@@ -151,18 +165,28 @@ class Assistant:
         self.busy = True
         try:
             self._turn(wav, addressed)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:  # noqa: BLE001 — never let a turn kill the loop
             log.exception("voice turn failed")
-            self.ui.say(f"No pude responder: {exc}")
+            self.ui.say(f"Algo falló: {explain(exc)}")
         finally:
             self.busy = False
             self.ui.state("listening" if self.expecting else "idle")
 
     def _turn(self, wav: bytes, addressed: bool) -> None:
-        if addressed or self.expecting:
+        for_me = addressed or self.expecting
+        if for_me:
             self.ui.state("thinking")
-        text = self.client.transcribe(wav)
-        if not addressed and not self.expecting:
+        try:
+            text = self.client.transcribe(wav)
+        except Exception as exc:  # noqa: BLE001
+            log.exception("transcription failed")
+            # With the wake word on, every sound in the room is transcribed:
+            # report a broken speech-to-text once a minute, not per sound.
+            if for_me or self.clock() - self._last_stt_error > 60:
+                self._last_stt_error = self.clock()
+                self.ui.say(f"No pude entender el audio: {explain(exc)}")
+            return
+        if not for_me:
             woke, text = parse_wake(text)
             if not woke:
                 return  # conversation in the room, not for Sergio
@@ -178,12 +202,22 @@ class Assistant:
             return
         self.ui.state("thinking")
         self.ui.say(f"«{text}»")
-        answer = self.client.ask(text)
+        try:
+            answer = self.client.ask(text)
+        except Exception as exc:  # noqa: BLE001
+            log.exception("chat failed")
+            self.ui.say(f"El modelo no respondió: {explain(exc)}")
+            return
         if not answer:
             return
         self.ui.state("speaking")
         self.ui.say(answer)
-        self.player(self.client.speak(answer))
+        try:
+            audio = self.client.speak(answer)
+        except Exception:  # noqa: BLE001 — the text answer is already shown
+            log.exception("speech synthesis failed")
+            return
+        self.player(audio)
 
 
 class Ears:
