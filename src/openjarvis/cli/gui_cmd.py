@@ -154,42 +154,45 @@ def gui(
 
     maybe_evolve_in_background(config)
 
-    env = os.environ.copy()
-    # Let browser requests use Vite's same-origin proxy at any frontend port.
-    # VITE_API_URL is exposed to browser code, so clear an inherited override.
-    env["VITE_API_URL"] = ""
-    env["OPENJARVIS_VITE_PROXY_TARGET"] = f"http://127.0.0.1:{api_port}"
-    process = subprocess.Popen(
-        [
-            npm,
-            "run",
-            "dev",
-            "--",
-            "--host",
-            "127.0.0.1",
-            "--port",
-            str(frontend_port),
-            "--strictPort",
-        ],
-        cwd=frontend,
-        env=env,
-    )
-    if not _wait_for_port(process, "127.0.0.1", frontend_port):
-        process.terminate()
-        process.wait()
-        raise click.ClickException(
-            "The graphical frontend did not start on the requested port."
-        )
-
-    url = f"http://127.0.0.1:{frontend_port}"
-    console.print(f"[green]OpenJarvis graphical mode is ready:[/green] {url}")
-    if not no_browser:
-        webbrowser.open(url)
+    # Stop the extensions on every exit path, including a frontend that
+    # fails to start.
     try:
-        process.wait()
-    except KeyboardInterrupt:
-        process.terminate()
-        process.wait()
+        env = os.environ.copy()
+        # Let browser requests use Vite's same-origin proxy at any frontend port.
+        # VITE_API_URL is exposed to browser code, so clear an inherited override.
+        env["VITE_API_URL"] = ""
+        env["OPENJARVIS_VITE_PROXY_TARGET"] = f"http://127.0.0.1:{api_port}"
+        process = subprocess.Popen(
+            [
+                npm,
+                "run",
+                "dev",
+                "--",
+                "--host",
+                "127.0.0.1",
+                "--port",
+                str(frontend_port),
+                "--strictPort",
+            ],
+            cwd=frontend,
+            env=env,
+        )
+        if not _wait_for_port(process, "127.0.0.1", frontend_port):
+            process.terminate()
+            process.wait()
+            raise click.ClickException(
+                "The graphical frontend did not start on the requested port."
+            )
+
+        url = f"http://127.0.0.1:{frontend_port}"
+        console.print(f"[green]OpenJarvis graphical mode is ready:[/green] {url}")
+        if not no_browser:
+            webbrowser.open(url)
+        try:
+            process.wait()
+        except KeyboardInterrupt:
+            process.terminate()
+            process.wait()
     finally:
         if with_extensions:
             stop_extensions()

@@ -9,7 +9,7 @@ una: con qué pieza se hace, si funciona ya, y qué riesgos tiene.
   canales. Decide qué hacer.
 - **Clacky** (herramienta `clacky_task`): ejecuta en tu ordenador. Tiene
   terminal, archivos, búsqueda web y **control de tu Chrome real**. Sergio te
-  pide confirmación antes de cada delegación.
+  espera tu aprobación en la campana 🔔 de la app antes de cada tarea.
 - **Globo** (`globe_view`, `live_flights`, `live_earthquakes`,
   `upcoming_launches`): datos en vivo del mundo y el mapa 3D.
 
@@ -22,7 +22,7 @@ una: con qué pieza se hace, si funciona ya, y qué riesgos tiene.
 |---|---|---|---|
 | Buscar en Google | Clacky (`clacky_task`) o `web_search` de Sergio | ✅ Funciona ya | *"Busca los 5 mejores portátiles para programar por menos de 800 €"* |
 | Organizar tus archivos | Clacky (`clacky_task`) | ✅ Funciona ya | Empieza en una carpeta de prueba. Los archivos borrados pasan por una papelera (`trash_manager`). |
-| Abrir y cerrar apps, instalar apps | Clacky (`clacky_task`) | ✅ En Linux/WSL | En Linux usa `apt`/`flatpak`. Desde WSL puede llamar a `winget` de Windows. Te pedirá confirmación en los comandos peligrosos. |
+| Abrir y cerrar apps, instalar apps | Clacky (`clacky_task`) | ✅ En Linux/WSL | En Linux usa `apt`/`flatpak`. Desde WSL puede llamar a `winget` de Windows. Cada tarea espera tu aprobación en la campana 🔔. |
 | Crear una presentación en Canva desde cero | Clacky + tu Chrome | 🟡 Posible, frágil | Inicia sesión en Canva tú primero; el agente controla tu Chrome. Más fiable: que genere el contenido y lo importe, o que use la [Canva Connect API](https://www.canva.dev/docs/connect/). Necesita modo API. |
 | Revisar las stats de tu web | Clacky (navegador) o Sergio (tarea programada) | ✅ / 🟡 | Lo ideal es la API de Google Analytics o Search Console con un informe diario programado. |
 | Escribir 100–500 correos personalizados a empresas | Sergio/Clacky (redactan) + tu proveedor de correo | 🟡 Con límites | Redactarlos es fácil. Para enviarlos usa una herramienta de envío masivo (Brevo, Mailgun…), no tu Gmail personal: Gmail bloquea las cuentas que envían en masa. Las leyes antispam (GDPR, CAN-SPAM, LFPDPPP en México…) exigen que el destinatario pueda darse de baja, que quede claro quién envía y, en algunos países, consentimiento previo. Recomendado: el agente prepara un CSV con los borradores, tú los revisas y los envía la herramienta. |

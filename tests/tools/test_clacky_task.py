@@ -6,7 +6,24 @@ import json
 import subprocess
 
 from openjarvis.core.config import JarvisConfig
+from openjarvis.tools.approval_store import ApprovalStore
 from openjarvis.tools.clacky_task import ClackyTaskTool, summarize_events
+
+
+class AutoDecide(ApprovalStore):
+    """Approval store whose user answers *decision* right after queueing."""
+
+    def __init__(self, db_path, decision="approved"):
+        super().__init__(str(db_path))
+        self.decision = decision
+        self.queued = []
+
+    def queue_action(self, **kwargs):
+        action = super().queue_action(**kwargs)
+        self.queued.append(action)
+        if self.decision:
+            self.update_status(action.id, self.decision)
+        return action
 
 
 def _ndjson(*events: dict) -> str:
@@ -60,9 +77,12 @@ def test_execute_runs_clacky_with_shared_model(tmp_path):
             stderr="",
         )
 
-    tool = ClackyTaskTool(config=_config(tmp_path), runner=runner, which=_which)
-    assert tool.spec.requires_confirmation is True
-    assert tool.spec.timeout_seconds == 42
+    store = AutoDecide(tmp_path / "a.db")
+    tool = ClackyTaskTool(
+        config=_config(tmp_path), runner=runner, which=_which, approvals=store
+    )
+    assert tool.spec.requires_confirmation is False  # approval queue instead
+    assert tool.spec.timeout_seconds == 42 + 300
     result = tool.execute(task="Open example.com", working_dir=str(tmp_path))
 
     assert result.success, result.content
@@ -88,14 +108,24 @@ def test_execute_reports_agent_errors_and_timeouts(tmp_path):
             stderr="",
         )
 
-    tool = ClackyTaskTool(config=_config(tmp_path), runner=failing, which=_which)
+    tool = ClackyTaskTool(
+        config=_config(tmp_path),
+        runner=failing,
+        which=_which,
+        approvals=AutoDecide(tmp_path / "a.db"),
+    )
     result = tool.execute(task="x", working_dir=str(tmp_path))
     assert not result.success and "401 bad key" in result.content
 
     def slow(cmd, **kwargs):
         raise subprocess.TimeoutExpired(cmd, 42)
 
-    tool = ClackyTaskTool(config=_config(tmp_path), runner=slow, which=_which)
+    tool = ClackyTaskTool(
+        config=_config(tmp_path),
+        runner=slow,
+        which=_which,
+        approvals=AutoDecide(tmp_path / "b.db"),
+    )
     assert "did not finish" in tool.execute(task="x", working_dir=str(tmp_path)).content
 
 
@@ -130,3 +160,58 @@ def test_execute_validates_inputs_and_environment(tmp_path):
         "not installed"
         in ClackyTaskTool(config=cfg, which=_which).execute(task="x").content
     )
+
+
+def _never_run(cmd, **kwargs):
+    raise AssertionError("OpenClacky must not run without approval")
+
+
+def test_denied_task_never_runs(tmp_path):
+    store = AutoDecide(tmp_path / "a.db", decision="denied")
+    tool = ClackyTaskTool(
+        config=_config(tmp_path), runner=_never_run, which=_which, approvals=store
+    )
+    result = tool.execute(task="Delete my Downloads", working_dir=str(tmp_path))
+    assert not result.success and "did not approve" in result.content
+    assert store.queued[0].description.endswith("Delete my Downloads")
+
+
+def test_pending_task_resumes_with_the_approved_payload(tmp_path):
+    cfg = _config(tmp_path)
+    cfg.extensions.clacky.approval_wait_seconds = 3
+    store = AutoDecide(tmp_path / "a.db", decision=None)
+    clock = iter(range(100))
+    tool = ClackyTaskTool(
+        config=cfg,
+        runner=_never_run,
+        which=_which,
+        approvals=store,
+        sleep=lambda s: None,
+        clock=lambda: next(clock),
+    )
+    waiting = tool.execute(task="Organize Downloads", working_dir=str(tmp_path))
+    assert not waiting.success and waiting.metadata["pending"] is True
+    action_id = waiting.metadata["approval_id"]
+    assert action_id in waiting.content
+
+    store.update_status(action_id, "approved")
+    calls = []
+
+    def runner(cmd, **kwargs):
+        calls.append(cmd)
+        return subprocess.CompletedProcess(
+            cmd,
+            0,
+            stdout=_ndjson({"type": "assistant_message", "content": "Ok"}),
+            stderr="",
+        )
+
+    tool._runner = runner
+    # The model cannot swap the task after approval: the stored payload wins.
+    done = tool.execute(approval_id=action_id, task="rm -rf /")
+    assert done.success and done.content.startswith("Ok")
+    assert calls[0][-1] == "Organize Downloads"
+    assert store.get_action(action_id).status == "executed"
+    again = tool.execute(approval_id=action_id)
+    assert not again.success and "executed" in again.content
+    assert "Unknown approval_id" in tool.execute(approval_id="nope").content

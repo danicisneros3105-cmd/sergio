@@ -1244,6 +1244,7 @@ class ClackyExtensionConfig:
     port: int = 7070
     path: str = ""  # Override for the extensions/clacky checkout
     timeout_seconds: float = 900.0  # Max time for one delegated task
+    approval_wait_seconds: float = 300.0  # Wait for the user's approval click
 
 
 @dataclass(slots=True)

@@ -54,7 +54,7 @@ Ejemplos de cosas que puedes pedir en el chat:
   (USGS).
 - *"¿Cuándo es el próximo lanzamiento de SpaceX?"*: usa `upcoming_launches`.
 - *"Organiza mi carpeta Descargas por tipo de archivo"*: usa `clacky_task`.
-  Sergio te pide confirmación y Clacky lo ejecuta.
+  Aparece en la campana 🔔 de la app; cuando apruebas, Clacky lo ejecuta.
 
 Para activar esas herramientas en un agente, añádelas a su lista de tools:
 
@@ -181,7 +181,9 @@ puede llamar a un teléfono real sin un operador:
 - `live_flights`, `live_earthquakes` y `upcoming_launches` están probadas con
   respuestas simuladas. Contra las APIs reales hay que probarlas en tu laptop.
 - `clacky_task` da a Clacky control total del ordenador mientras dura la
-  tarea, por eso Sergio pide confirmación antes de cada delegación.
+  tarea, por eso cada tarea espera tu aprobación en la campana 🔔 (5 minutos;
+  después puedes aprobarla y pedirle a Sergio que continúe). Lo aprobado no
+  se puede cambiar después: Clacky ejecuta exactamente lo que aprobaste.
 - Qué tareas son viables y sus límites legales (correos masivos, Instagram,
   llamadas, tareas escolares): [docs/es/CAPACIDADES.md](docs/es/CAPACIDADES.md).
 

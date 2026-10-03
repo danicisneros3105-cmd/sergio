@@ -79,3 +79,14 @@ def test_tool_executor_applies_the_token_saver(config, monkeypatch):
     )
     assert result.content.startswith("[compressed from 350")
     assert result.metadata["compressed_chars"] == 140
+
+
+def test_links_survive_compression(config):
+    set_compressor(lambda text, rate: "summary without links")
+    text = (
+        "See https://example.com/a?x=1 and (https://docs.example.org/b). "
+        + "filler " * 80
+        + " again https://example.com/a?x=1"
+    )
+    out, _ = maybe_compress("web_search", text, config)
+    assert out.endswith("Links:\nhttps://example.com/a?x=1\nhttps://docs.example.org/b")

@@ -15,12 +15,16 @@ Any failure leaves the original text untouched.
 from __future__ import annotations
 
 import logging
+import re
 import threading
 from typing import Any, Callable
 
 logger = logging.getLogger(__name__)
 
 Compressor = Callable[[str, float], str]
+
+_URL = re.compile(r"https?://[^\s<>\"')\]]+")
+_MAX_LINKS = 30
 
 _lock = threading.Lock()
 _compressor: Compressor | None = None
@@ -88,6 +92,12 @@ def maybe_compress(tool_name: str, text: str, config: Any) -> tuple[str, dict]:
         return text, {}
     if not short.strip() or len(short) >= len(text):
         return text, {}
+    # Token dropping mangles URLs; keep every link verbatim after the summary.
+    links = list(dict.fromkeys(_URL.findall(text)))[:_MAX_LINKS]
+    if links:
+        short = short.rstrip() + "\n\nLinks:\n" + "\n".join(links)
+        if len(short) >= len(text):
+            return text, {}
     note = (
         f"[compressed from {len(text)} to {len(short)} characters to save "
         "tokens; wording may be terse]\n"
