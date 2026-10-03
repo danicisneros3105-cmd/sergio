@@ -56,7 +56,7 @@ def test_vision_falls_back_from_kimi_to_gemini(monkeypatch):
     monkeypatch.setenv("MOONSHOT_API_KEY", "sk-test")
     broken = httpx.Client(transport=httpx.MockTransport(lambda r: httpx.Response(400)))
     monkeypatch.setattr(
-        vision_look, "_gemini", lambda jpeg, prompt: "Un celular negro."
+        vision_look, "_gemini", lambda jpeg, prompt, mime="": "Un celular negro."
     )
     assert vision_look.ask_vision(JPEG, "qué tengo", broken) == "Un celular negro."
 

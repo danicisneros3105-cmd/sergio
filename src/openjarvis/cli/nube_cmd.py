@@ -16,6 +16,7 @@ from rich.markup import escape
 console = Console()
 
 KIMI_PREFERENCE = ("kimi-k2.6", "kimi-k2.5", "kimi-k2-turbo")
+GEMINI_MODEL = "gemini-2.5-flash"  # fast, sees images, works with AQ. keys
 KIMI_URLS = ("https://api.moonshot.ai/v1", "https://api.moonshot.cn/v1")
 
 
@@ -100,11 +101,27 @@ def configurar(kimi_key: str, gemini_key: str, modelo: str) -> None:
     updates: dict[str, str] = {}
     main_model = modelo
     if kimi_key:
-        base_url, models = find_kimi(kimi_key)
-        chosen = modelo or pick_kimi(models)
-        console.print(f"[green]Kimi OK[/green] ({base_url}): modelo {escape(chosen)}")
-        updates.update(MOONSHOT_API_KEY=kimi_key, MOONSHOT_BASE_URL=base_url)
-        main_model = main_model or chosen
+        # A bad Kimi key must not stop Gemini from being saved.
+        try:
+            base_url, models = find_kimi(kimi_key)
+        except click.ClickException as exc:
+            console.print(
+                f"[yellow]Kimi no funcionó ({escape(exc.message[:200])}); "
+                "sigo sin Kimi.[/yellow]"
+            )
+            updates["MOONSHOT_API_KEY"] = ""  # forget a key that does not work
+            if not gemini_key:
+                write_env(env_path, updates)
+                raise click.ClickException(
+                    "Kimi rechazó la clave y no hay clave de Gemini."
+                ) from exc
+        else:
+            chosen = modelo or pick_kimi(models)
+            console.print(
+                f"[green]Kimi OK[/green] ({base_url}): modelo {escape(chosen)}"
+            )
+            updates.update(MOONSHOT_API_KEY=kimi_key, MOONSHOT_BASE_URL=base_url)
+            main_model = main_model or chosen
     if gemini_key:
         updates["GEMINI_API_KEY"] = gemini_key
         done = subprocess.run(
@@ -120,7 +137,7 @@ def configurar(kimi_key: str, gemini_key: str, modelo: str) -> None:
         else:
             why = escape(done.stderr[-300:])
             console.print(f"[yellow]No pude instalar google-genai: {why}[/yellow]")
-        main_model = main_model or "gemini-3-flash-preview"
+        main_model = main_model or GEMINI_MODEL
     write_env(env_path, updates)
 
     config_path = get_config_dir() / "config.toml"

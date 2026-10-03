@@ -110,3 +110,31 @@ def test_character_draws_every_state():
         draw_character(p, QPointF(40, 40), 20, state, 1.0)
         p.end()
         assert img.pixelColor(40, 52).alpha() > 200  # body painted
+
+
+def test_companion_flies_to_a_spot_and_comes_back():
+    pytest.importorskip("PySide6")
+    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+    try:
+        from PySide6.QtWidgets import QApplication
+    except ImportError as exc:
+        pytest.skip(str(exc))
+    from sergio_escritorio.companion import POINT_PAD, Companion
+
+    app = QApplication.instance() or QApplication([])
+    c = Companion(follow=False)
+    c.point_at(500, 300, "Exportar", physical=False)
+    assert c.pointing
+    for _ in range(80):
+        c._tick()
+    assert abs(c.pos().x() - (500 - POINT_PAD)) <= 2
+    assert abs(c.pos().y() - (300 - POINT_PAD)) <= 2
+    out = os.environ.get("SERGIO_SHOT_DIR")
+    image = c.grab()
+    assert not image.isNull()
+    if out:
+        image.save(os.path.join(out, "companion-pointing.png"))
+    c._target_until = 0
+    c._tick()
+    assert not c.pointing
+    app.processEvents()

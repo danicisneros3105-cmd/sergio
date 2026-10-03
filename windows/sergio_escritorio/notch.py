@@ -3,7 +3,7 @@
 Pure black, flush with the top edge, home of Sergio's orb. Compact when idle
 (orb + a quiet waveform); while listening the waveform follows your real
 voice; while thinking the label shimmers; answers type themselves in. Click
-it to talk. Only the pill takes clicks; the rest of the screen stays free.
+it to open the control center (panel.py). Only the pill takes clicks.
 """
 
 from __future__ import annotations
@@ -76,7 +76,7 @@ class Notch(QWidget):
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setToolTip("Clic para hablar con Sergio")
+        self.setToolTip("Clic para abrir el centro de control de Sergio")
         self.resize(CANVAS_W, CANVAS_H)
         self.on_click = on_click
         # Hide while a video or game is fullscreen (unless Sergio is active).

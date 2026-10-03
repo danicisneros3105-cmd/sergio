@@ -103,7 +103,7 @@ def prefer_cloud(config_path: Path, env: dict[str, str]) -> str:
     if env.get("MOONSHOT_API_KEY"):
         chosen = "kimi-k2.6"
     elif env.get("GEMINI_API_KEY"):
-        chosen = "gemini-3-flash-preview"
+        chosen = "gemini-2.5-flash"
     else:
         return ""
     intel["default_model"] = chosen

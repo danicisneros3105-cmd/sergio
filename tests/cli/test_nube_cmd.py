@@ -71,3 +71,30 @@ def test_clean_key_repairs_copy_paste_damage():
     assert nube_cmd.clean_key(" 'sk-abc'​\n") == "sk-abc"
     with pytest.raises(click.ClickException, match="caracteres extraños"):
         nube_cmd.clean_key("sk-Ехu")  # Cyrillic lookalikes cannot be repaired
+
+
+def test_bad_kimi_key_still_saves_gemini(tmp_path, monkeypatch):
+    import click
+
+    monkeypatch.setattr(
+        "openjarvis.cli.service_cmd.env_file", lambda: tmp_path / "sergio.env"
+    )
+    monkeypatch.setattr("openjarvis.core.paths.get_config_dir", lambda: tmp_path)
+    (tmp_path / "sergio.env").write_text("MOONSHOT_API_KEY=sk-old-bad\n")
+
+    def reject(key):
+        raise click.ClickException("Kimi rejected the key")
+
+    monkeypatch.setattr(nube_cmd, "find_kimi", reject)
+    monkeypatch.setattr(
+        nube_cmd.subprocess,
+        "run",
+        lambda cmd, **kw: subprocess.CompletedProcess(cmd, 0, "", ""),
+    )
+    result = CliRunner().invoke(nube_cmd.nube, ["configurar", "--gemini", "AQ.g"])
+    assert result.exit_code == 0, result.output
+    assert "sigo sin Kimi" in result.output
+    env = (tmp_path / "sergio.env").read_text()
+    assert "GEMINI_API_KEY=AQ.g" in env and "MOONSHOT_API_KEY=\n" in env
+    cfg = (tmp_path / "config.toml").read_text()
+    assert 'default_model = "gemini-2.5-flash"' in cfg

@@ -12,6 +12,7 @@ voice. Nothing leaves the laptop unless a tool needs the internet.
 from __future__ import annotations
 
 import io
+import json
 import logging
 import os
 import queue
@@ -171,6 +172,31 @@ class SergioClient:
         ]
         del self.history[: -HISTORY_TURNS * 2]
         return answer
+
+    def screen_help(self, png: bytes, question: str, elements: list[dict]) -> dict:
+        """Clicky-style: answer about the screen and say where to point."""
+        resp = self.http.post(
+            f"{self.base}/v1/vision/screen",
+            files={"image": ("pantalla.png", png, "image/png")},
+            data={"question": question, "elements": json.dumps(elements)},
+            timeout=httpx.Timeout(150, connect=5),
+        )
+        if resp.status_code != 200:
+            try:
+                why = resp.json().get("detail") or resp.text
+            except ValueError:
+                why = resp.text
+            raise RuntimeError(str(why)[:300])
+        reply = resp.json()
+        self.history += [
+            {"role": "user", "content": question},
+            {
+                "role": "assistant",
+                "content": f"(Mirando tu pantalla) {reply['answer']}",
+            },
+        ]
+        del self.history[: -HISTORY_TURNS * 2]
+        return reply
 
     def speak_on_server(self, text: str) -> bytes:
         resp = self.http.post(
@@ -345,7 +371,6 @@ _CAMERA_PHRASES = (
     "que tengo en la mano",
     "que tengo aqui",
     "que tengo en las manos",
-    "que es esto",
     "que ves",
     "que estas viendo",
     "mirame",
@@ -365,13 +390,92 @@ _CAMERA_PHRASES = (
 )
 
 
-def wants_camera(text: str) -> bool:
-    """Questions that need Sergio's eyes, answered straight by the camera."""
+_SCREEN_PHRASES = (
+    "pantalla",
+    "donde esta",
+    "donde le doy",
+    "donde hago clic",
+    "donde presiono",
+    "donde toco",
+    "que boton",
+    "que es esto",
+    "que significa esto",
+    "que dice aqui",
+    "lee esto",
+    "explicame esto",
+    "explicame esta",
+    "ayudame con esto",
+    "ayudame aqui",
+    "como hago esto",
+    "como hago aqui",
+    "que hago aqui",
+    "senalame",
+    "muestrame donde",
+    "en esta pagina",
+    "en esta ventana",
+)
+
+
+_ACTION_VERBS = {
+    "abre",
+    "abrir",
+    "cierra",
+    "cerrar",
+    "haz",
+    "hace",
+    "pulsa",
+    "presiona",
+    "escribe",
+    "busca",
+    "toma",
+    "guarda",
+    "copia",
+    "pega",
+    "borra",
+    "ejecuta",
+    "instala",
+    "mueve",
+    "envia",
+    "manda",
+    "publica",
+    "edita",
+    "crea",
+    "ordena",
+}
+
+
+def _plain(text: str) -> str:
     import unicodedata
 
     plain = unicodedata.normalize("NFKD", text.lower())
     plain = "".join(c for c in plain if not unicodedata.combining(c))
-    plain = " ".join("".join(c if c.isalnum() else " " for c in plain).split())
+    return " ".join("".join(c if c.isalnum() else " " for c in plain).split())
+
+
+def wants_screen(text: str) -> bool:
+    """Questions about what is on screen: look, answer and point (Clicky)."""
+    plain = _plain(text)
+    if plain.split()[:1] and plain.split()[0] in _ACTION_VERBS:
+        return False  # an order: the agent does it instead of pointing
+    return any(phrase in plain for phrase in _SCREEN_PHRASES)
+
+
+def target_point(
+    reply: dict, elements: list[dict], scale: float
+) -> tuple[int, int] | None:
+    """Screen pixel to point at, from the model's element id or x,y."""
+    chosen = reply.get("element")
+    for el in elements:
+        if chosen is not None and el.get("id") == chosen:
+            return round(el["x"] * scale), round(el["y"] * scale)
+    if reply.get("x") is not None and reply.get("y") is not None:
+        return round(reply["x"] * scale), round(reply["y"] * scale)
+    return None
+
+
+def wants_camera(text: str) -> bool:
+    """Questions that need Sergio's eyes, answered straight by the camera."""
+    plain = _plain(text)
     return any(phrase in plain for phrase in _CAMERA_PHRASES)
 
 
@@ -388,11 +492,15 @@ class Assistant:
         clock: Callable[[], float] = time.monotonic,
         eyes: Callable[[], bytes] | None = None,
         on_seen: Callable[[str], None] = lambda _text: None,
+        screen: Callable[[], tuple[bytes, list[dict], float]] | None = None,
+        point: Callable[[int, int, str], None] = lambda _x, _y, _label: None,
     ) -> None:
         self.client = client
         self.ui = ui
         self.eyes = eyes  # webcam photo (JPEG); None = no camera
         self.on_seen = on_seen  # show what Sergio saw (camera window)
+        self.screen = screen  # screenshot + elements, for screen help
+        self.point = point  # fly the orb to a spot on screen
         self.player = player
         self.chime = chime
         self.clock = clock
@@ -457,10 +565,39 @@ class Assistant:
         if not text:
             self.ui.say("No te escuché. Intenta otra vez.")
             return
+        self._respond(text)
+
+    def on_text(self, text: str) -> None:
+        """A request typed in the notch (same as saying it, no microphone)."""
+        text = text.strip()
+        if not text or self.busy:
+            return
+        self.busy = True
+        try:
+            self._respond(text)
+        except Exception as exc:  # noqa: BLE001
+            log.exception("typed turn failed")
+            self.ui.say(f"Algo falló: {explain(exc)}")
+        finally:
+            self.busy = False
+            self.ui.state("idle")
+
+    def _respond(self, text: str) -> None:
         self.ui.state("thinking")
         self.ui.say(f"«{text}»")
         answer = ""
-        if self.eyes is not None and wants_camera(text):
+        if self.screen is not None and wants_screen(text):
+            try:
+                png, elements, scale = self.screen()
+                reply = self.client.screen_help(png, text, elements)
+                answer = str(reply.get("answer") or "")
+                spot = target_point(reply, elements, scale)
+                if spot is not None:
+                    self.point(spot[0], spot[1], str(reply.get("label") or ""))
+            except Exception as exc:  # noqa: BLE001 — fall back to the agent
+                log.exception("screen help failed")
+                self.ui.say(f"No pude ver tu pantalla: {explain(exc)}")
+        if not answer and self.eyes is not None and wants_camera(text):
             try:
                 answer = self.client.look(self.eyes(), text)
                 self.on_seen(answer)

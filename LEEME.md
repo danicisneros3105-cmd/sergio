@@ -254,6 +254,20 @@ sigue, te escucha y usa la computadora por ti:
   «Sergio», ocultar la esfera o el notch, pausar el control, abrir el chat o
   salir.
 
+- **Centro de control en el notch** (clic en el notch): se despliega como
+  el Dynamic Island, en negro, con cuatro pestañas:
+  - *Inicio*: escríbele a Sergio (útil si no te oye bien) o pulsa Hablar, y
+    botones estilo iPhone para «Escuchar Sergio», control de pantalla,
+    cámara y la esfera junto al cursor.
+  - *Sergio*: colores, ojos, tamaño y voz, con vista previa en vivo.
+  - *Mundo* (God's Eye View): sismos de las últimas 24 h y próximos
+    lanzamientos, y «Ir a un lugar» abre el globo 3D en su propia ventana
+    (sin barras de navegador).
+  - *Guías*: busca una guía experta de ECC y «Usar esta guía».
+- **Te ayuda con tu pantalla, como Clicky**: «Sergio, ¿dónde está el botón
+  de exportar?», «¿qué es esto?», «explícame esto». Mira tu pantalla,
+  te responde en voz alta y la esfera **vuela hasta el botón y lo señala**
+  con un círculo. Si le das una orden («haz clic en Guardar»), lo hace.
 - **Cámara flotante** (Ctrl+Alt+C o clic derecho en el icono → Cámara): una
   ventanita redonda que arrastras a donde quieras (la rueda del mouse cambia
   su tamaño). Pregúntale «Sergio, ¿qué tengo en la mano?», «¿qué gesto
@@ -322,6 +336,9 @@ sergio nube configurar      # pide las claves (no se ven al escribir)
 
 - Comprueba la clave de Kimi, elige su mejor modelo (p. ej. `kimi-k2.6`) y lo
   deja como principal; `qwen3:8b` queda de respaldo si no hay internet.
+- Solo con Gemini: `sergio nube configurar --gemini TU_CLAVE` usa
+  `gemini-2.5-flash` (rápido y ve imágenes). Si la clave de Kimi falla, la
+  de Gemini se guarda igual.
 - Las claves se guardan **solo** en `~/.openjarvis/sergio.env` (privado), nunca
   en el repositorio ni en `config.toml`.
 - Kimi usa su modo rápido (sin "pensamiento largo") para que la voz responda

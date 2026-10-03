@@ -523,6 +523,14 @@ def create_app(
     from openjarvis.faces.routes import router as faces_router
 
     app.include_router(faces_router)
+    # Screen help for the cursor companion (look and point, Clicky-style).
+    from openjarvis.server.vision_routes import router as vision_router
+
+    app.include_router(vision_router)
+    # Native notch tabs: God's Eye View data and ECC guides.
+    from openjarvis.server.notch_routes import router as notch_router
+
+    app.include_router(notch_router)
     include_all_routes(app)
 
     # Restore SendBlue channel bindings from database on startup

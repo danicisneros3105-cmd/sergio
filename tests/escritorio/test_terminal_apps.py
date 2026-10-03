@@ -68,7 +68,7 @@ def test_run_shell_output_and_timeout(tmp_path):
             "kimi-k2.5",
             None,
         ),
-        ("", {"GEMINI_API_KEY": "g"}, "gemini-3-flash-preview", None),
+        ("", {"GEMINI_API_KEY": "g"}, "gemini-2.5-flash", None),
         ('[intelligence]\ndefault_model = "qwen3:8b"\n', {}, "", None),
     ],
 )

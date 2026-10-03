@@ -77,6 +77,28 @@ def make_icon(state: str = "idle") -> object:
     return image
 
 
+def open_app_window(url: str) -> None:
+    """Open a page (the 3D globe) as its own app window, without browser bars."""
+    import shutil
+    import subprocess
+
+    edge = shutil.which("msedge") or next(
+        (
+            p
+            for p in (
+                r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
+                r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
+            )
+            if os.path.exists(p)
+        ),
+        None,
+    )
+    if edge:
+        subprocess.Popen([edge, f"--app={url}", "--window-size=1280,800"])
+    else:
+        webbrowser.open(url)
+
+
 def single_instance() -> bool:
     """False if Sergio is already running (named mutex)."""
     if sys.platform != "win32":
@@ -145,6 +167,7 @@ def run(config: dict[str, Any]) -> None:
     from sergio_escritorio import companion as companion_mod
     from sergio_escritorio.camera import CameraFeed, CameraWindow
     from sergio_escritorio.character import set_theme
+    from sergio_escritorio.panel import ControlCenter, PanelActions, Toggle
     from sergio_escritorio.personalize import PersonalizeDialog
 
     set_theme(config["theme"], config["eyes"])
@@ -155,13 +178,19 @@ def run(config: dict[str, Any]) -> None:
     camera_window = CameraWindow(feed)
     notch = Notch(fullscreen_app=foreground_is_fullscreen)
 
+    panels: list[ControlCenter] = []  # created once the tray actions exist
+
     def show_state(name: str) -> None:
         companion.set_state(name)
         notch.set_state(name)
+        for panel in panels:
+            panel.set_state(name)
 
     def show_text(text: str, seconds: float = 0.0) -> None:
         companion.say(text, seconds)
         notch.say(text, seconds)
+        for panel in panels:
+            panel.show_answer(text)
         if camera_window.isVisible():
             camera_window.show_overlay(text)
 
@@ -175,6 +204,7 @@ def run(config: dict[str, Any]) -> None:
         toggle = Signal()
         camera = Signal()
         peek = Signal()  # open the camera window (Sergio is looking)
+        point = Signal(int, int, str)  # fly the orb to a spot (screen help)
 
     bridge = Bridge()
     bridge.state.connect(show_state)
@@ -219,7 +249,18 @@ def run(config: dict[str, Any]) -> None:
         bridge.peek.emit()
         return camera_shot()
 
-    assistant = Assistant(client, ui=UIAdapter(), eyes=eyes)
+    def screen() -> tuple[bytes, list[dict], float]:
+        """Screen help: what Sergio sees when you ask about your screen."""
+        bridge.caption.emit("Mirando tu pantalla…")
+        return controller.snapshot()
+
+    assistant = Assistant(
+        client,
+        ui=UIAdapter(),
+        eyes=eyes,
+        screen=screen,
+        point=lambda x, y, label: bridge.point.emit(x, y, label),
+    )
     ears = Ears(
         assistant, wake_word=bool(config["wake_word"]), on_level=bridge.level.emit
     )
@@ -318,6 +359,54 @@ def run(config: dict[str, Any]) -> None:
 
     personalize_action.triggered.connect(open_personalize)
     menu.addAction(personalize_action)
+
+    # -- control center (click the notch) ---------------------------------
+    def status() -> str:
+        brain = getattr(client, "_model", "") or "el modelo de Sergio"
+        ear = "te escucha" if ears.wake_word else "Ctrl+Espacio para hablar"
+        return f"Piensa con {brain} · {ear}"
+
+    def set_camera(on: bool) -> None:
+        camera_window.open() if on else camera_window.close_camera()
+
+    panel = ControlCenter(
+        PanelActions(
+            talk=ears.talk,
+            send=lambda text: threading.Thread(
+                target=assistant.on_text, args=(text,), daemon=True
+            ).start(),
+            toggles=[
+                Toggle(
+                    "Escuchar «Sergio»",
+                    "wave",
+                    lambda: ears.wake_word,
+                    wake_action.setChecked,
+                ),
+                Toggle(
+                    "Control de pantalla",
+                    "hand",
+                    lambda: controller.enabled,
+                    control_action.setChecked,
+                ),
+                Toggle("Cámara", "camera", camera_window.isVisible, set_camera),
+                Toggle(
+                    "Junto al cursor",
+                    "pointer",
+                    companion.isVisible,
+                    show_action.setChecked,
+                ),
+            ],
+            config=config,
+            save_config=save_personalization,
+            open_url=open_app_window,
+            server_url=config["server_url"],
+            status=status,
+        )
+    )
+    panels.append(panel)
+    panel_action = QAction("Centro de control  (clic en el notch)", menu)
+    panel_action.triggered.connect(panel.open)
+    menu.insertAction(talk_action, panel_action)
     menu.addSeparator()
 
     chat_action = QAction("Abrir el chat en el navegador", menu)
@@ -338,6 +427,12 @@ def run(config: dict[str, Any]) -> None:
     bridge.talk.connect(ears.talk)
     bridge.camera.connect(camera_window.toggle)
     bridge.peek.connect(camera_window.open)
+
+    def point_at(x: int, y: int, label: str) -> None:
+        companion.show()  # even if hidden: pointing is the whole point
+        companion.point_at(x, y, label)
+
+    bridge.point.connect(point_at)
     bridge.toggle.connect(lambda: set_control(not controller.enabled))
     hotkeys = keyboard.GlobalHotKeys(
         {
@@ -348,7 +443,7 @@ def run(config: dict[str, Any]) -> None:
     )
     hotkeys.start()
 
-    notch.on_click = bridge.talk.emit
+    notch.on_click = panel.toggle
     companion.setVisible(bool(config["show_companion"]))
     notch.setVisible(show_notch)
     show_text("Hola, soy Sergio. Di «Sergio…» o pulsa Ctrl+Espacio.", 6)

@@ -23,12 +23,14 @@ KIMI_VISION_MODELS = ("kimi-k2.6", "kimi-k2.5", "moonshot-v1-8k-vision-preview")
 GEMINI_VISION_MODELS = ("gemini-2.5-flash", "gemini-3-flash-preview")
 
 
-def _kimi(jpeg: bytes, prompt: str, http: httpx.Client) -> str:
+def _kimi(
+    jpeg: bytes, prompt: str, http: httpx.Client, mime: str = "image/jpeg"
+) -> str:
     key = os.environ.get("MOONSHOT_API_KEY") or os.environ.get("KIMI_API_KEY")
     if not key:
         raise RuntimeError("no Kimi key")
     base = os.environ.get("MOONSHOT_BASE_URL", "https://api.moonshot.ai/v1").rstrip("/")
-    image = "data:image/jpeg;base64," + base64.b64encode(jpeg).decode("ascii")
+    image = f"data:{mime};base64," + base64.b64encode(jpeg).decode("ascii")
     wanted = os.environ.get("SERGIO_VISION_MODEL", "")
     models = ([wanted] if wanted.startswith(("kimi", "moonshot")) else []) + list(
         KIMI_VISION_MODELS
@@ -46,7 +48,7 @@ def _kimi(jpeg: bytes, prompt: str, http: httpx.Client) -> str:
                     ],
                 }
             ],
-            "max_tokens": 400,
+            "max_tokens": 700,
         }
         if model.startswith("kimi-k2."):
             body["thinking"] = {"type": "disabled"}
@@ -64,7 +66,7 @@ def _kimi(jpeg: bytes, prompt: str, http: httpx.Client) -> str:
     raise RuntimeError(f"Kimi vision failed: {last}")
 
 
-def _gemini(jpeg: bytes, prompt: str) -> str:
+def _gemini(jpeg: bytes, prompt: str, mime: str = "image/jpeg") -> str:
     key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
     if not key:
         raise RuntimeError("no Gemini key")
@@ -82,7 +84,7 @@ def _gemini(jpeg: bytes, prompt: str) -> str:
             resp = client.models.generate_content(
                 model=model,
                 contents=[
-                    types.Part.from_bytes(data=jpeg, mime_type="image/jpeg"),
+                    types.Part.from_bytes(data=jpeg, mime_type=mime),
                     prompt,
                 ],
             )
@@ -118,15 +120,19 @@ def _ollama(jpeg: bytes, prompt: str, http: httpx.Client) -> str:
     return str(resp.json()["message"]["content"]).strip()
 
 
-def ask_vision(jpeg: bytes, question: str, http: httpx.Client | None = None) -> str:
-    """Answer *question* about the image with the first vision model that works."""
+def ask_image(
+    image: bytes,
+    prompt: str,
+    http: httpx.Client | None = None,
+    mime: str = "image/jpeg",
+) -> str:
+    """Send *prompt* with the image to the first vision model that works."""
     http = http or httpx.Client()
-    prompt = PROMPT.format(question=question or "¿Qué ves?")
     errors = []
     for name, call in (
-        ("Kimi", lambda: _kimi(jpeg, prompt, http)),
-        ("Gemini", lambda: _gemini(jpeg, prompt)),
-        ("Ollama", lambda: _ollama(jpeg, prompt, http)),
+        ("Kimi", lambda: _kimi(image, prompt, http, mime)),
+        ("Gemini", lambda: _gemini(image, prompt, mime)),
+        ("Ollama", lambda: _ollama(image, prompt, http)),
     ):
         try:
             answer = call()
@@ -137,4 +143,9 @@ def ask_vision(jpeg: bytes, question: str, http: httpx.Client | None = None) -> 
     raise RuntimeError("Ningún modelo con visión respondió. " + " | ".join(errors))
 
 
-__all__ = ["ask_vision"]
+def ask_vision(jpeg: bytes, question: str, http: httpx.Client | None = None) -> str:
+    """Answer *question* about a webcam photo."""
+    return ask_image(jpeg, PROMPT.format(question=question or "¿Qué ves?"), http)
+
+
+__all__ = ["ask_image", "ask_vision"]

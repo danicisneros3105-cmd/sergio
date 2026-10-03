@@ -155,6 +155,24 @@ class Controller:
             "elements": elements,
         }
 
+    def snapshot(self) -> tuple[bytes, list[dict], float]:
+        """Screenshot (PNG) + elements in screenshot pixels + scale to screen.
+
+        Used by the companion's screen help: the vision model sees the same
+        picture the element coordinates refer to.
+        """
+        shot = self.screen()
+        scale = float(shot["scale"]) or 1.0
+        try:
+            elements = self.ui()["elements"]
+        except Exception:  # noqa: BLE001 — accessibility is a bonus
+            elements = []
+        in_shot = [
+            {**el, "x": round(el["x"] / scale), "y": round(el["y"] / scale)}
+            for el in elements
+        ]
+        return base64.b64decode(shot["image_png_b64"]), in_shot, scale
+
     # -- acting ------------------------------------------------------------
     def _point(self, action: dict) -> tuple[int, int]:
         if action.get("element") not in (None, ""):

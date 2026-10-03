@@ -38,6 +38,25 @@ CANVAS_W, CANVAS_H = 380, 132
 ORB = 9.0  # character radius
 BUBBLE_MAX_W = 300.0
 FONT_FAMILIES = ["Segoe UI Variable Text", "SF Pro Text", "Geist", "Segoe UI"]
+POINT_PAD = 34.0  # where the pointed spot sits inside the canvas
+POINT_SECONDS = 7.0
+
+
+def to_logical(x: float, y: float) -> QPointF:
+    """Physical screen pixels (Windows accessibility, mss) -> Qt coordinates.
+
+    Qt keeps each screen's origin in native pixels and scales the size, so a
+    point is mapped relative to the origin of the screen that contains it.
+    """
+    for screen in QGuiApplication.screens():
+        geo = screen.geometry()
+        dpr = screen.devicePixelRatio() or 1.0
+        if (
+            geo.x() <= x < geo.x() + geo.width() * dpr
+            and geo.y() <= y < geo.y() + geo.height() * dpr
+        ):
+            return QPointF(geo.x() + (x - geo.x()) / dpr, geo.y() + (y - geo.y()) / dpr)
+    return QPointF(x, y)
 
 
 def _font(size: float, weight: QFont.Weight = QFont.Weight.Normal) -> QFont:
@@ -70,6 +89,9 @@ class Companion(QWidget):
         self._flip = False
         self.follow = follow
         self.captions = captions  # off when the notch shows the text
+        self._target: QPointF | None = None  # Clicky-style pointing
+        self._target_until = 0.0
+        self._target_label = ""
         self._timer = QTimer(self)
         self._timer.timeout.connect(self._tick)
         self._timer.start(16)
@@ -87,9 +109,29 @@ class Companion(QWidget):
         self._caption_until = time.monotonic() + seconds
         self.update()
 
+    def point_at(
+        self, x: float, y: float, label: str = "", physical: bool = True
+    ) -> None:
+        """Fly to a spot on screen and highlight it for a few seconds."""
+        self._target = to_logical(x, y) if physical else QPointF(x, y)
+        self._target_until = time.monotonic() + POINT_SECONDS
+        self._target_label = label
+        self.update()
+
+    @property
+    def pointing(self) -> bool:
+        return self._target is not None
+
     # -- motion -------------------------------------------------------------
     def _tick(self) -> None:
-        if self.follow:
+        if self._target is not None and time.monotonic() > self._target_until:
+            self._target = None
+        if self._target is not None:
+            self._flip = False
+            anchor = self._target - QPointF(POINT_PAD, POINT_PAD)
+            self._pos += (anchor - self._pos) * 0.14  # a visible glide over
+            self.move(self._pos.toPoint())
+        elif self.follow:
             cursor = QPointF(QCursor.pos())
             screen = QGuiApplication.screenAt(cursor.toPoint())
             if screen is not None:
@@ -115,6 +157,8 @@ class Companion(QWidget):
 
     # -- drawing ------------------------------------------------------------
     def orb_centre(self) -> QPointF:
+        if self._target is not None:
+            return QPointF(POINT_PAD + 22, POINT_PAD + 20)
         x = CANVAS_W - 2 * ORB if self._flip else 2 * ORB
         return QPointF(x, 2 * ORB)
 
@@ -122,7 +166,13 @@ class Companion(QWidget):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         t = time.monotonic() - self._t0
+        if self._target is not None:
+            self.draw_spot(painter, t)
         self.draw_orb(painter, t)
+        if self._target is not None:
+            self.draw_bubble(painter, self._target_label or "Aquí", self.caption)
+            painter.end()
+            return
         label = STATE_LABELS.get(self.state, "")
         if self.captions and (self.caption or (label and self.state != "speaking")):
             self.draw_bubble(painter, label, self.caption)
@@ -130,6 +180,21 @@ class Companion(QWidget):
 
     def draw_orb(self, p: QPainter, t: float) -> None:
         draw_character(p, self.orb_centre(), ORB, self.state, t, QPointF(-0.6, -0.8))
+
+    def draw_spot(self, p: QPainter, t: float) -> None:
+        """A soft pulsing ring on the spot Sergio is pointing at."""
+        spot = QPointF(POINT_PAD, POINT_PAD)
+        accent = STATE_COLORS.get("idle", QColor(10, 132, 255))
+        for i in range(2):
+            phase = (t * 1.2 + i * 0.5) % 1.0
+            ring = QColor(accent)
+            ring.setAlphaF(0.55 * (1 - phase))
+            p.setPen(QPen(ring, 2.2))
+            p.setBrush(Qt.BrushStyle.NoBrush)
+            p.drawEllipse(spot, 8 + 18 * phase, 8 + 18 * phase)
+        p.setPen(QPen(QColor(255, 255, 255, 230), 2))
+        p.setBrush(accent)
+        p.drawEllipse(spot, 5.5, 5.5)
 
     def draw_bubble(self, p: QPainter, label: str, text: str) -> None:
         title_font = _font(8.5, QFont.Weight.DemiBold)
