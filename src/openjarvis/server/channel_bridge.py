@@ -126,7 +126,7 @@ class ChannelBridge:
         metadata: Optional[Dict[str, Any]] = None,
         max_length: int = _DEFAULT_MAX_LENGTH,
     ) -> str:
-        if not self._sender_allowed(sender_id, channel_type):
+        if not self.sender_allowed(sender_id, channel_type):
             logger.warning(
                 "Ignored %s message from a number that is not an owner number",
                 channel_type,
@@ -144,26 +144,38 @@ class ChannelBridge:
         # Regular chat — route to JarvisSystem.ask()
         return self._handle_chat(sender_id, stripped, channel_type, max_length)
 
-    def _sender_allowed(self, sender_id: str, channel_type: str) -> bool:
-        """Phone-number channels (WhatsApp/SMS) only serve the owner.
+    def _owners(self) -> List[str]:
+        """Owner numbers, read from config once (restart to apply changes)."""
+        if self._owner_numbers is None:
+            from openjarvis.phone.numbers import owner_numbers
 
-        Anyone can text a public number, and the assistant behind it can read
-        the user's files and profile, so these channels fail closed: with no
-        ``[phone] owner_numbers`` configured, nobody is answered.
-        """
-        if channel_type not in _PHONE_CHANNELS:
-            return True
-        from openjarvis.phone.numbers import is_owner, owner_numbers
-
-        owners = self._owner_numbers
-        if owners is None:
             try:
                 from openjarvis.core.config import load_config
 
-                owners = owner_numbers(load_config())
-            except Exception:  # noqa: BLE001 — fail closed
-                owners = []
+                self._owner_numbers = owner_numbers(load_config())
+            except Exception:  # noqa: BLE001 — fail closed for WhatsApp
+                self._owner_numbers = []
+        return self._owner_numbers
+
+    def sender_allowed(self, sender_id: str, channel_type: str) -> bool:
+        """Whether a phone-number channel should answer *sender_id*.
+
+        WhatsApp (Sergio's own number) fails closed: with no
+        ``[phone] owner_numbers`` nobody is answered, because the assistant
+        behind it can read the user's files and profile. Twilio SMS and
+        SendBlue keep their previous open behaviour until owner numbers are
+        configured, then serve only those numbers.
+        """
+        if channel_type not in _PHONE_CHANNELS:
+            return True
+        from openjarvis.phone.numbers import is_owner
+
+        owners = self._owners()
+        if not owners and channel_type != "whatsapp":
+            return True
         return is_owner(sender_id, owners)
+
+    _sender_allowed = sender_allowed  # backward-compatible private name
 
     # --------------------------------------------------------------
     # Command parsing

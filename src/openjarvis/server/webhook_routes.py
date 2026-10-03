@@ -82,6 +82,12 @@ def _format_for_sms(text: str) -> str:
     return text.strip()
 
 
+def _sender_allowed(bridge: Any, sender: str, channel_type: str) -> bool:
+    """Owner gate of the channel bridge (see ChannelBridge.sender_allowed)."""
+    check = getattr(bridge, "sender_allowed", None)
+    return True if check is None else bool(check(sender, channel_type))
+
+
 _WHATSAPP_MAX_CHARS = 4096
 
 
@@ -157,6 +163,12 @@ def create_webhook_router(
             "channel_bridge",
             None,
         )
+        # Check the sender before any (paid) acknowledgement SMS goes out.
+        if not _sender_allowed(active_bridge, from_number, "twilio"):
+            return Response(
+                content="<Response></Response>",
+                media_type="application/xml",
+            )
 
         def _handle_twilio() -> None:
 
@@ -412,6 +424,8 @@ def create_webhook_router(
 
         if not active_bridge:
             logger.warning("No channel bridge — cannot process SendBlue msg")
+            return Response("OK", status_code=200)
+        if not _sender_allowed(active_bridge, from_number, "sendblue"):
             return Response("OK", status_code=200)
 
         # Message queue tracking (per-sender)

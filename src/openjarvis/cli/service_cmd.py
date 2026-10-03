@@ -78,6 +78,8 @@ def render_units(root: Path, uv: str, port: int, path_env: str) -> dict[str, str
         "[Service]\n"
         "Type=simple\n"
         f"ExecStart={uv} run --project {root} sergio extensions run\n"
+        # The tunnel must forward to the port the server really uses.
+        f"Environment=SERGIO_SERVER_PORT={port}\n"
         f"{common}"
         "KillMode=mixed\n"
         "TimeoutStopSec=30\n\n"

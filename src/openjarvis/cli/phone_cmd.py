@@ -26,12 +26,24 @@ SECRET_KEYS = (
 
 
 def read_env(path: Path) -> dict[str, str]:
+    """Parse KEY=value lines like systemd's EnvironmentFile.
+
+    Accepts an optional leading ``export`` and strips matching surrounding
+    quotes, so the CLI and the service see exactly the same values.
+    """
     values: dict[str, str] = {}
     if path.exists():
         for line in path.read_text().splitlines():
-            if "=" in line and not line.lstrip().startswith("#"):
-                key, _, value = line.partition("=")
-                values[key.strip()] = value.strip()
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            if line.startswith("export "):
+                line = line[len("export ") :].lstrip()
+            key, _, value = line.partition("=")
+            value = value.strip()
+            if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+                value = value[1:-1]
+            values[key.strip()] = value
     return values
 
 
@@ -154,19 +166,19 @@ def configurar() -> None:
             "WHATSAPP_VERIFY_TOKEN": verify if wa_token else "",
         },
     )
-    public = f"https://{domain}" if domain else ""
-    update_config(
-        get_config_dir() / "config.toml",
-        {
-            "phone": {
-                "enabled": bool(sid and token and number and public),
-                "owner_numbers": [owner],
-                "owner_name": name,
-                "public_url": public,
-            },
-            "tunnel": {"provider": "ngrok" if domain else "", "domain": domain},
-        },
-    )
+    # An empty domain keeps the current tunnel (e.g. a Cloudflare setup).
+    public = f"https://{domain}" if domain else cfg.phone.public_url
+    sections: dict[str, dict[str, Any]] = {
+        "phone": {
+            "enabled": bool(sid and token and number and public),
+            "owner_numbers": [owner],
+            "owner_name": name,
+            "public_url": public,
+        }
+    }
+    if domain:
+        sections["tunnel"] = {"provider": "ngrok", "domain": domain}
+    update_config(get_config_dir() / "config.toml", sections)
     console.print("\n[green]Saved.[/green]")
 
     if sid and token and number and public:

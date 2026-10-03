@@ -124,3 +124,15 @@ def test_no_enrollment_tool_exists():
     import openjarvis.tools.face_tools as ft
 
     assert not hasattr(ft, "FaceEnrollTool")
+
+
+def test_damaged_file_is_never_overwritten(book, tmp_path):
+    book.enroll("Ana", b"ana", consent=True)
+    db = tmp_path / "faces" / "people.json"
+    db.write_text("{truncated")
+    with pytest.raises(FaceError, match="damaged"):
+        book.enroll("Luis", b"luis", consent=True)
+    with pytest.raises(FaceError, match="damaged"):
+        book.forget("Ana")
+    assert db.read_text() == "{truncated"  # nothing lost
+    assert book.people() == []  # reading stays tolerant

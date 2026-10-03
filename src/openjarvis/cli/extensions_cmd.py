@@ -12,22 +12,24 @@ console = Console()
 _NAMES = click.Choice(["all", "clacky", "globe", "tunnel"])
 
 
-def _supervisor(ui_ports: tuple[int, ...] = ()):
+def _supervisor(ui_ports: tuple[int, ...] = (), server_port: int | None = None):
     from openjarvis.core.config import load_config
     from openjarvis.unified.supervisor import Supervisor
 
-    return Supervisor(load_config(), ui_ports=ui_ports)
+    return Supervisor(load_config(), ui_ports=ui_ports, server_port=server_port)
 
 
 def start_extensions(
-    names: tuple[str, ...] = ("all",), ui_ports: tuple[int, ...] = ()
+    names: tuple[str, ...] = ("all",),
+    ui_ports: tuple[int, ...] = (),
+    server_port: int | None = None,
 ) -> list[str]:
     """Start extensions, print one line each; return the ones started now.
 
     Services that were already running are not included, so a caller such
     as ``sergio gui`` only stops what it started itself.
     """
-    sup = _supervisor(ui_ports)
+    sup = _supervisor(ui_ports, server_port)
     started: list[str] = []
     for svc in sup.services():
         if "all" in names or svc.name in names:

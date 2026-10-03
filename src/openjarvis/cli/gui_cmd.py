@@ -158,12 +158,12 @@ def gui(
     # failing frontend, or a normal exit.
     try:
         if with_extensions:
-            sup = Supervisor(config, ui_ports=ui_ports)
+            sup = Supervisor(config, ui_ports=ui_ports, server_port=api_port)
             already = {svc.name for svc in sup.services() if sup.running(svc)}
             started_here = tuple(
                 svc.name for svc in sup.services() if svc.name not in already
             )
-            start_extensions(ui_ports=ui_ports)
+            start_extensions(ui_ports=ui_ports, server_port=api_port)
         maybe_evolve_in_background(config)
 
         env = os.environ.copy()

@@ -7,6 +7,7 @@ import os
 import pathlib
 import threading
 import time
+from typing import Any
 
 from fastapi import FastAPI
 from fastapi.responses import FileResponse
@@ -544,6 +545,17 @@ def create_app(
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    # Outermost: through the public tunnel only the phone/WhatsApp webhooks
+    # are reachable (the rest of the API stays local-only).
+    from openjarvis.phone.public_guard import PublicExposureGuard
+
+    def _guard_config() -> Any:
+        from openjarvis.core.config import load_config
+
+        return getattr(app.state, "config", None) or load_config()
+
+    app.add_middleware(PublicExposureGuard, config_getter=_guard_config)
 
     # Mount webhook routes (always — SendBlue may be configured dynamically)
     if webhook_config:

@@ -54,3 +54,47 @@ def test_owner_and_non_phone_channels_are_served():
     bridge, system = _bridge(["+593991234567"])
     assert bridge._sender_allowed("593991234567", "whatsapp")
     assert bridge._sender_allowed("anyone", "telegram")
+
+
+def test_sms_channels_stay_open_until_owner_numbers_exist():
+    bridge, _ = _bridge([])
+    assert bridge.sender_allowed("+15550000000", "twilio")
+    assert bridge.sender_allowed("+15550000000", "sendblue")
+    assert not bridge.sender_allowed("+15550000000", "whatsapp")
+
+
+def test_owner_numbers_are_read_once(monkeypatch):
+    from openjarvis.core import config as config_mod
+
+    calls = []
+
+    def fake_load():
+        calls.append(1)
+        cfg = config_mod.JarvisConfig()
+        cfg.phone.owner_numbers = ["+593991234567"]
+        return cfg
+
+    monkeypatch.setattr(config_mod, "load_config", fake_load)
+    bridge, _ = _bridge(None)
+    for _ in range(3):
+        assert bridge.sender_allowed("593991234567", "whatsapp")
+    assert calls == [1]
+
+
+def test_twilio_webhook_sends_no_ack_to_strangers(monkeypatch):
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from openjarvis.server import webhook_routes
+
+    monkeypatch.setattr(webhook_routes, "_validate_twilio_signature", lambda *a: True)
+    bridge, system = _bridge(["+593991234567"])
+    app = FastAPI()
+    app.include_router(
+        webhook_routes.create_webhook_router(bridge=bridge, twilio_auth_token="t")
+    )
+    resp = TestClient(app).post(
+        "/webhooks/twilio", data={"From": "+15550000000", "Body": "hola"}
+    )
+    assert resp.status_code == 200 and resp.text == "<Response></Response>"
+    system.ask.assert_not_called()

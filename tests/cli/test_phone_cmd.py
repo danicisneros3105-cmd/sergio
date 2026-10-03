@@ -74,3 +74,41 @@ def test_configurar_writes_config_and_points_twilio(tmp_path, monkeypatch):
     ]
     status = CliRunner().invoke(phone_cmd.telefono, ["estado"])
     assert "tok" not in status.output and "saved" in status.output
+
+
+def test_read_env_matches_systemd_quoting(tmp_path):
+    path = tmp_path / "sergio.env"
+    path.write_text(
+        'ANTHROPIC_API_KEY="sk-ant-1"\n'
+        "export TWILIO_AUTH_TOKEN='tok'\n"
+        "  # comment\n"
+        "PLAIN=value\n"
+        "\n"
+    )
+    assert phone_cmd.read_env(path) == {
+        "ANTHROPIC_API_KEY": "sk-ant-1",
+        "TWILIO_AUTH_TOKEN": "tok",
+        "PLAIN": "value",
+    }
+
+
+def test_rerun_without_domain_keeps_existing_tunnel(tmp_path, monkeypatch):
+    from openjarvis.core.paths import get_config_dir
+
+    cfg_path = get_config_dir() / "config.toml"
+    cfg_path.write_text(
+        '[tunnel]\nprovider = "cloudflare"\n'
+        '[phone]\npublic_url = "https://sergio.mydomain.com"\n'
+    )
+    monkeypatch.setattr(service_cmd, "env_file", lambda: tmp_path / "sergio.env")
+    monkeypatch.setattr(phone_cmd, "point_twilio_number", lambda *a: "")
+    answers = "\n".join(
+        ["+593991234567", "Dani", "AC", "tok", "+1555", "", "", "", "", ""]
+    )
+    result = CliRunner().invoke(
+        phone_cmd.telefono, ["configurar"], input=answers + "\n"
+    )
+    assert result.exit_code == 0, result.output
+    cfg = load_config(cfg_path)
+    assert cfg.tunnel.provider == "cloudflare"
+    assert cfg.phone.public_url == "https://sergio.mydomain.com" and cfg.phone.enabled

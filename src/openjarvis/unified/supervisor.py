@@ -94,11 +94,14 @@ class Supervisor:
         which: Callable[[str], str | None] = shutil.which,
         environ: dict[str, str] | None = None,
         ui_ports: tuple[int, ...] = (),
+        server_port: int | None = None,
     ) -> None:
         self._config = config
         self._which = which
         # Ports the Sergio UI is served on (allowed to embed the globe).
         self._ui_ports = ui_ports
+        # Port of the Sergio API server (target of the public tunnel).
+        self._server_port = server_port
         self._environ = dict(os.environ if environ is None else environ)
         self._state = state_dir()
 
@@ -118,9 +121,18 @@ class Supervisor:
             out.append(self._tunnel(tunnel))
         return out
 
+    def server_port(self) -> int:
+        """The API port actually in use (gui/service override, then config)."""
+        if self._server_port:
+            return int(self._server_port)
+        env = self._environ.get("SERGIO_SERVER_PORT", "")
+        if env.isdigit():
+            return int(env)
+        return int(getattr(self._config.server, "port", 8000))
+
     def _tunnel(self, cfg: Any) -> Service:
         """Public HTTPS tunnel so Twilio/WhatsApp can reach the local server."""
-        port = int(getattr(self._config.server, "port", 8000))
+        port = self.server_port()
         svc = Service(
             "tunnel",
             "Public tunnel (calls/WhatsApp)",
@@ -206,9 +218,7 @@ class Supervisor:
             return svc
         # Let the OpenJarvis UI (Vite dev server or the API's static build)
         # embed the globe; the globe denies all other embedders.
-        ui_ports = sorted(
-            {5173, int(getattr(self._config.server, "port", 8000)), *self._ui_ports}
-        )
+        ui_ports = sorted({5173, self.server_port(), *self._ui_ports})
         svc.env = {
             "GLOBE_FRAME_ANCESTORS": " ".join(
                 f"http://{host}:{port}"

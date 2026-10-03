@@ -12,6 +12,7 @@ Rules the bot always follows (also stated in its system prompt):
 
 from __future__ import annotations
 
+import hmac
 import logging
 import time
 from typing import Any
@@ -133,6 +134,38 @@ def transcript_from(messages: list[Any]) -> list[dict[str, str]]:
 
 async def run_call(websocket: Any, config: Any) -> None:
     """Handle one Twilio media-stream websocket until the call ends."""
+    from pipecat.runner.utils import parse_telephony_websocket
+
+    _, call_data = await parse_telephony_websocket(websocket)
+    body = call_data.get("body", {}) or {}
+    record = calls.load(str(body.get("call_id", "")))
+    presented = str(body.get("token") or "")
+    if (
+        record is None
+        or not presented
+        or not hmac.compare_digest(presented, record.token)
+    ):
+        logger.warning("Rejected phone websocket with an unknown call/token")
+        await websocket.close()
+        return
+    if record.status != calls.QUEUED:
+        logger.warning("Rejected reuse of call %s", record.id)
+        await websocket.close()
+        return
+    calls.update(record.id, status=calls.IN_PROGRESS)
+    try:
+        await _run_pipeline(websocket, config, record, call_data)
+    except Exception as exc:  # noqa: BLE001 — setup or audio failure: record it
+        logger.exception("Call %s failed", record.id)
+        calls.update(
+            record.id, status=calls.FAILED, error=str(exc), ended_at=time.time()
+        )
+
+
+async def _run_pipeline(
+    websocket: Any, config: Any, record: calls.CallRecord, call_data: Any
+) -> None:
+    """Build the voice pipeline and run it until the call ends."""
     from pipecat.adapters.schemas.function_schema import FunctionSchema
     from pipecat.adapters.schemas.tools_schema import ToolsSchema
     from pipecat.audio.vad.silero import SileroVADAnalyzer
@@ -144,7 +177,6 @@ async def run_call(websocket: Any, config: Any) -> None:
         LLMContextAggregatorPair,
         LLMUserAggregatorParams,
     )
-    from pipecat.runner.utils import parse_telephony_websocket
     from pipecat.serializers.twilio import TwilioFrameSerializer
     from pipecat.services.kokoro.tts import KokoroTTSService
     from pipecat.services.whisper.stt import WhisperSTTService
@@ -153,19 +185,6 @@ async def run_call(websocket: Any, config: Any) -> None:
         FastAPIWebsocketTransport,
     )
     from pipecat.workers.runner import WorkerRunner
-
-    _, call_data = await parse_telephony_websocket(websocket)
-    body = call_data.get("body", {}) or {}
-    record = calls.load(str(body.get("call_id", "")))
-    if record is None or not body.get("token") or body.get("token") != record.token:
-        logger.warning("Rejected phone websocket with an unknown call/token")
-        await websocket.close()
-        return
-    if record.status != calls.QUEUED:
-        logger.warning("Rejected reuse of call %s", record.id)
-        await websocket.close()
-        return
-    calls.update(record.id, status=calls.IN_PROGRESS)
 
     sid, token, _ = calls.credentials()
     serializer = TwilioFrameSerializer(
@@ -243,14 +262,7 @@ async def run_call(websocket: Any, config: Any) -> None:
 
     runner = WorkerRunner(handle_sigint=False)
     await runner.add_workers(task)
-    try:
-        await runner.run()
-    except Exception as exc:  # noqa: BLE001 — record the failure, never crash the server
-        logger.exception("Call %s failed", record.id)
-        calls.update(
-            record.id, status=calls.FAILED, error=str(exc), ended_at=time.time()
-        )
-        return
+    await runner.run()
     calls.update(
         record.id,
         status=calls.COMPLETED,
