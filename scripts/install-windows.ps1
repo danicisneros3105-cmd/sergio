@@ -29,6 +29,10 @@ Say "3/4 Chrome (para que el agente pueda usar tu navegador)"
 winget install -e --id Google.Chrome --accept-source-agreements --accept-package-agreements 2>$null
 
 Say "4/4 Clonar, instalar y dejar Sergio siempre encendido"
+# Repo privado: Ubuntu usa el inicio de sesión de GitHub de Windows (Git
+# Credential Manager), así no hay que crear tokens a mano.
+$gcm = "/mnt/c/Program Files/Git/mingw64/bin/git-credential-manager.exe"
+wsl.exe -d Ubuntu -- git config --global credential.helper "$($gcm -replace ' ', '\ ')"
 $repo = Read-Host "URL de tu repo (ej. https://github.com/TU_USUARIO/sergio.git)"
 $branch = Read-Host "Rama (Enter para la rama por defecto)"
 $clone = if ($branch) { "git clone -b '$branch' '$repo' ~/sergio" } else { "git clone '$repo' ~/sergio" }
