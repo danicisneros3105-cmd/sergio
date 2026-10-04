@@ -649,6 +649,13 @@ def run(config: dict[str, Any]) -> None:
             resp.raise_for_status()
             open_app_window(resp.json()["url"])
             return q.say
+        if q.kind == "device":
+            from sergio_escritorio.device import run_device
+
+            try:
+                return run_device(q.step, controller.act)
+            except PermissionError:
+                return "El control está en pausa. Pulsa Ctrl+Alt+Fin para reanudarlo."
         if q.kind == "screenshot":
             folder = Path.home() / "Pictures" / "Sergio"
             folder.mkdir(parents=True, exist_ok=True)
@@ -679,8 +686,7 @@ def run(config: dict[str, Any]) -> None:
                 controller.act({"action": "key", "keys": q.arg})
             elif q.kind == "volume":
                 key = {"up": "volumeup", "down": "volumedown", "mute": "volumemute"}
-                for _ in range(1 if q.arg == "mute" else 5):
-                    controller.act({"action": "key", "keys": key[q.arg]})
+                controller.act({"action": "key", "keys": key[q.arg], "repeat": 1 if q.arg == "mute" else 5})
         except PermissionError:
             return "El control está en pausa. Pulsa Ctrl+Alt+Fin para reanudarlo."
         return q.say
@@ -1264,6 +1270,14 @@ def run(config: dict[str, Any]) -> None:
             session.hang_up_after_goodbye()
         return "Colgaré cuando termines de despedirte."
 
+    def quick_order(text: str) -> str:
+        from sergio_escritorio.quick import parse_quick
+
+        q = parse_quick(text)
+        if q is None:
+            return f"«{text}» no es una orden directa; usa otra herramienta."
+        return run_quick(q) or "Hecho."
+
     abilities = Abilities(
         act=controller.act,
         snapshot=controller.snapshot,
@@ -1290,6 +1304,7 @@ def run(config: dict[str, Any]) -> None:
         photo_who=photo_who,
         kinship=kinship,
         screenshot=save_screenshot,
+        quick=quick_order,
     )
 
     def call_ended(why: str) -> None:

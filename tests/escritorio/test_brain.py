@@ -24,9 +24,47 @@ def test_the_ten_exercises_with_their_counts_and_times():
         "matrices": (2, 120),
         "palabras": (3, 120),
         "coordinacion": (5, 120),
+        "repaso": (6, 120),
+        "pausa": (1, 60),
     }
-    first, nxt = b.next_exercise(9)
+    first, nxt = b.next_exercise(len(b.SCHEDULE) - 1)
     assert first.kind == "coordinacion" and nxt == 0
+
+
+def test_the_best_evidenced_come_twice_as_often_and_all_explain_why():
+    from collections import Counter
+
+    counts = Counter(b.SCHEDULE)
+    assert set(counts) == {e.kind for e in b.EXERCISES}
+    assert all(counts[k] == 2 for k in ("nback", "matrices", "rotacion", "repaso"))
+    assert all(b.EVIDENCE.get(e.kind) for e in (*b.EXERCISES, b.PROBE))
+
+
+def test_spaced_retrieval_deck():
+    import random as _random
+
+    deck = b.Deck()
+    rng = _random.Random(1)
+    first = deck.pick(0.0, 3, rng)
+    assert len(set(first)) == 3
+    deck.review(first[0], True, 0.0)  # right: tomorrow
+    deck.review(first[1], False, 0.0)  # wrong: in 10 minutes
+    soon = deck.pick(700.0, 2, rng)
+    assert soon[0] == first[1] and first[0] not in soon
+    deck.review(first[0], True, 86400.0)
+    assert deck.boxes[str(first[0])] == 2 and deck.due[str(first[0])] == 86400.0 + 3 * 86400
+    again = b.Deck.from_json(deck.to_json())
+    assert again == deck
+
+
+def test_typed_answers_are_forgiving():
+    assert b.answer_matches("Júpiter.", "júpiter")
+    assert b.answer_matches("jupiter", "júpiter")
+    assert b.answer_matches("el dióxido de carbono", "dióxido de carbono|co2")
+    assert b.answer_matches("CO2", "dióxido de carbono|co2")
+    assert b.answer_matches("Einstien", "einstein|albert einstein")  # typo
+    assert not b.answer_matches("marte", "júpiter")
+    assert not b.answer_matches("", "júpiter")
 
 
 def test_stroop_answers_the_ink(rng):

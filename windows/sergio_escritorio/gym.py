@@ -80,6 +80,7 @@ class GymStats:
     list_length: int = 5
     history: list[dict[str, Any]] = field(default_factory=list)
     next_due: float = 0.0  # wall clock time of the next pop-up
+    deck: brain.Deck = field(default_factory=brain.Deck)  # spaced retrieval
 
     @classmethod
     def load(cls, path: Path) -> "GymStats":
@@ -92,6 +93,7 @@ class GymStats:
                 int(data.get("list_length", 5)),
                 list(data.get("history", []))[-1500:],
                 float(data.get("next_due", 0.0)),
+                brain.Deck.from_json(data.get("deck")),
             )
         except (OSError, ValueError, TypeError):
             return cls(path)
@@ -108,6 +110,7 @@ class GymStats:
                         "list_length": self.list_length,
                         "history": self.history[-1500:],
                         "next_due": self.next_due,
+                        "deck": self.deck.to_json(),
                     },
                     ensure_ascii=False,
                 ),
@@ -969,6 +972,106 @@ class ProbeRunner(Runner):
         self.draw_glyph(p, self.symbol, big, TEXT, 9)
 
 
+class RecallRunner(Runner):
+    """Spaced retrieval: answer from memory, see the answer when wrong."""
+
+    uses_text = True
+    keys_hint = "Escribe la respuesta y pulsa Enter (Enter vacío = no sé)"
+    FEEDBACK = 2.2
+
+    def begin(self) -> None:
+        deck = self.gym.stats.deck if self.gym.stats else brain.Deck()
+        self.deck = deck
+        self.cards = deck.pick(time.time(), self.session.exercise.items, self.rng)
+        self.shown: tuple[bool, str] | None = None
+        self.shown_at = 0.0
+        super().begin()
+
+    @property
+    def per_item(self) -> float:
+        return 25.0
+
+    def done(self) -> bool:
+        return self.index >= len(self.cards) and self.shown is None
+
+    def submit(self, text: str) -> None:
+        if self.shown is not None or self.index >= len(self.cards):
+            return
+        question, accepted = brain.CARDS[self.cards[self.index]]
+        ok = brain.answer_matches(text, accepted)
+        self.deck.review(self.cards[self.index], ok, time.time())
+        first = accepted.split("|")[0]
+        self.shown = (ok, first[:1].upper() + first[1:])
+        self.shown_at = self.gym.clock()
+        self.gym.set_text_enabled(False)
+        took = self.gym.clock() - self.item_started
+        self.session.record(1.0 if ok else 0.0, took)
+        self.flash = (GOOD if ok else BAD, self.gym.clock())
+
+    def tick(self, now: float) -> None:
+        if self.shown is not None and now - self.shown_at >= self.FEEDBACK:
+            self.shown = None
+            self.index += 1
+            if self.index < len(self.cards):
+                self.next_item()
+                self.gym.set_text_enabled(True)
+            if self.gym.stats is not None:
+                self.gym.stats.save()
+            return
+        if self.shown is None and self.index < len(self.cards) and now - self.item_started > self.per_item:
+            self.submit("")  # no answer in time: show it
+
+    def progress(self) -> str:
+        return f"{min(self.index + 1, len(self.cards))} / {len(self.cards)}"
+
+    def paint(self, p: QPainter, area: QRectF) -> None:
+        if self.index >= len(self.cards):
+            return
+        question, _ = brain.CARDS[self.cards[self.index]]
+        p.setFont(font(22, QFont.Weight.DemiBold))
+        p.setPen(TEXT)
+        p.drawText(area.adjusted(10, 0, -10, -150), Qt.AlignmentFlag.AlignCenter | Qt.TextFlag.TextWordWrap, question)
+        if self.shown is not None:
+            ok, answer = self.shown
+            p.setFont(font(18, QFont.Weight.Bold))
+            p.setPen(GOOD if ok else BAD)
+            p.drawText(QRectF(area.left(), area.bottom() - 150, area.width(), 40), Qt.AlignmentFlag.AlignCenter,
+                       "¡Correcto!" if ok else f"Era: {answer}")
+
+
+class PauseRunner(Runner):
+    """Sixty seconds of brisk movement (acute exercise boosts executive
+    function for a while afterwards)."""
+
+    keys_hint = "Muévete hasta que termine el tiempo; luego pulsa Enter"
+
+    def begin(self) -> None:
+        super().begin()
+
+    @property
+    def per_item(self) -> float:
+        return self.session.exercise.seconds + 1
+
+    def tick(self, now: float) -> None:
+        if not self.done() and now - self.item_started >= self.session.exercise.seconds - 0.2:
+            self.answer(1.0)
+
+    def key(self, text: str) -> None:
+        if text in ("\r", "\n") and self.gym.clock() - self.item_started >= self.session.exercise.seconds - 5:
+            self.answer(1.0)
+
+    def paint(self, p: QPainter, area: QRectF) -> None:
+        left = max(0, math.ceil(self.session.exercise.seconds - (self.gym.clock() - self.item_started)))
+        p.setFont(font(96, QFont.Weight.Black))
+        p.setPen(ACCENT)
+        p.drawText(area.adjusted(0, 0, 0, -80), Qt.AlignmentFlag.AlignCenter, str(left))
+        p.setFont(font(18, QFont.Weight.DemiBold))
+        p.setPen(TEXT)
+        moves = ("Sentadillas", "Saltos de tijera", "Rodillas arriba", "Sentadillas")
+        step = int((self.gym.clock() - self.item_started) // 15) % len(moves)
+        p.drawText(QRectF(area.left(), area.bottom() - 90, area.width(), 34), Qt.AlignmentFlag.AlignCenter, moves[step])
+
+
 RUNNERS: dict[str, type[Runner]] = {
     "prueba": ProbeRunner,
     "stroop": StroopRunner,
@@ -981,6 +1084,8 @@ RUNNERS: dict[str, type[Runner]] = {
     "matrices": MatrixRunner,
     "palabras": WordsRunner,
     "coordinacion": CoordinationRunner,
+    "repaso": RecallRunner,
+    "pausa": PauseRunner,
 }
 
 
@@ -1191,11 +1296,17 @@ class GymWindow(QWidget):
         minutes = f"{ex.seconds / 60:g}".replace(".", ",")
         detail = {
             "nback": "1 bloque continuo de 2 minutos",
+            "pausa": "1 minuto de movimiento",
             "prueba": f"Todos los que puedas en {minutes} minutos · una vez al día",
         }.get(ex.kind, f"{ex.items} ejercicios en {minutes} minutos")
         p.setFont(font(12))
         p.setPen(MUTED)
         p.drawText(QRectF(area.left(), area.bottom() - 50, area.width(), 24), Qt.AlignmentFlag.AlignCenter, detail)
+        why = brain.EVIDENCE.get(ex.kind, "")
+        if why:  # why this exercise, from the studies (honest about limits)
+            p.setFont(font(11))
+            p.drawText(QRectF(area.left() + 20, area.bottom() - 24, area.width() - 40, 40),
+                       Qt.AlignmentFlag.AlignCenter | Qt.TextFlag.TextWordWrap, why)
 
     def _paint_play(self, p: QPainter, card: QRectF, now: float) -> None:
         left = max(0.0, self.exercise.seconds - (now - self.play_started))

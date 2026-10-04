@@ -55,6 +55,7 @@ class Abilities:
     call_person: Callable[[str, str, bool], str] = lambda *_a: "No disponible en este equipo."
     remember_contact: Callable[[str, str, str], str] = lambda *_a: "No disponible en este equipo."
     screenshot: Callable[[], str] = _nothing
+    quick: Callable[[str], str] = _nothing  # an instant order, as said
     now: Callable[[], datetime] = field(default=datetime.now)
 
 
@@ -120,8 +121,7 @@ def call_tools(ab: Abilities) -> list[ClientTool]:
         what = str(args.get("accion") or "subir")
         steps = max(1, min(int(args.get("pasos") or 5), 25))
         key = {"subir": "volumeup", "bajar": "volumedown", "silenciar": "volumemute"}.get(what, "volumeup")
-        for _ in range(1 if key == "volumemute" else steps):
-            ab.act({"action": "key", "keys": key})
+        ab.act({"action": "key", "keys": key, "repeat": 1 if key == "volumemute" else steps})
         return {"subir": "Volumen arriba.", "bajar": "Volumen abajo."}.get(what, "Silenciado.")
 
     def multimedia(args: dict) -> str:
@@ -234,6 +234,17 @@ def call_tools(ab: Abilities) -> list[ClientTool]:
                 accion=_str("Qué hacer", required=True, enum=["subir", "bajar", "silenciar"]),
                 pasos={"type": "integer", "description": "Cuánto (1-25, normal 5)"},
             ),
+        ),
+        ClientTool(
+            "control_equipo",
+            "Controla la computadora al instante con una orden en español, tal "
+            "como la diría el usuario: «maximiza la ventana», «cierra esta "
+            "ventana», «cambia de ventana», «pon el brillo al 70», «baja el "
+            "brillo», «modo oscuro», «pon el volumen al 30», «abre la "
+            "configuración del wifi», «abre descargas», «copia», «pega», "
+            "«guarda», «deshaz», «nueva pestaña», «escribe: <texto>».",
+            lambda a: ab.quick(str(a.get("orden") or "")),
+            _obj(orden=_str("La orden, en español", required=True)),
         ),
         ClientTool(
             "multimedia",

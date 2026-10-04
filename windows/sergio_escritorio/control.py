@@ -52,6 +52,7 @@ ACTIONS = (
     "phone_call",
     "contact",
 )
+MEDIA_KEYS = {"volumeup", "volumedown", "volumemute", "playpause", "nexttrack", "prevtrack"}
 TASKS = ("operate", "message", "phone_call", "contact")  # done by the operator
 
 
@@ -260,8 +261,10 @@ class Controller:
             keys = [k.strip().lower() for k in str(action.get("keys") or "").split("+")]
             if not all(keys):
                 raise ActionError("'keys' looks like 'enter', 'ctrl+s' or 'alt+tab'.")
-            b.hotkey(keys)
-            result = "pressed " + "+".join(keys)
+            repeat = min(max(int(action.get("repeat") or 1), 1), 60)
+            for _ in range(repeat):  # "volume to 30%": 50 presses in a blink
+                b.hotkey(keys)
+            result = "pressed " + "+".join(keys) + (f" x{repeat}" if repeat > 1 else "")
         elif kind == "scroll":
             amount = int(action.get("amount") or -5)
             point = (
@@ -369,6 +372,8 @@ class Controller:
             self._sleep(seconds)
             result = f"waited {seconds:g}s"
         self._on_activity(result)
+        if kind == "key" and set(result.split()[1].split("+")) <= MEDIA_KEYS:
+            return result  # the window in front does not change
         return result + self._verify(kind)
 
     VERIFY = {

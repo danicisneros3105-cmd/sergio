@@ -374,3 +374,48 @@ def test_search_is_off_unless_asked(monkeypatch):
     client = asyncio.run(scenario())
     (_model, config), = client.connects
     assert not any(getattr(t, "google_search", None) for t in config.tools or [])
+
+
+def test_a_dropped_call_reconnects_on_its_own_model_without_an_error():
+    """Google drops Live calls ("1011 internal error"). The resume used to be
+    tried on the next model too ("1008 session history not found") and the
+    call ended with an error the user saw. Now: same model, afresh if
+    needed, and the user only notices a short pause."""
+
+    async def boom():
+        raise RuntimeError("1011 None. Internal error encountered.")
+
+    async def scenario():
+        ws = FakeWS()
+        first = FakeSession(
+            [
+                [
+                    NS(
+                        server_content=None,
+                        tool_call=None,
+                        session_resumption_update=NS(new_handle="h-1"),
+                        go_away=None,
+                    ),
+                    boom,
+                ]
+            ]
+        )
+        fresh = FakeSession([])
+        client = FakeClient([first, RuntimeError("1011 None. Internal error encountered."), fresh])
+        call = _call(ws, client)
+        task = asyncio.ensure_future(call.run())
+        for _ in range(300):
+            if len(client.connects) >= 3:
+                break
+            await asyncio.sleep(0.01)
+        await asyncio.sleep(0.05)
+        ws.put(type="websocket.receive", text=json.dumps({"type": "end"}))
+        await asyncio.wait_for(task, 5)
+        return ws, client
+
+    ws, client = asyncio.run(scenario())
+    models = [m for m, _c in client.connects]
+    handles = [c.session_resumption.handle for _m, c in client.connects]
+    assert models == [gemini_live.LIVE_MODELS[0]] * 3
+    assert handles == [None, "h-1", None]
+    assert not [m for m in ws.json if m["type"] == "error"]

@@ -103,3 +103,17 @@ def test_a_spent_model_is_not_asked_again_until_its_quota_returns(monkeypatch):
     assert 5800 < gc._EXHAUSTED["gemini-3.8-flash-tts"] - gc.time.monotonic() < 5830
     client2, calls2 = _client({False: "ok", True: "ok"})
     assert client2.models.generate_content(model="gemini-3.8-flash", contents="x") == "ok"
+
+
+def test_an_overloaded_model_is_skipped_for_a_moment(monkeypatch):
+    from openjarvis.engine import google_client as gc
+
+    monkeypatch.setattr(gc, "_EXHAUSTED", {})
+    busy = RuntimeError("503 UNAVAILABLE. This model is currently experiencing high demand.")
+    client, calls = _client({False: busy, True: busy})
+    with pytest.raises(RuntimeError):
+        client.models.generate_content(model="gemini-3.8-flash", contents="x")
+    with pytest.raises(gc.QuotaExhausted):
+        client.models.generate_content(model="gemini-3.8-flash", contents="x")
+    assert len(calls) == 1
+    assert gc._EXHAUSTED["gemini-3.8-flash"] - gc.time.monotonic() <= gc.OVERLOADED_SECONDS

@@ -105,6 +105,9 @@ o un archivo): quien_es_en_foto; parecido entre familiares: parecido_familiar \
 datos en vivo). Para ver un lugar o ese avión en el globo 3D: mostrar_en_globo.
 - Para abrir o cerrar apps o webs usa abrir / cerrar: son instantáneas y la \
 app aparece al frente en la pantalla del usuario; no mires la pantalla antes.
+- Ventanas, brillo, modo oscuro, volumen exacto, ajustes de Windows, \
+carpetas, copiar/pegar/guardar o dictar texto: control_equipo con la orden \
+tal cual (es instantáneo).
 - Para usar la pantalla: mira primero (screen_read o mirar_pantalla), luego \
 desktop_action, y comprueba el resultado ("now in front").
 - Para trabajos largos o de muchos pasos (investigar a fondo, editar video, \
@@ -208,7 +211,7 @@ def live_config(
 
 def _quota(exc: Exception) -> bool:
     text = str(exc).lower()
-    return "quota" in text or "resource_exhausted" in text or "1011" in text
+    return "quota" in text or "resource_exhausted" in text
 
 
 class LiveCall:
@@ -285,7 +288,16 @@ class LiveCall:
         # Google Search grounding: free keys refuse it after a slow attempt,
         # so it is only tried when switched on (SERGIO_LIVE_SEARCH=1).
         wants_search = os.environ.get("SERGIO_LIVE_SEARCH", "").strip() in ("1", "true", "si")
-        for model in self.models:
+        # A resumed call goes back to its own model first: a resumption
+        # handle only exists there (other models answer "1008 session
+        # history not found", and the call used to end with an error).
+        models = list(self.models)
+        if self._handle and self.model in models:
+            models.remove(self.model)
+            models.insert(0, self.model)
+        for model in models:
+            if self._handle and model != self.model:
+                self._handle = None  # another model: a fresh session
             search_ok = wants_search and (
                 time.monotonic() - _search_refused_at > SEARCH_RETRY_SECONDS
             )
@@ -310,7 +322,27 @@ class LiveCall:
                         # for a while instead of paying a failed connect.
                         _search_refused_at = time.monotonic()
                     if self._handle and not _quota(exc):
-                        self._handle = None  # a stale handle: start afresh
+                        # The handle may be what failed: same model, afresh.
+                        self._handle = None
+                        try:
+                            session = await stack.enter_async_context(
+                                client.aio.live.connect(
+                                    model=model,
+                                    config=live_config(
+                                        types,
+                                        voice=self.voice,
+                                        instructions=self.instructions,
+                                        decls=self.decls,
+                                        search=False,
+                                        handle=None,
+                                    ),
+                                )
+                            )
+                        except Exception as again:  # noqa: BLE001
+                            errors.append(f"{model} (nueva): {again}")
+                            continue
+                        self.model = model
+                        return session
                     continue
                 self.model = model
                 return session
@@ -322,6 +354,7 @@ class LiveCall:
     async def run(self) -> None:
         """Relay until the companion hangs up (reconnecting when Google asks)."""
         first = True
+        drops = 0
         try:
             while not self.closed:
                 async with contextlib.AsyncExitStack() as stack:
@@ -347,9 +380,12 @@ class LiveCall:
                             log.warning("Live session dropped: %s", exc)
                 if self.closed:
                     break
-                if not self._handle:
-                    raise RuntimeError("La conversación con Gemini se cortó.")
-                log.info("Live: resuming the session (%s)", self.model)
+                # Google dropped the line (a "1011 internal error" happens):
+                # reconnect at once, resuming the conversation when it can.
+                drops += 1
+                if drops > 3:
+                    raise RuntimeError("La conversación con Gemini se cortó varias veces.")
+                log.info("Live: reconnecting (%s, resume=%s)", self.model, bool(self._handle))
         finally:
             self.closed = True
             for fut in self._pending.values():

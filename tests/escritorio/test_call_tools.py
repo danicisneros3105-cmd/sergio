@@ -47,7 +47,7 @@ def test_volume_and_media_keys():
     tools, acts = _tools()
     tools["volumen"].run({"accion": "subir", "pasos": 3})
     tools["multimedia"].run({"accion": "siguiente"})
-    assert [a["keys"] for a in acts] == ["volumeup"] * 3 + ["nexttrack"]
+    assert [(a["keys"], a.get("repeat", 1)) for a in acts] == [("volumeup", 3), ("nexttrack", 1)]
 
 
 def test_reminders_by_minutes_or_time():

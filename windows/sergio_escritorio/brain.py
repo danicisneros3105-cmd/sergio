@@ -109,6 +109,58 @@ EXERCISES: tuple[Exercise, ...] = (
         "Dos cuadros a la vez = pulsa las dos teclas juntas.",
     ),
 )
+# Two more, the ones with the strongest evidence of all (for learning and
+# for an immediate boost), though neither is an "IQ trainer":
+EXERCISES = EXERCISES + (
+    Exercise(
+        "repaso",
+        "Repaso espaciado",
+        6,
+        120,
+        "Responde de memoria; si fallas verás la respuesta y volverá pronto. "
+        "Lo que aciertas vuelve cada vez más tarde (1, 3, 7, 16 días).",
+    ),
+    Exercise(
+        "pausa",
+        "Pausa activa: 60 segundos intensos",
+        1,
+        60,
+        "Ponte de pie: sentadillas o saltos de tijera a buen ritmo durante 60 "
+        "segundos. Al terminar pulsa Enter.",
+    ),
+)
+
+# Why each exercise is here: what the best studies found (shown before it).
+EVIDENCE: dict[str, str] = {
+    "nback": "Dual n-back: el más estudiado para la inteligencia fluida; "
+    "metaanálisis g = 0,24 (Au 2015), casi 0 frente a controles activos.",
+    "matrices": "Matrices: practicar el formato de los tests de CI sube 0,23–0,42 DE "
+    "en ellos (Scharfen 2018), aunque no la inteligencia general.",
+    "rotacion": "Rotación mental: el entrenamiento espacial mejora y transfiere a otras "
+    "tareas espaciales, g = 0,47 y duradero (Uttal 2013).",
+    "repaso": "Recuperación activa espaciada: la técnica de aprendizaje con más "
+    "evidencia, g = 0,61 (Adesope 2017); espaciar suma más (g ≈ 0,7).",
+    "pausa": "Ejercicio breve: mejora la función ejecutiva (inhibición, memoria de "
+    "trabajo) en los minutos siguientes; efecto pequeño y constante.",
+    "relacional": "Razonamiento relacional: estudios pequeños con mejoras en CI; "
+    "evidencia aún débil.",
+    "listas": "Memoria de trabajo: mejora lo entrenado; la transferencia lejana es "
+    "mínima (Melby-Lervåg 2016).",
+    "stroop": "Control inhibitorio: mejora la tarea; poca transferencia (Sala y Gobet 2019).",
+    "calculo": "Cálculo mental: fluidez numérica, se transfiere a cálculos similares.",
+    "simetria": "Velocidad perceptiva: mejora lo entrenado.",
+    "palabras": "Fluidez verbal: mejora lo entrenado.",
+    "coordinacion": "Coordinación bimanual y secuencias motoras: mejora lo entrenado.",
+    "prueba": "Medida, no entrenamiento: dice si lo demás te mejora de verdad.",
+}
+
+# Every 12 minutes one exercise; the best-evidenced come twice as often.
+SCHEDULE = (
+    "nback", "matrices", "repaso", "rotacion", "relacional", "nback",
+    "matrices", "pausa", "rotacion", "repaso", "listas", "stroop",
+    "calculo", "simetria", "palabras", "coordinacion",
+)  # fmt: skip
+
 # Not trained: a standard processing-speed test (like WAIS's Digit Symbol
 # Substitution) taken once a day to measure whether the training carries
 # over to something it never practised (far transfer).
@@ -961,13 +1013,124 @@ class Session:
 
 
 def next_exercise(index: int) -> tuple[Exercise, int]:
-    """Rotation through the ten: (this one, the index after it)."""
-    i = index % len(EXERCISES)
-    return EXERCISES[i], (i + 1) % len(EXERCISES)
+    """Rotation by evidence (SCHEDULE): (this one, the index after it)."""
+    i = index % len(SCHEDULE)
+    return BY_KIND[SCHEDULE[i]], (i + 1) % len(SCHEDULE)
+
+
+# -- spaced retrieval practice ------------------------------------------------------------
+# Questions worth knowing (science, world, language, history): the point is
+# the method, retrieving from memory at growing gaps, not these facts.
+CARDS: tuple[tuple[str, str], ...] = (
+    ("¿Cuál es el planeta más grande del sistema solar?", "júpiter"),
+    ("¿Cuál es el símbolo químico del oro?", "au"),
+    ("¿Qué gas absorben las plantas en la fotosíntesis?", "dióxido de carbono|co2"),
+    ("¿Cuántos huesos tiene un adulto humano?", "206"),
+    ("¿Cuál es la capital de Australia?", "canberra"),
+    ("¿Cuál es el río más largo de Sudamérica?", "amazonas"),
+    ("¿En qué año llegó el ser humano a la Luna?", "1969"),
+    ("¿Quién formuló la teoría de la relatividad?", "einstein|albert einstein"),
+    ("¿Cuál es la velocidad de la luz, aproximada, en km por segundo?", "300000|300 000|300.000|trescientos mil"),
+    ("¿Qué orgánulo produce la energía de la célula?", "mitocondria|la mitocondria"),
+    ("¿Cuál es el volcán activo más alto del Ecuador?", "cotopaxi|el cotopaxi"),
+    ("¿Cuál es la capital de Canadá?", "ottawa"),
+    ("¿Cuál es el océano más grande?", "pacífico|el pacífico"),
+    ("¿Qué significa «efímero»?", "que dura poco|pasajero|breve|fugaz"),
+    ("¿Qué significa «ubicuo»?", "que está en todas partes|omnipresente"),
+    ("¿Cuánto es la raíz cuadrada de 144?", "12|doce"),
+    ("¿Cuánto es 15 por 15?", "225"),
+    ("¿Cuántos lados tiene un hexágono?", "6|seis"),
+    ("¿Qué científico propuso la selección natural?", "darwin|charles darwin"),
+    ("¿Cuál es el elemento más abundante del universo?", "hidrógeno"),
+    ("¿En qué país están las pirámides de Giza?", "egipto"),
+    ("¿Qué escritor creó a Don Quijote?", "cervantes|miguel de cervantes"),
+    ("¿Cuál es la capital de Japón?", "tokio"),
+    ("¿Cuál es la montaña más alta del mundo?", "everest|el everest"),
+    ("¿Cuál es el punto de ebullición del agua al nivel del mar, en grados Celsius?", "100|cien"),
+    ("¿Qué instrumento mide la presión atmosférica?", "barómetro|el barómetro"),
+    ("¿Cuál es el hueso más largo del cuerpo?", "fémur|el fémur"),
+    ("¿Qué pintor hizo La noche estrellada?", "van gogh|vincent van gogh"),
+    ("¿Cuál es la moneda del Japón?", "yen|el yen"),
+    ("¿Cuál es el número primo que sigue a 13?", "17|diecisiete"),
+    ("¿En qué continente está Kenia?", "áfrica"),
+    ("¿Qué parte del cerebro es clave para formar recuerdos nuevos?", "hipocampo|el hipocampo"),
+    ("¿Qué vitamina produce la piel con el sol?", "d|vitamina d"),
+    ("¿Cuál es la fórmula del agua?", "h2o"),
+    ("¿Qué significa «perspicaz»?", "agudo|que entiende rápido|sagaz|listo"),
+    ("¿Cuál es la capital de Alemania?", "berlín"),
+    ("¿Quién pintó la Mona Lisa?", "leonardo|da vinci|leonardo da vinci"),
+    ("¿Cuántos minutos tiene un día?", "1440|1 440|1.440"),
+    ("¿Qué planeta se conoce como el planeta rojo?", "marte"),
+    ("¿Qué islas del Ecuador inspiraron a Darwin?", "galápagos|las galápagos"),
+)  # fmt: skip
+GAPS_DAYS = (0.0, 1.0, 3.0, 7.0, 16.0, 35.0)  # Leitner boxes
+
+
+def answer_matches(given: str, accepted: str) -> bool:
+    """Typed answer vs the accepted ones ("júpiter" = "Jupiter" = "jupiter")."""
+    import difflib
+
+    def words(text: str) -> str:
+        return " ".join(re.sub(r"[^\w\s]", " ", plain(text)).split())
+
+    said = words(given)
+    if not said:
+        return False
+    for option in accepted.split("|"):
+        want = words(option)
+        if said == want or (len(want) >= 4 and difflib.SequenceMatcher(None, said, want).ratio() >= 0.85):
+            return True
+        if len(want) >= 4 and want in said.split() + [said]:
+            return True
+    return False
+
+
+@dataclass
+class Deck:
+    """Which card is in which box, and when each is due (epoch seconds)."""
+
+    boxes: dict[str, int] = field(default_factory=dict)
+    due: dict[str, float] = field(default_factory=dict)
+
+    def pick(self, now: float, count: int, rng: random.Random) -> list[int]:
+        """Due cards first (lowest box first), then new ones."""
+        due = [i for i in range(len(CARDS)) if str(i) in self.due and self.due[str(i)] <= now]
+        due.sort(key=lambda i: (self.boxes.get(str(i), 0), self.due[str(i)]))
+        new = [i for i in range(len(CARDS)) if str(i) not in self.due]
+        rng.shuffle(new)
+        later = sorted(
+            (i for i in range(len(CARDS)) if str(i) in self.due and self.due[str(i)] > now),
+            key=lambda i: self.due[str(i)],
+        )
+        return (due + new + later)[:count]
+
+    def review(self, card: int, ok: bool, now: float) -> None:
+        key = str(card)
+        box = min(self.boxes.get(key, 0) + 1, len(GAPS_DAYS) - 1) if ok else 0
+        self.boxes[key] = box
+        # A miss comes back in this very session's next round (10 min).
+        self.due[key] = now + (GAPS_DAYS[box] * 86400 if ok else 600)
+
+    def to_json(self) -> dict[str, Any]:
+        return {"boxes": self.boxes, "due": self.due}
+
+    @classmethod
+    def from_json(cls, data: Any) -> "Deck":
+        if not isinstance(data, dict):
+            return cls()
+        return cls(
+            {str(k): int(v) for k, v in (data.get("boxes") or {}).items()},
+            {str(k): float(v) for k, v in (data.get("due") or {}).items()},
+        )
 
 
 __all__ = [
     "BY_KIND",
+    "CARDS",
+    "Deck",
+    "EVIDENCE",
+    "SCHEDULE",
+    "answer_matches",
     "CATEGORIES",
     "GLYPHS",
     "PROBE",

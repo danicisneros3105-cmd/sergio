@@ -208,8 +208,9 @@ def test_stats_start_each_day_with_the_control_test_then_rotate(tmp_path):
     assert first.kind == "prueba"
     stats.record(brain.Session(first, correct=30, answered=31))
     assert stats.history[-1]["rate"] == 20.0  # 30 correct in 90 s
-    kinds = [stats.take_next().kind for _ in range(11)]
-    assert kinds[:10] == [e.kind for e in brain.EXERCISES] and kinds[10] == "stroop"
+    n = len(brain.SCHEDULE)
+    kinds = [stats.take_next().kind for _ in range(n + 1)]
+    assert kinds[:n] == list(brain.SCHEDULE) and kinds[n] == brain.SCHEDULE[0]
     again = gym.GymStats.load(tmp_path / "gym.json")
     assert again.next_index == 1 and again.probe_today()
 
@@ -268,3 +269,38 @@ def test_word_validator_caches_answers():
     validate = gym.word_validator(ask)
     assert validate("Ornitorrinco", "animales") and validate("ornitorrinco", "animales")
     assert len(calls) == 1
+
+
+def test_spaced_recall_runner_shows_the_answer_and_remembers(app, tmp_path):
+    clock = Clock()
+    stats = gym.GymStats.load(tmp_path / "gym.json")
+    w = gym.GymWindow(brain.BY_KIND["repaso"], stats=stats, rng=random.Random(2), clock=clock, unskippable=False)
+    w._begin_play()
+    runner = w.runner
+    assert isinstance(runner, gym.RecallRunner) and len(runner.cards) == 6
+    card = runner.cards[0]
+    runner.submit(brain.CARDS[card][1].split("|")[0])
+    assert w.session.correct == 1 and runner.shown[0]
+    clock.now += 3
+    runner.tick(clock.now)
+    assert runner.index == 1 and runner.shown is None
+    runner.submit("no sé")
+    want = brain.CARDS[runner.cards[1]][1].split("|")[0]
+    assert runner.shown == (False, want[:1].upper() + want[1:])
+    w.resize(1200, 800)
+    w.grab()
+    again = gym.GymStats.load(tmp_path / "gym.json")
+    assert again.deck.boxes[str(card)] == 1
+
+
+def test_active_break_counts_down_a_minute(app):
+    clock = Clock()
+    w = gym.GymWindow(brain.BY_KIND["pausa"], rng=random.Random(2), clock=clock, unskippable=False)
+    w._begin_play()
+    w.runner.key("\r")
+    assert w.session.answered == 0  # not before the minute is (almost) over
+    clock.now += 60
+    w.runner.tick(clock.now)
+    assert w.runner.done() and w.session.correct == 1
+    w.resize(1200, 800)
+    w.grab()

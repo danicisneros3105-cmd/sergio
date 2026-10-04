@@ -379,3 +379,29 @@ def test_a_failed_turn_does_not_stay_in_the_history():
     with _pytest.raises(httpx.HTTPStatusError):
         client.ask("abre el correo y resume lo nuevo")
     assert client.history == []
+
+
+def test_a_typed_order_while_busy_waits_its_turn():
+    import threading
+    import time as _time
+
+    done = []
+
+    class UI:
+        def state(self, name):
+            pass
+
+        def say(self, text):
+            done.append(text)
+
+    a = Assistant(SergioClient("http://s"), ui=UI(), player=lambda wav: None, chime=lambda f: None)
+    a.quick = lambda q: "Hecho."
+    a.say_aloud = lambda text: done.append(f"dijo {text}")
+    a.busy = True
+    t = threading.Thread(target=a.on_text, args=("sube el volumen",))
+    t.start()
+    _time.sleep(0.2)
+    assert "dijo Hecho." not in done
+    a.busy = False
+    t.join(2)
+    assert "dijo Hecho." in done

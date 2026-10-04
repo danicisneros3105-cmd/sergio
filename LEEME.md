@@ -419,6 +419,15 @@ Entiende cómo las llamas («la calculadora», «el Word», «bloc de notas»,
 ventana de Spotify se llama como la canción). Las capturas de pantalla
 también son de la pantalla que estás usando.
 
+También al instante, sin IA: «maximiza / minimiza / cierra esta ventana»,
+«cambia de ventana», «nueva pestaña», «copia», «pega», «guarda», «deshaz»,
+«pon el brillo al 70», «baja el brillo», «modo oscuro», «pon el volumen al
+30», «abre la configuración del wifi / bluetooth / pantalla», «abre
+descargas», «escribe: hola». Funciona igual dicho con cortesía («¿me puedes
+abrir el Word, por favor?») y en la llamada. Si le pides varias cosas
+seguidas, las hace en orden (antes ignoraba las que llegaban mientras
+hablaba). WhatsApp y Spotify abren la app instalada; si no está, su web.
+
 ## Mouse y teclado como una persona
 
 Cuando Sergio usa la computadora, el puntero se mueve como una mano: en
@@ -546,6 +555,25 @@ puede saltar**. Termina solo y Sergio te dice cómo te fue. Si estás lejos
 | Matrices progresivas | 2 matrices en 2 min |
 | Asociación de palabras restringida | 3 desafíos en 2 min |
 | Secuencias de coordinación (dos manos) | 5 patrones en 2 min |
+| Repaso espaciado (recuperación activa) | 6 preguntas en 2 min |
+| Pausa activa (sentadillas / saltos) | 1 minuto |
+
+**El orden sigue la evidencia**: los cuatro con mejores estudios salen el
+doble de veces (dual n-back, matrices, rotación mental y repaso espaciado),
+y cada ejercicio muestra antes por qué está ahí:
+
+* **Dual n-back**: el más estudiado para la inteligencia fluida; metaanálisis
+  g = 0,24 (Au et al., 2015), casi 0 frente a controles activos.
+* **Matrices**: practicar el formato de los tests de CI sube 0,23–0,42 DE en
+  esos tests (Scharfen et al., 2018), aunque no la inteligencia general.
+* **Rotación mental**: el entrenamiento espacial mejora, dura y se transfiere
+  a otras tareas espaciales, g = 0,47 (Uttal et al., 2013).
+* **Repaso espaciado**: la técnica de aprendizaje con más evidencia, g = 0,61
+  (Adesope et al., 2017). Lo que aciertas vuelve a 1, 3, 7, 16 y 35 días.
+* **Pausa activa**: un minuto de ejercicio intenso mejora un poco la función
+  ejecutiva en los minutos siguientes (metaanálisis de 113 estudios).
+* Lo único con efecto demostrado y grande sobre el CI es **aprender**: cada año
+  de educación suma 1 a 5 puntos (Ritchie y Tucker-Drob, 2018).
 
 **¿Funciona? Lo que dice la ciencia, sin adornos**
 

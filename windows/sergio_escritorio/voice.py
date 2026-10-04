@@ -1056,6 +1056,7 @@ class Assistant:
         self._follow_up_until = 0.0
         self._last_stt_error = -1e9
         self._last_hint = -1e9
+        self._typed = threading.Lock()  # typed orders wait their turn
 
     def stop_speaking(self) -> None:
         """Interrupt the current answer (Clicky: talking again cuts it off)."""
@@ -1175,9 +1176,23 @@ class Assistant:
     def on_text(self, text: str) -> None:
         """A request typed in the notch (same as saying it, no microphone)."""
         text = text.strip()
-        if not text or self.busy:
+        if not text:
             return
-        self.busy = True
+        # Busy (talking or doing the last order): cut the talking short and
+        # take this one next, in the order typed. Before, it was dropped.
+        with self._typed:
+            if self.busy:
+                self.stop_speaking()
+                deadline = self.clock() + 30
+                while self.busy and self.clock() < deadline:
+                    time.sleep(0.05)
+                if self.busy:
+                    self.ui.say(f"Sigo con lo anterior; no pude atender «{text[:60]}».")
+                    return
+            self.busy = True
+            self._typed_turn(text)
+
+    def _typed_turn(self, text: str) -> None:
         try:
             self._respond(text)
         except Exception as exc:  # noqa: BLE001

@@ -10,6 +10,7 @@ from __future__ import annotations
 import re
 import unicodedata
 from dataclasses import dataclass
+from typing import Any
 from urllib.parse import quote_plus
 
 SITES = {
@@ -62,6 +63,7 @@ class Quick:
     #           | analyze | photo | mirror | blender_holo | blender_object
     arg: str = ""
     say: str = ""  # short spoken confirmation
+    step: Any = None  # a device.Step for kind "device"
 
 
 _STATUS = re.compile(
@@ -144,6 +146,11 @@ def polite(t: str) -> str:
     return " ".join(words)
 
 
+def _nice(name: str) -> str:
+    """ "bloc de notas" -> "Bloc de notas", "word" -> "Word"."""
+    return name[:1].upper() + name[1:]
+
+
 def parse_quick(text: str) -> Quick | None:
     """A Quick action for clear one-step orders, else None."""
     t = polite(_plain(text).rstrip(".?!"))
@@ -222,6 +229,12 @@ def parse_quick(text: str) -> Quick | None:
         return Quick("time")
     if re.fullmatch(r"(que dia es hoy|que fecha es hoy|que fecha es)( por favor)?", t):
         return Quick("date")
+    # The laptop itself: windows, editing keys, brightness, theme, settings...
+    from sergio_escritorio.device import parse_device
+
+    step = parse_device(t, text)
+    if step is not None:
+        return Quick("device", step.arg, step.say, step)
     # Volume and media keys
     volume = {
         "sube el volumen": ("volume", "up", "Subo el volumen."),
@@ -281,17 +294,17 @@ def parse_quick(text: str) -> Quick | None:
     if m:
         target = m.group(3).strip()
         if target in APP_FIRST:  # the desktop app if installed, else its web
-            return Quick("open_app", target, f"Abriendo {target.title()}.")
+            return Quick("open_app", target, f"Abriendo {_nice(target)}.")
         if target in SITES:
             return Quick("open_url", SITES[target], f"Abriendo {target.title()}.")
         if re.fullmatch(r"[\w.-]+\.(com|org|net|ec|es|io|ai|dev)(/\S*)?", target):
             return Quick("open_url", f"https://{target}", f"Abriendo {target}.")
         if len(target.split()) <= 3 and m.group(1) != "pon":
-            return Quick("open_app", target, f"Abriendo {target.title()}.")
+            return Quick("open_app", target, f"Abriendo {_nice(target)}.")
     m = re.fullmatch(r"(cierra|cerrar) (el |la )?(.+)", t)
     if m and len(m.group(3).split()) <= 3:
         target = m.group(3).strip()
-        return Quick("close_app", target, f"Cerrando {target.title()}.")
+        return Quick("close_app", target, f"Cerrando {_nice(target)}.")
     return None
 
 

@@ -66,10 +66,19 @@ def _retry_seconds(text: str) -> float:
     return 3600.0 if "PerDay" in text else 60.0
 
 
+OVERLOADED_SECONDS = 90.0  # "503 high demand": skip that model for a moment
+
+
 def note_quota(model: str, exc: Exception, clock: Callable[[], float] = time.monotonic) -> None:
     text = str(exc)
-    if model and ("RESOURCE_EXHAUSTED" in text or "exceeded your current quota" in text):
+    if not model:
+        return
+    if "RESOURCE_EXHAUSTED" in text or "exceeded your current quota" in text:
         _EXHAUSTED[model] = clock() + min(_retry_seconds(text), 6 * 3600)
+    elif "503" in text and ("UNAVAILABLE" in text or "overloaded" in text or "high demand" in text):
+        # An overloaded model can take many seconds to say so: the next
+        # sentence goes straight to the backup model instead.
+        _EXHAUSTED[model] = clock() + OVERLOADED_SECONDS
 
 
 def check_quota(model: str, clock: Callable[[], float] = time.monotonic) -> None:
@@ -77,7 +86,8 @@ def check_quota(model: str, clock: Callable[[], float] = time.monotonic) -> None
     if until > clock():
         mins = max(1, int((until - clock()) // 60))
         raise QuotaExhausted(
-            f"429 RESOURCE_EXHAUSTED: {model} sin cuota por ahora (vuelve en ~{mins} min)"
+            f"429 RESOURCE_EXHAUSTED: {model} sin cuota o saturado por ahora "
+            f"(vuelve en ~{mins} min)"
         )
 
 
