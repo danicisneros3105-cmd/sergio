@@ -1,32 +1,19 @@
-"""Sergio sees your hands (webcam + MediaPipe): gestures, an air mouse and 3D.
+"""Sergio sees your hands (webcam + MediaPipe) to shape holograms in Sergio ve.
 
-Modes (camera window "Manos" button, or by voice):
+Both hands are tracked and smoothed (One-Euro filter on every point) and
+handed to the holograms (``holo.py``): pinch to grab, twist to turn, both
+hands to scale, sculpt and draw in the air. There is no gesture or air-mouse
+control of the computer any more: your hands are for the holograms.
 
-* ``gestos`` — gestures are actions: thumbs up says "sí" to Sergio (confirm),
-  an open palm stops him talking, two fingers ask what he sees.
-* ``mouse`` — an air mouse: your index finger moves the pointer, a pinch
-  (thumb + index) clicks, holding the pinch drags, a fist pauses.
-* ``3d`` — your hands drive Blender live (see :data:`BLENDER_BRIDGE`): pinch
-  and move to rotate the selected object, pinch with both hands to scale,
-  a fist moves it, thumbs up adds a shape, two fingers duplicate.
-* ``fisica`` — real physics in the camera window (see ``physics.py``): make
-  objects with your hands, grab them, throw them.
-
-Both hands are tracked and smoothed (One-Euro filter on every point).
-Swiping an open hand left/right/up/down is a gesture too (next/previous,
-volume), and pinching with both hands in mouse mode zooms.
-
-The gesture maths is pure (lists of 21 landmarks) so it is tested without a
+The hand maths is pure (lists of 21 landmarks), so it is tested without a
 camera; MediaPipe only turns frames into landmarks.
 """
 
 from __future__ import annotations
 
-import json
 import logging
 import math
 import os
-import socket
 import threading
 import time
 from dataclasses import dataclass, field
@@ -45,14 +32,13 @@ MODEL_PATH = (
     / "models"
     / "hand_landmarker.task"
 )
-BLENDER_PORT = 9877
 MODES = {
     "off": "Apagado",
-    "gestos": "Gestos",
-    "mouse": "Mouse en el aire",
-    "3d": "Modelar en 3D",
-    "fisica": "Física con las manos",
+    "holo": "Hologramas con las manos",
 }
+# Older names for the hands (voice, Sergio's tools) -> today's mode.
+ALIASES = {"3d": "holo", "fisica": "holo", "modelar": "holo", "hologramas": "holo"}
+REMOVED = {"gestos", "mouse"}
 
 # MediaPipe hand landmark indices.
 WRIST, THUMB_IP, THUMB_TIP = 0, 3, 4
@@ -198,26 +184,7 @@ class HandTracker:
         return hands
 
 
-# -- what the gestures do -------------------------------------------------------
-@dataclass
-class Debounce:
-    """A gesture must be held a moment before it counts (no accidents)."""
-
-    hold: float = 0.6
-    _current: str = "none"
-    _since: float = 0.0
-    _fired: bool = False
-
-    def update(self, name: str, now: float) -> str | None:
-        if name != self._current:
-            self._current, self._since, self._fired = name, now, False
-            return None
-        if not self._fired and name != "none" and now - self._since >= self.hold:
-            self._fired = True
-            return name
-        return None
-
-
+# -- smoothing -----------------------------------------------------------------
 class OneEuro:
     """One-Euro filter: steady when the hand is still, quick when it moves.
 
@@ -250,119 +217,6 @@ class OneEuro:
         self._x = a * x + (1 - a) * self._x
         self._t = t
         return self._x
-
-
-def anchor(lm: Sequence[Point]) -> tuple[float, float]:
-    """Where the pointer follows: the knuckles (steady while you pinch)."""
-    return (
-        (lm[INDEX_MCP][0] + lm[MIDDLE_MCP][0]) / 2,
-        (lm[INDEX_MCP][1] + lm[MIDDLE_MCP][1]) / 2,
-    )
-
-
-def right_pinch_ratio(lm: Sequence[Point]) -> float:
-    """Thumb–middle tip distance relative to the palm (right click)."""
-    return _d(lm[THUMB_TIP], lm[MIDDLE_TIP]) / palm_size(lm)
-
-
-@dataclass
-class AirMouse:
-    """Hand -> pointer.
-
-    Pinch (thumb + index) = click, held = drag; thumb + middle = right click;
-    two fingers moving up/down = scroll; a fist pauses (move your hand back
-    without moving the pointer). Pinches use hysteresis so they never flicker.
-    """
-
-    screen: tuple[int, int]
-    box: tuple[float, float, float, float] = (0.25, 0.2, 0.75, 0.7)  # active area
-    drag_after: float = 0.6
-    pinch_on: float = 0.25
-    pinch_off: float = 0.4
-    smooth: bool = True
-    _fx: OneEuro = field(default_factory=OneEuro)
-    _fy: OneEuro = field(default_factory=OneEuro)
-    _pos: tuple[float, float] | None = None
-    _pinching: bool = False
-    _pinch_at: float | None = None
-    _dragging: bool = False
-    _right: bool = False
-    _scroll_y: float | None = None
-
-    def target(
-        self, point: tuple[float, float], now: float = 0.0, mirror: bool = True
-    ) -> tuple[int, int]:
-        x0, y0, x1, y1 = self.box
-        u = (point[0] - x0) / (x1 - x0)
-        v = (point[1] - y0) / (y1 - y0)
-        if mirror:  # the camera sees you mirrored
-            u = 1 - u
-        u, v = min(1.0, max(0.0, u)), min(1.0, max(0.0, v))
-        x, y = u * (self.screen[0] - 1), v * (self.screen[1] - 1)
-        if self.smooth:
-            x, y = self._fx(x, now), self._fy(y, now)
-        self._pos = (x, y)
-        return round(x), round(y)
-
-    def step(self, hand: Hand, now: float) -> list[tuple[str, int, int]]:
-        """Events for this frame: ('move'|'click'|'down'|'up'|'right'|'scroll')."""
-        lm = hand.landmarks
-        name = hand.gesture
-        if name == "fist":  # clutch: re-centre your hand without moving
-            self._scroll_y = None
-            return self._release()
-        thumb_on_middle = (
-            right_pinch_ratio(lm) < self.pinch_on
-            and _d(lm[MIDDLE_TIP], lm[WRIST]) / palm_size(lm) > 1.1
-        )
-        if name == "victory" and not thumb_on_middle:  # two fingers: scroll
-            y = anchor(lm)[1]
-            events: list[tuple[str, int, int]] = []
-            if self._scroll_y is not None:
-                amount = round((self._scroll_y - y) * 40)
-                if amount:
-                    events.append(("scroll", amount, 0))
-                    self._scroll_y = y
-            else:
-                self._scroll_y = y
-            return events
-        self._scroll_y = None
-        x, y = self.target(anchor(lm), now)
-        events = [("move", x, y)]
-        ratio = pinch_ratio(lm)
-        # Hysteresis: start below pinch_on, end above pinch_off.
-        if not self._pinching and ratio < self.pinch_on:
-            self._pinching, self._pinch_at = True, now
-        elif self._pinching and ratio > self.pinch_off:
-            self._pinching = False
-            if not self._dragging:
-                events.append(("click", x, y))
-            events += self._release()
-            return events
-        if (
-            self._pinching
-            and not self._dragging
-            and now - (self._pinch_at or now) >= self.drag_after
-        ):
-            self._dragging = True
-            events.append(("down", x, y))
-        # Right click: thumb + middle together (index away), once per touch.
-        # (In a plain pointing pose the thumb rests on the curled middle
-        # finger: only a middle finger reaching out counts.)
-        right = thumb_on_middle and ratio > self.pinch_off
-        if right and not self._right:
-            events.append(("right", x, y))
-        self._right = right
-        return events
-
-    def _release(self) -> list[tuple[str, int, int]]:
-        events = []
-        if self._dragging and self._pos is not None:
-            events.append(("up", round(self._pos[0]), round(self._pos[1])))
-        self._dragging = False
-        self._pinching = False
-        self._pinch_at = None
-        return events
 
 
 class LandmarkSmoother:
@@ -398,73 +252,6 @@ class LandmarkSmoother:
         return out
 
 
-class Swipe:
-    """An open hand swept quickly left/right/up/down (as you see yourself)."""
-
-    def __init__(
-        self,
-        window: float = 0.4,
-        distance: float = 0.22,
-        cooldown: float = 0.9,
-        mirror: bool = True,
-    ) -> None:
-        from collections import deque
-
-        self.window, self.distance, self.cooldown = window, distance, cooldown
-        self.mirror = mirror
-        self._path: deque[tuple[float, float, float]] = deque()
-        self._last = -1e9
-
-    def __call__(self, hand: Hand | None, now: float) -> str | None:
-        if hand is None or hand.gesture != "open":
-            self._path.clear()
-            return None
-        x, y = hand.centre
-        self._path.append((now, x, y))
-        while self._path and now - self._path[0][0] > self.window:
-            self._path.popleft()
-        if now - self._last < self.cooldown or len(self._path) < 3:
-            return None
-        _t0, x0, y0 = self._path[0]
-        dx, dy = x - x0, y - y0
-        if self.mirror:
-            dx = -dx
-        if abs(dx) >= self.distance and abs(dx) > 2 * abs(dy):
-            name = "swipe_right" if dx > 0 else "swipe_left"
-        elif abs(dy) >= self.distance and abs(dy) > 2 * abs(dx):
-            name = "swipe_down" if dy > 0 else "swipe_up"
-        else:
-            return None
-        self._last = now
-        self._path.clear()
-        return name
-
-
-class TwoHandZoom:
-    """Both hands pinching: pull apart to zoom in, bring together to zoom out."""
-
-    def __init__(self, step: float = 0.05) -> None:
-        self.step = step
-        self._start: float | None = None
-
-    def __call__(self, hands: list[Hand]) -> int:
-        pinching = [h for h in hands[:2] if pinch_ratio(h.landmarks) < 0.3]
-        if len(pinching) < 2:
-            self._start = None
-            return 0
-        a, b = (
-            (h.landmarks[INDEX_TIP][0], h.landmarks[INDEX_TIP][1]) for h in pinching
-        )
-        gap = math.hypot(a[0] - b[0], a[1] - b[1])
-        if self._start is None:
-            self._start = gap
-            return 0
-        steps = int((gap - self._start) / self.step)
-        if steps:
-            self._start += steps * self.step
-        return steps
-
-
 def main_hand(hands: list[Hand]) -> Hand | None:
     """The hand doing the work: the biggest (closest to the camera)."""
     if not hands:
@@ -472,101 +259,30 @@ def main_hand(hands: list[Hand]) -> Hand | None:
     return max(hands, key=lambda h: palm_size(h.landmarks))
 
 
-class Vote:
-    """The gesture seen in most of the last frames (no one-frame flickers)."""
-
-    def __init__(self, size: int = 5) -> None:
-        from collections import deque
-
-        self._seen: deque[str] = deque(maxlen=size)
-
-    def __call__(self, name: str) -> str:
-        self._seen.append(name)
-        best = max(set(self._seen), key=list(self._seen).count)
-        return best if list(self._seen).count(best) > len(self._seen) // 2 else "none"
-
-
-def blender_packet(hands: list[Hand], now: float) -> dict:
-    """What Blender receives ~20 times a second."""
-    data: dict[str, Any] = {"t": now, "hands": []}
-    for hand in hands:
-        cx, cy = hand.centre
-        data["hands"].append(
-            {
-                "gesture": hand.gesture,
-                "x": 1 - cx,  # mirrored, like a selfie
-                "y": cy,
-                "z": hand.landmarks[INDEX_TIP][2],
-                "pinch": pinch_ratio(hand.landmarks),
-            }
-        )
-    return data
-
-
 @dataclass
 class HandControl:
-    """Runs the chosen mode on frames from the camera feed (own thread)."""
+    """Tracks your hands on the camera frames (own thread) for the holograms."""
 
     frames: Callable[[], Any]  # latest BGR frame or None
-    on_gesture: Callable[[str], None] = lambda _g: None
-    mouse_events: Callable[[list[tuple[str, int, int]]], None] = lambda _e: None
-    screen: tuple[int, int] = (1920, 1080)
     tracker_factory: Callable[[], Any] = HandTracker
     mode: str = "off"
     hands: list[Hand] = field(default_factory=list)
     error: str = ""
     mirror: bool = True
     _thread: threading.Thread | None = None
-    _sock: Any = None
-    _vote: Vote = field(default_factory=Vote)
     _smooth: LandmarkSmoother = field(default_factory=LandmarkSmoother)
-    _swipe: Swipe = field(default_factory=Swipe)
-    _zoom: TwoHandZoom = field(default_factory=TwoHandZoom)
 
     def set_mode(self, mode: str) -> None:
+        mode = ALIASES.get(mode, mode)
         self.mode = mode if mode in MODES else "off"
         self.error = ""
         if self.mode != "off" and (self._thread is None or not self._thread.is_alive()):
             self._thread = threading.Thread(target=self._loop, daemon=True)
             self._thread.start()
 
-    def process(
-        self, hands: list[Hand], now: float, debounce: Debounce, mouse: AirMouse
-    ) -> None:
-        """One frame of work for the current mode (pure enough to test)."""
-        hands = self._smooth(hands, now)
-        self.hands = hands
-        main = main_hand(hands)
-        if self.mode == "gestos":
-            self._swipe.mirror = self.mirror
-            swiped = self._swipe(main, now)
-            if swiped:
-                self.on_gesture(swiped)
-                return
-            seen = self._vote(main.gesture if main else "none")
-            fired = debounce.update(seen, now)
-            if fired:
-                self.on_gesture(fired)
-        elif self.mode == "mouse" and main is not None:
-            zoom = self._zoom(hands)
-            if zoom:
-                self.mouse_events([("zoom", zoom, 0)])
-                return
-            if len([h for h in hands[:2] if pinch_ratio(h.landmarks) < 0.3]) >= 2:
-                return  # both hands pinching: zooming, not clicking
-            events = mouse.step(main, now)
-            if events:
-                self.mouse_events(events)
-        elif self.mode == "3d":
-            self._send(blender_packet(hands, now))
-
-    def _send(self, packet: dict) -> None:
-        if self._sock is None:
-            self._sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        try:
-            self._sock.sendto(json.dumps(packet).encode(), ("127.0.0.1", BLENDER_PORT))
-        except OSError:
-            pass
+    def process(self, hands: list[Hand], now: float) -> None:
+        """One frame: smooth the hands and keep them for the holograms."""
+        self.hands = self._smooth(hands, now)
 
     def _loop(self) -> None:
         try:
@@ -576,7 +292,6 @@ class HandControl:
             self.error = f"No puedo ver tus manos: {exc}"
             self.mode = "off"
             return
-        debounce, mouse = Debounce(), AirMouse(self.screen)
         while self.mode != "off":
             frame = self.frames()
             if frame is None:
@@ -587,100 +302,22 @@ class HandControl:
             except Exception:  # noqa: BLE001
                 log.exception("hand detection failed")
                 hands = []
-            self.process(hands, time.monotonic(), debounce, mouse)
+            self.process(hands, time.monotonic())
             time.sleep(1 / 30)
         self.hands = []
 
 
-# Blender add-on (run with blender --python): listens for hand packets and
-# moves the active object. Pinch+move rotates, two pinches scale, a fist
-# moves it, thumbs up adds a cube, victory duplicates.
-BLENDER_BRIDGE = r"""
-import bpy, json, socket
-
-PORT = %(port)d
-_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-_sock.bind(("127.0.0.1", PORT))
-_sock.setblocking(False)
-_state = {"last": None, "spread": None, "cool": 0.0}
-
-
-def _active():
-    obj = bpy.context.view_layer.objects.active
-    if obj is None and bpy.context.scene.objects:
-        obj = bpy.context.scene.objects[0]
-        bpy.context.view_layer.objects.active = obj
-    return obj
-
-
-def _tick():
-    packet = None
-    try:
-        while True:
-            data, _ = _sock.recvfrom(65536)
-            packet = json.loads(data)
-    except (BlockingIOError, OSError, ValueError):
-        pass
-    if not packet:
-        return 0.03
-    hands = packet.get("hands", [])
-    obj = _active()
-    if obj is None:
-        return 0.03
-    pinching = [h for h in hands if h["gesture"] == "pinch"]
-    _state["cool"] = max(0.0, _state["cool"] - 0.03)
-    if len(pinching) == 2:  # two hands: scale by their spread
-        a, b = pinching
-        spread = ((a["x"] - b["x"]) ** 2 + (a["y"] - b["y"]) ** 2) ** 0.5
-        if _state["spread"]:
-            k = max(0.9, min(1.1, spread / _state["spread"]))
-            obj.scale = [s * k for s in obj.scale]
-        _state["spread"] = spread
-        _state["last"] = None
-    elif hands:
-        h = hands[0]
-        _state["spread"] = None
-        here = (h["x"], h["y"])
-        last = _state["last"]
-        if last is not None:
-            dx, dy = here[0] - last[0], here[1] - last[1]
-            if h["gesture"] == "pinch":
-                obj.rotation_euler[2] += dx * 6.0
-                obj.rotation_euler[0] += dy * 6.0
-            elif h["gesture"] == "fist":
-                obj.location.x += dx * 8.0
-                obj.location.z -= dy * 8.0
-        _state["last"] = here
-        if _state["cool"] == 0.0 and h["gesture"] == "thumbs_up":
-            bpy.ops.mesh.primitive_cube_add(location=(0, 0, 0))
-            _state["cool"] = 1.5
-        elif _state["cool"] == 0.0 and h["gesture"] == "victory":
-            bpy.ops.object.duplicate_move()
-            _state["cool"] = 1.5
-    else:
-        _state["last"] = _state["spread"] = None
-    return 0.03
-
-
-bpy.app.timers.register(_tick, persistent=True)
-print("Sergio: control con las manos activo en el puerto", PORT)
-""" % {"port": BLENDER_PORT}
-
-
 __all__ = [
-    "AirMouse",
-    "OneEuro",
-    "Vote",
-    "anchor",
-    "BLENDER_BRIDGE",
-    "Debounce",
+    "ALIASES",
+    "MODES",
     "Hand",
     "HandControl",
     "HandTracker",
-    "MODES",
-    "blender_packet",
-    "ensure_model",
+    "LandmarkSmoother",
+    "OneEuro",
     "fingers_up",
     "gesture",
+    "main_hand",
+    "palm_size",
     "pinch_ratio",
 ]

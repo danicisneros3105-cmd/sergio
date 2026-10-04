@@ -32,7 +32,7 @@ def book(tmp_path, monkeypatch):
         b"empty": [],
     }
 
-    def fake_faces(data):
+    def fake_faces(data, **_kw):
         if data not in faces_by_image:
             raise FaceError("The file is not a readable image.")
         return faces_by_image[data]
@@ -166,7 +166,7 @@ def test_names_are_cleaned_and_old_entries_merged(tmp_path):
     )
     people = FaceBook(root).people()
     assert people == [
-        {"name": "Daniel Cisneros", "samples": 2, "enrolled_at": 1}
+        {"name": "Daniel Cisneros", "samples": 2, "enrolled_at": 1, "signatures": 0}
     ]
 
 
@@ -180,7 +180,7 @@ def test_a_stranger_is_not_the_only_enrolled_person(tmp_path, monkeypatch):
     photos = {f"dani{i}".encode(): [(_near(dani, 0.05, i), (0, 0, 150, 150), 0.97)] for i in range(8)}
     photos[b"stranger"] = [(stranger, (0, 0, 150, 150), 0.97)]
     photos[b"dani_live"] = [(_near(dani, 0.08, 99), (0, 0, 150, 150), 0.95)]
-    monkeypatch.setattr(b, "_faces", lambda data: photos[data])
+    monkeypatch.setattr(b, "_faces", lambda data, **_kw: photos[data])
     for i in range(8):
         b.enroll("Dani", f"dani{i}".encode(), consent=True)
     assert b.identify(b"dani_live")[0].name == "Dani"
@@ -202,7 +202,7 @@ def test_two_similar_people_need_a_clear_winner(tmp_path, monkeypatch):
         b"c": [(c, (0, 0, 100, 100), 0.99)],
         b"between": [(_unit([1, 0.075, 0, 0]), (0, 0, 100, 100), 0.99)],
     }
-    monkeypatch.setattr(b, "_faces", lambda data: photos[data])
+    monkeypatch.setattr(b, "_faces", lambda data, **_kw: photos[data])
     b.enroll("Ana", b"a", consent=True)
     b.enroll("Carla", b"c", consent=True)
     assert b.identify(b"a")[0].name == ""  # too close to call: not guessed
@@ -216,7 +216,7 @@ def test_tiny_or_blurry_faces_are_not_named(tmp_path, monkeypatch):
         b"far": [(ANA, (0, 0, 24, 24), 0.99)],
         b"blur": [(ANA, (0, 0, 120, 120), 0.6)],
     }
-    monkeypatch.setattr(b, "_faces", lambda data: photos[data])
+    monkeypatch.setattr(b, "_faces", lambda data, **_kw: photos[data])
     b.enroll("Ana", b"ana", consent=True)
     far, blur = b.identify(b"far")[0], b.identify(b"blur")[0]
     assert (far.name, far.quality) == ("", "pequeña")

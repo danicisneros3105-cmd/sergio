@@ -32,6 +32,19 @@ HISTORY_TURNS = 12
 FOLLOW_UP_SECONDS = 8.0  # after a bare "Sergio", the next sentence is the order
 CONVERSATION_SECONDS = 7.0  # after he answers, you can reply without "Sergio"
 PTT_TIMEOUT = 10.0  # longest push-to-talk recording
+WAKE_RING_SECONDS = 6.0  # microphone kept in memory for the instant wake word
+WAKE_DECIDE_SECONDS = 12.0  # a "maybe Sergio" without an answer is dropped
+WAKE_CALL_WAIT = 8.0  # confirmed but no call yet: answer by turns
+
+
+class _Wake:
+    """Your words after "Sergio", kept while the call connects."""
+
+    def __init__(self, frames: list[bytes], started: float) -> None:
+        self.frames = frames
+        self.started = started
+        self.confirmed = False
+        self.failed = False
 
 VOICE_STYLE = (
     "You are Sergio, a refined, very intelligent British gentleman of about "
@@ -61,8 +74,8 @@ VOICE_STYLE = (
     "page (screen_read/desktop_action), filling title and description. "
     "Blender: write a complete bpy script and call blender_create (hands=true "
     "if they want to shape it with their hands). To show the user where "
-    "something is, desktop_action point. To let them use the computer with "
-    "their hands: desktop_action hands target=gestos, mouse or 3d (off to stop). "
+    "something is, desktop_action point. Holograms they shape with their "
+    "hands in the camera: desktop_action hands target=holo (off to stop). "
     "Files: files_organize (preview first, apply only after the user agrees; "
     "undo=true reverts). Python: python_run for calculations, images, "
     "renaming or reading files. Terminal: terminal_run (PowerShell) for "
@@ -528,6 +541,94 @@ class SergioClient:
         del self.history[: -HISTORY_TURNS * 2]
         return reply
 
+    def act_step(
+        self,
+        png: bytes,
+        goal: str,
+        history: list[str],
+        elements: list[dict],
+        step: int,
+        max_steps: int,
+        confirmed: bool,
+    ) -> dict:
+        """One step of using the computer (Sergio's server decides it)."""
+        resp = self.http.post(
+            f"{self.base}/v1/vision/act",
+            files={"image": ("pantalla.png", png, "image/png")},
+            data={
+                "goal": goal,
+                "history": json.dumps(history, ensure_ascii=False),
+                "elements": json.dumps(elements, ensure_ascii=False),
+                "step": str(step),
+                "max_steps": str(max_steps),
+                "confirmed": "true" if confirmed else "false",
+            },
+            timeout=httpx.Timeout(90, connect=5),
+        )
+        if resp.status_code != 200:
+            try:
+                why = resp.json().get("detail") or resp.text
+            except ValueError:
+                why = resp.text
+            raise RuntimeError(str(why)[:300])
+        return resp.json()
+
+    def _faces_post(self, path: str, image: bytes) -> dict:
+        from sergio_escritorio.vision import face_points
+
+        resp = self.http.post(
+            f"{self.base}/v1/faces/{path}",
+            files={"image": ("foto.jpg", image, "image/jpeg")},
+            data={"faces": json.dumps(face_points(image))},
+            timeout=httpx.Timeout(120, connect=5),
+        )
+        if resp.status_code != 200:
+            try:
+                why = resp.json().get("detail") or resp.text
+            except ValueError:
+                why = resp.text
+            raise RuntimeError(str(why)[:300])
+        return resp.json()
+
+    def photo_who(self, image: bytes) -> str:
+        """Who is in a photo (old ones too), with the 175-point geometry."""
+        return str(self._faces_post("photo", image).get("text") or "")
+
+    def kinship(self, image: bytes) -> str:
+        """Family resemblance of the faces in a photo with known people."""
+        return str(self._faces_post("kinship", image).get("text") or "")
+
+    def overhead(self, lat: float, lon: float, alt: float | None = None) -> dict:
+        """The plane right above this spot now (live ADS-B, a few seconds)."""
+        params: dict[str, Any] = {"lat": f"{lat:.6f}", "lon": f"{lon:.6f}"}
+        if alt is not None:
+            params["alt"] = f"{alt:.0f}"
+        resp = self.http.get(
+            f"{self.base}/v1/world/overhead", params=params, timeout=httpx.Timeout(12, connect=3)
+        )
+        if resp.status_code != 200:
+            try:
+                why = resp.json().get("detail") or resp.text
+            except ValueError:
+                why = resp.text
+            raise RuntimeError(str(why)[:300])
+        return resp.json()
+
+    def globe_goto(self, place: str, style: str = "normal") -> str:
+        """Aim God's Eye View at a place; returns the URL to open."""
+        resp = self.http.post(
+            f"{self.base}/v1/world/goto",
+            json={"place": place, "style": style},
+            timeout=httpx.Timeout(240, connect=5),  # the first start installs it
+        )
+        if resp.status_code != 200:
+            try:
+                why = resp.json().get("detail") or resp.text
+            except ValueError:
+                why = resp.text
+            raise RuntimeError(str(why)[:300])
+        return str(resp.json().get("url") or "")
+
     def speak_on_server(self, text: str) -> bytes:
         resp = self.http.post(
             f"{self.base}/v1/speech/synthesize", json={"text": text[:3000]}
@@ -853,12 +954,13 @@ def target_point(
     reply: dict, elements: list[dict], scale: float
 ) -> tuple[int, int] | None:
     """Screen pixel to point at, from the model's element id or x,y."""
+    ox, oy = getattr(scale, "origin", (0, 0))  # the shot's monitor
     chosen = reply.get("element")
     for el in elements:
         if chosen is not None and el.get("id") == chosen:
-            return round(el["x"] * scale), round(el["y"] * scale)
+            return round(el["x"] * scale) + ox, round(el["y"] * scale) + oy
     if reply.get("x") is not None and reply.get("y") is not None:
-        return round(reply["x"] * scale), round(reply["y"] * scale)
+        return round(reply["x"] * scale) + ox, round(reply["y"] * scale) + oy
     return None
 
 
@@ -946,13 +1048,29 @@ class Assistant:
         self, wav: bytes, *, addressed: bool, clicky: bool = False
     ) -> None:
         """*addressed*: Ctrl+Space (no wake word needed). *clicky*: held
-        Ctrl+Alt — Sergio looks at your screen with every question."""
+        Ctrl+Alt — Sergio looks at your screen with every question.
+
+        Sounds in the room are checked for "Sergio" WITHOUT making him busy:
+        before, a slow check of some chatter made him miss the real order
+        that came right after it.
+        """
+        for_me = addressed or self.expecting
         if self.busy:
             return
+        text: str | None = None
+        if not for_me:
+            try:
+                text = self._wake_check(wav)
+            except Exception as exc:  # noqa: BLE001
+                log.exception("wake check failed")
+                self._fail(f"Algo falló: {explain(exc)}")
+                return
+            if text is None or self.busy:
+                return  # not for Sergio (or a call took over)
         self.busy = True
         self._clicky = clicky
         try:
-            self._turn(wav, addressed)
+            self._turn(wav, addressed, text)
         except Exception as exc:  # noqa: BLE001 — never let a turn kill the loop
             log.exception("voice turn failed")
             self._fail(f"Algo falló: {explain(exc)}")
@@ -960,42 +1078,54 @@ class Assistant:
             self.busy = False
             self.ui.state("listening" if self.expecting else "idle")
 
-    def _turn(self, wav: bytes, addressed: bool) -> None:
-        for_me = addressed or self.expecting
-        if for_me:
-            self.ui.state("thinking")
+    def _wake_check(self, wav: bytes) -> str | None:
+        """The order after "Sergio" ("" for the bare name), or None."""
         try:
-            text = self.client.transcribe(wav, precise=for_me)
+            heard = self.client.transcribe(wav, precise=False)
         except Exception as exc:  # noqa: BLE001
             log.exception("transcription failed")
             # With the wake word on, every sound in the room is transcribed:
             # report a broken speech-to-text once a minute, not per sound.
-            if for_me or self.clock() - self._last_stt_error > 60:
+            if self.clock() - self._last_stt_error > 60:
                 self._last_stt_error = self.clock()
                 self._fail(f"No pude entender el audio: {explain(exc)}")
-            return
-        self.last_heard = text
-        if not for_me:
-            heard = text
-            woke, text = parse_wake(text)
-            if woke and self.start_call is not None and self.start_call(wav):
-                return  # a live conversation took over, from this sentence
-            if not woke:
-                # Not for Sergio. If it sounded like an order, remind how to
-                # call him (at most every two minutes).
-                if len(heard.split()) >= 2 and self.clock() - self._last_hint > 120:
-                    self._last_hint = self.clock()
-                    self.ui.say(
-                        f"Oí «{heard[:60]}». Para pedirme algo di «Sergio, …» "
-                        "o pulsa Ctrl+Espacio."
-                    )
-                return  # conversation in the room, not for Sergio
+            return None
+        self.last_heard = heard
+        woke, text = parse_wake(heard)
+        if woke and self.start_call is not None and self.start_call(wav):
+            return None  # a live conversation took over, from this sentence
+        if not woke:
+            # Not for Sergio. If it sounded like an order, remind how to
+            # call him (at most every two minutes).
+            if len(heard.split()) >= 2 and self.clock() - self._last_hint > 120:
+                self._last_hint = self.clock()
+                self.ui.say(
+                    f"Oí «{heard[:60]}». Para pedirme algo di «Sergio, …» "
+                    "o pulsa Ctrl+Espacio."
+                )
+            return None  # conversation in the room, not for Sergio
+        return text
+
+    def _turn(self, wav: bytes, addressed: bool, woke_text: str | None = None) -> None:
+        for_me = addressed or self.expecting
+        if for_me:
+            self.ui.state("thinking")
+            try:
+                text = self.client.transcribe(wav, precise=True)
+            except Exception as exc:  # noqa: BLE001
+                log.exception("transcription failed")
+                self._fail(f"No pude entender el audio: {explain(exc)}")
+                return
+            self.last_heard = text
+        else:
+            text = woke_text or ""
             if not text:
                 self._follow_up_until = self.clock() + FOLLOW_UP_SECONDS
                 self.chime(880)
                 self.ui.state("listening")
                 self.ui.say("¿Sí?")
                 return
+            self.ui.state("thinking")
             # The order is for Sergio: listen to it again, carefully (Gemini).
             try:
                 careful = self.client.transcribe(wav, precise=True)
@@ -1137,6 +1267,65 @@ class Ears:
         self.call: Any = None  # a CallSession while you talk live with Sergio
         # Ctrl+Space hook: start/end a call; False = do push-to-talk instead.
         self.on_talk: Callable[[], bool] | None = None
+        # Instant wake word (wake.WakeSpotter); None = Whisper checks phrases.
+        self.spotter: Any = None
+        # "maybe" (start connecting the call), "yes", "no" (drop it).
+        self.on_wake: Callable[[str], None] = lambda _event: None
+        self._ring: deque[bytes] = deque(maxlen=int(WAKE_RING_SECONDS * RATE / FRAME))
+        self._wake: _Wake | None = None
+        self.timeline: deque[str] = deque(maxlen=12)  # for `sergio revisar`
+
+    def mark(self, what: str) -> None:
+        """Note a moment of the last wake-up (diagnostics: who was slow)."""
+        wake = self._wake
+        since = f" +{self.clock() - wake.started:.1f}s" if wake else ""
+        self.timeline.append(f"{time.strftime('%H:%M:%S')} {what}{since}")
+
+    def wake_failed(self) -> None:
+        """The call could not start: the phrase goes to a normal turn."""
+        if self._wake is not None:
+            self._wake.failed = True
+
+    def _spot(self, chunk: bytes) -> tuple[bytes, bool, bool] | None:
+        """Instant wake word: buffer your words while the call connects."""
+        self._ring.append(chunk)
+        wake = self._wake
+        if wake is not None:
+            wake.frames.append(chunk)
+        event = self.spotter.feed(chunk)
+        now = self.clock()
+        if event in ("maybe", "yes") and wake is None:
+            # "maybe": 1.5 s before it holds the name; a direct "yes" (the
+            # partial missed it) needs the whole phrase in the ring.
+            keep = len(self._ring) if event == "yes" else int(1.5 * RATE / FRAME)
+            wake = self._wake = _Wake(list(self._ring)[-keep:], now)
+            self.mark("oí «Sergio»")
+            self.on_wake("maybe")
+        if event == "yes" and wake is not None and not wake.confirmed:
+            wake.confirmed = True
+            self.mark("confirmado")
+            self.on_wake("yes")
+        elif event == "no" and wake is not None:
+            self._wake = None
+            self.mark("no era para mí")
+            self.on_wake("no")
+            return None
+        if wake is None:
+            return None
+        call = self.call
+        if wake.confirmed and call is not None and getattr(call, "active", False):
+            self._wake = None
+            self.mark("tus palabras van a la llamada")
+            for frame in wake.frames:
+                call.feed_mic(frame)
+            return None
+        if wake.confirmed and (wake.failed or now - wake.started > WAKE_CALL_WAIT):
+            self._wake = None  # no call: Sergio answers by turns
+            return to_wav(wake.frames), True, False
+        if not wake.confirmed and now - wake.started > WAKE_DECIDE_SECONDS:
+            self._wake = None
+            self.on_wake("no")
+        return None
 
     def peak(self, seconds: float = 30.0) -> int:
         """Loudest sound (RMS) heard recently, for diagnostics."""
@@ -1207,7 +1396,7 @@ class Ears:
         else:
             self._peaks.append((second, level))
         call = self.call
-        if call is not None and getattr(call, "active", False):
+        if call is not None and getattr(call, "active", False) and self._wake is None:
             self.segmenter.reset()
             call.feed_mic(chunk)  # the call hears everything, live
             return None
@@ -1235,6 +1424,8 @@ class Ears:
             self._ptt_until = 0.0
             self.segmenter.end_silence = 0.8
             return to_wav(utterance), True, False
+        if self.spotter is not None and self.wake_word and not self.assistant.expecting:
+            return self._spot(chunk)
         if not (self.wake_word or self.assistant.expecting):
             return None
         utterance = self.segmenter.feed(chunk)

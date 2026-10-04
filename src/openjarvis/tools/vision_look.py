@@ -31,6 +31,14 @@ GEMINI_VISION_MODELS = (
     "gemini-flash-latest",
     "gemini-2.5-flash",
 )
+# For automatic looks in the background (naming objects in the camera):
+# Flash-Lite answers fast and has the largest free daily quota.
+GEMINI_LITE_VISION_MODELS = (
+    "gemini-3.1-flash-lite",
+    "gemini-3.5-flash-lite",
+    "gemini-flash-lite-latest",
+    "gemini-2.5-flash-lite",
+)
 
 
 def _kimi(
@@ -79,7 +87,9 @@ def _kimi(
 _GEMINI: Any = None  # remembers which Google service the key works with
 
 
-def _gemini(jpeg: bytes, prompt: str, mime: str = "image/jpeg") -> str:
+def _gemini(
+    jpeg: bytes, prompt: str, mime: str = "image/jpeg", models: tuple[str, ...] = GEMINI_VISION_MODELS
+) -> str:
     key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
     if not key:
         raise RuntimeError("no Gemini key")
@@ -93,7 +103,7 @@ def _gemini(jpeg: bytes, prompt: str, mime: str = "image/jpeg") -> str:
         _GEMINI = SwitchingClient(key)
     client = _GEMINI
     last: Exception | None = None
-    for model in GEMINI_VISION_MODELS:
+    for model in models:
         try:
             resp = client.models.generate_content(
                 model=model,
@@ -143,13 +153,18 @@ def ask_image(
     prompt: str,
     http: httpx.Client | None = None,
     mime: str = "image/jpeg",
+    lite: bool = False,
 ) -> str:
-    """Send *prompt* with the image to the first vision model that works."""
+    """Send *prompt* with the image to the first vision model that works.
+
+    *lite*: background looks go to Gemini Flash-Lite first (fast, big quota).
+    """
     http = http or httpx.Client()
     errors = []
+    models = GEMINI_LITE_VISION_MODELS + GEMINI_VISION_MODELS if lite else GEMINI_VISION_MODELS
     for name, call in (
         ("Kimi", lambda: _kimi(image, prompt, http, mime)),
-        ("Gemini", lambda: _gemini(image, prompt, mime)),
+        ("Gemini", lambda: _gemini(image, prompt, mime, models)),
         ("Ollama", lambda: _ollama(image, prompt, http)),
     ):
         try:

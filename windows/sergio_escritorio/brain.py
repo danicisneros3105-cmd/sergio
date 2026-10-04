@@ -109,7 +109,19 @@ EXERCISES: tuple[Exercise, ...] = (
         "Dos cuadros a la vez = pulsa las dos teclas juntas.",
     ),
 )
-BY_KIND = {e.kind: e for e in EXERCISES}
+# Not trained: a standard processing-speed test (like WAIS's Digit Symbol
+# Substitution) taken once a day to measure whether the training carries
+# over to something it never practised (far transfer).
+PROBE = Exercise(
+    "prueba",
+    "Prueba de control: velocidad de procesamiento",
+    200,  # as many as you can: the score is how many in 90 s
+    90,
+    "Arriba está la clave: cada símbolo tiene un número. Cuando aparezca un "
+    "símbolo, pulsa su número (1 a 9) lo más rápido que puedas sin "
+    "equivocarte. No se entrena: sirve para medir si el gimnasio te mejora.",
+)
+BY_KIND = {e.kind: e for e in (*EXERCISES, PROBE)}
 
 
 def plain(text: str) -> str:
@@ -761,6 +773,139 @@ def coordination(rng: random.Random, length: int, chords: int = 0) -> Coordinati
     return CoordinationItem(steps)
 
 
+# -- control test: digit-symbol substitution (untrained) --------------------------------------
+# Nine line drawings in a unit square: polylines of (x, y), y down.
+GLYPHS: dict[str, tuple[tuple[tuple[float, float], ...], ...]] = {
+    "uve": (((0.2, 0.2), (0.5, 0.8), (0.8, 0.2)),),
+    "te": (((0.5, 0.2), (0.5, 0.8)), ((0.2, 0.8), (0.8, 0.8))),
+    "u": (((0.2, 0.2), (0.2, 0.8), (0.8, 0.8), (0.8, 0.2)),),
+    "igual": (((0.2, 0.38), (0.8, 0.38)), ((0.2, 0.62), (0.8, 0.62))),
+    "equis": (((0.2, 0.2), (0.8, 0.8)), ((0.8, 0.2), (0.2, 0.8))),
+    "lambda": (((0.2, 0.8), (0.5, 0.2), (0.8, 0.8)),),
+    "mayor": (((0.25, 0.2), (0.75, 0.5), (0.25, 0.8)),),
+    "ele": (((0.25, 0.2), (0.25, 0.8), (0.75, 0.8)),),
+    "zeta": (((0.2, 0.2), (0.8, 0.2), (0.2, 0.8), (0.8, 0.8)),),
+}
+
+
+@dataclass
+class SymbolKey:
+    """Which number goes with each symbol (new order every time)."""
+
+    order: list[str]  # order[i] is the symbol for number i + 1
+
+    def digit(self, glyph: str) -> int:
+        return self.order.index(glyph) + 1
+
+
+def symbol_key(rng: random.Random) -> SymbolKey:
+    return SymbolKey(rng.sample(sorted(GLYPHS), len(GLYPHS)))
+
+
+def next_symbol(rng: random.Random, previous: str = "") -> str:
+    return rng.choice([g for g in sorted(GLYPHS) if g != previous])
+
+
+# -- does it work? ------------------------------------------------------------------------------
+_T95 = {1: 12.71, 2: 4.30, 3: 3.18, 4: 2.78, 5: 2.57, 6: 2.45, 7: 2.36, 8: 2.31, 9: 2.26,
+        10: 2.23, 12: 2.18, 15: 2.13, 20: 2.09, 30: 2.04, 60: 2.00}
+
+
+def _t95(df: int) -> float:
+    return _T95[max(k for k in _T95 if k <= max(1, df))]
+
+
+def trend(points: list[tuple[float, float]]) -> tuple[float, float, float]:
+    """Least squares slope with its 95% interval: (slope, low, high)."""
+    n = len(points)
+    xs = [x for x, _ in points]
+    ys = [y for _, y in points]
+    mx, my = sum(xs) / n, sum(ys) / n
+    sxx = sum((x - mx) ** 2 for x in xs)
+    if n < 3 or sxx == 0:
+        return 0.0, float("-inf"), float("inf")
+    slope = sum((x - mx) * (y - my) for x, y in points) / sxx
+    resid = sum((y - (my + slope * (x - mx))) ** 2 for x, y in points)
+    se = (resid / (n - 2) / sxx) ** 0.5
+    half = _t95(n - 2) * se
+    return slope, slope - half, slope + half
+
+
+def effectiveness(history: list[dict[str, Any]], now: float | None = None) -> dict[str, Any]:
+    """Is the gym working? Trained exercises vs the untrained control test.
+
+    * near transfer: your accuracy in each trained exercise, first half of
+      your sessions vs the second half (practice makes these go up);
+    * far transfer: the daily control test (never trained), its trend per
+      week with a 95% confidence interval. Research predicts little or none.
+    """
+    import time as _time
+
+    now = _time.time() if now is None else now
+    trained: dict[str, list[float]] = {}
+    probes: list[tuple[float, float]] = []
+    for h in history:
+        if h.get("kind") == "prueba":
+            probes.append((float(h.get("time", now)), float(h.get("rate", h.get("correct", 0)))))
+        elif "accuracy" in h:
+            trained.setdefault(str(h.get("kind")), []).append(float(h["accuracy"]))
+    near = {}
+    for kind, values in trained.items():
+        if len(values) >= 4:
+            half = len(values) // 2
+            first = sum(values[:half]) / half
+            last = sum(values[half:]) / (len(values) - half)
+            near[kind] = round((last - first) * 100, 1)
+    out: dict[str, Any] = {"near": near, "probe_days": len(probes)}
+    if len(probes) >= 5:
+        start = probes[0][0]
+        weeks = [((t - start) / (7 * 86400), rate) for t, rate in probes]
+        slope, low, high = trend(weeks)
+        base = sum(r for _, r in probes[:2]) / 2 or 1.0
+        out.update(
+            slope=round(slope, 2), low=round(low, 2), high=round(high, 2),
+            percent_per_week=round(100 * slope / base, 1),
+            far="sí" if low > 0 else ("empeora" if high < 0 else "no"),
+        )
+    return out
+
+
+def effectiveness_text(history: list[dict[str, Any]]) -> str:
+    """The same, in a few Spanish sentences Sergio can say."""
+    data = effectiveness(history)
+    parts = []
+    if data["near"]:
+        mean = sum(data["near"].values()) / len(data["near"])
+        best = max(data["near"], key=data["near"].get)
+        parts.append(
+            f"En los ejercicios entrenados mejoraste {mean:+.0f} puntos de acierto de media "
+            f"(lo que más: {BY_KIND[best].title if best in BY_KIND else best}, "
+            f"{data['near'][best]:+.0f})."
+        )
+    else:
+        parts.append("Aún hay pocas sesiones para ver tu progreso en los ejercicios.")
+    days = data["probe_days"]
+    if days < 5:
+        parts.append(
+            f"Para medir si te mejora fuera de los ejercicios necesito 5 días de la "
+            f"prueba de control; llevas {days}."
+        )
+    elif data["far"] == "sí":
+        parts.append(
+            f"En la prueba de control, que no se entrena, subes {data['percent_per_week']:+.1f}% "
+            f"por semana (intervalo del 95%: {data['low']:+.2f} a {data['high']:+.2f} aciertos/min): "
+            "hay mejora medible, aunque parte puede ser práctica con la propia prueba."
+        )
+    else:
+        parts.append(
+            f"En la prueba de control, que no se entrena, el cambio es {data['percent_per_week']:+.1f}% "
+            f"por semana y su intervalo del 95% ({data['low']:+.2f} a {data['high']:+.2f}) incluye "
+            "el cero: no hay evidencia de que mejore fuera de lo entrenado, que es lo que "
+            "predicen los metaanálisis."
+        )
+    return " ".join(parts)
+
+
 # -- the session -------------------------------------------------------------------------------
 @dataclass
 class Session:
@@ -780,7 +925,14 @@ class Session:
 
     @property
     def total(self) -> int:
-        return self.exercise.items if self.exercise.kind != "nback" else max(1, self.answered)
+        if self.exercise.kind in ("nback", "prueba"):
+            return max(1, self.answered)
+        return self.exercise.items
+
+    @property
+    def rate(self) -> float:
+        """Correct answers per minute (the control test's score)."""
+        return self.correct * 60.0 / self.exercise.seconds
 
     @property
     def accuracy(self) -> float:
@@ -799,6 +951,8 @@ class Session:
     def summary(self) -> str:
         if self.exercise.kind == "nback":
             return f"Nivel {self.level}, {round(self.accuracy * 100)}% de aciertos."
+        if self.exercise.kind == "prueba":
+            return f"{int(self.correct)} símbolos correctos ({self.rate:.0f} por minuto)."
         shown = int(self.correct) if self.correct == int(self.correct) else round(self.correct, 1)
         line = f"{shown} de {self.total}"
         if self.times:
@@ -815,6 +969,14 @@ def next_exercise(index: int) -> tuple[Exercise, int]:
 __all__ = [
     "BY_KIND",
     "CATEGORIES",
+    "GLYPHS",
+    "PROBE",
+    "SymbolKey",
+    "effectiveness",
+    "effectiveness_text",
+    "next_symbol",
+    "symbol_key",
+    "trend",
     "EXERCISES",
     "Exercise",
     "NBack",

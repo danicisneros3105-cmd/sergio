@@ -171,11 +171,17 @@ class DesktopActionTool(_DesktopTool):
                 "name; closes it like its X button, so it can ask to save); point "
                 "(element or x,y, text = short label: the companion flies there to "
                 "SHOW the user something, without clicking); hands (target = "
-                "gestos | mouse | 3d | off: let the user control the computer with "
-                "hand gestures, move the pointer with a finger, or shape things in "
-                "Blender with their hands); open "
+                "holo | off: the user's hands grab, turn, scale, sculpt and draw 3D "
+                "holograms in the camera window, which can then go to Blender); open "
                 "(target = web address, file or folder); focus (target = part of a "
-                "window title); wait (seconds). "
+                "window title); wait (seconds); operate (target = a whole task on "
+                "screen, done step by step like a person with mouse and keyboard); "
+                "message (target = whatsapp | instagram | messenger | telegram | "
+                "gmail | outlook | sms | x..., to = contact/@user/number/email, text, "
+                "subject); phone_call (to, by = telefono | whatsapp); contact (to = "
+                "name, field = telefono | instagram | correo..., text = value). For "
+                "message/phone_call/operate set confirmed=true ONLY after the user "
+                "said yes to exactly what will be sent (otherwise it stops and asks). "
                 "One action per call; the result says which window is now in "
                 "front, so check it worked (and screen_read when unsure). Never "
                 "buy, pay, delete, or send messages/emails on the user's behalf "
@@ -201,6 +207,10 @@ class DesktopActionTool(_DesktopTool):
                             "open",
                             "focus",
                             "wait",
+                            "operate",
+                            "message",
+                            "phone_call",
+                            "contact",
                         ],
                     },
                     "element": {
@@ -214,17 +224,23 @@ class DesktopActionTool(_DesktopTool):
                     "amount": {"type": "integer"},
                     "target": {"type": "string"},
                     "seconds": {"type": "number"},
+                    "to": {"type": "string"},
+                    "subject": {"type": "string"},
+                    "by": {"type": "string"},
+                    "field": {"type": "string"},
+                    "confirmed": {"type": "boolean"},
                 },
                 "required": ["action"],
             },
             category="desktop",
-            timeout_seconds=60,
+            timeout_seconds=330,
         )
 
     def execute(self, **params: Any) -> ToolResult:
         action = {k: v for k, v in params.items() if v not in (None, "")}
+        slow = action.get("action") in ("operate", "message", "phone_call")
         try:
-            data = self._call("POST", "/act", json=action)
+            data = self._call("POST", "/act", json=action, timeout=300 if slow else 60)
         except RuntimeError as exc:
             return self._fail(str(exc))
         return self._ok(str(data.get("result", "done")))
@@ -375,8 +391,8 @@ class BlenderCreateTool(_DesktopTool):
                 "opens running it so the user sees the result and can keep "
                 "editing. For big models use loops, modifiers (array, mirror, "
                 "subdivision) and geometry instead of thousands of manual lines. "
-                "Start by clearing the default scene. Set hands=true when the "
-                "user wants to shape/rotate/scale it with their hands (webcam)."
+                "Start by clearing the default scene. Set hands=true to also open "
+                "the holograms so the user can shape things with their hands."
             ),
             parameters={
                 "type": "object",

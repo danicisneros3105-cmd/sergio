@@ -26,7 +26,6 @@ from PySide6.QtGui import (
     QPainterPath,
     QPen,
     QPolygonF,
-    QRadialGradient,
 )
 from PySide6.QtWidgets import QWidget
 
@@ -272,24 +271,6 @@ class FaceWatcher:
 
 
 MARGIN = 10.0  # room for the soft shadow
-BUTTONS = (
-    ("ask", "¿Qué ves?"),
-    ("analyze", "Analizar"),
-    ("hands", "Manos"),
-    ("physics", "Física"),
-    ("mirror", "Espejo"),
-    ("photo", "Foto"),
-)
-BUTTON_WIDTHS = {
-    "ask": 78.0,
-    "analyze": 74.0,
-    "hands": 66.0,
-    "physics": 58.0,
-    "mirror": 60.0,
-    "photo": 48.0,
-}
-HAND_MODES = ("off", "gestos", "mouse", "3d")
-HAND_LABELS = {"off": "Manos", "gestos": "Gestos", "mouse": "Mouse", "3d": "3D", "fisica": "Manos"}
 KIND_COLORS = {
     "conocido": QColor(48, 209, 88),
     "persona": QColor(10, 132, 255),
@@ -327,10 +308,11 @@ class CameraWindow(QWidget):
 
     JARVIS-style overlay: every person, animal and object gets a frame and
     its name (known people by name, strangers as "Persona 2", animals with
-    their species), the face mesh with the expression, your hands' skeleton
-    and, in "Física", real objects you make and throw with your hands.
-    Toolbar: ¿Qué ves? · Analizar (Gemini looks at everything) · Manos ·
-    Física · Espejo · Foto. Click a stranger's frame to tell Sergio who it is.
+    their species), the face mesh with the expression, and the holograms
+    (``holo.py``) you grab, turn, throw, sculpt and draw with your hands.
+    No buttons: everything is by voice ("crea un cubo", "analiza lo que
+    ves", "toma una foto", "modo espejo"...). Click a stranger's frame to
+    tell Sergio who it is.
     """
 
     BASE = (480.0, 270.0)
@@ -338,7 +320,6 @@ class CameraWindow(QWidget):
     def __init__(
         self,
         feed: CameraFeed,
-        on_ask: Callable[[], None] | None = None,
         hands: Any = None,
     ) -> None:
         super().__init__(
@@ -349,13 +330,14 @@ class CameraWindow(QWidget):
         )
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.feed = feed
-        self.on_ask = on_ask
         self.on_analyze: Callable[[], None] | None = None
         self.on_name_face: Callable[[tuple[float, float, float, float]], None] | None = None
         self.hands = hands  # HandControl (mode + latest hands), optional
         self.watcher: FaceWatcher | None = None  # automatic face recognition
         self.vision: Any = None  # VisionEngine: objects, species, face mesh
-        self.sandbox: Any = None  # physics world, made when first needed
+        from sergio_escritorio.holo import HoloScene
+
+        self.holo = HoloScene()  # holograms you shape with your hands
         self.scale = 1.0
         self.mirror = True
         self.overlay = ""
@@ -396,7 +378,7 @@ class CameraWindow(QWidget):
             self.watcher.stop()
         if self.vision is not None:
             self.vision.stop()
-        if getattr(self.hands, "mode", "off") == "fisica":
+        if getattr(self.hands, "mode", "off") != "off":
             self.hands.set_mode("off")
         self.feed.keep_on = False
         self._timer.stop()
@@ -432,35 +414,24 @@ class CameraWindow(QWidget):
         self.show_overlay(f"Foto guardada en Imágenes\\Sergio\\{path.name}", 4)
         return str(path)
 
-    def physics(self) -> Any:
-        """The physics world (made on first use; pymunk may be missing)."""
-        if self.sandbox is None:
-            from sergio_escritorio.physics import Sandbox
-
-            frame = self._frame
-            aspect = frame.shape[0] / frame.shape[1] if frame is not None else 9 / 16
-            self.sandbox = Sandbox(aspect=aspect)
-        return self.sandbox
-
-    def set_physics(self, on: bool) -> str:
-        """Física on/off: your hands touch, grab and make real objects."""
+    def set_holo(self, on: bool = True) -> str:
+        """Your hands on the holograms (tracking on), or off."""
         if self.hands is None:
             return "No puedo ver tus manos (falta MediaPipe)."
-        try:
-            world = self.physics()
-        except Exception as exc:  # noqa: BLE001 — pymunk not installed
-            return f"No hay motor de física: {exc}"
-        if on:
-            self.hands.set_mode("fisica")
-            self.feed.keep_on = True
-            if not world.things:
-                world.command("crea 3 pelotas")
-            return (
-                "Física: pellizca para agarrar y lanzar; pellizca con las dos "
-                "manos y sepáralas para crear una caja."
-            )
-        self.hands.set_mode("off")
-        return "Física apagada."
+        self.hands.set_mode("holo" if on else "off")
+        self.feed.keep_on = True if on else self.isVisible()
+        if not on:
+            return "Manos apagadas."
+        return (
+            "Hologramas: pellizca uno para agarrarlo y gira la muñeca para girarlo; "
+            "con las dos manos lo escalas; suéltalo en movimiento para lanzarlo."
+        )
+
+    def hologram(self, order: str) -> str:
+        """A voice order for the holograms ("crea un cubo rojo", "esculpir")."""
+        if self.hands is not None and getattr(self.hands, "mode", "off") != "holo":
+            self.set_holo(True)
+        return self.holo.command(order)
 
     def track_at(self, pos: QPointF) -> Any:
         """The person/animal/object frame under the mouse, if any."""
@@ -483,19 +454,6 @@ class CameraWindow(QWidget):
     def _close_rect(self) -> QRectF:
         c = self.card()
         return QRectF(c.right() - 36, c.top() + 10, 26, 26)
-
-    def button_rects(self) -> dict[str, QRectF]:
-        c = self.card()
-        k = min(1.0, (c.width() - 24) / (sum(BUTTON_WIDTHS.values()) + 6 * (len(BUTTONS) - 1)))
-        widths = {key: w * k for key, w in BUTTON_WIDTHS.items()}
-        gap = 6 * k
-        total = sum(widths.values()) + gap * (len(widths) - 1)
-        x = c.center().x() - total / 2
-        rects = {}
-        for key, _label in BUTTONS:
-            rects[key] = QRectF(x, c.bottom() - 40, widths[key], 28)
-            x += widths[key] + gap
-        return rects
 
     def _map_box(self, box: tuple[float, float, float, float]) -> QRectF:
         """A 0..1 frame box -> widget rect (mirror aware)."""
@@ -524,12 +482,17 @@ class CameraWindow(QWidget):
                     self._faces = detect_faces(frame)
                 except Exception:  # noqa: BLE001 — boxes are a bonus
                     self._faces = []
-        if getattr(self.hands, "mode", "off") == "fisica" and self.sandbox is not None:
-            try:
-                self.sandbox.update_hands(self.hands.hands, dt, self.mirror, now)
-                self.sandbox.step(dt)
-            except Exception:  # noqa: BLE001 — never break the camera
-                log.exception("physics step failed")
+        card = self.card()
+        self.holo.view = (card.width(), card.height())
+        try:
+            if getattr(self.hands, "mode", "off") == "holo" and self._shown is not None:
+                origin, w, h = self._shown
+                box = (origin.x() - card.left(), origin.y() - card.top(), w, h)
+                self.holo.update_hands(self.hands.hands, dt, self.mirror, now, box)
+            if self.holo.objects:
+                self.holo.step(dt)
+        except Exception:  # noqa: BLE001 — never break the camera
+            log.exception("holograms failed")
         if self.overlay and now > self._overlay_until:
             self.overlay = ""
         self.update()
@@ -539,52 +502,8 @@ class CameraWindow(QWidget):
         if self._close_rect().contains(pos):
             self.close_camera()
             return
-        for key, rect in self.button_rects().items():
-            if rect.contains(pos):
-                self._press(key)
-                return
         self._drag = event.globalPosition() - QPointF(self.pos())
         self._pressed_at = pos
-
-    def _press(self, key: str) -> None:
-        if key == "hands" and self.hands is not None:
-            current = getattr(self.hands, "mode", "off")
-            if current not in HAND_MODES:
-                current = "off"
-            nxt = HAND_MODES[(HAND_MODES.index(current) + 1) % len(HAND_MODES)]
-            self.hands.set_mode(nxt)
-            self.feed.keep_on = True
-            tips = {
-                "gestos": (
-                    "Gestos: pulgar arriba = sí, mano abierta = calla, dos dedos = "
-                    "¿qué ves?, desliza la mano = siguiente/anterior, asiente = sí"
-                ),
-                "mouse": (
-                    "Mouse: mueve la mano; pellizco = clic (mantén = arrastrar), "
-                    "pulgar con el medio = clic derecho, dos dedos = desplazar, "
-                    "dos manos pellizcando = zoom, puño = pausa"
-                ),
-                "3d": (
-                    "3D en Blender: pellizca y mueve para girar, "
-                    "dos manos para escalar, puño mueve"
-                ),
-                "off": "Control con las manos apagado",
-            }
-            self.show_overlay(tips[nxt], 6)
-        elif key == "physics":
-            on = getattr(self.hands, "mode", "off") != "fisica"
-            self.show_overlay(self.set_physics(on), 6)
-        elif key == "ask" and self.on_ask is not None:
-            self.show_overlay("Mirando…", 30)
-            self.on_ask()
-        elif key == "analyze":
-            if self.on_analyze is not None:
-                self.show_overlay("Analizando todo lo que veo…", 30)
-                self.on_analyze()
-        elif key == "mirror":
-            self.mirror = not self.mirror
-        elif key == "photo":
-            self.save_photo()
 
     def mouseMoveEvent(self, event: Any) -> None:  # noqa: N802
         if self._drag is not None:
@@ -641,8 +560,8 @@ class CameraWindow(QWidget):
                 self._draw_mesh(p)
             else:
                 self._draw_faces(p, origin, img.width())
+            self._draw_holo(p, card)
             self._draw_hands(p)
-            self._draw_physics(p)
         else:
             p.setPen(QColor(200, 200, 210))
             p.setFont(_font(10))
@@ -654,7 +573,7 @@ class CameraWindow(QWidget):
         # Gentle vignette at top and bottom so text is legible.
         for top, rect in (
             (True, QRectF(card.left(), card.top(), card.width(), 64)),
-            (False, QRectF(card.left(), card.bottom() - 110, card.width(), 110)),
+            (False, QRectF(card.left(), card.bottom() - 80, card.width(), 80)),
         ):
             grad = QLinearGradient(rect.topLeft(), rect.bottomLeft())
             grad.setColorAt(0.0 if top else 1.0, QColor(0, 0, 0, 140))
@@ -666,7 +585,6 @@ class CameraWindow(QWidget):
         self._draw_close(p)
         if self.overlay:
             self._draw_caption(p, card)
-        self._draw_buttons(p)
         p.setClipping(False)
         p.setPen(QPen(QColor(255, 255, 255, 46), 1))
         p.setBrush(Qt.BrushStyle.NoBrush)
@@ -801,81 +719,82 @@ class CameraWindow(QWidget):
         hands = getattr(self.hands, "hands", None) or []
         if not hands or getattr(self.hands, "mode", "off") == "off" or self._shown is None:
             return
-        green = QColor(48, 209, 88)
-        physics = getattr(self.hands, "mode", "off") == "fisica"
-        for hand in hands:
+        cyan = QColor(100, 210, 255)
+        for i, hand in enumerate(hands[:2]):
             pts = [self._map_point(x, y) for x, y, *_ in hand.landmarks]
-            p.setPen(QPen(QColor(255, 255, 255, 170), 2))
+            p.setPen(QPen(QColor(255, 255, 255, 120), 1.4))
             for a, b in BONES:
                 p.drawLine(pts[a], pts[b])
             p.setPen(Qt.PenStyle.NoPen)
-            p.setBrush(green)
+            p.setBrush(QColor(255, 255, 255, 170))
             for pt in pts:
-                p.drawEllipse(pt, 3, 3)
-            if physics:  # fingertips are solid: show them as glowing pads
-                p.setBrush(QColor(100, 210, 255, 90))
-                for i in (4, 8, 12, 16, 20):
-                    p.drawEllipse(pts[i], 7, 7)
-            else:
-                p.setPen(QColor(255, 255, 255))
-                p.setFont(_font(8, QFont.Weight.DemiBold))
-                p.drawText(pts[8] + QPointF(8, -8), hand.gesture)
+                p.drawEllipse(pt, 2, 2)
+            # The pinch point: a ring that closes and glows when you grab.
+            pinch = (pts[4] + pts[8]) / 2
+            holding = self.holo.pinching.get(i, False)
+            p.setBrush(Qt.BrushStyle.NoBrush)
+            p.setPen(QPen(cyan if holding else QColor(255, 255, 255, 150), 2.2 if holding else 1.2))
+            r = 7 if holding else 11
+            p.drawEllipse(pinch, r, r)
+            if holding:
+                glow = QColor(cyan)
+                glow.setAlpha(60)
+                p.setPen(QPen(glow, 6))
+                p.drawEllipse(pinch, r + 3, r + 3)
 
-    def _draw_physics(self, p: QPainter) -> None:
-        world = self.sandbox
-        if world is None or self._shown is None or getattr(self.hands, "mode", "off") != "fisica":
+    def _draw_holo(self, p: QPainter, card: QRectF) -> None:
+        """Holograms: translucent shaded faces, bright edges, a soft glow."""
+        scene = self.holo
+        if not scene.objects and not scene.stroke:
             return
-        origin, w, h = self._shown
-        kx, ky = w / world.width, h / world.height
+        ox, oy = card.left(), card.top()
+        w, h = card.width(), card.height()
+        if scene.gravity:  # the floor they bounce on, in perspective
+            import numpy as np
 
-        def to_view(x: float, y: float) -> QPointF:
-            return QPointF(origin.x() + x * kx, origin.y() + y * ky)
+            from sergio_escritorio.holo import FLOOR, project
 
-        floor_y = origin.y() + world.floor * ky - 6 * ky
-        for thing in world.things:
-            colour = QColor(thing.color)
-            x, y = thing.position
-            centre = to_view(x, y)
-            radius = thing.size / 2 * kx
-            # soft shadow on the floor, smaller when it is high up
-            height = max(0.0, floor_y - centre.y())
-            spread = max(0.25, 1 - height / max(1.0, h))
-            p.setPen(Qt.PenStyle.NoPen)
-            p.setBrush(QColor(0, 0, 0, int(70 * spread)))
-            p.drawEllipse(QPointF(centre.x(), floor_y), radius * spread, radius * 0.22 * spread)
-            if thing.shape == "pelota":
-                grad = QRadialGradient(centre + QPointF(-radius * 0.35, -radius * 0.35), radius * 1.3)
-                grad.setColorAt(0.0, colour.lighter(170))
-                grad.setColorAt(0.5, colour)
-                grad.setColorAt(1.0, colour.darker(210))
-                p.setBrush(grad)
-                p.drawEllipse(centre, radius, radius)
-                p.setBrush(QColor(255, 255, 255, 120))
-                p.drawEllipse(centre + QPointF(-radius * 0.35, -radius * 0.4), radius * 0.22, radius * 0.14)
-            else:
-                poly = QPolygonF([to_view(px, py) for px, py in thing.outline()])
-                grad = QLinearGradient(poly.boundingRect().topLeft(), poly.boundingRect().bottomRight())
-                grad.setColorAt(0.0, colour.lighter(150))
-                grad.setColorAt(1.0, colour.darker(180))
-                p.setBrush(grad)
-                p.setPen(QPen(colour.lighter(170), 1.2))
-                p.drawPolygon(poly)
-        for state in world.hands.values():  # what you are holding glows
-            if state.grabbed:
-                thing = state.grabbed[0]
-                c = to_view(*thing.position)
-                p.setPen(QPen(QColor(255, 255, 255, 160), 1.5, Qt.PenStyle.DashLine))
+            p.setPen(QPen(QColor(100, 210, 255, 50), 1))
+            for x in np.linspace(-2.4, 2.4, 13):
+                ends, _depth = project(np.array([[x, FLOOR, 1.2], [x, FLOOR, -2.4]]), w, h)
+                p.drawLine(QPointF(ox + ends[0][0], oy + ends[0][1]), QPointF(ox + ends[1][0], oy + ends[1][1]))
+            for z in np.linspace(1.2, -2.4, 7):
+                ends, _depth = project(np.array([[-2.4, FLOOR, z], [2.4, FLOOR, z]]), w, h)
+                p.drawLine(QPointF(ox + ends[0][0], oy + ends[0][1]), QPointF(ox + ends[1][0], oy + ends[1][1]))
+        for face in scene.render(w, h):
+            r, g, b = face["color"]
+            poly = QPolygonF([QPointF(ox + x, oy + y) for x, y in face["points"]])
+            if face["front"]:
+                k = face["shade"]
+                alpha = 0.58 if face["held"] else 0.42
+                p.setBrush(QColor.fromRgbF(min(1, r * k), min(1, g * k), min(1, b * k), alpha))
+                edge = QColor.fromRgbF(min(1, 0.35 + r * 0.8), min(1, 0.35 + g * 0.8), min(1, 0.35 + b * 0.8), 0.95)
+                p.setPen(QPen(edge, 1.3 if face["held"] else 0.9))
+            else:  # the far side shows through, faintly
                 p.setBrush(Qt.BrushStyle.NoBrush)
-                r = thing.size / 2 * kx + 6
-                p.drawEllipse(c, r, r)
-        if world.preview is not None:  # a box growing between your hands
-            a, b = world.preview
-            rect = QRectF(to_view(*a), to_view(*b)).normalized()
-            side = max(rect.width(), rect.height())
-            square = QRectF(rect.center().x() - side / 2, rect.center().y() - side / 2, side, side)
-            p.setPen(QPen(QColor(255, 255, 255, 220), 1.6, Qt.PenStyle.DashLine))
-            p.setBrush(QColor(10, 132, 255, 50))
-            p.drawRoundedRect(square, 6, 6)
+                p.setPen(QPen(QColor.fromRgbF(r, g, b, 0.16), 0.7))
+            p.drawPolygon(poly)
+        # Names and sizes above each hologram.
+        import numpy as np
+
+        from sergio_escritorio.holo import project as _project
+
+        p.setFont(_font(7.5, QFont.Weight.DemiBold))
+        for obj in scene.objects:
+            top = obj.pos + np.array([0.0, obj.radius() * 1.05, 0.0])
+            (tx, ty), = _project(top[None], w, h)[0]
+            label = f"{obj.name} · {obj.size_cm()} cm"
+            p.setPen(QColor(200, 240, 255, 230 if obj.held else 170))
+            p.drawText(QPointF(ox + tx - p.fontMetrics().horizontalAdvance(label) / 2, oy + ty - 4), label)
+        # The stroke you are drawing in the air.
+        pts = scene.stroke_points(w, h)
+        if len(pts) >= 2:
+            line = QPolygonF([QPointF(ox + x, oy + y) for x, y in pts])
+            p.setBrush(Qt.BrushStyle.NoBrush)
+            p.setPen(QPen(QColor(100, 210, 255, 70), 9, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
+            p.drawPolyline(line)
+            p.setPen(QPen(QColor(220, 248, 255), 2.4, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
+            p.drawPolyline(line)
 
     def _draw_pill(self, p: QPainter, card: QRectF, t: float) -> None:
         text = "Sergio ve"
@@ -901,6 +820,10 @@ class CameraWindow(QWidget):
             count = count or len(self._faces)
             if count:
                 text += f" · {count}"
+        if self.holo.objects or getattr(self.hands, "mode", "off") == "holo":
+            n = len(self.holo.objects)
+            mode = {"mover": "", "esculpir": " · esculpir", "dibujar": f" · dibujar ({self.holo.pen})"}
+            text += f" · {n} holograma{'s' if n != 1 else ''}{mode.get(self.holo.mode, '')}"
         p.setFont(_font(8.5, QFont.Weight.DemiBold))
         width = p.fontMetrics().horizontalAdvance(text) + 34
         pill = QRectF(card.left() + 10, card.top() + 10, width, 26)
@@ -933,7 +856,7 @@ class CameraWindow(QWidget):
         shown = int((time.monotonic() - self._overlay_at) * 60)
         text = self.overlay[: max(0, shown)]
         p.setFont(_font(9.5))
-        box = QRectF(card.left() + 12, card.bottom() - 96, card.width() - 24, 50)
+        box = QRectF(card.left() + 12, card.bottom() - 60, card.width() - 24, 50)
         p.setPen(QColor(255, 255, 255))
         p.drawText(
             box,
@@ -942,35 +865,6 @@ class CameraWindow(QWidget):
             | Qt.TextFlag.TextWordWrap,
             text,
         )
-
-    def _draw_buttons(self, p: QPainter) -> None:
-        mode = getattr(self.hands, "mode", "off")
-        rects = self.button_rects()
-        size = 8.0 if self.scale >= 1 else 7.0
-        p.setFont(_font(size, QFont.Weight.DemiBold))
-        for key, label in BUTTONS:
-            rect = rects[key]
-            active = (
-                (key == "mirror" and self.mirror)
-                or (key == "hands" and mode not in ("off", "fisica"))
-                or (key == "physics" and mode == "fisica")
-            )
-            if key == "hands":
-                label = HAND_LABELS.get(mode, "Manos")
-            p.setPen(QPen(QColor(255, 255, 255, 50), 1))
-            if key == "ask":
-                p.setBrush(QColor(255, 255, 255, 230))
-            elif active:
-                p.setBrush(QColor(10, 132, 255, 220))
-            else:
-                p.setBrush(QColor(30, 30, 34, 190))
-            p.drawRoundedRect(rect, 14, 14)
-            p.setPen(
-                QColor(20, 20, 22)
-                if key == "ask"
-                else QColor(255, 255, 255, 255 if active else 190)
-            )
-            p.drawText(rect, Qt.AlignmentFlag.AlignCenter, label)
 
 
 def _font(size: float, weight: QFont.Weight = QFont.Weight.Normal) -> QFont:

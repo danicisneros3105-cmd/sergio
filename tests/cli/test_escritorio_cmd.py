@@ -16,7 +16,7 @@ def test_enable_tools_adds_desktop_tools_and_turns(tmp_path):
     text = cfg.read_text()
     assert (
         'enabled = ["think", "screen_read", "calculator", "get_weather", '
-        '"globe_view", "live_flights", "live_earthquakes", "desktop_action", '
+        '"globe_view", "live_flights", "flights_overhead", "live_earthquakes", "desktop_action", '
         '"camera_look", "video_edit", "blender_create", "face_approval", '
         '"face_enroll", "files_organize", "python_run", "terminal_run", '
         '"skill_guide", "web_search"]'
@@ -116,3 +116,20 @@ def test_wait_for_server_gives_up():
         "http://x:1", timeout=10, get=get, sleep=sleep, clock=lambda: now[0]
     )
     assert 9 <= now[0] <= 11
+
+
+def test_sync_server_adds_the_face_mesh_without_removing_anything(monkeypatch, tmp_path):
+    import sys
+
+    uv = tmp_path / "uv"
+    uv.write_text("")
+    monkeypatch.setattr(escritorio_cmd.shutil, "which", lambda _n: str(uv))
+    monkeypatch.setattr(sys, "base_prefix", "/usr")
+    monkeypatch.setattr(sys, "prefix", str(tmp_path / "venv"))
+    seen = []
+    ok = escritorio_cmd.sync_server(
+        run=lambda cmd, **kw: seen.append((cmd, kw)) or subprocess.CompletedProcess(cmd, 0)
+    )
+    cmd, kw = seen[0]
+    assert ok and cmd[:3] == [str(uv), "sync", "--inexact"] and cmd[-2:] == ["--extra", "faces"]
+    assert kw["env"]["UV_PROJECT_ENVIRONMENT"] == str(tmp_path / "venv")

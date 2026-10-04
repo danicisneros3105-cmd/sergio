@@ -188,3 +188,107 @@ def test_globe_view_writes_target_for_the_ui(globe_up):
 
     bad = GlobeViewTool(http_get=FakeHttp({})).execute(lat=1, lon=1, style="laser")
     assert not bad.success and "Unknown style" in bad.content
+
+
+# -- the plane right above you -------------------------------------------------
+from openjarvis.tools import live_world  # noqa: E402
+
+CUENCA = (-2.9001, -79.0059)
+
+
+def _plane(hexid, flight, lat, lon, alt_ft, **kw):
+    return {"hex": hexid, "flight": flight, "lat": lat, "lon": lon, "alt_geom": alt_ft, **kw}
+
+
+def _overhead_http(ac_lists, route=None, aircraft=None, fail=()):
+    calls = []
+
+    def get(url, params):
+        calls.append(url)
+        for name in fail:
+            if name in url:
+                raise RuntimeError("down")
+        if "open-meteo" in url:
+            return {"elevation": [2560.0]}
+        if "adsbdb.com/v0/callsign" in url:
+            if route is None:
+                raise RuntimeError("404")
+            return {"response": {"flightroute": route}}
+        if "adsbdb.com/v0/aircraft" in url:
+            if aircraft is None:
+                raise RuntimeError("404")
+            return {"response": {"aircraft": aircraft}}
+        if "opensky" in url:
+            return {"time": 0, "states": []}
+        for key, rows in ac_lists.items():
+            if key in url:
+                return {"ac": rows}
+        return {"ac": []}
+
+    return get, calls
+
+
+def test_overhead_picks_the_plane_highest_in_the_sky_and_names_the_flight():
+    lat, lon = CUENCA
+    above = _plane("e8044e", "LAN1442 ", lat + 0.01, lon + 0.01, 35000, gs=440, track=210,
+                   baro_rate=-1200, r="CC-BAZ", t="A320")
+    far_low = _plane("abc123", "AVA88", lat + 0.3, lon, 9000, gs=250, track=90)
+    get, calls = _overhead_http(
+        {"adsb.lol": [above], "airplanes.live": [far_low, dict(above, seen_pos=0.4)]},
+        route={
+            "callsign": "LAN1442",
+            "airline": {"name": "LATAM Airlines", "iata": "LA", "icao": "LAN"},
+            "origin": {"municipality": "Quito", "iata_code": "UIO"},
+            "destination": {"municipality": "Guayaquil", "iata_code": "GYE"},
+        },
+        aircraft={"manufacturer": "Airbus", "type": "A320 214", "registration": "CC-BAZ"},
+    )
+    report = live_world.overhead_report(lat, lon, http_get=get)
+    text = report["text"]
+    assert report["callsign"] == "LAN1442" and report["elevation"] > 70
+    assert text.startswith("Justo encima de usted")
+    assert "LA1442 (LAN1442) de LATAM Airlines" in text
+    assert "Airbus A320 214, matrícula CC-BAZ" in text and "de Quito (UIO) a Guayaquil (GYE)" in text
+    assert "bajando" in text and "AVA88" in text  # the other one, as "también cerca"
+    assert report["ground_m"] == 2560.0  # the ground is high in Cuenca
+    assert set(report["sources"]) >= {"adsb.lol", "airplanes.live"}
+
+
+def test_overhead_with_no_planes_and_with_every_network_down():
+    get, _ = _overhead_http({})
+    report = live_world.overhead_report(*CUENCA, http_get=get)
+    assert report["count"] == 0 and "no hay aviones" in report["text"]
+    dead, _ = _overhead_http({}, fail=("adsb.lol", "airplanes.live", "adsb.fi", "opensky"))
+    with pytest.raises(RuntimeError, match="Ninguna red"):
+        live_world.overhead_report(*CUENCA, http_get=dead)
+
+
+def test_plane_geometry_elevation_and_direction():
+    lat, lon = 0.0, 0.0
+    geo = live_world.plane_geometry(lat, lon, 0.0, _plane("x", "T", 0.0899, 0.0, 32808))
+    assert abs(geo["ground_km"] - 10.0) < 0.1 and abs(geo["elevation"] - 45.0) < 1.0
+    assert live_world.compass(geo["bearing"]) == "norte"
+    assert live_world.plane_geometry(lat, lon, 0, {"hex": "y", "lat": 1, "lon": 1, "alt_baro": "ground"}) is None
+
+
+def test_opensky_rows_are_converted():
+    rows = live_world.opensky_rows(
+        {"time": 100, "states": [["abc", "AAL1 ", "US", 98, 99, -79.0, -2.9, 9000, False, 230, 180, -5, None, 9100, "7700"],
+                                  ["def", "X", "US", 98, 99, -79.0, -2.9, 0, True, 0, 0, 0, None, 0, None]]}
+    )
+    assert len(rows) == 1 and rows[0]["flight"] == "AAL1" and rows[0]["seen_pos"] == 2
+    assert round(rows[0]["alt_geom"]) == 29856 and rows[0]["squawk"] == "7700"
+
+
+def test_bare_place_names_prefer_the_users_country(monkeypatch):
+    monkeypatch.setenv("SERGIO_COUNTRY", "ec")
+    asked = []
+
+    def get(url, params):
+        asked.append(params)
+        return [{"lat": "-2.9", "lon": "-79.0", "display_name": "Cuenca, Azuay, Ecuador"}]
+
+    lat, _lon, label = live_world.geocode("Cuenca", get)
+    assert asked[0]["countrycodes"] == "ec" and lat == -2.9 and "Ecuador" in label
+    live_world.geocode("Cuenca, España", get)
+    assert "countrycodes" not in asked[-1]

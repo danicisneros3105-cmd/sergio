@@ -36,6 +36,8 @@ def test_app_starts_and_reports(tmp_path):
     assert line.startswith("DIAG "), line
     diag = json.loads(line[5:])
     assert diag["ok"] is True
-    for key in ("vision", "physics", "call", "gym", "hands", "reminders"):
+    for key in ("vision", "holograms", "call", "gym", "hands", "reminders"):
         assert key in diag, key
-    assert diag["gym"].startswith("cada 28 min")
+    assert diag["gym"].startswith("cada 12 min")
+    assert diag["wake"] in ("instantáneo (Vosk)", "Whisper por frase")
+    assert isinstance(diag["voice_timeline"], list)

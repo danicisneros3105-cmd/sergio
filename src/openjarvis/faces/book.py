@@ -1,4 +1,16 @@
-"""Enroll, identify and forget faces (OpenCV YuNet + SFace)."""
+"""Enroll, identify and forget faces (OpenCV YuNet + SFace + face geometry).
+
+Each person keeps, per photo, two descriptions of the face:
+
+* a deep embedding (SFace: 128 numbers learnt from millions of faces) that
+  decides who someone is, and
+* a geometric signature (``signature.py``: 175 craniofacial measurements
+  from MediaPipe's 478-point 3D mesh) that adds evidence, helps with old
+  photos and drives the family-resemblance estimate.
+
+Old, faded or scanned photos are contrast-equalised (CLAHE) before reading
+them, which measurably raises the match of the same face (see the tests).
+"""
 
 from __future__ import annotations
 
@@ -70,15 +82,65 @@ class Match:
     box: tuple[int, int, int, int]  # x, y, width, height
     guest: int = 0  # unknown faces: the same stranger keeps the same number
     quality: str = "ok"  # "pequeña" / "borrosa": too poor to name
+    geometry: float | None = None  # 0..1 likeness of the 175 measurements
+    candidates: list[tuple[str, float]] | None = None  # best guesses, for photos
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        out = {
             "name": self.name or None,
             "score": round(self.score, 3),
             "box": list(self.box),
             "guest": self.guest or None,
             "quality": self.quality,
         }
+        if self.geometry is not None:
+            out["geometry"] = round(self.geometry, 3)
+        if self.candidates is not None:
+            out["candidates"] = [[n, round(v, 3)] for n, v in self.candidates]
+        return out
+
+
+# Family resemblance: relatives' deep embeddings sit between strangers
+# (~0.1) and the same person (> 0.42); bone proportions add the rest.
+KIN_LOW, KIN_HIGH = 0.12, 0.40
+
+
+def kin_score(sface: float, geometry: float | None) -> float:
+    """0..1 family resemblance from the two descriptions of two faces."""
+    deep = min(1.0, max(0.0, (sface - KIN_LOW) / (KIN_HIGH - KIN_LOW)))
+    if geometry is None:
+        return deep
+    return 0.65 * deep + 0.35 * geometry
+
+
+def kin_words(score: float) -> str:
+    if score >= 0.65:
+        return "parecido familiar alto"
+    if score >= 0.45:
+        return "parecido familiar moderado"
+    if score >= 0.25:
+        return "parecido familiar bajo"
+    return "sin parecido familiar claro"
+
+
+def looks_old(image: Any) -> bool:
+    """Faded, sepia or black-and-white: an old or scanned photo."""
+    import numpy as np
+
+    small = image[:: max(1, image.shape[0] // 200), :: max(1, image.shape[1] // 200)].astype(np.float32)
+    colour = float(np.mean(np.std(small, axis=2)))  # ~0 for grey/sepia-ish
+    contrast = float(np.std(small.mean(axis=2)))
+    return colour < 12.0 or contrast < 38.0
+
+
+def enhance(image: Any) -> Any:
+    """Equalise contrast locally (CLAHE) on the lightness channel."""
+    import cv2
+
+    lab = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)
+    light, a, b = cv2.split(lab)
+    light = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8)).apply(light)
+    return cv2.cvtColor(cv2.merge((light, a, b)), cv2.COLOR_LAB2BGR)
 
 
 class _Guests:
@@ -156,6 +218,7 @@ class FaceBook:
         self._detector: Any = None
         self._recognizer: Any = None
         self._guests = _Guests()
+        self._measurer: Any = None
 
     # -- storage -----------------------------------------------------------
 
@@ -194,6 +257,7 @@ class FaceBook:
                 "name": name,
                 "samples": len(p["embeddings"]),
                 "enrolled_at": p["enrolled_at"],
+                "signatures": sum(1 for g in p.get("signatures") or [] if g),
             }
             for name, p in sorted(self._load().items())
         ]
@@ -227,10 +291,7 @@ class FaceBook:
             )
         return self._detector, self._recognizer
 
-    def _faces(
-        self, image_bytes: bytes
-    ) -> list[tuple[Any, tuple[int, int, int, int], float]]:
-        """Embeddings, boxes and detection scores of every face in the image."""
+    def _decode(self, image_bytes: bytes) -> Any:
         import cv2
         import numpy as np
 
@@ -239,6 +300,53 @@ class FaceBook:
         image = cv2.imdecode(np.frombuffer(image_bytes, np.uint8), cv2.IMREAD_COLOR)
         if image is None:
             raise FaceError("The file is not a readable image.")
+        return image
+
+    def _signature(self, image: Any, box: tuple[int, int, int, int]) -> list[float] | None:
+        """The 175 measurements (None when MediaPipe is not installed)."""
+        if self._measurer is None:
+            from openjarvis.faces.signature import Measurer
+
+            self._measurer = Measurer(self._models_dir)
+        try:
+            with self._lock:
+                return self._measurer.signature(image, box)
+        except Exception:  # noqa: BLE001 — geometry is extra evidence only
+            return None
+
+    def _measured(
+        self, box: tuple[int, int, int, int], faces: list[dict] | None
+    ) -> list[float] | None:
+        """The 175 measurements from the points the companion measured."""
+        if not faces:
+            return None
+        from openjarvis.faces.signature import from_points, match_points
+
+        face = match_points(box, faces)
+        return from_points(face.get("points") or {}) if face else None
+
+    def _signature_of(self, image_bytes: bytes, box: tuple[int, int, int, int]) -> list[float] | None:
+        try:
+            image = self._decode(image_bytes)
+        except FaceError:
+            return None
+        return self._signature(enhance(image) if looks_old(image) else image, box)
+
+    def _faces(
+        self, image_bytes: bytes, *, old: bool | None = False, image: Any = None
+    ) -> list[tuple[Any, tuple[int, int, int, int], float]]:
+        """Embeddings, boxes and detection scores of every face in the image.
+
+        *old*: True = always enhance, None = enhance if it looks old.
+        """
+        image = self._decode(image_bytes) if image is None else image
+        if old or (old is None and looks_old(image)):
+            image = enhance(image)
+        return self._faces_in(image)
+
+    def _faces_in(self, image: Any) -> list[tuple[Any, tuple[int, int, int, int], float]]:
+        import numpy as np
+
         detector, recognizer = self._models()
         with self._lock:  # OpenCV DNN objects are not thread-safe
             height, width = image.shape[:2]
@@ -255,7 +363,9 @@ class FaceBook:
                 )
         return results
 
-    def enroll(self, name: str, image_bytes: bytes, *, consent: bool) -> int:
+    def enroll(
+        self, name: str, image_bytes: bytes, *, consent: bool, faces: list[dict] | None = None
+    ) -> int:
         """Add one photo of *name*; returns the number of stored samples."""
         raw = (name or "").strip()
         name = clean_name(raw)
@@ -265,27 +375,113 @@ class FaceBook:
             )
         if not _RAW_NAME.match(raw) or not _NAME.match(name):
             raise FaceError("Use a plain name (letters, spaces, up to 60 characters).")
-        faces = self._faces(image_bytes)
-        if len(faces) != 1:
+        found = self._faces(image_bytes, old=None)  # old photos are fine too
+        if len(found) != 1:
             raise FaceError(
-                f"The photo must show exactly one face (found {len(faces)})."
+                f"The photo must show exactly one face (found {len(found)})."
             )
+        geometry = self._measured(found[0][1], faces) or self._signature_of(
+            image_bytes, found[0][1]
+        )
         with self._lock:
             people = self._load(strict=True)
             name = next((k for k in people if k.lower() == name.lower()), name)
             person = people.setdefault(
                 name, {"embeddings": [], "enrolled_at": time.time()}
             )
-            person["embeddings"] = (person["embeddings"] + [faces[0][0].tolist()])[
+            count = len(person["embeddings"])
+            signatures = list(person.get("signatures") or [None] * count)[:count]
+            signatures += [None] * (count - len(signatures))
+            person["embeddings"] = (person["embeddings"] + [found[0][0].tolist()])[
                 -MAX_SAMPLES:
             ]
+            person["signatures"] = (signatures + [geometry])[-MAX_SAMPLES:]
             self._save(people)
             return len(person["embeddings"])
 
-    def identify(self, image_bytes: bytes) -> list[Match]:
+    def _person_signatures(self) -> dict[str, list[float]]:
+        """Each person's mean signature (their stable proportions)."""
+        out = {}
+        for name, p in self._load().items():
+            sigs = [g for g in p.get("signatures") or [] if g]
+            if sigs:
+                out[name] = [sum(col) / len(sigs) for col in zip(*sigs)]
+        return out
+
+    def identify_photo(
+        self, image_bytes: bytes, faces: list[dict] | None = None
+    ) -> list[Match]:
+        """Who is in a photo (also an old, faded or scanned one).
+
+        Same decision as the camera, plus the three best guesses and the
+        likeness of the 175 measurements for each face.
+        """
+        from openjarvis.faces.signature import similarity
+
+        image = self._decode(image_bytes)
+        old = looks_old(image)
+        matches = self.identify(image_bytes, old=old, candidates=3)
+        if matches:
+            signatures = self._person_signatures()
+            seen = enhance(image) if old else image
+            for m in matches:
+                geometry = self._measured(m.box, faces) or self._signature(seen, m.box)
+                best = m.name or (m.candidates[0][0] if m.candidates else "")
+                if geometry is not None and best in signatures:
+                    m.geometry = similarity(geometry, signatures[best])
+        return matches
+
+    def kinship(
+        self, image_bytes: bytes, faces: list[dict] | None = None
+    ) -> list[dict[str, Any]]:
+        """Family resemblance of each face in the photo with everyone enrolled."""
         import numpy as np
 
-        faces = self._faces(image_bytes)
+        from openjarvis.faces.signature import similarity
+
+        image = self._decode(image_bytes)
+        old = looks_old(image)
+        seen = enhance(image) if old else image
+        found = self._faces_in(seen)
+        people = {
+            name: np.asarray(p["embeddings"], dtype=np.float32)
+            for name, p in self._load().items()
+            if p.get("embeddings")
+        }
+        signatures = self._person_signatures()
+        out = []
+        for feature, box, _score in found:
+            geometry = self._measured(box, faces) or self._signature(seen, box)
+            ranked = []
+            for name, embs in people.items():
+                deep = person_score(feature, embs)
+                geo = (
+                    similarity(geometry, signatures[name])
+                    if geometry is not None and name in signatures
+                    else None
+                )
+                same = deep >= MATCH_THRESHOLD
+                kin = kin_score(deep, geo)
+                ranked.append(
+                    {
+                        "name": name,
+                        "same_person": same,
+                        "deep": round(deep, 3),
+                        "geometry": None if geo is None else round(geo, 3),
+                        "kin": round(kin, 3),
+                        "words": "es la misma persona" if same else kin_words(kin),
+                    }
+                )
+            ranked.sort(key=lambda r: (r["same_person"], r["kin"]), reverse=True)
+            out.append({"box": list(box), "old_photo": old, "people": ranked})
+        return out
+
+    def identify(
+        self, image_bytes: bytes, *, old: bool | None = False, candidates: int = 0
+    ) -> list[Match]:
+        import numpy as np
+
+        faces = self._faces(image_bytes, old=old)
         people = {
             name: np.asarray(p["embeddings"], dtype=np.float32)
             for name, p in self._load().items()
@@ -310,11 +506,14 @@ class FaceBook:
                 and best >= MATCH_THRESHOLD
                 and best - runner_up >= MATCH_MARGIN
             )
+            guesses = [(n, max(v, 0.0)) for v, n in ranked[:candidates]] if candidates else None
             if sure:
-                matches.append(Match(name, best, box, quality=quality))
+                matches.append(Match(name, best, box, quality=quality, candidates=guesses))
             else:
                 guest = self._guests.number(feature) if quality == "ok" else 0
-                matches.append(Match("", max(best, 0.0), box, guest, quality))
+                matches.append(
+                    Match("", max(best, 0.0), box, guest, quality, candidates=guesses)
+                )
         return matches
 
 
@@ -332,12 +531,14 @@ def _tidy(people: dict[str, Any]) -> dict[str, Any]:
     for raw, person in people.items():
         name = clean_name(raw) or raw
         key = next((k for k in out if k.lower() == name.lower()), name)
+        embs = list(person.get("embeddings") or [])
+        sigs = list(person.get("signatures") or [])[: len(embs)]
+        sigs += [None] * (len(embs) - len(sigs))
         if key in out:
-            out[key]["embeddings"] = (
-                out[key]["embeddings"] + list(person.get("embeddings") or [])
-            )[-MAX_SAMPLES:]
+            out[key]["embeddings"] = (out[key]["embeddings"] + embs)[-MAX_SAMPLES:]
+            out[key]["signatures"] = (out[key]["signatures"] + sigs)[-MAX_SAMPLES:]
         else:
-            out[key] = dict(person)
+            out[key] = {**person, "embeddings": embs, "signatures": sigs}
     return out
 
 
@@ -347,6 +548,10 @@ __all__ = [
     "MATCH_THRESHOLD",
     "Match",
     "clean_name",
+    "enhance",
     "ensure_model",
+    "kin_score",
+    "kin_words",
+    "looks_old",
     "person_score",
 ]

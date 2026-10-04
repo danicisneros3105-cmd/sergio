@@ -52,11 +52,18 @@ def _transport(fail=()):
                     "ok": True,
                     "hands": "ok (modo off)",
                     "vision": "ok",
-                    "physics": "ok (pymunk 7.3.0)",
+                    "holograms": "0 hologramas, modo mover; manos off",
                     "call": "lista",
-                    "gym": "cada 28 min, el próximo en 12 min",
+                    "wake": "instantáneo (Vosk)",
+                    "gym": "cada 12 min, el próximo en 9 min",
+                    "location": {"lat": -2.9, "lon": -79.0, "source": "ubicación de Windows (±30 m)"},
                 },
             )
+        if path == "/v1/faces/photo":
+            return httpx.Response(200, json={"text": "La cara: Dani (similitud 71%)."})
+        if path == "/v1/world/overhead":
+            assert request.url.params["lat"] == "-2.9"
+            return httpx.Response(200, json={"text": "Justo encima de usted: vuelo LA1442."})
         if path == "/v1/vision/scene":
             return httpx.Response(
                 200, json={"items": [{"label": "persona", "name": "Dani"}, {"label": "taza"}]}
@@ -99,7 +106,6 @@ def test_everything_ok(monkeypatch, tmp_path):
         "Leer la pantalla",
         "Chrome con YouTube",
         "Compañero señala",
-        "abrió y cerró el Bloc de notas",
         "PowerShell responde",
         "Una persona sonriendo",
         "caras: Dani",
@@ -107,7 +113,12 @@ def test_everything_ok(monkeypatch, tmp_path):
         "God's Eye View en http://127.0.0.1:4173/",
         "gemini-3.8-live contestó",
         "Dani, taza",
-        "física: ok",
+        "hologramas: 0",
+        "oído: instantáneo",
+        "abrió el Bloc de notas en",
+        "Caras en fotos",
+        "La cara: Dani",
+        "Justo encima de usted",
         "Todo probado de verdad",
     ):
         assert line in result.output, line
@@ -119,4 +130,4 @@ def test_failures_are_reported_and_the_rest_still_runs(monkeypatch, tmp_path):
     assert "FALLA Cerebro con herramientas" in result.output
     assert "FALLA Cámara" in result.output
     assert "OK   Globo 3D" in result.output
-    assert "5 prueba(s) fallaron" in result.output  # no photo: vision, faces, scene
+    assert "6 prueba(s) fallaron" in result.output  # no photo: vision, faces x2, scene

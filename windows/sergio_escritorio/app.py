@@ -64,9 +64,10 @@ def load_config() -> dict[str, Any]:
     data.setdefault("effort", "auto")
     # Talk like a phone call (Gemini Live); "turnos" = one question at a time.
     data.setdefault("conversation", "llamada")
-    # Mental gym: an exercise you cannot skip every 28 minutes.
+    # Mental gym: an exercise you cannot skip every 12 minutes (real time).
     data.setdefault("gym", True)
-    data.setdefault("gym_minutes", 28)
+    if data.get("gym_minutes") in (None, 28, 28.0):  # the old default
+        data["gym_minutes"] = 12
     return data
 
 
@@ -174,13 +175,7 @@ def run(config: dict[str, Any]) -> None:
     show_notch = bool(config["show_notch"])
     companion = Companion(captions=not show_notch)
     feed = CameraFeed()
-    camera_window = CameraWindow(
-        feed,
-        # "¿Qué ves?" button: same as asking out loud (assistant made below).
-        on_ask=lambda: threading.Thread(
-            target=lambda: assistant.on_text("¿Qué ves?"), daemon=True
-        ).start(),
-    )
+    camera_window = CameraWindow(feed)
     notch = Notch(fullscreen_app=foreground_is_fullscreen)
     notch.name = config["name"]
 
@@ -345,12 +340,19 @@ def run(config: dict[str, Any]) -> None:
             "whisper": ear or "del servidor (Whisper local no cargado)",
             "brain": client.last_brain,
             "last_heard": assistant.last_heard,
+            "wake": "instantáneo (Vosk)" if ears.spotter is not None else "Whisper por frase",
+            "voice_timeline": list(ears.timeline),
             "last_error": assistant.last_error,
             "log": str(HOME / "sergio.log"),
             "hands": hands_status(),
             "call": call_status(),
             "vision": vision_status(),
-            "physics": physics_status(),
+            "holograms": holo_status(),
+            "location": (
+                {"lat": location.fix.lat, "lon": location.fix.lon, "source": location.fix.describe()}
+                if location.fix is not None
+                else None
+            ),
             "gym": (
                 f"cada {int(schedule.interval // 60)} min, el próximo en "
                 f"{schedule.minutes_left()} min"
@@ -376,13 +378,12 @@ def run(config: dict[str, Any]) -> None:
             return f"sin MediaPipe ({exc})"
         return vision_engine.error or "ok"
 
-    def physics_status() -> str:
-        try:
-            import pymunk
-
-            return f"ok (pymunk {pymunk.version})"
-        except Exception as exc:  # noqa: BLE001
-            return f"no instalado ({exc})"
+    def holo_status() -> str:
+        scene = camera_window.holo
+        return (
+            f"{len(scene.objects)} hologramas, modo {scene.mode}"
+            f"{', gravedad' if scene.gravity else ''}; manos {hand_control.mode}"
+        )
 
     controller.diag = diag
     try:
@@ -570,92 +571,32 @@ def run(config: dict[str, Any]) -> None:
     bridge.point.connect(point_at)
     controller.on_point = lambda x, y, label: bridge.point.emit(x, y, label)
 
-    # -- hands: gestures, air mouse, 3D in Blender ---------------------------
-    from sergio_escritorio.hands import MODES, HandControl
+    # -- hands: holograms you grab, turn, sculpt and draw in Sergio ve -------
+    from sergio_escritorio.hands import ALIASES, MODES, REMOVED, HandControl
 
-    def hand_gesture(name: str) -> None:
-        swipes = {
-            "swipe_right": ("right", "Siguiente."),
-            "swipe_left": ("left", "Anterior."),
-            "swipe_up": ("volumeup", "Más volumen."),
-            "swipe_down": ("volumedown", "Menos volumen."),
-        }
-        if name in swipes:  # an open hand swept: next/previous, volume
-            key, said = swipes[name]
-            try:
-                for _ in range(3 if key.startswith("volume") else 1):
-                    controller.act({"action": "key", "keys": key})
-                bridge.caption.emit(said)
-            except PermissionError:
-                bridge.caption.emit("El control está en pausa (Ctrl+Alt+Fin).")
-            return
-        if name == "open":  # open palm: stop talking
-            if call_active():
-                current_call[0].interrupt()
-            assistant.stop_speaking()
-            bridge.caption.emit("Me callo.")
-        elif name in ("thumbs_up", "victory") and call_active():
-            said = "Sí" if name == "thumbs_up" else "¿Qué ves?"
-            current_call[0].send_text(f"(El usuario hizo un gesto con la mano: {said})")
-        elif name in ("thumbs_up", "victory"):
-            said = "Sí" if name == "thumbs_up" else "¿Qué ves?"
-            bridge.caption.emit(said)
-            threading.Thread(
-                target=assistant.on_text, args=(said,), daemon=True
-            ).start()
-
-    def hand_mouse(events: list) -> None:
-        if not controller.enabled:  # Ctrl+Alt+Fin pauses the hands too
-            return
-        import pyautogui
-
-        for kind, x, y in events:
-            if kind == "move":
-                pyautogui.moveTo(x, y, _pause=False)
-            elif kind == "click":
-                pyautogui.click(x, y, _pause=False)
-            elif kind == "down":
-                pyautogui.mouseDown(x, y, _pause=False)
-            elif kind == "up":
-                pyautogui.mouseUp(x, y, _pause=False)
-            elif kind == "right":
-                pyautogui.rightClick(x, y, _pause=False)
-            elif kind == "scroll":
-                pyautogui.scroll(x * 40, _pause=False)  # x carries the amount
-            elif kind == "zoom":  # both hands pinching: Ctrl + wheel
-                pyautogui.keyDown("ctrl", _pause=False)
-                try:
-                    pyautogui.scroll(x * 120, _pause=False)
-                finally:
-                    pyautogui.keyUp("ctrl", _pause=False)
-
-    def screen_size() -> tuple[int, int]:
-        try:
-            import pyautogui
-
-            width, height = pyautogui.size()
-            return int(width), int(height)
-        except Exception:  # noqa: BLE001
-            return 1920, 1080
-
-    hand_control = HandControl(
-        frames=feed.frame,
-        on_gesture=hand_gesture,
-        mouse_events=hand_mouse,
-        screen=screen_size(),
-    )
+    hand_control = HandControl(frames=feed.frame)
     camera_window.hands = hand_control
 
     def set_hands(mode: str) -> str:
-        """For Sergio (desktop_action hands / blender with hands)."""
+        """For Sergio (desktop_action hands, the call's "manos")."""
+        mode = (mode or "off").strip().lower()
+        if mode in REMOVED:
+            return (
+                "El control por gestos y el mouse en el aire ya no existen: tus "
+                "manos ahora mueven y modelan hologramas en Sergio ve (modo holo)."
+            )
+        mode = ALIASES.get(mode, mode)
         if mode not in MODES:
             return f"unknown hands mode {mode!r}; use one of {', '.join(MODES)}"
-        hand_control.set_mode(mode)
-        feed.keep_on = mode != "off"
-        if mode != "off":
-            feed.start()
-            bridge.peek.emit()  # show the camera so you see your hands
-        return f"hands mode: {MODES[mode]}"
+
+        def go() -> str:
+            if mode == "off":
+                return camera_window.set_holo(False)
+            if not camera_window.isVisible():
+                camera_window.open()
+            return camera_window.set_holo(True)
+
+        return on_ui(go)
 
     controller.on_hands = set_hands
     bridge.camera_off.connect(camera_window.close_camera)
@@ -681,6 +622,23 @@ def run(config: dict[str, Any]) -> None:
         if q.kind == "camera":
             (bridge.peek if q.arg == "on" else bridge.camera_off).emit()
             return q.say
+        if q.kind == "analyze":
+            on_ui(lambda: camera_window.open() if not camera_window.isVisible() else None)
+            analyze()  # it speaks the result itself
+            return ""
+        if q.kind == "photo":
+            if not camera_window.isVisible():
+                on_ui(camera_window.open)
+                time.sleep(1.6)  # the camera settles its exposure
+            path = on_ui(camera_window.save_photo)
+            return "Foto guardada en Imágenes, carpeta Sergio." if path else "No pude tomar la foto."
+        if q.kind == "mirror":
+            camera_window.mirror = not camera_window.mirror
+            return "Modo espejo." if camera_window.mirror else "Sin espejo."
+        if q.kind == "blender_holo":
+            return holograms_to_blender()
+        if q.kind == "blender_object":
+            return object_to_blender(q.arg)
         if q.kind == "hands":
             set_hands(q.arg)
             return q.say
@@ -699,7 +657,12 @@ def run(config: dict[str, Any]) -> None:
             if q.kind == "open_url":
                 controller.act({"action": "open", "target": q.arg})
             elif q.kind == "open_app":
-                controller.act({"action": "open_app", "target": q.arg})
+                try:
+                    done = controller.act({"action": "open_app", "target": q.arg})
+                except LookupError as exc:
+                    return str(exc)
+                if "still starting" in done:
+                    return f"Abriendo {q.arg.title()}; tarda un poco en arrancar."
             elif q.kind == "close_app":
                 try:
                     controller.act({"action": "close_app", "target": q.arg})
@@ -749,9 +712,6 @@ def run(config: dict[str, Any]) -> None:
         answer = "Sí" if said == "si" else "No"
         if call_active():
             current_call[0].send_text(f"(El usuario {'asintió' if said == 'si' else 'negó'} con la cabeza: {answer})")
-        elif hand_control.mode == "gestos" and not assistant.busy:
-            bridge.caption.emit(answer)
-            threading.Thread(target=assistant.on_text, args=(answer,), daemon=True).start()
 
     vision_engine = VisionEngine(feed.frame, on_head=head_gesture)
     camera_window.vision = vision_engine
@@ -835,6 +795,44 @@ def run(config: dict[str, Any]) -> None:
 
     camera_window.on_analyze = analyze
 
+    # New things in view get a proper name from Gemini by themselves (the
+    # detector only knows 80 kinds); rate-limited to protect the free quota.
+    from PySide6.QtCore import QTimer as _QTimer
+
+    from sergio_escritorio.vision import AutoNamer
+
+    namer = AutoNamer()
+    namer.enabled = bool(config.get("auto_objetos", True))
+
+    def auto_name() -> None:
+        if not camera_window.isVisible():
+            return
+        now = time.monotonic()
+        tracks = vision_engine.tracker.visible(now)
+        if not namer.due(tracks, now, day=time.strftime("%Y-%m-%d")):
+            return
+        namer.asked(tracks, now)
+
+        def run() -> None:
+            try:
+                resp = client.http.post(
+                    f"{client.base}/v1/vision/scene",
+                    files={"image": ("camara.jpg", feed.jpeg(), "image/jpeg")},
+                    data={"auto": "true"},
+                    timeout=60,
+                )
+                resp.raise_for_status()
+                items = list(resp.json().get("items") or [])
+                vision_engine.tracker.add_scene(items, time.monotonic(), seconds=30)
+            except Exception:  # noqa: BLE001 — naming is a bonus
+                logging.info("auto naming failed", exc_info=True)
+
+        threading.Thread(target=run, daemon=True).start()
+
+    namer_timer = _QTimer()
+    namer_timer.timeout.connect(auto_name)
+    namer_timer.start(2000)
+
     def face_photos(box: tuple, count: int = 3) -> list[bytes]:
         """A few crops of one face from the live camera (for enrolling)."""
         import cv2
@@ -860,10 +858,12 @@ def run(config: dict[str, Any]) -> None:
     def enroll_face(name: str, box: tuple) -> str:
         saved = 0
         last_error = ""
+        from sergio_escritorio.vision import face_points
+
         for jpeg in face_photos(box):
             resp = client.http.post(
                 f"{client.base}/v1/faces/enroll",
-                data={"name": name, "consent": "true"},
+                data={"name": name, "consent": "true", "faces": json.dumps(face_points(jpeg))},
                 files={"image": ("cara.jpg", jpeg, "image/jpeg")},
                 timeout=30,
             )
@@ -969,27 +969,178 @@ def run(config: dict[str, Any]) -> None:
             return briefing(now, system_status(), reminders.pending())
         if q.kind == "protocol":
             return run_protocol(q.arg)
+        if q.kind == "gym_report":
+            return gym_stats.report()
+        if q.kind == "photo_who":
+            return photo_who(q.arg)
+        if q.kind == "kinship":
+            return kinship(q.arg)
+        if q.kind == "overhead":
+            bridge.caption.emit("Mirando el cielo sobre usted…")
+            return overhead_now()
+        if q.kind == "globe_goto":
+            return globe_tool(q.arg)
+        if q.kind == "globe_last":
+            if not last_globe[0]:
+                raise RuntimeError("nothing shown on the globe yet")  # the agent decides
+            return globe_tool("")
         if q.kind == "call":
             ok = start_call(force=True)
             return "" if ok else "No pude abrir la llamada ahora."
         if q.kind == "gym":
             return on_ui(open_gym)
-        if q.kind == "physics":
-            return run_physics(q.arg)
+        if q.kind == "holo":
+            return run_holo(q.arg)
         if q.kind == "name_face":
             return name_from_voice(q.arg)
         return None
 
-    def run_physics(order: str) -> str:
+    def run_holo(order: str) -> str:
+        """Holograms by voice: "crea un cubo rojo", "esculpir", "gravedad"."""
+
         def go() -> str:
             if not camera_window.isVisible():
                 camera_window.open()
-            if hand_control.mode != "fisica":
-                camera_window.set_physics(True)
-            world = camera_window.sandbox
-            return world.command(order) if world is not None else "No hay motor de física."
+            return camera_window.hologram(order)
 
         return on_ui(go)
+
+    # -- Blender: your holograms, or the real object in your hands -------------
+    def blender_file(name: str) -> str:
+        import re as _re
+
+        folder = Path.home() / "Documents" / "Sergio" / "Blender"
+        folder.mkdir(parents=True, exist_ok=True)
+        slug = _re.sub(r"[^\w-]+", "-", name.lower()).strip("-") or "modelo"
+        return str(folder / f"{slug}-{time.strftime('%Y%m%d-%H%M%S')}.blend")
+
+    def holograms_to_blender() -> str:
+        from sergio_escritorio.holo import to_bpy
+
+        objects = list(camera_window.holo.objects)
+        if not objects:
+            return "No hay hologramas que pasar a Blender. Crea uno: «crea un cubo»."
+        path = blender_file("hologramas")
+        controller.act({"action": "blender", "script": to_bpy(objects, path)})
+        return (
+            f"Abrí Blender con tus {len(objects)} hologramas y guardé el proyecto en "
+            f"Documentos, Sergio, Blender ({Path(path).name})."
+        )
+
+    def object_to_blender(note: str = "") -> str:
+        """The object in your hands: Gemini studies it, Blender models it."""
+        if not camera_window.isVisible():
+            on_ui(camera_window.open)
+            time.sleep(1.6)
+        bridge.caption.emit("Estudiando el objeto que tienes en las manos…")
+        jpeg = feed.jpeg()
+        path = blender_file("objeto")
+        resp = client.http.post(
+            f"{client.base}/v1/vision/blender",
+            files={"image": ("objeto.jpg", jpeg, "image/jpeg")},
+            data={"save_path": path, "note": note},
+            timeout=300,
+        )
+        if resp.status_code != 200:
+            try:
+                why = resp.json().get("detail") or resp.text
+            except ValueError:
+                why = resp.text
+            return f"No pude modelarlo: {str(why)[:200]}"
+        model = resp.json()
+        controller.act({"action": "blender", "script": model["script"]})
+        dims = model.get("dimensions_cm") or []
+        size = " × ".join(f"{d:g}" for d in dims) + " cm" if len(dims) == 3 else ""
+        parts = f", {model['parts']} piezas" if model.get("parts") else ""
+        return (
+            f"Es {model['name']}" + (f" (unos {size}{parts})" if size else "")
+            + f". {model.get('description', '')} Lo modelé en Blender y guardé el "
+            f"proyecto en Documentos, Sergio, Blender."
+        ).replace("..", ".")
+
+    # -- faces in photos (old ones too) and family resemblance ------------------
+    PHOTO_TYPES = (".jpg", ".jpeg", ".png", ".bmp", ".webp", ".tif", ".tiff")
+
+    def find_photo(name: str) -> Path:
+        path = Path(name.strip().strip('"'))
+        if path.is_file():
+            return path
+        wanted = name.strip().lower()
+        home = Path.home()
+        places = [home / "Pictures", home / "Downloads", home / "Desktop", home / "Documents",
+                  home / "OneDrive" / "Pictures", home / "OneDrive" / "Imágenes"]
+        found = [
+            f
+            for place in places
+            if place.is_dir()
+            for f in place.rglob("*")
+            if f.suffix.lower() in PHOTO_TYPES and wanted in f.name.lower()
+        ]
+        if not found:
+            raise FileNotFoundError(f"No encuentro una foto llamada «{name}».")
+        return max(found, key=lambda f: f.stat().st_mtime)
+
+    def photo_bytes(source: str, path: str = "") -> bytes:
+        source = (source or "camara").lower()
+        if path or source.startswith("arch"):
+            return find_photo(path).read_bytes()
+        if source.startswith("pant"):
+            return jpeg_of(controller.backend.screenshot(), 1920)
+        if not camera_window.isVisible():
+            bridge.peek.emit()  # open the camera: hold the photo in front of it
+            time.sleep(1.5)
+        return feed.jpeg()
+
+    def photo_who(source: str, path: str = "") -> str:
+        bridge.caption.emit("Mirando la foto…")
+        return client.photo_who(photo_bytes(source, path))
+
+    def kinship(source: str, path: str = "") -> str:
+        bridge.caption.emit("Comparando rasgos y proporciones…")
+        return client.kinship(photo_bytes(source, path))
+
+    # -- where we are, the plane overhead and the 3D globe ----------------------
+    from sergio_escritorio.location import Location
+
+    location = Location(config.get("ubicacion"))
+    location.keep_fresh()  # always fresh: the plane question never waits for it
+    last_globe = [""]
+
+    def show_globe(url: str) -> None:
+        """God's Eye View in its own window, on your screen (old one closed)."""
+        launcher = getattr(controller.backend, "launcher", None)
+        before: set[int] = set()
+        if launcher is not None:
+            for window in launcher.desktop.windows():
+                before.add(window.hwnd)
+                if "god's eye view" in window.title.lower():
+                    launcher.desktop.close(window.hwnd)
+        open_app_window(url)
+        if launcher is not None:
+            threading.Thread(
+                target=lambda: launcher._bring_later(["God's Eye View"], before), daemon=True
+            ).start()
+
+    def overhead_now() -> str:
+        fix = location.get()
+        if fix is None:
+            return f"No sé dónde estamos: {location.problem or 'sin ubicación'}."
+        report = client.overhead(fix.lat, fix.lon, fix.alt)
+        last_globe[0] = report.get("globe_url") or last_globe[0]
+        note = "" if fix.source == "windows" else f" (Usé la {fix.describe()}.)"
+        return str(report.get("text") or "No hay datos.") + note
+
+    def globe_tool(place: str) -> str:
+        if place.strip():
+            url = client.globe_goto(place.strip())
+            label = place.strip().title()
+        elif last_globe[0]:
+            url, label = last_globe[0], "el avión"
+        else:
+            return "¿Qué lugar quiere ver en el globo?"
+        last_globe[0] = url
+        show_globe(url)
+        return f"Mostrando {label} en God's Eye View."
 
     # -- the call: talk with Sergio like on the phone (Gemini Live) -----------
     from sergio_escritorio.call import CallSession
@@ -1064,8 +1215,8 @@ def run(config: dict[str, Any]) -> None:
         return "Cámara abierta: ya recibes sus imágenes." if on else "Cámara cerrada."
 
     def hands_tool(mode: str) -> str:
-        if mode == "fisica":
-            return on_ui(lambda: (camera_window.open(), camera_window.set_physics(True))[1])
+        if mode == "fisica":  # the old physics: holograms with gravity
+            return run_holo("activa la gravedad")
         return set_hands(mode)
 
     def people_tool() -> str:
@@ -1086,7 +1237,9 @@ def run(config: dict[str, Any]) -> None:
         point=lambda x, y, label: bridge.point.emit(x, y, label),
         camera=camera_tool,
         hands=hands_tool,
-        physics=run_physics,
+        holo=run_holo,
+        blender_holo=holograms_to_blender,
+        blender_object=object_to_blender,
         people=people_tool,
         remind=lambda due, text: (reminders.add(due, text), "ok")[1],
         reminders=reminders.pending,
@@ -1097,6 +1250,11 @@ def run(config: dict[str, Any]) -> None:
         share_screen=share_screen,
         hang_up=hang_up_tool,
         gym=lambda: on_ui(open_gym),
+        gym_report=lambda: gym_stats.report(),
+        overhead=overhead_now,
+        globe=globe_tool,
+        photo_who=photo_who,
+        kinship=kinship,
         screenshot=save_screenshot,
     )
 
@@ -1104,7 +1262,9 @@ def run(config: dict[str, Any]) -> None:
         current_call[0] = None
         ears.call = None
         bridge.call_on.emit(False)
-        if why == "silencio":
+        if why == "cancelado":  # "Sergio" was not for him after all
+            bridge.state.emit("idle")
+        elif why == "silencio":
             bridge.caption.emit("Quedo atento. Di «Sergio» cuando me necesites.")
         elif why == "se cortó":
             bridge.caption.emit("Se cortó la llamada. Di «Sergio» para volver.")
@@ -1117,7 +1277,7 @@ def run(config: dict[str, Any]) -> None:
             return False
         if call_active():
             return True
-        if not force and time.monotonic() - call_failed_at[0] < 600:
+        if not force and time.monotonic() - call_failed_at[0] < 20:
             return False  # it failed a moment ago: don't make you wait again
         from sergio_escritorio.voice import wav_pcm
 
@@ -1132,7 +1292,7 @@ def run(config: dict[str, Any]) -> None:
                 camera_window.isVisible(),
             ),
             tools=call_tools(abilities),
-            on_state=bridge.state.emit,
+            on_state=call_state,
             on_caption=bridge.caption.emit,
             on_heard=lambda text: setattr(assistant, "last_heard", text),
             on_level=bridge.level.emit,
@@ -1147,15 +1307,64 @@ def run(config: dict[str, Any]) -> None:
             call_failed_at[0] = time.monotonic()
             call_error[0] = session.error
             logging.warning("live call unavailable: %s", session.error)
+            ears.mark(f"la llamada falló: {session.error[:80]}")
+            bridge.caption.emit(f"No pude abrir la llamada ({session.error[:90]}); te respondo por turnos.")
             return False
         call_error[0] = ""
+        ears.mark(f"llamada lista ({session.model})")
         bridge.call_on.emit(True)
         return True
 
-    def end_call() -> None:
+    first_voice = [False]
+
+    def call_state(name: str) -> None:
+        if name == "speaking" and not first_voice[0]:
+            first_voice[0] = True
+            ears.mark("primera palabra de Sergio")
+        elif name == "listening":
+            first_voice[0] = False
+        bridge.state.emit(name)
+
+    wake_cancelled = [False]
+
+    def on_wake(event: str) -> None:
+        """Instant wake word: connect while you are still talking."""
+        if event == "maybe":
+            wake_cancelled[0] = False
+            bridge.state.emit("listening")  # he heard his name
+
+            def connect() -> None:
+                if not start_call():
+                    ears.wake_failed()
+                elif wake_cancelled[0]:
+                    end_call("cancelado")
+
+            threading.Thread(target=connect, daemon=True).start()
+        elif event == "no":
+            wake_cancelled[0] = True
+            session = current_call[0]
+            if session is not None and session.active and not session.heard_anything:
+                end_call("cancelado")
+            else:
+                bridge.state.emit("idle")
+
+    ears.on_wake = on_wake
+
+    def load_wake_word() -> None:
+        from sergio_escritorio.listen import WAKE_NAMES
+        from sergio_escritorio.wake import load_spotter
+
+        spotter = load_spotter(HOME, list(WAKE_NAMES))
+        if spotter is not None:
+            ears.spotter = spotter
+            logging.info("instant wake word on")
+
+    threading.Thread(target=load_wake_word, daemon=True).start()
+
+    def end_call(why: str = "colgaste") -> None:
         session = current_call[0]
         if session is not None:
-            session.hang_up()
+            session.hang_up(why)
 
     def talk_hotkey() -> bool:
         """Ctrl+Space: start or end the call (else push-to-talk)."""
@@ -1187,7 +1396,7 @@ def run(config: dict[str, Any]) -> None:
 
     bridge.call_on.connect(call_changed)
 
-    # -- mental gym: an exercise you cannot skip every 28 minutes -------------
+    # -- mental gym: an exercise you cannot skip every 12 minutes -------------
     from PySide6.QtCore import QTimer
 
     from sergio_escritorio.gym import (
@@ -1200,8 +1409,16 @@ def run(config: dict[str, Any]) -> None:
     )
 
     gym_stats = GymStats.load(HOME / "gimnasio.json")
+    def remember_due(due: float) -> None:
+        gym_stats.next_due = due
+        gym_stats.save()
+
     schedule = GymSchedule(
-        float(config.get("gym_minutes", 28)), away=idle_seconds, locked=screen_locked
+        float(config.get("gym_minutes", 12)),
+        away=idle_seconds,
+        locked=screen_locked,
+        due=gym_stats.next_due,
+        on_change=remember_due,
     )
     schedule.enabled = bool(config.get("gym", True))
     gym_windows: list[Any] = []
@@ -1226,7 +1443,8 @@ def run(config: dict[str, Any]) -> None:
             validate_word=word_validator(client.chat_fast),
         )
         gym_windows.append(window)
-        schedule.running = True
+        if not schedule.running:
+            schedule.started()  # opened by hand or by voice
 
         def done(session: Any) -> None:
             gym_windows.clear()
@@ -1242,7 +1460,6 @@ def run(config: dict[str, Any]) -> None:
     def gym_check() -> None:
         try:
             if schedule.check():
-                schedule.running = False  # open_gym marks it again
                 open_gym()
         except Exception:  # noqa: BLE001 — never kill the timer
             logging.exception("mental gym failed to start")

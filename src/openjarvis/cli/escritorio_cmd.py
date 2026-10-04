@@ -40,10 +40,39 @@ BASE_TOOLS = (
     "get_weather",
     "globe_view",
     "live_flights",
+    "flights_overhead",
     "live_earthquakes",
 )
 MIN_TURNS = 25  # a desktop task is many small look-then-act steps
 VISION_MODEL = "qwen2.5vl:7b"
+
+
+SERVER_EXTRAS = ("faces",)  # what the desktop features need on the server
+
+
+def sync_server(extras: tuple[str, ...] = SERVER_EXTRAS, run=None) -> bool:
+    """Install new server dependencies (face recognition...) in Sergio's venv.
+
+    ``--inexact`` only adds: nothing the user installed is removed.
+    """
+    import sys
+
+    from openjarvis.unified.paths import _REPO_ROOT
+
+    uv = shutil.which("uv") or str(Path.home() / ".local" / "bin" / "uv")
+    if not Path(uv).exists() or sys.prefix == sys.base_prefix:
+        return False
+    run = run or subprocess.run
+    cmd = [uv, "sync", "--inexact", "--python", sys.executable]
+    for extra in extras:
+        cmd += ["--extra", extra]
+    done = run(
+        cmd,
+        cwd=_REPO_ROOT,
+        env={**os.environ, "UV_PROJECT_ENVIRONMENT": sys.prefix},
+        check=False,
+    )
+    return done.returncode == 0
 
 
 def _wslpath(path: Path) -> str:
@@ -187,6 +216,13 @@ def instalar(vision: bool, gpu: bool = False) -> None:
             "[yellow]Sergio usa el modelo local, que es lento y en algunas "
             "tarjetas se cae. Pon tu clave de Kimi: sergio nube configurar"
             "[/yellow]"
+        )
+
+    console.print("Actualizando las librerías de Sergio en Ubuntu…")
+    if not sync_server():
+        console.print(
+            "[yellow]No pude actualizar las librerías del servidor ahora; "
+            "lo demás funciona.[/yellow]"
         )
 
     script = _wslpath(_REPO_ROOT / "scripts" / "instalar-escritorio.ps1")

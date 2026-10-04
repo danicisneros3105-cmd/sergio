@@ -31,7 +31,9 @@ class Abilities:
     point: Callable[[int, int, str], None] = lambda _x, _y, _l: None
     camera: Callable[[bool], str] = _nothing
     hands: Callable[[str], str] = _nothing
-    physics: Callable[[str], str] = _nothing
+    holo: Callable[[str], str] = _nothing
+    blender_holo: Callable[[], str] = _nothing
+    blender_object: Callable[[str], str] = _nothing
     people: Callable[[], str] = _nothing
     remind: Callable[[float, str], str] = _nothing
     reminders: Callable[[], list] = lambda: []
@@ -42,6 +44,16 @@ class Abilities:
     share_screen: Callable[[bool], str] = _nothing
     hang_up: Callable[[], str] = _nothing
     gym: Callable[[], str] = _nothing
+    gym_report: Callable[[], str] = _nothing
+    overhead: Callable[[], str] = _nothing
+    globe: Callable[[str], str] = _nothing
+    photo_who: Callable[[str, str], str] = lambda _s, _p: "No disponible en este equipo."
+    kinship: Callable[[str, str], str] = lambda _s, _p: "No disponible en este equipo."
+    operate: Callable[[str, bool], str] = lambda _g, _c: "No disponible en este equipo."
+    operate_answer: Callable[[str, bool], str] = lambda _a, _c: "No disponible en este equipo."
+    message: Callable[[str, str, str, str, bool], str] = lambda *_a: "No disponible en este equipo."
+    call_person: Callable[[str, str, bool], str] = lambda *_a: "No disponible en este equipo."
+    remember_contact: Callable[[str, str, str], str] = lambda *_a: "No disponible en este equipo."
     screenshot: Callable[[], str] = _nothing
     now: Callable[[], datetime] = field(default=datetime.now)
 
@@ -69,13 +81,24 @@ def call_tools(ab: Abilities) -> list[ClientTool]:
         quick = parse_quick(f"abre {target}")
         if quick is not None and quick.kind == "open_url":
             ab.act({"action": "open", "target": quick.arg})
-        else:
-            ab.act({"action": "open_app", "target": target})
-        return f"Abierto: {target}."
+            return f"Abierto: {target}; ya está en pantalla."
+        try:
+            done = str(ab.act({"action": "open_app", "target": target}) or "")
+        except LookupError as exc:
+            return f"{exc} Puedo buscarla en internet o instalarla con winget si quiere."
+        if "still starting" in done:
+            return f"{target} está arrancando; aparecerá al frente en su pantalla en unos segundos."
+        if "(web" in done:
+            return f"No está instalada como app; abrí su web. {done.split(' | ')[-1]}"
+        front = done.split("now in front:", 1)[-1].strip() if "now in front:" in done else ""
+        return f"Abierto {target}, al frente en su pantalla" + (f" ({front})." if front else ".")
 
     def cerrar(args: dict) -> str:
         app = str(args.get("app") or "").strip()
-        ab.act({"action": "close_app", "target": app})
+        try:
+            ab.act({"action": "close_app", "target": app})
+        except ValueError:
+            return f"No veo {app} abierto."
         return f"Cerrado: {app}."
 
     def buscar(args: dict) -> str:
@@ -227,18 +250,36 @@ def call_tools(ab: Abilities) -> list[ClientTool]:
         ),
         ClientTool(
             "manos",
-            "Cambia el control con las manos: off, gestos, mouse (mouse en el "
-            "aire), 3d (Blender) o fisica (objetos con física en la cámara).",
-            lambda a: ab.hands(str(a.get("modo") or "off")),
-            _obj(modo=_str("Modo", required=True, enum=["off", "gestos", "mouse", "3d", "fisica"])),
+            "Activa (holo) o apaga (off) las manos del usuario sobre los hologramas "
+            "3D de Sergio ve: pellizcar agarra, girar la muñeca gira, dos manos "
+            "escalan, soltar en movimiento lanza.",
+            lambda a: ab.hands(str(a.get("modo") or "holo")),
+            _obj(modo=_str("Modo", required=True, enum=["holo", "off"])),
         ),
         ClientTool(
-            "fisica",
-            "Crea o controla objetos con física real en la cámara: 'crea 5 cubos "
-            "rojos', 'lanza una pelota', 'gravedad cero', 'gravedad lunar', "
-            "'explota todo', 'borra los objetos'.",
-            lambda a: ab.physics(str(a.get("orden") or "")),
+            "hologramas",
+            "Hologramas 3D en Sergio ve, estilo Iron Man: 'crea un cubo rojo', "
+            "'crea dos esferas', 'cilindro', 'cono', 'toroide', 'pirámide', "
+            "'jarrón', 'diamante', 'más grande', 'gíralo', 'duplícalo', "
+            "'bórralo', 'borra todo', 'modo esculpir' (modelar con las manos), "
+            "'modo dibujar' (dibujar en el aire: tubo, torno o extrusión), "
+            "'suavízalo', 'gravedad' / 'sin gravedad'.",
+            lambda a: ab.holo(str(a.get("orden") or "")),
             _obj(orden=_str("La orden, en español", required=True)),
+        ),
+        ClientTool(
+            "hologramas_a_blender",
+            "Pasa los hologramas que el usuario creó o modeló con las manos a "
+            "Blender y guarda el proyecto (.blend) en Documentos\\Sergio\\Blender.",
+            lambda _a: ab.blender_holo(),
+        ),
+        ClientTool(
+            "objeto_a_blender",
+            "Analiza el objeto que el usuario tiene en las manos (cámara) y lo "
+            "modela con mucho detalle en Blender (piezas, medidas reales, "
+            "materiales), guardando el proyecto. Tarda uno o dos minutos: avísale.",
+            lambda a: ab.blender_object(str(a.get("nota") or "")),
+            _obj(nota=_str("Lo que el usuario dijo del objeto, si algo")),
         ),
         ClientTool(
             "recordatorio",
@@ -286,6 +327,122 @@ def call_tools(ab: Abilities) -> list[ClientTool]:
             "gimnasio_mental",
             "Empieza ahora un ejercicio del gimnasio mental (no se puede saltar).",
             lambda _a: ab.gym(),
+        ),
+        ClientTool(
+            "usar_computadora",
+            "Usa la computadora del usuario como una persona, con mouse y teclado, paso "
+            "a paso y comprobando cada paso: navegar webs, rellenar formularios, publicar, "
+            "configurar algo, cualquier tarea en pantalla. Se detiene y pregunta antes de "
+            "enviar, llamar, publicar, comprar o borrar salvo confirmado=true. Si devuelve "
+            "PREGUNTA, házsela al usuario y luego usa seguir_tarea con su respuesta.",
+            lambda a: ab.operate(str(a.get("objetivo") or ""), bool(a.get("confirmado"))),
+            _obj(
+                objetivo=_str("La tarea completa con todos los datos", required=True),
+                confirmado={"type": "boolean", "description": "true solo si el usuario ya confirmó el envío/llamada/publicación"},
+            ),
+        ),
+        ClientTool(
+            "seguir_tarea",
+            "Continúa la última tarea de usar_computadora/enviar_mensaje que hizo una "
+            "pregunta, con la respuesta del usuario.",
+            lambda a: ab.operate_answer(str(a.get("respuesta") or ""), bool(a.get("confirmado"))),
+            _obj(
+                respuesta=_str("Lo que respondió el usuario", required=True),
+                confirmado={"type": "boolean", "description": "true si dijo que sí lo envíe/llame"},
+            ),
+        ),
+        ClientTool(
+            "enviar_mensaje",
+            "Envía un mensaje o correo a otra persona como lo haría el usuario: WhatsApp, "
+            "Instagram, Messenger, Telegram, Gmail, Outlook, SMS, X, TikTok, LinkedIn, "
+            "Discord o Teams. 'para' es el nombre del contacto, su @usuario, número o "
+            "correo. ANTES lee al usuario a quién y qué se enviará y pregunta; usa "
+            "confirmado=true solo cuando diga que sí.",
+            lambda a: ab.message(
+                str(a.get("plataforma") or "whatsapp"),
+                str(a.get("para") or ""),
+                str(a.get("mensaje") or ""),
+                str(a.get("asunto") or ""),
+                bool(a.get("confirmado")),
+            ),
+            _obj(
+                plataforma=_str("whatsapp, instagram, messenger, telegram, gmail, outlook, sms, x...", required=True),
+                para=_str("Contacto, @usuario, número o correo", required=True),
+                mensaje=_str("El texto exacto", required=True),
+                asunto=_str("Asunto (correos)"),
+                confirmado={"type": "boolean", "description": "true solo si el usuario confirmó el envío"},
+            ),
+        ),
+        ClientTool(
+            "llamar",
+            "Hace una llamada telefónica (por el celular del usuario con Enlace Móvil) o "
+            "por WhatsApp. Confirma antes con el usuario a quién llamará.",
+            lambda a: ab.call_person(
+                str(a.get("para") or ""), str(a.get("por") or "telefono"), bool(a.get("confirmado"))
+            ),
+            _obj(
+                para=_str("Contacto o número", required=True),
+                por=_str("telefono o whatsapp", enum=["telefono", "whatsapp"]),
+                confirmado={"type": "boolean", "description": "true si el usuario confirmó la llamada"},
+            ),
+        ),
+        ClientTool(
+            "guardar_contacto",
+            "Recuerda cómo contactar a alguien: su teléfono/WhatsApp, Instagram, correo, "
+            "Telegram, Messenger, X o TikTok.",
+            lambda a: ab.remember_contact(
+                str(a.get("nombre") or ""), str(a.get("campo") or ""), str(a.get("valor") or "")
+            ),
+            _obj(
+                nombre=_str("Nombre de la persona", required=True),
+                campo=_str("telefono, instagram, correo, telegram, messenger, x, tiktok", required=True),
+                valor=_str("El número, usuario o correo", required=True),
+            ),
+        ),
+        ClientTool(
+            "quien_es_en_foto",
+            "Reconoce a las personas de una foto, también antigua, descolorida o "
+            "escaneada: la foto que el usuario sostiene frente a la cámara, la que "
+            "está en pantalla o un archivo. Compara la red neuronal y 175 medidas "
+            "de la cara con las personas registradas.",
+            lambda a: ab.photo_who(str(a.get("origen") or "camara"), str(a.get("ruta") or "")),
+            _obj(
+                origen=_str("De dónde sale la foto", enum=["camara", "pantalla", "archivo"]),
+                ruta=_str("Nombre o ruta del archivo (origen archivo)"),
+            ),
+        ),
+        ClientTool(
+            "parecido_familiar",
+            "Estima el parecido familiar de las caras de una foto (cámara, pantalla "
+            "o archivo) con las personas registradas. Es un indicio, no una prueba "
+            "de parentesco (eso solo lo da el ADN): dilo así.",
+            lambda a: ab.kinship(str(a.get("origen") or "camara"), str(a.get("ruta") or "")),
+            _obj(
+                origen=_str("De dónde sale la foto", enum=["camara", "pantalla", "archivo"]),
+                ruta=_str("Nombre o ruta del archivo (origen archivo)"),
+            ),
+        ),
+        ClientTool(
+            "vuelo_encima",
+            "Qué avión pasa AHORA MISMO justo encima del usuario: usa su ubicación "
+            "exacta (GPS/Wi-Fi de Windows) y la hora actual con datos ADS-B en vivo: "
+            "vuelo, aerolínea, avión, ruta, altura, velocidad y hacia dónde mirar. "
+            "Tarda unos segundos; deja el globo apuntando a ese avión.",
+            lambda _a: ab.overhead(),
+        ),
+        ClientTool(
+            "mostrar_en_globo",
+            "Abre God's Eye View (el globo 3D) en su propia ventana mostrando un "
+            "lugar (\"Cuenca\", \"Quito\", \"Tokio\"). Con lugar vacío muestra el "
+            "último avión consultado.",
+            lambda a: ab.globe(str(a.get("lugar") or "")),
+            _obj(lugar=_str("Lugar; vacío = el avión de antes")),
+        ),
+        ClientTool(
+            "progreso_gimnasio",
+            "¿Funciona el gimnasio mental? Su progreso en los ejercicios y si mejora "
+            "en la prueba de control no entrenada (con intervalo de confianza).",
+            lambda _a: ab.gym_report(),
         ),
     ]
 

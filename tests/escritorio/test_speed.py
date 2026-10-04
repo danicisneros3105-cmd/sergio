@@ -39,7 +39,7 @@ from sergio_escritorio.voice import (
         ("pausa la música", "key", "playpause"),
         ("¿Qué hora es?", "time", ""),
         ("abre la cámara", "camera", "on"),
-        ("modo mouse", "hands", "mouse"),
+        ("modo hologramas", "hands", "holo"),
         ("cállate", "stop", ""),
     ],
 )

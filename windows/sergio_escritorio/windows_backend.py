@@ -124,6 +124,20 @@ class WindowsBackend:
         pyautogui.FAILSAFE = True
         pyautogui.PAUSE = 0.05
         self._gui = pyautogui
+        from pathlib import Path
+        import threading
+
+        from sergio_escritorio.apps import Launcher
+
+        home = Path(os.environ.get("LOCALAPPDATA", Path.home())) / "SergioEscritorio"
+        # Every app of the Start menu, by name: opening one is instant.
+        self.launcher = Launcher(cache=home / "apps.json")
+        threading.Thread(target=self.launcher.refresh, daemon=True).start()
+        from sergio_escritorio.human import WindowsHands
+
+        # Mouse and keyboard like a person: curved, eased moves and typing
+        # key by key, so the user can follow (and it never looks like a bot).
+        self.hands = WindowsHands()
 
     # -- seeing ------------------------------------------------------------
     def screenshot(self) -> Any:
@@ -131,7 +145,20 @@ class WindowsBackend:
         from PIL import Image
 
         with mss.mss() as shot:
-            raw = shot.grab(shot.monitors[1])
+            # The monitor you are using (where the mouse is), not always the
+            # main one: Sergio sees and acts on the screen in front of you.
+            x, y = self._gui.position()
+            monitor = next(
+                (
+                    m
+                    for m in shot.monitors[1:]
+                    if m["left"] <= x < m["left"] + m["width"]
+                    and m["top"] <= y < m["top"] + m["height"]
+                ),
+                shot.monitors[1],
+            )
+            self.shot_origin = (monitor["left"], monitor["top"])
+            raw = shot.grab(monitor)
             return Image.frombytes("RGB", raw.size, raw.bgra, "raw", "BGRX")
 
     def _target_window(self) -> tuple[int, str] | None:
@@ -181,20 +208,17 @@ class WindowsBackend:
         return {"window": title, "windows": windows, "elements": elements}
 
     # -- acting ------------------------------------------------------------
-    def _glide(self, x: int, y: int) -> None:
-        # Travel visibly (the companion orb rides along) so the user always
-        # sees where Sergio is about to click.
-        self._gui.moveTo(x, y, duration=0.35, tween=self._gui.easeOutQuad)
-
     def click(self, x: int, y: int, button: str, clicks: int) -> None:
-        self._glide(x, y)
-        self._gui.click(x, y, clicks=clicks, interval=0.08, button=button)
+        self.hands.click(x, y, button, clicks)
 
     def move(self, x: int, y: int) -> None:
-        self._glide(x, y)
+        self.hands.move(x, y)
 
     def type_text(self, text: str) -> None:
-        import pyperclip
+        if len(text) <= 1500:
+            self.hands.type_text(text)  # key by key, at a human rhythm
+            return
+        import pyperclip  # a whole document: paste it
 
         try:
             previous = pyperclip.paste()
@@ -205,6 +229,9 @@ class WindowsBackend:
         time.sleep(0.15)
         if previous is not None:
             pyperclip.copy(previous)
+
+    def user_took_over(self) -> bool:
+        return self.hands.user_took_over()
 
     def hotkey(self, keys: list[str]) -> None:
         aliases = {
@@ -218,13 +245,19 @@ class WindowsBackend:
     def scroll(self, amount: int, x: int | None, y: int | None) -> None:
         self._gui.scroll(amount * 120, x=x, y=y)
 
-    def open_app(self, name: str) -> None:
-        # Exactly what a person does: Start menu, type the name, Enter.
-        self._gui.press("win")
-        time.sleep(0.6)
-        self.type_text(name)
-        time.sleep(0.8)
-        self._gui.press("enter")
+    def open_app(self, name: str) -> str:
+        """Straight from the Start menu's list (no typing), on your screen."""
+        try:
+            return self.launcher.open(name)
+        except LookupError:
+            from sergio_escritorio.apps import normalise
+            from sergio_escritorio.quick import SITES
+
+            site = SITES.get(normalise(name))
+            if site:  # not installed as an app: its website
+                self.open_target(site)
+                return f"opened {site} (web: no app installed)"
+            raise
 
     def open_target(self, target: str) -> None:
         from sergio_escritorio.launch import is_app_page, open_app_window
@@ -257,26 +290,23 @@ class WindowsBackend:
         return buf.value.strip()
 
     def close_app(self, name: str) -> list[str]:
-        """Close windows whose title matches, like clicking their X (so the
-        app can ask to save). Falls back to the process name."""
-        needle = name.lower().removesuffix(".exe")
-        user32 = ctypes.windll.user32  # type: ignore[attr-defined]
-        closed = []
-        for hwnd, title in _visible_windows(minimized=True):
-            low = title.lower()
-            if needle in low and "sergio" not in low:
-                user32.PostMessageW(hwnd, 0x0010, 0, 0)  # WM_CLOSE
-                closed.append(title)
+        """Close the app's windows like their X (so it can ask to save):
+        found by program (Spotify's title is the song) or by title."""
+        closed = self.launcher.close(name)
         if not closed:
-            done = subprocess.run(
-                ["taskkill", "/im", f"{needle}.exe"],
-                capture_output=True,
-                text=True,
-                check=False,
-                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
-            )
-            if done.returncode == 0:
-                closed.append(f"{needle}.exe")
+            from sergio_escritorio.apps import ALIASES, normalise
+
+            for exe in [normalise(name).replace(" ", ""), *ALIASES.get(normalise(name), [])]:
+                done = subprocess.run(
+                    ["taskkill", "/im", f"{exe.replace(' ', '')}.exe"],
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                    creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+                )
+                if done.returncode == 0:
+                    closed.append(f"{exe}.exe")
+                    break
         return closed
 
     def shell(self, command: str, timeout: float) -> dict:

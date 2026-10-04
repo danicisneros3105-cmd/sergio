@@ -20,7 +20,7 @@ def _tools(**kw):
 
 def test_every_tool_has_a_gemini_safe_declaration():
     tools, _ = _tools()
-    assert {"colgar", "abrir", "cerrar", "camara", "fisica", "recordatorio",
+    assert {"colgar", "abrir", "cerrar", "camara", "hologramas", "recordatorio",
             "estado_sistema", "tarea", "gimnasio_mental", "senalar"} <= set(tools)
     for tool in tools.values():
         decl = tool.declaration()

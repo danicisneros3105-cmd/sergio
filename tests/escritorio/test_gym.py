@@ -172,30 +172,90 @@ def test_words_unknown_to_the_lists_ask_the_ai(app):
     w.close()
 
 
-def test_schedule_every_28_minutes_but_not_while_away():
-    now = [0.0]
+def test_schedule_every_12_real_minutes_start_to_start_but_not_while_away():
+    now = [1_000_000.0]
     away = [0.0]
-    s = gym.GymSchedule(28, away=lambda: away[0], clock=lambda: now[0])
-    assert not s.check()
-    now[0] = 28 * 60 + 1
+    saved = []
+    s = gym.GymSchedule(12, away=lambda: away[0], clock=lambda: now[0], on_change=saved.append)
+    assert s.interval == 720 and not s.check()
+    now[0] += 12 * 60 + 1
     away[0] = 600  # out for lunch
     assert not s.check()
     away[0] = 2  # back
     assert s.check() and not s.check()  # one at a time
-    now[0] += 120
+    assert saved[-1] == now[0] + 720  # the next one: 12 min after this START
+    now[0] += 130  # the exercise took two minutes
     s.done()
-    assert s.minutes_left() == 28
+    assert s.minutes_left() == 10  # 12 minutes start to start
     s.enabled = False
     now[0] += 3600
     assert not s.check()
 
 
-def test_stats_rotate_through_the_ten_and_persist(tmp_path):
+def test_schedule_survives_a_restart():
+    now = [5_000.0]
+    s = gym.GymSchedule(12, clock=lambda: now[0], due=5_300.0)
+    assert s.due == 5_300.0  # kept
+    late = gym.GymSchedule(12, clock=lambda: now[0], due=1_000.0)
+    assert late.due == now[0] + gym.MIN_GAP  # missed while off: soon, not at once
+    fresh = gym.GymSchedule(12, clock=lambda: now[0])
+    assert fresh.due == now[0] + 720
+
+
+def test_stats_start_each_day_with_the_control_test_then_rotate(tmp_path):
     stats = gym.GymStats.load(tmp_path / "gym.json")
+    first = stats.take_next()
+    assert first.kind == "prueba"
+    stats.record(brain.Session(first, correct=30, answered=31))
+    assert stats.history[-1]["rate"] == 20.0  # 30 correct in 90 s
     kinds = [stats.take_next().kind for _ in range(11)]
     assert kinds[:10] == [e.kind for e in brain.EXERCISES] and kinds[10] == "stroop"
     again = gym.GymStats.load(tmp_path / "gym.json")
-    assert again.next_index == 1
+    assert again.next_index == 1 and again.probe_today()
+
+
+def test_control_test_runner(app):
+    w = gym.GymWindow(brain.PROBE, rng=random.Random(4), clock=Clock(), unskippable=False)
+    w._begin_play()
+    runner = w.runner
+    assert isinstance(runner, gym.ProbeRunner)
+    right = str(runner.key_map.digit(runner.symbol))
+    runner.key(right)
+    wrong = str(runner.key_map.digit(runner.symbol) % 9 + 1)
+    runner.key(wrong)
+    assert w.session.correct == 1 and w.session.answered == 2
+    runner.tick(10_000)  # no per-item time limit
+    assert w.session.answered == 2 and not runner.done()
+    w.resize(1200, 800)
+    w.grab()  # paints the key and the symbol without errors
+    w._closing = True
+    w.close()
+
+
+def _history(trained_acc, probe_rates, day=86400.0):
+    hist = []
+    for i, acc in enumerate(trained_acc):
+        hist.append({"kind": "stroop", "time": i * 3600.0, "accuracy": acc})
+    for i, rate in enumerate(probe_rates):
+        hist.append({"kind": "prueba", "time": i * day, "rate": rate, "correct": rate * 1.5})
+    return hist
+
+
+def test_effectiveness_near_and_far_transfer():
+    flat = brain.effectiveness(_history([0.5, 0.55, 0.8, 0.85], [40, 42, 39, 41, 40, 41, 40]))
+    assert flat["near"]["stroop"] == 30.0  # trained: up 30 points
+    assert flat["far"] == "no" and flat["low"] < 0 < flat["high"]
+    rising = brain.effectiveness(_history([], [40, 42, 44, 46, 48, 50, 52]))
+    assert rising["far"] == "sí" and rising["percent_per_week"] > 20
+    few = brain.effectiveness_text(_history([0.5] * 4, [40, 41]))
+    assert "llevas 2" in few
+    text = brain.effectiveness_text(_history([0.5, 0.5, 0.9, 0.9], [40, 42, 39, 41, 40, 41, 40]))
+    assert "incluye el cero" in text and "+40 puntos" in text
+
+
+def test_trend_matches_least_squares():
+    slope, low, high = brain.trend([(0, 1.0), (1, 3.0), (2, 5.0), (3, 7.0)])
+    assert slope == 2.0 and low == high == 2.0
 
 
 def test_word_validator_caches_answers():

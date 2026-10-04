@@ -34,6 +34,12 @@ log = logging.getLogger(__name__)
 
 MODELS_DIR = Path(os.environ.get("LOCALAPPDATA", Path.home())) / "SergioEscritorio" / "models"
 MODEL_URLS = {
+    # 30 % more accurate than Lite0 (COCO mAP 34 vs 26) and finds about twice
+    # as many objects on the test photos; ~150 ms a frame, in the background.
+    "efficientdet_lite2.tflite": (
+        "https://storage.googleapis.com/mediapipe-models/object_detector/"
+        "efficientdet_lite2/float16/latest/efficientdet_lite2.tflite"
+    ),
     "efficientdet_lite0.tflite": (
         "https://storage.googleapis.com/mediapipe-models/object_detector/"
         "efficientdet_lite0/float16/latest/efficientdet_lite0.tflite"
@@ -542,22 +548,33 @@ class _Clock:
 class ObjectFinder:
     """Frame (OpenCV BGR) -> people, animals and objects (Spanish names)."""
 
-    def __init__(self, score: float = 0.4, max_results: int = 12) -> None:
+    MODELS = ("efficientdet_lite2.tflite", "efficientdet_lite0.tflite")
+
+    def __init__(self, score: float = 0.35, max_results: int = 20) -> None:
         import mediapipe as mp
         from mediapipe.tasks.python import BaseOptions, vision
 
         self._mp = mp
         self._clock = _Clock()
-        self._detector = vision.ObjectDetector.create_from_options(
-            vision.ObjectDetectorOptions(
-                base_options=BaseOptions(
-                    model_asset_path=str(ensure_model("efficientdet_lite0.tflite"))
-                ),
-                running_mode=vision.RunningMode.VIDEO,
-                score_threshold=score,
-                max_results=max_results,
-            )
-        )
+        last: Exception | None = None
+        for name in self.MODELS:  # the better model, else the small one
+            try:
+                path = ensure_model(name)
+                self._detector = vision.ObjectDetector.create_from_options(
+                    vision.ObjectDetectorOptions(
+                        base_options=BaseOptions(model_asset_path=str(path)),
+                        running_mode=vision.RunningMode.VIDEO,
+                        score_threshold=score,
+                        max_results=max_results,
+                    )
+                )
+                self.model = name
+                break
+            except Exception as exc:  # noqa: BLE001
+                log.warning("object model %s unavailable: %s", name, exc)
+                last = exc
+        else:
+            raise RuntimeError(f"Sin modelo de objetos: {last}")
 
     def find(self, frame: Any) -> list[Seen]:
         import cv2
@@ -631,6 +648,115 @@ class FaceMesh:
                 info.yaw, info.pitch, info.roll = head_angles(matrices[i])
             faces.append(info)
         return faces
+
+
+# Labels the detector gives that say little: Gemini names them properly.
+VAGUE = {"objeto", "botella", "libro", "maleta", "bolso", "celular", "control remoto"}
+
+
+class AutoNamer:
+    """When to let Gemini name what the camera sees, by itself.
+
+    The detector knows 80 kinds of things; Gemini knows anything ("una
+    guitarra acústica", "un cubo de Rubik"). Asking on every frame would
+    burn the free quota in minutes, so it asks only when something new has
+    stayed in view for a moment (or a hand is holding something), never
+    more than once every *gap* seconds and *daily* times a day.
+    """
+
+    def __init__(self, gap: float = 20.0, daily: int = 150, settle: float = 1.5) -> None:
+        self.gap = gap
+        self.daily = daily
+        self.settle = settle
+        self.enabled = True
+        self._asked: set[int] = set()  # tracks already described
+        self._last = -1e9
+        self._day = ""
+        self._count = 0
+
+    def due(self, tracks: Sequence[Track], now: float, holding: bool = False, day: str = "") -> bool:
+        if not self.enabled or now - self._last < self.gap:
+            return False
+        if day and day != self._day:
+            self._day, self._count = day, 0
+        if self._count >= self.daily:
+            return False
+        fresh = [
+            t
+            for t in tracks
+            if t.id not in self._asked
+            and t.kind != "persona"
+            and now - t.first_seen >= self.settle
+            and not (t.detail and now < t.detail_until)
+        ]
+        return bool(fresh) or holding
+
+    def asked(self, tracks: Sequence[Track], now: float) -> None:
+        self._last = now
+        self._count += 1
+        self._asked.update(t.id for t in tracks)
+        if len(self._asked) > 500:
+            self._asked = set(list(self._asked)[-200:])
+
+
+# The craniofacial points the server turns into the 175-measure signature
+# (same names and mesh indices as openjarvis/faces/signature.py POINTS).
+SIGNATURE_POINTS = {
+    "tr": 10, "g": 151, "n": 168, "en_d": 133, "en_i": 362, "ex_d": 33, "ex_i": 263,
+    "p_d": 468, "p_i": 473, "prn": 1, "sn": 2, "al_d": 64, "al_i": 294, "zy_d": 234,
+    "zy_i": 454, "go_d": 172, "go_i": 397, "gn": 152, "ch_d": 61, "ch_i": 291,
+    "ls": 0, "li": 17, "sto": 13, "sci_d": 105, "sci_i": 334, "ps_d": 159, "pi_d": 145,
+}  # fmt: skip
+_POINT_MESH: list[Any] = []
+
+
+def face_points(image_bytes: bytes, max_faces: int = 6) -> list[dict]:
+    """Every face in a photo -> {"box": [x, y, w, h], "points": {...}} in pixels.
+
+    Measured here (MediaPipe is on Windows) so Sergio's server only does
+    the maths. [] when MediaPipe or the photo is not available.
+    """
+    try:
+        import cv2
+        import mediapipe as mp
+        import numpy as np
+        from mediapipe.tasks.python import BaseOptions, vision
+
+        if not _POINT_MESH:
+            _POINT_MESH.append(
+                vision.FaceLandmarker.create_from_options(
+                    vision.FaceLandmarkerOptions(
+                        base_options=BaseOptions(
+                            model_asset_path=str(ensure_model("face_landmarker.task"))
+                        ),
+                        num_faces=max_faces,
+                        min_face_detection_confidence=0.3,
+                    )
+                )
+            )
+        image = cv2.imdecode(np.frombuffer(image_bytes, np.uint8), cv2.IMREAD_COLOR)
+        if image is None:
+            return []
+        h, w = image.shape[:2]
+        rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        found = _POINT_MESH[0].detect(mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb))
+    except Exception:  # noqa: BLE001 — the geometry is extra evidence only
+        log.info("face points unavailable", exc_info=True)
+        return []
+    out = []
+    for marks in found.face_landmarks or []:
+        xs = [m.x * w for m in marks]
+        ys = [m.y * h for m in marks]
+        out.append(
+            {
+                "box": [min(xs), min(ys), max(xs) - min(xs), max(ys) - min(ys)],
+                "points": {
+                    k: [marks[i].x * w, marks[i].y * h, marks[i].z * w]
+                    for k, i in SIGNATURE_POINTS.items()
+                },
+            }
+        )
+    return out
 
 
 class VisionEngine:
@@ -717,6 +843,8 @@ class VisionEngine:
 
 
 __all__ = [
+    "SIGNATURE_POINTS",
+    "AutoNamer",
     "FaceInfo",
     "FaceMesh",
     "HeadGestures",
@@ -728,6 +856,7 @@ __all__ = [
     "VisionEngine",
     "contains",
     "expressions",
+    "face_points",
     "head_angles",
     "iou",
     "label_es",

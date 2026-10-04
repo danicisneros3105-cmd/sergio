@@ -255,6 +255,7 @@ class CallSession:
         self._hang_up_after_turn = False
         self._state = ""
         self.share_screen = False
+        self.heard_anything = False  # Gemini heard or said something already
 
     # -- lifecycle ------------------------------------------------------------
     def start(self, prefill: bytes = b"", timeout: float = 10.0) -> bool:
@@ -422,6 +423,7 @@ class CallSession:
 
     def _handle(self, msg: bytes | str) -> None:
         if isinstance(msg, bytes):
+            self.heard_anything = True
             self.speaker.play(msg)
             self._last_activity = self.clock()
             self._set_state("speaking")
@@ -432,6 +434,7 @@ class CallSession:
             self._said.append(str(event.get("text") or ""))
             self.on_caption("".join(self._said).strip())
         elif kind == "heard":
+            self.heard_anything = True
             self._heard.append(str(event.get("text") or ""))
             self._last_activity = self.clock()
             self.on_heard("".join(self._heard).strip())

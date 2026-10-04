@@ -47,7 +47,12 @@ ACTIONS = (
     "terminal",
     "point",
     "hands",
+    "operate",
+    "message",
+    "phone_call",
+    "contact",
 )
+TASKS = ("operate", "message", "phone_call", "contact")  # done by the operator
 
 
 class Backend(Protocol):
@@ -65,7 +70,7 @@ class Backend(Protocol):
 
     def scroll(self, amount: int, x: int | None, y: int | None) -> None: ...
 
-    def open_app(self, name: str) -> None: ...
+    def open_app(self, name: str) -> str | None: ...  # "opened Spotify"
 
     def open_target(self, target: str) -> None: ...
 
@@ -90,6 +95,21 @@ class ActionError(ValueError):
     pass
 
 
+class ShotScale(float):
+    """Screenshot pixels -> screen pixels: a scale plus where the shot's
+    monitor starts (the screen in use may be the second monitor)."""
+
+    origin: tuple[int, int] = (0, 0)
+
+    def __new__(cls, scale: float, origin: tuple[int, int] = (0, 0)) -> "ShotScale":
+        obj = super().__new__(cls, scale)
+        obj.origin = (int(origin[0]), int(origin[1]))
+        return obj
+
+    def to_screen(self, x: float, y: float) -> tuple[int, int]:
+        return round(x * self + self.origin[0]), round(y * self + self.origin[1])
+
+
 class Controller:
     """Turns validated requests into backend calls. Thread-safe."""
 
@@ -107,8 +127,10 @@ class Controller:
         self.diag = diag or (lambda: {})  # what the ear is doing (revisar)
         # The companion flies to a spot to show the user something.
         self.on_point: Callable[[int, int, str], None] = lambda _x, _y, _l: None
-        # Hand control mode ("off", "gestos", "mouse", "3d"); returns a status.
+        # Hands for the holograms in Sergio ve ("holo" / "off"); returns a status.
         self.on_hands: Callable[[str], str] = lambda _mode: "hands unavailable"
+        # Tasks done like a person (operate, message, phone_call, contact).
+        self.on_task: Callable[[str, dict], str] = lambda _k, _a: "operator unavailable"
         self.enabled = True
         self._elements: dict[int, tuple[int, int]] = {}
         self._lock = threading.Lock()
@@ -131,11 +153,14 @@ class Controller:
             image = image.resize((MAX_SHOT_WIDTH, round(height / scale)))
         buf = io.BytesIO()
         image.convert("RGB").save(buf, format="PNG", optimize=True)
+        left, top = getattr(self.backend, "shot_origin", (0, 0))
         return {
             "image_png_b64": base64.b64encode(buf.getvalue()).decode("ascii"),
             "width": width,
             "height": height,
             "scale": scale,
+            "left": left,
+            "top": top,
         }
 
     def ui(self) -> dict:
@@ -170,15 +195,17 @@ class Controller:
         picture the element coordinates refer to.
         """
         shot = self.screen()
-        scale = float(shot["scale"]) or 1.0
+        left, top = shot.get("left", 0), shot.get("top", 0)
+        scale = ShotScale(float(shot["scale"]) or 1.0, (left, top))
         try:
             elements = self.ui()["elements"]
         except Exception:  # noqa: BLE001 — accessibility is a bonus
             elements = []
-        in_shot = [
-            {**el, "x": round(el["x"] / scale), "y": round(el["y"] / scale)}
-            for el in elements
-        ]
+        in_shot = []
+        for el in elements:
+            x, y = (el["x"] - left) / scale, (el["y"] - top) / scale
+            if 0 <= x <= shot["width"] / scale and 0 <= y <= shot["height"] / scale:
+                in_shot.append({**el, "x": round(x), "y": round(y)})
         return base64.b64decode(shot["image_png_b64"]), in_shot, scale
 
     # -- acting ------------------------------------------------------------
@@ -246,8 +273,8 @@ class Controller:
             name = str(action.get("target") or "").strip()
             if not name:
                 raise ActionError("'target' is the app name, e.g. 'Spotify'.")
-            b.open_app(name)
-            result = f"opened {name}"
+            opened = b.open_app(name)
+            result = opened if isinstance(opened, str) and opened else f"opened {name}"
         elif kind == "open":
             target = str(action.get("target") or "").strip()
             if not target:
@@ -281,11 +308,8 @@ class Controller:
             script = str(action.get("script") or "")
             if not script.strip() or len(script) > 60_000:
                 raise ActionError("'script' is Blender Python (bpy) code.")
-            if action.get("hands"):  # model it with your hands, live
-                from sergio_escritorio.hands import BLENDER_BRIDGE
-
-                script = script.rstrip() + "\n\n" + BLENDER_BRIDGE
-                self.on_hands("3d")
+            if action.get("hands"):  # shape it with your hands first: holograms
+                self.on_hands("holo")
             result = "Blender opened with script " + b.blender(script)
         elif kind == "organize":
             folder = str(action.get("target") or "").strip()
@@ -313,6 +337,8 @@ class Controller:
         elif kind == "hands":
             mode = str(action.get("target") or "off").strip().lower()
             result = self.on_hands(mode)
+        elif kind in TASKS:
+            result = self.on_task(kind, action)
         elif kind == "point":
             x, y = self._point(action)
             label = str(action.get("text") or action.get("target") or "")[:40]
@@ -360,7 +386,7 @@ class Controller:
         active = getattr(self.backend, "active_window", None)
         if kind not in self.VERIFY or active is None:
             return ""
-        self._sleep(0.6 if kind in ("open_app", "open", "close_app") else 0.25)
+        self._sleep({"open_app": 0.15, "open": 0.6, "close_app": 0.4}.get(kind, 0.25))
         try:
             title = active() or "(escritorio)"
         except Exception:  # noqa: BLE001 — a check must never break the action
@@ -427,7 +453,7 @@ def make_server(
                 self._send(200, {"ok": True, "result": controller.act(action)})
             except PermissionError as exc:
                 self._send(423, {"ok": False, "error": str(exc)})
-            except (ActionError, ValueError) as exc:
+            except (ActionError, ValueError, LookupError) as exc:
                 self._send(400, {"ok": False, "error": str(exc)})
             except Exception as exc:  # noqa: BLE001 — incl. pyautogui fail-safe
                 self._send(500, {"ok": False, "error": str(exc)})
@@ -435,4 +461,4 @@ def make_server(
     return ThreadingHTTPServer((host, port), Handler)
 
 
-__all__ = ["ACTIONS", "ActionError", "Backend", "Controller", "make_server"]
+__all__ = ["ACTIONS", "ActionError", "Backend", "Controller", "ShotScale", "make_server"]

@@ -258,8 +258,9 @@ sigue, te escucha y usa la computadora por ti:
   «cierra Chrome», «busca Nvidia», «abre YouTube y busca…», «busca recetas en
   YouTube», «abre gmail», «sube/baja el volumen», «silencia», «pausa»,
   «siguiente canción», «captura de pantalla», «minimiza todo», «¿qué hora
-  es?», «¿qué día es hoy?», «abre/cierra la cámara», «abre el globo», «modo
-  mouse», «modo gestos», «cállate».
+  es?», «¿qué día es hoy?», «abre/cierra la cámara», «abre el globo»,
+  «muéstrame Quito en el globo», «¿qué avión pasa encima?», «crea un cubo»,
+  «pásalo a Blender», «toma una foto», «cállate».
 - **Más rápido**: la charla normal va directa al modelo (sin el agente de
   herramientas), empieza a hablar con la primera frase mientras prepara el
   resto, recuerda el audio de frases cortas y escucha con Gemini Flash-Lite.
@@ -384,50 +385,135 @@ hablando, y sigue escuchándote sin repetir su nombre. La llamada se cuelga
 sola tras un minuto de silencio, cuando te despides («gracias, eso es todo»)
 o con Ctrl+Espacio. El notch muestra una píldora verde con el tiempo.
 
+* **Oído instantáneo**: un reconocedor pequeño (Vosk, 40 MB, sin internet)
+  escucha la palabra «Sergio» mientras hablas. En cuanto la oye, la llamada
+  ya se está conectando y tus palabras se guardan; al terminar la frase, se
+  la entrega completa. Antes cada ruido de la sala pasaba por Whisper (varios
+  segundos y el micrófono quedaba sordo mientras tanto): por eso a veces no
+  te oía o contestaba tarde. Si dices «Sergio» en medio de otra frase
+  («ayer vi a Sergio») no se activa.
+* Si una llamada falla, vuelve a intentarlo a los 20 segundos (antes
+  esperaba 10 minutos) y te dice el motivo en pantalla.
+* `sergio probar` y `sergio revisar` muestran la línea de tiempo de la última
+  vez que lo llamaste (cuándo oyó «Sergio», cuándo conectó, cuándo habló),
+  para ver qué parte tarda.
 * Te oye aunque suene por los parlantes del laptop: cancelación de eco WebRTC.
 * Si la cámara está abierta, **ve lo que ve la cámara**; «mira mi pantalla»
   o mantener Ctrl+Alt le enseña tu pantalla.
 * Durante la llamada usa sus herramientas al instante: abrir y cerrar apps o
-  webs, buscar, volumen y música, señalar en pantalla, cámara, manos,
-  física, recordatorios, estado del sistema, protocolos, organizar archivos,
-  terminal, Python, Blender, video y el globo. Los encargos largos («tarea»)
-  corren en segundo plano y te avisa al terminar.
+  webs, buscar, volumen y música, señalar, cámara, hologramas, Blender,
+  vuelos, fotos y caras, recordatorios, estado del sistema, protocolos,
+  archivos, terminal, Python, video y el globo. Los encargos largos
+  («tarea») corren en segundo plano y te avisa al terminar.
 * Si la llamada no puede abrirse (sin cuota de Gemini Live), Sergio vuelve a
-  responder por turnos como antes. `"conversation": "turnos"` en
-  `config.json` lo deja siempre por turnos.
-* Clave gratuita de Gemini: cada modelo tiene una cuota diaria pequeña (la
-  voz por turnos, solo 10 frases al día). Cuando un modelo se agota, Sergio
-  pasa solo al siguiente de la misma familia.
+  responder por turnos. `"conversation": "turnos"` en `config.json` lo deja
+  siempre por turnos.
 
-## Cámara avanzada
+## Abrir y cerrar apps al instante
 
-* Personas, **especies** (perro, gato, pájaro, caballo…) y 70 clases de
-  objetos con nombre en español, cada uno con su recuadro estilo JARVIS y
-  un número que lo sigue mientras está en vista.
-* Caras: nombre y % para las personas conocidas; a quien no conoce lo llama
-  «Persona 1», «Persona 2». Un nombre solo aparece cuando dos miradas
-  seguidas coinciden, y el reconocimiento es más estricto: ya no confunde a
-  otras personas contigo.
-* Para presentarle a alguien: haz clic en su recuadro, o di «Sergio, ella se
-  llama Ana» (siempre con su permiso).
-* Malla facial con la expresión (sonriendo, sorprendido, guiño…) y hacia
-  dónde mira la cabeza. En modo Gestos, **asentir = sí** y **negar con la
-  cabeza = no**.
-* **Analizar**: Gemini mira todo lo que hay, cualquier objeto, razas y cómo
-  se ven las personas (hombre o mujer, edad aproximada, ropa).
-* Por las mañanas, la primera vez que te ve, te da el informe del día.
+«Sergio, abre Spotify» ya no escribe en el menú Inicio: Sergio conoce todas
+las apps de tu menú Inicio (y las de la Tienda) y la abre directamente, en
+menos de un segundo, **en la pantalla donde tienes el mouse** y al frente.
+Entiende cómo las llamas («la calculadora», «el Word», «bloc de notas»,
+«configuración»). Para cerrar busca el programa, no solo el título (la
+ventana de Spotify se llama como la canción). Las capturas de pantalla
+también son de la pantalla que estás usando.
 
-## Manos y física
+## Mouse y teclado como una persona
 
-* Dos manos, suavizadas (sin temblor). En Gestos: desliza la mano abierta a
-  la derecha o izquierda = siguiente o anterior; arriba o abajo = volumen.
-  En Mouse: pellizca con las dos manos y sepáralas para hacer zoom.
-* **Física** (botón de la cámara o «Sergio, crea 5 cubos rojos»): objetos
-  con masa, rebote y fricción. Pellizca un objeto para agarrarlo y suéltalo
-  para lanzarlo; tus dedos los empujan. Pellizca con las dos manos y
-  sepáralas para crear una caja; mantén un pellizco quieto para crear una
-  pelota. Voz: «gravedad cero», «gravedad lunar», «gravedad invertida»,
-  «explota todo», «borra los objetos».
+Cuando Sergio usa la computadora, el puntero se mueve como una mano: en
+curva, acelerando y frenando, con el tiempo que pide la distancia, y escribe
+tecla por tecla a ritmo humano (con acentos y ñ). Así ves cada paso. Si
+mueves tú el mouse, o con Ctrl+Alt+Fin, se detiene.
+
+> Mensajes, correos y llamadas a otras personas (Instagram, WhatsApp, Gmail,
+> teléfono): la pieza que lo hace está escrita pero **no está conectada** en
+> esta versión; el sistema de permisos de Claude bloqueó conectarla. Ver el
+> mensaje de la actualización.
+
+## Sergio ve: cámara y hologramas
+
+La ventana de la cámara ya **no tiene botones**: todo es por voz y con las
+manos. Arrástrala para moverla, rueda del mouse para el tamaño.
+
+**Lo que ve**
+
+* Detector de objetos mejor (EfficientDet-Lite2: encuentra cerca del doble
+  de cosas que antes) y, para lo que el detector no conoce, Gemini les pone
+  nombre solo en segundo plano («guitarra acústica», «gorra negra Nike»),
+  sin gastar tu cuota: como mucho una vez cada 20 segundos y solo cuando
+  aparece algo nuevo.
+* Personas con nombre si las conoces, especies (perro, gato…), malla facial
+  con la expresión. «Analiza lo que ves» describe todo con detalle.
+* Por voz: «toma una foto», «modo espejo», «abre / cierra la cámara».
+
+**Hologramas 3D con tus manos (estilo Iron Man)**
+
+* «Crea un cubo rojo», «crea dos esferas», cilindro, cono, toroide,
+  pirámide, jarrón, diamante.
+* **Pellizca** (pulgar con índice) un holograma para agarrarlo: te sigue,
+  **gira igual que tu muñeca**, y se acerca o aleja si acercas o alejas la
+  mano. **Suéltalo en movimiento** y sale volando y girando. Pasa la mano
+  abierta rápido por encima y lo haces girar como un globo.
+* **Dos manos** pellizcando: sepáralas para agrandarlo, gíralas para rotarlo.
+* «**Modo esculpir**»: pellizca la superficie y tira; la «arcilla» se
+  deforma suavemente. «Suavízalo» la alisa.
+* «**Modo dibujar**»: pellizca en el aire y dibuja; al soltar, el trazo se
+  vuelve un tubo 3D. «Dibuja con el torno» convierte un perfil en un jarrón;
+  «dibuja una silueta» la vuelve un sólido.
+* «Más grande», «gíralo», «duplícalo», «bórralo», «borra todo»,
+  «activa la gravedad» (caen, rebotan y se pueden lanzar).
+* Ya no hay control de la computadora por gestos ni mouse en el aire: las
+  manos son para los hologramas.
+
+## Blender
+
+* «**Pásalo a Blender**»: tus hologramas (con lo que esculpiste o dibujaste)
+  se reconstruyen en Blender con materiales, luz y cámara, y el proyecto se
+  guarda en `Documentos\Sergio\Blender`.
+* «**Analiza el objeto que tengo en las manos y pásalo a Blender**»: Gemini
+  estudia la foto de la cámara (qué es, medidas reales, piezas, materiales)
+  y escribe un modelo detallado; Sergio revisa que el script solo modele
+  (nada de archivos, internet ni programas) y Blender lo construye y guarda
+  el `.blend`. Tarda uno o dos minutos. Probado de verdad: de una foto de un
+  reloj salió un modelo de 97 piezas (caja, corona, eslabones, broche).
+* Necesitas Blender instalado (`winget install BlenderFoundation.Blender`).
+
+## Caras: firma de 175 medidas, fotos antiguas y parecido familiar
+
+* Cada persona registrada guarda dos descripciones de su cara: la red
+  neuronal (SFace) que decide quién es, y una **firma geométrica de 175
+  medidas** sobre la malla 3D de 478 puntos: 153 distancias entre 18 puntos
+  óseos (comisuras de ojos, pupilas, raíz y punta de la nariz, alas nasales,
+  pómulos, ángulos de la mandíbula, mentón, frente), 10 índices
+  antropométricos (facial, nasal, intercantal, boca/cara…) y 12 ángulos. No
+  cambia con la distancia ni con el giro de la cabeza.
+* «¿Quién es el de esta foto?»: sostén la foto frente a la cámara, o
+  «…de la foto de la pantalla», o un archivo. Las fotos viejas, descoloridas
+  o escaneadas se mejoran antes (contraste local). Si no está seguro, dice a
+  quién se parece y cuánto, sin inventar nombres.
+* «¿A quién se parece?» / «¿es hermano de Daniel?»: estima el **parecido
+  familiar** con las personas registradas. Es un indicio por rasgos y
+  proporciones, **no una prueba**: solo el ADN confirma un parentesco.
+* Probado con caras reales: la misma cara «envejecida» como foto antigua
+  sigue reconociéndose (similitud media 0,80; mínimo 0,67 con la mejora), y
+  personas distintas quedan en 0,10 de media.
+
+## Vuelos encima de ti y el globo
+
+* «**¿Qué avión pasa encima?**»: Sergio usa tu ubicación exacta (la de
+  Windows: GPS o Wi-Fi) y la hora, pregunta a la vez a cuatro redes ADS-B
+  (adsb.lol, airplanes.live, adsb.fi y OpenSky, las de God's Eye View), y
+  en pocos segundos te dice cuál está más alto en tu cielo: vuelo,
+  aerolínea, avión, matrícula, ruta, altura, velocidad y hacia dónde mirar.
+  Tiene en cuenta que Cuenca está a 2 500 m. Deja God's Eye View apuntando a
+  ese avión: «muéstramelo» lo abre.
+* «**Muéstrame Cuenca en God's Eye View**»: abre el globo en esa ciudad (los
+  nombres sin país se buscan primero en Ecuador).
+* Activa la ubicación: Configuración > Privacidad y seguridad > Ubicación
+  (también «Permitir que las aplicaciones de escritorio…»). Sin ella usa la
+  ubicación aproximada por internet. En Ecuador las redes abiertas tienen
+  pocas antenas: puede que no vea todos los aviones.
 
 ## Funciones tipo JARVIS
 
@@ -441,12 +527,12 @@ o con Ctrl+Espacio. El notch muestra una píldora verde con el tiempo.
   «modo fiesta», «protocolo descanso», «modo música». Puedes crear los tuyos
   en `config.json` → `"protocolos"`.
 
-## Gimnasio mental (cada 28 minutos)
+## Gimnasio mental (cada 12 minutos)
 
-Cada 28 minutos de uso aparece un ejercicio a pantalla completa que **no se
-puede saltar** (sin botón de cerrar; Esc y Alt+F4 no hacen nada). Termina
-solo al acabar o cuando se agota su tiempo, y Sergio te dice cómo te fue.
-Se turnan los diez:
+Cada **12 minutos de reloj** (de inicio a inicio; cuenta también si
+reinicias Sergio) aparece un ejercicio a pantalla completa que **no se
+puede saltar**. Termina solo y Sergio te dice cómo te fue. Si estás lejos
+(5 minutos sin tocar la computadora) o está bloqueada, espera a que vuelvas.
 
 | Ejercicio | Cantidad y tiempo |
 |---|---|
@@ -461,10 +547,33 @@ Se turnan los diez:
 | Asociación de palabras restringida | 3 desafíos en 2 min |
 | Secuencias de coordinación (dos manos) | 5 patrones en 2 min |
 
-Si no estás frente a la computadora (3 minutos sin tocarla) o está
-bloqueada, espera a que vuelvas. Para hacer uno ya: «Sergio, gimnasio
-mental» o el menú de la bandeja. Se apaga o cambia en el centro de control
-(«Gimnasio mental») o en `config.json` (`"gym"`, `"gym_minutes"`).
+**¿Funciona? Lo que dice la ciencia, sin adornos**
+
+* Mejorarás en los ejercicios que practicas (eso está bien demostrado). Pero
+  que eso se traslade a la inteligencia general o a la vida diaria
+  («transferencia lejana») **no tiene evidencia sólida**: la revisión de
+  Simons et al. (2016, *Psychological Science in the Public Interest*, 132
+  estudios) y el metaanálisis de Melby-Lervåg, Redick y Hulme (2016, 87
+  publicaciones) no encontraron mejoras fiables fuera de lo entrenado.
+* La excepción más citada es el entrenamiento de velocidad de procesamiento
+  del estudio ACTIVE (2 802 mayores, 10 años): 29 % menos riesgo de demencia
+  (Edwards et al., 2017), aunque es un análisis secundario y discutido.
+* Las pausas cortas sí ayudan a sentirse con más energía y menos cansado
+  (metaanálisis de Albulescu et al., 2022: efecto pequeño), pero no
+  mejoraron el rendimiento en tareas exigentes.
+* Ojo con el costo: interrumpir cada 12 minutos sube el estrés y deja
+  «residuo de atención» en lo que hacías (Mark et al., 2008; Leroy, 2009).
+
+**Cómo lo comprueba Sergio contigo (prueba científica personal)**: el primer
+ejercicio de cada día es una **prueba de control que no se entrena**
+(sustitución dígito-símbolo, una medida estándar de velocidad de
+procesamiento, con la clave cambiada cada vez). Sergio compara tu progreso
+en los ejercicios entrenados con la tendencia de esa prueba, con un
+intervalo de confianza del 95 %. Pregúntale «¿funciona el gimnasio mental?»:
+si la prueba no entrenada no sube, te lo dirá. Necesita 5 días de datos.
+
+Para hacer uno ya: «Sergio, gimnasio mental». Se cambia en `config.json`
+(`"gym"`, `"gym_minutes"`).
 
 ## Modelos en la nube: Kimi y Gemini
 

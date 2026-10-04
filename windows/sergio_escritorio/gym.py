@@ -1,4 +1,4 @@
-"""Mental gym pop-up: every 28 minutes, one exercise you cannot skip.
+"""Mental gym pop-up: every 12 minutes, one exercise you cannot skip.
 
 A full-screen, always-on-top card (all monitors are covered) with no close
 button: Esc and Alt+F4 do nothing, and if another window steals the focus it
@@ -6,8 +6,14 @@ comes back on top. It ends by itself when the exercise is done or its time
 is up, shows your score, and Sergio tells you how you did. The ten
 exercises take turns (``brain.py`` holds their logic).
 
-If you are away from the computer (no mouse or keyboard for a few minutes)
-or it is locked, the exercise waits until you are back.
+The 12 minutes are real clock time (start to start, the laptop's sleep
+counts too) and survive restarting Sergio. If you are away from the computer
+(no mouse or keyboard for 5 minutes) or it is locked, the exercise waits
+until you are back.
+
+The first pop-up of each day is the control test (``brain.PROBE``), never
+trained: comparing it over the days says whether the gym improves anything
+beyond the exercises themselves (``brain.effectiveness``).
 """
 
 from __future__ import annotations
@@ -39,8 +45,9 @@ from sergio_escritorio import brain
 
 log = logging.getLogger(__name__)
 
-INTERVAL_MINUTES = 28.0
-AWAY_SECONDS = 180.0  # no input for this long: you are not at the computer
+INTERVAL_MINUTES = 12.0
+AWAY_SECONDS = 300.0  # no input for this long: you are not at the computer
+MIN_GAP = 120.0  # never two pop-ups closer than this
 INTRO_SECONDS = 5.0
 RESULT_SECONDS = 6.0
 BG = QColor(0, 0, 0, 215)
@@ -72,6 +79,7 @@ class GymStats:
     nback_level: int = 2
     list_length: int = 5
     history: list[dict[str, Any]] = field(default_factory=list)
+    next_due: float = 0.0  # wall clock time of the next pop-up
 
     @classmethod
     def load(cls, path: Path) -> "GymStats":
@@ -82,7 +90,8 @@ class GymStats:
                 int(data.get("next_index", 0)),
                 int(data.get("nback_level", 2)),
                 int(data.get("list_length", 5)),
-                list(data.get("history", []))[-300:],
+                list(data.get("history", []))[-1500:],
+                float(data.get("next_due", 0.0)),
             )
         except (OSError, ValueError, TypeError):
             return cls(path)
@@ -97,7 +106,8 @@ class GymStats:
                         "next_index": self.next_index,
                         "nback_level": self.nback_level,
                         "list_length": self.list_length,
-                        "history": self.history[-300:],
+                        "history": self.history[-1500:],
+                        "next_due": self.next_due,
                     },
                     ensure_ascii=False,
                 ),
@@ -107,22 +117,34 @@ class GymStats:
             pass
 
     def take_next(self) -> brain.Exercise:
+        if not self.probe_today():
+            return brain.PROBE  # the day's control test comes first
         exercise, self.next_index = brain.next_exercise(self.next_index)
         self.save()
         return exercise
 
-    def record(self, session: brain.Session) -> None:
-        self.history.append(
-            {
-                "kind": session.exercise.kind,
-                "time": time.time(),
-                "correct": session.correct,
-                "total": session.total,
-                "accuracy": round(session.accuracy, 3),
-                "level": session.level,
-            }
+    def probe_today(self) -> bool:
+        start = time.mktime(time.localtime()[:3] + (0, 0, 0, 0, 0, -1))
+        return any(
+            h.get("kind") == "prueba" and h.get("time", 0) >= start for h in self.history
         )
+
+    def record(self, session: brain.Session) -> None:
+        entry = {
+            "kind": session.exercise.kind,
+            "time": time.time(),
+            "correct": session.correct,
+            "total": session.total,
+            "accuracy": round(session.accuracy, 3),
+            "level": session.level,
+        }
+        if session.exercise.kind == "prueba":
+            entry["rate"] = round(session.rate, 2)
+        self.history.append(entry)
         self.save()
+
+    def report(self) -> str:
+        return brain.effectiveness_text(self.history)
 
     def best(self, kind: str) -> float:
         return max(
@@ -135,7 +157,7 @@ class GymStats:
 
 
 class GymSchedule:
-    """Every *interval* minutes of use, it is time for an exercise."""
+    """Every *interval* minutes of real clock time, an exercise is due."""
 
     def __init__(
         self,
@@ -143,33 +165,52 @@ class GymSchedule:
         *,
         away: Callable[[], float] = lambda: 0.0,
         locked: Callable[[], bool] = lambda: False,
-        clock: Callable[[], float] = time.monotonic,
+        clock: Callable[[], float] = time.time,
+        due: float = 0.0,
+        on_change: Callable[[float], None] = lambda _due: None,
     ) -> None:
         self.interval = interval_minutes * 60
         self.away = away
         self.locked = locked
         self.clock = clock
+        self.on_change = on_change  # remember the next time (restarts)
         self.enabled = True
         self.running = False
-        self.due = clock() + self.interval
+        now = clock()
+        # A time saved before a restart is kept; one long past (the laptop
+        # was off) gives you a couple of minutes before the first pop-up.
+        if due > now + self.interval:
+            due = 0.0
+        self.due = due if due > now else now + (MIN_GAP if due else self.interval)
+
+    def _set(self, due: float) -> None:
+        self.due = due
+        self.on_change(due)
 
     def postpone_from_now(self) -> None:
-        self.due = self.clock() + self.interval
+        self._set(self.clock() + self.interval)
 
     def check(self) -> bool:
         """True when an exercise should start now."""
         if not self.enabled or self.running:
             return False
-        if self.clock() < self.due:
+        now = self.clock()
+        if now < self.due:
             return False
         if self.away() > AWAY_SECONDS or self.locked():
             return False  # waits for you to come back
         self.running = True
+        self._set(now + self.interval)  # every 12 minutes, start to start
         return True
+
+    def started(self) -> None:
+        """An exercise opened by hand (or by voice) also resets the count."""
+        self.running = True
+        self._set(self.clock() + self.interval)
 
     def done(self) -> None:
         self.running = False
-        self.postpone_from_now()
+        self._set(max(self.due, self.clock() + MIN_GAP))
 
     def minutes_left(self) -> int:
         return max(0, math.ceil((self.due - self.clock()) / 60))
@@ -876,7 +917,60 @@ class CoordinationRunner(Runner):
         p.drawText(QRectF(area.left(), y + width + 24, area.width(), 26), Qt.AlignmentFlag.AlignCenter, status)
 
 
+class ProbeRunner(Runner):
+    """Control test: the symbol's number, as many as possible in 90 s."""
+
+    keys_hint = "Teclas 1 a 9"
+
+    def __init__(self, gym: "GymWindow") -> None:
+        super().__init__(gym)
+        self.key_map = brain.symbol_key(self.rng)
+        self.symbol = brain.next_symbol(self.rng)
+
+    def next_item(self) -> None:
+        super().next_item()
+        self.symbol = brain.next_symbol(self.rng, self.symbol)
+
+    def done(self) -> bool:
+        return False  # it is the clock that ends it
+
+    def tick(self, now: float) -> None:
+        pass  # no per-item limit: speed is the score
+
+    def key(self, text: str) -> None:
+        if text and text in "123456789":
+            self.answer(1.0 if int(text) == self.key_map.digit(self.symbol) else 0.0)
+
+    def progress(self) -> str:
+        return f"{int(self.session.correct)} correctos"
+
+    @staticmethod
+    def draw_glyph(p: QPainter, name: str, rect: QRectF, colour: QColor, width: float) -> None:
+        p.setPen(QPen(colour, width, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
+        p.setBrush(Qt.BrushStyle.NoBrush)
+        for line in brain.GLYPHS[name]:
+            points = [QPointF(rect.left() + x * rect.width(), rect.top() + y * rect.height()) for x, y in line]
+            p.drawPolyline(QPolygonF(points))
+
+    def paint(self, p: QPainter, area: QRectF) -> None:
+        cell = min(64.0, (area.width() - 8 * 8) / 9)
+        left = area.center().x() - (9 * cell + 8 * 8) / 2
+        for i, glyph in enumerate(self.key_map.order):
+            box = QRectF(left + i * (cell + 8), area.top(), cell, cell * 1.6)
+            p.setPen(QPen(CARD_LINE, 1))
+            p.setBrush(QColor(44, 44, 46))
+            p.drawRoundedRect(box, 10, 10)
+            self.draw_glyph(p, glyph, QRectF(box.left() + 10, box.top() + 8, cell - 20, cell - 20), TEXT, 3)
+            p.setFont(font(15, QFont.Weight.Bold))
+            p.setPen(ACCENT)
+            p.drawText(QRectF(box.left(), box.top() + cell - 6, cell, cell * 0.6), Qt.AlignmentFlag.AlignCenter, str(i + 1))
+        size = min(170.0, area.height() - cell * 1.6 - 60)
+        big = QRectF(area.center().x() - size / 2, area.top() + cell * 1.6 + 30, size, size)
+        self.draw_glyph(p, self.symbol, big, TEXT, 9)
+
+
 RUNNERS: dict[str, type[Runner]] = {
+    "prueba": ProbeRunner,
     "stroop": StroopRunner,
     "calculo": MathRunner,
     "simetria": SymmetryRunner,
@@ -1095,11 +1189,10 @@ class GymWindow(QWidget):
         p.drawText(QRectF(area.left(), area.bottom() - 150, area.width(), 90), Qt.AlignmentFlag.AlignCenter, str(left or "¡Ya!"))
         ex = self.exercise
         minutes = f"{ex.seconds / 60:g}".replace(".", ",")
-        detail = (
-            f"{ex.items} ejercicios en {minutes} minutos"
-            if ex.kind != "nback"
-            else "1 bloque continuo de 2 minutos"
-        )
+        detail = {
+            "nback": "1 bloque continuo de 2 minutos",
+            "prueba": f"Todos los que puedas en {minutes} minutos · una vez al día",
+        }.get(ex.kind, f"{ex.items} ejercicios en {minutes} minutos")
         p.setFont(font(12))
         p.setPen(MUTED)
         p.drawText(QRectF(area.left(), area.bottom() - 50, area.width(), 24), Qt.AlignmentFlag.AlignCenter, detail)

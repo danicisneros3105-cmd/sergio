@@ -198,14 +198,16 @@ def probar(sin_pantalla: bool) -> None:
             run.check("Compañero señala", companion)
 
             def notepad() -> str:
-                _ok(
+                started = time.monotonic()
+                opened = _ok(
                     http.post(
                         f"{win}/act",
                         headers=auth,
-                        json={"action": "open", "target": "notepad.exe"},
+                        json={"action": "open_app", "target": "bloc de notas"},
                     )
-                )
-                time.sleep(2.5)
+                ).json()
+                took = time.monotonic() - started
+                time.sleep(1.0)
                 closed = _ok(
                     http.post(
                         f"{win}/act",
@@ -214,8 +216,9 @@ def probar(sin_pantalla: bool) -> None:
                     )
                 ).json()
                 return (
-                    "abrió y cerró el Bloc de notas: "
-                    + str(closed.get("result", ""))[:60]
+                    f"abrió el Bloc de notas en {took:.1f} s "
+                    f"({str(opened.get('result', ''))[:40]}) y lo cerró: "
+                    + str(closed.get("result", ""))[:50]
                 )
 
             run.check("Control de Windows (abrir/cerrar app)", notepad)
@@ -260,6 +263,35 @@ def probar(sin_pantalla: bool) -> None:
 
         run.check("Visión (qué ve la cámara)", vision)
 
+        def photo_faces() -> str:
+            if "jpeg" not in photo:
+                raise RuntimeError("no hay foto de la cámara")
+            resp = _ok(
+                http.post(
+                    f"{base}/v1/faces/photo",
+                    files={"image": ("c.jpg", photo["jpeg"], "image/jpeg")},
+                )
+            )
+            return str(resp.json().get("text", ""))[:110]
+
+        run.check("Caras en fotos (red neuronal + 175 medidas)", photo_faces)
+
+        def overhead() -> str:
+            diag = _ok(http.get(f"{win}/diag", headers=auth)).json()
+            where = diag.get("location") or {}
+            lat, lon = where.get("lat"), where.get("lon")
+            note = where.get("source", "")
+            if lat is None:
+                lat, lon, note = -2.9001, -79.0059, "sin ubicación de Windows: probé con Cuenca"
+            started = time.monotonic()
+            report = _ok(
+                http.get(f"{base}/v1/world/overhead", params={"lat": lat, "lon": lon}, timeout=20)
+            ).json()
+            took = time.monotonic() - started
+            return f"{took:.1f} s ({note}): {str(report.get('text', ''))[:120]}"
+
+        run.check("Vuelo justo encima de ti (ADS-B en vivo)", overhead)
+
         def faces() -> str:
             if "jpeg" not in photo:
                 raise RuntimeError("no hay foto de la cámara")
@@ -299,8 +331,9 @@ def probar(sin_pantalla: bool) -> None:
             diag = _ok(http.get(f"{win}/diag", headers=auth)).json()
             parts = {
                 "visión": diag.get("vision"),
-                "física": diag.get("physics"),
+                "hologramas": diag.get("holograms"),
                 "llamada": diag.get("call"),
+                "oído": diag.get("wake"),
                 "gimnasio": diag.get("gym"),
             }
             missing = [k for k, v in parts.items() if v is None]
@@ -313,7 +346,7 @@ def probar(sin_pantalla: bool) -> None:
                 raise RuntimeError("; ".join(bad))
             return " | ".join(f"{k}: {v}" for k, v in parts.items())
 
-        run.check("Cámara avanzada, física, llamada y gimnasio", companion_parts)
+        run.check("Cámara, hologramas, llamada, oído y gimnasio", companion_parts)
 
         def hands() -> str:
             diag = _ok(http.get(f"{win}/diag", headers=auth)).json()

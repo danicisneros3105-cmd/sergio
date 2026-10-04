@@ -174,7 +174,7 @@ def _inside(face: list[float], box: list[float]) -> bool:
     return box[0] <= cx <= box[0] + box[2] and box[1] <= cy <= box[1] + box[3]
 
 
-def scene(image: bytes, limit: int = 12) -> dict[str, Any]:
+def scene(image: bytes, limit: int = 12, lite: bool = False) -> dict[str, Any]:
     """Everything in a camera photo, with boxes, species and known names."""
     from openjarvis.tools.vision_look import ask_image
 
@@ -206,7 +206,9 @@ def scene(image: bytes, limit: int = 12) -> dict[str, Any]:
         if known
         else ""
     )
-    items = parse_scene(ask_image(image, SCENE_PROMPT.format(limit=limit, people=people)))
+    items = parse_scene(
+        ask_image(image, SCENE_PROMPT.format(limit=limit, people=people), lite=lite)
+    )
     for item in items:
         if item["kind"] != "persona":
             continue
@@ -219,19 +221,227 @@ def scene(image: bytes, limit: int = 12) -> dict[str, Any]:
 
 
 @router.post("/scene")
-async def scene_route(image: UploadFile = File(...)) -> dict[str, Any]:
-    """Camera "Analizar": people, animals and objects with boxes and details."""
+async def scene_route(
+    image: UploadFile = File(...), auto: bool = Form(False)
+) -> dict[str, Any]:
+    """Camera "Analizar": people, animals and objects with boxes and details.
+
+    *auto*: the camera naming new objects by itself (Flash-Lite first).
+    """
     data = await image.read(MAX_IMAGE_BYTES + 1)
     if len(data) > MAX_IMAGE_BYTES:
         raise HTTPException(status_code=413, detail="Image too large")
     try:
-        return await asyncio.to_thread(scene, data)
+        return await asyncio.to_thread(scene, data, 12, auto)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+# -- using the computer for the user, step by step --------------------------------
+OPERATOR_ACTIONS = (
+    "click",
+    "double_click",
+    "right_click",
+    "type",
+    "key",
+    "scroll",
+    "open",
+    "wait",
+    "done",
+    "ask",
+    "fail",
+)
+
+OPERATOR_PROMPT = """You operate the user's Windows computer for them, one step at a \
+time, like a careful person with the mouse and keyboard. The screenshot shows the \
+screen they are using right now.
+
+GOAL: {goal}
+The user ALREADY CONFIRMED the final send / call / post: {confirmed}
+Step {step} of at most {max_steps}. Screenshot size: {width}x{height} pixels.
+
+What happened so far:
+{history}
+
+Elements found by Windows accessibility (id. type 'name' @x,y in screenshot pixels):
+{elements}
+
+Choose exactly ONE next action and reply with JSON only, no text around it:
+{{"thought": "short: what you see and why this step",
+  "action": one of {actions},
+  "element": id of the element to act on, or null,
+  "point": [y, x] normalized 0-1000 on the screenshot (the CENTER of the target), or null,
+  "text": "text to type (action type)",
+  "keys": "keys to press (action key), e.g. enter, ctrl+l, ctrl+enter, tab, esc",
+  "amount": scroll clicks (action scroll, negative = down),
+  "target": "web address or app name (action open)",
+  "say": "very short phrase IN SPANISH telling the user what you are doing or asking"}}
+
+Rules:
+- Look closely. Prefer an element id that matches; otherwise give point.
+- To write in a field, click it first unless it is clearly focused; then type.
+- Use open for web addresses and apps (instant); keyboard shortcuts when faster.
+- Goal reached and verified on screen -> done (say: what was done). Impossible \
+(not found after trying another way) -> fail with the reason. The user must act \
+(log in, solve a captcha, pick between options) -> ask.
+- SAFETY: never type passwords, card numbers or verification codes. If the next \
+step would SEND a message or email, PLACE a call, POST, BUY or DELETE and the user \
+has NOT confirmed, stop with ask and, in say, read back exactly what will be sent \
+and to whom, ending with "¿Lo envío?". If they confirmed, do it and then check it \
+was sent.
+- Never repeat the same failing action more than twice: try another way."""
+
+
+def _png_size(image: bytes) -> tuple[int, int]:
+    if image[:8] == b"\x89PNG\r\n\x1a\n" and len(image) >= 24:
+        return int.from_bytes(image[16:20], "big"), int.from_bytes(image[20:24], "big")
+    from io import BytesIO
+
+    from PIL import Image
+
+    with Image.open(BytesIO(image)) as im:
+        return im.size
+
+
+def parse_action(
+    text: str, width: int, height: int, elements: list[dict[str, Any]]
+) -> dict[str, Any]:
+    """The model's step -> a safe, complete action (x, y in screenshot pixels)."""
+    found = re.search(r"\{.*\}", text, re.S)
+    try:
+        data = json.loads(found.group(0)) if found else {}
+    except ValueError:
+        data = {}
+    if not isinstance(data, dict):
+        data = {}
+    action = str(data.get("action") or "").strip().lower()
+    if action not in OPERATOR_ACTIONS:
+        return {"action": "fail", "say": "No entendí qué hacer en la pantalla.", "thought": text[:300]}
+    out: dict[str, Any] = {
+        "action": action,
+        "thought": str(data.get("thought") or "")[:400],
+        "say": str(data.get("say") or "")[:300],
+        "text": str(data.get("text") or ""),
+        "keys": str(data.get("keys") or "").strip().lower(),
+        "target": str(data.get("target") or "").strip(),
+        "x": None,
+        "y": None,
+    }
+    try:
+        out["amount"] = int(data.get("amount") or 0)
+    except (TypeError, ValueError):
+        out["amount"] = 0
+    chosen = data.get("element")
+    for el in elements:
+        if chosen is not None and str(el.get("id")) == str(chosen):
+            out["x"], out["y"] = int(el["x"]), int(el["y"])
+            out["element"] = el.get("id")
+            break
+    point = data.get("point")
+    if out["x"] is None and isinstance(point, (list, tuple)) and len(point) == 2:
+        try:
+            py, px = float(point[0]), float(point[1])
+            out["x"] = round(min(max(px, 0), 1000) / 1000 * width)
+            out["y"] = round(min(max(py, 0), 1000) / 1000 * height)
+        except (TypeError, ValueError):
+            pass
+    if action in ("click", "double_click", "right_click") and out["x"] is None:
+        return {**out, "action": "fail", "say": "No encontré dónde hacer clic."}
+    return out
+
+
+def next_action(
+    image: bytes,
+    goal: str,
+    history: list[str],
+    elements: list[dict[str, Any]],
+    *,
+    step: int = 1,
+    max_steps: int = 20,
+    confirmed: bool = False,
+    ask: Any = None,
+) -> dict[str, Any]:
+    from openjarvis.tools.vision_look import ask_image
+
+    width, height = _png_size(image)
+    prompt = OPERATOR_PROMPT.format(
+        goal=goal,
+        confirmed="yes" if confirmed else "no",
+        step=step,
+        max_steps=max_steps,
+        width=width,
+        height=height,
+        history="\n".join(f"- {h}" for h in history[-12:]) or "- (nothing yet)",
+        elements=format_elements(elements),
+        actions=" | ".join(OPERATOR_ACTIONS),
+    )
+    reply = (ask or ask_image)(image, prompt, mime="image/png")
+    return parse_action(reply, width, height, elements)
+
+
+@router.post("/act")
+async def act_route(
+    goal: str = Form(...),
+    history: str = Form("[]"),
+    elements: str = Form("[]"),
+    step: int = Form(1),
+    max_steps: int = Form(20),
+    confirmed: bool = Form(False),
+    image: UploadFile = File(...),
+) -> dict[str, Any]:
+    """One step of using the computer for the user (the companion acts it out)."""
+    data = await image.read(MAX_IMAGE_BYTES + 1)
+    if len(data) > MAX_IMAGE_BYTES:
+        raise HTTPException(status_code=413, detail="Image too large")
+    try:
+        done = json.loads(history)
+        done = [str(h) for h in done] if isinstance(done, list) else []
+        listed = json.loads(elements)
+        listed = listed if isinstance(listed, list) else []
+    except ValueError:
+        done, listed = [], []
+    try:
+        return await asyncio.to_thread(
+            next_action,
+            data,
+            goal,
+            done,
+            listed,
+            step=step,
+            max_steps=max_steps,
+            confirmed=confirmed,
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+@router.post("/blender")
+async def blender_route(
+    save_path: str = Form(...),
+    note: str = Form(""),
+    image: UploadFile = File(...),
+) -> dict[str, Any]:
+    """The object in the user's hands -> a detailed, checked Blender script."""
+    from openjarvis.tools.blender_model import model_object
+
+    data = await image.read(MAX_IMAGE_BYTES + 1)
+    if len(data) > MAX_IMAGE_BYTES:
+        raise HTTPException(status_code=413, detail="Image too large")
+    if not save_path.lower().endswith(".blend"):
+        raise HTTPException(status_code=400, detail="save_path must end in .blend")
+    try:
+        return await asyncio.to_thread(
+            model_object, data, save_path, note, image.content_type or "image/jpeg"
+        )
     except RuntimeError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
 
 __all__ = [
+    "OPERATOR_ACTIONS",
     "format_elements",
+    "next_action",
+    "parse_action",
     "parse_reply",
     "parse_scene",
     "router",

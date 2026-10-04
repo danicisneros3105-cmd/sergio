@@ -56,7 +56,8 @@ class Quick:
     kind: str  # open_url | open_app | close_app | key | volume | camera | hands
     #           | stop | time | date | globe | screenshot | reminder
     #           | reminders_list | reminders_clear | status | protocol
-    #           | briefing | call | gym | physics | name_face
+    #           | briefing | call | gym | gym_report | holo | name_face
+    #           | analyze | photo | mirror | blender_holo | blender_object
     arg: str = ""
     say: str = ""  # short spoken confirmation
 
@@ -72,13 +73,31 @@ _CALL = re.compile(
     r"quiero (hablar|conversar) contigo|hablemos un rato)"
 )
 _GYM = re.compile(r"(gimnasio mental|ejercicios? mentales?|entrena(r)? (mi|la) mente)")
-_PHYSICS = re.compile(
-    r"^(crea|lanza|tira|suelta|pon|haz)( me)? (una?|unos|unas|\d+|dos|tres|cuatro|"
-    r"cinco|seis|siete|ocho|nueve|diez)? ?(pelotas?|bolas?|cubos?|cajas?|"
-    r"triangulos?|estrellas?|objetos?)\b"
-    r"|^(borra|quita|limpia) (los|todos los) objetos"
-    r"|^gravedad (cero|lunar|normal|invertida|de la luna)"
-    r"|^sin gravedad$"
+_HOLO = re.compile(
+    r"^(crea|lanza|tira|suelta|pon|haz|dibuja|genera)( me)? (una?|unos|unas|\d+|dos|tres|cuatro|"
+    r"cinco|seis|siete|ocho|nueve|diez)? ?(pelotas?|bolas?|cubos?|cajas?|esferas?|"
+    r"cilindros?|conos?|toroides?|donas?|anillos?|piramides?|jarron(es)?|floreros?|"
+    r"diamantes?|gemas?|hologramas?|objetos?)\b"
+    r"|^(borra|quita|limpia) (los|todos los|todo|los hologramas|todos los hologramas) ?(objetos|hologramas)?$"
+    r"|^(activa la |pon la |con |sin )?gravedad"
+    r"|^modo (esculpir|dibujar|mover|torno|tubo|extrusion)"
+    r"|^(esculpir|dibujar en el aire)$"
+    r"|^(hazlo|haz lo) (mas grande|mas pequeno)$"
+    r"|^(suavizalo|duplicalo|giralo|borralo)$"
+)
+
+
+_OVERHEAD = re.compile(
+    r"\b(que|cual|de donde|a donde|hay algun|hay un)\b.*\b(avion|vuelo|aeronave|avioneta|"
+    r"helicoptero|aviones|vuelos)\b.*\b(encima|arriba|sobre (mi|nosotros|la casa)|pasando|"
+    r"pasa por aqui|pasa por aca|se escucha|suena|esta pasando|acaba de pasar)"
+    r"|\b(que|cual) (avion|vuelo) es (ese|este)\b"
+)
+_GLOBE_GOTO = re.compile(
+    r"(?:muestrame|ensename|llevame a|vamos a|vuela a|ve a|mira|abre)\s+"
+    r"(?:la ciudad de |el pais de |la zona de |)?(?P<place>.+?)\s+en\s+"
+    r"(?:el globo|gods eye view|god s eye view|god eye view|la vista de dios|el mapa 3d)"
+    r"|(?:abre|pon)\s+(?:gods eye view|god s eye view|el globo)\s+en\s+(?P<place2>.+)"
 )
 
 
@@ -125,10 +144,14 @@ def parse_quick(text: str) -> Quick | None:
             # Keep the name as said (accents and all): the last words of the text.
             words = [w.strip(".,;:!?¡¿") for w in text.split()][-count:]
             return Quick("name_face", " ".join(w[:1].upper() + w[1:] for w in words if w))
+    if _GYM.search(t) and re.search(
+        r"\b(funciona|sirve|sirviendo|efectiv\w*|resultados?|progreso|informe|mejorando|mejorado)\b", t
+    ):
+        return Quick("gym_report")
     if _GYM.search(t):
         return Quick("gym", say="Vamos a entrenar la mente.")
-    if _PHYSICS.search(t):
-        return Quick("physics", t)
+    if _HOLO.search(t):
+        return Quick("holo", t)
     m = re.fullmatch(r"(?:activa |inicia |pon )?(?:el )?(protocolo|modo) (.+)", t)
     if m and m.group(2) not in ("mouse", "gestos", "3d"):
         from sergio_escritorio.jarvis import find_protocol
@@ -136,6 +159,27 @@ def parse_quick(text: str) -> Quick | None:
         name = find_protocol(f"{m.group(1)} {m.group(2)}")
         if name:
             return Quick("protocol", name)
+    # Faces in photos (old ones too) and family resemblance
+    source = "pantalla" if "pantalla" in t else "camara"
+    if re.search(r"\b(a quien se parece|parecido familiar|son (familia|parientes)|es (pariente|familia|hermano|hermana|hijo|hija|padre|madre|primo|prima|abuelo|abuela) de)\b", t):
+        return Quick("kinship", source)
+    if re.search(r"\bquien (es|son|sale|aparece)\b.*\b(foto|fotografia|retrato|imagen)\b", t):
+        return Quick("photo_who", source)
+    # The real object in your hands, modelled in Blender
+    if re.search(r"\b(objeto|esto|lo que tengo)\b.*\b(blender)\b", t) and re.search(
+        r"\b(analiza|modela|pasa|lleva|haz|crea)", t
+    ):
+        return Quick("blender_object", text)
+    # The plane overhead and the 3D globe (God's Eye View)
+    if _OVERHEAD.search(t):
+        return Quick("overhead")
+    if re.fullmatch(r"(muestramelo|ensenamelo|abrelo|mira?lo)( en (el globo|gods eye view|god s eye view|el mapa))?", t):
+        return Quick("globe_last")
+    m = _GLOBE_GOTO.fullmatch(t)
+    if m:
+        place = (m.group("place") or m.group("place2") or "").strip()
+        if place and place not in ("el", "la", "eso", "esto"):
+            return Quick("globe_goto", place, f"Mostrando {place.title()} en el globo.")
     # Time and date
     if re.fullmatch(r"(que hora es|dime la hora|la hora)( por favor)?", t):
         return Quick("time")
@@ -164,10 +208,18 @@ def parse_quick(text: str) -> Quick | None:
         "abre el globo": ("globe", "", "Abriendo el globo."),
         "muestrame el globo": ("globe", "", "Abriendo el globo."),
         "abre gods eye view": ("globe", "", "Abriendo el globo."),
-        "mouse con la mano": ("hands", "mouse", "Mueve tu índice para mover el mouse."),
-        "modo mouse": ("hands", "mouse", "Mueve tu índice para mover el mouse."),
-        "modo gestos": ("hands", "gestos", "Te leo los gestos."),
+        "activa las manos": ("hands", "holo", "Tus manos ya mueven los hologramas."),
+        "modo hologramas": ("hands", "holo", "Tus manos ya mueven los hologramas."),
         "apaga las manos": ("hands", "off", "Listo."),
+        "analiza lo que ves": ("analyze", "", ""),
+        "analiza la camara": ("analyze", "", ""),
+        "que ves en la camara": ("analyze", "", ""),
+        "toma una foto": ("photo", "", "Foto tomada."),
+        "tomame una foto": ("photo", "", "Foto tomada."),
+        "modo espejo": ("mirror", "", "Listo."),
+        "pasalo a blender": ("blender_holo", "", ""),
+        "pasa los hologramas a blender": ("blender_holo", "", ""),
+        "lleva esto a blender": ("blender_holo", "", ""),
     }
     if t in volume:
         kind, arg, say = volume[t]

@@ -52,13 +52,13 @@ if ($LASTEXITCODE -ne 0) {
     & $uv sync --project $app --python 3.12 --inexact
 }
 if ($LASTEXITCODE -ne 0) { throw "No pude instalar las dependencias (uv sync). Revisa tu internet y vuelve a intentar." }
-Write-Host "   Manos (gestos y 3D con la cámara)…"
+Write-Host "   Ojos y manos (objetos, caras y hologramas con la cámara)…"
 & $uv sync --project $app --python 3.12 --inexact --extra manos
-if ($LASTEXITCODE -ne 0) { Write-Host "   No pude instalar el control con las manos ahora; lo demás funciona." -ForegroundColor Yellow }
-& $uv sync --project $app --python 3.12 --inexact --extra manos --extra fisica
-if ($LASTEXITCODE -ne 0) { Write-Host "   No pude instalar la física de la cámara ahora; lo demás funciona." -ForegroundColor Yellow }
-& $uv sync --project $app --python 3.12 --inexact --extra manos --extra fisica --extra llamada
+if ($LASTEXITCODE -ne 0) { Write-Host "   No pude instalar la visión con las manos ahora; lo demás funciona." -ForegroundColor Yellow }
+& $uv sync --project $app --python 3.12 --inexact --extra manos --extra llamada
 if ($LASTEXITCODE -ne 0) { Write-Host "   No pude instalar el cancelador de eco; en llamadas usa audífonos o habla fuerte para interrumpir." -ForegroundColor Yellow }
+& $uv sync --project $app --python 3.12 --inexact --extra manos --extra llamada --extra oido
+if ($LASTEXITCODE -ne 0) { Write-Host "   No pude instalar el oído instantáneo; Sergio te oye igual, un poco más lento." -ForegroundColor Yellow }
 if ($Gpu) {
     Say "Extra: oído con la tarjeta NVIDIA (~1 GB, puede tardar)"
     $env:UV_HTTP_TIMEOUT = "900"

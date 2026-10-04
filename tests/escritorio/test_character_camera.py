@@ -111,23 +111,19 @@ class Feed:
         return self.f.copy()
 
 
-def test_camera_window_buttons(qt, tmp_path, monkeypatch):
+def test_camera_window_has_no_buttons_and_shows_holograms(qt, tmp_path, monkeypatch):
     pytest.importorskip("cv2")
 
     from sergio_escritorio import camera
 
-    asked = []
     monkeypatch.setattr(camera.Path, "home", lambda: tmp_path)
     monkeypatch.setattr(camera, "detect_faces", lambda frame: [(10, 10, 50, 50)])
-    w = camera.CameraWindow(Feed(), on_ask=lambda: asked.append(1))
+    w = camera.CameraWindow(Feed())
     w.open()
     w._ticks = 4
     w._tick()
     assert w._faces == [(10, 10, 50, 50)]
-    rects = w.button_rects()
-    assert set(rects) == {"ask", "analyze", "hands", "physics", "mirror", "photo"}
-    card = w.card()
-    assert all(card.contains(r) for r in rects.values())  # all fit
+    assert not hasattr(w, "button_rects")  # the toolbar is gone
 
     class Hands:
         mode = "off"
@@ -137,18 +133,19 @@ def test_camera_window_buttons(qt, tmp_path, monkeypatch):
             self.mode = mode
 
     w.hands = Hands()
-    for expected in ("gestos", "mouse", "3d", "off"):
-        w._press("hands")
-        assert w.hands.mode == expected
-    w._press("ask")
-    assert asked == [1] and w.overlay == "Mirando…"
-    w._press("mirror")
-    assert w.mirror is False
+    assert "Creé 1 cubo" in w.hologram("crea un cubo rojo")
+    assert w.hands.mode == "holo" and len(w.holo.objects) == 1
+    w.grab()  # paints once so the hands map onto the picture
+    w._tick()
+    assert w.holo.view == (w.card().width(), w.card().height())
+    image = w.grab().toImage()
+    assert not image.isNull()
+    w.mirror = False
     path = w.save_photo()
     assert path.endswith(".jpg") and os.path.exists(path)
     assert "Foto guardada" in w.overlay
-    assert not w.grab().isNull()
     w.close_camera()
+    assert w.hands.mode == "off"
 
 
 def test_face_detector_runs_on_a_blank_frame():

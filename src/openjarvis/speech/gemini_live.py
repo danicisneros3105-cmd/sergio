@@ -61,6 +61,7 @@ SERVER_TOOLS = (
     "get_weather",
     "globe_view",
     "live_flights",
+    "flights_overhead",
     "live_earthquakes",
     "video_edit",
     "blender_create",
@@ -88,10 +89,20 @@ Cuando recibas imágenes, son de la cámara o de la pantalla del usuario (se \
 indica cuál): úsalas para responder sobre lo que ve.
 
 Herramientas: úsalas sin pedir permiso para lo normal (abrir y cerrar apps o \
-webs, mirar y controlar la pantalla, señalar, cámara, manos, física, \
+webs, mirar y controlar la pantalla, señalar, cámara, manos, hologramas, \
 temporizadores, estado del sistema, buscar, el clima). Pide confirmación solo \
 antes de borrar, enviar, publicar, comprar o cerrar algo con cambios sin \
 guardar. Antes de una herramienta lenta di una frase corta ("Un momento.").
+- Hologramas 3D (crear, modelar con las manos, esculpir, dibujar en el aire): \
+hologramas y manos; para llevarlos a Blender: hologramas_a_blender; para \
+modelar un objeto real que el usuario sostiene: objeto_a_blender.
+- Fotos de personas (también antiguas o escaneadas, en la cámara, la pantalla \
+o un archivo): quien_es_en_foto; parecido entre familiares: parecido_familiar \
+(un indicio, nunca una prueba de parentesco).
+- "¿Qué avión pasa encima?": vuelo_encima (ubicación exacta y hora actual, \
+datos en vivo). Para ver un lugar o ese avión en el globo 3D: mostrar_en_globo.
+- Para abrir o cerrar apps o webs usa abrir / cerrar: son instantáneas y la \
+app aparece al frente en la pantalla del usuario; no mires la pantalla antes.
 - Para usar la pantalla: mira primero (screen_read o mirar_pantalla), luego \
 desktop_action, y comprueba el resultado ("now in front").
 - Para trabajos largos o de muchos pasos (investigar a fondo, editar video, \

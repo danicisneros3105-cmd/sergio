@@ -186,3 +186,36 @@ def test_real_face_mesh_reads_a_smile(monkeypatch):
     assert len(faces) == 1 and len(faces[0].points) == 478
     assert "sonriendo" in faces[0].expressions
     assert abs(faces[0].yaw) < 20 and abs(faces[0].pitch) < 20
+
+
+def test_auto_namer_asks_gemini_only_for_new_things_and_rarely():
+    from sergio_escritorio.vision import AutoNamer, Seen, Tracker
+
+    tracker = Tracker()
+    namer = AutoNamer(gap=20, daily=3, settle=1.5)
+    cup = Seen("taza", "objeto", "", 0.7, (0.1, 0.1, 0.2, 0.2))
+    person = Seen("persona", "persona", "humano", 0.9, (0.5, 0.1, 0.3, 0.8))
+    for t in (0.0, 0.2, 0.4):
+        tracker.update([cup, person], t)
+    assert not namer.due(tracker.visible(0.4), 0.4, day="d1")  # not settled yet
+    tracker.update([cup, person], 2.0)
+    assert namer.due(tracker.visible(2.0), 2.0, day="d1")
+    namer.asked(tracker.visible(2.0), 2.0)
+    tracker.update([cup, person], 30.0)
+    assert not namer.due(tracker.visible(30.0), 30.0, day="d1")  # nothing new
+    ball = Seen("pelota", "objeto", "", 0.6, (0.7, 0.7, 0.1, 0.1))
+    for t in (30.0, 31.0, 32.0):
+        tracker.update([cup, person, ball], t)
+    assert namer.due(tracker.visible(32.0), 32.0, day="d1")
+    namer.asked(tracker.visible(32.0), 32.0)
+    assert not namer.due(tracker.visible(40.0), 40.0, holding=True, day="d1")  # gap
+    namer._count = 3
+    assert not namer.due(tracker.visible(80.0), 80.0, holding=True, day="d1")  # daily cap
+    assert namer.due(tracker.visible(80.0), 80.0, holding=True, day="d2")  # a new day
+
+
+def test_object_finder_prefers_the_better_model(monkeypatch):
+    from sergio_escritorio import vision
+
+    assert vision.ObjectFinder.MODELS[0] == "efficientdet_lite2.tflite"
+    assert "efficientdet_lite2/float16" in vision.MODEL_URLS["efficientdet_lite2.tflite"]

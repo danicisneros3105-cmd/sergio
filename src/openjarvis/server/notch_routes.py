@@ -63,6 +63,35 @@ async def goto(req: GotoRequest) -> dict[str, Any]:
     return {"label": meta.get("label", req.place), "url": meta.get("url", "")}
 
 
+@router.get("/v1/world/overhead")
+async def overhead(lat: float, lon: float, alt: float | None = None) -> dict[str, Any]:
+    """The plane right above the user now (their GPS spot), in seconds.
+
+    The globe is aimed at that plane in the background, so "muéstramelo"
+    opens God's Eye View already looking at it.
+    """
+    from openjarvis.tools.live_world import overhead_report, point_globe
+
+    if not (-90 <= lat <= 90 and -180 <= lon <= 180):
+        raise HTTPException(status_code=400, detail="Coordenadas fuera de rango.")
+    try:
+        report = await asyncio.to_thread(overhead_report, lat, lon, ground_m=alt)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    if report.get("plane_lat") is not None:
+        target = await asyncio.to_thread(
+            lambda: point_globe(
+                report["plane_lat"],
+                report["plane_lon"],
+                alt=report["plane_alt_m"] + 9000,
+                label=report.get("callsign") or "avión",
+                pitch=-90,
+            )
+        )
+        report["globe_url"] = target["url"]
+    return report
+
+
 @router.post("/v1/world/open")
 async def open_globe() -> dict[str, Any]:
     """Make sure the 3D globe is running (start it if needed)."""
