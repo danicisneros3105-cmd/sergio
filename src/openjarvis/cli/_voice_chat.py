@@ -123,7 +123,14 @@ def record_voice(
     console: Any,
     session: VoiceSession | None = None,
 ) -> Optional[str] | object:
-    """Record from mic, transcribe, and return text or a loop sentinel."""
+    """Record from mic, transcribe, and return text or a loop sentinel.
+
+    Transcriptions are passed through the hallucination filter: Whisper
+    invents phrases ("Gracias por ver el vídeo", "Suscríbete") on silence
+    and noise, and without the filter those reach the agent as commands —
+    which is why Sergio used to say random things at random moments.
+    """
+    from openjarvis.speech.hallucinations import is_hallucination
     from openjarvis.speech.voice_io import record_until_silence
 
     active_session = session or VoiceSession()
@@ -154,19 +161,30 @@ def record_voice(
     try:
         result = backend.transcribe(audio_bytes, format="wav")
         text = result.text.strip()
-        if text:
-            console.print(f"[bold]You (voice):[/bold] {_terminal_safe_text(text)}")
-            return text
-        console.print("[dim]Nothing heard — try again.[/dim]")
-        return None
+        if is_hallucination(text):
+            console.print("[dim]Solo ruido — ignorado.[/dim]")
+            return None
+        console.print(f"[bold]You (voice):[/bold] {_terminal_safe_text(text)}")
+        return text
     except Exception as exc:
         console.print(f"[red]Transcription error: {_terminal_safe_text(exc)}[/red]")
         return None
 
 
-def speak(text: str, console: Any, session: VoiceSession | None = None) -> None:
-    """Synthesize and play text, reusing a healthy backend for the session."""
-    from openjarvis.speech.voice_io import play_wav
+def speak(
+    text: str,
+    console: Any,
+    session: VoiceSession | None = None,
+    *,
+    interruptible: bool = False,
+) -> bool:
+    """Synthesize and play text, reusing a healthy backend for the session.
+
+    With ``interruptible=True`` the user can talk over Sergio to cut him
+    off (barge-in); returns True when playback was interrupted.  The
+    default keeps the old blocking behaviour.
+    """
+    from openjarvis.speech.voice_io import play_wav, play_wav_interruptible
 
     active_session = session or VoiceSession()
 
@@ -176,7 +194,7 @@ def speak(text: str, console: Any, session: VoiceSession | None = None) -> None:
         active_session.get_voice_preferences()
     except Exception as exc:
         console.print(f"[red]Invalid speech config: {_terminal_safe_text(exc)}[/red]")
-        return
+        return False
 
     while (backend := active_session.get_tts_backend()) is not None:
         try:
@@ -186,8 +204,12 @@ def speak(text: str, console: Any, session: VoiceSession | None = None) -> None:
                 synth_kwargs["voice_id"] = voice_id
             result = backend.synthesize(text, **synth_kwargs)
             if result.audio:
+                if interruptible:
+                    return play_wav_interruptible(
+                        result.audio, sample_rate=result.sample_rate
+                    )
                 play_wav(result.audio, sample_rate=result.sample_rate)
-            return
+            return False
         except Exception as exc:
             console.print(
                 f"[dim yellow]Voice backend "
@@ -200,6 +222,37 @@ def speak(text: str, console: Any, session: VoiceSession | None = None) -> None:
         "[dim yellow]No TTS backend available — install kokoro: "
         "pip install kokoro[/dim yellow]"
     )
+    return False
 
 
-__all__ = ["VOICE_EXIT", "VoiceSession", "read_voice_input", "record_voice", "speak"]
+def call_turn(
+    console: Any,
+    session: VoiceSession | None = None,
+) -> Optional[str] | object:
+    """One turn of a hands-free, call-style conversation.
+
+    Unlike :func:`read_voice_input` there is no "press Enter first": the mic
+    opens immediately, and the caller should answer with
+    ``speak(..., interruptible=True)`` so the user can barge in.  Loop this
+    with the agent's reply in between for a phone-call feel::
+
+        while True:
+            text = call_turn(console, session)
+            if text is VOICE_EXIT:
+                break
+            if not text:
+                continue
+            reply = agent.ask(text)
+            speak(reply, console, session, interruptible=True)
+    """
+    return record_voice(console, session or VoiceSession())
+
+
+__all__ = [
+    "VOICE_EXIT",
+    "VoiceSession",
+    "call_turn",
+    "read_voice_input",
+    "record_voice",
+    "speak",
+]

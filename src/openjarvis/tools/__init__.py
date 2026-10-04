@@ -63,6 +63,16 @@ except ImportError:
     pass
 
 try:
+    import openjarvis.tools.face_analyze_tool  # noqa: F401
+except ImportError:
+    pass
+
+try:
+    import openjarvis.tools.system_control  # noqa: F401
+except ImportError:
+    pass
+
+try:
     import openjarvis.tools.desktop_tools  # noqa: F401
 except ImportError:
     pass

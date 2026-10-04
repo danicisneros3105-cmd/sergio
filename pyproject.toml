@@ -154,6 +154,10 @@ phone = [
     "twilio>=9.0",
 ]
 faces = ["opencv-python-headless>=4.10"]
+# Modo Stark: hand tracking for the air canvas (`sergio gestos`).
+gestures = ["mediapipe>=0.10.14", "opencv-python-headless>=4.10"]
+# Move the OS mouse and windows from gestures (`sergio gestos --pantalla`).
+screen-control = ["pyautogui>=0.9.54", "pillow>=10.0"]
 channel-gmail = [
     "google-api-python-client>=2.0",
     "google-auth-oauthlib>=1.0",
