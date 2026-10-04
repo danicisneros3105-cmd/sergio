@@ -120,6 +120,7 @@ if not _DATA_BOUNDARY_BOOTSTRAP:
     from openjarvis.cli.faces_cmd import rostros
     from openjarvis.cli.feedback_cmd import feedback_group
     from openjarvis.cli.gateway_cmd import gateway
+    from openjarvis.cli.gestos_cmd import gestos
     from openjarvis.cli.gui_cmd import gui
     from openjarvis.cli.host_cmd import host
     from openjarvis.cli.init_cmd import init
@@ -183,6 +184,7 @@ if not _DATA_BOUNDARY_BOOTSTRAP:
     cli.add_command(servicio, "servicio")
     cli.add_command(telefono, "telefono")
     cli.add_command(rostros, "rostros")
+    cli.add_command(gestos, "gestos")
     cli.add_command(escritorio, "escritorio")
     cli.add_command(ecc, "ecc")
     cli.add_command(revisar, "revisar")
