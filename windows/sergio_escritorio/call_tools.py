@@ -85,6 +85,12 @@ def call_tools(ab: Abilities) -> list[ClientTool]:
         try:
             done = str(ab.act({"action": "open_app", "target": target}) or "")
         except LookupError as exc:
+            from sergio_escritorio.quick import SITES
+
+            site = SITES.get(target.lower().strip())
+            if site:
+                ab.act({"action": "open", "target": site})
+                return f"{target} no está instalada; abrí su web en el navegador."
             return f"{exc} Puedo buscarla en internet o instalarla con winget si quiere."
         if "still starting" in done:
             return f"{target} está arrancando; aparecerá al frente en su pantalla en unos segundos."

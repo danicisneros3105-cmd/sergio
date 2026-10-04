@@ -228,3 +228,23 @@ def test_face_watcher_names_faces_and_greets_once(monkeypatch):
     assert greeted == ["Dani", "Dani"]  # second look: greeted again
     clock[0] += 10
     assert w.fresh() == []  # old results are not drawn
+
+
+@pytest.mark.parametrize(
+    ("said", "kind", "arg"),
+    [
+        ("Sergio, ¿me puedes abrir el Word, por favor?", "open_app", "word"),
+        ("quiero que abras spotify", "open_app", "spotify"),
+        ("Necesito que me abras la calculadora", "open_app", "calculadora"),
+        ("abre la aplicación de configuración", "open_app", "configuracion"),
+        ("abre steam porfa", "open_app", "steam"),
+        ("cierra el bloc de notas, porfa", "close_app", "bloc de notas"),
+        ("puedes abrir youtube", "open_url", "https://www.youtube.com"),
+        ("abre whatsapp", "open_app", "whatsapp"),  # the app if installed
+        ("oye sergio sube el volumen", "volume", "up"),
+        ("ábrelo en el globo", "globe_last", ""),
+    ],
+)
+def test_orders_said_politely_are_still_instant(said, kind, arg):
+    q = parse_quick(said)
+    assert q is not None and (q.kind, q.arg) == (kind, arg)

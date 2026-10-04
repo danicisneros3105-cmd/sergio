@@ -219,3 +219,66 @@ def test_object_finder_prefers_the_better_model(monkeypatch):
 
     assert vision.ObjectFinder.MODELS[0] == "efficientdet_lite2.tflite"
     assert "efficientdet_lite2/float16" in vision.MODEL_URLS["efficientdet_lite2.tflite"]
+
+
+# -- one label per thing; unsure look-alikes are not named -------------------
+def test_three_labels_on_one_lipstick_become_one_unsure_object():
+    from sergio_escritorio.vision import Seen, clean_detections
+
+    lipstick = (0.45, 0.4, 0.05, 0.16)
+    found = [
+        Seen("objeto", "objeto", "", 0.52, lipstick),  # "remote" below SURE
+        Seen("celular", "objeto", "", 0.49, (0.448, 0.41, 0.052, 0.15)),
+        Seen("silla", "objeto", "", 0.33, (0.3, 0.3, 0.4, 0.6)),  # too weak
+        Seen("persona", "persona", "humano", 0.9, (0.2, 0.0, 0.6, 1.0)),
+    ]
+    kept = clean_detections(found)
+    assert [k.label for k in kept] == ["persona", "objeto"]
+
+
+def test_a_cup_on_a_laptop_stays_two_things():
+    from sergio_escritorio.vision import Seen, clean_detections
+
+    kept = clean_detections(
+        [
+            Seen("laptop", "objeto", "", 0.8, (0.2, 0.3, 0.5, 0.4)),
+            Seen("taza", "objeto", "", 0.7, (0.3, 0.35, 0.08, 0.1)),
+        ]
+    )
+    assert len(kept) == 2
+
+
+def test_a_flickering_label_is_one_track_and_the_vote_wins():
+    from sergio_escritorio.vision import Seen
+
+    t = Tracker()
+    box = (0.4, 0.4, 0.1, 0.1)
+    for i, label in enumerate(["celular", "control remoto", "celular", "celular"]):
+        t.update([Seen(label, "objeto", "", 0.7, box)], i * 0.1)
+    (track,) = t.visible(0.3)
+    assert track.label == "celular" and track.hits == 4
+
+
+def test_gemini_names_the_held_thing_and_it_sticks():
+    from sergio_escritorio.vision import AutoNamer, Seen
+
+    t = Tracker()
+    for i in range(3):
+        t.update([Seen("objeto", "objeto", "", 0.55, (0.4, 0.4, 0.05, 0.15))], i * 0.5)
+    (track,) = t.visible(1.0)
+    assert track.title(1.0) == "Objeto"
+    namer = AutoNamer()
+    assert namer.due([track], 2.0) and namer.pick([track], 2.0) is track
+    namer.tried(track)
+    assert namer.pick([track], 2.1) is None  # one close-up per thing
+    assert t.name_track(track.id, "Labial", "rojo, metálico")
+    t.update([Seen("celular", "objeto", "", 0.6, (0.4, 0.4, 0.05, 0.15))], 1.5)
+    assert t.visible(1.5)[0].title(1.5) == "Labial · rojo, metálico"
+
+
+def test_close_up_crop_stays_in_the_frame():
+    from sergio_escritorio.vision import crop_box
+
+    x, y, w, h = crop_box((0.95, 0.9, 0.04, 0.08))
+    assert 0 <= x and 0 <= y and x + w <= 1.0001 and y + h <= 1.0001
+    assert w >= 0.18 and h >= 0.18

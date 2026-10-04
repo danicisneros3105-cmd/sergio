@@ -594,10 +594,18 @@ class CameraWindow(QWidget):
     def _draw_tracks(self, p: QPainter) -> None:
         """JARVIS frames: corner brackets + a name tag per thing."""
         now = time.monotonic()
+        faces = list(getattr(self.vision, "faces", []) or []) if getattr(self.vision, "mesh", True) else []
         for track in self.vision.tracker.visible(now):
             rect = self._map_box(track.box)
             if track.kind == "persona":
                 colour = KIND_COLORS["conocido" if track.name else "persona"]
+                if self._face_of(track, faces) is not None:
+                    # The face reticle carries the name: the body only gets
+                    # faint corners (no tag far away from the face).
+                    faint = QColor(colour)
+                    faint.setAlpha(90)
+                    self._brackets(p, rect, faint, 1.4)
+                    continue
             else:
                 colour = KIND_COLORS.get(track.kind, KIND_COLORS["objeto"])
             arm = max(8.0, min(rect.width(), rect.height()) * 0.18)
@@ -617,7 +625,10 @@ class CameraWindow(QWidget):
             label = track.title(now)
             if track.kind == "persona" and track.name and track.face_score:
                 label += f"  {track.face_score * 100:.0f}%"
-            elif track.kind != "persona":
+            elif track.kind == "objeto" and not track.named:
+                # Unsure: say so instead of a confident wrong name.
+                label += "  ¿?" if track.label == "objeto" else f"  {track.score * 100:.0f}%"
+            elif track.kind == "animal":
                 label += f"  {track.score * 100:.0f}%"
             p.setFont(_font(8, QFont.Weight.DemiBold))
             tw = min(p.fontMetrics().horizontalAdvance(label) + 14, max(60.0, rect.width() + 40))
@@ -633,38 +644,92 @@ class CameraWindow(QWidget):
                 p.fontMetrics().elidedText(label, Qt.TextElideMode.ElideRight, int(tw - 10)),
             )
 
+    @staticmethod
+    def _face_of(track: Any, faces: list) -> Any:
+        """The face (mesh) that belongs to this person, if one is in view."""
+        from sergio_escritorio.vision import contains, iou
+
+        best = None
+        for face in faces:
+            if track.face_box is not None and iou(track.face_box, face.box) > 0.25:
+                return face
+            if contains(track.box, face.box):
+                best = best or face
+        return best
+
+    def _brackets(self, p: QPainter, rect: QRectF, colour: QColor, width: float) -> None:
+        arm = max(8.0, min(rect.width(), rect.height()) * 0.18)
+        p.setPen(QPen(colour, width))
+        p.setBrush(Qt.BrushStyle.NoBrush)
+        for cx, cy, dx, dy in (
+            (rect.left(), rect.top(), 1, 1),
+            (rect.right(), rect.top(), -1, 1),
+            (rect.left(), rect.bottom(), 1, -1),
+            (rect.right(), rect.bottom(), -1, -1),
+        ):
+            p.drawLine(QPointF(cx, cy), QPointF(cx + dx * arm, cy))
+            p.drawLine(QPointF(cx, cy), QPointF(cx, cy + dy * arm))
+
     def _draw_mesh(self, p: QPainter) -> None:
-        """Face mesh outlines, where the head points and the expression."""
-        from sergio_escritorio.vision import OUTLINES
+        """Face reticle: name on the face, the measured points, head and mood."""
+        from sergio_escritorio.vision import SIGNATURE_POINTS
 
         faces = list(getattr(self.vision, "faces", []) or [])
         if not faces or not getattr(self.vision, "mesh", True):
             return
-        line = QColor(100, 210, 255, 210)
+        now = time.monotonic()
+        people = [t for t in self.vision.tracker.visible(now) if t.kind == "persona"]
         for face in faces:
             pts = face.points
             if len(pts) < 468:
                 continue
-            p.setPen(QPen(line, 1.3))
-            for outline in OUTLINES:
-                poly = QPolygonF([self._map_point(*pts[i]) for i in outline])
-                p.drawPolyline(poly)
+            owner = next((t for t in people if self._face_of(t, [face]) is face), None)
+            known = bool(owner and owner.name)
+            colour = KIND_COLORS["conocido" if known else "persona"]
+            rect = self._map_box(face.box).adjusted(-8, -14, 8, 6)
+            self._brackets(p, rect, colour, 2.2)
+            # The landmarks the 175 facial measurements are taken between.
+            dot = QColor(colour).lighter(150)
+            dot.setAlpha(230)
+            p.setPen(Qt.PenStyle.NoPen)
+            p.setBrush(dot)
+            for index in SIGNATURE_POINTS.values():
+                if index < len(pts):
+                    p.drawEllipse(self._map_point(*pts[index]), 1.8, 1.8)
             # Where the head points: a short ray from the nose tip.
             nose = self._map_point(*pts[1])
             yaw = -face.yaw if self.mirror else face.yaw
-            length = self._map_box(face.box).width() * 0.6
+            length = rect.width() * 0.45
             end = QPointF(
                 nose.x() + length * math.sin(math.radians(yaw)),
                 nose.y() - length * math.sin(math.radians(face.pitch)),
             )
-            p.setPen(QPen(QColor(255, 214, 10, 200), 1.6))
+            p.setPen(QPen(QColor(255, 214, 10, 170), 1.4))
             p.drawLine(nose, end)
+            # Name tag right on the face.
+            if owner is not None:
+                label = owner.title(now)
+                if known and owner.face_score:
+                    label += f"  {owner.face_score * 100:.0f}%"
+                elif not known and not owner.names:
+                    label = "Identificando…"
+            else:
+                label = "Identificando…"
+            p.setFont(_font(8.5, QFont.Weight.DemiBold))
+            tw = p.fontMetrics().horizontalAdvance(label) + 16
+            top = rect.top() - 22 if rect.top() - 22 > MARGIN + 40 else rect.bottom() + 24
+            tag = QRectF(rect.center().x() - tw / 2, top, tw, 19)
+            p.setPen(Qt.PenStyle.NoPen)
+            p.setBrush(colour)
+            p.drawRoundedRect(tag, 9.5, 9.5)
+            p.setPen(QColor(255, 255, 255))
+            p.drawText(tag, Qt.AlignmentFlag.AlignCenter, label)
             if face.expressions:
-                rect = self._map_box(face.box)
                 text = " · ".join(face.expressions)
                 p.setFont(_font(7.5, QFont.Weight.DemiBold))
                 tw = p.fontMetrics().horizontalAdvance(text) + 12
-                chip = QRectF(rect.center().x() - tw / 2, rect.bottom() + 4, tw, 16)
+                below = rect.bottom() + 4 if top < rect.top() else tag.bottom() + 4
+                chip = QRectF(rect.center().x() - tw / 2, below, tw, 16)
                 p.setPen(Qt.PenStyle.NoPen)
                 p.setBrush(QColor(0, 0, 0, 160))
                 p.drawRoundedRect(chip, 8, 8)

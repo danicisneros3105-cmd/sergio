@@ -348,6 +348,45 @@ def probar(sin_pantalla: bool) -> None:
 
         run.check("Cámara, hologramas, llamada, oído y gimnasio", companion_parts)
 
+        def selftest(kind: str) -> dict:
+            resp = http.post(
+                f"{win}/selftest", headers=auth, json={"kind": kind}, timeout=60
+            )
+            if resp.status_code == 404:
+                raise RuntimeError(
+                    "el compañero es una versión vieja; ejecuta sergio escritorio instalar"
+                )
+            out = _ok(resp).json()
+            if not out.get("ok"):
+                raise RuntimeError(str(out.get("error") or out)[:300])
+            return out
+
+        def talk_call() -> str:
+            out = selftest("call")
+            return (
+                f"conectó en {out.get('connect_s')} s, habló en {out.get('voice_s')} s "
+                f"({out.get('model')}, eco {out.get('echo')}): «{str(out.get('said'))[:60]}»"
+            )
+
+        run.check("Hablarle a Sergio: llamada desde tu compañero", talk_call)
+
+        def talk_turn() -> str:
+            out = selftest("turn")
+            return (
+                f"pensó {out.get('think_s')} s, voz {out.get('voice_s')} s con "
+                f"{out.get('voice')}: «{str(out.get('answer'))[:60]}»"
+            )
+
+        run.check("Hablarle a Sergio: por turnos", talk_turn)
+
+        if not sin_pantalla:
+
+            def open_by_voice() -> str:
+                out = selftest("open")
+                return f"«{out.get('said')}» → {out.get('answer')} en {out.get('took_s')} s"
+
+            run.check("Abrir apps por voz («abre la calculadora»)", open_by_voice)
+
         def hands() -> str:
             diag = _ok(http.get(f"{win}/diag", headers=auth)).json()
             status = str(diag.get("hands") or "")
@@ -366,6 +405,19 @@ def probar(sin_pantalla: bool) -> None:
         return f"God's Eye View en {url}"
 
     run.check("Globo 3D (God's Eye View)", globe)
+
+    if token:
+        try:
+            diag = http.get(f"{win}/diag", headers=auth, timeout=8).json()
+        except Exception:  # noqa: BLE001
+            diag = {}
+        errors = diag.get("recent_errors") or []
+        if errors:
+            console.print("\n[yellow]Últimos errores del compañero (sergio.log):[/yellow]")
+            for line in errors[-10:]:
+                console.print(f"  {escape(str(line))}")
+        if diag.get("voice_used"):
+            console.print(f"Voz usada al hablar: {escape(str(diag['voice_used']))}")
 
     if run.failed:
         console.print(

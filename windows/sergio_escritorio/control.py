@@ -129,6 +129,8 @@ class Controller:
         self.on_point: Callable[[int, int, str], None] = lambda _x, _y, _l: None
         # Hands for the holograms in Sergio ve ("holo" / "off"); returns a status.
         self.on_hands: Callable[[str], str] = lambda _mode: "hands unavailable"
+        # `sergio probar`: talk to Sergio like the user does ("call"/"turn").
+        self.selftest: Callable[[str], dict] | None = None
         # Tasks done like a person (operate, message, phone_call, contact).
         self.on_task: Callable[[str, dict], str] = lambda _k, _a: "operator unavailable"
         self.enabled = True
@@ -441,6 +443,18 @@ def make_server(
 
         def do_POST(self) -> None:  # noqa: N802
             if not self._authorised():
+                return
+            if self.path == "/selftest":
+                try:
+                    length = min(int(self.headers.get("Content-Length") or 0), 4_000)
+                    body = json.loads(self.rfile.read(length) or b"{}")
+                    test = controller.selftest
+                    if test is None:
+                        self._send(404, {"ok": False, "error": "no self-test"})
+                    else:
+                        self._send(200, test(str(body.get("kind") or "")))
+                except Exception as exc:  # noqa: BLE001
+                    self._send(500, {"ok": False, "error": str(exc)})
                 return
             if self.path != "/act":
                 self._send(404, {"ok": False, "error": "not found"})

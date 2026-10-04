@@ -129,11 +129,9 @@ def tray_icon(colour: Any) -> Any:
 
 def main() -> None:
     HOME.mkdir(parents=True, exist_ok=True)
-    logging.basicConfig(
-        filename=HOME / "sergio.log",
-        level=logging.INFO,
-        format="%(asctime)s %(levelname)s %(message)s",
-    )
+    from sergio_escritorio.diagnose import setup_log
+
+    setup_log(HOME / "sergio.log")
     if not single_instance():
         return
     from sergio_escritorio.windows_backend import set_dpi_aware
@@ -330,6 +328,7 @@ def run(config: dict[str, Any]) -> None:
 
     def diag() -> dict:
         """For `sergio revisar`: microphone, levels, ear, brain, last error."""
+        from sergio_escritorio.diagnose import recent_errors
         from sergio_escritorio.voice import _LOCAL
 
         ear = getattr(_LOCAL[0], "name", "") if _LOCAL and _LOCAL[0] else ""
@@ -344,6 +343,8 @@ def run(config: dict[str, Any]) -> None:
             "wake": "instantáneo (Vosk)" if ears.spotter is not None else "Whisper por frase",
             "voice_timeline": list(ears.timeline),
             "last_error": assistant.last_error,
+            "recent_errors": recent_errors(HOME / "sergio.log"),
+            "voice_used": client.last_voice,
             "log": str(HOME / "sergio.log"),
             "hands": hands_status(),
             "call": call_status(),
@@ -661,6 +662,11 @@ def run(config: dict[str, Any]) -> None:
                 try:
                     done = controller.act({"action": "open_app", "target": q.arg})
                 except LookupError as exc:
+                    from sergio_escritorio.quick import SITES
+
+                    if q.arg in SITES:  # not installed: its web instead
+                        controller.act({"action": "open", "target": SITES[q.arg]})
+                        return f"Abrí {q.arg.title()} en el navegador."
                     return str(exc)
                 if "still starting" in done:
                     return f"Abriendo {q.arg.title()}; tarda un poco en arrancar."
@@ -805,26 +811,53 @@ def run(config: dict[str, Any]) -> None:
     namer = AutoNamer()
     namer.enabled = bool(config.get("auto_objetos", True))
 
+    def close_up(box: tuple) -> bytes | None:
+        """A JPEG crop around one thing in view (what Gemini looks at)."""
+        import cv2
+
+        from sergio_escritorio.vision import crop_box
+
+        frame = feed.frame()
+        if frame is None:
+            return None
+        h, w = frame.shape[:2]
+        x, y, bw, bh = crop_box(box)
+        crop = frame[int(y * h) : int((y + bh) * h), int(x * w) : int((x + bw) * w)]
+        if crop.size == 0:
+            return None
+        ok, data = cv2.imencode(".jpg", crop, [cv2.IMWRITE_JPEG_QUALITY, 92])
+        return data.tobytes() if ok else None
+
     def auto_name() -> None:
+        """Name a new or unsure object from a close-up (a lipstick is not a
+        "control remoto": the detector only knows 80 kinds of things)."""
         if not camera_window.isVisible():
             return
         now = time.monotonic()
         tracks = vision_engine.tracker.visible(now)
         if not namer.due(tracks, now, day=time.strftime("%Y-%m-%d")):
             return
+        target = namer.pick(tracks, now)
+        if target is None:
+            return
         namer.asked(tracks, now)
+        namer.tried(target)
+        image = close_up(target.box)
+        if image is None:
+            return
 
         def run() -> None:
             try:
                 resp = client.http.post(
-                    f"{client.base}/v1/vision/scene",
-                    files={"image": ("camara.jpg", feed.jpeg(), "image/jpeg")},
-                    data={"auto": "true"},
-                    timeout=60,
+                    f"{client.base}/v1/vision/name",
+                    files={"image": ("objeto.jpg", image, "image/jpeg")},
+                    timeout=30,
                 )
                 resp.raise_for_status()
-                items = list(resp.json().get("items") or [])
-                vision_engine.tracker.add_scene(items, time.monotonic(), seconds=30)
+                got = resp.json()
+                vision_engine.tracker.name_track(
+                    target.id, str(got.get("label") or ""), str(got.get("detail") or "")
+                )
             except Exception:  # noqa: BLE001 — naming is a bonus
                 logging.info("auto naming failed", exc_info=True)
 
@@ -1270,10 +1303,110 @@ def run(config: dict[str, Any]) -> None:
         elif why == "se cortó":
             bridge.caption.emit("Se cortó la llamada. Di «Sergio» para volver.")
 
-    def start_call(prefill: bytes = b"", force: bool = False) -> bool:
-        """Open a live call (from a worker thread). False = use turns."""
+    def new_session(**changes: Any) -> CallSession:
+        """A call set up exactly like the real ones (tools, voice, context)."""
         import datetime as _dt
 
+        options: dict[str, Any] = {
+            "voice": client.voice,
+            "personality": client.personality,
+            "context": lambda: call_context(
+                _dt.datetime.now(),
+                system_status(),
+                reminders.pending(),
+                camera_window.isVisible(),
+            ),
+            "tools": call_tools(abilities),
+            "on_state": call_state,
+            "on_caption": bridge.caption.emit,
+            "on_heard": lambda text: setattr(assistant, "last_heard", text),
+            "on_level": bridge.level.emit,
+            "on_end": call_ended,
+            "video": call_video,
+        }
+        options.update(changes)
+        return CallSession(config["server_url"], **options)
+
+    def selftest(kind: str) -> dict:
+        """`sergio probar`: talk to Sergio the way you do, and time it."""
+        if kind == "call":
+            if call_active():
+                return {"ok": False, "error": "Hay una llamada en curso."}
+            said: list[str] = []
+            voice_at: list[float] = []
+            t0 = time.monotonic()
+            session = new_session(
+                on_state=lambda name: voice_at.append(time.monotonic())
+                if name == "speaking" and not voice_at
+                else None,
+                on_caption=said.append,
+                on_heard=lambda _t: None,
+                on_level=lambda _v: None,
+                on_end=lambda _why: None,
+                video=lambda: None,
+            )
+            if not session.start():
+                return {"ok": False, "error": session.error or "no conectó"}
+            connected = time.monotonic() - t0
+            session.send_text("Prueba de sonido: dime la hora en una sola frase corta.")
+            deadline = time.monotonic() + 15
+            while time.monotonic() < deadline and session.active:
+                if said and voice_at and not session.speaker.talking:
+                    break
+                time.sleep(0.1)
+            error = session.error
+            session.hang_up("prueba")
+            return {
+                "ok": bool(said) and not error,
+                "model": session.model,
+                "echo": session.echo.kind,
+                "connect_s": round(connected, 2),
+                "voice_s": round(voice_at[0] - t0 - connected, 2) if voice_at else None,
+                "said": (said[-1] if said else "")[:200],
+                "error": error or ("" if said else "Sergio no contestó en 15 s"),
+            }
+        if kind == "turn":
+            t0 = time.monotonic()
+            try:
+                answer = client.ask("Prueba: dime la hora en una sola frase corta.")
+                thought = time.monotonic() - t0
+                client.speak(answer[:200])
+            except Exception as exc:  # noqa: BLE001
+                from sergio_escritorio.voice import explain
+
+                return {"ok": False, "error": explain(exc), "voice": client.last_voice}
+            return {
+                "ok": True,
+                "answer": answer[:200],
+                "think_s": round(thought, 2),
+                "voice_s": round(time.monotonic() - t0 - thought, 2),
+                "voice": client.last_voice,
+                "brain": client.last_brain,
+            }
+        if kind == "open":
+            from sergio_escritorio.quick import parse_quick
+
+            said = "abre la calculadora"
+            t0 = time.monotonic()
+            try:
+                answer = run_quick(parse_quick(said))
+            except Exception as exc:  # noqa: BLE001
+                return {"ok": False, "error": f"{type(exc).__name__}: {exc}"}
+            took = round(time.monotonic() - t0, 2)
+            time.sleep(1.0)
+            try:
+                controller.act({"action": "close_app", "target": "calculadora"})
+            except Exception:  # noqa: BLE001 — closing is not the test
+                pass
+            failed = answer.startswith(("No encuentro", "El control está en pausa"))
+            return {"ok": not failed, "said": said, "answer": answer, "took_s": took,
+                    "error": answer if failed else ""}
+        return {"ok": False, "error": f"prueba desconocida: {kind}"}
+
+    controller.selftest = selftest
+
+    def start_call(prefill: bytes = b"", force: bool = False) -> bool:
+        """Open a live call (from a worker thread). False = use turns."""
         if not force and config.get("conversation", "llamada") != "llamada":
             return False
         if call_active():
@@ -1282,24 +1415,7 @@ def run(config: dict[str, Any]) -> None:
             return False  # it failed a moment ago: don't make you wait again
         from sergio_escritorio.voice import wav_pcm
 
-        session = CallSession(
-            config["server_url"],
-            voice=client.voice,
-            personality=client.personality,
-            context=lambda: call_context(
-                _dt.datetime.now(),
-                system_status(),
-                reminders.pending(),
-                camera_window.isVisible(),
-            ),
-            tools=call_tools(abilities),
-            on_state=call_state,
-            on_caption=bridge.caption.emit,
-            on_heard=lambda text: setattr(assistant, "last_heard", text),
-            on_level=bridge.level.emit,
-            on_end=call_ended,
-            video=call_video,
-        )
+        session = new_session()
         current_call[0] = session
         ears.call = session
         if not session.start(wav_pcm(prefill) if prefill else b""):

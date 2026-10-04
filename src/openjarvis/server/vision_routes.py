@@ -237,6 +237,56 @@ async def scene_route(
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
 
+NAME_PROMPT = """Esta es una foto de cerca tomada por la cámara de Sergio. \
+¿Qué es exactamente el objeto principal (el del centro; si alguien sostiene \
+algo en la mano, ese)? Da el nombre concreto y común en español, como lo \
+diría una persona: "labial", "bolígrafo", "llave", "control del televisor", \
+"celular", "botella de agua", "cubo de Rubik". Nunca "objeto" ni categorías \
+vagas. Si no estás seguro, el más probable.
+Responde SOLO JSON: {"etiqueta": "...", "detalle": "color, marca o material \
+visible en hasta 5 palabras", "seguridad": 0.0-1.0}"""
+
+
+def parse_name(text: str) -> dict[str, Any]:
+    found = re.search(r"\{.*\}", text or "", re.S)
+    try:
+        data = json.loads(found.group(0)) if found else {}
+    except ValueError:
+        data = {}
+    if not isinstance(data, dict):
+        data = {}
+    label = " ".join(str(data.get("etiqueta") or data.get("label") or "").split())
+    if label.lower() in ("objeto", "cosa", "elemento", "desconocido"):
+        label = ""
+    try:
+        sure = max(0.0, min(1.0, float(data.get("seguridad") or 0.0)))
+    except (TypeError, ValueError):
+        sure = 0.0
+    return {
+        "label": label[:40],
+        "detail": " ".join(str(data.get("detalle") or "").split())[:60],
+        "confidence": sure,
+    }
+
+
+@router.post("/name")
+async def name_route(image: UploadFile = File(...)) -> dict[str, Any]:
+    """What one thing is, from a close-up (any object, not just 80 kinds)."""
+    from openjarvis.tools.vision_look import ask_image
+
+    data = await image.read(MAX_IMAGE_BYTES + 1)
+    if len(data) > MAX_IMAGE_BYTES:
+        raise HTTPException(status_code=413, detail="Image too large")
+    try:
+        reply = await asyncio.to_thread(ask_image, data, NAME_PROMPT, lite=True)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    out = parse_name(reply)
+    if not out["label"]:
+        raise HTTPException(status_code=502, detail="No supe qué es.")
+    return out
+
+
 # -- using the computer for the user, step by step --------------------------------
 OPERATOR_ACTIONS = (
     "click",

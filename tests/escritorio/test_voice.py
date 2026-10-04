@@ -342,3 +342,40 @@ def test_normal_orders_do_not_use_the_camera():
     a, ui, log, played, shots, _ = _look_assistant(["Sergio, abre Spotify."])
     a.on_utterance(WAV, addressed=False)
     assert shots == [] and len(log) == 1
+
+
+def test_spent_gemini_voice_is_skipped_for_a_while(monkeypatch):
+    """Free keys get a few Gemini voice requests a day: once spent, every
+    sentence went through failing models first. Now the backup voice speaks
+    at once, and `sergio probar` says which voice spoke."""
+    from sergio_escritorio import neural_voice
+
+    asked = []
+
+    def handler(request):
+        asked.append(request.url.path)
+        return httpx.Response(502, json={"detail": "429 RESOURCE_EXHAUSTED quota"})
+
+    client = SergioClient("http://s", http=httpx.Client(transport=httpx.MockTransport(handler)))
+    client.voice = "gemini:Algieba"
+    monkeypatch.setattr(neural_voice, "synthesize", lambda text, voice, rate: b"EDGE")
+    assert client._speak("Hola.") == b"EDGE"
+    assert client._speak("Otra frase.") == b"EDGE"
+    assert asked == ["/v1/voice/speak"]  # asked once, then skipped
+    assert client.last_voice.startswith("respaldo Edge")
+
+
+def test_a_failed_turn_does_not_stay_in_the_history():
+    def handler(request):
+        if request.url.path == "/v1/voice/chat":
+            return httpx.Response(502, json={"detail": "fast chat down"})
+        if request.url.path == "/v1/info":
+            return httpx.Response(200, json={"model": "gemini-3.8-flash"})
+        return httpx.Response(500, json={"detail": "boom"})
+
+    client = SergioClient("http://s", http=httpx.Client(transport=httpx.MockTransport(handler)))
+    import pytest as _pytest
+
+    with _pytest.raises(httpx.HTTPStatusError):
+        client.ask("abre el correo y resume lo nuevo")
+    assert client.history == []

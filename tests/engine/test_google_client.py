@@ -83,3 +83,23 @@ def test_real_errors_are_not_hidden():
         client.models.generate_content(model="m")
     assert calls == [("gen", False)]
     assert wrong_service(DISABLED) and not wrong_service(ValueError("timeout"))
+
+
+def test_a_spent_model_is_not_asked_again_until_its_quota_returns(monkeypatch):
+    from openjarvis.engine import google_client as gc
+
+    monkeypatch.setattr(gc, "_EXHAUSTED", {})
+    spent = RuntimeError(
+        "429 RESOURCE_EXHAUSTED. You exceeded your current quota ... "
+        "GenerateRequestsPerDayPerProjectPerModel-FreeTier ... Please retry in 1h37m1.3s."
+    )
+    client, calls = _client({False: spent, True: spent})
+    with pytest.raises(RuntimeError):
+        client.models.generate_content(model="gemini-3.8-flash-tts", contents="hola")
+    assert len(calls) == 1
+    with pytest.raises(gc.QuotaExhausted, match="RESOURCE_EXHAUSTED"):
+        client.models.generate_content(model="gemini-3.8-flash-tts", contents="hola")
+    assert len(calls) == 1  # answered at once, no request
+    assert 5800 < gc._EXHAUSTED["gemini-3.8-flash-tts"] - gc.time.monotonic() < 5830
+    client2, calls2 = _client({False: "ok", True: "ok"})
+    assert client2.models.generate_content(model="gemini-3.8-flash", contents="x") == "ok"

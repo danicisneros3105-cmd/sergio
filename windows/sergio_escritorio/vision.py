@@ -148,6 +148,21 @@ def label_es(name: str) -> tuple[str, str, str]:
 
 Box = tuple[float, float, float, float]  # x, y, w, h — 0..1 of the frame
 
+# The detector only knows 80 kinds of things, so anything else in a hand
+# (a lipstick, a pen, a key) comes out as its nearest look-alike: "control
+# remoto", "celular", "cepillo de dientes"... These names are only shown when
+# the detector is really sure; otherwise the thing is just "Objeto" until
+# Gemini names it from a close-up (see AutoNamer / Tracker.name_track).
+CONFUSABLE = {
+    "remote", "cell phone", "toothbrush", "scissors", "knife", "spoon", "fork",
+    "mouse", "hair drier", "tie", "baseball bat", "skateboard", "surfboard",
+    "frisbee", "kite", "skis", "snowboard", "sports ball", "hot dog", "carrot",
+    "banana", "donut", "cake", "vase", "bottle", "book", "handbag", "umbrella",
+    "parking meter", "fire hydrant", "toaster",
+}  # fmt: skip
+MIN_SCORE = {"persona": 0.45, "animal": 0.4, "objeto": 0.45}
+SURE = 0.68  # a confusable class needs this much to keep its name
+
 
 @dataclass
 class Seen:
@@ -167,6 +182,42 @@ def iou(a: Box, b: Box) -> float:
     inter = w * h
     union = a[2] * a[3] + b[2] * b[3] - inter
     return inter / union if union > 0 else 0.0
+
+
+def overlap_small(a: Box, b: Box) -> float:
+    """How much of the smaller box lies inside the other one (0..1)."""
+    ax2, ay2, bx2, by2 = a[0] + a[2], a[1] + a[3], b[0] + b[2], b[1] + b[3]
+    w = max(0.0, min(ax2, bx2) - max(a[0], b[0]))
+    h = max(0.0, min(ay2, by2) - max(a[1], b[1]))
+    small = min(a[2] * a[3], b[2] * b[3])
+    return (w * h) / small if small > 0 else 0.0
+
+
+def _same_thing(a: Box, b: Box) -> bool:
+    """Two boxes of one thing (a cup on a laptop or a cat in front of a dog
+    are two things: one box is much smaller than the other)."""
+    if iou(a, b) > 0.55:
+        return True
+    areas = sorted((a[2] * a[3], b[2] * b[3]))
+    return areas[1] > 0 and areas[0] / areas[1] > 0.45 and overlap_small(a, b) > 0.85
+
+
+def clean_detections(found: Sequence[Seen]) -> list[Seen]:
+    """One label per thing, and no confident-sounding wrong names.
+
+    The detector gives the same lipstick three boxes ("control remoto",
+    "celular", "cepillo de dientes"): only the best one stays (per kind, so a
+    held object is never swallowed by the person holding it). Weak guesses
+    are dropped and unsure look-alike names become "objeto".
+    """
+    kept: list[Seen] = []
+    for item in sorted(found, key=lambda f: -f.score):
+        if item.score < MIN_SCORE.get(item.kind, 0.5):
+            continue
+        if any(k.kind == item.kind and _same_thing(k.box, item.box) for k in kept):
+            continue
+        kept.append(item)
+    return kept
 
 
 def contains(outer: Box, inner: Box) -> bool:
@@ -192,6 +243,15 @@ class Track:
     detail_until: float = 0.0
     face_score: float = 0.0
     face_box: Box | None = None  # where the face is (to crop it for a name)
+    votes: Counter = field(default_factory=Counter)  # label -> evidence
+    named: str = ""  # what Gemini said it is, from a close-up (sticky)
+
+    @property
+    def shown(self) -> str:
+        """The object's name on screen: Gemini's, a sure one, or "objeto"."""
+        if self.named:
+            return self.named
+        return self.label if self.label != "objeto" else "objeto"
 
     @property
     def name(self) -> str:
@@ -206,8 +266,8 @@ class Track:
         if self.kind == "persona":
             base = self.name or (f"Persona {self.guest}" if self.guest else "Persona")
         else:
-            base = self.label[:1].upper() + self.label[1:]
-        if self.detail and now < self.detail_until:
+            base = self.shown[:1].upper() + self.shown[1:]
+        if self.detail and now < self.detail_until and self.detail.lower() != base.lower():
             return f"{base} · {self.detail}"
         return base
 
@@ -230,24 +290,22 @@ class Tracker:
                 for track in free:
                     if track.kind != item.kind:
                         continue
-                    if item.kind == "objeto" and track.label != item.label:
-                        continue
                     overlap = iou(track.box, item.box)
                     if overlap > best_iou:
                         best, best_iou = track, overlap
                 if best is None:
-                    self.tracks.append(
-                        Track(
-                            self._next,
-                            item.label,
-                            item.kind,
-                            item.species,
-                            item.box,
-                            item.score,
-                            now,
-                            now,
-                        )
+                    track = Track(
+                        self._next,
+                        item.label,
+                        item.kind,
+                        item.species,
+                        item.box,
+                        item.score,
+                        now,
+                        now,
                     )
+                    track.votes[item.label] += item.score
+                    self.tracks.append(track)
                     self._next += 1
                     continue
                 free.remove(best)
@@ -256,7 +314,14 @@ class Tracker:
                     (1 - k) * old + k * new for old, new in zip(best.box, item.box)
                 )
                 best.score = 0.7 * best.score + 0.3 * item.score
-                best.label, best.species = item.label, item.species
+                # The name is voted over the last frames (a flicker between
+                # "celular" and "control remoto" is one thing, not two).
+                for key in list(best.votes):
+                    best.votes[key] *= 0.85
+                best.votes[item.label] += item.score
+                best.label = best.votes.most_common(1)[0][0]
+                if item.label == best.label:
+                    best.species = item.species
                 best.last_seen = now
                 best.hits += 1
             self.tracks = [t for t in self.tracks if now - t.last_seen <= self.keep]
@@ -305,6 +370,20 @@ class Tracker:
                     confirmed.append(owner.name)
         return confirmed
 
+    def name_track(self, track_id: int, label: str, detail: str = "") -> bool:
+        """Gemini looked at this thing up close: that is its name now."""
+        label = " ".join(str(label or "").split())[:40]
+        if not label:
+            return False
+        with self._lock:
+            for track in self.tracks:
+                if track.id == track_id:
+                    track.named = label.lower()
+                    if detail:
+                        track.detail, track.detail_until = detail[:60], 1e18
+                    return True
+        return False
+
     def add_scene(self, items: Sequence[dict], now: float, seconds: float = 12.0) -> None:
         """Gemini's "Analizar" details: breeds, looks, any object."""
         with self._lock:
@@ -318,6 +397,8 @@ class Tracker:
                 )
                 if match is not None and iou(match.box, box) > 0.3:
                     match.detail, match.detail_until = detail, now + seconds
+                    if match.kind == "objeto" and item.get("label"):
+                        match.named = str(item["label"]).lower()[:40]
                     continue
                 kind = item.get("kind") or "objeto"
                 track = Track(
@@ -366,7 +447,7 @@ def summary(tracks: Sequence[Track], now: float) -> str:
             )
         )
     if things:
-        names = list(dict.fromkeys(t.label for t in things))[:6]
+        names = list(dict.fromkeys(t.shown for t in things))[:6]
         parts.append("objetos: " + ", ".join(names))
     if not parts:
         return "No veo a nadie ni nada en particular."
@@ -550,7 +631,7 @@ class ObjectFinder:
 
     MODELS = ("efficientdet_lite2.tflite", "efficientdet_lite0.tflite")
 
-    def __init__(self, score: float = 0.35, max_results: int = 20) -> None:
+    def __init__(self, score: float = 0.3, max_results: int = 25) -> None:
         import mediapipe as mp
         from mediapipe.tasks.python import BaseOptions, vision
 
@@ -596,6 +677,8 @@ class ObjectFinder:
         for det in result.detections or []:
             cat = det.categories[0]
             label, kind, species = label_es(cat.category_name)
+            if kind == "objeto" and cat.category_name in CONFUSABLE and cat.score < SURE:
+                label = "objeto"  # a look-alike guess: Gemini will name it
             b = det.bounding_box
             x = max(0.0, (b.origin_x - x0) / w)
             y = max(0.0, (b.origin_y - y0) / h)
@@ -604,7 +687,7 @@ class ObjectFinder:
             if bw <= 0 or bh <= 0:
                 continue
             found.append(Seen(label, kind, species, float(cat.score), (x, y, bw, bh)))
-        return found
+        return clean_detections(found)
 
 
 class FaceMesh:
@@ -664,12 +747,13 @@ class AutoNamer:
     more than once every *gap* seconds and *daily* times a day.
     """
 
-    def __init__(self, gap: float = 20.0, daily: int = 150, settle: float = 1.5) -> None:
+    def __init__(self, gap: float = 10.0, daily: int = 200, settle: float = 1.0) -> None:
         self.gap = gap
         self.daily = daily
         self.settle = settle
         self.enabled = True
         self._asked: set[int] = set()  # tracks already described
+        self._tried: set[int] = set()  # tracks already sent for a close-up
         self._last = -1e9
         self._day = ""
         self._count = 0
@@ -691,12 +775,42 @@ class AutoNamer:
         ]
         return bool(fresh) or holding
 
+    def pick(self, tracks: Sequence[Track], now: float) -> Track | None:
+        """The thing most worth a close-up: unnamed, settled, held/big."""
+        options = [
+            t
+            for t in tracks
+            if t.kind == "objeto"
+            and not t.named
+            and now - t.first_seen >= self.settle
+            and t.id not in self._tried
+        ]
+        if not options:
+            return None
+        # Unsure names first ("objeto"), then the biggest (closest) one.
+        return max(options, key=lambda t: (t.label == "objeto", t.box[2] * t.box[3]))
+
+    def tried(self, track: Track) -> None:
+        self._tried.add(track.id)
+        if len(self._tried) > 500:
+            self._tried = set(list(self._tried)[-200:])
+
     def asked(self, tracks: Sequence[Track], now: float) -> None:
         self._last = now
         self._count += 1
         self._asked.update(t.id for t in tracks)
         if len(self._asked) > 500:
             self._asked = set(list(self._asked)[-200:])
+
+
+def crop_box(box: Box, margin: float = 0.35, min_side: float = 0.18) -> Box:
+    """A close-up around *box* (with room around it, for context)."""
+    x, y, w, h = box
+    cw, ch = max(min_side, w * (1 + 2 * margin)), max(min_side, h * (1 + 2 * margin))
+    cx, cy = x + w / 2, y + h / 2
+    left = min(max(0.0, cx - cw / 2), max(0.0, 1.0 - cw))
+    top = min(max(0.0, cy - ch / 2), max(0.0, 1.0 - ch))
+    return left, top, min(cw, 1.0), min(ch, 1.0)
 
 
 # The craniofacial points the server turns into the 175-measure signature
@@ -854,7 +968,9 @@ __all__ = [
     "Track",
     "Tracker",
     "VisionEngine",
+    "clean_detections",
     "contains",
+    "crop_box",
     "expressions",
     "face_points",
     "head_angles",

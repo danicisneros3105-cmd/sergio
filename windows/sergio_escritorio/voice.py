@@ -430,9 +430,14 @@ class SergioClient:
             except Exception:  # noqa: BLE001 — the agent can still answer
                 log.warning("fast chat failed; using the agent", exc_info=True)
         self.last_route = "agent"
-        self.history.append({"role": "user", "content": text})
         style = VOICE_STYLE + (f" {self.personality}" if self.personality else "")
-        messages = [{"role": "system", "content": style}, *self.history]
+        # The question joins the history only with its answer: a failed turn
+        # used to stay there unanswered and could break the next ones too.
+        messages = [
+            {"role": "system", "content": style},
+            *self.history,
+            {"role": "user", "content": text},
+        ]
         model = self.brain(text)
         resp = self._chat(model, messages)
         if resp.status_code >= 400 and model.startswith(self.deep_model):
@@ -445,7 +450,10 @@ class SergioClient:
         answer = no_emoji(
             str(resp.json()["choices"][0]["message"].get("content") or "").strip()
         )
-        self.history.append({"role": "assistant", "content": answer})
+        self.history += [
+            {"role": "user", "content": text},
+            {"role": "assistant", "content": answer},
+        ]
         del self.history[: -HISTORY_TURNS * 2]
         return answer
 
@@ -464,33 +472,54 @@ class SergioClient:
             self._voice_cache[key] = wav
         return wav
 
+    last_voice = ""  # which voice really spoke last (for `sergio probar`)
+    _gemini_voice_off_until = 0.0
+
     def _speak(self, text: str) -> bytes:
-        """Sergio's British voice (Gemini), else a neural voice, else local."""
+        """Sergio's British voice (Gemini), else a neural voice, else local.
+
+        When Gemini's voice is out of quota (free keys get a handful a day)
+        it is skipped for a while: before, every sentence waited for five
+        failing models first, so answers came late and sounded different.
+        """
         if self.voice.startswith("gemini:"):
-            try:
-                resp = self.http.post(
-                    f"{self.base}/v1/voice/speak",
-                    json={"text": text[:2500], "voice": self.voice.split(":", 1)[1]},
-                    timeout=httpx.Timeout(60, connect=5),
-                )
-                resp.raise_for_status()
-                return resp.content
-            except Exception:  # noqa: BLE001 — fall back to the free voice
-                log.exception("Gemini voice failed; using the neural voice")
+            if time.monotonic() >= self._gemini_voice_off_until:
+                try:
+                    resp = self.http.post(
+                        f"{self.base}/v1/voice/speak",
+                        json={"text": text[:2500], "voice": self.voice.split(":", 1)[1]},
+                        timeout=httpx.Timeout(30, connect=5),
+                    )
+                    resp.raise_for_status()
+                    self.last_voice = f"Gemini ({self.voice.split(':', 1)[1]})"
+                    return resp.content
+                except Exception as exc:  # noqa: BLE001 — fall back to the free voice
+                    why = explain(exc)
+                    log.warning("Gemini voice failed (%s); using the neural voice", why)
+                    if "quota" in why.lower() or "429" in why or "exhausted" in why.lower():
+                        self._gemini_voice_off_until = time.monotonic() + 15 * 60
+                    self.last_voice = f"respaldo Edge (Gemini falló: {why[:120]})"
             try:
                 from sergio_escritorio.neural_voice import EDGE_FALLBACK, synthesize
 
-                return synthesize(text, EDGE_FALLBACK, self.voice_rate)
+                wav = synthesize(text, EDGE_FALLBACK, self.voice_rate)
+                if not self.last_voice.startswith("respaldo"):
+                    self.last_voice = "respaldo Edge (Gemini sin cuota)"
+                return wav
             except Exception:  # noqa: BLE001
                 log.exception("neural voice failed; using the local voice")
+            self.last_voice = "voz local del servidor"
             return self.speak_on_server(text)
         if self.voice:
             try:
                 from sergio_escritorio.neural_voice import synthesize
 
-                return synthesize(text, self.voice, self.voice_rate)
+                wav = synthesize(text, self.voice, self.voice_rate)
+                self.last_voice = f"Edge ({self.voice})"
+                return wav
             except Exception:  # noqa: BLE001 — offline or service hiccup
                 log.exception("neural voice failed; using the local voice")
+        self.last_voice = "voz local del servidor"
         return self.speak_on_server(text)
 
     def look(self, jpeg: bytes, question: str) -> str:

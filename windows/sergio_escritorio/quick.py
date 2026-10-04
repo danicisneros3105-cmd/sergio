@@ -31,6 +31,8 @@ SITES = {
     "drive": "https://drive.google.com",
     "calendario": "https://calendar.google.com",
 }
+# Sites that are also desktop apps: the app opens when it is installed.
+APP_FIRST = {"whatsapp", "spotify", "telegram", "discord", "netflix", "teams", "zoom"}
 SEARCH = {
     "google": "https://www.google.com/search?q={}",
     "youtube": "https://www.youtube.com/results?search_query={}",
@@ -107,9 +109,44 @@ def _plain(text: str) -> str:
     return " ".join(re.sub(r"[^\w\s:/.+-]", " ", text).split())
 
 
+_LEAD = re.compile(
+    r"^(?:(?:sergio|oye|hey|ok|bueno|ya|ahora|por favor|porfa|porfavor)[\s,]+)+"
+)
+_TAIL = re.compile(r"(?:[\s,]+(?:por favor|porfa|porfavor|please|ahora|ya|rapido|sergio))+$")
+_POLITE = re.compile(
+    r"^(?:(?:me |tu )?(?:puedes|podrias|pudieras|quieres|quisieras)( me)? |"
+    r"(?:quiero|necesito|te pido) que (?:me )?|hazme el favor de |"
+    r"ayudame a |vamos a |anda y |dale |me haces el favor de )"
+)
+_VERBS = {
+    "abrir": "abre", "abras": "abre", "abres": "abre", "abrirme": "abre",
+    "abrime": "abre", "abreme": "abre", "abrimos": "abre",
+    "cerrar": "cierra", "cierres": "cierra", "cierras": "cierra",
+    "cerrarme": "cierra", "cierrame": "cierra", "cerramos": "cierra",
+    "iniciar": "inicia", "inicies": "inicia", "ejecuta": "abre", "ejecutar": "abre",
+    "arranca": "abre", "arrancar": "abre", "corre": "abre",
+}
+_APP_WORDS = re.compile(r"^(?:la |el )?(?:app|aplicacion|programa)(?: de| del)? ")
+
+
+def polite(t: str) -> str:
+    """ "Sergio, ¿me puedes abrir el Word por favor?" -> "abre el word"."""
+    for _ in range(2):
+        t = _LEAD.sub("", t).strip()
+        t = _TAIL.sub("", t).strip()
+        t = _POLITE.sub("", t).strip()
+    words = t.split()
+    if words and words[0] in _VERBS:
+        words[0] = _VERBS[words[0]]
+    if len(words) > 1 and words[0] in ("abre", "cierra", "inicia"):
+        rest = _APP_WORDS.sub("", " ".join(words[1:]))
+        return f"{words[0]} {rest}".strip()
+    return " ".join(words)
+
+
 def parse_quick(text: str) -> Quick | None:
     """A Quick action for clear one-step orders, else None."""
-    t = _plain(text).rstrip(".")
+    t = polite(_plain(text).rstrip(".?!"))
     if not t or any(c in f" {t}" for c in _COMPLEX):
         return None
     # Stop / silence
@@ -243,6 +280,8 @@ def parse_quick(text: str) -> Quick | None:
     )
     if m:
         target = m.group(3).strip()
+        if target in APP_FIRST:  # the desktop app if installed, else its web
+            return Quick("open_app", target, f"Abriendo {target.title()}.")
         if target in SITES:
             return Quick("open_url", SITES[target], f"Abriendo {target.title()}.")
         if re.fullmatch(r"[\w.-]+\.(com|org|net|ec|es|io|ai|dev)(/\S*)?", target):
@@ -291,4 +330,4 @@ def spoken_date(now) -> str:  # noqa: ANN001 — a datetime
     return f"Hoy es {_DAYS[now.weekday()]} {now.day} de {_MONTHS[now.month - 1]}."
 
 
-__all__ = ["Quick", "SITES", "parse_quick", "spoken_date", "spoken_time"]
+__all__ = ["APP_FIRST", "Quick", "SITES", "polite", "parse_quick", "spoken_date", "spoken_time"]

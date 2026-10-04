@@ -12,6 +12,8 @@ first, then Vertex AI, and keeps using whichever answered.
 
 from __future__ import annotations
 
+import re
+import time
 from typing import Any, Callable, Iterator
 
 # Errors that mean "wrong service for this key", not "bad request".
@@ -43,14 +45,56 @@ def _default_factory(key: str, vertex: bool) -> Any:
     )
 
 
+# Models whose quota ran out, until when (monotonic). Free keys get a few
+# requests a day for some models: asking again only adds seconds of waiting
+# before the fallback, on every sentence Sergio says.
+_EXHAUSTED: dict[str, float] = {}
+
+
+class QuotaExhausted(RuntimeError):
+    """This model's quota is used up for now (remembered, not asked again)."""
+
+
+def _retry_seconds(text: str) -> float:
+    m = re.search(r"retry in (?:(\d+)h)?(?:(\d+)m)?([\d.]+)s", text)
+    if m:
+        h, mins, secs = (float(g) if g else 0.0 for g in m.groups())
+        return h * 3600 + mins * 60 + secs
+    m = re.search(r"retryDelay'?\"?:\s*'?\"?(\d+)s", text)
+    if m:
+        return float(m.group(1))
+    return 3600.0 if "PerDay" in text else 60.0
+
+
+def note_quota(model: str, exc: Exception, clock: Callable[[], float] = time.monotonic) -> None:
+    text = str(exc)
+    if model and ("RESOURCE_EXHAUSTED" in text or "exceeded your current quota" in text):
+        _EXHAUSTED[model] = clock() + min(_retry_seconds(text), 6 * 3600)
+
+
+def check_quota(model: str, clock: Callable[[], float] = time.monotonic) -> None:
+    until = _EXHAUSTED.get(model or "", 0.0)
+    if until > clock():
+        mins = max(1, int((until - clock()) // 60))
+        raise QuotaExhausted(
+            f"429 RESOURCE_EXHAUSTED: {model} sin cuota por ahora (vuelve en ~{mins} min)"
+        )
+
+
 class _Models:
     def __init__(self, owner: "SwitchingClient") -> None:
         self._owner = owner
 
     def generate_content(self, *args: Any, **kwargs: Any) -> Any:
-        return self._owner._call(
-            lambda client: client.models.generate_content(*args, **kwargs)
-        )
+        model = str(kwargs.get("model") or (args[0] if args else ""))
+        check_quota(model)
+        try:
+            return self._owner._call(
+                lambda client: client.models.generate_content(*args, **kwargs)
+            )
+        except Exception as exc:
+            note_quota(model, exc)
+            raise
 
     def generate_content_stream(self, *args: Any, **kwargs: Any) -> Iterator[Any]:
         def start(client: Any) -> Iterator[Any]:
@@ -64,7 +108,13 @@ class _Models:
 
             return chain()
 
-        return self._owner._call(start)
+        model = str(kwargs.get("model") or (args[0] if args else ""))
+        check_quota(model)
+        try:
+            return self._owner._call(start)
+        except Exception as exc:
+            note_quota(model, exc)
+            raise
 
 
 class SwitchingClient:
@@ -106,4 +156,4 @@ class SwitchingClient:
         )
 
 
-__all__ = ["SwitchingClient", "wrong_service"]
+__all__ = ["QuotaExhausted", "SwitchingClient", "check_quota", "note_quota", "wrong_service"]

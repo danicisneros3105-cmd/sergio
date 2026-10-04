@@ -57,7 +57,22 @@ def _transport(fail=()):
                     "wake": "instantáneo (Vosk)",
                     "gym": "cada 12 min, el próximo en 9 min",
                     "location": {"lat": -2.9, "lon": -79.0, "source": "ubicación de Windows (±30 m)"},
+                    "recent_errors": ["22:10:01 Gemini voice failed (429); using the neural voice"],
+                    "voice_used": "Gemini (Algieba)",
                 },
+            )
+        if path == "/selftest":
+            kind = json.loads(request.content)["kind"]
+            return httpx.Response(
+                200,
+                json={
+                    "call": {"ok": True, "connect_s": 0.5, "voice_s": 1.1, "model": "gemini-3.8-live",
+                             "echo": "webrtc", "said": "Son las tres."},
+                    "turn": {"ok": True, "think_s": 1.2, "voice_s": 0.8,
+                             "voice": "Gemini (Algieba)", "answer": "Son las tres."},
+                    "open": {"ok": True, "said": "abre la calculadora",
+                             "answer": "Abriendo Calculadora.", "took_s": 0.4},
+                }[kind],
             )
         if path == "/v1/faces/photo":
             return httpx.Response(200, json={"text": "La cara: Dani (similitud 71%)."})
@@ -90,6 +105,9 @@ def _run(monkeypatch, tmp_path, fail=()):
     env.write_text("SERGIO_DESKTOP_TOKEN=t\n")
     monkeypatch.setattr("openjarvis.cli.service_cmd.env_file", lambda: env)
     monkeypatch.setattr(probar_cmd.time, "sleep", lambda s: None)
+    from rich.console import Console
+
+    monkeypatch.setattr(probar_cmd, "console", Console(width=400))
     monkeypatch.setattr(
         probar_cmd, "live_call", lambda base: "gemini-3.8-live contestó «Todo en orden»"
     )
@@ -119,6 +137,11 @@ def test_everything_ok(monkeypatch, tmp_path):
         "Caras en fotos",
         "La cara: Dani",
         "Justo encima de usted",
+        "habló en 1.1 s",
+        "con Gemini (Algieba)",
+        "Abriendo Calculadora",
+        "Últimos errores del compañero",
+        "Gemini voice failed (429)",
         "Todo probado de verdad",
     ):
         assert line in result.output, line
