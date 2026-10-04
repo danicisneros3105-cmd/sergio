@@ -804,3 +804,31 @@ async def test_stream_full_routes_to_openai():
     mock_client.chat.completions.create.assert_called_once()
     assert result[0].content == "hi"
     assert result[1].finish_reason == "stop"
+
+
+@pytest.mark.asyncio
+async def test_stream_full_google_unknown_signature_gets_the_placeholder(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """Gemini 3 refuses a function call with no signature: send Google's placeholder."""
+    from openjarvis.engine.cloud import SKIP_SIGNATURE
+
+    client = MagicMock()
+    client.models.generate_content_stream.return_value = iter([])
+    engine = _make_cloud_engine(google_client=client)
+    engine._thought_sigs = {}
+    messages = [
+        Message(role=Role.USER, content="2+2"),
+        Message(
+            role=Role.ASSISTANT,
+            content="Uso la calculadora.",
+            tool_calls=[ToolCall(id="lost", name="calculator", arguments='{"e": "2+2"}')],
+        ),
+        Message(role=Role.TOOL, name="calculator", content="4"),
+    ]
+    with monkeypatch.context() as patch:
+        for name, module in _google_types_modules().items():
+            patch.setitem(sys.modules, name, module)
+        _ = [c async for c in engine.stream_full(messages, model="gemini-3-flash-preview")]
+    contents = client.models.generate_content_stream.call_args.kwargs["contents"]
+    assert contents[1]["parts"][1]["thought_signature"] == SKIP_SIGNATURE

@@ -77,7 +77,7 @@ BRAINS = {
     "equilibrado": "Normal",
     "profundo": "Profundo",
 }
-RATES = {"-10%": "Lenta", "+5%": "Normal", "+20%": "Rápida"}
+RATES = {"-10%": "Lenta", "+0%": "Normal", "+15%": "Rápida"}
 GLOBE_STYLES = {
     "Normal": "normal",
     "Visión nocturna": "night_vision",
@@ -675,7 +675,7 @@ class ControlCenter(QWidget):
         )
         col.addLayout(_row("Voz", self.voice))
         self.rate_seg = Segmented(
-            RATES, str(cfg.get("voice_rate", "+5%")), lambda k: self._save(voice_rate=k)
+            RATES, str(cfg.get("voice_rate", "+0%")), lambda k: self._save(voice_rate=k)
         )
         col.addLayout(_row("Velocidad", self.rate_seg))
         sizes = {key: key for key in SIZES}

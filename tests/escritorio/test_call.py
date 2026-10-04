@@ -280,3 +280,27 @@ def test_lost_connection_ends_the_call():
     assert call.start()
     assert _wait(lambda: not call.active)
     assert ended == ["se cortó"]
+
+
+def test_speaker_waits_for_a_little_voice_before_starting():
+    import time as _time
+
+    import numpy as np
+    from sergio_escritorio.call import PREBUFFER, Speaker
+
+    spk = Speaker(stream_factory=lambda cb: type("S", (), {"start": lambda self: None})())
+    out = bytearray(960)  # what sounddevice hands the callback
+    tone = (np.ones(240) * 3000).astype(np.int16).tobytes()  # 10 ms
+    spk.play(tone)
+    spk._callback(out, 480, None, None)
+    assert not any(out)  # only 10 ms ready and more is coming: wait
+    for _ in range(PREBUFFER // len(tone)):
+        spk.play(tone)
+    spk._callback(out, 480, None, None)
+    assert all(np.frombuffer(bytes(out), np.int16))  # 150 ms ready: he speaks
+    spk.flush()
+    spk.play(tone)
+    spk._last_push = _time.monotonic() - 1  # the sentence ended: play the tail
+    out[:] = bytes(960)
+    spk._callback(out, 480, None, None)
+    assert all(np.frombuffer(bytes(out), np.int16)[:240])

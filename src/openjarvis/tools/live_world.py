@@ -299,7 +299,7 @@ def plane_geometry(
 
 
 def fetch_aircraft(
-    lat: float, lon: float, nm: int, http_get: HttpGet, budget: float = 3.5
+    lat: float, lon: float, nm: int, http_get: HttpGet, budget: float = 3.0
 ) -> tuple[list[dict[str, Any]], list[str]]:
     """All networks at once; merged by aircraft, freshest position wins."""
     from concurrent.futures import ThreadPoolExecutor, wait
@@ -364,15 +364,18 @@ def flight_details(ac: dict[str, Any], http_get: HttpGet) -> dict[str, Any]:
     def plane() -> Any:
         return http_get(f"https://api.adsbdb.com/v0/aircraft/{hexid}", {}) if hexid else None
 
-    with ThreadPoolExecutor(max_workers=2) as pool:
-        r_job, p_job = pool.submit(route), pool.submit(plane)
-        for key, job in (("route", r_job), ("aircraft", p_job)):
-            try:
-                data = (job.result(timeout=3.0) or {}).get("response")
-            except Exception:  # noqa: BLE001
-                continue
-            if isinstance(data, dict):
-                out[key] = data.get("flightroute") if key == "route" else data.get("aircraft")
+    pool = ThreadPoolExecutor(max_workers=2)
+    r_job, p_job = pool.submit(route), pool.submit(plane)
+    deadline = time.monotonic() + 2.5
+    for key, job in (("route", r_job), ("aircraft", p_job)):
+        try:
+            left = max(0.05, deadline - time.monotonic())
+            data = (job.result(timeout=left) or {}).get("response")
+        except Exception:  # noqa: BLE001 — slow or unknown: answer without it
+            continue
+        if isinstance(data, dict):
+            out[key] = data.get("flightroute") if key == "route" else data.get("aircraft")
+    pool.shutdown(wait=False, cancel_futures=True)  # never wait for a slow one
     return out
 
 
@@ -429,15 +432,16 @@ def overhead_report(
     from concurrent.futures import ThreadPoolExecutor
 
     started = clock()
-    with ThreadPoolExecutor(max_workers=1) as pool:
-        ground_job = pool.submit(ground_elevation, lat, lon, http_get) if ground_m is None else None
-        aircraft, used = fetch_aircraft(lat, lon, nm, http_get)
-        ground = ground_m or 0.0
-        if ground_job is not None:
-            try:
-                ground = ground_job.result(timeout=2.0)
-            except Exception:  # noqa: BLE001 — sea level then
-                ground = 0.0
+    pool = ThreadPoolExecutor(max_workers=1)
+    ground_job = pool.submit(ground_elevation, lat, lon, http_get) if ground_m is None else None
+    aircraft, used = fetch_aircraft(lat, lon, nm, http_get)
+    ground = ground_m or 0.0
+    if ground_job is not None:
+        try:
+            ground = ground_job.result(timeout=1.0)
+        except Exception:  # noqa: BLE001 — sea level then
+            ground = 0.0
+    pool.shutdown(wait=False, cancel_futures=True)
     if not used:
         raise RuntimeError("Ninguna red ADS-B respondió a tiempo (sin internet o caídas).")
     seen = []

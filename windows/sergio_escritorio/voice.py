@@ -450,7 +450,7 @@ class SergioClient:
         return answer
 
     voice = ""  # neural voice id; "" = use the server's local voice
-    voice_rate = "+5%"  # Lenta -10% / Normal +5% / Rápida +20%
+    voice_rate = "+0%"  # Lenta -10% / Normal +0% / Rápida +15%
 
     def speak(self, text: str) -> bytes:
         """Sergio's voice; short phrases are remembered (instant next time)."""

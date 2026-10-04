@@ -45,7 +45,8 @@ STYLE = (
     "Lee en español, con la voz de un caballero británico adinerado y muy "
     "inteligente de unos cuarenta años: sereno, elegante y seguro, cálido, con "
     "una ironía amable y un leve acento británico. Dicción nítida y humana, "
-    "ritmo natural, sin sonar a locutor. Di exactamente esto:"
+    "a ritmo pausado y conversacional, con pausas naturales, nunca deprisa "
+    "ni como locutor. Di exactamente esto:"
 )
 EAR_PROMPT = (
     "Transcribe exactamente lo que dice la persona en este audio (español; deja "

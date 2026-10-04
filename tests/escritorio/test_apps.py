@@ -77,6 +77,9 @@ class FakeDesktop:
     def open_uri(self, uri):
         self.uris.append(uri)
 
+    def start_program(self, names):
+        return False
+
     def to_front_here(self, hwnd):
         self.front.append(hwnd)
 
@@ -175,3 +178,29 @@ def test_index_cache_round_trip(tmp_path):
     path = tmp_path / "apps.json"
     AppIndex(START).save(path)
     assert AppIndex.load(path).find("spotify").target.endswith("!Spotify")
+
+
+def test_spanish_names_with_articles_reach_the_tables():
+    from sergio_escritorio.apps import ALIASES, URI_APPS, lookup
+
+    assert lookup(URI_APPS, "bloc de notas") == "notepad.exe"
+    assert lookup(URI_APPS, "el Bloc de Notas") == "notepad.exe"
+    assert lookup(ALIASES, "la calculadora") == ["calculator", "calc"]
+
+
+def test_notepad_opens_even_when_the_start_menu_list_is_empty():
+    desk = FakeDesktop([], appear=Window(3, "Sin título: Bloc de notas", "notepad"), after=0)
+    empty = launcher(desk, AppIndex([]))
+    empty._rescan = lambda: AppIndex([])  # the scan found nothing on this PC
+    assert empty.open("bloc de notas") == "opened bloc de notas"
+    assert desk.uris == ["notepad.exe"] and desk.front == [3]
+
+
+def test_start_apps_falls_back_to_the_apps_folder():
+    seen = []
+
+    def run(cmd):
+        seen.append(cmd[-1])
+        return "" if len(seen) == 1 else json.dumps([{"Name": "Bloc de notas", "AppID": "Notepad!App"}])
+
+    assert scan_start_apps(run=run)[0].name == "Bloc de notas" and "AppsFolder" in seen[1]

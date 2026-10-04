@@ -34,6 +34,7 @@ SEND_BYTES = 3_200  # 100 ms of audio per message to the server
 IDLE_HANG_UP = 60.0  # seconds with nobody talking: the call ends by itself
 VIDEO_EVERY = 1.0  # seconds between camera/screen frames while sharing
 REF_MAX = 60  # at most 600 ms of speaker reference waiting for the mic
+PREBUFFER = RATE_OUT * 2 * 150 // 1000  # 150 ms of his voice before he starts
 
 
 def rms(data: bytes | np.ndarray) -> float:
@@ -99,6 +100,8 @@ class Speaker:
         self._buf = bytearray()
         self._lock = threading.Lock()
         self._ref = bytearray()  # what was played, 16 kHz, for the mic side
+        self._playing = False
+        self._last_push = 0.0
         self._stream: Any = None
         self.level = 0.0  # 0..1, for the waveform
         self.last_sound = 0.0
@@ -115,8 +118,8 @@ class Speaker:
                 samplerate=RATE_OUT,
                 channels=1,
                 dtype="int16",
-                blocksize=240,  # 10 ms
-                latency="low",
+                blocksize=480,  # 20 ms
+                latency=0.08,  # a little margin: no clicks or gaps
                 callback=self._callback,
             )
         self._stream.start()
@@ -134,8 +137,20 @@ class Speaker:
     def _callback(self, outdata: Any, frames: int, _time: Any, _status: Any) -> None:
         need = frames * 2
         with self._lock:
-            chunk = bytes(self._buf[:need])
-            del self._buf[:need]
+            # Jitter buffer: start a sentence only with ~150 ms ready (or when
+            # no more is coming), so network hiccups never chop the words.
+            ready = len(self._buf)
+            if not self._playing and ready and (
+                ready >= PREBUFFER or time.monotonic() - self._last_push > 0.2
+            ):
+                self._playing = True
+            if self._playing:
+                chunk = bytes(self._buf[:need])
+                del self._buf[:need]
+                if not self._buf:
+                    self._playing = False
+            else:
+                chunk = b""
         if len(chunk) < need:
             chunk += b"\0" * (need - len(chunk))
         outdata[:] = chunk
@@ -153,11 +168,13 @@ class Speaker:
     def play(self, pcm: bytes) -> None:
         with self._lock:
             self._buf.extend(pcm)
+            self._last_push = time.monotonic()
 
     def flush(self) -> None:
         """Stop talking now (he was interrupted)."""
         with self._lock:
             self._buf.clear()
+            self._playing = False
 
     @property
     def talking(self) -> bool:

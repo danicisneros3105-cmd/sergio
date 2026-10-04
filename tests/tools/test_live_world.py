@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import time
 from urllib.parse import parse_qs
 
 import pytest
@@ -292,3 +293,24 @@ def test_bare_place_names_prefer_the_users_country(monkeypatch):
     assert asked[0]["countrycodes"] == "ec" and lat == -2.9 and "Ecuador" in label
     live_world.geocode("Cuenca, España", get)
     assert "countrycodes" not in asked[-1]
+
+
+def test_a_hanging_network_never_holds_the_answer():
+    import threading
+
+    stop = threading.Event()
+    lat, lon = CUENCA
+    ok = _plane("e1", "AVA1", lat + 0.01, lon, 30000)
+
+    def get(url, params):
+        if "airplanes.live" in url or "adsbdb" in url or "open-meteo" in url:
+            stop.wait(30)  # a network that never answers
+            return {}
+        if "adsb.lol" in url:
+            return {"ac": [ok]}
+        return {"ac": []}
+
+    started = time.time()
+    report = live_world.overhead_report(lat, lon, http_get=get)
+    stop.set()
+    assert time.time() - started < 8 and report["callsign"] == "AVA1"

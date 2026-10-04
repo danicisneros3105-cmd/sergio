@@ -266,6 +266,11 @@ def _gemini_generation(model: str) -> float:
     return float(found.group(1)) if found else 0.0
 
 
+# Google's documented placeholder for function calls whose real thought
+# signature is unknown (written by another model, or lost).
+SKIP_SIGNATURE = b"skip_thought_signature_validator"
+
+
 def google_config_kwargs(
     model: str, temperature: float, max_tokens: int, effort: str = ""
 ) -> Dict[str, Any]:
@@ -1155,9 +1160,11 @@ class CloudEngine(InferenceEngine):
                         }
                     }
                     # Replay thought_signature for Gemini reasoning models
+                    # (a call without one -- another model wrote it, or it
+                    # was lost -- gets Google's documented placeholder,
+                    # otherwise Gemini 3 refuses the whole request)
                     sig = self._thought_sigs.get(tc.id)
-                    if sig is not None:
-                        fc_part["thought_signature"] = sig
+                    fc_part["thought_signature"] = sig if sig is not None else SKIP_SIGNATURE
                     parts.append(fc_part)
                 contents.append({"role": "model", "parts": parts})
             elif m.role.value == "assistant":
@@ -1280,12 +1287,18 @@ class CloudEngine(InferenceEngine):
                     response_mime_type=config.response_mime_type,
                     response_schema=config.response_schema,
                 )
-                # Thought signatures belong to the model that wrote them.
+                # Thought signatures belong to the model that wrote them; the
+                # new model gets the placeholder on its function calls.
                 contents = [
                     {
                         **c,
                         "parts": [
                             {k: v for k, v in part.items() if k != "thought_signature"}
+                            | (
+                                {"thought_signature": SKIP_SIGNATURE}
+                                if "function_call" in part
+                                else {}
+                            )
                             for part in c["parts"]
                         ],
                     }
@@ -1906,8 +1919,9 @@ class CloudEngine(InferenceEngine):
                         }
                     }
                     signature = self._thought_sigs.get(tool_call.id)
-                    if signature is not None:
-                        function_call_part["thought_signature"] = signature
+                    function_call_part["thought_signature"] = (
+                        signature if signature is not None else SKIP_SIGNATURE
+                    )
                     parts.append(function_call_part)
                 contents.append({"role": "model", "parts": parts})
             elif message.role.value == "assistant":

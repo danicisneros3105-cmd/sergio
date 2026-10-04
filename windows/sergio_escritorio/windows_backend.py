@@ -294,9 +294,9 @@ class WindowsBackend:
         found by program (Spotify's title is the song) or by title."""
         closed = self.launcher.close(name)
         if not closed:
-            from sergio_escritorio.apps import ALIASES, normalise
+            from sergio_escritorio.apps import ALIASES, lookup, normalise
 
-            for exe in [normalise(name).replace(" ", ""), *ALIASES.get(normalise(name), [])]:
+            for exe in [normalise(name).replace(" ", ""), *(lookup(ALIASES, name) or [])]:
                 done = subprocess.run(
                     ["taskkill", "/im", f"{exe.replace(' ', '')}.exe"],
                     capture_output=True,

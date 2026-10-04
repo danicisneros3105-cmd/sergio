@@ -160,6 +160,18 @@ class App:
         return _core(self.name)
 
 
+def lookup(table: dict[str, Any], spoken: str) -> Any:
+    """table[...] by how the name was said: "bloc de notas", "la calculadora"."""
+    plain = normalise(spoken)
+    words = plain.split()
+    while words and words[0] in ("el", "la", "los", "las", "mi", "app", "aplicacion"):
+        words = words[1:]
+    for key in (plain, " ".join(words), _core(spoken)):
+        if key in table:
+            return table[key]
+    return None
+
+
 def score(query: str, name: str) -> float:
     """How well a spoken app name matches an app's name (0..100)."""
     q, n = _core(query), _core(name)
@@ -194,7 +206,7 @@ class AppIndex:
             self.apps.append(app)
 
     def find(self, spoken: str) -> App | None:
-        names = [spoken] + ALIASES.get(_core(spoken), [])
+        names = [spoken] + (lookup(ALIASES, spoken) or [])
         best: tuple[float, int, App] | None = None
         order = {"appid": 0, "lnk": 1, "exe": 2}
         for app in self.apps:
@@ -244,6 +256,16 @@ def start_menu_folders() -> list[Path]:
     ]
 
 
+# The same list through the Start menu's own folder (when Get-StartApps
+# is missing or prints nothing).
+SHELL_APPS = (
+    "[Console]::OutputEncoding=[Text.Encoding]::UTF8; "
+    "(New-Object -ComObject Shell.Application).NameSpace('shell:AppsFolder').Items() | "
+    "ForEach-Object { [pscustomobject]@{Name=$_.Name; AppID=$_.Path} } | "
+    "ConvertTo-Json -Compress"
+)
+
+
 def scan_start_apps(run: Callable[[list[str]], str] | None = None) -> list[App]:
     """Store and Start apps with their ids (PowerShell's Get-StartApps)."""
     command = [
@@ -266,10 +288,15 @@ def scan_start_apps(run: Callable[[list[str]], str] | None = None) -> list[App]:
             )
             return done.stdout.decode("utf-8", "replace")
 
-    try:
-        data = json.loads(run(command) or "[]")
-    except Exception:  # noqa: BLE001
-        return []
+    data: Any = []
+    for cmd in (command, command[:-1] + [SHELL_APPS]):
+        try:
+            data = json.loads(run(cmd) or "[]")
+        except Exception:  # noqa: BLE001 — try the other way
+            log.warning("app scan failed: %s", cmd[-1][:60], exc_info=True)
+            data = []
+        if data:
+            break
     if isinstance(data, dict):
         data = [data]
     return [
@@ -375,6 +402,17 @@ class Desktop:
 
     def open_uri(self, uri: str) -> None:
         os.startfile(uri)  # type: ignore[attr-defined]  # Windows only
+
+    def start_program(self, names: Iterable[str]) -> bool:
+        """Last resort: a program of that name on the PATH (notepad.exe)."""
+        import shutil
+
+        for name in names:
+            exe = shutil.which(normalise(name).replace(" ", "") + ".exe") if sys.platform == "win32" else None
+            if exe:
+                subprocess.Popen([exe], creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))  # noqa: S603
+                return True
+        return False
 
     def to_front_here(self, hwnd: int) -> None:
         """Move the window to the monitor with the mouse and focus it."""
@@ -506,7 +544,7 @@ class Launcher:
                 pass
 
     def _names(self, spoken: str, app: App | None) -> list[str]:
-        names = [spoken, *ALIASES.get(_core(spoken), [])]
+        names = [spoken, *(lookup(ALIASES, spoken) or [])]
         if app is not None:
             names.append(app.name)
         return names
@@ -524,9 +562,11 @@ class Launcher:
         if app is not None:
             self.desktop.launch(app)
             label = app.name
-        elif _core(spoken) in URI_APPS:
-            self.desktop.open_uri(URI_APPS[_core(spoken)])
+        elif lookup(URI_APPS, spoken):
+            self.desktop.open_uri(lookup(URI_APPS, spoken))
             label = spoken
+        elif self.desktop.start_program(names):
+            label = spoken  # found as a program on the PATH (notepad.exe...)
         else:
             raise LookupError(
                 f"No encuentro una app llamada «{spoken}» en esta computadora."

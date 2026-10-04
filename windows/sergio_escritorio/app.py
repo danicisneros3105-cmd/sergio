@@ -60,7 +60,8 @@ def load_config() -> dict[str, Any]:
     data.setdefault("mouth", "ninguna")
     data.setdefault("accessory", "ninguno")
     data.setdefault("personality", "Caballero británico")
-    data.setdefault("voice_rate", "+5%")
+    if data.get("voice_rate") in (None, "+5%"):  # the old default sounded rushed
+        data["voice_rate"] = "+0%"
     data.setdefault("effort", "auto")
     # Talk like a phone call (Gemini Live); "turnos" = one question at a time.
     data.setdefault("conversation", "llamada")

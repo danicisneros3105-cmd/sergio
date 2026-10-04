@@ -63,7 +63,7 @@ def mp3_to_wav(mp3: bytes, rate: int = 24_000) -> bytes:
     return buf.getvalue()
 
 
-def synthesize(text: str, voice: str = DEFAULT_VOICE, rate: str = "+5%") -> bytes:
+def synthesize(text: str, voice: str = DEFAULT_VOICE, rate: str = "+0%") -> bytes:
     """WAV bytes of *text* spoken by *voice*."""
     return mp3_to_wav(asyncio.run(_mp3(text[:3000], voice, rate)))
 

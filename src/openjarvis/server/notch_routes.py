@@ -75,7 +75,15 @@ async def overhead(lat: float, lon: float, alt: float | None = None) -> dict[str
     if not (-90 <= lat <= 90 and -180 <= lon <= 180):
         raise HTTPException(status_code=400, detail="Coordenadas fuera de rango.")
     try:
-        report = await asyncio.to_thread(overhead_report, lat, lon, ground_m=alt)
+        # A hard limit: the answer is due in under 8 seconds, whatever the
+        # networks do.
+        report = await asyncio.wait_for(
+            asyncio.to_thread(overhead_report, lat, lon, ground_m=alt), timeout=7.5
+        )
+    except asyncio.TimeoutError as exc:
+        raise HTTPException(
+            status_code=504, detail="Las redes de aviones no respondieron en 7 segundos."
+        ) from exc
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     if report.get("plane_lat") is not None:

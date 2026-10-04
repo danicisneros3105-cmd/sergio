@@ -277,7 +277,7 @@ def probar(sin_pantalla: bool) -> None:
         run.check("Caras en fotos (red neuronal + 175 medidas)", photo_faces)
 
         def overhead() -> str:
-            diag = _ok(http.get(f"{win}/diag", headers=auth)).json()
+            diag = _ok(http.get(f"{win}/diag", headers=auth, timeout=8)).json()
             where = diag.get("location") or {}
             lat, lon = where.get("lat"), where.get("lon")
             note = where.get("source", "")
@@ -285,7 +285,7 @@ def probar(sin_pantalla: bool) -> None:
                 lat, lon, note = -2.9001, -79.0059, "sin ubicación de Windows: probé con Cuenca"
             started = time.monotonic()
             report = _ok(
-                http.get(f"{base}/v1/world/overhead", params={"lat": lat, "lon": lon}, timeout=20)
+                http.get(f"{base}/v1/world/overhead", params={"lat": lat, "lon": lon}, timeout=12)
             ).json()
             took = time.monotonic() - started
             return f"{took:.1f} s ({note}): {str(report.get('text', ''))[:120]}"
