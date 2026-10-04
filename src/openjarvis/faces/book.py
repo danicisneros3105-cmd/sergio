@@ -30,11 +30,33 @@ MODELS = {
     ),
 }
 
-# Cosine-similarity threshold recommended for SFace (higher = same person).
-MATCH_THRESHOLD = 0.363
+# Cosine similarity (SFace) needed to say "this is <name>". OpenCV's 0.363 is
+# for comparing two photos; Sergio compares a webcam face with every photo
+# of every enrolled person, so a single lucky photo used to make strangers
+# "Daniel". Now a person's score is the mean of their best 3 photos, it must
+# reach MATCH_THRESHOLD and beat the next person by MATCH_MARGIN.
+MATCH_THRESHOLD = 0.42
+MATCH_MARGIN = 0.06
+TOP_K = 3
+MIN_FACE_PX = 40  # smaller faces are too blurry to name
+MIN_DETECTION = 0.85
+GUEST_SAME = 0.5  # an unknown face this close to a recent one is the same guest
+GUEST_TTL = 1800.0
 MAX_SAMPLES = 20
 MAX_IMAGE_BYTES = 10 * 1024 * 1024
 _NAME = re.compile(r"^[\w .'-]{1,60}$", re.UNICODE)
+_RAW_NAME = re.compile(r"^[\w .,'-]{1,80}$", re.UNICODE)  # before cleaning
+_LOWER = {"de", "del", "la", "las", "los", "y", "da", "do", "dos", "van", "von"}
+
+
+def clean_name(name: str) -> str:
+    """'daniel cisneros .' -> 'Daniel Cisneros' (as people write names)."""
+    words = re.sub(r"[^\w' -]", " ", name or "", flags=re.UNICODE).split()
+    out = []
+    for i, word in enumerate(words):
+        low = word.lower()
+        out.append(low if i and low in _LOWER else low[:1].upper() + low[1:])
+    return " ".join(out)[:60]
 
 
 class FaceError(ValueError):
@@ -46,13 +68,46 @@ class Match:
     name: str  # "" when the face does not match anyone enrolled
     score: float
     box: tuple[int, int, int, int]  # x, y, width, height
+    guest: int = 0  # unknown faces: the same stranger keeps the same number
+    quality: str = "ok"  # "pequeña" / "borrosa": too poor to name
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "name": self.name or None,
             "score": round(self.score, 3),
             "box": list(self.box),
+            "guest": self.guest or None,
+            "quality": self.quality,
         }
+
+
+class _Guests:
+    """Strangers seen recently, so "Persona 2" stays "Persona 2"."""
+
+    def __init__(self) -> None:
+        self._seen: list[tuple[int, Any, float]] = []  # (number, embedding, time)
+        self._next = 1
+
+    def number(self, feature: Any) -> int:
+        import numpy as np
+
+        now = time.monotonic()
+        self._seen = [g for g in self._seen if now - g[2] < GUEST_TTL]
+        best, best_score = None, GUEST_SAME
+        for i, (_n, emb, _t) in enumerate(self._seen):
+            score = float(np.dot(feature, emb))
+            if score >= best_score:
+                best, best_score = i, score
+        if best is not None:
+            n, emb, _t = self._seen[best]
+            self._seen[best] = (n, emb, now)
+            return n
+        if not self._seen:
+            self._next = 1  # nobody around for a while: numbering restarts
+        n = self._next
+        self._next += 1
+        self._seen.append((n, feature, now))
+        return n
 
 
 def _sha256(path: Path) -> str:
@@ -100,6 +155,7 @@ class FaceBook:
         self._init_lock = threading.Lock()
         self._detector: Any = None
         self._recognizer: Any = None
+        self._guests = _Guests()
 
     # -- storage -----------------------------------------------------------
 
@@ -117,7 +173,7 @@ class FaceBook:
             data = json.loads(self._db.read_text())
             if not isinstance(data, dict):
                 raise ValueError("not an object")
-            return data
+            return _tidy(data)
         except (OSError, ValueError) as exc:
             if strict:
                 raise FaceError(
@@ -145,7 +201,10 @@ class FaceBook:
     def forget(self, name: str) -> bool:
         with self._lock:
             people = self._load(strict=True)
-            if people.pop(name, None) is None:
+            key = next(
+                (k for k in people if k.lower() == clean_name(name).lower()), name
+            )
+            if people.pop(key, None) is None:
                 return False
             self._save(people)
             return True
@@ -168,8 +227,10 @@ class FaceBook:
             )
         return self._detector, self._recognizer
 
-    def _faces(self, image_bytes: bytes) -> list[tuple[Any, tuple[int, int, int, int]]]:
-        """Embeddings and boxes of every face in the image."""
+    def _faces(
+        self, image_bytes: bytes
+    ) -> list[tuple[Any, tuple[int, int, int, int], float]]:
+        """Embeddings, boxes and detection scores of every face in the image."""
         import cv2
         import numpy as np
 
@@ -188,17 +249,21 @@ class FaceBook:
                 aligned = recognizer.alignCrop(image, face)
                 feature = recognizer.feature(aligned).flatten()
                 box = tuple(int(v) for v in face[:4])
-                results.append((feature / (np.linalg.norm(feature) + 1e-9), box))
+                score = float(face[14]) if len(face) > 14 else 1.0
+                results.append(
+                    (feature / (np.linalg.norm(feature) + 1e-9), box, score)
+                )
         return results
 
     def enroll(self, name: str, image_bytes: bytes, *, consent: bool) -> int:
         """Add one photo of *name*; returns the number of stored samples."""
-        name = (name or "").strip()
+        raw = (name or "").strip()
+        name = clean_name(raw)
         if not consent:
             raise FaceError(
                 "Enroll a person only with their consent (confirm consent=true)."
             )
-        if not _NAME.match(name):
+        if not _RAW_NAME.match(raw) or not _NAME.match(name):
             raise FaceError("Use a plain name (letters, spaces, up to 60 characters).")
         faces = self._faces(image_bytes)
         if len(faces) != 1:
@@ -207,6 +272,7 @@ class FaceBook:
             )
         with self._lock:
             people = self._load(strict=True)
+            name = next((k for k in people if k.lower() == name.lower()), name)
             person = people.setdefault(
                 name, {"embeddings": [], "enrolled_at": time.time()}
             )
@@ -220,22 +286,67 @@ class FaceBook:
         import numpy as np
 
         faces = self._faces(image_bytes)
-        people = self._load()
-        known = [
-            (name, np.asarray(emb, dtype=np.float32))
-            for name, p in people.items()
-            for emb in p["embeddings"]
-        ]
+        people = {
+            name: np.asarray(p["embeddings"], dtype=np.float32)
+            for name, p in self._load().items()
+            if p.get("embeddings")
+        }
         matches = []
-        for feature, box in faces:
-            best_name, best = "", -1.0
-            for name, emb in known:
-                score = float(np.dot(feature, emb))
-                if score > best:
-                    best_name, best = name, score
-            matched = best >= MATCH_THRESHOLD
-            matches.append(Match(best_name if matched else "", max(best, 0.0), box))
+        for feature, box, *rest in faces:
+            detection = float(rest[0]) if rest else 1.0
+            ranked = sorted(
+                ((person_score(feature, embs), name) for name, embs in people.items()),
+                reverse=True,
+            )
+            best, name = ranked[0] if ranked else (0.0, "")
+            runner_up = ranked[1][0] if len(ranked) > 1 else -1.0
+            quality = "ok"
+            if min(box[2], box[3]) < MIN_FACE_PX:
+                quality = "pequeña"
+            elif detection < MIN_DETECTION:
+                quality = "borrosa"
+            sure = (
+                quality == "ok"
+                and best >= MATCH_THRESHOLD
+                and best - runner_up >= MATCH_MARGIN
+            )
+            if sure:
+                matches.append(Match(name, best, box, quality=quality))
+            else:
+                guest = self._guests.number(feature) if quality == "ok" else 0
+                matches.append(Match("", max(best, 0.0), box, guest, quality))
         return matches
 
 
-__all__ = ["FaceBook", "FaceError", "MATCH_THRESHOLD", "Match", "ensure_model"]
+def person_score(feature: Any, embeddings: Any) -> float:
+    """How much a face looks like a person: mean of their best TOP_K photos."""
+    import numpy as np
+
+    scores = np.sort(embeddings @ feature)[::-1]
+    return float(np.mean(scores[:TOP_K]))
+
+
+def _tidy(people: dict[str, Any]) -> dict[str, Any]:
+    """Clean names ('Daniel Cisneros .' -> 'Daniel Cisneros'), merging twins."""
+    out: dict[str, Any] = {}
+    for raw, person in people.items():
+        name = clean_name(raw) or raw
+        key = next((k for k in out if k.lower() == name.lower()), name)
+        if key in out:
+            out[key]["embeddings"] = (
+                out[key]["embeddings"] + list(person.get("embeddings") or [])
+            )[-MAX_SAMPLES:]
+        else:
+            out[key] = dict(person)
+    return out
+
+
+__all__ = [
+    "FaceBook",
+    "FaceError",
+    "MATCH_THRESHOLD",
+    "Match",
+    "clean_name",
+    "ensure_model",
+    "person_score",
+]

@@ -211,11 +211,20 @@ def test_face_watcher_names_faces_and_greets_once(monkeypatch):
     faces = w.check(frame)
     assert faces[0]["name"] == "Dani"
     assert faces[0]["box"] == (128.0, 64.0, 256.0, 320.0)  # back to frame pixels
-    clock[0] += 5
+    assert faces[0]["nbox"] == (0.1, 64 / 720, 0.2, 320 / 720)
+    assert greeted == []  # one look could be a lucky guess
+    clock[0] += 1.5
     w.check(frame)
-    assert greeted == ["Dani"]  # once, not on every check
+    assert greeted == ["Dani"]
+    for _ in range(5):  # still here: not greeted on every check
+        clock[0] += 1.5
+        w.check(frame)
+    assert greeted == ["Dani"]
     clock[0] += 601
     w.check(frame)
-    assert greeted == ["Dani", "Dani"]  # back after a while: greeted again
+    assert greeted == ["Dani"]  # back after a while: one look is not enough
+    clock[0] += 1.5
+    w.check(frame)
+    assert greeted == ["Dani", "Dani"]  # second look: greeted again
     clock[0] += 10
     assert w.fresh() == []  # old results are not drawn

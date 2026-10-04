@@ -20,7 +20,17 @@ PROMPT = (
     "sorpresa, cansancio), dilo. No inventes lo que no se ve."
 )
 KIMI_VISION_MODELS = ("kimi-k2.6", "kimi-k2.5", "moonshot-v1-8k-vision-preview")
-GEMINI_VISION_MODELS = ("gemini-3.8-flash", "gemini-3.5-flash", "gemini-2.5-flash")
+# Every Gemini Flash has its own free daily quota: when one is spent, the
+# next one sees for Sergio.
+GEMINI_VISION_MODELS = (
+    "gemini-3.8-flash",
+    "gemini-3.7-flash",
+    "gemini-3.6-flash",
+    "gemini-3.5-flash",
+    "gemini-3-flash-preview",
+    "gemini-flash-latest",
+    "gemini-2.5-flash",
+)
 
 
 def _kimi(

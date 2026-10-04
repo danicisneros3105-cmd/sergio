@@ -125,7 +125,9 @@ def test_camera_window_buttons(qt, tmp_path, monkeypatch):
     w._tick()
     assert w._faces == [(10, 10, 50, 50)]
     rects = w.button_rects()
-    assert set(rects) == {"ask", "hands", "mirror", "photo"}
+    assert set(rects) == {"ask", "analyze", "hands", "physics", "mirror", "photo"}
+    card = w.card()
+    assert all(card.contains(r) for r in rects.values())  # all fit
 
     class Hands:
         mode = "off"

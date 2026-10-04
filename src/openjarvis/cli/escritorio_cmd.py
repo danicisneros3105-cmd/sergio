@@ -219,11 +219,22 @@ def instalar(vision: bool, gpu: bool = False) -> None:
         )
 
     # Load the token and the new tools into the running Sergio.
-    subprocess.run(
+    restarted = subprocess.run(
         ["systemctl", "--user", "try-restart", "sergio.service"],
         capture_output=True,
         check=False,
     )
+    if restarted.returncode == 0:
+        from openjarvis.cli.service_cmd import wait_for_server
+        from openjarvis.core.config import load_config
+
+        console.print("Reiniciando Sergio con los cambios…")
+        port = load_config().server.port
+        if not wait_for_server(f"http://127.0.0.1:{port}"):
+            console.print(
+                "[yellow]Sergio tarda en arrancar. Mira: "
+                "journalctl --user -u sergio -n 50[/yellow]"
+            )
     console.print(
         "\n[green]Listo.[/green] Sergio vive junto a tu cursor (sin ventanas):\n"
         "  Di «Sergio, …»        y pídele lo que quieras\n"

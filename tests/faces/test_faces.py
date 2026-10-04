@@ -22,10 +22,13 @@ LUIS = _unit([0, 1, 0, 0])
 def book(tmp_path, monkeypatch):
     b = FaceBook(tmp_path / "faces")
     faces_by_image = {
-        b"ana": [(ANA, (1, 2, 3, 4))],
-        b"ana2": [(_unit([0.95, 0.05, 0, 0]), (5, 6, 7, 8))],
-        b"luis": [(LUIS, (0, 0, 9, 9))],
-        b"group": [(ANA, (0, 0, 1, 1)), (_unit([0, 0, 1, 0]), (2, 2, 1, 1))],
+        b"ana": [(ANA, (1, 2, 130, 140))],
+        b"ana2": [(_unit([0.95, 0.05, 0, 0]), (5, 6, 120, 130))],
+        b"luis": [(LUIS, (0, 0, 90, 90))],
+        b"group": [
+            (ANA, (0, 0, 100, 100)),
+            (_unit([0, 0, 1, 0]), (200, 0, 100, 100)),
+        ],
         b"empty": [],
     }
 
@@ -136,3 +139,86 @@ def test_damaged_file_is_never_overwritten(book, tmp_path):
         book.forget("Ana")
     assert db.read_text() == "{truncated"  # nothing lost
     assert book.people() == []  # reading stays tolerant
+
+
+# -- "not everyone is Daniel": stricter matching, guests, clean names --------
+def _near(vec, noise, seed):
+    rng = np.random.default_rng(seed)
+    return _unit(np.asarray(vec, dtype=np.float32) + rng.normal(0, noise, len(vec)))
+
+
+def test_names_are_cleaned_and_old_entries_merged(tmp_path):
+    import json
+
+    from openjarvis.faces.book import clean_name
+
+    assert clean_name("daniel cisneros .") == "Daniel Cisneros"
+    assert clean_name("  maría  DE la  o, ") == "María de la O"
+    root = tmp_path / "faces"
+    root.mkdir()
+    (root / "people.json").write_text(
+        json.dumps(
+            {
+                "Daniel Cisneros .": {"embeddings": [[1, 0]], "enrolled_at": 1},
+                "daniel cisneros": {"embeddings": [[0, 1]], "enrolled_at": 2},
+            }
+        )
+    )
+    people = FaceBook(root).people()
+    assert people == [
+        {"name": "Daniel Cisneros", "samples": 2, "enrolled_at": 1}
+    ]
+
+
+def test_a_stranger_is_not_the_only_enrolled_person(tmp_path, monkeypatch):
+    """With one person enrolled, a look-alike scoring 0.38 used to be "Dani"."""
+    dim = 128
+    rng = np.random.default_rng(0)
+    dani = _unit(rng.normal(size=dim))
+    stranger = _unit(0.38 * dani + 0.92 * _unit(rng.normal(size=dim)))
+    b = FaceBook(tmp_path / "faces")
+    photos = {f"dani{i}".encode(): [(_near(dani, 0.05, i), (0, 0, 150, 150), 0.97)] for i in range(8)}
+    photos[b"stranger"] = [(stranger, (0, 0, 150, 150), 0.97)]
+    photos[b"dani_live"] = [(_near(dani, 0.08, 99), (0, 0, 150, 150), 0.95)]
+    monkeypatch.setattr(b, "_faces", lambda data: photos[data])
+    for i in range(8):
+        b.enroll("Dani", f"dani{i}".encode(), consent=True)
+    assert b.identify(b"dani_live")[0].name == "Dani"
+    unknown = b.identify(b"stranger")[0]
+    assert unknown.name == "" and unknown.guest == 1
+    # the same stranger keeps the same number; a second one gets the next
+    assert b.identify(b"stranger")[0].guest == 1
+    other = _unit(rng.normal(size=dim))
+    photos[b"other"] = [(other, (0, 0, 150, 150), 0.97)]
+    assert b.identify(b"other")[0].guest == 2
+
+
+def test_two_similar_people_need_a_clear_winner(tmp_path, monkeypatch):
+    b = FaceBook(tmp_path / "faces")
+    a = _unit([1, 0.0, 0, 0])
+    c = _unit([1, 0.15, 0, 0])  # siblings: both match well
+    photos = {
+        b"a": [(a, (0, 0, 100, 100), 0.99)],
+        b"c": [(c, (0, 0, 100, 100), 0.99)],
+        b"between": [(_unit([1, 0.075, 0, 0]), (0, 0, 100, 100), 0.99)],
+    }
+    monkeypatch.setattr(b, "_faces", lambda data: photos[data])
+    b.enroll("Ana", b"a", consent=True)
+    b.enroll("Carla", b"c", consent=True)
+    assert b.identify(b"a")[0].name == ""  # too close to call: not guessed
+    assert b.identify(b"between")[0].name == ""
+
+
+def test_tiny_or_blurry_faces_are_not_named(tmp_path, monkeypatch):
+    b = FaceBook(tmp_path / "faces")
+    photos = {
+        b"ana": [(ANA, (0, 0, 120, 120), 0.99)],
+        b"far": [(ANA, (0, 0, 24, 24), 0.99)],
+        b"blur": [(ANA, (0, 0, 120, 120), 0.6)],
+    }
+    monkeypatch.setattr(b, "_faces", lambda data: photos[data])
+    b.enroll("Ana", b"ana", consent=True)
+    far, blur = b.identify(b"far")[0], b.identify(b"blur")[0]
+    assert (far.name, far.quality) == ("", "pequeña")
+    assert (blur.name, blur.quality) == ("", "borrosa")
+    assert b.identify(b"ana")[0].to_dict()["quality"] == "ok"

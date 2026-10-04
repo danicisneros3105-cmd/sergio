@@ -376,6 +376,96 @@ sergio escritorio estado        # comprobar que está conectado
 Para que además describa imágenes de la pantalla (fotos, gráficos), añade
 `--vision`: descarga un modelo de visión local de unos 6 GB.
 
+## Hablar con Sergio como en una llamada
+
+Di «Sergio…» (o pulsa Ctrl+Espacio) y empieza una **llamada en tiempo real**
+(Gemini Live): contesta en menos de un segundo, puedes interrumpirlo
+hablando, y sigue escuchándote sin repetir su nombre. La llamada se cuelga
+sola tras un minuto de silencio, cuando te despides («gracias, eso es todo»)
+o con Ctrl+Espacio. El notch muestra una píldora verde con el tiempo.
+
+* Te oye aunque suene por los parlantes del laptop: cancelación de eco WebRTC.
+* Si la cámara está abierta, **ve lo que ve la cámara**; «mira mi pantalla»
+  o mantener Ctrl+Alt le enseña tu pantalla.
+* Durante la llamada usa sus herramientas al instante: abrir y cerrar apps o
+  webs, buscar, volumen y música, señalar en pantalla, cámara, manos,
+  física, recordatorios, estado del sistema, protocolos, organizar archivos,
+  terminal, Python, Blender, video y el globo. Los encargos largos («tarea»)
+  corren en segundo plano y te avisa al terminar.
+* Si la llamada no puede abrirse (sin cuota de Gemini Live), Sergio vuelve a
+  responder por turnos como antes. `"conversation": "turnos"` en
+  `config.json` lo deja siempre por turnos.
+* Clave gratuita de Gemini: cada modelo tiene una cuota diaria pequeña (la
+  voz por turnos, solo 10 frases al día). Cuando un modelo se agota, Sergio
+  pasa solo al siguiente de la misma familia.
+
+## Cámara avanzada
+
+* Personas, **especies** (perro, gato, pájaro, caballo…) y 70 clases de
+  objetos con nombre en español, cada uno con su recuadro estilo JARVIS y
+  un número que lo sigue mientras está en vista.
+* Caras: nombre y % para las personas conocidas; a quien no conoce lo llama
+  «Persona 1», «Persona 2». Un nombre solo aparece cuando dos miradas
+  seguidas coinciden, y el reconocimiento es más estricto: ya no confunde a
+  otras personas contigo.
+* Para presentarle a alguien: haz clic en su recuadro, o di «Sergio, ella se
+  llama Ana» (siempre con su permiso).
+* Malla facial con la expresión (sonriendo, sorprendido, guiño…) y hacia
+  dónde mira la cabeza. En modo Gestos, **asentir = sí** y **negar con la
+  cabeza = no**.
+* **Analizar**: Gemini mira todo lo que hay, cualquier objeto, razas y cómo
+  se ven las personas (hombre o mujer, edad aproximada, ropa).
+* Por las mañanas, la primera vez que te ve, te da el informe del día.
+
+## Manos y física
+
+* Dos manos, suavizadas (sin temblor). En Gestos: desliza la mano abierta a
+  la derecha o izquierda = siguiente o anterior; arriba o abajo = volumen.
+  En Mouse: pellizca con las dos manos y sepáralas para hacer zoom.
+* **Física** (botón de la cámara o «Sergio, crea 5 cubos rojos»): objetos
+  con masa, rebote y fricción. Pellizca un objeto para agarrarlo y suéltalo
+  para lanzarlo; tus dedos los empujan. Pellizca con las dos manos y
+  sepáralas para crear una caja; mantén un pellizco quieto para crear una
+  pelota. Voz: «gravedad cero», «gravedad lunar», «gravedad invertida»,
+  «explota todo», «borra los objetos».
+
+## Funciones tipo JARVIS
+
+* «Recuérdame en 10 minutos sacar la ropa», «pon una alarma a las 7 y
+  media», «¿qué recordatorios tengo?», «cancela las alarmas». Sobreviven a
+  un reinicio.
+* «¿Cómo está la batería?» / «estado del sistema»: batería, procesador,
+  memoria y disco.
+* «Dame el informe»: hora, fecha, batería y pendientes del día.
+* Protocolos: «protocolo trabajo» (correo y agenda), «modo concentración»,
+  «modo fiesta», «protocolo descanso», «modo música». Puedes crear los tuyos
+  en `config.json` → `"protocolos"`.
+
+## Gimnasio mental (cada 28 minutos)
+
+Cada 28 minutos de uso aparece un ejercicio a pantalla completa que **no se
+puede saltar** (sin botón de cerrar; Esc y Alt+F4 no hacen nada). Termina
+solo al acabar o cuando se agota su tiempo, y Sergio te dice cómo te fue.
+Se turnan los diez:
+
+| Ejercicio | Cantidad y tiempo |
+|---|---|
+| Interferencia tipo Stroop | 15 en 1,5 min |
+| Cálculo mental aleatorio | 10 en 1,5 min |
+| Detección de patrones asimétricos | 20 en 1,5 min |
+| Dual N-Back adaptativo (micro) | 1 bloque continuo de 2 min |
+| Marcos relacionales lógicos | 3 problemas en 2 min |
+| Rotación mental de objetos (3D) | 5 figuras en 2 min |
+| Retención de listas invertidas | 4 secuencias en 2 min |
+| Matrices progresivas | 2 matrices en 2 min |
+| Asociación de palabras restringida | 3 desafíos en 2 min |
+| Secuencias de coordinación (dos manos) | 5 patrones en 2 min |
+
+Si no estás frente a la computadora (3 minutos sin tocarla) o está
+bloqueada, espera a que vuelvas. Para hacer uno ya: «Sergio, gimnasio
+mental» o el menú de la bandeja. Se apaga o cambia en el centro de control
+(«Gimnasio mental») o en `config.json` (`"gym"`, `"gym_minutes"`).
+
 ## Modelos en la nube: Kimi y Gemini
 
 Para respuestas más rápidas e inteligentes que el modelo local, Sergio puede

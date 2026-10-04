@@ -535,6 +535,10 @@ def create_app(
     from openjarvis.server.voice_routes import router as voice_router
 
     app.include_router(voice_router)
+    # Real-time conversation (Gemini Live), like a phone call.
+    from openjarvis.server.live_routes import router as live_router
+
+    app.include_router(live_router)
     include_all_routes(app)
 
     # Restore SendBlue channel bindings from database on startup

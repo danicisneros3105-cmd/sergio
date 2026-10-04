@@ -66,6 +66,16 @@ def probar(sin_pantalla: bool) -> None:
     http = httpx.Client(timeout=httpx.Timeout(180, connect=5))
     run = Run()
 
+    from openjarvis.cli.service_cmd import wait_for_server
+
+    console.print("Esperando a que Sergio esté encendido…")
+    if not wait_for_server(base, get=http.get):
+        console.print(
+            f"[red]Sergio no responde en {base}.[/red] Enciéndelo con: "
+            "sergio servicio encender  (o mira: journalctl --user -u sergio -n 50)"
+        )
+        raise SystemExit(1)
+
     def brain() -> str:
         resp = _ok(
             http.post(
@@ -118,6 +128,11 @@ def probar(sin_pantalla: bool) -> None:
         return f"se escuchó a sí mismo: «{heard[:60]}»"
 
     run.check("Oído (Gemini entiende la voz)", ears)
+
+    def call() -> str:
+        return live_call(base)
+
+    run.check("Llamada en tiempo real (Gemini Live)", call)
 
     if not token:
         console.print(
@@ -242,6 +257,44 @@ def probar(sin_pantalla: bool) -> None:
 
         run.check("Reconocimiento facial", faces)
 
+        def scene() -> str:
+            if "jpeg" not in photo:
+                raise RuntimeError("no hay foto de la cámara")
+            resp = _ok(
+                http.post(
+                    f"{base}/v1/vision/scene",
+                    files={"image": ("c.jpg", photo["jpeg"], "image/jpeg")},
+                )
+            )
+            items = resp.json().get("items", [])
+            if not items:
+                return "no distinguió nada (apunta la cámara a ti o a objetos)"
+            return ", ".join(
+                (i.get("name") or i.get("label") or "?") for i in items[:6]
+            )
+
+        run.check("Analizar escena (personas, especies, objetos)", scene)
+
+        def companion_parts() -> str:
+            diag = _ok(http.get(f"{win}/diag", headers=auth)).json()
+            parts = {
+                "visión": diag.get("vision"),
+                "física": diag.get("physics"),
+                "llamada": diag.get("call"),
+                "gimnasio": diag.get("gym"),
+            }
+            missing = [k for k, v in parts.items() if v is None]
+            if missing:
+                raise RuntimeError(
+                    "el compañero es una versión vieja; ejecuta sergio escritorio instalar"
+                )
+            bad = [f"{k}: {v}" for k, v in parts.items() if str(v).startswith(("sin ", "no "))]
+            if bad:
+                raise RuntimeError("; ".join(bad))
+            return " | ".join(f"{k}: {v}" for k, v in parts.items())
+
+        run.check("Cámara avanzada, física, llamada y gimnasio", companion_parts)
+
         def hands() -> str:
             diag = _ok(http.get(f"{win}/diag", headers=auth)).json()
             status = str(diag.get("hands") or "")
@@ -271,4 +324,48 @@ def probar(sin_pantalla: bool) -> None:
     console.print("\n[green]Todo probado de verdad y funcionando.[/green]")
 
 
-__all__ = ["probar"]
+def live_call(base: str, timeout: float = 25.0) -> str:
+    """Open a real call on /v1/live, ask one thing, and hear Sergio answer."""
+    import json
+
+    from websockets.sync.client import connect
+
+    url = base.replace("http://", "ws://").replace("https://", "wss://") + "/v1/live"
+    started = time.monotonic()
+    audio = 0
+    said: list[str] = []
+    with connect(url, open_timeout=10, max_size=None) as ws:
+        ws.send(json.dumps({"type": "start", "voice": "Algieba", "tools": []}))
+        model = ""
+        while not model:
+            event = json.loads(ws.recv(timeout=timeout))
+            if event.get("type") == "error":
+                raise RuntimeError(event.get("message", "error"))
+            model = str(event.get("model") or "") if event.get("type") == "ready" else ""
+        ws.send(json.dumps({"type": "text", "text": "Prueba: responde solo «todo en orden»."}))
+        first = None
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            msg = ws.recv(timeout=timeout)
+            if isinstance(msg, bytes):
+                audio += len(msg)
+                first = first or time.monotonic()
+                continue
+            event = json.loads(msg)
+            if event.get("type") == "said":
+                said.append(event.get("text", ""))
+            if event.get("type") == "turn_complete" and audio:
+                break
+            if event.get("type") == "error":
+                raise RuntimeError(event.get("message", "error"))
+        ws.send(json.dumps({"type": "end"}))
+    if not audio:
+        raise RuntimeError(f"{model} no contestó con voz")
+    return (
+        f"{model} contestó «{''.join(said).strip()[:40]}» "
+        f"({audio / 48000:.1f} s de voz, conectó en "
+        f"{(first or started) - started:.1f} s)"
+    )
+
+
+__all__ = ["live_call", "probar"]

@@ -1,0 +1,736 @@
+"""Sergio's camera vision, live on the laptop: who and what is in front of him.
+
+Layers, from instant to deep:
+
+* **Objects and species** (MediaPipe EfficientDet, ~5 times a second):
+  people, dogs, cats, birds... and 70 kinds of everyday objects, named in
+  Spanish, with a stable number per thing while it stays in view.
+* **Faces up close** (MediaPipe Face Landmarker, ~10 times a second): the
+  478-point face mesh, where the head points (yaw/pitch/roll) and the
+  expression (smiling, surprised, eyes closed, winking). Nodding means "sí"
+  and shaking the head "no".
+* **Names** come from Sergio's face recognition (server), voted over several
+  looks so a stranger is never called by your name after one lucky frame.
+* **Analizar** asks Gemini about everything in view: any object at all,
+  breeds, and how people look (man or woman, rough age, clothes).
+
+The maths (labels, tracking, votes, head gestures) is pure and tested
+without a camera; MediaPipe only turns frames into boxes and points.
+"""
+
+from __future__ import annotations
+
+import logging
+import math
+import os
+import threading
+import time
+from collections import Counter, deque
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any, Callable, Sequence
+
+log = logging.getLogger(__name__)
+
+MODELS_DIR = Path(os.environ.get("LOCALAPPDATA", Path.home())) / "SergioEscritorio" / "models"
+MODEL_URLS = {
+    "efficientdet_lite0.tflite": (
+        "https://storage.googleapis.com/mediapipe-models/object_detector/"
+        "efficientdet_lite0/float16/latest/efficientdet_lite0.tflite"
+    ),
+    "face_landmarker.task": (
+        "https://storage.googleapis.com/mediapipe-models/face_landmarker/"
+        "face_landmarker/float16/latest/face_landmarker.task"
+    ),
+}
+
+# COCO classes (what the detector knows) -> Spanish, kind, species.
+ANIMALS = {
+    "bird": "pájaro",
+    "cat": "gato",
+    "dog": "perro",
+    "horse": "caballo",
+    "sheep": "oveja",
+    "cow": "vaca",
+    "elephant": "elefante",
+    "bear": "oso",
+    "zebra": "cebra",
+    "giraffe": "jirafa",
+}
+OBJECTS = {
+    "bicycle": "bicicleta",
+    "car": "auto",
+    "motorcycle": "moto",
+    "airplane": "avión",
+    "bus": "bus",
+    "train": "tren",
+    "truck": "camión",
+    "boat": "bote",
+    "traffic light": "semáforo",
+    "fire hydrant": "hidrante",
+    "stop sign": "señal de pare",
+    "parking meter": "parquímetro",
+    "bench": "banca",
+    "backpack": "mochila",
+    "umbrella": "paraguas",
+    "handbag": "bolso",
+    "tie": "corbata",
+    "suitcase": "maleta",
+    "frisbee": "frisbi",
+    "skis": "esquís",
+    "snowboard": "snowboard",
+    "sports ball": "pelota",
+    "kite": "cometa",
+    "baseball bat": "bate",
+    "baseball glove": "guante",
+    "skateboard": "patineta",
+    "surfboard": "tabla de surf",
+    "tennis racket": "raqueta",
+    "bottle": "botella",
+    "wine glass": "copa",
+    "cup": "taza",
+    "fork": "tenedor",
+    "knife": "cuchillo",
+    "spoon": "cuchara",
+    "bowl": "tazón",
+    "banana": "plátano",
+    "apple": "manzana",
+    "sandwich": "sánduche",
+    "orange": "naranja",
+    "broccoli": "brócoli",
+    "carrot": "zanahoria",
+    "hot dog": "hot dog",
+    "pizza": "pizza",
+    "donut": "dona",
+    "cake": "pastel",
+    "chair": "silla",
+    "couch": "sofá",
+    "potted plant": "planta",
+    "bed": "cama",
+    "dining table": "mesa",
+    "toilet": "inodoro",
+    "tv": "televisor",
+    "laptop": "laptop",
+    "mouse": "mouse",
+    "remote": "control remoto",
+    "keyboard": "teclado",
+    "cell phone": "celular",
+    "microwave": "microondas",
+    "oven": "horno",
+    "toaster": "tostadora",
+    "sink": "lavabo",
+    "refrigerator": "refrigeradora",
+    "book": "libro",
+    "clock": "reloj",
+    "vase": "florero",
+    "scissors": "tijeras",
+    "teddy bear": "peluche",
+    "hair drier": "secadora",
+    "toothbrush": "cepillo de dientes",
+}
+
+
+def label_es(name: str) -> tuple[str, str, str]:
+    """English COCO name -> (Spanish label, kind, species)."""
+    name = (name or "").strip().lower()
+    if name == "person":
+        return "persona", "persona", "humano"
+    if name in ANIMALS:
+        return ANIMALS[name], "animal", ANIMALS[name]
+    return OBJECTS.get(name, name or "objeto"), "objeto", ""
+
+
+Box = tuple[float, float, float, float]  # x, y, w, h — 0..1 of the frame
+
+
+@dataclass
+class Seen:
+    """One thing found in one frame."""
+
+    label: str
+    kind: str  # persona | animal | objeto
+    species: str
+    score: float
+    box: Box
+
+
+def iou(a: Box, b: Box) -> float:
+    ax2, ay2, bx2, by2 = a[0] + a[2], a[1] + a[3], b[0] + b[2], b[1] + b[3]
+    w = max(0.0, min(ax2, bx2) - max(a[0], b[0]))
+    h = max(0.0, min(ay2, by2) - max(a[1], b[1]))
+    inter = w * h
+    union = a[2] * a[3] + b[2] * b[3] - inter
+    return inter / union if union > 0 else 0.0
+
+
+def contains(outer: Box, inner: Box) -> bool:
+    cx, cy = inner[0] + inner[2] / 2, inner[1] + inner[3] / 2
+    return outer[0] <= cx <= outer[0] + outer[2] and outer[1] <= cy <= outer[1] + outer[3]
+
+
+# -- tracking -------------------------------------------------------------------
+@dataclass
+class Track:
+    id: int
+    label: str
+    kind: str
+    species: str
+    box: Box
+    score: float
+    first_seen: float
+    last_seen: float
+    hits: int = 1
+    names: deque = field(default_factory=lambda: deque(maxlen=3))
+    guest: int = 0
+    detail: str = ""  # from "Analizar" (Gemini): breed, looks...
+    detail_until: float = 0.0
+    face_score: float = 0.0
+    face_box: Box | None = None  # where the face is (to crop it for a name)
+
+    @property
+    def name(self) -> str:
+        """A name only once most recent looks agree (no lucky guesses)."""
+        counts = Counter(n for n in self.names if n)
+        if not counts:
+            return ""
+        best, votes = counts.most_common(1)[0]
+        return best if votes >= 2 else ""
+
+    def title(self, now: float) -> str:
+        if self.kind == "persona":
+            base = self.name or (f"Persona {self.guest}" if self.guest else "Persona")
+        else:
+            base = self.label[:1].upper() + self.label[1:]
+        if self.detail and now < self.detail_until:
+            return f"{base} · {self.detail}"
+        return base
+
+
+class Tracker:
+    """Gives each person, animal and object a number that stays with it."""
+
+    def __init__(self, keep: float = 1.0, smooth: float = 0.55) -> None:
+        self.keep = keep  # seconds a thing may vanish before it is dropped
+        self.smooth = smooth  # box smoothing (0 = frozen, 1 = jumpy)
+        self.tracks: list[Track] = []
+        self._next = 1
+        self._lock = threading.Lock()
+
+    def update(self, seen: Sequence[Seen], now: float) -> list[Track]:
+        with self._lock:
+            free = list(self.tracks)
+            for item in sorted(seen, key=lambda s: -s.score):
+                best, best_iou = None, 0.25
+                for track in free:
+                    if track.kind != item.kind:
+                        continue
+                    if item.kind == "objeto" and track.label != item.label:
+                        continue
+                    overlap = iou(track.box, item.box)
+                    if overlap > best_iou:
+                        best, best_iou = track, overlap
+                if best is None:
+                    self.tracks.append(
+                        Track(
+                            self._next,
+                            item.label,
+                            item.kind,
+                            item.species,
+                            item.box,
+                            item.score,
+                            now,
+                            now,
+                        )
+                    )
+                    self._next += 1
+                    continue
+                free.remove(best)
+                k = self.smooth
+                best.box = tuple(  # type: ignore[assignment]
+                    (1 - k) * old + k * new for old, new in zip(best.box, item.box)
+                )
+                best.score = 0.7 * best.score + 0.3 * item.score
+                best.label, best.species = item.label, item.species
+                best.last_seen = now
+                best.hits += 1
+            self.tracks = [t for t in self.tracks if now - t.last_seen <= self.keep]
+            if not self.tracks:
+                self._next = 1
+            return list(self.tracks)
+
+    def visible(self, now: float, min_hits: int = 2) -> list[Track]:
+        """Tracks seen a couple of times (no one-frame ghosts)."""
+        with self._lock:
+            return [
+                t
+                for t in self.tracks
+                if t.hits >= min_hits and now - t.last_seen <= self.keep
+            ]
+
+    def add_faces(self, faces: Sequence[dict], now: float) -> list[str]:
+        """Face recognition results -> names voted onto the people.
+
+        *faces*: ``{"name", "guest", "score", "box"}`` with boxes 0..1.
+        Returns the names that just became certain (to greet them).
+        """
+        confirmed = []
+        with self._lock:
+            people = [t for t in self.tracks if t.kind == "persona"]
+            for face in faces:
+                box = tuple(face["box"])
+                owner = next((t for t in people if contains(t.box, box)), None)
+                if owner is None:  # the detector missed the body: face only
+                    owner = next(
+                        (t for t in people if iou(t.box, box) > 0.3), None
+                    )
+                if owner is None:
+                    owner = Track(
+                        self._next, "persona", "persona", "humano", box, 0.9, now, now, 2
+                    )
+                    self._next += 1
+                    self.tracks.append(owner)
+                    people.append(owner)
+                before = owner.name
+                owner.face_box = box
+                owner.names.append(face.get("name") or "")
+                owner.guest = int(face.get("guest") or 0) or owner.guest
+                owner.face_score = float(face.get("score") or 0.0)
+                if owner.name and owner.name != before:
+                    confirmed.append(owner.name)
+        return confirmed
+
+    def add_scene(self, items: Sequence[dict], now: float, seconds: float = 12.0) -> None:
+        """Gemini's "Analizar" details: breeds, looks, any object."""
+        with self._lock:
+            for item in items:
+                box = tuple(item["box"])
+                detail = item.get("detail") or ""
+                match = max(
+                    (t for t in self.tracks if t.kind == item.get("kind")),
+                    key=lambda t: iou(t.box, box),
+                    default=None,
+                )
+                if match is not None and iou(match.box, box) > 0.3:
+                    match.detail, match.detail_until = detail, now + seconds
+                    continue
+                kind = item.get("kind") or "objeto"
+                track = Track(
+                    self._next,
+                    item.get("label") or "objeto",
+                    kind,
+                    item.get("species") or "",
+                    box,
+                    0.6,
+                    now,
+                    now + seconds - self.keep,  # stays while the detail shows
+                    2,
+                )
+                track.detail, track.detail_until = detail, now + seconds
+                if item.get("name"):
+                    track.names.extend([item["name"]] * 2)
+                self._next += 1
+                self.tracks.append(track)
+
+
+def summary(tracks: Sequence[Track], now: float) -> str:
+    """'2 personas (Dani y una que no conozco), 1 perro y 3 objetos: ...'"""
+    people = [t for t in tracks if t.kind == "persona"]
+    animals = [t for t in tracks if t.kind == "animal"]
+    things = [t for t in tracks if t.kind == "objeto"]
+    parts = []
+    if people:
+        named = [t.name for t in people if t.name]
+        strangers = len(people) - len(named)
+        who = list(named)
+        if strangers:
+            who.append(
+                "una persona que no conozco"
+                if strangers == 1
+                else f"{strangers} personas que no conozco"
+            )
+        parts.append(" y ".join(who) if len(who) <= 2 else ", ".join(who))
+    if animals:
+        count = Counter(t.label for t in animals)
+        parts.append(
+            ", ".join(
+                f"{n} {label}{'s' if n > 1 and not label.endswith('s') else ''}"
+                if n > 1
+                else f"un{'a' if label.endswith('a') else ''} {label}"
+                for label, n in count.items()
+            )
+        )
+    if things:
+        names = list(dict.fromkeys(t.label for t in things))[:6]
+        parts.append("objetos: " + ", ".join(names))
+    if not parts:
+        return "No veo a nadie ni nada en particular."
+    return "Veo " + "; ".join(parts) + "."
+
+
+def scene_sentence(items: Sequence[dict]) -> str:
+    """Gemini's "Analizar" items -> what Sergio says about them."""
+    people, animals, things = [], [], []
+    for item in items:
+        detail = (item.get("detail") or "").strip()
+        if item.get("kind") == "persona":
+            name = item.get("name") or ""
+            if name:
+                people.append(name)
+            else:
+                people.append(f"una persona ({detail})" if detail else "una persona")
+        elif item.get("kind") == "animal":
+            label = item.get("label") or item.get("species") or "animal"
+            animals.append(f"{label} ({detail})" if detail and detail != label else label)
+        else:
+            label = item.get("label") or "objeto"
+            things.append(label)
+    parts = []
+    if people:
+        who = [f"a {p}" for p in people]
+        parts.append(" y ".join(who) if len(who) <= 2 else ", ".join(who[:-1]) + " y " + who[-1])
+    if animals:
+        parts.append(("animales: " if len(animals) > 1 else "un animal: ") + ", ".join(animals))
+    if things:
+        parts.append("objetos: " + ", ".join(dict.fromkeys(things)))
+    return ("Veo " + "; ".join(parts) + ".") if parts else "No distingo nada en particular."
+
+
+# -- faces up close: expressions and head pose --------------------------------------
+def expressions(blend: dict[str, float]) -> list[str]:
+    """MediaPipe blendshapes -> what the face is doing, in Spanish."""
+    g = blend.get
+    out = []
+    smile = (g("mouthSmileLeft", 0) + g("mouthSmileRight", 0)) / 2
+    if smile > 0.55:
+        out.append("sonriendo")
+    if g("jawOpen", 0) > 0.45 and smile < 0.4:
+        out.append("boca abierta")
+    if g("browInnerUp", 0) > 0.5 and g("jawOpen", 0) > 0.25:
+        out.append("sorprendido")
+    blink_l, blink_r = g("eyeBlinkLeft", 0), g("eyeBlinkRight", 0)
+    if blink_l > 0.6 and blink_r > 0.6:
+        out.append("ojos cerrados")
+    elif abs(blink_l - blink_r) > 0.45 and max(blink_l, blink_r) > 0.6:
+        out.append("guiño")
+    if (g("browDownLeft", 0) + g("browDownRight", 0)) / 2 > 0.6 and smile < 0.3:
+        out.append("ceño fruncido")
+    if g("mouthPucker", 0) > 0.6:
+        out.append("beso")
+    return out
+
+
+def head_angles(matrix: Sequence[Sequence[float]]) -> tuple[float, float, float]:
+    """(yaw, pitch, roll) in degrees from MediaPipe's face transform matrix."""
+    r = [[float(matrix[i][j]) for j in range(3)] for i in range(3)]
+    sy = math.hypot(r[0][0], r[1][0])
+    if sy > 1e-6:
+        pitch = math.degrees(math.atan2(r[2][1], r[2][2]))
+        yaw = math.degrees(math.atan2(-r[2][0], sy))
+        roll = math.degrees(math.atan2(r[1][0], r[0][0]))
+    else:
+        pitch = math.degrees(math.atan2(-r[1][2], r[1][1]))
+        yaw = math.degrees(math.atan2(-r[2][0], sy))
+        roll = 0.0
+    return yaw, pitch, roll
+
+
+class HeadGestures:
+    """Nodding = "sí", shaking the head = "no" (answers without words)."""
+
+    def __init__(self, window: float = 1.4, swing: float = 9.0, cooldown: float = 2.5):
+        self.window, self.swing, self.cooldown = window, swing, cooldown
+        self._yaw: deque[tuple[float, float]] = deque()
+        self._pitch: deque[tuple[float, float]] = deque()
+        self._last = -1e9
+
+    @staticmethod
+    def _swings(series: deque, swing: float) -> int:
+        """How many times the angle reversed by more than *swing* degrees."""
+        count, direction, anchor = 0, 0, None
+        for _t, value in series:
+            if anchor is None:
+                anchor = value
+                continue
+            delta = value - anchor
+            if direction >= 0 and delta <= -swing:
+                count += direction != 0
+                direction, anchor = -1, value
+            elif direction <= 0 and delta >= swing:
+                count += direction != 0
+                direction, anchor = 1, value
+            elif (direction > 0 and value > anchor) or (direction < 0 and value < anchor):
+                anchor = value
+            elif direction == 0 and abs(delta) < 1:
+                anchor = value
+        return count
+
+    def feed(self, now: float, yaw: float, pitch: float) -> str | None:
+        for series, value in ((self._yaw, yaw), (self._pitch, pitch)):
+            series.append((now, value))
+            while series and now - series[0][0] > self.window:
+                series.popleft()
+        if now - self._last < self.cooldown:
+            return None
+        nods = self._swings(self._pitch, self.swing)
+        shakes = self._swings(self._yaw, self.swing)
+        if nods >= 2 and nods > shakes:
+            self._last = now
+            self._yaw.clear()
+            self._pitch.clear()
+            return "si"
+        if shakes >= 2 and shakes > nods:
+            self._last = now
+            self._yaw.clear()
+            self._pitch.clear()
+            return "no"
+        return None
+
+
+@dataclass
+class FaceInfo:
+    points: list[tuple[float, float]]  # 478 face mesh points, 0..1
+    box: Box
+    yaw: float = 0.0
+    pitch: float = 0.0
+    roll: float = 0.0
+    expressions: list[str] = field(default_factory=list)
+
+
+# Face mesh outlines worth drawing (MediaPipe indices): oval, eyes, brows, lips.
+FACE_OVAL = (10, 338, 297, 332, 284, 251, 389, 356, 454, 323, 361, 288, 397, 365,
+             379, 378, 400, 377, 152, 148, 176, 149, 150, 136, 172, 58, 132, 93,
+             234, 127, 162, 21, 54, 103, 67, 109, 10)
+LEFT_EYE = (263, 249, 390, 373, 374, 380, 381, 382, 362, 398, 384, 385, 386, 387,
+            388, 466, 263)
+RIGHT_EYE = (33, 7, 163, 144, 145, 153, 154, 155, 133, 173, 157, 158, 159, 160,
+             161, 246, 33)
+LIPS = (61, 146, 91, 181, 84, 17, 314, 405, 321, 375, 291, 409, 270, 269, 267, 0,
+        37, 39, 40, 185, 61)
+LEFT_BROW = (276, 283, 282, 295, 285)
+RIGHT_BROW = (46, 53, 52, 65, 55)
+OUTLINES = (FACE_OVAL, LEFT_EYE, RIGHT_EYE, LIPS, LEFT_BROW, RIGHT_BROW)
+
+
+# -- MediaPipe ----------------------------------------------------------------------
+def ensure_model(name: str, folder: Path = MODELS_DIR) -> Path:
+    path = folder / name
+    if path.exists() and path.stat().st_size > 1_000_000:
+        return path
+    import httpx
+
+    folder.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(".part")
+    with httpx.stream("GET", MODEL_URLS[name], timeout=120, follow_redirects=True) as r:
+        r.raise_for_status()
+        with tmp.open("wb") as fh:
+            for chunk in r.iter_bytes():
+                fh.write(chunk)
+    tmp.replace(path)
+    return path
+
+
+class _Clock:
+    def __init__(self) -> None:
+        self.last = 0
+
+    def __call__(self) -> int:
+        stamp = max(self.last + 1, int(time.monotonic() * 1000))
+        self.last = stamp
+        return stamp
+
+
+class ObjectFinder:
+    """Frame (OpenCV BGR) -> people, animals and objects (Spanish names)."""
+
+    def __init__(self, score: float = 0.4, max_results: int = 12) -> None:
+        import mediapipe as mp
+        from mediapipe.tasks.python import BaseOptions, vision
+
+        self._mp = mp
+        self._clock = _Clock()
+        self._detector = vision.ObjectDetector.create_from_options(
+            vision.ObjectDetectorOptions(
+                base_options=BaseOptions(
+                    model_asset_path=str(ensure_model("efficientdet_lite0.tflite"))
+                ),
+                running_mode=vision.RunningMode.VIDEO,
+                score_threshold=score,
+                max_results=max_results,
+            )
+        )
+
+    def find(self, frame: Any) -> list[Seen]:
+        import cv2
+        import numpy as np
+
+        h, w = frame.shape[:2]
+        # The detector squeezes its input into a square. Squashing a 16:9
+        # webcam frame misses people; padding it all the way to a square
+        # mistakes dogs for cats. Padding to 4:3 was best on every test photo
+        # (right species, higher scores, more objects).
+        ph, pw = max(h, int(round(w * 3 / 4))), max(w, int(round(h * 4 / 3)))
+        y0, x0 = (ph - h) // 2, (pw - w) // 2
+        square = np.zeros((ph, pw, 3), dtype=frame.dtype)
+        square[y0 : y0 + h, x0 : x0 + w] = frame
+        rgb = cv2.cvtColor(square, cv2.COLOR_BGR2RGB)
+        image = self._mp.Image(image_format=self._mp.ImageFormat.SRGB, data=rgb)
+        result = self._detector.detect_for_video(image, self._clock())
+        found = []
+        for det in result.detections or []:
+            cat = det.categories[0]
+            label, kind, species = label_es(cat.category_name)
+            b = det.bounding_box
+            x = max(0.0, (b.origin_x - x0) / w)
+            y = max(0.0, (b.origin_y - y0) / h)
+            bw = min(1.0 - x, b.width / w)
+            bh = min(1.0 - y, b.height / h)
+            if bw <= 0 or bh <= 0:
+                continue
+            found.append(Seen(label, kind, species, float(cat.score), (x, y, bw, bh)))
+        return found
+
+
+class FaceMesh:
+    """Frame -> faces with the 478-point mesh, head pose and expression."""
+
+    def __init__(self, max_faces: int = 3) -> None:
+        import mediapipe as mp
+        from mediapipe.tasks.python import BaseOptions, vision
+
+        self._mp = mp
+        self._clock = _Clock()
+        self._landmarker = vision.FaceLandmarker.create_from_options(
+            vision.FaceLandmarkerOptions(
+                base_options=BaseOptions(
+                    model_asset_path=str(ensure_model("face_landmarker.task"))
+                ),
+                running_mode=vision.RunningMode.VIDEO,
+                num_faces=max_faces,
+                output_face_blendshapes=True,
+                output_facial_transformation_matrixes=True,
+            )
+        )
+
+    def find(self, frame: Any) -> list[FaceInfo]:
+        import cv2
+
+        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        image = self._mp.Image(image_format=self._mp.ImageFormat.SRGB, data=rgb)
+        result = self._landmarker.detect_for_video(image, self._clock())
+        faces = []
+        for i, marks in enumerate(result.face_landmarks or []):
+            pts = [(m.x, m.y) for m in marks]
+            xs, ys = [p[0] for p in pts], [p[1] for p in pts]
+            box = (min(xs), min(ys), max(xs) - min(xs), max(ys) - min(ys))
+            info = FaceInfo(pts, box)
+            if result.face_blendshapes and i < len(result.face_blendshapes):
+                blend = {c.category_name: c.score for c in result.face_blendshapes[i]}
+                info.expressions = expressions(blend)
+            matrices = result.facial_transformation_matrixes or []
+            if i < len(matrices):
+                info.yaw, info.pitch, info.roll = head_angles(matrices[i])
+            faces.append(info)
+        return faces
+
+
+class VisionEngine:
+    """Runs the detectors on the camera frames in the background."""
+
+    def __init__(
+        self,
+        frames: Callable[[], Any],
+        *,
+        objects_fps: float = 5.0,
+        faces_fps: float = 10.0,
+        finder_factory: Callable[[], Any] = ObjectFinder,
+        mesh_factory: Callable[[], Any] = FaceMesh,
+        on_head: Callable[[str], None] = lambda _g: None,
+    ) -> None:
+        self.frames = frames
+        self.objects_fps = objects_fps
+        self.faces_fps = faces_fps
+        self.finder_factory = finder_factory
+        self.mesh_factory = mesh_factory
+        self.on_head = on_head
+        self.tracker = Tracker()
+        self.faces: list[FaceInfo] = []
+        self.mesh = True  # draw/compute the face mesh
+        self.error = ""
+        self._running = False
+        self._head = HeadGestures()
+
+    @property
+    def running(self) -> bool:
+        return self._running
+
+    def start(self) -> None:
+        if self._running:
+            return
+        self._running = True
+        threading.Thread(target=self._objects_loop, daemon=True).start()
+        threading.Thread(target=self._faces_loop, daemon=True).start()
+
+    def stop(self) -> None:
+        self._running = False
+        self.faces = []
+
+    def _objects_loop(self) -> None:
+        try:
+            finder = self.finder_factory()
+        except Exception as exc:  # noqa: BLE001 — no mediapipe / no model
+            log.exception("object detection unavailable")
+            self.error = f"Sin detección de objetos: {exc}"
+            return
+        while self._running:
+            started = time.monotonic()
+            frame = self.frames()
+            if frame is not None:
+                try:
+                    self.tracker.update(finder.find(frame), time.monotonic())
+                except Exception:  # noqa: BLE001
+                    log.exception("object detection failed")
+            time.sleep(max(0.0, 1 / self.objects_fps - (time.monotonic() - started)))
+
+    def _faces_loop(self) -> None:
+        try:
+            mesh = self.mesh_factory()
+        except Exception as exc:  # noqa: BLE001
+            log.exception("face mesh unavailable")
+            self.error = self.error or f"Sin malla facial: {exc}"
+            return
+        while self._running:
+            started = time.monotonic()
+            frame = self.frames() if self.mesh else None
+            if frame is not None:
+                try:
+                    self.faces = mesh.find(frame)
+                    if self.faces:
+                        face = max(self.faces, key=lambda f: f.box[2] * f.box[3])
+                        said = self._head.feed(time.monotonic(), face.yaw, face.pitch)
+                        if said:
+                            self.on_head(said)
+                except Exception:  # noqa: BLE001
+                    log.exception("face mesh failed")
+            elif not self.mesh:
+                self.faces = []
+            time.sleep(max(0.0, 1 / self.faces_fps - (time.monotonic() - started)))
+
+
+__all__ = [
+    "FaceInfo",
+    "FaceMesh",
+    "HeadGestures",
+    "ObjectFinder",
+    "OUTLINES",
+    "Seen",
+    "Track",
+    "Tracker",
+    "VisionEngine",
+    "contains",
+    "expressions",
+    "head_angles",
+    "iou",
+    "label_es",
+    "scene_sentence",
+    "summary",
+]

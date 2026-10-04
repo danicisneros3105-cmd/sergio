@@ -46,6 +46,40 @@ def env_file() -> Path:
     return get_config_dir() / "sergio.env"
 
 
+def wait_for_server(
+    base: str,
+    timeout: float = 150.0,
+    *,
+    get: Callable[..., object] | None = None,
+    sleep: Callable[[float], None] | None = None,
+    clock: Callable[[], float] | None = None,
+) -> bool:
+    """Wait until Sergio's server answers ``/health`` (True) or time runs out.
+
+    After ``systemctl restart`` the port stays closed for a while (imports,
+    tools, models); anything that talks to the server right away would get
+    "Connection refused". Any HTTP answer means it is up: a 503 from a busy
+    engine is still a running server.
+    """
+    import time
+
+    import httpx
+
+    get = get or httpx.get
+    sleep = sleep or time.sleep
+    clock = clock or time.monotonic
+    deadline = clock() + timeout
+    while True:
+        try:
+            get(f"{base.rstrip('/')}/health", timeout=5)
+            return True
+        except httpx.HTTPError:
+            pass
+        if clock() >= deadline:
+            return False
+        sleep(1.0)
+
+
 def render_units(root: Path, uv: str, port: int, path_env: str) -> dict[str, str]:
     """Return ``{unit name: file content}`` for both services."""
     common = (

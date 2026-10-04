@@ -138,7 +138,7 @@ def _font(size: float, weight: QFont.Weight = QFont.Weight.Normal) -> QFont:
 @dataclass
 class Toggle:
     label: str
-    icon: str  # "wave" | "hand" | "camera" | "pointer"
+    icon: str  # "wave" | "hand" | "camera" | "pointer" | "phone" | "brain"
     get: Callable[[], bool]
     set: Callable[[bool], None]
 
@@ -224,6 +224,22 @@ def draw_icon(p: QPainter, kind: str, centre: QPointF, colour: QColor) -> None:
         p.drawRoundedRect(QRectF(x - 11, y - 8, 22, 14), 3, 3)
         p.drawLine(QPointF(x - 5, y + 10), QPointF(x + 5, y + 10))
         p.drawLine(QPointF(x, y + 6), QPointF(x, y + 10))
+    elif kind == "phone":  # a handset: talk like a call
+        path = QPainterPath()
+        path.moveTo(x - 8, y - 9)
+        path.cubicTo(x - 11, y - 3, x - 6, y + 6, x + 3, y + 9)
+        path.lineTo(x + 7, y + 6)
+        path.lineTo(x + 3, y + 1)
+        path.lineTo(x, y + 3)
+        path.cubicTo(x - 3, y + 1, x - 5, y - 2, x - 5, y - 4)
+        path.lineTo(x - 3, y - 7)
+        path.closeSubpath()
+        p.drawPath(path)
+    elif kind == "brain":  # mental gym
+        p.drawEllipse(QRectF(x - 10, y - 8, 11, 15))
+        p.drawEllipse(QRectF(x - 1, y - 8, 11, 15))
+        p.drawLine(QPointF(x - 5, y - 2), QPointF(x - 2, y + 1))
+        p.drawLine(QPointF(x + 5, y - 2), QPointF(x + 2, y + 1))
     elif kind == "send":
         p.drawLine(QPointF(x, y + 7), QPointF(x, y - 7))
         p.drawLine(QPointF(x - 6, y - 1), QPointF(x, y - 7))

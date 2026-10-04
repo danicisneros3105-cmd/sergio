@@ -9,6 +9,12 @@ Modes (camera window "Manos" button, or by voice):
 * ``3d`` — your hands drive Blender live (see :data:`BLENDER_BRIDGE`): pinch
   and move to rotate the selected object, pinch with both hands to scale,
   a fist moves it, thumbs up adds a shape, two fingers duplicate.
+* ``fisica`` — real physics in the camera window (see ``physics.py``): make
+  objects with your hands, grab them, throw them.
+
+Both hands are tracked and smoothed (One-Euro filter on every point).
+Swiping an open hand left/right/up/down is a gesture too (next/previous,
+volume), and pinching with both hands in mouse mode zooms.
 
 The gesture maths is pure (lists of 21 landmarks) so it is tested without a
 camera; MediaPipe only turns frames into landmarks.
@@ -45,6 +51,7 @@ MODES = {
     "gestos": "Gestos",
     "mouse": "Mouse en el aire",
     "3d": "Modelar en 3D",
+    "fisica": "Física con las manos",
 }
 
 # MediaPipe hand landmark indices.
@@ -358,6 +365,113 @@ class AirMouse:
         return events
 
 
+class LandmarkSmoother:
+    """One-Euro filter on all 21 points of each hand: no jitter, no lag."""
+
+    def __init__(self, min_cutoff: float = 2.0, beta: float = 0.05) -> None:
+        self.min_cutoff, self.beta = min_cutoff, beta
+        self._filters: dict[str, list[tuple[OneEuro, OneEuro]]] = {}
+
+    def __call__(self, hands: list[Hand], now: float) -> list[Hand]:
+        out = []
+        seen = set()
+        for i, hand in enumerate(hands):
+            key = hand.side or str(i)
+            if key in seen:  # two hands reported with the same side
+                key = f"{key}{i}"
+            seen.add(key)
+            filters = self._filters.get(key)
+            if filters is None or len(filters) != len(hand.landmarks):
+                filters = [
+                    (OneEuro(self.min_cutoff, self.beta), OneEuro(self.min_cutoff, self.beta))
+                    for _ in hand.landmarks
+                ]
+                self._filters[key] = filters
+            points = [
+                (fx(p[0], now), fy(p[1], now), p[2] if len(p) > 2 else 0.0)
+                for p, (fx, fy) in zip(hand.landmarks, filters)
+            ]
+            out.append(Hand(points, hand.side))
+        for key in list(self._filters):  # a hand left: forget its filters
+            if key not in seen:
+                del self._filters[key]
+        return out
+
+
+class Swipe:
+    """An open hand swept quickly left/right/up/down (as you see yourself)."""
+
+    def __init__(
+        self,
+        window: float = 0.4,
+        distance: float = 0.22,
+        cooldown: float = 0.9,
+        mirror: bool = True,
+    ) -> None:
+        from collections import deque
+
+        self.window, self.distance, self.cooldown = window, distance, cooldown
+        self.mirror = mirror
+        self._path: deque[tuple[float, float, float]] = deque()
+        self._last = -1e9
+
+    def __call__(self, hand: Hand | None, now: float) -> str | None:
+        if hand is None or hand.gesture != "open":
+            self._path.clear()
+            return None
+        x, y = hand.centre
+        self._path.append((now, x, y))
+        while self._path and now - self._path[0][0] > self.window:
+            self._path.popleft()
+        if now - self._last < self.cooldown or len(self._path) < 3:
+            return None
+        _t0, x0, y0 = self._path[0]
+        dx, dy = x - x0, y - y0
+        if self.mirror:
+            dx = -dx
+        if abs(dx) >= self.distance and abs(dx) > 2 * abs(dy):
+            name = "swipe_right" if dx > 0 else "swipe_left"
+        elif abs(dy) >= self.distance and abs(dy) > 2 * abs(dx):
+            name = "swipe_down" if dy > 0 else "swipe_up"
+        else:
+            return None
+        self._last = now
+        self._path.clear()
+        return name
+
+
+class TwoHandZoom:
+    """Both hands pinching: pull apart to zoom in, bring together to zoom out."""
+
+    def __init__(self, step: float = 0.05) -> None:
+        self.step = step
+        self._start: float | None = None
+
+    def __call__(self, hands: list[Hand]) -> int:
+        pinching = [h for h in hands[:2] if pinch_ratio(h.landmarks) < 0.3]
+        if len(pinching) < 2:
+            self._start = None
+            return 0
+        a, b = (
+            (h.landmarks[INDEX_TIP][0], h.landmarks[INDEX_TIP][1]) for h in pinching
+        )
+        gap = math.hypot(a[0] - b[0], a[1] - b[1])
+        if self._start is None:
+            self._start = gap
+            return 0
+        steps = int((gap - self._start) / self.step)
+        if steps:
+            self._start += steps * self.step
+        return steps
+
+
+def main_hand(hands: list[Hand]) -> Hand | None:
+    """The hand doing the work: the biggest (closest to the camera)."""
+    if not hands:
+        return None
+    return max(hands, key=lambda h: palm_size(h.landmarks))
+
+
 class Vote:
     """The gesture seen in most of the last frames (no one-frame flickers)."""
 
@@ -401,9 +515,13 @@ class HandControl:
     mode: str = "off"
     hands: list[Hand] = field(default_factory=list)
     error: str = ""
+    mirror: bool = True
     _thread: threading.Thread | None = None
     _sock: Any = None
     _vote: Vote = field(default_factory=Vote)
+    _smooth: LandmarkSmoother = field(default_factory=LandmarkSmoother)
+    _swipe: Swipe = field(default_factory=Swipe)
+    _zoom: TwoHandZoom = field(default_factory=TwoHandZoom)
 
     def set_mode(self, mode: str) -> None:
         self.mode = mode if mode in MODES else "off"
@@ -416,14 +534,26 @@ class HandControl:
         self, hands: list[Hand], now: float, debounce: Debounce, mouse: AirMouse
     ) -> None:
         """One frame of work for the current mode (pure enough to test)."""
+        hands = self._smooth(hands, now)
         self.hands = hands
-        main = hands[0] if hands else None
+        main = main_hand(hands)
         if self.mode == "gestos":
+            self._swipe.mirror = self.mirror
+            swiped = self._swipe(main, now)
+            if swiped:
+                self.on_gesture(swiped)
+                return
             seen = self._vote(main.gesture if main else "none")
             fired = debounce.update(seen, now)
             if fired:
                 self.on_gesture(fired)
         elif self.mode == "mouse" and main is not None:
+            zoom = self._zoom(hands)
+            if zoom:
+                self.mouse_events([("zoom", zoom, 0)])
+                return
+            if len([h for h in hands[:2] if pinch_ratio(h.landmarks) < 0.3]) >= 2:
+                return  # both hands pinching: zooming, not clicking
             events = mouse.step(main, now)
             if events:
                 self.mouse_events(events)

@@ -150,10 +150,12 @@ def test_look_endpoint_answers_with_vision(monkeypatch):
         files={"image": ("c.jpg", JPEG, "image/jpeg")},
     )
     assert resp.status_code == 200
-    assert resp.json() == {
-        "answer": "Veo a Dani. Una taza azul (¿qué tengo?)",
-        "people": ["Dani"],
-    }
+    body = resp.json()
+    # Recognised names guide the vision model (never invented for others).
+    assert body["people"] == ["Dani"] and body["strangers"] == 0
+    assert body["answer"].startswith("Una taza azul (")
+    assert "Reconocimiento facial: Dani" in body["answer"]
+    assert body["answer"].endswith("¿qué tengo?)")
 
 
 def test_look_endpoint_reports_vision_failure(monkeypatch):

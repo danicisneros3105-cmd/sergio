@@ -528,6 +528,51 @@ _GOOGLE_SCHEMA_KEYS = {
 }
 
 
+# Free keys get a daily quota per model: siblings to try when one runs out.
+FLASH_FAMILY = (
+    "gemini-3.8-flash",
+    "gemini-3.7-flash",
+    "gemini-3.6-flash",
+    "gemini-3.5-flash",
+    "gemini-3-flash-preview",
+    "gemini-flash-latest",
+    "gemini-2.5-flash",
+)
+PRO_FAMILY = ("gemini-3.1-pro-preview", "gemini-pro-latest", "gemini-2.5-pro")
+LITE_FAMILY = (
+    "gemini-3.1-flash-lite",
+    "gemini-3.5-flash-lite",
+    "gemini-3.1-flash-lite-preview",
+    "gemini-flash-lite-latest",
+    "gemini-2.5-flash-lite",
+)
+QUOTA_COOLDOWN = 3600.0
+_QUOTA_EXHAUSTED: Dict[str, float] = {}
+
+
+def quota_fallbacks(model: str) -> List[str]:
+    """Other Gemini models to use when *model* has no quota left."""
+    name = model.lower()
+    if not name.startswith("gemini"):
+        return []
+    if "lite" in name:
+        family = [*LITE_FAMILY, *FLASH_FAMILY]
+    elif "pro" in name:
+        family = [*PRO_FAMILY, *FLASH_FAMILY]
+    else:
+        family = [*FLASH_FAMILY, *LITE_FAMILY]
+    return [m for m in family if m != name]
+
+
+def _exhausted(model: str) -> bool:
+    return _QUOTA_EXHAUSTED.get(model, 0.0) > time.monotonic()
+
+
+def _is_quota_error(exc: Exception) -> bool:
+    text = str(exc)
+    return "RESOURCE_EXHAUSTED" in text or "exceeded your current quota" in text
+
+
 def google_schema(schema: Any) -> Dict[str, Any]:
     """A JSON Schema reduced to what Gemini function declarations accept."""
     if not isinstance(schema, dict):
@@ -1134,10 +1179,8 @@ class CloudEngine(InferenceEngine):
                     config.response_schema = response_format.schema
 
         t0 = time.monotonic()
-        resp = self._google_client.models.generate_content(
-            model=model,
-            contents=contents,
-            config=config,
+        resp, model = self._google_with_fallback(
+            model, contents, config, effort, temperature, max_tokens
         )
         elapsed = time.monotonic() - t0
 
@@ -1195,6 +1238,60 @@ class CloudEngine(InferenceEngine):
             result["tool_calls"] = tool_calls
 
         return result
+
+    def _google_with_fallback(
+        self,
+        model: str,
+        contents: List[Dict[str, Any]],
+        config: Any,
+        effort: str,
+        temperature: float,
+        max_tokens: int,
+    ) -> tuple[Any, str]:
+        """generate_content, moving to a sibling model when one is out of quota.
+
+        Free Gemini keys have a small daily quota *per model*; when the chosen
+        one runs out (429 RESOURCE_EXHAUSTED) Sergio keeps working with the
+        next Gemini of the same family instead of going silent.
+        """
+        candidates = [model, *quota_fallbacks(model)]
+        fresh = [c for c in candidates if not _exhausted(c)] or candidates
+        last: Exception | None = None
+        for candidate in fresh:
+            if candidate != model:
+                from google.genai import types as genai_types
+
+                config = genai_types.GenerateContentConfig(
+                    **google_config_kwargs(candidate, temperature, max_tokens, effort),
+                    system_instruction=config.system_instruction,
+                    tools=config.tools,
+                    response_mime_type=config.response_mime_type,
+                    response_schema=config.response_schema,
+                )
+                # Thought signatures belong to the model that wrote them.
+                contents = [
+                    {
+                        **c,
+                        "parts": [
+                            {k: v for k, v in part.items() if k != "thought_signature"}
+                            for part in c["parts"]
+                        ],
+                    }
+                    for c in contents
+                ]
+            try:
+                resp = self._google_client.models.generate_content(
+                    model=candidate, contents=contents, config=config
+                )
+            except Exception as exc:  # noqa: BLE001
+                if not _is_quota_error(exc):
+                    raise
+                _QUOTA_EXHAUSTED[candidate] = time.monotonic() + QUOTA_COOLDOWN
+                last = exc
+                logger.warning("Gemini %s is out of quota; trying the next", candidate)
+                continue
+            return resp, candidate
+        raise last if last is not None else RuntimeError("no Gemini model")
 
     def _generate_openrouter(
         self,

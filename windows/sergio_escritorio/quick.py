@@ -54,9 +54,32 @@ _COMPLEX = (
 @dataclass
 class Quick:
     kind: str  # open_url | open_app | close_app | key | volume | camera | hands
-    #           | stop | time | globe | screenshot
+    #           | stop | time | date | globe | screenshot | reminder
+    #           | reminders_list | reminders_clear | status | protocol
+    #           | briefing | call | gym | physics | name_face
     arg: str = ""
     say: str = ""  # short spoken confirmation
+
+
+_STATUS = re.compile(
+    r"(estado del sistema|estado de (la|mi) (computadora|pc|laptop)|"
+    r"como esta (la|mi) (bateria|computadora|pc|laptop)|"
+    r"cuanta bateria (tengo|queda|hay)|(que|cuanta) bateria|nivel de bateria|"
+    r"diagnostico del sistema)"
+)
+_CALL = re.compile(
+    r"(hablemos|conversemos|charlemos|llamada|modo (conversacion|llamada)|"
+    r"quiero (hablar|conversar) contigo|hablemos un rato)"
+)
+_GYM = re.compile(r"(gimnasio mental|ejercicios? mentales?|entrena(r)? (mi|la) mente)")
+_PHYSICS = re.compile(
+    r"^(crea|lanza|tira|suelta|pon|haz)( me)? (una?|unos|unas|\d+|dos|tres|cuatro|"
+    r"cinco|seis|siete|ocho|nueve|diez)? ?(pelotas?|bolas?|cubos?|cajas?|"
+    r"triangulos?|estrellas?|objetos?)\b"
+    r"|^(borra|quita|limpia) (los|todos los) objetos"
+    r"|^gravedad (cero|lunar|normal|invertida|de la luna)"
+    r"|^sin gravedad$"
+)
 
 
 def _plain(text: str) -> str:
@@ -73,6 +96,46 @@ def parse_quick(text: str) -> Quick | None:
     # Stop / silence
     if t in ("para", "parate", "callate", "silencio", "basta", "detente", "stop"):
         return Quick("stop", say="")
+    # Timers and reminders: "recuérdame en 10 minutos sacar la ropa"
+    if re.search(r"\b(recuerdame|avisame|temporizador(es)?|alarmas?|despiertame|timer)\b", t):
+        if re.search(r"\b(cancela|borra|quita|elimina)\b", t):
+            return Quick("reminders_clear", say="")
+        if re.search(r"\b(que|cuales|mis)\b.*\b(recordatorios|alarmas|temporizadores)\b", t):
+            return Quick("reminders_list")
+        return Quick("reminder", text)
+    if re.search(r"\b(que|cuales|mis) (recordatorios|alarmas|temporizadores)\b", t):
+        return Quick("reminders_list")
+    if re.search(r"\b(cancela|borra|quita) (los|las|todos los|todas las|mis) (recordatorios|temporizadores|alarmas)\b", t):
+        return Quick("reminders_clear")
+    if _STATUS.search(t):
+        return Quick("status")
+    if re.fullmatch(r"(dame |dime )?(el )?(informe|resumen)( del dia| de hoy)?", t):
+        return Quick("briefing")
+    if _CALL.fullmatch(t) or re.fullmatch(r"(empecemos|iniciemos) (una )?(llamada|conversacion)", t):
+        return Quick("call", say="Le escucho, señor.")
+    m = re.fullmatch(
+        r"(?:el|ella|esta persona|este|esta|mi amigo|mi amiga)\s+(?:se llama|es)\s+(.+)"
+        r"|te presento a\s+(.+)",
+        t,
+    )
+    if m:
+        name = (m.group(1) or m.group(2) or "").strip()
+        count = len(name.split())
+        if 0 < count <= 4:
+            # Keep the name as said (accents and all): the last words of the text.
+            words = [w.strip(".,;:!?¡¿") for w in text.split()][-count:]
+            return Quick("name_face", " ".join(w[:1].upper() + w[1:] for w in words if w))
+    if _GYM.search(t):
+        return Quick("gym", say="Vamos a entrenar la mente.")
+    if _PHYSICS.search(t):
+        return Quick("physics", t)
+    m = re.fullmatch(r"(?:activa |inicia |pon )?(?:el )?(protocolo|modo) (.+)", t)
+    if m and m.group(2) not in ("mouse", "gestos", "3d"):
+        from sergio_escritorio.jarvis import find_protocol
+
+        name = find_protocol(f"{m.group(1)} {m.group(2)}")
+        if name:
+            return Quick("protocol", name)
     # Time and date
     if re.fullmatch(r"(que hora es|dime la hora|la hora)( por favor)?", t):
         return Quick("time")

@@ -46,7 +46,21 @@ def _transport(fail=()):
         if path == "/v1/faces/identify":
             return httpx.Response(200, json={"faces": [{"name": "Dani"}]})
         if path == "/diag":
-            return httpx.Response(200, json={"ok": True, "hands": "ok (modo off)"})
+            return httpx.Response(
+                200,
+                json={
+                    "ok": True,
+                    "hands": "ok (modo off)",
+                    "vision": "ok",
+                    "physics": "ok (pymunk 7.3.0)",
+                    "call": "lista",
+                    "gym": "cada 28 min, el próximo en 12 min",
+                },
+            )
+        if path == "/v1/vision/scene":
+            return httpx.Response(
+                200, json={"items": [{"label": "persona", "name": "Dani"}, {"label": "taza"}]}
+            )
         if path == "/v1/world/open":
             return httpx.Response(200, json={"url": "http://127.0.0.1:4173/"})
         if request.url.port == 4173:
@@ -69,6 +83,9 @@ def _run(monkeypatch, tmp_path, fail=()):
     env.write_text("SERGIO_DESKTOP_TOKEN=t\n")
     monkeypatch.setattr("openjarvis.cli.service_cmd.env_file", lambda: env)
     monkeypatch.setattr(probar_cmd.time, "sleep", lambda s: None)
+    monkeypatch.setattr(
+        probar_cmd, "live_call", lambda base: "gemini-3.8-live contestó «Todo en orden»"
+    )
     return CliRunner().invoke(probar_cmd.probar, [])
 
 
@@ -88,6 +105,9 @@ def test_everything_ok(monkeypatch, tmp_path):
         "caras: Dani",
         "Manos (MediaPipe)",
         "God's Eye View en http://127.0.0.1:4173/",
+        "gemini-3.8-live contestó",
+        "Dani, taza",
+        "física: ok",
         "Todo probado de verdad",
     ):
         assert line in result.output, line
@@ -99,4 +119,4 @@ def test_failures_are_reported_and_the_rest_still_runs(monkeypatch, tmp_path):
     assert "FALLA Cerebro con herramientas" in result.output
     assert "FALLA Cámara" in result.output
     assert "OK   Globo 3D" in result.output
-    assert "4 prueba(s) fallaron" in result.output  # no photo: vision, faces too
+    assert "5 prueba(s) fallaron" in result.output  # no photo: vision, faces, scene

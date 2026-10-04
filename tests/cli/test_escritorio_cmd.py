@@ -53,8 +53,15 @@ def test_instalar_runs_powershell_with_token_in_env(tmp_path, monkeypatch):
         "openjarvis.cli.service_cmd.env_file", lambda: tmp_path / "sergio.env"
     )
     monkeypatch.setattr("openjarvis.core.paths.get_config_dir", lambda: tmp_path)
+    waited = []
+    monkeypatch.setattr(
+        "openjarvis.cli.service_cmd.wait_for_server",
+        lambda base, **kw: waited.append(base) or True,
+    )
     result = CliRunner().invoke(escritorio_cmd.escritorio, ["instalar"])
     assert result.exit_code == 0, result.output
+    # after restarting the server it waits until it answers again
+    assert waited and waited[0].startswith("http://127.0.0.1:")
     env_text = (tmp_path / "sergio.env").read_text()
     token = env_text.split("SERGIO_DESKTOP_TOKEN=")[1].strip()
     assert len(token) > 30
@@ -73,3 +80,39 @@ def test_instalar_outside_wsl_is_explained(monkeypatch):
     monkeypatch.setattr(escritorio_cmd.shutil, "which", lambda _n: None)
     result = CliRunner().invoke(escritorio_cmd.escritorio, ["instalar"])
     assert result.exit_code != 0 and "WSL" in result.output
+
+
+def test_wait_for_server_until_it_answers():
+    import httpx
+
+    from openjarvis.cli.service_cmd import wait_for_server
+
+    tries = []
+
+    def get(url, **kw):
+        tries.append(url)
+        if len(tries) < 3:  # still starting: port closed
+            raise httpx.ConnectError("refused")
+        return httpx.Response(503)  # up (engine still warming) counts
+
+    assert wait_for_server("http://x:1/", get=get, sleep=lambda s: None)
+    assert tries == ["http://x:1/health"] * 3
+
+
+def test_wait_for_server_gives_up():
+    import httpx
+
+    from openjarvis.cli.service_cmd import wait_for_server
+
+    now = [0.0]
+
+    def get(url, **kw):
+        raise httpx.ConnectError("refused")
+
+    def sleep(s):
+        now[0] += s
+
+    assert not wait_for_server(
+        "http://x:1", timeout=10, get=get, sleep=sleep, clock=lambda: now[0]
+    )
+    assert 9 <= now[0] <= 11

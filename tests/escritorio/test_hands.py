@@ -185,3 +185,86 @@ def test_blender_with_hands_appends_the_bridge(control_server, desktop):
     assert kind == "blender" and "bpy.app.timers.register" in script
     assert modes == ["3d"]
     assert c.act({"action": "hands", "target": "off"}) == "ok"
+
+
+# -- better hands: two hands, smoothing, swipes, zoom ---------------------------
+from sergio_escritorio.hands import (  # noqa: E402
+    LandmarkSmoother,
+    Swipe,
+    TwoHandZoom,
+    main_hand,
+)
+
+
+def _moved(hand, dx, dy=0.0):
+    return Hand([(x + dx, y + dy, z) for x, y, z in hand.landmarks], hand.side)
+
+
+def test_open_hand_swipes_as_you_see_them():
+    open_hand = _hand("right_hands")
+    swipe = Swipe(mirror=True)
+    events = [swipe(_moved(open_hand, -0.06 * i), i * 0.05) for i in range(6)]
+    # the camera sees your hand going left: on your mirrored screen it goes right
+    assert [e for e in events if e] == ["swipe_right"]
+    swipe = Swipe(mirror=True)
+    up = [swipe(_moved(open_hand, 0, -0.07 * i), 2 + i * 0.05) for i in range(6)]
+    assert [e for e in up if e] == ["swipe_up"]
+    # slow movement or a fist is not a swipe
+    slow = Swipe()
+    assert not any(slow(_moved(open_hand, -0.01 * i), i * 0.2) for i in range(10))
+    fist = _hand("fist")
+    assert not any(Swipe()(_moved(fist, -0.08 * i), i * 0.05) for i in range(6))
+
+
+def test_two_hand_pinch_zooms():
+    left, right = pinching(), _moved(pinching(), 0.2)
+    zoom = TwoHandZoom(step=0.05)
+    assert zoom([left, right]) == 0
+    assert zoom([left, _moved(right, 0.11)]) == 2  # apart: zoom in
+    assert zoom([left, _moved(right, 0.0)]) == -2  # together: zoom out
+    assert zoom([left]) == 0
+
+
+def test_smoothing_takes_the_jitter_out():
+    import random
+
+    rng = random.Random(1)
+    still = _hand("right_hands")
+    smoother = LandmarkSmoother()
+    raw_x, smooth_x = [], []
+    for i in range(60):
+        jitter = Hand([(x + rng.gauss(0, 0.004), y, z) for x, y, z in still.landmarks])
+        raw_x.append(jitter.landmarks[8][0])
+        smooth_x.append(smoother([jitter], i / 30)[0].landmarks[8][0])
+
+    def spread(values):
+        mean = sum(values) / len(values)
+        return (sum((v - mean) ** 2 for v in values) / len(values)) ** 0.5
+
+    assert spread(smooth_x[10:]) < spread(raw_x[10:]) / 2
+
+
+def test_the_closest_hand_leads():
+    far = Hand([(0.5 + (x - 0.5) * 0.5, 0.5 + (y - 0.5) * 0.5, z) for x, y, z in REAL["fist"][0]])
+    near = _hand("victory")
+    assert main_hand([far, near]) is near and main_hand([]) is None
+
+
+def test_gesture_mode_reports_swipes_and_mouse_mode_zooms():
+    fired, mouse_events = [], []
+    control = HandControl(
+        frames=lambda: None, on_gesture=fired.append, mouse_events=mouse_events.extend
+    )
+    control.mode = "gestos"
+    open_hand = _hand("right_hands")
+    debounce, mouse = Debounce(), AirMouse((1920, 1080))
+    for i in range(6):
+        control.process([_moved(open_hand, 0.07 * i)], i * 0.05, debounce, mouse)
+    assert fired == ["swipe_left"]
+    control.mode = "mouse"
+    left, right = pinching(), _moved(pinching(), 0.2)
+    control.process([left, right], 1.0, debounce, mouse)
+    control.process([left, _moved(right, 0.12)], 1.05, debounce, mouse)
+    # (smoothed, so a quick pull may count as one step)
+    assert any(e[0] == "zoom" and e[1] > 0 for e in mouse_events)
+    assert not any(e[0] == "click" for e in mouse_events)

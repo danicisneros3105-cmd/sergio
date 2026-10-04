@@ -672,6 +672,15 @@ def local_whisper() -> LocalWhisper | None:
         return _LOCAL[0]
 
 
+def wav_pcm(data: bytes) -> bytes:
+    """The raw 16-bit samples inside a WAV (what a live call streams)."""
+    try:
+        with wave.open(io.BytesIO(data), "rb") as wav:
+            return wav.readframes(wav.getnframes())
+    except (wave.Error, EOFError):
+        return b""
+
+
 def wav_seconds(data: bytes) -> float:
     try:
         with wave.open(io.BytesIO(data)) as w:
@@ -904,6 +913,9 @@ class Assistant:
         self._clicky = False
         self._interrupted = False
         self.quick: Callable[[Any], str] | None = None  # instant commands
+        # Real-time call (Gemini Live): saying "Sergio" opens it with what
+        # you said; returns False when no call could start (then turn-based).
+        self.start_call: Callable[[bytes], bool] | None = None
         self.last_heard = ""  # for diagnostics (sergio revisar)
         self.last_error = ""
         self.player = player
@@ -966,6 +978,8 @@ class Assistant:
         if not for_me:
             heard = text
             woke, text = parse_wake(text)
+            if woke and self.start_call is not None and self.start_call(wav):
+                return  # a live conversation took over, from this sentence
             if not woke:
                 # Not for Sergio. If it sounded like an order, remind how to
                 # call him (at most every two minutes).
@@ -1120,6 +1134,9 @@ class Ears:
         self._hold = False  # Ctrl+Alt held (Clicky mode)
         self._hold_frames: list[bytes] = []
         self._hold_send = False
+        self.call: Any = None  # a CallSession while you talk live with Sergio
+        # Ctrl+Space hook: start/end a call; False = do push-to-talk instead.
+        self.on_talk: Callable[[], bool] | None = None
 
     def peak(self, seconds: float = 30.0) -> int:
         """Loudest sound (RMS) heard recently, for diagnostics."""
@@ -1131,7 +1148,13 @@ class Ears:
         return bool(self._ptt_until)
 
     def talk(self) -> None:
-        """Ctrl+Space / click: record now, no wake word, until you stop talking."""
+        """Ctrl+Space / click: start/end a call, or record one sentence."""
+        if self.on_talk is not None and self.on_talk():
+            return  # a call started or ended
+        self.ptt()
+
+    def ptt(self) -> None:
+        """Push-to-talk: record now, no wake word, until you stop talking."""
         if self.assistant.busy:
             self.assistant.stop_speaking()  # pressing again cuts him off
             return
@@ -1183,6 +1206,11 @@ class Ears:
                 self._peaks[-1] = (second, level)
         else:
             self._peaks.append((second, level))
+        call = self.call
+        if call is not None and getattr(call, "active", False):
+            self.segmenter.reset()
+            call.feed_mic(chunk)  # the call hears everything, live
+            return None
         if self._hold:
             if len(self._hold_frames) < 60 * RATE // FRAME:  # max one minute
                 self._hold_frames.append(chunk)

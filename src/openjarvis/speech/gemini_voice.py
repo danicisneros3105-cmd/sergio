@@ -17,13 +17,20 @@ TTS_MODELS = (
     "gemini-3.1-flash-tts-preview",
     "gemini-2.5-pro-preview-tts",
     "gemini-2.5-flash-preview-tts",
+    # Newer voices read the style note aloud: they get the plain text only.
+    "gemini-3.8-flash-tts",
+    "gemini-3.8-flash-lite-tts",
 )
+PLAIN_TEXT_TTS = {"gemini-3.8-flash-tts", "gemini-3.8-flash-lite-tts"}
 # Fastest first: Flash-Lite with minimal thinking transcribes in well under a
 # second; the bigger Flash models are the backup.
 EAR_MODELS = (
     "gemini-3.1-flash-lite",
+    "gemini-3.5-flash-lite",
+    "gemini-flash-lite-latest",
     "gemini-3.8-flash",
     "gemini-3.5-flash",
+    "gemini-2.5-flash-lite",
     "gemini-2.5-flash",
 )
 VOICES = {  # Gemini prebuilt voices that fit Sergio (male, adult)
@@ -101,8 +108,9 @@ def speak(text: str, voice: str = DEFAULT_VOICE, style: str = STYLE) -> bytes:
     last: Exception | None = None
     for model in TTS_MODELS:
         try:
+            prompt = text if model in PLAIN_TEXT_TTS else f"{style}\n{text}"
             resp = _client().models.generate_content(
-                model=model, contents=f"{style}\n{text}", config=config
+                model=model, contents=prompt, config=config
             )
             for part in resp.candidates[0].content.parts:
                 blob = getattr(part, "inline_data", None)

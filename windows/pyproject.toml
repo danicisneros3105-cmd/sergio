@@ -18,11 +18,16 @@ dependencies = [
     "numpy>=1.26",
     "httpx>=0.27",
     "imageio-ffmpeg>=0.5",
+    "websockets>=13",  # live calls with Sergio (Gemini Live via the server)
 ]
 
 [project.optional-dependencies]
 # Hands: gestures, air mouse and 3D modelling with your hands (MediaPipe).
 manos = ["mediapipe>=1.0"]
+# Real physics in the camera (objects you make and throw with your hands).
+fisica = ["pymunk>=7.0"]
+# Echo cancellation for calls on laptop speakers (WebRTC audio processing).
+llamada = ["livekit>=1.0"]
 # NVIDIA GPU for a much better ear (Whisper large-v3-turbo). Big download
 # (~1 GB); the installer tries it but Sergio works on the CPU without it.
 gpu = [

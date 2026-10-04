@@ -67,21 +67,37 @@ async def enroll(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except ImportError as exc:
         raise _missing_opencv() from exc
-    return {"name": name.strip(), "samples": samples}
+    from openjarvis.faces.book import clean_name
+
+    return {"name": clean_name(name), "samples": samples}
 
 
 def _look(data: bytes, question: str) -> dict[str, Any]:
     from openjarvis.tools.vision_look import ask_vision
 
     people: list[str] = []
+    strangers = 0
     try:
-        people = sorted({m.name for m in _get_book().identify(data) if m.name})
+        found = _get_book().identify(data)
+        people = sorted({m.name for m in found if m.name})
+        strangers = sum(1 for m in found if not m.name)
     except Exception:  # noqa: BLE001 — recognition is a bonus here
         pass
-    answer = ask_vision(data, question)
-    if people:
-        answer = f"Veo a {', '.join(people)}. {answer}"
-    return {"answer": answer, "people": people}
+    hint = ""
+    if people or strangers:
+        known = ", ".join(people)
+        unknown = (
+            "una persona que no conozco"
+            if strangers == 1
+            else f"{strangers} personas que no conozco"
+        )
+        who = " y ".join(p for p in (known, unknown if strangers else "") if p)
+        hint = (
+            f"(Reconocimiento facial: {who}. Usa estos nombres solo para esas "
+            "caras y no inventes nombres para las demás.)\n"
+        )
+    answer = ask_vision(data, hint + question)
+    return {"answer": answer, "people": people, "strangers": strangers}
 
 
 @router.post("/look")

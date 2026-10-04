@@ -90,6 +90,7 @@ class Notch(QWidget):
         self._caption_until = 0.0
         self._caption_at = 0.0
         self.level = 0.0
+        self.call_since: float | None = None  # in a call with Sergio
         self._levels: deque[float] = deque([0.0] * BARS, maxlen=BARS)
         self._t0 = time.monotonic()
         self._w, self._h = COMPACT
@@ -108,10 +109,24 @@ class Notch(QWidget):
         """Live microphone volume 0..1 (called ~30 times a second)."""
         self.level = max(0.0, min(1.0, level))
 
+    def set_call(self, active: bool) -> None:
+        """A green call timer, like the Dynamic Island during a phone call."""
+        self.call_since = time.monotonic() if active else None
+
+    def call_time(self) -> str:
+        if self.call_since is None:
+            return ""
+        seconds = int(time.monotonic() - self.call_since)
+        return f"{seconds // 60}:{seconds % 60:02d}"
+
     def say(self, text: str, seconds: float = 0.0) -> None:
-        self.caption = " ".join(text.split())
-        self._caption_at = time.monotonic()
-        self._caption_until = self._caption_at + (
+        text = " ".join(text.split())
+        # A live call sends the sentence as it grows: keep typing, no restart.
+        growing = bool(self.caption) and text.startswith(self.caption)
+        self.caption = text
+        if not growing:
+            self._caption_at = time.monotonic()
+        self._caption_until = time.monotonic() + (
             seconds or min(18.0, 4.0 + len(self.caption) / 15)
         )
 
@@ -261,17 +276,22 @@ class Notch(QWidget):
         )
 
         if compact:
-            self._draw_wave(
-                p,
-                QRectF(rect.right() - PAD - 44, rect.top() + 9, 44, rect.height() - 18),
-                9,
-            )
+            if self.call_since is not None:
+                self._draw_call(p, rect)
+            else:
+                self._draw_wave(
+                    p,
+                    QRectF(rect.right() - PAD - 44, rect.top() + 9, 44, rect.height() - 18),
+                    9,
+                )
             return
 
         text_x = centre.x() + size + 14
         label = LABELS.get(self.state, self.name)
         if label == "Sergio":
             label = self.name
+        if self.call_since is not None and self.state in ("idle", "listening"):
+            label = f"En llamada · {self.call_time()}"
         has_text = bool(self.lines())
         title_y = rect.top() + (24 if has_text else rect.height() / 2 + 4.5)
         p.setFont(self._title)
@@ -305,6 +325,20 @@ class Notch(QWidget):
                 break
             p.drawText(QPointF(text_x, y), visible)
             y += metrics.descent() + metrics.leading()
+
+    def _draw_call(self, p: QPainter, rect: QRectF) -> None:
+        """Compact notch during a call: green handset + elapsed time."""
+        green = QColor(48, 209, 88)
+        p.setFont(self._title)
+        text = self.call_time()
+        width = QFontMetricsF(self._title).horizontalAdvance(text)
+        right = rect.right() - PAD
+        p.setPen(green)
+        p.drawText(QPointF(right - width, rect.center().y() + 4), text)
+        x, y = right - width - 12, rect.center().y()
+        p.setPen(Qt.PenStyle.NoPen)
+        p.setBrush(green)
+        p.drawEllipse(QPointF(x, y), 4.5, 4.5)
 
     def _draw_wave(self, p: QPainter, box: QRectF, bars: int) -> None:
         """Rounded bars from the recent levels, coloured like the orb."""
