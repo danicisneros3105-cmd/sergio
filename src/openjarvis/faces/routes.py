@@ -52,6 +52,21 @@ async def identify(image: UploadFile = File(...)) -> dict[str, Any]:
     return {"faces": [m.to_dict() for m in matches]}
 
 
+@router.post("/analyze")
+async def analyze_scene(image: UploadFile = File(...)) -> dict[str, Any]:
+    """Full scene analysis: species, age, gender, expression, identity."""
+    from openjarvis.faces.analyze import analyze
+
+    data = await _read(image)
+    try:
+        scene = await asyncio.to_thread(analyze, data, book=_get_book())
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except ImportError as exc:
+        raise _missing_opencv() from exc
+    return scene.to_dict()
+
+
 @router.post("/enroll")
 async def enroll(
     name: str = Form(...),
