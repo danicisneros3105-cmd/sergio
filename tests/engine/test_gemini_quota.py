@@ -104,3 +104,18 @@ def test_other_errors_are_not_hidden(genai):
 
     with pytest.raises(RuntimeError, match="INVALID_ARGUMENT"):
         _ask(_engine(Broken(())), "gemini-3.8-flash")
+
+
+def test_busy_model_moves_on_too(genai):
+    class Busy(Models):
+        def generate_content(self, model, contents, config):
+            if model == "gemini-3.8-flash":
+                self.calls.append((model, contents))
+                raise RuntimeError(
+                    "503 UNAVAILABLE. This model is currently experiencing high demand."
+                )
+            return super().generate_content(model, contents, config)
+
+    models = Busy(())
+    result = _ask(_engine(models), "gemini-3.8-flash@low")
+    assert result["model"] == "gemini-3.7-flash"

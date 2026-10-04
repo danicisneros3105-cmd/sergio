@@ -223,6 +223,11 @@ def run(config: dict[str, Any]) -> None:
 
     bridge = Bridge()
     bridge.run.connect(lambda job: job())
+    current_call: list[Any] = [None]  # the live call with Sergio, if any
+
+    def call_active() -> bool:
+        session = current_call[0]
+        return session is not None and session.active
 
     def on_ui(fn: Any, timeout: float = 15.0) -> Any:
         """Run *fn* on the Qt thread (widgets live there) and return its result."""
@@ -514,13 +519,13 @@ def run(config: dict[str, Any]) -> None:
                 Toggle(
                     "Llamada",
                     "phone",
-                    lambda: call_active(),
+                    call_active,
                     lambda on: set_call_tile(on),
                 ),
                 Toggle(
                     "Gimnasio mental",
                     "brain",
-                    lambda: schedule.enabled,
+                    lambda: bool(config.get("gym", True)),
                     lambda on: set_gym(on),
                 ),
             ],
@@ -990,13 +995,8 @@ def run(config: dict[str, Any]) -> None:
     from sergio_escritorio.call import CallSession
     from sergio_escritorio.call_tools import Abilities, call_context, call_tools
 
-    current_call: list[Any] = [None]
     call_failed_at = [-1e9]
     call_error = [""]
-
-    def call_active() -> bool:
-        session = current_call[0]
-        return session is not None and session.active
 
     def jpeg_of(image: Any, width: int) -> bytes:
         import io

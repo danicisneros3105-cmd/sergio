@@ -573,6 +573,18 @@ def _is_quota_error(exc: Exception) -> bool:
     return "RESOURCE_EXHAUSTED" in text or "exceeded your current quota" in text
 
 
+BUSY_COOLDOWN = 120.0  # an overloaded model gets a short rest only
+
+
+def _is_busy_error(exc: Exception) -> bool:
+    """Google is overloaded right now (503 / high demand): try a sibling."""
+    text = str(exc)
+    return any(
+        marker in text
+        for marker in ("503", "UNAVAILABLE", "high demand", "overloaded", "500 INTERNAL")
+    )
+
+
 def google_schema(schema: Any) -> Dict[str, Any]:
     """A JSON Schema reduced to what Gemini function declarations accept."""
     if not isinstance(schema, dict):
@@ -1284,11 +1296,15 @@ class CloudEngine(InferenceEngine):
                     model=candidate, contents=contents, config=config
                 )
             except Exception as exc:  # noqa: BLE001
-                if not _is_quota_error(exc):
+                if _is_quota_error(exc):
+                    cooldown = QUOTA_COOLDOWN
+                elif _is_busy_error(exc):
+                    cooldown = BUSY_COOLDOWN
+                else:
                     raise
-                _QUOTA_EXHAUSTED[candidate] = time.monotonic() + QUOTA_COOLDOWN
+                _QUOTA_EXHAUSTED[candidate] = time.monotonic() + cooldown
                 last = exc
-                logger.warning("Gemini %s is out of quota; trying the next", candidate)
+                logger.warning("Gemini %s unavailable (%s); trying the next", candidate, str(exc)[:80])
                 continue
             return resp, candidate
         raise last if last is not None else RuntimeError("no Gemini model")

@@ -49,6 +49,26 @@ def _ok(resp: httpx.Response) -> httpx.Response:
     return resp
 
 
+class _Retrying:
+    """An httpx client that tries once more when a connection is cut."""
+
+    def __init__(self, client: httpx.Client) -> None:
+        self.client = client
+
+    def _do(self, method: str, *args: object, **kwargs: object) -> httpx.Response:
+        try:
+            return getattr(self.client, method)(*args, **kwargs)
+        except (httpx.ReadError, httpx.RemoteProtocolError, httpx.WriteError):
+            time.sleep(2)
+            return getattr(self.client, method)(*args, **kwargs)
+
+    def get(self, *args: object, **kwargs: object) -> httpx.Response:
+        return self._do("get", *args, **kwargs)
+
+    def post(self, *args: object, **kwargs: object) -> httpx.Response:
+        return self._do("post", *args, **kwargs)
+
+
 @click.command("probar")
 @click.option("--sin-pantalla", is_flag=True, help="No mover el mouse ni abrir apps.")
 def probar(sin_pantalla: bool) -> None:
@@ -63,13 +83,13 @@ def probar(sin_pantalla: bool) -> None:
     token = read_env(env_file()).get("SERGIO_DESKTOP_TOKEN", "")
     win = "http://127.0.0.1:8765"
     auth = {"Authorization": f"Bearer {token}"}
-    http = httpx.Client(timeout=httpx.Timeout(180, connect=5))
+    http = _Retrying(httpx.Client(timeout=httpx.Timeout(180, connect=5)))
     run = Run()
 
     from openjarvis.cli.service_cmd import wait_for_server
 
     console.print("Esperando a que Sergio esté encendido…")
-    if not wait_for_server(base, get=http.get):
+    if not wait_for_server(base, get=http.client.get):
         console.print(
             f"[red]Sergio no responde en {base}.[/red] Enciéndelo con: "
             "sergio servicio encender  (o mira: journalctl --user -u sergio -n 50)"
