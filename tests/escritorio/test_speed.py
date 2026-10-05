@@ -53,7 +53,6 @@ def test_instant_commands(said, kind, arg):
     [
         "abre Google, busca Nvidia y entra al primer link",
         "cuéntame un chiste",
-        "edita un video con la carpeta Viaje",
         "pon música relajante",
     ],
 )

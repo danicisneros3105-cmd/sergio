@@ -59,10 +59,18 @@ if ($LASTEXITCODE -ne 0) { Write-Host "   No pude instalar la visión con las ma
 if ($LASTEXITCODE -ne 0) { Write-Host "   No pude instalar el cancelador de eco; en llamadas usa audífonos o habla fuerte para interrumpir." -ForegroundColor Yellow }
 & $uv sync --project $app --python 3.12 --inexact --extra manos --extra llamada --extra oido
 if ($LASTEXITCODE -ne 0) { Write-Host "   No pude instalar el oído instantáneo; Sergio te oye igual, un poco más lento." -ForegroundColor Yellow }
-Write-Host "   Visión moderna (YOLO11: objetos y personas sin confundir tu mano)… puede tardar"
+Write-Host "   Visión moderna (YOLO11 + YOLOE: objetos y personas sin confundir tu mano)… puede tardar"
 $env:UV_HTTP_TIMEOUT = "900"
-& $uv sync --project $app --python 3.12 --inexact --extra manos --extra llamada --extra oido --extra vision
-if ($LASTEXITCODE -ne 0) { Write-Host "   No pude instalar la visión moderna ahora; uso la anterior." -ForegroundColor Yellow }
+$visionOk = $false
+if (Get-Command nvidia-smi -ErrorAction SilentlyContinue) {
+    Write-Host "   Tarjeta NVIDIA: la visión usará la GPU (descarga grande, ~2,5 GB, solo la primera vez)"
+    & $uv sync --project $app --python 3.12 --inexact --extra manos --extra llamada --extra oido --extra vision-gpu
+    $visionOk = ($LASTEXITCODE -eq 0)
+}
+if (-not $visionOk) {
+    & $uv sync --project $app --python 3.12 --inexact --extra manos --extra llamada --extra oido --extra vision
+    if ($LASTEXITCODE -ne 0) { Write-Host "   No pude instalar la visión moderna ahora; uso la anterior." -ForegroundColor Yellow }
+}
 if ($Gpu) {
     Say "Extra: oído con la tarjeta NVIDIA (~1 GB, puede tardar)"
     $env:UV_HTTP_TIMEOUT = "900"

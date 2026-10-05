@@ -33,6 +33,7 @@ from typing import Any, Callable, Sequence
 log = logging.getLogger(__name__)
 
 MODELS_DIR = Path(os.environ.get("LOCALAPPDATA", Path.home())) / "SergioEscritorio" / "models"
+SHIPPED = Path(__file__).parent / "models"  # small files that ship with Sergio
 MODEL_URLS = {
     # 30 % more accurate than Lite0 (COCO mAP 34 vs 26) and finds about twice
     # as many objects on the test photos; ~150 ms a frame, in the background.
@@ -768,12 +769,25 @@ class YoloFinder:
         MODEL_URLS.setdefault(name, YOLO_URL.format(name=name))
         self._model = YOLO(str(ensure_model(name)))
         self._device = 0 if gpu else "cpu"
+        self._half = gpu  # half precision on the GPU: about twice as fast
+        self._size = 640
         self._score = score
-        self.model = name
+        self.gpu = gpu
+        self.model = name + (" (GPU)" if gpu else " (CPU)")
+        self._vocab: Any = None
+        self._vocab_every = 1 if gpu else 3  # the open vocabulary, every N frames
+        self._frame = 0
+        self._extra: list[Seen] = []
+        try:
+            self._vocab = VocabFinder(gpu)
+            self.model += " + YOLOE"
+        except Exception as exc:  # noqa: BLE001 — 80 classes then
+            log.info("YOLOE vocabulary unavailable: %s", exc)
 
     def find(self, frame: Any, hands: Sequence[Box] = ()) -> list[Seen]:
         result = self._model.predict(
-            frame, conf=self._score, verbose=False, device=self._device, imgsz=640
+            frame, conf=self._score, verbose=False, device=self._device,
+            imgsz=self._size, half=self._half,
         )[0]
         names = result.names
         found = []
@@ -785,7 +799,103 @@ class YoloFinder:
                 label = "objeto"
             x0, y0, x1, y1 = box
             found.append(Seen(label, kind, species, float(conf), (x0, y0, x1 - x0, y1 - y0)))
+        if self._vocab is not None:
+            self._frame += 1
+            if self._frame % self._vocab_every == 0:
+                try:
+                    self._extra = self._vocab.find(frame, self._size)
+                except Exception:  # noqa: BLE001
+                    log.exception("YOLOE failed")
+                    self._vocab = None
+            found = merge_vocab(found, [Seen(e.label, e.kind, e.species, e.score, e.box) for e in self._extra])
         return clean_detections(found, hands)
+
+
+# Things the 80-class detector does not know, found by YOLOE (open
+# vocabulary, prompted with these names): English prompt -> Spanish label.
+VOCAB = {
+    "lipstick": "labial", "pen": "bolígrafo", "pencil": "lápiz", "marker": "marcador",
+    "key": "llave", "wallet": "billetera", "eyeglasses": "lentes", "sunglasses": "gafas de sol",
+    "headphones": "audífonos", "earbuds": "audífonos", "wristwatch": "reloj de pulsera",
+    "notebook": "cuaderno", "window": "ventana", "door": "puerta", "lamp": "lámpara",
+    "guitar": "guitarra", "hat": "sombrero", "baseball cap": "gorra", "hoodie": "hoodie",
+    "jacket": "chaqueta", "picture frame": "cuadro", "poster": "póster", "flag": "bandera",
+    "rubik's cube": "cubo de Rubik", "phone charger": "cargador", "cable": "cable",
+    "cardboard box": "caja", "shoe": "zapato", "perfume bottle": "perfume", "drinking glass": "vaso",
+    "plate": "plato", "pillow": "almohada", "curtain": "cortina", "mirror": "espejo",
+    "speaker": "parlante", "tablet": "tableta", "game controller": "control de videojuego",
+    "microphone": "micrófono", "camera": "cámara", "candle": "vela", "toy": "juguete",
+    "ring": "anillo", "necklace": "collar", "bracelet": "pulsera", "comb": "peine",
+    "hairbrush": "cepillo de pelo", "makeup brush": "brocha de maquillaje",
+    "nail polish": "esmalte de uñas", "coin": "moneda", "credit card": "tarjeta",
+    "sheet of paper": "papel", "ruler": "regla", "stapler": "engrapadora",
+    "calculator": "calculadora", "deodorant": "desodorante", "lighter": "encendedor",
+    "usb flash drive": "memoria USB", "medicine bottle": "frasco de medicina",
+    "spray bottle": "atomizador", "screwdriver": "destornillador", "hammer": "martillo",
+    "glove": "guante",
+}  # fmt: skip
+# Asked to YOLOE as well, as a second opinion on the species.
+VOCAB_ANIMALS = {"dog": "perro", "cat": "gato", "bird": "pájaro", "horse": "caballo"}
+
+
+class VocabFinder:
+    """YOLOE with Sergio's vocabulary (a lipstick is "labial", not "control
+    remoto"). The text prompts are encoded ahead of time (models/)."""
+
+    def __init__(self, gpu: bool) -> None:
+        import torch
+        from ultralytics import YOLOE
+
+        name = "yoloe-11m-seg.pt" if gpu else "yoloe-11s-seg.pt"
+        MODEL_URLS.setdefault(name, YOLO_URL.format(name=name))
+        self._model = YOLOE(str(ensure_model(name)))
+        names = list(VOCAB) + list(VOCAB_ANIMALS)
+        # The words are encoded ahead of time and ship with Sergio: encoding
+        # them here would download a 572 MB text model.
+        data = torch.load(SHIPPED / f"{Path(name).stem}-vocab.pt", map_location="cpu")
+        if data.get("names") != names:
+            raise RuntimeError("vocabulario de YOLOE desactualizado")
+        pe = data["pe"].float()
+        self._model.set_classes(names, pe)
+        self._device = 0 if gpu else "cpu"
+        self._half = gpu
+
+    def find(self, frame: Any, size: int) -> list[Seen]:
+        result = self._model.predict(
+            frame, conf=0.35, verbose=False, device=self._device, imgsz=size, half=self._half
+        )[0]
+        out = []
+        for cls, conf, box in zip(
+            result.boxes.cls.tolist(), result.boxes.conf.tolist(), result.boxes.xyxyn.tolist()
+        ):
+            name = result.names[int(cls)]
+            x0, y0, x1, y1 = box
+            if name in VOCAB_ANIMALS:
+                label = VOCAB_ANIMALS[name]
+                out.append(Seen(label, "animal", label, float(conf), (x0, y0, x1 - x0, y1 - y0)))
+                continue
+            label = VOCAB.get(name, name)
+            out.append(Seen(label, "objeto", "", float(conf), (x0, y0, x1 - x0, y1 - y0)))
+        return out
+
+
+def merge_vocab(base: list[Seen], extra: Sequence[Seen]) -> list[Seen]:
+    """Add what only the open-vocabulary model saw, and give unsure objects
+    ("objeto") the precise name it found in the same place."""
+    out = list(base)
+    for item in extra:
+        twin = next((b for b in out if iou(b.box, item.box) > 0.4), None)
+        if item.kind == "animal":
+            # Only a second opinion: when the two models disagree (a poodle
+            # called "gato"), it says "animal" and Gemini names it.
+            if twin is not None and twin.kind == "animal" and twin.label != item.label and item.score >= 0.4:
+                twin.label, twin.species = "animal", ""
+            continue
+        if twin is None:
+            out.append(item)
+        elif twin.kind == "objeto" and twin.label in ("objeto", *HANDLIKE) and item.score >= 0.4:
+            twin.label = item.label
+    return out
 
 
 def best_finder() -> Any:
@@ -888,7 +998,7 @@ class AutoNamer:
         options = [
             t
             for t in tracks
-            if t.kind == "objeto"
+            if (t.kind == "objeto" or (t.kind == "animal" and t.label == "animal"))
             and not t.named
             and now - t.first_seen >= self.settle
             and t.id not in self._tried
@@ -896,7 +1006,7 @@ class AutoNamer:
         if not options:
             return None
         # Unsure names first ("objeto"), then the biggest (closest) one.
-        return max(options, key=lambda t: (t.label == "objeto", t.box[2] * t.box[3]))
+        return max(options, key=lambda t: (t.label in ("objeto", "animal"), t.box[2] * t.box[3]))
 
     def tried(self, track: Track) -> None:
         self._tried.add(track.id)
@@ -1040,6 +1150,9 @@ class VisionEngine:
             log.exception("object detection unavailable")
             self.error = f"Sin detección de objetos: {exc}"
             return
+        self.detector = str(getattr(finder, "model", type(finder).__name__))
+        if getattr(finder, "gpu", False):
+            self.objects_fps = max(self.objects_fps, 15.0)  # the GPU keeps up
         while self._running:
             started = time.monotonic()
             frame = self.frames()

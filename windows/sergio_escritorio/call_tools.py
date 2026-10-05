@@ -57,6 +57,9 @@ class Abilities:
     screenshot: Callable[[], str] = _nothing
     quick: Callable[[str], str] = _nothing  # an instant order, as said
     video: Callable[[str], str] = _nothing  # find and play a YouTube video
+    blender_task: Callable[[str], str] = _nothing  # Blender Pro, any job in words
+    edit_video: Callable[..., str] = _nothing  # Video Pro (request, folder)
+    upload_video: Callable[[], str] = _nothing  # YouTube Studio ready to publish
     now: Callable[[], datetime] = field(default=datetime.now)
 
 
@@ -235,6 +238,31 @@ def call_tools(ab: Abilities) -> list[ClientTool]:
                 accion=_str("Qué hacer", required=True, enum=["subir", "bajar", "silenciar"]),
                 pasos={"type": "integer", "description": "Cuánto (1-25, normal 5)"},
             ),
+        ),
+        ClientTool(
+            "editar_video",
+            "Video Pro: mira los clips de una carpeta, elige los mejores momentos y "
+            "monta el video (cortes, transiciones, subtítulos, sonido nivelado, música), "
+            "con título, descripción y etiquetas para YouTube. Tarda unos minutos.",
+            lambda a: ab.edit_video(str(a.get("pedido") or ""), str(a.get("carpeta") or "")),
+            _obj(
+                pedido=_str("Qué video quiere (estilo, duración, Short/vertical...)", required=True),
+                carpeta=_str("La carpeta o archivo con los clips (por defecto Videos)"),
+            ),
+        ),
+        ClientTool(
+            "subir_video",
+            "Deja el último video listo para subir en YouTube Studio (el usuario "
+            "publica con su clic). Úsalo cuando pida subirlo.",
+            lambda a: ab.upload_video(),
+        ),
+        ClientTool(
+            "blender_pro",
+            "Trabajo profesional en Blender descrito en palabras (modelar, escenas, "
+            "logos 3D, materiales): lo construye, renderiza, revisa el render y lo "
+            "corrige solo; tarda unos minutos y avisa al terminar.",
+            lambda a: ab.blender_task(str(a.get("pedido") or "")),
+            _obj(pedido=_str("Qué hacer en Blender, con todos los detalles", required=True)),
         ),
         ClientTool(
             "poner_video",

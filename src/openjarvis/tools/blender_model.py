@@ -99,8 +99,24 @@ def check_script(script: str) -> None:
         raise UnsafeScript(f"usa {found.group(0)}")
 
 
-def finish_script(script: str, save_path: str, name: str) -> str:
-    """Sergio's ending: light, camera framing the object, save the project."""
+PREVIEW = """
+# --- Sergio: a quick render to check the work ---
+try:
+    _scene.render.engine = "CYCLES"
+    _scene.cycles.samples = 24
+    _scene.cycles.use_denoising = False
+    _scene.render.resolution_x, _scene.render.resolution_y = 640, 480
+    _scene.render.filepath = {path}
+    _bpy.ops.render.render(write_still=True)
+    print("SERGIO_PREVIEW", {path})
+except Exception as _exc:
+    print("SERGIO_PREVIEW_FAILED", _exc)
+"""
+
+
+def finish_script(script: str, save_path: str, name: str, preview_path: str = "") -> str:
+    """Sergio's ending: light, camera framing the object, save the project
+    (and, for the checking loop, a quick render to look at)."""
     return (
         script.rstrip()
         + "\n\n# --- Sergio: lights, camera and saving the project ---\n"
@@ -133,6 +149,7 @@ _path = {json.dumps(save_path)}
 _bpy.ops.wm.save_as_mainfile(filepath=_path)
 print("SERGIO_SAVED", _path, len(_objs))
 """
+        + (PREVIEW.format(path=json.dumps(preview_path)) if preview_path else "")
     )
 
 
@@ -197,6 +214,7 @@ def model_object(
     mime: str = "image/jpeg",
     ask: Any = None,
     tries: int = 2,
+    preview_path: str = "",
 ) -> dict[str, Any]:
     """Photo -> {name, description, dimensions_cm, parts, script (ready to run)}."""
     prompt = PROMPT.format(note=f"The user says: {note}" if note.strip() else "")
@@ -218,7 +236,8 @@ def model_object(
         except UnsafeScript as exc:
             problem = str(exc)
             continue
-        model["script"] = finish_script(model["script"], save_path, model["name"])
+        model["raw_script"] = model["script"]
+        model["script"] = finish_script(model["script"], save_path, model["name"], preview_path)
         return model
     raise RuntimeError(
         f"El script de Blender no era seguro ({problem}); no lo ejecuto."

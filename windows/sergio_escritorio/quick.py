@@ -197,10 +197,19 @@ def parse_quick(text: str) -> Quick | None:
         return Quick("gym_report")
     if _GYM.search(t):
         return Quick("gym", say="Vamos a entrenar la mente.")
+    # Video Pro: "edita un video con la carpeta Viaje para YouTube Shorts"
+    if re.search(r"\b(edita|editame|monta|montame|haz|hazme|crea|creame|arma)\b.*\b(video|short|reel)", t):
+        m = re.search(r"\b(?:carpeta|con los videos de|de la carpeta|con la carpeta|desde|de mis|con mis)\s+(?:de\s+)?(.+?)(?:\s+(?:para|en|como)\b|$)", t)
+        return Quick("video_pro", text, m.group(1).strip() if m else "")
+    if re.search(r"\b(sube|subelo|subir|publica|publicalo)\b.*\b(youtube|video)\b", t):
+        return Quick("video_upload")
     if re.search(r"\b(ayuda|como (se )?(usan|uso|hago|muevo|creo)|instrucciones|guia)\b.*\bhologram", t) or re.search(
         r"\bhologram\w*\b.*\b(ayuda|como funcionan|instrucciones)\b", t
     ):
         return Quick("holo", "ayuda hologramas")
+    m = re.search(r"\b(en blender|con blender)\b", t)
+    if m and re.search(r"\b(haz|hazme|crea|creame|modela|modelame|construye|disena|genera|arma)\b", t):
+        return Quick("blender_task", text, "Blender Pro en marcha.")
     if "blender" in t and not re.search(r"\b(objeto|lo que tengo|en la mano|en mis manos)\b", t) and re.search(
         r"\b(pasa|pasalo|pasala|pasalos|lleva|llevalo|guarda|guardalo|exporta|exportalo|manda|mandalo|envia)\b", t
     ):

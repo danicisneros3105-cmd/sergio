@@ -134,3 +134,9 @@ oj-debug.*.json
 
 # TypeScript build cache (rewritten by every build)
 *.tsbuildinfo
+
+# Big model files downloaded at run time (never commit them)
+*.ts
+mobileclip*
+yolo*.pt
+!windows/sergio_escritorio/models/*-vocab.pt

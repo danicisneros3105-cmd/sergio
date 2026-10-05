@@ -31,6 +31,9 @@ oido = ["vosk>=0.3.45"]
 # Modern object detector (YOLO11, Ultralytics): far fewer mistakes than the
 # old EfficientDet (a hand is not a banana, a window is not a TV).
 vision = ["ultralytics>=8.3"]
+# The same on the NVIDIA card (CUDA PyTorch, ~2.5 GB): YOLO11-m + YOLOE at
+# 15+ frames a second instead of ~3 on the processor.
+vision-gpu = ["ultralytics>=8.3", "torch>=2.4", "torchvision>=0.19"]
 # NVIDIA GPU for a much better ear (Whisper large-v3-turbo). Big download
 # (~1 GB); the installer tries it but Sergio works on the CPU without it.
 gpu = [
@@ -53,3 +56,15 @@ packages = ["sergio_escritorio"]
 # MediaPipe brings opencv-contrib and the app opencv-headless: Ultralytics'
 # own opencv-python would be a third copy of cv2 fighting the others.
 override-dependencies = ["opencv-python ; sys_platform == 'never'"]
+conflicts = [[{ extra = "vision" }, { extra = "vision-gpu" }]]
+# Only ever installed on Windows: resolve for Windows only.
+environments = ["sys_platform == 'win32'"]
+
+[tool.uv.sources]
+torch = [{ index = "pytorch-cuda", extra = "vision-gpu" }]
+torchvision = [{ index = "pytorch-cuda", extra = "vision-gpu" }]
+
+[[tool.uv.index]]
+name = "pytorch-cuda"
+url = "https://download.pytorch.org/whl/cu126"
+explicit = true

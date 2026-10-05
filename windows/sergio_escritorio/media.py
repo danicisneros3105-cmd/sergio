@@ -264,4 +264,36 @@ def run_blender(script: str) -> str:
     return str(path)
 
 
-__all__ = ["build_command", "find_clips", "make_video", "resolve", "run_blender"]
+def run_blender_background(script: str, timeout: float = 300.0) -> str:
+    """Run a bpy script in Blender without a window; returns its log."""
+    folder = HOME / "blender"
+    folder.mkdir(parents=True, exist_ok=True)
+    path = folder / f"pro-{time.strftime('%Y%m%d-%H%M%S')}.py"
+    path.write_text(script, encoding="utf-8")
+    try:
+        done = subprocess.run(
+            [find_blender(), "-b", "--python", str(path)],
+            capture_output=True,
+            timeout=timeout,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
+    except subprocess.TimeoutExpired:
+        return "Blender tardó demasiado (más de 5 minutos) y lo detuve."
+    out = done.stdout.decode("utf-8", "replace") + done.stderr.decode("utf-8", "replace")
+    return out[-8000:]
+
+
+def open_in_blender(blend: str) -> None:
+    """Open a finished .blend project in Blender, for the user."""
+    subprocess.Popen([find_blender(), blend])
+
+
+__all__ = [
+    "build_command",
+    "find_clips",
+    "make_video",
+    "open_in_blender",
+    "resolve",
+    "run_blender",
+    "run_blender_background",
+]

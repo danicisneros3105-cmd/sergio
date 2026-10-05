@@ -495,6 +495,7 @@ async def blender_route(
     save_path: str = Form(...),
     note: str = Form(""),
     image: UploadFile = File(...),
+    preview_path: str = Form(""),
 ) -> dict[str, Any]:
     """The object in the user's hands -> a detailed, checked Blender script."""
     from openjarvis.tools.blender_model import model_object
@@ -506,10 +507,72 @@ async def blender_route(
         raise HTTPException(status_code=400, detail="save_path must end in .blend")
     try:
         return await asyncio.to_thread(
-            model_object, data, save_path, note, image.content_type or "image/jpeg"
+            model_object, data, save_path, note, image.content_type or "image/jpeg", None, 2, preview_path
         )
     except RuntimeError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+@router.post("/video_plan")
+async def video_plan_route(
+    request: str = Form(...),
+    lengths: str = Form(...),
+    sheets: list[UploadFile] = File(...),
+) -> dict[str, Any]:
+    """Video Pro: Gemini watches the contact sheets and plans the edit."""
+    from openjarvis.tools.video_pro import plan
+
+    try:
+        lens = [float(x) for x in json.loads(lengths)]
+    except (ValueError, TypeError) as exc:
+        raise HTTPException(status_code=400, detail="lengths must be a JSON list") from exc
+    images = [await f.read(MAX_IMAGE_BYTES + 1) for f in sheets]
+    try:
+        return await asyncio.to_thread(plan, request, images, lens)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail=str(exc)[:400]) from exc
+
+
+class BlenderTask(BaseModel):
+    request: str
+    save_path: str
+    preview_path: str = ""
+
+
+@router.post("/blender/text")
+async def blender_text_route(task: BlenderTask) -> dict[str, Any]:
+    """Any Blender job in words -> a checked script (Blender Pro)."""
+    from openjarvis.tools.blender_pro import from_text
+
+    if not task.save_path.lower().endswith(".blend"):
+        raise HTTPException(status_code=400, detail="save_path must end in .blend")
+    try:
+        return await asyncio.to_thread(from_text, task.request, task.save_path, task.preview_path)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail=str(exc)[:400]) from exc
+
+
+@router.post("/blender/refine")
+async def blender_refine_route(
+    request: str = Form(...),
+    raw_script: str = Form(...),
+    save_path: str = Form(...),
+    log: str = Form(""),
+    preview_path: str = Form(""),
+    preview: UploadFile = File(...),
+    reference: UploadFile | None = File(None),
+) -> dict[str, Any]:
+    """Blender Pro's review round: look at the render, fix the script."""
+    from openjarvis.tools.blender_pro import refine
+
+    shot = await preview.read(MAX_IMAGE_BYTES + 1)
+    ref = await reference.read(MAX_IMAGE_BYTES + 1) if reference is not None else b""
+    try:
+        return await asyncio.to_thread(
+            refine, request, raw_script, log, shot, save_path, preview_path, ref
+        )
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail=str(exc)[:400]) from exc
 
 
 __all__ = [

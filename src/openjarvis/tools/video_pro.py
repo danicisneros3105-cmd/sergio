@@ -1,0 +1,117 @@
+"""Video Pro: an editor that watches your clips before cutting them.
+
+The companion sends, for every clip, a contact sheet (frames every few
+seconds, each stamped with its time) and its length. Gemini plays editor:
+picks the best moments in a strong order (hook first), writes short
+captions, a title for the video and the YouTube metadata (title,
+description, tags). The companion renders it with ffmpeg (smooth cross
+fades, captions, loudness normalised, music under the voices).
+"""
+
+from __future__ import annotations
+
+import json
+import re
+from typing import Any, Callable
+
+PLAN_PROMPT = """You are a senior video editor (YouTube, Reels, TikTok). The \
+user asks (Spanish): «{request}».
+Attached: one contact sheet per clip, in order (clip 1, clip 2, ...). Each \
+tile is stamped with its time in seconds. Clip lengths (seconds): {lengths}.
+Make a {target} edit:
+- Choose the best, sharpest, most interesting moments; cut dead time; start \
+with a hook in the first 3 seconds; keep a rhythm (segments 2-6 s for short \
+formats, longer for documentary style); never repeat a moment.
+- Each segment: clip number (1-based), start and end in seconds inside that \
+clip, and an optional short on-screen caption in Spanish (max 6 words, only \
+when it helps).
+- Format: "9:16" for Shorts/Reels/TikTok, "16:9" otherwise (follow the request).
+- YouTube metadata in Spanish: catchy honest title (max 70 characters), a \
+description of 2-4 sentences, 5-10 tags.
+Answer ONLY JSON: {{"aspect": "9:16" or "16:9", "title_overlay": "short title \
+shown at the start or empty", "segments": [{{"clip": 1, "start": 0.0, "end": \
+3.5, "caption": ""}}], "youtube": {{"title": "...", "description": "...", \
+"tags": ["..."]}}}}"""
+
+
+def parse_plan(text: str, lengths: list[float]) -> dict[str, Any]:
+    """Gemini's plan, checked: real clips, times inside each clip."""
+    found = re.search(r"\{.*\}", text or "", re.S)
+    try:
+        data = json.loads(found.group(0)) if found else {}
+    except ValueError:
+        data = {}
+    segments = []
+    for seg in data.get("segments") or []:
+        try:
+            clip = int(seg.get("clip")) - 1
+            start, end = float(seg.get("start")), float(seg.get("end"))
+        except (TypeError, ValueError, AttributeError):
+            continue
+        if not 0 <= clip < len(lengths):
+            continue
+        length = lengths[clip] or end
+        start, end = max(0.0, start), min(end, length)
+        if end - start < 0.5:
+            continue
+        caption = " ".join(str(seg.get("caption") or "").split())[:60]
+        segments.append({"clip": clip, "start": round(start, 2), "end": round(end, 2), "caption": caption})
+    if not segments:
+        raise RuntimeError("El editor no propuso cortes válidos.")
+    yt = data.get("youtube") or {}
+    tags = [str(t)[:30] for t in (yt.get("tags") or []) if str(t).strip()][:12]
+    return {
+        "aspect": "9:16" if str(data.get("aspect")) == "9:16" else "16:9",
+        "title_overlay": " ".join(str(data.get("title_overlay") or "").split())[:50],
+        "segments": segments,
+        "youtube": {
+            "title": str(yt.get("title") or "")[:100],
+            "description": str(yt.get("description") or "")[:4000],
+            "tags": tags,
+        },
+    }
+
+
+def plan(
+    request: str,
+    sheets: list[bytes],
+    lengths: list[float],
+    ask: Callable[[list[bytes], str], str] | None = None,
+) -> dict[str, Any]:
+    target = "short vertical (under 60 s)" if re.search(r"short|reel|tiktok|vertical|corto", request.lower()) else "well-paced"
+    prompt = PLAN_PROMPT.format(
+        request=request, lengths=", ".join(f"{x:.1f}" for x in lengths), target=target
+    )
+    return parse_plan((ask or _ask)(sheets, prompt), lengths)
+
+
+def _ask(sheets: list[bytes], prompt: str) -> str:
+    import os
+
+    from google.genai import types
+
+    from openjarvis.engine.cloud import google_config_kwargs
+    from openjarvis.engine.google_client import SwitchingClient
+
+    key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
+    if not key:
+        raise RuntimeError("Falta GEMINI_API_KEY")
+    client = SwitchingClient(key)
+    errors = []
+    for model in ("gemini-3.8-flash", "gemini-3.1-pro-preview", "gemini-3.7-flash", "gemini-2.5-flash"):
+        try:
+            resp = client.models.generate_content(
+                model=model,
+                contents=[*(types.Part.from_bytes(data=s, mime_type="image/jpeg") for s in sheets), prompt],
+                config=types.GenerateContentConfig(
+                    **google_config_kwargs(model, 0.5, 8000, "medium"),
+                    response_mime_type="application/json",
+                ),
+            )
+            return str(resp.text or "")
+        except Exception as exc:  # noqa: BLE001
+            errors.append(f"{model}: {str(exc)[:100]}")
+    raise RuntimeError("El editor de video (Gemini) no respondió: " + " | ".join(errors))
+
+
+__all__ = ["parse_plan", "plan"]

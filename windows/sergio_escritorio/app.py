@@ -13,6 +13,7 @@ import json
 import re
 import logging
 import os
+import subprocess
 import sys
 import threading
 import time
@@ -678,6 +679,12 @@ def run(config: dict[str, Any]) -> None:
             return "Modo espejo." if camera_window.mirror else "Sin espejo."
         if q.kind == "blender_holo":
             return holograms_to_blender()
+        if q.kind == "video_pro":
+            return video_task(q.arg, q.say)
+        if q.kind == "video_upload":
+            return upload_video()
+        if q.kind == "blender_task":
+            return blender_task(q.arg)
         if q.kind == "blender_object":
             return object_to_blender(q.arg)
         if q.kind == "hands":
@@ -1154,6 +1161,149 @@ def run(config: dict[str, Any]) -> None:
             f"Documentos, Sergio, Blender ({Path(path).name})."
         )
 
+    def blender_pro(request: str, reference: bytes = b"", rounds: int = 2) -> str:
+        """Blender Pro: model, render, look at the render, fix — like a pro.
+
+        Runs in the background; Sergio tells you when the project is ready.
+        """
+        from sergio_escritorio import media
+
+        path = blender_file("pro")
+        preview = path[:-6] + "-vista.png"
+        if reference:
+            resp = client.http.post(
+                f"{client.base}/v1/vision/blender",
+                files={"image": ("objeto.jpg", reference, "image/jpeg")},
+                data={"save_path": path, "note": request, "preview_path": preview},
+                timeout=600,
+            )
+        else:
+            resp = client.http.post(
+                f"{client.base}/v1/vision/blender/text",
+                json={"request": request, "save_path": path, "preview_path": preview},
+                timeout=600,
+            )
+        resp.raise_for_status()
+        model = resp.json()
+        log = ""
+        reviews = 0
+        for step in range(rounds + 4):  # visual reviews + a few error fixes
+            bridge.caption.emit(f"Blender Pro: construyendo y revisando (paso {step + 1})…")
+            Path(preview).unlink(missing_ok=True)
+            log = media.run_blender_background(model["script"])
+            broken = "SERGIO_SAVED" not in log
+            if not broken:
+                if reviews >= rounds:
+                    break
+                reviews += 1
+            elif step >= rounds + 3:
+                break
+            try:
+                shot = Path(preview).read_bytes()
+            except OSError:
+                shot = b""
+            if not shot and not broken:
+                break  # no render to look at (no Cycles?): keep what works
+            files = {"preview": ("vista.png", shot or b"\x89PNG", "image/png")}
+            if reference:
+                files["reference"] = ("objeto.jpg", reference, "image/jpeg")
+            fixed = client.http.post(
+                f"{client.base}/v1/vision/blender/refine",
+                data={
+                    "request": request,
+                    "raw_script": model.get("raw_script") or model["script"],
+                    "save_path": path,
+                    "log": log[-3000:],
+                    "preview_path": preview,
+                },
+                files=files,
+                timeout=600,
+            )
+            if fixed.status_code != 200:
+                break  # the last good version stays
+            model = fixed.json()
+        if "SERGIO_SAVED" not in log:
+            return f"Blender Pro no logró una versión que funcione: {log[-200:]}"
+        media.open_in_blender(path)
+        name = model.get("name") or "el modelo"
+        return (
+            f"Listo: {name}, revisado {rounds} veces mirando el render. Abrí el proyecto "
+            "en Blender; está en Documentos, Sergio, Blender."
+        )
+
+    last_video: list[dict] = []
+
+    def video_task(request: str, source: str = "") -> str:
+        """Video Pro in the background: Gemini watches, plans, ffmpeg renders."""
+        import json as _json
+
+        from sergio_escritorio import video_pro
+
+        def planner(req: str, sheets: list, lengths: list) -> dict:
+            resp = client.http.post(
+                f"{client.base}/v1/vision/video_plan",
+                data={"request": req, "lengths": _json.dumps(lengths)},
+                files=[("sheets", (f"clip{i}.jpg", s, "image/jpeg")) for i, s in enumerate(sheets)],
+                timeout=600,
+            )
+            resp.raise_for_status()
+            return resp.json()
+
+        def run() -> None:
+            try:
+                bridge.caption.emit("Video Pro: mirando tus clips…")
+                done = video_pro.edit(source or "Videos", request, planner)
+                last_video[:] = [done]
+                os.startfile(done["path"]) if hasattr(os, "startfile") else None  # noqa: B018
+                title = done["plan"]["youtube"]["title"]
+                answer = (
+                    f"Video listo: «{title}». Lo abrí para que lo veas; está en Videos, Sergio, "
+                    "con el título, la descripción y las etiquetas al lado. Si le gusta, diga "
+                    "«súbelo a YouTube»."
+                )
+            except Exception as exc:  # noqa: BLE001
+                from sergio_escritorio.voice import explain
+
+                answer = f"Video Pro falló: {explain(exc)}"
+            tell(answer, to_call=f"[Video terminado] {answer} Cuéntaselo en una frase.")
+
+        threading.Thread(target=run, daemon=True).start()
+        return "Video Pro en marcha: mira tus clips, elige los mejores momentos y lo monta. Le aviso al terminar."
+
+    def upload_video() -> str:
+        """YouTube Studio's upload, ready; publishing stays your click."""
+        if not last_video:
+            return "Primero hagamos un video: «edita un video con la carpeta…»."
+        video = last_video[0]
+        yt = video["plan"]["youtube"]
+        try:
+            import pyperclip
+
+            pyperclip.copy(f"{yt['title']}\n\n{yt['description']}\n\n{', '.join(yt['tags'])}")
+        except Exception:  # noqa: BLE001
+            pass
+        controller.act({"action": "open", "target": "https://studio.youtube.com/channel/UC/videos/upload?d=ud"})
+        subprocess.Popen(["explorer", "/select,", video["path"]])  # noqa: S603,S607
+        return (
+            "Abrí YouTube Studio para subirlo y le marqué el video en la carpeta: "
+            "arrástrelo a la ventana de subida. El título, la descripción y las etiquetas "
+            "están copiados: péguelos con Ctrl+V. Publicar lo decide usted."
+        )
+
+    def blender_task(request: str) -> str:
+        """Start Blender Pro in the background (it takes a few minutes)."""
+        def run() -> None:
+            try:
+                answer = blender_pro(request)
+            except Exception as exc:  # noqa: BLE001
+                from sergio_escritorio.voice import explain
+
+                answer = f"Blender Pro falló: {explain(exc)}"
+            tell(answer, to_call=f"[Blender terminado] {answer} Cuéntaselo en una frase.")
+
+        threading.Thread(target=run, daemon=True).start()
+        return "Blender Pro está en ello: modela, renderiza, revisa y corrige. Le aviso al terminar."
+
     def object_to_blender(note: str = "") -> str:
         """The object in your hands: Gemini studies it, Blender models it."""
         if not camera_window.isVisible():
@@ -1161,6 +1311,18 @@ def run(config: dict[str, Any]) -> None:
             time.sleep(1.6)
         bridge.caption.emit("Estudiando el objeto que tienes en las manos…")
         jpeg = feed.jpeg()
+        if config.get("blender_pro", True):
+            def run() -> None:
+                try:
+                    answer = blender_pro(note or "el objeto que tengo en la mano, ultra detallado", jpeg)
+                except Exception as exc:  # noqa: BLE001
+                    from sergio_escritorio.voice import explain
+
+                    answer = f"Blender Pro falló: {explain(exc)}"
+                tell(answer, to_call=f"[Blender terminado] {answer} Cuéntaselo en una frase.")
+
+            threading.Thread(target=run, daemon=True).start()
+            return "Lo tengo. Blender Pro lo está modelando y revisando contra la foto; le aviso al terminar."
         path = blender_file("objeto")
         resp = client.http.post(
             f"{client.base}/v1/vision/blender",
@@ -1408,6 +1570,9 @@ def run(config: dict[str, Any]) -> None:
         screenshot=save_screenshot,
         quick=quick_order,
         video=play_video,
+        blender_task=blender_task,
+        edit_video=lambda req, src="": video_task(req, src),
+        upload_video=upload_video,
     )
 
     def call_ended(why: str) -> None:
