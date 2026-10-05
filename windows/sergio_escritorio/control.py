@@ -28,6 +28,7 @@ MAX_SHOT_WIDTH = 1280
 MAX_TEXT = 4000
 ACTIONS = (
     "click",
+    "click_name",
     "double_click",
     "right_click",
     "move",
@@ -90,6 +91,52 @@ class Backend(Protocol):
     def close_app(self, name: str) -> list[str]: ...  # titles closed
 
     def shell(self, command: str, timeout: float) -> dict: ...
+
+
+CLICKABLE = {"Button", "Hyperlink", "MenuItem", "TabItem", "ListItem", "CheckBox",
+             "RadioButton", "SplitButton", "TreeItem", "ComboBox"}  # fmt: skip
+
+
+def _plain(text: str) -> str:
+    import unicodedata
+
+    text = unicodedata.normalize("NFKD", str(text or "").lower())
+    text = "".join(c for c in text if not unicodedata.combining(c))
+    return " ".join("".join(c if c.isalnum() else " " for c in text).split())
+
+
+def best_element(query: str, elements: list[dict]) -> dict | None:
+    """The on-screen element the user named ("suscribirse", "enviar"):
+    exact name first, then the start of it, whole words, then a close spelling."""
+    import difflib
+
+    want = _plain(query)
+    if not want:
+        return None
+    words = set(want.split())
+    best, best_score = None, 0.0
+    for el in elements:
+        name = _plain(el.get("name", ""))
+        if not name:
+            continue
+        if name == want:
+            score = 100.0
+        elif name.startswith(want + " ") or (len(name) >= 3 and want.startswith(name + " ")):
+            score = 80.0
+        elif f" {want} " in f" {name} ":
+            score = 70.0
+        elif words <= set(name.split()):
+            score = 60.0
+        else:
+            ratio = difflib.SequenceMatcher(None, want, name[: len(want) + 6]).ratio()
+            score = 55.0 * ratio if ratio >= 0.82 else 0.0
+        if not score:
+            continue
+        score += 5.0 if el.get("type") in CLICKABLE else 0.0
+        score -= min(len(name), 80) / 100  # the shorter, the more exact
+        if score > best_score:
+            best, best_score = el, score
+    return best
 
 
 class ActionError(ValueError):
@@ -155,7 +202,8 @@ class Controller:
             scale = width / MAX_SHOT_WIDTH
             image = image.resize((MAX_SHOT_WIDTH, round(height / scale)))
         buf = io.BytesIO()
-        image.convert("RGB").save(buf, format="PNG", optimize=True)
+        # Fast PNG: "optimize" cost ~0.5 s per look for a few KB less.
+        image.convert("RGB").save(buf, format="PNG", compress_level=1)
         left, top = getattr(self.backend, "shot_origin", (0, 0))
         return {
             "image_png_b64": base64.b64encode(buf.getvalue()).decode("ascii"),
@@ -243,6 +291,7 @@ class Controller:
                 f"Unknown action {kind!r}. Use one of: {', '.join(ACTIONS)}"
             )
         b = self.backend
+        before = self._front() if kind in self.SETTLE else ""
         if kind in ("click", "double_click", "right_click", "move"):
             x, y = self._point(action)
             if kind == "move":
@@ -251,6 +300,19 @@ class Controller:
                 button = "right" if kind == "right_click" else "left"
                 b.click(x, y, button, 2 if kind == "double_click" else 1)
             result = f"{kind} at ({x}, {y})"
+        elif kind == "click_name":
+            query = str(action.get("target") or "").strip()
+            if not query:
+                raise ActionError("'target' is the name of the button or link.")
+            finder = getattr(b, "find_elements", None)
+            elements = finder(query) if finder else self.ui()["elements"]
+            found = best_element(query, elements)
+            if found is None:
+                raise ActionError(f"No veo «{query}» en la ventana de enfrente.")
+            how = str(action.get("button") or "left")
+            b.click(int(found["x"]), int(found["y"]), "right" if how == "right" else "left",
+                    2 if how == "double" else 1)
+            result = f"clicked {found.get('name', query)!r} at ({found['x']}, {found['y']})"
         elif kind == "type":
             text = str(action.get("text") or "")
             if not text or len(text) > MAX_TEXT:
@@ -374,10 +436,11 @@ class Controller:
         self._on_activity(result)
         if kind == "key" and set(result.split()[1].split("+")) <= MEDIA_KEYS:
             return result  # the window in front does not change
-        return result + self._verify(kind)
+        return result + self._verify(kind, before)
 
     VERIFY = {
         "click",
+        "click_name",
         "double_click",
         "right_click",
         "key",
@@ -388,17 +451,32 @@ class Controller:
         "focus",
     }
 
-    def _verify(self, kind: str) -> str:
-        """What is in front after the action, so Sergio can check it worked."""
+    # How long a new window may take to come to the front (watched, not slept).
+    SETTLE = {"open_app": 1.5, "open": 1.5, "close_app": 0.8, "focus": 0.3}
+
+    def _verify(self, kind: str, before: str = "") -> str:
+        """What is in front after the action, so Sergio can check it worked.
+        No fixed wait: it looks every 30 ms and answers as soon as the
+        window in front changes (or right away for clicks and keys)."""
         active = getattr(self.backend, "active_window", None)
         if kind not in self.VERIFY or active is None:
             return ""
-        self._sleep({"open_app": 0.15, "open": 0.6, "close_app": 0.4}.get(kind, 0.25))
         try:
-            title = active() or "(escritorio)"
+            limit = time.monotonic() + self.SETTLE.get(kind, 0.03)
+            title = active()
+            while title == before and time.monotonic() < limit:
+                self._sleep(0.03)
+                title = active()
         except Exception:  # noqa: BLE001 — a check must never break the action
             return ""
-        return f" | now in front: {title[:80]}"
+        return f" | now in front: {(title or '(escritorio)')[:80]}"
+
+    def _front(self) -> str:
+        active = getattr(self.backend, "active_window", None)
+        try:
+            return active() if active is not None else ""
+        except Exception:  # noqa: BLE001
+            return ""
 
 
 def make_server(

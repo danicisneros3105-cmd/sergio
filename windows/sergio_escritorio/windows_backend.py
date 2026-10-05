@@ -34,7 +34,7 @@ INTERACTIVE = {
 }
 MAX_ELEMENTS = 150
 MAX_DEPTH = 25
-TIME_BUDGET = 4.0  # seconds
+TIME_BUDGET = 2.0  # seconds (a look must never feel slow)
 OWN_TITLES = ("Sergio",)  # never treat our own (overlay) windows as the target
 
 
@@ -117,12 +117,12 @@ def foreground_is_fullscreen() -> bool:
 
 
 class WindowsBackend:
-    def __init__(self) -> None:
+    def __init__(self, speed: str = "rapido") -> None:
         set_dpi_aware()
         import pyautogui
 
         pyautogui.FAILSAFE = True
-        pyautogui.PAUSE = 0.05
+        pyautogui.PAUSE = 0.0  # no built-in wait after every key
         self._gui = pyautogui
         from pathlib import Path
         import threading
@@ -137,7 +137,7 @@ class WindowsBackend:
 
         # Mouse and keyboard like a person: curved, eased moves and typing
         # key by key, so the user can follow (and it never looks like a bot).
-        self.hands = WindowsHands()
+        self.hands = WindowsHands(speed=speed)
 
     # -- seeing ------------------------------------------------------------
     def screenshot(self) -> Any:
@@ -207,6 +207,44 @@ class WindowsBackend:
             pass
         return {"window": title, "windows": windows, "elements": elements}
 
+    def find_elements(self, query: str, budget: float = 1.5) -> list[dict]:
+        """Named elements of the window in front, for clicking one by name.
+        Stops as soon as an exact match turns up (usually well under a
+        second), screen coordinates."""
+        from sergio_escritorio.control import _plain
+
+        target = self._target_window()
+        if target is None:
+            return []
+        want = _plain(query)
+        found: list[dict] = []
+        try:
+            from pywinauto.uia_element_info import UIAElementInfo
+
+            deadline = time.monotonic() + budget
+            for info in UIAElementInfo(target[0]).iter_descendants(depth=MAX_DEPTH):
+                if time.monotonic() > deadline or len(found) >= 800:
+                    break
+                name = (info.name or "").strip()
+                if not name or len(name) > 120:
+                    continue
+                rect = info.rectangle
+                if rect.width() <= 2 or rect.height() <= 2:
+                    continue
+                found.append(
+                    {
+                        "name": name,
+                        "type": info.control_type,
+                        "x": (rect.left + rect.right) // 2,
+                        "y": (rect.top + rect.bottom) // 2,
+                    }
+                )
+                if _plain(name) == want and info.control_type in INTERACTIVE:
+                    break  # exact: no need to look further
+        except Exception:  # noqa: BLE001 — some apps expose no UIA tree
+            pass
+        return found
+
     # -- acting ------------------------------------------------------------
     def click(self, x: int, y: int, button: str, clicks: int) -> None:
         self.hands.click(x, y, button, clicks)
@@ -215,7 +253,7 @@ class WindowsBackend:
         self.hands.move(x, y)
 
     def type_text(self, text: str) -> None:
-        if len(text) <= 1500:
+        if len(text) <= 1500 or self.hands.speed == "rapido":
             self.hands.type_text(text)  # key by key, at a human rhythm
             return
         import pyperclip  # a whole document: paste it

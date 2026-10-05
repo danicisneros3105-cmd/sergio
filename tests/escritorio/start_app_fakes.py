@@ -58,6 +58,9 @@ from sergio_escritorio import app, voice, windows_backend  # noqa: E402
 
 
 class Backend:
+    def __init__(self, speed="rapido"):
+        self.speed = speed
+
     def screenshot(self):
         from PIL import Image
 

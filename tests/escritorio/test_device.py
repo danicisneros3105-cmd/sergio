@@ -84,3 +84,91 @@ def test_described_videos_go_to_the_video_finder():
     tools = {t.name: t for t in call_tools(Abilities(video=lambda r: asked.append(r) or "Reproduciendo «X»."))}
     assert tools["poner_video"].run({"peticion": "MrBeast con traje negro"}) == "Reproduciendo «X»."
     assert asked == ["MrBeast con traje negro"]
+
+
+@pytest.mark.parametrize(
+    "said,kind,arg",
+    [
+        ("haz clic en Suscribirse", "click", "left:Suscribirse"),
+        ("Sergio, pulsa el botón Enviar", "click", "left:Enviar"),
+        ("dale a Aceptar", "click", "left:Aceptar"),
+        ("haz doble clic en Documentos", "click", "double:Documentos"),
+        ("clic derecho en la papelera", "click", "right:papelera"),
+        ("presiona enter", "key", "enter*1"),
+        ("dale tab dos veces", "key", "tab*2"),
+        ("flecha abajo 3 veces", None, None),
+        ("pulsa la tecla escape", "key", "esc*1"),
+        ("baja", "scroll", "-6"),
+        ("sube un poco", "scroll", "6"),
+        ("atrás", "key", "alt+left"),
+        ("siguiente pestaña", "key", "ctrl+tab"),
+        ("cambia a Chrome", "focus", "chrome"),
+        ("trae spotify al frente", "focus", "spotify"),
+        ("escribe hola mundo y dale enter", "type", "hola mundo\n"),
+    ],
+)
+def test_instant_screen_orders(said, kind, arg):
+    q = parse_quick(said)
+    if kind is None:
+        assert q is None or q.kind != "device" or q.step.kind != "click"
+        return
+    assert q is not None and q.kind == "device"
+    assert (q.step.kind, q.step.arg) == (kind, arg)
+
+
+def test_screen_orders_do_not_steal_other_commands():
+    assert parse_quick("sube el volumen").kind == "volume"
+    assert parse_quick("dale, abre spotify").kind == "open_app"
+    assert parse_quick("selecciona todo").step.arg == "ctrl+a"
+    assert parse_quick("abre youtube").kind == "open_url"
+
+
+def test_click_by_name_finds_the_right_element():
+    from sergio_escritorio.control import best_element
+
+    els = [
+        {"name": "Suscripciones", "type": "Hyperlink", "x": 2, "y": 2},
+        {"name": "Suscribirse", "type": "Button", "x": 1, "y": 1},
+        {"name": "Me gusta este video junto con 3 mil personas", "type": "Button", "x": 3, "y": 3},
+        {"name": "Enviar comentario", "type": "Button", "x": 5, "y": 5},
+        {"name": "Enviar", "type": "Button", "x": 4, "y": 4},
+    ]
+    assert best_element("suscribirse", els)["x"] == 1
+    assert best_element("subscribirse", els)["x"] == 1  # misheard spelling
+    assert best_element("me gusta", els)["x"] == 3
+    assert best_element("Enviar", els)["x"] == 4  # exact beats longer names
+    assert best_element("configuración", els) is None
+
+
+def test_click_name_action_and_no_fixed_waits():
+    from sergio_escritorio.control import ActionError, Controller
+
+    clicks, slept = [], []
+
+    class B:
+        def find_elements(self, query):
+            return [{"name": "Aceptar", "type": "Button", "x": 40, "y": 50}]
+
+        def click(self, x, y, button, n):
+            clicks.append((x, y, button, n))
+
+        def active_window(self):
+            return "Diálogo"
+
+    c = Controller(B(), sleep=slept.append)
+    out = c.act({"action": "click_name", "target": "aceptar", "button": "double"})
+    assert clicks == [(40, 50, "left", 2)] and "now in front: Diálogo" in out
+    assert slept == []  # a click is checked at once, not after a fixed pause
+    with pytest.raises(ActionError, match="No veo"):
+        c.act({"action": "click_name", "target": "Cancelar"})
+
+
+def test_fast_hands_glide_quickly_and_type_at_once():
+    from sergio_escritorio.human import WindowsHands, fast_seconds
+
+    assert fast_seconds(10) == 0.05 and fast_seconds(3000) == 0.16
+    hands = WindowsHands(sleep=lambda s: None)
+    sent = []
+    hands._send_text = sent.append
+    hands.type_text("hola, ¿qué tal? ñ 👍")
+    assert sent == ["hola, ¿qué tal? ñ 👍"]  # one burst, not key by key

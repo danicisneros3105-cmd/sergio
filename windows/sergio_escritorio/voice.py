@@ -1066,6 +1066,8 @@ class Assistant:
         self._clicky = False
         self._interrupted = False
         self.quick: Callable[[Any], str] | None = None  # instant commands
+        # Instant screen orders answered on screen only (no voice wait).
+        self.silent_quick: set[str] = {"device", "key", "volume", "screenshot", "open_app", "open_url", "close_app"}
         # Real-time call (Gemini Live): saying "Sergio" opens it with what
         # you said; returns False when no call could start (then turn-based).
         self.start_call: Callable[[bytes], bool] | None = None
@@ -1240,6 +1242,11 @@ class Assistant:
             else:
                 if not answer:
                     return  # e.g. "cállate"
+                if action.kind in self.silent_quick:
+                    # Screen orders: shown, not spoken, so the next order
+                    # can come right away (no waiting for the voice).
+                    self.ui.say(answer)
+                    return
                 self.ui.state("speaking")
                 self.ui.say(answer)
                 self.say_aloud(answer)

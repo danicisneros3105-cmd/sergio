@@ -222,3 +222,41 @@ def test_tiny_or_blurry_faces_are_not_named(tmp_path, monkeypatch):
     assert (far.name, far.quality) == ("", "pequeña")
     assert (blur.name, blur.quality) == ("", "borrosa")
     assert b.identify(b"ana")[0].to_dict()["quality"] == "ok"
+
+
+def test_a_stranger_saved_as_the_owner_is_refused_and_old_mistakes_repaired(tmp_path, monkeypatch):
+    """Everyone was "Daniel Cisneros": strangers' photos had been saved as him."""
+    import json
+
+    from openjarvis.faces.book import purify
+
+    rng = np.random.default_rng(3)
+    dani, other = _unit(rng.normal(size=128)), _unit(rng.normal(size=128))
+    b = FaceBook(tmp_path / "faces")
+    photos = {f"d{i}".encode(): [(_near(dani, 0.05, i), (0, 0, 150, 150), 0.97)] for i in range(4)}
+    photos[b"other"] = [(_near(other, 0.05, 50), (0, 0, 150, 150), 0.97)]
+    monkeypatch.setattr(b, "_faces", lambda data, **_kw: photos[data])
+    for i in range(3):
+        b.enroll("Daniel Cisneros", f"d{i}".encode(), consent=True)
+    with pytest.raises(FaceError, match="no parece de Daniel Cisneros"):
+        b.enroll("Daniel Cisneros", b"other", consent=True)
+    assert b.enroll("Ana", b"other", consent=True) == 1  # with her own name: fine
+    # A file damaged by the old bug: 6 photos of Dani and 4 of someone else.
+    emb = [_near(dani, 0.05, i).tolist() for i in range(6)] + [
+        _near(other, 0.05, 60 + i).tolist() for i in range(4)
+    ]
+    (tmp_path / "faces" / "people.json").write_text(
+        json.dumps({"Daniel Cisneros": {"embeddings": emb, "enrolled_at": 1}})
+    )
+    assert b.people()[0]["samples"] == 6
+    assert b.identify(b"other")[0].name == ""
+    assert b.identify(b"d3")[0].name == "Daniel Cisneros"
+    kept, sigs = purify(emb[:2], [None, None])  # too few to judge: untouched
+    assert len(kept) == 2 and len(sigs) == 2
+
+
+def test_face_enroll_tool_never_guesses_the_name():
+    from openjarvis.tools.desktop_tools import FaceEnrollTool
+
+    result = FaceEnrollTool().execute(name="")
+    assert not result.success and "Cómo se llama" in result.content

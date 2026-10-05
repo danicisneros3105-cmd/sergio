@@ -24,6 +24,15 @@ import time
 from typing import Callable
 
 HZ = 120  # pointer updates per second
+# "rapido" (default): no waiting. The pointer still glides (about a tenth of
+# a second, so you see where it goes), clicks are crisp and text appears at
+# once. "humano": the slow, human-looking hand (for screen recordings).
+FAST = "rapido"
+FAST_MOVE = (0.05, 0.16)  # shortest and longest glide, seconds
+
+
+def fast_seconds(distance: float) -> float:
+    return min(FAST_MOVE[1], max(FAST_MOVE[0], 0.04 + distance / 12000))
 
 
 def _min_jerk(t: float) -> float:
@@ -129,9 +138,11 @@ class WindowsHands:
         self,
         sleep: Callable[[float], None] = time.sleep,
         rng: random.Random | None = None,
+        speed: str = FAST,
     ) -> None:
         self.sleep = sleep
         self.rng = rng or random.Random()
+        self.speed = speed
         self.last: tuple[int, int] | None = None  # where we left the pointer
 
     # -- low level ---------------------------------------------------------
@@ -155,6 +166,11 @@ class WindowsHands:
 
     def _unicode(self, ch: str) -> None:
         """One character, any language (accents, ñ, emojis)."""
+        self._send_text(ch)
+
+    def _send_text(self, text: str) -> None:
+        """Any text in ONE SendInput call: it appears at once, accents and
+        emojis included (no clipboard)."""
         import ctypes
         from ctypes import wintypes
 
@@ -174,20 +190,23 @@ class WindowsHands:
             _anonymous_ = ("u",)
             _fields_ = [("type", wintypes.DWORD), ("u", _U)]
 
-        if ch == "\n":
-            import pyautogui
-
-            pyautogui.press("enter")
-            return
-        units = ch.encode("utf-16-le")
-        for i in range(0, len(units), 2):
-            code = int.from_bytes(units[i : i + 2], "little")
-            for flags in (0x0004, 0x0004 | 0x0002):  # KEYEVENTF_UNICODE (+ KEYUP)
-                inp = INPUT(type=1)
-                inp.ki = KEYBDINPUT(0, code, flags, 0, None)
-                ctypes.windll.user32.SendInput(
-                    1, ctypes.byref(inp), ctypes.sizeof(INPUT)
-                )
+        events = []
+        for ch in text.replace("\r\n", "\n"):
+            if ch == "\n":  # Enter as a real key (new line, send)
+                for flags in (0, 0x0002):
+                    events.append(KEYBDINPUT(0x0D, 0, flags, 0, None))
+                continue
+            units = ch.encode("utf-16-le")
+            for i in range(0, len(units), 2):
+                code = int.from_bytes(units[i : i + 2], "little")
+                for flags in (0x0004, 0x0004 | 0x0002):  # KEYEVENTF_UNICODE (+ KEYUP)
+                    events.append(KEYBDINPUT(0, code, flags, 0, None))
+        for start in range(0, len(events), 400):  # big texts in a few calls
+            chunk = events[start : start + 400]
+            batch = (INPUT * len(chunk))()
+            for slot, ki in zip(batch, chunk):
+                slot.type, slot.ki = 1, ki
+            ctypes.windll.user32.SendInput(len(chunk), batch, ctypes.sizeof(INPUT))
 
     # -- what Sergio does ----------------------------------------------------
     def move(self, x: int, y: int, width: float = 24.0) -> None:
@@ -196,7 +215,15 @@ class WindowsHands:
             # The user slammed the pointer into the corner: stop at once.
             raise PermissionError("Control detenido por el usuario (esquina).")
         began = time.monotonic()
-        for t, px, py in human_path(start, (x, y), self.rng, width):
+        if self.speed == FAST:
+            dist = math.hypot(x - start[0], y - start[1])
+            path = [
+                (t, round(px), round(py))
+                for t, px, py in _segment(start, (x, y), fast_seconds(dist), self.rng, tremor=0.0)
+            ]
+        else:
+            path = human_path(start, (x, y), self.rng, width)
+        for t, px, py in path:
             wait = began + t - time.monotonic()
             if wait > 0:
                 self.sleep(wait)
@@ -205,16 +232,20 @@ class WindowsHands:
 
     def click(self, x: int, y: int, button: str = "left", clicks: int = 1) -> None:
         self.move(x, y)
-        self.sleep(self.rng.uniform(0.05, 0.13))  # aim, then press
+        fast = self.speed == FAST
+        self.sleep(0.01 if fast else self.rng.uniform(0.05, 0.13))  # aim, then press
         down, up = (0x0008, 0x0010) if button == "right" else (0x0002, 0x0004)
         for i in range(clicks):
             self._mouse(down)
-            self.sleep(self.rng.uniform(0.06, 0.12))
+            self.sleep(0.015 if fast else self.rng.uniform(0.06, 0.12))
             self._mouse(up)
             if i + 1 < clicks:
-                self.sleep(self.rng.uniform(0.08, 0.13))
+                self.sleep(0.04 if fast else self.rng.uniform(0.08, 0.13))
 
     def type_text(self, text: str) -> None:
+        if self.speed == FAST:
+            self._send_text(text)  # all at once
+            return
         for ch, delay in zip(text, typing_delays(text, self.rng)):
             self.sleep(delay)
             self._unicode(ch)
@@ -232,9 +263,11 @@ def default_hands() -> WindowsHands | None:
 
 
 __all__ = [
+    "FAST",
     "HZ",
     "WindowsHands",
     "default_hands",
+    "fast_seconds",
     "human_path",
     "move_seconds",
     "typing_delays",

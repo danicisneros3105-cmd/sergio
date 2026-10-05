@@ -422,6 +422,11 @@ class CameraWindow(QWidget):
         self.feed = feed
         self.on_analyze: Callable[[], None] | None = None
         self.on_name_face: Callable[[tuple[float, float, float, float]], None] | None = None
+        # Clean view: names, what you hold, animals, face points and the
+        # holograms. Measurements (distance, eyes, posture, hands, mood,
+        # scores) are still taken and said when asked; "muestra los datos"
+        # puts them on screen too.
+        self.detail = False
         self.hands = hands  # HandControl (mode + latest hands), optional
         self.watcher: FaceWatcher | None = None  # automatic face recognition
         self.vision: Any = None  # VisionEngine: objects, species, face mesh
@@ -685,10 +690,12 @@ class CameraWindow(QWidget):
             p.drawImage(origin, img)
             self._shown = (origin, float(img.width()), float(img.height()))
             if self.vision is not None:
-                self._draw_pose(p)
+                if self.detail:
+                    self._draw_pose(p)
                 self._draw_tracks(p)
                 self._draw_mesh(p)
-                self._draw_vitals(p, card)
+                if self.detail:
+                    self._draw_vitals(p, card)
             else:
                 self._draw_faces(p, origin, img.width())
             self._draw_holo(p, card)
@@ -728,7 +735,8 @@ class CameraWindow(QWidget):
         faces = list(getattr(self.vision, "faces", []) or []) if getattr(self.vision, "mesh", True) else []
         from sergio_escritorio.vision import salient
 
-        for track in salient(self.vision.tracker.visible(now)):
+        clean = not self.detail
+        for track in salient(self.vision.tracker.visible(now), clean=clean):
             rect = self._map_box(track.box)
             if track.kind == "persona":
                 colour = KIND_COLORS["conocido" if track.name else "persona"]
@@ -755,15 +763,26 @@ class CameraWindow(QWidget):
             fill = QColor(colour)
             fill.setAlpha(18)
             p.fillRect(rect, fill)
-            label = track.title(now)
-            if track.kind == "persona" and track.name and track.face_score:
+            label = track.title(now, clean=clean)
+            if clean:
+                pass
+            elif track.kind == "persona" and track.name and track.face_score:
                 label += f"  {track.face_score * 100:.0f}%"
             elif track.kind == "objeto" and not track.named and track.label == "objeto":
                 label += "  ¿?"  # unsure: say so instead of a confident wrong name
             p.setFont(_font(8, QFont.Weight.DemiBold))
             tw = min(p.fontMetrics().horizontalAdvance(label) + 14, max(60.0, rect.width() + 40))
             top = rect.top() - 20 if rect.top() - 20 > MARGIN + 40 else rect.top() + 4
-            tag = QRectF(rect.left(), top, tw, 17)
+            top = max(top, self.card().top() + 50)  # never under the top pill
+            left = rect.left()
+            if track.kind == "persona":
+                # Over the head, not at the box's corner (an arm stretched
+                # sideways made the tag land on the person next to you).
+                head = self._map_box(track.face_box).center().x() if track.face_box else rect.center().x()
+                left = head - tw / 2
+            card = self.card()
+            left = min(max(left, card.left() + 6), card.right() - tw - 6)
+            tag = QRectF(left, top, tw, 17)
             p.setPen(Qt.PenStyle.NoPen)
             p.setBrush(colour)
             p.drawRoundedRect(tag, 8.5, 8.5)
@@ -864,7 +883,7 @@ class CameraWindow(QWidget):
             # what the 175 measurements are made of. No face outline.
             spots = {name: self._map_point(*pts[i]) for name, i in SIGNATURE_POINTS.items() if i < len(pts)}
             line = QColor(colour).lighter(140)
-            line.setAlpha(170)
+            line.setAlpha(170 if self.detail else 95)
             p.setPen(QPen(line, 1.1))
             for a, b in FACE_NETWORK:
                 if a in spots and b in spots:
@@ -875,6 +894,9 @@ class CameraWindow(QWidget):
             p.setBrush(dot)
             for spot in spots.values():
                 p.drawEllipse(spot, 2.2, 2.2)
+            if not self.detail:  # clean view: the name, nothing else
+                self._face_tag(p, rect, owner, known, now)
+                continue
             # Where the head points: a short ray from the nose tip.
             nose = self._map_point(*pts[1])
             yaw = -face.yaw if self.mirror else face.yaw
@@ -915,6 +937,20 @@ class CameraWindow(QWidget):
                 p.setPen(QColor(255, 214, 10))
                 p.drawText(chip, Qt.AlignmentFlag.AlignCenter, text)
 
+    def _face_tag(self, p: QPainter, rect: QRectF, owner: Any, known: bool, now: float) -> None:
+        label = owner.title(now, clean=True) if owner is not None else "Identificando…"
+        if owner is not None and not known and not owner.names:
+            label = "Identificando…"
+        p.setFont(_font(8.5, QFont.Weight.DemiBold))
+        tw = p.fontMetrics().horizontalAdvance(label) + 16
+        top = rect.top() - 22 if rect.top() - 22 > MARGIN + 40 else rect.bottom() + 4
+        tag = QRectF(rect.center().x() - tw / 2, top, tw, 19)
+        p.setPen(Qt.PenStyle.NoPen)
+        p.setBrush(KIND_COLORS["conocido" if known else "persona"])
+        p.drawRoundedRect(tag, 9.5, 9.5)
+        p.setPen(QColor(255, 255, 255))
+        p.drawText(tag, Qt.AlignmentFlag.AlignCenter, label)
+
     def _draw_faces(self, p: QPainter, origin: QPointF, shown_w: int) -> None:
         """Without MediaPipe: face boxes with names from face recognition."""
         if self._frame is None:
@@ -943,7 +979,7 @@ class CameraWindow(QWidget):
                 continue  # quick local box, recognition pending
             guest = face.get("guest") or 0
             label = (
-                f"{face['name']}  {face['score'] * 100:.0f}%"
+                (f"{face['name']}  {face['score'] * 100:.0f}%" if self.detail else face["name"])
                 if known
                 else (f"Persona {guest}" if guest else "Desconocido")
             )
@@ -974,6 +1010,8 @@ class CameraWindow(QWidget):
             p.setBrush(QColor(255, 255, 255, 170))
             for pt in pts:
                 p.drawEllipse(pt, 2, 2)
+            if seeing and not self.detail:
+                continue  # clean view: the hand's points, no read-out
             if seeing:
                 from sergio_escritorio.body import hand_summary
 
@@ -1142,7 +1180,9 @@ class CameraWindow(QWidget):
         if self.vision is not None:
             from collections import Counter
 
-            tracks = self.vision.tracker.visible(time.monotonic())
+            from sergio_escritorio.vision import salient
+
+            tracks = salient(self.vision.tracker.visible(time.monotonic()), clean=not self.detail)
             counts = Counter(tr.kind for tr in tracks)
             parts = []
             if counts.get("persona"):

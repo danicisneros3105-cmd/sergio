@@ -55,6 +55,10 @@ MIN_DETECTION = 0.85
 GUEST_SAME = 0.5  # an unknown face this close to a recent one is the same guest
 GUEST_TTL = 1800.0
 MAX_SAMPLES = 20
+# A new photo saved under a name must look like that person's photos: one
+# stranger saved as "Daniel" used to make everyone "Daniel" afterwards.
+SAME_PERSON_MIN = 0.30
+CLUSTER_LINK = 0.36  # two photos this alike are the same person (SFace)
 MAX_IMAGE_BYTES = 10 * 1024 * 1024
 _NAME = re.compile(r"^[\w .'-]{1,60}$", re.UNICODE)
 _RAW_NAME = re.compile(r"^[\w .,'-]{1,80}$", re.UNICODE)  # before cleaning
@@ -386,6 +390,16 @@ class FaceBook:
         with self._lock:
             people = self._load(strict=True)
             name = next((k for k in people if k.lower() == name.lower()), name)
+            known = (people.get(name) or {}).get("embeddings") or []
+            if len(known) >= 2:
+                import numpy as np
+
+                alike = person_score(found[0][0], np.asarray(known, dtype=np.float32))
+                if alike < SAME_PERSON_MIN:
+                    raise FaceError(
+                        f"Esa cara no parece de {name} (parecido {alike:.2f}). Si es "
+                        "otra persona, guárdala con su propio nombre."
+                    )
             person = people.setdefault(
                 name, {"embeddings": [], "enrolled_at": time.time()}
             )
@@ -525,8 +539,40 @@ def person_score(feature: Any, embeddings: Any) -> float:
     return float(np.mean(scores[:TOP_K]))
 
 
+def purify(embeddings: list, signatures: list) -> tuple[list, list]:
+    """Keep only one person's photos: the biggest group of photos that look
+    alike (ties: the group with the oldest photo, the one enrolled first).
+    Repairs a person that got other people's faces saved under their name."""
+    import numpy as np
+
+    n = len(embeddings)
+    if n < 3:
+        return embeddings, signatures
+    e = np.asarray(embeddings, dtype=np.float32)
+    e = e / (np.linalg.norm(e, axis=1, keepdims=True) + 1e-9)
+    linked = (e @ e.T) >= CLUSTER_LINK
+    group = [-1] * n
+    for start in range(n):
+        if group[start] >= 0:
+            continue
+        group[start], stack = start, [start]
+        while stack:
+            i = stack.pop()
+            for j in np.flatnonzero(linked[i]):
+                if group[j] < 0:
+                    group[j] = start
+                    stack.append(int(j))
+    sizes = {g: group.count(g) for g in set(group)}
+    keep = max(sizes, key=lambda g: (sizes[g], -g))
+    if sizes[keep] == n:
+        return embeddings, signatures
+    idx = [i for i in range(n) if group[i] == keep]
+    return [embeddings[i] for i in idx], [signatures[i] for i in idx]
+
+
 def _tidy(people: dict[str, Any]) -> dict[str, Any]:
-    """Clean names ('Daniel Cisneros .' -> 'Daniel Cisneros'), merging twins."""
+    """Clean names ('Daniel Cisneros .' -> 'Daniel Cisneros'), merging twins,
+    and drop faces of other people saved by mistake under a name."""
     out: dict[str, Any] = {}
     for raw, person in people.items():
         name = clean_name(raw) or raw
@@ -539,6 +585,13 @@ def _tidy(people: dict[str, Any]) -> dict[str, Any]:
             out[key]["signatures"] = (out[key]["signatures"] + sigs)[-MAX_SAMPLES:]
         else:
             out[key] = {**person, "embeddings": embs, "signatures": sigs}
+    for person in out.values():
+        try:
+            person["embeddings"], person["signatures"] = purify(
+                person["embeddings"], person["signatures"]
+            )
+        except (ValueError, TypeError):  # odd shapes: leave as they are
+            pass
     return out
 
 
@@ -554,4 +607,5 @@ __all__ = [
     "kin_words",
     "looks_old",
     "person_score",
+    "purify",
 ]

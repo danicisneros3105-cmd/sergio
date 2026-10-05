@@ -63,8 +63,29 @@ def test_names_need_two_of_three_looks():
     assert person.name == "" and person.title(0.1) == "Persona"
     assert t.add_faces([dict(face, name="Dani")], 1.6) == ["Dani"]  # confirmed
     assert person.title(1.6) == "Dani"
-    t.add_faces([dict(face, name="", guest=2)], 3.0)
-    assert person.name == "Dani"  # still 2 of the last 3
+    t.add_faces([dict(face, name="")], 3.0)  # a blurry look: no vote
+    assert person.name == "Dani"
+    t.add_faces([dict(face, name="", guest=2)], 4.5)  # clearly someone else
+    assert person.name == "" and person.title(4.5) == "Persona 2"  # never inherits "Dani"
+    t.add_faces([dict(face, name="", guest=2)], 6.0)
+    assert person.name == ""
+
+
+def test_each_face_goes_to_its_own_body():
+    from sergio_escritorio.vision import Seen
+
+    t = Tracker()
+    big = Seen("persona", "persona", "humano", 0.9, (0.0, 0.0, 0.9, 1.0))  # Dani, close
+    side = Seen("persona", "persona", "humano", 0.9, (0.55, 0.1, 0.3, 0.8))  # a friend behind
+    for now in (0.0, 0.1):
+        t.update([big, side], now)
+    dani_face = {"box": (0.2, 0.1, 0.15, 0.2), "score": 0.8, "name": "Dani"}
+    friend_face = {"box": (0.65, 0.15, 0.08, 0.1), "score": 0.6, "name": "", "guest": 3}
+    for now in (0.2, 1.7):
+        t.add_faces([dani_face, friend_face], now)
+    by_box = {tr.box[0]: tr for tr in t.tracks}
+    assert by_box[0.0].name == "Dani"
+    assert by_box[0.55].title(1.7) == "Persona 3"  # not "Dani"
 
 
 def test_strangers_get_a_number_and_faces_without_body_count():
@@ -282,3 +303,33 @@ def test_close_up_crop_stays_in_the_frame():
     x, y, w, h = crop_box((0.95, 0.9, 0.04, 0.08))
     assert 0 <= x and 0 <= y and x + w <= 1.0001 and y + h <= 1.0001
     assert w >= 0.18 and h >= 0.18
+
+
+def test_open_vocabulary_names_need_to_be_sure_unless_in_your_hand():
+    from sergio_escritorio.vision import Seen, vocab_sure
+
+    hand = (0.4, 0.4, 0.2, 0.2)
+    lipstick = Seen("labial", "objeto", "", 0.45, (0.45, 0.45, 0.05, 0.08))
+    assert vocab_sure(lipstick, [hand])  # held: what YOLOE is for
+    assert not vocab_sure(lipstick)  # a "lipstick" on a smile across the room: no
+    assert not vocab_sure(Seen("anillo", "objeto", "", 0.79, (0.1, 0.1, 0.05, 0.05)))
+    assert vocab_sure(Seen("lámpara", "objeto", "", 0.6, (0.1, 0.1, 0.2, 0.2)))
+    assert vocab_sure(Seen("sombrero", "objeto", "", 0.9, (0.1, 0.1, 0.2, 0.2)))
+
+
+def test_clean_view_shows_people_held_and_named_things_only():
+    from sergio_escritorio.vision import Seen, Tracker, salient
+
+    t = Tracker()
+    seen = [
+        Seen("persona", "persona", "humano", 0.9, (0.3, 0.1, 0.4, 0.9)),
+        Seen("taza", "objeto", "", 0.8, (0.45, 0.5, 0.05, 0.06), held=True),
+        Seen("objeto", "objeto", "", 0.6, (0.8, 0.8, 0.05, 0.05)),
+        Seen("silla", "objeto", "", 0.9, (0.0, 0.5, 0.3, 0.5)),
+        Seen("botella", "objeto", "", 0.9, (0.75, 0.2, 0.04, 0.1)),
+    ]
+    for now in (0.0, 0.1):
+        t.update(seen, now)
+    shown = {tr.title(0.1, clean=True) for tr in salient(t.visible(0.1), clean=True)}
+    assert shown == {"Persona", "Taza · en tu mano"}
+    assert len(salient(t.visible(0.1))) > len(shown)  # the detailed view shows more

@@ -277,7 +277,9 @@ def run(config: dict[str, Any]) -> None:
         return feed.jpeg()
 
     controller = Controller(
-        WindowsBackend(), on_activity=on_activity, camera=camera_shot
+        WindowsBackend(speed=str(config.get("control_speed") or "rapido")),
+        on_activity=on_activity,
+        camera=camera_shot,
     )
     server = make_server(controller, config["token"], int(config["port"]))
     threading.Thread(target=server.serve_forever, daemon=True).start()
@@ -675,6 +677,13 @@ def run(config: dict[str, Any]) -> None:
                 time.sleep(1.6)  # the camera settles its exposure
             path = on_ui(camera_window.save_photo)
             return "Foto guardada en Imágenes, carpeta Sergio." if path else "No pude tomar la foto."
+        if q.kind == "vision_detail":
+            camera_window.detail = q.arg == "on"
+            return q.say
+        if q.kind == "vision_data":
+            if not camera_window.isVisible():
+                return "Abre la cámara («abre la cámara») y te digo lo que mido."
+            return (body_now().strip() or "Aún no tengo medidas; mírame unos segundos.")
         if q.kind == "mirror":
             camera_window.mirror = not camera_window.mirror
             return "Modo espejo." if camera_window.mirror else "Sin espejo."
@@ -744,6 +753,8 @@ def run(config: dict[str, Any]) -> None:
         return q.say
 
     assistant.quick = run_quick
+    if config.get("confirm_aloud"):  # the user wants every order confirmed out loud
+        assistant.silent_quick = set()
 
     def live_speaker() -> Any:
         from sergio_escritorio.call import Speaker
@@ -809,6 +820,7 @@ def run(config: dict[str, Any]) -> None:
                 {
                     "name": f["name"],
                     "guest": f.get("guest") or 0,
+                    "quality": f.get("quality") or "ok",
                     "score": f["score"],
                     "box": f["nbox"],
                 }

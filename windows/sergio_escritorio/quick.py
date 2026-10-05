@@ -121,7 +121,7 @@ _TAIL = re.compile(r"(?:[\s,]+(?:por favor|porfa|porfavor|please|ahora|ya|rapido
 _POLITE = re.compile(
     r"^(?:(?:me |tu )?(?:puedes|podrias|pudieras|quieres|quisieras)( me)? |"
     r"(?:quiero|necesito|te pido) que (?:me )?|hazme el favor de |"
-    r"ayudame a |vamos a |anda y |dale |me haces el favor de )"
+    r"ayudame a |vamos a |anda y |dale (?!a |al |clic|click|doble|enter|intro|tab|escape|esc |espacio|f\d)|me haces el favor de )"
 )
 _VERBS = {
     "abrir": "abre", "abras": "abre", "abres": "abre", "abrirme": "abre",
@@ -289,6 +289,17 @@ def parse_quick(text: str) -> Quick | None:
         "toma una foto": ("photo", "", "Foto tomada."),
         "tomame una foto": ("photo", "", "Foto tomada."),
         "modo espejo": ("mirror", "", "Listo."),
+        "muestra los datos": ("vision_detail", "on", "Datos a la vista."),
+        "muestra los datos de la camara": ("vision_detail", "on", "Datos a la vista."),
+        "modo detallado": ("vision_detail", "on", "Datos a la vista."),
+        "oculta los datos": ("vision_detail", "off", "Vista limpia."),
+        "quita los datos": ("vision_detail", "off", "Vista limpia."),
+        "modo limpio": ("vision_detail", "off", "Vista limpia."),
+        "que mides": ("vision_data", "", ""),
+        "dame los datos": ("vision_data", "", ""),
+        "dame los datos de la camara": ("vision_data", "", ""),
+        "como esta mi postura": ("vision_data", "", ""),
+        "que datos tienes de mi": ("vision_data", "", ""),
         "pasalo a blender": ("blender_holo", "", ""),
         "pasa los hologramas a blender": ("blender_holo", "", ""),
         "lleva esto a blender": ("blender_holo", "", ""),

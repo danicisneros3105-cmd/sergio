@@ -266,14 +266,43 @@ def clean_detections(found: Sequence[Seen], hands: Sequence[Box] = ()) -> list[S
     return kept
 
 
-def salient(tracks: Sequence["Track"], limit: int = MAX_OBJECTS) -> list["Track"]:
+def salient(tracks: Sequence["Track"], limit: int = MAX_OBJECTS, clean: bool = False) -> list["Track"]:
     """What is worth showing: people, animals, held things, then a few of
-    the biggest objects; furniture only when it is all there is."""
+    the biggest objects; furniture only when it is all there is.
+
+    *clean* (the default view): people, animals, what you hold and what
+    Gemini named; other things only when sure and big (no "objeto ¿?")."""
     people = [t for t in tracks if t.kind != "objeto"]
     things = [t for t in tracks if t.kind == "objeto"]
+    if clean:
+        keep = [
+            t
+            for t in things
+            if t.held
+            or t.named
+            or (t.label != "objeto" and t.shown not in BACKGROUND and t.box[2] * t.box[3] >= 0.04)
+        ]
+        keep.sort(key=lambda t: (not t.held, not t.named, -t.box[2] * t.box[3]))
+        return people + keep[:2]
     things.sort(key=lambda t: (not t.held, t.shown in BACKGROUND, -t.box[2] * t.box[3]))
     shown = [t for t in things if t.held or t.shown not in BACKGROUND or t.named][:limit]
     return people + shown
+
+
+UNKNOWN = "?"
+
+
+def body_of(face: Box, people: Sequence["Track"]) -> "Track | None":
+    """The person whose body this face belongs to: the face centre in the
+    upper part of the body box; the tightest such box wins."""
+    cx, cy = face[0] + face[2] / 2, face[1] + face[3] / 2
+    fits = [
+        t
+        for t in people
+        if t.box[0] <= cx <= t.box[0] + t.box[2]
+        and t.box[1] - face[3] <= cy <= t.box[1] + t.box[3] * 0.6
+    ]
+    return min(fits, key=lambda t: t.box[2] * t.box[3], default=None)
 
 
 def contains(outer: Box, inner: Box) -> bool:
@@ -317,15 +346,18 @@ class Track:
         if not counts:
             return ""
         best, votes = counts.most_common(1)[0]
-        return best if votes >= 2 else ""
+        # "?" = a clear face that is nobody enrolled: never shown as a name.
+        return best if votes >= 2 and best != UNKNOWN else ""
 
-    def title(self, now: float) -> str:
+    def title(self, now: float, clean: bool = False) -> str:
         if self.kind == "persona":
             base = self.name or (f"Persona {self.guest}" if self.guest else "Persona")
         else:
             base = self.shown[:1].upper() + self.shown[1:]
             if self.held:
                 base += " · en tu mano"
+        if clean:
+            return base
         if self.detail and now < self.detail_until and self.detail.lower() != base.lower():
             return f"{base} · {self.detail}"
         return base
@@ -408,12 +440,13 @@ class Tracker:
         confirmed = []
         with self._lock:
             people = [t for t in self.tracks if t.kind == "persona"]
+            taken: set[int] = set()
             for face in faces:
                 box = tuple(face["box"])
-                owner = next((t for t in people if contains(t.box, box)), None)
+                owner = body_of(box, [t for t in people if t.id not in taken])
                 if owner is None:  # the detector missed the body: face only
                     owner = next(
-                        (t for t in people if iou(t.box, box) > 0.3), None
+                        (t for t in people if t.id not in taken and iou(t.box, box) > 0.3), None
                     )
                 if owner is None:
                     owner = Track(
@@ -422,9 +455,15 @@ class Tracker:
                     self._next += 1
                     self.tracks.append(owner)
                     people.append(owner)
+                taken.add(owner.id)
                 before = owner.name
                 owner.face_box = box
-                owner.names.append(face.get("name") or "")
+                vote = face.get("name") or ""
+                if not vote and face.get("quality", "ok") == "ok" and face.get("guest"):
+                    vote = UNKNOWN  # seen clearly and it is nobody we know
+                if vote and any(n and n != vote for n in owner.names):
+                    owner.names.clear()  # someone else now: no inherited name
+                owner.names.append(vote)
                 owner.guest = int(face.get("guest") or 0) or owner.guest
                 owner.face_score = float(face.get("score") or 0.0)
                 if owner.name and owner.name != before:
@@ -807,7 +846,8 @@ class YoloFinder:
                 except Exception:  # noqa: BLE001
                     log.exception("YOLOE failed")
                     self._vocab = None
-            found = merge_vocab(found, [Seen(e.label, e.kind, e.species, e.score, e.box) for e in self._extra])
+            extra = [Seen(e.label, e.kind, e.species, e.score, e.box) for e in self._extra]
+            found = merge_vocab(found, [e for e in extra if vocab_sure(e, hands)])
         return clean_detections(found, hands)
 
 
@@ -877,6 +917,26 @@ class VocabFinder:
             label = VOCAB.get(name, name)
             out.append(Seen(label, "objeto", "", float(conf), (x0, y0, x1 - x0, y1 - y0)))
         return out
+
+
+# Measured on COCO photos: these names, from the open vocabulary, were often
+# wrong when not very sure (a ring or necklace on bare skin, a lipstick on a
+# smile, a hat on plain hair, a flag on any banner).
+TRICKY = {"anillo", "collar", "pulsera", "labial", "sombrero", "gorra", "perfume",
+          "desodorante", "billetera", "control de videojuego", "almohada", "póster",
+          "parlante", "bandera", "espejo", "juguete", "cable", "papel", "moneda",
+          "esmalte de uñas", "brocha de maquillaje", "peine", "encendedor"}  # fmt: skip
+VOCAB_HELD, VOCAB_SURE, VOCAB_TRICKY = 0.40, 0.55, 0.82
+
+
+def vocab_sure(item: Seen, hands: Sequence[Box] = ()) -> bool:
+    """Keep an open-vocabulary name only when it is likely right: in your
+    hand a softer bar (that is what it is for), elsewhere a strict one."""
+    if item.kind == "animal":
+        return item.score >= VOCAB_HELD  # only a second opinion on animals
+    if any(overlap_small(item.box, hand) > 0.25 for hand in hands):
+        return item.score >= VOCAB_HELD
+    return item.score >= (VOCAB_TRICKY if item.label in TRICKY else VOCAB_SURE)
 
 
 def merge_vocab(base: list[Seen], extra: Sequence[Seen]) -> list[Seen]:

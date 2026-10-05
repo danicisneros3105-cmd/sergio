@@ -163,7 +163,11 @@ class DesktopActionTool(_DesktopTool):
         return ToolSpec(
             name="desktop_action",
             description=(
-                "Use the user's Windows computer like they would. Actions: click, "
+                "Use the user's Windows computer like they would. FASTEST: click_name "
+                "(target = the visible name of a button, link, tab or menu, e.g. "
+                "'Suscribirse'; button = left | right | double): finds it in the "
+                "window in front and clicks it at once, no screen_read needed. "
+                "Other actions: click, "
                 "double_click, right_click, move (element id from screen_read, or "
                 "x,y); type (text into the focused field); key ('enter', 'ctrl+s', "
                 "'alt+tab'); scroll (amount, negative = down); open_app (target = "
@@ -193,6 +197,7 @@ class DesktopActionTool(_DesktopTool):
                     "action": {
                         "type": "string",
                         "enum": [
+                            "click_name",
                             "click",
                             "double_click",
                             "right_click",
@@ -221,6 +226,7 @@ class DesktopActionTool(_DesktopTool):
                     "y": {"type": "integer"},
                     "text": {"type": "string"},
                     "keys": {"type": "string"},
+                    "button": {"type": "string", "enum": ["left", "right", "double"]},
                     "amount": {"type": "integer"},
                     "target": {"type": "string"},
                     "seconds": {"type": "number"},
@@ -502,10 +508,13 @@ class FaceEnrollTool(_DesktopTool):
         return ToolSpec(
             name="face_enroll",
             description=(
-                "Learn the user's face from the webcam (only when THEY ask, e.g. "
-                "'aprende mi cara'), so face_approval can recognise them. Takes "
-                "five photos a moment apart: before calling, ask them to look "
-                "at the camera and turn their head slightly. 'name' is their name."
+                "Learn a person's face from the webcam (only when asked, e.g. "
+                "'aprende mi cara' or 'aprende la cara de Ana', and with that "
+                "person's consent). 'name' is REQUIRED: the name of the person "
+                "in front of the camera right now (the owner's own name only if "
+                "it is the owner). If you do not know the name, ask first. Takes "
+                "five photos a moment apart: ask them to look at the camera and "
+                "turn their head slightly. Only one face may be visible."
             ),
             parameters={
                 "type": "object",
@@ -520,7 +529,9 @@ class FaceEnrollTool(_DesktopTool):
         import base64
         import time
 
-        name = str(params.get("name") or "").strip() or _owner_name([]) or "Dueño"
+        name = str(params.get("name") or "").strip()
+        if not name:  # never guess: a guessed name saved strangers as the owner
+            return self._fail("¿Cómo se llama la persona que está frente a la cámara?")
         try:
             from openjarvis.faces import FaceBook
 

@@ -70,7 +70,86 @@ KEYS: dict[str, tuple[str, str]] = {
     "abre el centro de notificaciones": ("win+n", "Notificaciones."),
     "abre la configuracion rapida": ("win+a", "Configuración rápida."),
     "dictado": ("win+h", "Dicte."),
+    # Browser and pages
+    "atras": ("alt+left", ""),
+    "ve atras": ("alt+left", ""),
+    "vuelve atras": ("alt+left", ""),
+    "regresa": ("alt+left", ""),
+    "pagina anterior": ("alt+left", ""),
+    "adelante": ("alt+right", ""),
+    "ve adelante": ("alt+right", ""),
+    "pagina siguiente": ("alt+right", ""),
+    "siguiente pestana": ("ctrl+tab", ""),
+    "pestana siguiente": ("ctrl+tab", ""),
+    "pestana anterior": ("ctrl+shift+tab", ""),
+    "reabre la pestana": ("ctrl+shift+t", "Pestaña recuperada."),
+    "abre la pestana que cerre": ("ctrl+shift+t", "Pestaña recuperada."),
+    "ve a la barra de direcciones": ("ctrl+l", ""),
+    "ve al final": ("end", ""),
+    "baja hasta el final": ("end", ""),
+    "ve al inicio": ("home", ""),
+    "ve arriba del todo": ("home", ""),
+    "sube hasta arriba": ("home", ""),
+    "historial": ("ctrl+h", ""),
+    "abre el historial": ("ctrl+h", ""),
+    "descargas del navegador": ("ctrl+j", ""),
+    "modo incognito": ("ctrl+shift+n", ""),
+    "ventana de incognito": ("ctrl+shift+n", ""),
+    "nueva ventana": ("ctrl+n", ""),
+    "zoom normal": ("ctrl+0", ""),
+    "restablece el zoom": ("ctrl+0", ""),
+    "abre el administrador de tareas": ("ctrl+shift+esc", ""),
+    "administrador de tareas": ("ctrl+shift+esc", ""),
+    "abre el explorador": ("win+e", ""),
+    "abre ejecutar": ("win+r", ""),
+    "recorte de pantalla": ("win+shift+s", ""),
+    "haz un recorte": ("win+shift+s", ""),
 }
+
+# "presiona enter", "dale tab dos veces", "flecha abajo"
+KEY_NAMES: dict[str, str] = {
+    "enter": "enter", "intro": "enter", "entrar": "enter",
+    "escape": "esc", "esc": "esc", "tab": "tab", "tabulador": "tab",
+    "espacio": "space", "barra espaciadora": "space",
+    "borrar": "backspace", "retroceso": "backspace", "suprimir": "delete",
+    "flecha arriba": "up", "flecha abajo": "down",
+    "flecha izquierda": "left", "flecha derecha": "right",
+    "arriba": "up", "abajo": "down", "izquierda": "left", "derecha": "right",
+    "inicio": "home", "fin": "end", "re pag": "pageup", "av pag": "pagedown",
+    "pagina arriba": "pageup", "pagina abajo": "pagedown",
+}  # fmt: skip
+for _n in range(1, 13):
+    KEY_NAMES[f"f{_n}"] = f"f{_n}"
+_TIMES = {"una": 1, "dos": 2, "tres": 3, "cuatro": 4, "cinco": 5, "seis": 6,
+          "siete": 7, "ocho": 8, "nueve": 9, "diez": 10}  # fmt: skip
+_PRESS = re.compile(
+    r"(?:presiona|pulsa|dale|aprieta|oprime|teclea|toca)(?: a)?(?: la tecla| el)? "
+    r"(?P<key>" + "|".join(sorted(map(re.escape, KEY_NAMES), key=len, reverse=True)) + r")"
+    r"(?: (?P<n>\d+|una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez) (?:vez|veces))?"
+)
+_SCROLL_DOWN = {
+    "baja", "mas abajo", "sigue bajando", "baja la pagina", "baja un poco",
+    "desplazate hacia abajo", "desplazate abajo", "scroll abajo", "haz scroll",
+    "baja mas", "bajale a la pagina",
+}  # fmt: skip
+_SCROLL_UP = {
+    "sube", "mas arriba", "sigue subiendo", "sube la pagina", "sube un poco",
+    "desplazate hacia arriba", "desplazate arriba", "scroll arriba", "sube mas",
+}  # fmt: skip
+# "cambia a Chrome", "pasa a Word", "trae Spotify al frente"
+_FOCUS = re.compile(
+    r"(?:cambia a|cambiate a|pasa a|pasate a|ve a la ventana de|muestrame la ventana de)"
+    r" (?:la ventana de |el |la )?(?P<name>.+)"
+    r"|trae (?:a |el |la )?(?P<name2>.+?) al frente"
+)
+# "haz clic en Suscribirse", "pulsa el botón Enviar", "dale a Aceptar"
+_CLICK = re.compile(
+    r"(?P<verb>haz doble clic|haz doble click|doble clic|doble click|haz clic derecho|"
+    r"clic derecho|haz clic|haz click|da clic|da click|dale clic|dale click|"
+    r"clic|click|pulsa|presiona|oprime|aprieta|toca|selecciona|dale)"
+    r"(?: (?:en|a|sobre|al|el|la|los|las|boton|opcion|enlace|link|pestana|menu|icono|de))*"
+    r" (?P<name>.+)"
+)
 
 SETTINGS: dict[str, str] = {
     "wifi": "ms-settings:network-wifi",
@@ -143,7 +222,7 @@ _NUMBERS = {
 
 @dataclass
 class Step:
-    kind: str  # key | brightness | theme | open | type | volume_set
+    kind: str  # key | brightness | theme | open | type | volume_set | scroll | focus | click
     arg: str = ""
     say: str = ""
 
@@ -163,6 +242,15 @@ def parse_device(t: str, raw: str = "") -> Step | None:
     if t in KEYS:
         keys, say = KEYS[t]
         return Step("key", keys, say)
+    if t in _SCROLL_DOWN:
+        return Step("scroll", "-6")
+    if t in _SCROLL_UP:
+        return Step("scroll", "6")
+    m = _PRESS.fullmatch(t)
+    if m:
+        n = m.group("n") or "1"
+        times = int(n) if n.isdigit() else _TIMES.get(n, 1)
+        return Step("key", f"{KEY_NAMES[m.group('key')]}*{min(times, 30)}")
     # Brightness
     if re.search(r"\b(brillo|luminosidad)\b", t):
         level = _level(t)
@@ -206,14 +294,47 @@ def parse_device(t: str, raw: str = "") -> Step | None:
         said = raw.strip()
         cut = re.match(r"\s*(?:sergio[,\s]+)?\S+[:,]?\s+", said, re.I)
         text = said[cut.end():] if cut else m.group(1)
-        return Step("type", text.strip().strip("«»\""), "Escrito.")
+        text = text.strip().strip("«»\"")
+        enter = re.search(r"\s+y (?:dale|presiona|pulsa) (?:a )?(?:enter|intro)[.!]*$", text, re.I)
+        if enter:  # "escribe hola y dale enter"
+            text = text[: enter.start()] + "\n"
+        return Step("type", text, "")
+    m = _FOCUS.fullmatch(t)
+    if m:
+        name = (m.group("name") or m.group("name2") or "").strip()
+        if name and name not in ("atras", "adelante", "inicio", "arriba", "abajo", "siguiente", "anterior", "otra"):
+            return Step("focus", name)
+    m = _CLICK.fullmatch(t)
+    if m:
+        name = m.group("name").strip()
+        verb = m.group("verb")
+        how = "double" if "doble" in verb else ("right" if "derecho" in verb else "left")
+        if name and len(name) <= 60 and name not in ("todo", "eso", "esto", "aqui", "ahi"):
+            # The name as said (accents, capitals): its last words.
+            words = raw.strip().rstrip(".!?¡¿").split()
+            count = len(name.split())
+            shown = " ".join(words[-count:]) if len(words) >= count else name
+            shown = shown.strip('«»"')
+            return Step("click", f"{how}:{shown}")
     return None
 
 
 def run_device(step: Step, act: Callable[[dict], Any]) -> str:
     """Do *step* with the control server's actions; returns what to say."""
     if step.kind == "key":
-        act({"action": "key", "keys": step.arg})
+        keys, _, times = step.arg.partition("*")
+        act({"action": "key", "keys": keys, "repeat": int(times or 1)})
+    elif step.kind == "scroll":
+        act({"action": "scroll", "amount": int(step.arg)})
+    elif step.kind == "focus":
+        try:
+            act({"action": "focus", "target": step.arg})
+        except Exception:  # noqa: BLE001 — not open: open it
+            act({"action": "open_app", "target": step.arg})
+            return f"Abriendo {step.arg}."
+    elif step.kind == "click":
+        how, _, name = step.arg.partition(":")
+        act({"action": "click_name", "target": name, "button": how})
     elif step.kind == "open":
         act({"action": "open", "target": step.arg})
     elif step.kind == "type":

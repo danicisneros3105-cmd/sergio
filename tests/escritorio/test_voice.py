@@ -401,10 +401,12 @@ def test_a_typed_order_while_busy_waits_its_turn():
     t = threading.Thread(target=a.on_text, args=("sube el volumen",))
     t.start()
     _time.sleep(0.2)
-    assert "dijo Hecho." not in done
+    assert "Hecho." not in done
     a.busy = False
     t.join(2)
-    assert "dijo Hecho." in done
+    assert done[-1] == "Hecho." and "dijo Hecho." not in done  # shown, not spoken: no wait
+    a.on_text("qué hora es")  # answers that are information are still spoken
+    assert done[-1] == "dijo Hecho."
 
 
 def test_live_voice_is_streamed_and_starts_at_once():
