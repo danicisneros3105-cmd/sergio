@@ -494,8 +494,9 @@ def call_tools(ab: Abilities) -> list[ClientTool]:
         ),
         ClientTool(
             "progreso_gimnasio",
-            "¿Funciona el gimnasio mental? Su progreso en los ejercicios y si mejora "
-            "en la prueba de control no entrenada (con intervalo de confianza).",
+            "El perfil del gimnasio mental (puntuación por habilidad según sus "
+            "respuestas, punto fuerte, lo que hay que trabajar, tendencias) y si "
+            "funciona: progreso y la prueba de control no entrenada.",
             lambda _a: ab.gym_report(),
         ),
     ]

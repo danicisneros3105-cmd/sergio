@@ -958,6 +958,140 @@ def effectiveness_text(history: list[dict[str, Any]]) -> str:
     return " ".join(parts)
 
 
+
+# -- your profile: what each pop-up says about you ---------------------------------------
+# Every answer is scored; the scores build a profile per skill. The weakest
+# skill comes up more often, and after each exercise Sergio compares you
+# with yourself (your own average), not with other people.
+SKILLS = {
+    "nback": "memoria de trabajo", "listas": "memoria de trabajo",
+    "matrices": "razonamiento", "relacional": "razonamiento",
+    "rotacion": "visoespacial", "simetria": "visoespacial",
+    "stroop": "atención", "calculo": "cálculo mental",
+    "palabras": "fluidez verbal", "repaso": "memoria a largo plazo",
+    "coordinacion": "coordinación",
+}  # fmt: skip
+TRAINS: dict[str, list[str]] = {}
+for _kind in dict.fromkeys(SCHEDULE):  # evidence order: the best one first
+    if _kind in SKILLS:
+        TRAINS.setdefault(SKILLS[_kind], []).append(_kind)
+for _kind, _skill in SKILLS.items():
+    TRAINS.setdefault(_skill, [])
+    if _kind not in TRAINS[_skill]:
+        TRAINS[_skill].append(_kind)
+RECENT = 8  # sessions per skill that make its score (recent ones weigh more)
+WEAK_GAP = 8.0  # points under your mean for a skill to count as "to work on"
+
+
+def score(entry: dict[str, Any]) -> float:
+    """One session, 0-100. The n-back level counts: 80% at 3-back > at 2-back."""
+    value = float(entry.get("accuracy", 0.0)) * 100
+    if entry.get("kind") == "nback":
+        value += (int(entry.get("level", 2) or 2) - 2) * 10
+    return max(0.0, min(100.0, value))
+
+
+def _mean(values: list[float]) -> float:
+    return sum(values) / len(values) if values else 0.0
+
+
+def profile(history: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    """Per skill: score (0-100), trend (points, recent vs before), sessions, speed."""
+    by_skill: dict[str, list[dict[str, Any]]] = {}
+    for h in history:
+        skill = SKILLS.get(str(h.get("kind")))
+        if skill and "accuracy" in h:
+            by_skill.setdefault(skill, []).append(h)
+    out = {}
+    for skill, entries in by_skill.items():
+        recent = entries[-RECENT:]
+        weights = range(1, len(recent) + 1)
+        value = sum(w * score(e) for w, e in zip(weights, recent)) / sum(weights)
+        trend = None
+        if len(entries) >= 6:
+            trend = round(_mean([score(e) for e in entries[-3:]]) - _mean([score(e) for e in entries[-6:-3]]), 1)
+        speeds = [float(e["speed"]) for e in recent if e.get("speed")]
+        out[skill] = {
+            "score": round(value),
+            "trend": trend,
+            "sessions": len(entries),
+            "speed": round(_mean(speeds), 1) if speeds else None,
+        }
+    return out
+
+
+def weakest(prof: dict[str, dict[str, Any]], min_sessions: int = 2) -> str | None:
+    """The skill clearly under your own mean (None while there is little data)."""
+    known = {k: v["score"] for k, v in prof.items() if v["sessions"] >= min_sessions}
+    if len(known) < 3:
+        return None
+    worst = min(known, key=known.get)
+    return worst if _mean(list(known.values())) - known[worst] >= WEAK_GAP else None
+
+
+def personal_next(index: int, history: list[dict[str, Any]]) -> tuple[Exercise, int]:
+    """The evidence rotation, but every third pop-up trains your weakest skill."""
+    exercise, after = next_exercise(index)
+    if index % 3 != 2 or exercise.kind in ("pausa", "repaso"):
+        return exercise, after
+    weak = weakest(profile(history))
+    if weak is None:
+        return exercise, after
+    last_seen = {str(h.get("kind")): i for i, h in enumerate(history)}
+    kind = min(TRAINS[weak], key=lambda k: last_seen.get(k, -1))  # the least recent
+    return BY_KIND[kind], after
+
+
+def feedback(history: list[dict[str, Any]], entry: dict[str, Any]) -> str:
+    """This session against your own record in the same exercise."""
+    skill = SKILLS.get(str(entry.get("kind")))
+    if not skill:
+        return ""
+    before = [h for h in history if h is not entry and h.get("kind") == entry.get("kind") and "accuracy" in h]
+    if len(before) < 2:
+        return f"Primeras medidas de tu {skill}: ya tengo tu punto de partida."
+    mean = _mean([score(h) for h in before[-RECENT:]])
+    diff = score(entry) - mean
+    if diff >= 5:
+        line = f"Mejor que tu media en {skill} ({mean:.0f}%)."
+    elif diff <= -5:
+        line = f"Por debajo de tu media en {skill} ({mean:.0f}%); un mal rato es normal."
+    else:
+        line = f"En tu media de {skill} ({mean:.0f}%)."
+    speeds = [float(h["speed"]) for h in before[-RECENT:] if h.get("speed")]
+    if entry.get("speed") and speeds:
+        usual = _mean(speeds)
+        if float(entry["speed"]) < usual * 0.9:
+            line += " Y respondiste más rápido de lo habitual."
+        elif float(entry["speed"]) > usual * 1.15:
+            line += " Fuiste más lento de lo habitual."
+    return line
+
+
+def profile_text(history: list[dict[str, Any]]) -> str:
+    """Your profile in a few Spanish sentences."""
+    prof = profile(history)
+    if not prof:
+        return "Aún no tengo tu perfil: se arma con tus respuestas en el gimnasio mental."
+    ranked = sorted(prof, key=lambda k: prof[k]["score"], reverse=True)
+    parts = [
+        "Tu perfil: "
+        + ", ".join(f"{k} {prof[k]['score']}" for k in ranked)
+        + " (de 100, según tus respuestas recientes)."
+    ]
+    if len(ranked) >= 2:
+        parts.append(f"Tu punto fuerte: {ranked[0]}.")
+    weak = weakest(prof)
+    if weak:
+        parts.append(f"A trabajar: {weak}; te lo pondré más a menudo.")
+    rising = [k for k in ranked if (prof[k]["trend"] or 0) >= 5]
+    falling = [k for k in ranked if (prof[k]["trend"] or 0) <= -5]
+    if rising:
+        parts.append("Subiendo: " + ", ".join(rising) + ".")
+    if falling:
+        parts.append("Bajando un poco: " + ", ".join(falling) + ".")
+    return " ".join(parts)
+
 # -- the session -------------------------------------------------------------------------------
 @dataclass
 class Session:

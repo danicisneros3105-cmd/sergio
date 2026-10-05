@@ -71,6 +71,7 @@ def load_config() -> dict[str, Any]:
     data.setdefault("conversation", "llamada")
     # Mental gym: an exercise you cannot skip every 12 minutes (real time).
     data.setdefault("gym", True)
+    data.setdefault("gym_camera", True)  # look (locally) that you are there first
     if data.get("gym_minutes") in (None, 28, 28.0):  # the old default
         data["gym_minutes"] = 12
     return data
@@ -1860,10 +1861,41 @@ def run(config: dict[str, Any]) -> None:
         window.start()
         return f"Empieza el gimnasio mental: {exercise.title}."
 
+    absent_said = [False]
+
+    def start_if_here() -> None:
+        """Worker thread: a quick look through the webcam (local, nothing
+        saved) before an exercise; nobody there = it waits for you."""
+        from sergio_escritorio.camera import someone_there
+
+        try:
+            here = someone_there(feed)
+        except Exception:  # noqa: BLE001 — no camera: the keyboard decides
+            here = None
+
+        def decide() -> None:
+            if here is False:
+                schedule.not_here()
+                if not absent_said[0]:
+                    absent_said[0] = True
+                    bridge.caption.emit("Gimnasio mental: no te veo en la cámara; empiezo cuando vuelvas.")
+                return
+            absent_said[0] = False
+            open_gym()
+
+        try:
+            on_ui(decide)
+        except Exception:  # noqa: BLE001
+            logging.exception("mental gym failed to start")
+            on_ui(schedule.done)
+
     def gym_check() -> None:
         try:
             if schedule.check():
-                open_gym()
+                if config.get("gym_camera", True):
+                    threading.Thread(target=start_if_here, daemon=True).start()
+                else:
+                    open_gym()
         except Exception:  # noqa: BLE001 — never kill the timer
             logging.exception("mental gym failed to start")
             schedule.done()

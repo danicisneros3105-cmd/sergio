@@ -143,12 +143,8 @@ def detect_faces(frame: Any) -> list[tuple[int, int, int, int]]:
     import cv2
 
     global _CASCADE
-    if _CASCADE is None:
-        if not hasattr(cv2, "CascadeClassifier"):  # OpenCV 5: no Haar detector
-            _CASCADE = False
-        else:
-            path = cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
-            _CASCADE = cv2.CascadeClassifier(path)
+    if _CASCADE is None:  # OpenCV 5 / builds without the XML: no Haar
+        _CASCADE = _cascade("haarcascade_frontalface_default.xml")
     if _CASCADE is False:
         return []
     h, w = frame.shape[:2]
@@ -163,6 +159,88 @@ def detect_faces(frame: Any) -> list[tuple[int, int, int, int]]:
 
 
 _CASCADE: Any = None
+
+
+
+_PROFILE: Any = None
+
+
+def _cascade(name: str) -> Any:
+    import cv2
+
+    if not hasattr(cv2, "CascadeClassifier"):
+        return False
+    found = cv2.CascadeClassifier(cv2.data.haarcascades + name)
+    return False if found.empty() else found  # some OpenCV builds ship no XML
+
+
+def face_or_profile(frame: Any) -> bool:
+    """A face looking at the screen, or turned to either side (Haar)."""
+    import cv2
+
+    global _PROFILE, _CASCADE
+    if _CASCADE is None:
+        _CASCADE = _cascade("haarcascade_frontalface_default.xml")
+    if _PROFILE is None:
+        _PROFILE = _cascade("haarcascade_profileface.xml")
+    if _CASCADE is False and _PROFILE is False:
+        raise RuntimeError("no Haar cascades")
+    if _CASCADE is not False and detect_faces(frame):
+        return True
+    if _PROFILE is False:
+        return False
+    h, w = frame.shape[:2]
+    small = cv2.cvtColor(cv2.resize(frame, (320, max(1, int(h * 320 / max(1, w))))), cv2.COLOR_BGR2GRAY)
+    for img in (small, cv2.flip(small, 1)):  # the cascade only knows one side
+        if len(_PROFILE.detectMultiScale(img, 1.2, 5, minSize=(24, 24))):
+            return True
+    return False
+
+
+def presence_detector() -> Any:
+    """The best local face finder there is: Haar, else MediaPipe's mesh."""
+    try:
+        import numpy as np
+
+        face_or_profile(np.zeros((90, 160, 3), np.uint8))
+        return face_or_profile
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        from sergio_escritorio.vision import FaceMesh
+
+        mesh = FaceMesh(max_faces=1)
+        return lambda frame: bool(mesh.find(frame))
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def someone_there(
+    feed: "CameraFeed", seconds: float = 4.0, detect: Any = None
+) -> bool | None:
+    """Is someone in front of the computer? A few seconds of webcam, faces
+    found locally (nothing saved or sent). None = no camera to ask."""
+    detect = detect or presence_detector()
+    if detect is None:
+        return None  # nothing to look with: the keyboard decides
+    was_running = feed.running
+    feed.start()
+    deadline = time.monotonic() + seconds
+    looked = 0
+    try:
+        while time.monotonic() < deadline:
+            if feed.error:
+                return None
+            frame = feed.frame()
+            if frame is not None and time.monotonic() - feed._first_frame_at > 0.6:
+                looked += 1
+                if detect(frame):
+                    return True
+            time.sleep(0.25)
+    finally:
+        if not was_running and not feed.keep_on:
+            feed.stop()  # the light goes off at once
+    return False if looked else None
 
 
 class FaceWatcher:

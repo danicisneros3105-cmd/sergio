@@ -70,7 +70,8 @@ def test_stroop_session_from_start_to_score(app):
         _press(w, key)
         w._tick()
     assert w.phase == "result"
-    assert w.session.correct == 15 and spoken[-1] == "Excelente."
+    assert w.session.correct == 15 and spoken[-1].startswith("Excelente.")
+    assert "punto de partida" in w.feedback  # the first time: your baseline
     clock.now += gym.RESULT_SECONDS
     w._tick()
     assert results and results[0].accuracy == 1.0 and not w.isVisible()
@@ -370,3 +371,89 @@ def test_every_exercise_has_steps_and_an_animated_example(app):
             p.end()
             frames.append(bytes(image.constBits()))
         assert len(set(frames)) > 1, kind  # it moves
+
+
+def _h(kind, acc, t=0.0, **kw):
+    return {"kind": kind, "accuracy": acc, "time": t, "correct": 1, "total": 1, **kw}
+
+
+def test_profile_scores_each_skill_from_the_answers():
+    history = [_h("matrices", 0.9), _h("relacional", 0.8), _h("stroop", 0.4), _h("stroop", 0.5),
+               _h("nback", 0.8, level=3), _h("prueba", 1.0)]
+    prof = brain.profile(history)
+    assert prof["razonamiento"]["score"] == 83 and prof["razonamiento"]["sessions"] == 2
+    assert prof["memoria de trabajo"]["score"] == 90  # 3-back counts more than 2-back
+    assert prof["atención"]["score"] == 47  # recent sessions weigh more
+    assert "prueba" not in str(prof)  # the control test is not trained
+
+
+def test_weakest_skill_comes_up_every_third_pop_up():
+    history = [_h(k, a) for k, a in [("matrices", 0.9), ("matrices", 0.9), ("nback", 0.9), ("nback", 0.9),
+                                     ("stroop", 0.3), ("stroop", 0.4), ("rotacion", 0.9), ("rotacion", 0.8)]]
+    assert brain.weakest(brain.profile(history)) == "atención"
+    picked = [brain.personal_next(i, history)[0].kind for i in range(6)]
+    plain = [brain.next_exercise(i)[0].kind for i in range(6)]
+    assert picked[2] == plain[2] == "repaso"  # retrieval practice is never swapped
+    assert picked[5] == "stroop" and plain[5] != "stroop"
+    assert picked[:2] == plain[:2] and picked[3:5] == plain[3:5]
+    assert brain.personal_next(5, [])[0].kind == plain[5]  # no data: the plain rotation
+
+
+def test_feedback_compares_you_with_yourself():
+    history = [_h("matrices", 0.6, speed=5.0), _h("matrices", 0.6, speed=5.0)]
+    better = _h("matrices", 0.9, speed=3.0)
+    history.append(better)
+    line = brain.feedback(history, better)
+    assert "Mejor que tu media en razonamiento (60%)" in line and "más rápido" in line
+    worse = _h("matrices", 0.3)
+    assert "Por debajo" in brain.feedback(history + [worse], worse)
+    text = brain.profile_text(history)
+    assert text.startswith("Tu perfil: razonamiento 75")
+    assert brain.profile_text([]).startswith("Aún no tengo tu perfil")
+
+
+def test_stats_record_speed_and_report_includes_profile():
+    stats = gym.GymStats(None)
+    session = brain.Session(brain.BY_KIND["calculo"])
+    session.record(1, 2.0)
+    session.record(1, 4.0)
+    entry = stats.record(session)
+    assert entry["speed"] == 3.0
+    assert stats.report().startswith("Tu perfil: cálculo mental")
+
+
+def test_nobody_in_front_of_the_camera_postpones_a_minute():
+    clock = Clock()
+    s = gym.GymSchedule(12, clock=clock, ticker=clock)
+    clock.now = s.due
+    assert s.check() and s.running
+    s.not_here()
+    assert not s.running and s.due == clock.now + gym.ABSENT_RETRY
+    clock.now += gym.ABSENT_RETRY
+    assert s.check()
+
+
+class _Feed:
+    def __init__(self, frames, error=""):
+        self.frames, self.error, self.keep_on, self.running = list(frames), error, False, False
+        self._first_frame_at = -10.0
+        self.stopped = False
+
+    def start(self):
+        self.running = True
+
+    def stop(self):
+        self.stopped = True
+
+    def frame(self):
+        return self.frames.pop(0) if self.frames else None
+
+
+def test_someone_there_looks_a_few_frames_then_turns_the_camera_off():
+    from sergio_escritorio.camera import someone_there
+
+    feed = _Feed(["empty", "empty", "face"])
+    assert someone_there(feed, seconds=3, detect=lambda f: f == "face") is True
+    assert feed.stopped  # the light goes off right after
+    assert someone_there(_Feed(["empty"] * 3), seconds=0.6, detect=lambda f: False) is False
+    assert someone_there(_Feed([], error="ocupada"), seconds=0.5) is None  # no camera: no blocking

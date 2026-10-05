@@ -51,6 +51,7 @@ MIN_GAP = 120.0  # never two pop-ups closer than this
 INTRO_SECONDS = 11.0  # time to read how it works and watch the example
 RESULT_SECONDS = 6.0
 SLEEP_GAP = 5.0
+ABSENT_RETRY = 60.0  # the camera saw nobody: look again this much later
 WAKE_GAP = 90.0  # the 10 s schedule check missed this long: it slept  # seconds without a tick: the laptop slept or froze
 BG = QColor(0, 0, 0, 215)
 CARD = QColor(28, 28, 30)
@@ -124,7 +125,8 @@ class GymStats:
     def take_next(self) -> brain.Exercise:
         if not self.probe_today():
             return brain.PROBE  # the day's control test comes first
-        exercise, self.next_index = brain.next_exercise(self.next_index)
+        # The evidence rotation, tuned to you: your weakest skill comes more often.
+        exercise, self.next_index = brain.personal_next(self.next_index, self.history)
         self.save()
         return exercise
 
@@ -134,8 +136,8 @@ class GymStats:
             h.get("kind") == "prueba" and h.get("time", 0) >= start for h in self.history
         )
 
-    def record(self, session: brain.Session) -> None:
-        entry = {
+    def record(self, session: brain.Session) -> dict[str, Any]:
+        entry: dict[str, Any] = {
             "kind": session.exercise.kind,
             "time": time.time(),
             "correct": session.correct,
@@ -145,11 +147,17 @@ class GymStats:
         }
         if session.exercise.kind == "prueba":
             entry["rate"] = round(session.rate, 2)
+        if session.times:
+            entry["speed"] = round(sum(session.times) / len(session.times), 2)
         self.history.append(entry)
         self.save()
+        return entry
+
+    def feedback(self, entry: dict[str, Any]) -> str:
+        return brain.feedback(self.history, entry)
 
     def report(self) -> str:
-        return brain.effectiveness_text(self.history)
+        return brain.profile_text(self.history) + " " + brain.effectiveness_text(self.history)
 
     def best(self, kind: str) -> float:
         return max(
@@ -226,6 +234,11 @@ class GymSchedule:
     def done(self) -> None:
         self.running = False
         self._set(max(self.due, self.clock() + MIN_GAP))
+
+    def not_here(self) -> None:
+        """The camera saw nobody: look again in a minute (no exercise yet)."""
+        self.running = False
+        self._set(self.clock() + ABSENT_RETRY)
 
     def minutes_left(self) -> int:
         return max(0, math.ceil((self.due - self.clock()) / 60))
@@ -1141,6 +1154,7 @@ class GymWindow(QWidget):
         self.ticker = ticker  # real time between ticks: a jump = it slept
         self._last_tick = ticker()
         self.touched = False  # did the user answer anything?
+        self.feedback = ""  # this session vs your own average (after it ends)
         self._closing = False
         self.runner: Runner = RUNNERS[exercise.kind](self)
         self.entry = QLineEdit(self)
@@ -1218,6 +1232,7 @@ class GymWindow(QWidget):
         self.runner = RUNNERS[self.exercise.kind](self)
         self.entry.hide()
         self.touched = False
+        self.feedback = ""
         self.phase = "intro"
         self.started_at = self.clock()
 
@@ -1235,9 +1250,10 @@ class GymWindow(QWidget):
             if self.stats is not None:
                 self.stats.nback_level = self.runner.game.level
         if self.stats is not None:
-            self.stats.record(self.session)
+            entry = self.stats.record(self.session)
+            self.feedback = self.stats.feedback(entry)  # you against your own record
         if self.speak is not None:
-            self.speak(self.session.verdict())
+            self.speak(f"{self.session.verdict()} {self.feedback}".strip())
 
     def _tick(self) -> None:
         now = self.clock()
@@ -1428,9 +1444,15 @@ class GymWindow(QWidget):
             times = "entrenamiento" if today == 1 else "entrenamientos"
             p.drawText(QRectF(area.left(), area.top() + 304, area.width(), 28), Qt.AlignmentFlag.AlignCenter,
                        f"Tu mejor marca: {round(best * 100)}% · hoy llevas {today} {times}")
+        y = area.top() + 336
+        if self.feedback:
+            p.setPen(TEXT)
+            p.drawText(QRectF(area.left(), y, area.width(), 28), Qt.AlignmentFlag.AlignCenter, self.feedback)
+            p.setPen(MUTED)
+            y += 32
         if isinstance(self.runner, WordsRunner):
             examples = ", ".join(self.runner.item.examples)
-            p.drawText(QRectF(area.left(), area.top() + 336, area.width(), 28), Qt.AlignmentFlag.AlignCenter,
+            p.drawText(QRectF(area.left(), y, area.width(), 28), Qt.AlignmentFlag.AlignCenter,
                        f"Ejemplos válidos: {examples}")
 
 

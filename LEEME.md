@@ -379,9 +379,17 @@ Para que además describa imágenes de la pantalla (fotos, gráficos), añade
 
 ## Hablar con Sergio como en una llamada
 
-Sergio usa la **voz predeterminada de Gemini Live**, en las llamadas y también
-en las respuestas por turnos (las lee con Gemini Live), así suena siempre
-igual. Otra voz se elige en «Personalizar a Sergio».
+Sergio habla con una **voz masculina grave, relajada y algo rasposa**
+(«Algenib», de Gemini Live), en las llamadas y en las respuestas por turnos,
+así suena siempre igual. Una copia 1:1 de la voz de un actor real (p. ej.
+Brad Pitt) no se hace: clonar la voz de una persona sin su permiso no es
+legal ni ético; Algenib es la voz de Gemini más parecida a ese estilo. Otra
+voz se elige en «Personalizar a Sergio».
+
+**Sin esperas**: en las llamadas Gemini no «piensa» antes de hablar (primera
+palabra en ~0,7 s) y las respuestas por turnos se oyen mientras se generan
+(empiezan a sonar en ~2 s). Si un modelo está saturado o sin cuota, Sergio lo
+recuerda y no vuelve a esperarlo.
 
 Di «Sergio…» (o pulsa Ctrl+Espacio) y empieza una **llamada en tiempo real**
 (Gemini Live): contesta en menos de un segundo, puedes interrumpirlo
@@ -459,6 +467,12 @@ manos. Arrástrala para moverla, rueda del mouse para el tamaño.
 * Detector moderno **YOLO11** (Ultralytics; en la tarjeta NVIDIA si la hay):
   se equivoca mucho menos que el anterior (una ventana ya no es «televisor»
   ni una hoodie «corbata»). Si no se pudo instalar, usa el anterior.
+* **Segunda opinión con vocabulario propio (YOLOE)**: un segundo modelo busca
+  66 cosas por su nombre en español (labial, audífonos, taza, control…). Si
+  YOLO11 duda, gana el nombre preciso; si los dos discrepan en un animal,
+  Gemini decide. En una NVIDIA corre en la GPU (CUDA, media precisión, más de
+  15 imágenes por segundo); el instalador pone PyTorch con CUDA solo si hay
+  `nvidia-smi`.
 * **Tus manos nunca son cosas**: Sergio sigue tus manos y descarta lo que el
   detector confunde con ellas (plátano, «otra persona», un dedo). Lo que
   sostienes se marca «en tu mano» y Gemini le pone su nombre real de cerca.
@@ -496,6 +510,10 @@ manos. Arrástrala para moverla, rueda del mouse para el tamaño.
   «activa la gravedad» (caen, rebotan y se pueden lanzar).
 * Se ven como en las películas: luz azul, líneas de escaneo, un anillo
   proyector bajo cada holograma y anillos que giran cuando lo sujetas.
+* **También con el mouse**: arrastra para moverlo, clic derecho y arrastra
+  para girarlo, Ctrl + rueda para el tamaño.
+* **Y con la voz**: «muévelo a la izquierda», «súbelo», «gíralo 90 grados»,
+  «voltéalo», «céntralo», «más grande».
 * Ya no hay control de la computadora por gestos ni mouse en el aire: las
   manos son para los hologramas.
 
@@ -510,7 +528,26 @@ manos. Arrástrala para moverla, rueda del mouse para el tamaño.
   (nada de archivos, internet ni programas) y Blender lo construye y guarda
   el `.blend`. Tarda uno o dos minutos. Probado de verdad: de una foto de un
   reloj salió un modelo de 97 piezas (caja, corona, eslabones, broche).
+* **Blender Pro** («en Blender haz una casa low poly con techo rojo», «haz un
+  logo 3D de Sergio en metal en Blender»): Gemini escribe la escena, Blender
+  hace un render rápido sin abrir ventana, Gemini **mira el render** (y la
+  foto del objeto, si la hay) y el registro de errores, corrige y repite
+  (dos revisiones visuales y hasta cuatro arreglos de errores). Al final se
+  abre el `.blend` listo. Tarda varios minutos y usa Gemini Pro.
 * Necesitas Blender instalado (`winget install BlenderFoundation.Blender`).
+
+## Video Pro: editar y subir videos
+
+* «**Edita un video con la carpeta Viaje para YouTube Shorts**»: Sergio mira
+  cada clip (una hoja con 12 fotogramas marcados con su tiempo), Gemini hace
+  de editor (los mejores momentos, gancho en los primeros 3 s, ritmo, textos
+  cortos, título) y ffmpeg lo monta: recortes, formato 9:16 o 16:9,
+  fundidos, textos, volumen normalizado a −14 LUFS (lo de YouTube) y música
+  que baja sola cuando alguien habla. Queda en `Videos\Sergio`, con un `.txt`
+  con título, descripción y etiquetas para YouTube.
+* «**Súbelo a YouTube**»: abre YouTube Studio, te deja el archivo señalado y
+  copia el título y la descripción. **Tú pulsas Publicar**: Sergio no publica
+  nada en tu nombre.
 
 ## Caras: firma de 175 medidas, fotos antiguas y parecido familiar
 
@@ -628,8 +665,24 @@ en los ejercicios entrenados con la tendencia de esa prueba, con un
 intervalo de confianza del 95 %. Pregúntale «¿funciona el gimnasio mental?»:
 si la prueba no entrenada no sube, te lo dirá. Necesita 5 días de datos.
 
+**Tu perfil personal**: cada respuesta se evalúa (acierto y rapidez) y arma
+tu perfil por habilidad, de 0 a 100: memoria de trabajo, razonamiento,
+visoespacial, atención, cálculo mental, fluidez verbal, memoria a largo plazo
+y coordinación (las sesiones recientes pesan más; el n-back cuenta el nivel).
+Al terminar cada ejercicio Sergio te compara **contigo mismo** («mejor que
+tu media en razonamiento (72 %), y más rápido»), y **una de cada tres veces
+te pone lo que más te cuesta**. Pregúntale «¿cómo va mi perfil mental?» o
+«¿funciona el gimnasio mental?».
+
+**Mira que estés ahí**: antes de empezar, Sergio enciende la cámara unos
+segundos y busca una cara (de frente o de lado). Si no te ve, no empieza y
+vuelve a mirar cada minuto; en cuanto te ve, arranca. Todo se analiza en tu
+laptop: no se guarda ninguna imagen ni se envía a internet, y la luz de la
+cámara se apaga enseguida. Si no hay cámara (o la usa otra app), decide el
+teclado como antes. Se apaga con `"gym_camera": false`.
+
 Para hacer uno ya: «Sergio, gimnasio mental». Se cambia en `config.json`
-(`"gym"`, `"gym_minutes"`).
+(`"gym"`, `"gym_minutes"`, `"gym_camera"`).
 
 ## Modelos en la nube: Kimi y Gemini
 
