@@ -393,7 +393,9 @@ class LiveCall:
         try:
             while not self.closed:
                 async with contextlib.AsyncExitStack() as stack:
+                    opened = time.monotonic()
                     session = await self._open(stack)
+                    log.info("Live session open on %s in %.1f s", self.model, time.monotonic() - opened)
                     self._session = session
                     if first:
                         await self.send_json({"type": "ready", "model": self.model})

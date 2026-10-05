@@ -83,7 +83,7 @@ def _wait(cond, seconds=3.0):
 
 
 def test_ws_url():
-    assert ws_url("http://localhost:8000/") == "ws://localhost:8000/v1/live"
+    assert ws_url("http://localhost:8000/") == "ws://127.0.0.1:8000/v1/live"
     assert ws_url("https://sergio.example") == "wss://sergio.example/v1/live"
 
 
@@ -110,7 +110,7 @@ def test_start_sends_who_he_is_and_waits_for_ready():
         assert start["type"] == "start" and start["voice"] == "Charon"
         assert start["context"] == "Son las 15:20." and start["personality"] == "Humor seco."
         assert start["tools"][0]["name"] == "colgar"
-        assert line.url == "ws://localhost:8000/v1/live"
+        assert line.url == "ws://127.0.0.1:8000/v1/live"
         assert call.model == "gemini-3.8-live" and call.active
         # the sentence that woke him goes first, in 100 ms pieces
         assert line.audio_sent() == b"\1\0" * 4000

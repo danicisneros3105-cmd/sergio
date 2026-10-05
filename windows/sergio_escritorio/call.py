@@ -209,7 +209,9 @@ class ClientTool:
 
 
 def ws_url(server_url: str) -> str:
-    base = server_url.rstrip("/")
+    # "localhost" on Windows can try IPv6 first and hang until the timeout
+    # (WSL forwards IPv4): the call goes straight to 127.0.0.1.
+    base = server_url.rstrip("/").replace("://localhost", "://127.0.0.1")
     if base.startswith("https://"):
         return "wss://" + base[len("https://") :] + "/v1/live"
     if base.startswith("http://"):
@@ -246,6 +248,8 @@ class CallSession:
             self.voice = ""  # Gemini Live's own default voice
         if self.voice.startswith(("es-", "en-")):  # an Edge voice: not for Live
             self.voice = ""  # an Edge voice: Live uses its default
+        if ":" in self.voice:  # ElevenLabs reads turns; calls are Gemini Live
+            self.voice = "Algenib"  # the same deep, relaxed male voice
         self.personality = personality
         self.context = context
         self.tools = {t.name: t for t in tools or []}
@@ -277,13 +281,16 @@ class CallSession:
         self.heard_anything = False  # Gemini heard or said something already
 
     # -- lifecycle ------------------------------------------------------------
-    def start(self, prefill: bytes = b"", timeout: float = 10.0) -> bool:
+    def start(self, prefill: bytes = b"", timeout: float = 20.0) -> bool:
         """Connect and wait until Sergio is on the line. False = no call."""
         try:
             connect = self._connect
             if connect is None:
                 from websockets.sync.client import connect
-            self._ws = connect(self.url, max_size=None, open_timeout=5)
+            try:
+                self._ws = connect(self.url, max_size=None, open_timeout=8)
+            except TimeoutError as exc:
+                raise TimeoutError(f"no pude conectar con el servidor ({self.url}) en 8 s") from exc
             self._ws.send(
                 json.dumps(
                     {
@@ -299,7 +306,13 @@ class CallSession:
             deadline = self.clock() + timeout
             while True:
                 left = max(0.1, deadline - self.clock())
-                msg = self._ws.recv(timeout=left)
+                try:
+                    msg = self._ws.recv(timeout=left)
+                except TimeoutError as exc:
+                    raise TimeoutError(
+                        f"el servidor no abrió Gemini Live en {timeout:.0f} s "
+                        "(mira «sergio probar»: errores de Live del servidor)"
+                    ) from exc
                 if isinstance(msg, bytes):
                     continue
                 event = json.loads(msg)

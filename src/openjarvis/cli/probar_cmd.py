@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import base64
 import time
+import subprocess
 from typing import Callable
 
 import click
@@ -374,7 +375,7 @@ def probar(sin_pantalla: bool) -> None:
         def talk_turn() -> str:
             out = selftest("turn")
             return (
-                f"pensó {out.get('think_s')} s, voz {out.get('voice_s')} s con "
+                f"pensó {out.get('think_s')} s, empezó a sonar en {out.get('voice_s')} s con "
                 f"{out.get('voice')}: «{str(out.get('answer'))[:60]}»"
             )
 
@@ -420,6 +421,12 @@ def probar(sin_pantalla: bool) -> None:
         if diag.get("voice_used"):
             console.print(f"Voz usada al hablar: {escape(str(diag['voice_used']))}")
 
+    server_errors = _server_live_errors()
+    if server_errors:
+        console.print("\n[yellow]Últimos avisos de Live en el servidor:[/yellow]")
+        for line in server_errors:
+            console.print(f"  {escape(line)}")
+
     if run.failed:
         console.print(
             f"\n[red]{len(run.failed)} prueba(s) fallaron:[/red] "
@@ -428,6 +435,19 @@ def probar(sin_pantalla: bool) -> None:
         )
         raise SystemExit(1)
     console.print("\n[green]Todo probado de verdad y funcionando.[/green]")
+
+
+def _server_live_errors(limit: int = 6) -> list[str]:
+    """The server's own lines about Gemini Live failing (journalctl)."""
+    try:
+        out = subprocess.run(
+            ["journalctl", "--user", "-u", "sergio", "-n", "400", "--no-pager", "-o", "cat"],
+            capture_output=True, text=True, timeout=10, check=False,
+        ).stdout
+    except Exception:  # noqa: BLE001 — not systemd
+        return []
+    keys = ("Live connect failed", "live call ended", "Live session dropped", "No pude abrir la conversación")
+    return [line.strip()[:300] for line in out.splitlines() if any(k in line for k in keys)][-limit:]
 
 
 def live_call(base: str, timeout: float = 25.0) -> str:

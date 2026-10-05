@@ -1219,9 +1219,10 @@ class CloudEngine(InferenceEngine):
                         "arguments": json.dumps(fc_args),
                     }
                     # Preserve thought_signature for Gemini reasoning models
+                    # (kept on the side: bytes in the result broke JSON
+                    # replies and traces with "bytes is not JSON serializable")
                     sig = getattr(part, "thought_signature", None)
                     if sig is not None:
-                        tc_dict["thought_signature"] = sig
                         self._thought_sigs[tc_dict["id"]] = sig
                     tool_calls.append(tc_dict)
                 elif hasattr(part, "text") and part.text:
@@ -2002,8 +2003,7 @@ class CloudEngine(InferenceEngine):
                         }
                         calls.append(tool_call)
                         signature = getattr(part, "thought_signature", None)
-                        if signature is not None:
-                            tool_call["thought_signature"] = signature
+                        if signature is not None:  # kept on the side (not JSON)
                             self._thought_sigs[tool_id] = signature
                 if calls:
                     yield StreamChunk(tool_calls=calls)

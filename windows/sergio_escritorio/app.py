@@ -1666,7 +1666,12 @@ def run(config: dict[str, Any]) -> None:
             try:
                 answer = client.ask("Prueba: dime la hora en una sola frase corta.")
                 thought = time.monotonic() - t0
-                client.speak(answer[:200])
+                if client.live_voice:  # what you hear: the first sound of the stream
+                    for _chunk in client.speak_stream(answer[:200]):
+                        break
+                    client.last_voice = f"streaming ({client.voice})"
+                else:
+                    client.speak(answer[:200])
             except Exception as exc:  # noqa: BLE001
                 from sergio_escritorio.voice import explain
 
