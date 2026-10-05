@@ -50,6 +50,7 @@ LIVE_MODELS = (
 )
 IN_MIME = "audio/pcm;rate=16000"
 DEFAULT_VOICE_NAMES = {"", "predeterminada", "default"}
+_THINKING_OK = [True]  # the model accepted thinking_budget=0 (else left out)
 OUT_RATE = 24000
 # Sergio's own tools offered during a call (the rest stay for the agent).
 SERVER_TOOLS = (
@@ -79,6 +80,9 @@ Eres {name}, el asistente personal de {owner} en su computadora con Windows, \
 al estilo de JARVIS. Hablas siempre en español, con la voz serena y elegante \
 de un caballero británico muy inteligente: educado, ingenioso, seguro y \
 cálido, nunca servil.
+
+Tu voz: masculina, grave y relajada, algo ronca, cálida, con un carisma \
+despreocupado y seguro; sonríes al hablar y nunca suenas a locutor.
 
 Esto es una llamada en tiempo real, no un chat: responde de inmediato, en una \
 a tres frases naturales, como en una conversación. Habla a un ritmo pausado y \
@@ -197,7 +201,12 @@ def live_config(
         if voice and voice.lower() not in DEFAULT_VOICE_NAMES
         else None
     )
+    extra: dict[str, Any] = {}
+    if _THINKING_OK[0]:
+        # No "thinking" before speaking: the first word comes sooner.
+        extra["thinking_config"] = types.ThinkingConfig(thinking_budget=0)
     return types.LiveConnectConfig(
+        **extra,
         response_modalities=["AUDIO"],
         speech_config=speech,
         system_instruction=instructions,
@@ -208,7 +217,7 @@ def live_config(
         realtime_input_config=types.RealtimeInputConfig(
             automatic_activity_detection=types.AutomaticActivityDetection(
                 end_of_speech_sensitivity=types.EndSensitivity.END_SENSITIVITY_HIGH,
-                silence_duration_ms=600,
+                silence_duration_ms=450,
                 prefix_padding_ms=150,
             )
         ),
@@ -327,6 +336,20 @@ class LiveCall:
                         client.aio.live.connect(model=model, config=config)
                     )
                 except Exception as exc:  # noqa: BLE001 — try the next option
+                    if "thinking" in str(exc).lower() and _THINKING_OK[0]:
+                        _THINKING_OK[0] = False  # this key/model refuses it: without
+                        try:
+                            session = await stack.enter_async_context(
+                                client.aio.live.connect(
+                                    model=model,
+                                    config=live_config(types, voice=self.voice, instructions=self.instructions,
+                                                       decls=self.decls, search=search, handle=self._handle),
+                                )
+                            )
+                            self.model = model
+                            return session
+                        except Exception as again:  # noqa: BLE001
+                            exc = again
                     errors.append(f"{model}{' +search' if search else ''}: {exc}")
                     log.warning("Live connect failed: %s", errors[-1][:300])
                     if search:
@@ -542,9 +565,10 @@ class LiveCall:
 
 
 READ_ALOUD = (
-    "Eres un lector en voz alta en español. Lee el texto que recibes "
-    "EXACTAMENTE, palabra por palabra, con tono natural y tranquilo. No "
-    "respondas, no añadas, no comentes ni saludes."
+    "Eres un lector en voz alta en español, con voz masculina grave, relajada "
+    "y algo ronca, cálida y segura. Lee el texto que recibes EXACTAMENTE, "
+    "palabra por palabra, con naturalidad. No respondas, no añadas, no "
+    "comentes ni saludes."
 )
 
 

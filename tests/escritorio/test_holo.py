@@ -221,3 +221,27 @@ def test_holograms_rebuild_in_blender_and_save(tmp_path):
     )
     assert "SERGIO_SAVED" in done.stdout and " 3" in done.stdout, done.stderr[-2000:]
     assert target.exists()
+
+
+def test_a_pinch_near_a_hologram_grabs_it():
+    sc, cube, u, v = scene_with()
+    sc.update_hands([hand_at(u + 70, v + 40)], 1 / 30, True, 0.0)  # not on it
+    assert cube.held
+
+
+@pytest.mark.parametrize(
+    "said, check",
+    [
+        ("muévelo a la derecha", lambda o, p0, r0: o.pos[0] > p0[0]),
+        ("acércalo", lambda o, p0, r0: o.pos[2] > p0[2]),
+        ("gíralo 90 grados", lambda o, p0, r0: not np.allclose(o.rot, r0)),
+        ("céntralo", lambda o, p0, r0: np.allclose(o.pos, [0, 0.1, 0])),
+    ],
+)
+def test_voice_moves_and_turns_the_hologram(said, check):
+    sc = holo.HoloScene()
+    sc.command("crea un cubo")
+    obj = sc.objects[0]
+    p0, r0 = obj.pos.copy(), obj.rot.copy()
+    sc.command(said)
+    assert check(obj, p0, r0)

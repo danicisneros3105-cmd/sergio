@@ -88,6 +88,9 @@ _HOLO = re.compile(
     r"|^(esculpir|dibujar en el aire)$"
     r"|^(hazlo|haz lo) (mas grande|mas pequeno)$"
     r"|^(suavizalo|duplicalo|giralo|borralo)$"
+    r"|^(muevelo|mueve el (holograma|cubo|objeto)|acercalo|alejalo|subelo|bajalo|centralo|"
+    r"voltealo|dale la vuelta|traelo)\b"
+    r"|^(gira|giralo|rota|rotalo)( el holograma| el cubo)? \d+ grados"
 )
 
 

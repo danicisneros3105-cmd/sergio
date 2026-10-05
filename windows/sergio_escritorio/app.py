@@ -53,8 +53,8 @@ def load_config() -> dict[str, Any]:
     # neural voice is upgraded; a voice the user picked is kept.
     # Gemini Live's default voice everywhere (calls and spoken answers): the
     # user asked for it, and one voice sounds like one Sergio.
-    if data.get("voice") in (None, "es-EC-LuisNeural", "gemini:Algieba") and not data.get("voice_chosen"):
-        data["voice"] = "gemini:Predeterminada"
+    if data.get("voice") in (None, "es-EC-LuisNeural", "gemini:Algieba", "gemini:Predeterminada") and not data.get("voice_chosen"):
+        data["voice"] = "gemini:Algenib"  # male, deep, relaxed and a bit husky
     # Muse-style personalisation and the brain's effort.
     data["name"] = "Sergio"  # his name is fixed
     data.setdefault("style", "orbe")

@@ -440,6 +440,7 @@ class CameraWindow(QWidget):
         self.guide_until = time.monotonic() + 25  # the how-to stays on screen
         if starter and not self.holo.objects:
             self.holo.command("crea un cubo")  # something to grab right away
+            self.holo.command("céntralo")
         return (
             "Hologramas listos: le dejé un cubo. Junte pulgar e índice sobre él para "
             "agarrarlo y muévalo; gire la muñeca para girarlo; con las dos manos lo "
@@ -525,14 +526,37 @@ class CameraWindow(QWidget):
         if self._close_rect().contains(pos):
             self.close_camera()
             return
+        self._holo_drag = None
+        if self.holo.objects and self._shown is not None:
+            card = self.card()
+            hit = self.holo.pick(pos.x() - card.left(), pos.y() - card.top())
+            if hit is not None:  # the mouse moves (left) or turns (right) it
+                self.holo.selected = hit.id
+                self._holo_drag = (pos, event.button() == Qt.MouseButton.RightButton)
+                self._pressed_at = None
+                self._drag = None
+                return
         self._drag = event.globalPosition() - QPointF(self.pos())
         self._pressed_at = pos
 
     def mouseMoveEvent(self, event: Any) -> None:  # noqa: N802
+        grab = getattr(self, "_holo_drag", None)
+        if grab is not None:
+            last, turning = grab
+            pos = event.position()
+            dx, dy = pos.x() - last.x(), pos.y() - last.y()
+            if turning:
+                self.holo.turn(dx * 0.6, dy * 0.6)
+            else:
+                k = 2 * 1.6 / max(1.0, self.card().width())  # px -> scene units
+                self.holo.nudge(dx * k, -dy * k)
+            self._holo_drag = (pos, turning)
+            return
         if self._drag is not None:
             self.move((event.globalPosition() - self._drag).toPoint())
 
     def mouseReleaseEvent(self, event: Any) -> None:  # noqa: N802
+        self._holo_drag = None
         pressed, self._pressed_at = self._pressed_at, None
         self._drag = None
         if pressed is None:
@@ -546,6 +570,10 @@ class CameraWindow(QWidget):
                 self.on_name_face(getattr(track, "face_box", None) or track.box)
 
     def wheelEvent(self, event: Any) -> None:  # noqa: N802
+        obj = self.holo.current() if self.holo.objects else None
+        if obj is not None and event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+            obj.scale = max(0.2, min(5.0, obj.scale * (1.1 if event.angleDelta().y() > 0 else 1 / 1.1)))
+            return  # Ctrl + wheel: the hologram's size
         step = 0.1 if event.angleDelta().y() > 0 else -0.1
         self.scale = max(0.7, min(2.4, self.scale + step))
         self._apply_size()
@@ -902,6 +930,7 @@ class CameraWindow(QWidget):
         ("🙌", "Pellizca con las dos manos y sepáralas", "agrandar / achicar"),
         ("💨", "Suéltalo mientras lo mueves", "lanzar"),
         ("🗣", "«crea una esfera azul», «modo esculpir»", "crear y modelar (también «modo dibujar»)"),
+        ("🖱", "Mouse: arrastra = mover · clic derecho = girar · Ctrl+rueda = tamaño", "sin manos"),
         ("💾", "«pásalo a Blender»", "guardar como proyecto .blend"),
     )
 

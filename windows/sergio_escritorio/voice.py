@@ -477,15 +477,15 @@ class SergioClient:
 
     @property
     def live_voice(self) -> bool:
-        """Gemini Live's own voice (the calls' voice) is the chosen one."""
-        return self.voice.lower() in ("gemini:predeterminada", "gemini:default")
+        """A Gemini voice: spoken by Gemini Live, like in the calls."""
+        return self.voice.lower().startswith("gemini:")
 
     def speak_stream(self, text: str):
         """PCM 24 kHz chunks of Gemini Live reading *text*, as they arrive."""
         with self.http.stream(
             "POST",
             f"{self.base}/v1/voice/stream",
-            json={"text": text[:2000], "voice": "Predeterminada"},
+            json={"text": text[:2000], "voice": self.voice.split(":", 1)[-1]},
             timeout=httpx.Timeout(30, connect=5),
         ) as resp:
             resp.raise_for_status()

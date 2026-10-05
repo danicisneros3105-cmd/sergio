@@ -35,7 +35,7 @@ CAM_Z = 3.0  # the viewer sits here, looking down -z
 HALF_W = 1.6  # half the view width at z = 0, in metres
 FLOOR = -0.85
 GRAVITY = 3.2
-PINCH_ON, PINCH_OFF = 0.33, 0.45  # thumb-index distance / palm size
+PINCH_ON, PINCH_OFF = 0.40, 0.55  # thumb-index distance / palm size (forgiving)
 DEPTH_GAIN = 1.6
 
 COLORS = {
@@ -488,11 +488,38 @@ class HoloScene:
         for obj in self.objects:
             ((cx, cy),) = project(obj.pos[None], w, h)[0]
             k = CAM_Z / max(CAM_Z - obj.pos[2], 0.05) * (w / 2) / HALF_W
-            reach = max(obj.radius() * k * 1.25, 18.0)
+            reach = max(obj.radius() * k * 1.8, 40.0)
             d = math.hypot(u - cx, v - cy)
             if d < reach and CAM_Z - obj.pos[2] < best_d:
                 best, best_d = obj, CAM_Z - obj.pos[2]
+        if best is None and self.objects:
+            # Magnetic grab: a pinch near (not exactly on) a hologram takes it.
+            def gap(obj: Holo) -> float:
+                ((cx, cy),) = project(obj.pos[None], w, h)[0]
+                return math.hypot(u - cx, v - cy)
+
+            near = min(self.objects, key=gap)
+            if gap(near) < max(w, h) * 0.22:
+                best = near
         return best
+
+    def nudge(self, dx: float = 0.0, dy: float = 0.0, dz: float = 0.0) -> None:
+        """Move the current hologram (voice and mouse)."""
+        obj = self.current()
+        if obj is not None:
+            obj.pos = obj.pos + np.array([dx, dy, dz])
+            obj.vel = np.zeros(3)
+
+    def turn(self, yaw: float = 0.0, pitch: float = 0.0) -> None:
+        """Turn the current hologram by degrees (voice and mouse)."""
+        obj = self.current()
+        if obj is None:
+            return
+        a, b = math.radians(yaw), math.radians(pitch)
+        ry = np.array([[math.cos(a), 0, math.sin(a)], [0, 1, 0], [-math.sin(a), 0, math.cos(a)]])
+        rx = np.array([[1, 0, 0], [0, math.cos(b), -math.sin(b)], [0, math.sin(b), math.cos(b)]])
+        obj.rot = orthonormal(ry @ rx @ obj.rot)
+        obj.spin = np.zeros(3)
 
     # -- voice ----------------------------------------------------------------------
     def command(self, order: str) -> str:
@@ -559,9 +586,40 @@ class HoloScene:
         if re.search(r"\b(mas pequen|achica|reduce|encoge)", t) and obj is not None:
             obj.scale /= 1.3
             return f"{obj.name} más pequeño ({obj.size_cm()} cm)."
+        step = 0.35
+        moves = (
+            (r"\b(izquierda)\b", (-step, 0, 0), "a la izquierda"),
+            (r"\b(derecha)\b", (step, 0, 0), "a la derecha"),
+            (r"\b(arriba|sube|subelo)\b", (0, step, 0), "arriba"),
+            (r"\b(abajo|baja|bajalo)\b", (0, -step, 0), "abajo"),
+            (r"\b(acercalo|acerca|hacia mi|mas cerca)\b", (0, 0, step * 1.5), "más cerca"),
+            (r"\b(alejalo|aleja|mas lejos)\b", (0, 0, -step * 1.5), "más lejos"),
+        )
+        if obj is not None and re.search(r"\b(muev|mueve|ponlo|llevalo|lleva|desplaza|acerca|aleja|sube|baja|subelo|bajalo)", t):
+            for pattern, (dx, dy, dz), said in moves:
+                if re.search(pattern, t):
+                    self.nudge(dx, dy, dz)
+                    return f"{obj.name} {said}."
+        m = re.search(r"\b(gira|giralo|rota|rotalo|voltea|voltealo)\b.*?(\d+)\s*grados", t)
+        if m and obj is not None:
+            deg = float(m.group(2))
+            pitch = "arriba" in t or "abajo" in t or "adelante" in t
+            self.turn(0 if pitch else (-deg if "izquierda" in t else deg), deg if pitch else 0)
+            return f"Giré {obj.name} {int(deg)} grados."
+        if re.search(r"\b(voltea|voltealo|dale la vuelta)\b", t) and obj is not None:
+            self.turn(180)
+            return f"Volteé {obj.name}."
         if re.search(r"\b(gira|rota|da vueltas)", t) and obj is not None:
             obj.spin = np.array([0.0, 2.5, 0.0])
             return f"Girando {obj.name}."
+        if re.search(r"\b(centra|centralo|al centro|traelo)\b", t) and obj is not None:
+            obj.pos = np.array([0.0, 0.1, 0.0])
+            obj.vel = np.zeros(3)
+            return f"{obj.name} al centro."
+        m = re.search(r"\b(selecciona|elige|agarra|toma)\b.*\b(\d+)\b", t)
+        if m and self.get(int(m.group(2))) is not None:
+            self.selected = int(m.group(2))
+            return f"Seleccioné {self.get(self.selected).name}."
         if re.search(r"\b(para|deten|quieto|frena)\b", t):
             for o in self.objects:
                 o.spin = np.zeros(3)
