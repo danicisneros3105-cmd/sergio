@@ -221,6 +221,17 @@ distintos mejoran el resultado). *Who is this?* dice quién aparece.
   "huellas" numéricas de la cara, no las fotos.
 - Sergio **solo reconoce a quien registraste**; el resto sale como
   "desconocido". Él no puede registrar caras por su cuenta.
+- **Nunca más «todos son Daniel Cisneros»**: antes, si alguien pedía «aprende
+  la cara» sin decir el nombre, Sergio guardaba a esa persona con el nombre
+  del dueño, y desde ahí confundía a todos. Ahora (1) sin nombre, pregunta
+  «¿cómo se llama?»; (2) una foto nueva guardada con un nombre tiene que
+  parecerse a las fotos que ya tiene esa persona, si no, la rechaza; (3) al
+  arrancar, Sergio **repara solo** la lista: si a una persona le guardaron
+  caras ajenas, se queda solo con el grupo de fotos que se parecen entre sí
+  (probado con fotos reales: de 13 fotos mezcladas quedaron las 8 correctas,
+  y la otra persona dejó de salir como Daniel); (4) en la cámara, si una cara
+  se ve clara y no es nadie conocido, el nombre anterior se borra al
+  instante (ya no «hereda» el nombre de quien estaba ahí).
 - Terminal: `sergio rostros registrar NOMBRE foto.jpg`,
   `sergio rostros identificar foto.jpg`, `sergio rostros lista`,
   `sergio rostros olvidar NOMBRE` (borra todo lo de esa persona).
@@ -382,9 +393,24 @@ Para que además describa imágenes de la pantalla (fotos, gráficos), añade
 Sergio habla con una **voz masculina grave, relajada y algo rasposa**
 («Algenib», de Gemini Live), en las llamadas y en las respuestas por turnos,
 así suena siempre igual. Una copia 1:1 de la voz de un actor real (p. ej.
-Brad Pitt) no se hace: clonar la voz de una persona sin su permiso no es
+Brad Pitt) no se hace: clonar o imitar la voz de una persona real no es
 legal ni ético; Algenib es la voz de Gemini más parecida a ese estilo. Otra
 voz se elige en «Personalizar a Sergio».
+
+**Voz aún más grave y rasposa, y más rápida (opcional, ElevenLabs)**: una voz
+original de la biblioteca de ElevenLabs («J Thomas — Warm, Raspy & Real»:
+cálida, grave, con aspereza en los tonos bajos, relajada). No imita a nadie.
+Empieza a sonar casi al instante (modelo Flash, en streaming). Actívala con
+tu clave de ElevenLabs:
+
+```bash
+sergio nube voz --elevenlabs TU_CLAVE
+```
+
+Desde ahí las respuestas por turnos usan esa voz; las llamadas en vivo siguen
+con Gemini Live (Algenib), que ya contesta en menos de un segundo. Si se acaba
+el crédito o falla, vuelve sola a Algenib. También se elige en «Personalizar
+a Sergio».
 
 **Sin esperas**: en las llamadas Gemini no «piensa» antes de hablar (primera
 palabra en ~0,7 s) y las respuestas por turnos se oyen mientras se generan
@@ -447,10 +473,32 @@ con un clic a la vista (si no lo encuentra en pantalla, lo abre directo).
 
 ## Mouse y teclado como una persona
 
-Cuando Sergio usa la computadora, el puntero se mueve como una mano: en
-curva, acelerando y frenando, con el tiempo que pide la distancia, y escribe
-tecla por tecla a ritmo humano (con acentos y ñ). Así ves cada paso. Si
-mueves tú el mouse, o con Ctrl+Alt+Fin, se detiene.
+**Sin demora (modo rápido, el de siempre ahora)**: el puntero llega en una
+décima de segundo (lo ves deslizarse, pero no espera), el clic dura 20 ms y
+el texto aparece de golpe (antes: 0,4–0,7 s por movimiento y 85 ms por
+letra; 100 letras eran 8,5 s). Después de cada acción ya no hay pausas
+fijas: mira la ventana y sigue en cuanto cambia. Si mueves tú el mouse, o con
+Ctrl+Alt+Fin, se detiene. Para grabar videos con el estilo «mano humana»
+lenta: `"control_speed": "humano"` en `config.json`.
+
+**Órdenes de pantalla al instante (sin pasar por la IA)**:
+
+* «**Haz clic en Suscribirse**», «pulsa el botón Enviar», «dale a Aceptar»,
+  «toca Me gusta», «haz doble clic en Documentos», «clic derecho en la
+  papelera»: busca el botón por su nombre en la ventana de enfrente (aunque lo
+  digas sin tilde o parecido) y hace clic. Si no lo encuentra, se lo pasa a la
+  IA, que mira la pantalla.
+* «Presiona enter», «dale tab dos veces», «flecha abajo 3 veces», «escape».
+* «Baja», «sube», «más abajo», «ve al final», «ve al inicio».
+* «Atrás», «adelante», «siguiente pestaña», «pestaña anterior», «reabre la
+  pestaña», «historial», «modo incógnito», «zoom normal».
+* «**Cambia a Chrome**», «trae Spotify al frente» (si no está abierto, lo abre).
+* «Escribe hola, ¿cómo estás? y dale enter».
+* Estas órdenes se confirman **en pantalla, sin voz**, para que puedas dar la
+  siguiente enseguida (`"confirm_aloud": true` las vuelve a decir en voz alta).
+* La IA también ganó «clic por nombre»: un paso en vez de mirar la pantalla y
+  luego hacer clic. Las capturas de pantalla se preparan más rápido y la
+  lectura de botones tiene un tope de 2 s (antes 4 s).
 
 > Mensajes, correos y llamadas a otras personas (Instagram, WhatsApp, Gmail,
 > teléfono): la pieza que lo hace está escrita pero **no está conectada** en
@@ -461,6 +509,13 @@ mueves tú el mouse, o con Ctrl+Alt+Fin, se detiene.
 
 La ventana de la cámara ya **no tiene botones**: todo es por voz y con las
 manos. Arrástrala para moverla, rueda del mouse para el tamaño.
+
+**Vista limpia**: solo lo útil a la vista — el nombre de cada persona (sobre
+su cabeza), lo que tienes en la mano, animales, los puntos de tu cara y los
+hologramas. Sergio **sigue midiendo todo** (distancia a la pantalla,
+parpadeos, a dónde miras, postura, manos, ánimo) y te avisa si hace falta;
+pregúntale «**qué mides**» o «cómo está mi postura» y te lo dice. «**Muestra
+los datos**» los pone en pantalla; «**modo limpio**» los quita.
 
 **Lo que ve**
 
@@ -473,6 +528,13 @@ manos. Arrástrala para moverla, rueda del mouse para el tamaño.
   Gemini decide. En una NVIDIA corre en la GPU (CUDA, media precisión, más de
   15 imágenes por segundo); el instalador pone PyTorch con CUDA solo si hay
   `nvidia-smi`.
+* **Medido, no supuesto** (COCO128, 128 fotos etiquetadas a mano): de cada 100
+  nombres que muestra, **92–94 son correctos** (94 con el modelo de la GPU), y
+  encuentra el 69–74 % de las cosas visibles. Revisé a ojo los nombres extra
+  de YOLOE: con poca confianza fallaban mucho («anillo» sobre la piel,
+  «labial» en una sonrisa); ahora cada nombre necesita estar seguro, salvo lo
+  que tienes **en la mano**, que es justo para lo que sirve (de ~55 % a ~85 %
+  de aciertos en esos nombres).
 * **Tus manos nunca son cosas**: Sergio sigue tus manos y descarta lo que el
   detector confunde con ellas (plátano, «otra persona», un dedo). Lo que
   sostienes se marca «en tu mano» y Gemini le pone su nombre real de cerca.

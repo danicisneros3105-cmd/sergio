@@ -477,15 +477,15 @@ class SergioClient:
 
     @property
     def live_voice(self) -> bool:
-        """A Gemini voice: spoken by Gemini Live, like in the calls."""
-        return self.voice.lower().startswith("gemini:")
+        """A streamed voice: Gemini Live (like in the calls) or ElevenLabs."""
+        return self.voice.lower().startswith(("gemini:", "elevenlabs:"))
 
     def speak_stream(self, text: str):
         """PCM 24 kHz chunks of Gemini Live reading *text*, as they arrive."""
         with self.http.stream(
             "POST",
             f"{self.base}/v1/voice/stream",
-            json={"text": text[:2000], "voice": self.voice.split(":", 1)[-1]},
+            json={"text": text[:2000], "voice": self._server_voice()},
             timeout=httpx.Timeout(30, connect=5),
         ) as resp:
             resp.raise_for_status()
@@ -497,6 +497,12 @@ class SergioClient:
                 if cut:
                     yield chunk[:cut]
 
+    def _server_voice(self) -> str:
+        """Gemini voices go by name; ElevenLabs keeps its prefix."""
+        if self.voice.lower().startswith("elevenlabs:"):
+            return self.voice
+        return self.voice.split(":", 1)[-1]
+
     def _speak(self, text: str) -> bytes:
         """Sergio's British voice (Gemini), else a neural voice, else local.
 
@@ -504,16 +510,16 @@ class SergioClient:
         it is skipped for a while: before, every sentence waited for five
         failing models first, so answers came late and sounded different.
         """
-        if self.voice.startswith("gemini:"):
+        if self.voice.startswith(("gemini:", "elevenlabs:")):
             if time.monotonic() >= self._gemini_voice_off_until:
                 try:
                     resp = self.http.post(
                         f"{self.base}/v1/voice/speak",
-                        json={"text": text[:2500], "voice": self.voice.split(":", 1)[1]},
+                        json={"text": text[:2500], "voice": self._server_voice()},
                         timeout=httpx.Timeout(30, connect=5),
                     )
                     resp.raise_for_status()
-                    self.last_voice = f"Gemini ({self.voice.split(':', 1)[1]})"
+                    self.last_voice = "ElevenLabs" if self.voice.startswith("elevenlabs:") else f"Gemini ({self.voice.split(':', 1)[1]})"
                     return resp.content
                 except Exception as exc:  # noqa: BLE001 — fall back to the free voice
                     why = explain(exc)

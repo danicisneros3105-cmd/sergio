@@ -17,6 +17,17 @@ router = APIRouter(prefix="/v1/voice", tags=["voice"])
 MAX_AUDIO = 8 * 1024 * 1024
 
 
+def preferred(voice: str) -> str:
+    """With an ElevenLabs key saved (sergio nube voz), Sergio's default male
+    voice is spoken by ElevenLabs: same character, lower delay."""
+    import os
+
+    if voice.lower() in ("", "algenib") and os.environ.get("ELEVENLABS_API_KEY", "").strip():
+        if os.environ.get("SERGIO_VOICE", "elevenlabs").lower() == "elevenlabs":
+            return "elevenlabs:"
+    return voice
+
+
 class SpeakRequest(BaseModel):
     text: str
     voice: str = ""
@@ -26,6 +37,15 @@ class SpeakRequest(BaseModel):
 async def speak(req: SpeakRequest) -> Response:
     from openjarvis.speech import gemini_voice
 
+    req = SpeakRequest(text=req.text, voice=preferred(req.voice))
+    if req.voice.lower().startswith("elevenlabs"):
+        from openjarvis.speech import elevenlabs_voice
+
+        try:
+            wav = await asyncio.to_thread(elevenlabs_voice.speak_wav, req.text, req.voice)
+            return Response(content=wav, media_type="audio/wav")
+        except Exception:  # noqa: BLE001 — no key / no credit: Algenib
+            req = SpeakRequest(text=req.text, voice="algenib")
     if req.voice.lower() in ("", "predeterminada", "default", "algenib"):
         # Gemini Live's voice, the same as in calls.
         from openjarvis.speech.gemini_live import speak_live
@@ -57,10 +77,21 @@ async def stream(req: SpeakRequest) -> Any:
 
     from openjarvis.speech.gemini_live import stream_live
 
-    voice = "" if req.voice.lower() in ("", "predeterminada", "default") else req.voice
-    chunks = stream_live(req.text, voice)
+    voice = preferred(req.voice)
+    voice = "" if voice.lower() in ("", "predeterminada", "default") else voice
+    first = b""
+    if voice.lower().startswith("elevenlabs"):
+        from openjarvis.speech.elevenlabs_voice import stream_pcm
+
+        chunks = stream_pcm(req.text, voice)
+        try:
+            first = await chunks.__anext__()
+        except Exception:  # noqa: BLE001 — no key / no credit: Gemini's Algenib
+            voice = "Algenib"
+    if not first:
+        chunks = stream_live(req.text, voice)
     try:
-        first = await chunks.__anext__()
+        first = first or await chunks.__anext__()
     except StopAsyncIteration:
         raise HTTPException(status_code=502, detail="La voz de Gemini Live no devolvió audio.")
     except Exception as exc:  # noqa: BLE001

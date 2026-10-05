@@ -14,6 +14,7 @@ import wave
 # refined British gentleman speaking Spanish (Gemini TTS, via the server).
 VOICES = [
     ("gemini:Algenib", "Sergio: masculina, grave y relajada (ronca)"),
+    ("elevenlabs:f5gk6ENs9vgDBvfkTj7e", "Grave, cálida y rasposa (ElevenLabs, la más rápida; necesita clave)"),
     ("gemini:Predeterminada", "Gemini Live (voz predeterminada)"),
     ("gemini:Algieba", "Sergio británico (suave)"),
     ("gemini:Charon", "Sergio británico (informativo)"),

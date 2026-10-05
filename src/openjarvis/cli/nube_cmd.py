@@ -157,3 +157,51 @@ def configurar(kimi_key: str, gemini_key: str, modelo: str) -> None:
         "Si no hay internet usa qwen3:8b. Las claves están solo en "
         f"{env_path} (privado)."
     )
+
+
+@nube.command("voz")
+@click.option("--elevenlabs", "eleven_key", default="", help="ElevenLabs API key.")
+def voz(eleven_key: str) -> None:
+    """Sergio's voice with ElevenLabs (deep, warm, raspy; the lowest delay)."""
+    from openjarvis.cli.phone_cmd import read_env, write_env
+    from openjarvis.cli.service_cmd import env_file
+    from openjarvis.speech.elevenlabs_voice import API, VOICE_ID, VOICE_NAME
+
+    env_path = env_file()
+    eleven_key = clean_key(
+        eleven_key
+        or read_env(env_path).get("ELEVENLABS_API_KEY", "")
+        or click.prompt("Clave de ElevenLabs", hide_input=True).strip()
+    )
+    headers = {"xi-api-key": eleven_key}
+    with httpx.Client(timeout=20) as http:
+        mine = http.get(f"{API}/voices/{VOICE_ID}", headers=headers)
+        if mine.status_code in (401, 403) and "voice" not in mine.text.lower():
+            raise click.ClickException("ElevenLabs rechazó la clave.")
+        if mine.status_code != 200:
+            # A library voice must be in "My Voices" to be used by the API.
+            found = http.get(f"{API}/shared-voices", headers=headers,
+                             params={"search": "J Thomas Warm Raspy", "page_size": 30})
+            owner = next(
+                (v.get("public_owner_id") for v in (found.json().get("voices") or [])
+                 if v.get("voice_id") == VOICE_ID),
+                None,
+            ) if found.status_code == 200 else None
+            added = (
+                http.post(f"{API}/voices/add/{owner}/{VOICE_ID}", headers=headers,
+                          json={"new_name": "Sergio (grave y rasposa)"})
+                if owner else None
+            )
+            if added is None or added.status_code != 200:
+                console.print(
+                    "[yellow]No pude añadir la voz sola. En elevenlabs.io → Voice Library "
+                    f"busca «{VOICE_NAME}» y pulsa «Add to my voices».[/yellow]"
+                )
+    write_env(env_path, {"ELEVENLABS_API_KEY": eleven_key})
+    subprocess.run(["systemctl", "--user", "try-restart", "sergio.service"],
+                   capture_output=True, check=False)
+    console.print(
+        "[green]Listo.[/green] Las respuestas de Sergio usan ahora la voz grave y rasposa "
+        "de ElevenLabs (empieza a sonar casi al instante). Las llamadas en vivo siguen con "
+        "Gemini Live (Algenib). Sin crédito, vuelve a Algenib solo."
+    )

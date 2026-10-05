@@ -169,3 +169,46 @@ def test_fast_chat_goes_straight_to_the_model():
     )
     assert resp.json() == {"content": "Muy bien, gracias por preguntar."}
     assert seen == {"model": "gemini-3.8-flash@low", "roles": ["system", "user"]}
+
+
+def test_elevenlabs_streams_when_keyed_and_falls_back_to_algenib(monkeypatch):
+    from openjarvis.speech import elevenlabs_voice, gemini_live
+
+    used = []
+
+    async def eleven(text, voice=""):
+        used.append(("eleven", voice))
+        yield b"\x01\x00" * 10
+
+    async def live(text, voice=""):
+        used.append(("live", voice))
+        yield b"\x02\x00" * 10
+
+    monkeypatch.setattr(elevenlabs_voice, "stream_pcm", eleven)
+    monkeypatch.setattr(gemini_live, "stream_live", live)
+    monkeypatch.setenv("ELEVENLABS_API_KEY", "k")
+    r = _client().post("/v1/voice/stream", json={"text": "hola", "voice": "Algenib"})
+    assert r.status_code == 200 and r.content == b"\x01\x00" * 10
+    assert used == [("eleven", "elevenlabs:")]  # Sergio's male voice, lower delay
+
+    async def broken(text, voice=""):
+        raise RuntimeError("ElevenLabs 401: no credit")
+        yield b""  # pragma: no cover
+
+    used.clear()
+    monkeypatch.setattr(elevenlabs_voice, "stream_pcm", broken)
+    r = _client().post("/v1/voice/stream", json={"text": "hola", "voice": "Algenib"})
+    assert r.content == b"\x02\x00" * 10 and used == [("live", "Algenib")]
+    used.clear()
+    monkeypatch.delenv("ELEVENLABS_API_KEY")
+    _client().post("/v1/voice/stream", json={"text": "hola", "voice": "Algenib"})
+    assert used == [("live", "Algenib")]  # no key: Gemini's voice, as before
+
+
+def test_elevenlabs_request_is_the_low_latency_one():
+    from openjarvis.speech.elevenlabs_voice import VOICE_ID, request
+
+    url, params, body = request("hola", "elevenlabs:")
+    assert url.endswith(f"/text-to-speech/{VOICE_ID}/stream")
+    assert params["output_format"] == "pcm_24000" and body["model_id"] == "eleven_flash_v2_5"
+    assert body["language_code"] == "es"
