@@ -271,6 +271,17 @@ class FaceWatcher:
 
 
 MARGIN = 10.0  # room for the soft shadow
+# Lines between characteristic face points (names from vision.SIGNATURE_POINTS):
+# eyes, brows, nose and mouth triangles, cheekbones and jaw.
+FACE_NETWORK = (
+    ("ex_d", "en_d"), ("en_i", "ex_i"), ("en_d", "n"), ("en_i", "n"), ("p_d", "p_i"),
+    ("sci_d", "g"), ("g", "sci_i"), ("sci_d", "ex_d"), ("sci_i", "ex_i"), ("tr", "g"),
+    ("g", "n"), ("n", "prn"), ("prn", "al_d"), ("prn", "al_i"), ("al_d", "sn"), ("al_i", "sn"),
+    ("sn", "ls"), ("ch_d", "ls"), ("ls", "ch_i"), ("ch_d", "li"), ("li", "ch_i"), ("ls", "sto"),
+    ("sto", "li"), ("li", "gn"), ("zy_d", "ex_d"), ("zy_i", "ex_i"), ("zy_d", "al_d"),
+    ("zy_i", "al_i"), ("zy_d", "go_d"), ("zy_i", "go_i"), ("go_d", "gn"), ("go_i", "gn"),
+    ("go_d", "ch_d"), ("go_i", "ch_i"), ("p_d", "prn"), ("p_i", "prn"), ("ps_d", "pi_d"),
+)  # fmt: skip
 KIND_COLORS = {
     "conocido": QColor(48, 209, 88),
     "persona": QColor(10, 132, 255),
@@ -365,6 +376,8 @@ class CameraWindow(QWidget):
             self.watcher.start()
         if self.vision is not None:
             self.vision.start()
+        if self.hands is not None and getattr(self.hands, "mode", "off") == "off":
+            self.hands.set_mode("ver")  # your hands: never mistaken for things
         if not self.isVisible():
             screen = self.screen().availableGeometry()
             self.move(
@@ -418,7 +431,7 @@ class CameraWindow(QWidget):
         """Your hands on the holograms (tracking on), or off."""
         if self.hands is None:
             return "No puedo ver tus manos (falta MediaPipe)."
-        self.hands.set_mode("holo" if on else "off")
+        self.hands.set_mode("holo" if on else ("ver" if self.isVisible() else "off"))
         self.feed.keep_on = True if on else self.isVisible()
         if not on:
             return "Manos apagadas."
@@ -556,8 +569,10 @@ class CameraWindow(QWidget):
             p.drawImage(origin, img)
             self._shown = (origin, float(img.width()), float(img.height()))
             if self.vision is not None:
+                self._draw_pose(p)
                 self._draw_tracks(p)
                 self._draw_mesh(p)
+                self._draw_vitals(p, card)
             else:
                 self._draw_faces(p, origin, img.width())
             self._draw_holo(p, card)
@@ -595,7 +610,9 @@ class CameraWindow(QWidget):
         """JARVIS frames: corner brackets + a name tag per thing."""
         now = time.monotonic()
         faces = list(getattr(self.vision, "faces", []) or []) if getattr(self.vision, "mesh", True) else []
-        for track in self.vision.tracker.visible(now):
+        from sergio_escritorio.vision import salient
+
+        for track in salient(self.vision.tracker.visible(now)):
             rect = self._map_box(track.box)
             if track.kind == "persona":
                 colour = KIND_COLORS["conocido" if track.name else "persona"]
@@ -625,11 +642,8 @@ class CameraWindow(QWidget):
             label = track.title(now)
             if track.kind == "persona" and track.name and track.face_score:
                 label += f"  {track.face_score * 100:.0f}%"
-            elif track.kind == "objeto" and not track.named:
-                # Unsure: say so instead of a confident wrong name.
-                label += "  ¿?" if track.label == "objeto" else f"  {track.score * 100:.0f}%"
-            elif track.kind == "animal":
-                label += f"  {track.score * 100:.0f}%"
+            elif track.kind == "objeto" and not track.named and track.label == "objeto":
+                label += "  ¿?"  # unsure: say so instead of a confident wrong name
             p.setFont(_font(8, QFont.Weight.DemiBold))
             tw = min(p.fontMetrics().horizontalAdvance(label) + 14, max(60.0, rect.width() + 40))
             top = rect.top() - 20 if rect.top() - 20 > MARGIN + 40 else rect.top() + 4
@@ -670,6 +684,47 @@ class CameraWindow(QWidget):
             p.drawLine(QPointF(cx, cy), QPointF(cx + dx * arm, cy))
             p.drawLine(QPointF(cx, cy), QPointF(cx, cy + dy * arm))
 
+    def _draw_pose(self, p: QPainter) -> None:
+        """Your body: a thin skeleton (posture is measured from it)."""
+        from sergio_escritorio.body import POSE_BONES
+
+        pose = list(getattr(self.vision, "pose", []) or [])
+        if len(pose) < 33 or self._shown is None:
+            return
+        pts = [self._map_point(x, y) for x, y, *_ in pose]
+        seen = [len(pt) < 4 or pt[3] > 0.5 for pt in pose]
+        slouch = bool(getattr(self.vision, "posture", None) and self.vision.posture.last.get("slouch"))
+        p.setPen(QPen(QColor(255, 159, 10, 150) if slouch else QColor(100, 210, 255, 90), 2))
+        for a, b in POSE_BONES:
+            if seen[a] and seen[b]:
+                p.drawLine(pts[a], pts[b])
+
+    def _draw_vitals(self, p: QPainter, card: QRectF) -> None:
+        """JARVIS read-out: distance, posture, gaze, blinks, hands, body."""
+        v = self.vision
+        rows: list[str] = []
+        if getattr(v, "distance_cm", None):
+            near = v.distance_cm < 40
+            rows.append(f"Distancia a la pantalla: {v.distance_cm:.0f} cm" + (" (muy cerca)" if near else ""))
+        stats = getattr(v, "face_stats", None)
+        if stats is not None and stats.summary():
+            rows.append("Ojos: " + stats.summary())
+        posture = getattr(v, "posture", None)
+        if posture is not None and posture.summary():
+            rows.append("Cuerpo: " + posture.summary())
+        if not rows:
+            return
+        p.setFont(_font(7.5, QFont.Weight.DemiBold))
+        width = max(p.fontMetrics().horizontalAdvance(r) for r in rows) + 22
+        height = 16 * len(rows) + 12
+        box = QRectF(card.left() + 12, card.bottom() - height - 46, width, height)
+        p.setPen(QPen(QColor(100, 210, 255, 120), 1))
+        p.setBrush(QColor(4, 18, 28, 170))
+        p.drawRoundedRect(box, 10, 10)
+        p.setPen(QColor(200, 236, 255))
+        for i, row in enumerate(rows):
+            p.drawText(QRectF(box.left() + 11, box.top() + 6 + i * 16, width, 16), Qt.AlignmentFlag.AlignVCenter, row)
+
     def _draw_mesh(self, p: QPainter) -> None:
         """Face reticle: name on the face, the measured points, head and mood."""
         from sergio_escritorio.vision import SIGNATURE_POINTS
@@ -688,14 +743,22 @@ class CameraWindow(QWidget):
             colour = KIND_COLORS["conocido" if known else "persona"]
             rect = self._map_box(face.box).adjusted(-8, -14, 8, 6)
             self._brackets(p, rect, colour, 2.2)
-            # The landmarks the 175 facial measurements are taken between.
-            dot = QColor(colour).lighter(150)
-            dot.setAlpha(230)
+            # The characteristic points (eyes, brows, nose, mouth, cheekbones,
+            # jaw) and the distances between them that identify a person:
+            # what the 175 measurements are made of. No face outline.
+            spots = {name: self._map_point(*pts[i]) for name, i in SIGNATURE_POINTS.items() if i < len(pts)}
+            line = QColor(colour).lighter(140)
+            line.setAlpha(170)
+            p.setPen(QPen(line, 1.1))
+            for a, b in FACE_NETWORK:
+                if a in spots and b in spots:
+                    p.drawLine(spots[a], spots[b])
+            dot = QColor(colour).lighter(160)
+            dot.setAlpha(240)
             p.setPen(Qt.PenStyle.NoPen)
             p.setBrush(dot)
-            for index in SIGNATURE_POINTS.values():
-                if index < len(pts):
-                    p.drawEllipse(self._map_point(*pts[index]), 1.8, 1.8)
+            for spot in spots.values():
+                p.drawEllipse(spot, 2.2, 2.2)
             # Where the head points: a short ray from the nose tip.
             nose = self._map_point(*pts[1])
             yaw = -face.yaw if self.mirror else face.yaw
@@ -785,6 +848,7 @@ class CameraWindow(QWidget):
         if not hands or getattr(self.hands, "mode", "off") == "off" or self._shown is None:
             return
         cyan = QColor(100, 210, 255)
+        seeing = getattr(self.hands, "mode", "off") == "ver"
         for i, hand in enumerate(hands[:2]):
             pts = [self._map_point(x, y) for x, y, *_ in hand.landmarks]
             p.setPen(QPen(QColor(255, 255, 255, 120), 1.4))
@@ -794,6 +858,20 @@ class CameraWindow(QWidget):
             p.setBrush(QColor(255, 255, 255, 170))
             for pt in pts:
                 p.drawEllipse(pt, 2, 2)
+            if seeing:
+                from sergio_escritorio.body import hand_summary
+
+                text = hand_summary(hand.landmarks, hand.side, self.mirror)
+                p.setFont(_font(7.5, QFont.Weight.DemiBold))
+                tw = p.fontMetrics().horizontalAdvance(text) + 12
+                top = min(pt.y() for pt in pts)
+                mid = sum(pt.x() for pt in pts) / len(pts)
+                chip = QRectF(mid - tw / 2, max(top - 24, 46), tw, 16)
+                p.setBrush(QColor(0, 0, 0, 150))
+                p.drawRoundedRect(chip, 8, 8)
+                p.setPen(QColor(255, 255, 255))
+                p.drawText(chip, Qt.AlignmentFlag.AlignCenter, text)
+                continue
             # The pinch point: a ring that closes and glows when you grab.
             pinch = (pts[4] + pts[8]) / 2
             holding = self.holo.pinching.get(i, False)

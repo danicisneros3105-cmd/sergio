@@ -968,6 +968,7 @@ class Session:
     answered: int = 0
     times: list[float] = field(default_factory=list)
     level: int = 0  # n-back level reached, list length, etc.
+    absent: bool = False  # nobody answered: not scored
 
     def record(self, ok: float, seconds: float | None = None) -> None:
         self.correct += ok
@@ -991,6 +992,8 @@ class Session:
         return self.correct / self.total if self.total else 0.0
 
     def verdict(self) -> str:
+        if self.absent:
+            return "Parece que no estabas: lo dejamos para dentro de un rato."
         acc = self.accuracy
         if acc >= 0.9:
             return "Excelente."
@@ -1001,6 +1004,8 @@ class Session:
         return "A seguir entrenando."
 
     def summary(self) -> str:
+        if self.absent:
+            return "Sin respuestas: no cuenta."
         if self.exercise.kind == "nback":
             return f"Nivel {self.level}, {round(self.accuracy * 100)}% de aciertos."
         if self.exercise.kind == "prueba":

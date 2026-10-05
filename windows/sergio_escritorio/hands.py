@@ -34,6 +34,7 @@ MODEL_PATH = (
 )
 MODES = {
     "off": "Apagado",
+    "ver": "Ver tus manos (Sergio ve)",
     "holo": "Hologramas con las manos",
 }
 # Older names for the hands (voice, Sergio's tools) -> today's mode.

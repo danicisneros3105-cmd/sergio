@@ -28,6 +28,9 @@ manos = ["mediapipe>=1.0"]
 llamada = ["livekit>=1.0"]
 # "Sergio" heard at once, while you are still talking (Vosk, offline).
 oido = ["vosk>=0.3.45"]
+# Modern object detector (YOLO11, Ultralytics): far fewer mistakes than the
+# old EfficientDet (a hand is not a banana, a window is not a TV).
+vision = ["ultralytics>=8.3"]
 # NVIDIA GPU for a much better ear (Whisper large-v3-turbo). Big download
 # (~1 GB); the installer tries it but Sergio works on the CPU without it.
 gpu = [
@@ -45,3 +48,8 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["sergio_escritorio"]
+
+[tool.uv]
+# MediaPipe brings opencv-contrib and the app opencv-headless: Ultralytics'
+# own opencv-python would be a third copy of cv2 fighting the others.
+override-dependencies = ["opencv-python ; sys_platform == 'never'"]

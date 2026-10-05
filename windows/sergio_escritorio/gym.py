@@ -48,8 +48,10 @@ log = logging.getLogger(__name__)
 INTERVAL_MINUTES = 12.0
 AWAY_SECONDS = 300.0  # no input for this long: you are not at the computer
 MIN_GAP = 120.0  # never two pop-ups closer than this
-INTRO_SECONDS = 5.0
+INTRO_SECONDS = 11.0  # time to read how it works and watch the example
 RESULT_SECONDS = 6.0
+SLEEP_GAP = 5.0
+WAKE_GAP = 90.0  # the 10 s schedule check missed this long: it slept  # seconds without a tick: the laptop slept or froze
 BG = QColor(0, 0, 0, 215)
 CARD = QColor(28, 28, 30)
 CARD_LINE = QColor(255, 255, 255, 28)
@@ -171,6 +173,7 @@ class GymSchedule:
         clock: Callable[[], float] = time.time,
         due: float = 0.0,
         on_change: Callable[[float], None] = lambda _due: None,
+        ticker: Callable[[], float] = time.monotonic,
     ) -> None:
         self.interval = interval_minutes * 60
         self.away = away
@@ -179,6 +182,8 @@ class GymSchedule:
         self.on_change = on_change  # remember the next time (restarts)
         self.enabled = True
         self.running = False
+        self._last_check = 0.0
+        self.ticker = ticker
         now = clock()
         # A time saved before a restart is kept; one long past (the laptop
         # was off) gives you a couple of minutes before the first pop-up.
@@ -198,6 +203,13 @@ class GymSchedule:
         if not self.enabled or self.running:
             return False
         now = self.clock()
+        real = self.ticker()
+        last, self._last_check = self._last_check, real
+        if last and real - last > WAKE_GAP:
+            # The laptop was off or asleep: after waking you get a few
+            # minutes before the next exercise, never one at once.
+            self._set(max(self.due, now + MIN_GAP))
+            return False
         if now < self.due:
             return False
         if self.away() > AWAY_SECONDS or self.locked():
@@ -1105,6 +1117,7 @@ class GymWindow(QWidget):
         validate_word: Callable[[str, str], bool] | None = None,
         letter_voice: Callable[[str], None] | None = None,
         unskippable: bool = True,
+        ticker: Callable[[], float] = time.monotonic,
     ) -> None:
         flags = Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint
         if unskippable:
@@ -1125,6 +1138,9 @@ class GymWindow(QWidget):
         self.started_at = clock()
         self.play_started = 0.0
         self.result_at = 0.0
+        self.ticker = ticker  # real time between ticks: a jump = it slept
+        self._last_tick = ticker()
+        self.touched = False  # did the user answer anything?
         self._closing = False
         self.runner: Runner = RUNNERS[exercise.kind](self)
         self.entry = QLineEdit(self)
@@ -1154,8 +1170,8 @@ class GymWindow(QWidget):
         primary = QGuiApplication.primaryScreen()
         geo = primary.geometry() if primary is not None else self.geometry()
         centre = QPointF(geo.center() - self.geometry().topLeft())
-        width = min(820.0, geo.width() - 80.0)
-        height = min(640.0, geo.height() - 80.0)
+        width = min(960.0, geo.width() - 80.0)
+        height = min(680.0, geo.height() - 80.0)
         return QRectF(centre.x() - width / 2, centre.y() - height / 2, width, height)
 
     def content_rect(self) -> QRectF:
@@ -1196,10 +1212,24 @@ class GymWindow(QWidget):
                 self.set_text_enabled(True)
         self.setFocus()
 
+    def _restart(self) -> None:
+        """The laptop slept (or froze) mid-exercise: start it over, fairly."""
+        self.session = brain.Session(self.exercise)
+        self.runner = RUNNERS[self.exercise.kind](self)
+        self.entry.hide()
+        self.touched = False
+        self.phase = "intro"
+        self.started_at = self.clock()
+
     def _finish(self) -> None:
         self.phase = "result"
         self.result_at = self.clock()
         self.entry.hide()
+        if not self.touched and self.exercise.kind != "pausa":
+            # Nobody answered (away, or the screen was off): no score of 0
+            # and no "a seguir entrenando"; it comes back in a while.
+            self.session.absent = True
+            return
         if isinstance(self.runner, NBackRunner):
             self.session.level = self.runner.game.level
             if self.stats is not None:
@@ -1211,13 +1241,22 @@ class GymWindow(QWidget):
 
     def _tick(self) -> None:
         now = self.clock()
-        if self.phase == "intro" and now - self.started_at >= INTRO_SECONDS:
+        real = self.ticker()
+        gap, self._last_tick = real - self._last_tick, real
+        if gap > SLEEP_GAP and self.phase in ("intro", "play"):
+            self._restart()  # suspended / screen off: the clock ran without you
+            self.update()
+            return
+        if gap > SLEEP_GAP and self.phase == "result":
+            self._close()
+            return
+        if self.phase == "intro" and now - self.started_at >= INTRO_SECONDS - 1e-6:
             self._begin_play()
         elif self.phase == "play":
             self.runner.tick(now)
             if self.runner.done() or now - self.play_started >= self.exercise.seconds:
                 self._finish()
-        elif self.phase == "result" and now - self.result_at >= RESULT_SECONDS:
+        elif self.phase == "result" and now - self.result_at >= RESULT_SECONDS - 1e-6:
             self._close()
         self.update()
 
@@ -1232,6 +1271,7 @@ class GymWindow(QWidget):
     # -- input ---------------------------------------------------------------------------------
     def _submit(self) -> None:
         if self.phase == "play":
+            self.touched = True
             text = self.entry.text()
             self.entry.clear()
             self.runner.submit(text)
@@ -1240,10 +1280,12 @@ class GymWindow(QWidget):
         if event.key() == Qt.Key.Key_Escape:
             return  # cannot be skipped
         if self.phase == "play" and event.text():
+            self.touched = True
             self.runner.key(event.text())
 
     def mousePressEvent(self, event: Any) -> None:  # noqa: N802
         if self.phase == "play":
+            self.touched = True
             self.runner.click(event.position())
 
     def closeEvent(self, event: Any) -> None:  # noqa: N802
@@ -1284,15 +1326,35 @@ class GymWindow(QWidget):
         p.end()
 
     def _paint_intro(self, p: QPainter, card: QRectF, now: float) -> None:
-        area = card.adjusted(36, 110, -36, -40)
-        p.setFont(font(17))
-        p.setPen(TEXT)
-        p.drawText(area.adjusted(0, 0, 0, -160), Qt.AlignmentFlag.AlignCenter | Qt.TextFlag.TextWordWrap, self.exercise.how)
-        left = max(0, math.ceil(INTRO_SECONDS - (now - self.started_at)))
-        p.setFont(font(64, QFont.Weight.Black))
-        p.setPen(ACCENT)
-        p.drawText(QRectF(area.left(), area.bottom() - 150, area.width(), 90), Qt.AlignmentFlag.AlignCenter, str(left or "¡Ya!"))
+        """How it is done: three steps on the left, a live example on the right."""
+        from sergio_escritorio.gym_demo import STEPS, paint_demo
+
         ex = self.exercise
+        area = card.adjusted(36, 104, -36, -30)
+        steps = STEPS.get(ex.kind) or (ex.how,)
+        left = QRectF(area.left(), area.top(), area.width() * 0.48, area.height() - 120)
+        demo = QRectF(area.left() + area.width() * 0.52, area.top(), area.width() * 0.48, area.height() - 120)
+        p.setFont(font(12, QFont.Weight.DemiBold))
+        p.setPen(MUTED)
+        p.drawText(QRectF(left.left(), left.top(), left.width(), 20), Qt.AlignmentFlag.AlignLeft, "CÓMO SE HACE")
+        y = left.top() + 30
+        for i, step in enumerate(steps, start=1):
+            p.setPen(Qt.PenStyle.NoPen)
+            p.setBrush(ACCENT)
+            p.drawEllipse(QPointF(left.left() + 13, y + 13), 13, 13)
+            p.setFont(font(12, QFont.Weight.Bold))
+            p.setPen(TEXT)
+            p.drawText(QRectF(left.left(), y, 26, 26), Qt.AlignmentFlag.AlignCenter, str(i))
+            p.setFont(font(14))
+            box = QRectF(left.left() + 38, y, left.width() - 40, 200)
+            used = p.fontMetrics().boundingRect(box.toRect(), int(Qt.TextFlag.TextWordWrap), step)
+            p.drawText(box, Qt.AlignmentFlag.AlignLeft | Qt.TextFlag.TextWordWrap, step)
+            y += max(34, used.height() + 16)
+        paint_demo(p, demo, ex.kind, now - self.started_at)
+        remaining = max(0, math.ceil(INTRO_SECONDS - (now - self.started_at)))
+        p.setFont(font(40, QFont.Weight.Black))
+        p.setPen(ACCENT)
+        p.drawText(QRectF(area.left(), area.bottom() - 116, area.width(), 56), Qt.AlignmentFlag.AlignCenter, str(remaining or "¡Ya!"))
         minutes = f"{ex.seconds / 60:g}".replace(".", ",")
         detail = {
             "nback": "1 bloque continuo de 2 minutos",
@@ -1301,11 +1363,11 @@ class GymWindow(QWidget):
         }.get(ex.kind, f"{ex.items} ejercicios en {minutes} minutos")
         p.setFont(font(12))
         p.setPen(MUTED)
-        p.drawText(QRectF(area.left(), area.bottom() - 50, area.width(), 24), Qt.AlignmentFlag.AlignCenter, detail)
+        p.drawText(QRectF(area.left(), area.bottom() - 60, area.width(), 22), Qt.AlignmentFlag.AlignCenter, detail)
         why = brain.EVIDENCE.get(ex.kind, "")
         if why:  # why this exercise, from the studies (honest about limits)
-            p.setFont(font(11))
-            p.drawText(QRectF(area.left() + 20, area.bottom() - 24, area.width() - 40, 40),
+            p.setFont(font(10.5))
+            p.drawText(QRectF(area.left() + 20, area.bottom() - 38, area.width() - 40, 40),
                        Qt.AlignmentFlag.AlignCenter | Qt.TextFlag.TextWordWrap, why)
 
     def _paint_play(self, p: QPainter, card: QRectF, now: float) -> None:
@@ -1339,6 +1401,11 @@ class GymWindow(QWidget):
 
     def _paint_result(self, p: QPainter, card: QRectF) -> None:
         area = card.adjusted(36, 110, -36, -40)
+        if self.session.absent:
+            p.setFont(font(22, QFont.Weight.Bold))
+            p.setPen(TEXT)
+            p.drawText(area, Qt.AlignmentFlag.AlignCenter | Qt.TextFlag.TextWordWrap, self.session.verdict())
+            return
         acc = self.session.accuracy
         # ring
         centre = QPointF(area.center().x(), area.top() + 120)

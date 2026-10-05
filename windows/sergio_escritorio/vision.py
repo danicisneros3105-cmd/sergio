@@ -173,6 +173,7 @@ class Seen:
     species: str
     score: float
     box: Box
+    held: bool = False  # in one of your hands
 
 
 def iou(a: Box, b: Box) -> float:
@@ -202,7 +203,45 @@ def _same_thing(a: Box, b: Box) -> bool:
     return areas[1] > 0 and areas[0] / areas[1] > 0.45 and overlap_small(a, b) > 0.85
 
 
-def clean_detections(found: Sequence[Seen]) -> list[Seen]:
+# Things a hand alone gets mistaken for (by any COCO detector).
+HANDLIKE = {"plátano", "hot dog", "zanahoria", "dona", "peluche", "guante",
+            "sánduche", "cepillo de dientes", "objeto"}  # fmt: skip
+# Furniture and fixtures: real, but noise on screen unless asked about.
+BACKGROUND = {"mesa", "cama", "sofá", "silla", "planta", "lavabo", "inodoro",
+              "refrigeradora", "horno", "microondas", "banca", "televisor"}  # fmt: skip
+MAX_OBJECTS = 4  # on screen at once: the held ones and the most salient
+
+
+def hand_box(landmarks: Sequence[Sequence[float]], grow: float = 0.15) -> Box:
+    """The box around a hand's 21 points (0..1 of the frame), a bit larger."""
+    xs = [pt[0] for pt in landmarks]
+    ys = [pt[1] for pt in landmarks]
+    x0, x1, y0, y1 = min(xs), max(xs), min(ys), max(ys)
+    w, h = x1 - x0, y1 - y0
+    return (max(0.0, x0 - w * grow), max(0.0, y0 - h * grow), w * (1 + 2 * grow), h * (1 + 2 * grow))
+
+
+def _area(b: Box) -> float:
+    return max(0.0, b[2]) * max(0.0, b[3])
+
+
+def is_the_hand(item: Seen, hand: Box) -> bool:
+    """The detector boxed the hand itself (as "persona", "plátano"...)."""
+    if item.kind == "persona":
+        # A real person's box is far bigger than one of their hands (an arm
+        # coming into view is not another person either).
+        return _area(item.box) < 3.0 * _area(hand) and overlap_small(item.box, hand) > 0.4
+    if item.kind == "objeto":
+        if iou(item.box, hand) > 0.45 and (item.label in HANDLIKE or iou(item.box, hand) > 0.7):
+            return True
+        # Something unsure lying wholly inside the hand is a finger, not a
+        # thing you hold (what you hold sticks out of your hand).
+        inside = overlap_small(item.box, hand) > 0.85 and _area(item.box) < _area(hand)
+        return inside and item.label in HANDLIKE
+    return False
+
+
+def clean_detections(found: Sequence[Seen], hands: Sequence[Box] = ()) -> list[Seen]:
     """One label per thing, and no confident-sounding wrong names.
 
     The detector gives the same lipstick three boxes ("control remoto",
@@ -214,10 +253,26 @@ def clean_detections(found: Sequence[Seen]) -> list[Seen]:
     for item in sorted(found, key=lambda f: -f.score):
         if item.score < MIN_SCORE.get(item.kind, 0.5):
             continue
+        if any(is_the_hand(item, hand) for hand in hands):
+            continue  # your hand is not a banana, nor another person
         if any(k.kind == item.kind and _same_thing(k.box, item.box) for k in kept):
             continue
+        if item.kind == "objeto" and any(
+            overlap_small(item.box, hand) > 0.25 and _area(item.box) < 2.5 * _area(hand) for hand in hands
+        ):
+            item.held = True
         kept.append(item)
     return kept
+
+
+def salient(tracks: Sequence["Track"], limit: int = MAX_OBJECTS) -> list["Track"]:
+    """What is worth showing: people, animals, held things, then a few of
+    the biggest objects; furniture only when it is all there is."""
+    people = [t for t in tracks if t.kind != "objeto"]
+    things = [t for t in tracks if t.kind == "objeto"]
+    things.sort(key=lambda t: (not t.held, t.shown in BACKGROUND, -t.box[2] * t.box[3]))
+    shown = [t for t in things if t.held or t.shown not in BACKGROUND or t.named][:limit]
+    return people + shown
 
 
 def contains(outer: Box, inner: Box) -> bool:
@@ -243,6 +298,7 @@ class Track:
     detail_until: float = 0.0
     face_score: float = 0.0
     face_box: Box | None = None  # where the face is (to crop it for a name)
+    held: bool = False  # in your hand right now
     votes: Counter = field(default_factory=Counter)  # label -> evidence
     named: str = ""  # what Gemini said it is, from a close-up (sticky)
 
@@ -267,6 +323,8 @@ class Track:
             base = self.name or (f"Persona {self.guest}" if self.guest else "Persona")
         else:
             base = self.shown[:1].upper() + self.shown[1:]
+            if self.held:
+                base += " · en tu mano"
         if self.detail and now < self.detail_until and self.detail.lower() != base.lower():
             return f"{base} · {self.detail}"
         return base
@@ -305,6 +363,7 @@ class Tracker:
                         now,
                     )
                     track.votes[item.label] += item.score
+                    track.held = item.held
                     self.tracks.append(track)
                     self._next += 1
                     continue
@@ -320,6 +379,7 @@ class Tracker:
                     best.votes[key] *= 0.85
                 best.votes[item.label] += item.score
                 best.label = best.votes.most_common(1)[0][0]
+                best.held = item.held
                 if item.label == best.label:
                     best.species = item.species
                 best.last_seen = now
@@ -581,6 +641,7 @@ class FaceInfo:
     pitch: float = 0.0
     roll: float = 0.0
     expressions: list[str] = field(default_factory=list)
+    blend: dict = field(default_factory=dict)  # MediaPipe blendshapes (eyes, gaze...)
 
 
 # Face mesh outlines worth drawing (MediaPipe indices): oval, eyes, brows, lips.
@@ -657,7 +718,7 @@ class ObjectFinder:
         else:
             raise RuntimeError(f"Sin modelo de objetos: {last}")
 
-    def find(self, frame: Any) -> list[Seen]:
+    def find(self, frame: Any, hands: Sequence[Box] = ()) -> list[Seen]:
         import cv2
         import numpy as np
 
@@ -687,7 +748,53 @@ class ObjectFinder:
             if bw <= 0 or bh <= 0:
                 continue
             found.append(Seen(label, kind, species, float(cat.score), (x, y, bw, bh)))
-        return clean_detections(found)
+        return clean_detections(found, hands)
+
+
+YOLO_URL = "https://github.com/ultralytics/assets/releases/download/v8.3.0/{name}"
+
+
+class YoloFinder:
+    """YOLO11 (Ultralytics): the modern detector, on the NVIDIA GPU when there
+    is one (the medium model) or the CPU (the small one). It makes far fewer
+    of the old mistakes (window = televisor, hoodie = corbata)."""
+
+    def __init__(self, score: float = 0.4) -> None:
+        import torch
+        from ultralytics import YOLO
+
+        gpu = bool(torch.cuda.is_available())
+        name = "yolo11m.pt" if gpu else "yolo11s.pt"
+        MODEL_URLS.setdefault(name, YOLO_URL.format(name=name))
+        self._model = YOLO(str(ensure_model(name)))
+        self._device = 0 if gpu else "cpu"
+        self._score = score
+        self.model = name
+
+    def find(self, frame: Any, hands: Sequence[Box] = ()) -> list[Seen]:
+        result = self._model.predict(
+            frame, conf=self._score, verbose=False, device=self._device, imgsz=640
+        )[0]
+        names = result.names
+        found = []
+        for cls, conf, box in zip(
+            result.boxes.cls.tolist(), result.boxes.conf.tolist(), result.boxes.xyxyn.tolist()
+        ):
+            label, kind, species = label_es(names[int(cls)])
+            if kind == "objeto" and names[int(cls)] in CONFUSABLE and conf < SURE:
+                label = "objeto"
+            x0, y0, x1, y1 = box
+            found.append(Seen(label, kind, species, float(conf), (x0, y0, x1 - x0, y1 - y0)))
+        return clean_detections(found, hands)
+
+
+def best_finder() -> Any:
+    """YOLO11 when installed, else MediaPipe's EfficientDet."""
+    try:
+        return YoloFinder()
+    except Exception as exc:  # noqa: BLE001 — not installed / no weights
+        log.info("YOLO11 unavailable (%s); using EfficientDet", exc)
+        return ObjectFinder()
 
 
 class FaceMesh:
@@ -726,6 +833,7 @@ class FaceMesh:
             if result.face_blendshapes and i < len(result.face_blendshapes):
                 blend = {c.category_name: c.score for c in result.face_blendshapes[i]}
                 info.expressions = expressions(blend)
+                info.blend = blend
             matrices = result.facial_transformation_matrixes or []
             if i < len(matrices):
                 info.yaw, info.pitch, info.roll = head_angles(matrices[i])
@@ -882,7 +990,8 @@ class VisionEngine:
         *,
         objects_fps: float = 5.0,
         faces_fps: float = 10.0,
-        finder_factory: Callable[[], Any] = ObjectFinder,
+        finder_factory: Callable[[], Any] = best_finder,
+        hands: Callable[[], Sequence[Box]] = lambda: (),
         mesh_factory: Callable[[], Any] = FaceMesh,
         on_head: Callable[[str], None] = lambda _g: None,
     ) -> None:
@@ -892,6 +1001,15 @@ class VisionEngine:
         self.finder_factory = finder_factory
         self.mesh_factory = mesh_factory
         self.on_head = on_head
+        self.hands = hands  # boxes of your hands now (to never call them things)
+        self.detector = ""
+        from sergio_escritorio.body import FaceStats, PoseFinder, Posture
+
+        self.pose_factory: Callable[[], Any] = PoseFinder
+        self.pose: list = []  # 33 body points of the main person
+        self.posture = Posture()
+        self.face_stats = FaceStats()
+        self.distance_cm: float | None = None  # your face to the screen
         self.tracker = Tracker()
         self.faces: list[FaceInfo] = []
         self.mesh = True  # draw/compute the face mesh
@@ -909,6 +1027,7 @@ class VisionEngine:
         self._running = True
         threading.Thread(target=self._objects_loop, daemon=True).start()
         threading.Thread(target=self._faces_loop, daemon=True).start()
+        threading.Thread(target=self._pose_loop, daemon=True).start()
 
     def stop(self) -> None:
         self._running = False
@@ -926,10 +1045,37 @@ class VisionEngine:
             frame = self.frames()
             if frame is not None:
                 try:
-                    self.tracker.update(finder.find(frame), time.monotonic())
+                    try:
+                        hands = list(self.hands())
+                    except Exception:  # noqa: BLE001
+                        hands = []
+                    try:
+                        seen = finder.find(frame, hands)
+                    except TypeError:  # an older finder without hands
+                        seen = finder.find(frame)
+                    self.tracker.update(seen, time.monotonic())
                 except Exception:  # noqa: BLE001
                     log.exception("object detection failed")
             time.sleep(max(0.0, 1 / self.objects_fps - (time.monotonic() - started)))
+
+    def _pose_loop(self) -> None:
+        """Your body (33 points): posture, shoulders, arms, squats."""
+        try:
+            finder = self.pose_factory()
+        except Exception:  # noqa: BLE001 — no pose model: the rest works
+            log.info("pose unavailable", exc_info=True)
+            return
+        while self._running:
+            started = time.monotonic()
+            frame = self.frames()
+            if frame is not None:
+                try:
+                    self.pose = finder.find(frame)
+                    if self.pose:
+                        self.posture.feed(self.pose)
+                except Exception:  # noqa: BLE001
+                    log.exception("pose failed")
+            time.sleep(max(0.0, 1 / 8 - (time.monotonic() - started)))
 
     def _faces_loop(self) -> None:
         try:
@@ -946,6 +1092,10 @@ class VisionEngine:
                     self.faces = mesh.find(frame)
                     if self.faces:
                         face = max(self.faces, key=lambda f: f.box[2] * f.box[3])
+                        from sergio_escritorio.body import iris_distance_cm
+
+                        self.face_stats.feed(face.blend, time.monotonic(), face.yaw, face.pitch)
+                        self.distance_cm = iris_distance_cm(face.points, frame.shape[1])
                         said = self._head.feed(time.monotonic(), face.yaw, face.pitch)
                         if said:
                             self.on_head(said)

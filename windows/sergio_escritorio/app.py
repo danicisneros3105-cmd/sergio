@@ -726,7 +726,12 @@ def run(config: dict[str, Any]) -> None:
         if call_active():
             current_call[0].send_text(f"(El usuario {'asintió' if said == 'si' else 'negó'} con la cabeza: {answer})")
 
-    vision_engine = VisionEngine(feed.frame, on_head=head_gesture)
+    def hand_boxes() -> list:
+        from sergio_escritorio.vision import hand_box
+
+        return [hand_box(h.landmarks) for h in list(getattr(hand_control, "hands", []) or [])]
+
+    vision_engine = VisionEngine(feed.frame, on_head=head_gesture, hands=hand_boxes)
     camera_window.vision = vision_engine
 
     def identify(jpeg: bytes) -> list[dict]:
@@ -872,6 +877,36 @@ def run(config: dict[str, Any]) -> None:
     namer_timer = _QTimer()
     namer_timer.timeout.connect(auto_name)
     namer_timer.start(2000)
+
+    # Looking after you while the camera is on: posture, tired eyes, too close.
+    care_said: dict[str, float] = {}
+    care_since: dict[str, float] = {}
+
+    def care() -> None:
+        if not camera_window.isVisible():
+            care_since.clear()
+            return
+        now = time.monotonic()
+        checks = {
+            "postura": (bool(vision_engine.posture.last.get("slouch")),
+                        "Señor, lleva un rato encorvado: enderece la espalda y relaje los hombros."),
+            "ojos": (bool(vision_engine.face_stats.last.get("tired")),
+                     "Sus ojos se ven cansados. Mire algo lejano veinte segundos; le hará bien."),
+            "cerca": (bool(vision_engine.distance_cm and vision_engine.distance_cm < 35),
+                      "Está muy cerca de la pantalla; un brazo de distancia es lo ideal."),
+        }
+        for key, (bad, advice) in checks.items():
+            if not bad:
+                care_since.pop(key, None)
+                continue
+            start = care_since.setdefault(key, now)
+            if now - start > 60 and now - care_said.get(key, -1e9) > 20 * 60:
+                care_said[key] = now
+                tell(advice)
+
+    care_timer = _QTimer()
+    care_timer.timeout.connect(care)
+    care_timer.start(5000)
 
     def face_photos(box: tuple, count: int = 3) -> list[bytes]:
         """A few crops of one face from the live camera (for enrolling)."""
@@ -1262,7 +1297,22 @@ def run(config: dict[str, Any]) -> None:
     def people_tool() -> str:
         if not camera_window.isVisible():
             return "La cámara está cerrada; ábrela con camara para ver."
-        return vision_summary(vision_engine.tracker.visible(time.monotonic()), time.monotonic())
+        return vision_summary(vision_engine.tracker.visible(time.monotonic()), time.monotonic()) + body_now()
+
+    def body_now() -> str:
+        """Hands, eyes, posture and distance, for Sergio to talk about."""
+        from sergio_escritorio.body import hand_summary
+
+        parts = []
+        if vision_engine.distance_cm:
+            parts.append(f"Distancia a la pantalla: {vision_engine.distance_cm:.0f} cm.")
+        if vision_engine.face_stats.summary():
+            parts.append(f"Ojos: {vision_engine.face_stats.summary()}.")
+        if vision_engine.posture.summary():
+            parts.append(f"Cuerpo: {vision_engine.posture.summary()}.")
+        for hand in list(getattr(hand_control, "hands", []) or [])[:2]:
+            parts.append(f"Mano: {hand_summary(hand.landmarks, hand.side)}.")
+        return (" " + " ".join(parts)) if parts else ""
 
     def hang_up_tool() -> str:
         session = current_call[0]
@@ -1581,6 +1631,9 @@ def run(config: dict[str, Any]) -> None:
         def done(session: Any) -> None:
             gym_windows.clear()
             schedule.done()
+            if session.absent:
+                bridge.caption.emit("Gimnasio mental: no estabas; vuelve en unos minutos.")
+                return
             bridge.caption.emit(
                 f"Gimnasio mental, {exercise.title}: {session.summary()} {session.verdict()}"
             )

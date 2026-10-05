@@ -62,7 +62,7 @@ def test_real_pinch_grabs_a_hologram():
 
 
 def test_only_holograms_and_off_remain():
-    assert set(MODES) == {"off", "holo"}
+    assert set(MODES) == {"off", "ver", "holo"}
     assert ALIASES["3d"] == ALIASES["fisica"] == "holo"
     hc = HandControl(frames=lambda: None, tracker_factory=lambda: None)
     hc.set_mode("gestos")

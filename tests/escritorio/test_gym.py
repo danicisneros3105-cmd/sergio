@@ -304,3 +304,69 @@ def test_active_break_counts_down_a_minute(app):
     assert w.runner.done() and w.session.correct == 1
     w.resize(1200, 800)
     w.grab()
+
+
+class Ticker:
+    def __init__(self):
+        self.now = 1000.0
+
+    def __call__(self):
+        return self.now
+
+
+def test_sleeping_mid_exercise_starts_it_over_instead_of_scoring_zero(app):
+    clock, ticker = Clock(), Ticker()
+    w = gym.GymWindow(brain.BY_KIND["stroop"], rng=random.Random(1), clock=clock,
+                      unskippable=False, ticker=ticker)
+    clock.now += gym.INTRO_SECONDS
+    ticker.now += 0.03
+    w._tick()
+    assert w.phase == "play"
+    clock.now += 3600  # lid closed for an hour
+    ticker.now += 3600
+    w._tick()
+    assert w.phase == "intro" and w.session.answered == 0
+
+
+def test_nobody_answering_is_not_a_zero(app):
+    clock = Clock()
+    stats = gym.GymStats()
+    w = gym.GymWindow(brain.BY_KIND["stroop"], stats=stats, rng=random.Random(1), clock=clock, unskippable=False)
+    w._begin_play()
+    clock.now += 200
+    w._tick()
+    assert w.phase == "result" and w.session.absent
+    assert stats.history == []  # not recorded
+    assert "no estabas" in w.session.verdict()
+    w.resize(1200, 800)
+    w.grab()
+
+
+def test_after_the_laptop_wakes_up_the_gym_waits(app):
+    now, ticker = [10_000.0], Ticker()
+    s = gym.GymSchedule(12, clock=lambda: now[0], ticker=ticker)
+    s.check()
+    now[0] += 3 * 3600  # off for three hours: long past due
+    ticker.now += 3 * 3600
+    assert not s.check()
+    assert s.due >= now[0] + 100
+
+
+def test_every_exercise_has_steps_and_an_animated_example(app):
+    from PySide6.QtGui import QImage, QPainter
+
+    from sergio_escritorio import gym_demo
+
+    kinds = {e.kind for e in (*brain.EXERCISES, brain.PROBE)}
+    assert kinds <= set(gym_demo.STEPS) and kinds <= set(gym_demo.DEMOS)
+    assert gym.INTRO_SECONDS == 11.0
+    image = QImage(360, 420, QImage.Format.Format_ARGB32)
+    for kind in kinds:
+        frames = []
+        for step in range(12):
+            image.fill(0)
+            p = QPainter(image)
+            gym_demo.paint_demo(p, gym.QRectF(0, 0, 360, 420), kind, step * gym_demo.LOOP / 12)
+            p.end()
+            frames.append(bytes(image.constBits()))
+        assert len(set(frames)) > 1, kind  # it moves
