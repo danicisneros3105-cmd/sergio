@@ -475,6 +475,28 @@ class SergioClient:
     last_voice = ""  # which voice really spoke last (for `sergio probar`)
     _gemini_voice_off_until = 0.0
 
+    @property
+    def live_voice(self) -> bool:
+        """Gemini Live's own voice (the calls' voice) is the chosen one."""
+        return self.voice.lower() in ("gemini:predeterminada", "gemini:default")
+
+    def speak_stream(self, text: str):
+        """PCM 24 kHz chunks of Gemini Live reading *text*, as they arrive."""
+        with self.http.stream(
+            "POST",
+            f"{self.base}/v1/voice/stream",
+            json={"text": text[:2000], "voice": "Predeterminada"},
+            timeout=httpx.Timeout(30, connect=5),
+        ) as resp:
+            resp.raise_for_status()
+            carry = b""
+            for chunk in resp.iter_bytes():
+                chunk = carry + chunk
+                cut = len(chunk) - len(chunk) % 2  # whole 16-bit samples
+                carry = chunk[cut:]
+                if cut:
+                    yield chunk[:cut]
+
     def _speak(self, text: str) -> bytes:
         """Sergio's British voice (Gemini), else a neural voice, else local.
 
@@ -1057,6 +1079,8 @@ class Assistant:
         self._last_stt_error = -1e9
         self._last_hint = -1e9
         self._typed = threading.Lock()  # typed orders wait their turn
+        # Streams Gemini Live's voice (a call.Speaker); None = WAV by sentence.
+        self.speaker_factory: Callable[[], Any] | None = None
 
     def stop_speaking(self) -> None:
         """Interrupt the current answer (Clicky: talking again cuts it off)."""
@@ -1262,6 +1286,12 @@ class Assistant:
         Long answers no longer wait for the whole audio: sentence 1 plays as
         soon as it is ready and the next one is synthesised meanwhile.
         """
+        if self.speaker_factory is not None and self.client.live_voice:
+            try:
+                if self._stream_aloud(answer):
+                    return
+            except Exception:  # noqa: BLE001 — sentence by sentence instead
+                log.warning("streamed Live voice failed; speaking by sentences", exc_info=True)
         parts = split_sentences(answer)
         audio: queue.Queue[bytes | None] = queue.Queue()
 
@@ -1281,6 +1311,28 @@ class Assistant:
             if wav is None or self._interrupted:
                 break
             self.player(wav)
+
+
+    def _stream_aloud(self, answer: str) -> bool:
+        """Gemini Live's voice, played while it is still arriving (~1 s)."""
+        speaker = self.speaker_factory()
+        self._interrupted = False
+        got = False
+        try:
+            for chunk in self.client.speak_stream(answer):
+                if not got:
+                    speaker.start()
+                    got = True
+                if self._interrupted:
+                    break
+                speaker.play(chunk)
+            while got and not self._interrupted and speaker.talking:
+                time.sleep(0.05)
+        finally:
+            speaker.stop()
+        if got:
+            self.client.last_voice = "Gemini Live (en vivo)"
+        return got
 
 
 class Ears:

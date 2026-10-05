@@ -122,16 +122,17 @@ def probar(sin_pantalla: bool) -> None:
     voice: dict[str, bytes] = {}
 
     def speak() -> str:
+        started = time.monotonic()
         resp = _ok(
             http.post(
                 f"{base}/v1/voice/speak",
-                json={"text": "Buenas tardes. Soy Sergio y todo está en orden."},
+                json={"text": "Buenas tardes. Soy Sergio y todo está en orden.", "voice": "Predeterminada"},
             )
         )
         voice["wav"] = resp.content
-        return f"voz británica, {len(resp.content) // 1000} KB de audio"
+        return f"voz de Gemini Live, {len(resp.content) // 1000} KB de audio en {time.monotonic() - started:.1f} s"
 
-    run.check("Voz de Sergio (Gemini)", speak)
+    run.check("Voz de Sergio (Gemini Live)", speak)
 
     def ears() -> str:
         if "wav" not in voice:

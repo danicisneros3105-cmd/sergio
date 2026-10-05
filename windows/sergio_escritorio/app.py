@@ -737,6 +737,14 @@ def run(config: dict[str, Any]) -> None:
 
     assistant.quick = run_quick
 
+    def live_speaker() -> Any:
+        from sergio_escritorio.call import Speaker
+
+        return Speaker()
+
+    if sys.platform == "win32":
+        assistant.speaker_factory = live_speaker  # Gemini Live's voice, streamed
+
     # -- Sergio speaks on his own (reminders, results, greetings) -----------
     def tell(text: str, *, to_call: str = "") -> None:
         """Say *text*: into the live call if one is on, else out loud."""

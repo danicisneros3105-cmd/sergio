@@ -49,6 +49,31 @@ async def speak(req: SpeakRequest) -> Response:
     return Response(content=wav, media_type="audio/wav")
 
 
+@router.post("/stream")
+async def stream(req: SpeakRequest) -> Any:
+    """Gemini Live reading the text aloud, streamed as raw PCM (24 kHz, int16)
+    so the companion starts playing within a second."""
+    from fastapi.responses import StreamingResponse
+
+    from openjarvis.speech.gemini_live import stream_live
+
+    voice = "" if req.voice.lower() in ("", "predeterminada", "default") else req.voice
+    chunks = stream_live(req.text, voice)
+    try:
+        first = await chunks.__anext__()
+    except StopAsyncIteration:
+        raise HTTPException(status_code=502, detail="La voz de Gemini Live no devolvió audio.")
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail=str(exc)[:400]) from exc
+
+    async def body():
+        yield first
+        async for chunk in chunks:
+            yield chunk
+
+    return StreamingResponse(body(), media_type="audio/L16;rate=24000")
+
+
 class ChatRequest(BaseModel):
     model: str
     messages: list[dict[str, str]]

@@ -585,6 +585,69 @@ async def _speak_live(text: str, voice: str, client: Any, types: Any, models: It
     raise RuntimeError("La voz de Gemini Live falló: " + " | ".join(e[:150] for e in errors[-2:]))
 
 
+async def stream_live(text: str, voice: str = "", client: Any = None, types: Any = None,
+                      models: Iterable[str] = LIVE_MODELS, timeout: float = 25.0):
+    """Gemini Live reading *text* aloud, yielded as 24 kHz PCM as it comes
+    (playback starts in about a second instead of after the whole answer)."""
+    if client is None or types is None:
+        from google import genai
+        from google.genai import types as _types
+
+        key = api_key()
+        if not key:
+            raise RuntimeError("Falta GEMINI_API_KEY")
+        client, types = client or genai.Client(api_key=key), types or _types
+    import asyncio
+
+    text = " ".join(text.split())[:2000]
+    errors = []
+    for model in models:
+        config = types.LiveConnectConfig(
+            response_modalities=["AUDIO"],
+            speech_config=(
+                types.SpeechConfig(
+                    voice_config=types.VoiceConfig(
+                        prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name=voice)
+                    )
+                )
+                if voice and voice.lower() not in DEFAULT_VOICE_NAMES
+                else None
+            ),
+            system_instruction=READ_ALOUD,
+        )
+        sent = False
+        try:
+            async with client.aio.live.connect(model=model, config=config) as session:
+                await session.send_realtime_input(text=text)
+                deadline = asyncio.get_running_loop().time() + timeout
+                stream = session.receive().__aiter__()
+                while True:
+                    left = deadline - asyncio.get_running_loop().time()
+                    if left <= 0:
+                        break
+                    try:
+                        msg = await asyncio.wait_for(stream.__anext__(), left)
+                    except (StopAsyncIteration, asyncio.TimeoutError):
+                        break
+                    content = getattr(msg, "server_content", None)
+                    turn = getattr(content, "model_turn", None) if content else None
+                    for part in (turn.parts if turn is not None else None) or []:
+                        blob = getattr(part, "inline_data", None)
+                        if blob is not None and blob.data:
+                            sent = True
+                            yield bytes(blob.data)
+                    if content is not None and getattr(content, "turn_complete", False):
+                        break
+            if sent:
+                return
+            errors.append(f"{model}: sin audio")
+        except Exception as exc:  # noqa: BLE001
+            if sent:
+                return  # half a sentence already played: do not start over
+            errors.append(f"{model}: {exc}")
+    raise RuntimeError("La voz de Gemini Live falló: " + " | ".join(e[:150] for e in errors[-2:]))
+
+
 def speak_live(text: str, voice: str = "", client: Any = None, types: Any = None,
                models: Iterable[str] = LIVE_MODELS) -> bytes:
     """WAV of *text* in Gemini Live's voice (the same voice as the calls).
@@ -631,6 +694,7 @@ def make_executor(agent: Any) -> tuple[Callable[[str, dict], str] | None, list]:
 __all__ = [
     "LIVE_MODELS",
     "speak_live",
+    "stream_live",
     "LiveCall",
     "SERVER_TOOLS",
     "declarations",

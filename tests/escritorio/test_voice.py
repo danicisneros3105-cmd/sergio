@@ -405,3 +405,45 @@ def test_a_typed_order_while_busy_waits_its_turn():
     a.busy = False
     t.join(2)
     assert "dijo Hecho." in done
+
+
+def test_live_voice_is_streamed_and_starts_at_once():
+    chunks = [b"\x01\x00" * 100, b"\x02\x00" * 99 + b"\x03", b"\x00" * 3]
+
+    def handler(request):
+        assert request.url.path == "/v1/voice/stream"
+        assert json.loads(request.content)["voice"] == "Predeterminada"
+        return httpx.Response(200, content=b"".join(chunks))
+
+    client = SergioClient("http://s", http=httpx.Client(transport=httpx.MockTransport(handler)))
+    client.voice = "gemini:Predeterminada"
+    assert client.live_voice
+    got = b"".join(client.speak_stream("Hola."))
+    assert len(got) % 2 == 0 and got[:2] == b"\x01\x00"
+
+    played = []
+
+    class FakeSpeaker:
+        talking = False
+
+        def start(self):
+            played.append("start")
+
+        def play(self, pcm):
+            played.append(len(pcm))
+
+        def stop(self):
+            played.append("stop")
+
+    class UI:
+        def state(self, name):
+            pass
+
+        def say(self, text):
+            pass
+
+    a = Assistant(client, ui=UI(), player=lambda wav: played.append("wav"), chime=lambda f: None)
+    a.speaker_factory = FakeSpeaker
+    a.say_aloud("Hola.")
+    assert played[0] == "start" and played[-1] == "stop" and "wav" not in played
+    assert client.last_voice == "Gemini Live (en vivo)"
