@@ -49,6 +49,7 @@ LIVE_MODELS = (
     "gemini-2.5-flash-native-audio-preview-12-2025",
 )
 IN_MIME = "audio/pcm;rate=16000"
+DEFAULT_VOICE_NAMES = {"", "predeterminada", "default"}
 OUT_RATE = 24000
 # Sergio's own tools offered during a call (the rest stay for the agent).
 SERVER_TOOLS = (
@@ -186,13 +187,19 @@ def live_config(
         tools.append(types.Tool(function_declarations=decls))
     if search:
         tools.append(types.Tool(google_search=types.GoogleSearch()))
-    return types.LiveConnectConfig(
-        response_modalities=["AUDIO"],
-        speech_config=types.SpeechConfig(
+    # No voice (or "Predeterminada"): Gemini Live's own default voice.
+    speech = (
+        types.SpeechConfig(
             voice_config=types.VoiceConfig(
                 prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name=voice)
             )
-        ),
+        )
+        if voice and voice.lower() not in DEFAULT_VOICE_NAMES
+        else None
+    )
+    return types.LiveConnectConfig(
+        response_modalities=["AUDIO"],
+        speech_config=speech,
         system_instruction=instructions,
         tools=tools or None,
         input_audio_transcription=types.AudioTranscriptionConfig(),
@@ -241,7 +248,7 @@ class LiveCall:
         self.client_tools = {str(t.get("name")) for t in client_tools}
         self.decls = declarations(openai_tools, client_tools)
         self.instructions = live_instructions(start, owner)
-        self.voice = str(start.get("voice") or "Algieba")
+        self.voice = str(start.get("voice") or "")
         self.models = list(start.get("models") or models)
         self._client = client
         self._types = types
@@ -534,6 +541,73 @@ class LiveCall:
         return str(self.execute(name, args) or "")
 
 
+READ_ALOUD = (
+    "Eres un lector en voz alta en español. Lee el texto que recibes "
+    "EXACTAMENTE, palabra por palabra, con tono natural y tranquilo. No "
+    "respondas, no añadas, no comentes ni saludes."
+)
+
+
+async def _speak_live(text: str, voice: str, client: Any, types: Any, models: Iterable[str]) -> bytes:
+    errors = []
+    for model in models:
+        config = types.LiveConnectConfig(
+            response_modalities=["AUDIO"],
+            speech_config=(
+                types.SpeechConfig(
+                    voice_config=types.VoiceConfig(
+                        prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name=voice)
+                    )
+                )
+                if voice and voice.lower() not in DEFAULT_VOICE_NAMES
+                else None
+            ),
+            system_instruction=READ_ALOUD,
+        )
+        try:
+            async with client.aio.live.connect(model=model, config=config) as session:
+                await session.send_realtime_input(text=text)
+                pcm = bytearray()
+                async for msg in session.receive():
+                    content = getattr(msg, "server_content", None)
+                    turn = getattr(content, "model_turn", None) if content else None
+                    for part in (turn.parts if turn is not None else None) or []:
+                        blob = getattr(part, "inline_data", None)
+                        if blob is not None and blob.data:
+                            pcm.extend(blob.data)
+                    if content is not None and getattr(content, "turn_complete", False):
+                        break
+                if pcm:
+                    return bytes(pcm)
+                errors.append(f"{model}: sin audio")
+        except Exception as exc:  # noqa: BLE001 — next model
+            errors.append(f"{model}: {exc}")
+    raise RuntimeError("La voz de Gemini Live falló: " + " | ".join(e[:150] for e in errors[-2:]))
+
+
+def speak_live(text: str, voice: str = "", client: Any = None, types: Any = None,
+               models: Iterable[str] = LIVE_MODELS) -> bytes:
+    """WAV of *text* in Gemini Live's voice (the same voice as the calls).
+
+    Free keys get far more Live use than text-to-speech (10 a day), and the
+    spoken answers then sound exactly like Sergio on a call.
+    """
+    import asyncio
+
+    from openjarvis.speech.gemini_voice import pcm_to_wav
+
+    if client is None or types is None:
+        from google import genai
+        from google.genai import types as _types
+
+        key = api_key()
+        if not key:
+            raise RuntimeError("Falta GEMINI_API_KEY")
+        client, types = client or genai.Client(api_key=key), types or _types
+    pcm = asyncio.run(_speak_live(" ".join(text.split())[:2000], voice, client, types, models))
+    return pcm_to_wav(pcm, OUT_RATE)
+
+
 def make_executor(agent: Any) -> tuple[Callable[[str, dict], str] | None, list]:
     """Run tools with the agent's own executor (same security checks)."""
     executor = getattr(agent, "_executor", None)
@@ -556,6 +630,7 @@ def make_executor(agent: Any) -> tuple[Callable[[str, dict], str] | None, list]:
 
 __all__ = [
     "LIVE_MODELS",
+    "speak_live",
     "LiveCall",
     "SERVER_TOOLS",
     "declarations",

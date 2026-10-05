@@ -127,8 +127,10 @@ def test_no_live_model_means_no_call():
     assert "sin cuota" in call.error and line.closed and not call.active
 
 
-def test_edge_voices_become_his_live_voice():
-    assert _call(FakeLine(), voice="es-ES-AlvaroNeural").voice == "Algieba"
+def test_edge_voices_and_the_default_use_gemini_lives_own_voice():
+    assert _call(FakeLine(), voice="es-ES-AlvaroNeural").voice == ""
+    assert _call(FakeLine(), voice="gemini:Predeterminada").voice == ""
+    assert _call(FakeLine(), voice="gemini:Charon").voice == "Charon"
 
 
 def test_microphone_goes_through_the_echo_canceller_in_10ms_frames():

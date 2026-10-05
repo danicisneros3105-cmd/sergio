@@ -835,6 +835,8 @@ class ControlCenter(QWidget):
 
     def _save(self, **changes: Any) -> None:
         cfg = self.actions.config
+        if "voice" in changes:
+            changes["voice_chosen"] = True  # the user picked it: never migrated
         cfg.update(changes)
         apply_config(cfg)
         self.actions.save_config(cfg)

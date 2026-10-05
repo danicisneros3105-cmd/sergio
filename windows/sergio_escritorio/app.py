@@ -51,8 +51,10 @@ def load_config() -> dict[str, Any]:
     data.setdefault("cursor_size", 9.0)
     # Sergio's own voice: the British gentleman (Gemini). The old default
     # neural voice is upgraded; a voice the user picked is kept.
-    if data.get("voice") in (None, "es-EC-LuisNeural"):
-        data["voice"] = "gemini:Algieba"
+    # Gemini Live's default voice everywhere (calls and spoken answers): the
+    # user asked for it, and one voice sounds like one Sergio.
+    if data.get("voice") in (None, "es-EC-LuisNeural", "gemini:Algieba") and not data.get("voice_chosen"):
+        data["voice"] = "gemini:Predeterminada"
     # Muse-style personalisation and the brain's effort.
     data["name"] = "Sergio"  # his name is fixed
     data.setdefault("style", "orbe")

@@ -26,6 +26,20 @@ class SpeakRequest(BaseModel):
 async def speak(req: SpeakRequest) -> Response:
     from openjarvis.speech import gemini_voice
 
+    if req.voice.lower() in ("", "predeterminada", "default"):
+        # Gemini Live's own voice, the same as in calls.
+        from openjarvis.speech.gemini_live import speak_live
+
+        try:
+            wav = await asyncio.to_thread(speak_live, req.text, "")
+            return Response(content=wav, media_type="audio/wav")
+        except Exception as exc:  # noqa: BLE001 — the TTS models next
+            live_error = str(exc)
+        try:
+            wav = await asyncio.to_thread(gemini_voice.speak, req.text, "Predeterminada")
+        except (RuntimeError, ValueError) as exc:
+            raise HTTPException(status_code=502, detail=f"{live_error} | {exc}"[:500]) from exc
+        return Response(content=wav, media_type="audio/wav")
     try:
         wav = await asyncio.to_thread(
             gemini_voice.speak, req.text, req.voice or gemini_voice.DEFAULT_VOICE

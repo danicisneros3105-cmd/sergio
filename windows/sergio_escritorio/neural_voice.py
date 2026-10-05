@@ -13,6 +13,7 @@ import wave
 # Voices worth offering (id, label). "gemini:" voices are Sergio's own: a
 # refined British gentleman speaking Spanish (Gemini TTS, via the server).
 VOICES = [
+    ("gemini:Predeterminada", "Gemini Live (voz predeterminada)"),
     ("gemini:Algieba", "Sergio británico (suave)"),
     ("gemini:Charon", "Sergio británico (informativo)"),
     ("gemini:Sadaltager", "Sergio británico (erudito)"),
@@ -26,7 +27,7 @@ VOICES = [
     ("es-ES-ElviraNeural", "Elvira (España)"),
     ("es-AR-TomasNeural", "Tomás (Argentina)"),
 ]
-DEFAULT_VOICE = "gemini:Algieba"
+DEFAULT_VOICE = "gemini:Predeterminada"  # the same voice as in the calls
 EDGE_FALLBACK = "es-ES-AlvaroNeural"  # closest free voice when Gemini fails
 
 

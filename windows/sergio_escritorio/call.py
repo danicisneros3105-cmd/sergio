@@ -224,7 +224,7 @@ class CallSession:
         self,
         server_url: str,
         *,
-        voice: str = "Algieba",
+        voice: str = "",
         personality: str = "",
         context: Callable[[], str] = lambda: "",
         tools: list[ClientTool] | None = None,
@@ -242,8 +242,10 @@ class CallSession:
     ) -> None:
         self.url = ws_url(server_url)
         self.voice = voice.split(":", 1)[-1] if voice.startswith("gemini:") else voice
+        if self.voice.lower() in ("predeterminada", "default"):
+            self.voice = ""  # Gemini Live's own default voice
         if self.voice.startswith(("es-", "en-")):  # an Edge voice: not for Live
-            self.voice = "Algieba"
+            self.voice = ""  # an Edge voice: Live uses its default
         self.personality = personality
         self.context = context
         self.tools = {t.name: t for t in tools or []}

@@ -419,3 +419,10 @@ def test_a_dropped_call_reconnects_on_its_own_model_without_an_error():
     assert models == [gemini_live.LIVE_MODELS[0]] * 3
     assert handles == [None, "h-1", None]
     assert not [m for m in ws.json if m["type"] == "error"]
+
+
+def test_no_voice_means_gemini_lives_default_voice():
+    cfg = gemini_live.live_config(FakeTypes(), voice="", instructions="x", decls=[], search=False)
+    assert cfg.speech_config is None
+    cfg = gemini_live.live_config(FakeTypes(), voice="Charon", instructions="x", decls=[], search=False)
+    assert cfg.speech_config is not None

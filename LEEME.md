@@ -379,6 +379,10 @@ Para que además describa imágenes de la pantalla (fotos, gráficos), añade
 
 ## Hablar con Sergio como en una llamada
 
+Sergio usa la **voz predeterminada de Gemini Live**, en las llamadas y también
+en las respuestas por turnos (las lee con Gemini Live), así suena siempre
+igual. Otra voz se elige en «Personalizar a Sergio».
+
 Di «Sergio…» (o pulsa Ctrl+Espacio) y empieza una **llamada en tiempo real**
 (Gemini Live): contesta en menos de un segundo, puedes interrumpirlo
 hablando, y sigue escuchándote sin repetir su nombre. La llamada se cuelga
@@ -428,6 +432,11 @@ abrir el Word, por favor?») y en la llamada. Si le pides varias cosas
 seguidas, las hace en orden (antes ignoraba las que llegaban mientras
 hablaba). WhatsApp y Spotify abren la app instalada; si no está, su web.
 
+**Videos de YouTube como los describes**: «pon un video de MrBeast en el que
+salga con traje negro». Sergio busca, Gemini mira las miniaturas de los
+primeros resultados y elige el que cumple lo que pediste, y el cursor lo abre
+con un clic a la vista (si no lo encuentra en pantalla, lo abre directo).
+
 ## Mouse y teclado como una persona
 
 Cuando Sergio usa la computadora, el puntero se mueve como una mano: en
@@ -447,17 +456,30 @@ manos. Arrástrala para moverla, rueda del mouse para el tamaño.
 
 **Lo que ve**
 
-* Detector de objetos mejor (EfficientDet-Lite2: encuentra cerca del doble
-  de cosas que antes) y, para lo que el detector no conoce, Gemini les pone
-  nombre solo en segundo plano («guitarra acústica», «gorra negra Nike»),
-  sin gastar tu cuota: como mucho una vez cada 20 segundos y solo cuando
-  aparece algo nuevo.
-* Personas con nombre si las conoces, especies (perro, gato…), malla facial
-  con la expresión. «Analiza lo que ves» describe todo con detalle.
-* Por voz: «toma una foto», «modo espejo», «abre / cierra la cámara».
+* Detector moderno **YOLO11** (Ultralytics; en la tarjeta NVIDIA si la hay):
+  se equivoca mucho menos que el anterior (una ventana ya no es «televisor»
+  ni una hoodie «corbata»). Si no se pudo instalar, usa el anterior.
+* **Tus manos nunca son cosas**: Sergio sigue tus manos y descarta lo que el
+  detector confunde con ellas (plátano, «otra persona», un dedo). Lo que
+  sostienes se marca «en tu mano» y Gemini le pone su nombre real de cerca.
+* **Menos ruido**: sin porcentajes ni muebles; solo personas, animales, lo
+  que tienes en la mano y unas pocas cosas destacadas.
+* **Caras con rasgos, no siluetas**: una red de puntos característicos (ojos,
+  cejas, nariz, boca, pómulos, mandíbula) y las distancias entre ellos —las
+  175 medidas— con el nombre pegado a la cara.
+* **Tus manos, cara y cuerpo**: qué mano, cuántos dedos, el gesto y hacia
+  dónde señalas; a dónde miras, parpadeos por minuto, ojos cansados y la
+  distancia a la pantalla (por el tamaño del iris); tu postura (te avisa con
+  amabilidad si llevas un rato encorvado, con los ojos cansados o demasiado
+  cerca) y las sentadillas que haces.
+* «Analiza lo que ves» describe todo con detalle; «toma una foto», «modo
+  espejo», «abre / cierra la cámara».
 
 **Hologramas 3D con tus manos (estilo Iron Man)**
 
+* **Para empezar**: «Sergio, activa las manos» (o «modo hologramas»). Aparece
+  un cubo y, arriba a la derecha, la guía de gestos durante 25 segundos; para
+  verla otra vez: «ayuda hologramas». Para guardarlo: «pásalo a Blender».
 * «Crea un cubo rojo», «crea dos esferas», cilindro, cono, toroide,
   pirámide, jarrón, diamante.
 * **Pellizca** (pulgar con índice) un holograma para agarrarlo: te sigue,
@@ -472,6 +494,8 @@ manos. Arrástrala para moverla, rueda del mouse para el tamaño.
   «dibuja una silueta» la vuelve un sólido.
 * «Más grande», «gíralo», «duplícalo», «bórralo», «borra todo»,
   «activa la gravedad» (caen, rebotan y se pueden lanzar).
+* Se ven como en las películas: luz azul, líneas de escaneo, un anillo
+  proyector bajo cada holograma y anillos que giran cuando lo sujetas.
 * Ya no hay control de la computadora por gestos ni mouse en el aire: las
   manos son para los hologramas.
 
@@ -542,6 +566,10 @@ Cada **12 minutos de reloj** (de inicio a inicio; cuenta también si
 reinicias Sergio) aparece un ejercicio a pantalla completa que **no se
 puede saltar**. Termina solo y Sergio te dice cómo te fue. Si estás lejos
 (5 minutos sin tocar la computadora) o está bloqueada, espera a que vuelvas.
+Si la laptop se suspende o se apaga, no corre: al volver espera unos minutos,
+un ejercicio interrumpido vuelve a empezar, y si nadie respondió no cuenta (ya
+no sale «0 · a seguir entrenando»). Antes de cada uno tienes **11 segundos**
+con los pasos explicados y un **ejemplo animado** de cómo se resuelve.
 
 | Ejercicio | Cantidad y tiempo |
 |---|---|
