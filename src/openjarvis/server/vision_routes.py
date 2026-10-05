@@ -14,6 +14,7 @@ import re
 from typing import Any
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from pydantic import BaseModel
 
 router = APIRouter(prefix="/v1/vision", tags=["vision"])
 
@@ -285,6 +286,30 @@ async def name_route(image: UploadFile = File(...)) -> dict[str, Any]:
     if not out["label"]:
         raise HTTPException(status_code=502, detail="No supe qué es.")
     return out
+
+
+class VideoRequest(BaseModel):
+    request: str
+
+
+@router.post("/youtube")
+async def youtube_route(req: VideoRequest) -> dict[str, Any]:
+    """The YouTube video the user describes (thumbnails checked by Gemini)."""
+    import httpx
+
+    from openjarvis.tools.vision_look import ask_image
+    from openjarvis.tools.youtube_pick import pick
+
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)", "Accept-Language": "es-419,es;q=0.9"}
+
+    def run() -> dict[str, Any]:
+        with httpx.Client(timeout=15, headers=headers, follow_redirects=True) as http:
+            return pick(req.request, http.get, lambda img, prompt: ask_image(img, prompt, lite=True))
+
+    try:
+        return await asyncio.to_thread(run)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail=str(exc)[:300]) from exc
 
 
 # -- using the computer for the user, step by step --------------------------------

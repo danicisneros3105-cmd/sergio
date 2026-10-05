@@ -105,9 +105,14 @@ o un archivo): quien_es_en_foto; parecido entre familiares: parecido_familiar \
 datos en vivo). Para ver un lugar o ese avión en el globo 3D: mostrar_en_globo.
 - Para abrir o cerrar apps o webs usa abrir / cerrar: son instantáneas y la \
 app aparece al frente en la pantalla del usuario; no mires la pantalla antes.
+- Poner un video de YouTube que el usuario describe (incluso por lo que se \
+ve, «MrBeast con traje negro»): poner_video; lo busca y hace clic con el cursor.
 - Ventanas, brillo, modo oscuro, volumen exacto, ajustes de Windows, \
 carpetas, copiar/pegar/guardar o dictar texto: control_equipo con la orden \
 tal cual (es instantáneo).
+- Sé eficaz como un experto: ve directo (una URL de búsqueda, un atajo de \
+teclado, la app exacta) en vez de navegar clic a clic, y comprueba el \
+resultado antes de decir que está hecho.
 - Para usar la pantalla: mira primero (screen_read o mirar_pantalla), luego \
 desktop_action, y comprueba el resultado ("now in front").
 - Para trabajos largos o de muchos pasos (investigar a fondo, editar video, \

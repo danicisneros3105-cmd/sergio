@@ -194,6 +194,14 @@ def parse_quick(text: str) -> Quick | None:
         return Quick("gym_report")
     if _GYM.search(t):
         return Quick("gym", say="Vamos a entrenar la mente.")
+    if re.search(r"\b(ayuda|como (se )?(usan|uso|hago|muevo|creo)|instrucciones|guia)\b.*\bhologram", t) or re.search(
+        r"\bhologram\w*\b.*\b(ayuda|como funcionan|instrucciones)\b", t
+    ):
+        return Quick("holo", "ayuda hologramas")
+    if "blender" in t and not re.search(r"\b(objeto|lo que tengo|en la mano|en mis manos)\b", t) and re.search(
+        r"\b(pasa|pasalo|pasala|pasalos|lleva|llevalo|guarda|guardalo|exporta|exportalo|manda|mandalo|envia)\b", t
+    ):
+        return Quick("blender_holo")
     if _HOLO.search(t):
         return Quick("holo", t)
     m = re.fullmatch(r"(?:activa |inicia |pon )?(?:el )?(protocolo|modo) (.+)", t)
@@ -274,6 +282,11 @@ def parse_quick(text: str) -> Quick | None:
     if t in volume:
         kind, arg, say = volume[t]
         return Quick(kind, arg, say)
+    # A YouTube video described in words: Sergio finds it and clicks it.
+    if re.search(r"\b(video|videos)\b", t) and re.search(r"\b(pon|ponme|reproduce|reproduceme|quiero ver|busca y pon|abre)\b", t):
+        return Quick("video", text, "Buscando el video.")
+    if re.search(r"^(pon|ponme|reproduce)\b.*\ben youtube\b", t):
+        return Quick("video", text, "Buscando el video.")
     # "busca X en youtube", "busca X" (Google)
     m = re.fullmatch(r"busca (.+?)(?: en (google|youtube|amazon|maps|mapas))?", t)
     if m:

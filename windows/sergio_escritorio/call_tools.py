@@ -56,6 +56,7 @@ class Abilities:
     remember_contact: Callable[[str, str, str], str] = lambda *_a: "No disponible en este equipo."
     screenshot: Callable[[], str] = _nothing
     quick: Callable[[str], str] = _nothing  # an instant order, as said
+    video: Callable[[str], str] = _nothing  # find and play a YouTube video
     now: Callable[[], datetime] = field(default=datetime.now)
 
 
@@ -234,6 +235,14 @@ def call_tools(ab: Abilities) -> list[ClientTool]:
                 accion=_str("Qué hacer", required=True, enum=["subir", "bajar", "silenciar"]),
                 pasos={"type": "integer", "description": "Cuánto (1-25, normal 5)"},
             ),
+        ),
+        ClientTool(
+            "poner_video",
+            "Busca en YouTube el video que el usuario describe y lo reproduce con "
+            "el cursor, a la vista (abre los resultados y hace clic en el correcto). "
+            "Pasa la petición completa, con lo que debe verse: «MrBeast con traje negro».",
+            lambda a: ab.video(str(a.get("peticion") or "")),
+            _obj(peticion=_str("Qué video, con todos los detalles", required=True)),
         ),
         ClientTool(
             "control_equipo",

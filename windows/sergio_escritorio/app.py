@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import json
+import re
 import logging
 import os
 import sys
@@ -603,6 +604,42 @@ def run(config: dict[str, Any]) -> None:
     controller.on_hands = set_hands
     bridge.camera_off.connect(camera_window.close_camera)
 
+    def play_video(request: str) -> str:
+        """YouTube, like a person: search, find the right video, click it.
+
+        The server picks the video (Gemini checks the thumbnails when you
+        describe what must be seen); the companion opens the results and
+        moves the cursor to that video and clicks it, so you watch it happen.
+        """
+        resp = client.http.post(
+            f"{client.base}/v1/vision/youtube", json={"request": request}, timeout=60
+        )
+        resp.raise_for_status()
+        video = resp.json()
+        title = str(video.get("title") or "")
+        controller.act({"action": "open", "target": video["search_url"]})
+        wanted = re.sub(r"\W+", " ", title.lower()).strip()[:28]
+        deadline = time.monotonic() + 8
+        while wanted and time.monotonic() < deadline:
+            time.sleep(0.8)
+            try:
+                elements = controller.ui().get("elements", [])
+            except Exception:  # noqa: BLE001
+                continue
+            match = next(
+                (
+                    el
+                    for el in elements
+                    if wanted in re.sub(r"\W+", " ", str(el.get("name") or "").lower())
+                ),
+                None,
+            )
+            if match is not None:
+                controller.act({"action": "click", "element": match["id"]})  # the human cursor
+                return f"Reproduciendo «{title}»."
+        controller.act({"action": "open", "target": video["url"]})  # not visible: go straight
+        return f"Reproduciendo «{title}»."
+
     # -- instant voice commands (no AI): "abre Spotify", "sube el volumen" ---
     def run_quick(q: Any) -> str:
         import datetime
@@ -649,6 +686,11 @@ def run(config: dict[str, Any]) -> None:
             resp.raise_for_status()
             open_app_window(resp.json()["url"])
             return q.say
+        if q.kind == "video":
+            try:
+                return play_video(q.arg)
+            except PermissionError:
+                return "El control está en pausa. Pulsa Ctrl+Alt+Fin para reanudarlo."
         if q.kind == "device":
             from sergio_escritorio.device import run_device
 
@@ -1355,6 +1397,7 @@ def run(config: dict[str, Any]) -> None:
         kinship=kinship,
         screenshot=save_screenshot,
         quick=quick_order,
+        video=play_video,
     )
 
     def call_ended(why: str) -> None:

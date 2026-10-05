@@ -73,3 +73,14 @@ def test_repeated_keys_are_one_quick_action(desktop):
     assert c.act({"action": "key", "keys": "volumedown", "repeat": 50}) == "pressed volumedown x50"
     assert sum(1 for call in desktop.calls if call[0] == "hotkey") == 50
     assert slept == []  # no window check after each press
+
+
+def test_described_videos_go_to_the_video_finder():
+    from sergio_escritorio.call_tools import Abilities, call_tools
+
+    q = parse_quick("Sergio, pon un video de MrBeast en el que salga con traje negro")
+    assert q.kind == "video" and "traje negro" in q.arg
+    asked = []
+    tools = {t.name: t for t in call_tools(Abilities(video=lambda r: asked.append(r) or "Reproduciendo «X»."))}
+    assert tools["poner_video"].run({"peticion": "MrBeast con traje negro"}) == "Reproduciendo «X»."
+    assert asked == ["MrBeast con traje negro"]

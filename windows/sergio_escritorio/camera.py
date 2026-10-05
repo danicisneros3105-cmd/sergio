@@ -12,6 +12,7 @@ from __future__ import annotations
 import logging
 import math
 import threading
+import re
 import time
 from pathlib import Path
 from typing import Any, Callable
@@ -349,6 +350,7 @@ class CameraWindow(QWidget):
         from sergio_escritorio.holo import HoloScene
 
         self.holo = HoloScene()  # holograms you shape with your hands
+        self.guide_until = 0.0  # show the holograms how-to until then
         self.scale = 1.0
         self.mirror = True
         self.overlay = ""
@@ -427,7 +429,7 @@ class CameraWindow(QWidget):
         self.show_overlay(f"Foto guardada en Imágenes\\Sergio\\{path.name}", 4)
         return str(path)
 
-    def set_holo(self, on: bool = True) -> str:
+    def set_holo(self, on: bool = True, starter: bool = True) -> str:
         """Your hands on the holograms (tracking on), or off."""
         if self.hands is None:
             return "No puedo ver tus manos (falta MediaPipe)."
@@ -435,15 +437,23 @@ class CameraWindow(QWidget):
         self.feed.keep_on = True if on else self.isVisible()
         if not on:
             return "Manos apagadas."
+        self.guide_until = time.monotonic() + 25  # the how-to stays on screen
+        if starter and not self.holo.objects:
+            self.holo.command("crea un cubo")  # something to grab right away
         return (
-            "Hologramas: pellizca uno para agarrarlo y gira la muñeca para girarlo; "
-            "con las dos manos lo escalas; suéltalo en movimiento para lanzarlo."
+            "Hologramas listos: le dejé un cubo. Junte pulgar e índice sobre él para "
+            "agarrarlo y muévalo; gire la muñeca para girarlo; con las dos manos lo "
+            "agranda; suéltelo en movimiento para lanzarlo. Para crear diga «crea una "
+            "esfera»; para guardarlo diga «pásalo a Blender»."
         )
 
     def hologram(self, order: str) -> str:
         """A voice order for the holograms ("crea un cubo rojo", "esculpir")."""
+        if re.search(r"\b(ayuda|como (se )?(hace|uso|funciona)|instrucciones|guia)\b", order.lower()):
+            self.guide_until = time.monotonic() + 30
+            return "Le muestro cómo se usan, en la pantalla."
         if self.hands is not None and getattr(self.hands, "mode", "off") != "holo":
-            self.set_holo(True)
+            self.set_holo(True, starter=False)
         return self.holo.command(order)
 
     def track_at(self, pos: QPointF) -> Any:
@@ -885,8 +895,54 @@ class CameraWindow(QWidget):
                 p.setPen(QPen(glow, 6))
                 p.drawEllipse(pinch, r + 3, r + 3)
 
+    HOLO_GUIDE = (
+        ("🤏", "Pellizca (pulgar + índice) sobre un holograma", "agarrar y mover"),
+        ("🔄", "Gira la muñeca mientras lo sujetas", "girar"),
+        ("↕", "Acerca o aleja la mano", "más cerca / más lejos"),
+        ("🙌", "Pellizca con las dos manos y sepáralas", "agrandar / achicar"),
+        ("💨", "Suéltalo mientras lo mueves", "lanzar"),
+        ("🗣", "«crea una esfera azul», «modo esculpir»", "crear y modelar (también «modo dibujar»)"),
+        ("💾", "«pásalo a Blender»", "guardar como proyecto .blend"),
+    )
+
+    def _draw_holo_guide(self, p: QPainter, card: QRectF) -> None:
+        """The how-to, JARVIS style, while it is new (or when asked)."""
+        now = time.monotonic()
+        holo_on = getattr(self.hands, "mode", "off") == "holo"
+        if not holo_on or now > self.guide_until:
+            if holo_on and not self.holo.objects:
+                p.setFont(_font(9, QFont.Weight.DemiBold))
+                p.setPen(QColor(120, 220, 255))
+                p.drawText(QRectF(card.left(), card.top() + 46, card.width(), 20), Qt.AlignmentFlag.AlignCenter,
+                           "Di «crea un cubo» · «ayuda hologramas» para ver los gestos")
+            return
+        fade = min(1.0, (self.guide_until - now) / 1.5)
+        width, row = min(330.0, card.width() * 0.48), 34.0
+        box = QRectF(card.right() - width - 12, card.top() + 48, width, 30 + row * len(self.HOLO_GUIDE))
+        p.setOpacity(fade)
+        p.setPen(QPen(QColor(90, 200, 255, 170), 1.2))
+        p.setBrush(QColor(2, 16, 28, 200))
+        p.drawRoundedRect(box, 12, 12)
+        p.setFont(_font(8, QFont.Weight.Bold))
+        p.setPen(QColor(120, 220, 255))
+        p.drawText(QRectF(box.left() + 12, box.top() + 6, width, 18), Qt.AlignmentFlag.AlignLeft, "HOLOGRAMAS · CÓMO SE USAN")
+        for i, (icon, how, what) in enumerate(self.HOLO_GUIDE):
+            y = box.top() + 28 + i * row
+            p.setFont(_font(12))
+            p.setPen(QColor(255, 255, 255))
+            p.drawText(QRectF(box.left() + 8, y, 28, row), Qt.AlignmentFlag.AlignCenter, icon)
+            p.setFont(_font(7.5, QFont.Weight.DemiBold))
+            p.setPen(QColor(230, 246, 255))
+            p.drawText(QRectF(box.left() + 40, y + 2, width - 48, 16), Qt.AlignmentFlag.AlignLeft, how)
+            p.setFont(_font(7))
+            p.setPen(QColor(120, 200, 240))
+            p.drawText(QRectF(box.left() + 40, y + 16, width - 48, 14), Qt.AlignmentFlag.AlignLeft, what)
+        p.setOpacity(1.0)
+
     def _draw_holo(self, p: QPainter, card: QRectF) -> None:
-        """Holograms: translucent shaded faces, bright edges, a soft glow."""
+        """Holograms, Iron Man style: glowing blue light, scanlines, a
+        projector ring under each one and rotating rings when you hold it."""
+        self._draw_holo_guide(p, card)
         scene = self.holo
         if not scene.objects and not scene.stroke:
             return
@@ -904,8 +960,37 @@ class CameraWindow(QWidget):
             for z in np.linspace(1.2, -2.4, 7):
                 ends, _depth = project(np.array([[-2.4, FLOOR, z], [2.4, FLOOR, z]]), w, h)
                 p.drawLine(QPointF(ox + ends[0][0], oy + ends[0][1]), QPointF(ox + ends[1][0], oy + ends[1][1]))
+        import numpy as np
+
+        from sergio_escritorio.holo import project as _proj
+
+        t = time.monotonic()
+        for obj in scene.objects:  # projector ring + light cone under each one
+            base = obj.pos - np.array([0.0, obj.radius() * 1.15, 0.0])
+            (bx, by), = _proj(base[None], w, h)[0]
+            (tx, ty), = _proj(obj.pos[None], w, h)[0]
+            rx = max(14.0, abs(_proj((obj.pos + np.array([obj.radius(), 0, 0]))[None], w, h)[0][0][0] - tx))
+            centre = QPointF(ox + bx, oy + by)
+            grad = QLinearGradient(centre, QPointF(ox + tx, oy + ty))
+            grad.setColorAt(0, QColor(80, 200, 255, 70))
+            grad.setColorAt(1, QColor(80, 200, 255, 0))
+            p.setPen(Qt.PenStyle.NoPen)
+            p.setBrush(grad)
+            p.drawPolygon(QPolygonF([QPointF(centre.x() - rx, centre.y()), QPointF(centre.x() + rx, centre.y()),
+                                     QPointF(ox + tx + rx * 0.6, oy + ty), QPointF(ox + tx - rx * 0.6, oy + ty)]))
+            p.setBrush(Qt.BrushStyle.NoBrush)
+            for k, alpha in ((1.0, 200), (1.25, 90)):
+                p.setPen(QPen(QColor(100, 215, 255, alpha), 1.4))
+                p.drawEllipse(centre, rx * k, rx * k * 0.28)
+            if obj.held:  # targeting rings, turning
+                for k, speed in ((1.15, 90), (1.3, -60)):
+                    ring = QRectF(ox + tx - rx * k, oy + ty - rx * k, 2 * rx * k, 2 * rx * k)
+                    p.setPen(QPen(QColor(120, 225, 255, 170), 1.3, Qt.PenStyle.DashLine))
+                    p.drawArc(ring, int((t * speed) % 360 * 16), 250 * 16)
         for face in scene.render(w, h):
             r, g, b = face["color"]
+            # Hologram light: every colour glows toward JARVIS blue.
+            r, g, b = 0.45 * r + 0.25, 0.45 * g + 0.5, 0.45 * b + 0.55
             poly = QPolygonF([QPointF(ox + x, oy + y) for x, y in face["points"]])
             if face["front"]:
                 k = face["shade"]
@@ -917,8 +1002,14 @@ class CameraWindow(QWidget):
                 p.setBrush(Qt.BrushStyle.NoBrush)
                 p.setPen(QPen(QColor.fromRgbF(r, g, b, 0.16), 0.7))
             p.drawPolygon(poly)
+        # Scanlines drifting over the holograms (the projected-light look).
+        p.setPen(QPen(QColor(150, 230, 255, 18), 1))
+        offset = (t * 22) % 6
+        y = card.top() + offset
+        while y < card.bottom():
+            p.drawLine(QPointF(card.left(), y), QPointF(card.right(), y))
+            y += 6
         # Names and sizes above each hologram.
-        import numpy as np
 
         from sergio_escritorio.holo import project as _project
 
