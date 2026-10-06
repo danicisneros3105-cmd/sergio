@@ -58,7 +58,7 @@ def test_plain_modelling_passes_and_sergio_adds_the_ending():
     full = bm.finish_script(
         GOOD, r"C:\Users\dani\Documents\Sergio\Blender\taza.blend", "taza"
     )
-    assert full.startswith(GOOD.rstrip())
+    assert json.dumps(GOOD.rstrip()) in full and "SERGIO_STEP_ERROR" in full  # run step by step
     assert "save_as_mainfile" in full and "SERGIO_SAVED" in full
     assert json.dumps(r"C:\Users\dani\Documents\Sergio\Blender\taza.blend") in full
 

@@ -114,11 +114,45 @@ except Exception as _exc:
 """
 
 
+# The model's script runs step by step: a wrong API detail (a socket name, an
+# operator argument) used to stop everything and leave a cube or nothing.
+# Now that step is skipped and reported (SERGIO_STEP_ERROR), the rest of the
+# model is built and saved, and the review round fixes the failed step.
+RESILIENT = """import ast as _ast, functools as _ft, traceback as _tb
+_SOURCE = __SOURCE__
+_ns = {"__name__": "__main__"}
+
+
+def _safe(fn):
+    @_ft.wraps(fn)
+    def inner(*a, **k):
+        try:
+            return fn(*a, **k)
+        except Exception as _e:
+            print("SERGIO_STEP_ERROR in %s(): %s: %s" % (fn.__name__, type(_e).__name__, _e))
+            _tb.print_exc()
+            return None
+    return inner
+
+
+_ns["_sergio_safe"] = _safe
+for _node in _ast.parse(_SOURCE).body:
+    if isinstance(_node, _ast.FunctionDef):
+        _node.decorator_list.append(_ast.Name(id="_sergio_safe", ctx=_ast.Load()))
+    _code = _ast.fix_missing_locations(_ast.Module(body=[_node], type_ignores=[]))
+    try:
+        exec(compile(_code, "<modelo>", "exec"), _ns)
+    except Exception as _e:
+        print("SERGIO_STEP_ERROR line %d: %s: %s" % (_node.lineno, type(_e).__name__, _e))
+        _tb.print_exc()
+"""
+
+
 def finish_script(script: str, save_path: str, name: str, preview_path: str = "") -> str:
     """Sergio's ending: light, camera framing the object, save the project
     (and, for the checking loop, a quick render to look at)."""
     return (
-        script.rstrip()
+        RESILIENT.replace("__SOURCE__", json.dumps(script.rstrip()))
         + "\n\n# --- Sergio: lights, camera and saving the project ---\n"
         + f"""import bpy as _bpy, math as _math
 from mathutils import Vector as _V
@@ -136,7 +170,7 @@ _fill.data.energy = 60 * _size * _size
 _fill.location = _centre + _V((-_size, -_size, _size))
 _scene.collection.objects.link(_fill)
 _cam = _bpy.data.objects.new("Cámara", _bpy.data.cameras.new("Cámara"))
-_cam.location = _centre + _V((_size * 0.55, -_size * 1.05, _size * 0.65))
+_cam.location = _centre + _V((_size * 0.75, -_size * 1.45, _size * 0.85))
 _dir = _centre - _cam.location
 _cam.rotation_euler = _dir.to_track_quat("-Z", "Y").to_euler()
 _scene.collection.objects.link(_cam)

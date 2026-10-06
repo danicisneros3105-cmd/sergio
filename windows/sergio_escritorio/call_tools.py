@@ -32,6 +32,7 @@ class Abilities:
     camera: Callable[[bool], str] = _nothing
     hands: Callable[[str], str] = _nothing
     holo: Callable[[str], str] = _nothing
+    holo_model: Callable[[str], str] = _nothing
     blender_holo: Callable[[], str] = _nothing
     blender_object: Callable[[str], str] = _nothing
     people: Callable[[], str] = _nothing
@@ -317,14 +318,27 @@ def call_tools(ab: Abilities) -> list[ClientTool]:
             "'jarrón', 'diamante', 'más grande', 'gíralo', 'duplícalo', "
             "'bórralo', 'borra todo', 'modo esculpir' (modelar con las manos), "
             "'modo dibujar' (dibujar en el aire: tubo, torno o extrusión), "
-            "'suavízalo', 'gravedad' / 'sin gravedad'.",
+            "'suavízalo', 'gravedad' / 'sin gravedad'. SOLO formas básicas: para "
+            "cualquier objeto real (teléfono, silla, guitarra, auto...) usa "
+            "holograma_modelo, nunca un cubo con otro nombre.",
             lambda a: ab.holo(str(a.get("orden") or "")),
             _obj(orden=_str("La orden, en español", required=True)),
         ),
         ClientTool(
+            "holograma_modelo",
+            "Holograma 3D de CUALQUIER objeto real (un teléfono, una silla gamer, "
+            "una guitarra, un dron...): se diseña pieza por pieza con medidas "
+            "reales (cuerpo, pantalla, cámaras, botones...) y aparece en Sergio ve, "
+            "listo para moverlo con las manos y pasarlo a Blender. Tarda unos segundos.",
+            lambda a: ab.holo_model(str(a.get("objeto") or "")),
+            _obj(objeto=_str("El objeto con los detalles que pidió el usuario", required=True)),
+        ),
+        ClientTool(
             "hologramas_a_blender",
-            "Pasa los hologramas que el usuario creó o modeló con las manos a "
-            "Blender y guarda el proyecto (.blend) en Documentos\\Sergio\\Blender.",
+            "Pasa los hologramas a Blender a tamaño real y los deja SINCRONIZADOS: "
+            "lo que el usuario haga después con las manos se ve en Blender al "
+            "instante. Los objetos diseñados además reciben una versión detallada "
+            "de Blender Pro. Guarda en Documentos\\Sergio\\Blender.",
             lambda _a: ab.blender_holo(),
         ),
         ClientTool(

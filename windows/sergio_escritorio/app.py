@@ -693,6 +693,12 @@ def run(config: dict[str, Any]) -> None:
             return video_task(q.arg, q.say)
         if q.kind == "video_upload":
             return upload_video()
+        if q.kind == "holo_model":
+            return holo_model(q.arg)
+        if q.kind == "holo_maybe":
+            if getattr(hand_control, "mode", "off") != "holo" and not camera_window.holo.objects:
+                raise LookupError("no hay hologramas: que responda el asistente")
+            return holo_model(q.arg)
         if q.kind == "blender_task":
             return blender_task(q.arg)
         if q.kind == "blender_object":
@@ -1161,18 +1167,74 @@ def run(config: dict[str, Any]) -> None:
         slug = _re.sub(r"[^\w-]+", "-", name.lower()).strip("-") or "modelo"
         return str(folder / f"{slug}-{time.strftime('%Y%m%d-%H%M%S')}.blend")
 
+    holo_sync: dict[str, Any] = {"path": "", "last": ""}
+
+    def write_holo_sync() -> None:
+        """Every 0.25 s while Blender follows the holograms: their state."""
+        if not holo_sync["path"]:
+            return
+        from sergio_escritorio.holo import blender_state
+
+        try:
+            data = json.dumps(blender_state(list(camera_window.holo.objects)))
+        except Exception:  # noqa: BLE001 — a frame mid-change: next tick
+            return
+        if data == holo_sync["last"]:
+            return
+        holo_sync["last"] = data
+        target = Path(holo_sync["path"])
+        tmp = target.with_suffix(".tmp")
+        try:
+            tmp.write_text(data, encoding="utf-8")
+            os.replace(tmp, target)  # Blender never reads half a file
+        except OSError:
+            pass
+
+    holo_sync_timer = _QTimer()
+    holo_sync_timer.timeout.connect(write_holo_sync)
+    holo_sync_timer.start(250)
+
     def holograms_to_blender() -> str:
-        from sergio_escritorio.holo import to_bpy
+        from sergio_escritorio.holo import recipe_request, to_bpy
 
         objects = list(camera_window.holo.objects)
         if not objects:
-            return "No hay hologramas que pasar a Blender. Crea uno: «crea un cubo»."
+            return "No hay hologramas que pasar a Blender. Pídeme uno: «haz un holograma de un teléfono»."
         path = blender_file("hologramas")
-        controller.act({"action": "blender", "script": to_bpy(objects, path)})
-        return (
-            f"Abrí Blender con tus {len(objects)} hologramas y guardé el proyecto en "
-            f"Documentos, Sergio, Blender ({Path(path).name})."
+        sync = path[:-6] + ".sync.json"
+        holo_sync["path"], holo_sync["last"] = sync, ""
+        write_holo_sync()
+        controller.act({"action": "blender", "script": to_bpy(objects, path, sync)})
+        answer = (
+            f"Abrí Blender con tus {len(objects)} hologramas a tamaño real; lo que hagas con "
+            "las manos se ve allí al instante."
         )
+        designed = [o for o in objects if o.recipe]
+        if designed and config.get("blender_pro", True):
+            for obj in designed[:2]:  # the detailed, professional version
+                blender_task(recipe_request(obj))
+            answer += " Y Blender Pro ya está haciendo la versión detallada; le aviso al terminar."
+        return answer
+
+    def holo_model(request: str) -> str:
+        """A hologram of anything: Gemini designs its real parts."""
+        what = request.strip() or "un objeto"
+        bridge.caption.emit(f"Diseñando {what}, pieza por pieza…")
+        resp = client.http.post(
+            f"{client.base}/v1/vision/holo_model", json={"request": what}, timeout=120
+        )
+        resp.raise_for_status()
+        recipe = resp.json()
+
+        def show() -> str:
+            if not camera_window.isVisible():
+                camera_window.open()
+            set_hands("holo")
+            obj = camera_window.holo.add_model(recipe)
+            return f"{obj.name}: {len(recipe['parts'])} piezas, {obj.size_cm()} cm."
+
+        made = on_ui(show)
+        return f"Listo, {made} Pellízcalo para moverlo, y «pásalo a Blender» para trabajarlo allí."
 
     def blender_pro(request: str, reference: bytes = b"", rounds: int = 2) -> str:
         """Blender Pro: model, render, look at the render, fix — like a pro.
@@ -1563,6 +1625,7 @@ def run(config: dict[str, Any]) -> None:
         camera=camera_tool,
         hands=hands_tool,
         holo=run_holo,
+        holo_model=holo_model,
         blender_holo=holograms_to_blender,
         blender_object=object_to_blender,
         people=people_tool,

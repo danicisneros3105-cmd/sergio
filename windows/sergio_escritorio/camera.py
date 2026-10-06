@@ -1134,9 +1134,21 @@ class CameraWindow(QWidget):
                     p.drawArc(ring, int((t * speed) % 360 * 16), 250 * 16)
         for face in scene.render(w, h):
             r, g, b = face["color"]
+            poly = QPolygonF([QPointF(ox + x, oy + y) for x, y in face["points"]])
+            if face.get("model"):
+                # A designed object: its real materials, lit, with a blue
+                # holographic sheen; no wire grid over curved surfaces.
+                if not face["front"]:
+                    continue
+                k = face["shade"]
+                r, g, b = 0.72 * r + 0.08, 0.72 * g + 0.17, 0.72 * b + 0.22
+                fill = QColor.fromRgbF(min(1, r * k + 0.04), min(1, g * k + 0.06), min(1, b * k + 0.08), 0.9)
+                p.setBrush(fill)
+                p.setPen(QPen(fill, 0.6))
+                p.drawPolygon(poly)
+                continue
             # Hologram light: every colour glows toward JARVIS blue.
             r, g, b = 0.45 * r + 0.25, 0.45 * g + 0.5, 0.45 * b + 0.55
-            poly = QPolygonF([QPointF(ox + x, oy + y) for x, y in face["points"]])
             if face["front"]:
                 k = face["shade"]
                 alpha = 0.58 if face["held"] else 0.42
@@ -1164,7 +1176,8 @@ class CameraWindow(QWidget):
             (tx, ty), = _project(top[None], w, h)[0]
             label = f"{obj.name} · {obj.size_cm()} cm"
             p.setPen(QColor(200, 240, 255, 230 if obj.held else 170))
-            p.drawText(QPointF(ox + tx - p.fontMetrics().horizontalAdvance(label) / 2, oy + ty - 4), label)
+            ly = max(oy + ty - 4, oy + 62)  # never under the top pill
+            p.drawText(QPointF(ox + tx - p.fontMetrics().horizontalAdvance(label) / 2, ly), label)
         # The stroke you are drawing in the air.
         pts = scene.stroke_points(w, h)
         if len(pts) >= 2:

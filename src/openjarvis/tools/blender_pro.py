@@ -34,13 +34,21 @@ RULES = """Rules for the script:
   subdivision surface on organic shapes, Principled BSDF materials (base
   colour, roughness, metallic, transmission for glass), procedural textures
   (noise, wave, voronoi) where real surfaces have texture.
+- Real complexity: never one primitive standing in for the whole object. A
+  phone has 20+ parts (body with bevelled edges, screen, bezel, camera bump,
+  each lens with its ring, flash, buttons, port, speaker holes); a chair or a
+  car 40+. Model every recognisable feature at its real size and place.
 - Do NOT add cameras, lights, render settings or save the file (Sergio does).
 - Blender 4.x API (common mistakes): Principled BSDF inputs are "Base Color",
   "Metallic", "Roughness", "IOR", "Alpha", "Transmission Weight", "Emission Color",
   "Emission Strength", "Subsurface Weight", "Coat Weight", "Specular IOR Level"
   (there is NO "Transmission", "Emission" or "Specular" input); the colour ramp
   node is "ShaderNodeValToRGB"; set material.use_nodes = True before using nodes;
-  link materials with obj.data.materials.append(mat); prefer bmesh or
+  link materials with obj.data.materials.append(mat); the Principled BSDF
+  output socket is "BSDF" (not "Shader"); the wave texture has wave_type and
+  bands_direction (no "direction"); primitive_*_add operators take size /
+  radius / depth / location / rotation / scale only (no "enter_editmode" in
+  calls you are unsure of); prefer bmesh or
   bpy.ops.mesh.primitive_* then edit; apply rotation/scale where it matters.
 Answer ONLY with JSON:
 {"name": "short Spanish name", "description": "one Spanish sentence", \
@@ -57,7 +65,8 @@ REVIEW_PROMPT = (
     "You are a senior Blender technical director reviewing your own work.\n"
     "Request: «{request}»\n{reference}"
     "Attached: the quick render of your current scene.\n"
-    "Blender's log (errors matter most):\n{log}\n"
+    "Blender's log (errors matter most; SERGIO_STEP_ERROR lines are steps that "
+    "failed and were SKIPPED, so those parts are missing from the render):\n{log}\n"
     "First list to yourself what is wrong or missing versus the request "
     "(errors, proportions, missing parts, materials, scale, placement). Then "
     "rewrite the COMPLETE script fixing all of it. Keep what was right.\n"
@@ -113,10 +122,20 @@ def _checked(text: str, ask: Ask, images: list[tuple[bytes, str]], prompt: str) 
         return model
 
 
-def from_text(request: str, save_path: str, preview_path: str = "", ask: Ask | None = None) -> dict[str, Any]:
-    """Any Blender job said in words -> a checked script (with preview render)."""
+def from_text(
+    request: str, save_path: str, preview_path: str = "", ask: Ask | None = None, parts: str = ""
+) -> dict[str, Any]:
+    """Any Blender job said in words -> a checked script (with preview render).
+
+    *parts*: the object's parts already designed (holo_model), so the model
+    starts from the real structure instead of a box."""
     ask = ask or _ask_gemini
     prompt = TEXT_PROMPT.replace("{request}", request)
+    if parts:
+        prompt += (
+            "\nThe object's parts (real sizes, centred at the origin, y up in this list; "
+            "convert to Blender's z up) — keep them all and add the real detail:\n" + parts
+        )
     model = _checked(ask([], prompt), ask, [], prompt)
     model["raw_script"] = model["script"]
     model["script"] = finish_script(model["script"], save_path, model["name"], preview_path)
@@ -148,9 +167,14 @@ def refine(
     return model
 
 
+def step_errors(log: str) -> list[str]:
+    """The steps that failed and were skipped (the model was still saved)."""
+    return [line.strip() for line in log.splitlines() if line.startswith("SERGIO_STEP_ERROR")]
+
+
 def blender_failed(log: str) -> bool:
-    """Did Blender stop on an error before saving?"""
-    return "SERGIO_SAVED" not in log or "Traceback" in log.split("SERGIO_SAVED")[0]
+    """Did Blender stop before saving? (failed steps alone do not count)"""
+    return "SERGIO_SAVED" not in log
 
 
 __all__ = ["blender_failed", "from_text", "refine"]

@@ -539,6 +539,21 @@ class BlenderTask(BaseModel):
     preview_path: str = ""
 
 
+class HoloRequest(BaseModel):
+    request: str
+
+
+@router.post("/holo_model")
+async def holo_model_route(req: HoloRequest) -> dict[str, Any]:
+    """A hologram of anything: its real parts, designed by Gemini."""
+    from openjarvis.tools.holo_model import design
+
+    try:
+        return await asyncio.to_thread(design, req.request)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail=str(exc)[:400]) from exc
+
+
 @router.post("/blender/text")
 async def blender_text_route(task: BlenderTask) -> dict[str, Any]:
     """Any Blender job in words -> a checked script (Blender Pro)."""
@@ -547,7 +562,18 @@ async def blender_text_route(task: BlenderTask) -> dict[str, Any]:
     if not task.save_path.lower().endswith(".blend"):
         raise HTTPException(status_code=400, detail="save_path must end in .blend")
     try:
-        return await asyncio.to_thread(from_text, task.request, task.save_path, task.preview_path)
+        def run() -> dict[str, Any]:
+            parts = ""
+            if "distribución de piezas" not in task.request:  # not already seeded
+                try:
+                    from openjarvis.tools.holo_model import design, recipe_brief
+
+                    parts = recipe_brief(design(task.request))
+                except Exception:  # noqa: BLE001 — without the parts, as before
+                    parts = ""
+            return from_text(task.request, task.save_path, task.preview_path, parts=parts)
+
+        return await asyncio.to_thread(run)
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=502, detail=str(exc)[:400]) from exc
 

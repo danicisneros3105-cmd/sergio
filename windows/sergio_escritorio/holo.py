@@ -73,9 +73,11 @@ class Mesh:
     vertices: np.ndarray  # (n, 3) local coordinates, metres
     faces: list[tuple[int, ...]]  # vertex indices, counter-clockwise outside
     smooth: bool = False  # shade smooth in Blender
+    colors: list[tuple[float, float, float]] | None = None  # per face (models)
 
     def copy(self) -> Mesh:
-        return Mesh(self.vertices.copy(), list(self.faces), self.smooth)
+        return Mesh(self.vertices.copy(), list(self.faces), self.smooth,
+                    list(self.colors) if self.colors else None)
 
     def size(self) -> float:
         span = self.vertices.max(axis=0) - self.vertices.min(axis=0)
@@ -272,6 +274,79 @@ def extrude_stroke(path: Sequence[Sequence[float]], depth: float = 0.2) -> Mesh:
     return Mesh(np.array(front + back, float), faces)
 
 
+# -- models of anything: parts designed by Gemini --------------------------------------
+def superellipsoid(power: float = 0.25, rings: int = 8, segments: int = 16) -> Mesh:
+    """A unit sphere pushed toward a box: power 1 = sphere, 0.2 = rounded box."""
+    mesh = sphere(1.0, rings, segments)
+    v = mesh.vertices
+    mesh.vertices = np.sign(v) * np.abs(v) ** power
+    return mesh
+
+
+def wedge() -> Mesh:
+    v = np.array([[-0.5, -0.5, -0.5], [0.5, -0.5, -0.5], [0.5, -0.5, 0.5], [-0.5, -0.5, 0.5],
+                  [-0.5, 0.5, -0.5], [0.5, 0.5, -0.5]], float)  # fmt: skip
+    faces = [(0, 3, 2, 1), (0, 1, 5, 4), (3, 4, 5, 2), (0, 4, 3), (1, 2, 5)]
+    return Mesh(v, faces)
+
+
+def part_mesh(shape: str, size: Sequence[float]) -> Mesh:
+    """One designed part, *size* in metres (see openjarvis.tools.holo_model)."""
+    w, h, d = (max(float(x), 1e-4) for x in size)
+    if shape == "torus":
+        outer, thick = max(w, d), min(h, max(w, d) / 2)
+        mesh = torus((outer - thick) / 2, thick / 2, 16, 8)
+        mesh.vertices = mesh.vertices * np.array([w / outer, 1.0, d / outer])
+        return mesh
+    unit = {
+        "box": lambda: cube(1.0),
+        "rounded_box": lambda: superellipsoid(0.22, 8, 16),
+        "cylinder": lambda: cylinder(0.5, 1.0, 16),
+        "cone": lambda: cone(0.5, 1.0, 16),
+        "sphere": lambda: sphere(0.5, 8, 12),
+        "capsule": lambda: superellipsoid(0.6, 8, 12),
+        "wedge": wedge,
+    }.get(shape, lambda: cube(1.0))()
+    if shape in ("rounded_box", "capsule"):
+        unit.vertices = unit.vertices * 0.5
+    unit.vertices = unit.vertices * np.array([w, h, d])
+    return unit
+
+
+def euler(degrees: Sequence[float]) -> np.ndarray:
+    """Rotation of x, then y, then z degrees."""
+    ax, ay, az = (math.radians(float(a)) for a in degrees)
+    rx = np.array([[1, 0, 0], [0, math.cos(ax), -math.sin(ax)], [0, math.sin(ax), math.cos(ax)]])
+    ry = np.array([[math.cos(ay), 0, math.sin(ay)], [0, 1, 0], [-math.sin(ay), 0, math.cos(ay)]])
+    rz = np.array([[math.cos(az), -math.sin(az), 0], [math.sin(az), math.cos(az), 0], [0, 0, 1]])
+    return rz @ ry @ rx
+
+
+def assemble(recipe: dict, fit: float = 1.0) -> tuple[Mesh, float]:
+    """All the parts in one mesh (a colour per face), centred and scaled so
+    the biggest side is *fit* metres on screen. Returns (mesh, base)."""
+    verts: list[np.ndarray] = []
+    faces: list[tuple[int, ...]] = []
+    colors: list[tuple[float, float, float]] = []
+    count = 0
+    for part in recipe.get("parts") or []:
+        mesh = part_mesh(str(part.get("shape")), part.get("size") or (0.05, 0.05, 0.05))
+        world = mesh.vertices @ euler(part.get("rot") or (0, 0, 0)).T + np.array(part.get("pos") or (0, 0, 0), float)
+        verts.append(world)
+        colour = tuple(float(c) for c in (part.get("color") or (0.6, 0.6, 0.6))[:3])
+        for face in mesh.faces:
+            faces.append(tuple(count + i for i in face))
+            colors.append(colour)  # type: ignore[arg-type]
+        count += len(world)
+    if not verts:
+        raise ValueError("el modelo no tiene piezas")
+    v = np.vstack(verts)
+    v = v - (v.max(axis=0) + v.min(axis=0)) / 2
+    real = float((v.max(axis=0) - v.min(axis=0)).max()) or 1.0
+    base = fit / real
+    return Mesh(v * base, faces, smooth=False, colors=colors), base
+
+
 MAKERS = {
     "cubo": cube,
     "esfera": sphere,
@@ -333,10 +408,12 @@ class Holo:
     vel: np.ndarray = field(default_factory=lambda: np.zeros(3))
     spin: np.ndarray = field(default_factory=lambda: np.zeros(3))  # axis * rad/s
     held: bool = False
+    base: float = 1.0  # display size / real size (a 15 cm phone is shown bigger)
+    recipe: dict | None = None  # the designed parts (for Blender Pro)
 
     @property
     def name(self) -> str:
-        return f"{NAMES_ES.get(self.kind, self.kind.title())} {self.id}"
+        return f"{NAMES_ES.get(self.kind, self.kind[:1].upper() + self.kind[1:])} {self.id}"
 
     def world(self) -> np.ndarray:
         return (self.mesh.vertices * self.scale) @ self.rot.T + self.pos
@@ -345,7 +422,8 @@ class Holo:
         return float(np.linalg.norm(self.mesh.vertices, axis=1).max()) * self.scale
 
     def size_cm(self) -> int:
-        return round(self.mesh.size() * self.scale * 100)
+        """Real size: a model keeps its real centimetres however big it is shown."""
+        return round(self.mesh.size() * self.scale / self.base * 100)
 
 
 def project(
@@ -473,6 +551,15 @@ class HoloScene:
         self._next += 1
         self.objects.append(obj)
         self.selected = obj.id
+        return obj
+
+    def add_model(self, recipe: dict) -> Holo:
+        """A designed object (a phone, a chair...) as one hologram."""
+        mesh, base = assemble(recipe)
+        obj = self.add(str(recipe.get("name") or "modelo").lower(), mesh, (0.8, 0.8, 0.8), (0.0, 0.1, 0.0))
+        obj.base, obj.recipe = base, recipe
+        obj.rot = rot_axis((1, 0, 0), 0.25) @ rot_axis((0, 1, 0), -0.5)
+        obj.spin = np.array([0.0, 0.3, 0.0])
         return obj
 
     def get(self, oid: int) -> Holo | None:
@@ -880,30 +967,37 @@ class HoloScene:
         light = np.array([-0.4, 0.7, 0.6])
         light /= np.linalg.norm(light)
         out = []
+        eye = np.array([0.0, 0.0, CAM_Z])
         for obj in self.objects:
             world = obj.world()
+            if not obj.mesh.faces:
+                continue
             screen, depth = project(world, width, height)
-            for face in obj.mesh.faces:
-                idx = list(face)
-                a, b, c = world[idx[0]], world[idx[1]], world[idx[2]]
-                n = np.cross(b - a, c - a)
-                norm = float(np.linalg.norm(n))
-                if norm < 1e-12:
+            tri = np.array([f[:3] for f in obj.mesh.faces])  # normals from 3 corners
+            a, b, c = world[tri[:, 0]], world[tri[:, 1]], world[tri[:, 2]]
+            n = np.cross(b - a, c - a)
+            norm = np.linalg.norm(n, axis=1)
+            ok = norm > 1e-12
+            n[ok] /= norm[ok, None]
+            centre = (a + b + c) / 3
+            facing = np.einsum("ij,ij->i", n, eye - centre)
+            shade = 0.35 + 0.65 * np.clip(n @ light, 0.0, None)
+            mean_depth = depth[tri].mean(axis=1)
+            colors = obj.mesh.colors
+            held = obj.held or obj.id == self.selected
+            for i, face in enumerate(obj.mesh.faces):
+                if not ok[i]:
                     continue
-                n /= norm
-                centre = world[idx].mean(axis=0)
-                view_dir = np.array([0.0, 0.0, CAM_Z]) - centre
-                facing = float(np.dot(n, view_dir))
-                shade = 0.35 + 0.65 * max(0.0, float(np.dot(n, light)))
                 out.append(
                     {
                         "id": obj.id,
-                        "points": screen[idx],
-                        "depth": float(depth[idx].mean()),
-                        "shade": shade,
-                        "front": facing > 0,
-                        "color": obj.color,
-                        "held": obj.held or obj.id == self.selected,
+                        "points": screen[list(face)],
+                        "depth": float(mean_depth[i]),
+                        "shade": float(shade[i]),
+                        "front": bool(facing[i] > 0),
+                        "color": colors[i] if colors and i < len(colors) else obj.color,
+                        "held": held,
+                        "model": colors is not None,  # a designed object
                     }
                 )
         out.sort(key=lambda f: -f["depth"])
@@ -960,79 +1054,170 @@ def to_obj(objects: Sequence[Holo]) -> str:
     return "\n".join(lines) + "\n"
 
 
-def to_bpy(objects: Sequence[Holo], save_path: str) -> str:
-    """A Blender script that rebuilds the holograms and saves the .blend.
+def recipe_request(obj: Holo) -> str:
+    """What Blender Pro should build from a designed hologram."""
+    recipe = obj.recipe or {}
+    parts = "\n".join(
+        f"- {p['name']}: {p['shape']} " + " x ".join(f"{v * 100:.1f}" for v in p["size"])
+        + " cm at (" + ", ".join(f"{v * 100:.1f}" for v in p["pos"]) + f") cm, rot {p['rot']}"
+        for p in recipe.get("parts", [])
+    )
+    return (
+        f"{recipe.get('name', obj.kind)}, ultra detallado y realista, calidad de producto "
+        f"profesional. {recipe.get('description', '')} Medidas reales; esta es la "
+        f"distribución de piezas del holograma (respétala y añade todo el detalle real: "
+        f"biseles, chaflanes, materiales PBR, texto/logos si aplica):\n{parts}"
+    )
 
-    Blender's z is up: (x, y, z) here -> (x, -z, y) there.
-    """
-    data = []
+
+# Hologram axes (x right, y up, z toward you) -> Blender's (x, -z, y), z up.
+TO_BLENDER = np.array([[1.0, 0.0, 0.0], [0.0, 0.0, -1.0], [0.0, 1.0, 0.0]])
+
+
+def blender_name(obj: Holo) -> str:
+    return f"Holo {obj.id}"
+
+
+def blender_state(objects: Sequence[Holo]) -> dict:
+    """Every hologram as Blender sees it: real-size local mesh, its 4x4
+    matrix, materials per face. The Blender window applies it live."""
+    c = TO_BLENDER
+    out = {}
     for obj in objects:
-        verts = [
-            [round(float(x), 5), round(float(-z), 5), round(float(y), 5)]
-            for x, y, z in obj.world()
-        ]
-        data.append(
-            {
-                "name": obj.name,
-                "verts": verts,
-                "faces": [list(f) for f in obj.mesh.faces],
-                "color": [round(c, 3) for c in obj.color],
-                "smooth": obj.mesh.smooth,
-            }
-        )
-    import json
+        base = obj.base or 1.0
+        rot = c @ obj.rot @ c.T
+        loc = c @ obj.pos / base
+        m = rot * obj.scale
+        matrix = [[*map(float, m[i]), float(loc[i])] for i in range(3)] + [[0.0, 0.0, 0.0, 1.0]]
+        verts = (obj.mesh.vertices @ c.T) / base
+        colors = obj.mesh.colors or [obj.color] * len(obj.mesh.faces)
+        out[blender_name(obj)] = {
+            "label": obj.name,
+            "matrix": [[round(x, 6) for x in row] for row in matrix],
+            "verts": [[round(float(x), 6) for x in v] for v in verts],
+            "faces": [list(map(int, f)) for f in obj.mesh.faces],
+            "colors": [[round(float(x), 3) for x in col] for col in colors],
+            "smooth": bool(obj.mesh.smooth),
+            "vh": f"{len(verts)}:{float(np.abs(verts).sum()):.6f}",
+        }
+    return {"objects": out}
 
-    payload = json.dumps(data)
-    return f'''import bpy, json
-from mathutils import Vector
 
-DATA = json.loads(r"""{payload}""")
-SAVE = r"""{save_path}"""
+BLENDER_SCRIPT = r'''import bpy, json, os
+from mathutils import Matrix
+
+SYNC = r"""__SYNC__"""
+SAVE = r"""__SAVE__"""
+FIRST = json.loads(r"""__STATE__""")
+_seen = {"mtime": 0.0, "vh": {}}
+
+
+def _material(rgb):
+    name = "Holo %.3f %.3f %.3f" % tuple(rgb)
+    mat = bpy.data.materials.get(name)
+    if mat is None:
+        mat = bpy.data.materials.new(name)
+        mat.use_nodes = True
+        bsdf = mat.node_tree.nodes.get("Principled BSDF")
+        if bsdf is not None:
+            bsdf.inputs["Base Color"].default_value = (*rgb, 1.0)
+            bsdf.inputs["Roughness"].default_value = 0.3
+            bsdf.inputs["Metallic"].default_value = 0.2
+    return mat
+
+
+def _build(name, item):
+    mesh = bpy.data.meshes.new(name)
+    mesh.from_pydata([tuple(v) for v in item["verts"]], [], [tuple(f) for f in item["faces"]])
+    mesh.validate()
+    slots = {}
+    for i, rgb in enumerate(item["colors"]):
+        key = tuple(rgb)
+        if key not in slots:
+            slots[key] = len(mesh.materials)
+            mesh.materials.append(_material(key))
+        if i < len(mesh.polygons):
+            mesh.polygons[i].material_index = slots[key]
+    if item.get("smooth"):
+        for poly in mesh.polygons:
+            poly.use_smooth = True
+    obj = bpy.data.objects.new(name, mesh)
+    obj["sergio_label"] = item.get("label", name)
+    bpy.context.scene.collection.objects.link(obj)
+    if item.get("smooth"):
+        mod = obj.modifiers.new("Suave", "SUBSURF")
+        mod.levels, mod.render_levels = 1, 2
+    _seen["vh"][name] = item.get("vh")
+    return obj
+
+
+def apply(state):
+    names = set(state.get("objects", {}))
+    for name, item in state.get("objects", {}).items():
+        obj = bpy.data.objects.get(name)
+        if obj is None or _seen["vh"].get(name) and len(obj.data.vertices) != len(item["verts"]):
+            if obj is not None:
+                bpy.data.objects.remove(obj, do_unlink=True)
+            obj = _build(name, item)
+        elif item.get("vh") != _seen["vh"].get(name):  # sculpted with the hands
+            flat = [c for v in item["verts"] for c in v]
+            obj.data.vertices.foreach_set("co", flat)
+            obj.data.update()
+            _seen["vh"][name] = item.get("vh")
+        obj.matrix_world = Matrix(item["matrix"])
+    for obj in list(bpy.data.objects):  # deleted in Sergio ve: gone here too
+        if obj.name.startswith("Holo ") and obj.name not in names:
+            bpy.data.objects.remove(obj, do_unlink=True)
+
+
+def _sync():
+    try:
+        mtime = os.path.getmtime(SYNC)
+    except OSError:
+        return 0.5
+    if mtime == _seen["mtime"]:
+        return 0.25
+    _seen["mtime"] = mtime
+    try:
+        with open(SYNC, encoding="utf-8") as fh:
+            apply(json.load(fh))
+    except Exception as exc:  # a file half written: next time
+        print("SERGIO_SYNC_SKIP", exc)
+    return 0.25
+
 
 bpy.ops.wm.read_factory_settings(use_empty=True)
 scene = bpy.context.scene
-made = []
-for item in DATA:
-    mesh = bpy.data.meshes.new(item["name"])
-    mesh.from_pydata([Vector(v) for v in item["verts"]], [], [tuple(f) for f in item["faces"]])
-    mesh.validate()
-    mesh.update()
-    obj = bpy.data.objects.new(item["name"], mesh)
-    scene.collection.objects.link(obj)
-    mat = bpy.data.materials.new(item["name"] + " material")
-    mat.use_nodes = True
-    bsdf = mat.node_tree.nodes.get("Principled BSDF")
-    if bsdf is not None:
-        bsdf.inputs["Base Color"].default_value = (*item["color"], 1.0)
-        bsdf.inputs["Roughness"].default_value = 0.35
-    mesh.materials.append(mat)
-    if item["smooth"]:
-        for poly in mesh.polygons:
-            poly.use_smooth = True
-        mod = obj.modifiers.new("Suave", "SUBSURF")
-        mod.levels = 1
-        mod.render_levels = 2
-    obj.location = mesh.vertices[0].co * 0  # geometry already placed
-    made.append(obj)
-# Origin of each object at its centre, so it turns around itself in Blender.
-for obj in made:
-    bpy.context.view_layer.objects.active = obj
-    obj.select_set(True)
-bpy.ops.object.origin_set(type="ORIGIN_GEOMETRY", center="BOUNDS")
-light = bpy.data.objects.new("Sol", bpy.data.lights.new("Sol", "SUN"))
-light.data.energy = 3.0
-light.rotation_euler = (0.8, 0.2, 0.6)
-scene.collection.objects.link(light)
+apply(FIRST)
+sun = bpy.data.objects.new("Sol", bpy.data.lights.new("Sol", "SUN"))
+sun.data.energy = 3.0
+sun.rotation_euler = (0.8, 0.2, 0.6)
+scene.collection.objects.link(sun)
 cam = bpy.data.objects.new("Cámara", bpy.data.cameras.new("Cámara"))
 cam.location = (0.0, -4.5, 1.2)
 cam.rotation_euler = (1.35, 0.0, 0.0)
 scene.collection.objects.link(cam)
 scene.camera = cam
-import os
 os.makedirs(os.path.dirname(SAVE), exist_ok=True)
 bpy.ops.wm.save_as_mainfile(filepath=SAVE)
-print("SERGIO_SAVED", SAVE, len(made))
+print("SERGIO_SAVED", SAVE, len(FIRST.get("objects", {})))
+if SYNC and not bpy.app.background:
+    # Live: what your hands do to the holograms happens here too.
+    bpy.app.timers.register(_sync, first_interval=0.5, persistent=True)
 '''
+
+
+def to_bpy(objects: Sequence[Holo], save_path: str, sync_path: str = "") -> str:
+    """A Blender script that rebuilds the holograms (real size, materials),
+    saves the .blend and, with *sync_path*, keeps following your hands."""
+    import json
+
+    state = json.dumps(blender_state(objects))
+    return (
+        BLENDER_SCRIPT.replace("__SYNC__", sync_path)
+        .replace("__SAVE__", save_path)
+        .replace("__STATE__", state)
+    )
 
 
 __all__ = [
@@ -1041,6 +1226,9 @@ __all__ = [
     "HoloScene",
     "MAKERS",
     "Mesh",
+    "assemble",
+    "blender_state",
+    "recipe_request",
     "cone",
     "cube",
     "cylinder",

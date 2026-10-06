@@ -390,6 +390,12 @@ Para que además describa imágenes de la pantalla (fotos, gráficos), añade
 
 ## Hablar con Sergio como en una llamada
 
+**Personalidad**: brillante, carismático y sarcástico — humor seco, ironía
+elegante y remates rápidos, pero primero resuelve y, si el momento es serio,
+baja la ironía. («Tres monitores suelen ser suficientes para la mayoría de los
+mortales, a menos que esté intentando vigilar toda la bolsa de Wall Street.»)
+Se cambia en «Personalizar a Sergio».
+
 Sergio habla con una **voz masculina grave, relajada y algo rasposa**
 («Algenib», de Gemini Live), en las llamadas y en las respuestas por turnos,
 así suena siempre igual. Una copia 1:1 de la voz de un actor real (p. ej.
@@ -553,6 +559,21 @@ los datos**» los pone en pantalla; «**modo limpio**» los quita.
 
 **Hologramas 3D con tus manos (estilo Iron Man)**
 
+* **Hologramas de cualquier cosa**: «haz un holograma de un teléfono», «haz un
+  modelo de una silla gamer», «modela un dron en 3D» (con los hologramas
+  activos basta «crea una guitarra eléctrica»). Gemini lo diseña **pieza por
+  pieza con medidas reales**: un teléfono salió con 20 piezas (cuerpo
+  redondeado, cristal, módulo de cámaras con 3 lentes y sus anillos, flash,
+  LiDAR, botones, USB-C, altavoz). Se ve con sus materiales y su tamaño real
+  (16 cm), y se mueve y gira con las manos como cualquier holograma. Las
+  formas simples («crea un cubo rojo») siguen siendo instantáneas.
+* **Blender sincronizado en vivo**: «pásalo a Blender» abre Blender con los
+  hologramas a tamaño real y con sus materiales, y **sigue a tus manos**: lo que
+  muevas, gires, agrandes, esculpas, crees o borres se ve en Blender al
+  instante (antes era una copia fija). Guarda con Ctrl+S en Blender.
+* Para los objetos diseñados, **Blender Pro** hace además la versión detallada
+  y profesional, partiendo de esas mismas piezas, y te avisa al terminar.
+
 * **Para empezar**: «Sergio, activa las manos» (o «modo hologramas»). Aparece
   un cubo y, arriba a la derecha, la guía de gestos durante 25 segundos; para
   verla otra vez: «ayuda hologramas». Para guardarlo: «pásalo a Blender».
@@ -590,6 +611,13 @@ los datos**» los pone en pantalla; «**modo limpio**» los quita.
   (nada de archivos, internet ni programas) y Blender lo construye y guarda
   el `.blend`. Tarda uno o dos minutos. Probado de verdad: de una foto de un
   reloj salió un modelo de 97 piezas (caja, corona, eslabones, broche).
+* **Blender Pro ya no se cae por un detalle**: antes, un solo error de la API
+  de Blender (un nombre de material mal escrito) paraba todo el script y
+  quedaba un cubo o nada. Ahora el modelo se construye paso a paso: si un paso
+  falla, se salta, el resto se construye y guarda, y la siguiente revisión
+  corrige ese paso. Probado: el mismo script que fallaba 3 veces dio un
+  teléfono de 41 piezas. Además primero diseña las piezas reales del objeto y
+  exige detalle (un teléfono, 20+ piezas; nunca un cubo con otro nombre).
 * **Blender Pro** («en Blender haz una casa low poly con techo rojo», «haz un
   logo 3D de Sergio en metal en Blender»): Gemini escribe la escena, Blender
   hace un render rápido sin abrir ventana, Gemini **mira el render** (y la

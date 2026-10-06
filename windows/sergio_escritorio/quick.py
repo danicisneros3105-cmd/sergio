@@ -66,6 +66,13 @@ class Quick:
     step: Any = None  # a device.Step for kind "device"
 
 
+# "haz una lista", "crea un recordatorio": not objects for a hologram.
+_NOT_HOLO = (
+    r"\b(recordatorio|lista|documento|carpeta|archivo|correo|email|mensaje|nota|alarma|"
+    r"temporizador|resumen|plan|tabla|presentacion|pagina|web|app|aplicacion|programa|codigo|"
+    r"script|video|cancion|poema|cuento|historia|imagen|foto|informe|reporte|ensayo|chiste|"
+    r"pregunta|busqueda|llamada|captura|backup|copia|cita|evento|reunion|post|tweet)\b"
+)
 _STATUS = re.compile(
     r"(estado del sistema|estado de (la|mi) (computadora|pc|laptop)|"
     r"como esta (la|mi) (bateria|computadora|pc|laptop)|"
@@ -216,8 +223,21 @@ def parse_quick(text: str) -> Quick | None:
         r"\b(pasa|pasalo|pasala|pasalos|lleva|llevalo|guarda|guardalo|exporta|exportalo|manda|mandalo|envia)\b", t
     ):
         return Quick("blender_holo")
+    # A hologram of anything ("haz un holograma de un teléfono"): designed
+    # part by part. "en blender" went to Blender Pro above; plain shapes
+    # ("un cubo rojo") are made at once below.
+    from sergio_escritorio.holo import SHAPE_WORDS
+
+    plain_shape = any(w in SHAPE_WORDS or w.rstrip("s") in SHAPE_WORDS for w in t.split())
+    if not plain_shape and re.search(r"\bhologramas? de\b|\bmodelo 3d\b|\ben 3d\b|\bmodelo de (un|una|el|la)\b", t) and re.search(
+        r"\b(haz|hazme|crea|creame|modela|modelame|construye|disena|genera|arma|dibuja|muestrame|pon)\b", t
+    ):
+        return Quick("holo_model", text.strip(), "Diseñándolo.")
     if _HOLO.search(t):
         return Quick("holo", t)
+    m = re.fullmatch(r"(haz|hazme|crea|creame|construye|modela|modelame|genera|disena|disename|arma)( me)? (un|una|unos|unas) (.+)", t)
+    if m and not re.search(_NOT_HOLO, m.group(4)):
+        return Quick("holo_maybe", text.strip())  # only while holograms are in use
     m = re.fullmatch(r"(?:activa |inicia |pon )?(?:el )?(protocolo|modo) (.+)", t)
     if m and m.group(2) not in ("mouse", "gestos", "3d"):
         from sergio_escritorio.jarvis import find_protocol
