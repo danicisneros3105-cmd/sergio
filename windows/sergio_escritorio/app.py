@@ -801,6 +801,99 @@ def run(config: dict[str, Any]) -> None:
         return q.say
 
     assistant.quick = run_quick
+
+    # -- your profile: learnt, updated 2.5+ times a week, applied everywhere ----
+    from sergio_escritorio.perfil import Profile
+    from sergio_escritorio.perfil import idle_seconds as input_idle
+
+    profile = Profile(HOME / "perfil.json")
+    assistant.on_request = profile.note_topic
+    profile_state: dict[str, Any] = {"running": False, "error": ""}
+
+    def apply_profile() -> None:
+        apply_brain(config)
+        line = profile.voice_line()
+        if line:
+            client.personality = (client.personality + " " + line).strip()
+        try:
+            gym_stats.prefs = profile.gym_prefs()
+        except NameError:  # the gym is set up later at start-up
+            pass
+
+    def profile_context() -> dict:
+        from sergio_escritorio import brain as gym_brain
+
+        extra: dict[str, Any] = {
+            "gimnasio": gym_analysis[0] if gym_analysis else {},
+            "habilidades_validas": list(gym_brain.TRAINS),
+            "ejercicios_validos": [k for k in gym_brain.BY_KIND if k not in ("pausa", "prueba")],
+            "alarmas": [a.describe() for a in alarms.items][:10],
+            "notas": [n.text[:80] for n in notes.items][:10],
+        }
+        for name, key in (("salud.json", "salud"), ("coach.json", "aprendizaje")):
+            try:
+                data = json.loads((HOME / name).read_text(encoding="utf-8"))
+                extra[key] = data.get("resumen_para_perfil") or {}
+            except (OSError, ValueError):
+                pass
+        return extra
+
+    def update_profile_now() -> str:
+        from sergio_escritorio.voice import explain
+
+        if profile_state["running"]:
+            return "Ya estoy actualizando su perfil."
+        profile_state["running"] = True
+        try:
+            def think(context: dict, previous: dict) -> dict:
+                resp = client.http.post(
+                    f"{client.base}/v1/coach/profile", json={"context": context, "previous": previous}, timeout=180
+                )
+                resp.raise_for_status()
+                return resp.json()
+
+            new = profile.update(think, profile_context())
+            on_ui(apply_profile)
+            profile_state["error"] = ""
+            changes = new.get("cambios") or []
+            return "Perfil actualizado. " + (f"Lo nuevo: {changes[0]}" if changes else str(new.get("resumen", ""))[:200])
+        except Exception as exc:  # noqa: BLE001
+            profile_state["error"] = explain(exc)
+            logging.exception("profile update failed")
+            return f"No pude actualizar su perfil: {explain(exc)}"
+        finally:
+            profile_state["running"] = False
+
+    def profile_loop() -> None:
+        """Every minute: were you here? Every 10 min: is the key update due?"""
+        ticks = 0
+        while True:
+            time.sleep(60)
+            ticks += 1
+            try:
+                if input_idle() < 120:
+                    profile.seen_active()
+                if ticks % 10 == 0:
+                    profile.save()
+                    first = profile.usage.last_decay
+                    enough = profile.updates or (first and time.time() - first > 86400)
+                    if profile.due() and enough and not call_active():
+                        update_profile_now()
+            except Exception:  # noqa: BLE001 — never kill the loop
+                logging.exception("profile loop failed")
+
+    threading.Thread(target=profile_loop, daemon=True).start()
+
+    def run_profile(q: Any) -> str | None:
+        if q.kind == "profile_show":
+            return profile.summary()
+        if q.kind == "profile_update":
+            threading.Thread(target=lambda: tell(update_profile_now()), daemon=True).start()
+            return "Actualizando su perfil con todo lo que sé; le aviso en un momento."
+        if q.kind == "profile_fact":
+            profile.remember(q.arg)
+            return "Anotado, señor. Lo tendré en cuenta."
+        return None
     if config.get("confirm_aloud"):  # the user wants every order confirmed out loud
         assistant.silent_quick = set()
 
@@ -1317,6 +1410,8 @@ def run(config: dict[str, Any]) -> None:
     def run_jarvis(q: Any, now: Any) -> str | None:
         """The JARVIS quick commands; None = not one of them."""
         handled = run_organizer(q, now)
+        if handled is None:
+            handled = run_profile(q)
         if handled is not None:
             return handled
         if q.kind == "reminder":
@@ -2366,6 +2461,9 @@ def run(config: dict[str, Any]) -> None:
     )
 
     gym_stats = GymStats.load(HOME / "gimnasio.json")
+    gym_stats.prefs = profile.gym_prefs()
+    apply_profile()
+
     def remember_due(due: float) -> None:
         gym_stats.next_due = due
         gym_stats.save()

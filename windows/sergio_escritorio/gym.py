@@ -86,6 +86,7 @@ class GymStats:
     deck: brain.Deck = field(default_factory=brain.Deck)  # spaced retrieval
     inductive_level: int = 0  # harder series and analogies as you improve
     double_ms: float = 400.0  # Doble decisión: where its display time ended
+    prefs: dict[str, Any] = field(default_factory=dict)  # from your profile (not saved here)
 
     @classmethod
     def load(cls, path: Path) -> "GymStats":
@@ -132,7 +133,7 @@ class GymStats:
         if not self.probe_today():
             return brain.PROBE  # the day's control test comes first
         # The evidence rotation, tuned to you: your weakest skill comes more often.
-        exercise, self.next_index = brain.personal_next(self.next_index, self.history)
+        exercise, self.next_index = brain.personal_next(self.next_index, self.history, self.prefs)
         self.save()
         return exercise
 

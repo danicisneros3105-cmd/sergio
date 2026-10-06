@@ -57,7 +57,10 @@ Devuelve SOLO JSON:
  "comunicacion": {{"detalle": "breve|normal|detallado", "humor": "poco|normal|mucho", "nota": "cómo prefiere que le hablen"}},
  "ajustes": ["cambios concretos que Sergio aplicará en su comportamiento"],
  "cambios": ["qué cambió respecto al perfil anterior"]}}
-Basa cada rasgo en los datos; si no hay datos de algo, deja la lista vacía."""
+Basa cada rasgo en los datos; si no hay datos de algo, deja la lista vacía.
+En "comunicacion" y "dificultad" usa "normal" / 0 salvo que los datos muestren
+otra cosa. En "gimnasio" usa solo nombres de "habilidades_validas" y
+"ejercicios_validos" si vienen en los datos."""
     data = ask(prompt, **kw)
     return _list(_need(data, "resumen"), "rasgos", "intereses", "objetivos", "ajustes", "cambios")
 

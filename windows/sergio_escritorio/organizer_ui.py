@@ -24,7 +24,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from sergio_escritorio.organizer import DAY_NAMES, NOTE_COLORS, Alarm, Alarms, Note, Notes
+from sergio_escritorio.organizer import NOTE_COLORS, Alarm, Alarms, Note, Notes
 
 FONT = ["Segoe UI Variable Display", "SF Pro Display", "Segoe UI"]
 

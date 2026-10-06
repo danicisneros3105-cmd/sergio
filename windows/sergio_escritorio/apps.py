@@ -32,7 +32,7 @@ import time
 import unicodedata
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Iterable
+from typing import Any, Callable, Iterable
 
 log = logging.getLogger(__name__)
 

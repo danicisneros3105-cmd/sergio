@@ -192,6 +192,14 @@ def parse_quick(text: str) -> Quick | None:
     # Stop / silence
     if t in ("para", "parate", "callate", "silencio", "basta", "detente", "stop"):
         return Quick("stop", say="")
+    # Your profile
+    if re.search(r"\b(que sabes de mi|muestrame mi perfil|cual es mi perfil|como me ves|que has aprendido de mi)\b", t):
+        return Quick("profile_show")
+    if re.search(r"\b(actualiza|analiza|revisa) (mi|tu) perfil( de mi)?\b|\banalizame\b", t):
+        return Quick("profile_update")
+    m = re.match(r"(?:recuerda|aprende|apréndete|aprendete|ten en cuenta|toma en cuenta) que (.+)", text.strip().rstrip(".!"), re.I)
+    if m and not re.search(r"\b(en \d+|a las|minutos|horas)\b", t):
+        return Quick("profile_fact", m.group(1).strip())
     # Organizer: alarms at a time, sticky notes, the window
     if re.search(r"\b(organizador|agenda de sergio)\b", t) and re.search(r"\b(abre|abreme|muestra|muestrame|ver|ensena)\b", t):
         tab = next((k for k in ("alarmas", "notas", "recordatorios", "tareas") if k in t), "")

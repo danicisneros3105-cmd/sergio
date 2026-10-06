@@ -1078,17 +1078,38 @@ def weakest(prof: dict[str, dict[str, Any]], min_sessions: int = 2) -> str | Non
     return worst if _mean(list(known.values())) - known[worst] >= WEAK_GAP else None
 
 
-def personal_next(index: int, history: list[dict[str, Any]]) -> tuple[Exercise, int]:
-    """The evidence rotation, but every third pop-up trains your weakest skill."""
+def personal_next(
+    index: int, history: list[dict[str, Any]], prefs: dict[str, Any] | None = None
+) -> tuple[Exercise, int]:
+    """The evidence rotation, tuned to you (your profile):
+
+    * never the same exercise as one of your last two (variety);
+    * every third pop-up trains your weakest skill (or the profile's
+      priority while there is too little data to tell);
+    * every fifth, one of the exercises you like most (motivation)."""
+    prefs = prefs or {}
     exercise, after = next_exercise(index)
-    if index % 3 != 2 or exercise.kind in ("pausa", "repaso"):
-        return exercise, after
-    weak = weakest(profile(history))
-    if weak is None:
+    recent = [str(h.get("kind")) for h in history[-2:]]
+    tries = 0
+    while exercise.kind in recent and exercise.kind not in ("pausa", "repaso") and tries < len(SCHEDULE):
+        exercise, after = next_exercise(after)
+        tries += 1
+    if exercise.kind in ("pausa", "repaso"):
         return exercise, after
     last_seen = {str(h.get("kind")): i for i, h in enumerate(history)}
-    kind = min(TRAINS[weak], key=lambda k: last_seen.get(k, -1))  # the least recent
-    return BY_KIND[kind], after
+    if index % 3 == 2:
+        weak = weakest(profile(history))
+        if weak is None:
+            weak = next((s for s in prefs.get("prioridad") or [] if s in TRAINS), None)
+        if weak is not None:
+            options = [k for k in TRAINS[weak] if k not in recent] or list(TRAINS[weak])
+            kind = min(options, key=lambda k: last_seen.get(k, -1))  # the least recent
+            return BY_KIND[kind], after
+    if index % 5 == 4:
+        liked = [k for k in prefs.get("preferidos") or [] if k in BY_KIND and k not in recent]
+        if liked:
+            return BY_KIND[min(liked, key=lambda k: last_seen.get(k, -1))], after
+    return exercise, after
 
 
 def feedback(history: list[dict[str, Any]], entry: dict[str, Any]) -> str:

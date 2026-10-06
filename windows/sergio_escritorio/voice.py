@@ -1141,6 +1141,7 @@ class Assistant:
         self._clicky = False
         self._interrupted = False
         self.quick: Callable[[Any], str] | None = None  # instant commands
+        self.on_request: Callable[[str], None] | None = None  # the profile notes topics
         # Instant screen orders answered on screen only (no voice wait).
         self.silent_quick: set[str] = {"device", "key", "volume", "screenshot", "open_app", "open_url", "close_app"}
         # Real-time call (Gemini Live): saying "Sergio" opens it with what
@@ -1328,6 +1329,11 @@ class Assistant:
     def _respond(self, text: str) -> None:
         self.ui.state("thinking")
         self.ui.say(f"«{text}»")
+        if self.on_request is not None:
+            try:
+                self.on_request(text)
+            except Exception:  # noqa: BLE001 — never block an answer
+                log.debug("on_request failed", exc_info=True)
         answer = ""
         action = parse_quick(text) if self.quick is not None else None
         if action is not None:  # "abre Spotify": done now, no AI needed
