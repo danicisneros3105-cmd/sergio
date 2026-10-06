@@ -12,3 +12,6 @@ desktop. This small program runs in Windows, with no app window:
 """
 
 __version__ = "0.2.0"
+
+__author__ = "Pablo Daniel Cisneros Terreros"
+__copyright__ = "Copyright 2026 Pablo Daniel Cisneros Terreros (Apache-2.0)"

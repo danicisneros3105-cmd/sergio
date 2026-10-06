@@ -111,6 +111,10 @@ class ChatRequest(BaseModel):
     max_tokens: int = 400
 
 
+CHAT_SECONDS = 20.0
+CHAT_BACKUP = "gemini-2.5-flash"
+
+
 @router.post("/chat")
 async def chat(req: ChatRequest, request: Request) -> dict[str, Any]:
     """Fast conversation: straight to the model, no agent and no tools.
@@ -130,16 +134,22 @@ async def chat(req: ChatRequest, request: Request) -> dict[str, Any]:
         for m in req.messages
         if m.get("content")
     ]
-    try:
-        result = await asyncio.to_thread(
-            engine.generate,
-            messages,
-            model=req.model,
-            temperature=0.7,
-            max_tokens=req.max_tokens,
+    async def run(model: str) -> dict[str, Any]:
+        return await asyncio.to_thread(
+            engine.generate, messages, model=model, temperature=0.7, max_tokens=req.max_tokens
         )
+
+    try:
+        try:
+            # A chat answer is worth seconds: a model that stalls gives way
+            # to the backup instead of keeping the user waiting.
+            result = await asyncio.wait_for(run(req.model), timeout=CHAT_SECONDS)
+        except asyncio.TimeoutError:
+            if not str(req.model).startswith("gemini") or req.model.startswith(CHAT_BACKUP):
+                raise
+            result = await asyncio.wait_for(run(CHAT_BACKUP), timeout=CHAT_SECONDS)
     except Exception as exc:  # noqa: BLE001 — the companion falls back
-        raise HTTPException(status_code=502, detail=str(exc)[:400]) from exc
+        raise HTTPException(status_code=502, detail=str(exc)[:400] or "timeout") from exc
     return {"content": str(result.get("content") or "").strip()}
 
 

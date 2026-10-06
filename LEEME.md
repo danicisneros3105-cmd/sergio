@@ -774,6 +774,53 @@ teclado como antes. Se apaga con `"gym_camera": false`.
 Para hacer uno ya: «Sergio, gimnasio mental». Se cambia en `config.json`
 (`"gym"`, `"gym_minutes"`, `"gym_camera"`).
 
+## Tu vida con Sergio: perfil, coach, salud, consulta y organizador
+
+**Tu perfil.** Sergio aprende cuándo usas la PC (franjas de 15 minutos; lo
+antiguo se va olvidando) y, al menos 2,5 veces por semana (cada 2,5 días), hace
+una actualización clave con todo lo que sabe: gimnasio, salud, metas, lo que
+le contaste y los temas recientes. Ajusta su forma de hablarte, el gimnasio
+(nunca el mismo ejercicio dos veces seguidas; tu habilidad débil cada tercer
+pop-up; uno de tus favoritos cada quinto) y el horario de tus prácticas.
+Di «¿qué sabes de mí?», «actualiza mi perfil», «recuerda que soy zurdo».
+
+**Coach.** «Estoy aprendiendo el doble lift», «quiero aprender francés»,
+«tengo examen de física el viernes»: investiga en la web (guarda las fuentes),
+arma 10-14 sesiones con sus métricas y errores típicos y las pone en tus
+huecos libres. Cada sesión trae una lección a tu medida (en idiomas: formal,
+informal y coloquial). En habilidades físicas pulsa «Grabar mi práctica»: graba
+20 s, el coach mira el video y abre una copia con círculos **verdes** (bien) y
+**rojos** (a corregir) en Videos\Sergio\Práctica. «Mis metas» muestra el
+progreso. Escuela: «mi plataforma escolar es …» y luego «revisa mi plataforma
+escolar»: tareas y exámenes van al organizador con recordatorios (inicia sesión
+en la plataforma antes).
+
+**Salud.** Bandeja → «Mi salud» o «hagamos el cuestionario de salud». Importa
+Apple Salud (exportación .zip), Garmin Connect, Google Fit, Samsung Health,
+Fitbit y otros (CSV) desde una carpeta de sincronización; lo que ningún reloj
+da te lo pregunta cada día a tu hora. También anota lo que dices: «hoy dormí 6
+horas y caminé 8.000 pasos». Calcula IMC, metabolismo, gasto diario y zonas
+cardíacas, y el informe da 3-5 acciones, rutina y alertas para el médico.
+Orientación, no diagnóstico.
+
+**Consulta.** «Necesito desahogarme» o bandeja → «Consulta»: Sergio en un sillón
+lounge (cuero blanco, madera avellana) con lentes y su cuaderno negro; escribe
+una línea tras cada cosa que dices. Escribe o habla («termina la consulta» para
+salir). Cuestionarios PHQ-9 (ánimo) y GAD-7 (ansiedad). Es apoyo, no sustituye
+a un profesional. **Emergencias: ECU 911. Apoyo psicológico gratuito: Línea 171,
+opción 6 (7:00-20:00).** Todo lo de salud y consulta queda cifrado en tu PC.
+
+**Organizador.** «Pon una alarma a las 6:30 de lunes a viernes para ir al gym»,
+«nota: comprar leche» (nota adhesiva en el escritorio), «muéstrame mis notas»,
+«abre el organizador» (alarmas, notas, recordatorios, tareas y exámenes).
+
+**Control.** Cada clic de Sergio lo hace el compañero del cursor: vuela al
+sitio, presiona y luego ocurre el clic. «usa L99 y …»: trabaja en silencio y no
+para hasta verificar que terminó (pide tu cara antes de publicar, enviar, pagar
+o borrar). Si una voz que no es la tuya pide algo importante, espera a que
+apruebes mirando la cámara. «Modo bloqueo»: la pantalla de bloqueo de Windows
+(se abre con Windows Hello, PIN o contraseña).
+
 ## Modelos en la nube: Kimi y Gemini
 
 Para respuestas más rápidas e inteligentes que el modelo local, Sergio puede

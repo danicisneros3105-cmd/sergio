@@ -35,13 +35,34 @@ def wrong_service(exc: Exception) -> bool:
     return any(marker in text for marker in _WRONG_SERVICE)
 
 
+def _http_options() -> Any:
+    """No long retries inside the SDK: an overloaded model (503) is skipped at
+    once for the next one; a brief network hiccup gets one quick retry."""
+    try:
+        from google.genai import types
+
+        import os
+
+        seconds = float(os.environ.get("SERGIO_GEMINI_TIMEOUT", "120") or 120)
+        return types.HttpOptions(
+            timeout=int(seconds * 1000),  # a stalled request ends; the next model answers
+            retry_options=types.HttpRetryOptions(
+                attempts=2, initial_delay=0.4, max_delay=1.5, http_status_codes=[500, 502, 504]
+            )
+        )
+    except Exception:  # noqa: BLE001 — an older SDK: its defaults
+        return None
+
+
 def _default_factory(key: str, vertex: bool) -> Any:
     from google import genai
 
+    options = _http_options()
+    extra = {"http_options": options} if options is not None else {}
     return (
-        genai.Client(vertexai=True, api_key=key)
+        genai.Client(vertexai=True, api_key=key, **extra)
         if vertex
-        else genai.Client(api_key=key)
+        else genai.Client(api_key=key, **extra)
     )
 
 
