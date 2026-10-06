@@ -19,7 +19,9 @@ from typing import Any, Callable
 
 from PySide6.QtCore import QPointF, QRectF, Qt, QTimer
 from PySide6.QtGui import (
+    QBrush,
     QColor,
+    QConicalGradient,
     QFont,
     QImage,
     QLinearGradient,
@@ -27,6 +29,7 @@ from PySide6.QtGui import (
     QPainterPath,
     QPen,
     QPolygonF,
+    QRadialGradient,
 )
 from PySide6.QtWidgets import QWidget
 
@@ -136,6 +139,24 @@ def to_qimage(frame: Any, mirror: bool = True) -> QImage:
         rgb = cv2.flip(rgb, 1)
     h, w, _ = rgb.shape
     return QImage(rgb.data, w, h, 3 * w, QImage.Format.Format_RGB888).copy()
+
+
+def frosted(frame: Any, size: tuple[int, int], mirror: bool = True) -> QImage:
+    """The camera picture as frosted glass sees it: blurred, a little brighter.
+
+    Done small (1/8) and scaled up, so it costs well under a millisecond."""
+    import cv2
+
+    h, w = frame.shape[:2]
+    small = cv2.resize(frame, (max(8, w // 8), max(8, h // 8)), interpolation=cv2.INTER_AREA)
+    small = cv2.GaussianBlur(small, (0, 0), 2.2)
+    small = cv2.addWeighted(small, 0.80, small * 0 + 255, 0.20, 0)  # milky
+    img = to_qimage(small, mirror)
+    return img.scaled(size[0], size[1], Qt.AspectRatioMode.IgnoreAspectRatio, Qt.TransformationMode.SmoothTransformation)
+
+
+RAINBOW = ((0.0, (255, 90, 90)), (0.17, (255, 200, 80)), (0.33, (150, 255, 120)), (0.5, (90, 230, 255)),
+           (0.67, (110, 140, 255)), (0.83, (220, 120, 255)), (1.0, (255, 90, 90)))  # fmt: skip
 
 
 def detect_faces(frame: Any) -> list[tuple[int, int, int, int]]:
@@ -556,10 +577,10 @@ class CameraWindow(QWidget):
             self.holo.command("crea un cubo")  # something to grab right away
             self.holo.command("céntralo")
         return (
-            "Hologramas listos: le dejé un cubo. Junte pulgar e índice sobre él para "
-            "agarrarlo y muévalo; gire la muñeca para girarlo; con las dos manos lo "
-            "agranda; suéltelo en movimiento para lanzarlo. Para crear diga «crea una "
-            "esfera»; para guardarlo diga «pásalo a Blender»."
+            "Listo, señor: le dejé un cubo de cristal. Junte pulgar e índice sobre él "
+            "(brilla cuando está a su alcance) y muévalo; gire la muñeca para girarlo; "
+            "con las dos manos cambia el tamaño. Pida cualquier figura: «crea una "
+            "estrella», «un corazón rojo», «un teléfono». «Pásalo a Blender» para editarlo."
         )
 
     def hologram(self, order: str) -> str:
@@ -720,6 +741,12 @@ class CameraWindow(QWidget):
             )
             p.drawImage(origin, img)
             self._shown = (origin, float(img.width()), float(img.height()))
+            self._frost = None
+            if self.holo.objects and self.holo.style == "cristal" and self._frame is not None:
+                try:
+                    self._frost = frosted(self._frame, (img.width(), img.height()), self.mirror)
+                except Exception:  # noqa: BLE001 — plain glass without the blur
+                    self._frost = None
             scanning = self.scanner is not None and (
                 self.scanner.active
                 or (self.scanner.result is not None and time.monotonic() - self.scanner.finished_at < 6.0)
@@ -1181,6 +1208,16 @@ class CameraWindow(QWidget):
             # The pinch point: a ring that closes and glows when you grab.
             pinch = (pts[4] + pts[8]) / 2
             holding = self.holo.pinching.get(i, False)
+            hint = "gira la muñeca · abre para soltar" if holding else ("pellizca para agarrar" if i in self.holo.hover else "")
+            if hint:
+                p.setFont(_font(7, QFont.Weight.DemiBold))
+                tw = p.fontMetrics().horizontalAdvance(hint) + 14
+                chip = QRectF(pinch.x() - tw / 2, pinch.y() + 16, tw, 16)
+                p.setPen(Qt.PenStyle.NoPen)
+                p.setBrush(QColor(0, 0, 0, 140))
+                p.drawRoundedRect(chip, 8, 8)
+                p.setPen(QColor(255, 255, 255, 230))
+                p.drawText(chip, Qt.AlignmentFlag.AlignCenter, hint)
             p.setBrush(Qt.BrushStyle.NoBrush)
             p.setPen(QPen(cyan if holding else QColor(255, 255, 255, 150), 2.2 if holding else 1.2))
             r = 7 if holding else 11
@@ -1192,14 +1229,14 @@ class CameraWindow(QWidget):
                 p.drawEllipse(pinch, r + 3, r + 3)
 
     HOLO_GUIDE = (
-        ("🤏", "Pellizca (pulgar + índice) sobre un holograma", "agarrar y mover"),
-        ("🔄", "Gira la muñeca mientras lo sujetas", "girar"),
-        ("↕", "Acerca o aleja la mano", "más cerca / más lejos"),
-        ("🙌", "Pellizca con las dos manos y sepáralas", "agrandar / achicar"),
-        ("💨", "Suéltalo mientras lo mueves", "lanzar"),
-        ("🗣", "«crea una esfera azul», «modo esculpir»", "crear y modelar (también «modo dibujar»)"),
-        ("🖱", "Mouse: arrastra = mover · clic derecho = girar · Ctrl+rueda = tamaño", "sin manos"),
-        ("💾", "«pásalo a Blender»", "guardar como proyecto .blend"),
+        ("🤏", "Junta pulgar e índice sobre una figura", "la agarras · brilla cuando está a tu alcance"),
+        ("✋", "Mueve la mano y gira la muñeca", "la mueves y la giras (acerca la mano = más cerca)"),
+        ("🙌", "Agárrala con las dos manos y sepáralas", "más grande / más pequeña"),
+        ("👋", "Abre la mano mientras la mueves", "la lanzas"),
+        ("🗣", "«crea una estrella» · «un corazón rojo» · «un teléfono»", "cualquier figura u objeto"),
+        ("💎", "«estilo cristal» / «estilo holograma»", "vidrio esmerilado o luz azul JARVIS"),
+        ("🧊", "«pásalo a Blender»", "se abre en Blender y lo sigue moviendo tu mano"),
+        ("🖱", "Sin manos: arrastra · clic derecho gira · Ctrl+rueda", "con el ratón"),
     )
 
     def _draw_holo_guide(self, p: QPainter, card: QRectF) -> None:
@@ -1214,7 +1251,7 @@ class CameraWindow(QWidget):
                            "Di «crea un cubo» · «ayuda hologramas» para ver los gestos")
             return
         fade = min(1.0, (self.guide_until - now) / 1.5)
-        width, row = min(330.0, card.width() * 0.48), 34.0
+        width, row = min(400.0, card.width() * 0.52), 34.0
         box = QRectF(card.right() - width - 12, card.top() + 48, width, 30 + row * len(self.HOLO_GUIDE))
         p.setOpacity(fade)
         p.setPen(QPen(QColor(90, 200, 255, 170), 1.2))
@@ -1230,6 +1267,7 @@ class CameraWindow(QWidget):
             p.drawText(QRectF(box.left() + 8, y, 28, row), Qt.AlignmentFlag.AlignCenter, icon)
             p.setFont(_font(7.5, QFont.Weight.DemiBold))
             p.setPen(QColor(230, 246, 255))
+            how = p.fontMetrics().elidedText(how, Qt.TextElideMode.ElideRight, int(width - 48))
             p.drawText(QRectF(box.left() + 40, y + 2, width - 48, 16), Qt.AlignmentFlag.AlignLeft, how)
             p.setFont(_font(7))
             p.setPen(QColor(120, 200, 240))
@@ -1239,10 +1277,18 @@ class CameraWindow(QWidget):
     def _draw_holo(self, p: QPainter, card: QRectF) -> None:
         """Holograms, Iron Man style: glowing blue light, scanlines, a
         projector ring under each one and rotating rings when you hold it."""
-        self._draw_holo_guide(p, card)
         scene = self.holo
-        if not scene.objects and not scene.stroke:
-            return
+        if scene.objects or scene.stroke:
+            if scene.style == "cristal":
+                self._draw_glass(p, card)
+                self._draw_stroke(p, card)
+            else:
+                self._draw_jarvis(p, card)
+        self._draw_holo_guide(p, card)  # on top of everything
+
+    def _draw_jarvis(self, p: QPainter, card: QRectF) -> None:
+        """The JARVIS-blue light look («estilo holograma»)."""
+        scene = self.holo
         ox, oy = card.left(), card.top()
         w, h = card.width(), card.height()
         if scene.gravity:  # the floor they bounce on, in perspective
@@ -1330,8 +1376,12 @@ class CameraWindow(QWidget):
             p.setPen(QColor(200, 240, 255, 230 if obj.held else 170))
             ly = max(oy + ty - 4, oy + 62)  # never under the top pill
             p.drawText(QPointF(ox + tx - p.fontMetrics().horizontalAdvance(label) / 2, ly), label)
-        # The stroke you are drawing in the air.
-        pts = scene.stroke_points(w, h)
+        self._draw_stroke(p, card)
+
+    def _draw_stroke(self, p: QPainter, card: QRectF) -> None:
+        """The stroke you are drawing in the air."""
+        ox, oy, w, h = card.left(), card.top(), card.width(), card.height()
+        pts = self.holo.stroke_points(w, h)
         if len(pts) >= 2:
             line = QPolygonF([QPointF(ox + x, oy + y) for x, y in pts])
             p.setBrush(Qt.BrushStyle.NoBrush)
@@ -1339,6 +1389,115 @@ class CameraWindow(QWidget):
             p.drawPolyline(line)
             p.setPen(QPen(QColor(220, 248, 255), 2.4, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
             p.drawPolyline(line)
+
+    def _draw_glass(self, p: QPainter, card: QRectF) -> None:
+        """Apple-style glass: the room behind seen frosted through each shape,
+        lit from the top left, a thin-film rainbow where the surface turns
+        away and a crisp iridescent rim along the silhouette."""
+        ox, oy, w, h = card.left(), card.top(), card.width(), card.height()
+        t = time.monotonic()
+        frost = getattr(self, "_frost", None)
+        shown = self._shown
+
+        def pt(xy: Any) -> QPointF:
+            return QPointF(ox + float(xy[0]), oy + float(xy[1]))
+
+        for ob in self.holo.glass(w, h):
+            cx, cy = ob["centre"]
+            centre = QPointF(ox + cx, oy + cy)
+            radius = max(ob["radius"], 8.0)
+            # Soft contact shadow below.
+            shadow = QRadialGradient(QPointF(centre.x(), centre.y() + radius * 1.05), radius * 0.7)
+            shadow.setColorAt(0, QColor(0, 0, 0, 45))
+            shadow.setColorAt(1, QColor(0, 0, 0, 0))
+            p.setPen(Qt.PenStyle.NoPen)
+            p.setBrush(shadow)
+            p.drawEllipse(QPointF(centre.x(), centre.y() + radius * 1.05), radius * 0.7, radius * 0.14)
+            body = QPainterPath()
+            body.setFillRule(Qt.FillRule.WindingFill)
+            for f in ob["faces"]:
+                body.addPolygon(QPolygonF([pt(xy) for xy in f["points"]]))
+                body.closeSubpath()
+            if body.isEmpty():
+                continue
+            r, g, b = ob["color"]
+            p.save()
+            p.setClipPath(body)
+            if ob["model"]:  # a designed object keeps its real materials
+                for f in ob["faces"]:
+                    fr, fg, fb = f["color"]
+                    k = f["shade"]
+                    p.setBrush(QColor.fromRgbF(min(1, fr * k + 0.05), min(1, fg * k + 0.05), min(1, fb * k + 0.06), 0.9))
+                    p.drawPolygon(QPolygonF([pt(xy) for xy in f["points"]]))
+            else:
+                if frost is not None and shown is not None:
+                    p.drawImage(shown[0], frost)  # the room, frosted
+                p.fillPath(body, QColor.fromRgbF(r, g, b, 0.22))  # a hint of colour
+                for i, f in enumerate(ob["faces"]):
+                    poly = QPolygonF([pt(xy) for xy in f["points"]])
+                    k = f["shade"]
+                    light = QColor(255, 255, 255, int(max(0.0, k - 0.55) * 150)) if k > 0.55 else QColor(10, 20, 40, int((0.55 - k) * 110))
+                    p.setBrush(light)
+                    p.drawPolygon(poly)
+                    if f["rim"] > 0.45:  # thin-film interference toward the edges
+                        hue = ((f["rim"] * 1.6 + t * 0.05 + i * 0.013) % 1.0)
+                        film = QColor.fromHsvF(hue, 0.55, 1.0, min(0.35, (f["rim"] - 0.45) * 0.7))
+                        p.setBrush(film)
+                        p.drawPolygon(poly)
+            # The shine where the light hits, and a glow at the bottom.
+            shine = QRadialGradient(QPointF(centre.x() - radius * 0.35, centre.y() - radius * 0.45), radius * 0.8)
+            shine.setColorAt(0, QColor(255, 255, 255, 120))
+            shine.setColorAt(0.5, QColor(255, 255, 255, 30))
+            shine.setColorAt(1, QColor(255, 255, 255, 0))
+            p.fillPath(body, QBrush(shine))
+            glow = QRadialGradient(QPointF(centre.x() + radius * 0.25, centre.y() + radius * 0.6), radius * 0.7)
+            glow.setColorAt(0, QColor(200, 230, 255, 55))
+            glow.setColorAt(1, QColor(200, 230, 255, 0))
+            p.fillPath(body, QBrush(glow))
+            p.restore()
+
+            def segs(lines: list) -> QPainterPath:
+                path = QPainterPath()
+                for a, b2 in lines:
+                    path.moveTo(pt(a))
+                    path.lineTo(pt(b2))
+                return path
+
+            p.setBrush(Qt.BrushStyle.NoBrush)
+            p.setPen(QPen(QColor(255, 255, 255, 40), 0.8))
+            p.drawPath(segs(ob["back_edges"]))  # seen through the glass
+            p.setPen(QPen(QColor(255, 255, 255, 150), 1.1))
+            p.drawPath(segs(ob["edges"]))
+            outline = segs(ob["outline"])
+            active = ob["held"] or ob["hover"]
+            if active:  # what a pinch would take (or is holding) glows
+                p.setPen(QPen(QColor(255, 255, 255, 90 if ob["held"] else 60), 7, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
+                p.drawPath(outline)
+            # Dispersion: red and blue fringes a pixel apart, then the rainbow rim.
+            for dx, colour in ((-1.2, QColor(255, 80, 120, 70)), (1.2, QColor(80, 160, 255, 70))):
+                p.save()
+                p.translate(dx, 0)
+                p.setPen(QPen(colour, 1.2))
+                p.drawPath(outline)
+                p.restore()
+            cone = QConicalGradient(centre, (t * 25 + ob["id"] * 40) % 360)
+            for stop, (cr, cg, cb) in RAINBOW:
+                cone.setColorAt(stop, QColor(cr, cg, cb, 235))
+            p.setPen(QPen(QBrush(cone), 2.2 if active else 1.6, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
+            p.drawPath(outline)
+            p.setPen(QPen(QColor(255, 255, 255, 170), 0.7))
+            p.drawPath(outline)
+            if ob["held"] or ob["hover"] or ob["selected"]:
+                label = f"{ob['name']} · {ob['size_cm']} cm"
+                p.setFont(_font(7.5, QFont.Weight.DemiBold))
+                tw = p.fontMetrics().horizontalAdvance(label) + 16
+                y = max(oy + 46, centre.y() - radius * 1.2 - 22)
+                chip = QRectF(centre.x() - tw / 2, y, tw, 18)
+                p.setPen(QPen(QColor(255, 255, 255, 90), 0.8))
+                p.setBrush(QColor(30, 30, 34, 150))
+                p.drawRoundedRect(chip, 9, 9)
+                p.setPen(QColor(255, 255, 255, 235))
+                p.drawText(chip, Qt.AlignmentFlag.AlignCenter, label)
 
     def _draw_pill(self, p: QPainter, card: QRectF, t: float) -> None:
         text = "Sergio ve"

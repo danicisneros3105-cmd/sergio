@@ -245,3 +245,86 @@ def test_voice_moves_and_turns_the_hologram(said, check):
     p0, r0 = obj.pos.copy(), obj.rot.copy()
     sc.command(said)
     assert check(obj, p0, r0)
+
+
+def test_every_shape_is_a_closed_solid_facing_outward():
+    from collections import Counter
+
+    for kind, make in holo.MAKERS.items():
+        mesh = make()
+        _u, ids = np.unique(np.round(mesh.vertices, 6), axis=0, return_inverse=True)
+        ids = ids.reshape(-1)
+        edges = Counter()
+        for face in mesh.faces:
+            g = [int(ids[i]) for i in face]
+            g = [x for k, x in enumerate(g) if x != g[k - 1]]
+            for a, b in zip(g, g[1:] + g[:1]):
+                edges[(a, b)] += 1
+        assert all(n == 1 and edges.get((b, a)) == 1 for (a, b), n in edges.items()), kind
+        v = mesh.vertices
+        volume = sum(
+            np.dot(v[f[0]], np.cross(v[f[k]], v[f[k + 1]])) / 6
+            for f in mesh.faces
+            for k in range(1, len(f) - 1)
+        )
+        assert volume > 0, kind  # outward: Blender and the glass light it right
+
+
+@pytest.mark.parametrize(
+    ("said", "kind", "answer"),
+    [
+        ("crea una estrella dorada", "estrella", "Creé 1 estrella dorada."),
+        ("crea dos corazones", "corazon", "Creé 2 corazones."),
+        ("crea una luna", "luna", "Creé 1 luna."),
+        ("crea un icosaedro", "icosaedro", "Creé 1 icosaedro."),
+    ],
+)
+def test_new_shapes_by_voice(said, kind, answer):
+    sc = holo.HoloScene()
+    assert sc.command(said) == answer and sc.objects[-1].kind == kind
+
+
+def test_glass_style_by_voice_and_its_drawing_data():
+    sc = holo.HoloScene()
+    assert sc.style == "cristal"
+    assert "holograma" in sc.command("estilo holograma") and sc.style == "holograma"
+    assert "cristal" in sc.command("estilo cristal") and sc.style == "cristal"
+    assert not sc.objects  # "cristal" is a style, not a diamond
+    sc.command("crea un cubo")
+    sc.command("crea una esfera")
+    (cube, ball) = sc.glass(*VIEW)[-2:] if sc.objects[0].pos[2] <= sc.objects[1].pos[2] else sc.glass(*VIEW)
+    for ob in (cube, ball):
+        assert ob["faces"] and ob["outline"] and ob["radius"] > 10
+        assert all(0 <= f["rim"] <= 1 for f in ob["faces"])
+    by_name = {o["name"].split()[0]: o for o in sc.glass(*VIEW)}
+    assert by_name["Cubo"]["edges"] or by_name["Cubo"]["back_edges"]  # sharp creases
+    assert not by_name["Esfera"]["edges"]  # smooth: no wire grid
+
+
+def test_a_flickering_pinch_does_not_drop_it_but_an_open_hand_does():
+    sc, cube, u, v = scene_with()
+    sc.update_hands([hand_at(u, v)], 1 / 30, True, 0.0)
+    assert cube.held
+    sc.update_hands([], 1 / 30, True, 0.03)  # the hand lost for a frame
+    assert cube.held and sc.grips
+    sc.update_hands([hand_at(u + 10, v)], 1 / 30, True, 0.06)
+    assert cube.held
+    sc.update_hands([], 1 / 30, True, 0.1)
+    sc.update_hands([], 1 / 30, True, 0.3)  # gone for good
+    assert not cube.held and not sc.grips
+
+
+def test_what_a_pinch_would_take_is_highlighted():
+    sc, cube, u, v = scene_with()
+    sc.update_hands([hand_at(u + 10, v, pinch=False)], 1 / 30, True, 0.0)
+    assert sc.hover == {0: cube.id}
+    sc.update_hands([hand_at(u, v)], 1 / 30, True, 0.03)
+    assert sc.hover == {} and cube.held
+
+
+def test_a_trembling_wrist_does_not_turn_it():
+    sc, cube, u, v = scene_with()
+    rot0 = cube.rot.copy()
+    sc.update_hands([hand_at(u, v)], 1 / 30, True, 0.0)
+    sc.update_hands([hand_at(u, v, angle=math.radians(2))], 1 / 30, True, 0.03)
+    assert np.allclose(cube.rot, rot0)

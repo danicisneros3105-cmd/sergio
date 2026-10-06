@@ -14,8 +14,17 @@
   stroke becomes a tube (a 3D pen), a turned vase (lathe) or an extruded
   shape.
 * By voice: "crea un cubo / una esfera / un cilindro / un cono / un toroide /
-  una pirámide / un jarrón / un diamante", colours, "más grande", "gíralo",
-  "duplícalo", "bórralo", "suavízalo", "gravedad", "pásalo a Blender".
+  una pirámide / un jarrón / un diamante / una estrella / un corazón / un
+  prisma / un icosaedro / una cápsula / un disco / una flecha / una luna",
+  colours, "más grande", "gíralo", "duplícalo", "bórralo", "suavízalo",
+  "gravedad", "estilo cristal" / "estilo holograma", "pásalo a Blender".
+  Anything else ("un teléfono", "una silla") is designed part by part.
+
+They look like frosted glass by default (the camera behind them blurred,
+iridescent edges); "estilo holograma" brings back the JARVIS blue light.
+Grabbing is forgiving: whatever your fingers are over glows before you
+pinch, a pinch that flickers for a frame does not drop it, and the wrist
+must turn a few degrees before the object turns (no jitter).
 
 Everything here is numpy maths (tested without a camera). ``to_bpy`` turns
 the scene into a Blender script that rebuilds it and saves the .blend.
@@ -36,7 +45,11 @@ HALF_W = 1.6  # half the view width at z = 0, in metres
 FLOOR = -0.85
 GRAVITY = 3.2
 PINCH_ON, PINCH_OFF = 0.40, 0.55  # thumb-index distance / palm size (forgiving)
+OPEN_HAND = 0.80  # fingers clearly apart: let go at once
+GRACE = 0.15  # s a half-open pinch or a lost hand keeps holding
+TURN_DEADZONE = math.radians(4)  # wrist jitter below this does not turn it
 DEPTH_GAIN = 1.6
+STYLES = ("cristal", "holograma")
 
 COLORS = {
     "cian": (0.30, 0.85, 1.00),
@@ -61,7 +74,14 @@ SHAPE_WORDS = {
     "toroide": "toroide", "dona": "toroide", "anillo": "toroide", "rosquilla": "toroide",
     "piramide": "piramide",
     "jarron": "jarron", "florero": "jarron", "vaso": "jarron", "copa": "jarron",
-    "diamante": "diamante", "gema": "diamante", "cristal": "diamante",
+    "diamante": "diamante", "gema": "diamante",
+    "estrella": "estrella", "corazon": "corazon",
+    "prisma": "prisma", "hexagono": "prisma",
+    "icosaedro": "icosaedro", "dado20": "icosaedro", "poliedro": "icosaedro",
+    "capsula": "capsula", "pastilla": "capsula",
+    "disco": "disco", "moneda": "disco",
+    "flecha": "flecha",
+    "luna": "luna", "medialuna": "luna",
 }  # fmt: skip
 NUMBERS = {"un": 1, "una": 1, "uno": 1, "dos": 2, "tres": 3, "cuatro": 4, "cinco": 5,
            "seis": 6, "siete": 7, "ocho": 8, "nueve": 9, "diez": 10}  # fmt: skip
@@ -201,6 +221,154 @@ def diamond(size: float = 0.5) -> Mesh:
         10,
     )
     mesh.smooth = False
+    return mesh
+
+
+def extrude_outline(
+    outline: Sequence[tuple[float, float]],
+    depth: float = 0.16,
+    bevel: float = 0.25,
+    centre: tuple[float, float] = (0.0, 0.0),
+) -> Mesh:
+    """A flat outline made solid with chamfered edges (they catch the light).
+
+    The caps are fans around *centre*, so the outline only has to be visible
+    from it (a star, a heart, an arrow), not convex. *bevel* is how far the
+    caps shrink toward *centre* (0 = square edges).
+    """
+    pts = np.asarray(outline, float)
+    c = np.asarray(centre, float)
+    area = 0.5 * float(np.sum(pts[:, 0] * np.roll(pts[:, 1], -1) - np.roll(pts[:, 0], -1) * pts[:, 1]))
+    if area < 0:
+        pts = pts[::-1]
+    n = len(pts)
+    inset = c + (pts - c) * (1 - bevel)
+    b = depth * 0.3 if bevel else 0.0
+    layers = [(inset, depth / 2), (pts, depth / 2 - b), (pts, -depth / 2 + b), (inset, -depth / 2)]
+    verts = [[x, y, z] for ring, z in layers for x, y in ring]
+    faces: list[tuple[int, ...]] = []
+    for k in range(len(layers) - 1):
+        a0, a1 = k * n, (k + 1) * n
+        for i in range(n):
+            j = (i + 1) % n
+            faces.append((a0 + j, a0 + i, a1 + i, a1 + j))
+    front = len(verts)
+    verts.append([c[0], c[1], depth / 2])
+    back = len(verts)
+    verts.append([c[0], c[1], -depth / 2])
+    last = (len(layers) - 1) * n
+    for i in range(n):
+        j = (i + 1) % n
+        faces.append((front, i, j))
+        faces.append((back, last + j, last + i))
+    return Mesh(np.array(verts, float), faces)
+
+
+def _outward(mesh: Mesh) -> Mesh:
+    """Flip any face whose normal points to the centre (convex solids only)."""
+    v = mesh.vertices
+    centre = (v.max(axis=0) + v.min(axis=0)) / 2
+    fixed = []
+    for face in mesh.faces:
+        a, b, c = v[face[0]], v[face[1]], v[face[2]]
+        normal = np.cross(b - a, c - a)
+        mid = v[list(face)].mean(axis=0)
+        fixed.append(tuple(reversed(face)) if float(np.dot(normal, mid - centre)) < 0 else face)
+    mesh.faces = fixed
+    return mesh
+
+
+def star(points: int = 5, outer: float = 0.32, inner: float = 0.14, depth: float = 0.14) -> Mesh:
+    outline = [
+        ((outer if k % 2 == 0 else inner) * math.cos(math.pi / 2 + math.pi * k / points),
+         (outer if k % 2 == 0 else inner) * math.sin(math.pi / 2 + math.pi * k / points))
+        for k in range(2 * points)
+    ]  # fmt: skip
+    return extrude_outline(outline, depth, 0.18)
+
+
+def heart(size: float = 0.55, depth: float = 0.16) -> Mesh:
+    outline = []
+    for k in range(48):
+        t = 2 * math.pi * k / 48
+        x = 16 * math.sin(t) ** 3
+        y = 13 * math.cos(t) - 5 * math.cos(2 * t) - 2 * math.cos(3 * t) - math.cos(4 * t)
+        outline.append((x * size / 34, (y + 2.5) * size / 34))
+    mesh = extrude_outline(outline, depth, 0.16)
+    mesh.smooth = True
+    return mesh
+
+
+def arrow(length: float = 0.6, depth: float = 0.12) -> Mesh:
+    h = length / 2
+    outline = [(-h, -0.06), (0.1, -0.06), (0.1, -0.16), (h, 0.0), (0.1, 0.16), (0.1, 0.06), (-h, 0.06)]
+    return extrude_outline(outline, depth, 0.12, centre=(0.08, 0.0))
+
+
+def crescent(radius: float = 0.3, depth: float = 0.14, steps: int = 20) -> Mesh:
+    """A crescent moon: a strip between two arcs, chamfered."""
+    a0, a1 = math.radians(-125), math.radians(125)
+    outer = [(radius * math.cos(a0 + (a1 - a0) * i / steps), radius * math.sin(a0 + (a1 - a0) * i / steps))
+             for i in range(steps + 1)]  # fmt: skip
+    tip0, tip1 = np.array(outer[0]), np.array(outer[-1])
+    # inner arc: the bite, a circle shifted left through both tips whose
+    # right edge stays inside the outer one
+    shift = -0.475 * radius
+    centre = np.array([shift, 0.0])
+    r2 = float(np.linalg.norm(tip0 - centre))
+    b0 = math.atan2(tip0[1], tip0[0] - shift)
+    b1 = math.atan2(tip1[1], tip1[0] - shift)
+    if b1 < b0:
+        b1 += 2 * math.pi
+    inner = [(shift + r2 * math.cos(b0 + (b1 - b0) * i / steps), r2 * math.sin(b0 + (b1 - b0) * i / steps))
+             for i in range(steps + 1)]  # fmt: skip
+    verts, faces = [], []
+    for z in (depth / 2, -depth / 2):
+        for (ox, oy), (ix, iy) in zip(outer, inner):
+            verts.append([ox, oy, z])
+            verts.append([ix, iy, z])
+    m = 2 * (steps + 1)
+    for i in range(steps):
+        o0, i0, o1, i1 = 2 * i, 2 * i + 1, 2 * i + 2, 2 * i + 3
+        faces.append((o0, o1, i1, i0))  # front
+        faces.append((m + o0, m + i0, m + i1, m + o1))  # back
+        faces.append((o0, m + o0, m + o1, o1))  # outer rim
+        faces.append((i0, i1, m + i1, m + i0))  # inner rim
+    mesh = Mesh(np.array(verts, float), faces)
+    mesh.vertices[:, 0] -= (mesh.vertices[:, 0].max() + mesh.vertices[:, 0].min()) / 2
+    return mesh
+
+
+def prism(radius: float = 0.26, height: float = 0.5, sides: int = 6) -> Mesh:
+    mesh = revolve([(radius, -height / 2), (radius, height / 2)], sides)
+    mesh.smooth = False
+    return mesh
+
+
+def icosahedron(radius: float = 0.3) -> Mesh:
+    g = (1 + math.sqrt(5)) / 2
+    v = np.array([[-1, g, 0], [1, g, 0], [-1, -g, 0], [1, -g, 0],
+                  [0, -1, g], [0, 1, g], [0, -1, -g], [0, 1, -g],
+                  [g, 0, -1], [g, 0, 1], [-g, 0, -1], [-g, 0, 1]], float)  # fmt: skip
+    v = v / np.linalg.norm(v[0]) * radius
+    faces = [(0, 11, 5), (0, 5, 1), (0, 1, 7), (0, 7, 10), (0, 10, 11), (1, 5, 9), (5, 11, 4),
+             (11, 10, 2), (10, 7, 6), (7, 1, 8), (3, 9, 4), (3, 4, 2), (3, 2, 6), (3, 6, 8),
+             (3, 8, 9), (4, 9, 5), (2, 4, 11), (6, 2, 10), (8, 6, 7), (9, 8, 1)]  # fmt: skip
+    return _outward(Mesh(v, faces))
+
+
+def capsule(radius: float = 0.14, height: float = 0.56, steps: int = 6) -> Mesh:
+    half = height / 2 - radius
+    profile = [(radius * math.sin(math.pi / 2 * i / steps), -half - radius * math.cos(math.pi / 2 * i / steps))
+               for i in range(steps + 1)]  # fmt: skip
+    profile += [(radius * math.cos(math.pi / 2 * i / steps), half + radius * math.sin(math.pi / 2 * i / steps))
+                for i in range(steps + 1)]  # fmt: skip
+    return revolve(profile, 20, cap=False)
+
+
+def disc(radius: float = 0.3, thick: float = 0.06) -> Mesh:
+    mesh = revolve([(radius * 0.9, -thick / 2), (radius, -thick / 4), (radius, thick / 4), (radius * 0.9, thick / 2)], 32)
+    mesh.smooth = True
     return mesh
 
 
@@ -356,11 +524,23 @@ MAKERS = {
     "piramide": pyramid,
     "jarron": vase,
     "diamante": diamond,
+    "estrella": star,
+    "corazon": heart,
+    "prisma": prism,
+    "icosaedro": icosahedron,
+    "capsula": capsule,
+    "disco": disc,
+    "flecha": arrow,
+    "luna": crescent,
 }
 NAMES_ES = {"cubo": "Cubo", "esfera": "Esfera", "cilindro": "Cilindro", "cono": "Cono",
             "toroide": "Toroide", "piramide": "Pirámide", "jarron": "Jarrón",
             "diamante": "Diamante", "tubo": "Trazo", "torno": "Torneado",
-            "extrusion": "Extrusión"}  # fmt: skip
+            "extrusion": "Extrusión", "estrella": "Estrella", "corazon": "Corazón",
+            "prisma": "Prisma", "icosaedro": "Icosaedro", "capsula": "Cápsula",
+            "disco": "Disco", "flecha": "Flecha", "luna": "Luna"}  # fmt: skip
+PLURALS_ES = {"corazon": "corazones", "capsula": "cápsulas", "piramide": "pirámides",
+              "jarron": "jarrones", "toroide": "toroides"}  # fmt: skip
 
 
 # -- rotations -------------------------------------------------------------------
@@ -506,6 +686,7 @@ class Grip:
     pos0: np.ndarray
     scale0: float = 1.0
     vertex: int = -1  # sculpting: the vertex pulled
+    turning: bool = False  # the wrist passed the dead zone
     verts0: np.ndarray | None = None
     trail: list[tuple[float, np.ndarray, np.ndarray]] = field(default_factory=list)
 
@@ -534,8 +715,11 @@ class HoloScene:
         self.stroke_hand = -1
         self.last_hands: list[np.ndarray] = []
         self.selected = -1
+        self.style = "cristal"
+        self.hover: dict[int, int] = {}  # hand -> the hologram a pinch would take
         self._next = 1
         self._prev_palm_x: dict[int, tuple[float, float]] = {}
+        self._off_since: dict[int, float] = {}  # hand -> when the pinch let go
 
     # -- objects ------------------------------------------------------------------
     def add(self, kind: str, mesh: Mesh | None = None, color: tuple[float, float, float] | None = None,
@@ -647,6 +831,12 @@ class HoloScene:
         if re.search(r"\b(mover|modo normal|agarrar|manipular)\b", t):
             self.mode = "mover"
             return "Modo mover: pellizca un holograma para agarrarlo."
+        if re.search(r"\b(cristal|vidrio|glass|apple)\b", t) and not re.search(r"\b(crea|haz|pon)\b.*\b(de|en) (cristal|vidrio)\b", t):
+            self.style = "cristal"
+            return "Estilo cristal: vidrio esmerilado con reflejos de arcoíris."
+        if re.search(r"\b(estilo|aspecto|modo) (de )?(holograma|jarvis|azul|iron man)\b", t):
+            self.style = "holograma"
+            return "Estilo holograma: luz azul, estilo JARVIS."
         if "gravedad" in t or "fisica" in t:
             self.gravity = not re.search(r"\b(sin|quita|apaga|cero)\b", t)
             return (
@@ -727,8 +917,10 @@ class HoloScene:
             for _ in range(count):
                 self.add(shape, color=COLORS.get(colour) if colour else None)
             what = NAMES_ES[shape].lower()
+            if count > 1:
+                what = PLURALS_ES.get(shape, what + "s")
             return (
-                f"Creé {count} {what}{'s' if count > 1 else ''}"
+                f"Creé {count} {what}"
                 + (f" {said_colour}" if colour else "")
                 + "."
             )
@@ -755,24 +947,47 @@ class HoloScene:
         self.last_hands = pts
         for i in range(2):
             if i >= len(pts):
+                self.hover.pop(i, None)
+                # A hand lost for a frame or two keeps what it holds.
+                if self.pinching.get(i) and self._held_on(i, now):
+                    continue
                 self._release(i, now)
                 self.pinching[i] = False
+                self._off_since.pop(i, None)
                 continue
             p = pts[i]
             amount = pinch_amount(p)
             was = self.pinching.get(i, False)
             on = amount < (PINCH_OFF if was else PINCH_ON)
-            self.pinching[i] = on
             point = (p[4] + p[8]) / 2
+            if was and not on and amount < OPEN_HAND and self._held_on(i, now):
+                on = True  # half open for an instant: still holding
+            elif on:
+                self._off_since.pop(i, None)
+            self.pinching[i] = on
             if on and not was:
                 self._grab(i, p, point, now)
             elif on:
                 self._drag(i, p, point, now)
             elif was:
                 self._release(i, now)
+                self._off_since.pop(i, None)
             elif open_palm(p):
                 self._sweep(i, p, now)
+            if on:
+                self.hover.pop(i, None)
+            else:
+                near = self.pick(point[0], point[1]) if self.mode != "dibujar" else None
+                if near is None:
+                    self.hover.pop(i, None)
+                else:
+                    self.hover[i] = near.id
         self._two_hands(pts)
+
+    def _held_on(self, i: int, now: float) -> bool:
+        """Still within the grace time after the pinch (or the hand) went away."""
+        since = self._off_since.setdefault(i, now)
+        return now - since < GRACE
 
     def _grab(self, i: int, p: np.ndarray, point: np.ndarray, now: float) -> None:
         obj = self.pick(point[0], point[1])
@@ -841,7 +1056,9 @@ class HoloScene:
             return
         obj.pos = grip.pos0 + (now_pt - start)
         turn = hand_frame(p) @ grip.hand0.T
-        obj.rot = orthonormal(turn @ grip.rot0)
+        if axis_angle(turn)[1] >= TURN_DEADZONE or grip.turning:
+            grip.turning = True  # past the dead zone: follows the wrist exactly
+            obj.rot = orthonormal(turn @ grip.rot0)
         grip.trail.append((now, obj.pos.copy(), obj.rot.copy()))
         grip.trail = [t for t in grip.trail if now - t[0] < 0.15]
 
@@ -1002,6 +1219,125 @@ class HoloScene:
                 )
         out.sort(key=lambda f: -f["depth"])
         return out
+
+    def glass(self, width: float, height: float) -> list[dict]:
+        """What the glass look needs, one entry per hologram, far to near.
+
+        * ``faces``: front faces (view px), their shade 0..1 and how much
+          they turn away from you (``rim`` 0..1: the thin-film rainbow);
+        * ``outline``: the silhouette as segments (where a front face meets
+          a back face) — the rainbow edge is drawn along it;
+        * ``edges`` / ``back_edges``: the sharp creases in front / seen
+          through the glass (none on smooth shapes);
+        * ``centre`` and ``radius`` in view px, for the shine and shadow.
+        """
+        self.view = (width, height)
+        light = np.array([-0.4, 0.7, 0.6])
+        light /= np.linalg.norm(light)
+        eye = np.array([0.0, 0.0, CAM_Z])
+        out = []
+        for obj in sorted(self.objects, key=lambda o: o.pos[2]):  # far (low z) first
+            if not obj.mesh.faces:
+                continue
+            world = obj.world()
+            screen, depth = project(world, width, height)
+            tri = np.array([f[:3] for f in obj.mesh.faces])
+            a, b, c = world[tri[:, 0]], world[tri[:, 1]], world[tri[:, 2]]
+            n = np.cross(b - a, c - a)
+            norm = np.linalg.norm(n, axis=1)
+            ok = norm > 1e-12
+            n[ok] /= norm[ok, None]
+            centre = (a + b + c) / 3
+            to_eye = eye - centre
+            to_eye /= np.linalg.norm(to_eye, axis=1)[:, None] + 1e-12
+            facing = np.einsum("ij,ij->i", n, to_eye)
+            front = (facing > 0) & ok
+            shade = 0.35 + 0.65 * np.clip(n @ light, 0.0, None)
+            order = np.argsort(-depth[tri].mean(axis=1))
+            colors = obj.mesh.colors
+            faces = [
+                {
+                    "points": screen[list(obj.mesh.faces[i])],
+                    "shade": float(shade[i]),
+                    "rim": float(1 - abs(facing[i])),
+                    "color": colors[i] if colors and i < len(colors) else obj.color,
+                }
+                for i in order
+                if front[i]
+            ]
+            pairs, lone = self._adjacency(obj.mesh)
+            outline, edges, back = [], [], []
+            if len(pairs):
+                f1, f2 = pairs[:, 2], pairs[:, 3]
+                sil = front[f1] != front[f2]
+                crease = ~sil & (np.einsum("ij,ij->i", n[f1], n[f2]) < math.cos(math.radians(20)))
+                if obj.mesh.smooth:
+                    crease[:] = False
+                for (va, vb, fa, _fb), is_sil, is_crease in zip(pairs, sil, crease):
+                    seg = (screen[va], screen[vb])
+                    if is_sil:
+                        outline.append(seg)
+                    elif is_crease:
+                        (edges if front[fa] else back).append(seg)
+            for va, vb, fa in lone:  # open borders (a drawn tube's ends are closed)
+                if front[fa]:
+                    outline.append((screen[va], screen[vb]))
+            ((cx, cy),) = project(obj.pos[None], width, height)[0]
+            k = CAM_Z / max(CAM_Z - obj.pos[2], 0.05) * (width / 2) / HALF_W
+            out.append(
+                {
+                    "id": obj.id,
+                    "name": obj.name,
+                    "size_cm": obj.size_cm(),
+                    "faces": faces,
+                    "outline": outline,
+                    "edges": edges,
+                    "back_edges": back,
+                    "centre": (float(cx), float(cy)),
+                    "radius": float(obj.radius() * k),
+                    "color": obj.color,
+                    "model": colors is not None,
+                    "held": obj.held,
+                    "selected": obj.id == self.selected,
+                    "hover": obj.id in self.hover.values(),
+                }
+            )
+        return out
+
+    def _adjacency(self, mesh: Mesh) -> tuple[np.ndarray, list[tuple[int, int, int]]]:
+        """Edges with their two faces (va, vb, face1, face2), and lone edges.
+
+        Cached per mesh topology (sculpting moves vertices, not faces)."""
+        cache = getattr(self, "_adj_cache", None)
+        if cache is None:
+            cache = self._adj_cache = {}
+        key = id(mesh.faces)
+        hit = cache.get(key)
+        if hit is not None and hit[0] is mesh.faces:
+            return hit[1], hit[2]
+        # Coincident vertices (a sphere's poles, a crescent's tips) count as one.
+        _uniq, ids = np.unique(np.round(mesh.vertices, 6), axis=0, return_inverse=True)
+        ids = ids.reshape(-1)
+        seen: dict[tuple[int, int], tuple[int, int, int]] = {}
+        pairs = []
+        for fi, face in enumerate(mesh.faces):
+            for k in range(len(face)):
+                va, vb = face[k], face[(k + 1) % len(face)]
+                ka, kb = int(ids[va]), int(ids[vb])
+                if ka == kb:
+                    continue
+                key2 = (min(ka, kb), max(ka, kb))
+                first = seen.pop(key2, None)
+                if first is None:
+                    seen[key2] = (va, vb, fi)
+                elif first[2] != fi:
+                    pairs.append((first[0], first[1], first[2], fi))
+        arr = np.array(pairs, int).reshape(-1, 4)
+        lone = list(seen.values())
+        if len(cache) > 64:
+            cache.clear()
+        cache[key] = (mesh.faces, arr, lone)
+        return arr, lone
 
     def stroke_points(self, width: float, height: float) -> np.ndarray:
         if not self.stroke:
