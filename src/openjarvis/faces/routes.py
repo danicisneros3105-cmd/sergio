@@ -40,16 +40,88 @@ async def list_people() -> dict[str, Any]:
     return {"people": _get_book().people()}
 
 
+def owner_name() -> str:
+    """Whose assistant this is (Sergio calls them «señor»): SERGIO_OWNER_NAME,
+    else phone.owner_name, else the person enrolled first."""
+    import os
+
+    name = os.environ.get("SERGIO_OWNER_NAME", "").strip()
+    if not name:
+        try:
+            from openjarvis.tools.desktop_tools import _config_owner
+
+            name = _config_owner()
+        except Exception:  # noqa: BLE001
+            name = ""
+    if name:
+        from openjarvis.faces.book import clean_name
+
+        return clean_name(name)
+    try:
+        people = _get_book().people()
+    except Exception:  # noqa: BLE001
+        return ""
+    first = min(people, key=lambda p: p.get("enrolled_at") or 0, default=None)
+    return str(first["name"]) if first else ""
+
+
+@router.get("/owner")
+async def owner() -> dict[str, Any]:
+    return {"owner": owner_name()}
+
+
 @router.post("/identify")
-async def identify(image: UploadFile = File(...)) -> dict[str, Any]:
+async def identify(image: UploadFile = File(...), learn: bool = Form(False)) -> dict[str, Any]:
+    """Who is in a camera frame. *learn*: keep learning faces it is very sure
+    of from the angles it lacks (the companion asks for it while it watches)."""
     data = await _read(image)
     try:
-        matches = await asyncio.to_thread(_get_book().identify, data)
+        matches = await asyncio.to_thread(_get_book().identify, data, learn=learn)
     except FaceError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except ImportError as exc:
         raise _missing_opencv() from exc
-    return {"faces": [m.to_dict() for m in matches]}
+    boss = owner_name().lower()
+    faces = []
+    for m in matches:
+        face = m.to_dict()
+        face["owner"] = bool(m.name) and m.name.lower() == boss
+        faces.append(face)
+    return {"faces": faces, "owner": owner_name()}
+
+
+@router.post("/scan")
+async def scan(
+    name: str = Form(...),
+    consent: bool = Form(False),
+    mesh: str = Form(""),
+    images: list[UploadFile] = File(...),
+) -> dict[str, Any]:
+    """Face ID-style enrolment: frames of one person turning their head."""
+    import json
+
+    frames = [await _read(image) for image in images[:80]]
+    try:
+        mesh_data = json.loads(mesh) if mesh else None
+    except ValueError:
+        mesh_data = None
+    try:
+        out = await asyncio.to_thread(
+            _get_book().scan, name, frames, consent=consent, mesh=mesh_data
+        )
+    except FaceError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except ImportError as exc:
+        raise _missing_opencv() from exc
+    return out
+
+
+@router.get("/mesh/{name}")
+async def mesh(name: str) -> dict[str, Any]:
+    found = _get_book().mesh(name)
+    if not found:
+        raise HTTPException(status_code=404, detail=f"No 3D map for {name}")
+    return found
 
 
 def _points(faces: str) -> list[dict] | None:

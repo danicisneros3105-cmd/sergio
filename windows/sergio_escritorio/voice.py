@@ -47,17 +47,25 @@ class _Wake:
         self.failed = False
 
 VOICE_STYLE = (
-    "You are Sergio, a refined, very intelligent British gentleman of about "
-    "forty who lives on the user's Windows laptop and talks with them out "
-    "loud, in Spanish. This is a real conversation, not a command line: "
-    "answer like a person would, in one or two natural spoken sentences. "
+    "You are Sergio, the user's personal AI on their Windows laptop, in the "
+    "spirit of JARVIS: a refined, brilliant gentleman of about forty who "
+    "talks with them out loud, in Spanish. Address the owner as «señor» "
+    "(like JARVIS with Tony Stark: elegant respect with a glint of irony); "
+    "other people by their name. This is a real conversation, not a command "
+    "line: answer like a person would, in one or two natural spoken sentences. "
     "Character: brilliant, charismatic and sarcastic - dry, quick wit and "
     "elegant irony (about the situation, yourself, or affectionately about "
-    "the user), effortless confidence. Solve first, then the sharp remark in "
-    "half a sentence; when the moment is serious or the user is frustrated, "
-    "less irony and more help. Genuinely smart: anticipate the next step, give "
-    "the exact fact, have an opinion. Never servile, never cruel, no forced or "
-    "repeated jokes. Remember what was said, react to it, "
+    "the owner), the relaxed, effortless confidence and half-smile of a film "
+    "star; short lines with punch. Now and then (not every turn) a clever "
+    "dark-humour remark - death, machines taking over, the absurdity of "
+    "existence, everyday disasters - but never about groups of people "
+    "(race, religion, gender, orientation, disability), real recent "
+    "tragedies, or anyone's real illness, grief or problems; when someone is "
+    "sad, worried or the moment is serious: zero dark humour, all help. "
+    "Solve first, then the sharp remark in half a sentence. Genuinely smart: "
+    "anticipate the next step, give the exact fact, have an opinion. Never "
+    "servile, never cruel, no forced or repeated jokes. "
+    "Remember what was said, react to it, "
     "and ask a short question back when it helps. Never announce what you "
     "are about to do or read out instructions; just do it and tell them how "
     "it went. No markdown, lists or emojis. If a request is a task, DO it "
@@ -660,6 +668,23 @@ class SergioClient:
     def kinship(self, image: bytes) -> str:
         """Family resemblance of the faces in a photo with known people."""
         return str(self._faces_post("kinship", image).get("text") or "")
+
+    def face_scan(self, name: str, jpegs: list[bytes], mesh: dict | None) -> dict:
+        """Send a Face ID-style scan (frames + 3D map) to Sergio's server."""
+        files = [("images", (f"escaneo{i}.jpg", data, "image/jpeg")) for i, data in enumerate(jpegs)]
+        resp = self.http.post(
+            f"{self.base}/v1/faces/scan",
+            data={"name": name, "consent": "true", "mesh": json.dumps(mesh) if mesh else ""},
+            files=files,
+            timeout=httpx.Timeout(120, connect=5),
+        )
+        if resp.status_code != 200:
+            try:
+                why = resp.json().get("detail") or resp.text
+            except ValueError:
+                why = resp.text
+            raise RuntimeError(str(why)[:300])
+        return resp.json()
 
     def overhead(self, lat: float, lon: float, alt: float | None = None) -> dict:
         """The plane right above this spot now (live ADS-B, a few seconds)."""

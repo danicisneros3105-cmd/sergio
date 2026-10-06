@@ -80,6 +80,9 @@ class FakeDesktop:
     def start_program(self, names):
         return False
 
+    def find_program(self, names):
+        return ""
+
     def to_front_here(self, hwnd):
         self.front.append(hwnd)
 
@@ -204,3 +207,17 @@ def test_start_apps_falls_back_to_the_apps_folder():
         return "" if len(seen) == 1 else json.dumps([{"Name": "Bloc de notas", "AppID": "Notepad!App"}])
 
     assert scan_start_apps(run=run)[0].name == "Bloc de notas" and "AppsFolder" in seen[1]
+
+
+def test_resolve_finds_the_app_without_opening_anything():
+    """`sergio probar` checks «abre la calculadora» without opening it (it
+    used to open the Calculator and close it a second later)."""
+    desk = FakeDesktop([])
+    assert launcher(desk).resolve("calculadora") == "Calculadora"
+    bare = Launcher(AppIndex([]), desk, rescan=lambda: AppIndex([]))
+    assert bare.resolve("calculadora") == "calculator:"  # Windows' own link
+    assert desk.uris == [] and desk.launched == [] and desk.closed == []
+    assert launcher(desk).resolve("spotify") == "Spotify"
+    assert desk.launched == []
+    with pytest.raises(LookupError):
+        bare.resolve("ninguna app rara")

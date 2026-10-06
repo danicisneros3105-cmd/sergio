@@ -246,11 +246,15 @@ def someone_there(
 class FaceWatcher:
     """Automatic face recognition while the camera is on.
 
-    Every *interval* seconds the latest frame goes to Sergio's face models
-    (YuNet + SFace on the server); results carry names, boxes and, for
-    strangers, a number ("Persona 2"). A person is greeted (``on_person``)
-    only after being recognised in two looks in a row, and at most once
-    every *greet_after* seconds: one lucky frame never greets a stranger.
+    The latest frame goes to Sergio's face models (YuNet + SFace on the
+    server, ~50 ms); results carry names, boxes and, for strangers, a
+    number ("Persona 2"). It looks fast (*fast* seconds) while a face in view
+    is still unnamed and slowly (*interval*) once everyone is known, and
+    ``poke()`` makes it look at once (a new face appeared): a face used to
+    wait 1.5 s per look and needed two looks. A person is greeted
+    (``on_person``) only after being recognised in two looks in a row, and
+    at most once every *greet_after* seconds: one lucky frame never greets a
+    stranger.
     """
 
     def __init__(
@@ -259,6 +263,8 @@ class FaceWatcher:
         identify: Callable[[bytes], list[dict]],
         *,
         interval: float = 1.5,
+        fast: float = 0.25,
+        empty: float = 0.6,
         greet_after: float = 600.0,
         on_person: Callable[[str], None] = lambda _name: None,
         on_faces: Callable[[list[dict]], None] = lambda _faces: None,
@@ -267,6 +273,8 @@ class FaceWatcher:
         self.frames = frames
         self.identify = identify
         self.interval = interval
+        self.fast = fast
+        self.empty = empty
         self.greet_after = greet_after
         self.on_person = on_person
         self.on_faces = on_faces
@@ -274,10 +282,12 @@ class FaceWatcher:
         self.faces: list[dict] = []  # {"name", "score", "box" (px), "nbox" (0..1)}
         self.updated = 0.0
         self.error = ""
+        self.owner = ""  # whose assistant this is (the server says)
         self._last_seen: dict[str, float] = {}
         self._away_since: dict[str, float] = {}
         self._streak: dict[str, int] = {}
         self._running = False
+        self._wake = threading.Event()
 
     def start(self) -> None:
         if not self._running:
@@ -286,6 +296,11 @@ class FaceWatcher:
 
     def stop(self) -> None:
         self._running = False
+        self._wake.set()
+
+    def poke(self) -> None:
+        """Look now (a new face appeared)."""
+        self._wake.set()
 
     def check(self, frame: Any) -> list[dict]:
         """Recognise the faces in one frame (scaled down to 640 px wide)."""
@@ -311,12 +326,24 @@ class FaceWatcher:
                     "nbox": (box[0] / w, box[1] / h, box[2] / w, box[3] / h),
                     "guest": int(face.get("guest") or 0),
                     "quality": face.get("quality") or "ok",
+                    "strong": bool(face.get("strong")),
+                    "owner": bool(face.get("owner")),
+                    "angle": face.get("angle") or "",
+                    "learned": bool(face.get("learned")),
                 }
             )
         self.faces, self.updated = found, self.clock()
         self.on_faces(found)
         self._greet({f["name"] for f in found if f["name"]}, self.clock())
         return found
+
+    def wait(self) -> float:
+        """Seconds until the next look: quick while someone is unnamed."""
+        if not self.faces:
+            return self.empty
+        if any(not f["name"] for f in self.faces):
+            return self.fast
+        return self.interval
 
     def _greet(self, names: set[str], now: float) -> None:
         """Greet someone on their second look in a row, after a long absence."""
@@ -346,7 +373,8 @@ class FaceWatcher:
                     self.error = ""
                 except Exception as exc:  # noqa: BLE001 — server busy/offline
                     self.error = str(exc)[:200]
-            time.sleep(self.interval)
+            self._wake.wait(self.wait() if not self.error else self.interval)
+            self._wake.clear()
 
 
 MARGIN = 10.0  # room for the soft shadow
@@ -430,6 +458,9 @@ class CameraWindow(QWidget):
         self.hands = hands  # HandControl (mode + latest hands), optional
         self.watcher: FaceWatcher | None = None  # automatic face recognition
         self.vision: Any = None  # VisionEngine: objects, species, face mesh
+        self.scanner: Any = None  # facescan.Scanner while a Face ID-style scan runs
+        self.scan_text: list[str] = []  # what the last scan learnt (shown with the 3D map)
+        self._scan_edges: list[tuple[int, int]] | None = None
         from sergio_escritorio.holo import HoloScene
 
         self.holo = HoloScene()  # holograms you shape with your hands
@@ -689,15 +720,21 @@ class CameraWindow(QWidget):
             )
             p.drawImage(origin, img)
             self._shown = (origin, float(img.width()), float(img.height()))
-            if self.vision is not None:
+            scanning = self.scanner is not None and (
+                self.scanner.active
+                or (self.scanner.result is not None and time.monotonic() - self.scanner.finished_at < 6.0)
+            )
+            if self.vision is not None and not scanning:
                 if self.detail:
                     self._draw_pose(p)
                 self._draw_tracks(p)
                 self._draw_mesh(p)
                 if self.detail:
                     self._draw_vitals(p, card)
-            else:
+            elif self.vision is None:
                 self._draw_faces(p, origin, img.width())
+            if self.scanner is not None:
+                self._draw_face_scan(p, card)
             self._draw_holo(p, card)
             self._draw_hands(p)
         else:
@@ -875,15 +912,26 @@ class CameraWindow(QWidget):
                 continue
             owner = next((t for t in people if self._face_of(t, [face]) is face), None)
             known = bool(owner and owner.name)
+            settled = bool(owner is not None and owner.settled)
             colour = KIND_COLORS["conocido" if known else "persona"]
             rect = self._map_box(face.box).adjusted(-8, -14, 8, 6)
             self._brackets(p, rect, colour, 2.2)
+            if not self.detail:
+                # Clean view: while it analyses the face, a 3D scan sweeps the
+                # 478 points; once it knows who it is the points are hidden
+                # (it keeps measuring them) and only the name stays.
+                if settled:
+                    self._draw_lock(p, rect, colour, now - (owner.named_at if owner else -9))
+                else:
+                    self._draw_scan(p, pts, rect, colour, now)
+                self._face_tag(p, rect, owner, known, now)
+                continue
             # The characteristic points (eyes, brows, nose, mouth, cheekbones,
             # jaw) and the distances between them that identify a person:
             # what the 175 measurements are made of. No face outline.
             spots = {name: self._map_point(*pts[i]) for name, i in SIGNATURE_POINTS.items() if i < len(pts)}
             line = QColor(colour).lighter(140)
-            line.setAlpha(170 if self.detail else 95)
+            line.setAlpha(170)
             p.setPen(QPen(line, 1.1))
             for a, b in FACE_NETWORK:
                 if a in spots and b in spots:
@@ -894,9 +942,6 @@ class CameraWindow(QWidget):
             p.setBrush(dot)
             for spot in spots.values():
                 p.drawEllipse(spot, 2.2, 2.2)
-            if not self.detail:  # clean view: the name, nothing else
-                self._face_tag(p, rect, owner, known, now)
-                continue
             # Where the head points: a short ray from the nose tip.
             nose = self._map_point(*pts[1])
             yaw = -face.yaw if self.mirror else face.yaw
@@ -936,6 +981,113 @@ class CameraWindow(QWidget):
                 p.drawRoundedRect(chip, 8, 8)
                 p.setPen(QColor(255, 214, 10))
                 p.drawText(chip, Qt.AlignmentFlag.AlignCenter, text)
+
+    def _draw_face_scan(self, p: QPainter, card: QRectF) -> None:
+        """Face ID-style scan: the ring around your face fills as you turn
+        your head; when done, the 3D map of your face turns in a glass card."""
+        from sergio_escritorio import facescan
+
+        scan = self.scanner
+        now = time.monotonic()
+        if scan.active:
+            box = scan.box
+            if box is not None:
+                rect = self._map_box(box)
+                centre = rect.center()
+                radius = max(rect.width(), rect.height()) * 0.62
+            else:
+                centre = card.center()
+                radius = min(card.width(), card.height()) * 0.28
+            # Darken everything but the circle around the face.
+            shade = QPainterPath()
+            shade.addRect(card)
+            hole = QPainterPath()
+            hole.addEllipse(centre, radius - 4, radius - 4)
+            p.fillPath(shade.subtracted(hole), QColor(0, 0, 0, 120))
+            facescan.draw_ring(p, centre, radius, scan.ring, now, self.mirror)
+            percent = int(round(scan.ring.fraction / facescan.DONE_FRACTION * 100))
+            self._scan_pill(p, card, f"{scan.message}   {min(percent, 100)}%")
+            return
+        if scan.result is None or now - scan.finished_at > 6.0:
+            return
+        # The learnt face, in 3D, turning (the "cool 3D animation").
+        size = min(card.width(), card.height()) * 0.62
+        panel = QRectF(card.center().x() - size * 0.62, card.center().y() - size * 0.5, size * 1.24, size)
+        p.setPen(QPen(QColor(255, 255, 255, 60), 1))
+        p.setBrush(QColor(8, 16, 26, 200))
+        p.drawRoundedRect(panel, 20, 20)
+        if self._scan_edges is None:
+            self._scan_edges = facescan.mesh_edges()
+        head = panel.adjusted(18, 14, -18, -54)
+        turn = math.sin((now - scan.finished_at) * 1.3) * 1.1
+        facescan.draw_head(p, head, scan.result.get("points") or [], turn, self._scan_edges)
+        p.setPen(QColor(235, 245, 255))
+        lines = [line for line in (self.scan_text or ["Mapa 3D guardado"])[:2] if line]
+        for i, line in enumerate(lines):
+            size = 9.0 if i == 0 else 8.0
+            p.setFont(_font(size, QFont.Weight.DemiBold if i == 0 else QFont.Weight.Normal))
+            while size > 6.5 and p.fontMetrics().horizontalAdvance(line) > panel.width() - 24:
+                size -= 0.5
+                p.setFont(_font(size, QFont.Weight.DemiBold if i == 0 else QFont.Weight.Normal))
+            text = p.fontMetrics().elidedText(line, Qt.TextElideMode.ElideRight, int(panel.width() - 24))
+            p.drawText(
+                QRectF(panel.left() + 12, panel.bottom() - 48 + i * 19, panel.width() - 24, 18),
+                Qt.AlignmentFlag.AlignCenter,
+                text,
+            )
+
+    def _scan_pill(self, p: QPainter, card: QRectF, text: str) -> None:
+        p.setFont(_font(9, QFont.Weight.DemiBold))
+        tw = p.fontMetrics().horizontalAdvance(text) + 28
+        pill = QRectF(card.center().x() - tw / 2, card.bottom() - 58, tw, 30)
+        p.setPen(Qt.PenStyle.NoPen)
+        p.setBrush(QColor(0, 0, 0, 170))
+        p.drawRoundedRect(pill, 15, 15)
+        p.setPen(QColor(255, 255, 255))
+        p.drawText(pill, Qt.AlignmentFlag.AlignCenter, text)
+
+    def _draw_scan(self, p: QPainter, pts: list, rect: QRectF, colour: QColor, now: float) -> None:
+        """Analysing a face: a bright line sweeps it top to bottom and back,
+        lighting up the mesh points it crosses (a 3D scanner, Face ID style)."""
+        phase = (now * 0.9) % 2.0
+        sweep = phase if phase < 1.0 else 2.0 - phase  # down, then up
+        y = rect.top() + sweep * rect.height()
+        band = max(10.0, rect.height() * 0.09)
+        glow = QLinearGradient(QPointF(0, y - band * 2), QPointF(0, y + band * 2))
+        tint = QColor(colour).lighter(150)
+        for stop, alpha in ((0.0, 0), (0.5, 70), (1.0, 0)):
+            tint.setAlpha(alpha)
+            glow.setColorAt(stop, tint)
+        p.fillRect(QRectF(rect.left(), y - band * 2, rect.width(), band * 4), glow)
+        line = QColor(colour).lighter(170)
+        line.setAlpha(230)
+        p.setPen(QPen(line, 1.4))
+        p.drawLine(QPointF(rect.left() + 4, y), QPointF(rect.right() - 4, y))
+        p.setPen(Qt.PenStyle.NoPen)
+        dot = QColor(colour).lighter(175)
+        for x, py in pts:
+            spot = self._map_point(x, py)
+            near = abs(spot.y() - y)
+            if near > band * 2.2:
+                dot.setAlpha(26)  # the whole mesh, faint: it is being read
+                p.setBrush(dot)
+                p.drawEllipse(spot, 0.9, 0.9)
+                continue
+            dot.setAlpha(int(70 + 185 * (1.0 - near / (band * 2.2))))
+            p.setBrush(dot)
+            p.drawEllipse(spot, 1.7, 1.7)
+
+    def _draw_lock(self, p: QPainter, rect: QRectF, colour: QColor, since: float) -> None:
+        """Just recognised: a ring closes on the face and fades (0.7 s)."""
+        if not 0.0 <= since < 0.7:
+            return
+        k = since / 0.7
+        ring = QColor(colour).lighter(150)
+        ring.setAlpha(int(220 * (1.0 - k)))
+        p.setPen(QPen(ring, 2.2))
+        p.setBrush(Qt.BrushStyle.NoBrush)
+        grow = (1.0 - k) * 18.0
+        p.drawRoundedRect(rect.adjusted(-grow, -grow, grow, grow), 16, 16)
 
     def _face_tag(self, p: QPainter, rect: QRectF, owner: Any, known: bool, now: float) -> None:
         label = owner.title(now, clean=True) if owner is not None else "Identificando…"

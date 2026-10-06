@@ -79,7 +79,7 @@ def test_speak_returns_wav_with_the_gentleman_style(monkeypatch):
         assert w.getframerate() == 24000 and w.getnframes() == 2400
     model, prompt, config = models.calls[0]
     assert model == "gemini-3.1-flash-tts-preview"
-    assert "caballero británico" in prompt and prompt.endswith("Buenas tardes.")
+    assert "voz masculina grave" in prompt and prompt.endswith("Buenas tardes.")
     voice = config["speech_config"]["voice_config"]["prebuilt_voice_config"]
     assert voice["voice_name"] == "Charon"
 

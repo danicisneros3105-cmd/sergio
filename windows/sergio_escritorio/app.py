@@ -695,6 +695,8 @@ def run(config: dict[str, Any]) -> None:
             return upload_video()
         if q.kind == "holo_model":
             return holo_model(q.arg)
+        if q.kind == "face_scan":
+            return face_scan(q.arg)
         if q.kind == "holo_maybe":
             if getattr(hand_control, "mode", "off") != "holo" and not camera_window.holo.objects:
                 raise LookupError("no hay hologramas: que responda el asistente")
@@ -815,10 +817,15 @@ def run(config: dict[str, Any]) -> None:
         resp = client.http.post(
             f"{client.base}/v1/faces/identify",
             files={"image": ("cara.jpg", jpeg, "image/jpeg")},
+            # It keeps learning the faces it is very sure of, from new angles.
+            data={"learn": "true" if config.get("aprender_caras", True) else "false"},
             timeout=10,
         )
         resp.raise_for_status()
-        return list(resp.json().get("faces") or [])
+        data = resp.json()
+        if camera_window.watcher is not None:
+            camera_window.watcher.owner = str(data.get("owner") or "")
+        return list(data.get("faces") or [])
 
     def faces_seen(found: list[dict]) -> None:
         vision_engine.tracker.add_faces(
@@ -829,6 +836,8 @@ def run(config: dict[str, Any]) -> None:
                     "quality": f.get("quality") or "ok",
                     "score": f["score"],
                     "box": f["nbox"],
+                    "strong": f.get("strong", False),
+                    "owner": f.get("owner", False),
                 }
                 for f in found
             ],
@@ -855,15 +864,71 @@ def run(config: dict[str, Any]) -> None:
         first_today = greeted_today.get(name) != today
         greeted_today[name] = today
         now = _dt.datetime.now()
+        watcher = camera_window.watcher
+        boss = watcher is not None and watcher.owner and watcher.owner.lower() == name.lower()
+        who = "señor" if boss else name  # JARVIS: the owner is «señor»
         if first_today and now.hour < 12:  # the morning report, JARVIS-style
-            text = briefing(now, system_status(), reminders.pending(), name)
+            text = briefing(now, system_status(), reminders.pending(), who)
         else:
-            text = f"Hola, {name}."
+            text = f"Bienvenido de vuelta, {who}." if boss else f"Hola, {name}."
         tell(text)
 
     camera_window.watcher = FaceWatcher(
         feed.frame, identify, on_person=greet, on_faces=faces_seen
     )
+
+    def face_scan(name: str = "") -> str:
+        """Face ID-style scan: turn your head in a circle and Sergio learns
+        your face from every angle, with a 3D map of it in millimetres."""
+        from sergio_escritorio.facescan import Scanner, measures_text
+
+        if not camera_window.isVisible():
+            on_ui(camera_window.open)
+            time.sleep(1.5)  # the camera settles and the face mesh starts
+        who = name.strip()
+        boss = (camera_window.watcher.owner if camera_window.watcher else "") or ""
+        if not who:
+            seen = [
+                t for t in vision_engine.tracker.visible(time.monotonic())
+                if t.kind == "persona" and t.name
+            ]
+            who = seen[0].name if len(seen) == 1 else boss
+        if not who:
+            return "¿Cómo se llama la persona? Diga: «escanea mi cara, soy …»."
+        scanner = Scanner(feed.frame, lambda: list(vision_engine.faces or []))
+        camera_window.scan_text = []
+        camera_window.scanner = scanner
+        hint = "Gire la cabeza despacio, en círculo, como con Face ID."
+        bridge.caption.emit(hint)
+        if not call_active():  # said while it scans (the scan takes ~10 s)
+            threading.Thread(target=lambda: assistant.say_aloud(hint), daemon=True).start()
+        jpegs, mesh = scanner.run()
+        if len(jpegs) < 3:
+            camera_window.scanner = None
+            return "No vi bien la cara durante el escaneo. Con más luz y la cara entera en la cámara, otra vez."
+        try:
+            out = client.face_scan(who, jpegs, mesh)
+        except Exception as exc:  # noqa: BLE001
+            camera_window.scanner = None
+            return f"No pude guardar el escaneo: {str(exc)[:200]}"
+        angles = len(out.get("angles") or [])
+        sizes = measures_text((mesh or {}).get("measures") or {})
+        camera_window.scan_text = [
+            f"{out.get('name') or who} · {angles} ángulos" + (" · mapa 3D de 478 puntos" if mesh else ""),
+            sizes,
+        ]
+        pupils = ((mesh or {}).get("measures") or {}).get("entre pupilas")
+        extra = f" Mide {pupils:.0f} milímetros entre pupilas, aproximadamente." if pupils else ""
+        if boss and who.lower() == boss.lower():
+            return (
+                f"Listo, señor. Su cara quedó guardada desde {angles} ángulos"
+                + (", con un mapa 3D de 478 puntos" if mesh else "")
+                + f".{extra} Ahora le reconozco hasta de perfil."
+            )
+        return f"Listo: ya conozco la cara de {who} desde {angles} ángulos.{extra}"
+
+    # A new face in view: look at once instead of waiting for the next look.
+    vision_engine.on_new_face = camera_window.watcher.poke
 
     def analyze() -> None:
         """Camera "Analizar": Gemini looks at everything in view."""
@@ -1649,6 +1714,7 @@ def run(config: dict[str, Any]) -> None:
         blender_task=blender_task,
         edit_video=lambda req, src="": video_task(req, src),
         upload_video=upload_video,
+        face_scan=face_scan,
     )
 
     def call_ended(why: str) -> None:
@@ -1757,24 +1823,26 @@ def run(config: dict[str, Any]) -> None:
         if kind == "open":
             from sergio_escritorio.quick import parse_quick
 
+            # Only checks that the order is understood and the app is found:
+            # nothing opens (it used to open the Calculator and close it a
+            # second later, as if Sergio acted on his own).
             said = "abre la calculadora"
             t0 = time.monotonic()
             try:
-                answer = run_quick(parse_quick(said))
+                q = parse_quick(said)
+                if q is None or q.kind != "open_app":
+                    return {"ok": False, "said": said, "error": f"no entendí «{said}»"}
+                launcher = getattr(controller.backend, "launcher", None)
+                found = launcher.resolve(q.arg) if launcher is not None else q.arg
             except Exception as exc:  # noqa: BLE001
-                return {"ok": False, "error": f"{type(exc).__name__}: {exc}"}
+                return {"ok": False, "said": said, "error": f"{type(exc).__name__}: {exc}"}
             took = round(time.monotonic() - t0, 2)
-            time.sleep(1.0)
-            try:
-                controller.act({"action": "close_app", "target": "calculadora"})
-            except Exception:  # noqa: BLE001 — closing is not the test
-                pass
-            failed = answer.startswith(("No encuentro", "El control está en pausa"))
-            return {"ok": not failed, "said": said, "answer": answer, "took_s": took,
-                    "error": answer if failed else ""}
+            return {"ok": True, "said": said, "answer": f"abriría {found} (sin abrirla)",
+                    "took_s": took, "error": ""}
         return {"ok": False, "error": f"prueba desconocida: {kind}"}
 
     controller.selftest = selftest
+    controller.skills["face_scan"] = lambda args: face_scan(str(args.get("name") or ""))
 
     def start_call(prefill: bytes = b"", force: bool = False) -> bool:
         """Open a live call (from a worker thread). False = use turns."""

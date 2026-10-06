@@ -115,6 +115,26 @@ _GLOBE_GOTO = re.compile(
 )
 
 
+_SCAN = re.compile(
+    r"(?:(?:escanea|escaneame|escanear|registra|registrame|aprende|aprendete|memoriza|"
+    r"memorizate|graba|guarda)(?: me)? (?:mi|la|el|tu) (?:cara|rostro)"
+    r"|escaneame(?: la cara| el rostro)?|(?:haz|hazme) un escaneo(?: facial| de (?:mi )?cara)?|escaneo facial)"
+    r"(?: (?:de|a) (?!nuevo\b)(?P<who>[a-zñ]+(?: [a-zñ]+){0,3}?))?"
+    r"(?: (?:en 3d|en tres d|como (?:el )?face id|a la perfeccion|completa|completo|entera|bien|otra vez|de nuevo))*"
+    r"(?:,? (?:yo )?soy (?P<me>[a-zñ]+(?: [a-zñ]+){0,3}))?"
+)
+
+
+def said_name(text: str, plain_words: str) -> str:
+    """The name as it was said (accents and capitals), found in *text*."""
+    want = plain_words.split()
+    tokens = [w.strip(".,;:!?¡¿«»\"'") for w in text.split()]
+    for i in range(len(tokens) - len(want) + 1):
+        if [_plain(w) for w in tokens[i : i + len(want)]] == want:
+            return " ".join(w[:1].upper() + w[1:] for w in tokens[i : i + len(want)])
+    return " ".join(w[:1].upper() + w[1:] for w in want)
+
+
 def _plain(text: str) -> str:
     text = unicodedata.normalize("NFKD", text.lower())
     text = "".join(c for c in text if not unicodedata.combining(c))
@@ -186,6 +206,12 @@ def parse_quick(text: str) -> Quick | None:
         return Quick("briefing")
     if _CALL.fullmatch(t) or re.fullmatch(r"(empecemos|iniciemos) (una )?(llamada|conversacion)", t):
         return Quick("call", say="Le escucho, señor.")
+    m = _SCAN.fullmatch(t)
+    if m:
+        who = (m.group("who") or "").strip()
+        me = (m.group("me") or "").strip()
+        name = said_name(text, who or me) if (who or me) else ""
+        return Quick("face_scan", name, "Gire la cabeza despacio, en círculo.")
     m = re.fullmatch(
         r"(?:el|ella|esta persona|este|esta|mi amigo|mi amiga)\s+(?:se llama|es)\s+(.+)"
         r"|te presento a\s+(.+)",

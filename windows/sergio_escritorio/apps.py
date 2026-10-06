@@ -403,15 +403,22 @@ class Desktop:
     def open_uri(self, uri: str) -> None:
         os.startfile(uri)  # type: ignore[attr-defined]  # Windows only
 
-    def start_program(self, names: Iterable[str]) -> bool:
-        """Last resort: a program of that name on the PATH (notepad.exe)."""
+    def find_program(self, names: Iterable[str]) -> str:
+        """A program of that name on the PATH (notepad.exe), or ""."""
         import shutil
 
         for name in names:
             exe = shutil.which(normalise(name).replace(" ", "") + ".exe") if sys.platform == "win32" else None
             if exe:
-                subprocess.Popen([exe], creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))  # noqa: S603
-                return True
+                return exe
+        return ""
+
+    def start_program(self, names: Iterable[str]) -> bool:
+        """Last resort: a program of that name on the PATH (notepad.exe)."""
+        exe = self.find_program(names)
+        if exe:
+            subprocess.Popen([exe], creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))  # noqa: S603
+            return True
         return False
 
     def to_front_here(self, hwnd: int) -> None:
@@ -551,6 +558,23 @@ class Launcher:
 
     def _ours(self, window: Window) -> bool:
         return normalise(window.title).startswith(self.OWN)
+
+    def resolve(self, spoken: str) -> str:
+        """What "abre <spoken>" would open, without opening anything (for
+        ``sergio probar``: the test used to open the Calculator and close it
+        a second later, which looked like Sergio acting on his own)."""
+        app = self.index.find(spoken)
+        if app is None and not self._scanned:
+            self.refresh()
+            app = self.index.find(spoken)
+        if app is not None:
+            return app.name
+        uri = lookup(URI_APPS, spoken)
+        if uri:
+            return uri
+        if self.desktop.find_program(self._names(spoken, None)):
+            return spoken
+        raise LookupError(f"No encuentro una app llamada «{spoken}» en esta computadora.")
 
     def open(self, spoken: str, wait: float = 3.0) -> str:
         app = self.index.find(spoken)

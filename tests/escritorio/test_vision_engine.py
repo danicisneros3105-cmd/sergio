@@ -366,3 +366,35 @@ def test_cuda_works_is_false_without_a_usable_card():
     assert vision.gpu_broken(RuntimeError("CUDA error: no kernel image is available"))
     assert not vision.gpu_broken(ValueError("bad frame"))
     assert vision.cuda_works() in (True, False)  # never raises
+
+
+def test_a_sure_face_is_named_on_the_first_look_and_settles():
+    """Naming used to take two looks 1.5 s apart; a strong match is enough."""
+    t = Tracker()
+    t.update([_person(0.1)], 0.0)
+    face = {"box": (0.15, 0.25, 0.08, 0.1), "score": 0.71}
+    assert t.add_faces([dict(face, name="Dani", strong=True, owner=True)], 0.1) == ["Dani"]
+    person = t.tracks[0]
+    assert person.name == "Dani" and person.settled and person.owner
+    assert person.named_at == 0.1
+    # a stranger needs two clear looks before the analysis is "done"
+    t2 = Tracker()
+    t2.update([_person(0.1)], 0.0)
+    t2.add_faces([dict(face, name="", guest=1)], 0.1)
+    assert not t2.tracks[0].settled
+    t2.add_faces([dict(face, name="", guest=1)], 0.35)
+    assert t2.tracks[0].settled and t2.tracks[0].name == "" and not t2.tracks[0].owner
+
+
+def test_face_watcher_looks_fast_until_everyone_is_named():
+    pytest.importorskip("PySide6")
+    from sergio_escritorio.camera import FaceWatcher
+
+    w = FaceWatcher(lambda: None, lambda _jpeg: [], interval=1.5, fast=0.25, empty=0.6)
+    assert w.wait() == 0.6  # nobody: keep an eye out
+    w.faces = [{"name": "", "score": 0.3}]
+    assert w.wait() == 0.25  # someone unnamed: look again quickly
+    w.faces = [{"name": "Dani", "score": 0.8}]
+    assert w.wait() == 1.5  # all known: relax
+    w.poke()
+    assert w._wake.is_set()

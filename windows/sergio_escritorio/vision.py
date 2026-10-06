@@ -331,6 +331,8 @@ class Track:
     held: bool = False  # in your hand right now
     votes: Counter = field(default_factory=Counter)  # label -> evidence
     named: str = ""  # what Gemini said it is, from a close-up (sticky)
+    owner: bool = False  # the owner (Sergio calls them «señor»)
+    named_at: float = 0.0  # when the face got its name (the "lock" flash)
 
     @property
     def shown(self) -> str:
@@ -348,6 +350,14 @@ class Track:
         best, votes = counts.most_common(1)[0]
         # "?" = a clear face that is nobody enrolled: never shown as a name.
         return best if votes >= 2 and best != UNKNOWN else ""
+
+    @property
+    def settled(self) -> bool:
+        """Its face was analysed: a name, or clearly nobody enrolled. Then
+        the face points are hidden (Sergio keeps measuring them)."""
+        if self.name:
+            return True
+        return Counter(self.names).get(UNKNOWN, 0) >= 2
 
     def title(self, now: float, clean: bool = False) -> str:
         if self.kind == "persona":
@@ -464,9 +474,13 @@ class Tracker:
                 if vote and any(n and n != vote for n in owner.names):
                     owner.names.clear()  # someone else now: no inherited name
                 owner.names.append(vote)
+                if vote and vote != UNKNOWN and face.get("strong"):
+                    owner.names.append(vote)  # sure at first sight: named now
                 owner.guest = int(face.get("guest") or 0) or owner.guest
                 owner.face_score = float(face.get("score") or 0.0)
+                owner.owner = bool(face.get("owner")) and bool(vote) and vote != UNKNOWN
                 if owner.name and owner.name != before:
+                    owner.named_at = now
                     confirmed.append(owner.name)
         return confirmed
 
@@ -682,6 +696,7 @@ class FaceInfo:
     roll: float = 0.0
     expressions: list[str] = field(default_factory=list)
     blend: dict = field(default_factory=dict)  # MediaPipe blendshapes (eyes, gaze...)
+    points3: list = field(default_factory=list)  # the same points with depth (x, y, z)
 
 
 # Face mesh outlines worth drawing (MediaPipe indices): oval, eyes, brows, lips.
@@ -1048,7 +1063,7 @@ class FaceMesh:
             pts = [(m.x, m.y) for m in marks]
             xs, ys = [p[0] for p in pts], [p[1] for p in pts]
             box = (min(xs), min(ys), max(xs) - min(xs), max(ys) - min(ys))
-            info = FaceInfo(pts, box)
+            info = FaceInfo(pts, box, points3=[(m.x, m.y, m.z) for m in marks])
             if result.face_blendshapes and i < len(result.face_blendshapes):
                 blend = {c.category_name: c.score for c in result.face_blendshapes[i]}
                 info.expressions = expressions(blend)
@@ -1233,6 +1248,7 @@ class VisionEngine:
         self.faces: list[FaceInfo] = []
         self.mesh = True  # draw/compute the face mesh
         self.error = ""
+        self.on_new_face: Callable[[], None] = lambda: None  # a face appeared
         self._running = False
         self._head = HeadGestures()
 
@@ -1311,7 +1327,13 @@ class VisionEngine:
             frame = self.frames() if self.mesh else None
             if frame is not None:
                 try:
+                    before = len(self.faces)
                     self.faces = mesh.find(frame)
+                    if len(self.faces) > before:
+                        try:
+                            self.on_new_face()
+                        except Exception:  # noqa: BLE001
+                            pass
                     if self.faces:
                         face = max(self.faces, key=lambda f: f.box[2] * f.box[3])
                         from sergio_escritorio.body import iris_distance_cm

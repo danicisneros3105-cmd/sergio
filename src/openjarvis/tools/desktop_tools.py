@@ -509,12 +509,14 @@ class FaceEnrollTool(_DesktopTool):
             name="face_enroll",
             description=(
                 "Learn a person's face from the webcam (only when asked, e.g. "
-                "'aprende mi cara' or 'aprende la cara de Ana', and with that "
-                "person's consent). 'name' is REQUIRED: the name of the person "
-                "in front of the camera right now (the owner's own name only if "
-                "it is the owner). If you do not know the name, ask first. Takes "
-                "five photos a moment apart: ask them to look at the camera and "
-                "turn their head slightly. Only one face may be visible."
+                "'aprende mi cara', 'escanea mi cara' or 'aprende la cara de "
+                "Ana', and with that person's consent). 'name' is REQUIRED: the "
+                "name of the person in front of the camera right now (the "
+                "owner's own name only if it is the owner). If you do not know "
+                "the name, ask first. A Face ID-style scan: the person turns "
+                "their head slowly in a circle for ~10 s while a ring fills on "
+                "the camera; Sergio keeps the sharpest photo of each angle and a "
+                "3D map of the face. Only one face may be visible."
             ),
             parameters={
                 "type": "object",
@@ -532,7 +534,15 @@ class FaceEnrollTool(_DesktopTool):
         name = str(params.get("name") or "").strip()
         if not name:  # never guess: a guessed name saved strangers as the owner
             return self._fail("¿Cómo se llama la persona que está frente a la cámara?")
-        try:
+        try:  # the Face ID-style scan on the companion (all angles + 3D map)
+            done = self._call(
+                "POST", "/skill", json={"name": "face_scan", "args": {"name": name}}, timeout=90
+            )
+            return self._ok(str(done.get("result") or f"Listo, ya conozco la cara de {name}."))
+        except RuntimeError as exc:
+            if "unknown skill" not in str(exc) and "not found" not in str(exc):
+                return self._fail(f"No pude escanear la cara: {exc}")
+        try:  # an older companion: five photos a moment apart
             from openjarvis.faces import FaceBook
 
             book = FaceBook()

@@ -61,6 +61,7 @@ class Abilities:
     blender_task: Callable[[str], str] = _nothing  # Blender Pro, any job in words
     edit_video: Callable[..., str] = _nothing  # Video Pro (request, folder)
     upload_video: Callable[[], str] = _nothing  # YouTube Studio ready to publish
+    face_scan: Callable[[str], str] = _nothing  # Face ID-style scan (name)
     now: Callable[[], datetime] = field(default=datetime.now)
 
 
@@ -323,6 +324,17 @@ def call_tools(ab: Abilities) -> list[ClientTool]:
             "holograma_modelo, nunca un cubo con otro nombre.",
             lambda a: ab.holo(str(a.get("orden") or "")),
             _obj(orden=_str("La orden, en español", required=True)),
+        ),
+        ClientTool(
+            "escanear_cara",
+            "Escaneo de cara estilo Face ID: la persona frente a la cámara gira la "
+            "cabeza despacio en círculo ~10 s mientras un anillo se llena; Sergio "
+            "guarda la foto más nítida de cada ángulo y un mapa 3D de 478 puntos en "
+            "milímetros, y desde entonces la reconoce hasta de perfil. Úsalo con "
+            "«escanea mi cara», «aprende mi cara», «escanea la cara de Ana» (con su "
+            "permiso). nombre vacío = el señor (el dueño) si es él quien está.",
+            lambda a: ab.face_scan(str(a.get("nombre") or "")),
+            _obj(nombre=_str("Nombre de quien está frente a la cámara; vacío = el señor")),
         ),
         ClientTool(
             "holograma_modelo",

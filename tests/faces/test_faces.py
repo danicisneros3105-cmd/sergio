@@ -85,11 +85,14 @@ def test_model_download_is_checksum_verified(tmp_path, monkeypatch):
     assert not list(tmp_path.iterdir())
 
 
-def test_api_and_tools(book, tmp_path):
+def test_api_and_tools(book, tmp_path, monkeypatch):
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
 
     from openjarvis.faces import routes
+
+    monkeypatch.delenv("SERGIO_OWNER_NAME", raising=False)
+    monkeypatch.setattr("openjarvis.tools.desktop_tools._config_owner", lambda: "")
     from openjarvis.tools.face_tools import FaceIdentifyTool, FaceListTool
 
     routes._book = book
@@ -109,7 +112,11 @@ def test_api_and_tools(book, tmp_path):
         "/v1/faces/identify", files={"image": ("g.jpg", b"group", "image/jpeg")}
     ).json()["faces"]
     assert [f["name"] for f in faces] == ["Ana", None]
+    # the first person enrolled is the owner (Sergio calls them «señor»)
+    assert [f["owner"] for f in faces] == [True, False]
+    assert client.get("/v1/faces/owner").json() == {"owner": "Ana"}
     assert client.get("/v1/faces").json()["people"][0]["name"] == "Ana"
+    assert client.get("/v1/faces/mesh/Ana").status_code == 404
 
     photo = tmp_path / "group.jpg"
     photo.write_bytes(b"group")
@@ -166,7 +173,16 @@ def test_names_are_cleaned_and_old_entries_merged(tmp_path):
     )
     people = FaceBook(root).people()
     assert people == [
-        {"name": "Daniel Cisneros", "samples": 2, "enrolled_at": 1, "signatures": 0}
+        {
+            "name": "Daniel Cisneros",
+            "samples": 2,
+            "enrolled_at": 1,
+            "signatures": 0,
+            "angles": 0,
+            "scanned": False,
+            "mesh3d": False,
+            "learned": 0,
+        }
     ]
 
 
@@ -204,7 +220,16 @@ def test_two_similar_people_need_a_clear_winner(tmp_path, monkeypatch):
     }
     monkeypatch.setattr(b, "_faces", lambda data, **_kw: photos[data])
     b.enroll("Ana", b"a", consent=True)
-    b.enroll("Carla", b"c", consent=True)
+    # Carla's face is almost Ana's: saving it under a new name is refused...
+    with pytest.raises(FaceError, match="ya está guardada como Ana"):
+        b.enroll("Carla", b"c", consent=True)
+    # ...but if both were saved before (twins), it is never guessed.
+    import json
+
+    db = tmp_path / "faces" / "people.json"
+    people = json.loads(db.read_text())
+    people["Carla"] = {"embeddings": [c.tolist()], "enrolled_at": 2}
+    db.write_text(json.dumps(people))
     assert b.identify(b"a")[0].name == ""  # too close to call: not guessed
     assert b.identify(b"between")[0].name == ""
 
@@ -260,3 +285,194 @@ def test_face_enroll_tool_never_guesses_the_name():
 
     result = FaceEnrollTool().execute(name="")
     assert not result.success and "Cómo se llama" in result.content
+
+
+def test_head_angle_from_the_five_points():
+    from openjarvis.faces.book import angle_of, head_pose
+
+    # x, y, w, h, right eye, left eye, nose, right mouth, left mouth
+    front = [0, 0, 100, 100, 30, 40, 70, 40, 50, 57, 35, 70, 65, 70]
+    yaw, pitch = head_pose(front)
+    assert abs(yaw) < 5 and abs(pitch) < 8 and angle_of((yaw, pitch)) == "C-M"
+    turned = [0, 0, 100, 100, 30, 40, 70, 40, 66, 57, 35, 70, 65, 70]  # nose to one side
+    assert angle_of(head_pose(turned)) == "R-M"
+    up = [0, 0, 100, 100, 30, 40, 70, 40, 50, 46, 35, 70, 65, 70]  # nose near the eyes
+    assert angle_of(head_pose(up)) == "C-U"
+    assert head_pose([1, 2]) == (0.0, 0.0)
+
+
+def _scan_book(tmp_path, monkeypatch, person, *, other=None):
+    """Frames named "<angle>-<i>" show *person* at that head angle."""
+    poses = {"C-M": (0, 0), "L-M": (-30, 0), "R-M": (30, 0), "C-U": (0, 25), "C-D": (0, -25)}
+    b = FaceBook(tmp_path / "faces")
+    frames = {}
+    for angle, pose in poses.items():
+        for i in range(3):
+            # turning the head lowers SFace's score: farther from the front
+            drift = 0.25 if angle != "C-M" else 0.05
+            frames[f"{angle}-{i}".encode()] = [
+                (_near(person, drift, sum(map(ord, angle)) * 10 + i), (0, 0, 150, 150), 0.97, pose, 50.0 + i)
+            ]
+    if other is not None:
+        frames[b"other"] = [(other, (0, 0, 150, 150), 0.97, (0, 0), 60.0)]
+    frames[b"two"] = [
+        (person, (0, 0, 150, 150), 0.97, (0, 0), 60.0),
+        (_unit(np.ones(person.size)), (200, 0, 140, 140), 0.97, (0, 0), 60.0),
+    ]
+    monkeypatch.setattr(b, "_faces", lambda data, **_kw: frames[data])
+    return b, frames
+
+
+def test_scan_keeps_the_sharpest_photos_of_each_head_angle(tmp_path, monkeypatch):
+    rng = np.random.default_rng(3)
+    dani = _unit(rng.normal(size=128))
+    b, frames = _scan_book(tmp_path, monkeypatch, dani)
+    mesh = {"points": [[0.0, 0.0, 0.0]] * 478, "unit": "mm"}
+    out = b.scan("Dani", [k for k in frames if k not in (b"two",)], consent=True, mesh=mesh)
+    assert out["angles"] == ["C-D", "C-M", "C-U", "L-M", "R-M"]
+    assert out["added"] == 10  # two per angle, the sharpest ones
+    person = b.people()[0]
+    assert person["angles"] == 5 and person["scanned"] and person["mesh3d"]
+    assert b.mesh("dani")["unit"] == "mm"
+    # a frame with two people in it is not used (it is not one face)
+    with pytest.raises(FaceError, match="No vi la cara"):
+        b.scan("Dani", [b"two", b"C-M-0"], consent=True)
+
+
+def test_scan_needs_consent_and_several_angles(tmp_path, monkeypatch):
+    rng = np.random.default_rng(4)
+    b, frames = _scan_book(tmp_path, monkeypatch, _unit(rng.normal(size=128)))
+    with pytest.raises(FaceError, match="consent"):
+        b.scan("Dani", list(frames), consent=False)
+    with pytest.raises(FaceError, match="ángulo"):
+        b.scan("Dani", [b"C-M-0", b"C-M-1", b"C-M-2"], consent=True)
+
+
+def test_a_scan_of_someone_already_saved_under_another_name_is_refused(tmp_path, monkeypatch):
+    rng = np.random.default_rng(5)
+    dani = _unit(rng.normal(size=128))
+    b, frames = _scan_book(tmp_path, monkeypatch, dani)
+    b.scan("Dani", list(k for k in frames if k != b"two"), consent=True)
+    with pytest.raises(FaceError, match="ya está guardada como Dani"):
+        b.scan("Ana", list(k for k in frames if k != b"two"), consent=True)
+
+
+def test_strong_matches_are_named_at_once_and_it_learns_missing_angles(tmp_path, monkeypatch):
+    rng = np.random.default_rng(6)
+    dani = _unit(rng.normal(size=128))
+    b = FaceBook(tmp_path / "faces")
+    photos = {f"p{i}".encode(): [(_near(dani, 0.03, i), (0, 0, 150, 150), 0.97, (0, 0), 50.0)] for i in range(3)}
+    photos[b"side"] = [(_near(dani, 0.04, 77), (0, 0, 150, 150), 0.97, (35, 0), 50.0)]
+    photos[b"side2"] = [(_near(dani, 0.04, 78), (0, 0, 150, 150), 0.97, (35, 0), 50.0)]
+    monkeypatch.setattr(b, "_faces", lambda data, **_kw: photos[data])
+    for i in range(3):
+        b.enroll("Dani", f"p{i}".encode(), consent=True)
+    seen = b.identify(b"side", learn=True)[0]
+    assert seen.name == "Dani" and seen.strong and seen.to_dict()["strong"] is True
+    assert seen.learned and seen.to_dict()["angle"] == "R-M"
+    assert b.people()[0]["learned"] == 1 and b.people()[0]["samples"] == 4
+    # at most one photo a minute: the next look does not add another
+    assert b.identify(b"side2", learn=True)[0].learned is False
+    # without learn=True it never writes
+    clock = [1e12]
+    monkeypatch.setattr(book_mod.time, "time", lambda: clock[0])
+    assert b.identify(b"side2")[0].learned is False
+    assert b.people()[0]["samples"] == 4
+
+
+def test_learnt_photos_are_dropped_first_when_full(tmp_path, monkeypatch):
+    from openjarvis.faces.book import _add_samples
+
+    person = {"embeddings": [], "enrolled_at": 1}
+    _add_samples(person, [([1.0, 0.0], None, (0, 0), "escaneo")] * 6)
+    _add_samples(person, [([1.0, 0.1], None, (0, 0), "auto")] * 4)
+    _add_samples(person, [([1.0, 0.2], None, (0, 0), "foto")] * (book_mod.MAX_SAMPLES - 10))
+    assert len(person["embeddings"]) == book_mod.MAX_SAMPLES
+    _add_samples(person, [([1.0, 0.3], None, (0, 0), "foto")] * 3)
+    assert person["sources"].count("auto") == 1  # the learnt ones went first
+    assert person["sources"].count("escaneo") == 6  # the scan's angles stay
+    assert len(person["poses"]) == len(person["embeddings"]) == len(person["signatures"])
+
+
+def test_gallery_is_cached_until_the_file_changes(book):
+    book.enroll("Ana", b"ana", consent=True)
+    first = book._gallery()
+    assert book._gallery() is first  # no re-reading on every look
+    book.enroll("Ana", b"ana2", consent=True)
+    assert book._gallery() is not first and len(book._gallery()["Ana"]) == 2
+
+
+def test_purify_keeps_the_extra_columns_aligned():
+    from openjarvis.faces.book import purify
+
+    a = [1.0, 0.0, 0.0]
+    b2 = [0.0, 1.0, 0.0]
+    embs, sigs, poses = purify([a, a, a, b2], ["s1", "s2", "s3", "x"], [1, 2, 3, 9])
+    assert len(embs) == 3 and sigs == ["s1", "s2", "s3"] and poses == [1, 2, 3]
+
+
+def test_scan_api(tmp_path, monkeypatch):
+    import json
+
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from openjarvis.faces import routes
+
+    rng = np.random.default_rng(9)
+    b, frames = _scan_book(tmp_path, monkeypatch, _unit(rng.normal(size=128)))
+    routes._book = b
+    app = FastAPI()
+    app.include_router(routes.router)
+    client = TestClient(app)
+    files = [("images", (f"{k.decode()}.jpg", k, "image/jpeg")) for k in frames if k != b"two"]
+    mesh = {"points": [[1.0, 2.0, 3.0]] * 478, "unit": "mm"}
+    refused = client.post("/v1/faces/scan", data={"name": "Dani"}, files=files)
+    assert refused.status_code == 400 and "consent" in refused.json()["detail"]
+    done = client.post(
+        "/v1/faces/scan",
+        data={"name": "dani", "consent": "true", "mesh": json.dumps(mesh)},
+        files=files,
+    ).json()
+    assert done["name"] == "Dani" and len(done["angles"]) == 5 and "de frente" in done["words"]
+    assert client.get("/v1/faces/mesh/Dani").json()["points"][0] == [1.0, 2.0, 3.0]
+    routes._book = None
+
+
+def test_face_enroll_tool_runs_the_scan_on_the_companion(monkeypatch):
+    from openjarvis.tools.desktop_tools import FaceEnrollTool
+
+    calls = []
+
+    def fake_call(self, method, path, **kw):
+        calls.append((method, path, kw.get("json")))
+        return {"ok": True, "result": "Listo: ya conozco la cara de Ana desde 6 ángulos."}
+
+    monkeypatch.setattr(FaceEnrollTool, "_call", fake_call)
+    result = FaceEnrollTool().execute(name="Ana")
+    assert result.success and "6 ángulos" in result.content
+    assert calls == [("POST", "/skill", {"name": "face_scan", "args": {"name": "Ana"}})]
+
+
+def test_face_enroll_tool_falls_back_to_photos_on_an_old_companion(monkeypatch, tmp_path):
+    import base64
+
+    from openjarvis.tools import desktop_tools
+
+    shots = []
+
+    def fake_call(self, method, path, **kw):
+        if path == "/skill":
+            raise RuntimeError("unknown skill")
+        shots.append(path)
+        return {"image_jpeg_b64": base64.b64encode(b"ana").decode()}
+
+    class Book:
+        def enroll(self, name, data, consent):
+            return 3
+
+    monkeypatch.setattr(desktop_tools.FaceEnrollTool, "_call", fake_call)
+    monkeypatch.setattr("openjarvis.faces.FaceBook", lambda: Book())
+    monkeypatch.setattr("time.sleep", lambda s: None)
+    result = desktop_tools.FaceEnrollTool().execute(name="Ana")
+    assert result.success and shots == ["/camera"] * 5

@@ -42,11 +42,11 @@ VOICES = {  # Gemini prebuilt voices that fit Sergio (male, adult)
 }
 DEFAULT_VOICE = "Algieba"
 STYLE = (
-    "Lee en español, con la voz de un caballero británico adinerado y muy "
-    "inteligente de unos cuarenta años: sereno, elegante y seguro, cálido, con "
-    "una ironía amable y un leve acento británico. Dicción nítida y humana, "
-    "a ritmo pausado y conversacional, con pausas naturales, nunca deprisa "
-    "ni como locutor. Di exactamente esto:"
+    "Lee en español, con una voz masculina grave y relajada, algo rasposa y "
+    "cálida, de unos cuarenta años: segura, carismática, con media sonrisa y "
+    "una ironía amable. Dicción nítida y humana, a ritmo pausado y "
+    "conversacional, con pausas naturales, nunca deprisa ni como locutor. "
+    "Di exactamente esto:"
 )
 EAR_PROMPT = (
     "Transcribe exactamente lo que dice la persona en este audio (español; deja "

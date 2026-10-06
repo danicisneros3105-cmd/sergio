@@ -223,7 +223,7 @@ def probar(sin_pantalla: bool) -> None:
                     + str(closed.get("result", ""))[:50]
                 )
 
-            run.check("Control de Windows (abrir/cerrar app)", notepad)
+            run.check("Control de Windows (abre y cierra el Bloc de notas un segundo)", notepad)
 
             def terminal() -> str:
                 out = _ok(
@@ -392,7 +392,7 @@ def probar(sin_pantalla: bool) -> None:
                 out = selftest("open")
                 return f"«{out.get('said')}» → {out.get('answer')} en {out.get('took_s')} s"
 
-            run.check("Abrir apps por voz («abre la calculadora»)", open_by_voice)
+            run.check("Entender «abre la calculadora» (sin abrirla)", open_by_voice)
 
         def hands() -> str:
             diag = _ok(http.get(f"{win}/diag", headers=auth)).json()

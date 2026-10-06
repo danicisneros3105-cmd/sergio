@@ -179,6 +179,9 @@ class Controller:
         self.on_hands: Callable[[str], str] = lambda _mode: "hands unavailable"
         # `sergio probar`: talk to Sergio like the user does ("call"/"turn").
         self.selftest: Callable[[str], dict] | None = None
+        # Longer abilities Sergio's server asks for by name (a face scan,
+        # learning a voice, a meeting): name -> run(args) -> text.
+        self.skills: dict[str, Callable[[dict], str]] = {}
         # Tasks done like a person (operate, message, phone_call, contact).
         self.on_task: Callable[[str, dict], str] = lambda _k, _a: "operator unavailable"
         self.enabled = True
@@ -536,6 +539,21 @@ def make_server(
                         self._send(404, {"ok": False, "error": "no self-test"})
                     else:
                         self._send(200, test(str(body.get("kind") or "")))
+                except Exception as exc:  # noqa: BLE001
+                    self._send(500, {"ok": False, "error": str(exc)})
+                return
+            if self.path == "/skill":
+                try:
+                    length = min(int(self.headers.get("Content-Length") or 0), 16_000)
+                    body = json.loads(self.rfile.read(length) or b"{}")
+                    skill = controller.skills.get(str(body.get("name") or ""))
+                    if skill is None:
+                        self._send(404, {"ok": False, "error": "unknown skill"})
+                    else:
+                        args = body.get("args") if isinstance(body.get("args"), dict) else {}
+                        self._send(200, {"ok": True, "result": skill(args)})
+                except PermissionError as exc:
+                    self._send(423, {"ok": False, "error": str(exc)})
                 except Exception as exc:  # noqa: BLE001
                     self._send(500, {"ok": False, "error": str(exc)})
                 return
