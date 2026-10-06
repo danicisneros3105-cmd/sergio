@@ -59,6 +59,9 @@ if ($LASTEXITCODE -ne 0) { Write-Host "   No pude instalar la visión con las ma
 if ($LASTEXITCODE -ne 0) { Write-Host "   No pude instalar el cancelador de eco; en llamadas usa audífonos o habla fuerte para interrumpir." -ForegroundColor Yellow }
 & $uv sync --project $app --python 3.12 --inexact --extra manos --extra llamada --extra oido
 if ($LASTEXITCODE -ne 0) { Write-Host "   No pude instalar el oído instantáneo; Sergio te oye igual, un poco más lento." -ForegroundColor Yellow }
+Write-Host "   Actas de reuniones y videollamadas (audio de la computadora)…"
+& $uv sync --project $app --python 3.12 --inexact --extra manos --extra llamada --extra oido --extra reuniones
+if ($LASTEXITCODE -ne 0) { Write-Host "   No pude instalar la grabación del audio de la computadora; las actas usarán solo el micrófono." -ForegroundColor Yellow }
 Write-Host "   Visión moderna (YOLO11 + YOLOE: objetos y personas sin confundir tu mano)… puede tardar"
 $env:UV_HTTP_TIMEOUT = "900"
 $visionOk = $false
@@ -74,11 +77,11 @@ if ($gpuCap -gt 0 -and $gpuCap -lt 7.5) {
 }
 if ($gpuCap -ge 7.5) {
     Write-Host "   Tarjeta NVIDIA: la visión usará la GPU (descarga grande, ~2,5 GB, solo la primera vez)"
-    & $uv sync --project $app --python 3.12 --inexact --extra manos --extra llamada --extra oido --extra vision-gpu
+    & $uv sync --project $app --python 3.12 --inexact --extra manos --extra llamada --extra oido --extra reuniones --extra vision-gpu
     $visionOk = ($LASTEXITCODE -eq 0)
 }
 if (-not $visionOk) {
-    & $uv sync --project $app --python 3.12 --inexact --extra manos --extra llamada --extra oido --extra vision
+    & $uv sync --project $app --python 3.12 --inexact --extra manos --extra llamada --extra oido --extra reuniones --extra vision
     if ($LASTEXITCODE -ne 0) { Write-Host "   No pude instalar la visión moderna ahora; uso la anterior." -ForegroundColor Yellow }
 }
 if ($Gpu) {

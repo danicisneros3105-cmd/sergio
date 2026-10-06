@@ -60,6 +60,8 @@ def _transport(fail=()):
                     "call": "lista",
                     "wake": "instantáneo (Vosk)",
                     "gym": "cada 12 min, el próximo en 9 min",
+                    "voices": "listas, conozco 1: Dani",
+                    "minutes": "micrófono + audio de la computadora",
                     "location": {"lat": -2.9, "lon": -79.0, "source": "ubicación de Windows (±30 m)"},
                     "recent_errors": ["22:10:01 Gemini voice failed (429); using the neural voice"],
                     "voice_used": "Gemini (Algieba)",

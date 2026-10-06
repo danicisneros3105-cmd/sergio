@@ -337,6 +337,8 @@ def probar(sin_pantalla: bool) -> None:
                 "llamada": diag.get("call"),
                 "oído": diag.get("wake"),
                 "gimnasio": diag.get("gym"),
+                "voces": diag.get("voices"),
+                "actas": diag.get("minutes"),
             }
             missing = [k for k, v in parts.items() if v is None]
             if missing:
@@ -348,7 +350,7 @@ def probar(sin_pantalla: bool) -> None:
                 raise RuntimeError("; ".join(bad))
             return " | ".join(f"{k}: {v}" for k, v in parts.items())
 
-        run.check("Cámara, hologramas, llamada, oído y gimnasio", companion_parts)
+        run.check("Cámara, hologramas, llamada, oído, gimnasio, voces y actas", companion_parts)
 
         def selftest(kind: str) -> dict:
             resp = http.post(

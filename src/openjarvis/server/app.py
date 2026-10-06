@@ -527,6 +527,10 @@ def create_app(
     from openjarvis.server.vision_routes import router as vision_router
 
     app.include_router(vision_router)
+    # Minutes of meetings, video calls and conversations (who said what).
+    from openjarvis.server.meeting_routes import router as meeting_router
+
+    app.include_router(meeting_router)
     # Native notch tabs: God's Eye View data and ECC guides.
     from openjarvis.server.notch_routes import router as notch_router
 

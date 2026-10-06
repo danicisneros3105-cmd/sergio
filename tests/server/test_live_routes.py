@@ -35,6 +35,9 @@ class FakeSession:
     async def send_tool_response(self, **kw):
         self.sent.append(("tool_response", kw))
 
+    async def send_client_content(self, **kw):
+        self.sent.append(("content", kw))
+
     async def receive(self):
         if not self.batches:
             await asyncio.sleep(3600)  # quiet line
@@ -426,3 +429,56 @@ def test_no_voice_means_gemini_lives_default_voice():
     assert cfg.speech_config is None
     cfg = gemini_live.live_config(FakeTypes(), voice="Charon", instructions="x", decls=[], search=False)
     assert cfg.speech_config is not None
+
+
+def test_notes_reach_the_model_without_ending_a_turn():
+    """«Ahora habla Ana»: context for the model, not a question to answer."""
+
+    async def scenario():
+        ws = FakeWS()
+        session = FakeSession([])
+        call = _call(ws, FakeClient([session]))
+        task = asyncio.ensure_future(call.run())
+        ws.put(type="websocket.receive", text=json.dumps({"type": "note", "text": "(Ahora habla Ana)"}))
+        for _ in range(200):
+            if any(k == "content" for k, _ in session.sent):
+                break
+            await asyncio.sleep(0.01)
+        ws.put(type="websocket.receive", text=json.dumps({"type": "end"}))
+        await asyncio.wait_for(task, 5)
+        return session
+
+    session = asyncio.run(scenario())
+    content = [kw for k, kw in session.sent if k == "content"]
+    assert content and content[0]["turn_complete"] is False
+    assert content[0]["turns"].parts[0].text == "(Ahora habla Ana)"
+
+
+def test_proactive_audio_first_and_plain_sessions_when_refused(monkeypatch):
+    """Proactive audio (v1alpha) lets Sergio stay quiet when people talk to
+    each other; a model that refuses it is used without it, for good."""
+    monkeypatch.setattr(gemini_live, "_PROACTIVE_OK", [True])
+
+    async def scenario(alpha_outcome):
+        ws = FakeWS()
+        session = FakeSession([])
+        plain = FakeClient([session])
+        call = _call(ws, plain)
+        call.proactive = True
+        call._alpha = FakeClient([alpha_outcome])
+        task = asyncio.ensure_future(call.run())
+        for _ in range(200):
+            if ws.json:
+                break
+            await asyncio.sleep(0.01)
+        ws.put(type="websocket.receive", text=json.dumps({"type": "end"}))
+        await asyncio.wait_for(task, 5)
+        return call, plain
+
+    call, plain = asyncio.run(scenario(FakeSession([])))
+    config = call._alpha.connects[0][1]
+    assert config.proactivity.proactive_audio is True and plain.connects == []
+    refused = RuntimeError('1007 Invalid JSON payload received. Unknown name "proactivity"')
+    call, plain = asyncio.run(scenario(refused))
+    assert gemini_live._PROACTIVE_OK == [False]
+    assert len(plain.connects) == 1 and not hasattr(plain.connects[0][1], "proactivity")

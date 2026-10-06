@@ -432,6 +432,14 @@ class CallSession:
         if self.active and text:
             self._send(json.dumps({"type": "text", "text": text}))
 
+    def send_note(self, text: str) -> None:
+        """Context Sergio should know but not answer ("now Ana is talking")."""
+        if self.active and text:
+            try:
+                self._send(json.dumps({"type": "note", "text": text}))
+            except Exception as exc:  # noqa: BLE001
+                self._lost(exc)
+
     def interrupt(self) -> None:
         self.speaker.flush()
 

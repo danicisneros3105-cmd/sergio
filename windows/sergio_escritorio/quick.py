@@ -206,6 +206,53 @@ def parse_quick(text: str) -> Quick | None:
         return Quick("briefing")
     if _CALL.fullmatch(t) or re.fullmatch(r"(empecemos|iniciemos) (una )?(llamada|conversacion)", t):
         return Quick("call", say="Le escucho, señor.")
+    # Minutes of a meeting, a video call or a conversation
+    m = re.fullmatch(
+        r"(?:toma|tomar|empieza a tomar|empezar a tomar|comienza a tomar) (?:notas|apuntes|el acta)"
+        r"(?: de (?:la|esta|esa|mi) (?P<k1>reunion|llamada|videollamada|junta|clase|conversacion|charla))?"
+        r"|(?:graba|grabame|escucha|anota) (?:la|esta) (?P<k2>reunion|videollamada|junta|clase|conversacion|charla)"
+        r"|modo (?P<k3>reunion|videollamada)",
+        t,
+    )
+    if m:
+        kind = m.group("k1") or m.group("k2") or m.group("k3") or "reunion"
+        kind = {"reunion": "reunión", "junta": "reunión", "clase": "reunión", "llamada": "videollamada",
+                "conversacion": "conversación", "charla": "conversación"}.get(kind, kind)
+        return Quick("meeting_start", kind, "")
+    if re.fullmatch(
+        r"(?:termina|terminar|acaba|finaliza|cierra|para|deten) (?:la|esta) (?:reunion|videollamada|junta|clase|grabacion)"
+        r"|(?:deja|para) de (?:tomar notas|grabar|tomar apuntes)|fin de la (?:reunion|clase|junta)"
+        r"|ya (?:termino|acabo) la (?:reunion|clase|junta)|(?:haz|hazme|escribe) el acta"
+        r"|(?:resume|resumeme|haz un resumen de) (?:la|esta|esa) (?:reunion|videollamada|junta|clase|conversacion|charla)",
+        t,
+    ):
+        return Quick("meeting_stop")
+    if re.fullmatch(
+        r"(?:lee|leeme|dime) (?:el acta|el resumen)(?: de la (?:ultima )?reunion)?|que se (?:decidio|acordo)(?: en la reunion)?"
+        r"|que tareas (?:quedaron|salieron)(?: de la reunion)?",
+        t,
+    ):
+        return Quick("meeting_last")
+    m = re.fullmatch(
+        r"(?:aprende|aprendete|memoriza|memorizate|registra|graba|guarda|reconoce)(?: me)? "
+        r"(?:mi voz|la voz de (?P<who>[a-zñ]+(?: [a-zñ]+){0,3}))(?: (?:de nuevo|otra vez|bien))?"
+        r"(?:,? (?:yo )?soy (?P<me>[a-zñ]+(?: [a-zñ]+){0,3}))?",
+        t,
+    )
+    if m:
+        who = (m.group("who") or m.group("me") or "").strip()
+        return Quick("voice_enroll", said_name(text, who) if who else "", "")
+    if re.fullmatch(
+        r"(?:quien|quienes) (?:esta|estan|estaba) hablando(?: ahora)?|quien habla(?: ahora)?|"
+        r"quien hablo(?: recien| antes)?|de quien es (?:esta|esa) voz|(?:me )?reconoces (?:mi|la) voz|"
+        r"sabes quien (?:habla|soy)(?: por la voz)?",
+        t,
+    ):
+        return Quick("voice_who")
+    m = re.fullmatch(r"(?:olvida|borra|elimina) (?:mi voz|la voz de (?P<who>[a-zñ]+(?: [a-zñ]+){0,3}))", t)
+    if m:
+        who = (m.group("who") or "").strip()
+        return Quick("voice_forget", said_name(text, who) if who else "")
     m = _SCAN.fullmatch(t)
     if m:
         who = (m.group("who") or "").strip()

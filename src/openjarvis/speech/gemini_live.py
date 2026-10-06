@@ -51,6 +51,10 @@ LIVE_MODELS = (
 IN_MIME = "audio/pcm;rate=16000"
 DEFAULT_VOICE_NAMES = {"", "predeterminada", "default"}
 _THINKING_OK = [True]  # the model accepted thinking_budget=0 (else left out)
+# "Proactive audio" (API v1alpha): the model may stay quiet when the people
+# in the room talk to each other instead of to Sergio. Left out for good the
+# first time a model or key refuses it.
+_PROACTIVE_OK = [True]
 OUT_RATE = 24000
 # Sergio's own tools offered during a call (the rest stay for the agent).
 SERVER_TOOLS = (
@@ -139,6 +143,10 @@ modelar en Blender, programar, organizar muchas carpetas) usa tarea: corre en \
 segundo plano y te llegará el resultado; mientras, sigue conversando.
 - Si el usuario se despide ("adiós", "eso es todo", "cuelga"), despídete en \
 una frase y usa colgar.
+- Notas de quién habla: te llegarán notas como "(Ahora habla Ana)" o "(Ahora \
+habla el señor)", sacadas de las voces que conoces. Si habla otra persona y no \
+te nombra ni te pregunta nada, seguramente conversa con el señor o con otros: \
+no respondas ni interrumpas. Al señor respóndele siempre.
 {personality}"""
 
 
@@ -199,6 +207,7 @@ def live_config(
     decls: list[dict[str, Any]],
     search: bool,
     handle: str | None = None,
+    proactive: bool = False,
 ) -> Any:
     tools = []
     if decls:
@@ -219,6 +228,8 @@ def live_config(
     if _THINKING_OK[0]:
         # No "thinking" before speaking: the first word comes sooner.
         extra["thinking_config"] = types.ThinkingConfig(thinking_budget=0)
+    if proactive and hasattr(types, "ProactivityConfig"):
+        extra["proactivity"] = types.ProactivityConfig(proactive_audio=True)
     return types.LiveConnectConfig(
         **extra,
         response_modalities=["AUDIO"],
@@ -274,6 +285,8 @@ class LiveCall:
         self.voice = str(start.get("voice") or "")
         self.models = list(start.get("models") or models)
         self._client = client
+        self._alpha: Any = None  # the same key on API v1alpha (proactive audio)
+        self.proactive = client is None  # tests inject a client: plain sessions
         self._types = types
         self._send_lock = asyncio.Lock()
         self._pending: dict[str, asyncio.Future] = {}
@@ -299,6 +312,10 @@ class LiveCall:
                     "Falta GEMINI_API_KEY (sergio nube configurar --gemini …)"
                 )
             self._client = genai.Client(api_key=key)
+            try:
+                self._alpha = genai.Client(api_key=key, http_options={"api_version": "v1alpha"})
+            except Exception:  # noqa: BLE001 — an old SDK: no proactive audio
+                self._alpha = None
         return self._client, self._types
 
     async def send_json(self, data: dict[str, Any]) -> None:
@@ -333,6 +350,32 @@ class LiveCall:
         for model in models:
             if self._handle and model != self.model:
                 self._handle = None  # another model: a fresh session
+            if self.proactive and _PROACTIVE_OK[0] and self._alpha is not None and not wants_search:
+                try:
+                    session = await stack.enter_async_context(
+                        self._alpha.aio.live.connect(
+                            model=model,
+                            config=live_config(
+                                types,
+                                voice=self.voice,
+                                instructions=self.instructions,
+                                decls=self.decls,
+                                search=False,
+                                handle=self._handle,
+                                proactive=True,
+                            ),
+                        )
+                    )
+                    self.model = model
+                    return session
+                except Exception as exc:  # noqa: BLE001 — without it, below
+                    text = str(exc).lower()
+                    if "proactiv" in text or "unknown name" in text or "v1alpha" in text:
+                        _PROACTIVE_OK[0] = False
+                        log.info("Live: no proactive audio (%s)", str(exc)[:160])
+                    else:
+                        errors.append(f"{model} (proactivo): {exc}")
+                        log.warning("Live connect failed: %s", errors[-1][:300])
             search_ok = wants_search and (
                 time.monotonic() - _search_refused_at > SEARCH_RETRY_SECONDS
             )
@@ -478,6 +521,13 @@ class LiveCall:
                 )
             elif kind == "text" and event.get("text"):
                 await session.send_realtime_input(text=str(event["text"])[:4000])
+            elif kind == "note" and event.get("text"):
+                # Context the model should know but not answer ("now Ana is
+                # talking"): added to the conversation without ending a turn.
+                await session.send_client_content(
+                    turns=types.Content(role="user", parts=[types.Part(text=str(event["text"])[:1000])]),
+                    turn_complete=False,
+                )
             elif kind == "tool_result":
                 fut = self._pending.pop(str(event.get("id")), None)
                 if fut is not None and not fut.done():

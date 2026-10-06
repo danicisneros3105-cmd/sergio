@@ -28,6 +28,9 @@ manos = ["mediapipe>=1.0"]
 llamada = ["livekit>=1.0"]
 # "Sergio" heard at once, while you are still talking (Vosk, offline).
 oido = ["vosk>=0.3.45"]
+# Meeting minutes: the computer's sound (the other side of a video call,
+# WASAPI loopback) and compressed audio for the trip to the server.
+reuniones = ["pyaudiowpatch>=0.2.12; sys_platform == 'win32'", "soundfile>=0.12"]
 # Modern object detector (YOLO11, Ultralytics): far fewer mistakes than the
 # old EfficientDet (a hand is not a banana, a window is not a TV).
 vision = ["ultralytics>=8.3"]

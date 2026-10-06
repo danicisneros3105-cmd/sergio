@@ -62,6 +62,9 @@ class Abilities:
     edit_video: Callable[..., str] = _nothing  # Video Pro (request, folder)
     upload_video: Callable[[], str] = _nothing  # YouTube Studio ready to publish
     face_scan: Callable[[str], str] = _nothing  # Face ID-style scan (name)
+    voice_enroll: Callable[[str], str] = _nothing  # learn a voice (name)
+    voice_who: Callable[[], str] = _nothing  # whose voice was the last order
+    meeting: Callable[[str, str], str] = lambda _a, _k: "No disponible en este equipo."
     now: Callable[[], datetime] = field(default=datetime.now)
 
 
@@ -335,6 +338,36 @@ def call_tools(ab: Abilities) -> list[ClientTool]:
             "permiso). nombre vacío = el señor (el dueño) si es él quien está.",
             lambda a: ab.face_scan(str(a.get("nombre") or "")),
             _obj(nombre=_str("Nombre de quien está frente a la cámara; vacío = el señor")),
+        ),
+        ClientTool(
+            "aprender_voz",
+            "Aprende una voz (huella de voz, sin grabar audio): la persona lee en voz "
+            "alta una frase que aparece en pantalla ~8 s. Desde entonces Sergio sabe "
+            "cuándo habla ella y cuándo otra persona (te llegan notas «Ahora habla …»). "
+            "Úsalo con «aprende mi voz» o «aprende la voz de Ana» (con su permiso). "
+            "nombre vacío = el señor.",
+            lambda a: ab.voice_enroll(str(a.get("nombre") or "")),
+            _obj(nombre=_str("De quién es la voz; vacío = el señor")),
+        ),
+        ClientTool(
+            "tomar_notas",
+            "Actas de reuniones, videollamadas o conversaciones: accion=empezar graba "
+            "el micrófono (la sala) y el sonido de la computadora (la videollamada); "
+            "accion=terminar escribe el acta: transcripción con quién dijo qué (por "
+            "las voces que conoces), resumen, decisiones y tareas, guardada en "
+            "Documentos/Sergio/Reuniones. accion=ultima lee el resumen de la última. "
+            "Recuerda al señor avisar a los presentes de que se toman notas.",
+            lambda a: ab.meeting(str(a.get("accion") or "empezar"), str(a.get("tipo") or "reunión")),
+            _obj(
+                accion=_str("empezar | terminar | ultima", required=True, enum=["empezar", "terminar", "ultima"]),
+                tipo=_str("reunión | videollamada | conversación", enum=["reunión", "videollamada", "conversación"]),
+            ),
+        ),
+        ClientTool(
+            "quien_habla",
+            "Dice de quién es la voz que acaba de hablar (el señor, alguien conocido "
+            "o una voz desconocida), por su huella de voz.",
+            lambda _a: ab.voice_who(),
         ),
         ClientTool(
             "holograma_modelo",

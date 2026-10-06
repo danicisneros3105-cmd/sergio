@@ -369,7 +369,29 @@ def run(config: dict[str, Any]) -> None:
                 else "apagado"
             ),
             "reminders": len(reminders.pending()),
+            "voices": voices_status(),
+            "minutes": minutes_status(),
         }
+
+    def voices_status() -> str:
+        try:
+            import torch  # noqa: F401
+        except Exception:  # noqa: BLE001
+            return "sin PyTorch (vuelve a ejecutar sergio escritorio instalar)"
+        known = [p["name"] for p in voice_book.people()]
+        if not known:
+            return "listas, aún ninguna voz aprendida (di «aprende mi voz»)"
+        return f"listas, conozco {len(known)}: " + ", ".join(known[:4])
+
+    def minutes_status() -> str:
+        if recorder.active:
+            return f"tomando notas ({int(recorder.seconds // 60)} min)"
+        try:
+            import pyaudiowpatch  # noqa: F401
+
+            return "micrófono + audio de la computadora"
+        except Exception:  # noqa: BLE001
+            return "solo micrófono (falta el audio de la computadora)"
 
     def call_status() -> str:
         session = current_call[0]
@@ -697,6 +719,18 @@ def run(config: dict[str, Any]) -> None:
             return holo_model(q.arg)
         if q.kind == "face_scan":
             return face_scan(q.arg)
+        if q.kind == "voice_enroll":
+            return voice_enroll(q.arg)
+        if q.kind == "voice_who":
+            return voice_who()
+        if q.kind == "voice_forget":
+            return voice_forget(q.arg)
+        if q.kind == "meeting_start":
+            return meeting_start(q.arg or "reunión")
+        if q.kind == "meeting_stop":
+            return meeting_stop()
+        if q.kind == "meeting_last":
+            return meeting_last()
         if q.kind == "holo_maybe":
             if getattr(hand_control, "mode", "off") != "holo" and not camera_window.holo.objects:
                 raise LookupError("no hay hologramas: que responda el asistente")
@@ -1715,11 +1749,17 @@ def run(config: dict[str, Any]) -> None:
         edit_video=lambda req, src="": video_task(req, src),
         upload_video=upload_video,
         face_scan=face_scan,
+        voice_enroll=lambda name: voice_enroll(name),
+        voice_who=lambda: voice_who(),
+        meeting=lambda action, kind: (
+            meeting_start(kind) if action == "empezar" else meeting_stop() if action == "terminar" else meeting_last()
+        ),
     )
 
     def call_ended(why: str) -> None:
         current_call[0] = None
         ears.call = None
+        voices.enabled = False
         bridge.call_on.emit(False)
         if why == "cancelado":  # "Sergio" was not for him after all
             bridge.state.emit("idle")
@@ -1844,6 +1884,240 @@ def run(config: dict[str, Any]) -> None:
     controller.selftest = selftest
     controller.skills["face_scan"] = lambda args: face_scan(str(args.get("name") or ""))
 
+    # -- who is talking: voiceprints of the people Sergio knows ---------------
+    from sergio_escritorio.speakers import Encoder, LiveVoices, VoiceBook, pcm_to_float, voiced
+
+    voice_book = VoiceBook()
+    owner_cache = [str(config.get("owner") or "")]
+
+    def owner_name() -> str:
+        watcher = camera_window.watcher
+        return (watcher.owner if watcher is not None and watcher.owner else "") or owner_cache[0]
+
+    def fetch_owner() -> None:
+        try:
+            owner_cache[0] = client.owner() or owner_cache[0]
+        except Exception:  # noqa: BLE001 — the server may be starting
+            pass
+
+    threading.Thread(target=fetch_owner, daemon=True).start()
+
+    def make_encoder() -> Any:
+        from sergio_escritorio.vision import cuda_works
+
+        return Encoder(device="cuda" if cuda_works() else "cpu")
+
+    def owner_looking_away() -> bool:
+        """The owner's face is turned well away from the screen (talking to
+        someone else in the room, probably)."""
+        if not camera_window.isVisible():
+            return False
+        faces = list(getattr(vision_engine, "faces", []) or [])
+        return len(faces) >= 1 and all(abs(f.yaw) > 32 for f in faces[:1]) and len(
+            [t for t in vision_engine.tracker.visible(time.monotonic()) if t.kind == "persona"]
+        ) >= 2
+
+    def voice_changed(new: Any, _old: Any) -> None:
+        """Tell the live conversation who is talking now (it may stay quiet
+        when people talk to each other)."""
+        if not call_active():
+            return
+        who = voices.describe(new)
+        note = f"(Ahora habla {who}.)"
+        if new.owner and owner_looking_away():
+            note = f"(Ahora habla {who}, pero mira hacia otra persona: quizá no te habla a ti.)"
+        current_call[0].send_note(note)
+        bridge.caption.emit(f"Habla: {who}")
+
+    def sergio_talking() -> bool:
+        session = current_call[0]
+        return assistant.busy or bool(session is not None and session.active and session.speaker.talking)
+
+    voices = LiveVoices(make_encoder, voice_book, owner=owner_name, on_change=voice_changed, mute=sergio_talking)
+    voices.enabled = False  # on during calls (and while learning a voice)
+    ears.voices = voices
+
+    def who_spoke(wav: bytes) -> str:
+        """A note for the brain about who gave this order ("" = the owner)."""
+        if not voice_book.people():
+            return ""
+        from sergio_escritorio.voice import wav_pcm
+
+        voice = voices.identify_pcm(wav_pcm(wav))
+        voices.note(voice)
+        if voice.owner:
+            return ""
+        if voice.name:
+            return f"Te lo pide {voice.name}, no el señor"
+        return "Te lo pide una voz que no conozco; no es el señor"
+
+    assistant.who_spoke = who_spoke
+    controller.skills["voice_enroll"] = lambda args: voice_enroll(str(args.get("name") or ""))
+    controller.skills["voice_who"] = lambda _args: voice_who()
+
+    PHRASES = (
+        "El veloz murciélago hindú comía feliz cardillo y kiwi, mientras la cigüeña tocaba el saxofón detrás del palenque de paja.",
+        "Quiero que me reconozcas por mi voz, hable fuerte o bajito, cansado o contento, aquí o en cualquier rincón de la casa.",
+        "Los volcanes del Ecuador, del Cotopaxi al Chimborazo, se ven mejor al amanecer, con café caliente y sin prisa.",
+    )
+
+    def voice_enroll(name: str = "") -> str:
+        """«Aprende mi voz»: read a sentence aloud; Sergio keeps its voiceprints."""
+        import random
+
+        import numpy as np
+
+        who = name.strip() or owner_name()
+        if not who:
+            return "¿De quién es la voz? Diga: «aprende mi voz, soy …»."
+        phrase = random.choice(PHRASES)
+        bridge.caption.emit(f"Lea en voz alta: «{phrase}»")
+        assistant.say_aloud("Lea en voz alta la frase de la pantalla, con su voz de siempre.")
+        frames: list[bytes] = []
+        remove = voices.tap(frames.append)
+        try:
+            started = time.monotonic()
+            while time.monotonic() - started < 14:
+                time.sleep(0.25)
+                speech = voiced(pcm_to_float(b"".join(frames)))
+                if speech.size >= 9 * 16000:
+                    break
+        finally:
+            remove()
+        speech = voiced(pcm_to_float(b"".join(frames)))
+        if speech.size < 4 * 16000:
+            return "No oí suficiente voz. Otra vez, más cerca del micrófono y leyendo la frase completa."
+        try:
+            encoder = voices.encoder()
+            step = 3 * 16000
+            prints = [encoder.embed(speech[i : i + step]) for i in range(0, speech.size - step + 1, step)]
+            prints = prints or [encoder.embed(speech)]
+            count = voice_book.enroll(who, [np.asarray(p) for p in prints])
+        except Exception as exc:  # noqa: BLE001
+            return f"No pude aprender la voz: {str(exc)[:200]}"
+        if who.lower() == owner_name().lower():
+            return f"Listo, señor. Ya reconozco su voz ({count} huellas). Si alguien más habla, lo sabré."
+        return f"Listo: ya reconozco la voz de {who} ({count} huellas)."
+
+    def voice_who() -> str:
+        if not voice_book.people():
+            return "Aún no conozco ninguna voz. Diga «aprende mi voz» y lea una frase."
+        wav = assistant.last_wav
+        if wav:
+            from sergio_escritorio.voice import wav_pcm
+
+            try:
+                voice = voices.identify_pcm(wav_pcm(wav))
+            except Exception as exc:  # noqa: BLE001
+                return f"No pude analizar la voz: {str(exc)[:160]}"
+            sure = f" ({voice.score * 100:.0f}% de parecido)" if voice.name else ""
+            if voice.owner:
+                return f"Es usted, señor{sure}."
+            if voice.name:
+                return f"Es {voice.name}{sure}."
+            return "Esa voz no la conozco."
+        return f"Lo último que oí era {voices.describe()}."
+
+    # -- meetings, video calls, conversations: Sergio takes the minutes --------
+    from sergio_escritorio.meeting import MeetingRecorder, diarize, encode, mix, read_wav, spoken_summary, timeline_text
+    from sergio_escritorio.speakers import HOME as SERGIO_HOME
+
+    recorder = MeetingRecorder(voices.tap, SERGIO_HOME / "reuniones")
+    meeting_kind = ["reunión"]
+    last_minutes: list[dict] = []
+    reminded_consent = [""]
+
+    def meeting_start(kind: str = "reunión") -> str:
+        if recorder.active:
+            return "Ya estoy tomando notas, señor."
+        recorder.start(kind)
+        meeting_kind[0] = kind
+        bridge.caption.emit(f"● Tomando notas de la {kind}… («Sergio, termina la reunión»)")
+        parts = [f"Tomando notas de la {kind}"]
+        if recorder.loopback_error:
+            parts.append("(solo el micrófono: no pude grabar el sonido de la computadora)")
+        else:
+            parts.append("con el micrófono y el sonido de la computadora")
+        text = " ".join(parts) + "."
+        today = time.strftime("%Y-%m-%d")
+        if reminded_consent[0] != today:  # once a day is enough
+            reminded_consent[0] = today
+            text += " Recuerde avisar a los presentes de que estoy tomando notas."
+        return text
+
+    def finish_meeting(rec: Any) -> None:
+        import datetime as _dt
+        import json as _json
+
+        try:
+            tracks = {"sala": read_wav(rec.room)}
+            if rec.call is not None:
+                tracks["llamada"] = read_wav(rec.call)
+            turns = []
+            try:
+                encoder = voices.encoder()
+                boss = owner_name()
+                turns = diarize(
+                    tracks,
+                    encoder.embed,
+                    lambda p: voice_book.identify(p, boss, 3.0),
+                )
+            except Exception:  # noqa: BLE001 — no voiceprints: Gemini tells voices apart
+                logging.info("diarization unavailable", exc_info=True)
+            audio = mix(tracks)
+            path, mime = encode(audio, rec.folder)
+            when = _dt.datetime.fromtimestamp(rec.started).strftime("%d/%m/%Y %H:%M")
+            speakers = list(dict.fromkeys(t.speaker for t in turns))
+            data = client.meeting_summary(
+                path.read_bytes(), mime, timeline_text(turns), kind=meeting_kind[0],
+                when=when, seconds=rec.seconds, speakers=speakers,
+            )
+            folder = Path.home() / "Documents" / "Sergio" / "Reuniones"
+            folder.mkdir(parents=True, exist_ok=True)
+            safe = re.sub(r"[^\w áéíóúñÁÉÍÓÚÑ-]", "", str(data.get("titulo") or "Reunión"))[:60].strip() or "Reunión"
+            notes = folder / f"{_dt.datetime.fromtimestamp(rec.started):%Y-%m-%d %H%M} {safe}.md"
+            notes.write_text(str(data.get("markdown") or ""), encoding="utf-8")
+            (rec.folder / "acta.json").write_text(_json.dumps(data, ensure_ascii=False), encoding="utf-8")
+            for raw in (rec.room, rec.call):  # the minutes stay; the raw tracks go
+                if raw is not None:
+                    Path(raw).unlink(missing_ok=True)
+            last_minutes[:] = [dict(data, path=str(notes))]
+            tell(f"El acta está lista, señor. {spoken_summary(data)}")
+            bridge.caption.emit(f"Acta guardada en Documentos › Sergio › Reuniones: {notes.name}")
+        except Exception as exc:  # noqa: BLE001
+            logging.exception("meeting minutes failed")
+            tell(f"No pude escribir el acta: {str(exc)[:160]}. El audio quedó en {rec.folder}.")
+
+    def meeting_stop() -> str:
+        rec = recorder.stop()
+        if rec is None:
+            if last_minutes:
+                return meeting_last()
+            return "No estaba tomando notas. Para empezar diga «Sergio, toma notas de la reunión»."
+        minutes = max(1, round(rec.seconds / 60))
+        threading.Thread(target=finish_meeting, args=(rec,), daemon=True).start()
+        return f"Listo. Escribo el acta de {minutes} minuto{'s' if minutes != 1 else ''} y le aviso."
+
+    def meeting_last() -> str:
+        if not last_minutes:
+            folder = Path.home() / "Documents" / "Sergio" / "Reuniones"
+            files = sorted(folder.glob("*.md")) if folder.exists() else []
+            if not files:
+                return "Aún no tengo actas. Diga «toma notas de la reunión» la próxima vez."
+            text = files[-1].read_text(encoding="utf-8")
+            summary = text.split("## Resumen", 1)[-1].split("##", 1)[0].strip()
+            return f"Del acta «{files[-1].stem}»: {summary[:600]}"
+        return spoken_summary(last_minutes[0])
+
+    controller.skills["meeting_start"] = lambda args: meeting_start(str(args.get("kind") or "reunión"))
+    controller.skills["meeting_stop"] = lambda _args: meeting_stop()
+
+    def voice_forget(name: str = "") -> str:
+        who = name.strip() or owner_name()
+        if who and voice_book.forget(who):
+            return f"Olvidé la voz de {who}."
+        return f"No tenía guardada la voz de {who or 'esa persona'}."
+
     def start_call(prefill: bytes = b"", force: bool = False) -> bool:
         """Open a live call (from a worker thread). False = use turns."""
         if not force and config.get("conversation", "llamada") != "llamada":
@@ -1869,6 +2143,7 @@ def run(config: dict[str, Any]) -> None:
         call_error[0] = ""
         ears.mark(f"llamada lista ({session.model})")
         bridge.call_on.emit(True)
+        voices.enabled = bool(voice_book.people())  # who is talking, live
         return True
 
     first_voice = [False]

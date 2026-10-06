@@ -669,6 +669,44 @@ class SergioClient:
         """Family resemblance of the faces in a photo with known people."""
         return str(self._faces_post("kinship", image).get("text") or "")
 
+    def meeting_summary(
+        self,
+        audio: bytes,
+        mime: str,
+        timeline: str,
+        *,
+        kind: str = "reunión",
+        when: str = "",
+        seconds: float = 0.0,
+        speakers: list[str] | None = None,
+    ) -> dict:
+        """The minutes of a meeting/call/conversation (Gemini, on the server)."""
+        resp = self.http.post(
+            f"{self.base}/v1/meeting/summarize",
+            files={"audio": (f"reunion.{'ogg' if 'ogg' in mime else 'wav'}", audio, mime)},
+            data={
+                "timeline": timeline,
+                "kind": kind,
+                "when": when,
+                "seconds": str(round(seconds, 1)),
+                "speakers": json.dumps(speakers or []),
+            },
+            timeout=httpx.Timeout(900, connect=10),  # a long meeting takes a while
+        )
+        if resp.status_code != 200:
+            try:
+                why = resp.json().get("detail") or resp.text
+            except ValueError:
+                why = resp.text
+            raise RuntimeError(str(why)[:300])
+        return resp.json()
+
+    def owner(self) -> str:
+        """Whose assistant this is (Sergio calls them «señor»)."""
+        resp = self.http.get(f"{self.base}/v1/faces/owner", timeout=httpx.Timeout(8, connect=3))
+        resp.raise_for_status()
+        return str(resp.json().get("owner") or "")
+
     def face_scan(self, name: str, jpegs: list[bytes], mesh: dict | None) -> dict:
         """Send a Face ID-style scan (frames + 3D map) to Sergio's server."""
         files = [("images", (f"escaneo{i}.jpg", data, "image/jpeg")) for i, data in enumerate(jpegs)]
@@ -1109,6 +1147,10 @@ class Assistant:
         # you said; returns False when no call could start (then turn-based).
         self.start_call: Callable[[bytes], bool] | None = None
         self.last_heard = ""  # for diagnostics (sergio revisar)
+        self.last_wav = b""  # the last thing said to Sergio («¿reconoces mi voz?»)
+        # Who said it (speakers): wav -> a note for the brain, "" = the owner.
+        self.who_spoke: Callable[[bytes], str] | None = None
+        self._speaker_note = ""
         self.last_error = ""
         self.player = player
         self.chime = chime
@@ -1201,6 +1243,21 @@ class Assistant:
 
     def _turn(self, wav: bytes, addressed: bool, woke_text: str | None = None) -> None:
         for_me = addressed or self.expecting
+        self.last_wav = wav
+        self._speaker_note = ""
+        who: list[str] = []
+        labeller = None
+        if self.who_spoke is not None:
+            # Whose voice it is, worked out while the words are transcribed
+            # (no added wait).
+            def label() -> None:
+                try:
+                    who.append(self.who_spoke(wav) if self.who_spoke else "")
+                except Exception:  # noqa: BLE001
+                    who.append("")
+
+            labeller = threading.Thread(target=label, daemon=True)
+            labeller.start()
         if for_me:
             self.ui.state("thinking")
             try:
@@ -1234,6 +1291,9 @@ class Assistant:
             if not in_conversation:  # silence after an answer is just silence
                 self.ui.say("No te escuché. Intenta otra vez.")
             return
+        if labeller is not None:
+            labeller.join(timeout=0.8)
+            self._speaker_note = who[0] if who else ""
         self._respond(text)
 
     def on_text(self, text: str) -> None:
@@ -1309,8 +1369,9 @@ class Assistant:
                 log.exception("camera look failed")
                 self._fail(f"No pude ver bien: {explain(exc)}")
         if not answer:
+            note, self._speaker_note = self._speaker_note, ""
             try:
-                answer = self.client.ask(text)
+                answer = self.client.ask(f"({note}) {text}" if note else text)
             except Exception as exc:  # noqa: BLE001
                 log.exception("chat failed")
                 self._fail(f"El modelo no respondió: {explain(exc)}")
@@ -1414,6 +1475,8 @@ class Ears:
         self._ring: deque[bytes] = deque(maxlen=int(WAKE_RING_SECONDS * RATE / FRAME))
         self._wake: _Wake | None = None
         self.timeline: deque[str] = deque(maxlen=12)  # for `sergio revisar`
+        # Who is talking (speakers.LiveVoices): every frame goes there too.
+        self.voices: Any = None
 
     def mark(self, what: str) -> None:
         """Note a moment of the last wake-up (diagnostics: who was slow)."""
@@ -1527,6 +1590,12 @@ class Ears:
 
     def feed(self, chunk: bytes) -> tuple[bytes, bool, bool] | None:
         """Process one frame; returns (wav, addressed, clicky) when ready."""
+        voices = self.voices
+        if voices is not None:
+            try:
+                voices.feed(chunk)  # never blocks: the voiceprint runs elsewhere
+            except Exception:  # noqa: BLE001
+                log.debug("voice id feed failed", exc_info=True)
         level = Segmenter.level(chunk)
         self.on_level(min(1.0, level / max(1.0, self.segmenter.threshold() * 4)))
         second = int(self.clock())
