@@ -849,6 +849,44 @@ o borrar). Si una voz que no es la tuya pide algo importante, espera a que
 apruebes mirando la cámara. «Modo bloqueo»: la pantalla de bloqueo de Windows
 (se abre con Windows Hello, PIN o contraseña).
 
+## Internacional, «Todo», cámaras en vivo, vuelos y bloqueo
+
+* **Sergio internacional**: en el centro de control (clic en el notch) →
+  **Ajustes** eliges el **idioma** (español, English, português, français,
+  Deutsch, italiano) y el **país**. Sergio te habla, te oye y escribe en ese
+  idioma (y te dice «sir», «senhor», «monsieur»…), y el país decide los
+  números de **emergencia y la línea gratuita de apoyo emocional** que da si
+  alguien está en riesgo (Ecuador, Colombia, Perú, Chile, Argentina, México,
+  España, EE. UU., Canadá, Reino Unido, Australia, Brasil, Portugal, Francia,
+  Alemania, Italia; en otro país, findahelpline.com). También por voz:
+  «habla en inglés», «estoy en México». Las frases de riesgo se detectan en
+  los seis idiomas.
+* **Todo**: una pestaña nueva con cada parte de Sergio a un toque:
+  organizador, metas, salud, consulta, gimnasio, resultados, Sergio ve,
+  hologramas, God's Eye View, cámaras en vivo, vuelo en vivo, Blender Pro,
+  Video Pro, actas, perfil, caras, bloqueo y bloquear la PC.
+* **Cámaras en vivo** («muéstrame cámaras en vivo de Londres», o Mundo →
+  Cámaras en vivo): las cámaras **públicas oficiales** más cercanas
+  (tráfico y clima que publican las autoridades: Londres, Finlandia,
+  Columbia Británica, Nueva Gales del Sur, Ontario), en una cuadrícula que se
+  actualiza cada 10 s. Para el resto del mundo, añade una clave gratuita de
+  Windy (`WINDY_API_KEY` en `~/.openjarvis/sergio.env`) y verás sus webcams
+  públicas. Nunca cámaras privadas.
+* **Vuelo en vivo** («sigue el vuelo AV 123», «muéstrame este vuelo en
+  vivo» para el avión que pasa encima): posición, altura, velocidad, rumbo,
+  aerolínea y ruta cada 8 s, con su estela dibujada, el globo 3D apuntando al
+  avión y el mapa público que lo sigue (globe.adsb.lol). Datos abiertos ADS-B.
+* **Bloqueo** («bloquea discord», «bloquea youtube.com», «bloquea búsquedas
+  de casino», «activa el bloqueo»): las webs se bloquean con la política
+  propia de Chrome, Edge y Brave (sin permisos de administrador), las apps
+  se cierran al abrirse, y una búsqueda con esas palabras cierra su pestaña.
+  **Solo tu cara lo quita** («quita el bloqueo»). Windows, el Administrador
+  de tareas y Sergio nunca se bloquean. Para bloquear toda la PC: «bloquea la
+  computadora» (pantalla de bloqueo de Windows).
+* **Guías ECC más simples**: temas a un toque (código, seguridad, diseño,
+  escritura, investigación, datos) y descripciones cortas; Sergio también
+  elige la guía solo en las tareas largas.
+
 ## Modelos en la nube: Kimi y Gemini
 
 Para respuestas más rápidas e inteligentes que el modelo local, Sergio puede

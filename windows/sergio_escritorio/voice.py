@@ -46,10 +46,20 @@ class _Wake:
         self.confirmed = False
         self.failed = False
 
+# The language Sergio hears and speaks (idioma.py; set from the settings).
+LANGUAGE = "es"
+
+
+def set_language(code: str) -> None:
+    global LANGUAGE
+    LANGUAGE = code or "es"
+
+
 VOICE_STYLE = (
     "You are Sergio, the user's personal AI on their Windows laptop, in the "
     "spirit of JARVIS: a refined, brilliant gentleman of about forty who "
-    "talks with them out loud, in Spanish. Address the owner as «señor» "
+    "talks with them out loud, in their language (Spanish unless the LANGUAGE "
+    "rule below says otherwise). Address the owner as «señor» "
     "(like JARVIS with Tony Stark: elegant respect with a glint of irony); "
     "other people by their name. This is a real conversation, not a command "
     "line: answer like a person would, in one or two natural spoken sentences. "
@@ -412,7 +422,7 @@ class SergioClient:
         resp = self.http.post(
             f"{self.base}/v1/speech/transcribe",
             files={"file": ("voz.wav", wav, "audio/wav")},
-            data={"language": "es"},
+            data={"language": LANGUAGE},
         )
         resp.raise_for_status()
         return str(resp.json().get("text") or "").strip()
@@ -438,6 +448,7 @@ class SergioClient:
     fast_model = FAST_MODEL
     deep_model = DEEP_MODEL
     personality = ""  # extra style line from the personalisation
+    country_name = ""  # where the user is (idioma.py), for the time and places
     last_brain = ""
 
     def brain(self, text: str) -> str:
@@ -465,7 +476,7 @@ class SergioClient:
         now = datetime.datetime.now()
         context = (
             f" Hoy es {now:%Y-%m-%d} y son las {now:%H:%M} (hora del usuario, "
-            "Ecuador). Si para responder necesitarías buscar en internet o usar "
+            f"{self.country_name or 'Ecuador'}). Si para responder necesitarías buscar en internet o usar "
             "la computadora, dilo en una frase y ofrécete a hacerlo."
         )
         style = (
@@ -617,9 +628,9 @@ class SergioClient:
                         self._gemini_voice_off_until = time.monotonic() + 15 * 60
                     self.last_voice = f"respaldo Edge (Gemini falló: {why[:120]})"
             try:
-                from sergio_escritorio.neural_voice import EDGE_FALLBACK, synthesize
+                from sergio_escritorio.neural_voice import fallback_voice, synthesize
 
-                wav = synthesize(text, EDGE_FALLBACK, self.voice_rate)
+                wav = synthesize(text, fallback_voice(LANGUAGE), self.voice_rate)
                 if not self.last_voice.startswith("respaldo"):
                     self.last_voice = "respaldo Edge (Gemini sin cuota)"
                 return wav
@@ -925,7 +936,7 @@ class LocalWhisper:
                     "large-v3-turbo", device="cuda", compute_type="float16"
                 )
                 list(
-                    model.transcribe(np.zeros(16000, dtype=np.float32), language="es")[
+                    model.transcribe(np.zeros(16000, dtype=np.float32), language=LANGUAGE)[
                         0
                     ]
                 )
@@ -947,10 +958,10 @@ class LocalWhisper:
         with self.lock:
             segments, _info = self.model.transcribe(
                 audio,
-                language="es",
+                language=LANGUAGE,
                 vad_filter=False,  # the companion already cut the speech
                 beam_size=5,
-                initial_prompt=PROMPT,
+                initial_prompt=PROMPT if LANGUAGE == "es" else "Sergio.",
                 condition_on_previous_text=False,
                 no_speech_threshold=0.5,
             )

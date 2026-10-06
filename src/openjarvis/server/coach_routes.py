@@ -48,6 +48,8 @@ class TherapyRequest(BaseModel):
     messages: list[dict[str, str]]
     notes: list[dict[str, Any]] = Field(default_factory=list)
     profile: dict[str, Any] = Field(default_factory=dict)
+    crisis: str = ""  # the crisis lines of the user's country, in their language
+    language: str = "es"
 
 
 async def _run(fn: Any, *args: Any, **kwargs: Any) -> Any:
@@ -122,10 +124,12 @@ async def therapy(req: TherapyRequest) -> dict[str, Any]:
 
     last = next((m.get("content", "") for m in reversed(req.messages) if m.get("role") == "user"), "")
     try:
-        return await asyncio.to_thread(therapy_turn, req.messages, req.notes, req.profile)
+        return await asyncio.to_thread(
+            therapy_turn, req.messages, req.notes, req.profile, crisis=req.crisis, language=req.language
+        )
     except RuntimeError as exc:
         if at_risk(last):  # never leave someone at risk without the lines
-            return {"respuesta": CRISIS, "riesgo": "alto", "nota": {}, "animo": 0, "temas": []}
+            return {"respuesta": req.crisis or CRISIS, "riesgo": "alto", "nota": {}, "animo": 0, "temas": []}
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
 

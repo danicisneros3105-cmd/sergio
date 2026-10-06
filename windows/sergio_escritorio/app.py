@@ -132,6 +132,12 @@ def tray_icon(colour: Any) -> Any:
     return QIcon(pix)
 
 
+def _quick_kind(kind: str, arg: str = "") -> Any:
+    from sergio_escritorio.quick import Quick
+
+    return Quick(kind, arg)
+
+
 def main() -> None:
     HOME.mkdir(parents=True, exist_ok=True)
     from sergio_escritorio.diagnose import setup_log
@@ -302,6 +308,15 @@ def run(config: dict[str, Any]) -> None:
         client.personality = (
             f"Tu nombre es {name}. {persona}" if name != "Sergio" else persona
         )
+        # International: his language and the user's country.
+        from sergio_escritorio import idioma
+        from sergio_escritorio import voice as _voice
+
+        lang = cfg.get("language") or idioma.system_language()
+        where = idioma.country(cfg.get("country") or idioma.system_country() or "EC")
+        _voice.set_language(lang)
+        client.country_name = where.name
+        client.personality = (client.personality + idioma.speak_rule(lang)).strip()
 
     apply_brain(config)
 
@@ -529,6 +544,27 @@ def run(config: dict[str, Any]) -> None:
     personalize_action = QAction("Personalizar a Sergio…", menu)
     menu.addAction(personalize_action)
 
+    # -- every part of Sergio, one tap away («Todo» tab) ------------------
+    # Filled at the end of start-up, once every window exists.
+    section_openers: dict[str, Any] = {}
+    quick_handlers: list[Any] = []
+
+    def open_section(key: str, arg: str = "") -> None:
+        opener = section_openers.get(key)
+        if opener is None:
+            return
+
+        def run() -> None:
+            try:
+                said = opener(arg)
+            except Exception as exc:  # noqa: BLE001 — said, never a crash
+                logging.exception("section %s failed", key)
+                said = f"No pude abrir eso: {exc}"
+            if said:
+                tell(said)
+
+        threading.Thread(target=run, daemon=True).start()
+
     # -- control center (click the notch) ---------------------------------
     def status() -> str:
         brain = getattr(client, "_model", "") or "el modelo de Sergio"
@@ -582,10 +618,11 @@ def run(config: dict[str, Any]) -> None:
             open_url=open_app_window,
             server_url=config["server_url"],
             status=status,
+            open_section=open_section,
         )
     )
     panels.append(panel)
-    personalize_action.triggered.connect(lambda: (panel.open(), panel.show_tab(1)))
+    personalize_action.triggered.connect(lambda: (panel.open(), panel.show_tab(2)))
     bridge.level.connect(panel.set_level)
     panel_action = QAction("Centro de control  (clic en el notch)", menu)
     panel_action.triggered.connect(panel.open)
@@ -1204,7 +1241,13 @@ def run(config: dict[str, Any]) -> None:
         return None
 
     # -- the consulting room (support, notes, questionnaires) ----------------
-    from sergio_escritorio.psicologo import CRISIS, Consult, at_risk
+    from sergio_escritorio import idioma
+    from sergio_escritorio.psicologo import Consult
+
+    def here() -> tuple[str, str]:
+        """(country code, language) chosen in the settings (or Windows')."""
+        lang = config.get("language") or idioma.system_language()
+        return (config.get("country") or idioma.system_country() or "EC"), lang
 
     consult = Consult(HOME / "psicologo.json")
     consult_windows: dict[str, Any] = {}
@@ -1217,11 +1260,19 @@ def run(config: dict[str, Any]) -> None:
         from sergio_escritorio.psicologo_ui import ConsultWindow
 
         def ask(messages: list, notes: list) -> dict:
-            return coach_post("therapy", {"messages": messages, "notes": notes, "profile": profile.data}, timeout=120)
+            code, lang = here()
+            return coach_post(
+                "therapy",
+                {"messages": messages, "notes": notes, "profile": profile.data,
+                 "crisis": idioma.crisis_text(code, lang), "language": lang},
+                timeout=120,
+            )
 
         def show() -> None:
             if "main" not in consult_windows:
-                consult_windows["main"] = ConsultWindow(consult, ask, lambda text: tell(text), ears.talk)
+                consult_windows["main"] = ConsultWindow(
+                    consult, ask, lambda text: tell(text), ears.talk, crisis=idioma.crisis_line(here()[0])
+                )
             consult_windows["main"].open()
 
         on_ui(show)
@@ -1243,8 +1294,9 @@ def run(config: dict[str, Any]) -> None:
     def watch_risk(text: str) -> None:
         if not consult_open():  # what is said in the consultation stays there
             profile.note_topic(text)
-        if at_risk(text) and not consult_open():
-            threading.Thread(target=lambda: (tell(CRISIS), open_consult()), daemon=True).start()
+        if idioma.at_risk(text) and not consult_open():
+            crisis = idioma.crisis_text(*here())
+            threading.Thread(target=lambda: (tell(crisis), open_consult()), daemon=True).start()
 
     assistant.on_request = watch_risk
 
@@ -1781,6 +1833,10 @@ def run(config: dict[str, Any]) -> None:
 
     def run_jarvis(q: Any, now: Any) -> str | None:
         """The JARVIS quick commands; None = not one of them."""
+        for extra in quick_handlers:  # world, blocking, language (set up at the end)
+            handled = extra(q)
+            if handled is not None:
+                return handled
         handled = run_organizer(q, now)
         if handled is None:
             handled = run_profile(q)
@@ -3069,6 +3125,154 @@ def run(config: dict[str, Any]) -> None:
     mouse.Listener(
         on_click=lambda _x, _y, _b, pressed: bridge.clicked.emit() if pressed else None
     ).start()
+
+    # -- God's Eye View windows, blocking, language: and the «Todo» tab ------
+    from sergio_escritorio import bloqueo, idioma as _idioma
+    from sergio_escritorio.mundo_ui import CamsWindow, FlightWindow
+
+    world_windows: dict[str, Any] = {}
+    last_plane = [""]
+
+    def lang_now() -> str:
+        return str(config.get("language") or _idioma.system_language())
+
+    def show_cams(place: str) -> str:
+        def show() -> None:
+            if "cams" not in world_windows:
+                world_windows["cams"] = CamsWindow(config["server_url"], open_app_window, lang_now())
+            window = world_windows["cams"]
+            if place:
+                window.show_place(place)
+            else:
+                window.show()
+                window.raise_()
+
+        on_ui(show)
+        return f"Buscando cámaras públicas en vivo de {place}." if place else "¿De qué lugar? Escríbalo arriba."
+
+    def follow_flight(number: str) -> str:
+        number = number or last_plane[0]
+        fix = location.get() if not number else None
+        if fix is not None:  # «este vuelo»: the plane above us now
+            number = str(client.overhead(fix.lat, fix.lon, fix.alt).get("callsign") or "")
+            last_plane[0] = number
+        if not number:
+            return "¿Qué vuelo? Dígame el número, por ejemplo «sigue el vuelo AV 123»."
+
+        def show() -> None:
+            if "flight" not in world_windows:
+                world_windows["flight"] = FlightWindow(config["server_url"], open_app_window, lang_now())
+            world_windows["flight"].follow(number)
+
+        on_ui(show)
+        return f"Siguiendo el vuelo {number} en vivo."
+
+    blocks = bloqueo.Store(HOME / "bloqueo.json")
+    guard = bloqueo.Guard(
+        blocks,
+        title=lambda: getattr(controller.backend, "active_window", lambda: "")(),
+        close_tab=lambda: controller.act({"action": "key", "keys": "ctrl+w"}),
+        told=lambda text: bridge.caption.emit(text),
+    )
+    guard.start()
+
+    def block_on() -> str:
+        return bloqueo.switch_on(blocks)
+
+    def block_off() -> str:
+        if not blocks.list.on:
+            return "El bloqueo ya está apagado."
+        return bloqueo.switch_off(blocks, owner_approves("quitar el bloqueo"))
+
+    def show_blocks() -> str:
+        from sergio_escritorio.bloqueo_ui import BlockWindow
+
+        def show() -> None:
+            if "block" not in world_windows:
+                world_windows["block"] = BlockWindow(blocks, block_on, block_off)
+            world_windows["block"].open()
+
+        on_ui(show)
+        return "Aquí está su lista de bloqueo."
+
+    def set_language(code: str) -> str:
+        config["language"] = code
+        save_config(config)
+        apply_brain(config)
+        names = {"es": "Listo, sigo en español.", "en": "Done, sir: English from now on.",
+                 "pt": "Pronto, senhor: agora em português.", "fr": "C'est fait, monsieur : en français.",
+                 "de": "Erledigt: ab jetzt auf Deutsch.", "it": "Fatto, signore: ora in italiano."}
+        return names.get(code, "Listo.") + " (El panel cambia de idioma al reiniciar a Sergio.)"
+
+    def set_country(code: str) -> str:
+        config["country"] = code
+        save_config(config)
+        apply_brain(config)
+        where = _idioma.country(code)
+        return f"Anotado: {where.name}. Emergencias {where.emergency}; apoyo: {where.crisis}."
+
+    def run_world(q: Any) -> str | None:
+        if q.kind == "cams":
+            return show_cams(q.arg)
+        if q.kind == "flight_follow":
+            return follow_flight(q.arg)
+        if q.kind == "block_add":
+            kind, _, what = q.arg.partition(":")
+            added = blocks.list.add(kind, what)
+            blocks.save()
+            if not added:
+                return "Eso ya estaba en la lista (o no se puede bloquear)."
+            if blocks.list.on and kind == "sites":
+                bloqueo.write_policies(blocks.list.sites)
+            label = {"apps": "la app", "sites": "la web", "words": "las búsquedas de"}[kind]
+            return f"Añadí {label} {added} al bloqueo." + ("" if blocks.list.on else " Diga «activa el bloqueo» cuando quiera.")
+        if q.kind == "block_on":
+            return block_on()
+        if q.kind == "block_off":
+            return block_off()
+        if q.kind == "block_show":
+            return show_blocks()
+        if q.kind == "language":
+            return set_language(q.arg)
+        if q.kind == "country":
+            return set_country(q.arg)
+        return None
+
+    quick_handlers.append(run_world)
+
+    def prefill(text: str) -> Any:
+        def run(_arg: str = "") -> str:
+            def show() -> None:
+                panel.open()
+                panel.show_tab(0)
+                panel.entry.setText(text)
+                panel.entry.setFocus()
+
+            on_ui(show)
+            return ""
+
+        return run
+
+    section_openers.update(
+        organizer=lambda _a="": open_organizer(),
+        goals=lambda _a="": open_goals(),
+        health=lambda _a="": open_health(),
+        consult=lambda _a="": open_consult(),
+        gym=lambda _a="": on_ui(open_gym),
+        results=lambda _a="": open_results(),
+        camera=lambda _a="": (on_ui(camera_window.open), "")[1],
+        holo=lambda _a="": (on_ui(camera_window.open), set_hands("holo"))[1],
+        globe=lambda _a="": globe_tool(_a) if _a else run_quick(_quick_kind("globe")),
+        cams=show_cams,
+        flight=follow_flight,
+        blender=prefill("en Blender haz "),
+        video=prefill("edita un video con la carpeta "),
+        meeting=lambda _a="": run_quick(_quick_kind("meeting_last")),
+        profile=lambda _a="": run_quick(_quick_kind("profile_show")),
+        faces=lambda _a="": (on_ui(camera_window.open), "Mírenme a la cámara; diga «recuerda mi cara» para guardarla.")[1],
+        blocking=lambda _a="": show_blocks(),
+        lock=lambda _a="": run_quick(_quick_kind("key", "win+l")),
+    )
 
     notch.on_click = panel.toggle
     companion.setVisible(bool(config["show_companion"]))

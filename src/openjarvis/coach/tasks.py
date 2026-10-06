@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from typing import Any
 
 from openjarvis.coach.brain import ask, knowledge
@@ -206,6 +207,10 @@ RISK_WORDS = (
     "suicid", "matarme", "quitarme la vida", "no quiero vivir", "no quiero seguir viviendo",
     "hacerme daño", "cortarme", "autolesi", "desaparecer para siempre", "mejor muerto",
     "acabar con todo", "me quiero morir", "quiero morir",
+    # other languages Sergio speaks
+    "kill myself", "end my life", "want to die", "self harm", "self-harm", "hurt myself",
+    "better off dead", "me matar", "quero morrer", "me tuer", "envie de mourir", "mich umbringen",
+    "selbstmord", "uccidermi", "voglio morire",
 )  # fmt: skip
 CRISIS = (
     "Señor, lo que me cuenta es importante y no quiero que lo lleve solo. Si "
@@ -224,8 +229,16 @@ def at_risk(text: str) -> bool:
     return any(w in low for w in RISK_WORDS)
 
 
+LANGUAGES = {"es": "español", "en": "inglés", "pt": "portugués", "fr": "francés", "de": "alemán", "it": "italiano"}
+
+
 def therapy_turn(
-    messages: list[dict[str, str]], notes: list[dict[str, Any]], profile: dict[str, Any], **kw: Any
+    messages: list[dict[str, str]],
+    notes: list[dict[str, Any]],
+    profile: dict[str, Any],
+    crisis: str = "",
+    language: str = "es",
+    **kw: Any,
 ) -> dict[str, Any]:
     """One turn of the support conversation (text or voice).
 
@@ -243,6 +256,8 @@ Perfil del usuario: {_dump(profile, 3000)}
 Notas de sesiones anteriores (las más recientes al final): {_dump(notes[-12:], 6000)}
 Conversación de hoy: {_dump(messages[-20:], 8000)}
 
+Si hay riesgo, incluye estas líneas de ayuda de su país: {crisis or CRISIS}
+Escribe "respuesta" en {LANGUAGES.get(language, "español")} (el idioma del usuario).
 Responde a su último mensaje. Devuelve SOLO JSON:
 {{"respuesta": "lo que le dices (2-6 frases, una sola pregunta como máximo)",
  "nota": {{"datos": "qué contó", "analisis": "patrón o avance", "plan": "tarea o tema para después"}},
@@ -258,7 +273,7 @@ Responde a su último mensaje. Devuelve SOLO JSON:
         try:
             data = future.result(timeout=RISK_TIMEOUT)
         except Exception:  # noqa: BLE001 — timeout or error: the safe answer
-            data = {"respuesta": CRISIS, "riesgo": "alto", "nota": {}, "animo": 0, "temas": []}
+            data = {"respuesta": crisis or CRISIS, "riesgo": "alto", "nota": {}, "animo": 0, "temas": []}
         finally:
             pool.shutdown(wait=False)
     else:
@@ -266,8 +281,10 @@ Responde a su último mensaje. Devuelve SOLO JSON:
     data = _need(data, "respuesta")
     if risky or str(data.get("riesgo")) == "alto":
         data["riesgo"] = "alto"
-        if "171" not in data["respuesta"]:
-            data["respuesta"] = CRISIS + " " + str(data["respuesta"])
+        lines = crisis or CRISIS
+        numbers = re.findall(r"\d[\d ]{1,}\d|\*\d+|\d{3}", lines)
+        if not any(n in data["respuesta"] for n in numbers):
+            data["respuesta"] = lines + " " + str(data["respuesta"])
     return data
 
 

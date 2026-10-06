@@ -340,8 +340,10 @@ class ConsultWindow(QWidget):
         ask: Callable[[list[dict[str, str]], list[dict[str, Any]]], dict[str, Any]],
         speak: Callable[[str], None],
         talk: Callable[[], None],
+        crisis: str = "",
     ) -> None:
         super().__init__(None, Qt.WindowType.Window)
+        self.crisis_line = crisis or CRISIS_LINE  # the user's country (idioma.py)
         self.setWindowTitle("Sergio · Consulta")
         self.setStyleSheet(
             "QWidget#room { background: #1E1A18; } QLabel { color: #EDE6DC; }"
@@ -383,7 +385,7 @@ class ConsultWindow(QWidget):
             b.clicked.connect(lambda _c=False, k=key: self.start_quiz(k))
             tools.addWidget(b)
         tools.addStretch()
-        crisis = QLabel(CRISIS_LINE)
+        crisis = QLabel(self.crisis_line)
         crisis.setWordWrap(True)
         crisis.setStyleSheet("color:#E8A090; font-size: 12px;")
         for w in (title, sub, self.chat):
@@ -492,7 +494,7 @@ class ConsultWindow(QWidget):
         previous = self.consult.add_test(result)
         text = explain_score(result, previous)
         if result["riesgo"]:
-            text += " Marcó pensamientos de hacerse daño: eso me importa mucho. " + CRISIS_LINE + ". ¿Quiere contarme un poco más? Estoy aquí."
+            text += " Marcó pensamientos de hacerse daño: eso me importa mucho. " + self.crisis_line + ". ¿Quiere contarme un poco más? Estoy aquí."
         self._bubble("assistant", text)
         self.scene.speak(len(text) / 15.0)
         self._speak(text)

@@ -126,7 +126,7 @@ def test_personalise_saves_live(qt):
 
 def test_world_tab_loads_and_flies_the_globe(qt):
     panel, _, _, opened, _, _ = _panel(qt)
-    panel.show_tab(2)
+    panel.show_tab(panel.WORLD)
     _wait(qt, lambda: "USGS" in panel.world_note.text())
     texts = [
         panel.world_list.itemAt(i).widget().text()
@@ -142,11 +142,41 @@ def test_world_tab_loads_and_flies_the_globe(qt):
 
 def test_guides_tab_lists_and_uses_a_guide(qt):
     panel, *_ = _panel(qt)
-    panel.show_tab(3)
+    panel.show_tab(panel.GUIDES)
     _wait(
         qt,
-        lambda: panel.guide_list.count() and "video" in panel.guide_list.item(0).text(),
+        lambda: panel.guide_list.count() and "video" in panel.guide_list.item(0).text().lower(),
     )
     panel._use_guide(panel.guide_list.item(0))
     assert panel.pages.currentIndex() == 0
     assert panel.entry.text() == "Usa la guía video-editing para "
+
+
+def test_every_part_of_sergio_is_one_tap_away_and_in_the_users_language(qt):
+    from sergio_escritorio.panel import SECTION_ICONS, ControlCenter, PanelActions, SectionTile
+
+    opened = []
+    panel = ControlCenter(PanelActions(config={"language": "en"}, open_section=lambda k, a="": opened.append((k, a))))
+    labels = [panel.tab_group.button(i).text() for i in range(len(panel.TABS))]
+    assert labels == ["Home", "All", "Sergio", "World", "Guides", "Settings"]
+    tiles = panel.pages.widget(1).widget().findChildren(SectionTile)
+    assert [t.key for t in tiles] == list(SECTION_ICONS) and len(tiles) >= 18
+    next(t for t in tiles if t.key == "organizer").click()
+    assert opened == [("organizer", "")]
+    next(t for t in tiles if t.key == "cams").click()  # needs a place: goes to the World tab
+    assert panel.pages.currentIndex() == panel.WORLD and len(opened) == 1
+    panel.cam_place.setText("London")
+    panel._cams()
+    assert opened[-1] == ("cams", "London")
+
+
+def test_settings_change_language_and_country(qt):
+    from sergio_escritorio.panel import ControlCenter, PanelActions
+
+    saved = []
+    panel = ControlCenter(PanelActions(config={"language": "es", "country": "EC"}, save_config=saved.append))
+    assert "171" in panel.crisis_note.text()
+    panel.country_box.setCurrentIndex(panel.country_box.findData("MX"))
+    assert "800 911 2000" in panel.crisis_note.text() and saved[-1]["country"] == "MX"
+    panel.language_box.setCurrentIndex(panel.language_box.findData("pt"))
+    assert saved[-1]["language"] == "pt"

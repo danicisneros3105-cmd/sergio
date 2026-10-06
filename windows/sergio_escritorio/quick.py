@@ -192,6 +192,42 @@ def parse_quick(text: str) -> Quick | None:
     # Stop / silence
     if t in ("para", "parate", "callate", "silencio", "basta", "detente", "stop"):
         return Quick("stop", say="")
+    # Sergio international: language and country
+    from sergio_escritorio.idioma import country_said, language_asked
+
+    lang = language_asked(text)
+    if lang:
+        return Quick("language", lang)
+    where = country_said(text)
+    if where:
+        return Quick("country", where)
+    # God's Eye View: public live cameras of a place, a flight followed live
+    m = re.search(r"\b(?:camaras?|webcams?|camara)(?: publicas?)?(?: en vivo| en directo)?(?: de| en| cerca de)\s+(.+)$", t)
+    if m and re.search(r"\b(muestra|muestrame|ver|abre|pon|ensename|quiero ver|camaras? en vivo)\b", t):
+        place = m.group(1).strip()
+        if place not in ("aqui", "esta ubicacion", "este lugar", "mi ubicacion", "mi casa"):
+            return Quick("cams", place)
+        return Quick("cams", "")
+    if re.search(r"\b(camaras en vivo|webcams en vivo)\b", t):
+        return Quick("cams", "")
+    m = re.search(r"\b(?:sigue|seguir|rastrea|muestrame|muestra|donde esta|ver)\b.*\bvuelo\s+([a-z0-9]{2,3}\s?\d{1,4}[a-z]?)\b", t)
+    if m:
+        return Quick("flight_follow", m.group(1).replace(" ", "").upper())
+    if re.search(r"\b(muestrame|sigue|seguir)\b.*\b(este|ese) (vuelo|avion)\b.*\ben vivo\b|\b(sigue|seguir) (ese|este) (vuelo|avion)\b", t):
+        return Quick("flight_follow", "")
+    # Blocking (apps, websites, searches) — off only with the owner's face
+    if re.search(r"\b(quita|desactiva|apaga|elimina) (el |los )?bloqueos?\b|\bdesbloquea( todo)?$", t):
+        return Quick("block_off")
+    if re.search(r"\b(activa|enciende|pon) (el )?bloqueo\b(?! de pantalla)", t) and "modo bloqueo" not in t:
+        return Quick("block_on")
+    if re.search(r"\b(abre|muestra|muestrame|ver)\b.*\b(bloqueos?|lista de bloqueo|apps bloqueadas|webs bloqueadas)\b", t):
+        return Quick("block_show")
+    from sergio_escritorio.bloqueo import parse_block
+
+    if t.startswith("bloquea") and "computadora" not in t and "pc" not in t.split():
+        found = parse_block(text)
+        if found:
+            return Quick("block_add", f"{found[0]}:{found[1]}")
     # The consulting room
     if re.search(r"\b(psicologo|psicologa|terapia|terapeuta|consulta psicologica|modo psicologo|necesito desahogarme|quiero desahogarme|"
                  r"abre la consulta|necesito hablar con alguien|necesito hablar contigo)\b", t):

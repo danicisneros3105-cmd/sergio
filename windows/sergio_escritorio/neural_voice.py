@@ -28,9 +28,23 @@ VOICES = [
     ("es-CO-GonzaloNeural", "Gonzalo (Colombia)"),
     ("es-ES-ElviraNeural", "Elvira (España)"),
     ("es-AR-TomasNeural", "Tomás (Argentina)"),
+    ("en-GB-RyanNeural", "Ryan (English, UK)"),
+    ("en-US-AndrewNeural", "Andrew (English, US)"),
+    ("pt-BR-AntonioNeural", "Antônio (Português, Brasil)"),
+    ("fr-FR-HenriNeural", "Henri (Français)"),
+    ("de-DE-ConradNeural", "Conrad (Deutsch)"),
+    ("it-IT-DiegoNeural", "Diego (Italiano)"),
 ]
 DEFAULT_VOICE = "gemini:Algenib"  # male, deep, relaxed and husky; calls too
 EDGE_FALLBACK = "es-ES-AlvaroNeural"  # closest free voice when Gemini fails
+FALLBACKS = {  # the same, in each language Sergio speaks (male, calm)
+    "es": EDGE_FALLBACK, "en": "en-GB-RyanNeural", "pt": "pt-BR-AntonioNeural",
+    "fr": "fr-FR-HenriNeural", "de": "de-DE-ConradNeural", "it": "it-IT-DiegoNeural",
+}
+
+
+def fallback_voice(language: str) -> str:
+    return FALLBACKS.get(language, EDGE_FALLBACK)
 
 
 async def _mp3(text: str, voice: str, rate: str) -> bytes:
@@ -71,4 +85,4 @@ def synthesize(text: str, voice: str = DEFAULT_VOICE, rate: str = "+0%") -> byte
     return mp3_to_wav(asyncio.run(_mp3(text[:3000], voice, rate)))
 
 
-__all__ = ["DEFAULT_VOICE", "VOICES", "mp3_to_wav", "synthesize"]
+__all__ = ["DEFAULT_VOICE", "VOICES", "fallback_voice", "mp3_to_wav", "synthesize"]

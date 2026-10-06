@@ -126,4 +126,38 @@ async def guides(q: str = "", limit: int = 40) -> dict[str, Any]:
     }
 
 
+@router.get("/v1/world/cams")
+async def cams(place: str) -> dict[str, Any]:
+    """Public live cameras (official open data) near a place."""
+    import os
+
+    from openjarvis.tools.live_world import geocode
+    from openjarvis.tools.public_cams import COVERAGE, cams_near
+
+    try:
+        lat, lon, label = await asyncio.to_thread(geocode, place)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=404, detail=f"No encuentro «{place}».") from exc
+    found = await asyncio.to_thread(
+        cams_near, lat, lon, windy_key=os.environ.get("WINDY_API_KEY", "")
+    )
+    return {"label": label, "lat": lat, "lon": lon, "coverage": COVERAGE, **found}
+
+
+@router.get("/v1/world/flight")
+async def flight(q: str) -> dict[str, Any]:
+    """A flight right now (by number or call sign), and the globe aimed at it."""
+    from openjarvis.tools.live_world import point_globe
+    from openjarvis.tools.public_cams import find_flight, flight_route
+
+    try:
+        found = await asyncio.to_thread(find_flight, q)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    found["route"] = await asyncio.to_thread(flight_route, found["callsign"])
+    alt = max(float(found.get("alt_m") or 0) + 6000.0, 8000.0)
+    found["globe"] = point_globe(found["lat"], found["lon"], alt=alt, label=f"Vuelo {found['callsign']}")
+    return found
+
+
 __all__ = ["router", "world_summary"]

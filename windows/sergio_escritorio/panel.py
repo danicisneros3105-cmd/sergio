@@ -1,14 +1,18 @@
 """Sergio's control center: what drops out of the notch when you click it.
 
 Like the Dynamic Island expanding into Control Center: pure black, flush with
-the top of the screen, with four tabs.
+the top of the screen, with six tabs, in the user's language (idioma.py).
 
 * Inicio: talk or type to Sergio, and iOS-style tiles (wake word, screen
   control, camera, companion).
+* Todo: every part of Sergio one tap away (organizer, goals, health,
+  counselling, gym, camera, holograms, globe, live cameras, flights, Blender
+  Pro, Video Pro, meeting notes, profile, faces, blocking, lock).
 * Sergio: personalise the character (colours, eyes, size, voice), live.
-* Mundo: God's Eye View natively — latest earthquakes, next launches, and
-  "go to a place" on the 3D globe (opens in its own app window).
-* Guías: the ECC expert playbooks; pick one and Sergio uses it.
+* Mundo: God's Eye View natively — public live cameras of a place, a flight
+  followed live, latest earthquakes, next launches, and "go to a place".
+* Guías: the ECC expert playbooks by topic; Sergio also picks them alone.
+* Ajustes: language and country (emergency numbers follow the country).
 
 Everything is native Qt; data comes from the local Sergio server.
 """
@@ -61,6 +65,7 @@ from sergio_escritorio.character import (
     apply_config,
     draw_character,
 )
+from sergio_escritorio import idioma
 from sergio_escritorio.neural_voice import VOICES
 
 WIDTH, HEIGHT = 468, 600
@@ -156,6 +161,8 @@ class PanelActions:
     server_url: str = "http://localhost:8000"
     http: httpx.Client | None = None
     status: Callable[[], str] = lambda: ""
+    # Opens a part of Sergio («Todo» tab, live cameras, a flight): (key, argument).
+    open_section: Callable[[str, str], None] = lambda _key, _arg="": None
 
 
 # -- small Apple-style controls ------------------------------------------------
@@ -240,6 +247,104 @@ def draw_icon(p: QPainter, kind: str, centre: QPointF, colour: QColor) -> None:
         p.drawEllipse(QRectF(x - 1, y - 8, 11, 15))
         p.drawLine(QPointF(x - 5, y - 2), QPointF(x - 2, y + 1))
         p.drawLine(QPointF(x + 5, y - 2), QPointF(x + 2, y + 1))
+    elif kind == "note":  # organizer: a sticky note
+        p.drawRoundedRect(QRectF(x - 9, y - 9, 18, 18), 3, 3)
+        p.drawLine(QPointF(x - 5, y - 3), QPointF(x + 5, y - 3))
+        p.drawLine(QPointF(x - 5, y + 2), QPointF(x + 2, y + 2))
+    elif kind == "target":  # goals
+        p.drawEllipse(QPointF(x, y), 10, 10)
+        p.drawEllipse(QPointF(x, y), 5.5, 5.5)
+        p.drawEllipse(QPointF(x, y), 1.4, 1.4)
+    elif kind == "heart":  # health
+        path = QPainterPath()
+        path.moveTo(x, y + 9)
+        path.cubicTo(x - 14, y - 1, x - 7, y - 13, x, y - 5)
+        path.cubicTo(x + 7, y - 13, x + 14, y - 1, x, y + 9)
+        p.drawPath(path)
+    elif kind == "chair":  # counselling: the lounge chair
+        path = QPainterPath()
+        path.moveTo(x - 9, y - 8)
+        path.quadTo(x - 10, y + 3, x - 2, y + 3)
+        path.lineTo(x + 9, y + 3)
+        p.drawPath(path)
+        p.drawLine(QPointF(x - 3, y + 3), QPointF(x - 5, y + 9))
+        p.drawLine(QPointF(x + 6, y + 3), QPointF(x + 8, y + 9))
+    elif kind == "chart":  # results
+        for i, h in enumerate((6, 11, 16)):
+            p.drawRoundedRect(QRectF(x - 9 + i * 7, y + 8 - h, 4.5, h), 1.5, 1.5)
+    elif kind == "eye":  # Sergio sees
+        path = QPainterPath()
+        path.moveTo(x - 11, y)
+        path.quadTo(x, y - 11, x + 11, y)
+        path.quadTo(x, y + 11, x - 11, y)
+        p.drawPath(path)
+        p.drawEllipse(QPointF(x, y), 3.6, 3.6)
+    elif kind == "cube":  # holograms / Blender
+        p.drawPolygon([QPointF(x, y - 10), QPointF(x + 9, y - 5), QPointF(x, y), QPointF(x - 9, y - 5)])
+        p.drawLine(QPointF(x - 9, y - 5), QPointF(x - 9, y + 5))
+        p.drawLine(QPointF(x + 9, y - 5), QPointF(x + 9, y + 5))
+        p.drawLine(QPointF(x, y), QPointF(x, y + 10))
+        p.drawLine(QPointF(x - 9, y + 5), QPointF(x, y + 10))
+        p.drawLine(QPointF(x + 9, y + 5), QPointF(x, y + 10))
+    elif kind == "globe":
+        p.drawEllipse(QPointF(x, y), 10, 10)
+        p.drawEllipse(QRectF(x - 4.5, y - 10, 9, 20))
+        p.drawLine(QPointF(x - 10, y), QPointF(x + 10, y))
+    elif kind == "cctv":  # live cameras
+        p.drawRoundedRect(QRectF(x - 10, y - 7, 15, 8), 2, 2)
+        p.drawLine(QPointF(x + 5, y - 3), QPointF(x + 9, y - 1))
+        p.drawLine(QPointF(x - 4, y + 1), QPointF(x - 4, y + 8))
+        p.drawLine(QPointF(x - 8, y + 8), QPointF(x, y + 8))
+    elif kind == "plane":
+        path = QPainterPath()
+        path.moveTo(x, y - 11)
+        path.lineTo(x + 1.6, y - 3)
+        path.lineTo(x + 10, y + 2)
+        path.lineTo(x + 1.6, y + 1)
+        path.lineTo(x + 1, y + 7)
+        path.lineTo(x + 4, y + 10)
+        path.lineTo(x - 4, y + 10)
+        path.lineTo(x - 1, y + 7)
+        path.lineTo(x - 1.6, y + 1)
+        path.lineTo(x - 10, y + 2)
+        path.lineTo(x - 1.6, y - 3)
+        path.closeSubpath()
+        p.drawPath(path)
+    elif kind == "film":
+        p.drawRoundedRect(QRectF(x - 10, y - 7, 20, 14), 2.5, 2.5)
+        path = QPainterPath()
+        path.moveTo(x - 2.5, y - 4)
+        path.lineTo(x + 4, y)
+        path.lineTo(x - 2.5, y + 4)
+        path.closeSubpath()
+        p.drawPath(path)
+    elif kind == "doc":  # meeting notes
+        p.drawRoundedRect(QRectF(x - 7, y - 10, 14, 20), 2.5, 2.5)
+        for dy in (-4, 0, 4):
+            p.drawLine(QPointF(x - 3.5, y + dy), QPointF(x + 3.5, y + dy))
+    elif kind == "person":  # profile
+        p.drawEllipse(QPointF(x, y - 4.5), 4.5, 4.5)
+        p.drawArc(QRectF(x - 9, y + 2, 18, 14), 0, 180 * 16)
+    elif kind == "face":
+        p.drawRoundedRect(QRectF(x - 9, y - 10, 18, 20), 9, 9)
+        p.drawPoint(QPointF(x - 3.5, y - 2))
+        p.drawPoint(QPointF(x + 3.5, y - 2))
+        p.drawArc(QRectF(x - 4, y + 1, 8, 5), 200 * 16, 140 * 16)
+    elif kind == "shield":  # blocking
+        path = QPainterPath()
+        path.moveTo(x, y - 10)
+        path.lineTo(x + 8, y - 6)
+        path.quadTo(x + 8, y + 6, x, y + 10)
+        path.quadTo(x - 8, y + 6, x - 8, y - 6)
+        path.closeSubpath()
+        p.drawPath(path)
+        p.drawLine(QPointF(x - 3.5, y), QPointF(x + 3.5, y))
+    elif kind == "lock":
+        p.drawRoundedRect(QRectF(x - 7, y - 1, 14, 10), 2.5, 2.5)
+        p.drawArc(QRectF(x - 4.5, y - 9, 9, 13), 0, 180 * 16)
+    elif kind == "gear":
+        p.drawEllipse(QPointF(x, y), 3.5, 3.5)
+        p.drawEllipse(QPointF(x, y), 8, 8)
     elif kind == "send":
         p.drawLine(QPointF(x, y + 7), QPointF(x, y - 7))
         p.drawLine(QPointF(x - 6, y - 1), QPointF(x, y - 7))
@@ -283,6 +388,74 @@ class Tile(QAbstractButton):
         p.setFont(_font(8.5))
         p.drawText(QPointF(56, rect.center().y() + 14), "Activado" if on else "Apagado")
         p.end()
+
+
+SECTION_ICONS = {  # the «Todo» tab, in order: (icon, bubble colour)
+    "organizer": ("note", "#ff9f0a"),
+    "goals": ("target", "#30d158"),
+    "health": ("heart", "#ff375f"),
+    "consult": ("chair", "#c9a27e"),
+    "gym": ("brain", "#bf5af2"),
+    "results": ("chart", "#5e5ce6"),
+    "camera": ("eye", "#64d2ff"),
+    "holo": ("cube", "#5ac8fa"),
+    "globe": ("globe", "#0a84ff"),
+    "cams": ("cctv", "#ff453a"),
+    "flight": ("plane", "#ffd60a"),
+    "blender": ("cube", "#ff9500"),
+    "video": ("film", "#ff2d55"),
+    "meeting": ("doc", "#8e8e93"),
+    "profile": ("person", "#32ade6"),
+    "faces": ("face", "#34c759"),
+    "blocking": ("shield", "#ff6961"),
+    "lock": ("lock", "#636366"),
+}
+
+
+class SectionTile(QAbstractButton):
+    """One part of Sergio in the «Todo» grid: a coloured icon and its name."""
+
+    def __init__(self, key: str, label: str) -> None:
+        super().__init__()
+        self.key, self.label = key, label
+        self.icon_kind, self.colour = SECTION_ICONS.get(key, ("gear", ACCENT))
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setFixedHeight(78)
+        self.setToolTip(label)
+
+    def paintEvent(self, _event: Any) -> None:  # noqa: N802
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        rect = QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5)
+        p.setPen(Qt.PenStyle.NoPen)
+        p.setBrush(QColor("#2c2c2e") if self.isDown() or self.underMouse() else QColor(CARD))
+        p.drawRoundedRect(rect, 16, 16)
+        bubble = QPointF(rect.center().x(), rect.top() + 28)
+        p.setBrush(QColor(self.colour))
+        p.drawEllipse(bubble, 17, 17)
+        draw_icon(p, self.icon_kind, bubble, QColor("white"))
+        p.setPen(QColor(TEXT))
+        p.setFont(_font(8.6, QFont.Weight.DemiBold))
+        p.drawText(
+            QRectF(rect.left() + 4, rect.top() + 50, rect.width() - 8, 22),
+            Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter,
+            self.label,
+        )
+        p.end()
+
+    def enterEvent(self, _event: Any) -> None:  # noqa: N802
+        self.update()
+
+    def leaveEvent(self, _event: Any) -> None:  # noqa: N802
+        self.update()
+
+
+ECC_TOPICS = {  # quick picks for the guides (what people ask most)
+    "es": ("Código", "Seguridad", "Diseño", "Escritura", "Investigación", "Datos"),
+    "en": ("Code", "Security", "Design", "Writing", "Research", "Data"),
+}
+ECC_QUERY = {"Código": "code", "Seguridad": "security", "Diseño": "design", "Escritura": "writing",
+             "Investigación": "research", "Datos": "data"}
 
 
 class Orb(QWidget):
@@ -470,7 +643,8 @@ class ControlCenter(QWidget):
     world_ready = Signal(dict)
     guides_ready = Signal(dict)
 
-    TABS = ("Inicio", "Sergio", "Mundo", "Guías")
+    TABS = ("tab_home", "tab_all", "tab_sergio", "tab_world", "tab_guides", "tab_settings")
+    WORLD, GUIDES = 3, 4
 
     def __init__(self, actions: PanelActions) -> None:
         super().__init__(
@@ -483,6 +657,7 @@ class ControlCenter(QWidget):
         self.setStyleSheet(STYLE)
         self.setFixedSize(WIDTH, HEIGHT)
         self.actions = actions
+        self.lang = str(actions.config.get("language") or idioma.system_language())
         self.state = "idle"
         self._opened_at = 0.0
         self.world_ready.connect(self._show_world)
@@ -496,9 +671,11 @@ class ControlCenter(QWidget):
         self.pages = QStackedWidget()
         apply_config(self.actions.config)
         self.pages.addWidget(self._home())
+        self.pages.addWidget(self._everything())
         self.pages.addWidget(self._personalise())
         self.pages.addWidget(self._world())
         self.pages.addWidget(self._guides())
+        self.pages.addWidget(self._settings())
         root.addWidget(self.pages, 1)
 
     # -- building blocks -------------------------------------------------------
@@ -528,8 +705,8 @@ class ControlCenter(QWidget):
         row.setContentsMargins(3, 3, 3, 3)
         row.setSpacing(2)
         self.tab_group = QButtonGroup(self)
-        for i, name in enumerate(self.TABS):
-            button = QPushButton(name)
+        for i, key in enumerate(self.TABS):
+            button = QPushButton(idioma.t(key, self.lang))
             button.setObjectName("seg")
             button.setCheckable(True)
             button.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -546,10 +723,10 @@ class ControlCenter(QWidget):
         col.setSpacing(12)
         ask = QHBoxLayout()
         self.entry = QLineEdit()
-        self.entry.setPlaceholderText("Escríbele a Sergio…")
+        self.entry.setPlaceholderText(idioma.t("type_here", self.lang))
         self.entry.returnPressed.connect(self._send)
         ask.addWidget(self.entry, 1)
-        talk = QPushButton("Hablar")
+        talk = QPushButton(idioma.t("talk", self.lang))
         talk.setObjectName("primary")
         talk.setCursor(Qt.CursorShape.PointingHandCursor)
         talk.clicked.connect(self._talk)
@@ -566,20 +743,80 @@ class ControlCenter(QWidget):
             str(self.actions.config.get("effort", "auto")),
             lambda k: self._save(effort=k),
         )
-        col.addLayout(_row("Cerebro", self.brain))
+        col.addLayout(_row(idioma.t("brain", self.lang), self.brain))
         mic = QHBoxLayout()
-        mic.addWidget(_label("Micrófono", "hint"))
+        mic.addWidget(_label(idioma.t("mic", self.lang), "hint"))
         self.mic = LevelBar()
         mic.addWidget(self.mic, 1)
         col.addLayout(mic)
-        col.addWidget(_label("ÚLTIMA RESPUESTA", "section"))
-        self.answer = _label("Pregúntame algo o dime «Sergio, …».", "answer", True)
+        col.addWidget(_label(idioma.t("last_answer", self.lang), "section"))
+        self.answer = _label(idioma.t("ask_me", self.lang), "answer", True)
         self.answer.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setWidget(self.answer)
         col.addWidget(scroll, 1)
         return page
+
+    def _everything(self) -> QWidget:
+        """«Todo»: every part of Sergio, one tap away."""
+        page = QWidget()
+        grid = QGridLayout(page)
+        grid.setContentsMargins(0, 0, 8, 0)
+        grid.setSpacing(8)
+        for i, key in enumerate(SECTION_ICONS):
+            tile = SectionTile(key, idioma.t(key, self.lang))
+            tile.clicked.connect(lambda _c=False, k=key: self._open_section(k))
+            grid.addWidget(tile, i // 3, i % 3)
+        grid.setRowStretch(len(SECTION_ICONS) // 3 + 1, 1)
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setWidget(page)
+        return scroll
+
+    def _open_section(self, key: str, arg: str = "") -> None:
+        if key not in ("cams", "flight") or arg:
+            self.hide()
+        if key in ("cams", "flight") and not arg:
+            self.show_tab(self.WORLD)  # they need a place / a flight number
+            (self.cam_place if key == "cams" else self.flight_no).setFocus()
+            return
+        self.actions.open_section(key, arg)
+
+    def _settings(self) -> QWidget:
+        """Language and country (Sergio international)."""
+        cfg = self.actions.config
+        page = QWidget()
+        col = QVBoxLayout(page)
+        col.setContentsMargins(0, 0, 0, 0)
+        col.setSpacing(12)
+        col.addWidget(_label(idioma.t("settings_hint", self.lang), "hint", True))
+        self.language_box = QComboBox()
+        for code, name in idioma.LANGUAGES.items():
+            self.language_box.addItem(name, code)
+        self.language_box.setCurrentIndex(max(0, self.language_box.findData(self.lang)))
+        self.language_box.currentIndexChanged.connect(
+            lambda _i: self._save(language=self.language_box.currentData())
+        )
+        col.addLayout(_row(idioma.t("language", self.lang), self.language_box))
+        self.country_box = QComboBox()
+        for code, c in sorted(idioma.COUNTRIES.items(), key=lambda kv: kv[1].name):
+            self.country_box.addItem(c.name, code)
+        self.country_box.addItem(idioma.WORLD.name, "")
+        here = str(cfg.get("country") or idioma.system_country() or "EC")
+        self.country_box.setCurrentIndex(max(0, self.country_box.findData(here)))
+        self.country_box.currentIndexChanged.connect(self._pick_country)
+        col.addLayout(_row(idioma.t("country", self.lang), self.country_box))
+        col.addWidget(_label(idioma.t("emergency", self.lang).upper(), "section"))
+        self.crisis_note = _label(idioma.crisis_line(here), "row", True)
+        col.addWidget(self.crisis_note)
+        col.addStretch(1)
+        return page
+
+    def _pick_country(self, _index: int) -> None:
+        code = self.country_box.currentData() or ""
+        self.crisis_note.setText(idioma.crisis_line(code))
+        self._save(country=code)
 
     def _personalise(self) -> QWidget:
         """Muse-style: name, look, face, accessory, personality and voice."""
@@ -734,6 +971,24 @@ class ControlCenter(QWidget):
         whole.clicked.connect(self._open_globe)
         buttons.addWidget(whole, 1)
         col.addLayout(buttons)
+        cams = QHBoxLayout()
+        self.cam_place = QLineEdit()
+        self.cam_place.setPlaceholderText(idioma.t("place", self.lang))
+        self.cam_place.returnPressed.connect(self._cams)
+        cams.addWidget(self.cam_place, 1)
+        show = QPushButton(idioma.t("cams", self.lang))
+        show.clicked.connect(self._cams)
+        cams.addWidget(show)
+        col.addLayout(cams)
+        flight = QHBoxLayout()
+        self.flight_no = QLineEdit()
+        self.flight_no.setPlaceholderText(idioma.t("flight_number", self.lang))
+        self.flight_no.returnPressed.connect(self._flight)
+        flight.addWidget(self.flight_no, 1)
+        follow = QPushButton(idioma.t("follow", self.lang))
+        follow.clicked.connect(self._flight)
+        flight.addWidget(follow)
+        col.addLayout(flight)
         self.world_note = _label("", "hint", True)
         col.addWidget(self.world_note)
         self.world_list = QVBoxLayout()
@@ -751,6 +1006,19 @@ class ControlCenter(QWidget):
         col = QVBoxLayout(page)
         col.setContentsMargins(0, 0, 0, 0)
         col.setSpacing(10)
+        col.addWidget(_label(
+            "Sergio elige solo la guía experta que encaja con cada tarea larga. "
+            "Aquí puedes elegir una tú: toca un tema o busca.", "hint", True))
+        topics = QGridLayout()
+        topics.setSpacing(6)
+        for n, topic in enumerate(ECC_TOPICS["es"]):
+            chip = QPushButton(topic)
+            chip.setObjectName("seg")
+            chip.setStyleSheet(f"background: {CARD}; border-radius: 12px; padding: 5px 8px;")
+            chip.setCursor(Qt.CursorShape.PointingHandCursor)
+            chip.clicked.connect(lambda _c=False, q=ECC_QUERY[topic]: self._topic(q))
+            topics.addWidget(chip, n // 3, n % 3)
+        col.addLayout(topics)
         self.guide_search = QLineEdit()
         self.guide_search.setPlaceholderText("Buscar una guía experta (ECC)…")
         self.guide_search.returnPressed.connect(self._load_guides)
@@ -772,9 +1040,9 @@ class ControlCenter(QWidget):
     def show_tab(self, index: int) -> None:
         self.pages.setCurrentIndex(index)
         self.tab_group.button(index).setChecked(True)
-        if index == 2:
+        if index == self.WORLD:
             self._load_world()
-        elif index == 3 and self.guide_list.count() == 0:
+        elif index == self.GUIDES and self.guide_list.count() == 0:
             self._load_guides()
 
     def open(self) -> None:
@@ -875,6 +1143,16 @@ class ControlCenter(QWidget):
 
         self._background(job, self.world_ready)
 
+    def _cams(self) -> None:
+        place = self.cam_place.text().strip()
+        if place:
+            self._open_section("cams", place)
+
+    def _flight(self) -> None:
+        number = self.flight_no.text().strip()
+        if number:
+            self._open_section("flight", number)
+
     def _goto(self) -> None:
         place = self.place.text().strip()
         if not place:
@@ -930,6 +1208,10 @@ class ControlCenter(QWidget):
         self.world_list.addStretch(1)
         self.world_note.setText("Datos en vivo de USGS y The Space Devs.")
 
+    def _topic(self, query: str) -> None:
+        self.guide_search.setText(query)
+        self._load_guides()
+
     def _load_guides(self) -> None:
         query = self.guide_search.text().strip()
         self.guide_list.clear()
@@ -953,8 +1235,9 @@ class ControlCenter(QWidget):
                 "Las guías ECC no están descargadas. En Ubuntu: sergio ecc instalar"
             )
             return
-        for guide in data.get("guides", []):
-            item = QListWidgetItem(f"{guide['name']}\n{guide['description']}")
+        for guide in data.get("guides", [])[:30]:
+            words = " ".join(str(guide["description"]).split()[:18])
+            item = QListWidgetItem(f"{guide['name'].replace('-', ' ').capitalize()}\n{words}…")
             item.setData(Qt.ItemDataRole.UserRole, guide["name"])
             self.guide_list.addItem(item)
         if not self.guide_list.count():
@@ -996,4 +1279,4 @@ class ControlCenter(QWidget):
         p.end()
 
 
-__all__ = ["ControlCenter", "PanelActions", "Switch", "Tile", "Toggle"]
+__all__ = ["ControlCenter", "PanelActions", "SectionTile", "Switch", "Tile", "Toggle"]
