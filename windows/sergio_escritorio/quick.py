@@ -187,6 +187,19 @@ def _nice(name: str) -> str:
 def parse_quick(text: str) -> Quick | None:
     """A Quick action for clear one-step orders, else None."""
     t = polite(_plain(text).rstrip(".?!"))
+    # Multitasking: background tasks, several at once, what is running
+    from sergio_escritorio.tareas import CANCEL, WHAT_DOING, parse_background, parse_together
+
+    together = parse_together(text)
+    if len(together) >= 2:
+        return Quick("tasks_together", "\n".join(together))
+    background = parse_background(text)
+    if background:
+        return Quick("task_bg", background)
+    if WHAT_DOING.search(text):
+        return Quick("tasks_status")
+    if CANCEL.search(text):
+        return Quick("task_cancel")
     if not t or any(c in f" {t}" for c in _COMPLEX):
         return None
     # Stop / silence

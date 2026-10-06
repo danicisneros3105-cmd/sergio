@@ -887,6 +887,50 @@ apruebes mirando la cámara. «Modo bloqueo»: la pantalla de bloqueo de Windows
   escritura, investigación, datos) y descripciones cortas; Sergio también
   elige la guía solo en las tareas largas.
 
+## Multitarea, actividades en vivo y menos alucinaciones
+
+* **Varias tareas a la vez, en segundo plano**:
+  * «En segundo plano, busca los 3 mejores portátiles para Blender y hazme una
+    tabla» (también «mientras tanto…», «de fondo…», «in the background…»).
+    Sergio planifica pasos cortos y marca cada uno: **fondo** (web, archivos,
+    Python, la terminal de Ubuntu) o **pantalla**.
+  * Los pasos de fondo de varias tareas corren a la vez mientras tú sigues
+    trabajando. Los de pantalla esperan turno: solo una tarea usa el mouse.
+  * «Haz a la vez busca vuelos a Madrid y ordena mis descargas» arranca dos.
+  * «¿Qué estás haciendo?» las lista y «cancela la tarea» detiene la última.
+  * Cada paso se verifica (TERMINADO / FALTA) y tiene un reintento. Lo que
+    borra, envía, paga, publica o instala espera tu cara. El plan solo puede
+    usar herramientas que existen: lo inventado se quita y nunca se planifica
+    enviar mensajes ni llamar a nadie.
+* **Actividades en vivo en el notch** (como el iPhone): cada trabajo largo
+  (tareas, Blender Pro, Video Pro) va en el notch con su anillo de progreso.
+  Con dos a la vez, la isla se divide en dos (la burbuja de al lado, «+N» si
+  hay más). Al terminar se dibuja un check y vuelve a unirse. Todo se mueve
+  con resortes, con un pequeño rebote como en iOS.
+* **Menos alucinaciones**:
+  * Las preguntas de datos (precios, noticias, quién ganó, cuándo, dónde)
+    se responden **buscando en Google** con fuentes, no de memoria.
+  * Al nombrar un objeto, **dos modelos opinan a la vez** y, si no
+    coinciden, un tercero desempata. Si nadie coincide se muestra con «?»,
+    nunca como un hecho.
+  * Sergio tiene la regla de no inventar cifras, nombres ni fechas y de
+    decir cuando no está seguro.
+* **Hologramas estilo Apple** (visionOS):
+  * Aparecen con un rebote suave. Al agarrarlos se elevan hacia ti, un poco
+    más grandes, con la sombra más baja y difusa.
+  * El brillo al pasar la mano se enciende y apaga suavemente. Debajo, una
+    cápsula de cristal con el nombre y el tamaño real y la barra para
+    agarrar, como las ventanas de visionOS.
+  * Blender siempre recibe el tamaño real.
+* **Todos los países**:
+  * En Ajustes están todos los países y territorios (más de 240). Los 16
+    con línea de apoyo verificada dan su línea; los demás, su número de
+    emergencia y findahelpline.com.
+  * Si no hay un número seguro: 112 desde el celular, y Sergio pide
+    confirmar el local.
+  * Sergio habla más de 35 idiomas. El panel está traducido a 6 y en los
+    demás se muestra en inglés.
+
 ## Modelos en la nube: Kimi y Gemini
 
 Para respuestas más rápidas e inteligentes que el modelo local, Sergio puede

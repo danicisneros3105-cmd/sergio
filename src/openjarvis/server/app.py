@@ -535,6 +535,10 @@ def create_app(
     from openjarvis.server.coach_routes import router as coach_router
 
     app.include_router(coach_router)
+    # Complex tasks: plans of foreground / background steps (checked).
+    from openjarvis.server.tasks_routes import router as tasks_router
+
+    app.include_router(tasks_router)
     # Native notch tabs: God's Eye View data and ECC guides.
     from openjarvis.server.notch_routes import router as notch_router
 

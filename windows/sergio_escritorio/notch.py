@@ -4,6 +4,12 @@ Pure black, flush with the top edge, home of Sergio's orb. Compact when idle
 (orb + a quiet waveform); while listening the waveform follows your real
 voice; while thinking the label shimmers; answers type themselves in. Click
 it to open the control center (panel.py). Only the pill takes clicks.
+
+Live Activities (activities.py): a running job rides in the pill with its
+progress ring and name; when two run at once the island splits in two like
+an iPhone's — the «dúo», a round bubble beside the pill with the second
+one's ring (and «+N» for more). Sizes move on real springs (a soft
+overshoot, like iOS), and a finished job shows a check before merging back.
 """
 
 from __future__ import annotations
@@ -28,6 +34,7 @@ from PySide6.QtGui import (
 )
 from PySide6.QtWidgets import QWidget
 
+from sergio_escritorio.activities import Activities, Activity, Spring
 from sergio_escritorio.character import PALETTES, STATE_COLORS, draw_character
 
 LABELS = {
@@ -40,8 +47,11 @@ LABELS = {
 }
 FONTS = ["Segoe UI Variable Display", "SF Pro Display", "Geist", "Segoe UI"]
 
-CANVAS_W, CANVAS_H = 540, 160
+CANVAS_W, CANVAS_H = 620, 160
 COMPACT = (132.0, 36.0)
+LIVE = (236.0, 36.0)  # compact with a Live Activity in it
+BUBBLE = 36.0  # the second island of the «dúo»
+GAP = 9.0
 MEDIUM = (252.0, 48.0)
 EXPANDED_W = 460.0
 PAD = 16.0
@@ -94,6 +104,12 @@ class Notch(QWidget):
         self._levels: deque[float] = deque([0.0] * BARS, maxlen=BARS)
         self._t0 = time.monotonic()
         self._w, self._h = COMPACT
+        self._sw, self._sh = Spring(COMPACT[0]), Spring(COMPACT[1])
+        self._duo = Spring(0.0, response=0.5, damping=0.68)  # 0 merged .. 1 split
+        self._last_tick = time.monotonic()
+        self.activities: Activities | None = None
+        self._live: list[Activity] = []
+        self._small = _font(8.2, QFont.Weight.DemiBold)
         self._title = _font(9.0, QFont.Weight.DemiBold)
         self._body = _font(10.5)
         self._place()
@@ -167,7 +183,7 @@ class Notch(QWidget):
 
     def target_size(self) -> tuple[float, float]:
         if not self.expanded():
-            return COMPACT
+            return LIVE if self._live and self.call_since is None else COMPACT
         lines = self.lines()
         if not lines:
             return MEDIUM  # just the state, e.g. "Te escucho" + live waveform
@@ -176,6 +192,16 @@ class Notch(QWidget):
 
     def pill(self) -> QRectF:
         return QRectF((CANVAS_W - self._w) / 2, 0, self._w, self._h)
+
+    def bubble(self) -> QRectF | None:
+        """The second island (dúo), sliding out of the pill's right edge."""
+        k = self._duo.value
+        if k <= 0.02:
+            return None
+        rect = self.pill()
+        size = BUBBLE * min(1.0, max(0.2, k))
+        x = rect.right() - size + (GAP + size) * min(1.15, k)
+        return QRectF(x, 0, size, size)
 
     # -- animation --------------------------------------------------------------
     def _tick(self) -> None:
@@ -192,14 +218,22 @@ class Notch(QWidget):
             # at a glance that Sergio hears you.
             sample = max(0.06, self.level * 0.6)
         self._levels.append(self._levels[-1] * 0.35 + sample * 0.65)
+        now = time.monotonic()
+        dt, self._last_tick = now - self._last_tick, now
+        self._live = self.activities.snapshot() if self.activities is not None else []
         tw, th = self.target_size()
-        # Spring-like ease toward the target size (no overshoot).
-        self._w += (tw - self._w) * 0.2
-        self._h += (th - self._h) * 0.2
-        rect = self.pill().toAlignedRect().adjusted(-1, 0, 1, 1)
-        if rect != self._mask_rect:
-            self._mask_rect = rect
-            self.setMask(QRegion(rect))  # clicks outside the pill go through
+        # Real springs (a soft iOS overshoot) toward the target size.
+        self._sw.target, self._sh.target = tw, th
+        self._w, self._h = self._sw.step(dt), self._sh.step(dt)
+        self._duo.target = 1.0 if len(self._live) >= 2 else 0.0
+        self._duo.step(dt)
+        region = QRegion(self.pill().toAlignedRect().adjusted(-1, 0, 1, 1))
+        bubble = self.bubble()
+        if bubble is not None:
+            region = region.united(QRegion(bubble.toAlignedRect().adjusted(-1, 0, 1, 1)))
+        if region != self._mask_rect:
+            self._mask_rect = region
+            self.setMask(region)  # clicks outside the islands go through
         self._respect_fullscreen()
         self.update()
 
@@ -275,9 +309,14 @@ class Notch(QWidget):
             level=self.level if self.state == "listening" else 0.0,
         )
 
+        bubble = self.bubble()
+        if bubble is not None and len(self._live) >= 2:
+            self._draw_bubble(p, bubble, self._live[1], len(self._live) - 2, t)
         if compact:
             if self.call_since is not None:
                 self._draw_call(p, rect)
+            elif self._live:
+                self._draw_live(p, rect, self._live[0], t)
             else:
                 self._draw_wave(
                     p,
@@ -325,6 +364,73 @@ class Notch(QWidget):
                 break
             p.drawText(QPointF(text_x, y), visible)
             y += metrics.descent() + metrics.leading()
+
+    # -- Live Activities ----------------------------------------------------------
+    def _ring(self, p: QPainter, centre: QPointF, radius: float, item: Activity, t: float) -> None:
+        """Progress ring (spins when the progress is unknown); check or cross at the end."""
+        colour = QColor(item.colour)
+        track = QColor(colour)
+        track.setAlpha(55)
+        box = QRectF(centre.x() - radius, centre.y() - radius, 2 * radius, 2 * radius)
+        p.setBrush(Qt.BrushStyle.NoBrush)
+        p.setPen(QPen(track, 2.6))
+        p.drawEllipse(box)
+        pen = QPen(colour, 2.6, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap)
+        p.setPen(pen)
+        if item.state == "running" and item.progress is None:
+            start = int((-t * 360 * 0.9) % 360 * 16)
+            p.drawArc(box, start, int(100 * 16))
+        else:
+            span = 1.0 if item.state != "running" else (item.progress or 0.0)
+            p.drawArc(box, 90 * 16, int(-span * 360 * 16))
+        if item.state == "done":
+            k = min(1.0, (time.monotonic() - item.ended) / 0.35)  # the check draws itself
+            a = QPointF(centre.x() - radius * 0.42, centre.y() + radius * 0.02)
+            b = QPointF(centre.x() - radius * 0.1, centre.y() + radius * 0.34)
+            c = QPointF(centre.x() + radius * 0.45, centre.y() - radius * 0.32)
+            path = QPainterPath(a)
+            if k < 0.4:
+                path.lineTo(a + (b - a) * (k / 0.4))
+            else:
+                path.lineTo(b)
+                path.lineTo(b + (c - b) * ((k - 0.4) / 0.6))
+            p.drawPath(path)
+        elif item.state == "failed":
+            d = radius * 0.32
+            p.drawLine(QPointF(centre.x() - d, centre.y() - d), QPointF(centre.x() + d, centre.y() + d))
+            p.drawLine(QPointF(centre.x() + d, centre.y() - d), QPointF(centre.x() - d, centre.y() + d))
+
+    def _draw_live(self, p: QPainter, rect: QRectF, item: Activity, t: float) -> None:
+        """Compact island with one Live Activity: its name and its ring."""
+        ring = QPointF(rect.right() - PAD - 9, rect.center().y())
+        self._ring(p, ring, 9.0, item, t)
+        left = rect.left() + PAD + 2 * 10.5 + 10
+        width = ring.x() - 16 - left
+        if width < 30:
+            return
+        p.setFont(self._small)
+        p.setPen(QColor(item.colour))
+        metrics = QFontMetricsF(self._small)
+        text = metrics.elidedText(item.title, Qt.TextElideMode.ElideRight, width)
+        p.drawText(QPointF(left, rect.center().y() + 4), text)
+
+    def _draw_bubble(self, p: QPainter, box: QRectF, item: Activity, more: int, t: float) -> None:
+        """The dúo: a second black island with the next activity's ring."""
+        p.setPen(Qt.PenStyle.NoPen)
+        p.setBrush(QColor(0, 0, 0))
+        p.drawEllipse(box)
+        if box.width() < BUBBLE * 0.7:
+            return
+        self._ring(p, box.center(), box.width() * 0.3, item, t)
+        if more > 0:
+            p.setFont(self._small)
+            p.setPen(QColor(235, 235, 240))
+            badge = QRectF(box.right() - 15, box.bottom() - 13, 17, 13)
+            p.setPen(Qt.PenStyle.NoPen)
+            p.setBrush(QColor(58, 58, 64))
+            p.drawRoundedRect(badge, 6.5, 6.5)
+            p.setPen(QColor(240, 240, 245))
+            p.drawText(badge, Qt.AlignmentFlag.AlignCenter, f"+{more}")
 
     def _draw_call(self, p: QPainter, rect: QRectF) -> None:
         """Compact notch during a call: green handset + elapsed time."""
@@ -385,4 +491,4 @@ class Notch(QWidget):
         return QPointF(dx / dist, max(-1.0, min(1.0, dy / dist)))
 
 
-__all__ = ["Notch"]
+__all__ = ["BUBBLE", "LIVE", "Notch"]

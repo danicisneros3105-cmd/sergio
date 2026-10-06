@@ -1,0 +1,57 @@
+"""Task plans are checked before anything runs (no invented tools)."""
+
+from __future__ import annotations
+
+from openjarvis.server.tasks_routes import plan_task, validate_plan
+
+
+def test_invented_and_forbidden_tools_never_reach_the_desktop():
+    plan = validate_plan(
+        {"titulo": "Portátiles", "pasos": [
+            {"paso": "Buscar los 3 mejores portátiles para Blender", "donde": "fondo",
+             "herramientas": ["web_search", "super_scraper"]},
+            {"paso": "Mandar la tabla por WhatsApp a Juan", "herramientas": ["whatsapp_send"]},
+            {"paso": "Abrir la tabla en Excel", "donde": "fondo", "herramientas": ["desktop_action"]},
+            {"paso": "Borra los archivos temporales", "donde": "fondo", "herramientas": ["terminal_run"]},
+        ]},
+        "portátiles",
+    )
+    steps = plan["pasos"]
+    assert [s["herramientas"] for s in steps] == [["web_search"], ["desktop_action"], ["terminal_run"]]
+    assert steps[0]["inventadas"] == ["super_scraper"]
+    assert steps[1]["donde"] == "pantalla"  # a screen tool always needs the screen
+    assert steps[2]["importante"] and not steps[0]["importante"]
+    assert plan["descartados"] == ["Mandar la tabla por WhatsApp a Juan"]
+
+
+def test_an_empty_plan_becomes_one_step():
+    plan = validate_plan({}, "ordena mis descargas")
+    assert plan["pasos"][0]["paso"] == "ordena mis descargas"
+
+
+def test_the_planner_sees_the_real_tool_list():
+    seen = []
+    plan_task("haz una tabla", ask=lambda prompt, **kw: seen.append(prompt) or {"pasos": []})
+    assert "python_run" in seen[0] and "whatsapp_send" not in seen[0]
+
+
+def test_objects_are_named_by_a_vote_and_doubts_are_said():
+    import json
+
+    from openjarvis.server.vision_routes import name_by_vote
+
+    def looks(*labels):
+        it = iter(labels)
+        return lambda img, prompt, models: json.dumps({"etiqueta": next(it), "seguridad": 0.6})
+
+    sure = name_by_vote(b"x", ask=looks("labial", "Labial rojo"))
+    assert sure["votes"] == "2/2" and not sure["unsure"] and sure["confidence"] >= 0.85
+    tie = name_by_vote(b"x", ask=looks("silla", "labial", "labial"))  # the third look breaks the tie
+    assert tie["label"] == "labial" and tie["votes"] == "2/3"
+    doubt = name_by_vote(b"x", ask=looks("silla", "control remoto", "teléfono"))
+    assert doubt["unsure"] and doubt["confidence"] <= 0.55
+
+
+def test_formatting_text_is_not_formatting_a_disk():
+    plan = validate_plan({"pasos": [{"paso": "Formatea los datos como CSV"}, {"paso": "Formatea el disco D"}]}, "x")
+    assert [s["importante"] for s in plan["pasos"]] == [False, True]

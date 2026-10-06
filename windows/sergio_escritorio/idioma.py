@@ -28,6 +28,23 @@ LANGUAGES = {
 LANGUAGE_NAMES_EN = {  # what the model is told
     "es": "Spanish", "en": "English", "pt": "Portuguese", "fr": "French", "de": "German", "it": "Italian",
 }
+# Sergio also speaks these (Gemini and Whisper know them); the interface
+# texts fall back to English for them.
+MORE_LANGUAGES = {
+    "nl": ("Nederlands", "Dutch"), "pl": ("Polski", "Polish"), "ru": ("Русский", "Russian"),
+    "uk": ("Українська", "Ukrainian"), "tr": ("Türkçe", "Turkish"), "ar": ("العربية", "Arabic"),
+    "he": ("עברית", "Hebrew"), "hi": ("हिन्दी", "Hindi"), "bn": ("বাংলা", "Bengali"), "ur": ("اردو", "Urdu"),
+    "fa": ("فارسی", "Persian"), "zh": ("中文", "Chinese"), "ja": ("日本語", "Japanese"), "ko": ("한국어", "Korean"),
+    "id": ("Bahasa Indonesia", "Indonesian"), "ms": ("Bahasa Melayu", "Malay"), "vi": ("Tiếng Việt", "Vietnamese"),
+    "th": ("ไทย", "Thai"), "tl": ("Filipino", "Filipino"), "sw": ("Kiswahili", "Swahili"), "el": ("Ελληνικά", "Greek"),
+    "ro": ("Română", "Romanian"), "cs": ("Čeština", "Czech"), "hu": ("Magyar", "Hungarian"), "sv": ("Svenska", "Swedish"),
+    "da": ("Dansk", "Danish"), "no": ("Norsk", "Norwegian"), "fi": ("Suomi", "Finnish"), "ca": ("Català", "Catalan"),
+    "qu": ("Runa Simi", "Quechua"), "gn": ("Avañe'ẽ", "Guarani"),
+}  # fmt: skip
+for _code, (_native, _english) in MORE_LANGUAGES.items():
+    LANGUAGES.setdefault(_code, _native)
+    LANGUAGE_NAMES_EN.setdefault(_code, _english)
+UI_LANGUAGES = ("es", "en", "pt", "fr", "de", "it")  # the interface is translated in these
 # How Sergio addresses the owner in each language (the JARVIS «señor»).
 SIR = {"es": "señor", "en": "sir", "pt": "senhor", "fr": "monsieur", "de": "mein Herr", "it": "signore"}
 
@@ -77,6 +94,34 @@ COUNTRIES = {
 }
 WORLD = Country("", "Otro país", "en", "112", "findahelpline.com (free lines in every country)",
                 "https://findahelpline.com/")
+# Emergency numbers for the rest of the world (police / ambulance where they
+# differ) — only the well-established ones. Elsewhere Sergio says 112 from a
+# mobile phone (routed to the local service in most countries) and asks the
+# user to confirm the local number.
+EMERGENCY = {
+    # Americas
+    "CR": "911", "DO": "911", "SV": "911",
+    "HN": "911", "PA": "911", "PY": "911", "UY": "911", "VE": "911", "PR": "911",
+    "TT": "999",
+    # Europe (112 everywhere in the EU; the UK also 999)
+    "AT": "112", "BE": "112", "BG": "112", "HR": "112", "CY": "112", "CZ": "112", "DK": "112", "EE": "112",
+    "FI": "112", "GR": "112", "HU": "112", "IE": "112 / 999", "LV": "112", "LT": "112", "LU": "112",
+    "MT": "112", "NL": "112", "PL": "112", "RO": "112", "SK": "112", "SI": "112", "SE": "112",
+    "NO": "112", "IS": "112", "CH": "112", "LI": "112", "UA": "112", "RU": "112", "TR": "112",
+    "RS": "112", "BA": "112", "AL": "112", "MK": "112", "ME": "112", "MD": "112", "GE": "112",
+    "AM": "112", "AZ": "112", "BY": "112",
+    # Asia and Oceania
+    "JP": "110 / 119", "CN": "110 / 120", "KR": "112 / 119", "TW": "110 / 119", "HK": "999", "MO": "999",
+    "IN": "112", "PK": "15 / 1122", "BD": "999", "NP": "100 / 102", "ID": "112",
+    "PH": "911", "VN": "113 / 115", "TH": "191 / 1669", "MY": "999", "SG": "999 / 995",
+    "NZ": "111", "KZ": "112",
+    # Middle East and Africa
+    "IL": "100 / 101", "AE": "999", "SA": "911", "QA": "999", "KW": "112", "BH": "999",
+    "JO": "911", "LB": "112 / 140", "EG": "122 / 123",
+    "MA": "19 / 15", "ZA": "10111 / 112", "NG": "112", "KE": "999 / 112",
+    "GH": "112", "TZ": "112", "UG": "999 / 112", "RW": "112",
+    "ZW": "999", "ZM": "999", "BW": "999",
+}  # fmt: skip
 SOURCES = {c.code: c.source for c in COUNTRIES.values()}
 
 
@@ -99,7 +144,15 @@ def system_country() -> str:
 
 
 def country(code: str) -> Country:
-    return COUNTRIES.get((code or "").upper(), WORLD)
+    """The country's lines; anywhere without a checked crisis line: its
+    emergency number and findahelpline.com (which lists every country)."""
+    code = (code or "").upper()
+    if code in COUNTRIES:
+        return COUNTRIES[code]
+    if code:
+        return Country(code, code, "en", EMERGENCY.get(code, "112 (desde un celular; confirme el número local)"),
+                       "findahelpline.com (free lines in your country)", WORLD.source)
+    return WORLD
 
 
 def crisis_text(code: str, lang: str = "es") -> str:
@@ -163,7 +216,8 @@ def speak_rule(lang: str) -> str:
     return (
         f" LANGUAGE: always answer in {name} (the user's chosen language), unless the "
         f"user clearly speaks to you in another language; then answer in that one. "
-        f"Address the owner as «{SIR.get(lang, 'sir')}»."
+        + (f"Address the owner as «{SIR[lang]}»." if lang in SIR else
+           "Address the owner with the respectful word for «sir» in that language.")
     )
 
 
@@ -298,10 +352,12 @@ SECTIONS = {  # the «Todo» tab: every part of Sergio, one tap away
 
 def t(key: str, lang: str = "es") -> str:
     table = TEXTS.get(key) or SECTIONS.get(key) or {}
+    if lang not in UI_LANGUAGES:
+        lang = "en"
     return table.get(lang) or table.get("es") or key
 
 
 __all__ = [
-    "COUNTRIES", "LANGUAGES", "SECTIONS", "TEXTS", "at_risk", "country", "country_said", "crisis_line",
+    "COUNTRIES", "EMERGENCY", "LANGUAGES", "UI_LANGUAGES", "SECTIONS", "TEXTS", "at_risk", "country", "country_said", "crisis_line",
     "crisis_text", "language_asked", "speak_rule", "system_country", "system_language", "t",
 ]  # fmt: skip

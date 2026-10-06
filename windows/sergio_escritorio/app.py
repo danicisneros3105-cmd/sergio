@@ -187,6 +187,11 @@ def run(config: dict[str, Any]) -> None:
     feed = CameraFeed()
     camera_window = CameraWindow(feed)
     notch = Notch(fullscreen_app=foreground_is_fullscreen)
+    # Live Activities: every long job in the notch (the dúo shows two).
+    from sergio_escritorio.activities import Activities
+
+    activities = Activities()
+    notch.activities = activities
     notch.name = config["name"]
 
     panels: list[ControlCenter] = []  # created once the tray actions exist
@@ -1566,9 +1571,10 @@ def run(config: dict[str, Any]) -> None:
                 )
                 resp.raise_for_status()
                 got = resp.json()
-                vision_engine.tracker.name_track(
-                    target.id, str(got.get("label") or ""), str(got.get("detail") or "")
-                )
+                label = str(got.get("label") or "")
+                if got.get("unsure") and label:
+                    label += "?"  # the looks disagreed: shown as a doubt, never as a fact
+                vision_engine.tracker.name_track(target.id, label, str(got.get("detail") or ""))
             except Exception:  # noqa: BLE001 — naming is a bonus
                 logging.info("auto naming failed", exc_info=True)
 
@@ -1989,12 +1995,22 @@ def run(config: dict[str, Any]) -> None:
 
         Runs in the background; Sergio tells you when the project is ready.
         """
+        path = blender_file("pro")
+        preview = path[:-6] + "-vista.png"
+        live = activities.start(f"Blender Pro: {request[:40]}", "blender", "planos")
+        try:
+            said = _blender_pro(request, reference, rounds, path, preview, live)
+        except Exception:
+            activities.finish(live, False)
+            raise
+        activities.finish(live, "Listo" in said, said[:80])
+        return said
+
+    def _blender_pro(request: str, reference: bytes, rounds: int, path: str, preview: str, live: int) -> str:
         import base64
 
         from sergio_escritorio import media
 
-        path = blender_file("pro")
-        preview = path[:-6] + "-vista.png"
         bridge.caption.emit("Blender Pro: dibujando los planos del objeto…")
         if reference:
             resp = client.http.post(
@@ -2024,6 +2040,7 @@ def run(config: dict[str, Any]) -> None:
         built = None  # the model the .blend on disk comes from
         for step in range(rounds + 4):  # visual reviews + a few error fixes
             bridge.caption.emit(f"Blender Pro: construyendo y revisando 4 vistas (paso {step + 1})…")
+            activities.update(live, progress=min(0.95, step / (rounds + 1)), detail=f"revisión {step + 1}")
             Path(preview).unlink(missing_ok=True)
             log = media.run_blender_background(model["script"])
             built = model
@@ -2110,9 +2127,12 @@ def run(config: dict[str, Any]) -> None:
             return resp.json()
 
         def run() -> None:
+            live = activities.start("Video Pro", "video", "mirando los clips")
+            ok = False
             try:
                 bridge.caption.emit("Video Pro: mirando tus clips…")
                 done = video_pro.edit(source or "Videos", request, planner)
+                ok = True
                 last_video[:] = [done]
                 os.startfile(done["path"]) if hasattr(os, "startfile") else None  # noqa: B018
                 title = done["plan"]["youtube"]["title"]
@@ -2125,6 +2145,7 @@ def run(config: dict[str, Any]) -> None:
                 from sergio_escritorio.voice import explain
 
                 answer = f"Video Pro falló: {explain(exc)}"
+            activities.finish(live, ok)
             tell(answer, to_call=f"[Video terminado] {answer} Cuéntaselo en una frase.")
 
         threading.Thread(target=run, daemon=True).start()
@@ -3239,6 +3260,40 @@ def run(config: dict[str, Any]) -> None:
         return None
 
     quick_handlers.append(run_world)
+
+    # -- multitasking: complex tasks in the foreground and the background --------
+    from sergio_escritorio.tareas import Orchestrator
+
+    def plan_task(request: str) -> dict:
+        resp = client.http.post(f"{client.base}/v1/tasks/plan", json={"request": request}, timeout=90)
+        resp.raise_for_status()
+        return resp.json()
+
+    def new_asker() -> Any:
+        """Each task thinks in its own conversation (tasks never mix up)."""
+        worker = SergioClient(config["server_url"])
+        worker.personality, worker.effort = client.personality, client.effort
+        worker.country_name = client.country_name
+        return lambda text: worker.ask(text, force_agent=True)
+
+    orchestrator = Orchestrator(
+        plan_task, new_asker, activities, approve=owner_approves, told=lambda text: tell(text)
+    )
+
+    def run_tasks(q: Any) -> str | None:
+        if q.kind == "task_bg":
+            task = orchestrator.submit(q.arg)
+            return f"En marcha en segundo plano: «{task.request[:60]}». Siga con lo suyo; le aviso al terminar."
+        if q.kind == "tasks_together":
+            started = [orchestrator.submit(part) for part in q.arg.split("\n") if part.strip()]
+            return f"Arranco {len(started)} tareas a la vez; las ve en el notch."
+        if q.kind == "tasks_status":
+            return activities.describe()
+        if q.kind == "task_cancel":
+            return orchestrator.cancel_last()
+        return None
+
+    quick_handlers.append(run_tasks)
 
     def prefill(text: str) -> Any:
         def run(_arg: str = "") -> str:

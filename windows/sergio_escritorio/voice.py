@@ -119,6 +119,8 @@ VOICE_STYLE = (
     "different approach; ask only for a truly missing fact. "
     "For long or complex tasks, first load the matching expert playbook (ECC) "
     "with skill_guide, plan the steps, then do them one by one. "
+    "HONESTY: never invent facts, numbers, names, dates, quotes, prices or "
+    "results; when you are not sure, say so in a few words and offer to check. "
     "If you did not hear well, ask briefly instead of inventing. When done, "
     "say briefly what you did."
 )
@@ -346,6 +348,22 @@ def l99_status(answer: str) -> tuple[str, str]:
     return "more", ""
 
 
+# Questions about facts that change or that a model tends to make up: the fast
+# chat answers them grounded on Google Search (with sources), not from memory.
+FACTUAL = re.compile(
+    r"\b(cu[aá]nto (cuesta|vale|mide|pesa|dura|gana|tiene)|precio|cotizaci[oó]n|d[oó]lar|bitcoin|"
+    r"qui[eé]n (es|fue|gan[oó]|invent[oó]|escribi[oó]|dirigi[oó])|cu[aá]ndo (es|fue|naci[oó]|muri[oó]|sale|abre|cierra|juega)|"
+    r"d[oó]nde (queda|est[aá]|naci[oó])|qu[eé] pas[oó]|noticias?|resultado|marcador|clima|temperatura|"
+    r"[uú]ltim[oa]s?|actual(mente)?|hoy|ayer|esta semana|este a[nñ]o|en 20\d\d|r[eé]cord|estad[ií]stica|"
+    r"poblaci[oó]n|capital de|horario|abierto|how much|who (is|was|won)|when (is|was|did)|latest|news|price)\b",
+    re.I,
+)
+
+
+def factual(text: str) -> bool:
+    return bool(FACTUAL.search(text))
+
+
 def needs_agent(text: str, after_agent: bool = False) -> bool:
     """True when the request needs tools (the agent); False for chatting.
 
@@ -487,9 +505,10 @@ class SergioClient:
             *self.history[-HISTORY_TURNS * 2 :],
         ]
         messages.append({"role": "user", "content": text})
+        grounded = factual(text)
         resp = self.http.post(
             f"{self.base}/v1/voice/chat",
-            json={"model": model, "messages": messages},
+            json={"model": model, "messages": messages, "grounded": grounded},
             timeout=httpx.Timeout(60, connect=5),
         )
         resp.raise_for_status()

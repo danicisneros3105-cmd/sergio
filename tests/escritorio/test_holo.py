@@ -328,3 +328,26 @@ def test_a_trembling_wrist_does_not_turn_it():
     sc.update_hands([hand_at(u, v)], 1 / 30, True, 0.0)
     sc.update_hands([hand_at(u, v, angle=math.radians(2))], 1 / 30, True, 0.03)
     assert np.allclose(cube.rot, rot0)
+
+
+def test_holograms_move_on_springs_like_visionos():
+    from sergio_escritorio.holo import HoloScene
+
+    scene = HoloScene()
+    cube = scene.add("cubo")
+    assert cube.appear == 0.0 and cube.display() < 0.6  # pops in from small
+    for _ in range(30):
+        scene.step(1 / 60)
+    peak = 0.0
+    cube.held = True
+    for _ in range(90):
+        scene.step(1 / 60)
+        peak = max(peak, cube.lift)
+    assert abs(cube.appear - 1.0) < 0.05 and 1.0 < peak < 1.25  # a soft overshoot
+    assert cube.display() > 1.05 and cube.hover_k > 0.9  # held: bigger and glowing
+    real = cube.world()
+    assert abs(real.max() - cube.world(display=False).max()) < 1e-9  # the real size never changes
+    cube.held = False
+    for _ in range(120):
+        scene.step(1 / 60)
+    assert cube.lift < 0.02 and cube.hover_k < 0.05

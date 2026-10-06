@@ -279,12 +279,71 @@ async def name_route(image: UploadFile = File(...)) -> dict[str, Any]:
     if len(data) > MAX_IMAGE_BYTES:
         raise HTTPException(status_code=413, detail="Image too large")
     try:
-        reply = await asyncio.to_thread(ask_image, data, NAME_PROMPT, lite=True)
+        out = await asyncio.to_thread(name_by_vote, data)
     except RuntimeError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
-    out = parse_name(reply)
     if not out["label"]:
         raise HTTPException(status_code=502, detail="No supe qué es.")
+    return out
+
+
+def _same(a: str, b: str) -> bool:
+    """«labial rojo» ~ «Labial»: the same thing named twice."""
+    import unicodedata
+
+    def norm(x: str) -> set[str]:
+        x = unicodedata.normalize("NFKD", x.lower())
+        x = "".join(c for c in x if not unicodedata.combining(c))
+        return {w.rstrip("s") for w in re.findall(r"[a-z0-9]+", x) if len(w) > 2}
+
+    na, nb = norm(a), norm(b)
+    return bool(na and nb and (na & nb))
+
+
+def name_by_vote(image: bytes, ask: Any = None) -> dict[str, Any]:
+    """What an object is, decided by two independent looks (a vote).
+
+    Flash-Lite and Flash look at the same photo at the same time; if they
+    agree the answer is sure. If they disagree, a third look (Flash, a
+    different prompt order) breaks the tie; if nobody agrees, the most
+    confident answer is kept but marked unsure, so Sergio says «parece…»
+    instead of stating a guess as a fact.
+    """
+    from concurrent.futures import ThreadPoolExecutor
+
+    from openjarvis.tools.vision_look import GEMINI_LITE_VISION_MODELS, GEMINI_VISION_MODELS, _gemini
+
+    ask = ask or (lambda img, prompt, models: _gemini(img, prompt, "image/jpeg", models))
+    looks: list[dict[str, Any]] = []
+    with ThreadPoolExecutor(2) as pool:
+        jobs = [pool.submit(ask, image, NAME_PROMPT, models) for models in (GEMINI_LITE_VISION_MODELS, GEMINI_VISION_MODELS)]
+        for job in jobs:
+            try:
+                looks.append(parse_name(job.result(timeout=25)))
+            except Exception:  # noqa: BLE001 — one look failed: the other counts
+                continue
+    looks = [x for x in looks if x["label"]]
+    if not looks:
+        raise RuntimeError("Ningún modelo con visión respondió.")
+    if len(looks) == 2 and not _same(looks[0]["label"], looks[1]["label"]):
+        try:
+            third = parse_name(ask(image, NAME_PROMPT + "\nMira con atención la forma y el tamaño real.", GEMINI_VISION_MODELS[1:]))
+            if third["label"]:
+                looks.append(third)
+        except Exception:  # noqa: BLE001 — no tie-breaker: the confidence decides
+            pass
+    best, votes = looks[0], 1
+    for candidate in looks:
+        agree = sum(_same(candidate["label"], other["label"]) for other in looks)
+        if agree > votes or (agree == votes and candidate["confidence"] > best["confidence"]):
+            best, votes = candidate, agree
+    out = dict(best)
+    out["votes"] = f"{votes}/{len(looks)}"
+    out["unsure"] = votes < 2
+    if votes >= 2:
+        out["confidence"] = max(out["confidence"], 0.85)
+    else:
+        out["confidence"] = min(out["confidence"], 0.55)
     return out
 
 

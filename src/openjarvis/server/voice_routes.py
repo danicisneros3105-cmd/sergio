@@ -109,6 +109,64 @@ class ChatRequest(BaseModel):
     model: str
     messages: list[dict[str, str]]
     max_tokens: int = 400
+    # A question about facts (prices, news, dates, people, results): the
+    # answer is grounded on Google Search instead of the model's memory.
+    grounded: bool = False
+
+
+GROUNDED_MODELS = ("gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.5-flash", "gemini-2.5-flash")
+
+
+def grounded_answer(messages: list[dict[str, str]], max_tokens: int = 600, client: Any = None) -> dict[str, Any]:
+    """Answer with Google Search grounding; returns the text and its sources."""
+    import os
+
+    from google.genai import types
+
+    from openjarvis.engine.cloud import google_config_kwargs
+
+    if client is None:
+        from openjarvis.engine.google_client import SwitchingClient
+
+        key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
+        if not key:
+            raise RuntimeError("no Gemini key")
+        client = SwitchingClient(key)
+    system = "\n".join(m["content"] for m in messages if m.get("role") == "system")
+    system += (
+        "\nAnswer from the search results, not from memory. If the results do not "
+        "say it, say you could not confirm it. Keep it spoken and short."
+    )
+    contents = [
+        types.Content(role="model" if m.get("role") == "assistant" else "user", parts=[types.Part(text=m["content"])])
+        for m in messages
+        if m.get("role") in ("user", "assistant") and m.get("content")
+    ]
+    last: Exception | None = None
+    for model in GROUNDED_MODELS:
+        try:
+            resp = client.models.generate_content(
+                model=model,
+                contents=contents,
+                config=types.GenerateContentConfig(
+                    **google_config_kwargs(model, 0.3, max(max_tokens, 1024), "low"),
+                    system_instruction=system,
+                    tools=[types.Tool(google_search=types.GoogleSearch())],
+                ),
+            )
+            sources = []
+            for cand in resp.candidates or []:
+                meta = getattr(cand, "grounding_metadata", None)
+                for chunk in getattr(meta, "grounding_chunks", None) or []:
+                    web = getattr(chunk, "web", None)
+                    if web is not None and getattr(web, "title", None):
+                        sources.append(str(web.title))
+            text = str(resp.text or "").strip()
+            if text:
+                return {"content": text, "sources": sources[:5], "grounded": True}
+        except Exception as exc:  # noqa: BLE001 — next model
+            last = exc
+    raise RuntimeError(f"grounded answer failed: {last}")
 
 
 CHAT_SECONDS = 20.0
@@ -138,6 +196,14 @@ async def chat(req: ChatRequest, request: Request) -> dict[str, Any]:
         return await asyncio.to_thread(
             engine.generate, messages, model=model, temperature=0.7, max_tokens=req.max_tokens
         )
+
+    if req.grounded:
+        try:
+            return await asyncio.wait_for(
+                asyncio.to_thread(grounded_answer, req.messages, req.max_tokens), timeout=CHAT_SECONDS
+            )
+        except Exception:  # noqa: BLE001 — not grounded, but still an answer (said so)
+            pass
 
     try:
         try:

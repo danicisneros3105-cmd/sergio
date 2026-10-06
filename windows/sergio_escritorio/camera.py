@@ -1402,17 +1402,24 @@ class CameraWindow(QWidget):
         def pt(xy: Any) -> QPointF:
             return QPointF(ox + float(xy[0]), oy + float(xy[1]))
 
-        for ob in self.holo.glass(w, h):
+        shapes = self.holo.glass(w, h)
+        busy = any(o.get("hover_k", 0.0) > 0.3 for o in shapes)  # one ornament at a time
+        for ob in shapes:
             cx, cy = ob["centre"]
             centre = QPointF(ox + cx, oy + cy)
             radius = max(ob["radius"], 8.0)
-            # Soft contact shadow below.
-            shadow = QRadialGradient(QPointF(centre.x(), centre.y() + radius * 1.05), radius * 0.7)
-            shadow.setColorAt(0, QColor(0, 0, 0, 45))
+            lift, appear, hover_k = ob.get("lift", 0.0), ob.get("appear", 1.0), ob.get("hover_k", 0.0)
+            p.setOpacity(max(0.0, min(1.0, appear * 1.15)))  # pops in, fading up
+            # Soft contact shadow below: picked up, it drifts lower and softer
+            # (the object rises toward you, like a visionOS window in your hand).
+            drop = radius * (1.05 + 0.28 * lift)
+            spread = radius * (0.7 + 0.25 * lift)
+            shadow = QRadialGradient(QPointF(centre.x(), centre.y() + drop), spread)
+            shadow.setColorAt(0, QColor(0, 0, 0, int(45 - 18 * lift)))
             shadow.setColorAt(1, QColor(0, 0, 0, 0))
             p.setPen(Qt.PenStyle.NoPen)
             p.setBrush(shadow)
-            p.drawEllipse(QPointF(centre.x(), centre.y() + radius * 1.05), radius * 0.7, radius * 0.14)
+            p.drawEllipse(QPointF(centre.x(), centre.y() + drop), spread, radius * (0.14 + 0.06 * lift))
             body = QPainterPath()
             body.setFillRule(Qt.FillRule.WindingFill)
             for f in ob["faces"]:
@@ -1470,8 +1477,8 @@ class CameraWindow(QWidget):
             p.drawPath(segs(ob["edges"]))
             outline = segs(ob["outline"])
             active = ob["held"] or ob["hover"]
-            if active:  # what a pinch would take (or is holding) glows
-                p.setPen(QPen(QColor(255, 255, 255, 90 if ob["held"] else 60), 7, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
+            if hover_k > 0.02:  # what a pinch would take (or is holding) glows, fading in
+                p.setPen(QPen(QColor(255, 255, 255, int(90 * hover_k)), 7, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
                 p.drawPath(outline)
             # Dispersion: red and blue fringes a pixel apart, then the rainbow rim.
             for dx, colour in ((-1.2, QColor(255, 80, 120, 70)), (1.2, QColor(80, 160, 255, 70))):
@@ -1487,17 +1494,26 @@ class CameraWindow(QWidget):
             p.drawPath(outline)
             p.setPen(QPen(QColor(255, 255, 255, 170), 0.7))
             p.drawPath(outline)
-            if ob["held"] or ob["hover"] or ob["selected"]:
+            show = max(hover_k, 0.75 if ob["selected"] and not busy else 0.0)
+            if show > 0.03:
+                # visionOS ornament: a glass capsule under the object with its
+                # name and real size, and the grab bar beneath it.
                 label = f"{ob['name']} · {ob['size_cm']} cm"
                 p.setFont(_font(7.5, QFont.Weight.DemiBold))
-                tw = p.fontMetrics().horizontalAdvance(label) + 16
-                y = max(oy + 46, centre.y() - radius * 1.2 - 22)
-                chip = QRectF(centre.x() - tw / 2, y, tw, 18)
-                p.setPen(QPen(QColor(255, 255, 255, 90), 0.8))
-                p.setBrush(QColor(30, 30, 34, 150))
-                p.drawRoundedRect(chip, 9, 9)
-                p.setPen(QColor(255, 255, 255, 235))
+                tw = p.fontMetrics().horizontalAdvance(label) + 20
+                y = min(oy + h - 40, centre.y() + radius * (1.2 + 0.28 * lift) + 6 - 4 * (1 - show))
+                chip = QRectF(centre.x() - tw / 2, y, tw, 20)
+                p.setPen(QPen(QColor(255, 255, 255, int(110 * show)), 0.8))
+                p.setBrush(QColor(38, 40, 46, int(170 * show)))
+                p.drawRoundedRect(chip, 10, 10)
+                p.setPen(QColor(255, 255, 255, int(240 * show)))
                 p.drawText(chip, Qt.AlignmentFlag.AlignCenter, label)
+                bar_w = 34 + 10 * lift  # the grab bar stretches while held
+                bar = QRectF(centre.x() - bar_w / 2, chip.bottom() + 6, bar_w, 5)
+                p.setPen(Qt.PenStyle.NoPen)
+                p.setBrush(QColor(255, 255, 255, int((110 + 90 * lift) * show)))
+                p.drawRoundedRect(bar, 2.5, 2.5)
+            p.setOpacity(1.0)
 
     def _draw_pill(self, p: QPainter, card: QRectF, t: float) -> None:
         text = "Sergio ve"

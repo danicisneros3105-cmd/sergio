@@ -412,6 +412,22 @@ SECTION_ICONS = {  # the «Todo» tab, in order: (icon, bubble colour)
 }
 
 
+def all_territories() -> list[tuple[str, str]]:
+    """Every country and territory Qt knows (ISO code, name), by name."""
+    from PySide6.QtCore import QLocale
+
+    found: dict[str, str] = {}
+    kinds = QLocale.Country
+    for attr in dir(kinds):
+        value = getattr(kinds, attr)
+        if not isinstance(value, kinds):
+            continue
+        code = QLocale.territoryToCode(value)
+        if len(code) == 2 and code.isalpha() and code not in ("ZZ",):
+            found[code] = QLocale.territoryToString(value)
+    return sorted(found.items(), key=lambda kv: kv[1])
+
+
 class SectionTile(QAbstractButton):
     """One part of Sergio in the «Todo» grid: a coloured icon and its name."""
 
@@ -800,9 +816,13 @@ class ControlCenter(QWidget):
         )
         col.addLayout(_row(idioma.t("language", self.lang), self.language_box))
         self.country_box = QComboBox()
+        self.country_box.setMaxVisibleItems(16)
         for code, c in sorted(idioma.COUNTRIES.items(), key=lambda kv: kv[1].name):
-            self.country_box.addItem(c.name, code)
-        self.country_box.addItem(idioma.WORLD.name, "")
+            self.country_box.addItem(c.name, code)  # crisis lines checked one by one
+        self.country_box.insertSeparator(self.country_box.count())
+        for code, name in all_territories():  # every other country and territory
+            if code not in idioma.COUNTRIES:
+                self.country_box.addItem(name, code)
         here = str(cfg.get("country") or idioma.system_country() or "EC")
         self.country_box.setCurrentIndex(max(0, self.country_box.findData(here)))
         self.country_box.currentIndexChanged.connect(self._pick_country)

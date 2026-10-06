@@ -60,10 +60,12 @@ def test_notch_grows_with_text_and_shrinks_back():
     clicks = []
     n = notch_mod.Notch(on_click=lambda: clicks.append(1))
     for _ in range(80):
+        n._last_tick -= 1 / 60  # 60 fps (the springs run on real time)
         n._tick()
     assert (round(n._w), round(n._h)) == tuple(map(round, notch_mod.COMPACT))
     n.set_state("listening")
     for _ in range(80):
+        n._last_tick -= 1 / 60  # 60 fps (the springs run on real time)
         n._tick()
     assert round(n._w) == round(notch_mod.MEDIUM[0])
     n.say(
@@ -71,11 +73,13 @@ def test_notch_grows_with_text_and_shrinks_back():
         30,
     )
     for _ in range(80):
+        n._last_tick -= 1 / 60  # 60 fps (the springs run on real time)
         n._tick()
     assert round(n._w) == round(notch_mod.EXPANDED_W) and n._h > 58
     n.set_state("idle")
     n._caption_until = 0
     for _ in range(80):
+        n._last_tick -= 1 / 60  # 60 fps (the springs run on real time)
         n._tick()
     assert round(n._w) == round(notch_mod.COMPACT[0])
     n.mousePressEvent(None)

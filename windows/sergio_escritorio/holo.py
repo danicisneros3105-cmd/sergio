@@ -544,6 +544,18 @@ PLURALS_ES = {"corazon": "corazones", "capsula": "cápsulas", "piramide": "pirá
 
 
 # -- rotations -------------------------------------------------------------------
+def spring(x: float, v: float, target: float, dt: float, response: float = 0.4, damping: float = 0.72) -> tuple[float, float]:
+    """One step of a damped spring (period *response* s, damping ratio)."""
+    omega = 2 * math.pi / response
+    for _ in range(2):  # two half steps: stable at 20 fps too
+        h = dt / 2
+        v += (-omega * omega * (x - target) - 2 * damping * omega * v) * h
+        x += v * h
+    if abs(x - target) < 1e-4 and abs(v) < 1e-4:
+        return target, 0.0
+    return x, v
+
+
 def rot_axis(axis: Sequence[float], angle: float) -> np.ndarray:
     a = np.asarray(axis, float)
     a = a / (np.linalg.norm(a) + 1e-12)
@@ -590,13 +602,24 @@ class Holo:
     held: bool = False
     base: float = 1.0  # display size / real size (a 15 cm phone is shown bigger)
     recipe: dict | None = None  # the designed parts (for Blender Pro)
+    # Apple-style motion (springs, only for the look; Blender gets the real size):
+    lift: float = 0.0  # 0 resting .. 1 held: it rises toward you, a little bigger
+    lift_v: float = 0.0
+    appear: float = 1.0  # 0 just created .. 1: it pops in with a soft overshoot
+    appear_v: float = 0.0
+    hover_k: float = 0.0  # the hover glow fades in and out instead of popping
+
+    def display(self) -> float:
+        """How much bigger it looks right now (lift and pop-in)."""
+        return (1.0 + 0.06 * self.lift) * (0.55 + 0.45 * self.appear)
 
     @property
     def name(self) -> str:
         return f"{NAMES_ES.get(self.kind, self.kind[:1].upper() + self.kind[1:])} {self.id}"
 
-    def world(self) -> np.ndarray:
-        return (self.mesh.vertices * self.scale) @ self.rot.T + self.pos
+    def world(self, display: bool = False) -> np.ndarray:
+        scale = self.scale * (self.display() if display else 1.0)
+        return (self.mesh.vertices * scale) @ self.rot.T + self.pos
 
     def radius(self) -> float:
         return float(np.linalg.norm(self.mesh.vertices, axis=1).max()) * self.scale
@@ -732,6 +755,7 @@ class HoloScene:
         obj = Holo(self._next, kind, mesh, np.array(pos, float), rot_axis((1, 1, 0), 0.45),
                    color=color or HOLO)  # fmt: skip
         obj.spin = np.array([0.0, 0.35, 0.0])  # a slow showroom turn
+        obj.appear = 0.0  # pops in
         self._next += 1
         self.objects.append(obj)
         self.selected = obj.id
@@ -1149,7 +1173,13 @@ class HoloScene:
     # -- time ---------------------------------------------------------------------------
     def step(self, dt: float) -> None:
         dt = min(dt, 0.05)
+        hovered = set(self.hover.values())
         for obj in self.objects:
+            # Springs for the look: a soft overshoot like iOS / visionOS.
+            obj.lift, obj.lift_v = spring(obj.lift, obj.lift_v, 1.0 if obj.held else 0.0, dt, 0.35, 0.7)
+            obj.appear, obj.appear_v = spring(obj.appear, obj.appear_v, 1.0, dt, 0.5, 0.62)
+            want = 1.0 if (obj.held or obj.id in hovered) else 0.0
+            obj.hover_k += (want - obj.hover_k) * (1 - math.exp(-dt / 0.12))
             if obj.held:
                 continue
             if np.any(obj.spin):
@@ -1186,7 +1216,7 @@ class HoloScene:
         out = []
         eye = np.array([0.0, 0.0, CAM_Z])
         for obj in self.objects:
-            world = obj.world()
+            world = obj.world(display=True)
             if not obj.mesh.faces:
                 continue
             screen, depth = project(world, width, height)
@@ -1239,7 +1269,7 @@ class HoloScene:
         for obj in sorted(self.objects, key=lambda o: o.pos[2]):  # far (low z) first
             if not obj.mesh.faces:
                 continue
-            world = obj.world()
+            world = obj.world(display=True)
             screen, depth = project(world, width, height)
             tri = np.array([f[:3] for f in obj.mesh.faces])
             a, b, c = world[tri[:, 0]], world[tri[:, 1]], world[tri[:, 2]]
@@ -1294,7 +1324,10 @@ class HoloScene:
                     "edges": edges,
                     "back_edges": back,
                     "centre": (float(cx), float(cy)),
-                    "radius": float(obj.radius() * k),
+                    "radius": float(obj.radius() * obj.display() * k),
+                    "lift": float(obj.lift),
+                    "appear": float(max(0.0, min(1.0, obj.appear))),
+                    "hover_k": float(obj.hover_k),
                     "color": obj.color,
                     "model": colors is not None,
                     "held": obj.held,

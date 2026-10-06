@@ -39,7 +39,7 @@ def test_language_and_country_by_voice():
 def test_the_interface_speaks_six_languages():
     assert idioma.t("tab_all", "en") == "All" and idioma.t("tab_settings", "de") == "Einstellungen"
     assert idioma.t("cams", "pt") == "Câmeras ao vivo"
-    assert all(set(table) == set(idioma.LANGUAGES) for table in idioma.TEXTS.values())
+    assert all(set(table) == set(idioma.UI_LANGUAGES) for table in idioma.TEXTS.values())
     assert "Spanish" not in idioma.speak_rule("en") and "«sir»" in idioma.speak_rule("en")
 
 
@@ -120,3 +120,14 @@ def test_websites_use_each_browsers_own_policy_and_are_cleared(tmp_path):
     bloqueo.switch_off(store, approved=True, registry=reg)
     assert not store.list.on and reg.keys[bloqueo.BROWSERS["Chrome"]] == {}
     assert not bloqueo.Store(tmp_path / "b.json").list.on  # saved
+
+
+def test_every_country_and_many_languages():
+    from sergio_escritorio.panel import all_territories
+
+    codes = dict(all_territories())
+    assert len(codes) > 240 and "JP" in codes and "KE" in codes
+    assert idioma.crisis_line("JP").startswith("110 / 119")
+    assert "112" in idioma.crisis_line("GT") and "confirme" in idioma.crisis_line("GT")
+    assert len(idioma.LANGUAGES) > 30 and "Japanese" in idioma.speak_rule("ja")
+    assert idioma.t("tab_all", "ja") == "All"  # interface falls back to English
