@@ -828,16 +828,11 @@ class ControlCenter(QWidget):
         self.country_box.setCurrentIndex(max(0, self.country_box.findData(here)))
         self.country_box.currentIndexChanged.connect(self._pick_country)
         col.addLayout(_row(idioma.t("country", self.lang), self.country_box))
-        col.addWidget(_label(idioma.t("emergency", self.lang).upper(), "section"))
-        self.crisis_note = _label(idioma.crisis_line(here), "row", True)
-        col.addWidget(self.crisis_note)
         col.addStretch(1)
         return page
 
     def _pick_country(self, _index: int) -> None:
-        code = self.country_box.currentData() or ""
-        self.crisis_note.setText(idioma.crisis_line(code))
-        self._save(country=code)
+        self._save(country=self.country_box.currentData() or "")
 
     def _personalise(self) -> QWidget:
         """Muse-style: name, look, face, accessory, personality and voice."""

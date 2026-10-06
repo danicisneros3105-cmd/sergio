@@ -3279,8 +3279,16 @@ def run(config: dict[str, Any]) -> None:
         worker.country_name = client.country_name
         return lambda text: worker.ask(text, force_agent=True)
 
+    from sergio_escritorio.tareas import plan_line
+
+    def task_done(task: Any) -> None:
+        if task.agent and task.status == "done":
+            agents.remember(task.agent["nombre"], task.result)
+
     orchestrator = Orchestrator(
-        plan_task, new_asker, activities, approve=owner_approves, told=lambda text: tell(text)
+        plan_task, new_asker, activities, approve=owner_approves, told=lambda text: tell(text),
+        on_plan=lambda task: bridge.caption.emit(plan_line(task)),  # the plan, seen before the work
+        on_done=lambda task: task_done(task),
     )
 
     def run_tasks(q: Any) -> str | None:
@@ -3304,7 +3312,7 @@ def run(config: dict[str, Any]) -> None:
     agents = Agents(HOME / "agentes.json")
 
     def agent_job(agent: dict, job: str) -> str:
-        orchestrator.submit(job, agent=agent)
+        orchestrator.submit(job, agent=agents.with_memory(agent))
         return f"{agent['nombre']} se pone con ello en segundo plano. Le aviso al terminar."
 
     def create_agent(description: str) -> str:
@@ -3357,7 +3365,7 @@ def run(config: dict[str, Any]) -> None:
         now = _dt.datetime.now()
         for agent in agents.due(now):
             agents.ran(agent, now)
-            orchestrator.submit(agent["tarea"], agent=agent)
+            orchestrator.submit(agent["tarea"], agent=agents.with_memory(agent))
 
     agents_timer = _QTimer()
     agents_timer.timeout.connect(lambda: threading.Thread(target=scheduled_agents, daemon=True).start())

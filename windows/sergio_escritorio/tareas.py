@@ -127,7 +127,10 @@ class Orchestrator:
         approve: Callable[[str], bool] = lambda _what: False,
         told: Callable[[str], None] = lambda _text: None,
         max_parallel: int = 3,
+        on_plan: Callable[[Task], None] = lambda _task: None,
+        on_done: Callable[[Task], None] = lambda _task: None,
     ) -> None:
+        self.on_plan, self.on_done = on_plan, on_done  # show the plan first; remember results
         self.plan, self.new_asker, self.activities = plan, new_asker, activities
         self.approve, self.told = approve, told
         self.screen = threading.Lock()  # one task at a time on the screen
@@ -228,6 +231,7 @@ class Orchestrator:
             plan = {"titulo": _short(task.request), "pasos": [{"paso": task.request, "donde": "pantalla"}]}
         task.title = str(plan.get("titulo") or _short(task.request))
         task.steps = self._steps(plan) or [Step(task.request, "pantalla")]
+        self.on_plan(task)
         kind = "screen" if any(s.where == "pantalla" for s in task.steps) else "task"
         self.activities.update(task.activity, title=task.title, detail=f"{len(task.steps)} pasos")
         if kind == "screen":
@@ -290,6 +294,10 @@ class Orchestrator:
         elif task.status == "cancelled":
             task.result = "Cancelada."
         self.activities.finish(task.activity, ok, _short(task.result, 80))
+        try:
+            self.on_done(task)
+        except Exception:  # noqa: BLE001 — memory is a bonus
+            pass
         head = f"«{task.title or _short(task.request)}»"
         self.told(f"Tarea {head} terminada: {task.result}" if ok else f"Tarea {head}: {task.result}")
 
@@ -299,5 +307,12 @@ def _short(text: str, n: int = 32) -> str:
     return text if len(text) <= n else text[: n - 1].rstrip() + "…"
 
 
-__all__ = ["CANCEL", "Orchestrator", "Step", "Task", "WHAT_DOING", "parse_background", "parse_together", "step_status"]
+def plan_line(task: Task) -> str:
+    """«Plan: 1) buscar… 2) tabla… 3) abrir (pantalla)» — the plan, seen first."""
+    parts = [f"{n}) {_short(s.text, 38)}" + (" (pantalla)" if s.where == "pantalla" else "")
+             for n, s in enumerate(task.steps, 1)]
+    return f"Plan de «{task.title or _short(task.request)}»: " + " ".join(parts)
+
+
+__all__ = ["plan_line", "CANCEL", "Orchestrator", "Step", "Task", "WHAT_DOING", "parse_background", "parse_together", "step_status"]
 

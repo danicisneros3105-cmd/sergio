@@ -889,9 +889,18 @@ apruebes mirando la cámara. «Modo bloqueo»: la pantalla de bloqueo de Windows
 
 ## Agentes Pro y tus propios agentes
 
+* **Lo que la gente pide de verdad a un «Jarvis»** (comentarios de Reddit,
+  resumidos por otras webs), aplicado aquí:
+  * **Memoria**: cada agente recuerda lo que hizo y continúa, no repite.
+  * **Ver el plan antes del trabajo**: el notch muestra «Plan: 1)… 2)…».
+  * **Agentes acotados**, cada uno con sus herramientas y con aprobación
+    para lo arriesgado.
+  * **Resumen diario** de tus temas y **Correo**: ordena la bandeja y deja
+    borradores, nunca envía.
 * **Agentes Pro** listos para trabajar:
   * Investigador, Programador y Analista de datos;
   * Diseñador 3D y Editor de video;
+  * Resumen diario y Correo;
   * Organizador, Viajes, Escritor y Tutor.
 * Cada agente tiene su método y sus propias herramientas: solo puede usar
   esas. Ejemplos: «Investigador, compara las RTX 5070 y 5080», «usa el agente

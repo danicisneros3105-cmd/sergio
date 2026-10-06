@@ -175,8 +175,8 @@ def test_settings_change_language_and_country(qt):
 
     saved = []
     panel = ControlCenter(PanelActions(config={"language": "es", "country": "EC"}, save_config=saved.append))
-    assert "171" in panel.crisis_note.text()
+    assert not hasattr(panel, "crisis_note")  # no emergency numbers on screen
     panel.country_box.setCurrentIndex(panel.country_box.findData("MX"))
-    assert "800 911 2000" in panel.crisis_note.text() and saved[-1]["country"] == "MX"
+    assert saved[-1]["country"] == "MX"
     panel.language_box.setCurrentIndex(panel.language_box.findData("pt"))
     assert saved[-1]["language"] == "pt"

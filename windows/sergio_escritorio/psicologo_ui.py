@@ -7,7 +7,7 @@ you talk, looks down and writes a line in the notebook after each thing
 you say (the page fills, then turns), and looks up to answer.
 
 Beside it, the conversation (type or press the microphone), the PHQ-9 /
-GAD-7 questionnaires and, always visible, the crisis lines.
+GAD-7 questionnaires; help lines appear only if there is a sign of risk.
 """
 
 from __future__ import annotations
@@ -53,8 +53,11 @@ def _font(size: float, bold: bool = False) -> QFont:
 class Scene(QWidget):
     """The animated consulting room."""
 
-    def __init__(self, parent: QWidget | None = None, clock: Callable[[], float] = time.monotonic) -> None:
+    def __init__(
+        self, parent: QWidget | None = None, clock: Callable[[], float] = time.monotonic, minimal: bool = False
+    ) -> None:
         super().__init__(parent)
+        self.minimal = minimal  # small and subtle: Sergio and the chair, no room
         self.clock = clock
         self.t0 = clock()
         self.state = "listening"  # listening | writing | speaking
@@ -63,7 +66,9 @@ class Scene(QWidget):
         self._line_start = 0.0
         self._flip_at = -10.0
         self.rng = random.Random(7)
-        self.setMinimumSize(420, 420)
+        self.setMinimumSize(*((120, 96) if minimal else (420, 420)))
+        if minimal:
+            self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self._timer = QTimer(self)
         self._timer.timeout.connect(self._tick)
         self._timer.start(33)
@@ -108,12 +113,23 @@ class Scene(QWidget):
 
     def draw(self, p: QPainter, rect: QRectF, t: float) -> None:
         w, h = rect.width(), rect.height()
-        u = min(w / 9.0, h / 8.4)
-        cx = rect.left() + w * 0.44
-        floor = rect.top() + h * 0.88
+        if self.minimal:
+            # A small, quiet vignette: a faint glow of Sergio's blue behind.
+            u = min(w / 5.8, h / 7.9)
+            cx = rect.left() + w * 0.5
+            floor = rect.top() + h * 0.97
+            glow = QRadialGradient(QPointF(cx, rect.top() + h * 0.5), max(w, h) * 0.55)
+            glow.setColorAt(0, QColor(10, 132, 255, int(34 + 10 * math.sin(t * 0.9))))
+            glow.setColorAt(1, QColor(10, 132, 255, 0))
+            p.fillRect(rect, glow)
+        else:
+            u = min(w / 9.0, h / 8.4)
+            cx = rect.left() + w * 0.44
+            floor = rect.top() + h * 0.88
         seat_y = floor - 2.35 * u
-        self._room(p, rect, floor, u, t)
-        self._ottoman(p, QPointF(cx + 3.15 * u, floor), u)
+        if not self.minimal:
+            self._room(p, rect, floor, u, t)
+            self._ottoman(p, QPointF(cx + 3.15 * u, floor), u)
         self._base(p, QPointF(cx - 0.1 * u, seat_y + 0.55 * u), floor, u)
         self._chair_back(p, QPointF(cx, seat_y), u)
         self._seat(p, QPointF(cx, seat_y), u)
@@ -307,7 +323,7 @@ class Scene(QWidget):
         state = "speaking" if self.state == "speaking" else "idle"
         saved = dict(character.SETTINGS)
         try:
-            character.SETTINGS["style"] = "muse"
+            # The same Sergio as everywhere (the user's own look and colours).
             character.SETTINGS["eyes"] = True
             if character.SETTINGS.get("eye_style") == "felices":
                 character.SETTINGS["eye_style"] = "ovalos"
@@ -391,6 +407,18 @@ class Scene(QWidget):
         p.restore()
 
 
+STYLE = """
+QWidget#room { background: #000000; }
+QLabel { color: #f5f5f7; }
+QLabel#hint { color: #8e8e93; font-size: 12px; }
+QTextBrowser { background: #1c1c1e; color: #f5f5f7; border: none; border-radius: 16px; padding: 12px; font-size: 14px; }
+QLineEdit { background: #1c1c1e; color: #f5f5f7; border: 1px solid #2c2c2e; border-radius: 18px; padding: 9px 14px; font-size: 14px; }
+QLineEdit:focus { border: 1px solid #0a84ff; }
+QPushButton { background: #0a84ff; color: white; border: none; border-radius: 16px; padding: 8px 14px; font-weight: 600; }
+QPushButton#plain { background: #2c2c2e; color: #f5f5f7; }
+"""  # the same look as the control center
+
+
 class ConsultWindow(QWidget):
     """The consulting room: the scene and the conversation."""
 
@@ -405,33 +433,35 @@ class ConsultWindow(QWidget):
         super().__init__(None, Qt.WindowType.Window)
         self.crisis_line = crisis or CRISIS_LINE  # the user's country (idioma.py)
         self.setWindowTitle("Sergio · Consulta")
-        self.setStyleSheet(
-            "QWidget#room { background: #1E1A18; } QLabel { color: #EDE6DC; }"
-            "QTextBrowser { background: #26211E; color: #EDE6DC; border: none; border-radius: 14px; padding: 10px; font-size: 14px; }"
-            "QLineEdit { background: #2E2824; color: white; border: none; border-radius: 12px; padding: 10px; font-size: 14px; }"
-            "QPushButton { background: #C9A27E; color: #1E1A18; border: none; border-radius: 12px; padding: 9px 14px; font-weight: 600; }"
-            "QPushButton#plain { background: #3A332E; color: #EDE6DC; }"
-        )
+        self.setStyleSheet(STYLE)
         self.setObjectName("room")
         self.consult, self._ask, self._speak, self._talk = consult, ask, speak, talk
         self.quiz: dict[str, Any] | None = None
-        row = QHBoxLayout(self)
-        row.setContentsMargins(0, 0, 16, 12)
-        self.scene = Scene()
-        row.addWidget(self.scene, 5)
-        side = QVBoxLayout()
+        side = QVBoxLayout(self)
+        side.setContentsMargins(22, 16, 22, 18)
+        side.setSpacing(10)
+        head = QHBoxLayout()
+        texts = QVBoxLayout()
         title = QLabel("Consulta")
         title.setFont(_font(18, True))
         sub = QLabel("Un espacio para hablar. Lo que diga aquí queda cifrado en su PC.")
+        sub.setObjectName("hint")
         sub.setWordWrap(True)
-        sub.setStyleSheet("color:#A89C8E;")
+        texts.addWidget(title)
+        texts.addWidget(sub)
+        texts.addStretch()
+        head.addLayout(texts, 1)
+        self.scene = Scene(minimal=True)  # Sergio in his chair: small, top right
+        self.scene.setFixedSize(132, 104)
+        head.addWidget(self.scene, 0, Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignRight)
+        side.addLayout(head)
         self.chat = QTextBrowser()
         self.answers = QHBoxLayout()
         entry = QHBoxLayout()
         self.text = QLineEdit()
         self.text.setPlaceholderText("Escriba lo que quiera contarme…")
         self.text.returnPressed.connect(self._send_typed)
-        mic, send = QPushButton("🎤"), QPushButton("Enviar")
+        mic, send = QPushButton("Hablar"), QPushButton("Enviar")
         mic.setObjectName("plain")
         mic.clicked.connect(self._talk)
         send.clicked.connect(self._send_typed)
@@ -445,19 +475,11 @@ class ConsultWindow(QWidget):
             b.clicked.connect(lambda _c=False, k=key: self.start_quiz(k))
             tools.addWidget(b)
         tools.addStretch()
-        crisis = QLabel(self.crisis_line)
-        crisis.setWordWrap(True)
-        crisis.setStyleSheet("color:#E8A090; font-size: 12px;")
-        for w in (title, sub, self.chat):
-            side.addWidget(w)
+        side.addWidget(self.chat, 1)
         side.addLayout(self.answers)
         side.addLayout(entry)
         side.addLayout(tools)
-        side.addWidget(crisis)
-        holder = QWidget()
-        holder.setLayout(side)
-        row.addWidget(holder, 4)
-        self.resize(1100, 680)
+        self.resize(560, 680)
         self._history: list[tuple[str, str]] = []
         for m in consult.current()["mensajes"]:
             self._history.append((m["role"], m["content"]))
@@ -474,9 +496,9 @@ class ConsultWindow(QWidget):
         html = []
         for role, text in self._history[-60:]:
             if role == "user":
-                html.append(f"<p align='right' style='margin:8px 0'><span style='background:#4A3F37;padding:6px'>{escape(text)}</span></p>")
+                html.append(f"<p align='right' style='margin:8px 0'><span style='background:#0a84ff;color:white;padding:6px'>{escape(text)}</span></p>")
             else:
-                html.append(f"<p style='margin:8px 0;color:#F3EADF'>{escape(text)}</p>")
+                html.append(f"<p style='margin:8px 0;color:#f5f5f7'>{escape(text)}</p>")
         self.chat.setHtml("".join(html))
         self.chat.verticalScrollBar().setValue(self.chat.verticalScrollBar().maximum())
 

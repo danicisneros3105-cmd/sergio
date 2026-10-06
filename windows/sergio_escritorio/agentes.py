@@ -55,6 +55,16 @@ PRO: tuple[dict[str, Any], ...] = (
      "instrucciones": "Pregunta el tono solo si falta, escribe claro y corto, revisa ortografía y "
                       "deja el texto en un archivo. Nunca envía nada.",
      "herramientas": ["file_write", "web_search", "think"]},
+    {"nombre": "Resumen diario", "rol": "Tu resumen de lo importante en tus temas, cada mañana.",
+     "instrucciones": "Busca lo nuevo de las últimas 24 h en los temas del dueño (noticias, foros, "
+                      "papers, lanzamientos), descarta el ruido, deja 5 puntos con su fuente y por qué "
+                      "importan, y lo guarda en un archivo con la fecha.",
+     "herramientas": ["web_search", "http_request", "file_write", "think"]},
+    {"nombre": "Correo", "rol": "Ordena tu bandeja: resume, clasifica y deja borradores.",
+     "instrucciones": "Abre el correo del dueño en pantalla, lee los no leídos, los clasifica "
+                      "(urgente, responder, informativo, publicidad), resume lo urgente y deja "
+                      "borradores de respuesta. NUNCA envía ni borra: eso lo decide el dueño.",
+     "herramientas": ["desktop_action", "screen_read", "file_write", "think"]},
     {"nombre": "Tutor", "rol": "Explica y prepara para exámenes.",
      "instrucciones": "Explica con ejemplos, hace preguntas de práctica, corrige y deja un resumen "
                       "con lo que hay que repasar.",
@@ -77,6 +87,28 @@ class Agents:
             self.mine: list[dict[str, Any]] = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, ValueError):
             self.mine = []
+        self.memory_path = path.with_name(path.stem + "_memoria.json")
+        try:
+            self.memory: dict[str, list[str]] = json.loads(self.memory_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            self.memory = {}
+
+    def remember(self, name: str, result: str, keep: int = 6) -> None:
+        """What an agent did last (its memory for the next jobs)."""
+        stamp = datetime.date.today().isoformat()
+        with self.lock:
+            items = self.memory.setdefault(name, [])
+            items.append(f"{stamp}: {' '.join(result.split())[:240]}")
+            del items[:-keep]
+            self.memory_path.parent.mkdir(parents=True, exist_ok=True)
+            self.memory_path.write_text(json.dumps(self.memory, ensure_ascii=False, indent=1), encoding="utf-8")
+
+    def with_memory(self, agent: dict[str, Any]) -> dict[str, Any]:
+        past = self.memory.get(agent["nombre"]) or []
+        if not past:
+            return agent
+        return {**agent, "instrucciones": agent.get("instrucciones", "")
+                + " Lo que hiciste antes (no repitas, continúa): " + " | ".join(past)}
 
     def all(self) -> list[dict[str, Any]]:
         return [*({**a, "pro": True} for a in PRO), *self.mine]

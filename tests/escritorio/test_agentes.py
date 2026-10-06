@@ -38,3 +38,21 @@ def test_voice_orders_for_agents(tmp_path):
     assert parse("usa el agente viajes para planear Lima") == ("use", "viajes", "planear Lima")
     assert parse("mis agentes") == ("show", "", "")
     assert parse("Juan, pásame la sal", agents) is None
+
+
+def test_agents_remember_what_they_did(tmp_path):
+    agents = Agents(tmp_path / "a.json")
+    agents.remember("Investigador", "Comparé RTX 5070 y 5080: la 5080 rinde 30 % más en Cycles.")
+    again = Agents(tmp_path / "a.json")
+    agent = again.with_memory(again.find("Investigador"))
+    assert "rinde 30 % más" in agent["instrucciones"] and "no repitas" in agent["instrucciones"]
+    assert {a["nombre"] for a in PRO} >= {"Resumen diario", "Correo"}
+    correo = again.find("Correo")
+    assert "NUNCA envía" in correo["instrucciones"]
+
+
+def test_the_plan_is_shown_before_the_work():
+    from sergio_escritorio.tareas import Step, Task, plan_line
+
+    task = Task(1, "tabla de portátiles", title="Portátiles", steps=[Step("buscar los 3 mejores"), Step("abrir en Excel", "pantalla")])
+    assert plan_line(task) == "Plan de «Portátiles»: 1) buscar los 3 mejores 2) abrir en Excel (pantalla)"
