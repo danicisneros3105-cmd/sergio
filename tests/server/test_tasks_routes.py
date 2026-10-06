@@ -55,3 +55,17 @@ def test_objects_are_named_by_a_vote_and_doubts_are_said():
 def test_formatting_text_is_not_formatting_a_disk():
     plan = validate_plan({"pasos": [{"paso": "Formatea los datos como CSV"}, {"paso": "Formatea el disco D"}]}, "x")
     assert [s["importante"] for s in plan["pasos"]] == [False, True]
+
+
+def test_agent_specs_are_checked():
+    from openjarvis.server.tasks_routes import validate_agent
+
+    spec = validate_agent({"nombre": "Noticias", "herramientas": ["web_search", "whatsapp_send", "magic"],
+                           "horario": {"hora": "25:00", "dias": [0]}}, "x")
+    assert spec["herramientas"] == ["web_search"] and spec["horario"] == {"hora": "", "dias": []}
+
+
+def test_an_agent_plans_only_with_its_toolbox():
+    plan = plan_task("x", ask=lambda p, **k: {"pasos": [{"paso": "a", "herramientas": ["web_search", "terminal_run"]}]},
+                     tools=["web_search"])
+    assert plan["pasos"][0]["herramientas"] == ["web_search"] and plan["pasos"][0]["inventadas"] == ["terminal_run"]

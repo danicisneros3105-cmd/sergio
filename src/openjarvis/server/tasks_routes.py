@@ -125,15 +125,79 @@ def validate_plan(data: Any, request: str) -> dict[str, Any]:
     return {"titulo": title, "pasos": steps, "descartados": dropped}
 
 
-def plan_task(request: str, ask: Callable[..., Any] | None = None) -> dict[str, Any]:
+def plan_task(
+    request: str, ask: Callable[..., Any] | None = None, tools: list[str] | None = None, role: str = ""
+) -> dict[str, Any]:
+    """*tools*: an agent's own toolbox (a subset); *role*: its instructions."""
     if ask is None:
         from openjarvis.coach.brain import ask
-    prompt = PROMPT.format(max_steps=MAX_STEPS, tools=", ".join(sorted(TOOLS)), request=request)
-    return validate_plan(ask(prompt, effort="medium"), request)
+    allowed = sorted(t for t in (tools or TOOLS) if t in TOOLS) or sorted(TOOLS)
+    prompt = PROMPT.format(max_steps=MAX_STEPS, tools=", ".join(allowed), request=request)
+    if role:
+        prompt = f"Trabajas como este agente especialista: {role}\n\n" + prompt
+    plan = validate_plan(ask(prompt, effort="medium"), request)
+    for step in plan["pasos"]:  # an agent never reaches outside its toolbox
+        outside = [t for t in step["herramientas"] if t not in allowed]
+        step["herramientas"] = [t for t in step["herramientas"] if t in allowed]
+        step["inventadas"] += outside
+    return plan
+
+
+AGENT_PROMPT = """Diseña un agente especialista para Sergio a partir de lo que pide el \
+usuario: «{description}».
+Herramientas posibles (elige solo las necesarias): {tools}
+Devuelve SOLO JSON: {{"nombre": "nombre corto en español", "rol": "una frase", \
+"instrucciones": "cómo trabaja, paso a paso, qué entrega y cómo verifica (máx. 600 \
+caracteres)", "herramientas": [...], "horario": {{"hora": "HH:MM" o "", "dias": \
+[0-6, lunes=0] o []}}, "tarea": "lo que hace en cada ejecución programada, o vacío"}}"""
+
+
+def validate_agent(data: Any, description: str) -> dict[str, Any]:
+    """An agent spec, checked: real tools only, never messaging, sane schedule."""
+    data = data if isinstance(data, dict) else {}
+    tools = [t for t in data.get("herramientas") or [] if isinstance(t, str) and t in TOOLS and t not in NEVER]
+    when = data.get("horario") if isinstance(data.get("horario"), dict) else {}
+    hour = str(when.get("hora") or "")
+    if not re.fullmatch(r"([01]\d|2[0-3]):[0-5]\d", hour):
+        hour = ""
+    days = sorted({int(d) for d in when.get("dias") or [] if str(d).isdigit() and 0 <= int(d) <= 6})
+    name = " ".join(str(data.get("nombre") or "Agente").split())[:40]
+    return {
+        "nombre": name,
+        "rol": " ".join(str(data.get("rol") or description).split())[:160],
+        "instrucciones": " ".join(str(data.get("instrucciones") or description).split())[:800],
+        "herramientas": tools or ["web_search", "think"],
+        "horario": {"hora": hour, "dias": days if hour else []},
+        "tarea": " ".join(str(data.get("tarea") or "").split())[:300],
+    }
+
+
+def design_agent(description: str, ask: Callable[..., Any] | None = None) -> dict[str, Any]:
+    if ask is None:
+        from openjarvis.coach.brain import ask
+    prompt = AGENT_PROMPT.format(description=description, tools=", ".join(sorted(TOOLS)))
+    return validate_agent(ask(prompt, effort="medium"), description)
 
 
 class PlanRequest(BaseModel):
     request: str
+    tools: list[str] | None = None
+    role: str = ""
+
+
+class AgentRequest(BaseModel):
+    description: str
+
+
+@router.post("/agent")
+async def agent(req: AgentRequest) -> dict[str, Any]:
+    """«Crea un agente que…» -> a checked agent spec."""
+    if not req.description.strip():
+        raise HTTPException(status_code=400, detail="Empty description")
+    try:
+        return await asyncio.to_thread(design_agent, req.description.strip())
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail=str(exc)[:300]) from exc
 
 
 @router.post("/plan")
@@ -141,9 +205,9 @@ async def plan(req: PlanRequest) -> dict[str, Any]:
     if not req.request.strip():
         raise HTTPException(status_code=400, detail="Empty request")
     try:
-        return await asyncio.to_thread(plan_task, req.request.strip())
+        return await asyncio.to_thread(plan_task, req.request.strip(), None, req.tools, req.role)
     except Exception as exc:  # noqa: BLE001 — the desktop runs it as one step
         raise HTTPException(status_code=502, detail=str(exc)[:300]) from exc
 
 
-__all__ = ["NEVER", "TOOLS", "plan_task", "router", "validate_plan"]
+__all__ = ["NEVER", "TOOLS", "design_agent", "plan_task", "router", "validate_agent", "validate_plan"]

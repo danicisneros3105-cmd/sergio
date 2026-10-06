@@ -887,6 +887,30 @@ apruebes mirando la cámara. «Modo bloqueo»: la pantalla de bloqueo de Windows
   escritura, investigación, datos) y descripciones cortas; Sergio también
   elige la guía solo en las tareas largas.
 
+## Agentes Pro y tus propios agentes
+
+* **Agentes Pro** listos para trabajar:
+  * Investigador, Programador y Analista de datos;
+  * Diseñador 3D y Editor de video;
+  * Organizador, Viajes, Escritor y Tutor.
+* Cada agente tiene su método y sus propias herramientas: solo puede usar
+  esas. Ejemplos: «Investigador, compara las RTX 5070 y 5080», «usa el agente
+  Viajes para planear 5 días en Lima». Trabaja en segundo plano y lo ves en
+  el notch.
+* **Crea los tuyos**: «crea un agente que cada lunes a las 8 me resuma las 5
+  noticias de IA con fuentes». Sergio lo diseña (nombre, método, herramientas
+  reales, horario) y lo guarda. Los agentes con horario se ejecutan solos.
+  «Mis agentes» abre la ventana, también en el panel → Todo → Agentes.
+  «Borra el agente …» lo elimina.
+* **Automatización más robusta**: si un paso falla dos veces, Sergio
+  replanifica lo que falta con otro enfoque (una vez) antes de rendirse.
+* **Personalidad**: más concreta, inspirada en el carisma de pantalla de
+  Brad Pitt (sin hacerse pasar por él):
+  * calma sin prisa y pocas palabras;
+  * quita hierro a todo y remata en seco;
+  * honestidad directa, pragmatismo de datos;
+  * cálido y leal cuando importa.
+
 ## Multitarea, actividades en vivo y menos alucinaciones
 
 * **Varias tareas a la vez, en segundo plano**:

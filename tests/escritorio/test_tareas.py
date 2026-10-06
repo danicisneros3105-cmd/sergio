@@ -125,14 +125,41 @@ def test_screen_steps_take_turns():
     assert worst[0] == 1  # never two tasks on the mouse at once
 
 
-def test_a_step_gets_one_more_try_then_reports_where_it_stopped():
-    replies = iter(["FALTA: guardar", "FALTA: no encuentro la carpeta"])
-    plan = lambda r: {"pasos": [{"paso": "hacer la tabla", "donde": "fondo"}]}  # noqa: E731
+def test_a_failed_step_gets_a_new_approach_once():
+    replies = iter(["FALTA: guardar", "FALTA: no encuentro la carpeta", "TERMINADO: guardado en Documentos"])
+    plans = []
+
+    def plan(r):
+        plans.append(r)
+        return {"pasos": [{"paso": "hacer la tabla" if len(plans) == 1 else "guardarla en Documentos", "donde": "fondo"}]}
+
     orch, acts, told, calls = make(plan, lambda p: next(replies))
     orch.submit("tabla")
     wait(orch)
-    assert len(calls) == 2 and orch.tasks[0].status == "failed"
-    assert "paso 1" in told[0] and "no encuentro la carpeta" in told[0]
+    assert len(plans) == 2 and "no encuentro la carpeta" in plans[1] and "enfoque distinto" in plans[1]
+    assert orch.tasks[0].status == "done" and "Documentos" in told[0]
+
+
+def test_when_the_new_approach_also_fails_it_says_where_it_stopped():
+    plan = lambda r: {"pasos": [{"paso": "hacer la tabla", "donde": "fondo"}]}  # noqa: E731
+    orch, acts, told, calls = make(plan, lambda p: "FALTA: no encuentro la carpeta")
+    orch.submit("tabla")
+    wait(orch)
+    assert orch.tasks[0].status == "failed" and "no encuentro la carpeta" in told[0]
+
+
+def test_an_agent_works_with_its_role_and_its_tools():
+    seen = []
+    agent = {"nombre": "Investigador", "instrucciones": "Busca con fuentes.", "herramientas": ["web_search"]}
+
+    def plan(r, a=None):
+        seen.append(a)
+        return {"pasos": [{"paso": "buscar", "donde": "fondo"}]}
+
+    orch, acts, told, calls = make(plan, lambda p: "TERMINADO: 3 fuentes")
+    orch.submit("precios de GPUs", agent=agent)
+    wait(orch)
+    assert seen == [agent] and "Eres el agente «Investigador»" in calls[0]
 
 
 def test_risky_steps_wait_for_the_owner():

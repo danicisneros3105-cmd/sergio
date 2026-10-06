@@ -169,22 +169,59 @@ class Scene(QWidget):
             p.drawPath(leaf)
 
     def _wood_shell(self, p: QPainter, rect: QRectF, radius: float) -> None:
+        """A molded plywood shell in dark hazelnut veneer: grain, and the thin
+        light edge of the plywood layers that makes an Eames recognisable."""
         grad = QLinearGradient(rect.topLeft(), rect.bottomRight())
         grad.setColorAt(0, WOOD_LIGHT)
         grad.setColorAt(1, WOOD)
-        p.setPen(QPen(WOOD.darker(130), max(1.0, radius * 0.06)))
+        p.setPen(QPen(WOOD.darker(135), max(1.0, radius * 0.06)))
         p.setBrush(grad)
         p.drawRoundedRect(rect, radius, radius)
+        p.save()
+        clip = QPainterPath()
+        clip.addRoundedRect(rect, radius, radius)
+        p.setClipPath(clip)
+        grain = QColor(WOOD.darker(125))
+        grain.setAlpha(70)
+        p.setPen(QPen(grain, max(0.6, radius * 0.03)))
+        for k in range(1, 7):  # long walnut grain
+            y = rect.top() + rect.height() * k / 7
+            path = QPainterPath(QPointF(rect.left(), y))
+            path.cubicTo(QPointF(rect.left() + rect.width() * 0.3, y - radius * 0.12),
+                         QPointF(rect.left() + rect.width() * 0.7, y + radius * 0.12), QPointF(rect.right(), y))
+            p.drawPath(path)
+        p.restore()
+        edge = QColor(214, 176, 128, 150)  # the plywood layers along the edge
+        p.setPen(QPen(edge, max(0.8, radius * 0.045)))
+        p.setBrush(Qt.BrushStyle.NoBrush)
+        inset = max(1.0, radius * 0.07)
+        p.drawRoundedRect(rect.adjusted(inset, inset, -inset, -inset), radius * 0.9, radius * 0.9)
 
     def _cushion(self, p: QPainter, rect: QRectF, radius: float, tufts: int = 1) -> None:
+        """White leather cushion: soft volume, pleats at the ends, buttons."""
         grad = QLinearGradient(rect.topLeft(), rect.bottomLeft())
-        grad.setColorAt(0, LEATHER)
+        grad.setColorAt(0, LEATHER.lighter(103))
+        grad.setColorAt(0.55, LEATHER)
         grad.setColorAt(1, LEATHER_SHADE)
         p.setPen(QPen(LEATHER_SHADE.darker(115), max(0.8, radius * 0.05)))
         p.setBrush(grad)
         p.drawRoundedRect(rect, radius, radius)
+        shine = QLinearGradient(rect.topLeft(), rect.topRight())
+        shine.setColorAt(0, QColor(255, 255, 255, 0))
+        shine.setColorAt(0.35, QColor(255, 255, 255, 70))
+        shine.setColorAt(0.7, QColor(255, 255, 255, 0))
+        p.setPen(Qt.PenStyle.NoPen)
+        p.setBrush(shine)
+        p.drawRoundedRect(QRectF(rect.left(), rect.top(), rect.width(), rect.height() * 0.35), radius, radius)
+        pleat = QPen(LEATHER_SHADE.darker(118), max(0.6, radius * 0.03))
+        p.setPen(pleat)
+        for side in (-1, 1):  # the gathered leather at both ends
+            x0 = rect.center().x() + side * (rect.width() / 2 - radius * 0.35)
+            for k in range(3):
+                y = rect.top() + rect.height() * (0.25 + 0.25 * k)
+                p.drawLine(QPointF(x0, y), QPointF(x0 - side * radius * 0.35, y + radius * 0.05))
         p.setPen(QPen(LEATHER_SHADE.darker(125), max(0.8, radius * 0.04)))
-        for k in range(1, tufts + 1):  # stitched tufting
+        for k in range(1, tufts + 1):  # stitched seam and leather buttons
             y = rect.top() + rect.height() * k / (tufts + 1)
             p.drawLine(QPointF(rect.left() + radius * 0.6, y), QPointF(rect.right() - radius * 0.6, y))
             p.setBrush(LEATHER_SHADE.darker(120))
@@ -197,6 +234,12 @@ class Scene(QWidget):
         p.rotate(-14)
         self._wood_shell(p, QRectF(-1.25 * u, -3.25 * u, 2.5 * u, 3.15 * u), 0.45 * u)
         self._cushion(p, QRectF(-1.08 * u, -3.1 * u, 2.16 * u, 2.9 * u), 0.4 * u, 2)
+        # the two black aluminium spines that join the shells (behind the gap)
+        p.setPen(Qt.PenStyle.NoPen)
+        p.setBrush(QColor(38, 36, 36))
+        for x in (-0.6 * u, 0.42 * u):
+            p.drawRoundedRect(QRectF(x, -3.45 * u, 0.18 * u, 0.5 * u), 0.06 * u, 0.06 * u)
+            p.drawRoundedRect(QRectF(x, -0.35 * u, 0.18 * u, 0.5 * u), 0.06 * u, 0.06 * u)
         # headrest
         self._wood_shell(p, QRectF(-1.15 * u, -4.55 * u, 2.3 * u, 1.35 * u), 0.4 * u)
         self._cushion(p, QRectF(-1.0 * u, -4.42 * u, 2.0 * u, 1.12 * u), 0.36 * u, 1)
@@ -211,14 +254,31 @@ class Scene(QWidget):
         p.restore()
 
     def _armrest(self, p: QPainter, seat: QPointF, u: float) -> None:
+        """The Eames arm: a curved plywood arm with a white leather pad on top,
+        on a black aluminium bracket."""
         p.save()
         p.translate(seat + QPointF(0.0, -0.55 * u))
         p.rotate(-4)
         p.setPen(Qt.PenStyle.NoPen)
-        p.setBrush(QColor(150, 150, 156))  # aluminium support
-        p.drawRoundedRect(QRectF(1.05 * u, 0.0, 0.2 * u, 0.6 * u), 0.08 * u, 0.08 * u)
-        p.setBrush(METAL)
-        p.drawRoundedRect(QRectF(-0.4 * u, -0.08 * u, 1.9 * u, 0.24 * u), 0.12 * u, 0.12 * u)
+        p.setBrush(QColor(38, 36, 36))  # bracket
+        p.drawRoundedRect(QRectF(0.95 * u, 0.0, 0.2 * u, 0.62 * u), 0.08 * u, 0.08 * u)
+        arm = QPainterPath(QPointF(-0.55 * u, 0.05 * u))
+        arm.cubicTo(QPointF(0.0, -0.2 * u), QPointF(1.2 * u, -0.22 * u), QPointF(1.65 * u, 0.12 * u))
+        arm.lineTo(QPointF(1.55 * u, 0.24 * u))
+        arm.cubicTo(QPointF(1.1 * u, 0.0), QPointF(0.0, 0.02 * u), QPointF(-0.5 * u, 0.2 * u))
+        arm.closeSubpath()
+        grad = QLinearGradient(QPointF(0, -0.2 * u), QPointF(0, 0.24 * u))
+        grad.setColorAt(0, WOOD_LIGHT)
+        grad.setColorAt(1, WOOD)
+        p.setBrush(grad)
+        p.setPen(QPen(WOOD.darker(135), max(1.0, 0.03 * u)))
+        p.drawPath(arm)
+        pad = QPainterPath(QPointF(-0.35 * u, -0.02 * u))
+        pad.cubicTo(QPointF(0.1 * u, -0.3 * u), QPointF(1.0 * u, -0.32 * u), QPointF(1.4 * u, -0.06 * u))
+        pad.cubicTo(QPointF(1.0 * u, -0.14 * u), QPointF(0.1 * u, -0.12 * u), QPointF(-0.35 * u, -0.02 * u))
+        p.setBrush(LEATHER)
+        p.setPen(QPen(LEATHER_SHADE.darker(115), max(0.8, 0.025 * u)))
+        p.drawPath(pad)
         p.restore()
 
     def _base(self, p: QPainter, top: QPointF, floor: float, u: float) -> None:

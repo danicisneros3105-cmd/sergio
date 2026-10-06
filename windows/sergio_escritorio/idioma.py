@@ -344,6 +344,7 @@ SECTIONS = {  # the «Todo» tab: every part of Sergio, one tap away
     "profile": {"es": "Mi perfil", "en": "My profile", "pt": "Meu perfil", "fr": "Mon profil",
                 "de": "Mein Profil", "it": "Il mio profilo"},
     "faces": {"es": "Caras", "en": "Faces", "pt": "Rostos", "fr": "Visages", "de": "Gesichter", "it": "Volti"},
+    "agents": {"es": "Agentes", "en": "Agents", "pt": "Agentes", "fr": "Agents", "de": "Agenten", "it": "Agenti"},
     "blocking": TEXTS["blocking"],
     "lock": {"es": "Bloquear PC", "en": "Lock PC", "pt": "Bloquear PC", "fr": "Verrouiller", "de": "PC sperren",
              "it": "Blocca PC"},

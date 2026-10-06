@@ -184,12 +184,30 @@ def _nice(name: str) -> str:
     return name[:1].upper() + name[1:]
 
 
+class _ProAgents:
+    """The pro agents' names, for «Investigador, …» (the app knows the user's own)."""
+
+    def find(self, name: str):  # noqa: ANN201
+        from sergio_escritorio.agentes import PRO, plain
+
+        key = plain(name)
+        return next((a for a in PRO if plain(a["nombre"]) == key), None)
+
+
+_PRO_AGENTS = _ProAgents()
+
+
 def parse_quick(text: str) -> Quick | None:
     """A Quick action for clear one-step orders, else None."""
     t = polite(_plain(text).rstrip(".?!"))
     # Multitasking: background tasks, several at once, what is running
     from sergio_escritorio.tareas import CANCEL, WHAT_DOING, parse_background, parse_together
 
+    from sergio_escritorio import agentes
+
+    agent_order = agentes.parse(text, _PRO_AGENTS)
+    if agent_order:
+        return Quick("agent", "\n".join(agent_order))
     together = parse_together(text)
     if len(together) >= 2:
         return Quick("tasks_together", "\n".join(together))

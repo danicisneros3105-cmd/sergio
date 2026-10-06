@@ -3264,8 +3264,11 @@ def run(config: dict[str, Any]) -> None:
     # -- multitasking: complex tasks in the foreground and the background --------
     from sergio_escritorio.tareas import Orchestrator
 
-    def plan_task(request: str) -> dict:
-        resp = client.http.post(f"{client.base}/v1/tasks/plan", json={"request": request}, timeout=90)
+    def plan_task(request: str, agent: dict | None = None) -> dict:
+        body: dict[str, Any] = {"request": request}
+        if agent:  # the agent's role and its own toolbox
+            body.update(tools=agent.get("herramientas"), role=f"{agent['nombre']}: {agent.get('instrucciones', '')}")
+        resp = client.http.post(f"{client.base}/v1/tasks/plan", json=body, timeout=90)
         resp.raise_for_status()
         return resp.json()
 
@@ -3294,6 +3297,71 @@ def run(config: dict[str, Any]) -> None:
         return None
 
     quick_handlers.append(run_tasks)
+
+    # -- agents: the pro ones and the ones the user creates ---------------------
+    from sergio_escritorio.agentes import Agents, describe
+
+    agents = Agents(HOME / "agentes.json")
+
+    def agent_job(agent: dict, job: str) -> str:
+        orchestrator.submit(job, agent=agent)
+        return f"{agent['nombre']} se pone con ello en segundo plano. Le aviso al terminar."
+
+    def create_agent(description: str) -> str:
+        def run() -> None:
+            try:
+                resp = client.http.post(f"{client.base}/v1/tasks/agent", json={"description": description}, timeout=90)
+                resp.raise_for_status()
+                spec = agents.add(resp.json())
+                tell(f"Agente listo. {describe(spec)}")
+                if "agents" in world_windows:
+                    on_ui(world_windows["agents"].refresh)
+            except Exception as exc:  # noqa: BLE001
+                tell(f"No pude crear el agente: {exc}")
+
+        threading.Thread(target=run, daemon=True).start()
+        return "Diseñando el agente; le aviso en unos segundos."
+
+    def show_agents() -> str:
+        from sergio_escritorio.agentes_ui import AgentsWindow
+
+        def show() -> None:
+            if "agents" not in world_windows:
+                world_windows["agents"] = AgentsWindow(agents, agent_job, create_agent)
+            world_windows["agents"].open()
+
+        on_ui(show)
+        return ""
+
+    def run_agents(q: Any) -> str | None:
+        if q.kind != "agent":
+            return None
+        what, name, job = (q.arg.split("\n") + ["", ""])[:3]
+        if what == "show":
+            return show_agents() or "Aquí tiene sus agentes."
+        if what == "create":
+            return create_agent(name)
+        if what == "remove":
+            return "Agente borrado." if agents.remove(name) else "No encuentro ese agente (los Pro no se borran)."
+        agent = agents.find(name)
+        if agent is None:
+            return f"No conozco un agente «{name}». Diga «mis agentes» para verlos."
+        return agent_job(agent, job)
+
+    quick_handlers.append(run_agents)
+    section_openers["agents"] = lambda _a="": show_agents()
+
+    def scheduled_agents() -> None:
+        import datetime as _dt
+
+        now = _dt.datetime.now()
+        for agent in agents.due(now):
+            agents.ran(agent, now)
+            orchestrator.submit(agent["tarea"], agent=agent)
+
+    agents_timer = _QTimer()
+    agents_timer.timeout.connect(lambda: threading.Thread(target=scheduled_agents, daemon=True).start())
+    agents_timer.start(30_000)
 
     def prefill(text: str) -> Any:
         def run(_arg: str = "") -> str:

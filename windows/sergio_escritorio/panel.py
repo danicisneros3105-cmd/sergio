@@ -391,6 +391,7 @@ class Tile(QAbstractButton):
 
 
 SECTION_ICONS = {  # the «Todo» tab, in order: (icon, bubble colour)
+    "agents": ("person", "#0a84ff"),
     "organizer": ("note", "#ff9f0a"),
     "goals": ("target", "#30d158"),
     "health": ("heart", "#ff375f"),

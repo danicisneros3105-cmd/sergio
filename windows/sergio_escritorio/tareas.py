@@ -104,6 +104,8 @@ class Task:
     result: str = ""
     activity: int = 0
     cancel: threading.Event = field(default_factory=threading.Event)
+    agent: dict[str, Any] | None = None  # a specialist agent (agentes.py) doing it
+    replanned: bool = False
 
     def progress(self) -> float:
         if not self.steps:
@@ -134,9 +136,10 @@ class Orchestrator:
         self._ids = itertools.count(1)
 
     # -- API ------------------------------------------------------------------
-    def submit(self, request: str) -> Task:
-        task = Task(next(self._ids), request.strip())
-        task.activity = self.activities.start(_short(task.request), "task", "planificando…")
+    def submit(self, request: str, agent: dict[str, Any] | None = None) -> Task:
+        task = Task(next(self._ids), request.strip(), agent=agent)
+        label = f"{agent['nombre']}: {task.request}" if agent else task.request
+        task.activity = self.activities.start(_short(label), "search" if agent else "task", "planificando…")
         self.tasks.append(task)
         threading.Thread(target=self._run, args=(task,), daemon=True).start()
         return task
@@ -158,14 +161,18 @@ class Orchestrator:
             try:
                 self._plan(task)
                 task.status = "running"
-                for step in task.steps:
+                i = 0
+                while i < len(task.steps):
+                    step = task.steps[i]
                     if task.cancel.is_set():
                         task.status = "cancelled"
                         break
                     self._do(task, step)
                     self.activities.update(task.activity, progress=task.progress())
                     if step.status == "failed":
-                        break
+                        if step.result.startswith("Lo dejé sin hacer") or not self._replan(task, step):
+                            break
+                    i += 1
                 if task.status == "running":
                     ok = all(s.status in ("done", "skipped") for s in task.steps)
                     task.status = "done" if ok else "failed"
@@ -173,13 +180,36 @@ class Orchestrator:
                 task.status, task.result = "failed", f"Falló: {exc}"
         self._finish(task)
 
-    def _plan(self, task: Task) -> None:
+    def _ask_plan(self, task: Task, request: str) -> dict[str, Any]:
+        return self.plan(request) if task.agent is None else self.plan(request, task.agent)  # type: ignore[call-arg]
+
+    def _replan(self, task: Task, failed: Step) -> bool:
+        """One new plan for what is left, with a different approach."""
+        if task.replanned:
+            return False
+        task.replanned = True
+        done = "; ".join(s.text for s in task.steps if s.status == "done") or "nada"
+        request = (
+            f"{task.request}\nYa hecho: {done}.\nFalló «{failed.text}»: {failed.result}.\n"
+            "Planifica SOLO lo que falta, con un enfoque distinto."
+        )
         try:
-            plan = self.plan(task.request)
-        except Exception:  # noqa: BLE001 — no planner: the request is one step
-            plan = {"titulo": _short(task.request), "pasos": [{"paso": task.request, "donde": "pantalla"}]}
-        task.title = str(plan.get("titulo") or _short(task.request))
-        task.steps = [
+            plan = self._ask_plan(task, request)
+        except Exception:  # noqa: BLE001 — no new plan: stop where it failed
+            return False
+        fresh = self._steps(plan)
+        if not fresh:
+            return False
+        failed.status = "skipped"
+        keep = [s for s in task.steps if s.status in ("done", "skipped")]
+        task.steps = keep + fresh
+        task.result = ""
+        self.activities.update(task.activity, detail="nuevo enfoque")
+        return True
+
+    @staticmethod
+    def _steps(plan: dict[str, Any]) -> list[Step]:
+        return [
             Step(
                 text=str(s.get("paso") or ""),
                 where="pantalla" if s.get("donde") == "pantalla" else "fondo",
@@ -189,7 +219,15 @@ class Orchestrator:
             )
             for s in plan.get("pasos") or []
             if str(s.get("paso") or "").strip()
-        ] or [Step(task.request, "pantalla")]
+        ]
+
+    def _plan(self, task: Task) -> None:
+        try:
+            plan = self._ask_plan(task, task.request)
+        except Exception:  # noqa: BLE001 — no planner: the request is one step
+            plan = {"titulo": _short(task.request), "pasos": [{"paso": task.request, "donde": "pantalla"}]}
+        task.title = str(plan.get("titulo") or _short(task.request))
+        task.steps = self._steps(plan) or [Step(task.request, "pantalla")]
         kind = "screen" if any(s.where == "pantalla" for s in task.steps) else "task"
         self.activities.update(task.activity, title=task.title, detail=f"{len(task.steps)} pasos")
         if kind == "screen":
@@ -231,8 +269,10 @@ class Orchestrator:
 
     def _prompt(self, task: Task, step: Step) -> str:
         done = [f"- {s.text} → {s.result}" for s in task.steps if s.status == "done"]
+        role = task.agent or {}
         return "\n".join(
             [
+                f"Eres el agente «{role['nombre']}»: {role.get('instrucciones', '')}" if role else "",
                 f"Tarea completa del usuario: «{task.request}»",
                 ("Ya hecho:\n" + "\n".join(done)) if done else "",
                 f"Paso actual ({step.platform}): {step.text}",
@@ -245,7 +285,7 @@ class Orchestrator:
     def _finish(self, task: Task) -> None:
         ok = task.status == "done"
         if ok:
-            results = [s.result for s in task.steps if s.result]
+            results = [s.result for s in task.steps if s.result and s.status == "done"]
             task.result = results[-1] if results else "Hecho."
         elif task.status == "cancelled":
             task.result = "Cancelada."
