@@ -271,10 +271,18 @@ def parse_quick(text: str) -> Quick | None:
             # Keep the name as said (accents and all): the last words of the text.
             words = [w.strip(".,;:!?¡¿") for w in text.split()][-count:]
             return Quick("name_face", " ".join(w[:1].upper() + w[1:] for w in words if w))
+    if re.fullmatch(
+        r"(?:muestrame|ensename|abre|ver|quiero ver|dame) (?:mis |los )?resultados(?: del gimnasio(?: mental)?| del entrenamiento)?"
+        r"|mis resultados(?: del gimnasio(?: mental)?)?|resultados del gimnasio(?: mental)?",
+        t,
+    ):
+        return Quick("gym_results")
     if re.search(r"\bperfil (mental|cognitivo|del gimnasio)\b", t):
         return Quick("gym_report")
     if _GYM.search(t) and re.search(
-        r"\b(funciona|sirve|sirviendo|efectiv\w*|resultados?|progreso|informe|mejorando|mejorado|perfil|puntos? fuertes?|debil\w*|débil\w*)\b", t
+        r"\b(funciona|sirve|sirviendo|efectiv\w*|resultados?|progreso|informe|mejorando|mejorado|perfil|puntos? fuertes?|debil\w*|débil\w*)\b"
+        r"|\b(como|que tal) (voy|vamos|me va|estoy)\b",
+        t,
     ):
         return Quick("gym_report")
     if _GYM.search(t):

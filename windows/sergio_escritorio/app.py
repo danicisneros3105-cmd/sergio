@@ -441,6 +441,9 @@ def run(config: dict[str, Any]) -> None:
     gym_action = QAction("Gimnasio mental ahora", menu)
     gym_action.triggered.connect(lambda: open_gym())
     menu.addAction(gym_action)
+    results_action = QAction("Mis resultados del gimnasio", menu)
+    results_action.triggered.connect(lambda: open_results())
+    menu.addAction(results_action)
     menu.addSeparator()
 
     wake_action = QAction("Escuchar cuando digo «Sergio»", menu, checkable=True)
@@ -1222,7 +1225,9 @@ def run(config: dict[str, Any]) -> None:
         if q.kind == "protocol":
             return run_protocol(q.arg)
         if q.kind == "gym_report":
-            return gym_stats.report()
+            return gym_report()
+        if q.kind == "gym_results":
+            return open_results()
         if q.kind == "photo_who":
             return photo_who(q.arg)
         if q.kind == "kinship":
@@ -1737,7 +1742,7 @@ def run(config: dict[str, Any]) -> None:
         share_screen=share_screen,
         hang_up=hang_up_tool,
         gym=lambda: on_ui(open_gym),
-        gym_report=lambda: gym_stats.report(),
+        gym_report=lambda: gym_report(),
         overhead=overhead_now,
         globe=globe_tool,
         photo_who=photo_who,
@@ -2286,11 +2291,49 @@ def run(config: dict[str, Any]) -> None:
             bridge.caption.emit(
                 f"Gimnasio mental, {exercise.title}: {session.summary()} {session.verdict()}"
             )
+            threading.Thread(target=analyse_gym, daemon=True).start()  # in the background
 
         window.finished.connect(done)
         window.start()
         return f"Empieza el gimnasio mental: {exercise.title}."
 
+    gym_analysis: list[dict] = []
+    results_windows: list[Any] = []
+
+    def analyse_gym() -> dict:
+        """Everything worth knowing from the answers (after each session,
+        in the background), kept for «Tus resultados»."""
+        from sergio_escritorio.brain import analysis
+
+        try:
+            found = analysis(list(gym_stats.history))
+            (HOME / "gimnasio_analisis.json").write_text(json.dumps(found, ensure_ascii=False), encoding="utf-8")
+            gym_analysis[:] = [found]
+            return found
+        except Exception:  # noqa: BLE001 — never break the gym
+            logging.exception("gym analysis failed")
+            return {}
+
+    def open_results() -> str:
+        from sergio_escritorio.gym_results import GymResults
+
+        found = gym_analysis[0] if gym_analysis else analyse_gym()
+
+        def show() -> None:
+            window = GymResults(gym_stats.history, found)
+            results_windows[:] = [window]
+            window.open()
+
+        on_ui(show)
+        return "Aquí están sus resultados, señor."
+
+    def gym_report() -> str:
+        from sergio_escritorio.gym_results import results_sentence
+
+        found = gym_analysis[0] if gym_analysis else analyse_gym()
+        return f"{gym_stats.report()} {results_sentence(found)}".strip()
+
+    threading.Thread(target=analyse_gym, daemon=True).start()
     absent_said = [False]
 
     def start_if_here() -> None:

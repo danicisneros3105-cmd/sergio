@@ -360,7 +360,7 @@ def test_every_exercise_has_steps_and_an_animated_example(app):
 
     kinds = {e.kind for e in (*brain.EXERCISES, brain.PROBE)}
     assert kinds <= set(gym_demo.STEPS) and kinds <= set(gym_demo.DEMOS)
-    assert gym.INTRO_SECONDS == 11.0
+    assert gym.INTRO_SECONDS == 15.0  # ~15 s to read how it works and watch the example
     image = QImage(360, 420, QImage.Format.Format_ARGB32)
     for kind in kinds:
         frames = []
@@ -391,12 +391,16 @@ def test_weakest_skill_comes_up_every_third_pop_up():
     history = [_h(k, a) for k, a in [("matrices", 0.9), ("matrices", 0.9), ("nback", 0.9), ("nback", 0.9),
                                      ("stroop", 0.3), ("stroop", 0.4), ("rotacion", 0.9), ("rotacion", 0.8)]]
     assert brain.weakest(brain.profile(history)) == "atención"
-    picked = [brain.personal_next(i, history)[0].kind for i in range(6)]
-    plain = [brain.next_exercise(i)[0].kind for i in range(6)]
-    assert picked[2] == plain[2] == "repaso"  # retrieval practice is never swapped
-    assert picked[5] == "stroop" and plain[5] != "stroop"
-    assert picked[:2] == plain[:2] and picked[3:5] == plain[3:5]
-    assert brain.personal_next(5, [])[0].kind == plain[5]  # no data: the plain rotation
+    n = len(brain.SCHEDULE)
+    picked = [brain.personal_next(i, history)[0].kind for i in range(n)]
+    plain = [brain.next_exercise(i)[0].kind for i in range(n)]
+    for i in range(n):
+        if i % 3 == 2 and plain[i] not in ("pausa", "repaso"):
+            assert picked[i] == "stroop"  # every third pop-up: the weakest skill
+        else:
+            assert picked[i] == plain[i]  # retrieval practice and the pause stay
+    assert picked.count("stroop") > plain.count("stroop")
+    assert brain.personal_next(2, [])[0].kind == plain[2]  # no data: the plain rotation
 
 
 def test_feedback_compares_you_with_yourself():
@@ -457,3 +461,156 @@ def test_someone_there_looks_a_few_frames_then_turns_the_camera_off():
     assert feed.stopped  # the light goes off right after
     assert someone_there(_Feed(["empty"] * 3), seconds=0.6, detect=lambda f: False) is False
     assert someone_there(_Feed([], error="ocupada"), seconds=0.5) is None  # no camera: no blocking
+
+
+# -- the three newer exercises, the analysis and «Tus resultados» -----------------------
+def test_inductive_items_have_one_right_answer_and_a_rule():
+    rng = random.Random(4)
+    seen = set()
+    for level in range(5):
+        for _ in range(40):
+            item = brain.inductive(rng, level)
+            seen.add(item.kind)
+            assert len(item.options) == 4 and len(set(item.options)) == 4
+            assert 1 <= item.answer <= 4 and item.check(str(item.answer)) and item.rule
+    assert seen == {"serie", "intruso", "analogia"}
+
+
+def test_number_series_continue_their_rule():
+    rng = random.Random(1)
+    for _ in range(60):
+        item = brain._number_series(rng, 4)
+        shown = [int(x) for x in item.prompt.replace("?", "").split()]
+        right = int(item.options[item.answer - 1])
+        assert right not in shown[-1:] or item.rule.startswith("dos series")
+
+
+def test_task_switching_answers_and_switch_cost():
+    trials = brain.switch_trials(random.Random(2), 40)
+    assert {t.task for t in trials} == {"paridad", "magnitud"}
+    switches = sum(t.switch for t in trials)
+    assert 10 <= switches <= 30  # about half switch, the rest repeat
+    even = brain.SwitchTrial(8, "paridad", False)
+    small = brain.SwitchTrial(3, "magnitud", True)
+    assert even.check("d") and not even.check("k") and small.check("d")
+    results = [(brain.SwitchTrial(2, "paridad", s), True, 0.9 if s else 0.6) for s in [True, False] * 4]
+    assert brain.switch_cost(results) == 300
+    assert brain.switch_cost(results[:2]) is None
+
+
+def test_double_decision_staircase_shortens_the_flash_when_right():
+    stairs = brain.Staircase(start_ms=400)
+    for _ in range(6):
+        stairs.result(True)
+    assert stairs.ms < 400 * 0.6
+    fast = stairs.ms
+    stairs.result(False)
+    assert stairs.ms == pytest.approx(fast * 1.25)
+    assert stairs.low <= stairs.threshold() <= 400
+
+
+def _key_at(w, text):
+    _press(w, text)
+
+
+def test_switch_runner_plays_and_records_the_switch_cost(app):
+    clock = Clock()
+    w = _window(app, "alternancia", clock)
+    clock.now += gym.INTRO_SECONDS
+    w._tick()
+    assert w.phase == "play"
+    runner = w.runner
+    for _ in range(brain.BY_KIND["alternancia"].items):
+        clock.now += 0.3
+        w._tick()
+        trial = runner.trial
+        clock.now += 0.6 if trial.switch else 0.4
+        _key_at(w, trial.answer)
+    assert runner.done() and w.session.accuracy == 1.0
+    assert w.session.extra["switch_ms"] == pytest.approx(200, abs=1)
+    w._tick()
+    assert w.phase == "result" and "cambiar de regla te cuesta" in w.session.summary()
+    w._close()
+
+
+def test_double_runner_flash_mask_and_two_answers(app):
+    clock = Clock()
+    stats = gym.GymStats(None)
+    w = _window(app, "doble", clock, stats=stats)
+    clock.now += gym.INTRO_SECONDS
+    w._tick()
+    runner = w.runner
+    start = runner.stairs.ms
+    for _ in range(brain.BY_KIND["doble"].items):
+        for stage in ("show", "mask", "centre"):
+            clock.now += 0.7
+            w._tick()
+        assert runner.stage == "centre"
+        _key_at(w, "1" if runner.trial.centre == "auto" else "2")
+        assert runner.stage == "spot"
+        _key_at(w, str(runner.trial.spot + 1))
+    assert runner.done() and w.session.accuracy == 1.0
+    assert runner.stairs.ms < start and stats.double_ms == w.session.extra["threshold_ms"]
+    w._tick()
+    assert "destello de" in w.session.summary()
+    entry = stats.history[-1]
+    assert entry["kind"] == "doble" and entry["threshold_ms"] == w.session.extra["threshold_ms"]
+    w._close()
+
+
+def test_inductive_runner_shows_the_rule_and_adapts(app):
+    clock = Clock()
+    stats = gym.GymStats(None)
+    w = _window(app, "inductivo", clock, stats=stats)
+    clock.now += gym.INTRO_SECONDS
+    w._tick()
+    for _ in range(brain.BY_KIND["inductivo"].items):
+        _key_at(w, str(w.runner.item.answer))
+        assert w.runner.rule.startswith("Regla:")
+    assert w.session.accuracy == 1.0 and stats.inductive_level == 1
+    w._close()
+
+
+def test_analysis_finds_trends_best_time_streak_and_records():
+    import time as _time
+
+    now = _time.mktime((2026, 10, 6, 21, 0, 0, 0, 0, -1))
+    history = []
+    for day in range(10):
+        morning = now - (9 - day) * 86400 - 12 * 3600  # 9:00
+        evening = morning + 11 * 3600  # 20:00
+        history.append(_h("matrices", 0.5 + day * 0.04, morning))
+        history.append(_h("matrices", 0.4 + day * 0.04, evening))
+        history.append(_h("doble", 0.7, evening, threshold_ms=300 - day * 20))
+        history.append(_h("alternancia", 0.9, morning, switch_ms=250 - day * 10))
+    history.append(_h("nback", 0.8, now - 3600, level=4))
+    found = brain.analysis(history, now)
+    curve = found["curves"]["matrices"]
+    assert curve["slope"] > 0 and curve["low"] > 0 and curve["sessions"] == 20
+    assert found["best_time"] == "mañana" and found["streak"] == 10
+    assert found["nback_max"] == 4 and found["speed_ms"]["best"] == 120
+    text = " ".join(found["insights"])
+    assert "Mejora real" in text and "Racha de 10 días" in text and "Velocidad: de 300 ms a 120 ms" in text
+    assert "Cambiar de tarea le cuesta menos" in text
+    assert brain.analysis([], now)["insights"][0].startswith("Aún no hay sesiones")
+
+
+def test_results_window_draws_everything(app):
+    from PySide6.QtCore import QPoint
+    from PySide6.QtGui import QColor, QImage, QPainter
+
+    from sergio_escritorio.gym_results import GymResults, results_sentence
+
+    history = [_h(k, 0.5 + 0.03 * i, 1000.0 * i) for i in range(8) for k in ("matrices", "stroop", "doble")]
+    history += [_h("prueba", 1.0, 2000.0 * i, rate=20 + i) for i in range(6)]
+    w = GymResults(history)
+    w.resize(1280, 860)
+    image = QImage(w.size(), QImage.Format.Format_ARGB32)
+    image.fill(QColor(0, 0, 0))
+    p = QPainter(image)
+    w.render(p, QPoint(0, 0))
+    p.end()
+    lit = sum(1 for x in range(0, 1280, 8) for y in range(0, 860, 8) if image.pixelColor(x, y).lightness() > 120)
+    assert lit > 200
+    assert results_sentence({"insights": ["a", "b", "c", "d"]}) == "a b c"
+    w.close()

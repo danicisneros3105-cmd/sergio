@@ -24,6 +24,9 @@ def test_the_ten_exercises_with_their_counts_and_times():
         "matrices": (2, 120),
         "palabras": (3, 120),
         "coordinacion": (5, 120),
+        "inductivo": (6, 120),
+        "alternancia": (32, 100),
+        "doble": (24, 100),
         "repaso": (6, 120),
         "pausa": (1, 60),
     }
@@ -36,7 +39,7 @@ def test_the_best_evidenced_come_twice_as_often_and_all_explain_why():
 
     counts = Counter(b.SCHEDULE)
     assert set(counts) == {e.kind for e in b.EXERCISES}
-    assert all(counts[k] == 2 for k in ("nback", "matrices", "rotacion", "repaso"))
+    assert all(counts[k] == 2 for k in ("nback", "matrices", "rotacion", "repaso", "inductivo", "doble", "alternancia"))
     assert all(b.EVIDENCE.get(e.kind) for e in (*b.EXERCISES, b.PROBE))
 
 

@@ -18,6 +18,7 @@ right answer, so the window (``gym.py``) only shows and collects answers.
 from __future__ import annotations
 
 import itertools
+import math
 import random
 import re
 import unicodedata
@@ -109,6 +110,35 @@ EXERCISES: tuple[Exercise, ...] = (
         "Dos cuadros a la vez = pulsa las dos teclas juntas.",
     ),
 )
+# Three more, chosen from the strongest studies on training reasoning and
+# speed (see EVIDENCE): inductive reasoning (Klauer), task switching
+# (Karbach & Kray) and the speed-of-processing game of the ACTIVE trial.
+EXERCISES = EXERCISES + (
+    Exercise(
+        "inductivo",
+        "Razonamiento inductivo",
+        6,
+        120,
+        "Descubre la regla: qué número o letra sigue en la serie, cuál no "
+        "encaja con los demás o qué completa la analogía. Teclas 1 a 4.",
+    ),
+    Exercise(
+        "alternancia",
+        "Alternancia de tareas",
+        32,
+        100,
+        "Arriba (azul): ¿el número es PAR (D) o IMPAR (K)? Abajo (naranja): "
+        "¿es MENOR (D) o MAYOR (K) que 5? Cambia de regla según dónde aparezca.",
+    ),
+    Exercise(
+        "doble",
+        "Doble decisión (velocidad)",
+        24,
+        100,
+        "Un destello: di qué hay en el CENTRO (1 = auto, 2 = camión) y luego "
+        "haz clic donde apareció el auto de AFUERA. El destello se acorta si aciertas.",
+    ),
+)
 # Two more, the ones with the strongest evidence of all (for learning and
 # for an immediate boost), though neither is an "IQ trainer":
 EXERCISES = EXERCISES + (
@@ -142,8 +172,17 @@ EVIDENCE: dict[str, str] = {
     "evidencia, g = 0,61 (Adesope 2017); espaciar suma más (g ≈ 0,7).",
     "pausa": "Ejercicio breve: mejora la función ejecutiva (inhibición, memoria de "
     "trabajo) en los minutos siguientes; efecto pequeño y constante.",
-    "relacional": "Razonamiento relacional: estudios pequeños con mejoras en CI; "
-    "evidencia aún débil.",
+    "relacional": "Marcos relacionales (SMART): +6 puntos de CI no verbal frente a +1,9 "
+    "del control activo (McLoughlin 2022, n = 70); al controlar la línea base el "
+    "efecto desaparece (Roche 2023). Prometedor, aún débil.",
+    "inductivo": "Razonamiento inductivo (programa de Klauer): metaanálisis de 74 "
+    "estudios, d = 0,60 en inteligencia fluida y duradero (Klauer y Phye 2008, "
+    "sobre todo en niños).",
+    "alternancia": "Cambio de tarea: transfirió a control ejecutivo e inteligencia "
+    "fluida en niños, jóvenes y mayores (Karbach y Kray 2009, Univ. del Sarre); "
+    "réplicas posteriores, mixtas.",
+    "doble": "Velocidad de procesamiento (ensayo ACTIVE, ~2.800 mayores): 25 % "
+    "menos riesgo de demencia a 20 años (2026). Mejora la velocidad, no el CI.",
     "listas": "Memoria de trabajo: mejora lo entrenado; la transferencia lejana es "
     "mínima (Melby-Lervåg 2016).",
     "stroop": "Control inhibitorio: mejora la tarea; poca transferencia (Sala y Gobet 2019).",
@@ -156,10 +195,19 @@ EVIDENCE: dict[str, str] = {
 
 # Every 12 minutes one exercise; the best-evidenced come twice as often.
 SCHEDULE = (
-    "nback", "matrices", "repaso", "rotacion", "relacional", "nback",
-    "matrices", "pausa", "rotacion", "repaso", "listas", "stroop",
+    "nback", "inductivo", "matrices", "repaso", "doble", "rotacion",
+    "relacional", "alternancia", "nback", "inductivo", "pausa", "matrices",
+    "doble", "repaso", "rotacion", "alternancia", "listas", "stroop",
     "calculo", "simetria", "palabras", "coordinacion",
 )  # fmt: skip
+# What the research says about raising IQ, in one place (shown in "Tus resultados").
+BIG_PICTURE = (
+    "Lo que más sube el CI medido es la educación: de 1 a 5 puntos por año extra "
+    "(Ritchie y Tucker-Drob 2018, 600.000 personas). Entrenar tareas mejora esas "
+    "tareas; la transferencia a la inteligencia general es pequeña o nula al "
+    "controlar sesgos (Sala y Gobet 2019). Por eso aquí se mide con una prueba "
+    "que no se entrena."
+)
 
 # Not trained: a standard processing-speed test (like WAIS's Digit Symbol
 # Substitution) taken once a day to measure whether the training carries
@@ -965,7 +1013,8 @@ def effectiveness_text(history: list[dict[str, Any]]) -> str:
 # with yourself (your own average), not with other people.
 SKILLS = {
     "nback": "memoria de trabajo", "listas": "memoria de trabajo",
-    "matrices": "razonamiento", "relacional": "razonamiento",
+    "matrices": "razonamiento", "relacional": "razonamiento", "inductivo": "razonamiento",
+    "alternancia": "flexibilidad", "doble": "velocidad",
     "rotacion": "visoespacial", "simetria": "visoespacial",
     "stroop": "atención", "calculo": "cálculo mental",
     "palabras": "fluidez verbal", "repaso": "memoria a largo plazo",
@@ -1092,6 +1141,320 @@ def profile_text(history: list[dict[str, Any]]) -> str:
         parts.append("Bajando un poco: " + ", ".join(falling) + ".")
     return " ".join(parts)
 
+# -- 11. Inductive reasoning (Klauer's training: series, classes, analogies) ---------
+@dataclass
+class InductiveItem:
+    kind: str  # "serie" | "intruso" | "analogia"
+    prompt: str  # what is shown (the series, the set, the analogy)
+    options: list[str]
+    answer: int  # 1-based
+    rule: str  # the rule, shown after answering
+
+    def check(self, said: str) -> bool:
+        return str(said).strip() == str(self.answer)
+
+
+def _options(rng: random.Random, right: Any, near: list[Any]) -> tuple[list[str], int]:
+    """Four options: the right one and three plausible traps."""
+    traps = [n for n in dict.fromkeys(near) if n != right]
+    rng.shuffle(traps)
+    opts = [right] + traps[:3]
+    while len(opts) < 4:
+        opts.append(right + len(opts) * 3 if isinstance(right, int) else f"{right}{len(opts)}")
+    rng.shuffle(opts)
+    return [str(o) for o in opts], opts.index(right) + 1
+
+
+def _number_series(rng: random.Random, level: int) -> InductiveItem:
+    kind = rng.choice(["suma", "alterna", "multiplica", "dos", "cuadrados", "suma_creciente"][: 3 + min(level, 3)])
+    if kind == "suma":
+        a, d = rng.randint(2, 30), rng.choice([3, 4, 6, 7, 9, 11, -3, -4])
+        seq = [a + d * i for i in range(6)]
+        rule = f"suma {d}" if d > 0 else f"resta {-d}"
+    elif kind == "alterna":
+        a, p, q = rng.randint(5, 40), rng.randint(2, 9), rng.randint(1, 6)
+        seq = [a]
+        for i in range(5):
+            seq.append(seq[-1] + (p if i % 2 == 0 else -q))
+        rule = f"alterna +{p} y −{q}"
+    elif kind == "multiplica":
+        a, k = rng.randint(1, 5), rng.choice([2, 3])
+        seq = [a * k**i for i in range(6)]
+        rule = f"multiplica por {k}"
+    elif kind == "dos":
+        a, b, d, e = rng.randint(1, 9), rng.randint(20, 40), rng.randint(2, 5), rng.randint(-4, -1)
+        seq = [a + d * (i // 2) if i % 2 == 0 else b + e * (i // 2) for i in range(6)]
+        rule = f"dos series intercaladas: +{d} y {e}"
+    elif kind == "cuadrados":
+        a = rng.randint(1, 6)
+        seq = [(a + i) ** 2 for i in range(6)]
+        rule = "cuadrados de números seguidos"
+    else:
+        a, d = rng.randint(1, 10), rng.randint(1, 4)
+        seq = [a]
+        for i in range(5):
+            seq.append(seq[-1] + d + i)
+        rule = f"suma {d}, {d + 1}, {d + 2}… (crece de uno en uno)"
+    shown, right = seq[:5], seq[5]
+    near = [right + 1, right - 1, right + 2, seq[4] + (seq[4] - seq[3]) * 2, right + (seq[4] - seq[3]), right - 2]
+    options, answer = _options(rng, right, near)
+    return InductiveItem("serie", "  ".join(map(str, shown)) + "  ?", options, answer, rule)
+
+
+_ALPHA = "ABCDEFGHIJKLMNÑOPQRSTUVWXYZ"
+
+
+def _letter_series(rng: random.Random, level: int) -> InductiveItem:
+    step = rng.choice([1, 2, 3] if level < 2 else [2, 3, 4, -2])
+    start = rng.randrange(0, len(_ALPHA) - 6 * abs(step)) if step > 0 else rng.randrange(6 * abs(step), len(_ALPHA))
+    seq = [_ALPHA[start + step * i] for i in range(6)]
+    right = seq[5]
+    idx = _ALPHA.index(right)
+    near = [_ALPHA[(idx + k) % len(_ALPHA)] for k in (1, -1, 2, -2)]
+    options, answer = _options(rng, right, near)
+    how = f"avanza {step}" if step > 0 else f"retrocede {-step}"
+    return InductiveItem("serie", "  ".join(seq[:5]) + "  ?", options, answer, f"cada letra {how} en el abecedario")
+
+
+_CLASSES = (
+    ("son pares", lambda n: n % 2 == 0),
+    ("son múltiplos de 3", lambda n: n % 3 == 0),
+    ("son múltiplos de 5", lambda n: n % 5 == 0),
+    ("sus cifras suman 9", lambda n: sum(map(int, str(n))) == 9),
+    ("son cuadrados perfectos", lambda n: int(math.isqrt(n)) ** 2 == n),
+)
+
+
+def _odd_one(rng: random.Random, level: int) -> InductiveItem:
+    name, rule = rng.choice(_CLASSES)
+    members = [n for n in range(10, 200) if rule(n)]
+    others = [n for n in range(10, 200) if not rule(n)]
+    group = rng.sample(members, 3)
+    odd = rng.choice(others)
+    shown = group + [odd]
+    rng.shuffle(shown)
+    return InductiveItem(
+        "intruso", "¿Cuál NO encaja?", [str(n) for n in shown], shown.index(odd) + 1, f"los demás {name}"
+    )
+
+
+_VERBAL = (
+    ("Perro : cachorro  ::  gato : ?", "gatito", ["ratón", "felino", "leche"], "cría"),
+    ("Pie : zapato  ::  mano : ?", "guante", ["dedo", "brazo", "anillo"], "lo que lo cubre"),
+    ("Libro : leer  ::  cuchillo : ?", "cortar", ["cocina", "afilado", "tenedor"], "para qué sirve"),
+    ("Caliente : frío  ::  alto : ?", "bajo", ["grande", "largo", "altura"], "opuestos"),
+    ("Pájaro : nido  ::  abeja : ?", "colmena", ["miel", "flor", "aguijón"], "dónde vive"),
+    ("Médico : hospital  ::  maestro : ?", "escuela", ["libro", "alumno", "clase"], "dónde trabaja"),
+    ("Semilla : árbol  ::  huevo : ?", "pájaro", ["nido", "cáscara", "yema"], "en qué se convierte"),
+    ("Ojo : ver  ::  oído : ?", "oír", ["oreja", "sonido", "música"], "su función"),
+    ("Agua : sed  ::  comida : ?", "hambre", ["plato", "cocina", "sal"], "lo que quita"),
+    ("Pintor : cuadro  ::  escritor : ?", "libro", ["pluma", "papel", "lector"], "lo que crea"),
+    ("Invierno : frío  ::  verano : ?", "calor", ["sol", "playa", "julio"], "lo que trae"),
+    ("Rueda : coche  ::  ala : ?", "avión", ["pluma", "volar", "cielo"], "parte de"),
+)  # fmt: skip
+
+
+def _analogy(rng: random.Random, level: int) -> InductiveItem:
+    if level >= 1 and rng.random() < 0.5:  # numeric analogy
+        k = rng.choice([2, 3, 4])
+        op = rng.choice(["por", "más", "cuadrado"])
+        a = rng.randint(2, 9)
+        c = rng.choice([n for n in range(3, 13) if n != a])
+        f = {"por": lambda x: x * k, "más": lambda x: x + k * 3, "cuadrado": lambda x: x * x}[op]
+        right = f(c)
+        options, answer = _options(rng, right, [right + 1, right - k, c * (k + 1), right + k])
+        rule = {"por": f"multiplica por {k}", "más": f"suma {k * 3}", "cuadrado": "eleva al cuadrado"}[op]
+        return InductiveItem("analogia", f"{a} : {f(a)}  ::  {c} : ?", options, answer, rule)
+    prompt, right, traps, rule = rng.choice(_VERBAL)
+    opts = [right, *traps]
+    rng.shuffle(opts)
+    return InductiveItem("analogia", prompt, opts, opts.index(right) + 1, rule)
+
+
+def inductive(rng: random.Random, level: int = 0) -> InductiveItem:
+    """One of Klauer's inductive tasks: series, odd one out, or analogy."""
+    maker = rng.choice([_number_series, _number_series, _letter_series, _odd_one, _analogy])
+    return maker(rng, level)
+
+
+# -- 12. Task switching (Karbach & Kray 2009; Rogers & Monsell 1995) ------------------
+@dataclass
+class SwitchTrial:
+    number: int
+    task: str  # "paridad" (top, blue) | "magnitud" (bottom, orange)
+    switch: bool  # the task changed from the trial before
+
+    @property
+    def answer(self) -> str:
+        if self.task == "paridad":
+            return "d" if self.number % 2 == 0 else "k"
+        return "d" if self.number < 5 else "k"
+
+    def check(self, key: str) -> bool:
+        return key.lower() == self.answer
+
+
+def switch_trials(rng: random.Random, count: int, run: int = 2) -> list[SwitchTrial]:
+    """Alternating runs (AABB...) with an occasional surprise: about half
+    the trials switch task, the others repeat it."""
+    trials = []
+    task = rng.choice(("paridad", "magnitud"))
+    left = run
+    for i in range(count):
+        if left == 0 or (i > 0 and rng.random() < 0.15):
+            task = "magnitud" if task == "paridad" else "paridad"
+            left = run
+        previous = trials[-1].task if trials else task
+        trials.append(SwitchTrial(rng.choice([1, 2, 3, 4, 6, 7, 8, 9]), task, bool(trials) and previous != task))
+        left -= 1
+    return trials
+
+
+def switch_cost(results: list[tuple[SwitchTrial, bool, float]]) -> float | None:
+    """Milliseconds slower right after a switch (correct answers only)."""
+    switch = [t for trial, ok, t in results if ok and trial.switch]
+    repeat = [t for trial, ok, t in results if ok and not trial.switch]
+    if len(switch) < 3 or len(repeat) < 3:
+        return None
+    return round((sum(switch) / len(switch) - sum(repeat) / len(repeat)) * 1000)
+
+
+# -- 13. Double decision (speed of processing, ACTIVE) -------------------------------
+@dataclass
+class DoubleTrial:
+    centre: str  # "auto" | "camion"
+    spot: int  # 0..7 around the ring, where the outer car is
+    distractors: int  # how many look-alikes around
+
+
+class Staircase:
+    """Display time: shorter after two right in a row, longer after a miss
+    (converges near 70 % correct, the standard 2-down/1-up rule)."""
+
+    def __init__(self, start_ms: float = 400.0, low: float = 35.0, high: float = 900.0) -> None:
+        self.ms = start_ms
+        self.low, self.high = low, high
+        self._streak = 0
+        self.best = start_ms
+        self.history: list[float] = []
+
+    def result(self, ok: bool) -> None:
+        self.history.append(self.ms)
+        if ok:
+            self._streak += 1
+            if self._streak >= 2:
+                self.ms = max(self.low, self.ms * 0.8)
+                self._streak = 0
+        else:
+            self._streak = 0
+            self.ms = min(self.high, self.ms * 1.25)
+        self.best = min(self.best, self.ms)
+
+    def threshold(self) -> float:
+        """The display time it settled at (mean of the last trials)."""
+        tail = self.history[-8:] or [self.ms]
+        return round(sum(tail) / len(tail))
+
+
+def double_trial(rng: random.Random, level: int = 0) -> DoubleTrial:
+    return DoubleTrial(rng.choice(("auto", "camion")), rng.randrange(8), min(7, level))
+
+
+# -- your results, analysed in the background -----------------------------------------
+def _bucket(hour: int) -> str:
+    if 5 <= hour < 12:
+        return "mañana"
+    if 12 <= hour < 19:
+        return "tarde"
+    return "noche"
+
+
+def analysis(history: list[dict[str, Any]], now: float | None = None) -> dict[str, Any]:
+    """Everything worth knowing from your answers (computed after each
+    session, in the background): per-exercise learning curve (points per
+    week with a 95 % interval), best time of day, streak, consistency,
+    plateaus, the n-back and speed records, and the far-transfer test."""
+    import time as _time
+
+    now = _time.time() if now is None else now
+    out: dict[str, Any] = {"updated": now, "sessions": 0, "curves": {}, "insights": []}
+    scored = [h for h in history if "accuracy" in h and h.get("kind") != "prueba"]
+    out["sessions"] = len(scored)
+    if not scored:
+        out["insights"].append("Aún no hay sesiones: los resultados aparecen tras el primer ejercicio.")
+        return out
+    # Learning curve per exercise (score vs weeks since its first session).
+    for kind in dict.fromkeys(h["kind"] for h in scored):
+        points = [h for h in scored if h["kind"] == kind]
+        if len(points) < 4:
+            continue
+        t0 = float(points[0].get("time", now))
+        xs = [((float(h.get("time", now)) - t0) / (7 * 86400), score(h)) for h in points]
+        slope, low, high = trend(xs) if len({x for x, _ in xs}) > 1 else (0.0, 0.0, 0.0)
+        recent = [score(h) for h in points[-5:]]
+        out["curves"][kind] = {
+            "sessions": len(points),
+            "slope": round(slope, 1),
+            "low": round(low, 1),
+            "high": round(high, 1),
+            "last": round(sum(recent) / len(recent)),
+            "best": round(max(score(h) for h in points)),
+        }
+    # Best time of day.
+    by_time: dict[str, list[float]] = {}
+    for h in scored:
+        by_time.setdefault(_bucket(_time.localtime(float(h.get("time", now))).tm_hour), []).append(score(h))
+    means = {k: sum(v) / len(v) for k, v in by_time.items() if len(v) >= 3}
+    if len(means) >= 2:
+        best, worst = max(means, key=means.get), min(means, key=means.get)
+        if means[best] - means[worst] >= 5:
+            out["best_time"] = best
+            out["insights"].append(
+                f"Rinde mejor por la {best} ({means[best]:.0f} puntos) que por la {worst} ({means[worst]:.0f})."
+            )
+    # Streak and consistency.
+    days = sorted({_time.strftime("%Y-%m-%d", _time.localtime(float(h.get("time", now)))) for h in history})
+    streak = 0
+    day = now
+    while _time.strftime("%Y-%m-%d", _time.localtime(day)) in days:
+        streak += 1
+        day -= 86400
+    out["streak"] = streak
+    out["days"] = len(days)
+    if streak >= 2:
+        out["insights"].append(f"Racha de {streak} días seguidos entrenando.")
+    # Plateaus and progress.
+    rising = [k for k, c in out["curves"].items() if c["low"] > 0]
+    flat = [k for k, c in out["curves"].items() if c["sessions"] >= 8 and c["low"] <= 0 <= c["high"] and abs(c["slope"]) < 2]
+    if rising:
+        names = ", ".join(BY_KIND[k].title.lower() for k in rising[:3] if k in BY_KIND)
+        out["insights"].append(f"Mejora real (intervalo del 95 % por encima de cero) en: {names}.")
+    if flat:
+        names = ", ".join(BY_KIND[k].title.lower() for k in flat[:3] if k in BY_KIND)
+        out["insights"].append(f"Estancado en: {names}; le subo la dificultad o la frecuencia.")
+    # Records.
+    nback = [int(h.get("level") or 0) for h in history if h.get("kind") == "nback"]
+    if nback:
+        out["nback_max"] = max(nback)
+        out["insights"].append(f"Récord de n-back: nivel {max(nback)}.")
+    speed = [float(h["threshold_ms"]) for h in history if h.get("kind") == "doble" and h.get("threshold_ms")]
+    if speed:
+        out["speed_ms"] = {"first": speed[0], "best": min(speed), "last": speed[-1]}
+        if len(speed) >= 2 and min(speed) < speed[0]:
+            out["insights"].append(
+                f"Velocidad: de {speed[0]:.0f} ms a {min(speed):.0f} ms de destello en Doble decisión."
+            )
+    costs = [float(h["switch_ms"]) for h in history if h.get("kind") == "alternancia" and h.get("switch_ms") is not None]
+    if len(costs) >= 2:
+        out["switch_ms"] = {"first": costs[0], "last": costs[-1]}
+        if costs[-1] < costs[0]:
+            out["insights"].append(
+                f"Cambiar de tarea le cuesta menos: {costs[0]:.0f} ms → {costs[-1]:.0f} ms."
+            )
+    out["effectiveness"] = effectiveness(history, now)
+    return out
+
+
 # -- the session -------------------------------------------------------------------------------
 @dataclass
 class Session:
@@ -1103,6 +1466,7 @@ class Session:
     times: list[float] = field(default_factory=list)
     level: int = 0  # n-back level reached, list length, etc.
     absent: bool = False  # nobody answered: not scored
+    extra: dict[str, Any] = field(default_factory=dict)  # e.g. threshold_ms, switch_ms
 
     def record(self, ok: float, seconds: float | None = None) -> None:
         self.correct += ok
@@ -1144,6 +1508,13 @@ class Session:
             return f"Nivel {self.level}, {round(self.accuracy * 100)}% de aciertos."
         if self.exercise.kind == "prueba":
             return f"{int(self.correct)} símbolos correctos ({self.rate:.0f} por minuto)."
+        if self.exercise.kind == "doble" and self.extra.get("threshold_ms"):
+            return f"{round(self.accuracy * 100)}% de aciertos; destello de {self.extra['threshold_ms']:.0f} ms."
+        if self.exercise.kind == "alternancia" and self.extra.get("switch_ms") is not None:
+            return (
+                f"{round(self.accuracy * 100)}% de aciertos; cambiar de regla te cuesta "
+                f"{self.extra['switch_ms']:.0f} ms."
+            )
         shown = int(self.correct) if self.correct == int(self.correct) else round(self.correct, 1)
         line = f"{shown} de {self.total}"
         if self.times:
@@ -1264,7 +1635,17 @@ class Deck:
 
 
 __all__ = [
+    "BIG_PICTURE",
     "BY_KIND",
+    "DoubleTrial",
+    "InductiveItem",
+    "Staircase",
+    "SwitchTrial",
+    "analysis",
+    "double_trial",
+    "inductive",
+    "switch_cost",
+    "switch_trials",
     "CARDS",
     "Deck",
     "EVIDENCE",

@@ -48,7 +48,7 @@ log = logging.getLogger(__name__)
 INTERVAL_MINUTES = 12.0
 AWAY_SECONDS = 300.0  # no input for this long: you are not at the computer
 MIN_GAP = 120.0  # never two pop-ups closer than this
-INTRO_SECONDS = 11.0  # time to read how it works and watch the example
+INTRO_SECONDS = 15.0  # time to read how it works and watch the example
 RESULT_SECONDS = 6.0
 SLEEP_GAP = 5.0
 ABSENT_RETRY = 60.0  # the camera saw nobody: look again this much later
@@ -84,6 +84,8 @@ class GymStats:
     history: list[dict[str, Any]] = field(default_factory=list)
     next_due: float = 0.0  # wall clock time of the next pop-up
     deck: brain.Deck = field(default_factory=brain.Deck)  # spaced retrieval
+    inductive_level: int = 0  # harder series and analogies as you improve
+    double_ms: float = 400.0  # Doble decisión: where its display time ended
 
     @classmethod
     def load(cls, path: Path) -> "GymStats":
@@ -97,6 +99,8 @@ class GymStats:
                 list(data.get("history", []))[-1500:],
                 float(data.get("next_due", 0.0)),
                 brain.Deck.from_json(data.get("deck")),
+                int(data.get("inductive_level", 0)),
+                float(data.get("double_ms", 400.0)),
             )
         except (OSError, ValueError, TypeError):
             return cls(path)
@@ -114,6 +118,8 @@ class GymStats:
                         "history": self.history[-1500:],
                         "next_due": self.next_due,
                         "deck": self.deck.to_json(),
+                        "inductive_level": self.inductive_level,
+                        "double_ms": self.double_ms,
                     },
                     ensure_ascii=False,
                 ),
@@ -149,6 +155,9 @@ class GymStats:
             entry["rate"] = round(session.rate, 2)
         if session.times:
             entry["speed"] = round(sum(session.times) / len(session.times), 2)
+        for key, value in session.extra.items():
+            if value is not None:
+                entry[key] = value
         self.history.append(entry)
         self.save()
         return entry
@@ -1097,7 +1106,252 @@ class PauseRunner(Runner):
         p.drawText(QRectF(area.left(), area.bottom() - 90, area.width(), 34), Qt.AlignmentFlag.AlignCenter, moves[step])
 
 
+class InductiveRunner(ChoiceRunner):
+    """Klauer's inductive reasoning: series, odd one out, analogies."""
+
+    keys_hint = "Teclas 1 a 4 o clic"
+
+    def __init__(self, gym: "GymWindow") -> None:
+        super().__init__(gym)
+        self.level = gym.stats.inductive_level if gym.stats else 0
+        self.rule = ""
+        self.rule_until = 0.0
+
+    def next_item(self) -> None:
+        super().next_item()
+        self.item = brain.inductive(self.rng, self.level)
+        self.choices = [(str(i + 1), label, None) for i, label in enumerate(self.item.options)]
+
+    def key(self, text: str) -> None:
+        if text in ("1", "2", "3", "4"):
+            ok = self.item.check(text)
+            self.rule, self.rule_until = f"Regla: {self.item.rule}", self.gym.clock() + 1.8
+            self.answer(1.0 if ok else 0.0)
+            if self.done() and self.gym.stats is not None:
+                acc = self.session.accuracy
+                self.gym.stats.inductive_level = max(0, min(4, self.level + (1 if acc >= 0.8 else -1 if acc < 0.5 else 0)))
+                self.session.level = self.gym.stats.inductive_level
+
+    def paint(self, p: QPainter, area: QRectF) -> None:
+        title = {"serie": "¿Qué sigue?", "intruso": "¿Cuál NO encaja?", "analogia": "Completa la analogía"}[self.item.kind]
+        p.setFont(font(14, QFont.Weight.DemiBold))
+        p.setPen(MUTED)
+        p.drawText(QRectF(area.left(), area.top() + 6, area.width(), 26), Qt.AlignmentFlag.AlignCenter, title)
+        if self.item.kind != "intruso":
+            size = 40.0
+            p.setFont(font(size, QFont.Weight.Bold))
+            while size > 20 and p.fontMetrics().horizontalAdvance(self.item.prompt) > area.width() - 40:
+                size -= 2
+                p.setFont(font(size, QFont.Weight.Bold))
+            p.setPen(TEXT)
+            p.drawText(area.adjusted(0, 30, 0, -110), Qt.AlignmentFlag.AlignCenter, self.item.prompt)
+        if self.gym.clock() < self.rule_until and self.rule:
+            p.setFont(font(13))
+            p.setPen(QColor(255, 214, 10))
+            p.drawText(QRectF(area.left(), area.bottom() - 96, area.width(), 26), Qt.AlignmentFlag.AlignCenter, self.rule)
+        self.paint_buttons(p, area)
+
+
+class SwitchRunner(Runner):
+    """Task switching: parity on top (blue), size against 5 below (orange)."""
+
+    keys_hint = "D = par / menor que 5   ·   K = impar / mayor que 5"
+    GAP = 0.25  # blank between trials
+
+    def begin(self) -> None:
+        self.trials = brain.switch_trials(self.rng, self.session.exercise.items)
+        self.results: list[tuple[brain.SwitchTrial, bool, float]] = []
+        self.shown_at = self.gym.clock()
+        self.next_item()
+
+    def next_item(self) -> None:
+        super().next_item()
+        self.shown_at = self.gym.clock() + self.GAP
+
+    @property
+    def trial(self) -> brain.SwitchTrial:
+        return self.trials[min(self.index, len(self.trials) - 1)]
+
+    def key(self, text: str) -> None:
+        now = self.gym.clock()
+        if text.lower() in ("d", "k") and now >= self.shown_at and not self.done():
+            ok = self.trial.check(text)
+            self.results.append((self.trial, ok, now - self.shown_at))
+            self.answer(1.0 if ok else 0.0)
+            if self.done():
+                self.session.extra["switch_ms"] = brain.switch_cost(self.results)
+
+    def tick(self, now: float) -> None:
+        if not self.done() and now - self.shown_at > 2.5:
+            self.results.append((self.trial, False, 2.5))
+            self.answer(0.0)
+
+    def paint(self, p: QPainter, area: QRectF) -> None:
+        half = (area.height() - 40) / 2
+        top = QRectF(area.left() + 80, area.top(), area.width() - 160, half - 6)
+        bottom = QRectF(area.left() + 80, area.top() + half + 6, area.width() - 160, half - 6)
+        blue, orange = QColor(10, 132, 255), QColor(255, 159, 10)
+        visible = self.gym.clock() >= self.shown_at and not self.done()
+        for rect, colour, label, task in ((top, blue, "PAR (D)  ·  IMPAR (K)", "paridad"),
+                                          (bottom, orange, "MENOR que 5 (D)  ·  MAYOR que 5 (K)", "magnitud")):
+            on = visible and self.trial.task == task
+            p.setPen(QPen(colour if on else QColor(70, 70, 76), 3 if on else 1))
+            p.setBrush(QColor(colour.red(), colour.green(), colour.blue(), 45) if on else QColor(36, 36, 38))
+            p.drawRoundedRect(rect, 18, 18)
+            p.setFont(font(12, QFont.Weight.DemiBold))
+            p.setPen(MUTED)
+            p.drawText(QRectF(rect.left(), rect.top() + 8, rect.width(), 22), Qt.AlignmentFlag.AlignCenter, label)
+            if on:
+                p.setFont(font(64, QFont.Weight.Black))
+                p.setPen(TEXT)
+                p.drawText(rect.adjusted(0, 18, 0, 0), Qt.AlignmentFlag.AlignCenter, str(self.trial.number))
+
+
+class DoubleRunner(Runner):
+    """Double decision: what was in the centre, where was the outer car.
+    The flash gets shorter while you get it right (ACTIVE's speed training)."""
+
+    keys_hint = "1 = auto · 2 = camión, luego clic donde estaba el auto de afuera (o 1-8)"
+    FIX = 0.6
+    MASK = 0.3
+
+    def begin(self) -> None:
+        start = self.gym.stats.double_ms if self.gym.stats else 400.0
+        self.stairs = brain.Staircase(start_ms=max(60.0, min(600.0, start * 1.3)))
+        self.next_item()
+
+    def next_item(self) -> None:
+        super().next_item()
+        level = min(7, self.index // 3)
+        self.trial = brain.double_trial(self.rng, level)
+        self.stage = "fix"
+        self.stage_at = self.gym.clock()
+        self.centre_answer = ""
+
+    def _advance(self, now: float) -> None:
+        if self.stage == "fix" and now - self.stage_at >= self.FIX:
+            self.stage, self.stage_at = "show", now
+        elif self.stage == "show" and now - self.stage_at >= self.stairs.ms / 1000.0:
+            self.stage, self.stage_at = "mask", now
+        elif self.stage == "mask" and now - self.stage_at >= self.MASK:
+            self.stage, self.stage_at = "centre", now
+
+    def tick(self, now: float) -> None:
+        if self.done():
+            return
+        self._advance(now)
+        if self.stage in ("centre", "spot") and now - self.stage_at > 6.0:
+            self._score(False)
+
+    def _score(self, ok: bool) -> None:
+        self.stairs.result(ok)
+        self.answer(1.0 if ok else 0.0)
+        if self.done():
+            self.session.extra["threshold_ms"] = self.stairs.threshold()
+            if self.gym.stats is not None:
+                self.gym.stats.double_ms = self.stairs.threshold()
+
+    def key(self, text: str) -> None:
+        if self.stage == "centre" and text in ("1", "2"):
+            self.centre_answer = "auto" if text == "1" else "camion"
+            self.stage, self.stage_at = "spot", self.gym.clock()
+        elif self.stage == "spot" and text in "12345678" and text:
+            self._choose(int(text) - 1)
+
+    def _choose(self, spot: int) -> None:
+        self._score(self.centre_answer == self.trial.centre and spot == self.trial.spot)
+
+    def _ring(self, area: QRectF) -> tuple[QPointF, float]:
+        centre = QPointF(area.center().x(), area.top() + (area.height() - 70) / 2)
+        return centre, min(area.width(), area.height() - 70) * 0.42
+
+    def _spots(self, area: QRectF) -> list[QPointF]:
+        centre, radius = self._ring(area)
+        return [
+            QPointF(centre.x() + radius * math.cos(math.radians(i * 45 - 90)), centre.y() + radius * math.sin(math.radians(i * 45 - 90)))
+            for i in range(8)
+        ]
+
+    def click(self, pos: QPointF) -> None:
+        area = self.gym.content_rect()
+        if self.stage == "spot":
+            spots = self._spots(area)
+            nearest = min(range(8), key=lambda i: (spots[i].x() - pos.x()) ** 2 + (spots[i].y() - pos.y()) ** 2)
+            if (spots[nearest].x() - pos.x()) ** 2 + (spots[nearest].y() - pos.y()) ** 2 < 60**2:
+                self._choose(nearest)
+        elif self.stage == "centre":
+            for i, rect in enumerate(self._centre_buttons(area)):
+                if rect.contains(pos):
+                    self.key(str(i + 1))
+
+    def _centre_buttons(self, area: QRectF) -> list[QRectF]:
+        return [QRectF(area.center().x() - 170, area.bottom() - 56, 160, 48), QRectF(area.center().x() + 10, area.bottom() - 56, 160, 48)]
+
+    def paint(self, p: QPainter, area: QRectF) -> None:
+        from sergio_escritorio.gym_demo import _vehicle
+
+        centre, radius = self._ring(area)
+        spots = self._spots(area)
+        p.setPen(QPen(QColor(70, 70, 76), 1, Qt.PenStyle.DotLine))
+        p.setBrush(Qt.BrushStyle.NoBrush)
+        p.drawEllipse(centre, radius, radius)
+        blue = QColor(100, 210, 255)
+        if self.stage == "fix":
+            p.setFont(font(28, QFont.Weight.Bold))
+            p.setPen(MUTED)
+            p.drawText(QRectF(centre.x() - 20, centre.y() - 22, 40, 44), Qt.AlignmentFlag.AlignCenter, "+")
+        elif self.stage == "show":
+            _vehicle(p, centre, 34, self.trial.centre == "camion", blue)
+            _vehicle(p, spots[self.trial.spot], 26, False, blue)
+            others = [i for i in range(8) if i != self.trial.spot][: self.trial.distractors]
+            for i in others:
+                p.setPen(Qt.PenStyle.NoPen)
+                p.setBrush(QColor(120, 120, 128))
+                s = spots[i]
+                p.drawRoundedRect(QRectF(s.x() - 14, s.y() - 9, 28, 18), 4, 4)
+        elif self.stage == "mask":
+            rng = random.Random(self.index)
+            p.setPen(Qt.PenStyle.NoPen)
+            for _ in range(160):
+                p.setBrush(QColor(80 + rng.randrange(60), 80 + rng.randrange(60), 90))
+                x = centre.x() + rng.uniform(-radius - 30, radius + 30)
+                y = centre.y() + rng.uniform(-radius - 30, radius + 30)
+                p.drawRect(QRectF(x, y, 10, 10))
+        elif self.stage == "centre":
+            p.setFont(font(16, QFont.Weight.DemiBold))
+            p.setPen(TEXT)
+            p.drawText(QRectF(area.left(), centre.y() - 20, area.width(), 40), Qt.AlignmentFlag.AlignCenter, "¿Qué había en el centro?")
+            for rect, label in zip(self._centre_buttons(area), ("1  Auto", "2  Camión")):
+                p.setPen(Qt.PenStyle.NoPen)
+                p.setBrush(QColor(58, 58, 60))
+                p.drawRoundedRect(rect, 14, 14)
+                p.setFont(font(13, QFont.Weight.DemiBold))
+                p.setPen(TEXT)
+                p.drawText(rect, Qt.AlignmentFlag.AlignCenter, label)
+        elif self.stage == "spot":
+            p.setFont(font(15, QFont.Weight.DemiBold))
+            p.setPen(TEXT)
+            p.drawText(QRectF(area.left(), centre.y() - 20, area.width(), 40), Qt.AlignmentFlag.AlignCenter, "¿Dónde estaba el auto de afuera?")
+            for i, spot in enumerate(spots):
+                p.setPen(QPen(ACCENT, 2))
+                p.setBrush(QColor(10, 132, 255, 40))
+                p.drawEllipse(spot, 22, 22)
+                p.setFont(font(11, QFont.Weight.Bold))
+                p.setPen(TEXT)
+                p.drawText(QRectF(spot.x() - 22, spot.y() - 22, 44, 44), Qt.AlignmentFlag.AlignCenter, str(i + 1))
+        p.setFont(font(11))
+        p.setPen(MUTED)
+        p.drawText(QRectF(area.left(), area.bottom() - 2, area.width(), 20), Qt.AlignmentFlag.AlignCenter,
+                   f"destello: {self.stairs.ms:.0f} ms")
+
+    def progress(self) -> str:
+        return f"{min(self.index + 1, self.session.exercise.items)} / {self.session.exercise.items}"
+
+
 RUNNERS: dict[str, type[Runner]] = {
+    "inductivo": InductiveRunner,
+    "alternancia": SwitchRunner,
+    "doble": DoubleRunner,
     "prueba": ProbeRunner,
     "stroop": StroopRunner,
     "calculo": MathRunner,

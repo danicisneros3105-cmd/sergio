@@ -1,5 +1,5 @@
 """How each mental-gym exercise is done: three short steps and a looping
-animated example (a "mini video" drawn live), shown during the 11 s intro.
+animated example (a "mini video" drawn live), shown during the 15 s intro.
 
 ``STEPS`` is plain data; ``paint_demo`` draws frame *t* (seconds) of the
 example for one exercise inside a rectangle. Each example loops every
@@ -79,6 +79,21 @@ STEPS: dict[str, tuple[str, ...]] = {
         "Sale una pregunta.",
         "Responde de memoria antes de pensar en mirar nada.",
         "Si fallas ves la respuesta y vuelve pronto; si aciertas vuelve en días.",
+    ),
+    "inductivo": (
+        "Sale una serie («2 4 8 16 ?»), un grupo («¿cuál no encaja?») o una analogía.",
+        "Busca la REGLA que conecta todo: suma, multiplica, alterna, categoría…",
+        "Elige la respuesta con 1-4. Al responder verás la regla.",
+    ),
+    "alternancia": (
+        "Aparece un número ARRIBA (azul) o ABAJO (naranja).",
+        "Arriba: ¿par (D) o impar (K)? Abajo: ¿menor (D) o mayor (K) que 5?",
+        "La regla cambia según dónde salga: responde rápido sin confundirte.",
+    ),
+    "doble": (
+        "Mira el CENTRO: un destello muy corto muestra un auto o un camión, y un auto AFUERA.",
+        "Responde qué había en el centro: 1 = auto, 2 = camión.",
+        "Luego haz clic donde estaba el auto de afuera. Si aciertas, el destello se acorta.",
     ),
     "pausa": (
         "Ponte de pie.",
@@ -394,7 +409,97 @@ def _prueba(p: QPainter, r: QRectF, t: float) -> None:
         _key(p, QRectF(r.center().x() - 30, r.bottom() - 46, 60, 40), "2", True, GOOD)
 
 
+def _inductivo(p: QPainter, r: QRectF, t: float) -> None:
+    _text(p, QRectF(r.left(), r.top(), r.width(), r.height() * 0.38), "2   4   8   16   ?", 24)
+    if t > 1.4:
+        _text(p, QRectF(r.left(), r.top() + r.height() * 0.36, r.width(), 20), "regla: × 2", 11, QColor(255, 214, 10))
+    w = (r.width() - 30) / 4
+    opts = ("24", "32", "18", "30")
+    keys = [QRectF(r.left() + i * (w + 10), r.bottom() - 46, w, 40) for i in range(4)]
+    press = t > 2.8
+    for i, (label, rect) in enumerate(zip(opts, keys)):
+        _key(p, rect, f"{i + 1}  {label}", press and i == 1, GOOD)
+    k = min(1.0, max(0.0, (t - 1.8) / 1.0))
+    start = QPointF(r.center().x(), r.center().y())
+    _finger(p, start + (keys[1].center() - start) * k, press)
+    if press:
+        _tick(p, QRectF(r.right() - 50, r.top(), 50, 50))
+
+
+def _alternancia(p: QPainter, r: QRectF, t: float) -> None:
+    top = QRectF(r.left(), r.top(), r.width(), (r.height() - 50) / 2 - 4)
+    bottom = QRectF(r.left(), top.bottom() + 8, r.width(), top.height())
+    blue, orange = QColor(10, 132, 255), QColor(255, 159, 10)
+    first = t < LOOP / 2
+    for rect, colour, label, on in ((top, blue, "PAR · IMPAR", first), (bottom, orange, "MENOR · MAYOR que 5", not first)):
+        p.setPen(QPen(colour if on else QColor(70, 70, 76), 2))
+        p.setBrush(QColor(colour.red(), colour.green(), colour.blue(), 40) if on else PANEL)
+        p.drawRoundedRect(rect, 10, 10)
+        _text(p, QRectF(rect.left(), rect.top() + 2, rect.width(), 16), label, 8, MUTED)
+    number = "8" if first else "3"
+    _text(p, top if first else bottom, number, 30)
+    keys = [QRectF(r.center().x() - 110, r.bottom() - 40, 100, 36), QRectF(r.center().x() + 10, r.bottom() - 40, 100, 36)]
+    phase = t % (LOOP / 2)
+    press = phase > 1.4
+    _key(p, keys[0], "D par / menor", press, GOOD)
+    _key(p, keys[1], "K impar / mayor", False)
+    if press:
+        _tick(p, QRectF(r.right() - 50, r.top(), 50, 50))
+
+
+def _vehicle(p: QPainter, centre: QPointF, size: float, truck: bool, colour: QColor) -> None:
+    """A tiny car or truck glyph."""
+    p.setPen(Qt.PenStyle.NoPen)
+    p.setBrush(colour)
+    if truck:
+        p.drawRoundedRect(QRectF(centre.x() - size * 0.9, centre.y() - size * 0.45, size * 1.2, size * 0.6), 2, 2)
+        p.drawRoundedRect(QRectF(centre.x() + size * 0.35, centre.y() - size * 0.25, size * 0.5, size * 0.4), 2, 2)
+        wheels = (-0.6, -0.1, 0.6)
+    else:
+        p.drawRoundedRect(QRectF(centre.x() - size * 0.7, centre.y() - size * 0.15, size * 1.4, size * 0.35), 4, 4)
+        p.drawRoundedRect(QRectF(centre.x() - size * 0.35, centre.y() - size * 0.4, size * 0.7, size * 0.3), 4, 4)
+        wheels = (-0.4, 0.4)
+    p.setBrush(QColor(20, 20, 22))
+    for w in wheels:
+        p.drawEllipse(QPointF(centre.x() + size * w, centre.y() + size * 0.22), size * 0.14, size * 0.14)
+
+
+def _doble(p: QPainter, r: QRectF, t: float) -> None:
+    centre = QPointF(r.center().x(), r.top() + (r.height() - 50) / 2)
+    radius = min(r.width(), r.height() - 50) * 0.4
+    flash = 0.6 < t < 1.0
+    p.setPen(QPen(QColor(70, 70, 76), 1, Qt.PenStyle.DotLine))
+    p.setBrush(Qt.BrushStyle.NoBrush)
+    p.drawEllipse(centre, radius, radius)
+    spot = QPointF(centre.x() + radius * math.cos(math.radians(-45)), centre.y() + radius * math.sin(math.radians(-45)))
+    if flash:
+        _vehicle(p, centre, 20, False, QColor(100, 210, 255))
+        _vehicle(p, spot, 16, False, QColor(100, 210, 255))
+    elif 1.0 <= t < 1.4:
+        for i in range(40):  # the mask
+            a = i * 2.39996
+            p.setPen(Qt.PenStyle.NoPen)
+            p.setBrush(QColor(90, 90, 96))
+            p.drawRect(QRectF(centre.x() + math.cos(a) * i * 2.2, centre.y() + math.sin(a) * i * 2.2, 5, 5))
+    else:
+        _text(p, QRectF(centre.x() - 10, centre.y() - 12, 20, 24), "+", 14, MUTED)
+    if t > 1.6:
+        keys = [QRectF(r.center().x() - 110, r.bottom() - 40, 100, 36), QRectF(r.center().x() + 10, r.bottom() - 40, 100, 36)]
+        _key(p, keys[0], "1 auto", t > 2.3, GOOD)
+        _key(p, keys[1], "2 camión", False)
+    if t > 3.0:
+        p.setPen(QPen(GOOD, 2))
+        p.setBrush(QColor(48, 209, 88, 60))
+        p.drawEllipse(spot, 16, 16)
+        _finger(p, spot, t > 3.4)
+    if t > 3.6:
+        _tick(p, QRectF(r.right() - 50, r.top(), 50, 50))
+
+
 DEMOS = {
+    "inductivo": _inductivo,
+    "alternancia": _alternancia,
+    "doble": _doble,
     "stroop": _stroop,
     "calculo": _calculo,
     "simetria": _simetria,
