@@ -93,7 +93,7 @@ async def stream(req: SpeakRequest) -> Any:
     try:
         first = first or await chunks.__anext__()
     except StopAsyncIteration:
-        raise HTTPException(status_code=502, detail="La voz de Gemini Live no devolvió audio.")
+        raise HTTPException(status_code=502, detail="La voz de Gemini Live no devolvió audio.") from None
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=502, detail=str(exc)[:400]) from exc
 

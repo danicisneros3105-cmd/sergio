@@ -129,7 +129,11 @@ class Orchestrator:
         max_parallel: int = 3,
         on_plan: Callable[[Task], None] = lambda _task: None,
         on_done: Callable[[Task], None] = lambda _task: None,
+        plan_grace: float = 0.0,
     ) -> None:
+        # Seconds to object after the plan is shown (a plan you can't veto is
+        # theatre): tasks that use the screen or touch something important wait.
+        self.plan_grace = plan_grace
         self.on_plan, self.on_done = on_plan, on_done  # show the plan first; remember results
         self.plan, self.new_asker, self.activities = plan, new_asker, activities
         self.approve, self.told = approve, told
@@ -163,9 +167,13 @@ class Orchestrator:
         with self.slots:
             try:
                 self._plan(task)
-                task.status = "running"
+                needs_eyes = any(st.where == "pantalla" or st.important for st in task.steps)
+                if self.plan_grace and needs_eyes and task.cancel.wait(self.plan_grace):
+                    task.status = "cancelled"
+                    task.steps = []
+                task.status = "running" if task.status != "cancelled" else "cancelled"
                 i = 0
-                while i < len(task.steps):
+                while task.status == "running" and i < len(task.steps):
                     step = task.steps[i]
                     if task.cancel.is_set():
                         task.status = "cancelled"
@@ -311,7 +319,10 @@ def plan_line(task: Task) -> str:
     """«Plan: 1) buscar… 2) tabla… 3) abrir (pantalla)» — the plan, seen first."""
     parts = [f"{n}) {_short(s.text, 38)}" + (" (pantalla)" if s.where == "pantalla" else "")
              for n, s in enumerate(task.steps, 1)]
-    return f"Plan de «{task.title or _short(task.request)}»: " + " ".join(parts)
+    line = f"Plan de «{task.title or _short(task.request)}»: " + " ".join(parts)
+    if any(st.where == "pantalla" or st.important for st in task.steps):
+        line += " · di «cancela la tarea» para pararla"
+    return line
 
 
 __all__ = ["plan_line", "CANCEL", "Orchestrator", "Step", "Task", "WHAT_DOING", "parse_background", "parse_together", "step_status"]

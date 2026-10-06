@@ -55,4 +55,5 @@ def test_the_plan_is_shown_before_the_work():
     from sergio_escritorio.tareas import Step, Task, plan_line
 
     task = Task(1, "tabla de portátiles", title="Portátiles", steps=[Step("buscar los 3 mejores"), Step("abrir en Excel", "pantalla")])
-    assert plan_line(task) == "Plan de «Portátiles»: 1) buscar los 3 mejores 2) abrir en Excel (pantalla)"
+    assert plan_line(task).startswith("Plan de «Portátiles»: 1) buscar los 3 mejores 2) abrir en Excel (pantalla)")
+    assert "cancela la tarea" in plan_line(task)

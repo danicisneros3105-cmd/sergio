@@ -178,3 +178,14 @@ def test_without_a_planner_the_request_is_one_careful_step():
     orch.submit("abre la calculadora")
     wait(orch)
     assert orch.tasks[0].steps[0].where == "pantalla" and orch.tasks[0].status == "done"
+
+
+def test_a_screen_plan_can_be_stopped_before_it_starts():
+    plan = lambda r: {"pasos": [{"paso": "abrir Excel", "donde": "pantalla"}]}  # noqa: E731
+    orch, acts, told, calls = make(plan, lambda p: "TERMINADO: ok")
+    orch.plan_grace = 0.5
+    orch.submit("tabla")
+    time.sleep(0.1)
+    orch.cancel_last()
+    wait(orch)
+    assert calls == [] and orch.tasks[0].status == "cancelled" and "Cancelada" in told[0]

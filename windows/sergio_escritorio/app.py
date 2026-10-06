@@ -3289,6 +3289,7 @@ def run(config: dict[str, Any]) -> None:
         plan_task, new_asker, activities, approve=owner_approves, told=lambda text: tell(text),
         on_plan=lambda task: bridge.caption.emit(plan_line(task)),  # the plan, seen before the work
         on_done=lambda task: task_done(task),
+        plan_grace=6.0,
     )
 
     def run_tasks(q: Any) -> str | None:

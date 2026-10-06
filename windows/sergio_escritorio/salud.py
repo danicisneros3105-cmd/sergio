@@ -280,7 +280,7 @@ def trends(days: dict[str, dict[str, float]], today: date) -> dict[str, Any]:
     out: dict[str, Any] = {}
     metrics = {m for v in days.values() for m in v}
     for metric in sorted(metrics):
-        def mean(span: int) -> float | None:
+        def mean(span: int, metric: str = metric) -> float | None:
             vals = [days[d][metric] for d in days if metric in days[d] and 0 <= (today - date.fromisoformat(d)).days < span]
             return round(sum(vals) / len(vals), 1) if vals else None
 
