@@ -75,6 +75,29 @@ def sync_server(extras: tuple[str, ...] = SERVER_EXTRAS, run=None) -> bool:
     return done.returncode == 0
 
 
+def clean_server(repo: Path, run=None) -> None:
+    """Keep only the latest on Ubuntu: uv's cache, superseded Pythons, git."""
+    import importlib.util
+    import sys
+
+    spec = importlib.util.spec_from_file_location(
+        "sergio_limpieza", repo / "windows" / "sergio_escritorio" / "limpieza.py"
+    )
+    if spec is None or spec.loader is None:
+        return
+    limpieza = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(limpieza)
+    run = run or subprocess.run
+    uv = shutil.which("uv") or str(Path.home() / ".local" / "bin" / "uv")
+    console.print("Limpiando versiones viejas (caché, Pythons reemplazados, git)…")
+    try:
+        if Path(uv).exists():
+            limpieza.clean_python(uv, [sys.executable, getattr(sys, "_base_executable", "")], run)
+        limpieza.clean_git(repo, run)
+    except OSError:
+        pass
+
+
 def _wslpath(path: Path) -> str:
     done = subprocess.run(
         ["wslpath", "-w", str(path)], capture_output=True, text=True, check=True
@@ -214,8 +237,8 @@ def instalar(vision: bool, gpu: bool = False) -> None:
     else:
         console.print(
             "[yellow]Sergio usa el modelo local, que es lento y en algunas "
-            "tarjetas se cae. Pon tu clave de Kimi: sergio nube configurar"
-            "[/yellow]"
+            "tarjetas se cae. Pon tu clave de Gemini: sergio nube configurar "
+            "--gemini TU_CLAVE[/yellow]"
         )
 
     console.print("Actualizando las librerías de Sergio en Ubuntu…")
@@ -224,6 +247,8 @@ def instalar(vision: bool, gpu: bool = False) -> None:
             "[yellow]No pude actualizar las librerías del servidor ahora; "
             "lo demás funciona.[/yellow]"
         )
+
+    clean_server(_REPO_ROOT)
 
     script = _wslpath(_REPO_ROOT / "scripts" / "instalar-escritorio.ps1")
     source = _wslpath(_REPO_ROOT / "windows")

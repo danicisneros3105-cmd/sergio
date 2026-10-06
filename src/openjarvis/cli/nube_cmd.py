@@ -74,7 +74,7 @@ def nube() -> None:
 @click.option("--gemini", "gemini_key", default="", help="Gemini / Google API key.")
 @click.option("--modelo", default="", help="Force a model id (e.g. kimi-k2.6).")
 def configurar(kimi_key: str, gemini_key: str, modelo: str) -> None:
-    """Save the keys, check them and make Kimi Sergio's main model."""
+    """Save the keys, check them and pick Sergio's main cloud model."""
     from openjarvis.cli.phone_cmd import read_env, update_config, write_env
     from openjarvis.cli.service_cmd import env_file
     from openjarvis.core.paths import get_config_dir
@@ -82,14 +82,9 @@ def configurar(kimi_key: str, gemini_key: str, modelo: str) -> None:
     env_path = env_file()
     env = read_env(env_path)
     if not kimi_key and not gemini_key:
-        kimi_key = click.prompt(
-            "Clave de Kimi (Enter para omitir)",
-            default="",
-            hide_input=True,
-            show_default=False,
-        ).strip()
+        # Gemini is Sergio's cloud brain; Kimi stays possible with --kimi.
         gemini_key = click.prompt(
-            "Clave de Gemini (Enter para omitir)",
+            "Clave de Gemini",
             default="",
             hide_input=True,
             show_default=False,

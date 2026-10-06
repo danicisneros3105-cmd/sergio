@@ -100,15 +100,89 @@ def check_script(script: str) -> None:
 
 
 PREVIEW = """
-# --- Sergio: a quick render to check the work ---
+# --- Sergio: four views on one sheet, so the review sees the whole shape ---
+# Top left the finished look (3/4 view); top right FRONT, bottom left RIGHT
+# side and bottom right TOP, orthographic and at the same scale, like a
+# blueprint (proportions can be compared directly).
 try:
-    _scene.render.engine = "CYCLES"
-    _scene.cycles.samples = 24
-    _scene.cycles.use_denoising = False
-    _scene.render.resolution_x, _scene.render.resolution_y = 640, 480
-    _scene.render.filepath = {path}
-    _bpy.ops.render.render(write_still=True)
-    print("SERGIO_PREVIEW", {path})
+    import os as _os
+    _out = {path}
+    _cell = 512
+    _shots = []
+    _span = max(_hi.x - _lo.x, _hi.y - _lo.y, _hi.z - _lo.z, 0.02) * 1.18
+    for _m in _bpy.data.materials:  # the workbench views show the real colours
+        try:
+            _bsdf = _m.node_tree.nodes.get("Principled BSDF") if _m.use_nodes else None
+            if _bsdf is not None:
+                _m.diffuse_color = tuple(_bsdf.inputs["Base Color"].default_value)
+        except Exception:
+            pass
+    _views = [
+        ("beauty", None, None),
+        ("front", (0.0, -1.0, 0.0), (_math.pi / 2, 0.0, 0.0)),
+        ("right", (1.0, 0.0, 0.0), (_math.pi / 2, 0.0, _math.pi / 2)),
+        ("top", (0.0, 0.0, 1.0), (0.0, 0.0, 0.0)),
+    ]
+    for _name, _axis, _rot in _views:
+        _scene.render.resolution_x = _scene.render.resolution_y = _cell
+        _scene.render.resolution_percentage = 100
+        if _axis is None:
+            _scene.camera = _cam
+            _engines = ("CYCLES", "BLENDER_EEVEE", "BLENDER_EEVEE_NEXT", "BLENDER_WORKBENCH")
+        else:
+            _ocam = _bpy.data.objects.new("Vista_" + _name, _bpy.data.cameras.new("Vista_" + _name))
+            _ocam.data.type = "ORTHO"
+            _ocam.data.ortho_scale = _span
+            _ocam.location = _centre + _V(_axis) * (_size * 3 + 1)
+            _ocam.rotation_euler = _rot
+            _ocam.data.clip_end = _size * 8 + 10
+            _scene.collection.objects.link(_ocam)
+            _scene.camera = _ocam
+            _engines = ("BLENDER_WORKBENCH",)
+        for _engine in _engines:
+            try:
+                _scene.render.engine = _engine
+                break
+            except Exception:
+                continue
+        if _scene.render.engine == "CYCLES":
+            _scene.cycles.samples = 24
+            _scene.cycles.use_denoising = False
+        if _scene.render.engine == "BLENDER_WORKBENCH":
+            _shade = _scene.display.shading
+            _shade.light = "STUDIO"
+            _shade.color_type = "MATERIAL"
+            _shade.show_cavity = True
+            _shade.show_object_outline = True
+        _file = _out[:-4] + "-" + _name + ".png"
+        _scene.render.filepath = _file
+        _bpy.ops.render.render(write_still=True)
+        _shots.append(_file)
+    _scene.camera = _cam
+    import numpy as _np
+    _sheet = _np.ones((_cell * 2, _cell * 2, 4), dtype=_np.float32)
+    for _i, _file in enumerate(_shots):
+        _img = _bpy.data.images.load(_file)
+        _px = _np.empty(_img.size[0] * _img.size[1] * 4, dtype=_np.float32)
+        _img.pixels.foreach_get(_px)
+        _px = _px.reshape(_img.size[1], _img.size[0], 4)[:_cell, :_cell]
+        _row, _col = divmod(_i, 2)
+        _y0 = (1 - _row) * _cell  # image rows start at the bottom
+        _sheet[_y0:_y0 + _px.shape[0], _col * _cell:_col * _cell + _px.shape[1]] = _px
+        _bpy.data.images.remove(_img)
+        try:
+            _os.remove(_file)
+        except OSError:
+            pass
+    _sheet[_cell - 1:_cell + 1, :, :3] = 0.35  # thin dividers between the views
+    _sheet[:, _cell - 1:_cell + 1, :3] = 0.35
+    _final = _bpy.data.images.new("SergioVistas", _cell * 2, _cell * 2, alpha=True)
+    _final.pixels.foreach_set(_sheet.ravel())
+    _final.filepath_raw = _out
+    _final.file_format = "PNG"
+    _final.save()
+    print("SERGIO_PREVIEW", _out)
+    print("SERGIO_VIEW_SCALE each orthographic view is %.1f cm wide" % (_span * 100))
 except Exception as _exc:
     print("SERGIO_PREVIEW_FAILED", _exc)
 """
@@ -182,6 +256,9 @@ _scene["sergio_model"] = {json.dumps(name)}
 _path = {json.dumps(save_path)}
 _bpy.ops.wm.save_as_mainfile(filepath=_path)
 print("SERGIO_SAVED", _path, len(_objs))
+_dims = (_hi - _lo) * 100
+print("SERGIO_DIMS width %.1f x depth %.1f x height %.1f cm (lowest point z = %.1f cm)" % (_dims.x, _dims.y, _dims.z, _lo.z * 100))
+print("SERGIO_PARTS %d meshes: %s" % (len(_objs), ", ".join(sorted(o.name for o in _objs)[:80])))
 """
         + (PREVIEW.format(path=json.dumps(preview_path)) if preview_path else "")
     )

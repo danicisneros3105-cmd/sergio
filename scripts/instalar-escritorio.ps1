@@ -91,6 +91,9 @@ if ($Gpu) {
     if ($LASTEXITCODE -ne 0) { Write-Host "   No pude bajarlo ahora; Sergio sigue funcionando con el procesador." -ForegroundColor Yellow }
 }
 
+Write-Host "   Limpiando versiones viejas (caché, Pythons reemplazados, restos de Blender)…"
+& (Join-Path $venv "Scripts\python.exe") -m sergio_escritorio.limpieza $uv
+
 Say "4/4 Arranque con Windows"
 $ico = Join-Path $dest "sergio.ico"
 & (Join-Path $venv "Scripts\python.exe") -c "from sergio_escritorio.app import make_icon; make_icon('idle').save(r'$ico', sizes=[(16,16),(32,32),(48,48),(64,64)])"

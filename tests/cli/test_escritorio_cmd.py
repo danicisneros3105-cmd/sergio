@@ -70,6 +70,7 @@ def test_instalar_runs_powershell_with_token_in_env(tmp_path, monkeypatch):
     assert ps[1]["env"]["SERGIO_DESKTOP_TOKEN"] == token
     assert "SERGIO_DESKTOP_TOKEN" in ps[1]["env"]["WSLENV"]
     assert ps[0][ps[0].index("-Fuente") + 1].endswith("windows")
+    assert any(c[0][:1] == ["git"] and "gc" in c[0] for c in calls)  # keeps only the latest
     # re-running keeps the same token (Windows side already has it)
     CliRunner().invoke(escritorio_cmd.escritorio, ["instalar"])
     assert (tmp_path / "sergio.env").read_text().count("SERGIO_DESKTOP_TOKEN") == 1

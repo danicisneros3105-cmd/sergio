@@ -496,8 +496,12 @@ async def blender_route(
     note: str = Form(""),
     image: UploadFile = File(...),
     preview_path: str = Form(""),
+    pro: bool = Form(False),
 ) -> dict[str, Any]:
-    """The object in the user's hands -> a detailed, checked Blender script."""
+    """The object in the user's hands -> a detailed, checked Blender script.
+
+    *pro*: Blender Pro's way — a blueprint sheet of the same object is drawn
+    first and the script is written from the photo plus the sheet."""
     from openjarvis.tools.blender_model import model_object
 
     data = await image.read(MAX_IMAGE_BYTES + 1)
@@ -505,6 +509,13 @@ async def blender_route(
         raise HTTPException(status_code=413, detail="Image too large")
     if not save_path.lower().endswith(".blend"):
         raise HTTPException(status_code=400, detail="save_path must end in .blend")
+    if pro:
+        from openjarvis.tools.blender_pro import from_photo
+
+        try:
+            return await asyncio.to_thread(from_photo, data, save_path, note, preview_path)
+        except Exception as exc:  # noqa: BLE001
+            raise HTTPException(status_code=502, detail=str(exc)[:400]) from exc
     try:
         return await asyncio.to_thread(
             model_object, data, save_path, note, image.content_type or "image/jpeg", None, 2, preview_path
@@ -563,15 +574,28 @@ async def blender_text_route(task: BlenderTask) -> dict[str, Any]:
         raise HTTPException(status_code=400, detail="save_path must end in .blend")
     try:
         def run() -> dict[str, Any]:
-            parts = ""
-            if "distribución de piezas" not in task.request:  # not already seeded
+            from concurrent.futures import ThreadPoolExecutor
+
+            from openjarvis.tools.blender_pro import reference_sheet
+
+            def designed() -> str:
+                if "distribución de piezas" in task.request:  # already seeded
+                    return ""
                 try:
                     from openjarvis.tools.holo_model import design, recipe_brief
 
-                    parts = recipe_brief(design(task.request))
+                    return recipe_brief(design(task.request))
                 except Exception:  # noqa: BLE001 — without the parts, as before
-                    parts = ""
-            return from_text(task.request, task.save_path, task.preview_path, parts=parts)
+                    return ""
+
+            # The parts list and the blueprint sheet at the same time.
+            with ThreadPoolExecutor(2) as pool:
+                parts = pool.submit(designed)
+                sheet = pool.submit(reference_sheet, task.request)
+                return from_text(
+                    task.request, task.save_path, task.preview_path,
+                    parts=parts.result(), sheet=sheet.result(),
+                )
 
         return await asyncio.to_thread(run)
     except Exception as exc:  # noqa: BLE001
@@ -587,15 +611,22 @@ async def blender_refine_route(
     preview_path: str = Form(""),
     preview: UploadFile = File(...),
     reference: UploadFile | None = File(None),
+    sheet: UploadFile | None = File(None),
+    target_cm: str = Form(""),
 ) -> dict[str, Any]:
-    """Blender Pro's review round: look at the render, fix the script."""
+    """Blender Pro's review round: look at the four views, fix the script."""
     from openjarvis.tools.blender_pro import refine
 
     shot = await preview.read(MAX_IMAGE_BYTES + 1)
     ref = await reference.read(MAX_IMAGE_BYTES + 1) if reference is not None else b""
+    board = await sheet.read(MAX_IMAGE_BYTES + 1) if sheet is not None else b""
+    try:
+        target = [float(v) for v in json.loads(target_cm)] if target_cm else None
+    except (ValueError, TypeError):
+        target = None
     try:
         return await asyncio.to_thread(
-            refine, request, raw_script, log, shot, save_path, preview_path, ref
+            refine, request, raw_script, log, shot, save_path, preview_path, ref, None, target, board
         )
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=502, detail=str(exc)[:400]) from exc

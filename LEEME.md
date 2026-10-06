@@ -624,6 +624,34 @@ los datos**» los pone en pantalla; «**modo limpio**» los quita.
   foto del objeto, si la hay) y el registro de errores, corrige y repite
   (dos revisiones visuales y hasta cuatro arreglos de errores). Al final se
   abre el `.blend` listo. Tarda varios minutos y usa Gemini Pro.
+* **Blender Pro ve mejor (nuevo)**:
+  * **Cuatro vistas en cada revisión**: el acabado en 3/4 más frente, lado y
+    planta en ortográfica a la misma escala, como un plano. Así la IA ve las
+    proporciones desde todos los lados, no solo desde un ángulo.
+  * **Medidas reales**: Blender informa el tamaño real del modelo y sus
+    piezas, y la IA lo compara con el tamaño que debe tener.
+  * **Lee las imágenes en alta resolución** (tornillos, aros, etiquetas).
+  * **Nunca empeora**: si una revisión rompe el modelo (pierde piezas o da
+    errores), se descarta y se vuelve a la mejor versión, explicándole a la
+    IA qué falló. Ahora hace tres revisiones.
+  * **Técnicas de profesional**: torno para objetos redondos, curvas para
+    cables y asas, booleanos para agujeros, arreglos para piezas repetidas,
+    espejo para simetrías.
+  * **Planos de referencia**: si tu clave de Gemini incluye generación de
+    imágenes (plan de pago), primero dibuja una lámina del objeto (3/4,
+    frente, lado y planta) y modela a partir de ella. Para un objeto en tu
+    mano, la lámina muestra también los lados que la cámara no ve. La lámina
+    queda junto al proyecto (`…-planos.png`). Sin ese plan, Blender Pro
+    trabaja igual, sin lámina.
+  * Probado de verdad: «un labial rojo con tapa dorada». En la primera
+    versión faltaba la barra roja; la revisión con cuatro vistas la añadió
+    sin perder ninguna pieza.
+* **Solo lo último**: el comando de actualización limpia lo viejo. En
+  Windows y en Ubuntu borra la caché de descargas y los Pythons reemplazados
+  por uno más nuevo (nunca el que usa Sergio ni el del sistema). En Ubuntu
+  compacta git. En la carpeta de Blender borra las copias `.blend1`, los
+  intentos fallidos y los scripts viejos. Blender Pro también limpia al
+  terminar cada trabajo.
 * Necesitas Blender instalado (`winget install BlenderFoundation.Blender`).
 
 ## Video Pro: editar y subir videos

@@ -251,8 +251,8 @@ def revisar() -> None:
                 if "CUDA error" in detail or "0xc0000409" in detail:
                     console.print(
                         "  El modelo local se cae en tu tarjeta gráfica con las "
-                        "instrucciones largas de Sergio. Solución: usa Kimi "
-                        "(sergio nube configurar --kimi TU_CLAVE)."
+                        "instrucciones largas de Sergio. Solución: usa Gemini "
+                        "(sergio nube configurar --gemini TU_CLAVE)."
                     )
                 elif model == model_for_ollama:
                     _probe_ollama(host, model)

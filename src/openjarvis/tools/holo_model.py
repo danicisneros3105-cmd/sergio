@@ -107,7 +107,7 @@ def _ask(prompt: str) -> str:
                 model=model,
                 contents=[prompt],
                 config=types.GenerateContentConfig(
-                    **google_config_kwargs(model, 0.4, 8000, "low"),
+                    **google_config_kwargs(model, 0.4, 12000, "medium"),
                     response_mime_type="application/json",
                 ),
             )

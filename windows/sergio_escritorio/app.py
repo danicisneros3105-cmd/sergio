@@ -1928,20 +1928,23 @@ def run(config: dict[str, Any]) -> None:
         made = on_ui(show)
         return f"Listo, {made} Pellízcalo para moverlo, y «pásalo a Blender» para trabajarlo allí."
 
-    def blender_pro(request: str, reference: bytes = b"", rounds: int = 2) -> str:
-        """Blender Pro: model, render, look at the render, fix — like a pro.
+    def blender_pro(request: str, reference: bytes = b"", rounds: int = 3) -> str:
+        """Blender Pro: blueprint, model, render four views, look, fix — like a pro.
 
         Runs in the background; Sergio tells you when the project is ready.
         """
+        import base64
+
         from sergio_escritorio import media
 
         path = blender_file("pro")
         preview = path[:-6] + "-vista.png"
+        bridge.caption.emit("Blender Pro: dibujando los planos del objeto…")
         if reference:
             resp = client.http.post(
                 f"{client.base}/v1/vision/blender",
                 files={"image": ("objeto.jpg", reference, "image/jpeg")},
-                data={"save_path": path, "note": request, "preview_path": preview},
+                data={"save_path": path, "note": request, "preview_path": preview, "pro": "true"},
                 timeout=600,
             )
         else:
@@ -1952,12 +1955,39 @@ def run(config: dict[str, Any]) -> None:
             )
         resp.raise_for_status()
         model = resp.json()
+        sheet = base64.b64decode(model.get("reference_b64") or "")
+        if sheet:  # the blueprint, next to the project, for the user too
+            try:
+                Path(path[:-6] + "-planos.png").write_bytes(sheet)
+            except OSError:
+                pass
+        target = json.dumps(model.get("dimensions_cm") or [])
         log = ""
         reviews = 0
+        best: dict[str, Any] = {}
+        built = None  # the model the .blend on disk comes from
         for step in range(rounds + 4):  # visual reviews + a few error fixes
-            bridge.caption.emit(f"Blender Pro: construyendo y revisando (paso {step + 1})…")
+            bridge.caption.emit(f"Blender Pro: construyendo y revisando 4 vistas (paso {step + 1})…")
             Path(preview).unlink(missing_ok=True)
             log = media.run_blender_background(model["script"])
+            built = model
+            try:
+                shot = Path(preview).read_bytes()
+            except OSError:
+                shot = b""
+            score = media.blender_score(log)
+            if best and media.worse_build(score, best["score"]):
+                # The rewrite broke more than it fixed: back to the best
+                # version, and the reviewer learns what went wrong.
+                failed = [ln for ln in log.splitlines() if ln.startswith("SERGIO_STEP_ERROR")][:6]
+                model, shot = best["model"], best["shot"]
+                log = best["log"] + (
+                    "\nSERGIO_NOTE your last rewrite was DISCARDED because it built much less "
+                    "(errors: " + " | ".join(failed or ["it did not save"]) + "). This is the "
+                    "earlier, better version: make careful, targeted fixes and keep every part."
+                )
+            elif not best or score >= best["score"]:
+                best = {"score": score, "model": model, "log": log, "shot": shot}
             broken = "SERGIO_SAVED" not in log
             if not broken:
                 if reviews >= rounds:
@@ -1965,15 +1995,13 @@ def run(config: dict[str, Any]) -> None:
                 reviews += 1
             elif step >= rounds + 3:
                 break
-            try:
-                shot = Path(preview).read_bytes()
-            except OSError:
-                shot = b""
             if not shot and not broken:
-                break  # no render to look at (no Cycles?): keep what works
+                break  # no render to look at: keep what works
             files = {"preview": ("vista.png", shot or b"\x89PNG", "image/png")}
             if reference:
                 files["reference"] = ("objeto.jpg", reference, "image/jpeg")
+            if sheet:
+                files["sheet"] = ("planos.png", sheet, "image/png")
             fixed = client.http.post(
                 f"{client.base}/v1/vision/blender/refine",
                 data={
@@ -1982,6 +2010,7 @@ def run(config: dict[str, Any]) -> None:
                     "save_path": path,
                     "log": log[-3000:],
                     "preview_path": preview,
+                    "target_cm": target,
                 },
                 files=files,
                 timeout=600,
@@ -1989,13 +2018,21 @@ def run(config: dict[str, Any]) -> None:
             if fixed.status_code != 200:
                 break  # the last good version stays
             model = fixed.json()
+        if best and built is not best["model"]:
+            log = media.run_blender_background(best["model"]["script"])  # save the best one
+            model = best["model"]
+        from sergio_escritorio import limpieza
+
         if "SERGIO_SAVED" not in log:
+            limpieza.forget_attempt(path)  # no half-made versions left behind
             return f"Blender Pro no logró una versión que funcione: {log[-200:]}"
+        limpieza.clean_blender(Path(path).parent, media.HOME / "blender")
         media.open_in_blender(path)
         name = model.get("name") or "el modelo"
         return (
-            f"Listo: {name}, revisado {rounds} veces mirando el render. Abrí el proyecto "
-            "en Blender; está en Documentos, Sergio, Blender."
+            f"Listo: {name}, revisado {reviews} veces mirando cuatro vistas"
+            + (" contra los planos" if sheet else "")
+            + ". Abrí el proyecto en Blender; está en Documentos, Sergio, Blender."
         )
 
     last_video: list[dict] = []

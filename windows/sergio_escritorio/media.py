@@ -283,6 +283,24 @@ def run_blender_background(script: str, timeout: float = 300.0) -> str:
     return out[-8000:]
 
 
+def blender_score(log: str) -> float:
+    """How good a Blender Pro build is, from its log: parts built minus
+    failed steps (a build that never saved is worst)."""
+    import re
+
+    if "SERGIO_SAVED" not in log:
+        return -1.0
+    found = re.search(r"SERGIO_PARTS (\d+)", log) or re.search(r"SERGIO_SAVED .* (\d+)\s*$", log, re.M)
+    meshes = int(found.group(1)) if found else 0
+    errors = sum(1 for line in log.splitlines() if line.startswith("SERGIO_STEP_ERROR"))
+    return max(meshes - 2 * errors, 0) + 0.5
+
+
+def worse_build(new: float, best: float) -> bool:
+    """A rewrite that lost a quarter of the model (or stopped saving)."""
+    return new < 0 <= best or new < best * 0.75
+
+
 def open_in_blender(blend: str) -> None:
     """Open a finished .blend project in Blender, for the user."""
     subprocess.Popen([find_blender(), blend])
@@ -292,8 +310,10 @@ __all__ = [
     "build_command",
     "find_clips",
     "make_video",
+    "blender_score",
     "open_in_blender",
     "resolve",
     "run_blender",
     "run_blender_background",
+    "worse_build",
 ]
