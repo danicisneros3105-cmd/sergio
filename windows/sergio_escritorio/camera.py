@@ -21,7 +21,6 @@ from PySide6.QtCore import QPointF, QRectF, Qt, QTimer
 from PySide6.QtGui import (
     QBrush,
     QColor,
-    QConicalGradient,
     QFont,
     QImage,
     QLinearGradient,
@@ -154,9 +153,6 @@ def frosted(frame: Any, size: tuple[int, int], mirror: bool = True) -> QImage:
     img = to_qimage(small, mirror)
     return img.scaled(size[0], size[1], Qt.AspectRatioMode.IgnoreAspectRatio, Qt.TransformationMode.SmoothTransformation)
 
-
-RAINBOW = ((0.0, (255, 90, 90)), (0.17, (255, 200, 80)), (0.33, (150, 255, 120)), (0.5, (90, 230, 255)),
-           (0.67, (110, 140, 255)), (0.83, (220, 120, 255)), (1.0, (255, 90, 90)))  # fmt: skip
 
 
 def detect_faces(frame: Any) -> list[tuple[int, int, int, int]]:
@@ -576,12 +572,7 @@ class CameraWindow(QWidget):
         if starter and not self.holo.objects:
             self.holo.command("crea un cubo")  # something to grab right away
             self.holo.command("céntralo")
-        return (
-            "Listo, señor: le dejé un cubo de cristal. Junte pulgar e índice sobre él "
-            "(brilla cuando está a su alcance) y muévalo; gire la muñeca para girarlo; "
-            "con las dos manos cambia el tamaño. Pida cualquier figura: «crea una "
-            "estrella», «un corazón rojo», «un teléfono». «Pásalo a Blender» para editarlo."
-        )
+        return "Listo: pellizque el cubo para moverlo, gire la muñeca para girarlo. Pida cualquier figura."
 
     def hologram(self, order: str) -> str:
         """A voice order for the holograms ("crea un cubo rojo", "esculpir")."""
@@ -1208,7 +1199,9 @@ class CameraWindow(QWidget):
             # The pinch point: a ring that closes and glows when you grab.
             pinch = (pts[4] + pts[8]) / 2
             holding = self.holo.pinching.get(i, False)
-            hint = "gira la muñeca · abre para soltar" if holding else ("pellizca para agarrar" if i in self.holo.hover else "")
+            hint = ""
+            if time.monotonic() < self.guide_until:  # words only while learning; then a clean view
+                hint = "gira la muñeca · abre para soltar" if holding else ("pellizca para agarrar" if i in self.holo.hover else "")
             if hint:
                 p.setFont(_font(7, QFont.Weight.DemiBold))
                 tw = p.fontMetrics().horizontalAdvance(hint) + 14
@@ -1446,9 +1439,9 @@ class CameraWindow(QWidget):
                     light = QColor(255, 255, 255, int(max(0.0, k - 0.55) * 150)) if k > 0.55 else QColor(10, 20, 40, int((0.55 - k) * 110))
                     p.setBrush(light)
                     p.drawPolygon(poly)
-                    if f["rim"] > 0.45:  # thin-film interference toward the edges
-                        hue = ((f["rim"] * 1.6 + t * 0.05 + i * 0.013) % 1.0)
-                        film = QColor.fromHsvF(hue, 0.55, 1.0, min(0.35, (f["rim"] - 0.45) * 0.7))
+                    if f["rim"] > 0.55:  # a faint cool sheen toward the edges (Apple glass)
+                        hue = 0.55 + 0.08 * math.sin(t * 0.4 + i * 0.05)
+                        film = QColor.fromHsvF(hue % 1.0, 0.18, 1.0, min(0.14, (f["rim"] - 0.55) * 0.4))
                         p.setBrush(film)
                         p.drawPolygon(poly)
             # The shine where the light hits, and a glow at the bottom.
@@ -1480,19 +1473,13 @@ class CameraWindow(QWidget):
             if hover_k > 0.02:  # what a pinch would take (or is holding) glows, fading in
                 p.setPen(QPen(QColor(255, 255, 255, int(90 * hover_k)), 7, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
                 p.drawPath(outline)
-            # Dispersion: red and blue fringes a pixel apart, then the rainbow rim.
-            for dx, colour in ((-1.2, QColor(255, 80, 120, 70)), (1.2, QColor(80, 160, 255, 70))):
-                p.save()
-                p.translate(dx, 0)
-                p.setPen(QPen(colour, 1.2))
-                p.drawPath(outline)
-                p.restore()
-            cone = QConicalGradient(centre, (t * 25 + ob["id"] * 40) % 360)
-            for stop, (cr, cg, cb) in RAINBOW:
-                cone.setColorAt(stop, QColor(cr, cg, cb, 235))
-            p.setPen(QPen(QBrush(cone), 2.2 if active else 1.6, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
-            p.drawPath(outline)
-            p.setPen(QPen(QColor(255, 255, 255, 170), 0.7))
+            # visionOS glass edge: a fine white rim, brighter where the light
+            # comes from (top left), fading toward the bottom right.
+            rim = QLinearGradient(centre.x() - radius, centre.y() - radius, centre.x() + radius, centre.y() + radius)
+            rim.setColorAt(0.0, QColor(255, 255, 255, 235))
+            rim.setColorAt(0.45, QColor(255, 255, 255, 120))
+            rim.setColorAt(1.0, QColor(255, 255, 255, 55))
+            p.setPen(QPen(QBrush(rim), 1.9 if active else 1.4, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
             p.drawPath(outline)
             show = max(hover_k, 0.75 if ob["selected"] and not busy else 0.0)
             if show > 0.03:

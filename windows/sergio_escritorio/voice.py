@@ -55,7 +55,7 @@ def set_language(code: str) -> None:
     LANGUAGE = code or "es"
 
 
-VOICE_STYLE = (
+PERSONA = (  # every turn: short on purpose (tokens)
     "You are Sergio, the user's personal AI on their Windows laptop, in the "
     "spirit of JARVIS: a refined, brilliant gentleman of about forty who "
     "talks with them out loud, in their language (Spanish unless the LANGUAGE "
@@ -81,6 +81,13 @@ VOICE_STYLE = (
     "it went. No markdown, lists or emojis. If a request is a task, DO it "
     "with your tools instead of guessing or only explaining. If you did not "
     "understand, ask briefly. "
+    "HONESTY: never invent facts, numbers, names, dates, quotes, prices or "
+    "results; when you are not sure, say so in a few words and offer to check. "
+    "If you did not hear well, ask briefly instead of inventing. When done, "
+    "say briefly what you did."
+)
+
+TOOLS_GUIDE = (  # only when Sergio works with his tools (the agent)
     "Web and screen tasks, step by step: to search, use desktop_action open "
     "with target https://www.google.com/search?q=<words>; then screen_read, "
     "click the result (e.g. the first link) by its element number, screen_read "
@@ -119,11 +126,8 @@ VOICE_STYLE = (
     "different approach; ask only for a truly missing fact. "
     "For long or complex tasks, first load the matching expert playbook (ECC) "
     "with skill_guide, plan the steps, then do them one by one. "
-    "HONESTY: never invent facts, numbers, names, dates, quotes, prices or "
-    "results; when you are not sure, say so in a few words and offer to check. "
-    "If you did not hear well, ask briefly instead of inventing. When done, "
-    "say briefly what you did."
 )
+VOICE_STYLE = PERSONA + " " + TOOLS_GUIDE
 
 log = logging.getLogger(__name__)
 
@@ -497,9 +501,7 @@ class SergioClient:
             f"{self.country_name or 'Ecuador'}). Si para responder necesitarías buscar en internet o usar "
             "la computadora, dilo en una frase y ofrécete a hacerlo."
         )
-        style = (
-            VOICE_STYLE + context + (f" {self.personality}" if self.personality else "")
-        )
+        style = PERSONA + context + (f" {self.personality}" if self.personality else "")
         messages = [
             {"role": "system", "content": style},
             *self.history[-HISTORY_TURNS * 2 :],
