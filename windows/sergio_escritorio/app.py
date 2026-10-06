@@ -444,6 +444,9 @@ def run(config: dict[str, Any]) -> None:
     results_action = QAction("Mis resultados del gimnasio", menu)
     results_action.triggered.connect(lambda: open_results())
     menu.addAction(results_action)
+    consult_action = QAction("Consulta (hablar con Sergio)", menu)
+    consult_action.triggered.connect(lambda: open_consult())
+    menu.addAction(consult_action)
     health_action = QAction("Mi salud", menu)
     health_action.triggered.connect(lambda: open_health())
     menu.addAction(health_action)
@@ -1187,7 +1190,54 @@ def run(config: dict[str, Any]) -> None:
             return "Anotado en su salud de hoy."
         return None
 
+    # -- the consulting room (support, notes, questionnaires) ----------------
+    from sergio_escritorio.psicologo import CRISIS, Consult, at_risk
+
+    consult = Consult(HOME / "psicologo.json")
+    consult_windows: dict[str, Any] = {}
+
+    def consult_open() -> bool:
+        window = consult_windows.get("main")
+        return window is not None and window.isVisible()
+
+    def open_consult() -> str:
+        from sergio_escritorio.psicologo_ui import ConsultWindow
+
+        def ask(messages: list, notes: list) -> dict:
+            return coach_post("therapy", {"messages": messages, "notes": notes, "profile": profile.data}, timeout=120)
+
+        def show() -> None:
+            if "main" not in consult_windows:
+                consult_windows["main"] = ConsultWindow(consult, ask, lambda text: tell(text), ears.talk)
+            consult_windows["main"].open()
+
+        on_ui(show)
+        return "Aquí estoy, señor. Póngase cómodo; puede escribirme o hablarme."
+
+    def consult_redirect(text: str) -> bool:
+        """While the consultation is open, what you say goes to it."""
+        if not consult_open():
+            return False
+        if re.search(r"\b(termina|cierra|salir de|acaba)\w* (la )?(consulta|sesion|sesión)\b", text.lower()):
+            on_ui(consult_windows["main"].close)
+            tell("Cuando quiera, aquí estaré.")
+            return True
+        on_ui(lambda: consult_windows["main"].hear(text))
+        return True
+
+    assistant.redirect = consult_redirect
+
+    def watch_risk(text: str) -> None:
+        if not consult_open():  # what is said in the consultation stays there
+            profile.note_topic(text)
+        if at_risk(text) and not consult_open():
+            threading.Thread(target=lambda: (tell(CRISIS), open_consult()), daemon=True).start()
+
+    assistant.on_request = watch_risk
+
     def run_profile(q: Any) -> str | None:
+        if q.kind == "consult":
+            return open_consult()
         handled = run_health(q)
         if handled is not None:
             return handled

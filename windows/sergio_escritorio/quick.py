@@ -192,6 +192,10 @@ def parse_quick(text: str) -> Quick | None:
     # Stop / silence
     if t in ("para", "parate", "callate", "silencio", "basta", "detente", "stop"):
         return Quick("stop", say="")
+    # The consulting room
+    if re.search(r"\b(psicologo|psicologa|terapia|terapeuta|consulta psicologica|modo psicologo|necesito desahogarme|quiero desahogarme|"
+                 r"abre la consulta|necesito hablar con alguien|necesito hablar contigo)\b", t):
+        return Quick("consult")
     # Health
     if re.search(r"\b(cuestionario de salud|test de salud|preguntas de salud)\b", t):
         return Quick("health", "cuestionario")

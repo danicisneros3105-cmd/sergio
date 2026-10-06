@@ -1142,6 +1142,7 @@ class Assistant:
         self._interrupted = False
         self.quick: Callable[[Any], str] | None = None  # instant commands
         self.on_request: Callable[[str], None] | None = None  # the profile notes topics
+        self.redirect: Callable[[str], bool] | None = None  # the consultation takes the voice
         # Instant screen orders answered on screen only (no voice wait).
         self.silent_quick: set[str] = {"device", "key", "volume", "screenshot", "open_app", "open_url", "close_app"}
         # Real-time call (Gemini Live): saying "Sergio" opens it with what
@@ -1334,6 +1335,12 @@ class Assistant:
                 self.on_request(text)
             except Exception:  # noqa: BLE001 — never block an answer
                 log.debug("on_request failed", exc_info=True)
+        if self.redirect is not None:
+            try:
+                if self.redirect(text):
+                    return  # the consultation answers (and speaks) itself
+            except Exception:  # noqa: BLE001 — fall back to a normal answer
+                log.debug("redirect failed", exc_info=True)
         answer = ""
         action = parse_quick(text) if self.quick is not None else None
         if action is not None:  # "abre Spotify": done now, no AI needed
