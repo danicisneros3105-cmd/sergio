@@ -444,6 +444,9 @@ def run(config: dict[str, Any]) -> None:
     results_action = QAction("Mis resultados del gimnasio", menu)
     results_action.triggered.connect(lambda: open_results())
     menu.addAction(results_action)
+    organizer_action = QAction("Organizador: alarmas, notas, recordatorios", menu)
+    organizer_action.triggered.connect(lambda: open_organizer())
+    menu.addAction(organizer_action)
     menu.addSeparator()
 
     wake_action = QAction("Escuchar cuando digo «Sergio»", menu, checkable=True)
@@ -1184,6 +1187,121 @@ def run(config: dict[str, Any]) -> None:
 
     reminders = Reminders(HOME / "recordatorios.json", reminder_due)
     reminders.start()
+
+    # -- organizer: alarms and sticky notes ------------------------------------
+    from sergio_escritorio.organizer import Alarms, Notes, parse_alarm, parse_note
+
+    organizer_windows: list[Any] = []
+    alarm_cards: list[Any] = []
+
+    def alarm_rings(alarm: Any) -> None:
+        from sergio_escritorio.organizer_ui import AlarmCard, ring_sound
+
+        def show() -> None:
+            ring_sound()
+            card = AlarmCard(alarm, lambda: alarms.snooze(alarm.id), lambda: None)
+            alarm_cards[:] = [card]
+            card.show()
+            card.raise_()
+
+        try:
+            on_ui(show)
+        except Exception:  # noqa: BLE001 — the voice still says it
+            logging.exception("alarm card failed")
+        what = f": {alarm.label}" if alarm.label else ""
+        tell(f"Señor, son las {alarm.hour:02d}:{alarm.minute:02d}{what}.", to_call=f"[Alarma de las {alarm.hour:02d}:{alarm.minute:02d}{what}] Avísale ahora.")
+
+    alarms = Alarms(HOME / "alarmas.json", alarm_rings)
+    notes = Notes(HOME / "notas.json")
+    note_board: list[Any] = []
+
+    def alarm_loop() -> None:
+        while True:
+            try:
+                alarms.check()
+            except Exception:  # noqa: BLE001 — never kill the alarms
+                logging.exception("alarms failed")
+            time.sleep(1.0)
+
+    threading.Thread(target=alarm_loop, daemon=True).start()
+
+    def board() -> Any:
+        from sergio_escritorio.organizer_ui import NotesBoard
+
+        if not note_board:
+            note_board.append(NotesBoard(notes))
+        return note_board[0]
+
+    def homework_items() -> list[dict]:
+        try:
+            data = json.loads((HOME / "escuela.json").read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return []
+        items = [{"tipo": "tarea", **t} for t in data.get("tareas", [])]
+        items += [{"tipo": "examen", "titulo": ", ".join(e.get("temas", [])[:3]), **e} for e in data.get("examenes", [])]
+        return sorted(items, key=lambda i: i.get("fecha") or "9999")
+
+    def open_organizer(tab: int = 0) -> str:
+        from sergio_escritorio.organizer_ui import OrganizerWindow
+
+        def show() -> None:
+            if not organizer_windows:
+                organizer_windows.append(OrganizerWindow(alarms, notes, board(), reminders, homework_items))
+            organizer_windows[0].open(tab)
+
+        on_ui(show)
+        return "Su organizador, señor."
+
+    def run_organizer(q: Any, now: Any) -> str | None:
+        if q.kind == "alarm":
+            parsed = parse_alarm(q.arg, now)
+            if parsed is None:
+                return "¿A qué hora pongo la alarma?"
+            hour, minute, days, label = parsed
+            alarm = alarms.add(hour, minute, days, label)
+            if organizer_windows:
+                on_ui(organizer_windows[0].refresh)
+            return f"Alarma puesta: {alarm.describe()}."
+        if q.kind == "alarm_remove":
+            from sergio_escritorio.jarvis import parse_clock
+
+            when = parse_clock(q.arg, now)
+            gone = alarms.remove_at(when.hour, when.minute) if when else 0
+            if not gone and when is None and alarms.items:
+                gone = len(alarms.items)
+                for a in list(alarms.items):
+                    alarms.remove(a.id)
+            return f"Quité {gone} alarma{'s' if gone != 1 else ''}." if gone else "No encontré esa alarma."
+        if q.kind == "alarms_list":
+            items = alarms.upcoming()
+            if not items:
+                return "No tiene alarmas activas."
+            return "Sus alarmas: " + "; ".join(a.describe() for _w, a in items[:5]) + "."
+        if q.kind == "note":
+            parsed = parse_note(q.arg)
+            if parsed is None:
+                return "¿Qué escribo en la nota?"
+            text, colour = parsed
+            note = notes.add(text, colour)
+            on_ui(lambda: board().show(note))
+            return "Nota pegada en el escritorio."
+        if q.kind == "notes_show":
+            count = on_ui(lambda: board().show_all())
+            return f"Aquí están sus {count} notas." if count else "No tiene notas. Diga «nota: …» para crear una."
+        if q.kind == "notes_hide":
+            on_ui(lambda: board().hide_all())
+            return "Notas guardadas."
+        if q.kind == "note_remove":
+            found = notes.find(q.arg)
+            for n in found:
+                on_ui(lambda nid=n.id: board().remove(nid))
+            return f"Borré {len(found)} nota{'s' if len(found) != 1 else ''}." if found else "No encontré esa nota."
+        if q.kind == "organizer":
+            return open_organizer({"alarmas": 0, "notas": 1, "recordatorios": 2, "tareas": 3}.get(q.arg, 0))
+        return None
+
+    if notes.items and config.get("notas_al_iniciar", True):
+        _QTimer.singleShot(2500, lambda: board().show_all())
     protocols = dict(PROTOCOLS)
     protocols.update(config.get("protocolos") or {})
 
@@ -1198,6 +1316,9 @@ def run(config: dict[str, Any]) -> None:
 
     def run_jarvis(q: Any, now: Any) -> str | None:
         """The JARVIS quick commands; None = not one of them."""
+        handled = run_organizer(q, now)
+        if handled is not None:
+            return handled
         if q.kind == "reminder":
             parsed = parse_reminder(q.arg, now)
             if parsed is None:

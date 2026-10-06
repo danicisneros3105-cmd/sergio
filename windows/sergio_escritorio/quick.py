@@ -192,6 +192,28 @@ def parse_quick(text: str) -> Quick | None:
     # Stop / silence
     if t in ("para", "parate", "callate", "silencio", "basta", "detente", "stop"):
         return Quick("stop", say="")
+    # Organizer: alarms at a time, sticky notes, the window
+    if re.search(r"\b(organizador|agenda de sergio)\b", t) and re.search(r"\b(abre|abreme|muestra|muestrame|ver|ensena)\b", t):
+        tab = next((k for k in ("alarmas", "notas", "recordatorios", "tareas") if k in t), "")
+        return Quick("organizer", tab)
+    if re.search(r"\b(alarmas?|despiertame|despertador)\b", t):
+        if re.search(r"\b(cancela|borra|quita|elimina|apaga)\b", t):
+            return Quick("alarm_remove", text)
+        if re.search(r"\b(que|cuales|mis)\b.*\balarmas\b", t):
+            return Quick("alarms_list")
+        if re.search(r"\ba las? \d|\b\d{1,2}:\d{2}\b", t):
+            return Quick("alarm", text)
+    from sergio_escritorio.organizer import parse_note
+
+    if parse_note(text.strip()) is not None:
+        return Quick("note", text.strip())
+    if re.search(r"\b(muestra|muestrame|ensename|ver|abre)\b.*\b((mis|las) notas|notas adhesivas|post-?its?)\b", t) and "bloc" not in t:
+        return Quick("notes_show")
+    if re.search(r"\b(esconde|oculta|quita|guarda)\b.*\b(las|mis) notas\b", t):
+        return Quick("notes_hide")
+    m = re.match(r"(?:borra|elimina|quita) la nota (?:de |que dice |sobre )?(.+)", t)
+    if m:
+        return Quick("note_remove", m.group(1))
     # Timers and reminders: "recuérdame en 10 minutos sacar la ropa"
     if re.search(r"\b(recuerdame|avisame|temporizador(es)?|alarmas?|despiertame|timer)\b", t):
         if re.search(r"\b(cancela|borra|quita|elimina)\b", t):

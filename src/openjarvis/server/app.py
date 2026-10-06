@@ -531,6 +531,10 @@ def create_app(
     from openjarvis.server.meeting_routes import router as meeting_router
 
     app.include_router(meeting_router)
+    # The coach: profile, learning plans, video reviews, health, support.
+    from openjarvis.server.coach_routes import router as coach_router
+
+    app.include_router(coach_router)
     # Native notch tabs: God's Eye View data and ECC guides.
     from openjarvis.server.notch_routes import router as notch_router
 
