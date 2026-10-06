@@ -198,7 +198,7 @@ Analiza en profundidad cruzando todos los datos. Devuelve SOLO JSON:
  "rutina": [{{"dia": "lunes", "actividad": "...", "minutos": 30}}],
  "metas": [{{"metrica": "...", "objetivo": "...", "plazo": "..."}}]}}
 Prioriza 3-5 recomendaciones; nada de diagnósticos."""
-    return _list(_need(ask(prompt, deep=True, **kw), "resumen"), "alertas", "recomendaciones", "rutina", "metas")
+    return _list(_need(ask(prompt, effort="medium", **kw), "resumen"), "alertas", "recomendaciones", "rutina", "metas")
 
 
 # -- support -------------------------------------------------------------------------

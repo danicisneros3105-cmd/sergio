@@ -192,6 +192,19 @@ def parse_quick(text: str) -> Quick | None:
     # Stop / silence
     if t in ("para", "parate", "callate", "silencio", "basta", "detente", "stop"):
         return Quick("stop", say="")
+    # Health
+    if re.search(r"\b(cuestionario de salud|test de salud|preguntas de salud)\b", t):
+        return Quick("health", "cuestionario")
+    if re.search(r"\b(analiza|revisa|evalua)\b.*\bmi salud\b|\bcomo esta mi salud\b|\binforme de salud\b", t):
+        return Quick("health_analyze")
+    if re.search(r"\b(conectar|conecta|vincula|sincroniza)\b.*\b(reloj|apple watch|garmin|fitbit|samsung health|google fit|watch)\b", t):
+        return Quick("health", "reloj")
+    if re.search(r"^(abre |muestrame |ver |mi )?(mi )?salud$|\b(abre|muestrame) mi salud\b", t):
+        return Quick("health")
+    from sergio_escritorio.salud import parse_health_log
+
+    if re.search(r"^(hoy |anota que |registra que |apunta que )?(dormi|camine|hice|bebi|tome|pese|peso|mi pulso|mi animo|mi energia|mi estres)", t) and parse_health_log(text):
+        return Quick("health_log", text)
     # The coach: learning goals, practice, school
     m = re.match(r"(?:mi )?plataforma (?:escolar|del colegio|de la universidad|de clases) es\s+(\S+)", text.strip(), re.I)
     if m:

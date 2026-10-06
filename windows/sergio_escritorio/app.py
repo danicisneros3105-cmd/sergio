@@ -444,6 +444,9 @@ def run(config: dict[str, Any]) -> None:
     results_action = QAction("Mis resultados del gimnasio", menu)
     results_action.triggered.connect(lambda: open_results())
     menu.addAction(results_action)
+    health_action = QAction("Mi salud", menu)
+    health_action.triggered.connect(lambda: open_health())
+    menu.addAction(health_action)
     goals_action = QAction("Mis metas (coach)", menu)
     goals_action.triggered.connect(lambda: open_goals())
     menu.addAction(goals_action)
@@ -833,12 +836,8 @@ def run(config: dict[str, Any]) -> None:
             "alarmas": [a.describe() for a in alarms.items][:10],
             "notas": [n.text[:80] for n in notes.items][:10],
         }
-        for name, key in (("salud.json", "salud"), ("coach.json", "aprendizaje")):
-            try:
-                data = json.loads((HOME / name).read_text(encoding="utf-8"))
-                extra[key] = data.get("resumen_para_perfil") or {}
-            except (OSError, ValueError):
-                pass
+        extra["salud"] = health.summary_for_profile()
+        extra["aprendizaje"] = coach.summary_for_profile()
         return extra
 
     def update_profile_now() -> str:
@@ -1095,7 +1094,103 @@ def run(config: dict[str, Any]) -> None:
             return "Guardada su plataforma escolar. Diga «revisa mi plataforma escolar» cuando quiera."
         return None
 
+    # -- health: questionnaire, watch data, daily log, the report -------------
+    from sergio_escritorio.salud import Health, daily_time, parse_health_log
+
+    health = Health(HOME / "salud.json")
+    health_windows: dict[str, Any] = {}
+    health_asked: dict[str, str] = {"day": ""}
+
+    def health_folder() -> str:
+        return str(config.get("salud_carpeta") or "")
+
+    def set_health_folder(folder: str) -> None:
+        config["salud_carpeta"] = folder
+        save_config(config)
+        threading.Thread(target=lambda: health.sync_folder(Path(folder)), daemon=True).start()
+
+    def analyze_health() -> dict:
+        report = coach_post("health", {"data": health.overview(facts=profile.facts)}, timeout=300)
+        health.report = report
+        health.save()
+        return report
+
+    def open_health(tab: int = 0) -> str:
+        from sergio_escritorio.salud_ui import HealthWindow
+
+        def show() -> None:
+            if "main" not in health_windows:
+                health_windows["main"] = HealthWindow(health, analyze_health, health_folder, set_health_folder)
+            health_windows["main"].open(tab)
+
+        on_ui(show)
+        if not health.answers:
+            return "Empecemos por el cuestionario, señor: con eso calculo todo y lo analizo."
+        return health.describe() or "Su salud, señor."
+
+    def health_loop() -> None:
+        """Imports the watch's exports and asks the day's questions at your time."""
+        import datetime
+
+        from sergio_escritorio.salud_ui import DailyCard
+
+        last_sync = 0.0
+        while True:
+            try:
+                if health_folder() and time.time() - last_sync > 6 * 3600:
+                    last_sync = time.time()
+                    health.sync_folder(Path(health_folder()))
+                now = datetime.datetime.now()
+                hour, minute = daily_time(config.get("salud_hora"), profile.usage.free_windows())
+                today = now.date().isoformat()
+                due = (now.hour, now.minute) >= (hour, minute)
+                if (due and health_asked["day"] != today and (health.answers or health.days)
+                        and health.to_ask_today(today) and input_idle() < 300 and not call_active()):  # fmt: skip
+                    health_asked["day"] = today
+
+                    def show() -> None:
+                        card = DailyCard(health, lambda: None)
+                        health_windows["daily"] = card
+                        card.show()
+
+                    on_ui(show)
+                    tell("Señor, ¿cómo fue su día? Le dejé unas preguntas rápidas de salud.")
+            except Exception:  # noqa: BLE001 — never kill the loop
+                logging.exception("health loop failed")
+            time.sleep(60)
+
+    threading.Thread(target=health_loop, daemon=True).start()
+
+    def run_health(q: Any) -> str | None:
+        import datetime
+
+        if q.kind == "health":
+            return open_health({"hoy": 1, "cuestionario": 2, "reloj": 3}.get(q.arg, 0))
+        if q.kind == "health_analyze":
+            def work() -> None:
+                from sergio_escritorio.voice import explain
+
+                try:
+                    rep = analyze_health()
+                    first = (rep.get("recomendaciones") or [{}])[0].get("accion", "")
+                    tell(f"{rep.get('resumen', '')} Lo primero: {first}".strip())
+                except Exception as exc:  # noqa: BLE001
+                    tell(f"No pude analizar su salud: {explain(exc)}")
+
+            threading.Thread(target=work, daemon=True).start()
+            return "Analizo todos sus datos de salud en conjunto."
+        if q.kind == "health_log":
+            values = parse_health_log(q.arg)
+            if not values:
+                return None
+            health.log(datetime.date.today().isoformat(), values)
+            return "Anotado en su salud de hoy."
+        return None
+
     def run_profile(q: Any) -> str | None:
+        handled = run_health(q)
+        if handled is not None:
+            return handled
         handled = run_coach(q)
         if handled is not None:
             return handled

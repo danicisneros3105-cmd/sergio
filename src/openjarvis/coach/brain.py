@@ -71,6 +71,7 @@ def ask(
     check: Callable[[Any], Any] | None = None,
     client: Any = None,
     max_tokens: int = 12000,
+    effort: str = "",
 ) -> Any:
     """Ask for a JSON answer; returns it parsed (``check`` may validate it).
 
@@ -86,7 +87,7 @@ def ask(
     contents.append(prompt)
     errors = []
     for model in DEEP_MODELS if deep else MODELS:
-        kwargs = dict(google_config_kwargs(model, 0.5, max_tokens, "medium" if deep else "low"))
+        kwargs = dict(google_config_kwargs(model, 0.5, max_tokens, effort or ("medium" if deep else "low")))
         if system:
             kwargs["system_instruction"] = system
         if search:  # grounding and a JSON mime type can't go together
