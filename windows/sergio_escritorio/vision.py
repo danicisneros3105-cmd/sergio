@@ -794,16 +794,42 @@ class ObjectFinder:
 YOLO_URL = "https://github.com/ultralytics/assets/releases/download/v8.3.0/{name}"
 
 
+def cuda_works() -> bool:
+    """True only if the NVIDIA card really runs PyTorch's kernels. A torch
+    built for other cards says "available" and then fails on every frame
+    (cudaErrorNoKernelImageForDevice): then the processor is the answer."""
+    try:
+        import torch
+
+        if not torch.cuda.is_available():
+            return False
+        major, minor = torch.cuda.get_device_capability(0)
+        arches = torch.cuda.get_arch_list()
+        if arches and f"sm_{major}{minor}" not in arches and not any(
+            a.startswith("compute_") for a in arches
+        ):
+            log.warning("PyTorch has no kernels for this card (sm_%s%s): CPU", major, minor)
+            return False
+        return float((torch.ones(8, device="cuda") * 2).sum().item()) == 16.0
+    except Exception as exc:  # noqa: BLE001
+        log.warning("CUDA unusable, vision on the CPU: %s", exc)
+        return False
+
+
+def gpu_broken(exc: BaseException) -> bool:
+    text = str(exc)
+    return "cuda" in text.lower() or "no kernel image" in text.lower()
+
+
 class YoloFinder:
     """YOLO11 (Ultralytics): the modern detector, on the NVIDIA GPU when there
     is one (the medium model) or the CPU (the small one). It makes far fewer
     of the old mistakes (window = televisor, hoodie = corbata)."""
 
     def __init__(self, score: float = 0.4) -> None:
-        import torch
         from ultralytics import YOLO
 
-        gpu = bool(torch.cuda.is_available())
+        gpu = cuda_works()
         name = "yolo11m.pt" if gpu else "yolo11s.pt"
         MODEL_URLS.setdefault(name, YOLO_URL.format(name=name))
         self._model = YOLO(str(ensure_model(name)))
@@ -823,11 +849,28 @@ class YoloFinder:
         except Exception as exc:  # noqa: BLE001 — 80 classes then
             log.info("YOLOE vocabulary unavailable: %s", exc)
 
+    def to_cpu(self) -> None:
+        """The card failed mid-run: keep seeing, on the processor."""
+        self._device, self._half, self.gpu = "cpu", False, False
+        self._vocab_every = 3
+        self.model = self.model.replace("(GPU)", "(CPU)")
+        if self._vocab is not None:
+            self._vocab.to_cpu()
+
     def find(self, frame: Any, hands: Sequence[Box] = ()) -> list[Seen]:
-        result = self._model.predict(
-            frame, conf=self._score, verbose=False, device=self._device,
-            imgsz=self._size, half=self._half,
-        )[0]
+        try:
+            result = self._model.predict(
+                frame, conf=self._score, verbose=False, device=self._device,
+                imgsz=self._size, half=self._half,
+            )[0]
+        except Exception as exc:
+            if not self.gpu or not gpu_broken(exc):
+                raise
+            log.warning("GPU failed (%s): vision moves to the CPU", str(exc)[:120])
+            self.to_cpu()
+            result = self._model.predict(
+                frame, conf=self._score, verbose=False, device="cpu", imgsz=self._size
+            )[0]
         names = result.names
         found = []
         for cls, conf, box in zip(
@@ -843,9 +886,12 @@ class YoloFinder:
             if self._frame % self._vocab_every == 0:
                 try:
                     self._extra = self._vocab.find(frame, self._size)
-                except Exception:  # noqa: BLE001
-                    log.exception("YOLOE failed")
-                    self._vocab = None
+                except Exception as exc:  # noqa: BLE001
+                    if gpu_broken(exc) and self._device != "cpu":
+                        self.to_cpu()
+                    else:
+                        log.exception("YOLOE failed")
+                        self._vocab = None
             extra = [Seen(e.label, e.kind, e.species, e.score, e.box) for e in self._extra]
             found = merge_vocab(found, [e for e in extra if vocab_sure(e, hands)])
         return clean_detections(found, hands)
@@ -899,6 +945,9 @@ class VocabFinder:
         self._model.set_classes(names, pe)
         self._device = 0 if gpu else "cpu"
         self._half = gpu
+
+    def to_cpu(self) -> None:
+        self._device, self._half = "cpu", False
 
     def find(self, frame: Any, size: int) -> list[Seen]:
         result = self._model.predict(

@@ -1689,8 +1689,15 @@ def run(config: dict[str, Any]) -> None:
     def selftest(kind: str) -> dict:
         """`sergio probar`: talk to Sergio the way you do, and time it."""
         if kind == "call":
-            if call_active():
-                return {"ok": False, "error": "Hay una llamada en curso."}
+            live = current_call[0]
+            if live is not None and live.active:  # yours: never cut it to test
+                return {
+                    "ok": True,
+                    "busy": True,
+                    "model": live.model,
+                    "echo": live.echo.kind,
+                    "heard": bool(live.heard_anything),
+                }
             said: list[str] = []
             voice_at: list[float] = []
             t0 = time.monotonic()

@@ -333,3 +333,36 @@ def test_clean_view_shows_people_held_and_named_things_only():
     shown = {tr.title(0.1, clean=True) for tr in salient(t.visible(0.1), clean=True)}
     assert shown == {"Persona", "Taza · en tu mano"}
     assert len(salient(t.visible(0.1))) > len(shown)  # the detailed view shows more
+
+
+def test_vision_moves_to_the_cpu_when_the_card_has_no_kernels():
+    from sergio_escritorio import vision
+
+    calls = []
+
+    class Model:
+        def predict(self, frame, **kw):
+            calls.append(kw["device"])
+            if kw["device"] != "cpu":
+                raise RuntimeError("CUDA error: no kernel image is available for execution")
+
+            class Boxes:
+                cls = conf = xyxyn = type("T", (), {"tolist": lambda self: []})()
+
+            return [type("R", (), {"names": {}, "boxes": Boxes()})()]
+
+    finder = vision.YoloFinder.__new__(vision.YoloFinder)
+    finder._model, finder._device, finder._half, finder.gpu = Model(), 0, True, True
+    finder._size, finder._score, finder._vocab, finder.model = 640, 0.4, None, "yolo11m.pt (GPU)"
+    assert finder.find(object()) == []
+    assert finder.find(object()) == []
+    assert calls == [0, "cpu", "cpu"]
+    assert finder.model == "yolo11m.pt (CPU)" and finder._half is False
+
+
+def test_cuda_works_is_false_without_a_usable_card():
+    from sergio_escritorio import vision
+
+    assert vision.gpu_broken(RuntimeError("CUDA error: no kernel image is available"))
+    assert not vision.gpu_broken(ValueError("bad frame"))
+    assert vision.cuda_works() in (True, False)  # never raises

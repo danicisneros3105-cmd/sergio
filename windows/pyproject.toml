@@ -33,7 +33,7 @@ oido = ["vosk>=0.3.45"]
 vision = ["ultralytics>=8.3"]
 # The same on the NVIDIA card (CUDA PyTorch, ~2.5 GB): YOLO11-m + YOLOE at
 # 15+ frames a second instead of ~3 on the processor.
-vision-gpu = ["ultralytics>=8.3", "torch>=2.4", "torchvision>=0.19"]
+vision-gpu = ["ultralytics>=8.3", "torch>=2.7", "torchvision>=0.22"]
 # NVIDIA GPU for a much better ear (Whisper large-v3-turbo). Big download
 # (~1 GB); the installer tries it but Sergio works on the CPU without it.
 gpu = [
@@ -64,7 +64,10 @@ environments = ["sys_platform == 'win32'"]
 torch = [{ index = "pytorch-cuda", extra = "vision-gpu" }]
 torchvision = [{ index = "pytorch-cuda", extra = "vision-gpu" }]
 
+# CUDA 12.8 builds: they carry kernels for every card from the GTX 16/RTX 20
+# up to the RTX 50 (Blackwell); the 12.6 ones failed on new cards with
+# cudaErrorNoKernelImageForDevice. Older cards: the installer uses the CPU.
 [[tool.uv.index]]
 name = "pytorch-cuda"
-url = "https://download.pytorch.org/whl/cu126"
+url = "https://download.pytorch.org/whl/cu128"
 explicit = true

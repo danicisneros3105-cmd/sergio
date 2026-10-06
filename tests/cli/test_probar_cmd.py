@@ -2,11 +2,15 @@
 
 import base64
 import json
+import sys
 
 import httpx
 from click.testing import CliRunner
 
 from openjarvis.cli import probar_cmd
+
+
+BUSY_CALL = False
 
 
 def _transport(fail=()):
@@ -66,7 +70,9 @@ def _transport(fail=()):
             return httpx.Response(
                 200,
                 json={
-                    "call": {"ok": True, "connect_s": 0.5, "voice_s": 1.1, "model": "gemini-3.8-live",
+                    "call": {"ok": True, "busy": True, "model": "gemini-3.8-live", "echo": "webrtc"}
+                    if BUSY_CALL
+                    else {"ok": True, "connect_s": 0.5, "voice_s": 1.1, "model": "gemini-3.8-live",
                              "echo": "webrtc", "said": "Son las tres."},
                     "turn": {"ok": True, "think_s": 1.2, "voice_s": 0.8,
                              "voice": "Gemini (Algieba)", "answer": "Son las tres."},
@@ -154,3 +160,10 @@ def test_failures_are_reported_and_the_rest_still_runs(monkeypatch, tmp_path):
     assert "FALLA Cámara" in result.output
     assert "OK   Globo 3D" in result.output
     assert "6 prueba(s) fallaron" in result.output  # no photo: vision, faces x2, scene
+
+
+def test_a_call_in_progress_is_not_a_failure(monkeypatch, tmp_path):
+    monkeypatch.setattr(sys.modules[__name__], "BUSY_CALL", True)
+    result = _run(monkeypatch, tmp_path)
+    assert result.exit_code == 0, result.output
+    assert "ya estás en una llamada con gemini-3.8-live" in result.output

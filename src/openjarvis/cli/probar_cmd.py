@@ -365,6 +365,11 @@ def probar(sin_pantalla: bool) -> None:
 
         def talk_call() -> str:
             out = selftest("call")
+            if out.get("busy"):
+                return (
+                    f"ya estás en una llamada con {out.get('model')} (eco {out.get('echo')}); "
+                    "no la corto para probar"
+                )
             return (
                 f"conectó en {out.get('connect_s')} s, habló en {out.get('voice_s')} s "
                 f"({out.get('model')}, eco {out.get('echo')}): «{str(out.get('said'))[:60]}»"

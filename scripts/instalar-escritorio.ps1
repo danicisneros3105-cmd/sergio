@@ -62,7 +62,17 @@ if ($LASTEXITCODE -ne 0) { Write-Host "   No pude instalar el oído instantáneo
 Write-Host "   Visión moderna (YOLO11 + YOLOE: objetos y personas sin confundir tu mano)… puede tardar"
 $env:UV_HTTP_TIMEOUT = "900"
 $visionOk = $false
+$gpuCap = 0.0
 if (Get-Command nvidia-smi -ErrorAction SilentlyContinue) {
+    try {
+        $capText = (& nvidia-smi --query-gpu=compute_cap --format=csv,noheader 2>$null | Select-Object -First 1)
+        $gpuCap = [double]::Parse("$capText".Trim(), [Globalization.CultureInfo]::InvariantCulture)
+    } catch { $gpuCap = 7.5 }  # an old driver without the query: try the GPU
+}
+if ($gpuCap -gt 0 -and $gpuCap -lt 7.5) {
+    Write-Host "   Tu tarjeta NVIDIA es anterior a las GTX 16/RTX 20: la visión usará el procesador."
+}
+if ($gpuCap -ge 7.5) {
     Write-Host "   Tarjeta NVIDIA: la visión usará la GPU (descarga grande, ~2,5 GB, solo la primera vez)"
     & $uv sync --project $app --python 3.12 --inexact --extra manos --extra llamada --extra oido --extra vision-gpu
     $visionOk = ($LASTEXITCODE -eq 0)
