@@ -135,7 +135,7 @@ def plan_task(
     prompt = PROMPT.format(max_steps=MAX_STEPS, tools=", ".join(allowed), request=request)
     if role:
         prompt = f"Trabajas como este agente especialista: {role}\n\n" + prompt
-    plan = validate_plan(ask(prompt, effort="medium"), request)
+    plan = validate_plan(ask(prompt, effort="medium", deep=True), request)
     for step in plan["pasos"]:  # an agent never reaches outside its toolbox
         outside = [t for t in step["herramientas"] if t not in allowed]
         step["herramientas"] = [t for t in step["herramientas"] if t in allowed]
@@ -176,7 +176,7 @@ def design_agent(description: str, ask: Callable[..., Any] | None = None) -> dic
     if ask is None:
         from openjarvis.coach.brain import ask
     prompt = AGENT_PROMPT.format(description=description, tools=", ".join(sorted(TOOLS)))
-    return validate_agent(ask(prompt, effort="medium"), description)
+    return validate_agent(ask(prompt, effort="medium", deep=True), description)
 
 
 class PlanRequest(BaseModel):

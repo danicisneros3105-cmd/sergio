@@ -887,6 +887,30 @@ apruebes mirando la cámara. «Modo bloqueo»: la pantalla de bloqueo de Windows
   escritura, investigación, datos) y descripciones cortas; Sergio también
   elige la guía solo en las tareas largas.
 
+## Visión con distancias, verificación y consulta tipo iMessage
+
+* **Distancias reales entre objetos**: al analizar la cámara, Sergio calcula
+  a qué profundidad está cada cosa por su tamaño real (una taza ~10 cm, un
+  celular ~15, la cara de una persona ~15) y dice, por ejemplo, «taza a
+  45 cm del celular».
+  * Pregunta directa: «¿a qué distancia está la taza del celular?».
+  * Primero usa el modelo espacial de Google (Gemini Robotics-ER) y, si no
+    responde, los Flash.
+  * Probado con una escena de Blender de medidas conocidas: error medio de
+    unos 3 cm entre objetos a 25-75 cm.
+* **Nombres con lógica**: si el tamaño no cuadra con el nombre (una «silla»
+  de 6 cm), lo dice como duda («no estoy seguro») en vez de afirmarlo.
+* **No da por hecho lo que no existe**: si un agente dice que guardó un
+  archivo, Sergio comprueba que está. Si no está, le pide hacerlo de verdad;
+  si sigue sin estar, la tarea no se da por terminada.
+* **Menos espera en pantalla**: el compañero ya no espera siempre 0,35 s
+  antes de cada clic; en saltos cortos casi no espera (0,08-0,3 s según la
+  distancia).
+* **Planes y agentes con el mejor modelo disponible**: Gemini 3.1 Pro
+  primero; Flash si Pro no está disponible.
+* **Consulta**: conversación estilo iMessage (Sergio en burbujas grises, tú
+  en azules).
+
 ## Agentes Pro y tus propios agentes
 
 * **Lo que la gente pide de verdad a un «Jarvis»** (comentarios de Reddit,

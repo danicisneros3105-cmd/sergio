@@ -132,6 +132,11 @@ def tray_icon(colour: Any) -> Any:
     return QIcon(pix)
 
 
+def companion_delay(pixels: float) -> float:
+    """Seconds the companion needs to arrive before the click (0.08 to 0.3)."""
+    return round(min(0.3, max(0.08, 0.08 + pixels / 4000)), 3)
+
+
 def _quick_kind(kind: str, arg: str = "") -> Any:
     from sergio_escritorio.quick import Quick
 
@@ -660,13 +665,19 @@ def run(config: dict[str, Any]) -> None:
     bridge.point.connect(point_at)
     controller.on_point = lambda x, y, label: bridge.point.emit(x, y, label)
 
+    def arrival_delay(x: int, y: int) -> float:
+        from PySide6.QtGui import QCursor
+
+        here = QCursor.pos()
+        return companion_delay(((here.x() - x) ** 2 + (here.y() - y) ** 2) ** 0.5)
+
     def companion_click(x: int, y: int, kind: str) -> None:
         """The companion flies to the spot, then the click happens there."""
         if not config.get("companero_hace_clic", True):
             return
         label = {"double_click": "Doble clic", "right_click": "Clic derecho"}.get(kind, "Clic")
         bridge.point.emit(x, y, label)
-        time.sleep(0.35)  # let him arrive: the user sees where it will click
+        time.sleep(arrival_delay(x, y))  # long flights wait a bit, short hops almost none
         bridge.pressed.emit()
 
     controller.on_click = companion_click
@@ -1504,9 +1515,12 @@ def run(config: dict[str, Any]) -> None:
                     timeout=90,
                 )
                 resp.raise_for_status()
-                items = list(resp.json().get("items") or [])
+                data = resp.json()
+                items = list(data.get("items") or [])
                 vision_engine.tracker.add_scene(items, time.monotonic())
                 text = scene_sentence(items)
+                if data.get("distances"):
+                    text += " " + data["distances"]
             except Exception as exc:  # noqa: BLE001
                 from sergio_escritorio.voice import explain
 
@@ -3233,6 +3247,20 @@ def run(config: dict[str, Any]) -> None:
         return f"Anotado: {where.name}. Emergencias {where.emergency}; apoyo: {where.crisis}."
 
     def run_world(q: Any) -> str | None:
+        if q.kind == "distance":
+            from sergio_escritorio.vision import distance_answer
+
+            if not camera_window.isVisible():
+                on_ui(camera_window.open)
+                time.sleep(1.5)
+            resp = client.http.post(
+                f"{client.base}/v1/vision/scene",
+                files={"image": ("camara.jpg", feed.jpeg(), "image/jpeg")},
+                timeout=90,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            return distance_answer(q.arg, data.get("items") or [], data.get("relations") or [])
         if q.kind == "cams":
             return show_cams(q.arg)
         if q.kind == "flight_follow":
@@ -3281,6 +3309,17 @@ def run(config: dict[str, Any]) -> None:
 
     from sergio_escritorio.tareas import plan_line
 
+    def file_exists(path: str) -> bool | None:
+        """Windows paths are checked here; Ubuntu ones through \\wsl$ when possible."""
+        expanded = os.path.expanduser(path)
+        if re.match(r"^[A-Za-z]:\\", expanded) or path.startswith("~"):
+            return Path(expanded).exists()
+        wsl = Path(r"\\wsl$\Ubuntu" + path.replace("/", "\\"))
+        try:
+            return wsl.exists() if path.startswith(("/home/", "/mnt/")) and os.name == "nt" else None
+        except OSError:
+            return None
+
     def task_done(task: Any) -> None:
         if task.agent and task.status == "done":
             agents.remember(task.agent["nombre"], task.result)
@@ -3290,6 +3329,7 @@ def run(config: dict[str, Any]) -> None:
         on_plan=lambda task: bridge.caption.emit(plan_line(task)),  # the plan, seen before the work
         on_done=lambda task: task_done(task),
         plan_grace=6.0,
+        exists=file_exists,
     )
 
     def run_tasks(q: Any) -> str | None:

@@ -189,3 +189,34 @@ def test_a_screen_plan_can_be_stopped_before_it_starts():
     orch.cancel_last()
     wait(orch)
     assert calls == [] and orch.tasks[0].status == "cancelled" and "Cancelada" in told[0]
+
+
+def test_a_file_that_is_said_to_exist_is_checked():
+    from sergio_escritorio.tareas import claimed_paths
+
+    assert claimed_paths("TERMINADO: tabla guardada en C:\\Users\\dani\\Documents\\tabla.xlsx.") == [
+        "C:\\Users\\dani\\Documents\\tabla.xlsx"]
+    replies = iter(["TERMINADO: guardado en C:\\x\\tabla.xlsx", "TERMINADO: ahora sí en C:\\x\\tabla.xlsx"])
+    files = {"C:\\x\\tabla.xlsx": False}
+    plan = lambda r: {"pasos": [{"paso": "hacer la tabla", "donde": "fondo"}]}  # noqa: E731
+
+    def answers(prompt):
+        reply = next(replies)
+        if "no existe" in prompt:
+            files["C:\\x\\tabla.xlsx"] = True  # the second time it really wrote it
+        return reply
+
+    orch, acts, told, calls = make(plan, answers)
+    orch.exists = lambda p: files.get(p)
+    orch.submit("tabla")
+    wait(orch)
+    assert "no existe" in calls[1] and orch.tasks[0].status == "done"
+
+
+def test_a_file_that_never_appears_is_not_reported_as_done():
+    plan = lambda r: {"pasos": [{"paso": "hacer la tabla", "donde": "fondo"}]}  # noqa: E731
+    orch, acts, told, calls = make(plan, lambda p: "TERMINADO: guardado en C:\\x\\t.xlsx")
+    orch.exists = lambda p: False
+    orch.submit("tabla")
+    wait(orch)
+    assert orch.tasks[0].status == "failed"

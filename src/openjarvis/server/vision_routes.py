@@ -125,6 +125,8 @@ Para cada uno da:
 "celular", "guitarra"); nunca "objeto" ni "animal",
 - tipo: "persona", "animal" u "objeto",
 - especie: para seres vivos ("humano", "perro", "gato", "loro"...), si no "",
+- tamano_cm: su medida real más grande en centímetros (estimada por lo que \
+es y por lo que hay alrededor; una taza ~10, un celular ~15, una silla ~95),
 - detalle: hasta 6 palabras. Personas: si parece hombre o mujer, edad \
 aproximada y algo visible ("hombre, unos 25 años, suéter gris"). Animales: \
 raza o color. Objetos: color, material o marca visible.
@@ -155,6 +157,10 @@ def parse_scene(text: str) -> list[dict[str, Any]]:
         label = str(item.get("etiqueta") or item.get("label") or "").strip()
         detail = str(item.get("detalle") or item.get("detail") or "").strip()
         species = str(item.get("especie") or "").strip()
+        try:
+            size_cm = float(item.get("tamano_cm") or item.get("tamaño_cm") or 0) or None
+        except (TypeError, ValueError):
+            size_cm = None
         if label.lower() in ("", "objeto", "animal", "cosa", "elemento"):
             # A vague label: name it by its species or its description.
             label = species or (detail.split()[0] if detail else label or kind)
@@ -165,6 +171,7 @@ def parse_scene(text: str) -> list[dict[str, Any]]:
                 "kind": kind if kind in ("persona", "animal", "objeto") else "objeto",
                 "species": species[:30],
                 "detail": detail[:80],
+                "size_cm": size_cm,
             }
         )
     return out
@@ -173,6 +180,9 @@ def parse_scene(text: str) -> list[dict[str, Any]]:
 def _inside(face: list[float], box: list[float]) -> bool:
     cx, cy = face[0] + face[2] / 2, face[1] + face[3] / 2
     return box[0] <= cx <= box[0] + box[2] and box[1] <= cy <= box[1] + box[3]
+
+
+SPATIAL_MODELS = ("gemini-robotics-er-2-preview",)
 
 
 def scene(image: bytes, limit: int = 12, lite: bool = False) -> dict[str, Any]:
@@ -207,9 +217,18 @@ def scene(image: bytes, limit: int = 12, lite: bool = False) -> dict[str, Any]:
         if known
         else ""
     )
-    items = parse_scene(
-        ask_image(image, SCENE_PROMPT.format(limit=limit, people=people), lite=lite)
-    )
+    prompt = SCENE_PROMPT.format(limit=limit, people=people)
+    reply = ""
+    if not lite:
+        # Google's spatial specialist first: in a measured test scene its
+        # distances were within ~3 cm; the general models are the backup.
+        from openjarvis.tools.vision_look import GEMINI_VISION_MODELS, _gemini
+
+        try:
+            reply = _gemini(image, prompt, "image/jpeg", SPATIAL_MODELS + GEMINI_VISION_MODELS)
+        except Exception:  # noqa: BLE001 — the usual chain below
+            reply = ""
+    items = parse_scene(reply or ask_image(image, prompt, lite=lite))
     for item in items:
         if item["kind"] != "persona":
             continue
@@ -217,8 +236,22 @@ def scene(image: bytes, limit: int = 12, lite: bool = False) -> dict[str, Any]:
             if _inside(face["box"], item["box"]):
                 item["name"] = face["name"] or ""
                 item["guest"] = face["guest"] or 0
+                item["face_box"] = face["box"]  # the best ruler for depth
                 break
-    return {"items": items, "faces": faces}
+    # Where things are and how far apart (and a size check on every name).
+    from openjarvis.tools.spatial import describe_relations, locate, relations
+
+    try:
+        import cv2
+        import numpy as np
+
+        frame = cv2.imdecode(np.frombuffer(image, np.uint8), cv2.IMREAD_COLOR)
+        height, width = frame.shape[:2]
+    except Exception:  # noqa: BLE001
+        width, height = 1280, 720
+    items = locate(items, width, height)
+    pairs = relations(items)
+    return {"items": items, "faces": faces, "relations": pairs, "distances": describe_relations(pairs)}
 
 
 @router.post("/scene")

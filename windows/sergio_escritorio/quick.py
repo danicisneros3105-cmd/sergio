@@ -223,6 +223,9 @@ def parse_quick(text: str) -> Quick | None:
     # Stop / silence
     if t in ("para", "parate", "callate", "silencio", "basta", "detente", "stop"):
         return Quick("stop", say="")
+    # Real distances between things the camera sees
+    if re.search(r"\b(a que distancia|que tan lejos|cuantos (cm|centimetros|metros) hay|que distancia hay)\b", t):
+        return Quick("distance", text)
     # Sergio international: language and country
     from sergio_escritorio.idioma import country_said, language_asked
 

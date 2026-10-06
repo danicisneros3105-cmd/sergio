@@ -130,7 +130,11 @@ class Orchestrator:
         on_plan: Callable[[Task], None] = lambda _task: None,
         on_done: Callable[[Task], None] = lambda _task: None,
         plan_grace: float = 0.0,
+        exists: Callable[[str], bool | None] | None = None,
     ) -> None:
+        # Anti-hallucination: a step that says it saved a file is only done
+        # if the file is really there (None = that path cannot be checked).
+        self.exists = exists
         # Seconds to object after the plan is shown (a plan you can't veto is
         # theatre): tasks that use the screen or touch something important wait.
         self.plan_grace = plan_grace
@@ -269,10 +273,29 @@ class Orchestrator:
             if status == "more":
                 answer = ask(f"{prompt}\nFalta: {detail or 'verificar'}. Compruébalo y termina.")
         status, detail = step_status(answer)
+        missing = self._missing_files(detail) if status == "done" else []
+        if missing:  # it says it saved something that is not there: one more try
+            answer = ask(f"{prompt}\nDijiste que guardaste {', '.join(missing)}, pero no existe. "
+                         "Créalo de verdad y comprueba que está.")
+            status, detail = step_status(answer)
+            if status == "done" and self._missing_files(detail):
+                status, detail = "more", f"no encuentro {', '.join(self._missing_files(detail))}"
         step.result = detail or answer[-300:]
         step.status = "done" if status == "done" else "failed"
         if step.status == "failed":
             task.result = f"Me quedé en el paso {n}: {step.result}"
+
+    def _missing_files(self, text: str) -> list[str]:
+        if self.exists is None:
+            return []
+        missing = []
+        for path in claimed_paths(text):
+            try:
+                if self.exists(path) is False:
+                    missing.append(path)
+            except Exception:  # noqa: BLE001 — a check never breaks the task
+                continue
+        return missing
 
     def _asker(self, task: Task) -> Ask:
         if not hasattr(task, "_ask"):
@@ -315,6 +338,14 @@ def _short(text: str, n: int = 32) -> str:
     return text if len(text) <= n else text[: n - 1].rstrip() + "…"
 
 
+PATH = re.compile(r"(?:[A-Za-z]:\\|~[\\/]|/home/|/mnt/)[^\s\"'«»,;]+\.[A-Za-z0-9]{1,5}")
+
+
+def claimed_paths(text: str) -> list[str]:
+    """File paths a step says it wrote («guardado en C:\\Users\\…\\tabla.xlsx»)."""
+    return [m.rstrip(".)") for m in PATH.findall(text or "")]
+
+
 def plan_line(task: Task) -> str:
     """«Plan: 1) buscar… 2) tabla… 3) abrir (pantalla)» — the plan, seen first."""
     parts = [f"{n}) {_short(s.text, 38)}" + (" (pantalla)" if s.where == "pantalla" else "")
@@ -325,5 +356,5 @@ def plan_line(task: Task) -> str:
     return line
 
 
-__all__ = ["plan_line", "CANCEL", "Orchestrator", "Step", "Task", "WHAT_DOING", "parse_background", "parse_together", "step_status"]
+__all__ = ["claimed_paths", "plan_line", "CANCEL", "Orchestrator", "Step", "Task", "WHAT_DOING", "parse_background", "parse_together", "step_status"]
 

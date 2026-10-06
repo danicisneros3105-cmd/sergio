@@ -15,12 +15,11 @@ from __future__ import annotations
 import math
 import random
 import time
-from html import escape
 from typing import Any, Callable
 
 from PySide6.QtCore import QPointF, QRectF, Qt, QTimer
 from PySide6.QtGui import QColor, QFont, QLinearGradient, QPainter, QPainterPath, QPen, QPolygonF, QRadialGradient
-from PySide6.QtWidgets import QHBoxLayout, QLabel, QLineEdit, QPushButton, QTextBrowser, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QHBoxLayout, QLabel, QLineEdit, QPushButton, QScrollArea, QVBoxLayout, QWidget
 
 from sergio_escritorio import character
 from sergio_escritorio.coach_ui import in_background
@@ -411,7 +410,12 @@ STYLE = """
 QWidget#room { background: #000000; }
 QLabel { color: #f5f5f7; }
 QLabel#hint { color: #8e8e93; font-size: 12px; }
-QTextBrowser { background: #1c1c1e; color: #f5f5f7; border: none; border-radius: 16px; padding: 12px; font-size: 14px; }
+QScrollArea { background: #1c1c1e; border: none; border-radius: 16px; }
+QWidget#thread { background: #1c1c1e; }
+QLabel#him { background: #2c2c2e; color: #f5f5f7; border-radius: 16px; padding: 9px 13px; font-size: 14px; }
+QLabel#me { background: #0a84ff; color: white; border-radius: 16px; padding: 9px 13px; font-size: 14px; }
+QScrollBar:vertical { background: transparent; width: 6px; }
+QScrollBar::handle:vertical { background: #3a3a3c; border-radius: 3px; }
 QLineEdit { background: #1c1c1e; color: #f5f5f7; border: 1px solid #2c2c2e; border-radius: 18px; padding: 9px 14px; font-size: 14px; }
 QLineEdit:focus { border: 1px solid #0a84ff; }
 QPushButton { background: #0a84ff; color: white; border: none; border-radius: 16px; padding: 8px 14px; font-weight: 600; }
@@ -455,7 +459,17 @@ class ConsultWindow(QWidget):
         self.scene.setFixedSize(132, 104)
         head.addWidget(self.scene, 0, Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignRight)
         side.addLayout(head)
-        self.chat = QTextBrowser()
+        # iMessage-style conversation: his words left in grey, yours right in blue.
+        self.chat = QScrollArea()
+        self.chat.setWidgetResizable(True)
+        self.chat.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self._thread = QWidget()
+        self._thread.setObjectName("thread")
+        self._rows = QVBoxLayout(self._thread)
+        self._rows.setContentsMargins(4, 4, 4, 4)
+        self._rows.setSpacing(8)
+        self._rows.addStretch(1)
+        self.chat.setWidget(self._thread)
         self.answers = QHBoxLayout()
         entry = QHBoxLayout()
         self.text = QLineEdit()
@@ -493,14 +507,36 @@ class ConsultWindow(QWidget):
         self._render()
 
     def _render(self) -> None:
-        html = []
+        while self._rows.count() > 1:  # keep the stretch that pushes bubbles down
+            item = self._rows.takeAt(1)
+            old = item.widget()
+            if old is not None:
+                old.hide()
+                old.deleteLater()
         for role, text in self._history[-60:]:
+            bubble = QLabel(text)
+            bubble.setWordWrap(True)
+            bubble.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+            bubble.setObjectName("me" if role == "user" else "him")
+            fits = bubble.fontMetrics().horizontalAdvance(text) + 34  # one line, if it fits
+            bubble.setFixedWidth(min(380, max(60, fits)))
+            row = QHBoxLayout()
             if role == "user":
-                html.append(f"<p align='right' style='margin:8px 0'><span style='background:#0a84ff;color:white;padding:6px'>{escape(text)}</span></p>")
+                row.addStretch(1)
+                row.addWidget(bubble)
             else:
-                html.append(f"<p style='margin:8px 0;color:#f5f5f7'>{escape(text)}</p>")
-        self.chat.setHtml("".join(html))
-        self.chat.verticalScrollBar().setValue(self.chat.verticalScrollBar().maximum())
+                row.addWidget(bubble)
+                row.addStretch(1)
+            holder = QWidget()
+            holder.setLayout(row)
+            row.setContentsMargins(0, 0, 0, 0)
+            self._rows.addWidget(holder)
+            holder.show()
+        QTimer.singleShot(0, lambda: self.chat.verticalScrollBar().setValue(self.chat.verticalScrollBar().maximum()))
+
+    def transcript(self) -> str:
+        """The conversation as plain text (for tests and the notes)."""
+        return "\n".join(text for _role, text in self._history[-60:])
 
     def _send_typed(self) -> None:
         text = self.text.text().strip()

@@ -584,7 +584,7 @@ def scene_sentence(items: Sequence[dict]) -> str:
             animals.append(f"{label} ({detail})" if detail and detail != label else label)
         else:
             label = item.get("label") or "objeto"
-            things.append(label)
+            things.append(f"{label} (no estoy seguro)" if item.get("doubt") else label)
     parts = []
     if people:
         who = [f"a {p}" for p in people]
@@ -594,6 +594,26 @@ def scene_sentence(items: Sequence[dict]) -> str:
     if things:
         parts.append("objetos: " + ", ".join(dict.fromkeys(things)))
     return ("Veo " + "; ".join(parts) + ".") if parts else "No distingo nada en particular."
+
+
+def distance_answer(question: str, items: Sequence[dict], pairs: Sequence[dict]) -> str:
+    """«¿a qué distancia está la taza del celular?» from the analysed scene."""
+    import unicodedata
+
+    def norm(x: str) -> str:
+        x = unicodedata.normalize("NFKD", x.lower())
+        return "".join(c for c in x if not unicodedata.combining(c))
+
+    q = norm(question)
+    named = [p for p in pairs if norm(p["a"]) in q and norm(p["b"]) in q and p["a"] != p["b"]]
+    if not named:
+        named = [p for p in pairs if norm(p["a"]) in q or norm(p["b"]) in q]
+    if not named:
+        return "No encuentro esos objetos en la imagen." if pairs else "No pude medir distancias en esta imagen."
+    p = named[0]
+    m = float(p["m"])
+    far = f"{round(m * 100)} centímetros" if m < 1 else f"{m:.1f} metros".replace(".", ",")
+    return f"Entre {p['a']} y {p['b']} hay unos {far} (calculado por el tamaño real de los objetos)."
 
 
 # -- faces up close: expressions and head pose --------------------------------------
