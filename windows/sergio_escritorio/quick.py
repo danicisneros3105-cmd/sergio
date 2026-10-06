@@ -192,6 +192,28 @@ def parse_quick(text: str) -> Quick | None:
     # Stop / silence
     if t in ("para", "parate", "callate", "silencio", "basta", "detente", "stop"):
         return Quick("stop", say="")
+    # The coach: learning goals, practice, school
+    m = re.match(r"(?:mi )?plataforma (?:escolar|del colegio|de la universidad|de clases) es\s+(\S+)", text.strip(), re.I)
+    if m:
+        url = m.group(1).strip(" .")
+        return Quick("school_set", url if url.startswith("http") else "https://" + url)
+    if re.search(r"\b(revisa|mira|abre|chequea|lee)\b.*\bplataforma\b|\b(que tareas tengo|tengo tareas|que examenes tengo|mis tareas pendientes)\b", t):
+        return Quick("school")
+    from sergio_escritorio.coach import parse_goal
+
+    goal = parse_goal(text)
+    if goal is not None and not re.search(r"\b(cancion|video|recordatorio)\b", t):
+        return Quick("learn", goal)
+    if re.search(r"\b(mis metas|que estoy aprendiendo|mi progreso)\b", t):
+        return Quick("goals")
+    if re.search(r"\b(como|que tal) (voy|me va)\b.*\bgimnasio\b", t):
+        return Quick("gym_report")
+    m = re.search(r"\bcomo voy (?:en|con) (.+)", t)
+    if m and "gimnasio" not in t:
+        return Quick("goals", m.group(1))
+    m = re.match(r"(?:practiquemos|vamos a practicar|quiero practicar|toca practicar)(?: (?:ahora|ya))?(?: (?:de |el |la )?(.+))?$", t)
+    if m:
+        return Quick("practice", (m.group(1) or "").strip())
     # Your profile
     if re.search(r"\b(que sabes de mi|muestrame mi perfil|cual es mi perfil|como me ves|que has aprendido de mi)\b", t):
         return Quick("profile_show")

@@ -444,6 +444,9 @@ def run(config: dict[str, Any]) -> None:
     results_action = QAction("Mis resultados del gimnasio", menu)
     results_action.triggered.connect(lambda: open_results())
     menu.addAction(results_action)
+    goals_action = QAction("Mis metas (coach)", menu)
+    goals_action.triggered.connect(lambda: open_goals())
+    menu.addAction(goals_action)
     organizer_action = QAction("Organizador: alarmas, notas, recordatorios", menu)
     organizer_action.triggered.connect(lambda: open_organizer())
     menu.addAction(organizer_action)
@@ -884,7 +887,218 @@ def run(config: dict[str, Any]) -> None:
 
     threading.Thread(target=profile_loop, daemon=True).start()
 
+    # -- the coach: what you are learning, at your pace ------------------------
+    from sergio_escritorio.coach import Coach, annotate_video, record_video, school_reminders
+
+    coach = Coach(HOME / "coach.json")
+    coach_windows: dict[str, Any] = {}
+    coach_shown: set[str] = set()
+
+    def coach_post(path: str, payload: dict, timeout: float = 240) -> dict:
+        resp = client.http.post(f"{client.base}/v1/coach/{path}", json=payload, timeout=timeout)
+        resp.raise_for_status()
+        return resp.json()
+
+    def learn(goal_text: str) -> str:
+        """Research the skill and plan it around your free time (in the background)."""
+        from sergio_escritorio.coach import goal_kind
+        from sergio_escritorio.voice import explain
+
+        def work() -> None:
+            try:
+                plan = coach_post("plan", {
+                    "goal": goal_text, "kind": goal_kind(goal_text), "profile": profile.data,
+                    "free_slots": profile.usage.free_windows(),
+                }, timeout=300)  # fmt: skip
+                goal = coach.add_goal(goal_text, plan, lambda after, minutes: profile.usage.next_good_time(after, minutes))
+                first = coach.next_session(goal)
+                when = datetime.datetime.fromtimestamp(first["due"]).strftime("%A a las %H:%M") if first else ""
+                said = f"Listo, señor: plan de {len(goal['sesiones'])} sesiones para {goal_text}. {plan.get('resumen', '')}"
+                tell(said + (f" La primera, el {when}." if when else ""))
+            except Exception as exc:  # noqa: BLE001
+                logging.exception("coach plan failed")
+                tell(f"No pude preparar el plan: {explain(exc)}")
+
+        import datetime
+
+        threading.Thread(target=work, daemon=True).start()
+        return f"Investigo cómo se aprende {goal_text} y le preparo un plan a su medida. Tardo un minuto."
+
+    def practice_video(goal: dict, session: dict) -> dict:
+        """Record 20 s, the coach reviews it, a copy with green/red circles opens."""
+        import re as _re
+
+        folder = Path.home() / "Videos" / "Sergio" / "Práctica"
+        stamp = time.strftime("%Y%m%d-%H%M%S")
+        slug = _re.sub(r"[^\w-]+", "-", goal["meta"].lower()).strip("-")[:40] or "practica"
+        raw = HOME / "practica" / f"{slug}-{stamp}.mp4"
+        feed.start()
+        feed.keep_on = True
+        try:
+            for i in (3, 2, 1):
+                bridge.caption.emit(f"Grabo en {i}…")
+                time.sleep(1)
+            bridge.caption.emit("Grabando 20 segundos…")
+            record_video(feed.frame, raw, seconds=20)
+        finally:
+            feed.keep_on = camera_window.isVisible()
+        bridge.caption.emit("Revisando su práctica fotograma a fotograma…")
+        with raw.open("rb") as fh:
+            resp = client.http.post(
+                f"{client.base}/v1/coach/review_video",
+                files={"video": (raw.name, fh, "video/mp4")},
+                data={"goal": goal["meta"], "focus": session.get("objetivo", "")},
+                timeout=300,
+            )
+        resp.raise_for_status()
+        review = resp.json()
+        out = annotate_video(raw, review.get("marcas") or [], folder / f"{slug}-{stamp}.mp4")
+        try:
+            raw.unlink()  # only the annotated copy is kept
+        except OSError:
+            pass
+        try:
+            os.startfile(str(out))  # type: ignore[attr-defined]
+        except Exception:  # noqa: BLE001 — not Windows
+            pass
+        review["video"] = str(out)
+        return review
+
+    def start_session(goal_id: str) -> str:
+        from sergio_escritorio.coach_ui import SessionWindow
+
+        goal = coach.get(goal_id)
+        session = coach.next_session(goal) if goal else None
+        if goal is None or session is None:
+            return "Esa meta no tiene sesiones pendientes."
+
+        def done(result: dict) -> None:
+            coach.finish(goal, session, result)
+            coach_shown.discard(f"{goal['id']}:{session['n']}")
+            if result.get("feedback"):
+                threading.Thread(target=lambda: tell(str(result["feedback"])), daemon=True).start()
+
+        def show() -> None:
+            window = SessionWindow(
+                goal,
+                session,
+                lambda: coach_post("lesson", {"goal": coach.for_lesson(goal), "profile": profile.data}),
+                (lambda: practice_video(goal, session)) if session.get("video") else None,
+                lambda text: coach_post("assess", {"goal": coach.for_lesson(goal), "results": text}),
+                done,
+            )
+            coach_windows["session"] = window
+            window.show()
+            window.raise_()
+
+        on_ui(show)
+        return f"Sesión {session['n']} de {goal['meta']}: {session['objetivo']}"
+
+    def open_goals() -> str:
+        from sergio_escritorio.coach_ui import CoachWindow
+
+        def show() -> None:
+            if "goals" not in coach_windows:
+                coach_windows["goals"] = CoachWindow(coach, lambda gid: start_session(gid))
+            coach_windows["goals"].open()
+
+        on_ui(show)
+        return coach.describe()
+
+    def coach_loop() -> None:
+        """Every minute: a practice due while you are at the PC pops up."""
+        from sergio_escritorio.coach_ui import PracticeCard
+
+        while True:
+            time.sleep(60)
+            try:
+                if call_active() or input_idle() > 300:
+                    continue
+                for goal, session in coach.due_sessions():
+                    key = f"{goal['id']}:{session['n']}"
+                    if key in coach_shown:
+                        continue
+                    coach_shown.add(key)
+
+                    def show(g=goal, s=session, k=key) -> None:
+                        card = PracticeCard(
+                            g, s,
+                            lambda: start_session(g["id"]),
+                            lambda: (coach.snooze(g, s), coach_shown.discard(k)),
+                            lambda: (coach.finish(g, s, {"feedback": "saltada"}), None),
+                        )  # fmt: skip
+                        coach_windows[f"card:{k}"] = card
+                        card.show()
+
+                    on_ui(show)
+                    tell(f"Señor, toca practicar {goal['meta']}: {session['minutos']} minutos.")
+                    break  # one invitation at a time
+            except Exception:  # noqa: BLE001 — never kill the loop
+                logging.exception("coach loop failed")
+
+    threading.Thread(target=coach_loop, daemon=True).start()
+
+    def check_school() -> str:
+        from sergio_escritorio.voice import explain
+
+        url = str(config.get("plataforma_escolar") or "").strip()
+        if not url:
+            return "Dígame la dirección de su plataforma: «mi plataforma escolar es aula punto colegio punto edu…»."
+
+        def work() -> None:
+            import datetime
+
+            try:
+                controller.act({"action": "open", "target": url})
+                time.sleep(8)  # the page loads (and you are already logged in)
+                png = controller.snapshot()[0]
+                resp = client.http.post(
+                    f"{client.base}/v1/coach/school", files={"image": ("plataforma.png", png, "image/png")}, timeout=180
+                )
+                resp.raise_for_status()
+                data = resp.json()
+                (HOME / "escuela.json").write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+                for due, text in school_reminders(data, datetime.datetime.now()):
+                    reminders.add(due, text)
+                tasks, exams = data.get("tareas") or [], data.get("examenes") or []
+                said = f"Encontré {len(tasks)} tareas y {len(exams)} exámenes; los puse en el organizador con recordatorios."
+                if exams:
+                    said += f" Para estudiar, diga «prepárame para el examen de {exams[0].get('materia', '…')}»."
+                tell(said)
+            except Exception as exc:  # noqa: BLE001
+                logging.exception("school check failed")
+                tell(f"No pude leer la plataforma: {explain(exc)}. ¿Ya inició sesión en ella?")
+
+        threading.Thread(target=work, daemon=True).start()
+        return "Reviso su plataforma escolar."
+
+    def run_coach(q: Any) -> str | None:
+        if q.kind == "learn":
+            return learn(q.arg)
+        if q.kind == "goals":
+            found = coach.find(q.arg) if q.arg else None
+            if found is not None:
+                p = coach.progress(found)
+                errs = ", ".join(k for k, _ in p["errores"])
+                return f"{found['meta']}: {p['hechas']} de {p['total']} sesiones" + (f"; nivel {p['nivel']}" if p["nivel"] else "") + (f"; a corregir: {errs}" if errs else "") + "."
+            return open_goals()
+        if q.kind == "practice":
+            goal = coach.find(q.arg) if q.arg else next((g for g in coach.goals if g.get("activo", True)), None)
+            if goal is None:
+                return "No tengo esa meta. Dígame «estoy aprendiendo…»."
+            return start_session(goal["id"])
+        if q.kind == "school":
+            return check_school()
+        if q.kind == "school_set":
+            config["plataforma_escolar"] = q.arg
+            save_config(config)
+            return "Guardada su plataforma escolar. Diga «revisa mi plataforma escolar» cuando quiera."
+        return None
+
     def run_profile(q: Any) -> str | None:
+        handled = run_coach(q)
+        if handled is not None:
+            return handled
         if q.kind == "profile_show":
             return profile.summary()
         if q.kind == "profile_update":
