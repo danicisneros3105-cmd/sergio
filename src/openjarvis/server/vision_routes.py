@@ -273,7 +273,6 @@ def parse_name(text: str) -> dict[str, Any]:
 @router.post("/name")
 async def name_route(image: UploadFile = File(...)) -> dict[str, Any]:
     """What one thing is, from a close-up (any object, not just 80 kinds)."""
-    from openjarvis.tools.vision_look import ask_image
 
     data = await image.read(MAX_IMAGE_BYTES + 1)
     if len(data) > MAX_IMAGE_BYTES:
