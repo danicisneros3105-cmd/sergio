@@ -98,6 +98,10 @@ VOICE_STYLE = (
     "3D globe (God's Eye View): call globe_view (it starts the globe) and then "
     "desktop_action open with the URL it returns, which opens in its own "
     "window; live_flights / live_earthquakes for live data. "
+    "Do screen tasks the way a person would, through the visible interface: "
+    "find the button or link with screen_read and click it (your companion "
+    "flies there and presses it, so the user sees every step); use direct "
+    "shortcuts only when there is no visible way. "
     "For long or complex tasks, first load the matching expert playbook (ECC) "
     "with skill_guide, plan the steps, then do them one by one. "
     "If you did not hear well, ask briefly instead of inventing. When done, "
@@ -280,6 +284,53 @@ _CONFIRM = {
 }
 
 
+# "usa L99": the task is done no matter what (no chatting, no stopping halfway).
+L99 = re.compile(r"(?:\b(?:usa|usando|modo|con)\s+)?\bl\s*-?\s*99\b|\bele\s+noventa\s+y\s+nueve\b", re.I)
+L99_ROUNDS = 8
+L99_RULES = (
+    "L99 MODE: the user requires this task to be COMPLETED. Work through every "
+    "step with your tools without asking questions or giving progress replies. "
+    "After each step verify the result (screen_read, files, outputs); if a step "
+    "fails, diagnose it and try a different approach, never the same one twice. "
+    "The only reasons to stop early: it would publish, send, pay or delete "
+    "something (then ask for face_approval as always), it is unsafe or "
+    "impossible. End your reply with exactly one line: 'TERMINADO: <what was "
+    "done>' when everything is verified, 'FALTA: <what is left>' if more work "
+    "remains, or 'NO POSIBLE: <why>'."
+)
+
+
+IMPORTANT = re.compile(
+    r"\b(borra|borrar|elimina|eliminar|vacia|formatea|envia|enviar|manda|mandar|publica|publicar|sube|subir|"
+    r"paga|pagar|compra|comprar|transfiere|instala|instalar|desinstala|apaga|apagar|reinicia|reiniciar|"
+    r"desbloquea|desbloquear|bloquea|bloquear|contrasena|configuracion|ajustes|flujo|automatiza|ejecuta|"
+    r"cierra sesion|terminal|powershell|l99|l 99)\b"
+)
+
+
+def important(text: str) -> bool:
+    """Requests that can lose work, spend money or speak for the owner."""
+    return bool(IMPORTANT.search(_plain(text)))
+
+
+def l99_task(text: str) -> str | None:
+    """The task without the "L99" mark, or None if it is a normal request."""
+    if not L99.search(text):
+        return None
+    task = L99.sub(" ", text)
+    return " ".join(task.split()).strip(" ,.:;") or None
+
+
+def l99_status(answer: str) -> tuple[str, str]:
+    """('done' | 'more' | 'impossible', detail) from the agent's last line."""
+    for line in reversed([x.strip() for x in answer.strip().splitlines() if x.strip()]):
+        upper = line.upper()
+        for mark, status in (("TERMINADO:", "done"), ("FALTA:", "more"), ("NO POSIBLE:", "impossible")):
+            if upper.startswith(mark):
+                return status, line[len(mark):].strip()
+    return "more", ""
+
+
 def needs_agent(text: str, after_agent: bool = False) -> bool:
     """True when the request needs tools (the agent); False for chatting.
 
@@ -437,8 +488,27 @@ class SergioClient:
         self.last_brain, self.last_route = model, "chat"
         return answer
 
-    def ask(self, text: str) -> str:
-        if not needs_agent(text, self.last_route == "agent"):
+    def ask_until_done(self, task: str, on_step: Callable[[str], None] | None = None) -> str:
+        """L99: keep the agent working on *task* until it is verified done."""
+        prompt = f"{L99_RULES}\n\nTarea: {task}"
+        answer = ""
+        for round_ in range(L99_ROUNDS):
+            answer = self.ask(prompt, force_agent=True)
+            status, detail = l99_status(answer)
+            if status == "done":
+                return detail or answer
+            if status == "impossible":
+                return f"No se pudo completar: {detail}"
+            if on_step is not None:
+                on_step(detail or f"Paso {round_ + 1}…")
+            prompt = (
+                f"{L99_RULES}\n\nContinúa la misma tarea («{task}»). Falta: {detail or 'verificar y terminar'}. "
+                "Comprueba primero el estado real con tus herramientas."
+            )
+        return f"Trabajé {L99_ROUNDS} rondas y aún falta: {l99_status(answer)[1] or 'verificarlo'}."
+
+    def ask(self, text: str, force_agent: bool = False) -> str:
+        if not force_agent and not needs_agent(text, self.last_route == "agent"):
             try:
                 return self.chat_fast(text)
             except Exception:  # noqa: BLE001 — the agent can still answer
@@ -1143,6 +1213,9 @@ class Assistant:
         self.quick: Callable[[Any], str] | None = None  # instant commands
         self.on_request: Callable[[str], None] | None = None  # the profile notes topics
         self.redirect: Callable[[str], bool] | None = None  # the consultation takes the voice
+        # Checkpoint: important orders from a voice that is not the owner wait
+        # for the owner's face (returns True if approved).
+        self.approve: Callable[[str], bool] | None = None
         # Instant screen orders answered on screen only (no voice wait).
         self.silent_quick: set[str] = {"device", "key", "volume", "screenshot", "open_app", "open_url", "close_app"}
         # Real-time call (Gemini Live): saying "Sergio" opens it with what
@@ -1342,6 +1415,34 @@ class Assistant:
             except Exception:  # noqa: BLE001 — fall back to a normal answer
                 log.debug("redirect failed", exc_info=True)
         answer = ""
+        if self._speaker_note and self.approve is not None and important(text):
+            self.ui.say("Lo pide alguien que no es el señor: necesito que él lo apruebe mirando la cámara.")
+            self.say_aloud("Esto debe aprobarlo el señor. Señor, mire a la cámara, por favor.")
+            try:
+                approved = self.approve(text)
+            except Exception:  # noqa: BLE001 — no approval, no action
+                approved = False
+            if not approved:
+                self._speaker_note = ""
+                self.ui.say("No lo hago: el señor no lo aprobó.")
+                self.say_aloud("No lo haré sin la aprobación del señor.")
+                return
+            self._speaker_note = ""
+        task = l99_task(text)
+        if task is not None:  # L99: silent until the task is really finished
+            self.ui.state("acting")
+            self.ui.say(f"L99: {task}")
+            try:
+                answer = self.client.ask_until_done(task, on_step=lambda step: self.ui.say(f"L99 · {step}"))
+            except Exception as exc:  # noqa: BLE001
+                log.exception("L99 failed")
+                self._fail(f"L99 se detuvo: {explain(exc)}")
+                return
+            answer = no_emoji(answer)
+            self.ui.state("speaking")
+            self.ui.say(answer)
+            self.say_aloud(answer)
+            return
         action = parse_quick(text) if self.quick is not None else None
         if action is not None:  # "abre Spotify": done now, no AI needed
             try:

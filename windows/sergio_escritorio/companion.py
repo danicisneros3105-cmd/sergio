@@ -171,6 +171,11 @@ class Companion(QWidget):
         self._target_label = label
         self.update()
 
+    def press(self) -> None:
+        """The click itself: a quick squash and a ripple on the spot."""
+        self._pressed = time.monotonic()
+        self.update()
+
     @property
     def pointing(self) -> bool:
         return self._target is not None
@@ -295,6 +300,12 @@ class Companion(QWidget):
         p.setPen(QPen(QColor(255, 255, 255, 230), 2))
         p.setBrush(accent)
         p.drawEllipse(spot, 5.5, 5.5)
+        since = time.monotonic() - getattr(self, "_pressed", -10.0)
+        if 0 <= since < 0.45:  # the press: a fast, bright ripple
+            k = since / 0.45
+            p.setPen(QPen(QColor(255, 255, 255, int(230 * (1 - k))), 3))
+            p.setBrush(Qt.BrushStyle.NoBrush)
+            p.drawEllipse(spot, 6 + 26 * k, 6 + 26 * k)
 
     def draw_bubble(self, p: QPainter, label: str, text: str) -> None:
         title_font = _font(8.5, QFont.Weight.DemiBold)

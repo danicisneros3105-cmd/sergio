@@ -214,6 +214,7 @@ def run(config: dict[str, Any]) -> None:
         camera = Signal()
         peek = Signal()  # open the camera window (Sergio is looking)
         point = Signal(int, int, str)  # fly the orb to a spot (screen help)
+        pressed = Signal()  # the companion presses (a click is happening)
         clicked = Signal()  # a mouse click anywhere: he hops
         camera_off = Signal()
         call_on = Signal(bool)  # a live call started / ended
@@ -616,6 +617,18 @@ def run(config: dict[str, Any]) -> None:
 
     bridge.point.connect(point_at)
     controller.on_point = lambda x, y, label: bridge.point.emit(x, y, label)
+
+    def companion_click(x: int, y: int, kind: str) -> None:
+        """The companion flies to the spot, then the click happens there."""
+        if not config.get("companero_hace_clic", True):
+            return
+        label = {"double_click": "Doble clic", "right_click": "Clic derecho"}.get(kind, "Clic")
+        bridge.point.emit(x, y, label)
+        time.sleep(0.35)  # let him arrive: the user sees where it will click
+        bridge.pressed.emit()
+
+    controller.on_click = companion_click
+    bridge.pressed.connect(companion.press)
 
     # -- hands: holograms you grab, turn, sculpt and draw in Sergio ve -------
     from sergio_escritorio.hands import ALIASES, MODES, REMOVED, HandControl
@@ -2532,6 +2545,24 @@ def run(config: dict[str, Any]) -> None:
         return "Te lo pide una voz que no conozco; no es el señor"
 
     assistant.who_spoke = who_spoke
+
+    def owner_approves(request: str, seconds: float = 10.0) -> bool:
+        """The checkpoint: the owner's face must be seen (strong match)."""
+        bridge.caption.emit("Señor: mire a la cámara para aprobarlo")
+        deadline = time.time() + seconds
+        while time.time() < deadline:
+            try:
+                faces = identify(feed.jpeg())
+            except Exception:  # noqa: BLE001 — keep trying until the deadline
+                faces = []
+            if any(f.get("owner") and f.get("strong", True) for f in faces):
+                logging.info("checkpoint approved by the owner: %s", request[:80])
+                return True
+            time.sleep(0.8)
+        logging.info("checkpoint NOT approved: %s", request[:80])
+        return False
+
+    assistant.approve = owner_approves
     controller.skills["voice_enroll"] = lambda args: voice_enroll(str(args.get("name") or ""))
     controller.skills["voice_who"] = lambda _args: voice_who()
 

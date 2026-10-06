@@ -175,6 +175,9 @@ class Controller:
         self.diag = diag or (lambda: {})  # what the ear is doing (revisar)
         # The companion flies to a spot to show the user something.
         self.on_point: Callable[[int, int, str], None] = lambda _x, _y, _l: None
+        # The companion goes to the spot and presses it, like a hand (before
+        # every click, so the user always sees who clicks where).
+        self.on_click: Callable[[int, int, str], None] = lambda _x, _y, _k: None
         # Hands for the holograms in Sergio ve ("holo" / "off"); returns a status.
         self.on_hands: Callable[[str], str] = lambda _mode: "hands unavailable"
         # `sergio probar`: talk to Sergio like the user does ("call"/"turn").
@@ -301,6 +304,7 @@ class Controller:
                 b.move(x, y)
             else:
                 button = "right" if kind == "right_click" else "left"
+                self.on_click(x, y, kind)
                 b.click(x, y, button, 2 if kind == "double_click" else 1)
             result = f"{kind} at ({x}, {y})"
         elif kind == "click_name":
@@ -313,6 +317,7 @@ class Controller:
             if found is None:
                 raise ActionError(f"No veo «{query}» en la ventana de enfrente.")
             how = str(action.get("button") or "left")
+            self.on_click(int(found["x"]), int(found["y"]), "click")
             b.click(int(found["x"]), int(found["y"]), "right" if how == "right" else "left",
                     2 if how == "double" else 1)
             result = f"clicked {found.get('name', query)!r} at ({found['x']}, {found['y']})"
