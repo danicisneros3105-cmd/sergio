@@ -126,6 +126,12 @@ try:
     for _name, _axis, _rot in _views:
         _scene.render.resolution_x = _scene.render.resolution_y = _cell
         _scene.render.resolution_percentage = 100
+        try:
+            _scene.render.image_settings.media_type = "IMAGE"  # Blender 5
+        except Exception:
+            pass
+        _scene.render.image_settings.file_format = "PNG"
+        _scene.render.image_settings.color_depth = "8"
         if _axis is None:
             _scene.camera = _cam
             _engines = ("CYCLES", "BLENDER_EEVEE", "BLENDER_EEVEE_NEXT", "BLENDER_WORKBENCH")
@@ -185,6 +191,90 @@ try:
     print("SERGIO_VIEW_SCALE each orthographic view is %.1f cm wide" % (_span * 100))
 except Exception as _exc:
     print("SERGIO_PREVIEW_FAILED", _exc)
+"""
+
+
+# Checked before saving, like a technical director would: closed parts get
+# their normals pointing out, curved parts (subdivision) are shaded smooth,
+# scale is metric 1:1, and the rest is reported to the review round
+# (non-manifold edges, loose vertices) instead of being hidden.
+TOPOLOGY = """
+# --- Sergio: topology check (normals, manifold, smooth shading, units) ---
+import bmesh as _bmesh
+_topo = {"flipped": 0, "bad_edges": 0, "open_edges": 0, "loose": 0, "smoothed": 0}
+try:
+    _scene.unit_settings.system = "METRIC"
+    _scene.unit_settings.scale_length = 1.0
+except Exception:
+    pass
+for _data in {o.data for o in _objs}:
+    try:
+        _b = _bmesh.new()
+        _b.from_mesh(_data)
+        _border = sum(1 for e in _b.edges if len(e.link_faces) == 1)
+        _topo["bad_edges"] += sum(1 for e in _b.edges if len(e.link_faces) > 2)
+        _topo["open_edges"] += _border
+        _topo["loose"] += sum(1 for v in _b.verts if not v.link_edges)
+        if _b.faces and not _border:  # closed: the outside is well defined
+            _before = [f.normal.copy() for f in _b.faces]
+            _bmesh.ops.recalc_face_normals(_b, faces=list(_b.faces))
+            _b.normal_update()
+            _topo["flipped"] += sum(1 for f, n in zip(_b.faces, _before) if f.normal.dot(n) < 0)
+            _b.to_mesh(_data)
+            _data.update()
+        _b.free()
+    except Exception as _exc:
+        print("SERGIO_TOPOLOGY_SKIP", _exc)
+for _o in _objs:
+    try:
+        if any(m.type == "SUBSURF" for m in _o.modifiers) and not any(p.use_smooth for p in _o.data.polygons):
+            _o.data.polygons.foreach_set("use_smooth", [True] * len(_o.data.polygons))
+            _topo["smoothed"] += 1
+    except Exception:
+        pass
+print("SERGIO_TOPOLOGY normals fixed %(flipped)d, non-manifold edges %(bad_edges)d, open border edges "
+      "%(open_edges)d, loose vertices %(loose)d, curved parts smoothed %(smoothed)d" % _topo)
+"""
+
+# The saved project is ready for a final render (F12), with production
+# settings: Cycles 256 samples with adaptive sampling (noise threshold 0.01,
+# at least 32), OIDN denoising fed with albedo and normals, 32 transparency
+# bounces (no black patches in overlapping glass or leaves), no volume
+# bounces, persistent data, and Z / vector / Cryptomatte passes in a 32-bit
+# multilayer EXR for compositing. The review previews stay quick (24 samples).
+RENDER = """
+# --- Sergio: production render settings (saved with the project) ---
+_rs = (
+    ("render.engine", "CYCLES"), ("cycles.samples", 256), ("cycles.use_adaptive_sampling", True),
+    ("cycles.adaptive_threshold", 0.01), ("cycles.adaptive_min_samples", 32),
+    ("cycles.use_denoising", True), ("cycles.denoiser", "OPENIMAGEDENOISE"),
+    ("cycles.denoising_input_passes", "RGB_ALBEDO_NORMAL"), ("cycles.max_bounces", 12),
+    ("cycles.diffuse_bounces", 4), ("cycles.glossy_bounces", 4), ("cycles.transmission_bounces", 12),
+    ("cycles.transparent_max_bounces", 32), ("cycles.volume_bounces", 0),
+    ("render.use_persistent_data", True), ("eevee.taa_render_samples", 64),
+    ("render.image_settings.media_type", "MULTI_LAYER_IMAGE"),  # Blender 5
+    ("render.image_settings.file_format", "OPEN_EXR_MULTILAYER"),  # Blender 4
+    ("render.image_settings.color_depth", "32"),
+)
+for _key, _value in _rs:
+    try:
+        _owner, _attr = _key.rsplit(".", 1)
+        _target = _scene
+        for _part in _owner.split("."):
+            _target = getattr(_target, _part)
+        setattr(_target, _attr, _value)
+    except Exception:
+        pass
+for _vl in _scene.view_layers:
+    for _attr in ("use_pass_z", "use_pass_vector", "use_pass_cryptomatte_object", "use_pass_cryptomatte_material"):
+        try:
+            setattr(_vl, _attr, True)
+        except Exception:
+            pass
+    try:
+        _vl.cycles.denoising_store_passes = True
+    except Exception:
+        pass
 """
 
 
@@ -253,7 +343,7 @@ if _scene.world is None:
     _scene.world = _bpy.data.worlds.new("Mundo")
 _scene.world.color = (0.16, 0.17, 0.19)
 _scene["sergio_model"] = {json.dumps(name)}
-_path = {json.dumps(save_path)}
+""" + TOPOLOGY + RENDER + f"""_path = {json.dumps(save_path)}
 _bpy.ops.wm.save_as_mainfile(filepath=_path)
 print("SERGIO_SAVED", _path, len(_objs))
 _dims = (_hi - _lo) * 100

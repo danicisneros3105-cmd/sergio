@@ -69,3 +69,14 @@ def test_an_agent_plans_only_with_its_toolbox():
     plan = plan_task("x", ask=lambda p, **k: {"pasos": [{"paso": "a", "herramientas": ["web_search", "terminal_run"]}]},
                      tools=["web_search"])
     assert plan["pasos"][0]["herramientas"] == ["web_search"] and plan["pasos"][0]["inventadas"] == ["terminal_run"]
+
+
+def test_the_plan_is_a_graph_without_cycles():
+    from openjarvis.server.tasks_routes import validate_plan
+
+    plan = validate_plan({"pasos": [
+        {"paso": "buscar A", "herramientas": ["web_search"], "depende_de": []},
+        {"paso": "buscar B", "herramientas": ["web_search"], "depende_de": [2, 5]},
+        {"paso": "tabla", "herramientas": ["file_write"], "depende_de": [1, 2, True]},
+        {"paso": "abrir", "herramientas": ["desktop_action"]}]}, "x")
+    assert [s.get("depende_de") for s in plan["pasos"]] == [[], [], [1, 2], None]

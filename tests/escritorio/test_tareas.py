@@ -220,3 +220,45 @@ def test_a_file_that_never_appears_is_not_reported_as_done():
     orch.submit("tabla")
     wait(orch)
     assert orch.tasks[0].status == "failed"
+
+
+def test_independent_steps_run_at_the_same_time_then_the_one_that_needs_them():
+    order = []
+
+    def answers(prompt):
+        order.append(prompt.split("Paso actual (web): ")[1].split("\n")[0])
+        return "TERMINADO: ok"
+
+    plan = lambda r: {"pasos": [  # noqa: E731
+        {"paso": "buscar A", "depende_de": []}, {"paso": "buscar B", "depende_de": []},
+        {"paso": "buscar C", "depende_de": []}, {"paso": "tabla", "depende_de": [1, 2, 3]}]}
+    orch, *_ = make(plan, answers)
+    start = time.time()
+    orch.submit("comparar")
+    wait(orch)
+    assert time.time() - start < 0.2  # three searches side by side (0.05 s each), then the table
+    assert order[-1] == "tabla" and orch.tasks[0].status == "done"
+
+
+def test_a_step_never_runs_before_what_it_needs():
+    from sergio_escritorio.tareas import Orchestrator as O
+
+    steps = O._steps({"pasos": [{"paso": "a"}, {"paso": "b", "depende_de": [3, 1, 2]}, {"paso": "c"}]})
+    assert steps[1].after == [0]  # later or self references dropped: no cycles
+    assert steps[2].after is None  # not said: after the previous one
+
+
+def test_the_revisor_checks_the_result_and_one_fix_step_runs():
+    def answers(prompt):
+        if "Eres el Revisor" in prompt:
+            return "FALTA: la tabla no tiene precios"
+        return "TERMINADO: hecho"
+
+    plan = lambda r: {"pasos": [{"paso": "buscar"}, {"paso": "tabla"}]}  # noqa: E731
+    orch, acts, told, calls = make(plan, answers)
+    orch.review = True
+    orch.submit("tabla de portátiles")
+    wait(orch)
+    task = orch.tasks[0]
+    assert task.status == "done" and task.steps[-1].text.startswith("Corrige lo que falta: la tabla no tiene precios")
+    assert any("Eres el Revisor" in c for c in calls)

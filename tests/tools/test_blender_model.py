@@ -115,3 +115,13 @@ def test_the_finished_script_really_builds_and_saves_in_blender(tmp_path):
     )
     assert "SERGIO_SAVED" in done.stdout, done.stderr[-2000:]
     assert target.exists() and target.stat().st_size > 10_000
+
+
+def test_the_saved_project_is_checked_and_ready_for_a_final_render():
+    full = bm.finish_script("import bpy\n", "/tmp/x.blend", "x", "/tmp/x.png")
+    assert full.index("SERGIO_TOPOLOGY") < full.index("save_as_mainfile")  # fixed before saving
+    for setting in ('"cycles.adaptive_threshold", 0.01', '"cycles.transparent_max_bounces", 32',
+                    '"RGB_ALBEDO_NORMAL"', '"MULTI_LAYER_IMAGE"', "use_pass_cryptomatte_object"):
+        assert setting in full
+    assert 'file_format = "PNG"' in full  # the review previews stay PNG
+    compile(full, "finish", "exec")

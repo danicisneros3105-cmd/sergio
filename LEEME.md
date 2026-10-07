@@ -624,7 +624,17 @@ los datos**» los pone en pantalla; «**modo limpio**» los quita.
   foto del objeto, si la hay) y el registro de errores, corrige y repite
   (dos revisiones visuales y hasta cuatro arreglos de errores). Al final se
   abre el `.blend` listo. Tarda varios minutos y usa Gemini Pro.
-* **Blender Pro ve mejor (nuevo)**:
+* **Blender Pro de producción**: antes de guardar revisa la geometría
+  (normales hacia fuera en piezas cerradas, suavizado en lo curvo, escala
+  métrica 1:1, aristas non-manifold y vértices sueltos informados a la
+  revisión) y deja el proyecto listo para el render final (F12): Cycles 256
+  muestras, umbral de ruido 0.01 (mín. 32), OIDN con albedo y normales,
+  32 rebotes de transparencia, sin rebotes de volumen, datos persistentes, y
+  EXR multicapa de 32 bits con pases Z, vectores y Cryptomatte. Las piezas
+  repetidas se hacen como duplicados enlazados.
+* **Video Pro y el color**: el video sale marcado Rec.709, y los clips HDR
+  (HLG del iPhone, PQ) se convierten a Rec.709 en vez de verse grises.
+* **Blender Pro ve mejor**:
   * **Cuatro vistas en cada revisión**: el acabado en 3/4 más frente, lado y
     planta en ortográfica a la misma escala, como un plano. Así la IA ve las
     proporciones desde todos los lados, no solo desde un ángulo.
@@ -925,6 +935,9 @@ apruebes mirando la cámara. «Modo bloqueo»: la pantalla de bloqueo de Windows
   * Investigador, Programador y Analista de datos;
   * Diseñador 3D y Editor de video;
   * Resumen diario y Correo;
+  * Colorista (plan de nodos para DaVinci Resolve: CST a DaVinci Wide Gamut,
+    pivote 0.336, salida Rec.709 2.4 / Rec.709-A / HDR) y Revisor (comprueba
+    el trabajo de otros con herramientas);
   * Organizador, Viajes, Escritor y Tutor.
 * Cada agente tiene su método y sus propias herramientas: solo puede usar
   esas. Ejemplos: «Investigador, compara las RTX 5070 y 5080», «usa el agente
@@ -953,6 +966,11 @@ apruebes mirando la cámara. «Modo bloqueo»: la pantalla de bloqueo de Windows
     Python, la terminal de Ubuntu) o **pantalla**.
   * Los pasos de fondo de varias tareas corren a la vez mientras tú sigues
     trabajando. Los de pantalla esperan turno: solo una tarea usa el mouse.
+  * Dentro de una tarea, los pasos forman un grafo: cada uno dice qué pasos
+    necesita, y los independientes van a la vez (tres búsquedas en paralelo y
+    después la tabla que usa las tres).
+  * Al final, un **Revisor** (un agente nuevo que no hizo el trabajo) coteja
+    los resultados con lo pedido; lo que falte recibe un paso de arreglo.
   * «Haz a la vez busca vuelos a Madrid y ordena mis descargas» arranca dos.
   * «¿Qué estás haciendo?» las lista y «cancela la tarea» detiene la última.
   * Cada paso se verifica (TERMINADO / FALTA) y tiene un reintento. Lo que

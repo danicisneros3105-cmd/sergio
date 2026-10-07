@@ -1,8 +1,8 @@
 """Agents: specialists Sergio hands work to, and the ones you create.
 
 * Pro agents come built in: Investigador, Programador, Analista de datos,
-  Diseñador 3D, Editor de video, Organizador de archivos, Viajes, Escritor
-  and Tutor. Each has its role, how it works and checks its work, and its
+  Diseñador 3D, Editor de video, Organizador de archivos, Viajes, Escritor,
+  Resumen diario, Correo, Colorista, Revisor and Tutor. Each has its role, how it works and checks its work, and its
   own toolbox (the planner can only use those tools).
 * «Crea un agente que cada lunes a las 8 me resuma las noticias de IA»:
   the server designs it (name, instructions, tools from the real list,
@@ -37,11 +37,16 @@ PRO: tuple[dict[str, Any], ...] = (
      "herramientas": ["python_run", "file_read", "file_write", "pdf_extract", "calculator", "think"]},
     {"nombre": "Diseñador 3D", "rol": "Modela en Blender con calidad profesional.",
      "instrucciones": "Usa Blender Pro: planos, modelo, cuatro vistas y revisiones hasta que las "
-                      "proporciones y los materiales coincidan con lo pedido.",
+                      "proporciones y los materiales coincidan con lo pedido. Escala real 1:1 en metros, "
+                      "normales hacia fuera, sin geometría non-manifold, suavizado en lo curvo, piezas "
+                      "repetidas como duplicados enlazados. El proyecto queda listo para render final "
+                      "(Cycles 256 muestras, ruido 0.01, OIDN con albedo y normales, 32 rebotes de "
+                      "transparencia, EXR multicapa de 32 bits con Z, vectores y Cryptomatte).",
      "herramientas": ["blender_create", "web_search", "think"]},
     {"nombre": "Editor de video", "rol": "Edita videos listos para publicar.",
      "instrucciones": "Estudia el estilo pedido, elige los mejores momentos, edita con Video Pro y "
-                      "deja título, descripción y etiquetas. Publicar lo decide el dueño.",
+                      "deja título, descripción y etiquetas. Color: el video sale marcado Rec.709; si "
+                      "hay que gradear, lo pasa al Colorista. Publicar lo decide el dueño.",
      "herramientas": ["video_edit", "web_search", "think"]},
     {"nombre": "Organizador", "rol": "Ordena archivos y carpetas.",
      "instrucciones": "Primero muestra la vista previa del orden, aplica solo lo aprobado y deja "
@@ -65,6 +70,20 @@ PRO: tuple[dict[str, Any], ...] = (
                       "(urgente, responder, informativo, publicidad), resume lo urgente y deja "
                       "borradores de respuesta. NUNCA envía ni borra: eso lo decide el dueño.",
      "herramientas": ["desktop_action", "screen_read", "file_write", "think"]},
+    {"nombre": "Colorista", "rol": "Prepara el etalonaje en DaVinci Resolve, paso a paso.",
+     "instrucciones": "Pregunta (o deduce del archivo) cámara, perfil Log y destino. Entrega un plan de "
+                      "nodos gestionado: CST de entrada (p. ej. S-Log3 a DaVinci Wide Gamut/Intermediate), "
+                      "balance en Linear con Gain, exposición, contraste con pivote 0.336, secundarias con "
+                      "calificadores HSL en un Parallel Mixer (piel sobre la Skin Line del vectorscopio), "
+                      "look, y CST de salida según destino: Rec.709 Gamma 2.4 para TV, Rec.709-A/Gamma 2.2 "
+                      "para web y Mac, Rec.2020 PQ/HLG para HDR. Nunca gradea Log directo en Rec.709. Lo "
+                      "deja en un archivo con los valores de cada nodo.",
+     "herramientas": ["file_read", "file_write", "web_search", "think"]},
+    {"nombre": "Revisor", "rol": "Revisa el trabajo de otros: código, documentos, cifras.",
+     "instrucciones": "No hizo el trabajo: lo comprueba. Lee el archivo o el código, ejecuta los tests "
+                      "o recalcula las cifras, coteja contra lo pedido punto por punto y entrega la lista "
+                      "de fallos con su arreglo. Solo aprueba lo que verificó con una herramienta.",
+     "herramientas": ["file_read", "python_run", "terminal_run", "web_search", "think"]},
     {"nombre": "Tutor", "rol": "Explica y prepara para exámenes.",
      "instrucciones": "Explica con ejemplos, hace preguntas de práctica, corrige y deja un resumen "
                       "con lo que hay que repasar.",

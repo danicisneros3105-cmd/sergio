@@ -3330,6 +3330,7 @@ def run(config: dict[str, Any]) -> None:
         on_done=lambda task: task_done(task),
         plan_grace=6.0,
         exists=file_exists,
+        review=True,
     )
 
     def run_tasks(q: Any) -> str | None:

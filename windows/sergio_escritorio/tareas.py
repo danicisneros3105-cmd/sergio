@@ -13,11 +13,16 @@ How a task runs:
 2. Background steps of different tasks run in parallel; a ``pantalla`` step
    waits for the screen (one task at a time drives the mouse and keyboard,
    like a person would).
+   Steps form a graph: each says which earlier steps it needs
+   (``depende_de``), so independent steps of the same task run at the same
+   time (three searches at once, then the table that needs all three).
 3. Each step must end with ``TERMINADO:``, ``FALTA:`` or ``NO POSIBLE:``; a
    step that is not done gets one more try with what is missing.
 4. Steps that send, pay, publish, install or delete wait for the owner's
    face (the checkpoint), and the end of a task is checked once more
-   against the request before Sergio says it is done.
+   against the request before Sergio says it is done: a Revisor (a fresh
+   agent that did not do the work) compares the results with the request,
+   and what it finds missing gets one fix step.
 """
 
 from __future__ import annotations
@@ -92,6 +97,7 @@ class Step:
     important: bool = False
     status: str = "pending"  # pending | running | done | failed | skipped
     result: str = ""
+    after: list[int] | None = None  # indexes of the steps it needs; None = the previous one
 
 
 @dataclass
@@ -131,7 +137,9 @@ class Orchestrator:
         on_done: Callable[[Task], None] = lambda _task: None,
         plan_grace: float = 0.0,
         exists: Callable[[str], bool | None] | None = None,
+        review: bool = False,
     ) -> None:
+        self.review = review  # a Revisor checks multi-step results against the request
         # Anti-hallucination: a step that says it saved a file is only done
         # if the file is really there (None = that path cannot be checked).
         self.exists = exists
@@ -176,24 +184,71 @@ class Orchestrator:
                     task.status = "cancelled"
                     task.steps = []
                 task.status = "running" if task.status != "cancelled" else "cancelled"
-                i = 0
-                while task.status == "running" and i < len(task.steps):
-                    step = task.steps[i]
+                while task.status == "running":
                     if task.cancel.is_set():
                         task.status = "cancelled"
                         break
-                    self._do(task, step)
+                    ready = self._ready(task)
+                    if not ready:
+                        break
+                    self._wave(task, ready)
                     self.activities.update(task.activity, progress=task.progress())
-                    if step.status == "failed":
-                        if step.result.startswith("Lo dejé sin hacer") or not self._replan(task, step):
+                    failed = next((st for st in ready if st.status == "failed"), None)
+                    if failed is not None:
+                        if failed.result.startswith("Lo dejé sin hacer") or not self._replan(task, failed):
                             break
-                    i += 1
                 if task.status == "running":
                     ok = all(s.status in ("done", "skipped") for s in task.steps)
+                    if ok and self.review and len(task.steps) > 1 and not task.cancel.is_set():
+                        ok = self._review(task)
                     task.status = "done" if ok else "failed"
             except Exception as exc:  # noqa: BLE001 — told, never a crash
                 task.status, task.result = "failed", f"Falló: {exc}"
         self._finish(task)
+
+    @staticmethod
+    def _ready(task: Task) -> list[Step]:
+        """Pending steps whose needed steps are all done (the graph's front)."""
+        finished = {i for i, st in enumerate(task.steps) if st.status in ("done", "skipped")}
+        ready = []
+        for i, st in enumerate(task.steps):
+            needs = st.after if st.after is not None else ([i - 1] if i else [])
+            if st.status == "pending" and all(n in finished for n in needs):
+                ready.append(st)
+        return ready
+
+    def _wave(self, task: Task, ready: list[Step]) -> None:
+        """Independent steps at the same time, each with its own agent turn
+        (screen steps still queue for the screen inside _do)."""
+        if len(ready) == 1:
+            self._do(task, ready[0])
+            return
+        threads = [
+            threading.Thread(target=self._do, args=(task, st, self.new_asker()), daemon=True) for st in ready
+        ]
+        for th in threads:
+            th.start()
+        for th in threads:
+            th.join()
+
+    def _review(self, task: Task) -> bool:
+        """The Revisor: a fresh agent checks the results against the request;
+        what it finds missing gets one fix step."""
+        results = "\n".join(f"- {st.text} → {st.result}" for st in task.steps if st.status == "done")
+        verdict = self.new_asker()(
+            f"Eres el Revisor de Sergio: no hiciste el trabajo, lo compruebas.\nPedido del usuario: "
+            f"«{task.request}»\nResultados de los pasos:\n{results}\n"
+            "Comprueba con herramientas (lee los archivos, verifica cifras) que se cumplió TODO lo pedido. "
+            + END_RULE
+        )
+        status, detail = step_status(verdict)
+        if status != "more" or not detail:
+            return True  # done, or the reviewer could not judge: trust the verified steps
+        self.activities.update(task.activity, detail="el revisor pidió un ajuste")
+        fix = Step(f"Corrige lo que falta: {detail}", "fondo", after=[])
+        task.steps.append(fix)
+        self._do(task, fix)
+        return fix.status == "done"
 
     def _ask_plan(self, task: Task, request: str) -> dict[str, Any]:
         return self.plan(request) if task.agent is None else self.plan(request, task.agent)  # type: ignore[call-arg]
@@ -217,6 +272,9 @@ class Orchestrator:
             return False
         failed.status = "skipped"
         keep = [s for s in task.steps if s.status in ("done", "skipped")]
+        for k, st in enumerate(fresh):  # the new plan's graph, after what is kept
+            st.after = [len(keep) + n for n in st.after] if st.after is not None else (
+                [len(keep) + k - 1] if k else [])
         task.steps = keep + fresh
         task.result = ""
         self.activities.update(task.activity, detail="nuevo enfoque")
@@ -224,17 +282,22 @@ class Orchestrator:
 
     @staticmethod
     def _steps(plan: dict[str, Any]) -> list[Step]:
-        return [
-            Step(
+        raw = [s for s in plan.get("pasos") or [] if str(s.get("paso") or "").strip()]
+        steps = []
+        for i, s in enumerate(raw):
+            needs = s.get("depende_de")
+            after = None  # not said: after the previous step (safe, in order)
+            if isinstance(needs, list):  # 1-based, only earlier steps (no cycles)
+                after = sorted({int(n) - 1 for n in needs if isinstance(n, int) and 1 <= n <= i})
+            steps.append(Step(
                 text=str(s.get("paso") or ""),
                 where="pantalla" if s.get("donde") == "pantalla" else "fondo",
                 platform=str(s.get("plataforma") or "web"),
                 check=str(s.get("comprobar") or ""),
                 important=bool(s.get("importante")),
-            )
-            for s in plan.get("pasos") or []
-            if str(s.get("paso") or "").strip()
-        ]
+                after=after,
+            ))
+        return steps
 
     def _plan(self, task: Task) -> None:
         try:
@@ -249,7 +312,7 @@ class Orchestrator:
         if kind == "screen":
             self.activities.update(task.activity, detail=f"{len(task.steps)} pasos · usa la pantalla")
 
-    def _do(self, task: Task, step: Step) -> None:
+    def _do(self, task: Task, step: Step, ask: Ask | None = None) -> None:
         if step.important and not self.approve(f"{task.title}: {step.text}"):
             step.status, step.result = "failed", "Lo dejé sin hacer: necesita su aprobación (su cara)."
             task.result = step.result
@@ -257,7 +320,7 @@ class Orchestrator:
         step.status = "running"
         n = task.steps.index(step) + 1
         self.activities.update(task.activity, detail=f"paso {n}/{len(task.steps)}: {_short(step.text, 40)}")
-        ask = self._asker(task)
+        ask = ask or self._asker(task)
         prompt = self._prompt(task, step)
         if step.where == "pantalla":
             self.activities.update(task.activity, detail=f"esperando la pantalla · paso {n}")
@@ -349,6 +412,7 @@ def claimed_paths(text: str) -> list[str]:
 def plan_line(task: Task) -> str:
     """«Plan: 1) buscar… 2) tabla… 3) abrir (pantalla)» — the plan, seen first."""
     parts = [f"{n}) {_short(s.text, 38)}" + (" (pantalla)" if s.where == "pantalla" else "")
+             + (" (a la vez)" if s.after == [] and n > 1 else "")
              for n, s in enumerate(task.steps, 1)]
     line = f"Plan de «{task.title or _short(task.request)}»: " + " ".join(parts)
     if any(st.where == "pantalla" or st.important for st in task.steps):

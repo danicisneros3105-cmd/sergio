@@ -28,3 +28,13 @@ def test_video_orders():
     assert q.kind == "video_pro" and q.say == "viaje"
     assert parse_quick("súbelo a YouTube").kind == "video_upload"
     assert parse_quick("en blender hazme una casa low poly").kind == "blender_task"
+
+
+def test_the_video_is_tagged_rec709_and_hdr_clips_are_tone_mapped():
+    plan = {"segments": [{"clip": 0, "start": 0, "end": 2}, {"clip": 1, "start": 0, "end": 2}]}
+    cmd = render_command([Path("a.mp4"), Path("b.mov")], plan, Path("o.mp4"), has_audio=[True, True],
+                         hdr=[False, True])
+    graph = cmd[cmd.index("-filter_complex") + 1]
+    assert cmd[cmd.index("-color_trc") + 1] == "bt709" and cmd[cmd.index("-colorspace") + 1] == "bt709"
+    first, second = graph.split("[v0]")[0], graph.split(";")[2]
+    assert "tonemap" not in first and "tonemap=hable" in second

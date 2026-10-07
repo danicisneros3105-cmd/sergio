@@ -55,6 +55,12 @@ RULES = """Rules for the script:
   repeated features (keys, holes, slats); mirror for symmetric halves;
   solidify for shells; shade smooth (+ auto smooth / weighted normals) on
   curved parts.
+- Repeated identical parts (legs, wheels, screws, keys): build one, then
+  linked duplicates (dup = obj.copy(); keep dup.data shared; link dup to the
+  collection), so they cost no extra memory; arrays or Geometry Nodes for
+  hundreds of copies.
+- Closed, clean meshes: no stray vertices, no faces inside faces, normals
+  pointing out (Sergio checks it: SERGIO_TOPOLOGY in the log).
 - Materials never block geometry: make them in a helper that always returns
   a usable material (texture extras inside their own try), and parts work
   even if a material is missing.
@@ -103,7 +109,7 @@ REVIEW_PROMPT = (
     "{target}"
     "Blender's log (errors matter most; SERGIO_STEP_ERROR lines are steps that "
     "failed and were SKIPPED, so those parts are missing from the render; "
-    "SERGIO_DIMS is the model's real size, SERGIO_PARTS its pieces):\n{log}\n"
+    "SERGIO_DIMS is the model's real size, SERGIO_PARTS its pieces, SERGIO_TOPOLOGY the mesh check: non-manifold edges and loose vertices are modelling errors to fix):\n{log}\n"
     "First list to yourself, view by view, what is wrong or missing versus the "
     "request and the reference (errors, silhouette, proportions, size versus "
     "the target, missing parts, floating or buried parts, materials). Then "

@@ -72,7 +72,10 @@ solo si hace falta ver o usar la pantalla del usuario (abrir una app y \
 mostrar el resultado, clics en una web que exige iniciar sesión),
 - "plataforma": "windows", "ubuntu" o "web",
 - "herramientas": las herramientas de la lista que usará,
-- "comprobar": cómo se verifica que el paso salió bien.
+- "comprobar": cómo se verifica que el paso salió bien,
+- "depende_de": los números (desde 1) de los pasos ANTERIORES que necesita; \
+[] si es independiente. Los pasos independientes se hacen a la vez (p. ej. \
+tres búsquedas en paralelo y luego la tabla que depende de las tres).
 Nunca planifiques enviar mensajes, llamar a personas, pagar ni borrar \
 nada sin decirlo en el paso. No inventes datos: lo que no sepas, búscalo.
 Tarea del usuario: «{request}»
@@ -114,6 +117,7 @@ def validate_plan(data: Any, request: str) -> dict[str, Any]:
                 "comprobar": " ".join(str(raw.get("comprobar") or raw.get("check") or "").split())[:200],
                 "importante": bool(RISKY.search(text)),
                 "inventadas": unknown,  # tools the model made up (removed)
+                **_needs(raw, len(steps)),
             }
         )
         if len(steps) >= MAX_STEPS:
@@ -123,6 +127,15 @@ def validate_plan(data: Any, request: str) -> dict[str, Any]:
                   "comprobar": "", "importante": bool(RISKY.search(request)), "inventadas": []}]
     title = " ".join(str(data.get("titulo") or data.get("title") or request).split())[:50]
     return {"titulo": title, "pasos": steps, "descartados": dropped}
+
+
+def _needs(raw: dict[str, Any], index: int) -> dict[str, Any]:
+    """«depende_de»: only earlier steps (1-based), so the graph has no cycles;
+    left out when the planner did not say (the step then follows the previous)."""
+    needs = raw.get("depende_de", raw.get("depends_on"))
+    if not isinstance(needs, list):
+        return {}
+    return {"depende_de": sorted({n for n in needs if isinstance(n, int) and not isinstance(n, bool) and 1 <= n <= index})}
 
 
 def plan_task(

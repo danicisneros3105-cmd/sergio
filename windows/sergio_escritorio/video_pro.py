@@ -4,11 +4,13 @@
 ``render_command`` turns the editor's plan into one ffmpeg command: each
 moment trimmed and framed (9:16 or 16:9), soft cross fades between them,
 short captions, the opening title, loudness normalised (-14 LUFS, what
-YouTube uses) and optional music kept under the voices.
+YouTube uses), optional music kept under the voices, and the colour tagged
+Rec.709.
 """
 
 from __future__ import annotations
 
+import re
 import subprocess
 import time
 from pathlib import Path
@@ -17,6 +19,18 @@ from typing import Any
 from sergio_escritorio.media import FONT, SIZES, _escape, ffmpeg, find_clips, probe
 
 FADE = 0.35  # seconds of cross fade between moments
+# The output says what colour it is (Rec.709, the web and TV standard), so
+# players and editors do not guess: an untagged H.264 is shown with
+# different gamma on Windows, Mac and phones.
+# HDR clips (iPhone HLG, PQ) mapped down to Rec.709 instead of being shown
+# grey and flat: to linear light, tone-mapped, back to Rec.709 (needs the
+# zscale filter; without it the clip is used as it is).
+TONEMAP = (
+    "zscale=t=linear:npl=100,format=gbrpf32le,zscale=p=bt709,"
+    "tonemap=hable:desat=0,zscale=t=bt709:m=bt709:r=tv,"
+)
+HDR = re.compile(r"arib-std-b67|smpte2084|bt2020")
+REC709 = ("-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709", "-color_range", "tv")
 
 
 def contact_sheet(clip: Path, length: float, tiles: int = 12, exe: str = "") -> bytes:
@@ -38,6 +52,17 @@ def contact_sheet(clip: Path, length: float, tiles: int = 12, exe: str = "") -> 
     return out.stdout
 
 
+def is_hdr(clip: Path, exe: str = "") -> bool:
+    info = subprocess.run([exe or ffmpeg(), "-hide_banner", "-i", str(clip)], capture_output=True,
+                          text=True, check=False).stderr
+    return bool(HDR.search(info))
+
+
+def has_zscale(exe: str = "") -> bool:
+    out = subprocess.run([exe or ffmpeg(), "-hide_banner", "-filters"], capture_output=True, text=True, check=False)
+    return " zscale " in out.stdout
+
+
 def render_command(
     clips: list[Path],
     plan: dict[str, Any],
@@ -46,6 +71,7 @@ def render_command(
     has_audio: list[bool],
     music: str = "",
     exe: str = "ffmpeg",
+    hdr: list[bool] | None = None,
 ) -> list[str]:
     """The ffmpeg command for the editor's plan (pure, tested without ffmpeg)."""
     width, height = SIZES.get(plan.get("aspect", "16:9"), SIZES["16:9"])
@@ -64,7 +90,8 @@ def render_command(
         i, start, end = seg["clip"], seg["start"], seg["end"]
         video = (
             f"[{i}:v]trim=start={start}:end={end},setpts=PTS-STARTPTS,"
-            f"scale={width}:{height}:force_original_aspect_ratio=increase,"
+            + (TONEMAP if hdr and hdr[i] else "")
+            + f"scale={width}:{height}:force_original_aspect_ratio=increase,"
             f"crop={width}:{height},fps=30,format=yuv420p,setsar=1"
         )
         if seg.get("caption"):
@@ -104,7 +131,7 @@ def render_command(
         audio_out = "[mix]"
     cmd += ["-filter_complex", ";".join(parts), "-map", video_out, "-map", audio_out]
     cmd += [
-        "-c:v", "libx264", "-preset", "medium", "-crf", "19",
+        "-c:v", "libx264", "-preset", "medium", "-crf", "19", *REC709,
         "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", str(out),
     ]
     return cmd
@@ -121,13 +148,15 @@ def edit(
     clips = find_clips(source)[:12]
     exe = ffmpeg()
     probes = [probe(c) for c in clips]
+    hdr = [is_hdr(c, exe) for c in clips]
+    hdr = hdr if any(hdr) and has_zscale(exe) else None
     lengths = [d for _, d in probes]
     sheets = [contact_sheet(c, max(d, 1.0), exe=exe) for c, d in zip(clips, lengths)]
     plan = planner(request, sheets, lengths)
     out_dir = Path.home() / "Videos" / "Sergio"
     out_dir.mkdir(parents=True, exist_ok=True)
     out = out_dir / f"video-pro-{time.strftime('%Y%m%d-%H%M%S')}.mp4"
-    cmd = render_command(clips, plan, out, has_audio=[a for a, _ in probes], music=music, exe=exe)
+    cmd = render_command(clips, plan, out, has_audio=[a for a, _ in probes], music=music, exe=exe, hdr=hdr)
     done = subprocess.run(cmd, capture_output=True, text=True, check=False)
     if done.returncode != 0 or not out.exists():
         raise RuntimeError("ffmpeg falló: " + done.stderr[-500:])
