@@ -36,7 +36,8 @@ RULES = """Rules for the script:
 - Start from an empty scene: bpy.ops.wm.read_factory_settings(use_empty=True).
 - SPATIAL PLAN FIRST (think like a draughtsman before you model): right after
   the imports write SERGIO_LAYOUT = [{"part": "Asiento", "center_cm": [x, y, z],
-  "size_cm": [width, depth, height]}, ...] with every main part, in cm, Blender
+  "size_cm": [width, depth, height]}, ...] using LITERAL numbers only (no
+  variables: it runs before anything else) with every main part, in cm, Blender
   axes (x width left-right, y depth front-back with the front at -y, z up),
   origin at the centre of the model's base on the ground. Check the plan
   before modelling: each part rests on or attaches to another (bottom of one =

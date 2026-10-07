@@ -1140,6 +1140,10 @@ git pull https://github.com/open-jarvis/OpenJarvis.git main
   torno con asa cerrada, verificadas con 0 errores de malla y todas las piezas
   en su sitio). Cada modelo suyo que pasa la revisión estricta se guarda en
   `~/.openjarvis/blender_ejemplos` (los 60 últimos) y enseña a los siguientes.
+* **Arreglos automáticos que no dependen del modelo**: los nombres viejos de la
+  API que los modelos siguen escribiendo («Clearcoat Weight», «Transmission»,
+  «Emission»…) se renombran solos antes de ejecutar (`SERGIO_API_FIXED`), y si
+  el modelo entero queda flotando se baja al suelo (`SERGIO_GROUNDED`).
 * Reglas nuevas de la API aprendidas en pruebas reales: `transform_apply()`
   aplica también la posición si no se le dice lo contrario; no existe
   «Clearcoat Weight» (es «Coat Weight»); `bmesh` se importa después de `bpy`.

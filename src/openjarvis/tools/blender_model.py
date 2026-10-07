@@ -374,11 +374,34 @@ for _node in _ast.parse(_SOURCE).body:
 """
 
 
+# Old Blender API names models keep writing (even when told not to) and
+# their Blender 4/5 names: fixed before running, so one wrong socket name no
+# longer loses every material.
+API_RENAMES = {
+    '"Clearcoat Weight"': '"Coat Weight"', '"Clearcoat"': '"Coat Weight"',
+    '"Clearcoat Roughness"': '"Coat Roughness"', '"Transmission"': '"Transmission Weight"',
+    '"Emission"': '"Emission Color"', '"Specular"': '"Specular IOR Level"', '"Subsurface"': '"Subsurface Weight"',
+    '"Subsurface Color"': '"Base Color"', '"Sheen"': '"Sheen Weight"',
+}
+
+
+def fix_api(script: str) -> tuple[str, list[str]]:
+    """The script with old socket names renamed; and what was renamed."""
+    fixed = []
+    for old, new in API_RENAMES.items():
+        if f"inputs[{old}]" in script:
+            script = script.replace(f"inputs[{old}]", f"inputs[{new}]")
+            fixed.append(f"{old}->{new}")
+    return script, fixed
+
+
 def finish_script(script: str, save_path: str, name: str, preview_path: str = "") -> str:
     """Sergio's ending: light, camera framing the object, save the project
     (and, for the checking loop, a quick render to look at)."""
+    script, renamed = fix_api(script)
     return (
         RESILIENT.replace("__SOURCE__", json.dumps(script.rstrip()))
+        + (f"\nprint('SERGIO_API_FIXED ' + {json.dumps(', '.join(renamed))})\n" if renamed else "")
         + "\n\n# --- Sergio: lights, camera and saving the project ---\n"
         + f"""import bpy as _bpy, math as _math
 from mathutils import Vector as _V
@@ -390,6 +413,13 @@ except Exception:
 _objs = [o for o in _scene.objects if o.type == "MESH"]
 _lo = _V((min((o.matrix_world @ _V(c))[i] for o in _objs for c in o.bound_box) for i in range(3))) if _objs else _V((0, 0, 0))
 _hi = _V((max((o.matrix_world @ _V(c))[i] for o in _objs for c in o.bound_box) for i in range(3))) if _objs else _V((1, 1, 1))
+if _objs and _lo.z > 0.005:  # the whole model floats: it goes down onto the ground
+    for _root in [o for o in _scene.objects if o.parent is None and o.type not in ("CAMERA", "LIGHT")]:
+        _root.location.z -= _lo.z
+    print("SERGIO_GROUNDED the whole model was %.1f cm above the floor; moved down onto it" % (_lo.z * 100))
+    _bpy.context.view_layer.update()
+    _hi.z -= _lo.z
+    _lo.z = 0.0
 _centre, _size = (_lo + _hi) / 2, max((_hi - _lo).length, 0.05)
 _sun = _bpy.data.objects.new("Sol", _bpy.data.lights.new("Sol", "SUN"))
 _sun.data.energy = 4.5

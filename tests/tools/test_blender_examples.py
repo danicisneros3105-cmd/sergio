@@ -60,3 +60,14 @@ def test_the_finished_script_measures_plan_against_build():
         assert line in full
     assert full.index("SERGIO_SPATIAL planned") < full.index("save_as_mainfile")
     compile(full, "finish", "exec")
+
+
+def test_old_socket_names_are_renamed_and_a_floating_model_is_grounded():
+    script, fixed = bm.fix_api('b.inputs["Clearcoat Weight"].default_value = 1\nb.inputs["Transmission"].x = 1\n'
+                               'b.inputs["Transmission Weight"].x = 1')
+    assert 'inputs["Coat Weight"]' in script and 'inputs["Transmission Weight"]' in script
+    assert '"Clearcoat Weight"' not in script and len(fixed) == 2
+    full = bm.finish_script('b.inputs["Emission"].x = 1\n', "/tmp/x.blend", "x", "")
+    assert "SERGIO_API_FIXED" in full and 'inputs[\\"Emission Color\\"]' in full
+    assert "SERGIO_GROUNDED" in full and full.index("SERGIO_GROUNDED") < full.index("save_as_mainfile")
+    compile(full, "finish", "exec")
