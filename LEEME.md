@@ -1123,3 +1123,23 @@ git pull https://github.com/open-jarvis/OpenJarvis.git main
   sueño. Si pasa ≥ 3 noches por semana durante 3 meses, al médico.
 * La skill «Sueño» (con estas fuentes) se carga sola cuando habla de dormir,
   también en el coach de salud.
+
+## Blender Pro: sentido espacial y ejemplos que lo entrenan
+
+* **Plan espacial primero**: el modelo escribe al inicio del script
+  `SERGIO_LAYOUT` con el centro y el tamaño (en cm, coordenadas del mundo) de
+  cada pieza, y modela desde esos números. En objetos articulados (lámparas,
+  bisagras) encadena las articulaciones como cinemática directa.
+* **Blender mide lo construido** contra ese plan y lo dice con números:
+  `SERGIO_LAYOUT_OFF` (pieza fuera de sitio o de tamaño), `SERGIO_FLOATING`
+  (no toca nada), `SERGIO_BELOW_GROUND` (bajo el suelo). La revisión corrige
+  exactamente esas piezas, y una versión con piezas mal puestas puntúa peor.
+* **Ejemplos resueltos (lo más cercano a un fine-tuning)**: antes de escribir,
+  el modelo estudia uno o dos scripts que de verdad construyeron modelos
+  correctos (una mesa con patas como duplicados enlazados y una taza hecha en
+  torno con asa cerrada, verificadas con 0 errores de malla y todas las piezas
+  en su sitio). Cada modelo suyo que pasa la revisión estricta se guarda en
+  `~/.openjarvis/blender_ejemplos` (los 60 últimos) y enseña a los siguientes.
+* Reglas nuevas de la API aprendidas en pruebas reales: `transform_apply()`
+  aplica también la posición si no se le dice lo contrario; no existe
+  «Clearcoat Weight» (es «Coat Weight»); `bmesh` se importa después de `bpy`.

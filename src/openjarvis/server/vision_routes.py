@@ -645,6 +645,21 @@ class HoloRequest(BaseModel):
     request: str
 
 
+class BlenderLearn(BaseModel):
+    request: str
+    script: str
+    log: str
+
+
+@router.post("/blender/learn")
+async def blender_learn_route(req: BlenderLearn) -> dict[str, Any]:
+    """A finished Blender Pro build: kept as a worked example if it passes
+    the strict check (0 mesh errors, parts in place, nothing floating)."""
+    from openjarvis.tools.blender_examples import remember
+
+    return await asyncio.to_thread(remember, req.request, req.script[:20000], req.log[-6000:])
+
+
 @router.post("/holo_model")
 async def holo_model_route(req: HoloRequest) -> dict[str, Any]:
     """A hologram of anything: its real parts, designed by Gemini."""

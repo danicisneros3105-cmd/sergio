@@ -236,6 +236,68 @@ print("SERGIO_TOPOLOGY normals fixed %(flipped)d, non-manifold edges %(bad_edges
       "%(open_edges)d, loose vertices %(loose)d, curved parts smoothed %(smoothed)d" % _topo)
 """
 
+# Spatial check: what the model planned (SERGIO_LAYOUT at the top of its
+# script: each main part's centre and size in cm) against what Blender
+# really built, plus the physical sense of the scene: parts floating in the
+# air touching nothing, parts sunk below the ground. Numbers, not a picture,
+# so the review round knows exactly which part to move and by how much.
+SPATIAL = """
+# --- Sergio: spatial check (plan vs. built, floating, below ground) ---
+def _sergio_spatial():
+    import re as _re
+    def _key(t):
+        return _re.sub(r"[^a-z0-9]+", "", str(t).lower())
+    _boxes = {}
+    for _o in _objs:
+        _pts = [_o.matrix_world @ _V(c) for c in _o.bound_box]
+        _boxes[_o.name] = (_V([min(p[i] for p in _pts) for i in range(3)]), _V([max(p[i] for p in _pts) for i in range(3)]))
+    def _gap(a, b):
+        return max(max(a[0][i] - b[1][i], b[0][i] - a[1][i], 0.0) for i in range(3))
+    _float = []
+    for _n, _b in _boxes.items():
+        if _b[0].z * 100 <= 0.5:
+            continue  # on the ground
+        if all(_gap(_b, _c) * 100 > 0.5 for _m, _c in _boxes.items() if _m != _n):
+            _float.append(_n)
+    _below = [n for n, b in _boxes.items() if b[0].z * 100 < -0.5]
+    _plan = _ns.get("SERGIO_LAYOUT") or []
+    _ok = _matched = 0
+    for _item in _plan[:60] if isinstance(_plan, (list, tuple)) else []:
+        try:
+            _part = str(_item["part"])
+            _c = [float(v) for v in _item["center_cm"]][:3]
+            _s = [float(v) for v in _item["size_cm"]][:3]
+        except Exception:
+            continue
+        _hits = [b for n, b in _boxes.items() if _key(_part) and _key(_part) in _key(n)]
+        if not _hits:
+            print("SERGIO_LAYOUT_MISSING %s: planned but no object named like it" % _part)
+            continue
+        _matched += 1
+        _lo = _V([min(h[0][i] for h in _hits) for i in range(3)]) * 100
+        _hi = _V([max(h[1][i] for h in _hits) for i in range(3)]) * 100
+        _bc, _bs = (_lo + _hi) / 2, _hi - _lo
+        _tol = max(1.0, 0.15 * max(_s))
+        _off = max(abs(_bc[i] - _c[i]) for i in range(3))
+        _bad_size = any(_s[i] > 0.5 and not (0.75 <= _bs[i] / _s[i] <= 1.33) for i in range(3))
+        if _off > _tol or _bad_size:
+            print("SERGIO_LAYOUT_OFF %s: planned centre (%.1f, %.1f, %.1f) size (%.1f, %.1f, %.1f) cm; built centre "
+                  "(%.1f, %.1f, %.1f) size (%.1f, %.1f, %.1f) cm" % ((_part,) + tuple(_c) + tuple(_s) + tuple(_bc) + tuple(_bs)))
+        else:
+            _ok += 1
+    for _n in _float[:12]:
+        print("SERGIO_FLOATING %s touches nothing (bottom at %.1f cm): move it onto its neighbour" % (_n, _boxes[_n][0].z * 100))
+    for _n in _below[:12]:
+        print("SERGIO_BELOW_GROUND %s goes %.1f cm under the floor" % (_n, -_boxes[_n][0].z * 100))
+    print("SERGIO_SPATIAL planned %d, found %d, in place %d; floating %d; below ground %d"
+          % (len(_plan) if isinstance(_plan, (list, tuple)) else 0, _matched, _ok, len(_float), len(_below)))
+try:
+    _sergio_spatial()
+except Exception as _exc:
+    print("SERGIO_SPATIAL_SKIP", _exc)
+"""
+
+
 # The saved project is ready for a final render (F12), with production
 # settings: Cycles 256 samples with adaptive sampling (noise threshold 0.01,
 # at least 32), OIDN denoising fed with albedo and normals, 32 transparency
@@ -321,6 +383,10 @@ def finish_script(script: str, save_path: str, name: str, preview_path: str = ""
         + f"""import bpy as _bpy, math as _math
 from mathutils import Vector as _V
 _scene = _bpy.context.scene
+try:
+    _bpy.context.view_layer.update()  # copies and moves made in the script get their real matrix_world
+except Exception:
+    pass
 _objs = [o for o in _scene.objects if o.type == "MESH"]
 _lo = _V((min((o.matrix_world @ _V(c))[i] for o in _objs for c in o.bound_box) for i in range(3))) if _objs else _V((0, 0, 0))
 _hi = _V((max((o.matrix_world @ _V(c))[i] for o in _objs for c in o.bound_box) for i in range(3))) if _objs else _V((1, 1, 1))
@@ -343,7 +409,7 @@ if _scene.world is None:
     _scene.world = _bpy.data.worlds.new("Mundo")
 _scene.world.color = (0.16, 0.17, 0.19)
 _scene["sergio_model"] = {json.dumps(name)}
-""" + TOPOLOGY + RENDER + f"""_path = {json.dumps(save_path)}
+""" + TOPOLOGY + SPATIAL + RENDER + f"""_path = {json.dumps(save_path)}
 _bpy.ops.wm.save_as_mainfile(filepath=_path)
 print("SERGIO_SAVED", _path, len(_objs))
 _dims = (_hi - _lo) * 100

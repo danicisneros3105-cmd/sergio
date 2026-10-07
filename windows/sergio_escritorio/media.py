@@ -293,7 +293,11 @@ def blender_score(log: str) -> float:
     found = re.search(r"SERGIO_PARTS (\d+)", log) or re.search(r"SERGIO_SAVED .* (\d+)\s*$", log, re.M)
     meshes = int(found.group(1)) if found else 0
     errors = sum(1 for line in log.splitlines() if line.startswith("SERGIO_STEP_ERROR"))
-    return max(meshes - 2 * errors, 0) + 0.5
+    # Spatial sense counts too: a part in the air or out of its planned place
+    # makes a worse build than one with every part where it belongs.
+    misplaced = sum(1 for line in log.splitlines()
+                    if line.startswith(("SERGIO_FLOATING", "SERGIO_BELOW_GROUND", "SERGIO_LAYOUT_OFF")))
+    return max(meshes - 2 * errors - 0.5 * misplaced, 0) + 0.5
 
 
 def worse_build(new: float, best: float) -> bool:

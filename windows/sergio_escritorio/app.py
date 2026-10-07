@@ -2114,6 +2114,11 @@ def run(config: dict[str, Any]) -> None:
             limpieza.forget_attempt(path)  # no half-made versions left behind
             return f"Blender Pro no logró una versión que funcione: {log[-200:]}"
         limpieza.clean_blender(Path(path).parent, media.HOME / "blender")
+        try:  # a clean build becomes a worked example for the next ones
+            client.http.post(f"{client.base}/v1/vision/blender/learn", timeout=20, json={
+                "request": request, "script": model.get("raw_script") or "", "log": log[-6000:]})
+        except Exception:  # noqa: BLE001 — learning is a bonus
+            pass
         media.open_in_blender(path)
         name = model.get("name") or "el modelo"
         return (

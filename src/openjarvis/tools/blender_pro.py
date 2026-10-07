@@ -34,6 +34,22 @@ from openjarvis.tools.blender_model import (
 RULES = """Rules for the script:
 - Only bpy, bmesh, math, mathutils. No os, sys, subprocess, files, network or exec.
 - Start from an empty scene: bpy.ops.wm.read_factory_settings(use_empty=True).
+- SPATIAL PLAN FIRST (think like a draughtsman before you model): right after
+  the imports write SERGIO_LAYOUT = [{"part": "Asiento", "center_cm": [x, y, z],
+  "size_cm": [width, depth, height]}, ...] with every main part, in cm, Blender
+  axes (x width left-right, y depth front-back with the front at -y, z up),
+  origin at the centre of the model's base on the ground. Check the plan
+  before modelling: each part rests on or attaches to another (bottom of one =
+  top of the one below), symmetric parts mirror in x, nothing floats, nothing
+  sinks under z = 0, sizes add up to the whole. Then build FROM these numbers
+  and name each object starting with its "part" name (Pata_1, Pata_2 for
+  "Pata"). Plan coordinates are WORLD positions of the assembled model, even
+  for parented parts. For articulated or angled things (lamp arms, hinges,
+  limbs) chain the joints like forward kinematics: keep each angle in a
+  variable, compute the next joint = previous joint + length x (0, cos a,
+  sin a) in metres, place every arm between its two joints, and keep every
+  joint above the base (z > 0). Sergio measures what you built against this plan
+  (SERGIO_LAYOUT_OFF, SERGIO_FLOATING, SERGIO_BELOW_GROUND in the log).
 - Real-world scale in metres; the main model on the ground (lowest point z = 0),
   centred at the origin; every part a separate, well-named object, parented to
   one empty named after the model.
@@ -70,7 +86,7 @@ RULES = """Rules for the script:
 - Blender 4.x / 5.x API (common mistakes): Principled BSDF inputs are "Base Color",
   "Metallic", "Roughness", "IOR", "Alpha", "Transmission Weight", "Emission Color",
   "Emission Strength", "Subsurface Weight", "Coat Weight", "Specular IOR Level"
-  (there is NO "Transmission", "Emission" or "Specular" input); the colour ramp
+  (there is NO "Transmission", "Emission", "Specular" or "Clearcoat" input); the colour ramp
   node is "ShaderNodeValToRGB"; set material.use_nodes = True before using nodes;
   node_tree belongs to the MATERIAL (mat.node_tree.nodes / .links), never to
   a node; link materials with obj.data.materials.append(mat); the Principled BSDF
@@ -78,7 +94,12 @@ RULES = """Rules for the script:
   bands_direction (no "direction"); primitive_*_add operators take size /
   radius / depth / location / rotation / scale only (no "enter_editmode" in
   calls you are unsure of); prefer bmesh or
-  bpy.ops.mesh.primitive_* then edit; apply rotation/scale where it matters.
+  bpy.ops.mesh.primitive_* then edit; apply rotation/scale where it matters,
+  and note bpy.ops.object.transform_apply() applies LOCATION too by default:
+  call transform_apply(location=False, rotation=False, scale=True) or the
+  object's origin jumps to the world origin (copies then land twice as far);
+  after moving or copying objects, bpy.context.view_layer.update() before
+  reading matrix_world.
 Answer ONLY with JSON:
 {"name": "short Spanish name", "description": "one Spanish sentence", \
 "dimensions_cm": [width, depth, height], "parts": number of parts, \
@@ -109,7 +130,11 @@ REVIEW_PROMPT = (
     "{target}"
     "Blender's log (errors matter most; SERGIO_STEP_ERROR lines are steps that "
     "failed and were SKIPPED, so those parts are missing from the render; "
-    "SERGIO_DIMS is the model's real size, SERGIO_PARTS its pieces, SERGIO_TOPOLOGY the mesh check: non-manifold edges and loose vertices are modelling errors to fix):\n{log}\n"
+    "SERGIO_DIMS is the model's real size, SERGIO_PARTS its pieces, SERGIO_TOPOLOGY the mesh check: non-manifold edges and loose vertices are modelling errors to fix; "
+    "SERGIO_LAYOUT_OFF / SERGIO_LAYOUT_MISSING compare your SERGIO_LAYOUT plan with the measured result, "
+    "SERGIO_FLOATING / SERGIO_BELOW_GROUND are parts touching nothing or under the floor: fix each one by "
+    "moving or resizing exactly by the numbers given, and update SERGIO_LAYOUT if the plan itself was "
+    "wrong):\n{log}\n"
     "First list to yourself, view by view, what is wrong or missing versus the "
     "request and the reference (errors, silhouette, proportions, size versus "
     "the target, missing parts, floating or buried parts, materials). Then "
@@ -255,6 +280,16 @@ def _checked(text: str, ask: Ask, images: list[tuple[bytes, str]], prompt: str) 
         return model
 
 
+def _examples(request: str) -> str:
+    """Worked examples (verified scripts) first: in-context training."""
+    try:
+        from openjarvis.tools.blender_examples import prompt_block
+
+        return prompt_block(request)
+    except Exception:  # noqa: BLE001 — a bonus, never a blocker
+        return ""
+
+
 def _finish(model: dict[str, Any], save_path: str, preview_path: str, sheet: bytes) -> dict[str, Any]:
     model["raw_script"] = model["script"]
     model["script"] = finish_script(model["script"], save_path, model["name"], preview_path)
@@ -284,6 +319,7 @@ def from_text(
         sheet = reference_sheet(request, draw=draw)
     images = [(sheet, image_mime(sheet))] if sheet else []
     prompt = TEXT_PROMPT.replace("{request}", request).replace("{images}", SHEET_NOTE if sheet else "")
+    prompt = _examples(request) + prompt
     if parts:
         prompt += (
             "\nThe object's parts (real sizes, centred at the origin, y up in this list; "
@@ -314,6 +350,7 @@ def from_photo(
         "{images}",
         PHOTO_NOTE.replace("{sheet}", " and a blueprint sheet of it (front, side, top, 3/4)" if sheet else ""),
     )
+    prompt = _examples(request) + prompt
     prompt += (
         "\nFirst identify the main object (the one held in the hands, else the most "
         "prominent) and estimate its real size from context (an adult hand is ~18 cm long)."
