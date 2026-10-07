@@ -339,6 +339,12 @@ def draw_icon(p: QPainter, kind: str, centre: QPointF, colour: QColor) -> None:
         path.closeSubpath()
         p.drawPath(path)
         p.drawLine(QPointF(x - 3.5, y), QPointF(x + 3.5, y))
+    elif kind == "moon":  # Night Shift: a crescent
+        path = QPainterPath()
+        path.addEllipse(QPointF(x, y), 9, 9)
+        bite = QPainterPath()
+        bite.addEllipse(QPointF(x + 5, y - 4), 8, 8)
+        p.drawPath(path.subtracted(bite))
     elif kind == "lock":
         p.drawRoundedRect(QRectF(x - 7, y - 1, 14, 10), 2.5, 2.5)
         p.drawArc(QRectF(x - 4.5, y - 9, 9, 13), 0, 180 * 16)
@@ -409,6 +415,7 @@ SECTION_ICONS = {  # the «Todo» tab, in order: (icon, bubble colour)
     "profile": ("person", "#32ade6"),
     "faces": ("face", "#34c759"),
     "blocking": ("shield", "#ff6961"),
+    "night": ("moon", "#5e5ce6"),
     "lock": ("lock", "#636366"),
 }
 

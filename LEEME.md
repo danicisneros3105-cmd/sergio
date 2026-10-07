@@ -1090,3 +1090,36 @@ git subtree pull --prefix=extensions/clacky https://github.com/clacky-ai/opencla
 git subtree pull --prefix=extensions/globe  https://github.com/bilawalsidhu/gods-eye-view.git main --squash
 git pull https://github.com/open-jarvis/OpenJarvis.git main
 ```
+
+## Night Shift (modo nocturno basado en estudios del sueño)
+
+«Activa el night shift» (o el botón **Night Shift** en Todo). Lo que hace, y por qué:
+
+* **La pantalla se calienta desde la puesta de sol** (6500 K → 3400 K; la hora
+  se calcula con su ubicación) y **en la última hora antes de dormir también se
+  oscurece** (hasta 2700 K y 70 %). El tono cálido solo no basta: en el estudio
+  de BYU (Sleep Health, 2021) el Night Shift del iPhone no mejoró el sueño;
+  pesan la intensidad de la luz (con ~25–30 lux ya se suprime la mitad de la
+  melatonina, Phillips et al., PNAS 2019) y lo que engancha la pantalla.
+  Si el driver no acepta el cambio de gamma, Sergio pone un velo ámbar que no
+  bloquea los clics.
+* **Su hora de dormir sale de una hora fija de despertar**: «me levanto siempre
+  a las 6:30» → a la cama a las 22:15 con 8 h (adultos: 7 h o más, AASM/SRS).
+  La regularidad predijo la mortalidad mejor que las horas (Windred et al.,
+  Sleep 2023, 60 977 personas).
+* **En la última hora Sergio se calla**: sin gimnasio mental ni avisos, y le
+  recuerda el alcohol (recorta el sueño REM) y el cuarto a ~18–19 °C. Las
+  tareas siguen en segundo plano.
+* **Último café** a la hora de dormir − 8 h: 400 mg incluso 6 h antes quitaron
+  más de una hora de sueño sin que la gente lo notara (Drake et al., 2013).
+* **Diario de sueño**: «me dormí a las 12 y me desperté a las 7». «¿Cómo he
+  dormido?» da horas, regularidad (0–100) y «jet lag social» (fin de semana
+  contra diario).
+* «¿A qué hora me acuesto si me levanto a las 6?», «quiero dormir 7,5 horas»,
+  «¿hasta qué hora puedo tomar café?».
+* «No puedo dormir»: control de estímulos de la terapia cognitivo-conductual
+  para el insomnio (primer tratamiento según el American College of
+  Physicians): si en unos 20 minutos no se duerme, levantarse y volver con
+  sueño. Si pasa ≥ 3 noches por semana durante 3 meses, al médico.
+* La skill «Sueño» (con estas fuentes) se carga sola cuando habla de dormir,
+  también en el coach de salud.

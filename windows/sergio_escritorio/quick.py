@@ -197,6 +197,39 @@ class _ProAgents:
 _PRO_AGENTS = _ProAgents()
 
 
+def parse_night(text: str, t: str) -> Quick | None:
+    """Night Shift: on/off, wake time, sleep need, the diary, can't sleep."""
+    from sergio_escritorio.nocturno import parse_diary
+
+    if re.search(r"\b(night shift|modo noche|modo nocturno|modo sueno|luz nocturna)\b", t):
+        if re.search(r"\b(desactiva|apaga|quita|sin|off)\b", t):
+            return Quick("night_off")
+        if re.search(r"\b(como esta|estado|que hace|como va)\b", t):
+            return Quick("night_status")
+        return Quick("night_on")
+    diary = parse_diary(text)
+    if diary:
+        return Quick("night_diary", f"{diary[0]}-{diary[1]}")
+    m = re.search(r"\b(?:a que hora|cuando)\b.*\b(?:me (?:acuesto|duermo)|debo dormir|dormirme|acostarme|ir a dormir)\b"
+                  r".*\b(?:levanto|despierto|levantarme|despertarme)\b.*?(\d{1,2})(?:[:.h](\d{2}))?", t)
+    if m:
+        return Quick("night_bedtime", f"{int(m.group(1)):02d}:{m.group(2) or '00'}")
+    m = re.search(r"\b(?:me levanto|me despierto|despiertame|mi hora de despertar es)\b.*?\ba las (\d{1,2})(?:[:.h](\d{2}))?"
+                  r"(?! de la (?:tarde|noche))", t)
+    if m and re.search(r"\b(siempre|todos los dias|cada dia|normalmente|habitualmente|mi hora)\b", t):
+        return Quick("night_wake", f"{int(m.group(1)):02d}:{m.group(2) or '00'}")
+    m = re.search(r"\bquiero dormir (\d+)(?:[ .,](\d))? horas\b", t)  # «7,5» arrives as «7 5»
+    if m:
+        return Quick("night_need", m.group(1) + (f".{m.group(2)}" if m.group(2) else ""))
+    if re.search(r"\b(como (he )?dormido|como duermo|mi sueno|informe de sueno|diario de sueno|cuanto (he )?dormido)\b", t):
+        return Quick("night_report")
+    if re.search(r"\b(no puedo dormir|no me puedo dormir|no consigo dormir|insomnio|me desvele|no logro dormir)\b", t):
+        return Quick("night_insomnia")
+    if re.search(r"\b(hasta que hora|ultima hora|cuando)\b.*\b(cafe|cafeina)\b", t):
+        return Quick("night_caffeine")
+    return None
+
+
 def parse_quick(text: str) -> Quick | None:
     """A Quick action for clear one-step orders, else None."""
     t = polite(_plain(text).rstrip(".?!"))
@@ -218,6 +251,9 @@ def parse_quick(text: str) -> Quick | None:
         return Quick("tasks_status")
     if CANCEL.search(text):
         return Quick("task_cancel")
+    night = parse_night(text, t)
+    if night:
+        return night
     if not t or any(c in f" {t}" for c in _COMPLEX):
         return None
     # Stop / silence

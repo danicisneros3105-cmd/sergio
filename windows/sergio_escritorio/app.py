@@ -3099,7 +3099,136 @@ def run(config: dict[str, Any]) -> None:
             logging.exception("mental gym failed to start")
             on_ui(schedule.done)
 
+    # -- Night Shift: the evening wound down, from sleep research ----------------
+    import datetime as _dt
+
+    from sergio_escritorio import nocturno
+    from sergio_escritorio.nocturno_ui import NightScreen
+
+    night_diary = nocturno.Diary.load(SERGIO_HOME / "sueno.json")
+    night_screen = NightScreen()
+    night_state: dict[str, Any] = {"look": None, "said": set(), "gamma": True}
+
+    def night_settings() -> nocturno.Settings:
+        return nocturno.load_settings(config.get("night"))
+
+    def save_night(s: nocturno.Settings) -> None:
+        config["night"] = nocturno.dump_settings(s)
+        save_config(config)
+
+    def night_dusk(s: nocturno.Settings) -> _dt.time | None:
+        lat, lon = s.lat, s.lon
+        if lat is None and location.fix is not None:
+            lat, lon = location.fix.lat, location.fix.lon
+        if lat is None or lon is None:
+            return None
+        offset = (time.localtime().tm_gmtoff or 0) / 3600
+        return nocturno.sunset(_dt.date.today(), float(lat), float(lon), offset)
+
+    def night_now() -> nocturno.Moment:
+        s = night_settings()
+        return nocturno.moment(_dt.datetime.now(), s, night_dusk(s))
+
+    def night_quiet() -> bool:
+        try:
+            return night_now().quiet
+        except Exception:  # noqa: BLE001
+            return False
+
+    def night_screen_set(kelvin: float, brightness: float) -> None:
+        if night_state["gamma"] and nocturno.apply_gamma(kelvin, brightness):
+            night_screen.clear()
+            return
+        night_state["gamma"] = False  # the driver refused: the veil does it
+        night_screen.set(kelvin, brightness)
+
+    def night_tick() -> None:
+        try:
+            s = night_settings()
+            m = nocturno.moment(_dt.datetime.now(), s, night_dusk(s))
+            look = (m.kelvin, m.brightness) if s.warmth else (nocturno.DAY_K, 1.0)
+            if look != night_state["look"]:
+                night_state["look"] = look
+                night_screen_set(*look)
+            today = _dt.date.today().isoformat()
+            key = f"{today}:{m.phase}"
+            if s.on and m.phase in nocturno.TIPS and key not in night_state["said"]:
+                night_state["said"].add(key)
+                if m.phase == "relajacion":
+                    tell(nocturno.TIPS[m.phase])
+                else:
+                    bridge.caption.emit(nocturno.TIPS[m.phase])
+            cut = nocturno.caffeine_cutoff(s)
+            coffee = f"{today}:cafe"
+            now = _dt.datetime.now().time()
+            if s.on and coffee not in night_state["said"] and cut <= now < (
+                    _dt.datetime.combine(_dt.date.today(), cut) + _dt.timedelta(minutes=30)).time():
+                night_state["said"].add(coffee)
+                bridge.caption.emit(nocturno.caffeine_note(s))
+        except Exception:  # noqa: BLE001 — the evening never breaks Sergio
+            logging.exception("night shift tick failed")
+
+    night_timer = QTimer()
+    night_timer.timeout.connect(night_tick)
+    night_timer.start(60_000)
+    QTimer.singleShot(3000, night_tick)
+
+    def run_night(q: Any) -> str | None:
+        if not q.kind.startswith("night_"):
+            return None
+        s = night_settings()
+        if q.kind == "night_on":
+            s.on = s.warmth = True
+            save_night(s)
+            night_state["look"] = None
+            on_ui(night_tick)  # the veil is a window: built on the UI thread
+            return nocturno.describe(s, dusk=night_dusk(s)) + " Diga «me levanto siempre a las …» para ajustarlo."
+        if q.kind == "night_off":
+            s.on = False
+            save_night(s)
+            night_state["look"] = None
+            on_ui(night_screen.clear)
+            nocturno.restore_gamma()
+            return "Night Shift apagado; la pantalla vuelve a la normalidad."
+        if q.kind == "night_status":
+            return nocturno.describe(s, dusk=night_dusk(s))
+        if q.kind == "night_wake":
+            s.wake = q.arg
+            save_night(s)
+            return (f"Anotado: se levanta a las {s.wake}, todos los días. A la cama a las "
+                    f"{nocturno.bedtime(s).strftime('%H:%M')}; último café a las "
+                    f"{nocturno.caffeine_cutoff(s).strftime('%H:%M')}.")
+        if q.kind == "night_need":
+            s.need_h = max(6.0, min(10.0, float(q.arg)))
+            save_night(s)
+            extra = " Menos de 7 h no es lo recomendado para adultos." if s.need_h < 7 else ""
+            return f"Planifico {s.need_h:g} h: a la cama a las {nocturno.bedtime(s).strftime('%H:%M')}.{extra}"
+        if q.kind == "night_bedtime":
+            times = nocturno.bedtimes_for(q.arg, s.need_h)
+            return (f"Para levantarse a las {q.arg}: a la cama a las {times[0]} ({s.need_h:g} h de sueño). "
+                    f"Por ciclos de unos 90 min, también {' o '.join(times[1:])} (es una estimación).")
+        if q.kind == "night_diary":
+            bed, wake = q.arg.split("-")
+            night_diary.add(bed, wake)
+            st = nocturno.stats(night_diary.nights)
+            return (f"Anotado: de {bed} a {wake}. Media de {st['noches']} noches: {st['horas']} h, "
+                    f"regularidad {st['regularidad']}/100." if st else "Anotado.")
+        if q.kind == "night_report":
+            return nocturno.report(night_diary.nights, s)
+        if q.kind == "night_insomnia":
+            return nocturno.INSOMNIA
+        if q.kind == "night_caffeine":
+            return nocturno.caffeine_note(s)
+        return None
+
+    quick_handlers.append(run_night)
+    section_openers["night"] = lambda _a="": run_night(  # the tile: on if off, else how it is now
+        type("Q", (), {"kind": "night_status" if night_settings().on else "night_on", "arg": ""})())
+    app.aboutToQuit.connect(nocturno.restore_gamma)
+
     def gym_check() -> None:
+        if night_quiet():  # no pop-ups in the hour before bed or at night
+            return
         try:
             if schedule.check():
                 if config.get("gym_camera", True):

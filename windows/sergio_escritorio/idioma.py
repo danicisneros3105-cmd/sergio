@@ -346,6 +346,8 @@ SECTIONS = {  # the «Todo» tab: every part of Sergio, one tap away
     "faces": {"es": "Caras", "en": "Faces", "pt": "Rostos", "fr": "Visages", "de": "Gesichter", "it": "Volti"},
     "agents": {"es": "Agentes", "en": "Agents", "pt": "Agentes", "fr": "Agents", "de": "Agenten", "it": "Agenti"},
     "blocking": TEXTS["blocking"],
+    "night": {"es": "Night Shift", "en": "Night Shift", "pt": "Night Shift", "fr": "Night Shift",
+              "de": "Night Shift", "it": "Night Shift"},
     "lock": {"es": "Bloquear PC", "en": "Lock PC", "pt": "Bloquear PC", "fr": "Verrouiller", "de": "PC sperren",
              "it": "Blocca PC"},
 }
