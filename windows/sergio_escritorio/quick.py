@@ -249,6 +249,15 @@ def parse_quick(text: str) -> Quick | None:
         return Quick("flight_follow", m.group(1).replace(" ", "").upper())
     if re.search(r"\b(muestrame|sigue|seguir)\b.*\b(este|ese) (vuelo|avion)\b.*\ben vivo\b|\b(sigue|seguir) (ese|este) (vuelo|avion)\b", t):
         return Quick("flight_follow", "")
+    # Useless / duplicated apps (one approval removes them) and permanent skills
+    if re.search(r"\b(limpia|quita|desinstala|elimina|borra)\b.*\b(apps?|aplicaciones|programas)\b.*\b(inutiles|duplicadas?|"
+                 r"que no uso|repetidas?|basura|sobran)\b|\b(limpia|limpieza de) (las |mis )?(apps|aplicaciones|programas)\b", t):
+        return Quick("apps_clean")
+    m = re.search(r"\b(?:aprende|estudia|asimila)\b.*?\b(?:pdf|manual|documento|skill)\b\s*(?:de |en |:)?\s*(.*)$", text, re.I)
+    if m:
+        return Quick("skill_learn", m.group(1).strip(" .\"'"))
+    if re.search(r"\b(mis skills|que skills tienes|lista de skills|que has aprendido|que manuales sabes)\b", t):
+        return Quick("skills_show")
     # Blocking (apps, websites, searches) — off only with the owner's face
     if re.search(r"\b(quita|desactiva|apaga|elimina) (el |los )?bloqueos?\b|\bdesbloquea( todo)?$", t):
         return Quick("block_off")

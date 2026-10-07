@@ -88,6 +88,18 @@ def step_status(answer: str) -> tuple[str, str]:
     return "more", ""
 
 
+MAX_FANOUT = 300  # sub-agents one step may become (one per element)
+
+
+def _env_int(name: str, default: int, top: int) -> int:
+    import os
+
+    try:
+        return max(1, min(top, int(os.environ.get(name, default))))
+    except ValueError:
+        return default
+
+
 @dataclass
 class Step:
     text: str
@@ -112,6 +124,8 @@ class Task:
     cancel: threading.Event = field(default_factory=threading.Event)
     agent: dict[str, Any] | None = None  # a specialist agent (agentes.py) doing it
     replanned: bool = False
+    rules: str = ""  # permanent skills that matched (server), in every step
+    calls: int = 0  # agent turns used (each one may call several tools)
 
     def progress(self) -> float:
         if not self.steps:
@@ -132,7 +146,8 @@ class Orchestrator:
         *,
         approve: Callable[[str], bool] = lambda _what: False,
         told: Callable[[str], None] = lambda _text: None,
-        max_parallel: int = 3,
+        max_parallel: int = 0,
+        swarm: int = 0,
         on_plan: Callable[[Task], None] = lambda _task: None,
         on_done: Callable[[Task], None] = lambda _task: None,
         plan_grace: float = 0.0,
@@ -150,7 +165,11 @@ class Orchestrator:
         self.plan, self.new_asker, self.activities = plan, new_asker, activities
         self.approve, self.told = approve, told
         self.screen = threading.Lock()  # one task at a time on the screen
-        self.slots = threading.Semaphore(max_parallel)
+        # Tasks at once, and agent turns at once across all of them (the
+        # swarm). Defaults fit a free Gemini key; sergio.env can raise them:
+        # SERGIO_TAREAS (up to 50) and SERGIO_ENJAMBRE (up to 300).
+        self.slots = threading.Semaphore(max_parallel or _env_int("SERGIO_TAREAS", 6, 50))
+        self.swarm = threading.BoundedSemaphore(swarm or _env_int("SERGIO_ENJAMBRE", 8, MAX_FANOUT))
         self.tasks: list[Task] = []
         self._ids = itertools.count(1)
 
@@ -223,8 +242,10 @@ class Orchestrator:
         if len(ready) == 1:
             self._do(task, ready[0])
             return
+        self.activities.update(task.activity, detail=f"enjambre: {len(ready)} subagentes a la vez")
         threads = [
-            threading.Thread(target=self._do, args=(task, st, self.new_asker()), daemon=True) for st in ready
+            threading.Thread(target=self._do, args=(task, st, self._limited(task, self.new_asker())), daemon=True)
+            for st in ready
         ]
         for th in threads:
             th.start()
@@ -235,7 +256,7 @@ class Orchestrator:
         """The Revisor: a fresh agent checks the results against the request;
         what it finds missing gets one fix step."""
         results = "\n".join(f"- {st.text} → {st.result}" for st in task.steps if st.status == "done")
-        verdict = self.new_asker()(
+        verdict = self._limited(task, self.new_asker())(
             f"Eres el Revisor de Sergio: no hiciste el trabajo, lo compruebas.\nPedido del usuario: "
             f"«{task.request}»\nResultados de los pasos:\n{results}\n"
             "Comprueba con herramientas (lee los archivos, verifica cifras) que se cumplió TODO lo pedido. "
@@ -282,21 +303,33 @@ class Orchestrator:
 
     @staticmethod
     def _steps(plan: dict[str, Any]) -> list[Step]:
+        """The plan's steps as a graph. A step with «para_cada» becomes one
+        sub-agent per element, all at once (the swarm); what needed that step
+        then waits for all of them."""
         raw = [s for s in plan.get("pasos") or [] if str(s.get("paso") or "").strip()]
-        steps = []
+        steps: list[Step] = []
+        made: list[list[int]] = []  # plan step -> the steps it became
         for i, s in enumerate(raw):
             needs = s.get("depende_de")
-            after = None  # not said: after the previous step (safe, in order)
             if isinstance(needs, list):  # 1-based, only earlier steps (no cycles)
-                after = sorted({int(n) - 1 for n in needs if isinstance(n, int) and 1 <= n <= i})
-            steps.append(Step(
-                text=str(s.get("paso") or ""),
+                wanted = {int(n) - 1 for n in needs if isinstance(n, int) and not isinstance(n, bool) and 1 <= n <= i}
+            else:  # not said: after the previous step (safe, in order)
+                wanted = {i - 1} if i else set()
+            after = sorted({k for w in wanted for k in made[w]})
+            items = [str(x) for x in s.get("para_cada") or []][:MAX_FANOUT] if s.get("donde") != "pantalla" else []
+            text = str(s.get("paso") or "")
+            base = dict(
                 where="pantalla" if s.get("donde") == "pantalla" else "fondo",
                 platform=str(s.get("plataforma") or "web"),
                 check=str(s.get("comprobar") or ""),
                 important=bool(s.get("importante")),
-                after=after,
-            ))
+            )
+            start = len(steps)
+            if len(items) > 1:
+                steps += [Step(text=f"{text} — solo para: {item}", after=list(after), **base) for item in items]
+            else:
+                steps.append(Step(text=text, after=after if (needs is not None or i) else None, **base))
+            made.append(list(range(start, len(steps))))
         return steps
 
     def _plan(self, task: Task) -> None:
@@ -305,6 +338,7 @@ class Orchestrator:
         except Exception:  # noqa: BLE001 — no planner: the request is one step
             plan = {"titulo": _short(task.request), "pasos": [{"paso": task.request, "donde": "pantalla"}]}
         task.title = str(plan.get("titulo") or _short(task.request))
+        task.rules = str(plan.get("reglas") or "")
         task.steps = self._steps(plan) or [Step(task.request, "pantalla")]
         self.on_plan(task)
         kind = "screen" if any(s.where == "pantalla" for s in task.steps) else "task"
@@ -362,8 +396,16 @@ class Orchestrator:
 
     def _asker(self, task: Task) -> Ask:
         if not hasattr(task, "_ask"):
-            task._ask = self.new_asker()  # type: ignore[attr-defined]
+            task._ask = self._limited(task, self.new_asker())  # type: ignore[attr-defined]
         return task._ask  # type: ignore[attr-defined]
+
+    def _limited(self, task: Task, ask: Ask) -> Ask:
+        """An agent turn that waits for a place in the swarm and is counted."""
+        def turn(prompt: str) -> str:
+            with self.swarm:
+                task.calls += 1
+                return ask(prompt)
+        return turn
 
     def _prompt(self, task: Task, step: Step) -> str:
         done = [f"- {s.text} → {s.result}" for s in task.steps if s.status == "done"]
@@ -372,6 +414,7 @@ class Orchestrator:
             [
                 f"Eres el agente «{role['nombre']}»: {role.get('instrucciones', '')}" if role else "",
                 f"Tarea completa del usuario: «{task.request}»",
+                f"Reglas de tus skills (obligatorias):\n{task.rules}" if task.rules else "",
                 ("Ya hecho:\n" + "\n".join(done)) if done else "",
                 f"Paso actual ({step.platform}): {step.text}",
                 f"Cómo comprobarlo: {step.check}" if step.check else "",
@@ -411,9 +454,20 @@ def claimed_paths(text: str) -> list[str]:
 
 def plan_line(task: Task) -> str:
     """«Plan: 1) buscar… 2) tabla… 3) abrir (pantalla)» — the plan, seen first."""
-    parts = [f"{n}) {_short(s.text, 38)}" + (" (pantalla)" if s.where == "pantalla" else "")
-             + (" (a la vez)" if s.after == [] and n > 1 else "")
-             for n, s in enumerate(task.steps, 1)]
+    parts, n, i = [], 0, 0
+    while i < len(task.steps):
+        s = task.steps[i]
+        head = s.text.split(" — solo para: ")[0]
+        same = 1
+        while i + same < len(task.steps) and task.steps[i + same].text.startswith(head + " — solo para: "):
+            same += 1
+        n += 1
+        if same > 1:  # a swarm step: one line, not 300
+            parts.append(f"{n}) {_short(head, 38)} ×{same} subagentes a la vez")
+        else:
+            parts.append(f"{n}) {_short(s.text, 38)}" + (" (pantalla)" if s.where == "pantalla" else "")
+                         + (" (a la vez)" if s.after == [] and i > 0 else ""))
+        i += same
     line = f"Plan de «{task.title or _short(task.request)}»: " + " ".join(parts)
     if any(st.where == "pantalla" or st.important for st in task.steps):
         line += " · di «cancela la tarea» para pararla"

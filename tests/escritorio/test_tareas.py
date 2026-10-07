@@ -245,7 +245,7 @@ def test_a_step_never_runs_before_what_it_needs():
 
     steps = O._steps({"pasos": [{"paso": "a"}, {"paso": "b", "depende_de": [3, 1, 2]}, {"paso": "c"}]})
     assert steps[1].after == [0]  # later or self references dropped: no cycles
-    assert steps[2].after is None  # not said: after the previous one
+    assert steps[2].after == [1]  # not said: after the previous one
 
 
 def test_the_revisor_checks_the_result_and_one_fix_step_runs():
@@ -262,3 +262,44 @@ def test_the_revisor_checks_the_result_and_one_fix_step_runs():
     task = orch.tasks[0]
     assert task.status == "done" and task.steps[-1].text.startswith("Corrige lo que falta: la tabla no tiene precios")
     assert any("Eres el Revisor" in c for c in calls)
+
+
+def test_a_step_for_each_element_becomes_a_swarm_and_the_next_waits_for_all():
+    items = [f"producto {n}" for n in range(40)]
+    plan = lambda r: {"reglas": "Skill «Enjambre»: cita la fuente", "pasos": [  # noqa: E731
+        {"paso": "busca el precio", "para_cada": items, "depende_de": []},
+        {"paso": "haz la tabla", "depende_de": [1]}]}
+    orch, acts, told, calls = make(plan, lambda p: "TERMINADO: ok")
+    orch.swarm = threading.BoundedSemaphore(20)
+    start = time.time()
+    task = orch.submit("precios")
+    wait(orch)
+    took = time.time() - start
+    assert len(task.steps) == 41 and task.steps[-1].after == list(range(40))
+    assert took < 0.6  # 40 sub-agents of 0.05 s, 20 at a time, then the table (2 s if one by one)
+    assert task.status == "done" and task.calls == 41
+    assert "cita la fuente" in calls[0] and "solo para: producto" in calls[0]
+    from sergio_escritorio.tareas import plan_line
+
+    assert "×40 subagentes a la vez" in plan_line(task)
+
+
+def test_the_swarm_never_exceeds_its_limit():
+    inside, worst = [0], [0]
+    lock = threading.Lock()
+
+    def answers(prompt):
+        with lock:
+            inside[0] += 1
+            worst[0] = max(worst[0], inside[0])
+        time.sleep(0.03)
+        with lock:
+            inside[0] -= 1
+        return "TERMINADO: ok"
+
+    plan = lambda r: {"pasos": [{"paso": "x", "para_cada": [str(n) for n in range(30)]}]}  # noqa: E731
+    orch, *_ = make(plan, answers)
+    orch.swarm = threading.BoundedSemaphore(5)
+    orch.submit("x")
+    wait(orch)
+    assert worst[0] == 5

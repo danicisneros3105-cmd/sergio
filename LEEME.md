@@ -977,6 +977,25 @@ apruebes mirando la cámara. «Modo bloqueo»: la pantalla de bloqueo de Windows
     borra, envía, paga, publica o instala espera tu cara. El plan solo puede
     usar herramientas que existen: lo inventado se quita y nunca se planifica
     enviar mensajes ni llamar a nadie.
+* **Enjambre de subagentes**: un paso que se repite por elemento («busca el
+  precio de cada uno de estos 40 productos») se convierte en un subagente por
+  elemento, hasta 300, todos a la vez; el paso siguiente espera a todos. Por
+  defecto corren 8 turnos de agente a la vez y 6 tareas (lo que aguanta una
+  clave gratuita de Gemini); en `sergio.env` se sube con `SERGIO_ENJAMBRE`
+  (hasta 300) y `SERGIO_TAREAS` (hasta 50). El notch muestra «enjambre: N
+  subagentes» y el plan «×N subagentes a la vez».
+* **Planes al instante**: un pedido ya planificado en las últimas 24 h vuelve
+  en 0 s (sin llamar al modelo); uno nuevo tarda lo que tarda Gemini (~7–13 s).
+* **Skills permanentes**: reglas que se cargan solas según el tema, en el plan
+  y en cada paso. Vienen tres (Blender de producción, Color y entrega de video,
+  Enjambre de agentes) y puede enseñarle más: «Sergio, aprende este PDF
+  C:\ruta\manual.pdf». Gemini lee el PDF (también escaneado), saca sus reglas
+  y las guarda en `~/.openjarvis/skills`. «¿Qué skills tienes?» las lista.
+* **Limpieza de apps**: «limpia las apps inútiles». Sergio encuentra solo las
+  versiones viejas duplicadas, el bloatware de prueba y lo que no se abre hace
+  120 días (nunca runtimes ni drivers), le muestra la lista y con **un solo
+  sí con su cara** las quita todas en silencio. Los archivos temporales de más
+  de 7 días se borran solos cada semana, sin preguntar.
 * **Actividades en vivo en el notch** (como el iPhone): cada trabajo largo
   (tareas, Blender Pro, Video Pro) va en el notch con su anillo de progreso.
   Con dos a la vez, la isla se divide en dos (la burbuja de al lado, «+N» si

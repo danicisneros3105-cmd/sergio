@@ -80,3 +80,31 @@ def test_the_plan_is_a_graph_without_cycles():
         {"paso": "tabla", "herramientas": ["file_write"], "depende_de": [1, 2, True]},
         {"paso": "abrir", "herramientas": ["desktop_action"]}]}, "x")
     assert [s.get("depende_de") for s in plan["pasos"]] == [[], [], [1, 2], None]
+
+
+def test_a_step_for_each_element_and_the_skills_go_in_the_plan():
+    seen = []
+
+    def ask(prompt, **_k):
+        seen.append(prompt)
+        return {"pasos": [{"paso": "precio", "herramientas": ["web_search"], "para_cada": [f"p{n}" for n in range(400)] + ["p1"]},
+                          {"paso": "render", "herramientas": ["blender_create"], "para_cada": ["solo uno"]}]}
+
+    plan = plan_task("renderiza en Blender cada producto", ask=ask)
+    assert len(plan["pasos"][0]["para_cada"]) == 300 and "para_cada" not in plan["pasos"][1]
+    assert "Blender de producción" in plan["reglas"] and "Reglas obligatorias" in seen[0]
+
+
+def test_a_plan_already_made_comes_back_at_once(monkeypatch):
+    from openjarvis.coach import brain
+
+    calls = []
+
+    def fake(prompt, **_k):
+        calls.append(prompt)
+        return {"pasos": [{"paso": "buscar", "herramientas": ["web_search"]}]}
+
+    monkeypatch.setattr(brain, "ask", fake)
+    first = plan_task("Busca vuelos a Lima, por favor")
+    again = plan_task("busca vuelos a lima por favor")
+    assert len(calls) == 1 and again.get("cache") and not first.get("cache")

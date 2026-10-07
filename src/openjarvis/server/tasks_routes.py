@@ -20,13 +20,18 @@ lose work or spend money is marked ``importante`` so the owner approves it.
 from __future__ import annotations
 
 import asyncio
+import base64
 import re
+import threading
+import time
+import unicodedata
 from typing import Any, Callable
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 router = APIRouter(prefix="/v1/tasks", tags=["tasks"])
+skills_router = APIRouter(prefix="/v1/skills", tags=["skills"])
 
 TOOLS = {
     # background (no screen)
@@ -58,7 +63,8 @@ RISKY = re.compile(
     r"|\bformatea\w* (el |la |los )?(disco|unidad|usb|pc|computadora|partici[oó]n)",
     re.I,
 )
-MAX_STEPS = 10
+MAX_STEPS = 20
+MAX_FANOUT = 300  # «para cada» elements of one step: one sub-agent each
 
 PROMPT = """Eres el planificador de Sergio, un asistente que controla una laptop \
 Windows (con Ubuntu/WSL) y puede trabajar en segundo plano.
@@ -73,6 +79,9 @@ mostrar el resultado, clics en una web que exige iniciar sesión),
 - "plataforma": "windows", "ubuntu" o "web",
 - "herramientas": las herramientas de la lista que usará,
 - "comprobar": cómo se verifica que el paso salió bien,
+- "para_cada": SOLO si el mismo paso se repite por elemento (cada producto, \
+ciudad, archivo…): la lista de elementos (hasta 300); se lanza un subagente \
+por elemento, todos a la vez. Si no, omítelo.
 - "depende_de": los números (desde 1) de los pasos ANTERIORES que necesita; \
 [] si es independiente. Los pasos independientes se hacen a la vez (p. ej. \
 tres búsquedas en paralelo y luego la tabla que depende de las tres).
@@ -118,6 +127,7 @@ def validate_plan(data: Any, request: str) -> dict[str, Any]:
                 "importante": bool(RISKY.search(text)),
                 "inventadas": unknown,  # tools the model made up (removed)
                 **_needs(raw, len(steps)),
+                **_fanout(raw),
             }
         )
         if len(steps) >= MAX_STEPS:
@@ -138,21 +148,63 @@ def _needs(raw: dict[str, Any], index: int) -> dict[str, Any]:
     return {"depende_de": sorted({n for n in needs if isinstance(n, int) and not isinstance(n, bool) and 1 <= n <= index})}
 
 
+def _fanout(raw: dict[str, Any]) -> dict[str, Any]:
+    items = raw.get("para_cada", raw.get("for_each"))
+    if not isinstance(items, list):
+        return {}
+    clean = []
+    for item in items:
+        text = " ".join(str(item).split())[:120]
+        if text and text not in clean:
+            clean.append(text)
+    return {"para_cada": clean[:MAX_FANOUT]} if len(clean) > 1 else {}
+
+
+# Plans already made come back at once (the same request, the same agent):
+# the closest thing to zero latency, since a new plan needs the model.
+CACHE_SECONDS = 24 * 3600
+_cache: dict[str, tuple[float, dict[str, Any]]] = {}
+_cache_lock = threading.Lock()
+
+
+def _key(request: str, tools: list[str] | None, role: str) -> str:
+    text = unicodedata.normalize("NFKD", request.lower())
+    text = " ".join("".join(c for c in text if not unicodedata.combining(c) and (c.isalnum() or c.isspace())).split())
+    return f"{text}|{','.join(sorted(tools or []))}|{role}"
+
+
 def plan_task(
     request: str, ask: Callable[..., Any] | None = None, tools: list[str] | None = None, role: str = ""
 ) -> dict[str, Any]:
     """*tools*: an agent's own toolbox (a subset); *role*: its instructions."""
+    key = _key(request, tools, role) if ask is None else ""  # tests pass their own ask
+    with _cache_lock:
+        hit = _cache.get(key) if key else None
+    if hit and time.time() - hit[0] < CACHE_SECONDS:
+        return {**hit[1], "cache": True}
     if ask is None:
         from openjarvis.coach.brain import ask
+    from openjarvis.coach.skills import rules_for
+
     allowed = sorted(t for t in (tools or TOOLS) if t in TOOLS) or sorted(TOOLS)
     prompt = PROMPT.format(max_steps=MAX_STEPS, tools=", ".join(allowed), request=request)
+    rules = rules_for(request + " " + role)
+    if rules:  # permanent skills: their rules shape the plan and every step
+        prompt = f"Reglas obligatorias para esta tarea:\n{rules}\n\n" + prompt
     if role:
         prompt = f"Trabajas como este agente especialista: {role}\n\n" + prompt
     plan = validate_plan(ask(prompt, effort="medium", deep=True), request)
+    plan["reglas"] = rules
     for step in plan["pasos"]:  # an agent never reaches outside its toolbox
         outside = [t for t in step["herramientas"] if t not in allowed]
         step["herramientas"] = [t for t in step["herramientas"] if t in allowed]
         step["inventadas"] += outside
+    with _cache_lock:
+        if not key:
+            return plan
+        if len(_cache) > 200:
+            _cache.pop(next(iter(_cache)))
+        _cache[key] = (time.time(), plan)
     return plan
 
 
@@ -223,4 +275,35 @@ async def plan(req: PlanRequest) -> dict[str, Any]:
         raise HTTPException(status_code=502, detail=str(exc)[:300]) from exc
 
 
-__all__ = ["NEVER", "TOOLS", "design_agent", "plan_task", "router", "validate_agent", "validate_plan"]
+class LearnRequest(BaseModel):
+    name: str = "manual"
+    text: str = ""
+    pdf_b64: str = ""
+
+
+@skills_router.get("")
+async def skills_list() -> dict[str, Any]:
+    from openjarvis.coach.skills import all_skills
+
+    return {"skills": [{"nombre": s["nombre"], "claves": s["claves"][:12], "archivo": s["archivo"]}
+                       for s in all_skills()]}
+
+
+@skills_router.post("/learn")
+async def skills_learn(req: LearnRequest) -> dict[str, Any]:
+    """«Aprende este PDF»: a manual becomes a skill that loads by itself."""
+    from openjarvis.coach.skills import learn
+
+    try:
+        pdf = base64.b64decode(req.pdf_b64) if req.pdf_b64 else b""
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="PDF inválido") from exc
+    try:
+        return await asyncio.to_thread(learn, req.text, req.name, None, None, pdf)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail=str(exc)[:300]) from exc
+
+
+__all__ = ["NEVER", "TOOLS", "design_agent", "plan_task", "router", "skills_router", "validate_agent", "validate_plan"]

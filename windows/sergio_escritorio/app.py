@@ -3289,6 +3289,89 @@ def run(config: dict[str, Any]) -> None:
 
     quick_handlers.append(run_world)
 
+    # -- useless apps out with one «sí», throwaway files without asking ---------
+    import sergio_escritorio.apps_limpieza as apps_limpieza
+
+    def clean_apps() -> None:
+        live = activities.start("Limpieza de apps", "task", "revisando lo instalado")
+        try:
+            found = apps_limpieza.audit(apps_limpieza.installed())
+            freed = apps_limpieza.clean_temp()
+            config["temp_clean"] = time.time()
+            save_config(config)
+            note = f" Además liberé {freed / 1e6:.0f} MB de archivos temporales." if freed > 5e6 else ""
+            if not found:
+                activities.finish(live, True, "nada que quitar")
+                tell("No encontré apps inútiles ni duplicadas." + note)
+                return
+            bridge.caption.emit(apps_limpieza.describe(found))
+            tell(f"Encontré {len(found)} apps que sobran; están en pantalla. Mire a la cámara para quitarlas todas.")
+            time.sleep(8)  # time to read the list before the approval prompt replaces it
+            if not owner_approves(f"desinstalar {len(found)} apps", 20.0):
+                activities.finish(live, False, "sin su aprobación")
+                tell("Las dejo como están." + note)
+                return
+            activities.update(live, detail=f"quitando {len(found)} apps")
+            done = apps_limpieza.remove([a for a, _ in found])
+            ok = [n for n, worked in done if worked]
+            failed = [n for n, worked in done if not worked]
+            activities.finish(live, not failed, f"{len(ok)} quitadas")
+            tell(f"Quité {len(ok)} apps." + (f" No pude con: {', '.join(failed[:5])}." if failed else "") + note)
+        except Exception as exc:  # noqa: BLE001
+            activities.finish(live, False, "falló")
+            tell(f"No pude revisar las apps: {exc}")
+
+    def weekly_temp_clean() -> None:
+        if time.time() - float(config.get("temp_clean") or 0) > 7 * 86400:
+            config["temp_clean"] = time.time()
+            save_config(config)
+            apps_limpieza.clean_temp()
+
+    threading.Thread(target=weekly_temp_clean, daemon=True).start()
+
+    def learn_skill(source: str) -> str:
+        import base64
+
+        from sergio_escritorio.media import resolve
+
+        path = resolve(source) if source else None
+        if path is None or not path.is_file():
+            return "Dígame qué PDF: «aprende el manual C:\\ruta\\manual.pdf» (o su nombre en Descargas)."
+        data = path.read_bytes()
+        body = ({"name": path.stem, "pdf_b64": base64.b64encode(data).decode()} if path.suffix.lower() == ".pdf"
+                else {"name": path.stem, "text": data.decode("utf-8", "ignore")})
+
+        def work() -> None:
+            live = activities.start(f"Aprendiendo {path.stem[:30]}", "search", "leyendo el manual")
+            try:
+                resp = client.http.post(f"{client.base}/v1/skills/learn", json=body, timeout=300)
+                resp.raise_for_status()
+                skill = resp.json()
+                activities.finish(live, True, f"{skill['reglas']} reglas")
+                tell(f"Aprendido: «{skill['nombre']}», {skill['reglas']} reglas. Las aplico solo cuando "
+                     f"pida algo de {', '.join(skill['claves'][:4])}.")
+            except Exception as exc:  # noqa: BLE001
+                activities.finish(live, False, "no pude")
+                tell(f"No pude aprender ese documento: {exc}")
+
+        threading.Thread(target=work, daemon=True).start()
+        return f"Leo «{path.name}» y saco sus reglas; le aviso al terminar."
+
+    def run_cleanup_and_skills(q: Any) -> str | None:
+        if q.kind == "apps_clean":
+            threading.Thread(target=clean_apps, daemon=True).start()
+            return "Reviso sus apps; nada se quita sin su cara."
+        if q.kind == "skill_learn":
+            return learn_skill(q.arg)
+        if q.kind == "skills_show":
+            resp = client.http.get(f"{client.base}/v1/skills", timeout=20)
+            resp.raise_for_status()
+            names = [s["nombre"] for s in resp.json().get("skills", [])]
+            return "Mis skills permanentes: " + ", ".join(names) + "." if names else "Aún no tengo skills."
+        return None
+
+    quick_handlers.append(run_cleanup_and_skills)
+
     # -- multitasking: complex tasks in the foreground and the background --------
     from sergio_escritorio.tareas import Orchestrator
 
