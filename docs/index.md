@@ -14,6 +14,29 @@ OpenJarvis is a research framework for composable, on-device AI systems.
 Build personal AI that runs on your hardware. Cloud APIs are optional.
 </p>
 
+<div class="hero-case" markdown>
+
+### :material-weather-sunset-up: Start here: your morning, briefed while you make coffee
+
+At 6 AM a local model reads what arrived overnight (email, calendar, tasks,
+health ring, weather and news) and turns it into a short spoken briefing.
+Nothing leaves your machine unless you choose a cloud voice or model.
+
+```bash
+jarvis init --preset morning-digest-linux    # or morning-digest-mac / morning-digest-minimal
+jarvis connect gdrive                         # Gmail + Calendar + Tasks in one sign-in
+jarvis digest --fresh                         # make today's briefing now (text + audio)
+jarvis digest --schedule "0 6 * * *"          # and every morning at 6 AM
+```
+
+> *"Good morning, sir. You slept 7 h 12 min, readiness 84. Three emails need you
+> today, the first from your landlord about Thursday's inspection. Standup moved
+> to 9:30. It's 14 °C and clearing by noon."*
+
+[:octicons-arrow-right-24: Full morning-digest guide](user-guide/morning-digest.md){ .md-button .md-button--primary }
+
+</div>
+
 <div class="grid cards" markdown>
 
 -   :material-image-multiple:{ .lg .middle } **See what people use it for**

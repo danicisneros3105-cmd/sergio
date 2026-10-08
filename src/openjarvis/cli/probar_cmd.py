@@ -10,9 +10,10 @@ the 3D globe and checks the hands. Each line says OK or what failed.
 from __future__ import annotations
 
 import base64
-import time
 import subprocess
-from typing import Callable
+import threading
+import time
+from typing import Callable, TypeVar
 
 import click
 import httpx
@@ -22,14 +23,42 @@ from rich.markup import escape
 console = Console()
 
 
+T = TypeVar("T")
+DEFAULT_LIMIT = 90.0  # seconds a single check may take before it is skipped
+
+
+def run_with_limit(fn: Callable[[], T], limit: float) -> T:
+    """Run *fn* but give up after *limit* seconds (TimeoutError).
+
+    A request that never answers (a stuck engine, a half-open socket, a
+    trickling stream) must not freeze the whole test: the check runs in a
+    daemon thread that is simply abandoned when time runs out."""
+    box: dict[str, object] = {}
+
+    def work() -> None:
+        try:
+            box["value"] = fn()
+        except BaseException as exc:  # noqa: BLE001 — re-raised in the caller
+            box["error"] = exc
+
+    worker = threading.Thread(target=work, daemon=True)
+    worker.start()
+    worker.join(limit)
+    if worker.is_alive():
+        raise TimeoutError(f"no respondió en {limit:.0f} s; lo salto y sigo")
+    if "error" in box:
+        raise box["error"]  # type: ignore[misc]
+    return box.get("value")  # type: ignore[return-value]
+
+
 class Run:
     def __init__(self) -> None:
         self.failed: list[str] = []
 
-    def check(self, name: str, fn: Callable[[], str]) -> str:
+    def check(self, name: str, fn: Callable[[], str], limit: float | None = None) -> str:
         console.print(f"Probando: {name}…")
         try:
-            detail = fn()
+            detail = str(run_with_limit(fn, limit or DEFAULT_LIMIT) or "")
         except Exception as exc:  # noqa: BLE001 — report, keep going
             self.failed.append(name)
             console.print(f"[red]FALLA[/red] {name}: {escape(str(exc))[:400]}")
@@ -86,7 +115,18 @@ def probar(sin_pantalla: bool) -> None:
     auth = {"Authorization": f"Bearer {token}"}
     http = _Retrying(httpx.Client(timeout=httpx.Timeout(180, connect=5)))
     run = Run()
+    try:
+        _probar(run, http, base, model, token, win, auth, sin_pantalla)
+    except KeyboardInterrupt:
+        console.print(
+            "\n[yellow]Prueba cancelada.[/yellow]"
+            + (f" Fallaron antes de cancelar: {', '.join(run.failed)}." if run.failed else "")
+        )
+        raise SystemExit(130) from None
 
+
+def _probar(run: "Run", http: "_Retrying", base: str, model: str, token: str, win: str,
+            auth: dict[str, str], sin_pantalla: bool) -> None:
     from openjarvis.cli.service_cmd import wait_for_server
 
     console.print("Esperando a que Sergio esté encendido…")
@@ -118,7 +158,7 @@ def probar(sin_pantalla: bool) -> None:
             raise RuntimeError(f"respondió «{answer[:120]}» (esperaba 144)")
         return f"usó una herramienta y respondió {answer.strip()[:40]}"
 
-    run.check("Cerebro con herramientas (Gemini)", brain)
+    run.check("Cerebro con herramientas (Gemini)", brain, limit=150)
 
     voice: dict[str, bytes] = {}
 
@@ -377,7 +417,7 @@ def probar(sin_pantalla: bool) -> None:
                 f"({out.get('model')}, eco {out.get('echo')}): «{str(out.get('said'))[:60]}»"
             )
 
-        run.check("Hablarle a Sergio: llamada desde tu compañero", talk_call)
+        run.check("Hablarle a Sergio: llamada desde tu compañero", talk_call, limit=75)
 
         def talk_turn() -> str:
             out = selftest("turn")
@@ -386,7 +426,7 @@ def probar(sin_pantalla: bool) -> None:
                 f"{out.get('voice')}: «{str(out.get('answer'))[:60]}»"
             )
 
-        run.check("Hablarle a Sergio: por turnos", talk_turn)
+        run.check("Hablarle a Sergio: por turnos", talk_turn, limit=75)
 
         if not sin_pantalla:
 
@@ -394,7 +434,7 @@ def probar(sin_pantalla: bool) -> None:
                 out = selftest("open")
                 return f"«{out.get('said')}» → {out.get('answer')} en {out.get('took_s')} s"
 
-            run.check("Entender «abre la calculadora» (sin abrirla)", open_by_voice)
+            run.check("Entender «abre la calculadora» (sin abrirla)", open_by_voice, limit=75)
 
         def hands() -> str:
             diag = _ok(http.get(f"{win}/diag", headers=auth)).json()
@@ -413,7 +453,7 @@ def probar(sin_pantalla: bool) -> None:
             raise RuntimeError("el globo respondió algo raro")
         return f"God's Eye View en {url}"
 
-    run.check("Globo 3D (God's Eye View)", globe)
+    run.check("Globo 3D (God's Eye View)", globe, limit=300)
 
     if token:
         try:
@@ -470,7 +510,10 @@ def live_call(base: str, timeout: float = 25.0) -> str:
     with connect(url, open_timeout=10, max_size=None) as ws:
         ws.send(json.dumps({"type": "start", "voice": "Algieba", "tools": []}))
         model = ""
+        ready_by = time.monotonic() + timeout
         while not model:
+            if time.monotonic() > ready_by:
+                raise RuntimeError(f"la llamada no quedó lista en {timeout:.0f} s")
             event = json.loads(ws.recv(timeout=timeout))
             if event.get("type") == "error":
                 raise RuntimeError(event.get("message", "error"))

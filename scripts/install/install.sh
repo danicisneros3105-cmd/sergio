@@ -545,6 +545,22 @@ install_ollama() {
         echo "    ollama already installed"
         return 0
     fi
+    if [[ "$(uname -s)" == "Darwin" ]]; then
+        # ollama.com/install.sh is Linux-only; on macOS use Homebrew, or the
+        # official app bundle when Homebrew is not there.
+        if command -v brew >/dev/null 2>&1 && brew install ollama; then
+            return 0
+        fi
+        local tmp
+        tmp="$(mktemp -d)"
+        curl -fsSL -o "$tmp/Ollama-darwin.zip" https://ollama.com/download/Ollama-darwin.zip
+        unzip -q -o "$tmp/Ollama-darwin.zip" -d "$HOME/Applications"
+        mkdir -p "$HOME/.local/bin"
+        ln -sf "$HOME/Applications/Ollama.app/Contents/Resources/ollama" "$HOME/.local/bin/ollama"
+        export PATH="$HOME/.local/bin:$PATH"
+        rm -rf "$tmp"
+        return 0
+    fi
     curl -fsSL https://ollama.com/install.sh | sh
 }
 

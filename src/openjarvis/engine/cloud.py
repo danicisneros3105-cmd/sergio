@@ -1318,7 +1318,8 @@ class CloudEngine(InferenceEngine):
                     raise
                 _QUOTA_EXHAUSTED[candidate] = time.monotonic() + cooldown
                 last = exc
-                logger.warning("Gemini %s unavailable (%s); trying the next", candidate, str(exc)[:80])
+                # Expected with free-tier quotas: the next model answers instead.
+                logger.info("Gemini %s unavailable (%s); trying the next", candidate, str(exc)[:80])
                 continue
             return resp, candidate
         raise last if last is not None else RuntimeError("no Gemini model")

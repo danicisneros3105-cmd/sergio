@@ -1506,7 +1506,9 @@ class SecurityConfig:
     rate_limit_burst: int = 10
     local_engine_bypass: bool = False
     local_tool_bypass: bool = False
-    profile: str = ""
+    # "personal" (single user on this machine, loopback only) is the safe
+    # default; "shared" and "server" tighten it; "" opts out of profiles.
+    profile: str = "personal"
     vault_key_path: str = field(
         default_factory=lambda: str(get_config_dir() / ".vault_key")
     )
@@ -1563,11 +1565,13 @@ def apply_security_profile(
     server_cfg: "ServerConfig | None",
     *,
     overrides: "set[str] | None" = None,
+    server_overrides: "set[str] | None" = None,
 ) -> None:
     """Expand a named security profile into config fields.
 
-    Fields in *overrides* (explicitly set by the user in TOML) are
-    not overwritten by the profile.
+    Fields in *overrides* (explicitly set by the user in ``[security]``)
+    and *server_overrides* (set in ``[server]``) are not overwritten by the
+    profile, so a user who binds ``host = "0.0.0.0"`` keeps it.
     """
     profile = security_cfg.profile
     if not profile:
@@ -1598,9 +1602,10 @@ def apply_security_profile(
         if key not in _overrides and hasattr(security_cfg, key):
             setattr(security_cfg, key, value)
 
+    _server_overrides = server_overrides or set()
     if server_cfg is not None:
         for key, value in pdef.get("server", {}).items():
-            if key not in _overrides and hasattr(server_cfg, key):
+            if key not in _server_overrides and hasattr(server_cfg, key):
                 setattr(server_cfg, key, value)
 
 
@@ -2214,7 +2219,13 @@ def load_config(path: Optional[Path] = None) -> JarvisConfig:
             _user_security_keys.update(
                 f"capabilities.{key}" for key in _security_data["capabilities"]
             )
-        apply_security_profile(cfg.security, cfg.server, overrides=_user_security_keys)
+        _server_data = data.get("server", {})
+        apply_security_profile(
+            cfg.security,
+            cfg.server,
+            overrides=_user_security_keys,
+            server_overrides=set(_server_data) if isinstance(_server_data, dict) else set(),
+        )
 
         # Mining: dedicated parser for tagged-union submit_target
         cfg.mining = _parse_mining_section(data)

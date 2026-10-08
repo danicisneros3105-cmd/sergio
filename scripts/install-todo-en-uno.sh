@@ -63,8 +63,19 @@ command -v uv >/dev/null || { curl -LsSf https://astral.sh/uv/install.sh | sh; e
 if grep -qi microsoft /proc/version 2>/dev/null \
    && curl -fsS http://127.0.0.1:11434/api/tags >/dev/null 2>&1; then
   echo "Ollama de Windows detectado desde WSL (usa tu GPU)."
-elif ! command -v ollama >/dev/null; then
-  curl -fsSL https://ollama.com/install.sh | sh
+else
+  command -v ollama >/dev/null || curl -fsSL https://ollama.com/install.sh | sh \
+    || echo "⚠ No se pudo instalar Ollama (solo hace falta para el modelo local; Gemini funciona sin él)."
+  # Encenderlo y esperar a que conteste (hasta 60 s) para que la descarga
+  # del modelo no falle por llegar antes que Ollama.
+  if command -v ollama >/dev/null && ! curl -fsS http://127.0.0.1:11434/api/tags >/dev/null 2>&1; then
+    systemctl --user start ollama 2>/dev/null || sudo systemctl start ollama 2>/dev/null \
+      || (nohup ollama serve >/tmp/ollama.log 2>&1 &)
+    for _ in $(seq 60); do
+      curl -fsS http://127.0.0.1:11434/api/tags >/dev/null 2>&1 && break
+      sleep 1
+    done
+  fi
 fi
 
 # ngrok: dirección pública fija para llamadas y WhatsApp (cuenta gratuita).
@@ -84,14 +95,9 @@ EXTRAS=(--extra server --extra desktop --extra tools-search --extra inference-cl
 if $TOKEN_SAVER; then EXTRAS+=(--extra token-saver); fi
 uv sync "${EXTRAS[@]}"
 # Motor nativo en Rust: lo necesitan la memoria de documentos y la búsqueda.
+# Primero la versión ya compilada (sin Rust); si no hay, se compila aquí.
 # Si falla, Sergio funciona igual pero sin esas funciones.
-if bash scripts/install/install-rust.sh \
-   && PATH="$HOME/.cargo/bin:$PATH" uv run --with "maturin>=1.12.6" \
-        maturin develop --release -m rust/crates/openjarvis-python/Cargo.toml; then
-  echo "Motor nativo instalado."
-else
-  echo "⚠ No se pudo compilar el motor nativo (memoria de documentos desactivada)." >&2
-fi
+bash scripts/install/install-native.sh "$ROOT/.venv/bin/python" || true
 
 say "5/6 Extensiones"
 ( cd extensions/clacky && bundle install )

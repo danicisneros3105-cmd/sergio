@@ -128,7 +128,17 @@ class _OpenAICompatibleEngine(AsyncHTTPEngineMixin, InferenceEngine):
                 f"{self.engine_id} engine at {self._host} returned HTTP "
                 f"{exc.response.status_code}{detail_suffix}"
             ) from exc
-        data = resp.json()
+        try:
+            data = resp.json()
+        except ValueError as exc:
+            snippet = " ".join(resp.text.split())[:120]
+            raise EngineConnectionError(
+                f"{self.engine_id} engine at {self._host} answered with something "
+                "that is not JSON (is another program using this port?)"
+                + (f": {snippet}" if snippet else "")
+            ) from exc
+        if not isinstance(data, dict):
+            data = {}
         choices = data.get("choices", [])
         if not choices:
             return {

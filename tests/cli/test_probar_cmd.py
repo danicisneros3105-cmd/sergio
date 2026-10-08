@@ -169,3 +169,37 @@ def test_a_call_in_progress_is_not_a_failure(monkeypatch, tmp_path):
     result = _run(monkeypatch, tmp_path)
     assert result.exit_code == 0, result.output
     assert "ya estás en una llamada con gemini-3.8-live" in result.output
+
+
+def test_a_check_that_never_answers_is_skipped_and_the_rest_runs(monkeypatch, tmp_path):
+    import threading
+
+    stuck = threading.Event()
+    real_transport = _transport
+
+    def hanging(fail=()):
+        inner = real_transport(fail)
+
+        def handler(request):
+            if request.url.path == "/v1/voice/speak":
+                stuck.wait(5)  # an engine that never answers
+            return inner.handle_request(request)
+
+        return httpx.MockTransport(handler)
+
+    monkeypatch.setattr(sys.modules[__name__], "_transport", hanging)
+    monkeypatch.setattr(probar_cmd, "DEFAULT_LIMIT", 0.3)
+    result = _run(monkeypatch, tmp_path)
+    stuck.set()
+    assert result.exit_code == 1
+    assert "FALLA Voz de Sergio (Gemini Live): no respondió en 0 s" in result.output
+    assert "OK   Globo 3D" in result.output  # the run went on
+
+
+def test_ctrl_c_prints_a_summary_instead_of_a_traceback(monkeypatch, tmp_path):
+    def interrupted(*args, **kwargs):
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(probar_cmd, "_probar", interrupted)
+    result = _run(monkeypatch, tmp_path)
+    assert result.exit_code == 130 and "Prueba cancelada" in result.output

@@ -258,7 +258,19 @@ def main() -> None:
                     _stream.reconfigure(encoding="utf-8", errors="replace")
                 except (AttributeError, OSError):
                     pass
-    cli()
+    try:
+        cli()
+    except Exception as exc:  # noqa: BLE001 — last resort: one clear line, not a traceback
+        import os
+
+        if os.environ.get("SERGIO_DEBUG") or os.environ.get("OPENJARVIS_DEBUG"):
+            raise
+        first = (str(exc).strip().splitlines() or [""])[0][:300]
+        sys.stderr.write(
+            f"Error: {type(exc).__name__}: {first}\n"
+            "Para ver el detalle técnico repite con SERGIO_DEBUG=1 delante del comando.\n"
+        )
+        raise SystemExit(1) from None
 
 
 __all__ = ["cli", "main"]

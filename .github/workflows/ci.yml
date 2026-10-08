@@ -101,14 +101,24 @@ jobs:
   # All `run:` steps use static commands only (no `github.event.*`
   # interpolation), so there is no workflow-injection surface here.
   test-windows:
-    runs-on: windows-latest
+    runs-on: ${{ matrix.os }}
+    # The ARM64 runner is newer; its result is reported but never blocks a merge.
+    continue-on-error: ${{ matrix.experimental }}
     strategy:
       fail-fast: false
       matrix:
-        # 3.12 = common; 3.13 = the supported ceiling — installing there guards
-        # against a numpy/native wheel gap at the top of the range (#350), which
-        # is exactly how the source-build failure slips in on Windows.
+        # Windows Server 2022 and 2025 builds (both Windows 10/11 kernels in the
+        # field) x 3.12 = common; 3.13 = the supported ceiling — installing
+        # there guards against a numpy/native wheel gap at the top of the range
+        # (#350), which is exactly how the source-build failure slips in.
+        os: [windows-2022, windows-2025]
         python-version: ["3.12", "3.13"]
+        experimental: [false]
+        include:
+          # Windows on ARM (Snapdragon laptops): RAM detection must work there too.
+          - os: windows-11-arm
+            python-version: "3.12"
+            experimental: true
     steps:
       - uses: actions/checkout@v7
 
@@ -129,8 +139,26 @@ jobs:
       # install can never mask the actual RAM-detection verification.
       - name: Verify Windows RAM detection (#373)
         shell: bash
+        # Not just "> 0": the value must match what Windows itself reports
+        # (CIM), so a wrong struct layout or unit can't pass silently.
         run: |
-          uv run python -c "from openjarvis.core.config import _total_ram_gb; ram = _total_ram_gb(); print(f'GlobalMemoryStatusEx RAM = {ram} GB'); assert ram > 0, f'Windows RAM detection returned {ram}, expected > 0'"
+          uv run python - <<'PY'
+          import subprocess
+          from openjarvis.core.config import _total_ram_gb, detect_hardware
+          ram = _total_ram_gb()
+          cim = subprocess.run(
+              ["powershell", "-NoProfile", "-Command",
+               "(Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory"],
+              capture_output=True, text=True, check=True,
+          ).stdout.strip()
+          ref = int(cim) / 1024**3
+          print(f"GlobalMemoryStatusEx RAM = {ram} GB, CIM = {ref:.1f} GB")
+          assert ram > 0, f"Windows RAM detection returned {ram}, expected > 0"
+          assert abs(ram - ref) < 0.6, f"RAM mismatch: {ram} vs {ref:.1f} GB"
+          hw = detect_hardware()
+          assert hw.ram_gb == ram, (hw.ram_gb, ram)
+          print("detect_hardware():", hw)
+          PY
 
       - name: Run Windows-specific tests (hardware + CLI + daemon)
         shell: bash
@@ -150,6 +178,36 @@ jobs:
         shell: bash
         run: |
           uv run jarvis --version
+
+  # RAM/hardware detection on the other desktop OSes, checked against the
+  # OS's own numbers (Linux: /proc/meminfo via free; macOS: sysctl).
+  hardware-detect:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-14]
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.2.0
+
+      - name: Verify RAM detection
+        shell: bash
+        run: |
+          if [[ "$RUNNER_OS" == "macOS" ]]; then REF=$(sysctl -n hw.memsize); else REF=$(free -b | awk '/^Mem:/{print $2}'); fi
+          REF="$REF" uv run --no-project --with-editable . python - <<'PY'
+          import os
+          from openjarvis.core.config import _total_ram_gb
+          ram, ref = _total_ram_gb(), int(os.environ["REF"]) / 1024**3
+          print(f"detected {ram} GB, OS says {ref:.1f} GB")
+          assert ram > 0 and abs(ram - ref) < 0.6, (ram, ref)
+          PY
 
   rust:
     runs-on: ubuntu-latest

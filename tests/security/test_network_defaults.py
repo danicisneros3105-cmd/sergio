@@ -59,11 +59,29 @@ class TestSecurityConfigDefaults:
         assert cfg.local_engine_bypass is False
         assert cfg.local_tool_bypass is False
 
-    def test_profile_default_empty(self) -> None:
+    def test_profile_default_personal(self) -> None:
         from openjarvis.core.config import SecurityConfig
 
         cfg = SecurityConfig()
-        assert cfg.profile == ""
+        assert cfg.profile == "personal"
+
+    def test_personal_profile_keeps_an_explicit_server_host(self, tmp_path, monkeypatch) -> None:
+        from openjarvis.core.config import load_config
+
+        cfg_file = tmp_path / "config.toml"
+        cfg_file.write_text('[server]\nhost = "0.0.0.0"\n')
+        cfg = load_config(cfg_file)
+        assert cfg.security.profile == "personal"
+        assert cfg.server.host == "0.0.0.0"
+
+    def test_personal_profile_binds_loopback_by_default(self, tmp_path) -> None:
+        from openjarvis.core.config import load_config
+
+        cfg_file = tmp_path / "config.toml"
+        cfg_file.write_text('[intelligence]\ndefault_model = "x"\n')
+        cfg = load_config(cfg_file)
+        assert cfg.server.host == "127.0.0.1"
+        assert cfg.security.mode == "redact"
 
 
 def _is_loopback(host: str) -> bool:

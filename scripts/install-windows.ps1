@@ -23,7 +23,32 @@ if (-not (Test-Path $wslcfg) -or -not (Select-String -Path $wslcfg -Pattern "net
 
 Say "2/4 Ollama para Windows (GPU)"
 if (-not (Get-Command ollama -ErrorAction SilentlyContinue)) {
-    winget install -e --id Ollama.Ollama --accept-source-agreements --accept-package-agreements
+    $viaWinget = $false
+    if (Get-Command winget -ErrorAction SilentlyContinue) {
+        winget install -e --id Ollama.Ollama --accept-source-agreements --accept-package-agreements
+        $viaWinget = ($LASTEXITCODE -eq 0)
+    }
+    if (-not $viaWinget) {
+        # Sin winget (Windows antiguo o recortado): el instalador oficial, en silencio.
+        $setup = Join-Path $env:TEMP 'OllamaSetup.exe'
+        try {
+            Invoke-WebRequest -UseBasicParsing -Uri 'https://ollama.com/download/OllamaSetup.exe' -OutFile $setup
+            Start-Process -FilePath $setup -ArgumentList '/S' -Wait
+        } catch {
+            Write-Host "No se pudo instalar Ollama ($($_.Exception.Message)). Sergio funciona con Gemini sin él." -ForegroundColor Yellow
+        }
+        Remove-Item $setup -ErrorAction SilentlyContinue
+    }
+    $env:Path = [Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' + [Environment]::GetEnvironmentVariable('Path', 'User')
+}
+# Encenderlo y esperar a que conteste (hasta 60 s).
+$ollama = (Get-Command ollama -ErrorAction SilentlyContinue).Source
+if ($ollama) {
+    for ($i = 0; $i -lt 60; $i++) {
+        try { Invoke-WebRequest -UseBasicParsing -TimeoutSec 2 'http://127.0.0.1:11434/api/tags' | Out-Null; break } catch { }
+        if ($i -eq 3) { Start-Process -FilePath $ollama -ArgumentList 'serve' -WindowStyle Hidden -ErrorAction SilentlyContinue }
+        Start-Sleep -Seconds 1
+    }
 }
 
 Say "3/4 Chrome (para que el agente pueda usar tu navegador)"

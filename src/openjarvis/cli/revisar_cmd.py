@@ -12,8 +12,12 @@ import httpx
 from rich.console import Console
 from rich.markup import escape
 
+from openjarvis.cli.probar_cmd import run_with_limit
+
 console = Console()
 DEFAULT_MODEL = "qwen3:8b"
+CHECK_TIMEOUT = 120.0  # one check (chat, voice, sight, hearing) before it counts as failed
+PULL_LIMIT = 45 * 60.0  # a local model download, with progress, before giving up
 
 
 def _silence_wav() -> bytes:
@@ -106,7 +110,7 @@ def _probe_ollama(host: str, model: str) -> None:
                 "stream": False,
                 "think": False,
             },
-            timeout=600,
+            timeout=CHECK_TIMEOUT,
         )
     except httpx.HTTPError as exc:
         console.print(f"  Ollama no respondió: {escape(str(exc))}")
@@ -119,9 +123,56 @@ def _probe_ollama(host: str, model: str) -> None:
         console.print(f"  Ollama dice: {escape(_detail(resp))}")
 
 
+def _pull(host: str, model: str, limit: float = PULL_LIMIT) -> bool:
+    """Download a local model showing progress (never a silent wait)."""
+    import json
+    import time
+
+    console.print(f"Descargando el modelo {model} (varios GB, solo una vez)…")
+    started = time.monotonic()
+    shown = -10
+    try:
+        with httpx.stream("POST", f"{host}/api/pull", json={"model": model, "stream": True},
+                          timeout=httpx.Timeout(60, connect=5)) as resp:
+            if resp.status_code != 200:
+                resp.read()
+                _bad(f"modelo {model}", _detail(resp))
+                return False
+            for line in resp.iter_lines():
+                if time.monotonic() - started > limit:
+                    _bad(f"modelo {model}", f"la descarga pasó de {limit / 60:.0f} min; "
+                         f"termínala con: ollama pull {model}")
+                    return False
+                try:
+                    event = json.loads(line or "{}")
+                except ValueError:
+                    continue
+                if event.get("error"):
+                    _bad(f"modelo {model}", str(event["error"]))
+                    return False
+                total, done = event.get("total") or 0, event.get("completed") or 0
+                if total:
+                    pct = int(100 * done / total)
+                    if pct >= shown + 10:
+                        shown = pct
+                        console.print(f"  {pct}% de {total / 1e9:.1f} GB")
+        return True
+    except httpx.HTTPError as exc:
+        _bad(f"modelo {model}", f"la descarga se cortó ({exc}); repite o usa: ollama pull {model}")
+        return False
+
+
 @click.command("revisar")
 def revisar() -> None:
     """Check Ollama, the model, chat, voice, hearing and the cursor companion."""
+    try:
+        _revisar()
+    except KeyboardInterrupt:
+        console.print("\n[yellow]Revisión cancelada.[/yellow]")
+        raise SystemExit(130) from None
+
+
+def _revisar() -> None:
     from openjarvis.cli.phone_cmd import read_env
     from openjarvis.cli.service_cmd import env_file
     from openjarvis.core.config import load_config
@@ -140,32 +191,29 @@ def revisar() -> None:
 
     # 1. Ollama and the model (cloud models are checked by the chat test)
     cloud_prefixes = ("kimi", "moonshot", "gemini", "gpt", "claude", "deepseek")
-    if model.lower().startswith(cloud_prefixes):
-        _ok(f"Modelo en la nube: {model} (respaldo local: qwen3:8b)")
-        model_for_ollama = cfg.intelligence.fallback_model or DEFAULT_MODEL
-    else:
-        model_for_ollama = model
-    local = model_for_ollama
+    cloud = model.lower().startswith(cloud_prefixes)
+    local = (cfg.intelligence.fallback_model or DEFAULT_MODEL) if cloud else model
     try:
         tags = httpx.get(f"{host}/api/tags", timeout=5).json()
         names = {m.get("name") for m in tags.get("models", [])}
-        if local in names or f"{local}:latest" in names:
+        have_local = local in names or f"{local}:latest" in names
+        if cloud:
+            # A cloud brain needs nothing local: never download gigabytes here.
+            _ok(f"Modelo en la nube: {model}"
+                + (f" (respaldo local {local} listo)" if have_local
+                   else f" (sin respaldo local; opcional: ollama pull {local})"))
+        elif have_local:
             _ok(f"Ollama y el modelo {local}")
+        elif _pull(host, local):
+            _ok(f"Modelo {local} descargado")
         else:
-            console.print(f"Descargando el modelo {local} (unos 5 GB, solo una vez)…")
-            resp = httpx.post(
-                f"{host}/api/pull",
-                json={"model": local, "stream": False},
-                timeout=None,
-            )
-            if resp.status_code == 200:
-                _ok(f"Modelo {local} descargado")
-            else:
-                failures += 1
-                _bad(f"modelo {local}", _detail(resp))
+            failures += 1
     except httpx.HTTPError as exc:
-        failures += 1
-        _bad("Ollama", f"no responde en {host} ({exc}). Abre la app Ollama en Windows.")
+        if cloud:
+            _ok(f"Modelo en la nube: {model} (Ollama no está; no hace falta)")
+        else:
+            failures += 1
+            _bad("Ollama", f"no responde en {host} ({exc}). Abre la app Ollama en Windows.")
 
     # 2. Sergio's server
     # It may have just been (re)started: give it up to two minutes.
@@ -180,12 +228,16 @@ def revisar() -> None:
             break
         except httpx.HTTPError:
             if time.monotonic() > deadline:
-                log = subprocess.run(
-                    ["journalctl", "--user", "-u", "sergio", "-n", "25", "--no-pager"],
-                    capture_output=True,
-                    text=True,
-                    check=False,
-                ).stdout
+                try:
+                    log = subprocess.run(
+                        ["journalctl", "--user", "-u", "sergio", "-n", "25", "--no-pager"],
+                        capture_output=True,
+                        text=True,
+                        check=False,
+                        timeout=10,
+                    ).stdout
+                except (OSError, subprocess.SubprocessError):
+                    log = ""
                 _bad("Sergio", "no arranca. Últimas líneas de su registro:")
                 console.print(escape(log or "(sin registro)"))
                 raise SystemExit(1)
@@ -203,13 +255,13 @@ def revisar() -> None:
                     "messages": [{"role": "user", "content": "Responde solo: ok"}],
                     "stream": False,
                 },
-                timeout=300,
+                timeout=CHECK_TIMEOUT,
             ),
         ),
         (
             "Voz (Sergio habla)",
             lambda: httpx.post(
-                f"{base}/v1/speech/synthesize", json={"text": "Hola"}, timeout=600
+                f"{base}/v1/speech/synthesize", json={"text": "Hola"}, timeout=CHECK_TIMEOUT
             ),
         ),
         (
@@ -220,7 +272,7 @@ def revisar() -> None:
                     "image": ("rojo.jpg", base64.b64decode(_RED_JPEG_B64), "image/jpeg")
                 },
                 data={"question": "¿De qué color es este cuadrado? Una palabra."},
-                timeout=200,
+                timeout=CHECK_TIMEOUT,
             ),
         ),
         (
@@ -229,15 +281,15 @@ def revisar() -> None:
                 f"{base}/v1/speech/transcribe",
                 files={"file": ("prueba.wav", _silence_wav(), "audio/wav")},
                 data={"language": "es"},
-                timeout=600,
+                timeout=CHECK_TIMEOUT,
             ),
         ),
     ]
     for name, call in checks:
         console.print(f"Probando: {name}…")
         try:
-            resp = call()
-        except httpx.HTTPError as exc:
+            resp = run_with_limit(call, CHECK_TIMEOUT * 1.1 + 1)
+        except (httpx.HTTPError, TimeoutError) as exc:
             failures += 1
             _bad(name, str(exc))
             continue
@@ -254,19 +306,19 @@ def revisar() -> None:
                         "instrucciones largas de Sergio. Solución: usa Gemini "
                         "(sergio nube configurar --gemini TU_CLAVE)."
                     )
-                elif model == model_for_ollama:
+                elif not cloud:
                     _probe_ollama(host, model)
 
     # 6. The 3D globe (God's Eye View): started on demand if needed
     console.print("Probando: Globo 3D (God's Eye View)… (la 1.a vez tarda)")
     try:
-        resp = httpx.post(f"{base}/v1/world/open", timeout=240)
+        resp = run_with_limit(lambda: httpx.post(f"{base}/v1/world/open", timeout=240), 260)
         if resp.status_code == 200:
             _ok(f"Globo 3D en {resp.json().get('url')}")
         else:
             failures += 1
             _bad("Globo 3D", _detail(resp))
-    except httpx.HTTPError as exc:
+    except (httpx.HTTPError, TimeoutError) as exc:
         failures += 1
         _bad("Globo 3D", str(exc))
 

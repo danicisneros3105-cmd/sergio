@@ -254,10 +254,13 @@ def get_engine(
         else ""
     )
     logger.warning(
-        "Default engine %r is unavailable; using %r%s",
+        "Default engine %r is not running; using %r%s.%s",
         default_key,
         chosen[0],
         boundary,
+        f" To make it the default: jarvis config set engine.default {chosen[0]}"
+        if boundary
+        else "",
     )
     return chosen
 

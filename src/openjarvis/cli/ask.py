@@ -14,7 +14,7 @@ from rich.table import Table
 
 from openjarvis.cli._banner import print_banner
 from openjarvis.cli._tool_names import resolve_tool_names
-from openjarvis.cli.hints import hint_no_engine
+from openjarvis.cli.hints import hint_engine_error
 from openjarvis.core.config import JarvisConfig, load_config
 from openjarvis.core.events import EventBus, EventType
 from openjarvis.core.types import Message, Role
@@ -70,6 +70,26 @@ def _resolve_research_model(model_name: str | None, config: JarvisConfig | None)
     return next((m for m in candidates if m), DEFAULT_PLANNER_MODEL)
 
 
+def _safe_health(engine) -> bool:
+    """Return True when *engine* answers its health probe, never raising."""
+    try:
+        return bool(engine.health())
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def _default_planner_model() -> str:
+    from openjarvis.agents.research_loop import DEFAULT_PLANNER_MODEL
+
+    return DEFAULT_PLANNER_MODEL
+
+
+def _short_error(exc: BaseException) -> str:
+    """One readable line for an exception (no traceback)."""
+    text = str(exc).strip().splitlines()[0] if str(exc).strip() else ""
+    return text[:300] or type(exc).__name__
+
+
 def _run_research(
     *,
     query_text: str,
@@ -108,7 +128,14 @@ def _run_research(
     # OpenAI-compatible engine registered on the same port as our own
     # API server. research_router.py hardcodes OllamaEngine() for the
     # same reason; mirror that here so CLI and HTTP behave identically.
+    # When Ollama is not running (cloud-only installs such as Gemini), fall
+    # back to the engine discovery already chose instead of crashing with a
+    # raw connection traceback.
+    resolved_engine = engine
     engine = OllamaEngine()
+    use_ollama = _safe_health(engine)
+    if not use_ollama and resolved_engine is not None:
+        engine = resolved_engine
 
     chunk_count = store._conn.execute(
         "SELECT COUNT(*) FROM knowledge_chunks"
@@ -125,13 +152,23 @@ def _run_research(
     embedder_available = embedder.is_available()
     logger.debug("research: embedder available=%s", embedder_available)
     if not embedder_available:
-        console.print(
-            "[yellow]Ollama embedder unavailable — falling back to BM25-only "
-            "retrieval. Run `ollama pull nomic-embed-text` for hybrid scoring.[/yellow]"
-        )
+        # Only worth a visible note when Ollama itself is running: otherwise
+        # BM25-only retrieval is the expected mode, not a problem.
+        if use_ollama:
+            console.print(
+                "[dim]Ollama embedder unavailable — using BM25-only retrieval. "
+                "Run `ollama pull nomic-embed-text` for hybrid scoring.[/dim]"
+            )
         embedder = None
 
     planner_model = _resolve_research_model(model_name, config)
+    if not use_ollama and planner_model == _default_planner_model():
+        try:
+            available = list(engine.list_models() or [])
+        except Exception:  # noqa: BLE001
+            available = []
+        if available:
+            planner_model = available[0]
     logger.debug("research: planner_model=%s", planner_model)
 
     # ---- Output styling --------------------------------------------------
@@ -200,7 +237,12 @@ def _run_research(
     )
 
     started = time.monotonic()
-    result = agent.run(query_text)
+    try:
+        result = agent.run(query_text)
+    except Exception as exc:  # noqa: BLE001 - engine/network errors vary by backend
+        console.print(f"[red]Research failed:[/red] {_short_error(exc)}")
+        console.print(hint_engine_error(exc, getattr(engine, "engine_id", None)))
+        sys.exit(1)
     elapsed = time.monotonic() - started
 
     logger.debug(
@@ -699,7 +741,7 @@ def _print_profile(
 
 
 @click.command()
-@click.argument("query", nargs=-1, required=True)
+@click.argument("query", nargs=-1, required=False)
 @click.option("-m", "--model", "model_name", default=None, help="Model to use.")
 @click.option("-e", "--engine", "engine_key", default=None, help="Engine backend.")
 @click.option(
@@ -821,7 +863,15 @@ def ask(
     quiet = (ctx.obj or {}).get("quiet", False) or output_json
     print_banner(quiet=quiet)
     console = Console(stderr=True)
-    query_text = " ".join(query)
+    query_text = " ".join(query).strip()
+    if not query_text and not sys.stdin.isatty():
+        # `echo "pregunta" | sergio ask` or `sergio ask < archivo.txt`
+        query_text = sys.stdin.read().strip()
+    if not query_text:
+        raise click.UsageError(
+            'Missing question. Example: sergio ask "¿qué tiempo hace?" '
+            '(or pipe text in: echo "pregunta" | sergio ask)'
+        )
 
     # Vision: collect base64 images from --image files and/or --screen.
     image_b64: list[str] = []
@@ -1112,7 +1162,7 @@ def ask(
             sys.exit(1)
         except EngineConnectionError as exc:
             console.print(f"[red]Engine error:[/red] {exc}")
-            console.print(hint_no_engine())
+            console.print(hint_engine_error(exc, engine_name))
             sys.exit(1)
 
         if output_json:
@@ -1214,7 +1264,7 @@ def ask(
         sys.exit(1)
     except EngineConnectionError as exc:
         console.print(f"[red]Engine error:[/red] {exc}")
-        console.print(hint_no_engine())
+        console.print(hint_engine_error(exc, engine_name))
         sys.exit(1)
 
     # Output

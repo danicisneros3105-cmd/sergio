@@ -584,3 +584,24 @@
   border: 1px solid var(--md-default-fg-color--lightest, rgba(0, 0, 0, 0.08));
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
+
+/* Hero use case on the landing page (morning digest) */
+.hero-case {
+  margin: 1.6rem 0 2rem;
+  padding: 1.2rem 1.4rem 1.4rem;
+  border-radius: 14px;
+  border: 1px solid var(--md-default-fg-color--lightest);
+  background: linear-gradient(135deg, var(--md-code-bg-color), transparent 70%);
+}
+.hero-case h3 {
+  margin-top: 0;
+}
+.hero-case blockquote {
+  border-left-color: var(--md-accent-fg-color);
+  font-size: 0.95em;
+}
+@media screen and (max-width: 600px) {
+  .hero-case {
+    padding: 1rem;
+  }
+}

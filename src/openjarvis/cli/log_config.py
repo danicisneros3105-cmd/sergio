@@ -57,12 +57,21 @@ def setup_logging(
 
     logger.setLevel(level)
 
-    # Console handler
+    # Console handler. In normal use a warning reads as a short note; the
+    # module path and level name are only useful when debugging (-v).
     console_handler = logging.StreamHandler()
     console_handler.setLevel(level)
-    fmt = SanitizingFormatter("%(levelname)s %(name)s: %(message)s")
+    fmt = SanitizingFormatter(
+        "%(levelname)s %(name)s: %(message)s" if verbose else "Note: %(message)s"
+    )
     console_handler.setFormatter(fmt)
     logger.addHandler(console_handler)
+
+    # Third-party libraries print advice meant for their own developers
+    # (e.g. google-genai's "automatic function calling is not recommended");
+    # keep it out of the user's terminal unless debugging.
+    for noisy in ("google_genai", "google.genai", "httpx", "httpcore", "chromadb", "LiteLLM"):
+        logging.getLogger(noisy).setLevel(logging.DEBUG if verbose else logging.ERROR)
 
     # File handler (verbose or explicit path)
     if verbose or log_file is not None:

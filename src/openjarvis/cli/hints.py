@@ -30,6 +30,36 @@ def hint_no_engine(engine_name: Optional[str] = None) -> str:
     )
 
 
+def hint_engine_error(exc: BaseException, engine_name: Optional[str] = None) -> str:
+    """The right advice for an engine failure: a quota, a server error or a
+    bad answer is not "the server is not running"."""
+    text = str(exc)
+    low = text.lower()
+    if "429" in text or "quota" in low or "resource_exhausted" in low or "rate limit" in low:
+        return (
+            "[yellow]Hint:[/yellow] the model is out of quota or rate-limited right now.\n"
+            "  Wait a minute and try again, or use another model with "
+            "[bold]-m <model>[/bold]."
+        )
+    if "401" in text or "403" in text or "api key" in low or "unauthorized" in low:
+        return (
+            "[yellow]Hint:[/yellow] the model rejected the API key.\n"
+            "  Check the key: [bold]sergio nube configurar --gemini TU_CLAVE[/bold]."
+        )
+    if "not json" in low:
+        return (
+            "[yellow]Hint:[/yellow] something that is not a model server answered on that port.\n"
+            f"  Check [bold]engine.{engine_name or 'ollama'}.host[/bold] with "
+            "[bold]jarvis config show[/bold]."
+        )
+    if any(f"http {code}" in low for code in ("500", "502", "503", "504")):
+        return (
+            f"[yellow]Hint:[/yellow] the {engine_name or 'model'} server had an internal error.\n"
+            "  Try again; if it repeats, restart it or check its log."
+        )
+    return hint_no_engine(engine_name)
+
+
 def hint_no_model(model_name: Optional[str] = None) -> str:
     """Return a suggestion when no model is available."""
     if model_name:
