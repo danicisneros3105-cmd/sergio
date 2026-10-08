@@ -104,6 +104,77 @@ _HOLO = re.compile(
 )
 
 
+_EDIT_VERBS = (
+    r"\b(cambia\w*|edita\w*|modifica\w*|quita\w*|agrega\w*|anade\w*|ponle|ponles|agranda\w*|"
+    r"achica\w*|alarga\w*|acorta\w*|ensancha\w*|pinta\w*|reemplaza\w*|sustituye\w*|elimina\w*|"
+    r"engrosa\w*|redondea\w*|gira\w* el|mueve\w* el|mueve\w* la)\b"
+)
+
+
+def _edit_instruction(text: str) -> str:
+    """The edit itself, without "en Blender" / "del modelo" around it."""
+    out = re.sub(r"(?i)\s*,?\s*\b(en|con) blender\b\s*,?", " ", text)
+    out = re.sub(r"(?i)\b(edita|modifica|cambia) (el|mi) modelo( de blender)?\s*[:,]?\s*", "", out)
+    return " ".join(out.split()).strip(" ,.:") or text.strip()
+
+
+def feedback_rating(text: str) -> int:
+    """-1 the user did not like it, +1 liked it, 0 a plain note."""
+    t = _plain(text)
+    if re.search(r"\b(no me gusto|mal|horrible|feo|lento|aburrido|no sirve|peor|fatal|no quiero)\b", t):
+        return -1
+    if re.search(r"\b(me gusto|me encanto|bien|genial|perfecto|increible|excelente)\b", t):
+        return 1
+    return 0
+
+
+def image_edit_parts(text: str) -> tuple[str, str]:
+    """(an image path named in the order, the edit to apply after rebuilding)."""
+    path = ""
+    found = re.search(r"([A-Za-z]:\\[^\"<>|]+?\.(?:png|jpe?g|webp|bmp))", text, re.I) or re.search(
+        r"\b([\w\-.]+\.(?:png|jpe?g|webp|bmp))\b", text, re.I)
+    if found:
+        path = found.group(1).strip()
+    rest = re.split(r"(?i)\b(?:imagen|foto|captura|dibujo|render)\b", text.replace(path, " ") if path else text,
+                    maxsplit=1)
+    tail = rest[1] if len(rest) > 1 else ""
+    tail = re.sub(r"(?i)^\s*(que (copié|copie|te pasé|te pase|descargué|descargue)\s*)?(en|a|con) blender\b", "", tail.strip())
+    edit = re.split(r"(?i)\s*(?:[,:;]|\by (?:luego |después |despues |además |ademas )?|\bpero\b|\bcon el cambio\b)\s*",
+                    tail, maxsplit=1)
+    instruction = edit[1].strip(" .") if len(edit) > 1 else ""
+    instruction = re.sub(r"(?i)^(pero|y|luego|después|despues|además|ademas)\s+", "", instruction).strip()
+    return path, instruction
+
+
+_MAKE = re.compile(r"^(crea|creame|lanza|tira|suelta|pon|haz|hazme|dibuja|genera)( me)? (.+)$")
+# Only pure geometry is drawn at once; anything else ("una caja de música",
+# "una pelota de fútbol", "un vaso") is a real object Gemini designs.
+GEOMETRY = {
+    "cubo", "cuadrado", "esfera", "bola", "pelota", "cilindro", "tubo", "cono", "toroide", "dona",
+    "rosquilla", "piramide", "diamante", "gema", "estrella", "corazon", "prisma", "hexagono",
+    "icosaedro", "dado20", "poliedro", "capsula", "disco", "moneda", "flecha", "luna", "medialuna",
+}
+_FILLER = {
+    "un", "una", "unos", "unas", "uno", "el", "la", "los", "las", "de", "del", "en", "3d", "holograma",
+    "hologramas", "grande", "grandes", "pequeno", "pequena", "pequenos", "pequenas", "gigante", "mini",
+    "crea", "creame", "lanza", "tira", "suelta", "pon", "haz", "hazme", "dibuja", "genera", "me", "cristal",
+    "vidrio", "dos", "tres", "cuatro", "cinco", "seis", "siete", "ocho", "nueve", "diez", "otro", "otra",
+}
+_COLOUR_WORD = re.compile(
+    r"^(cian|azul(es)?|roj[oa]s?|verdes?|amarill[oa]s?|naranjas?|morad[oa]s?|rosas?|blanc[oa]s?|"
+    r"dorad[oa]s?|platead[oa]s?|negr[oa]s?)$"
+)
+
+
+def _just_a_shape(t: str) -> bool:
+    """The order names plain geometry only ("crea 3 cubos rojos")."""
+    words = [w for w in t.split() if w not in _FILLER and not w.isdigit() and not _COLOUR_WORD.match(w)]
+    if len(words) != 1:
+        return False
+    w = words[0]
+    return any(form in GEOMETRY for form in (w, w.rstrip("s"), w[:-2] if w.endswith("es") else w))
+
+
 _OVERHEAD = re.compile(
     r"\b(que|cual|de donde|a donde|hay algun|hay un)\b.*\b(avion|vuelo|aeronave|avioneta|"
     r"helicoptero|aviones|vuelos)\b.*\b(encima|arriba|sobre (mi|nosotros|la casa)|pasando|"
@@ -474,9 +545,20 @@ def parse_quick(text: str) -> Quick | None:
         return Quick("gym_report")
     if _GYM.search(t):
         return Quick("gym", say="Vamos a entrenar la mente.")
+    # Video Pro learns an editing style from real videos (YouTube links, a
+    # channel or an ad): "aprende el estilo de edición de NextCore".
+    m = re.search(
+        r"\b(?:aprende|copia|estudia|analiza|imita)\b.*?\bestilo\s+(?:de\s+edicion\s+)?(?:de|del)\s+(?:canal\s+|anuncio\s+(?:de\s+)?)?(.+)$",
+        t,
+    ) or re.search(r"\b(?:estudia|mira|analiza)\s+(?:los\s+)?videos\s+(?:de|del)\s+(?:canal\s+)?(.+?)\s+(?:para|y)\s+(?:copiar|aprender|imitar)", t)
+    if m:
+        urls = " ".join(re.findall(r"https?://\S+", text))
+        return Quick("video_style_learn", urls or m.group(1).strip(" .,"), "Viendo los videos de referencia.")
+    if re.search(r"\b(que|cuales)\s+estilos\b.*\b(video|edicion|conoces|sabes)\b|\bestilos de (video|edicion)\b", t):
+        return Quick("video_styles")
     # Video Pro: "edita un video con la carpeta Viaje para YouTube Shorts"
     if re.search(r"\b(edita|editame|monta|montame|haz|hazme|crea|creame|arma)\b.*\b(video|short|reel)", t):
-        m = re.search(r"\b(?:carpeta|con los videos de|de la carpeta|con la carpeta|desde|de mis|con mis)\s+(?:de\s+)?(.+?)(?:\s+(?:para|en|como)\b|$)", t)
+        m = re.search(r"\b(?:carpeta|con los videos de|de la carpeta|con la carpeta|desde|de mis|con mis)\s+(?:de\s+)?(.+?)(?:\s+(?:para|en|como|al estilo|con el estilo|estilo)\b|$)", t)
         return Quick("video_pro", text, m.group(1).strip() if m else "")
     if re.search(r"\b(sube|subelo|subir|publica|publicalo)\b.*\b(youtube|video)\b", t):
         return Quick("video_upload")
@@ -484,6 +566,48 @@ def parse_quick(text: str) -> Quick | None:
         r"\bhologram\w*\b.*\b(ayuda|como funcionan|instrucciones)\b", t
     ):
         return Quick("holo", "ayuda hologramas")
+    # Feedback on the last result -> long-term memory ("eso quedó mal: ...").
+    if re.search(r"^(eso|esto|el (video|modelo|resultado)|la (edicion|tetera|imagen))?\s*(quedo|salio|estuvo|esta|me parecio)\s+"
+                 r"(mal|bien|genial|horrible|feo|perfecto|increible|regular|lento|rapido)\b", t) or re.search(
+                 r"^(no )?me (gusto|encanto)\b|^la proxima vez\b|^para la proxima\b|^recuerda que (prefiero|me gusta|no me gusta)\b", t):
+        return Quick("feedback", text.strip())
+    # The crewAI team (specialist + quality supervisor) for long written work.
+    m = re.match(r"^(?:usa|pon|que)\s+(?:a\s+)?(?:el|al|tu)\s+(?:equipo de agentes|equipo|crew)\s+(?:para|a)\s+(.+)$", t) or \
+        re.match(r"^(?:con el equipo de agentes|con crew)[,:]?\s+(.+)$", t)
+    if m:
+        return Quick("crew", text[-len(m.group(1)):].strip(), "El equipo se pone a ello.")
+    # Blender add-ons from GitHub and the engines they bring.
+    if re.search(r"\binstala\w*\b.*\b(complementos?|addons?|plugins?|extensiones)\b.*\bblender\b", t) or re.search(
+            r"\binstala\w*\s+(meshgen|tripo|sculptmate|sculpt mate|image to mesh)\b", t):
+        which = next((n for n, w in (("meshgen", "meshgen"), ("tripo", "tripo"), ("sculptmate", "sculpt"),
+                                     ("img2mesh", "image to mesh")) if w in t), "")
+        return Quick("blender_addons", which, "Instalando complementos.")
+    if re.search(r"\binstala\w*\s+(el\s+)?rife\b", t):
+        return Quick("rife_install")
+    if re.search(r"\b(con|usando|en)\s+tripo\b", t):
+        return Quick("tripo", text.strip(), "Tripo en marcha.")
+    if re.search(r"\b(imagen|foto|logo|silueta|dibujo|icono)\b", t) and re.search(r"\b3d\b|\bblender\b|\bmodelo\b", t):
+        if re.search(r"\b(sculpt ?mate|organic\w*|personaje|criatura|animal|escultura|figura|muneco|planta)\b", t):
+            return Quick("sculptmate", text.strip(), "SculptMate en marcha.")
+        if re.search(r"\b(logo|silueta|tecnic\w*|extru\w*|placa|letrero|icono|png|image to mesh)\b", t):
+            return Quick("img2mesh", text.strip(), "Image to Mesh en marcha.")
+    # CAD: "pasa esta imagen a DXF de 20 cm", "haz los planos CAD del modelo".
+    if re.search(r"\b(dxf|cad|autocad|planos? tecnicos?|vectoriza\w*)\b", t):
+        if re.search(r"\b(imagen|foto|logo|dibujo|silueta|captura|png|jpg)\b", t):
+            return Quick("cad_image", text.strip(), "Vectorizando.")
+        if re.search(r"\b(modelo|blender|objeto|pieza|3d)\b|\bplanos?\b", t):
+            return Quick("cad_model", "", "Sacando los planos.")
+    # An image (copied, a file or the newest download) rebuilt in Blender,
+    # then edited with the rest of the sentence ("... y ponle ruedas rojas").
+    if "blender" in t and re.search(r"\b(imagen|foto|captura|dibujo|render)\b", t) and re.search(
+        r"\b(haz|hazme|crea|creame|modela|modelame|recrea|reconstruye|convierte|pasa|pasala|lleva|copia|replica)\b", t
+    ) and not re.search(r"\b(objeto|lo que tengo|en la mano|en mis manos)\b", t):
+        return Quick("blender_image", text.strip(), "Reconstruyendo la imagen en Blender.")
+    # A surgical edit of the last model ("en blender, haz el asa más grande").
+    if "blender" in t and (re.search(_EDIT_VERBS, t) or re.search(r"\bhaz(le)? (el|la|los|las|que) ", t)) and not re.search(
+        r"\b(haz|hazme|crea|creame|modela|modelame|construye|genera|arma) (en blender )?(un|una|unos|unas)\b", t
+    ):
+        return Quick("blender_edit", _edit_instruction(text), "Editando el modelo.")
     m = re.search(r"\b(en blender|con blender)\b", t)
     if m and re.search(r"\b(haz|hazme|crea|creame|modela|modelame|construye|disena|genera|arma)\b", t):
         return Quick("blender_task", text, "Blender Pro en marcha.")
@@ -494,13 +618,16 @@ def parse_quick(text: str) -> Quick | None:
     # A hologram of anything ("haz un holograma de un teléfono"): designed
     # part by part. "en blender" went to Blender Pro above; plain shapes
     # ("un cubo rojo") are made at once below.
-    from sergio_escritorio.holo import SHAPE_WORDS
-
-    plain_shape = any(w in SHAPE_WORDS or w.rstrip("s") in SHAPE_WORDS for w in t.split())
+    plain_shape = _just_a_shape(t)
     if not plain_shape and re.search(r"\bhologramas? de\b|\bmodelo 3d\b|\ben 3d\b|\bmodelo de (un|una|el|la)\b", t) and re.search(
         r"\b(haz|hazme|crea|creame|modela|modelame|construye|disena|genera|arma|dibuja|muestrame|pon)\b", t
     ):
         return Quick("holo_model", text.strip(), "Diseñándolo.")
+    made = _MAKE.match(t)
+    if made and _HOLO.search(t) and not plain_shape and not re.search(r"\b(gravedad|estilo|aspecto|modo)\b", t):
+        # "crea una caja de música", "una pelota de fútbol": a real object,
+        # designed part by part — no longer a plain cube or ball.
+        return Quick("holo_maybe", text.strip())
     if _HOLO.search(t):
         return Quick("holo", t)
     m = re.fullmatch(r"(haz|hazme|crea|creame|construye|modela|modelame|genera|disena|disename|arma)( me)? (un|una|unos|unas) (.+)", t)

@@ -47,7 +47,7 @@ MIN_TURNS = 25  # a desktop task is many small look-then-act steps
 VISION_MODEL = "qwen2.5vl:7b"
 
 
-SERVER_EXTRAS = ("faces",)  # what the desktop features need on the server
+SERVER_EXTRAS = ("faces", "evolucion", "cad", "tripo")  # what the desktop features need on the server
 
 
 def sync_server(extras: tuple[str, ...] = SERVER_EXTRAS, run=None) -> bool:

@@ -15,6 +15,8 @@ import os
 import re
 from typing import Any
 
+from openjarvis.tools.blender_kit import KIT
+
 MODELS = (
     "gemini-3.1-pro-preview",
     "gemini-3.8-flash",
@@ -33,6 +35,12 @@ every visible part as its own object (body, handle, lid, buttons, labels, screws
 correct proportions in metres, bevels on hard edges, subdivision surface on organic \
 shapes, and Principled BSDF materials matching colours, roughness, metal or glass.
 Rules for the script:
+- Build every part with Sergio's kit (already defined, never import it): \
+kit_lathe(name, [(radius, z), ...]) for round things, kit_extrude(name, outline, depth) \
+for flat outlines, kit_tube(name, [(x, y, z), ...], radius) for handles and cables, \
+kit_box(name, size, loc, bevel=...) only for boxy parts, kit_cylinder, kit_sphere, \
+kit_material(name, color, metallic, roughness), kit_parent(model_name, objects). \
+Sizes in metres, rot in degrees. Never a pile of plain cubes.
 - Only bpy, bmesh, math, mathutils. No os, sys, subprocess, files, network or exec.
 - Start from an empty scene: bpy.ops.wm.read_factory_settings(use_empty=True).
 - Put the object on the ground (lowest point at z = 0), centred at the origin.
@@ -362,6 +370,15 @@ def _safe(fn):
 
 
 _ns["_sergio_safe"] = _safe
+try:  # Sergio's modelling kit (kit_lathe, kit_tube, ...): real shapes, any Blender
+    exec(compile(__KIT__, "<kit>", "exec"), _ns)
+except Exception as _e:
+    print("SERGIO_KIT_ERROR %s: %s" % (type(_e).__name__, _e))
+try:
+    import bpy as _bpy_v
+    print("SERGIO_BLENDER", _bpy_v.app.version_string)
+except Exception:
+    pass
 for _node in _ast.parse(_SOURCE).body:
     if isinstance(_node, _ast.FunctionDef):
         _node.decorator_list.append(_ast.Name(id="_sergio_safe", ctx=_ast.Load()))
@@ -400,7 +417,7 @@ def finish_script(script: str, save_path: str, name: str, preview_path: str = ""
     (and, for the checking loop, a quick render to look at)."""
     script, renamed = fix_api(script)
     return (
-        RESILIENT.replace("__SOURCE__", json.dumps(script.rstrip()))
+        RESILIENT.replace("__SOURCE__", json.dumps(script.rstrip())).replace("__KIT__", json.dumps(KIT))
         + (f"\nprint('SERGIO_API_FIXED ' + {json.dumps(', '.join(renamed))})\n" if renamed else "")
         + "\n\n# --- Sergio: lights, camera and saving the project ---\n"
         + f"""import bpy as _bpy, math as _math
@@ -410,7 +427,7 @@ try:
     _bpy.context.view_layer.update()  # copies and moves made in the script get their real matrix_world
 except Exception:
     pass
-_objs = [o for o in _scene.objects if o.type == "MESH"]
+_objs = [o for o in _scene.objects if o.type == "MESH" and not o.get("sergio_cutter")]  # boolean cutters are tools, not parts
 _lo = _V((min((o.matrix_world @ _V(c))[i] for o in _objs for c in o.bound_box) for i in range(3))) if _objs else _V((0, 0, 0))
 _hi = _V((max((o.matrix_world @ _V(c))[i] for o in _objs for c in o.bound_box) for i in range(3))) if _objs else _V((1, 1, 1))
 if _objs and _lo.z > 0.005:  # the whole model floats: it goes down onto the ground
@@ -445,6 +462,12 @@ print("SERGIO_SAVED", _path, len(_objs))
 _dims = (_hi - _lo) * 100
 print("SERGIO_DIMS width %.1f x depth %.1f x height %.1f cm (lowest point z = %.1f cm)" % (_dims.x, _dims.y, _dims.z, _lo.z * 100))
 print("SERGIO_PARTS %d meshes: %s" % (len(_objs), ", ".join(sorted(o.name for o in _objs)[:80])))
+for _o in sorted(_objs, key=lambda o: o.name)[:150]:  # each part's box: surgical edits are checked with it
+    _c = [_o.matrix_world @ _V(c) for c in _o.bound_box]
+    _a = [min(p[i] for p in _c) * 100 for i in range(3)]
+    _b = [max(p[i] for p in _c) * 100 for i in range(3)]
+    print("SERGIO_BBOX %s | %.1f %.1f %.1f | %.1f %.1f %.1f" % (_o.name, (_a[0] + _b[0]) / 2, (_a[1] + _b[1]) / 2,
+          (_a[2] + _b[2]) / 2, _b[0] - _a[0], _b[1] - _a[1], _b[2] - _a[2]))
 """
         + (PREVIEW.format(path=json.dumps(preview_path)) if preview_path else "")
     )

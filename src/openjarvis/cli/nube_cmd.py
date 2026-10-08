@@ -73,7 +73,8 @@ def nube() -> None:
 @click.option("--kimi", "kimi_key", default="", help="Kimi (Moonshot) API key.")
 @click.option("--gemini", "gemini_key", default="", help="Gemini / Google API key.")
 @click.option("--modelo", default="", help="Force a model id (e.g. kimi-k2.6).")
-def configurar(kimi_key: str, gemini_key: str, modelo: str) -> None:
+@click.option("--tripo", "tripo_key", default="", help="Tripo 3D API key (tsk_..., platform.tripo3d.ai).")
+def configurar(kimi_key: str, gemini_key: str, modelo: str, tripo_key: str = "") -> None:
     """Save the keys, check them and pick Sergio's main cloud model."""
     from openjarvis.cli.phone_cmd import read_env, update_config, write_env
     from openjarvis.cli.service_cmd import env_file
@@ -81,6 +82,14 @@ def configurar(kimi_key: str, gemini_key: str, modelo: str) -> None:
 
     env_path = env_file()
     env = read_env(env_path)
+    if tripo_key:  # Tripo 3D (text/image -> 3D) is separate from the brain
+        tripo_key = clean_key(tripo_key)
+        if not tripo_key.startswith("tsk_"):
+            raise click.ClickException("La clave de Tripo empieza por tsk_ (platform.tripo3d.ai > API Keys).")
+        write_env(env_path, {"TRIPO_API_KEY": tripo_key})
+        console.print("[green]Tripo listo[/green]: «hazme en 3D con Tripo …».")
+        if not kimi_key and not gemini_key:
+            return
     if not kimi_key and not gemini_key:
         # Gemini is Sergio's cloud brain; Kimi stays possible with --kimi.
         gemini_key = click.prompt(

@@ -31,6 +31,9 @@ oido = ["vosk>=0.3.45"]
 # Meeting minutes: the computer's sound (the other side of a video call,
 # WASAPI loopback) and compressed audio for the trip to the server.
 reuniones = ["pyaudiowpatch>=0.2.12; sys_platform == 'win32'", "soundfile>=0.12"]
+# Post-production: silences cut by auto-editor, photos and effects with MoviePy
+# (masters, colour and RIFE use ffmpeg and the RIFE release directly).
+posproduccion = ["moviepy>=2.1", "auto-editor>=29.3"]
 # Modern object detector (YOLO11, Ultralytics): far fewer mistakes than the
 # old EfficientDet (a hand is not a banana, a window is not a TV).
 vision = ["ultralytics>=8.3"]

@@ -458,8 +458,24 @@ def wedge() -> Mesh:
     return Mesh(v, faces)
 
 
-def part_mesh(shape: str, size: Sequence[float]) -> Mesh:
-    """One designed part, *size* in metres (see openjarvis.tools.holo_model)."""
+def part_mesh(shape: str, size: Sequence[float], part: dict | None = None) -> Mesh:
+    """One designed part, *size* in metres (see openjarvis.tools.holo_model).
+
+    Free-form parts carry their own points: a "lathe" profile (cups, bottles,
+    lampshades), an "extrude" outline (a phone body, a logo) or a "tube" path
+    (handles, cables) — so round and curved things are no longer boxes."""
+    part = part or {}
+    try:
+        if shape == "lathe" and part.get("profile"):
+            return revolve([(float(r), float(y)) for r, y in part["profile"]], 32, cap=True)
+        if shape == "extrude" and part.get("outline"):
+            pts = np.asarray(part["outline"], float)
+            depth = max(float(size[2]) if len(size) > 2 else 0.01, 1e-4)
+            return extrude_outline(pts, depth, bevel=0.0, centre=tuple(pts.mean(axis=0)))
+        if shape == "tube" and part.get("path"):
+            return tube(part["path"], float(part.get("radius") or 0.005), 12)
+    except (ValueError, IndexError, TypeError):
+        pass  # bad points: the plain solid below
     w, h, d = (max(float(x), 1e-4) for x in size)
     if shape == "torus":
         outer, thick = max(w, d), min(h, max(w, d) / 2)
@@ -498,7 +514,7 @@ def assemble(recipe: dict, fit: float = 1.0) -> tuple[Mesh, float]:
     colors: list[tuple[float, float, float]] = []
     count = 0
     for part in recipe.get("parts") or []:
-        mesh = part_mesh(str(part.get("shape")), part.get("size") or (0.05, 0.05, 0.05))
+        mesh = part_mesh(str(part.get("shape")), part.get("size") or (0.05, 0.05, 0.05), part)
         world = mesh.vertices @ euler(part.get("rot") or (0, 0, 0)).T + np.array(part.get("pos") or (0, 0, 0), float)
         verts.append(world)
         colour = tuple(float(c) for c in (part.get("color") or (0.6, 0.6, 0.6))[:3])
@@ -1429,6 +1445,7 @@ def recipe_request(obj: Holo) -> str:
     parts = "\n".join(
         f"- {p['name']}: {p['shape']} " + " x ".join(f"{v * 100:.1f}" for v in p["size"])
         + " cm at (" + ", ".join(f"{v * 100:.1f}" for v in p["pos"]) + f") cm, rot {p['rot']}"
+        + _free_brief(p)
         for p in recipe.get("parts", [])
     )
     return (
@@ -1437,6 +1454,20 @@ def recipe_request(obj: Holo) -> str:
         f"distribución de piezas del holograma (respétala y añade todo el detalle real: "
         f"biseles, chaflanes, materiales PBR, texto/logos si aplica):\n{parts}"
     )
+
+
+def _free_brief(part: dict) -> str:
+    """The points of a lathe / extrude / tube part, in cm (for Blender Pro)."""
+    def cm(pts: Sequence[Sequence[float]]) -> str:
+        return "[" + ", ".join("(" + ", ".join(f"{v * 100:.1f}" for v in p) + ")" for p in pts) + "]"
+
+    if part.get("profile"):
+        return f", lathe profile (radius, height) cm {cm(part['profile'])}"
+    if part.get("outline"):
+        return f", outline (x, y) cm {cm(part['outline'])}"
+    if part.get("path"):
+        return f", tube path cm {cm(part['path'])}, radius {float(part.get('radius', 0)) * 100:.1f} cm"
+    return ""
 
 
 # Hologram axes (x right, y up, z toward you) -> Blender's (x, -z, y), z up.

@@ -63,6 +63,65 @@ def has_zscale(exe: str = "") -> bool:
     return " zscale " in out.stdout
 
 
+# Transitions into a moment: (xfade name, seconds). "cut" is a near-instant
+# dissolve (one frame) so every boundary is one chain.
+XFADE = {
+    "cut": ("fade", 0.04),
+    "flash": ("fadewhite", 0.22),
+    "whip": ("slideleft", 0.18),
+    "zoom": ("zoomin", 0.3),
+    "fade": ("fade", FADE),
+    "glitch": ("pixelize", 0.2),
+}
+POSITIONS = {"center": "(h-text_h)/2", "lower third": "h*0.72", "top": "h*0.14"}
+
+
+def _hex(colour: str, default: str = "white") -> str:
+    return "0x" + colour[1:] if re.fullmatch(r"#[0-9A-Fa-f]{6}", colour or "") else default
+
+
+def grade_filter(grade: dict[str, Any]) -> str:
+    """The learned colour look as ffmpeg filters ("" for none)."""
+    if not grade:
+        return ""
+    contrast = min(max(float(grade.get("contrast", 1.0)), 0.7), 1.5)
+    saturation = min(max(float(grade.get("saturation", 1.0)), 0.0), 1.8)
+    brightness = min(max(float(grade.get("brightness", 0.0)), -0.2), 0.2)
+    warmth = min(max(float(grade.get("warmth", 0.0)), -1.0), 1.0)
+    out = [f"eq=contrast={contrast:.3f}:saturation={saturation:.3f}:brightness={brightness:.3f}"]
+    if abs(warmth) > 0.02:
+        w = warmth * 0.12
+        out.append(f"colorbalance=rs={w:.3f}:bs={-w:.3f}:rm={w / 2:.3f}:bm={-w / 2:.3f}")
+    if grade.get("vignette"):
+        out.append("vignette=PI/5")
+    if grade.get("grain"):
+        out.append("noise=alls=7:allf=t")
+    if grade.get("letterbox"):
+        out.append("drawbox=y=0:w=iw:h=ih*0.09:color=black:t=fill,drawbox=y=ih*0.91:w=iw:h=ih*0.09:color=black:t=fill")
+    return ",".join(out)
+
+
+def caption_filter(caption: str, length: float, height: int, text: dict[str, Any] | None) -> str:
+    """A caption: plain, or in the learned style (big, bold, word by word)."""
+    text = text or {}
+    words = caption.upper().split() if "caps" in str(text.get("style", "")).lower() else caption.split()
+    size = int(height * (0.06 if text else 0.045))
+    y = POSITIONS.get(str(text.get("position", "")).lower(), "h*0.78" if not text else "(h-text_h)/2")
+    colour = _hex(str(text.get("color", "")))
+    base = f"fontfile='{FONT}':fontcolor={colour}:fontsize={size}:borderw=6:bordercolor=black@0.75:x=(w-text_w)/2:y={y}"
+    if not text.get("kinetic") or len(words) < 2:
+        return f",drawtext={base}:text='{_escape(' '.join(words))}'"
+    # Kinetic: the words appear one after another, then the line holds.
+    step = min(0.35, max(length * 0.6, 0.3) / len(words))
+    parts = []
+    for i in range(len(words)):
+        start = i * step
+        stop = (i + 1) * step if i < len(words) - 1 else length + 1
+        shown = _escape(" ".join(words[: i + 1]))
+        parts.append(f",drawtext={base}:text='{shown}':enable='between(t,{start:.2f},{stop:.2f})'")
+    return "".join(parts)
+
+
 def render_command(
     clips: list[Path],
     plan: dict[str, Any],
@@ -73,9 +132,14 @@ def render_command(
     exe: str = "ffmpeg",
     hdr: list[bool] | None = None,
 ) -> list[str]:
-    """The ffmpeg command for the editor's plan (pure, tested without ffmpeg)."""
+    """The ffmpeg command for the editor's plan (pure, tested without ffmpeg).
+
+    Each moment may carry its transition (cut, flash, whip, zoom, fade,
+    glitch), a punch-in or slow push-in and a speed change; a learned style
+    adds its colour look and its caption style."""
     width, height = SIZES.get(plan.get("aspect", "16:9"), SIZES["16:9"])
     segments = plan["segments"]
+    style = plan.get("style") or {}
     cmd = [exe, "-y", "-hide_banner"]
     for clip in clips:
         cmd += ["-i", str(clip)]
@@ -86,38 +150,53 @@ def render_command(
         music_index = len(clips) + 1
         cmd += ["-stream_loop", "-1", "-i", music]
     parts: list[str] = []
+    lengths: list[float] = []
     for k, seg in enumerate(segments):
         i, start, end = seg["clip"], seg["start"], seg["end"]
+        speed = min(max(float(seg.get("speed") or 1.0), 0.5), 2.0)
+        length = (end - start) / speed
+        lengths.append(length)
         video = (
-            f"[{i}:v]trim=start={start}:end={end},setpts=PTS-STARTPTS,"
+            f"[{i}:v]trim=start={start}:end={end},setpts=(PTS-STARTPTS)/{speed:g},"
             + (TONEMAP if hdr and hdr[i] else "")
             + f"scale={width}:{height}:force_original_aspect_ratio=increase,"
             f"crop={width}:{height},fps=30,format=yuv420p,setsar=1"
         )
-        if seg.get("caption"):
+        zoom = seg.get("zoom") or "none"
+        if zoom == "punch":  # a sudden 1.2x punch-in, centred
+            video += f",scale={int(width * 1.2) // 2 * 2}:-2,crop={width}:{height}"
+        elif zoom == "push":  # a slow push-in over the moment
             video += (
-                f",drawtext=fontfile='{FONT}':text='{_escape(seg['caption'])}':fontcolor=white:"
-                f"fontsize={int(height * 0.045)}:borderw=5:bordercolor=black@0.7:"
-                "x=(w-text_w)/2:y=h*0.78"
+                f",zoompan=z='min(1+0.004*on,1.2)':d=1:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)'"
+                f":s={width}x{height}:fps=30"
             )
+        if seg.get("caption"):
+            video += caption_filter(seg["caption"], length, height, style.get("text"))
         parts.append(video + f"[v{k}]")
         src = f"{i}:a" if has_audio[i] else f"{silence}:a"
+        a_start, a_end = (start, end) if has_audio[i] else (0, end - start)
+        tempo = f",atempo={speed:g}" if abs(speed - 1.0) > 0.01 else ""
         parts.append(
-            f"[{src}]atrim=start={start if has_audio[i] else 0}:end={end if has_audio[i] else end - start},"
-            f"asetpts=PTS-STARTPTS,aresample=48000,aformat=channel_layouts=stereo[a{k}]"
+            f"[{src}]atrim=start={a_start}:end={a_end},asetpts=PTS-STARTPTS{tempo},"
+            f"aresample=48000,aformat=channel_layouts=stereo[a{k}]"
         )
-    # Cross fades, chained: [v0][v1]xfade -> [x1], [x1][v2]xfade -> [x2] ...
+    # Transitions, chained: [v0][v1]xfade -> [x1], [x1][v2]xfade -> [x2] ...
     vlast, alast, offset = "[v0]", "[a0]", 0.0
     for k in range(1, len(segments)):
-        prev = segments[k - 1]
-        offset += (prev["end"] - prev["start"]) - FADE
-        parts.append(f"{vlast}[v{k}]xfade=transition=fade:duration={FADE}:offset={offset:.3f}[x{k}]")
-        parts.append(f"{alast}[a{k}]acrossfade=d={FADE}[y{k}]")
+        name, dur = XFADE.get(segments[k].get("transition") or "fade", XFADE["fade"])
+        dur = min(dur, lengths[k - 1] / 2, lengths[k] / 2)
+        offset += lengths[k - 1] - dur
+        parts.append(f"{vlast}[v{k}]xfade=transition={name}:duration={round(dur, 3):g}:offset={offset:.3f}[x{k}]")
+        parts.append(f"{alast}[a{k}]acrossfade=d={round(dur, 3):g}[y{k}]")
         vlast, alast = f"[x{k}]", f"[y{k}]"
     video_out = vlast
+    look = grade_filter(style.get("grade") or {})
+    if look:
+        parts.append(f"{video_out}{look}[vg]")
+        video_out = "[vg]"
     if plan.get("title_overlay"):
         parts.append(
-            f"{vlast}drawtext=fontfile='{FONT}':text='{_escape(plan['title_overlay'])}':"
+            f"{video_out}drawtext=fontfile='{FONT}':text='{_escape(plan['title_overlay'])}':"
             f"fontcolor=white:fontsize={int(height * 0.06)}:borderw=5:bordercolor=black@0.6:"
             "x=(w-text_w)/2:y=h*0.12:enable='lt(t,3)'[vt]"
         )
@@ -135,6 +214,16 @@ def render_command(
         "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", str(out),
     ]
     return cmd
+
+
+def style_named(request: str) -> str:
+    """The editing style named in the order ("... al estilo Dyson") or ""."""
+    import unicodedata
+
+    plain = "".join(c for c in unicodedata.normalize("NFKD", request.lower()) if not unicodedata.combining(c))
+    found = re.search(r"\b(?:al|con el|en el)?\s*estilo\s+(?:de\s+|del\s+)?(?:canal\s+|anuncio\s+(?:de\s+)?)?(.+?)"
+                      r"(?:\s+(?:para|con la carpeta|con los videos|de la carpeta|en)\b|[,.]|$)", plain)
+    return found.group(1).strip() if found else ""
 
 
 def edit(

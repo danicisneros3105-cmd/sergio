@@ -132,5 +132,7 @@ def test_sync_server_adds_the_face_mesh_without_removing_anything(monkeypatch, t
         run=lambda cmd, **kw: seen.append((cmd, kw)) or subprocess.CompletedProcess(cmd, 0)
     )
     cmd, kw = seen[0]
-    assert ok and cmd[:3] == [str(uv), "sync", "--inexact"] and cmd[-2:] == ["--extra", "faces"]
+    assert ok and cmd[:3] == [str(uv), "sync", "--inexact"]
+    extras = [cmd[i + 1] for i, a in enumerate(cmd) if a == "--extra"]
+    assert extras == ["faces", "evolucion", "cad", "tripo"]  # memory, CAD and Tripo come with every update
     assert kw["env"]["UV_PROJECT_ENVIRONMENT"] == str(tmp_path / "venv")

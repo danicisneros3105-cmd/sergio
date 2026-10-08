@@ -154,6 +154,13 @@ phone = [
     "twilio>=9.0",
 ]
 faces = ["opencv-python-headless>=4.10"]
+# Sergio's evolution: long-term memory (vector database) and the
+# self-correction loop as a state graph.
+evolucion = ["chromadb>=1.0", "langgraph>=0.6"]
+# Professional CAD files (DXF) from images and 3D models, with previews.
+cad = ["ezdxf>=1.3", "opencv-python-headless>=4.10", "matplotlib>=3.8"]
+# Tripo 3D: text / image -> textured 3D models (needs a tsk_ key).
+tripo = ["tripo3d>=0.4"]
 channel-gmail = [
     "google-api-python-client>=2.0",
     "google-auth-oauthlib>=1.0",
@@ -298,6 +305,11 @@ select = ["E", "F", "I", "W"]
 # research_loop.py carries long prompt strings too (documented in CLAUDE.md);
 # the ignore was missing here.
 "src/openjarvis/agents/research_loop.py" = ["E501"]
+# Blender scripts: the seed examples run inside Blender with Sergio's kit
+# already defined (kit_lathe, kit_tube, ...), and the kit is Blender source
+# kept as one string.
+"src/openjarvis/tools/blender_examples/*.py" = ["E501", "F821", "I001"]
+"src/openjarvis/tools/blender_kit.py" = ["E501"]
 
 [dependency-groups]
 dev = [

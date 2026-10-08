@@ -280,7 +280,7 @@ def run_blender_background(script: str, timeout: float = 300.0) -> str:
     except subprocess.TimeoutExpired:
         return "Blender tardó demasiado (más de 5 minutos) y lo detuve."
     out = done.stdout.decode("utf-8", "replace") + done.stderr.decode("utf-8", "replace")
-    return out[-8000:]
+    return out[-24000:]  # room for every part's SERGIO_BBOX line (surgical edits)
 
 
 def blender_score(log: str) -> float:
@@ -303,6 +303,180 @@ def blender_score(log: str) -> float:
 def worse_build(new: float, best: float) -> bool:
     """A rewrite that lost a quarter of the model (or stopped saving)."""
     return new < 0 <= best or new < best * 0.75
+
+
+def build_rank(score: float, verdict: dict | None) -> float:
+    """How good a build is, overall: what the vision check sees first (is it
+    recognisably the object? 0-10, unknown counts as 5), then what Blender
+    measured (parts built, failed steps, misplaced parts)."""
+    if score < 0:
+        return -1.0
+    vision = float(verdict.get("score", 5)) if verdict else 5.0
+    return vision * 10 + min(score, 30.0) / 3
+
+
+_NOISE = ("SERGIO_BBOX ", "EGL Error", "Color management", "Read prefs", "Blender quit")
+
+
+def review_log(log: str) -> str:
+    """The log without the per-part boxes and Blender's noise: what the
+    reviewer needs (errors, plan checks, sizes) fits in its budget."""
+    return "\n".join(ln for ln in log.splitlines() if ln.strip() and not ln.startswith(_NOISE) and
+                     "cycles " not in ln)
+
+
+def vision_lines(verdict: dict | None) -> str:
+    """The vision verdict as log lines for the next review round."""
+    if not verdict:
+        return ""
+    head = (f"SERGIO_VISION score {verdict.get('score')}/10; a stranger would say it is: "
+            f"«{verdict.get('looks_like', '')}»")
+    if not verdict.get("is_it"):
+        head += " — NOT recognisable as the request yet: fix the silhouette first"
+    return "\n".join([head] + [f"SERGIO_VISION_FIX {p}" for p in verdict.get("problems", [])[:8]])
+
+
+def vision_sentence(verdict: dict | None) -> str:
+    """One honest clause for the user about the vision check."""
+    if not verdict:
+        return ""
+    score, looks = verdict.get("score", 0), verdict.get("looks_like", "")
+    if verdict.get("is_it") and score >= 7:
+        return f"; la revisión visual le da {score:g}/10 y lo reconoce como «{looks}»"
+    return f"; ojo: la revisión visual solo le da {score:g}/10 (le parece «{looks}»), aún puede mejorar"
+
+
+def bboxes(log: str) -> dict[str, tuple[float, ...]]:
+    """Each part's measured box: name -> (cx, cy, cz, sx, sy, sz) in cm."""
+    out: dict[str, tuple[float, ...]] = {}
+    for line in log.splitlines():
+        if line.startswith("SERGIO_BBOX "):
+            try:
+                name, centre, size = line[len("SERGIO_BBOX "):].split(" | ")
+                out[name.strip()] = tuple(float(v) for v in (*centre.split(), *size.split()))
+            except ValueError:
+                continue
+    return out
+
+
+def surgical_report(before: str, after: str, changed: list[str], tol_cm: float = 0.3) -> dict:
+    """What an edit really touched: allowed parts (*changed*, by name or
+    prefix) and collateral ones it should have left alone."""
+    a, b = bboxes(before), bboxes(after)
+    allowed = [c.lower() for c in changed if c]
+
+    def ok(name: str) -> bool:
+        low = name.lower()
+        return any(low == c or low.startswith(c) or c.startswith(low.split("_")[0]) for c in allowed)
+
+    moved = [n for n in a if n in b and max(abs(x - y) for x, y in zip(a[n], b[n])) > tol_cm]
+    removed = [n for n in a if n not in b]
+    added = [n for n in b if n not in a]
+    return {
+        "kept": sum(1 for n in a if n in b and n not in moved),
+        "edited": [n for n in moved + removed + added if ok(n) or n in added],
+        "moved": moved,
+        "removed": removed,
+        "added": added,
+        "collateral": [n for n in moved + removed if not ok(n)],
+    }
+
+
+_version: list[str] = []
+
+
+def blender_version() -> str:
+    """The installed Blender's version ("4.2.1"), so scripts use its API."""
+    if not _version:
+        try:
+            out = subprocess.run([find_blender(), "--version"], capture_output=True, text=True, timeout=40,
+                                 creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0)).stdout
+            found = re.search(r"Blender (\d+\.\d+(?:\.\d+)?)", out)
+            _version.append(found.group(1) if found else "")
+        except Exception:  # noqa: BLE001 — unknown version: the kit copes
+            _version.append("")
+    return _version[0]
+
+
+IMAGE_EXT = (".png", ".jpg", ".jpeg", ".webp", ".bmp")
+
+
+def find_image(hint: str = "", folders: list[Path] | None = None, max_age_h: float = 6.0) -> tuple[bytes, str]:
+    """The image to model: a path in *hint*, else the image copied to the
+    clipboard, else the newest image in Descargas / Escritorio / Imágenes.
+    Returns (bytes, where it came from) or (b"", "")."""
+    if hint:
+        path = Path(hint.strip().strip('"'))
+        if path.is_file() and path.suffix.lower() in IMAGE_EXT:
+            return path.read_bytes(), path.name
+    try:  # the clipboard (Windows): an image, or files copied in Explorer
+        import io
+
+        from PIL import ImageGrab
+
+        clip = ImageGrab.grabclipboard()
+        if isinstance(clip, list):
+            for item in clip:
+                if str(item).lower().endswith(IMAGE_EXT) and Path(item).is_file():
+                    return Path(item).read_bytes(), f"copiada: {Path(item).name}"
+        elif clip is not None:
+            buf = io.BytesIO()
+            clip.convert("RGB").save(buf, "PNG")
+            return buf.getvalue(), "la imagen copiada"
+    except Exception:  # noqa: BLE001 — no clipboard image
+        pass
+    home = Path.home()
+    folders = folders or [home / "Downloads", home / "Descargas", home / "Desktop", home / "Escritorio",
+                          home / "Pictures", home / "Imágenes", home / "OneDrive" / "Desktop"]
+    newest: tuple[float, Path] | None = None
+    for folder in folders:
+        if not folder.is_dir():
+            continue
+        for path in folder.iterdir():
+            if path.suffix.lower() in IMAGE_EXT and path.is_file():
+                mtime = path.stat().st_mtime
+                if newest is None or mtime > newest[0]:
+                    newest = (mtime, path)
+    if newest and time.time() - newest[0] < max_age_h * 3600:
+        return newest[1].read_bytes(), f"la última de {newest[1].parent.name}: {newest[1].name}"
+    return b"", ""
+
+
+# The model's feature edges for its CAD drawing (same as the server's
+# openjarvis.tools.cad.EDGES_SCRIPT; a test keeps them equal).
+EDGES_SCRIPT = r'''
+import bpy, bmesh, json, math
+_out = {}
+_deps = bpy.context.evaluated_depsgraph_get()
+for _o in bpy.context.scene.objects:
+    if _o.type != "MESH" or _o.get("sergio_cutter") or _o.hide_render:
+        continue
+    _bm = bmesh.new()
+    _bm.from_object(_o, _deps)
+    _bm.transform(_o.matrix_world)
+    _edges = []
+    for _e in _bm.edges:
+        if len(_e.link_faces) != 2 or _e.calc_face_angle(0.0) > math.radians(25):
+            _a, _b = _e.verts
+            _edges.append([round(c, 5) for c in (*_a.co, *_b.co)])
+    _bm.free()
+    if _edges:
+        _out[_o.name] = _edges[:20000]
+print("SERGIO_EDGES " + json.dumps(_out))
+'''
+
+
+def blender_edges(blend: str) -> str:
+    """Open *blend* in Blender (no window) and print its feature edges."""
+    return run_blender_background(
+        f"import bpy\nbpy.ops.wm.open_mainfile(filepath={blend!r})\n" + EDGES_SCRIPT, timeout=300
+    )
+
+
+def cad_folder() -> Path:
+    folder = Path.home() / "Documents" / "Sergio" / "CAD"
+    folder.mkdir(parents=True, exist_ok=True)
+    return folder
 
 
 def open_in_blender(blend: str) -> None:

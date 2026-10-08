@@ -112,6 +112,25 @@ def check_quota(model: str, clock: Callable[[], float] = time.monotonic) -> None
         )
 
 
+def short_wait(errors: list[str], limit: float = 150.0) -> float:
+    """Seconds to wait when every model failed only for a short pause
+    (per-minute quota or "busy, back in ~1 min"): then one retry after the
+    pause beats giving up. 0 when any failure is real or the pause is long."""
+    if not errors:
+        return 0.0
+    waits = []
+    for err in errors:
+        mins = re.search(r"vuelve en ~(\d+) min", err)
+        if mins:
+            waits.append(int(mins.group(1)) * 60.0)
+        elif "RESOURCE_EXHAUSTED" in err or "429" in err or "503" in err or "UNAVAILABLE" in err:
+            waits.append(60.0 if "PerDay" not in err else 3600.0)
+        else:
+            return 0.0
+    wait = max(waits) + 5.0
+    return wait if wait <= limit else 0.0
+
+
 class _Models:
     def __init__(self, owner: "SwitchingClient") -> None:
         self._owner = owner

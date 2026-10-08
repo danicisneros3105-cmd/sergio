@@ -542,6 +542,10 @@ def create_app(
     from openjarvis.server.tasks_routes import skills_router
 
     app.include_router(skills_router)
+    # Evolution: long-term memory (RAG + feedback) and the crewAI team.
+    from openjarvis.server.evolution_routes import router as evolution_router
+
+    app.include_router(evolution_router)
     # Native notch tabs: God's Eye View data and ECC guides.
     from openjarvis.server.notch_routes import router as notch_router
 

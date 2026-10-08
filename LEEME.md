@@ -1147,3 +1147,87 @@ git pull https://github.com/open-jarvis/OpenJarvis.git main
 * Reglas nuevas de la API aprendidas en pruebas reales: `transform_apply()`
   aplica también la posición si no se le dice lo contrario; no existe
   «Clearcoat Weight» (es «Coat Weight»); `bmesh` se importa después de `bpy`.
+
+## Modelos 3D de cualquier cosa, CAD, posproducción y memoria a largo plazo
+
+**Ya no solo cubos.** Los hologramas ya no aparecen con un cubo de regalo,
+y diseñarlos ya no congela la voz: Sergio responde al momento y avisa
+cuando el diseño está listo. Las piezas pueden ser torneadas (tazas,
+botellas, lámparas), siluetas extruidas o tubos curvos (asas, cables).
+Blender Pro modela con el **kit de Sergio**: funciones probadas que crean
+formas reales en cualquier versión de Blender, de la 3.6 a la 5.x:
+- `kit_lathe`: perfiles suavizados;
+- `kit_extrude`: contornos suaves que conservan las esquinas;
+- `kit_tube`: tubos curvos;
+- `kit_box` biselado, `kit_text`, copias, simetría y agujeros booleanos.
+
+Además, Sergio le dice a Gemini qué versión de Blender tiene usted.
+
+**Revisión por visión.** Tras cada render, Gemini mira las 4 vistas:
+1. Primero dice, sin leer el pedido, qué objeto parece.
+2. Luego le pone una nota de 0 a 10 y escribe los problemas en centímetros.
+
+Sergio se queda con la versión que mejor se ve y para cuando llega a 8/10.
+
+**Imagen + texto:** «modela esta imagen en blender y cámbiale el asa a
+roja». Toma la imagen copiada, una ruta o la última de Descargas, la
+reconstruye con todo detalle y luego la edita de forma **quirúrgica**:
+- solo cambia lo pedido;
+- mide cada pieza antes y después;
+- si tocó algo que no debía, lo revierte.
+
+Para editar el último modelo: «en blender, haz el asa más grande».
+
+**Complementos de GitHub:** «instala los complementos de blender».
+| Complemento | Para qué | Notas |
+|---|---|---|
+| MeshGen (Hugging Face) | Agente dentro de Blender | Queda conectado a su Gemini |
+| Tripo 3D | Texto o imagen a 3D con textura | Pídalo con «hazme en 3D con Tripo un dragón». Necesita su clave: `sergio nube configurar --tripo tsk_…` |
+| SculptMate | Imagen a 3D orgánico, en su PC | «pasa esta imagen a 3D orgánico» |
+| Image to Mesh | Logo o silueta a 3D técnico | «convierte este logo en 3D técnico» |
+
+Lo que generan entra en Sergio igual que un modelo propio: tamaño real,
+apoyado en el suelo, luces, revisión por visión y proyecto `.blend`. Al
+instalar librerías dentro de Blender, Sergio respeta el numpy que trae su
+Blender, porque cambiarlo rompería el programa.
+
+**CAD (ezdxf + OpenCV):**
+- «pasa esta imagen a DXF de 20 cm» crea contornos y agujeros en milímetros.
+- «haz los planos CAD del modelo» crea vistas frontal, lateral y superior
+  con cotas reales y cajetín.
+
+Los archivos se guardan en Documentos\Sergio\CAD, con su vista previa.
+
+**Video Pro: estilos aprendidos de videos reales.** «aprende el estilo de
+edición de NextCore», o pásele enlaces de YouTube. Gemini ve los videos
+completos y mide el ritmo, las transiciones, los zooms, el texto, el color
+y la música. Ya vienen dos estilos:
+- **Dyson CameraJet:** cortes de 1,1 s, texto blanco en mayúsculas que
+  aparece palabra a palabra, imagen fría y oscura.
+- **NextCore:** texto animado en todos los planos, en rojo, negro y blanco.
+
+Para usarlos: «edita un video con la carpeta Viaje al estilo Dyson». El
+montaje aplica transiciones (corte, flash, barrido, zoom y glitch), zoom de
+golpe o lento, cambios de velocidad y el color del estilo.
+
+**Posproducción:**
+- «… y quita los silencios»: auto-editor.
+- «… a 60 fps» o «en cámara lenta»: interpolación con IA, RIFE. Para
+  instalarlo diga «instala RIFE»; sin RIFE usa la interpolación de ffmpeg.
+- «… y entrégame un máster ProRes» (o DNxHR, o HEVC 10 bits): 10 bits
+  4:2:2, audio PCM de 24 bits, Rec.709, y filtros de color en 10 bits
+  (LUT, reducción de ruido, curva, nitidez).
+- Las fotos de la carpeta se convierten en clips con acercamiento (MoviePy).
+
+**Memoria a largo plazo y autocorrección.** Cada modelo, cada edición y
+cada opinión suya («eso quedó mal: el asa es muy gruesa», «me gustó el
+video») se guarda en chromadb, buscable por significado con los embeddings
+de Gemini. Antes del siguiente trabajo parecido, Sergio lee esas lecciones.
+
+Los guiones de Blender pasan un bucle de autocorrección hecho con
+LangGraph: generar, revisar, reflexionar y volver a generar. Lo que arregló
+un fallo queda como lección.
+
+Para trabajos largos de texto: «usa el equipo de agentes para …». Es un
+equipo de crewAI: un especialista hace el trabajo y un supervisor de
+calidad lo revisa, con Gemini.

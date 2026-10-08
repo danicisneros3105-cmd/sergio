@@ -29,6 +29,7 @@ LEARNED = Path.home() / ".openjarvis" / "blender_ejemplos"
 SEED_REQUESTS = {
     "mesa": "una mesa de madera de roble con cuatro patas y faldón, 120 x 70 cm",
     "taza": "una taza de cerámica blanca con asa y su plato",
+    "telefono": "un teléfono móvil moderno con cámaras, botones y puerto",
 }
 KEEP = 60
 STOP = {"de", "la", "el", "un", "una", "con", "y", "en", "los", "las", "del", "al", "su", "sus", "para", "por", "hazme",
@@ -117,6 +118,8 @@ def good_enough(log: str, min_parts: int = 4) -> tuple[bool, str]:
 
 def remember(request: str, script: str, log: str, folder: Path | None = None) -> dict[str, Any]:
     """Keep a build as an example if it passes the strict check."""
+    if not script.strip():
+        return {"saved": False, "why": "la revisión visual no lo aprobó"}
     ok, why = good_enough(log)
     if not ok:
         return {"saved": False, "why": why}

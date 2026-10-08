@@ -28,10 +28,15 @@ when it helps).
 - Format: "9:16" for Shorts/Reels/TikTok, "16:9" otherwise (follow the request).
 - YouTube metadata in Spanish: catchy honest title (max 70 characters), a \
 description of 2-4 sentences, 5-10 tags.
-Answer ONLY JSON: {{"aspect": "9:16" or "16:9", "title_overlay": "short title \
+- Per segment you may also set: "transition" INTO it (cut, flash, whip, zoom, \
+fade or glitch), "zoom" (none, punch = a sudden 1.2x punch-in, push = a slow \
+push-in) and "speed" (0.5 slow motion .. 2.0 sped up; 1.0 normal).
+{style}Answer ONLY JSON: {{"aspect": "9:16" or "16:9", "title_overlay": "short title \
 shown at the start or empty", "segments": [{{"clip": 1, "start": 0.0, "end": \
-3.5, "caption": ""}}], "youtube": {{"title": "...", "description": "...", \
-"tags": ["..."]}}}}"""
+3.5, "caption": "", "transition": "cut", "zoom": "none", "speed": 1.0}}], \
+"youtube": {{"title": "...", "description": "...", "tags": ["..."]}}}}"""
+TRANSITIONS = ("cut", "flash", "whip", "zoom", "fade", "glitch")
+ZOOMS = ("none", "punch", "push")
 
 
 def parse_plan(text: str, lengths: list[float]) -> dict[str, Any]:
@@ -55,7 +60,18 @@ def parse_plan(text: str, lengths: list[float]) -> dict[str, Any]:
         if end - start < 0.5:
             continue
         caption = " ".join(str(seg.get("caption") or "").split())[:60]
-        segments.append({"clip": clip, "start": round(start, 2), "end": round(end, 2), "caption": caption})
+        transition = str(seg.get("transition") or "fade").lower()
+        zoom = str(seg.get("zoom") or "none").lower()
+        try:
+            speed = max(0.5, min(2.0, float(seg.get("speed") or 1.0)))
+        except (TypeError, ValueError):
+            speed = 1.0
+        segments.append({
+            "clip": clip, "start": round(start, 2), "end": round(end, 2), "caption": caption,
+            "transition": transition if transition in TRANSITIONS else "fade",
+            "zoom": zoom if zoom in ZOOMS else "none",
+            "speed": round(speed, 2),
+        })
     if not segments:
         raise RuntimeError("El editor no propuso cortes válidos.")
     yt = data.get("youtube") or {}
@@ -77,12 +93,30 @@ def plan(
     sheets: list[bytes],
     lengths: list[float],
     ask: Callable[[list[bytes], str], str] | None = None,
+    style: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
+    """The edit plan; with *style* (video_style) the cut follows a style
+    learned from real videos, and the render gets its look and captions."""
     target = "short vertical (under 60 s)" if re.search(r"short|reel|tiktok|vertical|corto", request.lower()) else "well-paced"
+    brief = ""
+    if style:
+        from openjarvis.tools.video_style import style_brief
+
+        brief = style_brief(style)
     prompt = PLAN_PROMPT.format(
-        request=request, lengths=", ".join(f"{x:.1f}" for x in lengths), target=target
+        request=request, lengths=", ".join(f"{x:.1f}" for x in lengths), target=target, style=brief
     )
-    return parse_plan((ask or _ask)(sheets, prompt), lengths)
+    try:  # what the user said about earlier edits (long-term memory)
+        from openjarvis.evolution.memory import lessons
+
+        prompt += "\n" + lessons(request, ("feedback", "video"))
+    except Exception:  # noqa: BLE001 — memory is a bonus
+        pass
+    result = parse_plan((ask or _ask)(sheets, prompt), lengths)
+    if style:
+        result["style"] = {"name": style.get("name", ""), "grade": style.get("grade", {}),
+                           "text": style.get("text", {})}
+    return result
 
 
 def _ask(sheets: list[bytes], prompt: str) -> str:

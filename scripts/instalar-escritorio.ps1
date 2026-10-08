@@ -62,6 +62,9 @@ if ($LASTEXITCODE -ne 0) { Write-Host "   No pude instalar el oído instantáneo
 Write-Host "   Actas de reuniones y videollamadas (audio de la computadora)…"
 & $uv sync --project $app --python 3.12 --inexact --extra manos --extra llamada --extra oido --extra reuniones
 if ($LASTEXITCODE -ne 0) { Write-Host "   No pude instalar la grabación del audio de la computadora; las actas usarán solo el micrófono." -ForegroundColor Yellow }
+Write-Host "   Posproducción de video (auto-editor y MoviePy)…"
+& $uv sync --project $app --python 3.12 --inexact --extra posproduccion
+if ($LASTEXITCODE -ne 0) { Write-Host "   No pude instalar la posproducción ahora; el editor de video funciona sin cortar silencios." -ForegroundColor Yellow }
 Write-Host "   Visión moderna (YOLO11 + YOLOE: objetos y personas sin confundir tu mano)… puede tardar"
 $env:UV_HTTP_TIMEOUT = "900"
 $visionOk = $false

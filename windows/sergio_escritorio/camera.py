@@ -560,8 +560,12 @@ class CameraWindow(QWidget):
         self.show_overlay(f"Foto guardada en Imágenes\\Sergio\\{path.name}", 4)
         return str(path)
 
-    def set_holo(self, on: bool = True, starter: bool = True) -> str:
-        """Your hands on the holograms (tracking on), or off."""
+    def set_holo(self, on: bool = True, starter: bool = False) -> str:
+        """Your hands on the holograms (tracking on), or off.
+
+        No cube appears by itself any more: it used to be added every time the
+        holograms opened, so a designed model (or a failed one) came with a
+        stray cube and it looked as if Sergio only made cubes."""
         if self.hands is None:
             return "No puedo ver tus manos (falta MediaPipe)."
         self.hands.set_mode("holo" if on else ("ver" if self.isVisible() else "off"))
@@ -570,9 +574,10 @@ class CameraWindow(QWidget):
             return "Manos apagadas."
         self.guide_until = time.monotonic() + 25  # the how-to stays on screen
         if starter and not self.holo.objects:
-            self.holo.command("crea un cubo")  # something to grab right away
+            self.holo.command("crea un cubo")  # only when asked for a first figure
             self.holo.command("céntralo")
-        return "Listo: pellizque el cubo para moverlo, gire la muñeca para girarlo. Pida cualquier figura."
+            return "Listo: pellizque el cubo para moverlo, gire la muñeca para girarlo."
+        return "Listo: pídame cualquier objeto («haz un holograma de un teléfono») y pellízquelo para moverlo."
 
     def hologram(self, order: str) -> str:
         """A voice order for the holograms ("crea un cubo rojo", "esculpir")."""

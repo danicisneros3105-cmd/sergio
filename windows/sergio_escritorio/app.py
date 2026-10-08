@@ -19,7 +19,7 @@ import threading
 import time
 import webbrowser
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 HOME = Path(os.environ.get("LOCALAPPDATA", Path.home())) / "SergioEscritorio"
 CONFIG = HOME / "config.json"
@@ -794,6 +794,10 @@ def run(config: dict[str, Any]) -> None:
             return holograms_to_blender()
         if q.kind == "video_pro":
             return video_task(q.arg, q.say)
+        if q.kind == "video_style_learn":
+            return video_style_learn(q.arg)
+        if q.kind == "video_styles":
+            return video_styles()
         if q.kind == "video_upload":
             return upload_video()
         if q.kind == "holo_model":
@@ -818,6 +822,28 @@ def run(config: dict[str, Any]) -> None:
             return holo_model(q.arg)
         if q.kind == "blender_task":
             return blender_task(q.arg)
+        if q.kind == "blender_image":
+            return blender_image(q.arg)
+        if q.kind == "blender_edit":
+            return blender_edit_task(q.arg)
+        if q.kind == "blender_addons":
+            return blender_addons_install(q.arg)
+        if q.kind == "tripo":
+            return tripo_model(q.arg)
+        if q.kind == "sculptmate":
+            return image_model(q.arg, "SculptMate")
+        if q.kind == "img2mesh":
+            return image_model(q.arg, "Image to Mesh")
+        if q.kind == "rife_install":
+            return rife_install()
+        if q.kind == "feedback":
+            return give_feedback(q.arg)
+        if q.kind == "crew":
+            return crew_task(q.arg)
+        if q.kind == "cad_image":
+            return cad_image(q.arg)
+        if q.kind == "cad_model":
+            return cad_model()
         if q.kind == "blender_object":
             return object_to_blender(q.arg)
         if q.kind == "hands":
@@ -1985,24 +2011,43 @@ def run(config: dict[str, Any]) -> None:
         return answer
 
     def holo_model(request: str) -> str:
-        """A hologram of anything: Gemini designs its real parts."""
+        """A hologram of anything: Gemini designs its real parts.
+
+        In the background: before, the voice waited up to two minutes for the
+        designer (it "did not answer") and, if the designer failed, only the
+        stray starter cube was left on screen."""
         what = request.strip() or "un objeto"
         bridge.caption.emit(f"Diseñando {what}, pieza por pieza…")
-        resp = client.http.post(
-            f"{client.base}/v1/vision/holo_model", json={"request": what}, timeout=120
-        )
-        resp.raise_for_status()
-        recipe = resp.json()
 
-        def show() -> str:
+        def show(recipe: dict) -> str:
             if not camera_window.isVisible():
                 camera_window.open()
             set_hands("holo")
             obj = camera_window.holo.add_model(recipe)
             return f"{obj.name}: {len(recipe['parts'])} piezas, {obj.size_cm()} cm."
 
-        made = on_ui(show)
-        return f"Listo, {made} Pellízcalo para moverlo, y «pásalo a Blender» para trabajarlo allí."
+        def run() -> None:
+            try:
+                resp = client.http.post(
+                    f"{client.base}/v1/vision/holo_model", json={"request": what}, timeout=150
+                )
+                if resp.status_code != 200:
+                    try:
+                        why = resp.json().get("detail") or resp.text
+                    except ValueError:
+                        why = resp.text
+                    raise RuntimeError(str(why)[:220])
+                recipe = resp.json()
+                made = on_ui(lambda: show(recipe))
+                answer = f"Listo, {made} Pellízcalo para moverlo, y «pásalo a Blender» para trabajarlo allí."
+            except Exception as exc:  # noqa: BLE001
+                from sergio_escritorio.voice import explain
+
+                answer = f"No pude diseñar el holograma: {explain(exc)}"
+            tell(answer, to_call=f"[Holograma] {answer} Cuéntaselo en una frase.")
+
+        threading.Thread(target=run, daemon=True).start()
+        return f"Diseñando {what} pieza por pieza; aparece en unos segundos."
 
     def blender_pro(request: str, reference: bytes = b"", rounds: int = 3) -> str:
         """Blender Pro: blueprint, model, render four views, look, fix — like a pro.
@@ -2020,26 +2065,52 @@ def run(config: dict[str, Any]) -> None:
         activities.finish(live, "Listo" in said, said[:80])
         return said
 
+    last_blender: dict[str, Any] = {}  # the last finished project (for surgical edits)
+    last_result: list[str] = []  # what the user's next feedback is about
+
+    def blender_verify(request: str, shot: bytes, reference: bytes = b"", sheet: bytes = b"") -> dict | None:
+        """The vision check of a build (None if it could not run)."""
+        if not shot:
+            return None
+        files = {"preview": ("vista.png", shot, "image/png")}
+        if reference:
+            files["reference"] = ("referencia.jpg", reference, "image/jpeg")
+        if sheet:
+            files["sheet"] = ("planos.png", sheet, "image/png")
+        try:
+            resp = client.http.post(f"{client.base}/v1/vision/blender/verify", data={"request": request},
+                                    files=files, timeout=180)
+            return resp.json() if resp.status_code == 200 else None
+        except Exception:  # noqa: BLE001 — the check is a bonus, never a blocker
+            return None
+
     def _blender_pro(request: str, reference: bytes, rounds: int, path: str, preview: str, live: int) -> str:
         import base64
 
         from sergio_escritorio import media
 
         bridge.caption.emit("Blender Pro: dibujando los planos del objeto…")
+        version = media.blender_version()
         if reference:
             resp = client.http.post(
                 f"{client.base}/v1/vision/blender",
                 files={"image": ("objeto.jpg", reference, "image/jpeg")},
-                data={"save_path": path, "note": request, "preview_path": preview, "pro": "true"},
+                data={"save_path": path, "note": request, "preview_path": preview, "pro": "true",
+                      "blender_version": version},
                 timeout=600,
             )
         else:
             resp = client.http.post(
                 f"{client.base}/v1/vision/blender/text",
-                json={"request": request, "save_path": path, "preview_path": preview},
+                json={"request": request, "save_path": path, "preview_path": preview, "blender_version": version},
                 timeout=600,
             )
-        resp.raise_for_status()
+        if resp.status_code != 200:
+            try:
+                why = resp.json().get("detail") or resp.text
+            except ValueError:
+                why = resp.text
+            raise RuntimeError(str(why)[:300])
         model = resp.json()
         sheet = base64.b64decode(model.get("reference_b64") or "")
         if sheet:  # the blueprint, next to the project, for the user too
@@ -2048,7 +2119,40 @@ def run(config: dict[str, Any]) -> None:
             except OSError:
                 pass
         target = json.dumps(model.get("dimensions_cm") or [])
-        log = ""
+        best = blender_review(request, model, reference, sheet, target, rounds, path, preview, live)
+        from sergio_escritorio import limpieza
+
+        model, log, verdict = best["model"], best["log"], best.get("verdict")
+        if "SERGIO_SAVED" not in log:
+            limpieza.forget_attempt(path)  # no half-made versions left behind
+            return f"Blender Pro no logró una versión que funcione: {media.review_log(log)[-200:]}"
+        limpieza.clean_blender(Path(path).parent, media.HOME / "blender")
+        last_blender.clear()
+        last_blender.update({"request": request, "model": model, "log": log, "path": path, "preview": preview,
+                             "shot": best.get("shot") or b"", "reference": reference, "sheet": sheet})
+        try:  # a clean build becomes a worked example; its verdict goes to long-term memory
+            client.http.post(f"{client.base}/v1/vision/blender/learn", timeout=20, json={
+                "request": request, "script": model.get("raw_script") or "" if (verdict or {}).get("score", 7) >= 7 else "",
+                "log": log[-6000:], "verdict": verdict})
+        except Exception:  # noqa: BLE001 — learning is a bonus
+            pass
+        last_result[:] = [f"el modelo de Blender «{request[:80]}»"]
+        media.open_in_blender(path)
+        name = model.get("name") or "el modelo"
+        return (
+            f"Listo: {name}, revisado {best['reviews']} veces mirando cuatro vistas"
+            + (" contra los planos" if sheet else "")
+            + media.vision_sentence(verdict)
+            + ". Abrí el proyecto en Blender; está en Documentos, Sergio, Blender."
+        )
+
+    def blender_review(request: str, model: dict, reference: bytes, sheet: bytes, target: str, rounds: int,
+                       path: str, preview: str, live: int) -> dict:
+        """Build, render four views, have the vision model judge them, fix —
+        until the vision check passes (8/10) or the rounds run out. The best
+        version wins (vision score first, then what Blender measured)."""
+        from sergio_escritorio import media
+
         reviews = 0
         best: dict[str, Any] = {}
         built = None  # the model the .blend on disk comes from
@@ -2062,21 +2166,31 @@ def run(config: dict[str, Any]) -> None:
                 shot = Path(preview).read_bytes()
             except OSError:
                 shot = b""
-            score = media.blender_score(log)
-            if best and media.worse_build(score, best["score"]):
+            verdict = blender_verify(request, shot, reference, sheet) if "SERGIO_SAVED" in log else None
+            if verdict:
+                bridge.caption.emit(
+                    f"Blender Pro: la revisión visual le da {verdict.get('score')}/10 "
+                    f"(parece «{verdict.get('looks_like', '')}»)."
+                )
+            rank = media.build_rank(media.blender_score(log), verdict)
+            if best and media.worse_build(rank, best["rank"]):
                 # The rewrite broke more than it fixed: back to the best
                 # version, and the reviewer learns what went wrong.
                 failed = [ln for ln in log.splitlines() if ln.startswith("SERGIO_STEP_ERROR")][:6]
                 model, shot = best["model"], best["shot"]
                 log = best["log"] + (
-                    "\nSERGIO_NOTE your last rewrite was DISCARDED because it built much less "
-                    "(errors: " + " | ".join(failed or ["it did not save"]) + "). This is the "
-                    "earlier, better version: make careful, targeted fixes and keep every part."
+                    "\nSERGIO_NOTE your last rewrite was DISCARDED because it built much less or looked worse "
+                    "(errors: " + " | ".join(failed or ["it looked worse to the vision check"]) + "). This is "
+                    "the earlier, better version: make careful, targeted fixes and keep every part."
                 )
-            elif not best or score >= best["score"]:
-                best = {"score": score, "model": model, "log": log, "shot": shot}
+                verdict = best.get("verdict")
+            elif not best or rank >= best["rank"]:
+                best = {"rank": rank, "model": model, "log": log, "shot": shot, "verdict": verdict}
             broken = "SERGIO_SAVED" not in log
+            errors = any(ln.startswith("SERGIO_STEP_ERROR") for ln in log.splitlines())
             if not broken:
+                if verdict and verdict.get("score", 0) >= 8 and not errors and reviews >= 1:
+                    break  # the vision check passed: no quota spent on more rounds
                 if reviews >= rounds:
                     break
                 reviews += 1
@@ -2095,7 +2209,7 @@ def run(config: dict[str, Any]) -> None:
                     "request": request,
                     "raw_script": model.get("raw_script") or model["script"],
                     "save_path": path,
-                    "log": log[-3000:],
+                    "log": (media.vision_lines(verdict) + "\n" + media.review_log(log))[-3500:],
                     "preview_path": preview,
                     "target_cm": target,
                 },
@@ -2106,28 +2220,144 @@ def run(config: dict[str, Any]) -> None:
                 break  # the last good version stays
             model = fixed.json()
         if best and built is not best["model"]:
-            log = media.run_blender_background(best["model"]["script"])  # save the best one
-            model = best["model"]
-        from sergio_escritorio import limpieza
+            best["log"] = media.run_blender_background(best["model"]["script"])  # save the best one
+        best = best or {"model": model, "log": "", "shot": b"", "verdict": None, "rank": -1.0}
+        best["reviews"] = reviews
+        return best
 
-        if "SERGIO_SAVED" not in log:
-            limpieza.forget_attempt(path)  # no half-made versions left behind
-            return f"Blender Pro no logró una versión que funcione: {log[-200:]}"
-        limpieza.clean_blender(Path(path).parent, media.HOME / "blender")
-        try:  # a clean build becomes a worked example for the next ones
-            client.http.post(f"{client.base}/v1/vision/blender/learn", timeout=20, json={
-                "request": request, "script": model.get("raw_script") or "", "log": log[-6000:]})
-        except Exception:  # noqa: BLE001 — learning is a bonus
-            pass
+    def blender_edit(instruction: str) -> str:
+        """Surgical edit of the last Blender Pro model: only what is asked
+        changes; Blender measures every part before and after to prove it."""
+        if not last_blender:
+            return "Primero hagamos un modelo en Blender Pro; luego lo edito pieza por pieza."
+        live = activities.start(f"Edición: {instruction[:40]}", "blender", "editando")
+        try:
+            said = _blender_edit(instruction)
+        except Exception:
+            activities.finish(live, False)
+            raise
+        activities.finish(live, "Listo" in said, said[:80])
+        return said
+
+    def _blender_edit(instruction: str) -> str:
+        from sergio_escritorio import media
+
+        job = last_blender
+        before_log, model = job["log"], job["model"]
+        request = job["request"]
+        path = blender_file("editado")
+        preview = path[:-6] + "-vista.png"
+        collateral: list[str] = []
+        attempt: dict[str, Any] = {}
+        for _ in range(2):  # one retry if the edit touched parts it should not
+            bridge.caption.emit("Blender Pro: editando solo lo que pidió…")
+            files = {"preview": ("vista.png", job.get("shot") or b"\x89PNG", "image/png")}
+            if job.get("reference"):
+                files["reference"] = ("referencia.jpg", job["reference"], "image/jpeg")
+            resp = client.http.post(
+                f"{client.base}/v1/vision/blender/edit",
+                data={"request": request, "raw_script": model.get("raw_script") or "", "instruction": instruction,
+                      "save_path": path, "preview_path": preview, "collateral": json.dumps(collateral)},
+                files=files,
+                timeout=600,
+            )
+            if resp.status_code != 200:
+                try:
+                    why = resp.json().get("detail") or resp.text
+                except ValueError:
+                    why = resp.text
+                raise RuntimeError(str(why)[:300])
+            edited = resp.json()
+            Path(preview).unlink(missing_ok=True)
+            log = media.run_blender_background(edited["script"])
+            report = media.surgical_report(before_log, log, edited.get("changed") or [])
+            if not attempt or len(report["collateral"]) < len(attempt["report"]["collateral"]):
+                attempt = {"model": edited, "log": log, "report": report}
+            if "SERGIO_SAVED" in log and not report["collateral"]:
+                break
+            collateral = report["collateral"]
+        model, log, report = attempt["model"], attempt["log"], attempt["report"]
+        if "SERGIO_SAVED" not in attempt["log"]:
+            return f"No pude aplicar la edición: {media.review_log(log)[-200:]}"
+        try:
+            shot = Path(preview).read_bytes()
+        except OSError:
+            shot = b""
+        verdict = blender_verify(f"{request}. Con este cambio: {instruction}", shot, job.get("reference") or b"")
+        job.update({"model": model, "log": log, "path": path, "shot": shot,
+                    "request": f"{request}. {instruction}"})
         media.open_in_blender(path)
-        name = model.get("name") or "el modelo"
+        touched = ", ".join(report["edited"][:6]) or "lo pedido"
+        extra = (f" Ojo: también cambió {', '.join(report['collateral'][:4])}." if report["collateral"] else "")
         return (
-            f"Listo: {name}, revisado {reviews} veces mirando cuatro vistas"
-            + (" contra los planos" if sheet else "")
-            + ". Abrí el proyecto en Blender; está en Documentos, Sergio, Blender."
+            f"Listo: cambié solo {touched}; las otras {report['kept']} piezas quedaron idénticas "
+            f"(medidas antes y después).{extra}{media.vision_sentence(verdict)} Abrí la versión editada."
         )
 
+    def blender_image(text: str) -> str:
+        """An image (copied, a file or the newest download) rebuilt in Blender
+        in full detail, then edited surgically with the prompt, if any."""
+        from sergio_escritorio import media
+        from sergio_escritorio.quick import image_edit_parts
+
+        path_hint, instruction = image_edit_parts(text)
+        image, where = media.find_image(path_hint)
+        if not image:
+            return ("No encuentro la imagen: cópiela (Ctrl+C) o guárdela en Descargas y vuelva a pedírmelo, "
+                    "o dígame su ruta.")
+
+        def run() -> None:
+            try:
+                answer = blender_pro(
+                    "Recrea en Blender, con todo lujo de detalle, EXACTAMENTE lo que muestra esta imagen: "
+                    "las mismas formas, proporciones, colores, materiales y cada detalle visible.",
+                    image,
+                )
+                if instruction and last_blender:
+                    answer = answer.split(". Abrí")[0] + ". " + blender_edit(instruction)
+            except Exception as exc:  # noqa: BLE001
+                from sergio_escritorio.voice import explain
+
+                answer = f"Blender Pro falló con la imagen: {explain(exc)}"
+            tell(answer, to_call=f"[Blender terminado] {answer} Cuéntaselo en una frase.")
+
+        threading.Thread(target=run, daemon=True).start()
+        return (f"Tengo la imagen ({where}). La reconstruyo en Blender con todo detalle"
+                + (f" y luego aplico: «{instruction}»" if instruction else "") + ". Le aviso al terminar.")
+
     last_video: list[dict] = []
+
+    def video_style_learn(source: str) -> str:
+        """Gemini watches the reference videos and keeps their editing style."""
+        def run() -> None:
+            try:
+                resp = client.http.post(f"{client.base}/v1/vision/video_style/learn",
+                                        json={"source": source}, timeout=1800)
+                if resp.status_code != 200:
+                    try:
+                        why = resp.json().get("detail") or resp.text
+                    except ValueError:
+                        why = resp.text
+                    raise RuntimeError(str(why)[:300])
+                done = resp.json()
+                answer = (f"Aprendí el estilo. {done['summary']} Para usarlo diga: «edita un video con la "
+                          f"carpeta … al estilo {done['style']['name']}».")
+            except Exception as exc:  # noqa: BLE001
+                from sergio_escritorio.voice import explain
+
+                answer = f"No pude aprender ese estilo: {explain(exc)}"
+            tell(answer, to_call=f"[Estilo de video] {answer} Cuéntaselo en una frase.")
+
+        threading.Thread(target=run, daemon=True).start()
+        return f"Estoy viendo los videos de {source[:60]} para copiar su edición; tardo unos minutos."
+
+    def video_styles() -> str:
+        resp = client.http.get(f"{client.base}/v1/vision/video_style", timeout=30)
+        resp.raise_for_status()
+        styles = resp.json().get("styles") or []
+        if not styles:
+            return "Aún no conozco estilos. Dígame: «aprende el estilo de edición de …»."
+        return "Conozco estos estilos: " + " ".join(s["summary"] for s in styles[:5])
 
     def video_task(request: str, source: str = "") -> str:
         """Video Pro in the background: Gemini watches, plans, ffmpeg renders."""
@@ -2135,14 +2365,21 @@ def run(config: dict[str, Any]) -> None:
 
         from sergio_escritorio import video_pro
 
+        style = video_pro.style_named(request)
+
         def planner(req: str, sheets: list, lengths: list) -> dict:
             resp = client.http.post(
                 f"{client.base}/v1/vision/video_plan",
-                data={"request": req, "lengths": _json.dumps(lengths)},
+                data={"request": req, "lengths": _json.dumps(lengths), "style": style},
                 files=[("sheets", (f"clip{i}.jpg", s, "image/jpeg")) for i, s in enumerate(sheets)],
                 timeout=600,
             )
-            resp.raise_for_status()
+            if resp.status_code != 200:
+                try:
+                    why = resp.json().get("detail") or resp.text
+                except ValueError:
+                    why = resp.text
+                raise RuntimeError(str(why)[:300])
             return resp.json()
 
         def run() -> None:
@@ -2155,6 +2392,7 @@ def run(config: dict[str, Any]) -> None:
                 last_video[:] = [done]
                 os.startfile(done["path"]) if hasattr(os, "startfile") else None  # noqa: B018
                 title = done["plan"]["youtube"]["title"]
+                last_result[:] = [f"el video «{title}» ({request[:80]})"]
                 answer = (
                     f"Video listo: «{title}». Lo abrí para que lo veas; está en Videos, Sergio, "
                     "con el título, la descripción y las etiquetas al lado. Si le gusta, diga "
@@ -2203,6 +2441,232 @@ def run(config: dict[str, Any]) -> None:
 
         threading.Thread(target=run, daemon=True).start()
         return "Blender Pro está en ello: modela, renderiza, revisa y corrige. Le aviso al terminar."
+
+    def _cad_save(done: dict, name: str) -> str:
+        import base64
+
+        from sergio_escritorio import media
+
+        folder = media.cad_folder()
+        stem = re.sub(r"[^\w\-]+", "-", name.lower()).strip("-")[:40] or "plano"
+        path = folder / f"{stem}-{time.strftime('%Y%m%d-%H%M%S')}.dxf"
+        path.write_bytes(base64.b64decode(done["dxf_b64"]))
+        path.with_suffix(".png").write_bytes(base64.b64decode(done["preview_b64"]))
+        if hasattr(os, "startfile"):
+            os.startfile(str(path.with_suffix(".png")))  # noqa: S606 — the user's own drawing
+        return str(path)
+
+    def cad_image(text: str) -> str:
+        """An image vectorised into a DXF (OpenCV + ezdxf), at the width asked."""
+        from sergio_escritorio import media
+        from sergio_escritorio.quick import image_edit_parts
+
+        hint, _ = image_edit_parts(text)
+        image, where = media.find_image(hint)
+        if not image:
+            return "No encuentro la imagen: cópiela (Ctrl+C) o guárdela en Descargas y vuelva a pedírmelo."
+        found = re.search(r"(\d+(?:[.,]\d+)?)\s*(mm|cm|m)\b", text.lower())
+        width = 100.0
+        if found:
+            value = float(found.group(1).replace(",", "."))
+            width = value * {"mm": 1, "cm": 10, "m": 1000}[found.group(2)]
+        resp = client.http.post(f"{client.base}/v1/vision/cad/image", files={"image": ("imagen.png", image, "image/png")},
+                                data={"width_mm": str(width)}, timeout=120)
+        if resp.status_code != 200:
+            return f"No pude vectorizarla: {resp.json().get('detail', resp.text)[:200]}"
+        done = resp.json()
+        path = _cad_save(done, "imagen")
+        return (f"Listo: la imagen ({where}) ahora es un DXF de {done['width_mm']} x {done['height_mm']} mm con "
+                f"{done['shapes']} contornos y {done['holes']} huecos, en {path}. Le abrí la vista previa.")
+
+    def cad_model() -> str:
+        """The last Blender Pro model as a three-view DXF drawing with dimensions."""
+        from sergio_escritorio import media
+
+        if not last_blender:
+            return "Primero hagamos un modelo en Blender Pro; luego le saco los planos CAD."
+        log = media.blender_edges(last_blender["path"])
+        name = last_blender["model"].get("name") or "Modelo"
+        resp = client.http.post(f"{client.base}/v1/vision/cad/model", json={"log": log, "name": name}, timeout=120)
+        if resp.status_code != 200:
+            return f"No pude hacer los planos: {resp.json().get('detail', resp.text)[:200]}"
+        done = resp.json()
+        path = _cad_save(done, name)
+        w, d, h = done["size_mm"]
+        return (f"Planos listos: {name}, vistas frontal, lateral y superior con cotas ({w} x {d} x {h} mm), en {path}. "
+                "Se abren en AutoCAD, FreeCAD o LibreCAD.")
+
+    def give_feedback(text: str) -> str:
+        """The user's opinion of the last result: long-term memory, so the
+        next similar job starts from it."""
+        from sergio_escritorio.quick import feedback_rating
+
+        rating = feedback_rating(text)
+        about = last_result[0] if last_result else ""
+        client.http.post(f"{client.base}/v1/evolve/feedback", json={"text": text, "rating": rating, "about": about},
+                         timeout=30).raise_for_status()
+        return ("Anotado" + (f" sobre {about}" if about else "") + ": lo tendré en cuenta la próxima vez."
+                if rating >= 0 else "Anotado. La próxima vez lo hago distinto; ya está en mi memoria.")
+
+    def crew_task(task: str) -> str:
+        """A long written job for the crewAI team (specialist + quality supervisor)."""
+        def run() -> None:
+            try:
+                resp = client.http.post(f"{client.base}/v1/evolve/crew", json={"task": task}, timeout=1800)
+                if resp.status_code != 200:
+                    raise RuntimeError(str(resp.json().get("detail") or resp.text)[:300])
+                result = resp.json()["result"]
+                folder = Path.home() / "Documents" / "Sergio" / "Equipo"
+                folder.mkdir(parents=True, exist_ok=True)
+                path = folder / f"equipo-{time.strftime('%Y%m%d-%H%M%S')}.md"
+                path.write_text(f"# {task}\n\n{result}\n", encoding="utf-8")
+                if hasattr(os, "startfile"):
+                    os.startfile(str(path))  # noqa: S606 — the user's own document
+                answer = "El equipo terminó y el supervisor de calidad lo aprobó. Le abrí el documento."
+                last_result[:] = [f"el trabajo del equipo: {task[:80]}"]
+            except Exception as exc:  # noqa: BLE001
+                from sergio_escritorio.voice import explain
+
+                answer = f"El equipo de agentes no pudo: {explain(exc)}"
+            tell(answer, to_call=f"[Equipo] {answer} Cuéntaselo en una frase.")
+
+        threading.Thread(target=run, daemon=True).start()
+        return "El equipo de agentes está en ello: un especialista lo hace y un supervisor de calidad lo revisa."
+
+    def background(job: Callable[[], str], label: str) -> None:
+        """Run *job* in the background and tell its answer when it ends."""
+        def run() -> None:
+            try:
+                answer = job()
+            except Exception as exc:  # noqa: BLE001
+                from sergio_escritorio.voice import explain
+
+                answer = f"{label} falló: {explain(exc)}"
+            tell(answer, to_call=f"[{label}] {answer} Cuéntaselo en una frase.")
+
+        threading.Thread(target=run, daemon=True).start()
+
+    def blender_addons_install(which: str = "") -> str:
+        """MeshGen, Tripo, SculptMate and Image-to-Mesh into the user's Blender."""
+        from sergio_escritorio import blender_addons, media
+
+        def job() -> str:
+            version = media.blender_version()
+            key = ""
+            try:
+                key = client.http.get(f"{client.base}/v1/vision/meshgen_key", timeout=10).json().get("key", "")
+            except Exception:  # noqa: BLE001 — MeshGen can be set up by hand
+                pass
+            names = [which] if which in blender_addons.ADDONS else list(blender_addons.ADDONS)
+            lines = []
+            for name in names:
+                try:
+                    lines.append(blender_addons.install(name, version))
+                except Exception as exc:  # noqa: BLE001
+                    lines.append(f"{name}: {str(exc)[:120]}")
+            if key and any(ln.startswith("meshgen: instalado") for ln in lines):
+                log = media.run_blender_background(blender_addons.meshgen_config_script(key))
+                lines.append("MeshGen piensa con su Gemini." if "SERGIO_MESHGEN_OK" in log else "MeshGen: elija el modelo en sus preferencias.")
+            return "Complementos de Blender: " + " ".join(lines)
+
+        background(job, "La instalación de complementos")
+        return "Instalo los complementos de Blender desde GitHub (MeshGen, Tripo, SculptMate, Image to Mesh); le aviso al terminar."
+
+    def generated_model(glb: Path, request: str, reference: bytes = b"", engine: str = "") -> str:
+        """A model made by Tripo / SculptMate / Image-to-Mesh through Sergio's
+        ending: Blender project, four views, vision check."""
+        from sergio_escritorio import media
+
+        path = blender_file(engine.lower() or "modelo")
+        preview = path[:-6] + "-vista.png"
+        resp = client.http.post(f"{client.base}/v1/vision/blender/import", timeout=60, json={
+            "glb_path": str(glb), "save_path": path, "preview_path": preview, "name": request[:60]})
+        resp.raise_for_status()
+        model = resp.json()
+        log = media.run_blender_background(model["script"])
+        if "SERGIO_SAVED" not in log:
+            return f"{engine} hizo el modelo pero Blender no pudo abrirlo: {media.review_log(log)[-160:]}"
+        try:
+            shot = Path(preview).read_bytes()
+        except OSError:
+            shot = b""
+        verdict = blender_verify(request, shot, reference)
+        last_blender.clear()
+        last_blender.update({"request": request, "model": model, "log": log, "path": path, "preview": preview,
+                             "shot": shot, "reference": reference, "sheet": b""})
+        last_result[:] = [f"el modelo de {engine} «{request[:60]}»"]
+        media.open_in_blender(path)
+        return f"Listo: {engine} hizo «{request[:60]}»{media.vision_sentence(verdict)}. Lo abrí en Blender."
+
+    def tripo_model(text: str) -> str:
+        """Tripo 3D: text (or the copied image) -> textured PBR model."""
+        import base64
+
+        from sergio_escritorio import media
+
+        prompt = re.sub(r"(?i)\b(con|usando|en) tripo( 3d)?\b", " ", text)
+        prompt = re.sub(r"(?i)^(hazme|haz|crea|creame|genera|modela)\s+(en 3d\s+)?", "", prompt).strip(" ,.")
+        image = b""
+        if re.search(r"(?i)\b(imagen|foto)\b", text):
+            image, _ = media.find_image()
+
+        def job() -> str:
+            files = {"image": ("ref.png", image, "image/png")} if image else None
+            resp = client.http.post(f"{client.base}/v1/vision/tripo", data={"prompt": prompt}, files=files, timeout=1200)
+            if resp.status_code != 200:
+                raise RuntimeError(str(resp.json().get("detail") or resp.text)[:300])
+            glb = media.HOME / "blender" / f"tripo-{time.strftime('%Y%m%d-%H%M%S')}.glb"
+            glb.parent.mkdir(parents=True, exist_ok=True)
+            glb.write_bytes(base64.b64decode(resp.json()["glb_b64"]))
+            return generated_model(glb, prompt or "imagen", image, "Tripo")
+
+        background(job, "Tripo")
+        return "Tripo está generando el modelo con textura en la nube (uno o dos minutos); le aviso al terminar."
+
+    def image_model(text: str, engine: str) -> str:
+        """The copied / latest image as 3D: organic (SculptMate) or technical (Image-to-Mesh)."""
+        from sergio_escritorio import blender_addons, media
+        from sergio_escritorio.quick import image_edit_parts
+
+        hint, _ = image_edit_parts(text)
+        image, where = media.find_image(hint)
+        if not image:
+            return "No encuentro la imagen: cópiela (Ctrl+C) o guárdela en Descargas y vuelva a pedírmelo."
+
+        def job() -> str:
+            if engine == "SculptMate":
+                glb = blender_addons.sculptmate(image)
+            else:
+                glb = blender_addons.image_to_mesh(image, extrude=0.08)
+            return generated_model(glb, f"la imagen ({where})", image, engine)
+
+        background(job, engine)
+        what = "orgánico y con textura" if engine == "SculptMate" else "técnico extruido"
+        return f"Paso la imagen ({where}) a 3D {what} con {engine}; le aviso al terminar."
+
+    def rife_install() -> str:
+        from sergio_escritorio import video_master
+
+        background(lambda: f"RIFE instalado en {video_master.install_rife().parent}. Ya puedo interpolar a 60 fps "
+                            "y hacer cámara lenta con IA.", "La instalación de RIFE")
+        return "Descargo RIFE (interpolación de fotogramas con IA, unos 400 MB); le aviso al terminar."
+
+    def blender_edit_task(instruction: str) -> str:
+        """A surgical edit in the background (it takes a minute or two)."""
+        if not last_blender:
+            return "Primero hagamos un modelo en Blender Pro; luego lo edito pieza por pieza."
+
+        def run() -> None:
+            try:
+                answer = blender_edit(instruction)
+            except Exception as exc:  # noqa: BLE001
+                from sergio_escritorio.voice import explain
+
+                answer = f"La edición en Blender falló: {explain(exc)}"
+            tell(answer, to_call=f"[Blender editado] {answer} Cuéntaselo en una frase.")
+
+        threading.Thread(target=run, daemon=True).start()
+        return f"Edito solo eso: «{instruction}». El resto del modelo no se toca; le aviso al terminar."
 
     def object_to_blender(note: str = "") -> str:
         """The object in your hands: Gemini studies it, Blender models it."""

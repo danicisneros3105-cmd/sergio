@@ -31,6 +31,42 @@ from sergio_escritorio.quick import parse_quick
 HISTORY_TURNS = 12
 FOLLOW_UP_SECONDS = 8.0  # after a bare "Sergio", the next sentence is the order
 CONVERSATION_SECONDS = 7.0  # after he answers, you can reply without "Sergio"
+# After Sergio speaks, the room still carries his voice for a moment (speaker
+# buffer, reverb): the microphone ignores it, or he would hear himself,
+# transcribe his own words and answer them again (he "kept repeating").
+ECHO_TAIL_SECONDS = 1.0
+
+
+def _words(text: str) -> list[str]:
+    return [w for w in re.findall(r"[a-záéíóúüñ0-9]+", text.lower()) if len(w) > 2]
+
+
+def is_self_echo(heard: str, said: Any) -> bool:
+    """*heard* is mostly Sergio's own recent words (his voice picked up again)."""
+    words = _words(heard)
+    if len(words) < 2:
+        return False
+    for answer in said:
+        mine = set(_words(answer))
+        if mine and sum(w in mine for w in words) / len(words) >= 0.75:
+            return True
+    return False
+
+
+def _echoing(assistant: Any) -> bool:
+    """Right after he spoke (his voice may still be in the room)."""
+    until = getattr(assistant, "quiet_until", 0.0)
+    return bool(until) and getattr(assistant, "clock", time.monotonic)() < until
+
+
+def repeats(answer: str, said: Any) -> bool:
+    """*answer* says again (almost word for word) one of his recent answers."""
+    from difflib import SequenceMatcher
+
+    a = " ".join(_words(answer))
+    if len(a) < 25:
+        return False
+    return any(SequenceMatcher(None, a, " ".join(_words(b))).ratio() >= 0.85 for b in said)
 PTT_TIMEOUT = 10.0  # longest push-to-talk recording
 WAKE_RING_SECONDS = 6.0  # microphone kept in memory for the instant wake word
 WAKE_DECIDE_SECONDS = 12.0  # a "maybe Sergio" without an answer is dropped
@@ -86,7 +122,9 @@ PERSONA = (  # every turn: short on purpose (tokens)
     "sad, worried or the moment is serious: zero dark humour, all help. "
     "Solve first, then the sharp remark in half a sentence. Genuinely smart: "
     "anticipate the next step, give the exact fact, have an opinion. Never "
-    "servile, never cruel, no forced or repeated jokes. "
+    "servile, never cruel, no forced or repeated jokes. NEVER repeat yourself: "
+    "no sentence, joke, opening or sign-off you already used in this "
+    "conversation, and never restate the question or your last answer. "
     "Remember what was said, react to it, "
     "and ask a short question back when it helps. Never announce what you "
     "are about to do or read out instructions; just do it and tell them how "
@@ -1280,6 +1318,8 @@ class Assistant:
         self.chime = chime
         self.clock = clock
         self.busy = False
+        self.quiet_until = 0.0  # his own voice still in the room until then
+        self.said: deque[str] = deque(maxlen=4)  # his last answers (echo/repeat guard)
         self._follow_up_until = 0.0
         self._last_stt_error = -1e9
         self._last_hint = -1e9
@@ -1410,6 +1450,9 @@ class Assistant:
                 text = command if woke and command else careful
                 self.last_heard = careful
         in_conversation = not addressed and self.expecting
+        if not addressed and text and is_self_echo(text, self.said):
+            log.info("ignored my own voice: %r", text[:80])
+            return  # his own words heard again: not a new order
         self._follow_up_until = 0.0
         if not text:
             if not in_conversation:  # silence after an answer is just silence
@@ -1535,6 +1578,10 @@ class Assistant:
             note, self._speaker_note = self._speaker_note, ""
             try:
                 answer = self.client.ask(f"({note}) {text}" if note else text)
+                if repeats(answer, self.said):  # the same answer again: once more, fresh
+                    answer = self.client.ask(
+                        f"{text}\n(Ya dijiste casi lo mismo antes: no lo repitas; responde algo nuevo y breve.)"
+                    ) or answer
             except Exception as exc:  # noqa: BLE001
                 log.exception("chat failed")
                 self._fail(f"El modelo no respondió: {explain(exc)}")
@@ -1549,6 +1596,15 @@ class Assistant:
         self._follow_up_until = self.clock() + CONVERSATION_SECONDS
 
     def say_aloud(self, answer: str) -> None:
+        """Speak; then the microphone ignores the room for a moment (his own
+        voice still echoing) and the answer is remembered (echo/repeat guard)."""
+        self.said.append(answer)
+        try:
+            self._say_aloud(answer)
+        finally:
+            self.quiet_until = self.clock() + ECHO_TAIL_SECONDS
+
+    def _say_aloud(self, answer: str) -> None:
         """Speak, starting with the first sentence while the rest is made.
 
         Long answers no longer wait for the whole audio: sentence 1 plays as
@@ -1783,8 +1839,8 @@ class Ears:
                 self.assistant.ui.state("idle")
                 return None
             return to_wav(frames), True, True
-        if self.assistant.busy:
-            self.segmenter.reset()  # don't hear our own voice
+        if self.assistant.busy or _echoing(self.assistant):
+            self.segmenter.reset()  # don't hear our own voice (nor its echo)
             return None
         if self._ptt_until:
             utterance = self.segmenter.feed(chunk)
