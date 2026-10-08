@@ -395,7 +395,7 @@ def _build_tools(
                     name,
                 )
             tools.append(tool_cls(channel=channel))
-        elif name == "llm":
+        elif name == "llm" or getattr(tool_cls, "needs_engine", False):
             tools.append(tool_cls(engine=engine, model=model_name))
         elif name == "file_read":
             tools.append(tool_cls())

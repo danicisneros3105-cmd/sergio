@@ -43,3 +43,24 @@ def test_the_crew_result_is_remembered(tmp_path, monkeypatch):
                                                                  "engine": "crewai"})
     assert client.post("/v1/evolve/crew", json={"task": "un informe del sueño"}).json()["result"] == "informe listo"
     assert "informe del sueño" in client.get("/v1/evolve/recall", params={"q": "informe sueño"}).json()["memories"][0]["text"]
+
+
+def test_think_route_runs_the_deep_layers(monkeypatch):
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from openjarvis.intelligence import _llm
+    from openjarvis.server.evolution_routes import router
+
+    replies = {"CONSTITUTION": '{"violations": []}', "PROPOSED ANSWER": '{"confidence": 90, "unknowns": []}'}
+
+    def fake(prompt):
+        return next((v for k, v in replies.items() if k in prompt), "Razono... FINAL ANSWER: 63")
+
+    monkeypatch.setattr(_llm.LLM, "default", classmethod(lambda cls: cls(fake)))
+    monkeypatch.setenv("OPENJARVIS_HOME", str(__import__("tempfile").mkdtemp()))
+    app = FastAPI()
+    app.include_router(router)
+    out = TestClient(app).post("/v1/evolve/think", json={"question": "calcula 7*9", "strategy": "consistency"}).json()
+    assert "63" in out["answer"] and out["strategy"] == "consistency" and out["confidence"] > 0.7
+    assert TestClient(app).post("/v1/evolve/think", json={"question": " "}).status_code == 400

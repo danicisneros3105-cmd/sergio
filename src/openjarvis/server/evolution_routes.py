@@ -79,3 +79,29 @@ async def crew_route(req: CrewTask) -> dict[str, Any]:
 
 
 __all__ = ["router"]
+
+
+class DeepQuestion(BaseModel):
+    question: str
+    strategy: str = "auto"
+
+
+@router.post("/think")
+async def think_route(req: DeepQuestion) -> dict[str, Any]:
+    """Deep reasoning (the ten layers) with a confidence for the answer."""
+    from openjarvis.intelligence._llm import LLM
+    from openjarvis.intelligence.deep import deep_think
+    from openjarvis.intelligence.uncertainty import default_calibrator
+    from openjarvis.learning.meta_learner import default_learner
+
+    if not req.question.strip():
+        raise HTTPException(400, "question is empty")
+    try:
+        llm = await asyncio.to_thread(LLM.default)
+    except RuntimeError as exc:
+        raise HTTPException(503, str(exc)) from None
+    result = await asyncio.to_thread(deep_think, req.question[:8000], llm, strategy=req.strategy,
+                                     learner=default_learner(), calibrator=default_calibrator())
+    return {"answer": result.answer, "strategy": result.strategy, "kind": result.kind,
+            "confidence": result.confidence, "decision": result.decision, "unknowns": result.unknowns,
+            "calls": result.calls, "seconds": result.seconds}

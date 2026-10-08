@@ -534,7 +534,7 @@ class SystemBuilder:
     @staticmethod
     def _inject_tool_deps(tool, engine, model, memory_backend, channel_backend):
         name = tool.spec.name
-        if name == "llm":
+        if name == "llm" or getattr(tool, "needs_engine", False):
             if hasattr(tool, "_engine"):
                 tool._engine = engine
             if hasattr(tool, "_model"):
