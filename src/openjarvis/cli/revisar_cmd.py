@@ -216,33 +216,15 @@ def _revisar() -> None:
             _bad("Ollama", f"no responde en {host} ({exc}). Abre la app Ollama en Windows.")
 
     # 2. Sergio's server
-    # It may have just been (re)started: give it up to two minutes.
-    import subprocess
-    import time
+    # It may have just been (re)started, or be switched off: ensure_server
+    # switches it on if needed and reports progress instead of waiting mute.
+    from openjarvis.cli.service_cmd import bypass_proxy_for_local, ensure_server
 
-    deadline = time.monotonic() + 120
-    while True:
-        try:
-            httpx.get(f"{base}/health", timeout=5).raise_for_status()
-            _ok("Sergio está encendido")
-            break
-        except httpx.HTTPError:
-            if time.monotonic() > deadline:
-                try:
-                    log = subprocess.run(
-                        ["journalctl", "--user", "-u", "sergio", "-n", "25", "--no-pager"],
-                        capture_output=True,
-                        text=True,
-                        check=False,
-                        timeout=10,
-                    ).stdout
-                except (OSError, subprocess.SubprocessError):
-                    log = ""
-                _bad("Sergio", "no arranca. Últimas líneas de su registro:")
-                console.print(escape(log or "(sin registro)"))
-                raise SystemExit(1)
-            console.print("Esperando a que Sergio arranque…")
-            time.sleep(5)
+    bypass_proxy_for_local()
+    console.print("Comprobando que Sergio esté encendido…")
+    if not ensure_server(base, lambda line: console.print(escape(line))):
+        raise SystemExit(1)
+    _ok("Sergio está encendido")
 
     # 3. Chat, 4. voice, 5. hearing
     checks = [

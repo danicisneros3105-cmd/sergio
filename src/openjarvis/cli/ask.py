@@ -14,7 +14,6 @@ from rich.table import Table
 
 from openjarvis.cli._banner import print_banner
 from openjarvis.cli._tool_names import resolve_tool_names
-from openjarvis.cli.hints import hint_engine_error
 from openjarvis.core.config import JarvisConfig, load_config
 from openjarvis.core.events import EventBus, EventType
 from openjarvis.core.types import Message, Role
@@ -70,6 +69,16 @@ def _resolve_research_model(model_name: str | None, config: JarvisConfig | None)
     return next((m for m in candidates if m), DEFAULT_PLANNER_MODEL)
 
 
+def _print_friendly(console: Console, exc: BaseException, config=None) -> None:
+    """An engine failure explained in plain Spanish (who refused, what to do)."""
+    from rich.markup import escape
+
+    from openjarvis.cli.friendly import render
+
+    port = getattr(getattr(config, "server", None), "port", None)
+    console.print(f"[red]{escape(render(exc, port))}[/red]")
+
+
 def _safe_health(engine) -> bool:
     """Return True when *engine* answers its health probe, never raising."""
     try:
@@ -82,12 +91,6 @@ def _default_planner_model() -> str:
     from openjarvis.agents.research_loop import DEFAULT_PLANNER_MODEL
 
     return DEFAULT_PLANNER_MODEL
-
-
-def _short_error(exc: BaseException) -> str:
-    """One readable line for an exception (no traceback)."""
-    text = str(exc).strip().splitlines()[0] if str(exc).strip() else ""
-    return text[:300] or type(exc).__name__
 
 
 def _run_research(
@@ -240,8 +243,7 @@ def _run_research(
     try:
         result = agent.run(query_text)
     except Exception as exc:  # noqa: BLE001 - engine/network errors vary by backend
-        console.print(f"[red]Research failed:[/red] {_short_error(exc)}")
-        console.print(hint_engine_error(exc, getattr(engine, "engine_id", None)))
+        _print_friendly(console, exc, config)
         sys.exit(1)
     elapsed = time.monotonic() - started
 
@@ -1161,8 +1163,7 @@ def ask(
             console.print(f"[red]{exc}[/red]")
             sys.exit(1)
         except EngineConnectionError as exc:
-            console.print(f"[red]Engine error:[/red] {exc}")
-            console.print(hint_engine_error(exc, engine_name))
+            _print_friendly(console, exc, config)
             sys.exit(1)
 
         if output_json:
@@ -1263,8 +1264,7 @@ def ask(
         console.print(f"[red]{exc}[/red]")
         sys.exit(1)
     except EngineConnectionError as exc:
-        console.print(f"[red]Engine error:[/red] {exc}")
-        console.print(hint_engine_error(exc, engine_name))
+        _print_friendly(console, exc, config)
         sys.exit(1)
 
     # Output

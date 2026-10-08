@@ -46,7 +46,7 @@ def run(monkeypatch, tmp_path):
         client = httpx.Client(transport=httpx.MockTransport(_handler(calls, **kw)))
 
         def strip(kwargs):
-            return {k: v for k, v in kwargs.items() if k != "timeout"}
+            return {k: v for k, v in kwargs.items() if k not in ("timeout", "trust_env")}
 
         monkeypatch.setattr(revisar_cmd.httpx, "get", lambda url, **k: client.get(url, **strip(k)))
         monkeypatch.setattr(revisar_cmd.httpx, "post", lambda url, **k: client.post(url, **strip(k)))

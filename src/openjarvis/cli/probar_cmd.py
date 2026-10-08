@@ -113,7 +113,9 @@ def probar(sin_pantalla: bool) -> None:
     token = read_env(env_file()).get("SERGIO_DESKTOP_TOKEN", "")
     win = "http://127.0.0.1:8765"
     auth = {"Authorization": f"Bearer {token}"}
-    http = _Retrying(httpx.Client(timeout=httpx.Timeout(180, connect=5)))
+    # trust_env=False: every call here is local, and a proxy in the
+    # environment would make 127.0.0.1 hang.
+    http = _Retrying(httpx.Client(timeout=httpx.Timeout(180, connect=5), trust_env=False))
     run = Run()
     try:
         _probar(run, http, base, model, token, win, auth, sin_pantalla)
@@ -127,14 +129,11 @@ def probar(sin_pantalla: bool) -> None:
 
 def _probar(run: "Run", http: "_Retrying", base: str, model: str, token: str, win: str,
             auth: dict[str, str], sin_pantalla: bool) -> None:
-    from openjarvis.cli.service_cmd import wait_for_server
+    from openjarvis.cli.service_cmd import bypass_proxy_for_local, ensure_server
 
-    console.print("Esperando a que Sergio esté encendido…")
-    if not wait_for_server(base, get=http.client.get):
-        console.print(
-            f"[red]Sergio no responde en {base}.[/red] Enciéndelo con: "
-            "sergio servicio encender  (o mira: journalctl --user -u sergio -n 50)"
-        )
+    bypass_proxy_for_local()
+    console.print("Comprobando que Sergio esté encendido…")
+    if not ensure_server(base, lambda line: console.print(escape(line)), get=http.client.get):
         raise SystemExit(1)
 
     def brain() -> str:

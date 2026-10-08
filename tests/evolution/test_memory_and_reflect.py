@@ -143,10 +143,29 @@ def test_gemini_embedder_marks_documents_and_queries(monkeypatch):
     import types
     genai = types.ModuleType("google.genai")
     genai.Client = FakeClient
+    google = sys.modules.get("google") or types.ModuleType("google")
+    monkeypatch.setitem(sys.modules, "google", google)
     monkeypatch.setitem(sys.modules, "google.genai", genai)
-    monkeypatch.setattr(sys.modules["google"], "genai", genai, raising=False)
+    monkeypatch.setattr(google, "genai", genai, raising=False)
     monkeypatch.setenv("GEMINI_API_KEY", "k")
     embed = mem.gemini_embedder()
     assert embed(["a"])[0] == [0.6, 0.8]          # normalised (768-d Gemini vectors are not)
     embed(["q"], task="RETRIEVAL_QUERY")
     assert seen == ["RETRIEVAL_DOCUMENT", "RETRIEVAL_QUERY"]
+
+
+def test_without_chromadb_semantic_recall_still_works_and_old_memories_move_in(tmp_path, monkeypatch):
+    import json
+
+    monkeypatch.setitem(sys.modules, "chromadb", None)  # as on a PC without chromadb
+    (tmp_path / "memoria.jsonl").write_text(json.dumps(
+        {"id": "old1", "text": "una tetera vieja", "meta": {"kind": "lesson"}, "vec": []}) + "\n")
+    m = mem.LongTermMemory(tmp_path, semantic=_tea_embed([]))
+    assert m.engine == "json" and m.stats()["memories"] == 1
+    m.remember("lesson", "un coche rojo")
+    hit = m.recall("quiero té en la tetera", 1)[0]
+    assert hit["space"] == "semantic" and "tetera" in hit["text"]
+    assert m.stats()["semantic_memories"] == 2
+    again = mem.LongTermMemory(tmp_path, semantic=_tea_embed([]))  # persisted on disk
+    assert again.stats() == {"engine": "json", "memories": 2, "semantic": True, "semantic_memories": 2}
+    assert (tmp_path / "memoria.jsonl.migrated").exists()

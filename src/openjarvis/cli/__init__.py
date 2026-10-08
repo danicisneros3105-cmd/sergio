@@ -106,6 +106,7 @@ if not _DATA_BOUNDARY_BOOTSTRAP:
     from openjarvis.cli.channel_cmd import channel
     from openjarvis.cli.channels_cmd import channels
     from openjarvis.cli.chat_cmd import chat
+    from openjarvis.cli.codigo_cmd import codigo
     from openjarvis.cli.compose_cmd import compose
     from openjarvis.cli.config_cmd import config
     from openjarvis.cli.connect_cmd import connect
@@ -130,9 +131,8 @@ if not _DATA_BOUNDARY_BOOTSTRAP:
     from openjarvis.cli.operators_cmd import operators
     from openjarvis.cli.optimize_cmd import optimize_group
     from openjarvis.cli.pearl_cmd import pearl
-    from openjarvis.cli.phone_cmd import telefono
-    from openjarvis.cli.codigo_cmd import codigo
     from openjarvis.cli.pensar_cmd import pensar
+    from openjarvis.cli.phone_cmd import telefono
     from openjarvis.cli.probar_cmd import probar
     from openjarvis.cli.quickstart_cmd import quickstart
     from openjarvis.cli.registry_cmd import registry
@@ -269,11 +269,9 @@ def main() -> None:
 
         if os.environ.get("SERGIO_DEBUG") or os.environ.get("OPENJARVIS_DEBUG"):
             raise
-        first = (str(exc).strip().splitlines() or [""])[0][:300]
-        sys.stderr.write(
-            f"Error: {type(exc).__name__}: {first}\n"
-            "Para ver el detalle técnico repite con SERGIO_DEBUG=1 delante del comando.\n"
-        )
+        from openjarvis.cli.friendly import render
+
+        sys.stderr.write(render(exc) + "\n")
         raise SystemExit(1) from None
 
 

@@ -296,6 +296,18 @@ DEFAULT_TOOL_CAPABILITIES: Dict[str, List[str]] = {
     "terminal_run": [Capability.CODE_EXECUTE],
     "text_to_speech": [Capability.NETWORK_FETCH, Capability.FILE_WRITE],
     "think": [],
+    # Sergio's reasoning and coding tools: they call the model (network) and
+    # run code/tests in throwaway folders or edit files the user names.
+    "deep_think": [Capability.NETWORK_FETCH, Capability.FILE_WRITE],
+    "long_context_qa": [Capability.FILE_READ, Capability.NETWORK_FETCH],
+    "tdd_codegen": [Capability.CODE_EXECUTE, Capability.NETWORK_FETCH],
+    "safe_refactor": [Capability.FILE_READ, Capability.FILE_WRITE, Capability.CODE_EXECUTE,
+                      Capability.NETWORK_FETCH],
+    "debug_trace": [Capability.CODE_EXECUTE, Capability.FILE_READ, Capability.NETWORK_FETCH],
+    "code_review": [Capability.CODE_EXECUTE, Capability.FILE_READ, Capability.NETWORK_FETCH],
+    "doc_drift": [Capability.FILE_READ, Capability.FILE_WRITE, Capability.NETWORK_FETCH],
+    "optimize_code": [Capability.CODE_EXECUTE, Capability.FILE_READ, Capability.NETWORK_FETCH],
+    "polyglot": [Capability.CODE_EXECUTE, Capability.NETWORK_FETCH],
     "upcoming_launches": [Capability.NETWORK_FETCH],
     "user_profile_manage": [Capability.FILE_READ, Capability.FILE_WRITE],
     "video_edit": [

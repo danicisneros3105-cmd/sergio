@@ -80,6 +80,114 @@ def wait_for_server(
         sleep(1.0)
 
 
+def service_state(runner: Runner = _run, unit: str = "sergio.service") -> str:
+    """systemd state of Sergio's server: active, activating, inactive, failed,
+    missing (not installed) or no-systemd."""
+    if shutil.which("systemctl") is None:
+        return "no-systemd"
+    try:
+        out = runner(["systemctl", "--user", "is-active", unit])
+    except (OSError, subprocess.SubprocessError):
+        return "no-systemd"
+    state = (out.stdout or "").strip() or "unknown"
+    if state in ("inactive", "unknown"):
+        try:
+            loaded = runner(["systemctl", "--user", "show", unit, "-p", "LoadState", "--value"])
+            if (loaded.stdout or "").strip() == "not-found":
+                return "missing"
+        except (OSError, subprocess.SubprocessError):
+            pass
+    if "Failed to connect to bus" in (out.stderr or ""):
+        return "no-systemd"
+    return state
+
+
+def journal_tail(lines: int = 15, runner: Runner = _run) -> str:
+    try:
+        out = runner(["journalctl", "--user", "-u", "sergio", "-n", str(lines), "--no-pager", "-o", "cat"])
+        return (out.stdout or "").strip()
+    except (OSError, subprocess.SubprocessError):
+        return ""
+
+
+def bypass_proxy_for_local() -> None:
+    """Never send 127.0.0.1/localhost through an HTTP proxy from the environment
+    (a corporate or VPN proxy makes local calls hang until they time out)."""
+    for var in ("NO_PROXY", "no_proxy"):
+        current = [x.strip() for x in os.environ.get(var, "").split(",") if x.strip()]
+        for host in ("127.0.0.1", "localhost", "::1"):
+            if host not in current:
+                current.append(host)
+        os.environ[var] = ",".join(current)
+
+
+def ensure_server(
+    base: str,
+    say: Callable[[str], None],
+    *,
+    timeout: float = 120.0,
+    start: bool = True,
+    get: Callable[..., object] | None = None,
+    runner: Runner = _run,
+    sleep: Callable[[float], None] | None = None,
+    clock: Callable[[], float] | None = None,
+) -> bool:
+    """Make sure Sergio's server answers, never waiting in silence.
+
+    Answers at once -> True. Otherwise looks at the service: switched off or
+    crashed -> switches it on; not installed -> says how and returns at once;
+    then waits with a progress line every few seconds, stopping early (with
+    the last log lines) if the service fails. Local calls ignore proxy
+    settings, which can make 127.0.0.1 hang.
+    """
+    import time
+
+    import httpx
+
+    sleep = sleep or time.sleep
+    clock = clock or time.monotonic
+
+    def answers() -> bool:
+        try:
+            if get is not None:
+                get(f"{base.rstrip('/')}/health", timeout=3)
+            else:
+                httpx.get(f"{base.rstrip('/')}/health", timeout=3, trust_env=False)
+            return True
+        except httpx.HTTPError:
+            return False
+
+    if answers():
+        return True
+    state = service_state(runner)
+    if state in ("missing", "no-systemd"):
+        say(f"Sergio no responde en {base} y no está instalado como servicio. "
+            "Instálalo con: sergio servicio instalar   (o ábrelo a mano en otra ventana: sergio serve)")
+        return False
+    if state in ("inactive", "failed", "deactivating") and start:
+        say(f"Sergio estaba apagado (estado: {state}). Lo enciendo…")
+        runner(["systemctl", "--user", "reset-failed", "sergio.service"])
+        runner(["systemctl", "--user", "restart", "sergio.service"])
+    started = clock()
+    next_note = started + 5
+    while clock() - started < timeout:
+        if answers():
+            say(f"Sergio está encendido ({clock() - started:.0f} s).")
+            return True
+        now = clock()
+        if now >= next_note:
+            state = service_state(runner)
+            if state == "failed":
+                break
+            say(f"  …Sergio sigue arrancando ({now - started:.0f} s, servicio: {state})")
+            next_note = now + 5
+        sleep(1.0)
+    state = service_state(runner)
+    say(f"Sergio no respondió en {timeout:.0f} s (servicio: {state}). Últimas líneas de su registro:")
+    say(journal_tail(runner=runner) or "(sin registro)")
+    return False
+
+
 def render_units(root: Path, uv: str, port: int, path_env: str) -> dict[str, str]:
     """Return ``{unit name: file content}`` for both services."""
     common = (

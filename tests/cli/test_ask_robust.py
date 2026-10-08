@@ -75,7 +75,7 @@ def test_a_quota_error_says_quota_not_start_ollama(patched):
     patched.generate.side_effect = EngineConnectionError("mock engine returned HTTP 429: quota")
     result = CliRunner().invoke(cli, ["ask", "--no-stream", "hola"])
     assert result.exit_code == 1
-    assert "out of quota" in result.output and "ollama server is running" not in result.output
+    assert "se acabó la cuota" in result.output and "ollama server is running" not in result.output
 
 
 def test_an_empty_question_is_a_usage_error(patched):
@@ -110,7 +110,7 @@ def test_research_without_ollama_uses_the_engine_that_was_found(patched, monkeyp
         cli, ["ask", "--research", "--knowledge-db", str(tmp_path / "k.db"), "qué sé de mí"]
     )
     assert seen["engine"] is patched and seen["model"] == "test-model"
-    assert result.exit_code == 1 and "Research failed" in result.output and "out of quota" in result.output
+    assert result.exit_code == 1 and "se acabó la cuota" in result.output
     assert "Traceback" not in result.output
 
 
@@ -121,10 +121,38 @@ def test_main_turns_an_unexpected_error_into_one_line(monkeypatch, capsys):
         raise ValueError("algo raro\nsegunda línea")
 
     monkeypatch.setattr(cli_pkg, "cli", boom)
+    monkeypatch.setenv("OPENJARVIS_HOME", str(__import__("tempfile").mkdtemp()))
     monkeypatch.delenv("SERGIO_DEBUG", raising=False)
     monkeypatch.delenv("OPENJARVIS_DEBUG", raising=False)
     with pytest.raises(SystemExit) as stop:
         cli_pkg.main()
     assert stop.value.code == 1
     err = capsys.readouterr().err
-    assert "Error: ValueError: algo raro" in err and "SERGIO_DEBUG=1" in err and "segunda" not in err
+    assert "Algo falló: algo raro" in err and "segunda" not in err and "ultimo-error.txt" in err
+
+
+def _http_error(status, url):
+    request = httpx.Request("POST", url)
+    return httpx.HTTPStatusError(f"Client error '{status}'", request=request,
+                                 response=httpx.Response(status, request=request))
+
+
+@pytest.mark.parametrize(
+    ("exc", "who", "fix"),
+    [
+        (_http_error(401, "https://generativelanguage.googleapis.com/v1beta/models/x"), "Google Gemini",
+         "sergio nube configurar --gemini"),
+        (_http_error(401, "http://127.0.0.1:8000/v1/chat/completions"), "el servidor de Sergio", "OPENJARVIS_API_KEY"),
+        (_http_error(403, "https://api.example.com/v1"), "api.example.com", "api.example.com"),
+        (RuntimeError("Google rechazó la clave en sus dos servicios. Detalle: 401 UNAUTHENTICATED"),
+         "Google Gemini", "aistudio.google.com"),
+        (_http_error(429, "https://generativelanguage.googleapis.com/x"), "cuota", "Espera un minuto"),
+        (httpx.ConnectError("refused", request=httpx.Request("GET", "http://localhost:11434/api/chat")),
+         "No pude conectar con Ollama", "Abre la app Ollama"),
+    ],
+)
+def test_errors_are_explained_in_plain_spanish(exc, who, fix):
+    from openjarvis.cli.friendly import explain
+
+    what, how = explain(exc, server_port=8000)
+    assert who in what and fix in how

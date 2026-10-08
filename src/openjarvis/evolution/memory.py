@@ -3,7 +3,8 @@
 chromadb keeps it on disk (``~/.openjarvis/memoria``). Texts are embedded
 with Gemini (``gemini-embedding-001``) when a key is set, and always with a
 local hashing embedder too, so recall works offline and costs nothing.
-Without chromadb a small JSON-lines store with the same API is used.
+Without chromadb a small JSON-lines store with the same API is used, so
+semantic recall works there too.
 """
 
 from __future__ import annotations
@@ -77,6 +78,76 @@ def gemini_embedder() -> Callable[..., list[list[float]]] | None:
     return embed
 
 
+class JsonCollection:
+    """The part of a chromadb collection Sergio uses, kept in a JSON-lines file:
+    used when chromadb is not installed, so semantic recall still works."""
+
+    def __init__(self, path: Path, metadata: dict[str, Any]) -> None:
+        self.path = path
+        meta_path = path.with_suffix(".meta.json")
+        if meta_path.exists():
+            metadata = {**json.loads(meta_path.read_text(encoding="utf-8")), **metadata}
+        else:
+            meta_path.write_text(json.dumps(metadata), encoding="utf-8")
+        self.metadata = metadata
+        self._rows: dict[str, dict[str, Any]] = {}
+        if path.exists():
+            for line in path.read_text(encoding="utf-8").splitlines():
+                try:
+                    row = json.loads(line)
+                    self._rows[row["id"]] = row
+                except (ValueError, KeyError):
+                    continue
+
+    def count(self) -> int:
+        return len(self._rows)
+
+    def upsert(self, ids: list[str], documents: list[str], metadatas: list[dict], embeddings: list[list[float]]) -> None:
+        with self.path.open("a", encoding="utf-8") as fh:
+            for rid, doc, meta, vec in zip(ids, documents, metadatas, embeddings):
+                row = {"id": rid, "text": doc, "meta": meta, "vec": [round(float(v), 6) for v in vec]}
+                self._rows[rid] = row
+                fh.write(json.dumps(row, ensure_ascii=False) + "\n")
+
+    add = upsert
+
+    def get(self, include: list[str] | None = None) -> dict[str, list]:
+        rows = list(self._rows.values())
+        return {"ids": [r["id"] for r in rows], "documents": [r["text"] for r in rows],
+                "metadatas": [r["meta"] for r in rows]}
+
+    def query(self, query_embeddings: list[list[float]], n_results: int, where: dict | None = None) -> dict:
+        q = query_embeddings[0]
+        qn = math.sqrt(sum(v * v for v in q)) or 1.0
+        allowed = set((where or {}).get("kind", {}).get("$in", [])) if where else set()
+        scored = []
+        for row in self._rows.values():
+            if allowed and row["meta"].get("kind") not in allowed:
+                continue
+            vec = row["vec"]
+            if len(vec) != len(q):
+                continue
+            vn = math.sqrt(sum(v * v for v in vec)) or 1.0
+            cos = sum(a * b for a, b in zip(q, vec)) / (qn * vn)
+            scored.append((1 - cos, row))
+        scored.sort(key=lambda t: t[0])
+        top = scored[:n_results]
+        return {"ids": [[r["id"] for _, r in top]], "documents": [[r["text"] for _, r in top]],
+                "metadatas": [[r["meta"] for _, r in top]], "distances": [[d for d, _ in top]]}
+
+
+class JsonClient:
+    def __init__(self, folder: Path) -> None:
+        self.folder = folder
+        folder.mkdir(parents=True, exist_ok=True)
+        self._open: dict[str, JsonCollection] = {}
+
+    def get_or_create_collection(self, name: str, metadata: dict[str, Any] | None = None) -> JsonCollection:
+        if name not in self._open:
+            self._open[name] = JsonCollection(self.folder / f"{name}.jsonl", dict(metadata or {}))
+        return self._open[name]
+
+
 SEM_COOLDOWN = 300.0  # seconds to leave the semantic model alone after it fails (quota, offline)
 BACKFILL = 64         # memories copied into the semantic store per recall
 
@@ -100,14 +171,35 @@ class LongTermMemory:
             import chromadb
 
             self._client = chromadb.PersistentClient(path=str(self.folder / "chroma"))
-            self._local = self._client.get_or_create_collection("sergio_local", metadata={"hnsw:space": "cosine"})
             self.engine = "chromadb"
-            if self.semantic is not None:
-                self._open_semantic()
         except ImportError:
-            self._client = None
+            # Without chromadb: same API on JSON files, semantic recall included.
+            self._client = JsonClient(self.folder / "json")
             self.engine = "json"
-            self._file = self.folder / "memoria.jsonl"
+        self._local = self._client.get_or_create_collection("sergio_local", metadata={"hnsw:space": "cosine"})
+        if self.engine == "json":
+            self._migrate_old_json()
+        if self.semantic is not None:
+            self._open_semantic()
+
+    def _migrate_old_json(self) -> None:
+        """Memories from the earlier single-file store (memoria.jsonl) move in once."""
+        old = self.folder / "memoria.jsonl"
+        if not old.exists() or self._local.count():
+            return
+        ids, docs, metas, vecs = [], [], [], []
+        for line in old.read_text(encoding="utf-8").splitlines():
+            try:
+                row = json.loads(line)
+            except ValueError:
+                continue
+            ids.append(row["id"])
+            docs.append(row["text"])
+            metas.append(row["meta"])
+            vecs.append(hash_embed(row["text"]))
+        if ids:
+            self._local.upsert(ids=ids, documents=docs, metadatas=metas, embeddings=vecs)
+        old.rename(old.with_suffix(".jsonl.migrated"))
 
     # -- the semantic store ----------------------------------------------------
     def _embed(self, texts: list[str], query: bool = False) -> list[list[float]]:
@@ -116,7 +208,7 @@ class LongTermMemory:
         return self.semantic(texts)
 
     def _semantic_ready(self) -> bool:
-        return self.semantic is not None and self._client is not None and time.time() >= self._sem_retry_at
+        return self.semantic is not None and time.time() >= self._sem_retry_at
 
     def _semantic_failed(self) -> None:
         self._sem_retry_at = time.time() + SEM_COOLDOWN
@@ -175,10 +267,6 @@ class LongTermMemory:
                 for k, v in meta.items() if v is not None}
         meta.update({"kind": kind if kind in KINDS else "task", "time": time.time()})
         rid = uuid.uuid4().hex
-        if self._client is None:
-            with self._file.open("a", encoding="utf-8") as fh:
-                fh.write(json.dumps({"id": rid, "text": text, "meta": meta, "vec": hash_embed(text)}) + "\n")
-            return rid
         self._local.add(ids=[rid], documents=[text], metadatas=[meta], embeddings=[hash_embed(text)])
         if self._semantic_ready():
             self._sem_add([rid], [text], [meta])
@@ -190,8 +278,6 @@ class LongTermMemory:
         if not query.strip():
             return []
         where = {"kind": {"$in": list(kinds)}} if kinds else None
-        if self._client is None:
-            return self._recall_json(query, k, kinds)
         self._backfill()
         found: dict[str, dict[str, Any]] = {}
         stores = []
@@ -222,20 +308,6 @@ class LongTermMemory:
         ranked = sorted(found.values(), key=lambda m: -(m["score"] - RELEVANT[m["space"]]))
         return ranked[:k]
 
-    def _recall_json(self, query: str, k: int, kinds: tuple[str, ...] | None) -> list[dict[str, Any]]:
-        if not self._file.exists():
-            return []
-        q = hash_embed(query)
-        rows = []
-        for line in self._file.read_text(encoding="utf-8").splitlines():
-            row = json.loads(line)
-            if kinds and row["meta"].get("kind") not in kinds:
-                continue
-            score = sum(a * b for a, b in zip(q, row["vec"]))
-            rows.append({"text": row["text"], "kind": row["meta"].get("kind"), "meta": row["meta"], "score": round(score, 3),
-                         "space": "local"})
-        return sorted(rows, key=lambda r: -r["score"])[:k]
-
     def lessons_for(self, query: str, kinds: tuple[str, ...] = ("lesson", "feedback", "blender", "video"),
                     k: int = 4, min_score: float | None = None) -> str:
         """The closest lessons as a prompt block ("" when nothing relevant).
@@ -257,11 +329,8 @@ class LongTermMemory:
         return self.remember("feedback", line, rating=rating, about=about[:300])
 
     def stats(self) -> dict[str, Any]:
-        if self._client is None:
-            total = len(self._file.read_text(encoding="utf-8").splitlines()) if self._file.exists() else 0
-        else:
-            total = self._local.count()
-        semantic = self._sem.count() if self._client is not None and self._sem is not None else 0
+        total = self._local.count()
+        semantic = self._sem.count() if self._sem is not None else 0
         return {"engine": self.engine, "memories": total, "semantic": bool(self.semantic),
                 "semantic_memories": semantic}
 
@@ -284,4 +353,4 @@ def lessons(query: str, kinds: tuple[str, ...] = ("lesson", "feedback", "blender
         return ""
 
 
-__all__ = ["LongTermMemory", "hash_embed", "lessons", "shared"]
+__all__ = ["JsonClient", "JsonCollection", "LongTermMemory", "hash_embed", "lessons", "shared"]
