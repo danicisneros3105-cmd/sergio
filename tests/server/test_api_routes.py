@@ -195,51 +195,75 @@ class TestMemoryRoutes:
 
 
 class TestMemoryRustMissing:
-    """Regression for #502: when the native ``openjarvis_rust`` extension is
-    missing from the serving venv, memory ops must surface a CLEAR, ACTIONABLE
-    error — never the misleading "Failed to index path" or a 200 silent no-op.
+    """Regression for #502: without the native ``openjarvis_rust`` extension
+    memory keeps working on the Python twin of the SQLite backend; the only
+    remaining environment failure (a SQLite without FTS5) must surface a
+    CLEAR, ACTIONABLE error — never "Failed to index path" or a silent no-op.
     """
 
     @staticmethod
-    def _client(monkeypatch):
-        # Force the same failure mode as a venv without the compiled extension.
+    def _no_rust(monkeypatch):
         def _boom():
             raise ImportError("No module named 'openjarvis_rust'")
 
         import openjarvis._rust_bridge as bridge
 
         monkeypatch.setattr(bridge, "get_rust_module", _boom)
+
+    @classmethod
+    def _client(cls, monkeypatch, *, fts5: bool = True):
+        cls._no_rust(monkeypatch)
+        if not fts5:
+            import sqlite3
+
+            import openjarvis._native_fallback as fallback
+
+            class _NoFTS5:
+                def __init__(self, *_a, **_k):
+                    raise sqlite3.OperationalError("no such module: fts5")
+
+            monkeypatch.setattr(fallback, "SQLiteMemory", _NoFTS5)
         return TestClient(_make_app())
 
-    def test_store_is_not_a_silent_noop(self, monkeypatch):
+    def test_store_works_without_the_extension(self, monkeypatch, tmp_path):
+        monkeypatch.setenv("OPENJARVIS_HOME", str(tmp_path))
         client = self._client(monkeypatch)
+        resp = client.post("/v1/memory/store", json={"content": "hi there"})
+        assert resp.status_code == 200, resp.text
+
+    def test_config_reports_available_without_the_extension(self, monkeypatch):
+        client = self._client(monkeypatch)
+        data = client.get("/v1/memory/config").json()
+        assert data["available"] is True
+
+    def test_store_is_not_a_silent_noop_without_fts5(self, monkeypatch):
+        client = self._client(monkeypatch, fts5=False)
         resp = client.post("/v1/memory/store", json={"content": "hi"})
-        # Must NOT return the old 200 {"status":"stored","note":"no backend..."}.
         assert resp.status_code == 503
         detail = resp.json()["detail"]
-        assert "openjarvis_rust" in detail
+        assert "FTS5" in detail
         assert "maturin develop" in detail
 
     def test_index_surfaces_actionable_detail(self, monkeypatch, tmp_path):
         (tmp_path / "note.txt").write_text("hello world some content here")
-        client = self._client(monkeypatch)
+        client = self._client(monkeypatch, fts5=False)
         resp = client.post("/v1/memory/index", json={"path": str(tmp_path)})
         assert resp.status_code == 503
         detail = resp.json()["detail"]
         # The frontend reads this `detail`; it must point at the real cause,
         # not blame the indexed path.
-        assert "openjarvis_rust" in detail
+        assert "FTS5" in detail
         assert detail != "Failed to index path"
         assert detail != "No memory backend available"
 
-    def test_config_reports_unavailable(self, monkeypatch):
-        client = self._client(monkeypatch)
+    def test_config_reports_unavailable_without_fts5(self, monkeypatch):
+        client = self._client(monkeypatch, fts5=False)
         resp = client.get("/v1/memory/config")
         assert resp.status_code == 200
         data = resp.json()
         # Must not falsely report a healthy backend when none could be built.
         assert data["available"] is False
-        assert "openjarvis_rust" in (data["detail"] or "")
+        assert "FTS5" in (data["detail"] or "")
 
 
 class TestBudgetRoutes:

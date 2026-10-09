@@ -1,8 +1,8 @@
 name: Track Git Clones
 
+# Manual only: clone statistics are an upstream concern, and a daily
+# scheduled run spends Actions minutes on this private fork.
 on:
-  schedule:
-    - cron: '0 6 * * *'  # Daily at 06:00 UTC
   workflow_dispatch:
 
 permissions:

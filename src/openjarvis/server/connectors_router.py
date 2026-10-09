@@ -44,10 +44,12 @@ def _ensure_connectors_registered() -> None:
     """Ensure ConnectorRegistry is populated.
 
     If the registry has been cleared (e.g. by test fixtures) but connector
-    modules are already cached in sys.modules, reload each submodule to
-    re-execute their @ConnectorRegistry.register decorators.
+    modules are already cached in sys.modules, register their classes again
+    from the loaded modules. Reloading the modules instead (the old way)
+    replaced every module-level function, silently undoing anyone's patch
+    or reference to it.
     """
-    import importlib
+    import inspect
     import sys
 
     from openjarvis.core.registry import ConnectorRegistry
@@ -58,27 +60,24 @@ def _ensure_connectors_registered() -> None:
     except Exception:
         pass
 
-    # If the registry is still empty, reload individual connector submodules
-    # that are already present in sys.modules.
     if not ConnectorRegistry.keys():
-        for mod_name in list(sys.modules):
-            if (
-                mod_name.startswith("openjarvis.connectors.")
-                and not mod_name.endswith("_stubs")
-                and not mod_name.endswith("pipeline")
-                and not mod_name.endswith("store")
-                and not mod_name.endswith("chunker")
-                and not mod_name.endswith("retriever")
-                and not mod_name.endswith("sync_engine")
-                and not mod_name.endswith("oauth")
-                # Registers nothing; reloading it would only swap out the
-                # OllamaEmbedder class under anyone holding (or patching) it.
-                and not mod_name.endswith("embeddings")
-            ):
-                try:
-                    importlib.reload(sys.modules[mod_name])
-                except Exception:
-                    pass
+        try:
+            from openjarvis.connectors._stubs import BaseConnector
+        except Exception:
+            return
+        for mod_name, module in list(sys.modules.items()):
+            if not mod_name.startswith("openjarvis.connectors.") or module is None:
+                continue
+            for _, obj in inspect.getmembers(module, inspect.isclass):
+                key = getattr(obj, "connector_id", None)
+                if (
+                    obj.__module__ == mod_name
+                    and issubclass(obj, BaseConnector)
+                    and isinstance(key, str)
+                    and key
+                    and not ConnectorRegistry.contains(key)
+                ):
+                    ConnectorRegistry.register_value(key, obj)
 
 
 # ---------------------------------------------------------------------------

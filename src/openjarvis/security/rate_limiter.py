@@ -67,10 +67,9 @@ class RateLimiter:
         self._buckets: Dict[str, TokenBucket] = {}
         self._lock = threading.Lock()
 
-        from openjarvis._rust_bridge import get_rust_module
+        from openjarvis._rust_bridge import get_native
 
-        _rust = get_rust_module()
-        self._rust_impl = _rust.RateLimiter(
+        self._rust_impl = get_native("RateLimiter")(
             requests_per_minute=self._config.requests_per_minute,
             burst_size=self._config.burst_size,
         )

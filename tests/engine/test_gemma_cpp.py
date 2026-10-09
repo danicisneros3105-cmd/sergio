@@ -370,7 +370,19 @@ class TestGemmaCppDiscovery:
         assert EngineRegistry.contains("gemma_cpp")
 
 
+def _gemma_ready() -> bool:
+    import importlib.util
+
+    return bool(os.environ.get("GEMMA_CPP_MODEL_PATH")) and (
+        importlib.util.find_spec("pygemma") is not None
+    )
+
+
 @pytest.mark.live
+@pytest.mark.skipif(
+    not _gemma_ready(),
+    reason="needs pygemma and GEMMA_CPP_MODEL_PATH (downloaded Gemma weights)",
+)
 class TestGemmaCppLive:
     """Integration tests — require pygemma and downloaded Gemma weights.
 

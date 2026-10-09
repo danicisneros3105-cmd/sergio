@@ -42,18 +42,16 @@ class SQLiteMemory(MemoryBackend):
 
         self._db_path = str(db_path)
 
-        from openjarvis._rust_bridge import get_rust_module
+        from openjarvis._rust_bridge import get_native
 
-        # The Rust backend is mandatory and there is no Python fallback. When
-        # the extension is missing from *this* venv, ``get_rust_module`` raises
-        # ImportError; translate it into a clear, actionable error so callers
-        # never degrade to a misleading "Failed to index path" or a silent
-        # no-op (see #502).
+        # Rust backend when the extension is installed, otherwise the
+        # Python twin over the same schema (a database written by one opens
+        # in the other). Only a SQLite build without FTS5 is unusable, and
+        # that is reported clearly instead of as a silent no-op (#502).
         try:
-            _rust = get_rust_module()
-        except ImportError as exc:
+            self._rust_impl = get_native("SQLiteMemory")(self._db_path)
+        except sqlite3.OperationalError as exc:
             raise MemoryBackendUnavailable() from exc
-        self._rust_impl = _rust.SQLiteMemory(self._db_path)
         self._conn = None  # type: ignore[assignment]
 
     def _create_tables(self) -> None:

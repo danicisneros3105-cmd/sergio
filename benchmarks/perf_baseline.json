@@ -1,0 +1,26 @@
+{
+  "import_cli": {
+    "units": 54.297
+  },
+  "cli_help": {
+    "units": 50.9
+  },
+  "load_config": {
+    "units": 1.442
+  },
+  "memory_sqlite": {
+    "units": 1.316
+  },
+  "memory_bm25": {
+    "units": 2.032
+  },
+  "secret_scan": {
+    "units": 1.131
+  },
+  "capabilities": {
+    "units": 1.061
+  },
+  "long_context_bm25": {
+    "units": 18.793
+  }
+}

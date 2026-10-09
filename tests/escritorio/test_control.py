@@ -42,6 +42,7 @@ def test_ui_numbers_elements_and_click_by_number(control_server, desktop):
 
 
 def test_screenshot_is_downscaled_with_scale(control_server):
+    pytest.importorskip("PIL")
     _, url = control_server
     shot = httpx.get(f"{url}/screen", headers=AUTH).json()
     assert (shot["width"], shot["height"], shot["scale"]) == (2560, 1440, 2.0)

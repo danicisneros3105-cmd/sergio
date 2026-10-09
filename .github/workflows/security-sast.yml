@@ -2,10 +2,10 @@ name: security-sast
 
 # Static application-security testing for Python code and locked dependencies.
 on:
-  push:
-    branches: [main]
   pull_request:
   workflow_dispatch:
+  schedule:
+    - cron: "23 5 * * 1"  # weekly; every push was too costly in Actions minutes
 
 permissions:
   contents: read

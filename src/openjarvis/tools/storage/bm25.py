@@ -5,12 +5,10 @@ from __future__ import annotations
 import json
 from typing import Any, Dict, List, Optional
 
-from openjarvis._rust_bridge import get_rust_module
+from openjarvis._rust_bridge import get_native
 from openjarvis.core.events import EventType, get_event_bus
 from openjarvis.core.registry import MemoryRegistry
 from openjarvis.tools.storage._stubs import MemoryBackend, RetrievalResult
-
-_rust = get_rust_module()
 
 
 def _tokenize(text: str) -> List[str]:
@@ -30,8 +28,7 @@ class BM25Memory(MemoryBackend):
     backend_id: str = "bm25"
 
     def __init__(self) -> None:
-        _r = get_rust_module()
-        self._rust_impl = _r.BM25Memory()
+        self._rust_impl = get_native("BM25Memory")()
 
     # -- ABC implementation -------------------------------------------------
 

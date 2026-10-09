@@ -135,8 +135,11 @@ oj-debug.*.json
 # TypeScript build cache (rewritten by every build)
 *.tsbuildinfo
 
-# Big model files downloaded at run time (never commit them)
-*.ts
+# Big model files downloaded at run time (never commit them). TorchScript
+# models (.ts) land in the working folder or a models/ folder; TypeScript
+# sources elsewhere must stay tracked and packaged.
+/*.ts
+**/models/*.ts
 mobileclip*
 yolo*.pt
 !windows/sergio_escritorio/models/*-vocab.pt

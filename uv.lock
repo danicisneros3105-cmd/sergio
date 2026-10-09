@@ -5903,7 +5903,7 @@ eval-sheets = [
 eval-wandb = [
     { name = "wandb" },
 ]
-evolucion = [
+evolution = [
     { name = "chromadb" },
     { name = "langgraph" },
 ]
@@ -6025,11 +6025,11 @@ voice = [
 ]
 
 [package.dev-dependencies]
+build = [
+    { name = "maturin" },
+]
 desktop-native = [
     { name = "openjarvis-rust" },
-]
-dev = [
-    { name = "maturin" },
 ]
 
 [package.metadata]
@@ -6038,7 +6038,7 @@ requires-dist = [
     { name = "amdsmi", marker = "extra == 'energy-amd'", specifier = ">=6.1" },
     { name = "anthropic", marker = "extra == 'inference-cloud'", specifier = ">=0.30" },
     { name = "apple-fm-sdk", marker = "sys_platform == 'darwin' and extra == 'afm'", specifier = ">=0.2.1" },
-    { name = "chromadb", marker = "extra == 'evolucion'", specifier = ">=1.0" },
+    { name = "chromadb", marker = "extra == 'evolution'", specifier = ">=1.0" },
     { name = "click", specifier = ">=8" },
     { name = "colbert-ai", marker = "extra == 'memory-colbert'", specifier = ">=0.2" },
     { name = "croniter", specifier = ">=2.0" },
@@ -6069,7 +6069,7 @@ requires-dist = [
     { name = "httpx", marker = "extra == 'channel-twitter'", specifier = ">=0.27" },
     { name = "httpx", marker = "extra == 'mining-pearl-vllm'", specifier = ">=0.27" },
     { name = "kokoro", marker = "extra == 'voice'", specifier = ">=0.9" },
-    { name = "langgraph", marker = "extra == 'evolucion'", specifier = ">=0.6" },
+    { name = "langgraph", marker = "extra == 'evolution'", specifier = ">=0.6" },
     { name = "line-bot-sdk", marker = "extra == 'channel-line'", specifier = ">=3.0" },
     { name = "litellm", marker = "extra == 'inference-litellm'", specifier = "==1.100.1" },
     { name = "llmlingua", marker = "extra == 'token-saver'", specifier = ">=0.2.2" },
@@ -6154,11 +6154,11 @@ requires-dist = [
     { name = "zeus-apple-silicon", marker = "sys_platform == 'darwin' and extra == 'energy-apple'", specifier = ">=1.1.0" },
     { name = "zulip", marker = "extra == 'channel-zulip'", specifier = ">=0.9" },
 ]
-provides-extras = ["afm", "browser", "cad", "channel-discord", "channel-gmail", "channel-line", "channel-mastodon", "channel-messenger", "channel-nostr", "channel-reddit", "channel-rocketchat", "channel-slack", "channel-telegram", "channel-twilio", "channel-twitch", "channel-twitter", "channel-viber", "channel-xmpp", "channel-zulip", "dashboard", "desktop", "dev", "docs", "energy-all", "energy-amd", "energy-apple", "eval-sheets", "eval-wandb", "evolucion", "faces", "framework-comparison", "gpu-metrics", "inference-cloud", "inference-gemma", "inference-google", "inference-litellm", "inference-mlx", "inference-vllm", "learning-dspy", "learning-gepa", "media", "memory-bm25", "memory-colbert", "memory-faiss", "memory-pdf", "mining-pearl-cpu", "mining-pearl-vllm", "openhands", "orchestrator-training", "pdf", "phone", "sandbox-docker", "sandbox-wasm", "scheduler", "security-signing", "server", "speech", "speech-deepgram", "token-saver", "tools-search", "tripo", "voice"]
+provides-extras = ["afm", "browser", "cad", "channel-discord", "channel-gmail", "channel-line", "channel-mastodon", "channel-messenger", "channel-nostr", "channel-reddit", "channel-rocketchat", "channel-slack", "channel-telegram", "channel-twilio", "channel-twitch", "channel-twitter", "channel-viber", "channel-xmpp", "channel-zulip", "dashboard", "desktop", "dev", "docs", "energy-all", "energy-amd", "energy-apple", "eval-sheets", "eval-wandb", "evolution", "faces", "framework-comparison", "gpu-metrics", "inference-cloud", "inference-gemma", "inference-google", "inference-litellm", "inference-mlx", "inference-vllm", "learning-dspy", "learning-gepa", "media", "memory-bm25", "memory-colbert", "memory-faiss", "memory-pdf", "mining-pearl-cpu", "mining-pearl-vllm", "openhands", "orchestrator-training", "pdf", "phone", "sandbox-docker", "sandbox-wasm", "scheduler", "security-signing", "server", "speech", "speech-deepgram", "token-saver", "tools-search", "tripo", "voice"]
 
 [package.metadata.requires-dev]
+build = [{ name = "maturin", specifier = ">=1.12.6" }]
 desktop-native = [{ name = "openjarvis-rust", directory = "rust/crates/openjarvis-python" }]
-dev = [{ name = "maturin", specifier = ">=1.12.6" }]
 
 [[package]]
 name = "openjarvis-rust"

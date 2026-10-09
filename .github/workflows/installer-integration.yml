@@ -8,7 +8,8 @@ on:
       - 'tests/install/**'
       - '.github/workflows/installer-integration.yml'
   schedule:
-    - cron: '0 6 * * *'
+    - cron: '0 6 * * 1'  # weekly (was daily); macOS job only on demand
+  workflow_dispatch:
 
 jobs:
   container-matrix:
@@ -80,6 +81,8 @@ jobs:
           '
 
   macos:
+    # macOS minutes cost 10x on a private repository: run only on demand.
+    if: github.event_name == 'workflow_dispatch'
     name: ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:

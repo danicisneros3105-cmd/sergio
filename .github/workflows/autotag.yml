@@ -1,8 +1,9 @@
 name: Auto-tag on main push
 
+# Manual only: every tag dispatches the desktop build matrix (macOS/Windows)
+# and the PyPI workflow, which on this private fork burned the monthly
+# Actions minutes on every push. Run it from the Actions tab for a release.
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 permissions:

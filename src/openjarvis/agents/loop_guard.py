@@ -55,10 +55,9 @@ class LoopGuard:
         self._warned_cycles: set[str] = set()
 
         try:
-            from openjarvis._rust_bridge import get_rust_module
+            from openjarvis._rust_bridge import get_native
 
-            _rust = get_rust_module()
-            self._rust_impl = _rust.LoopGuard(
+            self._rust_impl = get_native("LoopGuard")(
                 max_identical=config.max_identical_calls,
                 max_ping_pong=(
                     config.ping_pong_window // 2 if config.ping_pong_window > 1 else 2

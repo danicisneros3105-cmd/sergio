@@ -1,10 +1,17 @@
 name: CI
 
+# Minutes matter: this repository is private, where Windows runners cost 2x
+# and macOS 10x of the monthly allowance. Every push runs the Linux jobs;
+# the Windows/macOS matrix runs weekly, on demand, or when a commit message
+# contains [full-ci].
 on:
   push:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
+  schedule:
+    - cron: "17 5 * * 1"
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -37,6 +44,8 @@ jobs:
 
   test:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write  # publishes the coverage badge to the "badges" branch
     steps:
       - uses: actions/checkout@v7
 
@@ -82,6 +91,25 @@ jobs:
             --cov-report=xml \
             --cov-fail-under=60
 
+      - name: Coverage summary and badge
+        if: always() && hashFiles('coverage.xml') != ''
+        shell: bash
+        run: |
+          uv run python scripts/ci/coverage_badge.py coverage.xml badge >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publish coverage badge
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && hashFiles('badge/coverage.svg') != ''
+        continue-on-error: true
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd badge
+          git init -q -b badges
+          git add .
+          git -c user.name="github-actions[bot]" -c user.email="github-actions[bot]@users.noreply.github.com" commit -qm "Coverage badge"
+          git push -qf "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" badges
+
       - name: Upload coverage report
         if: always()
         continue-on-error: true
@@ -101,6 +129,7 @@ jobs:
   # All `run:` steps use static commands only (no `github.event.*`
   # interpolation), so there is no workflow-injection surface here.
   test-windows:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[full-ci]')
     runs-on: ${{ matrix.os }}
     # The ARM64 runner is newer; its result is reported but never blocks a merge.
     continue-on-error: ${{ matrix.experimental }}
@@ -182,6 +211,7 @@ jobs:
   # RAM/hardware detection on the other desktop OSes, checked against the
   # OS's own numbers (Linux: /proc/meminfo via free; macOS: sysctl).
   hardware-detect:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[full-ci]')
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -209,6 +239,30 @@ jobs:
           assert ram > 0 and abs(ram - ref) < 0.6, (ram, ref)
           PY
 
+  # Speed regressions: timings are expressed in units of a fixed pure-Python
+  # workload measured on the same runner, so the baseline travels between
+  # machines; a step fails when it gets more than 1.75x slower.
+  perf:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.2.0
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --extra server
+
+      - name: Performance smoke benchmark
+        run: uv run python benchmarks/perf_smoke.py --check benchmarks/perf_baseline.json --summary "$GITHUB_STEP_SUMMARY"
+
   rust:
     runs-on: ubuntu-latest
     defaults:
@@ -216,13 +270,34 @@ jobs:
         working-directory: rust
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      # Clippy + cargo test take minutes; skip them when no Rust changed.
+      - name: Did Rust change?
+        id: changes
+        shell: bash
+        working-directory: .
+        env:
+          BEFORE: ${{ github.event.before }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          from="${BASE:-$BEFORE}"
+          if [[ -z "$from" || "$from" =~ ^0+$ ]] || ! git cat-file -e "$from^{commit}" 2>/dev/null \
+             || git diff --name-only "$from" HEAD | grep -qE '^(rust/|examples/cross_device_travel/|\.github/workflows/ci\.yml)'; then
+            echo "rust=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "rust=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Install Rust toolchain
+        if: steps.changes.outputs.rust == 'true'
         uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
 
       - name: Cargo cache
+        if: steps.changes.outputs.rust == 'true'
         uses: actions/cache@v6
         with:
           path: |
@@ -233,13 +308,16 @@ jobs:
           restore-keys: rust-${{ runner.os }}-
 
       - name: Clippy
+        if: steps.changes.outputs.rust == 'true'
         run: cargo clippy --workspace --all-targets -- -D warnings
 
       - name: Test
+        if: steps.changes.outputs.rust == 'true'
         run: cargo test --workspace
 
       # Standalone handoff example: intentionally not a runtime workspace member.
       - name: Cross-device travel example
+        if: steps.changes.outputs.rust == 'true'
         run: |
           cargo fmt --manifest-path ../examples/cross_device_travel/Cargo.toml --check
           cargo clippy --locked --manifest-path ../examples/cross_device_travel/Cargo.toml --all-targets -- -D warnings

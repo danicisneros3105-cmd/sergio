@@ -48,6 +48,33 @@ def _detect_rust() -> bool:
 
 RUST_AVAILABLE: bool = _detect_rust()
 
+_fallback_noted = False
+
+
+def get_native(name: str):
+    """Return the Rust class or function *name*, or its pure-Python twin.
+
+    Used by the pieces Sergio cannot run without (capability policy,
+    secret/PII scanners, rate limiter, SQLite/BM25 memory): when the
+    compiled extension is missing they keep working on the equivalent
+    implementation in :mod:`openjarvis._native_fallback` instead of raising.
+    """
+    global _fallback_noted
+    try:
+        return getattr(get_rust_module(), name)
+    except ImportError:
+        from openjarvis import _native_fallback
+
+        if not _fallback_noted:
+            _fallback_noted = True
+            import logging
+
+            logging.getLogger(__name__).info(
+                "Native openjarvis_rust extension not installed; using the "
+                "Python implementations (same behaviour, a bit slower)."
+            )
+        return getattr(_native_fallback, name)
+
 
 # ---------------------------------------------------------------------------
 # JSON -> Python dataclass converters
@@ -184,6 +211,7 @@ def generate_result_from_json(json_str: str) -> dict:
 __all__ = [
     "RUST_AVAILABLE",
     "generate_result_from_json",
+    "get_native",
     "get_rust_module",
     "injection_result_from_json",
     "optimization_run_from_json",

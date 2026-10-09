@@ -3,6 +3,8 @@
 import json
 from types import SimpleNamespace as NS
 
+import pytest
+
 from openjarvis.tools import youtube_pick as yp
 
 
@@ -29,6 +31,7 @@ def test_parse_results():
 
 
 def test_gemini_picks_by_the_thumbnails():
+    pytest.importorskip("google.genai")
     html = _page([("aaa", "I Spent 50 Hours Buried Alive"), ("bbb", "Last To Leave Wins"), ("ccc", "Suit Up!")])
     asked = []
 

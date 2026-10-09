@@ -152,6 +152,10 @@ class TestWebSearchTool:
             return original_import(name, *args, **kwargs)
 
         monkeypatch.setattr(builtins, "__import__", _mock_import)
+        # Offline: the fallback path is under test, not DuckDuckGo itself.
+        monkeypatch.setattr(
+            WebSearchTool, "_duckduckgo_search", lambda self, q, n: "1. Result"
+        )
 
         tool = WebSearchTool(api_key="test-key")
         result = tool.execute(query="test query")
@@ -237,6 +241,10 @@ class TestWebSearchTool:
             return original_import(name, *args, **kwargs)
 
         monkeypatch.setattr(builtins, "__import__", _mock_import)
+        # Offline: the fallback path is under test, not DuckDuckGo itself.
+        monkeypatch.setattr(
+            WebSearchTool, "_duckduckgo_search", lambda self, q, n: "1. Result"
+        )
 
         tool = WebSearchTool(api_key="test-key")
         result = tool.execute(query="test query")

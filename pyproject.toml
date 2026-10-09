@@ -155,8 +155,9 @@ phone = [
 ]
 faces = ["opencv-python-headless>=4.10"]
 # Sergio's evolution: long-term memory (vector database) and the
-# self-correction loop as a state graph.
-evolucion = ["chromadb>=1.0", "langgraph>=0.6"]
+# self-correction loop as a state graph. Both are optional: without chromadb
+# the memory uses a JSON vector store, without langgraph a plain loop.
+evolution = ["chromadb>=1.0", "langgraph>=0.6"]
 # Professional CAD files (DXF) from images and 3D models, with previews.
 cad = ["ezdxf>=1.3", "opencv-python-headless>=4.10", "matplotlib>=3.8"]
 # Tripo 3D: text / image -> textured 3D models (needs a tsk_ key).
@@ -242,6 +243,11 @@ git_describe_command = [
 # Such builds can inject the real version via SETUPTOOLS_SCM_PRETEND_VERSION.
 fallback_version = "0.0.0+unknown"
 
+[tool.uv]
+# `uv sync` installs the "build" group (maturin) so `uv run maturin develop`
+# works out of the box; test/lint tools stay in the `dev` extra.
+default-groups = ["build"]
+
 [tool.uv.sources]
 openjarvis-rust = { path = "rust/crates/openjarvis-python" }
 
@@ -312,7 +318,7 @@ select = ["E", "F", "I", "W"]
 "src/openjarvis/tools/blender_kit.py" = ["E501"]
 
 [dependency-groups]
-dev = [
+build = [
     "maturin>=1.12.6",
 ]
 # openjarvis_rust is the native PyO3 extension, built from the local Rust

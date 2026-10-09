@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
+import socket
 import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -89,6 +91,111 @@ def _cleanup_session_test_home():
     """Keep the import-time home alive through normal fixture teardown."""
     yield
     _cleanup_test_home()
+
+
+# Optional extras: a test that needs one of these and fails *only* because it
+# is not installed is reported as skipped (with the module named), like
+# ``pytest.importorskip`` would. CI installs them, so nothing is hidden there.
+_OPTIONAL_MODULES = frozenset(
+    {
+        "openjarvis_rust",
+        "cv2",
+        "PySide6",
+        "fastapi",
+        "starlette",
+        "pydantic",
+        "google",
+        "soundfile",
+        "sounddevice",
+        "PIL",
+        "numpy",
+        "playwright",
+        "mediapipe",
+        "uvicorn",
+    }
+)
+
+
+def _missing_optional(exc: BaseException):
+    import importlib.util
+
+    seen = set()
+    while exc is not None and id(exc) not in seen:
+        seen.add(id(exc))
+        if isinstance(exc, ImportError):
+            names = []
+            if getattr(exc, "name", None):
+                names.append(exc.name.split(".")[0])
+            names += [m for m in _OPTIONAL_MODULES if m.lower() in str(exc).lower()]
+            for name in names:
+                if name in _OPTIONAL_MODULES:
+                    try:
+                        if importlib.util.find_spec(name) is None:
+                            return name
+                    except (ImportError, ValueError):
+                        return name
+        exc = exc.__cause__ or exc.__context__
+    return None
+
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_makereport(item, call):
+    outcome = yield
+    report = outcome.get_result()
+    if report.failed and call.excinfo is not None and call.when in ("setup", "call"):
+        missing = _missing_optional(call.excinfo.value)
+        if missing:
+            report.outcome = "skipped"
+            report.longrepr = (str(item.path), item.location[1] or 0, f"Skipped: needs optional module {missing!r}")
+
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_make_collect_report(collector):
+    outcome = yield
+    report = outcome.get_result()
+    if report.failed and getattr(report, "longrepr", None) is not None:
+        text = str(report.longrepr)
+        missing = None
+        for name in _OPTIONAL_MODULES:
+            if f"No module named '{name}" in text or (name.lower() in text.lower() and "ImportError" in text):
+                import importlib.util
+
+                try:
+                    if importlib.util.find_spec(name) is None:
+                        missing = name
+                        break
+                except (ImportError, ValueError):
+                    missing = name
+                    break
+        if missing:
+            report.outcome = "skipped"
+            report.longrepr = (str(collector.path), 0, f"Skipped: needs optional module {missing!r}")
+
+
+_RESERVED_TEST_HOST = re.compile(r"(^|\.)(example\.(com|net|org)|example|test)$", re.I)
+
+
+@pytest.fixture(autouse=True)
+def _offline_reserved_dns(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Resolve the RFC 2606/6761 example hosts even without DNS.
+
+    Tests fetch mocked pages from ``example.com`` & co., but the SSRF guard
+    resolves the host first and fails closed when it cannot. On a machine
+    with no direct DNS (sandboxes, proxies) that blocked otherwise-mocked
+    calls. Real lookups still run first; tests that patch ``getaddrinfo``
+    themselves override this.
+    """
+    real = socket.getaddrinfo
+
+    def _getaddrinfo(host, port, *args, **kwargs):
+        try:
+            return real(host, port, *args, **kwargs)
+        except socket.gaierror:
+            if isinstance(host, str) and _RESERVED_TEST_HOST.search(host.rstrip(".")):
+                return [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.215.14", port or 0))]
+            raise
+
+    monkeypatch.setattr(socket, "getaddrinfo", _getaddrinfo)
 
 
 @pytest.fixture(autouse=True)

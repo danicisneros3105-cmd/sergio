@@ -24,16 +24,26 @@ RUST_MISSING_HINT = (
 )
 
 
-class MemoryBackendUnavailable(RuntimeError):
-    """Raised when a memory backend cannot be built because the mandatory
-    ``openjarvis_rust`` extension is missing from the current environment.
+#: The one environment problem left once the Python twin of the SQLite
+#: backend exists: a Python whose bundled SQLite was built without FTS5.
+FTS5_MISSING_HINT = (
+    "Memory backend unavailable: this Python's SQLite has no FTS5 full-text "
+    "search. Install the native `openjarvis_rust` extension "
+    "(`uv run maturin develop -m rust/crates/openjarvis-python/Cargo.toml`) "
+    "or use a Python from python.org / uv, whose SQLite includes FTS5."
+)
 
-    This is deliberately distinct from "memory is intentionally disabled": a
-    missing native extension is an environment/install error that must be
-    surfaced loudly and actionably, never swallowed into a silent no-op.
+
+class MemoryBackendUnavailable(RuntimeError):
+    """Raised when a memory backend cannot be built for an environment
+    reason (no native extension *and* no FTS5 in Python's SQLite).
+
+    This is deliberately distinct from "memory is intentionally disabled": an
+    environment/install error must be surfaced loudly and actionably, never
+    swallowed into a silent no-op.
     """
 
-    def __init__(self, message: str = RUST_MISSING_HINT) -> None:
+    def __init__(self, message: str = FTS5_MISSING_HINT) -> None:
         super().__init__(message)
 
 
@@ -88,6 +98,7 @@ class MemoryBackend(ABC):
 __all__ = [
     "RUST_MISSING_HINT",
     "MemoryBackend",
+    "FTS5_MISSING_HINT",
     "MemoryBackendUnavailable",
     "RetrievalResult",
 ]

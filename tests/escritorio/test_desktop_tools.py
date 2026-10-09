@@ -1,6 +1,7 @@
 """Sergio's screen_read / desktop_action tools against a real control server."""
 
 import httpx
+import pytest
 
 from openjarvis.tools.desktop_tools import DesktopActionTool, ScreenReadTool
 
@@ -58,6 +59,7 @@ def test_wrong_token_and_not_installed(control_server, monkeypatch):
 
 
 def test_look_uses_the_vision_model(control_server, monkeypatch):
+    pytest.importorskip("PIL")
     _, url = control_server
     _env(monkeypatch, url)
     monkeypatch.setenv("SERGIO_VISION_MODEL", "qwen2.5vl:7b")
