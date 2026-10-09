@@ -178,3 +178,46 @@ def test_think_stream_reports_errors_plainly(monkeypatch):
     )
     assert events == [events[0]] and events[0]["stage"] == "error"
     assert events[0]["message"] and events[0]["fix"]
+
+
+def _ws_app(monkeypatch, api_key=""):
+    from openjarvis.server.thinking_routes import router as thinking_router
+
+    app = FastAPI()
+    app.include_router(thinking_router)
+    app.state.api_key = api_key
+    return app
+
+
+def test_thinking_websocket_streams_every_step(monkeypatch):
+    _fake_default(monkeypatch)
+    client = TestClient(_ws_app(monkeypatch))
+    with client.websocket_connect("/v1/thinking/stream") as ws:
+        ws.send_json({"question": "calcula 7*9", "strategy": "consistency"})
+        stages = []
+        while not stages or stages[-1] not in ("answer", "error"):
+            event = ws.receive_json()
+            stages.append(event["stage"])
+        assert stages[0] == "plan" and stages[-1] == "answer" and "call" in stages
+        assert "63" in event["answer"]
+        ws.send_json({"question": ""})
+        assert ws.receive_json() == {"stage": "error", "message": "question is empty"}
+        ws.send_json({"question": "x", "strategy": "magic"})
+        assert "strategy" in ws.receive_json()["message"]
+        ws.send_json({"stop": True})
+
+
+def test_thinking_websocket_needs_the_key_when_set(monkeypatch):
+    import pytest
+    from starlette.websockets import WebSocketDisconnect
+
+    _fake_default(monkeypatch)
+    client = TestClient(_ws_app(monkeypatch, api_key="secreta"))
+    with pytest.raises(WebSocketDisconnect):
+        with client.websocket_connect("/v1/thinking/stream") as ws:
+            ws.receive_json()
+    with client.websocket_connect(
+        "/v1/thinking/stream", headers={"Authorization": "Bearer secreta"}
+    ) as ws:
+        ws.send_json({"question": "hola"})
+        assert ws.receive_json()["stage"] == "plan"

@@ -6,7 +6,7 @@ import { StreamingDots } from './StreamingDots';
 import { useAppStore } from '../../lib/store';
 import { shouldAutoplayFinishedReply, useTtsStore } from '../../lib/tts';
 import { stripThinkTags } from '../../lib/message-text';
-import { PanelRightOpen, PanelRightClose, Database, Phone, MonitorSmartphone, Globe, MessageCircle } from 'lucide-react';
+import { Brain, PanelRightOpen, PanelRightClose, Database, Phone, MonitorSmartphone, Globe, MessageCircle } from 'lucide-react';
 import { SergioMark } from '../Sidebar/Sidebar';
 import { listConnectors } from '../../lib/connectors-api';
 
@@ -35,6 +35,8 @@ export function ChatArea() {
   const streamState = useAppStore((s) => s.streamState);
   const systemPanelOpen = useAppStore((s) => s.systemPanelOpen);
   const toggleSystemPanel = useAppStore((s) => s.toggleSystemPanel);
+  const reasoningPanelOpen = useAppStore((s) => s.reasoningPanelOpen);
+  const toggleReasoningPanel = useAppStore((s) => s.toggleReasoningPanel);
   const navigate = useNavigate();
   const listRef = useRef<HTMLDivElement>(null);
   const shouldAutoScroll = useRef(true);
@@ -146,7 +148,16 @@ export function ChatArea() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center justify-end pl-3 pr-14 pt-2 pb-1 shrink-0">
+      <div className="flex items-center justify-end gap-1 pl-3 pr-14 pt-2 pb-1 shrink-0">
+        <button
+          onClick={toggleReasoningPanel}
+          className="mac-icon-btn"
+          title={`${reasoningPanelOpen ? 'Ocultar' : 'Mostrar'} el razonamiento paso a paso`}
+          aria-label="Razonamiento"
+          aria-pressed={reasoningPanelOpen}
+        >
+          <Brain size={16} strokeWidth={1.75} />
+        </button>
         <button
           onClick={toggleSystemPanel}
           className="mac-icon-btn"

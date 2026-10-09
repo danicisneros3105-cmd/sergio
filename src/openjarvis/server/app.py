@@ -571,6 +571,10 @@ def create_app(
     from openjarvis.server.evolution_routes import router as evolution_router
 
     app.include_router(evolution_router)
+    # The same reasoning steps over a WebSocket (/v1/thinking/stream).
+    from openjarvis.server.thinking_routes import router as thinking_router
+
+    app.include_router(thinking_router)
     # OpenAI-compatible embeddings (Ollama, Gemini or the offline local one).
     from openjarvis.server.embeddings_routes import router as embeddings_router
 

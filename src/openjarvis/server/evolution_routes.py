@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Any
+from typing import Any, AsyncIterator
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
@@ -124,23 +124,15 @@ async def think_route(req: DeepQuestion) -> dict[str, Any]:
     return result_dict(result)
 
 
-@router.post("/think/stream")
-async def think_stream_route(req: DeepQuestion) -> StreamingResponse:
-    """The same reasoning as /think, streamed step by step (server-sent events).
-
-    Each ``data:`` line is one JSON event: ``plan``, ``call`` (every model
-    call with a label and a preview), ``draft``, ``constitution``,
-    ``confidence``, ``retry``, then ``answer`` — or ``error``.
-    """
-    import json
-
+async def think_events(question: str, strategy: str = "auto") -> AsyncIterator[Any]:
+    """Every step of a deep-thinking run as it happens (shared by SSE and
+    WebSocket): ``plan``, ``call``, ``draft``, ``constitution``,
+    ``confidence``, ``retry``, then ``answer`` — or ``error``."""
     from openjarvis.intelligence._llm import LLM
     from openjarvis.intelligence.deep import deep_think
     from openjarvis.intelligence.uncertainty import default_calibrator
     from openjarvis.learning.meta_learner import default_learner
 
-    if not req.question.strip():
-        raise HTTPException(400, "question is empty")
     loop = asyncio.get_running_loop()
     queue: asyncio.Queue = asyncio.Queue()
     done = object()
@@ -150,11 +142,10 @@ async def think_stream_route(req: DeepQuestion) -> StreamingResponse:
 
     def work() -> None:
         try:
-            llm = LLM.default()
             deep_think(
-                req.question[:8000],
-                llm,
-                strategy=req.strategy,
+                question[:8000],
+                LLM.default(),
+                strategy=strategy,
                 learner=default_learner(),
                 calibrator=default_calibrator(),
                 on_event=push,
@@ -167,16 +158,31 @@ async def think_stream_route(req: DeepQuestion) -> StreamingResponse:
         finally:
             push(done)
 
-    async def events():
-        task = loop.run_in_executor(None, work)
-        try:
-            while True:
-                event = await queue.get()
-                if event is done:
-                    break
-                yield f"data: {json.dumps(event, ensure_ascii=False, default=str)}\n\n"
-        finally:
-            await asyncio.shield(task)
+    task = loop.run_in_executor(None, work)
+    try:
+        while True:
+            event = await queue.get()
+            if event is done:
+                break
+            yield event
+    finally:
+        await asyncio.shield(task)
+
+
+@router.post("/think/stream")
+async def think_stream_route(req: DeepQuestion) -> StreamingResponse:
+    """The same reasoning as /think, streamed step by step (server-sent events).
+
+    Each ``data:`` line is one JSON event (see :func:`think_events`).
+    """
+    import json
+
+    if not req.question.strip():
+        raise HTTPException(400, "question is empty")
+
+    async def events() -> AsyncIterator[str]:
+        async for event in think_events(req.question, req.strategy):
+            yield f"data: {json.dumps(event, ensure_ascii=False, default=str)}\n\n"
 
     return StreamingResponse(
         events(),

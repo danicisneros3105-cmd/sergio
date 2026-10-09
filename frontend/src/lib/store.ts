@@ -174,6 +174,7 @@ interface AppState {
 
   // System panel
   systemPanelOpen: boolean;
+  reasoningPanelOpen: boolean;
 
   // Opt-in sharing
   optInEnabled: boolean;
@@ -230,6 +231,7 @@ interface AppState {
   toggleSidebar: () => void;
   setSidebarOpen: (open: boolean) => void;
   toggleSystemPanel: () => void;
+  toggleReasoningPanel: () => void;
   setSystemPanelOpen: (open: boolean) => void;
 
   // Data sources (cached between visits to avoid empty-state flicker)
@@ -294,6 +296,7 @@ export const useAppStore = create<AppState>((set, get) => {
     // on demand (button or Ctrl+I).
     sidebarOpen: typeof window === 'undefined' || window.innerWidth >= 768,
     systemPanelOpen: false,
+    reasoningPanelOpen: false,
 
     optInEnabled: localStorage.getItem(OPTIN_KEY) === 'true',
     optInDisplayName: localStorage.getItem(OPTIN_NAME_KEY) || '',
@@ -557,6 +560,7 @@ export const useAppStore = create<AppState>((set, get) => {
     toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
     setSidebarOpen: (open: boolean) => set({ sidebarOpen: open }),
     toggleSystemPanel: () => set((s) => ({ systemPanelOpen: !s.systemPanelOpen })),
+    toggleReasoningPanel: () => set((s) => ({ reasoningPanelOpen: !s.reasoningPanelOpen })),
     setSystemPanelOpen: (open: boolean) => set({ systemPanelOpen: open }),
 
     // ── Agents ─────────────────────────────────────────────────────
