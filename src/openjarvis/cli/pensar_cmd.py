@@ -1,9 +1,9 @@
 """``sergio pensar`` — the deep-reasoning layers from the command line.
 
-    sergio pensar "¿qué pasaría si subo el precio un 10 %?"
-    sergio pensar practicar --rondas 3       # self-play practice (layer 10)
-    sergio pensar mejorar                    # recursive prompt improvement (layer 7)
-    sergio pensar estado                     # what the meta-learner and calibration know
+sergio pensar "¿qué pasaría si subo el precio un 10 %?"
+sergio pensar practicar --rondas 3       # self-play practice (layer 10)
+sergio pensar mejorar                    # recursive prompt improvement (layer 7)
+sergio pensar estado                     # what the meta-learner and calibration know
 """
 
 from __future__ import annotations
@@ -22,7 +22,10 @@ STRATEGIES = ["auto", "direct", "reflection", "tot", "consistency", "causal"]
 
 
 def _home() -> Path:
-    return Path(os.environ.get("OPENJARVIS_HOME") or Path.home() / ".openjarvis") / "intelligence"
+    return (
+        Path(os.environ.get("OPENJARVIS_HOME") or Path.home() / ".openjarvis")
+        / "intelligence"
+    )
 
 
 class _QuestionGroup(click.Group):
@@ -41,8 +44,13 @@ def pensar() -> None:
 
 @pensar.command("preguntar")
 @click.argument("question", nargs=-1, required=True)
-@click.option("--estrategia", "strategy", type=click.Choice(STRATEGIES), default="auto",
-              help="Cómo pensar (auto elige según lo aprendido).")
+@click.option(
+    "--estrategia",
+    "strategy",
+    type=click.Choice(STRATEGIES),
+    default="auto",
+    help="Cómo pensar (auto elige según lo aprendido).",
+)
 @click.option("--json", "as_json", is_flag=True, help="Salida JSON.")
 def preguntar(question: tuple[str, ...], strategy: str, as_json: bool) -> None:
     """Responde pensando a fondo y dice qué tan seguro está."""
@@ -57,25 +65,50 @@ def preguntar(question: tuple[str, ...], strategy: str, as_json: bool) -> None:
     except RuntimeError as exc:
         raise click.ClickException(str(exc)) from None
     with console.status("Pensando…"):
-        result = deep_think(text, llm, strategy=strategy, learner=default_learner(),
-                            calibrator=default_calibrator())
+        result = deep_think(
+            text,
+            llm,
+            strategy=strategy,
+            learner=default_learner(),
+            calibrator=default_calibrator(),
+        )
     if as_json:
-        click.echo(json.dumps({"answer": result.answer, "strategy": result.strategy, "kind": result.kind,
-                               "confidence": result.confidence, "decision": result.decision,
-                               "unknowns": result.unknowns, "calls": result.calls,
-                               "seconds": result.seconds}, ensure_ascii=False, indent=2))
+        click.echo(
+            json.dumps(
+                {
+                    "answer": result.answer,
+                    "strategy": result.strategy,
+                    "kind": result.kind,
+                    "confidence": result.confidence,
+                    "decision": result.decision,
+                    "unknowns": result.unknowns,
+                    "calls": result.calls,
+                    "seconds": result.seconds,
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
         return
     console.print(escape(result.answer))
-    console.print(f"\n[dim]Estrategia: {result.strategy} · tipo: {result.kind} · seguridad: "
-                  f"{result.confidence:.0%} · {result.calls} llamadas · {result.seconds} s[/dim]")
+    console.print(
+        f"\n[dim]Estrategia: {result.strategy} · tipo: {result.kind} · seguridad: "
+        f"{result.confidence:.0%} · {result.calls} llamadas · {result.seconds} s[/dim]"
+    )
     if result.unknowns:
-        console.print("[dim]Me falta saber: " + escape("; ".join(result.unknowns[:4])) + "[/dim]")
+        console.print(
+            "[dim]Me falta saber: " + escape("; ".join(result.unknowns[:4])) + "[/dim]"
+        )
 
 
 @pensar.command("practicar")
 @click.option("--rondas", "rounds", default=2, show_default=True)
-@click.option("--lote", "batch", default=4, show_default=True, help="Problemas por tema y ronda.")
-@click.option("--temas", "domains", default="arithmetic,sequence,ordering,code", show_default=True)
+@click.option(
+    "--lote", "batch", default=4, show_default=True, help="Problemas por tema y ronda."
+)
+@click.option(
+    "--temas", "domains", default="arithmetic,sequence,ordering,code", show_default=True
+)
 def practicar(rounds: int, batch: int, domains: str) -> None:
     """Auto-práctica con problemas que se comprueban solos; sube o baja el nivel."""
     from openjarvis.intelligence._llm import LLM
@@ -104,12 +137,22 @@ def practicar(rounds: int, batch: int, domains: str) -> None:
         raise click.ClickException(str(exc)) from None
     before = dict(cur.levels)
     with console.status("Practicando…"):
-        practice(solver, domains=chosen, rounds=rounds, batch=batch, curriculum=cur, memory=memory)
+        practice(
+            solver,
+            domains=chosen,
+            rounds=rounds,
+            batch=batch,
+            curriculum=cur,
+            memory=memory,
+        )
     cur.save(path)
     for d in chosen:
         rates = [h["rate"] for h in cur.history if h["domain"] == d][-rounds:]
-        console.print(f"{d}: nivel {before.get(d, 1)} → {cur.levels[d]} (aciertos por ronda: "
-                      + ", ".join(f"{r:.0%}" for r in rates) + ")")
+        console.print(
+            f"{d}: nivel {before.get(d, 1)} → {cur.levels[d]} (aciertos por ronda: "
+            + ", ".join(f"{r:.0%}" for r in rates)
+            + ")"
+        )
 
 
 @pensar.command("mejorar")
@@ -125,7 +168,11 @@ def mejorar(rounds: int) -> None:
     except RuntimeError as exc:
         raise click.ClickException(str(exc)) from None
     rng = random.Random(7)
-    cases = [GENERATORS[d](lvl, rng) for d in ("arithmetic", "sequence", "ordering") for lvl in (3, 5)]
+    cases = [
+        GENERATORS[d](lvl, rng)
+        for d in ("arithmetic", "sequence", "ordering")
+        for lvl in (3, 5)
+    ]
     path = _home() / "solve_prompt.json"
     start = "Solve the problem. End with: FINAL ANSWER: <answer>"
     if path.exists():
@@ -140,11 +187,20 @@ def mejorar(rounds: int) -> None:
         return 1 - len(fails) / len(cases), fails
 
     with console.status("Mejorando…"):
-        report = RecursiveImprover(evaluate, llm, store=_home() / "solve_prompt_lineage.json").improve(start, rounds)
+        report = RecursiveImprover(
+            evaluate, llm, store=_home() / "solve_prompt_lineage.json"
+        ).improve(start, rounds)
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps({"best": report.best.text, "score": report.best.score}, ensure_ascii=False), "utf-8")
-    console.print(f"Aciertos: {report.start_score:.0%} → {report.best.score:.0%} en {report.rounds} ronda(s); "
-                  f"{len(report.history)} versiones probadas.")
+    path.write_text(
+        json.dumps(
+            {"best": report.best.text, "score": report.best.score}, ensure_ascii=False
+        ),
+        "utf-8",
+    )
+    console.print(
+        f"Aciertos: {report.start_score:.0%} → {report.best.score:.0%} en {report.rounds} ronda(s); "
+        f"{len(report.history)} versiones probadas."
+    )
 
 
 @pensar.command("estado")
@@ -156,16 +212,26 @@ def estado() -> None:
 
     stats = default_learner().stats()
     if not stats:
-        console.print("Aún no ha aprendido estrategias (usa: sergio pensar \"...\").")
+        console.print('Aún no ha aprendido estrategias (usa: sergio pensar "...").')
     for kind, arms in stats.items():
         best = max(arms, key=lambda s: arms[s]["success"])
-        console.print(f"{kind}: mejor «{best}» — " + ", ".join(
-            f"{s} {v['success']:.0%} ({v['tries']:g})" for s, v in arms.items()))
+        console.print(
+            f"{kind}: mejor «{best}» — "
+            + ", ".join(
+                f"{s} {v['success']:.0%} ({v['tries']:g})" for s, v in arms.items()
+            )
+        )
     cal = default_calibrator()
     brier = cal.brier()
-    console.print(f"Calibración: {len(cal.records)} respuestas" + (f", Brier {brier}" if brier is not None else ""))
+    console.print(
+        f"Calibración: {len(cal.records)} respuestas"
+        + (f", Brier {brier}" if brier is not None else "")
+    )
     cur = Curriculum.load(_home() / "curriculum.json")
-    console.print("Niveles de práctica: " + ", ".join(f"{d} {lvl}" for d, lvl in cur.levels.items()))
+    console.print(
+        "Niveles de práctica: "
+        + ", ".join(f"{d} {lvl}" for d, lvl in cur.levels.items())
+    )
 
 
 __all__ = ["pensar"]

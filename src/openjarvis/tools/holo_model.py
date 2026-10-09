@@ -15,8 +15,17 @@ import re
 from typing import Any, Callable
 
 SHAPES = (
-    "box", "rounded_box", "cylinder", "sphere", "cone", "torus", "capsule", "wedge",
-    "lathe", "extrude", "tube",
+    "box",
+    "rounded_box",
+    "cylinder",
+    "sphere",
+    "cone",
+    "torus",
+    "capsule",
+    "wedge",
+    "lathe",
+    "extrude",
+    "tube",
 )
 MAX_PARTS = 60
 
@@ -157,8 +166,15 @@ def _ask(prompt: str, retry: bool = True) -> str:
     from openjarvis.engine.google_client import short_wait
 
     errors: list[str] = []
-    for model in ("gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.1-pro-preview",
-                  "gemini-3.5-flash", "gemini-2.5-flash", "gemini-flash-lite-latest"):
+    for model in (
+        "gemini-3.8-flash",
+        "gemini-3.7-flash",
+        "gemini-3.6-flash",
+        "gemini-3.1-pro-preview",
+        "gemini-3.5-flash",
+        "gemini-2.5-flash",
+        "gemini-flash-lite-latest",
+    ):
         try:
             resp = client.models.generate_content(
                 model=model,
@@ -193,7 +209,9 @@ def _points_brief(part: dict[str, Any]) -> str:
     """A free-form part's points in cm (lathe profile, outline or tube path)."""
     for key, label in FREE_LABELS:
         if part.get(key):
-            pts = ", ".join("(" + ", ".join(f"{v * 100:.1f}" for v in pt) + ")" for pt in part[key])
+            pts = ", ".join(
+                "(" + ", ".join(f"{v * 100:.1f}" for v in pt) + ")" for pt in part[key]
+            )
             extra = f", {label} cm {pts}"
             if key == "path":
                 extra += f", radius {part.get('radius', 0) * 100:.1f} cm"

@@ -9,7 +9,6 @@ from click.testing import CliRunner
 
 from openjarvis.cli import probar_cmd
 
-
 BUSY_CALL = False
 
 
@@ -62,8 +61,14 @@ def _transport(fail=()):
                     "gym": "cada 12 min, el próximo en 9 min",
                     "voices": "listas, conozco 1: Dani",
                     "minutes": "micrófono + audio de la computadora",
-                    "location": {"lat": -2.9, "lon": -79.0, "source": "ubicación de Windows (±30 m)"},
-                    "recent_errors": ["22:10:01 Gemini voice failed (429); using the neural voice"],
+                    "location": {
+                        "lat": -2.9,
+                        "lon": -79.0,
+                        "source": "ubicación de Windows (±30 m)",
+                    },
+                    "recent_errors": [
+                        "22:10:01 Gemini voice failed (429); using the neural voice"
+                    ],
                     "voice_used": "Gemini (Algieba)",
                 },
             )
@@ -72,24 +77,49 @@ def _transport(fail=()):
             return httpx.Response(
                 200,
                 json={
-                    "call": {"ok": True, "busy": True, "model": "gemini-3.8-live", "echo": "webrtc"}
+                    "call": {
+                        "ok": True,
+                        "busy": True,
+                        "model": "gemini-3.8-live",
+                        "echo": "webrtc",
+                    }
                     if BUSY_CALL
-                    else {"ok": True, "connect_s": 0.5, "voice_s": 1.1, "model": "gemini-3.8-live",
-                             "echo": "webrtc", "said": "Son las tres."},
-                    "turn": {"ok": True, "think_s": 1.2, "voice_s": 0.8,
-                             "voice": "Gemini (Algieba)", "answer": "Son las tres."},
-                    "open": {"ok": True, "said": "abre la calculadora",
-                             "answer": "Abriendo Calculadora.", "took_s": 0.4},
+                    else {
+                        "ok": True,
+                        "connect_s": 0.5,
+                        "voice_s": 1.1,
+                        "model": "gemini-3.8-live",
+                        "echo": "webrtc",
+                        "said": "Son las tres.",
+                    },
+                    "turn": {
+                        "ok": True,
+                        "think_s": 1.2,
+                        "voice_s": 0.8,
+                        "voice": "Gemini (Algieba)",
+                        "answer": "Son las tres.",
+                    },
+                    "open": {
+                        "ok": True,
+                        "said": "abre la calculadora",
+                        "answer": "Abriendo Calculadora.",
+                        "took_s": 0.4,
+                    },
                 }[kind],
             )
         if path == "/v1/faces/photo":
             return httpx.Response(200, json={"text": "La cara: Dani (similitud 71%)."})
         if path == "/v1/world/overhead":
             assert request.url.params["lat"] == "-2.9"
-            return httpx.Response(200, json={"text": "Justo encima de usted: vuelo LA1442."})
+            return httpx.Response(
+                200, json={"text": "Justo encima de usted: vuelo LA1442."}
+            )
         if path == "/v1/vision/scene":
             return httpx.Response(
-                200, json={"items": [{"label": "persona", "name": "Dani"}, {"label": "taza"}]}
+                200,
+                json={
+                    "items": [{"label": "persona", "name": "Dani"}, {"label": "taza"}]
+                },
             )
         if path == "/v1/world/open":
             return httpx.Response(200, json={"url": "http://127.0.0.1:4173/"})

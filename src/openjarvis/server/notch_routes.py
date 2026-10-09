@@ -82,7 +82,8 @@ async def overhead(lat: float, lon: float, alt: float | None = None) -> dict[str
         )
     except asyncio.TimeoutError as exc:
         raise HTTPException(
-            status_code=504, detail="Las redes de aviones no respondieron en 7 segundos."
+            status_code=504,
+            detail="Las redes de aviones no respondieron en 7 segundos.",
         ) from exc
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
@@ -156,7 +157,9 @@ async def flight(q: str) -> dict[str, Any]:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     found["route"] = await asyncio.to_thread(flight_route, found["callsign"])
     alt = max(float(found.get("alt_m") or 0) + 6000.0, 8000.0)
-    found["globe"] = point_globe(found["lat"], found["lon"], alt=alt, label=f"Vuelo {found['callsign']}")
+    found["globe"] = point_globe(
+        found["lat"], found["lon"], alt=alt, label=f"Vuelo {found['callsign']}"
+    )
     return found
 
 

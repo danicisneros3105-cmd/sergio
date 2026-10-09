@@ -21,19 +21,32 @@ from typing import Callable, Optional
 
 from openjarvis.intelligence._llm import LLM, as_llm, parse_json
 
-_PY_FRAME = re.compile(r'^\s*File "(?P<file>[^"]+)", line (?P<line>\d+), in (?P<func>.+)$')
-_PY_EXC = re.compile(r"^(?P<type>[A-Za-z_][\w.]*(?:Error|Exception|Exit|Interrupt|Warning|Iteration|"
-                     r"Stop\w*)|[A-Z]\w*Error)(?::\s*(?P<msg>.*))?$")
-_JS_FRAME = re.compile(r"^\s*at (?:(?P<func>[^\s(]+) )?\(?(?P<file>[^\s():]+):(?P<line>\d+):(?P<col>\d+)\)?$")
+_PY_FRAME = re.compile(
+    r'^\s*File "(?P<file>[^"]+)", line (?P<line>\d+), in (?P<func>.+)$'
+)
+_PY_EXC = re.compile(
+    r"^(?P<type>[A-Za-z_][\w.]*(?:Error|Exception|Exit|Interrupt|Warning|Iteration|"
+    r"Stop\w*)|[A-Z]\w*Error)(?::\s*(?P<msg>.*))?$"
+)
+_JS_FRAME = re.compile(
+    r"^\s*at (?:(?P<func>[^\s(]+) )?\(?(?P<file>[^\s():]+):(?P<line>\d+):(?P<col>\d+)\)?$"
+)
 _JS_EXC = re.compile(r"^(?P<type>\w*Error)(?::\s*(?P<msg>.*))?$")
-LIBRARY_MARKERS = ("site-packages", "dist-packages", "/lib/python", "node_modules", "<frozen", "internal/")
+LIBRARY_MARKERS = (
+    "site-packages",
+    "dist-packages",
+    "/lib/python",
+    "node_modules",
+    "<frozen",
+    "internal/",
+)
 
 HINTS: dict[str, str] = {
     "AttributeError: 'NoneType'": "A value is None where an object was expected: find which call returned None "
-                                  "(a failed lookup, a function without return, an unset attribute).",
+    "(a failed lookup, a function without return, an unset attribute).",
     "TypeError: 'NoneType'": "Something is None and is used as a list/function/number.",
     "KeyError": "The key is missing from the dict: check spelling, use .get() with a default, or why it was "
-                "never set.",
+    "never set.",
     "IndexError": "An index is outside the sequence: often off-by-one, or an empty list.",
     "ZeroDivisionError": "A divisor is zero: guard the empty/zero case.",
     "ModuleNotFoundError": "The package is not installed in the Python that runs this, or the import path is wrong.",
@@ -99,21 +112,34 @@ def parse_traceback(text: str) -> Optional[StackTrace]:
             continue
         m = _PY_FRAME.match(line)
         if m:
-            code = lines[i + 1].strip() if i + 1 < len(lines) and not _PY_FRAME.match(lines[i + 1]) else ""
+            code = (
+                lines[i + 1].strip()
+                if i + 1 < len(lines) and not _PY_FRAME.match(lines[i + 1])
+                else ""
+            )
             py_frames.append(Frame(m["file"], int(m["line"]), m["func"].strip(), code))
             continue
         e = _PY_EXC.match(line.strip())
         if e and py_frames and not line.startswith(" "):
             exc_type, message = e["type"], (e["msg"] or "").strip()
     if py_frames:
-        return StackTrace("python", py_frames, exc_type or "Exception", message, chained)
-    js_frames = [Frame(m["file"], int(m["line"]), (m["func"] or "<anonymous>")) for ln in lines
-                 if (m := _JS_FRAME.match(ln))]
+        return StackTrace(
+            "python", py_frames, exc_type or "Exception", message, chained
+        )
+    js_frames = [
+        Frame(m["file"], int(m["line"]), (m["func"] or "<anonymous>"))
+        for ln in lines
+        if (m := _JS_FRAME.match(ln))
+    ]
     if js_frames:
         exc = next((m for ln in lines if (m := _JS_EXC.match(ln.strip()))), None)
         # JS lists the innermost frame first; store outer -> inner like Python.
-        return StackTrace("javascript", list(reversed(js_frames)), exc["type"] if exc else "Error",
-                          (exc["msg"] or "").strip() if exc else "")
+        return StackTrace(
+            "javascript",
+            list(reversed(js_frames)),
+            exc["type"] if exc else "Error",
+            (exc["msg"] or "").strip() if exc else "",
+        )
     return None
 
 
@@ -134,7 +160,10 @@ def source_context(frame: Frame, radius: int = 6, root: Optional[Path] = None) -
     except OSError:
         return f"(source not available) {frame.line}: {frame.code}"
     lo, hi = max(1, frame.line - radius), min(len(src), frame.line + radius)
-    return "\n".join(f"{'>>' if n == frame.line else '  '} {n:4d} | {src[n - 1]}" for n in range(lo, hi + 1))
+    return "\n".join(
+        f"{'>>' if n == frame.line else '  '} {n:4d} | {src[n - 1]}"
+        for n in range(lo, hi + 1)
+    )
 
 
 def hint_for(trace: StackTrace) -> str:
@@ -156,7 +185,12 @@ class Diagnosis:
     confidence: float = 0.0
 
 
-def analyse(text: str, llm: "LLM | Callable[..., str] | None" = None, *, root: Optional[Path] = None) -> Diagnosis:
+def analyse(
+    text: str,
+    llm: "LLM | Callable[..., str] | None" = None,
+    *,
+    root: Optional[Path] = None,
+) -> Diagnosis:
     trace = parse_traceback(text)
     if trace is None:
         raise ValueError("No Python or JavaScript stack trace found in the text.")
@@ -164,11 +198,22 @@ def analyse(text: str, llm: "LLM | Callable[..., str] | None" = None, *, root: O
     diag = Diagnosis(trace, frame, hint_for(trace))
     if llm is None:
         return diag
-    chain = " -> ".join(f"{Path(f.file).name}:{f.line} {f.func}" for f in trace.frames[-8:])
-    data = parse_json(as_llm(llm)(DIAGNOSE_PROMPT.format(
-        exc=f"{trace.exc_type}: {trace.message}" + (f" (after: {'; '.join(trace.chained)})" if trace.chained else ""),
-        where=f"{frame.file}:{frame.line} in {frame.func}", chain=chain, hint=diag.hint,
-        source=source_context(frame, root=root)), temperature=0.1))
+    chain = " -> ".join(
+        f"{Path(f.file).name}:{f.line} {f.func}" for f in trace.frames[-8:]
+    )
+    data = parse_json(
+        as_llm(llm)(
+            DIAGNOSE_PROMPT.format(
+                exc=f"{trace.exc_type}: {trace.message}"
+                + (f" (after: {'; '.join(trace.chained)})" if trace.chained else ""),
+                where=f"{frame.file}:{frame.line} in {frame.func}",
+                chain=chain,
+                hint=diag.hint,
+                source=source_context(frame, root=root),
+            ),
+            temperature=0.1,
+        )
+    )
     if isinstance(data, dict):
         diag.root_cause = str(data.get("root_cause") or "")
         diag.fix = str(data.get("fix") or "")
@@ -180,10 +225,17 @@ def analyse(text: str, llm: "LLM | Callable[..., str] | None" = None, *, root: O
     return diag
 
 
-def debug_run(command: str, llm: "LLM | Callable[..., str] | None" = None, *, cwd: Optional[str] = None,
-              timeout: float = 120.0) -> Optional[Diagnosis]:
+def debug_run(
+    command: str,
+    llm: "LLM | Callable[..., str] | None" = None,
+    *,
+    cwd: Optional[str] = None,
+    timeout: float = 120.0,
+) -> Optional[Diagnosis]:
     """Run *command*; when it fails with a stack trace, diagnose it (else None)."""
-    proc = subprocess.run(shlex.split(command), cwd=cwd, capture_output=True, text=True, timeout=timeout)
+    proc = subprocess.run(
+        shlex.split(command), cwd=cwd, capture_output=True, text=True, timeout=timeout
+    )
     if proc.returncode == 0:
         return None
     out = proc.stderr + "\n" + proc.stdout
@@ -192,5 +244,14 @@ def debug_run(command: str, llm: "LLM | Callable[..., str] | None" = None, *, cw
     return analyse(out, llm, root=Path(cwd) if cwd else None)
 
 
-__all__ = ["Diagnosis", "Frame", "StackTrace", "analyse", "culprit", "debug_run", "hint_for", "parse_traceback",
-           "source_context"]
+__all__ = [
+    "Diagnosis",
+    "Frame",
+    "StackTrace",
+    "analyse",
+    "culprit",
+    "debug_run",
+    "hint_for",
+    "parse_traceback",
+    "source_context",
+]

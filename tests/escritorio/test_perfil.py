@@ -57,26 +57,45 @@ def test_key_update_at_least_two_and_a_half_times_a_week(tmp_path):
     assert calls[1][1]["resumen"] == "v1"  # each update builds on the last
     prof.remember("estudio medicina")
     again = Profile(tmp_path / "p.json", clock=lambda: clock[0])
-    assert again.data["resumen"] == f"v{updates}" and "estudio medicina" in again.context()["lo_que_me_contó"]
+    assert (
+        again.data["resumen"] == f"v{updates}"
+        and "estudio medicina" in again.context()["lo_que_me_contó"]
+    )
     line = again.voice_line()
     assert "briefly" in line and "humour" in line and f"v{updates}" in line
-    assert again.gym_prefs() == {"prioridad": ["atención"], "preferidos": ["matrices"], "dificultad": 1}
+    assert again.gym_prefs() == {
+        "prioridad": ["atención"],
+        "preferidos": ["matrices"],
+        "dificultad": 1,
+    }
 
 
 def test_the_gym_varies_and_follows_the_profile():
-    history = [{"kind": "matrices", "accuracy": 0.8, "time": 1}, {"kind": "nback", "accuracy": 0.8, "time": 2}]
+    history = [
+        {"kind": "matrices", "accuracy": 0.8, "time": 1},
+        {"kind": "nback", "accuracy": 0.8, "time": 2},
+    ]
     for index in range(len(brain.SCHEDULE)):
         ex, _ = brain.personal_next(index, history)
         assert ex.kind not in ("matrices", "nback") or ex.kind in ("pausa", "repaso")
+
     def normal(start, step):
         return next(
-            i for i in range(start, 300, step)
-            if brain.next_exercise(i)[0].kind not in ("pausa", "repaso", "matrices", "nback")
+            i
+            for i in range(start, 300, step)
+            if brain.next_exercise(i)[0].kind
+            not in ("pausa", "repaso", "matrices", "nback")
         )
 
     ex, _ = brain.personal_next(normal(2, 3), history, {"prioridad": ["atención"]})
     assert brain.SKILLS.get(ex.kind) == "atención"
-    i = next(i for i in range(4, 300, 5) if i % 3 != 2 and brain.next_exercise(i)[0].kind not in ("pausa", "repaso", "matrices", "nback"))
+    i = next(
+        i
+        for i in range(4, 300, 5)
+        if i % 3 != 2
+        and brain.next_exercise(i)[0].kind
+        not in ("pausa", "repaso", "matrices", "nback")
+    )
     ex, _ = brain.personal_next(i, history, {"preferidos": ["rotacion"]})
     assert ex.kind == "rotacion"
 

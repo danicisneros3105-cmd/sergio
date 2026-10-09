@@ -41,7 +41,9 @@ class Quiet:
         pass
 
 
-keyboard = fake("pynput.keyboard", GlobalHotKeys=Quiet, Listener=Quiet, Key=mock.MagicMock())
+keyboard = fake(
+    "pynput.keyboard", GlobalHotKeys=Quiet, Listener=Quiet, Key=mock.MagicMock()
+)
 fake("pynput", keyboard=keyboard, mouse=fake("pynput.mouse", Listener=Quiet))
 fake(
     "sounddevice",

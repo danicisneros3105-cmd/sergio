@@ -2,7 +2,6 @@
 
 import json
 import queue
-import threading
 import time
 
 import numpy as np
@@ -108,7 +107,10 @@ def test_start_sends_who_he_is_and_waits_for_ready():
     try:
         start = line.json_sent()[0]
         assert start["type"] == "start" and start["voice"] == "Charon"
-        assert start["context"] == "Son las 15:20." and start["personality"] == "Humor seco."
+        assert (
+            start["context"] == "Son las 15:20."
+            and start["personality"] == "Humor seco."
+        )
         assert start["tools"][0]["name"] == "colgar"
         assert line.url == "ws://127.0.0.1:8000/v1/live"
         assert call.model == "gemini-3.8-live" and call.active
@@ -193,13 +195,28 @@ def test_his_voice_captions_interruptions_and_tools():
     try:
         line.inbox.put(json.dumps({"type": "heard", "text": "Sergio, abre"}))
         line.inbox.put(json.dumps({"type": "heard", "text": " la cámara"}))
-        line.inbox.put(json.dumps({"type": "call", "id": "c1", "name": "camara", "args": {"accion": "abrir"}}))
+        line.inbox.put(
+            json.dumps(
+                {
+                    "type": "call",
+                    "id": "c1",
+                    "name": "camara",
+                    "args": {"accion": "abrir"},
+                }
+            )
+        )
         line.inbox.put(b"\x20\x00" * 2400)
         line.inbox.put(json.dumps({"type": "said", "text": "Aquí "}))
         line.inbox.put(json.dumps({"type": "said", "text": "la tiene."}))
-        assert _wait(lambda: any(m.get("type") == "tool_result" for m in line.json_sent()))
+        assert _wait(
+            lambda: any(m.get("type") == "tool_result" for m in line.json_sent())
+        )
         result = next(m for m in line.json_sent() if m.get("type") == "tool_result")
-        assert result == {"type": "tool_result", "id": "c1", "result": "Cámara abierta."}
+        assert result == {
+            "type": "tool_result",
+            "id": "c1",
+            "result": "Cámara abierta.",
+        }
         assert opened == [{"accion": "abrir"}]
         assert _wait(lambda: captions and captions[-1] == "Aquí la tiene.")
         assert heard[-1] == "Sergio, abre la cámara"
@@ -221,10 +238,23 @@ def test_unknown_or_failing_tools_answer_the_model():
     call = _call(line, tools=[ClientTool("abrir", "Abre.", broken)])
     assert call.start()
     try:
-        line.inbox.put(json.dumps({"type": "call", "id": "a", "name": "abrir", "args": {}}))
-        line.inbox.put(json.dumps({"type": "call", "id": "b", "name": "volar", "args": {}}))
-        assert _wait(lambda: len([m for m in line.json_sent() if m.get("type") == "tool_result"]) == 2)
-        results = {m["id"]: m["result"] for m in line.json_sent() if m.get("type") == "tool_result"}
+        line.inbox.put(
+            json.dumps({"type": "call", "id": "a", "name": "abrir", "args": {}})
+        )
+        line.inbox.put(
+            json.dumps({"type": "call", "id": "b", "name": "volar", "args": {}})
+        )
+        assert _wait(
+            lambda: (
+                len([m for m in line.json_sent() if m.get("type") == "tool_result"])
+                == 2
+            )
+        )
+        results = {
+            m["id"]: m["result"]
+            for m in line.json_sent()
+            if m.get("type") == "tool_result"
+        }
         assert "pausa" in results["a"] and "No conozco volar" in results["b"]
     finally:
         call.hang_up()
@@ -290,7 +320,9 @@ def test_speaker_waits_for_a_little_voice_before_starting():
     import numpy as np
     from sergio_escritorio.call import PREBUFFER, Speaker
 
-    spk = Speaker(stream_factory=lambda cb: type("S", (), {"start": lambda self: None})())
+    spk = Speaker(
+        stream_factory=lambda cb: type("S", (), {"start": lambda self: None})()
+    )
     out = bytearray(960)  # what sounddevice hands the callback
     tone = (np.ones(240) * 3000).astype(np.int16).tobytes()  # 10 ms
     spk.play(tone)

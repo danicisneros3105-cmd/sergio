@@ -38,7 +38,9 @@ def _list(data: dict[str, Any], *keys: str) -> dict[str, Any]:
 
 
 # -- profile ------------------------------------------------------------------
-def update_profile(context: dict[str, Any], previous: dict[str, Any] | None = None, **kw: Any) -> dict[str, Any]:
+def update_profile(
+    context: dict[str, Any], previous: dict[str, Any] | None = None, **kw: Any
+) -> dict[str, Any]:
     """The key profile update (2-3 times a week): everything Sergio knows ->
     who the user is, what they want and how to adapt to them."""
     prompt = f"""{SERGIO}
@@ -63,11 +65,15 @@ En "comunicacion" y "dificultad" usa "normal" / 0 salvo que los datos muestren
 otra cosa. En "gimnasio" usa solo nombres de "habilidades_validas" y
 "ejercicios_validos" si vienen en los datos."""
     data = ask(prompt, **kw)
-    return _list(_need(data, "resumen"), "rasgos", "intereses", "objetivos", "ajustes", "cambios")
+    return _list(
+        _need(data, "resumen"), "rasgos", "intereses", "objetivos", "ajustes", "cambios"
+    )
 
 
 # -- learning -------------------------------------------------------------------
-def make_plan(goal: str, kind: str, profile: dict[str, Any], free_slots: list[str], **kw: Any) -> dict[str, Any]:
+def make_plan(
+    goal: str, kind: str, profile: dict[str, Any], free_slots: list[str], **kw: Any
+) -> dict[str, Any]:
     """Research the skill (Google Search) and plan the practice for THIS user."""
     topics = ["aprendizaje"] + (["idiomas"] if kind == "idioma" else [])
     prompt = f"""{SERGIO}
@@ -92,10 +98,18 @@ Incluye 10-14 sesiones para las próximas 2-3 semanas (dia = días desde hoy),
 cortas y con repaso espaciado. "video": true en las sesiones donde grabarle y
 corregirle en video ayude (habilidades físicas o de pronunciación)."""
     data = ask(prompt, search=True, deep=True, **kw)
-    return _list(_need(data, "titulo", "sesiones"), "investigacion", "subhabilidades", "metricas", "errores_comunes")
+    return _list(
+        _need(data, "titulo", "sesiones"),
+        "investigacion",
+        "subhabilidades",
+        "metricas",
+        "errores_comunes",
+    )
 
 
-def next_lesson(goal: dict[str, Any], profile: dict[str, Any], **kw: Any) -> dict[str, Any]:
+def next_lesson(
+    goal: dict[str, Any], profile: dict[str, Any], **kw: Any
+) -> dict[str, Any]:
     """The next session, made for the user's level, errors and interests."""
     kind = goal.get("tipo", "habilidad")
     topics = ["aprendizaje"] + (["idiomas"] if kind == "idioma" else [])
@@ -113,7 +127,12 @@ Devuelve SOLO JSON:
  "evaluacion": [{{"pregunta": "...", "respuesta": "..."}}],
  "medir": ["qué métricas anotar al final"], "consejo": "..."}}
 Para idiomas: incluye registro formal e informal/coloquial cuando venga al caso."""
-    return _list(_need(ask(prompt, **kw), "titulo", "contenido"), "evaluacion", "medir", "calentamiento")
+    return _list(
+        _need(ask(prompt, **kw), "titulo", "contenido"),
+        "evaluacion",
+        "medir",
+        "calentamiento",
+    )
 
 
 def assess(goal: dict[str, Any], results: str, **kw: Any) -> dict[str, Any]:
@@ -133,7 +152,9 @@ Evalúa como un coach exigente pero amable. Devuelve SOLO JSON:
     return _list(_need(ask(prompt, **kw), "feedback"), "bien", "mal")
 
 
-def review_video(video: bytes, mime: str, goal: str, focus: str = "", **kw: Any) -> dict[str, Any]:
+def review_video(
+    video: bytes, mime: str, goal: str, focus: str = "", **kw: Any
+) -> dict[str, Any]:
     """Watch a practice video and mark what is right (green) and wrong (red).
 
     Each mark has the time and where in the picture (x, y, r as fractions of
@@ -141,7 +162,7 @@ def review_video(video: bytes, mime: str, goal: str, focus: str = "", **kw: Any)
     prompt = f"""{SERGIO}
 {knowledge("aprendizaje")}
 
-Este video es una práctica del usuario. Meta: «{goal}». {('Fíjate sobre todo en: ' + focus) if focus else ''}
+Este video es una práctica del usuario. Meta: «{goal}». {("Fíjate sobre todo en: " + focus) if focus else ""}
 Analízalo fotograma a fotograma como un coach experto. Devuelve SOLO JSON:
 {{"resumen": "2-3 frases", "nota": 0-10,
  "marcas": [{{"t": segundos, "duracion": segundos, "x": 0-1, "y": 0-1, "r": 0.03-0.3,
@@ -179,7 +200,12 @@ Devuelve SOLO JSON:
 {{"tareas": [{{"materia": "...", "titulo": "...", "fecha": "AAAA-MM-DD o ''", "detalle": "..."}}],
  "examenes": [{{"materia": "...", "fecha": "AAAA-MM-DD o ''", "temas": ["..."]}}],
  "otros": ["avisos importantes"]}}"""
-    return _list(_need(ask(prompt, media=[(image, mime)], **kw), "tareas"), "tareas", "examenes", "otros")
+    return _list(
+        _need(ask(prompt, media=[(image, mime)], **kw), "tareas"),
+        "tareas",
+        "examenes",
+        "otros",
+    )
 
 
 # -- health ------------------------------------------------------------------------
@@ -199,7 +225,13 @@ Analiza en profundidad cruzando todos los datos. Devuelve SOLO JSON:
  "rutina": [{{"dia": "lunes", "actividad": "...", "minutos": 30}}],
  "metas": [{{"metrica": "...", "objetivo": "...", "plazo": "..."}}]}}
 Prioriza 3-5 recomendaciones; nada de diagnósticos."""
-    return _list(_need(ask(prompt, effort="medium", **kw), "resumen"), "alertas", "recomendaciones", "rutina", "metas")
+    return _list(
+        _need(ask(prompt, effort="medium", **kw), "resumen"),
+        "alertas",
+        "recomendaciones",
+        "rutina",
+        "metas",
+    )
 
 
 # -- support -------------------------------------------------------------------------
@@ -229,7 +261,14 @@ def at_risk(text: str) -> bool:
     return any(w in low for w in RISK_WORDS)
 
 
-LANGUAGES = {"es": "español", "en": "inglés", "pt": "portugués", "fr": "francés", "de": "alemán", "it": "italiano"}
+LANGUAGES = {
+    "es": "español",
+    "en": "inglés",
+    "pt": "portugués",
+    "fr": "francés",
+    "de": "alemán",
+    "it": "italiano",
+}
 
 
 def therapy_turn(
@@ -245,7 +284,9 @@ def therapy_turn(
     Returns the reply plus a short DAP note for the notebook, the mood and a
     risk level; risk words always get the crisis lines, whatever the model
     says."""
-    last = next((m["content"] for m in reversed(messages) if m.get("role") == "user"), "")
+    last = next(
+        (m["content"] for m in reversed(messages) if m.get("role") == "user"), ""
+    )
     prompt = f"""{SERGIO}
 En este espacio actúas como un psicólogo de apoyo experto (no sustituyes a un
 profesional con licencia y no diagnosticas). Cálido, sereno, sin humor negro,
@@ -273,7 +314,13 @@ Responde a su último mensaje. Devuelve SOLO JSON:
         try:
             data = future.result(timeout=RISK_TIMEOUT)
         except Exception:  # noqa: BLE001 — timeout or error: the safe answer
-            data = {"respuesta": crisis or CRISIS, "riesgo": "alto", "nota": {}, "animo": 0, "temas": []}
+            data = {
+                "respuesta": crisis or CRISIS,
+                "riesgo": "alto",
+                "nota": {},
+                "animo": 0,
+                "temas": [],
+            }
         finally:
             pool.shutdown(wait=False)
     else:

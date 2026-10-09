@@ -7,7 +7,15 @@ import zipfile
 from datetime import date
 
 from sergio_escritorio import secure
-from sergio_escritorio.salud import Health, body_metrics, daily_time, parse_apple_health, parse_file, parse_health_log, trends
+from sergio_escritorio.salud import (
+    Health,
+    body_metrics,
+    daily_time,
+    parse_apple_health,
+    parse_file,
+    parse_health_log,
+    trends,
+)
 
 APPLE = b"""<?xml version="1.0"?>
 <HealthData>
@@ -40,12 +48,24 @@ def test_csv_exports_from_other_watches():
     days = parse_file("Fit/Daily activity metrics/2026-10-04.csv", google_fit.encode())
     assert days == {"2026-10-04": {"pasos": 1020, "ejercicio_min": 13}}
     samsung = "fecha;pasos;minutos de sueno\n04/10/2026;5000;420\n"
-    assert parse_file("samsung.csv", samsung.encode())["2026-10-04"] == {"pasos": 5000, "sueno_h": 7.0}
+    assert parse_file("samsung.csv", samsung.encode())["2026-10-04"] == {
+        "pasos": 5000,
+        "sueno_h": 7.0,
+    }
     assert parse_file("otra.csv", b"a,b\n1,2\n") == {}
 
 
 def test_body_metrics_follow_the_formulas():
-    m = body_metrics({"edad": "30", "sexo": "hombre", "altura_cm": "178", "peso_kg": "75", "actividad": "moderada", "cintura_cm": "96"})
+    m = body_metrics(
+        {
+            "edad": "30",
+            "sexo": "hombre",
+            "altura_cm": "178",
+            "peso_kg": "75",
+            "actividad": "moderada",
+            "cintura_cm": "96",
+        }
+    )
     assert m["imc"] == 23.7 and m["imc_categoria"] == "normal"
     assert m["metabolismo_basal"] == round(10 * 75 + 6.25 * 178 - 5 * 30 + 5)
     assert m["gasto_diario"] == round((10 * 75 + 6.25 * 178 - 5 * 30 + 5) * 1.55)
@@ -53,10 +73,17 @@ def test_body_metrics_follow_the_formulas():
 
 
 def test_trends_and_spoken_log():
-    days = {"2026-10-05": {"pasos": 10000}, "2026-10-01": {"pasos": 8000}, "2026-09-20": {"pasos": 2000}}
+    days = {
+        "2026-10-05": {"pasos": 10000},
+        "2026-10-01": {"pasos": 8000},
+        "2026-09-20": {"pasos": 2000},
+    }
     t = trends(days, date(2026, 10, 5))
     assert t["pasos"]["7d"] == 9000 and t["pasos"]["30d"] == round(20000 / 3, 1)
-    assert parse_health_log("hoy dormí 6 horas y caminé 8.000 pasos") == {"sueno_h": 6.0, "pasos": 8000.0}
+    assert parse_health_log("hoy dormí 6 horas y caminé 8.000 pasos") == {
+        "sueno_h": 6.0,
+        "pasos": 8000.0,
+    }
     assert parse_health_log("mi ánimo es 2") == {"animo": 2.0}
 
 
@@ -73,7 +100,10 @@ def test_health_is_private_and_asks_only_what_is_missing(tmp_path):
     again = Health(tmp_path / "salud.json")
     assert again.answers["edad"] == "30" and "Garmin" in again.sources
     over = again.overview(facts=["me duele la rodilla"])
-    assert over["lo_que_conto"] == ["me duele la rodilla"] and today in over["ultimos_30_dias"]
+    assert (
+        over["lo_que_conto"] == ["me duele la rodilla"]
+        and today in over["ultimos_30_dias"]
+    )
 
 
 def test_sync_folder_imports_new_files_once(tmp_path):
@@ -93,16 +123,25 @@ def test_daily_time_prefers_your_choice_then_your_evening():
 
 def test_health_windows_draw(tmp_path):
     from PySide6.QtWidgets import QApplication
-
     from sergio_escritorio.salud_ui import DailyCard, HealthWindow, report_html
 
     _app = QApplication.instance() or QApplication([])
     h = Health(tmp_path / "s.json")
-    h.answer({"edad": "30", "sexo": "hombre", "altura_cm": "178", "peso_kg": "75", "actividad": "moderada"})
+    h.answer(
+        {
+            "edad": "30",
+            "sexo": "hombre",
+            "altura_cm": "178",
+            "peso_kg": "75",
+            "actividad": "moderada",
+        }
+    )
     h.report = {"resumen": "Bien en general.", "alertas": ["Pulso alto en reposo"],
                 "recomendaciones": [{"accion": "Caminar 30 min", "por_que": "OMS"}], "rutina": [{"dia": "lunes", "actividad": "fuerza", "minutos": 30}]}  # fmt: skip
     html = report_html(h)
-    assert "IMC" in html and "Caminar 30 min" in html and "Consulte con un médico" in html
+    assert (
+        "IMC" in html and "Caminar 30 min" in html and "Consulte con un médico" in html
+    )
     w = HealthWindow(h, lambda: {}, lambda: "", lambda f: None)
     w.open(1)
     w.today_fields["pasos"].setText("7000")

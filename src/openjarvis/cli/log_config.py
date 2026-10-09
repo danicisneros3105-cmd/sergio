@@ -70,7 +70,14 @@ def setup_logging(
     # Third-party libraries print advice meant for their own developers
     # (e.g. google-genai's "automatic function calling is not recommended");
     # keep it out of the user's terminal unless debugging.
-    for noisy in ("google_genai", "google.genai", "httpx", "httpcore", "chromadb", "LiteLLM"):
+    for noisy in (
+        "google_genai",
+        "google.genai",
+        "httpx",
+        "httpcore",
+        "chromadb",
+        "LiteLLM",
+    ):
         logging.getLogger(noisy).setLevel(logging.DEBUG if verbose else logging.ERROR)
 
     # File handler (verbose or explicit path)

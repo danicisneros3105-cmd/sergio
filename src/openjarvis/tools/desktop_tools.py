@@ -536,9 +536,14 @@ class FaceEnrollTool(_DesktopTool):
             return self._fail("¿Cómo se llama la persona que está frente a la cámara?")
         try:  # the Face ID-style scan on the companion (all angles + 3D map)
             done = self._call(
-                "POST", "/skill", json={"name": "face_scan", "args": {"name": name}}, timeout=90
+                "POST",
+                "/skill",
+                json={"name": "face_scan", "args": {"name": name}},
+                timeout=90,
             )
-            return self._ok(str(done.get("result") or f"Listo, ya conozco la cara de {name}."))
+            return self._ok(
+                str(done.get("result") or f"Listo, ya conozco la cara de {name}.")
+            )
         except RuntimeError as exc:
             if "unknown skill" not in str(exc) and "not found" not in str(exc):
                 return self._fail(f"No pude escanear la cara: {exc}")

@@ -25,7 +25,17 @@ def _silence(seconds):
 
 
 def test_speech_segments_find_the_talking():
-    audio = np.concatenate([_silence(1), _tone(200, 2), _silence(1), _tone(300, 1.5), _silence(0.3), _tone(300, 1), _silence(1)])
+    audio = np.concatenate(
+        [
+            _silence(1),
+            _tone(200, 2),
+            _silence(1),
+            _tone(300, 1.5),
+            _silence(0.3),
+            _tone(300, 1),
+            _silence(1),
+        ]
+    )
     segs = meeting.speech_segments(audio)
     assert len(segs) == 2  # the 0.3 s pause stays inside the second one
     (a1, b1), (a2, b2) = segs
@@ -39,7 +49,12 @@ def _unit(v):
     return v / np.linalg.norm(v)
 
 
-VOICES = {200: _unit([1, 0, 0, 0]), 300: _unit([0, 1, 0, 0]), 450: _unit([0, 0, 1, 0]), 600: _unit([0, 0, 0, 1])}
+VOICES = {
+    200: _unit([1, 0, 0, 0]),
+    300: _unit([0, 1, 0, 0]),
+    450: _unit([0, 0, 1, 0]),
+    600: _unit([0, 0, 0, 1]),
+}
 
 
 def _fake_embed(chunk):
@@ -60,11 +75,27 @@ def _identify_known(names):
 
 
 def test_diarize_names_known_voices_and_numbers_the_rest():
-    room = np.concatenate([_tone(200, 3), _silence(1), _tone(450, 3), _silence(1), _tone(200, 2), _silence(1)])
+    room = np.concatenate(
+        [
+            _tone(200, 3),
+            _silence(1),
+            _tone(450, 3),
+            _silence(1),
+            _tone(200, 2),
+            _silence(1),
+        ]
+    )
     call = np.concatenate([_silence(9), _tone(600, 3), _silence(1)])
-    turns = meeting.diarize({"sala": room, "llamada": call}, _fake_embed, _identify_known({200: "Dani"}))
+    turns = meeting.diarize(
+        {"sala": room, "llamada": call}, _fake_embed, _identify_known({200: "Dani"})
+    )
     said = [(t.speaker, t.track) for t in turns]
-    assert said == [("Dani", "sala"), ("Persona 1", "sala"), ("Dani", "sala"), ("Persona 2", "llamada")]
+    assert said == [
+        ("Dani", "sala"),
+        ("Persona 1", "sala"),
+        ("Dani", "sala"),
+        ("Persona 2", "llamada"),
+    ]
     text = meeting.timeline_text(turns)
     assert "00:00-00:03 Dani" in text and "Persona 2 (videollamada)" in text
 
@@ -73,7 +104,9 @@ def test_the_call_heard_through_the_speakers_is_not_a_person_in_the_room():
     voice = _tone(600, 3)
     room = np.concatenate([_silence(1), voice * 0.4, _silence(1)])  # echo of the call
     call = np.concatenate([_silence(1), voice, _silence(1)])
-    turns = meeting.diarize({"sala": room, "llamada": call}, _fake_embed, _identify_known({}))
+    turns = meeting.diarize(
+        {"sala": room, "llamada": call}, _fake_embed, _identify_known({})
+    )
     assert [(t.speaker, t.track) for t in turns] == [("Persona 1", "llamada")]
 
 
@@ -95,7 +128,9 @@ def test_recorder_writes_both_tracks_to_disk(tmp_path):
             pass
 
     clock = [1000.0]
-    rec = meeting.MeetingRecorder(tap, tmp_path, loopback=FakeLoop, clock=lambda: clock[0])
+    rec = meeting.MeetingRecorder(
+        tap, tmp_path, loopback=FakeLoop, clock=lambda: clock[0]
+    )
     folder = rec.start("reunión")
     assert rec.active and rec.start() == "Ya estoy tomando notas."
     for _ in range(50):
@@ -122,7 +157,7 @@ def test_a_meeting_without_call_audio_keeps_only_the_room(tmp_path):
         def stop(self):
             pass
 
-    rec = meeting.MeetingRecorder(lambda fn: (lambda: None), tmp_path, loopback=NoLoop)
+    rec = meeting.MeetingRecorder(lambda fn: lambda: None, tmp_path, loopback=NoLoop)
     rec.start()
     assert rec.loopback_error == "sin WASAPI"
     done = rec.stop()
@@ -139,13 +174,23 @@ def test_to_mono_16k_and_mixing():
 
 def test_encode_writes_audio_the_server_can_read(tmp_path):
     path, mime = meeting.encode(_tone(200, 1), tmp_path)
-    assert path.exists() and mime in ("audio/ogg", "audio/wav") and path.stat().st_size > 1000
+    assert (
+        path.exists()
+        and mime in ("audio/ogg", "audio/wav")
+        and path.stat().st_size > 1000
+    )
 
 
 def test_spoken_summary_is_short_and_mentions_a_task():
-    data = {"resumen": "Se aprobó el presupuesto.\nDetalle largo.", "tareas": [{"quien": "Ana", "que": "enviar el informe"}, {"que": "x"}]}
+    data = {
+        "resumen": "Se aprobó el presupuesto.\nDetalle largo.",
+        "tareas": [{"quien": "Ana", "que": "enviar el informe"}, {"que": "x"}],
+    }
     said = meeting.spoken_summary(data)
-    assert said.startswith("Se aprobó el presupuesto.") and "Ana, enviar el informe y 1 más" in said
+    assert (
+        said.startswith("Se aprobó el presupuesto.")
+        and "Ana, enviar el informe y 1 más" in said
+    )
     assert meeting.spoken_summary({}) == "Listo, tengo las notas."
 
 

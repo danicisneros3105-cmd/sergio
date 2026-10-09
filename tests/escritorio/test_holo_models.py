@@ -3,7 +3,6 @@
 import json
 
 import numpy as np
-
 from sergio_escritorio.holo import (
     HoloScene,
     assemble,
@@ -54,12 +53,16 @@ def test_blender_gets_real_size_and_follows_the_hands():
     phone.rot = rot_axis((0, 1, 0), 1.0) @ phone.rot
     phone.scale = 2.0
     moved = blender_state(scene.objects)["objects"]["Holo 1"]
-    assert moved["matrix"] != first["matrix"] and moved["vh"] == first["vh"]  # moved, not reshaped
+    assert (
+        moved["matrix"] != first["matrix"] and moved["vh"] == first["vh"]
+    )  # moved, not reshaped
     phone.mesh.vertices[0] *= 1.5  # sculpted with the hands
     assert blender_state(scene.objects)["objects"]["Holo 1"]["vh"] != first["vh"]
     script = to_bpy(scene.objects, "C:/x/h.blend", "C:/x/h.sync.json")
     assert "bpy.app.timers.register(_sync" in script and "C:/x/h.sync.json" in script
-    json.loads(script.split('FIRST = json.loads(r"""')[1].split('""")')[0])  # valid data
+    json.loads(
+        script.split('FIRST = json.loads(r"""')[1].split('""")')[0]
+    )  # valid data
 
 
 def test_blender_pro_gets_the_designed_parts():

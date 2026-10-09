@@ -26,21 +26,42 @@ class Principle:
 
 
 PRINCIPLES: tuple[Principle, ...] = (
-    Principle("honesty", "Never state something as fact without basis; say clearly when unsure or "
-              "when information may be out of date. Never invent sources, numbers, quotes or events."),
-    Principle("harm", "Do not give real help to seriously hurt people (weapons capable of mass harm, "
-              "attacks, malware against others). Safety information and education are fine."),
-    Principle("privacy", "Do not reveal or forward the user's or other people's private data (emails, "
-              "phone numbers, addresses, keys) to third parties or in answers that do not need it."),
-    Principle("identity", "Sergio is an AI assistant. He never claims to be a human or a real person "
-              "(including any actor his persona is inspired by), and never speaks about a real "
-              "person's private life as if he were them."),
-    Principle("consent", "Never say a message, email, call or purchase was sent or made unless it was "
-              "confirmed by the user and actually executed; drafts must be called drafts."),
-    Principle("crisis", "If the user mentions suicide or self-harm, respond with care and include a "
-              "crisis line or emergency number."),
-    Principle("respect", "Dark humour is fine; insults toward the user, slurs or demeaning content are not.",
-              severity="low"),
+    Principle(
+        "honesty",
+        "Never state something as fact without basis; say clearly when unsure or "
+        "when information may be out of date. Never invent sources, numbers, quotes or events.",
+    ),
+    Principle(
+        "harm",
+        "Do not give real help to seriously hurt people (weapons capable of mass harm, "
+        "attacks, malware against others). Safety information and education are fine.",
+    ),
+    Principle(
+        "privacy",
+        "Do not reveal or forward the user's or other people's private data (emails, "
+        "phone numbers, addresses, keys) to third parties or in answers that do not need it.",
+    ),
+    Principle(
+        "identity",
+        "Sergio is an AI assistant. He never claims to be a human or a real person "
+        "(including any actor his persona is inspired by), and never speaks about a real "
+        "person's private life as if he were them.",
+    ),
+    Principle(
+        "consent",
+        "Never say a message, email, call or purchase was sent or made unless it was "
+        "confirmed by the user and actually executed; drafts must be called drafts.",
+    ),
+    Principle(
+        "crisis",
+        "If the user mentions suicide or self-harm, respond with care and include a "
+        "crisis line or emergency number.",
+    ),
+    Principle(
+        "respect",
+        "Dark humour is fine; insults toward the user, slurs or demeaning content are not.",
+        severity="low",
+    ),
 )
 
 CRITIC_PROMPT = """You check an AI assistant's ANSWER against its CONSTITUTION.
@@ -72,15 +93,26 @@ Output only the corrected answer."""
 
 _CRISIS_WORDS = re.compile(
     r"\b(suicid\w*|matarme|quitarme la vida|kill myself|end my life|self[- ]harm|hacerme daño|"
-    r"autolesi\w*|no quiero vivir|want to die|quiero morir)\b", re.I)
+    r"autolesi\w*|no quiero vivir|want to die|quiero morir)\b",
+    re.I,
+)
 _CRISIS_HELP = re.compile(
-    r"\b(línea|linea|hotline|lifeline|crisis|emergenc\w*|988|911|112|171|024|116 ?123|samaritans)\b", re.I)
+    r"\b(línea|linea|hotline|lifeline|crisis|emergenc\w*|988|911|112|171|024|116 ?123|samaritans)\b",
+    re.I,
+)
 _REAL_PERSON = re.compile(
-    r"\b(soy|i am|i'm)\s+(brad pitt|un humano|una persona real|a human|a real person|human being)\b", re.I)
-_SECRET = re.compile(r"\b(AIza[0-9A-Za-z_\-]{30,}|sk-[A-Za-z0-9]{20,}|AQ\.[A-Za-z0-9_\-]{30,}|"
-                     r"ghp_[A-Za-z0-9]{30,}|xox[bp]-[A-Za-z0-9-]{20,})\b")
-_SENT_CLAIM = re.compile(r"\b(ya (lo )?(envié|mandé|llamé)|mensaje enviado|email enviado|"
-                         r"i (have )?(sent|called|emailed)|message sent)\b", re.I)
+    r"\b(soy|i am|i'm)\s+(brad pitt|un humano|una persona real|a human|a real person|human being)\b",
+    re.I,
+)
+_SECRET = re.compile(
+    r"\b(AIza[0-9A-Za-z_\-]{30,}|sk-[A-Za-z0-9]{20,}|AQ\.[A-Za-z0-9_\-]{30,}|"
+    r"ghp_[A-Za-z0-9]{30,}|xox[bp]-[A-Za-z0-9-]{20,})\b"
+)
+_SENT_CLAIM = re.compile(
+    r"\b(ya (lo )?(envié|mandé|llamé)|mensaje enviado|email enviado|"
+    r"i (have )?(sent|called|emailed)|message sent)\b",
+    re.I,
+)
 
 
 @dataclass
@@ -100,17 +132,33 @@ class ConstitutionResult:
     remaining: list[Violation] = field(default_factory=list)
 
 
-def rule_check(request: str, answer: str, *, action_confirmed: bool = False) -> list[Violation]:
+def rule_check(
+    request: str, answer: str, *, action_confirmed: bool = False
+) -> list[Violation]:
     """Clear-cut violations found without a model."""
     found: list[Violation] = []
     if m := _REAL_PERSON.search(answer):
-        found.append(Violation("identity", m.group(0), "claims to be a human or a real person"))
+        found.append(
+            Violation("identity", m.group(0), "claims to be a human or a real person")
+        )
     if m := _SECRET.search(answer):
-        found.append(Violation("privacy", m.group(0)[:12] + "…", "reveals a secret key"))
+        found.append(
+            Violation("privacy", m.group(0)[:12] + "…", "reveals a secret key")
+        )
     if _CRISIS_WORDS.search(request) and not _CRISIS_HELP.search(answer):
-        found.append(Violation("crisis", "", "the user mentions self-harm and no crisis line is given"))
+        found.append(
+            Violation(
+                "crisis", "", "the user mentions self-harm and no crisis line is given"
+            )
+        )
     if not action_confirmed and (m := _SENT_CLAIM.search(answer)):
-        found.append(Violation("consent", m.group(0), "claims a message/call was sent without confirmation"))
+        found.append(
+            Violation(
+                "consent",
+                m.group(0),
+                "claims a message/call was sent without confirmation",
+            )
+        )
     return found
 
 
@@ -128,8 +176,12 @@ def check(
     if use_critic and llm is not None:
         known = {p.id for p in principles}
         text = "\n".join(f"- {p.id}: {p.text}" for p in principles)
-        data = parse_json(as_llm(llm)(CRITIC_PROMPT.format(principles=text, request=request, answer=answer),
-                                      temperature=0.0))
+        data = parse_json(
+            as_llm(llm)(
+                CRITIC_PROMPT.format(principles=text, request=request, answer=answer),
+                temperature=0.0,
+            )
+        )
         items = data.get("violations") if isinstance(data, dict) else data
         for item in items or []:
             if not isinstance(item, dict):
@@ -142,7 +194,14 @@ def check(
             severity = next(p.severity for p in principles if p.id == pid)
             if severity == "low":
                 continue
-            found.append(Violation(pid, str(item.get("quote") or "")[:200], str(item.get("why") or ""), "critic"))
+            found.append(
+                Violation(
+                    pid,
+                    str(item.get("quote") or "")[:200],
+                    str(item.get("why") or ""),
+                    "critic",
+                )
+            )
     return found
 
 
@@ -158,21 +217,55 @@ def enforce(
 ) -> ConstitutionResult:
     """Check *answer*; rewrite it until it complies (at most *max_revisions*)."""
     model = as_llm(llm) if llm is not None else None
-    first = check(request, answer, model, principles=principles, action_confirmed=action_confirmed,
-                  use_critic=use_critic)
+    first = check(
+        request,
+        answer,
+        model,
+        principles=principles,
+        action_confirmed=action_confirmed,
+        use_critic=use_critic,
+    )
     if not first or model is None:
         return ConstitutionResult(answer=answer, violations=first, remaining=first)
     current, violations, rounds = answer, first, 0
     while violations and rounds < max_revisions:
         rounds += 1
-        listed = "\n".join(f"- {v.principle}: {v.why}" + (f" («{v.quote}»)" if v.quote else "")
-                           for v in violations)
-        current = model(REVISE_PROMPT.format(violations=listed, request=request, answer=current),
-                        temperature=0.2).strip() or current
-        violations = check(request, current, model, principles=principles,
-                           action_confirmed=action_confirmed, use_critic=use_critic)
-    return ConstitutionResult(answer=current, violations=first, revised=True, rounds=rounds,
-                              remaining=violations)
+        listed = "\n".join(
+            f"- {v.principle}: {v.why}" + (f" («{v.quote}»)" if v.quote else "")
+            for v in violations
+        )
+        current = (
+            model(
+                REVISE_PROMPT.format(
+                    violations=listed, request=request, answer=current
+                ),
+                temperature=0.2,
+            ).strip()
+            or current
+        )
+        violations = check(
+            request,
+            current,
+            model,
+            principles=principles,
+            action_confirmed=action_confirmed,
+            use_critic=use_critic,
+        )
+    return ConstitutionResult(
+        answer=current,
+        violations=first,
+        revised=True,
+        rounds=rounds,
+        remaining=violations,
+    )
 
 
-__all__ = ["PRINCIPLES", "ConstitutionResult", "Principle", "Violation", "check", "enforce", "rule_check"]
+__all__ = [
+    "PRINCIPLES",
+    "ConstitutionResult",
+    "Principle",
+    "Violation",
+    "check",
+    "enforce",
+    "rule_check",
+]

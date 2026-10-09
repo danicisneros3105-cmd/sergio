@@ -586,7 +586,13 @@ def _is_busy_error(exc: Exception) -> bool:
     text = str(exc)
     return any(
         marker in text
-        for marker in ("503", "UNAVAILABLE", "high demand", "overloaded", "500 INTERNAL")
+        for marker in (
+            "503",
+            "UNAVAILABLE",
+            "high demand",
+            "overloaded",
+            "500 INTERNAL",
+        )
     )
 
 
@@ -1164,7 +1170,9 @@ class CloudEngine(InferenceEngine):
                     # was lost -- gets Google's documented placeholder,
                     # otherwise Gemini 3 refuses the whole request)
                     sig = self._thought_sigs.get(tc.id)
-                    fc_part["thought_signature"] = sig if sig is not None else SKIP_SIGNATURE
+                    fc_part["thought_signature"] = (
+                        sig if sig is not None else SKIP_SIGNATURE
+                    )
                     parts.append(fc_part)
                 contents.append({"role": "model", "parts": parts})
             elif m.role.value == "assistant":
@@ -1319,7 +1327,11 @@ class CloudEngine(InferenceEngine):
                 _QUOTA_EXHAUSTED[candidate] = time.monotonic() + cooldown
                 last = exc
                 # Expected with free-tier quotas: the next model answers instead.
-                logger.info("Gemini %s unavailable (%s); trying the next", candidate, str(exc)[:80])
+                logger.info(
+                    "Gemini %s unavailable (%s); trying the next",
+                    candidate,
+                    str(exc)[:80],
+                )
                 continue
             return resp, candidate
         raise last if last is not None else RuntimeError("no Gemini model")

@@ -53,12 +53,24 @@ class CausalGraph:
     nodes: set[str] = field(default_factory=set)
 
     # -- building --------------------------------------------------------------
-    def add(self, cause: str, effect: str, sign: int = 1, strength: float = 0.5, evidence: str = "") -> None:
+    def add(
+        self,
+        cause: str,
+        effect: str,
+        sign: int = 1,
+        strength: float = 0.5,
+        evidence: str = "",
+    ) -> None:
         if cause == effect:
             return
         self.nodes.update((cause, effect))
-        self.links[(cause, effect)] = Link(cause, effect, 1 if sign >= 0 else -1,
-                                           max(0.0, min(1.0, strength)), evidence)
+        self.links[(cause, effect)] = Link(
+            cause,
+            effect,
+            1 if sign >= 0 else -1,
+            max(0.0, min(1.0, strength)),
+            evidence,
+        )
 
     # -- structure -------------------------------------------------------------
     def parents(self, node: str) -> set[str]:
@@ -147,7 +159,9 @@ class CausalGraph:
             total = 0.0
             for src, delta in do.items():
                 for p in self.paths(src, node):
-                    if any(n in do for n in p[1:]):  # the path is cut at another intervened node
+                    if any(
+                        n in do for n in p[1:]
+                    ):  # the path is cut at another intervened node
                         continue
                     total += delta * self.path_effect(p)
             if abs(total) > 1e-9:
@@ -155,8 +169,10 @@ class CausalGraph:
         return dict(sorted(effects.items(), key=lambda kv: -abs(kv[1])))
 
     def describe(self) -> str:
-        return "\n".join(f"{lk.cause} -[{'+' if lk.sign > 0 else '-'}{lk.strength:.1f}]-> {lk.effect}"
-                         for lk in self.links.values())
+        return "\n".join(
+            f"{lk.cause} -[{'+' if lk.sign > 0 else '-'}{lk.strength:.1f}]-> {lk.effect}"
+            for lk in self.links.values()
+        )
 
 
 def _name(value: object) -> str:
@@ -175,14 +191,26 @@ def graph_from_json(data: object) -> CausalGraph:
             continue
         cause, effect = _name(link.get("cause")), _name(link.get("effect"))
         if cause and effect:
-            sign = -1 if str(link.get("sign", "+")).strip().startswith(("-", "neg")) else 1
-            graph.add(cause, effect, sign, clamp(link.get("strength"), 0, 1, 0.5), str(link.get("evidence") or ""))
+            sign = (
+                -1 if str(link.get("sign", "+")).strip().startswith(("-", "neg")) else 1
+            )
+            graph.add(
+                cause,
+                effect,
+                sign,
+                clamp(link.get("strength"), 0, 1, 0.5),
+                str(link.get("evidence") or ""),
+            )
     return graph
 
 
-def extract_graph(text: str, llm: "LLM | Callable[..., str] | None" = None) -> CausalGraph:
+def extract_graph(
+    text: str, llm: "LLM | Callable[..., str] | None" = None
+) -> CausalGraph:
     """Ask the model for the causal graph of *text*."""
-    return graph_from_json(parse_json(as_llm(llm)(EXTRACT_PROMPT.format(text=text), temperature=0.2)))
+    return graph_from_json(
+        parse_json(as_llm(llm)(EXTRACT_PROMPT.format(text=text), temperature=0.2))
+    )
 
 
 @dataclass
@@ -202,19 +230,27 @@ def analyse(graph: CausalGraph, pairs: Iterable[tuple[str, str]] = ()) -> list[s
             continue
         paths = graph.paths(a, b)
         if paths:
-            facts.append(f"{a} causes {b} through {len(paths)} path(s); total effect {graph.total_effect(a, b):+.2f}: "
-                         + "; ".join(" -> ".join(p) for p in paths[:4]))
+            facts.append(
+                f"{a} causes {b} through {len(paths)} path(s); total effect {graph.total_effect(a, b):+.2f}: "
+                + "; ".join(" -> ".join(p) for p in paths[:4])
+            )
             med = graph.mediators(a, b)
             if med:
-                facts.append(f"Mediators between {a} and {b}: {', '.join(sorted(med))}.")
+                facts.append(
+                    f"Mediators between {a} and {b}: {', '.join(sorted(med))}."
+                )
         elif graph.paths(b, a):
-            facts.append(f"The arrow runs the other way: {b} causes {a} (effect {graph.total_effect(b, a):+.2f}).")
+            facts.append(
+                f"The arrow runs the other way: {b} causes {a} (effect {graph.total_effect(b, a):+.2f})."
+            )
         else:
             facts.append(f"No causal path between {a} and {b} in either direction.")
         conf = graph.confounders(a, b)
         if conf:
-            facts.append(f"Confounders of {a} and {b} (common causes): {', '.join(sorted(conf))} — "
-                         "part of their correlation is not causation.")
+            facts.append(
+                f"Confounders of {a} and {b} (common causes): {', '.join(sorted(conf))} — "
+                "part of their correlation is not causation."
+            )
     return facts
 
 
@@ -236,9 +272,21 @@ def causal_answer(
         leaves = [n for n in graph.nodes if not graph.children(n)]
         pairs = [(r, lf) for r in roots for lf in leaves][:6]
     facts = analyse(graph, pairs) + ["Graph:\n" + graph.describe()]
-    answer = model(EXPLAIN_PROMPT.format(question=question, facts="\n".join(f"- {f}" for f in facts)),
-                   temperature=0.3).strip()
+    answer = model(
+        EXPLAIN_PROMPT.format(
+            question=question, facts="\n".join(f"- {f}" for f in facts)
+        ),
+        temperature=0.3,
+    ).strip()
     return CausalAnswer(answer=answer, graph=graph, facts=facts)
 
 
-__all__ = ["CausalAnswer", "CausalGraph", "Link", "analyse", "causal_answer", "extract_graph", "graph_from_json"]
+__all__ = [
+    "CausalAnswer",
+    "CausalGraph",
+    "Link",
+    "analyse",
+    "causal_answer",
+    "extract_graph",
+    "graph_from_json",
+]

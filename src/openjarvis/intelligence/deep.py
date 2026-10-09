@@ -28,7 +28,9 @@ from openjarvis.intelligence.tot import tree_of_thoughts
 from openjarvis.intelligence.uncertainty import Calibrator, estimate
 from openjarvis.learning.meta_learner import MetaLearner, task_kind
 
-_WHAT_IF = re.compile(r"\b(what if|qu[ée] pasar[íi]a si|y si|si hubiera|si hubiese|had .* been)\b", re.I)
+_WHAT_IF = re.compile(
+    r"\b(what if|qu[ée] pasar[íi]a si|y si|si hubiera|si hubiese|had .* been)\b", re.I
+)
 
 
 @dataclass
@@ -48,18 +50,29 @@ class DeepResult:
 def run_strategy(strategy: str, question: str, llm: LLM) -> tuple[str, dict]:
     if strategy == "reflection":
         r = reflect(question, llm, max_rounds=3)
-        return r.answer, {"score": r.score, "rounds": r.rounds, "stopped": r.stopped_because}
+        return r.answer, {
+            "score": r.score,
+            "rounds": r.rounds,
+            "stopped": r.stopped_because,
+        }
     if strategy == "tot":
         r = tree_of_thoughts(question, llm, breadth=3, beam=2, depth=3)
-        return r.answer, {"path": r.best_path, "explored": r.explored, "solved": r.solved}
+        return r.answer, {
+            "path": r.best_path,
+            "explored": r.explored,
+            "solved": r.solved,
+        }
     if strategy == "consistency":
         v = self_consistency(question, llm, samples=5)
-        return v.reasoning.strip() or v.answer, {"votes": v.votes, "agreement": v.agreement}
+        return v.reasoning.strip() or v.answer, {
+            "votes": v.votes,
+            "agreement": v.agreement,
+        }
     if strategy == "causal":
         what_if = _WHAT_IF.search(question)
         if what_if:
             scenario = question[: what_if.start()].strip() or question
-            change = question[what_if.start():].strip()
+            change = question[what_if.start() :].strip()
             c = counterfactual(scenario, change, llm)
             return c.narrative, {"interventions": c.interventions, "effects": c.effects}
         a = causal_answer(question, llm)
@@ -82,9 +95,16 @@ def deep_think(
     started, calls0 = time.monotonic(), model.calls
     kind = task_kind(question)
     if strategy == "auto":
-        strategy = learner.choose(question) if learner else {
-            "math": "consistency", "code": "reflection", "planning": "tot", "causal": "causal",
-        }.get(kind, "reflection")
+        strategy = (
+            learner.choose(question)
+            if learner
+            else {
+                "math": "consistency",
+                "code": "reflection",
+                "planning": "tot",
+                "causal": "causal",
+            }.get(kind, "reflection")
+        )
     answer, trace = run_strategy(strategy, question, model)
     fixed: list[str] = []
     if check_constitution:
@@ -97,17 +117,31 @@ def deep_think(
         better = reflect(question, model, draft=answer, max_rounds=2)
         if better.score >= 7:
             answer = better.answer
-            est = estimate(question, model, answer=answer, samples=1, calibrator=calibrator)
+            est = estimate(
+                question, model, answer=answer, samples=1, calibrator=calibrator
+            )
     if learner is not None:
         learner.update(question, strategy, est.confidence)
     if est.decision == "ask" and est.clarifying_question:
         answer = f"{answer}\n\n(Para afinar: {est.clarifying_question})"
     elif est.decision == "abstain":
-        answer = ("No estoy seguro de esto y prefiero no inventar. Lo que sé: " + answer[:600]
-                  + ("\nMe falta: " + "; ".join(est.unknowns[:4]) if est.unknowns else ""))
-    return DeepResult(answer=answer, strategy=strategy, kind=kind, confidence=est.confidence,
-                      decision=est.decision, unknowns=est.unknowns, violations_fixed=fixed,
-                      calls=model.calls - calls0, seconds=round(time.monotonic() - started, 2), trace=trace)
+        answer = (
+            "No estoy seguro de esto y prefiero no inventar. Lo que sé: "
+            + answer[:600]
+            + ("\nMe falta: " + "; ".join(est.unknowns[:4]) if est.unknowns else "")
+        )
+    return DeepResult(
+        answer=answer,
+        strategy=strategy,
+        kind=kind,
+        confidence=est.confidence,
+        decision=est.decision,
+        unknowns=est.unknowns,
+        violations_fixed=fixed,
+        calls=model.calls - calls0,
+        seconds=round(time.monotonic() - started, 2),
+        trace=trace,
+    )
 
 
 __all__ = ["DeepResult", "deep_think", "run_strategy"]

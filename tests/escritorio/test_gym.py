@@ -37,7 +37,9 @@ def _window(app, kind, clock, **kw):
 
 
 def _press(w, text):
-    w.keyPressEvent(QKeyEvent(QKeyEvent.Type.KeyPress, 0, Qt.KeyboardModifier.NoModifier, text))
+    w.keyPressEvent(
+        QKeyEvent(QKeyEvent.Type.KeyPress, 0, Qt.KeyboardModifier.NoModifier, text)
+    )
 
 
 def test_it_cannot_be_closed_or_escaped(app):
@@ -46,7 +48,11 @@ def test_it_cannot_be_closed_or_escaped(app):
     event = QCloseEvent()
     w.closeEvent(event)
     assert not event.isAccepted()  # Alt+F4 does nothing
-    w.keyPressEvent(QKeyEvent(QKeyEvent.Type.KeyPress, Qt.Key.Key_Escape, Qt.KeyboardModifier.NoModifier))
+    w.keyPressEvent(
+        QKeyEvent(
+            QKeyEvent.Type.KeyPress, Qt.Key.Key_Escape, Qt.KeyboardModifier.NoModifier
+        )
+    )
     assert w.isVisible() and w.phase == "intro"
     w._closing = True
     w.close()
@@ -166,7 +172,9 @@ def test_words_unknown_to_the_lists_ask_the_ai(app):
     runner.submit(good)
     runner.submit(good)  # repeated: ignored
     assert len(runner.words) == 1
-    weird = runner.item.examples[1][:-1] + "q" if runner.item.test[0] != "ends" else None
+    weird = (
+        runner.item.examples[1][:-1] + "q" if runner.item.test[0] != "ends" else None
+    )
     if weird and runner.item.fits(weird):
         runner.submit(weird)
     w._closing = True
@@ -177,7 +185,9 @@ def test_schedule_every_12_real_minutes_start_to_start_but_not_while_away():
     now = [1_000_000.0]
     away = [0.0]
     saved = []
-    s = gym.GymSchedule(12, away=lambda: away[0], clock=lambda: now[0], on_change=saved.append)
+    s = gym.GymSchedule(
+        12, away=lambda: away[0], clock=lambda: now[0], on_change=saved.append
+    )
     assert s.interval == 720 and not s.check()
     now[0] += 12 * 60 + 1
     away[0] = 600  # out for lunch
@@ -217,7 +227,9 @@ def test_stats_start_each_day_with_the_control_test_then_rotate(tmp_path):
 
 
 def test_control_test_runner(app):
-    w = gym.GymWindow(brain.PROBE, rng=random.Random(4), clock=Clock(), unskippable=False)
+    w = gym.GymWindow(
+        brain.PROBE, rng=random.Random(4), clock=Clock(), unskippable=False
+    )
     w._begin_play()
     runner = w.runner
     assert isinstance(runner, gym.ProbeRunner)
@@ -239,19 +251,25 @@ def _history(trained_acc, probe_rates, day=86400.0):
     for i, acc in enumerate(trained_acc):
         hist.append({"kind": "stroop", "time": i * 3600.0, "accuracy": acc})
     for i, rate in enumerate(probe_rates):
-        hist.append({"kind": "prueba", "time": i * day, "rate": rate, "correct": rate * 1.5})
+        hist.append(
+            {"kind": "prueba", "time": i * day, "rate": rate, "correct": rate * 1.5}
+        )
     return hist
 
 
 def test_effectiveness_near_and_far_transfer():
-    flat = brain.effectiveness(_history([0.5, 0.55, 0.8, 0.85], [40, 42, 39, 41, 40, 41, 40]))
+    flat = brain.effectiveness(
+        _history([0.5, 0.55, 0.8, 0.85], [40, 42, 39, 41, 40, 41, 40])
+    )
     assert flat["near"]["stroop"] == 30.0  # trained: up 30 points
     assert flat["far"] == "no" and flat["low"] < 0 < flat["high"]
     rising = brain.effectiveness(_history([], [40, 42, 44, 46, 48, 50, 52]))
     assert rising["far"] == "sí" and rising["percent_per_week"] > 20
     few = brain.effectiveness_text(_history([0.5] * 4, [40, 41]))
     assert "llevas 2" in few
-    text = brain.effectiveness_text(_history([0.5, 0.5, 0.9, 0.9], [40, 42, 39, 41, 40, 41, 40]))
+    text = brain.effectiveness_text(
+        _history([0.5, 0.5, 0.9, 0.9], [40, 42, 39, 41, 40, 41, 40])
+    )
     assert "incluye el cero" in text and "+40 puntos" in text
 
 
@@ -275,7 +293,13 @@ def test_word_validator_caches_answers():
 def test_spaced_recall_runner_shows_the_answer_and_remembers(app, tmp_path):
     clock = Clock()
     stats = gym.GymStats.load(tmp_path / "gym.json")
-    w = gym.GymWindow(brain.BY_KIND["repaso"], stats=stats, rng=random.Random(2), clock=clock, unskippable=False)
+    w = gym.GymWindow(
+        brain.BY_KIND["repaso"],
+        stats=stats,
+        rng=random.Random(2),
+        clock=clock,
+        unskippable=False,
+    )
     w._begin_play()
     runner = w.runner
     assert isinstance(runner, gym.RecallRunner) and len(runner.cards) == 6
@@ -296,7 +320,9 @@ def test_spaced_recall_runner_shows_the_answer_and_remembers(app, tmp_path):
 
 def test_active_break_counts_down_a_minute(app):
     clock = Clock()
-    w = gym.GymWindow(brain.BY_KIND["pausa"], rng=random.Random(2), clock=clock, unskippable=False)
+    w = gym.GymWindow(
+        brain.BY_KIND["pausa"], rng=random.Random(2), clock=clock, unskippable=False
+    )
     w._begin_play()
     w.runner.key("\r")
     assert w.session.answered == 0  # not before the minute is (almost) over
@@ -317,8 +343,13 @@ class Ticker:
 
 def test_sleeping_mid_exercise_starts_it_over_instead_of_scoring_zero(app):
     clock, ticker = Clock(), Ticker()
-    w = gym.GymWindow(brain.BY_KIND["stroop"], rng=random.Random(1), clock=clock,
-                      unskippable=False, ticker=ticker)
+    w = gym.GymWindow(
+        brain.BY_KIND["stroop"],
+        rng=random.Random(1),
+        clock=clock,
+        unskippable=False,
+        ticker=ticker,
+    )
     clock.now += gym.INTRO_SECONDS
     ticker.now += 0.03
     w._tick()
@@ -332,7 +363,13 @@ def test_sleeping_mid_exercise_starts_it_over_instead_of_scoring_zero(app):
 def test_nobody_answering_is_not_a_zero(app):
     clock = Clock()
     stats = gym.GymStats()
-    w = gym.GymWindow(brain.BY_KIND["stroop"], stats=stats, rng=random.Random(1), clock=clock, unskippable=False)
+    w = gym.GymWindow(
+        brain.BY_KIND["stroop"],
+        stats=stats,
+        rng=random.Random(1),
+        clock=clock,
+        unskippable=False,
+    )
     w._begin_play()
     clock.now += 200
     w._tick()
@@ -355,7 +392,6 @@ def test_after_the_laptop_wakes_up_the_gym_waits(app):
 
 def test_every_exercise_has_steps_and_an_animated_example(app):
     from PySide6.QtGui import QImage, QPainter
-
     from sergio_escritorio import gym_demo
 
     kinds = {e.kind for e in (*brain.EXERCISES, brain.PROBE)}
@@ -367,7 +403,9 @@ def test_every_exercise_has_steps_and_an_animated_example(app):
         for step in range(12):
             image.fill(0)
             p = QPainter(image)
-            gym_demo.paint_demo(p, gym.QRectF(0, 0, 360, 420), kind, step * gym_demo.LOOP / 12)
+            gym_demo.paint_demo(
+                p, gym.QRectF(0, 0, 360, 420), kind, step * gym_demo.LOOP / 12
+            )
             p.end()
             frames.append(bytes(image.constBits()))
         assert len(set(frames)) > 1, kind  # it moves
@@ -378,8 +416,14 @@ def _h(kind, acc, t=0.0, **kw):
 
 
 def test_profile_scores_each_skill_from_the_answers():
-    history = [_h("matrices", 0.9), _h("relacional", 0.8), _h("stroop", 0.4), _h("stroop", 0.5),
-               _h("nback", 0.8, level=3), _h("prueba", 1.0)]
+    history = [
+        _h("matrices", 0.9),
+        _h("relacional", 0.8),
+        _h("stroop", 0.4),
+        _h("stroop", 0.5),
+        _h("nback", 0.8, level=3),
+        _h("prueba", 1.0),
+    ]
     prof = brain.profile(history)
     assert prof["razonamiento"]["score"] == 83 and prof["razonamiento"]["sessions"] == 2
     assert prof["memoria de trabajo"]["score"] == 90  # 3-back counts more than 2-back
@@ -388,8 +432,19 @@ def test_profile_scores_each_skill_from_the_answers():
 
 
 def test_weakest_skill_comes_up_every_third_pop_up():
-    history = [_h(k, a) for k, a in [("matrices", 0.9), ("matrices", 0.9), ("nback", 0.9), ("nback", 0.9),
-                                     ("stroop", 0.3), ("stroop", 0.4), ("rotacion", 0.9), ("rotacion", 0.8)]]
+    history = [
+        _h(k, a)
+        for k, a in [
+            ("matrices", 0.9),
+            ("matrices", 0.9),
+            ("nback", 0.9),
+            ("nback", 0.9),
+            ("stroop", 0.3),
+            ("stroop", 0.4),
+            ("rotacion", 0.9),
+            ("rotacion", 0.8),
+        ]
+    ]
     assert brain.weakest(brain.profile(history)) == "atención"
     n = len(brain.SCHEDULE)
     picked = [brain.personal_next(i, history)[0].kind for i in range(n)]
@@ -439,7 +494,12 @@ def test_nobody_in_front_of_the_camera_postpones_a_minute():
 
 class _Feed:
     def __init__(self, frames, error=""):
-        self.frames, self.error, self.keep_on, self.running = list(frames), error, False, False
+        self.frames, self.error, self.keep_on, self.running = (
+            list(frames),
+            error,
+            False,
+            False,
+        )
         self._first_frame_at = -10.0
         self.stopped = False
 
@@ -459,8 +519,13 @@ def test_someone_there_looks_a_few_frames_then_turns_the_camera_off():
     feed = _Feed(["empty", "empty", "face"])
     assert someone_there(feed, seconds=3, detect=lambda f: f == "face") is True
     assert feed.stopped  # the light goes off right after
-    assert someone_there(_Feed(["empty"] * 3), seconds=0.6, detect=lambda f: False) is False
-    assert someone_there(_Feed([], error="ocupada"), seconds=0.5) is None  # no camera: no blocking
+    assert (
+        someone_there(_Feed(["empty"] * 3), seconds=0.6, detect=lambda f: False)
+        is False
+    )
+    assert (
+        someone_there(_Feed([], error="ocupada"), seconds=0.5) is None
+    )  # no camera: no blocking
 
 
 # -- the three newer exercises, the analysis and «Tus resultados» -----------------------
@@ -493,7 +558,10 @@ def test_task_switching_answers_and_switch_cost():
     even = brain.SwitchTrial(8, "paridad", False)
     small = brain.SwitchTrial(3, "magnitud", True)
     assert even.check("d") and not even.check("k") and small.check("d")
-    results = [(brain.SwitchTrial(2, "paridad", s), True, 0.9 if s else 0.6) for s in [True, False] * 4]
+    results = [
+        (brain.SwitchTrial(2, "paridad", s), True, 0.9 if s else 0.6)
+        for s in [True, False] * 4
+    ]
     assert brain.switch_cost(results) == 300
     assert brain.switch_cost(results[:2]) is None
 
@@ -550,11 +618,16 @@ def test_double_runner_flash_mask_and_two_answers(app):
         assert runner.stage == "spot"
         _key_at(w, str(runner.trial.spot + 1))
     assert runner.done() and w.session.accuracy == 1.0
-    assert runner.stairs.ms < start and stats.double_ms == w.session.extra["threshold_ms"]
+    assert (
+        runner.stairs.ms < start and stats.double_ms == w.session.extra["threshold_ms"]
+    )
     w._tick()
     assert "destello de" in w.session.summary()
     entry = stats.history[-1]
-    assert entry["kind"] == "doble" and entry["threshold_ms"] == w.session.extra["threshold_ms"]
+    assert (
+        entry["kind"] == "doble"
+        and entry["threshold_ms"] == w.session.extra["threshold_ms"]
+    )
     w._close()
 
 
@@ -590,7 +663,11 @@ def test_analysis_finds_trends_best_time_streak_and_records():
     assert found["best_time"] == "mañana" and found["streak"] == 10
     assert found["nback_max"] == 4 and found["speed_ms"]["best"] == 120
     text = " ".join(found["insights"])
-    assert "Mejora real" in text and "Racha de 10 días" in text and "Velocidad: de 300 ms a 120 ms" in text
+    assert (
+        "Mejora real" in text
+        and "Racha de 10 días" in text
+        and "Velocidad: de 300 ms a 120 ms" in text
+    )
     assert "Cambiar de tarea le cuesta menos" in text
     assert brain.analysis([], now)["insights"][0].startswith("Aún no hay sesiones")
 
@@ -598,10 +675,13 @@ def test_analysis_finds_trends_best_time_streak_and_records():
 def test_results_window_draws_everything(app):
     from PySide6.QtCore import QPoint
     from PySide6.QtGui import QColor, QImage, QPainter
-
     from sergio_escritorio.gym_results import GymResults, results_sentence
 
-    history = [_h(k, 0.5 + 0.03 * i, 1000.0 * i) for i in range(8) for k in ("matrices", "stroop", "doble")]
+    history = [
+        _h(k, 0.5 + 0.03 * i, 1000.0 * i)
+        for i in range(8)
+        for k in ("matrices", "stroop", "doble")
+    ]
     history += [_h("prueba", 1.0, 2000.0 * i, rate=20 + i) for i in range(6)]
     w = GymResults(history)
     w.resize(1280, 860)
@@ -610,7 +690,12 @@ def test_results_window_draws_everything(app):
     p = QPainter(image)
     w.render(p, QPoint(0, 0))
     p.end()
-    lit = sum(1 for x in range(0, 1280, 8) for y in range(0, 860, 8) if image.pixelColor(x, y).lightness() > 120)
+    lit = sum(
+        1
+        for x in range(0, 1280, 8)
+        for y in range(0, 860, 8)
+        if image.pixelColor(x, y).lightness() > 120
+    )
     assert lit > 200
     assert results_sentence({"insights": ["a", "b", "c", "d"]}) == "a b c"
     w.close()

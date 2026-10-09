@@ -323,7 +323,9 @@ class LiveCall:
                 )
             self._client = genai.Client(api_key=key)
             try:
-                self._alpha = genai.Client(api_key=key, http_options={"api_version": "v1alpha"})
+                self._alpha = genai.Client(
+                    api_key=key, http_options={"api_version": "v1alpha"}
+                )
             except Exception:  # noqa: BLE001 — an old SDK: no proactive audio
                 self._alpha = None
         return self._client, self._types
@@ -349,7 +351,11 @@ class LiveCall:
         errors: list[str] = []
         # Google Search grounding: free keys refuse it after a slow attempt,
         # so it is only tried when switched on (SERGIO_LIVE_SEARCH=1).
-        wants_search = os.environ.get("SERGIO_LIVE_SEARCH", "").strip() in ("1", "true", "si")
+        wants_search = os.environ.get("SERGIO_LIVE_SEARCH", "").strip() in (
+            "1",
+            "true",
+            "si",
+        )
         # A resumed call goes back to its own model first: a resumption
         # handle only exists there (other models answer "1008 session
         # history not found", and the call used to end with an error).
@@ -360,7 +366,12 @@ class LiveCall:
         for model in models:
             if self._handle and model != self.model:
                 self._handle = None  # another model: a fresh session
-            if self.proactive and _PROACTIVE_OK[0] and self._alpha is not None and not wants_search:
+            if (
+                self.proactive
+                and _PROACTIVE_OK[0]
+                and self._alpha is not None
+                and not wants_search
+            ):
                 try:
                     session = await stack.enter_async_context(
                         self._alpha.aio.live.connect(
@@ -380,7 +391,11 @@ class LiveCall:
                     return session
                 except Exception as exc:  # noqa: BLE001 — without it, below
                     text = str(exc).lower()
-                    if "proactiv" in text or "unknown name" in text or "v1alpha" in text:
+                    if (
+                        "proactiv" in text
+                        or "unknown name" in text
+                        or "v1alpha" in text
+                    ):
                         _PROACTIVE_OK[0] = False
                         log.info("Live: no proactive audio (%s)", str(exc)[:160])
                     else:
@@ -409,8 +424,14 @@ class LiveCall:
                             session = await stack.enter_async_context(
                                 client.aio.live.connect(
                                     model=model,
-                                    config=live_config(types, voice=self.voice, instructions=self.instructions,
-                                                       decls=self.decls, search=search, handle=self._handle),
+                                    config=live_config(
+                                        types,
+                                        voice=self.voice,
+                                        instructions=self.instructions,
+                                        decls=self.decls,
+                                        search=search,
+                                        handle=self._handle,
+                                    ),
                                 )
                             )
                             self.model = model
@@ -462,7 +483,11 @@ class LiveCall:
                 async with contextlib.AsyncExitStack() as stack:
                     opened = time.monotonic()
                     session = await self._open(stack)
-                    log.info("Live session open on %s in %.1f s", self.model, time.monotonic() - opened)
+                    log.info(
+                        "Live session open on %s in %.1f s",
+                        self.model,
+                        time.monotonic() - opened,
+                    )
                     self._session = session
                     if first:
                         await self.send_json({"type": "ready", "model": self.model})
@@ -488,8 +513,12 @@ class LiveCall:
                 # reconnect at once, resuming the conversation when it can.
                 drops += 1
                 if drops > 3:
-                    raise RuntimeError("La conversación con Gemini se cortó varias veces.")
-                log.info("Live: reconnecting (%s, resume=%s)", self.model, bool(self._handle))
+                    raise RuntimeError(
+                        "La conversación con Gemini se cortó varias veces."
+                    )
+                log.info(
+                    "Live: reconnecting (%s, resume=%s)", self.model, bool(self._handle)
+                )
         finally:
             self.closed = True
             for fut in self._pending.values():
@@ -535,7 +564,9 @@ class LiveCall:
                 # Context the model should know but not answer ("now Ana is
                 # talking"): added to the conversation without ending a turn.
                 await session.send_client_content(
-                    turns=types.Content(role="user", parts=[types.Part(text=str(event["text"])[:1000])]),
+                    turns=types.Content(
+                        role="user", parts=[types.Part(text=str(event["text"])[:1000])]
+                    ),
                     turn_complete=False,
                 )
             elif kind == "tool_result":
@@ -626,7 +657,9 @@ class LiveCall:
     async def _client_tool(self, call_id: str, name: str, args: dict) -> str:
         fut: asyncio.Future = asyncio.get_running_loop().create_future()
         self._pending[call_id] = fut
-        await self.send_json({"type": "call", "id": call_id, "name": name, "args": args})
+        await self.send_json(
+            {"type": "call", "id": call_id, "name": name, "args": args}
+        )
         try:
             return await asyncio.wait_for(fut, CLIENT_TOOL_TIMEOUT)
         except asyncio.TimeoutError:
@@ -648,7 +681,9 @@ READ_ALOUD = (
 )
 
 
-async def _speak_live(text: str, voice: str, client: Any, types: Any, models: Iterable[str]) -> bytes:
+async def _speak_live(
+    text: str, voice: str, client: Any, types: Any, models: Iterable[str]
+) -> bytes:
     errors = []
     for model in models:
         config = types.LiveConnectConfig(
@@ -656,7 +691,9 @@ async def _speak_live(text: str, voice: str, client: Any, types: Any, models: It
             speech_config=(
                 types.SpeechConfig(
                     voice_config=types.VoiceConfig(
-                        prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name=voice)
+                        prebuilt_voice_config=types.PrebuiltVoiceConfig(
+                            voice_name=voice
+                        )
                     )
                 )
                 if voice and voice.lower() not in DEFAULT_VOICE_NAMES
@@ -682,11 +719,19 @@ async def _speak_live(text: str, voice: str, client: Any, types: Any, models: It
                 errors.append(f"{model}: sin audio")
         except Exception as exc:  # noqa: BLE001 — next model
             errors.append(f"{model}: {exc}")
-    raise RuntimeError("La voz de Gemini Live falló: " + " | ".join(e[:150] for e in errors[-2:]))
+    raise RuntimeError(
+        "La voz de Gemini Live falló: " + " | ".join(e[:150] for e in errors[-2:])
+    )
 
 
-async def stream_live(text: str, voice: str = "", client: Any = None, types: Any = None,
-                      models: Iterable[str] = LIVE_MODELS, timeout: float = 25.0):
+async def stream_live(
+    text: str,
+    voice: str = "",
+    client: Any = None,
+    types: Any = None,
+    models: Iterable[str] = LIVE_MODELS,
+    timeout: float = 25.0,
+):
     """Gemini Live reading *text* aloud, yielded as 24 kHz PCM as it comes
     (playback starts in about a second instead of after the whole answer)."""
     if client is None or types is None:
@@ -707,7 +752,9 @@ async def stream_live(text: str, voice: str = "", client: Any = None, types: Any
             speech_config=(
                 types.SpeechConfig(
                     voice_config=types.VoiceConfig(
-                        prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name=voice)
+                        prebuilt_voice_config=types.PrebuiltVoiceConfig(
+                            voice_name=voice
+                        )
                     )
                 )
                 if voice and voice.lower() not in DEFAULT_VOICE_NAMES
@@ -745,11 +792,18 @@ async def stream_live(text: str, voice: str = "", client: Any = None, types: Any
             if sent:
                 return  # half a sentence already played: do not start over
             errors.append(f"{model}: {exc}")
-    raise RuntimeError("La voz de Gemini Live falló: " + " | ".join(e[:150] for e in errors[-2:]))
+    raise RuntimeError(
+        "La voz de Gemini Live falló: " + " | ".join(e[:150] for e in errors[-2:])
+    )
 
 
-def speak_live(text: str, voice: str = "", client: Any = None, types: Any = None,
-               models: Iterable[str] = LIVE_MODELS) -> bytes:
+def speak_live(
+    text: str,
+    voice: str = "",
+    client: Any = None,
+    types: Any = None,
+    models: Iterable[str] = LIVE_MODELS,
+) -> bytes:
     """WAV of *text* in Gemini Live's voice (the same voice as the calls).
 
     Free keys get far more Live use than text-to-speech (10 a day), and the
@@ -767,7 +821,9 @@ def speak_live(text: str, voice: str = "", client: Any = None, types: Any = None
         if not key:
             raise RuntimeError("Falta GEMINI_API_KEY")
         client, types = client or genai.Client(api_key=key), types or _types
-    pcm = asyncio.run(_speak_live(" ".join(text.split())[:2000], voice, client, types, models))
+    pcm = asyncio.run(
+        _speak_live(" ".join(text.split())[:2000], voice, client, types, models)
+    )
     return pcm_to_wav(pcm, OUT_RATE)
 
 

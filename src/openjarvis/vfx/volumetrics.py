@@ -26,7 +26,7 @@ PARAMS = {
 def build(**kw) -> str:
     p = params_with_defaults(PARAMS, kw)
     layers = {x.strip().lower() for x in str(p["layers"]).split(",") if x.strip()}
-    return f'''
+    return f"""
 layers = {sorted(layers)!r}
 world = vfx_world((0.4, 0.5, 0.7), 1.0)
 wt = world.node_tree
@@ -102,4 +102,4 @@ if "god_rays" in layers:
     spot = vfx_light("SPOT", 4000, (0, 6, 4), (math.radians(-80), 0, math.radians(180)), (1, 0.85, 0.6))
     spot.data.spot_size = math.radians(50)
 vfx_info(effect="volumetrics", layers=layers, world_volume=bool(wout.inputs["Volume"].links))
-'''
+"""

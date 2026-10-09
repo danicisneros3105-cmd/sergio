@@ -27,8 +27,10 @@ PARAMS = {
 
 def build(**kw) -> str:
     p = params_with_defaults(PARAMS, kw)
-    flow_type = {"smoke": "SMOKE", "fire": "FIRE", "both": "BOTH"}.get(str(p["kind"]).lower(), "BOTH")
-    return f'''
+    flow_type = {"smoke": "SMOKE", "fire": "FIRE", "both": "BOTH"}.get(
+        str(p["kind"]).lower(), "BOTH"
+    )
+    return f"""
 sc = bpy.context.scene
 sc.frame_end = sc.frame_start + {p["frames"]} - 1
 emitter = vfx_mesh({py(p["emitter"])}, "Emitter", location=(0, 0, 0.5), size=0.5)
@@ -77,4 +79,4 @@ vfx_assign(domain, mat)
 domain.display_type = "WIRE"
 baked = vfx_bake() if {p["bake"]} else []
 vfx_info(effect="smoke_fire", flow=fs.flow_type, domain=d.domain_type, resolution=d.resolution_max, baked=baked)
-'''
+"""

@@ -37,14 +37,17 @@ Reply with JSON only: {{"files": [{{"path": "<same path as given>", "content": "
 
 def rename_in_source(text: str, old: str, new: str) -> tuple[str, int]:
     """Rename identifier tokens equal to *old* (never inside strings or comments)."""
-    spots = [tok.start for tok in tokenize.generate_tokens(io.StringIO(text).readline)
-             if tok.type == tokenize.NAME and tok.string == old]
+    spots = [
+        tok.start
+        for tok in tokenize.generate_tokens(io.StringIO(text).readline)
+        if tok.type == tokenize.NAME and tok.string == old
+    ]
     if not spots:
         return text, 0
     lines = text.splitlines(keepends=True)
     for row, col in sorted(spots, reverse=True):  # right to left keeps columns valid
         line = lines[row - 1]
-        lines[row - 1] = line[:col] + new + line[col + len(old):]
+        lines[row - 1] = line[:col] + new + line[col + len(old) :]
     return "".join(lines), len(spots)
 
 
@@ -74,8 +77,13 @@ def verify_python(paths: list[Path]) -> Optional[str]:
     return None
 
 
-def apply_atomically(changes: list[Change], *, test_cmd: str = "", cwd: Optional[Path] = None,
-                     timeout: float = 600.0) -> RefactorResult:
+def apply_atomically(
+    changes: list[Change],
+    *,
+    test_cmd: str = "",
+    cwd: Optional[Path] = None,
+    timeout: float = 600.0,
+) -> RefactorResult:
     """Write all *changes*; roll every file back if compile or tests fail."""
     backups: dict[Path, Optional[str]] = {}
     for ch in changes:
@@ -87,28 +95,54 @@ def apply_atomically(changes: list[Change], *, test_cmd: str = "", cwd: Optional
         problem = verify_python([c.path for c in changes])
         output = ""
         if problem is None and test_cmd:
-            proc = subprocess.run(shlex.split(test_cmd), cwd=cwd, capture_output=True, text=True, timeout=timeout)
+            proc = subprocess.run(
+                shlex.split(test_cmd),
+                cwd=cwd,
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+            )
             output = (proc.stdout + proc.stderr)[-4000:]
             if proc.returncode != 0:
                 problem = "tests failed after the change"
         if problem:
             raise RuntimeError(problem)
-        return RefactorResult(True, [str(c.path) for c in changes], "applied and verified", test_output=output)
+        return RefactorResult(
+            True,
+            [str(c.path) for c in changes],
+            "applied and verified",
+            test_output=output,
+        )
     except Exception as exc:  # noqa: BLE001 — any failure means roll back
         for path, old in backups.items():
             if old is None:
                 path.unlink(missing_ok=True)
             else:
                 path.write_text(old, "utf-8")
-        return RefactorResult(False, [], f"rolled back: {exc}",
-                              test_output=locals().get("output", "") or "")
+        return RefactorResult(
+            False,
+            [],
+            f"rolled back: {exc}",
+            test_output=locals().get("output", "") or "",
+        )
 
 
-def rename_symbol(root: Path, old: str, new: str, *, files: Optional[list[Path]] = None, test_cmd: str = "") -> RefactorResult:
+def rename_symbol(
+    root: Path,
+    old: str,
+    new: str,
+    *,
+    files: Optional[list[Path]] = None,
+    test_cmd: str = "",
+) -> RefactorResult:
     """Rename identifier *old* to *new* in every Python file under *root*."""
     if not new.isidentifier():
         return RefactorResult(False, [], f"'{new}' is not a valid identifier")
-    targets = files or [p for p in root.rglob("*.py") if ".venv" not in p.parts and "node_modules" not in p.parts]
+    targets = files or [
+        p
+        for p in root.rglob("*.py")
+        if ".venv" not in p.parts and "node_modules" not in p.parts
+    ]
     changes, counts = [], {}
     for path in targets:
         text = path.read_text("utf-8")
@@ -123,12 +157,23 @@ def rename_symbol(root: Path, old: str, new: str, *, files: Optional[list[Path]]
     return result
 
 
-def llm_refactor(instruction: str, files: list[Path], llm: "LLM | Callable[..., str] | None" = None, *,
-                 test_cmd: str = "", cwd: Optional[Path] = None) -> RefactorResult:
+def llm_refactor(
+    instruction: str,
+    files: list[Path],
+    llm: "LLM | Callable[..., str] | None" = None,
+    *,
+    test_cmd: str = "",
+    cwd: Optional[Path] = None,
+) -> RefactorResult:
     """Let the model rewrite *files* per *instruction*, applied atomically."""
     model = as_llm(llm)
     listing = "\n\n".join(f"FILE {p}:\n```\n{p.read_text('utf-8')}\n```" for p in files)
-    data = parse_json(model(REFACTOR_PROMPT.format(instruction=instruction, files=listing), temperature=0.2))
+    data = parse_json(
+        model(
+            REFACTOR_PROMPT.format(instruction=instruction, files=listing),
+            temperature=0.2,
+        )
+    )
     allowed = {str(p): p for p in files}
     changes = []
     for item in (data or {}).get("files", []) if isinstance(data, dict) else []:
@@ -138,9 +183,17 @@ def llm_refactor(instruction: str, files: list[Path], llm: "LLM | Callable[..., 
     if not changes:
         return RefactorResult(False, [], "the model proposed no usable changes")
     result = apply_atomically(changes, test_cmd=test_cmd, cwd=cwd)
-    result.summary = str((data or {}).get("summary") or "") if isinstance(data, dict) else ""
+    result.summary = (
+        str((data or {}).get("summary") or "") if isinstance(data, dict) else ""
+    )
     return result
 
 
-__all__ = ["Change", "RefactorResult", "apply_atomically", "llm_refactor", "rename_in_source", "rename_symbol",
-           ]
+__all__ = [
+    "Change",
+    "RefactorResult",
+    "apply_atomically",
+    "llm_refactor",
+    "rename_in_source",
+    "rename_symbol",
+]

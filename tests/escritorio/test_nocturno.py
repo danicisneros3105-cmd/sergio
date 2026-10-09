@@ -18,10 +18,27 @@ def test_the_evening_warms_then_dims_and_sergio_goes_quiet():
     s = n.Settings(wake="07:00", need_h=8)
     assert n.bedtime(s) == dt.time(22, 45)  # 7:00 - 8 h - 15 min to fall asleep
     dusk = dt.time(18, 10)
-    phases = [n.moment(at(h, m), s, dusk) for h, m in ((14, 0), (19, 0), (21, 50), (22, 40), (23, 30), (3, 0), (7, 30))]
-    assert [p.phase for p in phases] == ["dia", "atardecer", "relajacion", "relajacion", "dormir", "dormir", "manana"]
-    assert phases[1].kelvin < 6500 and phases[1].brightness == 1.0 and not phases[1].quiet  # warmer, not darker
-    assert phases[3].kelvin < phases[2].kelvin and phases[3].brightness < 0.8 and phases[3].quiet  # darker before bed
+    phases = [
+        n.moment(at(h, m), s, dusk)
+        for h, m in ((14, 0), (19, 0), (21, 50), (22, 40), (23, 30), (3, 0), (7, 30))
+    ]
+    assert [p.phase for p in phases] == [
+        "dia",
+        "atardecer",
+        "relajacion",
+        "relajacion",
+        "dormir",
+        "dormir",
+        "manana",
+    ]
+    assert (
+        phases[1].kelvin < 6500 and phases[1].brightness == 1.0 and not phases[1].quiet
+    )  # warmer, not darker
+    assert (
+        phases[3].kelvin < phases[2].kelvin
+        and phases[3].brightness < 0.8
+        and phases[3].quiet
+    )  # darker before bed
     assert n.moment(at(23, 30), n.Settings(on=False)).phase == "dia"
 
 
@@ -40,13 +57,17 @@ def test_screen_colour_ramp_and_sunset():
     assert len(ramp) == 768 and ramp[255] < 65535 and ramp[767] < ramp[511] < ramp[255]
     sunset = n.sunset(DAY, -2.9, -79.0, -5)  # Cuenca, Ecuador: about 18:10 all year
     assert dt.time(17, 55) <= sunset <= dt.time(18, 25)
-    assert n.sunset(dt.date(2026, 6, 21), 78.2, 15.6, 2) is None  # Svalbard, midnight sun
+    assert (
+        n.sunset(dt.date(2026, 6, 21), 78.2, 15.6, 2) is None
+    )  # Svalbard, midnight sun
 
 
 def test_caffeine_cutoff_and_cycle_bedtimes():
     s = n.Settings(wake="06:30", need_h=7.5)
     assert n.bedtime(s) == dt.time(22, 45) and n.caffeine_cutoff(s) == dt.time(14, 45)
-    assert n.bedtimes_for("06:30", 7.5)[0] == "22:45" and "21:15" in n.bedtimes_for("06:30", 7.5)
+    assert n.bedtimes_for("06:30", 7.5)[0] == "22:45" and "21:15" in n.bedtimes_for(
+        "06:30", 7.5
+    )
     assert "6 horas" in n.caffeine_note(s)
 
 
@@ -67,8 +88,14 @@ def test_the_diary_scores_hours_regularity_and_social_jetlag(tmp_path):
 
 
 def test_what_people_say():
-    assert n.parse_diary("Me dormí a las 12 y me desperté a las 7:30") == ("00:00", "07:30")
-    assert n.parse_diary("anoche me acosté a las 11:40 y me levanté a las 6") == ("23:40", "06:00")
+    assert n.parse_diary("Me dormí a las 12 y me desperté a las 7:30") == (
+        "00:00",
+        "07:30",
+    )
+    assert n.parse_diary("anoche me acosté a las 11:40 y me levanté a las 6") == (
+        "23:40",
+        "06:00",
+    )
     assert parse_quick("activa el night shift").kind == "night_on"
     assert parse_quick("desactiva el modo nocturno").kind == "night_off"
     assert parse_quick("me dormí a las 12 y me desperté a las 7").kind == "night_diary"

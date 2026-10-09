@@ -20,12 +20,19 @@ def configured() -> bool:
     return str(os.environ.get("TRIPO_API_KEY", "")).startswith("tsk_")
 
 
-async def _generate(prompt: str, image: bytes, out_dir: Path, quality: str) -> dict[str, Any]:
+async def _generate(
+    prompt: str, image: bytes, out_dir: Path, quality: str
+) -> dict[str, Any]:
     from tripo3d import TripoClient
     from tripo3d.models import TaskStatus
 
     async with TripoClient(api_key=os.environ.get("TRIPO_API_KEY")) as client:
-        common = {"texture": True, "pbr": True, "texture_quality": quality, "geometry_quality": quality}
+        common = {
+            "texture": True,
+            "pbr": True,
+            "texture_quality": quality,
+            "geometry_quality": quality,
+        }
         if image:
             path = out_dir / "referencia.png"
             path.write_bytes(image)
@@ -42,14 +49,25 @@ async def _generate(prompt: str, image: bytes, out_dir: Path, quality: str) -> d
     return {"task_id": task_id, "glb": Path(best).read_bytes()}
 
 
-def generate(prompt: str = "", image: bytes = b"", quality: str = "standard") -> dict[str, Any]:
+def generate(
+    prompt: str = "", image: bytes = b"", quality: str = "standard"
+) -> dict[str, Any]:
     """{"task_id", "glb"} for *prompt* (text to 3D) or *image* (image to 3D)."""
     if not configured():
-        raise RuntimeError("Falta la clave de Tripo: sergio nube configurar --tripo tsk_… (platform.tripo3d.ai)")
+        raise RuntimeError(
+            "Falta la clave de Tripo: sergio nube configurar --tripo tsk_… (platform.tripo3d.ai)"
+        )
     if not prompt.strip() and not image:
         raise ValueError("Dígame qué modelar o pásele una imagen.")
     with tempfile.TemporaryDirectory(prefix="sergio-tripo-") as tmp:
-        return asyncio.run(_generate(prompt, image, Path(tmp), "detailed" if quality == "detailed" else "standard"))
+        return asyncio.run(
+            _generate(
+                prompt,
+                image,
+                Path(tmp),
+                "detailed" if quality == "detailed" else "standard",
+            )
+        )
 
 
 __all__ = ["configured", "generate"]

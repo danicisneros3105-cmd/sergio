@@ -32,7 +32,7 @@ def test_app_starts_and_reports(tmp_path):
     )
     out = done.stdout
     assert "STARTED-AND-QUIT" in out, done.stderr[-3000:]
-    line = next(l for l in out.splitlines() if l.startswith("DIAG"))
+    line = next(row for row in out.splitlines() if row.startswith("DIAG"))
     assert line.startswith("DIAG "), line
     diag = json.loads(line[5:])
     assert diag["ok"] is True

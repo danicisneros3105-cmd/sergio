@@ -15,14 +15,29 @@ import traceback
 from pathlib import Path
 from typing import Optional
 
-GEMINI_FIX = "Crea una clave nueva en https://aistudio.google.com/apikey y guárdala con:\n    sergio nube configurar --gemini TU_CLAVE"
+GEMINI_FIX = (
+    "Crea una clave nueva en https://aistudio.google.com/apikey y guárdala con:\n"
+    "    sergio nube configurar --gemini TU_CLAVE"
+)
 SERVICES = (
     ("generativelanguage.googleapis.com", "Google Gemini", GEMINI_FIX),
     ("aiplatform.googleapis.com", "Google Gemini", GEMINI_FIX),
     ("api.openai.com", "OpenAI", "Revisa OPENAI_API_KEY en ~/.openjarvis/sergio.env"),
-    ("api.anthropic.com", "Anthropic", "Revisa ANTHROPIC_API_KEY en ~/.openjarvis/sergio.env"),
-    ("openrouter.ai", "OpenRouter", "Revisa OPENROUTER_API_KEY en ~/.openjarvis/sergio.env"),
-    ("api.tavily.com", "Tavily (búsqueda web)", "Revisa TAVILY_API_KEY en ~/.openjarvis/sergio.env"),
+    (
+        "api.anthropic.com",
+        "Anthropic",
+        "Revisa ANTHROPIC_API_KEY en ~/.openjarvis/sergio.env",
+    ),
+    (
+        "openrouter.ai",
+        "OpenRouter",
+        "Revisa OPENROUTER_API_KEY en ~/.openjarvis/sergio.env",
+    ),
+    (
+        "api.tavily.com",
+        "Tavily (búsqueda web)",
+        "Revisa TAVILY_API_KEY en ~/.openjarvis/sergio.env",
+    ),
     (":11434", "Ollama", "Abre la app Ollama en Windows (o ejecuta: ollama serve)"),
 )
 
@@ -33,9 +48,11 @@ def _who(url: str, server_port: Optional[int]) -> tuple[str, str]:
         if marker in low:
             return name, fix
     if server_port and re.search(rf"(127\.0\.0\.1|localhost):{server_port}\b", low):
-        return ("el servidor de Sergio",
-                "Ese servidor tiene contraseña (OPENJARVIS_API_KEY). Si no la pusiste tú, bórrala de "
-                "~/.openjarvis/sergio.env y reinícialo: sergio servicio apagar && sergio servicio encender")
+        return (
+            "el servidor de Sergio",
+            "Ese servidor tiene contraseña (OPENJARVIS_API_KEY). Si no la pusiste tú, bórrala de "
+            "~/.openjarvis/sergio.env y reinícialo: sergio servicio apagar && sergio servicio encender",
+        )
     host = re.sub(r"^https?://", "", url).split("/")[0] or "un servicio"
     return host, f"Revisa la configuración o la clave de {host}."
 
@@ -75,24 +92,58 @@ def explain(exc: BaseException, server_port: Optional[int] = None) -> tuple[str,
     if "gemini" in low or "google rechaz" in low or "aistudio" in low:
         who, fix = "Google Gemini", GEMINI_FIX
 
-    if (status in (401, 403) or "api key not valid" in low or "unauthenticated" in low
-            or "unauthorized" in low or "rechazó la clave" in low or "invalid api key" in low):
-        return f"{who} rechazó la clave (acceso denegado{f', {status}' if status else ''}).", fix
-    if status == 429 or "quota" in low or "resource_exhausted" in low or "rate limit" in low:
-        return (f"{who} dice que se acabó la cuota por ahora.",
-                "Espera un minuto y repite. Si pasa siempre, tu cuota diaria terminó: vuelve mañana o usa otra clave.")
+    if (
+        status in (401, 403)
+        or "api key not valid" in low
+        or "unauthenticated" in low
+        or "unauthorized" in low
+        or "rechazó la clave" in low
+        or "invalid api key" in low
+    ):
+        return (
+            f"{who} rechazó la clave (acceso denegado{f', {status}' if status else ''}).",
+            fix,
+        )
+    if (
+        status == 429
+        or "quota" in low
+        or "resource_exhausted" in low
+        or "rate limit" in low
+    ):
+        return (
+            f"{who} dice que se acabó la cuota por ahora.",
+            "Espera un minuto y repite. Si pasa siempre, tu cuota diaria terminó: vuelve mañana o usa otra clave.",
+        )
     if status == 404:
-        return f"{who} no encontró lo pedido (404): probablemente el nombre del modelo no existe.", \
-            "Mira los modelos disponibles con: sergio model list"
+        return (
+            f"{who} no encontró lo pedido (404): probablemente el nombre del modelo no existe.",
+            "Mira los modelos disponibles con: sergio model list",
+        )
     if status and status >= 500:
-        return f"{who} tuvo un fallo interno ({status}).", "Repite en un momento; no es un problema de tu equipo."
+        return (
+            f"{who} tuvo un fallo interno ({status}).",
+            "Repite en un momento; no es un problema de tu equipo.",
+        )
     kind = type(exc).__name__.lower()
-    if isinstance(exc, (ConnectionError, TimeoutError)) or "connect" in kind or "timeout" in kind \
-            or "not reachable" in low or "timed out" in low or "refused" in low:
-        return f"No pude conectar con {who}.", fix if who != "un servicio" else \
-            "Comprueba tu conexión a internet o que el programa esté abierto."
+    if (
+        isinstance(exc, (ConnectionError, TimeoutError))
+        or "connect" in kind
+        or "timeout" in kind
+        or "not reachable" in low
+        or "timed out" in low
+        or "refused" in low
+    ):
+        return (
+            f"No pude conectar con {who}.",
+            fix
+            if who != "un servicio"
+            else "Comprueba tu conexión a internet o que el programa esté abierto.",
+        )
     if "no inference engine" in low or "no engine" in low:
-        return "No hay ningún cerebro (modelo) disponible.", GEMINI_FIX + "\n  o abre Ollama."
+        return (
+            "No hay ningún cerebro (modelo) disponible.",
+            GEMINI_FIX + "\n  o abre Ollama.",
+        )
     first = (str(exc).strip().splitlines() or [type(exc).__name__])[0][:300]
     return f"Algo falló: {first}", "Si se repite, envíame el detalle técnico guardado."
 

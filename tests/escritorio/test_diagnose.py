@@ -27,7 +27,10 @@ def test_selftest_route_runs_the_app_test(control_server):
 
     controller, url = control_server
     auth = {"Authorization": "Bearer secreto"}
-    assert httpx.post(f"{url}/selftest", headers=auth, json={"kind": "call"}).status_code == 404
+    assert (
+        httpx.post(f"{url}/selftest", headers=auth, json={"kind": "call"}).status_code
+        == 404
+    )
     controller.selftest = lambda kind: {"ok": True, "kind": kind}
     resp = httpx.post(f"{url}/selftest", headers=auth, json={"kind": "turn"})
     assert resp.json() == {"ok": True, "kind": "turn"}

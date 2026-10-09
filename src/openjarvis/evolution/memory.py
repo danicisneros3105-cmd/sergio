@@ -20,32 +20,51 @@ import uuid
 from pathlib import Path
 from typing import Any, Callable
 
-FOLDER = Path(os.environ.get("OPENJARVIS_HOME") or Path.home() / ".openjarvis") / "memoria"
-RELEVANT = {"semantic": 0.62, "local": 0.12}  # the score that means "about the same thing" in each space
+FOLDER = (
+    Path(os.environ.get("OPENJARVIS_HOME") or Path.home() / ".openjarvis") / "memoria"
+)
+RELEVANT = {
+    "semantic": 0.62,
+    "local": 0.12,
+}  # the score that means "about the same thing" in each space
 
 
 def _folder() -> Path:
     """Where memories live (read at use time, so OPENJARVIS_HOME set later counts)."""
     home = os.environ.get("OPENJARVIS_HOME")
     return Path(home) / "memoria" if home else FOLDER
+
+
 DIMS = 1024  # wide enough that unrelated words rarely collide
 KINDS = ("task", "feedback", "lesson", "blender", "video", "preference")
-STOP = set("""a al algo con como de del el ella en es esa ese esta este haz hazme la las le lo los me mi mas muy
-no o para pero por que quiero se sin su sus te tu un una uno unos unas y ya the of and to in on for with""".split())
+STOP = set(
+    """a al algo con como de del el ella en es esa ese esta este haz hazme la las le lo los me mi mas muy
+no o para pero por que quiero se sin su sus te tu un una uno unos unas y ya the of and to in on for with""".split()
+)
 
 
 def _plain(text: str) -> str:
-    return "".join(c for c in unicodedata.normalize("NFKD", text.lower()) if not unicodedata.combining(c))
+    return "".join(
+        c
+        for c in unicodedata.normalize("NFKD", text.lower())
+        if not unicodedata.combining(c)
+    )
 
 
 def hash_embed(text: str, dims: int = DIMS) -> list[float]:
     """A local embedding: hashed words and word pairs (+ 4-letter stems),
     signed, L2-normalised. No network, stable across runs."""
     words = [w for w in re.findall(r"[a-z0-9]+", _plain(text)) if w not in STOP]
-    feats = words + [w[:4] for w in words if len(w) > 5] + [f"{a}_{b}" for a, b in zip(words, words[1:])]
+    feats = (
+        words
+        + [w[:4] for w in words if len(w) > 5]
+        + [f"{a}_{b}" for a, b in zip(words, words[1:])]
+    )
     vec = [0.0] * dims
     for f in feats:
-        h = int.from_bytes(hashlib.blake2b(f.encode(), digest_size=8).digest(), "little")
+        h = int.from_bytes(
+            hashlib.blake2b(f.encode(), digest_size=8).digest(), "little"
+        )
         vec[h % dims] += 1.0 if (h >> 32) & 1 else -1.0
     norm = math.sqrt(sum(v * v for v in vec)) or 1.0
     return [v / norm for v in vec]
@@ -70,8 +89,11 @@ def gemini_embedder() -> Callable[..., list[list[float]]] | None:
         from google import genai
 
         client = genai.Client(api_key=key)
-        resp = client.models.embed_content(model="gemini-embedding-001", contents=texts,
-                                           config={"output_dimensionality": 768, "task_type": task})
+        resp = client.models.embed_content(
+            model="gemini-embedding-001",
+            contents=texts,
+            config={"output_dimensionality": 768, "task_type": task},
+        )
         return [_unit(list(e.values)) for e in resp.embeddings]
 
     embed.takes_task = True  # type: ignore[attr-defined]
@@ -102,10 +124,21 @@ class JsonCollection:
     def count(self) -> int:
         return len(self._rows)
 
-    def upsert(self, ids: list[str], documents: list[str], metadatas: list[dict], embeddings: list[list[float]]) -> None:
+    def upsert(
+        self,
+        ids: list[str],
+        documents: list[str],
+        metadatas: list[dict],
+        embeddings: list[list[float]],
+    ) -> None:
         with self.path.open("a", encoding="utf-8") as fh:
             for rid, doc, meta, vec in zip(ids, documents, metadatas, embeddings):
-                row = {"id": rid, "text": doc, "meta": meta, "vec": [round(float(v), 6) for v in vec]}
+                row = {
+                    "id": rid,
+                    "text": doc,
+                    "meta": meta,
+                    "vec": [round(float(v), 6) for v in vec],
+                }
                 self._rows[rid] = row
                 fh.write(json.dumps(row, ensure_ascii=False) + "\n")
 
@@ -113,10 +146,18 @@ class JsonCollection:
 
     def get(self, include: list[str] | None = None) -> dict[str, list]:
         rows = list(self._rows.values())
-        return {"ids": [r["id"] for r in rows], "documents": [r["text"] for r in rows],
-                "metadatas": [r["meta"] for r in rows]}
+        return {
+            "ids": [r["id"] for r in rows],
+            "documents": [r["text"] for r in rows],
+            "metadatas": [r["meta"] for r in rows],
+        }
 
-    def query(self, query_embeddings: list[list[float]], n_results: int, where: dict | None = None) -> dict:
+    def query(
+        self,
+        query_embeddings: list[list[float]],
+        n_results: int,
+        where: dict | None = None,
+    ) -> dict:
         q = query_embeddings[0]
         qn = math.sqrt(sum(v * v for v in q)) or 1.0
         allowed = set((where or {}).get("kind", {}).get("$in", [])) if where else set()
@@ -132,8 +173,12 @@ class JsonCollection:
             scored.append((1 - cos, row))
         scored.sort(key=lambda t: t[0])
         top = scored[:n_results]
-        return {"ids": [[r["id"] for _, r in top]], "documents": [[r["text"] for _, r in top]],
-                "metadatas": [[r["meta"] for _, r in top]], "distances": [[d for d, _ in top]]}
+        return {
+            "ids": [[r["id"] for _, r in top]],
+            "documents": [[r["text"] for _, r in top]],
+            "metadatas": [[r["meta"] for _, r in top]],
+            "distances": [[d for d, _ in top]],
+        }
 
 
 class JsonClient:
@@ -142,14 +187,20 @@ class JsonClient:
         folder.mkdir(parents=True, exist_ok=True)
         self._open: dict[str, JsonCollection] = {}
 
-    def get_or_create_collection(self, name: str, metadata: dict[str, Any] | None = None) -> JsonCollection:
+    def get_or_create_collection(
+        self, name: str, metadata: dict[str, Any] | None = None
+    ) -> JsonCollection:
         if name not in self._open:
-            self._open[name] = JsonCollection(self.folder / f"{name}.jsonl", dict(metadata or {}))
+            self._open[name] = JsonCollection(
+                self.folder / f"{name}.jsonl", dict(metadata or {})
+            )
         return self._open[name]
 
 
-SEM_COOLDOWN = 300.0  # seconds to leave the semantic model alone after it fails (quota, offline)
-BACKFILL = 64         # memories copied into the semantic store per recall
+SEM_COOLDOWN = (
+    300.0  # seconds to leave the semantic model alone after it fails (quota, offline)
+)
+BACKFILL = 64  # memories copied into the semantic store per recall
 
 
 class LongTermMemory:
@@ -160,11 +211,19 @@ class LongTermMemory:
     key existed — so recall backfills it and, while it is incomplete, also
     searches the local store, so nothing is ever lost from recall."""
 
-    def __init__(self, folder: Path | None = None, semantic: Callable[..., list[list[float]]] | None = None,
-                 use_gemini: bool = True) -> None:
+    def __init__(
+        self,
+        folder: Path | None = None,
+        semantic: Callable[..., list[list[float]]] | None = None,
+        use_gemini: bool = True,
+    ) -> None:
         self.folder = folder or _folder()
         self.folder.mkdir(parents=True, exist_ok=True)
-        self.semantic = semantic if semantic is not None else (gemini_embedder() if use_gemini else None)
+        self.semantic = (
+            semantic
+            if semantic is not None
+            else (gemini_embedder() if use_gemini else None)
+        )
         self._sem = None
         self._sem_retry_at = 0.0
         try:
@@ -176,7 +235,9 @@ class LongTermMemory:
             # Without chromadb: same API on JSON files, semantic recall included.
             self._client = JsonClient(self.folder / "json")
             self.engine = "json"
-        self._local = self._client.get_or_create_collection("sergio_local", metadata={"hnsw:space": "cosine"})
+        self._local = self._client.get_or_create_collection(
+            "sergio_local", metadata={"hnsw:space": "cosine"}
+        )
         if self.engine == "json":
             self._migrate_old_json()
         if self.semantic is not None:
@@ -198,13 +259,17 @@ class LongTermMemory:
             metas.append(row["meta"])
             vecs.append(hash_embed(row["text"]))
         if ids:
-            self._local.upsert(ids=ids, documents=docs, metadatas=metas, embeddings=vecs)
+            self._local.upsert(
+                ids=ids, documents=docs, metadatas=metas, embeddings=vecs
+            )
         old.rename(old.with_suffix(".jsonl.migrated"))
 
     # -- the semantic store ----------------------------------------------------
     def _embed(self, texts: list[str], query: bool = False) -> list[list[float]]:
         if getattr(self.semantic, "takes_task", False):
-            return self.semantic(texts, task="RETRIEVAL_QUERY" if query else "RETRIEVAL_DOCUMENT")
+            return self.semantic(
+                texts, task="RETRIEVAL_QUERY" if query else "RETRIEVAL_DOCUMENT"
+            )
         return self.semantic(texts)
 
     def _semantic_ready(self) -> bool:
@@ -226,7 +291,8 @@ class LongTermMemory:
         if self._sem is not None and self._sem.metadata.get("dims") == dims:
             return
         self._sem = self._client.get_or_create_collection(
-            f"sergio_semantic_{dims}", metadata={"hnsw:space": "cosine", "dims": dims})
+            f"sergio_semantic_{dims}", metadata={"hnsw:space": "cosine", "dims": dims}
+        )
         marker.write_text(json.dumps({"dims": dims}), encoding="utf-8")
 
     def _sem_add(self, ids: list[str], docs: list[str], metas: list[dict]) -> bool:
@@ -248,7 +314,11 @@ class LongTermMemory:
         if self._sem is not None and len(have) >= self._local.count():
             return
         local = self._local.get(include=["documents", "metadatas"])
-        missing = [(i, d, m) for i, d, m in zip(local["ids"], local["documents"], local["metadatas"]) if i not in have]
+        missing = [
+            (i, d, m)
+            for i, d, m in zip(local["ids"], local["documents"], local["metadatas"])
+            if i not in have
+        ]
         missing = missing[-limit:]  # the newest first matter most
         if missing:
             ids, docs, metas = (list(x) for x in zip(*missing))
@@ -263,17 +333,28 @@ class LongTermMemory:
         text = " ".join(str(text).split())[:4000]
         if not text:
             return ""
-        meta = {k: (v if isinstance(v, (str, int, float, bool)) else json.dumps(v, ensure_ascii=False))
-                for k, v in meta.items() if v is not None}
+        meta = {
+            k: (
+                v
+                if isinstance(v, (str, int, float, bool))
+                else json.dumps(v, ensure_ascii=False)
+            )
+            for k, v in meta.items()
+            if v is not None
+        }
         meta.update({"kind": kind if kind in KINDS else "task", "time": time.time()})
         rid = uuid.uuid4().hex
-        self._local.add(ids=[rid], documents=[text], metadatas=[meta], embeddings=[hash_embed(text)])
+        self._local.add(
+            ids=[rid], documents=[text], metadatas=[meta], embeddings=[hash_embed(text)]
+        )
         if self._semantic_ready():
             self._sem_add([rid], [text], [meta])
         return rid
 
     # -- reading ---------------------------------------------------------------
-    def recall(self, query: str, k: int = 5, kinds: tuple[str, ...] | None = None) -> list[dict[str, Any]]:
+    def recall(
+        self, query: str, k: int = 5, kinds: tuple[str, ...] | None = None
+    ) -> list[dict[str, Any]]:
         """The *k* memories closest in meaning to *query* (optionally of some kinds)."""
         if not query.strip():
             return []
@@ -284,42 +365,76 @@ class LongTermMemory:
         if self._sem is not None and self._sem.count() and self._semantic_ready():
             stores.append((self._sem, "semantic"))
         if not stores or not self._sem_complete():
-            stores.append((self._local, "local"))  # never let a gap in the semantic store hide a memory
+            stores.append(
+                (self._local, "local")
+            )  # never let a gap in the semantic store hide a memory
         for coll, space in stores:
             if coll.count() == 0:
                 continue
             try:
-                vec = self._embed([query], query=True) if space == "semantic" else [hash_embed(query)]
+                vec = (
+                    self._embed([query], query=True)
+                    if space == "semantic"
+                    else [hash_embed(query)]
+                )
                 if space == "semantic" and len(vec[0]) != coll.metadata.get("dims"):
-                    raise ValueError("the semantic model changed size; backfill will rebuild")
-                res = coll.query(query_embeddings=vec, n_results=min(k, coll.count()), where=where)
+                    raise ValueError(
+                        "the semantic model changed size; backfill will rebuild"
+                    )
+                res = coll.query(
+                    query_embeddings=vec, n_results=min(k, coll.count()), where=where
+                )
             except Exception:  # noqa: BLE001 — next store
                 if space == "semantic":
                     self._semantic_failed()
                     if (self._local, "local") not in stores:
                         stores.append((self._local, "local"))
                 continue
-            for rid, doc, meta, dist in zip(res["ids"][0], res["documents"][0], res["metadatas"][0],
-                                            res["distances"][0]):
-                if rid not in found:  # the semantic hit wins over the local copy of the same memory
-                    found[rid] = {"text": doc, "kind": meta.get("kind"), "meta": meta,
-                                  "score": round(1 - float(dist), 3), "space": space}
+            for rid, doc, meta, dist in zip(
+                res["ids"][0],
+                res["documents"][0],
+                res["metadatas"][0],
+                res["distances"][0],
+            ):
+                if (
+                    rid not in found
+                ):  # the semantic hit wins over the local copy of the same memory
+                    found[rid] = {
+                        "text": doc,
+                        "kind": meta.get("kind"),
+                        "meta": meta,
+                        "score": round(1 - float(dist), 3),
+                        "space": space,
+                    }
         # each space has its own scale, so rank by how far above its own relevance bar a hit is
-        ranked = sorted(found.values(), key=lambda m: -(m["score"] - RELEVANT[m["space"]]))
+        ranked = sorted(
+            found.values(), key=lambda m: -(m["score"] - RELEVANT[m["space"]])
+        )
         return ranked[:k]
 
-    def lessons_for(self, query: str, kinds: tuple[str, ...] = ("lesson", "feedback", "blender", "video"),
-                    k: int = 4, min_score: float | None = None) -> str:
+    def lessons_for(
+        self,
+        query: str,
+        kinds: tuple[str, ...] = ("lesson", "feedback", "blender", "video"),
+        k: int = 4,
+        min_score: float | None = None,
+    ) -> str:
         """The closest lessons as a prompt block ("" when nothing relevant).
         Relevance: Gemini embeddings put unrelated texts around 0.5, the
         local ones around 0, so each has its own bar."""
-        found = [m for m in self.recall(query, k, kinds)
-                 if m["score"] >= (min_score if min_score is not None else RELEVANT[m["space"]])]
+        found = [
+            m
+            for m in self.recall(query, k, kinds)
+            if m["score"]
+            >= (min_score if min_score is not None else RELEVANT[m["space"]])
+        ]
         if not found:
             return ""
         lines = [f"- ({m['kind']}) {m['text'][:400]}" for m in found]
-        return ("LESSONS FROM YOUR LONG-TERM MEMORY (past results and the user's feedback on similar work — "
-                "apply them, do not repeat those mistakes):\n" + "\n".join(lines) + "\n")
+        return (
+            "LESSONS FROM YOUR LONG-TERM MEMORY (past results and the user's feedback on similar work — "
+            "apply them, do not repeat those mistakes):\n" + "\n".join(lines) + "\n"
+        )
 
     def feedback(self, text: str, rating: int = 0, about: str = "") -> str:
         """The user's opinion of a result (rating -1 bad, 0 note, +1 good),
@@ -331,8 +446,12 @@ class LongTermMemory:
     def stats(self) -> dict[str, Any]:
         total = self._local.count()
         semantic = self._sem.count() if self._sem is not None else 0
-        return {"engine": self.engine, "memories": total, "semantic": bool(self.semantic),
-                "semantic_memories": semantic}
+        return {
+            "engine": self.engine,
+            "memories": total,
+            "semantic": bool(self.semantic),
+            "semantic_memories": semantic,
+        }
 
 
 _shared: list[LongTermMemory] = []
@@ -345,7 +464,9 @@ def shared() -> LongTermMemory:
     return _shared[0]
 
 
-def lessons(query: str, kinds: tuple[str, ...] = ("lesson", "feedback", "blender", "video")) -> str:
+def lessons(
+    query: str, kinds: tuple[str, ...] = ("lesson", "feedback", "blender", "video")
+) -> str:
     """Lessons for a prompt; never fails (memory is a bonus)."""
     try:
         return shared().lessons_for(query, kinds)
@@ -353,4 +474,11 @@ def lessons(query: str, kinds: tuple[str, ...] = ("lesson", "feedback", "blender
         return ""
 
 
-__all__ = ["JsonClient", "JsonCollection", "LongTermMemory", "hash_embed", "lessons", "shared"]
+__all__ = [
+    "JsonClient",
+    "JsonCollection",
+    "LongTermMemory",
+    "hash_embed",
+    "lessons",
+    "shared",
+]

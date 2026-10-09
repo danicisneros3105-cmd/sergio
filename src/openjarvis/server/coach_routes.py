@@ -72,7 +72,9 @@ async def plan(req: PlanRequest) -> dict[str, Any]:
 
     if not req.goal.strip():
         raise HTTPException(status_code=400, detail="¿Qué quieres aprender?")
-    return await _run(make_plan, req.goal.strip(), req.kind, req.profile, req.free_slots)
+    return await _run(
+        make_plan, req.goal.strip(), req.kind, req.profile, req.free_slots
+    )
 
 
 @router.post("/lesson")
@@ -122,14 +124,32 @@ async def health(req: HealthRequest) -> dict[str, Any]:
 async def therapy(req: TherapyRequest) -> dict[str, Any]:
     from openjarvis.coach.tasks import CRISIS, at_risk, therapy_turn
 
-    last = next((m.get("content", "") for m in reversed(req.messages) if m.get("role") == "user"), "")
+    last = next(
+        (
+            m.get("content", "")
+            for m in reversed(req.messages)
+            if m.get("role") == "user"
+        ),
+        "",
+    )
     try:
         return await asyncio.to_thread(
-            therapy_turn, req.messages, req.notes, req.profile, crisis=req.crisis, language=req.language
+            therapy_turn,
+            req.messages,
+            req.notes,
+            req.profile,
+            crisis=req.crisis,
+            language=req.language,
         )
     except RuntimeError as exc:
         if at_risk(last):  # never leave someone at risk without the lines
-            return {"respuesta": req.crisis or CRISIS, "riesgo": "alto", "nota": {}, "animo": 0, "temas": []}
+            return {
+                "respuesta": req.crisis or CRISIS,
+                "riesgo": "alto",
+                "nota": {},
+                "animo": 0,
+                "temas": [],
+            }
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
 

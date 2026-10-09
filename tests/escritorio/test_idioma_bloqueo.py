@@ -22,7 +22,13 @@ def test_the_crisis_message_is_in_the_users_language_with_their_numbers():
 
 
 def test_risk_is_heard_in_every_language():
-    for said in ("quiero morir", "I want to die", "quero morrer", "envie de mourir", "voglio morire"):
+    for said in (
+        "quiero morir",
+        "I want to die",
+        "quero morrer",
+        "envie de mourir",
+        "voglio morire",
+    ):
         assert idioma.at_risk(said), said
     assert not idioma.at_risk("me muero de risa con este video")
 
@@ -37,16 +43,26 @@ def test_language_and_country_by_voice():
 
 
 def test_the_interface_speaks_six_languages():
-    assert idioma.t("tab_all", "en") == "All" and idioma.t("tab_settings", "de") == "Einstellungen"
+    assert (
+        idioma.t("tab_all", "en") == "All"
+        and idioma.t("tab_settings", "de") == "Einstellungen"
+    )
     assert idioma.t("cams", "pt") == "Câmeras ao vivo"
-    assert all(set(table) == set(idioma.UI_LANGUAGES) for table in idioma.TEXTS.values())
-    assert "Spanish" not in idioma.speak_rule("en") and "«sir»" in idioma.speak_rule("en")
+    assert all(
+        set(table) == set(idioma.UI_LANGUAGES) for table in idioma.TEXTS.values()
+    )
+    assert "Spanish" not in idioma.speak_rule("en") and "«sir»" in idioma.speak_rule(
+        "en"
+    )
 
 
 def test_what_people_say_becomes_programs_and_sites():
     assert bloqueo.program("Discord") == "discord.exe"
     assert bloqueo.program("configuración") == "systemsettings.exe"
-    assert bloqueo.site("https://www.YouTube.com/") == "youtube.com" and bloqueo.site("tiktok") == "tiktok.com"
+    assert (
+        bloqueo.site("https://www.YouTube.com/") == "youtube.com"
+        and bloqueo.site("tiktok") == "tiktok.com"
+    )
     assert bloqueo.parse_block("bloquea youtube.com") == ("sites", "youtube.com")
     assert bloqueo.parse_block("bloquea la app Steam") == ("apps", "Steam")
     assert bloqueo.parse_block("bloquea búsquedas de casino") == ("words", "casino")
@@ -74,8 +90,12 @@ def test_the_guard_closes_blocked_apps_and_searches_only_while_on(tmp_path):
     store.list.add("words", "casino")
     procs = [Proc("Discord.exe"), Proc("explorer.exe"), Proc("chrome.exe")]
     tabs = []
-    guard = bloqueo.Guard(store, processes=lambda: procs, title=lambda: "casino online - Buscar con Google",
-                          close_tab=lambda: tabs.append(1))
+    guard = bloqueo.Guard(
+        store,
+        processes=lambda: procs,
+        title=lambda: "casino online - Buscar con Google",
+        close_tab=lambda: tabs.append(1),
+    )
     assert guard.check() == [] and not procs[0].killed  # off: nothing happens
     store.list.on = True
     assert guard.check() == ["discord.exe", "búsqueda"]
@@ -114,8 +134,13 @@ def test_websites_use_each_browsers_own_policy_and_are_cleared(tmp_path):
     store.list.add("sites", "youtube.com")
     store.list.add("sites", "tiktok.com")
     said = bloqueo.switch_on(store, reg)
-    assert "Chrome" in said and reg.keys[bloqueo.BROWSERS["Edge"]] == {"1": "youtube.com", "2": "tiktok.com"}
-    assert bloqueo.switch_off(store, approved=False, registry=reg).startswith("Solo el dueño")
+    assert "Chrome" in said and reg.keys[bloqueo.BROWSERS["Edge"]] == {
+        "1": "youtube.com",
+        "2": "tiktok.com",
+    }
+    assert bloqueo.switch_off(store, approved=False, registry=reg).startswith(
+        "Solo el dueño"
+    )
     assert store.list.on
     bloqueo.switch_off(store, approved=True, registry=reg)
     assert not store.list.on and reg.keys[bloqueo.BROWSERS["Chrome"]] == {}

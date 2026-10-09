@@ -822,13 +822,18 @@ async def test_stream_full_google_unknown_signature_gets_the_placeholder(
         Message(
             role=Role.ASSISTANT,
             content="Uso la calculadora.",
-            tool_calls=[ToolCall(id="lost", name="calculator", arguments='{"e": "2+2"}')],
+            tool_calls=[
+                ToolCall(id="lost", name="calculator", arguments='{"e": "2+2"}')
+            ],
         ),
         Message(role=Role.TOOL, name="calculator", content="4"),
     ]
     with monkeypatch.context() as patch:
         for name, module in _google_types_modules().items():
             patch.setitem(sys.modules, name, module)
-        _ = [c async for c in engine.stream_full(messages, model="gemini-3-flash-preview")]
+        _ = [
+            c
+            async for c in engine.stream_full(messages, model="gemini-3-flash-preview")
+        ]
     contents = client.models.generate_content_stream.call_args.kwargs["contents"]
     assert contents[1]["parts"][1]["thought_signature"] == SKIP_SIGNATURE

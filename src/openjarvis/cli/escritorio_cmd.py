@@ -47,7 +47,12 @@ MIN_TURNS = 25  # a desktop task is many small look-then-act steps
 VISION_MODEL = "qwen2.5vl:7b"
 
 
-SERVER_EXTRAS = ("faces", "evolution", "cad", "tripo")  # what the desktop features need on the server
+SERVER_EXTRAS = (
+    "faces",
+    "evolution",
+    "cad",
+    "tripo",
+)  # what the desktop features need on the server
 
 
 def sync_server(extras: tuple[str, ...] = SERVER_EXTRAS, run=None) -> bool:
@@ -92,7 +97,9 @@ def clean_server(repo: Path, run=None) -> None:
     console.print("Limpiando versiones viejas (caché, Pythons reemplazados, git)…")
     try:
         if Path(uv).exists():
-            limpieza.clean_python(uv, [sys.executable, getattr(sys, "_base_executable", "")], run)
+            limpieza.clean_python(
+                uv, [sys.executable, getattr(sys, "_base_executable", "")], run
+            )
         limpieza.clean_git(repo, run)
     except OSError:
         pass

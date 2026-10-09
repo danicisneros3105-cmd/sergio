@@ -210,5 +210,8 @@ def test_elevenlabs_request_is_the_low_latency_one():
 
     url, params, body = request("hola", "elevenlabs:")
     assert url.endswith(f"/text-to-speech/{VOICE_ID}/stream")
-    assert params["output_format"] == "pcm_24000" and body["model_id"] == "eleven_flash_v2_5"
+    assert (
+        params["output_format"] == "pcm_24000"
+        and body["model_id"] == "eleven_flash_v2_5"
+    )
     assert body["language_code"] == "es"

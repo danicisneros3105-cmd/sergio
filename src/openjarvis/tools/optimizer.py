@@ -61,18 +61,35 @@ def _hotspots(stats: pstats.Stats, top: int) -> list[Hotspot]:
     return sorted(rows, key=lambda h: -h.own_s)[:top]
 
 
-def profile_call(fn: Callable[..., Any], *args: Any, top: int = 10, **kwargs: Any) -> tuple[Any, list[Hotspot]]:
+def profile_call(
+    fn: Callable[..., Any], *args: Any, top: int = 10, **kwargs: Any
+) -> tuple[Any, list[Hotspot]]:
     prof = cProfile.Profile()
     result = prof.runcall(fn, *args, **kwargs)
     return result, _hotspots(pstats.Stats(prof, stream=io.StringIO()), top)
 
 
-def profile_script(path: Path, args: list[str] | None = None, top: int = 10, timeout: float = 300.0) -> list[Hotspot]:
+def profile_script(
+    path: Path, args: list[str] | None = None, top: int = 10, timeout: float = 300.0
+) -> list[Hotspot]:
     """Profile a script in a subprocess; hotspots in that script's own files first."""
     with tempfile.TemporaryDirectory() as tmp:
         out = Path(tmp) / "prof.out"
-        subprocess.run([sys.executable, "-m", "cProfile", "-o", str(out), str(path), *(args or [])],
-                       capture_output=True, text=True, timeout=timeout, cwd=path.parent)
+        subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "cProfile",
+                "-o",
+                str(out),
+                str(path),
+                *(args or []),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            cwd=path.parent,
+        )
         if not out.exists():
             return []
         stats = pstats.Stats(str(out), stream=io.StringIO())
@@ -82,11 +99,14 @@ def profile_script(path: Path, args: list[str] | None = None, top: int = 10, tim
 
 
 def format_profile(spots: list[Hotspot]) -> str:
-    return "\n".join(f"{h.function} ({Path(h.file).name}:{h.line}) calls={h.calls} own={h.own_s:.4f}s "
-                     f"cum={h.cumulative_s:.4f}s" for h in spots)
+    return "\n".join(
+        f"{h.function} ({Path(h.file).name}:{h.line}) calls={h.calls} own={h.own_s:.4f}s "
+        f"cum={h.cumulative_s:.4f}s"
+        for h in spots
+    )
 
 
-_BENCH = '''
+_BENCH = """
 import json, statistics, sys, time
 {setup}
 {source}
@@ -99,20 +119,36 @@ for _ in range({repeats}):
         {name}(*a)
     times.append(time.perf_counter() - t)
 print(json.dumps({{"outs": outs, "median": statistics.median(times)}}))
-'''
+"""
 
 
-def benchmark(source: str, name: str, inputs: list[list[Any]], *, setup: str = "", repeats: int = 5,
-              timeout: float = 120.0) -> dict:
+def benchmark(
+    source: str,
+    name: str,
+    inputs: list[list[Any]],
+    *,
+    setup: str = "",
+    repeats: int = 5,
+    timeout: float = 120.0,
+) -> dict:
     """Run *name* from *source* on *inputs* in a fresh Python: outputs + median time."""
-    script = _BENCH.format(setup=setup, source=textwrap.dedent(source), name=name, repeats=repeats)
+    script = _BENCH.format(
+        setup=setup, source=textwrap.dedent(source), name=name, repeats=repeats
+    )
     with tempfile.TemporaryDirectory() as tmp:
         file = Path(tmp) / "bench.py"
         file.write_text(script, "utf-8")
-        proc = subprocess.run([sys.executable, "-I", str(file), json.dumps(inputs)], capture_output=True,
-                              text=True, timeout=timeout, cwd=tmp)
+        proc = subprocess.run(
+            [sys.executable, "-I", str(file), json.dumps(inputs)],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            cwd=tmp,
+        )
     if proc.returncode != 0:
-        raise RuntimeError((proc.stderr.strip().splitlines() or ["benchmark failed"])[-1])
+        raise RuntimeError(
+            (proc.stderr.strip().splitlines() or ["benchmark failed"])[-1]
+        )
     return json.loads(proc.stdout.strip().splitlines()[-1])
 
 
@@ -143,25 +179,60 @@ def optimize_function(
     """Ask for a faster *name*; accept only if equal outputs and faster."""
     model = as_llm(llm)
     before = benchmark(source, name, inputs, setup=setup)
-    candidate = code_block(model(OPTIMIZE_PROMPT.format(share=share, profile=format_profile(profile or []) or
-                                                        f"median {before['median']:.6f}s on the sample inputs",
-                                                        source=source), temperature=0.3))
+    candidate = code_block(
+        model(
+            OPTIMIZE_PROMPT.format(
+                share=share,
+                profile=format_profile(profile or [])
+                or f"median {before['median']:.6f}s on the sample inputs",
+                source=source,
+            ),
+            temperature=0.3,
+        )
+    )
     try:
         after = benchmark(candidate, name, inputs, setup=setup)
     except (RuntimeError, subprocess.TimeoutExpired) as exc:
-        return Optimization(False, source, candidate, 0.0, False, f"candidate failed to run: {exc}",
-                            before["median"], 0.0, profile or [])
+        return Optimization(
+            False,
+            source,
+            candidate,
+            0.0,
+            False,
+            f"candidate failed to run: {exc}",
+            before["median"],
+            0.0,
+            profile or [],
+        )
     same = after["outs"] == before["outs"]
-    speedup = before["median"] / after["median"] if after["median"] > 0 else float("inf")
+    speedup = (
+        before["median"] / after["median"] if after["median"] > 0 else float("inf")
+    )
     if not same:
         reason = "rejected: different results"
     elif speedup < min_speedup:
         reason = f"rejected: only {speedup:.2f}x faster"
     else:
         reason = f"accepted: {speedup:.1f}x faster, same results"
-    return Optimization(same and speedup >= min_speedup, source, candidate, round(speedup, 2), same, reason,
-                        before["median"], after["median"], profile or [])
+    return Optimization(
+        same and speedup >= min_speedup,
+        source,
+        candidate,
+        round(speedup, 2),
+        same,
+        reason,
+        before["median"],
+        after["median"],
+        profile or [],
+    )
 
 
-__all__ = ["Hotspot", "Optimization", "benchmark", "format_profile", "optimize_function", "profile_call",
-           "profile_script"]
+__all__ = [
+    "Hotspot",
+    "Optimization",
+    "benchmark",
+    "format_profile",
+    "optimize_function",
+    "profile_call",
+    "profile_script",
+]

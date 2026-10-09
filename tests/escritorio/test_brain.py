@@ -39,7 +39,18 @@ def test_the_best_evidenced_come_twice_as_often_and_all_explain_why():
 
     counts = Counter(b.SCHEDULE)
     assert set(counts) == {e.kind for e in b.EXERCISES}
-    assert all(counts[k] == 2 for k in ("nback", "matrices", "rotacion", "repaso", "inductivo", "doble", "alternancia"))
+    assert all(
+        counts[k] == 2
+        for k in (
+            "nback",
+            "matrices",
+            "rotacion",
+            "repaso",
+            "inductivo",
+            "doble",
+            "alternancia",
+        )
+    )
     assert all(b.EVIDENCE.get(e.kind) for e in (*b.EXERCISES, b.PROBE))
 
 
@@ -55,7 +66,10 @@ def test_spaced_retrieval_deck():
     soon = deck.pick(700.0, 2, rng)
     assert soon[0] == first[1] and first[0] not in soon
     deck.review(first[0], True, 86400.0)
-    assert deck.boxes[str(first[0])] == 2 and deck.due[str(first[0])] == 86400.0 + 3 * 86400
+    assert (
+        deck.boxes[str(first[0])] == 2
+        and deck.due[str(first[0])] == 86400.0 + 3 * 86400
+    )
     again = b.Deck.from_json(deck.to_json())
     assert again == deck
 
@@ -121,8 +135,8 @@ def test_relational_comparison_can_be_derived():
         changed = True
         while changed:
             changed = False
-            for (p, q) in list(bigger):
-                for (r, s) in list(bigger):
+            for p, q in list(bigger):
+                for r, s in list(bigger):
                     if q == r and (p, s) not in bigger:
                         bigger.add((p, s))
                         changed = True

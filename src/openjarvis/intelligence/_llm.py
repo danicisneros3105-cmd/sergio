@@ -39,7 +39,9 @@ class LLM:
     ) -> str:
         self.calls += 1
         if self._takes_options:
-            out = self._fn(prompt, system=system, temperature=temperature, max_tokens=max_tokens)
+            out = self._fn(
+                prompt, system=system, temperature=temperature, max_tokens=max_tokens
+            )
         else:
             out = self._fn(prompt)
         return str(out or "")
@@ -48,13 +50,19 @@ class LLM:
     def from_engine(cls, engine: Any, model: str) -> "LLM":
         """Wrap an inference engine (``engine.generate(messages, model=...)``)."""
 
-        def ask(prompt: str, system: Optional[str] = None, temperature: float = 0.7,
-                max_tokens: int = 2048) -> str:
+        def ask(
+            prompt: str,
+            system: Optional[str] = None,
+            temperature: float = 0.7,
+            max_tokens: int = 2048,
+        ) -> str:
             messages = []
             if system:
                 messages.append(Message(role=Role.SYSTEM, content=system))
             messages.append(Message(role=Role.USER, content=prompt))
-            result = engine.generate(messages, model=model, temperature=temperature, max_tokens=max_tokens)
+            result = engine.generate(
+                messages, model=model, temperature=temperature, max_tokens=max_tokens
+            )
             return str((result or {}).get("content") or "")
 
         return cls(ask, name=f"{getattr(engine, 'engine_id', 'engine')}:{model}")
@@ -68,7 +76,9 @@ class LLM:
         config = load_config()
         resolved = get_engine(config)
         if resolved is None:
-            raise RuntimeError("No inference engine available (start Ollama or set a Gemini key).")
+            raise RuntimeError(
+                "No inference engine available (start Ollama or set a Gemini key)."
+            )
         _, engine = resolved
         model = config.intelligence.default_model
         if not model:
@@ -142,7 +152,9 @@ def parse_json(text: str) -> Any:
     return None
 
 
-def clamp(value: Any, low: float = 0.0, high: float = 10.0, default: float = 0.0) -> float:
+def clamp(
+    value: Any, low: float = 0.0, high: float = 10.0, default: float = 0.0
+) -> float:
     """A number from model output, kept inside [low, high]."""
     try:
         number = float(value)

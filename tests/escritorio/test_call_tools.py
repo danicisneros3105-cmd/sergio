@@ -20,8 +20,18 @@ def _tools(**kw):
 
 def test_every_tool_has_a_gemini_safe_declaration():
     tools, _ = _tools()
-    assert {"colgar", "abrir", "cerrar", "camara", "hologramas", "recordatorio",
-            "estado_sistema", "tarea", "gimnasio_mental", "senalar"} <= set(tools)
+    assert {
+        "colgar",
+        "abrir",
+        "cerrar",
+        "camara",
+        "hologramas",
+        "recordatorio",
+        "estado_sistema",
+        "tarea",
+        "gimnasio_mental",
+        "senalar",
+    } <= set(tools)
     for tool in tools.values():
         decl = tool.declaration()
         assert decl["parameters"]["type"] == "object"
@@ -39,7 +49,10 @@ def test_open_sites_and_apps_and_close():
         {"action": "open", "target": "https://www.youtube.com"},
         {"action": "open_app", "target": "Spotify"},
         {"action": "close_app", "target": "Spotify"},
-        {"action": "open", "target": "https://www.youtube.com/results?search_query=nvidia+rtx"},
+        {
+            "action": "open",
+            "target": "https://www.youtube.com/results?search_query=nvidia+rtx",
+        },
     ]
 
 
@@ -47,7 +60,10 @@ def test_volume_and_media_keys():
     tools, acts = _tools()
     tools["volumen"].run({"accion": "subir", "pasos": 3})
     tools["multimedia"].run({"accion": "siguiente"})
-    assert [(a["keys"], a.get("repeat", 1)) for a in acts] == [("volumeup", 3), ("nexttrack", 1)]
+    assert [(a["keys"], a.get("repeat", 1)) for a in acts] == [
+        ("volumeup", 3),
+        ("nexttrack", 1),
+    ]
 
 
 def test_reminders_by_minutes_or_time():
@@ -64,7 +80,9 @@ def test_reminders_by_minutes_or_time():
 def test_status_and_pending():
     tools, _ = _tools(
         status=lambda: {"battery": 81, "charging": True, "cpu": 12},
-        reminders=lambda: [Reminder("a", datetime(2026, 10, 4, 15, 30).timestamp(), "pan")],
+        reminders=lambda: [
+            Reminder("a", datetime(2026, 10, 4, 15, 30).timestamp(), "pan")
+        ],
     )
     assert "batería al 81%" in tools["estado_sistema"].run({})
     assert tools["recordatorios_pendientes"].run({}) == "pan en 10 minutos"
@@ -73,8 +91,16 @@ def test_status_and_pending():
 def test_point_at_something_on_screen():
     pointed = []
     tools, _ = _tools(
-        snapshot=lambda: (b"png", [{"id": 1, "x": 100, "y": 50, "name": "Exportar"}], 2.0),
-        screen_help=lambda png, q, els: {"answer": "Aquí.", "element": 1, "label": "Exportar"},
+        snapshot=lambda: (
+            b"png",
+            [{"id": 1, "x": 100, "y": 50, "name": "Exportar"}],
+            2.0,
+        ),
+        screen_help=lambda png, q, els: {
+            "answer": "Aquí.",
+            "element": 1,
+            "label": "Exportar",
+        },
         point=lambda x, y, label: pointed.append((x, y, label)),
     )
     assert tools["senalar"].run({"que": "Exportar"}).startswith("Lo señalé")
@@ -104,7 +130,9 @@ def test_saying_sergio_opens_a_call_with_that_sentence():
             return httpx.Response(200, json={"text": "Sergio, abre Spotify"})
         return httpx.Response(404)
 
-    client = SergioClient("http://s.test", http=httpx.Client(transport=httpx.MockTransport(handler)))
+    client = SergioClient(
+        "http://s.test", http=httpx.Client(transport=httpx.MockTransport(handler))
+    )
     a = Assistant(client, ui=UI(), chime=lambda f: None, player=lambda w: None)
     started = []
     a.start_call = lambda wav: started.append(wav) or True

@@ -55,8 +55,17 @@ TOOLS = {
     "desktop_action": ("pantalla", "windows"),
     "screen_read": ("pantalla", "windows"),
 }
-NEVER = {"whatsapp_send", "phone_call", "channel_send", "agent_spawn", "agent_kill", "shell_exec",
-         "docker_shell_exec", "git_commit", "execute_pending_actions"}
+NEVER = {
+    "whatsapp_send",
+    "phone_call",
+    "channel_send",
+    "agent_spawn",
+    "agent_kill",
+    "shell_exec",
+    "docker_shell_exec",
+    "git_commit",
+    "execute_pending_actions",
+}
 RISKY = re.compile(
     r"\b(borra|elimina|env[ií]a|manda|publica|sube|paga|compra|transfiere|instala|desinstala|"
     r"apaga|reinicia|delete|send|publish|pay|buy|install|uninstall)\w*"
@@ -103,7 +112,11 @@ def validate_plan(data: Any, request: str) -> dict[str, Any]:
         text = " ".join(str(raw.get("paso") or raw.get("step") or "").split())
         if not text:
             continue
-        tools = [str(t) for t in raw.get("herramientas") or raw.get("tools") or [] if isinstance(t, str)]
+        tools = [
+            str(t)
+            for t in raw.get("herramientas") or raw.get("tools") or []
+            if isinstance(t, str)
+        ]
         if any(t in NEVER for t in tools):
             dropped.append(text)
             continue
@@ -113,17 +126,27 @@ def validate_plan(data: Any, request: str) -> dict[str, Any]:
         if any(TOOLS[t][0] == "pantalla" for t in tools):
             where = "pantalla"  # a screen tool always needs the screen
         if where not in ("fondo", "pantalla"):
-            where = "fondo" if tools and all(TOOLS[t][0] == "fondo" for t in tools) else "pantalla"
+            where = (
+                "fondo"
+                if tools and all(TOOLS[t][0] == "fondo" for t in tools)
+                else "pantalla"
+            )
         platform = str(raw.get("plataforma") or raw.get("platform") or "").lower()
         if platform not in ("windows", "ubuntu", "web"):
-            platform = TOOLS[tools[0]][1] if tools else ("windows" if where == "pantalla" else "web")
+            platform = (
+                TOOLS[tools[0]][1]
+                if tools
+                else ("windows" if where == "pantalla" else "web")
+            )
         steps.append(
             {
                 "paso": text[:400],
                 "donde": where,
                 "plataforma": platform,
                 "herramientas": tools,
-                "comprobar": " ".join(str(raw.get("comprobar") or raw.get("check") or "").split())[:200],
+                "comprobar": " ".join(
+                    str(raw.get("comprobar") or raw.get("check") or "").split()
+                )[:200],
                 "importante": bool(RISKY.search(text)),
                 "inventadas": unknown,  # tools the model made up (removed)
                 **_needs(raw, len(steps)),
@@ -133,9 +156,20 @@ def validate_plan(data: Any, request: str) -> dict[str, Any]:
         if len(steps) >= MAX_STEPS:
             break
     if not steps:  # no usable plan: the whole request as one careful step
-        steps = [{"paso": request, "donde": "pantalla", "plataforma": "windows", "herramientas": [],
-                  "comprobar": "", "importante": bool(RISKY.search(request)), "inventadas": []}]
-    title = " ".join(str(data.get("titulo") or data.get("title") or request).split())[:50]
+        steps = [
+            {
+                "paso": request,
+                "donde": "pantalla",
+                "plataforma": "windows",
+                "herramientas": [],
+                "comprobar": "",
+                "importante": bool(RISKY.search(request)),
+                "inventadas": [],
+            }
+        ]
+    title = " ".join(str(data.get("titulo") or data.get("title") or request).split())[
+        :50
+    ]
     return {"titulo": title, "pasos": steps, "descartados": dropped}
 
 
@@ -145,7 +179,15 @@ def _needs(raw: dict[str, Any], index: int) -> dict[str, Any]:
     needs = raw.get("depende_de", raw.get("depends_on"))
     if not isinstance(needs, list):
         return {}
-    return {"depende_de": sorted({n for n in needs if isinstance(n, int) and not isinstance(n, bool) and 1 <= n <= index})}
+    return {
+        "depende_de": sorted(
+            {
+                n
+                for n in needs
+                if isinstance(n, int) and not isinstance(n, bool) and 1 <= n <= index
+            }
+        )
+    }
 
 
 def _fanout(raw: dict[str, Any]) -> dict[str, Any]:
@@ -169,12 +211,21 @@ _cache_lock = threading.Lock()
 
 def _key(request: str, tools: list[str] | None, role: str) -> str:
     text = unicodedata.normalize("NFKD", request.lower())
-    text = " ".join("".join(c for c in text if not unicodedata.combining(c) and (c.isalnum() or c.isspace())).split())
+    text = " ".join(
+        "".join(
+            c
+            for c in text
+            if not unicodedata.combining(c) and (c.isalnum() or c.isspace())
+        ).split()
+    )
     return f"{text}|{','.join(sorted(tools or []))}|{role}"
 
 
 def plan_task(
-    request: str, ask: Callable[..., Any] | None = None, tools: list[str] | None = None, role: str = ""
+    request: str,
+    ask: Callable[..., Any] | None = None,
+    tools: list[str] | None = None,
+    role: str = "",
 ) -> dict[str, Any]:
     """*tools*: an agent's own toolbox (a subset); *role*: its instructions."""
     key = _key(request, tools, role) if ask is None else ""  # tests pass their own ask
@@ -187,7 +238,9 @@ def plan_task(
     from openjarvis.coach.skills import rules_for
 
     allowed = sorted(t for t in (tools or TOOLS) if t in TOOLS) or sorted(TOOLS)
-    prompt = PROMPT.format(max_steps=MAX_STEPS, tools=", ".join(allowed), request=request)
+    prompt = PROMPT.format(
+        max_steps=MAX_STEPS, tools=", ".join(allowed), request=request
+    )
     rules = rules_for(request + " " + role)
     if rules:  # permanent skills: their rules shape the plan and every step
         prompt = f"Reglas obligatorias para esta tarea:\n{rules}\n\n" + prompt
@@ -220,27 +273,43 @@ caracteres)", "herramientas": [...], "horario": {{"hora": "HH:MM" o "", "dias": 
 def validate_agent(data: Any, description: str) -> dict[str, Any]:
     """An agent spec, checked: real tools only, never messaging, sane schedule."""
     data = data if isinstance(data, dict) else {}
-    tools = [t for t in data.get("herramientas") or [] if isinstance(t, str) and t in TOOLS and t not in NEVER]
+    tools = [
+        t
+        for t in data.get("herramientas") or []
+        if isinstance(t, str) and t in TOOLS and t not in NEVER
+    ]
     when = data.get("horario") if isinstance(data.get("horario"), dict) else {}
     hour = str(when.get("hora") or "")
     if not re.fullmatch(r"([01]\d|2[0-3]):[0-5]\d", hour):
         hour = ""
-    days = sorted({int(d) for d in when.get("dias") or [] if str(d).isdigit() and 0 <= int(d) <= 6})
+    days = sorted(
+        {
+            int(d)
+            for d in when.get("dias") or []
+            if str(d).isdigit() and 0 <= int(d) <= 6
+        }
+    )
     name = " ".join(str(data.get("nombre") or "Agente").split())[:40]
     return {
         "nombre": name,
         "rol": " ".join(str(data.get("rol") or description).split())[:160],
-        "instrucciones": " ".join(str(data.get("instrucciones") or description).split())[:800],
+        "instrucciones": " ".join(
+            str(data.get("instrucciones") or description).split()
+        )[:800],
         "herramientas": tools or ["web_search", "think"],
         "horario": {"hora": hour, "dias": days if hour else []},
         "tarea": " ".join(str(data.get("tarea") or "").split())[:300],
     }
 
 
-def design_agent(description: str, ask: Callable[..., Any] | None = None) -> dict[str, Any]:
+def design_agent(
+    description: str, ask: Callable[..., Any] | None = None
+) -> dict[str, Any]:
     if ask is None:
         from openjarvis.coach.brain import ask
-    prompt = AGENT_PROMPT.format(description=description, tools=", ".join(sorted(TOOLS)))
+    prompt = AGENT_PROMPT.format(
+        description=description, tools=", ".join(sorted(TOOLS))
+    )
     return validate_agent(ask(prompt, effort="medium", deep=True), description)
 
 
@@ -270,7 +339,9 @@ async def plan(req: PlanRequest) -> dict[str, Any]:
     if not req.request.strip():
         raise HTTPException(status_code=400, detail="Empty request")
     try:
-        return await asyncio.to_thread(plan_task, req.request.strip(), None, req.tools, req.role)
+        return await asyncio.to_thread(
+            plan_task, req.request.strip(), None, req.tools, req.role
+        )
     except Exception as exc:  # noqa: BLE001 — the desktop runs it as one step
         raise HTTPException(status_code=502, detail=str(exc)[:300]) from exc
 
@@ -285,8 +356,12 @@ class LearnRequest(BaseModel):
 async def skills_list() -> dict[str, Any]:
     from openjarvis.coach.skills import all_skills
 
-    return {"skills": [{"nombre": s["nombre"], "claves": s["claves"][:12], "archivo": s["archivo"]}
-                       for s in all_skills()]}
+    return {
+        "skills": [
+            {"nombre": s["nombre"], "claves": s["claves"][:12], "archivo": s["archivo"]}
+            for s in all_skills()
+        ]
+    }
 
 
 @skills_router.post("/learn")
@@ -306,4 +381,13 @@ async def skills_learn(req: LearnRequest) -> dict[str, Any]:
         raise HTTPException(status_code=502, detail=str(exc)[:300]) from exc
 
 
-__all__ = ["NEVER", "TOOLS", "design_agent", "plan_task", "router", "skills_router", "validate_agent", "validate_plan"]
+__all__ = [
+    "NEVER",
+    "TOOLS",
+    "design_agent",
+    "plan_task",
+    "router",
+    "skills_router",
+    "validate_agent",
+    "validate_plan",
+]

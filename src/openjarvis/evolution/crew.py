@@ -48,25 +48,38 @@ def _run(task: str, lessons: str, model: str) -> dict[str, Any]:
         role="Especialista",
         goal="Resolver la tarea con precisión de experto, en español, sin inventar datos.",
         backstory="Experto senior en la materia de la tarea; cita lo que sabe y marca lo que no sabe.",
-        llm=llm, allow_delegation=False, verbose=False,
+        llm=llm,
+        allow_delegation=False,
+        verbose=False,
     )
     supervisor = Agent(
         role="Supervisor de calidad",
         goal="Que el resultado cumpla el encargo punto por punto, sin errores ni relleno.",
         backstory="Revisor exigente: contrasta cada afirmación con el encargo y devuelve el trabajo con "
-                  "correcciones concretas hasta que está bien.",
-        llm=llm, allow_delegation=True, verbose=False,
+        "correcciones concretas hasta que está bien.",
+        llm=llm,
+        allow_delegation=True,
+        verbose=False,
     )
     work = Task(
         description=f"{task}\n\n{lessons}".strip(),
         expected_output="El trabajo terminado, revisado y en español, listo para entregar.",
         agent=specialist,
     )
-    crew = Crew(agents=[specialist], tasks=[work], manager_agent=supervisor, process=Process.hierarchical,
-                verbose=False)
+    crew = Crew(
+        agents=[specialist],
+        tasks=[work],
+        manager_agent=supervisor,
+        process=Process.hierarchical,
+        verbose=False,
+    )
     out = crew.kickoff()
-    return {"result": str(getattr(out, "raw", out)), "agents": ["Especialista", "Supervisor de calidad"],
-            "engine": "crewai", "model": model}
+    return {
+        "result": str(getattr(out, "raw", out)),
+        "agents": ["Especialista", "Supervisor de calidad"],
+        "engine": "crewai",
+        "model": model,
+    }
 
 
 __all__ = ["available", "run_crew"]

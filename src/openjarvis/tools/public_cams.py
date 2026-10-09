@@ -30,7 +30,9 @@ MAX_CAMS = 12
 
 
 def _get(url: str, headers: dict[str, str]) -> Any:
-    resp = httpx.get(url, headers={"Accept": "application/json", **headers}, timeout=12.0)
+    resp = httpx.get(
+        url, headers={"Accept": "application/json", **headers}, timeout=12.0
+    )
     resp.raise_for_status()
     return resp.json()
 
@@ -50,25 +52,46 @@ def _num(value: Any) -> float | None:
     return out if math.isfinite(out) else None
 
 
-def _cam(name: str, provider: str, lat: Any, lon: Any, url: str, license_: str) -> dict[str, Any] | None:
+def _cam(
+    name: str, provider: str, lat: Any, lon: Any, url: str, license_: str
+) -> dict[str, Any] | None:
     la, lo = _num(lat), _num(lon)
     if la is None or lo is None or not url.startswith("https://"):
         return None
     if not (-90 <= la <= 90 and -180 <= lo <= 180) or (la == 0 and lo == 0):
         return None
-    return {"name": " ".join(str(name).split())[:80] or provider, "provider": provider,
-            "lat": la, "lon": lo, "url": url, "license": license_}
+    return {
+        "name": " ".join(str(name).split())[:80] or provider,
+        "provider": provider,
+        "lat": la,
+        "lon": lo,
+        "url": url,
+        "license": license_,
+    }
 
 
 # -- the feeds (formats as in extensions/globe/server/providers/cctv) --------
 def tfl(data: Any) -> list[dict[str, Any]]:
     out = []
     for place in data if isinstance(data, list) else []:
-        props = {p.get("key"): p.get("value") for p in place.get("additionalProperties") or [] if isinstance(p, dict)}
+        props = {
+            p.get("key"): p.get("value")
+            for p in place.get("additionalProperties") or []
+            if isinstance(p, dict)
+        }
         url = str(props.get("imageUrl") or "")
-        if str(props.get("available")).lower() != "true" or not url.startswith("https://s3-eu-west-1.amazonaws.com/jamcams.tfl.gov.uk/"):
+        if str(props.get("available")).lower() != "true" or not url.startswith(
+            "https://s3-eu-west-1.amazonaws.com/jamcams.tfl.gov.uk/"
+        ):
             continue
-        cam = _cam(place.get("commonName") or "JamCam", "Transport for London", place.get("lat"), place.get("lon"), url, "TfL Open Data")
+        cam = _cam(
+            place.get("commonName") or "JamCam",
+            "Transport for London",
+            place.get("lat"),
+            place.get("lon"),
+            url,
+            "TfL Open Data",
+        )
         if cam:
             out.append(cam)
     return out
@@ -86,8 +109,14 @@ def fintraffic(data: Any) -> list[dict[str, Any]]:
         for preset in props.get("presets") or []:
             pid = str(preset.get("id") or "")
             if preset.get("inCollection") is True and re.fullmatch(r"C\d{7}", pid):
-                cam = _cam(props.get("name") or pid, "Fintraffic", coords[1], coords[0],
-                           f"https://weathercam.digitraffic.fi/{pid}.jpg", "Fintraffic CC BY 4.0")
+                cam = _cam(
+                    props.get("name") or pid,
+                    "Fintraffic",
+                    coords[1],
+                    coords[0],
+                    f"https://weathercam.digitraffic.fi/{pid}.jpg",
+                    "Fintraffic CC BY 4.0",
+                )
                 if cam:
                     out.append(cam)
     return out
@@ -103,8 +132,14 @@ def drivebc(data: Any) -> list[dict[str, Any]]:
         coords = (row.get("location") or {}).get("coordinates") or []
         if len(coords) < 2:
             continue
-        cam = _cam(row.get("name") or row.get("caption") or f"DriveBC {row['id']}", "DriveBC", coords[1], coords[0],
-                   f"https://www.drivebc.ca/images/{row['id']}.jpg", "DriveBC (BC Ministry of Transportation)")
+        cam = _cam(
+            row.get("name") or row.get("caption") or f"DriveBC {row['id']}",
+            "DriveBC",
+            coords[1],
+            coords[0],
+            f"https://www.drivebc.ca/images/{row['id']}.jpg",
+            "DriveBC (BC Ministry of Transportation)",
+        )
         if cam:
             out.append(cam)
     return out
@@ -116,10 +151,19 @@ def nsw(data: Any) -> list[dict[str, Any]]:
         props = feature.get("properties") or {}
         url = str(props.get("href") or "")
         coords = (feature.get("geometry") or {}).get("coordinates") or []
-        if not url.startswith("https://webcams.transport.nsw.gov.au/") or len(coords) < 2:
+        if (
+            not url.startswith("https://webcams.transport.nsw.gov.au/")
+            or len(coords) < 2
+        ):
             continue
-        cam = _cam(props.get("view") or props.get("title") or "NSW", "Live Traffic NSW", coords[1], coords[0], url,
-                   "Transport for NSW CC BY 4.0")
+        cam = _cam(
+            props.get("view") or props.get("title") or "NSW",
+            "Live Traffic NSW",
+            coords[1],
+            coords[0],
+            url,
+            "Transport for NSW CC BY 4.0",
+        )
         if cam:
             out.append(cam)
     return out
@@ -133,11 +177,20 @@ def ontario(data: Any) -> list[dict[str, Any]]:
         for view in views:
             candidate = str(view.get("Url") or view.get("url") or "")
             status = str(view.get("Status") or "").lower()
-            if candidate.startswith("https://511on.ca/map/Cctv/") and status != "disabled":
+            if (
+                candidate.startswith("https://511on.ca/map/Cctv/")
+                and status != "disabled"
+            ):
                 url = candidate
                 break
-        cam = _cam(row.get("Location") or row.get("Roadway") or "Ontario 511", "Ontario 511",
-                   row.get("Latitude"), row.get("Longitude"), url, "Open Government Licence - Ontario")
+        cam = _cam(
+            row.get("Location") or row.get("Roadway") or "Ontario 511",
+            "Ontario 511",
+            row.get("Latitude"),
+            row.get("Longitude"),
+            url,
+            "Open Government Licence - Ontario",
+        )
         if cam:
             out.append(cam)
     return out
@@ -151,8 +204,14 @@ def windy(data: Any) -> list[dict[str, Any]]:
         loc = cam.get("location") or {}
         images = (cam.get("images") or {}).get("current") or {}
         url = str(images.get("preview") or images.get("thumbnail") or "")
-        item = _cam(cam.get("title") or loc.get("city") or "Webcam", "Windy Webcams", loc.get("latitude"),
-                    loc.get("longitude"), url, "Windy.com webcams (public)")
+        item = _cam(
+            cam.get("title") or loc.get("city") or "Webcam",
+            "Windy Webcams",
+            loc.get("latitude"),
+            loc.get("longitude"),
+            url,
+            "Windy.com webcams (public)",
+        )
         if item:
             item["page"] = f"https://www.windy.com/webcams/{cam.get('webcamId')}"
             out.append(item)
@@ -173,12 +232,37 @@ class Feed:
 
 
 FEEDS = (
-    Feed("Londres", "https://api.tfl.gov.uk/Place/Type/JamCam", tfl, (51.25, -0.6, 51.75, 0.35)),
-    Feed("Finlandia", "https://tie.digitraffic.fi/api/weathercam/v1/stations", fintraffic, (59.5, 19.0, 70.2, 31.7),
-         (("Digitraffic-User", "Sergio/1.0"),)),
-    Feed("Columbia Británica", "https://www.drivebc.ca/api/webcams/", drivebc, (48.2, -139.1, 60.0, -114.0)),
-    Feed("Nueva Gales del Sur", "https://data.livetraffic.com/cameras/traffic-cam.json", nsw, (-37.6, 140.9, -28.1, 153.7)),
-    Feed("Ontario", "https://511on.ca/api/v2/get/cameras?format=json&lang=en", ontario, (41.6, -95.2, 56.9, -74.3)),
+    Feed(
+        "Londres",
+        "https://api.tfl.gov.uk/Place/Type/JamCam",
+        tfl,
+        (51.25, -0.6, 51.75, 0.35),
+    ),
+    Feed(
+        "Finlandia",
+        "https://tie.digitraffic.fi/api/weathercam/v1/stations",
+        fintraffic,
+        (59.5, 19.0, 70.2, 31.7),
+        (("Digitraffic-User", "Sergio/1.0"),),
+    ),
+    Feed(
+        "Columbia Británica",
+        "https://www.drivebc.ca/api/webcams/",
+        drivebc,
+        (48.2, -139.1, 60.0, -114.0),
+    ),
+    Feed(
+        "Nueva Gales del Sur",
+        "https://data.livetraffic.com/cameras/traffic-cam.json",
+        nsw,
+        (-37.6, 140.9, -28.1, 153.7),
+    ),
+    Feed(
+        "Ontario",
+        "https://511on.ca/api/v2/get/cameras?format=json&lang=en",
+        ontario,
+        (41.6, -95.2, 56.9, -74.3),
+    ),
 )
 COVERAGE = ", ".join(f.name for f in FEEDS)
 
@@ -191,7 +275,12 @@ def windy_url(lat: float, lon: float, km: float) -> str:
 
 
 def cams_near(
-    lat: float, lon: float, *, http_get: HttpGet = _get, windy_key: str = "", limit: int = MAX_CAMS
+    lat: float,
+    lon: float,
+    *,
+    http_get: HttpGet = _get,
+    windy_key: str = "",
+    limit: int = MAX_CAMS,
 ) -> dict[str, Any]:
     """The closest public cameras to a point (nearest first)."""
     found: list[dict[str, Any]] = []
@@ -206,14 +295,18 @@ def cams_near(
             failed.append(feed.name)
     if windy_key:
         try:
-            found += windy(http_get(windy_url(lat, lon, FAR_KM), {"x-windy-api-key": windy_key}))
+            found += windy(
+                http_get(windy_url(lat, lon, FAR_KM), {"x-windy-api-key": windy_key})
+            )
             used.append("Windy")
         except Exception:  # noqa: BLE001
             failed.append("Windy")
     for cam in found:
         cam["km"] = round(distance_km(lat, lon, cam["lat"], cam["lon"]), 1)
     found.sort(key=lambda c: c["km"])
-    near = [c for c in found if c["km"] <= NEAR_KM] or [c for c in found if c["km"] <= FAR_KM]
+    near = [c for c in found if c["km"] <= NEAR_KM] or [
+        c for c in found if c["km"] <= FAR_KM
+    ]
     seen, unique = set(), []
     for cam in near:
         if cam["url"] not in seen:
@@ -228,11 +321,40 @@ FLIGHT_SOURCES = (
     ("adsb.fi", "https://opendata.adsb.fi/api/v2/callsign/{cs}"),
 )
 AIRLINES = {  # IATA -> ICAO for the flight numbers people say
-    "AV": "AVA", "LA": "LAN", "CM": "CMP", "AA": "AAL", "UA": "UAL", "DL": "DAL", "IB": "IBE",
-    "UX": "AEA", "KL": "KLM", "AF": "AFR", "BA": "BAW", "LH": "DLH", "JJ": "TAM", "AM": "AMX",
-    "AR": "ARG", "H2": "SKU", "WS": "WJA", "AC": "ACA", "EK": "UAE", "QR": "QTR", "TK": "THY",
-    "B6": "JBU", "NK": "NKS", "WN": "SWA", "FR": "RYR", "U2": "EZY", "VY": "VLG", "LX": "SWR",
-    "AZ": "ITY", "TP": "TAP", "4C": "ARE", "P5": "RPB", "XL": "LNE", "EQ": "TAE",
+    "AV": "AVA",
+    "LA": "LAN",
+    "CM": "CMP",
+    "AA": "AAL",
+    "UA": "UAL",
+    "DL": "DAL",
+    "IB": "IBE",
+    "UX": "AEA",
+    "KL": "KLM",
+    "AF": "AFR",
+    "BA": "BAW",
+    "LH": "DLH",
+    "JJ": "TAM",
+    "AM": "AMX",
+    "AR": "ARG",
+    "H2": "SKU",
+    "WS": "WJA",
+    "AC": "ACA",
+    "EK": "UAE",
+    "QR": "QTR",
+    "TK": "THY",
+    "B6": "JBU",
+    "NK": "NKS",
+    "WN": "SWA",
+    "FR": "RYR",
+    "U2": "EZY",
+    "VY": "VLG",
+    "LX": "SWR",
+    "AZ": "ITY",
+    "TP": "TAP",
+    "4C": "ARE",
+    "P5": "RPB",
+    "XL": "LNE",
+    "EQ": "TAE",
 }
 
 
@@ -268,14 +390,20 @@ def find_flight(flight: str, http_get: HttpGet = _get) -> dict[str, Any]:
                     "hex": hexid,
                     "lat": lat,
                     "lon": lon,
-                    "alt_m": round(float(alt) * 0.3048) if isinstance(alt, (int, float)) else None,
+                    "alt_m": round(float(alt) * 0.3048)
+                    if isinstance(alt, (int, float))
+                    else None,
                     "on_ground": alt == "ground",
-                    "speed_kmh": round(float(ac["gs"]) * 1.852) if _num(ac.get("gs")) is not None else None,
+                    "speed_kmh": round(float(ac["gs"]) * 1.852)
+                    if _num(ac.get("gs")) is not None
+                    else None,
                     "track": _num(ac.get("track")),
                     "type": str(ac.get("t") or ac.get("desc") or ""),
                     "registration": str(ac.get("r") or ""),
                     "source": name,
-                    "live_map": f"https://globe.adsb.lol/?icao={hexid}" if hexid else "",
+                    "live_map": f"https://globe.adsb.lol/?icao={hexid}"
+                    if hexid
+                    else "",
                 }
     raise LookupError(f"No encuentro el vuelo {flight} en el aire ahora mismo.")
 
@@ -289,7 +417,9 @@ def flight_route(callsign: str, http_get: HttpGet = _get) -> dict[str, str]:
 
     def where(info: Any) -> str:
         info = info or {}
-        return ", ".join(x for x in (info.get("municipality"), info.get("country_name")) if x)
+        return ", ".join(
+            x for x in (info.get("municipality"), info.get("country_name")) if x
+        )
 
     return {
         "airline": str((route.get("airline") or {}).get("name") or ""),

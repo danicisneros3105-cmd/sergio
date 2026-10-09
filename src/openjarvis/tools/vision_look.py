@@ -88,7 +88,10 @@ _GEMINI: Any = None  # remembers which Google service the key works with
 
 
 def _gemini(
-    jpeg: bytes, prompt: str, mime: str = "image/jpeg", models: tuple[str, ...] = GEMINI_VISION_MODELS
+    jpeg: bytes,
+    prompt: str,
+    mime: str = "image/jpeg",
+    models: tuple[str, ...] = GEMINI_VISION_MODELS,
 ) -> str:
     key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
     if not key:
@@ -161,7 +164,11 @@ def ask_image(
     """
     http = http or httpx.Client()
     errors = []
-    models = GEMINI_LITE_VISION_MODELS + GEMINI_VISION_MODELS if lite else GEMINI_VISION_MODELS
+    models = (
+        GEMINI_LITE_VISION_MODELS + GEMINI_VISION_MODELS
+        if lite
+        else GEMINI_VISION_MODELS
+    )
     for name, call in (
         ("Kimi", lambda: _kimi(image, prompt, http, mime)),
         ("Gemini", lambda: _gemini(image, prompt, mime, models)),

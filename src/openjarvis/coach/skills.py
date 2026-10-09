@@ -42,7 +42,12 @@ def _parse(path: Path) -> dict[str, Any] | None:
             meta[key.strip()] = value.strip()
         body = found.group(2)
     keys = [plain(k.strip()) for k in meta.get("claves", "").split(",") if k.strip()]
-    return {"nombre": meta.get("nombre") or path.stem, "claves": keys, "reglas": body.strip(), "archivo": str(path)}
+    return {
+        "nombre": meta.get("nombre") or path.stem,
+        "claves": keys,
+        "reglas": body.strip(),
+        "archivo": str(path),
+    }
 
 
 def all_skills(dirs: tuple[Path, ...] | None = None) -> list[dict[str, Any]]:
@@ -58,7 +63,9 @@ def match(request: str, dirs: tuple[Path, ...] | None = None) -> list[dict[str, 
     words = plain(request)
     scored = []
     for skill in all_skills(dirs):
-        hits = sum(1 for k in skill["claves"] if re.search(r"(?<!\w)" + re.escape(k), words))
+        hits = sum(
+            1 for k in skill["claves"] if re.search(r"(?<!\w)" + re.escape(k), words)
+        )
         if hits:
             scored.append((hits, skill))
     return [s for _, s in sorted(scored, key=lambda x: -x[0])]
@@ -104,8 +111,12 @@ def learn(
     extra = {"media": [(pdf, "application/pdf")]} if pdf else {}
     data = ask(prompt, effort="medium", deep=True, **extra)
     data = data if isinstance(data, dict) else {}
-    rules = [" ".join(str(r).split()) for r in data.get("reglas") or [] if str(r).strip()][:20]
-    keys = [plain(str(k)).strip() for k in data.get("claves") or [] if str(k).strip()][:24]
+    rules = [
+        " ".join(str(r).split()) for r in data.get("reglas") or [] if str(r).strip()
+    ][:20]
+    keys = [plain(str(k)).strip() for k in data.get("claves") or [] if str(k).strip()][
+        :24
+    ]
     if not rules or not keys:
         raise RuntimeError("No pude sacar reglas claras de ese documento.")
     title = " ".join(str(data.get("nombre") or name).split())[:60]
@@ -114,7 +125,9 @@ def learn(
     slug = re.sub(r"[^a-z0-9]+", "-", plain(title)).strip("-") or "skill"
     path = folder / f"{slug}.md"
     path.write_text(
-        f"---\nnombre: {title}\nclaves: {', '.join(keys)}\n---\n" + "\n".join(f"- {r}" for r in rules) + "\n",
+        f"---\nnombre: {title}\nclaves: {', '.join(keys)}\n---\n"
+        + "\n".join(f"- {r}" for r in rules)
+        + "\n",
         encoding="utf-8",
     )
     return {"nombre": title, "claves": keys, "reglas": len(rules), "archivo": str(path)}

@@ -55,7 +55,9 @@ class Run:
     def __init__(self) -> None:
         self.failed: list[str] = []
 
-    def check(self, name: str, fn: Callable[[], str], limit: float | None = None) -> str:
+    def check(
+        self, name: str, fn: Callable[[], str], limit: float | None = None
+    ) -> str:
         console.print(f"Probando: {name}…")
         try:
             detail = str(run_with_limit(fn, limit or DEFAULT_LIMIT) or "")
@@ -115,25 +117,41 @@ def probar(sin_pantalla: bool) -> None:
     auth = {"Authorization": f"Bearer {token}"}
     # trust_env=False: every call here is local, and a proxy in the
     # environment would make 127.0.0.1 hang.
-    http = _Retrying(httpx.Client(timeout=httpx.Timeout(180, connect=5), trust_env=False))
+    http = _Retrying(
+        httpx.Client(timeout=httpx.Timeout(180, connect=5), trust_env=False)
+    )
     run = Run()
     try:
         _probar(run, http, base, model, token, win, auth, sin_pantalla)
     except KeyboardInterrupt:
         console.print(
             "\n[yellow]Prueba cancelada.[/yellow]"
-            + (f" Fallaron antes de cancelar: {', '.join(run.failed)}." if run.failed else "")
+            + (
+                f" Fallaron antes de cancelar: {', '.join(run.failed)}."
+                if run.failed
+                else ""
+            )
         )
         raise SystemExit(130) from None
 
 
-def _probar(run: "Run", http: "_Retrying", base: str, model: str, token: str, win: str,
-            auth: dict[str, str], sin_pantalla: bool) -> None:
+def _probar(
+    run: "Run",
+    http: "_Retrying",
+    base: str,
+    model: str,
+    token: str,
+    win: str,
+    auth: dict[str, str],
+    sin_pantalla: bool,
+) -> None:
     from openjarvis.cli.service_cmd import bypass_proxy_for_local, ensure_server
 
     bypass_proxy_for_local()
     console.print("Comprobando que Sergio esté encendido…")
-    if not ensure_server(base, lambda line: console.print(escape(line)), get=http.client.get):
+    if not ensure_server(
+        base, lambda line: console.print(escape(line)), get=http.client.get
+    ):
         raise SystemExit(1)
 
     def brain() -> str:
@@ -166,7 +184,10 @@ def _probar(run: "Run", http: "_Retrying", base: str, model: str, token: str, wi
         resp = _ok(
             http.post(
                 f"{base}/v1/voice/speak",
-                json={"text": "Buenas tardes. Soy Sergio y todo está en orden.", "voice": "Predeterminada"},
+                json={
+                    "text": "Buenas tardes. Soy Sergio y todo está en orden.",
+                    "voice": "Predeterminada",
+                },
             )
         )
         voice["wav"] = resp.content
@@ -262,7 +283,10 @@ def _probar(run: "Run", http: "_Retrying", base: str, model: str, token: str, wi
                     + str(closed.get("result", ""))[:50]
                 )
 
-            run.check("Control de Windows (abre y cierra el Bloc de notas un segundo)", notepad)
+            run.check(
+                "Control de Windows (abre y cierra el Bloc de notas un segundo)",
+                notepad,
+            )
 
             def terminal() -> str:
                 out = _ok(
@@ -323,10 +347,18 @@ def _probar(run: "Run", http: "_Retrying", base: str, model: str, token: str, wi
             lat, lon = where.get("lat"), where.get("lon")
             note = where.get("source", "")
             if lat is None:
-                lat, lon, note = -2.9001, -79.0059, "sin ubicación de Windows: probé con Cuenca"
+                lat, lon, note = (
+                    -2.9001,
+                    -79.0059,
+                    "sin ubicación de Windows: probé con Cuenca",
+                )
             started = time.monotonic()
             report = _ok(
-                http.get(f"{base}/v1/world/overhead", params={"lat": lat, "lon": lon}, timeout=12)
+                http.get(
+                    f"{base}/v1/world/overhead",
+                    params={"lat": lat, "lon": lon},
+                    timeout=12,
+                )
             ).json()
             took = time.monotonic() - started
             return f"{took:.1f} s ({note}): {str(report.get('text', ''))[:120]}"
@@ -384,12 +416,19 @@ def _probar(run: "Run", http: "_Retrying", base: str, model: str, token: str, wi
                 raise RuntimeError(
                     "el compañero es una versión vieja; ejecuta sergio escritorio instalar"
                 )
-            bad = [f"{k}: {v}" for k, v in parts.items() if str(v).startswith(("sin ", "no "))]
+            bad = [
+                f"{k}: {v}"
+                for k, v in parts.items()
+                if str(v).startswith(("sin ", "no "))
+            ]
             if bad:
                 raise RuntimeError("; ".join(bad))
             return " | ".join(f"{k}: {v}" for k, v in parts.items())
 
-        run.check("Cámara, hologramas, llamada, oído, gimnasio, voces y actas", companion_parts)
+        run.check(
+            "Cámara, hologramas, llamada, oído, gimnasio, voces y actas",
+            companion_parts,
+        )
 
         def selftest(kind: str) -> dict:
             resp = http.post(
@@ -433,7 +472,9 @@ def _probar(run: "Run", http: "_Retrying", base: str, model: str, token: str, wi
                 out = selftest("open")
                 return f"«{out.get('said')}» → {out.get('answer')} en {out.get('took_s')} s"
 
-            run.check("Entender «abre la calculadora» (sin abrirla)", open_by_voice, limit=75)
+            run.check(
+                "Entender «abre la calculadora» (sin abrirla)", open_by_voice, limit=75
+            )
 
         def hands() -> str:
             diag = _ok(http.get(f"{win}/diag", headers=auth)).json()
@@ -461,7 +502,9 @@ def _probar(run: "Run", http: "_Retrying", base: str, model: str, token: str, wi
             diag = {}
         errors = diag.get("recent_errors") or []
         if errors:
-            console.print("\n[yellow]Últimos errores del compañero (sergio.log):[/yellow]")
+            console.print(
+                "\n[yellow]Últimos errores del compañero (sergio.log):[/yellow]"
+            )
             for line in errors[-10:]:
                 console.print(f"  {escape(str(line))}")
         if diag.get("voice_used"):
@@ -487,13 +530,33 @@ def _server_live_errors(limit: int = 6) -> list[str]:
     """The server's own lines about Gemini Live failing (journalctl)."""
     try:
         out = subprocess.run(
-            ["journalctl", "--user", "-u", "sergio", "-n", "400", "--no-pager", "-o", "cat"],
-            capture_output=True, text=True, timeout=10, check=False,
+            [
+                "journalctl",
+                "--user",
+                "-u",
+                "sergio",
+                "-n",
+                "400",
+                "--no-pager",
+                "-o",
+                "cat",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=False,
         ).stdout
     except Exception:  # noqa: BLE001 — not systemd
         return []
-    keys = ("Live connect failed", "live call ended", "Live session dropped", "No pude abrir la conversación")
-    return [line.strip()[:300] for line in out.splitlines() if any(k in line for k in keys)][-limit:]
+    keys = (
+        "Live connect failed",
+        "live call ended",
+        "Live session dropped",
+        "No pude abrir la conversación",
+    )
+    return [
+        line.strip()[:300] for line in out.splitlines() if any(k in line for k in keys)
+    ][-limit:]
 
 
 def live_call(base: str, timeout: float = 25.0) -> str:
@@ -516,8 +579,14 @@ def live_call(base: str, timeout: float = 25.0) -> str:
             event = json.loads(ws.recv(timeout=timeout))
             if event.get("type") == "error":
                 raise RuntimeError(event.get("message", "error"))
-            model = str(event.get("model") or "") if event.get("type") == "ready" else ""
-        ws.send(json.dumps({"type": "text", "text": "Prueba: responde solo «todo en orden»."}))
+            model = (
+                str(event.get("model") or "") if event.get("type") == "ready" else ""
+            )
+        ws.send(
+            json.dumps(
+                {"type": "text", "text": "Prueba: responde solo «todo en orden»."}
+            )
+        )
         first = None
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:

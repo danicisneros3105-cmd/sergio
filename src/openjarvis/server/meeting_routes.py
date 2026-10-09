@@ -36,7 +36,9 @@ async def summarize(
         raise HTTPException(status_code=413, detail="Audio vacío o demasiado grande")
     mime = audio.content_type or "audio/ogg"
     try:
-        names = [s for s in json.loads(speakers) if isinstance(s, str)] if speakers else []
+        names = (
+            [s for s in json.loads(speakers) if isinstance(s, str)] if speakers else []
+        )
     except ValueError:
         names = []
     try:

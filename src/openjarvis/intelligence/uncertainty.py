@@ -25,10 +25,34 @@ from openjarvis.intelligence._llm import LLM, as_llm, clamp, parse_json
 from openjarvis.intelligence.consistency import self_consistency
 
 HEDGES = (
-    "maybe", "perhaps", "possibly", "probably", "might", "may be", "i think", "i believe", "not sure",
-    "unclear", "it depends", "approximately", "roughly", "i'm not certain", "as far as i know",
-    "quizá", "quizás", "tal vez", "posiblemente", "probablemente", "creo que", "no estoy seguro",
-    "no estoy segura", "depende", "aproximadamente", "más o menos", "puede que", "no sé",
+    "maybe",
+    "perhaps",
+    "possibly",
+    "probably",
+    "might",
+    "may be",
+    "i think",
+    "i believe",
+    "not sure",
+    "unclear",
+    "it depends",
+    "approximately",
+    "roughly",
+    "i'm not certain",
+    "as far as i know",
+    "quizá",
+    "quizás",
+    "tal vez",
+    "posiblemente",
+    "probablemente",
+    "creo que",
+    "no estoy seguro",
+    "no estoy segura",
+    "depende",
+    "aproximadamente",
+    "más o menos",
+    "puede que",
+    "no sé",
 )
 
 SELF_PROMPT = """QUESTION:
@@ -74,7 +98,9 @@ class Calibrator:
         self.records: list[tuple[float, bool]] = []
         if path and path.exists():
             try:
-                self.records = [(float(p), bool(c)) for p, c in json.loads(path.read_text("utf-8"))]
+                self.records = [
+                    (float(p), bool(c)) for p, c in json.loads(path.read_text("utf-8"))
+                ]
             except (ValueError, TypeError):
                 self.records = []
 
@@ -87,21 +113,32 @@ class Calibrator:
     def brier(self) -> Optional[float]:
         if not self.records:
             return None
-        return round(sum((p - float(c)) ** 2 for p, c in self.records) / len(self.records), 4)
+        return round(
+            sum((p - float(c)) ** 2 for p, c in self.records) / len(self.records), 4
+        )
 
     def reliability(self) -> list[dict]:
         """Per confidence bin: how sure we said we were vs. how often we were right."""
         bins: list[list[tuple[float, bool]]] = [[] for _ in range(self.BINS)]
         for p, c in self.records:
             bins[min(self.BINS - 1, int(p * self.BINS))].append((p, c))
-        return [{"bin": f"{i / self.BINS:.1f}-{(i + 1) / self.BINS:.1f}", "n": len(b),
-                 "said": round(sum(p for p, _ in b) / len(b), 3),
-                 "right": round(sum(c for _, c in b) / len(b), 3)} for i, b in enumerate(bins) if b]
+        return [
+            {
+                "bin": f"{i / self.BINS:.1f}-{(i + 1) / self.BINS:.1f}",
+                "n": len(b),
+                "said": round(sum(p for p, _ in b) / len(b), 3),
+                "right": round(sum(c for _, c in b) / len(b), 3),
+            }
+            for i, b in enumerate(bins)
+            if b
+        ]
 
     def adjust(self, predicted: float, min_count: int = 8) -> float:
         """Blend the prediction with the observed accuracy of its bin."""
         i = min(self.BINS - 1, int(max(0.0, min(1.0, predicted)) * self.BINS))
-        same = [c for p, c in self.records if min(self.BINS - 1, int(p * self.BINS)) == i]
+        same = [
+            c for p, c in self.records if min(self.BINS - 1, int(p * self.BINS)) == i
+        ]
         if len(same) < min_count:
             return predicted
         observed = sum(same) / len(same)
@@ -137,10 +174,22 @@ def estimate(
             answer = vote.reasoning.strip() or vote.answer
     if answer is None:
         answer = model(question)
-    data = parse_json(model(SELF_PROMPT.format(question=question, answer=answer), temperature=0.0))
-    stated = clamp(data.get("confidence"), 0, 100, 50) / 100 if isinstance(data, dict) else None
-    unknowns = [str(u) for u in (data.get("unknowns") or [])] if isinstance(data, dict) else []
-    clarify = str(data.get("clarifying_question") or "").strip() if isinstance(data, dict) else ""
+    data = parse_json(
+        model(SELF_PROMPT.format(question=question, answer=answer), temperature=0.0)
+    )
+    stated = (
+        clamp(data.get("confidence"), 0, 100, 50) / 100
+        if isinstance(data, dict)
+        else None
+    )
+    unknowns = (
+        [str(u) for u in (data.get("unknowns") or [])] if isinstance(data, dict) else []
+    )
+    clarify = (
+        str(data.get("clarifying_question") or "").strip()
+        if isinstance(data, dict)
+        else ""
+    )
     hedging = hedge_score(answer)
     # Weighted mix: agreement is the most reliable signal; stated confidence is
     # known to be over-confident, so it gets less weight; hedging pulls down.
@@ -157,9 +206,17 @@ def estimate(
     raw -= min(0.2, 0.05 * len(unknowns))  # every admitted unknown costs a little
     raw = round(max(0.0, min(1.0, raw)), 3)
     final = calibrator.adjust(raw) if calibrator else raw
-    return Estimate(answer=answer, confidence=final, raw_confidence=raw, agreement=agreement, stated=stated,
-                    hedging=hedging, unknowns=unknowns, clarifying_question=clarify,
-                    decision=decide(final, bool(clarify)))
+    return Estimate(
+        answer=answer,
+        confidence=final,
+        raw_confidence=raw,
+        agreement=agreement,
+        stated=stated,
+        hedging=hedging,
+        unknowns=unknowns,
+        clarifying_question=clarify,
+        decision=decide(final, bool(clarify)),
+    )
 
 
 def default_calibrator() -> Calibrator:
@@ -169,4 +226,11 @@ def default_calibrator() -> Calibrator:
     return Calibrator(home / "intelligence" / "calibration.json")
 
 
-__all__ = ["Calibrator", "Estimate", "decide", "default_calibrator", "estimate", "hedge_score"]
+__all__ = [
+    "Calibrator",
+    "Estimate",
+    "decide",
+    "default_calibrator",
+    "estimate",
+    "hedge_score",
+]

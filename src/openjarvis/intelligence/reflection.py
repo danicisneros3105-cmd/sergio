@@ -66,15 +66,27 @@ class ReflectionResult:
 
 def critique(task: str, answer: str, llm: LLM, evidence: str = "") -> Critique:
     """The critic's verdict (score 0–10 and issues)."""
-    block = f"\nHARD EVIDENCE (from running checks — trust it):\n{evidence}\n" if evidence else ""
-    raw = llm(CRITIQUE_PROMPT.format(task=task, answer=answer, evidence=block), temperature=0.2)
+    block = (
+        f"\nHARD EVIDENCE (from running checks — trust it):\n{evidence}\n"
+        if evidence
+        else ""
+    )
+    raw = llm(
+        CRITIQUE_PROMPT.format(task=task, answer=answer, evidence=block),
+        temperature=0.2,
+    )
     data = parse_json(raw)
     if not isinstance(data, dict):
         # A critic that did not answer in JSON: treat its text as one issue.
-        return Critique(score=5.0, issues=[raw.strip()[:500]] if raw.strip() else [], fix_plan="")
+        return Critique(
+            score=5.0, issues=[raw.strip()[:500]] if raw.strip() else [], fix_plan=""
+        )
     issues = [str(i).strip() for i in (data.get("issues") or []) if str(i).strip()]
-    return Critique(score=clamp(data.get("score"), default=5.0), issues=issues,
-                    fix_plan=str(data.get("fix_plan") or ""))
+    return Critique(
+        score=clamp(data.get("score"), default=5.0),
+        issues=issues,
+        fix_plan=str(data.get("fix_plan") or ""),
+    )
 
 
 def reflect(
@@ -103,10 +115,16 @@ def reflect(
                 ok, hard_issues = False, [f"the check itself crashed: {exc}"]
         else:
             ok = True
-        verdict = critique(task, answer, llm, evidence="\n".join(f"- {i}" for i in hard_issues))
-        score = verdict.score if ok else min(verdict.score, 6.0)  # failing checks cap the score
+        verdict = critique(
+            task, answer, llm, evidence="\n".join(f"- {i}" for i in hard_issues)
+        )
+        score = (
+            verdict.score if ok else min(verdict.score, 6.0)
+        )  # failing checks cap the score
         issues = hard_issues + [i for i in verdict.issues if i not in hard_issues]
-        history.append({"round": round_no, "answer": answer, "score": score, "issues": issues})
+        history.append(
+            {"round": round_no, "answer": answer, "score": score, "issues": issues}
+        )
         if score > best_score:
             best_answer, best_score, stale = answer, score, 0
         else:
@@ -122,13 +140,25 @@ def reflect(
             break
         if round_no == max_rounds:
             break
-        answer = llm(
-            REVISE_PROMPT.format(task=task, answer=answer, issues="\n".join(f"- {i}" for i in issues),
-                                 plan=verdict.fix_plan or "fix each issue"),
-            temperature=0.4,
-        ).strip() or answer
-    return ReflectionResult(answer=best_answer, score=best_score, rounds=len(history),
-                            stopped_because=stopped, history=history)
+        answer = (
+            llm(
+                REVISE_PROMPT.format(
+                    task=task,
+                    answer=answer,
+                    issues="\n".join(f"- {i}" for i in issues),
+                    plan=verdict.fix_plan or "fix each issue",
+                ),
+                temperature=0.4,
+            ).strip()
+            or answer
+        )
+    return ReflectionResult(
+        answer=best_answer,
+        score=best_score,
+        rounds=len(history),
+        stopped_because=stopped,
+        history=history,
+    )
 
 
 __all__ = ["Critique", "ReflectionResult", "critique", "reflect"]

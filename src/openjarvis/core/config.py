@@ -2224,7 +2224,9 @@ def load_config(path: Optional[Path] = None) -> JarvisConfig:
             cfg.security,
             cfg.server,
             overrides=_user_security_keys,
-            server_overrides=set(_server_data) if isinstance(_server_data, dict) else set(),
+            server_overrides=set(_server_data)
+            if isinstance(_server_data, dict)
+            else set(),
         )
 
         # Mining: dedicated parser for tagged-union submit_target

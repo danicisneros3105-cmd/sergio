@@ -14,7 +14,9 @@ from __future__ import annotations
 
 from openjarvis.vfx._base import params_with_defaults, py
 
-DESCRIPTION = "Cloth simulation (drape, flag in wind, sewn garment) with real fabric presets."
+DESCRIPTION = (
+    "Cloth simulation (drape, flag in wind, sewn garment) with real fabric presets."
+)
 FABRICS = {  # mass kg/m2, tension, compression, shear, bending, air damping
     "silk": (0.15, 5, 5, 5, 0.05, 1),
     "cotton": (0.3, 15, 15, 15, 0.5, 1),
@@ -35,7 +37,7 @@ PARAMS = {
 def build(**kw) -> str:
     p = params_with_defaults(PARAMS, kw)
     fabric = FABRICS.get(str(p["fabric"]).lower(), FABRICS["cotton"])
-    return f'''
+    return f"""
 sc = bpy.context.scene
 sc.frame_end = sc.frame_start + {p["frames"]} - 1
 mass, tension, compression, shear, bending, air = {py(fabric)}
@@ -135,4 +137,4 @@ if {p["bake"]}:
     zs = [(ev.matrix_world @ v.co).z for v in ev.data.vertices]
     vfx_info(lowest_z=round(min(zs), 3), highest_z=round(max(zs), 3))
 vfx_info(effect="cloth", scenario=scenario, fabric={py(str(p["fabric"]))}, cloth_objects=len(cloth_objects))
-'''
+"""

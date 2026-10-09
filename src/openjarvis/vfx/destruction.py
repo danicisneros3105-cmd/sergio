@@ -28,7 +28,7 @@ PARAMS = {
 
 def build(**kw) -> str:
     p = params_with_defaults(PARAMS, kw)
-    return f'''
+    return f"""
 sc = bpy.context.scene
 sc.frame_end = sc.frame_start + {p["frames"]} - 1
 random.seed({p["seed"]})
@@ -145,4 +145,4 @@ if {p["bake"]}:
     vfx_bake()
 moved = sum(1 for ob in shards if (ob.matrix_world.translation - Vector((0, 0, 1.0))).length > 0.6)
 vfx_info(effect="destruction", shards=len(shards), glue_constraints=glued, impact=impact, moved=moved)
-'''
+"""

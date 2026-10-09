@@ -103,7 +103,9 @@ def self_consistency(
             counts = Counter(grouping[k] for k in so_far)
             top = counts.most_common(2)
             lead = top[0][1] - (top[1][1] if len(top) > 1 else 0)
-            if lead > samples - (i + 1):  # the remaining samples cannot change the winner
+            if lead > samples - (
+                i + 1
+            ):  # the remaining samples cannot change the winner
                 break
     keys = [normalise(f) for f in finals]
     mapping = _group(keys, similarity)
@@ -115,8 +117,13 @@ def self_consistency(
     for rep, n in counts.most_common():
         idx = next(i for i, k in enumerate(keys) if mapping[k] == rep)
         pretty_votes[finals[idx]] = n
-    return VoteResult(answer=finals[first], agreement=votes / len(finals), votes=pretty_votes,
-                      samples=finals, reasoning=raw[first])
+    return VoteResult(
+        answer=finals[first],
+        agreement=votes / len(finals),
+        votes=pretty_votes,
+        samples=finals,
+        reasoning=raw[first],
+    )
 
 
 __all__ = ["VoteResult", "extract_final", "normalise", "self_consistency"]

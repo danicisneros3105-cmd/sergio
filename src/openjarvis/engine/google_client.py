@@ -39,16 +39,21 @@ def _http_options() -> Any:
     """No long retries inside the SDK: an overloaded model (503) is skipped at
     once for the next one; a brief network hiccup gets one quick retry."""
     try:
-        from google.genai import types
-
         import os
+
+        from google.genai import types
 
         seconds = float(os.environ.get("SERGIO_GEMINI_TIMEOUT", "120") or 120)
         return types.HttpOptions(
-            timeout=int(seconds * 1000),  # a stalled request ends; the next model answers
+            timeout=int(
+                seconds * 1000
+            ),  # a stalled request ends; the next model answers
             retry_options=types.HttpRetryOptions(
-                attempts=2, initial_delay=0.4, max_delay=1.5, http_status_codes=[500, 502, 504]
-            )
+                attempts=2,
+                initial_delay=0.4,
+                max_delay=1.5,
+                http_status_codes=[500, 502, 504],
+            ),
         )
     except Exception:  # noqa: BLE001 — an older SDK: its defaults
         return None
@@ -90,13 +95,17 @@ def _retry_seconds(text: str) -> float:
 OVERLOADED_SECONDS = 90.0  # "503 high demand": skip that model for a moment
 
 
-def note_quota(model: str, exc: Exception, clock: Callable[[], float] = time.monotonic) -> None:
+def note_quota(
+    model: str, exc: Exception, clock: Callable[[], float] = time.monotonic
+) -> None:
     text = str(exc)
     if not model:
         return
     if "RESOURCE_EXHAUSTED" in text or "exceeded your current quota" in text:
         _EXHAUSTED[model] = clock() + min(_retry_seconds(text), 6 * 3600)
-    elif "503" in text and ("UNAVAILABLE" in text or "overloaded" in text or "high demand" in text):
+    elif "503" in text and (
+        "UNAVAILABLE" in text or "overloaded" in text or "high demand" in text
+    ):
         # An overloaded model can take many seconds to say so: the next
         # sentence goes straight to the backup model instead.
         _EXHAUSTED[model] = clock() + OVERLOADED_SECONDS
@@ -123,7 +132,12 @@ def short_wait(errors: list[str], limit: float = 150.0) -> float:
         mins = re.search(r"vuelve en ~(\d+) min", err)
         if mins:
             waits.append(int(mins.group(1)) * 60.0)
-        elif "RESOURCE_EXHAUSTED" in err or "429" in err or "503" in err or "UNAVAILABLE" in err:
+        elif (
+            "RESOURCE_EXHAUSTED" in err
+            or "429" in err
+            or "503" in err
+            or "UNAVAILABLE" in err
+        ):
             waits.append(60.0 if "PerDay" not in err else 3600.0)
         else:
             return 0.0
@@ -206,4 +220,10 @@ class SwitchingClient:
         )
 
 
-__all__ = ["QuotaExhausted", "SwitchingClient", "check_quota", "note_quota", "wrong_service"]
+__all__ = [
+    "QuotaExhausted",
+    "SwitchingClient",
+    "check_quota",
+    "note_quota",
+    "wrong_service",
+]

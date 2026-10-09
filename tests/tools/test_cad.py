@@ -23,7 +23,10 @@ def _part_png() -> bytes:
 
 def _dims(data: bytes) -> list[str]:
     doc = ezdxf.read(io.StringIO(data.decode()))
-    return [doc.blocks.get(d.dxf.geometry).query("MTEXT")[0].plain_text() for d in doc.modelspace().query("DIMENSION")]
+    return [
+        doc.blocks.get(d.dxf.geometry).query("MTEXT")[0].plain_text()
+        for d in doc.modelspace().query("DIMENSION")
+    ]
 
 
 def test_an_image_becomes_a_dxf_at_real_size_with_its_holes():
@@ -35,7 +38,9 @@ def test_an_image_becomes_a_dxf_at_real_size_with_its_holes():
 
 
 def test_dark_background_images_work_too():
-    inverted = cv2.imencode(".png", 255 - cv2.imdecode(np.frombuffer(_part_png(), np.uint8), 1))[1].tobytes()
+    inverted = cv2.imencode(
+        ".png", 255 - cv2.imdecode(np.frombuffer(_part_png(), np.uint8), 1)
+    )[1].tobytes()
     _, info = cad.image_to_dxf(inverted, width_mm=100)
     assert info["shapes"] >= 1
 
@@ -44,8 +49,12 @@ def test_a_model_is_drawn_in_three_views_with_dimensions():
     # A 100 x 50 x 20 mm box: its 12 edges (metres).
     x, y, z = 0.1, 0.05, 0.02
     corners = [(a, b, c) for a in (0, x) for b in (0, y) for c in (0, z)]
-    edges = [[*p, *q] for i, p in enumerate(corners) for q in corners[i + 1:]
-             if sum(abs(u - v) > 1e-9 for u, v in zip(p, q)) == 1]
+    edges = [
+        [*p, *q]
+        for i, p in enumerate(corners)
+        for q in corners[i + 1 :]
+        if sum(abs(u - v) > 1e-9 for u, v in zip(p, q)) == 1
+    ]
     dxf, info = cad.model_to_dxf({"Caja": edges}, "Caja")
     assert info["size_mm"] == [100.0, 50.0, 20.0] and info["views"] == 3
     assert sorted(_dims(dxf)) == sorted(["100", "20", "100", "50", "50", "20"])

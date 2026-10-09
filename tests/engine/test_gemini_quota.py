@@ -48,7 +48,9 @@ class Models:
             )
         part = types.SimpleNamespace(function_call=None, text=f"hola desde {model}")
         return types.SimpleNamespace(
-            candidates=[types.SimpleNamespace(content=types.SimpleNamespace(parts=[part]))],
+            candidates=[
+                types.SimpleNamespace(content=types.SimpleNamespace(parts=[part]))
+            ],
             usage_metadata=None,
             text=f"hola desde {model}",
         )
@@ -73,7 +75,10 @@ def _ask(engine, model):
 
 
 def test_families():
-    assert quota_fallbacks("gemini-3.8-flash")[:2] == ["gemini-3.7-flash", "gemini-3.6-flash"]
+    assert quota_fallbacks("gemini-3.8-flash")[:2] == [
+        "gemini-3.7-flash",
+        "gemini-3.6-flash",
+    ]
     assert quota_fallbacks("gemini-3.1-pro-preview")[0] == "gemini-pro-latest"
     assert "gemini-3.8-flash" in quota_fallbacks("gemini-3.1-pro-preview")
     assert quota_fallbacks("gemini-3.1-flash-lite")[0] == "gemini-3.5-flash-lite"

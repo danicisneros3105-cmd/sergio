@@ -192,7 +192,9 @@ def test_spanish_names_with_articles_reach_the_tables():
 
 
 def test_notepad_opens_even_when_the_start_menu_list_is_empty():
-    desk = FakeDesktop([], appear=Window(3, "Sin título: Bloc de notas", "notepad"), after=0)
+    desk = FakeDesktop(
+        [], appear=Window(3, "Sin título: Bloc de notas", "notepad"), after=0
+    )
     empty = launcher(desk, AppIndex([]))
     empty._rescan = lambda: AppIndex([])  # the scan found nothing on this PC
     assert empty.open("bloc de notas") == "opened bloc de notas"
@@ -204,9 +206,15 @@ def test_start_apps_falls_back_to_the_apps_folder():
 
     def run(cmd):
         seen.append(cmd[-1])
-        return "" if len(seen) == 1 else json.dumps([{"Name": "Bloc de notas", "AppID": "Notepad!App"}])
+        return (
+            ""
+            if len(seen) == 1
+            else json.dumps([{"Name": "Bloc de notas", "AppID": "Notepad!App"}])
+        )
 
-    assert scan_start_apps(run=run)[0].name == "Bloc de notas" and "AppsFolder" in seen[1]
+    assert (
+        scan_start_apps(run=run)[0].name == "Bloc de notas" and "AppsFolder" in seen[1]
+    )
 
 
 def test_resolve_finds_the_app_without_opening_anything():

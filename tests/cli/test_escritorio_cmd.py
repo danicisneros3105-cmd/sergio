@@ -70,7 +70,9 @@ def test_instalar_runs_powershell_with_token_in_env(tmp_path, monkeypatch):
     assert ps[1]["env"]["SERGIO_DESKTOP_TOKEN"] == token
     assert "SERGIO_DESKTOP_TOKEN" in ps[1]["env"]["WSLENV"]
     assert ps[0][ps[0].index("-Fuente") + 1].endswith("windows")
-    assert any(c[0][:1] == ["git"] and "gc" in c[0] for c in calls)  # keeps only the latest
+    assert any(
+        c[0][:1] == ["git"] and "gc" in c[0] for c in calls
+    )  # keeps only the latest
     # re-running keeps the same token (Windows side already has it)
     CliRunner().invoke(escritorio_cmd.escritorio, ["instalar"])
     assert (tmp_path / "sergio.env").read_text().count("SERGIO_DESKTOP_TOKEN") == 1
@@ -119,7 +121,9 @@ def test_wait_for_server_gives_up():
     assert 9 <= now[0] <= 11
 
 
-def test_sync_server_adds_the_face_mesh_without_removing_anything(monkeypatch, tmp_path):
+def test_sync_server_adds_the_face_mesh_without_removing_anything(
+    monkeypatch, tmp_path
+):
     import sys
 
     uv = tmp_path / "uv"
@@ -129,10 +133,17 @@ def test_sync_server_adds_the_face_mesh_without_removing_anything(monkeypatch, t
     monkeypatch.setattr(sys, "prefix", str(tmp_path / "venv"))
     seen = []
     ok = escritorio_cmd.sync_server(
-        run=lambda cmd, **kw: seen.append((cmd, kw)) or subprocess.CompletedProcess(cmd, 0)
+        run=lambda cmd, **kw: (
+            seen.append((cmd, kw)) or subprocess.CompletedProcess(cmd, 0)
+        )
     )
     cmd, kw = seen[0]
     assert ok and cmd[:3] == [str(uv), "sync", "--inexact"]
     extras = [cmd[i + 1] for i, a in enumerate(cmd) if a == "--extra"]
-    assert extras == ["faces", "evolution", "cad", "tripo"]  # memory, CAD and Tripo come with every update
+    assert extras == [
+        "faces",
+        "evolution",
+        "cad",
+        "tripo",
+    ]  # memory, CAD and Tripo come with every update
     assert kw["env"]["UV_PROJECT_ENVIRONMENT"] == str(tmp_path / "venv")

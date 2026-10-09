@@ -146,7 +146,11 @@ def pytest_runtest_makereport(item, call):
         missing = _missing_optional(call.excinfo.value)
         if missing:
             report.outcome = "skipped"
-            report.longrepr = (str(item.path), item.location[1] or 0, f"Skipped: needs optional module {missing!r}")
+            report.longrepr = (
+                str(item.path),
+                item.location[1] or 0,
+                f"Skipped: needs optional module {missing!r}",
+            )
 
 
 @pytest.hookimpl(hookwrapper=True)
@@ -157,7 +161,9 @@ def pytest_make_collect_report(collector):
         text = str(report.longrepr)
         missing = None
         for name in _OPTIONAL_MODULES:
-            if f"No module named '{name}" in text or (name.lower() in text.lower() and "ImportError" in text):
+            if f"No module named '{name}" in text or (
+                name.lower() in text.lower() and "ImportError" in text
+            ):
                 import importlib.util
 
                 try:
@@ -169,7 +175,11 @@ def pytest_make_collect_report(collector):
                     break
         if missing:
             report.outcome = "skipped"
-            report.longrepr = (str(collector.path), 0, f"Skipped: needs optional module {missing!r}")
+            report.longrepr = (
+                str(collector.path),
+                0,
+                f"Skipped: needs optional module {missing!r}",
+            )
 
 
 _RESERVED_TEST_HOST = re.compile(r"(^|\.)(example\.(com|net|org)|example|test)$", re.I)
@@ -192,7 +202,15 @@ def _offline_reserved_dns(monkeypatch: pytest.MonkeyPatch) -> None:
             return real(host, port, *args, **kwargs)
         except socket.gaierror:
             if isinstance(host, str) and _RESERVED_TEST_HOST.search(host.rstrip(".")):
-                return [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.215.14", port or 0))]
+                return [
+                    (
+                        socket.AF_INET,
+                        socket.SOCK_STREAM,
+                        6,
+                        "",
+                        ("93.184.215.14", port or 0),
+                    )
+                ]
             raise
 
     monkeypatch.setattr(socket, "getaddrinfo", _getaddrinfo)

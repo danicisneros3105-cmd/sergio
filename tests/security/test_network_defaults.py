@@ -65,7 +65,9 @@ class TestSecurityConfigDefaults:
         cfg = SecurityConfig()
         assert cfg.profile == "personal"
 
-    def test_personal_profile_keeps_an_explicit_server_host(self, tmp_path, monkeypatch) -> None:
+    def test_personal_profile_keeps_an_explicit_server_host(
+        self, tmp_path, monkeypatch
+    ) -> None:
         from openjarvis.core.config import load_config
 
         cfg_file = tmp_path / "config.toml"

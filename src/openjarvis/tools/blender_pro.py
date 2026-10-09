@@ -201,7 +201,11 @@ def _ask_gemini(images: list[tuple[bytes, str]], prompt: str) -> str:
     from openjarvis.engine.cloud import google_config_kwargs
 
     client = _client()
-    parts = [types.Part.from_bytes(data=data, mime_type=mime) for data, mime in images if data]
+    parts = [
+        types.Part.from_bytes(data=data, mime_type=mime)
+        for data, mime in images
+        if data
+    ]
     extra: dict[str, Any] = {}
     if parts:
         extra["media_resolution"] = types.MediaResolution.MEDIA_RESOLUTION_HIGH
@@ -226,7 +230,9 @@ def _ask_gemini(images: list[tuple[bytes, str]], prompt: str) -> str:
                 errors.append(f"{model}: {str(exc)[:120]}")
         if attempt == 0 and not _pause(errors):
             break
-    raise RuntimeError("Gemini no pudo hacer el trabajo de Blender: " + " | ".join(errors))
+    raise RuntimeError(
+        "Gemini no pudo hacer el trabajo de Blender: " + " | ".join(errors)
+    )
 
 
 def _pause(errors: list[str]) -> bool:
@@ -248,7 +254,9 @@ def _draw_gemini(prompt: str, photo: bytes = b"") -> bytes:
     client = _client()
     contents: list[Any] = [prompt]
     if photo:
-        contents.insert(0, types.Part.from_bytes(data=photo, mime_type=image_mime(photo)))
+        contents.insert(
+            0, types.Part.from_bytes(data=photo, mime_type=image_mime(photo))
+        )
     errors: list[str] = []
     for model in SHEET_MODELS:
         try:
@@ -262,7 +270,11 @@ def _draw_gemini(prompt: str, photo: bytes = b"") -> bytes:
             )
             for cand in resp.candidates or []:
                 for part in (cand.content.parts if cand.content else None) or []:
-                    data = getattr(part.inline_data, "data", None) if part.inline_data else None
+                    data = (
+                        getattr(part.inline_data, "data", None)
+                        if part.inline_data
+                        else None
+                    )
                     if data:
                         return bytes(data)
             errors.append(f"{model}: sin imagen")
@@ -275,12 +287,16 @@ Ask = Callable[[list[tuple[bytes, str]], str], str]
 Draw = Callable[[str, bytes], bytes]
 
 
-def reference_sheet(request: str, photo: bytes = b"", draw: Draw | None = None) -> bytes:
+def reference_sheet(
+    request: str, photo: bytes = b"", draw: Draw | None = None
+) -> bytes:
     """The blueprint sheet (front, side, top, 3/4) the modeller works from.
 
     Empty bytes if no image model could draw it: modelling goes on without."""
     if photo:
-        prompt = PHOTO_SHEET_PROMPT.replace("{note}", f" ({request})" if request.strip() else "")
+        prompt = PHOTO_SHEET_PROMPT.replace(
+            "{note}", f" ({request})" if request.strip() else ""
+        )
     else:
         prompt = SHEET_PROMPT.replace("{request}", request)
     try:
@@ -300,16 +316,33 @@ def static_report(script: str) -> str:
     if "SERGIO_LAYOUT" not in script:
         issues.append("there is no SERGIO_LAYOUT spatial plan")
     cubes = script.count("primitive_cube_add")
-    shaped = sum(script.count(f) for f in ("kit_lathe(", "kit_extrude(", "kit_tube(", "kit_cylinder(", "kit_sphere(",
-                                             "kit_box(", "kit_text(", "bmesh.", "primitive_cylinder_add",
-                                             "primitive_uv_sphere_add", "curves.new"))
+    shaped = sum(
+        script.count(f)
+        for f in (
+            "kit_lathe(",
+            "kit_extrude(",
+            "kit_tube(",
+            "kit_cylinder(",
+            "kit_sphere(",
+            "kit_box(",
+            "kit_text(",
+            "bmesh.",
+            "primitive_cylinder_add",
+            "primitive_uv_sphere_add",
+            "curves.new",
+        )
+    )
     if cubes >= 3 and shaped == 0:
-        issues.append(f"the model is {cubes} plain cubes and nothing else: build each part with the kit "
-                      "(kit_lathe / kit_extrude / kit_tube, bevelled kit_box)")
+        issues.append(
+            f"the model is {cubes} plain cubes and nothing else: build each part with the kit "
+            "(kit_lathe / kit_extrude / kit_tube, bevelled kit_box)"
+        )
     return "; ".join(issues)
 
 
-def _checked(text: str, ask: Ask, images: list[tuple[bytes, str]], prompt: str, topic: str = "") -> dict[str, Any]:
+def _checked(
+    text: str, ask: Ask, images: list[tuple[bytes, str]], prompt: str, topic: str = ""
+) -> dict[str, Any]:
     """A model whose script passed the checks: self-correction loop
     (LangGraph) — a refused or careless script goes back with the reason,
     and what fixed it is remembered as a lesson."""
@@ -335,14 +368,24 @@ def _checked(text: str, ask: Ask, images: list[tuple[bytes, str]], prompt: str, 
 
         shared().remember("lesson", lesson)
 
-    out = self_correct(topic or "Blender script", generate, check,
-                       reflect=lambda _t, _c, report: f"Your previous script was refused: {report}. Fix it.",
-                       max_rounds=3, remember=remember, topic=f"Blender «{topic[:60]}»")
+    out = self_correct(
+        topic or "Blender script",
+        generate,
+        check,
+        reflect=lambda _t, _c, report: (
+            f"Your previous script was refused: {report}. Fix it."
+        ),
+        max_rounds=3,
+        remember=remember,
+        topic=f"Blender «{topic[:60]}»",
+    )
     model = out["result"] or {}
     if not out["ok"]:
         if "error" in model:
             raise RuntimeError(model["error"])
-        check_script(model["script"])  # unsafe is never returned; only softer issues are tolerated
+        check_script(
+            model["script"]
+        )  # unsafe is never returned; only softer issues are tolerated
     return model
 
 
@@ -362,9 +405,13 @@ def _examples(request: str) -> str:
         return ""
 
 
-def _finish(model: dict[str, Any], save_path: str, preview_path: str, sheet: bytes) -> dict[str, Any]:
+def _finish(
+    model: dict[str, Any], save_path: str, preview_path: str, sheet: bytes
+) -> dict[str, Any]:
     model["raw_script"] = model["script"]
-    model["script"] = finish_script(model["script"], save_path, model["name"], preview_path)
+    model["script"] = finish_script(
+        model["script"], save_path, model["name"], preview_path
+    )
     if sheet:
         import base64
 
@@ -391,12 +438,15 @@ def from_text(
     if sheet is None:
         sheet = reference_sheet(request, draw=draw)
     images = [(sheet, image_mime(sheet))] if sheet else []
-    prompt = TEXT_PROMPT.replace("{request}", request).replace("{images}", SHEET_NOTE if sheet else "")
+    prompt = TEXT_PROMPT.replace("{request}", request).replace(
+        "{images}", SHEET_NOTE if sheet else ""
+    )
     prompt = _examples(request) + prompt
     if parts:
         prompt += (
             "\nThe object's parts (real sizes, centred at the origin, y up in this list; "
-            "convert to Blender's z up) — keep them all and add the real detail:\n" + parts
+            "convert to Blender's z up) — keep them all and add the real detail:\n"
+            + parts
         )
     prompt += version_note(version) + _lessons(request)
     model = _checked(ask(images, prompt), ask, images, prompt, request)
@@ -405,8 +455,12 @@ def from_text(
 
 def version_note(version: str) -> str:
     """The user's Blender version, so only its API is used."""
-    return (f"\nThe user's Blender is {version}: use only API that exists in Blender {version} "
-            "(the kit functions work in all versions)." if version else "")
+    return (
+        f"\nThe user's Blender is {version}: use only API that exists in Blender {version} "
+        "(the kit functions work in all versions)."
+        if version
+        else ""
+    )
 
 
 def from_photo(
@@ -425,11 +479,19 @@ def from_photo(
     ask = ask or _ask_gemini
     if sheet is None:
         sheet = reference_sheet(note, photo, draw=draw)
-    images = [(photo, image_mime(photo))] + ([(sheet, image_mime(sheet))] if sheet else [])
-    request = note.strip() or "el objeto de la foto (el que sostiene en la mano), ultra detallado"
+    images = [(photo, image_mime(photo))] + (
+        [(sheet, image_mime(sheet))] if sheet else []
+    )
+    request = (
+        note.strip()
+        or "el objeto de la foto (el que sostiene en la mano), ultra detallado"
+    )
     prompt = TEXT_PROMPT.replace("{request}", request).replace(
         "{images}",
-        PHOTO_NOTE.replace("{sheet}", " and a blueprint sheet of it (front, side, top, 3/4)" if sheet else ""),
+        PHOTO_NOTE.replace(
+            "{sheet}",
+            " and a blueprint sheet of it (front, side, top, 3/4)" if sheet else "",
+        ),
     )
     prompt = _examples(request) + prompt
     prompt += (
@@ -437,7 +499,10 @@ def from_photo(
         "prominent) and estimate its real size from context (an adult hand is ~18 cm long)."
     )
     if parts:
-        prompt += "\nIts parts as already measured from the photo (y up; convert to z up):\n" + parts
+        prompt += (
+            "\nIts parts as already measured from the photo (y up; convert to z up):\n"
+            + parts
+        )
     prompt += version_note(version) + _lessons(request)
     model = _checked(ask(images, prompt), ask, images, prompt, request)
     return _finish(model, save_path, preview_path, sheet)
@@ -468,10 +533,24 @@ def refine(
         target = f"Target real size: {w} x {d} x {h} cm (width x depth x height).\n"
     prompt = (
         REVIEW_PROMPT.replace("{request}", request)
-        .replace("{reference}", f"The first attached images are the references: {'; '.join(refs)}.\n" if refs else "")
+        .replace(
+            "{reference}",
+            f"The first attached images are the references: {'; '.join(refs)}.\n"
+            if refs
+            else "",
+        )
         .replace("{target}", target)
-        .replace("{log}", ("\n".join(ln for ln in (log or "").splitlines()
-                                      if not ln.startswith("SERGIO_BBOX ")) or "(no errors)")[-3500:])
+        .replace(
+            "{log}",
+            (
+                "\n".join(
+                    ln
+                    for ln in (log or "").splitlines()
+                    if not ln.startswith("SERGIO_BBOX ")
+                )
+                or "(no errors)"
+            )[-3500:],
+        )
         .replace("{script}", raw_script[:24000])
     )
     images = [(img, image_mime(img)) for img in (reference, sheet) if img]
@@ -499,8 +578,13 @@ VERIFY_PROMPT = (
     'Answer ONLY JSON: {{"looks_like": "...", "is_it": true, "score": 0, '
     '"problems": ["..."], "good": ["..."]}}'
 )
-VISION_MODELS = ("gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.1-pro-preview", "gemini-2.5-flash",
-                 "gemini-flash-lite-latest")
+VISION_MODELS = (
+    "gemini-3.8-flash",
+    "gemini-3.7-flash",
+    "gemini-3.1-pro-preview",
+    "gemini-2.5-flash",
+    "gemini-flash-lite-latest",
+)
 
 
 def parse_verdict(text: str) -> dict[str, Any]:
@@ -522,7 +606,11 @@ def parse_verdict(text: str) -> dict[str, Any]:
 
     def items(key: str) -> list[str]:
         raw = data.get(key) or []
-        return [" ".join(str(x).split())[:160] for x in raw if str(x).strip()][:8] if isinstance(raw, list) else []
+        return (
+            [" ".join(str(x).split())[:160] for x in raw if str(x).strip()][:8]
+            if isinstance(raw, list)
+            else []
+        )
 
     return {
         "looks_like": " ".join(str(data.get("looks_like") or "").split())[:80],
@@ -540,7 +628,11 @@ def _ask_vision(images: list[tuple[bytes, str]], prompt: str) -> str:
     from openjarvis.engine.cloud import google_config_kwargs
 
     client = _client()
-    parts = [types.Part.from_bytes(data=data, mime_type=mime) for data, mime in images if data]
+    parts = [
+        types.Part.from_bytes(data=data, mime_type=mime)
+        for data, mime in images
+        if data
+    ]
     errors: list[str] = []
     for attempt in range(2):  # a second pass after a short quota pause
         errors = []
@@ -580,7 +672,12 @@ def verify(
     if sheet:
         refs.append("the blueprint reference sheet")
     note = f"First attached images: {'; '.join(refs)}.\n" if refs else ""
-    prompt = VERIFY_PROMPT.replace("{reference}", note).replace("{request}", request).replace("{{", "{").replace("}}", "}")
+    prompt = (
+        VERIFY_PROMPT.replace("{reference}", note)
+        .replace("{request}", request)
+        .replace("{{", "{")
+        .replace("}}", "}")
+    )
     images = [(img, image_mime(img)) for img in (reference, sheet) if img]
     images.append((preview, image_mime(preview)))
     return parse_verdict((ask or _ask_vision)(images, prompt))
@@ -588,8 +685,10 @@ def verify(
 
 def vision_note(verdict: dict[str, Any]) -> str:
     """The verdict as log lines the next review round reads."""
-    lines = [f"SERGIO_VISION score {verdict['score']}/10; a stranger would say it is: «{verdict['looks_like']}»"
-             + ("" if verdict["is_it"] else " — NOT recognisable as the request yet")]
+    lines = [
+        f"SERGIO_VISION score {verdict['score']}/10; a stranger would say it is: «{verdict['looks_like']}»"
+        + ("" if verdict["is_it"] else " — NOT recognisable as the request yet")
+    ]
     lines += [f"SERGIO_VISION_FIX {p}" for p in verdict.get("problems", [])]
     return "\n".join(lines)
 
@@ -604,10 +703,11 @@ EDIT_PROMPT = (
     "part before and after (SERGIO_BBOX) and any part you were not asked to "
     "touch that moves or changes is an error. If the edit needs a neighbour to "
     "adapt (a longer leg moves the foot), change that neighbour too and list it.\n"
-    "Return the COMPLETE script with the edit applied, and in \"changed\" the "
+    'Return the COMPLETE script with the edit applied, and in "changed" the '
     "object names (or name prefixes) you added, removed or modified.\n"
     "The current script:\n```python\n{script}\n```\n"
-    "Same rules as before:\n" + RULES.replace(
+    "Same rules as before:\n"
+    + RULES.replace(
         '"script": "the complete Python script"}',
         '"changed": ["object names"], "script": "the complete Python script"}',
     )
@@ -631,13 +731,19 @@ def edit(
     prompt = (
         EDIT_PROMPT.replace("{request}", request)
         .replace("{instruction}", instruction)
-        .replace("{reference}", "First attached image: the reference image of the model.\n" if reference else "")
+        .replace(
+            "{reference}",
+            "First attached image: the reference image of the model.\n"
+            if reference
+            else "",
+        )
         .replace("{script}", raw_script[:24000])
     )
     if collateral:
         prompt += (
             "\nYour previous attempt ALSO changed parts the edit did not ask for: "
-            + ", ".join(collateral[:20]) + ". Put them back exactly as in the script above."
+            + ", ".join(collateral[:20])
+            + ". Put them back exactly as in the script above."
         )
     images = [(img, image_mime(img)) for img in (reference,) if img]
     images.append((preview, image_mime(preview)))
@@ -663,14 +769,18 @@ def bboxes(log: str) -> dict[str, tuple[float, ...]]:
         if not line.startswith("SERGIO_BBOX "):
             continue
         try:
-            name, centre, size = line[len("SERGIO_BBOX "):].split(" | ")
-            out[name.strip()] = tuple(float(v) for v in (*centre.split(), *size.split()))
+            name, centre, size = line[len("SERGIO_BBOX ") :].split(" | ")
+            out[name.strip()] = tuple(
+                float(v) for v in (*centre.split(), *size.split())
+            )
         except ValueError:
             continue
     return out
 
 
-def surgical_report(before: str, after: str, changed: list[str], tol_cm: float = 0.3) -> dict[str, Any]:
+def surgical_report(
+    before: str, after: str, changed: list[str], tol_cm: float = 0.3
+) -> dict[str, Any]:
     """What an edit really touched: the parts it was allowed to change
     (*changed*, by name or prefix) and the collateral ones it should not have."""
     a, b = bboxes(before), bboxes(after)
@@ -678,9 +788,14 @@ def surgical_report(before: str, after: str, changed: list[str], tol_cm: float =
 
     def ok(name: str) -> bool:
         low = name.lower()
-        return any(low == c or low.startswith(c) or c.startswith(low.split("_")[0]) for c in allowed)
+        return any(
+            low == c or low.startswith(c) or c.startswith(low.split("_")[0])
+            for c in allowed
+        )
 
-    moved = [n for n in a if n in b and max(abs(x - y) for x, y in zip(a[n], b[n])) > tol_cm]
+    moved = [
+        n for n in a if n in b and max(abs(x - y) for x, y in zip(a[n], b[n])) > tol_cm
+    ]
     removed = [n for n in a if n not in b]
     added = [n for n in b if n not in a]
     collateral = [n for n in moved + removed if not ok(n)]
@@ -722,22 +837,38 @@ normalise()
 """
 
 
-def import_model(glb_path: str, save_path: str, preview_path: str = "", name: str = "Modelo",
-                 size_cm: float = 30.0) -> dict[str, Any]:
+def import_model(
+    glb_path: str,
+    save_path: str,
+    preview_path: str = "",
+    name: str = "Modelo",
+    size_cm: float = 30.0,
+) -> dict[str, Any]:
     """A generated model file (Tripo, SculptMate, Image-to-Mesh) through
     Sergio's ending: real size (*size_cm* on its longest side), grounded,
     lit, framed, checked, saved and rendered. Sergio's own import script, so
     it is not put through the model check."""
     import json
 
-    raw = IMPORT_SCRIPT.replace("__PATH__", json.dumps(glb_path)).replace("__SIZE__", f"{max(size_cm, 0.5) / 100:.4f}")
-    return {"name": name, "description": "", "dimensions_cm": [], "raw_script": raw,
-            "script": finish_script(raw, save_path, name, preview_path)}
+    raw = IMPORT_SCRIPT.replace("__PATH__", json.dumps(glb_path)).replace(
+        "__SIZE__", f"{max(size_cm, 0.5) / 100:.4f}"
+    )
+    return {
+        "name": name,
+        "description": "",
+        "dimensions_cm": [],
+        "raw_script": raw,
+        "script": finish_script(raw, save_path, name, preview_path),
+    }
 
 
 def step_errors(log: str) -> list[str]:
     """The steps that failed and were skipped (the model was still saved)."""
-    return [line.strip() for line in log.splitlines() if line.startswith("SERGIO_STEP_ERROR")]
+    return [
+        line.strip()
+        for line in log.splitlines()
+        if line.startswith("SERGIO_STEP_ERROR")
+    ]
 
 
 def blender_failed(log: str) -> bool:
@@ -746,6 +877,15 @@ def blender_failed(log: str) -> bool:
 
 
 __all__ = [
-    "blender_failed", "bboxes", "edit", "from_photo", "from_text", "parse_verdict", "reference_sheet",
-    "refine", "surgical_report", "verify", "vision_note",
+    "blender_failed",
+    "bboxes",
+    "edit",
+    "from_photo",
+    "from_text",
+    "parse_verdict",
+    "reference_sheet",
+    "refine",
+    "surgical_report",
+    "verify",
+    "vision_note",
 ]

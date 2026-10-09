@@ -212,8 +212,7 @@ def scene(image: bytes, limit: int = 12, lite: bool = False) -> dict[str, Any]:
         faces = []
     known = [f["name"] for f in faces if f["name"]]
     people = (
-        f"(Reconocidos por su cara: {', '.join(known)}. No inventes otros "
-        "nombres.)\n"
+        f"(Reconocidos por su cara: {', '.join(known)}. No inventes otros nombres.)\n"
         if known
         else ""
     )
@@ -225,7 +224,9 @@ def scene(image: bytes, limit: int = 12, lite: bool = False) -> dict[str, Any]:
         from openjarvis.tools.vision_look import GEMINI_VISION_MODELS, _gemini
 
         try:
-            reply = _gemini(image, prompt, "image/jpeg", SPATIAL_MODELS + GEMINI_VISION_MODELS)
+            reply = _gemini(
+                image, prompt, "image/jpeg", SPATIAL_MODELS + GEMINI_VISION_MODELS
+            )
         except Exception:  # noqa: BLE001 — the usual chain below
             reply = ""
     items = parse_scene(reply or ask_image(image, prompt, lite=lite))
@@ -251,7 +252,12 @@ def scene(image: bytes, limit: int = 12, lite: bool = False) -> dict[str, Any]:
         width, height = 1280, 720
     items = locate(items, width, height)
     pairs = relations(items)
-    return {"items": items, "faces": faces, "relations": pairs, "distances": describe_relations(pairs)}
+    return {
+        "items": items,
+        "faces": faces,
+        "relations": pairs,
+        "distances": describe_relations(pairs),
+    }
 
 
 @router.post("/scene")
@@ -343,12 +349,21 @@ def name_by_vote(image: bytes, ask: Any = None) -> dict[str, Any]:
     """
     from concurrent.futures import ThreadPoolExecutor
 
-    from openjarvis.tools.vision_look import GEMINI_LITE_VISION_MODELS, GEMINI_VISION_MODELS, _gemini
+    from openjarvis.tools.vision_look import (
+        GEMINI_LITE_VISION_MODELS,
+        GEMINI_VISION_MODELS,
+        _gemini,
+    )
 
-    ask = ask or (lambda img, prompt, models: _gemini(img, prompt, "image/jpeg", models))
+    ask = ask or (
+        lambda img, prompt, models: _gemini(img, prompt, "image/jpeg", models)
+    )
     looks: list[dict[str, Any]] = []
     with ThreadPoolExecutor(2) as pool:
-        jobs = [pool.submit(ask, image, NAME_PROMPT, models) for models in (GEMINI_LITE_VISION_MODELS, GEMINI_VISION_MODELS)]
+        jobs = [
+            pool.submit(ask, image, NAME_PROMPT, models)
+            for models in (GEMINI_LITE_VISION_MODELS, GEMINI_VISION_MODELS)
+        ]
         for job in jobs:
             try:
                 looks.append(parse_name(job.result(timeout=25)))
@@ -359,7 +374,13 @@ def name_by_vote(image: bytes, ask: Any = None) -> dict[str, Any]:
         raise RuntimeError("Ningún modelo con visión respondió.")
     if len(looks) == 2 and not _same(looks[0]["label"], looks[1]["label"]):
         try:
-            third = parse_name(ask(image, NAME_PROMPT + "\nMira con atención la forma y el tamaño real.", GEMINI_VISION_MODELS[1:]))
+            third = parse_name(
+                ask(
+                    image,
+                    NAME_PROMPT + "\nMira con atención la forma y el tamaño real.",
+                    GEMINI_VISION_MODELS[1:],
+                )
+            )
             if third["label"]:
                 looks.append(third)
         except Exception:  # noqa: BLE001 — no tie-breaker: the confidence decides
@@ -367,7 +388,9 @@ def name_by_vote(image: bytes, ask: Any = None) -> dict[str, Any]:
     best, votes = looks[0], 1
     for candidate in looks:
         agree = sum(_same(candidate["label"], other["label"]) for other in looks)
-        if agree > votes or (agree == votes and candidate["confidence"] > best["confidence"]):
+        if agree > votes or (
+            agree == votes and candidate["confidence"] > best["confidence"]
+        ):
             best, votes = candidate, agree
     out = dict(best)
     out["votes"] = f"{votes}/{len(looks)}"
@@ -391,11 +414,18 @@ async def youtube_route(req: VideoRequest) -> dict[str, Any]:
     from openjarvis.tools.vision_look import ask_image
     from openjarvis.tools.youtube_pick import pick
 
-    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)", "Accept-Language": "es-419,es;q=0.9"}
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+        "Accept-Language": "es-419,es;q=0.9",
+    }
 
     def run() -> dict[str, Any]:
         with httpx.Client(timeout=15, headers=headers, follow_redirects=True) as http:
-            return pick(req.request, http.get, lambda img, prompt: ask_image(img, prompt, lite=True))
+            return pick(
+                req.request,
+                http.get,
+                lambda img, prompt: ask_image(img, prompt, lite=True),
+            )
 
     try:
         return await asyncio.to_thread(run)
@@ -482,7 +512,11 @@ def parse_action(
         data = {}
     action = str(data.get("action") or "").strip().lower()
     if action not in OPERATOR_ACTIONS:
-        return {"action": "fail", "say": "No entendí qué hacer en la pantalla.", "thought": text[:300]}
+        return {
+            "action": "fail",
+            "say": "No entendí qué hacer en la pantalla.",
+            "thought": text[:300],
+        }
     out: dict[str, Any] = {
         "action": action,
         "thought": str(data.get("thought") or "")[:400],
@@ -606,13 +640,22 @@ async def blender_route(
 
         try:
             return await asyncio.to_thread(
-                lambda: from_photo(data, save_path, note, preview_path, version=blender_version[:20])
+                lambda: from_photo(
+                    data, save_path, note, preview_path, version=blender_version[:20]
+                )
             )
         except Exception as exc:  # noqa: BLE001
             raise HTTPException(status_code=502, detail=str(exc)[:400]) from exc
     try:
         return await asyncio.to_thread(
-            model_object, data, save_path, note, image.content_type or "image/jpeg", None, 2, preview_path
+            model_object,
+            data,
+            save_path,
+            note,
+            image.content_type or "image/jpeg",
+            None,
+            2,
+            preview_path,
         )
     except RuntimeError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
@@ -633,11 +676,16 @@ async def video_plan_route(
     try:
         lens = [float(x) for x in json.loads(lengths)]
     except (ValueError, TypeError) as exc:
-        raise HTTPException(status_code=400, detail="lengths must be a JSON list") from exc
+        raise HTTPException(
+            status_code=400, detail="lengths must be a JSON list"
+        ) from exc
     images = [await f.read(MAX_IMAGE_BYTES + 1) for f in sheets]
     chosen = find_style(style) if style.strip() else None
     if style.strip() and chosen is None:
-        raise HTTPException(status_code=404, detail=f"No conozco el estilo «{style}». Pídame que lo aprenda primero.")
+        raise HTTPException(
+            status_code=404,
+            detail=f"No conozco el estilo «{style}». Pídame que lo aprenda primero.",
+        )
     try:
         result = await asyncio.to_thread(plan, request, images, lens, None, chosen)
     except Exception as exc:  # noqa: BLE001
@@ -645,8 +693,11 @@ async def video_plan_route(
     try:
         from openjarvis.evolution.memory import shared
 
-        shared().remember("video", f"Edición «{request[:200]}»: {len(result['segments'])} cortes, "
-                          f"estilo {chosen['name'] if chosen else 'propio'}, título «{result['youtube']['title']}»")
+        shared().remember(
+            "video",
+            f"Edición «{request[:200]}»: {len(result['segments'])} cortes, "
+            f"estilo {chosen['name'] if chosen else 'propio'}, título «{result['youtube']['title']}»",
+        )
     except Exception:  # noqa: BLE001 — memory is a bonus
         pass
     return result
@@ -676,7 +727,9 @@ async def blender_learn_route(req: BlenderLearn) -> dict[str, Any]:
     the strict check (0 mesh errors, parts in place, nothing floating)."""
     from openjarvis.tools.blender_examples import remember
 
-    kept = await asyncio.to_thread(remember, req.request, req.script[:20000], req.log[-6000:])
+    kept = await asyncio.to_thread(
+        remember, req.request, req.script[:20000], req.log[-6000:]
+    )
     try:  # the outcome joins long-term memory: the next similar model reads it
         from openjarvis.evolution.memory import shared
 
@@ -711,6 +764,7 @@ async def blender_text_route(task: BlenderTask) -> dict[str, Any]:
     if not task.save_path.lower().endswith(".blend"):
         raise HTTPException(status_code=400, detail="save_path must end in .blend")
     try:
+
         def run() -> dict[str, Any]:
             from concurrent.futures import ThreadPoolExecutor
 
@@ -731,8 +785,12 @@ async def blender_text_route(task: BlenderTask) -> dict[str, Any]:
                 parts = pool.submit(designed)
                 sheet = pool.submit(reference_sheet, task.request)
                 return from_text(
-                    task.request, task.save_path, task.preview_path,
-                    parts=parts.result(), sheet=sheet.result(), version=task.blender_version[:20],
+                    task.request,
+                    task.save_path,
+                    task.preview_path,
+                    parts=parts.result(),
+                    sheet=sheet.result(),
+                    version=task.blender_version[:20],
                 )
 
         return await asyncio.to_thread(run)
@@ -764,7 +822,17 @@ async def blender_refine_route(
         target = None
     try:
         return await asyncio.to_thread(
-            refine, request, raw_script, log, shot, save_path, preview_path, ref, None, target, board
+            refine,
+            request,
+            raw_script,
+            log,
+            shot,
+            save_path,
+            preview_path,
+            ref,
+            None,
+            target,
+            board,
         )
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=502, detail=str(exc)[:400]) from exc
@@ -785,11 +853,17 @@ async def cad_image_route(
     if len(data) > MAX_IMAGE_BYTES:
         raise HTTPException(status_code=413, detail="Image too large")
     try:
-        dxf, info = await asyncio.to_thread(image_to_dxf, data, max(1.0, min(width_mm, 100000.0)), tolerance_px)
+        dxf, info = await asyncio.to_thread(
+            image_to_dxf, data, max(1.0, min(width_mm, 100000.0)), tolerance_px
+        )
         png = await asyncio.to_thread(preview_png, dxf)
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=422, detail=str(exc)[:300]) from exc
-    return {"dxf_b64": base64.b64encode(dxf).decode(), "preview_b64": base64.b64encode(png).decode(), **info}
+    return {
+        "dxf_b64": base64.b64encode(dxf).decode(),
+        "preview_b64": base64.b64encode(png).decode(),
+        **info,
+    }
 
 
 class CadModel(BaseModel):
@@ -806,11 +880,17 @@ async def cad_model_route(req: CadModel) -> dict[str, Any]:
 
     try:
         edges = parse_edges(req.log)
-        dxf, info = await asyncio.to_thread(model_to_dxf, edges, req.name[:60] or "Modelo")
+        dxf, info = await asyncio.to_thread(
+            model_to_dxf, edges, req.name[:60] or "Modelo"
+        )
         png = await asyncio.to_thread(preview_png, dxf)
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=422, detail=str(exc)[:300]) from exc
-    return {"dxf_b64": base64.b64encode(dxf).decode(), "preview_b64": base64.b64encode(png).decode(), **info}
+    return {
+        "dxf_b64": base64.b64encode(dxf).decode(),
+        "preview_b64": base64.b64encode(png).decode(),
+        **info,
+    }
 
 
 class StyleLearn(BaseModel):
@@ -836,7 +916,12 @@ async def video_style_list_route() -> dict[str, Any]:
     """The editing styles Video Pro knows."""
     from openjarvis.tools.video_style import available, describe
 
-    return {"styles": [{"name": s.get("name"), "slug": s.get("slug"), "summary": describe(s)} for s in available()]}
+    return {
+        "styles": [
+            {"name": s.get("name"), "slug": s.get("slug"), "summary": describe(s)}
+            for s in available()
+        ]
+    }
 
 
 class BlenderImport(BaseModel):
@@ -852,9 +937,20 @@ async def blender_import_route(req: BlenderImport) -> dict[str, Any]:
     """The finished Blender script for a generated GLB (Tripo, SculptMate...)."""
     from openjarvis.tools.blender_pro import import_model
 
-    if not req.save_path.lower().endswith(".blend") or not req.glb_path.lower().endswith((".glb", ".gltf")):
-        raise HTTPException(status_code=400, detail="save_path must end in .blend and glb_path in .glb/.gltf")
-    return import_model(req.glb_path, req.save_path, req.preview_path, req.name[:60], min(max(req.size_cm, 0.5), 5000))
+    if not req.save_path.lower().endswith(
+        ".blend"
+    ) or not req.glb_path.lower().endswith((".glb", ".gltf")):
+        raise HTTPException(
+            status_code=400,
+            detail="save_path must end in .blend and glb_path in .glb/.gltf",
+        )
+    return import_model(
+        req.glb_path,
+        req.save_path,
+        req.preview_path,
+        req.name[:60],
+        min(max(req.size_cm, 0.5), 5000),
+    )
 
 
 @router.post("/tripo")
@@ -938,7 +1034,16 @@ async def blender_edit_route(
         undo = None
     try:
         return await asyncio.to_thread(
-            edit, request, raw_script, instruction, shot, save_path, preview_path, ref, None, undo
+            edit,
+            request,
+            raw_script,
+            instruction,
+            shot,
+            save_path,
+            preview_path,
+            ref,
+            None,
+            undo,
         )
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=502, detail=str(exc)[:400]) from exc

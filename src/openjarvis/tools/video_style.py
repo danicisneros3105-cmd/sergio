@@ -27,12 +27,21 @@ from pathlib import Path
 from typing import Any, Callable
 
 BUILT_IN = Path(__file__).parent / "video_styles"
-LEARNED = Path(os.environ.get("OPENJARVIS_HOME") or Path.home() / ".openjarvis") / "video_styles"
+LEARNED = (
+    Path(os.environ.get("OPENJARVIS_HOME") or Path.home() / ".openjarvis")
+    / "video_styles"
+)
 YOUTUBE = re.compile(
     r"https?://(?:www\.|m\.)?(?:youtube\.com/(?:watch\?v=|shorts/|live/)|youtu\.be/)([A-Za-z0-9_-]{11})"
 )
 TRANSITIONS = ("cut", "flash", "whip", "zoom", "fade", "glitch")
-MODELS = ("gemini-3.8-flash", "gemini-3.7-flash", "gemini-2.5-flash", "gemini-3.1-pro-preview", "gemini-flash-lite-latest")
+MODELS = (
+    "gemini-3.8-flash",
+    "gemini-3.7-flash",
+    "gemini-2.5-flash",
+    "gemini-3.1-pro-preview",
+    "gemini-flash-lite-latest",
+)
 
 WATCH_PROMPT = """You are a senior video editor studying a reference video so \
 you can copy its EDITING STYLE exactly (not its content). Watch the whole video \
@@ -67,7 +76,11 @@ https://www.youtube.com/shorts/...)."""
 
 
 def slug(name: str) -> str:
-    plain = "".join(c for c in unicodedata.normalize("NFKD", name.lower()) if not unicodedata.combining(c))
+    plain = "".join(
+        c
+        for c in unicodedata.normalize("NFKD", name.lower())
+        if not unicodedata.combining(c)
+    )
     return re.sub(r"[^a-z0-9]+", "-", plain).strip("-")[:40] or "estilo"
 
 
@@ -98,7 +111,9 @@ def parse_watch(text: str) -> dict[str, Any]:
     if not isinstance(data, dict) or not data.get("avg_shot_s"):
         raise RuntimeError("El análisis del video no midió los planos.")
     trans = data.get("transitions") if isinstance(data.get("transitions"), dict) else {}
-    weights = {k: _num(trans.get(k), 0.0, 0.0, 1e6) for k in TRANSITIONS}  # fractions or counts: normalised below
+    weights = {
+        k: _num(trans.get(k), 0.0, 0.0, 1e6) for k in TRANSITIONS
+    }  # fractions or counts: normalised below
     total = sum(weights.values()) or 1.0
     text_raw = data.get("text") if isinstance(data.get("text"), dict) else {}
     grade_raw = data.get("grade") if isinstance(data.get("grade"), dict) else {}
@@ -118,8 +133,14 @@ def parse_watch(text: str) -> dict[str, Any]:
         "camera": str(data.get("camera") or "")[:200],
         "text": {
             "style": str(text_raw.get("style") or "bold white sans")[:80],
-            "position": next((p for p in ("center", "lower third", "top")
-                              if p in str(text_raw.get("position") or "").lower()), "center"),
+            "position": next(
+                (
+                    p
+                    for p in ("center", "lower third", "top")
+                    if p in str(text_raw.get("position") or "").lower()
+                ),
+                "center",
+            ),
             "words_per_caption": int(_num(text_raw.get("words_per_caption"), 4, 1, 12)),
             "kinetic": bool(text_raw.get("kinetic")),
             "color": _hex(text_raw.get("color"), "#FFFFFF"),
@@ -142,7 +163,9 @@ def parse_watch(text: str) -> dict[str, Any]:
             "sfx": [str(x)[:30] for x in (audio_raw.get("sfx") or [])][:8],
             "voiceover": str(audio_raw.get("voiceover") or "")[:30],
         },
-        "aspect": "9:16" if "9:16" in str(data.get("aspect")) else ("1:1" if "1:1" in str(data.get("aspect")) else "16:9"),
+        "aspect": "9:16"
+        if "9:16" in str(data.get("aspect"))
+        else ("1:1" if "1:1" in str(data.get("aspect")) else "16:9"),
         "signature": [str(x)[:200] for x in (data.get("signature") or [])][:6],
     }
 
@@ -152,7 +175,9 @@ def _hex(value: Any, default: str) -> str:
     return text.upper() if re.fullmatch(r"#[0-9a-fA-F]{6}", text) else default
 
 
-def merge(name: str, analyses: list[dict[str, Any]], sources: list[str]) -> dict[str, Any]:
+def merge(
+    name: str, analyses: list[dict[str, Any]], sources: list[str]
+) -> dict[str, Any]:
     """Several videos -> one style: numbers averaged, the most common
     choices kept, every signature technique listed once."""
     if not analyses:
@@ -182,7 +207,9 @@ def merge(name: str, analyses: list[dict[str, Any]], sources: list[str]) -> dict
         "pace": common(lambda a: a["pace"]),
         "hook": first["hook"],
         "structure": first["structure"],
-        "transitions": {k: avg(lambda a, k=k: a["transitions"][k]) for k in TRANSITIONS},
+        "transitions": {
+            k: avg(lambda a, k=k: a["transitions"][k]) for k in TRANSITIONS
+        },
         "punch_in": avg(lambda a: a["punch_in"]),
         "speed_ramps": avg(lambda a: a["speed_ramps"]),
         "slow_motion": avg(lambda a: a["slow_motion"]),
@@ -234,15 +261,22 @@ def _watch_gemini(url: str) -> str:
 
     client = _client()
     errors = []
-    for model in (*MODELS, *MODELS[:2]):  # a second pass: busy models (503) often answer a moment later
+    for model in (
+        *MODELS,
+        *MODELS[:2],
+    ):  # a second pass: busy models (503) often answer a moment later
         try:
             resp = client.models.generate_content(
                 model=model,
-                contents=types.Content(parts=[
-                    types.Part(file_data=types.FileData(file_uri=url)),
-                    types.Part(text=WATCH_PROMPT),
-                ]),
-                config=types.GenerateContentConfig(temperature=0.2, response_mime_type="application/json"),
+                contents=types.Content(
+                    parts=[
+                        types.Part(file_data=types.FileData(file_uri=url)),
+                        types.Part(text=WATCH_PROMPT),
+                    ]
+                ),
+                config=types.GenerateContentConfig(
+                    temperature=0.2, response_mime_type="application/json"
+                ),
             )
             text = str(resp.text or "")
             parse_watch(text)
@@ -263,10 +297,16 @@ def _find_gemini(source: str, n: int) -> str:
             resp = client.models.generate_content(
                 model=model,
                 contents=[FIND_PROMPT.format(source=source, n=n)],
-                config=types.GenerateContentConfig(tools=[types.Tool(google_search=types.GoogleSearch())]),
+                config=types.GenerateContentConfig(
+                    tools=[types.Tool(google_search=types.GoogleSearch())]
+                ),
             )
             text = str(resp.text or "")
-            meta = getattr(resp.candidates[0], "grounding_metadata", None) if resp.candidates else None
+            meta = (
+                getattr(resp.candidates[0], "grounding_metadata", None)
+                if resp.candidates
+                else None
+            )
             for chunk in getattr(meta, "grounding_chunks", None) or []:
                 web = getattr(chunk, "web", None)
                 if web is not None:
@@ -298,26 +338,37 @@ def learn(
     if name.strip():
         label = name.strip()
     else:  # the words around the links, or the channel searched for
-        label = " ".join(re.sub(r"https?://\S+", " ", source).split()).strip(" ,;:") or "estilo"
+        label = (
+            " ".join(re.sub(r"https?://\S+", " ", source).split()).strip(" ,;:")
+            or "estilo"
+        )
     searched = not youtube_urls(source)
     if searched:  # found by search: only videos really from that channel / brand
         urls = [u for u in urls if belongs(source, (author or _author)(u))]
         if not urls:
-            raise RuntimeError(f"Los videos que encontré no son de «{source}». Pásame enlaces de YouTube.")
+            raise RuntimeError(
+                f"Los videos que encontré no son de «{source}». Pásame enlaces de YouTube."
+            )
     watcher = watch or _watch_gemini
     analyses, used = [], []
     with ThreadPoolExecutor(3) as pool:
         for url, result in zip(urls, pool.map(lambda u: _try(watcher, u), urls)):
             if result is None:
                 continue
-            if searched and result.get("channel") and not belongs(source, result["channel"]):
+            if (
+                searched
+                and result.get("channel")
+                and not belongs(source, result["channel"])
+            ):
                 continue  # Gemini saw another channel's branding in it
             analyses.append(result)
             used.append(url)
     style = merge(label, analyses, used)
     folder = folder or LEARNED
     folder.mkdir(parents=True, exist_ok=True)
-    (folder / f"{style['slug']}.json").write_text(json.dumps(style, ensure_ascii=False, indent=1), encoding="utf-8")
+    (folder / f"{style['slug']}.json").write_text(
+        json.dumps(style, ensure_ascii=False, indent=1), encoding="utf-8"
+    )
     return style
 
 
@@ -326,10 +377,16 @@ def _author(url: str) -> str:
     try:
         import httpx
 
-        resp = httpx.get("https://www.youtube.com/oembed", params={"url": url, "format": "json"}, timeout=8)
+        resp = httpx.get(
+            "https://www.youtube.com/oembed",
+            params={"url": url, "format": "json"},
+            timeout=8,
+        )
         if resp.status_code in (400, 401, 403, 404):
             return "-"  # no such public video
-        return str(resp.json().get("author_name") or "") if resp.status_code == 200 else ""
+        return (
+            str(resp.json().get("author_name") or "") if resp.status_code == 200 else ""
+        )
     except Exception:  # noqa: BLE001 — offline: no check
         return ""
 
@@ -341,8 +398,24 @@ def belongs(source: str, channel: str) -> bool:
         return True
     if channel == "-":
         return False
-    want = {w for w in slug(source).split("-") if len(w) > 2 and w not in ("canal", "youtube", "videos", "video", "the",
-                                                                              "anuncio", "estilo", "del", "los", "las")}
+    want = {
+        w
+        for w in slug(source).split("-")
+        if len(w) > 2
+        and w
+        not in (
+            "canal",
+            "youtube",
+            "videos",
+            "video",
+            "the",
+            "anuncio",
+            "estilo",
+            "del",
+            "los",
+            "las",
+        )
+    }
     have = slug(channel).replace("-", "")
     return not want or any(w in have for w in want)
 
@@ -377,7 +450,11 @@ def find_style(name: str, folder: Path | None = None) -> dict[str, Any] | None:
     for style in styles:
         if style.get("slug") == want:
             return style
-    words = [w for w in want.split("-") if len(w) > 2 and w not in ("estilo", "del", "los", "las", "video", "videos")]
+    words = [
+        w
+        for w in want.split("-")
+        if len(w) > 2 and w not in ("estilo", "del", "los", "las", "video", "videos")
+    ]
     best, hits = None, 0
     for style in styles:
         key = style.get("slug", "") + "-" + slug(" ".join(style.get("aliases", [])))
@@ -391,8 +468,14 @@ def describe(style: dict[str, Any]) -> str:
     """A short Spanish summary for the user."""
     t = style.get("transitions", {})
     main = max(t, key=t.get) if t else "cut"
-    names = {"cut": "cortes secos", "flash": "flashes", "whip": "barridos", "zoom": "zooms",
-             "fade": "fundidos", "glitch": "glitches"}
+    names = {
+        "cut": "cortes secos",
+        "flash": "flashes",
+        "whip": "barridos",
+        "zoom": "zooms",
+        "fade": "fundidos",
+        "glitch": "glitches",
+    }
     return (
         f"{style.get('name')}: planos de {style.get('avg_shot_s', 0):.1f} s de media ({style.get('pace')}), "
         f"sobre todo {names.get(main, main)}, punch-ins en el {style.get('punch_in', 0) * 100:.0f} % de los planos, "
@@ -413,14 +496,27 @@ def style_brief(style: dict[str, Any]) -> str:
         f"{audio.get('beat_synced_cuts')}.\n"
         f"- Hook: {style.get('hook')}\n"
         f"- Structure: {' -> '.join(style.get('structure', []))}\n"
-        f"- Transitions mix: " + ", ".join(f"{k} {v:.0%}" for k, v in t.items() if v) + "\n"
+        f"- Transitions mix: "
+        + ", ".join(f"{k} {v:.0%}" for k, v in t.items() if v)
+        + "\n"
         f"- Punch-in zoom on {style.get('punch_in', 0):.0%} of shots; speed ramps on {style.get('speed_ramps', 0):.0%}; "
         f"slow motion on {style.get('slow_motion', 0):.0%}. Camera: {style.get('camera')}\n"
         f"- Captions: {text.get('style')}, {text.get('position')}, about {text.get('words_per_caption')} words, "
         f"{'kinetic word by word' if text.get('kinetic') else 'static'}, {text.get('frequency')}.\n"
         f"- Look: {grade.get('look')}. Music: {audio.get('music')}. SFX: {', '.join(audio.get('sfx', []))}.\n"
-        f"- Signature techniques to reproduce: " + " | ".join(style.get("signature", [])) + "\n"
+        f"- Signature techniques to reproduce: "
+        + " | ".join(style.get("signature", []))
+        + "\n"
     )
 
 
-__all__ = ["available", "describe", "find_style", "learn", "merge", "parse_watch", "style_brief", "youtube_urls"]
+__all__ = [
+    "available",
+    "describe",
+    "find_style",
+    "learn",
+    "merge",
+    "parse_watch",
+    "style_brief",
+    "youtube_urls",
+]

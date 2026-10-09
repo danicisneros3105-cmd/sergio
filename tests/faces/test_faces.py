@@ -193,7 +193,10 @@ def test_a_stranger_is_not_the_only_enrolled_person(tmp_path, monkeypatch):
     dani = _unit(rng.normal(size=dim))
     stranger = _unit(0.38 * dani + 0.92 * _unit(rng.normal(size=dim)))
     b = FaceBook(tmp_path / "faces")
-    photos = {f"dani{i}".encode(): [(_near(dani, 0.05, i), (0, 0, 150, 150), 0.97)] for i in range(8)}
+    photos = {
+        f"dani{i}".encode(): [(_near(dani, 0.05, i), (0, 0, 150, 150), 0.97)]
+        for i in range(8)
+    }
     photos[b"stranger"] = [(stranger, (0, 0, 150, 150), 0.97)]
     photos[b"dani_live"] = [(_near(dani, 0.08, 99), (0, 0, 150, 150), 0.95)]
     monkeypatch.setattr(b, "_faces", lambda data, **_kw: photos[data])
@@ -249,7 +252,9 @@ def test_tiny_or_blurry_faces_are_not_named(tmp_path, monkeypatch):
     assert b.identify(b"ana")[0].to_dict()["quality"] == "ok"
 
 
-def test_a_stranger_saved_as_the_owner_is_refused_and_old_mistakes_repaired(tmp_path, monkeypatch):
+def test_a_stranger_saved_as_the_owner_is_refused_and_old_mistakes_repaired(
+    tmp_path, monkeypatch
+):
     """Everyone was "Daniel Cisneros": strangers' photos had been saved as him."""
     import json
 
@@ -258,7 +263,10 @@ def test_a_stranger_saved_as_the_owner_is_refused_and_old_mistakes_repaired(tmp_
     rng = np.random.default_rng(3)
     dani, other = _unit(rng.normal(size=128)), _unit(rng.normal(size=128))
     b = FaceBook(tmp_path / "faces")
-    photos = {f"d{i}".encode(): [(_near(dani, 0.05, i), (0, 0, 150, 150), 0.97)] for i in range(4)}
+    photos = {
+        f"d{i}".encode(): [(_near(dani, 0.05, i), (0, 0, 150, 150), 0.97)]
+        for i in range(4)
+    }
     photos[b"other"] = [(_near(other, 0.05, 50), (0, 0, 150, 150), 0.97)]
     monkeypatch.setattr(b, "_faces", lambda data, **_kw: photos[data])
     for i in range(3):
@@ -294,7 +302,22 @@ def test_head_angle_from_the_five_points():
     front = [0, 0, 100, 100, 30, 40, 70, 40, 50, 57, 35, 70, 65, 70]
     yaw, pitch = head_pose(front)
     assert abs(yaw) < 5 and abs(pitch) < 8 and angle_of((yaw, pitch)) == "C-M"
-    turned = [0, 0, 100, 100, 30, 40, 70, 40, 66, 57, 35, 70, 65, 70]  # nose to one side
+    turned = [
+        0,
+        0,
+        100,
+        100,
+        30,
+        40,
+        70,
+        40,
+        66,
+        57,
+        35,
+        70,
+        65,
+        70,
+    ]  # nose to one side
     assert angle_of(head_pose(turned)) == "R-M"
     up = [0, 0, 100, 100, 30, 40, 70, 40, 50, 46, 35, 70, 65, 70]  # nose near the eyes
     assert angle_of(head_pose(up)) == "C-U"
@@ -303,7 +326,13 @@ def test_head_angle_from_the_five_points():
 
 def _scan_book(tmp_path, monkeypatch, person, *, other=None):
     """Frames named "<angle>-<i>" show *person* at that head angle."""
-    poses = {"C-M": (0, 0), "L-M": (-30, 0), "R-M": (30, 0), "C-U": (0, 25), "C-D": (0, -25)}
+    poses = {
+        "C-M": (0, 0),
+        "L-M": (-30, 0),
+        "R-M": (30, 0),
+        "C-U": (0, 25),
+        "C-D": (0, -25),
+    }
     b = FaceBook(tmp_path / "faces")
     frames = {}
     for angle, pose in poses.items():
@@ -311,7 +340,13 @@ def _scan_book(tmp_path, monkeypatch, person, *, other=None):
             # turning the head lowers SFace's score: farther from the front
             drift = 0.25 if angle != "C-M" else 0.05
             frames[f"{angle}-{i}".encode()] = [
-                (_near(person, drift, sum(map(ord, angle)) * 10 + i), (0, 0, 150, 150), 0.97, pose, 50.0 + i)
+                (
+                    _near(person, drift, sum(map(ord, angle)) * 10 + i),
+                    (0, 0, 150, 150),
+                    0.97,
+                    pose,
+                    50.0 + i,
+                )
             ]
     if other is not None:
         frames[b"other"] = [(other, (0, 0, 150, 150), 0.97, (0, 0), 60.0)]
@@ -328,7 +363,9 @@ def test_scan_keeps_the_sharpest_photos_of_each_head_angle(tmp_path, monkeypatch
     dani = _unit(rng.normal(size=128))
     b, frames = _scan_book(tmp_path, monkeypatch, dani)
     mesh = {"points": [[0.0, 0.0, 0.0]] * 478, "unit": "mm"}
-    out = b.scan("Dani", [k for k in frames if k not in (b"two",)], consent=True, mesh=mesh)
+    out = b.scan(
+        "Dani", [k for k in frames if k not in (b"two",)], consent=True, mesh=mesh
+    )
     assert out["angles"] == ["C-D", "C-M", "C-U", "L-M", "R-M"]
     assert out["added"] == 10  # two per angle, the sharpest ones
     person = b.people()[0]
@@ -348,7 +385,9 @@ def test_scan_needs_consent_and_several_angles(tmp_path, monkeypatch):
         b.scan("Dani", [b"C-M-0", b"C-M-1", b"C-M-2"], consent=True)
 
 
-def test_a_scan_of_someone_already_saved_under_another_name_is_refused(tmp_path, monkeypatch):
+def test_a_scan_of_someone_already_saved_under_another_name_is_refused(
+    tmp_path, monkeypatch
+):
     rng = np.random.default_rng(5)
     dani = _unit(rng.normal(size=128))
     b, frames = _scan_book(tmp_path, monkeypatch, dani)
@@ -357,11 +396,16 @@ def test_a_scan_of_someone_already_saved_under_another_name_is_refused(tmp_path,
         b.scan("Ana", list(k for k in frames if k != b"two"), consent=True)
 
 
-def test_strong_matches_are_named_at_once_and_it_learns_missing_angles(tmp_path, monkeypatch):
+def test_strong_matches_are_named_at_once_and_it_learns_missing_angles(
+    tmp_path, monkeypatch
+):
     rng = np.random.default_rng(6)
     dani = _unit(rng.normal(size=128))
     b = FaceBook(tmp_path / "faces")
-    photos = {f"p{i}".encode(): [(_near(dani, 0.03, i), (0, 0, 150, 150), 0.97, (0, 0), 50.0)] for i in range(3)}
+    photos = {
+        f"p{i}".encode(): [(_near(dani, 0.03, i), (0, 0, 150, 150), 0.97, (0, 0), 50.0)]
+        for i in range(3)
+    }
     photos[b"side"] = [(_near(dani, 0.04, 77), (0, 0, 150, 150), 0.97, (35, 0), 50.0)]
     photos[b"side2"] = [(_near(dani, 0.04, 78), (0, 0, 150, 150), 0.97, (35, 0), 50.0)]
     monkeypatch.setattr(b, "_faces", lambda data, **_kw: photos[data])
@@ -386,12 +430,16 @@ def test_learnt_photos_are_dropped_first_when_full(tmp_path, monkeypatch):
     person = {"embeddings": [], "enrolled_at": 1}
     _add_samples(person, [([1.0, 0.0], None, (0, 0), "escaneo")] * 6)
     _add_samples(person, [([1.0, 0.1], None, (0, 0), "auto")] * 4)
-    _add_samples(person, [([1.0, 0.2], None, (0, 0), "foto")] * (book_mod.MAX_SAMPLES - 10))
+    _add_samples(
+        person, [([1.0, 0.2], None, (0, 0), "foto")] * (book_mod.MAX_SAMPLES - 10)
+    )
     assert len(person["embeddings"]) == book_mod.MAX_SAMPLES
     _add_samples(person, [([1.0, 0.3], None, (0, 0), "foto")] * 3)
     assert person["sources"].count("auto") == 1  # the learnt ones went first
     assert person["sources"].count("escaneo") == 6  # the scan's angles stay
-    assert len(person["poses"]) == len(person["embeddings"]) == len(person["signatures"])
+    assert (
+        len(person["poses"]) == len(person["embeddings"]) == len(person["signatures"])
+    )
 
 
 def test_gallery_is_cached_until_the_file_changes(book):
@@ -425,7 +473,11 @@ def test_scan_api(tmp_path, monkeypatch):
     app = FastAPI()
     app.include_router(routes.router)
     client = TestClient(app)
-    files = [("images", (f"{k.decode()}.jpg", k, "image/jpeg")) for k in frames if k != b"two"]
+    files = [
+        ("images", (f"{k.decode()}.jpg", k, "image/jpeg"))
+        for k in frames
+        if k != b"two"
+    ]
     mesh = {"points": [[1.0, 2.0, 3.0]] * 478, "unit": "mm"}
     refused = client.post("/v1/faces/scan", data={"name": "Dani"}, files=files)
     assert refused.status_code == 400 and "consent" in refused.json()["detail"]
@@ -434,7 +486,11 @@ def test_scan_api(tmp_path, monkeypatch):
         data={"name": "dani", "consent": "true", "mesh": json.dumps(mesh)},
         files=files,
     ).json()
-    assert done["name"] == "Dani" and len(done["angles"]) == 5 and "de frente" in done["words"]
+    assert (
+        done["name"] == "Dani"
+        and len(done["angles"]) == 5
+        and "de frente" in done["words"]
+    )
     assert client.get("/v1/faces/mesh/Dani").json()["points"][0] == [1.0, 2.0, 3.0]
     routes._book = None
 
@@ -446,7 +502,10 @@ def test_face_enroll_tool_runs_the_scan_on_the_companion(monkeypatch):
 
     def fake_call(self, method, path, **kw):
         calls.append((method, path, kw.get("json")))
-        return {"ok": True, "result": "Listo: ya conozco la cara de Ana desde 6 ángulos."}
+        return {
+            "ok": True,
+            "result": "Listo: ya conozco la cara de Ana desde 6 ángulos.",
+        }
 
     monkeypatch.setattr(FaceEnrollTool, "_call", fake_call)
     result = FaceEnrollTool().execute(name="Ana")
@@ -454,7 +513,9 @@ def test_face_enroll_tool_runs_the_scan_on_the_companion(monkeypatch):
     assert calls == [("POST", "/skill", {"name": "face_scan", "args": {"name": "Ana"}})]
 
 
-def test_face_enroll_tool_falls_back_to_photos_on_an_old_companion(monkeypatch, tmp_path):
+def test_face_enroll_tool_falls_back_to_photos_on_an_old_companion(
+    monkeypatch, tmp_path
+):
     import base64
 
     from openjarvis.tools import desktop_tools

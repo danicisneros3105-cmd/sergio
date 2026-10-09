@@ -28,7 +28,13 @@ SCRIPT = (
     "body(); tip(); broken()\n"
 )
 ANSWER = json.dumps(
-    {"name": "labial", "description": "Un labial rojo.", "dimensions_cm": [2, 2, 8], "parts": 2, "script": SCRIPT}
+    {
+        "name": "labial",
+        "description": "Un labial rojo.",
+        "dimensions_cm": [2, 2, 8],
+        "parts": 2,
+        "script": SCRIPT,
+    }
 )
 
 
@@ -45,7 +51,10 @@ def test_text_jobs_model_from_a_blueprint_sheet():
     ask = Recorder()
     drawn: list[str] = []
     model = bp.from_text(
-        "un labial rojo", "C:/x/l.blend", "C:/x/l.png", ask=ask,
+        "un labial rojo",
+        "C:/x/l.blend",
+        "C:/x/l.png",
+        ask=ask,
         draw=lambda prompt, photo: drawn.append(prompt) or PNG,
     )
     images, prompt = ask.calls[0]
@@ -70,7 +79,9 @@ def test_photo_jobs_send_the_photo_and_a_sheet_of_the_same_object():
     ask = Recorder()
     seen: list[bytes] = []
     photo = b"\xff\xd8jpeg"
-    bp.from_photo(photo, "C:/x/o.blend", "", ask=ask, draw=lambda p, ph: seen.append(ph) or PNG)
+    bp.from_photo(
+        photo, "C:/x/o.blend", "", ask=ask, draw=lambda p, ph: seen.append(ph) or PNG
+    )
     images, prompt = ask.calls[0]
     assert seen == [photo]  # the sheet is drawn from the photo itself
     assert images == [(photo, "image/jpeg"), (PNG, "image/png")]
@@ -81,8 +92,15 @@ def test_reviews_see_four_views_the_references_and_the_target_size():
     ask = Recorder()
     log = "SERGIO_SAVED x 2\nSERGIO_DIMS width 2.0 x depth 2.0 x height 15.0 cm\nSERGIO_STEP_ERROR in broken()"
     bp.refine(
-        "un labial", SCRIPT, log, PNG, "C:/x/l.blend", ask=ask,
-        reference=b"\xff\xd8photo", target_cm=[2, 2, 8], sheet=PNG,
+        "un labial",
+        SCRIPT,
+        log,
+        PNG,
+        "C:/x/l.blend",
+        ask=ask,
+        reference=b"\xff\xd8photo",
+        target_cm=[2, 2, 8],
+        sheet=PNG,
     )
     images, prompt = ask.calls[0]
     assert [m for _, m in images] == ["image/jpeg", "image/png", "image/png"]
@@ -93,17 +111,24 @@ def test_reviews_see_four_views_the_references_and_the_target_size():
 BPY = os.environ.get("SERGIO_BPY_PYTHON", "")
 
 
-@pytest.mark.skipif(not (BPY and Path(BPY).exists()), reason="Blender (bpy) not available")
+@pytest.mark.skipif(
+    not (BPY and Path(BPY).exists()), reason="Blender (bpy) not available"
+)
 def test_blender_saves_measures_and_renders_the_four_view_sheet(tmp_path):
     target, preview = tmp_path / "labial.blend", tmp_path / "vista.png"
     script = tmp_path / "labial.py"
     script.write_text(bm.finish_script(SCRIPT, str(target), "labial", str(preview)))
     done = subprocess.run(
         [BPY, "-c", f"import runpy; runpy.run_path({str(script)!r})"],
-        capture_output=True, text=True, timeout=600, cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        timeout=600,
+        cwd=tmp_path,
     )
     out = done.stdout
-    assert "SERGIO_SAVED" in out and "SERGIO_STEP_ERROR in broken()" in out, done.stderr[-2000:]
+    assert "SERGIO_SAVED" in out and "SERGIO_STEP_ERROR in broken()" in out, (
+        done.stderr[-2000:]
+    )
     assert "SERGIO_DIMS width 2.0 x depth 2.0 x height 8.3 cm" in out
     assert "SERGIO_PARTS 2 meshes: Cuerpo, Punta" in out
     assert "SERGIO_PREVIEW" in out, out[-2000:]

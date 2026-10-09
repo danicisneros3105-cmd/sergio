@@ -356,7 +356,9 @@ def test_spent_gemini_voice_is_skipped_for_a_while(monkeypatch):
         asked.append(request.url.path)
         return httpx.Response(502, json={"detail": "429 RESOURCE_EXHAUSTED quota"})
 
-    client = SergioClient("http://s", http=httpx.Client(transport=httpx.MockTransport(handler)))
+    client = SergioClient(
+        "http://s", http=httpx.Client(transport=httpx.MockTransport(handler))
+    )
     client.voice = "gemini:Algieba"
     monkeypatch.setattr(neural_voice, "synthesize", lambda text, voice, rate: b"EDGE")
     assert client._speak("Hola.") == b"EDGE"
@@ -373,7 +375,9 @@ def test_a_failed_turn_does_not_stay_in_the_history():
             return httpx.Response(200, json={"model": "gemini-3.8-flash"})
         return httpx.Response(500, json={"detail": "boom"})
 
-    client = SergioClient("http://s", http=httpx.Client(transport=httpx.MockTransport(handler)))
+    client = SergioClient(
+        "http://s", http=httpx.Client(transport=httpx.MockTransport(handler))
+    )
     import pytest as _pytest
 
     with _pytest.raises(httpx.HTTPStatusError):
@@ -394,7 +398,9 @@ def test_a_typed_order_while_busy_waits_its_turn():
         def say(self, text):
             done.append(text)
 
-    a = Assistant(SergioClient("http://s"), ui=UI(), player=lambda wav: None, chime=lambda f: None)
+    a = Assistant(
+        SergioClient("http://s"), ui=UI(), player=lambda wav: None, chime=lambda f: None
+    )
     a.quick = lambda q: "Hecho."
     a.say_aloud = lambda text: done.append(f"dijo {text}")
     a.busy = True
@@ -404,7 +410,9 @@ def test_a_typed_order_while_busy_waits_its_turn():
     assert "Hecho." not in done
     a.busy = False
     t.join(2)
-    assert done[-1] == "Hecho." and "dijo Hecho." not in done  # shown, not spoken: no wait
+    assert (
+        done[-1] == "Hecho." and "dijo Hecho." not in done
+    )  # shown, not spoken: no wait
     a.on_text("qué hora es")  # answers that are information are still spoken
     assert done[-1] == "dijo Hecho."
 
@@ -417,7 +425,9 @@ def test_live_voice_is_streamed_and_starts_at_once():
         assert json.loads(request.content)["voice"] == "Predeterminada"
         return httpx.Response(200, content=b"".join(chunks))
 
-    client = SergioClient("http://s", http=httpx.Client(transport=httpx.MockTransport(handler)))
+    client = SergioClient(
+        "http://s", http=httpx.Client(transport=httpx.MockTransport(handler))
+    )
     client.voice = "gemini:Predeterminada"
     assert client.live_voice
     got = b"".join(client.speak_stream("Hola."))
@@ -444,7 +454,9 @@ def test_live_voice_is_streamed_and_starts_at_once():
         def say(self, text):
             pass
 
-    a = Assistant(client, ui=UI(), player=lambda wav: played.append("wav"), chime=lambda f: None)
+    a = Assistant(
+        client, ui=UI(), player=lambda wav: played.append("wav"), chime=lambda f: None
+    )
     a.speaker_factory = FakeSpeaker
     a.say_aloud("Hola.")
     assert played[0] == "start" and played[-1] == "stop" and "wav" not in played

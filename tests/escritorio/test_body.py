@@ -3,7 +3,13 @@
 import json
 from pathlib import Path
 
-from sergio_escritorio.body import FaceStats, Posture, gaze, hand_summary, iris_distance_cm
+from sergio_escritorio.body import (
+    FaceStats,
+    Posture,
+    gaze,
+    hand_summary,
+    iris_distance_cm,
+)
 from sergio_escritorio.vision import Seen, clean_detections, hand_box
 
 REAL = json.loads((Path(__file__).parent / "hand_landmarks.json").read_text())
@@ -21,9 +27,13 @@ def test_your_hand_is_not_a_banana_nor_another_person_nor_a_thing():
     found = [
         Seen("plátano", "objeto", "", 0.6, (x + 0.01, y + 0.02, w * 0.9, h * 0.9)),
         Seen("persona", "persona", "humano", 0.5, (x, y + h * 0.3, w * 1.1, h * 1.2)),
-        Seen("objeto", "objeto", "", 0.5, (x + w * 0.4, y + 0.01, w * 0.1, h * 0.3)),  # a finger
+        Seen(
+            "objeto", "objeto", "", 0.5, (x + w * 0.4, y + 0.01, w * 0.1, h * 0.3)
+        ),  # a finger
         Seen("persona", "persona", "humano", 0.9, (0.0, 0.0, 1.0, 1.0)),  # you
-        Seen("celular", "objeto", "", 0.8, (x + w * 0.5, y + h * 0.5, w * 0.8, h * 0.6)),  # held
+        Seen(
+            "celular", "objeto", "", 0.8, (x + w * 0.5, y + h * 0.5, w * 0.8, h * 0.6)
+        ),  # held
     ]
     kept = clean_detections(found, [hand])
     assert [(k.label, k.held) for k in kept] == [("persona", False), ("celular", True)]

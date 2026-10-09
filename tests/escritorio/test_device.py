@@ -48,19 +48,27 @@ def test_run_device_steps():
     assert "WmiSetBrightness" in done[-1]["command"]
     done.clear()
     run_device(parse_device("pon el volumen al 30"), act)
-    assert [(a["keys"], a["repeat"]) for a in done] == [("volumedown", 50), ("volumeup", 15)]
+    assert [(a["keys"], a["repeat"]) for a in done] == [
+        ("volumedown", 50),
+        ("volumeup", 15),
+    ]
     done.clear()
     run_device(parse_device("activa el modo oscuro"), act)
     assert "AppsUseLightTheme -Value 0" in done[-1]["command"]
     failing = lambda a: "exit code 1\noutput:\n\nerrors:\nnot supported"  # noqa: E731
-    assert "no deja cambiar el brillo" in run_device(parse_device("sube el brillo"), failing)
+    assert "no deja cambiar el brillo" in run_device(
+        parse_device("sube el brillo"), failing
+    )
 
 
 def test_call_tool_runs_spoken_orders():
     from sergio_escritorio.call_tools import Abilities, call_tools
 
     said = []
-    tools = {t.name: t for t in call_tools(Abilities(quick=lambda text: said.append(text) or "Hecho."))}
+    tools = {
+        t.name: t
+        for t in call_tools(Abilities(quick=lambda text: said.append(text) or "Hecho."))
+    }
     assert tools["control_equipo"].run({"orden": "maximiza la ventana"}) == "Hecho."
     assert said == ["maximiza la ventana"]
 
@@ -70,7 +78,10 @@ def test_repeated_keys_are_one_quick_action(desktop):
 
     slept = []
     c = Controller(desktop, sleep=slept.append)
-    assert c.act({"action": "key", "keys": "volumedown", "repeat": 50}) == "pressed volumedown x50"
+    assert (
+        c.act({"action": "key", "keys": "volumedown", "repeat": 50})
+        == "pressed volumedown x50"
+    )
     assert sum(1 for call in desktop.calls if call[0] == "hotkey") == 50
     assert slept == []  # no window check after each press
 
@@ -81,8 +92,16 @@ def test_described_videos_go_to_the_video_finder():
     q = parse_quick("Sergio, pon un video de MrBeast en el que salga con traje negro")
     assert q.kind == "video" and "traje negro" in q.arg
     asked = []
-    tools = {t.name: t for t in call_tools(Abilities(video=lambda r: asked.append(r) or "Reproduciendo «X»."))}
-    assert tools["poner_video"].run({"peticion": "MrBeast con traje negro"}) == "Reproduciendo «X»."
+    tools = {
+        t.name: t
+        for t in call_tools(
+            Abilities(video=lambda r: asked.append(r) or "Reproduciendo «X».")
+        )
+    }
+    assert (
+        tools["poner_video"].run({"peticion": "MrBeast con traje negro"})
+        == "Reproduciendo «X»."
+    )
     assert asked == ["MrBeast con traje negro"]
 
 
@@ -129,7 +148,12 @@ def test_click_by_name_finds_the_right_element():
     els = [
         {"name": "Suscripciones", "type": "Hyperlink", "x": 2, "y": 2},
         {"name": "Suscribirse", "type": "Button", "x": 1, "y": 1},
-        {"name": "Me gusta este video junto con 3 mil personas", "type": "Button", "x": 3, "y": 3},
+        {
+            "name": "Me gusta este video junto con 3 mil personas",
+            "type": "Button",
+            "x": 3,
+            "y": 3,
+        },
         {"name": "Enviar comentario", "type": "Button", "x": 5, "y": 5},
         {"name": "Enviar", "type": "Button", "x": 4, "y": 4},
     ]

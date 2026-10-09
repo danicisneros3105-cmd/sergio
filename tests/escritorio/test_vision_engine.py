@@ -37,10 +37,19 @@ def _person(x, score=0.9):
 
 def test_tracks_keep_their_number_and_move_smoothly():
     t = Tracker(keep=1.0)
-    first = t.update([_person(0.10), Seen("perro", "animal", "perro", 0.8, (0.6, 0.5, 0.3, 0.3))], 0.0)
+    first = t.update(
+        [_person(0.10), Seen("perro", "animal", "perro", 0.8, (0.6, 0.5, 0.3, 0.3))],
+        0.0,
+    )
     ids = {tr.label: tr.id for tr in first}
-    t.update([_person(0.14), Seen("perro", "animal", "perro", 0.8, (0.62, 0.5, 0.3, 0.3))], 0.2)
-    now = t.update([_person(0.18), Seen("perro", "animal", "perro", 0.8, (0.64, 0.5, 0.3, 0.3))], 0.4)
+    t.update(
+        [_person(0.14), Seen("perro", "animal", "perro", 0.8, (0.62, 0.5, 0.3, 0.3))],
+        0.2,
+    )
+    now = t.update(
+        [_person(0.18), Seen("perro", "animal", "perro", 0.8, (0.64, 0.5, 0.3, 0.3))],
+        0.4,
+    )
     assert {tr.label: tr.id for tr in now} == ids  # same numbers
     person = next(tr for tr in now if tr.kind == "persona")
     assert 0.12 < person.box[0] < 0.18  # smoothed, no jumps
@@ -66,7 +75,9 @@ def test_names_need_two_of_three_looks():
     t.add_faces([dict(face, name="")], 3.0)  # a blurry look: no vote
     assert person.name == "Dani"
     t.add_faces([dict(face, name="", guest=2)], 4.5)  # clearly someone else
-    assert person.name == "" and person.title(4.5) == "Persona 2"  # never inherits "Dani"
+    assert (
+        person.name == "" and person.title(4.5) == "Persona 2"
+    )  # never inherits "Dani"
     t.add_faces([dict(face, name="", guest=2)], 6.0)
     assert person.name == ""
 
@@ -76,7 +87,9 @@ def test_each_face_goes_to_its_own_body():
 
     t = Tracker()
     big = Seen("persona", "persona", "humano", 0.9, (0.0, 0.0, 0.9, 1.0))  # Dani, close
-    side = Seen("persona", "persona", "humano", 0.9, (0.55, 0.1, 0.3, 0.8))  # a friend behind
+    side = Seen(
+        "persona", "persona", "humano", 0.9, (0.55, 0.1, 0.3, 0.8)
+    )  # a friend behind
     for now in (0.0, 0.1):
         t.update([big, side], now)
     dani_face = {"box": (0.2, 0.1, 0.15, 0.2), "score": 0.8, "name": "Dani"}
@@ -100,8 +113,18 @@ def test_scene_details_attach_or_add_things():
     t.update([Seen("perro", "animal", "perro", 0.9, (0.5, 0.5, 0.3, 0.3))] * 1, 0.0)
     t.add_scene(
         [
-            {"box": [0.5, 0.5, 0.3, 0.3], "kind": "animal", "label": "perro", "detail": "corgi"},
-            {"box": [0.05, 0.1, 0.1, 0.2], "kind": "objeto", "label": "guitarra", "detail": "acústica"},
+            {
+                "box": [0.5, 0.5, 0.3, 0.3],
+                "kind": "animal",
+                "label": "perro",
+                "detail": "corgi",
+            },
+            {
+                "box": [0.05, 0.1, 0.1, 0.2],
+                "kind": "objeto",
+                "label": "guitarra",
+                "detail": "acústica",
+            },
         ],
         1.0,
     )
@@ -132,7 +155,9 @@ def test_summary_sentence():
 
 
 def test_expressions_from_blendshapes():
-    assert expressions({"mouthSmileLeft": 0.9, "mouthSmileRight": 0.85}) == ["sonriendo"]
+    assert expressions({"mouthSmileLeft": 0.9, "mouthSmileRight": 0.85}) == [
+        "sonriendo"
+    ]
     assert "sorprendido" in expressions({"browInnerUp": 0.7, "jawOpen": 0.5})
     assert expressions({"eyeBlinkLeft": 0.9, "eyeBlinkRight": 0.1}) == ["guiño"]
     assert expressions({"eyeBlinkLeft": 0.9, "eyeBlinkRight": 0.9}) == ["ojos cerrados"]
@@ -145,7 +170,11 @@ def _rot_y(deg):
 
 
 def test_head_angles():
-    assert head_angles([[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]) == (0, 0, 0)
+    assert head_angles([[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]) == (
+        0,
+        0,
+        0,
+    )
     yaw, pitch, roll = head_angles(_rot_y(25))
     assert yaw == pytest.approx(25) and abs(pitch) < 1e-6 and abs(roll) < 1e-6
 
@@ -231,7 +260,9 @@ def test_auto_namer_asks_gemini_only_for_new_things_and_rarely():
     namer.asked(tracker.visible(32.0), 32.0)
     assert not namer.due(tracker.visible(40.0), 40.0, holding=True, day="d1")  # gap
     namer._count = 3
-    assert not namer.due(tracker.visible(80.0), 80.0, holding=True, day="d1")  # daily cap
+    assert not namer.due(
+        tracker.visible(80.0), 80.0, holding=True, day="d1"
+    )  # daily cap
     assert namer.due(tracker.visible(80.0), 80.0, holding=True, day="d2")  # a new day
 
 
@@ -239,7 +270,9 @@ def test_object_finder_prefers_the_better_model(monkeypatch):
     from sergio_escritorio import vision
 
     assert vision.ObjectFinder.MODELS[0] == "efficientdet_lite2.tflite"
-    assert "efficientdet_lite2/float16" in vision.MODEL_URLS["efficientdet_lite2.tflite"]
+    assert (
+        "efficientdet_lite2/float16" in vision.MODEL_URLS["efficientdet_lite2.tflite"]
+    )
 
 
 # -- one label per thing; unsure look-alikes are not named -------------------
@@ -344,7 +377,9 @@ def test_vision_moves_to_the_cpu_when_the_card_has_no_kernels():
         def predict(self, frame, **kw):
             calls.append(kw["device"])
             if kw["device"] != "cpu":
-                raise RuntimeError("CUDA error: no kernel image is available for execution")
+                raise RuntimeError(
+                    "CUDA error: no kernel image is available for execution"
+                )
 
             class Boxes:
                 cls = conf = xyxyn = type("T", (), {"tolist": lambda self: []})()
@@ -353,7 +388,12 @@ def test_vision_moves_to_the_cpu_when_the_card_has_no_kernels():
 
     finder = vision.YoloFinder.__new__(vision.YoloFinder)
     finder._model, finder._device, finder._half, finder.gpu = Model(), 0, True, True
-    finder._size, finder._score, finder._vocab, finder.model = 640, 0.4, None, "yolo11m.pt (GPU)"
+    finder._size, finder._score, finder._vocab, finder.model = (
+        640,
+        0.4,
+        None,
+        "yolo11m.pt (GPU)",
+    )
     assert finder.find(object()) == []
     assert finder.find(object()) == []
     assert calls == [0, "cpu", "cpu"]
@@ -373,7 +413,9 @@ def test_a_sure_face_is_named_on_the_first_look_and_settles():
     t = Tracker()
     t.update([_person(0.1)], 0.0)
     face = {"box": (0.15, 0.25, 0.08, 0.1), "score": 0.71}
-    assert t.add_faces([dict(face, name="Dani", strong=True, owner=True)], 0.1) == ["Dani"]
+    assert t.add_faces([dict(face, name="Dani", strong=True, owner=True)], 0.1) == [
+        "Dani"
+    ]
     person = t.tracks[0]
     assert person.name == "Dani" and person.settled and person.owner
     assert person.named_at == 0.1

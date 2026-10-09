@@ -32,18 +32,62 @@ SEED_REQUESTS = {
     "telefono": "un teléfono móvil moderno con cámaras, botones y puerto",
 }
 KEEP = 60
-STOP = {"de", "la", "el", "un", "una", "con", "y", "en", "los", "las", "del", "al", "su", "sus", "para", "por", "hazme",
-        "haz", "crea", "modela", "blender", "en", "3d", "modelo", "objeto", "muy", "ultra", "detallado", "detallada"}
+STOP = {
+    "de",
+    "la",
+    "el",
+    "un",
+    "una",
+    "con",
+    "y",
+    "en",
+    "los",
+    "las",
+    "del",
+    "al",
+    "su",
+    "sus",
+    "para",
+    "por",
+    "hazme",
+    "haz",
+    "crea",
+    "modela",
+    "blender",
+    "en",
+    "3d",
+    "modelo",
+    "objeto",
+    "muy",
+    "ultra",
+    "detallado",
+    "detallada",
+}
 
 
 def _words(text: str) -> set[str]:
-    plain = "".join(c for c in unicodedata.normalize("NFKD", text.lower()) if not unicodedata.combining(c))
-    return {w.rstrip("s") for w in re.findall(r"[a-z0-9]+", plain) if len(w) > 2 and w not in STOP}
+    plain = "".join(
+        c
+        for c in unicodedata.normalize("NFKD", text.lower())
+        if not unicodedata.combining(c)
+    )
+    return {
+        w.rstrip("s")
+        for w in re.findall(r"[a-z0-9]+", plain)
+        if len(w) > 2 and w not in STOP
+    }
 
 
 def all_examples(folder: Path | None = None) -> list[dict[str, Any]]:
-    out = [{"request": SEED_REQUESTS.get(p.stem, p.stem), "script": p.read_text(encoding="utf-8"), "seed": True}
-           for p in sorted(SEEDS.glob("*.py")) if p.stem != "__init__"]
+    out = [
+        {
+            "request": SEED_REQUESTS.get(p.stem, p.stem),
+            "script": p.read_text(encoding="utf-8"),
+            "seed": True,
+        }
+        for p in sorted(SEEDS.glob("*.py"))
+        if p.stem != "__init__"
+    ]
     folder = folder or LEARNED
     if folder.is_dir():
         for path in sorted(folder.glob("*.json")):
@@ -54,7 +98,9 @@ def all_examples(folder: Path | None = None) -> list[dict[str, Any]]:
     return out
 
 
-def similar(request: str, k: int = 2, max_chars: int = 9000, folder: Path | None = None) -> list[dict[str, Any]]:
+def similar(
+    request: str, k: int = 2, max_chars: int = 9000, folder: Path | None = None
+) -> list[dict[str, Any]]:
     """The examples closest to the request (shared words), then the seeds,
     within *max_chars* of script."""
     want = _words(request)
@@ -76,23 +122,30 @@ def prompt_block(request: str, folder: Path | None = None) -> str:
     examples = similar(request, folder=folder)
     if not examples:
         return ""
-    parts = ["Worked examples: complete scripts that really built correct models in Blender (0 mesh errors, "
-             "every planned part in place). Study their technique — the SERGIO_LAYOUT plan first, helpers, one "
-             "function per part, exact numbers — and apply it to the new object; do not copy their shapes."]
+    parts = [
+        "Worked examples: complete scripts that really built correct models in Blender (0 mesh errors, "
+        "every planned part in place). Study their technique — the SERGIO_LAYOUT plan first, helpers, one "
+        "function per part, exact numbers — and apply it to the new object; do not copy their shapes."
+    ]
     for ex in examples:
-        parts.append(f"Example for «{ex['request']}»:\n```python\n{ex['script'].strip()}\n```")
+        parts.append(
+            f"Example for «{ex['request']}»:\n```python\n{ex['script'].strip()}\n```"
+        )
     return "\n\n".join(parts) + "\n\n"
 
 
 def quality(log: str) -> dict[str, Any]:
     """What the log says about a build (for the strict check)."""
+
     def num(pattern: str) -> int:
         found = re.search(pattern, log)
         return int(found.group(1)) if found else -1
 
     return {
         "saved": "SERGIO_SAVED" in log,
-        "step_errors": sum(1 for ln in log.splitlines() if ln.startswith("SERGIO_STEP_ERROR")),
+        "step_errors": sum(
+            1 for ln in log.splitlines() if ln.startswith("SERGIO_STEP_ERROR")
+        ),
         "parts": num(r"SERGIO_PARTS (\d+)"),
         "bad_edges": num(r"non-manifold edges (\d+)"),
         "loose": num(r"loose vertices (\d+)"),
@@ -111,12 +164,19 @@ def good_enough(log: str, min_parts: int = 4) -> tuple[bool, str]:
         return False, f"solo {q['parts']} piezas"
     if q["bad_edges"] != 0 or q["loose"] != 0:
         return False, "malla con errores"
-    if q["planned"] < 2 or q["in_place"] < 0.8 * q["planned"] or q["floating"] or q["below"]:
+    if (
+        q["planned"] < 2
+        or q["in_place"] < 0.8 * q["planned"]
+        or q["floating"]
+        or q["below"]
+    ):
         return False, "piezas fuera de su sitio o sin plan espacial"
     return True, "ok"
 
 
-def remember(request: str, script: str, log: str, folder: Path | None = None) -> dict[str, Any]:
+def remember(
+    request: str, script: str, log: str, folder: Path | None = None
+) -> dict[str, Any]:
     """Keep a build as an example if it passes the strict check."""
     if not script.strip():
         return {"saved": False, "why": "la revisión visual no lo aprobó"}
@@ -127,12 +187,24 @@ def remember(request: str, script: str, log: str, folder: Path | None = None) ->
     folder.mkdir(parents=True, exist_ok=True)
     slug = "-".join(sorted(_words(request)))[:60] or "modelo"
     path = folder / f"{slug}.json"
-    path.write_text(json.dumps({"request": request, "script": script, "time": time.time()}, ensure_ascii=False),
-                    encoding="utf-8")
+    path.write_text(
+        json.dumps(
+            {"request": request, "script": script, "time": time.time()},
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
     files = sorted(folder.glob("*.json"), key=lambda p: p.stat().st_mtime)
     for old in files[:-KEEP]:
         old.unlink(missing_ok=True)
     return {"saved": True, "why": "ok", "path": str(path)}
 
 
-__all__ = ["all_examples", "good_enough", "prompt_block", "quality", "remember", "similar"]
+__all__ = [
+    "all_examples",
+    "good_enough",
+    "prompt_block",
+    "quality",
+    "remember",
+    "similar",
+]

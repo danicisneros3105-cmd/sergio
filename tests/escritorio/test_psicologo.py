@@ -5,9 +5,15 @@ from __future__ import annotations
 import time
 
 import pytest
-
 from sergio_escritorio import secure
-from sergio_escritorio.psicologo import GAD7, PHQ9, Consult, at_risk, explain_score, score
+from sergio_escritorio.psicologo import (
+    GAD7,
+    PHQ9,
+    Consult,
+    at_risk,
+    explain_score,
+    score,
+)
 
 
 def test_phq9_and_gad7_scoring():
@@ -25,22 +31,36 @@ def test_phq9_and_gad7_scoring():
 
 def test_risk_words():
     assert at_risk("a veces pienso que no quiero vivir") and at_risk("Quiero morirme")
-    assert not at_risk("me muero de risa con esa serie") and not at_risk("tuve un mal día")
+    assert not at_risk("me muero de risa con esa serie") and not at_risk(
+        "tuve un mal día"
+    )
 
 
 def test_sessions_notes_and_privacy(tmp_path):
     clock = [1000.0]
     c = Consult(tmp_path / "p.json", clock=lambda: clock[0])
     c.said("duermo mal")
-    c.replied({"respuesta": "Te escucho.", "nota": {"datos": "insomnio", "analisis": "", "plan": "higiene del sueño"}, "animo": -2, "temas": ["sueño"]})
-    assert c.messages() == [{"role": "user", "content": "duermo mal"}, {"role": "assistant", "content": "Te escucho."}]
+    c.replied(
+        {
+            "respuesta": "Te escucho.",
+            "nota": {"datos": "insomnio", "analisis": "", "plan": "higiene del sueño"},
+            "animo": -2,
+            "temas": ["sueño"],
+        }
+    )
+    assert c.messages() == [
+        {"role": "user", "content": "duermo mal"},
+        {"role": "assistant", "content": "Te escucho."},
+    ]
     clock[0] += 4 * 3600  # a new session after a long pause
     c.said("hoy mejor")
     assert len(c.sessions) == 2 and c.notes()[0]["plan"] == "higiene del sueño"
     raw = (tmp_path / "p.json").read_bytes()
     assert b"duermo mal" not in raw or not secure.available()
     again = Consult(tmp_path / "p.json")
-    assert again.mood_trend() == [-2.0] and again.summary_for_profile()["temas"] == ["sueño"]
+    assert again.mood_trend() == [-2.0] and again.summary_for_profile()["temas"] == [
+        "sueño"
+    ]
 
 
 def test_consult_orders():
@@ -54,7 +74,6 @@ def test_the_room_animates_and_the_chat_works(tmp_path):
     from PySide6.QtCore import QRectF
     from PySide6.QtGui import QColor, QImage, QPainter
     from PySide6.QtWidgets import QApplication
-
     from sergio_escritorio.psicologo_ui import ConsultWindow, Scene
 
     app = QApplication.instance() or QApplication([])
@@ -75,7 +94,12 @@ def test_the_room_animates_and_the_chat_works(tmp_path):
     assert len(scene.lines) <= 9
     spoken = []
     c = Consult(tmp_path / "p.json")
-    w = ConsultWindow(c, lambda m, n: {"respuesta": "Cuénteme más.", "nota": {"datos": "x"}}, spoken.append, lambda: None)
+    w = ConsultWindow(
+        c,
+        lambda m, n: {"respuesta": "Cuénteme más.", "nota": {"datos": "x"}},
+        spoken.append,
+        lambda: None,
+    )
     w.hear("me siento solo")
     deadline = time.monotonic() + 3
     while not spoken and time.monotonic() < deadline:

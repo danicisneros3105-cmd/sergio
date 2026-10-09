@@ -23,14 +23,29 @@ def _handler(calls, ollama=True, local_models=(), hang=None):
             if not ollama:
                 raise httpx.ConnectError("refused")
             if path == "/api/tags":
-                return httpx.Response(200, json={"models": [{"name": m} for m in local_models]})
+                return httpx.Response(
+                    200, json={"models": [{"name": m} for m in local_models]}
+                )
             if path == "/api/pull":
-                lines = [{"status": "pulling", "total": 1000, "completed": c} for c in (0, 500, 1000)]
-                return httpx.Response(200, text="\n".join(json.dumps(x) for x in lines + [{"status": "success"}]))
+                lines = [
+                    {"status": "pulling", "total": 1000, "completed": c}
+                    for c in (0, 500, 1000)
+                ]
+                return httpx.Response(
+                    200,
+                    text="\n".join(
+                        json.dumps(x) for x in lines + [{"status": "success"}]
+                    ),
+                )
         if path == hang:
             stuck.wait(3)
-        if path in ("/health", "/v1/chat/completions", "/v1/speech/synthesize", "/v1/faces/look",
-                    "/v1/speech/transcribe"):
+        if path in (
+            "/health",
+            "/v1/chat/completions",
+            "/v1/speech/synthesize",
+            "/v1/faces/look",
+            "/v1/speech/transcribe",
+        ):
             return httpx.Response(200, json={"ok": True})
         if path == "/v1/world/open":
             return httpx.Response(200, json={"url": "http://127.0.0.1:4173/"})
@@ -46,17 +61,29 @@ def run(monkeypatch, tmp_path):
         client = httpx.Client(transport=httpx.MockTransport(_handler(calls, **kw)))
 
         def strip(kwargs):
-            return {k: v for k, v in kwargs.items() if k not in ("timeout", "trust_env")}
+            return {
+                k: v for k, v in kwargs.items() if k not in ("timeout", "trust_env")
+            }
 
-        monkeypatch.setattr(revisar_cmd.httpx, "get", lambda url, **k: client.get(url, **strip(k)))
-        monkeypatch.setattr(revisar_cmd.httpx, "post", lambda url, **k: client.post(url, **strip(k)))
-        monkeypatch.setattr(revisar_cmd.httpx, "stream", lambda m, url, **k: client.stream(m, url, **strip(k)))
+        monkeypatch.setattr(
+            revisar_cmd.httpx, "get", lambda url, **k: client.get(url, **strip(k))
+        )
+        monkeypatch.setattr(
+            revisar_cmd.httpx, "post", lambda url, **k: client.post(url, **strip(k))
+        )
+        monkeypatch.setattr(
+            revisar_cmd.httpx,
+            "stream",
+            lambda m, url, **k: client.stream(m, url, **strip(k)),
+        )
         cfg_text = f'[intelligence]\ndefault_model = "{model}"\n'
         home = tmp_path / "home"
         home.mkdir(exist_ok=True)
         (home / "config.toml").write_text(cfg_text)
         monkeypatch.setenv("OPENJARVIS_HOME", str(home))
-        monkeypatch.setattr("openjarvis.cli.service_cmd.env_file", lambda: tmp_path / "none.env")
+        monkeypatch.setattr(
+            "openjarvis.cli.service_cmd.env_file", lambda: tmp_path / "none.env"
+        )
         monkeypatch.setattr(revisar_cmd, "console", Console(width=300))
         result = CliRunner().invoke(revisar_cmd.revisar, [])
         return result, calls
@@ -80,7 +107,10 @@ def test_a_cloud_brain_does_not_need_ollama(run):
 def test_a_missing_local_model_downloads_with_progress(run):
     result, calls = run(model="qwen3:8b", local_models=())
     assert "/api/pull" in calls
-    assert "50% de 0.0 GB" in result.output and "Modelo qwen3:8b descargado" in result.output
+    assert (
+        "50% de 0.0 GB" in result.output
+        and "Modelo qwen3:8b descargado" in result.output
+    )
 
 
 def test_a_check_that_hangs_is_reported_and_the_rest_runs(run, monkeypatch):

@@ -16,7 +16,9 @@ from openjarvis.cli.probar_cmd import run_with_limit
 
 console = Console()
 DEFAULT_MODEL = "qwen3:8b"
-CHECK_TIMEOUT = 120.0  # one check (chat, voice, sight, hearing) before it counts as failed
+CHECK_TIMEOUT = (
+    120.0  # one check (chat, voice, sight, hearing) before it counts as failed
+)
 PULL_LIMIT = 45 * 60.0  # a local model download, with progress, before giving up
 
 
@@ -132,16 +134,23 @@ def _pull(host: str, model: str, limit: float = PULL_LIMIT) -> bool:
     started = time.monotonic()
     shown = -10
     try:
-        with httpx.stream("POST", f"{host}/api/pull", json={"model": model, "stream": True},
-                          timeout=httpx.Timeout(60, connect=5)) as resp:
+        with httpx.stream(
+            "POST",
+            f"{host}/api/pull",
+            json={"model": model, "stream": True},
+            timeout=httpx.Timeout(60, connect=5),
+        ) as resp:
             if resp.status_code != 200:
                 resp.read()
                 _bad(f"modelo {model}", _detail(resp))
                 return False
             for line in resp.iter_lines():
                 if time.monotonic() - started > limit:
-                    _bad(f"modelo {model}", f"la descarga pasó de {limit / 60:.0f} min; "
-                         f"termínala con: ollama pull {model}")
+                    _bad(
+                        f"modelo {model}",
+                        f"la descarga pasó de {limit / 60:.0f} min; "
+                        f"termínala con: ollama pull {model}",
+                    )
                     return False
                 try:
                     event = json.loads(line or "{}")
@@ -158,7 +167,10 @@ def _pull(host: str, model: str, limit: float = PULL_LIMIT) -> bool:
                         console.print(f"  {pct}% de {total / 1e9:.1f} GB")
         return True
     except httpx.HTTPError as exc:
-        _bad(f"modelo {model}", f"la descarga se cortó ({exc}); repite o usa: ollama pull {model}")
+        _bad(
+            f"modelo {model}",
+            f"la descarga se cortó ({exc}); repite o usa: ollama pull {model}",
+        )
         return False
 
 
@@ -199,9 +211,14 @@ def _revisar() -> None:
         have_local = local in names or f"{local}:latest" in names
         if cloud:
             # A cloud brain needs nothing local: never download gigabytes here.
-            _ok(f"Modelo en la nube: {model}"
-                + (f" (respaldo local {local} listo)" if have_local
-                   else f" (sin respaldo local; opcional: ollama pull {local})"))
+            _ok(
+                f"Modelo en la nube: {model}"
+                + (
+                    f" (respaldo local {local} listo)"
+                    if have_local
+                    else f" (sin respaldo local; opcional: ollama pull {local})"
+                )
+            )
         elif have_local:
             _ok(f"Ollama y el modelo {local}")
         elif _pull(host, local):
@@ -213,7 +230,10 @@ def _revisar() -> None:
             _ok(f"Modelo en la nube: {model} (Ollama no está; no hace falta)")
         else:
             failures += 1
-            _bad("Ollama", f"no responde en {host} ({exc}). Abre la app Ollama en Windows.")
+            _bad(
+                "Ollama",
+                f"no responde en {host} ({exc}). Abre la app Ollama en Windows.",
+            )
 
     # 2. Sergio's server
     # It may have just been (re)started, or be switched off: ensure_server
@@ -243,7 +263,9 @@ def _revisar() -> None:
         (
             "Voz (Sergio habla)",
             lambda: httpx.post(
-                f"{base}/v1/speech/synthesize", json={"text": "Hola"}, timeout=CHECK_TIMEOUT
+                f"{base}/v1/speech/synthesize",
+                json={"text": "Hola"},
+                timeout=CHECK_TIMEOUT,
             ),
         ),
         (
@@ -294,7 +316,9 @@ def _revisar() -> None:
     # 6. The 3D globe (God's Eye View): started on demand if needed
     console.print("Probando: Globo 3D (God's Eye View)… (la 1.a vez tarda)")
     try:
-        resp = run_with_limit(lambda: httpx.post(f"{base}/v1/world/open", timeout=240), 260)
+        resp = run_with_limit(
+            lambda: httpx.post(f"{base}/v1/world/open", timeout=240), 260
+        )
         if resp.status_code == 200:
             _ok(f"Globo 3D en {resp.json().get('url')}")
         else:

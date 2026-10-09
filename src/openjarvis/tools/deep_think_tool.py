@@ -44,10 +44,20 @@ class DeepThinkTool(EngineTool):
             parameters={
                 "type": "object",
                 "properties": {
-                    "question": {"type": "string", "description": "The question or task."},
+                    "question": {
+                        "type": "string",
+                        "description": "The question or task.",
+                    },
                     "strategy": {
                         "type": "string",
-                        "enum": ["auto", "direct", "reflection", "tot", "consistency", "causal"],
+                        "enum": [
+                            "auto",
+                            "direct",
+                            "reflection",
+                            "tot",
+                            "consistency",
+                            "causal",
+                        ],
                         "description": "Reasoning strategy (auto lets Sergio choose).",
                     },
                 },
@@ -65,16 +75,35 @@ class DeepThinkTool(EngineTool):
 
         question = str(params.get("question") or "").strip()
         if not question:
-            return ToolResult(tool_name="deep_think", content="No question given.", success=False)
+            return ToolResult(
+                tool_name="deep_think", content="No question given.", success=False
+            )
         try:
-            result = deep_think(question, self.llm(), strategy=str(params.get("strategy") or "auto"),
-                                learner=default_learner(), calibrator=default_calibrator())
+            result = deep_think(
+                question,
+                self.llm(),
+                strategy=str(params.get("strategy") or "auto"),
+                learner=default_learner(),
+                calibrator=default_calibrator(),
+            )
         except Exception as exc:  # noqa: BLE001 — report to the agent, don't crash it
-            return ToolResult(tool_name="deep_think", content=f"deep_think failed: {exc}", success=False)
+            return ToolResult(
+                tool_name="deep_think",
+                content=f"deep_think failed: {exc}",
+                success=False,
+            )
         note = f"\n\n[strategy={result.strategy}, confidence={result.confidence:.0%}, decision={result.decision}]"
-        return ToolResult(tool_name="deep_think", content=result.answer + note, success=True,
-                          metadata={"strategy": result.strategy, "confidence": result.confidence,
-                                    "decision": result.decision, "unknowns": result.unknowns})
+        return ToolResult(
+            tool_name="deep_think",
+            content=result.answer + note,
+            success=True,
+            metadata={
+                "strategy": result.strategy,
+                "confidence": result.confidence,
+                "decision": result.decision,
+                "unknowns": result.unknowns,
+            },
+        )
 
 
 __all__ = ["DeepThinkTool", "EngineTool"]

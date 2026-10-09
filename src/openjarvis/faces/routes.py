@@ -71,7 +71,9 @@ async def owner() -> dict[str, Any]:
 
 
 @router.post("/identify")
-async def identify(image: UploadFile = File(...), learn: bool = Form(False)) -> dict[str, Any]:
+async def identify(
+    image: UploadFile = File(...), learn: bool = Form(False)
+) -> dict[str, Any]:
     """Who is in a camera frame. *learn*: keep learning faces it is very sure
     of from the angles it lacks (the companion asks for it while it watches)."""
     data = await _read(image)
@@ -163,7 +165,11 @@ def describe_photo(matches: list[Any]) -> str:
     parts = []
     for i, m in enumerate(matches, 1):
         who = f"Cara {i}" if len(matches) > 1 else "La cara"
-        geo = f"; sus 175 medidas faciales coinciden un {m.geometry * 100:.0f}%" if m.geometry is not None else ""
+        geo = (
+            f"; sus 175 medidas faciales coinciden un {m.geometry * 100:.0f}%"
+            if m.geometry is not None
+            else ""
+        )
         if m.name:
             parts.append(f"{who}: {m.name} (similitud {m.score * 100:.0f}%{geo}).")
         elif m.quality != "ok":
@@ -184,7 +190,9 @@ async def photo(image: UploadFile = File(...), faces: str = Form("")) -> dict[st
     """Who is in a photo — also old, faded or scanned ones."""
     data = await _read(image)
     try:
-        matches = await asyncio.to_thread(_get_book().identify_photo, data, _points(faces))
+        matches = await asyncio.to_thread(
+            _get_book().identify_photo, data, _points(faces)
+        )
     except FaceError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except ImportError as exc:
@@ -206,7 +214,9 @@ def describe_kinship(faces: list[dict[str, Any]]) -> str:
         if top["same_person"]:
             parts.append(f"{who} es {top['name']} (no un pariente).")
             continue
-        listed = ", ".join(f"{p['name']} {p['kin'] * 100:.0f}% ({p['words']})" for p in people[:3])
+        listed = ", ".join(
+            f"{p['name']} {p['kin'] * 100:.0f}% ({p['words']})" for p in people[:3]
+        )
         parts.append(f"{who}, parecido familiar con: {listed}.")
     parts.append(
         "Es un indicio por rasgos y proporciones de la cara, no una prueba: "
@@ -216,7 +226,9 @@ def describe_kinship(faces: list[dict[str, Any]]) -> str:
 
 
 @router.post("/kinship")
-async def kinship(image: UploadFile = File(...), faces: str = Form("")) -> dict[str, Any]:
+async def kinship(
+    image: UploadFile = File(...), faces: str = Form("")
+) -> dict[str, Any]:
     """Family resemblance of the faces in a photo with the enrolled people."""
     data = await _read(image)
     try:

@@ -66,12 +66,17 @@ def parse_plan(text: str, lengths: list[float]) -> dict[str, Any]:
             speed = max(0.5, min(2.0, float(seg.get("speed") or 1.0)))
         except (TypeError, ValueError):
             speed = 1.0
-        segments.append({
-            "clip": clip, "start": round(start, 2), "end": round(end, 2), "caption": caption,
-            "transition": transition if transition in TRANSITIONS else "fade",
-            "zoom": zoom if zoom in ZOOMS else "none",
-            "speed": round(speed, 2),
-        })
+        segments.append(
+            {
+                "clip": clip,
+                "start": round(start, 2),
+                "end": round(end, 2),
+                "caption": caption,
+                "transition": transition if transition in TRANSITIONS else "fade",
+                "zoom": zoom if zoom in ZOOMS else "none",
+                "speed": round(speed, 2),
+            }
+        )
     if not segments:
         raise RuntimeError("El editor no propuso cortes válidos.")
     yt = data.get("youtube") or {}
@@ -97,14 +102,21 @@ def plan(
 ) -> dict[str, Any]:
     """The edit plan; with *style* (video_style) the cut follows a style
     learned from real videos, and the render gets its look and captions."""
-    target = "short vertical (under 60 s)" if re.search(r"short|reel|tiktok|vertical|corto", request.lower()) else "well-paced"
+    target = (
+        "short vertical (under 60 s)"
+        if re.search(r"short|reel|tiktok|vertical|corto", request.lower())
+        else "well-paced"
+    )
     brief = ""
     if style:
         from openjarvis.tools.video_style import style_brief
 
         brief = style_brief(style)
     prompt = PLAN_PROMPT.format(
-        request=request, lengths=", ".join(f"{x:.1f}" for x in lengths), target=target, style=brief
+        request=request,
+        lengths=", ".join(f"{x:.1f}" for x in lengths),
+        target=target,
+        style=brief,
     )
     try:  # what the user said about earlier edits (long-term memory)
         from openjarvis.evolution.memory import lessons
@@ -114,8 +126,11 @@ def plan(
         pass
     result = parse_plan((ask or _ask)(sheets, prompt), lengths)
     if style:
-        result["style"] = {"name": style.get("name", ""), "grade": style.get("grade", {}),
-                           "text": style.get("text", {})}
+        result["style"] = {
+            "name": style.get("name", ""),
+            "grade": style.get("grade", {}),
+            "text": style.get("text", {}),
+        }
     return result
 
 
@@ -132,11 +147,22 @@ def _ask(sheets: list[bytes], prompt: str) -> str:
         raise RuntimeError("Falta GEMINI_API_KEY")
     client = SwitchingClient(key)
     errors = []
-    for model in ("gemini-3.8-flash", "gemini-3.1-pro-preview", "gemini-3.7-flash", "gemini-2.5-flash"):
+    for model in (
+        "gemini-3.8-flash",
+        "gemini-3.1-pro-preview",
+        "gemini-3.7-flash",
+        "gemini-2.5-flash",
+    ):
         try:
             resp = client.models.generate_content(
                 model=model,
-                contents=[*(types.Part.from_bytes(data=s, mime_type="image/jpeg") for s in sheets), prompt],
+                contents=[
+                    *(
+                        types.Part.from_bytes(data=s, mime_type="image/jpeg")
+                        for s in sheets
+                    ),
+                    prompt,
+                ],
                 config=types.GenerateContentConfig(
                     **google_config_kwargs(model, 0.5, 8000, "medium"),
                     response_mime_type="application/json",
@@ -145,7 +171,9 @@ def _ask(sheets: list[bytes], prompt: str) -> str:
             return str(resp.text or "")
         except Exception as exc:  # noqa: BLE001
             errors.append(f"{model}: {str(exc)[:100]}")
-    raise RuntimeError("El editor de video (Gemini) no respondió: " + " | ".join(errors))
+    raise RuntimeError(
+        "El editor de video (Gemini) no respondió: " + " | ".join(errors)
+    )
 
 
 __all__ = ["parse_plan", "plan"]

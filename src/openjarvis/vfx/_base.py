@@ -235,7 +235,7 @@ def vfx_bake(frames=None):
     return baked
 '''
 
-FINISH = r'''
+FINISH = r"""
 sc = bpy.context.scene
 VFX_INFO.setdefault("objects", len(sc.objects))
 VFX_INFO.setdefault("engine", sc.render.engine)
@@ -256,16 +256,27 @@ if __PREVIEW__:
     VFX_INFO["previews"] = shots
 print("VFX_INFO " + json.dumps(VFX_INFO, default=str))
 print("VFX_OK")
-'''
+"""
 
 
-def compose(parts: list[str], *, save: str = "", preview: str = "", frames: tuple[int, ...] = (1,),
-            resolution: tuple[int, int] = (640, 360), reset: bool = True) -> str:
+def compose(
+    parts: list[str],
+    *,
+    save: str = "",
+    preview: str = "",
+    frames: tuple[int, ...] = (1,),
+    resolution: tuple[int, int] = (640, 360),
+    reset: bool = True,
+) -> str:
     """One runnable Blender script from effect snippets."""
     body = "\n".join(parts)
     head = PRELUDE + ("\nvfx_reset()\n" if reset else "\n")
-    tail = (FINISH.replace("__SAVE__", json.dumps(save)).replace("__PREVIEW__", json.dumps(preview))
-            .replace("__FRAMES__", json.dumps(list(frames))).replace("__RES__", json.dumps(list(resolution))))
+    tail = (
+        FINISH.replace("__SAVE__", json.dumps(save))
+        .replace("__PREVIEW__", json.dumps(preview))
+        .replace("__FRAMES__", json.dumps(list(frames)))
+        .replace("__RES__", json.dumps(list(resolution)))
+    )
     return head + "\n# ---- effects ----\n" + body + "\n" + tail
 
 
@@ -274,16 +285,24 @@ def py(value: Any) -> str:
     return repr(value) if not isinstance(value, str) else json.dumps(value)
 
 
-def params_with_defaults(params_spec: dict[str, tuple[Any, str]], given: dict[str, Any]) -> dict[str, Any]:
+def params_with_defaults(
+    params_spec: dict[str, tuple[Any, str]], given: dict[str, Any]
+) -> dict[str, Any]:
     """Defaults merged with *given*; unknown names are rejected; types follow the default."""
     unknown = set(given) - set(params_spec)
     if unknown:
-        raise ValueError(f"unknown parameter(s): {', '.join(sorted(unknown))}; known: {', '.join(params_spec)}")
+        raise ValueError(
+            f"unknown parameter(s): {', '.join(sorted(unknown))}; known: {', '.join(params_spec)}"
+        )
     out = {}
     for name, (default, _help) in params_spec.items():
         value = given.get(name, default)
         if isinstance(default, bool):
-            value = value if isinstance(value, bool) else str(value).lower() in ("1", "true", "yes", "si", "sí")
+            value = (
+                value
+                if isinstance(value, bool)
+                else str(value).lower() in ("1", "true", "yes", "si", "sí")
+            )
         elif isinstance(default, int) and not isinstance(default, bool):
             value = int(float(value))
         elif isinstance(default, float):
@@ -295,12 +314,15 @@ def params_with_defaults(params_spec: dict[str, tuple[Any, str]], given: dict[st
 
 
 # -- running Blender -----------------------------------------------------------
-WINDOWS_BLENDER = [Path(p) for p in (
-    r"C:\Program Files\Blender Foundation\Blender 5.0\blender.exe",
-    r"C:\Program Files\Blender Foundation\Blender 4.5\blender.exe",
-    r"C:\Program Files\Blender Foundation\Blender 4.4\blender.exe",
-    r"C:\Program Files\Blender Foundation\Blender 4.2\blender.exe",
-)]
+WINDOWS_BLENDER = [
+    Path(p)
+    for p in (
+        r"C:\Program Files\Blender Foundation\Blender 5.0\blender.exe",
+        r"C:\Program Files\Blender Foundation\Blender 4.5\blender.exe",
+        r"C:\Program Files\Blender Foundation\Blender 4.4\blender.exe",
+        r"C:\Program Files\Blender Foundation\Blender 4.2\blender.exe",
+    )
+]
 
 
 def find_blender() -> list[str] | None:
@@ -325,19 +347,34 @@ class BlenderRun:
     script: str = ""
 
 
-def run(script: str, *, timeout: float = 1800.0, env: dict[str, str] | None = None) -> BlenderRun:
+def run(
+    script: str, *, timeout: float = 1800.0, env: dict[str, str] | None = None
+) -> BlenderRun:
     """Execute *script* in Blender and parse what it reported."""
     cmd = find_blender()
     if cmd is None:
-        return BlenderRun(False, {}, "Blender not found: install it or set SERGIO_BLENDER / SERGIO_BPY_PYTHON.", script)
+        return BlenderRun(
+            False,
+            {},
+            "Blender not found: install it or set SERGIO_BLENDER / SERGIO_BPY_PYTHON.",
+            script,
+        )
     with tempfile.TemporaryDirectory() as tmp:
         path = Path(tmp) / "sergio_vfx.py"
         path.write_text(script, "utf-8")
         try:
-            proc = subprocess.run(cmd + [str(path)], capture_output=True, text=True, timeout=timeout,
-                                  env={**os.environ, **(env or {})}, cwd=tmp)
+            proc = subprocess.run(
+                cmd + [str(path)],
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+                env={**os.environ, **(env or {})},
+                cwd=tmp,
+            )
         except subprocess.TimeoutExpired:
-            return BlenderRun(False, {}, f"Blender timed out after {timeout:.0f} s", script)
+            return BlenderRun(
+                False, {}, f"Blender timed out after {timeout:.0f} s", script
+            )
     log = proc.stdout + proc.stderr
     info: dict = {}
     for line in log.splitlines():
@@ -346,7 +383,17 @@ def run(script: str, *, timeout: float = 1800.0, env: dict[str, str] | None = No
                 info = json.loads(line[9:])
             except ValueError:
                 pass
-    return BlenderRun("VFX_OK" in log and proc.returncode == 0, info, log[-8000:], script)
+    return BlenderRun(
+        "VFX_OK" in log and proc.returncode == 0, info, log[-8000:], script
+    )
 
 
-__all__ = ["PRELUDE", "BlenderRun", "compose", "find_blender", "params_with_defaults", "py", "run"]
+__all__ = [
+    "PRELUDE",
+    "BlenderRun",
+    "compose",
+    "find_blender",
+    "params_with_defaults",
+    "py",
+    "run",
+]

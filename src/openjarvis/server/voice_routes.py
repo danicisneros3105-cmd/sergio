@@ -22,7 +22,10 @@ def preferred(voice: str) -> str:
     voice is spoken by ElevenLabs: same character, lower delay."""
     import os
 
-    if voice.lower() in ("", "algenib") and os.environ.get("ELEVENLABS_API_KEY", "").strip():
+    if (
+        voice.lower() in ("", "algenib")
+        and os.environ.get("ELEVENLABS_API_KEY", "").strip()
+    ):
         if os.environ.get("SERGIO_VOICE", "elevenlabs").lower() == "elevenlabs":
             return "elevenlabs:"
     return voice
@@ -42,7 +45,9 @@ async def speak(req: SpeakRequest) -> Response:
         from openjarvis.speech import elevenlabs_voice
 
         try:
-            wav = await asyncio.to_thread(elevenlabs_voice.speak_wav, req.text, req.voice)
+            wav = await asyncio.to_thread(
+                elevenlabs_voice.speak_wav, req.text, req.voice
+            )
             return Response(content=wav, media_type="audio/wav")
         except Exception:  # noqa: BLE001 — no key / no credit: Algenib
             req = SpeakRequest(text=req.text, voice="algenib")
@@ -51,14 +56,24 @@ async def speak(req: SpeakRequest) -> Response:
         from openjarvis.speech.gemini_live import speak_live
 
         try:
-            wav = await asyncio.to_thread(speak_live, req.text, "" if req.voice.lower() in ("", "predeterminada", "default") else req.voice)
+            wav = await asyncio.to_thread(
+                speak_live,
+                req.text,
+                ""
+                if req.voice.lower() in ("", "predeterminada", "default")
+                else req.voice,
+            )
             return Response(content=wav, media_type="audio/wav")
         except Exception as exc:  # noqa: BLE001 — the TTS models next
             live_error = str(exc)
         try:
-            wav = await asyncio.to_thread(gemini_voice.speak, req.text, "Predeterminada")
+            wav = await asyncio.to_thread(
+                gemini_voice.speak, req.text, "Predeterminada"
+            )
         except (RuntimeError, ValueError) as exc:
-            raise HTTPException(status_code=502, detail=f"{live_error} | {exc}"[:500]) from exc
+            raise HTTPException(
+                status_code=502, detail=f"{live_error} | {exc}"[:500]
+            ) from exc
         return Response(content=wav, media_type="audio/wav")
     try:
         wav = await asyncio.to_thread(
@@ -93,7 +108,9 @@ async def stream(req: SpeakRequest) -> Any:
     try:
         first = first or await chunks.__anext__()
     except StopAsyncIteration:
-        raise HTTPException(status_code=502, detail="La voz de Gemini Live no devolvió audio.") from None
+        raise HTTPException(
+            status_code=502, detail="La voz de Gemini Live no devolvió audio."
+        ) from None
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=502, detail=str(exc)[:400]) from exc
 
@@ -114,10 +131,17 @@ class ChatRequest(BaseModel):
     grounded: bool = False
 
 
-GROUNDED_MODELS = ("gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.5-flash", "gemini-2.5-flash")
+GROUNDED_MODELS = (
+    "gemini-3.8-flash",
+    "gemini-3.7-flash",
+    "gemini-3.5-flash",
+    "gemini-2.5-flash",
+)
 
 
-def grounded_answer(messages: list[dict[str, str]], max_tokens: int = 600, client: Any = None) -> dict[str, Any]:
+def grounded_answer(
+    messages: list[dict[str, str]], max_tokens: int = 600, client: Any = None
+) -> dict[str, Any]:
     """Answer with Google Search grounding; returns the text and its sources."""
     import os
 
@@ -138,7 +162,10 @@ def grounded_answer(messages: list[dict[str, str]], max_tokens: int = 600, clien
         "say it, say you could not confirm it. Keep it spoken and short."
     )
     contents = [
-        types.Content(role="model" if m.get("role") == "assistant" else "user", parts=[types.Part(text=m["content"])])
+        types.Content(
+            role="model" if m.get("role") == "assistant" else "user",
+            parts=[types.Part(text=m["content"])],
+        )
         for m in messages
         if m.get("role") in ("user", "assistant") and m.get("content")
     ]
@@ -192,15 +219,21 @@ async def chat(req: ChatRequest, request: Request) -> dict[str, Any]:
         for m in req.messages
         if m.get("content")
     ]
+
     async def run(model: str) -> dict[str, Any]:
         return await asyncio.to_thread(
-            engine.generate, messages, model=model, temperature=0.7, max_tokens=req.max_tokens
+            engine.generate,
+            messages,
+            model=model,
+            temperature=0.7,
+            max_tokens=req.max_tokens,
         )
 
     if req.grounded:
         try:
             return await asyncio.wait_for(
-                asyncio.to_thread(grounded_answer, req.messages, req.max_tokens), timeout=CHAT_SECONDS
+                asyncio.to_thread(grounded_answer, req.messages, req.max_tokens),
+                timeout=CHAT_SECONDS,
             )
         except Exception:  # noqa: BLE001 — not grounded, but still an answer (said so)
             pass
@@ -211,11 +244,15 @@ async def chat(req: ChatRequest, request: Request) -> dict[str, Any]:
             # to the backup instead of keeping the user waiting.
             result = await asyncio.wait_for(run(req.model), timeout=CHAT_SECONDS)
         except asyncio.TimeoutError:
-            if not str(req.model).startswith("gemini") or req.model.startswith(CHAT_BACKUP):
+            if not str(req.model).startswith("gemini") or req.model.startswith(
+                CHAT_BACKUP
+            ):
                 raise
             result = await asyncio.wait_for(run(CHAT_BACKUP), timeout=CHAT_SECONDS)
     except Exception as exc:  # noqa: BLE001 — the companion falls back
-        raise HTTPException(status_code=502, detail=str(exc)[:400] or "timeout") from exc
+        raise HTTPException(
+            status_code=502, detail=str(exc)[:400] or "timeout"
+        ) from exc
     return {"content": str(result.get("content") or "").strip()}
 
 

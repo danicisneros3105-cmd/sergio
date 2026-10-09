@@ -51,7 +51,9 @@ class CounterfactualResult:
     graph: Optional[CausalGraph] = None
 
 
-def minimal_changes(graph: CausalGraph, target: str, want: int = 1, top: int = 3) -> list[tuple[str, float]]:
+def minimal_changes(
+    graph: CausalGraph, target: str, want: int = 1, top: int = 3
+) -> list[tuple[str, float]]:
     """Single-variable interventions that move *target* in direction *want*,
     strongest first, as (variable, leverage): the sign says whether to raise
     (+) or lower (-) the variable, the size how much the target moves."""
@@ -60,7 +62,9 @@ def minimal_changes(graph: CausalGraph, target: str, want: int = 1, top: int = 3
         effect = graph.total_effect(node, target)
         if abs(effect) < 1e-9:
             continue
-        direction = 1 if (effect > 0) == (want > 0) else -1  # which way to push the variable
+        direction = (
+            1 if (effect > 0) == (want > 0) else -1
+        )  # which way to push the variable
         options.append((node, round(direction * abs(effect), 4)))
     options.sort(key=lambda o: -abs(o[1]))
     return options[:top]
@@ -76,9 +80,16 @@ def counterfactual(
     """What would have happened in *scenario* if *change* had been true."""
     model = as_llm(llm)
     graph = graph or extract_graph(f"{scenario}\nWhat if: {change}", model)
-    frame = parse_json(model(FRAME_PROMPT.format(scenario=scenario, change=change,
-                                                 variables=", ".join(sorted(graph.nodes)) or "(none)"),
-                             temperature=0.1))
+    frame = parse_json(
+        model(
+            FRAME_PROMPT.format(
+                scenario=scenario,
+                change=change,
+                variables=", ".join(sorted(graph.nodes)) or "(none)",
+            ),
+            temperature=0.1,
+        )
+    )
     interventions: dict[str, float] = {}
     facts: list[str] = []
     outcome = ""
@@ -93,12 +104,23 @@ def counterfactual(
                 sign = -1.0 if clamp(item.get("direction"), -1, 1, 1) < 0 else 1.0
                 interventions[var] = sign * clamp(item.get("size"), 0.05, 1.0, 1.0)
     effects = graph.intervene(interventions) if interventions else {}
-    lines = [f"{k}: {v:+.2f}" for k, v in effects.items()] or ["(no computed effect: the change touches no "
-                                                                "variable of the model)"]
-    narrative = model(NARRATE_PROMPT.format(scenario=scenario, change=change, effects="\n".join(lines)),
-                      temperature=0.4).strip()
-    return CounterfactualResult(narrative=narrative, interventions=interventions, effects=effects,
-                                outcome=outcome, facts=facts, graph=graph)
+    lines = [f"{k}: {v:+.2f}" for k, v in effects.items()] or [
+        "(no computed effect: the change touches no variable of the model)"
+    ]
+    narrative = model(
+        NARRATE_PROMPT.format(
+            scenario=scenario, change=change, effects="\n".join(lines)
+        ),
+        temperature=0.4,
+    ).strip()
+    return CounterfactualResult(
+        narrative=narrative,
+        interventions=interventions,
+        effects=effects,
+        outcome=outcome,
+        facts=facts,
+        graph=graph,
+    )
 
 
 __all__ = ["CounterfactualResult", "counterfactual", "minimal_changes"]

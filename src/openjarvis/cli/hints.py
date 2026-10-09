@@ -35,7 +35,12 @@ def hint_engine_error(exc: BaseException, engine_name: Optional[str] = None) -> 
     bad answer is not "the server is not running"."""
     text = str(exc)
     low = text.lower()
-    if "429" in text or "quota" in low or "resource_exhausted" in low or "rate limit" in low:
+    if (
+        "429" in text
+        or "quota" in low
+        or "resource_exhausted" in low
+        or "rate limit" in low
+    ):
         return (
             "[yellow]Hint:[/yellow] the model is out of quota or rate-limited right now.\n"
             "  Wait a minute and try again, or use another model with "

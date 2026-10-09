@@ -60,7 +60,10 @@ def documented_params(doc: str) -> Optional[set[str]]:
                 indent = len(cur) - len(cur.lstrip())
                 if base is None:
                     base = indent
-                if indent < base or re.match(r"^\s*(Returns|Yields|Raises|Examples?|Notes?|Attributes)\s*:?\s*$", cur):
+                if indent < base or re.match(
+                    r"^\s*(Returns|Yields|Raises|Examples?|Notes?|Attributes)\s*:?\s*$",
+                    cur,
+                ):
                     break
                 if indent == base and (m := re.match(r"^\s*\*{0,2}(\w+)", cur)):
                     names.add(m.group(1))
@@ -82,8 +85,11 @@ def _params(node: ast.FunctionDef | ast.AsyncFunctionDef) -> set[str]:
 
 def _returns_value(node: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
     for sub in ast.walk(node):
-        if isinstance(sub, (ast.Return,)) and sub.value is not None and not (
-                isinstance(sub.value, ast.Constant) and sub.value.value is None):
+        if (
+            isinstance(sub, (ast.Return,))
+            and sub.value is not None
+            and not (isinstance(sub.value, ast.Constant) and sub.value.value is None)
+        ):
             return True
         if isinstance(sub, (ast.Yield, ast.YieldFrom)):
             return True
@@ -103,11 +109,36 @@ def docstring_drift(path: Path, text: Optional[str] = None) -> list[Drift]:
         if documented is not None:
             actual = _params(node)
             for gone in sorted(documented - actual):
-                drifts.append(Drift(str(path), node.lineno, node.name, f"documents parameter '{gone}' that no longer exists"))
+                drifts.append(
+                    Drift(
+                        str(path),
+                        node.lineno,
+                        node.name,
+                        f"documents parameter '{gone}' that no longer exists",
+                    )
+                )
             for missing in sorted(actual - documented):
-                drifts.append(Drift(str(path), node.lineno, node.name, f"parameter '{missing}' is not documented"))
-        if re.search(r"^\s*Returns?\s*:?\s*$", doc, re.M) and not _returns_value(node) and node.name != "__init__":
-            drifts.append(Drift(str(path), node.lineno, node.name, "documents a return value but returns nothing"))
+                drifts.append(
+                    Drift(
+                        str(path),
+                        node.lineno,
+                        node.name,
+                        f"parameter '{missing}' is not documented",
+                    )
+                )
+        if (
+            re.search(r"^\s*Returns?\s*:?\s*$", doc, re.M)
+            and not _returns_value(node)
+            and node.name != "__init__"
+        ):
+            drifts.append(
+                Drift(
+                    str(path),
+                    node.lineno,
+                    node.name,
+                    "documents a return value but returns nothing",
+                )
+            )
     return drifts
 
 
@@ -136,37 +167,64 @@ def markdown_drift(doc: Path, sources: Iterable[Path]) -> list[Drift]:
     drifts = []
     for n, line in enumerate(doc.read_text("utf-8").splitlines(), 1):
         for ref in _DOC_REF.findall(line):
-            if ref not in names and not ref.startswith("_") and len(ref) > 2 and ref not in dir(__builtins__):
-                if "(" in line[line.find(ref):line.find(ref) + len(ref) + 2]:
-                    drifts.append(Drift(str(doc), n, ref, f"mentions {ref}() which is not defined in the code"))
+            if (
+                ref not in names
+                and not ref.startswith("_")
+                and len(ref) > 2
+                and ref not in dir(__builtins__)
+            ):
+                if "(" in line[line.find(ref) : line.find(ref) + len(ref) + 2]:
+                    drifts.append(
+                        Drift(
+                            str(doc),
+                            n,
+                            ref,
+                            f"mentions {ref}() which is not defined in the code",
+                        )
+                    )
     return drifts
 
 
 def missing_docstrings(text: str) -> list[ast.AST]:
     out = []
     for node in ast.walk(ast.parse(text)):
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)) and not node.name.startswith("_"):
+        if isinstance(
+            node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
+        ) and not node.name.startswith("_"):
             if not ast.get_docstring(node):
                 out.append(node)
     return out
 
 
-def add_docstrings(text: str, llm: "LLM | Callable[..., str] | None" = None, limit: int = 30) -> tuple[str, int]:
+def add_docstrings(
+    text: str, llm: "LLM | Callable[..., str] | None" = None, limit: int = 30
+) -> tuple[str, int]:
     """Insert model-written docstrings into undocumented public defs (returns new text, count)."""
     model = as_llm(llm)
     lines = text.splitlines()
-    nodes = sorted(missing_docstrings(text), key=lambda n: -n.lineno)[:limit]  # bottom-up keeps line numbers valid
+    nodes = sorted(missing_docstrings(text), key=lambda n: -n.lineno)[
+        :limit
+    ]  # bottom-up keeps line numbers valid
     added = 0
     for node in nodes:
         src = ast.get_source_segment(text, node) or ""
         kind = "class" if isinstance(node, ast.ClassDef) else "function"
-        doc = model(DOCSTRING_PROMPT.format(kind=kind, source=src[:4000]), temperature=0.2).strip().strip('"').strip("'")
+        doc = (
+            model(
+                DOCSTRING_PROMPT.format(kind=kind, source=src[:4000]), temperature=0.2
+            )
+            .strip()
+            .strip('"')
+            .strip("'")
+        )
         doc = re.sub(r"^```\w*|```$", "", doc).strip()
         if not doc:
             continue
         body_line = node.body[0].lineno - 1
         indent = " " * (len(lines[body_line]) - len(lines[body_line].lstrip()))
-        block = [f'{indent}"""{doc.splitlines()[0]}'] + [f"{indent}{ln}" if ln.strip() else "" for ln in doc.splitlines()[1:]]
+        block = [f'{indent}"""{doc.splitlines()[0]}'] + [
+            f"{indent}{ln}" if ln.strip() else "" for ln in doc.splitlines()[1:]
+        ]
         block[-1] += '"""' if len(block) > 1 else ""
         if len(block) == 1:
             block[0] += '"""'
@@ -180,15 +238,28 @@ def add_docstrings(text: str, llm: "LLM | Callable[..., str] | None" = None, lim
 def api_markdown(path: Path) -> str:
     tree = ast.parse(path.read_text("utf-8"))
     out = [f"# `{path.stem}`", ""]
-    if (doc := ast.get_docstring(tree)):
+    if doc := ast.get_docstring(tree):
         out += [doc.splitlines()[0], ""]
     for node in tree.body:
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)) and not node.name.startswith("_"):
-            sig = f"class {node.name}" if isinstance(node, ast.ClassDef) else f"{node.name}({ast.unparse(node.args)})"
+        if isinstance(
+            node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
+        ) and not node.name.startswith("_"):
+            sig = (
+                f"class {node.name}"
+                if isinstance(node, ast.ClassDef)
+                else f"{node.name}({ast.unparse(node.args)})"
+            )
             first = (ast.get_docstring(node) or "").splitlines()[:1]
             out += [f"## `{sig}`", "", first[0] if first else "_Undocumented._", ""]
     return "\n".join(out)
 
 
-__all__ = ["Drift", "add_docstrings", "api_markdown", "docstring_drift", "documented_params", "markdown_drift",
-           "missing_docstrings"]
+__all__ = [
+    "Drift",
+    "add_docstrings",
+    "api_markdown",
+    "docstring_drift",
+    "documented_params",
+    "markdown_drift",
+    "missing_docstrings",
+]

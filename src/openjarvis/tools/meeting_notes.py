@@ -55,7 +55,9 @@ Listas vacías si no hubo decisiones o tareas.
 
 
 def _key() -> str:
-    key = (os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY") or "").strip()
+    key = (
+        os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY") or ""
+    ).strip()
     if not key:
         raise RuntimeError("Falta GEMINI_API_KEY (sergio nube configurar --gemini …)")
     return key
@@ -70,14 +72,26 @@ def parse_minutes(text: str) -> dict[str, Any]:
     data = json.loads(match.group(0))
     if not isinstance(data, dict) or not str(data.get("resumen") or "").strip():
         raise ValueError("Acta sin resumen")
-    for key in ("puntos_clave", "decisiones", "preguntas_abiertas", "tareas", "transcripcion"):
+    for key in (
+        "puntos_clave",
+        "decisiones",
+        "preguntas_abiertas",
+        "tareas",
+        "transcripcion",
+    ):
         if not isinstance(data.get(key), list):
             data[key] = []
     data["titulo"] = str(data.get("titulo") or "Reunión").strip()[:120]
     return data
 
 
-def to_markdown(data: dict[str, Any], *, when: str = "", seconds: float = 0.0, speakers: list[str] | None = None) -> str:
+def to_markdown(
+    data: dict[str, Any],
+    *,
+    when: str = "",
+    seconds: float = 0.0,
+    speakers: list[str] | None = None,
+) -> str:
     """The minutes as a Markdown document."""
     lines = [f"# {data.get('titulo') or 'Reunión'}", ""]
     meta = []
@@ -93,7 +107,9 @@ def to_markdown(data: dict[str, Any], *, when: str = "", seconds: float = 0.0, s
 
     def section(title: str, items: list[Any]) -> None:
         if items:
-            lines.extend([f"## {title}", ""] + [f"- {str(i).strip()}" for i in items] + [""])
+            lines.extend(
+                [f"## {title}", ""] + [f"- {str(i).strip()}" for i in items] + [""]
+            )
 
     section("Puntos clave", data.get("puntos_clave") or [])
     section("Decisiones", data.get("decisiones") or [])
@@ -102,7 +118,10 @@ def to_markdown(data: dict[str, Any], *, when: str = "", seconds: float = 0.0, s
         lines += ["## Tareas", "", "| Quién | Qué | Cuándo |", "|---|---|---|"]
         for t in tasks:
             if isinstance(t, dict):
-                cells = [str(t.get(k) or "").replace("|", "/").strip() for k in ("quien", "que", "cuando")]
+                cells = [
+                    str(t.get(k) or "").replace("|", "/").strip()
+                    for k in ("quien", "que", "cuando")
+                ]
                 lines.append("| " + " | ".join(cells) + " |")
         lines.append("")
     section("Preguntas abiertas", data.get("preguntas_abiertas") or [])
@@ -111,7 +130,9 @@ def to_markdown(data: dict[str, Any], *, when: str = "", seconds: float = 0.0, s
         lines += ["## Transcripción", ""]
         for row in transcript:
             if isinstance(row, dict):
-                lines.append(f"**[{row.get('t', '')}] {row.get('quien', '')}:** {str(row.get('texto') or '').strip()}  ")
+                lines.append(
+                    f"**[{row.get('t', '')}] {row.get('quien', '')}:** {str(row.get('texto') or '').strip()}  "
+                )
         lines.append("")
     return "\n".join(lines).strip() + "\n"
 
@@ -139,9 +160,16 @@ def summarize(
         "conversación": "una conversación",
     }.get(kind, "una reunión")
     owner_line = (
-        f"El dueño de Sergio es {owner}: en el acta llámalo por su nombre." if owner else ""
+        f"El dueño de Sergio es {owner}: en el acta llámalo por su nombre."
+        if owner
+        else ""
     )
-    prompt = PROMPT.format(owner=owner or "el usuario", what=what, owner_line=owner_line, timeline=timeline or "(sin datos)")
+    prompt = PROMPT.format(
+        owner=owner or "el usuario",
+        what=what,
+        owner_line=owner_line,
+        timeline=timeline or "(sin datos)",
+    )
     part: Any
     uploaded = None
     if len(audio) > INLINE_MAX:
@@ -152,7 +180,10 @@ def summarize(
         try:
             uploaded = client.files.upload(file=str(path), config={"mime_type": mime})
             for _ in range(60):  # the file is processed before it can be used
-                state = str(getattr(getattr(uploaded, "state", None), "name", "") or getattr(uploaded, "state", ""))
+                state = str(
+                    getattr(getattr(uploaded, "state", None), "name", "")
+                    or getattr(uploaded, "state", "")
+                )
                 if "PROCESSING" not in state.upper():
                     break
                 time.sleep(2)

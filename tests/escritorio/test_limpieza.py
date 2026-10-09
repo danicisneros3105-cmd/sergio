@@ -17,13 +17,31 @@ def item(key, version, path):
 
 def test_only_superseded_uv_pythons_go():
     installed = [
-        item("cpython-3.12.3-linux", "3.12.3", f"{UV_DIR}/cpython-3.12.3-linux/bin/python3"),
-        item("cpython-3.12.9-linux", "3.12.9", f"{UV_DIR}/cpython-3.12.9-linux/bin/python3"),
-        item("cpython-3.12.1-linux", "3.12.1", f"{UV_DIR}/cpython-3.12.1-linux/bin/python3"),
-        item("cpython-3.11.2-linux", "3.11.2", f"{UV_DIR}/cpython-3.11.2-linux/bin/python3"),
+        item(
+            "cpython-3.12.3-linux",
+            "3.12.3",
+            f"{UV_DIR}/cpython-3.12.3-linux/bin/python3",
+        ),
+        item(
+            "cpython-3.12.9-linux",
+            "3.12.9",
+            f"{UV_DIR}/cpython-3.12.9-linux/bin/python3",
+        ),
+        item(
+            "cpython-3.12.1-linux",
+            "3.12.1",
+            f"{UV_DIR}/cpython-3.12.1-linux/bin/python3",
+        ),
+        item(
+            "cpython-3.11.2-linux",
+            "3.11.2",
+            f"{UV_DIR}/cpython-3.11.2-linux/bin/python3",
+        ),
         item("cpython-3.10.1-linux", "3.10.1", "/usr/bin/python3.10"),  # the system's
     ]
-    in_use = [f"{UV_DIR}/cpython-3.12.1-linux/bin/python3"]  # Sergio still runs on this one
+    in_use = [
+        f"{UV_DIR}/cpython-3.12.1-linux/bin/python3"
+    ]  # Sergio still runs on this one
     assert limpieza.stale_pythons(installed, UV_DIR, in_use) == ["cpython-3.12.3-linux"]
 
 
@@ -42,8 +60,14 @@ def test_clean_python_prunes_and_uninstalls():
             return SimpleNamespace(stdout=UV_DIR + "\n", returncode=0)
         return SimpleNamespace(stdout="", returncode=0)
 
-    assert limpieza.clean_python("uv", [f"{UV_DIR}/b/bin/py"], run) == ["cpython-3.12.3-x"]
-    assert ["cache", "prune"] in calls and ["python", "uninstall", "cpython-3.12.3-x"] in calls
+    assert limpieza.clean_python("uv", [f"{UV_DIR}/b/bin/py"], run) == [
+        "cpython-3.12.3-x"
+    ]
+    assert ["cache", "prune"] in calls and [
+        "python",
+        "uninstall",
+        "cpython-3.12.3-x",
+    ] in calls
 
 
 def test_blender_leftovers_go_and_the_latest_stays(tmp_path):
@@ -59,7 +83,9 @@ def test_blender_leftovers_go_and_the_latest_stays(tmp_path):
         os.utime(f, (time.time() - 100 + i, time.time() - 100 + i))
     assert limpieza.clean_blender(docs, scripts, keep_scripts=5) == len(junk) + 3
     assert sorted(p.name for p in docs.iterdir()) == sorted(keep)
-    assert sorted(p.name for p in scripts.iterdir()) == [f"pro-{i}.py" for i in range(3, 8)]
+    assert sorted(p.name for p in scripts.iterdir()) == [
+        f"pro-{i}.py" for i in range(3, 8)
+    ]
 
 
 def test_a_failed_attempt_leaves_nothing(tmp_path):
@@ -75,7 +101,9 @@ def test_blender_pro_keeps_the_best_build():
 
     good = "SERGIO_SAVED x 6\nSERGIO_PARTS 6 meshes: a, b, c, d, e, f"
     broken = "SERGIO_STEP_ERROR in mats(): AttributeError\nSERGIO_SAVED x 1\nSERGIO_PARTS 1 meshes: a"
-    assert worse_build(blender_score(broken), blender_score(good))  # 1 part + an error: discarded
+    assert worse_build(
+        blender_score(broken), blender_score(good)
+    )  # 1 part + an error: discarded
     better = "SERGIO_SAVED x 9\nSERGIO_PARTS 9 meshes: a"
     assert not worse_build(blender_score(better), blender_score(good))
     assert worse_build(blender_score("Traceback… no save"), blender_score(good))

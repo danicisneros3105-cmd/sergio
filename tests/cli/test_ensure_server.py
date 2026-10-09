@@ -39,7 +39,11 @@ class Sim:
         return subprocess.CompletedProcess(cmd, 0, out, "")
 
     def get(self, url, timeout):
-        if self.started_at is not None and self.up_after is not None and self.now - self.started_at >= self.up_after:
+        if (
+            self.started_at is not None
+            and self.up_after is not None
+            and self.now - self.started_at >= self.up_after
+        ):
             self.state = "active"
             return httpx.Response(200)
         raise httpx.ConnectError("refused")
@@ -47,8 +51,15 @@ class Sim:
 
 def _run(sim, timeout=60):
     lines = []
-    ok = service_cmd.ensure_server("http://127.0.0.1:8000", lines.append, timeout=timeout, get=sim.get,
-                                   runner=sim.runner, sleep=sim.sleep, clock=sim.clock)
+    ok = service_cmd.ensure_server(
+        "http://127.0.0.1:8000",
+        lines.append,
+        timeout=timeout,
+        get=sim.get,
+        runner=sim.runner,
+        sleep=sim.sleep,
+        clock=sim.clock,
+    )
     return ok, lines
 
 
@@ -57,7 +68,9 @@ def test_a_switched_off_sergio_is_switched_on_with_progress(monkeypatch):
     sim = Sim("inactive", up_after=12)
     ok, lines = _run(sim)
     assert ok and lines[0].startswith("Sergio estaba apagado")
-    assert any("sigue arrancando" in line for line in lines) and lines[-1].startswith("Sergio está encendido")
+    assert any("sigue arrancando" in line for line in lines) and lines[-1].startswith(
+        "Sergio está encendido"
+    )
     assert ["restart", "sergio.service"] in sim.calls
 
 
@@ -88,5 +101,9 @@ def test_local_calls_bypass_proxies(monkeypatch):
     service_cmd.bypass_proxy_for_local()
     import os
 
-    assert os.environ["NO_PROXY"].split(",")[:3] == ["corp.example", "127.0.0.1", "localhost"]
+    assert os.environ["NO_PROXY"].split(",")[:3] == [
+        "corp.example",
+        "127.0.0.1",
+        "localhost",
+    ]
     assert "127.0.0.1" in os.environ["no_proxy"]

@@ -16,7 +16,10 @@ def memory(tmp_path):
 
 
 def test_it_remembers_and_recalls_the_closest_memory(memory):
-    memory.remember("blender", "una tetera de cerámica: cuerpo facetado, se arregló con perfiles suaves")
+    memory.remember(
+        "blender",
+        "una tetera de cerámica: cuerpo facetado, se arregló con perfiles suaves",
+    )
     memory.remember("blender", "una mesa de roble: patas flotando por transform_apply")
     memory.remember("video", "short de viajes: 22 cortes de un segundo")
     top = memory.recall("haz una tetera de porcelana", 1)[0]
@@ -26,15 +29,29 @@ def test_it_remembers_and_recalls_the_closest_memory(memory):
 
 
 def test_feedback_becomes_a_lesson_for_similar_jobs(memory):
-    memory.feedback("el video quedó muy lento, quiero cortes más rápidos", -1, about="short de viajes")
-    block = memory.lessons_for("edita un video de viajes con cortes", kinds=("feedback",))
-    assert "NO LE GUSTÓ" in block and "cortes más rápidos" in block and "LESSONS FROM YOUR LONG-TERM MEMORY" in block
-    assert memory.lessons_for("receta de cocina vegana", kinds=("feedback",)) == ""  # unrelated: nothing
+    memory.feedback(
+        "el video quedó muy lento, quiero cortes más rápidos",
+        -1,
+        about="short de viajes",
+    )
+    block = memory.lessons_for(
+        "edita un video de viajes con cortes", kinds=("feedback",)
+    )
+    assert (
+        "NO LE GUSTÓ" in block
+        and "cortes más rápidos" in block
+        and "LESSONS FROM YOUR LONG-TERM MEMORY" in block
+    )
+    assert (
+        memory.lessons_for("receta de cocina vegana", kinds=("feedback",)) == ""
+    )  # unrelated: nothing
 
 
 def test_semantic_embeddings_are_used_when_given(tmp_path):
     def embed(texts):  # a fake "semantic" model: tea things close together
-        return [[1.0, 0.0] if ("tetera" in t or "té" in t) else [0.0, 1.0] for t in texts]
+        return [
+            [1.0, 0.0] if ("tetera" in t or "té" in t) else [0.0, 1.0] for t in texts
+        ]
 
     m = mem.LongTermMemory(tmp_path, semantic=embed)
     m.remember("blender", "una tetera de cerámica")
@@ -44,7 +61,10 @@ def test_semantic_embeddings_are_used_when_given(tmp_path):
 
 
 def test_local_embeddings_ignore_filler_words():
-    a, b = mem.hash_embed("una tetera de cerámica"), mem.hash_embed("una mesa de madera")
+    a, b = (
+        mem.hash_embed("una tetera de cerámica"),
+        mem.hash_embed("una mesa de madera"),
+    )
     assert sum(x * y for x, y in zip(a, b)) < 0.2
 
 
@@ -55,9 +75,19 @@ def test_the_loop_reflects_until_the_check_passes_and_stores_the_fix():
         notes_seen.append(list(notes))
         return len(notes_seen)
 
-    out = self_correct("tarea", generate, lambda c: (c >= 3, f"intento {c} incompleto"), max_rounds=5,
-                       remember=lessons.append, topic="prueba")
-    assert out["ok"] and out["rounds"] == 3 and [h["ok"] for h in out["history"]] == [False, False, True]
+    out = self_correct(
+        "tarea",
+        generate,
+        lambda c: (c >= 3, f"intento {c} incompleto"),
+        max_rounds=5,
+        remember=lessons.append,
+        topic="prueba",
+    )
+    assert (
+        out["ok"]
+        and out["rounds"] == 3
+        and [h["ok"] for h in out["history"]] == [False, False, True]
+    )
     assert len(notes_seen[-1]) == 2 and "intento 2 incompleto" in notes_seen[-1][-1]
     assert lessons and "intento 2 incompleto" in lessons[0]
 
@@ -67,12 +97,18 @@ def test_the_loop_stops_at_the_round_limit_and_survives_a_crashing_check():
         raise ValueError("boom")
 
     out = self_correct("t", lambda task, notes: "x", check, max_rounds=2)
-    assert not out["ok"] and out["rounds"] == 2 and "ValueError: boom" in out["history"][0]["report"]
+    assert (
+        not out["ok"]
+        and out["rounds"] == 2
+        and "ValueError: boom" in out["history"][0]["report"]
+    )
 
 
 def test_the_plain_loop_is_used_without_langgraph(monkeypatch):
     monkeypatch.setitem(sys.modules, "langgraph.graph", None)  # import fails
-    out = self_correct("t", lambda task, notes: len(notes), lambda c: (c >= 1, "no"), max_rounds=3)
+    out = self_correct(
+        "t", lambda task, notes: len(notes), lambda c: (c >= 1, "no"), max_rounds=3
+    )
     assert out["engine"] == "loop" and out["ok"] and out["rounds"] == 2
 
 
@@ -86,19 +122,28 @@ def _tea_embed(fail_first: list[bool]):
     def embed(texts):
         if fail_first and fail_first.pop():
             raise RuntimeError("429 quota")
-        return [[1.0, 0.0] if ("te" in t or "tetera" in t) else [0.0, 1.0] for t in texts]
+        return [
+            [1.0, 0.0] if ("te" in t or "tetera" in t) else [0.0, 1.0] for t in texts
+        ]
+
     return embed
 
 
 def test_a_memory_saved_while_the_semantic_model_failed_is_still_recalled(tmp_path):
-    m = mem.LongTermMemory(tmp_path, semantic=_tea_embed([True]))  # the first call hits the quota
-    m.remember("lesson", "el coche lleva cuatro ruedas")       # semantic add fails -> cool-down
-    m.remember("lesson", "la tetera necesita un pico curvo")   # cool-down: local only
-    hits = m.recall("tetera", k=2)                             # semantic store incomplete: local too
+    m = mem.LongTermMemory(
+        tmp_path, semantic=_tea_embed([True])
+    )  # the first call hits the quota
+    m.remember(
+        "lesson", "el coche lleva cuatro ruedas"
+    )  # semantic add fails -> cool-down
+    m.remember("lesson", "la tetera necesita un pico curvo")  # cool-down: local only
+    hits = m.recall("tetera", k=2)  # semantic store incomplete: local too
     assert "tetera" in hits[0]["text"] and hits[0]["space"] == "local"
-    m._sem_retry_at = 0                                        # the cool-down is over
-    hit = m.recall("tetera", k=1)[0]                           # backfilled, now found semantically
-    assert m._sem.count() == 2 and hit["space"] == "semantic" and "tetera" in hit["text"]
+    m._sem_retry_at = 0  # the cool-down is over
+    hit = m.recall("tetera", k=1)[0]  # backfilled, now found semantically
+    assert (
+        m._sem.count() == 2 and hit["space"] == "semantic" and "tetera" in hit["text"]
+    )
     # a restart opens the same semantic store
     again = mem.LongTermMemory(tmp_path, semantic=_tea_embed([]))
     assert again._sem is not None and again._sem.count() == 2
@@ -133,7 +178,15 @@ def test_gemini_embedder_marks_documents_and_queries(monkeypatch):
     class FakeModels:
         def embed_content(self, model, contents, config):
             seen.append(config["task_type"])
-            return type("R", (), {"embeddings": [type("E", (), {"values": [3.0, 4.0]})() for _ in contents]})()
+            return type(
+                "R",
+                (),
+                {
+                    "embeddings": [
+                        type("E", (), {"values": [3.0, 4.0]})() for _ in contents
+                    ]
+                },
+            )()
 
     class FakeClient:
         def __init__(self, api_key):
@@ -141,6 +194,7 @@ def test_gemini_embedder_marks_documents_and_queries(monkeypatch):
 
     import sys
     import types
+
     genai = types.ModuleType("google.genai")
     genai.Client = FakeClient
     google = sys.modules.get("google") or types.ModuleType("google")
@@ -149,17 +203,28 @@ def test_gemini_embedder_marks_documents_and_queries(monkeypatch):
     monkeypatch.setattr(google, "genai", genai, raising=False)
     monkeypatch.setenv("GEMINI_API_KEY", "k")
     embed = mem.gemini_embedder()
-    assert embed(["a"])[0] == [0.6, 0.8]          # normalised (768-d Gemini vectors are not)
+    assert embed(["a"])[0] == [0.6, 0.8]  # normalised (768-d Gemini vectors are not)
     embed(["q"], task="RETRIEVAL_QUERY")
     assert seen == ["RETRIEVAL_DOCUMENT", "RETRIEVAL_QUERY"]
 
 
-def test_without_chromadb_semantic_recall_still_works_and_old_memories_move_in(tmp_path, monkeypatch):
+def test_without_chromadb_semantic_recall_still_works_and_old_memories_move_in(
+    tmp_path, monkeypatch
+):
     import json
 
     monkeypatch.setitem(sys.modules, "chromadb", None)  # as on a PC without chromadb
-    (tmp_path / "memoria.jsonl").write_text(json.dumps(
-        {"id": "old1", "text": "una tetera vieja", "meta": {"kind": "lesson"}, "vec": []}) + "\n")
+    (tmp_path / "memoria.jsonl").write_text(
+        json.dumps(
+            {
+                "id": "old1",
+                "text": "una tetera vieja",
+                "meta": {"kind": "lesson"},
+                "vec": [],
+            }
+        )
+        + "\n"
+    )
     m = mem.LongTermMemory(tmp_path, semantic=_tea_embed([]))
     assert m.engine == "json" and m.stats()["memories"] == 1
     m.remember("lesson", "un coche rojo")
@@ -167,5 +232,10 @@ def test_without_chromadb_semantic_recall_still_works_and_old_memories_move_in(t
     assert hit["space"] == "semantic" and "tetera" in hit["text"]
     assert m.stats()["semantic_memories"] == 2
     again = mem.LongTermMemory(tmp_path, semantic=_tea_embed([]))  # persisted on disk
-    assert again.stats() == {"engine": "json", "memories": 2, "semantic": True, "semantic_memories": 2}
+    assert again.stats() == {
+        "engine": "json",
+        "memories": 2,
+        "semantic": True,
+        "semantic_memories": 2,
+    }
     assert (tmp_path / "memoria.jsonl.migrated").exists()

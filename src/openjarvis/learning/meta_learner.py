@@ -28,18 +28,36 @@ STRATEGIES: dict[str, float] = {  # strategy -> relative cost (model calls)
 }
 
 KINDS: dict[str, re.Pattern[str]] = {
-    "code": re.compile(r"\b(code|c[óo]digo|function|funci[óo]n|bug|python|javascript|typescript|rust|sql|"
-                       r"script|class|clase|compil|test|refactor|api)\b", re.I),
-    "math": re.compile(r"(\d+\s*[-+*/^%]\s*\d+|\b(calcula|cu[áa]nto es|solve|resuelve|ecuaci[óo]n|equation|"
-                       r"integral|derivad|probabilid|percent|porcentaje|sum|suma)\b)", re.I),
-    "causal": re.compile(r"\b(why|por qu[ée]|cause|causa|effect|efecto|what if|qu[ée] pasar[íi]a si|"
-                         r"consecuencia|impact|impacto)\b", re.I),
-    "planning": re.compile(r"\b(plan|planifica|schedule|agenda|steps|pasos|organiza|roadmap|estrategia|"
-                           r"strategy|itinerar)\b", re.I),
-    "creative": re.compile(r"\b(write|escribe|story|cuento|poem|poema|slogan|idea|ideas|nombre para|"
-                           r"brainstorm|creativ)\b", re.I),
-    "factual": re.compile(r"\b(who|qui[ée]n|when|cu[áa]ndo|where|d[óo]nde|what is|qu[ée] es|capital|"
-                          r"fecha|year|año)\b", re.I),
+    "code": re.compile(
+        r"\b(code|c[óo]digo|function|funci[óo]n|bug|python|javascript|typescript|rust|sql|"
+        r"script|class|clase|compil|test|refactor|api)\b",
+        re.I,
+    ),
+    "math": re.compile(
+        r"(\d+\s*[-+*/^%]\s*\d+|\b(calcula|cu[áa]nto es|solve|resuelve|ecuaci[óo]n|equation|"
+        r"integral|derivad|probabilid|percent|porcentaje|sum|suma)\b)",
+        re.I,
+    ),
+    "causal": re.compile(
+        r"\b(why|por qu[ée]|cause|causa|effect|efecto|what if|qu[ée] pasar[íi]a si|"
+        r"consecuencia|impact|impacto)\b",
+        re.I,
+    ),
+    "planning": re.compile(
+        r"\b(plan|planifica|schedule|agenda|steps|pasos|organiza|roadmap|estrategia|"
+        r"strategy|itinerar)\b",
+        re.I,
+    ),
+    "creative": re.compile(
+        r"\b(write|escribe|story|cuento|poem|poema|slogan|idea|ideas|nombre para|"
+        r"brainstorm|creativ)\b",
+        re.I,
+    ),
+    "factual": re.compile(
+        r"\b(who|qui[ée]n|when|cu[áa]ndo|where|d[óo]nde|what is|qu[ée] es|capital|"
+        r"fecha|year|año)\b",
+        re.I,
+    ),
 }
 
 
@@ -52,8 +70,13 @@ def task_kind(task: str) -> str:
 
 
 class MetaLearner:
-    def __init__(self, path: Optional[Path] = None, *, cost_weight: float = 0.01,
-                 rng: Optional[random.Random] = None) -> None:
+    def __init__(
+        self,
+        path: Optional[Path] = None,
+        *,
+        cost_weight: float = 0.01,
+        rng: Optional[random.Random] = None,
+    ) -> None:
         self.path = path
         self.cost_weight = cost_weight
         self.rng = rng or random.Random()
@@ -66,15 +89,21 @@ class MetaLearner:
                 self.beliefs = {}
 
     def _arm(self, kind: str, strategy: str) -> list[float]:
-        return self.beliefs.setdefault(kind, {}).setdefault(strategy, [1.0, 1.0])  # Beta(1,1) prior
+        return self.beliefs.setdefault(kind, {}).setdefault(
+            strategy, [1.0, 1.0]
+        )  # Beta(1,1) prior
 
-    def choose(self, task: str, *, allowed: Optional[list[str]] = None, explore: bool = True) -> str:
+    def choose(
+        self, task: str, *, allowed: Optional[list[str]] = None, explore: bool = True
+    ) -> str:
         kind = task_kind(task)
         options = [s for s in (allowed or list(STRATEGIES)) if s in STRATEGIES]
         best, best_value = options[0], float("-inf")
         for strategy in options:
             alpha, beta = self._arm(kind, strategy)
-            value = self.rng.betavariate(alpha, beta) if explore else alpha / (alpha + beta)
+            value = (
+                self.rng.betavariate(alpha, beta) if explore else alpha / (alpha + beta)
+            )
             value -= self.cost_weight * STRATEGIES[strategy]
             if value > best_value:
                 best, best_value = strategy, value
@@ -100,8 +129,13 @@ class MetaLearner:
         return max(arms, key=lambda s: arms[s][0] / sum(arms[s]))
 
     def stats(self) -> dict[str, dict[str, dict[str, float]]]:
-        return {kind: {s: {"success": round(a / (a + b), 3), "tries": round(a + b - 2, 1)}
-                       for s, (a, b) in arms.items()} for kind, arms in self.beliefs.items()}
+        return {
+            kind: {
+                s: {"success": round(a / (a + b), 3), "tries": round(a + b - 2, 1)}
+                for s, (a, b) in arms.items()
+            }
+            for kind, arms in self.beliefs.items()
+        }
 
 
 def default_learner() -> MetaLearner:

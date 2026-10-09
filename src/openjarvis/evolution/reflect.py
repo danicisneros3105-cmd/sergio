@@ -54,7 +54,10 @@ def self_correct(
             ok, report = check(state["candidate"])
         except Exception as exc:  # noqa: BLE001 — a crashing check is a failed check
             ok, report = False, f"{type(exc).__name__}: {exc}"
-        history = [*state.get("history", []), {"round": state["rounds"], "ok": ok, "report": report[:500]}]
+        history = [
+            *state.get("history", []),
+            {"round": state["rounds"], "ok": ok, "report": report[:500]},
+        ]
         return {"ok": ok, "report": report, "history": history}
 
     def reflect_node(state: State) -> State:
@@ -90,12 +93,19 @@ def self_correct(
     failures = [h["report"] for h in final.get("history", []) if not h["ok"]]
     if remember and final.get("ok") and failures:
         try:
-            remember(f"{topic or task[:80]}: un intento falló por «{failures[-1][:200]}» y se corrigió en la ronda "
-                     f"{final['rounds']}.")
+            remember(
+                f"{topic or task[:80]}: un intento falló por «{failures[-1][:200]}» y se corrigió en la ronda "
+                f"{final['rounds']}."
+            )
         except Exception:  # noqa: BLE001 — memory is a bonus
             pass
-    return {"result": final.get("candidate"), "ok": bool(final.get("ok")), "rounds": final.get("rounds", 0),
-            "history": final.get("history", []), "engine": engine}
+    return {
+        "result": final.get("candidate"),
+        "ok": bool(final.get("ok")),
+        "rounds": final.get("rounds", 0),
+        "history": final.get("history", []),
+        "engine": engine,
+    }
 
 
 __all__ = ["self_correct"]

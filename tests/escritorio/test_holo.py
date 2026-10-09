@@ -260,7 +260,9 @@ def test_every_shape_is_a_closed_solid_facing_outward():
             g = [x for k, x in enumerate(g) if x != g[k - 1]]
             for a, b in zip(g, g[1:] + g[:1]):
                 edges[(a, b)] += 1
-        assert all(n == 1 and edges.get((b, a)) == 1 for (a, b), n in edges.items()), kind
+        assert all(n == 1 and edges.get((b, a)) == 1 for (a, b), n in edges.items()), (
+            kind
+        )
         v = mesh.vertices
         volume = sum(
             np.dot(v[f[0]], np.cross(v[f[k]], v[f[k + 1]])) / 6
@@ -292,7 +294,11 @@ def test_glass_style_by_voice_and_its_drawing_data():
     assert not sc.objects  # "cristal" is a style, not a diamond
     sc.command("crea un cubo")
     sc.command("crea una esfera")
-    (cube, ball) = sc.glass(*VIEW)[-2:] if sc.objects[0].pos[2] <= sc.objects[1].pos[2] else sc.glass(*VIEW)
+    (cube, ball) = (
+        sc.glass(*VIEW)[-2:]
+        if sc.objects[0].pos[2] <= sc.objects[1].pos[2]
+        else sc.glass(*VIEW)
+    )
     for ob in (cube, ball):
         assert ob["faces"] and ob["outline"] and ob["radius"] > 10
         assert all(0 <= f["rim"] <= 1 for f in ob["faces"])
@@ -346,7 +352,9 @@ def test_holograms_move_on_springs_like_visionos():
     assert abs(cube.appear - 1.0) < 0.05 and 1.0 < peak < 1.25  # a soft overshoot
     assert cube.display() > 1.05 and cube.hover_k > 0.9  # held: bigger and glowing
     real = cube.world()
-    assert abs(real.max() - cube.world(display=False).max()) < 1e-9  # the real size never changes
+    assert (
+        abs(real.max() - cube.world(display=False).max()) < 1e-9
+    )  # the real size never changes
     cube.held = False
     for _ in range(120):
         scene.step(1 / 60)

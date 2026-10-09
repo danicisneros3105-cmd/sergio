@@ -5,9 +5,14 @@ from __future__ import annotations
 from datetime import datetime
 
 import pytest
-
 from sergio_escritorio import organizer
-from sergio_escritorio.organizer import Alarms, Notes, parse_alarm, parse_days, parse_note
+from sergio_escritorio.organizer import (
+    Alarms,
+    Notes,
+    parse_alarm,
+    parse_days,
+    parse_note,
+)
 
 MONDAY_15 = datetime(2026, 10, 5, 15, 0)  # a Monday
 
@@ -22,7 +27,9 @@ def test_days_in_words():
 
 
 def test_alarm_orders():
-    assert parse_alarm("pon una alarma a las 6:30 de lunes a viernes para ir al gym", MONDAY_15) == (6, 30, [0, 1, 2, 3, 4], "ir al gym")
+    assert parse_alarm(
+        "pon una alarma a las 6:30 de lunes a viernes para ir al gym", MONDAY_15
+    ) == (6, 30, [0, 1, 2, 3, 4], "ir al gym")
     assert parse_alarm("despiértame a las 7", MONDAY_15)[:2] == (7, 0)  # not 19:00
     assert parse_alarm("alarma a las 8 de la noche", MONDAY_15)[:2] == (20, 0)
     assert parse_alarm("recuérdame en 5 minutos", MONDAY_15) is None
@@ -66,7 +73,10 @@ def test_next_time_and_description():
 
 def test_notes_and_their_orders(tmp_path):
     assert parse_note("nota: comprar leche") == ("comprar leche", "amarillo")
-    assert parse_note("crea una nota rosa que diga llamar a mamá") == ("llamar a mamá", "rosa")
+    assert parse_note("crea una nota rosa que diga llamar a mamá") == (
+        "llamar a mamá",
+        "rosa",
+    )
     assert parse_note("toma notas de la reunión") is None
     notes = Notes(tmp_path / "n.json")
     note = notes.add("comprar leche", "verde")
@@ -97,7 +107,6 @@ def test_organizer_orders(said, kind):
 
 def test_widgets_draw(tmp_path):
     from PySide6.QtWidgets import QApplication
-
     from sergio_escritorio.jarvis import Reminders
     from sergio_escritorio.organizer_ui import AlarmCard, NotesBoard, OrganizerWindow
 
@@ -108,9 +117,26 @@ def test_widgets_draw(tmp_path):
     assert sticky.grab().width() > 100
     alarms = Alarms(tmp_path / "a.json", lambda a: None)
     alarm = alarms.add(7, 0, [0], "gym")
-    window = OrganizerWindow(alarms, notes, board, Reminders(None, lambda r: None), lambda: [{"tipo": "tarea", "materia": "Física", "titulo": "Informe", "fecha": "2026-10-09"}])
+    window = OrganizerWindow(
+        alarms,
+        notes,
+        board,
+        Reminders(None, lambda r: None),
+        lambda: [
+            {
+                "tipo": "tarea",
+                "materia": "Física",
+                "titulo": "Informe",
+                "fecha": "2026-10-09",
+            }
+        ],
+    )
     window.open(1)
-    assert window.alarm_list.count() == 1 and window.note_list.count() == 1 and "Física" in window.homework_list.item(0).text()
+    assert (
+        window.alarm_list.count() == 1
+        and window.note_list.count() == 1
+        and "Física" in window.homework_list.item(0).text()
+    )
     window.note_text.setText("otra")
     window._add_note()
     assert len(notes.items) == 2 and len(board.widgets) == 2

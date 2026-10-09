@@ -118,7 +118,11 @@ class Match:
     @property
     def strong(self) -> bool:
         """Sure enough to name on this one look."""
-        return bool(self.name) and self.score >= STRONG_MATCH and self.margin >= STRONG_MARGIN
+        return (
+            bool(self.name)
+            and self.score >= STRONG_MATCH
+            and self.margin >= STRONG_MARGIN
+        )
 
     def to_dict(self) -> dict[str, Any]:
         out = {
@@ -223,7 +227,9 @@ def looks_old(image: Any) -> bool:
     """Faded, sepia or black-and-white: an old or scanned photo."""
     import numpy as np
 
-    small = image[:: max(1, image.shape[0] // 200), :: max(1, image.shape[1] // 200)].astype(np.float32)
+    small = image[
+        :: max(1, image.shape[0] // 200), :: max(1, image.shape[1] // 200)
+    ].astype(np.float32)
     colour = float(np.mean(np.std(small, axis=2)))  # ~0 for grey/sepia-ish
     contrast = float(np.std(small.mean(axis=2)))
     return colour < 12.0 or contrast < 38.0
@@ -434,7 +440,9 @@ class FaceBook:
             raise FaceError("The file is not a readable image.")
         return image
 
-    def _signature(self, image: Any, box: tuple[int, int, int, int]) -> list[float] | None:
+    def _signature(
+        self, image: Any, box: tuple[int, int, int, int]
+    ) -> list[float] | None:
         """The 175 measurements (None when MediaPipe is not installed)."""
         if self._measurer is None:
             from openjarvis.faces.signature import Measurer
@@ -457,7 +465,9 @@ class FaceBook:
         face = match_points(box, faces)
         return from_points(face.get("points") or {}) if face else None
 
-    def _signature_of(self, image_bytes: bytes, box: tuple[int, int, int, int]) -> list[float] | None:
+    def _signature_of(
+        self, image_bytes: bytes, box: tuple[int, int, int, int]
+    ) -> list[float] | None:
         try:
             image = self._decode(image_bytes)
         except FaceError:
@@ -476,7 +486,9 @@ class FaceBook:
             image = enhance(image)
         return self._faces_in(image)
 
-    def _faces_in(self, image: Any) -> list[tuple[Any, tuple[int, int, int, int], float]]:
+    def _faces_in(
+        self, image: Any
+    ) -> list[tuple[Any, tuple[int, int, int, int], float]]:
         import numpy as np
 
         detector, recognizer = self._models()
@@ -502,7 +514,12 @@ class FaceBook:
         return results
 
     def enroll(
-        self, name: str, image_bytes: bytes, *, consent: bool, faces: list[dict] | None = None
+        self,
+        name: str,
+        image_bytes: bytes,
+        *,
+        consent: bool,
+        faces: list[dict] | None = None,
     ) -> int:
         """Add one photo of *name*; returns the number of stored samples."""
         raw = (name or "").strip()
@@ -566,7 +583,10 @@ class FaceBook:
                 continue
             found = sorted(found, key=lambda f: f[1][2] * f[1][3], reverse=True)
             feature, box, *rest = found[0]
-            if len(found) > 1 and found[1][1][2] * found[1][1][3] > 0.5 * box[2] * box[3]:
+            if (
+                len(found) > 1
+                and found[1][1][2] * found[1][1][3] > 0.5 * box[2] * box[3]
+            ):
                 continue  # two people in the shot: not a scan of one face
             detection = float(rest[0]) if rest else 1.0
             if min(box[2], box[3]) < MIN_FACE_PX or detection < MIN_DETECTION:
@@ -579,7 +599,9 @@ class FaceBook:
                 "No vi la cara con claridad durante el escaneo: más luz, la cara "
                 "entera en la cámara y gira la cabeza despacio."
             )
-        front = [f for f, pose, _ in shots if angle_of(pose) == "C-M"] or [f for f, _, _ in shots]
+        front = [f for f, pose, _ in shots if angle_of(pose) == "C-M"] or [
+            f for f, _, _ in shots
+        ]
         centre = np.mean(np.asarray(front, dtype=np.float32), axis=0)
         centre /= np.linalg.norm(centre) + 1e-9
         shots = [x for x in shots if float(np.dot(x[0], centre)) >= SCAN_CONSISTENT]
@@ -597,7 +619,9 @@ class FaceBook:
             people = self._load(strict=True)
             name = next((k for k in people if k.lower() == name.lower()), name)
             _check_same_person(people, name, centre)
-            person = people.setdefault(name, {"embeddings": [], "enrolled_at": time.time()})
+            person = people.setdefault(
+                name, {"embeddings": [], "enrolled_at": time.time()}
+            )
             added = [
                 (f.tolist(), None, pose, "escaneo")
                 for angle in sorted(best)
@@ -728,10 +752,20 @@ class FaceBook:
                 and best >= MATCH_THRESHOLD
                 and best - runner_up >= MATCH_MARGIN
             )
-            guesses = [(n, max(v, 0.0)) for v, n in ranked[:candidates]] if candidates else None
+            guesses = (
+                [(n, max(v, 0.0)) for v, n in ranked[:candidates]]
+                if candidates
+                else None
+            )
             if sure:
                 match = Match(
-                    name, best, box, quality=quality, candidates=guesses, margin=margin, pose=pose
+                    name,
+                    best,
+                    box,
+                    quality=quality,
+                    candidates=guesses,
+                    margin=margin,
+                    pose=pose,
                 )
                 if (
                     learn
@@ -744,7 +778,15 @@ class FaceBook:
             else:
                 guest = self._guests.number(feature) if quality == "ok" else 0
                 matches.append(
-                    Match("", max(best, 0.0), box, guest, quality, candidates=guesses, pose=pose)
+                    Match(
+                        "",
+                        max(best, 0.0),
+                        box,
+                        guest,
+                        quality,
+                        candidates=guesses,
+                        pose=pose,
+                    )
                 )
         return matches
 
@@ -778,7 +820,9 @@ def _sharpness(aligned: Any) -> float:
     try:
         import cv2
 
-        grey = cv2.cvtColor(aligned, cv2.COLOR_BGR2GRAY) if aligned.ndim == 3 else aligned
+        grey = (
+            cv2.cvtColor(aligned, cv2.COLOR_BGR2GRAY) if aligned.ndim == 3 else aligned
+        )
         return float(cv2.Laplacian(grey, cv2.CV_64F).var())
     except Exception:  # noqa: BLE001 — a missing measure only changes the order
         return 0.0
@@ -790,7 +834,9 @@ def _column(person: dict[str, Any], key: str, count: int) -> list[Any]:
     return values + [None] * (count - len(values))
 
 
-def _add_samples(person: dict[str, Any], items: list[tuple[Any, Any, Any, str]]) -> None:
+def _add_samples(
+    person: dict[str, Any], items: list[tuple[Any, Any, Any, str]]
+) -> None:
     """Append (embedding, signature, pose, source) photos, then trim to
     MAX_SAMPLES: photos it learnt by itself go first, then plain photos,
     and the scan's angles last (they are what covers the whole head)."""
@@ -809,7 +855,12 @@ def _add_samples(person: dict[str, Any], items: list[tuple[Any, Any, Any, str]])
     while len(columns["embeddings"]) > MAX_SAMPLES:
         sources = columns["sources"]
         drop = next(
-            (i for kind in ("auto", "foto", "escaneo") for i, x in enumerate(sources) if x == kind),
+            (
+                i
+                for kind in ("auto", "foto", "escaneo")
+                for i, x in enumerate(sources)
+                if x == kind
+            ),
             0,
         )
         for values in columns.values():
@@ -832,7 +883,9 @@ def _check_same_person(people: dict[str, Any], name: str, feature: Any) -> None:
     for other, person in people.items():
         if other == name or not person.get("embeddings"):
             continue
-        theirs = person_score(feature, np.asarray(person["embeddings"], dtype=np.float32))
+        theirs = person_score(
+            feature, np.asarray(person["embeddings"], dtype=np.float32)
+        )
         # Near-certain only (siblings sit lower): twins can still be saved.
         if theirs >= STRONG_MATCH and (own is None or theirs > own + MATCH_MARGIN):
             raise FaceError(
@@ -849,7 +902,9 @@ def person_score(feature: Any, embeddings: Any) -> float:
     return float(np.mean(scores[:TOP_K]))
 
 
-def purify(embeddings: list, *columns: list, together: list[int] | None = None) -> tuple[list, ...]:
+def purify(
+    embeddings: list, *columns: list, together: list[int] | None = None
+) -> tuple[list, ...]:
     """Keep only one person's photos: the biggest group of photos that look
     alike (ties: the group with the oldest photo, the one enrolled first).
     Repairs a person that got other people's faces saved under their name.
@@ -884,7 +939,10 @@ def purify(embeddings: list, *columns: list, together: list[int] | None = None) 
     if sizes[keep] == n:
         return (embeddings, *columns)
     idx = [i for i in range(n) if group[i] == keep]
-    return ([embeddings[i] for i in idx], *([column[i] for i in idx] for column in columns))
+    return (
+        [embeddings[i] for i in idx],
+        *([column[i] for i in idx] for column in columns),
+    )
 
 
 COLUMNS = ("signatures", "poses", "sources")
@@ -918,7 +976,9 @@ def _tidy(people: dict[str, Any]) -> dict[str, Any]:
             person.update(dict(zip(COLUMNS, cols)))
         except (ValueError, TypeError):  # odd shapes: leave as they are
             pass
-        if len(person["embeddings"]) > MAX_SAMPLES:  # merged twins: trim like new photos
+        if (
+            len(person["embeddings"]) > MAX_SAMPLES
+        ):  # merged twins: trim like new photos
             extra = person["embeddings"]
             person["embeddings"] = []
             cols = {c: person[c] for c in COLUMNS}
@@ -927,7 +987,12 @@ def _tidy(people: dict[str, Any]) -> dict[str, Any]:
             _add_samples(
                 person,
                 [
-                    (extra[i], cols["signatures"][i], cols["poses"][i], cols["sources"][i] or "foto")
+                    (
+                        extra[i],
+                        cols["signatures"][i],
+                        cols["poses"][i],
+                        cols["sources"][i] or "foto",
+                    )
                     for i in range(len(extra))
                 ],
             )

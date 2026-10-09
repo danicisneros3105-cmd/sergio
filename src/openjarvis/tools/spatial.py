@@ -63,7 +63,9 @@ def focal_px(width_px: float, hfov_deg: float = HFOV_DEG) -> float:
     return width_px / (2 * math.tan(math.radians(hfov_deg) / 2))
 
 
-def locate(items: list[dict[str, Any]], width: int, height: int, hfov_deg: float = HFOV_DEG) -> list[dict[str, Any]]:
+def locate(
+    items: list[dict[str, Any]], width: int, height: int, hfov_deg: float = HFOV_DEG
+) -> list[dict[str, Any]]:
     """Add depth (m), a 3D position (m) and a size check to each item.
 
     Items carry ``box`` [x, y, w, h] as fractions of the image, a ``label``
@@ -88,18 +90,31 @@ def locate(items: list[dict[str, Any]], width: int, height: int, hfov_deg: float
         depth = f * size_cm / px / 100.0
         cx, cy = (x + w / 2) * width, (y + h / 2) * height
         pos = ((cx - width / 2) * depth / f, (cy - height / 2) * depth / f, depth)
-        out.append({**item, "depth_m": round(depth, 2), "pos_m": tuple(round(v, 3) for v in pos), "doubt": ""})
+        out.append(
+            {
+                **item,
+                "depth_m": round(depth, 2),
+                "pos_m": tuple(round(v, 3) for v in pos),
+                "doubt": "",
+            }
+        )
     _check_sizes(out, width, height, f)
     return out
 
 
-def _check_sizes(items: list[dict[str, Any]], width: int, height: int, f: float) -> None:
+def _check_sizes(
+    items: list[dict[str, Any]], width: int, height: int, f: float
+) -> None:
     """Logic: the size a label implies must fit what the scene shows.
 
     The depth of the scene comes from the objects whose size is certain
     (faces, then known things); an object at a similar depth must measure
     what its name says, or its name is doubtful."""
-    anchors = [i["depth_m"] for i in items if i.get("depth_m") and (i.get("face_box") or typical(i.get("label", "")))]
+    anchors = [
+        i["depth_m"]
+        for i in items
+        if i.get("depth_m") and (i.get("face_box") or typical(i.get("label", "")))
+    ]
     if not anchors:
         return
     scene_depth = sorted(anchors)[len(anchors) // 2]
@@ -108,7 +123,9 @@ def _check_sizes(items: list[dict[str, Any]], width: int, height: int, f: float)
         model_cm = item.get("size_cm")
         x, y, w, h = item["box"]
         px = max(w * width, h * height, 1.0)
-        implied_cm = px * scene_depth / f * 100.0  # its size if it sat at the scene's depth
+        implied_cm = (
+            px * scene_depth / f * 100.0
+        )  # its size if it sat at the scene's depth
         if known is not None and isinstance(model_cm, (int, float)) and model_cm > 0:
             low, high = known[1], known[2]
             if not (low / 1.6 <= model_cm <= high * 1.6):
@@ -143,7 +160,19 @@ def spoken(m: float) -> str:
 def describe_relations(pairs: list[dict[str, Any]]) -> str:
     if not pairs:
         return ""
-    return "Distancias aproximadas: " + "; ".join(f"{p['a']} a {spoken(p['m'])} de {p['b']}" for p in pairs[:4]) + "."
+    return (
+        "Distancias aproximadas: "
+        + "; ".join(f"{p['a']} a {spoken(p['m'])} de {p['b']}" for p in pairs[:4])
+        + "."
+    )
 
 
-__all__ = ["SIZES", "describe_relations", "distance_m", "focal_px", "locate", "relations", "typical"]
+__all__ = [
+    "SIZES",
+    "describe_relations",
+    "distance_m",
+    "focal_px",
+    "locate",
+    "relations",
+    "typical",
+]

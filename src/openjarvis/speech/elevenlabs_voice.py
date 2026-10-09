@@ -33,7 +33,9 @@ SETTINGS = {
 def key() -> str:
     found = os.environ.get("ELEVENLABS_API_KEY", "").strip()
     if not found:
-        raise RuntimeError("Falta ELEVENLABS_API_KEY (sergio nube voz --elevenlabs CLAVE)")
+        raise RuntimeError(
+            "Falta ELEVENLABS_API_KEY (sergio nube voz --elevenlabs CLAVE)"
+        )
     return found
 
 
@@ -60,8 +62,9 @@ async def stream_pcm(text: str, voice: str = "") -> AsyncIterator[bytes]:
 
     url, params, body = request(text, voice)
     async with httpx.AsyncClient(timeout=httpx.Timeout(30, connect=5)) as http:
-        async with http.stream("POST", url, params=params, json=body,
-                               headers={"xi-api-key": key()}) as resp:
+        async with http.stream(
+            "POST", url, params=params, json=body, headers={"xi-api-key": key()}
+        ) as resp:
             if resp.status_code != 200:
                 detail = (await resp.aread()).decode("utf-8", "replace")[:300]
                 raise RuntimeError(f"ElevenLabs {resp.status_code}: {detail}")
@@ -75,8 +78,13 @@ def speak_wav(text: str, voice: str = "") -> bytes:
     import httpx
 
     url, params, body = request(text, voice)
-    resp = httpx.post(url, params=params, json=body, headers={"xi-api-key": key()},
-                      timeout=httpx.Timeout(30, connect=5))
+    resp = httpx.post(
+        url,
+        params=params,
+        json=body,
+        headers={"xi-api-key": key()},
+        timeout=httpx.Timeout(30, connect=5),
+    )
     if resp.status_code != 200:
         raise RuntimeError(f"ElevenLabs {resp.status_code}: {resp.text[:300]}")
     buf = io.BytesIO()

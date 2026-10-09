@@ -6,14 +6,19 @@ import threading
 import time
 
 from sergio_escritorio.activities import Activities, Spring
-from sergio_escritorio.tareas import Orchestrator, parse_background, parse_together, step_status
+from sergio_escritorio.tareas import (
+    Orchestrator,
+    parse_background,
+    parse_together,
+    step_status,
+)
 
 
 def test_activities_run_finish_and_linger():
     now = [0.0]
     acts = Activities(clock=lambda: now[0])
     a = acts.start("Blender Pro", "blender")
-    b = acts.start("Vuelos", "search")
+    acts.start("Vuelos", "search")
     acts.update(a, progress=0.5, detail="revisión 2")
     assert [x.title for x in acts.snapshot()] == ["Blender Pro", "Vuelos"]
     assert "2 cosas en marcha" in acts.describe() and "50 %" in acts.describe()
@@ -48,7 +53,9 @@ def test_the_duo_island_appears_with_two_activities(tmp_path):
     for _ in range(60):
         notch._tick()
         notch._last_tick -= 1 / 60  # simulate 60 fps
-    assert notch.bubble() is None and notch.pill().width() > 200  # live pill, no dúo yet
+    assert (
+        notch.bubble() is None and notch.pill().width() > 200
+    )  # live pill, no dúo yet
     acts.start("Dos", "search")
     for _ in range(90):
         notch._tick()
@@ -58,12 +65,22 @@ def test_the_duo_island_appears_with_two_activities(tmp_path):
 
 
 def test_voice_orders_for_tasks():
-    assert parse_background("En segundo plano, busca vuelos a Madrid") == "busca vuelos a Madrid"
-    assert parse_background("in the background, summarise this PDF") == "summarise this PDF"
+    assert (
+        parse_background("En segundo plano, busca vuelos a Madrid")
+        == "busca vuelos a Madrid"
+    )
+    assert (
+        parse_background("in the background, summarise this PDF")
+        == "summarise this PDF"
+    )
     assert parse_background("busca vuelos a Madrid") is None
-    assert parse_together("haz a la vez busca vuelos a Madrid y ordena mis descargas") == [
-        "busca vuelos a Madrid", "ordena mis descargas"]
-    assert step_status("hecho\nTERMINADO: tabla en Documentos") == ("done", "tabla en Documentos")
+    assert parse_together(
+        "haz a la vez busca vuelos a Madrid y ordena mis descargas"
+    ) == ["busca vuelos a Madrid", "ordena mis descargas"]
+    assert step_status("hecho\nTERMINADO: tabla en Documentos") == (
+        "done",
+        "tabla en Documentos",
+    )
     assert step_status("FALTA: abrir Excel")[0] == "more"
 
 
@@ -94,8 +111,13 @@ def wait(orch):
 
 
 def test_background_tasks_run_in_parallel_and_report():
-    plan = lambda r: {"titulo": r, "pasos": [{"paso": f"{r}: buscar", "donde": "fondo"},  # noqa: E731
-                                              {"paso": f"{r}: tabla", "donde": "fondo"}]}
+    plan = lambda r: {
+        "titulo": r,
+        "pasos": [
+            {"paso": f"{r}: buscar", "donde": "fondo"},  # noqa: E731
+            {"paso": f"{r}: tabla", "donde": "fondo"},
+        ],
+    }
     orch, acts, told, calls = make(plan, lambda p: "TERMINADO: listo")
     start = time.time()
     orch.submit("A")
@@ -126,17 +148,36 @@ def test_screen_steps_take_turns():
 
 
 def test_a_failed_step_gets_a_new_approach_once():
-    replies = iter(["FALTA: guardar", "FALTA: no encuentro la carpeta", "TERMINADO: guardado en Documentos"])
+    replies = iter(
+        [
+            "FALTA: guardar",
+            "FALTA: no encuentro la carpeta",
+            "TERMINADO: guardado en Documentos",
+        ]
+    )
     plans = []
 
     def plan(r):
         plans.append(r)
-        return {"pasos": [{"paso": "hacer la tabla" if len(plans) == 1 else "guardarla en Documentos", "donde": "fondo"}]}
+        return {
+            "pasos": [
+                {
+                    "paso": "hacer la tabla"
+                    if len(plans) == 1
+                    else "guardarla en Documentos",
+                    "donde": "fondo",
+                }
+            ]
+        }
 
     orch, acts, told, calls = make(plan, lambda p: next(replies))
     orch.submit("tabla")
     wait(orch)
-    assert len(plans) == 2 and "no encuentro la carpeta" in plans[1] and "enfoque distinto" in plans[1]
+    assert (
+        len(plans) == 2
+        and "no encuentro la carpeta" in plans[1]
+        and "enfoque distinto" in plans[1]
+    )
     assert orch.tasks[0].status == "done" and "Documentos" in told[0]
 
 
@@ -150,7 +191,11 @@ def test_when_the_new_approach_also_fails_it_says_where_it_stopped():
 
 def test_an_agent_works_with_its_role_and_its_tools():
     seen = []
-    agent = {"nombre": "Investigador", "instrucciones": "Busca con fuentes.", "herramientas": ["web_search"]}
+    agent = {
+        "nombre": "Investigador",
+        "instrucciones": "Busca con fuentes.",
+        "herramientas": ["web_search"],
+    }
 
     def plan(r, a=None):
         seen.append(a)
@@ -163,8 +208,14 @@ def test_an_agent_works_with_its_role_and_its_tools():
 
 
 def test_risky_steps_wait_for_the_owner():
-    plan = lambda r: {"pasos": [{"paso": "borra los duplicados", "donde": "fondo", "importante": True}]}  # noqa: E731
-    orch, acts, told, calls = make(plan, lambda p: "TERMINADO: borrados", approve=lambda _w: False)
+    plan = lambda r: {
+        "pasos": [
+            {"paso": "borra los duplicados", "donde": "fondo", "importante": True}
+        ]
+    }  # noqa: E731
+    orch, acts, told, calls = make(
+        plan, lambda p: "TERMINADO: borrados", approve=lambda _w: False
+    )
     orch.submit("limpia fotos")
     wait(orch)
     assert calls == [] and "aprobación" in told[0]
@@ -188,15 +239,23 @@ def test_a_screen_plan_can_be_stopped_before_it_starts():
     time.sleep(0.1)
     orch.cancel_last()
     wait(orch)
-    assert calls == [] and orch.tasks[0].status == "cancelled" and "Cancelada" in told[0]
+    assert (
+        calls == [] and orch.tasks[0].status == "cancelled" and "Cancelada" in told[0]
+    )
 
 
 def test_a_file_that_is_said_to_exist_is_checked():
     from sergio_escritorio.tareas import claimed_paths
 
-    assert claimed_paths("TERMINADO: tabla guardada en C:\\Users\\dani\\Documents\\tabla.xlsx.") == [
-        "C:\\Users\\dani\\Documents\\tabla.xlsx"]
-    replies = iter(["TERMINADO: guardado en C:\\x\\tabla.xlsx", "TERMINADO: ahora sí en C:\\x\\tabla.xlsx"])
+    assert claimed_paths(
+        "TERMINADO: tabla guardada en C:\\Users\\dani\\Documents\\tabla.xlsx."
+    ) == ["C:\\Users\\dani\\Documents\\tabla.xlsx"]
+    replies = iter(
+        [
+            "TERMINADO: guardado en C:\\x\\tabla.xlsx",
+            "TERMINADO: ahora sí en C:\\x\\tabla.xlsx",
+        ]
+    )
     files = {"C:\\x\\tabla.xlsx": False}
     plan = lambda r: {"pasos": [{"paso": "hacer la tabla", "donde": "fondo"}]}  # noqa: E731
 
@@ -215,7 +274,9 @@ def test_a_file_that_is_said_to_exist_is_checked():
 
 def test_a_file_that_never_appears_is_not_reported_as_done():
     plan = lambda r: {"pasos": [{"paso": "hacer la tabla", "donde": "fondo"}]}  # noqa: E731
-    orch, acts, told, calls = make(plan, lambda p: "TERMINADO: guardado en C:\\x\\t.xlsx")
+    orch, acts, told, calls = make(
+        plan, lambda p: "TERMINADO: guardado en C:\\x\\t.xlsx"
+    )
     orch.exists = lambda p: False
     orch.submit("tabla")
     wait(orch)
@@ -229,21 +290,36 @@ def test_independent_steps_run_at_the_same_time_then_the_one_that_needs_them():
         order.append(prompt.split("Paso actual (web): ")[1].split("\n")[0])
         return "TERMINADO: ok"
 
-    plan = lambda r: {"pasos": [  # noqa: E731
-        {"paso": "buscar A", "depende_de": []}, {"paso": "buscar B", "depende_de": []},
-        {"paso": "buscar C", "depende_de": []}, {"paso": "tabla", "depende_de": [1, 2, 3]}]}
+    plan = lambda r: {
+        "pasos": [  # noqa: E731
+            {"paso": "buscar A", "depende_de": []},
+            {"paso": "buscar B", "depende_de": []},
+            {"paso": "buscar C", "depende_de": []},
+            {"paso": "tabla", "depende_de": [1, 2, 3]},
+        ]
+    }
     orch, *_ = make(plan, answers)
     start = time.time()
     orch.submit("comparar")
     wait(orch)
-    assert time.time() - start < 0.2  # three searches side by side (0.05 s each), then the table
+    assert (
+        time.time() - start < 0.2
+    )  # three searches side by side (0.05 s each), then the table
     assert order[-1] == "tabla" and orch.tasks[0].status == "done"
 
 
 def test_a_step_never_runs_before_what_it_needs():
     from sergio_escritorio.tareas import Orchestrator as O
 
-    steps = O._steps({"pasos": [{"paso": "a"}, {"paso": "b", "depende_de": [3, 1, 2]}, {"paso": "c"}]})
+    steps = O._steps(
+        {
+            "pasos": [
+                {"paso": "a"},
+                {"paso": "b", "depende_de": [3, 1, 2]},
+                {"paso": "c"},
+            ]
+        }
+    )
     assert steps[1].after == [0]  # later or self references dropped: no cycles
     assert steps[2].after == [1]  # not said: after the previous one
 
@@ -260,15 +336,21 @@ def test_the_revisor_checks_the_result_and_one_fix_step_runs():
     orch.submit("tabla de portátiles")
     wait(orch)
     task = orch.tasks[0]
-    assert task.status == "done" and task.steps[-1].text.startswith("Corrige lo que falta: la tabla no tiene precios")
+    assert task.status == "done" and task.steps[-1].text.startswith(
+        "Corrige lo que falta: la tabla no tiene precios"
+    )
     assert any("Eres el Revisor" in c for c in calls)
 
 
 def test_a_step_for_each_element_becomes_a_swarm_and_the_next_waits_for_all():
     items = [f"producto {n}" for n in range(40)]
-    plan = lambda r: {"reglas": "Skill «Enjambre»: cita la fuente", "pasos": [  # noqa: E731
-        {"paso": "busca el precio", "para_cada": items, "depende_de": []},
-        {"paso": "haz la tabla", "depende_de": [1]}]}
+    plan = lambda r: {
+        "reglas": "Skill «Enjambre»: cita la fuente",
+        "pasos": [  # noqa: E731
+            {"paso": "busca el precio", "para_cada": items, "depende_de": []},
+            {"paso": "haz la tabla", "depende_de": [1]},
+        ],
+    }
     orch, acts, told, calls = make(plan, lambda p: "TERMINADO: ok")
     orch.swarm = threading.BoundedSemaphore(20)
     start = time.time()
@@ -276,7 +358,9 @@ def test_a_step_for_each_element_becomes_a_swarm_and_the_next_waits_for_all():
     wait(orch)
     took = time.time() - start
     assert len(task.steps) == 41 and task.steps[-1].after == list(range(40))
-    assert took < 0.6  # 40 sub-agents of 0.05 s, 20 at a time, then the table (2 s if one by one)
+    assert (
+        took < 0.6
+    )  # 40 sub-agents of 0.05 s, 20 at a time, then the table (2 s if one by one)
     assert task.status == "done" and task.calls == 41
     assert "cita la fuente" in calls[0] and "solo para: producto" in calls[0]
     from sergio_escritorio.tareas import plan_line
@@ -297,7 +381,9 @@ def test_the_swarm_never_exceeds_its_limit():
             inside[0] -= 1
         return "TERMINADO: ok"
 
-    plan = lambda r: {"pasos": [{"paso": "x", "para_cada": [str(n) for n in range(30)]}]}  # noqa: E731
+    plan = lambda r: {
+        "pasos": [{"paso": "x", "para_cada": [str(n) for n in range(30)]}]
+    }  # noqa: E731
     orch, *_ = make(plan, answers)
     orch.swarm = threading.BoundedSemaphore(5)
     orch.submit("x")

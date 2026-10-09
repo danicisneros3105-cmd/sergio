@@ -24,10 +24,18 @@ def test_a_bare_question_is_answered_with_confidence(monkeypatch, tmp_path):
         return "FINAL ANSWER: 17:25"
 
     _fake(monkeypatch, tmp_path, fn)
-    out = CliRunner().invoke(pensar, ["¿a", "qué", "hora", "llega?", "--estrategia", "consistency"])
+    out = CliRunner().invoke(
+        pensar, ["¿a", "qué", "hora", "llega?", "--estrategia", "consistency"]
+    )
     assert out.exit_code == 0, out.output
-    assert "17:25" in out.output and "Estrategia: consistency" in out.output and "zona horaria" in out.output
-    js = CliRunner().invoke(pensar, ["preguntar", "x", "--json", "--estrategia", "direct"])
+    assert (
+        "17:25" in out.output
+        and "Estrategia: consistency" in out.output
+        and "zona horaria" in out.output
+    )
+    js = CliRunner().invoke(
+        pensar, ["preguntar", "x", "--json", "--estrategia", "direct"]
+    )
     assert json.loads(js.output)["strategy"] == "direct"
 
 
@@ -39,7 +47,9 @@ def test_practice_moves_levels_and_status_shows_them(monkeypatch, tmp_path):
         return "FINAL ANSWER: ?"
 
     _fake(monkeypatch, tmp_path, fn)
-    out = CliRunner().invoke(pensar, ["practicar", "--rondas", "2", "--lote", "3", "--temas", "arithmetic"])
+    out = CliRunner().invoke(
+        pensar, ["practicar", "--rondas", "2", "--lote", "3", "--temas", "arithmetic"]
+    )
     assert out.exit_code == 0, out.output and "arithmetic: nivel 1 → 3" in out.output
     assert "arithmetic: nivel 1 → 3" in out.output
     status = CliRunner().invoke(pensar, ["estado"])

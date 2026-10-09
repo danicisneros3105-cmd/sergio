@@ -26,7 +26,7 @@ PARAMS = {
 
 def build(**kw) -> str:
     p = params_with_defaults(PARAMS, kw)
-    return f'''
+    return f"""
 kind = {py(str(p["kind"]).lower())}
 seed = {p["seed"]}
 
@@ -145,4 +145,4 @@ mesh = ev.to_mesh()
 verts = len(mesh.vertices)
 ev.to_mesh_clear()
 vfx_info(effect="geo_nodes", kind=kind, tree=tree.name, nodes=len(tree.nodes), evaluated_vertices=verts)
-'''
+"""

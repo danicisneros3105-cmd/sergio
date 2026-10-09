@@ -92,7 +92,9 @@ def service_state(runner: Runner = _run, unit: str = "sergio.service") -> str:
     state = (out.stdout or "").strip() or "unknown"
     if state in ("inactive", "unknown"):
         try:
-            loaded = runner(["systemctl", "--user", "show", unit, "-p", "LoadState", "--value"])
+            loaded = runner(
+                ["systemctl", "--user", "show", unit, "-p", "LoadState", "--value"]
+            )
             if (loaded.stdout or "").strip() == "not-found":
                 return "missing"
         except (OSError, subprocess.SubprocessError):
@@ -104,7 +106,19 @@ def service_state(runner: Runner = _run, unit: str = "sergio.service") -> str:
 
 def journal_tail(lines: int = 15, runner: Runner = _run) -> str:
     try:
-        out = runner(["journalctl", "--user", "-u", "sergio", "-n", str(lines), "--no-pager", "-o", "cat"])
+        out = runner(
+            [
+                "journalctl",
+                "--user",
+                "-u",
+                "sergio",
+                "-n",
+                str(lines),
+                "--no-pager",
+                "-o",
+                "cat",
+            ]
+        )
         return (out.stdout or "").strip()
     except (OSError, subprocess.SubprocessError):
         return ""
@@ -161,8 +175,10 @@ def ensure_server(
         return True
     state = service_state(runner)
     if state in ("missing", "no-systemd"):
-        say(f"Sergio no responde en {base} y no está instalado como servicio. "
-            "Instálalo con: sergio servicio instalar   (o ábrelo a mano en otra ventana: sergio serve)")
+        say(
+            f"Sergio no responde en {base} y no está instalado como servicio. "
+            "Instálalo con: sergio servicio instalar   (o ábrelo a mano en otra ventana: sergio serve)"
+        )
         return False
     if state in ("inactive", "failed", "deactivating") and start:
         say(f"Sergio estaba apagado (estado: {state}). Lo enciendo…")
@@ -179,11 +195,15 @@ def ensure_server(
             state = service_state(runner)
             if state == "failed":
                 break
-            say(f"  …Sergio sigue arrancando ({now - started:.0f} s, servicio: {state})")
+            say(
+                f"  …Sergio sigue arrancando ({now - started:.0f} s, servicio: {state})"
+            )
             next_note = now + 5
         sleep(1.0)
     state = service_state(runner)
-    say(f"Sergio no respondió en {timeout:.0f} s (servicio: {state}). Últimas líneas de su registro:")
+    say(
+        f"Sergio no respondió en {timeout:.0f} s (servicio: {state}). Últimas líneas de su registro:"
+    )
     say(journal_tail(runner=runner) or "(sin registro)")
     return False
 

@@ -124,7 +124,10 @@ def _fresh_search(monkeypatch):
 
 def test_declarations_offer_companion_tools_and_a_few_server_tools():
     server = [
-        {"type": "function", "function": {"name": n, "description": n, "parameters": {}}}
+        {
+            "type": "function",
+            "function": {"name": n, "description": n, "parameters": {}},
+        }
         for n in ("desktop_action", "shell_exec", "web_search", "camara")
     ]
     client = [
@@ -173,7 +176,11 @@ def test_a_whole_call_voice_transcripts_and_tools():
                         server_content=None,
                         tool_call=NS(
                             function_calls=[
-                                NS(id="c1", name="desktop_action", args={"action": "open_app"}),
+                                NS(
+                                    id="c1",
+                                    name="desktop_action",
+                                    args={"action": "open_app"},
+                                ),
                                 NS(id="c2", name="camara", args={"accion": "abrir"}),
                             ]
                         ),
@@ -204,7 +211,9 @@ def test_a_whole_call_voice_transcripts_and_tools():
         ws.put(type="websocket.receive", bytes=b"\0\0" * 1600)
         ws.put(
             type="websocket.receive",
-            text=json.dumps({"type": "image", "data": base64.b64encode(b"jpg").decode()}),
+            text=json.dumps(
+                {"type": "image", "data": base64.b64encode(b"jpg").decode()}
+            ),
         )
         # the companion runs its own tool when asked
         for _ in range(300):
@@ -215,7 +224,9 @@ def test_a_whole_call_voice_transcripts_and_tools():
         assert ask["name"] == "camara" and ask["args"] == {"accion": "abrir"}
         ws.put(
             type="websocket.receive",
-            text=json.dumps({"type": "tool_result", "id": ask["id"], "result": "Cámara abierta."}),
+            text=json.dumps(
+                {"type": "tool_result", "id": ask["id"], "result": "Cámara abierta."}
+            ),
         )
         for _ in range(300):
             if any(m.get("type") == "turn_complete" for m in ws.json):
@@ -268,7 +279,10 @@ def test_falls_back_without_search_then_to_the_next_model(monkeypatch):
         return ws, client
 
     ws, client = asyncio.run(scenario())
-    tried = [(m, any(getattr(t, "google_search", None) for t in c.tools or [])) for m, c in client.connects]
+    tried = [
+        (m, any(getattr(t, "google_search", None) for t in c.tools or []))
+        for m, c in client.connects
+    ]
     assert tried == [
         ("gemini-3.8-live", True),
         ("gemini-3.8-live", False),
@@ -375,7 +389,7 @@ def test_search_is_off_unless_asked(monkeypatch):
         return client
 
     client = asyncio.run(scenario())
-    (_model, config), = client.connects
+    ((_model, config),) = client.connects
     assert not any(getattr(t, "google_search", None) for t in config.tools or [])
 
 
@@ -404,7 +418,9 @@ def test_a_dropped_call_reconnects_on_its_own_model_without_an_error():
             ]
         )
         fresh = FakeSession([])
-        client = FakeClient([first, RuntimeError("1011 None. Internal error encountered."), fresh])
+        client = FakeClient(
+            [first, RuntimeError("1011 None. Internal error encountered."), fresh]
+        )
         call = _call(ws, client)
         task = asyncio.ensure_future(call.run())
         for _ in range(300):
@@ -425,9 +441,13 @@ def test_a_dropped_call_reconnects_on_its_own_model_without_an_error():
 
 
 def test_no_voice_means_gemini_lives_default_voice():
-    cfg = gemini_live.live_config(FakeTypes(), voice="", instructions="x", decls=[], search=False)
+    cfg = gemini_live.live_config(
+        FakeTypes(), voice="", instructions="x", decls=[], search=False
+    )
     assert cfg.speech_config is None
-    cfg = gemini_live.live_config(FakeTypes(), voice="Charon", instructions="x", decls=[], search=False)
+    cfg = gemini_live.live_config(
+        FakeTypes(), voice="Charon", instructions="x", decls=[], search=False
+    )
     assert cfg.speech_config is not None
 
 
@@ -439,7 +459,10 @@ def test_notes_reach_the_model_without_ending_a_turn():
         session = FakeSession([])
         call = _call(ws, FakeClient([session]))
         task = asyncio.ensure_future(call.run())
-        ws.put(type="websocket.receive", text=json.dumps({"type": "note", "text": "(Ahora habla Ana)"}))
+        ws.put(
+            type="websocket.receive",
+            text=json.dumps({"type": "note", "text": "(Ahora habla Ana)"}),
+        )
         for _ in range(200):
             if any(k == "content" for k, _ in session.sent):
                 break
@@ -478,7 +501,9 @@ def test_proactive_audio_first_and_plain_sessions_when_refused(monkeypatch):
     call, plain = asyncio.run(scenario(FakeSession([])))
     config = call._alpha.connects[0][1]
     assert config.proactivity.proactive_audio is True and plain.connects == []
-    refused = RuntimeError('1007 Invalid JSON payload received. Unknown name "proactivity"')
+    refused = RuntimeError(
+        '1007 Invalid JSON payload received. Unknown name "proactivity"'
+    )
     call, plain = asyncio.run(scenario(refused))
     assert gemini_live._PROACTIVE_OK == [False]
     assert len(plain.connects) == 1 and not hasattr(plain.connects[0][1], "proactivity")

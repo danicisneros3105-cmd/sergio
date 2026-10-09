@@ -38,7 +38,9 @@ class Problem:
     level: int
     prompt: str
     answer: str = ""
-    tests: list[tuple[str, str]] = field(default_factory=list)  # code: (call, expected repr)
+    tests: list[tuple[str, str]] = field(
+        default_factory=list
+    )  # code: (call, expected repr)
 
 
 # -- generators (difficulty 1..10) ---------------------------------------------
@@ -70,10 +72,23 @@ def gen_sequence(level: int, rng: random.Random) -> Problem:
             seq.append(a)
             a, b = b, a + b
     shown = ", ".join(map(str, seq[:5]))
-    return Problem("sequence", level, f"What number comes next: {shown}, ?", str(seq[5]))
+    return Problem(
+        "sequence", level, f"What number comes next: {shown}, ?", str(seq[5])
+    )
 
 
-NAMES = ["Ana", "Luis", "Marta", "Pedro", "Sofía", "Diego", "Elena", "Jorge", "Lucía", "Raúl"]
+NAMES = [
+    "Ana",
+    "Luis",
+    "Marta",
+    "Pedro",
+    "Sofía",
+    "Diego",
+    "Elena",
+    "Jorge",
+    "Lucía",
+    "Raúl",
+]
 
 
 def gen_ordering(level: int, rng: random.Random) -> Problem:
@@ -83,38 +98,95 @@ def gen_ordering(level: int, rng: random.Random) -> Problem:
     rng.shuffle(clues)
     ask_last = rng.random() < 0.5
     question = "Who is the shortest?" if ask_last else "Who is the tallest?"
-    return Problem("ordering", level, " ".join(clues) + " " + question, people[-1] if ask_last else people[0])
+    return Problem(
+        "ordering",
+        level,
+        " ".join(clues) + " " + question,
+        people[-1] if ask_last else people[0],
+    )
 
 
 CODE_TASKS = [
-    (1, "Write a Python function `double(x)` that returns x times two.", "double",
-     [("double(3)", "6"), ("double(-2)", "-4")]),
-    (2, "Write a Python function `is_even(n)` returning True when n is even.", "is_even",
-     [("is_even(4)", "True"), ("is_even(7)", "False")]),
-    (3, "Write a Python function `reverse_words(s)` that reverses the order of the words in s.", "reverse_words",
-     [("reverse_words('a b c')", "'c b a'"), ("reverse_words('hola')", "'hola'")]),
-    (4, "Write a Python function `count_vowels(s)` counting a, e, i, o, u (any case).", "count_vowels",
-     [("count_vowels('Hello World')", "3"), ("count_vowels('xyz')", "0")]),
-    (5, "Write a Python function `fizzbuzz(n)` returning 'Fizz' for multiples of 3, 'Buzz' for 5, "
-        "'FizzBuzz' for both, else str(n).", "fizzbuzz",
-     [("fizzbuzz(15)", "'FizzBuzz'"), ("fizzbuzz(9)", "'Fizz'"), ("fizzbuzz(7)", "'7'")]),
-    (6, "Write a Python function `flatten(xs)` that flattens arbitrarily nested lists.", "flatten",
-     [("flatten([1,[2,[3,[4]]]])", "[1, 2, 3, 4]"), ("flatten([])", "[]")]),
-    (7, "Write a Python function `is_balanced(s)` that checks that (), [] and {} are balanced.", "is_balanced",
-     [("is_balanced('([]{})')", "True"), ("is_balanced('(]')", "False"), ("is_balanced('((')", "False")]),
-    (8, "Write a Python function `lis(xs)` returning the length of the longest strictly increasing "
-        "subsequence.", "lis", [("lis([10,9,2,5,3,7,101,18])", "4"), ("lis([])", "0")]),
-    (9, "Write a Python function `roman(n)` converting 1..3999 to Roman numerals.", "roman",
-     [("roman(1994)", "'MCMXCIV'"), ("roman(4)", "'IV'")]),
-    (10, "Write a Python function `edit_distance(a, b)` (Levenshtein).", "edit_distance",
-     [("edit_distance('kitten','sitting')", "3"), ("edit_distance('','abc')", "3")]),
+    (
+        1,
+        "Write a Python function `double(x)` that returns x times two.",
+        "double",
+        [("double(3)", "6"), ("double(-2)", "-4")],
+    ),
+    (
+        2,
+        "Write a Python function `is_even(n)` returning True when n is even.",
+        "is_even",
+        [("is_even(4)", "True"), ("is_even(7)", "False")],
+    ),
+    (
+        3,
+        "Write a Python function `reverse_words(s)` that reverses the order of the words in s.",
+        "reverse_words",
+        [("reverse_words('a b c')", "'c b a'"), ("reverse_words('hola')", "'hola'")],
+    ),
+    (
+        4,
+        "Write a Python function `count_vowels(s)` counting a, e, i, o, u (any case).",
+        "count_vowels",
+        [("count_vowels('Hello World')", "3"), ("count_vowels('xyz')", "0")],
+    ),
+    (
+        5,
+        "Write a Python function `fizzbuzz(n)` returning 'Fizz' for multiples of 3, 'Buzz' for 5, "
+        "'FizzBuzz' for both, else str(n).",
+        "fizzbuzz",
+        [
+            ("fizzbuzz(15)", "'FizzBuzz'"),
+            ("fizzbuzz(9)", "'Fizz'"),
+            ("fizzbuzz(7)", "'7'"),
+        ],
+    ),
+    (
+        6,
+        "Write a Python function `flatten(xs)` that flattens arbitrarily nested lists.",
+        "flatten",
+        [("flatten([1,[2,[3,[4]]]])", "[1, 2, 3, 4]"), ("flatten([])", "[]")],
+    ),
+    (
+        7,
+        "Write a Python function `is_balanced(s)` that checks that (), [] and {} are balanced.",
+        "is_balanced",
+        [
+            ("is_balanced('([]{})')", "True"),
+            ("is_balanced('(]')", "False"),
+            ("is_balanced('((')", "False"),
+        ],
+    ),
+    (
+        8,
+        "Write a Python function `lis(xs)` returning the length of the longest strictly increasing "
+        "subsequence.",
+        "lis",
+        [("lis([10,9,2,5,3,7,101,18])", "4"), ("lis([])", "0")],
+    ),
+    (
+        9,
+        "Write a Python function `roman(n)` converting 1..3999 to Roman numerals.",
+        "roman",
+        [("roman(1994)", "'MCMXCIV'"), ("roman(4)", "'IV'")],
+    ),
+    (
+        10,
+        "Write a Python function `edit_distance(a, b)` (Levenshtein).",
+        "edit_distance",
+        [("edit_distance('kitten','sitting')", "3"), ("edit_distance('','abc')", "3")],
+    ),
 ]
 
 
 def gen_code(level: int, rng: random.Random) -> Problem:
     options = [t for t in CODE_TASKS if t[0] <= level] or CODE_TASKS[:1]
-    lvl, text, _name, tests = max(options, key=lambda t: (t[0], rng.random())) if rng.random() < 0.6 \
+    lvl, text, _name, tests = (
+        max(options, key=lambda t: (t[0], rng.random()))
+        if rng.random() < 0.6
         else rng.choice(options)
+    )
     return Problem("code", lvl, text + " Reply with only the code.", tests=list(tests))
 
 
@@ -132,15 +204,24 @@ def _code_from(text: str) -> str:
     return textwrap.dedent(fence.group(1) if fence else text)
 
 
-def run_code_tests(code: str, tests: list[tuple[str, str]], timeout: float = 10.0) -> tuple[bool, str]:
+def run_code_tests(
+    code: str, tests: list[tuple[str, str]], timeout: float = 10.0
+) -> tuple[bool, str]:
     """Run *code* plus asserts in a separate, isolated Python with a timeout."""
-    checks = "\n".join(f"assert repr({call}) == {expected!r}, {call!r}" for call, expected in tests)
+    checks = "\n".join(
+        f"assert repr({call}) == {expected!r}, {call!r}" for call, expected in tests
+    )
     with tempfile.TemporaryDirectory() as tmp:
         script = Path(tmp) / "solution.py"
         script.write_text(code + "\n\n" + checks + "\nprint('ALL_OK')\n", "utf-8")
         try:
-            out = subprocess.run([sys.executable, "-I", str(script)], capture_output=True, text=True,
-                                 timeout=timeout, cwd=tmp)
+            out = subprocess.run(
+                [sys.executable, "-I", str(script)],
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+                cwd=tmp,
+            )
         except subprocess.TimeoutExpired:
             return False, f"timed out after {timeout:.0f} s"
     ok = out.returncode == 0 and "ALL_OK" in out.stdout
@@ -152,8 +233,14 @@ def verify(problem: Problem, reply: str) -> tuple[bool, str]:
         return run_code_tests(_code_from(reply), problem.tests)
     got = normalise(extract_final(reply))
     want = normalise(problem.answer)
-    ok = got == want or re.search(rf"(?<![\w.]){re.escape(want)}(?![\w.])", got) is not None
-    return ok, "" if ok else f"expected {problem.answer}, got {extract_final(reply)[:80]}"
+    ok = (
+        got == want
+        or re.search(rf"(?<![\w.]){re.escape(want)}(?![\w.])", got) is not None
+    )
+    return (
+        ok,
+        "" if ok else f"expected {problem.answer}, got {extract_final(reply)[:80]}",
+    )
 
 
 SOLVE_PROMPT = "{prompt}\n\nThink briefly, then end with: FINAL ANSWER: <answer>"
@@ -191,8 +278,10 @@ class Curriculum:
     def load(cls, path: Path) -> "Curriculum":
         try:
             data = json.loads(path.read_text("utf-8"))
-            return cls(levels={**{d: 1 for d in GENERATORS}, **data.get("levels", {})},
-                       history=data.get("history", []))
+            return cls(
+                levels={**{d: 1 for d in GENERATORS}, **data.get("levels", {})},
+                history=data.get("history", []),
+            )
         except (OSError, ValueError):
             return cls()
 
@@ -229,12 +318,23 @@ def practice(
                     ok, why = False, f"solver error: {exc}"
                 passed += ok
                 if not ok and memory is not None and hasattr(memory, "remember"):
-                    memory.remember("lesson", f"Práctica ({domain}, nivel {level}) fallada: {problem.prompt[:200]} "
-                                    f"— {why}", source="self_play")
+                    memory.remember(
+                        "lesson",
+                        f"Práctica ({domain}, nivel {level}) fallada: {problem.prompt[:200]} "
+                        f"— {why}",
+                        source="self_play",
+                    )
             rate = passed / batch
             new_level = cur.adjust(domain, rate)
-            cur.history.append({"round": rnd + 1, "domain": domain, "level": level, "rate": round(rate, 3),
-                                "next_level": new_level})
+            cur.history.append(
+                {
+                    "round": rnd + 1,
+                    "domain": domain,
+                    "level": level,
+                    "rate": round(rate, 3),
+                    "next_level": new_level,
+                }
+            )
     return cur
 
 
@@ -243,16 +343,27 @@ single short value that can be checked exactly. Reply with JSON only:
 {{"problem": "...", "answer": "..."}}"""
 
 
-def propose_and_solve(llm: "LLM | Callable[..., str] | None" = None, *, domain: str = "logic", level: int = 3,
-                      count: int = 3) -> list[Problem]:
+def propose_and_solve(
+    llm: "LLM | Callable[..., str] | None" = None,
+    *,
+    domain: str = "logic",
+    level: int = 3,
+    count: int = 3,
+) -> list[Problem]:
     """Self-play: the model sets problems and then solves them blind; only
     problems whose blind answer matches the setter's answer are kept."""
     model = as_llm(llm)
     solve = llm_solver(model)
     kept: list[Problem] = []
     for _ in range(count):
-        data = parse_json(model(PROPOSE_PROMPT.format(domain=domain, level=level), temperature=1.0))
-        if not isinstance(data, dict) or not data.get("problem") or not str(data.get("answer", "")).strip():
+        data = parse_json(
+            model(PROPOSE_PROMPT.format(domain=domain, level=level), temperature=1.0)
+        )
+        if (
+            not isinstance(data, dict)
+            or not data.get("problem")
+            or not str(data.get("answer", "")).strip()
+        ):
             continue
         problem = Problem(domain, level, str(data["problem"]), str(data["answer"]))
         ok, _ = verify(problem, solve(problem.prompt))
@@ -261,5 +372,14 @@ def propose_and_solve(llm: "LLM | Callable[..., str] | None" = None, *, domain: 
     return kept
 
 
-__all__ = ["CODE_TASKS", "Curriculum", "GENERATORS", "Problem", "llm_solver", "practice", "propose_and_solve",
-           "run_code_tests", "verify"]
+__all__ = [
+    "CODE_TASKS",
+    "Curriculum",
+    "GENERATORS",
+    "Problem",
+    "llm_solver",
+    "practice",
+    "propose_and_solve",
+    "run_code_tests",
+    "verify",
+]

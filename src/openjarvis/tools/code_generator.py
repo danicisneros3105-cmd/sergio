@@ -64,7 +64,9 @@ PYTEST OUTPUT:
 
 def code_block(text: str, lang: str = "python") -> str:
     """The first fenced code block (or the whole text when there is none)."""
-    match = re.search(rf"```(?:{lang}|py|[a-z+#]*)?\s*\n(.*?)```", text or "", re.S | re.I)
+    match = re.search(
+        rf"```(?:{lang}|py|[a-z+#]*)?\s*\n(.*?)```", text or "", re.S | re.I
+    )
     return (match.group(1) if match else (text or "")).strip() + "\n"
 
 
@@ -76,19 +78,42 @@ class RunResult:
     output: str
 
 
-def run_pytest(code: str, tests: str, module: str = "solution", timeout: float = 60.0) -> RunResult:
+def run_pytest(
+    code: str, tests: str, module: str = "solution", timeout: float = 60.0
+) -> RunResult:
     """Run *tests* against *code* in a fresh temp folder."""
     with tempfile.TemporaryDirectory() as tmp:
         Path(tmp, f"{module}.py").write_text(code, "utf-8")
         Path(tmp, f"test_{module}.py").write_text(tests, "utf-8")
         try:
-            proc = subprocess.run([sys.executable, "-m", "pytest", "-q", "-x", "--no-header", "-p", "no:cacheprovider",
-                                   f"test_{module}.py"], cwd=tmp, capture_output=True, text=True, timeout=timeout)
+            proc = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "pytest",
+                    "-q",
+                    "-x",
+                    "--no-header",
+                    "-p",
+                    "no:cacheprovider",
+                    f"test_{module}.py",
+                ],
+                cwd=tmp,
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+            )
         except subprocess.TimeoutExpired:
-            return RunResult(False, 0, 0, f"tests timed out after {timeout:.0f} s (infinite loop?)")
+            return RunResult(
+                False, 0, 0, f"tests timed out after {timeout:.0f} s (infinite loop?)"
+            )
     out = (proc.stdout + proc.stderr)[-6000:]
     passed = int(m.group(1)) if (m := re.search(r"(\d+) passed", out)) else 0
-    failed = int(m.group(1)) if (m := re.search(r"(\d+) (?:failed|error)", out)) else (0 if proc.returncode == 0 else 1)
+    failed = (
+        int(m.group(1))
+        if (m := re.search(r"(\d+) (?:failed|error)", out))
+        else (0 if proc.returncode == 0 else 1)
+    )
     return RunResult(proc.returncode == 0 and passed > 0, passed, failed, out)
 
 
@@ -112,8 +137,14 @@ def tdd(
 ) -> TDDResult:
     """Generate tests (unless given) and code for *spec*, iterating to green."""
     model = as_llm(llm)
-    tests = tests or code_block(model(TESTS_PROMPT.format(spec=spec, module=module), temperature=0.3))
-    code = code_block(model(CODE_PROMPT.format(spec=spec, module=module, tests=tests), temperature=0.2))
+    tests = tests or code_block(
+        model(TESTS_PROMPT.format(spec=spec, module=module), temperature=0.3)
+    )
+    code = code_block(
+        model(
+            CODE_PROMPT.format(spec=spec, module=module, tests=tests), temperature=0.2
+        )
+    )
     history: list[dict] = []
     run = run_pytest(code, tests, module)
     for rnd in range(1, max_rounds + 1):
@@ -122,8 +153,18 @@ def tdd(
             return TDDResult(code, tests, True, rnd, run, history)
         if rnd == max_rounds:
             break
-        code = code_block(model(FIX_PROMPT.format(spec=spec, module=module, code=code, tests=tests,
-                                                  output=run.output[-3500:]), temperature=0.2))
+        code = code_block(
+            model(
+                FIX_PROMPT.format(
+                    spec=spec,
+                    module=module,
+                    code=code,
+                    tests=tests,
+                    output=run.output[-3500:],
+                ),
+                temperature=0.2,
+            )
+        )
         run = run_pytest(code, tests, module)
     return TDDResult(code, tests, False, len(history), run, history)
 

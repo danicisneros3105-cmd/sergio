@@ -51,7 +51,9 @@ def _face(rot_deg: float = 0.0, scale: float = 1.0, iris_px: float = 12.0):
         for k, (dx, dy) in zip(edge, ((r, 0), (0, r), (-r, 0), (0, -r))):
             pts[k] = (cx + dx, dy, 0.0)
     a = math.radians(rot_deg)
-    rot = np.array([[math.cos(a), 0, math.sin(a)], [0, 1, 0], [-math.sin(a), 0, math.cos(a)]])
+    rot = np.array(
+        [[math.cos(a), 0, math.sin(a)], [0, 1, 0], [-math.sin(a), 0, math.cos(a)]]
+    )
     pts = (pts @ rot.T) * scale
     w, h = 1280, 720
     return [((x + 640) / w, (y + 360) / h, z / w) for x, y, z in pts], w, h
@@ -82,7 +84,9 @@ def test_scanner_collects_frames_and_builds_the_map():
 
     def faces():
         deg = next(angles)
-        return [_Info(20 * math.cos(math.radians(deg)), 20 * math.sin(math.radians(deg)))]
+        return [
+            _Info(20 * math.cos(math.radians(deg)), 20 * math.sin(math.radians(deg)))
+        ]
 
     def sleep(s):
         clock[0] += s
@@ -124,9 +128,16 @@ def test_ring_and_head_draw():
     ring.feed(20.0, 0.0)
     facescan.draw_ring(p, QPointF(150, 150), 80, ring, 0.0)
     mesh = canonical_mesh([_face(0), _face(1.0)])
-    facescan.draw_head(p, QRectF(50, 50, 200, 200), mesh["points"], 0.5, [(0, 1), (1, 2)])
+    facescan.draw_head(
+        p, QRectF(50, 50, 200, 200), mesh["points"], 0.5, [(0, 1), (1, 2)]
+    )
     p.end()
-    lit = sum(1 for x in range(300) for y in range(0, 300, 3) if img.pixelColor(x, y).green() > 150)
+    lit = sum(
+        1
+        for x in range(300)
+        for y in range(0, 300, 3)
+        if img.pixelColor(x, y).green() > 150
+    )
     assert lit > 50  # something green (the lit mark) and blue dots were drawn
 
 
@@ -164,4 +175,8 @@ def test_sergio_calls_the_owner_senor_with_dark_humour_limits():
     live = live_instructions({}, owner="Daniel")
     assert "«señor»" in live and "humor negro" in live
     assert "nunca sobre grupos de personas" in live and "momento es serio" in live
-    assert "«señor»" in VOICE_STYLE and "dark-humour" in VOICE_STYLE and "never about groups" in VOICE_STYLE
+    assert (
+        "«señor»" in VOICE_STYLE
+        and "dark-humour" in VOICE_STYLE
+        and "never about groups" in VOICE_STYLE
+    )

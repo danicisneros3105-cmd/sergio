@@ -66,7 +66,9 @@ class Chunk:
         return f"[c{self.index} L{self.start_line}-L{self.end_line}]"
 
 
-def chunk_text(text: str, max_tokens: int = 1500, overlap_lines: int = 2) -> list[Chunk]:
+def chunk_text(
+    text: str, max_tokens: int = 1500, overlap_lines: int = 2
+) -> list[Chunk]:
     """Chunks at blank lines / headings / fences, each under *max_tokens*."""
     lines = text.splitlines()
     budget = max_tokens * CHARS_PER_TOKEN
@@ -81,21 +83,31 @@ def chunk_text(text: str, max_tokens: int = 1500, overlap_lines: int = 2) -> lis
         if line.strip().startswith("```"):
             in_fence = not in_fence
         size += len(line) + 1
-        if not in_fence and (not line.strip() or re.match(r"#{1,6} |def |class |function ", line)):
+        if not in_fence and (
+            not line.strip() or re.match(r"#{1,6} |def |class |function ", line)
+        ):
             last_break = i
         if size >= budget and i > start:
             cut = last_break if last_break is not None and last_break > start else i
-            chunks.append(Chunk(len(chunks), "\n".join(lines[start:cut + 1]), start + 1, cut + 1))
+            chunks.append(
+                Chunk(
+                    len(chunks), "\n".join(lines[start : cut + 1]), start + 1, cut + 1
+                )
+            )
             start = max(cut + 1 - overlap_lines, start + 1)
-            size = sum(len(x) + 1 for x in lines[start:i + 1])
+            size = sum(len(x) + 1 for x in lines[start : i + 1])
             last_break = None
         i += 1
     if start < len(lines):
-        chunks.append(Chunk(len(chunks), "\n".join(lines[start:]), start + 1, len(lines)))
+        chunks.append(
+            Chunk(len(chunks), "\n".join(lines[start:]), start + 1, len(lines))
+        )
     return [c for c in chunks if c.text.strip()]
 
 
-def bm25_rank(question: str, chunks: list[Chunk], k1: float = 1.5, b: float = 0.75) -> list[tuple[float, Chunk]]:
+def bm25_rank(
+    question: str, chunks: list[Chunk], k1: float = 1.5, b: float = 0.75
+) -> list[tuple[float, Chunk]]:
     """Chunks by BM25 relevance to *question*, best first."""
     docs = [Counter(t.lower() for t in _TOKEN.findall(c.text)) for c in chunks]
     if not docs:
@@ -142,44 +154,86 @@ def answer_long(
     calls0 = model.calls
     chunks = chunk_text(text, chunk_tokens)
     if tokens(text) <= window_tokens:  # fits: no need to map/reduce
-        answer = model(ANSWER_PROMPT.format(question=question, notes=f"[c0 L1-L{len(text.splitlines())}]\n{text}"))
+        answer = model(
+            ANSWER_PROMPT.format(
+                question=question, notes=f"[c0 L1-L{len(text.splitlines())}]\n{text}"
+            )
+        )
         return LongAnswer(answer.strip(), [0], [], len(chunks), model.calls - calls0)
     if exhaustive:
         chosen = chunks
     else:
         ranked = bm25_rank(question, chunks)
-        chosen = [c for s, c in ranked if s > 0][:max_chunks] or [c for _, c in ranked[:max_chunks]]
+        chosen = [c for s, c in ranked if s > 0][:max_chunks] or [
+            c for _, c in ranked[:max_chunks]
+        ]
         chosen.sort(key=lambda c: c.index)
     notes: list[str] = []
     for chunk in chosen:
-        note = model(MAP_PROMPT.format(question=question, cite=chunk.cite, text=chunk.text), temperature=0.1).strip()
-        if note and note.upper() != "NOTHING" and not note.upper().startswith("NOTHING"):
+        note = model(
+            MAP_PROMPT.format(question=question, cite=chunk.cite, text=chunk.text),
+            temperature=0.1,
+        ).strip()
+        if (
+            note
+            and note.upper() != "NOTHING"
+            and not note.upper().startswith("NOTHING")
+        ):
             notes.append(note if "[c" in note else f"{chunk.cite} {note}")
     while notes and tokens("\n\n".join(notes)) > window_tokens and len(notes) > 1:
         merged: list[str] = []
         group: list[str] = []
         for note in notes:
             if group and tokens("\n\n".join(group + [note])) > window_tokens // 2:
-                merged.append(model(REDUCE_PROMPT.format(question=question, notes="\n\n".join(group)),
-                                    temperature=0.1).strip())
+                merged.append(
+                    model(
+                        REDUCE_PROMPT.format(
+                            question=question, notes="\n\n".join(group)
+                        ),
+                        temperature=0.1,
+                    ).strip()
+                )
                 group = []
             group.append(note)
         if group:
-            merged.append(group[0] if len(group) == 1 else
-                          model(REDUCE_PROMPT.format(question=question, notes="\n\n".join(group)),
-                                temperature=0.1).strip())
+            merged.append(
+                group[0]
+                if len(group) == 1
+                else model(
+                    REDUCE_PROMPT.format(question=question, notes="\n\n".join(group)),
+                    temperature=0.1,
+                ).strip()
+            )
         if len(merged) >= len(notes):
             break  # cannot shrink further
         notes = merged
-    answer = model(ANSWER_PROMPT.format(question=question, notes="\n\n".join(notes) or "(no relevant notes)"),
-                   temperature=0.2).strip()
-    return LongAnswer(answer, [c.index for c in chosen], notes, len(chunks), model.calls - calls0)
+    answer = model(
+        ANSWER_PROMPT.format(
+            question=question, notes="\n\n".join(notes) or "(no relevant notes)"
+        ),
+        temperature=0.2,
+    ).strip()
+    return LongAnswer(
+        answer, [c.index for c in chosen], notes, len(chunks), model.calls - calls0
+    )
 
 
-def answer_file(question: str, path: str, llm: Optional[LLM] = None, **kw) -> LongAnswer:
+def answer_file(
+    question: str, path: str, llm: Optional[LLM] = None, **kw
+) -> LongAnswer:
     from pathlib import Path
 
-    return answer_long(question, Path(path).read_text("utf-8", errors="replace"), llm, **kw)
+    return answer_long(
+        question, Path(path).read_text("utf-8", errors="replace"), llm, **kw
+    )
 
 
-__all__ = ["Chunk", "LongAnswer", "answer_file", "answer_long", "bm25_rank", "chunk_text", "tokens"]
+__all__ = [
+    "Chunk",
+    "LongAnswer",
+    "answer_file",
+    "answer_long",
+    "bm25_rank",
+    "chunk_text",
+    "tokens",
+]

@@ -22,8 +22,12 @@ MINUTES = {
 
 
 def test_parse_accepts_fenced_json_and_fills_missing_lists():
-    data = parse_minutes("```json\n" + json.dumps({"titulo": "X", "resumen": "Y"}) + "\n```")
-    assert data["tareas"] == [] and data["transcripcion"] == [] and data["titulo"] == "X"
+    data = parse_minutes(
+        "```json\n" + json.dumps({"titulo": "X", "resumen": "Y"}) + "\n```"
+    )
+    assert (
+        data["tareas"] == [] and data["transcripcion"] == [] and data["titulo"] == "X"
+    )
     with pytest.raises(ValueError):
         parse_minutes("sin json")
     with pytest.raises(ValueError):
@@ -31,7 +35,9 @@ def test_parse_accepts_fenced_json_and_fills_missing_lists():
 
 
 def test_markdown_has_every_section():
-    md = to_markdown(MINUTES, when="06/10/2026 10:00", seconds=125, speakers=["Daniel", "Ana"])
+    md = to_markdown(
+        MINUTES, when="06/10/2026 10:00", seconds=125, speakers=["Daniel", "Ana"]
+    )
     assert md.startswith("# Presupuesto 2027")
     assert "2 min 5 s" in md and "Participantes: Daniel, Ana" in md
     assert "## Decisiones" in md and "| Ana | enviar el informe | viernes |" in md
@@ -60,11 +66,22 @@ def test_summarize_tries_the_next_model_and_uses_the_timeline():
         return NS(text=json.dumps(MINUTES))
 
     client = NS(models=NS(generate_content=generate))
-    data = summarize(b"OggS...", "audio/ogg", "00:00-00:05 Daniel", owner="Daniel", client=client, types=FakeTypes)
+    data = summarize(
+        b"OggS...",
+        "audio/ogg",
+        "00:00-00:05 Daniel",
+        owner="Daniel",
+        client=client,
+        types=FakeTypes,
+    )
     assert data["titulo"] == "Presupuesto 2027"
     assert [m for m, _ in calls] == list(meeting_notes.MODELS[:2])
     audio, prompt = calls[1][1]
-    assert audio.mime == "audio/ogg" and "00:00-00:05 Daniel" in prompt and "Daniel" in prompt
+    assert (
+        audio.mime == "audio/ogg"
+        and "00:00-00:05 Daniel" in prompt
+        and "Daniel" in prompt
+    )
 
 
 def test_route_returns_the_minutes_and_markdown(monkeypatch):
@@ -81,9 +98,20 @@ def test_route_returns_the_minutes_and_markdown(monkeypatch):
     resp = client.post(
         "/v1/meeting/summarize",
         files={"audio": ("r.ogg", b"OggS" * 100, "audio/ogg")},
-        data={"timeline": "00:00-00:05 Daniel", "seconds": "65", "speakers": json.dumps(["Daniel"])},
+        data={
+            "timeline": "00:00-00:05 Daniel",
+            "seconds": "65",
+            "speakers": json.dumps(["Daniel"]),
+        },
     )
     assert resp.status_code == 200
     body = resp.json()
-    assert body["titulo"] == "Presupuesto 2027" and body["markdown"].startswith("# Presupuesto 2027")
-    assert client.post("/v1/meeting/summarize", files={"audio": ("r.ogg", b"", "audio/ogg")}).status_code == 413
+    assert body["titulo"] == "Presupuesto 2027" and body["markdown"].startswith(
+        "# Presupuesto 2027"
+    )
+    assert (
+        client.post(
+            "/v1/meeting/summarize", files={"audio": ("r.ogg", b"", "audio/ogg")}
+        ).status_code
+        == 413
+    )

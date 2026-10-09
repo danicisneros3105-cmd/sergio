@@ -15,20 +15,27 @@ from openjarvis.vfx._base import params_with_defaults, py
 DESCRIPTION = "PBR materials (metal, glass, car paint, skin, wood, concrete) and VFX shaders (hologram, force field, dissolve, lava, energy)."
 PBR = {
     "gold": dict(color=(1.0, 0.77, 0.34, 1), metallic=1.0, roughness=0.18),
-    "steel": dict(color=(0.56, 0.57, 0.58, 1), metallic=1.0, roughness=0.3, anisotropic=0.4),
+    "steel": dict(
+        color=(0.56, 0.57, 0.58, 1), metallic=1.0, roughness=0.3, anisotropic=0.4
+    ),
     "copper": dict(color=(0.95, 0.64, 0.54, 1), metallic=1.0, roughness=0.25),
     "glass": dict(color=(1, 1, 1, 1), roughness=0.0, transmission=1.0, ior=1.5),
     "water": dict(color=(0.9, 0.95, 1, 1), roughness=0.02, transmission=1.0, ior=1.333),
     "plastic": dict(color=(0.8, 0.1, 0.1, 1), roughness=0.35),
     "rubber": dict(color=(0.05, 0.05, 0.05, 1), roughness=0.9),
-    "car_paint": dict(color=(0.6, 0.02, 0.03, 1), metallic=0.6, roughness=0.35, coat=1.0),
+    "car_paint": dict(
+        color=(0.6, 0.02, 0.03, 1), metallic=0.6, roughness=0.35, coat=1.0
+    ),
     "skin": dict(color=(0.8, 0.58, 0.47, 1), roughness=0.45, subsurface=0.3),
     "velvet": dict(color=(0.3, 0.02, 0.1, 1), roughness=0.9, sheen=1.0),
 }
 VFX = ("hologram", "force_field", "dissolve", "lava", "energy", "wood", "concrete")
 PARAMS = {
     "shader": ("hologram", f"PBR: {', '.join(PBR)}; VFX/procedural: {', '.join(VFX)}"),
-    "target": ("monkey", "object to shade: monkey, sphere, cube, torus, cylinder or the name of an object in the scene"),
+    "target": (
+        "monkey",
+        "object to shade: monkey, sphere, cube, torus, cylinder or the name of an object in the scene",
+    ),
     "color": ((0.1, 0.7, 1.0), "main colour for VFX shaders"),
     "strength": (4.0, "emission strength for glowing shaders"),
     "animate": (True, "animate time-based shaders (noise drift, pulse, dissolve)"),
@@ -40,7 +47,7 @@ def build(**kw) -> str:
     shader = str(p["shader"]).lower()
     pbr = PBR.get(shader)
     target = str(p["target"])
-    return f'''
+    return f"""
 shader_name = {py(shader)}
 target_name = {py(target)}
 obj = bpy.data.objects.get(target_name) or vfx_mesh(target_name if target_name in ("monkey", "sphere", "cube", "torus", "cylinder") else "monkey",
@@ -195,4 +202,4 @@ else:
         raise ValueError(f"unknown shader {{shader_name}}")
 vfx_assign(obj, mat)
 vfx_info(effect="shaders", shader=shader_name, material=mat.name, nodes=len(mat.node_tree.nodes), target=obj.name)
-'''
+"""

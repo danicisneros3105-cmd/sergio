@@ -6,7 +6,11 @@ pytest.importorskip("fastapi")
 from fastapi.testclient import TestClient  # noqa: E402
 
 from openjarvis.server.app import create_app  # noqa: E402
-from tests.server.test_routes import _make_agent, _make_engine, _test_config  # noqa: E402
+from tests.server.test_routes import (  # noqa: E402
+    _make_agent,
+    _make_engine,
+    _test_config,
+)
 
 
 def test_engine_error_is_explained():

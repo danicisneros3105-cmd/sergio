@@ -145,7 +145,10 @@ def test_guides_tab_lists_and_uses_a_guide(qt):
     panel.show_tab(panel.GUIDES)
     _wait(
         qt,
-        lambda: panel.guide_list.count() and "video" in panel.guide_list.item(0).text().lower(),
+        lambda: (
+            panel.guide_list.count()
+            and "video" in panel.guide_list.item(0).text().lower()
+        ),
     )
     panel._use_guide(panel.guide_list.item(0))
     assert panel.pages.currentIndex() == 0
@@ -153,17 +156,29 @@ def test_guides_tab_lists_and_uses_a_guide(qt):
 
 
 def test_every_part_of_sergio_is_one_tap_away_and_in_the_users_language(qt):
-    from sergio_escritorio.panel import SECTION_ICONS, ControlCenter, PanelActions, SectionTile
+    from sergio_escritorio.panel import (
+        SECTION_ICONS,
+        ControlCenter,
+        PanelActions,
+        SectionTile,
+    )
 
     opened = []
-    panel = ControlCenter(PanelActions(config={"language": "en"}, open_section=lambda k, a="": opened.append((k, a))))
+    panel = ControlCenter(
+        PanelActions(
+            config={"language": "en"},
+            open_section=lambda k, a="": opened.append((k, a)),
+        )
+    )
     labels = [panel.tab_group.button(i).text() for i in range(len(panel.TABS))]
     assert labels == ["Home", "All", "Sergio", "World", "Guides", "Settings"]
     tiles = panel.pages.widget(1).widget().findChildren(SectionTile)
     assert [t.key for t in tiles] == list(SECTION_ICONS) and len(tiles) >= 18
     next(t for t in tiles if t.key == "organizer").click()
     assert opened == [("organizer", "")]
-    next(t for t in tiles if t.key == "cams").click()  # needs a place: goes to the World tab
+    next(
+        t for t in tiles if t.key == "cams"
+    ).click()  # needs a place: goes to the World tab
     assert panel.pages.currentIndex() == panel.WORLD and len(opened) == 1
     panel.cam_place.setText("London")
     panel._cams()
@@ -174,7 +189,11 @@ def test_settings_change_language_and_country(qt):
     from sergio_escritorio.panel import ControlCenter, PanelActions
 
     saved = []
-    panel = ControlCenter(PanelActions(config={"language": "es", "country": "EC"}, save_config=saved.append))
+    panel = ControlCenter(
+        PanelActions(
+            config={"language": "es", "country": "EC"}, save_config=saved.append
+        )
+    )
     assert not hasattr(panel, "crisis_note")  # no emergency numbers on screen
     panel.country_box.setCurrentIndex(panel.country_box.findData("MX"))
     assert saved[-1]["country"] == "MX"

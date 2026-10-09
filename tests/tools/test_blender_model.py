@@ -58,7 +58,9 @@ def test_plain_modelling_passes_and_sergio_adds_the_ending():
     full = bm.finish_script(
         GOOD, r"C:\Users\dani\Documents\Sergio\Blender\taza.blend", "taza"
     )
-    assert json.dumps(GOOD.rstrip()) in full and "SERGIO_STEP_ERROR" in full  # run step by step
+    assert (
+        json.dumps(GOOD.rstrip()) in full and "SERGIO_STEP_ERROR" in full
+    )  # run step by step
     assert "save_as_mainfile" in full and "SERGIO_SAVED" in full
     assert json.dumps(r"C:\Users\dani\Documents\Sergio\Blender\taza.blend") in full
 
@@ -119,9 +121,16 @@ def test_the_finished_script_really_builds_and_saves_in_blender(tmp_path):
 
 def test_the_saved_project_is_checked_and_ready_for_a_final_render():
     full = bm.finish_script("import bpy\n", "/tmp/x.blend", "x", "/tmp/x.png")
-    assert full.index("SERGIO_TOPOLOGY") < full.index("save_as_mainfile")  # fixed before saving
-    for setting in ('"cycles.adaptive_threshold", 0.01', '"cycles.transparent_max_bounces", 32',
-                    '"RGB_ALBEDO_NORMAL"', '"MULTI_LAYER_IMAGE"', "use_pass_cryptomatte_object"):
+    assert full.index("SERGIO_TOPOLOGY") < full.index(
+        "save_as_mainfile"
+    )  # fixed before saving
+    for setting in (
+        '"cycles.adaptive_threshold", 0.01',
+        '"cycles.transparent_max_bounces", 32',
+        '"RGB_ALBEDO_NORMAL"',
+        '"MULTI_LAYER_IMAGE"',
+        "use_pass_cryptomatte_object",
+    ):
         assert setting in full
     assert 'file_format = "PNG"' in full  # the review previews stay PNG
     compile(full, "finish", "exec")

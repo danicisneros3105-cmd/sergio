@@ -31,7 +31,9 @@ async def feedback_route(req: Feedback) -> dict[str, Any]:
     """The user's opinion of the last result, kept for similar jobs."""
     from openjarvis.evolution.memory import shared
 
-    rid = await asyncio.to_thread(shared().feedback, req.text[:1000], max(-1, min(1, req.rating)), req.about[:300])
+    rid = await asyncio.to_thread(
+        shared().feedback, req.text[:1000], max(-1, min(1, req.rating)), req.about[:300]
+    )
     return {"id": rid}
 
 
@@ -71,10 +73,18 @@ async def crew_route(req: CrewTask) -> dict[str, Any]:
     from openjarvis.evolution.memory import lessons, shared
 
     try:
-        out = await asyncio.to_thread(crew.run_crew, req.task[:6000], lessons(req.task, ("feedback", "lesson", "task")))
+        out = await asyncio.to_thread(
+            crew.run_crew,
+            req.task[:6000],
+            lessons(req.task, ("feedback", "lesson", "task")),
+        )
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=502, detail=str(exc)[:400]) from exc
-    await asyncio.to_thread(shared().remember, "task", f"Equipo crewAI: {req.task[:300]} -> {out['result'][:500]}")
+    await asyncio.to_thread(
+        shared().remember,
+        "task",
+        f"Equipo crewAI: {req.task[:300]} -> {out['result'][:500]}",
+    )
     return out
 
 
@@ -100,8 +110,21 @@ async def think_route(req: DeepQuestion) -> dict[str, Any]:
         llm = await asyncio.to_thread(LLM.default)
     except RuntimeError as exc:
         raise HTTPException(503, str(exc)) from None
-    result = await asyncio.to_thread(deep_think, req.question[:8000], llm, strategy=req.strategy,
-                                     learner=default_learner(), calibrator=default_calibrator())
-    return {"answer": result.answer, "strategy": result.strategy, "kind": result.kind,
-            "confidence": result.confidence, "decision": result.decision, "unknowns": result.unknowns,
-            "calls": result.calls, "seconds": result.seconds}
+    result = await asyncio.to_thread(
+        deep_think,
+        req.question[:8000],
+        llm,
+        strategy=req.strategy,
+        learner=default_learner(),
+        calibrator=default_calibrator(),
+    )
+    return {
+        "answer": result.answer,
+        "strategy": result.strategy,
+        "kind": result.kind,
+        "confidence": result.confidence,
+        "decision": result.decision,
+        "unknowns": result.unknowns,
+        "calls": result.calls,
+        "seconds": result.seconds,
+    }

@@ -395,10 +395,15 @@ for _node in _ast.parse(_SOURCE).body:
 # their Blender 4/5 names: fixed before running, so one wrong socket name no
 # longer loses every material.
 API_RENAMES = {
-    '"Clearcoat Weight"': '"Coat Weight"', '"Clearcoat"': '"Coat Weight"',
-    '"Clearcoat Roughness"': '"Coat Roughness"', '"Transmission"': '"Transmission Weight"',
-    '"Emission"': '"Emission Color"', '"Specular"': '"Specular IOR Level"', '"Subsurface"': '"Subsurface Weight"',
-    '"Subsurface Color"': '"Base Color"', '"Sheen"': '"Sheen Weight"',
+    '"Clearcoat Weight"': '"Coat Weight"',
+    '"Clearcoat"': '"Coat Weight"',
+    '"Clearcoat Roughness"': '"Coat Roughness"',
+    '"Transmission"': '"Transmission Weight"',
+    '"Emission"': '"Emission Color"',
+    '"Specular"': '"Specular IOR Level"',
+    '"Subsurface"': '"Subsurface Weight"',
+    '"Subsurface Color"': '"Base Color"',
+    '"Sheen"': '"Sheen Weight"',
 }
 
 
@@ -412,13 +417,21 @@ def fix_api(script: str) -> tuple[str, list[str]]:
     return script, fixed
 
 
-def finish_script(script: str, save_path: str, name: str, preview_path: str = "") -> str:
+def finish_script(
+    script: str, save_path: str, name: str, preview_path: str = ""
+) -> str:
     """Sergio's ending: light, camera framing the object, save the project
     (and, for the checking loop, a quick render to look at)."""
     script, renamed = fix_api(script)
     return (
-        RESILIENT.replace("__SOURCE__", json.dumps(script.rstrip())).replace("__KIT__", json.dumps(KIT))
-        + (f"\nprint('SERGIO_API_FIXED ' + {json.dumps(', '.join(renamed))})\n" if renamed else "")
+        RESILIENT.replace("__SOURCE__", json.dumps(script.rstrip())).replace(
+            "__KIT__", json.dumps(KIT)
+        )
+        + (
+            f"\nprint('SERGIO_API_FIXED ' + {json.dumps(', '.join(renamed))})\n"
+            if renamed
+            else ""
+        )
         + "\n\n# --- Sergio: lights, camera and saving the project ---\n"
         + f"""import bpy as _bpy, math as _math
 from mathutils import Vector as _V
@@ -456,7 +469,11 @@ if _scene.world is None:
     _scene.world = _bpy.data.worlds.new("Mundo")
 _scene.world.color = (0.16, 0.17, 0.19)
 _scene["sergio_model"] = {json.dumps(name)}
-""" + TOPOLOGY + SPATIAL + RENDER + f"""_path = {json.dumps(save_path)}
+"""
+        + TOPOLOGY
+        + SPATIAL
+        + RENDER
+        + f"""_path = {json.dumps(save_path)}
 _bpy.ops.wm.save_as_mainfile(filepath=_path)
 print("SERGIO_SAVED", _path, len(_objs))
 _dims = (_hi - _lo) * 100
@@ -557,7 +574,9 @@ def model_object(
             problem = str(exc)
             continue
         model["raw_script"] = model["script"]
-        model["script"] = finish_script(model["script"], save_path, model["name"], preview_path)
+        model["script"] = finish_script(
+            model["script"], save_path, model["name"], preview_path
+        )
         return model
     raise RuntimeError(
         f"El script de Blender no era seguro ({problem}); no lo ejecuto."

@@ -90,7 +90,9 @@ def test_live_voices_notice_when_the_speaker_changes(tmp_path):
         FakeEncoder,
         book,
         owner=lambda: "Dani",
-        on_change=lambda new, old: changes.append((new.name, old.name if old else None)),
+        on_change=lambda new, old: changes.append(
+            (new.name, old.name if old else None)
+        ),
         clock=lambda: clock[0],
         background=False,
     )
@@ -110,7 +112,11 @@ def test_live_voices_ignore_short_sounds_and_sergio_himself(tmp_path):
     talking = [True]
     seen = []
     live = LiveVoices(
-        FakeEncoder, book, mute=lambda: talking[0], on_change=lambda n, o: seen.append(n), background=False
+        FakeEncoder,
+        book,
+        mute=lambda: talking[0],
+        on_change=lambda n, o: seen.append(n),
+        background=False,
     )
     taps = []
     remove = live.tap(taps.append)
@@ -156,6 +162,10 @@ def test_the_real_network_matches_its_checkpoint():
     torch = pytest.importorskip("torch")
     net = speakers._build(torch)
     names = set(net.state_dict())
-    assert "fbank.fb" in names and "fc6.weight" in names and "layer3.se.se.1.weight" in names
+    assert (
+        "fbank.fb" in names
+        and "fc6.weight" in names
+        and "layer3.se.se.1.weight" in names
+    )
     out = net.eval()(torch.zeros(1, 16000))
     assert tuple(out.shape) == (1, 192)

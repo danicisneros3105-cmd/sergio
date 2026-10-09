@@ -55,7 +55,9 @@ def parse_json(text: str) -> Any:
 def _client() -> Any:
     from openjarvis.engine.google_client import SwitchingClient
 
-    key = (os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY") or "").strip()
+    key = (
+        os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY") or ""
+    ).strip()
     if not key:
         raise RuntimeError("Falta GEMINI_API_KEY (sergio nube configurar --gemini …)")
     return SwitchingClient(key)
@@ -83,11 +85,17 @@ def ask(
     from openjarvis.engine.cloud import google_config_kwargs
 
     client = client or _client()
-    contents: list[Any] = [types.Part.from_bytes(data=data, mime_type=mime) for data, mime in media or []]
+    contents: list[Any] = [
+        types.Part.from_bytes(data=data, mime_type=mime) for data, mime in media or []
+    ]
     contents.append(prompt)
     errors = []
     for model in DEEP_MODELS if deep else MODELS:
-        kwargs = dict(google_config_kwargs(model, 0.5, max_tokens, effort or ("medium" if deep else "low")))
+        kwargs = dict(
+            google_config_kwargs(
+                model, 0.5, max_tokens, effort or ("medium" if deep else "low")
+            )
+        )
         if system:
             kwargs["system_instruction"] = system
         if search:  # grounding and a JSON mime type can't go together
@@ -96,7 +104,9 @@ def ask(
             kwargs["response_mime_type"] = "application/json"
         try:
             resp = client.models.generate_content(
-                model=model, contents=contents, config=types.GenerateContentConfig(**kwargs)
+                model=model,
+                contents=contents,
+                config=types.GenerateContentConfig(**kwargs),
             )
             data = parse_json(str(resp.text or ""))
             if search:
@@ -118,7 +128,12 @@ def _with_sources(data: Any, resp: Any) -> Any:
             for chunk in getattr(meta, "grounding_chunks", None) or []:
                 web = getattr(chunk, "web", None)
                 if web is not None and getattr(web, "uri", None):
-                    found.append({"titulo": str(getattr(web, "title", "") or ""), "url": str(web.uri)})
+                    found.append(
+                        {
+                            "titulo": str(getattr(web, "title", "") or ""),
+                            "url": str(web.uri),
+                        }
+                    )
     except Exception:  # noqa: BLE001 — sources are a bonus
         pass
     if found and not data.get("fuentes"):

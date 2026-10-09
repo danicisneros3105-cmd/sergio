@@ -36,7 +36,9 @@ def box(name, center_cm, size_cm, mat, bevel_cm=0.4):
     obj = bpy.context.object
     obj.name = name
     obj.scale = [s * CM for s in size_cm]
-    bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)  # keep the origin at the part
+    bpy.ops.object.transform_apply(
+        location=False, rotation=False, scale=True
+    )  # keep the origin at the part
     bev = obj.modifiers.new("Bisel", "BEVEL")
     bev.width = bevel_cm * CM
     bev.segments = 3
@@ -61,8 +63,12 @@ def patas():
 
 
 def faldon():
-    for name, c, s in (("Faldon_frente", (0, -27, 67), (98, 2.5, 8)), ("Faldon_atras", (0, 27, 67), (98, 2.5, 8)),
-                       ("Faldon_izq", (-52, 0, 67), (2.5, 48, 8)), ("Faldon_der", (52, 0, 67), (2.5, 48, 8))):
+    for name, c, s in (
+        ("Faldon_frente", (0, -27, 67), (98, 2.5, 8)),
+        ("Faldon_atras", (0, 27, 67), (98, 2.5, 8)),
+        ("Faldon_izq", (-52, 0, 67), (2.5, 48, 8)),
+        ("Faldon_der", (52, 0, 67), (2.5, 48, 8)),
+    ):
         box(name, c, s, WOOD, 0.2)
 
 

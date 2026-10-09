@@ -140,7 +140,10 @@ def test_signature_from_companion_points_and_box_matching():
     pts = {k: list(v) for k, v in _face_points(4).items()}
     assert sig.from_points(pts) == sig.measure(_face_points(4))
     assert sig.from_points({"n": [1, 2, 3]}) is None
-    faces = [{"box": [0, 0, 50, 50], "points": pts}, {"box": [200, 0, 60, 60], "points": {}}]
+    faces = [
+        {"box": [0, 0, 50, 50], "points": pts},
+        {"box": [200, 0, 60, 60], "points": {}},
+    ]
     assert sig.match_points((5, 5, 50, 50), faces) is faces[0]
     assert sig.match_points((400, 400, 20, 20), faces) is None
 
@@ -156,7 +159,9 @@ def test_real_points_measured_on_windows_side_are_used(tmp_path, monkeypatch):
     from sergio_escritorio import vision
 
     monkeypatch.setattr(vision, "MODELS_DIR", Path(MODELS))
-    monkeypatch.setattr(vision, "ensure_model", lambda name, folder=None: Path(MODELS) / name)
+    monkeypatch.setattr(
+        vision, "ensure_model", lambda name, folder=None: Path(MODELS) / name
+    )
     models = tmp_path / "models"
     shutil.copytree(MODELS, models)
     (models / "face_landmarker.task").unlink()  # the server cannot measure itself
@@ -167,4 +172,8 @@ def test_real_points_measured_on_windows_side_are_used(tmp_path, monkeypatch):
     assert book.people()[0]["signatures"] == 1
     old = _old(cv2.imread(str(Path(IMAGES) / "portrait.jpg")))
     (match,) = book.identify_photo(old, vision.face_points(old))
-    assert match.name == "Persona A" and match.geometry is not None and match.geometry > 0.5
+    assert (
+        match.name == "Persona A"
+        and match.geometry is not None
+        and match.geometry > 0.5
+    )

@@ -32,26 +32,44 @@ def test_every_script_is_valid_python(name, params):
 
 def test_catalog_and_parameter_checks():
     cat = catalog()
-    assert set(cat) == set(EFFECTS) and all(c["description"] and c["params"] for c in cat.values())
+    assert set(cat) == set(EFFECTS) and all(
+        c["description"] and c["params"] for c in cat.values()
+    )
     with pytest.raises(ValueError, match="unknown parameter"):
         effect("cloth").build(colour="red")
     with pytest.raises(ValueError, match="unknown effect"):
         effect("teleport")
-    assert "fabric = 'denim'" not in effect("cloth").build(fabric="denim")  # values are code literals, not names
+    assert "fabric = 'denim'" not in effect("cloth").build(
+        fabric="denim"
+    )  # values are code literals, not names
     assert '"denim"' in effect("cloth").build(fabric="denim")
 
 
 def test_effects_combine_into_one_scene():
-    script = build_scene([("volumetrics", {"layers": "sky"}), ("shaders", {"shader": "lava"}),
-                          ("geo_nodes", {"kind": "scatter"})], preview="/tmp/p.png", frames=(1, 12))
+    script = build_scene(
+        [
+            ("volumetrics", {"layers": "sky"}),
+            ("shaders", {"shader": "lava"}),
+            ("geo_nodes", {"kind": "scatter"}),
+        ],
+        preview="/tmp/p.png",
+        frames=(1, 12),
+    )
     assert script.count("vfx_reset()") == 2  # the definition + one call
     assert "VFX_OK" in script and '"/tmp/p.png"' in script
 
 
-@pytest.mark.skipif(find_blender() is None, reason="no Blender here (set SERGIO_BPY_PYTHON or SERGIO_BLENDER)")
+@pytest.mark.skipif(
+    find_blender() is None,
+    reason="no Blender here (set SERGIO_BPY_PYTHON or SERGIO_BLENDER)",
+)
 @pytest.mark.parametrize(("name", "params"), CASES)
 def test_effect_runs_in_real_blender(name, params):
-    if name in ("smoke_fire", "fluid") and os.environ.get("SERGIO_BPY_PYTHON") and not os.environ.get("SERGIO_BLENDER"):
+    if (
+        name in ("smoke_fire", "fluid")
+        and os.environ.get("SERGIO_BPY_PYTHON")
+        and not os.environ.get("SERGIO_BLENDER")
+    ):
         params = {**params, "bake": False}  # the bpy pip module cannot run Mantaflow
     result = run(build_scene([(name, params)]), timeout=900)
     assert result.ok, result.log[-2000:]

@@ -9,19 +9,48 @@ from openjarvis.tools import youtube_pick as yp
 
 
 def _page(videos):
-    data = {"contents": {"twoColumnSearchResultsRenderer": {"primaryContents": {"sectionListRenderer": {
-        "contents": [{"itemSectionRenderer": {"contents": [
-            {"videoRenderer": {"videoId": v, "title": {"runs": [{"text": t}]},
-                               "ownerText": {"runs": [{"text": "MrBeast"}]},
-                               "lengthText": {"simpleText": "12:01"}}}
-            for v, t in videos
-        ]}}]}}}}}
+    data = {
+        "contents": {
+            "twoColumnSearchResultsRenderer": {
+                "primaryContents": {
+                    "sectionListRenderer": {
+                        "contents": [
+                            {
+                                "itemSectionRenderer": {
+                                    "contents": [
+                                        {
+                                            "videoRenderer": {
+                                                "videoId": v,
+                                                "title": {"runs": [{"text": t}]},
+                                                "ownerText": {
+                                                    "runs": [{"text": "MrBeast"}]
+                                                },
+                                                "lengthText": {"simpleText": "12:01"},
+                                            }
+                                        }
+                                        for v, t in videos
+                                    ]
+                                }
+                            }
+                        ]
+                    }
+                }
+            }
+        }
+    }
     return f"<script>var ytInitialData = {json.dumps(data)};</script>"
 
 
 def test_the_request_becomes_a_short_search():
-    assert yp.search_query("Sergio, pon un video de MrBeast en el que salga con traje negro") == "mrbeast traje negro"
-    assert yp.wants_looks("MrBeast con traje negro") and not yp.wants_looks("el último video de MrBeast")
+    assert (
+        yp.search_query(
+            "Sergio, pon un video de MrBeast en el que salga con traje negro"
+        )
+        == "mrbeast traje negro"
+    )
+    assert yp.wants_looks("MrBeast con traje negro") and not yp.wants_looks(
+        "el último video de MrBeast"
+    )
 
 
 def test_parse_results():
@@ -32,7 +61,13 @@ def test_parse_results():
 
 def test_gemini_picks_by_the_thumbnails():
     pytest.importorskip("google.genai")
-    html = _page([("aaa", "I Spent 50 Hours Buried Alive"), ("bbb", "Last To Leave Wins"), ("ccc", "Suit Up!")])
+    html = _page(
+        [
+            ("aaa", "I Spent 50 Hours Buried Alive"),
+            ("bbb", "Last To Leave Wins"),
+            ("ccc", "Suit Up!"),
+        ]
+    )
     asked = []
 
     def get(url):
@@ -44,7 +79,11 @@ def test_gemini_picks_by_the_thumbnails():
         return '{"n": 3, "por_que": "lleva traje negro"}'
 
     video = yp.pick("pon un video de MrBeast con traje negro", get, ask)
-    assert video["id"] == "ccc" and video["url"].endswith("v=ccc") and "traje" in video["why"]
+    assert (
+        video["id"] == "ccc"
+        and video["url"].endswith("v=ccc")
+        and "traje" in video["why"]
+    )
     assert "3. Suit Up!" in asked[0]
     plain = yp.pick("pon el último video de MrBeast", get, ask)
     assert plain["id"] == "aaa" and len(asked) == 1  # nothing visual: no Gemini

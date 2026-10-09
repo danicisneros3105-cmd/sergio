@@ -231,16 +231,29 @@ def opensky_rows(data: dict[str, Any]) -> list[dict[str, Any]]:
             }
         )
     return rows
+
+
 OVERHEAD_NM = 25  # look this far around (46 km)
 FT = 0.3048
 KT = 1.852
-_COMPASS = ("norte", "noreste", "este", "sureste", "sur", "suroeste", "oeste", "noroeste")
+_COMPASS = (
+    "norte",
+    "noreste",
+    "este",
+    "sureste",
+    "sur",
+    "suroeste",
+    "oeste",
+    "noroeste",
+)
 
 
 def _quick_get(url: str, params: dict[str, Any], timeout: float = 3.5) -> Any:
     import httpx
 
-    resp = httpx.get(url, params=params, headers={"User-Agent": _USER_AGENT}, timeout=timeout)
+    resp = httpx.get(
+        url, params=params, headers={"User-Agent": _USER_AGENT}, timeout=timeout
+    )
     resp.raise_for_status()
     return resp.json()
 
@@ -261,9 +274,12 @@ def _move(lat: float, lon: float, track: float, km: float) -> tuple[float, float
     """Dead reckoning: where a plane is after flying *km* along *track*."""
     r = km / 6371.0
     p1, t = math.radians(lat), math.radians(track)
-    p2 = math.asin(math.sin(p1) * math.cos(r) + math.cos(p1) * math.sin(r) * math.cos(t))
+    p2 = math.asin(
+        math.sin(p1) * math.cos(r) + math.cos(p1) * math.sin(r) * math.cos(t)
+    )
     l2 = math.radians(lon) + math.atan2(
-        math.sin(t) * math.sin(r) * math.cos(p1), math.cos(r) - math.sin(p1) * math.sin(p2)
+        math.sin(t) * math.sin(r) * math.cos(p1),
+        math.cos(r) - math.sin(p1) * math.sin(p2),
     )
     return math.degrees(p2), (math.degrees(l2) + 540) % 360 - 180
 
@@ -280,7 +296,11 @@ def plane_geometry(
         return None
     lag = float(ac.get("seen_pos") or 0.0) + now_lag
     gs, track = ac.get("gs"), ac.get("track")
-    if isinstance(gs, (int, float)) and isinstance(track, (int, float)) and 0 < lag < 60:
+    if (
+        isinstance(gs, (int, float))
+        and isinstance(track, (int, float))
+        and 0 < lag < 60
+    ):
         plat, plon = _move(plat, plon, track, gs * KT * lag / 3600.0)  # to "now"
     ground_km = _distance_km(lat, lon, plat, plon)
     height_m = alt_ft * FT - ground_m
@@ -308,8 +328,10 @@ def fetch_aircraft(
     dlat = nm * KT / 111.0
     dlon = dlat / max(0.2, math.cos(math.radians(lat)))
     box = {
-        "s": f"{lat - dlat:.4f}", "n": f"{lat + dlat:.4f}",
-        "w": f"{lon - dlon:.4f}", "e": f"{lon + dlon:.4f}",
+        "s": f"{lat - dlat:.4f}",
+        "n": f"{lat + dlat:.4f}",
+        "w": f"{lon - dlon:.4f}",
+        "e": f"{lon + dlon:.4f}",
     }
     jobs = {
         pool.submit(
@@ -327,14 +349,20 @@ def fetch_aircraft(
         except Exception:  # noqa: BLE001 — that network failed: the others count
             continue
         name = jobs[future]
-        rows = opensky_rows(data) if name == "opensky" else (data.get("ac") or data.get("aircraft") or [])
+        rows = (
+            opensky_rows(data)
+            if name == "opensky"
+            else (data.get("ac") or data.get("aircraft") or [])
+        )
         used.append(name)
         for ac in rows:
             if not isinstance(ac, dict) or not ac.get("hex"):
                 continue
             key = str(ac["hex"]).lower()
             old = merged.get(key)
-            if old is None or float(ac.get("seen_pos") or 99) < float(old.get("seen_pos") or 99):
+            if old is None or float(ac.get("seen_pos") or 99) < float(
+                old.get("seen_pos") or 99
+            ):
                 merged[key] = {**(old or {}), **ac, "_source": jobs[future]}
     return list(merged.values()), sorted(used)
 
@@ -343,7 +371,8 @@ def ground_elevation(lat: float, lon: float, http_get: HttpGet) -> float:
     """Height of the ground where you are (Cuenca is ~2 500 m up)."""
     try:
         data = http_get(
-            "https://api.open-meteo.com/v1/elevation", {"latitude": lat, "longitude": lon}
+            "https://api.open-meteo.com/v1/elevation",
+            {"latitude": lat, "longitude": lon},
         )
         return float((data or {}).get("elevation", [0.0])[0])
     except Exception:  # noqa: BLE001
@@ -359,10 +388,18 @@ def flight_details(ac: dict[str, Any], http_get: HttpGet) -> dict[str, Any]:
     out: dict[str, Any] = {}
 
     def route() -> Any:
-        return http_get(f"https://api.adsbdb.com/v0/callsign/{callsign}", {}) if callsign else None
+        return (
+            http_get(f"https://api.adsbdb.com/v0/callsign/{callsign}", {})
+            if callsign
+            else None
+        )
 
     def plane() -> Any:
-        return http_get(f"https://api.adsbdb.com/v0/aircraft/{hexid}", {}) if hexid else None
+        return (
+            http_get(f"https://api.adsbdb.com/v0/aircraft/{hexid}", {})
+            if hexid
+            else None
+        )
 
     pool = ThreadPoolExecutor(max_workers=2)
     r_job, p_job = pool.submit(route), pool.submit(plane)
@@ -374,7 +411,9 @@ def flight_details(ac: dict[str, Any], http_get: HttpGet) -> dict[str, Any]:
         except Exception:  # noqa: BLE001 — slow or unknown: answer without it
             continue
         if isinstance(data, dict):
-            out[key] = data.get("flightroute") if key == "route" else data.get("aircraft")
+            out[key] = (
+                data.get("flightroute") if key == "route" else data.get("aircraft")
+            )
     pool.shutdown(wait=False, cancel_futures=True)  # never wait for a slow one
     return out
 
@@ -387,18 +426,28 @@ def _airport(info: dict[str, Any] | None) -> str:
     return f"{city} ({code})" if code else city
 
 
-def describe_plane(ac: dict[str, Any], geo: dict[str, Any], extra: dict[str, Any]) -> str:
+def describe_plane(
+    ac: dict[str, Any], geo: dict[str, Any], extra: dict[str, Any]
+) -> str:
     route = extra.get("route") or {}
     plane = extra.get("aircraft") or {}
     callsign = str(ac.get("flight") or "").strip() or "sin indicativo"
-    airline = (route.get("airline") or {}).get("name") or ac.get("ownOp") or plane.get("registered_owner") or ""
+    airline = (
+        (route.get("airline") or {}).get("name")
+        or ac.get("ownOp")
+        or plane.get("registered_owner")
+        or ""
+    )
     number = callsign
     iata = (route.get("airline") or {}).get("iata")
     if iata and callsign[:3].isalpha() and callsign[3:].isdigit():
         number = f"{iata}{callsign[3:]} ({callsign})"
-    model = " ".join(
-        x for x in (plane.get("manufacturer"), plane.get("type")) if x
-    ) or ac.get("desc") or ac.get("t") or "modelo desconocido"
+    model = (
+        " ".join(x for x in (plane.get("manufacturer"), plane.get("type")) if x)
+        or ac.get("desc")
+        or ac.get("t")
+        or "modelo desconocido"
+    )
     reg = plane.get("registration") or ac.get("r") or ""
     parts = [f"vuelo {number}" + (f" de {airline}" if airline else "")]
     parts.append(f"{model}" + (f", matrícula {reg}" if reg else ""))
@@ -413,7 +462,9 @@ def describe_plane(ac: dict[str, Any], geo: dict[str, Any], extra: dict[str, Any
         parts.append(f"rumbo {ac['track']:.0f}° (hacia el {compass(ac['track'])})")
     rate = ac.get("baro_rate", ac.get("geom_rate"))
     if isinstance(rate, (int, float)) and abs(rate) >= 300:
-        parts.append(("subiendo" if rate > 0 else "bajando") + f" {abs(rate) * FT:.0f} m/min")
+        parts.append(
+            ("subiendo" if rate > 0 else "bajando") + f" {abs(rate) * FT:.0f} m/min"
+        )
     if ac.get("squawk") in ("7500", "7600", "7700"):
         parts.append(f"¡código de emergencia {ac['squawk']}!")
     return ", ".join(parts)
@@ -433,7 +484,9 @@ def overhead_report(
 
     started = clock()
     pool = ThreadPoolExecutor(max_workers=1)
-    ground_job = pool.submit(ground_elevation, lat, lon, http_get) if ground_m is None else None
+    ground_job = (
+        pool.submit(ground_elevation, lat, lon, http_get) if ground_m is None else None
+    )
     aircraft, used = fetch_aircraft(lat, lon, nm, http_get)
     ground = ground_m or 0.0
     if ground_job is not None:
@@ -443,7 +496,9 @@ def overhead_report(
             ground = 0.0
     pool.shutdown(wait=False, cancel_futures=True)
     if not used:
-        raise RuntimeError("Ninguna red ADS-B respondió a tiempo (sin internet o caídas).")
+        raise RuntimeError(
+            "Ninguna red ADS-B respondió a tiempo (sin internet o caídas)."
+        )
     seen = []
     for ac in aircraft:
         geo = plane_geometry(lat, lon, ground, ac, now_lag=clock() - started)
@@ -451,8 +506,12 @@ def overhead_report(
             seen.append((geo["elevation"], ac, geo))
     seen.sort(key=lambda row: -row[0])
     out: dict[str, Any] = {
-        "lat": lat, "lon": lon, "ground_m": ground, "sources": used,
-        "count": len(seen), "utc": datetime.now(timezone.utc).strftime("%H:%M:%S"),
+        "lat": lat,
+        "lon": lon,
+        "ground_m": ground,
+        "sources": used,
+        "count": len(seen),
+        "utc": datetime.now(timezone.utc).strftime("%H:%M:%S"),
     }
     if not seen:
         out["text"] = (
@@ -518,7 +577,9 @@ class FlightsOverheadTool(_WorldTool):
     def _run(self, params: dict[str, Any]) -> ToolResult:
         lat, lon, _label = _location(params, self._get)
         report = overhead_report(lat, lon, http_get=self._get)
-        return self._ok(report["text"], **{k: v for k, v in report.items() if k != "text"})
+        return self._ok(
+            report["text"], **{k: v for k, v in report.items() if k != "text"}
+        )
 
 
 @ToolRegistry.register("live_earthquakes")
@@ -775,7 +836,6 @@ class GlobeViewTool(_WorldTool):
         )
 
     def _run(self, params: dict[str, Any]) -> ToolResult:
-        from openjarvis.core.config import load_config
 
         lat, lon, label = _location(params, self._get)
         alt = _num(params.get("altitude_m", 1500), "altitude_m", 50, 40_000_000)

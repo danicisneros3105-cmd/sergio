@@ -71,7 +71,9 @@ def _text(node: Any) -> str:
         return ""
     if "simpleText" in node:
         return str(node["simpleText"])
-    return "".join(str(r.get("text", "")) for r in node.get("runs", []) if isinstance(r, dict))
+    return "".join(
+        str(r.get("text", "")) for r in node.get("runs", []) if isinstance(r, dict)
+    )
 
 
 def parse_results(html: str, limit: int = 8) -> list[dict[str, str]]:
@@ -154,9 +156,14 @@ def pick(
                 thumbs.append(get(THUMB_URL.format(v["id"])).content)
             except Exception:  # noqa: BLE001
                 thumbs.append(b"")
-        titles = "\n".join(f"{i + 1}. {v['title']} ({v['channel']})" for i, v in enumerate(shown))
+        titles = "\n".join(
+            f"{i + 1}. {v['title']} ({v['channel']})" for i, v in enumerate(shown)
+        )
         try:
-            reply = ask_image(contact_sheet(thumbs), PICK_PROMPT.format(request=request, titles=titles))
+            reply = ask_image(
+                contact_sheet(thumbs),
+                PICK_PROMPT.format(request=request, titles=titles),
+            )
             m = re.search(r"\{.*\}", reply, re.S)
             data = json.loads(m.group(0)) if m else {}
             n = int(data.get("n") or 0)

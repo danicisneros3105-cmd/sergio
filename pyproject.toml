@@ -300,6 +300,11 @@ src = ["src", "tests"]
 [tool.ruff.lint]
 select = ["E", "F", "I", "W"]
 
+# The formatter wraps code at 88 columns; this only bounds what it cannot
+# wrap (long prompt/message strings, embedded Blender scripts, comments).
+[tool.ruff.lint.pycodestyle]
+max-line-length = 120
+
 [tool.ruff.lint.per-file-ignores]
 "src/openjarvis/evals/datasets/*.py" = ["E501"]
 "src/openjarvis/evals/scorers/*.py" = ["E501"]
@@ -316,6 +321,19 @@ select = ["E", "F", "I", "W"]
 # kept as one string.
 "src/openjarvis/tools/blender_examples/*.py" = ["E501", "F821", "I001"]
 "src/openjarvis/tools/blender_kit.py" = ["E501"]
+# Embedded Blender/bpy scripts and model prompt templates: their long lines
+# are generated code or prompt text, not Python to wrap.
+"src/openjarvis/vfx/*.py" = ["E501"]
+"src/openjarvis/tools/blender_model.py" = ["E501"]
+"src/openjarvis/tools/blender_pro.py" = ["E501"]
+"src/openjarvis/tools/video_style.py" = ["E501"]
+"src/openjarvis/coach/tasks.py" = ["E501"]
+# Test fixtures that hold real tool output / data rows verbatim.
+"tests/escritorio/test_salud.py" = ["E501"]
+"tests/tools/test_blender_examples.py" = ["E501"]
+"tests/tools/test_blender_kit_and_vision.py" = ["E501"]
+# Scripted fake planners are clearer as one-line lambdas.
+"tests/escritorio/test_tareas.py" = ["E731"]
 
 [dependency-groups]
 build = [

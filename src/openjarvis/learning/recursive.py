@@ -95,24 +95,49 @@ class RecursiveImprover:
         self.meta = META_PROMPT
         self.history: list[PromptVersion] = []
 
-    def _record(self, text: str, score: float, failures: list[str], parent: Optional[int], rnd: int,
-                level: int) -> PromptVersion:
-        version = PromptVersion(id=len(self.history), text=text, score=score, parent=parent, round=rnd,
-                                level=level, failures=failures[:20])
+    def _record(
+        self,
+        text: str,
+        score: float,
+        failures: list[str],
+        parent: Optional[int],
+        rnd: int,
+        level: int,
+    ) -> PromptVersion:
+        version = PromptVersion(
+            id=len(self.history),
+            text=text,
+            score=score,
+            parent=parent,
+            round=rnd,
+            level=level,
+            failures=failures[:20],
+        )
         self.history.append(version)
         return version
 
     def _propose(self, meta: str, current: PromptVersion) -> list[str]:
-        failures = "\n".join(f"- {f}" for f in current.failures[:12]) or "- (none listed)"
+        failures = (
+            "\n".join(f"- {f}" for f in current.failures[:12]) or "- (none listed)"
+        )
         try:
-            text = meta.format(prompt=current.text, score=current.score, failures=failures, k=self.candidates)
+            text = meta.format(
+                prompt=current.text,
+                score=current.score,
+                failures=failures,
+                k=self.candidates,
+            )
         except (KeyError, IndexError, ValueError):
             return []
         data = parse_json(self.llm(text, temperature=0.9))
         prompts = data.get("prompts") if isinstance(data, dict) else data
-        return [str(p).strip() for p in (prompts or []) if str(p).strip()][: self.candidates]
+        return [str(p).strip() for p in (prompts or []) if str(p).strip()][
+            : self.candidates
+        ]
 
-    def _best_of(self, prompts: list[str], parent: PromptVersion, rnd: int, level: int) -> Optional[PromptVersion]:
+    def _best_of(
+        self, prompts: list[str], parent: PromptVersion, rnd: int, level: int
+    ) -> Optional[PromptVersion]:
         best: Optional[PromptVersion] = None
         for text in prompts:
             if text == parent.text:
@@ -133,36 +158,64 @@ class RecursiveImprover:
             done = rnd
             if current.score >= 1.0:
                 break
-            candidate = self._best_of(self._propose(self.meta, current), current, rnd, 1)
+            candidate = self._best_of(
+                self._propose(self.meta, current), current, rnd, 1
+            )
             if candidate and candidate.score >= current.score + self.min_gain:
                 current, stalls = candidate, 0
                 continue
             stalls += 1
             # Level 2: improve the improver, keep it only if it helps right now.
-            new_meta = self.llm(META_META_PROMPT.format(meta=self.meta, score=current.score,
-                                                        failures="\n".join(f"- {f}" for f in current.failures[:8])),
-                                temperature=0.7).strip()
+            new_meta = self.llm(
+                META_META_PROMPT.format(
+                    meta=self.meta,
+                    score=current.score,
+                    failures="\n".join(f"- {f}" for f in current.failures[:8]),
+                ),
+                temperature=0.7,
+            ).strip()
             if new_meta and "{prompt}" in new_meta and "{failures}" in new_meta:
-                candidate = self._best_of(self._propose(new_meta, current), current, rnd, 2)
+                candidate = self._best_of(
+                    self._propose(new_meta, current), current, rnd, 2
+                )
                 if candidate and candidate.score >= current.score + self.min_gain:
                     self.meta, current, stalls = new_meta, candidate, 0
             if stalls >= 2:
                 break
         self._save()
-        return ImprovementReport(best=current, start_score=start, history=list(self.history),
-                                 meta_prompt=self.meta, rounds=done)
+        return ImprovementReport(
+            best=current,
+            start_score=start,
+            history=list(self.history),
+            meta_prompt=self.meta,
+            rounds=done,
+        )
 
     def _save(self) -> None:
         if not self.store:
             return
         self.store.parent.mkdir(parents=True, exist_ok=True)
-        self.store.write_text(json.dumps({"meta_prompt": self.meta,
-                                          "versions": [asdict(v) for v in self.history]},
-                                         ensure_ascii=False, indent=1), "utf-8")
+        self.store.write_text(
+            json.dumps(
+                {
+                    "meta_prompt": self.meta,
+                    "versions": [asdict(v) for v in self.history],
+                },
+                ensure_ascii=False,
+                indent=1,
+            ),
+            "utf-8",
+        )
 
 
-def improve_prompt(prompt: str, evaluate: Evaluator, llm: "LLM | Callable[..., str] | None" = None, *,
-                   rounds: int = 3, store: Optional[Path] = None) -> ImprovementReport:
+def improve_prompt(
+    prompt: str,
+    evaluate: Evaluator,
+    llm: "LLM | Callable[..., str] | None" = None,
+    *,
+    rounds: int = 3,
+    store: Optional[Path] = None,
+) -> ImprovementReport:
     return RecursiveImprover(evaluate, llm, store=store).improve(prompt, rounds)
 
 

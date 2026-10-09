@@ -30,7 +30,7 @@ def build(**kw) -> str:
     p = params_with_defaults(PARAMS, kw)
     preset = str(p["preset"]).lower()
     count, length, children, clump, kink, rough = PRESETS.get(preset, PRESETS["fur"])
-    return f'''
+    return f"""
 surface = vfx_mesh({py(p["surface"])}, "Hair Surface", location=(0, 0, 1), size=1)
 if surface.data.polygons and len(surface.data.polygons) < 200:
     surface.modifiers.new("Sub", "SUBSURF").levels = 2
@@ -75,4 +75,4 @@ surface.data.materials.append(mat)
 ps.material = 2
 vfx_info(effect="hair_fur", preset={py(preset)}, strands=ps.count, children=ps.rendered_child_count,
          shader=shader.bl_idname)
-'''
+"""

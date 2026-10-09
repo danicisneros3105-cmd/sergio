@@ -103,11 +103,18 @@ def tree_of_thoughts(
         children: list[Thought] = []
         for state in frontier:
             steps = _path(state, nodes)
-            raw = llm(PROPOSE_PROMPT.format(problem=problem, path=_fmt(steps), k=breadth), temperature=0.9)
+            raw = llm(
+                PROPOSE_PROMPT.format(problem=problem, path=_fmt(steps), k=breadth),
+                temperature=0.9,
+            )
             data = parse_json(raw)
             proposals = data.get("steps") if isinstance(data, dict) else data
             if not isinstance(proposals, list):
-                proposals = [line.strip("-*• ").strip() for line in raw.splitlines() if line.strip()]
+                proposals = [
+                    line.strip("-*• ").strip()
+                    for line in raw.splitlines()
+                    if line.strip()
+                ]
             seen: set[str] = set()
             for text in proposals[:breadth]:
                 text = str(text).strip()
@@ -120,8 +127,12 @@ def tree_of_thoughts(
                 if evaluator is not None:
                     child.score, child.solved = evaluator(problem, path)
                 else:
-                    verdict = parse_json(llm(VALUE_PROMPT.format(problem=problem, path=_fmt(path)),
-                                             temperature=0.1))
+                    verdict = parse_json(
+                        llm(
+                            VALUE_PROMPT.format(problem=problem, path=_fmt(path)),
+                            temperature=0.1,
+                        )
+                    )
                     if isinstance(verdict, dict):
                         child.score = clamp(verdict.get("score"))
                         child.solved = bool(verdict.get("solved"))
@@ -131,14 +142,25 @@ def tree_of_thoughts(
             break
         children.sort(key=lambda t: (t.solved, t.score), reverse=True)
         frontier = children[:beam]
-        if (frontier[0].solved, frontier[0].score) > (best.solved, best.score) or best is root:
+        if (frontier[0].solved, frontier[0].score) > (
+            best.solved,
+            best.score,
+        ) or best is root:
             best = frontier[0]
         if best.solved and best.score >= solved_score:
             break
     best_path = _path(best, nodes)
-    answer = llm(FINAL_PROMPT.format(problem=problem, path=_fmt(best_path)), temperature=0.2).strip()
-    return ToTResult(answer=answer, best_path=best_path, best_score=best.score,
-                     explored=len(nodes) - 1, solved=best.solved, tree=list(nodes.values()))
+    answer = llm(
+        FINAL_PROMPT.format(problem=problem, path=_fmt(best_path)), temperature=0.2
+    ).strip()
+    return ToTResult(
+        answer=answer,
+        best_path=best_path,
+        best_score=best.score,
+        explored=len(nodes) - 1,
+        solved=best.solved,
+        tree=list(nodes.values()),
+    )
 
 
 __all__ = ["Thought", "ToTResult", "tree_of_thoughts"]

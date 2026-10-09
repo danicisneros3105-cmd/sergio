@@ -5,8 +5,14 @@ from __future__ import annotations
 from datetime import datetime
 
 import pytest
-
-from sergio_escritorio.coach import Coach, annotate_video, goal_kind, parse_goal, record_video, school_reminders
+from sergio_escritorio.coach import (
+    Coach,
+    annotate_video,
+    goal_kind,
+    parse_goal,
+    record_video,
+    school_reminders,
+)
 
 np = pytest.importorskip("numpy")
 cv2 = pytest.importorskip("cv2")
@@ -16,7 +22,13 @@ PLAN = {
     "resumen": "En 3 semanas",
     "sesiones": [
         {"dia": 0, "minutos": 15, "objetivo": "agarre", "pasos": ["a"], "video": False},
-        {"dia": 2, "minutos": 20, "objetivo": "doble lift lento", "pasos": ["b"], "video": True},
+        {
+            "dia": 2,
+            "minutos": 20,
+            "objetivo": "doble lift lento",
+            "pasos": ["b"],
+            "video": True,
+        },
         {"dia": 4, "minutos": 20, "objetivo": "velocidad", "pasos": ["c"]},
     ],
 }
@@ -24,10 +36,14 @@ NOW = datetime(2026, 10, 5, 9, 0).timestamp()
 
 
 def test_kinds_and_goal_phrases():
-    assert goal_kind("francés") == "idioma" and goal_kind("examen de física") == "examen"
+    assert (
+        goal_kind("francés") == "idioma" and goal_kind("examen de física") == "examen"
+    )
     assert goal_kind("doble lift con cartas") == "habilidad"
     assert parse_goal("estoy aprendiendo un truco de cartas") == "un truco de cartas"
-    assert parse_goal("tengo examen de física el viernes") == "examen de física el viernes"
+    assert (
+        parse_goal("tengo examen de física el viernes") == "examen de física el viernes"
+    )
     assert parse_goal("abre spotify") is None
 
 
@@ -45,13 +61,17 @@ def test_sessions_land_in_free_time_and_results_shape_the_next(tmp_path):
     assert dues == sorted(dues) and len(placed) == 3 and goal["sesiones"][1]["video"]
     assert coach.due_sessions() == []
     clock[0] = dues[0] + 1
-    (g, s), = coach.due_sessions()
+    ((g, s),) = coach.due_sessions()
     assert s["n"] == 1
     coach.finish(g, s, {"metricas": {"limpieza": 6, "x": "no"}, "errores_tipo": {"flash": 2}, "nivel": "principiante",
                         "feedback": "Más lento.", "dificultad": 1})  # fmt: skip
-    assert goal["sesiones"][1]["minutos"] == 25 and coach.progress(goal)["series"] == {"limpieza": [6.0]}
+    assert goal["sesiones"][1]["minutos"] == 25 and coach.progress(goal)["series"] == {
+        "limpieza": [6.0]
+    }
     again = Coach(tmp_path / "c.json")
-    assert again.goals[0]["errores"] == {"flash": 2} and "doble lift" in again.describe()
+    assert (
+        again.goals[0]["errores"] == {"flash": 2} and "doble lift" in again.describe()
+    )
     lesson = again.for_lesson(again.goals[0])
     assert lesson["sesion"]["n"] == 2 and lesson["errores_frecuentes"] == [("flash", 2)]
     assert again.find("DOBLE LIFT") is not None
@@ -65,10 +85,33 @@ def test_practice_video_gets_green_and_red_circles(tmp_path):
     def tick(dt):
         clock[0] += dt
 
-    raw = record_video(lambda: next(frames, None), tmp_path / "raw.mp4", seconds=2.0, fps=15, clock=lambda: clock[0], sleep=tick)
+    raw = record_video(
+        lambda: next(frames, None),
+        tmp_path / "raw.mp4",
+        seconds=2.0,
+        fps=15,
+        clock=lambda: clock[0],
+        sleep=tick,
+    )
     marks = [
-        {"t": 0.0, "duracion": 1.0, "x": 0.25, "y": 0.5, "r": 0.1, "bien": True, "texto": "buen ángulo"},
-        {"t": 1.0, "duracion": 1.0, "x": 0.75, "y": 0.5, "r": 0.1, "bien": False, "texto": "se ve la carta"},
+        {
+            "t": 0.0,
+            "duracion": 1.0,
+            "x": 0.25,
+            "y": 0.5,
+            "r": 0.1,
+            "bien": True,
+            "texto": "buen ángulo",
+        },
+        {
+            "t": 1.0,
+            "duracion": 1.0,
+            "x": 0.75,
+            "y": 0.5,
+            "r": 0.1,
+            "bien": False,
+            "texto": "se ve la carta",
+        },
     ]
     out = annotate_video(raw, marks, tmp_path / "out.mp4")
     cap = cv2.VideoCapture(str(out))
@@ -94,7 +137,9 @@ def test_school_items_become_reminders():
     items = school_reminders(data, now)
     texts = [t for _w, t in items]
     assert len(items) == 3 and "mañana se entrega informe de Física" in texts
-    assert "examen de Química en 3 días" in texts and "examen de Química en 1 día" in texts
+    assert (
+        "examen de Química en 3 días" in texts and "examen de Química en 1 día" in texts
+    )
 
 
 def test_coach_orders():
@@ -104,7 +149,10 @@ def test_coach_orders():
     assert parse_quick("mis metas").kind == "goals"
     assert parse_quick("practiquemos francés").kind == "practice"
     assert parse_quick("revisa mi plataforma escolar").kind == "school"
-    assert parse_quick("mi plataforma escolar es aula.colegio.edu.ec").arg == "https://aula.colegio.edu.ec"
+    assert (
+        parse_quick("mi plataforma escolar es aula.colegio.edu.ec").arg
+        == "https://aula.colegio.edu.ec"
+    )
     assert parse_quick("cómo voy en el gimnasio").kind == "gym_report"
 
 
@@ -112,17 +160,37 @@ def test_session_window_shows_the_lesson_and_saves_results(tmp_path):
     import time
 
     from PySide6.QtWidgets import QApplication
-
-    from sergio_escritorio.coach_ui import CoachWindow, PracticeCard, SessionWindow, lesson_html
+    from sergio_escritorio.coach_ui import (
+        CoachWindow,
+        PracticeCard,
+        SessionWindow,
+        lesson_html,
+    )
 
     app = QApplication.instance() or QApplication([])
     coach = Coach(tmp_path / "c.json")
     goal = coach.add_goal("francés", PLAN, lambda after, m: after)
     session = goal["sesiones"][0]
-    lesson = {"titulo": "Saludos", "contenido": [{"tipo": "vocabulario", "texto": "Salut = hola (informal)", "respuesta": "x"}]}
+    lesson = {
+        "titulo": "Saludos",
+        "contenido": [
+            {
+                "tipo": "vocabulario",
+                "texto": "Salut = hola (informal)",
+                "respuesta": "x",
+            }
+        ],
+    }
     assert "Salut" in lesson_html(lesson)
     done = []
-    window = SessionWindow(goal, session, lambda: lesson, None, lambda text: {"feedback": "bien", "metricas": {"aciertos": 8}}, done.append)
+    window = SessionWindow(
+        goal,
+        session,
+        lambda: lesson,
+        None,
+        lambda text: {"feedback": "bien", "metricas": {"aciertos": 8}},
+        done.append,
+    )
     deadline = time.monotonic() + 3
     while "Salut" not in window.lesson.toHtml() and time.monotonic() < deadline:
         app.processEvents()

@@ -11,7 +11,9 @@ from __future__ import annotations
 
 from openjarvis.vfx._base import params_with_defaults
 
-DESCRIPTION = "FLIP liquid simulation (pour, splash or dam break) with a meshed water surface."
+DESCRIPTION = (
+    "FLIP liquid simulation (pour, splash or dam break) with a meshed water surface."
+)
 PARAMS = {
     "scenario": ("splash", "pour, splash or dam"),
     "resolution": (64, "domain grid divisions"),
@@ -25,7 +27,7 @@ PARAMS = {
 def build(**kw) -> str:
     p = params_with_defaults(PARAMS, kw)
     scenario = str(p["scenario"]).lower()
-    return f'''
+    return f"""
 sc = bpy.context.scene
 sc.frame_end = sc.frame_start + {p["frames"]} - 1
 domain = vfx_mesh("cube", "Liquid Domain", location=(0, 0, 1.5), size=1)
@@ -92,4 +94,4 @@ water_mat = vfx_material("Water", (0.8, 0.9, 1.0, 1), roughness=0.02, transmissi
 vfx_assign(domain, water_mat)
 baked = vfx_bake() if {p["bake"]} else []
 vfx_info(effect="fluid", scenario=scenario, domain=d.domain_type, baked=baked)
-'''
+"""

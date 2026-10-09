@@ -14,10 +14,20 @@ def test_plan_is_checked_against_the_real_clips():
       "youtube": {"title": "Un viaje increíble", "description": "Día uno.", "tags": ["viaje", "vlog"]}}"""
     got = parse_plan(text, [10.0, 12.0])
     assert got["aspect"] == "9:16" and got["title_overlay"] == "Mi viaje"
-    plain = {"transition": "fade", "zoom": "none", "speed": 1.0}  # what an unstyled cut gets
+    plain = {
+        "transition": "fade",
+        "zoom": "none",
+        "speed": 1.0,
+    }  # what an unstyled cut gets
     assert got["segments"] == [
         {"clip": 0, "start": 1.0, "end": 4.0, "caption": "La llegada", **plain},
-        {"clip": 1, "start": 9.0, "end": 12.0, "caption": "", **plain},  # clipped to the clip
+        {
+            "clip": 1,
+            "start": 9.0,
+            "end": 12.0,
+            "caption": "",
+            **plain,
+        },  # clipped to the clip
     ]
     assert got["youtube"]["tags"] == ["viaje", "vlog"]
     with pytest.raises(RuntimeError):
@@ -32,4 +42,8 @@ def test_plan_asks_with_one_sheet_per_clip():
         return '{"segments": [{"clip": 1, "start": 0, "end": 2}], "youtube": {}}'
 
     got = plan("un short de mi viaje", [b"a", b"b"], [5.0, 6.0], ask)
-    assert seen["n"] == 2 and "short vertical" in seen["prompt"] and got["aspect"] == "16:9"
+    assert (
+        seen["n"] == 2
+        and "short vertical" in seen["prompt"]
+        and got["aspect"] == "16:9"
+    )

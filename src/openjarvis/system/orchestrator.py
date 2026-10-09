@@ -333,7 +333,9 @@ class QueryOrchestrator:
                     from openjarvis.tools.llm_tool import LLMTool
 
                     tools.append(LLMTool(s.engine, model=s.model))
-                elif ToolRegistry.contains(name) and getattr(ToolRegistry.get(name), "needs_engine", False):
+                elif ToolRegistry.contains(name) and getattr(
+                    ToolRegistry.get(name), "needs_engine", False
+                ):
                     tools.append(ToolRegistry.get(name)(engine=s.engine, model=s.model))
                 elif ToolRegistry.contains(name):
                     tools.append(ToolRegistry.create(name))

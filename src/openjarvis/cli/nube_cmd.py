@@ -73,8 +73,15 @@ def nube() -> None:
 @click.option("--kimi", "kimi_key", default="", help="Kimi (Moonshot) API key.")
 @click.option("--gemini", "gemini_key", default="", help="Gemini / Google API key.")
 @click.option("--modelo", default="", help="Force a model id (e.g. kimi-k2.6).")
-@click.option("--tripo", "tripo_key", default="", help="Tripo 3D API key (tsk_..., platform.tripo3d.ai).")
-def configurar(kimi_key: str, gemini_key: str, modelo: str, tripo_key: str = "") -> None:
+@click.option(
+    "--tripo",
+    "tripo_key",
+    default="",
+    help="Tripo 3D API key (tsk_..., platform.tripo3d.ai).",
+)
+def configurar(
+    kimi_key: str, gemini_key: str, modelo: str, tripo_key: str = ""
+) -> None:
     """Save the keys, check them and pick Sergio's main cloud model."""
     from openjarvis.cli.phone_cmd import read_env, update_config, write_env
     from openjarvis.cli.service_cmd import env_file
@@ -85,7 +92,9 @@ def configurar(kimi_key: str, gemini_key: str, modelo: str, tripo_key: str = "")
     if tripo_key:  # Tripo 3D (text/image -> 3D) is separate from the brain
         tripo_key = clean_key(tripo_key)
         if not tripo_key.startswith("tsk_"):
-            raise click.ClickException("La clave de Tripo empieza por tsk_ (platform.tripo3d.ai > API Keys).")
+            raise click.ClickException(
+                "La clave de Tripo empieza por tsk_ (platform.tripo3d.ai > API Keys)."
+            )
         write_env(env_path, {"TRIPO_API_KEY": tripo_key})
         console.print("[green]Tripo listo[/green]: «hazme en 3D con Tripo …».")
         if not kimi_key and not gemini_key:
@@ -184,17 +193,31 @@ def voz(eleven_key: str) -> None:
             raise click.ClickException("ElevenLabs rechazó la clave.")
         if mine.status_code != 200:
             # A library voice must be in "My Voices" to be used by the API.
-            found = http.get(f"{API}/shared-voices", headers=headers,
-                             params={"search": "J Thomas Warm Raspy", "page_size": 30})
-            owner = next(
-                (v.get("public_owner_id") for v in (found.json().get("voices") or [])
-                 if v.get("voice_id") == VOICE_ID),
-                None,
-            ) if found.status_code == 200 else None
+            found = http.get(
+                f"{API}/shared-voices",
+                headers=headers,
+                params={"search": "J Thomas Warm Raspy", "page_size": 30},
+            )
+            owner = (
+                next(
+                    (
+                        v.get("public_owner_id")
+                        for v in (found.json().get("voices") or [])
+                        if v.get("voice_id") == VOICE_ID
+                    ),
+                    None,
+                )
+                if found.status_code == 200
+                else None
+            )
             added = (
-                http.post(f"{API}/voices/add/{owner}/{VOICE_ID}", headers=headers,
-                          json={"new_name": "Sergio (grave y rasposa)"})
-                if owner else None
+                http.post(
+                    f"{API}/voices/add/{owner}/{VOICE_ID}",
+                    headers=headers,
+                    json={"new_name": "Sergio (grave y rasposa)"},
+                )
+                if owner
+                else None
             )
             if added is None or added.status_code != 200:
                 console.print(
@@ -202,8 +225,11 @@ def voz(eleven_key: str) -> None:
                     f"busca «{VOICE_NAME}» y pulsa «Add to my voices».[/yellow]"
                 )
     write_env(env_path, {"ELEVENLABS_API_KEY": eleven_key})
-    subprocess.run(["systemctl", "--user", "try-restart", "sergio.service"],
-                   capture_output=True, check=False)
+    subprocess.run(
+        ["systemctl", "--user", "try-restart", "sergio.service"],
+        capture_output=True,
+        check=False,
+    )
     console.print(
         "[green]Listo.[/green] Las respuestas de Sergio usan ahora la voz grave y rasposa "
         "de ElevenLabs (empieza a sonar casi al instante). Las llamadas en vivo siguen con "
