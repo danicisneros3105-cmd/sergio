@@ -42,6 +42,7 @@ export default defineConfig({
         ],
         shortcuts: [
           { name: 'Chat', short_name: 'Chat', url: '/', icons: [{ src: 'pwa-192x192.png', sizes: '192x192' }] },
+          { name: 'Cowork', short_name: 'Cowork', url: '/cowork', icons: [{ src: 'pwa-192x192.png', sizes: '192x192' }] },
           {
             name: 'Pensar a fondo',
             short_name: 'Pensar',

@@ -111,6 +111,7 @@ if not _DATA_BOUNDARY_BOOTSTRAP:
     from openjarvis.cli.compose_cmd import compose
     from openjarvis.cli.config_cmd import config
     from openjarvis.cli.connect_cmd import connect
+    from openjarvis.cli.cowork_cmd import cowork
     from openjarvis.cli.daemon_cmd import restart, start, status, stop
     from openjarvis.cli.digest_cmd import digest
     from openjarvis.cli.doctor_cmd import doctor
@@ -135,6 +136,7 @@ if not _DATA_BOUNDARY_BOOTSTRAP:
     from openjarvis.cli.pearl_cmd import pearl
     from openjarvis.cli.pensar_cmd import pensar
     from openjarvis.cli.phone_cmd import telefono
+    from openjarvis.cli.plugin_cmd import plugin
     from openjarvis.cli.probar_cmd import probar
     from openjarvis.cli.quickstart_cmd import quickstart
     from openjarvis.cli.registry_cmd import registry
@@ -193,6 +195,8 @@ if not _DATA_BOUNDARY_BOOTSTRAP:
     cli.add_command(probar, "probar")
     cli.add_command(pensar, "pensar")
     cli.add_command(movil, "movil")
+    cli.add_command(cowork, "cowork")
+    cli.add_command(plugin, "plugin")
     cli.add_command(codigo, "codigo")
     cli.add_command(nube, "nube")
     cli.add_command(tool, "tool")

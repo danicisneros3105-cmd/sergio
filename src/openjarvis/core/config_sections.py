@@ -239,6 +239,20 @@ class TunnelConfig:
 
 
 @dataclass(slots=True)
+class CoworkConfig:
+    """Cowork mode: describe an outcome, step away, Sergio does the rest."""
+
+    max_actions: int = 50  # hard cap on tool calls per run (1-500)
+    autonomy: str = "normal"  # cauteloso | normal | autonomo
+    approval_timeout_minutes: int = 120  # unanswered approvals count as "no"
+    # Progress to the owner's own chat: a channel type ("telegram", "whatsapp",
+    # "discord" …) and the owner's id on it. Phone channels only accept the
+    # numbers in [phone] owner_numbers. Empty = only the app and the CLI.
+    notify_channel: str = ""
+    notify_to: str = ""
+
+
+@dataclass(slots=True)
 class ExtensionsConfig:
     """Bundled extensions that run next to OpenJarvis as one product."""
 
@@ -498,6 +512,7 @@ __all__ = [
     "BrowserConfig",
     "ClackyExtensionConfig",
     "CompressionConfig",
+    "CoworkConfig",
     "DigestConfig",
     "DigestSectionConfig",
     "ExtensionsConfig",

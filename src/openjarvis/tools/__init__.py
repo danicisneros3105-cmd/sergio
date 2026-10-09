@@ -283,4 +283,13 @@ except ImportError as _exc:
         "Optional import skipped (openjarvis.tools.coding_tools): %s", _exc
     )
 
+# Plugins the owner installed (``sergio plugin instalar``) add their tools last,
+# so they can never replace a built-in one.
+try:
+    from openjarvis.plugins.loader import load_enabled as _load_plugins
+
+    _load_plugins()
+except Exception as _exc:  # noqa: BLE001 - a broken plugin never breaks Sergio
+    _logging.getLogger(__name__).debug("Plugins not loaded: %s", _exc)
+
 __all__ = ["BaseTool", "ToolExecutor", "ToolSpec"]

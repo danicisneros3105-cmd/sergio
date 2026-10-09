@@ -1,0 +1,20 @@
+{
+  "plugins": [
+    {
+      "name": "frase-del-dia",
+      "version": "1.0.0",
+      "description": "Un refrán distinto cada día, para empezar con buen pie. Sin internet.",
+      "author": "Sergio (ejemplo)",
+      "permissions": [],
+      "path": "frase-del-dia"
+    },
+    {
+      "name": "tipo-de-cambio",
+      "version": "1.0.0",
+      "description": "Convierte montos entre monedas (USD, EUR, COP, PEN, MXN…) con la tasa del día.",
+      "author": "Sergio (ejemplo)",
+      "permissions": ["network:fetch"],
+      "path": "tipo-de-cambio"
+    }
+  ]
+}

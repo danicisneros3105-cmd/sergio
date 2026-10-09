@@ -81,6 +81,7 @@ from openjarvis.core.config_sections import (  # noqa: F401 (re-exported)
     BrowserConfig,
     ClackyExtensionConfig,
     CompressionConfig,
+    CoworkConfig,
     DigestConfig,
     DigestSectionConfig,
     ExtensionsConfig,
@@ -415,6 +416,7 @@ class JarvisConfig:
     extensions: ExtensionsConfig = field(default_factory=ExtensionsConfig)
     phone: PhoneConfig = field(default_factory=PhoneConfig)
     tunnel: TunnelConfig = field(default_factory=TunnelConfig)
+    cowork: CoworkConfig = field(default_factory=CoworkConfig)
     mining: Optional["MiningConfig"] = None
 
     @property
@@ -591,6 +593,7 @@ def load_config(path: Optional[Path] = None) -> JarvisConfig:
             "extensions",
             "phone",
             "tunnel",
+            "cowork",
         )
         for section_name in top_sections:
             if section_name in data:

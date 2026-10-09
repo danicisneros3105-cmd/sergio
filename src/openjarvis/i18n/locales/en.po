@@ -141,3 +141,81 @@ msgstr "Unpair every phone (creates a new token)."
 
 msgid "Muestra si hay un teléfono vinculado y si cloudflared está listo."
 msgstr "Show whether a phone is paired and cloudflared is ready."
+
+msgid "Modo Cowork: describa el resultado, aléjese y Sergio hace el resto."
+msgstr "Cowork mode: describe the outcome, step away and Sergio does the rest."
+
+msgid "Empieza una tarea Cowork con el resultado que usted quiere."
+msgstr "Start a Cowork task with the outcome you want."
+
+msgid "Cuánto hace solo: cauteloso pregunta más, autonomo pregunta menos."
+msgstr "How much it does on its own: cauteloso asks more, autonomo asks less."
+
+msgid "Tope de acciones (por defecto 50)."
+msgstr "Action cap (default 50)."
+
+msgid "Solo la inicia; véala luego con: sergio cowork estado."
+msgstr "Only start it; check it later with: jarvis cowork estado."
+
+msgid "Las tareas Cowork recientes."
+msgstr "Recent Cowork tasks."
+
+msgid "Cómo va una tarea (la última si no dice cuál)."
+msgstr "How a task is going (the latest if you don't say which)."
+
+msgid "Da el visto bueno a un paso que espera."
+msgstr "Approve a step that is waiting."
+
+msgid "Rechaza un paso que espera (no se hace)."
+msgstr "Refuse a step that is waiting (it is not done)."
+
+msgid "Detiene una tarea Cowork."
+msgstr "Stop a Cowork task."
+
+msgid "El registro completo de lo que decidió e hizo (con su sello de integridad)."
+msgstr "The full record of what it decided and did (with its integrity seal)."
+
+msgid "Plugins: herramientas nuevas para Sergio, hechas por otras personas."
+msgstr "Plugins: new tools for Sergio, made by other people."
+
+msgid "Busca plugins en los índices."
+msgstr "Search the plugin indexes."
+
+msgid "Instala un plugin por nombre, desde un .zip o desde una URL https."
+msgstr "Install a plugin by name, from a .zip or from an https URL."
+
+msgid "No preguntar (acepta los permisos)."
+msgstr "Do not ask (accept the permissions)."
+
+msgid "Reinstala aunque ya esté esa versión."
+msgstr "Reinstall even if that version is already installed."
+
+msgid "Huella esperada del archivo."
+msgstr "Expected SHA-256 of the file."
+
+msgid "Quita un plugin y sus archivos."
+msgstr "Remove a plugin and its files."
+
+msgid "Detalles de un plugin (instalado o del índice)."
+msgstr "Details of a plugin (installed or from the index)."
+
+msgid "Los plugins instalados."
+msgstr "Installed plugins."
+
+msgid "Vuelve a usar un plugin desactivado."
+msgstr "Use a disabled plugin again."
+
+msgid "Deja de usar un plugin sin desinstalarlo."
+msgstr "Stop using a plugin without uninstalling it."
+
+msgid "Crea el esqueleto de un plugin nuevo, listo para editar."
+msgstr "Create a ready-to-edit skeleton for a new plugin."
+
+msgid "Dónde crearlo."
+msgstr "Where to create it."
+
+msgid "Empaqueta una carpeta de plugin en un .zip con su huella sha256."
+msgstr "Pack a plugin folder into a .zip with its SHA-256."
+
+msgid "Carpeta del .zip."
+msgstr "Folder for the .zip."

@@ -575,6 +575,10 @@ def create_app(
     from openjarvis.server.embeddings_routes import router as embeddings_router
 
     app.include_router(embeddings_router)
+    # Cowork mode: describe an outcome, step away, Sergio does the rest.
+    from openjarvis.server.cowork_routes import router as cowork_router
+
+    app.include_router(cowork_router)
     # Native notch tabs: God's Eye View data and ECC guides.
     from openjarvis.server.notch_routes import router as notch_router
 

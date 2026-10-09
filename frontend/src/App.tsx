@@ -11,6 +11,7 @@ import { LogsPage } from './pages/LogsPage';
 import { ExtensionPage } from './pages/ExtensionPage';
 import { FacesPage } from './pages/FacesPage';
 import { ThinkPage } from './pages/ThinkPage';
+import { CoworkPage } from './pages/CoworkPage';
 import { CommandPalette } from './components/CommandPalette';
 import { SetupScreen } from './components/SetupScreen';
 import { Toaster } from './components/ui/sonner';
@@ -184,6 +185,7 @@ export default function App() {
           <Route path="clacky" element={<ExtensionPage name="clacky" />} />
           <Route path="faces" element={<FacesPage />} />
           <Route path="pensar" element={<ThinkPage />} />
+          <Route path="cowork" element={<CoworkPage />} />
         </Route>
       </Routes>
       <Toaster position="bottom-right" />

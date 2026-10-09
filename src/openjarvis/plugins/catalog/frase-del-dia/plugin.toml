@@ -1,0 +1,8 @@
+[plugin]
+name = "frase-del-dia"
+version = "1.0.0"
+description = "Un refrán distinto cada día, para empezar con buen pie. Sin internet."
+author = "Sergio (ejemplo)"
+license = "Apache-2.0"
+entry = "plugin.py"
+permissions = []

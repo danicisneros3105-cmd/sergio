@@ -199,6 +199,12 @@ def ensure_registries_populated() -> None:
     # not register again, so put back whatever OpenJarvis registered before.
     ChannelRegistry.restore_builtin()
     ToolRegistry.restore_builtin()
+    try:  # and the owner's plugins, after the built-in tools
+        from openjarvis.plugins.loader import load_enabled
+
+        load_enabled()
+    except Exception:  # noqa: BLE001
+        pass
 
     if not any(ToolRegistry.contains(name) for name in BROWSER_SUB_TOOLS):
         for module_name in browser_modules:

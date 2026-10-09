@@ -1,0 +1,9 @@
+[plugin]
+name = "tipo-de-cambio"
+version = "1.0.0"
+description = "Convierte montos entre monedas (USD, EUR, COP, PEN, MXN…) con la tasa del día."
+author = "Sergio (ejemplo)"
+license = "Apache-2.0"
+entry = "plugin.py"
+permissions = ["network:fetch"]
+homepage = "https://www.exchangerate-api.com/docs/free"
