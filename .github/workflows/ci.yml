@@ -263,6 +263,29 @@ jobs:
       - name: Performance smoke benchmark
         run: uv run python benchmarks/perf_smoke.py --check benchmarks/perf_baseline.json --summary "$GITHUB_STEP_SUMMARY"
 
+  wheel:
+    # Guards against a release wheel silently missing files (v1.0.1 shipped
+    # without openjarvis/traces/, #372): build it, compare it with every file
+    # Git tracks under src/openjarvis, install it fresh and import it.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.2.0
+        with:
+          enable-cache: true
+
+      - name: Build, inspect and install the wheel
+        run: python scripts/ci/check_wheel.py
+
   rust:
     runs-on: ubuntu-latest
     defaults:

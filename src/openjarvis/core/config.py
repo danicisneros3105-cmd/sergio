@@ -9,19 +9,104 @@ from __future__ import annotations
 
 import functools
 import os
-import platform
-import shutil
-import subprocess
+import platform  # noqa: F401 - config_hardware looks it up here
+import shutil  # noqa: F401 - config_hardware looks it up here
+import subprocess  # noqa: F401 - config_hardware looks it up here
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import (
     TYPE_CHECKING,
     Any,
     Dict,
-    List,
     Optional,
 )
 
+from openjarvis.core.config_channels import (  # noqa: F401 (re-exported)
+    BlueBubblesChannelConfig,
+    ChannelConfig,
+    DiscordChannelConfig,
+    EmailChannelConfig,
+    FeishuChannelConfig,
+    GoogleChatChannelConfig,
+    IRCChannelConfig,
+    MatrixChannelConfig,
+    MattermostChannelConfig,
+    SignalChannelConfig,
+    SlackChannelConfig,
+    TeamsChannelConfig,
+    TelegramChannelConfig,
+    WebChatChannelConfig,
+    WebhookChannelConfig,
+    WhatsAppBaileysChannelConfig,
+    WhatsAppChannelConfig,
+)
+from openjarvis.core.config_engines import (  # noqa: F401 (re-exported)
+    AfmEngineConfig,
+    AppleFmEngineConfig,
+    EngineConfig,
+    ExoEngineConfig,
+    GemmaCppEngineConfig,
+    LemonadeEngineConfig,
+    LlamaCppEngineConfig,
+    LMStudioEngineConfig,
+    MLXEngineConfig,
+    NexaEngineConfig,
+    OllamaEngineConfig,
+    SGLangEngineConfig,
+    UzuEngineConfig,
+    VLLMEngineConfig,
+)
+from openjarvis.core.config_learning import (  # noqa: F401 (re-exported)
+    ACEOptimizerConfig,
+    AgentLearningConfig,
+    DeepResearchConfig,
+    DSPyOptimizerConfig,
+    GEPAOptimizerConfig,
+    GRPOConfig,
+    IntelligenceConfig,
+    IntelligenceLearningConfig,
+    LearningConfig,
+    MetricsConfig,
+    RoutingLearningConfig,
+    SFTConfig,
+    SkillsLearningConfig,
+    SpecSearchCompositeRewardConfig,
+    SpecSearchLearningConfig,
+)
+from openjarvis.core.config_sections import (  # noqa: F401 (re-exported)
+    A2AConfig,
+    AgentConfig,
+    AgentManagerConfig,
+    AnalyticsConfig,
+    BrowserConfig,
+    ClackyExtensionConfig,
+    CompressionConfig,
+    DigestConfig,
+    DigestSectionConfig,
+    ExtensionsConfig,
+    GlobeExtensionConfig,
+    MCPConfig,
+    MemoryFilesConfig,
+    OperatorsConfig,
+    OptimizeConfig,
+    PhoneConfig,
+    ProactiveConfig,
+    SandboxConfig,
+    SchedulerConfig,
+    ServerConfig,
+    SessionConfig,
+    SkillsConfig,
+    SkillSourceConfig,
+    SpeechConfig,
+    StorageConfig,
+    SystemPromptConfig,
+    TelemetryConfig,
+    ToolsConfig,
+    TracesConfig,
+    TunnelConfig,
+    WeatherToolConfig,
+    WorkflowConfig,
+)
 from openjarvis.core.paths import (
     ConfigurationError,
     get_cache_dir,
@@ -94,202 +179,9 @@ class HardwareInfo:
 # ---------------------------------------------------------------------------
 
 
-def _run_cmd(cmd: list[str]) -> str:
-    """Run a command and return stripped stdout, or empty string on failure."""
-    try:
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=10,  # noqa: S603
-        )
-        return result.stdout.strip()
-    except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
-        return ""
-
-
-def _detect_nvidia_gpu() -> Optional[GpuInfo]:
-    if not shutil.which("nvidia-smi"):
-        return None
-    raw = _run_cmd(
-        [
-            "nvidia-smi",
-            "--query-gpu=name,memory.total,count,compute_cap",
-            "--format=csv,noheader,nounits",
-        ]
-    )
-    if not raw:
-        return None
-    try:
-        first_line = raw.splitlines()[0]
-        parts = [p.strip() for p in first_line.split(",")]
-        name = parts[0]
-        vram_mb = float(parts[1])
-        count = int(parts[2])
-        compute_capability = parts[3] if len(parts) > 3 else ""
-        return GpuInfo(
-            vendor="nvidia",
-            name=name,
-            vram_gb=round(vram_mb / 1024, 1),
-            compute_capability=compute_capability,
-            count=count,
-        )
-    except (IndexError, ValueError):
-        return None
-
-
-def _detect_amd_gpu() -> Optional[GpuInfo]:
-    if not shutil.which("rocm-smi"):
-        return None
-    raw = _run_cmd(["rocm-smi", "--showproductname"])
-    if not raw:
-        return None
-    name = raw.splitlines()[0] if raw else "AMD GPU"
-
-    # Parse VRAM from rocm-smi --showmeminfo vram
-    vram_gb = 0.0
-    try:
-        vram_raw = _run_cmd(["rocm-smi", "--showmeminfo", "vram"])
-        for line in vram_raw.splitlines():
-            if "Total Memory (B):" in line:
-                vram_bytes = int(line.split(":")[-1].strip())
-                vram_gb = round(vram_bytes / (1024**3), 1)
-                break
-    except (ValueError, IndexError):
-        vram_gb = 0.0
-
-    # Parse GPU count from rocm-smi --showallinfo
-    count = 1
-    try:
-        allinfo_raw = _run_cmd(["rocm-smi", "--showallinfo"])
-        import re
-
-        gpu_ids = set(re.findall(r"GPU\[(\d+)\]", allinfo_raw))
-        if gpu_ids:
-            count = len(gpu_ids)
-    except (ValueError, IndexError):
-        count = 1
-
-    return GpuInfo(vendor="amd", name=name, vram_gb=vram_gb, count=count)
-
-
-def _detect_apple_gpu() -> Optional[GpuInfo]:
-    if platform.system() != "Darwin":
-        return None
-    raw = _run_cmd(["system_profiler", "SPDisplaysDataType"])
-    if "Apple" not in raw:
-        return None
-    # Rough extraction — "Apple M2 Max" etc.
-    ram_gb = _total_ram_gb()
-    for line in raw.splitlines():
-        line = line.strip()
-        if "Chipset Model" in line:
-            name = line.split(":")[-1].strip()
-            return GpuInfo(vendor="apple", name=name, vram_gb=ram_gb, count=1)
-    return GpuInfo(vendor="apple", name="Apple Silicon", vram_gb=ram_gb, count=1)
-
-
-def _detect_cpu_brand() -> str:
-    """Best-effort CPU brand string."""
-    if platform.system() == "Darwin":
-        brand = _run_cmd(["sysctl", "-n", "machdep.cpu.brand_string"])
-        if brand:
-            return brand
-    cpuinfo = Path("/proc/cpuinfo")
-    if cpuinfo.exists():
-        try:
-            for line in cpuinfo.read_text().splitlines():
-                if line.startswith("model name"):
-                    return line.split(":", 1)[1].strip()
-        except OSError:
-            pass
-    return platform.processor() or "unknown"
-
-
-def _total_ram_gb() -> float:
-    try:
-        if platform.system() == "Darwin":
-            raw = _run_cmd(["sysctl", "-n", "hw.memsize"])
-            return round(int(raw) / (1024**3), 1) if raw else 0.0
-        if platform.system() == "Windows":
-            import ctypes
-
-            class _MemoryStatusEx(ctypes.Structure):
-                _fields_ = [
-                    ("dwLength", ctypes.c_ulong),
-                    ("dwMemoryLoad", ctypes.c_ulong),
-                    ("ullTotalPhys", ctypes.c_ulonglong),
-                    ("ullAvailPhys", ctypes.c_ulonglong),
-                    ("ullTotalPageFile", ctypes.c_ulonglong),
-                    ("ullAvailPageFile", ctypes.c_ulonglong),
-                    ("ullTotalVirtual", ctypes.c_ulonglong),
-                    ("ullAvailVirtual", ctypes.c_ulonglong),
-                    ("sullAvailExtendedVirtual", ctypes.c_ulonglong),
-                ]
-
-            stat = _MemoryStatusEx()
-            stat.dwLength = ctypes.sizeof(_MemoryStatusEx)
-            if ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(stat)):
-                return round(stat.ullTotalPhys / (1024**3), 1)
-            return 0.0
-        meminfo = Path("/proc/meminfo")
-        if meminfo.exists():
-            for line in meminfo.read_text().splitlines():
-                if line.startswith("MemTotal"):
-                    kb = int(line.split()[1])
-                    return round(kb / (1024**2), 1)
-    except (OSError, ValueError, AttributeError):
-        pass
-    return 0.0
-
-
-def detect_hardware() -> HardwareInfo:
-    """Auto-detect hardware capabilities with graceful fallbacks."""
-    gpu = _detect_nvidia_gpu() or _detect_amd_gpu() or _detect_apple_gpu()
-    return HardwareInfo(
-        platform=platform.system().lower(),
-        cpu_brand=_detect_cpu_brand(),
-        cpu_count=os.cpu_count() or 1,
-        ram_gb=_total_ram_gb(),
-        gpu=gpu,
-    )
-
-
 # ---------------------------------------------------------------------------
 # Engine recommendation
 # ---------------------------------------------------------------------------
-
-
-def recommend_engine(hw: HardwareInfo) -> str:
-    """Suggest the best inference engine for the detected hardware."""
-    gpu = hw.gpu
-    if gpu is None:
-        return "llamacpp"
-    if gpu.vendor == "apple":
-        return "mlx"
-    if gpu.vendor == "nvidia":
-        # Datacenter cards (A100, H100, L40, etc.) → vllm; consumer → ollama
-        datacenter_keywords = ("A100", "H100", "H200", "L40", "A10", "A30")
-        if any(kw in gpu.name for kw in datacenter_keywords):
-            return "vllm"
-        return "ollama"
-    if gpu.vendor == "amd":
-        # Datacenter cards (MI300, MI325, MI350, MI355) → vllm; consumer → lemonade
-        amd_datacenter_keywords = ("MI300", "MI325", "MI350", "MI355")
-        if any(kw in gpu.name for kw in amd_datacenter_keywords):
-            return "vllm"
-        return "lemonade"
-    return "llamacpp"
-
-
-def _available_memory_gb(hw: HardwareInfo) -> float:
-    """Return usable memory in GB for model loading."""
-    gpu = hw.gpu
-    if gpu and gpu.vram_gb > 0:
-        return gpu.vram_gb * max(gpu.count, 1) * 0.9
-    if hw.ram_gb > 0:
-        return (hw.ram_gb - 4) * 0.8
-    return 0.0
 
 
 # Explicit tier table: (max_ram_gb, model_id).
@@ -305,687 +197,13 @@ _MODEL_TIER_FALLBACK = "qwen3.5:27b"
 _LEMONADE_DEFAULT_MODEL = "Qwen3.6-35B-A3B-GGUF"
 
 
-def recommend_model(hw: HardwareInfo, engine: str) -> str:
-    """Suggest a default model for the selected engine and hardware.
-
-    For Lemonade, prefer the validated Qwen3.6 35B A3B GGUF default.
-    For other local engines, use the generic Qwen3.5 tier mapping.
-    """
-    from openjarvis.intelligence.model_catalog import BUILTIN_MODELS
-
-    available_gb = _available_memory_gb(hw)
-    if available_gb <= 0:
-        return ""
-
-    if engine == "lemonade":
-        return _LEMONADE_DEFAULT_MODEL
-
-    # Build a lookup for quick engine-compatibility checks
-    catalog = {spec.model_id: spec for spec in BUILTIN_MODELS}
-
-    # Try explicit tier mapping first
-    model_id = _MODEL_TIER_FALLBACK
-    for max_ram, tier_model in _MODEL_TIERS:
-        if available_gb <= max_ram:
-            model_id = tier_model
-            break
-
-    spec = catalog.get(model_id)
-    if spec and engine in spec.supported_engines:
-        return model_id
-
-    # Fallback: scan all Qwen3.5 models for engine compatibility
-    candidates = [
-        s
-        for s in BUILTIN_MODELS
-        if s.provider == "alibaba"
-        and s.model_id.startswith("qwen3.5:")
-        and engine in s.supported_engines
-    ]
-    candidates.sort(key=lambda s: s.parameter_count_b, reverse=True)
-    for s in candidates:
-        estimated_gb = s.parameter_count_b * 0.5 * 1.1
-        if estimated_gb <= available_gb:
-            return s.model_id
-
-    return ""
-
-
-def estimated_download_gb(parameter_count_b: float) -> float:
-    """Estimate download size in GB for Q4_K_M quantized model."""
-    return parameter_count_b * 0.5 * 1.1
-
-
 # ---------------------------------------------------------------------------
 # Configuration hierarchy
 # ---------------------------------------------------------------------------
 
 
-@dataclass(slots=True)
-class OllamaEngineConfig:
-    """Per-engine config for Ollama."""
-
-    host: str = ""
-
-
-@dataclass(slots=True)
-class VLLMEngineConfig:
-    """Per-engine config for vLLM."""
-
-    host: str = "http://localhost:8000"
-
-
-@dataclass(slots=True)
-class SGLangEngineConfig:
-    """Per-engine config for SGLang."""
-
-    host: str = "http://localhost:30000"
-
-
-@dataclass(slots=True)
-class LlamaCppEngineConfig:
-    """Per-engine config for llama.cpp."""
-
-    host: str = "http://localhost:8080"
-    binary_path: str = ""
-
-
-@dataclass(slots=True)
-class MLXEngineConfig:
-    """Per-engine config for MLX."""
-
-    host: str = "http://localhost:8080"
-
-
-@dataclass(slots=True)
-class LMStudioEngineConfig:
-    """Per-engine config for LM Studio."""
-
-    host: str = "http://localhost:1234"
-
-
-@dataclass(slots=True)
-class ExoEngineConfig:
-    """Per-engine config for Exo."""
-
-    host: str = "http://localhost:52415"
-
-
-@dataclass(slots=True)
-class NexaEngineConfig:
-    """Per-engine config for Nexa."""
-
-    host: str = "http://localhost:18181"
-    device: str = ""
-
-
-@dataclass(slots=True)
-class UzuEngineConfig:
-    """Per-engine config for Uzu."""
-
-    host: str = "http://localhost:8000"
-
-
-@dataclass(slots=True)
-class AppleFmEngineConfig:
-    """Per-engine config for Apple Foundation Models."""
-
-    host: str = "http://localhost:8079"
-
-
-@dataclass(slots=True)
-class GemmaCppEngineConfig:
-    """Per-engine config for gemma.cpp."""
-
-    model_path: str = ""
-    tokenizer_path: str = ""
-    model_type: str = ""
-    num_threads: int = 0
-
-
-@dataclass(slots=True)
-class AfmEngineConfig:
-    """Per-engine config for in-process Apple Foundation Models.
-
-    No ``host``: this engine runs the SDK in-process rather than talking to a
-    server. (The separate ``apple_fm`` engine does have a host — it speaks to
-    the FastAPI shim.)
-    """
-
-    # Standing instructions applied to every session, on top of any system
-    # message in the request.
-    instructions: str = ""
-    # "general" or "content_tagging".
-    use_case: str = "general"
-    # "default" or "permissive_content_transformations".
-    guardrails: str = "default"
-    # "greedy" (reproducible, the default here) or "random" (the SDK default).
-    sampling: str = "greedy"
-
-
-@dataclass(slots=True)
-class LemonadeEngineConfig:
-    """Per-engine config for Lemonade."""
-
-    host: str = "http://localhost:13305"
-
-
-@dataclass
-class EngineConfig:
-    """Inference engine settings with nested per-engine configs."""
-
-    default: str = "ollama"
-    ollama: OllamaEngineConfig = field(default_factory=OllamaEngineConfig)
-    vllm: VLLMEngineConfig = field(default_factory=VLLMEngineConfig)
-    sglang: SGLangEngineConfig = field(default_factory=SGLangEngineConfig)
-    llamacpp: LlamaCppEngineConfig = field(default_factory=LlamaCppEngineConfig)
-    mlx: MLXEngineConfig = field(default_factory=MLXEngineConfig)
-    lmstudio: LMStudioEngineConfig = field(default_factory=LMStudioEngineConfig)
-    exo: ExoEngineConfig = field(default_factory=ExoEngineConfig)
-    nexa: NexaEngineConfig = field(default_factory=NexaEngineConfig)
-    uzu: UzuEngineConfig = field(default_factory=UzuEngineConfig)
-    apple_fm: AppleFmEngineConfig = field(default_factory=AppleFmEngineConfig)
-    afm: AfmEngineConfig = field(default_factory=AfmEngineConfig)
-    gemma_cpp: GemmaCppEngineConfig = field(default_factory=GemmaCppEngineConfig)
-    lemonade: LemonadeEngineConfig = field(default_factory=LemonadeEngineConfig)
-
-    # Backward-compat properties for old flat attribute names
-    @property
-    def ollama_host(self) -> str:
-        """Deprecated: use ``engine.ollama.host``."""
-        return self.ollama.host
-
-    @ollama_host.setter
-    def ollama_host(self, value: str) -> None:
-        self.ollama.host = value
-
-    @property
-    def vllm_host(self) -> str:
-        """Deprecated: use ``engine.vllm.host``."""
-        return self.vllm.host
-
-    @vllm_host.setter
-    def vllm_host(self, value: str) -> None:
-        self.vllm.host = value
-
-    @property
-    def llamacpp_host(self) -> str:
-        """Deprecated: use ``engine.llamacpp.host``."""
-        return self.llamacpp.host
-
-    @llamacpp_host.setter
-    def llamacpp_host(self, value: str) -> None:
-        self.llamacpp.host = value
-
-    @property
-    def llamacpp_path(self) -> str:
-        """Deprecated: use ``engine.llamacpp.binary_path``."""
-        return self.llamacpp.binary_path
-
-    @llamacpp_path.setter
-    def llamacpp_path(self, value: str) -> None:
-        self.llamacpp.binary_path = value
-
-    @property
-    def sglang_host(self) -> str:
-        """Deprecated: use ``engine.sglang.host``."""
-        return self.sglang.host
-
-    @sglang_host.setter
-    def sglang_host(self, value: str) -> None:
-        self.sglang.host = value
-
-    @property
-    def mlx_host(self) -> str:
-        """Deprecated: use ``engine.mlx.host``."""
-        return self.mlx.host
-
-    @mlx_host.setter
-    def mlx_host(self, value: str) -> None:
-        self.mlx.host = value
-
-    @property
-    def lmstudio_host(self) -> str:
-        """Deprecated: use ``engine.lmstudio.host``."""
-        return self.lmstudio.host
-
-    @lmstudio_host.setter
-    def lmstudio_host(self, value: str) -> None:
-        self.lmstudio.host = value
-
-    @property
-    def exo_host(self) -> str:
-        """Deprecated: use ``engine.exo.host``."""
-        return self.exo.host
-
-    @exo_host.setter
-    def exo_host(self, value: str) -> None:
-        self.exo.host = value
-
-    @property
-    def nexa_host(self) -> str:
-        """Deprecated: use ``engine.nexa.host``."""
-        return self.nexa.host
-
-    @nexa_host.setter
-    def nexa_host(self, value: str) -> None:
-        self.nexa.host = value
-
-    @property
-    def uzu_host(self) -> str:
-        """Deprecated: use ``engine.uzu.host``."""
-        return self.uzu.host
-
-    @uzu_host.setter
-    def uzu_host(self, value: str) -> None:
-        self.uzu.host = value
-
-    @property
-    def apple_fm_host(self) -> str:
-        """Deprecated: use ``engine.apple_fm.host``."""
-        return self.apple_fm.host
-
-    @apple_fm_host.setter
-    def apple_fm_host(self, value: str) -> None:
-        self.apple_fm.host = value
-
-    @property
-    def lemonade_host(self) -> str:
-        """Deprecated: use ``engine.lemonade.host``."""
-        return self.lemonade.host
-
-    @lemonade_host.setter
-    def lemonade_host(self, value: str) -> None:
-        self.lemonade.host = value
-
-
-@dataclass(slots=True)
-class IntelligenceConfig:
-    """The model — identity, paths, quantization, and generation defaults."""
-
-    default_model: str = ""
-    # Optional per-CLI preset (used when ``-m`` omitted or ``-m smart``).
-    model_chat: str = ""
-    model_short: str = ""
-    model_long: str = ""
-    model_code: str = ""
-    fallback_model: str = ""
-    model_path: str = ""  # Local weights (HF repo, GGUF file, etc.)
-    checkpoint_path: str = ""  # Checkpoint/adapter path
-    quantization: str = "none"  # none, fp8, int8, int4, gguf_q4, gguf_q8
-    preferred_engine: str = ""  # Override engine for this model (e.g., "vllm")
-    provider: str = ""  # local, openai, anthropic, google
-    # Generation defaults (overridable per-call)
-    temperature: float = 0.7
-    max_tokens: int = 1024
-    top_p: float = 0.9
-    top_k: int = 40
-    repetition_penalty: float = 1.0
-    stop_sequences: str = ""  # Comma-separated stop strings
-
-
-@dataclass(slots=True)
-class DeepResearchConfig:
-    """Planner settings for the web Deep Research endpoint."""
-
-    engine: str = ""  # Empty means use the active chat engine.
-    model: str = ""  # Empty means use the active chat model.
-
-
-@dataclass(slots=True)
-class RoutingLearningConfig:
-    """Routing sub-policy config within Learning."""
-
-    policy: str = "heuristic"  # heuristic | learned
-    min_samples: int = 5  # Min traces before trusting learned routing
-
-
-@dataclass(slots=True)
-class SFTConfig:
-    """General-purpose SFT training config. Maps to [learning.intelligence.sft]."""
-
-    model_name: str = "Qwen/Qwen3-1.7B"
-    max_seq_length: int = 4096
-    num_epochs: int = 3
-    batch_size: int = 8
-    learning_rate: float = 2e-5
-    weight_decay: float = 0.01
-    warmup_ratio: float = 0.1
-    max_grad_norm: float = 1.0
-    gradient_checkpointing: bool = True
-    use_lora: bool = True
-    lora_rank: int = 16
-    lora_alpha: int = 32
-    lora_dropout: float = 0.05
-    target_modules: str = "q_proj,v_proj"  # comma-separated for TOML compat
-    use_4bit: bool = False
-    checkpoint_dir: str = "checkpoints/sft"
-    min_pairs: int = 10
-    agent_filter: str = ""
-
-
-@dataclass(slots=True)
-class GRPOConfig:
-    """General-purpose GRPO training config. Maps to [learning.intelligence.grpo]."""
-
-    model_name: str = "Qwen/Qwen3-1.7B"
-    max_seq_length: int = 4096
-    max_response_length: int = 2048
-    num_epochs: int = 10
-    batch_size: int = 16
-    learning_rate: float = 1e-6
-    max_grad_norm: float = 1.0
-    gradient_checkpointing: bool = True
-    num_samples_per_prompt: int = 8
-    temperature: float = 1.0
-    kl_coef: float = 0.0001
-    clip_ratio: float = 0.2
-    use_8bit_ref: bool = True
-    checkpoint_dir: str = "checkpoints/grpo"
-    save_every_n_epochs: int = 1
-    keep_last_n: int = 3
-    min_prompts: int = 10
-    agent_filter: str = ""
-
-
-@dataclass(slots=True)
-class DSPyOptimizerConfig:
-    """DSPy agent optimizer config. Maps to [learning.agent.dspy]."""
-
-    optimizer: str = "BootstrapFewShotWithRandomSearch"
-    task_lm: str = ""
-    teacher_lm: str = ""
-    max_bootstrapped_demos: int = 4
-    max_labeled_demos: int = 4
-    num_candidate_programs: int = 10
-    max_rounds: int = 1
-    optimize_system_prompt: bool = True
-    optimize_few_shot: bool = True
-    optimize_tool_descriptions: bool = True
-    min_traces: int = 20
-    metric_threshold: float = 0.7
-    agent_filter: str = ""
-    config_dir: str = ""
-
-
-@dataclass(slots=True)
-class GEPAOptimizerConfig:
-    """GEPA agent optimizer config. Maps to [learning.agent.gepa]."""
-
-    reflection_lm: str = ""
-    max_metric_calls: int = 150
-    population_size: int = 10
-    optimize_system_prompt: bool = True
-    optimize_tools: bool = True
-    optimize_max_turns: bool = True
-    optimize_temperature: bool = True
-    min_traces: int = 20
-    assessment_batch_size: int = 10
-    agent_filter: str = ""
-    config_dir: str = ""
-
-
-@dataclass(slots=True)
-class ACEOptimizerConfig:
-    """ACE agent optimizer config. Maps to ``[learning.agent.ace]``.
-
-    ACE (Agentic Context Engineering) evolves a *playbook* — annotated
-    natural-language strategies that get prepended to the agent's
-    context — using a Generator / Reflector / Curator triad. Unlike
-    DSPy (few-shot bootstrapping) or GEPA (Pareto-evolutionary prompt
-    mutation), ACE writes a textual playbook that the agent reads at
-    inference time.
-
-    See https://github.com/ace-agent/ace for the upstream reference.
-    Install via ``pip install -e openjarvis[learning-ace]`` once the
-    optional dep is available (ACE is not on PyPI as of v1.0.1; the
-    extra installs from the upstream git repo).
-    """
-
-    # Models for ACE's three roles. Empty string = inherit from the
-    # intelligence primitive's default cloud model.
-    generator_model: str = ""
-    reflector_model: str = ""
-    curator_model: str = ""
-
-    # Provider passed to ACE (``sambanova`` | ``together`` | ``openai``
-    # | ``commonstack``). We default to ``openai`` since that's what
-    # most OpenJarvis users have credentials for.
-    api_provider: str = "openai"
-
-    # Run parameters. Defaults mirror ACE's offline-mode quickstart.
-    num_epochs: int = 1
-    max_num_rounds: int = 3
-    eval_steps: int = 100
-    playbook_token_budget: int = 80_000
-    max_tokens: int = 4_096
-
-    # Where ACE writes intermediate playbooks + final_results.json.
-    # Empty string defaults to ``~/.openjarvis/learning/ace/<task>/``.
-    save_dir: str = ""
-    task_name: str = "openjarvis"
-
-    # Standard filter / threshold knobs shared with DSPy / GEPA.
-    min_traces: int = 20
-    agent_filter: str = ""
-    config_dir: str = ""
-
-
-@dataclass(slots=True)
-class IntelligenceLearningConfig:
-    """Intelligence sub-policy config within Learning."""
-
-    policy: str = "none"  # none | sft | grpo
-    sft: SFTConfig = field(default_factory=SFTConfig)
-    grpo: GRPOConfig = field(default_factory=GRPOConfig)
-
-
-@dataclass(slots=True)
-class AgentLearningConfig:
-    """Agent sub-policy config within Learning."""
-
-    policy: str = "none"  # none | dspy | gepa | ace
-    dspy: DSPyOptimizerConfig = field(default_factory=DSPyOptimizerConfig)
-    gepa: GEPAOptimizerConfig = field(default_factory=GEPAOptimizerConfig)
-    ace: ACEOptimizerConfig = field(default_factory=ACEOptimizerConfig)
-
-
-@dataclass(slots=True)
-class SkillsLearningConfig:
-    """Configuration for the skills learning loop (Plan 2A)."""
-
-    auto_optimize: bool = False  # opt in via config
-    optimizer: str = "dspy"  # "dspy" or "gepa"
-    min_traces_per_skill: int = 20
-    optimization_interval_seconds: int = 86400
-    overlay_dir: str = field(
-        default_factory=lambda: str(get_config_dir() / "learning" / "skills")
-    )
-
-
-@dataclass(slots=True)
-class MetricsConfig:
-    """Reward / optimization metric weights."""
-
-    accuracy_weight: float = 0.6
-    latency_weight: float = 0.2
-    cost_weight: float = 0.1
-    efficiency_weight: float = 0.1
-
-
-@dataclass(slots=True)
-class SpecSearchCompositeRewardConfig:
-    """Composite reward weights for Intelligence-edit training (paper Eq. 1).
-
-    R(q, y) = alpha * R_acc - beta * E_hat - gamma * L_hat - delta * C_hat
-    """
-
-    alpha: float = 0.5
-    beta: float = 0.1
-    gamma: float = 0.1
-    delta: float = 0.3
-
-
-@dataclass(slots=True)
-class SpecSearchLearningConfig:
-    """LLM-guided spec search config (paper §3.3, Algorithm 1).
-
-    Maps to ``[learning.spec_search]`` and is consumed by
-    ``SpecSearchOrchestrator.from_config`` and ``SpecSearchLoop``.
-    """
-
-    enabled: bool = False
-    teacher_model: str = "claude-opus-4-6"
-    teacher_engine: str = "cloud"  # registry key for the cloud engine
-    autonomy_mode: str = "tiered"  # auto | tiered | manual
-
-    # Per-session bounds (one diagnose/plan/execute pass)
-    min_traces: int = 20
-    max_cost_per_session_usd: float = 5.0
-    max_tool_calls_per_diagnosis: int = 30
-
-    # Multi-session loop (paper Algorithm 1)
-    stagnation_k: int = 5
-    max_total_cost_usd: float = 50.0
-    stagnation_eps: float = 0.001  # gate-score delta below this counts as no progress
-
-    # Gate (GateOK predicate)
-    max_regression: float = 0.01  # paper default: epsilon = 1%
-    min_improvement: float = 0.0
-    benchmark_subsample_size: int = 50
-    benchmark_version: str = "personal_v1"
-
-    # Composite reward (only used when an Intelligence edit triggers training)
-    composite_reward: SpecSearchCompositeRewardConfig = field(
-        default_factory=SpecSearchCompositeRewardConfig,
-    )
-
-
-@dataclass
-class LearningConfig:
-    """Learning system settings with per-primitive sub-policies."""
-
-    enabled: bool = False
-    update_interval: int = 100
-    auto_update: bool = False
-    routing: RoutingLearningConfig = field(default_factory=RoutingLearningConfig)
-    intelligence: IntelligenceLearningConfig = field(
-        default_factory=IntelligenceLearningConfig,
-    )
-    agent: AgentLearningConfig = field(default_factory=AgentLearningConfig)
-    skills: SkillsLearningConfig = field(default_factory=SkillsLearningConfig)
-    spec_search: SpecSearchLearningConfig = field(
-        default_factory=SpecSearchLearningConfig,
-    )
-    metrics: MetricsConfig = field(default_factory=MetricsConfig)
-
-    # Training pipeline
-    training_enabled: bool = False
-    training_schedule: str = ""
-    min_improvement: float = 0.02
-
-    # Backward-compat properties for old flat field names
-    @property
-    def default_policy(self) -> str:
-        """Deprecated: use ``learning.routing.policy``."""
-        return self.routing.policy
-
-    @default_policy.setter
-    def default_policy(self, value: str) -> None:
-        self.routing.policy = value
-
-    @property
-    def intelligence_policy(self) -> str:
-        """Deprecated: use ``learning.intelligence.policy``."""
-        return self.intelligence.policy
-
-    @intelligence_policy.setter
-    def intelligence_policy(self, value: str) -> None:
-        self.intelligence.policy = value
-
-    @property
-    def agent_policy(self) -> str:
-        """Deprecated: use ``learning.agent.policy``."""
-        return self.agent.policy
-
-    @agent_policy.setter
-    def agent_policy(self, value: str) -> None:
-        self.agent.policy = value
-
-    @property
-    def reward_weights(self) -> str:
-        """Deprecated: use ``learning.metrics.*``."""
-        parts = []
-        m = self.metrics
-        if m.latency_weight:
-            parts.append(f"latency={m.latency_weight}")
-        if m.cost_weight:
-            parts.append(f"cost={m.cost_weight}")
-        if m.efficiency_weight:
-            parts.append(f"efficiency={m.efficiency_weight}")
-        if m.accuracy_weight:
-            parts.append(f"accuracy={m.accuracy_weight}")
-        return ",".join(parts)
-
-    @reward_weights.setter
-    def reward_weights(self, value: str) -> None:
-        if not value:
-            return
-        for part in value.split(","):
-            if "=" not in part:
-                continue
-            key, val = part.strip().split("=", 1)
-            key = key.strip()
-            fval = float(val.strip())
-            if key == "accuracy":
-                self.metrics.accuracy_weight = fval
-            elif key == "latency":
-                self.metrics.latency_weight = fval
-            elif key == "cost":
-                self.metrics.cost_weight = fval
-            elif key == "efficiency":
-                self.metrics.efficiency_weight = fval
-
-
-@dataclass(slots=True)
-class StorageConfig:
-    """Storage (memory) backend settings.
-
-    Covers both the retrieval/document store (``default_backend``, ``db_path``,
-    chunking, context injection) and the automatic long-term memory service
-    (``enabled``, ``backend``, ``extraction_model``, ``max_facts``,
-    ``facts_path``) configured under ``[memory]`` in ``config.toml``.
-    """
-
-    default_backend: str = "sqlite"
-    db_path: str = field(default_factory=lambda: str(get_config_dir() / "memory.db"))
-    context_top_k: int = 5
-    context_min_score: float = 0.0
-    context_max_tokens: int = 2048
-    chunk_size: int = 512
-    chunk_overlap: int = 64
-
-    # Automatic memory service — extracts durable facts from conversations in
-    # the background and persists them across sessions (see openjarvis.memory).
-    enabled: bool = False  # start the memory service with serve/chat
-    backend: str = "local"  # fact-store backend ("local" = on-disk JSONL)
-    extraction_model: str = ""  # model for fact extraction ("" = active model)
-    max_facts: int = 1000  # cap on stored facts (oldest evicted past the cap)
-    facts_path: str = field(
-        default_factory=lambda: str(get_config_dir() / "memory_facts.jsonl")
-    )
-
-
 # Backward-compatibility alias
 MemoryConfig = StorageConfig
-
-
-@dataclass(slots=True)
-class MCPConfig:
-    """MCP (Model Context Protocol) settings."""
-
-    enabled: bool = True
-    servers: str = ""  # JSON list of MCP server configs
 
 
 _MAX_EXTERNAL_JSON_BYTES = 4 * 1024 * 1024
@@ -1024,384 +242,6 @@ def resolve_mcp_servers(raw: str, config_dir: Path) -> list[dict[str, Any]]:
             raise ValueError(f"MCP server entry {index} must be a JSON object")
         servers.append(server)
     return servers
-
-
-@dataclass(slots=True)
-class BrowserConfig:
-    """Browser automation settings (Playwright)."""
-
-    headless: bool = True
-    timeout_ms: int = 30000
-    viewport_width: int = 1280
-    viewport_height: int = 720
-
-
-@dataclass(slots=True)
-class WeatherToolConfig:
-    """Native weather tool settings (credentials stay outside config.toml)."""
-
-    provider: str = "openweathermap"
-    default_location: str = ""
-    units: str = "metric"
-    lang: str = "en"
-
-
-@dataclass(slots=True)
-class ToolsConfig:
-    """Tools primitive settings — wraps storage and MCP configuration."""
-
-    storage: StorageConfig = field(default_factory=StorageConfig)
-    mcp: MCPConfig = field(default_factory=MCPConfig)
-    browser: BrowserConfig = field(default_factory=BrowserConfig)
-    weather: WeatherToolConfig = field(default_factory=WeatherToolConfig)
-    enabled: str = ""  # comma-separated default tools
-
-
-@dataclass
-class AgentConfig:
-    """Agent harness settings — orchestration, tools, system prompt."""
-
-    default_agent: str = "simple"
-    max_turns: int = 10
-    tools: str = ""  # comma-separated tool names
-    objective: str = ""  # concise purpose for routing/learning/docs
-    system_prompt: str = ""  # inline system prompt (takes precedence if set)
-    system_prompt_path: str = ""  # path to system prompt file (.txt, .md)
-    context_from_memory: bool = True  # inject relevant memory context into prompts
-    default_system_prompt: str = (
-        "You are Sergio, a helpful personal AI assistant running locally on "
-        "the user's own computer. You are not a cloud service, and you are not "
-        "Claude, ChatGPT, Gemini, or any other branded assistant. If asked "
-        "who or what you are, identify yourself as Sergio. Reply in the "
-        "user's language, helpfully, concisely, and accurately."
-    )
-
-    # Backward-compat property for old field name
-    @property
-    def default_tools(self) -> str:
-        """Deprecated: use ``agent.tools``."""
-        return self.tools
-
-    @default_tools.setter
-    def default_tools(self, value: str) -> None:
-        self.tools = value
-
-
-@dataclass(slots=True)
-class ServerConfig:
-    """API server settings."""
-
-    host: str = "127.0.0.1"
-    port: int = 8000
-    agent: str = "orchestrator"
-    model: str = ""
-    workers: int = 1
-    cors_origins: list = field(
-        default_factory=lambda: [
-            "http://localhost:3000",
-            "http://localhost:5173",
-            "http://localhost:5174",
-            "http://127.0.0.1:3000",
-            "http://127.0.0.1:5173",
-            "http://127.0.0.1:5174",
-            # Tauri 2 production webview origins.
-            # macOS / Linux / iOS use the custom scheme; Windows /
-            # Android use http(s)://tauri.localhost. All three must
-            # be allowed so the desktop app's chat-completions stream
-            # is not blocked by CORS in production builds.
-            "tauri://localhost",
-            "http://tauri.localhost",
-            "https://tauri.localhost",
-        ]
-    )
-
-
-@dataclass(slots=True)
-class TelemetryConfig:
-    """Telemetry persistence settings."""
-
-    enabled: bool = True
-    db_path: str = field(default_factory=lambda: str(get_config_dir() / "telemetry.db"))
-    gpu_metrics: bool = False
-    gpu_poll_interval_ms: int = 50
-    energy_vendor: str = ""  # auto-detect or force "nvidia"/"amd"/"apple"/"cpu_rapl"
-    # Permit a modelled energy estimate when no hardware counters are
-    # readable. Off by default: an estimate written to the telemetry DB is
-    # indistinguishable from a measurement at query time except via
-    # `energy_method`, and on Apple Silicon the estimate is a function of
-    # wall-clock alone, so it cannot tell an idle window from a busy one.
-    allow_energy_estimates: bool = False
-    warmup_samples: int = 0
-    steady_state_window: int = 5
-    steady_state_threshold: float = 0.05
-
-
-@dataclass(slots=True)
-class AnalyticsConfig:
-    """External anonymous usage analytics (PostHog).
-
-    Separate concern from :class:`TelemetryConfig`, which stores local
-    FLOPs/energy/inference metrics in SQLite. This controls anonymized
-    usage events sent to the OpenJarvis team's PostHog instance to
-    measure setup success, retention, feature usage, and churn.
-
-    No chat content, prompts, model outputs, file paths, emails, IPs,
-    or hardware identifiers are ever sent. See ``docs/telemetry.md``.
-    """
-
-    enabled: bool = True
-    host: str = "https://34.231.106.201.sslip.io"
-    key: str = "phc_ysKu72QaxzYNmDpHFcesD2ZZAe68zkdWJEKoYYkc5e3n"
-    anon_id_path: str = field(default_factory=lambda: str(get_config_dir() / "anon_id"))
-    flush_interval_seconds: int = 30
-    flush_at_size: int = 100
-
-
-@dataclass(slots=True)
-class TracesConfig:
-    """Trace system settings."""
-
-    enabled: bool = True
-    db_path: str = field(default_factory=lambda: str(get_config_dir() / "traces.db"))
-
-
-@dataclass(slots=True)
-class ClackyExtensionConfig:
-    """OpenClacky: the hands-on agent (terminal, files, the user's real Chrome)."""
-
-    enabled: bool = True
-    port: int = 7070
-    path: str = ""  # Override for the extensions/clacky checkout
-    timeout_seconds: float = 900.0  # Max time for one delegated task
-    approval_wait_seconds: float = 300.0  # Wait for the user's approval click
-
-
-@dataclass(slots=True)
-class GlobeExtensionConfig:
-    """God's Eye View: the live 3D globe."""
-
-    enabled: bool = True
-    port: int = 4173
-    path: str = ""  # Override for the extensions/globe checkout
-
-
-@dataclass(slots=True)
-class PhoneConfig:
-    """Voice calls (Twilio + Pipecat) and phone-number based channels.
-
-    Secrets come from the environment: TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN,
-    TWILIO_PHONE_NUMBER (and WHATSAPP_* for WhatsApp).
-    """
-
-    enabled: bool = False
-    # Only these numbers may talk to Sergio by WhatsApp/SMS/phone, and calls
-    # or messages to them need no approval. E.164, e.g. "+593991234567".
-    owner_numbers: List[str] = field(default_factory=list)
-    owner_name: str = ""  # Used in "calling on behalf of …"
-    public_url: str = ""  # https URL of the tunnel that reaches this server
-    language: str = "es"
-    stt_model: str = "small"  # faster-whisper model for calls
-    tts_voice: str = "em_alex"  # Kokoro voice (es: em_alex, em_santa, ef_dora)
-    max_call_minutes: int = 10
-    approval_wait_seconds: float = 300.0
-
-
-@dataclass(slots=True)
-class TunnelConfig:
-    """Public tunnel so Twilio/WhatsApp can reach the local server."""
-
-    provider: str = ""  # "ngrok" | "cloudflare" | "" (disabled)
-    domain: str = ""  # ngrok static domain, e.g. "sergio-abc.ngrok-free.app"
-
-
-@dataclass(slots=True)
-class ExtensionsConfig:
-    """Bundled extensions that run next to OpenJarvis as one product."""
-
-    autostart: bool = True  # Start them together with ``jarvis gui``
-    clacky: ClackyExtensionConfig = field(default_factory=ClackyExtensionConfig)
-    globe: GlobeExtensionConfig = field(default_factory=GlobeExtensionConfig)
-
-
-@dataclass(slots=True)
-class ProactiveConfig:
-    """Proactive agent — autonomous action scheduling and approval routing."""
-
-    enabled: bool = False
-    schedule: str = "0 5 * * *"  # cron expression (default: 5am daily)
-    hours_back: int = 24  # how many hours of unacted items to scan
-    timezone: str = "America/Los_Angeles"
-    # Channel to send approval notifications and receive yes/no replies.
-    # Format: "{type}:{id}", e.g. "imessage:+15551234567" or "telegram:123456789"
-    notification_channel: str = ""
-
-
-@dataclass(slots=True)
-class TelegramChannelConfig:
-    """Per-channel config for Telegram."""
-
-    bot_token: str = ""
-    allowed_chat_ids: str = ""
-    parse_mode: str = "Markdown"
-
-
-@dataclass(slots=True)
-class DiscordChannelConfig:
-    """Per-channel config for Discord."""
-
-    bot_token: str = ""
-
-
-@dataclass(slots=True)
-class SlackChannelConfig:
-    """Per-channel config for Slack."""
-
-    bot_token: str = ""
-    app_token: str = ""
-
-
-@dataclass(slots=True)
-class WebhookChannelConfig:
-    """Per-channel config for generic webhooks."""
-
-    url: str = ""
-    secret: str = ""
-    method: str = "POST"
-
-
-@dataclass(slots=True)
-class EmailChannelConfig:
-    """Per-channel config for email (SMTP/IMAP)."""
-
-    smtp_host: str = ""
-    smtp_port: int = 587
-    imap_host: str = ""
-    imap_port: int = 993
-    username: str = ""
-    password: str = ""
-    use_tls: bool = True
-
-
-@dataclass(slots=True)
-class WhatsAppChannelConfig:
-    """Per-channel config for WhatsApp Cloud API."""
-
-    access_token: str = ""
-    phone_number_id: str = ""
-
-
-@dataclass(slots=True)
-class SignalChannelConfig:
-    """Per-channel config for Signal (via signal-cli REST API)."""
-
-    api_url: str = ""
-    phone_number: str = ""
-
-
-@dataclass(slots=True)
-class GoogleChatChannelConfig:
-    """Per-channel config for Google Chat webhooks."""
-
-    webhook_url: str = ""
-
-
-@dataclass(slots=True)
-class IRCChannelConfig:
-    """Per-channel config for IRC."""
-
-    server: str = ""
-    port: int = 6667
-    nick: str = ""
-    password: str = ""
-    use_tls: bool = False
-
-
-@dataclass(slots=True)
-class WebChatChannelConfig:
-    """Per-channel config for in-memory webchat."""
-
-    pass
-
-
-@dataclass(slots=True)
-class TeamsChannelConfig:
-    """Per-channel config for Microsoft Teams (Bot Framework)."""
-
-    app_id: str = ""
-    app_password: str = ""
-    service_url: str = ""
-
-
-@dataclass(slots=True)
-class MatrixChannelConfig:
-    """Per-channel config for Matrix."""
-
-    homeserver: str = ""
-    access_token: str = ""
-
-
-@dataclass(slots=True)
-class MattermostChannelConfig:
-    """Per-channel config for Mattermost."""
-
-    url: str = ""
-    token: str = ""
-
-
-@dataclass(slots=True)
-class FeishuChannelConfig:
-    """Per-channel config for Feishu (Lark)."""
-
-    app_id: str = ""
-    app_secret: str = ""
-
-
-@dataclass(slots=True)
-class BlueBubblesChannelConfig:
-    """Per-channel config for BlueBubbles (iMessage bridge)."""
-
-    url: str = ""
-    password: str = ""
-
-
-@dataclass(slots=True)
-class WhatsAppBaileysChannelConfig:
-    """Per-channel config for WhatsApp via Baileys protocol."""
-
-    auth_dir: str = ""  # Defaults to ~/.openjarvis/whatsapp_auth
-    assistant_name: str = "Jarvis"
-    assistant_has_own_number: bool = False
-
-
-@dataclass
-class ChannelConfig:
-    """Channel messaging settings."""
-
-    enabled: bool = False
-    default_channel: str = ""
-    default_agent: str = "simple"
-    telegram: TelegramChannelConfig = field(default_factory=TelegramChannelConfig)
-    discord: DiscordChannelConfig = field(default_factory=DiscordChannelConfig)
-    slack: SlackChannelConfig = field(default_factory=SlackChannelConfig)
-    webhook: WebhookChannelConfig = field(default_factory=WebhookChannelConfig)
-    email: EmailChannelConfig = field(default_factory=EmailChannelConfig)
-    whatsapp: WhatsAppChannelConfig = field(default_factory=WhatsAppChannelConfig)
-    signal: SignalChannelConfig = field(default_factory=SignalChannelConfig)
-    google_chat: GoogleChatChannelConfig = field(
-        default_factory=GoogleChatChannelConfig,
-    )
-    irc: IRCChannelConfig = field(default_factory=IRCChannelConfig)
-    webchat: WebChatChannelConfig = field(default_factory=WebChatChannelConfig)
-    teams: TeamsChannelConfig = field(default_factory=TeamsChannelConfig)
-    matrix: MatrixChannelConfig = field(default_factory=MatrixChannelConfig)
-    mattermost: MattermostChannelConfig = field(default_factory=MattermostChannelConfig)
-    feishu: FeishuChannelConfig = field(default_factory=FeishuChannelConfig)
-    bluebubbles: BlueBubblesChannelConfig = field(
-        default_factory=BlueBubblesChannelConfig,
-    )
-    whatsapp_baileys: WhatsAppBaileysChannelConfig = field(
-        default_factory=WhatsAppBaileysChannelConfig,
-    )
 
 
 @dataclass(slots=True)
@@ -1536,236 +376,6 @@ def apply_security_profile(
         for key, value in pdef.get("server", {}).items():
             if key not in _server_overrides and hasattr(server_cfg, key):
                 setattr(server_cfg, key, value)
-
-
-@dataclass(slots=True)
-class SandboxConfig:
-    """Container sandbox settings."""
-
-    enabled: bool = False
-    image: str = "openjarvis-sandbox:latest"
-    timeout: int = 300
-    workspace: str = ""
-    mount_allowlist_path: str = ""
-    max_concurrent: int = 5
-    runtime: str = "docker"
-    wasm_fuel_limit: int = 1_000_000
-    wasm_memory_limit_mb: int = 256
-
-
-@dataclass(slots=True)
-class SchedulerConfig:
-    """Task scheduler settings."""
-
-    enabled: bool = False
-    poll_interval: int = 60
-    db_path: str = ""  # Defaults to ~/.openjarvis/scheduler.db
-
-
-@dataclass(slots=True)
-class WorkflowConfig:
-    """Workflow engine settings."""
-
-    enabled: bool = False
-    max_parallel: int = 4
-    default_node_timeout: int = 300
-
-
-@dataclass(slots=True)
-class SessionConfig:
-    """Cross-channel session settings."""
-
-    enabled: bool = False
-    max_age_hours: float = 24.0
-    consolidation_threshold: int = 100
-    db_path: str = field(default_factory=lambda: str(get_config_dir() / "sessions.db"))
-
-
-@dataclass(slots=True)
-class A2AConfig:
-    """Agent-to-Agent protocol settings."""
-
-    enabled: bool = False
-    # Bearer token required for inbound A2A requests. Empty = unauthenticated
-    # (only safe on a trusted network). See ``A2AServer(auth_token=...)``.
-    auth_token: str = ""
-
-
-@dataclass(slots=True)
-class OperatorsConfig:
-    """Operator lifecycle settings."""
-
-    enabled: bool = False
-    manifests_dir: str = field(
-        default_factory=lambda: str(get_config_dir() / "operators")
-    )
-    auto_activate: str = ""  # Comma-separated operator IDs
-
-
-@dataclass(slots=True)
-class SpeechConfig:
-    """Speech-to-text settings."""
-
-    backend: str = "auto"  # "auto", "faster-whisper", "openai", "deepgram"
-    model: str = "base"  # Whisper model size: tiny, base, small, medium, large-v3
-    language: str = ""  # Empty = auto-detect
-    # CPU by default: on WSL/laptops "auto" picks a GPU whose CUDA libraries
-    # are often missing (libcublas), which breaks hearing. "cuda" to opt in.
-    device: str = "cpu"  # "auto", "cpu", "cuda"
-    compute_type: str = "int8"  # "float16", "int8", "float32"
-    # Text-to-speech. ``voice_id`` is interpreted by ``tts_backend`` only --
-    # voice IDs are not portable between backends, so if voice output falls
-    # back to a different backend that backend's own default voice is used.
-    # Kokoro IDs: bm_george / bm_lewis (British male), bf_emma / bf_isabella
-    # (British female), af_* / am_* (American).
-    tts_backend: str = "kokoro"  # "kokoro", "openai_tts", "cartesia"
-    voice_id: str = "bm_george"
-    voice_speed: float = 1.0
-
-
-@dataclass(slots=True)
-class OptimizeConfig:
-    """Configuration optimization settings."""
-
-    max_trials: int = 20
-    early_stop_patience: int = 5
-    optimizer_model: str = "claude-sonnet-4-6"
-    optimizer_provider: str = "anthropic"
-    benchmark: str = ""
-    max_samples: int = 50
-    judge_model: str = "gpt-5-mini-2025-08-07"
-    db_path: str = field(default_factory=lambda: str(get_config_dir() / "optimize.db"))
-
-
-@dataclass(slots=True)
-class AgentManagerConfig:
-    """Persistent agent manager settings."""
-
-    enabled: bool = True
-    db_path: str = field(default_factory=lambda: str(get_config_dir() / "agents.db"))
-
-
-@dataclass(slots=True)
-class MemoryFilesConfig:
-    """Persistent memory-file paths and nudge settings."""
-
-    soul_path: str = field(default_factory=lambda: str(get_config_dir() / "SOUL.md"))
-    memory_path: str = field(
-        default_factory=lambda: str(get_config_dir() / "MEMORY.md")
-    )
-    user_path: str = field(default_factory=lambda: str(get_config_dir() / "USER.md"))
-    nudge_interval: int = 10
-    persona_name: str = ""  # named persona dir under <config-dir>/personas/<name>/
-
-
-@dataclass(slots=True)
-class SystemPromptConfig:
-    """Limits and strategy for system-prompt assembly."""
-
-    prefix: str = ""
-    soul_max_chars: int = 4000
-    memory_max_chars: int = 2500
-    user_max_chars: int = 1500
-    skill_desc_max_chars: int = 60
-    truncation_strategy: str = "head_tail"
-
-
-@dataclass(slots=True)
-class CompressionConfig:
-    """Configuration for context compression."""
-
-    enabled: bool = True
-    threshold: float = 0.50
-    strategy: str = "session_consolidation"
-    # Token saver: compress long outputs of the tools below with LLMLingua-2
-    # (``pip install llmlingua``) before they reach the model.
-    tool_output: bool = False
-    tool_output_min_chars: int = 6000
-    tool_output_rate: float = 0.4  # fraction of tokens to keep
-    tool_output_model: str = "microsoft/llmlingua-2-xlm-roberta-large-meetingbank"
-    tool_output_tools: List[str] = field(
-        default_factory=lambda: [
-            "web_search",
-            "http_request",
-            "browser_extract",
-            "pdf_extract",
-            "knowledge_search",
-            "retrieval",
-            "digest_collect",
-        ]
-    )
-
-
-@dataclass(slots=True)
-class SkillSourceConfig:
-    """Configuration for a single skill source (Hermes, OpenClaw, GitHub)."""
-
-    source: str = ""  # "hermes", "openclaw", or "github"
-    url: str = ""  # required when source = "github"
-    filter: Dict[str, Any] = field(default_factory=dict)
-    auto_update: bool = False
-
-
-@dataclass(slots=True)
-class SkillsConfig:
-    """Configuration for agent-authored procedural skills."""
-
-    enabled: bool = True
-    skills_dir: str = field(default_factory=lambda: str(get_config_dir() / "skills"))
-    active: str = "*"
-    auto_discover: bool = True
-    auto_sync: bool = False
-    nudge_interval: int = 15
-    index_repo: str = "https://github.com/openjarvis/skill-index.git"
-    index_dir: str = field(
-        default_factory=lambda: str(get_config_dir() / "skill-index")
-    )
-    max_depth: int = 5
-    sandbox_dangerous: bool = True
-    sources: List[SkillSourceConfig] = field(default_factory=list)
-
-
-@dataclass
-class DigestSectionConfig:
-    """Configuration for a single digest section."""
-
-    sources: List[str] = field(default_factory=list)
-    max_items: int = 10
-    priority_contacts: List[str] = field(default_factory=list)
-
-
-@dataclass
-class DigestConfig:
-    """Configuration for the morning digest feature."""
-
-    enabled: bool = False
-    schedule: str = "0 6 * * *"
-    timezone: str = "America/Los_Angeles"
-    persona: str = "jarvis"
-    sections: List[str] = field(
-        default_factory=lambda: ["messages", "calendar", "health", "world"]
-    )
-    optional_sections: List[str] = field(
-        default_factory=lambda: ["github", "financial", "music", "fitness"]
-    )
-    honorific: str = "sir"
-    voice_id: str = ""
-    voice_speed: float = 1.0
-    tts_backend: str = "cartesia"
-    messages: DigestSectionConfig = field(
-        default_factory=lambda: DigestSectionConfig(
-            sources=["gmail", "slack", "google_tasks"]
-        )
-    )
-    calendar: DigestSectionConfig = field(
-        default_factory=lambda: DigestSectionConfig(sources=["gcalendar"])
-    )
-    health: DigestSectionConfig = field(
-        default_factory=lambda: DigestSectionConfig(sources=["oura", "apple_health"])
-    )
-    world: DigestSectionConfig = field(
-        default_factory=lambda: DigestSectionConfig(sources=[])
-    )
 
 
 @dataclass
@@ -2142,6 +752,19 @@ __all__ = [
 
 
 # Moved to their own module; they look their helpers up here.
+from openjarvis.core import config_hardware as _hardware  # noqa: E402,I001
+
+_available_memory_gb = _hardware._available_memory_gb
+_detect_amd_gpu = _hardware._detect_amd_gpu
+_detect_apple_gpu = _hardware._detect_apple_gpu
+_detect_cpu_brand = _hardware._detect_cpu_brand
+_detect_nvidia_gpu = _hardware._detect_nvidia_gpu
+_run_cmd = _hardware._run_cmd
+_total_ram_gb = _hardware._total_ram_gb
+detect_hardware = _hardware.detect_hardware
+estimated_download_gb = _hardware.estimated_download_gb
+recommend_engine = _hardware.recommend_engine
+recommend_model = _hardware.recommend_model
 from openjarvis.core.config_toml import _apply_toml_section as _apply_toml_section  # noqa: E402,I001
 from openjarvis.core.config_toml import generate_default_toml as generate_default_toml  # noqa: E402,I001
 from openjarvis.core.config_toml import resolve_json_or_file as resolve_json_or_file  # noqa: E402,I001
@@ -2152,3 +775,5 @@ from dataclasses import is_dataclass as is_dataclass  # noqa: E402,I001
 from typing import get_args as get_args  # noqa: E402,I001
 from typing import get_origin as get_origin  # noqa: E402,I001
 from typing import get_type_hints as get_type_hints  # noqa: E402,I001
+
+# Moved to their own module; they look their helpers up here.

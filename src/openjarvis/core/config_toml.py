@@ -302,10 +302,11 @@ def validate_config_key(dotted_key: str) -> type:
         # Resolve the type — unwrap Optional, etc.
         fld_type = fld.type
         if isinstance(fld_type, str):
-            # Evaluate forward references in the config module namespace
-            import openjarvis.core.config as _cfg_mod
+            # Evaluate forward references where the dataclass is defined
+            # (config.py or one of the config_* modules split out of it).
+            import sys
 
-            fld_type = eval(fld_type, vars(_cfg_mod))  # noqa: S307
+            fld_type = eval(fld_type, vars(sys.modules[current_cls.__module__]))  # noqa: S307
 
         if i == len(parts) - 1:
             if contains_dataclass(fld_type):
