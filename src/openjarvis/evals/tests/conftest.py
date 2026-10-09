@@ -152,3 +152,14 @@ def sample_records():
 @pytest.fixture()
 def mock_dataset(sample_records):
     return MockDataset(sample_records)
+
+
+__all__ = [
+    "mock_backend",
+    "mock_dataset",
+    "mock_scorer",
+    "MockBackend",
+    "MockDataset",
+    "MockScorer",
+    "sample_records",
+]

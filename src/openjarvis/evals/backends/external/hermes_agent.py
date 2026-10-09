@@ -132,3 +132,8 @@ class HermesBackend(InferenceBackend):
             "cost_usd": 0.0,
             "error": result.error or result.parsed_json.get("error"),
         }
+
+
+__all__ = [
+    "HermesBackend",
+]

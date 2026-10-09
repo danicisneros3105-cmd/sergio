@@ -285,3 +285,11 @@ class TestJarvisAgentBackendBaseUrl:
         JarvisAgentBackend(engine_key="vllm")
         mock_builder.engine.assert_called_with("vllm")
         mock_builder.engine_instance.assert_not_called()
+
+
+__all__ = [
+    "TestJarvisAgentBackend",
+    "TestJarvisAgentBackendBaseUrl",
+    "TestJarvisDirectBackend",
+    "TestJarvisDirectBackendBaseUrl",
+]

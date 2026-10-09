@@ -94,3 +94,15 @@ def parse_vllm_metrics(text: str, *, provider_id: str) -> MiningStats:
         uptime = max(0.0, time.time() - proc_start)
 
     return MiningStats(provider_id=provider_id, uptime_seconds=uptime)
+
+
+__all__ = [
+    "parse_gateway_metrics",
+    "parse_vllm_metrics",
+    "PROM_BLOCKS_FOUND",
+    "PROM_ERRORS_TOTAL",
+    "PROM_LAST_SHARE_TS",
+    "PROM_PROCESS_START",
+    "PROM_SHARES_ACCEPTED",
+    "PROM_SHARES_SUBMITTED",
+]

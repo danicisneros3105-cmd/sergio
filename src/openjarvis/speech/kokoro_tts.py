@@ -260,3 +260,8 @@ class KokoroTTSBackend(TTSBackend):
             return True
         except RuntimeError:
             return False
+
+
+__all__ = [
+    "KokoroTTSBackend",
+]

@@ -162,3 +162,13 @@ async def chat_completions(
             },
         }
     )
+
+
+__all__ = [
+    "chat_completions",
+    "ChatMessage",
+    "ChatRequest",
+    "health",
+    "list_models",
+    "MODEL_ID",
+]

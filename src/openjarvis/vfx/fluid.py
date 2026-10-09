@@ -95,3 +95,10 @@ vfx_assign(domain, water_mat)
 baked = vfx_bake() if {p["bake"]} else []
 vfx_info(effect="fluid", scenario=scenario, domain=d.domain_type, baked=baked)
 """
+
+
+__all__ = [
+    "build",
+    "DESCRIPTION",
+    "PARAMS",
+]

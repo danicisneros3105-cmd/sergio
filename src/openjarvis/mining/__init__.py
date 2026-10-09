@@ -9,6 +9,8 @@ Provider modules are soft-imported below — each one fails gracefully if the
 
 from __future__ import annotations
 
+import logging as _logging
+
 # Re-export the public ABCs and dataclasses for ergonomic imports.
 from openjarvis.mining._stubs import (
     MiningCapabilities,
@@ -31,22 +33,28 @@ try:
     from openjarvis.mining import vllm_pearl  # noqa: F401
 
     vllm_pearl.ensure_registered()
-except ImportError:
-    pass
+except ImportError as _exc:
+    _logging.getLogger(__name__).debug(
+        "Optional import skipped (openjarvis.mining): %s", _exc
+    )
 
 try:
     from openjarvis.mining import cpu_pearl  # noqa: F401
 
     cpu_pearl.ensure_registered()
-except ImportError:
-    pass
+except ImportError as _exc:
+    _logging.getLogger(__name__).debug(
+        "Optional import skipped (openjarvis.mining): %s", _exc
+    )
 
 try:
     from openjarvis.mining import apple_mps_pearl  # noqa: F401
 
     apple_mps_pearl.ensure_registered()
-except ImportError:
-    pass
+except ImportError as _exc:
+    _logging.getLogger(__name__).debug(
+        "Optional import skipped (openjarvis.mining): %s", _exc
+    )
 
 __all__ = [
     "MiningCapabilities",

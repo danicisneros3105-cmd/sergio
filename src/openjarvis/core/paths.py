@@ -120,3 +120,12 @@ def get_cache_dir() -> Path:
     directory instead of scattering across ``~/.cache``.
     """
     return get_config_dir() / "cache"
+
+
+__all__ = [
+    "ConfigurationError",
+    "get_cache_dir",
+    "get_config_dir",
+    "get_config_path",
+    "get_data_dir",
+]

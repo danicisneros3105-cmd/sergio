@@ -27,3 +27,8 @@ def render_startup_banner(status: BgStatus) -> str:
     if not parts:
         return ""
     return "Background: " + " · ".join(parts) + ". Type to start."
+
+
+__all__ = [
+    "render_startup_banner",
+]

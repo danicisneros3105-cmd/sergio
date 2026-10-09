@@ -439,3 +439,8 @@ class AppleCalendarConnector(BaseConnector):
                 category="knowledge",
             ),
         ]
+
+
+__all__ = [
+    "AppleCalendarConnector",
+]

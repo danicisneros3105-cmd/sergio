@@ -71,3 +71,14 @@ def default_max_output_tokens(model: str) -> int:
     """Sane default for ``max_tokens`` per cloud call. Reasoning models get
     a larger budget so their hidden thinking doesn't crowd out the answer."""
     return 16384 if is_reasoning_model(model) else 4096
+
+
+__all__ = [
+    "cost",
+    "default_max_output_tokens",
+    "is_gpt5_family",
+    "is_reasoning_model",
+    "NO_TEMP_PREFIXES",
+    "PRICES",
+    "supports_temperature",
+]

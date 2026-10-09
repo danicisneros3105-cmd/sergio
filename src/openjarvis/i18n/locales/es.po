@@ -255,8 +255,8 @@ msgid "Output raw JSON result."
 msgstr "Muestra el resultado en JSON tal cual."
 
 #: sergio ask --no-stream
-msgid "Disable streaming (sync mode)."
-msgstr "Desactiva el streaming (modo síncrono)."
+msgid "Kept for old scripts: answers already arrive in one piece."
+msgstr "Se mantiene por compatibilidad: la respuesta ya llega completa."
 
 #: sergio ask --no-context
 msgid "Disable memory context injection."

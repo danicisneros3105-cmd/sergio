@@ -691,3 +691,9 @@ def _cancel_proactive_duplicates(
                 task.id,
                 exc_info=True,
             )
+
+
+__all__ = [
+    "ProactiveAgent",
+    "register_cron",
+]

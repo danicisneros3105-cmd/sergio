@@ -47,3 +47,10 @@ def reset_anon_id(path: Path | str) -> str:
 def is_analytics_enabled(cfg: AnalyticsConfig) -> bool:
     """Return True if analytics is enabled in config."""
     return cfg.enabled
+
+
+__all__ = [
+    "get_or_create_anon_id",
+    "is_analytics_enabled",
+    "reset_anon_id",
+]

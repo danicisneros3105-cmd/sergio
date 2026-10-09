@@ -270,6 +270,16 @@ def _clean_registries() -> None:
 
 
 @pytest.fixture(autouse=True)
+def _fresh_fallback_notes() -> None:
+    """The engine-fallback note is logged once per process; reset that memory
+    so a test that expects the warning does not depend on test order."""
+    discovery = sys.modules.get("openjarvis.engine._discovery")
+    if discovery is not None:
+        discovery._NOTED.clear()
+        discovery.QUIET_FALLBACK = False
+
+
+@pytest.fixture(autouse=True)
 def _fresh_tool_runner() -> None:
     """A test whose tool never returns (a timeout test) keeps a worker of the
     shared bounded tool runner busy; enough of them fill its queue and a later

@@ -79,3 +79,12 @@ def olvidar(name: str) -> None:
     if not _book().forget(name):
         raise click.ClickException(f"Nobody named {name} is enrolled.")
     console.print(f"{escape(name)} forgotten.")
+
+
+__all__ = [
+    "identificar",
+    "lista",
+    "olvidar",
+    "registrar",
+    "rostros",
+]

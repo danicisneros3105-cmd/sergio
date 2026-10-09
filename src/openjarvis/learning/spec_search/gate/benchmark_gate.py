@@ -129,3 +129,9 @@ class BenchmarkGate:
             snapshot=after,
             delta=delta,
         )
+
+
+__all__ = [
+    "BenchmarkGate",
+    "GateResult",
+]

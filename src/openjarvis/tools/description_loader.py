@@ -77,3 +77,9 @@ def clear_cache() -> None:
     """Clear the cached overrides (useful for testing)."""
     global _cache  # noqa: PLW0603
     _cache = None
+
+
+__all__ = [
+    "clear_cache",
+    "get_tool_description_override",
+]

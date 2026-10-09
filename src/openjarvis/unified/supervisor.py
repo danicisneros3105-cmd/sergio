@@ -410,3 +410,12 @@ class Supervisor:
                 }
             )
         return rows
+
+
+__all__ = [
+    "find_tool",
+    "port_open",
+    "Service",
+    "Supervisor",
+    "tool_dirs",
+]

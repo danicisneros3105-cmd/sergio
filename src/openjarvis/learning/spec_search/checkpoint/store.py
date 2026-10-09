@@ -253,3 +253,10 @@ class CheckpointStore:
         """Return True if there are uncommitted changes to tracked files."""
         status = self._git("status", "--porcelain")
         return bool(status.strip())
+
+
+__all__ = [
+    "CheckpointStore",
+    "DirtyWorkingTreeError",
+    "StageHandle",
+]

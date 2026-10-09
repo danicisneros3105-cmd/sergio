@@ -358,3 +358,22 @@ class LearningConfig:
                 self.metrics.cost_weight = fval
             elif key == "efficiency":
                 self.metrics.efficiency_weight = fval
+
+
+__all__ = [
+    "ACEOptimizerConfig",
+    "AgentLearningConfig",
+    "DeepResearchConfig",
+    "DSPyOptimizerConfig",
+    "GEPAOptimizerConfig",
+    "GRPOConfig",
+    "IntelligenceConfig",
+    "IntelligenceLearningConfig",
+    "LearningConfig",
+    "MetricsConfig",
+    "RoutingLearningConfig",
+    "SFTConfig",
+    "SkillsLearningConfig",
+    "SpecSearchCompositeRewardConfig",
+    "SpecSearchLearningConfig",
+]

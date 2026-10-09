@@ -225,3 +225,8 @@ def connect(
 
     # No arguments — show help
     click.echo(ctx.get_help())
+
+
+__all__ = [
+    "connect",
+]

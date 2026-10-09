@@ -143,3 +143,8 @@ class TextToSpeechTool(BaseTool):
                 "backend": backend_key,
             },
         )
+
+
+__all__ = [
+    "TextToSpeechTool",
+]

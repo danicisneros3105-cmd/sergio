@@ -60,3 +60,11 @@ async def stop_extension(name: str, request: Request) -> dict[str, Any]:
         raise HTTPException(status_code=404, detail=f"Unknown extension: {name}")
     stopped = await asyncio.to_thread(_supervisor(request).stop, name)
     return {"name": name, "stopped": stopped}
+
+
+__all__ = [
+    "globe_target",
+    "list_extensions",
+    "start_extension",
+    "stop_extension",
+]

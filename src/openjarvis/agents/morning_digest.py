@@ -241,3 +241,8 @@ class MorningDigestAgent(ToolUsingAgent):
                 "sources_used": sources,
             },
         )
+
+
+__all__ = [
+    "MorningDigestAgent",
+]

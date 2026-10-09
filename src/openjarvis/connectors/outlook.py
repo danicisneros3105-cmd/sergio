@@ -56,3 +56,8 @@ class OutlookConnector(GmailIMAPConnector):
             doc.source = "outlook"
             doc.doc_id = doc.doc_id.replace("gmail:", "outlook:", 1)
             yield doc
+
+
+__all__ = [
+    "OutlookConnector",
+]

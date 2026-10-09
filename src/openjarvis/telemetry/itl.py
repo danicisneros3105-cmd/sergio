@@ -45,3 +45,8 @@ def compute_itl_stats(token_timestamps: list[float]) -> dict:
         "min_ms": min(itls),
         "max_ms": max(itls),
     }
+
+
+__all__ = [
+    "compute_itl_stats",
+]

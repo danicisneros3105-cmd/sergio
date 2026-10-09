@@ -442,3 +442,21 @@ class TestEvalSuiteConfig:
         assert s.meta.name == "test"
         assert len(s.models) == 2
         assert len(s.benchmarks) == 1
+
+
+__all__ = [
+    "TestBenchmarkConfig",
+    "TestDefaultsConfig",
+    "TestEvalRecord",
+    "TestEvalResult",
+    "TestEvalResultTraceFields",
+    "TestEvalSuiteConfig",
+    "TestExecutionConfig",
+    "TestJudgeConfig",
+    "TestMetaConfig",
+    "TestMetricStats",
+    "TestModelConfig",
+    "TestRunConfig",
+    "TestRunSummary",
+    "TestRunSummaryTraceFields",
+]

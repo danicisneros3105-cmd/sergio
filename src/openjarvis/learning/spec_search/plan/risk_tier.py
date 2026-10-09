@@ -61,3 +61,10 @@ def assign_tiers(edits: Sequence[Edit]) -> list[Edit]:
             )
         result.append(edit.model_copy(update={"risk_tier": correct_tier}))
     return result
+
+
+__all__ = [
+    "assign_tier",
+    "assign_tiers",
+    "TIER_TABLE",
+]

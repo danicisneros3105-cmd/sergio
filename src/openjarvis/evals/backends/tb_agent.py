@@ -30,3 +30,8 @@ class OpenJarvisTerminalBenchAgent(NaiveAgent):
             api_base=api_base,
         )
         super().__init__(llm=llm, **kwargs)
+
+
+__all__ = [
+    "OpenJarvisTerminalBenchAgent",
+]

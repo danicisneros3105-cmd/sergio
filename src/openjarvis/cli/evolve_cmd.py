@@ -24,3 +24,8 @@ def evolve(force: bool, show: bool) -> None:
         console.print(f"Previous profile saved to {result.backup}")
     if show and result.path and result.path.exists():
         click.echo(result.path.read_text())
+
+
+__all__ = [
+    "evolve",
+]

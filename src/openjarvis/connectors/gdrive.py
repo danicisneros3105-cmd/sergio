@@ -381,3 +381,8 @@ class GDriveConnector(BaseConnector):
                 category="productivity",
             ),
         ]
+
+
+__all__ = [
+    "GDriveConnector",
+]

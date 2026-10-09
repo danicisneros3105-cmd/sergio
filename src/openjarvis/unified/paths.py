@@ -35,3 +35,9 @@ def state_dir() -> Path:
     path = get_config_dir() / "extensions"
     path.mkdir(parents=True, exist_ok=True)
     return path
+
+
+__all__ = [
+    "extension_dir",
+    "state_dir",
+]

@@ -101,3 +101,9 @@ def ensure_registered() -> None:
     if MinerRegistry.contains("apple-mps-pearl"):
         return
     MinerRegistry.register_value("apple-mps-pearl", AppleMpsPearlProvider)
+
+
+__all__ = [
+    "AppleMpsPearlProvider",
+    "ensure_registered",
+]

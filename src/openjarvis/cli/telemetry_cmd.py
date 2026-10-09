@@ -230,3 +230,11 @@ def clear(confirmed: bool) -> None:
         click.echo(f"Deleted {count} telemetry records.")
     finally:
         agg.close()
+
+
+__all__ = [
+    "clear",
+    "export",
+    "stats",
+    "telemetry",
+]

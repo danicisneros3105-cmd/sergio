@@ -174,3 +174,15 @@ def check_wallet_address_format(address: str) -> Tuple[bool, str]:
     if len(address) < 14:
         return False, f"too short ({len(address)} chars)"
     return True, "format ok"
+
+
+__all__ = [
+    "check_disk_free",
+    "check_docker_available",
+    "check_pearld_reachable",
+    "check_wallet_address_format",
+    "detect_for_engine_model",
+    "REQUIRED_COMPUTE_CAPABILITY",
+    "REQUIRED_VRAM_GB",
+    "SUPPORTED_VLLM_ENGINE_IDS",
+]

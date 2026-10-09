@@ -400,7 +400,9 @@ class SystemBuilder:
             # get_engine() falls back to any healthy discovered engine; make
             # the substitution visible when the caller asked for a specific
             # engine (observed: requested vllm, silently got ollama@11434).
-            logger.warning(
+            from openjarvis.engine._discovery import note_engine_fallback
+
+            note_engine_fallback(
                 "Requested engine %r is unavailable; using %r at %s instead",
                 self._engine_key,
                 resolved_key,
@@ -749,3 +751,8 @@ class SystemBuilder:
             name,
         )
         return discovered
+
+
+__all__ = [
+    "SystemBuilder",
+]

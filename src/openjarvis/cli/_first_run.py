@@ -46,3 +46,8 @@ def check_and_route(ctx: click.Context) -> None:
         ctx.invoke(chat_cmd, pick_model=use_pick)
     else:
         ctx.invoke(init_cmd, from_bare_jarvis=True)
+
+
+__all__ = [
+    "check_and_route",
+]

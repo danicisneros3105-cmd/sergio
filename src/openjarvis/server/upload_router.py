@@ -216,3 +216,11 @@ async def ingest_files(
         )
 
     return IngestResponse(chunks_added=total_chunks)
+
+
+__all__ = [
+    "ingest_files",
+    "ingest_paste",
+    "IngestResponse",
+    "PasteRequest",
+]

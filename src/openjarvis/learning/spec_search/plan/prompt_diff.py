@@ -168,3 +168,10 @@ def maybe_downgrade_to_replace(
         )
 
     return edit
+
+
+__all__ = [
+    "apply_unified_diff",
+    "changed_line_ratio",
+    "maybe_downgrade_to_replace",
+]

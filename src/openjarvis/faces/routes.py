@@ -286,3 +286,20 @@ async def forget(name: str) -> dict[str, Any]:
     if not _get_book().forget(name):
         raise HTTPException(status_code=404, detail=f"No enrolled person named {name}")
     return {"forgotten": name}
+
+
+__all__ = [
+    "describe_kinship",
+    "describe_photo",
+    "enroll",
+    "forget",
+    "identify",
+    "kinship",
+    "list_people",
+    "look",
+    "mesh",
+    "owner",
+    "owner_name",
+    "photo",
+    "scan",
+]

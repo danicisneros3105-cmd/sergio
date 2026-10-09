@@ -46,3 +46,8 @@ class NotificationDispatcher:
                 self._reported_models.add(model_id)
 
         return msgs
+
+
+__all__ = [
+    "NotificationDispatcher",
+]

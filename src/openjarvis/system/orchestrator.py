@@ -342,3 +342,8 @@ class QueryOrchestrator:
             except Exception as exc:
                 logger.warning("Failed to build tool %r: %s", name, exc)
         return tools
+
+
+__all__ = [
+    "QueryOrchestrator",
+]

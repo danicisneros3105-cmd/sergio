@@ -86,3 +86,9 @@ def get_status(home: Optional[Path] = None) -> BgStatus:
         status.models = seen
 
     return status
+
+
+__all__ = [
+    "BgStatus",
+    "get_status",
+]

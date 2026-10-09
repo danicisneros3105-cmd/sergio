@@ -148,3 +148,8 @@ def load_mcp_tools_from_config(
             continue
 
     return tools, clients
+
+
+__all__ = [
+    "load_mcp_tools_from_config",
+]

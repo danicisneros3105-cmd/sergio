@@ -737,3 +737,23 @@ def run_connector_oauth(
         save_tokens(str(_CONNECTORS_DIR / filename), payload)
 
     return tokens
+
+
+__all__ = [
+    "build_google_auth_url",
+    "delete_tokens",
+    "exchange_google_token",
+    "get_client_credentials",
+    "get_provider_for_connector",
+    "GOOGLE_ALL_SCOPES",
+    "load_tokens",
+    "OAUTH_PROVIDERS",
+    "OAuthProvider",
+    "refresh_google_token",
+    "require_access_token",
+    "resolve_google_credentials",
+    "run_connector_oauth",
+    "run_oauth_flow",
+    "save_client_credentials",
+    "save_tokens",
+]

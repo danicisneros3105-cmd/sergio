@@ -158,3 +158,8 @@ def quickstart(force: bool) -> None:
     console.print(
         '[bold green]Setup complete![/bold green] Try: [bold]jarvis ask "Hello"[/bold]'
     )
+
+
+__all__ = [
+    "quickstart",
+]

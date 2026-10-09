@@ -127,3 +127,15 @@ class ToolCallRecord:
             "latency_ms": self.latency_ms,
             "cost_usd": self.cost_usd,
         }
+
+
+__all__ = [
+    "BenchmarkTask",
+    "ComparisonResult",
+    "DiagnosticTool",
+    "StudentRun",
+    "TeacherRun",
+    "ToolCallRecord",
+    "ToolMeta",
+    "TraceMeta",
+]

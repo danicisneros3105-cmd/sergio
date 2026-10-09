@@ -436,3 +436,10 @@ _audit_server_exposure = _data_boundary_exposure._audit_server_exposure
 _audit_frontend_storage_scope = _data_boundary_exposure._audit_frontend_storage_scope
 _audit_skills_and_digest = _data_boundary_exposure._audit_skills_and_digest
 _audit_speech_settings = _data_boundary_exposure._audit_speech_settings
+
+
+__all__ = [
+    "build_data_boundary_report",
+    "DataBoundaryFinding",
+    "DataBoundaryReport",
+]

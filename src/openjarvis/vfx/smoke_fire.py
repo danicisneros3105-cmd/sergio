@@ -80,3 +80,10 @@ domain.display_type = "WIRE"
 baked = vfx_bake() if {p["bake"]} else []
 vfx_info(effect="smoke_fire", flow=fs.flow_type, domain=d.domain_type, resolution=d.resolution_max, baked=baked)
 """
+
+
+__all__ = [
+    "build",
+    "DESCRIPTION",
+    "PARAMS",
+]

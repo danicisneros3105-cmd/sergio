@@ -136,3 +136,10 @@ class TestGAIAScorer:
 
         assert is_correct is None
         assert meta["reason"] == "no_ground_truth"
+
+
+__all__ = [
+    "TestExactMatch",
+    "TestGAIAScorer",
+    "TestNormalization",
+]

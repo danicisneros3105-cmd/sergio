@@ -432,3 +432,12 @@ async def stream_cloud(
 
     else:
         raise ValueError(f"Unknown cloud provider for model: {model!r}")
+
+
+__all__ = [
+    "get_provider",
+    "is_cloud_model",
+    "list_local_models",
+    "stream_cloud",
+    "stream_local",
+]

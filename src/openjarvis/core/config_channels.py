@@ -174,3 +174,24 @@ class ChannelConfig:
     whatsapp_baileys: WhatsAppBaileysChannelConfig = field(
         default_factory=WhatsAppBaileysChannelConfig,
     )
+
+
+__all__ = [
+    "BlueBubblesChannelConfig",
+    "ChannelConfig",
+    "DiscordChannelConfig",
+    "EmailChannelConfig",
+    "FeishuChannelConfig",
+    "GoogleChatChannelConfig",
+    "IRCChannelConfig",
+    "MatrixChannelConfig",
+    "MattermostChannelConfig",
+    "SignalChannelConfig",
+    "SlackChannelConfig",
+    "TeamsChannelConfig",
+    "TelegramChannelConfig",
+    "WebChatChannelConfig",
+    "WebhookChannelConfig",
+    "WhatsAppBaileysChannelConfig",
+    "WhatsAppChannelConfig",
+]

@@ -280,3 +280,8 @@ class LearningPlanner:
         jsonl_path = traces_dir / "plan.jsonl"
         with jsonl_path.open("a", encoding="utf-8") as f:
             f.write(json.dumps(record) + "\n")
+
+
+__all__ = [
+    "LearningPlanner",
+]

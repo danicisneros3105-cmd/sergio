@@ -356,3 +356,11 @@ def _revisar() -> None:
         console.print(f"\n{failures} cosa(s) fallaron. Copia estas líneas y envíalas.")
         raise SystemExit(1)
     console.print("\n[green]Todo funciona.[/green]")
+
+
+__all__ = [
+    "CHECK_TIMEOUT",
+    "DEFAULT_MODEL",
+    "PULL_LIMIT",
+    "revisar",
+]

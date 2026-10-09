@@ -133,3 +133,10 @@ def build_benchmark_samples_from_traces(
         )
     logger.info("Built %d benchmark samples from traces", len(samples))
     return samples
+
+
+__all__ = [
+    "build_benchmark_samples_from_traces",
+    "StudentResult",
+    "VLLMStudentRunner",
+]

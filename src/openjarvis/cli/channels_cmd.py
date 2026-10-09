@@ -161,3 +161,11 @@ def imessage_stop() -> None:
         console.print("[green]iMessage daemon stopped.[/green]")
     else:
         console.print("[dim]iMessage daemon is not running.[/dim]")
+
+
+__all__ = [
+    "channels",
+    "channels_status",
+    "imessage_start",
+    "imessage_stop",
+]

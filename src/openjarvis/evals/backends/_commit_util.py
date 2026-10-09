@@ -32,3 +32,8 @@ def openjarvis_commit() -> str:
         return result.stdout.strip()
     except Exception:
         return "unknown"
+
+
+__all__ = [
+    "openjarvis_commit",
+]

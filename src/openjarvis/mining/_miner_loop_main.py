@@ -229,3 +229,8 @@ if __name__ == "__main__":
         asyncio.run(_main_loop(args))
     except KeyboardInterrupt:
         sys.exit(0)
+
+
+__all__ = [
+    "parse_args",
+]

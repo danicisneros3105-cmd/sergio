@@ -311,3 +311,8 @@ class AppleNotesConnector(BaseConnector):
                 category="knowledge",
             ),
         ]
+
+
+__all__ = [
+    "AppleNotesConnector",
+]

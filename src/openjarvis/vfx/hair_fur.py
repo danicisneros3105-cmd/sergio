@@ -76,3 +76,11 @@ ps.material = 2
 vfx_info(effect="hair_fur", preset={py(preset)}, strands=ps.count, children=ps.rendered_child_count,
          shader=shader.bl_idname)
 """
+
+
+__all__ = [
+    "build",
+    "DESCRIPTION",
+    "PARAMS",
+    "PRESETS",
+]

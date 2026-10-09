@@ -244,3 +244,21 @@ class EngineConfig:
     @lemonade_host.setter
     def lemonade_host(self, value: str) -> None:
         self.lemonade.host = value
+
+
+__all__ = [
+    "AfmEngineConfig",
+    "AppleFmEngineConfig",
+    "EngineConfig",
+    "ExoEngineConfig",
+    "GemmaCppEngineConfig",
+    "LemonadeEngineConfig",
+    "LlamaCppEngineConfig",
+    "LMStudioEngineConfig",
+    "MLXEngineConfig",
+    "NexaEngineConfig",
+    "OllamaEngineConfig",
+    "SGLangEngineConfig",
+    "UzuEngineConfig",
+    "VLLMEngineConfig",
+]

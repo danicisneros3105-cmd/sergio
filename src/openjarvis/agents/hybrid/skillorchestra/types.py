@@ -432,3 +432,14 @@ class AgentProfile:
             strengths=d.get("strengths", []),
             weaknesses=d.get("weaknesses", []),
         )
+
+
+__all__ = [
+    "AgentProfile",
+    "BetaCompetence",
+    "CostStats",
+    "ModeMetadata",
+    "RoutingInsight",
+    "Skill",
+    "SkillProvenance",
+]

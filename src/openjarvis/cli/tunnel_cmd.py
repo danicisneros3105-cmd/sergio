@@ -69,3 +69,9 @@ def status() -> None:
         click.echo("cloudflared: installed")
     else:
         click.echo("cloudflared: not installed")
+
+
+__all__ = [
+    "status",
+    "tunnel",
+]

@@ -281,3 +281,8 @@ class NIMEngine(InferenceEngine):
 
     def __repr__(self) -> str:
         return f"NIMEngine(host={self._host})"
+
+
+__all__ = [
+    "NIMEngine",
+]

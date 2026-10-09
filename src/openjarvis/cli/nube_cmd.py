@@ -235,3 +235,18 @@ def voz(eleven_key: str) -> None:
         "de ElevenLabs (empieza a sonar casi al instante). Las llamadas en vivo siguen con "
         "Gemini Live (Algenib). Sin crédito, vuelve a Algenib solo."
     )
+
+
+__all__ = [
+    "clean_key",
+    "configurar",
+    "find_kimi",
+    "GEMINI_DEEP_MODEL",
+    "GEMINI_MODEL",
+    "kimi_models",
+    "KIMI_PREFERENCE",
+    "KIMI_URLS",
+    "nube",
+    "pick_kimi",
+    "voz",
+]

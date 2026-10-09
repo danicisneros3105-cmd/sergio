@@ -204,3 +204,8 @@ class PearlSubprocessLauncher:
             }
         )
         return env
+
+
+__all__ = [
+    "PearlSubprocessLauncher",
+]

@@ -302,3 +302,8 @@ class SessionStore:
             )
             for row in rows
         ]
+
+
+__all__ = [
+    "SessionStore",
+]

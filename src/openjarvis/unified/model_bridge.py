@@ -103,3 +103,9 @@ def _cloud_env(model: str, environ: Mapping[str, str]) -> dict[str, str]:
             anthropic=False,
         )
     return _env(key("OPENAI_API_KEY"), "https://api.openai.com/v1/", model, False)
+
+
+__all__ = [
+    "clacky_env",
+    "ModelBridgeError",
+]

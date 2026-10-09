@@ -806,3 +806,16 @@ _run_agentic = _cli_runs._run_agentic
 _nullctx = _cli_runs._nullctx
 _print_agentic_summary = _cli_runs._print_agentic_summary
 _run_from_config = _cli_runs._run_from_config
+
+
+__all__ = [
+    "BACKENDS",
+    "BENCHMARKS",
+    "list_cmd",
+    "LOGGER",
+    "main",
+    "reparse_judge",
+    "run",
+    "run_all",
+    "summarize",
+]

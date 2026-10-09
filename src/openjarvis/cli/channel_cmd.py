@@ -264,3 +264,11 @@ def channel_status(
     key = channel_type or config.channel.default_channel or "unknown"
     console.print(f"Channel: [cyan]{key}[/cyan]")
     console.print(f"Status: [{color}]{st.value}[/{color}]")
+
+
+__all__ = [
+    "channel",
+    "channel_list",
+    "channel_send",
+    "channel_status",
+]

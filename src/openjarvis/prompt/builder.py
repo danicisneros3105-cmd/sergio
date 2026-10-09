@@ -288,3 +288,9 @@ class SystemPromptBuilder:
             nudge_interval=mf.nudge_interval,
             persona_name=name,
         )
+
+
+__all__ = [
+    "PromptSection",
+    "SystemPromptBuilder",
+]

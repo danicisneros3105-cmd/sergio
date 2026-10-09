@@ -718,3 +718,15 @@ def convert(
             border_style="green",
         )
     )
+
+
+__all__ = [
+    "convert",
+    "find_model_spec",
+    "hf_download",
+    "info",
+    "list_models",
+    "model",
+    "ollama_pull",
+    "pull",
+]

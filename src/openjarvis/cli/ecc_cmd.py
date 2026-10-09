@@ -85,3 +85,12 @@ def estado() -> None:
     console.print(
         f"ECC: {skills} skills and {len(guides) - skills} agents in {lib.root}"
     )
+
+
+__all__ = [
+    "actualizar",
+    "buscar",
+    "ecc",
+    "enable_tool",
+    "estado",
+]

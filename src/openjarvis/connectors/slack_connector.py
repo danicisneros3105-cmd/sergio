@@ -701,3 +701,9 @@ class SlackConnector(BaseConnector):
                 category="communication",
             ),
         ]
+
+
+__all__ = [
+    "SlackConnector",
+    "SlackTokenError",
+]

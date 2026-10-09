@@ -157,3 +157,10 @@ class EditToolDescriptionApplier(EditApplier):
 
     def rollback(self, edit: Edit, ctx: ApplyContext) -> None:
         pass
+
+
+__all__ = [
+    "AddToolToAgentApplier",
+    "EditToolDescriptionApplier",
+    "RemoveToolFromAgentApplier",
+]

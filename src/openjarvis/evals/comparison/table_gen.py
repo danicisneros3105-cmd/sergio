@@ -422,3 +422,16 @@ def main(results_glob: str, tables: str, output_dir: Optional[Path]) -> None:
 
 if __name__ == "__main__":
     main()
+
+
+__all__ = [
+    "load_results",
+    "LOGGER",
+    "main",
+    "MixedCommitError",
+    "NoResultsError",
+    "ResultsFrame",
+    "T1_FRAMEWORKS_ORDER",
+    "T2_METRICS",
+    "TableGenError",
+]

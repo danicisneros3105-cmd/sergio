@@ -373,3 +373,8 @@ class DropboxConnector(BaseConnector):
                 category="productivity",
             ),
         ]
+
+
+__all__ = [
+    "DropboxConnector",
+]

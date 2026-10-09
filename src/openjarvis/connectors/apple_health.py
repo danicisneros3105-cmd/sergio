@@ -417,3 +417,8 @@ class AppleHealthConnector(BaseConnector):
                 ),
                 metadata={"data_type": "workout", "activity": activity},
             )
+
+
+__all__ = [
+    "AppleHealthConnector",
+]

@@ -223,3 +223,11 @@ if __name__ == "__main__":
         app_token=args.app_token,
         model=args.model,
     )
+
+
+__all__ = [
+    "is_running",
+    "run_slack_daemon",
+    "start_slack_daemon",
+    "stop_daemon",
+]

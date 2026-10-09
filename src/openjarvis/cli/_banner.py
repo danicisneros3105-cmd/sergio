@@ -34,3 +34,8 @@ def print_banner(quiet: bool = False) -> None:
             print(line)
         print(f"      {_TAGLINE}")
         print()
+
+
+__all__ = [
+    "print_banner",
+]

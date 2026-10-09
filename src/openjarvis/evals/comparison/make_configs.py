@@ -205,3 +205,13 @@ def main(
 
 if __name__ == "__main__":
     main()
+
+
+__all__ = [
+    "BENCHMARKS",
+    "DEFAULT_JUDGE_MODEL",
+    "FRAMEWORKS",
+    "main",
+    "materialize_config",
+    "MODELS",
+]

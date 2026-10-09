@@ -33,3 +33,8 @@ def compute_stats(name: str, values: List[float]) -> Dict[str, float]:
         f"max_{name}": max(values),
         f"std_{name}": statistics.stdev(values) if len(values) > 1 else 0.0,
     }
+
+
+__all__ = [
+    "compute_stats",
+]

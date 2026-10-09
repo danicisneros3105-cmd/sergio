@@ -323,3 +323,8 @@ class AgentScheduler:
         agent_id = event.data.get("agent_id")
         if agent_id and event.data.get("status") == "ok":
             self._on_tick_completed(agent_id)
+
+
+__all__ = [
+    "AgentScheduler",
+]

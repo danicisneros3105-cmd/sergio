@@ -249,3 +249,8 @@ class AppleMusicConnector(BaseConnector):
     def sync_status(self) -> SyncStatus:
         """Return sync progress from the most recent :meth:`sync` call."""
         return self._status
+
+
+__all__ = [
+    "AppleMusicConnector",
+]

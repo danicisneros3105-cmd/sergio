@@ -42,3 +42,9 @@ def split_at_ttft(
     prefill = compute_phase_metrics(session, start_ns, ttft_ns, input_tokens)
     decode = compute_phase_metrics(session, ttft_ns, end_ns, output_tokens)
     return (prefill, decode)
+
+
+__all__ = [
+    "compute_phase_metrics",
+    "split_at_ttft",
+]

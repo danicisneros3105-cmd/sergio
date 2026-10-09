@@ -370,3 +370,19 @@ class LearningSession(BaseModel):
         default=None,
         description="If status is FAILED, the error message that caused it.",
     )
+
+
+__all__ = [
+    "AutonomyMode",
+    "BenchmarkSnapshot",
+    "Edit",
+    "EditOp",
+    "EditOutcome",
+    "EditPillar",
+    "EditRiskTier",
+    "FailureCluster",
+    "LearningPlan",
+    "LearningSession",
+    "SessionStatus",
+    "TriggerKind",
+]

@@ -221,3 +221,8 @@ def _fetch_latest_stable() -> str | None:
     # projects that have only published dev releases).
     info_version = data.get("info", {}).get("version")
     return info_version or None
+
+
+__all__ = [
+    "check_for_updates",
+]

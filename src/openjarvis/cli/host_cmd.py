@@ -415,3 +415,8 @@ def host(
         console.print(f"[red]Command not found:[/red] {cmd[0]}")
         console.print(f"Make sure {info['display']} is installed and on your PATH.")
         raise SystemExit(1)
+
+
+__all__ = [
+    "host",
+]

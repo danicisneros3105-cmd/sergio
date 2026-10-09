@@ -39,3 +39,9 @@ def run_server(app: Any, *, host: str, port: int, log_level: str = "info") -> No
         # Includes startup failure: remove a parent-created pending entry, but
         # never an entry belonging to a different server process.
         clear_server_state(os.getpid())
+
+
+__all__ = [
+    "DaemonServer",
+    "run_server",
+]

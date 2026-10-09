@@ -73,3 +73,8 @@ class PendingQueue:
             logger.info("Resolved pending edit %s", edit_id)
             return True
         return False
+
+
+__all__ = [
+    "PendingQueue",
+]

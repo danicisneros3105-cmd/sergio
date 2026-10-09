@@ -86,3 +86,9 @@ def detect_install() -> InstallInfo:
         kind="unknown",
         upgrade_command="pip install --upgrade openjarvis",
     )
+
+
+__all__ = [
+    "detect_install",
+    "InstallInfo",
+]

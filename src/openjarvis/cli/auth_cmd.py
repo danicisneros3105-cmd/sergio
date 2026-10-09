@@ -69,3 +69,10 @@ def revoke_key() -> None:
     content = re.sub(r'api_key\s*=\s*"[^"]*"', 'api_key = ""', content)
     config_path.write_text(content)
     click.echo("API key revoked.")
+
+
+__all__ = [
+    "auth",
+    "create_key",
+    "revoke_key",
+]

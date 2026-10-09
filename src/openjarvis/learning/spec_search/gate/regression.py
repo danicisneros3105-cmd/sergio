@@ -58,3 +58,9 @@ def regression_check(
         has_regression=bool(regressed),
         regressed_clusters=regressed,
     )
+
+
+__all__ = [
+    "regression_check",
+    "RegressionResult",
+]

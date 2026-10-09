@@ -205,3 +205,8 @@ def gui(
     finally:
         if started_here:
             stop_extensions(started_here)
+
+
+__all__ = [
+    "gui",
+]

@@ -153,3 +153,9 @@ class DigestStore:
 
     def close(self) -> None:
         self._conn.close()
+
+
+__all__ = [
+    "DigestArtifact",
+    "DigestStore",
+]

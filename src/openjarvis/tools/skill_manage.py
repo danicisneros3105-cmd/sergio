@@ -153,3 +153,8 @@ class SkillManageTool(BaseTool):
             success=True,
             content=f"Deleted skill: {name}",
         )
+
+
+__all__ = [
+    "SkillManageTool",
+]

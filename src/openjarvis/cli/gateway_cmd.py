@@ -105,3 +105,12 @@ def logs() -> None:
             ["journalctl", "--user", "-u", "openjarvis-gateway", "-f"],
             check=False,
         )
+
+
+__all__ = [
+    "gateway",
+    "logs",
+    "start",
+    "status",
+    "stop",
+]

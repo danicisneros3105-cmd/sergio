@@ -93,3 +93,12 @@ class EditApplierRegistry:
     def is_supported(self, op: EditOp) -> bool:
         """Return True if an applier is registered for the op."""
         return op in self._appliers
+
+
+__all__ = [
+    "ApplyContext",
+    "ApplyResult",
+    "EditApplier",
+    "EditApplierRegistry",
+    "ValidationResult",
+]

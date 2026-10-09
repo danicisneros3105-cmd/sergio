@@ -146,3 +146,10 @@ verts = len(mesh.vertices)
 ev.to_mesh_clear()
 vfx_info(effect="geo_nodes", kind=kind, tree=tree.name, nodes=len(tree.nodes), evaluated_vertices=verts)
 """
+
+
+__all__ = [
+    "build",
+    "DESCRIPTION",
+    "PARAMS",
+]

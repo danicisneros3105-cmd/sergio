@@ -322,3 +322,11 @@ def _integrate_energy(
         energy += avg_w * dt
         peak = max(peak, a.watts, b.watts)
     return energy, peak
+
+
+__all__ = [
+    "EnergySample",
+    "LOGGER",
+    "run_one_shot",
+    "SubprocessResult",
+]

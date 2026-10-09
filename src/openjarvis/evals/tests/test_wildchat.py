@@ -115,3 +115,9 @@ class TestWildChatScorer:
 
         assert is_correct is None
         assert "missing_verdicts" in str(meta.get("reason", ""))
+
+
+__all__ = [
+    "TestVerdictParsing",
+    "TestWildChatScorer",
+]

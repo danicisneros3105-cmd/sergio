@@ -358,3 +358,8 @@ class GContactsConnector(BaseConnector):
                 category="communication",
             ),
         ]
+
+
+__all__ = [
+    "GContactsConnector",
+]

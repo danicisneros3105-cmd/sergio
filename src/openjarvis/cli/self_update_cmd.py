@@ -164,3 +164,8 @@ def self_update(check: bool, yes: bool) -> None:
         sys.exit(returncode)
 
     click.echo("\nUpgrade complete. Re-run `jarvis --version` to confirm.")
+
+
+__all__ = [
+    "self_update",
+]

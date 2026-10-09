@@ -188,3 +188,10 @@ class TestRunSingleSuiteModeGating:
         _run_single(config, console=_quiet_console())
         assert mock_tb.call_args.kwargs["base_url"] == "http://node7:8123/v1"
         assert mock_tb.call_args.kwargs["api_key"] == "sk-k"
+
+
+__all__ = [
+    "TestBuildBackendForwardsEndpoint",
+    "TestRunSingleSuiteModeGating",
+    "TestTerminalBenchNativeApiBase",
+]

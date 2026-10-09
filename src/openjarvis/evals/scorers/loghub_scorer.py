@@ -81,3 +81,8 @@ class LogHubScorer(LLMJudgeScorer):
                 "match_type": "llm_fallback_error",
                 "error": str(exc),
             }
+
+
+__all__ = [
+    "LogHubScorer",
+]

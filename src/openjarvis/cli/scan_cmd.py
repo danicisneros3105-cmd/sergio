@@ -668,3 +668,10 @@ def scan(
         return
 
     _render_results(results)
+
+
+__all__ = [
+    "PrivacyScanner",
+    "scan",
+    "ScanResult",
+]

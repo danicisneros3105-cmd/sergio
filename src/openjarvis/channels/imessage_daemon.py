@@ -203,3 +203,12 @@ def stop_daemon() -> bool:
     except (ValueError, ProcessLookupError, PermissionError):
         pid_path.unlink(missing_ok=True)
         return False
+
+
+__all__ = [
+    "is_running",
+    "poll_new_messages",
+    "run_daemon",
+    "send_imessage",
+    "stop_daemon",
+]

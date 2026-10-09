@@ -75,3 +75,15 @@ def faldon():
 tablero()
 patas()
 faldon()
+
+
+__all__ = [
+    "box",
+    "CM",
+    "faldon",
+    "material",
+    "patas",
+    "SERGIO_LAYOUT",
+    "tablero",
+    "WOOD",
+]

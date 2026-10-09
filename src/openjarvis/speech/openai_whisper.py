@@ -62,3 +62,8 @@ class OpenAIWhisperBackend(SpeechBackend):
 
     def supported_formats(self) -> List[str]:
         return ["mp3", "mp4", "mpeg", "mpga", "m4a", "wav", "webm"]
+
+
+__all__ = [
+    "OpenAIWhisperBackend",
+]

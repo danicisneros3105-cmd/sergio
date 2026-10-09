@@ -203,3 +203,12 @@ else:
 vfx_assign(obj, mat)
 vfx_info(effect="shaders", shader=shader_name, material=mat.name, nodes=len(mat.node_tree.nodes), target=obj.name)
 """
+
+
+__all__ = [
+    "build",
+    "DESCRIPTION",
+    "PARAMS",
+    "PBR",
+    "VFX",
+]

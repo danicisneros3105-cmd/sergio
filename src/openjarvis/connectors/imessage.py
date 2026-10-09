@@ -284,3 +284,8 @@ class IMessageConnector(BaseConnector):
                 category="knowledge",
             ),
         ]
+
+
+__all__ = [
+    "IMessageConnector",
+]

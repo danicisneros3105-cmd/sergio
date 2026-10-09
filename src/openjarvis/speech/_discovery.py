@@ -84,3 +84,9 @@ def get_speech_backend(config: "JarvisConfig") -> Optional["SpeechBackend"]:
             continue
 
     return None
+
+
+__all__ = [
+    "DISCOVERY_ORDER",
+    "get_speech_backend",
+]

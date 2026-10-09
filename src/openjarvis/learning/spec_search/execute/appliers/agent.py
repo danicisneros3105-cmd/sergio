@@ -224,3 +224,12 @@ class EditFewShotExemplarsApplier(EditApplier):
 
     def rollback(self, edit: Edit, ctx: ApplyContext) -> None:
         pass
+
+
+__all__ = [
+    "EditFewShotExemplarsApplier",
+    "PatchSystemPromptApplier",
+    "ReplaceSystemPromptApplier",
+    "SetAgentClassApplier",
+    "SetAgentParamApplier",
+]

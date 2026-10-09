@@ -480,3 +480,8 @@ class AppleContactsConnector(BaseConnector):
                 category="knowledge",
             ),
         ]
+
+
+__all__ = [
+    "AppleContactsConnector",
+]

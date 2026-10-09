@@ -458,3 +458,9 @@ class GranolaConnector(BaseConnector):
                 category="knowledge",
             ),
         ]
+
+
+__all__ = [
+    "GranolaConnector",
+    "GranolaKeyError",
+]

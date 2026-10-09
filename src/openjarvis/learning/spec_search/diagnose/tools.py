@@ -542,3 +542,8 @@ def build_diagnostic_tools(
             fn=_compare_outputs,
         ),
     ]
+
+
+__all__ = [
+    "build_diagnostic_tools",
+]

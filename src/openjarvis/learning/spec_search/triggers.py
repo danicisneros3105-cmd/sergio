@@ -64,3 +64,11 @@ class ClusterTrigger:
             "trace_ids": self.trace_ids,
             "failure_rate": self.failure_rate,
         }
+
+
+__all__ = [
+    "ClusterTrigger",
+    "OnDemandTrigger",
+    "ScheduledTrigger",
+    "UserFlagTrigger",
+]

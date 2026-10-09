@@ -114,3 +114,14 @@ def suggest_action(error: AgentTickError) -> str:
     if "not found" in msg or "404" in msg:
         return "Model or endpoint not found \u2014 verify model name and engine URL"
     return "Unexpected error \u2014 check the full trace for details"
+
+
+__all__ = [
+    "AgentTickError",
+    "classify_error",
+    "EscalateError",
+    "FatalError",
+    "retry_delay",
+    "RetryableError",
+    "suggest_action",
+]

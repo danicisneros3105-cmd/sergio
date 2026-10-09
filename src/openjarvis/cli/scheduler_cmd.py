@@ -334,3 +334,16 @@ def scheduler_start(poll_interval: int) -> None:
 
         while True:
             time.sleep(1)
+
+
+__all__ = [
+    "scheduler",
+    "scheduler_cancel",
+    "scheduler_create",
+    "scheduler_list",
+    "scheduler_logs",
+    "scheduler_pause",
+    "scheduler_resume",
+    "scheduler_run_task",
+    "scheduler_start",
+]

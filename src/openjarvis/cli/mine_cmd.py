@@ -991,3 +991,18 @@ def logs(tail_n: int, follow: bool) -> None:
     except Exception as exc:  # noqa: BLE001
         raise click.ClickException(f"no mining container: {exc}") from exc
     click.echo(launcher.get_logs(tail=tail_n))
+
+
+__all__ = [
+    "attach",
+    "doctor",
+    "init",
+    "inspect_model",
+    "logs",
+    "mine",
+    "models",
+    "start",
+    "status",
+    "stop",
+    "validate_model",
+]

@@ -175,3 +175,14 @@ class Sidecar:
             path.unlink()
         except FileNotFoundError:
             pass
+
+
+__all__ = [
+    "MiningCapabilities",
+    "MiningConfig",
+    "MiningProvider",
+    "MiningStats",
+    "PoolTarget",
+    "Sidecar",
+    "SoloTarget",
+]

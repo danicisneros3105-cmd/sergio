@@ -110,3 +110,12 @@ def compute_mfu(
         return 0.0
     actual_tflops = flops / (duration_s * 1e12)
     return (actual_tflops / (peak * num_gpus)) * 100.0
+
+
+__all__ = [
+    "compute_mfu",
+    "estimate_flops",
+    "estimate_flops_no_kv_cache",
+    "GPU_PEAK_TFLOPS_BF16",
+    "MODEL_PARAMS_B",
+]

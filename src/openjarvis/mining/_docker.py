@@ -459,3 +459,15 @@ def _extra_vllm_args(value: Any) -> list[str]:
     if isinstance(value, (list, tuple)):
         return [str(item) for item in value]
     raise ConfigurationError("[mining.extra].vllm_args must be a string or list")
+
+
+__all__ = [
+    "APIError",
+    "ConfigurationError",
+    "CONTAINER_NAME",
+    "ImageAcquisitionError",
+    "ImageNotFound",
+    "LOCAL_MODEL_BIND_PATH",
+    "NotFound",
+    "PearlDockerLauncher",
+]

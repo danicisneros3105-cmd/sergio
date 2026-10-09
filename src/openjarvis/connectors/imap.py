@@ -287,3 +287,10 @@ class IMAPConnector(GmailIMAPConnector):
     def mcp_tools(self) -> list:
         """Do not expose Gmail-branded live tools for non-Gmail mailboxes."""
         return []
+
+
+__all__ = [
+    "IMAPConnector",
+    "resolve_imap_host",
+    "validate_imap_endpoint",
+]

@@ -113,3 +113,11 @@ class BaseConnector(ABC):
     def mcp_tools(self) -> List[ToolSpec]:
         """Return MCP tool specs for real-time agent queries.  Optional."""
         return []
+
+
+__all__ = [
+    "Attachment",
+    "BaseConnector",
+    "Document",
+    "SyncStatus",
+]

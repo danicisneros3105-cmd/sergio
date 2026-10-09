@@ -36,3 +36,8 @@ class LoraStubApplier(EditApplier):
 
     def rollback(self, edit: Edit, ctx: ApplyContext) -> None:
         pass
+
+
+__all__ = [
+    "LoraStubApplier",
+]

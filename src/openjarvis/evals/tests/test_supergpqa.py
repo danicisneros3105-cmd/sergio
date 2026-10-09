@@ -103,3 +103,8 @@ class TestSuperGPQAScorer:
 
         assert is_correct is True
         assert meta["candidate_letter"] == "C"
+
+
+__all__ = [
+    "TestSuperGPQAScorer",
+]

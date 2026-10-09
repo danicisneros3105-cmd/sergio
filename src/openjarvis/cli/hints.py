@@ -85,3 +85,12 @@ def mining_not_running_hint(cfg: object | None, sidecar_present: bool) -> Option
     if cfg is None or sidecar_present:
         return None
     return "mining configured but not running - start it with `jarvis mine start`"
+
+
+__all__ = [
+    "hint_engine_error",
+    "hint_no_config",
+    "hint_no_engine",
+    "hint_no_model",
+    "mining_not_running_hint",
+]

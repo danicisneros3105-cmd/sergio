@@ -37,3 +37,8 @@ class GatewayDaemon:
     def stop(self) -> None:
         """Stop the daemon."""
         self._running = False
+
+
+__all__ = [
+    "GatewayDaemon",
+]

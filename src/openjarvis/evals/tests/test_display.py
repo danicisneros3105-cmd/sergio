@@ -150,3 +150,13 @@ class TestFullResults:
         print_full_results(console, summary)
         output = console.file.getvalue()
         assert "Accuracy" in output
+
+
+__all__ = [
+    "TestAccuracyPanel",
+    "TestCompactTable",
+    "TestEnergyTable",
+    "TestFullResults",
+    "TestLatencyTable",
+    "TestTraceSummary",
+]

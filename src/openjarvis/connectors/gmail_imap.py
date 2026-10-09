@@ -521,3 +521,8 @@ class GmailIMAPConnector(BaseConnector):
                 category="communication",
             ),
         ]
+
+
+__all__ = [
+    "GmailIMAPConnector",
+]

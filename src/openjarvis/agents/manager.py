@@ -870,3 +870,8 @@ class AgentManager:
             "session_id": row["session_id"] or "",
             "routing_mode": row["routing_mode"] or "auto",
         }
+
+
+__all__ = [
+    "AgentManager",
+]

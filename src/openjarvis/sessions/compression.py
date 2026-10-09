@@ -100,3 +100,12 @@ class TieredSummaries(BaseCompressor):
             )
         result.extend(l0_msgs)
         return result
+
+
+__all__ = [
+    "BaseCompressor",
+    "ModelSummarization",
+    "RuleBasedPrecompression",
+    "SessionConsolidation",
+    "TieredSummaries",
+]

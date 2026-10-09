@@ -760,7 +760,11 @@ def _print_profile(
     help="Max tokens to generate (default: from config).",
 )
 @click.option("--json", "output_json", is_flag=True, help="Output raw JSON result.")
-@click.option("--no-stream", is_flag=True, help="Disable streaming (sync mode).")
+@click.option(
+    "--no-stream",
+    is_flag=True,
+    help="Kept for old scripts: answers already arrive in one piece.",
+)
 @click.option(
     "--no-context",
     is_flag=True,
@@ -849,7 +853,7 @@ def ask(
     temperature: float,
     max_tokens: int,
     output_json: bool,
-    no_stream: bool,
+    no_stream: bool,  # noqa: ARG001 - accepted, has no effect
     no_context: bool,
     agent_name: str | None,
     tool_names: str | None,
@@ -1294,3 +1298,9 @@ def ask(
             telem_store.close()
         except Exception as exc:
             logger.debug("Error closing telemetry store: %s", exc)
+
+
+__all__ = [
+    "ask",
+    "LOCAL_ENGINES",
+]

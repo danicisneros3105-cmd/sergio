@@ -338,3 +338,23 @@ def estado() -> None:
         )
     state = "active" if data.get("enabled") else "PAUSED (Ctrl+Alt+End)"
     console.print(f"Sergio Escritorio is running. Screen control: {state}")
+
+
+__all__ = [
+    "BASE_TOOLS",
+    "clean_server",
+    "CLOUD_PREFIXES",
+    "DESKTOP_TOOLS",
+    "enable_tools",
+    "escritorio",
+    "estado",
+    "GEMINI_MAIN",
+    "instalar",
+    "MIN_TURNS",
+    "OLD_GEMINI",
+    "prefer_cloud",
+    "pull_model",
+    "SERVER_EXTRAS",
+    "sync_server",
+    "VISION_MODEL",
+]

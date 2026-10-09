@@ -97,3 +97,9 @@ class CalendarSearchTool(BaseTool):
             success=True,
             metadata={"count": len(rows)},
         )
+
+
+__all__ = [
+    "CalendarSearchTool",
+    "CalendarUpcomingTool",
+]

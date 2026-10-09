@@ -600,3 +600,15 @@ _merge_tool_call_fragments = _agent_manager_helpers._merge_tool_call_fragments
 _get_mcp_tools = _agent_manager_helpers._get_mcp_tools
 _sse_chunk = _agent_manager_helpers._sse_chunk
 _tool_progress_label = _agent_manager_helpers._tool_progress_label
+
+
+__all__ = [
+    "BindChannelRequest",
+    "create_agent_manager_router",
+    "CreateAgentRequest",
+    "CreateTaskRequest",
+    "FeedbackRequest",
+    "SendMessageRequest",
+    "UpdateAgentRequest",
+    "UpdateTaskRequest",
+]

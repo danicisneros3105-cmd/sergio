@@ -247,3 +247,11 @@ def bootstrap_cmd(
         cloud=cloud,
     )
     click.echo(f"Wrote {_cfg.DEFAULT_CONFIG_PATH}")
+
+
+__all__ = [
+    "bootstrap_cmd",
+    "CloudProvider",
+    "detect_cloud_keys",
+    "write_initial_config",
+]

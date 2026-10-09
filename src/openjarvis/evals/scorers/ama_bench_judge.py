@@ -157,3 +157,9 @@ def _parse_judge_label(raw: str) -> Optional[str]:
         return "no"
 
     return None
+
+
+__all__ = [
+    "AMABenchScorer",
+    "LOGGER",
+]

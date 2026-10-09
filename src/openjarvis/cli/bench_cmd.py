@@ -487,3 +487,10 @@ def skills(
         table.add_row("Total tokens", str(result.total_tokens))
         table.add_row("Runtime (s)", f"{result.total_runtime_seconds:.1f}")
         console.print(table)
+
+
+__all__ = [
+    "bench",
+    "run",
+    "skills",
+]

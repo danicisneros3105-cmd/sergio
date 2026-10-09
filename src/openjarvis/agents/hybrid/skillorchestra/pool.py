@@ -174,3 +174,12 @@ def call_alias(
     else:
         raise ValueError(f"unsupported pool endpoint: {spec.endpoint!r}")
     return text, p, c, agent.cost_usd(spec.model, p, c)
+
+
+__all__ = [
+    "ALL_ALIASES",
+    "build_pool",
+    "call_alias",
+    "ModelSpec",
+    "STAGE_ALIASES",
+]

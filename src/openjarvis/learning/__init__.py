@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging as _logging
+
 from openjarvis.learning._stubs import (
     QueryAnalyzer,
     RewardFunction,
@@ -43,28 +45,42 @@ def ensure_registered() -> None:
     # Intelligence training (optional deps)
     try:
         import openjarvis.learning.intelligence  # noqa: F401
-    except ImportError:
-        pass
+    except ImportError as _exc:
+        _logging.getLogger(__name__).debug(
+            "Optional import skipped (openjarvis.learning.intelligence): %s", _exc
+        )
 
     # Orchestrator-specific training (optional deps)
     try:
         import openjarvis.learning.intelligence.orchestrator  # noqa: F401
-    except ImportError:
-        pass
+    except ImportError as _exc:
+        _logging.getLogger(__name__).debug(
+            "Optional import skipped (openjarvis.learning.intelligence.orchestrator): %s",
+            _exc,
+        )
 
     # Agent optimizers (optional deps)
     try:
         import openjarvis.learning.agents.dspy_optimizer  # noqa: F401
-    except ImportError:
-        pass
+    except ImportError as _exc:
+        _logging.getLogger(__name__).debug(
+            "Optional import skipped (openjarvis.learning.agents.dspy_optimizer): %s",
+            _exc,
+        )
     try:
         import openjarvis.learning.agents.gepa_optimizer  # noqa: F401
-    except ImportError:
-        pass
+    except ImportError as _exc:
+        _logging.getLogger(__name__).debug(
+            "Optional import skipped (openjarvis.learning.agents.gepa_optimizer): %s",
+            _exc,
+        )
     try:
         import openjarvis.learning.agents.ace_optimizer  # noqa: F401
-    except ImportError:
-        pass
+    except ImportError as _exc:
+        _logging.getLogger(__name__).debug(
+            "Optional import skipped (openjarvis.learning.agents.ace_optimizer): %s",
+            _exc,
+        )
 
 
 __all__ = [

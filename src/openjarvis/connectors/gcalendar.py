@@ -561,3 +561,8 @@ class GCalendarConnector(BaseConnector):
                 category="productivity",
             ),
         ]
+
+
+__all__ = [
+    "GCalendarConnector",
+]

@@ -73,3 +73,11 @@ def deny(action_id: str) -> None:
     from openjarvis.tools.approval_store import STATUS_DENIED
 
     _decide(action_id, STATUS_DENIED)
+
+
+__all__ = [
+    "approvals",
+    "approve",
+    "deny",
+    "list_cmd",
+]

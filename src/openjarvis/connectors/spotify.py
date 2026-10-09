@@ -161,3 +161,8 @@ class SpotifyConnector(BaseConnector):
 
     def sync_status(self) -> SyncStatus:
         return self._status
+
+
+__all__ = [
+    "SpotifyConnector",
+]

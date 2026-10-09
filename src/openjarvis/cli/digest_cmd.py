@@ -290,3 +290,8 @@ def _handle_schedule(console: Console, schedule: str) -> None:
             "  [dim]Note: scheduler task not created "
             "(start the scheduler separately).[/dim]"
         )
+
+
+__all__ = [
+    "digest",
+]

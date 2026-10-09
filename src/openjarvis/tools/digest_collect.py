@@ -581,3 +581,8 @@ class DigestCollectTool(BaseTool):
                 "total_items": sum(len(v) for v in collected_docs.values()),
             },
         )
+
+
+__all__ = [
+    "DigestCollectTool",
+]

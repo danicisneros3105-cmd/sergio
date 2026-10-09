@@ -205,3 +205,8 @@ class FasterWhisperBackend(SpeechBackend):
     def supported_formats(self) -> List[str]:
         """Supported audio formats (same as ffmpeg/Whisper)."""
         return ["wav", "mp3", "m4a", "ogg", "flac", "webm"]
+
+
+__all__ = [
+    "FasterWhisperBackend",
+]

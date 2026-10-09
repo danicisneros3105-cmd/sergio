@@ -20,3 +20,8 @@ class SeverityPolicy:
 
     def action_for(self, level: ThreatLevel) -> str:
         return self._actions.get(level, "log")
+
+
+__all__ = [
+    "SeverityPolicy",
+]

@@ -83,3 +83,13 @@ def tornillos():
 
 objs = cuerpo() + [pantalla()] + camaras() + botones() + tornillos()
 kit_parent("Teléfono", objs)
+
+
+__all__ = [
+    "botones",
+    "camaras",
+    "cuerpo",
+    "pantalla",
+    "SERGIO_LAYOUT",
+    "tornillos",
+]

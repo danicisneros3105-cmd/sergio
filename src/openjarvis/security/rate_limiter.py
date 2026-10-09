@@ -5,7 +5,7 @@ from __future__ import annotations
 import threading
 import time
 from dataclasses import dataclass
-from typing import Dict, Optional, Tuple
+from typing import Optional, Tuple
 
 __all__ = ["RateLimitConfig", "RateLimiter", "TokenBucket"]
 
@@ -64,9 +64,8 @@ class RateLimiter:
 
     def __init__(self, config: Optional[RateLimitConfig] = None) -> None:
         self._config = config or RateLimitConfig()
-        self._buckets: Dict[str, TokenBucket] = {}
-        self._lock = threading.Lock()
 
+        # The Rust limiter when the extension is built, else its Python twin.
         from openjarvis._rust_bridge import get_native
 
         self._rust_impl = get_native("RateLimiter")(
@@ -75,31 +74,14 @@ class RateLimiter:
         )
 
     def check(self, key: str) -> Tuple[bool, float]:
-        """Check if request is allowed for key — always via Rust backend."""
+        """Check if a request is allowed for *key*: (allowed, seconds to wait)."""
         if not self._config.enabled:
             return True, 0.0
         return self._rust_impl.check(key)
 
-    def _get_bucket(self, key: str) -> TokenBucket:
-        """Get or create a bucket for the given key."""
-        with self._lock:
-            if key not in self._buckets:
-                rate = self._config.requests_per_minute / 60.0
-                self._buckets[key] = TokenBucket(
-                    rate=rate,
-                    capacity=self._config.burst_size,
-                )
-            return self._buckets[key]
-
     def reset(self, key: Optional[str] = None) -> None:
-        """Reset rate limit state for a key or all keys — always via Rust backend."""
+        """Reset rate limit state for a key, or for all keys."""
         self._rust_impl.reset(key)
-        return
-        with self._lock:
-            if key:
-                self._buckets.pop(key, None)
-            else:
-                self._buckets.clear()
 
     @property
     def config(self) -> RateLimitConfig:

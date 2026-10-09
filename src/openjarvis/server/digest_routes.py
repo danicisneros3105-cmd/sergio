@@ -128,3 +128,9 @@ def create_digest_router(*, db_path: str = "") -> APIRouter:
         }
 
     return router
+
+
+__all__ = [
+    "create_digest_router",
+    "ScheduleUpdate",
+]

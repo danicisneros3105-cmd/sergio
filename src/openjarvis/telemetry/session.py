@@ -158,3 +158,9 @@ class TelemetrySession:
 
     def __exit__(self, *args: Any) -> None:
         self.stop()
+
+
+__all__ = [
+    "TelemetrySample",
+    "TelemetrySession",
+]

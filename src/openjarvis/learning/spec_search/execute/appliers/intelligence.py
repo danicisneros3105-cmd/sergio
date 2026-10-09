@@ -115,3 +115,9 @@ class SetModelParamApplier(EditApplier):
 
     def rollback(self, edit: Edit, ctx: ApplyContext) -> None:
         pass  # Delegated to CheckpointStore.discard_stage()
+
+
+__all__ = [
+    "SetModelForQueryClassApplier",
+    "SetModelParamApplier",
+]

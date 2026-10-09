@@ -109,3 +109,9 @@ class TestFRAMESScorer:
 
         assert is_correct is None
         assert "error" in meta
+
+
+__all__ = [
+    "TestFRAMESScorer",
+    "TestGraderTemplate",
+]

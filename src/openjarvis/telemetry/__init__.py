@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging as _logging
+
 from openjarvis.telemetry.aggregator import (
     AggregatedStats,
     EngineStats,
@@ -18,18 +20,24 @@ try:
         GpuSample,
         GpuSnapshot,
     )
-except ImportError:
-    pass
+except ImportError as _exc:
+    _logging.getLogger(__name__).debug(
+        "Optional import skipped (openjarvis.telemetry.gpu_monitor): %s", _exc
+    )
 
 try:
     from openjarvis.telemetry.efficiency import EfficiencyMetrics, compute_efficiency
-except ImportError:
-    pass
+except ImportError as _exc:
+    _logging.getLogger(__name__).debug(
+        "Optional import skipped (openjarvis.telemetry.efficiency): %s", _exc
+    )
 
 try:
     from openjarvis.telemetry.vllm_metrics import VLLMMetrics, VLLMMetricsScraper
-except ImportError:
-    pass
+except ImportError as _exc:
+    _logging.getLogger(__name__).debug(
+        "Optional import skipped (openjarvis.telemetry.vllm_metrics): %s", _exc
+    )
 
 try:
     from openjarvis.telemetry.energy_monitor import (
@@ -38,8 +46,10 @@ try:
         EnergyVendor,
         create_energy_monitor,
     )
-except ImportError:
-    pass
+except ImportError as _exc:
+    _logging.getLogger(__name__).debug(
+        "Optional import skipped (openjarvis.telemetry.energy_monitor): %s", _exc
+    )
 
 from openjarvis.telemetry.batch import BatchMetrics, EnergyBatch
 from openjarvis.telemetry.steady_state import (
@@ -50,18 +60,24 @@ from openjarvis.telemetry.steady_state import (
 
 try:
     from openjarvis.telemetry.session import TelemetrySample, TelemetrySession
-except ImportError:
-    pass
+except ImportError as _exc:
+    _logging.getLogger(__name__).debug(
+        "Optional import skipped (openjarvis.telemetry.session): %s", _exc
+    )
 
 try:
     from openjarvis.telemetry.phase_metrics import compute_phase_metrics, split_at_ttft
-except ImportError:
-    pass
+except ImportError as _exc:
+    _logging.getLogger(__name__).debug(
+        "Optional import skipped (openjarvis.telemetry.phase_metrics): %s", _exc
+    )
 
 try:
     from openjarvis.telemetry.itl import compute_itl_stats
-except ImportError:
-    pass
+except ImportError as _exc:
+    _logging.getLogger(__name__).debug(
+        "Optional import skipped (openjarvis.telemetry.itl): %s", _exc
+    )
 
 try:
     from openjarvis.telemetry.flops import (
@@ -71,8 +87,10 @@ try:
         estimate_flops,
         estimate_flops_no_kv_cache,
     )
-except ImportError:
-    pass
+except ImportError as _exc:
+    _logging.getLogger(__name__).debug(
+        "Optional import skipped (openjarvis.telemetry.flops): %s", _exc
+    )
 
 __all__ = [
     "AggregatedStats",

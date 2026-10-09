@@ -333,3 +333,14 @@ def stats(backend: str | None) -> None:
     finally:
         if hasattr(mem, "close"):
             mem.close()
+
+
+__all__ = [
+    "clear",
+    "index",
+    "list_facts",
+    "memory",
+    "search",
+    "stats",
+    "trust_fact",
+]

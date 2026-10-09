@@ -138,3 +138,8 @@ class TwilioSMSChannel(BaseChannel):
                     "conversation_id": conversation_id,
                 },
             )
+
+
+__all__ = [
+    "TwilioSMSChannel",
+]

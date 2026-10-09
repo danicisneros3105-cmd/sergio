@@ -138,3 +138,11 @@ if {p["bake"]}:
     vfx_info(lowest_z=round(min(zs), 3), highest_z=round(max(zs), 3))
 vfx_info(effect="cloth", scenario=scenario, fabric={py(str(p["fabric"]))}, cloth_objects=len(cloth_objects))
 """
+
+
+__all__ = [
+    "build",
+    "DESCRIPTION",
+    "FABRICS",
+    "PARAMS",
+]

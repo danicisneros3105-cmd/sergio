@@ -456,3 +456,11 @@ def deep_research_setup(obsidian_vault: Optional[str], skip_chat: bool) -> None:
         return
 
     _launch_chat(store, console)
+
+
+__all__ = [
+    "deep_research_setup",
+    "detect_local_sources",
+    "detect_token_sources",
+    "ingest_sources",
+]

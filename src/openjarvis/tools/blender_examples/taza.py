@@ -77,3 +77,13 @@ def letrero():
 
 parts = [plato(), taza(), liquido(), asa(), letrero()]
 kit_parent("Taza de café", parts)
+
+
+__all__ = [
+    "asa",
+    "letrero",
+    "liquido",
+    "plato",
+    "SERGIO_LAYOUT",
+    "taza",
+]

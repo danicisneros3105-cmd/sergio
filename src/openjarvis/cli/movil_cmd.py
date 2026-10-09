@@ -227,3 +227,16 @@ def estado() -> None:
         f"cloudflared: {find_cloudflared() or 'no instalado (se descarga solo)'}"
     )
     console.print(f"App web: {'lista' if ui_ready() else 'sin construir'}")
+
+
+__all__ = [
+    "build_ui",
+    "CLOUDFLARED_URL",
+    "download_cloudflared",
+    "estado",
+    "find_cloudflared",
+    "movil",
+    "olvidar",
+    "render_qr",
+    "ui_ready",
+]

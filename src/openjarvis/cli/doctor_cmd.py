@@ -462,3 +462,9 @@ def doctor(as_json: bool) -> None:
 
     if bg_failed:
         raise click.exceptions.Exit(code=1)
+
+
+__all__ = [
+    "CheckResult",
+    "doctor",
+]

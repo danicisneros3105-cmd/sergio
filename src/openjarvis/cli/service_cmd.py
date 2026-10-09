@@ -400,3 +400,22 @@ def desinstalar() -> None:
         (unit_dir() / unit).unlink(missing_ok=True)
     _systemctl(runner, "daemon-reload")
     console.print("Sergio service removed (your data and settings are kept).")
+
+
+__all__ = [
+    "apagar",
+    "bypass_proxy_for_local",
+    "desinstalar",
+    "encender",
+    "ensure_server",
+    "env_file",
+    "estado",
+    "instalar",
+    "journal_tail",
+    "render_units",
+    "service_state",
+    "servicio",
+    "unit_dir",
+    "UNITS",
+    "wait_for_server",
+]

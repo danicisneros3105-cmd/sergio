@@ -40,3 +40,11 @@ def is_owner(number: str, owners: Iterable[str]) -> bool:
 def owner_numbers(config: Any) -> list[str]:
     phone = getattr(config, "phone", None)
     return list(getattr(phone, "owner_numbers", []) or [])
+
+
+__all__ = [
+    "digits",
+    "is_owner",
+    "owner_numbers",
+    "to_e164",
+]

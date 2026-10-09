@@ -168,3 +168,15 @@ def verify_commit_pin(entry: ThirdPartyEntry) -> None:
             LOGGER.warning(msg)
             return
         raise CommitDriftError(msg)
+
+
+__all__ = [
+    "CommitDriftError",
+    "load_third_party_config",
+    "LOGGER",
+    "ThirdPartyConfig",
+    "ThirdPartyEntry",
+    "ThirdPartyError",
+    "ThirdPartyNotFoundError",
+    "verify_commit_pin",
+]

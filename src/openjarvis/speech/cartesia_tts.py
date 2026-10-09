@@ -113,3 +113,8 @@ class CartesiaTTSBackend(TTSBackend):
 
     def health(self) -> bool:
         return bool(self._api_key)
+
+
+__all__ = [
+    "CartesiaTTSBackend",
+]

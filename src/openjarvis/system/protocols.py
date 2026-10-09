@@ -39,3 +39,8 @@ class OrchestratorDeps(Protocol):
 
     # Optional attribute (getattr with default) — declared for type clarity.
     _skill_few_shot_examples: Any
+
+
+__all__ = [
+    "OrchestratorDeps",
+]

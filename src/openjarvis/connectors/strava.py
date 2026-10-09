@@ -179,3 +179,8 @@ class StravaConnector(BaseConnector):
 
     def sync_status(self) -> SyncStatus:
         return self._status
+
+
+__all__ = [
+    "StravaConnector",
+]

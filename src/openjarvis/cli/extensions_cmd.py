@@ -141,3 +141,16 @@ def run(interval: float) -> None:
         pass
     finally:
         stop_extensions()
+
+
+__all__ = [
+    "extensions",
+    "logs",
+    "run",
+    "start",
+    "start_extensions",
+    "status",
+    "stop",
+    "stop_extensions",
+    "watch_extensions",
+]

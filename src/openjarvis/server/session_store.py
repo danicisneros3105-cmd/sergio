@@ -209,3 +209,8 @@ class SessionStore:
     @_db_locked
     def close(self) -> None:
         self._db.close()
+
+
+__all__ = [
+    "SessionStore",
+]

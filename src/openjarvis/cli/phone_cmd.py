@@ -244,3 +244,16 @@ def probar() -> None:
         goal="Llamada de prueba: saluda, pregunta si se escucha bien y despídete.",
     )
     console.print(escape(result.content))
+
+
+__all__ = [
+    "configurar",
+    "estado",
+    "point_twilio_number",
+    "probar",
+    "read_env",
+    "SECRET_KEYS",
+    "telefono",
+    "update_config",
+    "write_env",
+]

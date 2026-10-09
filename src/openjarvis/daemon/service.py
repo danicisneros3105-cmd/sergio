@@ -55,3 +55,11 @@ def generate_launchd_plist(output: Path | None = None) -> str:
         output.parent.mkdir(parents=True, exist_ok=True)
         output.write_text(content)
     return content
+
+
+__all__ = [
+    "generate_launchd_plist",
+    "generate_systemd_service",
+    "LAUNCHD_TEMPLATE",
+    "SYSTEMD_TEMPLATE",
+]

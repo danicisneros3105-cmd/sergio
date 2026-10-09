@@ -60,3 +60,9 @@ def install_hint() -> str:
         "If Pearl wheels are not on PyPI yet, see "
         "tools/pearl-reference-oracle/README.md for the build-from-pin path."
     )
+
+
+__all__ = [
+    "install_hint",
+    "pearl_packages_available",
+]

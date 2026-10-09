@@ -137,3 +137,9 @@ class BoundaryGuard:
             )
         except Exception:
             logger.debug("Failed to emit security alert event", exc_info=True)
+
+
+__all__ = [
+    "BoundaryGuard",
+    "SecurityBlockError",
+]

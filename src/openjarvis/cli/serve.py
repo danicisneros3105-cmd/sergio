@@ -793,3 +793,8 @@ def serve(
     from openjarvis.server.daemon import run_server
 
     run_server(app, host=bind_host, port=bind_port, log_level="info")
+
+
+__all__ = [
+    "serve",
+]

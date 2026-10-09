@@ -229,3 +229,12 @@ def websocket_authorized(websocket, expected_key: str) -> bool:  # noqa: ANN001
     because request targets commonly appear in access logs and browser history.
     """
     return authenticate_websocket(websocket, expected_key)[0]
+
+
+__all__ = [
+    "authenticate_websocket",
+    "AuthMiddleware",
+    "check_bind_safety",
+    "generate_api_key",
+    "websocket_authorized",
+]

@@ -212,3 +212,9 @@ def ensure_registered() -> None:
     if MinerRegistry.contains("cpu-pearl"):
         return
     MinerRegistry.register_value("cpu-pearl", CpuPearlProvider)
+
+
+__all__ = [
+    "CpuPearlProvider",
+    "ensure_registered",
+]

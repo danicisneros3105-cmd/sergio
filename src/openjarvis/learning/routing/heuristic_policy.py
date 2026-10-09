@@ -13,3 +13,8 @@ def ensure_registered() -> None:
 
 
 ensure_registered()
+
+
+__all__ = [
+    "ensure_registered",
+]

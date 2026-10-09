@@ -31,3 +31,8 @@ class SessionExpiryHook:
             input_text=input_text,
             tools=["memory_manage", "skill_manage"],
         )
+
+
+__all__ = [
+    "SessionExpiryHook",
+]

@@ -103,3 +103,10 @@ if "god_rays" in layers:
     spot.data.spot_size = math.radians(50)
 vfx_info(effect="volumetrics", layers=layers, world_volume=bool(wout.inputs["Volume"].links))
 """
+
+
+__all__ = [
+    "build",
+    "DESCRIPTION",
+    "PARAMS",
+]

@@ -267,3 +267,9 @@ class TeacherAgent:
             total_tokens=total_tokens,
             tool_call_records=tool_call_records,
         )
+
+
+__all__ = [
+    "TeacherAgent",
+    "TeacherAgentResult",
+]

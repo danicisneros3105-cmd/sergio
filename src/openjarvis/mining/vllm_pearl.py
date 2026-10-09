@@ -150,3 +150,9 @@ def ensure_registered() -> None:
     """
     if not MinerRegistry.contains("vllm-pearl"):
         MinerRegistry.register_value("vllm-pearl", VllmPearlProvider)
+
+
+__all__ = [
+    "ensure_registered",
+    "VllmPearlProvider",
+]

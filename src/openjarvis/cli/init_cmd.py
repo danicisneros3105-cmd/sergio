@@ -567,3 +567,8 @@ sources = ["hackernews", "news_rss"]
             border_style="cyan",
         )
     )
+
+
+__all__ = [
+    "init",
+]

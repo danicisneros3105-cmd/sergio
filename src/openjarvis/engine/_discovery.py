@@ -253,7 +253,7 @@ def get_engine(
         if (default_is_cloud is not None and chosen_is_cloud != default_is_cloud)
         else ""
     )
-    logger.warning(
+    note_engine_fallback(
         "Default engine %r is not running; using %r%s.%s",
         default_key,
         chosen[0],
@@ -263,6 +263,24 @@ def get_engine(
         else "",
     )
     return chosen
+
+
+# Read-only commands (status, list, doctor …) only look; they send nothing
+# to the substitute engine, so the fallback note is noise there. The CLI sets
+# this for them (see ``openjarvis.cli.quiet_fallback_for``).
+QUIET_FALLBACK = False
+_NOTED: set[tuple] = set()
+
+
+def note_engine_fallback(message: str, *args: object) -> None:
+    """Warn once per process that another engine stands in for the asked one.
+
+    Repeats, and every note during a read-only command, go to DEBUG.
+    """
+    key = (message, args)
+    quiet = QUIET_FALLBACK or key in _NOTED
+    _NOTED.add(key)
+    logger.log(logging.DEBUG if quiet else logging.WARNING, message, *args)
 
 
 __all__ = ["discover_engines", "discover_models", "get_engine"]

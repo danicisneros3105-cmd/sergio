@@ -146,3 +146,10 @@ if {p["bake"]}:
 moved = sum(1 for ob in shards if (ob.matrix_world.translation - Vector((0, 0, 1.0))).length > 0.6)
 vfx_info(effect="destruction", shards=len(shards), glue_constraints=glued, impact=impact, moved=moved)
 """
+
+
+__all__ = [
+    "build",
+    "DESCRIPTION",
+    "PARAMS",
+]

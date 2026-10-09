@@ -17,3 +17,8 @@ class TestCompactFlag:
         runner = CliRunner()
         result = runner.invoke(main, ["run", "--help"])
         assert "--trace-detail" in result.output
+
+
+__all__ = [
+    "TestCompactFlag",
+]

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging as _logging
 import sys
 
 import click
@@ -221,15 +222,19 @@ if not _DATA_BOUNDARY_BOOTSTRAP:
         from openjarvis.cli.auth_cmd import auth
 
         cli.add_command(auth, "auth")
-    except ImportError:
-        pass
+    except ImportError as _exc:
+        _logging.getLogger(__name__).debug(
+            "Optional import skipped (openjarvis.cli.auth_cmd): %s", _exc
+        )
 
     try:
         from openjarvis.cli.tunnel_cmd import tunnel
 
         cli.add_command(tunnel, "tunnel")
-    except ImportError:
-        pass
+    except ImportError as _exc:
+        _logging.getLogger(__name__).debug(
+            "Optional import skipped (openjarvis.cli.tunnel_cmd): %s", _exc
+        )
 
 
 def _load_sergio_env() -> None:
@@ -247,8 +252,53 @@ def _load_sergio_env() -> None:
         for key, value in read_env(env_file()).items():
             if key and value:
                 os.environ.setdefault(key, value)
-    except Exception:  # noqa: BLE001 — a broken file must not block the CLI
-        pass
+    except Exception as _exc:  # noqa: BLE001 — a broken file must not block the CLI
+        _logging.getLogger(__name__).debug(
+            "Could not load ~/.openjarvis/sergio.env: %s", _exc
+        )
+
+
+# Commands (or final sub-commands) that only read state. They never send a
+# prompt anywhere, so "default engine not running; using X" is noise there.
+READ_ONLY_COMMANDS = frozenset(
+    {
+        "status",
+        "estado",
+        "doctor",
+        "list",
+        "lista",
+        "ls",
+        "show",
+        "get",
+        "info",
+        "stats",
+        "history",
+        "logs",
+        "version",
+        "models",
+        "which",
+        "check",
+        "probar",
+        "revisar",
+    }
+)
+
+
+def quiet_fallback_for(argv: list[str]) -> bool:
+    """True when *argv* names a read-only command (or only asks for help)."""
+    if any(arg in ("--help", "-h") for arg in argv):
+        return True
+    command: click.Command = cli
+    names: list[str] = []
+    for arg in argv:
+        if arg.startswith("-") or not isinstance(command, click.Group):
+            continue
+        sub = command.commands.get(arg)
+        if sub is None:
+            break
+        names.append(arg)
+        command = sub
+    return bool(names) and names[-1] in READ_ONLY_COMMANDS
 
 
 def main() -> None:
@@ -256,6 +306,12 @@ def main() -> None:
     import sys
 
     _load_sergio_env()
+    try:
+        from openjarvis.engine import _discovery
+
+        _discovery.QUIET_FALLBACK = quiet_fallback_for(sys.argv[1:])
+    except Exception as _exc:  # noqa: BLE001 — only affects a log message
+        _logging.getLogger(__name__).debug("Fallback note level unchanged: %s", _exc)
 
     if sys.platform == "win32":
         for _stream in (sys.stdout, sys.stderr):
@@ -269,8 +325,8 @@ def main() -> None:
 
         # Spanish for `sergio`, English for `jarvis` (SERGIO_LANG overrides).
         activate(cli)
-    except Exception:  # noqa: BLE001 — never let translation stop the CLI
-        pass
+    except Exception as _exc:  # noqa: BLE001 — never let translation stop the CLI
+        _logging.getLogger(__name__).debug("CLI translation not activated: %s", _exc)
     try:
         cli()
     except Exception as exc:  # noqa: BLE001 — last resort: one clear line, not a traceback
@@ -284,4 +340,4 @@ def main() -> None:
         raise SystemExit(1) from None
 
 
-__all__ = ["cli", "main"]
+__all__ = ["READ_ONLY_COMMANDS", "cli", "main", "quiet_fallback_for"]

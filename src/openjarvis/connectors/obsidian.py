@@ -233,3 +233,8 @@ class ObsidianConnector(BaseConnector):
                 category="knowledge",
             )
         ]
+
+
+__all__ = [
+    "ObsidianConnector",
+]

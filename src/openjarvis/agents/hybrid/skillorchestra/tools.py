@@ -467,3 +467,13 @@ def run_search(
         "web_search_uses": search_uses,
         "is_local": spec.is_local,
     }
+
+
+__all__ = [
+    "anthropic_tools",
+    "gemini_tools",
+    "openai_tools",
+    "run_answer",
+    "run_code",
+    "run_search",
+]

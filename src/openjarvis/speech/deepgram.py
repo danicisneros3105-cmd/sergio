@@ -95,3 +95,8 @@ class DeepgramSpeechBackend(SpeechBackend):
 
     def supported_formats(self) -> List[str]:
         return ["wav", "mp3", "ogg", "flac", "webm", "m4a"]
+
+
+__all__ = [
+    "DeepgramSpeechBackend",
+]

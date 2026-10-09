@@ -140,3 +140,8 @@ class MemoryManageTool(BaseTool):
             success=True,
             content=f"Removed: {entry}",
         )
+
+
+__all__ = [
+    "MemoryManageTool",
+]

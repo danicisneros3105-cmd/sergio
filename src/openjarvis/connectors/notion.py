@@ -437,3 +437,8 @@ class NotionConnector(BaseConnector):
                 category="knowledge",
             ),
         ]
+
+
+__all__ = [
+    "NotionConnector",
+]

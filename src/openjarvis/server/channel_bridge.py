@@ -421,3 +421,8 @@ class ChannelBridge:
             ch.send(sender_id, message)
         except Exception:
             logger.exception("Failed to send notification to %s", channel_type)
+
+
+__all__ = [
+    "ChannelBridge",
+]
