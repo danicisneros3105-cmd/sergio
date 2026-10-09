@@ -113,3 +113,68 @@ def test_think_route_runs_the_deep_layers(monkeypatch):
         TestClient(app).post("/v1/evolve/think", json={"question": " "}).status_code
         == 400
     )
+
+
+def _fake_default(monkeypatch, replies=None, fail=False):
+    from openjarvis.intelligence import _llm
+
+    replies = replies or {
+        "CONSTITUTION": '{"violations": []}',
+        "PROPOSED ANSWER": '{"confidence": 90, "unknowns": []}',
+    }
+
+    def fake(prompt):
+        return next(
+            (v for k, v in replies.items() if k in prompt), "Razono... FINAL ANSWER: 63"
+        )
+
+    def default(cls):
+        if fail:
+            raise RuntimeError(
+                "No inference engine available (start Ollama or set a Gemini key)."
+            )
+        return cls(fake)
+
+    monkeypatch.setattr(_llm.LLM, "default", classmethod(default))
+    monkeypatch.setenv("OPENJARVIS_HOME", str(__import__("tempfile").mkdtemp()))
+
+
+def _events(response):
+    import json
+
+    return [
+        json.loads(line[6:])
+        for line in response.text.splitlines()
+        if line.startswith("data: ")
+    ]
+
+
+def test_think_stream_shows_every_step(monkeypatch):
+    _fake_default(monkeypatch)
+    app = FastAPI()
+    app.include_router(router)
+    resp = TestClient(app).post(
+        "/v1/evolve/think/stream",
+        json={"question": "calcula 7*9", "strategy": "consistency"},
+    )
+    assert resp.status_code == 200
+    assert resp.headers["content-type"].startswith("text/event-stream")
+    events = _events(resp)
+    stages = [e["stage"] for e in events]
+    assert stages[0] == "plan" and stages[-1] == "answer"
+    assert {"call", "draft", "constitution", "confidence"} <= set(stages)
+    calls = [e for e in events if e["stage"] == "call"]
+    assert [c["n"] for c in calls] == list(range(1, len(calls) + 1))
+    assert all(c["step"] for c in calls)
+    assert "63" in events[-1]["answer"] and events[-1]["calls"] == len(calls)
+
+
+def test_think_stream_reports_errors_plainly(monkeypatch):
+    _fake_default(monkeypatch, fail=True)
+    app = FastAPI()
+    app.include_router(router)
+    events = _events(
+        TestClient(app).post("/v1/evolve/think/stream", json={"question": "hola"})
+    )
+    assert events == [events[0]] and events[0]["stage"] == "error"
+    assert events[0]["message"] and events[0]["fix"]

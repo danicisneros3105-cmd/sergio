@@ -20,6 +20,7 @@ import {
   MousePointerClick,
   ScanFace,
   ChevronsUpDown,
+  Brain,
 } from 'lucide-react';
 import { ConversationList } from './ConversationList';
 import { useAppStore } from '../../lib/store';
@@ -55,6 +56,7 @@ export function SergioMark({ size = 22 }: { size?: number }) {
 
 const NAV_ITEMS = [
   { path: '/', icon: MessageSquare, label: 'Chat' },
+  { path: '/pensar', icon: Brain, label: 'Pensar a fondo' },
   { path: '/globe', icon: Globe, label: 'Globo' },
   { path: '/clacky', icon: MousePointerClick, label: 'Clacky' },
   { path: '/faces', icon: ScanFace, label: 'Rostros' },

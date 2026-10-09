@@ -107,3 +107,39 @@ export async function* streamResearch(
     reader.releaseLock();
   }
 }
+
+
+// Server-sent events over fetch (POST bodies and auth headers, which
+// EventSource cannot send). Calls onEvent with each parsed `data:` JSON.
+export async function readSSE<T = unknown>(
+  response: Response,
+  onEvent: (event: T) => void,
+): Promise<void> {
+  if (!response.body) return;
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  for (;;) {
+    const { done, value } = await reader.read();
+    buffer += decoder.decode(value ?? new Uint8Array(), { stream: !done });
+    let boundary = buffer.indexOf('\n\n');
+    while (boundary !== -1) {
+      const block = buffer.slice(0, boundary);
+      buffer = buffer.slice(boundary + 2);
+      const data = block
+        .split('\n')
+        .filter((line) => line.startsWith('data:'))
+        .map((line) => line.slice(5).replace(/^ /, ''))
+        .join('\n');
+      if (data) {
+        try {
+          onEvent(JSON.parse(data) as T);
+        } catch {
+          // A malformed event is skipped; the stream goes on.
+        }
+      }
+      boundary = buffer.indexOf('\n\n');
+    }
+    if (done) break;
+  }
+}

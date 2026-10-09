@@ -27,13 +27,27 @@ export default defineConfig({
       manifest: {
         name: 'Sergio',
         short_name: 'Sergio',
-        description: 'On-device AI assistant',
+        description: 'Su asistente de IA, en su propio equipo',
+        lang: 'es',
+        start_url: '/',
+        scope: '/',
         theme_color: '#161618',
         background_color: '#161618',
         display: 'standalone',
+        orientation: 'any',
         icons: [
           { src: 'pwa-192x192.png', sizes: '192x192', type: 'image/png' },
           { src: 'pwa-512x512.png', sizes: '512x512', type: 'image/png' },
+          { src: 'pwa-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+        ],
+        shortcuts: [
+          { name: 'Chat', short_name: 'Chat', url: '/', icons: [{ src: 'pwa-192x192.png', sizes: '192x192' }] },
+          {
+            name: 'Pensar a fondo',
+            short_name: 'Pensar',
+            url: '/pensar',
+            icons: [{ src: 'pwa-192x192.png', sizes: '192x192' }],
+          },
         ],
       },
       workbox: {

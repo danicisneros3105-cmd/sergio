@@ -38,6 +38,7 @@ dependencies = [
     "posthog>=3.0",
     "python-telegram-bot>=22.8",
     "rich>=13",
+    "segno>=1.6",
     "tomli>=2.0; python_version < '3.11'",
     "tomlkit>=0.12",
     "websockets>=15.0.1",
@@ -53,6 +54,9 @@ dev = [
     "respx>=0.22",
     "ruff>=0.4",
     "pre-commit>=3.0",
+    # The evolution tests exercise the real vector store and state graph.
+    "chromadb>=1.0",
+    "langgraph>=0.6",
 ]
 inference-mlx = ["mlx-lm>=0.31.1; sys_platform == 'darwin'"]
 inference-vllm = ["vllm>=0.16.0"]

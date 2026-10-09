@@ -16,6 +16,8 @@ from typing import Any
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 from pydantic import BaseModel
 
+from openjarvis.server.mobile import FORWARDED_HEADERS
+
 router = APIRouter(prefix="/v1/vision", tags=["vision"])
 
 MAX_IMAGE_BYTES = 12 * 1024 * 1024
@@ -978,10 +980,22 @@ async def meshgen_key_route(request: Request) -> dict[str, Any]:
     Only to the same machine (the companion), never over the network."""
     import os
 
-    host = request.client.host if request.client else ""
-    if host not in ("127.0.0.1", "::1", "localhost"):
+    if not from_this_computer(request):
         raise HTTPException(status_code=403, detail="only from this computer")
     return {"key": os.environ.get("GEMINI_API_KEY", "")}
+
+
+# Headers a tunnel (cloudflared, `sergio movil`) or reverse proxy adds: such a
+# request reaches the server from 127.0.0.1 but was made somewhere else.
+_FORWARDED_HEADERS = tuple(h.decode() for h in FORWARDED_HEADERS)
+
+
+def from_this_computer(request: Request) -> bool:
+    """True only for a request made on this machine, not one relayed to it."""
+    host = request.client.host if request.client else ""
+    if host not in ("127.0.0.1", "::1", "localhost"):
+        return False
+    return not any(request.headers.get(h) for h in _FORWARDED_HEADERS)
 
 
 @router.get("/tripo/status")

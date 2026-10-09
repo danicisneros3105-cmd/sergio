@@ -55,7 +55,9 @@ class AuthMiddleware(BaseHTTPMiddleware):
                 )
             scheme, _, token = auth.partition(" ")
             # Constant-time comparison to avoid leaking the key via timing.
-            if scheme.lower() != "bearer" or not _api_keys_match(token, self._api_key):
+            if scheme.lower() != "bearer" or not (
+                _api_keys_match(token, self._api_key) or _phone_token(token)
+            ):
                 return JSONResponse(
                     {"detail": "Invalid API key"},
                     status_code=401,
@@ -94,6 +96,16 @@ class AuthMiddleware(BaseHTTPMiddleware):
             or path.startswith("/docs/")
             or path.startswith("/redoc/")
         )
+
+
+def _phone_token(token: str) -> bool:
+    """A paired phone's token (``sergio movil``) is accepted like the key."""
+    try:
+        from openjarvis.server.mobile import valid_token
+
+        return valid_token(token)
+    except Exception:  # noqa: BLE001 - never widen access on errors
+        return False
 
 
 def generate_api_key() -> str:
@@ -186,7 +198,21 @@ def authenticate_websocket(
     protocol_valid = bool(credential_protocol and expected_protocol) and (
         _api_keys_match(credential_protocol, expected_protocol)
     )
-    return header_valid or protocol_valid, selected_protocol
+    phone_valid = (scheme.lower() == "bearer" and _phone_token(header_token)) or (
+        bool(credential_protocol)
+        and _phone_token(_decode_key_protocol(credential_protocol))
+    )
+    return header_valid or protocol_valid or phone_valid, selected_protocol
+
+
+def _decode_key_protocol(protocol: str) -> str:
+    encoded = protocol[len(_WS_KEY_PROTOCOL_PREFIX) :]
+    try:
+        return base64.urlsafe_b64decode(encoded + "=" * (-len(encoded) % 4)).decode(
+            "utf-8"
+        )
+    except (ValueError, UnicodeDecodeError):
+        return ""
 
 
 def websocket_authorized(websocket, expected_key: str) -> bool:  # noqa: ANN001

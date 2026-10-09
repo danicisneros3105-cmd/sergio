@@ -11,6 +11,7 @@ from __future__ import annotations
 import inspect
 import json
 import re
+import time
 from typing import Any, Callable, Optional
 
 from openjarvis.core.types import Message, Role
@@ -28,6 +29,14 @@ class LLM:
         self.name = name
         self.calls = 0
         self._takes_options = _takes_options(fn)
+        self._listeners: list[Callable[[dict], None]] = []
+
+    def listen(self, callback: Callable[[dict], None]) -> Callable[[], None]:
+        """Call *callback* after every model call; returns an unsubscribe."""
+        self._listeners.append(callback)
+        return lambda: (
+            self._listeners.remove(callback) if callback in self._listeners else None
+        )
 
     def __call__(
         self,
@@ -38,13 +47,28 @@ class LLM:
         max_tokens: int = 2048,
     ) -> str:
         self.calls += 1
+        started = time.monotonic()
         if self._takes_options:
             out = self._fn(
                 prompt, system=system, temperature=temperature, max_tokens=max_tokens
             )
         else:
             out = self._fn(prompt)
-        return str(out or "")
+        text = str(out or "")
+        if self._listeners:
+            event = {
+                "stage": "call",
+                "n": self.calls,
+                "step": step_label(prompt, system),
+                "seconds": round(time.monotonic() - started, 2),
+                "preview": text[:600],
+            }
+            for listener in list(self._listeners):
+                try:
+                    listener(event)
+                except Exception:  # noqa: BLE001 - a viewer must never break thinking
+                    pass
+        return text
 
     @classmethod
     def from_engine(cls, engine: Any, model: str) -> "LLM":
@@ -87,6 +111,40 @@ class LLM:
                 raise RuntimeError("The engine reports no models.")
             model = models[0]
         return cls.from_engine(engine, model)
+
+
+# What each reasoning layer's prompt is doing, by a phrase only it contains.
+STEP_NAMES = (
+    ("You are a demanding reviewer", "Critiquing the draft"),
+    ("Rewrite the ANSWER to the TASK, fixing", "Improving the draft"),
+    ("against its CONSTITUTION", "Checking the principles"),
+    ("no longer\nviolates these principles", "Fixing a principle"),
+    ("PROPOSED ANSWER:", "Estimating confidence"),
+    ("different next steps", "Exploring possible next steps"),
+    ("How promising is this partial solution", "Scoring a line of reasoning"),
+    ("A careful search found this line of reasoning", "Writing up the best line"),
+    ("FINAL ANSWER: <the answer only", "Solving it one more independent way"),
+    ("Build the causal model", "Mapping causes and effects"),
+    ("Facts computed from the causal graph", "Explaining with the causal facts"),
+    ("COUNTERFACTUAL CHANGE:", "Framing the what-if"),
+    ("Describe the alternative world", "Describing the alternative world"),
+)
+
+
+def step_label(prompt: str, system: Optional[str] = None) -> str:
+    """A short human label for a model call: what the layer is doing, else
+    the first sentence it was given."""
+    text = f"{system or ''}\n{prompt or ''}"
+    for marker, name in STEP_NAMES:
+        if marker.lower() in text.lower():
+            return name
+    for source in (system or "", prompt or ""):
+        for line in source.splitlines():
+            line = line.strip()
+            if line:
+                first = re.split(r"(?<=[.!?:])\s", line, maxsplit=1)[0]
+                return first[:110] + ("…" if len(first) > 110 else "")
+    return "model call"
 
 
 def _takes_options(fn: Callable[..., Any]) -> bool:

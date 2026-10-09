@@ -5,12 +5,33 @@ from __future__ import annotations
 from pathlib import Path
 from unittest import mock
 
+import pytest
 from click.testing import CliRunner
 
 from openjarvis.cli import cli
 from openjarvis.cli.init_cmd import _next_steps_text
+from openjarvis.core.types import ModelSpec
 
 _NO_DL = "--no-download"
+_SPEC = ModelSpec(
+    model_id="qwen3:8b",
+    name="Qwen3 8B",
+    parameter_count_b=8.0,
+    context_length=32768,
+    metadata={"gguf_repo": "Qwen/Qwen3-8B-GGUF", "gguf_file": "q.gguf"},
+)
+
+
+@pytest.fixture(autouse=True)
+def _same_recommendation_on_every_machine():
+    """`init` recommends a model from this machine's RAM/GPU; on a small CI box
+    or a big workstation the answer (and so the download prompt) differs.
+    Pin it so the guidance tests check the guidance, not the hardware."""
+    with (
+        mock.patch("openjarvis.cli.init_cmd.recommend_model", return_value="qwen3:8b"),
+        mock.patch("openjarvis.cli.init_cmd.find_model_spec", return_value=_SPEC),
+    ):
+        yield
 
 
 class TestInitShowsNextSteps:

@@ -258,7 +258,7 @@ def get_engine(
         default_key,
         chosen[0],
         boundary,
-        f" To make it the default: jarvis config set engine.default {chosen[0]}"
+        f" To make it the default: {_program()} config set engine.default {chosen[0]}"
         if boundary
         else "",
     )
@@ -266,3 +266,13 @@ def get_engine(
 
 
 __all__ = ["discover_engines", "discover_models", "get_engine"]
+
+
+def _program() -> str:
+    """The command the user typed (``sergio`` or ``jarvis``), for hints."""
+    try:
+        from openjarvis.i18n import program_name
+
+        return program_name()
+    except Exception:  # noqa: BLE001 - hints must never fail
+        return "jarvis"

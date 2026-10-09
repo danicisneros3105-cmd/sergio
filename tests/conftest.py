@@ -7,6 +7,7 @@ import os
 import re
 import shutil
 import socket
+import sys
 import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -266,6 +267,29 @@ def _clean_registries() -> None:
     TTSRegistry.clear()
     SkillRegistry.clear()
     reset_event_bus()
+
+
+@pytest.fixture(autouse=True)
+def _fresh_tool_runner() -> None:
+    """A test whose tool never returns (a timeout test) keeps a worker of the
+    shared bounded tool runner busy; enough of them fill its queue and a later
+    test in the same process gets "capacity is exhausted". Start each test
+    with an idle runner: wait briefly for leftover calls to finish, and only
+    replace a runner whose tools are truly stuck."""
+    import time
+
+    stubs = sys.modules.get("openjarvis.tools._stubs")
+    runner = getattr(stubs, "_TOOL_RUNNER", None)
+    deadline = time.monotonic() + 5
+    while runner is not None and runner._queue.unfinished_tasks:
+        if time.monotonic() > deadline:
+            break
+        time.sleep(0.02)
+    if runner is not None and runner._queue.unfinished_tasks:
+        runner.shutdown()
+        stubs._TOOL_RUNNER = stubs._BoundedToolRunner(
+            stubs._MAX_TOOL_WORKERS, stubs._MAX_PENDING_TOOL_CALLS
+        )
 
 
 # ---------------------------------------------------------------------------

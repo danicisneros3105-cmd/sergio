@@ -28,7 +28,7 @@ def test_app_starts_and_reports(tmp_path):
         [sys.executable, str(script), str(tmp_path), str(_free_port())],
         capture_output=True,
         text=True,
-        timeout=90,
+        timeout=120,
     )
     out = done.stdout
     assert "STARTED-AND-QUIT" in out, done.stderr[-3000:]

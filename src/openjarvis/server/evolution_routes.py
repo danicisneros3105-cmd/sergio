@@ -6,6 +6,7 @@ import asyncio
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 router = APIRouter(prefix="/v1/evolve", tags=["evolution"])
@@ -118,13 +119,67 @@ async def think_route(req: DeepQuestion) -> dict[str, Any]:
         learner=default_learner(),
         calibrator=default_calibrator(),
     )
-    return {
-        "answer": result.answer,
-        "strategy": result.strategy,
-        "kind": result.kind,
-        "confidence": result.confidence,
-        "decision": result.decision,
-        "unknowns": result.unknowns,
-        "calls": result.calls,
-        "seconds": result.seconds,
-    }
+    from openjarvis.intelligence.deep import result_dict
+
+    return result_dict(result)
+
+
+@router.post("/think/stream")
+async def think_stream_route(req: DeepQuestion) -> StreamingResponse:
+    """The same reasoning as /think, streamed step by step (server-sent events).
+
+    Each ``data:`` line is one JSON event: ``plan``, ``call`` (every model
+    call with a label and a preview), ``draft``, ``constitution``,
+    ``confidence``, ``retry``, then ``answer`` — or ``error``.
+    """
+    import json
+
+    from openjarvis.intelligence._llm import LLM
+    from openjarvis.intelligence.deep import deep_think
+    from openjarvis.intelligence.uncertainty import default_calibrator
+    from openjarvis.learning.meta_learner import default_learner
+
+    if not req.question.strip():
+        raise HTTPException(400, "question is empty")
+    loop = asyncio.get_running_loop()
+    queue: asyncio.Queue = asyncio.Queue()
+    done = object()
+
+    def push(event: Any) -> None:
+        loop.call_soon_threadsafe(queue.put_nowait, event)
+
+    def work() -> None:
+        try:
+            llm = LLM.default()
+            deep_think(
+                req.question[:8000],
+                llm,
+                strategy=req.strategy,
+                learner=default_learner(),
+                calibrator=default_calibrator(),
+                on_event=push,
+            )
+        except Exception as exc:  # noqa: BLE001 - reported to the viewer
+            from openjarvis.cli.friendly import explain
+
+            what, fix = explain(exc)
+            push({"stage": "error", "message": what, "fix": fix})
+        finally:
+            push(done)
+
+    async def events():
+        task = loop.run_in_executor(None, work)
+        try:
+            while True:
+                event = await queue.get()
+                if event is done:
+                    break
+                yield f"data: {json.dumps(event, ensure_ascii=False, default=str)}\n\n"
+        finally:
+            await asyncio.shield(task)
+
+    return StreamingResponse(
+        events(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )

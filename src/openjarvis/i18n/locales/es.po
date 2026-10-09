@@ -2678,3 +2678,61 @@ msgstr "carpeta"
 #: click
 msgid "path"
 msgstr "ruta"
+
+# Steps of deep thinking (sergio pensar --ver)
+
+#: intelligence step
+msgid "Critiquing the draft"
+msgstr "Criticando el borrador"
+
+#: intelligence step
+msgid "Improving the draft"
+msgstr "Mejorando el borrador"
+
+#: intelligence step
+msgid "Checking the principles"
+msgstr "Revisando los principios"
+
+#: intelligence step
+msgid "Fixing a principle"
+msgstr "Corrigiendo un principio"
+
+#: intelligence step
+msgid "Estimating confidence"
+msgstr "Midiendo la seguridad"
+
+#: intelligence step
+msgid "Exploring possible next steps"
+msgstr "Explorando siguientes pasos"
+
+#: intelligence step
+msgid "Scoring a line of reasoning"
+msgstr "Puntuando una línea de razonamiento"
+
+#: intelligence step
+msgid "Writing up the best line"
+msgstr "Redactando la mejor línea"
+
+#: intelligence step
+msgid "Solving it one more independent way"
+msgstr "Resolviéndolo otra vez por separado"
+
+#: intelligence step
+msgid "Mapping causes and effects"
+msgstr "Trazando causas y efectos"
+
+#: intelligence step
+msgid "Explaining with the causal facts"
+msgstr "Explicando con los hechos causales"
+
+#: intelligence step
+msgid "Framing the what-if"
+msgstr "Planteando el qué pasaría si"
+
+#: intelligence step
+msgid "Describing the alternative world"
+msgstr "Describiendo el mundo alternativo"
+
+#: intelligence step
+msgid "model call"
+msgstr "consulta al modelo"

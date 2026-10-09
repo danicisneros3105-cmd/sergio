@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import os
 import pathlib
 import threading
 import time
-from typing import Any
+from typing import Any, AsyncIterator, Awaitable, Callable
 
 from fastapi import FastAPI
 from fastapi.responses import FileResponse
@@ -242,11 +243,35 @@ def create_app(
         synchronize_runtime_cache=True,
     )
 
+    # Shutdown work registered below (managed runtime, analytics, memory
+    # service) runs in registration order when the lifespan ends; this
+    # replaces FastAPI's deprecated shutdown event handlers.
+    shutdown_hooks: list[Callable[[], Awaitable[None]]] = []
+
+    def on_shutdown(
+        hook: Callable[[], Awaitable[None]],
+    ) -> Callable[[], Awaitable[None]]:
+        shutdown_hooks.append(hook)
+        return hook
+
+    @contextlib.asynccontextmanager
+    async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+        try:
+            yield
+        finally:
+            for hook in shutdown_hooks:
+                try:
+                    await hook()
+                except Exception:  # noqa: BLE001 - one failing hook must not skip the rest
+                    logger.exception("Shutdown step %s failed", hook.__name__)
+
     app = FastAPI(
         title="Sergio API",
         description="OpenAI-compatible API server for Sergio",
         version="0.1.0",
+        lifespan=lifespan,
     )
+    app.state.shutdown_hooks = shutdown_hooks
 
     from fastapi import Request as _Request
     from fastapi.responses import JSONResponse
@@ -327,7 +352,7 @@ def create_app(
     # AuthMiddleware never sees WS upgrade requests). Empty = auth disabled.
     app.state.api_key = api_key
 
-    @app.on_event("shutdown")
+    @on_shutdown
     async def _shutdown_managed_runtime() -> None:
         # Quiesce every producer before touching the shared MCP pool. Route
         # workers are registered under this lock, so none can slip in after
@@ -477,7 +502,7 @@ def create_app(
                 _bridge.start()
                 app.state.analytics_bridge = _bridge
 
-            @app.on_event("shutdown")
+            @on_shutdown
             async def _shutdown_analytics() -> None:
                 bridge = getattr(app.state, "analytics_bridge", None)
                 if bridge is not None:
@@ -497,7 +522,7 @@ def create_app(
     # Stop the background memory service cleanly when the server shuts down.
     if memory_service is not None:
 
-        @app.on_event("shutdown")
+        @on_shutdown
         async def _shutdown_memory_service() -> None:
             svc = getattr(app.state, "memory_service", None)
             if svc is not None:
@@ -546,6 +571,10 @@ def create_app(
     from openjarvis.server.evolution_routes import router as evolution_router
 
     app.include_router(evolution_router)
+    # OpenAI-compatible embeddings (Ollama, Gemini or the offline local one).
+    from openjarvis.server.embeddings_routes import router as embeddings_router
+
+    app.include_router(embeddings_router)
     # Native notch tabs: God's Eye View data and ECC guides.
     from openjarvis.server.notch_routes import router as notch_router
 
@@ -581,6 +610,12 @@ def create_app(
             app.add_middleware(AuthMiddleware, api_key=api_key)
         except Exception as exc:
             logger.debug("Auth middleware init skipped: %s", exc)
+
+    # Requests relayed by a tunnel or proxy (`sergio movil`) must carry the
+    # phone token; requests made on this computer are unaffected.
+    from openjarvis.server.mobile import RemoteAccessMiddleware
+
+    app.add_middleware(RemoteAccessMiddleware, api_key=api_key)
 
     # Register CORS last so it is the outermost middleware. In addition to
     # handling preflights, this ensures browser clients can read 401 responses

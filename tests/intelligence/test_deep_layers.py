@@ -542,3 +542,40 @@ def test_deep_think_picks_a_strategy_checks_and_reports_confidence(tmp_path):
     assert r.decision == "answer" and r.confidence > 0.8 and r.calls >= 3
     deep_think("calcula 7*9", llm, learner=ml, strategy="consistency")
     assert ml.stats()["math"]["consistency"]["tries"] == 1
+
+
+def test_deep_think_reports_each_step_and_survives_a_broken_viewer():
+    llm = scripted(
+        [
+            ("CONSTITUTION", json.dumps({"violations": []})),
+            ("PROPOSED ANSWER", json.dumps({"confidence": 95, "unknowns": []})),
+            ("FINAL ANSWER", "Paso a paso... FINAL ANSWER: 63"),
+        ]
+    )
+    seen = []
+    r = deep_think("calcula 7*9", llm, strategy="consistency", on_event=seen.append)
+    stages = [e["stage"] for e in seen]
+    assert stages[0] == "plan" and stages[-1] == "answer" and "63" in r.answer
+    assert stages.count("call") == r.calls
+    assert seen[-1]["confidence"] == r.confidence
+
+    def broken(event):
+        raise RuntimeError("viewer crashed")
+
+    again = deep_think("calcula 7*9", llm, strategy="consistency", on_event=broken)
+    assert "63" in again.answer
+    assert llm._listeners == [] if hasattr(llm, "_listeners") else True
+
+
+def test_step_labels_name_the_layer_or_quote_the_first_sentence():
+    from openjarvis.intelligence import reflection, uncertainty
+    from openjarvis.intelligence._llm import step_label
+
+    assert step_label(reflection.CRITIQUE_PROMPT) == "Critiquing the draft"
+    assert step_label(uncertainty.SELF_PROMPT) == "Estimating confidence"
+    assert (
+        step_label("¿A qué hora llega el tren? Sale a las 3.")
+        == "¿A qué hora llega el tren?"
+    )
+    assert step_label("", "System says hi: more") == "System says hi:"
+    assert len(step_label("x" * 500)) <= 111 and step_label("") == "model call"

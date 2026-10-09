@@ -89,9 +89,50 @@ def deep_think(
     calibrator: Optional[Calibrator] = None,
     check_constitution: bool = True,
     min_confidence: float = 0.55,
+    on_event: Optional[Callable[[dict], None]] = None,
 ) -> DeepResult:
-    """Answer *question* with the best strategy, checked and with a confidence."""
+    """Answer *question* with the best strategy, checked and with a confidence.
+
+    *on_event* receives each step as it happens (plan, every model call,
+    draft, constitution check, confidence, retry, answer) so a UI can show
+    the reasoning live.
+    """
     model = as_llm(llm)
+
+    def emit(event: dict) -> None:
+        if on_event is not None:
+            try:
+                on_event(event)
+            except Exception:  # noqa: BLE001 - a viewer must never break thinking
+                pass
+
+    unsubscribe = model.listen(emit) if on_event is not None else None
+    try:
+        return _deep_think(
+            question,
+            model,
+            strategy,
+            learner,
+            calibrator,
+            check_constitution,
+            min_confidence,
+            emit,
+        )
+    finally:
+        if unsubscribe is not None:
+            unsubscribe()
+
+
+def _deep_think(
+    question: str,
+    model: LLM,
+    strategy: str,
+    learner: Optional[MetaLearner],
+    calibrator: Optional[Calibrator],
+    check_constitution: bool,
+    min_confidence: float,
+    emit: Callable[[dict], None],
+) -> DeepResult:
     started, calls0 = time.monotonic(), model.calls
     kind = task_kind(question)
     if strategy == "auto":
@@ -105,15 +146,38 @@ def deep_think(
                 "causal": "causal",
             }.get(kind, "reflection")
         )
+    emit({"stage": "plan", "kind": kind, "strategy": strategy})
     answer, trace = run_strategy(strategy, question, model)
+    emit(
+        {
+            "stage": "draft",
+            "strategy": strategy,
+            "answer": answer[:1500],
+            "trace": trace,
+        }
+    )
     fixed: list[str] = []
     if check_constitution:
         verdict = enforce(question, answer, model)
         if verdict.revised:
             answer = verdict.answer
             fixed = [v.principle for v in verdict.violations]
+        emit(
+            {"stage": "constitution", "revised": bool(verdict.revised), "fixed": fixed}
+        )
     est = estimate(question, model, answer=answer, samples=1, calibrator=calibrator)
+    emit(
+        {
+            "stage": "confidence",
+            "confidence": est.confidence,
+            "decision": est.decision,
+            "unknowns": est.unknowns,
+        }
+    )
     if est.confidence < min_confidence and strategy != "reflection":
+        emit(
+            {"stage": "retry", "reason": "low confidence", "confidence": est.confidence}
+        )
         better = reflect(question, model, draft=answer, max_rounds=2)
         if better.score >= 7:
             answer = better.answer
@@ -130,7 +194,7 @@ def deep_think(
             + answer[:600]
             + ("\nMe falta: " + "; ".join(est.unknowns[:4]) if est.unknowns else "")
         )
-    return DeepResult(
+    result = DeepResult(
         answer=answer,
         strategy=strategy,
         kind=kind,
@@ -142,6 +206,23 @@ def deep_think(
         seconds=round(time.monotonic() - started, 2),
         trace=trace,
     )
+    emit({"stage": "answer", **result_dict(result)})
+    return result
 
 
-__all__ = ["DeepResult", "deep_think", "run_strategy"]
+def result_dict(result: DeepResult) -> dict:
+    """The JSON shape of a result (used by the HTTP routes and the CLI)."""
+    return {
+        "answer": result.answer,
+        "strategy": result.strategy,
+        "kind": result.kind,
+        "confidence": result.confidence,
+        "decision": result.decision,
+        "unknowns": result.unknowns,
+        "violations_fixed": result.violations_fixed,
+        "calls": result.calls,
+        "seconds": result.seconds,
+    }
+
+
+__all__ = ["DeepResult", "deep_think", "result_dict", "run_strategy"]

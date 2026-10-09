@@ -5,6 +5,7 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import App from './App';
 import { initApiBase } from './lib/api';
 import { initAnalytics } from './lib/analytics';
+import { consumePairFragment } from './lib/pairing';
 import '@fontsource-variable/geist';
 import './index.css';
 
@@ -23,6 +24,8 @@ function applyTheme() {
   } catch { /* use system default */ }
 }
 
+// A phone opened from the `sergio movil` QR code: keep its key, then render.
+consumePairFragment();
 applyTheme();
 
 // Fetch the API base URL from the Tauri backend before rendering.

@@ -42,6 +42,48 @@ def pensar() -> None:
     """Pensar a fondo: reflexión, árbol de ideas, votación, causas, qué-pasaría-si."""
 
 
+_STRATEGY_NAMES = {
+    "reflection": "reflexión (borrador, crítica, mejora)",
+    "tot": "árbol de ideas",
+    "consistency": "votación entre varias soluciones",
+    "causal": "análisis de causas",
+    "direct": "respuesta directa",
+}
+
+
+def _print_step(event: dict) -> None:
+    """One line per reasoning step, as it happens (``sergio pensar … --ver``)."""
+    stage = event.get("stage")
+    if stage == "plan":
+        name = _STRATEGY_NAMES.get(event.get("strategy", ""), event.get("strategy"))
+        console.print(
+            f"[bold]▸ Tipo de pregunta:[/bold] {event.get('kind')} · estrategia: {name}"
+        )
+    elif stage == "call":
+        from openjarvis.i18n import translate
+
+        console.print(
+            f"  [dim]{event.get('n')}. {escape(translate(str(event.get('step', ''))))} "
+            f"({event.get('seconds')} s)[/dim]"
+        )
+    elif stage == "draft":
+        console.print("[bold]▸ Borrador listo[/bold]")
+    elif stage == "constitution":
+        if event.get("revised"):
+            console.print(
+                "[yellow]▸ Corregido por principios:[/yellow] "
+                + escape(", ".join(event.get("fixed") or []))
+            )
+        else:
+            console.print("[green]▸ Cumple los principios[/green]")
+    elif stage == "confidence":
+        console.print(f"[bold]▸ Seguridad:[/bold] {event.get('confidence', 0):.0%}")
+    elif stage == "retry":
+        console.print("[yellow]▸ Poca seguridad: una ronda más de reflexión[/yellow]")
+    elif stage == "answer":
+        console.print("")
+
+
 @pensar.command("preguntar")
 @click.argument("question", nargs=-1, required=True)
 @click.option(
@@ -52,7 +94,15 @@ def pensar() -> None:
     help="Cómo pensar (auto elige según lo aprendido).",
 )
 @click.option("--json", "as_json", is_flag=True, help="Salida JSON.")
-def preguntar(question: tuple[str, ...], strategy: str, as_json: bool) -> None:
+@click.option(
+    "--ver",
+    "show_steps",
+    is_flag=True,
+    help="Muestra cada paso del razonamiento en vivo.",
+)
+def preguntar(
+    question: tuple[str, ...], strategy: str, as_json: bool, show_steps: bool
+) -> None:
     """Responde pensando a fondo y dice qué tan seguro está."""
     from openjarvis.intelligence._llm import LLM
     from openjarvis.intelligence.deep import deep_think
@@ -64,14 +114,24 @@ def preguntar(question: tuple[str, ...], strategy: str, as_json: bool) -> None:
         llm = LLM.default()
     except RuntimeError as exc:
         raise click.ClickException(str(exc)) from None
-    with console.status("Pensando…"):
+    if show_steps and not as_json:
         result = deep_think(
             text,
             llm,
             strategy=strategy,
             learner=default_learner(),
             calibrator=default_calibrator(),
+            on_event=_print_step,
         )
+    else:
+        with console.status("Pensando…"):
+            result = deep_think(
+                text,
+                llm,
+                strategy=strategy,
+                learner=default_learner(),
+                calibrator=default_calibrator(),
+            )
     if as_json:
         click.echo(
             json.dumps(

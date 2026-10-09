@@ -125,3 +125,19 @@ msgstr "Problems per topic and round."
 #: help
 msgid "Salida JSON."
 msgstr "JSON output."
+
+#: sergio pensar preguntar --ver
+msgid "Muestra cada paso del razonamiento en vivo."
+msgstr "Show every reasoning step live."
+
+msgid "Usar Sergio desde el teléfono: túnel seguro y código QR."
+msgstr "Use Sergio from your phone: secure tunnel and QR code."
+
+msgid "Solo muestra el enlace local (misma red)."
+msgstr "Only show the local link (same network)."
+
+msgid "Desvincula todos los teléfonos (crea un token nuevo)."
+msgstr "Unpair every phone (creates a new token)."
+
+msgid "Muestra si hay un teléfono vinculado y si cloudflared está listo."
+msgstr "Show whether a phone is paired and cloudflared is ready."

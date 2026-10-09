@@ -79,24 +79,42 @@ voice.local_whisper = lambda: None
 real_exec = QApplication.exec
 
 
+probed = threading.Event()
+
+
 def probe() -> None:
     import time
     import urllib.request
 
-    time.sleep(1.5)
     request = urllib.request.Request(
         f"http://127.0.0.1:{PORT}/diag", headers={"Authorization": "Bearer t"}
     )
     opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
-    try:
-        print("DIAG " + opener.open(request, timeout=10).read().decode(), flush=True)
-    except Exception as exc:  # noqa: BLE001
-        print(f"DIAG-ERROR {exc!r}", flush=True)
+    # On a busy machine the control server can take a while to come up:
+    # retry for up to 40 s instead of guessing a fixed start-up time.
+    deadline = time.monotonic() + 40
+    error: Exception | None = None
+    while time.monotonic() < deadline:
+        try:
+            print(
+                "DIAG " + opener.open(request, timeout=10).read().decode(), flush=True
+            )
+            break
+        except Exception as exc:  # noqa: BLE001
+            error = exc
+            time.sleep(0.3)
+    else:
+        print(f"DIAG-ERROR {error!r}", flush=True)
+    probed.set()
 
 
 def exec_briefly() -> int:
     threading.Thread(target=probe, daemon=True).start()
-    QTimer.singleShot(4000, QApplication.instance().quit)
+    # Quit once the probe has its answer (checked from the Qt thread).
+    timer = QTimer()
+    timer.timeout.connect(lambda: probed.is_set() and QApplication.instance().quit())
+    timer.start(100)
+    QTimer.singleShot(60_000, QApplication.instance().quit)
     return real_exec()
 
 
