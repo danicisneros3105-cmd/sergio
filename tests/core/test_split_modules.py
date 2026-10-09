@@ -20,6 +20,10 @@ SPLIT = [
     "agents/hybrid/toolorchestra_rl.py",
     "agents/hybrid/_base_sdk.py",
     "agents/hybrid/mini_swe_cloud_loops.py",
+    "server/agent_manager_stream.py",
+    "server/routes_stream.py",
+    "core/config_toml.py",
+    "evals/cli_builders.py",
 ]
 
 
