@@ -1,0 +1,2680 @@
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Language: es\n"
+"Project-Id-Version: sergio\n"
+
+# Command help (--help)
+
+#: sergio
+msgid "OpenJarvis — modular AI assistant backend"
+msgstr "OpenJarvis — backend modular de asistente de IA"
+
+#: sergio --version
+msgid "Show the version and exit."
+msgstr "Muestra la versión y sale."
+
+#: sergio --verbose
+msgid "Enable debug logging"
+msgstr "Activa los registros de depuración"
+
+#: sergio --quiet
+msgid "Suppress non-error output"
+msgstr "Oculta todo lo que no sea un error"
+
+#: sergio --pick-model
+msgid "Bare ``jarvis``: force interactive model list (overrides JARVIS_SKIP_MODEL_PICK)."
+msgstr "``jarvis`` a secas: fuerza la lista interactiva de modelos (anula JARVIS_SKIP_MODEL_PICK)."
+
+#: sergio _bootstrap
+msgid "Internal helper used by install.sh — not for direct user invocation."
+msgstr "Ayudante interno usado por install.sh; no es para usarlo directamente."
+
+#: sergio _bootstrap --write-config
+msgid "Render config.toml from detected hardware + provided engine/model."
+msgstr "Genera config.toml a partir del hardware detectado y del motor/modelo indicados."
+
+#: sergio _bootstrap --engine
+msgid "Inference engine slug (e.g. ollama). Empty = auto-recommend."
+msgstr "Motor de inferencia (p. ej. ollama). Vacío = recomendación automática."
+
+#: sergio _bootstrap --model
+msgid "Model id (e.g. qwen3.5:2b). Empty = auto-recommend."
+msgstr "Id del modelo (p. ej. qwen3.5:2b). Vacío = recomendación automática."
+
+#: sergio _bootstrap --prefer-cloud-when-available
+msgid "If a known cloud-API key is in env, override engine/model to cloud."
+msgstr "Si hay una clave de API de nube conocida en el entorno, usa ese motor/modelo en la nube."
+
+#: sergio add
+msgid "Add an MCP server configuration.\n\n    Quick setup for common MCP servers:\n\n      jarvis add github --key TOKEN\n      jarvis add filesystem\n      jarvis add slack --key TOKEN\n\n    Known servers: github, filesystem, slack, postgres, brave-search,\n    memory, puppeteer, google-maps"
+msgstr "Añade la configuración de un servidor MCP.\n\n    Configuración rápida para servidores MCP comunes:\n\n      jarvis add github --key TOKEN\n      jarvis add filesystem\n      jarvis add slack --key TOKEN\n\n    Servidores conocidos: github, filesystem, slack, postgres, brave-search,\n    memory, puppeteer, google-maps"
+
+#: sergio add --key
+msgid "API key or token for the server."
+msgstr "Clave de API o token del servidor."
+
+#: sergio add --args
+msgid "Additional arguments (comma-separated)."
+msgstr "Argumentos adicionales (separados por comas)."
+
+#: sergio agents
+msgid "Manage persistent agents — create, inspect, chat, bind channels."
+msgstr "Gestiona agentes persistentes: crear, inspeccionar, conversar, vincular canales."
+
+#: sergio agents ask
+msgid "Ask an agent a question (immediate response)."
+msgstr "Hazle una pregunta a un agente (respuesta inmediata)."
+
+#: sergio agents ask --yes
+msgid "Auto-approve tool execution that would otherwise need confirmation. Default: on (suits non-interactive CLI use). Pass --no-yes to require a TTY prompt for tools whose ToolSpec sets requires_confirmation=True."
+msgstr "Aprueba solo la ejecución de herramientas que pedirían confirmación. Por defecto: activado (útil en la CLI no interactiva). Usa --no-yes para pedir confirmación en la terminal a las herramientas cuyo ToolSpec tiene requires_confirmation=True."
+
+#: sergio agents bind
+msgid "Bind a channel to an agent."
+msgstr "Vincula un canal a un agente."
+
+#: sergio agents bind --slack
+msgid "Slack channel (e.g. #research)"
+msgstr "Canal de Slack (p. ej. #investigacion)"
+
+#: sergio agents bind --telegram
+msgid "Telegram chat ID"
+msgstr "ID del chat de Telegram"
+
+#: sergio agents bind --whatsapp
+msgid "WhatsApp phone number"
+msgstr "Número de teléfono de WhatsApp"
+
+#: sergio agents channels
+msgid "List channel bindings for an agent."
+msgstr "Lista los canales vinculados a un agente."
+
+#: sergio agents create
+msgid "Create a new persistent agent."
+msgstr "Crea un agente persistente nuevo."
+
+#: sergio agents create --name
+msgid "Agent name"
+msgstr "Nombre del agente"
+
+#: sergio agents create --template
+msgid "Template ID to use"
+msgstr "ID de la plantilla a usar"
+
+#: sergio agents create --type
+msgid "Agent type"
+msgstr "Tipo de agente"
+
+#: sergio agents daemon
+msgid "Run the agent scheduler as a standalone daemon."
+msgstr "Ejecuta el planificador de agentes como servicio independiente."
+
+#: sergio agents delete
+msgid "Archive (soft-delete) an agent."
+msgstr "Archiva (borrado suave) un agente."
+
+#: sergio agents errors
+msgid "Show all agents in error or needs_attention state."
+msgstr "Muestra los agentes con error o que necesitan atención."
+
+#: sergio agents info
+msgid "Show detailed info about a managed agent."
+msgstr "Muestra información detallada de un agente gestionado."
+
+#: sergio agents instruct
+msgid "Queue an instruction for the agent's next tick."
+msgstr "Pone en cola una instrucción para el próximo ciclo del agente."
+
+#: sergio agents launch
+msgid "Interactive agent launcher."
+msgstr "Lanzador interactivo de agentes."
+
+#: sergio agents learning
+msgid "Show learning history or trigger a manual run."
+msgstr "Muestra el historial de aprendizaje o lanza una ejecución manual."
+
+#: sergio agents learning --run
+msgid "Trigger manual learning run"
+msgstr "Lanza una ejecución manual de aprendizaje"
+
+#: sergio agents list
+msgid "List all managed agents."
+msgstr "Lista todos los agentes gestionados."
+
+#: sergio agents logs
+msgid "Show recent execution traces for an agent."
+msgstr "Muestra las trazas de ejecución recientes de un agente."
+
+#: sergio agents logs --limit
+msgid "Number of recent traces to show"
+msgstr "Cuántas trazas recientes mostrar"
+
+#: sergio agents messages
+msgid "Show message history with an agent."
+msgstr "Muestra el historial de mensajes con un agente."
+
+#: sergio agents pause
+msgid "Pause an agent."
+msgstr "Pausa un agente."
+
+#: sergio agents recover
+msgid "Recover an agent from its last checkpoint."
+msgstr "Recupera un agente desde su último punto de control."
+
+#: sergio agents resume
+msgid "Resume a paused agent."
+msgstr "Reanuda un agente pausado."
+
+#: sergio agents run
+msgid "Run one tick immediately for testing."
+msgstr "Ejecuta un ciclo ahora mismo, para pruebas."
+
+#: sergio agents search
+msgid "Cross-session search across agent traces."
+msgstr "Busca en las trazas de todos los agentes y sesiones."
+
+#: sergio agents search --limit
+msgid "Max results"
+msgstr "Máximo de resultados"
+
+#: sergio agents start
+msgid "Start scheduling an agent."
+msgstr "Empieza a programar un agente."
+
+#: sergio agents status
+msgid "Show all agents with schedule and run info."
+msgstr "Muestra todos los agentes con su programación y ejecuciones."
+
+#: sergio agents stop
+msgid "Stop scheduling an agent."
+msgstr "Deja de programar un agente."
+
+#: sergio agents tasks
+msgid "List tasks for an agent."
+msgstr "Lista las tareas de un agente."
+
+#: sergio agents templates
+msgid "List available agent templates."
+msgstr "Lista las plantillas de agente disponibles."
+
+#: sergio agents trace
+msgid "Show step-by-step trace of agent ticks."
+msgstr "Muestra paso a paso la traza de los ciclos del agente."
+
+#: sergio agents trace --run
+msgid "Specific run number"
+msgstr "Número de ejecución concreto"
+
+#: sergio agents trace --limit
+msgid "Number of traces to show"
+msgstr "Cuántas trazas mostrar"
+
+#: sergio agents watch
+msgid "Live feed of agent activity."
+msgstr "Actividad de los agentes en directo."
+
+#: sergio approvals
+msgid "List, approve or deny actions waiting for your approval."
+msgstr "Lista, aprueba o rechaza acciones que esperan tu aprobación."
+
+#: sergio approvals approve
+msgid "Approve a pending action."
+msgstr "Aprueba una acción pendiente."
+
+#: sergio approvals deny
+msgid "Deny a pending action."
+msgstr "Rechaza una acción pendiente."
+
+#: sergio approvals list
+msgid "Show pending actions."
+msgstr "Muestra las acciones pendientes."
+
+#: sergio ask
+msgid "Ask Jarvis a question."
+msgstr "Hazle una pregunta a Sergio."
+
+#: sergio ask -m
+msgid "Model to use."
+msgstr "Modelo a usar."
+
+#: sergio ask -e
+msgid "Engine backend."
+msgstr "Motor de inferencia."
+
+#: sergio ask -t
+msgid "Sampling temperature (default: from config)."
+msgstr "Temperatura de muestreo (por defecto: la de la configuración)."
+
+#: sergio ask --max-tokens
+msgid "Max tokens to generate (default: from config)."
+msgstr "Máximo de tokens a generar (por defecto: el de la configuración)."
+
+#: sergio ask --json
+msgid "Output raw JSON result."
+msgstr "Muestra el resultado en JSON tal cual."
+
+#: sergio ask --no-stream
+msgid "Disable streaming (sync mode)."
+msgstr "Desactiva el streaming (modo síncrono)."
+
+#: sergio ask --no-context
+msgid "Disable memory context injection."
+msgstr "No añade contexto de la memoria."
+
+#: sergio ask -a
+msgid "Agent to use (simple, orchestrator, ...). When omitted, falls back to ``agent.default_agent`` from config. Pass ``--agent ''`` to force direct-to-engine mode (no agent)."
+msgstr "Agente a usar (simple, orchestrator, ...). Si se omite, usa ``agent.default_agent`` de la configuración. Pasa ``--agent ''`` para hablar directamente con el motor (sin agente)."
+
+#: sergio ask --tools
+msgid "Comma-separated tool names to enable (e.g. calculator,think)."
+msgstr "Herramientas a activar, separadas por comas (p. ej. calculator,think)."
+
+#: sergio ask --profile
+msgid "Print inference telemetry profile (latency, tokens, energy, IPW)."
+msgstr "Muestra el perfil de telemetría de la inferencia (latencia, tokens, energía, IPW)."
+
+#: sergio ask --research
+msgid "Route the query through the hybrid-search research agent over the personal knowledge store (BM25 + dense embeddings, max 5 tool calls)."
+msgstr "Pasa la pregunta por el agente de investigación de búsqueda híbrida sobre tu almacén de conocimiento personal (BM25 + embeddings densos, máximo 5 llamadas a herramientas)."
+
+#: sergio ask --knowledge-db
+msgid "Override the KnowledgeStore path used by --research (default: ~/.openjarvis/knowledge.db)."
+msgstr "Cambia la ruta del KnowledgeStore que usa --research (por defecto: ~/.openjarvis/knowledge.db)."
+
+#: sergio ask -i
+msgid "Image file for a vision model (e.g. gemma3). Repeatable."
+msgstr "Imagen para un modelo de visión (p. ej. gemma3). Se puede repetir."
+
+#: sergio ask -S
+msgid "Capture the current screen and send it to the vision model."
+msgstr "Captura la pantalla actual y la envía al modelo de visión."
+
+#: sergio ask --persona
+msgid "Named persona dir under ~/.openjarvis/personas/<name>/ (overrides config). Pass 'none' to disable all persona files."
+msgstr "Carpeta de persona en ~/.openjarvis/personas/<nombre>/ (anula la configuración). Pasa 'none' para desactivar todos los archivos de persona."
+
+#: sergio ask --route
+msgid "Routing policy to select model (e.g. heuristic, learned). Overrides config."
+msgstr "Política de enrutamiento para elegir modelo (p. ej. heuristic, learned). Anula la configuración."
+
+#: sergio auth
+msgid "Manage API authentication keys."
+msgstr "Gestiona las claves de autenticación de la API."
+
+#: sergio auth create-key
+msgid "Generate a new API key and store it in config."
+msgstr "Genera una clave de API nueva y la guarda en la configuración."
+
+#: sergio auth revoke-key
+msgid "Revoke the current API key."
+msgstr "Revoca la clave de API actual."
+
+#: sergio bench
+msgid "Run inference benchmarks."
+msgstr "Ejecuta pruebas de rendimiento de inferencia."
+
+#: sergio bench run
+msgid "Run benchmarks against an inference engine."
+msgstr "Ejecuta pruebas de rendimiento contra un motor de inferencia."
+
+#: sergio bench run -m
+msgid "Model to benchmark."
+msgstr "Modelo a evaluar."
+
+#: sergio bench run -n
+msgid "Number of samples per benchmark."
+msgstr "Número de muestras por prueba."
+
+#: sergio bench run -b
+msgid "Specific benchmark to run (default: all)."
+msgstr "Prueba concreta a ejecutar (por defecto: todas)."
+
+#: sergio bench run -o
+msgid "Write JSONL results to file."
+msgstr "Escribe los resultados JSONL en un archivo."
+
+#: sergio bench run --json
+msgid "Output JSON summary to stdout."
+msgstr "Muestra un resumen JSON por la salida estándar."
+
+#: sergio bench run -w
+msgid "Number of warmup iterations before measurement."
+msgstr "Iteraciones de calentamiento antes de medir."
+
+#: sergio bench run --setup-energy
+msgid "Run energy monitor setup script when missing (for energy benchmark)."
+msgstr "Ejecuta la instalación del monitor de energía si falta (para la prueba de energía)."
+
+#: sergio bench skills
+msgid "Run the PinchBench skills benchmark across one or all conditions."
+msgstr "Ejecuta la prueba de habilidades PinchBench en una o todas las condiciones."
+
+#: sergio bench skills --condition
+msgid "Which condition(s) to run."
+msgstr "Qué condición(es) ejecutar."
+
+#: sergio bench skills --seeds
+msgid "Random seeds to run per condition."
+msgstr "Semillas aleatorias por condición."
+
+#: sergio bench skills --max-samples
+msgid "Limit number of PinchBench tasks (default: full benchmark)."
+msgstr "Limita el número de tareas de PinchBench (por defecto: la prueba completa)."
+
+#: sergio bench skills --model
+msgid "Model identifier."
+msgstr "Identificador del modelo."
+
+#: sergio bench skills --output-dir
+msgid "Where the markdown report lands."
+msgstr "Dónde se guarda el informe en Markdown."
+
+#: sergio channel
+msgid "Manage messaging channels."
+msgstr "Gestiona los canales de mensajería."
+
+#: sergio channel list
+msgid "List available channels."
+msgstr "Lista los canales disponibles."
+
+#: sergio channel list --channel-type
+msgid "Channel type (sendblue, telegram, discord, slack, webhook, email, whatsapp, whatsapp_baileys, signal, google_chat, irc, webchat, teams, matrix, mattermost, feishu, bluebubbles)."
+msgstr "Tipo de canal (sendblue, telegram, discord, slack, webhook, email, whatsapp, whatsapp_baileys, signal, google_chat, irc, webchat, teams, matrix, mattermost, feishu, bluebubbles)."
+
+#: sergio channel send
+msgid "Send a message to a channel."
+msgstr "Envía un mensaje a un canal."
+
+#: sergio channel status
+msgid "Show channel connection status."
+msgstr "Muestra el estado de conexión de los canales."
+
+#: sergio channels
+msgid "Manage messaging channels (iMessage/SMS via SendBlue, Slack)."
+msgstr "Gestiona canales de mensajería (iMessage/SMS con SendBlue, Slack)."
+
+#: sergio channels imessage-start
+msgid "Start the iMessage daemon for CHAT_IDENTIFIER.\n\n    CHAT_IDENTIFIER is the phone number or email to monitor."
+msgstr "Inicia el servicio de iMessage para CHAT_IDENTIFIER.\n\n    CHAT_IDENTIFIER es el número de teléfono o el correo a vigilar."
+
+#: sergio channels imessage-start --background
+msgid "Run in background."
+msgstr "Ejecuta en segundo plano."
+
+#: sergio channels imessage-stop
+msgid "Stop the iMessage daemon."
+msgstr "Detiene el servicio de iMessage."
+
+#: sergio channels status
+msgid "Show status of all configured channels."
+msgstr "Muestra el estado de todos los canales configurados."
+
+#: sergio chat
+msgid "Start an interactive multi-turn chat session.\n\n    Model: omit ``-m`` to use ``[intelligence] model_chat`` if set, else\n    ``default_model``; ``-m smart`` is the same. Use ``--pick-model`` to open the\n    engine list first (bare ``jarvis`` does this on a TTY unless\n    ``JARVIS_SKIP_MODEL_PICK=1``).\n\n    Commands during chat:\n      /quit, /exit  — end session\n      /clear        — clear conversation history\n      /model        — show current model\n      /runtime      — Ollama context + GPU offload for this session\n      /help         — show available commands\n      /history      — show conversation history\n\n    Pass --voice to use microphone input (silence-detection) and hear responses\n    read back via text-to-speech (kokoro local or OpenAI TTS)."
+msgstr "Inicia una conversación interactiva de varios turnos.\n\n    Modelo: sin ``-m`` usa ``[intelligence] model_chat`` si existe, si no\n    ``default_model``; ``-m smart`` es lo mismo. Usa ``--pick-model`` para abrir\n    primero la lista de motores (``jarvis`` a secas lo hace en una terminal salvo\n    con ``JARVIS_SKIP_MODEL_PICK=1``).\n\n    Comandos durante la conversación:\n      /quit, /exit  — termina la sesión\n      /clear        — borra el historial\n      /model        — muestra el modelo actual\n      /runtime      — contexto de Ollama y GPU para esta sesión\n      /help         — muestra los comandos disponibles\n      /history      — muestra el historial\n\n    Usa --voice para hablar por el micrófono (con detección de silencio) y oír\n    las respuestas en voz (kokoro local o TTS de OpenAI)."
+
+#: sergio chat -m
+msgid "Model id. Omit or use ``smart`` for preset: [intelligence] model_chat / model_short / model_long / model_code, then default_model."
+msgstr "Id del modelo. Omítelo o usa ``smart`` para el ajuste: [intelligence] model_chat / model_short / model_long / model_code, luego default_model."
+
+#: sergio chat --pick-model
+msgid "Show the model list before chat. Bare ``jarvis`` already does this on a TTY unless JARVIS_SKIP_MODEL_PICK=1."
+msgstr "Muestra la lista de modelos antes de conversar. ``jarvis`` a secas ya lo hace en una terminal salvo con JARVIS_SKIP_MODEL_PICK=1."
+
+#: sergio chat -a
+msgid "Agent type."
+msgstr "Tipo de agente."
+
+#: sergio chat --tools
+msgid "Comma-separated tool names."
+msgstr "Herramientas, separadas por comas."
+
+#: sergio chat --system
+msgid "Custom system prompt."
+msgstr "Instrucciones de sistema personalizadas."
+
+#: sergio chat --voice
+msgid "Enable voice I/O: mic input with silence detection + TTS response playback."
+msgstr "Activa la voz: micrófono con detección de silencio y respuestas habladas."
+
+#: sergio chat --skip-runtime-panel
+msgid "Do not prompt for context/GPU after model pick."
+msgstr "No pregunta por contexto/GPU después de elegir modelo."
+
+#: sergio chat --num-gpu
+msgid "Ollama GPU layers (-1=all, 0=CPU). Skips runtime panel when set."
+msgstr "Capas de GPU de Ollama (-1=todas, 0=CPU). Con este valor se salta el panel de ejecución."
+
+#: sergio chat --num-ctx
+msgid "Context window (tokens, max 200k). Skips runtime panel when set."
+msgstr "Ventana de contexto (tokens, máximo 200k). Con este valor se salta el panel de ejecución."
+
+#: sergio compose
+msgid "Compose, run, benchmark, and deploy OpenJarvis configurations.\n\n    Recipes are unified TOML configs that wire all five primitives\n    (Intelligence, Engine, Agent, Tools, Learning).  They come in two\n    kinds:\n\n    \b\n      discrete   One-shot or benchmark-oriented agents\n      operator   Persistent, scheduled autonomous agents"
+msgstr "Compone, ejecuta, evalúa y despliega configuraciones de OpenJarvis.\n\n    Las recetas son configuraciones TOML que conectan las cinco piezas\n    (Inteligencia, Motor, Agente, Herramientas, Aprendizaje). Hay dos\n    tipos:\n\n    \b\n      discrete   Agentes de una sola vez o para pruebas\n      operator   Agentes autónomos persistentes y programados"
+
+#: sergio compose bench
+msgid "Benchmark a discrete composition against eval datasets.\n\n    Uses the recipe's model, engine, agent, and tools to run the eval\n    framework against the benchmarks defined in the recipe (or overridden\n    via --benchmark)."
+msgstr "Evalúa una composición discreta con conjuntos de datos de evaluación.\n\n    Usa el modelo, motor, agente y herramientas de la receta para pasar el\n    marco de evaluación por las pruebas definidas en la receta (o las\n    indicadas con --benchmark)."
+
+#: sergio compose bench -b
+msgid "Override benchmarks (can specify multiple)."
+msgstr "Cambia las pruebas (se pueden indicar varias)."
+
+#: sergio compose bench -n
+msgid "Maximum samples per benchmark."
+msgstr "Máximo de muestras por prueba."
+
+#: sergio compose bench --judge
+msgid "LLM judge model override."
+msgstr "Modelo juez (LLM) a usar en su lugar."
+
+#: sergio compose bench -v
+msgid "Verbose logging."
+msgstr "Registro detallado."
+
+#: sergio compose deploy
+msgid "Deploy an operator composition (activate its scheduler task)."
+msgstr "Despliega una composición de tipo operador (activa su tarea programada)."
+
+#: sergio compose list
+msgid "List all discovered compositions (recipes and operators)."
+msgstr "Lista todas las composiciones encontradas (recetas y operadores)."
+
+#: sergio compose list -k
+msgid "Filter by recipe kind."
+msgstr "Filtra por tipo de receta."
+
+#: sergio compose run
+msgid "Run a composition against a single query."
+msgstr "Ejecuta una composición con una sola pregunta."
+
+#: sergio compose show
+msgid "Show detailed configuration of a composition."
+msgstr "Muestra la configuración detallada de una composición."
+
+#: sergio compose status
+msgid "Show status of all deployed operators."
+msgstr "Muestra el estado de todos los operadores desplegados."
+
+#: sergio compose stop
+msgid "Stop a deployed operator composition."
+msgstr "Detiene una composición de operador desplegada."
+
+#: sergio config
+msgid "Inspect configuration — show loaded settings, hardware, and config files."
+msgstr "Inspecciona la configuración: ajustes cargados, hardware y archivos de configuración."
+
+#: sergio config path
+msgid "Print the resolved OpenJarvis directories (home, config, cache).\n\n    All OpenJarvis state lives under a single root, resolved in priority\n    order: ``$OPENJARVIS_HOME`` > ``$XDG_DATA_HOME/openjarvis`` >\n    ``~/.openjarvis``. Use this to confirm where your data is stored after\n    setting an override."
+msgstr "Muestra las carpetas de OpenJarvis (inicio, configuración, caché).\n\n    Todo el estado de OpenJarvis vive bajo una sola raíz, elegida en este\n    orden: ``$OPENJARVIS_HOME`` > ``$XDG_DATA_HOME/openjarvis`` >\n    ``~/.openjarvis``. Úsalo para confirmar dónde se guardan tus datos después\n    de cambiarla."
+
+#: sergio config set
+msgid "Set a configuration value (e.g. jarvis config set engine.ollama.host URL)."
+msgstr "Cambia un valor de la configuración (p. ej. jarvis config set engine.ollama.host URL)."
+
+#: sergio config show
+msgid "Show configuration details."
+msgstr "Muestra los detalles de la configuración."
+
+#: sergio config show --path
+msgid "Explicit config file path"
+msgstr "Ruta explícita del archivo de configuración"
+
+#: sergio config show --json
+msgid "Output as JSON"
+msgstr "Salida en JSON"
+
+#: sergio config show hardware
+msgid "Show detected hardware information with recommended engine and model."
+msgstr "Muestra el hardware detectado con el motor y el modelo recomendados."
+
+#: sergio config show json
+msgid "Show the parsed TOML configuration as JSON."
+msgstr "Muestra la configuración TOML interpretada, en JSON."
+
+#: sergio config show loaded
+msgid "Show the loaded effective configuration from config.toml."
+msgstr "Muestra la configuración efectiva cargada desde config.toml."
+
+#: sergio config show toml
+msgid "Show the raw TOML configuration file content with syntax highlighting."
+msgstr "Muestra el archivo de configuración TOML tal cual, con colores."
+
+#: sergio connect
+msgid "Manage data source connections (Gmail, Obsidian, etc.)."
+msgstr "Gestiona las conexiones a fuentes de datos (Gmail, Obsidian, etc.)."
+
+#: sergio connect --list
+msgid "List connected sources and sync status."
+msgstr "Lista las fuentes conectadas y su sincronización."
+
+#: sergio connect --sync
+msgid "Trigger incremental sync for all sources."
+msgstr "Sincroniza lo nuevo de todas las fuentes."
+
+#: sergio connect --disconnect
+msgid "Disconnect a source."
+msgstr "Desconecta una fuente."
+
+#: sergio connect --path
+msgid "Path for filesystem connectors (e.g., Obsidian vault)."
+msgstr "Ruta para conectores de archivos (p. ej. una bóveda de Obsidian)."
+
+#: sergio deep-research-setup
+msgid "Auto-detect local data sources, ingest, and launch Deep Research chat."
+msgstr "Detecta tus fuentes de datos locales, las incorpora y abre el chat de investigación profunda."
+
+#: sergio deep-research-setup --obsidian-vault
+msgid "Path to an Obsidian vault directory."
+msgstr "Ruta a una carpeta de bóveda de Obsidian."
+
+#: sergio deep-research-setup --skip-chat
+msgid "Ingest only, don't launch chat."
+msgstr "Solo incorporar, sin abrir el chat."
+
+#: sergio digest
+msgid "Display and play the morning digest."
+msgstr "Muestra y reproduce el resumen de la mañana."
+
+#: sergio digest --text-only
+msgid "Print text without audio playback."
+msgstr "Muestra el texto sin reproducir audio."
+
+#: sergio digest --fresh
+msgid "Re-generate the digest (skip cache)."
+msgstr "Vuelve a generar el resumen (sin usar la caché)."
+
+#: sergio digest --history
+msgid "Show past digests."
+msgstr "Muestra resúmenes anteriores."
+
+#: sergio digest --section
+msgid "Show only a specific section."
+msgstr "Muestra solo una sección."
+
+#: sergio digest --db-path
+msgid "Path to digest database."
+msgstr "Ruta a la base de datos de resúmenes."
+
+#: sergio digest --schedule
+msgid "Set cron schedule (e.g. \"0 6 * * *\"), \"off\" to disable, or empty to show status."
+msgstr "Programa con cron (p. ej. \"0 6 * * *\"), \"off\" para desactivar, o vacío para ver el estado."
+
+#: sergio doctor
+msgid "Run diagnostic checks on your OpenJarvis installation."
+msgstr "Revisa tu instalación de OpenJarvis y detecta problemas."
+
+#: sergio doctor --json
+msgid "Output results as JSON."
+msgstr "Resultados en JSON."
+
+#: sergio ecc
+msgid "ECC (Everything Claude Code): expert playbooks Sergio reads on demand."
+msgstr "ECC (Everything Claude Code): guías expertas que Sergio lee cuando las necesita."
+
+#: sergio ecc actualizar
+msgid "Download ECC the first time, or update it."
+msgstr "Descarga ECC la primera vez, o lo actualiza."
+
+#: sergio ecc buscar
+msgid "Search the guides (English keywords work best)."
+msgstr "Busca en las guías (funcionan mejor las palabras en inglés)."
+
+#: sergio ecc estado
+msgid "Show whether ECC is installed and how many guides it has."
+msgstr "Muestra si ECC está instalado y cuántas guías tiene."
+
+#: sergio escritorio
+msgid "Sergio in Windows: cursor companion, voice, and control of the screen."
+msgstr "Sergio en Windows: compañero del cursor, voz y control de la pantalla."
+
+#: sergio escritorio estado
+msgid "Check that Sergio can reach Sergio Escritorio."
+msgstr "Comprueba que Sergio llega a Sergio Escritorio."
+
+#: sergio escritorio instalar
+msgid "Install (or update) Sergio Escritorio in Windows."
+msgstr "Instala (o actualiza) Sergio Escritorio en Windows."
+
+#: sergio escritorio instalar --vision
+msgid "Also download a local vision model (qwen2.5vl:7b, ~6 GB) so Sergio can describe images on screen."
+msgstr "Descarga también un modelo de visión local (qwen2.5vl:7b, ~6 GB) para que Sergio describa lo que hay en pantalla."
+
+#: sergio escritorio instalar --gpu
+msgid "Also download the NVIDIA libraries (~1 GB) so Sergio hears with the big Whisper model on the graphics card."
+msgstr "Descarga también las librerías de NVIDIA (~1 GB) para que Sergio oiga con el modelo grande de Whisper en la tarjeta gráfica."
+
+#: sergio eval
+msgid "Evaluation framework — benchmark models, agents, and learning."
+msgstr "Marco de evaluación: compara modelos, agentes y aprendizaje."
+
+#: sergio eval compare
+msgid "Compare results from multiple eval runs."
+msgstr "Compara resultados de varias evaluaciones."
+
+#: sergio eval compare --metric
+msgid "Metric to compare across runs (default: accuracy)."
+msgstr "Métrica a comparar entre ejecuciones (por defecto: accuracy)."
+
+#: sergio eval list
+msgid "List available benchmarks and backends."
+msgstr "Lista las pruebas y motores disponibles."
+
+#: sergio eval report
+msgid "Generate detailed report from eval results."
+msgstr "Genera un informe detallado de los resultados."
+
+#: sergio eval run
+msgid "Run evaluation benchmarks."
+msgstr "Ejecuta pruebas de evaluación."
+
+#: sergio eval run -c
+msgid "TOML config file for suite runs."
+msgstr "Archivo de configuración TOML para baterías de pruebas."
+
+#: sergio eval run -b
+msgid "Benchmark to run (e.g. supergpqa, gaia, frames, wildchat)."
+msgstr "Prueba a ejecutar (p. ej. supergpqa, gaia, frames, wildchat)."
+
+#: sergio eval run -n
+msgid "Maximum samples to evaluate."
+msgstr "Máximo de muestras a evaluar."
+
+#: sergio eval run --backend
+msgid "Inference backend. For hermes/openclaw, also pass --base-url and --api-key (or set JARVIS_BACKEND_BASE_URL/JARVIS_BACKEND_API_KEY)."
+msgstr "Motor de inferencia. Para hermes/openclaw pasa también --base-url y --api-key (o define JARVIS_BACKEND_BASE_URL/JARVIS_BACKEND_API_KEY)."
+
+#: sergio eval run --base-url
+msgid "OpenAI-compatible endpoint for the model under eval. Required for hermes/openclaw; for jarvis-direct/jarvis-agent/terminalbench-native it bypasses engine discovery and targets this URL directly (env: JARVIS_BACKEND_BASE_URL)."
+msgstr "Endpoint compatible con OpenAI del modelo evaluado. Obligatorio para hermes/openclaw; en jarvis-direct/jarvis-agent/terminalbench-native evita la detección de motores y usa esta URL directamente (entorno: JARVIS_BACKEND_BASE_URL)."
+
+#: sergio eval run --api-key
+msgid "API key for the --base-url endpoint, sent as a Bearer token. Required for hermes/openclaw; optional for first-party backends (env: JARVIS_BACKEND_API_KEY)."
+msgstr "Clave de API para el endpoint de --base-url, enviada como token Bearer. Obligatoria para hermes/openclaw; opcional para los motores propios (entorno: JARVIS_BACKEND_API_KEY)."
+
+#: sergio eval run --agent
+msgid "Agent name for jarvis-agent backend."
+msgstr "Nombre del agente para el motor jarvis-agent."
+
+#: sergio eval run -e
+msgid "Engine key (ollama, vllm, cloud, ...)."
+msgstr "Clave del motor (ollama, vllm, cloud, ...)."
+
+#: sergio eval run --telemetry
+msgid "Enable telemetry collection during eval."
+msgstr "Recoge telemetría durante la evaluación."
+
+#: sergio eval run --gpu-metrics
+msgid "Enable GPU metrics collection."
+msgstr "Recoge métricas de la GPU."
+
+#: sergio eval run --seed
+msgid "Random seed."
+msgstr "Semilla aleatoria."
+
+#: sergio eval run --temperature
+msgid "Generation temperature."
+msgstr "Temperatura de generación."
+
+#: sergio eval run --max-tokens
+msgid "Max output tokens."
+msgstr "Máximo de tokens de salida."
+
+#: sergio eval run --model-filter
+msgid "Filter models by name substring (for multi-model configs)."
+msgstr "Filtra modelos por parte del nombre (configuraciones con varios modelos)."
+
+#: sergio eval run -o
+msgid "Output JSONL path."
+msgstr "Ruta del archivo JSONL de salida."
+
+#: sergio eval run --wandb-project
+msgid "W&B project name (enables W&B tracking)."
+msgstr "Nombre del proyecto de W&B (activa el seguimiento en W&B)."
+
+#: sergio eval run --wandb-entity
+msgid "W&B entity (team or user)."
+msgstr "Entidad de W&B (equipo o usuario)."
+
+#: sergio eval run --wandb-tags
+msgid "Comma-separated W&B tags."
+msgstr "Etiquetas de W&B separadas por comas."
+
+#: sergio eval run --wandb-group
+msgid "W&B run group."
+msgstr "Grupo de ejecuciones de W&B."
+
+#: sergio eval run --sheets-id
+msgid "Google Sheets spreadsheet ID."
+msgstr "ID de la hoja de cálculo de Google Sheets."
+
+#: sergio eval run --sheets-worksheet
+msgid "Google Sheets worksheet name."
+msgstr "Nombre de la pestaña de Google Sheets."
+
+#: sergio eval run --sheets-creds
+msgid "Path to Google service account JSON."
+msgstr "Ruta al JSON de la cuenta de servicio de Google."
+
+#: sergio evolve
+msgid "Adapt to the user: consolidate learned facts into USER.md."
+msgstr "Se adapta a ti: reúne lo aprendido en USER.md."
+
+#: sergio evolve --force
+msgid "Run even if nothing new was learned."
+msgstr "Ejecuta aunque no haya aprendido nada nuevo."
+
+#: sergio evolve --show
+msgid "Print the resulting profile."
+msgstr "Muestra el perfil resultante."
+
+#: sergio extensions
+msgid "Bundled extensions: OpenClacky (computer agent) and the 3D globe."
+msgstr "Extensiones incluidas: OpenClacky (agente de computadora) y el globo 3D."
+
+#: sergio extensions logs
+msgid "Print the last lines of an extension's log."
+msgstr "Muestra las últimas líneas del registro de una extensión."
+
+#: sergio extensions run
+msgid "Run in the foreground for a service manager (systemd).\n\n    Starts the extensions, restarts them if they crash, and stops them on\n    SIGTERM/Ctrl-C."
+msgstr "Ejecuta en primer plano para un gestor de servicios (systemd).\n\n    Inicia las extensiones, las reinicia si se caen y las detiene con\n    SIGTERM/Ctrl-C."
+
+#: sergio extensions run --interval
+msgid "Health check, s."
+msgstr "Comprobación de salud, en segundos."
+
+#: sergio extensions start
+msgid "Start one extension or all of them in the background."
+msgstr "Inicia una extensión o todas en segundo plano."
+
+#: sergio extensions status
+msgid "Show whether each extension is available and running."
+msgstr "Muestra si cada extensión está disponible y en marcha."
+
+#: sergio extensions stop
+msgid "Stop one extension or all of them."
+msgstr "Detiene una extensión o todas."
+
+#: sergio feedback
+msgid "Trace feedback management."
+msgstr "Gestión de valoraciones de trazas."
+
+#: sergio feedback evaluate
+msgid "Run LLM judge on recent traces."
+msgstr "Pasa el juez (LLM) por las trazas recientes."
+
+#: sergio feedback evaluate --since
+msgid "Evaluate traces since (e.g. 7d, 24h)."
+msgstr "Evalúa trazas desde hace (p. ej. 7d, 24h)."
+
+#: sergio feedback score
+msgid "Record explicit feedback for a trace."
+msgstr "Registra una valoración explícita para una traza."
+
+#: sergio feedback score -s
+msgid "Feedback score (0.0-1.0)."
+msgstr "Puntuación (0.0-1.0)."
+
+#: sergio feedback stats
+msgid "Show feedback statistics."
+msgstr "Muestra estadísticas de las valoraciones."
+
+#: sergio feedback thumbs
+msgid "Rate a trace with thumbs up/down."
+msgstr "Valora una traza con pulgar arriba/abajo."
+
+#: sergio feedback thumbs --last
+msgid "Rate the last interaction."
+msgstr "Valora la última interacción."
+
+#: sergio feedback thumbs --up
+msgid "Thumbs up or down."
+msgstr "Pulgar arriba o abajo."
+
+#: sergio gateway
+msgid "Manage the OpenJarvis multi-channel gateway."
+msgstr "Gestiona la pasarela multicanal de OpenJarvis."
+
+#: sergio gateway logs
+msgid "View gateway logs."
+msgstr "Muestra los registros de la pasarela."
+
+#: sergio gateway start
+msgid "Start the gateway daemon."
+msgstr "Inicia el servicio de la pasarela."
+
+#: sergio gateway start --install
+msgid "Generate and enable systemd/launchd service"
+msgstr "Genera y activa el servicio de systemd/launchd"
+
+#: sergio gateway status
+msgid "Check gateway status."
+msgstr "Comprueba el estado de la pasarela."
+
+#: sergio gateway stop
+msgid "Stop the gateway daemon."
+msgstr "Detiene el servicio de la pasarela."
+
+#: sergio gui
+msgid "Start the browser-based graphical mode in the default browser.\n\n    This command is intended for source checkouts. For an installed desktop\n    application, launch OpenJarvis from the operating system menu instead."
+msgstr "Abre el modo gráfico en el navegador predeterminado.\n\n    Este comando es para copias del código fuente. Si instalaste la aplicación\n    de escritorio, ábrela desde el menú del sistema operativo."
+
+#: sergio gui --no-server
+msgid "Do not start the API server."
+msgstr "No inicia el servidor de la API."
+
+#: sergio gui --no-extensions
+msgid "Do not start the bundled OpenClacky agent and 3D globe."
+msgstr "No inicia el agente OpenClacky ni el globo 3D incluidos."
+
+#: sergio gui --no-browser
+msgid "Only start the frontend."
+msgstr "Solo inicia la interfaz."
+
+#: sergio host
+msgid "Download (if needed) and serve a model locally.\n\n    Examples:\n\n    \b\n      jarvis host mlx-community/Qwen2.5-7B-4bit --backend mlx\n      jarvis host Qwen/Qwen3-8B --backend vllm\n      jarvis host qwen3:8b --backend ollama\n      jarvis host meta-llama/Llama-3-8B -b sglang"
+msgstr "Descarga (si hace falta) y sirve un modelo en local.\n\n    Ejemplos:\n\n    \b\n      jarvis host mlx-community/Qwen2.5-7B-4bit --backend mlx\n      jarvis host Qwen/Qwen3-8B --backend vllm\n      jarvis host qwen3:8b --backend ollama\n      jarvis host meta-llama/Llama-3-8B -b sglang"
+
+#: sergio host -b
+msgid "Inference backend to use. Auto-detected if omitted."
+msgstr "Motor de inferencia a usar. Se detecta solo si se omite."
+
+#: sergio host -p
+msgid "Port to serve on (default depends on backend)."
+msgstr "Puerto donde servir (por defecto depende del motor)."
+
+#: sergio host --trust-remote-code
+msgid "Pass --trust-remote-code to the backend."
+msgstr "Pasa --trust-remote-code al motor."
+
+#: sergio init
+msgid "Detect hardware and generate ~/.openjarvis/config.toml."
+msgstr "Detecta el hardware y genera ~/.openjarvis/config.toml."
+
+#: sergio init --force
+msgid "Overwrite existing config without prompting."
+msgstr "Sobrescribe la configuración existente sin preguntar."
+
+#: sergio init --config
+msgid "Path to config file to use."
+msgstr "Ruta del archivo de configuración a usar."
+
+#: sergio init --full
+msgid "Generate full reference config with all sections"
+msgstr "Genera la configuración de referencia completa, con todas las secciones"
+
+#: sergio init --engine
+msgid "Inference engine to use (skips interactive selection)."
+msgstr "Motor de inferencia a usar (se salta la selección interactiva)."
+
+#: sergio init --no-download
+msgid "Skip the model download prompt."
+msgstr "No pregunta por la descarga del modelo."
+
+#: sergio init --no-scan
+msgid "Skip the post-init security environment audit."
+msgstr "Se salta la auditoría de seguridad del entorno tras la inicialización."
+
+#: sergio init --host
+msgid "Remote engine host URL (e.g. http://192.168.1.50:11434)."
+msgstr "URL del motor remoto (p. ej. http://192.168.1.50:11434)."
+
+#: sergio init --digest
+msgid "Include Morning Digest config section."
+msgstr "Incluye la sección de configuración del resumen de la mañana."
+
+#: sergio init --preset
+msgid "Use a pre-built starter config instead of generating one."
+msgstr "Usa una configuración inicial ya hecha en lugar de generarla."
+
+#: sergio init --from-bare-jarvis
+msgid "Run init non-interactively; called by the bare-jarvis first-run guard."
+msgstr "Inicializa sin preguntas; lo usa la protección del primer arranque de jarvis."
+
+#: sergio memory
+msgid "Manage the memory store."
+msgstr "Gestiona el almacén de memoria."
+
+#: sergio memory clear
+msgid "Remove all durable facts captured by the automatic memory service."
+msgstr "Borra todos los datos duraderos guardados por la memoria automática."
+
+#: sergio memory clear --yes
+msgid "Skip the confirmation prompt."
+msgstr "No pide confirmación."
+
+#: sergio memory index
+msgid "Index documents from a file or directory."
+msgstr "Indexa documentos de un archivo o una carpeta."
+
+#: sergio memory index --backend
+msgid "Override the default memory backend."
+msgstr "Usa otro tipo de memoria en lugar del predeterminado."
+
+#: sergio memory index --chunk-size
+msgid "Chunk size in tokens."
+msgstr "Tamaño de cada trozo, en tokens."
+
+#: sergio memory index --chunk-overlap
+msgid "Overlap between chunks in tokens."
+msgstr "Solapamiento entre trozos, en tokens."
+
+#: sergio memory list
+msgid "List durable facts captured by the automatic memory service."
+msgstr "Lista los datos duraderos guardados por la memoria automática."
+
+#: sergio memory search
+msgid "Search the memory store."
+msgstr "Busca en el almacén de memoria."
+
+#: sergio memory search --top-k
+msgid "Number of results to return."
+msgstr "Número de resultados."
+
+#: sergio memory stats
+msgid "Show memory store statistics."
+msgstr "Muestra estadísticas del almacén de memoria."
+
+#: sergio memory trust
+msgid "Promote quarantined fact INDEX (as shown by `memory list`) to trusted.\n\n    Only do this after reading the fact: a quarantined fact matched an\n    injection pattern, and promoting it puts its text into future prompts."
+msgstr "Pasa a confiable el dato en cuarentena INDEX (como lo muestra `memory list`).\n\n    Hazlo solo después de leer el dato: un dato en cuarentena coincidió con un\n    patrón de inyección, y al confiar en él su texto entra en futuros prompts."
+
+#: sergio mine
+msgid "Configure and run Pearl mining."
+msgstr "Configura y ejecuta la minería de Pearl."
+
+#: sergio mine attach
+msgid "Manual mode: write a sidecar for an externally-started miner."
+msgstr "Modo manual: escribe un archivo auxiliar para un minero iniciado por fuera."
+
+#: sergio mine doctor
+msgid "Diagnose mining capability with one row per check."
+msgstr "Diagnostica la capacidad de minar, una fila por comprobación."
+
+#: sergio mine init
+msgid "Interactive setup for the v1 Pearl mining providers."
+msgstr "Configuración interactiva de los proveedores de minería Pearl v1."
+
+#: sergio mine init --local-model-path
+msgid "Local converted Pearl checkpoint directory to mount into the container."
+msgstr "Carpeta local del punto de control Pearl convertido, para montarla en el contenedor."
+
+#: sergio mine init --vllm-arg
+msgid "Extra argument to pass through to `vllm serve`; repeat as needed."
+msgstr "Argumento extra para `vllm serve`; repítelo si hace falta."
+
+#: sergio mine init --cuda-visible-devices
+msgid "Comma-separated NVIDIA GPU IDs to expose to the vLLM Pearl container."
+msgstr "IDs de GPU NVIDIA, separados por comas, que verá el contenedor vLLM de Pearl."
+
+#: sergio mine inspect-model
+msgid "Inspect a Pearl model artifact before spending GPU time."
+msgstr "Inspecciona un modelo Pearl antes de gastar tiempo de GPU."
+
+#: sergio mine inspect-model --model
+msgid "Pearl model id to inspect."
+msgstr "Id del modelo Pearl a inspeccionar."
+
+#: sergio mine inspect-model --allow-planned
+msgid "Inspect planned models even though they are not enabled for mining yet."
+msgstr "Inspecciona modelos planeados aunque aún no estén habilitados para minar."
+
+#: sergio mine inspect-model --hf-token-env
+msgid "Environment variable containing a Hugging Face token."
+msgstr "Variable de entorno con un token de Hugging Face."
+
+#: sergio mine inspect-model --output
+msgid "Write a JSON artifact inspection report."
+msgstr "Escribe un informe JSON de la inspección."
+
+#: sergio mine logs
+msgid "Print the Pearl miner container log tail."
+msgstr "Muestra el final del registro del contenedor minero de Pearl."
+
+#: sergio mine models
+msgid "List Pearl model support status."
+msgstr "Lista qué modelos Pearl están soportados."
+
+#: sergio mine start
+msgid "Launch the configured mining provider."
+msgstr "Inicia el proveedor de minería configurado."
+
+#: sergio mine status
+msgid "Print live mining stats."
+msgstr "Muestra estadísticas de minería en directo."
+
+#: sergio mine stop
+msgid "Stop the configured mining provider."
+msgstr "Detiene el proveedor de minería configurado."
+
+#: sergio mine validate-model
+msgid "Collect runtime evidence for Pearl model validation."
+msgstr "Reúne pruebas en ejecución para validar un modelo Pearl."
+
+#: sergio mine validate-model --model
+msgid "Pearl model id to validate."
+msgstr "Id del modelo Pearl a validar."
+
+#: sergio mine validate-model --vllm-endpoint
+msgid "OpenAI-compatible vLLM endpoint, defaults to the mining sidecar."
+msgstr "Endpoint vLLM compatible con OpenAI; por defecto el auxiliar de minería."
+
+#: sergio mine validate-model --gateway-metrics-url
+msgid "Pearl gateway metrics URL, defaults to the mining sidecar."
+msgstr "URL de métricas de la pasarela Pearl; por defecto el auxiliar de minería."
+
+#: sergio mine validate-model --allow-planned
+msgid "Allow planned models while collecting validation evidence."
+msgstr "Permite modelos planeados mientras se reúnen pruebas."
+
+#: sergio mine validate-model --prompt
+msgid "Optional chat-completion smoke prompt to run through vLLM."
+msgstr "Prompt de prueba opcional para pasar por vLLM."
+
+#: sergio mine validate-model --output
+msgid "Write a JSON validation artifact."
+msgstr "Escribe un informe JSON de la validación."
+
+#: sergio model
+msgid "Manage language models."
+msgstr "Gestiona los modelos de lenguaje."
+
+#: sergio model convert
+msgid "Convert a Hugging Face model to a local engine format."
+msgstr "Convierte un modelo de Hugging Face al formato de un motor local."
+
+#: sergio model convert --engine
+msgid "Engine to convert for."
+msgstr "Motor para el que convertir."
+
+#: sergio model convert --quantize
+msgid "GGUF quantization type (e.g., q4_k_m, q8_0)."
+msgstr "Tipo de cuantización GGUF (p. ej. q4_k_m, q8_0)."
+
+#: sergio model convert -q
+msgid "Enable 4-bit quantization for MLX."
+msgstr "Activa la cuantización de 4 bits para MLX."
+
+#: sergio model convert --output
+msgid "Output directory for converted artifact."
+msgstr "Carpeta de salida del modelo convertido."
+
+#: sergio model convert --force
+msgid "Replace existing output only after conversion succeeds."
+msgstr "Reemplaza la salida existente solo si la conversión sale bien."
+
+#: sergio model info
+msgid "Show details for a model."
+msgstr "Muestra los detalles de un modelo."
+
+#: sergio model list
+msgid "List available models from running engines."
+msgstr "Lista los modelos disponibles en los motores en marcha."
+
+#: sergio model pull
+msgid "Download a model."
+msgstr "Descarga un modelo."
+
+#: sergio model pull --engine
+msgid "Engine to download for."
+msgstr "Motor para el que descargar."
+
+#: sergio nube
+msgid "Cloud models (Kimi, Gemini) for Sergio's brain."
+msgstr "Modelos en la nube (Kimi, Gemini) para el cerebro de Sergio."
+
+#: sergio nube configurar
+msgid "Save the keys, check them and pick Sergio's main cloud model."
+msgstr "Guarda las claves, las comprueba y elige el modelo principal de Sergio en la nube."
+
+#: sergio nube configurar --kimi
+msgid "Kimi (Moonshot) API key."
+msgstr "Clave de API de Kimi (Moonshot)."
+
+#: sergio nube configurar --gemini
+msgid "Gemini / Google API key."
+msgstr "Clave de API de Gemini / Google."
+
+#: sergio nube configurar --modelo
+msgid "Force a model id (e.g. kimi-k2.6)."
+msgstr "Fuerza un id de modelo (p. ej. kimi-k2.6)."
+
+#: sergio nube configurar --tripo
+msgid "Tripo 3D API key (tsk_..., platform.tripo3d.ai)."
+msgstr "Clave de API de Tripo 3D (tsk_..., platform.tripo3d.ai)."
+
+#: sergio nube voz
+msgid "Sergio's voice with ElevenLabs (deep, warm, raspy; the lowest delay)."
+msgstr "La voz de Sergio con ElevenLabs (grave, cálida, rasposa; el menor retraso)."
+
+#: sergio nube voz --elevenlabs
+msgid "ElevenLabs API key."
+msgstr "Clave de API de ElevenLabs."
+
+#: sergio operators
+msgid "Manage operators — persistent, scheduled autonomous agents."
+msgstr "Gestiona operadores: agentes autónomos persistentes y programados."
+
+#: sergio operators activate
+msgid "Activate an operator (creates a scheduler task)."
+msgstr "Activa un operador (crea una tarea programada)."
+
+#: sergio operators deactivate
+msgid "Deactivate an operator (cancels its scheduler task)."
+msgstr "Desactiva un operador (cancela su tarea programada)."
+
+#: sergio operators info
+msgid "Show detailed info about an operator."
+msgstr "Muestra información detallada de un operador."
+
+#: sergio operators install
+msgid "Install an operator TOML manifest to the manifests directory."
+msgstr "Instala el manifiesto TOML de un operador en la carpeta de manifiestos."
+
+#: sergio operators list
+msgid "List all discovered operators and their status."
+msgstr "Lista todos los operadores encontrados y su estado."
+
+#: sergio operators logs
+msgid "Show execution logs for an operator."
+msgstr "Muestra los registros de ejecución de un operador."
+
+#: sergio operators logs -n
+msgid "Number of log entries to show."
+msgstr "Cuántas entradas del registro mostrar."
+
+#: sergio operators pause
+msgid "Pause an active operator."
+msgstr "Pausa un operador activo."
+
+#: sergio operators resume
+msgid "Resume a paused operator."
+msgstr "Reanuda un operador pausado."
+
+#: sergio operators run
+msgid "Execute a single tick of an operator immediately (for testing)."
+msgstr "Ejecuta un ciclo de un operador ahora mismo (para pruebas)."
+
+#: sergio optimize
+msgid "LLM-driven configuration optimization."
+msgstr "Optimización de la configuración guiada por un LLM."
+
+#: sergio optimize best
+msgid "Export best recipe from an optimization run."
+msgstr "Exporta la mejor receta de una optimización."
+
+#: sergio optimize best -o
+msgid "Output recipe path (TOML)."
+msgstr "Ruta de la receta de salida (TOML)."
+
+#: sergio optimize personal
+msgid "Personal workflow optimization."
+msgstr "Optimización de flujos de trabajo personales."
+
+#: sergio optimize personal --workflow
+msgid "Workflow ID for personal optimization."
+msgstr "ID del flujo de trabajo a optimizar."
+
+#: sergio optimize personal -t
+msgid "Maximum trials for personal optimization."
+msgstr "Máximo de intentos para la optimización personal."
+
+#: sergio optimize results
+msgid "Show trial results for an optimization run."
+msgstr "Muestra los resultados de los intentos de una optimización."
+
+#: sergio optimize run
+msgid "Run an optimization loop over OpenJarvis configuration."
+msgstr "Ejecuta un ciclo de optimización sobre la configuración de OpenJarvis."
+
+#: sergio optimize run -c
+msgid "TOML config file for the optimization run."
+msgstr "Archivo de configuración TOML para la optimización."
+
+#: sergio optimize run -b
+msgid "Benchmark name (e.g. supergpqa, mmlu-pro)."
+msgstr "Nombre de la prueba (p. ej. supergpqa, mmlu-pro)."
+
+#: sergio optimize run -t
+msgid "Maximum number of trials."
+msgstr "Máximo de intentos."
+
+#: sergio optimize run --optimizer-model
+msgid "Model used by the LLM optimizer."
+msgstr "Modelo que usa el optimizador."
+
+#: sergio optimize run --max-samples
+msgid "Maximum samples per trial evaluation."
+msgstr "Máximo de muestras por evaluación de cada intento."
+
+#: sergio optimize run --output-dir
+msgid "Directory for trial output files."
+msgstr "Carpeta para los archivos de cada intento."
+
+#: sergio optimize skills
+msgid "Optimize per-skill descriptions and few-shot examples from traces."
+msgstr "Optimiza las descripciones y ejemplos de cada habilidad a partir de las trazas."
+
+#: sergio optimize skills --policy
+msgid "Optimization policy to use."
+msgstr "Política de optimización a usar."
+
+#: sergio optimize skills --min-traces
+msgid "Minimum traces required per skill."
+msgstr "Mínimo de trazas por habilidad."
+
+#: sergio optimize skills --dry-run
+msgid "Show planned work without invoking the optimizer LM."
+msgstr "Muestra el trabajo previsto sin llamar al modelo optimizador."
+
+#: sergio optimize status
+msgid "Show optimization run status."
+msgstr "Muestra el estado de la optimización."
+
+#: sergio pearl
+msgid "Access Pearl node, wallet, and RPC tools."
+msgstr "Acceso a las herramientas de nodo, cartera y RPC de Pearl."
+
+#: sergio pearl address
+msgid "Generate a Pearl wallet address through Oyster's wallet RPC."
+msgstr "Genera una dirección de cartera Pearl con el RPC de cartera de Oyster."
+
+#: sergio pearl ctl
+msgid "Run ``prlctl`` with pass-through arguments."
+msgstr "Ejecuta ``prlctl`` pasándole los argumentos."
+
+#: sergio pearl doctor
+msgid "Show whether Pearl native binaries are discoverable."
+msgstr "Muestra si se encuentran los binarios nativos de Pearl."
+
+#: sergio pearl node
+msgid "Run ``pearld`` with pass-through arguments."
+msgstr "Ejecuta ``pearld`` pasándole los argumentos."
+
+#: sergio pearl wallet
+msgid "Run ``oyster`` with pass-through arguments."
+msgstr "Ejecuta ``oyster`` pasándole los argumentos."
+
+#: sergio quickstart
+msgid "Guided 5-step setup for new users."
+msgstr "Configuración guiada en 5 pasos para usuarios nuevos."
+
+#: sergio quickstart --force
+msgid "Redo all steps even if already done."
+msgstr "Repite todos los pasos aunque ya estén hechos."
+
+#: sergio registry
+msgid "Inspect registered components — list registries, show entries."
+msgstr "Inspecciona los componentes registrados: lista registros y muestra entradas."
+
+#: sergio registry list
+msgid "List all available registries."
+msgstr "Lista todos los registros disponibles."
+
+#: sergio registry show
+msgid "Show entries in a specific registry."
+msgstr "Muestra las entradas de un registro."
+
+#: sergio registry show --verbose
+msgid "Show full entry details"
+msgstr "Muestra todos los detalles de cada entrada"
+
+#: sergio restart
+msgid "Restart the OpenJarvis server daemon."
+msgstr "Reinicia el servicio del servidor de OpenJarvis."
+
+#: sergio revisar
+msgid "Check Ollama, the model, chat, voice, hearing and the cursor companion."
+msgstr "Comprueba Ollama, el modelo, el chat, la voz, el oído y el compañero del cursor."
+
+#: sergio rostros
+msgid "Local face recognition of people you enroll (with their consent)."
+msgstr "Reconocimiento facial local de las personas que registres (con su consentimiento)."
+
+#: sergio rostros identificar
+msgid "Say who is in PHOTO."
+msgstr "Dice quién aparece en PHOTO."
+
+#: sergio rostros lista
+msgid "List enrolled people."
+msgstr "Lista las personas registradas."
+
+#: sergio rostros olvidar
+msgid "Delete everything stored about NAME."
+msgstr "Borra todo lo guardado sobre NAME."
+
+#: sergio rostros registrar
+msgid "Enroll NAME from PHOTO (one face). Add more photos to improve accuracy."
+msgstr "Registra a NAME a partir de PHOTO (una cara). Añade más fotos para mejorar la precisión."
+
+#: sergio rostros registrar --consentimiento
+msgid "Confirm this person agreed to be recognized."
+msgstr "Confirma que esta persona aceptó ser reconocida."
+
+#: sergio scan
+msgid "Audit your environment for privacy and security risks."
+msgstr "Revisa tu entorno en busca de riesgos de privacidad y seguridad."
+
+#: sergio scan --quick
+msgid "Run only critical checks."
+msgstr "Ejecuta solo las comprobaciones críticas."
+
+#: sergio scan --json
+msgid "Output as JSON."
+msgstr "Salida en JSON."
+
+#: sergio scan --data-boundaries
+msgid "Run application data-boundary checks instead of host checks."
+msgstr "Revisa los límites de datos de la aplicación en lugar del equipo."
+
+#: sergio scan --strict
+msgid "Exit non-zero if data-boundary fail or warn findings are present."
+msgstr "Termina con error si hay fallos o avisos en los límites de datos."
+
+#: sergio scan --show-paths
+msgid "Show absolute paths in data-boundary output."
+msgstr "Muestra rutas absolutas en la revisión de límites de datos."
+
+#: sergio scheduler
+msgid "Manage scheduled tasks."
+msgstr "Gestiona las tareas programadas."
+
+#: sergio scheduler cancel
+msgid "Cancel a scheduled task."
+msgstr "Cancela una tarea programada."
+
+#: sergio scheduler create
+msgid "Create a new scheduled task."
+msgstr "Crea una tarea programada nueva."
+
+#: sergio scheduler create --type
+msgid "Schedule type."
+msgstr "Tipo de programación."
+
+#: sergio scheduler create --value
+msgid "Schedule value (cron expr, seconds, or ISO datetime)."
+msgstr "Valor de la programación (expresión cron, segundos o fecha ISO)."
+
+#: sergio scheduler create --agent
+msgid "Agent to use for execution."
+msgstr "Agente que la ejecuta."
+
+#: sergio scheduler list
+msgid "List scheduled tasks."
+msgstr "Lista las tareas programadas."
+
+#: sergio scheduler list --status
+msgid "Filter by status."
+msgstr "Filtra por estado."
+
+#: sergio scheduler logs
+msgid "Show run logs for a scheduled task."
+msgstr "Muestra los registros de ejecución de una tarea programada."
+
+#: sergio scheduler logs -n
+msgid "Number of logs to show."
+msgstr "Cuántos registros mostrar."
+
+#: sergio scheduler pause
+msgid "Pause a scheduled task."
+msgstr "Pausa una tarea programada."
+
+#: sergio scheduler resume
+msgid "Resume a paused task."
+msgstr "Reanuda una tarea pausada."
+
+#: sergio scheduler run-task
+msgid "Immediately execute the active task for AGENT_NAME.\n\n    Finds the first active scheduled task whose agent matches AGENT_NAME\n    and runs it right now — useful for testing and for launchd invocation\n    when OpenJarvis is not running as a persistent daemon.\n\n    Example (launchd plist ProgramArguments):\n        jarvis scheduler run-task proactive"
+msgstr "Ejecuta ya la tarea activa de AGENT_NAME.\n\n    Busca la primera tarea programada activa cuyo agente sea AGENT_NAME\n    y la ejecuta en este momento; útil para pruebas y para launchd\n    cuando OpenJarvis no corre como servicio permanente.\n\n    Ejemplo (ProgramArguments de un plist de launchd):\n        jarvis scheduler run-task proactive"
+
+#: sergio scheduler run-task --dry-run
+msgid "Print what would run without executing."
+msgstr "Muestra qué se ejecutaría, sin ejecutarlo."
+
+#: sergio scheduler start
+msgid "Start the scheduler daemon (foreground)."
+msgstr "Inicia el servicio planificador (en primer plano)."
+
+#: sergio scheduler start --poll-interval
+msgid "Seconds between poll cycles."
+msgstr "Segundos entre cada revisión."
+
+#: sergio self-update
+msgid "Upgrade OpenJarvis to the latest release. Detects how you installed (pip, uv tool, editable git) and runs the right command. Use --check to only print the upgrade command without running it."
+msgstr "Actualiza OpenJarvis a la última versión. Detecta cómo lo instalaste (pip, uv tool, git editable) y ejecuta el comando correcto. Usa --check para ver el comando sin ejecutarlo."
+
+#: sergio self-update --check
+msgid "Print the upgrade command that would run, without executing it."
+msgstr "Muestra el comando de actualización sin ejecutarlo."
+
+#: sergio self-update --yes
+msgid "Skip the interactive confirmation prompt."
+msgstr "No pide confirmación."
+
+#: sergio serve
+msgid "Start the OpenAI-compatible API server."
+msgstr "Inicia el servidor de API compatible con OpenAI."
+
+#: sergio serve --host
+msgid "Bind address (default: config)."
+msgstr "Dirección de escucha (por defecto: la de la configuración)."
+
+#: sergio serve --port
+msgid "Port number (default: config)."
+msgstr "Puerto (por defecto: el de la configuración)."
+
+#: sergio serve -m
+msgid "Default model."
+msgstr "Modelo predeterminado."
+
+#: sergio serve -a
+msgid "Agent for chat requests (simple, orchestrator, react, openhands)."
+msgstr "Agente para las peticiones de chat (simple, orchestrator, react, openhands)."
+
+#: sergio servicio
+msgid "Run Sergio permanently in the background (systemd user services)."
+msgstr "Sergio siempre en segundo plano (servicios de usuario de systemd)."
+
+#: sergio servicio apagar
+msgid "Switch Sergio off (it stays off after reboots until `encender`)."
+msgstr "Apaga a Sergio (sigue apagado tras reiniciar hasta `encender`)."
+
+#: sergio servicio desinstalar
+msgid "Stop the services and remove them."
+msgstr "Detiene los servicios y los quita."
+
+#: sergio servicio encender
+msgid "Switch Sergio on (and keep it on after reboots)."
+msgstr "Enciende a Sergio (y lo mantiene encendido tras reiniciar)."
+
+#: sergio servicio estado
+msgid "Show whether the services are running."
+msgstr "Muestra si los servicios están en marcha."
+
+#: sergio servicio instalar
+msgid "Install and start Sergio as a permanent service."
+msgstr "Instala e inicia Sergio como servicio permanente."
+
+#: sergio servicio instalar --puerto
+msgid "Port of the UI/API."
+msgstr "Puerto de la interfaz/API."
+
+#: sergio skill
+msgid "Manage reusable skills."
+msgstr "Gestiona habilidades reutilizables."
+
+#: sergio skill discover
+msgid "Mine the trace store for recurring tool sequences and write them as\n    discovered skill manifests under ~/.openjarvis/skills/discovered/."
+msgstr "Busca en las trazas secuencias de herramientas que se repiten y las guarda\n    como habilidades descubiertas en ~/.openjarvis/skills/discovered/."
+
+#: sergio skill discover --min-frequency
+msgid "Minimum recurrence count to surface a tool sequence as a skill."
+msgstr "Mínimo de repeticiones para proponer una secuencia como habilidad."
+
+#: sergio skill discover --min-outcome
+msgid "Minimum average outcome score (0.0-1.0) to qualify."
+msgstr "Puntuación media mínima (0.0-1.0) para calificar."
+
+#: sergio skill discover --dry-run
+msgid "Print discovered patterns without writing manifests."
+msgstr "Muestra los patrones encontrados sin escribir manifiestos."
+
+#: sergio skill info
+msgid "Show detailed information about a skill."
+msgstr "Muestra información detallada de una habilidad."
+
+#: sergio skill install
+msgid "Install a skill from a source.\n\n    Example: ``jarvis skill install hermes:apple-notes``"
+msgstr "Instala una habilidad desde una fuente.\n\n    Ejemplo: ``jarvis skill install hermes:apple-notes``"
+
+#: sergio skill install --with-scripts
+msgid "Import the skill's scripts/ directory (security-sensitive)."
+msgstr "Importa la carpeta scripts/ de la habilidad (sensible para la seguridad)."
+
+#: sergio skill install --force
+msgid "Overwrite existing install."
+msgstr "Sobrescribe la instalación existente."
+
+#: sergio skill install --url
+msgid "Repo URL (required when source is 'github')."
+msgstr "URL del repositorio (obligatoria si la fuente es 'github')."
+
+#: sergio skill install --yes-dangerous
+msgid "Confirm installing an unreviewed skill that requests dangerous capabilities (shell/network-listen/filesystem-write)."
+msgstr "Confirma instalar una habilidad sin revisar que pide permisos peligrosos (shell/escucha de red/escritura de archivos)."
+
+#: sergio skill list
+msgid "List installed skills."
+msgstr "Lista las habilidades instaladas."
+
+#: sergio skill remove
+msgid "Remove an installed skill by name.\n\n    Searches ``~/.openjarvis/skills/`` and ``./skills`` for a directory whose\n    name (or parsed manifest name) matches ``skill_name`` and deletes it."
+msgstr "Quita una habilidad instalada por su nombre.\n\n    Busca en ``~/.openjarvis/skills/`` y ``./skills`` una carpeta cuyo\n    nombre (o el del manifiesto) coincida con ``skill_name`` y la borra."
+
+#: sergio skill remove --yes
+msgid "Skip confirmation prompt."
+msgstr "No pide confirmación."
+
+#: sergio skill run
+msgid "Execute a stepped skill using configured security and tool permissions."
+msgstr "Ejecuta una habilidad por pasos con la seguridad y los permisos configurados."
+
+#: sergio skill run --arg
+msgid "Arguments as key=value pairs."
+msgstr "Argumentos como pares clave=valor."
+
+#: sergio skill search
+msgid "Search available skills across configured sources.\n\n    Matches ``query`` (case-insensitive substring) against skill name,\n    description, and tags."
+msgstr "Busca habilidades en las fuentes configuradas.\n\n    Compara ``query`` (sin distinguir mayúsculas, como parte del texto) con el\n    nombre, la descripción y las etiquetas."
+
+#: sergio skill search --source
+msgid "Restrict search to a single configured source."
+msgstr "Busca solo en una fuente configurada."
+
+#: sergio skill show-overlay
+msgid "Show the optimization overlay for a skill, if one exists."
+msgstr "Muestra la capa de optimización de una habilidad, si existe."
+
+#: sergio skill sources
+msgid "List configured skill sources."
+msgstr "Lista las fuentes de habilidades configuradas."
+
+#: sergio skill sync
+msgid "Bulk install + update from a source (or all configured sources)."
+msgstr "Instala y actualiza en bloque desde una fuente (o todas las configuradas)."
+
+#: sergio skill sync --category
+msgid "Filter by category."
+msgstr "Filtra por categoría."
+
+#: sergio skill sync --tag
+msgid "Filter by tag."
+msgstr "Filtra por etiqueta."
+
+#: sergio skill sync --search
+msgid "Substring search across name+description."
+msgstr "Busca texto en nombre y descripción."
+
+#: sergio skill sync --with-scripts
+msgid "Import scripts/ directories."
+msgstr "Importa las carpetas scripts/."
+
+#: sergio skill sync --force
+msgid "Re-import existing skills."
+msgstr "Vuelve a importar las habilidades existentes."
+
+#: sergio skill sync --yes-dangerous
+msgid "Confirm installing unreviewed skills that request dangerous capabilities (shell/network-listen/filesystem-write)."
+msgstr "Confirma instalar habilidades sin revisar que piden permisos peligrosos (shell/escucha de red/escritura de archivos)."
+
+#: sergio skill update
+msgid "Pull latest commits for all installed skill sources."
+msgstr "Descarga lo último de todas las fuentes de habilidades instaladas."
+
+#: sergio start
+msgid "Start the OpenJarvis server as a background daemon."
+msgstr "Inicia el servidor de OpenJarvis como servicio en segundo plano."
+
+#: sergio start --host
+msgid "Bind address."
+msgstr "Dirección de escucha."
+
+#: sergio start --port
+msgid "Port number."
+msgstr "Puerto."
+
+#: sergio status
+msgid "Show status of the OpenJarvis server daemon."
+msgstr "Muestra el estado del servicio del servidor de OpenJarvis."
+
+#: sergio stop
+msgid "Stop the running OpenJarvis server daemon."
+msgstr "Detiene el servicio del servidor de OpenJarvis."
+
+#: sergio telefono
+msgid "Calls and WhatsApp: guided setup and checks."
+msgstr "Llamadas y WhatsApp: configuración guiada y comprobaciones."
+
+#: sergio telefono configurar
+msgid "Ask for the accounts step by step and save them."
+msgstr "Pide las cuentas paso a paso y las guarda."
+
+#: sergio telefono estado
+msgid "Show what is configured (never prints secrets)."
+msgstr "Muestra lo configurado (nunca muestra secretos)."
+
+#: sergio telefono probar
+msgid "Sergio calls you (test call)."
+msgstr "Sergio te llama (llamada de prueba)."
+
+#: sergio telemetry
+msgid "Query and manage inference telemetry data."
+msgstr "Consulta y gestiona los datos de telemetría de inferencia."
+
+#: sergio telemetry clear
+msgid "Delete all telemetry records."
+msgstr "Borra todos los registros de telemetría."
+
+#: sergio telemetry export
+msgid "Export telemetry records."
+msgstr "Exporta los registros de telemetría."
+
+#: sergio telemetry export -f
+msgid "Output format."
+msgstr "Formato de salida."
+
+#: sergio telemetry export -o
+msgid "Output file path (default: stdout)."
+msgstr "Ruta del archivo de salida (por defecto: la salida estándar)."
+
+#: sergio telemetry stats
+msgid "Show aggregated telemetry statistics."
+msgstr "Muestra estadísticas agregadas de telemetría."
+
+#: sergio telemetry stats -n
+msgid "Number of top models to show."
+msgstr "Cuántos modelos principales mostrar."
+
+#: sergio tool
+msgid "Manage tools — list, inspect."
+msgstr "Gestiona herramientas: listar, inspeccionar."
+
+#: sergio tool inspect
+msgid "Show detailed information about a specific tool."
+msgstr "Muestra información detallada de una herramienta."
+
+#: sergio tool list
+msgid "List all registered tools with their descriptions."
+msgstr "Lista todas las herramientas registradas con su descripción."
+
+#: sergio tunnel
+msgid "Start a Cloudflare tunnel or manage config."
+msgstr "Inicia un túnel de Cloudflare o gestiona su configuración."
+
+#: sergio tunnel --port
+msgid "Local port to tunnel."
+msgstr "Puerto local a exponer por el túnel."
+
+#: sergio tunnel status
+msgid "Show current tunnel configuration."
+msgstr "Muestra la configuración actual del túnel."
+
+#: sergio vault
+msgid "Manage encrypted credentials."
+msgstr "Gestiona credenciales cifradas."
+
+#: sergio vault get
+msgid "Retrieve a credential from the vault."
+msgstr "Lee una credencial de la bóveda."
+
+#: sergio vault list
+msgid "List all stored credential keys."
+msgstr "Lista todas las claves de credenciales guardadas."
+
+#: sergio vault remove
+msgid "Remove a credential from the vault."
+msgstr "Quita una credencial de la bóveda."
+
+#: sergio vault set
+msgid "Store a credential in the vault."
+msgstr "Guarda una credencial en la bóveda."
+
+#: sergio workflow
+msgid "Manage workflows — list, run, status."
+msgstr "Gestiona flujos de trabajo: listar, ejecutar, estado."
+
+#: sergio workflow list
+msgid "List available workflow definitions."
+msgstr "Lista las definiciones de flujos de trabajo disponibles."
+
+#: sergio workflow run
+msgid "Run a workflow by name."
+msgstr "Ejecuta un flujo de trabajo por su nombre."
+
+#: sergio workflow run --input
+msgid "Input text for workflow."
+msgstr "Texto de entrada para el flujo de trabajo."
+
+#: sergio workflow status
+msgid "Show status of running workflows."
+msgstr "Muestra el estado de los flujos de trabajo en marcha."
+
+# Messages printed by the commands
+
+#: add_cmd.py:129
+msgid "[green]Added MCP server: {0}[/green]\n  Config: {1}\n  Description: {2}"
+msgstr "[green]Servidor MCP añadido: {0}[/green]\n  Configuración: {1}\n  Descripción: {2}"
+
+#: add_cmd.py:94
+msgid "[red]Unknown MCP server: {0}[/red]"
+msgstr "[red]Servidor MCP desconocido: {0}[/red]"
+
+#: add_cmd.py:95
+msgid "[dim]Known servers:[/dim]"
+msgstr "[dim]Servidores conocidos:[/dim]"
+
+#: add_cmd.py:135
+msgid "  [dim]Set {0} env var or re-run with --key[/dim]"
+msgstr "  [dim]Define la variable {0} o repite con --key[/dim]"
+
+#: add_cmd.py:117
+msgid "[yellow]Tip: Pass --key to set {0}, or set it as an environment variable.[/yellow]"
+msgstr "[yellow]Consejo: usa --key para indicar {0}, o defínela como variable de entorno.[/yellow]"
+
+#: agent_cmd.py:40
+msgid "Agent not found: {0}"
+msgstr "Agente no encontrado: {0}"
+
+#: agent_cmd.py:411
+msgid "Available templates:"
+msgstr "Plantillas disponibles:"
+
+#: agent_cmd.py:414
+msgid "  [{0}] Custom (from scratch)"
+msgstr "  [{0}] Personalizado (desde cero)"
+
+#: agent_cmd.py:470
+msgid "\nAgent \"{0}\" created (ID: {1})"
+msgstr "\nAgente \"{0}\" creado (ID: {1})"
+
+#: agent_cmd.py:487
+msgid "Agent \"{0}\" registered with scheduler"
+msgstr "Agente \"{0}\" registrado en el planificador"
+
+#: agent_cmd.py:504
+msgid "Agent \"{0}\" deregistered from scheduler"
+msgstr "Agente \"{0}\" quitado del planificador"
+
+#: agent_cmd.py:533
+msgid "[bold]Running tick for \"{0}\"…[/bold]"
+msgstr "[bold]Ejecutando un ciclo de \"{0}\"…[/bold]"
+
+#: agent_cmd.py:545
+msgid "[green]✓[/green] Tick complete. Status: {0}, runs: {1}"
+msgstr "[green]✓[/green] Ciclo terminado. Estado: {0}, ejecuciones: {1}"
+
+#: agent_cmd.py:637
+msgid "Learning history for \"{0}\":"
+msgstr "Historial de aprendizaje de \"{0}\":"
+
+#: agent_cmd.py:721
+msgid "Recent runs for \"{0}\":"
+msgstr "Ejecuciones recientes de \"{0}\":"
+
+#: agent_cmd.py:734
+msgid "Starting agent scheduler daemon..."
+msgstr "Iniciando el servicio planificador de agentes..."
+
+#: agent_cmd.py:747
+msgid "Scheduler running ({0} agents). Ctrl+C to stop."
+msgstr "Planificador en marcha ({0} agentes). Ctrl+C para detener."
+
+#: agent_cmd.py:754
+msgid "Daemon stopped."
+msgstr "Servicio detenido."
+
+#: agent_cmd.py:765
+msgid "Watching agent events... (press Ctrl+C to stop)"
+msgstr "Vigilando eventos de agentes... (Ctrl+C para detener)"
+
+#: agent_cmd.py:830
+msgid "[bold]Asking agent…[/bold]"
+msgstr "[bold]Preguntando al agente…[/bold]"
+
+#: agent_cmd.py:866
+msgid "Instruction queued (ID: {0})"
+msgstr "Instrucción en cola (ID: {0})"
+
+#: agent_cmd.py:61
+msgid "Managed Agents"
+msgstr "Agentes gestionados"
+
+#: agent_cmd.py:63
+msgid "Name"
+msgstr "Nombre"
+
+#: agent_cmd.py:64
+msgid "Type"
+msgstr "Tipo"
+
+#: agent_cmd.py:65
+msgid "Status"
+msgstr "Estado"
+
+#: agent_cmd.py:66
+msgid "Tasks"
+msgstr "Tareas"
+
+#: agent_cmd.py:67
+msgid "Channels"
+msgstr "Canales"
+
+#: agent_cmd.py:110
+msgid "[green]Created agent:[/green] {0} ({1})"
+msgstr "[green]Agente creado:[/green] {0} ({1})"
+
+#: agent_cmd.py:129
+msgid "  Type:   {0}"
+msgstr "  Tipo:   {0}"
+
+#: agent_cmd.py:130
+msgid "  Status: {0}"
+msgstr "  Estado: {0}"
+
+#: agent_cmd.py:160
+msgid "Description"
+msgstr "Descripción"
+
+#: agent_cmd.py:177
+msgid "[yellow]Paused agent {0}[/yellow]"
+msgstr "[yellow]Agente pausado: {0}[/yellow]"
+
+#: agent_cmd.py:190
+msgid "[green]Resumed agent {0}[/green]"
+msgstr "[green]Agente reanudado: {0}[/green]"
+
+#: agent_cmd.py:203
+msgid "[dim]Archived agent {0}[/dim]"
+msgstr "[dim]Agente archivado: {0}[/dim]"
+
+#: agent_cmd.py:234
+msgid "[green]Bound channel:[/green] {0} ({1})"
+msgstr "[green]Canal vinculado:[/green] {0} ({1})"
+
+#: agent_cmd.py:250
+msgid "Channel Bindings"
+msgstr "Canales vinculados"
+
+#: agent_cmd.py:253
+msgid "Config"
+msgstr "Configuración"
+
+#: agent_cmd.py:254
+msgid "Mode"
+msgstr "Modo"
+
+#: agent_cmd.py:287
+msgid "Search: {0}"
+msgstr "Búsqueda: {0}"
+
+#: agent_cmd.py:288
+msgid "Trace"
+msgstr "Traza"
+
+#: agent_cmd.py:289
+msgid "Query"
+msgstr "Pregunta"
+
+#: agent_cmd.py:290
+msgid "Result"
+msgstr "Resultado"
+
+#: agent_cmd.py:309
+msgid "Agent Templates"
+msgstr "Plantillas de agente"
+
+#: agent_cmd.py:312
+msgid "Source"
+msgstr "Fuente"
+
+#: agent_cmd.py:387
+msgid "  [dim]· thinking…[/dim]"
+msgstr "  [dim]· pensando…[/dim]"
+
+#: agent_cmd.py:430
+msgid "An instruction is required so the agent knows what to do."
+msgstr "Hace falta una instrucción para que el agente sepa qué hacer."
+
+#: agent_cmd.py:480
+msgid "Agent {0} not found"
+msgstr "No encontré el agente {0}"
+
+#: agent_cmd.py:484
+msgid "Scheduler not available"
+msgstr "El planificador no está disponible"
+
+#: agent_cmd.py:517
+msgid "Agent {0} is archived and cannot be run"
+msgstr "El agente {0} está archivado y no se puede ejecutar"
+
+#: agent_cmd.py:525
+msgid "Agent has no instruction set. Use 'jarvis agents ask {0} <message>' to set one."
+msgstr "El agente no tiene instrucción. Usa 'jarvis agents ask {0} <mensaje>' para darle una."
+
+#: agent_cmd.py:536
+msgid "Executor not available"
+msgstr "El ejecutor no está disponible"
+
+#: agent_cmd.py:556
+msgid "\n[bold]--- Findings ---[/bold]\n"
+msgstr "\n[bold]--- Hallazgos ---[/bold]\n"
+
+#: agent_cmd.py:559
+msgid "[dim](No findings recorded for this tick.)[/dim]"
+msgstr "[dim](No se registraron hallazgos en este ciclo.)[/dim]"
+
+#: agent_cmd.py:570
+msgid "No agents found."
+msgstr "No hay agentes."
+
+#: agent_cmd.py:625
+msgid "Triggering learning for \"{0}\"..."
+msgstr "Lanzando el aprendizaje de \"{0}\"..."
+
+#: agent_cmd.py:630
+msgid "Learning triggered."
+msgstr "Aprendizaje lanzado."
+
+#: agent_cmd.py:635
+msgid "No learning history for \"{0}\""
+msgstr "Sin historial de aprendizaje para \"{0}\""
+
+#: agent_cmd.py:676
+msgid "No traces for \"{0}\""
+msgstr "Sin trazas para \"{0}\""
+
+#: agent_cmd.py:681
+msgid "Trace #{0} — {1} ({2}s)"
+msgstr "Traza #{0} — {1} ({2}s)"
+
+#: agent_cmd.py:693
+msgid "Traces for \"{0}\":"
+msgstr "Trazas de \"{0}\":"
+
+#: agent_cmd.py:719
+msgid "No execution history for \"{0}\""
+msgstr "Sin historial de ejecución para \"{0}\""
+
+#: agent_cmd.py:738
+msgid "Scheduler not available (agent_manager not configured)"
+msgstr "El planificador no está disponible (agent_manager sin configurar)"
+
+#: agent_cmd.py:795
+msgid "Recovered from checkpoint {0}"
+msgstr "Recuperado desde el punto de control {0}"
+
+#: agent_cmd.py:797
+msgid "No checkpoint found for this agent"
+msgstr "No hay punto de control para este agente"
+
+#: agent_cmd.py:807
+msgid "No agents with errors."
+msgstr "Ningún agente tiene errores."
+
+#: agent_cmd.py:853
+msgid "\n[bold cyan]Agent:[/bold cyan] {0}"
+msgstr "\n[bold cyan]Agente:[/bold cyan] {0}"
+
+#: agent_cmd.py:855
+msgid "\n[dim](No response from agent)[/dim]"
+msgstr "\n[dim](El agente no respondió)[/dim]"
+
+#: agent_cmd.py:876
+msgid "No messages."
+msgstr "No hay mensajes."
+
+#: agent_cmd.py:57
+msgid "[dim]No agents found. Create one with: jarvis agents create[/dim]"
+msgstr "[dim]No hay agentes. Crea uno con: jarvis agents create[/dim]"
+
+#: agent_cmd.py:94
+msgid "[red]Error:[/red] {0}"
+msgstr "[red]Error:[/red] {0}"
+
+#: agent_cmd.py:114
+msgid "[red]Error: {0}[/red]"
+msgstr "[red]Error: {0}[/red]"
+
+#: agent_cmd.py:126
+msgid "[red]Agent not found: {0}[/red]"
+msgstr "[red]Agente no encontrado: {0}[/red]"
+
+#: agent_cmd.py:132
+msgid "  Memory: {0}..."
+msgstr "  Memoria: {0}..."
+
+#: agent_cmd.py:135
+msgid "  Tasks:  {0}"
+msgstr "  Tareas:  {0}"
+
+#: agent_cmd.py:140
+msgid "  Channels: {0}"
+msgstr "  Canales: {0}"
+
+#: agent_cmd.py:156
+msgid "[dim]No tasks.[/dim]"
+msgstr "[dim]Sin tareas.[/dim]"
+
+#: agent_cmd.py:248
+msgid "[dim]No channel bindings.[/dim]"
+msgstr "[dim]Sin canales vinculados.[/dim]"
+
+#: agent_cmd.py:285
+msgid "[dim]No results.[/dim]"
+msgstr "[dim]Sin resultados.[/dim]"
+
+#: agent_cmd.py:307
+msgid "[dim]No templates found.[/dim]"
+msgstr "[dim]No hay plantillas.[/dim]"
+
+#: agent_cmd.py:333
+msgid "Error: {0}"
+msgstr "Error: {0}"
+
+#: agent_cmd.py:541
+msgid "Tick failed: {0}"
+msgstr "El ciclo falló: {0}"
+
+#: agent_cmd.py:685
+msgid "  Step {0}: [{1}] {2}s"
+msgstr "  Paso {0}: [{1}] {2}s"
+
+#: agent_cmd.py:691
+msgid "    Out: {0}"
+msgstr "    Salida: {0}"
+
+#: agent_cmd.py:698
+msgid "  #{0}  {1}  {2}  {3}s  {4} steps"
+msgstr "  #{0}  {1}  {2}  {3}s  {4} pasos"
+
+#: agent_cmd.py:230
+msgid "[red]Specify a channel: --slack, --telegram, or --whatsapp[/red]"
+msgstr "[red]Indica un canal: --slack, --telegram o --whatsapp[/red]"
+
+#: bench_cmd.py:316
+msgid "[cyan]Engine:[/cyan]     {0}\n[cyan]Model:[/cyan]      {1}\n[cyan]Benchmarks:[/cyan] {2}\n[cyan]Samples:[/cyan]    {3}\n[cyan]Warmup:[/cyan]     {4}"
+msgstr "[cyan]Motor:[/cyan]      {0}\n[cyan]Modelo:[/cyan]     {1}\n[cyan]Pruebas:[/cyan]    {2}\n[cyan]Muestras:[/cyan]   {3}\n[cyan]Calentamiento:[/cyan] {4}"
+
+#: bench_cmd.py:316
+msgid "[bold]Run Configuration[/bold]"
+msgstr "[bold]Configuración de la ejecución[/bold]"
+
+#: bench_cmd.py:81
+msgid "[bold]{0}[/bold]  ({1} samples, {2} errors)"
+msgstr "[bold]{0}[/bold]  ({1} muestras, {2} errores)"
+
+#: bench_cmd.py:91
+msgid "Metric"
+msgstr "Métrica"
+
+#: bench_cmd.py:92
+msgid "Avg"
+msgstr "Media"
+
+#: bench_cmd.py:93
+msgid "Median"
+msgstr "Mediana"
+
+#: bench_cmd.py:94
+msgid "Min"
+msgstr "Mín"
+
+#: bench_cmd.py:95
+msgid "Max"
+msgstr "Máx"
+
+#: bench_cmd.py:96
+msgid "Std"
+msgstr "Desv."
+
+#: bench_cmd.py:137
+msgid "Value"
+msgstr "Valor"
+
+#: bench_cmd.py:221
+msgid "[red bold]No inference engine available.[/red bold]"
+msgstr "[red bold]No hay ningún motor de inferencia disponible.[/red bold]"
+
+#: bench_cmd.py:249
+msgid "[yellow]No benchmarks registered.[/yellow]"
+msgstr "[yellow]No hay pruebas registradas.[/yellow]"
+
+#: bench_cmd.py:346
+msgid "[green]Results written to {0}[/green]"
+msgstr "[green]Resultados guardados en {0}[/green]"
+
+#: bench_cmd.py:451
+msgid "PinchBench Skills Evaluation"
+msgstr "Evaluación de habilidades PinchBench"
+
+#: bench_cmd.py:452
+msgid "Condition"
+msgstr "Condición"
+
+#: bench_cmd.py:453
+msgid "Mean pass rate"
+msgstr "Tasa media de aciertos"
+
+#: bench_cmd.py:454
+msgid "Stddev"
+msgstr "Desv. estándar"
+
+#: bench_cmd.py:455
+msgid "Tokens"
+msgstr "Tokens"
+
+#: bench_cmd.py:456
+msgid "Runtime (s)"
+msgstr "Tiempo (s)"
+
+#: bench_cmd.py:474
+msgid "\n[green]Report written:[/green] {0}"
+msgstr "\n[green]Informe guardado:[/green] {0}"
+
+#: bench_cmd.py:477
+msgid "PinchBench Skills — {0}"
+msgstr "Habilidades PinchBench — {0}"
+
+#: bench_cmd.py:478
+msgid "Field"
+msgstr "Campo"
+
+#: bench_cmd.py:232
+msgid "[red]No model available on engine.[/red]"
+msgstr "[red]No hay ningún modelo disponible en el motor.[/red]"
+
+#: bench_cmd.py:238
+msgid "[red]Unknown benchmark: {0}. Available: {1}[/red]"
+msgstr "[red]Prueba desconocida: {0}. Disponibles: {1}[/red]"
+
+#: bench_cmd.py:291
+msgid "[cyan]Running energy monitor setup...[/cyan]"
+msgstr "[cyan]Instalando el monitor de energía...[/cyan]"
+
+#: bench_cmd.py:468
+msgid "\n[bold]Deltas:[/bold]"
+msgstr "\n[bold]Diferencias:[/bold]"
+
+#: bench_cmd.py:305
+msgid "[green]Energy monitor installed.[/green]"
+msgstr "[green]Monitor de energía instalado.[/green]"
+
+#: bench_cmd.py:307
+msgid "[red]Setup failed: {0}[/red]"
+msgstr "[red]La instalación falló: {0}[/red]"
+
+#: chat_cmd.py:301
+msgid "[green bold]OpenJarvis Chat[/green bold]\n  Engine: [cyan]{0}[/cyan]  Model: [cyan]{1}[/cyan]  Agent: [cyan]{2}[/cyan]\n  Runtime: [cyan]{3}[/cyan]\n{4}  Type /help for commands, /quit to exit.\n"
+msgstr "[green bold]Chat de Sergio[/green bold]\n  Motor: [cyan]{0}[/cyan]  Modelo: [cyan]{1}[/cyan]  Agente: [cyan]{2}[/cyan]\n  Ejecución: [cyan]{3}[/cyan]\n{4}  Escribe /help para ver los comandos, /quit para salir.\n"
+
+#: chat_cmd.py:134
+msgid "[red]No inference engine available.[/red]"
+msgstr "[red]No hay ningún motor de inferencia disponible.[/red]"
+
+#: chat_cmd.py:146
+msgid "[dim]Pick a model below, or press Enter for config default (intelligence presets / default_model).[/dim]\n"
+msgstr "[dim]Elige un modelo abajo, o pulsa Enter para usar el de la configuración (ajustes de inteligencia / default_model).[/dim]\n"
+
+#: chat_cmd.py:163
+msgid "[red]No model available.[/red]"
+msgstr "[red]No hay ningún modelo disponible.[/red]"
+
+#: chat_cmd.py:173
+msgid "--num-ctx and --num-gpu are supported only with --engine ollama"
+msgstr "--num-ctx y --num-gpu solo funcionan con --engine ollama"
+
+#: chat_cmd.py:332
+msgid "[dim]  Memory: active[/dim]"
+msgstr "[dim]  Memoria: activa[/dim]"
+
+#: chat_cmd.py:334
+msgid "[yellow]Memory service unavailable: {0}[/yellow]"
+msgstr "[yellow]La memoria no está disponible: {0}[/yellow]"
+
+#: chat_cmd.py:387
+msgid "[dim]Goodbye![/dim]"
+msgstr "[dim]¡Hasta luego![/dim]"
+
+#: chat_cmd.py:285
+msgid "[yellow]Agent '{0}' failed: {1}[/yellow]"
+msgstr "[yellow]El agente '{0}' falló: {1}[/yellow]"
+
+#: chat_cmd.py:370
+msgid "\n[dim]Goodbye![/dim]"
+msgstr "\n[dim]¡Hasta luego![/dim]"
+
+#: chat_cmd.py:393
+msgid "[dim]History cleared.[/dim]"
+msgstr "[dim]Historial borrado.[/dim]"
+
+#: chat_cmd.py:508
+msgid "\n[dim]Generation interrupted.[/dim]"
+msgstr "\n[dim]Respuesta interrumpida.[/dim]"
+
+#: chat_cmd.py:510
+msgid "\n[red]Error: {0}[/red]\n"
+msgstr "\n[red]Error: {0}[/red]\n"
+
+#: chat_cmd.py:396
+msgid "Model: [cyan]{0}[/cyan]  Engine: [cyan]{1}[/cyan]"
+msgstr "Modelo: [cyan]{0}[/cyan]  Motor: [cyan]{1}[/cyan]"
+
+#: chat_cmd.py:235
+msgid "[yellow]Confirm:[/yellow] {0} [y/N] "
+msgstr "[yellow]Confirma:[/yellow] {0} [s/N] "
+
+#: chat_cmd.py:402
+msgid "Runtime: [cyan]{0}[/cyan]"
+msgstr "Ejecución: [cyan]{0}[/cyan]"
+
+#: chat_cmd.py:406
+msgid "  engine kwargs: {0}"
+msgstr "  parámetros del motor: {0}"
+
+#: chat_cmd.py:409
+msgid "[bold]Commands:[/bold]\n  /quit, /exit  — end session\n  /clear        — clear conversation\n  /model        — show model info\n  /runtime      — Ollama context + GPU offload for this session\n  /history      — show conversation\n  /help         — this message"
+msgstr "[bold]Comandos:[/bold]\n  /quit, /exit  — termina la sesión\n  /clear        — borra la conversación\n  /model        — información del modelo\n  /runtime      — contexto de Ollama y GPU para esta sesión\n  /history      — muestra la conversación\n  /help         — este mensaje"
+
+#: chat_cmd.py:421
+msgid "[dim]No history yet.[/dim]"
+msgstr "[dim]Todavía no hay historial.[/dim]"
+
+#: compose_cmd.py:56
+msgid "Compositions"
+msgstr "Composiciones"
+
+#: compose_cmd.py:58
+msgid "Kind"
+msgstr "Tipo"
+
+#: compose_cmd.py:59
+msgid "Model"
+msgstr "Modelo"
+
+#: compose_cmd.py:60
+msgid "Agent"
+msgstr "Agente"
+
+#: compose_cmd.py:61
+msgid "Tools"
+msgstr "Herramientas"
+
+#: compose_cmd.py:104
+msgid "[bold]Intelligence[/bold]"
+msgstr "[bold]Inteligencia[/bold]"
+
+#: compose_cmd.py:105
+msgid "  model:        {0}"
+msgstr "  modelo:        {0}"
+
+#: compose_cmd.py:106
+msgid "  quantization: {0}"
+msgstr "  cuantización:  {0}"
+
+#: compose_cmd.py:107
+msgid "  provider:     {0}"
+msgstr "  proveedor:     {0}"
+
+#: compose_cmd.py:111
+msgid "[bold]Engine[/bold]"
+msgstr "[bold]Motor[/bold]"
+
+#: compose_cmd.py:112
+msgid "  key: {0}"
+msgstr "  clave: {0}"
+
+#: compose_cmd.py:116
+msgid "[bold]Agent[/bold]"
+msgstr "[bold]Agente[/bold]"
+
+#: compose_cmd.py:117
+msgid "  type:        {0}"
+msgstr "  tipo:        {0}"
+
+#: compose_cmd.py:118
+msgid "  max_turns:   {0}"
+msgstr "  max_turns:   {0}"
+
+#: compose_cmd.py:119
+msgid "  temperature: {0}"
+msgstr "  temperatura: {0}"
+
+#: compose_cmd.py:120
+msgid "  tools:       {0}"
+msgstr "  herramientas: {0}"
+
+#: compose_cmd.py:127
+msgid "[bold]Learning[/bold]"
+msgstr "[bold]Aprendizaje[/bold]"
+
+#: compose_cmd.py:128
+msgid "  routing: {0}"
+msgstr "  enrutamiento: {0}"
+
+#: compose_cmd.py:129
+msgid "  agent:   {0}"
+msgstr "  agente:       {0}"
+
+#: compose_cmd.py:176
+msgid "[dim]Running [cyan]{0}[/cyan] ({1} / {2})...[/dim]"
+msgstr "[dim]Ejecutando [cyan]{0}[/cyan] ({1} / {2})...[/dim]"
+
+#: compose_cmd.py:308
+msgid "[cyan]Composition:[/cyan] {0}\n[cyan]Model:[/cyan]       {1}\n[cyan]Agent:[/cyan]       {2}\n[cyan]Tools:[/cyan]       {3}\n[cyan]Benchmarks:[/cyan]  {4} run(s)"
+msgstr "[cyan]Composición:[/cyan]  {0}\n[cyan]Modelo:[/cyan]       {1}\n[cyan]Agente:[/cyan]       {2}\n[cyan]Herramientas:[/cyan] {3}\n[cyan]Pruebas:[/cyan]      {4} ejecución(es)"
+
+#: compose_cmd.py:322
+msgid "Benchmark Results"
+msgstr "Resultados de las pruebas"
+
+#: compose_cmd.py:327
+msgid "Benchmark"
+msgstr "Prueba"
+
+#: compose_cmd.py:328
+msgid "Accuracy"
+msgstr "Precisión"
+
+#: compose_cmd.py:329
+msgid "Correct / Scored"
+msgstr "Correctas / Puntuadas"
+
+#: compose_cmd.py:330
+msgid "Errors"
+msgstr "Errores"
+
+#: compose_cmd.py:391
+msgid "[green]Deployed operator [cyan]{0}[/cyan] (task: {1}, schedule: {2}={3})[/green]"
+msgstr "[green]Operador desplegado [cyan]{0}[/cyan] (tarea: {1}, programación: {2}={3})[/green]"
+
+#: compose_cmd.py:429
+msgid "[yellow]Stopped operator {0}[/yellow]"
+msgstr "[yellow]Operador detenido: {0}[/yellow]"
+
+#: compose_cmd.py:465
+msgid "Operator Status"
+msgstr "Estado de los operadores"
+
+#: compose_cmd.py:467
+msgid "State"
+msgstr "Estado"
+
+#: compose_cmd.py:468
+msgid "Schedule"
+msgstr "Programación"
+
+#: compose_cmd.py:469
+msgid "Last Run"
+msgstr "Última ejecución"
+
+#: compose_cmd.py:49
+msgid "[dim]No compositions found.[/dim]"
+msgstr "[dim]No hay composiciones.[/dim]"
+
+#: compose_cmd.py:50
+msgid "[dim]Place TOML recipes in src/openjarvis/recipes/data/ or ~/.openjarvis/recipes/[/dim]"
+msgstr "[dim]Pon recetas TOML en src/openjarvis/recipes/data/ o ~/.openjarvis/recipes/[/dim]"
+
+#: compose_cmd.py:97
+msgid "[red]Composition not found: {0}[/red]"
+msgstr "[red]Composición no encontrada: {0}[/red]"
+
+#: compose_cmd.py:123
+msgid "  prompt:      {0}..."
+msgstr "  prompt:      {0}..."
+
+#: compose_cmd.py:333
+msgid "\n[bold]Run {0}/{1}:[/bold] {2}"
+msgstr "\n[bold]Ejecución {0}/{1}:[/bold] {2}"
+
+#: compose_cmd.py:373
+msgid "[red]Recipe '{0}' is a {1} composition, not an operator.  Only operators can be deployed.[/red]"
+msgstr "[red]La receta '{0}' es una composición {1}, no un operador. Solo los operadores se pueden desplegar.[/red]"
+
+#: compose_cmd.py:462
+msgid "[dim]No operators registered.[/dim]"
+msgstr "[dim]No hay operadores registrados.[/dim]"
+
+#: compose_cmd.py:136
+msgid "[bold]Eval[/bold]"
+msgstr "[bold]Evaluación[/bold]"
+
+#: compose_cmd.py:137
+msgid "  benchmarks:   {0}"
+msgstr "  pruebas:       {0}"
+
+#: compose_cmd.py:138
+msgid "  backend:      {0}"
+msgstr "  motor:         {0}"
+
+#: compose_cmd.py:139
+msgid "  max_samples:  {0}"
+msgstr "  max_samples:   {0}"
+
+#: compose_cmd.py:140
+msgid "  judge_model:  {0}"
+msgstr "  modelo juez:   {0}"
+
+#: compose_cmd.py:319
+msgid "[red]Eval CLI module not available.[/red]"
+msgstr "[red]El módulo de evaluación de la CLI no está disponible.[/red]"
+
+#: compose_cmd.py:143
+msgid "[bold]Schedule[/bold]"
+msgstr "[bold]Programación[/bold]"
+
+#: compose_cmd.py:144
+msgid "  type:  {0}"
+msgstr "  tipo:  {0}"
+
+#: compose_cmd.py:145
+msgid "  value: {0}"
+msgstr "  valor: {0}"
+
+#: compose_cmd.py:147
+msgid "[bold]Channels[/bold]"
+msgstr "[bold]Canales[/bold]"
+
+#: compose_cmd.py:148
+msgid "  output: {0}"
+msgstr "  salida: {0}"
+
+#: compose_cmd.py:343
+msgid "  [red bold]FAILED:[/red bold] {0}"
+msgstr "  [red bold]FALLÓ:[/red bold] {0}"
+
+# Click's own interface text
+
+#: click
+msgid "Usage:"
+msgstr "Uso:"
+
+#: click
+msgid "Options"
+msgstr "Opciones"
+
+#: click
+msgid "Commands"
+msgstr "Comandos"
+
+#: click
+msgid "Show this message and exit."
+msgstr "Muestra este mensaje y sale."
+
+
+#: click
+msgid "Error"
+msgstr "Error"
+
+#: click
+msgid "Try {command!r} for help."
+msgstr "Prueba {command!r} para ver la ayuda."
+
+#: click
+msgid "No such command {name!r}."
+msgstr "No existe el comando {name!r}."
+
+#: click
+msgid "Did you mean {possibility}?"
+msgstr "¿Quisiste decir {possibility}?"
+
+#: click
+msgid "Missing argument {param_hint}."
+msgstr "Falta el argumento {param_hint}."
+
+#: click
+msgid "Missing option {param_hint}."
+msgstr "Falta la opción {param_hint}."
+
+#: click
+msgid "No such option: {name}"
+msgstr "No existe la opción: {name}"
+
+#: click
+msgid "Invalid value for {param_hint}: {message}"
+msgstr "Valor no válido para {param_hint}: {message}"
+
+#: click
+msgid "Aborted!"
+msgstr "¡Cancelado!"
+
+#: click
+msgid "(Deprecated)"
+msgstr "(Obsoleto)"
+
+#: click
+msgid "default"
+msgstr "por defecto"
+
+#: click
+msgid "required"
+msgstr "obligatorio"
+
+#: click
+msgid "Repeat for confirmation"
+msgstr "Repite para confirmar"
+
+#: click
+msgid "Error: The value you entered was invalid."
+msgstr "Error: el valor que escribiste no es válido."
+
+#: click
+msgid "Error: {e.message}"
+msgstr "Error: {e.message}"
+
+#: click
+msgid "Error: the two entered values do not match."
+msgstr "Error: los dos valores no coinciden."
+
+#: click
+msgid "{value!r} is not a valid {number_type}."
+msgstr "{value!r} no es un {number_type} válido."
+
+#: click
+msgid "{value!r} is not one of {choices}."
+msgstr "{value!r} no es uno de {choices}."
+
+#: click
+msgid "{value!r} is not a valid boolean."
+msgstr "{value!r} no es un valor sí/no válido."
+
+#: click
+msgid "Option {name!r} requires an argument."
+msgstr "La opción {name!r} necesita un valor."
+
+#: click
+msgid "Got unexpected extra argument ({args})"
+msgstr "Sobra un argumento ({args})"
+
+#: click
+msgid "Got unexpected extra arguments ({args})"
+msgstr "Sobran argumentos ({args})"
+
+#: click
+msgid "Try '{command} {option}' for help."
+msgstr "Prueba '{command} {option}' para ver la ayuda."
+
+#: click
+msgid "Error: {message}"
+msgstr "Error: {message}"
+
+#: click
+msgid "No such option {name!r}."
+msgstr "No existe la opción {name!r}."
+
+#: click
+msgid "Missing argument"
+msgstr "Falta un argumento"
+
+#: click
+msgid "Missing option"
+msgstr "Falta una opción"
+
+#: click
+msgid "Missing parameter"
+msgstr "Falta un parámetro"
+
+#: click
+msgid "Missing command."
+msgstr "Falta el comando."
+
+#: click
+msgid "Invalid value: {message}"
+msgstr "Valor no válido: {message}"
+
+#: click
+msgid "Option {name!r} does not take a value."
+msgstr "La opción {name!r} no lleva valor."
+
+#: click
+msgid "default: {default}"
+msgstr "por defecto: {default}"
+
+#: click
+msgid "deprecated"
+msgstr "obsoleto"
+
+#: click
+msgid "env var: {var}"
+msgstr "variable de entorno: {var}"
+
+#: click
+msgid "Positional arguments"
+msgstr "Argumentos posicionales"
+
+#: click
+msgid "Do you want to continue?"
+msgstr "¿Quieres continuar?"
+
+#: click
+msgid "Confirm the action without prompting."
+msgstr "Confirma la acción sin preguntar."
+
+#: click
+msgid "Error: The two entered values do not match."
+msgstr "Error: los dos valores no coinciden."
+
+#: click
+msgid "Error: invalid input"
+msgstr "Error: entrada no válida"
+
+#: click
+msgid "Choose from:\n\t{choices}"
+msgstr "Elige entre:\n\t{choices}"
+
+#: click
+msgid "{value} is not in the range {range}."
+msgstr "{value} no está en el rango {range}."
+
+#: click
+msgid "{name} {filename!r} does not exist."
+msgstr "{name} {filename!r} no existe."
+
+#: click
+msgid "Press any key to continue..."
+msgstr "Pulsa cualquier tecla para continuar..."
+
+#: click
+msgid "file"
+msgstr "archivo"
+
+#: click
+msgid "directory"
+msgstr "carpeta"
+
+#: click
+msgid "path"
+msgstr "ruta"

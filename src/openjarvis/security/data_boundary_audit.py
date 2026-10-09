@@ -8,267 +8,64 @@ other local runtime stores.
 
 from __future__ import annotations
 
-import hashlib
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterable, Literal
+from typing import Any, Iterable
 
-from openjarvis.core.credentials import TOOL_CREDENTIALS
-
-Status = Literal["fail", "warn", "info"]
-
-CLOUD_PROVIDER_KEYS = {
-    "anthropic",
-    "claude",
-    "cloud",
-    "codex",
-    "deepseek",
-    "gemini",
-    "google",
-    "litellm",
-    "minimax",
-    "openai",
-    "openrouter",
-}
-
-LOCAL_ENGINE_KEYS = {
-    # Apple Foundation Models, both the in-process engine and the shim. The
-    # Python SDK has no Private Cloud Compute path, so inference is
-    # unconditionally on-device.
-    "afm",
-    "apple_fm",
-    "exo",
-    "gemma_cpp",
-    "lemonade",
-    "llamacpp",
-    "lmstudio",
-    "mlx",
-    "nexa",
-    "ollama",
-    "sglang",
-    "uzu",
-    "vllm",
-}
-
-API_KEY_ENV_VARS = {
-    "ANTHROPIC_API_KEY": ("Anthropic cloud inference", {"anthropic", "claude"}),
-    "CARTESIA_API_KEY": (
-        "Cartesia cloud text-to-speech",
-        {"cartesia", "text_to_speech"},
-    ),
-    "DEEPSEEK_API_KEY": ("DeepSeek cloud inference", {"deepseek"}),
-    "MOONSHOT_API_KEY": ("Kimi (Moonshot) cloud inference", {"kimi", "moonshot"}),
-    "GEMINI_API_KEY": ("Google/Gemini cloud inference", {"google", "gemini"}),
-    "GOOGLE_API_KEY": ("Google/Gemini cloud inference", {"google", "gemini"}),
-    "MINIMAX_API_KEY": ("MiniMax cloud inference", {"minimax"}),
-    "OPENAI_API_KEY": ("OpenAI cloud inference", {"openai", "gpt"}),
-    "OPENROUTER_API_KEY": ("OpenRouter cloud inference", {"openrouter"}),
-    "OPENWEATHERMAP_API_KEY": (
-        "OpenWeatherMap weather lookup",
-        {"get_weather", "openweathermap", "weather"},
-    ),
-    "TAVILY_API_KEY": ("Tavily web search", {"tavily", "web_search"}),
-    "YOUDOTCOM_API_KEY": ("You.com web search", {"youcom", "web_search"}),
-    "SERPLY_API_KEY": ("Serply web search", {"serply", "web_search"}),
-}
-
-CHANNEL_SECRET_FIELDS: tuple[tuple[str, str, str], ...] = (
-    ("channel.telegram.bot_token", "Telegram bot token", "Telegram"),
-    ("channel.discord.bot_token", "Discord bot token", "Discord"),
-    ("channel.slack.bot_token", "Slack bot token", "Slack"),
-    ("channel.slack.app_token", "Slack app token", "Slack"),
-    ("channel.webhook.secret", "Webhook secret", "generic webhook"),
-    ("channel.email.password", "Email password", "email"),
-    ("channel.whatsapp.access_token", "WhatsApp access token", "WhatsApp"),
-    ("channel.irc.password", "IRC password", "IRC"),
-    ("channel.teams.app_password", "Teams app password", "Teams"),
-    ("channel.matrix.access_token", "Matrix access token", "Matrix"),
-    ("channel.mattermost.token", "Mattermost token", "Mattermost"),
-    ("channel.feishu.app_secret", "Feishu app secret", "Feishu"),
-    ("channel.bluebubbles.password", "BlueBubbles password", "BlueBubbles"),
+from openjarvis.security.data_boundary_credentials import (  # noqa: F401 — re-exported for existing imports
+    _audit_channel_environment_credentials,
+    _audit_channel_settings,
+    _audit_connector_credentials,
+    _audit_environment_credentials,
+    _audit_generic_runtime_credentials,
+    _audit_local_channel_credential_dirs,
 )
-
-CHANNEL_REFERENCE_FIELDS: tuple[tuple[str, str, str], ...] = (
-    ("channel.webhook.url", "Webhook URL", "generic webhook"),
-    ("channel.email.smtp_host", "Email SMTP host", "email"),
-    ("channel.email.imap_host", "Email IMAP host", "email"),
-    ("channel.email.username", "Email username", "email"),
-    ("channel.whatsapp.phone_number_id", "WhatsApp phone number ID", "WhatsApp"),
-    ("channel.signal.api_url", "Signal API URL", "Signal"),
-    ("channel.signal.phone_number", "Signal phone number", "Signal"),
-    ("channel.google_chat.webhook_url", "Google Chat webhook URL", "Google Chat"),
-    ("channel.irc.server", "IRC server", "IRC"),
-    ("channel.irc.nick", "IRC nick", "IRC"),
-    ("channel.teams.app_id", "Teams app ID", "Teams"),
-    ("channel.teams.service_url", "Teams service URL", "Teams"),
-    ("channel.matrix.homeserver", "Matrix homeserver", "Matrix"),
-    ("channel.mattermost.url", "Mattermost URL", "Mattermost"),
-    ("channel.feishu.app_id", "Feishu app ID", "Feishu"),
-    ("channel.bluebubbles.url", "BlueBubbles URL", "BlueBubbles"),
+from openjarvis.security.data_boundary_helpers import (  # noqa: F401 — re-exported for existing imports
+    _first_nonempty,
+    _format_tools,
+    _get,
+    _is_cloud_value,
+    _is_local_engine_value,
+    _is_loopback_host,
+    _iter_digest_sources,
+    _location_label,
+    _looks_like_cloud_model,
+    _non_empty_paths,
+    _permission_note,
+    _primary_cloud_signals,
+    _quote,
+    _redact_root,
+    _target_is_cloud,
 )
-
-CHANNEL_SECRET_ENV_VARS = {
-    "BLUEBUBBLES_PASSWORD": "BlueBubbles channel",
-    "DISCORD_BOT_TOKEN": "Discord channel",
-    "FEISHU_APP_SECRET": "Feishu channel",
-    "MATTERMOST_TOKEN": "Mattermost channel",
-    "MATRIX_ACCESS_TOKEN": "Matrix channel",
-    "SLACK_APP_TOKEN": "Slack channel",
-    "SLACK_BOT_TOKEN": "Slack channel",
-    "TEAMS_APP_PASSWORD": "Teams channel",
-    "TELEGRAM_BOT_TOKEN": "Telegram channel",
-    "WHATSAPP_ACCESS_TOKEN": "WhatsApp channel",
-}
-
-CHANNEL_REFERENCE_ENV_VARS = {
-    "BLUEBUBBLES_URL": "BlueBubbles channel",
-    "FEISHU_APP_ID": "Feishu channel",
-    "GOOGLE_CHAT_WEBHOOK_URL": "Google Chat channel",
-    "MATTERMOST_URL": "Mattermost channel",
-    "MATRIX_HOMESERVER": "Matrix channel",
-    "SIGNAL_PHONE_NUMBER": "Signal channel",
-    "TEAMS_APP_ID": "Teams channel",
-    "WHATSAPP_PHONE_NUMBER_ID": "WhatsApp channel",
-}
-
-# Runtime tool/channel credential env keys from credentials.toml schema.
-RUNTIME_CREDENTIAL_ENV_KEYS = {
-    key for keys in TOOL_CREDENTIALS.values() for key in keys
-}
-
-# Specialized findings carry provider/channel semantics; remaining keys get a
-# presence-only generic finding. Values are never read or printed.
-_SPECIALIZED_CREDENTIAL_ENV_VARS = (
-    set(API_KEY_ENV_VARS)
-    | set(CHANNEL_SECRET_ENV_VARS)
-    | set(CHANNEL_REFERENCE_ENV_VARS)
+from openjarvis.security.data_boundary_surfaces import (  # noqa: F401 — re-exported for existing imports
+    _CONFIG_STORE_PATHS,
+    _SPECIALIZED_CREDENTIAL_ENV_VARS,
+    API_KEY_ENV_VARS,
+    BROWSER_TOOLS,
+    CHANNEL_OUTBOUND_TOOLS,
+    CHANNEL_REFERENCE_ENV_VARS,
+    CHANNEL_REFERENCE_FIELDS,
+    CHANNEL_SECRET_ENV_VARS,
+    CHANNEL_SECRET_FIELDS,
+    CLOUD_API_SURFACES,
+    CLOUD_MEDIA_TOOLS,
+    CLOUD_PROVIDER_KEYS,
+    CLOUD_TTS_BACKENDS,
+    EXTERNAL_TOOL_SURFACES,
+    GENERIC_CREDENTIAL_ENV_VARS,
+    GENERIC_NETWORK_TOOLS,
+    KNOWLEDGE_ENGINE_TOOLS,
+    LOCAL_ACCESS_TOOLS,
+    LOCAL_ENGINE_KEYS,
+    LOCAL_STORE_CANDIDATES,
+    OUTBOUND_TOOL_SURFACES,
+    PERSONAL_DIGEST_SOURCES,
+    RUNTIME_CREDENTIAL_ENV_KEYS,
+    WEATHER_TOOLS,
+    WEB_SEARCH_TOOLS,
+    Status,
 )
-GENERIC_CREDENTIAL_ENV_VARS = frozenset(
-    RUNTIME_CREDENTIAL_ENV_KEYS - _SPECIALIZED_CREDENTIAL_ENV_VARS
-)
-
-LOCAL_STORE_CANDIDATES: tuple[tuple[str, str, str, Status], ...] = (
-    ("config-file", "Configuration file", "config.toml", "info"),
-    ("credentials-toml", "Credentials file", "credentials.toml", "warn"),
-    ("knowledge-db", "Knowledge and Deep Research database", "knowledge.db", "warn"),
-    ("memory-db", "Memory index database", "memory.db", "warn"),
-    ("memory-facts", "Persistent memory facts", "memory_facts.jsonl", "warn"),
-    ("traces-db", "Trace database", "traces.db", "warn"),
-    ("telemetry-db", "Telemetry database", "telemetry.db", "info"),
-    ("audit-db", "Security audit database", "audit.db", "info"),
-    ("sessions-db", "Session database", "sessions.db", "warn"),
-    ("agents-db", "Agent manager database", "agents.db", "warn"),
-    ("optimize-db", "Optimization database", "optimize.db", "warn"),
-    ("scheduler-db", "Scheduler database", "scheduler.db", "warn"),
-    ("skill-index", "Skill index directory", "skill-index", "info"),
-    ("vault-key", "Vault encryption key", ".vault_key", "warn"),
-    ("embeddings-store", "Embeddings store", "embeddings", "warn"),
-    ("soul-file", "SOUL memory file", "SOUL.md", "warn"),
-    ("memory-file", "MEMORY memory file", "MEMORY.md", "warn"),
-    ("user-file", "USER memory file", "USER.md", "warn"),
-)
-
-_CONFIG_STORE_PATHS: tuple[tuple[str, str, str, Status], ...] = (
-    ("memory-db", "Memory index database", "tools.storage.db_path", "warn"),
-    ("memory-facts", "Persistent memory facts", "tools.storage.facts_path", "warn"),
-    ("traces-db", "Trace database", "traces.db_path", "warn"),
-    ("telemetry-db", "Telemetry database", "telemetry.db_path", "info"),
-    ("audit-db", "Security audit database", "security.audit_log_path", "info"),
-    ("sessions-db", "Session database", "sessions.db_path", "warn"),
-    ("agents-db", "Agent manager database", "agents.db_path", "warn"),
-    ("optimize-db", "Optimization database", "optimize.db_path", "warn"),
-    ("vault-key", "Vault encryption key", "security.vault_key_path", "warn"),
-    ("scheduler-db", "Scheduler database", "scheduler.db_path", "warn"),
-    ("skill-index", "Skill index directory", "skills.index_dir", "info"),
-)
-
-PERSONAL_DIGEST_SOURCES = {
-    "apple_health",
-    "dropbox",
-    "gcalendar",
-    "gcontacts",
-    "gdrive",
-    "github",
-    "gmail",
-    "google_tasks",
-    "imessage",
-    "notion",
-    "obsidian",
-    "oura",
-    "outlook",
-    "slack",
-    "spotify",
-    "strava",
-    "whatsapp",
-}
-
-WEB_SEARCH_TOOLS = {"web_search", "search", "tavily_search"}
-BROWSER_TOOLS = {
-    "browser",
-    "browser_axtree",
-    "browser_click",
-    "browser_extract",
-    "browser_navigate",
-    "browser_open",
-    "browser_screenshot",
-    "browser_search",
-    "browser_type",
-    "web_browser",
-}
-GENERIC_NETWORK_TOOLS = {"http_request"}
-WEATHER_TOOLS = {"get_weather"}
-CHANNEL_OUTBOUND_TOOLS = {"channel_send"}
-CLOUD_MEDIA_TOOLS = {"audio_transcribe", "image_generate", "text_to_speech"}
-CLOUD_TTS_BACKENDS = {"cartesia", "openai", "openai_tts"}
-# Local knowledge chunks scanned by an inference engine (Deep Research path).
-KNOWLEDGE_ENGINE_TOOLS = {"scan_chunks"}
-# External egress surfaces (web, browser, HTTP, channels, media, knowledge LM).
-EXTERNAL_TOOL_SURFACES = (
-    WEB_SEARCH_TOOLS
-    | BROWSER_TOOLS
-    | GENERIC_NETWORK_TOOLS
-    | WEATHER_TOOLS
-    | CHANNEL_OUTBOUND_TOOLS
-    | CLOUD_MEDIA_TOOLS
-    | KNOWLEDGE_ENGINE_TOOLS
-)
-# Narrower cloud inference / media API key surfaces (not browser-only egress).
-CLOUD_API_SURFACES = CLOUD_MEDIA_TOOLS | WEB_SEARCH_TOOLS | WEATHER_TOOLS
-OUTBOUND_TOOL_SURFACES = EXTERNAL_TOOL_SURFACES
-LOCAL_ACCESS_TOOLS = {
-    "apply_patch",
-    "calendar_search",
-    "calendar_upcoming",
-    "channel_list",
-    "channel_status",
-    "code_interpreter",
-    "code_interpreter_docker",
-    "db_query",
-    "docker_shell_exec",
-    "file_read",
-    "file_write",
-    "git_commit",
-    "git_diff",
-    "git_log",
-    "git_status",
-    "kg_add_entity",
-    "kg_add_relation",
-    "kg_neighbors",
-    "kg_query",
-    "knowledge_sql",
-    "memory_index",
-    "memory_manage",
-    "memory_retrieve",
-    "memory_search",
-    "memory_store",
-    "pdf_extract",
-    "repl",
-    "retrieval",
-    "shell_exec",
-    "skill_manage",
-    "user_profile_manage",
-}
 
 
 @dataclass(frozen=True, slots=True)
@@ -672,14 +469,6 @@ def _effective_deep_research_target(config: Any) -> tuple[str, str]:
         _get(config, "intelligence.default_model", ""),
     )
     return engine, model
-
-
-def _first_nonempty(*values: Any) -> str:
-    for value in values:
-        text = str(value or "").strip()
-        if text:
-            return text
-    return ""
 
 
 def _scan_chunks_surface_active(config: Any, tools: set[str] | None = None) -> bool:
@@ -1202,65 +991,6 @@ def _audit_local_stores(
             )
 
 
-def _audit_connector_credentials(root: Path, builder: _FindingBuilder) -> None:
-    connectors_dir = root / "connectors"
-    if not connectors_dir.exists():
-        return
-    for path in sorted(connectors_dir.glob("*.json")):
-        digest = hashlib.sha256(path.name.encode("utf-8")).hexdigest()[:8]
-        builder.add(
-            finding_id=f"connector-token-{digest}",
-            status="info",
-            title="Connector credential file is present",
-            potential_data_path="connector OAuth/API credentials -> local file",
-            evidence="credential file exists under connectors/*.json",
-            recommendation=(
-                "This audit did not read the file contents. Use --show-paths for "
-                "local debugging, and review account scopes and token rotation."
-            ),
-            location="connectors/<redacted>.json",
-            absolute_location=str(path),
-        )
-
-
-def _audit_environment_credentials(
-    config: Any | None,
-    builder: _FindingBuilder,
-    *,
-    active_tools: set[str],
-) -> None:
-    active_values: set[str] = set(active_tools)
-    if config is not None:
-        active_values.update(
-            {
-                str(_get(config, "intelligence.provider", "")).lower(),
-                str(_get(config, "intelligence.preferred_engine", "")).lower(),
-                str(_get(config, "engine.default", "")).lower(),
-                str(_get(config, "intelligence.default_model", "")).lower(),
-                str(_get(config, "speech.backend", "")).lower(),
-            }
-        )
-        if bool(_get(config, "digest.enabled", False)):
-            active_values.add(str(_get(config, "digest.tts_backend", "")).lower())
-
-    for env_name, (purpose, aliases) in sorted(API_KEY_ENV_VARS.items()):
-        if not os.environ.get(env_name):
-            continue
-        active = any(alias in value for alias in aliases for value in active_values)
-        status: Status = "warn" if active else "info"
-        builder.add(
-            finding_id=f"env-credential-{env_name.lower()}",
-            status=status,
-            title=f"Cloud/API credential available in environment: {env_name}",
-            potential_data_path=f"process environment -> {purpose}",
-            evidence=f"{env_name} is set; value was not read or printed",
-            recommendation=(
-                "Unset this variable for local-only operation. The audit reports "
-                "only presence and never prints credential values."
-            ),
-        )
-
-
 def _audit_server_exposure(config: Any, builder: _FindingBuilder) -> None:
     host = str(_get(config, "server.host", "") or "").strip()
     if not _is_loopback_host(host):
@@ -1299,145 +1029,6 @@ def _audit_server_exposure(config: Any, builder: _FindingBuilder) -> None:
         )
 
 
-def _audit_channel_settings(config: Any, builder: _FindingBuilder) -> None:
-    channel_enabled = bool(_get(config, "channel.enabled", False))
-    default_channel = str(_get(config, "channel.default_channel", "") or "")
-    configured_secrets = _non_empty_paths(config, CHANNEL_SECRET_FIELDS)
-    configured_refs = _non_empty_paths(config, CHANNEL_REFERENCE_FIELDS)
-
-    if channel_enabled:
-        evidence = "channel.enabled = true"
-        if default_channel:
-            evidence += "; channel.default_channel is set; value redacted"
-        has_channel_surface = bool(
-            default_channel or configured_secrets or configured_refs
-        )
-        status: Status = "warn" if has_channel_surface else "info"
-        builder.add(
-            finding_id="channels-enabled",
-            status=status,
-            title="Messaging channels are enabled",
-            potential_data_path=(
-                "user messages and assistant replies -> configured channel services"
-            ),
-            evidence=evidence,
-            recommendation=(
-                "Review active channel credentials and account scopes before "
-                "routing sensitive conversations through external services."
-            ),
-        )
-
-    for dotted_path, label, service in configured_secrets:
-        status = "warn" if channel_enabled else "info"
-        normalized = dotted_path.replace(".", "-").replace("_", "-")
-        builder.add(
-            finding_id=f"channel-secret-{normalized}",
-            status=status,
-            title=f"Channel secret configured: {label}",
-            potential_data_path=f"OpenJarvis channel messages -> {service}",
-            evidence=f"{dotted_path} is non-empty; value was not printed",
-            recommendation=(
-                "Use dedicated bot/service credentials and rotate them after tests. "
-                "The audit reports only presence and never prints secret values."
-            ),
-        )
-
-    for dotted_path, label, service in configured_refs:
-        status = "warn" if channel_enabled else "info"
-        normalized = dotted_path.replace(".", "-").replace("_", "-")
-        builder.add(
-            finding_id=f"channel-reference-{normalized}",
-            status=status,
-            title=f"Channel endpoint or identifier configured: {label}",
-            potential_data_path=f"OpenJarvis channel messages -> {service}",
-            evidence=f"{dotted_path} is non-empty; value was not printed",
-            recommendation=(
-                "Review configured channel endpoints and identifiers before "
-                "routing sensitive conversations through external services."
-            ),
-        )
-
-
-def _audit_channel_environment_credentials(
-    config: Any | None,
-    builder: _FindingBuilder,
-) -> None:
-    channel_enabled = bool(_get(config, "channel.enabled", False)) if config else False
-    for env_name, purpose in sorted(CHANNEL_SECRET_ENV_VARS.items()):
-        if not os.environ.get(env_name):
-            continue
-        status: Status = "warn" if channel_enabled else "info"
-        builder.add(
-            finding_id=f"channel-env-secret-{env_name.lower()}",
-            status=status,
-            title=f"Channel secret available in environment: {env_name}",
-            potential_data_path=f"process environment -> {purpose}",
-            evidence=f"{env_name} is set; value was not read or printed",
-            recommendation=(
-                "Unset channel secrets when external messaging is not in use. "
-                "The audit reports only presence and never prints secret values."
-            ),
-        )
-
-    for env_name, purpose in sorted(CHANNEL_REFERENCE_ENV_VARS.items()):
-        if not os.environ.get(env_name):
-            continue
-        status = "warn" if channel_enabled else "info"
-        builder.add(
-            finding_id=f"channel-env-reference-{env_name.lower()}",
-            status=status,
-            title=f"Channel endpoint or identifier in environment: {env_name}",
-            potential_data_path=f"process environment -> {purpose}",
-            evidence=f"{env_name} is set; value was not read or printed",
-            recommendation=(
-                "Unset channel endpoint variables when external messaging is not "
-                "in use. The audit reports only presence."
-            ),
-        )
-
-
-def _audit_local_channel_credential_dirs(
-    config: Any,
-    root: Path,
-    builder: _FindingBuilder,
-) -> None:
-    auth_dir_value = str(
-        _get(config, "channel.whatsapp_baileys.auth_dir", "") or ""
-    ).strip()
-    candidates: list[tuple[Path, str]] = []
-    if auth_dir_value:
-        candidates.append((Path(auth_dir_value).expanduser(), "<redacted>"))
-    candidates.append(
-        (root / "whatsapp_baileys_bridge" / "auth", "whatsapp_baileys_bridge/auth")
-    )
-
-    seen_resolved: set[str] = set()
-    for path, location in candidates:
-        try:
-            resolved = path.resolve()
-            resolved_key = str(resolved)
-        except OSError:
-            resolved = path
-            resolved_key = str(path)
-        if resolved_key in seen_resolved or not path.exists():
-            continue
-        seen_resolved.add(resolved_key)
-        path_digest = hashlib.sha256(resolved_key.encode("utf-8")).hexdigest()[:8]
-        builder.add(
-            finding_id=f"channel-local-credential-dir-whatsapp-baileys-{path_digest}",
-            status="info",
-            title="WhatsApp Baileys credential directory is present",
-            potential_data_path="WhatsApp session credentials -> local directory",
-            evidence="credential directory exists; contents were not inspected",
-            recommendation=(
-                "Review permissions and retention for local messaging session "
-                "credentials."
-            ),
-            location=location,
-            absolute_location=resolved_key,
-        )
-
-
 def _audit_frontend_storage_scope(builder: _FindingBuilder) -> None:
     builder.add(
         finding_id="frontend-credential-storage-not-inspected",
@@ -1450,24 +1041,6 @@ def _audit_frontend_storage_scope(builder: _FindingBuilder) -> None:
             "a scope note for cloud/API-key deployments, not a detected leak."
         ),
     )
-
-
-def _audit_generic_runtime_credentials(builder: _FindingBuilder) -> None:
-    """Report presence-only findings for remaining TOOL_CREDENTIALS env keys."""
-    for env_name in sorted(GENERIC_CREDENTIAL_ENV_VARS):
-        if not os.environ.get(env_name):
-            continue
-        builder.add(
-            finding_id=f"env-credential-generic-{env_name.lower()}",
-            status="info",
-            title=f"Runtime credential available in environment: {env_name}",
-            potential_data_path=f"process environment -> {env_name}",
-            evidence=f"{env_name} is set; value was not read or printed",
-            recommendation=(
-                "Unset unused runtime credentials. The audit reports only presence "
-                "and never prints credential values."
-            ),
-        )
 
 
 def _audit_skills_and_digest(config: Any, builder: _FindingBuilder) -> None:
@@ -1647,146 +1220,6 @@ def _configured_tools(config: Any) -> set[str]:
             if normalized:
                 tools.add(normalized)
     return tools
-
-
-def _get(obj: Any, dotted_path: str, default: Any = None) -> Any:
-    current = obj
-    for part in dotted_path.split("."):
-        if current is None:
-            return default
-        current = getattr(current, part, default)
-    return current
-
-
-def _is_cloud_value(value: Any) -> bool:
-    if value is None:
-        return False
-    text = str(value).strip().lower()
-    if not text or text in LOCAL_ENGINE_KEYS:
-        return False
-    return any(key in text for key in CLOUD_PROVIDER_KEYS)
-
-
-def _is_local_engine_value(value: Any) -> bool:
-    if value is None:
-        return False
-    text = str(value).strip().lower().replace("-", "_")
-    return text in LOCAL_ENGINE_KEYS
-
-
-def _target_is_cloud(engine: Any, model: Any) -> bool:
-    """Classify a model target without treating local vendor model IDs as cloud."""
-    if _is_cloud_value(engine):
-        return True
-    if _is_local_engine_value(engine):
-        return False
-    return _looks_like_cloud_model(model)
-
-
-def _primary_cloud_signals(config: Any) -> list[str]:
-    """Return explicit cloud signals for the primary inference target."""
-    provider = _get(config, "intelligence.provider", "")
-    preferred_engine = _get(config, "intelligence.preferred_engine", "")
-    default_engine = _get(config, "engine.default", "")
-    default_model = _get(config, "intelligence.default_model", "")
-    signals = [
-        str(value)
-        for value in (provider, preferred_engine, default_engine)
-        if _is_cloud_value(value)
-    ]
-    effective_engine = _first_nonempty(preferred_engine, default_engine, provider)
-    if not signals and _target_is_cloud(effective_engine, default_model):
-        signals.append(str(default_model))
-    return signals
-
-
-def _looks_like_cloud_model(value: Any) -> bool:
-    if value is None:
-        return False
-    text = str(value).strip().lower()
-    if not text:
-        return False
-    return any(key in text for key in CLOUD_PROVIDER_KEYS) or text.startswith("gpt-")
-
-
-def _is_loopback_host(host: str) -> bool:
-    if host in {"", "localhost"}:
-        return True
-    try:
-        import ipaddress
-
-        return ipaddress.ip_address(host).is_loopback
-    except ValueError:
-        return False
-
-
-def _iter_digest_sources(config: Any) -> Iterable[str]:
-    digest = _get(config, "digest", None)
-    if digest is None:
-        return []
-    sections = _get(digest, "sections", []) or []
-    optional_sections = _get(digest, "optional_sections", []) or []
-    names = list(sections) + list(optional_sections)
-    sources: list[str] = []
-    for name in names:
-        section = getattr(digest, str(name), None)
-        if section is None:
-            continue
-        section_sources = getattr(section, "sources", []) or []
-        sources.extend(str(source) for source in section_sources)
-    return sources
-
-
-def _non_empty_paths(
-    config: Any,
-    fields: tuple[tuple[str, str, str], ...],
-) -> list[tuple[str, str, str]]:
-    results: list[tuple[str, str, str]] = []
-    for dotted_path, label, service in fields:
-        value = _get(config, dotted_path, "")
-        if str(value or "").strip():
-            results.append((dotted_path, label, service))
-    return results
-
-
-def _location_label(path: Path, root: Path) -> str:
-    try:
-        return str(path.resolve().relative_to(root.resolve()))
-    except ValueError:
-        return "<redacted>"
-
-
-def _permission_note(path: Path) -> str:
-    try:
-        if path.is_symlink():
-            return "path is a symlink"
-        if os.name == "nt":
-            return ""
-        mode = path.stat().st_mode & 0o777
-    except OSError:
-        return "could not read filesystem metadata"
-    if mode & 0o077:
-        return f"permissions are {mode:03o}; group/other access is present"
-    return ""
-
-
-def _format_tools(tools: Iterable[str]) -> str:
-    return ", ".join(sorted(tools))
-
-
-def _quote(value: Any) -> str:
-    return repr(str(value))
-
-
-def _redact_root(root: str) -> str:
-    if root.startswith("<"):
-        return root
-    path = Path(root)
-    if path.name == ".openjarvis":
-        return "~/.openjarvis"
-    if path.name == "openjarvis":
-        return "<xdg-data-home>/openjarvis"
-    return "<openjarvis-home>"
 
 
 def _truncate(text: str, limit: int = 240) -> str:

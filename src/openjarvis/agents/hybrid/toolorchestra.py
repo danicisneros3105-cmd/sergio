@@ -686,7 +686,12 @@ def _extract_final_answer_text(text: str) -> str:
     """
     m = re.search(r'"answer"\s*:\s*"((?:\\.|[^"\\])*)"', text, re.DOTALL)
     if m:
-        return m.group(1).encode("utf-8").decode("unicode_escape")
+        # Decode JSON escapes without mangling non-ASCII text (a plain
+        # ``unicode_escape`` decode turns "café" into "cafÃ©").
+        try:
+            return json.loads(f'"{m.group(1)}"')
+        except json.JSONDecodeError:
+            return m.group(1)
     m = re.search(r"FINAL\s*ANSWER\s*:\s*(.+?)\s*$", text, re.IGNORECASE | re.MULTILINE)
     if m:
         return m.group(1).strip()

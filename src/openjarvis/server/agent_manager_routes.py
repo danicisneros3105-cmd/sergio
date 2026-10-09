@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import re as _re
 import threading
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, AsyncIterator, Callable, Dict, List, Optional, Tuple
 
 from openjarvis.agents.manager import AgentManager
 from openjarvis.agents.tool_resolver import (
@@ -233,7 +233,7 @@ class _LightweightSystem:
         model: str,
         config: Any = None,
         runtime: Any = None,
-    ):
+    ) -> None:
         self.engine = engine
         self.model = model
         self.config = config
@@ -990,7 +990,7 @@ async def _stream_managed_agent(
                     finally:
                         _complete_stream()
 
-            async def generate_deep_research():
+            async def generate_deep_research() -> AsyncIterator[str]:
                 """Run DeepResearchAgent in thread, stream progress + result."""
                 import asyncio
                 import queue
@@ -1035,7 +1035,7 @@ async def _stream_managed_agent(
                 # Wrap the executor to capture tool calls
                 original_execute = dr_agent._executor.execute
 
-                def _tracked_execute(tc):
+                def _tracked_execute(tc: Any) -> Any:
                     tool_name = tc.name
                     full_args = tc.arguments or ""
                     args_str = full_args[:80]
@@ -1093,7 +1093,7 @@ async def _stream_managed_agent(
 
                 dr_agent._executor.execute = _tracked_execute
 
-                def _run_agent():
+                def _run_agent() -> None:
                     agent_metadata = {}
                     try:
                         result = dr_agent.run(user_content)
@@ -1134,7 +1134,7 @@ async def _stream_managed_agent(
                         }
                     )
 
-                def _run_with_tick_cleanup():
+                def _run_with_tick_cleanup() -> None:
                     try:
                         _run_agent()
                     finally:
@@ -1282,7 +1282,7 @@ async def _stream_managed_agent(
                         )
                         break
 
-            async def guarded_deep_research():
+            async def guarded_deep_research() -> AsyncIterator[str]:
                 try:
                     async for chunk in generate_deep_research():
                         yield chunk
@@ -1383,7 +1383,7 @@ async def _stream_managed_agent(
             finally:
                 _complete_stream()
 
-    async def generate():
+    async def generate() -> AsyncIterator[str]:
         """Async generator yielding SSE-formatted chunks with real token streaming."""
 
         collected_content = ""
@@ -1642,11 +1642,11 @@ def create_agent_manager_router(
     # ── Agent lifecycle ──────────────────────────────────────
 
     @agents_router.get("")
-    async def list_agents():
+    async def list_agents() -> Dict[str, Any]:
         return {"agents": manager.list_agents()}
 
     @agents_router.post("")
-    async def create_agent(req: CreateAgentRequest, request: Request):
+    async def create_agent(req: CreateAgentRequest, request: Request) -> Dict[str, Any]:
         if req.template_id:
             agent = manager.create_from_template(
                 req.template_id, req.name, overrides=req.config
@@ -1665,14 +1665,14 @@ def create_agent_manager_router(
         return agent
 
     @agents_router.get("/{agent_id}")
-    async def get_agent(agent_id: str):
+    async def get_agent(agent_id: str) -> Dict[str, Any]:
         agent = manager.get_agent(agent_id)
         if not agent:
             raise HTTPException(status_code=404, detail="Agent not found")
         return agent
 
     @agents_router.patch("/{agent_id}")
-    async def update_agent(agent_id: str, req: UpdateAgentRequest):
+    async def update_agent(agent_id: str, req: UpdateAgentRequest) -> Dict[str, Any]:
         if not manager.get_agent(agent_id):
             raise HTTPException(status_code=404, detail="Agent not found")
         kwargs: Dict[str, Any] = {}
@@ -1685,28 +1685,28 @@ def create_agent_manager_router(
         return manager.update_agent(agent_id, **kwargs)
 
     @agents_router.delete("/{agent_id}")
-    async def delete_agent(agent_id: str):
+    async def delete_agent(agent_id: str) -> Dict[str, Any]:
         if not manager.get_agent(agent_id):
             raise HTTPException(status_code=404, detail="Agent not found")
         manager.delete_agent(agent_id)
         return {"status": "archived"}
 
     @agents_router.post("/{agent_id}/pause")
-    async def pause_agent(agent_id: str):
+    async def pause_agent(agent_id: str) -> Dict[str, Any]:
         if not manager.get_agent(agent_id):
             raise HTTPException(status_code=404, detail="Agent not found")
         manager.pause_agent(agent_id)
         return {"status": "paused"}
 
     @agents_router.post("/{agent_id}/resume")
-    async def resume_agent(agent_id: str):
+    async def resume_agent(agent_id: str) -> Dict[str, Any]:
         if not manager.get_agent(agent_id):
             raise HTTPException(status_code=404, detail="Agent not found")
         manager.resume_agent(agent_id)
         return {"status": "idle"}
 
     @agents_router.post("/{agent_id}/run")
-    async def run_agent(agent_id: str, request: Request):
+    async def run_agent(agent_id: str, request: Request) -> Dict[str, Any]:
         agent = manager.get_agent(agent_id)
         if not agent:
             raise HTTPException(status_code=404, detail="Agent not found")
@@ -1731,7 +1731,7 @@ def create_agent_manager_router(
         server_config = getattr(app_state, "config", None)
         server_bus = _get_runtime_event_bus(app_state)
 
-        def _run_tick():
+        def _run_tick() -> None:
             try:
                 from openjarvis.agents.executor import AgentExecutor
 
@@ -1787,7 +1787,7 @@ def create_agent_manager_router(
     # ── Recover ──────────────────────────────────────────────
 
     @agents_router.post("/{agent_id}/recover")
-    def recover_agent(agent_id: str):
+    def recover_agent(agent_id: str) -> Dict[str, Any]:
         if not manager.get_agent(agent_id):
             raise HTTPException(status_code=404, detail="Agent not found")
         checkpoint = manager.recover_agent(agent_id)
@@ -1796,24 +1796,26 @@ def create_agent_manager_router(
     # ── Tasks ────────────────────────────────────────────────
 
     @agents_router.get("/{agent_id}/tasks")
-    async def list_tasks(agent_id: str, status: Optional[str] = None):
+    async def list_tasks(agent_id: str, status: Optional[str] = None) -> Dict[str, Any]:
         return {"tasks": manager.list_tasks(agent_id, status=status)}
 
     @agents_router.post("/{agent_id}/tasks")
-    async def create_task(agent_id: str, req: CreateTaskRequest):
+    async def create_task(agent_id: str, req: CreateTaskRequest) -> Dict[str, Any]:
         if not manager.get_agent(agent_id):
             raise HTTPException(status_code=404, detail="Agent not found")
         return manager.create_task(agent_id, description=req.description)
 
     @agents_router.get("/{agent_id}/tasks/{task_id}")
-    async def get_task(agent_id: str, task_id: str):
+    async def get_task(agent_id: str, task_id: str) -> Dict[str, Any]:
         task = manager._get_task(task_id)
         if not task:
             raise HTTPException(status_code=404, detail="Task not found")
         return task
 
     @agents_router.patch("/{agent_id}/tasks/{task_id}")
-    async def update_task(agent_id: str, task_id: str, req: UpdateTaskRequest):
+    async def update_task(
+        agent_id: str, task_id: str, req: UpdateTaskRequest
+    ) -> Dict[str, Any]:
         kwargs: Dict[str, Any] = {}
         if req.description is not None:
             kwargs["description"] = req.description
@@ -1826,14 +1828,14 @@ def create_agent_manager_router(
         return manager.update_task(task_id, **kwargs)
 
     @agents_router.delete("/{agent_id}/tasks/{task_id}")
-    async def delete_task(agent_id: str, task_id: str):
+    async def delete_task(agent_id: str, task_id: str) -> Dict[str, Any]:
         manager.delete_task(task_id)
         return {"status": "deleted"}
 
     # ── Channel bindings ─────────────────────────────────────
 
     @agents_router.get("/{agent_id}/channels")
-    async def list_channels(agent_id: str):
+    async def list_channels(agent_id: str) -> Dict[str, Any]:
         return {"bindings": manager.list_channel_bindings(agent_id)}
 
     @agents_router.post("/{agent_id}/channels")
@@ -1841,7 +1843,7 @@ def create_agent_manager_router(
         agent_id: str,
         req: BindChannelRequest,
         request: Request,
-    ):
+    ) -> Dict[str, Any]:
         if not manager.get_agent(agent_id):
             raise HTTPException(status_code=404, detail="Agent not found")
         binding = manager.bind_channel(
@@ -2045,7 +2047,7 @@ def create_agent_manager_router(
         agent_id: str,
         binding_id: str,
         request: Request,
-    ):
+    ) -> Dict[str, Any]:
         try:
             binding = manager._get_binding(binding_id)
             if binding:
@@ -2070,11 +2072,13 @@ def create_agent_manager_router(
     # ── Messaging ────────────────────────────────────────────
 
     @agents_router.get("/{agent_id}/messages")
-    def list_messages(agent_id: str):
+    def list_messages(agent_id: str) -> Dict[str, Any]:
         return {"messages": manager.list_messages(agent_id)}
 
     @agents_router.post("/{agent_id}/messages")
-    async def send_message(agent_id: str, req: SendMessageRequest, request: Request):
+    async def send_message(
+        agent_id: str, req: SendMessageRequest, request: Request
+    ) -> Any:
         agent_record = manager.get_agent(agent_id)
         if not agent_record:
             raise HTTPException(status_code=404, detail="Agent not found")
@@ -2127,7 +2131,7 @@ def create_agent_manager_router(
             _srv_config = getattr(_app_state, "config", None)
             _srv_bus = _get_runtime_event_bus(_app_state)
 
-            def _immediate_tick():
+            def _immediate_tick() -> None:
                 _start = _time.time()
                 logger.info(
                     "Immediate tick starting for agent %s (model=%s)",
@@ -2215,7 +2219,7 @@ def create_agent_manager_router(
     # ── State inspection ─────────────────────────────────────
 
     @agents_router.get("/{agent_id}/state")
-    def get_agent_state(agent_id: str):
+    def get_agent_state(agent_id: str) -> Dict[str, Any]:
         agent = manager.get_agent(agent_id)
         if agent is None:
             raise HTTPException(status_code=404, detail="Agent not found")
@@ -2230,13 +2234,13 @@ def create_agent_manager_router(
     # ── Learning ─────────────────────────────────────────────
 
     @agents_router.get("/{agent_id}/learning")
-    def get_learning_log(agent_id: str):
+    def get_learning_log(agent_id: str) -> Dict[str, Any]:
         if not manager.get_agent(agent_id):
             raise HTTPException(status_code=404, detail="Agent not found")
         return {"learning_log": manager.list_learning_log(agent_id)}
 
     @agents_router.post("/{agent_id}/learning/run")
-    def trigger_learning(agent_id: str, request: Request):
+    def trigger_learning(agent_id: str, request: Request) -> Dict[str, Any]:
         if not manager.get_agent(agent_id):
             raise HTTPException(status_code=404, detail="Agent not found")
         from openjarvis.core.events import EventType
@@ -2248,7 +2252,7 @@ def create_agent_manager_router(
     # ── Traces ───────────────────────────────────────────────
 
     @agents_router.get("/{agent_id}/traces")
-    def list_traces(agent_id: str, limit: int = 20):
+    def list_traces(agent_id: str, limit: int = 20) -> Dict[str, Any]:
         if not manager.get_agent(agent_id):
             raise HTTPException(status_code=404, detail="Agent not found")
         try:
@@ -2278,7 +2282,7 @@ def create_agent_manager_router(
             raise HTTPException(status_code=500, detail=str(exc))
 
     @agents_router.get("/{agent_id}/traces/{trace_id}")
-    def get_trace(agent_id: str, trace_id: str):
+    def get_trace(agent_id: str, trace_id: str) -> Dict[str, Any]:
         try:
             from openjarvis.core.config import load_config
             from openjarvis.core.paths import get_config_dir
@@ -2316,11 +2320,13 @@ def create_agent_manager_router(
     # ── Templates ────────────────────────────────────────────
 
     @templates_router.get("")
-    async def list_templates():
+    async def list_templates() -> Dict[str, Any]:
         return {"templates": AgentManager.list_templates()}
 
     @templates_router.post("/{template_id}/instantiate")
-    async def instantiate_template(template_id: str, req: CreateAgentRequest):
+    async def instantiate_template(
+        template_id: str, req: CreateAgentRequest
+    ) -> Dict[str, Any]:
         return manager.create_from_template(template_id, req.name, overrides=req.config)
 
     # ── Global agent endpoints ───────────────────────────────
@@ -2328,7 +2334,7 @@ def create_agent_manager_router(
     global_router = APIRouter(tags=["agents-global"])
 
     @global_router.get("/v1/agents/errors")
-    def list_error_agents():
+    def list_error_agents() -> Dict[str, Any]:
         all_agents = manager.list_agents()
         error_agents = [
             a
@@ -2338,7 +2344,7 @@ def create_agent_manager_router(
         return {"agents": error_agents}
 
     @global_router.get("/v1/agents/health")
-    def agents_health():
+    def agents_health() -> Dict[str, Any]:
         all_agents = manager.list_agents()
         from collections import Counter
 
@@ -2349,7 +2355,7 @@ def create_agent_manager_router(
         }
 
     @global_router.get("/v1/recommended-model")
-    def recommended_model(request: Request):
+    def recommended_model(request: Request) -> Dict[str, str]:
         engine = getattr(request.app.state, "engine", None)
         if engine is None:
             return {"model": "", "reason": "No engine available"}
@@ -2364,7 +2370,7 @@ def create_agent_manager_router(
     tools_router = APIRouter(prefix="/v1/tools", tags=["tools"])
 
     @tools_router.get("")
-    def list_tools(request: Request):
+    def list_tools(request: Request) -> Dict[str, Any]:
         items = build_tools_list()
         try:
             mcp_tools, _ = _get_mcp_tools(request.app.state)
@@ -2386,7 +2392,7 @@ def create_agent_manager_router(
         return {"tools": items}
 
     @tools_router.post("/{tool_name}/credentials")
-    async def save_tool_credentials(tool_name: str, request: Request):
+    async def save_tool_credentials(tool_name: str, request: Request) -> Dict[str, Any]:
         from openjarvis.core.credentials import save_credential
 
         body = await request.json()
@@ -2397,14 +2403,14 @@ def create_agent_manager_router(
         return {"saved": saved}
 
     @tools_router.delete("/{tool_name}/credentials/{key}")
-    def remove_tool_credential(tool_name: str, key: str):
+    def remove_tool_credential(tool_name: str, key: str) -> Dict[str, Any]:
         from openjarvis.core.credentials import delete_credential
 
         delete_credential(tool_name, key)
         return {"deleted": key}
 
     @tools_router.get("/{tool_name}/credentials/status")
-    def credential_status(tool_name: str):
+    def credential_status(tool_name: str) -> Dict[str, Any]:
         from openjarvis.core.credentials import get_credential_status
 
         return get_credential_status(tool_name)
@@ -2414,7 +2420,7 @@ def create_agent_manager_router(
     sendblue_router = APIRouter(prefix="/v1/channels/sendblue", tags=["sendblue"])
 
     @sendblue_router.post("/verify")
-    async def sendblue_verify(request: Request):
+    async def sendblue_verify(request: Request) -> Dict[str, Any]:
         """Verify SendBlue credentials and return assigned phone lines."""
         body = await request.json()
         api_key_id = body.get("api_key_id", "")
@@ -2481,7 +2487,7 @@ def create_agent_manager_router(
             )
 
     @sendblue_router.post("/register-webhook")
-    async def sendblue_register_webhook(request: Request):
+    async def sendblue_register_webhook(request: Request) -> Dict[str, Any]:
         """Auto-register the /webhooks/sendblue endpoint with SendBlue."""
         body = await request.json()
         api_key_id = body.get("api_key_id", "")
@@ -2520,7 +2526,7 @@ def create_agent_manager_router(
             )
 
     @sendblue_router.post("/test")
-    async def sendblue_test(request: Request):
+    async def sendblue_test(request: Request) -> Dict[str, Any]:
         """Send a test message via SendBlue to verify the setup works."""
         body = await request.json()
         api_key_id = body.get("api_key_id", "")
@@ -2569,7 +2575,7 @@ def create_agent_manager_router(
             )
 
     @sendblue_router.get("/health")
-    async def sendblue_health(request: Request):
+    async def sendblue_health(request: Request) -> Dict[str, Any]:
         """Check if the SendBlue channel bridge is wired and ready."""
         sb = getattr(request.app.state, "sendblue_channel", None)
         bridge = getattr(request.app.state, "channel_bridge", None)

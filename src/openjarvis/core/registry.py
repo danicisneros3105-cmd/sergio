@@ -30,6 +30,16 @@ class RegistryBase(Generic[T]):
         return storage
 
     @classmethod
+    def _builtin(cls) -> Dict[str, T]:
+        """Every entry OpenJarvis' own modules registered, kept across clear()."""
+        attr_name = f"_registry_builtin_{cls.__name__}"
+        storage = getattr(cls, attr_name, None)
+        if storage is None:
+            storage = {}
+            setattr(cls, attr_name, storage)
+        return storage
+
+    @classmethod
     def register(cls, key: str) -> Callable[[T], T]:
         """Decorator that registers *entry* under *key*."""
 
@@ -38,9 +48,24 @@ class RegistryBase(Generic[T]):
             if key in entries:
                 raise ValueError(f"{cls.__name__} already has an entry for '{key}'")
             entries[key] = entry
+            if str(getattr(entry, "__module__", "")).startswith("openjarvis."):
+                cls._builtin()[key] = entry
             return entry
 
         return decorator
+
+    @classmethod
+    def restore_builtin(cls) -> int:
+        """Re-add OpenJarvis' own entries removed by :meth:`clear`.
+
+        Modules register on import, so once imported they never register
+        again; reloading them to do so would replace their functions under
+        anyone holding or patching them. Returns how many were restored.
+        """
+        entries = cls._entries()
+        missing = {k: v for k, v in cls._builtin().items() if k not in entries}
+        entries.update(missing)
+        return len(missing)
 
     @classmethod
     def register_value(cls, key: str, value: T) -> T:

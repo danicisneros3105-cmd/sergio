@@ -109,24 +109,62 @@ def _strip_fences(s: str) -> str:
     return s
 
 
-def _try_json(s: str):
+def _try_json(s: str) -> Any:
     try:
         return json.loads(s)
     except Exception:
         return None
 
 
-def _try_literal(s: str):
-    """Fallback for the paper's literal Python-list output style."""
+def _balanced_list(s: str, start: int) -> Optional[int]:
+    """End index (exclusive) of the bracketed list starting at ``s[start]``."""
+    depth, quote = 0, ""
+    i = start
+    while i < len(s):
+        ch = s[i]
+        if quote:
+            if ch == "\\":
+                i += 1
+            elif ch == quote:
+                quote = ""
+        elif ch in "'\"":
+            quote = ch
+        elif ch == "[":
+            depth += 1
+        elif ch == "]":
+            depth -= 1
+            if depth == 0:
+                return i + 1
+        i += 1
+    return None
+
+
+def _try_literal(s: str) -> Optional[Dict[str, Any]]:
+    """Fallback for the paper's literal Python-list output style.
+
+    Lists may nest (``access_list = [[], [0]]``) and be concatenated
+    (``[...] + [...]``), so brackets are matched, not pattern-matched.
+    """
     out = {}
     for key in ("model_id", "subtasks", "access_list"):
-        m = re.search(rf"{key}\s*=\s*(\[[^\]]*\](?:\s*\+\s*\[[^\]]*\])*)", s, re.DOTALL)
+        m = re.search(rf"{key}\s*=\s*\[", s)
         if not m:
             return None
+        pieces, pos = [], m.end() - 1
+        while True:
+            end = _balanced_list(s, pos)
+            if end is None:
+                return None
+            pieces.append(s[pos:end])
+            more = re.match(r"\s*\+\s*\[", s[end:])
+            if not more:
+                break
+            pos = end + more.end() - 1
         try:
-            out[key] = ast.literal_eval(m.group(1))
+            values = [ast.literal_eval(piece) for piece in pieces]
         except Exception:
             return None
+        out[key] = [item for value in values for item in value]
     return out
 
 
@@ -160,7 +198,9 @@ def _validate_plan(plan: Any, n_workers: int) -> Optional[str]:
     return None
 
 
-def _parse_plan(text: str, n_workers: int):
+def _parse_plan(
+    text: str, n_workers: int
+) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
     s = _strip_fences(text)
     for candidate in (_try_json(s), _try_literal(s)):
         if candidate is None:

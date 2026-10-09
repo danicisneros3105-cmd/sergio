@@ -1,0 +1,127 @@
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Language: en\n"
+"Project-Id-Version: sergio\n"
+
+# Sergio's Spanish-first commands, in English
+
+#: help
+msgid "Encuentra la causa de un error (ejecuta el comando o lee la traza)."
+msgstr "Find the cause of an error (runs the command or reads the traceback)."
+
+#: help
+msgid "Archivo con la traza."
+msgstr "File with the traceback."
+
+#: help
+msgid "Documentación desfasada respecto al código (y docstrings que faltan)."
+msgstr "Documentation that drifted from the code (and missing docstrings)."
+
+#: help
+msgid "Escribir docstrings que faltan."
+msgstr "Write the missing docstrings."
+
+#: help
+msgid "Ejecuta un archivo en su lenguaje (Python, JS, TS, Go, Rust, C, C++, Java…)."
+msgstr "Run a file in its language (Python, JS, TS, Go, Rust, C, C++, Java…)."
+
+#: help
+msgid "Responde sobre un texto enorme (libros, registros, código) con citas."
+msgstr "Answer about a huge text (books, logs, code) with citations."
+
+#: help
+msgid "Leer todo el texto, no solo lo relevante."
+msgstr "Read the whole text, not only the relevant parts."
+
+#: help
+msgid "Perfila un script y muestra dónde se va el tiempo."
+msgstr "Profile a script and show where the time goes."
+
+#: help
+msgid "Renombra un símbolo en todo el proyecto, o no cambia nada."
+msgstr "Rename a symbol across the project, or change nothing."
+
+#: help
+msgid "Comando de pruebas; si falla, se deshace todo."
+msgstr "Test command; if it fails, everything is undone."
+
+#: help
+msgid "Revisión de código: errores reales, por gravedad."
+msgstr "Code review: real bugs, by severity."
+
+#: help
+msgid "Contra qué revisión comparar."
+msgstr "Revision to compare against."
+
+#: help
+msgid "Escribe primero las pruebas, luego el código, y repite hasta que pasen."
+msgstr "Write the tests first, then the code, and repeat until they pass."
+
+#: help
+msgid "Dónde guardar el código."
+msgstr "Where to save the code."
+
+#: help
+msgid "Traduce a otro lenguaje y comprueba que imprime lo mismo."
+msgstr "Translate to another language and check it prints the same."
+
+#: help
+msgid "Lenguaje de destino."
+msgstr "Target language."
+
+#: help
+msgid "Entradas de prueba (stdin)."
+msgstr "Test inputs (stdin)."
+
+#: help
+msgid "Pensar a fondo: reflexión, árbol de ideas, votación, causas, qué-pasaría-si."
+msgstr "Think deeply: reflection, tree of thoughts, voting, causes, what-ifs."
+
+#: help
+msgid "Qué ha aprendido: mejores estrategias, calibración y niveles de práctica."
+msgstr "What it has learned: best strategies, calibration and practice levels."
+
+#: help
+msgid "Mejora sus propias instrucciones de razonamiento con problemas de prueba."
+msgstr "Improve its own reasoning instructions with test problems."
+
+#: help
+msgid "Auto-práctica con problemas que se comprueban solos; sube o baja el nivel."
+msgstr "Self-practice with self-checking problems; the level goes up or down."
+
+#: help
+msgid "Responde pensando a fondo y dice qué tan seguro está."
+msgstr "Answer after deep thinking and say how sure it is."
+
+#: help
+msgid "Cómo pensar (auto elige según lo aprendido)."
+msgstr "How to think (auto picks from what it learned)."
+
+#: help
+msgid "Prueba de verdad: cerebro, voz, oído, pantalla, cámara, caras, globo, manos."
+msgstr "Real end-to-end test: brain, voice, hearing, screen, camera, faces, globe, hands."
+
+#: help
+msgid "No mover el mouse ni abrir apps."
+msgstr "Do not move the mouse or open apps."
+
+#: help
+msgid "Programar: TDD, depurar, revisar, documentar, optimizar, 12 lenguajes, refactor seguro."
+msgstr "Coding: TDD, debugging, review, docs, optimizing, 12 languages, safe refactors."
+
+#: help
+msgid "Markdown a comprobar."
+msgstr "Markdown to check."
+
+#: help
+msgid "Solo comprobaciones exactas."
+msgstr "Exact checks only."
+
+#: help
+msgid "Problemas por tema y ronda."
+msgstr "Problems per topic and round."
+
+#: help
+msgid "Salida JSON."
+msgstr "JSON output."

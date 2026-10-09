@@ -195,27 +195,10 @@ def ensure_registries_populated() -> None:
         except Exception:
             pass
 
-    if not ChannelRegistry.keys():
-        for module_name in list(sys.modules):
-            if module_name.startswith(
-                "openjarvis.channels."
-            ) and not module_name.endswith("_stubs"):
-                try:
-                    importlib.reload(sys.modules[module_name])
-                except Exception:
-                    pass
-
-    if not ToolRegistry.keys():
-        for module_name in list(sys.modules):
-            if (
-                module_name.startswith("openjarvis.tools.")
-                and not module_name.endswith("_stubs")
-                and not module_name.endswith("agent_tools")
-            ):
-                try:
-                    importlib.reload(sys.modules[module_name])
-                except Exception:
-                    pass
+    # Tests clear the registries between cases; modules already imported do
+    # not register again, so put back whatever OpenJarvis registered before.
+    ChannelRegistry.restore_builtin()
+    ToolRegistry.restore_builtin()
 
     if not any(ToolRegistry.contains(name) for name in BROWSER_SUB_TOOLS):
         for module_name in browser_modules:

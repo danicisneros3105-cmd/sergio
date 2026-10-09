@@ -263,6 +263,13 @@ def main() -> None:
                 except (AttributeError, OSError):
                     pass
     try:
+        from openjarvis.i18n import activate
+
+        # Spanish for `sergio`, English for `jarvis` (SERGIO_LANG overrides).
+        activate(cli)
+    except Exception:  # noqa: BLE001 — never let translation stop the CLI
+        pass
+    try:
         cli()
     except Exception as exc:  # noqa: BLE001 — last resort: one clear line, not a traceback
         import os

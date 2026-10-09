@@ -43,15 +43,11 @@ def _knowledge_sources(connector_id: str, connector: Any = None) -> tuple[str, .
 def _ensure_connectors_registered() -> None:
     """Ensure ConnectorRegistry is populated.
 
-    If the registry has been cleared (e.g. by test fixtures) but connector
-    modules are already cached in sys.modules, register their classes again
-    from the loaded modules. Reloading the modules instead (the old way)
-    replaced every module-level function, silently undoing anyone's patch
-    or reference to it.
+    If the registry has been cleared (e.g. by test fixtures) while connector
+    modules stay imported, put their entries back from the registry's own
+    record. Reloading the modules instead (the old way) replaced every
+    module-level function, silently undoing anyone's patch or reference.
     """
-    import inspect
-    import sys
-
     from openjarvis.core.registry import ConnectorRegistry
 
     # First, try a normal import (works if modules haven't been imported yet).
@@ -60,24 +56,7 @@ def _ensure_connectors_registered() -> None:
     except Exception:
         pass
 
-    if not ConnectorRegistry.keys():
-        try:
-            from openjarvis.connectors._stubs import BaseConnector
-        except Exception:
-            return
-        for mod_name, module in list(sys.modules.items()):
-            if not mod_name.startswith("openjarvis.connectors.") or module is None:
-                continue
-            for _, obj in inspect.getmembers(module, inspect.isclass):
-                key = getattr(obj, "connector_id", None)
-                if (
-                    obj.__module__ == mod_name
-                    and issubclass(obj, BaseConnector)
-                    and isinstance(key, str)
-                    and key
-                    and not ConnectorRegistry.contains(key)
-                ):
-                    ConnectorRegistry.register_value(key, obj)
+    ConnectorRegistry.restore_builtin()
 
 
 # ---------------------------------------------------------------------------
