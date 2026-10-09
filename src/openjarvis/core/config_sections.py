@@ -253,6 +253,26 @@ class CoworkConfig:
 
 
 @dataclass(slots=True)
+class BackupConfig:
+    """Encrypted backups of ~/.openjarvis (``sergio respaldo``)."""
+
+    # A folder, s3://bucket/prefix?endpoint=…&region=… (S3, Backblaze B2,
+    # R2, Wasabi, MinIO) or sftp://user@host/path. Empty = not configured.
+    target: str = ""
+    keep_full: int = 4  # complete chains kept on the target
+    with_secrets: bool = True  # include sergio.env and connector tokens
+
+
+@dataclass(slots=True)
+class SyncConfig:
+    """Zero-knowledge sync of memory, skills and notes between devices."""
+
+    target: str = ""  # same kinds of target as backup (a different prefix)
+    with_secrets: bool = False  # also sync sergio.env (API keys)
+    interval_minutes: int = 0  # 0 = only when you run `sergio sync ahora`
+
+
+@dataclass(slots=True)
 class ExtensionsConfig:
     """Bundled extensions that run next to OpenJarvis as one product."""
 
@@ -512,6 +532,7 @@ __all__ = [
     "BrowserConfig",
     "ClackyExtensionConfig",
     "CompressionConfig",
+    "BackupConfig",
     "CoworkConfig",
     "DigestConfig",
     "DigestSectionConfig",
@@ -528,6 +549,7 @@ __all__ = [
     "ServerConfig",
     "SessionConfig",
     "SkillsConfig",
+    "SyncConfig",
     "SkillSourceConfig",
     "SpeechConfig",
     "StorageConfig",

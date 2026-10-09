@@ -219,3 +219,48 @@ msgstr "Pack a plugin folder into a .zip with its SHA-256."
 
 msgid "Carpeta del .zip."
 msgstr "Folder for the .zip."
+
+msgid "Copias de seguridad cifradas (carpeta, S3/B2 o SFTP)."
+msgstr "Encrypted backups (folder, S3/B2 or SFTP)."
+
+msgid "Elige dónde guardar las copias y comprueba que funciona."
+msgstr "Choose where backups go and check that it works."
+
+msgid "Copia completa aunque haya una anterior."
+msgstr "Full backup even if there is an earlier one."
+
+msgid "No incluye sergio.env ni tokens."
+msgstr "Leave out sergio.env and tokens."
+
+msgid "Hace una copia cifrada ahora (incremental si ya hay una)."
+msgstr "Make an encrypted backup now (incremental if there is one already)."
+
+msgid "Las copias que hay en el destino."
+msgstr "The backups on the target."
+
+msgid "Carpeta donde restaurar."
+msgstr "Folder to restore into."
+
+msgid "Reemplaza ~/.openjarvis (guarda la actual aparte)."
+msgstr "Replace ~/.openjarvis (the current one is kept aside)."
+
+msgid "Restaura una copia (la última si no dice cuál)."
+msgstr "Restore a backup (the latest if you don't say which)."
+
+msgid "Descifra una copia y comprueba cada archivo, sin restaurar nada."
+msgstr "Decrypt a backup and check every file, without restoring anything."
+
+msgid "Sincroniza ahora (trae lo nuevo de otros equipos y sube lo suyo)."
+msgstr "Sync now (bring what other devices changed, send what this one changed)."
+
+msgid "Elige el destino compartido y desbloquea este equipo."
+msgstr "Choose the shared target and unlock this device."
+
+msgid "Este equipo, el destino y la última sincronización."
+msgstr "This device, the target and the last sync."
+
+msgid "Este equipo olvida la clave (deja de sincronizar hasta configurarlo de nuevo)."
+msgstr "This device forgets the key (stops syncing until set up again)."
+
+msgid "Sincroniza memoria, skills y notas entre sus equipos (cifrado de extremo a extremo)."
+msgstr "Sync memory, skills and notes between your devices (end-to-end encrypted)."

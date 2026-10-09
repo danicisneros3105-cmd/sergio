@@ -78,6 +78,7 @@ from openjarvis.core.config_sections import (  # noqa: F401 (re-exported)
     AgentConfig,
     AgentManagerConfig,
     AnalyticsConfig,
+    BackupConfig,
     BrowserConfig,
     ClackyExtensionConfig,
     CompressionConfig,
@@ -100,6 +101,7 @@ from openjarvis.core.config_sections import (  # noqa: F401 (re-exported)
     SkillSourceConfig,
     SpeechConfig,
     StorageConfig,
+    SyncConfig,
     SystemPromptConfig,
     TelemetryConfig,
     ToolsConfig,
@@ -417,6 +419,8 @@ class JarvisConfig:
     phone: PhoneConfig = field(default_factory=PhoneConfig)
     tunnel: TunnelConfig = field(default_factory=TunnelConfig)
     cowork: CoworkConfig = field(default_factory=CoworkConfig)
+    backup: BackupConfig = field(default_factory=BackupConfig)
+    sync: SyncConfig = field(default_factory=SyncConfig)
     mining: Optional["MiningConfig"] = None
 
     @property
@@ -594,6 +598,8 @@ def load_config(path: Optional[Path] = None) -> JarvisConfig:
             "phone",
             "tunnel",
             "cowork",
+            "backup",
+            "sync",
         )
         for section_name in top_sections:
             if section_name in data:

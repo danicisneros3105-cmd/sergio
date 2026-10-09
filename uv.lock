@@ -5775,6 +5775,7 @@ source = { editable = "." }
 dependencies = [
     { name = "click" },
     { name = "croniter" },
+    { name = "cryptography" },
     { name = "datasets" },
     { name = "ddgs" },
     { name = "httpx" },
@@ -6047,6 +6048,7 @@ requires-dist = [
     { name = "colbert-ai", marker = "extra == 'memory-colbert'", specifier = ">=0.2" },
     { name = "croniter", specifier = ">=2.0" },
     { name = "croniter", marker = "extra == 'scheduler'", specifier = ">=2.0" },
+    { name = "cryptography", specifier = ">=43" },
     { name = "cryptography", marker = "extra == 'security-signing'", specifier = ">=43" },
     { name = "datasets", specifier = ">=4.5.0" },
     { name = "ddgs", specifier = ">=9.11.4" },

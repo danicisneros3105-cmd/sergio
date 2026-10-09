@@ -140,12 +140,14 @@ if not _DATA_BOUNDARY_BOOTSTRAP:
     from openjarvis.cli.probar_cmd import probar
     from openjarvis.cli.quickstart_cmd import quickstart
     from openjarvis.cli.registry_cmd import registry
+    from openjarvis.cli.respaldo_cmd import respaldo
     from openjarvis.cli.revisar_cmd import revisar
     from openjarvis.cli.scheduler_cmd import scheduler
     from openjarvis.cli.self_update_cmd import self_update
     from openjarvis.cli.serve import serve
     from openjarvis.cli.service_cmd import servicio
     from openjarvis.cli.skill_cmd import skill
+    from openjarvis.cli.sync_cmd import sync
     from openjarvis.cli.telemetry_cmd import telemetry
     from openjarvis.cli.tool_cmd import tool
     from openjarvis.cli.vault_cmd import vault
@@ -197,6 +199,9 @@ if not _DATA_BOUNDARY_BOOTSTRAP:
     cli.add_command(movil, "movil")
     cli.add_command(cowork, "cowork")
     cli.add_command(plugin, "plugin")
+    cli.add_command(respaldo, "respaldo")
+    cli.add_command(respaldo, "backup")
+    cli.add_command(sync, "sync")
     cli.add_command(codigo, "codigo")
     cli.add_command(nube, "nube")
     cli.add_command(tool, "tool")

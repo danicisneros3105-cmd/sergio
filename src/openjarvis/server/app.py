@@ -575,6 +575,20 @@ def create_app(
     from openjarvis.server.embeddings_routes import router as embeddings_router
 
     app.include_router(embeddings_router)
+    # Background sync between devices ([sync] interval_minutes), if set up.
+    try:
+        from openjarvis.backup.sync import start_periodic
+        from openjarvis.core.config import load_config as _load_config
+
+        _sync_stop = start_periodic(config if config is not None else _load_config())
+        if _sync_stop is not None:
+
+            @on_shutdown
+            async def _stop_sync() -> None:
+                _sync_stop.set()
+
+    except Exception as _exc:  # noqa: BLE001 - sync is optional
+        logger.debug("Periodic sync not started: %s", _exc)
     # Cowork mode: describe an outcome, step away, Sergio does the rest.
     from openjarvis.server.cowork_routes import router as cowork_router
 
