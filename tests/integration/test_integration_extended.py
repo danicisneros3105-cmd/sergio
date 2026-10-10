@@ -196,6 +196,8 @@ class TestOpenHandsPipeline:
             engine,
             "test-model",
             tools=[CodeInterpreterTool()],
+            interactive=True,
+            confirm_callback=lambda _: True,
         )
         result = agent.run("What is 2+2?")
 

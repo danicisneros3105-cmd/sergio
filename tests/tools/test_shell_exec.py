@@ -11,6 +11,7 @@ from unittest.mock import patch
 
 import pytest
 
+from openjarvis.security.process_runner import ProcessResult
 from openjarvis.tools.shell_exec import ShellExecTool
 
 
@@ -23,7 +24,7 @@ def test_registration_and_spec():
     import openjarvis.tools as tools_pkg
     from openjarvis.core.registry import ToolRegistry
 
-    sys.modules.pop("openjarvis.tools.shell_exec", None)
+    importlib.reload(importlib.import_module("openjarvis.tools.shell_exec"))
     importlib.reload(tools_pkg)
     assert ToolRegistry.contains("shell_exec")
     tool = ShellExecTool()
@@ -34,7 +35,7 @@ def test_registration_and_spec():
 
 @pytest.mark.parametrize("command", [None, "", "  ", {"command": "echo"}])
 def test_invalid_command_never_starts_process(command):
-    with patch("openjarvis.tools.shell_exec.subprocess.run") as run:
+    with patch("openjarvis.tools.shell_exec.run_bounded") as run:
         assert not ShellExecTool().execute(command=command).success
     run.assert_not_called()
 
@@ -76,8 +77,8 @@ def test_timeout_applies_even_with_native_available():
     "timeout, expected", [(999, 300), (-1, 1), ("bad", 30), (None, 30)]
 )
 def test_timeout_boundaries(timeout, expected):
-    with patch("openjarvis.tools.shell_exec.subprocess.run") as run:
-        run.return_value = subprocess.CompletedProcess("command", 0, "ok", "")
+    with patch("openjarvis.tools.shell_exec.run_bounded") as run:
+        run.return_value = ProcessResult(stdout="ok", returncode=0)
         result = ShellExecTool().execute(command="echo ok", timeout=timeout)
     assert result.success
     assert run.call_args.kwargs["timeout"] == expected
@@ -93,7 +94,7 @@ def test_working_directory_and_invalid_paths(tmp_path):
     file = tmp_path / "file.txt"
     file.write_text("data")
     for path in (file, tmp_path / "missing"):
-        with patch("openjarvis.tools.shell_exec.subprocess.run") as run:
+        with patch("openjarvis.tools.shell_exec.run_bounded") as run:
             assert (
                 not ShellExecTool()
                 .execute(command="echo", working_dir=str(path))
@@ -116,7 +117,7 @@ def test_environment_is_minimal_and_explicit_passthrough_works(monkeypatch):
 
 @pytest.mark.parametrize("names", ["PATH", [123]])
 def test_invalid_environment_names_rejected(names):
-    with patch("openjarvis.tools.shell_exec.subprocess.run") as run:
+    with patch("openjarvis.tools.shell_exec.run_bounded") as run:
         assert (
             not ShellExecTool().execute(command="echo", env_passthrough=names).success
         )
@@ -130,9 +131,19 @@ def test_large_unicode_output_is_truncated_by_bytes():
     assert "\ufffd" not in result.content
 
 
+def test_python_output_contract_is_utf8_even_on_windows():
+    result = ShellExecTool().execute(
+        command=python_command(
+            "import sys;print(sys.stdout.encoding);print('revisión profesional ✓')"
+        )
+    )
+    assert result.success and "utf-8" in result.content.lower()
+    assert "revisión profesional ✓" in result.content
+
+
 @pytest.mark.parametrize("error", [PermissionError("denied"), OSError("failed")])
 def test_spawn_errors_are_failures(error):
-    with patch("openjarvis.tools.shell_exec.subprocess.run", side_effect=error):
+    with patch("openjarvis.tools.shell_exec.run_bounded", side_effect=error):
         assert not ShellExecTool().execute(command="echo").success
 
 
@@ -140,8 +151,8 @@ def test_platform_base_environment(monkeypatch):
     from openjarvis.tools.shell_exec import _BASE_ENV_KEYS
 
     monkeypatch.setenv("SystemRoot", "C:\\Windows")
-    with patch("openjarvis.tools.shell_exec.subprocess.run") as run:
-        run.return_value = subprocess.CompletedProcess("command", 0, "", "")
+    with patch("openjarvis.tools.shell_exec.run_bounded") as run:
+        run.return_value = ProcessResult(returncode=0)
         ShellExecTool().execute(command="echo")
     assert ("SystemRoot" in run.call_args.kwargs["env"]) == (
         "SystemRoot" in _BASE_ENV_KEYS

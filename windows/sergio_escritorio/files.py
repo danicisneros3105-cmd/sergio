@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import json
 import os
-import subprocess
 import sys
 import tempfile
 import threading
@@ -22,6 +21,7 @@ from datetime import datetime
 from pathlib import Path
 
 from sergio_escritorio.media import resolve
+from sergio_escritorio.process_runner import run_bounded
 
 KINDS = {
     "Imágenes": {".jpg", ".jpeg", ".png", ".gif", ".webp", ".heic", ".bmp", ".svg"},
@@ -46,9 +46,10 @@ _FILE_LOCK = threading.RLock()
 def _save_moves(path: Path, moved: list[list[str]]) -> None:
     tmp = path.with_suffix(".tmp")
     try:
-        tmp.write_text(
-            json.dumps(moved, ensure_ascii=False, indent=1), encoding="utf-8"
-        )
+        with tmp.open("w", encoding="utf-8") as handle:
+            json.dump(moved, handle, ensure_ascii=False, indent=1)
+            handle.flush()
+            os.fsync(handle.fileno())
         tmp.replace(path)
     finally:
         tmp.unlink(missing_ok=True)
@@ -66,13 +67,23 @@ def _month(path: Path) -> str:
     return datetime.fromtimestamp(path.stat().st_mtime).strftime("%Y-%m")
 
 
-def _free(target: Path) -> Path:
+def _free(target: Path, reserved: set[str] | None = None) -> Path:
     """Never overwrite: 'foto.jpg' -> 'foto (2).jpg'."""
     candidate, n = target, 2
-    while candidate.exists():
+    while candidate.exists() or os.path.normcase(str(candidate)) in (reserved or set()):
         candidate = target.with_name(f"{target.stem} ({n}){target.suffix}")
         n += 1
     return candidate
+
+
+def _move_exclusive(source: Path, destination: Path) -> None:
+    """Reserve the destination atomically; never replace another file.
+
+    Both files are on the same filesystem. Failure leaves a recoverable log;
+    a crash between link and unlink leaves both names for undo to reconcile.
+    """
+    os.link(source, destination, follow_symlinks=False)
+    source.unlink()
 
 
 def organize(
@@ -87,7 +98,9 @@ def _organize(folder: str, by: str, apply: bool, home: Path | None) -> dict:
     if not root.is_dir():
         raise ValueError(f"No encontré la carpeta {folder!r}.")
     files = [
-        p for p in sorted(root.iterdir()) if p.is_file() and not p.name.startswith(".")
+        p
+        for p in sorted(root.iterdir())
+        if p.is_file() and not p.is_symlink() and not p.name.startswith(".")
     ]
     files = [p for p in files if p.suffix.lower() not in {".lnk", ".ini"}][:MAX_FILES]
     group = _month if by == "month" else _kind
@@ -108,15 +121,18 @@ def _organize(folder: str, by: str, apply: bool, home: Path | None) -> dict:
         f"orden-{time.strftime('%Y%m%d-%H%M%S')}-{time.time_ns():020d}-{uuid.uuid4().hex}.json"
     )
     moved: list[list[str]] = []
-    _save_moves(log, moved)
+    reserved: set[str] = set()
     for src, dst in plan:
+        if dst.parent.is_symlink():
+            raise ValueError("La carpeta de destino no puede ser un enlace simbólico.")
         dst.parent.mkdir(exist_ok=True)
-        final = _free(dst)
-        # Write ahead of the move: if a later move fails or the process stops,
-        # undo can still recover all completed moves without overwriting files.
+        final = _free(dst, reserved)
+        reserved.add(os.path.normcase(str(final)))
         moved.append([str(src), str(final)])
-        _save_moves(log, moved)
-        src.rename(final)
+    # One durable plan before any move: O(N), rather than rewriting N times.
+    _save_moves(log, moved)
+    for src, final in moved:
+        _move_exclusive(Path(src), Path(final))
     result.update(applied=True, undo=str(log))
     return result
 
@@ -137,10 +153,18 @@ def _undo(log: str) -> int:
     pending = []
     for original, now in reversed(moved):
         if Path(now).exists() and Path(original).exists():
+            if os.path.samefile(now, original):
+                Path(now).unlink()
+                back += 1
+                continue
             pending.append([original, now])
             continue
         if Path(now).exists() and not Path(original).exists():
-            Path(now).rename(original)
+            try:
+                _move_exclusive(Path(now), Path(original))
+            except FileExistsError:
+                pending.append([original, now])
+                continue
             back += 1
             try:
                 Path(now).parent.rmdir()  # only if it is empty now
@@ -160,31 +184,54 @@ def run_python(code: str, timeout: float = 120, workdir: str = "") -> dict:
         "w", suffix=".py", delete=False, encoding="utf-8", dir=folder, prefix="sergio-"
     ) as script:
         script.write(code)
-    flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
     python = Path(sys.executable)
-    if python.name.lower() == "pythonw.exe":  # pythonw has no stdout
+    if python.name.lower() == "pythonw.exe":
         python = python.with_name("python.exe")
     try:
-        done = subprocess.run(
+        done = run_bounded(
             [str(python), script.name],
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
             timeout=timeout,
             cwd=folder,
-            creationflags=flags,
-            check=False,
+            env=_execution_env(),
+            max_output_bytes=MAX_OUTPUT,
         )
         out, err, code_ = done.stdout, done.stderr, done.returncode
-    except subprocess.TimeoutExpired:
-        out, err, code_ = "", f"Se pasó de {timeout:g} s y lo detuve.", -1
+        if done.timed_out:
+            err += f"Se pasó de {timeout:g} s y lo detuve."
+    except (OSError, ValueError) as exc:
+        out, err, code_ = "", str(exc), -1
     return {
         "exit_code": code_,
-        "stdout": out[-MAX_OUTPUT:],
-        "stderr": err[-MAX_OUTPUT:],
+        "stdout": out,
+        "stderr": err,
         "script": script.name,
         "folder": str(folder),
+    }
+
+
+def _execution_env() -> dict[str, str]:
+    import os
+
+    keys = (
+        "PATH",
+        "HOME",
+        "USER",
+        "LANG",
+        "TERM",
+        "SystemRoot",
+        "SystemDrive",
+        "COMSPEC",
+        "PATHEXT",
+        "TEMP",
+        "TMP",
+        "USERPROFILE",
+        "LOCALAPPDATA",
+        "APPDATA",
+    )
+    return {
+        **{key: os.environ[key] for key in keys if key in os.environ},
+        "PYTHONIOENCODING": "utf-8",
+        "PYTHONUTF8": "1",
     }
 
 
@@ -210,25 +257,20 @@ def run_shell(
 ) -> dict:
     """Run a PowerShell command in the user's home and return its output."""
     folder = Path(workdir) if workdir else Path.home()
-    flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
     try:
-        done = subprocess.run(
+        done = run_bounded(
             argv or shell_command(command),
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
             timeout=timeout,
             cwd=folder,
-            creationflags=flags,
-            check=False,
+            env=_execution_env(),
+            max_output_bytes=MAX_OUTPUT,
         )
         out, err, code = done.stdout, done.stderr, done.returncode
-    except subprocess.TimeoutExpired:
-        out, err, code = "", f"Se pasó de {timeout:g} s y lo detuve.", -1
-    except OSError as exc:
+        if done.timed_out:
+            err += f"Se pasó de {timeout:g} s y lo detuve."
+    except (OSError, ValueError) as exc:
         out, err, code = "", str(exc), -1
-    return {"exit_code": code, "stdout": out[-MAX_OUTPUT:], "stderr": err[-MAX_OUTPUT:]}
+    return {"exit_code": code, "stdout": out, "stderr": err}
 
 
 __all__ = ["KINDS", "organize", "run_python", "run_shell", "shell_command", "undo"]

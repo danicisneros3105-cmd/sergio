@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import os
-import subprocess
 from pathlib import Path
 from typing import Any, List
 
 from openjarvis.core.registry import ToolRegistry
 from openjarvis.core.types import ToolResult
+from openjarvis.security.process_runner import run_bounded
 from openjarvis.tools._stubs import BaseTool, ToolSpec
 
 # Maximum output size per stream (100 KB)
@@ -93,7 +93,7 @@ class ShellExecTool(BaseTool):
             },
             category="system",
             requires_confirmation=True,
-            timeout_seconds=60.0,
+            timeout_seconds=float(_MAX_TIMEOUT + 15),
             required_capabilities=["code:execute"],
         )
 
@@ -120,6 +120,12 @@ class ShellExecTool(BaseTool):
         # Validate working_dir
         working_dir = params.get("working_dir")
         if working_dir is not None:
+            if not isinstance(working_dir, (str, os.PathLike)):
+                return ToolResult(
+                    tool_name="shell_exec",
+                    content="Invalid working_dir.",
+                    success=False,
+                )
             wd_path = Path(working_dir)
             if not wd_path.exists():
                 return ToolResult(
@@ -141,6 +147,8 @@ class ShellExecTool(BaseTool):
             if val is not None:
                 env[key] = val
 
+        env["PYTHONIOENCODING"] = "utf-8"
+        env["PYTHONUTF8"] = "1"
         env_passthrough: List[str] = params.get("env_passthrough") or []
         if not isinstance(env_passthrough, (list, tuple)) or any(
             not isinstance(key, str) for key in env_passthrough
@@ -155,23 +163,41 @@ class ShellExecTool(BaseTool):
             if val is not None:
                 env[key] = val
 
-        # The native binding exposes only content: it cannot carry the timeout,
-        # minimal environment, or failure status. Use the constrained subprocess
-        # path until the native API can uphold the same contract.
-        try:
-            result = subprocess.run(
-                command,
-                # This tool executes shell commands after its confirmation gate.
-                shell=True,  # nosec B602
-                capture_output=True,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-                timeout=timeout,
-                cwd=working_dir,
-                env=env,
+        mode = os.environ.get("SERGIO_EXECUTION_MODE", "local")
+        if mode not in {"local", "container"}:
+            return ToolResult(
+                tool_name="shell_exec", content="Unknown execution mode.", success=False
             )
-        except subprocess.TimeoutExpired:
+        try:
+            if mode == "container":
+                from openjarvis.security.project_execution import run_in_project
+
+                if env_passthrough:
+                    return ToolResult(
+                        tool_name="shell_exec",
+                        content="Host environment passthrough is disabled in container mode.",
+                        success=False,
+                    )
+                result = run_in_project(
+                    command, timeout=timeout, working_dir=working_dir
+                )
+            else:
+                result = run_bounded(
+                    command,
+                    shell=True,
+                    timeout=timeout,
+                    cwd=working_dir,
+                    env=env,
+                    max_output_bytes=_MAX_OUTPUT_BYTES,
+                )
+        except (OSError, ValueError, RuntimeError) as exc:
+            return ToolResult(
+                tool_name="shell_exec", content=f"Execution error: {exc}", success=False
+            )
+        stdout, stderr = result.stdout, result.stderr
+        if result.truncated:
+            stdout += "\n... (output truncated)"
+        if result.timed_out:
             return ToolResult(
                 tool_name="shell_exec",
                 content=f"Command timed out after {timeout} seconds.",
@@ -180,34 +206,9 @@ class ShellExecTool(BaseTool):
                     "returncode": -1,
                     "timeout_used": timeout,
                     "working_dir": working_dir,
+                    "execution_mode": mode,
                 },
             )
-        except PermissionError as exc:
-            return ToolResult(
-                tool_name="shell_exec",
-                content=f"Permission denied: {exc}",
-                success=False,
-            )
-        except OSError as exc:
-            return ToolResult(
-                tool_name="shell_exec",
-                content=f"OS error: {exc}",
-                success=False,
-            )
-
-        # Truncate output if needed
-        stdout = result.stdout
-        stderr = result.stderr
-        if len(stdout.encode("utf-8")) > _MAX_OUTPUT_BYTES:
-            stdout = stdout.encode("utf-8")[:_MAX_OUTPUT_BYTES].decode(
-                "utf-8", errors="ignore"
-            )
-            stdout += "\n... (stdout truncated)"
-        if len(stderr.encode("utf-8")) > _MAX_OUTPUT_BYTES:
-            stderr = stderr.encode("utf-8")[:_MAX_OUTPUT_BYTES].decode(
-                "utf-8", errors="ignore"
-            )
-            stderr += "\n... (stderr truncated)"
 
         # Format output
         sections: list[str] = []
@@ -225,6 +226,8 @@ class ShellExecTool(BaseTool):
                 "returncode": result.returncode,
                 "timeout_used": timeout,
                 "working_dir": working_dir,
+                "execution_mode": mode,
+                "output_truncated": result.truncated,
             },
         )
 

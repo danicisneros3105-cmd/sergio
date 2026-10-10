@@ -179,6 +179,7 @@ class Controller:
         camera: Callable[[], bytes] | None = None,
         diag: Callable[[], dict] | None = None,
         approve: Callable[[str], bool] | None = None,
+        strict_permissions: bool = True,
     ) -> None:
         self.backend = backend
         self.camera = camera  # returns a JPEG of the webcam, or None
@@ -199,6 +200,7 @@ class Controller:
         self.on_task: Callable[[str, dict], str] = lambda _k, _a: "operator unavailable"
         self.enabled = True
         self.approve = approve
+        self.strict_permissions = strict_permissions
         self._elements: dict[int, tuple[int, int]] = {}
         self._lock = threading.Lock()
         self._on_activity = on_activity or (lambda _msg: None)
@@ -317,6 +319,18 @@ class Controller:
             raise ActionError(
                 f"Unknown action {kind!r}. Use one of: {', '.join(ACTIONS)}"
             )
+        # In professional mode every mutation is approved at this boundary.
+        # Preview and pointing do not change user data; lookups use GET routes.
+        strict_confirmed = self.strict_permissions and kind not in {
+            "wait",
+            "move",
+            "scroll",
+            "point",
+        }
+        if kind == "organize" and not action.get("apply"):
+            strict_confirmed = False
+        if strict_confirmed:
+            self._confirm(action)
         b = self.backend
         before = self._front() if kind in self.SETTLE else ""
         if kind in ("click", "double_click", "right_click", "move"):
@@ -410,7 +424,8 @@ class Controller:
             script = str(action.get("script") or "")
             if not script.strip() or len(script) > 60_000:
                 raise ActionError("'script' is Blender Python (bpy) code.")
-            self._confirm(action)
+            if not strict_confirmed:
+                self._confirm(action)
             if action.get("hands"):  # shape it with your hands first: holograms
                 self.on_hands("holo")
             result = "Blender opened with script " + b.blender(script)
@@ -419,7 +434,7 @@ class Controller:
             if not folder:
                 raise ActionError("'target' is the folder to organise.")
             by = "month" if action.get("by") == "month" else "type"
-            if action.get("apply"):
+            if action.get("apply") and not strict_confirmed:
                 self._confirm(action)
             plan = b.organize(folder, by, bool(action.get("apply")))
             groups = ", ".join(f"{k}: {v}" for k, v in plan["groups"].items())
@@ -434,7 +449,8 @@ class Controller:
             if not code.strip() or len(code) > 60_000:
                 raise ActionError("'code' is the Python program to run.")
             timeout = min(max(float(action.get("seconds") or 120), 5), 900)
-            self._confirm(action)
+            if not strict_confirmed:
+                self._confirm(action)
             ran = b.python(code, timeout)
             result = (
                 f"exit code {ran['exit_code']} (script {ran['script']})\n"
@@ -463,7 +479,8 @@ class Controller:
             if not command.strip() or len(command) > 20_000:
                 raise ActionError("'command' is the PowerShell command to run.")
             timeout = min(max(float(action.get("seconds") or 120), 5), 900)
-            self._confirm(action)
+            if not strict_confirmed:
+                self._confirm(action)
             ran = b.shell(command, timeout)
             result = (
                 f"exit code {ran['exit_code']}\n"
@@ -564,13 +581,25 @@ def make_server(
             except Exception as exc:  # noqa: BLE001
                 self._send(500, {"ok": False, "error": str(exc)})
 
+        def _read_json(self, limit: int) -> dict:
+            try:
+                length = int(self.headers.get("Content-Length") or 0)
+            except ValueError as exc:
+                raise ActionError("Invalid Content-Length") from exc
+            if length < 0 or length > limit:
+                raise ActionError("Request body is too large")
+            self.connection.settimeout(15)
+            body = json.loads(self.rfile.read(length) or b"{}")
+            if not isinstance(body, dict):
+                raise ActionError("Send a JSON object")
+            return body
+
         def do_POST(self) -> None:  # noqa: N802
             if not self._authorised():
                 return
             if self.path == "/selftest":
                 try:
-                    length = min(int(self.headers.get("Content-Length") or 0), 4_000)
-                    body = json.loads(self.rfile.read(length) or b"{}")
+                    body = self._read_json(4_000)
                     test = controller.selftest
                     if test is None:
                         self._send(404, {"ok": False, "error": "no self-test"})
@@ -581,8 +610,7 @@ def make_server(
                 return
             if self.path == "/skill":
                 try:
-                    length = min(int(self.headers.get("Content-Length") or 0), 16_000)
-                    body = json.loads(self.rfile.read(length) or b"{}")
+                    body = self._read_json(16_000)
                     skill = controller.skills.get(str(body.get("name") or ""))
                     if skill is None:
                         self._send(404, {"ok": False, "error": "unknown skill"})
@@ -592,6 +620,17 @@ def make_server(
                             if isinstance(body.get("args"), dict)
                             else {}
                         )
+                        if (
+                            controller.strict_permissions
+                            and body.get("name") != "owner_approval"
+                        ):
+                            controller._confirm(
+                                {
+                                    "action": "skill",
+                                    "name": body.get("name"),
+                                    "args": args,
+                                }
+                            )
                         self._send(200, {"ok": True, "result": skill(args)})
                 except PermissionError as exc:
                     self._send(423, {"ok": False, "error": str(exc)})
@@ -602,8 +641,7 @@ def make_server(
                 self._send(404, {"ok": False, "error": "not found"})
                 return
             try:
-                length = min(int(self.headers.get("Content-Length") or 0), 128_000)
-                action = json.loads(self.rfile.read(length) or b"{}")
+                action = self._read_json(128_000)
                 if not isinstance(action, dict):
                     raise ActionError("Send a JSON object.")
                 self._send(200, {"ok": True, "result": controller.act(action)})

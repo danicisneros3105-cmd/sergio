@@ -1,19 +1,7 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef, lazy, Suspense } from 'react';
 import { Routes, Route } from 'react-router';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { Layout } from './components/Layout';
-import { ChatPage } from './pages/ChatPage';
-import { DashboardPage } from './pages/DashboardPage';
-import { SettingsPage } from './pages/SettingsPage';
-import { GetStartedPage } from './pages/GetStartedPage';
-import { AgentsPage } from './pages/AgentsPage';
-import { DataSourcesPage } from './pages/DataSourcesPage';
-import { LogsPage } from './pages/LogsPage';
-import { ExtensionPage } from './pages/ExtensionPage';
-import { FacesPage } from './pages/FacesPage';
-import { ThinkPage } from './pages/ThinkPage';
-import { HealthPage } from './pages/HealthPage';
-import { ProfilePage } from './pages/ProfilePage';
-import { CoworkPage } from './pages/CoworkPage';
 import { CommandPalette } from './components/CommandPalette';
 import { SetupScreen } from './components/SetupScreen';
 import { Toaster } from './components/ui/sonner';
@@ -21,6 +9,20 @@ import { useAppStore } from './lib/store';
 import { fetchModels, fetchServerInfo, fetchSavings, submitSavings, isTauri } from './lib/api';
 import { UpdateChecker } from './components/Desktop/UpdateChecker';
 import { track, hashId } from './lib/analytics';
+
+const ChatPage = lazy(() => import('./pages/ChatPage').then((module) => ({ default: module.ChatPage })));
+const DashboardPage = lazy(() => import('./pages/DashboardPage').then((module) => ({ default: module.DashboardPage })));
+const SettingsPage = lazy(() => import('./pages/SettingsPage').then((module) => ({ default: module.SettingsPage })));
+const GetStartedPage = lazy(() => import('./pages/GetStartedPage').then((module) => ({ default: module.GetStartedPage })));
+const AgentsPage = lazy(() => import('./pages/AgentsPage').then((module) => ({ default: module.AgentsPage })));
+const DataSourcesPage = lazy(() => import('./pages/DataSourcesPage').then((module) => ({ default: module.DataSourcesPage })));
+const LogsPage = lazy(() => import('./pages/LogsPage').then((module) => ({ default: module.LogsPage })));
+const ExtensionPage = lazy(() => import('./pages/ExtensionPage').then((module) => ({ default: module.ExtensionPage })));
+const FacesPage = lazy(() => import('./pages/FacesPage').then((module) => ({ default: module.FacesPage })));
+const ThinkPage = lazy(() => import('./pages/ThinkPage').then((module) => ({ default: module.ThinkPage })));
+const HealthPage = lazy(() => import('./pages/HealthPage').then((module) => ({ default: module.HealthPage })));
+const ProfilePage = lazy(() => import('./pages/ProfilePage').then((module) => ({ default: module.ProfilePage })));
+const CoworkPage = lazy(() => import('./pages/CoworkPage').then((module) => ({ default: module.CoworkPage })));
 
 export default function App() {
   const [setupDone, setSetupDone] = useState(!isTauri());
@@ -174,6 +176,8 @@ export default function App() {
   return (
     <>
       <UpdateChecker />
+      <ErrorBoundary>
+      <Suspense fallback={<div role="status" aria-live="polite" className="p-6">Cargando espacio de trabajo…</div>}>
       <Routes>
         <Route element={<Layout />}>
           <Route index element={<ChatPage />} />
@@ -191,6 +195,8 @@ export default function App() {
           <Route path="perfil" element={<ProfilePage />} />
         </Route>
       </Routes>
+      </Suspense>
+      </ErrorBoundary>
       <Toaster position="bottom-right" />
       {commandPaletteOpen && <CommandPalette />}
     </>

@@ -5,7 +5,6 @@ from __future__ import annotations
 import logging
 import os
 import signal
-import subprocess
 from dataclasses import dataclass
 from typing import Dict, List, Optional
 
@@ -62,7 +61,8 @@ def build_safe_env(
 def kill_process_tree(pid: int) -> None:
     """Kill a process and all its children (best effort)."""
     try:
-        os.killpg(os.getpgid(pid), signal.SIGTERM)
+        if os.getpgid(pid) == pid:
+            os.killpg(pid, signal.SIGKILL)
     except (OSError, ProcessLookupError) as exc:
         logger.debug("Failed to terminate process %d: %s", pid, exc)
     try:
@@ -91,37 +91,26 @@ def run_sandboxed(
     env = build_safe_env(passthrough=env_passthrough, extra=env_extra)
     cwd = working_dir if working_dir and os.path.isdir(working_dir) else None
 
-    result = SandboxResult()
-    try:
-        proc = subprocess.Popen(
-            command,
-            # This API explicitly runs caller-provided shell commands.
-            shell=True,  # nosec B602
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            env=env,
-            cwd=cwd,
-            preexec_fn=os.setsid,  # New process group
-        )
-        try:
-            stdout, stderr = proc.communicate(timeout=timeout)
-            result.stdout = stdout[:max_output_bytes] if stdout else ""
-            result.stderr = stderr[:max_output_bytes] if stderr else ""
-            result.returncode = proc.returncode
-        except subprocess.TimeoutExpired:
-            kill_process_tree(proc.pid)
-            proc.wait(timeout=5)
-            result.timed_out = True
-            result.killed = True
-            result.returncode = -1
-            result.stdout = "(timed out)"
-            result.stderr = ""
-    except OSError as exc:
-        result.stderr = f"Execution error: {exc}"
-        result.returncode = -1
+    from openjarvis.security.process_runner import run_bounded
 
-    return result
+    try:
+        captured = run_bounded(
+            command,
+            shell=True,
+            timeout=timeout,
+            cwd=cwd,
+            env=env,
+            max_output_bytes=max_output_bytes,
+        )
+    except (OSError, ValueError) as exc:
+        return SandboxResult(stderr=f"Execution error: {exc}")
+    return SandboxResult(
+        stdout=captured.stdout,
+        stderr=captured.stderr,
+        returncode=captured.returncode,
+        timed_out=captured.timed_out,
+        killed=captured.timed_out,
+    )
 
 
 __all__ = ["SandboxResult", "build_safe_env", "kill_process_tree", "run_sandboxed"]

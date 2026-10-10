@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import ast
 import os
+import shlex
 import subprocess
 import sys
 from typing import Any
@@ -147,11 +148,50 @@ class CodeInterpreterTool(BaseTool):
                 "required": ["code"],
             },
             category="code",
+            requires_confirmation=True,
+            required_capabilities=["code:execute"],
             metadata={"structured_allow_object_text": True},
         )
 
     def execute(self, **params: Any) -> ToolResult:
         code = params.get("code", "")
+        mode = os.environ.get("SERGIO_EXECUTION_MODE", "local")
+        if mode == "container":
+            from openjarvis.security.project_execution import run_in_project
+
+            if not isinstance(code, str) or not code.strip():
+                return ToolResult(
+                    tool_name="code_interpreter",
+                    content="No code provided.",
+                    success=False,
+                )
+            try:
+                result = run_in_project(
+                    shlex.join(["python", "-I", "-B", "-S", "-c", code]),
+                    timeout=self._timeout,
+                    working_dir=None,
+                )
+                output = (result.stdout + "\n" + result.stderr).strip()
+                if result.timed_out:
+                    output = "Container execution timed out."
+                if len(output) > self._max_output:
+                    output = output[: self._max_output] + "\n... (output truncated)"
+                return ToolResult(
+                    tool_name="code_interpreter",
+                    content=output or "(no output)",
+                    success=result.returncode == 0 and not result.timed_out,
+                    metadata={"returncode": result.returncode, "execution_mode": mode},
+                )
+            except (OSError, ValueError, RuntimeError) as exc:
+                return ToolResult(
+                    tool_name="code_interpreter", content=str(exc), success=False
+                )
+        if mode != "local":
+            return ToolResult(
+                tool_name="code_interpreter",
+                content="Unknown execution mode.",
+                success=False,
+            )
         if not code:
             return ToolResult(
                 tool_name="code_interpreter",

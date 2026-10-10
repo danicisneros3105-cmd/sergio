@@ -42,14 +42,14 @@ def test_partial_move_failure_is_recoverable(tmp_path, monkeypatch):
     folder.mkdir()
     for name in ("a.txt", "b.txt"):
         (folder / name).write_text(name)
-    rename = Path.rename
+    move = files._move_exclusive
 
     def fail_second(self, target):
         if self == folder / "b.txt":
             raise OSError("disk failure")
-        return rename(self, target)
+        return move(self, target)
 
-    monkeypatch.setattr(Path, "rename", fail_second)
+    monkeypatch.setattr(files, "_move_exclusive", fail_second)
     with pytest.raises(OSError, match="disk failure"):
         files.organize(str(folder), apply=True)
     assert files.undo() == 1

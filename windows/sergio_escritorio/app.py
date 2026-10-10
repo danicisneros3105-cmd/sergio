@@ -321,6 +321,7 @@ def run(config: dict[str, Any]) -> None:
         on_activity=on_activity,
         camera=camera_shot,
         approve=confirm_sensitive_action,
+        strict_permissions=config.get("strict_permissions", True) is not False,
     )
     server = make_server(controller, config["token"], int(config["port"]))
     threading.Thread(target=server.serve_forever, daemon=True).start()

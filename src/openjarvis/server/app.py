@@ -617,6 +617,10 @@ def create_app(
     # Restore SendBlue channel bindings from database on startup
     _restore_sendblue_bindings(app)
 
+    from openjarvis.server.upload_limits import UploadLimitsMiddleware
+
+    app.add_middleware(UploadLimitsMiddleware)
+
     # Add security headers middleware
     try:
         from openjarvis.server.middleware import create_security_middleware

@@ -95,7 +95,7 @@ async def test_slow_parser_does_not_block_event_loop(monkeypatch):
         assert release.wait(3)
         return "content"
 
-    monkeypatch.setattr(uploads, "_parse_upload", slow_parse)
+    monkeypatch.setattr(uploads, "_parse_upload_bounded", slow_parse)
     monkeypatch.setattr(uploads, "_store_documents", lambda docs: len(docs))
     task = asyncio.create_task(
         uploads.ingest_files(

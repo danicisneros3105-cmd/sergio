@@ -48,6 +48,19 @@ class _DesktopTool(BaseTool):
         return self._http
 
     def _call(self, method: str, path: str, **kwargs: Any) -> dict:
+        if (
+            os.environ.get("SERGIO_EXECUTION_MODE", "local") == "container"
+            and method != "GET"
+        ):
+            owner_consent = (
+                path == "/skill"
+                and kwargs.get("json", {}).get("name") == "owner_approval"
+            )
+            if not owner_consent:
+                raise RuntimeError(
+                    "Desktop mutations are disabled in project container mode. "
+                    "Use shell_exec or code_interpreter inside the configured project."
+                )
         url, headers = _endpoint()
         if not headers["Authorization"].removeprefix("Bearer "):
             raise RuntimeError(_SETUP_HINT)
