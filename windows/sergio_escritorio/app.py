@@ -296,10 +296,31 @@ def run(config: dict[str, Any]) -> None:
         bridge.caption.emit("Mirando por la cámara…")
         return feed.jpeg()
 
+    consent_lock = threading.Lock()
+
+    def confirm_sensitive_action(request: str) -> bool:
+        from sergio_escritorio.consent import confirm_dialog
+
+        if not consent_lock.acquire(blocking=False):
+            return False
+        deadline = time.monotonic() + 35.0
+        try:
+            def ask() -> bool:
+                remaining = deadline - time.monotonic()
+                return remaining > 0 and confirm_dialog(request, seconds=min(30.0, remaining))
+
+            return on_ui(ask, timeout=36.0) is True
+        except Exception:
+            logging.exception("No se pudo solicitar autorización")
+            return False
+        finally:
+            consent_lock.release()
+
     controller = Controller(
         WindowsBackend(speed=str(config.get("control_speed") or "rapido")),
         on_activity=on_activity,
         camera=camera_shot,
+        approve=confirm_sensitive_action,
     )
     server = make_server(controller, config["token"], int(config["port"]))
     threading.Thread(target=server.serve_forever, daemon=True).start()
@@ -3139,7 +3160,9 @@ def run(config: dict[str, Any]) -> None:
     assistant.who_spoke = who_spoke
 
     def owner_approves(request: str, seconds: float = 10.0) -> bool:
-        """The checkpoint: the owner's face must be seen (strong match)."""
+        """Consent to the displayed action, then verify the owner's identity."""
+        if not confirm_sensitive_action(request):
+            return False
         bridge.caption.emit("Señor: mire a la cámara para aprobarlo")
         deadline = time.time() + seconds
         while time.time() < deadline:
@@ -3155,6 +3178,11 @@ def run(config: dict[str, Any]) -> None:
         return False
 
     assistant.approve = owner_approves
+    def owner_approval(args: dict) -> dict:
+        what = str(args.get("what") or "").strip()
+        return {"what": what, "approved": bool(what) and owner_approves(what)}
+
+    controller.skills["owner_approval"] = owner_approval
     controller.skills["voice_enroll"] = lambda args: voice_enroll(str(args.get("name") or ""))
     controller.skills["voice_who"] = lambda _args: voice_who()
 

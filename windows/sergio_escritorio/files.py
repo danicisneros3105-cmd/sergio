@@ -15,7 +15,9 @@ import os
 import subprocess
 import sys
 import tempfile
+import threading
 import time
+import uuid
 from datetime import datetime
 from pathlib import Path
 
@@ -38,6 +40,18 @@ UNDO_DIR = (
 )
 MAX_FILES = 5000
 MAX_OUTPUT = 6000
+_FILE_LOCK = threading.RLock()
+
+
+def _save_moves(path: Path, moved: list[list[str]]) -> None:
+    tmp = path.with_suffix(".tmp")
+    try:
+        tmp.write_text(
+            json.dumps(moved, ensure_ascii=False, indent=1), encoding="utf-8"
+        )
+        tmp.replace(path)
+    finally:
+        tmp.unlink(missing_ok=True)
 
 
 def _kind(path: Path) -> str:
@@ -64,6 +78,11 @@ def _free(target: Path) -> Path:
 def organize(
     folder: str, by: str = "type", apply: bool = False, home: Path | None = None
 ) -> dict:
+    with _FILE_LOCK:
+        return _organize(folder, by, apply, home)
+
+
+def _organize(folder: str, by: str, apply: bool, home: Path | None) -> dict:
     root = resolve(folder, home)
     if not root.is_dir():
         raise ValueError(f"No encontré la carpeta {folder!r}.")
@@ -84,28 +103,42 @@ def organize(
     }
     if not apply or not plan:
         return result
-    moved = []
+    UNDO_DIR.mkdir(parents=True, exist_ok=True)
+    log = UNDO_DIR / (
+        f"orden-{time.strftime('%Y%m%d-%H%M%S')}-{time.time_ns():020d}-{uuid.uuid4().hex}.json"
+    )
+    moved: list[list[str]] = []
+    _save_moves(log, moved)
     for src, dst in plan:
         dst.parent.mkdir(exist_ok=True)
         final = _free(dst)
-        src.rename(final)
+        # Write ahead of the move: if a later move fails or the process stops,
+        # undo can still recover all completed moves without overwriting files.
         moved.append([str(src), str(final)])
-    UNDO_DIR.mkdir(parents=True, exist_ok=True)
-    log = UNDO_DIR / f"orden-{time.strftime('%Y%m%d-%H%M%S')}.json"
-    log.write_text(json.dumps(moved, ensure_ascii=False, indent=1), encoding="utf-8")
+        _save_moves(log, moved)
+        src.rename(final)
     result.update(applied=True, undo=str(log))
     return result
 
 
 def undo(log: str = "") -> int:
     """Put back the files of the last (or the given) organize run."""
+    with _FILE_LOCK:
+        return _undo(log)
+
+
+def _undo(log: str) -> int:
     logs = sorted(UNDO_DIR.glob("orden-*.json")) if not log else [Path(log)]
     if not logs:
         raise ValueError("No hay nada que deshacer.")
     path = logs[-1]
     moved = json.loads(path.read_text(encoding="utf-8"))
     back = 0
+    pending = []
     for original, now in reversed(moved):
+        if Path(now).exists() and Path(original).exists():
+            pending.append([original, now])
+            continue
         if Path(now).exists() and not Path(original).exists():
             Path(now).rename(original)
             back += 1
@@ -113,7 +146,10 @@ def undo(log: str = "") -> int:
                 Path(now).parent.rmdir()  # only if it is empty now
             except OSError:
                 pass
-    path.rename(path.with_suffix(".hecho"))
+    if pending:
+        _save_moves(path, list(reversed(pending)))
+    else:
+        path.rename(path.with_suffix(".hecho"))
     return back
 
 

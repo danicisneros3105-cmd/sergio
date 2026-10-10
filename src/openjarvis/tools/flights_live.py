@@ -162,4 +162,11 @@ def describe_flight(found: dict[str, Any]) -> str:
     return text + "."
 
 
-__all__ = ["AIRLINES", "FLIGHT_SOURCES", "callsigns", "describe_flight", "find_flight", "flight_route"]
+__all__ = [
+    "AIRLINES",
+    "FLIGHT_SOURCES",
+    "callsigns",
+    "describe_flight",
+    "find_flight",
+    "flight_route",
+]

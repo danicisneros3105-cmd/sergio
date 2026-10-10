@@ -973,7 +973,9 @@ class VocabFinder:
         names = list(VOCAB) + list(VOCAB_ANIMALS)
         # The words are encoded ahead of time and ship with Sergio: encoding
         # them here would download a 572 MB text model.
-        data = torch.load(SHIPPED / f"{Path(name).stem}-vocab.pt", map_location="cpu")
+        data = torch.load(
+            SHIPPED / f"{Path(name).stem}-vocab.pt", map_location="cpu", weights_only=True
+        )
         if data.get("names") != names:
             raise RuntimeError("vocabulario de YOLOE desactualizado")
         pe = data["pe"].float()

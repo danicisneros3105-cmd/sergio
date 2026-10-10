@@ -99,7 +99,7 @@ class ShellExecTool(BaseTool):
 
     def execute(self, **params: Any) -> ToolResult:
         command = params.get("command", "")
-        if not command:
+        if not isinstance(command, str) or not command.strip():
             return ToolResult(
                 tool_name="shell_exec",
                 content="No command provided.",
@@ -110,7 +110,7 @@ class ShellExecTool(BaseTool):
         timeout = params.get("timeout", _DEFAULT_TIMEOUT)
         try:
             timeout = int(timeout)
-        except (TypeError, ValueError):
+        except (TypeError, ValueError, OverflowError):
             timeout = _DEFAULT_TIMEOUT
         if timeout < 1:
             timeout = 1
@@ -142,39 +142,22 @@ class ShellExecTool(BaseTool):
                 env[key] = val
 
         env_passthrough: List[str] = params.get("env_passthrough") or []
+        if not isinstance(env_passthrough, (list, tuple)) or any(
+            not isinstance(key, str) for key in env_passthrough
+        ):
+            return ToolResult(
+                tool_name="shell_exec",
+                content="env_passthrough must be a list of names.",
+                success=False,
+            )
         for key in env_passthrough:
             val = os.environ.get(key)
             if val is not None:
                 env[key] = val
 
-        try:
-            from openjarvis._rust_bridge import get_rust_module
-
-            _rust = get_rust_module()
-            output = _rust.ShellExecTool().execute(command, working_dir)
-            return ToolResult(
-                tool_name="shell_exec",
-                content=output or "(no output)",
-                success=True,
-                metadata={
-                    "returncode": 0,
-                    "timeout_used": timeout,
-                    "working_dir": working_dir,
-                },
-            )
-        except ImportError:
-            pass  # Fall through to subprocess below
-        except Exception as exc:
-            return ToolResult(
-                tool_name="shell_exec",
-                content=str(exc),
-                success=False,
-                metadata={
-                    "returncode": -1,
-                    "timeout_used": timeout,
-                    "working_dir": working_dir,
-                },
-            )
+        # The native binding exposes only content: it cannot carry the timeout,
+        # minimal environment, or failure status. Use the constrained subprocess
+        # path until the native API can uphold the same contract.
         try:
             result = subprocess.run(
                 command,
@@ -182,6 +165,8 @@ class ShellExecTool(BaseTool):
                 shell=True,  # nosec B602
                 capture_output=True,
                 text=True,
+                encoding="utf-8",
+                errors="replace",
                 timeout=timeout,
                 cwd=working_dir,
                 env=env,
@@ -213,10 +198,16 @@ class ShellExecTool(BaseTool):
         # Truncate output if needed
         stdout = result.stdout
         stderr = result.stderr
-        if len(stdout) > _MAX_OUTPUT_BYTES:
-            stdout = stdout[:_MAX_OUTPUT_BYTES] + "\n... (stdout truncated)"
-        if len(stderr) > _MAX_OUTPUT_BYTES:
-            stderr = stderr[:_MAX_OUTPUT_BYTES] + "\n... (stderr truncated)"
+        if len(stdout.encode("utf-8")) > _MAX_OUTPUT_BYTES:
+            stdout = stdout.encode("utf-8")[:_MAX_OUTPUT_BYTES].decode(
+                "utf-8", errors="ignore"
+            )
+            stdout += "\n... (stdout truncated)"
+        if len(stderr.encode("utf-8")) > _MAX_OUTPUT_BYTES:
+            stderr = stderr.encode("utf-8")[:_MAX_OUTPUT_BYTES].decode(
+                "utf-8", errors="ignore"
+            )
+            stderr += "\n... (stderr truncated)"
 
         # Format output
         sections: list[str] = []

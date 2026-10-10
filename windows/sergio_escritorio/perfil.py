@@ -16,13 +16,17 @@ an update goes to the server.
 
 from __future__ import annotations
 
-import json
+import logging
 import threading
 import time
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable
+
+from sergio_escritorio import secure
+
+logger = logging.getLogger(__name__)
 
 UPDATE_DAYS = 2.5  # 7 / 2.5 = 2.8 key updates a week (asked: at least 2.5)
 SLOTS = 7 * 96  # quarter hours in a week
@@ -88,7 +92,9 @@ class Usage:
         windows.sort(key=lambda w: -w[0])
         return [w for _weight, w in windows[:limit]]
 
-    def next_good_time(self, after: float, minutes: int = 20, horizon_days: int = 7) -> float:
+    def next_good_time(
+        self, after: float, minutes: int = 20, horizon_days: int = 7
+    ) -> float:
         """The next usual-presence slot after *after* (epoch), for a practice."""
         start = datetime.fromtimestamp(after)
         top = max(self.grid) or 0.0
@@ -105,29 +111,39 @@ class Usage:
         return after + 86400
 
     def to_json(self) -> dict[str, Any]:
-        return {"grid": [round(v, 3) for v in self.grid], "last_decay": self.last_decay, "last_seen": self.last_seen}
+        return {
+            "grid": [round(v, 3) for v in self.grid],
+            "last_decay": self.last_decay,
+            "last_seen": self.last_seen,
+        }
 
     @classmethod
     def from_json(cls, data: Any) -> "Usage":
         if not isinstance(data, dict) or len(data.get("grid") or []) != SLOTS:
             return cls()
-        return cls([float(v) for v in data["grid"]], float(data.get("last_decay", 0)), float(data.get("last_seen", 0)))
+        return cls(
+            [float(v) for v in data["grid"]],
+            float(data.get("last_decay", 0)),
+            float(data.get("last_seen", 0)),
+        )
 
 
 class Profile:
     """The profile on disk, its update schedule and how it is applied."""
 
-    def __init__(self, path: Path | None, clock: Callable[[], float] = time.time) -> None:
+    def __init__(
+        self, path: Path | None, clock: Callable[[], float] = time.time
+    ) -> None:
         self.path, self.clock = path, clock
         self._lock = threading.Lock()
         data: dict[str, Any] = {}
         if path is not None and path.exists():
-            try:
-                data = json.loads(path.read_text(encoding="utf-8"))
-            except (OSError, ValueError):
-                data = {}
+            loaded = secure.read_json(path, {})
+            data = loaded if isinstance(loaded, dict) else {}
         self.data: dict[str, Any] = data.get("perfil") or {}
-        self.updates: list[float] = [float(t) for t in data.get("actualizaciones") or []]
+        self.updates: list[float] = [
+            float(t) for t in data.get("actualizaciones") or []
+        ]
         self.usage = Usage.from_json(data.get("uso"))
         self.topics: list[dict[str, Any]] = list(data.get("temas") or [])[-200:]
         self.facts: list[str] = list(data.get("hechos") or [])[-200:]
@@ -143,13 +159,10 @@ class Profile:
                 "temas": self.topics[-200:],
                 "hechos": self.facts[-200:],
             }
-        try:
-            self.path.parent.mkdir(parents=True, exist_ok=True)
-            tmp = self.path.with_suffix(".tmp")
-            tmp.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
-            tmp.replace(self.path)
-        except OSError:
-            pass
+            try:
+                secure.write_json(self.path, payload)
+            except OSError:
+                logger.exception("No se pudo guardar el perfil personal")
 
     # -- what Sergio notices ------------------------------------------------------
     def seen_active(self) -> None:
@@ -190,7 +203,11 @@ class Profile:
             **(extra or {}),
         }
 
-    def update(self, think: Callable[[dict[str, Any], dict[str, Any]], dict[str, Any]], extra: dict[str, Any] | None = None) -> dict[str, Any]:
+    def update(
+        self,
+        think: Callable[[dict[str, Any], dict[str, Any]], dict[str, Any]],
+        extra: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """Run the key update now (``think`` asks the server's coach)."""
         new = think(self.context(extra), self.data)
         if not isinstance(new, dict) or not new.get("resumen"):
@@ -241,7 +258,11 @@ class Profile:
                 "Aún no tengo su perfil: lo armo con el uso. La primera actualización llega "
                 "en cuanto tenga datos, y luego al menos dos veces y media por semana."
             )
-        last = datetime.fromtimestamp(self.updates[-1]).strftime("%d/%m") if self.updates else "—"
+        last = (
+            datetime.fromtimestamp(self.updates[-1]).strftime("%d/%m")
+            if self.updates
+            else "—"
+        )
         return f"{self.data.get('resumen', '')} Última actualización: {last}."
 
 

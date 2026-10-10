@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ipaddress
 import json
 import os
 import re
@@ -184,6 +185,48 @@ def pytest_make_collect_report(collector):
 
 
 _RESERVED_TEST_HOST = re.compile(r"(^|\.)(example\.(com|net|org)|example|test)$", re.I)
+
+
+def pytest_addoption(parser):
+    parser.addoption(
+        "--allow-external-network",
+        action="store_true",
+        default=False,
+        help="Explicitly allow real external connections for integration tests.",
+    )
+
+
+@pytest.fixture(autouse=True)
+def _block_external_network(request, monkeypatch):
+    """Keep unit tests offline even if an HTTP mock is accidentally omitted."""
+    if request.config.getoption("--allow-external-network"):
+        return
+    connect = socket.socket.connect
+    connect_ex = socket.socket.connect_ex
+
+    def check(sock, address):
+        if sock.family not in (socket.AF_INET, socket.AF_INET6):
+            return
+        host = address[0]
+        if host == "localhost":
+            return
+        try:
+            if ipaddress.ip_address(host).is_loopback:
+                return
+        except ValueError:
+            pass
+        raise OSError("External network disabled in tests; mock the service")
+
+    def guarded_connect(sock, address):
+        check(sock, address)
+        return connect(sock, address)
+
+    def guarded_connect_ex(sock, address):
+        check(sock, address)
+        return connect_ex(sock, address)
+
+    monkeypatch.setattr(socket.socket, "connect", guarded_connect)
+    monkeypatch.setattr(socket.socket, "connect_ex", guarded_connect_ex)
 
 
 @pytest.fixture(autouse=True)

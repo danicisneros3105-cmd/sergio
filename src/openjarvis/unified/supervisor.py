@@ -75,6 +75,10 @@ def _pid_alive(pid: int) -> bool:
 
 def _start_token(pid: int) -> str | None:
     """Kernel start time of *pid* (Linux), to detect a recycled pid."""
+    from openjarvis.core.utils import _proc_pid_namespace_matches
+
+    if not _proc_pid_namespace_matches():
+        return None
     try:
         stat = Path(f"/proc/{pid}/stat").read_text()
     except OSError:
@@ -309,7 +313,7 @@ class Supervisor:
         if not _pid_alive(pid):
             return 0
         expected = record.get("start")
-        if expected is not None and _start_token(pid) not in (None, expected):
+        if expected is not None and _start_token(pid) != expected:
             return 0
         return pid
 

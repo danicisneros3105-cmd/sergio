@@ -25,6 +25,7 @@ test('switch during lazy import never starts the stale decoder', async () => {
   }
   const source = video();
   const playback = attachCctvVideo(source, '/api/cctv/media/a', 'hls', {
+    fetchImpl: async () => {},
     loadHls: () =>
       new Promise((r) => {
         resolve = r;
@@ -39,6 +40,7 @@ test('switch during lazy import never starts the stale decoder', async () => {
 test('missing decoder uses honest failure fallback once', async () => {
   let failures = 0;
   const playback = attachCctvVideo(video(), '/api/cctv/media/a', 'hls', {
+    fetchImpl: async () => {},
     loadHls: async () => {
       throw new Error('unavailable');
     },
@@ -47,6 +49,25 @@ test('missing decoder uses honest failure fallback once', async () => {
   await playback.ready;
   playback.dispose();
   assert.equal(failures, 1);
+});
+
+test('a synchronous lease-release failure cannot break cleanup or its failure callback', async () => {
+  let failures = 0;
+  let releases = 0;
+  const playback = attachCctvVideo(video(), '/api/cctv/media/a', 'hls', {
+    loadHls: async () => {
+      throw new Error('unavailable');
+    },
+    fetchImpl: () => {
+      releases++;
+      throw new Error('offline');
+    },
+    onFailure: () => failures++,
+  });
+  await playback.ready;
+  assert.doesNotThrow(() => playback.dispose());
+  assert.equal(failures, 1);
+  assert.equal(releases, 1);
 });
 
 test('native HLS releases its client lease without response-header access', async () => {
