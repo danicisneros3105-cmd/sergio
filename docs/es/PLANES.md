@@ -15,6 +15,24 @@ su equipo es gratis y seguirá siéndolo. Los planes de pago cobran por
 
 Véalos en la terminal con `sergio planes`.
 
+## Paquetes por especialidad
+
+Usan las mismas licencias que los planes, con otro precio y otro enfoque.
+Se emiten con `--paquete` y `sergio licencia estado` muestra su nombre.
+
+| Paquete | Precio | Plan que activa | Para |
+|---|---|---|---|
+| `power` · Power users | $12 al mes | Pro | Quien automatiza su día |
+| `vfx-studio` · VFX Studio | $19 al mes | Pro | Artistas 3D, motion y video |
+| `multicanal` · Multi-channel | $39 al mes | Teams | Negocios que atienden por varios canales |
+| `privacidad` · Privacy Enterprise | $99 por usuario al mes | Enterprise | Organizaciones que no sacan datos de su red |
+
+```bash
+sergio licencia emitir pro --paquete vfx-studio --titular "Estudio Norte" --dias 31
+```
+
+Los textos de venta de cada paquete están en `marketing/planes-de-nicho.md`.
+
 ## Qué controla el plan
 
 Cada función de pago tiene un nombre en `openjarvis/tiers.py` (`FEATURES`).

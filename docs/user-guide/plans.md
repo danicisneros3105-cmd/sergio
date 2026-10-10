@@ -10,6 +10,10 @@ Everything that runs on your own computer is free and open source
 | **Teams** | $29 / user / month | Multiple users with roles, single sign-on, audit export |
 | **Enterprise** | $99 / user / month | On-prem deployment, dedicated support with an SLA |
 
+Niche packages use the same license levels with their own price: **Power
+users** ($12, Pro), **VFX Studio** ($19, Pro), **Multi-channel** ($39, Teams)
+and **Privacy Enterprise** ($99 per user, Enterprise).
+
 ```bash
 sergio planes                     # the plans and the one in force
 sergio planes mejorar pro         # opens the payment page

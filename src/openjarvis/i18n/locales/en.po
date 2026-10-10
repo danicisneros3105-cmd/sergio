@@ -303,3 +303,6 @@ msgstr "Days it is valid."
 
 msgid "Archivo de la clave privada."
 msgstr "The private key file."
+
+msgid "Paquete por especialidad (vfx-studio, multicanal, privacidad, power)."
+msgstr "Package for a specialty (vfx-studio, multicanal, privacidad, power)."

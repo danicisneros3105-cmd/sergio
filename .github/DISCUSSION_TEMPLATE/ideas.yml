@@ -1,0 +1,25 @@
+title: "[Idea] "
+labels: ["idea"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: ¿Qué problema resolvería? / What problem would it solve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: ¿Cómo se imagina que funcione? / How do you picture it working?
+  - type: dropdown
+    id: area
+    attributes:
+      label: Área / Area
+      options:
+        - Chat y voz
+        - Cowork
+        - Plugins
+        - Copias y sincronización
+        - Teléfono
+        - Blender / VFX / video
+        - Otra

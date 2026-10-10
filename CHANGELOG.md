@@ -10,6 +10,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+**Sergio: Cowork, plugins, backups, sync, phone, plans.**
+- `sergio cowork`: goal-driven runs that score each step on ten risk axes,
+  ask before risky steps, stop at 50 actions and keep a hash-chained audit
+  log ([guide](docs/user-guide/cowork.md)).
+- `sergio plugin`: permissioned, hash-pinned ZIP plugins and indexes
+  ([guide](docs/user-guide/plugins.md), [tutorial](docs/tutorials/plugin-in-10-minutes.md)).
+- `sergio respaldo` and `sergio sync`: age-encrypted incremental backups to a
+  folder, S3-compatible storage or SFTP, and zero-knowledge sync between
+  devices ([guide](docs/user-guide/backup-and-sync.md)).
+- `sergio movil`: phone access through a Cloudflare quick tunnel and a QR
+  pairing code; the PWA keeps the last 200 answers in IndexedDB for offline
+  use ([guide](docs/user-guide/mobile.md)).
+- Live reasoning over WebSocket (`/v1/thinking/stream`) and a reasoning panel
+  next to the chat; OpenAI-compatible `/v1/embeddings`.
+- `sergio planes` / `sergio licencia`: Free, Pro, Teams and Enterprise plans
+  plus niche packages, with offline-verified Ed25519 licenses
+  ([guide](docs/user-guide/plans.md)).
+- `scripts/export_openapi.py` and [docs/api/openapi.json](docs/api/openapi.json).
+- Anonymous usage analytics (`[analytics] enabled`) now default to off, as
+  Sergio's installer already set.
+
 **Apple Foundation Models (AFM 3)** — a new in-process `afm` engine drives
 Apple's `apple-fm-sdk` directly, with no HTTP hop and no second process whose
 CPU draw would land inside the same energy measurement window. Install with

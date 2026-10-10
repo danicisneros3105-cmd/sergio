@@ -214,3 +214,29 @@ def test_premium_plugins_need_the_pro_plan(keys, tmp_path, monkeypatch):
     tiers.activate(tiers.issue(keys["private"], "pro", holder="Ana"))
     ok = runner.invoke(plugin, ["instalar", "frase-del-dia", "--si"])
     assert ok.exit_code == 0 and "frase_del_dia" in ok.output, ok.output
+
+
+def test_bundles_ride_on_their_plan(keys):
+    assert {b.plan for b in tiers.BUNDLES.values()} <= set(tiers.PLANS) - {"free"}
+    token = tiers.issue(keys["private"], "pro", holder="Estudio", bundle="vfx-studio")
+    assert tiers.verify(token)["bundle"] == "vfx-studio"
+    with pytest.raises(LicenseError, match="va con el plan"):
+        tiers.issue(keys["private"], "pro", holder="x", bundle="privacidad")
+    with pytest.raises(LicenseError, match="desconocido"):
+        tiers.issue(keys["private"], "pro", holder="x", bundle="nada")
+
+
+def test_cli_issues_and_shows_a_bundle(keys, tmp_path):
+    from openjarvis.cli.planes_cmd import licencia, planes
+
+    key_file = tmp_path / "issuer.key"
+    key_file.write_text(keys["private"])
+    runner = CliRunner()
+    base = ["emitir", "teams", "--titular", "Tienda", "--clave-privada", str(key_file)]
+    wrong = runner.invoke(licencia, [*base, "--paquete", "vfx-studio"])
+    assert wrong.exit_code != 0 and "va con el plan pro" in wrong.output
+    issued = runner.invoke(licencia, [*base, "--paquete", "multicanal"])
+    assert issued.exit_code == 0, issued.output
+    tiers.activate(issued.output.strip().replace("\n", ""))
+    assert "paquete Multi-channel" in runner.invoke(licencia, ["estado"]).output
+    assert "VFX Studio — $19 / mes" in runner.invoke(planes, []).output

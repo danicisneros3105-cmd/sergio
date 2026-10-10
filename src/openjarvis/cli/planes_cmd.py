@@ -48,6 +48,13 @@ def planes(ctx: click.Context) -> None:
             plan.tagline + "\n" + "\n".join(f"· {x}" for x in plan.includes),
         )
     console.print(table)
+    from openjarvis.tiers import BUNDLES
+
+    console.print(
+        "[bold]Paquetes por especialidad[/bold] (mismas licencias, otro enfoque):"
+    )
+    for bundle in BUNDLES.values():
+        console.print(f"  · {bundle.name} — {bundle.price}: {bundle.for_whom}.")
     if mine.get("problem"):
         console.print(f"[yellow]Su licencia no vale: {mine['problem']}.[/yellow]")
     console.print(
@@ -96,10 +103,19 @@ def activar(clave: str) -> None:
 @licencia.command("estado")
 def estado() -> None:
     """Qué plan tiene este equipo y hasta cuándo."""
-    from openjarvis.tiers import FEATURES, FEATURES_ES, PLAN_INFO, current, has_feature
+    from openjarvis.tiers import (
+        BUNDLES,
+        FEATURES,
+        FEATURES_ES,
+        PLAN_INFO,
+        current,
+        has_feature,
+    )
 
     mine = current()
-    console.print(f"Plan: {PLAN_INFO[mine['plan']].name}")
+    bundle = BUNDLES.get(mine.get("bundle", ""))
+    extra = f" · paquete {bundle.name}" if bundle else ""
+    console.print(f"Plan: {PLAN_INFO[mine['plan']].name}{extra}")
     if mine.get("expires"):
         console.print(
             f"Titular: {mine.get('holder') or '—'} · puestos: {mine.get('seats', 1)} · "
@@ -156,16 +172,26 @@ def generar_claves(salida: Optional[str]) -> None:
 @click.option("--puestos", type=int, default=1, help="Usuarios (Teams/Enterprise).")
 @click.option("--dias", type=int, default=31, help="Días de validez.")
 @click.option(
+    "--paquete",
+    default="",
+    help="Paquete por especialidad (vfx-studio, multicanal, privacidad, power).",
+)
+@click.option(
     "--clave-privada",
     type=click.Path(exists=True, dir_okay=False),
     default=None,
     help="Archivo de la clave privada.",
 )
 def emitir(
-    plan: str, titular: str, puestos: int, dias: int, clave_privada: Optional[str]
+    plan: str,
+    titular: str,
+    puestos: int,
+    dias: int,
+    paquete: str,
+    clave_privada: Optional[str],
 ) -> None:
     """(Vendedor) Firma una licencia para un cliente."""
-    from openjarvis.tiers import issue
+    from openjarvis.tiers import LicenseError, issue
 
     path = Path(
         clave_privada or Path.home() / ".openjarvis" / "license-issuer.key"
@@ -174,9 +200,17 @@ def emitir(
         raise click.ClickException(
             "no encuentro la clave privada: créela con sergio licencia generar-claves"
         )
-    token = issue(
-        path.read_text("utf-8").strip(), plan, holder=titular, seats=puestos, days=dias
-    )
+    try:
+        token = issue(
+            path.read_text("utf-8").strip(),
+            plan,
+            holder=titular,
+            seats=puestos,
+            days=dias,
+            bundle=paquete,
+        )
+    except LicenseError as exc:
+        raise click.ClickException(str(exc)) from None
     console.print(token)
 
 

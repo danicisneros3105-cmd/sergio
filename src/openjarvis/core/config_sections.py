@@ -171,9 +171,12 @@ class AnalyticsConfig:
 
     No chat content, prompts, model outputs, file paths, emails, IPs,
     or hardware identifiers are ever sent. See ``docs/telemetry.md``.
+
+    Off by default in Sergio (the installer already turned it off): the
+    events would go to the upstream project's instance, not to this fork.
     """
 
-    enabled: bool = True
+    enabled: bool = False
     host: str = "https://34.231.106.201.sslip.io"
     key: str = "phc_ysKu72QaxzYNmDpHFcesD2ZZAe68zkdWJEKoYYkc5e3n"
     anon_id_path: str = field(default_factory=lambda: str(get_config_dir() / "anon_id"))

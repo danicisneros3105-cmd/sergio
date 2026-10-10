@@ -1,5 +1,12 @@
 # Telemetry
 
+!!! note "In Sergio this is off by default"
+    Sergio's installer and its default configuration turn these analytics
+    off: the events would go to the upstream OpenJarvis team, not to this
+    fork. To help the upstream project, turn them on with
+    `sergio config set analytics.enabled true`. The rest of this page
+    describes what is sent when they are on.
+
 OpenJarvis ships **anonymous usage telemetry** by default so the team can
 see where the product breaks, what features people actually use, and
 how to make it better. This page documents exactly what is and isn't

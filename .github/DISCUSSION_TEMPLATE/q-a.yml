@@ -1,0 +1,24 @@
+title: "[Pregunta] "
+labels: ["pregunta"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Gracias por preguntar. Antes de publicar, mire el LEEME y `sergio revisar`.
+        Thanks for asking. English is welcome too.
+  - type: textarea
+    id: question
+    attributes:
+      label: ¿Qué quiere hacer? / What are you trying to do?
+    validations:
+      required: true
+  - type: textarea
+    id: tried
+    attributes:
+      label: ¿Qué probó y qué pasó? / What did you try and what happened?
+      description: Copie el mensaje de error si hay uno. No pegue claves ni datos personales.
+  - type: input
+    id: version
+    attributes:
+      label: Versión y sistema / Version and OS
+      placeholder: "sergio --version · Windows 11 + WSL"

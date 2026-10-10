@@ -1,0 +1,19 @@
+title: "[Muestra] "
+labels: ["muestra"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ¿Qué hizo con Sergio? Un plugin, una rutina de Cowork, un render…
+        Show what you built. No publique datos personales de otras personas.
+  - type: textarea
+    id: what
+    attributes:
+      label: ¿Qué hizo? / What did you make?
+    validations:
+      required: true
+  - type: textarea
+    id: how
+    attributes:
+      label: Cómo hacerlo / How to reproduce it
+      description: Comandos, configuración o el plugin (.zip con su sha256).

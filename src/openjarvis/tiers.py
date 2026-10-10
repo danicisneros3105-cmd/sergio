@@ -91,6 +91,67 @@ PLAN_INFO: Dict[str, Plan] = {
         ],
     ),
 }
+
+
+# Niche packages: the same license levels, priced and described for one
+# kind of user. A license issued with ``bundle`` shows its name.
+@dataclass(frozen=True)
+class Bundle:
+    id: str
+    name: str
+    price: str
+    plan: str
+    for_whom: str
+    highlights: List[str] = field(default_factory=list)
+
+
+BUNDLES: Dict[str, Bundle] = {
+    "power": Bundle(
+        "power",
+        "Power users",
+        "$12 / mes",
+        "pro",
+        "Quien automatiza su día y quiere todo a mano",
+        [
+            "Todo lo de Pro",
+            "Plugins premium de productividad",
+            "Actualizaciones anticipadas",
+        ],
+    ),
+    "vfx-studio": Bundle(
+        "vfx-studio",
+        "VFX Studio",
+        "$19 / mes",
+        "pro",
+        "Artistas 3D, motion y video",
+        [
+            "Todo lo de Pro",
+            "Skills premium de Blender, VFX y posproducción",
+            "Presets de estilo de edición y másteres 10 bits",
+        ],
+    ),
+    "multicanal": Bundle(
+        "multicanal",
+        "Multi-channel",
+        "$39 / mes",
+        "teams",
+        "Negocios que atienden por WhatsApp, Telegram, correo y teléfono",
+        [
+            "Todo lo de Teams",
+            "Varios operadores con roles",
+            "Exportación de auditoría de conversaciones",
+        ],
+    ),
+    "privacidad": Bundle(
+        "privacidad",
+        "Privacy Enterprise",
+        "$99 / usuario / mes",
+        "enterprise",
+        "Organizaciones que no pueden sacar datos de su red",
+        ["Todo lo de Enterprise", "Despliegue on-prem sin nube", "Soporte con SLA"],
+    ),
+}
+
 # The lowest plan that includes each paid feature.
 FEATURES: Dict[str, str] = {
     "hosted_sync": "pro",
@@ -170,6 +231,7 @@ def issue(
     holder: str,
     seats: int = 1,
     days: int = 365,
+    bundle: str = "",
     now: Optional[float] = None,
 ) -> str:
     """Sign a license (run by the seller, e.g. after a Stripe payment)."""
@@ -177,6 +239,12 @@ def issue(
 
     if plan not in PLANS or plan == "free":
         raise LicenseError(f"plan inválido: {plan}")
+    if bundle and bundle not in BUNDLES:
+        raise LicenseError(f"paquete desconocido: {bundle}")
+    if bundle and BUNDLES[bundle].plan != plan:
+        raise LicenseError(
+            f"el paquete {BUNDLES[bundle].name} va con el plan {BUNDLES[bundle].plan}"
+        )
     now = now or time.time()
     payload = {
         "plan": plan,
@@ -185,6 +253,8 @@ def issue(
         "issued": int(now),
         "expires": int(now + days * 86400),
     }
+    if bundle:
+        payload["bundle"] = bundle
     body = json.dumps(payload, separators=(",", ":"), sort_keys=True).encode()
     key = Ed25519PrivateKey.from_private_bytes(base64.b64decode(private_key_b64))
     return f"{PREFIX}.{_b64e(body)}.{_b64e(key.sign(body))}"
@@ -271,6 +341,8 @@ def checkout_url(plan: str) -> str:
 
 
 __all__ = [
+    "BUNDLES",
+    "Bundle",
     "FEATURES",
     "LicenseError",
     "PLANS",
