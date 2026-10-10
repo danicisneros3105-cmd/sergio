@@ -2,6 +2,14 @@
 
 What the studies say, and what the mode does with it:
 
+* The consensus on indoor light (Brown et al., PLOS Biology 2022, 21
+  sleep and circadian scientists): from at least 3 hours before bedtime,
+  at most 10 lux melanopic EDI at the eye; while sleeping, at most 1 lux
+  (10 if you must see); in the day, at least 250. Melanopic light is the
+  blue-cyan light the eye's clock cells (melanopsin, peak near 480 nm)
+  respond to. So the screen starts warming 3 h before bed (or at sunset,
+  if that comes first) and keeps going down to a candle-like 1900 K and
+  60 % light at bedtime, at full intensity.
 * A warm screen alone does not improve sleep: in the BYU study (Sleep
   Health, 2021, 167 adults with wrist actigraphy) iPhone Night Shift was no
   better than the phone without it. What counted was the light's
@@ -9,9 +17,7 @@ What the studies say, and what the mode does with it:
   both: warmer AND dimmer, and less pull from the screen.
 * Evening light is powerful: half of the melatonin is suppressed at about
   25-30 lux, typical indoor light (Phillips et al., PNAS 2019), and people
-  differ more than 50-fold. From sunset the screen warms slowly (6500 K ->
-  3400 K); in the last hour before bed it gets warmer and dimmer
-  (2700 K, 70 %), like a candle-lit room rather than an office.
+  differ more than 50-fold. That is why the intensity is adjustable.
 * Regular times matter as much as hours: in 60 977 UK Biobank adults the
   most regular sleepers had 30 % lower mortality than the least regular,
   and regularity predicted it better than duration (Windred et al., Sleep
@@ -32,6 +38,16 @@ What the studies say, and what the mode does with it:
   after about 20 minutes, get up, do something calm in dim light, come back
   when sleepy; no clock-watching.
 
+How the screen changes, without lag and without a grey film:
+
+* Windows' own colour matrix for the desktop (the Magnification API,
+  Windows 8+) multiplies each channel: blacks stay black, contrast stays,
+  every monitor at once, no window on top. If that is unavailable, a gamma
+  ramp per monitor, checked after setting it (the driver can refuse it in
+  silence); only as a last resort, a light veil.
+* A fader on its own thread moves between looks in mired steps (even to
+  the eye), so nothing jumps and the interface thread never waits.
+
 During the last hour Sergio stays quiet: no mental-gym pop-ups, short
 answers, only what you ask. Background tasks keep running.
 """
@@ -40,15 +56,20 @@ from __future__ import annotations
 
 import datetime as dt
 import json
+import logging
 import math
 import re
 import statistics
+import threading
+import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable, Protocol
 
-DAY_K, EVENING_K, NIGHT_K = 6500, 3400, 2700
-NIGHT_BRIGHTNESS = 0.7
+DAY_K, EVENING_K, NIGHT_K = 6500, 3000, 1900  # 1900 K: candlelight
+EVENING_BRIGHTNESS, NIGHT_BRIGHTNESS = 0.9, 0.6  # at full intensity
+EVENING_H = 3.0  # Brown et al. 2022: dim light from at least 3 h before bed
+MORNING_FADE_MIN = 20
 FALL_ASLEEP_MIN = 15
 
 
@@ -60,6 +81,9 @@ class Settings:
     wind_down_min: int = 60
     caffeine_h: float = 8.0  # last coffee this long before bed (Drake 2013: 6 h still hurts)
     warmth: bool = True  # warm and dim the screen in the evening
+    intensity: float = 0.85  # 0.2 gentle … 1.0 candle at bedtime
+    evening_h: float = EVENING_H
+    force_until: str = ""  # «night shift ahora»: the night look until this ISO time
     lat: float | None = None
     lon: float | None = None
 
@@ -98,14 +122,50 @@ def sunset(day: dt.date, lat: float, lon: float, utc_offset_h: float) -> dt.time
 
 @dataclass
 class Moment:
-    phase: str  # dia | atardecer | relajacion | dormir | manana
+    phase: str  # dia | atardecer | relajacion | dormir | manana | ahora
     kelvin: int
     brightness: float
     quiet: bool  # Sergio keeps quiet (no pop-ups, short answers)
 
+    @property
+    def blue(self) -> float:
+        """How much of the screen's blue is left (0-1): blue channel x light."""
+        return round(white_point(self.kelvin)[2] * self.brightness, 3)
 
-def moment(now: dt.datetime, s: Settings, dusk: dt.time | None = None) -> Moment:
-    """Where the evening is: the screen's warmth and light, and how quiet to be."""
+
+def _clamp(x: float, lo: float, hi: float) -> float:
+    return max(lo, min(hi, x))
+
+
+def _smooth(f: float) -> float:
+    f = _clamp(f, 0.0, 1.0)
+    return f * f * (3 - 2 * f)
+
+
+def mix_kelvin(a: float, b: float, f: float) -> float:
+    """Between two colour temperatures in mireds (1e6 / K): even steps to the eye."""
+    return 1e6 / ((1e6 / a) + ((1e6 / b) - (1e6 / a)) * _clamp(f, 0.0, 1.0))
+
+
+def looks(s: Settings) -> dict[str, tuple[float, float]]:
+    """The evening and bedtime looks for this intensity: (kelvin, brightness)."""
+    i = _clamp(float(s.intensity), 0.2, 1.0)
+    evening_k = mix_kelvin(DAY_K, EVENING_K, i)
+    night_k = mix_kelvin(DAY_K, NIGHT_K, i)
+    return {
+        "day": (DAY_K, 1.0),
+        "evening": (evening_k, 1 - (1 - EVENING_BRIGHTNESS) * i),
+        "night": (night_k, 1 - (1 - NIGHT_BRIGHTNESS) * i),
+    }
+
+
+def _between(a: tuple[float, float], b: tuple[float, float], f: float) -> tuple[int, float]:
+    f = _smooth(f)
+    return round(mix_kelvin(a[0], b[0], f)), round(a[1] + (b[1] - a[1]) * f, 3)
+
+
+def schedule(now: dt.datetime, s: Settings, dusk: dt.time | None = None) -> dict[str, dt.datetime]:
+    """Tonight's times: start of the evening, wind-down, bed, wake."""
     bed = bedtime(s)
     wake = _hm(s.wake)
     day = now.date()
@@ -116,23 +176,48 @@ def moment(now: dt.datetime, s: Settings, dusk: dt.time | None = None) -> Moment
         bed_at -= dt.timedelta(days=1)
     wind = bed_at - dt.timedelta(minutes=s.wind_down_min)
     wake_at = bed_at + dt.timedelta(hours=s.need_h, minutes=FALL_ASLEEP_MIN)
-    dusk_at = _at(bed_at.date() if bed_at.time() > dt.time(12) else bed_at.date() - dt.timedelta(days=1),
-                  dusk or dt.time(19, 0))
-    if dusk_at >= wind:
-        dusk_at = wind - dt.timedelta(hours=1)
+    start = bed_at - dt.timedelta(hours=max(1.0, float(s.evening_h)))
+    if dusk is not None:
+        dusk_day = bed_at.date() if bed_at.time() > dt.time(12) else bed_at.date() - dt.timedelta(days=1)
+        dusk_at = _at(dusk_day, dusk)
+        if wind - dt.timedelta(hours=6) < dusk_at < start:  # sunset first: start then, more gently
+            start = dusk_at
+    if start >= wind:
+        start = wind - dt.timedelta(hours=1)
+    return {"start": start, "wind": wind, "bed": bed_at, "wake": wake_at}
+
+
+def _forced(now: dt.datetime, s: Settings) -> bool:
+    if not s.force_until:
+        return False
+    try:
+        return now < dt.datetime.fromisoformat(s.force_until)
+    except ValueError:
+        return False
+
+
+def moment(now: dt.datetime, s: Settings, dusk: dt.time | None = None) -> Moment:
+    """Where the evening is: the screen's warmth and light, and how quiet to be."""
     if not s.on:
         return Moment("dia", DAY_K, 1.0, False)
-    if bed_at <= now < wake_at:
-        return Moment("dormir", NIGHT_K, NIGHT_BRIGHTNESS * 0.85, True)
-    if dt.timedelta(0) <= now - _at(day, wake) < dt.timedelta(hours=2):
-        return Moment("manana", DAY_K, 1.0, False)
-    if wind <= now < bed_at:
-        f = (now - wind) / (bed_at - wind)
-        return Moment("relajacion", round(EVENING_K - f * (EVENING_K - NIGHT_K)),
-                      round(1 - f * (1 - NIGHT_BRIGHTNESS), 3), True)
-    if dusk_at <= now < wind:
-        f = (now - dusk_at) / (wind - dusk_at)
-        return Moment("atardecer", round(DAY_K - f * (DAY_K - EVENING_K)), 1.0, False)
+    look = looks(s)
+    if _forced(now, s):
+        k, b = look["night"]
+        return Moment("ahora", round(k), round(b, 3), False)
+    t = schedule(now, s, dusk)
+    if t["bed"] <= now < t["wake"]:
+        k, b = look["night"]
+        return Moment("dormir", round(k), round(b, 3), True)
+    since_wake = now - _at(now.date(), _hm(s.wake))
+    if dt.timedelta(0) <= since_wake < dt.timedelta(hours=2):
+        k, b = _between(look["night"], look["day"], since_wake / dt.timedelta(minutes=MORNING_FADE_MIN))
+        return Moment("manana", k, b, False)
+    if t["wind"] <= now < t["bed"]:
+        k, b = _between(look["evening"], look["night"], (now - t["wind"]) / (t["bed"] - t["wind"]))
+        return Moment("relajacion", k, b, True)
+    if t["start"] <= now < t["wind"]:
+        k, b = _between(look["day"], look["evening"], (now - t["start"]) / (t["wind"] - t["start"]))
+        return Moment("atardecer", k, b, False)
     return Moment("dia", DAY_K, 1.0, False)
 
 
@@ -148,9 +233,18 @@ def kelvin_rgb(kelvin: float) -> tuple[float, float, float]:
     return red, min(1.0, max(0.0, green / 255)), min(1.0, max(0.0, blue / 255 if t < 66 else blue))
 
 
+def white_point(kelvin: float) -> tuple[float, float, float]:
+    """Channel gains for a colour temperature, with 6500 K (D65, the screen's
+    own white) exactly neutral."""
+    if kelvin >= DAY_K:
+        return 1.0, 1.0, 1.0
+    ref = kelvin_rgb(DAY_K)
+    return tuple(min(1.0, c / r) if r else c for c, r in zip(kelvin_rgb(kelvin), ref))  # type: ignore[return-value]
+
+
 def gamma_ramp(kelvin: float, brightness: float = 1.0) -> list[int]:
     """The 3 x 256 ramp (red, green, blue) that SetDeviceGammaRamp expects."""
-    r, g, b = kelvin_rgb(kelvin)
+    r, g, b = white_point(kelvin)
     ramp = []
     for channel in (r, g, b):
         ramp += [min(65535, int(i * 257 * channel * brightness)) for i in range(256)]
@@ -298,14 +392,39 @@ def caffeine_note(s: Settings) -> str:
             "dormir quitó más de una hora de sueño en un estudio, y nadie lo notó.")
 
 
+PHASE_ES = {"dia": "de día", "atardecer": "atardecer", "relajacion": "relajación", "dormir": "hora de dormir",
+            "manana": "mañana", "ahora": "modo noche ya"}
+
+
 def describe(s: Settings, now: dt.datetime | None = None, dusk: dt.time | None = None) -> str:
     now = now or dt.datetime.now()
     m = moment(now, s, dusk)
+    t = schedule(now, s, dusk)
     bed = bedtime(s).strftime("%H:%M")
     state = "activo" if s.on else "apagado"
-    return (f"Night Shift {state}: despertar {s.wake}, a la cama {bed} ({s.need_h:g} h de sueño), "
-            f"relajación desde {s.wind_down_min} min antes, último café {caffeine_cutoff(s).strftime('%H:%M')}. "
-            f"Ahora: {m.phase}, pantalla a {m.kelvin} K y {round(m.brightness * 100)} %.")
+    return (f"Night Shift {state} al {round(s.intensity * 100)} %: se calienta desde las "
+            f"{t['start'].strftime('%H:%M')}, relajación desde las {t['wind'].strftime('%H:%M')}, a la cama {bed} "
+            f"({s.need_h:g} h de sueño, despertar {s.wake}), último café {caffeine_cutoff(s).strftime('%H:%M')}. "
+            f"Ahora: {PHASE_ES.get(m.phase, m.phase)}, pantalla a {m.kelvin} K y {round(m.brightness * 100)} % "
+            f"de luz, azul al {round(m.blue * 100)} %.")
+
+
+def set_intensity(s: Settings, value: float) -> Settings:
+    """0.2-1.0 (also accepts 20-100)."""
+    v = float(value)
+    s.intensity = round(_clamp(v / 100 if v > 1.5 else v, 0.2, 1.0), 2)
+    return s
+
+
+def force_now(s: Settings, now: dt.datetime | None = None) -> Settings:
+    """The night look right away, until the next wake time."""
+    now = now or dt.datetime.now()
+    wake = _at(now.date(), _hm(s.wake))
+    if wake <= now:
+        wake += dt.timedelta(days=1)
+    s.on = s.warmth = True
+    s.force_until = wake.isoformat(timespec="minutes")
+    return s
 
 
 def load_settings(data: dict[str, Any] | None) -> Settings:
@@ -320,31 +439,304 @@ def dump_settings(s: Settings) -> dict[str, Any]:
     return asdict(s)
 
 
-# -- the screen (Windows) ----------------------------------------------------
+# -- the screen ---------------------------------------------------------------
+
+def color_matrix(kelvin: float, brightness: float = 1.0) -> list[float]:
+    """The 5 x 5 colour matrix (row-major) that multiplies each channel:
+    [r g b a 1] x M, as Windows' MAGCOLOREFFECT expects. Black stays black."""
+    r, g, b = white_point(kelvin)
+    light = _clamp(brightness, 0.05, 1.0)
+    m = [0.0] * 25
+    m[0], m[6], m[12], m[18], m[24] = r * light, g * light, b * light, 1.0, 1.0
+    return m
+
+
+IDENTITY = color_matrix(DAY_K, 1.0)
+
+
+class Tint(Protocol):
+    name: str
+    fps: float
+
+    def apply(self, kelvin: float, brightness: float) -> bool: ...
+
+    def reset(self) -> None: ...
+
+
+class ChainTint:
+    """The best way this PC allows, falling back in order when one fails."""
+
+    def __init__(self, tints: list[Tint]) -> None:
+        self.tints = list(tints)
+
+    @property
+    def name(self) -> str:
+        return self.tints[0].name if self.tints else "none"
+
+    @property
+    def fps(self) -> float:
+        return self.tints[0].fps if self.tints else 1.0
+
+    def apply(self, kelvin: float, brightness: float) -> bool:
+        while self.tints:
+            try:
+                if self.tints[0].apply(kelvin, brightness):
+                    return True
+            except Exception:  # noqa: BLE001 — a backend that breaks is skipped
+                logging.debug("night tint %s failed", self.tints[0].name, exc_info=True)
+            dead = self.tints.pop(0)
+            logging.info("Night Shift: %s unavailable, trying the next way", dead.name)
+            try:
+                dead.reset()
+            except Exception:  # noqa: BLE001
+                pass
+        return False
+
+    def reset(self) -> None:
+        for tint in self.tints:
+            try:
+                tint.reset()
+            except Exception:  # noqa: BLE001
+                logging.debug("night tint reset failed", exc_info=True)
+
+
+class NightEngine:
+    """Moves the screen to its target look over a fade, on its own thread.
+
+    The interface only says where to go (``go``); this thread does every
+    Windows call, at the backend's frame rate and only when the change is
+    visible (half a mired or 0.2 % of light), so nothing lags or jumps."""
+
+    MIRED_STEP, LIGHT_STEP = 0.5, 0.002
+
+    def __init__(self, tint: Tint, clock: Callable[[], float] = time.monotonic) -> None:
+        self.tint = tint
+        self.clock = clock
+        self.current: tuple[float, float] = (DAY_K, 1.0)
+        self.applied: tuple[float, float] | None = None
+        self._from = self._to = self.current
+        self._t0 = 0.0
+        self._dur = 0.0
+        self._cond = threading.Condition()
+        self._quit = False
+        self._thread: threading.Thread | None = None
+
+    @property
+    def target(self) -> tuple[float, float]:
+        return self._to
+
+    def go(self, kelvin: float, brightness: float, fade_s: float = 2.0) -> None:
+        with self._cond:
+            to = (float(kelvin), float(_clamp(brightness, 0.05, 1.0)))
+            if to == self._to and self.applied is not None:
+                return
+            self._from, self._to = self.current, to
+            self._t0, self._dur = self.clock(), max(0.0, fade_s)
+            self._cond.notify()
+
+    def fading(self) -> bool:
+        return self.applied != self._to
+
+    def frame(self, now: float | None = None) -> bool:
+        """One step; True while still on the way."""
+        if not self.fading():
+            return False
+        now = self.clock() if now is None else now
+        f = 1.0 if self._dur <= 0 else _clamp((now - self._t0) / self._dur, 0.0, 1.0)
+        e = _smooth(f)
+        k = mix_kelvin(self._from[0], self._to[0], e)
+        b = self._from[1] + (self._to[1] - self._from[1]) * e
+        self.current = (k, b)
+        last = self.applied
+        visible = last is None or abs(1e6 / k - 1e6 / last[0]) >= self.MIRED_STEP or abs(b - last[1]) >= self.LIGHT_STEP
+        if visible or f >= 1.0:
+            if self.tint.apply(k, b):
+                self.applied = (k, b) if f < 1.0 else self._to
+            elif f >= 1.0:
+                self.applied = self._to  # nothing can tint: don't spin
+        return f < 1.0
+
+    def _run(self) -> None:
+        while True:
+            with self._cond:
+                while not self._quit and not self.fading():
+                    self._cond.wait(5.0)
+                if self._quit:
+                    break
+            try:
+                self.frame()
+            except Exception:  # noqa: BLE001 — the screen never breaks Sergio
+                logging.exception("night shift frame failed")
+                self.applied = self._to
+            time.sleep(1.0 / max(1.0, float(self.tint.fps)))
+        try:
+            self.tint.reset()
+        except Exception:  # noqa: BLE001
+            logging.debug("night shift reset failed", exc_info=True)
+
+    def start(self) -> None:
+        if self._thread is None:
+            self._thread = threading.Thread(target=self._run, name="night-shift", daemon=True)
+            self._thread.start()
+
+    def stop(self, timeout: float = 1.5) -> None:
+        with self._cond:
+            self._quit = True
+            self._cond.notify()
+        if self._thread is not None:
+            self._thread.join(timeout)
+            self._thread = None
+
+
+class MagnifierTint:  # pragma: no cover — Windows 8+ DWM
+    """The desktop's colour matrix (Magnification API): every monitor, no
+    window on top, no driver limits. Called only from the engine's thread."""
+
+    name, fps = "magnifier", 60.0
+
+    def __init__(self) -> None:
+        self._dll: Any = None
+
+    def _ready(self) -> bool:
+        if self._dll is None:
+            import ctypes
+
+            dll = ctypes.WinDLL("Magnification")
+            dll.MagInitialize.restype = ctypes.c_bool
+            dll.MagSetFullscreenColorEffect.restype = ctypes.c_bool
+            dll.MagSetFullscreenColorEffect.argtypes = [ctypes.c_void_p]
+            if not dll.MagInitialize():
+                raise OSError("MagInitialize failed")
+            self._dll = dll
+        return True
+
+    def apply(self, kelvin: float, brightness: float) -> bool:
+        import ctypes
+
+        self._ready()
+        effect = (ctypes.c_float * 25)(*color_matrix(kelvin, brightness))
+        return bool(self._dll.MagSetFullscreenColorEffect(ctypes.byref(effect)))
+
+    def reset(self) -> None:
+        if self._dll is not None:
+            import ctypes
+
+            effect = (ctypes.c_float * 25)(*IDENTITY)
+            self._dll.MagSetFullscreenColorEffect(ctypes.byref(effect))
+            self._dll.MagUninitialize()
+            self._dll = None
+
+
+def ramp_at(kelvin: float, brightness: float, strength: float = 1.0) -> list[int]:
+    """A gamma ramp blended toward the identity: strength 1 is the full look."""
+    full = gamma_ramp(kelvin, brightness)
+    plain = gamma_ramp(DAY_K, 1.0)
+    return [round(p + (f - p) * strength) for p, f in zip(plain, full)]
+
+
+def ramp_matches(wanted: list[int], got: list[int], slack: int = 384) -> bool:
+    """SetDeviceGammaRamp can return TRUE and set nothing: compare what stuck."""
+    return all(abs(w - g) <= slack for w, g in zip(wanted[::17], got[::17]))
+
+
+class GammaTint:  # pragma: no cover — Windows GDI
+    """A gamma ramp on each monitor, verified after setting; if the driver
+    keeps only part of it, the strongest look it accepts."""
+
+    name, fps = "gamma", 20.0
+
+    def __init__(self) -> None:
+        self.strength: dict[str, float] = {}
+
+    @staticmethod
+    def displays() -> list[str]:
+        import ctypes
+        from ctypes import wintypes
+
+        class DisplayDevice(ctypes.Structure):
+            _fields_ = [("cb", wintypes.DWORD), ("DeviceName", wintypes.WCHAR * 32),
+                        ("DeviceString", wintypes.WCHAR * 128), ("StateFlags", wintypes.DWORD),
+                        ("DeviceID", wintypes.WCHAR * 128), ("DeviceKey", wintypes.WCHAR * 128)]
+
+        names, i = [], 0
+        while True:
+            dd = DisplayDevice()
+            dd.cb = ctypes.sizeof(dd)
+            if not ctypes.windll.user32.EnumDisplayDevicesW(None, i, ctypes.byref(dd), 0):
+                break
+            if dd.StateFlags & 0x1:  # attached to the desktop
+                names.append(dd.DeviceName)
+            i += 1
+        return names or [""]
+
+    def _set(self, device: str, ramp: list[int]) -> bool:
+        import ctypes
+
+        gdi32 = ctypes.windll.gdi32
+        hdc = gdi32.CreateDCW(None, device, None, None) if device else ctypes.windll.user32.GetDC(None)
+        if not hdc:
+            return False
+        try:
+            want = (ctypes.c_ushort * 768)(*ramp)
+            if not gdi32.SetDeviceGammaRamp(hdc, ctypes.byref(want)):
+                return False
+            got = (ctypes.c_ushort * 768)()
+            if not gdi32.GetDeviceGammaRamp(hdc, ctypes.byref(got)):
+                return True
+            return ramp_matches(ramp, list(got))
+        finally:
+            if device:
+                gdi32.DeleteDC(hdc)
+            else:
+                ctypes.windll.user32.ReleaseDC(None, hdc)
+
+    def apply(self, kelvin: float, brightness: float) -> bool:
+        ok = False
+        for device in self.displays():
+            strength = self.strength.get(device, 1.0)
+            while strength >= 0.3:
+                if self._set(device, ramp_at(kelvin, brightness, strength)):
+                    self.strength[device] = strength
+                    ok = True
+                    break
+                strength = round(strength * 0.8, 3)
+            else:
+                self.strength[device] = 1.0
+        return ok
+
+    def reset(self) -> None:
+        for device in self.displays():
+            self._set(device, gamma_ramp(DAY_K, 1.0))
+
+
+def windows_tints() -> list[Tint]:
+    """The ways to tint, best first (only the ones this system may have)."""
+    import sys
+
+    if sys.platform != "win32":
+        return []
+    return [MagnifierTint(), GammaTint()]
+
 
 def apply_gamma(kelvin: float, brightness: float) -> bool:  # pragma: no cover — Windows GDI
-    """Warm and dim the whole screen; False if the driver refuses (then the
-    overlay does it)."""
-    import ctypes
-
+    """Old entry point: one verified gamma ramp per monitor."""
     try:
-        user32, gdi32 = ctypes.windll.user32, ctypes.windll.gdi32
-        ramp = (ctypes.c_ushort * 768)(*gamma_ramp(kelvin, brightness))
-        hdc = user32.GetDC(None)
-        try:
-            return bool(gdi32.SetDeviceGammaRamp(hdc, ctypes.byref(ramp)))
-        finally:
-            user32.ReleaseDC(None, hdc)
+        return GammaTint().apply(kelvin, brightness)
     except Exception:  # noqa: BLE001 — not Windows, or no GDI
         return False
 
 
 def restore_gamma() -> None:  # pragma: no cover — Windows GDI
-    apply_gamma(DAY_K, 1.0)
+    try:
+        GammaTint().reset()
+    except Exception:  # noqa: BLE001
+        pass
 
 
 __all__ = [
-    "Diary", "INSOMNIA", "Moment", "Settings", "TIPS", "apply_gamma", "bedtime", "bedtimes_for", "caffeine_cutoff",
-    "caffeine_note", "describe", "dump_settings", "gamma_ramp", "kelvin_rgb", "load_settings", "moment",
-    "parse_diary", "report", "restore_gamma", "stats", "sunset",
+    "ChainTint", "Diary", "GammaTint", "IDENTITY", "INSOMNIA", "MagnifierTint", "Moment", "NightEngine", "Settings",
+    "TIPS", "Tint", "apply_gamma", "bedtime", "bedtimes_for", "caffeine_cutoff", "caffeine_note", "color_matrix",
+    "describe", "dump_settings", "force_now", "set_intensity", "PHASE_ES", "gamma_ramp", "kelvin_rgb", "white_point", "load_settings", "looks", "mix_kelvin", "moment",
+    "parse_diary", "ramp_at", "ramp_matches", "report", "restore_gamma", "schedule", "stats", "sunset",
+    "windows_tints",
 ]

@@ -97,10 +97,25 @@ test('CCTV instances resolve their own application source root and isolate catal
 
 test('composition creates exactly one CCTV and radio provider without acquisition', (t) => {
   isolate(t);
+  process.env.SERGIO_GLOBE_CCTV = '1';
+  t.after(() => delete process.env.SERGIO_GLOBE_CCTV);
   const plugins = localProviderPlugins();
   for (const factory of [cctvProxy, radioBrowserProxy]) {
     assert.equal(plugins.filter((p) => p.name === factory().name).length, 1);
   }
+});
+
+test('Sergio: live cameras are off unless SERGIO_GLOBE_CCTV=1', async (t) => {
+  isolate(t);
+  delete process.env.SERGIO_GLOBE_CCTV;
+  const plugins = localProviderPlugins();
+  assert.equal(plugins.filter((p) => p.name === cctvProxy().name).length, 0);
+  const off = plugins.find((p) => p.name === 'cctv-disabled');
+  assert.ok(off);
+  const request = install(off, 'configureServer');
+  assert.deepEqual(JSON.parse((await request('/sources')).body), { sources: [] });
+  assert.deepEqual(JSON.parse((await request('/health')).body), { cameras: [] });
+  assert.equal((await request('/frame/x')).status, 404);
 });
 
 for (const hook of ['configureServer', 'configurePreviewServer']) {

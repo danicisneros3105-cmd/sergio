@@ -47,7 +47,7 @@ def test_the_interface_speaks_six_languages():
         idioma.t("tab_all", "en") == "All"
         and idioma.t("tab_settings", "de") == "Einstellungen"
     )
-    assert idioma.t("cams", "pt") == "Câmeras ao vivo"
+    assert idioma.t("tab_health", "pt") != "tab_health"
     assert all(
         set(table) == set(idioma.UI_LANGUAGES) for table in idioma.TEXTS.values()
     )

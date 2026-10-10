@@ -916,19 +916,13 @@ class SergioClient:
     def flight(self, number: str) -> str:
         """A flight right now, in words (God's Eye View's data, no window)."""
         f = self._world("/v1/world/flight", {"q": number})
+        if f.get("text"):
+            return str(f["text"])
         route = f.get("route") or {}
         where = " → ".join(x for x in (route.get("from"), route.get("to")) if x)
-        state = (
-            "en tierra"
-            if f.get("on_ground")
-            else f"a {f.get('alt_m', '?')} m y {f.get('speed_kmh', '?')} km/h"
-        )
+        state = "en tierra" if f.get("on_ground") else f"a {f.get('alt_m', '?')} m y {f.get('speed_kmh', '?')} km/h"
         who = f" de {route['airline']}" if route.get("airline") else ""
-        return (
-            f"El vuelo {f.get('callsign', number)}{who} va {state}"
-            + (f", ruta {where}" if where else "")
-            + f". Posición {float(f['lat']):.2f}, {float(f['lon']):.2f}."
-        )
+        return f"El vuelo {f.get('callsign', number)}{who} va {state}" + (f", ruta {where}" if where else "") + "."
 
     def speak_on_server(self, text: str) -> bytes:
         resp = self.http.post(

@@ -298,11 +298,6 @@ def draw_icon(p: QPainter, kind: str, centre: QPointF, colour: QColor) -> None:
         p.drawEllipse(QPointF(x, y), 10, 10)
         p.drawEllipse(QRectF(x - 4.5, y - 10, 9, 20))
         p.drawLine(QPointF(x - 10, y), QPointF(x + 10, y))
-    elif kind == "cctv":  # live cameras
-        p.drawRoundedRect(QRectF(x - 10, y - 7, 15, 8), 2, 2)
-        p.drawLine(QPointF(x + 5, y - 3), QPointF(x + 9, y - 1))
-        p.drawLine(QPointF(x - 4, y + 1), QPointF(x - 4, y + 8))
-        p.drawLine(QPointF(x - 8, y + 8), QPointF(x, y + 8))
     elif kind == "plane":
         path = QPainterPath()
         path.moveTo(x, y - 11)

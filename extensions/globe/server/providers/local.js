@@ -26,6 +26,29 @@ import { firePerimetersProxy } from './firePerimeters.js';
 import { cycloneProxy } from './cyclones.js';
 import { windProxy } from './wind.js';
 
+/**
+ * Sergio: live cameras are off. Unless SERGIO_GLOBE_CCTV=1, the camera
+ * routes answer with empty lists, so the globe shows no camera layer and
+ * never contacts a camera feed.
+ */
+function cctvDisabled() {
+  const empty = { '/sources': { sources: [] }, '/health': { cameras: [] } };
+  const install = (server) => {
+    server.middlewares.use('/api/cctv', (req, res) => {
+      const path = new URL(req.url || '/', 'http://localhost').pathname;
+      const body = empty[path];
+      res.writeHead(body ? 200 : 404, {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-store',
+      });
+      res.end(JSON.stringify(body || { error: 'Live cameras are off' }));
+    });
+  };
+  return { name: 'cctv-disabled', configureServer: install, configurePreviewServer: install };
+}
+
+const cctvEnabled = () => process.env.SERGIO_GLOBE_CCTV === '1';
+
 /** Construct the local provider plugins in their established order. */
 function localProviderPlugins() {
   return [
@@ -41,7 +64,7 @@ function localProviderPlugins() {
     regionalBriefProxy(),
     geocodeProxy(),
     weatherEffectsProxy(),
-    cctvProxy({ sourceRoot: defaultSourceRoot }),
+    cctvEnabled() ? cctvProxy({ sourceRoot: defaultSourceRoot }) : cctvDisabled(),
     radioBrowserProxy(),
     gbfsProxy(),
     localReceiversProxy(),

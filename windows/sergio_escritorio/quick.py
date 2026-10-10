@@ -272,9 +272,23 @@ def parse_night(text: str, t: str) -> Quick | None:
     """Night Shift: on/off, wake time, sleep need, the diary, can't sleep."""
     from sergio_escritorio.nocturno import parse_diary
 
-    if re.search(r"\b(night shift|modo noche|modo nocturno|modo sueno|luz nocturna)\b", t):
+    if re.search(r"\b(night shift|modo noche|modo nocturno|modo sueno|luz nocturna|filtro de luz azul)\b", t):
         if re.search(r"\b(desactiva|apaga|quita|sin|off)\b", t):
             return Quick("night_off")
+        raw = _plain(text.replace("%", " por ciento "))  # «%» and a final «ya» are dropped from t
+        level = re.search(r"\b(\d{1,3})\s*por ?ciento", raw)
+        if level:
+            return Quick("night_level", level.group(1))
+        if re.search(r"\b(mas fuerte|mas intenso|mas calido|mas notorio|mas oscuro|sube(?:lo|le)?|aumenta)\b", t):
+            return Quick("night_more")
+        if re.search(r"\b(mas suave|menos fuerte|menos intenso|menos calido|mas claro|bajalo|reduce|baja(?:le)?)\b", t):
+            return Quick("night_less")
+        if re.search(r"\b(normal|automatico|horario|como siempre)\b", t):
+            return Quick("night_auto")
+        if re.search(r"\b(ya|ahora|ahorita|de una vez|inmediato)\b", raw):
+            return Quick("night_now")
+        if re.search(r"\b(abre|ajustes|configura|ajusta|muestra)\b", t):
+            return Quick("night_settings")
         if re.search(r"\b(como esta|estado|que hace|como va)\b", t):
             return Quick("night_status")
         return Quick("night_on")
@@ -368,15 +382,7 @@ def parse_quick(text: str) -> Quick | None:
     where = country_said(text)
     if where:
         return Quick("country", where)
-    # God's Eye View: public live cameras of a place, a flight followed live
-    m = re.search(r"\b(?:camaras?|webcams?|camara)(?: publicas?)?(?: en vivo| en directo)?(?: de| en| cerca de)\s+(.+)$", t)
-    if m and re.search(r"\b(muestra|muestrame|ver|abre|pon|ensename|quiero ver|camaras? en vivo)\b", t):
-        place = m.group(1).strip()
-        if place not in ("aqui", "esta ubicacion", "este lugar", "mi ubicacion", "mi casa"):
-            return Quick("cams", place)
-        return Quick("cams", "")
-    if re.search(r"\b(camaras en vivo|webcams en vivo)\b", t):
-        return Quick("cams", "")
+    # A flight right now, in words (God's Eye View is hidden: facts only)
     m = re.search(r"\b(?:sigue|seguir|rastrea|muestrame|muestra|donde esta|ver)\b.*\bvuelo\s+([a-z0-9]{2,3}\s?\d{1,4}[a-z]?)\b", t)
     if m:
         return Quick("flight_follow", m.group(1).replace(" ", "").upper())

@@ -3562,20 +3562,21 @@ def run(config: dict[str, Any]) -> None:
     import datetime as _dt
 
     from sergio_escritorio import nocturno
-    from sergio_escritorio.nocturno_ui import NightScreen
+    from sergio_escritorio.nocturno_ui import NightScreen, NightSheet, VeilTint
 
     night_diary = nocturno.Diary.load(SERGIO_HOME / "sueno.json")
     night_screen = NightScreen()
-    night_state: dict[str, Any] = {"look": None, "said": set(), "gamma": True}
+    # The screen is tinted on its own thread: Windows' colour matrix first, a
+    # verified gamma ramp next, the veil only as a last resort.
+    night_engine = nocturno.NightEngine(nocturno.ChainTint([*nocturno.windows_tints(), VeilTint(night_screen)]))
+    night_engine.start()
+    night_state: dict[str, Any] = {"look": None, "said": set(), "preview_until": 0.0}
 
     def night_settings() -> nocturno.Settings:
         return nocturno.load_settings(config.get("night"))
 
-    def save_night(s: nocturno.Settings) -> None:
-        config["night"] = nocturno.dump_settings(s)
-        save_config(config)
-
-    def night_dusk(s: nocturno.Settings) -> _dt.time | None:
+    def night_dusk(s: nocturno.Settings | None = None) -> _dt.time | None:
+        s = s or night_settings()
         lat, lon = s.lat, s.lon
         if lat is None and location.fix is not None:
             lat, lon = location.fix.lat, location.fix.lon
@@ -3594,21 +3595,34 @@ def run(config: dict[str, Any]) -> None:
         except Exception:  # noqa: BLE001
             return False
 
-    def night_screen_set(kelvin: float, brightness: float) -> None:
-        if night_state["gamma"] and nocturno.apply_gamma(kelvin, brightness):
-            night_screen.clear()
-            return
-        night_state["gamma"] = False  # the driver refused: the veil does it
-        night_screen.set(kelvin, brightness)
+    def night_look(s: nocturno.Settings) -> tuple[float, float]:
+        m = nocturno.moment(_dt.datetime.now(), s, night_dusk(s))
+        return (m.kelvin, m.brightness) if s.warmth else (nocturno.DAY_K, 1.0)
+
+    def save_night(s: nocturno.Settings, fade_s: float = 1.2) -> None:
+        config["night"] = nocturno.dump_settings(s)
+        save_config(config)
+        night_state["preview_until"] = 0.0
+        night_engine.go(*night_look(s), fade_s=fade_s)  # changes are seen right away, faded
+
+    def night_preview(kelvin: float, brightness: float) -> None:
+        night_state["preview_until"] = time.monotonic() + 4
+        night_engine.go(kelvin, brightness, fade_s=0.25)
+
+    night_sheet: dict[str, Any] = {"w": None}
+
+    def open_night_sheet() -> None:
+        if night_sheet["w"] is None:
+            night_sheet["w"] = NightSheet(night_settings, save_night, night_preview, night_dusk)
+        night_sheet["w"].open()
 
     def night_tick() -> None:
         try:
             s = night_settings()
             m = nocturno.moment(_dt.datetime.now(), s, night_dusk(s))
-            look = (m.kelvin, m.brightness) if s.warmth else (nocturno.DAY_K, 1.0)
-            if look != night_state["look"]:
-                night_state["look"] = look
-                night_screen_set(*look)
+            if time.monotonic() >= night_state["preview_until"]:
+                # Every 15 s a tiny step, faded over 15 s: the evening flows.
+                night_engine.go(*night_look(s), fade_s=15.0)
             today = _dt.date.today().isoformat()
             key = f"{today}:{m.phase}"
             if s.on and m.phase in nocturno.TIPS and key not in night_state["said"]:
@@ -3629,8 +3643,8 @@ def run(config: dict[str, Any]) -> None:
 
     night_timer = QTimer()
     night_timer.timeout.connect(night_tick)
-    night_timer.start(60_000)
-    QTimer.singleShot(3000, night_tick)
+    night_timer.start(15_000)
+    QTimer.singleShot(1500, night_tick)
 
     def run_night(q: Any) -> str | None:
         if not q.kind.startswith("night_"):
@@ -3638,17 +3652,32 @@ def run(config: dict[str, Any]) -> None:
         s = night_settings()
         if q.kind == "night_on":
             s.on = s.warmth = True
-            save_night(s)
-            night_state["look"] = None
-            on_ui(night_tick)  # the veil is a window: built on the UI thread
-            return nocturno.describe(s, dusk=night_dusk(s)) + " Diga «me levanto siempre a las …» para ajustarlo."
+            save_night(s, fade_s=2.5)
+            return nocturno.describe(s, dusk=night_dusk(s)) + " Diga «night shift más fuerte» o «al 60 %» para ajustarlo."
         if q.kind == "night_off":
             s.on = False
-            save_night(s)
-            night_state["look"] = None
-            on_ui(night_screen.clear)
-            nocturno.restore_gamma()
+            s.force_until = ""
+            save_night(s, fade_s=2.5)
             return "Night Shift apagado; la pantalla vuelve a la normalidad."
+        if q.kind in ("night_more", "night_less", "night_level"):
+            value = float(q.arg) if q.kind == "night_level" else s.intensity + (0.15 if q.kind == "night_more" else -0.15)
+            nocturno.set_intensity(s, value)
+            s.on = s.warmth = True
+            save_night(s)
+            k, b = nocturno.looks(s)["night"]
+            return (f"Night Shift al {round(s.intensity * 100)} %: a la hora de dormir, {round(k)} K y "
+                    f"{round(b * 100)} % de luz.")
+        if q.kind == "night_now":
+            nocturno.force_now(s)
+            save_night(s, fade_s=3.0)
+            return f"Modo noche ya, hasta las {s.wake}. Diga «night shift normal» para volver al horario."
+        if q.kind == "night_auto":
+            s.force_until = ""
+            save_night(s, fade_s=3.0)
+            return "Vuelvo al horario: " + nocturno.describe(s, dusk=night_dusk(s))
+        if q.kind == "night_settings":
+            on_ui(open_night_sheet)
+            return "Le abro el Night Shift."
         if q.kind == "night_status":
             return nocturno.describe(s, dusk=night_dusk(s))
         if q.kind == "night_wake":
@@ -3681,9 +3710,8 @@ def run(config: dict[str, Any]) -> None:
         return None
 
     quick_handlers.append(run_night)
-    section_openers["night"] = lambda _a="": run_night(  # the tile: on if off, else how it is now
-        type("Q", (), {"kind": "night_status" if night_settings().on else "night_on", "arg": ""})())
-    app.aboutToQuit.connect(nocturno.restore_gamma)
+    section_openers["night"] = lambda _a="": on_ui(open_night_sheet)  # the tile: the sheet
+    app.aboutToQuit.connect(night_engine.stop)  # back to normal colours on the way out
 
     def gym_check() -> None:
         if night_quiet():  # no pop-ups in the hour before bed or at night
@@ -3758,13 +3786,6 @@ def run(config: dict[str, Any]) -> None:
     def lang_now() -> str:
         return str(config.get("language") or _idioma.system_language())
 
-    def show_cams(place: str) -> str:
-        # The live-camera window is gone with the visible globe; what the
-        # place is like right now still answers.
-        if not place:
-            return "¿De qué lugar? Le digo cómo está ahora."
-        return client.place(place)
-
     def follow_flight(number: str) -> str:
         number = number or last_plane[0]
         fix = location.get() if not number else None
@@ -3835,8 +3856,6 @@ def run(config: dict[str, Any]) -> None:
             resp.raise_for_status()
             data = resp.json()
             return distance_answer(q.arg, data.get("items") or [], data.get("relations") or [])
-        if q.kind == "cams":
-            return show_cams(q.arg)
         if q.kind == "flight_follow":
             return follow_flight(q.arg)
         if q.kind == "block_add":
