@@ -460,3 +460,68 @@ def test_the_duo_unfolds_like_the_iphone_duo():
     fold.step(0.3)
     fold.open(True)  # a change of mind reverses from where it is
     assert 0 < fold.angle < 180 and fold.step(Fold.DURATION) == 180
+
+
+def test_the_cursor_brings_the_notch_back_as_a_drop_of_liquid():
+    import os
+
+    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+    from PySide6.QtCore import QPoint
+    from PySide6.QtWidgets import QApplication
+
+    _app = QApplication.instance() or QApplication([])
+    from sergio_escritorio import notch as notch_mod
+    from sergio_escritorio.activities import Pour, lean
+
+    pour = Pour()
+    assert not pour.active
+    pour.start(500.0, 200.0, 400.0, 54.0)
+    assert pour.x == 400.0 - pour.RADIUS - 10  # stays inside the invisible walls
+    seen, depths = [], []
+    for _ in range(300):
+        pour.step(1 / 60, cursor_x=260.0)
+        seen.append(pour.phase())
+        if pour.phase() == "form":
+            depths.append(pour.pendant())
+    assert [p for i, p in enumerate(seen) if i == 0 or seen[i - 1] != p] == [
+        "form", "fall", "spread", "fill", "settle", "done"]
+    assert depths == sorted(depths)  # the drop grows from the edge
+    assert pour.land_x < 300  # it followed the cursor before it fell
+    assert pour.level() == 1.0 and abs(pour.wave(pour.land_x)) < 0.6  # brim full, nearly still
+    assert lean(0, 0, (20, 0))[1] > 0 and lean(0, 0, (200, 0)) == (0.0, 0.0, 0.0)
+
+    cursor = [QPoint(0, 0)]
+
+    class FakeCursor:
+        @staticmethod
+        def pos():
+            return cursor[0]
+
+    old = notch_mod.QCursor
+    notch_mod.QCursor = FakeCursor
+    try:
+        n = notch_mod.Notch()
+        shown = []
+        n.on_shown = lambda: shown.append(True)
+        n.show()
+        n.hide_notch(instant=True)
+        assert n.hidden and n._edge.isActive()
+        geo = notch_mod.QGuiApplication.primaryScreen().geometry()
+        cursor[0] = QPoint(geo.x() + geo.width() // 2 + 20, geo.top())  # touch the top edge
+        n._watch_edge()
+        n._edge_since -= 1.0  # dwelt long enough
+        n._watch_edge()
+        assert not n.hidden and n._pour.active and shown == [True] and n.isVisible()
+        for _ in range(200):
+            n._last_tick -= 1 / 60
+            n._tick()
+            n.repaint()
+        assert not n._pour.active and not n._edge.isActive()
+        cursor[0] = QPoint(geo.x() + 10, geo.top())  # far from the centre: nothing
+        n.hide_notch(instant=True)
+        n._watch_edge()
+        n._edge_since = None
+        n._watch_edge()
+        assert n.hidden
+    finally:
+        notch_mod.QCursor = old

@@ -176,6 +176,9 @@ def run(config: dict[str, Any]) -> None:
     )
 
     app = QApplication(sys.argv)
+    from sergio_escritorio import estilo as _estilo
+
+    _estilo.load_fonts()  # the house typeface for every window
     app.setQuitOnLastWindowClosed(False)
     from sergio_escritorio import companion as companion_mod
     from sergio_escritorio.camera import CameraFeed, CameraWindow
@@ -538,6 +541,8 @@ def run(config: dict[str, Any]) -> None:
             notch_action.setChecked(on)
 
     notch_action.toggled.connect(set_notch)
+    # The cursor at the top edge brings it back as a drop: keep the menu in step.
+    notch.on_shown = lambda: on_ui(lambda: notch_action.setChecked(True))
     menu.addAction(notch_action)
     menu.addSeparator()
 

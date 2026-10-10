@@ -15,6 +15,7 @@ the notch reads ``snapshot()`` on the Qt thread every frame.
 from __future__ import annotations
 
 import itertools
+import math
 import threading
 import time
 from dataclasses import dataclass, field, replace
@@ -297,4 +298,136 @@ class Vanish:
         return k * k * (3 - 2 * k) * (1.0 - self.rise())
 
 
-__all__ = ["Activities", "Activity", "Fold", "KINDS", "Spring", "Vanish"]
+def _ease_out(k: float) -> float:
+    k = min(1.0, max(0.0, k))
+    return 1 - (1 - k) ** 3
+
+
+class Pour:
+    """Bringing the notch back with the cursor: a drop of liquid.
+
+    The cursor touches the top edge; a black drop seeps out of the edge right
+    there, follows the cursor sideways (viscous, a little late) and leans
+    toward it; it lets go and falls slowly into the notch's place, where
+    invisible walls (the island's shape) hold it like a lake: it splashes,
+    spreads to the walls and fills them up, its surface rocking until it is
+    still, and then the island appears in it. ``t`` runs 0 .. 1."""
+
+    DURATION = 2.1
+    FORM, FALL, SPREAD, FILL = 0.2, 0.5, 0.7, 0.92  # where each part ends
+    RADIUS = 8.0
+
+    def __init__(self) -> None:
+        self.t = 1.0
+        self.x = 0.0
+        self.vx = 0.0
+        self.land_x = 0.0
+        self.basin = (0.0, 0.0, 0.0)  # left, right, bottom
+
+    @property
+    def active(self) -> bool:
+        return self.t < 1.0
+
+    def start(self, x: float, left: float, right: float, bottom: float) -> None:
+        self.t, self.vx = 0.0, 0.0
+        self.basin = (left, right, bottom)
+        self.x = self.land_x = self._clamp(x)
+
+    def _clamp(self, x: float) -> float:
+        left, right, _ = self.basin
+        margin = self.RADIUS + 10
+        return min(right - margin, max(left + margin, x))
+
+    def phase(self) -> str:
+        if self.t < self.FORM:
+            return "form"
+        if self.t < self.FALL:
+            return "fall"
+        if self.t < self.SPREAD:
+            return "spread"
+        if self.t < self.FILL:
+            return "fill"
+        return "settle" if self.t < 1.0 else "done"
+
+    def step(self, dt: float, cursor_x: float | None = None) -> float:
+        dt = max(0.0, min(dt, 0.05))
+        self.t = min(1.0, self.t + dt / self.DURATION)
+        if self.phase() in ("form", "fall") and cursor_x is not None:
+            # A damped spring toward the cursor: liquid, not a pointer.
+            stiff = 38.0 if self.phase() == "form" else 16.0
+            self.vx += (self._clamp(cursor_x) - self.x) * stiff * dt
+            self.vx *= math.exp(-9.0 * dt)
+            self.x = self._clamp(self.x + self.vx * dt)
+            self.land_x = self.x
+        return self.t
+
+    def _k(self, start: float, end: float) -> float:
+        return min(1.0, max(0.0, (self.t - start) / (end - start)))
+
+    def pendant(self) -> float:
+        """How far the forming drop hangs from the edge (px)."""
+        k = self._k(0.0, self.FORM)
+        return self.RADIUS * 2.6 * (k * k * (3 - 2 * k))
+
+    def drop(self) -> tuple[float, float, float]:
+        """While falling: (centre y, radius, stretch). Slow, gently speeding up."""
+        k = self._k(self.FORM, self.FALL)
+        _, _, bottom = self.basin
+        start, end = self.RADIUS * 1.7, bottom - self.RADIUS * 0.9
+        y = start + (end - start) * (k ** 1.6)
+        stretch = 0.12 + 0.32 * k  # longer as it speeds up
+        return y, self.RADIUS, stretch
+
+    def spread(self) -> float:
+        """0 a fresh splash .. 1 the liquid reaches both walls."""
+        return _ease_out(self._k(self.FALL, self.SPREAD))
+
+    def level(self) -> float:
+        """How full the lake is: 0 a puddle on the floor .. 1 brim full."""
+        if self.t < self.SPREAD:
+            return 0.0
+        k = self._k(self.SPREAD, self.FILL)
+        return k * k * (3 - 2 * k)  # even, like water poured into a basin
+
+    def wave(self, x: float) -> float:
+        """The surface's height offset at x (px): waves from where it landed,
+        dying out as it settles."""
+        if self.t < self.FALL:
+            return 0.0
+        since = (self.t - self.FALL) * self.DURATION
+        amp = 3.2 * math.exp(-2.6 * since)
+        d = x - self.land_x
+        return amp * math.cos(d * 0.11 - since * 9.0) * math.exp(-abs(d) * 0.012)
+
+    def fade(self) -> float:
+        """The island's own picture fading in once the lake is still."""
+        return self._k(self.FILL, 1.0)
+
+    def splash(self) -> list[tuple[float, float, float]]:
+        """Little droplets thrown up at impact: (x, y, radius)."""
+        k = self._k(self.FALL, self.FALL + (self.SPREAD - self.FALL) * 0.9)
+        if k <= 0.0 or k >= 1.0:
+            return []
+        _, _, bottom = self.basin
+        out = []
+        for i, (vx, vy, r) in enumerate(((-34.0, 26.0, 2.2), (27.0, 30.0, 1.8), (-12.0, 36.0, 1.5), (16.0, 22.0, 1.4))):
+            tt = k * 0.55
+            y = bottom - self.RADIUS * 0.6 - (vy * tt - 60.0 * tt * tt)
+            out.append((self.land_x + vx * tt, min(bottom - 1.0, y), r * (1.0 - 0.6 * k) + 0.2 * (i % 2)))
+        return out
+
+
+def lean(cx: float, cy: float, cursor: tuple[float, float] | None, reach: float = 56.0) -> tuple[float, float, float]:
+    """A drop leaning toward a nearby cursor, as surface tension would let it:
+    (angle in degrees, stretch 0..0.22, shift px)."""
+    if cursor is None:
+        return 0.0, 0.0, 0.0
+    dx, dy = cursor[0] - cx, cursor[1] - cy
+    d = math.hypot(dx, dy)
+    if d >= reach or d < 1e-6:
+        return 0.0, 0.0, 0.0
+    near = 1.0 - d / reach
+    return math.degrees(math.atan2(dy, dx)), 0.22 * near, min(4.0, 4.0 * near)
+
+
+__all__ = ["Activities", "Activity", "Fold", "KINDS", "Pour", "Spring", "Vanish", "lean"]

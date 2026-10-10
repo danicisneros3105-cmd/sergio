@@ -118,7 +118,7 @@ def test_personalise_saves_live(qt):
     panel.brain.buttons["profundo"].click()
     last = saved[-1]
     assert last["body"] == "#a8d8ff" and last["accessory"] == "laurel"
-    assert panel.title.text() == "Sergio"  # his name is fixed
+    assert panel.title.text() == "SERGIO"  # his name is fixed (spaced capitals)
     assert last["personality"] == "Divertido" and last["effort"] == "profundo"
     panel.set_level(0.9)
     assert panel.mic.level > 0

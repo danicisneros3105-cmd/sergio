@@ -38,7 +38,16 @@ from PySide6.QtGui import (
 )
 from PySide6.QtWidgets import QWidget
 
-from sergio_escritorio.activities import Activities, Activity, Fold, Spring, Vanish
+from sergio_escritorio import estilo
+from sergio_escritorio.activities import (
+    Activities,
+    Activity,
+    Fold,
+    Pour,
+    Spring,
+    Vanish,
+    lean,
+)
 from sergio_escritorio.character import PALETTES, STATE_COLORS, draw_character
 
 LABELS = {
@@ -49,7 +58,7 @@ LABELS = {
     "acting": "Usando tu pantalla",
     "paused": "Control pausado",
 }
-FONTS = ["Segoe UI Variable Display", "SF Pro Display", "Geist", "Segoe UI"]
+FONTS = estilo.families()  # the house typeface (Source Sans 3), then system fallbacks
 
 CANVAS_W, CANVAS_H = 620, 160
 COMPACT = (132.0, 36.0)
@@ -62,9 +71,30 @@ PAD = 16.0
 RADIUS = 22.0
 BARS = 22
 TYPE_SPEED = 55.0  # characters per second for answers
+POUR = (196.0, 54.0)  # the lake the drop fills, before it settles to size
+EDGE_PX = 2  # the cursor this close to the top edge (near the centre) calls it back
+EDGE_HALF_W = 170
+EDGE_DWELL_S = 0.12
+
+
+def notch_path(rect: QRectF) -> QPainterPath:
+    """Flat top (flush with the screen edge), soft round bottom: a notch."""
+    path = QPainterPath()
+    r = min(RADIUS, rect.height() / 2)
+    path.moveTo(rect.left(), rect.top())
+    path.lineTo(rect.right(), rect.top())
+    path.lineTo(rect.right(), rect.bottom() - r)
+    path.cubicTo(rect.right(), rect.bottom() - r * 0.2, rect.right() - r * 0.2, rect.bottom(),
+                 rect.right() - r, rect.bottom())
+    path.lineTo(rect.left() + r, rect.bottom())
+    path.cubicTo(rect.left() + r * 0.2, rect.bottom(), rect.left(), rect.bottom() - r * 0.2,
+                 rect.left(), rect.bottom() - r)
+    path.closeSubpath()
+    return path
 
 
 def _font(size: float, weight: QFont.Weight = QFont.Weight.Normal) -> QFont:
+    estilo.load_fonts()
     font = QFont()
     font.setFamilies(FONTS)
     font.setPointSizeF(size)
@@ -114,6 +144,12 @@ class Notch(QWidget):
         self.multitasking = False
         self._vanish = Vanish()  # «esconde el notch»: black hole, then up
         self._snap: QPixmap | None = None  # the island as it was, to swallow
+        # Hidden, the cursor at the top edge calls it back as a drop of liquid.
+        self._pour = Pour()
+        self.on_shown: Callable[[], None] | None = None
+        self._edge_since: float | None = None
+        self._edge = QTimer(self)
+        self._edge.timeout.connect(self._watch_edge)
         self._last_tick = time.monotonic()
         self.activities: Activities | None = None
         self._live: list[Activity] = []
@@ -166,8 +202,11 @@ class Notch(QWidget):
         """Collapse into a small black hole, then rise off the screen."""
         if self._vanish.target >= 1.0:
             return
+        self._pour.t = 1.0
         self._snap = self._snapshot()
         self._vanish.hide()
+        self._edge_since = None
+        self._edge.start(50)  # 20 checks a second of where the cursor is: nothing else runs
         if instant:  # e.g. it starts hidden: no film
             self._vanish.t = 1.0
             self.hide()
@@ -176,10 +215,52 @@ class Notch(QWidget):
         """The same film backwards: it drops in and opens up."""
         if self._vanish.target <= 0.0:
             return
+        self._edge.stop()
         self._snap = self._snapshot()
         self._vanish.show()
         if not self.isVisible():
             self.show()
+
+    def pour_in(self, cursor_x: float) -> None:
+        """Back as a drop of liquid where the cursor touched the edge."""
+        if not self.hidden:
+            return
+        self._edge.stop()
+        self._vanish.t = self._vanish.target = 0.0
+        w, h = POUR
+        left = (CANVAS_W - w) / 2
+        self._pour.start(cursor_x - self.x(), left, left + w, h)
+        self._w, self._h = POUR
+        for spring, value in ((self._sw, w), (self._sh, h)):
+            spring.value = spring.target = value
+            spring.velocity = 0.0
+        self._last_tick = time.monotonic()
+        if not self.isVisible():
+            self.show()
+        if self.on_shown is not None:
+            self.on_shown()
+
+    def _watch_edge(self) -> None:
+        if not self.hidden:
+            self._edge.stop()
+            return
+        if not self._vanish.hidden:  # still rising away
+            return
+        screen = QGuiApplication.primaryScreen()
+        if screen is None:
+            return
+        geo = screen.geometry()
+        pos = QCursor.pos()
+        centre = geo.x() + geo.width() / 2
+        at_edge = pos.y() <= geo.top() + EDGE_PX and abs(pos.x() - centre) <= EDGE_HALF_W
+        now = time.monotonic()
+        if not at_edge:
+            self._edge_since = None
+        elif self._edge_since is None:
+            self._edge_since = now
+        elif now - self._edge_since >= EDGE_DWELL_S:
+            self._edge_since = None
+            self.pour_in(pos.x())
 
     def _snapshot(self) -> QPixmap:
         image = QPixmap(CANVAS_W, CANVAS_H)
@@ -267,6 +348,16 @@ class Notch(QWidget):
         now = time.monotonic()
         dt, self._last_tick = now - self._last_tick, now
         self._live = self.activities.snapshot() if self.activities is not None else []
+        if self._pour.active:
+            cursor = self.mapFromGlobal(QCursor.pos())
+            self._pour.step(dt, float(cursor.x()))
+            left, right, bottom = self._pour.basin
+            region = QRegion(QRectF(left - 2, 0, right - left + 4, bottom + 4).toAlignedRect())
+            if region != self._mask_rect:
+                self._mask_rect = region
+                self.setMask(region)
+            self.update()
+            return
         tw, th = self.target_size()
         # Real springs (a soft iOS overshoot) toward the target size.
         self._sw.target, self._sh.target = tw, th
@@ -325,10 +416,134 @@ class Notch(QWidget):
     def paintEvent(self, _event: object) -> None:  # noqa: N802 (Qt API)
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        if self._vanish.active:
+        if self._pour.active:
+            self._paint_pour(p)
+        elif self._vanish.active:
             self._paint_vanish(p)
         else:
             self._paint_normal(p)
+
+    def _paint_pour(self, p: QPainter) -> None:
+        """A drop seeps from the edge, leans to the cursor, falls slowly and
+        fills the island's shape like a lake; then the island appears."""
+        pour = self._pour
+        left, right, bottom = pour.basin
+        basin = notch_path(QRectF(left, 0, right - left, bottom))
+        c = self.mapFromGlobal(QCursor.pos())
+        cursor = (float(c.x()), float(c.y()))
+        phase = pour.phase()
+        r = pour.RADIUS
+        ink = QLinearGradient(0, 0, 0, bottom)
+        ink.setColorAt(0.0, QColor(30, 30, 28))
+        ink.setColorAt(1.0, QColor(0, 0, 0))
+        p.setPen(Qt.PenStyle.NoPen)
+        gloss = QColor(255, 255, 255, 70)
+
+        def draw_drop(cx: float, cy: float, stretch: float, attached: float = 0.0) -> None:
+            angle, pull, shift = lean(cx, cy, cursor)
+            p.save()
+            p.translate(cx, cy)
+            if shift:
+                p.translate(math.cos(math.radians(angle)) * shift, math.sin(math.radians(angle)) * shift)
+                p.rotate((angle - 90.0) * min(1.0, pull * 3.0) * 0.35)
+            p.scale(1.0 - pull * 0.25, 1.0 + pull)
+            tail = r * (1.0 + stretch * 1.6)
+            drop = QPainterPath(QPointF(0, -tail))
+            drop.cubicTo(r * 0.35, -tail * 0.55, r * 1.05, -r * 0.35, r, r * 0.15)
+            drop.cubicTo(r * 0.95, r * 0.85, r * 0.45, r * 1.02, 0, r * 1.02)
+            drop.cubicTo(-r * 0.45, r * 1.02, -r * 0.95, r * 0.85, -r, r * 0.15)
+            drop.cubicTo(-r * 1.05, -r * 0.35, -r * 0.35, -tail * 0.55, 0, -tail)
+            p.setBrush(QColor(4, 4, 4))
+            p.drawPath(drop)
+            p.setPen(QPen(gloss, 1.1, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
+            p.drawArc(QRectF(-r * 0.62, -r * 0.5, r * 0.9, r * 0.9), 110 * 16, 70 * 16)
+            p.restore()
+            p.setPen(Qt.PenStyle.NoPen)
+
+        if phase == "form":
+            depth = pour.pendant()
+            x = pour.x
+            angle, pull, shift = lean(x, depth * 0.6, cursor)
+            tip_x = x + math.cos(math.radians(angle)) * shift * 1.5
+            tip_y = depth + max(0.0, math.sin(math.radians(angle))) * shift
+            # A pendant drop: a meniscus at the edge, a neck, a round bulb.
+            bulb = r * (0.55 + 0.45 * min(1.0, depth / (r * 2.6)))
+            cy = max(bulb * 0.6, tip_y - bulb)
+            neck = max(1.6, bulb * (0.95 - 0.55 * min(1.0, depth / (r * 2.6))))
+            cx = x + (tip_x - x) * 0.8
+            bead = QPainterPath(QPointF(x - r * 2.4, 0))
+            bead.cubicTo(x - r * 1.1, 0, x - neck, cy * 0.35, cx - bulb * 0.92, cy)
+            bead.cubicTo(cx - bulb * 0.95, cy + bulb * 0.75, cx - bulb * 0.5, cy + bulb, cx, cy + bulb)
+            bead.cubicTo(cx + bulb * 0.5, cy + bulb, cx + bulb * 0.95, cy + bulb * 0.75, cx + bulb * 0.92, cy)
+            bead.cubicTo(x + neck, cy * 0.35, x + r * 1.1, 0, x + r * 2.4, 0)
+            bead.closeSubpath()
+            p.setBrush(QColor(4, 4, 4))
+            p.drawPath(bead)
+            if depth > r:
+                p.setPen(QPen(gloss, 1.0, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
+                p.drawArc(QRectF(cx - bulb * 0.7, cy - bulb * 0.55, bulb * 1.0, bulb * 1.0), 110 * 16, 70 * 16)
+                p.setPen(Qt.PenStyle.NoPen)
+            return
+        if phase == "fall":
+            y, radius, stretch = pour.drop()
+            k = (pour.t - pour.FORM) / (pour.FALL - pour.FORM)
+            if k < 0.3:  # the thread it hung from thins and pulls back up
+                left_k = 1.0 - k / 0.3
+                top_of_drop = y - radius * (1.0 + stretch * 1.6)
+                p.setPen(QPen(QColor(4, 4, 4), max(0.4, 2.2 * left_k), Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
+                p.drawLine(QPointF(pour.x, 0), QPointF(pour.x, top_of_drop * left_k))
+                p.setPen(Qt.PenStyle.NoPen)
+                p.setBrush(QColor(4, 4, 4))
+                p.drawEllipse(QPointF(pour.x, 0), r * 1.2 * left_k, r * 0.7 * left_k)
+            draw_drop(pour.x, y, stretch)
+            return
+        # The lake: a puddle that spreads to the walls, then rises to the brim.
+        floor, top = bottom - 5.0, -2.0
+        level = pour.level()
+        base = floor + (top - floor) * level
+        spread = pour.spread()
+        width = 2 * r + (right - left - 2 * r) * spread
+        lo = max(left, min(pour.land_x - width / 2, right - width))
+        hi = min(right, lo + width)
+        mid, half = (lo + hi) / 2, max(1.0, (hi - lo) / 2)
+        hump = r * 1.1 * (1.0 - spread) * (1.0 - level)  # the splash, flattening
+        points: list[QPointF] = []
+        x = lo
+        while True:
+            u = (x - mid) / half
+            dome = hump * max(0.0, 1.0 - u * u)
+            edge = (1.0 - spread) * 5.0 * (abs(u) ** 6)  # rounded puddle rim
+            y = base - dome + edge + pour.wave(x)
+            dx, dy = x - cursor[0], y - cursor[1]
+            if abs(dy) < 18.0:  # the cursor dips the surface like a fingertip
+                y += 2.6 * math.exp(-(dx / 9.0) ** 2) * (1.0 - abs(dy) / 18.0)
+            points.append(QPointF(x, min(y, bottom + 1.0)))
+            if x >= hi:
+                break
+            x = min(hi, x + 2.0)
+        lake = QPainterPath(QPointF(lo, bottom + 2.0))
+        for pt in points:
+            lake.lineTo(pt)
+        lake.lineTo(QPointF(hi, bottom + 2.0))
+        lake.closeSubpath()
+        p.save()
+        p.setClipPath(basin)
+        p.setBrush(ink)
+        p.drawPath(lake)
+        if pour.fade() < 1.0:
+            p.setOpacity(1.0 - pour.fade())
+            p.setPen(QPen(QColor(255, 255, 255, 46), 1.0))
+            p.drawPolyline(points)
+            p.setOpacity(1.0)
+        p.restore()
+        p.setPen(Qt.PenStyle.NoPen)
+        p.setBrush(QColor(4, 4, 4))
+        for sx, sy, sr in pour.splash():
+            p.drawEllipse(QPointF(sx, sy), sr, sr)
+        if pour.fade() > 0.0:
+            p.setOpacity(pour.fade())
+            self._paint_normal(p)
+            p.setOpacity(1.0)
 
     def _paint_vanish(self, p: QPainter) -> None:
         """The island falls into a black hole, then the ball rises away.
@@ -424,29 +639,7 @@ class Notch(QWidget):
         rect = self.pill()
 
         # Flat top (flush with the screen edge), soft round bottom: a notch.
-        path = QPainterPath()
-        r = min(RADIUS, rect.height() / 2)
-        path.moveTo(rect.left(), rect.top())
-        path.lineTo(rect.right(), rect.top())
-        path.lineTo(rect.right(), rect.bottom() - r)
-        path.cubicTo(
-            rect.right(),
-            rect.bottom() - r * 0.2,
-            rect.right() - r * 0.2,
-            rect.bottom(),
-            rect.right() - r,
-            rect.bottom(),
-        )
-        path.lineTo(rect.left() + r, rect.bottom())
-        path.cubicTo(
-            rect.left() + r * 0.2,
-            rect.bottom(),
-            rect.left(),
-            rect.bottom() - r * 0.2,
-            rect.left(),
-            rect.bottom() - r,
-        )
-        path.closeSubpath()
+        path = notch_path(rect)
         p.setPen(Qt.PenStyle.NoPen)
         p.setBrush(QColor(0, 0, 0))
         p.drawPath(path)

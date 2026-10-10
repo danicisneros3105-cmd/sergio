@@ -15,8 +15,10 @@ Six sections and nothing more, in the user's language (idioma.py):
   multitasking, hiding the notch, language and country.
 
 The look is Bang & Olufsen on graphite: black anodised glass, aluminium
-hairlines and a light aluminium primary button, a serif for the titles.
-Everything is native Qt; data comes from the local Sergio server.
+hairlines and a light aluminium primary button; one typeface (estilo.py:
+Source Sans 3, the closest legal match to the B&O wordmark), titles in
+spaced capitals; every measure on a 4 px grid. Native Qt; data comes from
+the local Sergio server.
 """
 
 from __future__ import annotations
@@ -31,6 +33,7 @@ from PySide6.QtCore import QEvent, QPointF, QRectF, QSize, Qt, QTimer, Signal
 from PySide6.QtGui import (
     QColor,
     QFont,
+    QFontMetricsF,
     QGuiApplication,
     QPainter,
     QPainterPath,
@@ -54,6 +57,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from sergio_escritorio import estilo, idioma
 from sergio_escritorio.character import (
     ACCESSORIES,
     BODIES,
@@ -67,13 +71,12 @@ from sergio_escritorio.character import (
     apply_config,
     draw_character,
 )
-from sergio_escritorio import idioma
 from sergio_escritorio.neural_voice import VOICES
 
 WIDTH, HEIGHT = 468, 600
 RADIUS = 30.0
-FONTS = ["Segoe UI Variable Text", "SF Pro Text", "Segoe UI"]
-SERIF = "'Palatino Linotype', 'Book Antiqua', Palatino, Georgia, serif"
+FONTS = estilo.families()
+FAMILY = estilo.css_family()
 TEXT = "#efece6"  # warm paper white
 SECONDARY = "#8f8b84"
 CARD = "#111111"
@@ -90,51 +93,53 @@ BRAINS = {
 RATES = {"-10%": "Lenta", "+0%": "Normal", "+15%": "Rápida"}
 
 STYLE = f"""
-QWidget {{ color: {TEXT}; font-family: 'Segoe UI Variable Text', 'Segoe UI';
-           font-size: 13px; }}
-QLabel#title {{ font-family: {SERIF}; font-size: 21px; font-weight: 400;
-                letter-spacing: 0.3px; }}
-QLabel#subtitle, QLabel#hint {{ color: {SECONDARY}; font-size: 12px; }}
-QLabel#section {{ color: {SECONDARY}; font-size: 10px; font-weight: 600;
-                  letter-spacing: 1.8px; }}
-QLabel#heading {{ font-family: {SERIF}; font-size: 17px; }}
-QLabel#answer {{ font-size: 13px; line-height: 140%; }}
-QLabel#row {{ background: {CARD}; border: 1px solid {LINE}; border-radius: 10px;
-             padding: 9px 12px; }}
-QLineEdit {{ background: {CARD}; border: 1px solid {LINE}; border-radius: 10px;
-             padding: 9px 14px; font-size: 13px;
+QWidget {{ color: {TEXT}; font-family: {FAMILY}; font-size: 14px; }}
+QLabel#title {{ font-size: 15px; font-weight: 300; letter-spacing: 3px; }}
+QLabel#subtitle, QLabel#hint {{ color: {SECONDARY}; font-size: 13px; }}
+QLabel#section, QLabel#heading {{ color: {SECONDARY}; font-size: 10px; font-weight: 600;
+                  letter-spacing: 2px; }}
+QLabel#answer {{ font-size: 14px; }}
+QLabel#bubble {{ background: {CARD}; border: 1px solid {LINE}; border-radius: 12px;
+                padding: 8px 12px; font-size: 14px; }}
+QLabel#mine {{ background: #26251f; border: 1px solid #3a3833; border-radius: 12px;
+              padding: 8px 12px; font-size: 14px; }}
+QLabel#row {{ background: {CARD}; border: 1px solid {LINE}; border-radius: 8px;
+             padding: 8px 12px; }}
+QLineEdit {{ background: {CARD}; border: 1px solid {LINE}; border-radius: 8px;
+             padding: 8px 12px; font-size: 14px;
              selection-background-color: #3a3833; }}
 QLineEdit:focus {{ border: 1px solid {ALUMINIUM}; }}
-QPushButton {{ background: transparent; border: 1px solid {LINE}; border-radius: 10px;
-               padding: 8px 14px; font-weight: 500; letter-spacing: 0.3px; }}
+QPushButton {{ background: transparent; border: 1px solid {LINE}; border-radius: 8px;
+               padding: 8px 16px; font-weight: 500; letter-spacing: 0.3px; }}
 QPushButton:hover {{ border: 1px solid #4a4843; background: #161616; }}
 QPushButton#primary {{ background: {ALUMINIUM}; color: #0b0b0b; border: none; }}
 QPushButton#primary:hover {{ background: #e2ddd3; }}
 QPushButton#seg {{ background: transparent; color: {SECONDARY}; border: none;
-                   border-radius: 0; padding: 7px 0 6px 0; font-weight: 500;
-                   font-size: 11px; letter-spacing: 0.6px;
+                   border-radius: 0; padding: 8px 0 7px 0; font-weight: 500;
+                   font-size: 13px; letter-spacing: 0.2px;
                    border-bottom: 1px solid transparent; }}
 QPushButton#seg:checked {{ color: {TEXT}; border-bottom: 1px solid {ALUMINIUM}; }}
-QWidget#segbar {{ background: {CARD}; border-radius: 14px; }}
-QWidget#segbar QPushButton#seg {{ padding: 5px 10px; border-radius: 11px; }}
-QComboBox {{ background: {CARD}; border: 1px solid {LINE}; border-radius: 10px;
-             padding: 6px 12px; }}
+QWidget#segbar {{ background: {CARD}; border-radius: 12px; }}
+QWidget#segbar QPushButton#seg {{ padding: 4px 8px; border-radius: 8px; font-size: 11px; }}
+QComboBox {{ background: {CARD}; border: 1px solid {LINE}; border-radius: 8px;
+             padding: 4px 12px; min-height: 24px; }}
 QComboBox QAbstractItemView {{ background: {CARD}; color: {TEXT};
              selection-background-color: #2a2926; border: 1px solid {LINE}; }}
 QListWidget {{ background: transparent; border: none; outline: none; }}
-QListWidget::item {{ background: {CARD}; border: 1px solid {LINE}; border-radius: 10px;
-                     margin: 0 0 6px 0; padding: 9px 11px; }}
+QListWidget::item {{ background: {CARD}; border: 1px solid {LINE}; border-radius: 8px;
+                     margin: 0 0 8px 0; padding: 8px 12px; }}
 QListWidget::item:selected {{ border: 1px solid {ALUMINIUM}; color: {TEXT}; }}
 QScrollArea {{ background: transparent; border: none; }}
 QScrollArea > QWidget > QWidget {{ background: transparent; }}
-QScrollBar:vertical {{ background: transparent; width: 6px; }}
-QScrollBar::handle:vertical {{ background: {LINE}; border-radius: 3px; }}
+QScrollBar:vertical {{ background: transparent; width: 4px; }}
+QScrollBar::handle:vertical {{ background: {LINE}; border-radius: 2px; }}
 QScrollBar:horizontal {{ height: 0; }}
 QScrollBar::add-line, QScrollBar::sub-line {{ height: 0; }}
 """
 
 
 def _font(size: float, weight: QFont.Weight = QFont.Weight.Normal) -> QFont:
+    estilo.load_fonts()
     font = QFont()
     font.setFamilies(FONTS)
     font.setPointSizeF(size)
@@ -439,15 +444,19 @@ def all_territories() -> list[tuple[str, str]]:
 
 
 class SectionTile(QAbstractButton):
-    """One part of Sergio in the «Todo» grid: a coloured icon and its name."""
+    """One part of Sergio as a row: a ringed icon, its name, one line on
+    what it is, a chevron. 56 px tall, 8 px apart, 12 px corners."""
 
-    def __init__(self, key: str, label: str) -> None:
+    HEIGHT = 56
+
+    def __init__(self, key: str, label: str, description: str = "") -> None:
         super().__init__()
-        self.key, self.label = key, label
+        self.key, self.label, self.description = key, label, description
         self.icon_kind, self.colour = SECTION_ICONS.get(key, ("gear", ACCENT))
         self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setFixedHeight(78)
-        self.setToolTip(label)
+        self.setFixedHeight(self.HEIGHT)
+        self.setToolTip(description or label)
+        self.setAccessibleName(label)
 
     def paintEvent(self, _event: Any) -> None:  # noqa: N802
         p = QPainter(self)
@@ -457,18 +466,32 @@ class SectionTile(QAbstractButton):
         p.setPen(QPen(QColor(ALUMINIUM if hot else LINE), 1.0))
         p.setBrush(QColor("#161616" if hot else CARD))
         p.drawRoundedRect(rect, 12, 12)
-        bubble = QPointF(rect.center().x(), rect.top() + 28)
+        bubble = QPointF(rect.left() + 32, rect.center().y())
         p.setPen(QPen(QColor(ALUMINIUM), 1.0))
         p.setBrush(Qt.BrushStyle.NoBrush)
         p.drawEllipse(bubble, 16, 16)
         draw_icon(p, self.icon_kind, bubble, QColor(TEXT))
+        x = rect.left() + 60
+        width = rect.width() - 60 - 36
         p.setPen(QColor(TEXT))
-        p.setFont(_font(8.6, QFont.Weight.DemiBold))
-        p.drawText(
-            QRectF(rect.left() + 4, rect.top() + 50, rect.width() - 8, 22),
-            Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter,
-            self.label,
-        )
+        p.setFont(_font(10, QFont.Weight.DemiBold))
+        if self.description:
+            p.drawText(QRectF(x, rect.top() + 9, width, 20), Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+                       self.label)
+            p.setPen(QColor(SECONDARY))
+            p.setFont(_font(8.6))
+            metrics = QFontMetricsF(p.font())
+            left = Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
+            p.drawText(QRectF(x, rect.top() + 28, width, 18), left,
+                       metrics.elidedText(self.description, Qt.TextElideMode.ElideRight, width))
+        else:
+            p.drawText(QRectF(x, rect.top(), width, rect.height()),
+                       Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, self.label)
+        # Chevron
+        cx, cy = rect.right() - 20, rect.center().y()
+        p.setPen(QPen(QColor(SECONDARY), 1.4, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
+        p.drawLine(QPointF(cx - 3, cy - 5), QPointF(cx + 2, cy))
+        p.drawLine(QPointF(cx + 2, cy), QPointF(cx - 3, cy + 5))
         p.end()
 
     def enterEvent(self, _event: Any) -> None:  # noqa: N802
@@ -666,7 +689,7 @@ class ControlCenter(QWidget):
     TABS = ("tab_chat", "tab_cowork", "tab_swarm", "tab_health", "tab_profile", "tab_settings")
     CHAT, COWORK, SWARM, HEALTH, PROFILE, SETTINGS_TAB = range(6)
     HEALTH_SECTIONS = ("health", "night", "gym", "results", "consult")
-    PROFILE_SECTIONS = ("profile", "goals", "faces")
+    PROFILE_SECTIONS = ("profile", "goals", "results", "faces")
 
     def __init__(self, actions: PanelActions) -> None:
         super().__init__(
@@ -676,6 +699,7 @@ class ControlCenter(QWidget):
             | Qt.WindowType.WindowStaysOnTopHint,
         )
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        estilo.load_fonts()  # before the style sheet, so every tab gets the typeface
         self.setStyleSheet(STYLE)
         self.setFixedSize(WIDTH, HEIGHT)
         self.actions = actions
@@ -687,7 +711,7 @@ class ControlCenter(QWidget):
 
         root = QVBoxLayout(self)
         root.setContentsMargins(24, 16, 24, 20)
-        root.setSpacing(14)
+        root.setSpacing(16)
         root.addLayout(self._header())
         root.addWidget(self._segmented())
         self.pages = QStackedWidget()
@@ -707,20 +731,24 @@ class ControlCenter(QWidget):
     def _header(self) -> QHBoxLayout:
         row = QHBoxLayout()
         row.setSpacing(12)
-        row.addWidget(Orb(10, lambda: self.state))
+        row.setAlignment(Qt.AlignmentFlag.AlignVCenter)
+        row.addWidget(Orb(10, lambda: self.state), 0, Qt.AlignmentFlag.AlignVCenter)
         texts = QVBoxLayout()
         texts.setSpacing(0)
-        self.title = _label("Sergio", "title")
+        texts.setAlignment(Qt.AlignmentFlag.AlignVCenter)
+        self.title = _label("SERGIO", "title")
         texts.addWidget(self.title)
         self.subtitle = _label("", "subtitle")
+        self.subtitle.setVisible(False)  # only when there is something to say
         texts.addWidget(self.subtitle)
         row.addLayout(texts, 1)
         close = QPushButton("×")
-        close.setFixedSize(30, 30)
-        close.setStyleSheet("border-radius: 15px; padding: 0; font-size: 13px;")
+        close.setFixedSize(28, 28)
+        close.setAccessibleName("Cerrar")
+        close.setStyleSheet("border-radius: 14px; padding: 0 0 2px 0; font-size: 14px;")
         close.setCursor(Qt.CursorShape.PointingHandCursor)
         close.clicked.connect(self.hide)
-        row.addWidget(close)
+        row.addWidget(close, 0, Qt.AlignmentFlag.AlignVCenter)
         return row
 
     def _segmented(self) -> QWidget:
@@ -728,7 +756,7 @@ class ControlCenter(QWidget):
         bar.setStyleSheet(f"border-bottom: 1px solid {LINE};")
         row = QHBoxLayout(bar)
         row.setContentsMargins(0, 0, 0, 0)
-        row.setSpacing(4)
+        row.setSpacing(0)
         self.tab_group = QButtonGroup(self)
         for i, key in enumerate(self.TABS):
             button = QPushButton(idioma.t(key, self.lang))
@@ -736,17 +764,39 @@ class ControlCenter(QWidget):
             button.setCheckable(True)
             button.setCursor(Qt.CursorShape.PointingHandCursor)
             self.tab_group.addButton(button, i)
+            if i:
+                row.addStretch(1)  # equal gaps between the words
             row.addWidget(button)
         self.tab_group.button(0).setChecked(True)
         self.tab_group.idClicked.connect(self.show_tab)
         return bar
 
     def _chat(self) -> QWidget:
+        """A conversation, like a messenger: the brain on top, what was said
+        in the middle (newest at the bottom), the composer at the foot."""
         page = QWidget()
         col = QVBoxLayout(page)
         col.setContentsMargins(0, 0, 0, 0)
         col.setSpacing(12)
+        self.brain = Segmented(
+            BRAINS,
+            str(self.actions.config.get("effort", "auto")),
+            lambda k: self._save(effort=k),
+        )
+        col.addLayout(_row(idioma.t("brain", self.lang), self.brain))
+        self.thread = QWidget()
+        self.thread_col = QVBoxLayout(self.thread)
+        self.thread_col.setContentsMargins(0, 0, 4, 0)
+        self.thread_col.setSpacing(8)
+        self.thread_col.addStretch(1)
+        self.answer = self._bubble(idioma.t("ask_me", self.lang), mine=False)
+        self.chat_scroll = QScrollArea()
+        self.chat_scroll.setWidgetResizable(True)
+        self.chat_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.chat_scroll.setWidget(self.thread)
+        col.addWidget(self.chat_scroll, 1)
         ask = QHBoxLayout()
+        ask.setSpacing(8)
         self.entry = QLineEdit()
         self.entry.setPlaceholderText(idioma.t("type_here", self.lang))
         self.entry.returnPressed.connect(self._send)
@@ -757,25 +807,35 @@ class ControlCenter(QWidget):
         talk.clicked.connect(self._talk)
         ask.addWidget(talk)
         col.addLayout(ask)
-        self.brain = Segmented(
-            BRAINS,
-            str(self.actions.config.get("effort", "auto")),
-            lambda k: self._save(effort=k),
-        )
-        col.addLayout(_row(idioma.t("brain", self.lang), self.brain))
-        mic = QHBoxLayout()
-        mic.addWidget(_label(idioma.t("mic", self.lang), "hint"))
         self.mic = LevelBar()
-        mic.addWidget(self.mic, 1)
-        col.addLayout(mic)
-        col.addWidget(_label(idioma.t("last_answer", self.lang), "section"))
-        self.answer = _label(idioma.t("ask_me", self.lang), "answer", True)
-        self.answer.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setWidget(self.answer)
-        col.addWidget(scroll, 1)
+        self.mic.setToolTip(idioma.t("mic", self.lang))
+        col.addWidget(self.mic)
         return page
+
+    MAX_BUBBLES = 24
+
+    def _bubble(self, text: str, mine: bool) -> QLabel:
+        label = _label(text, "mine" if mine else "bubble", True)
+        label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        label.setMaximumWidth(int(WIDTH * 0.74))
+        row = QHBoxLayout()
+        row.setContentsMargins(0, 0, 0, 0)
+        if mine:
+            row.addStretch(1)
+        row.addWidget(label)
+        if not mine:
+            row.addStretch(1)
+        holder = QWidget()
+        holder.setLayout(row)
+        self.thread_col.addWidget(holder)
+        while self.thread_col.count() > self.MAX_BUBBLES + 1:  # keep it light
+            old = self.thread_col.takeAt(1).widget()
+            if old is not None:
+                old.deleteLater()
+        if hasattr(self, "chat_scroll"):
+            QTimer.singleShot(0, lambda: self.chat_scroll.verticalScrollBar().setValue(
+                self.chat_scroll.verticalScrollBar().maximum()))
+        return label
 
     def _cowork(self) -> QWidget:
         """Describe the outcome; approve or deny what Sergio asks about."""
@@ -847,38 +907,40 @@ class ControlCenter(QWidget):
         col.addLayout(buttons)
         return page
 
+    def _section_rows(self, keys: tuple[str, ...]) -> QVBoxLayout:
+        rows = QVBoxLayout()
+        rows.setSpacing(8)
+        for key in keys:
+            tile = SectionTile(key, idioma.t(key, self.lang), idioma.t(f"d_{key}", self.lang))
+            tile.clicked.connect(lambda _c=False, k=key: self._open_section(k))
+            rows.addWidget(tile)
+        return rows
+
     def _sections_page(self, keys: tuple[str, ...], hint: str) -> QWidget:
         page = QWidget()
         col = QVBoxLayout(page)
         col.setContentsMargins(0, 0, 0, 0)
         col.setSpacing(12)
         col.addWidget(_label(idioma.t(hint, self.lang), "hint", True))
-        grid = QGridLayout()
-        grid.setSpacing(8)
-        for i, key in enumerate(keys):
-            tile = SectionTile(key, idioma.t(key, self.lang))
-            tile.clicked.connect(lambda _c=False, k=key: self._open_section(k))
-            grid.addWidget(tile, i // 3, i % 3)
-        col.addLayout(grid)
+        col.addLayout(self._section_rows(keys))
         col.addStretch(1)
         return page
 
     def _profile(self) -> QWidget:
-        """Who you are to Sergio, and how Sergio looks and sounds."""
+        """Who you are to Sergio (your results too), and how Sergio looks."""
         page = QWidget()
         col = QVBoxLayout(page)
-        col.setContentsMargins(0, 0, 0, 0)
-        col.setSpacing(10)
-        grid = QGridLayout()
-        grid.setSpacing(8)
-        for i, key in enumerate(self.PROFILE_SECTIONS):
-            tile = SectionTile(key, idioma.t(key, self.lang))
-            tile.clicked.connect(lambda _c=False, k=key: self._open_section(k))
-            grid.addWidget(tile, 0, i)
-        col.addLayout(grid)
-        col.addWidget(_label(idioma.t("tab_sergio", self.lang), "heading"))
-        col.addWidget(self._personalise(), 1)
-        return page
+        col.setContentsMargins(0, 0, 8, 0)
+        col.setSpacing(12)
+        col.addLayout(self._section_rows(self.PROFILE_SECTIONS))
+        col.addSpacing(4)
+        col.addWidget(_label(idioma.t("tab_sergio", self.lang), "section"))
+        col.addWidget(self._personalise())
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll.setWidget(page)
+        return scroll
 
     def _open_section(self, key: str, arg: str = "") -> None:
         self.hide()
@@ -1007,6 +1069,7 @@ class ControlCenter(QWidget):
         self.language_box.currentIndexChanged.connect(
             lambda _i: self._save(language=self.language_box.currentData())
         )
+        self.language_box.setFixedWidth(208)
         col.addLayout(_row(idioma.t("language", self.lang), self.language_box))
         self.country_box = QComboBox()
         self.country_box.setMaxVisibleItems(16)
@@ -1019,6 +1082,7 @@ class ControlCenter(QWidget):
         here = str(cfg.get("country") or idioma.system_country() or "EC")
         self.country_box.setCurrentIndex(max(0, self.country_box.findData(here)))
         self.country_box.currentIndexChanged.connect(self._pick_country)
+        self.country_box.setFixedWidth(208)
         col.addLayout(_row(idioma.t("country", self.lang), self.country_box))
         col.addStretch(1)
         scroll = QScrollArea()
@@ -1035,7 +1099,7 @@ class ControlCenter(QWidget):
         cfg = self.actions.config
         page = QWidget()
         col = QVBoxLayout(page)
-        col.setContentsMargins(0, 0, 14, 0)
+        col.setContentsMargins(0, 0, 0, 0)
         col.setSpacing(10)
         top = QHBoxLayout()
         top.addStretch(1)
@@ -1140,13 +1204,7 @@ class ControlCenter(QWidget):
             sizes, current, lambda k: self._save(cursor_size=SIZES[k])
         )
         col.addLayout(_row("Tamaño junto al cursor", self.size_seg))
-        col.addStretch(1)
-
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        scroll.setWidget(page)
-        return scroll
+        return page  # the Profile tab scrolls it with the rows above
 
     def _pick_style(self, style: str) -> None:
         self.colour_stack.setCurrentIndex(1 if style == "muse" else 0)
@@ -1181,7 +1239,9 @@ class ControlCenter(QWidget):
         for tile in self.tiles:
             tile.sync()
         self.multi_switch.setChecked(self.actions.multitasking())
-        self.subtitle.setText(self.actions.status())
+        status = self.actions.status()
+        self.subtitle.setText(status)
+        self.subtitle.setVisible(bool(status))
         self._opened_at = time.monotonic()
         self.show()
         self.raise_()
@@ -1198,8 +1258,13 @@ class ControlCenter(QWidget):
         self.state = state
 
     def show_answer(self, text: str) -> None:
-        if text and not text.startswith("«"):
-            self.answer.setText(text)
+        if not text or text.startswith("«"):
+            return
+        if getattr(self, "_thinking", None) is not None:
+            self._thinking.setText(text)  # the «…» bubble becomes the answer
+            self.answer, self._thinking = self._thinking, None
+        else:
+            self.answer = self._bubble(text, mine=False)
 
     def event(self, ev: QEvent) -> bool:  # noqa: D102
         # Like Control Center: clicking elsewhere closes it.
@@ -1227,7 +1292,8 @@ class ControlCenter(QWidget):
         if not text:
             return
         self.entry.clear()
-        self.answer.setText(f"«{text}»\n\nPensando…")
+        self._bubble(text, mine=True)
+        self._thinking = self._bubble("…", mine=False)
         self.actions.send(text)
 
     def _save(self, **changes: Any) -> None:
