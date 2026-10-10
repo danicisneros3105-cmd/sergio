@@ -301,9 +301,35 @@ def parse_night(text: str, t: str) -> Quick | None:
     return None
 
 
+_MULTI = re.compile(
+    r"\b(multi ?tasking|multi ?tarea|pantalla dividida|divide (?:la |el )?(?:isla|pantalla|notch))\b"
+)
+_OFF = re.compile(r"\b(desactiva|apaga|quita|cierra|sin|off|termina|deten|para)\b")
+_NOTCH = re.compile(r"\b(notch|isla|la barra de arriba)\b")
+_HIDE = re.compile(r"\b(esconde|escondete|oculta|ocultate|desaparece|quita|guarda|hide)\b")
+_SHOW = re.compile(r"\b(muestra|muestrame|ensena|saca|aparece|vuelve|show|pon|regresa)\b")
+
+
+def parse_island(t: str) -> Quick | None:
+    """«Sergio, activa multitasking» and «esconde el notch» (and back)."""
+    if _MULTI.search(t):
+        if _OFF.search(t):
+            return Quick("multitask_off", say="Listo, una sola isla.")
+        return Quick("multitask_on", say="Multitasking activado.")
+    if _NOTCH.search(t):
+        if _HIDE.search(t):
+            return Quick("notch_hide")
+        if _SHOW.search(t):
+            return Quick("notch_show")
+    return None
+
+
 def parse_quick(text: str) -> Quick | None:
     """A Quick action for clear one-step orders, else None."""
     t = polite(_plain(text).rstrip(".?!"))
+    island = parse_island(t)
+    if island:
+        return island
     # Multitasking: background tasks, several at once, what is running
     from sergio_escritorio.tareas import CANCEL, WHAT_DOING, parse_background, parse_together
 

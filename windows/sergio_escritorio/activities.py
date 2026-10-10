@@ -117,6 +117,15 @@ class Activities:
             items = list(self._items.values())
         return sorted(items, key=lambda a: (a.state == "running", a.started))
 
+    def lines(self) -> list[str]:
+        """One readable line per running task (the panel's Agent Swarm list)."""
+        out = []
+        for a in self.running():
+            done = f" · {int(round(a.progress * 100))}%" if a.progress is not None else ""
+            more = f" — {a.detail}" if a.detail else ""
+            out.append(f"{a.title}{done}{more}")
+        return out
+
     def running(self) -> list[Activity]:
         return [a for a in self.snapshot() if a.state == "running"]
 
@@ -233,4 +242,59 @@ class Fold:
         return min(1.0, 2.0 * self.effect())
 
 
-__all__ = ["Activities", "Activity", "Fold", "KINDS", "Spring"]
+class Vanish:
+    """Hiding the notch: it collapses like a black hole, then rises away.
+
+    ``t`` runs 0 (shown) .. 1 (gone). The first ``COLLAPSE`` of it the island
+    falls into a small ball (ease-in, faster and faster, as if pulled in);
+    the rest the ball rises off the top of the screen. Showing it plays the
+    same film backwards."""
+
+    DURATION = 1.15
+    COLLAPSE = 0.6  # share of the film spent collapsing
+
+    def __init__(self, hidden: bool = False) -> None:
+        self.t = 1.0 if hidden else 0.0
+        self.target = self.t
+
+    def hide(self) -> None:
+        self.target = 1.0
+
+    def show(self) -> None:
+        self.target = 0.0
+
+    def step(self, dt: float) -> float:
+        rate = max(0.0, dt) / self.DURATION
+        if self.t < self.target:
+            self.t = min(self.target, self.t + rate)
+        elif self.t > self.target:
+            self.t = max(self.target, self.t - rate)
+        return self.t
+
+    @property
+    def hidden(self) -> bool:
+        return self.t >= 1.0
+
+    @property
+    def active(self) -> bool:
+        """True while it is anything but fully shown."""
+        return self.t > 0.0
+
+    def collapse(self) -> float:
+        """0 the whole island .. 1 a small ball (cubic ease-in)."""
+        k = min(1.0, self.t / self.COLLAPSE)
+        return k * k * k
+
+    def rise(self) -> float:
+        """0 the ball in place .. 1 gone above the screen (quadratic ease-in)."""
+        k = max(0.0, (self.t - self.COLLAPSE) / (1.0 - self.COLLAPSE))
+        return min(1.0, k * k)
+
+    def glow(self) -> float:
+        """How bright the accretion disc is: it lights up as the island falls
+        in, burns brightest around the small ball and fades as it rises."""
+        k = min(1.0, max(0.0, (self.collapse() - 0.12) / 0.7))
+        return k * k * (3 - 2 * k) * (1.0 - self.rise())
+
+
+__all__ = ["Activities", "Activity", "Fold", "KINDS", "Spring", "Vanish"]

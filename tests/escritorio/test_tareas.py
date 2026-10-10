@@ -60,8 +60,62 @@ def test_the_duo_island_appears_with_two_activities(tmp_path):
     for _ in range(90):
         notch._tick()
         notch._last_tick -= 1 / 60
+    assert notch.bubble() is None  # two tasks alone don't split it: «+1» instead
+    notch.set_multitasking(True)  # «Sergio, activa multitasking»
+    for _ in range(90):
+        notch._tick()
+        notch._last_tick -= 1 / 60
     bubble = notch.bubble()
     assert bubble is not None and bubble.left() > notch.pill().right()  # split in two
+    notch.set_multitasking(False)
+    for _ in range(90):
+        notch._tick()
+        notch._last_tick -= 1 / 60
+    assert notch.bubble() is None  # folded back
+
+
+def test_island_voice_orders():
+    from sergio_escritorio.quick import parse_quick
+
+    assert parse_quick("Sergio, activa multitasking").kind == "multitask_on"
+    assert parse_quick("activa el modo multitarea por favor").kind == "multitask_on"
+    assert parse_quick("Sergio desactiva multitasking").kind == "multitask_off"
+    assert parse_quick("Sergio, esconde el notch").kind == "notch_hide"
+    assert parse_quick("oculta la isla").kind == "notch_hide"
+    assert parse_quick("Sergio, muestra el notch").kind == "notch_show"
+    assert parse_quick("vuelve a poner el notch").kind == "notch_show"
+
+
+def test_the_notch_falls_into_a_black_hole_and_comes_back():
+    import os
+
+    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+    from PySide6.QtWidgets import QApplication
+
+    _app = QApplication.instance() or QApplication([])
+    from sergio_escritorio.activities import Vanish
+    from sergio_escritorio.notch import Notch
+
+    v = Vanish()
+    v.hide()
+    v.step(Vanish.DURATION * Vanish.COLLAPSE)
+    assert v.collapse() == 1.0 and v.rise() == 0.0  # a ball, not yet risen
+    v.step(Vanish.DURATION)
+    assert v.hidden and v.rise() == 1.0 and v.glow() == 0.0
+    notch = Notch()
+    notch.show()
+    notch.hide_notch()
+    for _ in range(80):
+        notch._tick()
+        notch._last_tick -= 1 / 60
+        notch.repaint()  # every frame of the film draws
+    assert notch.hidden and not notch.isVisible()
+    notch.show_notch()
+    assert notch.isVisible()
+    for _ in range(80):
+        notch._tick()
+        notch._last_tick -= 1 / 60
+    assert not notch.hidden and not notch._vanish.active
 
 
 def test_voice_orders_for_tasks():

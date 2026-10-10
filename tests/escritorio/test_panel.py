@@ -1,4 +1,4 @@
-"""The notch's control center (Qt offscreen): tiles, typing, world, guides."""
+"""The notch's control center (Qt offscreen): its six sections."""
 
 import os
 
@@ -18,23 +18,26 @@ def qt():
     return QApplication.instance() or QApplication([])
 
 
+COWORK_RUNS = [
+    {
+        "id": "r1",
+        "goal": "Comparar portátiles",
+        "title": "Portátiles para Blender",
+        "status": "waiting",
+        "progress": 0.5,
+        "waiting": [1],
+        "steps": [{"text": "Buscar"}, {"text": "Comprar el mejor"}],
+    }
+]
+CALLS = []
+
+
 def _server(request):
-    if request.url.path == "/v1/world/summary":
-        return httpx.Response(
-            200, json={"earthquakes": ["M5.1 — Ambato"], "launches": ["Falcon 9"]}
-        )
-    if request.url.path == "/v1/world/goto":
-        return httpx.Response(200, json={"label": "Quito", "url": "http://g/#q"})
-    if request.url.path == "/v1/ecc/guides":
-        return httpx.Response(
-            200,
-            json={
-                "installed": True,
-                "guides": [
-                    {"name": "video-editing", "kind": "skill", "description": "Edit."}
-                ],
-            },
-        )
+    CALLS.append((request.method, request.url.path, request.content))
+    if request.url.path == "/v1/cowork":
+        return httpx.Response(200, json={"runs": COWORK_RUNS, "id": "r1"})
+    if request.url.path == "/v1/cowork/r1/decision":
+        return httpx.Response(200, json={"ok": True})
     return httpx.Response(404)
 
 
@@ -60,6 +63,11 @@ def _panel(qt):
         server_url="http://sergio.test",
         http=httpx.Client(transport=httpx.MockTransport(_server)),
         status=lambda: "Piensa con Gemini",
+        open_section=lambda key, arg="": opened.append(("section", key)),
+        swarm=lambda: ["Buscar precios · 40%"],
+        multitasking=lambda: state.get("multi", False),
+        set_multitasking=lambda on: state.__setitem__("multi", on),
+        hide_notch=lambda: state.__setitem__("hidden", True),
     )
     return ControlCenter(actions), state, sent, opened, saved, talked
 
@@ -79,7 +87,7 @@ def test_tiles_typing_and_talk(qt):
     panel, state, sent, _, _, talked = _panel(qt)
     panel.open()
     assert panel.subtitle.text() == "Piensa con Gemini"
-    panel.tiles[0].click()
+    panel.tiles[0].click()  # the switches live in Configuration now
     assert state["wake"] is False
     panel.entry.setText("  ¿qué hora es?  ")
     panel._send()
@@ -124,65 +132,60 @@ def test_personalise_saves_live(qt):
     )
 
 
-def test_world_tab_loads_and_flies_the_globe(qt):
-    panel, _, _, opened, _, _ = _panel(qt)
-    panel.show_tab(panel.WORLD)
-    _wait(qt, lambda: "USGS" in panel.world_note.text())
-    texts = [
-        panel.world_list.itemAt(i).widget().text()
-        for i in range(panel.world_list.count())
-        if panel.world_list.itemAt(i).widget()
-    ]
-    assert "M5.1 — Ambato" in texts and "Falcon 9" in texts
-    panel.place.setText("Quito")
-    panel._goto()
-    _wait(qt, lambda: opened)
-    assert opened == ["http://g/#q"] and "Quito" in panel.world_note.text()
+def test_only_the_six_sections_in_the_users_language(qt):
+    from sergio_escritorio.panel import ControlCenter, PanelActions
 
-
-def test_guides_tab_lists_and_uses_a_guide(qt):
-    panel, *_ = _panel(qt)
-    panel.show_tab(panel.GUIDES)
-    _wait(
-        qt,
-        lambda: (
-            panel.guide_list.count()
-            and "video" in panel.guide_list.item(0).text().lower()
-        ),
-    )
-    panel._use_guide(panel.guide_list.item(0))
-    assert panel.pages.currentIndex() == 0
-    assert panel.entry.text() == "Usa la guía video-editing para "
-
-
-def test_every_part_of_sergio_is_one_tap_away_and_in_the_users_language(qt):
-    from sergio_escritorio.panel import (
-        SECTION_ICONS,
-        ControlCenter,
-        PanelActions,
-        SectionTile,
-    )
-
-    opened = []
-    panel = ControlCenter(
-        PanelActions(
-            config={"language": "en"},
-            open_section=lambda k, a="": opened.append((k, a)),
-        )
-    )
+    panel = ControlCenter(PanelActions(config={"language": "en"}))
     labels = [panel.tab_group.button(i).text() for i in range(len(panel.TABS))]
-    assert labels == ["Home", "All", "Sergio", "World", "Guides", "Settings"]
-    tiles = panel.pages.widget(1).widget().findChildren(SectionTile)
-    assert [t.key for t in tiles] == list(SECTION_ICONS) and len(tiles) >= 18
-    next(t for t in tiles if t.key == "organizer").click()
-    assert opened == [("organizer", "")]
-    next(
-        t for t in tiles if t.key == "cams"
-    ).click()  # needs a place: goes to the World tab
-    assert panel.pages.currentIndex() == panel.WORLD and len(opened) == 1
-    panel.cam_place.setText("London")
-    panel._cams()
-    assert opened[-1] == ("cams", "London")
+    assert labels == ["Chat", "Cowork", "Agent Swarm", "Health", "Profile", "Settings"]
+    es = ControlCenter(PanelActions(config={"language": "es"}))
+    labels = [es.tab_group.button(i).text() for i in range(len(es.TABS))]
+    assert labels == ["Chat", "Cowork", "Enjambre", "Salud", "Perfil", "Configuración"]
+    assert not hasattr(es, "world_list") and not hasattr(es, "guide_list")  # gone
+
+
+def test_cowork_starts_and_approves(qt):
+    panel, *_ = _panel(qt)
+    CALLS.clear()
+    panel.show_tab(panel.COWORK)
+    _wait(qt, lambda: panel.run_list.count() == 1)
+    assert "Comprar el mejor" in panel.waiting.text() and panel.approve.isVisibleTo(
+        panel
+    )
+    panel.goal.setText("Ordena mis descargas")
+    panel._start_cowork()
+    _wait(qt, lambda: any(m == "POST" and path == "/v1/cowork" for m, path, _ in CALLS))
+    assert b"Ordena mis descargas" in next(c for m, path, c in CALLS if m == "POST")
+    panel._decide(True)
+    _wait(qt, lambda: any(path.endswith("/decision") for _, path, _ in CALLS))
+    body = next(c for _, path, c in CALLS if path.endswith("/decision"))
+    assert b'"step":2' in body.replace(b" ", b"") and b"true" in body
+
+
+def test_swarm_health_profile_and_notch(qt):
+    panel, state, sent, opened, *_ = _panel(qt)
+    panel.open()
+    panel.show_tab(panel.SWARM)
+    assert panel.swarm_list.item(0).text() == "Buscar precios · 40%"
+    panel.swarm_entry.setText("busca el precio de 40 productos")
+    panel._launch_swarm()
+    assert sent[-1] == "en segundo plano, busca el precio de 40 productos"
+    health = panel.pages.widget(panel.HEALTH)
+    tiles = [
+        w for w in health.findChildren(object) if type(w).__name__ == "SectionTile"
+    ]
+    assert [t.key for t in tiles] == list(panel.HEALTH_SECTIONS)
+    tiles[0].click()
+    assert opened[-1] == ("section", "health") and not panel.isVisible()
+    panel.multi_switch.click()
+    assert state["multi"] is True
+    from PySide6.QtWidgets import QPushButton
+    from sergio_escritorio import idioma
+
+    label = idioma.t("hide_notch", panel.lang)
+    hide = next(b for b in panel.findChildren(QPushButton) if b.text() == label)
+    hide.click()
+    assert state["hidden"] is True
 
 
 def test_settings_change_language_and_country(qt):

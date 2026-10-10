@@ -1,19 +1,21 @@
 """Sergio's control center: what drops out of the notch when you click it.
 
-Like the Dynamic Island expanding into Control Center: pure black, flush with
-the top of the screen, with six tabs, in the user's language (idioma.py).
+Six sections and nothing more, in the user's language (idioma.py):
 
-* Inicio: talk or type to Sergio, and iOS-style tiles (wake word, screen
-  control, camera, companion).
-* Todo: every part of Sergio one tap away (organizer, goals, health,
-  counselling, gym, camera, holograms, globe, live cameras, flights, Blender
-  Pro, Video Pro, meeting notes, profile, faces, blocking, lock).
-* Sergio: personalise the character (colours, eyes, size, voice), live.
-* Mundo: God's Eye View natively — public live cameras of a place, a flight
-  followed live, latest earthquakes, next launches, and "go to a place".
-* Guías: the ECC expert playbooks by topic; Sergio also picks them alone.
-* Ajustes: language and country (emergency numbers follow the country).
+* Chat: talk or type to Sergio, the brain, the microphone, the last answer.
+* Cowork: describe an outcome; Sergio plans and works, and asks here before
+  anything delicate (approve or deny each waiting step).
+* Agent Swarm: send a task to the background swarm, see what is running,
+  open the agents.
+* Health: health, sleep (Night Shift), the mental gym and its results, the
+  counselling chair.
+* Profile: who you are to Sergio (profile, goals, your face) and how Sergio
+  looks and sounds.
+* Configuration: the switches (wake word, screen control, camera…),
+  multitasking, hiding the notch, language and country.
 
+The look is Bang & Olufsen on graphite: black anodised glass, aluminium
+hairlines and a light aluminium primary button, a serif for the titles.
 Everything is native Qt; data comes from the local Sergio server.
 """
 
@@ -71,10 +73,13 @@ from sergio_escritorio.neural_voice import VOICES
 WIDTH, HEIGHT = 468, 600
 RADIUS = 30.0
 FONTS = ["Segoe UI Variable Text", "SF Pro Text", "Segoe UI"]
-TEXT = "#f5f5f7"
-SECONDARY = "#8e8e93"
-CARD = "#1c1c1e"
-ACCENT = "#0a84ff"
+SERIF = "'Palatino Linotype', 'Book Antiqua', Palatino, Georgia, serif"
+TEXT = "#efece6"  # warm paper white
+SECONDARY = "#8f8b84"
+CARD = "#111111"
+LINE = "#2a2926"  # aluminium hairline
+ALUMINIUM = "#cfcac0"
+ACCENT = ALUMINIUM
 SIZES = {"S": 7.0, "M": 9.0, "L": 12.0}
 BRAINS = {
     "auto": "Auto",
@@ -83,50 +88,47 @@ BRAINS = {
     "profundo": "Profundo",
 }
 RATES = {"-10%": "Lenta", "+0%": "Normal", "+15%": "Rápida"}
-GLOBE_STYLES = {
-    "Normal": "normal",
-    "Visión nocturna": "night_vision",
-    "Térmica": "thermal",
-    "Retro": "retro",
-    "Noir": "noir",
-    "Anime": "anime",
-}
 
 STYLE = f"""
 QWidget {{ color: {TEXT}; font-family: 'Segoe UI Variable Text', 'Segoe UI';
            font-size: 13px; }}
-QLabel#title {{ font-size: 17px; font-weight: 600; }}
+QLabel#title {{ font-family: {SERIF}; font-size: 21px; font-weight: 400;
+                letter-spacing: 0.3px; }}
 QLabel#subtitle, QLabel#hint {{ color: {SECONDARY}; font-size: 12px; }}
-QLabel#section {{ color: {SECONDARY}; font-size: 11px; font-weight: 600;
-                  letter-spacing: 0.4px; }}
+QLabel#section {{ color: {SECONDARY}; font-size: 10px; font-weight: 600;
+                  letter-spacing: 1.8px; }}
+QLabel#heading {{ font-family: {SERIF}; font-size: 17px; }}
 QLabel#answer {{ font-size: 13px; line-height: 140%; }}
-QLabel#row {{ background: {CARD}; border-radius: 12px; padding: 9px 12px; }}
-QLineEdit {{ background: {CARD}; border: 1px solid #2c2c2e; border-radius: 18px;
-             padding: 8px 14px; font-size: 13px;
-             selection-background-color: {ACCENT}; }}
-QLineEdit:focus {{ border: 1px solid {ACCENT}; }}
-QPushButton {{ background: #2c2c2e; border: none; border-radius: 16px;
-               padding: 8px 14px; font-weight: 600; }}
-QPushButton:hover {{ background: #3a3a3c; }}
-QPushButton#primary {{ background: {ACCENT}; color: white; }}
-QPushButton#primary:hover {{ background: #3395ff; }}
-QPushButton#seg {{ background: transparent; color: {SECONDARY}; border-radius: 13px;
-                   padding: 6px 0; font-weight: 600; font-size: 12px; }}
-QPushButton#seg:checked {{ background: #3a3a3c; color: {TEXT}; }}
+QLabel#row {{ background: {CARD}; border: 1px solid {LINE}; border-radius: 10px;
+             padding: 9px 12px; }}
+QLineEdit {{ background: {CARD}; border: 1px solid {LINE}; border-radius: 10px;
+             padding: 9px 14px; font-size: 13px;
+             selection-background-color: #3a3833; }}
+QLineEdit:focus {{ border: 1px solid {ALUMINIUM}; }}
+QPushButton {{ background: transparent; border: 1px solid {LINE}; border-radius: 10px;
+               padding: 8px 14px; font-weight: 500; letter-spacing: 0.3px; }}
+QPushButton:hover {{ border: 1px solid #4a4843; background: #161616; }}
+QPushButton#primary {{ background: {ALUMINIUM}; color: #0b0b0b; border: none; }}
+QPushButton#primary:hover {{ background: #e2ddd3; }}
+QPushButton#seg {{ background: transparent; color: {SECONDARY}; border: none;
+                   border-radius: 0; padding: 7px 0 6px 0; font-weight: 500;
+                   font-size: 11px; letter-spacing: 0.6px;
+                   border-bottom: 1px solid transparent; }}
+QPushButton#seg:checked {{ color: {TEXT}; border-bottom: 1px solid {ALUMINIUM}; }}
 QWidget#segbar {{ background: {CARD}; border-radius: 14px; }}
 QWidget#segbar QPushButton#seg {{ padding: 5px 10px; border-radius: 11px; }}
-QComboBox {{ background: {CARD}; border: 1px solid #2c2c2e; border-radius: 12px;
+QComboBox {{ background: {CARD}; border: 1px solid {LINE}; border-radius: 10px;
              padding: 6px 12px; }}
 QComboBox QAbstractItemView {{ background: {CARD}; color: {TEXT};
-             selection-background-color: {ACCENT}; border: 1px solid #2c2c2e; }}
+             selection-background-color: #2a2926; border: 1px solid {LINE}; }}
 QListWidget {{ background: transparent; border: none; outline: none; }}
-QListWidget::item {{ background: {CARD}; border-radius: 12px; margin: 0 0 6px 0;
-                     padding: 8px 10px; }}
-QListWidget::item:selected {{ background: #2c2c2e; color: {TEXT}; }}
+QListWidget::item {{ background: {CARD}; border: 1px solid {LINE}; border-radius: 10px;
+                     margin: 0 0 6px 0; padding: 9px 11px; }}
+QListWidget::item:selected {{ border: 1px solid {ALUMINIUM}; color: {TEXT}; }}
 QScrollArea {{ background: transparent; border: none; }}
 QScrollArea > QWidget > QWidget {{ background: transparent; }}
 QScrollBar:vertical {{ background: transparent; width: 6px; }}
-QScrollBar::handle:vertical {{ background: #3a3a3c; border-radius: 3px; }}
+QScrollBar::handle:vertical {{ background: {LINE}; border-radius: 3px; }}
 QScrollBar:horizontal {{ height: 0; }}
 QScrollBar::add-line, QScrollBar::sub-line {{ height: 0; }}
 """
@@ -161,8 +163,14 @@ class PanelActions:
     server_url: str = "http://localhost:8000"
     http: httpx.Client | None = None
     status: Callable[[], str] = lambda: ""
-    # Opens a part of Sergio («Todo» tab, live cameras, a flight): (key, argument).
+    # Opens a part of Sergio (health, the gym, the agents…): (key, argument).
     open_section: Callable[[str, str], None] = lambda _key, _arg="": None
+    # Agent Swarm: one line per task running now.
+    swarm: Callable[[], list[str]] = lambda: []
+    # The notch itself: multitasking on/off and hiding it.
+    multitasking: Callable[[], bool] = lambda: False
+    set_multitasking: Callable[[bool], None] = lambda _on: None
+    hide_notch: Callable[[], None] = lambda: None
 
 
 # -- small Apple-style controls ------------------------------------------------
@@ -182,14 +190,14 @@ class Switch(QAbstractButton):
     def paintEvent(self, _event: Any) -> None:  # noqa: N802
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        track = QColor("#30d158") if self.isChecked() else QColor("#39393d")
+        track = QColor(ALUMINIUM) if self.isChecked() else QColor("#2f2e2b")
         p.setPen(Qt.PenStyle.NoPen)
         p.setBrush(track)
         p.drawRoundedRect(QRectF(0, 0, 46, 28), 14, 14)
         x = 20 if self.isChecked() else 2
         p.setBrush(QColor(0, 0, 0, 40))
         p.drawEllipse(QRectF(x, 3, 24, 24))
-        p.setBrush(QColor("white"))
+        p.setBrush(QColor("#0b0b0b") if self.isChecked() else QColor(TEXT))
         p.drawEllipse(QRectF(x, 2, 24, 24))
         p.end()
 
@@ -380,17 +388,19 @@ class Tile(QAbstractButton):
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         on = self.isChecked()
         rect = QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5)
-        p.setPen(Qt.PenStyle.NoPen)
-        p.setBrush(QColor("#f5f5f7") if on else QColor(CARD))
-        p.drawRoundedRect(rect, 18, 18)
+        # On: an aluminium hairline and a lit ring; off: just graphite.
+        p.setPen(QPen(QColor(ALUMINIUM if on else LINE), 1.0))
+        p.setBrush(QColor("#151515" if on else CARD))
+        p.drawRoundedRect(rect, 12, 12)
         bubble = QPointF(30, rect.center().y())
-        p.setBrush(QColor(ACCENT) if on else QColor("#2c2c2e"))
-        p.drawEllipse(bubble, 17, 17)
-        draw_icon(p, self.toggle.icon, bubble, QColor("white"))
-        p.setPen(QColor("#1c1c1e") if on else QColor(TEXT))
+        p.setPen(QPen(QColor(ALUMINIUM if on else "#4a4843"), 1.0))
+        p.setBrush(QColor(ALUMINIUM) if on else Qt.BrushStyle.NoBrush)
+        p.drawEllipse(bubble, 16, 16)
+        draw_icon(p, self.toggle.icon, bubble, QColor("#0b0b0b" if on else SECONDARY))
+        p.setPen(QColor(TEXT))
         p.setFont(_font(9.5, QFont.Weight.DemiBold))
         p.drawText(QPointF(56, rect.center().y() - 2), self.toggle.label)
-        p.setPen(QColor("#6e6e73") if on else QColor(SECONDARY))
+        p.setPen(QColor(SECONDARY))
         p.setFont(_font(8.5))
         p.drawText(QPointF(56, rect.center().y() + 14), "Activado" if on else "Apagado")
         p.end()
@@ -406,9 +416,6 @@ SECTION_ICONS = {  # the «Todo» tab, in order: (icon, bubble colour)
     "results": ("chart", "#5e5ce6"),
     "camera": ("eye", "#64d2ff"),
     "holo": ("cube", "#5ac8fa"),
-    "globe": ("globe", "#0a84ff"),
-    "cams": ("cctv", "#ff453a"),
-    "flight": ("plane", "#ffd60a"),
     "blender": ("cube", "#ff9500"),
     "video": ("film", "#ff2d55"),
     "meeting": ("doc", "#8e8e93"),
@@ -451,13 +458,15 @@ class SectionTile(QAbstractButton):
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         rect = QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5)
-        p.setPen(Qt.PenStyle.NoPen)
-        p.setBrush(QColor("#2c2c2e") if self.isDown() or self.underMouse() else QColor(CARD))
-        p.drawRoundedRect(rect, 16, 16)
+        hot = self.isDown() or self.underMouse()
+        p.setPen(QPen(QColor(ALUMINIUM if hot else LINE), 1.0))
+        p.setBrush(QColor("#161616" if hot else CARD))
+        p.drawRoundedRect(rect, 12, 12)
         bubble = QPointF(rect.center().x(), rect.top() + 28)
-        p.setBrush(QColor(self.colour))
-        p.drawEllipse(bubble, 17, 17)
-        draw_icon(p, self.icon_kind, bubble, QColor("white"))
+        p.setPen(QPen(QColor(ALUMINIUM), 1.0))
+        p.setBrush(Qt.BrushStyle.NoBrush)
+        p.drawEllipse(bubble, 16, 16)
+        draw_icon(p, self.icon_kind, bubble, QColor(TEXT))
         p.setPen(QColor(TEXT))
         p.setFont(_font(8.6, QFont.Weight.DemiBold))
         p.drawText(
@@ -472,14 +481,6 @@ class SectionTile(QAbstractButton):
 
     def leaveEvent(self, _event: Any) -> None:  # noqa: N802
         self.update()
-
-
-ECC_TOPICS = {  # quick picks for the guides (what people ask most)
-    "es": ("Código", "Seguridad", "Diseño", "Escritura", "Investigación", "Datos"),
-    "en": ("Code", "Security", "Design", "Writing", "Research", "Data"),
-}
-ECC_QUERY = {"Código": "code", "Seguridad": "security", "Diseño": "design", "Escritura": "writing",
-             "Investigación": "research", "Datos": "data"}
 
 
 class Orb(QWidget):
@@ -655,7 +656,8 @@ def _row(label: str, widget: QWidget) -> QHBoxLayout:
 
 
 def _label(text: str, name: str = "", wrap: bool = False) -> QLabel:
-    label = QLabel(text)
+    # Section names in small capitals, letter-spaced (Qt has no text-transform).
+    label = QLabel(text.upper() if name == "section" else text)
     if name:
         label.setObjectName(name)
     label.setWordWrap(wrap)
@@ -664,11 +666,12 @@ def _label(text: str, name: str = "", wrap: bool = False) -> QLabel:
 
 # -- the panel -----------------------------------------------------------------
 class ControlCenter(QWidget):
-    world_ready = Signal(dict)
-    guides_ready = Signal(dict)
+    cowork_ready = Signal(dict)
 
-    TABS = ("tab_home", "tab_all", "tab_sergio", "tab_world", "tab_guides", "tab_settings")
-    WORLD, GUIDES = 3, 4
+    TABS = ("tab_chat", "tab_cowork", "tab_swarm", "tab_health", "tab_profile", "tab_settings")
+    CHAT, COWORK, SWARM, HEALTH, PROFILE, SETTINGS_TAB = range(6)
+    HEALTH_SECTIONS = ("health", "night", "gym", "results", "consult")
+    PROFILE_SECTIONS = ("profile", "goals", "faces")
 
     def __init__(self, actions: PanelActions) -> None:
         super().__init__(
@@ -684,23 +687,26 @@ class ControlCenter(QWidget):
         self.lang = str(actions.config.get("language") or idioma.system_language())
         self.state = "idle"
         self._opened_at = 0.0
-        self.world_ready.connect(self._show_world)
-        self.guides_ready.connect(self._show_guides)
+        self._runs: dict[str, dict] = {}
+        self.cowork_ready.connect(self._show_cowork)
 
         root = QVBoxLayout(self)
-        root.setContentsMargins(22, 16, 22, 20)
+        root.setContentsMargins(24, 16, 24, 20)
         root.setSpacing(14)
         root.addLayout(self._header())
         root.addWidget(self._segmented())
         self.pages = QStackedWidget()
         apply_config(self.actions.config)
-        self.pages.addWidget(self._home())
-        self.pages.addWidget(self._everything())
-        self.pages.addWidget(self._personalise())
-        self.pages.addWidget(self._world())
-        self.pages.addWidget(self._guides())
+        self.pages.addWidget(self._chat())
+        self.pages.addWidget(self._cowork())
+        self.pages.addWidget(self._swarm())
+        self.pages.addWidget(self._sections_page(self.HEALTH_SECTIONS, "health_hint"))
+        self.pages.addWidget(self._profile())
         self.pages.addWidget(self._settings())
         root.addWidget(self.pages, 1)
+        self._swarm_timer = QTimer(self)
+        self._swarm_timer.timeout.connect(self._refresh_swarm)
+        self._swarm_timer.start(1000)
 
     # -- building blocks -------------------------------------------------------
     def _header(self) -> QHBoxLayout:
@@ -716,7 +722,7 @@ class ControlCenter(QWidget):
         row.addLayout(texts, 1)
         close = QPushButton("×")
         close.setFixedSize(30, 30)
-        close.setStyleSheet("border-radius: 15px; padding: 0; font-size: 12px;")
+        close.setStyleSheet("border-radius: 15px; padding: 0; font-size: 13px;")
         close.setCursor(Qt.CursorShape.PointingHandCursor)
         close.clicked.connect(self.hide)
         row.addWidget(close)
@@ -724,10 +730,10 @@ class ControlCenter(QWidget):
 
     def _segmented(self) -> QWidget:
         bar = QWidget()
-        bar.setStyleSheet(f"background: {CARD}; border-radius: 16px;")
+        bar.setStyleSheet(f"border-bottom: 1px solid {LINE};")
         row = QHBoxLayout(bar)
-        row.setContentsMargins(3, 3, 3, 3)
-        row.setSpacing(2)
+        row.setContentsMargins(0, 0, 0, 0)
+        row.setSpacing(4)
         self.tab_group = QButtonGroup(self)
         for i, key in enumerate(self.TABS):
             button = QPushButton(idioma.t(key, self.lang))
@@ -740,7 +746,7 @@ class ControlCenter(QWidget):
         self.tab_group.idClicked.connect(self.show_tab)
         return bar
 
-    def _home(self) -> QWidget:
+    def _chat(self) -> QWidget:
         page = QWidget()
         col = QVBoxLayout(page)
         col.setContentsMargins(0, 0, 0, 0)
@@ -756,12 +762,6 @@ class ControlCenter(QWidget):
         talk.clicked.connect(self._talk)
         ask.addWidget(talk)
         col.addLayout(ask)
-        grid = QGridLayout()
-        grid.setSpacing(10)
-        self.tiles = [Tile(t) for t in self.actions.toggles]
-        for i, tile in enumerate(self.tiles):
-            grid.addWidget(tile, i // 2, i % 2)
-        col.addLayout(grid)
         self.brain = Segmented(
             BRAINS,
             str(self.actions.config.get("effort", "auto")),
@@ -782,38 +782,228 @@ class ControlCenter(QWidget):
         col.addWidget(scroll, 1)
         return page
 
-    def _everything(self) -> QWidget:
-        """«Todo»: every part of Sergio, one tap away."""
+    def _cowork(self) -> QWidget:
+        """Describe the outcome; approve or deny what Sergio asks about."""
         page = QWidget()
-        grid = QGridLayout(page)
-        grid.setContentsMargins(0, 0, 8, 0)
-        grid.setSpacing(8)
-        for i, key in enumerate(SECTION_ICONS):
-            tile = SectionTile(key, idioma.t(key, self.lang))
-            tile.clicked.connect(lambda _c=False, k=key: self._open_section(k))
-            grid.addWidget(tile, i // 3, i % 3)
-        grid.setRowStretch(len(SECTION_ICONS) // 3 + 1, 1)
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setWidget(page)
-        return scroll
+        col = QVBoxLayout(page)
+        col.setContentsMargins(0, 0, 0, 0)
+        col.setSpacing(10)
+        col.addWidget(_label(idioma.t("cowork_hint", self.lang), "hint", True))
+        row = QHBoxLayout()
+        self.goal = QLineEdit()
+        self.goal.setPlaceholderText(idioma.t("cowork_goal", self.lang))
+        self.goal.returnPressed.connect(self._start_cowork)
+        row.addWidget(self.goal, 1)
+        start = QPushButton(idioma.t("start", self.lang))
+        start.setObjectName("primary")
+        start.setCursor(Qt.CursorShape.PointingHandCursor)
+        start.clicked.connect(self._start_cowork)
+        row.addWidget(start)
+        col.addLayout(row)
+        self.cowork_note = _label("", "hint", True)
+        col.addWidget(self.cowork_note)
+        self.run_list = QListWidget()
+        self.run_list.currentItemChanged.connect(lambda _now, _before: self._pick_run())
+        col.addWidget(self.run_list, 1)
+        self.waiting = _label("", "answer", True)
+        col.addWidget(self.waiting)
+        decide = QHBoxLayout()
+        self.approve = QPushButton(idioma.t("approve", self.lang))
+        self.approve.setObjectName("primary")
+        self.approve.clicked.connect(lambda: self._decide(True))
+        self.deny = QPushButton(idioma.t("deny", self.lang))
+        self.deny.clicked.connect(lambda: self._decide(False))
+        for button in (self.approve, self.deny):
+            button.setCursor(Qt.CursorShape.PointingHandCursor)
+            button.setVisible(False)
+            decide.addWidget(button)
+        col.addLayout(decide)
+        return page
 
-    def _open_section(self, key: str, arg: str = "") -> None:
-        if key not in ("cams", "flight") or arg:
-            self.hide()
-        if key in ("cams", "flight") and not arg:
-            self.show_tab(self.WORLD)  # they need a place / a flight number
-            (self.cam_place if key == "cams" else self.flight_no).setFocus()
-            return
-        self.actions.open_section(key, arg)
+    def _swarm(self) -> QWidget:
+        """Background tasks and the agent swarm."""
+        page = QWidget()
+        col = QVBoxLayout(page)
+        col.setContentsMargins(0, 0, 0, 0)
+        col.setSpacing(10)
+        col.addWidget(_label(idioma.t("swarm_hint", self.lang), "hint", True))
+        row = QHBoxLayout()
+        self.swarm_entry = QLineEdit()
+        self.swarm_entry.setPlaceholderText(idioma.t("swarm_task", self.lang))
+        self.swarm_entry.returnPressed.connect(self._launch_swarm)
+        row.addWidget(self.swarm_entry, 1)
+        launch = QPushButton(idioma.t("launch", self.lang))
+        launch.setObjectName("primary")
+        launch.setCursor(Qt.CursorShape.PointingHandCursor)
+        launch.clicked.connect(self._launch_swarm)
+        row.addWidget(launch)
+        col.addLayout(row)
+        col.addWidget(_label(idioma.t("running_now", self.lang), "section"))
+        self.swarm_list = QListWidget()
+        col.addWidget(self.swarm_list, 1)
+        buttons = QHBoxLayout()
+        agents = QPushButton(idioma.t("agents", self.lang))
+        agents.clicked.connect(lambda: self._open_section("agents"))
+        cancel = QPushButton(idioma.t("cancel_last", self.lang))
+        cancel.clicked.connect(lambda: self.actions.send("cancela la tarea"))
+        for button in (agents, cancel):
+            button.setCursor(Qt.CursorShape.PointingHandCursor)
+            buttons.addWidget(button)
+        col.addLayout(buttons)
+        return page
 
-    def _settings(self) -> QWidget:
-        """Language and country (Sergio international)."""
-        cfg = self.actions.config
+    def _sections_page(self, keys: tuple[str, ...], hint: str) -> QWidget:
         page = QWidget()
         col = QVBoxLayout(page)
         col.setContentsMargins(0, 0, 0, 0)
         col.setSpacing(12)
+        col.addWidget(_label(idioma.t(hint, self.lang), "hint", True))
+        grid = QGridLayout()
+        grid.setSpacing(8)
+        for i, key in enumerate(keys):
+            tile = SectionTile(key, idioma.t(key, self.lang))
+            tile.clicked.connect(lambda _c=False, k=key: self._open_section(k))
+            grid.addWidget(tile, i // 3, i % 3)
+        col.addLayout(grid)
+        col.addStretch(1)
+        return page
+
+    def _profile(self) -> QWidget:
+        """Who you are to Sergio, and how Sergio looks and sounds."""
+        page = QWidget()
+        col = QVBoxLayout(page)
+        col.setContentsMargins(0, 0, 0, 0)
+        col.setSpacing(10)
+        grid = QGridLayout()
+        grid.setSpacing(8)
+        for i, key in enumerate(self.PROFILE_SECTIONS):
+            tile = SectionTile(key, idioma.t(key, self.lang))
+            tile.clicked.connect(lambda _c=False, k=key: self._open_section(k))
+            grid.addWidget(tile, 0, i)
+        col.addLayout(grid)
+        col.addWidget(_label(idioma.t("tab_sergio", self.lang), "heading"))
+        col.addWidget(self._personalise(), 1)
+        return page
+
+    def _open_section(self, key: str, arg: str = "") -> None:
+        self.hide()
+        self.actions.open_section(key, arg)
+
+    # -- cowork ----------------------------------------------------------------
+    def _start_cowork(self) -> None:
+        goal = self.goal.text().strip()
+        if not goal:
+            return
+        self.goal.clear()
+        self.cowork_note.setText(idioma.t("planning", self.lang))
+        base = self.actions.server_url
+
+        def job() -> dict:
+            resp = self._http().post(f"{base}/v1/cowork", json={"goal": goal})
+            resp.raise_for_status()
+            return {"runs": self._http().get(f"{base}/v1/cowork").json().get("runs", [])}
+
+        self._background(job, self.cowork_ready)
+
+    def _load_cowork(self) -> None:
+        base = self.actions.server_url
+
+        def job() -> dict:
+            return self._http().get(f"{base}/v1/cowork").json()
+
+        self._background(job, self.cowork_ready)
+
+    def _show_cowork(self, data: dict) -> None:
+        if data.get("error"):
+            self.cowork_note.setText(idioma.t("no_server", self.lang))
+            return
+        runs = data.get("runs", [])
+        self.cowork_note.setText("" if runs else idioma.t("no_runs", self.lang))
+        chosen = self.run_list.currentItem()
+        keep = chosen.data(Qt.ItemDataRole.UserRole) if chosen else None
+        self.run_list.clear()
+        self._runs = {r["id"]: r for r in runs}
+        for run in runs:
+            done = int(round(float(run.get("progress", 0)) * 100))
+            mark = " · " + idioma.t("needs_you", self.lang) if run.get("waiting") else ""
+            item = QListWidgetItem(
+                f"{run.get('title') or run.get('goal', '')}\n{run.get('status', '')} · {done}%{mark}"
+            )
+            item.setData(Qt.ItemDataRole.UserRole, run["id"])
+            self.run_list.addItem(item)
+            if run["id"] == keep or (keep is None and run.get("waiting")):
+                self.run_list.setCurrentItem(item)
+        self._pick_run()
+
+    def _current_run(self) -> dict | None:
+        item = self.run_list.currentItem()
+        return self._runs.get(item.data(Qt.ItemDataRole.UserRole)) if item else None
+
+    def _pick_run(self) -> None:
+        run = self._current_run()
+        waiting = (run or {}).get("waiting") or []
+        if waiting:
+            step = run["steps"][waiting[0]]
+            self.waiting.setText(
+                f"{idioma.t('step', self.lang)} {waiting[0] + 1}: {step.get('text', '')}"
+            )
+        else:
+            self.waiting.setText("")
+        for button in (self.approve, self.deny):
+            button.setVisible(bool(waiting))
+
+    def _decide(self, approve: bool) -> None:
+        run = self._current_run()
+        if not run or not run.get("waiting"):
+            return
+        base, step = self.actions.server_url, run["waiting"][0] + 1
+
+        def job() -> dict:
+            self._http().post(
+                f"{base}/v1/cowork/{run['id']}/decision",
+                json={"step": step, "approve": approve},
+            ).raise_for_status()
+            return self._http().get(f"{base}/v1/cowork").json()
+
+        self._background(job, self.cowork_ready)
+
+    # -- agent swarm -----------------------------------------------------------
+    def _launch_swarm(self) -> None:
+        text = self.swarm_entry.text().strip()
+        if not text:
+            return
+        self.swarm_entry.clear()
+        self.actions.send(f"en segundo plano, {text}")
+
+    def _refresh_swarm(self) -> None:
+        if not self.isVisible() or self.pages.currentIndex() != self.SWARM:
+            return
+        lines = self.actions.swarm() or [idioma.t("nothing_running", self.lang)]
+        if [self.swarm_list.item(i).text() for i in range(self.swarm_list.count())] != lines:
+            self.swarm_list.clear()
+            self.swarm_list.addItems(lines)
+
+    def _settings(self) -> QWidget:
+        """The switches, the notch, language and country."""
+        cfg = self.actions.config
+        page = QWidget()
+        col = QVBoxLayout(page)
+        col.setContentsMargins(0, 0, 14, 0)
+        col.setSpacing(12)
+        grid = QGridLayout()
+        grid.setSpacing(10)
+        self.tiles = [Tile(t) for t in self.actions.toggles]
+        for i, tile in enumerate(self.tiles):
+            grid.addWidget(tile, i // 2, i % 2)
+        col.addLayout(grid)
+        col.addWidget(_label("NOTCH", "section"))
+        self.multi_switch = Switch(self.actions.multitasking())
+        self.multi_switch.toggled.connect(self.actions.set_multitasking)
+        col.addLayout(_row(idioma.t("multitasking", self.lang), self.multi_switch))
+        hide = QPushButton(idioma.t("hide_notch", self.lang))
+        hide.setCursor(Qt.CursorShape.PointingHandCursor)
+        hide.clicked.connect(lambda: (self.hide(), self.actions.hide_notch()))
+        col.addWidget(hide)
         col.addWidget(_label(idioma.t("settings_hint", self.lang), "hint", True))
         self.language_box = QComboBox()
         for code, name in idioma.LANGUAGES.items():
@@ -836,7 +1026,11 @@ class ControlCenter(QWidget):
         self.country_box.currentIndexChanged.connect(self._pick_country)
         col.addLayout(_row(idioma.t("country", self.lang), self.country_box))
         col.addStretch(1)
-        return page
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll.setWidget(page)
+        return scroll
 
     def _pick_country(self, _index: int) -> None:
         self._save(country=self.country_box.currentData() or "")
@@ -926,6 +1120,11 @@ class ControlCenter(QWidget):
 
         col.addWidget(_label("VOZ Y TAMAÑO", "section"))
         self.voice = QComboBox()
+        # Long voice names must not push the section wider than the panel.
+        self.voice.setSizeAdjustPolicy(
+            QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon
+        )
+        self.voice.setMinimumContentsLength(16)
         for voice_id, label in VOICES:
             self.voice.addItem(label, voice_id)
         self.voice.addItem("Voz local (sin internet)", "")
@@ -971,102 +1170,13 @@ class ControlCenter(QWidget):
                 button.setChecked(False)
             self._save(body=chosen.name())
 
-    def _world(self) -> QWidget:
-        page = QWidget()
-        col = QVBoxLayout(page)
-        col.setContentsMargins(0, 0, 0, 0)
-        col.setSpacing(10)
-        go = QHBoxLayout()
-        self.place = QLineEdit()
-        self.place.setPlaceholderText("Ir a un lugar… (p. ej. Quito)")
-        self.place.returnPressed.connect(self._goto)
-        go.addWidget(self.place, 1)
-        self.globe_style = QComboBox()
-        self.globe_style.addItems(list(GLOBE_STYLES))
-        go.addWidget(self.globe_style)
-        col.addLayout(go)
-        buttons = QHBoxLayout()
-        fly = QPushButton("Ver en el globo")
-        fly.setObjectName("primary")
-        fly.clicked.connect(self._goto)
-        buttons.addWidget(fly, 1)
-        whole = QPushButton("Abrir globo 3D")
-        whole.clicked.connect(self._open_globe)
-        buttons.addWidget(whole, 1)
-        col.addLayout(buttons)
-        cams = QHBoxLayout()
-        self.cam_place = QLineEdit()
-        self.cam_place.setPlaceholderText(idioma.t("place", self.lang))
-        self.cam_place.returnPressed.connect(self._cams)
-        cams.addWidget(self.cam_place, 1)
-        show = QPushButton(idioma.t("cams", self.lang))
-        show.clicked.connect(self._cams)
-        cams.addWidget(show)
-        col.addLayout(cams)
-        flight = QHBoxLayout()
-        self.flight_no = QLineEdit()
-        self.flight_no.setPlaceholderText(idioma.t("flight_number", self.lang))
-        self.flight_no.returnPressed.connect(self._flight)
-        flight.addWidget(self.flight_no, 1)
-        follow = QPushButton(idioma.t("follow", self.lang))
-        follow.clicked.connect(self._flight)
-        flight.addWidget(follow)
-        col.addLayout(flight)
-        self.world_note = _label("", "hint", True)
-        col.addWidget(self.world_note)
-        self.world_list = QVBoxLayout()
-        self.world_list.setSpacing(6)
-        holder = QWidget()
-        holder.setLayout(self.world_list)
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setWidget(holder)
-        col.addWidget(scroll, 1)
-        return page
-
-    def _guides(self) -> QWidget:
-        page = QWidget()
-        col = QVBoxLayout(page)
-        col.setContentsMargins(0, 0, 0, 0)
-        col.setSpacing(10)
-        col.addWidget(_label(
-            "Sergio elige solo la guía experta que encaja con cada tarea larga. "
-            "Aquí puedes elegir una tú: toca un tema o busca.", "hint", True))
-        topics = QGridLayout()
-        topics.setSpacing(6)
-        for n, topic in enumerate(ECC_TOPICS["es"]):
-            chip = QPushButton(topic)
-            chip.setObjectName("seg")
-            chip.setStyleSheet(f"background: {CARD}; border-radius: 12px; padding: 5px 8px;")
-            chip.setCursor(Qt.CursorShape.PointingHandCursor)
-            chip.clicked.connect(lambda _c=False, q=ECC_QUERY[topic]: self._topic(q))
-            topics.addWidget(chip, n // 3, n % 3)
-        col.addLayout(topics)
-        self.guide_search = QLineEdit()
-        self.guide_search.setPlaceholderText("Buscar una guía experta (ECC)…")
-        self.guide_search.returnPressed.connect(self._load_guides)
-        col.addWidget(self.guide_search)
-        self.guide_list = QListWidget()
-        self.guide_list.setWordWrap(True)
-        self.guide_list.setHorizontalScrollBarPolicy(
-            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
-        )
-        self.guide_list.itemDoubleClicked.connect(self._use_guide)
-        col.addWidget(self.guide_list, 1)
-        use = QPushButton("Usar esta guía")
-        use.setObjectName("primary")
-        use.clicked.connect(lambda: self._use_guide(self.guide_list.currentItem()))
-        col.addWidget(use)
-        return page
-
-    # -- behaviour --------------------------------------------------------------
     def show_tab(self, index: int) -> None:
         self.pages.setCurrentIndex(index)
         self.tab_group.button(index).setChecked(True)
-        if index == self.WORLD:
-            self._load_world()
-        elif index == self.GUIDES and self.guide_list.count() == 0:
-            self._load_guides()
+        if index == self.COWORK:
+            self._load_cowork()
+        elif index == self.SWARM:
+            self._refresh_swarm()
 
     def open(self) -> None:
         screen = QGuiApplication.primaryScreen()
@@ -1075,6 +1185,7 @@ class ControlCenter(QWidget):
             self.move(geo.x() + (geo.width() - WIDTH) // 2, geo.y())
         for tile in self.tiles:
             tile.sync()
+        self.multi_switch.setChecked(self.actions.multitasking())
         self.subtitle.setText(self.actions.status())
         self._opened_at = time.monotonic()
         self.show()
@@ -1150,129 +1261,6 @@ class ControlCenter(QWidget):
             done.emit(result)
 
         threading.Thread(target=run, daemon=True).start()
-
-    def _open_globe(self) -> None:
-        """Start the globe if needed (first time can take a minute), then open."""
-        self.world_note.setText("Abriendo el globo 3D…")
-
-        def job() -> dict:
-            resp = self._http().post(
-                f"{self.actions.server_url}/v1/world/open", timeout=200
-            )
-            data = resp.json()
-            if resp.status_code != 200:
-                raise RuntimeError(data.get("detail") or resp.text)
-            return {"goto": {"label": "el mundo", "url": data["url"]}}
-
-        self._background(job, self.world_ready)
-
-    def _cams(self) -> None:
-        place = self.cam_place.text().strip()
-        if place:
-            self._open_section("cams", place)
-
-    def _flight(self) -> None:
-        number = self.flight_no.text().strip()
-        if number:
-            self._open_section("flight", number)
-
-    def _goto(self) -> None:
-        place = self.place.text().strip()
-        if not place:
-            return
-        style = GLOBE_STYLES[self.globe_style.currentText()]
-        self.world_note.setText(f"Llevando el globo a {place}…")
-
-        def job() -> dict:
-            resp = self._http().post(
-                f"{self.actions.server_url}/v1/world/goto",
-                json={"place": place, "style": style},
-                timeout=200,  # the first start of the globe takes a while
-            )
-            data = resp.json()
-            if resp.status_code != 200:
-                raise RuntimeError(data.get("detail") or resp.text)
-            return {"goto": data}
-
-        self._background(job, self.world_ready)
-
-    def _load_world(self) -> None:
-        self.world_note.setText("Cargando lo que pasa en el mundo…")
-        self._background(
-            lambda: (
-                self._http().get(f"{self.actions.server_url}/v1/world/summary").json()
-            ),
-            self.world_ready,
-        )
-
-    def _show_world(self, data: dict) -> None:
-        if "error" in data:
-            self.world_note.setText(f"No pude cargar el mundo: {data['error'][:160]}")
-            return
-        if "goto" in data:
-            goto = data["goto"]
-            self._last_globe_url = goto.get("url") or ""
-            self.world_note.setText(f"El globo está en {goto.get('label', '')}.")
-            if self._last_globe_url:
-                self.actions.open_url(self._last_globe_url)
-            return
-        while self.world_list.count():
-            item = self.world_list.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
-        sections = (
-            ("SISMOS · ÚLTIMAS 24 H", data.get("earthquakes") or []),
-            ("PRÓXIMOS LANZAMIENTOS", data.get("launches") or []),
-        )
-        for title, rows in sections:
-            self.world_list.addWidget(_label(title, "section"))
-            for row in rows or ["Sin datos ahora mismo."]:
-                self.world_list.addWidget(_label(row, "row", True))
-        self.world_list.addStretch(1)
-        self.world_note.setText("Datos en vivo de USGS y The Space Devs.")
-
-    def _topic(self, query: str) -> None:
-        self.guide_search.setText(query)
-        self._load_guides()
-
-    def _load_guides(self) -> None:
-        query = self.guide_search.text().strip()
-        self.guide_list.clear()
-        self.guide_list.addItem("Buscando…")
-        self._background(
-            lambda: (
-                self._http()
-                .get(f"{self.actions.server_url}/v1/ecc/guides", params={"q": query})
-                .json()
-            ),
-            self.guides_ready,
-        )
-
-    def _show_guides(self, data: dict) -> None:
-        self.guide_list.clear()
-        if "error" in data:
-            self.guide_list.addItem(f"No pude cargar las guías: {data['error'][:120]}")
-            return
-        if not data.get("installed", True):
-            self.guide_list.addItem(
-                "Las guías ECC no están descargadas. En Ubuntu: sergio ecc instalar"
-            )
-            return
-        for guide in data.get("guides", [])[:30]:
-            words = " ".join(str(guide["description"]).split()[:18])
-            item = QListWidgetItem(f"{guide['name'].replace('-', ' ').capitalize()}\n{words}…")
-            item.setData(Qt.ItemDataRole.UserRole, guide["name"])
-            self.guide_list.addItem(item)
-        if not self.guide_list.count():
-            self.guide_list.addItem("No encontré guías con esas palabras.")
-
-    def _use_guide(self, item: QListWidgetItem | None) -> None:
-        name = item.data(Qt.ItemDataRole.UserRole) if item else None
-        if not name:
-            return
-        self.show_tab(0)
-        self.entry.setText(f"Usa la guía {name} para ")
-        self.entry.setFocus()
 
     # -- drawing --------------------------------------------------------------
     def paintEvent(self, _event: Any) -> None:  # noqa: N802

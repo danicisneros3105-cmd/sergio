@@ -530,9 +530,12 @@ def run(config: dict[str, Any]) -> None:
     notch_action.setChecked(show_notch)
 
     def set_notch(on: bool) -> None:
-        notch.setVisible(on)
+        # Hidden: it falls into a black hole and rises away; shown: backwards.
+        notch.show_notch() if on else notch.hide_notch()
         companion.captions = not on  # texts live in the notch when it is shown
         remember("show_notch", on)
+        if notch_action.isChecked() != on:
+            notch_action.setChecked(on)
 
     notch_action.toggled.connect(set_notch)
     menu.addAction(notch_action)
@@ -629,10 +632,14 @@ def run(config: dict[str, Any]) -> None:
             server_url=config["server_url"],
             status=status,
             open_section=open_section,
+            swarm=activities.lines,
+            multitasking=lambda: notch.multitasking,
+            set_multitasking=lambda on: (notch.set_multitasking(on), remember("multitasking", on)),
+            hide_notch=lambda: set_notch(False),
         )
     )
     panels.append(panel)
-    personalize_action.triggered.connect(lambda: (panel.open(), panel.show_tab(2)))
+    personalize_action.triggered.connect(lambda: (panel.open(), panel.show_tab(panel.PROFILE)))
     bridge.level.connect(panel.set_level)
     panel_action = QAction("Centro de control  (clic en el notch)", menu)
     panel_action.triggered.connect(panel.open)
@@ -760,6 +767,14 @@ def run(config: dict[str, Any]) -> None:
         if q.kind == "stop":
             assistant.stop_speaking()
             return ""
+        if q.kind in ("multitask_on", "multitask_off"):
+            on = q.kind == "multitask_on"
+            on_ui(lambda: notch.set_multitasking(on))
+            remember("multitasking", on)
+            return q.say
+        if q.kind in ("notch_hide", "notch_show"):
+            on_ui(lambda: set_notch(q.kind == "notch_show"))
+            return "" if q.kind == "notch_hide" else "Aquí estoy."
         jarvis = run_jarvis(q, now)
         if jarvis is not None:
             return jarvis
@@ -4131,6 +4146,9 @@ def run(config: dict[str, Any]) -> None:
     notch.on_click = panel.toggle
     companion.setVisible(bool(config["show_companion"]))
     notch.setVisible(show_notch)
+    if not show_notch:
+        notch.hide_notch(instant=True)
+    notch.set_multitasking(bool(config.get("multitasking", False)))
     show_text(
         f"Hola, soy {config['name']}. Di «Sergio…», o mantén Ctrl+Alt y "
         "pregúntame por lo que ves en pantalla.",
