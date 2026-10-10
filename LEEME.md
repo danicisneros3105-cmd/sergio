@@ -18,6 +18,42 @@ No son tres programas sueltos:
 - **Herramientas cruzadas:** desde el chat de Sergio puedes pedir tareas que
   ejecuta Clacky, consultar datos en vivo del mundo y mover el globo.
 
+## Empiece aquí: su mañana, resumida mientras hace el café
+
+A las 6 de la mañana Sergio lee lo que llegó durante la noche (correo,
+calendario, tareas, salud, clima y noticias) y lo convierte en un resumen
+hablado de un par de minutos. Con un modelo local, nada sale de su equipo.
+
+```bash
+sergio connect gdrive                                # Gmail, Calendar y Tasks con un solo inicio de sesión
+sergio config set digest.timezone America/Mexico_City   # su zona horaria
+sergio digest --fresh                                # el resumen de hoy, ahora (texto y audio)
+sergio digest --schedule "0 6 * * *"                 # y cada mañana a las 6
+```
+
+> *«Buenos días, señor. Durmió 7 h 12 min. Tres correos lo necesitan hoy; el
+> primero, del casero, sobre la inspección del jueves. La reunión pasó a las
+> 9:30. Hace 14 °C y despeja al mediodía.»*
+
+Guía completa (en inglés): [docs/user-guide/morning-digest.md](docs/user-guide/morning-digest.md).
+
+## En qué se diferencia
+
+| | Asistentes de chat en la nube | Asistentes del sistema operativo | **Sergio** |
+|---|---|---|---|
+| Funciona sin internet | No | En parte | **Sí**, con modelos locales (Ollama) |
+| Dónde viven su memoria y sus notas | En el servidor del proveedor | Depende del fabricante | **En su equipo**; copias y sincronización cifradas por usted |
+| Elegir el modelo | El del proveedor | El del fabricante | **Cualquiera**: local, Gemini, Claude, OpenAI… |
+| Código abierto | No | No | **Sí**, Apache 2.0 (fork de OpenJarvis) |
+| Trabaja solo en tareas largas | Varía | Varía | **Cowork**, con aprobación de lo delicado y registro auditable |
+| Usar desde el teléfono | App del proveedor | Solo en su plataforma | **PWA** emparejada con su propio equipo |
+| Precio | Suscripción | Incluido con el dispositivo | **Gratis** lo local; planes opcionales para servicios alojados |
+
+Sergio no compite en todo: los asistentes del sistema están mejor integrados
+con su propio sistema. Su lugar está en la privacidad, el control del modelo y
+los nichos (VFX y 3D, varios canales, empresas con requisitos de privacidad,
+usuarios avanzados).
+
 ## Instalar
 
 **Windows 11** (PowerShell como administrador):
@@ -1231,3 +1267,62 @@ un fallo queda como lección.
 Para trabajos largos de texto: «usa el equipo de agentes para …». Es un
 equipo de crewAI: un especialista hace el trabajo y un supervisor de
 calidad lo revisa, con Gemini.
+
+## Cowork, plugins, copias, sincronización, teléfono y planes
+
+**Cowork: describa el resultado y siga con lo suyo.**
+`sergio cowork "compara los 3 mejores portátiles para Blender y hazme una tabla"`
+(o la pestaña **Cowork** de la app).
+- Sergio planea los pasos y hace solo los que son seguros.
+- Antes de cada paso lo puntúa en 10 ejes de riesgo: dinero, contraseñas,
+  terceros, borrar archivos y otros. Lo arriesgado le pregunta a usted, en
+  la app, en la terminal o en su teléfono.
+- Nunca envía mensajes ni llama a nadie por su cuenta. Se detiene al llegar
+  a 50 acciones.
+- Cada paso queda en un registro encadenado que no se puede alterar sin que
+  se note: `sergio cowork auditoria <id>`.
+- Cómo de independiente es se elige en `[cowork]` del config: `cauteloso`,
+  `normal` o `autonomo`.
+
+**Plugins: herramientas hechas por otras personas.**
+- `sergio plugin buscar clima`, `sergio plugin instalar tipo-de-cambio`,
+  `sergio plugin lista`.
+- Antes de instalar, Sergio muestra qué permisos pide el plugin y le
+  pregunta.
+- Ningún plugin puede enviar mensajes ni administrar el sistema, ni
+  reemplazar una herramienta de Sergio.
+- Para hacer uno propio: `sergio plugin crear mi-plugin` y luego
+  `sergio plugin empaquetar mi-plugin`.
+
+**Copias cifradas.**
+- `sergio respaldo configurar` acepta una carpeta, `s3://…` (S3 o
+  Backblaze B2) o `sftp://…`.
+- Después: `sergio respaldo crear`. Desde la segunda vez solo sube lo que
+  cambió.
+- La frase de paso se le pide cada vez y no se guarda. Sin ella nadie puede
+  abrir las copias, ni el proveedor ni Sergio.
+- Los archivos son `age` estándar.
+- `sergio respaldo verificar` y `sergio respaldo restaurar`.
+
+**Sincronización entre sus equipos.**
+- Ponga el mismo destino y la misma frase en cada equipo:
+  `sergio sync configurar <destino>`, y luego `sergio sync ahora`.
+- Viajan la memoria, las skills y las notas, cifradas y con nombres sin
+  sentido.
+- Si dos equipos cambian lo mismo, gana el último cambio y el otro se
+  guarda como copia `.conflicto-<equipo>`.
+
+**Desde el teléfono.**
+- `sergio movil` muestra un código QR. Al escanearlo, Sergio se abre ya
+  emparejado.
+- Con «Añadir a pantalla de inicio» queda instalado como una app.
+- Solo entra el teléfono emparejado.
+
+**Pensar a fondo al lado del chat.** El botón del cerebro, arriba del chat,
+abre un panel que piensa la última pregunta paso a paso mientras usted
+sigue conversando.
+
+**Planes.** `sergio planes` muestra Free, Pro, Teams y Enterprise. Todo lo
+que corre en su equipo es gratis. Los planes de pago son servicios encima
+del código. Cómo funcionan las licencias y cómo vender:
+[docs/es/PLANES.md](docs/es/PLANES.md).

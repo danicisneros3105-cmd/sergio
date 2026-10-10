@@ -31,8 +31,9 @@ export function Layout() {
 
       {/* Health check banner */}
       {apiReachable === false && (
+        // Side padding clears the fixed sidebar toggle and approval bell.
         <div
-          className="flex items-center gap-3 px-4 py-2 text-sm shrink-0"
+          className="flex items-center gap-3 pl-12 pr-12 py-2 text-sm shrink-0"
           style={{
             background: 'color-mix(in srgb, var(--color-error) 8%, transparent)',
             borderBottom: '1px solid color-mix(in srgb, var(--color-error) 15%, transparent)',

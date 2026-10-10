@@ -54,6 +54,21 @@ export default defineConfig({
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
         navigateFallbackDenylist: [/^\/v1\//, /^\/health/, /^\/dashboard/, /^\/api\//],
+        // Offline: the model list and server info come from the last time
+        // there was a connection, so the chat still opens. Answers are kept
+        // separately in IndexedDB (src/lib/offline.ts).
+        runtimeCaching: [
+          {
+            urlPattern: ({ url, request }) =>
+              request.method === 'GET' && /^\/v1\/(models|info)$/.test(url.pathname),
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'sergio-api',
+              networkTimeoutSeconds: 4,
+              expiration: { maxEntries: 10, maxAgeSeconds: 30 * 86400 },
+            },
+          },
+        ],
       },
     }),
   ],

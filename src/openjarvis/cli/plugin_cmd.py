@@ -144,6 +144,13 @@ def instalar(plugin_spec: str, yes: bool, force: bool, sha: str) -> None:
                 raise PluginError(
                     f"no encuentro «{plugin_spec}». Busque con: sergio plugin buscar"
                 )
+            if entry.premium:
+                from openjarvis.tiers import require
+
+                try:
+                    require("premium_skills")
+                except PermissionError as exc:
+                    raise PluginError(str(exc)) from None
             data, source = index.fetch(entry), entry.source
             sha = sha or entry.sha256
         manifest = read_manifest(data)

@@ -217,7 +217,11 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 function SettingRow({ label, description, children }: { label: string; description?: string; children: React.ReactNode }) {
   return (
-    <div className="flex items-center justify-between py-3" style={{ borderBottom: '1px solid var(--color-border-subtle)' }}>
+    // Stacked on a phone, side by side from the small breakpoint up.
+    <div
+      className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4 py-3"
+      style={{ borderBottom: '1px solid var(--color-border-subtle)' }}
+    >
       <div className="min-w-0">
         <div className="text-sm" style={{ color: 'var(--color-text)' }}>{label}</div>
         {description && (

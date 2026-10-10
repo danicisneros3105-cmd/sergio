@@ -7,6 +7,13 @@ import { fetchSavings, getBase } from '../../lib/api';
 import { listConnectors, getSyncStatus } from '../../lib/connectors-api';
 import { serializeToolCallArguments } from '../../lib/tool-call';
 import {
+  findAnswer,
+  isNetworkError,
+  isOffline,
+  offlineReply,
+  rememberAnswer,
+} from '../../lib/offline';
+import {
   engineFromCompletionChunk,
   resolveChatEngine,
 } from '../../lib/chat-telemetry';
@@ -20,6 +27,22 @@ import type {
   TokenUsage,
   ToolCallInfo,
 } from '../../types';
+
+// Follows the browser's online/offline events so the composer can say
+// what still works without a connection.
+function useOnline(): boolean {
+  const [online, setOnline] = useState(() => !isOffline());
+  useEffect(() => {
+    const update = () => setOnline(!isOffline());
+    window.addEventListener('online', update);
+    window.addEventListener('offline', update);
+    return () => {
+      window.removeEventListener('online', update);
+      window.removeEventListener('offline', update);
+    };
+  }, []);
+  return online;
+}
 
 // While Deep Research is toggled on, poll connected sources for sync
 // progress so we can surface "Searching over N items — sync in progress"
@@ -196,6 +219,16 @@ export function InputArea() {
       return;
     }
 
+    // The answer this question follows: part of the offline cache key.
+    const previousAnswer = activeId
+      ? [...useAppStore.getState().messages].reverse().find((m) => m.role === 'assistant')?.content ?? ''
+      : '';
+    const saved = isOffline() ? await findAnswer(content, { previousAnswer }) : null;
+    if (isOffline() && !saved) {
+      toast.error('Sin conexión. Su mensaje sigue en la caja: envíelo cuando vuelva la red.');
+      return;
+    }
+
     setInput('');
 
     let convId = activeId;
@@ -210,6 +243,16 @@ export function InputArea() {
       timestamp: Date.now(),
     };
     addMessage(convId, userMsg);
+
+    if (saved) {
+      addMessage(convId, {
+        id: generateId(),
+        role: 'assistant',
+        content: offlineReply(saved),
+        timestamp: Date.now(),
+      });
+      return;
+    }
 
     // Build API messages before adding assistant placeholder
     const currentMessages = useAppStore.getState().messages;
@@ -248,6 +291,7 @@ export function InputArea() {
       Array.from(researchSourcesByRef.values()).sort((a, b) => a.ref - b.ref);
     let lastFlush = 0;
     let ttftMs: number | undefined;
+    let answeredOk = false;
 
     setStreamState({
       conversationId: convId,
@@ -469,11 +513,20 @@ export function InputArea() {
           } catch {}
         }
       }
+      answeredOk = !!accumulatedContent;
       }
     } catch (err: any) {
       if (err.name === 'AbortError') {
         // User cancelled or model switch — keep whatever was accumulated
         if (!accumulatedContent) accumulatedContent = '(Respuesta detenida)';
+      } else if (isNetworkError(err) && !accumulatedContent) {
+        const cached = await findAnswer(content, { previousAnswer });
+        if (cached) {
+          accumulatedContent = offlineReply(cached);
+        } else {
+          accumulatedContent = 'Sin conexión con Sergio. Revise la red y vuelva a enviar el mensaje.';
+          setInput(content);
+        }
       } else {
         const errMsg = err?.message || String(err);
         accumulatedContent =
@@ -545,6 +598,9 @@ export function InputArea() {
         message: `Response: ${accumulatedContent.length} chars`,
       });
       abortRef.current = null;
+      if (answeredOk) {
+        void rememberAnswer(content, accumulatedContent, { previousAnswer, model: selectedModel });
+      }
 
       // Research path updates session counters optimistically from the
       // `done` event's usage payload — re-fetching here would overwrite
@@ -579,10 +635,21 @@ export function InputArea() {
   };
 
   const isWelcome = messages.length === 0 && !isCurrentChatStreaming;
+  const online = useOnline();
   const canSend = !streamState.isStreaming && !!input.trim() && !modelLoading && !!selectedModel;
 
   return (
     <div className="px-4 pb-3 pt-2 w-full mx-auto" style={{ maxWidth: 'var(--chat-max-width)' }}>
+      {!online && (
+        <p
+          role="status"
+          className="mb-2 px-2 text-[11.5px] leading-snug"
+          style={{ color: 'var(--color-text-secondary)' }}
+        >
+          Sin conexión. Puede leer sus conversaciones, y lo que ya me preguntó tiene su respuesta
+          guardada.
+        </p>
+      )}
       <div className="mac-composer px-4 pt-3 pb-2.5">
         <textarea
           ref={textareaRef}

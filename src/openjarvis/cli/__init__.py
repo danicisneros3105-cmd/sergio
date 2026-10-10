@@ -136,6 +136,7 @@ if not _DATA_BOUNDARY_BOOTSTRAP:
     from openjarvis.cli.pearl_cmd import pearl
     from openjarvis.cli.pensar_cmd import pensar
     from openjarvis.cli.phone_cmd import telefono
+    from openjarvis.cli.planes_cmd import licencia, planes
     from openjarvis.cli.plugin_cmd import plugin
     from openjarvis.cli.probar_cmd import probar
     from openjarvis.cli.quickstart_cmd import quickstart
@@ -199,6 +200,8 @@ if not _DATA_BOUNDARY_BOOTSTRAP:
     cli.add_command(movil, "movil")
     cli.add_command(cowork, "cowork")
     cli.add_command(plugin, "plugin")
+    cli.add_command(planes, "planes")
+    cli.add_command(licencia, "licencia")
     cli.add_command(respaldo, "respaldo")
     cli.add_command(respaldo, "backup")
     cli.add_command(sync, "sync")

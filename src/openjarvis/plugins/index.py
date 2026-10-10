@@ -33,6 +33,7 @@ class IndexEntry:
     path: str = ""  # a local folder or .zip (the bundled catalog)
     sha256: str = ""
     source: str = ""
+    premium: bool = False  # part of the Pro plan's premium skills
 
     def to_dict(self) -> Dict[str, Any]:
         return dict(self.__dict__)
@@ -58,6 +59,7 @@ def _entries(data: Any, origin: str, base: Optional[Path]) -> List[IndexEntry]:
                 path=path,
                 sha256=str(raw.get("sha256") or ""),
                 source=origin,
+                premium=bool(raw.get("premium", False)),
             )
         )
     return out

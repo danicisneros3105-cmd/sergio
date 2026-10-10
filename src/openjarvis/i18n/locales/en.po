@@ -264,3 +264,42 @@ msgstr "This device forgets the key (stops syncing until set up again)."
 
 msgid "Sincroniza memoria, skills y notas entre sus equipos (cifrado de extremo a extremo)."
 msgstr "Sync memory, skills and notes between your devices (end-to-end encrypted)."
+
+msgid "Los planes de Sergio y el que usted tiene."
+msgstr "Sergio's plans and the one you have."
+
+msgid "Abre la página de pago del plan elegido."
+msgstr "Open the payment page for the chosen plan."
+
+msgid "Claves de licencia de los planes de pago."
+msgstr "License keys for the paid plans."
+
+msgid "Activa una clave de licencia en este equipo."
+msgstr "Activate a license key on this device."
+
+msgid "Qué plan tiene este equipo y hasta cuándo."
+msgstr "Which plan this device has and until when."
+
+msgid "Quita la licencia de este equipo (vuelve a Free)."
+msgstr "Remove the license from this device (back to Free)."
+
+msgid "(Vendedor) Crea el par de claves con que se firman las licencias."
+msgstr "(Seller) Create the key pair that signs licenses."
+
+msgid "Archivo para la clave privada."
+msgstr "File for the private key."
+
+msgid "(Vendedor) Firma una licencia para un cliente."
+msgstr "(Seller) Sign a license for a customer."
+
+msgid "A nombre de quién."
+msgstr "Whose name it is in."
+
+msgid "Usuarios (Teams/Enterprise)."
+msgstr "Users (Teams/Enterprise)."
+
+msgid "Días de validez."
+msgstr "Days it is valid."
+
+msgid "Archivo de la clave privada."
+msgstr "The private key file."

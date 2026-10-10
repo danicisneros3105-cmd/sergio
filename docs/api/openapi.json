@@ -1,0 +1,7245 @@
+{
+  "components": {
+    "schemas": {
+      "AgentCreateRequest": {
+        "properties": {
+          "agent_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Agent Id"
+          },
+          "agent_type": {
+            "title": "Agent Type",
+            "type": "string"
+          },
+          "tools": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tools"
+          }
+        },
+        "required": [
+          "agent_type"
+        ],
+        "title": "AgentCreateRequest",
+        "type": "object"
+      },
+      "AgentMessageRequest": {
+        "properties": {
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "message"
+        ],
+        "title": "AgentMessageRequest",
+        "type": "object"
+      },
+      "AgentRequest": {
+        "properties": {
+          "description": {
+            "title": "Description",
+            "type": "string"
+          }
+        },
+        "required": [
+          "description"
+        ],
+        "title": "AgentRequest",
+        "type": "object"
+      },
+      "AnalyticsIdentity": {
+        "properties": {
+          "anon_id": {
+            "title": "Anon Id",
+            "type": "string"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "host": {
+            "title": "Host",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "enabled",
+          "anon_id",
+          "host",
+          "key"
+        ],
+        "title": "AnalyticsIdentity",
+        "type": "object"
+      },
+      "AssessRequest": {
+        "properties": {
+          "goal": {
+            "additionalProperties": true,
+            "title": "Goal",
+            "type": "object"
+          },
+          "results": {
+            "title": "Results",
+            "type": "string"
+          }
+        },
+        "required": [
+          "goal",
+          "results"
+        ],
+        "title": "AssessRequest",
+        "type": "object"
+      },
+      "BlenderImport": {
+        "properties": {
+          "glb_path": {
+            "title": "Glb Path",
+            "type": "string"
+          },
+          "name": {
+            "default": "Modelo",
+            "title": "Name",
+            "type": "string"
+          },
+          "preview_path": {
+            "default": "",
+            "title": "Preview Path",
+            "type": "string"
+          },
+          "save_path": {
+            "title": "Save Path",
+            "type": "string"
+          },
+          "size_cm": {
+            "default": 30.0,
+            "title": "Size Cm",
+            "type": "number"
+          }
+        },
+        "required": [
+          "glb_path",
+          "save_path"
+        ],
+        "title": "BlenderImport",
+        "type": "object"
+      },
+      "BlenderLearn": {
+        "properties": {
+          "log": {
+            "title": "Log",
+            "type": "string"
+          },
+          "request": {
+            "title": "Request",
+            "type": "string"
+          },
+          "script": {
+            "title": "Script",
+            "type": "string"
+          },
+          "verdict": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verdict"
+          }
+        },
+        "required": [
+          "request",
+          "script",
+          "log"
+        ],
+        "title": "BlenderLearn",
+        "type": "object"
+      },
+      "BlenderTask": {
+        "properties": {
+          "blender_version": {
+            "default": "",
+            "title": "Blender Version",
+            "type": "string"
+          },
+          "preview_path": {
+            "default": "",
+            "title": "Preview Path",
+            "type": "string"
+          },
+          "request": {
+            "title": "Request",
+            "type": "string"
+          },
+          "save_path": {
+            "title": "Save Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "request",
+          "save_path"
+        ],
+        "title": "BlenderTask",
+        "type": "object"
+      },
+      "Body_act_route_v1_vision_act_post": {
+        "properties": {
+          "confirmed": {
+            "default": false,
+            "title": "Confirmed",
+            "type": "boolean"
+          },
+          "elements": {
+            "default": "[]",
+            "title": "Elements",
+            "type": "string"
+          },
+          "goal": {
+            "title": "Goal",
+            "type": "string"
+          },
+          "history": {
+            "default": "[]",
+            "title": "History",
+            "type": "string"
+          },
+          "image": {
+            "contentMediaType": "application/octet-stream",
+            "title": "Image",
+            "type": "string"
+          },
+          "max_steps": {
+            "default": 20,
+            "title": "Max Steps",
+            "type": "integer"
+          },
+          "step": {
+            "default": 1,
+            "title": "Step",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "goal",
+          "image"
+        ],
+        "title": "Body_act_route_v1_vision_act_post",
+        "type": "object"
+      },
+      "Body_blender_edit_route_v1_vision_blender_edit_post": {
+        "properties": {
+          "collateral": {
+            "default": "",
+            "title": "Collateral",
+            "type": "string"
+          },
+          "instruction": {
+            "title": "Instruction",
+            "type": "string"
+          },
+          "preview": {
+            "contentMediaType": "application/octet-stream",
+            "title": "Preview",
+            "type": "string"
+          },
+          "preview_path": {
+            "default": "",
+            "title": "Preview Path",
+            "type": "string"
+          },
+          "raw_script": {
+            "title": "Raw Script",
+            "type": "string"
+          },
+          "reference": {
+            "anyOf": [
+              {
+                "contentMediaType": "application/octet-stream",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference"
+          },
+          "request": {
+            "title": "Request",
+            "type": "string"
+          },
+          "save_path": {
+            "title": "Save Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "request",
+          "raw_script",
+          "instruction",
+          "save_path",
+          "preview"
+        ],
+        "title": "Body_blender_edit_route_v1_vision_blender_edit_post",
+        "type": "object"
+      },
+      "Body_blender_refine_route_v1_vision_blender_refine_post": {
+        "properties": {
+          "log": {
+            "default": "",
+            "title": "Log",
+            "type": "string"
+          },
+          "preview": {
+            "contentMediaType": "application/octet-stream",
+            "title": "Preview",
+            "type": "string"
+          },
+          "preview_path": {
+            "default": "",
+            "title": "Preview Path",
+            "type": "string"
+          },
+          "raw_script": {
+            "title": "Raw Script",
+            "type": "string"
+          },
+          "reference": {
+            "anyOf": [
+              {
+                "contentMediaType": "application/octet-stream",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference"
+          },
+          "request": {
+            "title": "Request",
+            "type": "string"
+          },
+          "save_path": {
+            "title": "Save Path",
+            "type": "string"
+          },
+          "sheet": {
+            "anyOf": [
+              {
+                "contentMediaType": "application/octet-stream",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sheet"
+          },
+          "target_cm": {
+            "default": "",
+            "title": "Target Cm",
+            "type": "string"
+          }
+        },
+        "required": [
+          "request",
+          "raw_script",
+          "save_path",
+          "preview"
+        ],
+        "title": "Body_blender_refine_route_v1_vision_blender_refine_post",
+        "type": "object"
+      },
+      "Body_blender_route_v1_vision_blender_post": {
+        "properties": {
+          "blender_version": {
+            "default": "",
+            "title": "Blender Version",
+            "type": "string"
+          },
+          "image": {
+            "contentMediaType": "application/octet-stream",
+            "title": "Image",
+            "type": "string"
+          },
+          "note": {
+            "default": "",
+            "title": "Note",
+            "type": "string"
+          },
+          "preview_path": {
+            "default": "",
+            "title": "Preview Path",
+            "type": "string"
+          },
+          "pro": {
+            "default": false,
+            "title": "Pro",
+            "type": "boolean"
+          },
+          "save_path": {
+            "title": "Save Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "save_path",
+          "image"
+        ],
+        "title": "Body_blender_route_v1_vision_blender_post",
+        "type": "object"
+      },
+      "Body_blender_verify_route_v1_vision_blender_verify_post": {
+        "properties": {
+          "preview": {
+            "contentMediaType": "application/octet-stream",
+            "title": "Preview",
+            "type": "string"
+          },
+          "reference": {
+            "anyOf": [
+              {
+                "contentMediaType": "application/octet-stream",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference"
+          },
+          "request": {
+            "title": "Request",
+            "type": "string"
+          },
+          "sheet": {
+            "anyOf": [
+              {
+                "contentMediaType": "application/octet-stream",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sheet"
+          }
+        },
+        "required": [
+          "request",
+          "preview"
+        ],
+        "title": "Body_blender_verify_route_v1_vision_blender_verify_post",
+        "type": "object"
+      },
+      "Body_cad_image_route_v1_vision_cad_image_post": {
+        "properties": {
+          "image": {
+            "contentMediaType": "application/octet-stream",
+            "title": "Image",
+            "type": "string"
+          },
+          "tolerance_px": {
+            "default": 1.5,
+            "title": "Tolerance Px",
+            "type": "number"
+          },
+          "width_mm": {
+            "default": 100.0,
+            "title": "Width Mm",
+            "type": "number"
+          }
+        },
+        "required": [
+          "image"
+        ],
+        "title": "Body_cad_image_route_v1_vision_cad_image_post",
+        "type": "object"
+      },
+      "Body_enroll_v1_faces_enroll_post": {
+        "properties": {
+          "consent": {
+            "default": false,
+            "title": "Consent",
+            "type": "boolean"
+          },
+          "faces": {
+            "default": "",
+            "title": "Faces",
+            "type": "string"
+          },
+          "image": {
+            "contentMediaType": "application/octet-stream",
+            "title": "Image",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "image"
+        ],
+        "title": "Body_enroll_v1_faces_enroll_post",
+        "type": "object"
+      },
+      "Body_identify_v1_faces_identify_post": {
+        "properties": {
+          "image": {
+            "contentMediaType": "application/octet-stream",
+            "title": "Image",
+            "type": "string"
+          },
+          "learn": {
+            "default": false,
+            "title": "Learn",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "image"
+        ],
+        "title": "Body_identify_v1_faces_identify_post",
+        "type": "object"
+      },
+      "Body_ingest_files_v1_connectors_upload_ingest_files_post": {
+        "properties": {
+          "files": {
+            "items": {
+              "contentMediaType": "application/octet-stream",
+              "type": "string"
+            },
+            "title": "Files",
+            "type": "array"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "required": [
+          "files"
+        ],
+        "title": "Body_ingest_files_v1_connectors_upload_ingest_files_post",
+        "type": "object"
+      },
+      "Body_kinship_v1_faces_kinship_post": {
+        "properties": {
+          "faces": {
+            "default": "",
+            "title": "Faces",
+            "type": "string"
+          },
+          "image": {
+            "contentMediaType": "application/octet-stream",
+            "title": "Image",
+            "type": "string"
+          }
+        },
+        "required": [
+          "image"
+        ],
+        "title": "Body_kinship_v1_faces_kinship_post",
+        "type": "object"
+      },
+      "Body_look_v1_faces_look_post": {
+        "properties": {
+          "image": {
+            "contentMediaType": "application/octet-stream",
+            "title": "Image",
+            "type": "string"
+          },
+          "question": {
+            "default": "¿Qué ves?",
+            "title": "Question",
+            "type": "string"
+          }
+        },
+        "required": [
+          "image"
+        ],
+        "title": "Body_look_v1_faces_look_post",
+        "type": "object"
+      },
+      "Body_name_route_v1_vision_name_post": {
+        "properties": {
+          "image": {
+            "contentMediaType": "application/octet-stream",
+            "title": "Image",
+            "type": "string"
+          }
+        },
+        "required": [
+          "image"
+        ],
+        "title": "Body_name_route_v1_vision_name_post",
+        "type": "object"
+      },
+      "Body_photo_v1_faces_photo_post": {
+        "properties": {
+          "faces": {
+            "default": "",
+            "title": "Faces",
+            "type": "string"
+          },
+          "image": {
+            "contentMediaType": "application/octet-stream",
+            "title": "Image",
+            "type": "string"
+          }
+        },
+        "required": [
+          "image"
+        ],
+        "title": "Body_photo_v1_faces_photo_post",
+        "type": "object"
+      },
+      "Body_review_video_v1_coach_review_video_post": {
+        "properties": {
+          "focus": {
+            "default": "",
+            "title": "Focus",
+            "type": "string"
+          },
+          "goal": {
+            "title": "Goal",
+            "type": "string"
+          },
+          "video": {
+            "contentMediaType": "application/octet-stream",
+            "title": "Video",
+            "type": "string"
+          }
+        },
+        "required": [
+          "video",
+          "goal"
+        ],
+        "title": "Body_review_video_v1_coach_review_video_post",
+        "type": "object"
+      },
+      "Body_scan_v1_faces_scan_post": {
+        "properties": {
+          "consent": {
+            "default": false,
+            "title": "Consent",
+            "type": "boolean"
+          },
+          "images": {
+            "items": {
+              "contentMediaType": "application/octet-stream",
+              "type": "string"
+            },
+            "title": "Images",
+            "type": "array"
+          },
+          "mesh": {
+            "default": "",
+            "title": "Mesh",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "images"
+        ],
+        "title": "Body_scan_v1_faces_scan_post",
+        "type": "object"
+      },
+      "Body_scene_route_v1_vision_scene_post": {
+        "properties": {
+          "auto": {
+            "default": false,
+            "title": "Auto",
+            "type": "boolean"
+          },
+          "image": {
+            "contentMediaType": "application/octet-stream",
+            "title": "Image",
+            "type": "string"
+          }
+        },
+        "required": [
+          "image"
+        ],
+        "title": "Body_scene_route_v1_vision_scene_post",
+        "type": "object"
+      },
+      "Body_school_v1_coach_school_post": {
+        "properties": {
+          "image": {
+            "contentMediaType": "application/octet-stream",
+            "title": "Image",
+            "type": "string"
+          }
+        },
+        "required": [
+          "image"
+        ],
+        "title": "Body_school_v1_coach_school_post",
+        "type": "object"
+      },
+      "Body_screen_v1_vision_screen_post": {
+        "properties": {
+          "elements": {
+            "default": "[]",
+            "title": "Elements",
+            "type": "string"
+          },
+          "image": {
+            "contentMediaType": "application/octet-stream",
+            "title": "Image",
+            "type": "string"
+          },
+          "question": {
+            "title": "Question",
+            "type": "string"
+          }
+        },
+        "required": [
+          "question",
+          "image"
+        ],
+        "title": "Body_screen_v1_vision_screen_post",
+        "type": "object"
+      },
+      "Body_summarize_v1_meeting_summarize_post": {
+        "properties": {
+          "audio": {
+            "contentMediaType": "application/octet-stream",
+            "title": "Audio",
+            "type": "string"
+          },
+          "kind": {
+            "default": "reunión",
+            "title": "Kind",
+            "type": "string"
+          },
+          "seconds": {
+            "default": 0.0,
+            "title": "Seconds",
+            "type": "number"
+          },
+          "speakers": {
+            "default": "",
+            "title": "Speakers",
+            "type": "string"
+          },
+          "timeline": {
+            "default": "",
+            "title": "Timeline",
+            "type": "string"
+          },
+          "when": {
+            "default": "",
+            "title": "When",
+            "type": "string"
+          }
+        },
+        "required": [
+          "audio"
+        ],
+        "title": "Body_summarize_v1_meeting_summarize_post",
+        "type": "object"
+      },
+      "Body_transcribe_v1_voice_transcribe_post": {
+        "properties": {
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_transcribe_v1_voice_transcribe_post",
+        "type": "object"
+      },
+      "Body_tripo_route_v1_vision_tripo_post": {
+        "properties": {
+          "image": {
+            "anyOf": [
+              {
+                "contentMediaType": "application/octet-stream",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image"
+          },
+          "prompt": {
+            "default": "",
+            "title": "Prompt",
+            "type": "string"
+          },
+          "quality": {
+            "default": "standard",
+            "title": "Quality",
+            "type": "string"
+          }
+        },
+        "title": "Body_tripo_route_v1_vision_tripo_post",
+        "type": "object"
+      },
+      "Body_video_plan_route_v1_vision_video_plan_post": {
+        "properties": {
+          "lengths": {
+            "title": "Lengths",
+            "type": "string"
+          },
+          "request": {
+            "title": "Request",
+            "type": "string"
+          },
+          "sheets": {
+            "items": {
+              "contentMediaType": "application/octet-stream",
+              "type": "string"
+            },
+            "title": "Sheets",
+            "type": "array"
+          },
+          "style": {
+            "default": "",
+            "title": "Style",
+            "type": "string"
+          }
+        },
+        "required": [
+          "request",
+          "lengths",
+          "sheets"
+        ],
+        "title": "Body_video_plan_route_v1_vision_video_plan_post",
+        "type": "object"
+      },
+      "BudgetLimitsRequest": {
+        "properties": {
+          "max_requests_per_hour": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Requests Per Hour"
+          },
+          "max_tokens_per_day": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Tokens Per Day"
+          }
+        },
+        "title": "BudgetLimitsRequest",
+        "type": "object"
+      },
+      "CadModel": {
+        "properties": {
+          "log": {
+            "title": "Log",
+            "type": "string"
+          },
+          "name": {
+            "default": "Modelo",
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "log"
+        ],
+        "title": "CadModel",
+        "type": "object"
+      },
+      "ChatCompletionRequest": {
+        "properties": {
+          "max_tokens": {
+            "default": 1024,
+            "title": "Max Tokens",
+            "type": "integer"
+          },
+          "messages": {
+            "items": {
+              "$ref": "#/components/schemas/ChatMessage"
+            },
+            "title": "Messages",
+            "type": "array"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "stream": {
+            "default": false,
+            "title": "Stream",
+            "type": "boolean"
+          },
+          "temperature": {
+            "default": 0.7,
+            "title": "Temperature",
+            "type": "number"
+          },
+          "tools": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tools"
+          }
+        },
+        "required": [
+          "model",
+          "messages"
+        ],
+        "title": "ChatCompletionRequest",
+        "type": "object"
+      },
+      "ChatMessage": {
+        "properties": {
+          "content": {
+            "default": "",
+            "title": "Content",
+            "type": "string"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          },
+          "tool_call_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tool Call Id"
+          },
+          "tool_calls": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tool Calls"
+          }
+        },
+        "required": [
+          "role"
+        ],
+        "title": "ChatMessage",
+        "type": "object"
+      },
+      "ChatRequest": {
+        "properties": {
+          "grounded": {
+            "default": false,
+            "title": "Grounded",
+            "type": "boolean"
+          },
+          "max_tokens": {
+            "default": 400,
+            "title": "Max Tokens",
+            "type": "integer"
+          },
+          "messages": {
+            "items": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "title": "Messages",
+            "type": "array"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          }
+        },
+        "required": [
+          "model",
+          "messages"
+        ],
+        "title": "ChatRequest",
+        "type": "object"
+      },
+      "ConnectRequest": {
+        "description": "Credentials / connection parameters for a connector.",
+        "properties": {
+          "code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          },
+          "config": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Config"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "host": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Host"
+          },
+          "password": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Password"
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Path"
+          },
+          "port": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Port"
+          },
+          "security": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Security"
+          },
+          "token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Token"
+          }
+        },
+        "title": "ConnectRequest",
+        "type": "object"
+      },
+      "CrewTask": {
+        "properties": {
+          "task": {
+            "title": "Task",
+            "type": "string"
+          }
+        },
+        "required": [
+          "task"
+        ],
+        "title": "CrewTask",
+        "type": "object"
+      },
+      "DecisionRequest": {
+        "properties": {
+          "approve": {
+            "title": "Approve",
+            "type": "boolean"
+          },
+          "step": {
+            "title": "Step",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "step",
+          "approve"
+        ],
+        "title": "DecisionRequest",
+        "type": "object"
+      },
+      "DeepQuestion": {
+        "properties": {
+          "question": {
+            "title": "Question",
+            "type": "string"
+          },
+          "strategy": {
+            "default": "auto",
+            "title": "Strategy",
+            "type": "string"
+          }
+        },
+        "required": [
+          "question"
+        ],
+        "title": "DeepQuestion",
+        "type": "object"
+      },
+      "EmbeddingRequest": {
+        "properties": {
+          "dimensions": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dimensions"
+          },
+          "encoding_format": {
+            "default": "float",
+            "title": "Encoding Format",
+            "type": "string"
+          },
+          "input": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "title": "Input"
+          },
+          "input_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Input Type"
+          },
+          "model": {
+            "default": "auto",
+            "title": "Model",
+            "type": "string"
+          },
+          "user": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User"
+          }
+        },
+        "required": [
+          "input"
+        ],
+        "title": "EmbeddingRequest",
+        "type": "object"
+      },
+      "Feedback": {
+        "properties": {
+          "about": {
+            "default": "",
+            "title": "About",
+            "type": "string"
+          },
+          "rating": {
+            "default": 0,
+            "title": "Rating",
+            "type": "integer"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "Feedback",
+        "type": "object"
+      },
+      "FeedbackScoreRequest": {
+        "properties": {
+          "score": {
+            "title": "Score",
+            "type": "number"
+          },
+          "source": {
+            "default": "api",
+            "title": "Source",
+            "type": "string"
+          },
+          "trace_id": {
+            "title": "Trace Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "trace_id",
+          "score"
+        ],
+        "title": "FeedbackScoreRequest",
+        "type": "object"
+      },
+      "GotoRequest": {
+        "properties": {
+          "place": {
+            "title": "Place",
+            "type": "string"
+          },
+          "style": {
+            "default": "normal",
+            "title": "Style",
+            "type": "string"
+          }
+        },
+        "required": [
+          "place"
+        ],
+        "title": "GotoRequest",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "HealthRequest": {
+        "properties": {
+          "data": {
+            "additionalProperties": true,
+            "title": "Data",
+            "type": "object"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "title": "HealthRequest",
+        "type": "object"
+      },
+      "HoloRequest": {
+        "properties": {
+          "request": {
+            "title": "Request",
+            "type": "string"
+          }
+        },
+        "required": [
+          "request"
+        ],
+        "title": "HoloRequest",
+        "type": "object"
+      },
+      "IngestResponse": {
+        "properties": {
+          "chunks_added": {
+            "title": "Chunks Added",
+            "type": "integer"
+          },
+          "source": {
+            "default": "upload",
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "chunks_added"
+        ],
+        "title": "IngestResponse",
+        "type": "object"
+      },
+      "LearnRequest": {
+        "properties": {
+          "name": {
+            "default": "manual",
+            "title": "Name",
+            "type": "string"
+          },
+          "pdf_b64": {
+            "default": "",
+            "title": "Pdf B64",
+            "type": "string"
+          },
+          "text": {
+            "default": "",
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "title": "LearnRequest",
+        "type": "object"
+      },
+      "LessonRequest": {
+        "properties": {
+          "goal": {
+            "additionalProperties": true,
+            "title": "Goal",
+            "type": "object"
+          },
+          "profile": {
+            "additionalProperties": true,
+            "title": "Profile",
+            "type": "object"
+          }
+        },
+        "required": [
+          "goal"
+        ],
+        "title": "LessonRequest",
+        "type": "object"
+      },
+      "MemoryIndexRequest": {
+        "properties": {
+          "path": {
+            "title": "Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "title": "MemoryIndexRequest",
+        "type": "object"
+      },
+      "MemorySearchRequest": {
+        "properties": {
+          "query": {
+            "title": "Query",
+            "type": "string"
+          },
+          "top_k": {
+            "default": 5,
+            "title": "Top K",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "title": "MemorySearchRequest",
+        "type": "object"
+      },
+      "MemoryStoreRequest": {
+        "properties": {
+          "content": {
+            "title": "Content",
+            "type": "string"
+          },
+          "metadata": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Metadata"
+          }
+        },
+        "required": [
+          "content"
+        ],
+        "title": "MemoryStoreRequest",
+        "type": "object"
+      },
+      "ModelListResponse": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/ModelObject"
+            },
+            "title": "Data",
+            "type": "array"
+          },
+          "object": {
+            "default": "list",
+            "title": "Object",
+            "type": "string"
+          }
+        },
+        "title": "ModelListResponse",
+        "type": "object"
+      },
+      "ModelObject": {
+        "properties": {
+          "created": {
+            "title": "Created",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "object": {
+            "default": "model",
+            "title": "Object",
+            "type": "string"
+          },
+          "owned_by": {
+            "default": "openjarvis",
+            "title": "Owned By",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "title": "ModelObject",
+        "type": "object"
+      },
+      "OptimizeRunRequest": {
+        "properties": {
+          "benchmark": {
+            "title": "Benchmark",
+            "type": "string"
+          },
+          "max_samples": {
+            "default": 50,
+            "title": "Max Samples",
+            "type": "integer"
+          },
+          "max_trials": {
+            "default": 20,
+            "title": "Max Trials",
+            "type": "integer"
+          },
+          "optimizer_model": {
+            "default": "claude-sonnet-4-6",
+            "title": "Optimizer Model",
+            "type": "string"
+          }
+        },
+        "required": [
+          "benchmark"
+        ],
+        "title": "OptimizeRunRequest",
+        "type": "object"
+      },
+      "PasteRequest": {
+        "properties": {
+          "content": {
+            "title": "Content",
+            "type": "string"
+          },
+          "title": {
+            "default": "",
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "content"
+        ],
+        "title": "PasteRequest",
+        "type": "object"
+      },
+      "ProfileRequest": {
+        "properties": {
+          "context": {
+            "additionalProperties": true,
+            "title": "Context",
+            "type": "object"
+          },
+          "previous": {
+            "additionalProperties": true,
+            "title": "Previous",
+            "type": "object"
+          }
+        },
+        "title": "ProfileRequest",
+        "type": "object"
+      },
+      "Remember": {
+        "properties": {
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "text"
+        ],
+        "title": "Remember",
+        "type": "object"
+      },
+      "ResearchRequest": {
+        "properties": {
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Preferred planner model for this request.",
+            "title": "Model"
+          },
+          "query": {
+            "description": "Natural-language question to research.",
+            "title": "Query",
+            "type": "string"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "title": "ResearchRequest",
+        "type": "object"
+      },
+      "ScheduleUpdate": {
+        "description": "Request body for updating the digest schedule.",
+        "properties": {
+          "cron": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cron"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled"
+        ],
+        "title": "ScheduleUpdate",
+        "type": "object"
+      },
+      "ScrutinizeRequest": {
+        "properties": {
+          "autonomy": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Autonomy"
+          },
+          "check": {
+            "default": "",
+            "title": "Check",
+            "type": "string"
+          },
+          "goal": {
+            "default": "",
+            "title": "Goal",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          },
+          "tools": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Tools",
+            "type": "array"
+          },
+          "where": {
+            "default": "fondo",
+            "title": "Where",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "ScrutinizeRequest",
+        "type": "object"
+      },
+      "SpeakRequest": {
+        "properties": {
+          "text": {
+            "title": "Text",
+            "type": "string"
+          },
+          "voice": {
+            "default": "",
+            "title": "Voice",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "SpeakRequest",
+        "type": "object"
+      },
+      "SpeechSynthesizeRequest": {
+        "properties": {
+          "speed": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Speed"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          },
+          "voice_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Voice Id"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "SpeechSynthesizeRequest",
+        "type": "object"
+      },
+      "StartRequest": {
+        "properties": {
+          "autonomy": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Autonomy"
+          },
+          "goal": {
+            "title": "Goal",
+            "type": "string"
+          },
+          "max_actions": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Actions"
+          }
+        },
+        "required": [
+          "goal"
+        ],
+        "title": "StartRequest",
+        "type": "object"
+      },
+      "StyleLearn": {
+        "properties": {
+          "name": {
+            "default": "",
+            "title": "Name",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source"
+        ],
+        "title": "StyleLearn",
+        "type": "object"
+      },
+      "TherapyRequest": {
+        "properties": {
+          "crisis": {
+            "default": "",
+            "title": "Crisis",
+            "type": "string"
+          },
+          "language": {
+            "default": "es",
+            "title": "Language",
+            "type": "string"
+          },
+          "messages": {
+            "items": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "title": "Messages",
+            "type": "array"
+          },
+          "notes": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Notes",
+            "type": "array"
+          },
+          "profile": {
+            "additionalProperties": true,
+            "title": "Profile",
+            "type": "object"
+          }
+        },
+        "required": [
+          "messages"
+        ],
+        "title": "TherapyRequest",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      },
+      "VideoRequest": {
+        "properties": {
+          "request": {
+            "title": "Request",
+            "type": "string"
+          }
+        },
+        "required": [
+          "request"
+        ],
+        "title": "VideoRequest",
+        "type": "object"
+      },
+      "openjarvis__server__coach_routes__PlanRequest": {
+        "properties": {
+          "free_slots": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Free Slots",
+            "type": "array"
+          },
+          "goal": {
+            "title": "Goal",
+            "type": "string"
+          },
+          "kind": {
+            "default": "habilidad",
+            "title": "Kind",
+            "type": "string"
+          },
+          "profile": {
+            "additionalProperties": true,
+            "title": "Profile",
+            "type": "object"
+          }
+        },
+        "required": [
+          "goal"
+        ],
+        "title": "PlanRequest",
+        "type": "object"
+      },
+      "openjarvis__server__tasks_routes__PlanRequest": {
+        "properties": {
+          "request": {
+            "title": "Request",
+            "type": "string"
+          },
+          "role": {
+            "default": "",
+            "title": "Role",
+            "type": "string"
+          },
+          "tools": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tools"
+          }
+        },
+        "required": [
+          "request"
+        ],
+        "title": "PlanRequest",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "description": "La API local de Sergio (fork de OpenJarvis, Apache 2.0). Compatible con OpenAI en /v1/chat/completions, /v1/models y /v1/embeddings. Escucha en http://127.0.0.1:8000 por defecto; si el servidor se inició con una clave, envíela como 'Authorization: Bearer <clave>'.",
+    "title": "Sergio API",
+    "version": "0.0.1"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/digest": {
+      "get": {
+        "description": "Return the latest digest artifact.",
+        "operationId": "get_digest_api_digest_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Digest",
+        "tags": [
+          "digest"
+        ]
+      }
+    },
+    "/api/digest/audio": {
+      "get": {
+        "description": "Stream the digest audio file.",
+        "operationId": "get_digest_audio_api_digest_audio_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Digest Audio",
+        "tags": [
+          "digest"
+        ]
+      }
+    },
+    "/api/digest/generate": {
+      "post": {
+        "description": "Force re-generation of the digest.",
+        "operationId": "generate_digest_api_digest_generate_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Generate Digest",
+        "tags": [
+          "digest"
+        ]
+      }
+    },
+    "/api/digest/history": {
+      "get": {
+        "description": "Return past digests.",
+        "operationId": "get_digest_history_api_digest_history_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Digest History",
+        "tags": [
+          "digest"
+        ]
+      }
+    },
+    "/api/digest/schedule": {
+      "get": {
+        "description": "Return the current digest schedule configuration.",
+        "operationId": "get_schedule_api_digest_schedule_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Schedule",
+        "tags": [
+          "digest"
+        ]
+      },
+      "post": {
+        "description": "Update the digest schedule configuration.",
+        "operationId": "update_schedule_api_digest_schedule_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScheduleUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Schedule",
+        "tags": [
+          "digest"
+        ]
+      }
+    },
+    "/api/research": {
+      "post": {
+        "description": "Run a research query and stream the agent's trace + synthesis via SSE.\n\nResponse is ``text/event-stream`` with one JSON event per frame. See the\nmodule docstring for the schema; a final ``{\"type\": \"done\"}`` always\nterminates the stream so clients can detect end-of-response without\nparsing the underlying ``[DONE]`` sentinel used by OpenAI-style routes.",
+        "operationId": "research_api_research_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResearchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Research",
+        "tags": [
+          "research"
+        ]
+      }
+    },
+    "/comparison": {
+      "get": {
+        "description": "Serve the cost comparison page.",
+        "operationId": "comparison_comparison_get",
+        "responses": {
+          "200": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Comparison"
+      }
+    },
+    "/dashboard": {
+      "get": {
+        "description": "Serve the savings dashboard page.",
+        "operationId": "dashboard_dashboard_get",
+        "responses": {
+          "200": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Dashboard"
+      }
+    },
+    "/health": {
+      "get": {
+        "description": "Health check endpoint.",
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Health"
+      }
+    },
+    "/metrics": {
+      "get": {
+        "description": "Prometheus-compatible metrics endpoint.",
+        "operationId": "prometheus_metrics_metrics_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Prometheus Metrics",
+        "tags": [
+          "metrics"
+        ]
+      }
+    },
+    "/phone/incoming": {
+      "post": {
+        "operationId": "incoming_call_phone_incoming_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Incoming Call",
+        "tags": [
+          "phone"
+        ]
+      }
+    },
+    "/phone/status": {
+      "post": {
+        "operationId": "call_status_phone_status_post",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "call_id",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Call Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Call Status",
+        "tags": [
+          "phone"
+        ]
+      }
+    },
+    "/v1/agents": {
+      "get": {
+        "description": "List available agent types and running agents.",
+        "operationId": "list_agents_v1_agents_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Agents",
+        "tags": [
+          "agents"
+        ]
+      },
+      "post": {
+        "description": "Spawn a new agent.",
+        "operationId": "create_agent_v1_agents_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Agent",
+        "tags": [
+          "agents"
+        ]
+      }
+    },
+    "/v1/agents/{agent_id}": {
+      "delete": {
+        "description": "Kill a running agent.",
+        "operationId": "kill_agent_v1_agents__agent_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "agent_id",
+            "required": true,
+            "schema": {
+              "title": "Agent Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Kill Agent",
+        "tags": [
+          "agents"
+        ]
+      }
+    },
+    "/v1/agents/{agent_id}/message": {
+      "post": {
+        "description": "Send a message to a running agent.",
+        "operationId": "message_agent_v1_agents__agent_id__message_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "agent_id",
+            "required": true,
+            "schema": {
+              "title": "Agent Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentMessageRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Message Agent",
+        "tags": [
+          "agents"
+        ]
+      }
+    },
+    "/v1/analytics/identity": {
+      "get": {
+        "description": "Return the analytics identity for the current install.\n\nIf analytics is disabled in config, still return a\nstructurally valid response with ``enabled=False`` so the frontend\ncan decide what to do; never throw.",
+        "operationId": "get_identity_v1_analytics_identity_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalyticsIdentity"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Identity",
+        "tags": [
+          "analytics"
+        ]
+      }
+    },
+    "/v1/approvals/pending": {
+      "get": {
+        "operationId": "list_pending_approvals_v1_approvals_pending_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Pending Approvals V1 Approvals Pending Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Pending Approvals"
+      }
+    },
+    "/v1/approvals/{action_id}/approve": {
+      "post": {
+        "operationId": "approve_action_v1_approvals__action_id__approve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "action_id",
+            "required": true,
+            "schema": {
+              "title": "Action Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Approve Action V1 Approvals  Action Id  Approve Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Approve Action"
+      }
+    },
+    "/v1/approvals/{action_id}/deny": {
+      "post": {
+        "operationId": "deny_action_v1_approvals__action_id__deny_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "action_id",
+            "required": true,
+            "schema": {
+              "title": "Action Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Deny Action V1 Approvals  Action Id  Deny Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Deny Action"
+      }
+    },
+    "/v1/budget": {
+      "get": {
+        "description": "Get current budget usage and limits.",
+        "operationId": "get_budget_v1_budget_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Budget",
+        "tags": [
+          "budget"
+        ]
+      }
+    },
+    "/v1/budget/limits": {
+      "put": {
+        "description": "Update budget limits.",
+        "operationId": "set_budget_limits_v1_budget_limits_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BudgetLimitsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Budget Limits",
+        "tags": [
+          "budget"
+        ]
+      }
+    },
+    "/v1/channels": {
+      "get": {
+        "description": "List available messaging channels.",
+        "operationId": "list_channels_v1_channels_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Channels"
+      }
+    },
+    "/v1/channels/send": {
+      "post": {
+        "description": "Send a message to a channel.",
+        "operationId": "channel_send_v1_channels_send_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Channel Send"
+      }
+    },
+    "/v1/channels/status": {
+      "get": {
+        "description": "Return channel bridge connection status.",
+        "operationId": "channel_status_v1_channels_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Channel Status"
+      }
+    },
+    "/v1/chat/completions": {
+      "post": {
+        "description": "Handle chat completion requests (streaming and non-streaming).",
+        "operationId": "chat_completions_v1_chat_completions_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChatCompletionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Chat Completions"
+      }
+    },
+    "/v1/cloud/reload": {
+      "post": {
+        "description": "Hot-reload cloud API keys and (re-)initialize the cloud engine.\n\nCalled by the desktop app immediately after the user saves a cloud API\nkey so that cloud models become available without a full app restart.",
+        "operationId": "reload_cloud_engine_v1_cloud_reload_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Reload Cloud Engine"
+      }
+    },
+    "/v1/coach/assess": {
+      "post": {
+        "operationId": "assess_v1_coach_assess_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssessRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Assess V1 Coach Assess Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Assess",
+        "tags": [
+          "coach"
+        ]
+      }
+    },
+    "/v1/coach/health": {
+      "post": {
+        "operationId": "health_v1_coach_health_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HealthRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Health V1 Coach Health Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Health",
+        "tags": [
+          "coach"
+        ]
+      }
+    },
+    "/v1/coach/lesson": {
+      "post": {
+        "operationId": "lesson_v1_coach_lesson_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LessonRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Lesson V1 Coach Lesson Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Lesson",
+        "tags": [
+          "coach"
+        ]
+      }
+    },
+    "/v1/coach/plan": {
+      "post": {
+        "operationId": "plan_v1_coach_plan_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/openjarvis__server__coach_routes__PlanRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Plan V1 Coach Plan Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Plan",
+        "tags": [
+          "coach"
+        ]
+      }
+    },
+    "/v1/coach/profile": {
+      "post": {
+        "operationId": "profile_v1_coach_profile_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProfileRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Profile V1 Coach Profile Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Profile",
+        "tags": [
+          "coach"
+        ]
+      }
+    },
+    "/v1/coach/review_video": {
+      "post": {
+        "operationId": "review_video_v1_coach_review_video_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_review_video_v1_coach_review_video_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Review Video V1 Coach Review Video Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Review Video",
+        "tags": [
+          "coach"
+        ]
+      }
+    },
+    "/v1/coach/school": {
+      "post": {
+        "operationId": "school_v1_coach_school_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_school_v1_coach_school_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response School V1 Coach School Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "School",
+        "tags": [
+          "coach"
+        ]
+      }
+    },
+    "/v1/coach/therapy": {
+      "post": {
+        "operationId": "therapy_v1_coach_therapy_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TherapyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Therapy V1 Coach Therapy Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Therapy",
+        "tags": [
+          "coach"
+        ]
+      }
+    },
+    "/v1/connectors": {
+      "get": {
+        "description": "List all registered connectors with their connection status.",
+        "operationId": "list_connectors_v1_connectors_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Connectors",
+        "tags": [
+          "connectors"
+        ]
+      }
+    },
+    "/v1/connectors/upload/ingest": {
+      "post": {
+        "description": "Ingest pasted text into the knowledge store.",
+        "operationId": "ingest_paste_v1_connectors_upload_ingest_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngestResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Ingest Paste",
+        "tags": [
+          "upload"
+        ]
+      }
+    },
+    "/v1/connectors/upload/ingest/files": {
+      "post": {
+        "description": "Ingest uploaded files into the knowledge store.",
+        "operationId": "ingest_files_v1_connectors_upload_ingest_files_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_ingest_files_v1_connectors_upload_ingest_files_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngestResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Ingest Files",
+        "tags": [
+          "upload"
+        ]
+      }
+    },
+    "/v1/connectors/{connector_id}": {
+      "get": {
+        "description": "Return detail for a single connector.",
+        "operationId": "connector_detail_v1_connectors__connector_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "connector_id",
+            "required": true,
+            "schema": {
+              "title": "Connector Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Connector Detail",
+        "tags": [
+          "connectors"
+        ]
+      }
+    },
+    "/v1/connectors/{connector_id}/connect": {
+      "post": {
+        "description": "Connect a connector using the supplied credentials.",
+        "operationId": "connect_connector_v1_connectors__connector_id__connect_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "connector_id",
+            "required": true,
+            "schema": {
+              "title": "Connector Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConnectRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Connect Connector",
+        "tags": [
+          "connectors"
+        ]
+      }
+    },
+    "/v1/connectors/{connector_id}/disconnect": {
+      "post": {
+        "description": "Disconnect a connector and clear its credentials.",
+        "operationId": "disconnect_connector_v1_connectors__connector_id__disconnect_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "connector_id",
+            "required": true,
+            "schema": {
+              "title": "Connector Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Disconnect Connector",
+        "tags": [
+          "connectors"
+        ]
+      }
+    },
+    "/v1/connectors/{connector_id}/oauth/callback": {
+      "get": {
+        "description": "Handle OAuth callback from the provider.",
+        "operationId": "oauth_callback_v1_connectors__connector_id__oauth_callback_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "connector_id",
+            "required": true,
+            "schema": {
+              "title": "Connector Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "code",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Code",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "error",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Error",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Oauth Callback",
+        "tags": [
+          "connectors"
+        ]
+      }
+    },
+    "/v1/connectors/{connector_id}/oauth/start": {
+      "get": {
+        "description": "Redirect to the OAuth provider's consent page.\n\nThe callback will come back to /v1/connectors/{id}/oauth/callback.",
+        "operationId": "oauth_start_v1_connectors__connector_id__oauth_start_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "connector_id",
+            "required": true,
+            "schema": {
+              "title": "Connector Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Oauth Start",
+        "tags": [
+          "connectors"
+        ]
+      }
+    },
+    "/v1/connectors/{connector_id}/sync": {
+      "get": {
+        "description": "Return the current sync status for a connector.",
+        "operationId": "sync_status_v1_connectors__connector_id__sync_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "connector_id",
+            "required": true,
+            "schema": {
+              "title": "Connector Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Sync Status",
+        "tags": [
+          "connectors"
+        ]
+      },
+      "post": {
+        "description": "Trigger a sync in the background and return immediately.",
+        "operationId": "trigger_sync_v1_connectors__connector_id__sync_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "connector_id",
+            "required": true,
+            "schema": {
+              "title": "Connector Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Trigger Sync V1 Connectors  Connector Id  Sync Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Trigger Sync",
+        "tags": [
+          "connectors"
+        ]
+      }
+    },
+    "/v1/cowork": {
+      "get": {
+        "operationId": "list_runs_v1_cowork_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Runs V1 Cowork Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Runs",
+        "tags": [
+          "cowork"
+        ]
+      },
+      "post": {
+        "operationId": "start_run_v1_cowork_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Start Run V1 Cowork Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Start Run",
+        "tags": [
+          "cowork"
+        ]
+      }
+    },
+    "/v1/cowork/axes": {
+      "get": {
+        "operationId": "axes_v1_cowork_axes_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Axes V1 Cowork Axes Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Axes",
+        "tags": [
+          "cowork"
+        ]
+      }
+    },
+    "/v1/cowork/scrutinize": {
+      "post": {
+        "operationId": "scrutinize_v1_cowork_scrutinize_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScrutinizeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Scrutinize V1 Cowork Scrutinize Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Scrutinize",
+        "tags": [
+          "cowork"
+        ]
+      }
+    },
+    "/v1/cowork/{run_id}": {
+      "get": {
+        "operationId": "get_run_v1_cowork__run_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Run V1 Cowork  Run Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Run",
+        "tags": [
+          "cowork"
+        ]
+      }
+    },
+    "/v1/cowork/{run_id}/audit": {
+      "get": {
+        "operationId": "audit_v1_cowork__run_id__audit_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Audit V1 Cowork  Run Id  Audit Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Audit",
+        "tags": [
+          "cowork"
+        ]
+      }
+    },
+    "/v1/cowork/{run_id}/cancel": {
+      "post": {
+        "operationId": "cancel_v1_cowork__run_id__cancel_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Cancel V1 Cowork  Run Id  Cancel Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Cancel",
+        "tags": [
+          "cowork"
+        ]
+      }
+    },
+    "/v1/cowork/{run_id}/decision": {
+      "post": {
+        "operationId": "decide_v1_cowork__run_id__decision_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DecisionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Decide V1 Cowork  Run Id  Decision Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Decide",
+        "tags": [
+          "cowork"
+        ]
+      }
+    },
+    "/v1/cowork/{run_id}/events": {
+      "get": {
+        "description": "Server-sent events: the run as it is now, then every change.",
+        "operationId": "events_v1_cowork__run_id__events_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Events",
+        "tags": [
+          "cowork"
+        ]
+      }
+    },
+    "/v1/ecc/guides": {
+      "get": {
+        "operationId": "guides_v1_ecc_guides_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Q",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 40,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Guides V1 Ecc Guides Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Guides",
+        "tags": [
+          "notch"
+        ]
+      }
+    },
+    "/v1/embeddings": {
+      "post": {
+        "operationId": "create_embeddings_v1_embeddings_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmbeddingRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Create Embeddings V1 Embeddings Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Embeddings",
+        "tags": [
+          "embeddings"
+        ]
+      }
+    },
+    "/v1/embeddings/models": {
+      "get": {
+        "operationId": "embedding_models_v1_embeddings_models_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Embedding Models V1 Embeddings Models Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Embedding Models",
+        "tags": [
+          "embeddings"
+        ]
+      }
+    },
+    "/v1/evolve/crew": {
+      "post": {
+        "description": "A long written task done by the crewAI team with a quality supervisor.",
+        "operationId": "crew_route_v1_evolve_crew_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CrewTask"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Crew Route V1 Evolve Crew Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Crew Route",
+        "tags": [
+          "evolution"
+        ]
+      }
+    },
+    "/v1/evolve/feedback": {
+      "post": {
+        "description": "The user's opinion of the last result, kept for similar jobs.",
+        "operationId": "feedback_route_v1_evolve_feedback_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Feedback"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Feedback Route V1 Evolve Feedback Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Feedback Route",
+        "tags": [
+          "evolution"
+        ]
+      }
+    },
+    "/v1/evolve/recall": {
+      "get": {
+        "operationId": "recall_route_v1_evolve_recall_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "q",
+            "required": true,
+            "schema": {
+              "title": "Q",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "k",
+            "required": false,
+            "schema": {
+              "default": 5,
+              "title": "K",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Recall Route V1 Evolve Recall Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Recall Route",
+        "tags": [
+          "evolution"
+        ]
+      }
+    },
+    "/v1/evolve/remember": {
+      "post": {
+        "operationId": "remember_route_v1_evolve_remember_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Remember"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Remember Route V1 Evolve Remember Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Remember Route",
+        "tags": [
+          "evolution"
+        ]
+      }
+    },
+    "/v1/evolve/stats": {
+      "get": {
+        "operationId": "stats_route_v1_evolve_stats_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Stats Route V1 Evolve Stats Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Stats Route",
+        "tags": [
+          "evolution"
+        ]
+      }
+    },
+    "/v1/evolve/think": {
+      "post": {
+        "description": "Deep reasoning (the ten layers) with a confidence for the answer.",
+        "operationId": "think_route_v1_evolve_think_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeepQuestion"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Think Route V1 Evolve Think Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Think Route",
+        "tags": [
+          "evolution"
+        ]
+      }
+    },
+    "/v1/evolve/think/stream": {
+      "post": {
+        "description": "The same reasoning as /think, streamed step by step (server-sent events).\n\nEach ``data:`` line is one JSON event (see :func:`think_events`).",
+        "operationId": "think_stream_route_v1_evolve_think_stream_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeepQuestion"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Think Stream Route",
+        "tags": [
+          "evolution"
+        ]
+      }
+    },
+    "/v1/extensions": {
+      "get": {
+        "operationId": "list_extensions_v1_extensions_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Extensions V1 Extensions Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Extensions",
+        "tags": [
+          "extensions"
+        ]
+      }
+    },
+    "/v1/extensions/globe/target": {
+      "get": {
+        "operationId": "globe_target_v1_extensions_globe_target_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Globe Target V1 Extensions Globe Target Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Globe Target",
+        "tags": [
+          "extensions"
+        ]
+      }
+    },
+    "/v1/extensions/{name}/start": {
+      "post": {
+        "operationId": "start_extension_v1_extensions__name__start_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Start Extension V1 Extensions  Name  Start Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Start Extension",
+        "tags": [
+          "extensions"
+        ]
+      }
+    },
+    "/v1/extensions/{name}/stop": {
+      "post": {
+        "operationId": "stop_extension_v1_extensions__name__stop_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Stop Extension V1 Extensions  Name  Stop Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Stop Extension",
+        "tags": [
+          "extensions"
+        ]
+      }
+    },
+    "/v1/faces": {
+      "get": {
+        "operationId": "list_people_v1_faces_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List People V1 Faces Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List People",
+        "tags": [
+          "faces"
+        ]
+      }
+    },
+    "/v1/faces/enroll": {
+      "post": {
+        "operationId": "enroll_v1_faces_enroll_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_enroll_v1_faces_enroll_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Enroll V1 Faces Enroll Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Enroll",
+        "tags": [
+          "faces"
+        ]
+      }
+    },
+    "/v1/faces/identify": {
+      "post": {
+        "description": "Who is in a camera frame. *learn*: keep learning faces it is very sure\nof from the angles it lacks (the companion asks for it while it watches).",
+        "operationId": "identify_v1_faces_identify_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_identify_v1_faces_identify_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Identify V1 Faces Identify Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Identify",
+        "tags": [
+          "faces"
+        ]
+      }
+    },
+    "/v1/faces/kinship": {
+      "post": {
+        "description": "Family resemblance of the faces in a photo with the enrolled people.",
+        "operationId": "kinship_v1_faces_kinship_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_kinship_v1_faces_kinship_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Kinship V1 Faces Kinship Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Kinship",
+        "tags": [
+          "faces"
+        ]
+      }
+    },
+    "/v1/faces/look": {
+      "post": {
+        "description": "The companion's eyes: answer a question about a webcam photo.",
+        "operationId": "look_v1_faces_look_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_look_v1_faces_look_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Look V1 Faces Look Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Look",
+        "tags": [
+          "faces"
+        ]
+      }
+    },
+    "/v1/faces/mesh/{name}": {
+      "get": {
+        "operationId": "mesh_v1_faces_mesh__name__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Mesh V1 Faces Mesh  Name  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Mesh",
+        "tags": [
+          "faces"
+        ]
+      }
+    },
+    "/v1/faces/owner": {
+      "get": {
+        "operationId": "owner_v1_faces_owner_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Owner V1 Faces Owner Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Owner",
+        "tags": [
+          "faces"
+        ]
+      }
+    },
+    "/v1/faces/photo": {
+      "post": {
+        "description": "Who is in a photo — also old, faded or scanned ones.",
+        "operationId": "photo_v1_faces_photo_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_photo_v1_faces_photo_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Photo V1 Faces Photo Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Photo",
+        "tags": [
+          "faces"
+        ]
+      }
+    },
+    "/v1/faces/scan": {
+      "post": {
+        "description": "Face ID-style enrolment: frames of one person turning their head.",
+        "operationId": "scan_v1_faces_scan_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_scan_v1_faces_scan_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Scan V1 Faces Scan Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Scan",
+        "tags": [
+          "faces"
+        ]
+      }
+    },
+    "/v1/faces/{name}": {
+      "delete": {
+        "operationId": "forget_v1_faces__name__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Forget V1 Faces  Name  Delete",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Forget",
+        "tags": [
+          "faces"
+        ]
+      }
+    },
+    "/v1/feedback": {
+      "post": {
+        "description": "Submit feedback for a trace.",
+        "operationId": "submit_feedback_v1_feedback_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FeedbackScoreRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Submit Feedback",
+        "tags": [
+          "feedback"
+        ]
+      }
+    },
+    "/v1/feedback/stats": {
+      "get": {
+        "description": "Get feedback statistics.",
+        "operationId": "feedback_stats_v1_feedback_stats_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Feedback Stats",
+        "tags": [
+          "feedback"
+        ]
+      }
+    },
+    "/v1/info": {
+      "get": {
+        "description": "Return server configuration: model, agent, engine.",
+        "operationId": "server_info_v1_info_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Server Info"
+      }
+    },
+    "/v1/learning/policy": {
+      "get": {
+        "description": "Return current routing policy configuration.",
+        "operationId": "learning_policy_v1_learning_policy_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Learning Policy",
+        "tags": [
+          "learning"
+        ]
+      }
+    },
+    "/v1/learning/stats": {
+      "get": {
+        "description": "Return learning system statistics across all sub-policies.",
+        "operationId": "learning_stats_v1_learning_stats_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Learning Stats",
+        "tags": [
+          "learning"
+        ]
+      }
+    },
+    "/v1/live/status": {
+      "get": {
+        "operationId": "live_status_v1_live_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Live Status V1 Live Status Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Live Status",
+        "tags": [
+          "live"
+        ]
+      }
+    },
+    "/v1/meeting/summarize": {
+      "post": {
+        "operationId": "summarize_v1_meeting_summarize_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_summarize_v1_meeting_summarize_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Summarize V1 Meeting Summarize Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Summarize",
+        "tags": [
+          "meeting"
+        ]
+      }
+    },
+    "/v1/memory/config": {
+      "get": {
+        "description": "Return current memory configuration.\n\nReports memory as *unavailable* (rather than falsely claiming\n``backend_type: sqlite``) when no backend can be built in this\nenvironment, so the UI can show the real cause instead of a\nhealthy-looking config that backs a silent no-op (#502).",
+        "operationId": "memory_config_v1_memory_config_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Memory Config",
+        "tags": [
+          "memory"
+        ]
+      }
+    },
+    "/v1/memory/index": {
+      "post": {
+        "description": "Index files from a path into memory.",
+        "operationId": "memory_index_v1_memory_index_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MemoryIndexRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Memory Index",
+        "tags": [
+          "memory"
+        ]
+      }
+    },
+    "/v1/memory/search": {
+      "post": {
+        "description": "Search memory for relevant content.",
+        "operationId": "memory_search_v1_memory_search_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MemorySearchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Memory Search",
+        "tags": [
+          "memory"
+        ]
+      }
+    },
+    "/v1/memory/stats": {
+      "get": {
+        "description": "Get memory backend statistics.",
+        "operationId": "memory_stats_v1_memory_stats_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Memory Stats",
+        "tags": [
+          "memory"
+        ]
+      }
+    },
+    "/v1/memory/store": {
+      "post": {
+        "description": "Store content in memory.",
+        "operationId": "memory_store_v1_memory_store_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MemoryStoreRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Memory Store",
+        "tags": [
+          "memory"
+        ]
+      }
+    },
+    "/v1/models": {
+      "get": {
+        "description": "List selectable engine models for the installed-model picker.\n\nDirect cloud models live in the Cloud Models tab. Models advertised by a\nconfigured LiteLLM engine remain here because LiteLLM owns their routing\nand may use provider-qualified IDs that resemble OpenRouter IDs.",
+        "operationId": "list_models_v1_models_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Models"
+      }
+    },
+    "/v1/models/pull": {
+      "post": {
+        "description": "Pull / download a model from the Ollama registry.",
+        "operationId": "pull_model_v1_models_pull_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Pull Model"
+      }
+    },
+    "/v1/models/{model_name}": {
+      "delete": {
+        "description": "Delete a model from Ollama.",
+        "operationId": "delete_model_v1_models__model_name__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "model_name",
+            "required": true,
+            "schema": {
+              "title": "Model Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Model"
+      }
+    },
+    "/v1/optimize/runs": {
+      "get": {
+        "description": "List optimization runs.",
+        "operationId": "list_optimize_runs_v1_optimize_runs_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Optimize Runs",
+        "tags": [
+          "optimize"
+        ]
+      },
+      "post": {
+        "description": "Start a new optimization run.",
+        "operationId": "start_optimize_run_v1_optimize_runs_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OptimizeRunRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Start Optimize Run",
+        "tags": [
+          "optimize"
+        ]
+      }
+    },
+    "/v1/optimize/runs/{run_id}": {
+      "get": {
+        "description": "Get optimization run details.",
+        "operationId": "get_optimize_run_v1_optimize_runs__run_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Optimize Run",
+        "tags": [
+          "optimize"
+        ]
+      }
+    },
+    "/v1/phone/calls": {
+      "get": {
+        "operationId": "list_calls_v1_phone_calls_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Calls V1 Phone Calls Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Calls",
+        "tags": [
+          "phone"
+        ]
+      }
+    },
+    "/v1/savings": {
+      "get": {
+        "description": "Return savings summary compared to cloud providers.\n\nOnly includes telemetry from the current server session so that\ncounters start at zero each time a new model + agent is launched.",
+        "operationId": "savings_v1_savings_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Savings"
+      }
+    },
+    "/v1/security/scan": {
+      "get": {
+        "description": "Run a read-only security environment audit and return findings.",
+        "operationId": "security_scan_v1_security_scan_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Security Scan"
+      }
+    },
+    "/v1/sessions": {
+      "get": {
+        "description": "List active sessions.",
+        "operationId": "list_sessions_v1_sessions_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Sessions",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
+    "/v1/sessions/{session_id}": {
+      "get": {
+        "description": "Get a specific session.",
+        "operationId": "get_session_v1_sessions__session_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Session",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
+    "/v1/skills": {
+      "get": {
+        "description": "List installed skills.",
+        "operationId": "list_skills_v1_skills_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Skills",
+        "tags": [
+          "skills"
+        ]
+      },
+      "post": {
+        "description": "Install a skill (placeholder).",
+        "operationId": "install_skill_v1_skills_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Install Skill",
+        "tags": [
+          "skills"
+        ]
+      }
+    },
+    "/v1/skills/learn": {
+      "post": {
+        "description": "«Aprende este PDF»: a manual becomes a skill that loads by itself.",
+        "operationId": "skills_learn_v1_skills_learn_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LearnRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Skills Learn V1 Skills Learn Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Skills Learn",
+        "tags": [
+          "skills"
+        ]
+      }
+    },
+    "/v1/skills/{skill_name}": {
+      "delete": {
+        "description": "Remove a skill (placeholder).",
+        "operationId": "remove_skill_v1_skills__skill_name__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "skill_name",
+            "required": true,
+            "schema": {
+              "title": "Skill Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Remove Skill",
+        "tags": [
+          "skills"
+        ]
+      }
+    },
+    "/v1/speech/health": {
+      "get": {
+        "description": "Check if a speech backend is available.",
+        "operationId": "speech_health_v1_speech_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Speech Health",
+        "tags": [
+          "speech"
+        ]
+      }
+    },
+    "/v1/speech/synthesize": {
+      "post": {
+        "description": "Synthesize text to speech and return the audio as WAV.",
+        "operationId": "synthesize_speech_v1_speech_synthesize_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SpeechSynthesizeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Synthesize Speech",
+        "tags": [
+          "speech"
+        ]
+      }
+    },
+    "/v1/speech/transcribe": {
+      "post": {
+        "description": "Transcribe uploaded audio to text.",
+        "operationId": "transcribe_speech_v1_speech_transcribe_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Transcribe Speech",
+        "tags": [
+          "speech"
+        ]
+      }
+    },
+    "/v1/speech/tts/health": {
+      "get": {
+        "description": "Report whether voice output is available, and with which voice.",
+        "operationId": "tts_health_v1_speech_tts_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Tts Health",
+        "tags": [
+          "speech"
+        ]
+      }
+    },
+    "/v1/tasks/agent": {
+      "post": {
+        "description": "«Crea un agente que…» -> a checked agent spec.",
+        "operationId": "agent_v1_tasks_agent_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Agent V1 Tasks Agent Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Agent",
+        "tags": [
+          "tasks"
+        ]
+      }
+    },
+    "/v1/tasks/plan": {
+      "post": {
+        "operationId": "plan_v1_tasks_plan_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/openjarvis__server__tasks_routes__PlanRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Plan V1 Tasks Plan Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Plan",
+        "tags": [
+          "tasks"
+        ]
+      }
+    },
+    "/v1/telemetry/energy": {
+      "get": {
+        "description": "Get energy monitoring data.",
+        "operationId": "telemetry_energy_v1_telemetry_energy_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Telemetry Energy",
+        "tags": [
+          "telemetry"
+        ]
+      }
+    },
+    "/v1/telemetry/reset": {
+      "post": {
+        "description": "Clear all stored telemetry records.\n\nUseful after updating token-counting methodology — clears\nhistorical records that were computed under the old rules so\nthat the savings dashboard and leaderboard submissions start\nfresh with corrected values.",
+        "operationId": "reset_telemetry_v1_telemetry_reset_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Reset Telemetry"
+      }
+    },
+    "/v1/telemetry/stats": {
+      "get": {
+        "description": "Get aggregated telemetry statistics.",
+        "operationId": "telemetry_stats_v1_telemetry_stats_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Telemetry Stats",
+        "tags": [
+          "telemetry"
+        ]
+      }
+    },
+    "/v1/traces": {
+      "get": {
+        "description": "List recent traces.",
+        "operationId": "list_traces_v1_traces_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Traces",
+        "tags": [
+          "traces"
+        ]
+      }
+    },
+    "/v1/traces/{trace_id}": {
+      "get": {
+        "description": "Get a specific trace by ID.",
+        "operationId": "get_trace_v1_traces__trace_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "trace_id",
+            "required": true,
+            "schema": {
+              "title": "Trace Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Trace",
+        "tags": [
+          "traces"
+        ]
+      }
+    },
+    "/v1/vision/act": {
+      "post": {
+        "description": "One step of using the computer for the user (the companion acts it out).",
+        "operationId": "act_route_v1_vision_act_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_act_route_v1_vision_act_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Act Route V1 Vision Act Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Act Route",
+        "tags": [
+          "vision"
+        ]
+      }
+    },
+    "/v1/vision/blender": {
+      "post": {
+        "description": "The object in the user's hands -> a detailed, checked Blender script.\n\n*pro*: Blender Pro's way — a blueprint sheet of the same object is drawn\nfirst and the script is written from the photo plus the sheet.",
+        "operationId": "blender_route_v1_vision_blender_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_blender_route_v1_vision_blender_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Blender Route V1 Vision Blender Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Blender Route",
+        "tags": [
+          "vision"
+        ]
+      }
+    },
+    "/v1/vision/blender/edit": {
+      "post": {
+        "description": "A surgical edit of a finished model: only what the instruction asks.",
+        "operationId": "blender_edit_route_v1_vision_blender_edit_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_blender_edit_route_v1_vision_blender_edit_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Blender Edit Route V1 Vision Blender Edit Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Blender Edit Route",
+        "tags": [
+          "vision"
+        ]
+      }
+    },
+    "/v1/vision/blender/import": {
+      "post": {
+        "description": "The finished Blender script for a generated GLB (Tripo, SculptMate...).",
+        "operationId": "blender_import_route_v1_vision_blender_import_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BlenderImport"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Blender Import Route V1 Vision Blender Import Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Blender Import Route",
+        "tags": [
+          "vision"
+        ]
+      }
+    },
+    "/v1/vision/blender/learn": {
+      "post": {
+        "description": "A finished Blender Pro build: kept as a worked example if it passes\nthe strict check (0 mesh errors, parts in place, nothing floating).",
+        "operationId": "blender_learn_route_v1_vision_blender_learn_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BlenderLearn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Blender Learn Route V1 Vision Blender Learn Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Blender Learn Route",
+        "tags": [
+          "vision"
+        ]
+      }
+    },
+    "/v1/vision/blender/refine": {
+      "post": {
+        "description": "Blender Pro's review round: look at the four views, fix the script.",
+        "operationId": "blender_refine_route_v1_vision_blender_refine_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_blender_refine_route_v1_vision_blender_refine_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Blender Refine Route V1 Vision Blender Refine Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Blender Refine Route",
+        "tags": [
+          "vision"
+        ]
+      }
+    },
+    "/v1/vision/blender/text": {
+      "post": {
+        "description": "Any Blender job in words -> a checked script (Blender Pro).",
+        "operationId": "blender_text_route_v1_vision_blender_text_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BlenderTask"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Blender Text Route V1 Vision Blender Text Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Blender Text Route",
+        "tags": [
+          "vision"
+        ]
+      }
+    },
+    "/v1/vision/blender/verify": {
+      "post": {
+        "description": "The vision check of a build: what it looks like, 0-10, what to fix.",
+        "operationId": "blender_verify_route_v1_vision_blender_verify_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_blender_verify_route_v1_vision_blender_verify_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Blender Verify Route V1 Vision Blender Verify Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Blender Verify Route",
+        "tags": [
+          "vision"
+        ]
+      }
+    },
+    "/v1/vision/cad/image": {
+      "post": {
+        "description": "An image vectorised (OpenCV) into a DXF in millimetres (ezdxf).",
+        "operationId": "cad_image_route_v1_vision_cad_image_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_cad_image_route_v1_vision_cad_image_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Cad Image Route V1 Vision Cad Image Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Cad Image Route",
+        "tags": [
+          "vision"
+        ]
+      }
+    },
+    "/v1/vision/cad/model": {
+      "post": {
+        "description": "A Blender model's feature edges -> a three-view DXF drawing with dimensions.",
+        "operationId": "cad_model_route_v1_vision_cad_model_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CadModel"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Cad Model Route V1 Vision Cad Model Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Cad Model Route",
+        "tags": [
+          "vision"
+        ]
+      }
+    },
+    "/v1/vision/holo_model": {
+      "post": {
+        "description": "A hologram of anything: its real parts, designed by Gemini.",
+        "operationId": "holo_model_route_v1_vision_holo_model_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HoloRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Holo Model Route V1 Vision Holo Model Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Holo Model Route",
+        "tags": [
+          "vision"
+        ]
+      }
+    },
+    "/v1/vision/meshgen_key": {
+      "get": {
+        "description": "The user's own Gemini key, for setting up MeshGen in their own Blender.\nOnly to the same machine (the companion), never over the network.",
+        "operationId": "meshgen_key_route_v1_vision_meshgen_key_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Meshgen Key Route V1 Vision Meshgen Key Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Meshgen Key Route",
+        "tags": [
+          "vision"
+        ]
+      }
+    },
+    "/v1/vision/name": {
+      "post": {
+        "description": "What one thing is, from a close-up (any object, not just 80 kinds).",
+        "operationId": "name_route_v1_vision_name_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_name_route_v1_vision_name_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Name Route V1 Vision Name Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Name Route",
+        "tags": [
+          "vision"
+        ]
+      }
+    },
+    "/v1/vision/scene": {
+      "post": {
+        "description": "Camera \"Analizar\": people, animals and objects with boxes and details.\n\n*auto*: the camera naming new objects by itself (Flash-Lite first).",
+        "operationId": "scene_route_v1_vision_scene_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_scene_route_v1_vision_scene_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Scene Route V1 Vision Scene Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Scene Route",
+        "tags": [
+          "vision"
+        ]
+      }
+    },
+    "/v1/vision/screen": {
+      "post": {
+        "operationId": "screen_v1_vision_screen_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_screen_v1_vision_screen_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Screen V1 Vision Screen Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Screen",
+        "tags": [
+          "vision"
+        ]
+      }
+    },
+    "/v1/vision/tripo": {
+      "post": {
+        "description": "Tripo 3D: text or image -> a textured PBR model (GLB, base64).",
+        "operationId": "tripo_route_v1_vision_tripo_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_tripo_route_v1_vision_tripo_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Tripo Route V1 Vision Tripo Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Tripo Route",
+        "tags": [
+          "vision"
+        ]
+      }
+    },
+    "/v1/vision/tripo/status": {
+      "get": {
+        "operationId": "tripo_status_route_v1_vision_tripo_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Tripo Status Route V1 Vision Tripo Status Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Tripo Status Route",
+        "tags": [
+          "vision"
+        ]
+      }
+    },
+    "/v1/vision/video_plan": {
+      "post": {
+        "description": "Video Pro: Gemini watches the contact sheets and plans the edit\n(in a learned editing style, when one is named).",
+        "operationId": "video_plan_route_v1_vision_video_plan_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_video_plan_route_v1_vision_video_plan_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Video Plan Route V1 Vision Video Plan Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Video Plan Route",
+        "tags": [
+          "vision"
+        ]
+      }
+    },
+    "/v1/vision/video_style": {
+      "get": {
+        "description": "The editing styles Video Pro knows.",
+        "operationId": "video_style_list_route_v1_vision_video_style_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Video Style List Route V1 Vision Video Style Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Video Style List Route",
+        "tags": [
+          "vision"
+        ]
+      }
+    },
+    "/v1/vision/video_style/learn": {
+      "post": {
+        "description": "Gemini watches real videos (YouTube links, or a channel / ad it\nsearches for) and saves their editing style for Video Pro.",
+        "operationId": "video_style_learn_route_v1_vision_video_style_learn_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StyleLearn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Video Style Learn Route V1 Vision Video Style Learn Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Video Style Learn Route",
+        "tags": [
+          "vision"
+        ]
+      }
+    },
+    "/v1/vision/youtube": {
+      "post": {
+        "description": "The YouTube video the user describes (thumbnails checked by Gemini).",
+        "operationId": "youtube_route_v1_vision_youtube_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VideoRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Youtube Route V1 Vision Youtube Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Youtube Route",
+        "tags": [
+          "vision"
+        ]
+      }
+    },
+    "/v1/voice/chat": {
+      "post": {
+        "description": "Fast conversation: straight to the model, no agent and no tools.\n\nThe companion uses it for chatting (\"¿cómo estás?\", \"cuéntame algo\"),\nwhich then answers in about a second instead of running the full agent.",
+        "operationId": "chat_v1_voice_chat_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChatRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Chat V1 Voice Chat Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Chat",
+        "tags": [
+          "voice"
+        ]
+      }
+    },
+    "/v1/voice/speak": {
+      "post": {
+        "operationId": "speak_v1_voice_speak_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SpeakRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Speak",
+        "tags": [
+          "voice"
+        ]
+      }
+    },
+    "/v1/voice/stream": {
+      "post": {
+        "description": "Gemini Live reading the text aloud, streamed as raw PCM (24 kHz, int16)\nso the companion starts playing within a second.",
+        "operationId": "stream_v1_voice_stream_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SpeakRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "Response Stream V1 Voice Stream Post"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Stream",
+        "tags": [
+          "voice"
+        ]
+      }
+    },
+    "/v1/voice/transcribe": {
+      "post": {
+        "operationId": "transcribe_v1_voice_transcribe_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_transcribe_v1_voice_transcribe_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Transcribe V1 Voice Transcribe Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Transcribe",
+        "tags": [
+          "voice"
+        ]
+      }
+    },
+    "/v1/world/cams": {
+      "get": {
+        "description": "Public live cameras (official open data) near a place.",
+        "operationId": "cams_v1_world_cams_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "place",
+            "required": true,
+            "schema": {
+              "title": "Place",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Cams V1 World Cams Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Cams",
+        "tags": [
+          "notch"
+        ]
+      }
+    },
+    "/v1/world/flight": {
+      "get": {
+        "description": "A flight right now (by number or call sign), and the globe aimed at it.",
+        "operationId": "flight_v1_world_flight_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "q",
+            "required": true,
+            "schema": {
+              "title": "Q",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Flight V1 World Flight Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Flight",
+        "tags": [
+          "notch"
+        ]
+      }
+    },
+    "/v1/world/goto": {
+      "post": {
+        "operationId": "goto_v1_world_goto_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GotoRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Goto V1 World Goto Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Goto",
+        "tags": [
+          "notch"
+        ]
+      }
+    },
+    "/v1/world/open": {
+      "post": {
+        "description": "Make sure the 3D globe is running (start it if needed).",
+        "operationId": "open_globe_v1_world_open_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Open Globe V1 World Open Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Open Globe",
+        "tags": [
+          "notch"
+        ]
+      }
+    },
+    "/v1/world/overhead": {
+      "get": {
+        "description": "The plane right above the user now (their GPS spot), in seconds.\n\nThe globe is aimed at that plane in the background, so \"muéstramelo\"\nopens God's Eye View already looking at it.",
+        "operationId": "overhead_v1_world_overhead_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "lat",
+            "required": true,
+            "schema": {
+              "title": "Lat",
+              "type": "number"
+            }
+          },
+          {
+            "in": "query",
+            "name": "lon",
+            "required": true,
+            "schema": {
+              "title": "Lon",
+              "type": "number"
+            }
+          },
+          {
+            "in": "query",
+            "name": "alt",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Alt"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Overhead V1 World Overhead Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Overhead",
+        "tags": [
+          "notch"
+        ]
+      }
+    },
+    "/v1/world/summary": {
+      "get": {
+        "operationId": "summary_v1_world_summary_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Summary V1 World Summary Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Summary",
+        "tags": [
+          "notch"
+        ]
+      }
+    },
+    "/{full_path}": {
+      "get": {
+        "description": "Serve static files directly, fall back to index.html for SPA routes.",
+        "operationId": "spa_catch_all__full_path__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "full_path",
+            "required": true,
+            "schema": {
+              "title": "Full Path",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Spa Catch All"
+      }
+    }
+  }
+}
