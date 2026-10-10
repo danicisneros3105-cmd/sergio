@@ -146,7 +146,7 @@ def test_gui_stops_extensions_when_frontend_fails(tmp_path: Path) -> None:
         result = CliRunner().invoke(gui_cmd.gui, ["--no-server", "--no-browser"])
 
     assert result.exit_code != 0
-    assert stopped == [("clacky", "globe")]
+    assert stopped == [("clacky",)]  # the globe is off by default (hidden)
 
 
 def test_gui_rejects_occupied_frontend_port_before_launch(tmp_path: Path) -> None:

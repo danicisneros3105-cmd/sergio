@@ -2,8 +2,8 @@
 
 * ``/v1/world/summary`` — latest earthquakes and the next rocket launches
   (God's Eye View data).
-* ``/v1/world/goto`` — point the 3D globe at a place; returns the URL the notch
-  opens in its own app window.
+* ``/v1/world/place`` — where a place is, its local time and weather now.
+  God's Eye View is hidden: its data answers questions, nothing is shown.
 * ``/v1/ecc/guides`` — the ECC expert playbooks, optionally filtered.
 """
 
@@ -13,7 +13,6 @@ import asyncio
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
 
 router = APIRouter(tags=["notch"])
 
@@ -45,22 +44,17 @@ async def summary() -> dict[str, Any]:
     return await asyncio.to_thread(world_summary)
 
 
-class GotoRequest(BaseModel):
-    place: str
-    style: str = "normal"
+@router.get("/v1/world/place")
+async def place(q: str) -> dict[str, Any]:
+    """Where a place is, its local time and weather now (no globe shown)."""
+    from openjarvis.tools.live_world import place_report
 
-
-@router.post("/v1/world/goto")
-async def goto(req: GotoRequest) -> dict[str, Any]:
-    from openjarvis.tools.live_world import GlobeViewTool
-
-    result = await asyncio.to_thread(
-        GlobeViewTool().execute, place=req.place, style=req.style
-    )
-    if not result.success:
-        raise HTTPException(status_code=400, detail=result.content)
-    meta = result.metadata or {}
-    return {"label": meta.get("label", req.place), "url": meta.get("url", "")}
+    try:
+        return await asyncio.to_thread(place_report, {"place": q})
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=f"No encuentro «{q}».") from exc
+    except Exception as exc:  # noqa: BLE001 — a network problem, said plainly
+        raise HTTPException(status_code=503, detail=str(exc)[:300]) from exc
 
 
 @router.get("/v1/world/overhead")
@@ -99,17 +93,6 @@ async def overhead(lat: float, lon: float, alt: float | None = None) -> dict[str
         )
         report["globe_url"] = target["url"]
     return report
-
-
-@router.post("/v1/world/open")
-async def open_globe() -> dict[str, Any]:
-    """Make sure the 3D globe is running (start it if needed)."""
-    from openjarvis.tools.live_world import ensure_globe
-
-    running, detail = await asyncio.to_thread(ensure_globe)
-    if not running:
-        raise HTTPException(status_code=503, detail=detail)
-    return {"url": detail}
 
 
 @router.get("/v1/ecc/guides")

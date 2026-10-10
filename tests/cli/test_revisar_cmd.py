@@ -47,8 +47,8 @@ def _handler(calls, ollama=True, local_models=(), hang=None):
             "/v1/speech/transcribe",
         ):
             return httpx.Response(200, json={"ok": True})
-        if path == "/v1/world/open":
-            return httpx.Response(200, json={"url": "http://127.0.0.1:4173/"})
+        if path == "/v1/world/place":
+            return httpx.Response(200, json={"text": "Quito, Ecuador: 17 °C."})
         return httpx.Response(404)
 
     return handler
@@ -117,5 +117,5 @@ def test_a_check_that_hangs_is_reported_and_the_rest_runs(run, monkeypatch):
     monkeypatch.setattr(revisar_cmd, "CHECK_TIMEOUT", 0.2)
     result, calls = run(hang="/v1/speech/synthesize")
     assert "FALLA Voz (Sergio habla): no respondió" in result.output
-    assert "Globo 3D en http://127.0.0.1:4173/" in result.output
+    assert "Quito, Ecuador: 17 °C." in result.output
     assert result.exit_code == 1

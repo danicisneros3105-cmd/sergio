@@ -121,11 +121,9 @@ def _transport(fail=()):
                     "items": [{"label": "persona", "name": "Dani"}, {"label": "taza"}]
                 },
             )
-        if path == "/v1/world/open":
-            return httpx.Response(200, json={"url": "http://127.0.0.1:4173/"})
-        if request.url.port == 4173:
+        if path == "/v1/world/place":
             return httpx.Response(
-                200, text="<html><title>God's Eye View</title></html>"
+                200, json={"text": "Quito, Ecuador (-0.2201, -78.5123); now 17 °C."}
             )
         return httpx.Response(404)
 
@@ -166,7 +164,7 @@ def test_everything_ok(monkeypatch, tmp_path):
         "Una persona sonriendo",
         "caras: Dani",
         "Manos (MediaPipe)",
-        "God's Eye View en http://127.0.0.1:4173/",
+        "Quito, Ecuador (-0.2201, -78.5123)",
         "gemini-3.8-live contestó",
         "Dani, taza",
         "hologramas: 0",
@@ -190,7 +188,7 @@ def test_failures_are_reported_and_the_rest_still_runs(monkeypatch, tmp_path):
     assert result.exit_code == 1
     assert "FALLA Cerebro con herramientas" in result.output
     assert "FALLA Cámara" in result.output
-    assert "OK   Globo 3D" in result.output
+    assert "OK   Lugares y clima" in result.output
     assert "6 prueba(s) fallaron" in result.output  # no photo: vision, faces x2, scene
 
 
@@ -223,7 +221,7 @@ def test_a_check_that_never_answers_is_skipped_and_the_rest_runs(monkeypatch, tm
     stuck.set()
     assert result.exit_code == 1
     assert "FALLA Voz de Sergio (Gemini Live): no respondió en 0 s" in result.output
-    assert "OK   Globo 3D" in result.output  # the run went on
+    assert "OK   Lugares y clima" in result.output  # the run went on
 
 
 def test_ctrl_c_prints_a_summary_instead_of_a_traceback(monkeypatch, tmp_path):

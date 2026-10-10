@@ -1309,24 +1309,6 @@
         "title": "FeedbackScoreRequest",
         "type": "object"
       },
-      "GotoRequest": {
-        "properties": {
-          "place": {
-            "title": "Place",
-            "type": "string"
-          },
-          "style": {
-            "default": "normal",
-            "title": "Style",
-            "type": "string"
-          }
-        },
-        "required": [
-          "place"
-        ],
-        "title": "GotoRequest",
-        "type": "object"
-      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -1524,6 +1506,19 @@
           "id"
         ],
         "title": "ModelObject",
+        "type": "object"
+      },
+      "OpenRequest": {
+        "properties": {
+          "section": {
+            "title": "Section",
+            "type": "string"
+          }
+        },
+        "required": [
+          "section"
+        ],
+        "title": "OpenRequest",
         "type": "object"
       },
       "OptimizeRunRequest": {
@@ -3849,6 +3844,95 @@
         "summary": "Events",
         "tags": [
           "cowork"
+        ]
+      }
+    },
+    "/v1/desktop/health": {
+      "get": {
+        "operationId": "health_v1_desktop_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Health V1 Desktop Health Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Health",
+        "tags": [
+          "desktop"
+        ]
+      }
+    },
+    "/v1/desktop/open": {
+      "post": {
+        "operationId": "open_section_v1_desktop_open_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Open Section V1 Desktop Open Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Open Section",
+        "tags": [
+          "desktop"
+        ]
+      }
+    },
+    "/v1/desktop/profile": {
+      "get": {
+        "operationId": "profile_v1_desktop_profile_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Profile V1 Desktop Profile Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Profile",
+        "tags": [
+          "desktop"
         ]
       }
     },
@@ -7043,73 +7127,6 @@
         ]
       }
     },
-    "/v1/world/goto": {
-      "post": {
-        "operationId": "goto_v1_world_goto_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/GotoRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Goto V1 World Goto Post",
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Goto",
-        "tags": [
-          "notch"
-        ]
-      }
-    },
-    "/v1/world/open": {
-      "post": {
-        "description": "Make sure the 3D globe is running (start it if needed).",
-        "operationId": "open_globe_v1_world_open_post",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Open Globe V1 World Open Post",
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Successful Response"
-          }
-        },
-        "summary": "Open Globe",
-        "tags": [
-          "notch"
-        ]
-      }
-    },
     "/v1/world/overhead": {
       "get": {
         "description": "The plane right above the user now (their GPS spot), in seconds.\n\nThe globe is aimed at that plane in the background, so \"muéstramelo\"\nopens God's Eye View already looking at it.",
@@ -7175,6 +7192,51 @@
           }
         },
         "summary": "Overhead",
+        "tags": [
+          "notch"
+        ]
+      }
+    },
+    "/v1/world/place": {
+      "get": {
+        "description": "Where a place is, its local time and weather now (no globe shown).",
+        "operationId": "place_v1_world_place_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "q",
+            "required": true,
+            "schema": {
+              "title": "Q",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Place V1 World Place Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Place",
         "tags": [
           "notch"
         ]

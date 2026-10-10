@@ -205,9 +205,14 @@ class ClackyExtensionConfig:
 
 @dataclass(slots=True)
 class GlobeExtensionConfig:
-    """God's Eye View: the live 3D globe."""
+    """God's Eye View: the live 3D globe.
 
-    enabled: bool = True
+    Off by default: Sergio keeps God's Eye View hidden and only uses its data
+    (places, weather, flights, earthquakes, launches), which the world tools
+    fetch directly. Turn it on to run the visible globe server again.
+    """
+
+    enabled: bool = False
     port: int = 4173
     path: str = ""  # Override for the extensions/globe checkout
 

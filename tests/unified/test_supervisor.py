@@ -24,6 +24,7 @@ def _config(tmp_path: Path) -> JarvisConfig:
     (globe / "node_modules").mkdir(parents=True)
     cfg.extensions.clacky.path = str(clacky)
     cfg.extensions.globe.path = str(globe)
+    cfg.extensions.globe.enabled = True  # off by default: these tests run it
     return cfg
 
 

@@ -680,13 +680,11 @@ def parse_quick(text: str) -> Quick | None:
     # The plane overhead and the 3D globe (God's Eye View)
     if _OVERHEAD.search(t):
         return Quick("overhead")
-    if re.fullmatch(r"(muestramelo|ensenamelo|abrelo|mira?lo)( en (el globo|gods eye view|god s eye view|el mapa))?", t):
-        return Quick("globe_last")
     m = _GLOBE_GOTO.fullmatch(t)
-    if m:
+    if m:  # God's Eye View is hidden: the place is described, not shown
         place = (m.group("place") or m.group("place2") or "").strip()
         if place and place not in ("el", "la", "eso", "esto"):
-            return Quick("globe_goto", place, f"Mostrando {place.title()} en el globo.")
+            return Quick("globe_goto", place)
     # Time and date
     if re.fullmatch(r"(que hora es|dime la hora|la hora)( por favor)?", t):
         return Quick("time")
@@ -724,9 +722,9 @@ def parse_quick(text: str) -> Quick | None:
         "bloquea el computador": ("key", "win+l", ""),
         "abre la camara": ("camera", "on", "Aquí está la cámara."),
         "cierra la camara": ("camera", "off", "Cámara cerrada."),
-        "abre el globo": ("globe", "", "Abriendo el globo."),
-        "muestrame el globo": ("globe", "", "Abriendo el globo."),
-        "abre gods eye view": ("globe", "", "Abriendo el globo."),
+        "abre el globo": ("globe", "", ""),
+        "muestrame el globo": ("globe", "", ""),
+        "abre gods eye view": ("globe", "", ""),
         "activa las manos": ("hands", "holo", "Tus manos ya mueven los hologramas."),
         "modo hologramas": ("hands", "holo", "Tus manos ya mueven los hologramas."),
         "apaga las manos": ("hands", "off", "Listo."),

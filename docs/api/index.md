@@ -51,6 +51,8 @@ vectors = client.embeddings.create(model="auto", input=["uno", "dos"])
 | `/v1/speech`, `/v1/voice` | Speech to text and text to speech |
 | `/v1/phone`, `/v1/channels` | Calls and messaging channels (owner-only rules apply) |
 | `/v1/connectors` | Data sources for Deep Research |
+| `/v1/world` | God's Eye View's data, no globe shown: `place` (where, local time, weather now), `overhead`, `flight`, `summary` (earthquakes, launches) |
+| `/v1/desktop` | Read from Sergio Escritorio: `health`, `profile`; `open` one of its sections on the PC |
 | `/v1/telemetry`, `/v1/savings`, `/metrics` | Usage, energy and cost numbers |
 | `/health`, `/v1/info` | Liveness and server information |
 

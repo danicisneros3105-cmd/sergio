@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router';
 import {
   Palette,
   Globe,
@@ -289,7 +290,19 @@ const themeOptions: { value: ThemeMode; label: string; icon: typeof Sun }[] = [
   { value: 'system', label: 'System', icon: Monitor },
 ];
 
+// Everything that is not one of the six sections lives here, one tap away.
+export const MORE_PAGES = [
+  { path: '/pensar', label: 'Pensar a fondo' },
+  { path: '/data-sources', label: 'Fuentes de datos' },
+  { path: '/faces', label: 'Rostros' },
+  { path: '/clacky', label: 'Clacky' },
+  { path: '/dashboard', label: 'Panel' },
+  { path: '/logs', label: 'Registro' },
+  { path: '/get-started', label: 'Primeros pasos' },
+];
+
 export function SettingsPage() {
+  const navigate = useNavigate();
   const settings = useAppStore((s) => s.settings);
   const updateSettings = useAppStore((s) => s.updateSettings);
   const conversations = useAppStore((s) => s.conversations);
@@ -460,11 +473,9 @@ export function SettingsPage() {
   return (
     <div className="flex-1 overflow-y-auto px-6 py-10">
       <div className="max-w-2xl mx-auto">
-        <header className="mb-6">
-          <div className="flex items-center justify-between gap-3">
-            <h1 className="text-lg font-semibold" style={{ color: 'var(--color-text)' }}>
-              Settings
-            </h1>
+        <header className="mb-6 text-center">
+          <div className="flex items-center justify-center gap-3">
+            <h1 className="paper-title">Configuración</h1>
             {saved && (
               <span className="flex items-center gap-1 text-xs px-2 py-1 rounded-full" style={{
                 background: 'var(--color-accent-subtle)',
@@ -474,10 +485,23 @@ export function SettingsPage() {
               </span>
             )}
           </div>
-          <p className="text-sm mt-2 max-w-2xl" style={{ color: 'var(--color-text-secondary)' }}>
-            App preferences — appearance, model defaults, keyboard shortcuts, and data management.
+          <p className="text-sm mt-2 mx-auto max-w-2xl" style={{ color: 'var(--color-text-secondary)' }}>
+            Apariencia, modelo, atajos y datos.
           </p>
         </header>
+
+        <nav aria-label="Más" className="mb-8">
+          <div className="flex items-end justify-between pb-2 mb-3" style={{ borderBottom: '1px solid var(--color-border)' }}>
+            <h2 className="paper-label">Más</h2>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {MORE_PAGES.map((page) => (
+              <button key={page.path} className="mac-chip" onClick={() => navigate(page.path)}>
+                {page.label}
+              </button>
+            ))}
+          </div>
+        </nav>
 
         <div className="flex flex-col gap-4">
           {/* Appearance */}

@@ -6,9 +6,23 @@ import { StreamingDots } from './StreamingDots';
 import { useAppStore } from '../../lib/store';
 import { shouldAutoplayFinishedReply, useTtsStore } from '../../lib/tts';
 import { stripThinkTags } from '../../lib/message-text';
-import { Brain, PanelRightOpen, PanelRightClose, Database, Phone, MonitorSmartphone, Globe, MessageCircle } from 'lucide-react';
-import { SergioMark } from '../Sidebar/Sidebar';
+import {
+  Brain,
+  PanelRightOpen,
+  PanelRightClose,
+  Database,
+  Phone,
+  MonitorSmartphone,
+  CloudSun,
+  MessageCircle,
+  Briefcase,
+  Network,
+  HeartPulse,
+  UserRound,
+} from 'lucide-react';
 import { listConnectors } from '../../lib/connectors-api';
+import type { Conversation } from '../../types';
+import { relativeDay } from '../../lib/paper';
 
 function getGreeting(): string {
   const hour = new Date().getHours();
@@ -21,12 +35,39 @@ function getGreeting(): string {
 const SUGGESTIONS = [
   { icon: Phone, label: 'Reservar por teléfono', text: 'Llama al restaurante y reserva una mesa para dos a las 8 de la noche. El número es ' },
   { icon: MonitorSmartphone, label: 'Usar mi pantalla', text: 'Abre Spotify y pon música tranquila' },
-  { icon: Globe, label: 'Vuelos sobre Quito', text: 'Muéstrame en el globo los vuelos que pasan ahora sobre Quito' },
+  { icon: CloudSun, label: 'El clima en Quito', text: '¿Cómo está el clima ahora en Quito y a qué hora anochece?' },
   { icon: MessageCircle, label: 'Enviar un WhatsApp', text: 'Mándale un WhatsApp a  diciendo que llego en 10 minutos' },
 ];
 
 function prefill(text: string) {
   window.dispatchEvent(new CustomEvent('sergio:prefill', { detail: text }));
+}
+
+// «Marked» on the e-paper home: the other five sections, as document cards.
+const SECTIONS = [
+  { path: '/cowork', icon: Briefcase, label: 'Cowork', meta: 'Trabajos largos' },
+  { path: '/agents', icon: Network, label: 'Agent Swarm', meta: 'Subagentes a la vez' },
+  { path: '/salud', icon: HeartPulse, label: 'Salud', meta: 'Cuerpo, sueño, mente' },
+  { path: '/perfil', icon: UserRound, label: 'Perfil', meta: 'Quién es usted' },
+];
+
+// A conversation as a page thumbnail: its first lines, tiny, like a document.
+function ConversationThumb({ conversation }: { conversation: Conversation }) {
+  const lines = conversation.messages
+    .slice(0, 4)
+    .map((m) => stripThinkTags(m.content).slice(0, 140))
+    .filter(Boolean);
+  return (
+    <span className="paper-thumb" style={{ placeItems: 'start', padding: '10px 9px' }}>
+      <span className="block text-left" style={{ fontSize: 6.5, lineHeight: 1.45, color: 'var(--color-text-secondary)' }}>
+        {lines.map((line, i) => (
+          <span key={i} className="block mb-1.5" style={{ fontWeight: i % 2 === 0 ? 600 : 400 }}>
+            {line}
+          </span>
+        ))}
+      </span>
+    </span>
+  );
 }
 
 export function ChatArea() {
@@ -38,6 +79,9 @@ export function ChatArea() {
   const reasoningPanelOpen = useAppStore((s) => s.reasoningPanelOpen);
   const toggleReasoningPanel = useAppStore((s) => s.toggleReasoningPanel);
   const navigate = useNavigate();
+  const conversations = useAppStore((s) => s.conversations);
+  const selectConversation = useAppStore((s) => s.selectConversation);
+  const recent = conversations.filter((c) => c.messages.length > 0).slice(0, 5);
   const listRef = useRef<HTMLDivElement>(null);
   const shouldAutoScroll = useRef(true);
   const wasStreaming = useRef(false);
@@ -174,20 +218,13 @@ export function ChatArea() {
         className={isEmpty ? 'flex-[1] flex flex-col justify-end px-4 pb-7' : 'flex-1 overflow-y-auto'}
       >
         {isEmpty ? (
-          <div className="mac-rise flex flex-col sm:flex-row items-center justify-center gap-3" style={{ ['--i' as string]: 0 }}>
-            <SergioMark size={34} />
-            <h1
-              className="text-[23px] sm:text-[26px] md:text-[30px] font-semibold text-center"
-              style={{
-                fontFamily: 'var(--font-display)',
-                letterSpacing: '-0.03em',
-                lineHeight: 1.15,
-                color: 'var(--color-text)',
-                textWrap: 'balance',
-              }}
-            >
-              {getGreeting()}. ¿En qué te ayudo?
+          <div className="mac-rise text-center" style={{ ['--i' as string]: 0 }}>
+            <h1 className="paper-title" style={{ fontSize: 34 }}>
+              {getGreeting()}
             </h1>
+            <p className="mt-1.5 text-[14px]" style={{ color: 'var(--color-text-secondary)' }}>
+              ¿En qué le ayudo?
+            </p>
           </div>
         ) : (
           <div className="max-w-[var(--chat-max-width)] mx-auto px-4 py-6">
@@ -223,7 +260,7 @@ export function ChatArea() {
       </div>
 
       {isEmpty && (
-        <div className="flex-[1.35] px-4">
+        <div className="flex-[1.6] px-4 overflow-y-auto">
           <div
             className="mac-rise mx-auto flex flex-wrap justify-center gap-2 pt-2"
             style={{ maxWidth: 'var(--chat-max-width)', ['--i' as string]: 2 }}
@@ -239,6 +276,44 @@ export function ChatArea() {
                 <Database size={14} strokeWidth={1.75} />
                 Conectar mis datos
               </button>
+            )}
+          </div>
+
+          <div className="mac-rise mx-auto pt-9 pb-8" style={{ maxWidth: 820, ['--i' as string]: 3 }}>
+            <div className="flex items-end justify-between pb-2 mb-4" style={{ borderBottom: '1px solid var(--color-border)' }}>
+              <h2 className="paper-label">Secciones</h2>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-5 gap-y-6">
+              {SECTIONS.map((s) => (
+                <button key={s.path} type="button" className="paper-card" onClick={() => navigate(s.path)}>
+                  <span className="paper-thumb" style={{ aspectRatio: '4 / 3' }}>
+                    <s.icon size={30} strokeWidth={1.1} />
+                  </span>
+                  <span>
+                    <span className="paper-name block">{s.label}</span>
+                    <span className="paper-meta block">{s.meta}</span>
+                  </span>
+                </button>
+              ))}
+            </div>
+
+            {recent.length > 0 && (
+              <>
+                <div className="flex items-end justify-between pb-2 mt-9 mb-4" style={{ borderBottom: '1px solid var(--color-border)' }}>
+                  <h2 className="paper-label">Abiertas recientemente</h2>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-x-5 gap-y-6">
+                  {recent.map((c) => (
+                    <button key={c.id} type="button" className="paper-card" onClick={() => selectConversation(c.id)}>
+                      <ConversationThumb conversation={c} />
+                      <span>
+                        <span className="paper-name block truncate">{c.title || 'Conversación'}</span>
+                        <span className="paper-meta block">{relativeDay(c.updatedAt)}</span>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </>
             )}
           </div>
         </div>

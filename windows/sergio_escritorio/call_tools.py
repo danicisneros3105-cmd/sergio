@@ -540,16 +540,16 @@ def call_tools(ab: Abilities) -> list[ClientTool]:
             "Qué avión pasa AHORA MISMO justo encima del usuario: usa su ubicación "
             "exacta (GPS/Wi-Fi de Windows) y la hora actual con datos ADS-B en vivo: "
             "vuelo, aerolínea, avión, ruta, altura, velocidad y hacia dónde mirar. "
-            "Tarda unos segundos; deja el globo apuntando a ese avión.",
+            "Tarda unos segundos.",
             lambda _a: ab.overhead(),
         ),
         ClientTool(
-            "mostrar_en_globo",
-            "Abre God's Eye View (el globo 3D) en su propia ventana mostrando un "
-            "lugar (\"Cuenca\", \"Quito\", \"Tokio\"). Con lugar vacío muestra el "
-            "último avión consultado.",
+            "info_lugar",
+            "Datos de cualquier lugar del planeta (\"Cuenca\", \"Quito\", \"Tokio\"): "
+            "dónde queda, su hora local y el clima ahora, la mínima y máxima de hoy, "
+            "amanecer y atardecer. No muestra nada en pantalla: dígaselo de palabra.",
             lambda a: ab.globe(str(a.get("lugar") or "")),
-            _obj(lugar=_str("Lugar; vacío = el avión de antes")),
+            _obj(lugar=_str("Lugar")),
         ),
         ClientTool(
             "progreso_gimnasio",

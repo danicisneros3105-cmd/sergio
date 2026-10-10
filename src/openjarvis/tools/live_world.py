@@ -808,8 +808,96 @@ def read_globe_target() -> dict[str, Any] | None:
         return None
 
 
+# WMO weather codes (Open-Meteo), in words.
+WEATHER_CODES = {
+    0: "clear sky", 1: "mainly clear", 2: "partly cloudy", 3: "overcast",
+    45: "fog", 48: "freezing fog", 51: "light drizzle", 53: "drizzle",
+    55: "heavy drizzle", 61: "light rain", 63: "rain", 65: "heavy rain",
+    66: "freezing rain", 67: "heavy freezing rain", 71: "light snow",
+    73: "snow", 75: "heavy snow", 77: "snow grains", 80: "light showers",
+    81: "showers", 82: "violent showers", 85: "snow showers",
+    86: "heavy snow showers", 95: "thunderstorm", 96: "thunderstorm with hail",
+    99: "severe thunderstorm with hail",
+}  # fmt: skip
+
+
+def place_report(
+    params: dict[str, Any], http_get: HttpGet = _default_get
+) -> dict[str, Any]:
+    """Where a place is, its local time and its weather now (Open-Meteo).
+
+    God's Eye View's data without the globe: nothing is shown on screen.
+    """
+    lat, lon, label = _location(params, http_get)
+    data = http_get(
+        "https://api.open-meteo.com/v1/forecast",
+        {
+            "latitude": f"{lat:.4f}",
+            "longitude": f"{lon:.4f}",
+            "current": "temperature_2m,apparent_temperature,relative_humidity_2m,"
+            "weather_code,wind_speed_10m,is_day",
+            "daily": "temperature_2m_max,temperature_2m_min,sunrise,sunset",
+            "forecast_days": 1,
+            "timezone": "auto",
+        },
+    )
+    now = data.get("current") or {}
+    day = data.get("daily") or {}
+
+    def first(key: str) -> Any:
+        values = day.get(key) or []
+        return values[0] if values else None
+
+    report = {
+        "label": label,
+        "lat": lat,
+        "lon": lon,
+        "elevation_m": data.get("elevation"),
+        "timezone": data.get("timezone", ""),
+        "local_time": str(now.get("time", "")).replace("T", " "),
+        "temperature_c": now.get("temperature_2m"),
+        "feels_like_c": now.get("apparent_temperature"),
+        "humidity": now.get("relative_humidity_2m"),
+        "wind_kmh": now.get("wind_speed_10m"),
+        "sky": WEATHER_CODES.get(int(now.get("weather_code") or 0), "unknown"),
+        "max_c": first("temperature_2m_max"),
+        "min_c": first("temperature_2m_min"),
+        "sunrise": str(first("sunrise") or "")[-5:],
+        "sunset": str(first("sunset") or "")[-5:],
+    }
+    parts = [
+        f"{label} ({lat:.4f}, {lon:.4f}"
+        + (
+            f", {report['elevation_m']:.0f} m"
+            if report["elevation_m"] is not None
+            else ""
+        )
+        + ")",
+    ]
+    if report["local_time"]:
+        parts.append(f"local time {report['local_time']} ({report['timezone']})")
+    if report["temperature_c"] is not None:
+        parts.append(
+            f"now {report['temperature_c']} °C (feels {report['feels_like_c']} °C), "
+            f"{report['sky']}, humidity {report['humidity']} %, "
+            f"wind {report['wind_kmh']} km/h"
+        )
+    if report["max_c"] is not None:
+        parts.append(f"today {report['min_c']}–{report['max_c']} °C")
+    if report["sunrise"]:
+        parts.append(f"sunrise {report['sunrise']}, sunset {report['sunset']}")
+    report["text"] = "; ".join(parts) + "."
+    return report
+
+
 @ToolRegistry.register("globe_view")
 class GlobeViewTool(_WorldTool):
+    """God's Eye View, hidden: facts about any place on Earth, no globe shown.
+
+    The id stays ``globe_view`` so existing configs keep working; the visible
+    3D globe is no longer opened.
+    """
+
     tool_id = "globe_view"
 
     @property
@@ -817,40 +905,19 @@ class GlobeViewTool(_WorldTool):
         return ToolSpec(
             name=self.tool_id,
             description=(
-                "Show a place on the live 3D globe (Globe tab of the app), "
-                "optionally with a visual style such as night vision or thermal."
+                "Facts about any place on Earth: where it is (coordinates, "
+                "elevation), its local time and its weather right now, today's "
+                "low and high, sunrise and sunset. Nothing is shown on screen; "
+                "answer the user in words."
             ),
-            parameters={
-                "type": "object",
-                "properties": {
-                    **_LOCATION_PROPS,
-                    "altitude_m": {
-                        "type": "number",
-                        "description": "Camera height in meters (default 1500).",
-                    },
-                    "style": {"type": "string", "enum": sorted(GLOBE_STYLES)},
-                },
-            },
+            parameters={"type": "object", "properties": {**_LOCATION_PROPS}},
             category="world",
-            timeout_seconds=150.0,  # first start may install the globe
         )
 
     def _run(self, params: dict[str, Any]) -> ToolResult:
-
-        lat, lon, label = _location(params, self._get)
-        alt = _num(params.get("altitude_m", 1500), "altitude_m", 50, 40_000_000)
-        style_key = str(params.get("style") or "normal")
-        if style_key not in GLOBE_STYLES:
-            choices = ", ".join(sorted(GLOBE_STYLES))
-            raise ValueError(f"Unknown style '{style_key}'. Use one of: {choices}")
-        target = point_globe(lat, lon, alt=alt, style=style_key, label=label)
-        running, detail = ensure_globe()
-        if not running:
-            return self._fail(detail)
+        report = place_report(params, self._get)
         return self._ok(
-            f"Globe pointed at {label} ({style_key}). Show it to the user with "
-            f"desktop_action open target={target['url']} (opens in its own window).",
-            **target,
+            report["text"], **{k: v for k, v in report.items() if k != "text"}
         )
 
 
@@ -864,6 +931,7 @@ __all__ = [
     "ensure_globe",
     "geocode",
     "overhead_report",
+    "place_report",
     "plane_geometry",
     "point_globe",
     "read_globe_target",

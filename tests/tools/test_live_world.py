@@ -1,10 +1,8 @@
-"""Tests for live world data tools and globe control."""
+"""Tests for live world data tools (God's Eye View data, no globe shown)."""
 
 from __future__ import annotations
 
-import json
 import time
-from urllib.parse import parse_qs
 
 import pytest
 
@@ -13,7 +11,6 @@ from openjarvis.tools.live_world import (
     LiveEarthquakesTool,
     LiveFlightsTool,
     UpcomingLaunchesTool,
-    read_globe_target,
 )
 
 
@@ -154,41 +151,52 @@ def test_upcoming_launches_handles_list_and_detail_shapes():
     assert "Ariane 6 — 2026-10-05 — Kourou" in result.content
 
 
-@pytest.fixture
-def globe_up(monkeypatch):
+OPEN_METEO = {
+    "https://api.open-meteo.com/v1/forecast": {
+        "elevation": 657.0,
+        "timezone": "Europe/Madrid",
+        "current": {
+            "time": "2026-10-10T14:15",
+            "temperature_2m": 21.4,
+            "apparent_temperature": 20.9,
+            "relative_humidity_2m": 48,
+            "weather_code": 2,
+            "wind_speed_10m": 11.2,
+        },
+        "daily": {
+            "temperature_2m_max": [24.0],
+            "temperature_2m_min": [12.5],
+            "sunrise": ["2026-10-10T08:10"],
+            "sunset": ["2026-10-10T19:32"],
+        },
+    }
+}
+
+
+def test_globe_view_now_answers_in_words_without_a_globe(monkeypatch):
     from openjarvis.tools import live_world
 
-    monkeypatch.setattr(
-        live_world, "ensure_globe", lambda wait=90.0: (True, "http://127.0.0.1:4173/")
-    )
+    def no_globe(*_a, **_k):
+        raise AssertionError("the visible globe must not start")
 
-
-def test_globe_view_explains_when_the_globe_cannot_start(monkeypatch):
-    from openjarvis.tools import live_world
-
-    monkeypatch.setattr(
-        live_world,
-        "ensure_globe",
-        lambda wait=90.0: (False, "El globo no arrancó: skipped: Node.js 24+"),
-    )
-    result = GlobeViewTool(http_get=FakeHttp(NOMINATIM)).execute(place="Madrid")
-    assert not result.success and "Node.js" in result.content
-
-
-def test_globe_view_writes_target_for_the_ui(globe_up):
-    result = GlobeViewTool(http_get=FakeHttp(NOMINATIM)).execute(
-        place="Madrid", style="night_vision", altitude_m=500_000
-    )
+    monkeypatch.setattr(live_world, "ensure_globe", no_globe)
+    monkeypatch.setattr(live_world, "point_globe", no_globe)
+    http = FakeHttp({**NOMINATIM, **OPEN_METEO})
+    result = GlobeViewTool(http_get=http).execute(place="Madrid")
     assert result.success, result.content
-    target = read_globe_target()
-    assert target["label"] == "Madrid, España"
-    params = parse_qs(target["hash"])
-    assert params["style"] == ["nvg"] and params["pitch"] == ["-90"]
-    assert target["url"].startswith("http://127.0.0.1:4173/#lat=40.41680")
-    assert json.loads(json.dumps(target)) == target
+    text = result.content
+    assert "Madrid, España (40.4168, -3.7038, 657 m)" in text
+    assert "local time 2026-10-10 14:15 (Europe/Madrid)" in text
+    assert "21.4 °C" in text and "partly cloudy" in text and "12.5–24.0 °C" in text
+    assert "sunrise 08:10, sunset 19:32" in text
+    assert result.metadata["timezone"] == "Europe/Madrid"
+    weather_call = next(params for url, params in http.calls if "open-meteo" in url)
+    assert weather_call["timezone"] == "auto"
 
-    bad = GlobeViewTool(http_get=FakeHttp({})).execute(lat=1, lon=1, style="laser")
-    assert not bad.success and "Unknown style" in bad.content
+
+def test_globe_view_needs_a_place():
+    result = GlobeViewTool(http_get=FakeHttp({})).execute()
+    assert not result.success and "place" in result.content
 
 
 # -- the plane right above you -------------------------------------------------

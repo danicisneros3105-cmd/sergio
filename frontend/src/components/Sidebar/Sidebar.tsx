@@ -3,24 +3,18 @@ import { useNavigate, useLocation } from 'react-router';
 import {
   MessageSquare,
   Plus,
-  BarChart3,
   Settings,
   Search,
   PanelLeftClose,
   PanelLeft,
-  Rocket,
-  Bot,
+  Network,
+  HeartPulse,
+  UserRound,
   Sun,
   Moon,
   Monitor,
   Loader2,
-  ScrollText,
-  Database,
-  Globe,
-  MousePointerClick,
-  ScanFace,
   ChevronsUpDown,
-  Brain,
   Briefcase,
 } from 'lucide-react';
 import { ConversationList } from './ConversationList';
@@ -30,7 +24,7 @@ const STROKE = 1.75;
 const IS_MAC = typeof navigator !== 'undefined' && /Mac/.test(navigator.platform);
 const THEME_LABEL = { light: 'claro', dark: 'oscuro', system: 'automático' } as const;
 
-/** Sergio's mark: a single geometric ring, the same as the Windows tray icon. */
+/** Sergio's mark: an ink ring inside a hairline circle (paper, not glass). */
 export function SergioMark({ size = 22 }: { size?: number }) {
   return (
     <span
@@ -39,35 +33,30 @@ export function SergioMark({ size = 22 }: { size?: number }) {
       style={{
         width: size,
         height: size,
-        background: 'var(--color-accent)',
-        boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.25)',
+        border: '1px solid var(--color-ink)',
       }}
     >
       <span
         className="rounded-full"
         style={{
-          width: size * 0.42,
-          height: size * 0.42,
-          border: `${Math.max(2, size / 11)}px solid rgba(255,255,255,0.95)`,
+          width: size * 0.46,
+          height: size * 0.46,
+          border: `${Math.max(1.5, size / 12)}px solid var(--color-ink)`,
         }}
       />
     </span>
   );
 }
 
-const NAV_ITEMS = [
+// The same six sections as the notch on the desktop, and nothing more. The
+// other pages (data sources, logs, faces…) are reached from Configuración.
+export const NAV_ITEMS = [
   { path: '/', icon: MessageSquare, label: 'Chat' },
-  { path: '/pensar', icon: Brain, label: 'Pensar a fondo' },
   { path: '/cowork', icon: Briefcase, label: 'Cowork' },
-  { path: '/globe', icon: Globe, label: 'Globo' },
-  { path: '/clacky', icon: MousePointerClick, label: 'Clacky' },
-  { path: '/faces', icon: ScanFace, label: 'Rostros' },
-  { path: '/agents', icon: Bot, label: 'Agentes' },
-  { path: '/data-sources', icon: Database, label: 'Fuentes de datos' },
-  { path: '/dashboard', icon: BarChart3, label: 'Panel' },
-  { path: '/logs', icon: ScrollText, label: 'Registro' },
-  { path: '/get-started', icon: Rocket, label: 'Primeros pasos' },
-  { path: '/settings', icon: Settings, label: 'Ajustes' },
+  { path: '/agents', icon: Network, label: 'Agent Swarm' },
+  { path: '/salud', icon: HeartPulse, label: 'Salud' },
+  { path: '/perfil', icon: UserRound, label: 'Perfil' },
+  { path: '/settings', icon: Settings, label: 'Configuración' },
 ];
 
 export function Sidebar() {
@@ -116,17 +105,17 @@ export function Sidebar() {
 
       <aside
         className={`mac-sidebar flex flex-col h-full shrink-0 overflow-hidden fixed md:relative z-30
-          transition-[width] duration-300 ${sidebarOpen ? 'w-[264px]' : 'w-0 border-r-0'}`}
+          transition-[width] duration-300 ${sidebarOpen ? 'w-[248px]' : 'w-0 border-r-0'}`}
         style={{ transitionTimingFunction: 'var(--ease-mac)' }}
         aria-label="Barra lateral"
       >
-        <div className="flex flex-col h-full w-[264px]">
+        <div className="flex flex-col h-full w-[248px]">
           {/* Title bar */}
           <div className="flex items-center gap-2.5 px-4 pt-4 pb-3">
             <SergioMark />
             <span
-              className="text-[15px] font-semibold flex-1"
-              style={{ fontFamily: 'var(--font-display)', letterSpacing: '-0.02em', color: 'var(--color-text)' }}
+              className="text-[19px] flex-1"
+              style={{ fontFamily: 'var(--font-display)', color: 'var(--color-text)' }}
             >
               Sergio
             </span>
@@ -143,13 +132,7 @@ export function Sidebar() {
           <div className="px-3 flex flex-col gap-2">
             <button
               onClick={handleNewChat}
-              className="flex items-center gap-2 w-full px-3 py-2 rounded-[10px] text-[13.5px] font-medium cursor-pointer transition-[transform,box-shadow] duration-150 active:scale-[0.98]"
-              style={{
-                background: 'var(--color-surface)',
-                color: 'var(--color-text)',
-                border: '1px solid var(--color-border)',
-                boxShadow: 'var(--shadow-sm)',
-              }}
+              className="paper-button w-full justify-start"
             >
               <Plus size={16} strokeWidth={STROKE} />
               Nueva conversación
@@ -169,18 +152,11 @@ export function Sidebar() {
             </label>
           </div>
 
-          {/* Conversations */}
-          <div className="px-4 pt-4 pb-1 text-[12px] font-medium" style={{ color: 'var(--color-text-tertiary)' }}>
-            Recientes
-          </div>
-          <div className="flex-1 overflow-y-auto px-2">
-            <ConversationList searchQuery={searchQuery} />
-          </div>
-
           {/* Sections */}
-          <nav className="px-2 pt-2 pb-1 flex flex-col gap-px" aria-label="Secciones">
+          <nav className="px-2 pt-4 pb-2 flex flex-col gap-px" aria-label="Secciones">
             {NAV_ITEMS.map((item) => {
-              const isActive = location.pathname === item.path;
+              const isActive =
+                item.path === '/' ? location.pathname === '/' : location.pathname.startsWith(item.path);
               return (
                 <button
                   key={item.path}
@@ -189,12 +165,20 @@ export function Sidebar() {
                   data-active={isActive}
                   aria-current={isActive ? 'page' : undefined}
                 >
-                  <item.icon size={16} strokeWidth={STROKE} />
+                  <item.icon size={16} strokeWidth={1.5} />
                   {item.label}
                 </button>
               );
             })}
           </nav>
+
+          {/* Conversations */}
+          <div className="px-4 pt-3 pb-1.5 paper-label" style={{ borderTop: '1px solid var(--color-border-subtle)' }}>
+            Abiertas recientemente
+          </div>
+          <div className="flex-1 overflow-y-auto px-2">
+            <ConversationList searchQuery={searchQuery} />
+          </div>
 
           {/* Model + appearance */}
           <div className="flex items-center gap-1 px-2 pb-3 pt-1" style={{ borderTop: '1px solid var(--color-border-subtle)' }}>

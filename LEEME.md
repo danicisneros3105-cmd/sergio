@@ -6,12 +6,12 @@ Un solo asistente personal que une el poder de tres proyectos:
 |---|---|---|
 | **OpenJarvis** (núcleo, Python) | El cerebro: chat, memoria, tareas programadas, skills, voz, canales (Telegram…), IA local con Ollama o por API | `src/openjarvis/` |
 | **OpenClacky** (Ruby) | Las manos: usa la terminal, tus archivos y **tu Chrome real** (entra a páginas, hace clic, rellena formularios) | `extensions/clacky/` |
-| **God's Eye View** (JS) | Los ojos sobre el mundo: globo 3D con aviones, barcos, satélites y terremotos en vivo | `extensions/globe/` |
+| **God's Eye View** (JS) | Los datos del planeta, por dentro: lugares, clima, vuelos, sismos y lanzamientos (el globo ya no se muestra) | `extensions/globe/` |
 
 No son tres programas sueltos:
 
 - **Un comando** (`sergio gui`) arranca todo, y al cerrarlo se apaga todo.
-- **Una interfaz:** Chat, Globe y Clacky son pestañas de la misma app.
+- **Una interfaz:** seis secciones, las mismas en la app y en el notch: Chat, Cowork, Agent Swarm, Salud, Perfil y Configuración.
 - **Un solo cerebro:** Clacky usa automáticamente el modelo que configures en
   Sergio, sea local o por API. No hay que configurarlo dos veces.
 - **Una sola configuración:** `~/.openjarvis/config.toml`.
@@ -54,6 +54,43 @@ con su propio sistema. Su lugar está en la privacidad, el control del modelo y
 los nichos (VFX y 3D, varios canales, empresas con requisitos de privacidad,
 usuarios avanzados).
 
+## Notch nuevo, multitasking y diseño
+
+**El notch tiene seis secciones y nada más:** Chat, Cowork, Agent Swarm,
+Salud, Perfil y Configuración.
+- *Cowork*: escriba el resultado que quiere; aquí aprueba o rechaza lo que
+  Sergio le pregunta.
+- *Agent Swarm*: mande una tarea al enjambre en segundo plano y vea lo que
+  está en marcha.
+- *Configuración*: los interruptores, el multitasking, esconder el notch, el
+  idioma y el país.
+
+**«Sergio, activa multitasking».** La isla se divide en dos con el pliegue
+del iPhone Duo. «Desactiva multitasking» la vuelve a unir. Sin multitasking,
+la isla muestra «+1» cuando corre más de una tarea.
+
+**«Sergio, esconde el notch».** La isla se tuerce hacia dentro hasta volverse
+una bolita negra, con un disco de luz inclinado girando a su alrededor, como
+un agujero negro, y luego sube y sale de la pantalla. «Muestra el notch» lo
+trae de vuelta con la misma animación al revés. También desde Configuración
+o el icono de la bandeja.
+
+**La app, rediseñada al estilo Montblanc Digital Paper y Bang & Olufsen:**
+- en claro, papel gris cálido con tinta, líneas finas y sin sombras;
+- en oscuro, grafito con detalles de aluminio y bronce;
+- títulos con serifa, etiquetas en versalitas espaciadas;
+- el inicio muestra las secciones y lo abierto recientemente como documentos.
+
+Salud y Perfil leen sus datos de Sergio Escritorio, que se quedan en su PC, y
+abren sus ventanas allí. El resto (fuentes de datos, rostros, registro…) está
+en Configuración → *Más*.
+
+**God's Eye View ya no se ve:** trabaja por dentro y responde de palabra.
+Pregunte por el clima, la hora local o dónde queda un lugar, por un vuelo, el
+avión que pasa encima, los sismos o los próximos lanzamientos. El servidor del
+globo 3D ya no se instala ni se arranca; quien lo quiera de vuelta instala
+con `--con-globo`.
+
 ## Instalar
 
 **Windows 11** (PowerShell como administrador):
@@ -84,8 +121,8 @@ uv run sergio approvals approve ID   # aprobar desde la terminal
 
 Ejemplos de cosas que puedes pedir en el chat:
 
-- *"Muéstrame Tokio en visión nocturna"*: usa la herramienta `globe_view` y
-  la pestaña Globe vuela hasta allí.
+- *"¿Qué hora es y qué clima hace ahora en Tokio?"*: usa `globe_view`, que ahora
+  responde de palabra con los datos de God's Eye View (no abre ningún globo).
 - *"¿Qué aviones pasan ahora sobre Madrid?"*: usa `live_flights`, con datos
   ADS-B en vivo.
 - *"¿Hubo terremotos fuertes hoy cerca de México?"*: usa `live_earthquakes`
@@ -346,8 +383,9 @@ sigue, te escucha y usa la computadora por ti:
   difícil, con niveles de esfuerzo. En el notch: *Auto* (elige solo),
   *Rápido*, *Normal* o *Profundo*. Si Pro no está disponible con tu clave,
   usa Flash pensando a fondo.
-- **Centro de control en el notch** (clic en el notch): se despliega como
-  el Dynamic Island, en negro, con cuatro pestañas:
+- **Centro de control en el notch** (clic en el notch): ahora tiene seis
+  secciones y nada más (vea «Notch nuevo» más abajo). Antes tenía estas
+  pestañas:
   - *Inicio*: escríbele a Sergio (útil si no te oye bien) o pulsa Hablar, y
     botones estilo iPhone para «Escuchar Sergio», control de pantalla,
     cámara y la esfera junto al cursor.
@@ -377,8 +415,8 @@ sigue, te escucha y usa la computadora por ti:
   México, Colombia, España, Argentina). Sin internet usa la voz local.
 - **Personalizar a Sergio** (clic derecho en el icono): colores (Océano,
   Atardecer, Aurora, Rosa, Menta, Grafito), ojos, tamaño junto al cursor y voz.
-- Por voz también usa la búsqueda web, el globo 3D (God's Eye View) y las
-  guías expertas de ECC.
+- Por voz también usa la búsqueda web, los datos del planeta (God's Eye View,
+  sin pantalla) y las guías expertas de ECC.
 - **Tareas de varios pasos**: «Sergio, abre Google, busca Nvidia y entra al
   primer link»: abre la búsqueda, lee la página, hace clic y sigue hasta
   terminar.

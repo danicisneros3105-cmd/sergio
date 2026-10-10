@@ -897,12 +897,9 @@ class SergioClient:
             raise RuntimeError(str(why)[:300])
         return resp.json()
 
-    def globe_goto(self, place: str, style: str = "normal") -> str:
-        """Aim God's Eye View at a place; returns the URL to open."""
-        resp = self.http.post(
-            f"{self.base}/v1/world/goto",
-            json={"place": place, "style": style},
-            timeout=httpx.Timeout(240, connect=5),  # the first start installs it
+    def _world(self, path: str, params: dict[str, Any]) -> dict:
+        resp = self.http.get(
+            f"{self.base}{path}", params=params, timeout=httpx.Timeout(40, connect=3)
         )
         if resp.status_code != 200:
             try:
@@ -910,7 +907,28 @@ class SergioClient:
             except ValueError:
                 why = resp.text
             raise RuntimeError(str(why)[:300])
-        return str(resp.json().get("url") or "")
+        return resp.json()
+
+    def place(self, place: str) -> str:
+        """Where a place is, its local time and weather now, in one sentence."""
+        return str(self._world("/v1/world/place", {"q": place}).get("text") or "")
+
+    def flight(self, number: str) -> str:
+        """A flight right now, in words (God's Eye View's data, no window)."""
+        f = self._world("/v1/world/flight", {"q": number})
+        route = f.get("route") or {}
+        where = " → ".join(x for x in (route.get("from"), route.get("to")) if x)
+        state = (
+            "en tierra"
+            if f.get("on_ground")
+            else f"a {f.get('alt_m', '?')} m y {f.get('speed_kmh', '?')} km/h"
+        )
+        who = f" de {route['airline']}" if route.get("airline") else ""
+        return (
+            f"El vuelo {f.get('callsign', number)}{who} va {state}"
+            + (f", ruta {where}" if where else "")
+            + f". Posición {float(f['lat']):.2f}, {float(f['lon']):.2f}."
+        )
 
     def speak_on_server(self, text: str) -> bytes:
         resp = self.http.post(

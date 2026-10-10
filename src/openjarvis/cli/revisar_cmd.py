@@ -313,20 +313,23 @@ def _revisar() -> None:
                 elif not cloud:
                     _probe_ollama(host, model)
 
-    # 6. The 3D globe (God's Eye View): started on demand if needed
-    console.print("Probando: Globo 3D (God's Eye View)… (la 1.a vez tarda)")
+    # 6. Places and weather (God's Eye View's data; the globe is not shown)
+    console.print("Probando: Lugares y clima…")
     try:
         resp = run_with_limit(
-            lambda: httpx.post(f"{base}/v1/world/open", timeout=240), 260
+            lambda: httpx.get(
+                f"{base}/v1/world/place", params={"q": "Quito"}, timeout=40
+            ),
+            60,
         )
         if resp.status_code == 200:
-            _ok(f"Globo 3D en {resp.json().get('url')}")
+            _ok(str(resp.json().get("text") or "")[:90])
         else:
             failures += 1
-            _bad("Globo 3D", _detail(resp))
+            _bad("Lugares y clima", _detail(resp))
     except (httpx.HTTPError, TimeoutError) as exc:
         failures += 1
-        _bad("Globo 3D", str(exc))
+        _bad("Lugares y clima", str(exc))
 
     # 7. Cursor companion (Windows side)
     token = read_env(env_file()).get("SERGIO_DESKTOP_TOKEN", "")

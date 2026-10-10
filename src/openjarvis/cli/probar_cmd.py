@@ -485,15 +485,17 @@ def _probar(
 
         run.check("Manos (MediaPipe)", hands)
 
-    def globe() -> str:
-        resp = _ok(http.post(f"{base}/v1/world/open", timeout=240))
-        url = resp.json()["url"]
-        page = _ok(http.get(url, timeout=20))
-        if "God" not in page.text and "<html" not in page.text.lower():
-            raise RuntimeError("el globo respondió algo raro")
-        return f"God's Eye View en {url}"
+    def place() -> str:
+        # God's Eye View is hidden: its data (places, weather) answers questions.
+        resp = _ok(
+            http.get(f"{base}/v1/world/place", params={"q": "Quito"}, timeout=40)
+        )
+        text = str(resp.json().get("text") or "")
+        if "Quito" not in text:
+            raise RuntimeError("no llegó la información del lugar")
+        return text[:90]
 
-    run.check("Globo 3D (God's Eye View)", globe, limit=300)
+    run.check("Lugares y clima (God's Eye View, sin pantalla)", place, limit=60)
 
     if token:
         try:

@@ -865,10 +865,10 @@ def run(config: dict[str, Any]) -> None:
             set_hands(q.arg)
             return q.say
         if q.kind == "globe":
-            resp = client.http.post(f"{client.base}/v1/world/open", timeout=240)
-            resp.raise_for_status()
-            open_app_window(resp.json()["url"])
-            return q.say
+            return (
+                "God's Eye View ya no se muestra: ahora trabaja por dentro. "
+                "Pregúnteme por el clima, un vuelo o cualquier lugar del planeta."
+            )
         if q.kind == "video":
             try:
                 return play_video(q.arg)
@@ -1942,10 +1942,6 @@ def run(config: dict[str, Any]) -> None:
             return overhead_now()
         if q.kind == "globe_goto":
             return globe_tool(q.arg)
-        if q.kind == "globe_last":
-            if not last_globe[0]:
-                raise RuntimeError("nothing shown on the globe yet")  # the agent decides
-            return globe_tool("")
         if q.kind == "call":
             ok = start_call(force=True)
             return "" if ok else "No pude abrir la llamada ahora."
@@ -2767,27 +2763,12 @@ def run(config: dict[str, Any]) -> None:
         bridge.caption.emit("Comparando rasgos y proporciones…")
         return client.kinship(photo_bytes(source, path))
 
-    # -- where we are, the plane overhead and the 3D globe ----------------------
+    # -- where we are and the plane overhead (God's Eye View's data) ----------
     from sergio_escritorio.location import Location
 
     location = Location(config.get("ubicacion"))
     location.keep_fresh()  # always fresh: the plane question never waits for it
     last_globe = [""]
-
-    def show_globe(url: str) -> None:
-        """God's Eye View in its own window, on your screen (old one closed)."""
-        launcher = getattr(controller.backend, "launcher", None)
-        before: set[int] = set()
-        if launcher is not None:
-            for window in launcher.desktop.windows():
-                before.add(window.hwnd)
-                if "god's eye view" in window.title.lower():
-                    launcher.desktop.close(window.hwnd)
-        open_app_window(url)
-        if launcher is not None:
-            threading.Thread(
-                target=lambda: launcher._bring_later(["God's Eye View"], before), daemon=True
-            ).start()
 
     def overhead_now() -> str:
         fix = location.get()
@@ -2799,16 +2780,10 @@ def run(config: dict[str, Any]) -> None:
         return str(report.get("text") or "No hay datos.") + note
 
     def globe_tool(place: str) -> str:
-        if place.strip():
-            url = client.globe_goto(place.strip())
-            label = place.strip().title()
-        elif last_globe[0]:
-            url, label = last_globe[0], "el avión"
-        else:
-            return "¿Qué lugar quiere ver en el globo?"
-        last_globe[0] = url
-        show_globe(url)
-        return f"Mostrando {label} en God's Eye View."
+        """God's Eye View, hidden: where a place is, its time and its weather."""
+        if not place.strip():
+            return "¿De qué lugar quiere saber?"
+        return client.place(place.strip())
 
     # -- the call: talk with Sergio like on the phone (Gemini Live) -----------
     from sergio_escritorio.call import CallSession
@@ -3774,9 +3749,8 @@ def run(config: dict[str, Any]) -> None:
         on_click=lambda _x, _y, _b, pressed: bridge.clicked.emit() if pressed else None
     ).start()
 
-    # -- God's Eye View windows, blocking, language: and the «Todo» tab ------
+    # -- extra windows (blocking, agents) and the language ---------------------
     from sergio_escritorio import bloqueo, idioma as _idioma
-    from sergio_escritorio.mundo_ui import CamsWindow, FlightWindow
 
     world_windows: dict[str, Any] = {}
     last_plane = [""]
@@ -3785,18 +3759,11 @@ def run(config: dict[str, Any]) -> None:
         return str(config.get("language") or _idioma.system_language())
 
     def show_cams(place: str) -> str:
-        def show() -> None:
-            if "cams" not in world_windows:
-                world_windows["cams"] = CamsWindow(config["server_url"], open_app_window, lang_now())
-            window = world_windows["cams"]
-            if place:
-                window.show_place(place)
-            else:
-                window.show()
-                window.raise_()
-
-        on_ui(show)
-        return f"Buscando cámaras públicas en vivo de {place}." if place else "¿De qué lugar? Escríbalo arriba."
+        # The live-camera window is gone with the visible globe; what the
+        # place is like right now still answers.
+        if not place:
+            return "¿De qué lugar? Le digo cómo está ahora."
+        return client.place(place)
 
     def follow_flight(number: str) -> str:
         number = number or last_plane[0]
@@ -3807,13 +3774,7 @@ def run(config: dict[str, Any]) -> None:
         if not number:
             return "¿Qué vuelo? Dígame el número, por ejemplo «sigue el vuelo AV 123»."
 
-        def show() -> None:
-            if "flight" not in world_windows:
-                world_windows["flight"] = FlightWindow(config["server_url"], open_app_window, lang_now())
-            world_windows["flight"].follow(number)
-
-        on_ui(show)
-        return f"Siguiendo el vuelo {number} en vivo."
+        return client.flight(number)  # said in words: no flight window
 
     blocks = bloqueo.Store(HOME / "bloqueo.json")
     guard = bloqueo.Guard(
@@ -4132,8 +4093,6 @@ def run(config: dict[str, Any]) -> None:
         camera=lambda _a="": (on_ui(camera_window.open), "")[1],
         holo=lambda _a="": (on_ui(camera_window.open), set_hands("holo"))[1],
         globe=lambda _a="": globe_tool(_a) if _a else run_quick(_quick_kind("globe")),
-        cams=show_cams,
-        flight=follow_flight,
         blender=prefill("en Blender haz "),
         video=prefill("edita un video con la carpeta "),
         meeting=lambda _a="": run_quick(_quick_kind("meeting_last")),
@@ -4142,6 +4101,33 @@ def run(config: dict[str, Any]) -> None:
         blocking=lambda _a="": show_blocks(),
         lock=lambda _a="": run_quick(_quick_kind("key", "win+l")),
     )
+
+    # -- what the web app's Health and Profile pages read (via the server) -----
+    def health_summary(_args: dict) -> dict:
+        from datetime import date
+
+        from sergio_escritorio.salud import body_metrics, trends
+
+        return {
+            "text": health.describe(),
+            "metrics": body_metrics(health.answers) if health.answers else {},
+            "trends": trends(health.days, date.today()) if health.days else {},
+            "report": health.summary_for_profile(),
+        }
+
+    def profile_summary(_args: dict) -> dict:
+        return {"text": profile.summary(), "updates": len(profile.updates)}
+
+    def open_from_web(args: dict) -> str:
+        key = str(args.get("section") or "")
+        if key not in section_openers:
+            raise LookupError(f"unknown section {key}")
+        open_section(key)
+        return "ok"
+
+    controller.skills["health_summary"] = health_summary
+    controller.skills["profile_summary"] = profile_summary
+    controller.skills["open_section"] = open_from_web
 
     notch.on_click = panel.toggle
     companion.setVisible(bool(config["show_companion"]))

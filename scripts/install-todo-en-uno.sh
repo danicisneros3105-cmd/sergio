@@ -10,13 +10,14 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-WITH_GLOBE=true
+WITH_GLOBE=false  # God's Eye View is hidden: only its data is used
 TOKEN_SAVER=false
 PERMANENT=false
 MODEL="qwen3:8b"
 while [[ $# -gt 0 ]]; do
   case $1 in
     --sin-globo) WITH_GLOBE=false ;;
+    --con-globo) WITH_GLOBE=true ;;  # the visible 3D globe server, as before
     --ahorro-tokens) TOKEN_SAVER=true ;;
     --permanente) PERMANENT=true ;;
     --modelo) MODEL=$2; shift ;;
@@ -116,10 +117,11 @@ add_section analytics "enabled = false"
 add_section intelligence "default_model = \"$MODEL\""
 # Evolución: Sergio aprende de cada conversación y consolida tu perfil.
 add_section memory "enabled = true"
-# Herramientas que Sergio puede usar en el chat (incluye Clacky y el globo).
-add_section tools 'enabled = ["think", "calculator", "web_search", "file_read", "user_profile_manage", "clacky_task", "globe_view", "live_flights", "live_earthquakes", "upcoming_launches", "phone_call", "phone_call_status", "whatsapp_send", "face_identify", "face_list", "skill_guide"]'
+# Herramientas que Sergio puede usar en el chat (Clacky y los datos del planeta:
+# lugares y clima, vuelos, sismos y lanzamientos; el globo no se muestra).
+add_section tools 'enabled = ["think", "calculator", "web_search", "file_read", "user_profile_manage", "clacky_task", "globe_view", "live_flights", "flights_overhead", "live_earthquakes", "upcoming_launches", "phone_call", "phone_call_status", "whatsapp_send", "face_identify", "face_list", "skill_guide"]'
 if $TOKEN_SAVER; then add_section compression "tool_output = true"; fi
-if ! $WITH_GLOBE; then add_section extensions.globe "enabled = false"; fi
+if $WITH_GLOBE; then add_section extensions.globe "enabled = true"; fi
 # Voz en español, local: escucha con Whisper y habla con Kokoro.
 add_section speech 'language = "es"
 compute_type = "int8"

@@ -11,6 +11,8 @@ import { LogsPage } from './pages/LogsPage';
 import { ExtensionPage } from './pages/ExtensionPage';
 import { FacesPage } from './pages/FacesPage';
 import { ThinkPage } from './pages/ThinkPage';
+import { HealthPage } from './pages/HealthPage';
+import { ProfilePage } from './pages/ProfilePage';
 import { CoworkPage } from './pages/CoworkPage';
 import { CommandPalette } from './components/CommandPalette';
 import { SetupScreen } from './components/SetupScreen';
@@ -181,11 +183,12 @@ export default function App() {
           <Route path="data-sources" element={<DataSourcesPage />} />
           <Route path="agents" element={<AgentsPage />} />
           <Route path="logs" element={<LogsPage />} />
-          <Route path="globe" element={<ExtensionPage name="globe" />} />
           <Route path="clacky" element={<ExtensionPage name="clacky" />} />
           <Route path="faces" element={<FacesPage />} />
           <Route path="pensar" element={<ThinkPage />} />
           <Route path="cowork" element={<CoworkPage />} />
+          <Route path="salud" element={<HealthPage />} />
+          <Route path="perfil" element={<ProfilePage />} />
         </Route>
       </Routes>
       <Toaster position="bottom-right" />

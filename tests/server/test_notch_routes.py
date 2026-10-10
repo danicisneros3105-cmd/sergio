@@ -32,34 +32,27 @@ def test_world_summary(monkeypatch):
     assert data["launches"] == [] and data["errors"] == ["boom"]
 
 
-def test_goto(monkeypatch):
+def test_place(monkeypatch):
     from openjarvis.tools import live_world
 
-    def run(self, **kw):
-        assert kw == {"place": "Quito", "style": "thermal"}
-        return ToolResult(
-            "globe_view",
-            "ok",
-            metadata={"label": "Quito, Ecuador", "url": "http://127.0.0.1:4173/#x"},
-        )
+    def report(params):
+        assert params == {"place": "Quito"}
+        return {"label": "Quito, Ecuador", "text": "Quito, Ecuador: 17 °C."}
 
-    monkeypatch.setattr(live_world.GlobeViewTool, "execute", run)
-    resp = _client().post("/v1/world/goto", json={"place": "Quito", "style": "thermal"})
-    assert resp.json() == {"label": "Quito, Ecuador", "url": "http://127.0.0.1:4173/#x"}
+    monkeypatch.setattr(live_world, "place_report", report)
+    resp = _client().get("/v1/world/place", params={"q": "Quito"})
+    assert resp.json()["text"] == "Quito, Ecuador: 17 °C."
 
 
-def test_goto_unknown_place(monkeypatch):
+def test_place_unknown(monkeypatch):
     from openjarvis.tools import live_world
 
-    monkeypatch.setattr(
-        live_world.GlobeViewTool,
-        "execute",
-        lambda self, **kw: ToolResult(
-            "globe_view", "No encontré ese lugar", success=False
-        ),
-    )
-    resp = _client().post("/v1/world/goto", json={"place": "zzz"})
-    assert resp.status_code == 400 and "No encontré" in resp.json()["detail"]
+    def report(params):
+        raise ValueError("Place not found: zzz")
+
+    monkeypatch.setattr(live_world, "place_report", report)
+    resp = _client().get("/v1/world/place", params={"q": "zzz"})
+    assert resp.status_code == 404 and "No encuentro" in resp.json()["detail"]
 
 
 def test_ecc_guides(tmp_path, monkeypatch):
@@ -75,27 +68,6 @@ def test_ecc_guides(tmp_path, monkeypatch):
     data = _client().get("/v1/ecc/guides", params={"q": "video"}).json()
     assert data["installed"] and data["guides"][0]["name"] == "video-editing"
     assert _client().get("/v1/ecc/guides").json()["guides"][0]["kind"] == "skill"
-
-
-def test_open_globe_starts_it(monkeypatch):
-    from openjarvis.tools import live_world
-
-    monkeypatch.setattr(
-        live_world, "ensure_globe", lambda wait=90.0: (True, "http://127.0.0.1:4173/")
-    )
-    assert _client().post("/v1/world/open").json() == {"url": "http://127.0.0.1:4173/"}
-
-
-def test_open_globe_explains_why_not(monkeypatch):
-    from openjarvis.tools import live_world
-
-    monkeypatch.setattr(
-        live_world,
-        "ensure_globe",
-        lambda wait=90.0: (False, "El globo no arrancó: skipped: Node.js 24+ and npm"),
-    )
-    resp = _client().post("/v1/world/open")
-    assert resp.status_code == 503 and "Node.js" in resp.json()["detail"]
 
 
 def test_ensure_globe_reports_the_log(tmp_path, monkeypatch):
