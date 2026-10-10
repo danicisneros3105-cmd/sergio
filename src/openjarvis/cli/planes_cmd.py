@@ -14,7 +14,6 @@ For the seller (needs the private key, never stored in the code):
 
 from __future__ import annotations
 
-import os
 import time
 import webbrowser
 from pathlib import Path
@@ -152,11 +151,12 @@ def generar_claves(salida: Optional[str]) -> None:
     path = Path(
         salida or Path.home() / ".openjarvis" / "license-issuer.key"
     ).expanduser()
-    if path.exists():
-        raise click.ClickException(f"ya existe {path}: no la sobrescribo")
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(pair["private"] + "\n", "utf-8")
-    os.chmod(path, 0o600)
+    from openjarvis.tiers import write_private
+
+    try:
+        write_private(path, pair["private"] + "\n", replace=False)
+    except FileExistsError:
+        raise click.ClickException(f"ya existe {path}: no la sobrescribo") from None
     console.print(
         f"Clave privada guardada en {path} (permisos 600). Guárdela fuera de este equipo también."
     )
@@ -211,7 +211,8 @@ def emitir(
         )
     except LicenseError as exc:
         raise click.ClickException(str(exc)) from None
-    console.print(token)
+    # Plain echo: rich would fold the long key over several lines.
+    click.echo(token)
 
 
 __all__ = ["licencia", "planes"]

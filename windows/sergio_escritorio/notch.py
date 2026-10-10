@@ -30,11 +30,13 @@ from PySide6.QtGui import (
     QPainter,
     QPainterPath,
     QPen,
+    QPixmap,
     QRegion,
+    QTransform,
 )
 from PySide6.QtWidgets import QWidget
 
-from sergio_escritorio.activities import Activities, Activity, Spring
+from sergio_escritorio.activities import Activities, Activity, Fold, Spring
 from sergio_escritorio.character import PALETTES, STATE_COLORS, draw_character
 
 LABELS = {
@@ -105,7 +107,9 @@ class Notch(QWidget):
         self._t0 = time.monotonic()
         self._w, self._h = COMPACT
         self._sw, self._sh = Spring(COMPACT[0]), Spring(COMPACT[1])
-        self._duo = Spring(0.0, response=0.5, damping=0.68)  # 0 merged .. 1 split
+        self._duo = Fold()  # the iPhone Duo fold: 0° merged .. 180° split
+        self._duo_item: Activity | None = None  # what the folding half shows
+        self._duo_more = 0
         self._last_tick = time.monotonic()
         self.activities: Activities | None = None
         self._live: list[Activity] = []
@@ -193,15 +197,17 @@ class Notch(QWidget):
     def pill(self) -> QRectF:
         return QRectF((CANVAS_W - self._w) / 2, 0, self._w, self._h)
 
+    def hinge(self) -> float:
+        """The x of the fold's hinge, just right of the pill."""
+        return self.pill().right() + GAP
+
     def bubble(self) -> QRectF | None:
-        """The second island (dúo), sliding out of the pill's right edge."""
-        k = self._duo.value
-        if k <= 0.02:
+        """The second island (dúo): where the folding half is right now."""
+        if self._duo.angle <= 0.5:
             return None
-        rect = self.pill()
-        size = BUBBLE * min(1.0, max(0.2, k))
-        x = rect.right() - size + (GAP + size) * min(1.15, k)
-        return QRectF(x, 0, size, size)
+        hinge, far = self.hinge(), self.hinge() + BUBBLE * self._duo.reach()
+        left, right = min(hinge, far), max(hinge, far)
+        return QRectF(left, 0, max(1.0, right - left), BUBBLE)
 
     # -- animation --------------------------------------------------------------
     def _tick(self) -> None:
@@ -225,12 +231,14 @@ class Notch(QWidget):
         # Real springs (a soft iOS overshoot) toward the target size.
         self._sw.target, self._sh.target = tw, th
         self._w, self._h = self._sw.step(dt), self._sh.step(dt)
-        self._duo.target = 1.0 if len(self._live) >= 2 else 0.0
+        self._duo.open(len(self._live) >= 2)
         self._duo.step(dt)
         region = QRegion(self.pill().toAlignedRect().adjusted(-1, 0, 1, 1))
         bubble = self.bubble()
         if bubble is not None:
-            region = region.united(QRegion(bubble.toAlignedRect().adjusted(-1, 0, 1, 1)))
+            region = region.united(
+                QRegion(bubble.toAlignedRect().adjusted(-1, 0, 1, 1))
+            )
         if region != self._mask_rect:
             self._mask_rect = region
             self.setMask(region)  # clicks outside the islands go through
@@ -309,9 +317,13 @@ class Notch(QWidget):
             level=self.level if self.state == "listening" else 0.0,
         )
 
-        bubble = self.bubble()
-        if bubble is not None and len(self._live) >= 2:
-            self._draw_bubble(p, bubble, self._live[1], len(self._live) - 2, t)
+        if self.bubble() is not None:
+            # While it folds shut the second activity may already be gone:
+            # the last one shown keeps folding away.
+            if len(self._live) >= 2:
+                self._duo_item, self._duo_more = self._live[1], len(self._live) - 2
+            if self._duo_item is not None:
+                self._draw_fold(p, self._duo_item, self._duo_more, t)
         if compact:
             if self.call_since is not None:
                 self._draw_call(p, rect)
@@ -320,7 +332,9 @@ class Notch(QWidget):
             else:
                 self._draw_wave(
                     p,
-                    QRectF(rect.right() - PAD - 44, rect.top() + 9, 44, rect.height() - 18),
+                    QRectF(
+                        rect.right() - PAD - 44, rect.top() + 9, 44, rect.height() - 18
+                    ),
                     9,
                 )
             return
@@ -366,7 +380,9 @@ class Notch(QWidget):
             y += metrics.descent() + metrics.leading()
 
     # -- Live Activities ----------------------------------------------------------
-    def _ring(self, p: QPainter, centre: QPointF, radius: float, item: Activity, t: float) -> None:
+    def _ring(
+        self, p: QPainter, centre: QPointF, radius: float, item: Activity, t: float
+    ) -> None:
         """Progress ring (spins when the progress is unknown); check or cross at the end."""
         colour = QColor(item.colour)
         track = QColor(colour)
@@ -384,7 +400,9 @@ class Notch(QWidget):
             span = 1.0 if item.state != "running" else (item.progress or 0.0)
             p.drawArc(box, 90 * 16, int(-span * 360 * 16))
         if item.state == "done":
-            k = min(1.0, (time.monotonic() - item.ended) / 0.35)  # the check draws itself
+            k = min(
+                1.0, (time.monotonic() - item.ended) / 0.35
+            )  # the check draws itself
             a = QPointF(centre.x() - radius * 0.42, centre.y() + radius * 0.02)
             b = QPointF(centre.x() - radius * 0.1, centre.y() + radius * 0.34)
             c = QPointF(centre.x() + radius * 0.45, centre.y() - radius * 0.32)
@@ -397,8 +415,14 @@ class Notch(QWidget):
             p.drawPath(path)
         elif item.state == "failed":
             d = radius * 0.32
-            p.drawLine(QPointF(centre.x() - d, centre.y() - d), QPointF(centre.x() + d, centre.y() + d))
-            p.drawLine(QPointF(centre.x() + d, centre.y() - d), QPointF(centre.x() - d, centre.y() + d))
+            p.drawLine(
+                QPointF(centre.x() - d, centre.y() - d),
+                QPointF(centre.x() + d, centre.y() + d),
+            )
+            p.drawLine(
+                QPointF(centre.x() + d, centre.y() - d),
+                QPointF(centre.x() - d, centre.y() + d),
+            )
 
     def _draw_live(self, p: QPainter, rect: QRectF, item: Activity, t: float) -> None:
         """Compact island with one Live Activity: its name and its ring."""
@@ -414,17 +438,57 @@ class Notch(QWidget):
         text = metrics.elidedText(item.title, Qt.TextElideMode.ElideRight, width)
         p.drawText(QPointF(left, rect.center().y() + 4), text)
 
-    def _draw_bubble(self, p: QPainter, box: QRectF, item: Activity, more: int, t: float) -> None:
+    def _draw_fold(self, p: QPainter, item: Activity, more: int, t: float) -> None:
+        """The dúo folding open like the iPhone Duo's cover half.
+
+        The open bubble is drawn flat, blurred and darkened by how closed
+        it is, then mapped onto the half that swings around the hinge, with
+        a little perspective (the far edge shrinks as it turns)."""
+        fold = self._duo
+        size = int(BUBBLE)
+        face = QPixmap(size, size)
+        face.fill(Qt.GlobalColor.transparent)
+        q = QPainter(face)
+        q.setRenderHint(QPainter.RenderHint.Antialiasing)
+        box = QRectF(0, 0, BUBBLE, BUBBLE)
+        if fold.facing():
+            self._draw_bubble(q, box, item, more, t)
+        else:  # its back, the plain black island
+            q.setPen(Qt.PenStyle.NoPen)
+            q.setBrush(QColor(0, 0, 0))
+            q.drawEllipse(box)
+        effect, dark = fold.effect(), fold.darken()
+        if dark > 0.0:
+            q.setPen(Qt.PenStyle.NoPen)
+            q.setBrush(QColor(0, 0, 0, int(255 * dark)))
+            q.drawEllipse(box)
+        q.end()
+        if effect > 0.02:
+            # Blur by shrinking and enlarging smoothly: cheap, and soft enough.
+            small = max(2, int(size * (1.0 - 0.85 * effect)))
+            mode = Qt.TransformationMode.SmoothTransformation
+            face = face.scaled(small, small, mode=mode).scaled(size, size, mode=mode)
+        scale_x = fold.reach()  # -1 (lying over the pill) .. 1 (open)
+        depth = 0.25 * math.sin(math.radians(fold.angle)) / BUBBLE
+        # Local (x from the hinge, y from the middle) → screen, projective.
+        warp = QTransform(scale_x, 0.0, depth, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0)
+        warp *= QTransform.fromTranslate(self.hinge(), BUBBLE / 2)
+        p.save()
+        p.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
+        p.setTransform(warp, combine=True)
+        p.drawPixmap(QPointF(0, -BUBBLE / 2), face)
+        p.restore()
+
+    def _draw_bubble(
+        self, p: QPainter, box: QRectF, item: Activity, more: int, t: float
+    ) -> None:
         """The dúo: a second black island with the next activity's ring."""
         p.setPen(Qt.PenStyle.NoPen)
         p.setBrush(QColor(0, 0, 0))
         p.drawEllipse(box)
-        if box.width() < BUBBLE * 0.7:
-            return
         self._ring(p, box.center(), box.width() * 0.3, item, t)
         if more > 0:
             p.setFont(self._small)
-            p.setPen(QColor(235, 235, 240))
             badge = QRectF(box.right() - 15, box.bottom() - 13, 17, 13)
             p.setPen(Qt.PenStyle.NoPen)
             p.setBrush(QColor(58, 58, 64))

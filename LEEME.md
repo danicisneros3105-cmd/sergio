@@ -1035,8 +1035,12 @@ apruebes mirando la cámara. «Modo bloqueo»: la pantalla de bloqueo de Windows
 * **Actividades en vivo en el notch** (como el iPhone): cada trabajo largo
   (tareas, Blender Pro, Video Pro) va en el notch con su anillo de progreso.
   Con dos a la vez, la isla se divide en dos (la burbuja de al lado, «+N» si
-  hay más). Al terminar se dibuja un check y vuelve a unirse. Todo se mueve
-  con resortes, con un pequeño rebote como en iOS.
+  hay más) con el pliegue del **iPhone Duo**: la mitad nueva sale doblada
+  sobre la isla, gira sobre su bisagra y se abre en 1,4 s, desenfocada y
+  oscura al principio y nítida al terminar. Al acabar la tarea se pliega de
+  vuelta. Animación basada en
+  [chuspeeism/iphone-duo](https://github.com/chuspeeism/iphone-duo) (MIT).
+  El resto se mueve con resortes, con un pequeño rebote como en iOS.
 * **Menos alucinaciones**:
   * Las preguntas de datos (precios, noticias, quién ganó, cuándo, dónde)
     se responden **buscando en Google** con fuentes, no de memoria.

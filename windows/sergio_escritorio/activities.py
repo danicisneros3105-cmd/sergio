@@ -62,12 +62,20 @@ class Activities:
     def start(self, title: str, kind: str = "task", detail: str = "") -> int:
         with self._lock:
             aid = next(self._ids)
-            self._items[aid] = Activity(aid, title[:60], kind, None, detail[:120], started=self.clock())
+            self._items[aid] = Activity(
+                aid, title[:60], kind, None, detail[:120], started=self.clock()
+            )
         self._changed()
         return aid
 
-    def update(self, aid: int, *, progress: float | None = None, detail: str | None = None,
-               title: str | None = None) -> None:
+    def update(
+        self,
+        aid: int,
+        *,
+        progress: float | None = None,
+        detail: str | None = None,
+        title: str | None = None,
+    ) -> None:
         with self._lock:
             item = self._items.get(aid)
             if item is None or item.state != "running":
@@ -88,8 +96,11 @@ class Activities:
             if item is None:
                 return
             self._items[aid] = replace(
-                item, state="done" if ok else "failed", progress=1.0 if ok else item.progress,
-                detail=(detail or item.detail)[:120], ended=self.clock(),
+                item,
+                state="done" if ok else "failed",
+                progress=1.0 if ok else item.progress,
+                detail=(detail or item.detail)[:120],
+                ended=self.clock(),
             )
         self._changed()
 
@@ -97,7 +108,11 @@ class Activities:
         """A just-finished one first (its check is the news), then the running, oldest first."""
         now = self.clock()
         with self._lock:
-            for aid in [a.id for a in self._items.values() if a.state != "running" and now - a.ended > LINGER]:
+            for aid in [
+                a.id
+                for a in self._items.values()
+                if a.state != "running" and now - a.ended > LINGER
+            ]:
                 del self._items[aid]
             items = list(self._items.values())
         return sorted(items, key=lambda a: (a.state == "running", a.started))
@@ -114,7 +129,11 @@ class Activities:
         for a in items:
             pct = f" ({round(a.progress * 100)} %)" if a.progress is not None else ""
             parts.append(f"{a.title}{pct}" + (f": {a.detail}" if a.detail else ""))
-        head = "Tengo una cosa en marcha: " if len(items) == 1 else f"Tengo {len(items)} cosas en marcha: "
+        head = (
+            "Tengo una cosa en marcha: "
+            if len(items) == 1
+            else f"Tengo {len(items)} cosas en marcha: "
+        )
         return head + "; ".join(parts) + "."
 
     def _changed(self) -> None:
@@ -131,7 +150,9 @@ class Spring:
     ``response`` is the period in seconds, ``damping`` the ratio (1 = no
     overshoot, ~0.72 = Apple's bouncy default)."""
 
-    def __init__(self, value: float = 0.0, response: float = 0.42, damping: float = 0.72) -> None:
+    def __init__(
+        self, value: float = 0.0, response: float = 0.42, damping: float = 0.72
+    ) -> None:
         self.value = self.target = value
         self.velocity = 0.0
         self.response, self.damping = response, damping
@@ -141,7 +162,10 @@ class Spring:
 
         dt = min(dt, 1 / 30)
         omega = 2 * math.pi / self.response
-        force = -omega * omega * (self.value - self.target) - 2 * self.damping * omega * self.velocity
+        force = (
+            -omega * omega * (self.value - self.target)
+            - 2 * self.damping * omega * self.velocity
+        )
         self.velocity += force * dt
         self.value += self.velocity * dt
         if abs(self.value - self.target) < 1e-3 and abs(self.velocity) < 1e-3:
@@ -152,4 +176,61 @@ class Spring:
         return self.value == self.target and self.velocity == 0.0
 
 
-__all__ = ["Activities", "Activity", "KINDS", "Spring"]
+class Fold:
+    """The iPhone Duo fold, for the island splitting in two.
+
+    After github.com/chuspeeism/iphone-duo (MIT): a panel hinged on one
+    edge swings from closed (0°, lying over the pill) to open (180°, beside
+    it) in 1.4 s with a smoothstep ease. Only that half moves; the pill stays
+    put. While the panel is near closed its face blurs and darkens: the
+    effect grows with the transition, and darkening is twice the effect,
+    capped at black."""
+
+    DURATION = 1.4
+
+    def __init__(self, opened: bool = False) -> None:
+        self.angle = self.target = 180.0 if opened else 0.0
+        self._from = self.angle
+        self._elapsed: float | None = None
+
+    def open(self, want: bool) -> None:
+        target = 180.0 if want else 0.0
+        if target != self.target:
+            # Starting from wherever it is now, so a quick change of mind
+            # reverses smoothly instead of jumping.
+            self._from, self.target, self._elapsed = self.angle, target, 0.0
+
+    def step(self, dt: float) -> float:
+        if self._elapsed is None:
+            return self.angle
+        self._elapsed += max(0.0, dt)
+        p = min(self._elapsed / self.DURATION, 1.0)
+        ease = p * p * (3 - 2 * p)
+        self.angle = self._from + (self.target - self._from) * ease
+        if p >= 1.0:
+            self.angle, self._elapsed = self.target, None
+        return self.angle
+
+    def settled(self) -> bool:
+        return self._elapsed is None
+
+    def reach(self) -> float:
+        """Where the far edge is, in panel widths from the hinge (-1 .. 1)."""
+        import math
+
+        return -math.cos(math.radians(self.angle))
+
+    def facing(self) -> bool:
+        """True once the panel's face (not its back) is towards you."""
+        return self.angle > 90.0
+
+    def effect(self) -> float:
+        """0 fully open .. 1 at a right angle or more closed (smoothstep)."""
+        m = min(1.0, max(0.0, (180.0 - self.angle) / 90.0))
+        return m * m * (3 - 2 * m)
+
+    def darken(self) -> float:
+        return min(1.0, 2.0 * self.effect())
+
+
+__all__ = ["Activities", "Activity", "Fold", "KINDS", "Spring"]

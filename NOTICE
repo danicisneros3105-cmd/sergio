@@ -6,3 +6,10 @@ el coach en src/openjarvis/coach y sus pruebas) son obra de Pablo Daniel Cisnero
 Terreros y se distribuyen bajo la licencia Apache 2.0 de este repositorio.
 Este proyecto se basa en Open Jarvis (Open Jarvis Contributors), también Apache 2.0;
 sus créditos y licencia se conservan.
+
+La animación de la isla dividida (windows/sergio_escritorio/notch.py y la clase
+Fold de activities.py) sigue la transición de pliegue de iPhone Duo · Fold Preview
+(https://github.com/chuspeeism/iphone-duo), Copyright (c) 2026 jadon7, licencia MIT:
+duración de 1,4 s con suavizado smoothstep, solo gira la mitad de la tapa, y el
+desenfoque y el oscurecido (el doble de la intensidad, con tope en negro) siguen
+la transición. No se copia código ni recursos de Apple; la idea se reimplementó en Qt.

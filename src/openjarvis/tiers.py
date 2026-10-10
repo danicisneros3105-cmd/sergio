@@ -273,7 +273,7 @@ def verify(
     if not pubkey_b64:
         raise LicenseError("esta instalación no tiene clave pública de licencias")
     try:
-        prefix, body64, sig64 = token.strip().split(".")
+        prefix, body64, sig64 = clean(token).split(".")
         if prefix != PREFIX:
             raise ValueError
         body, sig = _b64d(body64), _b64d(sig64)
@@ -281,6 +281,8 @@ def verify(
             sig, body
         )
         payload = json.loads(body)
+        if not isinstance(payload, dict):
+            raise ValueError
     except InvalidSignature:
         raise LicenseError("la licencia no es auténtica") from None
     except (ValueError, TypeError):
@@ -292,14 +294,29 @@ def verify(
     return payload
 
 
+def clean(token: Any) -> str:
+    """A pasted key without spaces or line breaks (e-mail clients wrap them)."""
+    return "".join(str(token or "").split())
+
+
+def write_private(path: Path, text: str, *, replace: bool = True) -> None:
+    """Write *text* readable by the owner only from the first byte (0600).
+
+    With ``replace=False`` an existing file is never touched (FileExistsError).
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    target = path if not replace else path.with_suffix(path.suffix + ".tmp")
+    flags = os.O_WRONLY | os.O_CREAT | (os.O_EXCL if not replace else os.O_TRUNC)
+    fd = os.open(target, flags, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as fh:
+        fh.write(text)
+    if replace:
+        os.replace(target, path)
+
+
 def activate(token: str) -> Dict[str, Any]:
     payload = verify(token)
-    path = license_path()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(".tmp")
-    tmp.write_text(json.dumps({"token": token.strip()}), "utf-8")
-    os.chmod(tmp, 0o600)
-    tmp.replace(path)
+    write_private(license_path(), json.dumps({"token": clean(token)}))
     return payload
 
 
@@ -310,9 +327,10 @@ def deactivate() -> None:
 def current() -> Dict[str, Any]:
     """The plan in force: ``{"plan", "holder", "expires", "seats", "problem"}``."""
     try:
-        token = json.loads(license_path().read_text("utf-8")).get("token", "")
+        saved = json.loads(license_path().read_text("utf-8"))
     except (OSError, ValueError):
         return {"plan": "free"}
+    token = saved.get("token", "") if isinstance(saved, dict) else ""
     try:
         return verify(token)
     except LicenseError as exc:
@@ -349,6 +367,7 @@ __all__ = [
     "PLAN_INFO",
     "activate",
     "checkout_url",
+    "clean",
     "current",
     "deactivate",
     "generate_keypair",
@@ -356,4 +375,5 @@ __all__ = [
     "issue",
     "require",
     "verify",
+    "write_private",
 ]

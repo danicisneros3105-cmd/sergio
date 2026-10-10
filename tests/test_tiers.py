@@ -240,3 +240,34 @@ def test_cli_issues_and_shows_a_bundle(keys, tmp_path):
     tiers.activate(issued.output.strip().replace("\n", ""))
     assert "paquete Multi-channel" in runner.invoke(licencia, ["estado"]).output
     assert "VFX Studio — $19 / mes" in runner.invoke(planes, []).output
+
+
+def test_a_wrapped_key_still_activates_and_a_damaged_file_means_free(keys):
+    token = tiers.issue(keys["private"], "pro", holder="Ana")
+    wrapped = "\n".join(token[i : i + 60] for i in range(0, len(token), 60))
+    assert tiers.activate("  " + wrapped + "\n")["plan"] == "pro"
+    assert stat.S_IMODE(os.stat(tiers.license_path()).st_mode) == 0o600
+    assert tiers.current()["plan"] == "pro"
+    for junk in ("[1, 2]", '{"token": 7}', "no es json"):
+        tiers.license_path().write_text(junk)
+        assert tiers.current()["plan"] == "free"
+    assert not tiers.has_feature("premium_skills")
+
+
+def test_the_issued_key_prints_on_one_line(keys, tmp_path):
+    from openjarvis.cli.planes_cmd import licencia
+
+    key_file = tmp_path / "issuer.key"
+    tiers.write_private(key_file, keys["private"], replace=False)
+    with pytest.raises(FileExistsError):
+        tiers.write_private(key_file, "otra", replace=False)
+    out = (
+        CliRunner()
+        .invoke(
+            licencia,
+            ["emitir", "pro", "--titular", "Ana", "--clave-privada", str(key_file)],
+        )
+        .output
+    )
+    assert len(out.strip().splitlines()) == 1
+    assert tiers.verify(out.strip())["holder"] == "Ana"

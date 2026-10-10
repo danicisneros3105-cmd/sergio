@@ -389,3 +389,20 @@ def test_the_swarm_never_exceeds_its_limit():
     orch.submit("x")
     wait(orch)
     assert worst[0] == 5
+
+
+def test_the_duo_unfolds_like_the_iphone_duo():
+    from sergio_escritorio.activities import Fold
+
+    fold = Fold()
+    assert fold.angle == 0 and fold.reach() == -1.0 and fold.effect() == 1.0
+    fold.open(True)
+    fold.step(Fold.DURATION / 2)
+    assert 80 < fold.angle < 100 and fold.darken() == 1.0  # edge-on, still dark
+    fold.step(Fold.DURATION / 2)
+    assert fold.angle == 180 and fold.settled() and fold.facing()
+    assert fold.effect() == 0.0 and fold.darken() == 0.0 and fold.reach() == 1.0
+    fold.open(False)
+    fold.step(0.3)
+    fold.open(True)  # a change of mind reverses from where it is
+    assert 0 < fold.angle < 180 and fold.step(Fold.DURATION) == 180
