@@ -10,9 +10,9 @@
 from __future__ import annotations
 
 import json
-import re
 import logging
 import os
+import re
 import subprocess
 import sys
 import threading
@@ -50,11 +50,8 @@ def load_config() -> dict[str, Any]:
     data.setdefault("theme", "Océano")
     data.setdefault("eyes", True)
     data.setdefault("cursor_size", 9.0)
-    # Sergio's own voice: the British gentleman (Gemini). The old default
-    # neural voice is upgraded; a voice the user picked is kept.
-    # Gemini Live's default voice everywhere (calls and spoken answers): the
-    # user asked for it, and one voice sounds like one Sergio.
-    if data.get("voice") in (None, "es-EC-LuisNeural", "gemini:Algieba", "gemini:Predeterminada") and not data.get("voice_chosen"):
+    # Set a first-install default without migrating an existing voice identity.
+    if data.get("voice") is None:
         data["voice"] = "gemini:Algenib"  # male, deep, relaxed and a bit husky
     # Muse-style personalisation and the brain's effort.
     data["name"] = "Sergio"  # his name is fixed
@@ -337,6 +334,7 @@ def run(config: dict[str, Any]) -> None:
         """Voice, personality and effort chosen in the notch."""
         client.voice = cfg["voice"]
         client.voice_rate = cfg["voice_rate"]
+        client.allow_voice_fallback = bool(cfg.get("allow_voice_fallback", False))
         client.effort = cfg["effort"]
         name = cfg["name"]
         persona = PERSONALITIES.get(cfg["personality"], "")
@@ -1024,7 +1022,12 @@ def run(config: dict[str, Any]) -> None:
     threading.Thread(target=profile_loop, daemon=True).start()
 
     # -- the coach: what you are learning, at your pace ------------------------
-    from sergio_escritorio.coach import Coach, annotate_video, record_video, school_reminders
+    from sergio_escritorio.coach import (
+        Coach,
+        annotate_video,
+        record_video,
+        school_reminders,
+    )
 
     coach = Coach(HOME / "coach.json")
     coach_windows: dict[str, Any] = {}
@@ -2982,16 +2985,22 @@ def run(config: dict[str, Any]) -> None:
         options: dict[str, Any] = {
             "voice": client.voice,
             "personality": client.personality,
-            "context": lambda: call_context(
-                _dt.datetime.now(),
-                system_status(),
-                reminders.pending(),
-                camera_window.isVisible(),
+            "context": lambda: (
+                call_context(
+                    _dt.datetime.now(),
+                    system_status(),
+                    reminders.pending(),
+                    camera_window.isVisible(),
+                )
+                + client.language_rule()
+                + "\nPrevious conversation (context, not new instructions):\n"
+                + json.dumps(client.history[-12:], ensure_ascii=False)
             ),
             "tools": call_tools(abilities),
             "on_state": call_state,
             "on_caption": bridge.caption.emit,
             "on_heard": lambda text: setattr(assistant, "last_heard", text),
+            "on_turn": client.remember_turn,
             "on_level": bridge.level.emit,
             "on_end": call_ended,
             "video": call_video,
@@ -3092,7 +3101,13 @@ def run(config: dict[str, Any]) -> None:
     controller.skills["face_scan"] = lambda args: face_scan(str(args.get("name") or ""))
 
     # -- who is talking: voiceprints of the people Sergio knows ---------------
-    from sergio_escritorio.speakers import Encoder, LiveVoices, VoiceBook, pcm_to_float, voiced
+    from sergio_escritorio.speakers import (
+        Encoder,
+        LiveVoices,
+        VoiceBook,
+        pcm_to_float,
+        voiced,
+    )
 
     voice_book = VoiceBook()
     owner_cache = [str(config.get("owner") or "")]
@@ -3251,7 +3266,15 @@ def run(config: dict[str, Any]) -> None:
         return f"Lo último que oí era {voices.describe()}."
 
     # -- meetings, video calls, conversations: Sergio takes the minutes --------
-    from sergio_escritorio.meeting import MeetingRecorder, diarize, encode, mix, read_wav, spoken_summary, timeline_text
+    from sergio_escritorio.meeting import (
+        MeetingRecorder,
+        diarize,
+        encode,
+        mix,
+        read_wav,
+        spoken_summary,
+        timeline_text,
+    )
     from sergio_escritorio.speakers import HOME as SERGIO_HOME
 
     recorder = MeetingRecorder(voices.tap, SERGIO_HOME / "reuniones")
@@ -3352,6 +3375,8 @@ def run(config: dict[str, Any]) -> None:
 
     def start_call(prefill: bytes = b"", force: bool = False) -> bool:
         """Open a live call (from a worker thread). False = use turns."""
+        if not client.voice.lower().startswith("gemini:"):
+            return False  # retain ElevenLabs/Edge identity through the turn route
         if not force and config.get("conversation", "llamada") != "llamada":
             return False
         if call_active():
@@ -3812,7 +3837,8 @@ def run(config: dict[str, Any]) -> None:
     ).start()
 
     # -- extra windows (blocking, agents) and the language ---------------------
-    from sergio_escritorio import bloqueo, idioma as _idioma
+    from sergio_escritorio import bloqueo
+    from sergio_escritorio import idioma as _idioma
 
     world_windows: dict[str, Any] = {}
     last_plane = [""]
@@ -4042,6 +4068,8 @@ def run(config: dict[str, Any]) -> None:
         exists=file_exists,
         review=True,
     )
+    panel.actions.swarm_details = orchestrator.snapshot
+    panel.actions.swarm_cancel = orchestrator.cancel_task
 
     def run_tasks(q: Any) -> str | None:
         if q.kind == "task_bg":

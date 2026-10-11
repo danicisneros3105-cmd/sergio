@@ -137,11 +137,123 @@ def test_only_the_six_sections_in_the_users_language(qt):
 
     panel = ControlCenter(PanelActions(config={"language": "en"}))
     labels = [panel.tab_group.button(i).text() for i in range(len(panel.TABS))]
-    assert labels == ["Chat", "Cowork", "Agent Swarm", "Health", "Profile", "Settings"]
+    assert labels == [
+        "Chat",
+        "Cowork",
+        "Agent Swarm",
+        "Health",
+        "Profile",
+        "Settings",
+        "Nodes",
+    ]
     es = ControlCenter(PanelActions(config={"language": "es"}))
     labels = [es.tab_group.button(i).text() for i in range(len(es.TABS))]
-    assert labels == ["Chat", "Cowork", "Enjambre", "Salud", "Perfil", "Configuración"]
+    assert labels == [
+        "Chat",
+        "Cowork",
+        "Enjambre",
+        "Salud",
+        "Perfil",
+        "Configuración",
+        "Nodes",
+    ]
     assert not hasattr(es, "world_list") and not hasattr(es, "guide_list")  # gone
+
+
+def test_nodes_load_create_and_open_the_complete_workspace(qt):
+    panel, _, _, opened, _, _ = _panel(qt)
+    nodes = []
+
+    def server(request):
+        import json
+
+        assert request.url.path == "/v1/nodes"
+        if request.method == "POST":
+            node = {"id": "n1", **json.loads(request.content)}
+            nodes.append(node)
+            return httpx.Response(200, json=node)
+        return httpx.Response(200, json={"nodes": nodes})
+
+    panel.actions.http = httpx.Client(transport=httpx.MockTransport(server))
+    panel.show_tab(panel.NODES)
+    _wait(qt, lambda: not panel._nodes_loading)
+    assert "primer personaje" in panel.nodes_note.text()
+    panel.node_name.setText("Nival")
+    panel.node_role.setText("Revisar código y fuentes")
+    panel._create_node()
+    _wait(qt, lambda: not panel._nodes_loading)
+    assert panel.nodes_list.count() == 1
+    assert "Nival" in panel.nodes_list.item(0).text()
+    assert nodes[0]["role"] == "Revisar código y fuentes"
+    from PySide6.QtWidgets import QPushButton
+
+    next(
+        b
+        for b in panel.pages.widget(panel.NODES).findChildren(QPushButton)
+        if b.text().startswith("Abrir Nodes")
+    ).click()
+    assert opened == ["http://sergio.test/nodes"]
+
+
+def test_custom_voice_id_is_saved_and_survives_reopening(qt):
+    from sergio_escritorio.panel import ControlCenter
+
+    panel, _, _, _, saved, _ = _panel(qt)
+    panel.custom_voice.setText("authorizedVoice123")
+    panel._set_custom_voice()
+    assert saved[-1]["voice"] == "elevenlabs:authorizedVoice123"
+    reopened = ControlCenter(panel.actions)
+    assert reopened.voice.currentData() == "elevenlabs:authorizedVoice123"
+    reopened.custom_voice.setText("../../other")
+    reopened._set_custom_voice()
+    assert reopened.actions.config["voice"] == "elevenlabs:authorizedVoice123"
+
+
+def test_cowork_and_swarm_show_observed_step_results(qt):
+    panel, *_ = _panel(qt)
+    panel._show_cowork(
+        {
+            "runs": [
+                {
+                    "id": "r1",
+                    "goal": "Revisar",
+                    "steps": [
+                        {
+                            "text": "Ejecutar tests",
+                            "status": "done",
+                            "result": "12 passed",
+                        }
+                    ],
+                    "waiting": [],
+                }
+            ]
+        }
+    )
+    assert "12 passed" in panel.cowork_output.toPlainText()
+    cancelled = []
+    panel.actions.swarm_details = lambda: [
+        {
+            "id": 7,
+            "title": "Auditor",
+            "state": "running",
+            "progress": 0.5,
+            "steps": [
+                {
+                    "text": "Tests",
+                    "status": "done",
+                    "where": "fondo",
+                    "result": "14 passed",
+                }
+            ],
+        }
+    ]
+    panel.actions.swarm_cancel = lambda tid: cancelled.append(tid) or True
+    panel.open()
+    panel.show_tab(panel.SWARM)
+    assert "50%" in panel.swarm_list.item(0).text()
+    assert "14 passed" in panel.swarm_output.toPlainText()
+    panel._cancel_swarm()
+    assert cancelled == [7]
 
 
 def test_cowork_starts_and_approves(qt):

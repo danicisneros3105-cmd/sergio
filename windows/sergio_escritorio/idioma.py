@@ -269,6 +269,12 @@ def country_said(text: str) -> str:
 
 # -- interface texts ------------------------------------------------------------------
 TEXTS: dict[str, dict[str, str]] = {
+    "tab_nodes": {code: "Nodes" for code in UI_LANGUAGES},
+    "cancel_selected": {
+        "es": "Cancelar seleccionada", "en": "Cancel selected",
+        "pt": "Cancelar selecionada", "fr": "Annuler la sélection",
+        "de": "Auswahl abbrechen", "it": "Annulla selezionata",
+    },
     "tab_home": {"es": "Inicio", "en": "Home", "pt": "Início", "fr": "Accueil", "de": "Start", "it": "Home"},
     "tab_all": {"es": "Todo", "en": "All", "pt": "Tudo", "fr": "Tout", "de": "Alles", "it": "Tutto"},
     "tab_sergio": {"es": "Sergio", "en": "Sergio", "pt": "Sergio", "fr": "Sergio", "de": "Sergio", "it": "Sergio"},

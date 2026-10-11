@@ -119,6 +119,69 @@ def test_empty_transcripts():
     assert gemini_voice.clean_transcript('"hola"') == "hola"
 
 
+def test_algenib_survives_the_live_to_tts_backup(monkeypatch):
+    from openjarvis.speech import gemini_live
+
+    def unavailable(*args):
+        raise RuntimeError("Live unavailable")
+
+    monkeypatch.setattr(gemini_live, "speak_live", unavailable)
+    models = _fake_sdk(monkeypatch, lambda model: _audio_response())
+    monkeypatch.setenv("ELEVENLABS_API_KEY", "configured")
+    response = _client().post(
+        "/v1/voice/speak", json={"text": "Hola", "voice": "Algenib"}
+    )
+    assert response.status_code == 200
+    assert (
+        models.calls[0][2]["speech_config"]["voice_config"]["prebuilt_voice_config"][
+            "voice_name"
+        ]
+        == "Algenib"
+    )
+
+
+def test_transcription_uses_the_selected_language(monkeypatch):
+    models = _fake_sdk(
+        monkeypatch, lambda model: types.SimpleNamespace(text="open VS Code")
+    )
+    response = _client().post(
+        "/v1/voice/transcribe",
+        files={"file": ("v.wav", b"RIFF", "audio/wav")},
+        data={"language": "en"},
+    )
+    assert response.json() == {"text": "open VS Code"}
+    assert "Expected language: en" in models.calls[0][1][1]
+
+
+def test_voice_id_cannot_inject_a_provider_path(monkeypatch):
+    import pytest
+
+    from openjarvis.speech.elevenlabs_voice import voice_of
+
+    monkeypatch.setenv("ELEVENLABS_VOICE_ID", "myAuthorizedVoice")
+    assert voice_of("elevenlabs:") == "myAuthorizedVoice"
+    with pytest.raises(ValueError):
+        voice_of("elevenlabs:../../voices")
+
+
+def test_empty_elevenlabs_chunks_do_not_switch_to_gemini(monkeypatch):
+    from openjarvis.speech import elevenlabs_voice, gemini_live
+
+    async def chunks(*args):
+        yield b""
+        yield b"\x01\x00"
+
+    def wrong_voice(*args):
+        raise AssertionError("Provider identity changed")
+
+    monkeypatch.setattr(elevenlabs_voice, "stream_pcm", chunks)
+    monkeypatch.setattr(gemini_live, "stream_live", wrong_voice)
+    response = _client().post(
+        "/v1/voice/stream", json={"text": "hola", "voice": "elevenlabs:customVoice"}
+    )
+    assert response.status_code == 200 and response.content == b"\x01\x00"
+
+
 def test_google_schema_cleaning():
     schema = {
         "type": "object",
@@ -171,7 +234,30 @@ def test_fast_chat_goes_straight_to_the_model():
     assert seen == {"model": "gemini-3.8-flash@low", "roles": ["system", "user"]}
 
 
-def test_elevenlabs_streams_when_keyed_and_falls_back_to_algenib(monkeypatch):
+def test_failed_grounding_never_returns_an_unverified_model_guess(monkeypatch):
+    def unavailable(*args):
+        raise RuntimeError("search unavailable")
+
+    monkeypatch.setattr(voice_routes, "grounded_answer", unavailable)
+    app = FastAPI()
+    app.include_router(voice_routes.router)
+    app.state.engine = types.SimpleNamespace(
+        generate=lambda *a, **kw: __import__("pytest").fail("unguarded model fallback")
+    )
+    response = TestClient(app).post(
+        "/v1/voice/chat",
+        json={
+            "model": "m",
+            "messages": [{"role": "user", "content": "Precio actual"}],
+            "grounded": True,
+        },
+    )
+    assert response.status_code == 200
+    assert response.json()["grounded"] is False
+    assert "No pude verificar" in response.json()["content"]
+
+
+def test_stream_preserves_explicit_voice_and_reports_provider_failure(monkeypatch):
     from openjarvis.speech import elevenlabs_voice, gemini_live
 
     used = []
@@ -188,8 +274,14 @@ def test_elevenlabs_streams_when_keyed_and_falls_back_to_algenib(monkeypatch):
     monkeypatch.setattr(gemini_live, "stream_live", live)
     monkeypatch.setenv("ELEVENLABS_API_KEY", "k")
     r = _client().post("/v1/voice/stream", json={"text": "hola", "voice": "Algenib"})
+    assert r.status_code == 200 and r.content == b"\x02\x00" * 10
+    assert used == [("live", "Algenib")]
+    used.clear()
+    r = _client().post(
+        "/v1/voice/stream", json={"text": "hola", "voice": "elevenlabs:customVoice"}
+    )
     assert r.status_code == 200 and r.content == b"\x01\x00" * 10
-    assert used == [("eleven", "elevenlabs:")]  # Sergio's male voice, lower delay
+    assert used == [("eleven", "elevenlabs:customVoice")]
 
     async def broken(text, voice=""):
         raise RuntimeError("ElevenLabs 401: no credit")
@@ -197,8 +289,10 @@ def test_elevenlabs_streams_when_keyed_and_falls_back_to_algenib(monkeypatch):
 
     used.clear()
     monkeypatch.setattr(elevenlabs_voice, "stream_pcm", broken)
-    r = _client().post("/v1/voice/stream", json={"text": "hola", "voice": "Algenib"})
-    assert r.content == b"\x02\x00" * 10 and used == [("live", "Algenib")]
+    r = _client().post(
+        "/v1/voice/stream", json={"text": "hola", "voice": "elevenlabs:customVoice"}
+    )
+    assert r.status_code == 502 and used == []
     used.clear()
     monkeypatch.delenv("ELEVENLABS_API_KEY")
     _client().post("/v1/voice/stream", json={"text": "hola", "voice": "Algenib"})

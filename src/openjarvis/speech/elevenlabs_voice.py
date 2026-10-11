@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import io
 import os
+import re
 import wave
 from typing import AsyncIterator
 
@@ -41,7 +42,14 @@ def key() -> str:
 
 def voice_of(name: str) -> str:
     """'elevenlabs:ID' or 'ID' -> ID (the default voice when empty)."""
-    return name.split(":", 1)[-1].strip() or VOICE_ID
+    voice = (
+        name.split(":", 1)[-1].strip()
+        or os.environ.get("ELEVENLABS_VOICE_ID", "").strip()
+        or VOICE_ID
+    )
+    if not re.fullmatch(r"[A-Za-z0-9_-]{1,80}", voice):
+        raise ValueError("ID de voz de ElevenLabs inválido.")
+    return voice
 
 
 def request(text: str, voice: str) -> tuple[str, dict, dict]:

@@ -226,6 +226,38 @@ class Orchestrator:
     def running(self) -> list[Task]:
         return [t for t in self.tasks if t.status in ("planning", "running")]
 
+    def snapshot(self) -> list[dict[str, Any]]:
+        """Bounded copies for the UI; never expose mutable tasks or fake progress."""
+        with self._task_lock:
+            return [
+                {
+                    "id": task.id,
+                    "title": task.title or task.request[:120],
+                    "state": task.status,
+                    "progress": task.progress(),
+                    "detail": f"{len(task.steps)} pasos · {task.calls} turnos de agente",
+                    "steps": [
+                        {
+                            "text": step.text[:500],
+                            "status": step.status,
+                            "where": step.where,
+                            "result": step.result[:2000],
+                        }
+                        for step in list(task.steps)
+                    ],
+                    "result": task.result[:4000],
+                }
+                for task in self.tasks[-200:]
+            ]
+
+    def cancel_task(self, task_id: int) -> bool:
+        with self._task_lock:
+            for task in self.tasks:
+                if task.id == task_id and task.status in ("planning", "running"):
+                    task.cancel.set()
+                    return True
+        return False
+
     def cancel_last(self) -> str:
         live = self.running()
         if not live:
@@ -403,7 +435,9 @@ class Orchestrator:
         raw = plan.get("pasos") or []
         if not isinstance(raw, list) or len(raw) > 4000:
             raise ValueError("El plan debe contener una lista de hasta 4000 pasos")
-        if any(not isinstance(s, dict) or not str(s.get("paso") or "").strip() for s in raw):
+        if any(
+            not isinstance(s, dict) or not str(s.get("paso") or "").strip() for s in raw
+        ):
             raise ValueError("El plan contiene pasos vacíos o inválidos")
         steps: list[Step] = []
         made: list[list[int]] = []  # plan step -> the steps it became
@@ -418,17 +452,23 @@ class Orchestrator:
                     not isinstance(n, int) or isinstance(n, bool) or not 1 <= n <= i
                     for n in needs
                 ):
-                    raise ValueError(f"Dependencias inválidas en el paso {i + 1}; deben referir a pasos anteriores")
+                    raise ValueError(
+                        f"Dependencias inválidas en el paso {i + 1}; deben referir a pasos anteriores"
+                    )
                 wanted = {n - 1 for n in needs}
             else:  # not said: after the previous step (safe, in order)
                 wanted = {i - 1} if i else set()
             after = sorted({k for w in wanted for k in made[w]})
             fanout = s.get("para_cada") or []
             if not isinstance(fanout, list) or len(fanout) > MAX_FANOUT:
-                raise ValueError(f"para_cada debe ser una lista de hasta {MAX_FANOUT} elementos")
+                raise ValueError(
+                    f"para_cada debe ser una lista de hasta {MAX_FANOUT} elementos"
+                )
             items = [str(x) for x in fanout] if s.get("donde") != "pantalla" else []
             if len(steps) + max(1, len(items)) > 4000:
-                raise ValueError("El plan supera 4000 pasos; divide el trabajo en lotes")
+                raise ValueError(
+                    "El plan supera 4000 pasos; divide el trabajo en lotes"
+                )
             text = str(s.get("paso") or "")
             base = dict(
                 where="pantalla" if s.get("donde") == "pantalla" else "fondo",
@@ -579,7 +619,9 @@ class Orchestrator:
             if task.steps[i].status == "done"
         ]
         if len("\n".join(done)) > 32000:
-            raise ValueError("Contexto de dependencias demasiado grande; divide el trabajo en fases")
+            raise ValueError(
+                "Contexto de dependencias demasiado grande; divide el trabajo en fases"
+            )
         role = task.agent or {}
         return "\n".join(
             [
