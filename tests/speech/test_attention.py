@@ -43,6 +43,7 @@ def test_live_does_not_play_or_act_on_explicit_side_conversation():
         session = FakeSession([])
         await call._run_tool(session, NS(name="desktop_action", args={"action": "click"}, id="x"))
         assert ws.audio == [] and invoked == []
+        assert any(e["type"] == "interrupted" for e in ws.json)
         assert not any(e["type"] == "said" for e in ws.json)
         assert "No se ejecutó" in session.sent[0][1]["function_responses"].response["result"]
     asyncio.run(run())
