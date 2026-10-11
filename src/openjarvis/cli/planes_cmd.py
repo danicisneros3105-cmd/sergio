@@ -1,6 +1,6 @@
 """``sergio planes`` and ``sergio licencia``: plans, upgrades and license keys.
 
-    sergio planes                       # the four plans and the one in force
+    sergio planes                       # the five plans and the one in force
     sergio planes mejorar pro           # opens the payment page (if set up)
     sergio licencia activar <clave>
     sergio licencia estado

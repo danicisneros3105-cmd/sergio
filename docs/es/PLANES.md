@@ -4,12 +4,13 @@ Sergio es un fork de OpenJarvis con licencia Apache 2.0. Todo lo que corre en
 su equipo es gratis y seguirá siéndolo. Los planes de pago cobran por
 **servicios encima del código**, nunca por funciones del programa local.
 
-## Los cuatro planes
+## Los cinco planes
 
 | Plan | Precio | Qué agrega |
 |---|---|---|
 | **Free** | $0 para siempre | Asistente completo y local, Cowork, plugins, razonamiento a fondo, visión, voz, copias cifradas, sincronización con su propio almacenamiento y acceso desde el teléfono |
 | **Pro** | $12 al mes | Sincronización alojada (sin configurar almacenamiento), skills y plugins premium, canal de actualizaciones anticipadas |
+| **Dev** | $24 al mes | Todo lo de Pro, más APIs propias en los Nodes (la clave queda solo en su equipo) |
 | **Teams** | $29 por usuario al mes | Varios usuarios con roles (RBAC), inicio de sesión único (SSO), exportación de auditoría |
 | **Enterprise** | $99 por usuario al mes | Despliegue en sus servidores (on-prem), soporte dedicado con SLA |
 

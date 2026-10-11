@@ -1,29 +1,45 @@
 """Nodes over HTTP: ``/v1/nodes`` — your 24/7 digital employees.
 
-* ``GET/POST /v1/nodes``                       — list · create (it introduces itself)
-* ``GET/PATCH/DELETE /v1/nodes/{id}``          — one Node: settings, rules, apps
-* ``GET/POST /v1/nodes/{id}/messages``         — talk to it (it answers in the background)
+* ``GET/POST /v1/nodes``                       — list · create (from a template; it introduces itself)
+* ``GET  /v1/nodes/catalog``                   — rules, colours, plush parts, tones, templates, plan
+* ``GET/PATCH/DELETE /v1/nodes/{id}``          — one Node: face, tone, rules, apps
+* ``GET/POST /v1/nodes/{id}/threads``          — separate conversations, same memory
+* ``GET/POST /v1/nodes/{id}/messages``         — talk to it (``?thread=``; it answers in the background)
 * ``GET  /v1/nodes/{id}/activity?after=``      — what it did, live
 * ``GET/PUT /v1/nodes/{id}/memory``            — its long-term memory
-* ``POST /v1/nodes/{id}/routines``, ``DELETE …/routines/{rid}`` — recurring work
+* ``POST /v1/nodes/{id}/routines``, ``DELETE …/routines/{rid}``, ``POST …/routines/{rid}/check``
 * ``POST /v1/nodes/{id}/approvals/{aid}``      — ``{"approve": true|false}``
 * ``POST /v1/nodes/{id}/hand-back``            — after you took over
 * ``POST /v1/nodes/{id}/stop`` · ``/resume``   — emergency stop and back
 * ``GET  /v1/nodes/{id}/computer``, ``…/computer/file?path=`` — its disk
-* ``GET  /v1/nodes/rules``                     — the rule categories and choices
+* ``POST /v1/nodes/{id}/connections/{cli|mcp|api}``, ``DELETE …/{kind}/{cid}``,
+  ``POST …/mcp/{cid}/tools`` — commands, MCP servers, APIs (Dev plan)
+* ``GET  /v1/nodes/rules``                     — the rule categories and choices (kept for old clients)
 """
 
 from __future__ import annotations
 
 import asyncio
 import threading
+import time
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
-from openjarvis.nodes.store import COLORS, RULES, NodeError
+from openjarvis.nodes import connections, skills
+from openjarvis.nodes.store import (
+    ACCESSORIES,
+    COLORS,
+    EYES,
+    FELT,
+    MAIN_THREAD,
+    RULES,
+    SHAPES,
+    TONES,
+    NodeError,
+)
 from openjarvis.nodes.worker import NodeWorker
 
 router = APIRouter(prefix="/v1/nodes", tags=["nodes"])
@@ -35,30 +51,62 @@ def get_worker(request: Request) -> NodeWorker:
     with _lock:
         worker = getattr(state, "node_worker", None)
         if worker is None:
-            worker = NodeWorker()
+            worker = NodeWorker(swarm=_swarm(request), notify=_owner_notify(request))
             worker.start()
             state.node_worker = worker
     return worker
+
+
+def _swarm(request: Request) -> Any:
+    try:
+        from openjarvis.server.swarm_routes import get_engine
+
+        return get_engine(request)
+    except Exception:  # noqa: BLE001 - Nodes work without the swarm
+        return None
+
+
+def _owner_notify(request: Request) -> Any:
+    """The owner's notifier (the same one Cowork uses), when configured."""
+    try:
+        from openjarvis.core.config import load_config
+        from openjarvis.cowork.notify import owner_sender
+
+        return owner_sender(
+            load_config(), getattr(request.app.state, "channel_bridge", None)
+        )
+    except Exception:  # noqa: BLE001
+        return None
 
 
 class NewNode(BaseModel):
     name: str
     instructions: str = ""
     color: str = ""
-    apps: List[str] = []
+    apps: Any = None
     rules: Dict[str, str] = {}
+    avatar: Optional[Dict[str, str]] = None
+    tone: str = ""
+    template: str = ""
 
 
 class NodeChanges(BaseModel):
     name: Optional[str] = None
     instructions: Optional[str] = None
     color: Optional[str] = None
-    apps: Optional[List[str]] = None
+    apps: Any = None
     rules: Optional[Dict[str, str]] = None
+    avatar: Optional[Dict[str, str]] = None
+    tone: Optional[str] = None
 
 
 class Message(BaseModel):
     text: str
+    thread: str = MAIN_THREAD
+
+
+class NewThread(BaseModel):
+    title: str = ""
 
 
 class Memory(BaseModel):
@@ -67,9 +115,13 @@ class Memory(BaseModel):
 
 class NewRoutine(BaseModel):
     task: str
+    kind: str = "time"
     every_minutes: int = 0
     at: str = ""
     days: List[int] = []
+    url: str = ""
+    app: str = ""
+    keywords: List[str] = []
 
 
 class Decision(BaseModel):
@@ -78,6 +130,16 @@ class Decision(BaseModel):
 
 class HandBack(BaseModel):
     note: str = ""
+
+
+class NewConnection(BaseModel):
+    name: str
+    command: str = ""
+    url: str = ""
+    base_url: str = ""
+    auth_header: str = "Authorization"
+    prefix: str = ""
+    secret: str = ""
 
 
 def _bad(exc: Exception) -> HTTPException:
@@ -105,10 +167,21 @@ def _full(worker: NodeWorker, node_id: str) -> Dict[str, Any]:
         **node.to_dict(),
         "busy": worker.busy(node_id),
         "memory": store.memory(node_id),
-        "approvals": [a for a in store.approvals(node_id) if a["status"] == "pending"],
+        "approvals": [
+            {k: v for k, v in a.items() if k != "action"}
+            for a in store.approvals(node_id)
+            if a["status"] == "pending"
+        ],
         "unread": unread,
         "computer": str(store.computer(node_id)),
     }
+
+
+def _plan() -> Dict[str, Any]:
+    from openjarvis.tiers import current
+
+    plan = current().get("plan", "free")
+    return {"plan": plan, "api_allowed": connections.api_allowed()}
 
 
 @router.get("/rules")
@@ -127,6 +200,32 @@ async def rules() -> Dict[str, Any]:
     }
 
 
+@router.get("/catalog")
+async def catalog() -> Dict[str, Any]:
+    return {
+        "rules": [
+            {
+                "key": k,
+                "label": v["label"],
+                "default": v["default"],
+                "choices": v["choices"],
+            }
+            for k, v in RULES.items()
+        ],
+        "colors": list(COLORS),
+        "shapes": list(SHAPES),
+        "felt": list(FELT),
+        "accessories": list(ACCESSORIES),
+        "eyes": list(EYES),
+        "tones": [{"key": k, "label": v} for k, v in TONES.items()],
+        "templates": [
+            {k: t.get(k) for k in ("id", "name", "title", "description", "avatar")}
+            for t in skills.TEMPLATES
+        ],
+        **_plan(),
+    }
+
+
 @router.get("")
 async def list_nodes(request: Request) -> Dict[str, Any]:
     worker = get_worker(request)
@@ -136,14 +235,19 @@ async def list_nodes(request: Request) -> Dict[str, Any]:
 @router.post("")
 async def create(body: NewNode, request: Request) -> Dict[str, Any]:
     worker = get_worker(request)
+    if body.template and skills.template(body.template) is None:
+        raise HTTPException(400, "No existe esa plantilla.")
     try:
         node = await asyncio.to_thread(
             worker.create,
             body.name,
             body.instructions,
+            template=body.template,
             color=body.color,
             apps=body.apps,
-            rules=body.rules,
+            rules=body.rules or None,
+            avatar=body.avatar,
+            tone=body.tone,
         )
     except NodeError as exc:
         raise _bad(exc) from exc
@@ -176,21 +280,34 @@ async def delete(node_id: str, request: Request) -> Dict[str, Any]:
 
 @router.post("/{node_id}/seen")
 async def seen(node_id: str, request: Request) -> Dict[str, Any]:
-    import time
-
     worker = get_worker(request)
     _node(worker, node_id)
     worker.store.update(node_id, last_seen=time.time())
     return {"ok": True}
 
 
+@router.get("/{node_id}/threads")
+async def threads(node_id: str, request: Request) -> Dict[str, Any]:
+    return {"threads": _node(get_worker(request), node_id).threads}
+
+
+@router.post("/{node_id}/threads")
+async def new_thread(node_id: str, body: NewThread, request: Request) -> Dict[str, Any]:
+    worker = get_worker(request)
+    _node(worker, node_id)
+    try:
+        return {"thread": worker.store.add_thread(node_id, body.title)}
+    except NodeError as exc:
+        raise _bad(exc) from exc
+
+
 @router.get("/{node_id}/messages")
 async def messages(
-    node_id: str, request: Request, after: float = 0.0
+    node_id: str, request: Request, after: float = 0.0, thread: Optional[str] = None
 ) -> Dict[str, Any]:
     worker = get_worker(request)
     _node(worker, node_id)
-    return {"messages": worker.store.messages(node_id, after=after)}
+    return {"messages": worker.store.messages(node_id, after=after, thread=thread)}
 
 
 @router.post("/{node_id}/messages")
@@ -198,7 +315,7 @@ async def send(node_id: str, body: Message, request: Request) -> Dict[str, Any]:
     worker = get_worker(request)
     _node(worker, node_id)
     try:
-        return {"message": worker.send(node_id, body.text)}
+        return {"message": worker.send(node_id, body.text, thread=body.thread)}
     except NodeError as exc:
         raise _bad(exc) from exc
 
@@ -245,7 +362,21 @@ async def add_routine(
     except NodeError as exc:
         raise _bad(exc) from exc
     worker.store.log(node_id, "routine", f"Nueva rutina: {routine.task}")
+    if (
+        routine.kind == "web"
+    ):  # take the reference copy now, so the next look can compare
+        await asyncio.to_thread(worker.check_now, node_id, routine.id)
     return _full(worker, node_id)
+
+
+@router.post("/{node_id}/routines/{routine_id}/check")
+async def check_routine(
+    node_id: str, routine_id: str, request: Request
+) -> Dict[str, Any]:
+    worker = get_worker(request)
+    _node(worker, node_id)
+    result = await asyncio.to_thread(worker.check_now, node_id, routine_id)
+    return {"woke": bool(result.get("woke")), "error": result.get("error", "")}
 
 
 @router.delete("/{node_id}/routines/{routine_id}")
@@ -265,7 +396,7 @@ async def decide(
     worker = get_worker(request)
     _node(worker, node_id)
     try:
-        worker.decide(node_id, approval_id, body.approve)
+        await asyncio.to_thread(worker.decide, node_id, approval_id, body.approve)
     except NodeError as exc:
         raise HTTPException(409, str(exc)) from exc
     return _full(worker, node_id)
@@ -300,7 +431,9 @@ async def computer(node_id: str, request: Request) -> Dict[str, Any]:
     worker = get_worker(request)
     node = _node(worker, node_id)
     tools = [
-        a for a in worker.store.activity(node_id, limit=400) if a["kind"] == "tool"
+        a
+        for a in worker.store.activity(node_id, limit=400)
+        if a["kind"] in ("tool", "result")
     ][-30:]
     return {
         "files": worker.store.files(node_id),
@@ -318,6 +451,54 @@ async def computer_file(node_id: str, path: str, request: Request) -> FileRespon
     if found is None:
         raise HTTPException(404, "No encuentro ese archivo en su computadora.")
     return FileResponse(found, filename=found.name)
+
+
+@router.post("/{node_id}/connections/{kind}")
+async def add_connection(
+    node_id: str, kind: str, body: NewConnection, request: Request
+) -> Dict[str, Any]:
+    worker = get_worker(request)
+    _node(worker, node_id)
+    if kind == "api" and not connections.api_allowed():
+        raise HTTPException(
+            402,
+            "Las APIs propias en los Nodes son del plan Dev. Véalo con: sergio planes",
+        )
+    try:
+        data = body.model_dump()
+        secret = data.pop("secret", "")
+        worker.store.add_connection(
+            node_id, kind, data, secret=secret if kind == "api" else ""
+        )
+    except NodeError as exc:
+        raise _bad(exc) from exc
+    worker.store.log(node_id, "connection", f"Nueva conexión ({kind}): {body.name}")
+    return _full(worker, node_id)
+
+
+@router.delete("/{node_id}/connections/{kind}/{conn_id}")
+async def remove_connection(
+    node_id: str, kind: str, conn_id: str, request: Request
+) -> Dict[str, Any]:
+    worker = get_worker(request)
+    _node(worker, node_id)
+    worker.store.remove_connection(node_id, kind, conn_id)
+    return _full(worker, node_id)
+
+
+@router.post("/{node_id}/connections/mcp/{conn_id}/tools")
+async def mcp_tools(node_id: str, conn_id: str, request: Request) -> Dict[str, Any]:
+    worker = get_worker(request)
+    node = _node(worker, node_id)
+    entry = next(
+        (c for c in node.connections.get("mcp", []) if c["id"] == conn_id), None
+    )
+    if entry is None:
+        raise HTTPException(404, "No existe esa conexión.")
+    try:
+        return {"tools": await asyncio.to_thread(connections.mcp_tools, entry)}
+    except Exception as exc:  # noqa: BLE001 - shown to you as is
+        raise HTTPException(502, f"No pude hablar con el servidor MCP: {exc}") from exc
 
 
 __all__ = ["get_worker", "router"]

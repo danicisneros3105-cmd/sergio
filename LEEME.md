@@ -1391,7 +1391,7 @@ calidad lo revisa, con Gemini.
 abre un panel que piensa la última pregunta paso a paso mientras usted
 sigue conversando.
 
-**Planes.** `sergio planes` muestra Free, Pro, Teams y Enterprise. Todo lo
+**Planes.** `sergio planes` muestra Free, Pro, Dev, Teams y Enterprise. Todo lo
 que corre en su equipo es gratis. Los planes de pago son servicios encima
 del código. Cómo funcionan las licencias y cómo vender:
 [docs/es/PLANES.md](docs/es/PLANES.md).

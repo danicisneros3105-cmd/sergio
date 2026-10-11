@@ -1,4 +1,4 @@
-"""Plans (Free, Pro, Teams, Enterprise), license keys and feature flags.
+"""Plans (Free, Pro, Dev, Teams, Enterprise), license keys and feature flags.
 
 Everything that runs on your own computer stays free and open source
 (Apache 2.0) — including sync through your own storage and backups. The
@@ -26,7 +26,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-PLANS = ("free", "pro", "teams", "enterprise")
+PLANS = ("free", "pro", "dev", "teams", "enterprise")
 PREFIX = "sergio-lic-v1"
 # Public key of the official license issuer (base64 of the 32 raw bytes).
 # Empty until the owner generates one with `sergio licencia generar-claves`.
@@ -65,6 +65,17 @@ PLAN_INFO: Dict[str, Plan] = {
             "Sincronización alojada (sin configurar almacenamiento)",
             "Skills y plugins premium",
             "Canal de actualizaciones anticipadas",
+        ],
+    ),
+    "dev": Plan(
+        "dev",
+        "Dev",
+        "$24 / mes",
+        "Para quien conecta Sergio con su propio código.",
+        [
+            "Todo lo de Pro",
+            "APIs propias en los Nodes (con su clave, guardada solo en su equipo)",
+            "Acceso a la API de Sergio para sus programas",
         ],
     ),
     "teams": Plan(
@@ -157,6 +168,7 @@ FEATURES: Dict[str, str] = {
     "hosted_sync": "pro",
     "premium_skills": "pro",
     "early_updates": "pro",
+    "node_api": "dev",
     "multi_user": "teams",
     "sso": "teams",
     "rbac": "teams",
@@ -168,6 +180,7 @@ FEATURES_ES = {
     "hosted_sync": "sincronización alojada",
     "premium_skills": "skills y plugins premium",
     "early_updates": "actualizaciones anticipadas",
+    "node_api": "APIs propias en los Nodes",
     "multi_user": "varios usuarios",
     "sso": "inicio de sesión único",
     "rbac": "roles y permisos",

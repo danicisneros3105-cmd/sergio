@@ -173,9 +173,11 @@ def test_routes(tmp_path):
     assert node["primary"] and node["unread"] >= 0
     c.post(f"/v1/nodes/{nid}/messages", json={"text": "hola"})
     worker.wait(nid)
+    said = c.get(f"/v1/nodes/{nid}/messages").json()["messages"][-1]["text"]
+    # It claimed a file it never wrote: code says so (no silent hallucination).
     assert (
-        c.get(f"/v1/nodes/{nid}/messages").json()["messages"][-1]["text"]
-        == "Listo, guardé informe.md"
+        said.startswith("Listo, guardé informe.md")
+        and "no encuentro en mi computadora «informe.md»" in said
     )
     assert c.get(f"/v1/nodes/{nid}/activity").json()["activity"]
     (worker.store.computer(nid) / "informe.md").write_text("# hola")
