@@ -15,7 +15,9 @@ export function Layout() {
   const [apiReachable, setApiReachable] = useState<boolean | null>(null);
   const [historyOpen, setHistoryOpen] = useState(() => {
     try {
-      return localStorage.getItem(HISTORY_KEY) === '1' && window.innerWidth >= 1024;
+      // Like ChatGPT: open on a wide screen until you close it.
+      const saved = localStorage.getItem(HISTORY_KEY);
+      return window.innerWidth >= 1280 ? saved !== '0' : saved === '1' && window.innerWidth >= 1024;
     } catch {
       return false;
     }

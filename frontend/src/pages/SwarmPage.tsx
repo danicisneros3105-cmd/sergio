@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router';
+import { useNavigate, useParams, useSearchParams } from 'react-router';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { ArrowLeft, ArrowUp, Check, Compass, Copy, Download, FileSpreadsheet, NotebookPen, Paperclip, ShieldCheck, Square, X } from 'lucide-react';
@@ -300,7 +300,9 @@ function RunView({ id }: { id: string }) {
 
 function Launcher() {
   const navigate = useNavigate();
-  const [task, setTask] = useState('');
+  const [params] = useSearchParams();
+  // «Agent Swarm» from the chat's + menu brings what you had typed.
+  const [task, setTask] = useState(() => params.get('tarea') || '');
   const [files, setFiles] = useState<File[]>([]);
   const [parallel, setParallel] = useState(8);
   const [scout, setScout] = useState(true);

@@ -1,0 +1,255 @@
+// Voice mode in the browser, like ChatGPT's: the same real-time call the
+// desktop app makes (/v1/live, Gemini Live on the server, the key never
+// leaves it). The microphone goes up as 16 kHz PCM; Sergio's voice comes back
+// as 24 kHz PCM and is played as it arrives.
+
+import { getBase } from './api';
+import { buildWsProtocols } from './useAgentEvents';
+
+export const IN_RATE = 16000;
+export const OUT_RATE = 24000;
+export const SILENCE_AFTER = 1.2; // seconds of quiet that end your turn
+const VOICE_LEVEL = 0.012; // RMS that counts as speech (after the browser's noise suppression)
+const PREROLL = 3; // buffers kept from just before you start talking
+
+export function liveUrl(base: string, origin: string): string {
+  const url = new URL('/v1/live', base || origin);
+  url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+  return url.toString();
+}
+
+/** Float samples at *from* Hz -> 16-bit PCM at *to* Hz (averaging, so no aliasing hiss). */
+export function downsample(input: Float32Array, from: number, to = IN_RATE): Int16Array {
+  const ratio = from / to;
+  const length = Math.floor(input.length / ratio);
+  const out = new Int16Array(length);
+  for (let i = 0; i < length; i++) {
+    const start = Math.floor(i * ratio);
+    const end = Math.min(input.length, Math.floor((i + 1) * ratio));
+    let sum = 0;
+    for (let j = start; j < end; j++) sum += input[j];
+    const v = Math.max(-1, Math.min(1, sum / Math.max(1, end - start)));
+    out[i] = v < 0 ? v * 0x8000 : v * 0x7fff;
+  }
+  return out;
+}
+
+/** 16-bit PCM bytes -> float samples (an odd trailing byte is dropped). */
+export function pcmToFloat(bytes: ArrayBuffer): Float32Array {
+  const view = new DataView(bytes);
+  const n = Math.floor(bytes.byteLength / 2);
+  const out = new Float32Array(n);
+  for (let i = 0; i < n; i++) out[i] = view.getInt16(i * 2, true) / 0x8000;
+  return out;
+}
+
+export function rms(samples: Float32Array): number {
+  let sum = 0;
+  for (let i = 0; i < samples.length; i++) sum += samples[i] * samples[i];
+  return Math.sqrt(sum / Math.max(1, samples.length));
+}
+
+export type VoiceState = 'connecting' | 'listening' | 'thinking' | 'speaking' | 'ended' | 'error';
+
+export interface VoiceCallbacks {
+  onState: (s: VoiceState) => void;
+  onHeard: (text: string) => void; // what Sergio understood you said
+  onSaid: (text: string) => void; // what Sergio is saying
+  onLevel: (level: number) => void; // 0..1, for the orb
+  onError: (message: string) => void;
+}
+
+/** One voice-mode call. `start()` asks for the microphone and connects. */
+export class VoiceCall {
+  private ws: WebSocket | null = null;
+  private mic: MediaStream | null = null;
+  private input: AudioContext | null = null;
+  private output: AudioContext | null = null;
+  private node: ScriptProcessorNode | null = null;
+  private playing: AudioBufferSourceNode[] = [];
+  private playAt = 0;
+  private lastVoice = 0;
+  private gated = true;
+  private preroll: Int16Array[] = [];
+  private heard = '';
+  private said = '';
+  private stopped = false;
+  muted = false;
+
+  constructor(
+    private cb: VoiceCallbacks,
+    private language = 'es',
+  ) {}
+
+  async start(): Promise<void> {
+    this.cb.onState('connecting');
+    try {
+      this.mic = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 },
+      });
+    } catch {
+      this.fail('Necesito permiso para el micrófono.');
+      return;
+    }
+    if (this.stopped) {
+      // Closed while the browser was asking for the microphone.
+      this.mic.getTracks().forEach((t) => t.stop());
+      this.mic = null;
+      return;
+    }
+    const ws = new WebSocket(liveUrl(getBase(), window.location.origin), buildWsProtocols());
+    ws.binaryType = 'arraybuffer';
+    this.ws = ws;
+    ws.onopen = () =>
+      ws.send(JSON.stringify({ type: 'start', voice: '', name: 'Sergio', language: this.language, context: '', tools: [] }));
+    ws.onmessage = (e) => this.receive(e.data);
+    ws.onerror = () => this.fail('Se cortó la conexión con Sergio.');
+    ws.onclose = () => {
+      if (this.ws) this.stop();
+    };
+  }
+
+  private listen(): void {
+    if (!this.mic) return;
+    const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    this.input = new Ctx();
+    this.output = new Ctx({ sampleRate: OUT_RATE });
+    const source = this.input.createMediaStreamSource(this.mic);
+    this.node = this.input.createScriptProcessor(2048, 1, 1);
+    const rate = this.input.sampleRate;
+    this.node.onaudioprocess = (e) => {
+      const samples = e.inputBuffer.getChannelData(0);
+      const level = rms(samples);
+      if (!this.playing.length) this.cb.onLevel(Math.min(1, level * 12));
+      const pcm = downsample(samples, rate);
+      const now = performance.now() / 1000;
+      if (!this.muted && level > VOICE_LEVEL) this.lastVoice = now;
+      const open = !this.muted && now - this.lastVoice < SILENCE_AFTER;
+      if (open) {
+        if (this.gated) {
+          this.gated = false;
+          for (const chunk of this.preroll) this.send(chunk.buffer as ArrayBuffer);
+          this.preroll = [];
+        }
+        this.send(pcm.buffer as ArrayBuffer);
+      } else {
+        if (!this.gated) {
+          this.gated = true;
+          this.send(JSON.stringify({ type: 'audio_end' })); // your turn is over
+        }
+        this.preroll.push(pcm);
+        if (this.preroll.length > PREROLL) this.preroll.shift();
+      }
+    };
+    source.connect(this.node);
+    this.node.connect(this.input.destination); // needed for the processor to run; it writes silence
+  }
+
+  private send(data: ArrayBuffer | string): void {
+    if (this.ws?.readyState === WebSocket.OPEN) this.ws.send(data);
+  }
+
+  private receive(data: ArrayBuffer | string): void {
+    if (typeof data !== 'string') {
+      this.play(pcmToFloat(data));
+      return;
+    }
+    let event: { type?: string; text?: string; message?: string; status?: string };
+    try {
+      event = JSON.parse(data);
+    } catch {
+      return;
+    }
+    switch (event.type) {
+      case 'ready':
+        this.listen();
+        this.cb.onState('listening');
+        break;
+      case 'heard':
+        this.heard += event.text || '';
+        this.said = '';
+        this.cb.onHeard(this.heard.trim());
+        this.cb.onState('thinking');
+        break;
+      case 'said':
+        this.said += event.text || '';
+        this.cb.onSaid(this.said.trim());
+        break;
+      case 'interrupted':
+        this.hush();
+        this.said = '';
+        this.cb.onState('listening');
+        break;
+      case 'turn_complete':
+        this.heard = '';
+        break;
+      case 'tool':
+        if (event.status === 'running') this.cb.onState('thinking');
+        break;
+      case 'error':
+        this.fail(event.message || 'La llamada falló.');
+        break;
+    }
+  }
+
+  private play(samples: Float32Array): void {
+    const out = this.output;
+    if (!out || !samples.length) return;
+    const buffer = out.createBuffer(1, samples.length, OUT_RATE);
+    buffer.copyToChannel(samples as Float32Array<ArrayBuffer>, 0);
+    const src = out.createBufferSource();
+    src.buffer = buffer;
+    src.connect(out.destination);
+    this.playAt = Math.max(out.currentTime + 0.02, this.playAt);
+    src.start(this.playAt);
+    this.playAt += buffer.duration;
+    this.playing.push(src);
+    this.cb.onState('speaking');
+    this.cb.onLevel(Math.min(1, rms(samples) * 6));
+    src.onended = () => {
+      this.playing = this.playing.filter((s) => s !== src);
+      if (!this.playing.length) this.cb.onState('listening');
+    };
+  }
+
+  /** Stop his voice at once (you started talking over him). */
+  private hush(): void {
+    for (const s of this.playing) {
+      try {
+        s.stop();
+      } catch {
+        // already stopped
+      }
+    }
+    this.playing = [];
+    this.playAt = 0;
+  }
+
+  setMuted(muted: boolean): void {
+    this.muted = muted;
+  }
+
+  private fail(message: string): void {
+    this.cb.onError(message);
+    this.cb.onState('error');
+    this.stop(false);
+  }
+
+  stop(announce = true): void {
+    this.stopped = true;
+    const ws = this.ws;
+    this.ws = null;
+    if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'end' }));
+    ws?.close();
+    this.hush();
+    this.node?.disconnect();
+    this.mic?.getTracks().forEach((t) => t.stop());
+    void this.input?.close().catch(() => {});
+    void this.output?.close().catch(() => {});
+    this.node = null;
+    this.mic = null;
+    this.input = null;
+    this.output = null;
+    if (announce) this.cb.onState('ended');
+  }
+}

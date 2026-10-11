@@ -1,5 +1,6 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
-import { ArrowUp, Square, Paperclip, Search } from 'lucide-react';
+import { useState, useRef, useCallback, useEffect, lazy, Suspense } from 'react';
+import { useNavigate } from 'react-router';
+import { ArrowUp, AudioLines, CircleDot, MonitorSmartphone, Network, Plus, Search, Square, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAppStore, generateId } from '../../lib/store';
 import { streamChat, streamResearch } from '../../lib/sse';
@@ -18,6 +19,8 @@ import {
   resolveChatEngine,
 } from '../../lib/chat-telemetry';
 import { MicButton } from './MicButton';
+
+const VoiceMode = lazy(() => import('./VoiceMode'));
 import { useSpeech } from '../../hooks/useSpeech';
 import { useOnline } from '../../hooks/useOnline';
 import type {
@@ -620,6 +623,50 @@ export function InputArea() {
   };
 
   const isWelcome = messages.length === 0 && !isCurrentChatStreaming;
+  const navigate = useNavigate();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [voiceOpen, setVoiceOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!menuOpen) return;
+    const close = (e: MouseEvent | KeyboardEvent) => {
+      if (e instanceof KeyboardEvent ? e.key === 'Escape' : !menuRef.current?.contains(e.target as Node)) setMenuOpen(false);
+    };
+    document.addEventListener('mousedown', close);
+    document.addEventListener('keydown', close);
+    return () => {
+      document.removeEventListener('mousedown', close);
+      document.removeEventListener('keydown', close);
+    };
+  }, [menuOpen]);
+  const TOOLS = [
+    {
+      icon: Search,
+      label: 'Investigación a fondo',
+      hint: 'Varias fuentes, con citas',
+      run: () => setDeepResearch(!deepResearch),
+      on: deepResearch,
+    },
+    {
+      icon: Network,
+      label: 'Agent Swarm',
+      hint: 'Muchos agentes a la vez para algo enorme',
+      run: () => navigate(input.trim() ? `/swarm?tarea=${encodeURIComponent(input.trim())}` : '/swarm'),
+    },
+    {
+      icon: CircleDot,
+      label: 'Encargárselo a un Node',
+      hint: 'Un empleado digital que sigue trabajando',
+      run: () => navigate('/nodes?nuevo=1'),
+    },
+    {
+      icon: MonitorSmartphone,
+      label: 'Usar mi pantalla',
+      hint: 'Lo hace en su PC, a la vista',
+      run: () => setInput(input.startsWith('En mi pantalla, ') ? input : `En mi pantalla, ${input}`),
+    },
+    { icon: AudioLines, label: 'Modo de voz', hint: 'Hablar en tiempo real', run: () => setVoiceOpen(true) },
+  ];
   const online = useOnline();
   const canSend = !streamState.isStreaming && !!input.trim() && !modelLoading && !!selectedModel;
 
@@ -649,17 +696,54 @@ export function InputArea() {
           disabled={streamState.isStreaming || modelLoading}
         />
         <div className="flex items-center gap-2 mt-1.5">
-          <button
-            type="button"
-            onClick={() => setDeepResearch(!deepResearch)}
-            disabled={streamState.isStreaming}
-            aria-pressed={deepResearch}
-            className="mac-chip disabled:opacity-50 disabled:cursor-default"
-            title="Busca en varias fuentes y responde con citas"
-          >
-            <Search size={13} strokeWidth={1.75} />
-            Investigación a fondo
-          </button>
+          <div className="composer-tools" ref={menuRef}>
+            <button
+              type="button"
+              className="composer-plus"
+              aria-label="Herramientas"
+              aria-haspopup="menu"
+              aria-expanded={menuOpen}
+              onClick={() => setMenuOpen(!menuOpen)}
+            >
+              <Plus size={18} strokeWidth={1.6} />
+            </button>
+            {menuOpen && (
+              <div className="composer-menu" role="menu">
+                {TOOLS.map(({ icon: Icon, label, hint, run, on }) => (
+                  <button
+                    key={label}
+                    type="button"
+                    role="menuitemcheckbox"
+                    aria-checked={!!on}
+                    onClick={() => {
+                      setMenuOpen(false);
+                      run();
+                    }}
+                  >
+                    <Icon size={16} strokeWidth={1.6} />
+                    <span>
+                      <b>{label}</b>
+                      <em>{hint}</em>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          {deepResearch && (
+            <button
+              type="button"
+              className="composer-pill"
+              onClick={() => setDeepResearch(false)}
+              disabled={streamState.isStreaming}
+              aria-label="Quitar investigación a fondo"
+              title="Busca en varias fuentes y responde con citas"
+            >
+              <Search size={13} strokeWidth={1.75} />
+              Investigación
+              <X size={12} strokeWidth={2} />
+            </button>
+          )}
           <div className="flex-1" />
           {isCurrentChatStreaming ? (
             <button
@@ -678,15 +762,27 @@ export function InputArea() {
                 disabled={micDisabled}
                 reason={micReason}
               />
-              <button
-                onClick={sendMessage}
-                disabled={!canSend}
-                title={selectedModel ? 'Enviar' : 'Elige un modelo primero'}
-                aria-label="Enviar mensaje"
-                className="mac-send"
-              >
-                <ArrowUp size={17} strokeWidth={2.25} />
-              </button>
+              {input.trim() ? (
+                <button
+                  onClick={sendMessage}
+                  disabled={!canSend}
+                  title={selectedModel ? 'Enviar' : 'Elige un modelo primero'}
+                  aria-label="Enviar mensaje"
+                  className="mac-send"
+                >
+                  <ArrowUp size={17} strokeWidth={2.25} />
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setVoiceOpen(true)}
+                  title="Modo de voz: hablar en tiempo real"
+                  aria-label="Modo de voz"
+                  className="mac-send voice-launch"
+                >
+                  <AudioLines size={17} strokeWidth={2} />
+                </button>
+              )}
             </>
           )}
         </div>
@@ -702,8 +798,13 @@ export function InputArea() {
       )}
       {!isWelcome && (
         <p className="mt-2 text-center text-[11.5px]" style={{ color: 'var(--color-text-tertiary)' }}>
-          Enter para enviar, Shift+Enter para una línea nueva
+          Sergio puede equivocarse. Compruebe la información importante.
         </p>
+      )}
+      {voiceOpen && (
+        <Suspense fallback={null}>
+          <VoiceMode onClose={() => setVoiceOpen(false)} />
+        </Suspense>
       )}
     </div>
   );
