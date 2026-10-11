@@ -25,7 +25,6 @@ import {
   pageItems,
   paginate,
   saveMarks,
-  SECTION_ITEMS,
   SORTS,
   sortItems,
   toggleMark,
@@ -148,7 +147,8 @@ function SortSelect({ value, onChange }: { value: SortKey; onChange: (s: SortKey
 }
 
 // Inicio: the e-paper home screen. «Marcados» on top, then everything you
-// keep (conversations, pages, the sections) with tabs, a sort and pages.
+// keep (conversations and pages) with tabs, a sort and pages. The sections
+// are only icons, in the toolbar.
 export function HomePage() {
   const navigate = useNavigate();
   const conversations = useAppStore((s) => s.conversations);
@@ -178,7 +178,7 @@ export function HomePage() {
   }, [ready, load]);
 
   const everything = useMemo(
-    () => [...conversationItems(conversations), ...pageItems(Object.values(pages)), ...SECTION_ITEMS],
+    () => [...conversationItems(conversations), ...pageItems(Object.values(pages))],
     [conversations, pages],
   );
   const marked = sortItems(everything.filter((i) => marks.includes(i.id)), markSort);

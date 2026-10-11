@@ -37,10 +37,10 @@ export const FILTERS: Array<{ key: FilterKey; label: string }> = [
   { key: 'all', label: 'Todo' },
   { key: 'conversation', label: 'Conversaciones' },
   { key: 'page', label: 'Páginas' },
-  { key: 'section', label: 'Secciones' },
 ];
 
-// The sections, as documents on the shelf (marked until you change it).
+// The sections. The shelf no longer shows them: they live only as icons in
+// the toolbar (kept here for the notch and older saved marks).
 export const SECTION_ITEMS: LibraryItem[] = [
   { id: 'section:cowork', kind: 'section', title: 'Cowork', meta: 'Trabajos largos, paso a paso', path: '/cowork', icon: 'briefcase' },
   { id: 'section:agents', kind: 'section', title: 'Agent Swarm', meta: 'Varios agentes a la vez', path: '/agents', icon: 'network' },

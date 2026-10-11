@@ -99,37 +99,41 @@ def test_tiles_typing_and_talk(qt):
     assert talked == [1] and not panel.isVisible()
 
 
-def test_personalise_saves_live(qt):
-    from sergio_escritorio.character import SETTINGS
-
+def test_sergio_is_not_personalised_only_agents_are(qt):
     panel, *_, saved, _ = _panel(qt)
-    swatch = next(b for b in panel.swatch_group.buttons() if b.name == "Rosa")
-    swatch.click()
-    panel.eyes.click()
-    assert saved[-1]["theme"] == "Rosa" and saved[-1]["eyes"] is False
-    assert SETTINGS["theme"] == "Rosa"
-    # Muse-style: character, body colour, accessory, name, personality, brain
-    panel.style_seg.buttons["muse"].click()
-    assert SETTINGS["style"] == "muse" and saved[-1]["mouth"] == "sonrisa"
-    assert panel.colour_stack.currentIndex() == 1
-    next(b for b in panel.body_group.buttons() if b.toolTip() == "Cielo").click()
-    next(b for b in panel.chip_group.buttons() if b.key == "laurel").click()
-    panel.persona.setCurrentText("Divertido")
-    panel.brain.buttons["profundo"].click()
-    last = saved[-1]
-    assert last["body"] == "#a8d8ff" and last["accessory"] == "laurel"
+    # No look, colour, accessory, personality or voice pickers any more.
+    for gone in ("swatch_group", "style_seg", "body_group", "chip_group", "persona", "voice", "size_seg"):
+        assert not hasattr(panel, gone), gone
     assert panel.title.text() == "SERGIO"  # his name is fixed (spaced capitals)
-    assert last["personality"] == "Divertido" and last["effort"] == "profundo"
+    # The brain's effort is still chosen in the chat.
+    panel.brain.buttons["profundo"].click()
+    assert saved[-1]["effort"] == "profundo"
     panel.set_level(0.9)
     assert panel.mic.level > 0
-    panel._save(
-        theme="Océano",
-        eyes=True,
-        style="orbe",
-        mouth="ninguna",
-        accessory="ninguno",
-        name="Sergio",
-    )
+    # Agents are what you personalise: «Crear agente» opens the GPT-style builder.
+    opened: list[str] = []
+    panel.actions.open_url = opened.append
+    panel._new_agent()
+    assert opened == [f"{panel.actions.server_url.rstrip('/')}/agents/nuevo"]
+
+
+def test_tabs_are_icons_that_answer_the_cursor(qt):
+    from sergio_escritorio.panel import TabIcon
+
+    panel, *_ = _panel(qt)
+    icons = [panel.tab_group.button(i) for i in range(len(panel.TABS))]
+    assert all(isinstance(b, TabIcon) for b in icons)
+    assert [b.kind for b in icons] == ["bubble", "briefcase", "swarm", "heart", "person", "gear"]
+    tab = icons[2]
+    tab._go(1.0)
+    tab._anim.setCurrentTime(tab._anim.duration())
+    assert tab.hover == 1.0  # risen, with its name showing
+    tab.grab()  # paints without errors, hovered
+    tab._go(0.0)
+    tab._anim.setCurrentTime(tab._anim.duration())
+    assert tab.hover == 0.0
+    tab.click()
+    assert panel.pages.currentIndex() == 2
 
 
 def test_only_the_six_sections_in_the_users_language(qt):

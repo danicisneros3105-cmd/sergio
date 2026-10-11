@@ -29,7 +29,17 @@ from dataclasses import dataclass, field
 from typing import Any, Callable
 
 import httpx
-from PySide6.QtCore import QEvent, QPointF, QRectF, QSize, Qt, QTimer, Signal
+from PySide6.QtCore import (
+    QEasingCurve,
+    QEvent,
+    QPointF,
+    QRectF,
+    QSize,
+    Qt,
+    QTimer,
+    QVariantAnimation,
+    Signal,
+)
 from PySide6.QtGui import (
     QColor,
     QFont,
@@ -38,7 +48,6 @@ from PySide6.QtGui import (
     QPainter,
     QPainterPath,
     QPen,
-    QRadialGradient,
 )
 from PySide6.QtWidgets import (
     QAbstractButton,
@@ -58,20 +67,7 @@ from PySide6.QtWidgets import (
 )
 
 from sergio_escritorio import estilo, idioma
-from sergio_escritorio.character import (
-    ACCESSORIES,
-    BODIES,
-    EYE_STYLES,
-    MOUTHS,
-    PALETTES,
-    PERSONALITIES,
-    SETTINGS,
-    STYLES,
-    THEMES,
-    apply_config,
-    draw_character,
-)
-from sergio_escritorio.neural_voice import VOICES
+from sergio_escritorio.character import PALETTES, apply_config, draw_character
 
 WIDTH, HEIGHT = 468, 600
 RADIUS = 30.0
@@ -83,14 +79,12 @@ CARD = "#111111"
 LINE = "#2a2926"  # aluminium hairline
 ALUMINIUM = "#cfcac0"
 ACCENT = ALUMINIUM
-SIZES = {"S": 7.0, "M": 9.0, "L": 12.0}
 BRAINS = {
     "auto": "Auto",
     "rapido": "Rápido",
     "equilibrado": "Normal",
     "profundo": "Profundo",
 }
-RATES = {"-10%": "Lenta", "+0%": "Normal", "+15%": "Rápida"}
 
 STYLE = f"""
 QWidget {{ color: {TEXT}; font-family: {FAMILY}; font-size: 14px; }}
@@ -359,6 +353,24 @@ def draw_icon(p: QPainter, kind: str, centre: QPointF, colour: QColor) -> None:
     elif kind == "gear":
         p.drawEllipse(QPointF(x, y), 3.5, 3.5)
         p.drawEllipse(QPointF(x, y), 8, 8)
+    elif kind == "bubble":  # chat: a speech bubble
+        path = QPainterPath()
+        path.addRoundedRect(QRectF(x - 9, y - 8, 18, 13), 5, 5)
+        p.drawPath(path)
+        p.drawLine(QPointF(x - 4, y + 5), QPointF(x - 6, y + 9))
+        p.drawLine(QPointF(x - 6, y + 9), QPointF(x + 1, y + 5))
+    elif kind == "briefcase":  # cowork
+        p.drawRoundedRect(QRectF(x - 9, y - 4, 18, 13), 2.5, 2.5)
+        p.drawRoundedRect(QRectF(x - 3.5, y - 8, 7, 4), 1.5, 1.5)
+        p.drawLine(QPointF(x - 9, y + 1.5), QPointF(x + 9, y + 1.5))
+    elif kind == "swarm":  # agent swarm: three linked nodes
+        a, b, c = QPointF(x, y - 7), QPointF(x - 7.5, y + 6), QPointF(x + 7.5, y + 6)
+        for one, two in ((a, b), (b, c), (c, a)):
+            p.drawLine(one, two)
+        p.setBrush(QColor(CARD))
+        for node in (a, b, c):
+            p.drawEllipse(node, 2.8, 2.8)
+        p.setBrush(Qt.BrushStyle.NoBrush)
     elif kind == "send":
         p.drawLine(QPointF(x, y + 7), QPointF(x, y - 7))
         p.drawLine(QPointF(x - 6, y - 1), QPointF(x, y - 7))
@@ -443,6 +455,75 @@ def all_territories() -> list[tuple[str, str]]:
     return sorted(found.items(), key=lambda kv: kv[1])
 
 
+class TabIcon(QAbstractButton):
+    """A section of the panel shown only as an icon. Under the cursor it
+    rises with a little spring and its name fades in underneath, in spaced
+    capitals (B&O); the open one keeps a dot."""
+
+    SIZE = QSize(64, 52)
+
+    def __init__(self, kind: str, label: str) -> None:
+        super().__init__()
+        self.kind, self.label = kind, label
+        self.hover = 0.0
+        self.setCheckable(True)
+        self.setFixedSize(self.SIZE)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setText(label)  # painted by hand; kept for screen readers and tests
+        self.setAccessibleName(label)
+        self._anim = QVariantAnimation(self)
+        self._anim.setDuration(240)
+        self._anim.valueChanged.connect(self._step)
+
+    def _step(self, value: Any) -> None:
+        self.hover = float(value)
+        self.update()
+
+    def _go(self, target: float) -> None:
+        self._anim.stop()
+        self._anim.setEasingCurve(
+            QEasingCurve.Type.OutBack if target else QEasingCurve.Type.OutCubic
+        )
+        self._anim.setStartValue(self.hover)
+        self._anim.setEndValue(target)
+        self._anim.start()
+
+    def enterEvent(self, _event: Any) -> None:  # noqa: N802
+        self._go(1.0)
+
+    def leaveEvent(self, _event: Any) -> None:  # noqa: N802
+        self._go(0.0)
+
+    def paintEvent(self, _event: Any) -> None:  # noqa: N802
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        h = self.hover
+        on = self.isChecked()
+        colour = QColor(TEXT if (on or h > 0.5) else SECONDARY)
+        centre = QPointF(self.width() / 2, 20 - 4 * h)
+        p.save()
+        p.translate(centre)
+        scale = 1.0 + 0.12 * h
+        p.scale(scale, scale)
+        draw_icon(p, self.kind, QPointF(0, 0), colour)
+        p.restore()
+        if h > 0.01:
+            label = QColor(TEXT)
+            label.setAlphaF(max(0.0, min(1.0, h)))
+            p.setPen(label)
+            font = _font(6.6, QFont.Weight.Medium)
+            font.setCapitalization(QFont.Capitalization.AllUppercase)
+            font.setLetterSpacing(QFont.SpacingType.PercentageSpacing, 122)
+            p.setFont(font)
+            p.drawText(QRectF(0, 34 + 3 * (1 - h), self.width(), 14),
+                       Qt.AlignmentFlag.AlignCenter, self.label)
+        elif on:
+            p.setPen(Qt.PenStyle.NoPen)
+            p.setBrush(QColor(ALUMINIUM))
+            p.drawEllipse(QPointF(self.width() / 2, 42), 2, 2)
+        p.end()
+
+
 class SectionTile(QAbstractButton):
     """One part of Sergio as a row: a ringed icon, its name, one line on
     what it is, a chevron. 56 px tall, 8 px apart, 12 px corners."""
@@ -521,94 +602,6 @@ class Orb(QWidget):
         draw_character(
             p, centre, self.radius, self.state(), time.monotonic() - self._t0
         )
-        p.end()
-
-
-class Swatch(QAbstractButton):
-    """A round colour choice (one per theme), ringed when selected."""
-
-    def __init__(self, name: str) -> None:
-        super().__init__()
-        self.name = name
-        self.setCheckable(True)
-        self.setToolTip(name)
-        self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setFixedSize(38, 38)
-
-    def paintEvent(self, _event: Any) -> None:  # noqa: N802
-        p = QPainter(self)
-        p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        deep, mid, bright, _glow = THEMES[self.name]
-        centre = QPointF(19, 19)
-        grad = QRadialGradient(QPointF(14, 13), 20)
-        grad.setColorAt(0.0, QColor(bright))
-        grad.setColorAt(0.55, QColor(mid))
-        grad.setColorAt(1.0, QColor(deep))
-        p.setPen(Qt.PenStyle.NoPen)
-        p.setBrush(grad)
-        p.drawEllipse(centre, 13, 13)
-        if self.isChecked():
-            p.setPen(QPen(QColor(TEXT), 2))
-            p.setBrush(Qt.BrushStyle.NoBrush)
-            p.drawEllipse(centre, 17, 17)
-        p.end()
-
-
-class ColorDot(QAbstractButton):
-    """A flat round colour (body colours), ringed when selected; "+" = custom."""
-
-    def __init__(self, colour: str, tip: str, plus: bool = False) -> None:
-        super().__init__()
-        self.colour = colour
-        self.plus = plus
-        self.setCheckable(not plus)
-        self.setToolTip(tip)
-        self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setFixedSize(34, 34)
-
-    def paintEvent(self, _event: Any) -> None:  # noqa: N802
-        p = QPainter(self)
-        p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        centre = QPointF(17, 17)
-        p.setPen(QPen(QColor(255, 255, 255, 40), 1))
-        if self.plus:
-            p.setBrush(QColor("#2c2c2e"))
-            p.drawEllipse(centre, 12, 12)
-            p.setPen(QPen(QColor(TEXT), 1.8))
-            p.drawLine(QPointF(17, 11), QPointF(17, 23))
-            p.drawLine(QPointF(11, 17), QPointF(23, 17))
-        else:
-            p.setBrush(QColor(self.colour))
-            p.drawEllipse(centre, 12, 12)
-        if self.isChecked():
-            p.setPen(QPen(QColor(TEXT), 2))
-            p.setBrush(Qt.BrushStyle.NoBrush)
-            p.drawEllipse(centre, 15.5, 15.5)
-        p.end()
-
-
-class LookChip(QAbstractButton):
-    """A mini Sergio wearing one accessory (Muse-style picker)."""
-
-    def __init__(self, key: str) -> None:
-        super().__init__()
-        self.key = key
-        self.setCheckable(True)
-        self.setToolTip(ACCESSORIES[key])
-        self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setFixedSize(44, 44)
-
-    def paintEvent(self, _event: Any) -> None:  # noqa: N802
-        p = QPainter(self)
-        p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        rect = QRectF(1, 1, 42, 42)
-        p.setPen(QPen(QColor(TEXT), 2) if self.isChecked() else Qt.PenStyle.NoPen)
-        p.setBrush(QColor(CARD))
-        p.drawRoundedRect(rect, 14, 14)
-        saved = SETTINGS["accessory"]
-        SETTINGS["accessory"] = self.key
-        draw_character(p, QPointF(22, 25), 10, "idle", 1.0)
-        SETTINGS["accessory"] = saved
         p.end()
 
 
@@ -751,21 +744,21 @@ class ControlCenter(QWidget):
         row.addWidget(close, 0, Qt.AlignmentFlag.AlignVCenter)
         return row
 
+    TAB_ICONS = ("bubble", "briefcase", "swarm", "heart", "person", "gear")
+
     def _segmented(self) -> QWidget:
+        """The six sections as icons only (their names appear on hover)."""
         bar = QWidget()
         bar.setStyleSheet(f"border-bottom: 1px solid {LINE};")
         row = QHBoxLayout(bar)
         row.setContentsMargins(0, 0, 0, 0)
         row.setSpacing(0)
         self.tab_group = QButtonGroup(self)
-        for i, key in enumerate(self.TABS):
-            button = QPushButton(idioma.t(key, self.lang))
-            button.setObjectName("seg")
-            button.setCheckable(True)
-            button.setCursor(Qt.CursorShape.PointingHandCursor)
+        for i, (key, kind) in enumerate(zip(self.TABS, self.TAB_ICONS)):
+            button = TabIcon(kind, idioma.t(key, self.lang))
             self.tab_group.addButton(button, i)
             if i:
-                row.addStretch(1)  # equal gaps between the words
+                row.addStretch(1)  # equal gaps between the icons
             row.addWidget(button)
         self.tab_group.button(0).setChecked(True)
         self.tab_group.idClicked.connect(self.show_tab)
@@ -897,11 +890,14 @@ class ControlCenter(QWidget):
         self.swarm_list = QListWidget()
         col.addWidget(self.swarm_list, 1)
         buttons = QHBoxLayout()
+        create = QPushButton(idioma.t("new_agent", self.lang))
+        create.setObjectName("primary")
+        create.clicked.connect(self._new_agent)
         agents = QPushButton(idioma.t("agents", self.lang))
         agents.clicked.connect(lambda: self._open_section("agents"))
         cancel = QPushButton(idioma.t("cancel_last", self.lang))
         cancel.clicked.connect(lambda: self.actions.send("cancela la tarea"))
-        for button in (agents, cancel):
+        for button in (create, agents, cancel):
             button.setCursor(Qt.CursorShape.PointingHandCursor)
             buttons.addWidget(button)
         col.addLayout(buttons)
@@ -927,20 +923,25 @@ class ControlCenter(QWidget):
         return page
 
     def _profile(self) -> QWidget:
-        """Who you are to Sergio (your results too), and how Sergio looks."""
+        """Who you are to Sergio, your results too. Sergio himself is not
+        personalised: only agents are (Agent Swarm → Crear agente)."""
         page = QWidget()
         col = QVBoxLayout(page)
         col.setContentsMargins(0, 0, 8, 0)
         col.setSpacing(12)
         col.addLayout(self._section_rows(self.PROFILE_SECTIONS))
-        col.addSpacing(4)
-        col.addWidget(_label(idioma.t("tab_sergio", self.lang), "section"))
-        col.addWidget(self._personalise())
+        col.addStretch(1)
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         scroll.setWidget(page)
         return scroll
+
+    def _new_agent(self) -> None:
+        """Agents are what you personalise, like a custom GPT: the builder
+        (Crear · Configurar · Vista previa) opens in its own window."""
+        self.hide()
+        self.actions.open_url(f"{self.actions.server_url.rstrip('/')}/agents/nuevo")
 
     def _open_section(self, key: str, arg: str = "") -> None:
         self.hide()
@@ -1093,135 +1094,6 @@ class ControlCenter(QWidget):
 
     def _pick_country(self, _index: int) -> None:
         self._save(country=self.country_box.currentData() or "")
-
-    def _personalise(self) -> QWidget:
-        """Muse-style: name, look, face, accessory, personality and voice."""
-        cfg = self.actions.config
-        page = QWidget()
-        col = QVBoxLayout(page)
-        col.setContentsMargins(0, 0, 0, 0)
-        col.setSpacing(10)
-        top = QHBoxLayout()
-        top.addStretch(1)
-        self.preview = Orb(30, lambda: self.state)
-        top.addWidget(self.preview)
-        top.addStretch(1)
-        col.addLayout(top)
-        self.style_seg = Segmented(STYLES, SETTINGS["style"], self._pick_style)
-        col.addLayout(_row("Estilo", self.style_seg))
-
-        col.addWidget(_label("COLOR", "section"))
-        self.colour_stack = QStackedWidget()
-        # Orb: colour themes. Character: body colours (+ your own).
-        orb_row = QWidget()
-        swatches = QHBoxLayout(orb_row)
-        swatches.setContentsMargins(0, 0, 0, 0)
-        self.swatch_group = QButtonGroup(self)
-        for name in THEMES:
-            sw = Swatch(name)
-            sw.setChecked(name == cfg.get("theme", SETTINGS["theme"]))
-            self.swatch_group.addButton(sw)
-            swatches.addWidget(sw)
-        swatches.addStretch(1)
-        self.swatch_group.buttonClicked.connect(lambda b: self._save(theme=b.name))
-        body_row = QWidget()
-        bodies = QHBoxLayout(body_row)
-        bodies.setContentsMargins(0, 0, 0, 0)
-        bodies.setSpacing(4)
-        self.body_group = QButtonGroup(self)
-        for name, colour in BODIES.items():
-            dot = ColorDot(colour, name)
-            dot.setChecked(colour == SETTINGS["body"])
-            self.body_group.addButton(dot)
-            bodies.addWidget(dot)
-        custom = ColorDot("", "Elegir otro color", plus=True)
-        custom.clicked.connect(self._custom_colour)
-        bodies.addWidget(custom)
-        bodies.addStretch(1)
-        self.body_group.buttonClicked.connect(lambda b: self._save(body=b.colour))
-        self.colour_stack.addWidget(orb_row)
-        self.colour_stack.addWidget(body_row)
-        self.colour_stack.setCurrentIndex(1 if SETTINGS["style"] == "muse" else 0)
-        self.colour_stack.setFixedHeight(40)
-        col.addWidget(self.colour_stack)
-
-        col.addWidget(_label("CARA", "section"))
-        self.eye_seg = Segmented(
-            EYE_STYLES, SETTINGS["eye_style"], lambda k: self._save(eye_style=k)
-        )
-        col.addLayout(_row("Ojos", self.eye_seg))
-        self.mouth_seg = Segmented(
-            MOUTHS, SETTINGS["mouth"], lambda k: self._save(mouth=k)
-        )
-        col.addLayout(_row("Boca", self.mouth_seg))
-        self.eyes = Switch(bool(cfg.get("eyes", SETTINGS["eyes"])))
-        self.eyes.toggled.connect(lambda on: self._save(eyes=on))
-        col.addLayout(_row("Mostrar su cara", self.eyes))
-
-        col.addWidget(_label("ACCESORIO", "section"))
-        chips = QGridLayout()
-        chips.setSpacing(4)
-        self.chip_group = QButtonGroup(self)
-        for i, key in enumerate(ACCESSORIES):
-            chip = LookChip(key)
-            chip.setChecked(key == SETTINGS["accessory"])
-            self.chip_group.addButton(chip)
-            chips.addWidget(chip, i // 6, i % 6)
-        self.chip_group.buttonClicked.connect(lambda b: self._save(accessory=b.key))
-        col.addLayout(chips)
-
-        col.addWidget(_label("PERSONALIDAD", "section"))
-        self.persona = QComboBox()
-        self.persona.addItems(list(PERSONALITIES))
-        self.persona.setCurrentText(str(cfg.get("personality", "Caballero británico")))
-        self.persona.currentTextChanged.connect(lambda t: self._save(personality=t))
-        col.addLayout(_row("Forma de ser", self.persona))
-
-        col.addWidget(_label("VOZ Y TAMAÑO", "section"))
-        self.voice = QComboBox()
-        # Long voice names must not push the section wider than the panel.
-        self.voice.setSizeAdjustPolicy(
-            QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon
-        )
-        self.voice.setMinimumContentsLength(16)
-        for voice_id, label in VOICES:
-            self.voice.addItem(label, voice_id)
-        self.voice.addItem("Voz local (sin internet)", "")
-        self.voice.setCurrentIndex(max(0, self.voice.findData(cfg.get("voice", ""))))
-        self.voice.currentIndexChanged.connect(
-            lambda _i: self._save(voice=self.voice.currentData() or "")
-        )
-        col.addLayout(_row("Voz", self.voice))
-        self.rate_seg = Segmented(
-            RATES, str(cfg.get("voice_rate", "+0%")), lambda k: self._save(voice_rate=k)
-        )
-        col.addLayout(_row("Velocidad", self.rate_seg))
-        sizes = {key: key for key in SIZES}
-        current = next(
-            (k for k, v in SIZES.items() if v == cfg.get("cursor_size", 9.0)), "M"
-        )
-        self.size_seg = Segmented(
-            sizes, current, lambda k: self._save(cursor_size=SIZES[k])
-        )
-        col.addLayout(_row("Tamaño junto al cursor", self.size_seg))
-        return page  # the Profile tab scrolls it with the rows above
-
-    def _pick_style(self, style: str) -> None:
-        self.colour_stack.setCurrentIndex(1 if style == "muse" else 0)
-        if style == "muse" and SETTINGS["mouth"] == "ninguna":
-            self.mouth_seg.select("sonrisa")  # a character looks best smiling
-            self._save(style=style, mouth="sonrisa")
-        else:
-            self._save(style=style)
-
-    def _custom_colour(self) -> None:
-        from PySide6.QtWidgets import QColorDialog
-
-        chosen = QColorDialog.getColor(QColor(SETTINGS["body"]), self, "Su color")
-        if chosen.isValid():
-            for button in self.body_group.buttons():
-                button.setChecked(False)
-            self._save(body=chosen.name())
 
     def show_tab(self, index: int) -> None:
         self.pages.setCurrentIndex(index)

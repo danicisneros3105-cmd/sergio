@@ -57,13 +57,17 @@ def load_config() -> dict[str, Any]:
     if data.get("voice") in (None, "es-EC-LuisNeural", "gemini:Algieba", "gemini:Predeterminada") and not data.get("voice_chosen"):
         data["voice"] = "gemini:Algenib"  # male, deep, relaxed and a bit husky
     # Muse-style personalisation and the brain's effort.
-    data["name"] = "Sergio"  # his name is fixed
-    data.setdefault("style", "orbe")
-    data.setdefault("body", "#f3e9d2")
-    data.setdefault("eye_style", "ovalos")
-    data.setdefault("mouth", "ninguna")
-    data.setdefault("accessory", "ninguno")
-    data.setdefault("personality", "Caballero británico")
+    # Sergio is not personalised any more (only agents are): one name, one
+    # look, one way of being, whatever an older config says.
+    data.update(
+        name="Sergio",
+        style="orbe",
+        body="#f3e9d2",
+        eye_style="ovalos",
+        mouth="ninguna",
+        accessory="ninguno",
+        personality="Caballero británico",
+    )
     if data.get("voice_rate") in (None, "+5%"):  # the old default sounded rushed
         data["voice_rate"] = "+0%"
     data.setdefault("effort", "auto")
@@ -550,7 +554,7 @@ def run(config: dict[str, Any]) -> None:
     camera_action.triggered.connect(camera_window.toggle)
     menu.addAction(camera_action)
 
-    def save_personalization(new: dict) -> None:
+    def save_settings(new: dict) -> None:
         apply_config(new)
         companion_mod.ORB = float(new["cursor_size"])
         apply_brain(new)
@@ -558,9 +562,6 @@ def run(config: dict[str, Any]) -> None:
         notch.name = new["name"]
         save_config(config)
         tray.setIcon(tray_icon(STATE_COLORS["idle"]))
-
-    personalize_action = QAction("Personalizar a Sergio…", menu)
-    menu.addAction(personalize_action)
 
     # -- every part of Sergio, one tap away («Todo» tab) ------------------
     # Filled at the end of start-up, once every window exists.
@@ -632,7 +633,7 @@ def run(config: dict[str, Any]) -> None:
                 ),
             ],
             config=config,
-            save_config=save_personalization,
+            save_config=save_settings,
             open_url=open_app_window,
             server_url=config["server_url"],
             status=status,
@@ -644,7 +645,6 @@ def run(config: dict[str, Any]) -> None:
         )
     )
     panels.append(panel)
-    personalize_action.triggered.connect(lambda: (panel.open(), panel.show_tab(panel.PROFILE)))
     bridge.level.connect(panel.set_level)
     panel_action = QAction("Centro de control  (clic en el notch)", menu)
     panel_action.triggered.connect(panel.open)

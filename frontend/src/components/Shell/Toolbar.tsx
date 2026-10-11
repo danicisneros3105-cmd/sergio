@@ -13,6 +13,7 @@ import {
 import { useAppStore } from '../../lib/store';
 
 // The bottom toolbar of the e-paper home: a hairline bar, then thin icons.
+// Only icons: hovering one lifts it and shows its name above it.
 // Inicio is the library; then the sections, the workspace, search and
 // Configuración. The notch on the desktop has the same six sections.
 export const TOOLBAR_ITEMS = [
@@ -45,12 +46,12 @@ export function Toolbar() {
               key={item.path}
               type="button"
               className="paper-tool"
-              title={item.label}
               aria-label={item.label}
               aria-current={active ? 'page' : undefined}
               onClick={() => navigate(item.path)}
             >
               <item.icon size={20} strokeWidth={stroke} />
+              <span className="paper-tip" aria-hidden="true">{item.label}</span>
             </button>
           );
         })}
@@ -58,21 +59,21 @@ export function Toolbar() {
         <button
           type="button"
           className="paper-tool"
-          title="Buscar y cambiar de modelo (Ctrl+K)"
-          aria-label="Buscar"
+          aria-label="Buscar (Ctrl+K)"
           onClick={() => setCommandPaletteOpen(true)}
         >
           <Search size={20} strokeWidth={stroke} />
+          <span className="paper-tip" aria-hidden="true">Buscar · Ctrl K</span>
         </button>
         <button
           type="button"
           className="paper-tool"
-          title="Configuración"
           aria-label="Configuración"
           aria-current={isActive('/settings', pathname) ? 'page' : undefined}
           onClick={() => navigate('/settings')}
         >
           <Settings size={20} strokeWidth={stroke} />
+          <span className="paper-tip" aria-hidden="true">Ajustes</span>
         </button>
       </nav>
     </footer>

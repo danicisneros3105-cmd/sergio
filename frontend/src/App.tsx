@@ -18,6 +18,7 @@ const ProfilePage = lazy(() => import('./pages/ProfilePage').then((m) => ({ defa
 const CoworkPage = lazy(() => import('./pages/CoworkPage').then((m) => ({ default: m.CoworkPage })));
 const WorkspacePage = lazy(() => import('./pages/WorkspacePage'));
 const CapturePage = lazy(() => import('./pages/CapturePage'));
+const AgentBuilderPage = lazy(() => import('./pages/AgentBuilderPage'));
 import { CommandPalette } from './components/CommandPalette';
 import { SetupScreen } from './components/SetupScreen';
 import { Toaster } from './components/ui/sonner';
@@ -190,6 +191,8 @@ export default function App() {
           <Route path="get-started" element={<GetStartedPage />} />
           <Route path="data-sources" element={<DataSourcesPage />} />
           <Route path="agents" element={<AgentsPage />} />
+          <Route path="agents/nuevo" element={<AgentBuilderPage />} />
+          <Route path="agents/:id/editar" element={<AgentBuilderPage />} />
           <Route path="logs" element={<LogsPage />} />
           <Route path="clacky" element={<ExtensionPage name="clacky" />} />
           <Route path="faces" element={<FacesPage />} />

@@ -451,6 +451,7 @@ SECTIONS = {  # the «Todo» tab: every part of Sergio, one tap away
     "profile": {"es": "Mi perfil", "en": "My profile", "pt": "Meu perfil", "fr": "Mon profil",
                 "de": "Mein Profil", "it": "Il mio profilo"},
     "faces": {"es": "Caras", "en": "Faces", "pt": "Rostos", "fr": "Visages", "de": "Gesichter", "it": "Volti"},
+    "new_agent": {"es": "Crear agente", "en": "Create agent", "pt": "Criar agente", "fr": "Créer un agent", "de": "Agent erstellen", "it": "Crea agente"},
     "agents": {"es": "Agentes", "en": "Agents", "pt": "Agentes", "fr": "Agents", "de": "Agenten", "it": "Agenti"},
     "blocking": TEXTS["blocking"],
     "night": {"es": "Night Shift", "en": "Night Shift", "pt": "Night Shift", "fr": "Night Shift",

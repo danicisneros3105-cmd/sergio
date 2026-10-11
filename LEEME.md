@@ -413,8 +413,17 @@ sigue, te escucha y usa la computadora por ti:
   cámara se apaga sola 20 s después de usarla.
 - **Voz natural**: voces neuronales de Microsoft (Luis o Andrea de Ecuador,
   México, Colombia, España, Argentina). Sin internet usa la voz local.
-- **Personalizar a Sergio** (clic derecho en el icono): colores (Océano,
-  Atardecer, Aurora, Rosa, Menta, Grafito), ojos, tamaño junto al cursor y voz.
+- **Sergio ya no se personaliza**: un solo nombre, aspecto y forma de ser.
+  Lo que se personaliza son los **agentes**, como los GPT de ChatGPT:
+  Agent Swarm → **Crear agente** (o la web, `/agents/nuevo`). A la izquierda
+  «Crear» (lo describe hablando y Sergio rellena todo) o «Configurar»
+  (nombre, emoji y color, descripción, instrucciones, hasta 4 frases de
+  inicio, archivos de conocimiento de texto, capacidades —web, código,
+  imágenes, Workspace, memoria— y modelo); a la derecha, una vista previa
+  para hablar con él antes de guardarlo. Se editan desde «…» → Editar.
+- **Secciones solo con iconos**: en la web (barra inferior) y en el panel del
+  notch, Chat, Workspace, Cowork, Agent Swarm, Salud, Perfil y Ajustes son
+  iconos; al pasar el cursor se elevan y aparece su nombre.
 - Por voz también usa la búsqueda web, los datos del planeta (God's Eye View,
   sin pantalla) y las guías expertas de ECC.
 - **Tareas de varios pasos**: «Sergio, abre Google, busca Nvidia y entra al
@@ -468,14 +477,13 @@ Para que además describa imágenes de la pantalla (fotos, gráficos), añade
 elegante y remates rápidos, pero primero resuelve y, si el momento es serio,
 baja la ironía. («Tres monitores suelen ser suficientes para la mayoría de los
 mortales, a menos que esté intentando vigilar toda la bolsa de Wall Street.»)
-Se cambia en «Personalizar a Sergio».
+Ya no se cambia: es el mismo siempre (los agentes sí tienen el tono que usted les dé).
 
 Sergio habla con una **voz masculina grave, relajada y algo rasposa**
 («Algenib», de Gemini Live), en las llamadas y en las respuestas por turnos,
 así suena siempre igual. Una copia 1:1 de la voz de un actor real (p. ej.
 Brad Pitt) no se hace: clonar o imitar la voz de una persona real no es
-legal ni ético; Algenib es la voz de Gemini más parecida a ese estilo. Otra
-voz se elige en «Personalizar a Sergio».
+legal ni ético; Algenib es la voz de Gemini más parecida a ese estilo.
 
 **Voz aún más grave y rasposa, y más rápida (opcional, ElevenLabs)**: una voz
 original de la biblioteca de ElevenLabs («J Thomas — Warm, Raspy & Real»:
@@ -489,8 +497,7 @@ sergio nube voz --elevenlabs TU_CLAVE
 
 Desde ahí las respuestas por turnos usan esa voz; las llamadas en vivo siguen
 con Gemini Live (Algenib), que ya contesta en menos de un segundo. Si se acaba
-el crédito o falla, vuelve sola a Algenib. También se elige en «Personalizar
-a Sergio».
+el crédito o falla, vuelve sola a Algenib.
 
 **Sin esperas**: en las llamadas Gemini no «piensa» antes de hablar (primera
 palabra en ~0,7 s) y las respuestas por turnos se oyen mientras se generan

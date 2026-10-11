@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { toast } from 'sonner';
@@ -1131,6 +1132,7 @@ function OverflowMenu({
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     function handler(e: MouseEvent) {
@@ -1158,6 +1160,17 @@ function OverflowMenu({
           className="absolute right-0 top-6 z-20 rounded-lg py-1 min-w-[120px]"
           style={{ background: 'var(--color-bg)', border: '1px solid var(--color-border)', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}
         >
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setOpen(false);
+              navigate(`/agents/${agentId}/editar`);
+            }}
+            className="w-full text-left px-3 py-1.5 text-xs cursor-pointer flex items-center gap-2"
+            style={{ color: 'var(--color-text)' }}
+          >
+            <Pencil size={12} /> Editar
+          </button>
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -3418,6 +3431,7 @@ function LogsTab({ agentId }: { agentId: string }) {
 // ---------------------------------------------------------------------------
 
 export function AgentsPage() {
+  const navigate = useNavigate();
   const managedAgents = useAppStore((s) => s.managedAgents);
   const setManagedAgents = useAppStore((s) => s.setManagedAgents);
   const selectedAgentId = useAppStore((s) => s.selectedAgentId);
@@ -3924,7 +3938,7 @@ export function AgentsPage() {
             Agents
           </h1>
           <button
-            onClick={() => agentManagerAvailable && setShowWizard(true)}
+            onClick={() => agentManagerAvailable && navigate('/agents/nuevo')}
             disabled={agentManagerAvailable === false}
             className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             style={{
@@ -3932,7 +3946,7 @@ export function AgentsPage() {
               color: agentManagerAvailable === false ? 'var(--color-text-tertiary)' : 'var(--color-on-accent)',
             }}
           >
-            <Plus size={15} /> New Agent
+            <Plus size={15} /> Crear agente
           </button>
         </div>
         <p className="text-sm mt-2 max-w-2xl" style={{ color: 'var(--color-text-secondary)' }}>
@@ -3989,7 +4003,7 @@ export function AgentsPage() {
           </p>
           <p className="text-sm mb-6">Create your first agent to get started with autonomous task management.</p>
           <button
-            onClick={() => agentManagerAvailable && setShowWizard(true)}
+            onClick={() => agentManagerAvailable && navigate('/agents/nuevo')}
             disabled={agentManagerAvailable === false}
             className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
             style={{
