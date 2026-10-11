@@ -290,6 +290,7 @@ class AgentExecutor:
                 t
                 for t in self._manager.list_tasks(agent_id)
                 if t.get("progress", {}).get("scheduled")
+                and t.get("progress", {}).get("consecutive_failures", 0) < 3
                 and t["status"] not in {"running", "pending"}
             ]
             recurring.sort(key=lambda t: t.get("progress", {}).get("last_run", 0))
@@ -303,9 +304,27 @@ class AgentExecutor:
                     self._manager.update_task(task["id"], status="running")
         try:
             if not agent.get("config", {}).get("node_id") or node_tasks:
-                result = self._run_with_retries(agent)
+                if node_tasks:
+                    from openjarvis.agents.workflows import run_workflow
+
+                    def run_step(instruction):
+                        step_agent = {
+                            **agent,
+                            "config": {**agent["config"], "instruction": instruction},
+                        }
+                        return self._run_with_retries(step_agent)
+
+                    result = run_workflow(
+                        agent["config"]["instruction"],
+                        node_tasks[0].get("progress", {}).get("workflow", "single"),
+                        run_step,
+                    )
+                else:
+                    result = self._run_with_retries(agent)
         except AgentTickError as e:
             error_info = e
+        except Exception as exc:
+            error_info = classify_error(exc)
         finally:
             self._bus.unsubscribe(EventType.TOOL_CALL_START, _on_activity)
             self._bus.unsubscribe(EventType.INFERENCE_START, _on_activity)
@@ -317,10 +336,18 @@ class AgentExecutor:
             tick_duration = time.time() - tick_start
             self._finalize_tick(agent_id, result, error_info, tick_duration)
             for task in node_tasks:
+                progress = dict(task.get("progress", {}))
+                ok = result is not None and error_info is None
+                progress.update(
+                    last_run=time.time(),
+                    consecutive_failures=0
+                    if ok
+                    else progress.get("consecutive_failures", 0) + 1,
+                )
                 self._manager.update_task(
                     task["id"],
                     status="needs_review" if result and not error_info else "failed",
-                    progress={**task.get("progress", {}), "last_run": time.time()},
+                    progress=progress,
                     findings=[
                         {
                             "text": (getattr(result, "content", "") or "")[:8000],
@@ -328,6 +355,8 @@ class AgentExecutor:
                         }
                     ],
                 )
+                if progress.get("scheduled") and progress["consecutive_failures"] >= 3:
+                    self._manager.pause_agent(agent_id)
 
             if self._trace_store:
                 self._save_trace(

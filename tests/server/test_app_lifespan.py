@@ -51,3 +51,14 @@ def test_no_deprecated_event_handlers():
 
     app = create_app(_engine(), "test-model")
     assert app.router.on_shutdown == [] and app.router.on_startup == []
+
+
+def test_nodes_mcp_sessions_are_closed_on_server_shutdown():
+    from openjarvis.server.app import create_app
+
+    app = create_app(_engine(), "test-model")
+    pool = MagicMock()
+    app.state.nodes_mcp_sessions = pool
+    with TestClient(app):
+        pool.close_all.assert_not_called()
+    pool.close_all.assert_called_once()

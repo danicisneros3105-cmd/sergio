@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import contextlib
 import logging
 import os
@@ -570,6 +571,9 @@ def create_app(
 
     @on_shutdown
     async def _close_nodes() -> None:
+        node_sessions = getattr(app.state, "nodes_mcp_sessions", None)
+        if node_sessions is not None:
+            await asyncio.to_thread(node_sessions.close_all)
         node_store = getattr(app.state, "nodes_store", None)
         if node_store is not None:
             node_store.close()

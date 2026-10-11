@@ -30,8 +30,234 @@ def client(tmp_path, monkeypatch):
     app.state.agent_manager = AgentManager(str(tmp_path / "agents.sqlite"))
     with TestClient(app) as client:
         yield client
+    if hasattr(app.state, "nodes_mcp_sessions"):
+        app.state.nodes_mcp_sessions.close_all()
     app.state.nodes_store.close()
     app.state.agent_manager.close()
+
+
+def test_presets_never_install_or_execute_and_require_local_program(
+    client, monkeypatch
+):
+    from openjarvis.nodes import catalog
+
+    monkeypatch.setattr(catalog.shutil, "which", lambda _: None)
+    n = node(client)
+    result = client.get("/v1/nodes/integration-presets").json()["presets"]
+    assert {p["id"] for p in result} == {"browser-use", "openclaw"}
+    assert not any(p["available"] for p in result)
+    assert (
+        client.post(
+            f"/v1/nodes/{n}/connection-presets", json={"preset_id": "browser-use"}
+        ).status_code
+        == 409
+    )
+    assert not client.get(f"/v1/nodes/{n}/connections").json()["connections"]
+    monkeypatch.setattr(catalog.shutil, "which", lambda _: "/installed/browser-use")
+    spec = client.post(
+        f"/v1/nodes/{n}/connection-presets", json={"preset_id": "browser-use"}
+    ).json()
+    assert spec["command"] == ["/installed/browser-use", "--mcp"]
+    assert spec["session_mode"] == "persistent" and spec["policy"] == "confirm"
+
+
+def _stateful_mcp(tmp_path):
+    server = tmp_path / "stateful.py"
+    server.write_text("""import json,sys,os
+value = "initial"
+for line in sys.stdin:
+    request=json.loads(line)
+    if "id" not in request: continue
+    method=request["method"]
+    if method == "initialize":
+        result={"protocolVersion":"2025-03-26", "capabilities":{"tools":{}}, "serverInfo":{"name":"test","version":"1"}}
+    elif method == "tools/list":
+        result={"tools":[{"name":"state","description":"Stateful test", "inputSchema":{"type":"object"}}]}
+    else:
+        args=request["params"].get("arguments",{})
+        value=args.get("value",value)
+        result={"content":[{"type":"text","text":value}], "pid":os.getpid()}
+    print(json.dumps({"jsonrpc":"2.0", "id":request["id"], "result":result}),flush=True)
+""")
+    return {
+        "kind": "mcp",
+        "command": [sys.executable, str(server)],
+        "session_mode": "persistent",
+    }
+
+
+def test_reviewed_mcp_preserves_state_and_invalidates_stale_actions(client, tmp_path):
+    n = node(client)
+    conn = client.post(
+        f"/v1/nodes/{n}/connections",
+        json={"name": "Browser fixture", **_stateful_mcp(tmp_path)},
+    ).json()
+    endpoint = f"/v1/nodes/{n}/connections/{conn['id']}"
+
+    def reviewed(action):
+        ticket = client.post(endpoint + "/review", json=action).json()["ticket"]
+        return client.post(endpoint + "/execute", json={**action, "ticket": ticket})
+
+    assert reviewed({}).json()["session_active"]
+    action = {"tool": "state", "tool_arguments": {"value": "page one"}}
+    assert reviewed(action).json()["result"]["content"][0]["text"] == "page one"
+    stale = client.post(endpoint + "/review", json={"tool": "state"}).json()["ticket"]
+    assert (
+        reviewed({"tool": "state"}).json()["result"]["content"][0]["text"] == "page one"
+    )
+    assert (
+        client.post(
+            endpoint + "/execute", json={"tool": "state", "ticket": stale}
+        ).status_code
+        == 403
+    )
+    ticket = client.post(endpoint + "/review", json={"tool": "state"}).json()["ticket"]
+    client.post(endpoint + "/close-session")
+    assert (
+        client.post(
+            endpoint + "/execute", json={"tool": "state", "ticket": ticket}
+        ).status_code
+        == 403
+    )
+    assert (
+        reviewed({"tool": "state"}).json()["result"]["content"][0]["text"] == "initial"
+    )
+    client.patch(
+        endpoint,
+        json={
+            "name": conn["name"],
+            "kind": "mcp",
+            "command": conn["command"],
+            "session_mode": "persistent",
+            "policy": "block",
+        },
+    )
+    assert client.post(endpoint + "/review", json={}).status_code == 403
+    assert not client.app.state.nodes_mcp_sessions._sessions
+
+
+def test_mcp_sessions_capacity_idle_cleanup_and_revision_race(tmp_path):
+    import time
+
+    from openjarvis.nodes.sessions import MCPSessions, SessionBusy
+
+    pool = MCPSessions(idle_seconds=0.15, capacity=1)
+    spec = _stateful_mcp(tmp_path)
+    try:
+        revision = pool.revision()
+        result = pool.run(("a", "1"), spec, "state", {"value": "persisted"}, revision)
+        assert result["session_active"]
+        with pytest.raises(PermissionError):
+            pool.run(("a", "1"), spec, "state", {}, revision)
+        with pytest.raises(SessionBusy):
+            pool.run(("b", "2"), spec, "state", {})
+        deadline = time.monotonic() + 3
+        while pool._sessions and time.monotonic() < deadline:
+            time.sleep(0.02)
+        assert not pool._sessions
+        result = pool.run(("b", "2"), spec, "state", {})
+        assert result["result"]["content"][0]["text"] == "initial"
+    finally:
+        pool.close_all()
+
+
+def test_native_workflows_have_real_dependency_order_and_accounting():
+    from openjarvis.agents._stubs import AgentResult
+    from openjarvis.agents.workflows import run_workflow
+
+    prompts = []
+
+    def run(prompt):
+        prompts.append(prompt)
+        return AgentResult(
+            content=f"evidence {len(prompts)}",
+            turns=2,
+            metadata={"total_tokens": 5, "cost": 0.1},
+        )
+
+    result = run_workflow("Review Python", "sequential", run)
+    assert len(prompts) == 3
+    assert "evidence 1" in prompts[1]
+    assert "evidence 1" in prompts[2] and "evidence 2" in prompts[2]
+    assert result.metadata["total_tokens"] == 15 and result.turns == 6
+    assert result.metadata["cost"] == pytest.approx(0.3)
+    assert result.metadata["verified"] is False
+
+
+def test_parallel_experts_are_independent_and_failed_expert_blocks_synthesis():
+    from openjarvis.agents._stubs import AgentResult
+    from openjarvis.agents.workflows import run_workflow
+
+    barrier = threading.Barrier(2)
+    prompts = []
+
+    def run(prompt):
+        prompts.append(prompt)
+        if "Objetivo:" in prompt:
+            barrier.wait(timeout=2)
+            assert "expert output" not in prompt
+            return AgentResult(content="expert output")
+        assert prompt.count("expert output") == 2
+        return AgentResult(content="synthesis")
+
+    assert run_workflow("goal", "parallel_review", run).content == "synthesis"
+    assert len(prompts) == 3
+    calls = []
+
+    def failed(prompt):
+        calls.append(prompt)
+        return AgentResult(content="denied", metadata={"security_denied": True})
+
+    with pytest.raises(RuntimeError):
+        run_workflow("goal", "parallel_review", failed)
+    assert len(calls) == 2
+    with pytest.raises(ValueError):
+        run_workflow("x" * 12001, "parallel_review", failed)
+
+
+def test_goal_workflow_reaches_executor_and_recurring_failures_pause(
+    client, monkeypatch
+):
+    from unittest.mock import Mock
+
+    from openjarvis.agents._stubs import AgentResult
+    from openjarvis.agents.errors import RetryableError
+    from openjarvis.agents.executor import AgentExecutor
+    from openjarvis.core.events import EventBus
+
+    client.app.state.agent_scheduler = Mock()
+    n = node(client, interval_minutes=5)
+    goal = client.post(
+        f"/v1/nodes/{n}/goals",
+        json={"text": "Check docs", "scheduled": True, "workflow": "sequential"},
+    ).json()
+    manager = client.app.state.agent_manager
+    executor = AgentExecutor(manager, EventBus())
+    calls = []
+    monkeypatch.setattr(
+        executor,
+        "_run_with_retries",
+        lambda agent: (
+            calls.append(agent["config"]["instruction"])
+            or AgentResult(content="proposal")
+        ),
+    )
+    executor.execute_tick(goal["agent_id"])
+    assert len(calls) == 3
+
+    def fail(_):
+        raise RetryableError("temporary test error")
+
+    monkeypatch.setattr(executor, "_run_with_retries", fail)
+    for _ in range(3):
+        executor.execute_tick(goal["agent_id"])
+    assert manager.get_agent(goal["agent_id"])["status"] == "paused"
+    task = manager.list_tasks(goal["agent_id"])[0]
+    assert task["progress"]["consecutive_failures"] == 3
+    assert client.post(f"/v1/nodes/{n}/resume").status_code == 200
+    assert (
+        manager.list_tasks(goal["agent_id"])[0]["progress"]["consecutive_failures"] == 0
+    )
 
 
 def node(client, **fields):
@@ -62,6 +288,27 @@ def test_profile_memory_forget_goals_and_audit(client):
     events = client.get(f"/v1/nodes/{n}/audit").json()["events"]
     assert any(e["action"] == "delete:memory" for e in events)
     assert "Trabajo en Python" not in json.dumps(events)
+
+
+def test_denied_single_agent_result_is_failed_not_a_successful_goal(
+    client, monkeypatch
+):
+    from openjarvis.agents._stubs import AgentResult
+    from openjarvis.agents.executor import AgentExecutor
+    from openjarvis.core.events import EventBus
+
+    n = node(client)
+    goal = client.post(f"/v1/nodes/{n}/goals", json={"text": "Read docs"}).json()
+    executor = AgentExecutor(client.app.state.agent_manager, EventBus())
+    monkeypatch.setattr(
+        executor,
+        "_run_with_retries",
+        lambda _: AgentResult(content="Denied", metadata={"security_denied": True}),
+    )
+    executor.execute_tick(goal["agent_id"])
+    row = client.get(f"/v1/nodes/{n}/goals").json()["goals"][0]
+    assert row["status"] == "failed"
+    assert row["consecutive_failures"] == 1
 
 
 def test_invalid_profile_and_scheduling_leave_no_partial_goal(client):

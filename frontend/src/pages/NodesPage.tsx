@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiFetch, saveCloudKey } from '../lib/api';
-import { nodesRequest, type NodeProfile, type NodeGoal, type NodeMemory, type NodeConnection } from '../lib/nodes-api';
+import { nodesRequest, type NodeProfile, type NodeGoal, type NodeMemory, type NodeConnection, type IntegrationPreset } from '../lib/nodes-api';
 import { NodeAvatar } from '../components/Nodes/NodeAvatar';
 import { FoldReveal } from '../components/Nodes/FoldReveal';
+import { IntegrationCards } from '../components/Nodes/IntegrationCards';
 
 interface Capabilities { plan: string; custom_api: boolean; external_requirements: string[]; }
 const field = 'rounded-lg border p-2 bg-transparent w-full';
@@ -16,6 +17,9 @@ export function NodesPage() {
   const [goals, setGoals] = useState<NodeGoal[]>([]);
   const [memories, setMemories] = useState<NodeMemory[]>([]);
   const [connections, setConnections] = useState<NodeConnection[]>([]);
+  const [presets, setPresets] = useState<IntegrationPreset[]>([]);
+  const [workflow, setWorkflow] = useState('single');
+  const [cliArgs, setCliArgs] = useState('[]');
   const [events, setEvents] = useState<Array<{action: string; at: number}>>([]);
   const [name, setName] = useState(''); const [role, setRole] = useState('Asistente personal');
   const [colour, setColour] = useState('#b98998'); const [fur, setFur] = useState(.65);
@@ -39,6 +43,7 @@ export function NodesPage() {
     setNodes(list.nodes); setCaps(capabilities);
   }, []);
   useEffect(() => { refresh().catch(e => setError(String(e))); }, [refresh]);
+  useEffect(() => { nodesRequest<{presets: IntegrationPreset[]}>('/integration-presets').then(r => setPresets(r.presets)).catch(e => setError(String(e))); }, []);
   const refreshDetails = useCallback(async () => {
     if (!selected) return;
     const [g, m, c, a] = await Promise.all([
@@ -70,7 +75,7 @@ export function NodesPage() {
     await refresh(); setSelected(created.id); setName('');
   });
   const addGoal = (scheduled: boolean) => run(async () => {
-    const goal = await nodesRequest<NodeGoal>(`/${selected}/goals`, 'POST', { text, scheduled });
+    const goal = await nodesRequest<NodeGoal>(`/${selected}/goals`, 'POST', { text, scheduled, workflow });
     if (!scheduled) {
       const response = await apiFetch(`/v1/managed-agents/${goal.agent_id}/run`, { method: 'POST' });
       if (!response.ok) throw new Error('El objetivo quedó guardado, pero no pudo arrancar; revísalo en Agent Swarm.');
@@ -78,7 +83,7 @@ export function NodesPage() {
     setText(''); await refreshDetails(); await refresh();
   });
   const execute = (connection: NodeConnection, call = false) => run(async () => {
-    const action = {arguments: [], tool: call ? mcpTool : '', tool_arguments: call ? JSON.parse(mcpArgs) : {}};
+    const action = {arguments: connection.kind === 'cli' ? JSON.parse(cliArgs) : [], tool: call ? mcpTool : '', tool_arguments: call ? JSON.parse(mcpArgs) : {}};
     const review = await nodesRequest<{ticket: string; command: string[]}>(`/${selected}/connections/${connection.id}/review`, 'POST', action);
     if (!window.confirm(`Ejecutar en tu equipo:\n${JSON.stringify({...action, command: review.command})}\nPuede usar archivos o la red. ¿Autorizar esta ejecución?`)) return;
     const result = await nodesRequest(`/${selected}/connections/${connection.id}/execute`, 'POST', { ...action, ticket: review.ticket });
@@ -113,23 +118,29 @@ export function NodesPage() {
         <button className={button} disabled={busy} onClick={() => run(async () => { await nodesRequest(`/${selected}/pause`, 'POST'); await refreshDetails(); })}>Pausar agente</button>
         <button className={button} disabled={busy} onClick={() => run(async () => { await nodesRequest(`/${selected}/resume`, 'POST'); await refreshDetails(); })}>Reanudar</button></div>
       <label className="block">Objetivo<textarea className={field} value={text} maxLength={4000} onChange={e => setText(e.target.value)} /></label>
+      <label className="block">Coordinación<select className={field} value={workflow} onChange={e => setWorkflow(e.target.value)}><option value="single">Un agente · menor consumo</option><option value="sequential">Secuencial · análisis, solución y revisión</option><option value="parallel_review">Dos especialistas en paralelo y revisión</option></select></label>
+      <p className="text-sm opacity-70">Los modos con especialistas ejecutan tres agentes y pueden consumir más tokens. La síntesis sigue pendiente de revisión. Las tareas recurrentes se pausan tras tres fallos consecutivos.</p>
       <div className="flex gap-2"><button className={button} disabled={busy || !text.trim()} onClick={() => addGoal(false)}>Guardar y ejecutar</button>
         <button className={button} disabled={busy || !text.trim() || node.interval_minutes < 5} onClick={() => addGoal(true)}>Programar</button></div>
-      <ul>{goals.map(g => <li key={g.id} className="py-2">{g.text} <small className="opacity-70">— {statuses[g.status] ?? g.status}</small>{g.findings?.map((f, i) => <p key={i} className="whitespace-pre-wrap text-sm">{f.text}<em className="block">Resultado pendiente de revisión</em></p>)}<button className={button} disabled={busy || g.status === 'running'} onClick={() => run(async () => { await nodesRequest(`/${selected}/goals/${g.id}`, 'DELETE'); await refreshDetails(); })}>Eliminar objetivo</button></li>)}</ul>
+      <ul>{goals.map(g => <li key={g.id} className="py-2">{g.text} <small className="opacity-70">— {statuses[g.status] ?? g.status}</small>{(g.consecutive_failures ?? 0) >= 3 && <p role="status" className="text-amber-700">Agente pausado tras tres fallos. Corrige el motivo y pulsa Reanudar.</p>}{g.findings?.map((f, i) => <p key={i} className="whitespace-pre-wrap text-sm">{f.text}<em className="block">Resultado pendiente de revisión</em></p>)}<button className={button} disabled={busy || g.status === 'running'} onClick={() => run(async () => { await nodesRequest(`/${selected}/goals/${g.id}`, 'DELETE'); await refreshDetails(); })}>Eliminar objetivo</button></li>)}</ul>
       <h3 className="font-semibold">Memoria editable</h3>
       <label className="block">Dato que debe recordar<input className={field} value={note} maxLength={4000} onChange={e => setNote(e.target.value)} /></label>
       <button className={button} disabled={busy || !note.trim()} onClick={() => run(async () => { await nodesRequest(`/${selected}/memory`, 'POST', {text: note}); setNote(''); await refreshDetails(); })}>Recordar</button>
       <ul>{memories.map(m => <li key={m.id} className="flex gap-2 py-2"><span>{m.text} <small>({m.source})</small></span>
         <button className={button} disabled={busy} onClick={() => run(async () => { await nodesRequest(`/${selected}/memory/${m.id}`, 'DELETE'); await refreshDetails(); })}>Olvidar</button></li>)}</ul>
       <h3 className="font-semibold">Conectar MCP o CLI</h3>
+      <button className={button} disabled={busy} onClick={() => run(async () => { const result = await nodesRequest<{presets: IntegrationPreset[]}>('/integration-presets'); setPresets(result.presets); })}>Comprobar programas instalados</button>
+      <IntegrationCards presets={presets} busy={busy} onAdd={p => run(async () => { await nodesRequest(`/${selected}/connection-presets`, 'POST', {preset_id:p.id}); if (p.kind === 'cli') setCliArgs('["--version"]'); await refreshDetails(); })} />
       <p className="text-sm opacity-70">Agrega un programa ya instalado. MCP descubre herramientas y permite llamar una herramienta tras revisar sus argumentos. No escribas claves en los comandos.</p>
       <label>Tipo<select className={field} value={kind} onChange={e => setKind(e.target.value as 'cli' | 'mcp')}><option value="cli">CLI</option><option value="mcp">MCP stdio</option></select></label>
       <label className="block">Comando como lista JSON<input className={field} value={command} onChange={e => setCommand(e.target.value)} /></label>
       <button className={button} disabled={busy} onClick={() => run(async () => { await nodesRequest(`/${selected}/connections`, 'POST', {name: `${kind.toUpperCase()} ${connections.length + 1}`, kind, command: JSON.parse(command)}); await refreshDetails(); })}>Agregar conexión</button>
       <label className="block">Herramienta MCP (nombre de la lista descubierta)<input className={field} value={mcpTool} onChange={e => setMcpTool(e.target.value)} /></label>
       <label className="block">Argumentos MCP como objeto JSON<input className={field} value={mcpArgs} onChange={e => setMcpArgs(e.target.value)} /></label>
+      <label className="block">Argumentos CLI como lista JSON<input className={field} value={cliArgs} onChange={e => setCliArgs(e.target.value)} /></label>
       <ul>{connections.map(c => <li key={c.id} className="py-2 flex gap-2 items-center"><span>{c.name} ({c.policy}): {JSON.stringify(c.command)}</span><button className={button} onClick={() => execute(c)} disabled={busy || c.policy === 'block'}>Revisar y probar</button>{c.kind === 'mcp' && <button className={button} disabled={busy || !mcpTool || c.policy === 'block'} onClick={() => execute(c, true)}>Revisar herramienta</button>}
-        <button className={button} disabled={busy} onClick={() => run(async () => { await nodesRequest(`/${selected}/connections/${c.id}`, 'PATCH', {name:c.name,kind:c.kind,command:c.command,policy:c.policy === 'block' ? 'confirm' : 'block'}); await refreshDetails(); })}>{c.policy === 'block' ? 'Habilitar con revisión' : 'Bloquear'}</button>
+        {c.session_mode === 'persistent' && <button className={button} disabled={busy} onClick={() => run(async () => { await nodesRequest(`/${selected}/connections/${c.id}/close-session`, 'POST'); setOutput('Sesión cerrada. La próxima acción abrirá una nueva.'); })}>Cerrar sesión MCP</button>}
+        <button className={button} disabled={busy} onClick={() => run(async () => { await nodesRequest(`/${selected}/connections/${c.id}`, 'PATCH', {name:c.name,kind:c.kind,command:c.command,session_mode:c.session_mode ?? 'ephemeral',policy:c.policy === 'block' ? 'confirm' : 'block'}); await refreshDetails(); })}>{c.policy === 'block' ? 'Habilitar con revisión' : 'Bloquear'}</button>
         <button className={button} disabled={busy} onClick={() => run(async () => { await nodesRequest(`/${selected}/connections/${c.id}`, 'DELETE'); await refreshDetails(); })}>Revocar</button></li>)}</ul>
       {output && <pre className="max-h-64 overflow-auto whitespace-pre-wrap text-sm">{output}</pre>}
       <details><summary>Auditoría</summary><ul>{events.map((e, i) => <li key={i}>{new Date(e.at * 1000).toLocaleString()} — {e.action}</li>)}</ul></details>

@@ -12,7 +12,9 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from openjarvis import tiers
 from openjarvis.core.paths import get_config_dir
+from openjarvis.nodes.catalog import preset_spec, presets
 from openjarvis.nodes.integrations import ReviewTickets, run_connection
+from openjarvis.nodes.sessions import MCPSessions, SessionBusy
 from openjarvis.nodes.store import NodeStore
 
 router = APIRouter(prefix="/v1/nodes", tags=["nodes"])
@@ -64,6 +66,7 @@ class TextRequest(StrictModel):
 
 class GoalRequest(TextRequest):
     scheduled: bool = False
+    workflow: Literal["single", "sequential", "parallel_review"] = "single"
 
 
 class ConnectionRequest(StrictModel):
@@ -71,6 +74,23 @@ class ConnectionRequest(StrictModel):
     kind: Literal["cli", "mcp"]
     command: list[str] = Field(min_length=1, max_length=24)
     policy: Literal["confirm", "block"] = "confirm"
+    session_mode: Literal["ephemeral", "persistent"] = "ephemeral"
+
+
+class PresetRequest(StrictModel):
+    preset_id: Literal["browser-use", "openclaw"]
+
+
+def sessions(request: Request) -> MCPSessions:
+    with _lock:
+        if not hasattr(request.app.state, "nodes_mcp_sessions"):
+            request.app.state.nodes_mcp_sessions = MCPSessions()
+        return request.app.state.nodes_mcp_sessions
+
+
+@router.get("/integration-presets")
+def integration_presets() -> dict[str, Any]:
+    return {"presets": presets()}
 
 
 class ExecutionRequest(StrictModel):
@@ -212,7 +232,9 @@ def add_goal(node_id: str, req: GoalRequest, request: Request) -> dict[str, Any]
         if rules:
             description += "\nReglas aplicables:\n" + rules
         task = manager.create_task(aid, description)
-        manager.update_task(task["id"], progress={"scheduled": req.scheduled})
+        manager.update_task(
+            task["id"], progress={"scheduled": req.scheduled, "workflow": req.workflow}
+        )
         if req.scheduled:
             config = _agent_config(node)
             config["instruction"] = description
@@ -250,6 +272,9 @@ def goals(node_id: str, request: Request) -> dict[str, Any]:
             task = next((t for t in tasks if t["id"] == row["task_id"]), None)
             row["status"] = task["status"] if task else "unavailable"
             row["findings"] = task.get("findings", []) if task else []
+            row["consecutive_failures"] = (
+                task.get("progress", {}).get("consecutive_failures", 0) if task else 0
+            )
     return {"goals": rows}
 
 
@@ -287,6 +312,28 @@ def add_connection(
         raise HTTPException(409, str(exc)) from exc
 
 
+@router.post("/{node_id}/connection-presets")
+def add_preset(node_id: str, req: PresetRequest, request: Request) -> dict[str, Any]:
+    try:
+        spec = preset_spec(req.preset_id)
+    except FileNotFoundError as exc:
+        raise HTTPException(409, str(exc)) from exc
+    return add_connection(node_id, ConnectionRequest(**spec), request)
+
+
+@router.post("/{node_id}/connections/{connection_id}/close-session")
+def close_connection_session(
+    node_id: str, connection_id: str, request: Request
+) -> dict[str, bool]:
+    find(request, node_id)
+    if not any(
+        c["id"] == connection_id for c in store(request).list("connection", node_id)
+    ):
+        raise HTTPException(404, "Conexión inexistente")
+    sessions(request).close((node_id, connection_id))
+    return {"ok": True}
+
+
 def connection_payload(
     node_id: str, connection_id: str, request: Request, req: ExecutionRequest
 ) -> dict[str, Any]:
@@ -300,6 +347,8 @@ def connection_payload(
         raise HTTPException(400, "Argumentos inválidos")
     if spec["kind"] == "cli" and (req.tool or req.tool_arguments):
         raise HTTPException(400, "Una conexión CLI no admite herramientas MCP")
+    if spec["kind"] == "mcp" and req.arguments:
+        raise HTTPException(400, "MCP no admite argumentos CLI adicionales")
     if len(__import__("json").dumps(req.tool_arguments).encode()) > 16000:
         raise HTTPException(400, "Argumentos MCP demasiado grandes")
     return {
@@ -308,6 +357,11 @@ def connection_payload(
         "arguments": req.arguments,
         "tool": req.tool,
         "tool_arguments": req.tool_arguments,
+        **(
+            {"session_revision": sessions(request).revision()}
+            if spec["kind"] == "mcp" and spec.get("session_mode") == "persistent"
+            else {}
+        ),
     }
 
 
@@ -345,9 +399,32 @@ async def execute_connection(
             429, "Dos conexiones ya están en ejecución; revisa y reintenta"
         ) from exc
     try:
-        result = await asyncio.to_thread(
-            run_connection, payload["spec"], req.arguments, req.tool, req.tool_arguments
-        )
+        if (
+            payload["spec"]["kind"] == "mcp"
+            and payload["spec"].get("session_mode") == "persistent"
+        ):
+            if req.arguments:
+                raise ValueError("MCP no admite argumentos CLI adicionales")
+            result = await asyncio.to_thread(
+                sessions(request).run,
+                (node_id, connection_id),
+                payload["spec"],
+                req.tool,
+                req.tool_arguments,
+                payload["session_revision"],
+            )
+        else:
+            result = await asyncio.to_thread(
+                run_connection,
+                payload["spec"],
+                req.arguments,
+                req.tool,
+                req.tool_arguments,
+            )
+    except SessionBusy as exc:
+        raise HTTPException(429, str(exc)) from exc
+    except PermissionError as exc:
+        raise HTTPException(403, str(exc)) from exc
     except Exception as exc:
         raise HTTPException(502, "La conexión falló; revisa su configuración") from exc
     finally:
@@ -400,6 +477,7 @@ def revoke_connection(
 ) -> dict[str, bool]:
     find(request, node_id)
     store(request).delete("connection", connection_id, node_id)
+    sessions(request).close((node_id, connection_id))
     return {"ok": True}
 
 
@@ -416,6 +494,10 @@ def resume(node_id: str, request: Request) -> dict[str, bool]:
     node = find(request, node_id)
     manager = getattr(request.app.state, "agent_manager", None)
     if manager and node.get("agent_id"):
+        for task in manager.list_tasks(node["agent_id"]):
+            progress = dict(task.get("progress", {}))
+            progress["consecutive_failures"] = 0
+            manager.update_task(task["id"], progress=progress)
         manager.resume_agent(node["agent_id"])
     store(request).put("execution", {"action": "resume"}, node_id)
     return {"ok": True}
@@ -456,6 +538,7 @@ def change_connection(
     )
     if spec is None:
         raise HTTPException(404, "Conexión inexistente")
+    sessions(request).close((node_id, connection_id))
     if any(not arg or len(arg) > 2000 or "\x00" in arg for arg in req.command):
         raise HTTPException(400, "Comando inválido")
     return store(request).put(

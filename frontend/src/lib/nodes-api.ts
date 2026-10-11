@@ -16,6 +16,7 @@ export interface NodeProfile {
   species: 'lumen' | 'bruma' | 'nival'; fur: number; interval_minutes: number;
   agent_id?: string;
 }
-export interface NodeGoal { id: string; text: string; status: string; findings?: Array<{text: string; verified: boolean}>; agent_id: string; }
+export interface NodeGoal { id: string; text: string; status: string; consecutive_failures?: number; findings?: Array<{text: string; verified: boolean}>; agent_id: string; }
 export interface NodeMemory { id: string; text: string; source: string; }
-export interface NodeConnection { id: string; name: string; kind: 'cli' | 'mcp'; command: string[]; policy: 'confirm' | 'block'; }
+export interface NodeConnection { id: string; name: string; kind: 'cli' | 'mcp'; command: string[]; policy: 'confirm' | 'block'; session_mode?: 'ephemeral' | 'persistent'; }
+export interface IntegrationPreset { id: string; name: string; kind: 'cli' | 'mcp'; available: boolean; note: string; repository: string; }
