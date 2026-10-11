@@ -608,6 +608,19 @@ def create_app(
     from openjarvis.server.workspace_routes import router as workspace_router
 
     app.include_router(workspace_router)
+    # Agent Swarm (a burst of parallel sub-agents) and Nodes (24/7 agents).
+    from openjarvis.server.swarm_routes import router as swarm_router
+
+    app.include_router(swarm_router)
+    from openjarvis.server.nodes_routes import router as nodes_router
+
+    app.include_router(nodes_router)
+
+    @on_shutdown
+    async def _stop_nodes() -> None:
+        worker = getattr(app.state, "node_worker", None)
+        if worker is not None:
+            worker.shutdown()
     # Sergio's Gemini voice (British gentleman) and ears.
     from openjarvis.server.voice_routes import router as voice_router
 
