@@ -468,6 +468,8 @@ class NodeWorker:
                     node_id, "failed", f"Falló: {type(exc).__name__}: {exc}"[:400]
                 )
                 self.store.update(node_id, status="idle", doing="")
+                if job.get("routine"):
+                    self.store.routine_result(node_id, job["routine"], str(exc))
 
     def _connections_help(self, node: Node) -> str:
         lines = []
@@ -657,6 +659,8 @@ class NodeWorker:
             )
             self.store.log(node_id, "done", say[:300], tool_calls=calls)
         self.store.update(node_id, status=status, doing="", waiting=waiting)
+        if job.get("routine"):
+            self.store.routine_result(node_id, job["routine"])
         if status in ("waiting_approval", "needs_you"):
             self._tell_owner(node, waiting or "necesita su aprobación")
 
@@ -854,6 +858,7 @@ class NodeWorker:
                     snapshot=check["text"],
                     last_check=now,
                 )
+                self.store.routine_result(node_id, routine_id)
                 if not check["changed"]:
                     self.store.log(
                         node_id,
@@ -878,6 +883,7 @@ class NodeWorker:
                     routine.last_check or (now - routine.every_minutes * 60)
                 )
                 items = self.app_items(routine.app, since, routine.keywords)
+                self.store.routine_result(node_id, routine_id)
                 self.store.mark_routine(node_id, routine_id, 0, last_check=now)
                 if not items:
                     self.store.log(
@@ -903,6 +909,12 @@ class NodeWorker:
                 return {"woke": True, "items": items}
             return {"woke": False}
         except Exception as exc:  # noqa: BLE001 - a watcher never kills the scheduler
+            # Offline transport failures wait for the next tick, without
+            # burning the routine's allowance of three real failures.
+            import httpx
+
+            if not isinstance(exc, (ConnectionError, TimeoutError, httpx.TransportError)):
+                self.store.routine_result(node_id, routine_id, str(exc))
             self.store.log(
                 node_id,
                 "failed",

@@ -77,6 +77,9 @@ def load_config() -> dict[str, Any]:
     # Always on: the call stays open (reconnects by itself, never hangs up on
     # silence); only Ctrl+Space (or the tile) puts it away until you call him.
     data.setdefault("call_always", True)
+    data.setdefault("live_screen", True)
+    data.setdefault("allow_turn_fallback", False)
+    data.setdefault("reduce_motion", False)
     # Mental gym: an exercise you cannot skip every 12 minutes (real time).
     data.setdefault("gym", True)
     data.setdefault("gym_camera", True)  # look (locally) that you are there first
@@ -245,6 +248,7 @@ def run(config: dict[str, Any]) -> None:
         clicked = Signal()  # a mouse click anywhere: he hops
         camera_off = Signal()
         call_on = Signal(bool)  # a live call started / ended
+        screen_on = Signal(bool)
         ptt = Signal()  # push-to-talk (when a call could not start)
         run = Signal(object)  # run a function on the Qt thread
 
@@ -316,7 +320,7 @@ def run(config: dict[str, Any]) -> None:
     from sergio_escritorio.voice import local_whisper
 
     threading.Thread(target=local_whisper, daemon=True).start()
-    client = SergioClient(config["server_url"])
+    client = SergioClient(config["server_url"], api_key=str(config.get("server_api_key") or ""))
     client.voice = config["voice"]
 
     def apply_brain(cfg: dict) -> None:
@@ -504,6 +508,15 @@ def run(config: dict[str, Any]) -> None:
 
     wake_action.toggled.connect(set_wake)
     menu.addAction(wake_action)
+
+    live_screen_action = QAction("Compartir pantalla con Gemini en la llamada", menu, checkable=True)
+    live_screen_action.setChecked(bool(config.get("live_screen", True)))
+    live_screen_action.toggled.connect(lambda on: share_screen(on))
+    menu.addAction(live_screen_action)
+    reduced_action = QAction("Reducir movimiento del notch", menu, checkable=True)
+    reduced_action.setChecked(bool(config.get("reduce_motion", False)))
+    reduced_action.toggled.connect(lambda on: (notch.set_reduce_motion(on), remember("reduce_motion", on)))
+    menu.addAction(reduced_action)
 
     control_action = QAction(
         "Puede usar mouse y teclado  (Ctrl+Alt+Fin)", menu, checkable=True
@@ -2815,6 +2828,10 @@ def run(config: dict[str, Any]) -> None:
 
     def call_video() -> tuple[bytes, str] | None:
         session = current_call[0]
+        if session is not None and session.share_screen and (
+            not camera_window.isVisible() or int(time.monotonic()) % 2 == 0
+        ):
+            return jpeg_of(controller.backend.screenshot(), 1280), "pantalla"
         if camera_window.isVisible():
             frame = feed.frame()
             if frame is not None:
@@ -2840,6 +2857,10 @@ def run(config: dict[str, Any]) -> None:
         session = current_call[0]
         if session is not None:
             session.share_screen = on
+        config["live_screen"] = on
+        save_config(config)
+        bridge.screen_on.emit(on and session is not None)
+        bridge.run.emit(lambda: live_screen_action.setChecked(on))
         return "Ahora veo tu pantalla en vivo." if on else "Dejé de ver tu pantalla."
 
     def background_task(description: str) -> str:
@@ -2971,6 +2992,7 @@ def run(config: dict[str, Any]) -> None:
         from sergio_escritorio.call import ALWAYS_ON, IDLE_HANG_UP
 
         options: dict[str, Any] = {
+            "api_key": str(config.get("server_api_key") or ""),
             "language": str(config.get("language") or _idioma.system_language()),
             "idle_hang_up": ALWAYS_ON if config.get("call_always", True) else IDLE_HANG_UP,
             "voice": client.voice,
@@ -2990,7 +3012,9 @@ def run(config: dict[str, Any]) -> None:
             "video": call_video,
         }
         options.update(changes)
-        return CallSession(config["server_url"], **options)
+        session = CallSession(config["server_url"], **options)
+        session.share_screen = bool(config.get("live_screen", True))
+        return session
 
     def selftest(kind: str) -> dict:
         """`sergio probar`: talk to Sergio the way you do, and time it."""
@@ -3336,7 +3360,13 @@ def run(config: dict[str, Any]) -> None:
             return f"Olvidé la voz de {who}."
         return f"No tenía guardada la voz de {who or 'esa persona'}."
 
+    call_start_lock = threading.Lock()
+
     def start_call(prefill: bytes = b"", force: bool = False, quiet: bool = False) -> bool:
+        with call_start_lock:
+            return _start_call(prefill, force, quiet)
+
+    def _start_call(prefill: bytes = b"", force: bool = False, quiet: bool = False) -> bool:
         """Open a live call (from a worker thread). False = use turns."""
         if not force and config.get("conversation", "llamada") != "llamada":
             return False
@@ -3359,12 +3389,13 @@ def run(config: dict[str, Any]) -> None:
             logging.warning("live call unavailable: %s", session.error)
             ears.mark(f"la llamada falló: {session.error[:80]}")
             if not quiet:
-                bridge.caption.emit(f"No pude abrir la llamada ({session.error[:90]}); te respondo por turnos.")
+                bridge.caption.emit(f"Voz en vivo no disponible: {session.error[:240]}")
             return False
         call_error[0] = ""
         call_backoff[0] = 20.0
         ears.mark(f"llamada lista ({session.model})")
         bridge.call_on.emit(True)
+        bridge.screen_on.emit(session.share_screen)
         voices.enabled = bool(voice_book.people())  # who is talking, live
         return True
 
@@ -3453,13 +3484,16 @@ def run(config: dict[str, Any]) -> None:
 
         def run() -> None:
             if not start_call(force=True):
-                bridge.caption.emit("No pude abrir la llamada; te escucho por turnos.")
-                bridge.ptt.emit()
+                bridge.caption.emit(f"Voz en vivo no disponible: {call_error[0][:240]}")
+                if config.get("allow_turn_fallback", False):
+                    bridge.ptt.emit()
 
         threading.Thread(target=run, daemon=True).start()
         return True
 
     assistant.start_call = start_call
+    assistant.allow_turn_fallback = (config.get("conversation", "llamada") != "llamada"
+                                     or bool(config.get("allow_turn_fallback", False)))
     ears.on_talk = talk_hotkey
     bridge.ptt.connect(ears.ptt)
 
@@ -3470,6 +3504,8 @@ def run(config: dict[str, Any]) -> None:
                 tile.sync()
 
     bridge.call_on.connect(call_changed)
+    bridge.screen_on.connect(notch.set_screen_sharing)
+    notch.set_reduce_motion(bool(config.get("reduce_motion", False)))
 
     # -- mental gym: an exercise you cannot skip every 12 minutes -------------
     from PySide6.QtCore import QTimer
@@ -4024,7 +4060,7 @@ def run(config: dict[str, Any]) -> None:
 
     def new_asker() -> Any:
         """Each task thinks in its own conversation (tasks never mix up)."""
-        worker = SergioClient(config["server_url"])
+        worker = SergioClient(config["server_url"], api_key=str(config.get("server_api_key") or ""))
         worker.personality, worker.effort = client.personality, client.effort
         worker.country_name = client.country_name
         return lambda text: worker.ask(text, force_agent=True)

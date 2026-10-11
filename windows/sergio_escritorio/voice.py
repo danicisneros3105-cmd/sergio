@@ -454,9 +454,12 @@ def choose_brain(text: str, effort: str, fast: str, deep: str) -> str:
 class SergioClient:
     """Small client for the Sergio API (transcribe, chat, speak)."""
 
-    def __init__(self, base_url: str, http: httpx.Client | None = None) -> None:
+    def __init__(self, base_url: str, http: httpx.Client | None = None, *, api_key: str = "") -> None:
         self.base = base_url.rstrip("/")
         self.http = http or httpx.Client(timeout=httpx.Timeout(300, connect=5))
+        key = api_key or os.environ.get("SERGIO_SERVER_API_KEY", "")
+        if key:
+            self.http.headers["Authorization"] = f"Bearer {key}"
         self._voice_cache: dict[tuple[str, str], bytes] = {}
         self.history: list[dict[str, str]] = []
         self._model = ""
@@ -1333,6 +1336,7 @@ class Assistant:
         # Real-time call (Gemini Live): saying "Sergio" opens it with what
         # you said; returns False when no call could start (then turn-based).
         self.start_call: Callable[[bytes], bool] | None = None
+        self.allow_turn_fallback = False
         self.last_heard = ""  # for diagnostics (sergio revisar)
         self.last_wav = b""  # the last thing said to Sergio («¿reconoces mi voz?»)
         # Who said it (speakers): wav -> a note for the brain, "" = the owner.
@@ -1416,8 +1420,9 @@ class Assistant:
             return None
         self.last_heard = heard
         woke, text = parse_wake(heard)
-        if woke and self.start_call is not None and self.start_call(wav):
-            return None  # a live conversation took over, from this sentence
+        if woke and self.start_call is not None:
+            if self.start_call(wav) or not self.allow_turn_fallback:
+                return None
         if not woke:
             # Not for Sergio. If it sounded like an order, remind how to
             # call him (at most every two minutes).
@@ -1767,8 +1772,10 @@ class Ears:
                 call.feed_mic(frame)
             return None
         if wake.confirmed and (wake.failed or now - wake.started > WAKE_CALL_WAIT):
-            self._wake = None  # no call: Sergio answers by turns
-            return to_wav(wake.frames), True, False
+            self._wake = None
+            if getattr(self.assistant, "allow_turn_fallback", False):
+                return to_wav(wake.frames), True, False
+            return None
         if not wake.confirmed and now - wake.started > WAKE_DECIDE_SECONDS:
             self._wake = None
             self.on_wake("no")

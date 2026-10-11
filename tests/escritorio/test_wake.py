@@ -194,11 +194,12 @@ def test_not_for_him_drops_the_call_before_it_hears_anything():
     assert call.heard == []
 
 
-def test_no_call_means_a_normal_turn_with_the_whole_phrase():
+def test_turn_fallback_requires_opt_in_and_preserves_the_whole_phrase():
     script = [("partial", "sergio"), None, ("final", [("sergio", 0.1, 1)])]
     ears, events, _ = ears_with(script)
     ears.feed(frame(0))
     ears.wake_failed()  # the app could not open the call
+    ears.assistant.allow_turn_fallback = True
     ears.feed(frame(1))
     wav, addressed, clicky = ears.feed(frame(2))
     assert addressed is True and clicky is False

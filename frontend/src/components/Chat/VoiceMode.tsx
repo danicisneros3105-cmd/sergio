@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Mic, MicOff, X } from 'lucide-react';
+import { Mic, MicOff, Monitor, X } from 'lucide-react';
 import { VoiceCall, type VoiceState } from '../../lib/liveVoice';
 
 const STATE_ES: Record<VoiceState, string> = {
   connecting: 'Conectando…',
   listening: 'Le escucho',
-  thinking: 'Pensando…',
+  thinking: 'Trabajando en su pedido',
   speaking: 'Hablando',
   ended: 'Llamada terminada',
   error: 'No se pudo',
@@ -19,6 +19,7 @@ export function VoiceMode({ onClose }: { onClose: () => void }) {
   const [said, setSaid] = useState('');
   const [error, setError] = useState('');
   const [muted, setMuted] = useState(false);
+  const [sharing, setSharing] = useState(false);
   const orb = useRef<HTMLDivElement>(null);
   const call = useRef<VoiceCall | null>(null);
   // The call starts once; a parent re-render must not hang up and redial.
@@ -33,6 +34,7 @@ export function VoiceMode({ onClose }: { onClose: () => void }) {
         onHeard: setHeard,
         onSaid: setSaid,
         onError: setError,
+        onScreen: setSharing,
         // The level moves the orb directly (no React render per audio buffer).
         onLevel: (level) => orb.current?.style.setProperty('--level', level.toFixed(3)),
       },
@@ -68,6 +70,12 @@ export function VoiceMode({ onClose }: { onClose: () => void }) {
         {!error && said && <p className="voice-said">{said}</p>}
       </div>
       <div className="voice-controls">
+        <button type="button" className="voice-btn" aria-pressed={sharing}
+          aria-label={sharing ? 'Dejar de compartir pantalla' : 'Compartir pantalla con Gemini'}
+          disabled={state === 'error' || state === 'ended' || state === 'connecting'}
+          onClick={() => void call.current?.shareScreen().catch(() => setError('No se compartió la pantalla.'))}>
+          <Monitor size={22} strokeWidth={1.6} />
+        </button>
         <button
           type="button"
           className="voice-btn"
@@ -82,6 +90,7 @@ export function VoiceMode({ onClose }: { onClose: () => void }) {
           <X size={22} strokeWidth={1.8} />
         </button>
       </div>
+      {sharing && <p role="status">Pantalla compartida con Gemini · puede pausarla aquí</p>}
     </div>,
     document.body,
   );

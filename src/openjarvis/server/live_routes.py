@@ -47,7 +47,19 @@ def _owner() -> str:
 async def live_status() -> dict[str, Any]:
     from openjarvis.speech.gemini_live import LIVE_MODELS, api_key
 
-    return {"available": bool(api_key()), "models": list(LIVE_MODELS)}
+    try:
+        from google import genai
+        from google.genai import types
+
+        sdk = bool(genai.Client and types.LiveConnectConfig)
+    except ImportError:
+        sdk = False
+    key = bool(api_key())
+    return {
+        "available": sdk and key, "sdk_installed": sdk, "key_configured": key,
+        "models": list(LIVE_MODELS),
+        "reason": "missing_sdk" if not sdk else "missing_key" if not key else "ready",
+    }
 
 
 @router.websocket("/v1/live")

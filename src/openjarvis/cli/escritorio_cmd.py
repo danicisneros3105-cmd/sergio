@@ -35,6 +35,8 @@ DESKTOP_TOOLS = (
 )
 # Always on as well, so Sergio is never left with only the server defaults.
 BASE_TOOLS = (
+    "verified_math",
+    "scene_reason",
     "think",
     "calculator",
     "get_weather",
@@ -48,6 +50,8 @@ VISION_MODEL = "qwen2.5vl:7b"
 
 
 SERVER_EXTRAS = (
+    "server",
+    "desktop",
     "faces",
     "evolution",
     "cad",

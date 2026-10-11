@@ -57,6 +57,7 @@ export interface VoiceCallbacks {
   onSaid: (text: string) => void; // what Sergio is saying
   onLevel: (level: number) => void; // 0..1, for the orb
   onError: (message: string) => void;
+  onScreen?: (sharing: boolean) => void;
 }
 
 /** One voice-mode call. `start()` asks for the microphone and connects. */
@@ -65,7 +66,9 @@ export class VoiceCall {
   private mic: MediaStream | null = null;
   private input: AudioContext | null = null;
   private output: AudioContext | null = null;
-  private node: ScriptProcessorNode | null = null;
+  private node: AudioWorkletNode | null = null;
+  private screen: MediaStream | null = null;
+  private screenTimer: ReturnType<typeof setInterval> | null = null;
   private playing: AudioBufferSourceNode[] = [];
   private playAt = 0;
   private lastVoice = 0;
@@ -109,16 +112,21 @@ export class VoiceCall {
     };
   }
 
-  private listen(): void {
+  private async listen(): Promise<void> {
     if (!this.mic) return;
     const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
     this.input = new Ctx();
     this.output = new Ctx({ sampleRate: OUT_RATE });
     const source = this.input.createMediaStreamSource(this.mic);
-    this.node = this.input.createScriptProcessor(2048, 1, 1);
+    const context = this.input;
+    await context.audioWorklet.addModule(new URL('./voiceCapture.worklet.js', import.meta.url));
+    if (this.stopped) return;
+    this.node = new AudioWorkletNode(context, 'sergio-capture');
+    await Promise.all([context.resume(), this.output.resume()]);
     const rate = this.input.sampleRate;
-    this.node.onaudioprocess = (e) => {
-      const samples = e.inputBuffer.getChannelData(0);
+    this.node.port.onmessage = (e: MessageEvent<Float32Array>) => {
+      if (this.stopped) return;
+      const samples = e.data;
       const level = rms(samples);
       if (!this.playing.length) this.cb.onLevel(Math.min(1, level * 12));
       const pcm = downsample(samples, rate);
@@ -137,16 +145,24 @@ export class VoiceCall {
           this.gated = true;
           this.send(JSON.stringify({ type: 'audio_end' })); // your turn is over
         }
-        this.preroll.push(pcm);
-        if (this.preroll.length > PREROLL) this.preroll.shift();
+        if (!this.muted) {
+          this.preroll.push(pcm);
+          if (this.preroll.length > PREROLL) this.preroll.shift();
+        } else this.preroll = [];
       }
     };
     source.connect(this.node);
-    this.node.connect(this.input.destination); // needed for the processor to run; it writes silence
+    this.node.connect(context.destination);
   }
 
   private send(data: ArrayBuffer | string): void {
-    if (this.ws?.readyState === WebSocket.OPEN) this.ws.send(data);
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      if (this.ws.bufferedAmount > 256000) {
+        this.fail('La conexión no envía el audio a tiempo. Vuelva a conectar.');
+        return;
+      }
+      this.ws.send(data);
+    }
   }
 
   private receive(data: ArrayBuffer | string): void {
@@ -162,14 +178,14 @@ export class VoiceCall {
     }
     switch (event.type) {
       case 'ready':
-        this.listen();
-        this.cb.onState('listening');
+        void this.listen().then(() => {
+          if (!this.stopped) this.cb.onState('listening');
+        }).catch(() => this.fail('No pude iniciar el audio en tiempo real.'));
         break;
       case 'heard':
         this.heard += event.text || '';
         this.said = '';
         this.cb.onHeard(this.heard.trim());
-        this.cb.onState('thinking');
         break;
       case 'said':
         this.said += event.text || '';
@@ -201,6 +217,10 @@ export class VoiceCall {
     src.buffer = buffer;
     src.connect(out.destination);
     this.playAt = Math.max(out.currentTime + 0.02, this.playAt);
+    if (this.playAt - out.currentTime > 12) {
+      this.fail('La reproducción quedó atrasada. Vuelva a iniciar la conversación.');
+      return;
+    }
     src.start(this.playAt);
     this.playAt += buffer.duration;
     this.playing.push(src);
@@ -227,6 +247,49 @@ export class VoiceCall {
 
   setMuted(muted: boolean): void {
     this.muted = muted;
+    if (muted) {
+      this.preroll = [];
+      if (!this.gated) this.send(JSON.stringify({ type: 'audio_end' }));
+      this.gated = true;
+      this.lastVoice = -Infinity;
+    }
+  }
+
+  /** The browser chooser grants access; stopping revokes the tracks immediately. */
+  async shareScreen(): Promise<void> {
+    if (this.screen) {
+      this.stopScreen();
+      return;
+    }
+    const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
+    if (this.stopped) { stream.getTracks().forEach((t) => t.stop()); return; }
+    this.screen = stream;
+    const video = document.createElement('video');
+    video.srcObject = stream;
+    video.muted = true;
+    await video.play();
+    if (this.stopped || this.screen !== stream) { stream.getTracks().forEach((t) => t.stop()); return; }
+    const canvas = document.createElement('canvas');
+    const draw = canvas.getContext('2d');
+    stream.getVideoTracks()[0].onended = () => this.stopScreen();
+    this.cb.onScreen?.(true);
+    this.screenTimer = setInterval(() => {
+      if (!draw || !video.videoWidth || this.ws?.readyState !== WebSocket.OPEN || this.ws.bufferedAmount > 8000) return;
+      canvas.width = Math.min(1280, video.videoWidth);
+      canvas.height = Math.round(video.videoHeight * canvas.width / video.videoWidth);
+      draw.drawImage(video, 0, 0, canvas.width, canvas.height);
+      // Screenshots remain ephemeral; a congested socket skips frames instead of queuing them.
+      this.ws.send(JSON.stringify({ type: 'image', source: 'pantalla', mime: 'image/jpeg',
+        data: canvas.toDataURL('image/jpeg', 0.65).split(',')[1] }));
+    }, 1000);
+  }
+
+  private stopScreen(): void {
+    if (this.screenTimer) clearInterval(this.screenTimer);
+    this.screenTimer = null;
+    this.screen?.getTracks().forEach((t) => t.stop());
+    this.screen = null;
+    this.cb.onScreen?.(false);
   }
 
   private fail(message: string): void {
@@ -242,6 +305,7 @@ export class VoiceCall {
     if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'end' }));
     ws?.close();
     this.hush();
+    this.stopScreen();
     this.node?.disconnect();
     this.mic?.getTracks().forEach((t) => t.stop());
     void this.input?.close().catch(() => {});

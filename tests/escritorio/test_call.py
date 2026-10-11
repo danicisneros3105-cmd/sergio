@@ -2,6 +2,7 @@
 
 import json
 import queue
+import threading
 import time
 
 import numpy as np
@@ -31,6 +32,7 @@ class FakeLine:
 
     def __call__(self, url, **kw):
         self.url = url
+        self.options = kw
         return self
 
     def send(self, data):
@@ -129,6 +131,51 @@ def test_no_live_model_means_no_call():
     assert "sin cuota" in call.error and line.closed and not call.active
 
 
+def test_voice_playback_cannot_accumulate_minutes_of_delayed_audio():
+    speaker = Speaker(stream_factory=SilentStream)
+    with pytest.raises(BufferError):
+        speaker.play(b"\0" * (24000 * 2 * 13))
+    assert not speaker._buf
+
+
+def test_private_server_credentials_stay_in_the_handshake():
+    line = FakeLine([json.dumps({"type": "ready", "model": "m"})])
+    call = _call(line, api_key="local-test-key")
+    assert call.start()
+    try:
+        assert line.options["additional_headers"] == {"Authorization": "Bearer local-test-key"}
+        assert "local-test-key" not in line.sent[0]
+    finally:
+        call.hang_up()
+
+
+def test_a_blocked_network_does_not_block_the_microphone_callback():
+    line = FakeLine([json.dumps({"type": "ready", "model": "m"})])
+    entered, release = threading.Event(), threading.Event()
+    original = line.send
+
+    def slow(data):
+        if isinstance(data, bytes):
+            entered.set()
+            release.wait(2)
+        original(data)
+
+    line.send = slow
+    call = _call(line)
+    assert call.start()
+    voice = np.random.default_rng(1).normal(0, 4000, 1600).astype(np.int16).tobytes()
+    try:
+        call.feed_mic(voice)
+        assert entered.wait(1)
+        before = time.monotonic()
+        call.feed_mic(voice)
+        assert time.monotonic() - before < 0.15
+        assert call._audio_queue.qsize() <= 8
+    finally:
+        release.set()
+        call.hang_up()
+
+
 def test_edge_voices_and_the_default_use_gemini_lives_own_voice():
     assert _call(FakeLine(), voice="es-ES-AlvaroNeural").voice == ""
     assert _call(FakeLine(), voice="gemini:Predeterminada").voice == ""
@@ -151,7 +198,7 @@ def test_microphone_goes_through_the_echo_canceller_in_10ms_frames():
             call.feed_mic(voice[i * 512 : (i + 1) * 512].tobytes())
         assert seen and all(s == (FRAME_BYTES, FRAME_BYTES) for s in seen)
         # 7 x 32 ms = 224 ms: two 100 ms messages sent, the rest waits
-        assert len(line.audio_sent()) == 2 * SEND_BYTES
+        assert _wait(lambda: len(line.audio_sent()) == 2 * SEND_BYTES)
     finally:
         call.hang_up()
 
@@ -165,9 +212,11 @@ def test_while_he_talks_his_own_echo_is_not_sent():
         speaker.play(b"\x10\x10" * 24000)  # he is talking
         faint = (np.ones(1600) * 120).astype(np.int16).tobytes()  # leftover echo
         call.feed_mic(faint)
+        assert _wait(lambda: bool(line.audio_sent()))
         assert set(line.audio_sent()) == {0}
         loud = (np.random.default_rng(2).normal(0, 4000, 1600)).astype(np.int16)
         call.feed_mic(loud.tobytes())  # you talk over him: it goes through
+        assert _wait(lambda: len(line.audio_sent()) >= 2 * SEND_BYTES)
         assert rms(line.audio_sent()[-SEND_BYTES:]) > 1000
     finally:
         call.hang_up()
@@ -353,15 +402,18 @@ def test_language_is_sent_and_silence_is_not_streamed():
     quiet = b"\0" * FRAME_BYTES
 
     call.feed_mic(voice(20))  # 200 ms of talking: streamed
+    assert _wait(lambda: len(line.audio_sent()) >= 2 * SEND_BYTES)
     sent_talking = len(line.audio_sent())
     assert sent_talking > 0
     for _ in range(100):  # 1 s of silence, still inside the gate: streamed
         now[0] += 0.01
         call.feed_mic(quiet)
+        call._audio_queue.join()  # fake clock advances faster than the send thread
     assert len(line.audio_sent()) > sent_talking
     for _ in range(300):  # 3 more seconds: the gate closes
         now[0] += 0.01
         call.feed_mic(quiet)
+        call._audio_queue.join()
     ends = [m for m in line.json_sent() if m.get("type") == "audio_end"]
     assert len(ends) == 1
     before = len(line.audio_sent())
@@ -370,7 +422,7 @@ def test_language_is_sent_and_silence_is_not_streamed():
         call.feed_mic(quiet)
     assert len(line.audio_sent()) == before
     call.feed_mic(voice(40))  # he talks again: pre-roll + voice
-    assert len(line.audio_sent()) - before >= SEND_BYTES
+    assert _wait(lambda: len(line.audio_sent()) - before >= SEND_BYTES)
     assert len([m for m in line.json_sent() if m.get("type") == "audio_end"]) == 1
     assert call.active  # never hung up on silence
     call.hang_up()

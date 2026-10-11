@@ -64,6 +64,8 @@ SWARM_TOOLS = (
     "python_run",
     "code_interpreter",
     "calculator",
+    "verified_math",
+    "scene_reason",
     "knowledge_search",
     "think",
 )

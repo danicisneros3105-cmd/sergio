@@ -79,7 +79,7 @@ RULES: Dict[str, Dict[str, Any]] = {
     },
     "code": {
         "label": "Ejecutar código",
-        "tools": ["python_run", "code_interpreter", "calculator"],
+        "tools": ["python_run", "code_interpreter", "calculator", "verified_math", "scene_reason"],
         "default": "allow",
         "choices": ["allow", "ask", "block"],
     },
@@ -279,6 +279,8 @@ class Routine:
     last_hash: str = ""
     last_check: float = 0.0
     snapshot: str = ""  # the last text seen (web), to show what changed
+    failures: int = 0
+    last_error: str = ""
 
     def due(self, now: float) -> bool:
         if not self.enabled:
@@ -629,6 +631,19 @@ class NodeStore:
             self.save(node)
 
     # -- connections ---------------------------------------------------------------
+    def routine_result(self, node_id: str, routine_id: str, error: str = "") -> None:
+        with self._lock:
+            node = self.get(node_id)
+            if node is None:
+                return
+            for routine in node.routines:
+                if routine.id == routine_id:
+                    routine.failures = routine.failures + 1 if error else 0
+                    routine.last_error = error[:300]
+                    if routine.failures >= 3:
+                        routine.enabled = False
+            self.save(node)
+
     def add_connection(
         self, node_id: str, kind: str, data: Dict[str, Any], secret: str = ""
     ) -> Dict[str, Any]:

@@ -58,6 +58,8 @@ _PROACTIVE_OK = [True]
 OUT_RATE = 24000
 # Sergio's own tools offered during a call (the rest stay for the agent).
 SERVER_TOOLS = (
+    "verified_math",
+    "scene_reason",
     "desktop_action",
     "screen_read",
     "files_organize",
@@ -153,10 +155,15 @@ modelar en Blender, programar, organizar muchas carpetas) usa tarea: corre en \
 segundo plano y te llegará el resultado; mientras, sigue conversando.
 - Si el usuario se despide ("adiós", "eso es todo", "cuelga"), despídete en \
 una frase y usa colgar.
+- Para cálculos y ecuaciones usa verified_math; comprueba el resultado antes \
+de explicarlo. Para escenas usa scene_reason: las propuestas imaginadas \
+son hipótesis, no objetos observados ni medidas de una foto sin calibración.
+- No respondas a conversaciones entre personas, aunque hable el dueño. \
+Un nombre de tercero o «no te hablo» significa que debes guardar silencio.
 - Notas de quién habla: te llegarán notas como "(Ahora habla Ana)" o "(Ahora \
 habla el señor)", sacadas de las voces que conoces. Si habla otra persona y no \
 te nombra ni te pregunta nada, seguramente conversa con el señor o con otros: \
-no respondas ni interrumpas. Al señor respóndele siempre.
+no respondas ni interrumpas. La identidad de voz no prueba a quién se dirige.
 
 Idioma: habla SIEMPRE en {language}. No cambies de idioma por oír palabras \
 sueltas, nombres, canciones, la tele u otras personas hablando otro idioma; \
@@ -334,11 +341,24 @@ class LiveCall:
         self._session: Any = None
         self.model = ""
         self.closed = False
+        from openjarvis.speech.attention import Attention
+
+        self.attention = Attention(str(start.get("name") or "Sergio"))
+        self.guard_attention = start.get("attention") == "addressed"
+        self._heard_text = ""
+        self._answer_allowed = True
+        self._last_image = -1e9
 
     # -- plumbing -----------------------------------------------------------
     def _genai(self) -> tuple[Any, Any]:
         if self._types is None:
-            from google.genai import types
+            try:
+                from google.genai import types
+            except ImportError as exc:
+                raise RuntimeError(
+                    "Falta el SDK de voz en el servidor. Desde el repositorio "
+                    "ejecuta: uv sync --inexact --extra server --extra desktop"
+                ) from exc
 
             self._types = types
         if self._client is None:
@@ -510,7 +530,11 @@ class LiveCall:
             while not self.closed:
                 async with contextlib.AsyncExitStack() as stack:
                     opened = time.monotonic()
-                    session = await self._open(stack)
+                    try:
+                        session = await asyncio.wait_for(self._open(stack), timeout=18)
+                    except asyncio.TimeoutError as exc:
+                        raise RuntimeError("Gemini tardó demasiado en abrir la voz en vivo. "
+                                           "Compruebe conexión, clave y cuota.") from exc
                     log.info(
                         "Live session open on %s in %.1f s",
                         self.model,
@@ -564,6 +588,8 @@ class LiveCall:
                 return
             data = msg.get("bytes")
             if data is not None:
+                if len(data) > 64_000 or len(data) % 2:
+                    continue  # at most two seconds of aligned PCM per message
                 await session.send_realtime_input(
                     audio=types.Blob(data=data, mime_type=IN_MIME)
                 )
@@ -572,13 +598,22 @@ class LiveCall:
                 event = json.loads(msg.get("text") or "{}")
             except ValueError:
                 continue
+            if not isinstance(event, dict):
+                continue
             kind = event.get("type")
             if kind == "end":
                 self.closed = True
                 return
             if kind == "image" and event.get("data"):
+                now = time.monotonic()
+                if not isinstance(event["data"], str):
+                    continue
+                if now - self._last_image < 0.9 or len(event["data"]) > 1_400_000:
+                    continue
+                if event.get("mime", "image/jpeg") not in ("image/jpeg", "image/png"):
+                    continue
                 try:
-                    image = base64.b64decode(event["data"])
+                    image = base64.b64decode(event["data"], validate=True)
                 except (ValueError, TypeError):
                     continue
                 await session.send_realtime_input(
@@ -586,7 +621,9 @@ class LiveCall:
                         data=image, mime_type=event.get("mime") or "image/jpeg"
                     )
                 )
+                self._last_image = now
             elif kind == "text" and event.get("text"):
+                self._answer_allowed = True  # typed requests explicitly address him
                 await session.send_realtime_input(text=str(event["text"])[:4000])
             elif kind == "audio_end":
                 # The companion stopped streaming silence: tell Live the
@@ -596,6 +633,10 @@ class LiveCall:
                 except Exception:  # noqa: BLE001 — an older SDK: harmless
                     pass
             elif kind == "note" and event.get("text"):
+                note = str(event["text"])
+                if self.guard_attention and "Ahora habla" in note:
+                    self.attention.speaker("señor" in note.lower() and "otra persona" not in note)
+                    self._answer_allowed = False
                 # Context the model should know but not answer ("now Ana is
                 # talking"): added to the conversation without ending a turn.
                 await session.send_client_content(
@@ -639,26 +680,36 @@ class LiveCall:
             self._handle = update.new_handle
 
     async def _content(self, content: Any) -> None:
+        heard = getattr(content, "input_transcription", None)
+        if heard is not None and heard.text:
+            self._heard_text = (self._heard_text + heard.text)[-4000:]
+            if self.guard_attention:
+                self._answer_allowed = self.attention.accepts(self._heard_text)
+            await self.send_json({"type": "heard", "text": heard.text})
+        if getattr(content, "interrupted", False):
+            await self.send_json({"type": "interrupted"})
         turn = getattr(content, "model_turn", None)
         for part in (turn.parts if turn is not None else None) or []:
             blob = getattr(part, "inline_data", None)
-            if blob is not None and blob.data:
+            if blob is not None and blob.data and self._answer_allowed:
                 await self.send_audio(bytes(blob.data))
-        heard = getattr(content, "input_transcription", None)
-        if heard is not None and heard.text:
-            await self.send_json({"type": "heard", "text": heard.text})
         said = getattr(content, "output_transcription", None)
-        if said is not None and said.text:
+        if said is not None and said.text and self._answer_allowed:
             await self.send_json({"type": "said", "text": said.text})
-        if getattr(content, "interrupted", False):
-            await self.send_json({"type": "interrupted"})
         if getattr(content, "turn_complete", False):
+            self._heard_text = ""
             await self.send_json({"type": "turn_complete"})
 
     async def _run_tool(self, session: Any, fc: Any) -> None:
         name = str(fc.name or "")
         args = dict(fc.args or {})
         call_id = str(fc.id or uuid.uuid4().hex)
+        if self.guard_attention and not self._answer_allowed:
+            await session.send_tool_response(function_responses=self._types.FunctionResponse(
+                id=call_id, name=name,
+                response={"result": "No se ejecutó: conversación no dirigida a Sergio."},
+            ))
+            return
         try:
             if name in self.client_tools:
                 result = await self._client_tool(call_id, name, args)
@@ -865,20 +916,26 @@ def speak_live(
 def make_executor(agent: Any) -> tuple[Callable[[str, dict], str] | None, list]:
     """Run tools with the agent's own executor (same security checks)."""
     executor = getattr(agent, "_executor", None)
-    if executor is None:
-        return None, []
     from openjarvis.core.types import ToolCall
+    from openjarvis.tools._stubs import ToolExecutor
+    from openjarvis.tools.scene_reason import SceneReasonTool
+    from openjarvis.tools.verified_math import VerifiedMathTool
+
+    local = ToolExecutor([VerifiedMathTool(), SceneReasonTool()])
+    try:
+        tools = list(executor.get_openai_tools()) if executor is not None else []
+    except Exception:  # noqa: BLE001
+        tools = []
+    configured = {t.get("function", {}).get("name") for t in tools}
+    tools += [t for t in local.get_openai_tools() if t["function"]["name"] not in configured]
 
     def execute(name: str, args: dict[str, Any]) -> str:
-        result = executor.execute(
+        selected = executor if name in configured else local
+        result = selected.execute(
             ToolCall(id=uuid.uuid4().hex[:12], name=name, arguments=json.dumps(args))
         )
         return str(getattr(result, "content", result) or "")
 
-    try:
-        tools = list(executor.get_openai_tools())
-    except Exception:  # noqa: BLE001
-        tools = []
     return execute, tools
 
 
