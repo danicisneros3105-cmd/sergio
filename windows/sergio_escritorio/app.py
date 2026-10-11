@@ -61,6 +61,7 @@ def load_config() -> dict[str, Any]:
     # look, one way of being, whatever an older config says.
     data.update(
         name="Sergio",
+        theme="Océano",
         style="orbe",
         body="#f3e9d2",
         eye_style="ovalos",

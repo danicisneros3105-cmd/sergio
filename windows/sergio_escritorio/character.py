@@ -30,18 +30,20 @@ from PySide6.QtGui import (
 )
 
 # Each state: three blob colours (deep, mid, bright) + a glow colour.
+# Black, white and light blue only: every state is a shade of the same
+# light blue (brightest, almost white, while listening).
 PALETTES = {
-    "idle": ("#1b4dff", "#7b5cff", "#3fd6ff", "#4c7dff"),
-    "listening": ("#ff3b6b", "#ff8a3d", "#ffd166", "#ff5a7a"),
-    "thinking": ("#7b5cff", "#c86bff", "#4fc3ff", "#9b7bff"),
-    "speaking": ("#0fbf8f", "#3fd6ff", "#b6ff7a", "#2fd6a0"),
-    "acting": ("#1b4dff", "#00c2ff", "#7cf3ff", "#2f8bff"),
-    "paused": ("#5b5b66", "#8a8a96", "#c4c4cc", "#7a7a86"),
+    "idle": ("#5fb4f0", "#9fd3ff", "#ffffff", "#9fd3ff"),
+    "listening": ("#cfe9ff", "#ffffff", "#ffffff", "#e8f5ff"),
+    "thinking": ("#3a8fd6", "#9fd3ff", "#cfe9ff", "#7cc4fa"),
+    "speaking": ("#9fd3ff", "#ffffff", "#cfe9ff", "#bfe2ff"),
+    "acting": ("#5fb4f0", "#9fd3ff", "#ffffff", "#7cc4fa"),
+    "paused": ("#4a4a4a", "#8a8a8a", "#c4c4c4", "#7a7a7a"),
 }
 # Personalisation: themes recolour Sergio at rest / acting / speaking.
 # Listening (warm) and thinking (violet) keep their meaning in every theme.
 THEMES = {
-    "Océano": ("#1b4dff", "#7b5cff", "#3fd6ff", "#4c7dff"),
+    "Océano": ("#5fb4f0", "#9fd3ff", "#ffffff", "#9fd3ff"),  # the one look now
     "Atardecer": ("#ff6a3d", "#ff3b8d", "#ffc46b", "#ff7a59"),
     "Aurora": ("#00c389", "#7b5cff", "#3fd6ff", "#2fd6a0"),
     "Rosa": ("#ff4fa3", "#b65cff", "#ffc2e2", "#ff6ab8"),

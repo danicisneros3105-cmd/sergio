@@ -1,12 +1,14 @@
 """Sergio's control center: what drops out of the notch when you click it.
 
-Six sections and nothing more, in the user's language (idioma.py):
+Seven sections, as icons only, in the user's language (idioma.py):
 
 * Chat: talk or type to Sergio, the brain, the microphone, the last answer.
+* Nodes: your 24/7 digital employees (like OpenAI's Dots): who is working
+  on what, who needs you; a quick errand; a new Node.
+* Agent Swarm: a huge task split across many agents at once (like Kimi's),
+  live progress, and the report.
 * Cowork: describe an outcome; Sergio plans and works, and asks here before
   anything delicate (approve or deny each waiting step).
-* Agent Swarm: send a task to the background swarm, see what is running,
-  open the agents.
 * Health: health, sleep (Night Shift), the mental gym and its results, the
   counselling chair.
 * Profile: who you are to Sergio (profile, goals, your face) and how Sergio
@@ -14,10 +16,9 @@ Six sections and nothing more, in the user's language (idioma.py):
 * Configuration: the switches (wake word, screen control, camera…),
   multitasking, hiding the notch, language and country.
 
-The look is Bang & Olufsen on graphite: black anodised glass, aluminium
-hairlines and a light aluminium primary button; one typeface (estilo.py:
-Source Sans 3, the closest legal match to the B&O wordmark), titles in
-spaced capitals; every measure on a 4 px grid. Native Qt; data comes from
+The look is black and white with one light blue for what you press; one
+typeface (estilo.py: Montserrat, the closest legal match to the B&O brand
+type), titles in spaced capitals; every measure on a 4 px grid. Native Qt; data comes from
 the local Sergio server.
 """
 
@@ -73,11 +74,11 @@ WIDTH, HEIGHT = 468, 600
 RADIUS = 30.0
 FONTS = estilo.families()
 FAMILY = estilo.css_family()
-TEXT = "#efece6"  # warm paper white
-SECONDARY = "#8f8b84"
-CARD = "#111111"
-LINE = "#2a2926"  # aluminium hairline
-ALUMINIUM = "#cfcac0"
+TEXT = estilo.TEXT  # white
+SECONDARY = estilo.SECONDARY
+CARD = estilo.CARD  # black
+LINE = estilo.LINE
+ALUMINIUM = estilo.BLUE  # the one accent: light blue
 ACCENT = ALUMINIUM
 BRAINS = {
     "auto": "Auto",
@@ -93,6 +94,8 @@ QLabel#subtitle, QLabel#hint {{ color: {SECONDARY}; font-size: 13px; }}
 QLabel#section, QLabel#heading {{ color: {SECONDARY}; font-size: 10px; font-weight: 600;
                   letter-spacing: 2px; }}
 QLabel#answer {{ font-size: 14px; }}
+QLabel#tabtip {{ background: {TEXT}; color: #000000; border-radius: 6px; padding: 4px 8px;
+                 font-size: 9px; font-weight: 600; letter-spacing: 2px; }}
 QLabel#bubble {{ background: {CARD}; border: 1px solid {LINE}; border-radius: 12px;
                 padding: 8px 12px; font-size: 14px; }}
 QLabel#mine {{ background: #26251f; border: 1px solid #3a3833; border-radius: 12px;
@@ -106,8 +109,9 @@ QLineEdit:focus {{ border: 1px solid {ALUMINIUM}; }}
 QPushButton {{ background: transparent; border: 1px solid {LINE}; border-radius: 8px;
                padding: 8px 16px; font-weight: 500; letter-spacing: 0.3px; }}
 QPushButton:hover {{ border: 1px solid #4a4843; background: #161616; }}
-QPushButton#primary {{ background: {ALUMINIUM}; color: #0b0b0b; border: none; }}
-QPushButton#primary:hover {{ background: #e2ddd3; }}
+QPushButton#primary {{ background: {ALUMINIUM}; color: #000000; border: none; border-radius: 18px;
+                       font-weight: 600; }}
+QPushButton#primary:hover {{ background: {estilo.BLUE_HOT}; }}
 QPushButton#seg {{ background: transparent; color: {SECONDARY}; border: none;
                    border-radius: 0; padding: 8px 0 7px 0; font-weight: 500;
                    font-size: 13px; letter-spacing: 0.2px;
@@ -359,6 +363,10 @@ def draw_icon(p: QPainter, kind: str, centre: QPointF, colour: QColor) -> None:
         p.drawPath(path)
         p.drawLine(QPointF(x - 4, y + 5), QPointF(x - 6, y + 9))
         p.drawLine(QPointF(x - 6, y + 9), QPointF(x + 1, y + 5))
+    elif kind == "dots":  # Nodes: persistent agents, a few dots
+        p.drawEllipse(QPointF(x - 3.5, y - 2.5), 5.5, 5.5)
+        p.drawEllipse(QPointF(x + 5.5, y + 5), 3.8, 3.8)
+        p.drawEllipse(QPointF(x + 6.5, y - 6.5), 1.8, 1.8)
     elif kind == "briefcase":  # cowork
         p.drawRoundedRect(QRectF(x - 9, y - 4, 18, 13), 2.5, 2.5)
         p.drawRoundedRect(QRectF(x - 3.5, y - 8, 7, 4), 1.5, 1.5)
@@ -457,10 +465,10 @@ def all_territories() -> list[tuple[str, str]]:
 
 class TabIcon(QAbstractButton):
     """A section of the panel shown only as an icon. Under the cursor it
-    rises with a little spring and its name fades in underneath, in spaced
-    capitals (B&O); the open one keeps a dot."""
+    rises with a little spring and the panel shows its name underneath, in
+    spaced capitals (B&O); the open one keeps a light blue dot."""
 
-    SIZE = QSize(64, 52)
+    SIZE = QSize(56, 52)
 
     def __init__(self, kind: str, label: str) -> None:
         super().__init__()
@@ -474,6 +482,7 @@ class TabIcon(QAbstractButton):
         self._anim = QVariantAnimation(self)
         self._anim.setDuration(240)
         self._anim.valueChanged.connect(self._step)
+        self.on_hover: Callable[["TabIcon", bool], None] | None = None
 
     def _step(self, value: Any) -> None:
         self.hover = float(value)
@@ -490,9 +499,13 @@ class TabIcon(QAbstractButton):
 
     def enterEvent(self, _event: Any) -> None:  # noqa: N802
         self._go(1.0)
+        if self.on_hover:
+            self.on_hover(self, True)
 
     def leaveEvent(self, _event: Any) -> None:  # noqa: N802
         self._go(0.0)
+        if self.on_hover:
+            self.on_hover(self, False)
 
     def paintEvent(self, _event: Any) -> None:  # noqa: N802
         p = QPainter(self)
@@ -507,20 +520,10 @@ class TabIcon(QAbstractButton):
         p.scale(scale, scale)
         draw_icon(p, self.kind, QPointF(0, 0), colour)
         p.restore()
-        if h > 0.01:
-            label = QColor(TEXT)
-            label.setAlphaF(max(0.0, min(1.0, h)))
-            p.setPen(label)
-            font = _font(6.6, QFont.Weight.Medium)
-            font.setCapitalization(QFont.Capitalization.AllUppercase)
-            font.setLetterSpacing(QFont.SpacingType.PercentageSpacing, 122)
-            p.setFont(font)
-            p.drawText(QRectF(0, 34 + 3 * (1 - h), self.width(), 14),
-                       Qt.AlignmentFlag.AlignCenter, self.label)
-        elif on:
+        if on:
             p.setPen(Qt.PenStyle.NoPen)
             p.setBrush(QColor(ALUMINIUM))
-            p.drawEllipse(QPointF(self.width() / 2, 42), 2, 2)
+            p.drawEllipse(QPointF(self.width() / 2, 40), 2.5, 2.5)
         p.end()
 
 
@@ -678,9 +681,11 @@ def _label(text: str, name: str = "", wrap: bool = False) -> QLabel:
 # -- the panel -----------------------------------------------------------------
 class ControlCenter(QWidget):
     cowork_ready = Signal(dict)
+    nodes_ready = Signal(dict)
+    swarms_ready = Signal(dict)
 
-    TABS = ("tab_chat", "tab_cowork", "tab_swarm", "tab_health", "tab_profile", "tab_settings")
-    CHAT, COWORK, SWARM, HEALTH, PROFILE, SETTINGS_TAB = range(6)
+    TABS = ("tab_chat", "tab_nodes", "tab_swarm", "tab_cowork", "tab_health", "tab_profile", "tab_settings")
+    CHAT, NODES, SWARM, COWORK, HEALTH, PROFILE, SETTINGS_TAB = range(7)
     HEALTH_SECTIONS = ("health", "night", "gym", "results", "consult")
     PROFILE_SECTIONS = ("profile", "goals", "results", "faces")
 
@@ -701,6 +706,10 @@ class ControlCenter(QWidget):
         self._opened_at = 0.0
         self._runs: dict[str, dict] = {}
         self.cowork_ready.connect(self._show_cowork)
+        self.nodes_ready.connect(self._show_nodes)
+        self.swarms_ready.connect(self._show_swarms)
+        self._nodes: list[dict] = []
+        self._swarm_lines: list[str] = []
 
         root = QVBoxLayout(self)
         root.setContentsMargins(24, 16, 24, 20)
@@ -710,8 +719,9 @@ class ControlCenter(QWidget):
         self.pages = QStackedWidget()
         apply_config(self.actions.config)
         self.pages.addWidget(self._chat())
-        self.pages.addWidget(self._cowork())
+        self.pages.addWidget(self._nodes_page())
         self.pages.addWidget(self._swarm())
+        self.pages.addWidget(self._cowork())
         self.pages.addWidget(self._sections_page(self.HEALTH_SECTIONS, "health_hint"))
         self.pages.addWidget(self._profile())
         self.pages.addWidget(self._settings())
@@ -719,6 +729,9 @@ class ControlCenter(QWidget):
         self._swarm_timer = QTimer(self)
         self._swarm_timer.timeout.connect(self._refresh_swarm)
         self._swarm_timer.start(1000)
+        self._remote_timer = QTimer(self)  # Nodes and swarms live on the server
+        self._remote_timer.timeout.connect(self._refresh_remote)
+        self._remote_timer.start(3000)
 
     # -- building blocks -------------------------------------------------------
     def _header(self) -> QHBoxLayout:
@@ -744,7 +757,7 @@ class ControlCenter(QWidget):
         row.addWidget(close, 0, Qt.AlignmentFlag.AlignVCenter)
         return row
 
-    TAB_ICONS = ("bubble", "briefcase", "swarm", "heart", "person", "gear")
+    TAB_ICONS = ("bubble", "dots", "swarm", "briefcase", "heart", "person", "gear")
 
     def _segmented(self) -> QWidget:
         """The six sections as icons only (their names appear on hover)."""
@@ -756,13 +769,30 @@ class ControlCenter(QWidget):
         self.tab_group = QButtonGroup(self)
         for i, (key, kind) in enumerate(zip(self.TABS, self.TAB_ICONS)):
             button = TabIcon(kind, idioma.t(key, self.lang))
+            button.on_hover = self._tab_tip
             self.tab_group.addButton(button, i)
             if i:
                 row.addStretch(1)  # equal gaps between the icons
             row.addWidget(button)
         self.tab_group.button(0).setChecked(True)
         self.tab_group.idClicked.connect(self.show_tab)
+        self.tab_tip = QLabel(self)  # the hovered icon's name, never clipped
+        self.tab_tip.setObjectName("tabtip")
+        self.tab_tip.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        self.tab_tip.hide()
         return bar
+
+    def _tab_tip(self, tab: "TabIcon", show: bool) -> None:
+        if not show:
+            self.tab_tip.hide()
+            return
+        self.tab_tip.setText(tab.label.upper())
+        self.tab_tip.adjustSize()
+        centre = tab.mapTo(self, QPointF(tab.width() / 2, tab.height()).toPoint())
+        x = max(8, min(self.width() - self.tab_tip.width() - 8, centre.x() - self.tab_tip.width() // 2))
+        self.tab_tip.move(x, centre.y() + 2)
+        self.tab_tip.raise_()
+        self.tab_tip.show()
 
     def _chat(self) -> QWidget:
         """A conversation, like a messenger: the brain on top, what was said
@@ -868,8 +898,40 @@ class ControlCenter(QWidget):
         col.addLayout(decide)
         return page
 
+    def _nodes_page(self) -> QWidget:
+        """Your Nodes: who works on what, who needs you, a quick errand."""
+        page = QWidget()
+        col = QVBoxLayout(page)
+        col.setContentsMargins(0, 0, 0, 0)
+        col.setSpacing(10)
+        col.addWidget(_label(idioma.t("nodes_hint", self.lang), "hint", True))
+        self.node_list = QListWidget()
+        self.node_list.itemDoubleClicked.connect(lambda _i: self._open_node())
+        col.addWidget(self.node_list, 1)
+        row = QHBoxLayout()
+        self.node_entry = QLineEdit()
+        self.node_entry.setPlaceholderText(idioma.t("node_errand", self.lang))
+        self.node_entry.returnPressed.connect(self._send_node)
+        row.addWidget(self.node_entry, 1)
+        send = QPushButton(idioma.t("send", self.lang))
+        send.setCursor(Qt.CursorShape.PointingHandCursor)
+        send.clicked.connect(self._send_node)
+        row.addWidget(send)
+        col.addLayout(row)
+        buttons = QHBoxLayout()
+        create = QPushButton(idioma.t("new_node", self.lang))
+        create.setObjectName("primary")
+        create.clicked.connect(self._new_node)
+        see = QPushButton(idioma.t("open_node", self.lang))
+        see.clicked.connect(self._open_node)
+        for button in (create, see):
+            button.setCursor(Qt.CursorShape.PointingHandCursor)
+            buttons.addWidget(button)
+        col.addLayout(buttons)
+        return page
+
     def _swarm(self) -> QWidget:
-        """Background tasks and the agent swarm."""
+        """Agent Swarm: one huge task, many agents at once, one report."""
         page = QWidget()
         col = QVBoxLayout(page)
         col.setContentsMargins(0, 0, 0, 0)
@@ -888,16 +950,14 @@ class ControlCenter(QWidget):
         col.addLayout(row)
         col.addWidget(_label(idioma.t("running_now", self.lang), "section"))
         self.swarm_list = QListWidget()
+        self.swarm_list.itemDoubleClicked.connect(self._open_swarm)
         col.addWidget(self.swarm_list, 1)
         buttons = QHBoxLayout()
-        create = QPushButton(idioma.t("new_agent", self.lang))
-        create.setObjectName("primary")
-        create.clicked.connect(self._new_agent)
-        agents = QPushButton(idioma.t("agents", self.lang))
-        agents.clicked.connect(lambda: self._open_section("agents"))
+        big = QPushButton(idioma.t("open_swarm", self.lang))
+        big.clicked.connect(lambda: self.actions.open_url(f"{self.actions.server_url.rstrip('/')}/swarm"))
         cancel = QPushButton(idioma.t("cancel_last", self.lang))
         cancel.clicked.connect(lambda: self.actions.send("cancela la tarea"))
-        for button in (create, agents, cancel):
+        for button in (big, cancel):
             button.setCursor(Qt.CursorShape.PointingHandCursor)
             buttons.addWidget(button)
         col.addLayout(buttons)
@@ -937,11 +997,100 @@ class ControlCenter(QWidget):
         scroll.setWidget(page)
         return scroll
 
-    def _new_agent(self) -> None:
-        """Agents are what you personalise, like a custom GPT: the builder
-        (Crear · Configurar · Vista previa) opens in its own window."""
+    def _web(self, path: str) -> None:
         self.hide()
-        self.actions.open_url(f"{self.actions.server_url.rstrip('/')}/agents/nuevo")
+        self.actions.open_url(f"{self.actions.server_url.rstrip('/')}{path}")
+
+    def _new_node(self) -> None:
+        """Nodes are what you personalise, like OpenAI's Dots: name it, say
+        what it looks after, connect apps; it introduces itself."""
+        self._web("/nodes?nuevo=1")
+
+    def _current_node(self) -> dict | None:
+        item = self.node_list.currentItem()
+        node_id = item.data(Qt.ItemDataRole.UserRole) if item else None
+        return next((n for n in self._nodes if n.get("id") == node_id), None)
+
+    def _open_node(self) -> None:
+        node = self._current_node()
+        self._web(f"/nodes/{node['id']}" if node else "/nodes")
+
+    def _send_node(self) -> None:
+        text = self.node_entry.text().strip()
+        node = self._current_node() or (self._nodes[0] if self._nodes else None)
+        if not text or node is None:
+            return
+        self.node_entry.clear()
+        base = self.actions.server_url
+        node_id = node["id"]
+
+        def job() -> dict:
+            self._http().post(f"{base}/v1/nodes/{node_id}/messages", json={"text": text}).raise_for_status()
+            return self._http().get(f"{base}/v1/nodes").json()
+
+        self._background(job, self.nodes_ready)
+
+    def _show_nodes(self, data: dict) -> None:
+        if data.get("error"):
+            self._nodes = []
+            self.node_list.clear()
+            self.node_list.addItem(idioma.t("no_server", self.lang))
+            return
+        self._nodes = list(data.get("nodes") or [])
+        chosen = self.node_list.currentItem()
+        keep = chosen.data(Qt.ItemDataRole.UserRole) if chosen else None
+        self.node_list.clear()
+        if not self._nodes:
+            self.node_list.addItem(idioma.t("no_nodes", self.lang))
+            return
+        for node in self._nodes:
+            status = node.get("status", "idle")
+            if status == "working" and node.get("doing"):
+                line = node["doing"]
+            elif status == "needs_you" and node.get("waiting"):
+                line = node["waiting"]
+            else:
+                line = idioma.t(f"node_{status}", self.lang)
+            flag = "  ●" if node.get("approvals") or status == "needs_you" else ""
+            item = QListWidgetItem(f"{node.get('name', '')}{flag}\n{str(line)[:70]}")
+            item.setData(Qt.ItemDataRole.UserRole, node.get("id"))
+            self.node_list.addItem(item)
+            if node.get("id") == keep:
+                self.node_list.setCurrentItem(item)
+
+    def _open_swarm(self, item: QListWidgetItem) -> None:
+        run_id = item.data(Qt.ItemDataRole.UserRole)
+        self._web(f"/swarm/{run_id}" if run_id else "/swarm")
+
+    def _show_swarms(self, data: dict) -> None:
+        lines: list[tuple[str, str]] = []
+        for run in (data.get("runs") or [])[:6]:
+            counts = run.get("counts") or {}
+            total = len(run.get("subtasks") or [])
+            status = idioma.t(f"swarm_{run.get('status', 'done')}", self.lang)
+            title = run.get("title") or run.get("task", "")
+            lines.append((f"{title}\n{counts.get('done', 0)}/{total} · {status}", run.get("id", "")))
+        for line in self.actions.swarm() or []:  # this PC's own background tasks
+            lines.append((line, ""))
+        if not lines:
+            lines = [(idioma.t("nothing_running", self.lang), "")]
+        if [self.swarm_list.item(i).text() for i in range(self.swarm_list.count())] == [t for t, _ in lines]:
+            return
+        self.swarm_list.clear()
+        for text, run_id in lines:
+            item = QListWidgetItem(text)
+            item.setData(Qt.ItemDataRole.UserRole, run_id)
+            self.swarm_list.addItem(item)
+
+    def _refresh_remote(self) -> None:
+        if not self.isVisible():
+            return
+        index = self.pages.currentIndex()
+        base = self.actions.server_url
+        if index == self.NODES:
+            self._background(lambda: self._http().get(f"{base}/v1/nodes").json(), self.nodes_ready)
+        elif index == self.SWARM:
+            self._background(lambda: self._http().get(f"{base}/v1/swarm").json(), self.swarms_ready)
 
     def _open_section(self, key: str, arg: str = "") -> None:
         self.hide()
@@ -1031,15 +1180,22 @@ class ControlCenter(QWidget):
         if not text:
             return
         self.swarm_entry.clear()
-        self.actions.send(f"en segundo plano, {text}")
+        base = self.actions.server_url
+
+        def job() -> dict:
+            run = self._http().post(f"{base}/v1/swarm", data={"task": text, "parallel": "8"})
+            run.raise_for_status()
+            self.actions.open_url(f"{base.rstrip('/')}/swarm/{run.json()['id']}")
+            return self._http().get(f"{base}/v1/swarm").json()
+
+        self._background(job, self.swarms_ready)
 
     def _refresh_swarm(self) -> None:
+        """The local lines tick every second; the server's swarms every 3 s."""
         if not self.isVisible() or self.pages.currentIndex() != self.SWARM:
             return
-        lines = self.actions.swarm() or [idioma.t("nothing_running", self.lang)]
-        if [self.swarm_list.item(i).text() for i in range(self.swarm_list.count())] != lines:
-            self.swarm_list.clear()
-            self.swarm_list.addItems(lines)
+        if not self.swarm_list.count():
+            self._show_swarms({})
 
     def _settings(self) -> QWidget:
         """The switches, the notch, language and country."""
@@ -1100,8 +1256,8 @@ class ControlCenter(QWidget):
         self.tab_group.button(index).setChecked(True)
         if index == self.COWORK:
             self._load_cowork()
-        elif index == self.SWARM:
-            self._refresh_swarm()
+        elif index in (self.NODES, self.SWARM):
+            self._refresh_remote()
 
     def open(self) -> None:
         screen = QGuiApplication.primaryScreen()
