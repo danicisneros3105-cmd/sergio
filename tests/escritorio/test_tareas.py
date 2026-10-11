@@ -484,10 +484,18 @@ def test_the_cursor_brings_the_notch_back_as_a_drop_of_liquid():
         if pour.phase() == "form":
             depths.append(pour.pendant())
     assert [p for i, p in enumerate(seen) if i == 0 or seen[i - 1] != p] == [
-        "form", "fall", "spread", "fill", "settle", "done"]
+        "form",
+        "fall",
+        "spread",
+        "fill",
+        "settle",
+        "done",
+    ]
     assert depths == sorted(depths)  # the drop grows from the edge
     assert pour.land_x < 300  # it followed the cursor before it fell
-    assert pour.level() == 1.0 and abs(pour.wave(pour.land_x)) < 0.6  # brim full, nearly still
+    assert (
+        pour.level() == 1.0 and abs(pour.wave(pour.land_x)) < 0.6
+    )  # brim full, nearly still
     assert lean(0, 0, (20, 0))[1] > 0 and lean(0, 0, (200, 0)) == (0.0, 0.0, 0.0)
 
     cursor = [QPoint(0, 0)]
@@ -507,7 +515,9 @@ def test_the_cursor_brings_the_notch_back_as_a_drop_of_liquid():
         n.hide_notch(instant=True)
         assert n.hidden and n._edge.isActive()
         geo = notch_mod.QGuiApplication.primaryScreen().geometry()
-        cursor[0] = QPoint(geo.x() + geo.width() // 2 + 20, geo.top())  # touch the top edge
+        cursor[0] = QPoint(
+            geo.x() + geo.width() // 2 + 20, geo.top()
+        )  # touch the top edge
         n._watch_edge()
         n._edge_since -= 1.0  # dwelt long enough
         n._watch_edge()

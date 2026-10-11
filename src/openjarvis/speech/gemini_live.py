@@ -260,7 +260,9 @@ def live_config(
     if proactive and hasattr(types, "ProactivityConfig"):
         extra["proactivity"] = types.ProactivityConfig(proactive_audio=True)
     detection: dict[str, Any] = {}
-    start_low = getattr(getattr(types, "StartSensitivity", None), "START_SENSITIVITY_LOW", None)
+    start_low = getattr(
+        getattr(types, "StartSensitivity", None), "START_SENSITIVITY_LOW", None
+    )
     if start_low is not None:
         detection["start_of_speech_sensitivity"] = start_low
     return types.LiveConnectConfig(

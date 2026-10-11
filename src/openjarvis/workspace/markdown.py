@@ -26,7 +26,9 @@ def table_markdown(table: Dict[str, Any]) -> str:
         if not isinstance(row, dict) or row.get("archived"):
             continue
         cells = row.get("cells") or {}
-        rows.append("| " + " | ".join(_cell(cells.get(c.get("id"), "")) for c in columns) + " |")
+        rows.append(
+            "| " + " | ".join(_cell(cells.get(c.get("id"), "")) for c in columns) + " |"
+        )
     return "\n".join([head, rule, *rows])
 
 
@@ -46,7 +48,9 @@ def mind_outline(nodes: Iterable[Dict[str, Any]]) -> List[str]:
     return lines
 
 
-def blocks_markdown(blocks: Iterable[Dict[str, Any]], title_of: Callable[[str], str] = lambda _id: "") -> str:
+def blocks_markdown(
+    blocks: Iterable[Dict[str, Any]], title_of: Callable[[str], str] = lambda _id: ""
+) -> str:
     out: List[str] = []
     number = 0
     for b in blocks:
@@ -79,13 +83,21 @@ def blocks_markdown(blocks: Iterable[Dict[str, Any]], title_of: Callable[[str], 
         elif kind == "table":
             out.append(table_markdown(b.get("table") or {}))
         elif kind in ("chart", "pomodoro"):
-            out.extend([f"```sergio-{kind}", json.dumps(b.get(kind) or {}, ensure_ascii=False), "```"])
+            out.extend(
+                [
+                    f"```sergio-{kind}",
+                    json.dumps(b.get(kind) or {}, ensure_ascii=False),
+                    "```",
+                ]
+            )
         elif kind == "mindmap":
             out.extend(mind_outline(b.get("mind") or []))
         elif kind in ("audio", "image"):
             media = b.get("media") or {}
             if media.get("file"):
-                out.append(f"[{media.get('name') or media['file']}](files/{media['file']})")
+                out.append(
+                    f"[{media.get('name') or media['file']}](files/{media['file']})"
+                )
         elif kind == "page":
             out.append(f"[[{title_of(str(b.get('pageId') or '')) or text}]]")
         else:
@@ -94,7 +106,9 @@ def blocks_markdown(blocks: Iterable[Dict[str, Any]], title_of: Callable[[str], 
     return "\n".join(out)
 
 
-def page_markdown(page: Dict[str, Any], title_of: Callable[[str], str] = lambda _id: "") -> str:
+def page_markdown(
+    page: Dict[str, Any], title_of: Callable[[str], str] = lambda _id: ""
+) -> str:
     """Front matter, the title and the blocks."""
     front = {
         "id": page.get("id"),
@@ -104,7 +118,11 @@ def page_markdown(page: Dict[str, Any], title_of: Callable[[str], str] = lambda 
         "created": page.get("createdAt"),
         "updated": page.get("updatedAt"),
     }
-    lines = ["---"] + [f"{k}: {json.dumps(v, ensure_ascii=False)}" for k, v in front.items()] + ["---", ""]
+    lines = (
+        ["---"]
+        + [f"{k}: {json.dumps(v, ensure_ascii=False)}" for k, v in front.items()]
+        + ["---", ""]
+    )
     if page.get("sealed"):
         body = "_Página cifrada de extremo a extremo: solo se abre con su frase en la app._\n"
     else:

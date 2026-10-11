@@ -380,6 +380,9 @@ def test_live_instructions_lock_the_language():
     from openjarvis.speech.gemini_live import live_instructions
 
     text = live_instructions({"language": "en"})
-    assert "Hablas siempre en inglés" in text and "cámbialo solo si el señor te lo pide" in text
+    assert (
+        "Hablas siempre en inglés" in text
+        and "cámbialo solo si el señor te lo pide" in text
+    )
     assert "habla SIEMPRE en español" in live_instructions({})
     assert "no te interrumpas a ti mismo" in text

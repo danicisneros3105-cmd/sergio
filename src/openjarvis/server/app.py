@@ -621,6 +621,7 @@ def create_app(
         worker = getattr(app.state, "node_worker", None)
         if worker is not None:
             worker.shutdown()
+
     # Sergio's Gemini voice (British gentleman) and ears.
     from openjarvis.server.voice_routes import router as voice_router
 

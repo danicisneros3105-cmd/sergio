@@ -32,7 +32,9 @@ def test_the_evening_warms_then_dims_and_sergio_goes_quiet():
         "manana",
     ]
     assert (
-        phases[1].kelvin < 6500 and 0.9 < phases[1].brightness <= 1.0 and not phases[1].quiet
+        phases[1].kelvin < 6500
+        and 0.9 < phases[1].brightness <= 1.0
+        and not phases[1].quiet
     )  # warmer, barely darker
     assert (
         phases[3].kelvin < phases[2].kelvin
@@ -120,7 +122,9 @@ def test_the_veil_when_the_driver_refuses_gamma():
     from sergio_escritorio.nocturno_ui import NightScreen, veil
 
     warm, dark = veil(2700, 0.7)
-    assert 20 < warm.alpha() <= 48 and 60 < dark.alpha() < 80  # mostly black: no grey film
+    assert (
+        20 < warm.alpha() <= 48 and 60 < dark.alpha() < 80
+    )  # mostly black: no grey film
     assert veil(6500, 1.0)[0].alpha() == 0 and veil(6500, 1.0)[1].alpha() == 0
     screen = NightScreen()
     screen.set(3000, 0.8)
@@ -132,11 +136,15 @@ def test_the_veil_when_the_driver_refuses_gamma():
 def test_research_curve_three_hours_and_candle_at_bed():
     s = n.Settings(wake="07:00", need_h=8, intensity=1.0)
     t = n.schedule(at(20, 0), s)
-    assert t["start"] == at(19, 45) and t["wind"] == at(21, 45) and t["bed"] == at(22, 45)
+    assert (
+        t["start"] == at(19, 45) and t["wind"] == at(21, 45) and t["bed"] == at(22, 45)
+    )
     bed = n.moment(at(22, 44), s)
     assert bed.kelvin < 2000 and bed.brightness < 0.65 and bed.blue < 0.05
     asleep = n.moment(at(2, 0), s)
-    assert asleep.phase == "dormir" and asleep.kelvin == round(n.mix_kelvin(6500, 1900, 1.0))
+    assert asleep.phase == "dormir" and asleep.kelvin == round(
+        n.mix_kelvin(6500, 1900, 1.0)
+    )
     # Sunset earlier than 3 h before bed: start there, gently.
     assert n.schedule(at(20, 0), s, dt.time(18, 10))["start"] == at(18, 10)
     # The morning fades back over 20 minutes instead of jumping.
@@ -175,7 +183,9 @@ def test_colour_matrix_multiplies_and_keeps_black():
     assert n.IDENTITY == [1.0 if i % 6 == 0 else 0.0 for i in range(25)]
     m = n.color_matrix(1900, 0.6)
     assert m[0] == 0.6 and 0.2 < m[6] < 0.4 and m[12] == 0.0 and m[18] == m[24] == 1.0
-    assert all(v == 0.0 for i, v in enumerate(m) if i % 6)  # no offsets: black stays black
+    assert all(
+        v == 0.0 for i, v in enumerate(m) if i % 6
+    )  # no offsets: black stays black
     assert n.white_point(6500) == (1.0, 1.0, 1.0)
 
 
@@ -264,9 +274,11 @@ def test_the_sheet_previews_and_saves(monkeypatch):
 
     state = {"s": n.Settings()}
     saved, previews = [], []
-    sheet = NightSheet(lambda: n.load_settings(n.dump_settings(state["s"])),
-                       lambda s: (saved.append(s), state.__setitem__("s", s)),
-                       lambda k, b: previews.append((k, b)))
+    sheet = NightSheet(
+        lambda: n.load_settings(n.dump_settings(state["s"])),
+        lambda s: (saved.append(s), state.__setitem__("s", s)),
+        lambda k, b: previews.append((k, b)),
+    )
     sheet._preview(1.0)
     assert previews and previews[-1][0] < 2000
     sheet._set_intensity(0.5)

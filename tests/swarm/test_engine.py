@@ -88,7 +88,7 @@ def test_a_swarm_runs_in_parallel_then_the_supervisor_reports(tmp_path):
             raise RuntimeError("caído")
         return f"Hecho, ver https://tienda.test/{len(prompt)}", 2
 
-    engine = SwarmEngine(ask=ask, runner=runner, home=tmp_path)
+    engine = SwarmEngine(ask=ask, runner=runner, home=tmp_path, retry_delays=(0, 0))
     run = engine.start("precios de 6 productos", parallel=3, background=False)
     assert run.status == "done"
     assert running["max"] == 3  # three at a time, as asked
@@ -97,7 +97,11 @@ def test_a_swarm_runs_in_parallel_then_the_supervisor_reports(tmp_path):
     assert run.report.startswith("# Informe")
     assert run.contradictions == ["P1 y P2 difieren"]
     data = run.to_dict()
-    assert data["tool_calls"] == 10 and data["sources"]
+    # 5 sub-agents × 2 calls, plus the scout's 2; the failing one tried 3 times.
+    assert data["tool_calls"] == 12 and data["sources"]
+    assert run.scout and [s.attempts for s in run.subtasks if s.status == "failed"] == [
+        3
+    ]
     # Dissolved: nothing left to cancel, and the report is kept on disk.
     assert engine.cancel(run.id) is False
     again = SwarmEngine(ask=ask, runner=runner, home=tmp_path)
@@ -115,7 +119,7 @@ def test_cancel_stops_the_queue(tmp_path):
         return "ok", 0
 
     engine = SwarmEngine(ask=ask, runner=runner, home=tmp_path)
-    run = engine.start("diez cosas", parallel=1)
+    run = engine.start("diez cosas", parallel=1, scout=False)
     for _ in range(100):
         if run.status == "running":
             break
@@ -160,7 +164,9 @@ def test_routes_start_and_read(tmp_path, monkeypatch):
         if body["status"] == "done":
             break
         time.sleep(0.01)
-    assert body["status"] == "done" and body["report"] == "R"
+    assert body["status"] == "done" and body["report"].startswith("R\n")
+    # Code noticed the report never names the document it was given.
+    assert body["checks"]["documents_unmentioned"] == ["c.txt"]
     assert body["subtasks"][0]["document"] == "c.txt"
     assert client.get("/v1/swarm").json()["runs"][0]["id"] == run_id
     assert client.post("/v1/swarm", data={"task": " "}).status_code == 400

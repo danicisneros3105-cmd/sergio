@@ -2344,7 +2344,19 @@ html, body { background: var(--color-bg); }
 .swarm-ghost { animation: swarm-ghost 1.4s ease-in-out infinite; cursor: default; }
 @keyframes swarm-ghost { 0%, 100% { opacity: 0.35; } 50% { opacity: 0.8; } }
 .swarm-report { border: 1px solid var(--color-border); border-radius: var(--radius-lg); padding: 20px 24px; }
-.swarm-report-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.swarm-report-head { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.swarm-report-head .mac-chip { font-size: 12.5px; }
+.swarm-checks { display: flex; gap: 10px; align-items: flex-start; margin: 4px 0 16px; padding: 10px 14px; border-radius: var(--radius-md); font-size: 13px; line-height: 1.5; background: color-mix(in srgb, var(--color-accent) 12%, transparent); }
+.swarm-checks[data-ok='false'] { background: transparent; border: 1px dashed var(--color-text-tertiary); }
+.swarm-checks svg { flex-shrink: 0; margin-top: 2px; color: var(--color-accent-text); }
+.swarm-checks b { display: block; font-weight: 600; }
+.swarm-checks span { color: var(--color-text-secondary); }
+.swarm-scout { border: 1px solid var(--color-border-subtle); border-radius: var(--radius-lg); padding: 10px 14px; }
+.swarm-scout summary { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13.5px; font-weight: 500; }
+.swarm-scout[open] summary { margin-bottom: 8px; }
+.swarm-agent-now { font-size: 11.5px; color: var(--color-accent-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.swarm-agent-now::before { content: '▸ '; }
+.swarm-stats dd small { font-size: 12px; color: var(--color-text-tertiary); margin-left: 2px; }
 .swarm-notes { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--color-border-subtle); font-size: 14px; }
 .swarm-notes ul { margin: 6px 0 0 18px; }
 .swarm-sources { display: flex; flex-wrap: wrap; gap: 6px; }

@@ -22,7 +22,9 @@ def page(pid="p_abc123def", title="Compras", blocks=None, **extra):
         "title": title,
         "icon": "",
         "parent": None,
-        "blocks": blocks if blocks is not None else [{"id": "b_1", "type": "text", "text": "leche y pan"}],
+        "blocks": blocks
+        if blocks is not None
+        else [{"id": "b_1", "type": "text", "text": "leche y pan"}],
         "createdAt": now,
         "updatedAt": now,
         "rev": 0,
@@ -36,7 +38,10 @@ def table_block():
         "type": "table",
         "text": "",
         "table": {
-            "columns": [{"id": "c1", "name": "Tarea", "type": "text"}, {"id": "c2", "name": "Estado", "type": "select"}],
+            "columns": [
+                {"id": "c1", "name": "Tarea", "type": "text"},
+                {"id": "c2", "name": "Estado", "type": "select"},
+            ],
             "rows": [
                 {"id": "r1", "cells": {"c1": "Diseño", "c2": "Hecho"}},
                 {"id": "r2", "cells": {"c1": "Presupuesto", "c2": "En curso"}},
@@ -44,7 +49,12 @@ def table_block():
             ],
             "views": [
                 {"id": "v1", "name": "Tabla", "kind": "table"},
-                {"id": "v2", "name": "Cliente", "kind": "table", "filter": {"column": "c2", "op": "not", "value": "Por hacer"}},
+                {
+                    "id": "v2",
+                    "name": "Cliente",
+                    "kind": "table",
+                    "filter": {"column": "c2", "op": "not", "value": "Por hacer"},
+                },
             ],
             "view": "v1",
         },
@@ -67,7 +77,11 @@ def test_save_read_list_and_markdown_twin(store):
     assert store.get("p_abc123def")["title"] == "Compras del lunes"
     assert [p["title"] for p in store.list()] == ["Compras del lunes"]
     md = (store.pages_dir / "p_abc123def.md").read_text(encoding="utf-8")
-    assert md.startswith("---\nid: \"p_abc123def\"") and "# Compras del lunes" in md and "leche y pan" in md
+    assert (
+        md.startswith('---\nid: "p_abc123def"')
+        and "# Compras del lunes" in md
+        and "leche y pan" in md
+    )
 
 
 def test_a_stale_copy_never_overwrites_it_is_kept_aside(store):
@@ -78,23 +92,35 @@ def test_a_stale_copy_never_overwrites_it_is_kept_aside(store):
     assert err.value.current["title"] == "Editado en el móvil"
     copy = store.get(err.value.copy_id)
     assert copy["title"] == "Editado en el PC (copia en conflicto)"
-    assert {p["title"] for p in store.list()} == {"Editado en el móvil", "Editado en el PC (copia en conflicto)"}
+    assert {p["title"] for p in store.list()} == {
+        "Editado en el móvil",
+        "Editado en el PC (copia en conflicto)",
+    }
 
 
 def test_bad_input_is_refused_and_paths_cannot_escape(store):
-    for bad in ({"id": "../x", "blocks": []}, {"id": "p_abc123def", "blocks": "no"}, "texto",
-                page(blocks=[{"type": "text"}], title="x" * 301), page(parent="../../etc")):
+    for bad in (
+        {"id": "../x", "blocks": []},
+        {"id": "p_abc123def", "blocks": "no"},
+        "texto",
+        page(blocks=[{"type": "text"}], title="x" * 301),
+        page(parent="../../etc"),
+    ):
         with pytest.raises(WorkspaceError):
             store.put(bad)
     with pytest.raises(WorkspaceError):
         store.get("../../secret")
     with pytest.raises(WorkspaceError):
-        store.put(page(blocks=[{"id": "b", "type": "text", "text": "x"}], sealed={"v": 1}))
+        store.put(
+            page(blocks=[{"id": "b", "type": "text", "text": "x"}], sealed={"v": 1})
+        )
     assert store.file_path("../../etc/passwd") is None
 
 
 def test_sealed_pages_stay_unreadable(store):
-    store.put(page(blocks=[], sealed={"v": 1, "salt": "s", "iv": "i", "data": "CIFRADO"}))
+    store.put(
+        page(blocks=[], sealed={"v": 1, "salt": "s", "iv": "i", "data": "CIFRADO"})
+    )
     md = (store.pages_dir / "p_abc123def.md").read_text(encoding="utf-8")
     assert "cifrada de extremo a extremo" in md and "CIFRADO" not in md
     assert store.search("Compras") == []  # not indexed
@@ -102,14 +128,24 @@ def test_sealed_pages_stay_unreadable(store):
 
 def test_files_search_delete_and_export(store):
     store.put(page())
-    store.put(page("p_meet00001", "Reunión con Ana", [{"id": "b", "type": "h2", "text": "Decisiones"},
-                                                         {"id": "c", "type": "bullet", "text": "Lanzamos en noviembre"}]))
+    store.put(
+        page(
+            "p_meet00001",
+            "Reunión con Ana",
+            [
+                {"id": "b", "type": "h2", "text": "Decisiones"},
+                {"id": "c", "type": "bullet", "text": "Lanzamos en noviembre"},
+            ],
+        )
+    )
     file_id = store.save_file(b"OggS-audio", "ogg")
     assert store.file_path(file_id).read_bytes() == b"OggS-audio"
     with pytest.raises(WorkspaceError):
         store.save_file(b"x", "exe")
     hits = store.search("noviembre reunion")
-    assert [h["id"] for h in hits] == ["p_meet00001"] and "noviembre" in hits[0]["snippet"]
+    assert [h["id"] for h in hits] == ["p_meet00001"] and "noviembre" in hits[0][
+        "snippet"
+    ]
     data = store.export_zip()
     names = zipfile.ZipFile(io.BytesIO(data)).namelist()
     assert "pages/p_meet00001.json" in names and f"markdown/files/{file_id}" in names
@@ -121,34 +157,78 @@ def test_files_search_delete_and_export(store):
 
 def test_markdown_covers_every_block_kind():
     blocks = [
-        {"type": "h1", "text": "Uno"}, {"type": "todo", "text": "hecho", "checked": True},
-        {"type": "number", "text": "a"}, {"type": "number", "text": "b"}, table_block(),
-        {"type": "mindmap", "mind": [{"id": "n1", "text": "Centro", "parent": None}, {"id": "n2", "text": "Rama", "parent": "n1"}]},
-        {"type": "chart", "chart": {"kind": "bar"}}, {"type": "page", "pageId": "p_x", "text": ""},
+        {"type": "h1", "text": "Uno"},
+        {"type": "todo", "text": "hecho", "checked": True},
+        {"type": "number", "text": "a"},
+        {"type": "number", "text": "b"},
+        table_block(),
+        {
+            "type": "mindmap",
+            "mind": [
+                {"id": "n1", "text": "Centro", "parent": None},
+                {"id": "n2", "text": "Rama", "parent": "n1"},
+            ],
+        },
+        {"type": "chart", "chart": {"kind": "bar"}},
+        {"type": "page", "pageId": "p_x", "text": ""},
     ]
     md = page_markdown(page(blocks=blocks), lambda _i: "Otra página")
-    for want in ("## Uno", "- [x] hecho", "1. a", "2. b", "| Tarea | Estado |", "| Diseño | Hecho |",
-                 "- Centro", "  - Rama", "```sergio-chart", "[[Otra página]]"):
+    for want in (
+        "## Uno",
+        "- [x] hecho",
+        "1. a",
+        "2. b",
+        "| Tarea | Estado |",
+        "| Diseño | Hecho |",
+        "- Centro",
+        "  - Rama",
+        "```sergio-chart",
+        "[[Otra página]]",
+    ):
         assert want in md, want
 
 
 def test_shares_expose_only_the_chosen_part(store):
-    store.put(page(blocks=[{"id": "b_note", "type": "text", "text": "Privado"}, table_block(),
-                           {"id": "b_sub", "type": "page", "pageId": "p_other0001", "text": "Sub"}]))
+    store.put(
+        page(
+            blocks=[
+                {"id": "b_note", "type": "text", "text": "Privado"},
+                table_block(),
+                {"id": "b_sub", "type": "page", "pageId": "p_other0001", "text": "Sub"},
+            ]
+        )
+    )
     shares = Shares(store)
     whole = shares.create("p_abc123def", "page")
-    assert [b["id"] for b in scoped_blocks(store.get("p_abc123def"), whole)] == ["b_note", "b_t"]  # no sub-pages
+    assert [b["id"] for b in scoped_blocks(store.get("p_abc123def"), whole)] == [
+        "b_note",
+        "b_t",
+    ]  # no sub-pages
     rows = shares.create("p_abc123def", "rows", block_id="b_t", row_ids=["r1"])
     only = scoped_blocks(store.get("p_abc123def"), rows)
     assert [r["id"] for r in only[0]["table"]["rows"]] == ["r1"]
     view = shares.create("p_abc123def", "view", block_id="b_t", view_id="v2")
     seen = scoped_blocks(store.get("p_abc123def"), view)[0]["table"]["rows"]
-    assert [r["id"] for r in seen] == ["r1", "r2"]  # the filtered view, «Secreto» stays out
-    html = render_html(store.get("p_abc123def"), scoped_blocks(store.get("p_abc123def"), view), view["token"])
+    assert [r["id"] for r in seen] == [
+        "r1",
+        "r2",
+    ]  # the filtered view, «Secreto» stays out
+    html = render_html(
+        store.get("p_abc123def"),
+        scoped_blocks(store.get("p_abc123def"), view),
+        view["token"],
+    )
     assert "Presupuesto" in html and "Secreto" not in html and "Privado" not in html
-    assert store.get("p_abc123def")["blocks"][1]["table"]["rows"][2]["cells"]["c1"] == "Secreto"  # untouched
-    for bad in (dict(scope="rows", block_id="b_t", row_ids=[]), dict(scope="view", block_id="b_t", view_id="zz"),
-                dict(scope="block", block_id="nope"), dict(scope="rows", block_id="b_note", row_ids=["r1"])):
+    assert (
+        store.get("p_abc123def")["blocks"][1]["table"]["rows"][2]["cells"]["c1"]
+        == "Secreto"
+    )  # untouched
+    for bad in (
+        dict(scope="rows", block_id="b_t", row_ids=[]),
+        dict(scope="view", block_id="b_t", view_id="zz"),
+        dict(scope="block", block_id="nope"),
+        dict(scope="rows", block_id="b_note", row_ids=["r1"]),
+    ):
         with pytest.raises(WorkspaceError):
             shares.create("p_abc123def", **bad)
     short = shares.create("p_abc123def", "page", days=1, now=time.time() - 2 * 86400)
@@ -159,9 +239,18 @@ def test_shares_expose_only_the_chosen_part(store):
 
 
 def test_html_escapes_everything(store):
-    nasty = page(blocks=[{"id": "b", "type": "text", "text": "<script>alert(1)</script> **ok**"}], title="<img onerror=x>")
+    nasty = page(
+        blocks=[
+            {"id": "b", "type": "text", "text": "<script>alert(1)</script> **ok**"}
+        ],
+        title="<img onerror=x>",
+    )
     out = render_html(nasty, nasty["blocks"], "tok")
-    assert "<script>" not in out and "&lt;script&gt;" in out and "<strong>ok</strong>" in out
+    assert (
+        "<script>" not in out
+        and "&lt;script&gt;" in out
+        and "<strong>ok</strong>" in out
+    )
     assert "<img onerror" not in out
 
 
@@ -175,15 +264,25 @@ def test_sergio_tool_finds_reads_and_writes(store):
     from openjarvis.tools.workspace_tool import WorkspaceTool
 
     tool = WorkspaceTool(store)
-    made = tool.execute(action="create", title="Viaje a Madrid", lines=["Reservar hotel"], kind="todo")
+    made = tool.execute(
+        action="create", title="Viaje a Madrid", lines=["Reservar hotel"], kind="todo"
+    )
     assert made.success and "Viaje a Madrid" in made.content
-    assert tool.execute(action="task", page="viaje a madrid", text="Comprar billete").success
+    assert tool.execute(
+        action="task", page="viaje a madrid", text="Comprar billete"
+    ).success
     read = tool.execute(action="read", page="Viaje a Madrid")
     assert "Reservar hotel" in read.content and "Comprar billete" in read.content
     found = tool.execute(action="search", query="billete")
     assert "Viaje a Madrid" in found.content
     assert not tool.execute(action="read", page="no existe nada").success
     assert "Viaje a Madrid" in tool.execute(action="list").content
-    store.put(page(blocks=[], sealed={"v": 1, "salt": "s", "iv": "i", "data": "x"}, title="Diario"))
+    store.put(
+        page(
+            blocks=[],
+            sealed={"v": 1, "salt": "s", "iv": "i", "data": "x"},
+            title="Diario",
+        )
+    )
     assert "cifrada" in tool.execute(action="read", page="p_abc123def").content
     assert json.dumps(tool.spec.parameters)

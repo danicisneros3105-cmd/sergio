@@ -135,7 +135,7 @@ def _node_runner(
     def started(event: Any) -> None:
         calls["n"] += 1
         data = getattr(event, "data", {}) or {}
-        on_tool(str(data.get("tool") or "?"), data.get("args"))
+        on_tool(str(data.get("tool") or "?"), data.get("arguments", data.get("args")))
 
     jarvis._bus.subscribe(EventType.TOOL_CALL_START, started)
     try:
@@ -474,7 +474,9 @@ class NodeWorker:
         cli = [c["command"] for c in node.connections.get("cli", [])]
         if cli and node.rules.get("cli") != "block":
             allowed = ", ".join(cli)
-            lines.append(f"- Comandos permitidos, uno por etiqueta y sin tuberías: <cli>comando</cli>. Son: {allowed}")
+            lines.append(
+                f"- Comandos permitidos, uno por etiqueta y sin tuberías: <cli>comando</cli>. Son: {allowed}"
+            )
         mcp = [c["name"] for c in node.connections.get("mcp", [])]
         if mcp and node.rules.get("mcp") != "block":
             servers = ", ".join(mcp)

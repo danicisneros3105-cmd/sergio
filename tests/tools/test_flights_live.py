@@ -81,4 +81,7 @@ def test_the_flight_is_said_in_words():
             "route": {"airline": "Avianca", "from": "Bogotá", "to": "Guayaquil"},
         }
     )
-    assert text == "El vuelo AVA123 de Avianca (Bogotá → Guayaquil) va en el aire a 10.668 m, a 833 km/h."
+    assert (
+        text
+        == "El vuelo AVA123 de Avianca (Bogotá → Guayaquil) va en el aire a 10.668 m, a 833 km/h."
+    )

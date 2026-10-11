@@ -14,13 +14,33 @@ from typing import Any, Dict, List
 from openjarvis.core.registry import ToolRegistry
 from openjarvis.core.types import ToolResult
 from openjarvis.tools._stubs import BaseTool, ToolSpec
-from openjarvis.workspace.store import WorkspaceError, WorkspaceStore, default_store, page_text
+from openjarvis.workspace.store import (
+    WorkspaceError,
+    WorkspaceStore,
+    default_store,
+    page_text,
+)
 
-KINDS = {"text", "h1", "h2", "h3", "todo", "bullet", "number", "quote", "callout", "code"}
+KINDS = {
+    "text",
+    "h1",
+    "h2",
+    "h3",
+    "todo",
+    "bullet",
+    "number",
+    "quote",
+    "callout",
+    "code",
+}
 
 
 def _block(kind: str, text: str) -> Dict[str, Any]:
-    b: Dict[str, Any] = {"id": "b_" + secrets.token_hex(7), "type": kind if kind in KINDS else "text", "text": text}
+    b: Dict[str, Any] = {
+        "id": "b_" + secrets.token_hex(7),
+        "type": kind if kind in KINDS else "text",
+        "text": text,
+    }
     if b["type"] == "todo":
         b["checked"] = False
     return b
@@ -64,12 +84,18 @@ class WorkspaceTool(BaseTool):
             parameters={
                 "type": "object",
                 "properties": {
-                    "action": {"type": "string", "enum": ["search", "read", "create", "append", "task", "list"]},
+                    "action": {
+                        "type": "string",
+                        "enum": ["search", "read", "create", "append", "task", "list"],
+                    },
                     "query": {"type": "string"},
                     "page": {"type": "string", "description": "Page id or title."},
                     "title": {"type": "string"},
                     "lines": {"type": "array", "items": {"type": "string"}},
-                    "kind": {"type": "string", "description": "Block kind for appended lines: text, bullet, todo, h2…"},
+                    "kind": {
+                        "type": "string",
+                        "description": "Block kind for appended lines: text, bullet, todo, h2…",
+                    },
                     "text": {"type": "string"},
                 },
                 "required": ["action"],
@@ -93,22 +119,41 @@ class WorkspaceTool(BaseTool):
         action = str(params.get("action") or "")
         store = self.store
         if action == "list":
-            pages = sorted(store.list(include_archived=False), key=lambda p: -p["updatedAt"])[:20]
-            return self._ok("\n".join(f"- {p['title'] or 'Sin título'} ({p['id']})" for p in pages) or "No hay páginas.",
-                            pages=pages)
+            pages = sorted(
+                store.list(include_archived=False), key=lambda p: -p["updatedAt"]
+            )[:20]
+            return self._ok(
+                "\n".join(f"- {p['title'] or 'Sin título'} ({p['id']})" for p in pages)
+                or "No hay páginas.",
+                pages=pages,
+            )
         if action == "search":
-            hits = store.search(str(params.get("query") or params.get("text") or ""), limit=8)
+            hits = store.search(
+                str(params.get("query") or params.get("text") or ""), limit=8
+            )
             if not hits:
-                return self._ok("No encuentro nada con eso en su Workspace.", results=[])
-            return self._ok("\n".join(f"- {h['title'] or 'Sin título'} ({h['id']}): {h['snippet']}" for h in hits),
-                            results=hits)
+                return self._ok(
+                    "No encuentro nada con eso en su Workspace.", results=[]
+                )
+            return self._ok(
+                "\n".join(
+                    f"- {h['title'] or 'Sin título'} ({h['id']}): {h['snippet']}"
+                    for h in hits
+                ),
+                results=hits,
+            )
         if action == "read":
             page = _find(store, str(params.get("page") or params.get("query") or ""))
             if page is None:
                 return self._fail("No encuentro esa página.")
             if page.get("sealed"):
-                return self._fail("Esa página está cifrada: solo usted puede abrirla en la app.")
-            return self._ok(f"# {page.get('title') or 'Sin título'}\n{page_text(page, 12000)}", id=page["id"])
+                return self._fail(
+                    "Esa página está cifrada: solo usted puede abrirla en la app."
+                )
+            return self._ok(
+                f"# {page.get('title') or 'Sin título'}\n{page_text(page, 12000)}",
+                id=page["id"],
+            )
         if action == "create":
             now = int(time.time() * 1000)
             lines: List[str] = [str(x) for x in params.get("lines") or []]
@@ -118,7 +163,8 @@ class WorkspaceTool(BaseTool):
                 "title": str(params.get("title") or "Página nueva")[:300],
                 "icon": "",
                 "parent": None,
-                "blocks": [_block(kind, line) for line in lines] or [_block("text", "")],
+                "blocks": [_block(kind, line) for line in lines]
+                or [_block("text", "")],
                 "createdAt": now,
                 "updatedAt": now,
                 "openedAt": now,
@@ -137,10 +183,17 @@ class WorkspaceTool(BaseTool):
             if action == "task":
                 new = [_block("todo", str(params.get("text") or ""))]
             else:
-                new = [_block(str(params.get("kind") or "text"), str(x)) for x in params.get("lines") or []]
+                new = [
+                    _block(str(params.get("kind") or "text"), str(x))
+                    for x in params.get("lines") or []
+                ]
             if not new or not any(b["text"] for b in new):
                 return self._fail("¿Qué quiere que apunte?")
-            page["blocks"] = [b for b in page.get("blocks") or [] if b.get("text") or b.get("type") != "text"] + new
+            page["blocks"] = [
+                b
+                for b in page.get("blocks") or []
+                if b.get("text") or b.get("type") != "text"
+            ] + new
             page["updatedAt"] = int(time.time() * 1000)
             saved = store.put(page, page.get("rev"))
             what = "la tarea" if action == "task" else f"{len(new)} línea(s)"

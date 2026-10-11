@@ -27,7 +27,12 @@ from fastapi.responses import FileResponse, HTMLResponse, Response
 from pydantic import BaseModel
 
 from openjarvis.workspace.shares import Shares, render_html, scoped_blocks, shared_files
-from openjarvis.workspace.store import FILE_TYPES, Conflict, WorkspaceError, default_store
+from openjarvis.workspace.store import (
+    FILE_TYPES,
+    Conflict,
+    WorkspaceError,
+    default_store,
+)
 
 router = APIRouter(tags=["workspace"])
 PUBLIC_HEADERS = {
@@ -85,7 +90,11 @@ async def put_page(page_id: str, body: PutPage) -> Any:
 
         return JSONResponse(
             status_code=409,
-            content={"detail": "La página cambió en otro sitio.", "page": exc.current, "copy": exc.copy_id},
+            content={
+                "detail": "La página cambió en otro sitio.",
+                "page": exc.current,
+                "copy": exc.copy_id,
+            },
         )
     except WorkspaceError as exc:
         raise _bad(exc) from exc
@@ -113,7 +122,11 @@ async def upload_file(file: UploadFile = File(...)) -> Dict[str, Any]:
         file_id = await asyncio.to_thread(default_store().save_file, data, ext)
     except WorkspaceError as exc:
         raise _bad(exc) from exc
-    return {"file": file_id, "name": name or file_id, "mime": FILE_TYPES.get(file_id.rsplit(".", 1)[-1], "")}
+    return {
+        "file": file_id,
+        "name": name or file_id,
+        "mime": FILE_TYPES.get(file_id.rsplit(".", 1)[-1], ""),
+    }
 
 
 @router.get("/v1/workspace/files/{file_id}")
@@ -121,7 +134,10 @@ async def get_file(file_id: str) -> FileResponse:
     path = default_store().file_path(file_id)
     if path is None:
         raise HTTPException(status_code=404, detail="No encuentro ese archivo.")
-    return FileResponse(path, media_type=FILE_TYPES.get(path.suffix.lstrip("."), "application/octet-stream"))
+    return FileResponse(
+        path,
+        media_type=FILE_TYPES.get(path.suffix.lstrip("."), "application/octet-stream"),
+    )
 
 
 @router.get("/v1/workspace/search")
@@ -146,13 +162,22 @@ async def create_share(body: NewShare, request: Request) -> Dict[str, Any]:
     try:
         record = await asyncio.to_thread(
             lambda: shares.create(
-                body.page, body.scope, block_id=body.block, row_ids=body.rows, view_id=body.view, days=body.days
+                body.page,
+                body.scope,
+                block_id=body.block,
+                row_ids=body.rows,
+                view_id=body.view,
+                days=body.days,
             )
         )
     except WorkspaceError as exc:
         raise _bad(exc) from exc
     base = str(request.base_url).rstrip("/")
-    return {**record, "path": f"/s/{record['token']}", "url": f"{base}/s/{record['token']}"}
+    return {
+        **record,
+        "path": f"/s/{record['token']}",
+        "url": f"{base}/s/{record['token']}",
+    }
 
 
 @router.get("/v1/workspace/shares")
@@ -170,7 +195,9 @@ def _shared(token: str) -> tuple[Dict[str, Any], List[Dict[str, Any]]]:
     record = Shares(store).resolve(token)
     page = store.get(record["page"]) if record else None
     if not record or not page or page.get("sealed"):
-        raise HTTPException(status_code=404, detail="Este enlace no existe o ya no está activo.")
+        raise HTTPException(
+            status_code=404, detail="Este enlace no existe o ya no está activo."
+        )
     return page, scoped_blocks(page, record)
 
 
@@ -188,8 +215,11 @@ async def public_file(token: str, file_id: str) -> FileResponse:
     path = default_store().file_path(file_id)
     if path is None:
         raise HTTPException(status_code=404, detail="No encuentro ese archivo.")
-    return FileResponse(path, media_type=FILE_TYPES.get(path.suffix.lstrip("."), "application/octet-stream"),
-                        headers=PUBLIC_HEADERS)
+    return FileResponse(
+        path,
+        media_type=FILE_TYPES.get(path.suffix.lstrip("."), "application/octet-stream"),
+        headers=PUBLIC_HEADERS,
+    )
 
 
 __all__ = ["router"]

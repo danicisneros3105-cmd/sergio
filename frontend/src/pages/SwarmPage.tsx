@@ -2,17 +2,22 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { ArrowLeft, ArrowUp, Copy, Paperclip, Square, X } from 'lucide-react';
+import { ArrowLeft, ArrowUp, Check, Compass, Copy, Download, FileSpreadsheet, NotebookPen, Paperclip, ShieldCheck, Square, X } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   AGENT_ES,
+  checkIssues,
   elapsed,
   FINAL,
+  hasTables,
   host,
+  MAX_AGENTS,
   progress,
+  RUN_BUDGET,
   STATUS_ES,
   swarmApi,
   type SwarmAgent,
+  type SwarmChecks,
   type SwarmRun,
 } from '../lib/swarm';
 
@@ -22,7 +27,7 @@ const EXAMPLES = [
   'Investiga a 15 competidores de mi negocio: precios, puntos fuertes y débiles',
   'Audita este código: errores, seguridad y rendimiento, archivo por archivo',
 ];
-const PARALLEL = [4, 8, 16, 32];
+const PARALLEL = [4, 8, 16, 32, 64];
 
 function Stage({ label, state }: { label: string; state: 'wait' | 'now' | 'done' }) {
   return (
@@ -42,8 +47,10 @@ function AgentCard({ agent, open, onToggle }: { agent: SwarmAgent; open: boolean
         <span className="swarm-agent-dot" aria-label={AGENT_ES[agent.status]} />
       </span>
       <span className="swarm-agent-title">{agent.title}</span>
+      {agent.status === 'running' && agent.current && <span className="swarm-agent-now">{agent.current}</span>}
       <span className="swarm-agent-meta">
         {AGENT_ES[agent.status]}
+        {(agent.attempts || 0) > 1 && ` · ${agent.attempts}.º intento`}
         {agent.tool_calls > 0 && ` · ${agent.tool_calls} herramientas`}
         {agent.sources.length > 0 && ` · ${agent.sources.length} fuentes`}
       </span>
@@ -56,10 +63,32 @@ function AgentCard({ agent, open, onToggle }: { agent: SwarmAgent; open: boolean
   );
 }
 
+function Checks({ run }: { run: SwarmRun }) {
+  const c = run.checks;
+  if (!c || !('ok' in c)) return null;
+  const checks = c as SwarmChecks;
+  const n = checkIssues(checks);
+  return (
+    <div className="swarm-checks" data-ok={n === 0}>
+      <ShieldCheck size={16} strokeWidth={1.6} />
+      <div>
+        <b>{n === 0 ? 'Comprobado por código' : `La comprobación encontró ${n} ${n === 1 ? 'cosa' : 'cosas'} sin respaldo`}</b>
+        <span>
+          {checks.links} enlaces y {checks.figures} cifras cotejados con lo que trajeron los subagentes
+          {checks.documents > 0 && `; ${checks.documents} documentos`}
+          {run.revised && '. El supervisor corrigió su informe una vez'}
+          {n > 0 && '. Lo que no cuadra está al final del informe.'}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 function RunView({ id }: { id: string }) {
   const navigate = useNavigate();
   const [run, setRun] = useState<SwarmRun | null>(null);
   const [openAgent, setOpenAgent] = useState<number | null>(null);
+  const [saved, setSaved] = useState('');
 
   useEffect(() => {
     let alive = true;
@@ -83,10 +112,22 @@ function RunView({ id }: { id: string }) {
 
   if (!run) return <div className="paper-page" aria-busy="true" />;
   const p = progress(run);
-  const stage = (s: 'plan' | 'agents' | 'sup') => {
-    const order = { planning: 0, running: 1, synthesizing: 2, done: 3, failed: 3, cancelled: 3 }[run.status];
-    const mine = { plan: 0, agents: 1, sup: 2 }[s];
+  const stage = (s: 'scout' | 'plan' | 'agents' | 'sup' | 'check') => {
+    const order = { scouting: 0, planning: 1, running: 2, synthesizing: 3, checking: 4, done: 5, failed: 5, cancelled: 5 }[run.status];
+    const mine = { scout: 0, plan: 1, agents: 2, sup: 3, check: 4 }[s];
     return order > mine ? 'done' : order === mine ? 'now' : 'wait';
+  };
+  const budget = run.budget || RUN_BUDGET;
+  const download = (format: 'md' | 'csv' | 'json') =>
+    swarmApi.download(run.id, format).catch((e) => toast.error(e instanceof Error ? e.message : 'No pude descargarlo.'));
+  const toWorkspace = async () => {
+    try {
+      const page = await swarmApi.toWorkspace(run.id);
+      setSaved(page.page);
+      toast.success('Guardado en su Workspace.');
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'No pude guardarlo.');
+    }
   };
   const final = FINAL.includes(run.status);
 
@@ -115,9 +156,11 @@ function RunView({ id }: { id: string }) {
       </div>
 
       <div className="swarm-stages">
+        {run.explore && <Stage label="Explorador" state={stage('scout')} />}
         <Stage label="Orquestador" state={stage('plan')} />
         <Stage label={`${run.subtasks.length || '…'} subagentes en paralelo`} state={stage('agents')} />
         <Stage label="Supervisor" state={stage('sup')} />
+        <Stage label="Comprobación" state={stage('check')} />
       </div>
 
       <dl className="swarm-stats">
@@ -137,7 +180,10 @@ function RunView({ id }: { id: string }) {
         </div>
         <div>
           <dt>Herramientas</dt>
-          <dd>{run.tool_calls}</dd>
+          <dd title={`Tope del enjambre: ${budget.toLocaleString('es')}`}>
+            {run.tool_calls}
+            <small>/{budget.toLocaleString('es')}</small>
+          </dd>
         </div>
         <div>
           <dt>Fuentes</dt>
@@ -163,6 +209,27 @@ function RunView({ id }: { id: string }) {
         <article className="swarm-report">
           <div className="swarm-report-head">
             <span className="paper-label">Informe del supervisor</span>
+            <span className="flex-1" />
+            {final && (
+              <>
+                <button type="button" className="mac-chip" onClick={() => download('md')} title="Informe con sus fuentes">
+                  <Download size={13} /> Markdown
+                </button>
+                {hasTables(run.report) && (
+                  <button type="button" className="mac-chip" onClick={() => download('csv')} title="Las tablas, para Excel o Numbers">
+                    <FileSpreadsheet size={13} /> CSV
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="mac-chip"
+                  onClick={() => (saved ? navigate(`/workspace/${saved}`) : void toWorkspace())}
+                  title="Guardar como página del Workspace"
+                >
+                  {saved ? <Check size={13} /> : <NotebookPen size={13} />} {saved ? 'Abrir en Workspace' : 'Workspace'}
+                </button>
+              </>
+            )}
             <button
               type="button"
               className="mac-icon-btn"
@@ -172,6 +239,7 @@ function RunView({ id }: { id: string }) {
               <Copy size={15} />
             </button>
           </div>
+          <Checks run={run} />
           <div className="prose max-w-none">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{run.report}</ReactMarkdown>
           </div>
@@ -191,13 +259,25 @@ function RunView({ id }: { id: string }) {
       )}
       {run.error && <p className="swarm-error">{run.error}</p>}
 
+      {run.scout && (
+        <details className="swarm-scout">
+          <summary>
+            <Compass size={14} strokeWidth={1.6} /> Mapa del explorador
+            {run.scout_calls ? ` · ${run.scout_calls} búsquedas` : ''}
+          </summary>
+          <div className="prose prose-sm max-w-none">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{run.scout}</ReactMarkdown>
+          </div>
+        </details>
+      )}
+
       <section aria-label="Subagentes">
         <h2 className="paper-label swarm-section">Subagentes</h2>
         <div className="swarm-grid">
           {run.subtasks.map((a) => (
             <AgentCard key={a.id} agent={a} open={openAgent === a.id} onToggle={() => setOpenAgent(openAgent === a.id ? null : a.id)} />
           ))}
-          {run.status === 'planning' &&
+          {(run.status === 'planning' || run.status === 'scouting') &&
             Array.from({ length: 8 }, (_, i) => <span key={i} className="swarm-agent swarm-ghost" aria-hidden="true" />)}
         </div>
       </section>
@@ -223,6 +303,7 @@ function Launcher() {
   const [task, setTask] = useState('');
   const [files, setFiles] = useState<File[]>([]);
   const [parallel, setParallel] = useState(8);
+  const [scout, setScout] = useState(true);
   const [busy, setBusy] = useState(false);
   const [runs, setRuns] = useState<SwarmRun[]>([]);
   const input = useRef<HTMLInputElement>(null);
@@ -238,7 +319,7 @@ function Launcher() {
     if (!task.trim()) return;
     setBusy(true);
     try {
-      const run = await swarmApi.start(task.trim(), parallel, files);
+      const run = await swarmApi.start(task.trim(), parallel, files, files.length ? false : scout);
       navigate(`/swarm/${run.id}`);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'No pude lanzarlo.');
@@ -287,13 +368,24 @@ function Launcher() {
             hidden
             accept=".pdf,.txt,.md,.csv,.json,.html,.xml,.docx,.log,.py,.js,.ts"
             onChange={(e) => {
-              setFiles([...files, ...Array.from(e.target.files || [])].slice(0, 100));
+              setFiles([...files, ...Array.from(e.target.files || [])].slice(0, MAX_AGENTS));
               e.target.value = '';
             }}
           />
           <button type="button" className="mac-chip" onClick={() => input.current?.click()}>
             <Paperclip size={14} /> Documentos {files.length ? `(${files.length})` : ''}
           </button>
+          {files.length === 0 && (
+            <button
+              type="button"
+              className="mac-chip"
+              aria-pressed={scout}
+              onClick={() => setScout(!scout)}
+              title="Un explorador mira el terreno antes de repartir el trabajo"
+            >
+              <Compass size={14} /> Explorar primero
+            </button>
+          )}
           <label className="swarm-parallel">
             <span>Agentes a la vez</span>
             <select value={parallel} onChange={(e) => setParallel(Number(e.target.value))} aria-label="Agentes a la vez">
@@ -310,7 +402,11 @@ function Launcher() {
           </button>
         </div>
       </div>
-      <p className="swarm-hint">Cada documento tiene su propio agente lector. Nunca envía mensajes, compra ni borra nada.</p>
+      <p className="swarm-hint">
+        Hasta {MAX_AGENTS} subagentes y {RUN_BUDGET.toLocaleString('es')} llamadas a herramientas por enjambre. Cada documento
+        tiene su propio agente lector, y el código comprueba enlaces y cifras del informe. Nunca envía mensajes, compra ni
+        borra nada.
+      </p>
 
       <div className="swarm-examples">
         {EXAMPLES.map((e) => (

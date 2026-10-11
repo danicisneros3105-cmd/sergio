@@ -31,10 +31,30 @@ COWORK_RUNS = [
 ]
 CALLS = []
 NODES = [
-    {"id": "n_000000000001", "name": "Ana", "status": "working", "doing": "Busca en la web: pisos", "approvals": []},
-    {"id": "n_000000000002", "name": "Leo", "status": "needs_you", "waiting": "Inicie sesión", "approvals": []},
+    {
+        "id": "n_000000000001",
+        "name": "Ana",
+        "status": "working",
+        "doing": "Busca en la web: pisos",
+        "approvals": [],
+    },
+    {
+        "id": "n_000000000002",
+        "name": "Leo",
+        "status": "needs_you",
+        "waiting": "Inicie sesión",
+        "approvals": [],
+    },
 ]
-SWARMS = [{"id": "sw_1", "title": "Contratos", "status": "running", "counts": {"done": 3}, "subtasks": [{}] * 10}]
+SWARMS = [
+    {
+        "id": "sw_1",
+        "title": "Contratos",
+        "status": "running",
+        "counts": {"done": 3},
+        "subtasks": [{}] * 10,
+    }
+]
 
 
 def _server(request):
@@ -115,7 +135,15 @@ def test_tiles_typing_and_talk(qt):
 def test_sergio_is_not_personalised_only_agents_are(qt):
     panel, *_, saved, _ = _panel(qt)
     # No look, colour, accessory, personality or voice pickers any more.
-    for gone in ("swatch_group", "style_seg", "body_group", "chip_group", "persona", "voice", "size_seg"):
+    for gone in (
+        "swatch_group",
+        "style_seg",
+        "body_group",
+        "chip_group",
+        "persona",
+        "voice",
+        "size_seg",
+    ):
         assert not hasattr(panel, gone), gone
     assert panel.title.text() == "SERGIO"  # his name is fixed (spaced capitals)
     # The brain's effort is still chosen in the chat.
@@ -136,14 +164,24 @@ def test_tabs_are_icons_that_answer_the_cursor(qt):
     panel, *_ = _panel(qt)
     icons = [panel.tab_group.button(i) for i in range(len(panel.TABS))]
     assert all(isinstance(b, TabIcon) for b in icons)
-    assert [b.kind for b in icons] == ["bubble", "dots", "swarm", "briefcase", "heart", "person", "gear"]
+    assert [b.kind for b in icons] == [
+        "bubble",
+        "dots",
+        "swarm",
+        "briefcase",
+        "heart",
+        "person",
+        "gear",
+    ]
     tab = icons[2]
     tab._go(1.0)
     tab._anim.setCurrentTime(tab._anim.duration())
     assert tab.hover == 1.0  # risen, with its name showing
     tab.grab()  # paints without errors, hovered
     panel._tab_tip(tab, True)
-    assert panel.tab_tip.isVisibleTo(panel) and panel.tab_tip.text() == tab.label.upper()
+    assert (
+        panel.tab_tip.isVisibleTo(panel) and panel.tab_tip.text() == tab.label.upper()
+    )
     panel._tab_tip(tab, False)
     tab._go(0.0)
     tab._anim.setCurrentTime(tab._anim.duration())
@@ -157,10 +195,26 @@ def test_only_the_six_sections_in_the_users_language(qt):
 
     panel = ControlCenter(PanelActions(config={"language": "en"}))
     labels = [panel.tab_group.button(i).text() for i in range(len(panel.TABS))]
-    assert labels == ["Chat", "Nodes", "Agent Swarm", "Cowork", "Health", "Profile", "Settings"]
+    assert labels == [
+        "Chat",
+        "Nodes",
+        "Agent Swarm",
+        "Cowork",
+        "Health",
+        "Profile",
+        "Settings",
+    ]
     es = ControlCenter(PanelActions(config={"language": "es"}))
     labels = [es.tab_group.button(i).text() for i in range(len(es.TABS))]
-    assert labels == ["Chat", "Nodes", "Agent Swarm", "Cowork", "Salud", "Perfil", "Configuración"]
+    assert labels == [
+        "Chat",
+        "Nodes",
+        "Agent Swarm",
+        "Cowork",
+        "Salud",
+        "Perfil",
+        "Configuración",
+    ]
     assert not hasattr(es, "world_list") and not hasattr(es, "guide_list")  # gone
 
 
@@ -194,10 +248,15 @@ def test_nodes_tab_lists_and_sends_errands(qt):
     panel.node_entry.setText("Resume mi correo")
     panel._send_node()
     _wait(qt, lambda: any(path.endswith("/messages") for _, path, _ in CALLS))
-    assert b"Resume mi correo" in next(c for _, path, c in CALLS if path.endswith("/messages"))
+    assert b"Resume mi correo" in next(
+        c for _, path, c in CALLS if path.endswith("/messages")
+    )
     panel.node_list.setCurrentRow(0)
     panel._open_node()
-    assert opened[-1] == "http://sergio.test/nodes/n_000000000001" and not panel.isVisible()
+    assert (
+        opened[-1] == "http://sergio.test/nodes/n_000000000001"
+        and not panel.isVisible()
+    )
 
 
 def test_swarm_health_profile_and_notch(qt):
@@ -208,12 +267,17 @@ def test_swarm_health_profile_and_notch(qt):
     _wait(qt, lambda: panel.swarm_list.count() == 2)
     from sergio_escritorio import idioma as _i
 
-    assert panel.swarm_list.item(0).text() == f"Contratos\n3/10 · {_i.t('swarm_running', panel.lang)}"
+    assert (
+        panel.swarm_list.item(0).text()
+        == f"Contratos\n3/10 · {_i.t('swarm_running', panel.lang)}"
+    )
     assert panel.swarm_list.item(1).text() == "Buscar precios · 40%"
     panel.swarm_entry.setText("busca el precio de 40 productos")
     panel._launch_swarm()
     _wait(qt, lambda: any(m == "POST" and path == "/v1/swarm" for m, path, _ in CALLS))
-    assert b"busca+el+precio" in next(c for m, path, c in CALLS if m == "POST" and path == "/v1/swarm")
+    assert b"busca+el+precio" in next(
+        c for m, path, c in CALLS if m == "POST" and path == "/v1/swarm"
+    )
     _wait(qt, lambda: "http://sergio.test/swarm/sw_1" in opened)
     health = panel.pages.widget(panel.HEALTH)
     tiles = [

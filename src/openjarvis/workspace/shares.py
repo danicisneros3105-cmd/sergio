@@ -1,3 +1,4 @@
+# ruff: noqa: E501 — the share page is an inline HTML template
 """Share one part of the Workspace, and nothing else.
 
 A share link opens a read-only copy of exactly what you chose:
@@ -71,7 +72,9 @@ class Shares:
             raise WorkspaceError("Una página cifrada no se puede compartir con enlace.")
         record = {"page": page_id, "scope": scope, "created": now or time.time()}
         if scope in ("block", "rows", "view"):
-            found = next((b for b in page.get("blocks") or [] if b.get("id") == block_id), None)
+            found = next(
+                (b for b in page.get("blocks") or [] if b.get("id") == block_id), None
+            )
             if found is None:
                 raise WorkspaceError("No encuentro ese bloque en la página.")
             if scope in ("rows", "view") and found.get("type") != "table":
@@ -100,7 +103,8 @@ class Shares:
         return [
             {"token": t, **r}
             for t, r in self._load().items()
-            if (not page_id or r.get("page") == page_id) and r.get("expires", now + 1) > now
+            if (not page_id or r.get("page") == page_id)
+            and r.get("expires", now + 1) > now
         ]
 
     def revoke(self, token: str) -> bool:
@@ -112,7 +116,9 @@ class Shares:
             self._save(data)
             return True
 
-    def resolve(self, token: str, now: Optional[float] = None) -> Optional[Dict[str, Any]]:
+    def resolve(
+        self, token: str, now: Optional[float] = None
+    ) -> Optional[Dict[str, Any]]:
         if not TOKEN.match(token or ""):
             return None
         record = self._load().get(token)
@@ -125,7 +131,11 @@ def _view_rows(table: Dict[str, Any], view: Dict[str, Any]) -> List[Dict[str, An
     rows = [r for r in table.get("rows") or [] if not r.get("archived")]
     filt = view.get("filter") or None
     if filt:
-        col, op, value = filt.get("column"), filt.get("op"), str(filt.get("value") or "")
+        col, op, value = (
+            filt.get("column"),
+            filt.get("op"),
+            str(filt.get("value") or ""),
+        )
 
         def keep(row: Dict[str, Any]) -> bool:
             cell = str((row.get("cells") or {}).get(col, ""))
@@ -147,7 +157,11 @@ def _view_rows(table: Dict[str, Any], view: Dict[str, Any]) -> List[Dict[str, An
 
 def scoped_blocks(page: Dict[str, Any], share: Dict[str, Any]) -> List[Dict[str, Any]]:
     """Only what the share covers (copies; the page itself is untouched)."""
-    blocks = [b for b in page.get("blocks") or [] if isinstance(b, dict) and not b.get("archived")]
+    blocks = [
+        b
+        for b in page.get("blocks") or []
+        if isinstance(b, dict) and not b.get("archived")
+    ]
     scope = share.get("scope")
     if scope == "page":
         return [b for b in blocks if b.get("type") != "page"]  # sub-pages stay private
@@ -157,15 +171,28 @@ def scoped_blocks(page: Dict[str, Any], share: Dict[str, Any]) -> List[Dict[str,
     found = json.loads(json.dumps(found))
     if scope == "rows":
         wanted = set(share.get("rows") or [])
-        found["table"]["rows"] = [r for r in found["table"].get("rows") or [] if r.get("id") in wanted]
+        found["table"]["rows"] = [
+            r for r in found["table"].get("rows") or [] if r.get("id") in wanted
+        ]
     elif scope == "view":
-        view = next((v for v in found["table"].get("views") or [] if v.get("id") == share.get("view")), {})
+        view = next(
+            (
+                v
+                for v in found["table"].get("views") or []
+                if v.get("id") == share.get("view")
+            ),
+            {},
+        )
         found["table"]["rows"] = _view_rows(found["table"], view)
     return [found]
 
 
 def shared_files(blocks: List[Dict[str, Any]]) -> set[str]:
-    return {str((b.get("media") or {}).get("file")) for b in blocks if (b.get("media") or {}).get("file")}
+    return {
+        str((b.get("media") or {}).get("file"))
+        for b in blocks
+        if (b.get("media") or {}).get("file")
+    }
 
 
 def _inline(text: str) -> str:
@@ -197,13 +224,22 @@ def render_html(page: Dict[str, Any], blocks: List[Dict[str, Any]], token: str) 
         elif kind == "table":
             table = b.get("table") or {}
             cols = table.get("columns") or []
-            head = "".join(f"<th>{html.escape(str(c.get('name') or ''))}</th>" for c in cols)
+            head = "".join(
+                f"<th>{html.escape(str(c.get('name') or ''))}</th>" for c in cols
+            )
             rows = "".join(
-                "<tr>" + "".join(f"<td>{html.escape(str((r.get('cells') or {}).get(c.get('id'), '')))}</td>" for c in cols) + "</tr>"
+                "<tr>"
+                + "".join(
+                    f"<td>{html.escape(str((r.get('cells') or {}).get(c.get('id'), '')))}</td>"
+                    for c in cols
+                )
+                + "</tr>"
                 for r in table.get("rows") or []
                 if not r.get("archived")
             )
-            parts.append(f"<table><thead><tr>{head}</tr></thead><tbody>{rows}</tbody></table>")
+            parts.append(
+                f"<table><thead><tr>{head}</tr></thead><tbody>{rows}</tbody></table>"
+            )
         elif kind == "image" and (b.get("media") or {}).get("file"):
             name = html.escape(str(b["media"]["file"]))
             parts.append(f"<img src='/s/{token}/files/{name}' alt=''>")
@@ -213,7 +249,11 @@ def render_html(page: Dict[str, Any], blocks: List[Dict[str, Any]], token: str) 
         elif kind == "mindmap":
             from openjarvis.workspace.markdown import mind_outline
 
-            parts.append("<pre>" + html.escape("\n".join(mind_outline(b.get("mind") or []))) + "</pre>")
+            parts.append(
+                "<pre>"
+                + html.escape("\n".join(mind_outline(b.get("mind") or [])))
+                + "</pre>"
+            )
         elif text:
             parts.append(f"<p>{_inline(text)}</p>")
     title = html.escape(page.get("title") or "Sin título")
@@ -228,7 +268,7 @@ pre{{background:#dcddda;padding:12px;overflow:auto}}img{{max-width:100%}}.link{{
 footer{{margin-top:48px;font-size:12px;color:#858683;text-align:center}}
 @media (prefers-color-scheme:dark){{body{{background:#151514;color:#ece9e2}}pre{{background:#222220}}
 td,th{{border-color:rgba(236,233,226,.13)}}blockquote{{border-color:#ece9e2}}}}</style></head>
-<body><main><h1>{title}</h1>{''.join(parts)}<footer>Compartido desde Sergio · solo lectura</footer></main></body></html>"""
+<body><main><h1>{title}</h1>{"".join(parts)}<footer>Compartido desde Sergio · solo lectura</footer></main></body></html>"""
 
 
 __all__ = ["SCOPES", "Shares", "render_html", "scoped_blocks", "shared_files"]

@@ -6,6 +6,9 @@
 * ``GET  /v1/swarm/{id}``          — one swarm: plan, sub-agents, report.
 * ``GET  /v1/swarm/{id}/events``   — server-sent events while it works.
 * ``POST /v1/swarm/{id}/cancel``   — stop it; it dissolves.
+* ``GET  /v1/swarm/{id}/export``   — the report: ``?format=md`` (with its
+  sources), ``csv`` (its tables) or ``json`` (everything).
+* ``POST /v1/swarm/{id}/workspace`` — save the report as a Workspace page.
 """
 
 from __future__ import annotations
@@ -19,7 +22,7 @@ import uuid
 from typing import Any, AsyncIterator, Dict, List, Optional
 
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response, StreamingResponse
 
 from openjarvis.swarm.engine import FINAL, MAX_SUBTASKS, Document, SwarmEngine
 
@@ -64,6 +67,7 @@ async def start(
     request: Request,
     task: str = Form(...),
     parallel: int = Form(8),
+    scout: Optional[bool] = Form(None),
     files: Optional[List[UploadFile]] = File(None),
 ) -> Dict[str, Any]:
     engine = get_engine(request)
@@ -86,7 +90,7 @@ async def start(
             await asyncio.to_thread(path.write_bytes, data)
             documents.append(Document(name=name, path=str(path)))
     try:
-        run = engine.start(task, parallel=parallel, documents=documents)
+        run = engine.start(task, parallel=parallel, documents=documents, scout=scout)
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
     return run.to_dict()
@@ -114,6 +118,56 @@ async def cancel(run_id: str, request: Request) -> Dict[str, Any]:
     engine = get_engine(request)
     _run_or_404(engine, run_id)
     return {"ok": engine.cancel(run_id)}
+
+
+def _filename(run: Any, ext: str) -> str:
+    base = re.sub(r"[^\w\- ]+", "", run.title or run.task or "agent-swarm").strip()
+    return f"{base[:60] or 'agent-swarm'}.{ext}"
+
+
+@router.get("/{run_id}/export")
+async def export(run_id: str, request: Request, format: str = "md") -> Response:
+    from urllib.parse import quote
+
+    from openjarvis.swarm.report import report_markdown, tables_csv
+
+    run = _run_or_404(get_engine(request), run_id)
+    if run.status not in FINAL or not run.report:
+        raise HTTPException(409, "El informe aún no está listo.")
+    data = run.to_dict()
+    if format == "md":
+        body, kind = report_markdown(data), "text/markdown; charset=utf-8"
+    elif format == "csv":
+        body = tables_csv(run.report)
+        if not body:
+            raise HTTPException(404, "El informe no tiene tablas.")
+        body, kind = (
+            "\ufeff" + body,
+            "text/csv; charset=utf-8",
+        )  # BOM: Excel reads the accents
+    elif format == "json":
+        body, kind = json.dumps(data, ensure_ascii=False, indent=1), "application/json"
+    else:
+        raise HTTPException(400, "Formato: md, csv o json.")
+    name = _filename(run, format)
+    return Response(
+        body,
+        media_type=kind,
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(name)}"},
+    )
+
+
+@router.post("/{run_id}/workspace")
+async def to_workspace(run_id: str, request: Request) -> Dict[str, Any]:
+    from openjarvis.swarm.report import workspace_page
+    from openjarvis.workspace.store import default_store
+
+    run = _run_or_404(get_engine(request), run_id)
+    if run.status not in FINAL or not run.report:
+        raise HTTPException(409, "El informe aún no está listo.")
+    store = getattr(request.app.state, "workspace_store", None) or default_store()
+    page = await asyncio.to_thread(store.put, workspace_page(run.to_dict()))
+    return {"page": page["id"], "title": page["title"]}
 
 
 @router.get("/{run_id}/events")

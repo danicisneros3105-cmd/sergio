@@ -37,7 +37,9 @@ from openjarvis.workspace.markdown import page_markdown
 log = logging.getLogger(__name__)
 
 PAGE_ID = re.compile(r"^p_[a-z0-9]{6,24}$")
-FILE_ID = re.compile(r"^f_[a-z0-9]{6,24}\.(png|jpe?g|webp|gif|webm|ogg|oga|mp3|m4a|wav|mp4)$")
+FILE_ID = re.compile(
+    r"^f_[a-z0-9]{6,24}\.(png|jpe?g|webp|gif|webm|ogg|oga|mp3|m4a|wav|mp4)$"
+)
 FILE_TYPES = {
     "png": "image/png",
     "jpg": "image/jpeg",
@@ -127,7 +129,11 @@ def validate_page(page: Any) -> Dict[str, Any]:
 class WorkspaceStore:
     """Pages and files under one folder; safe to share between threads."""
 
-    def __init__(self, root: Optional[Path] = None, on_change: Optional[Callable[[], None]] = None) -> None:
+    def __init__(
+        self,
+        root: Optional[Path] = None,
+        on_change: Optional[Callable[[], None]] = None,
+    ) -> None:
         self.root = Path(root) if root else workspace_home()
         self.pages_dir = self.root / "pages"
         self.files_dir = self.root / "files"
@@ -184,7 +190,9 @@ class WorkspaceStore:
         md = page_markdown(page, self.title_of)
         _atomic_write(self.pages_dir / f"{page['id']}.md", md.encode("utf-8"))
 
-    def put(self, page: Dict[str, Any], base_rev: Optional[int] = None) -> Dict[str, Any]:
+    def put(
+        self, page: Dict[str, Any], base_rev: Optional[int] = None
+    ) -> Dict[str, Any]:
         """Save a page. ``base_rev`` is the revision the client edited; when the
         stored page moved on, the stored one stays and the client's is kept as
         a conflict copy (raises :class:`Conflict`)."""
@@ -192,10 +200,16 @@ class WorkspaceStore:
         now = int(time.time() * 1000)
         with self._lock:
             current = self.get(page["id"])
-            if current is not None and base_rev is not None and int(current.get("rev") or 0) != int(base_rev):
+            if (
+                current is not None
+                and base_rev is not None
+                and int(current.get("rev") or 0) != int(base_rev)
+            ):
                 copy = dict(page)
                 copy["id"] = "p_" + secrets.token_hex(8)
-                copy["title"] = f"{page.get('title') or 'Sin título'} (copia en conflicto)"
+                copy["title"] = (
+                    f"{page.get('title') or 'Sin título'} (copia en conflicto)"
+                )
                 copy["rev"] = 1
                 copy["updatedAt"] = now
                 self._write(copy)
@@ -278,11 +292,17 @@ class WorkspaceStore:
             text = page_text(page)
             hay = plain(f"{page.get('title') or ''}\n{text}")
             if all(w in hay for w in words):
-                score = sum(hay.count(w) for w in words) + (5 if all(w in plain(page.get("title") or "") for w in words) else 0)
+                score = sum(hay.count(w) for w in words) + (
+                    5 if all(w in plain(page.get("title") or "") for w in words) else 0
+                )
                 at = hay.find(words[0])
                 start = max(0, at - 60)
-                snippet = (f"{page.get('title') or ''}\n{text}")[start:start + 200].replace("\n", " ")
-                hits.append({**_summary(page), "snippet": snippet.strip(), "score": score})
+                snippet = (f"{page.get('title') or ''}\n{text}")[
+                    start : start + 200
+                ].replace("\n", " ")
+                hits.append(
+                    {**_summary(page), "snippet": snippet.strip(), "score": score}
+                )
         hits.sort(key=lambda h: (-h["score"], -h["updatedAt"]))
         return hits[:limit]
 
@@ -292,9 +312,14 @@ class WorkspaceStore:
         buf = io.BytesIO()
         with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
             for page in self.all(include_archived=True):
-                z.writestr(f"pages/{page['id']}.json", json.dumps(page, ensure_ascii=False, indent=1))
-                z.writestr(f"markdown/{_slug(page.get('title') or page['id'])}-{page['id'][2:8]}.md",
-                           page_markdown(page, self.title_of))
+                z.writestr(
+                    f"pages/{page['id']}.json",
+                    json.dumps(page, ensure_ascii=False, indent=1),
+                )
+                z.writestr(
+                    f"markdown/{_slug(page.get('title') or page['id'])}-{page['id'][2:8]}.md",
+                    page_markdown(page, self.title_of),
+                )
             if self.files_dir.is_dir():
                 for path in self.files_dir.iterdir():
                     if FILE_ID.match(path.name):
@@ -326,7 +351,9 @@ def page_text(page: Dict[str, Any], limit: int = 20000) -> str:
         table = b.get("table") or {}
         for row in table.get("rows") or []:
             if isinstance(row, dict) and not row.get("archived"):
-                parts.append(" ".join(str(v) for v in (row.get("cells") or {}).values()))
+                parts.append(
+                    " ".join(str(v) for v in (row.get("cells") or {}).values())
+                )
         for node in b.get("mind") or []:
             if isinstance(node, dict):
                 parts.append(str(node.get("text") or ""))
