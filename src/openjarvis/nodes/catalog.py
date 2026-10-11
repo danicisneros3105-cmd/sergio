@@ -5,6 +5,8 @@ from __future__ import annotations
 import shutil
 from copy import deepcopy
 
+__all__ = ["presets", "preset_spec"]
+
 _PRESETS = {
     "browser-use": {
         "id": "browser-use",

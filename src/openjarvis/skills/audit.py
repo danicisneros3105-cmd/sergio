@@ -7,6 +7,8 @@ Heuristics are a pre-installation check, not a proof of safety or a sandbox.
 
 from __future__ import annotations
 
+__all__ = ["SkillAudit", "audit_text", "audit_resources", "read_skill_text"]
+
 import base64
 import binascii
 import hashlib

@@ -165,6 +165,8 @@ def test_install_scripts_enable_the_add_on_and_meshgen_thinks_with_gemini():
 
 def test_old_blender_is_told_instead_of_breaking(monkeypatch):
     monkeypatch.setattr(ba, "download", lambda url, folder=None: Path("x.zip"))
+    # This test checks version compatibility and activation, not GitHub availability.
+    monkeypatch.setattr(ba, "release_url", lambda name, gpu=False: "https://example.test/addon.zip")
     assert "necesita Blender 4.2" in ba.install("meshgen", "3.6.5", run=lambda s: "")
     assert "instalado y activado" in ba.install(
         "sculptmate", "4.2.0", run=lambda s: "SERGIO_ADDON_OK SculptMate"

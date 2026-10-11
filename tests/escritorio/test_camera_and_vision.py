@@ -81,7 +81,7 @@ def test_no_vision_model_gives_a_clear_reason(monkeypatch):
         raise AssertionError("expected RuntimeError")
 
 
-def test_neural_voice_used_first_with_local_fallback(monkeypatch):
+def test_neural_voice_used_first_and_local_fallback_requires_opt_in(monkeypatch):
     from sergio_escritorio import neural_voice
     from sergio_escritorio.voice import SergioClient
 
@@ -110,6 +110,7 @@ def test_neural_voice_used_first_with_local_fallback(monkeypatch):
     # By default the chosen voice is never swapped silently for another one.
     with pytest.raises(OSError):
         client.speak("buenas")
+    assert server == []  # a failed provider must not silently change identity
     client.allow_voice_fallback = True  # only when the user allows it
     assert client.speak("buenas") == b"RIFFlocal"
 

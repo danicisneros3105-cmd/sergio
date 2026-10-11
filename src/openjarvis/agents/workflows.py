@@ -6,6 +6,8 @@ framework, telemetry or provider SDK is imported by this module.
 
 from __future__ import annotations
 
+__all__ = ["run_workflow"]
+
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from typing import Callable
