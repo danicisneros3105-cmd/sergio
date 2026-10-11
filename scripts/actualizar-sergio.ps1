@@ -2,7 +2,7 @@
 param(
     [string]$Distribucion = "Ubuntu",
     [string]$Repositorio = "~/sergio",
-    [string]$Rama = "codex/professional-reliability-audit",
+    [string]$Rama = "main",
     [string]$Commit = ""
 )
 $ErrorActionPreference = "Stop"

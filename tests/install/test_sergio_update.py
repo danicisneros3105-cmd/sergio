@@ -24,7 +24,7 @@ def checkout(tmp_path):
             [git, *args], cwd=root, capture_output=True, text=True, check=True
         ).stdout.strip()
 
-    run("init", "-b", "codex/professional-reliability-audit")
+    run("init", "-b", "main")
     run("config", "user.name", "Update test")
     run("config", "user.email", "test@example.invalid")
     run("add", ".")
@@ -43,7 +43,7 @@ def checkout(tmp_path):
         "git": (
             "#!/usr/bin/env bash\n"
             'if [[ "$1" == "fetch" ]]; then\n'
-            '  exec "$REAL_GIT" fetch --no-tags "$TEST_REMOTE" codex/professional-reliability-audit\n'
+            '  exec "$REAL_GIT" fetch --no-tags "$TEST_REMOTE" main\n'
             'fi\nexec "$REAL_GIT" "$@"\n'
         ),
         "uv": '#!/usr/bin/env bash\nprintf "uv %s\\n" "$*" >> "$TEST_EVENTS"\nexit 0\n',

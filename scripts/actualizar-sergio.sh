@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Update an existing private checkout in WSL, preserving user data and extras.
 set -euo pipefail
-branch="${1:-codex/professional-reliability-audit}"
+branch="${1:-main}"
 requested="${2:-}"
 root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 cd -- "$root"
@@ -46,5 +46,7 @@ uv sync --locked --inexact --extra server
   npm run build
 )
 uv run --no-sync sergio escritorio instalar
+# The background service must run this checkout (older updates used other folders).
+uv run --no-sync sergio servicio instalar </dev/null || echo "Aviso: no pude reinstalar el servicio; ejecuta «sergio servicio instalar»." >&2
 echo "Sergio actualizado a $(git rev-parse --short HEAD)."
 echo "Si hubo un fallo, el respaldo conserva el código; revisa las dependencias antes de restaurarlo."
