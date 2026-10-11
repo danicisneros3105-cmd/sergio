@@ -11,7 +11,7 @@
 - Las respuestas tienen una instrucción de personalidad más breve, idioma explícito e historial. Los turnos completos de una llamada alimentan el chat posterior; una llamada nueva recibe el contexto reciente. Una respuesta vacía no contamina el historial. La temperatura del chat baja a 0,3. Si falla la verificación de un dato actual, se informa el fallo en lugar de sustituirlo por una respuesta sin fuentes.
 - Nodes tiene pestaña visible en Windows, lista real y creación de personajes. El botón de espacio completo abre `/nodes`, donde siguen disponibles objetivos, memoria e integraciones; el servidor conserva la restricción Dev de las API personalizadas.
 - Cowork muestra pasos, resultados y resumen, permite cancelar la tarea seleccionada y actualiza su estado cada dos segundos mientras está visible. La consulta periódica admite una sola petición pendiente.
-- Agent Swarm muestra tareas, progreso calculado, pasos, resultados y turnos de agente del ejecutor real. Cancelar actúa sobre el ID seleccionado. Los snapshots están limitados a 200 tareas y no exponen los objetos mutables de ejecución. Los resultados tienen fondo oscuro legible.
+- Agent Swarm muestra tareas, progreso calculado, pasos, resultados y turnos de agente del ejecutor real. Cancelar actúa sobre el ID seleccionado. Los snapshots están limitados a 200 resúmenes; solo se copia el detalle de la tarea seleccionada, hasta 80 pasos y 800 caracteres por resultado. El panel indica los pasos omitidos. No se exponen objetos mutables. Los resultados tienen fondo oscuro legible.
 
 ## Comparación con las referencias oficiales
 

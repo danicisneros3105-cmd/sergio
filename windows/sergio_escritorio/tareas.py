@@ -236,19 +236,29 @@ class Orchestrator:
                     "state": task.status,
                     "progress": task.progress(),
                     "detail": f"{len(task.steps)} pasos · {task.calls} turnos de agente",
-                    "steps": [
-                        {
-                            "text": step.text[:500],
-                            "status": step.status,
-                            "where": step.where,
-                            "result": step.result[:2000],
-                        }
-                        for step in list(task.steps)
-                    ],
-                    "result": task.result[:4000],
                 }
                 for task in self.tasks[-200:]
             ]
+
+    def task_details(self, task_id: int) -> dict[str, Any]:
+        """Copy detail for the selected task only, within a fixed UI budget."""
+        with self._task_lock:
+            task = next((task for task in self.tasks if task.id == task_id), None)
+            if task is None:
+                return {}
+            return {
+                "total_steps": len(task.steps),
+                "steps": [
+                    {
+                        "text": step.text[:500],
+                        "status": step.status,
+                        "where": step.where,
+                        "result": step.result[:800],
+                    }
+                    for step in list(task.steps[:80])
+                ],
+                "result": task.result[:4000],
+            }
 
     def cancel_task(self, task_id: int) -> bool:
         with self._task_lock:

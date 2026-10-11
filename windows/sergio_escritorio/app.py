@@ -4070,6 +4070,7 @@ def run(config: dict[str, Any]) -> None:
     )
     panel.actions.swarm_details = orchestrator.snapshot
     panel.actions.swarm_cancel = orchestrator.cancel_task
+    panel.actions.swarm_task = orchestrator.task_details
 
     def run_tasks(q: Any) -> str | None:
         if q.kind == "task_bg":

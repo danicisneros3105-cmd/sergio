@@ -176,6 +176,7 @@ class PanelActions:
     swarm: Callable[[], list[str]] = lambda: []
     swarm_details: Callable[[], list[dict]] = lambda: []
     swarm_cancel: Callable[[int], bool] = lambda _id: False
+    swarm_task: Callable[[int], dict] = lambda _id: {}
     # The notch itself: multitasking on/off and hiding it.
     multitasking: Callable[[], bool] = lambda: False
     set_multitasking: Callable[[bool], None] = lambda _on: None
@@ -1246,11 +1247,21 @@ class ControlCenter(QWidget):
             if item
             else {}
         )
+        if item and item.data(Qt.ItemDataRole.UserRole) is not None:
+            run = {
+                **run,
+                **self.actions.swarm_task(item.data(Qt.ItemDataRole.UserRole)),
+            }
         lines = [
             f"{step.get('status', '')} · {step.get('where', '')} · {step.get('text', '')}\n{step.get('result', '')}"
             for step in run.get("steps", [])
         ]
         lines.append(str(run.get("result", "")))
+        if run.get("total_steps", 0) > len(run.get("steps", [])):
+            lines.insert(
+                0,
+                f"Mostrando {len(run['steps'])} de {run['total_steps']} pasos en este panel.",
+            )
         self.swarm_output.setPlainText("\n\n".join(lines)[:16000])
 
     def _cancel_swarm(self) -> None:
