@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 # Update an existing private checkout in WSL, preserving user data and extras.
 set -euo pipefail
+# Desde PowerShell (bash -lc) el Node del instalador no está en PATH: añádalo.
+for d in "$HOME"/.local/share/sergio-toolchain/node-*/bin; do
+  if [[ -d "$d" ]]; then PATH="$d:$PATH"; fi
+done
+export PATH="$PATH:$HOME/.local/bin:$HOME/.cargo/bin"
 branch="${1:-main}"
 requested="${2:-}"
 root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"

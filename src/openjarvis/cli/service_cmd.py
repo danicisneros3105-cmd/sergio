@@ -263,6 +263,14 @@ def _service_path() -> str:
     for path in map(str, extra):
         if path not in parts:
             parts.append(path)
+    # The installer's own Node (newest first) wins over an older system one.
+    toolchain = sorted(
+        (home / ".local" / "share" / "sergio-toolchain").glob("node-*/bin"),
+        reverse=True,
+    )
+    parts = [str(p) for p in toolchain] + [
+        p for p in parts if p not in map(str, toolchain)
+    ]
     return os.pathsep.join(p for p in parts if p)
 
 
