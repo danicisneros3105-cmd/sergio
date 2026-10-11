@@ -50,9 +50,9 @@ function SidebarItem({
     >
       <div className="shrink-0">
         {state === 'connected' ? (
-          <CheckCircle2 size={16} style={{ color: 'var(--color-accent)' }} />
+          <CheckCircle2 size={16} style={{ color: 'var(--color-accent-text)' }} />
         ) : state === 'connecting' ? (
-          <Loader2 size={16} className="animate-spin" style={{ color: 'var(--color-accent)' }} />
+          <Loader2 size={16} className="animate-spin" style={{ color: 'var(--color-accent-text)' }} />
         ) : state === 'skipped' ? (
           <SkipForward size={16} style={{ color: 'var(--color-text-tertiary)' }} />
         ) : state === 'error' ? (
@@ -188,7 +188,7 @@ function OAuthPanel({
           : `Connect your ${displayName} account with one click.`}
       </p>
       {waiting ? (
-        <div className="flex items-center gap-2 text-sm" style={{ color: 'var(--color-accent)' }}>
+        <div className="flex items-center gap-2 text-sm" style={{ color: 'var(--color-accent-text)' }}>
           <Loader2 size={16} className="animate-spin" />
           Waiting for authorization...
         </div>
@@ -368,7 +368,7 @@ function StepByStepPanel({
               target="_blank"
               rel="noopener noreferrer"
               style={{
-                color: 'var(--color-accent)', fontSize: 12,
+                color: 'var(--color-accent-text)', fontSize: 12,
                 textDecoration: 'underline',
               }}
             >
@@ -577,7 +577,7 @@ export function SourceConnectFlow({
 
             {activeEntry.state === 'connected' ? (
               <div className="flex items-center gap-2 text-sm"
-                style={{ color: 'var(--color-accent)' }}>
+                style={{ color: 'var(--color-accent-text)' }}>
                 <CheckCircle2 size={18} />
                 Connected
               </div>
@@ -616,7 +616,7 @@ export function SourceConnectFlow({
           </>
         ) : (
           <div className="flex flex-col items-center justify-center flex-1 gap-3">
-            <CheckCircle2 size={32} style={{ color: 'var(--color-accent)' }} />
+            <CheckCircle2 size={32} style={{ color: 'var(--color-accent-text)' }} />
             <p className="text-base font-semibold" style={{ color: 'var(--color-text)' }}>
               All sources configured
             </p>

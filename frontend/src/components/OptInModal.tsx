@@ -118,7 +118,7 @@ export function OptInModal({ onClose }: OptInModalProps) {
                   className="flex items-center justify-center w-8 h-8 rounded-full shrink-0"
                   style={{ background: 'var(--color-bg-secondary)' }}
                 >
-                  <Icon size={14} style={{ color: 'var(--color-accent)' }} />
+                  <Icon size={14} style={{ color: 'var(--color-accent-text)' }} />
                 </div>
                 <span
                   className="text-sm"
@@ -137,7 +137,7 @@ export function OptInModal({ onClose }: OptInModalProps) {
                 className="inline-flex items-center gap-2 px-4 py-2 rounded-full mb-4"
                 style={{
                   background: 'var(--color-accent-subtle)',
-                  color: 'var(--color-accent)',
+                  color: 'var(--color-accent-text)',
                 }}
               >
                 <Trophy size={14} />

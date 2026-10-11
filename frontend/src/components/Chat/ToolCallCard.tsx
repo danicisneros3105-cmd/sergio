@@ -8,7 +8,7 @@ interface Props {
 }
 
 const statusConfig = {
-  running: { icon: Loader2, color: 'var(--color-accent)' },
+  running: { icon: Loader2, color: 'var(--color-accent-text)' },
   success: { icon: CheckCircle2, color: 'var(--color-success)' },
   error: { icon: XCircle, color: 'var(--color-error)' },
 };

@@ -290,7 +290,7 @@ function GenericConnectPanel({
             href={oauthSetup.setup_url}
             target="_blank"
             rel="noopener noreferrer"
-            style={{ color: 'var(--color-accent)', fontSize: 11, textDecoration: 'underline' }}
+            style={{ color: 'var(--color-accent-text)', fontSize: 11, textDecoration: 'underline' }}
           >
             Open developer dashboard &rarr;
           </a>
@@ -585,7 +585,7 @@ function GmailOAuthAdvanced({
               href="https://console.cloud.google.com/apis/credentials"
               target="_blank"
               rel="noopener noreferrer"
-              style={{ color: 'var(--color-accent)', textDecoration: 'underline' }}
+              style={{ color: 'var(--color-accent-text)', textDecoration: 'underline' }}
             >
               Google Cloud Credentials →
             </a>{' '}
@@ -1217,7 +1217,7 @@ function DataSourcesSection() {
                             href={step.url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            style={{ color: 'var(--color-accent)', fontSize: 11, textDecoration: 'underline' }}
+                            style={{ color: 'var(--color-accent-text)', fontSize: 11, textDecoration: 'underline' }}
                           >
                             {step.urlLabel || 'Open'} &rarr;
                           </a>
@@ -1473,7 +1473,7 @@ function SendBlueSection({
               href="https://sendblue.co"
               target="_blank"
               rel="noopener noreferrer"
-              style={{ color: 'var(--color-accent)', fontSize: 12, textDecoration: 'underline' }}
+              style={{ color: 'var(--color-accent-text)', fontSize: 12, textDecoration: 'underline' }}
             >
               1. Sign up at sendblue.co &rarr;
             </a>
@@ -1483,7 +1483,7 @@ function SendBlueSection({
               href="https://dashboard.sendblue.co/api-credentials"
               target="_blank"
               rel="noopener noreferrer"
-              style={{ color: 'var(--color-accent)', fontSize: 12, textDecoration: 'underline' }}
+              style={{ color: 'var(--color-accent-text)', fontSize: 12, textDecoration: 'underline' }}
             >
               2. Go to your API Credentials page &rarr;
             </a>
@@ -1527,8 +1527,8 @@ function SendBlueSection({
             borderRadius: 6,
             borderLeft: '3px solid var(--color-accent, var(--color-accent-purple))',
           }}>
-            <div><strong>1.</strong> Open a terminal and run: <code style={{ color: 'var(--color-accent)', background: 'var(--color-bg)', padding: '1px 4px', borderRadius: 3 }}>ngrok http 8000</code></div>
-            <div style={{ marginTop: 4 }}><strong>2.</strong> Copy the <code style={{ color: 'var(--color-accent)', background: 'var(--color-bg)', padding: '1px 4px', borderRadius: 3 }}>https://</code> forwarding URL (e.g. https://abc123.ngrok.io)</div>
+            <div><strong>1.</strong> Open a terminal and run: <code style={{ color: 'var(--color-accent-text)', background: 'var(--color-bg)', padding: '1px 4px', borderRadius: 3 }}>ngrok http 8000</code></div>
+            <div style={{ marginTop: 4 }}><strong>2.</strong> Copy the <code style={{ color: 'var(--color-accent-text)', background: 'var(--color-bg)', padding: '1px 4px', borderRadius: 3 }}>https://</code> forwarding URL (e.g. https://abc123.ngrok.io)</div>
             <div style={{ marginTop: 4 }}><strong>3.</strong> Paste it below and click "Register Webhook"</div>
           </div>
           <div style={{ display: 'flex', gap: 6 }}>
@@ -1566,7 +1566,7 @@ function SendBlueSection({
             </div>
           )}
           <div style={{ fontSize: 10, color: 'var(--color-text-tertiary)', marginTop: 8 }}>
-            Don't have ngrok? <a href="https://ngrok.com/download" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--color-accent)', textDecoration: 'underline' }}>Download it free</a>. You can also skip this step and register the webhook later.
+            Don't have ngrok? <a href="https://ngrok.com/download" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--color-accent-text)', textDecoration: 'underline' }}>Download it free</a>. You can also skip this step and register the webhook later.
           </div>
         </div>
       ),
@@ -2055,7 +2055,7 @@ function MemorySection() {
                     onClick={loadStats}
                     aria-label="Retry memory backend status"
                     className="text-xs underline cursor-pointer mt-1"
-                    style={{ color: 'var(--color-accent)' }}
+                    style={{ color: 'var(--color-accent-text)' }}
                   >
                     Retry
                   </button>
@@ -2386,7 +2386,7 @@ export function DataSourcesPage() {
             <MessagingSection agentId={firstAgent.id} />
           ) : creatingAgent ? (
             <div className="flex items-center gap-3 p-4 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-              <Loader2 size={16} className="animate-spin" style={{ color: 'var(--color-accent)' }} />
+              <Loader2 size={16} className="animate-spin" style={{ color: 'var(--color-accent-text)' }} />
               Setting up your assistant...
             </div>
           ) : null

@@ -49,7 +49,7 @@ function StatCard({
   return (
     <div className="hud-panel p-4">
       <div className="flex items-center gap-2 mb-2">
-        <Icon size={12} style={{ color: 'var(--color-accent)' }} />
+        <Icon size={12} style={{ color: 'var(--color-accent-text)' }} />
         <span className="hud-label">{label}</span>
       </div>
       <div className="hud-mono text-2xl font-semibold truncate" style={{ color: 'var(--color-text)' }}>
@@ -115,7 +115,7 @@ export function EnergyDashboard() {
     return (
       <div className="hud-panel p-6">
         <h3 className="hud-label flex items-center gap-2 mb-4">
-          <Zap size={12} style={{ color: 'var(--color-accent)' }} />
+          <Zap size={12} style={{ color: 'var(--color-accent-text)' }} />
           Energy Monitoring
         </h3>
         <div className="h-48 flex items-center justify-center text-sm" style={{ color: 'var(--color-text-tertiary)' }}>
@@ -128,7 +128,7 @@ export function EnergyDashboard() {
   return (
     <div className="hud-panel p-6">
       <h3 className="hud-label flex items-center gap-2 mb-4">
-        <Zap size={12} style={{ color: 'var(--color-accent)' }} />
+        <Zap size={12} style={{ color: 'var(--color-accent-text)' }} />
         Energy Monitoring
       </h3>
 

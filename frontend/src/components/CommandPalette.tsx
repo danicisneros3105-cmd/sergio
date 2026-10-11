@@ -390,7 +390,7 @@ export function CommandPalette() {
                         </div>
                       </div>
                       {isActive && (
-                        <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ background: 'var(--color-accent-subtle)', color: 'var(--color-accent)' }}>
+                        <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ background: 'var(--color-accent-subtle)', color: 'var(--color-accent-text)' }}>
                           Active
                         </span>
                       )}
@@ -547,7 +547,7 @@ export function CommandPalette() {
                                 </div>
                               </div>
                               {isActive && (
-                                <span className="text-[9px] px-1.5 py-0.5 rounded-full shrink-0" style={{ background: 'var(--color-accent-subtle)', color: 'var(--color-accent)' }}>
+                                <span className="text-[9px] px-1.5 py-0.5 rounded-full shrink-0" style={{ background: 'var(--color-accent-subtle)', color: 'var(--color-accent-text)' }}>
                                   Active
                                 </span>
                               )}

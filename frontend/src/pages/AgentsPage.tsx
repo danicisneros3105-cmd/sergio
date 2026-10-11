@@ -420,7 +420,7 @@ function ToolsPicker({
               color: 'var(--color-text-tertiary)',
             }}
           >
-            <span style={{ color: 'var(--color-accent)' }}>
+            <span style={{ color: 'var(--color-accent-text)' }}>
               {selected.length}
             </span>
             <span style={{ opacity: 0.5 }}> / {tollableTools.length}</span>
@@ -1132,7 +1132,6 @@ function OverflowMenu({
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  const navigate = useNavigate();
 
   useEffect(() => {
     function handler(e: MouseEvent) {
@@ -1160,17 +1159,6 @@ function OverflowMenu({
           className="absolute right-0 top-6 z-20 rounded-lg py-1 min-w-[120px]"
           style={{ background: 'var(--color-bg)', border: '1px solid var(--color-border)', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}
         >
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setOpen(false);
-              navigate(`/agents/${agentId}/editar`);
-            }}
-            className="w-full text-left px-3 py-1.5 text-xs cursor-pointer flex items-center gap-2"
-            style={{ color: 'var(--color-text)' }}
-          >
-            <Pencil size={12} /> Editar
-          </button>
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -1228,7 +1216,7 @@ function AgentCard({
       {/* Row 1: Name + status dot */}
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2 min-w-0">
-          <Bot size={16} style={{ color: 'var(--color-accent)', flexShrink: 0 }} />
+          <Bot size={16} style={{ color: 'var(--color-accent-text)', flexShrink: 0 }} />
           <span className="font-medium text-sm truncate" style={{ color: 'var(--color-text)' }}>
             {agent.name}
           </span>
@@ -1302,7 +1290,7 @@ function AgentCard({
         <button
           onClick={() => onRun(agent.id)}
           className="flex items-center gap-1 px-2 py-1 rounded text-xs cursor-pointer transition-colors"
-          style={{ background: 'var(--color-accent)' + '15', color: 'var(--color-accent)' }}
+          style={{ background: 'var(--color-accent)' + '15', color: 'var(--color-accent-text)' }}
           title="Run now"
         >
           <Zap size={11} /> Run Now
@@ -1374,7 +1362,7 @@ function AgentInstructionSection({ agent, onAgentUpdated }: { agent: ManagedAgen
           <button
             onClick={() => { setDraft(currentInstruction); setEditing(true); }}
             className="text-xs px-2 py-0.5 rounded cursor-pointer"
-            style={{ color: 'var(--color-accent)', border: '1px solid var(--color-accent)', opacity: 0.8 }}
+            style={{ color: 'var(--color-accent-text)', border: '1px solid var(--color-accent)', opacity: 0.8 }}
           >
             Edit
           </button>
@@ -1809,7 +1797,7 @@ function InteractTab({ agentId, agentStatus, onRunStateChange }: { agentId: stri
           className="flex items-center gap-2 text-sm font-medium"
           style={{ color: 'var(--color-text)' }}
         >
-          <Activity size={14} style={{ color: 'var(--color-accent)' }} />
+          <Activity size={14} style={{ color: 'var(--color-accent-text)' }} />
           Activity trace
         </div>
         <div
@@ -1888,7 +1876,7 @@ function InteractTab({ agentId, agentStatus, onRunStateChange }: { agentId: stri
               className="flex items-center gap-2 text-sm"
               style={{ color: 'var(--color-text-secondary)' }}
             >
-              <Loader2 size={13} className="animate-spin" style={{ color: 'var(--color-accent)' }} />
+              <Loader2 size={13} className="animate-spin" style={{ color: 'var(--color-accent-text)' }} />
               {activity || 'Agent is working…'}
             </div>
           </>
@@ -2144,7 +2132,7 @@ function ChannelsTab({ agentId }: { agentId: string }) {
                           target="_blank"
                           rel="noopener noreferrer"
                           style={{
-                            color: 'var(--color-accent)', fontSize: 11,
+                            color: 'var(--color-accent-text)', fontSize: 11,
                             textDecoration: 'underline',
                           }}
                         >
@@ -2251,7 +2239,7 @@ function ChannelsTab({ agentId }: { agentId: string }) {
                             target="_blank"
                             rel="noopener noreferrer"
                             style={{
-                              color: 'var(--color-accent)', fontSize: 11,
+                              color: 'var(--color-accent-text)', fontSize: 11,
                               textDecoration: 'underline',
                             }}
                           >
@@ -2453,8 +2441,8 @@ function SendBlueWebhookStep({
           borderRadius: 6,
           borderLeft: '3px solid var(--color-accent, var(--color-accent-purple))',
         }}>
-          <div><strong>1.</strong> Open a terminal and run: <code style={{ color: 'var(--color-accent)', background: 'var(--color-bg)', padding: '1px 4px', borderRadius: 3 }}>ngrok http 8000</code></div>
-          <div style={{ marginTop: 4 }}><strong>2.</strong> Copy the <code style={{ color: 'var(--color-accent)', background: 'var(--color-bg)', padding: '1px 4px', borderRadius: 3 }}>https://</code> forwarding URL</div>
+          <div><strong>1.</strong> Open a terminal and run: <code style={{ color: 'var(--color-accent-text)', background: 'var(--color-bg)', padding: '1px 4px', borderRadius: 3 }}>ngrok http 8000</code></div>
+          <div style={{ marginTop: 4 }}><strong>2.</strong> Copy the <code style={{ color: 'var(--color-accent-text)', background: 'var(--color-bg)', padding: '1px 4px', borderRadius: 3 }}>https://</code> forwarding URL</div>
           <div style={{ marginTop: 4 }}><strong>3.</strong> Paste it below and click "Register Webhook"</div>
         </div>
         <div style={{ display: 'flex', gap: 6 }}>
@@ -2496,7 +2484,7 @@ function SendBlueWebhookStep({
           </div>
         )}
         <div style={{ fontSize: 10, color: 'var(--color-text-tertiary)', marginTop: 8 }}>
-          Don't have ngrok? <a href="https://ngrok.com/download" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--color-accent)', textDecoration: 'underline' }}>Download it free</a>
+          Don't have ngrok? <a href="https://ngrok.com/download" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--color-accent-text)', textDecoration: 'underline' }}>Download it free</a>
         </div>
       </div>
     </div>
@@ -2767,7 +2755,7 @@ function SendBlueWizard({
           </div>
           <div style={{ fontSize: 11, color: 'var(--color-text-secondary)', marginBottom: 8 }}>
             Go to your{' '}
-            <a href="https://dashboard.sendblue.co/api-credentials" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--color-accent)', textDecoration: 'underline' }}>
+            <a href="https://dashboard.sendblue.co/api-credentials" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--color-accent-text)', textDecoration: 'underline' }}>
               SendBlue API Credentials page
             </a>{' '}
             and copy the API Key and API Secret.
@@ -3218,7 +3206,7 @@ function LearningTab({ agentId, learningEnabled }: { agentId: string; learningEn
               <div className="flex items-center justify-between mb-1">
                 <span
                   className="text-xs px-2 py-0.5 rounded"
-                  style={{ background: 'var(--color-accent)' + '20', color: 'var(--color-accent)' }}
+                  style={{ background: 'var(--color-accent)' + '20', color: 'var(--color-accent-text)' }}
                 >
                   {entry.event_type}
                 </span>
@@ -3601,7 +3589,7 @@ export function AgentsPage() {
         {/* Header */}
         <div className="flex items-start justify-between mb-6">
           <div className="flex items-center gap-3">
-            <Bot size={24} style={{ color: 'var(--color-accent)' }} />
+            <Bot size={24} style={{ color: 'var(--color-accent-text)' }} />
             <div>
               <h1 className="text-xl font-semibold" style={{ color: 'var(--color-text)' }}>
                 {selectedAgent.name}
@@ -3726,19 +3714,19 @@ export function AgentsPage() {
                   border: '1px solid var(--color-border)',
                 }}
               >
-                <Database size={16} style={{ color: 'var(--color-accent)', flexShrink: 0, marginTop: 2 }} />
+                <Database size={16} style={{ color: 'var(--color-accent-text)', flexShrink: 0, marginTop: 2 }} />
                 <div style={{ color: 'var(--color-text-secondary)' }}>
                   <strong>Tip:</strong> Connect your personal data in the{' '}
                   <button
                     onClick={() => setDetailTab('channels')}
                     className="cursor-pointer underline"
-                    style={{ color: 'var(--color-accent)', background: 'none', border: 'none', padding: 0, font: 'inherit' }}
+                    style={{ color: 'var(--color-accent-text)', background: 'none', border: 'none', padding: 0, font: 'inherit' }}
                   >Data Sources</button>{' '}
                   tab, then set up{' '}
                   <button
                     onClick={() => setDetailTab('messaging')}
                     className="cursor-pointer underline"
-                    style={{ color: 'var(--color-accent)', background: 'none', border: 'none', padding: 0, font: 'inherit' }}
+                    style={{ color: 'var(--color-accent-text)', background: 'none', border: 'none', padding: 0, font: 'inherit' }}
                   >Messaging Channels</button>{' '}
                   to talk to this agent from your phone.
                 </div>
@@ -3938,7 +3926,7 @@ export function AgentsPage() {
             Agents
           </h1>
           <button
-            onClick={() => agentManagerAvailable && navigate('/agents/nuevo')}
+            onClick={() => agentManagerAvailable && navigate('/nodes?nuevo=1')}
             disabled={agentManagerAvailable === false}
             className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             style={{
@@ -3946,7 +3934,7 @@ export function AgentsPage() {
               color: agentManagerAvailable === false ? 'var(--color-text-tertiary)' : 'var(--color-on-accent)',
             }}
           >
-            <Plus size={15} /> Crear agente
+            <Plus size={15} /> Nuevo Node
           </button>
         </div>
         <p className="text-sm mt-2 max-w-2xl" style={{ color: 'var(--color-text-secondary)' }}>
@@ -4003,7 +3991,7 @@ export function AgentsPage() {
           </p>
           <p className="text-sm mb-6">Create your first agent to get started with autonomous task management.</p>
           <button
-            onClick={() => agentManagerAvailable && navigate('/agents/nuevo')}
+            onClick={() => agentManagerAvailable && navigate('/nodes?nuevo=1')}
             disabled={agentManagerAvailable === false}
             className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
             style={{

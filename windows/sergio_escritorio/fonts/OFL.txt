@@ -1,5 +1,4 @@
-Source Sans 3 — © 2010-2023 Adobe (http://www.adobe.com/), with Reserved Font Name 'Source'.
-Files: SourceSans3-Light.ttf, SourceSans3-Regular.ttf, SourceSans3-SemiBold.ttf (unmodified, from Google Fonts).
+Copyright 2011 The Montserrat Project Authors (https://github.com/JulietaUla/Montserrat) Montserrat-Italic[wght].ttf: Copyright 2011 The Montserrat Project Authors (https://github.com/JulietaUla/Montserrat)
 
 This Font Software is licensed under the SIL Open Font License, Version 1.1.
 This license is copied below, and is also available with a FAQ at:

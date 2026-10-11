@@ -10,11 +10,11 @@ const PULSE_CONFIG: Record<Exclude<PulseState, 'hidden'>, { color: string; anima
     animation: 'none',
   },
   inferencing: {
-    color: 'var(--color-accent)',
+    color: 'var(--color-accent-text)',
     animation: 'pulse-glow 2s ease-in-out infinite',
   },
   'agent-active': {
-    color: 'var(--color-accent)',
+    color: 'var(--color-accent-text)',
     animation: 'pulse-travel 3s linear infinite',
   },
 };

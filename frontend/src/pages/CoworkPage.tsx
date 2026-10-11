@@ -91,7 +91,7 @@ function StepIcon({ status }: { status: string }) {
   const size = 15;
   switch (status) {
     case 'done':
-      return <CheckCircle2 size={size} style={{ color: 'var(--color-accent)' }} />;
+      return <CheckCircle2 size={size} style={{ color: 'var(--color-accent-text)' }} />;
     case 'failed':
       return <XCircle size={size} style={{ color: 'var(--color-error, #e5484d)' }} />;
     case 'blocked':
@@ -99,7 +99,7 @@ function StepIcon({ status }: { status: string }) {
     case 'skipped':
       return <MinusCircle size={size} style={{ color: 'var(--color-text-secondary)' }} />;
     case 'running':
-      return <Loader2 size={size} className="animate-spin" style={{ color: 'var(--color-accent)' }} />;
+      return <Loader2 size={size} className="animate-spin" style={{ color: 'var(--color-accent-text)' }} />;
     case 'waiting_approval':
       return <HelpCircle size={size} style={{ color: 'var(--color-warning)' }} />;
     default:

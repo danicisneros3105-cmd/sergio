@@ -1,7 +1,6 @@
 import { lazy, useEffect, useState, useCallback, useRef } from 'react';
 import { Routes, Route } from 'react-router';
 import { Layout } from './components/Layout';
-import { HomePage } from './pages/HomePage';
 import { ChatPage } from './pages/ChatPage';
 // Everything else loads on demand: the first screen opens in milliseconds.
 const DashboardPage = lazy(() => import('./pages/DashboardPage').then((m) => ({ default: m.DashboardPage })));
@@ -18,7 +17,9 @@ const ProfilePage = lazy(() => import('./pages/ProfilePage').then((m) => ({ defa
 const CoworkPage = lazy(() => import('./pages/CoworkPage').then((m) => ({ default: m.CoworkPage })));
 const WorkspacePage = lazy(() => import('./pages/WorkspacePage'));
 const CapturePage = lazy(() => import('./pages/CapturePage'));
-const AgentBuilderPage = lazy(() => import('./pages/AgentBuilderPage'));
+const HomePage = lazy(() => import('./pages/HomePage'));
+const NodesPage = lazy(() => import('./pages/NodesPage'));
+const SwarmPage = lazy(() => import('./pages/SwarmPage'));
 import { CommandPalette } from './components/CommandPalette';
 import { SetupScreen } from './components/SetupScreen';
 import { Toaster } from './components/ui/sonner';
@@ -181,7 +182,12 @@ export default function App() {
       <UpdateChecker />
       <Routes>
         <Route element={<Layout />}>
-          <Route index element={<HomePage />} />
+          <Route index element={<ChatPage />} />
+          <Route path="biblioteca" element={<HomePage />} />
+          <Route path="nodes" element={<NodesPage />} />
+          <Route path="nodes/:id" element={<NodesPage />} />
+          <Route path="swarm" element={<SwarmPage />} />
+          <Route path="swarm/:id" element={<SwarmPage />} />
           <Route path="chat" element={<ChatPage />} />
           <Route path="workspace" element={<WorkspacePage />} />
           <Route path="workspace/:id" element={<WorkspacePage />} />
@@ -191,8 +197,6 @@ export default function App() {
           <Route path="get-started" element={<GetStartedPage />} />
           <Route path="data-sources" element={<DataSourcesPage />} />
           <Route path="agents" element={<AgentsPage />} />
-          <Route path="agents/nuevo" element={<AgentBuilderPage />} />
-          <Route path="agents/:id/editar" element={<AgentBuilderPage />} />
           <Route path="logs" element={<LogsPage />} />
           <Route path="clacky" element={<ExtensionPage name="clacky" />} />
           <Route path="faces" element={<FacesPage />} />

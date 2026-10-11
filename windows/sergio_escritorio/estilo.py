@@ -1,10 +1,13 @@
-"""The desktop's one look: Bang & Olufsen graphite and aluminium, one typeface.
+"""The desktop's one look: black, white and one light blue, one typeface.
 
-Bang & Olufsen's own logo uses a custom typeface (reported as a Frutiger
-derivative made for the brand), which is not available to license. The
-closest legal match is Adobe's Source Sans 3, a humanist sans under the SIL
-Open Font License, bundled in ``fonts/`` with its licence. Titles use it the
-way the B&O wordmark does: light weight, capitals, wide spacing.
+Bang & Olufsen's logo is drawn in a custom typeface that is not for sale;
+B&O staff have said their brand typeface today is Gotham, which is
+commercial. The closest legal match is Montserrat (SIL Open Font License,
+bundled in ``fonts/`` with its licence): the same geometric capitals. Titles
+use it the way the B&O wordmark does: light weight, capitals, wide spacing.
+
+Colours: black and white only, with a light blue for what you can press
+(buttons, the selected tab, focus). Like ChatGPT and Kimi: flat, calm.
 
 Measurements follow a 4 px grid: every margin, gap and radius here is a
 multiple of 4 (hairlines are 1 px), so things line up across windows.
@@ -16,21 +19,23 @@ import logging
 from pathlib import Path
 
 FONT_DIR = Path(__file__).with_name("fonts")
-FAMILY = "Source Sans 3"
+FAMILY = "Montserrat"
 FALLBACK = ["Segoe UI Variable Text", "Segoe UI", "SF Pro Text", "Helvetica Neue", "Arial"]
 
-# Colours: graphite glass, aluminium hairlines, warm paper white.
-INK = "#0b0b0b"
-GLASS = "#121211"
-CARD = "#171716"
-CARD_HOT = "#1d1d1b"
-LINE = "#2a2926"
-LINE_HOT = "#4a4843"
-ALUMINIUM = "#cfcac0"
-ALUMINIUM_HOT = "#e2ddd3"
-TEXT = "#efece6"
-SECONDARY = "#8f8b84"
-BRONZE = "#c9a876"
+# Colours: black, white (and white at lower strength), one light blue.
+INK = "#000000"
+GLASS = "#0a0a0a"
+CARD = "#141414"
+CARD_HOT = "#1c1c1c"
+LINE = "#262626"
+LINE_HOT = "#3d3d3d"
+BLUE = "#9fd3ff"  # the one accent: buttons, selection, focus
+BLUE_HOT = "#bfe2ff"
+ALUMINIUM = BLUE  # older names, same accent
+ALUMINIUM_HOT = BLUE_HOT
+TEXT = "#ffffff"
+SECONDARY = "#8a8a8a"
+BRONZE = BLUE
 
 # The 4 px grid.
 UNIT = 4

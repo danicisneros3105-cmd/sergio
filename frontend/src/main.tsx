@@ -6,7 +6,7 @@ import App from './App';
 import { initApiBase } from './lib/api';
 import { initAnalytics } from './lib/analytics';
 import { consumePairFragment } from './lib/pairing';
-import '@fontsource-variable/source-sans-3';
+import '@fontsource-variable/montserrat';
 import './index.css';
 
 function applyTheme() {

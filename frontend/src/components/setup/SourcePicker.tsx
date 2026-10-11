@@ -74,7 +74,7 @@ function CategorySection({
                 <CheckCircle2
                   size={16}
                   className="absolute top-3 right-3"
-                  style={{ color: 'var(--color-accent)' }}
+                  style={{ color: 'var(--color-accent-text)' }}
                 />
               )}
               <div

@@ -36,12 +36,12 @@ function ProgressRow({
         <div className="flex items-center gap-1.5 shrink-0">
           {!status || status.state === 'idle' ? (
             isDone ? (
-              <CheckCircle2 size={14} style={{ color: 'var(--color-accent)' }} />
+              <CheckCircle2 size={14} style={{ color: 'var(--color-accent-text)' }} />
             ) : (
               <Loader2 size={14} className="animate-spin" style={{ color: 'var(--color-text-tertiary)' }} />
             )
           ) : status.state === 'syncing' ? (
-            <Loader2 size={14} className="animate-spin" style={{ color: 'var(--color-accent)' }} />
+            <Loader2 size={14} className="animate-spin" style={{ color: 'var(--color-accent-text)' }} />
           ) : status.state === 'paused' ? (
             <Loader2 size={14} style={{ color: 'var(--color-text-tertiary)' }} />
           ) : (

@@ -63,9 +63,9 @@ function StepRow({
       </div>
       <div className="shrink-0">
         {done ? (
-          <CheckCircle2 size={18} style={{ color: 'var(--color-accent)' }} />
+          <CheckCircle2 size={18} style={{ color: 'var(--color-accent-text)' }} />
         ) : active ? (
-          <Loader2 size={18} className="animate-spin" style={{ color: 'var(--color-accent)' }} />
+          <Loader2 size={18} className="animate-spin" style={{ color: 'var(--color-accent-text)' }} />
         ) : (
           <div
             className="w-4 h-4 rounded-full"
@@ -169,7 +169,7 @@ export function SetupScreen({ onReady }: { onReady: () => void }) {
         <div className="text-center mb-10">
           <div
             className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
-            style={{ background: 'var(--color-accent-subtle)', color: 'var(--color-accent)' }}
+            style={{ background: 'var(--color-accent-subtle)', color: 'var(--color-accent-text)' }}
           >
             <Cpu size={32} />
           </div>

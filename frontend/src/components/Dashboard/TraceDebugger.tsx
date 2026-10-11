@@ -145,7 +145,7 @@ export function TraceDebugger() {
     return (
       <div className="hud-panel p-6">
         <h3 className="hud-label flex items-center gap-2 mb-4">
-          <GitBranch size={12} style={{ color: 'var(--color-accent)' }} />
+          <GitBranch size={12} style={{ color: 'var(--color-accent-text)' }} />
           Trace Debugger
         </h3>
         <div className="h-48 flex items-center justify-center text-sm" style={{ color: 'var(--color-text-tertiary)' }}>
@@ -158,7 +158,7 @@ export function TraceDebugger() {
   return (
     <div className="hud-panel p-6">
       <h3 className="hud-label flex items-center gap-2 mb-4">
-        <GitBranch size={12} style={{ color: 'var(--color-accent)' }} />
+        <GitBranch size={12} style={{ color: 'var(--color-accent-text)' }} />
         Trace Debugger
       </h3>
 

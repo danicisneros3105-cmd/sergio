@@ -153,7 +153,7 @@ export function SystemPanel() {
             className="flex items-center gap-2 rounded-lg px-3 py-2 mb-2"
             style={{ background: 'var(--color-accent-subtle)', border: '1px solid var(--color-accent)' }}
           >
-            <HardDrive size={14} style={{ color: 'var(--color-accent)' }} />
+            <HardDrive size={14} style={{ color: 'var(--color-accent-text)' }} />
             <div className="flex-1 min-w-0">
               <div className="text-xs font-medium truncate" style={{ color: 'var(--color-text)' }}>Local</div>
             </div>
@@ -229,7 +229,7 @@ function MiniStat({
       style={{ background: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)' }}
     >
       <div className="flex items-center gap-1 mb-0.5">
-        <Icon size={10} style={{ color: 'var(--color-accent)' }} />
+        <Icon size={10} style={{ color: 'var(--color-accent-text)' }} />
         <span className="text-[10px]" style={{ color: 'var(--color-text-tertiary)' }}>
           {label}
         </span>

@@ -86,7 +86,7 @@ export function ExtensionPage({ name }: { name: ExtensionName }) {
             target="_blank"
             rel="noreferrer"
             className="flex items-center gap-1 text-xs"
-            style={{ color: 'var(--color-accent)' }}
+            style={{ color: 'var(--color-accent-text)' }}
           >
             <ExternalLink size={14} /> Open in new tab
           </a>

@@ -64,8 +64,8 @@ export function describeStep(event: ThinkEvent): string {
 function StepIcon({ stage, last, running }: { stage: ThinkEvent['stage']; last: boolean; running: boolean }) {
   if (stage === 'error') return <TriangleAlert size={15} style={{ color: 'var(--color-error, #e5484d)' }} />;
   if (stage === 'retry') return <RotateCcw size={15} style={{ color: 'var(--color-warning)' }} />;
-  if (stage === 'constitution') return <ShieldCheck size={15} style={{ color: 'var(--color-accent)' }} />;
-  if (last && running) return <Loader2 size={15} className="animate-spin" style={{ color: 'var(--color-accent)' }} />;
+  if (stage === 'constitution') return <ShieldCheck size={15} style={{ color: 'var(--color-accent-text)' }} />;
+  if (last && running) return <Loader2 size={15} className="animate-spin" style={{ color: 'var(--color-accent-text)' }} />;
   return <CheckCircle2 size={15} style={{ color: 'var(--color-text-secondary)' }} />;
 }
 

@@ -1,81 +1,137 @@
 import { useLocation, useNavigate } from 'react-router';
 import {
-  Library,
+  SquarePen,
+  Search,
+  PanelLeft,
   MessageSquare,
   NotebookPen,
   Briefcase,
-  Network,
   HeartPulse,
   UserRound,
-  Search,
   Settings,
 } from 'lucide-react';
 import { useAppStore } from '../../lib/store';
 
-// The bottom toolbar of the e-paper home: a hairline bar, then thin icons.
-// Only icons: hovering one lifts it and shows its name above it.
-// Inicio is the library; then the sections, the workspace, search and
-// Configuración. The notch on the desktop has the same six sections.
+// Nodes: a few dots, like the persistent agents they are.
+function NodesIcon({ size = 20, strokeWidth = 1.5 }: { size?: number; strokeWidth?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} aria-hidden="true">
+      <circle cx="8" cy="9" r="4.2" />
+      <circle cx="16.5" cy="15.5" r="3.2" />
+      <circle cx="17.5" cy="6.5" r="1.6" />
+    </svg>
+  );
+}
+
+// Agent Swarm: many small agents at once.
+function SwarmIcon({ size = 20, strokeWidth = 1.5 }: { size?: number; strokeWidth?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} aria-hidden="true">
+      <circle cx="12" cy="5" r="2" />
+      <circle cx="5" cy="12" r="2" />
+      <circle cx="19" cy="12" r="2" />
+      <circle cx="8" cy="19" r="2" />
+      <circle cx="16" cy="19" r="2" />
+      <path d="M12 7v3.2M10.4 11.2 6.8 12M13.6 11.2l3.6.8M11 13.4l-2.2 3.8M13 13.4l2.2 3.8" />
+      <circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+// Every part of Sergio, as icons only. Their names appear on hover.
 export const TOOLBAR_ITEMS = [
-  { path: '/', icon: Library, label: 'Inicio' },
   { path: '/chat', icon: MessageSquare, label: 'Chat' },
+  { path: '/nodes', icon: NodesIcon, label: 'Nodes' },
+  { path: '/swarm', icon: SwarmIcon, label: 'Agent Swarm' },
   { path: '/workspace', icon: NotebookPen, label: 'Workspace' },
   { path: '/cowork', icon: Briefcase, label: 'Cowork' },
-  { path: '/agents', icon: Network, label: 'Agent Swarm' },
   { path: '/salud', icon: HeartPulse, label: 'Salud' },
   { path: '/perfil', icon: UserRound, label: 'Perfil' },
 ] as const;
 
 export function isActive(path: string, pathname: string): boolean {
-  return path === '/' ? pathname === '/' : pathname === path || pathname.startsWith(`${path}/`);
+  if (path === '/chat') return pathname === '/' || pathname === '/chat' || pathname.startsWith('/chat/');
+  return pathname === path || pathname.startsWith(`${path}/`);
 }
 
-export function Toolbar() {
+function RailButton({
+  label,
+  hint,
+  active,
+  onClick,
+  children,
+  pressed,
+}: {
+  label: string;
+  hint?: string;
+  active?: boolean;
+  pressed?: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      className="rail-item"
+      aria-label={label}
+      aria-current={active ? 'page' : undefined}
+      aria-pressed={pressed}
+      onClick={onClick}
+    >
+      {children}
+      <span className="rail-tip" aria-hidden="true">
+        {label}
+        {hint && <kbd>{hint}</kbd>}
+      </span>
+    </button>
+  );
+}
+
+// The rail on the left (ChatGPT/Kimi): the mark, new chat, search and the
+// history on top; the sections in the middle; settings at the foot. On a
+// phone it becomes a bar of icons at the bottom.
+export function Toolbar({ historyOpen, onToggleHistory }: { historyOpen: boolean; onToggleHistory: () => void }) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const setCommandPaletteOpen = useAppStore((s) => s.setCommandPaletteOpen);
-  const stroke = 1.25;
+  const createConversation = useAppStore((s) => s.createConversation);
+  const selectedModel = useAppStore((s) => s.selectedModel);
+  const mac = typeof navigator !== 'undefined' && navigator.platform.includes('Mac');
 
   return (
-    <footer className="paper-toolbar">
-      <nav aria-label="Secciones">
-        {TOOLBAR_ITEMS.map((item) => {
-          const active = isActive(item.path, pathname);
-          return (
-            <button
-              key={item.path}
-              type="button"
-              className="paper-tool"
-              aria-label={item.label}
-              aria-current={active ? 'page' : undefined}
-              onClick={() => navigate(item.path)}
-            >
-              <item.icon size={20} strokeWidth={stroke} />
-              <span className="paper-tip" aria-hidden="true">{item.label}</span>
-            </button>
-          );
-        })}
-        <span aria-hidden="true" style={{ width: 1, height: 18, background: 'var(--color-border)', margin: '0 4px' }} />
-        <button
-          type="button"
-          className="paper-tool"
-          aria-label="Buscar (Ctrl+K)"
-          onClick={() => setCommandPaletteOpen(true)}
-        >
-          <Search size={20} strokeWidth={stroke} />
-          <span className="paper-tip" aria-hidden="true">Buscar · Ctrl K</span>
+    <nav className="rail" aria-label="Secciones">
+      <div className="rail-group rail-top">
+        <button type="button" className="rail-mark" aria-label="Sergio, inicio" onClick={() => navigate('/')}>
+          S
         </button>
-        <button
-          type="button"
-          className="paper-tool"
-          aria-label="Configuración"
-          aria-current={isActive('/settings', pathname) ? 'page' : undefined}
-          onClick={() => navigate('/settings')}
+        <RailButton
+          label="Nuevo chat"
+          onClick={() => {
+            createConversation(selectedModel);
+            navigate('/chat');
+          }}
         >
-          <Settings size={20} strokeWidth={stroke} />
-          <span className="paper-tip" aria-hidden="true">Ajustes</span>
-        </button>
-      </nav>
-    </footer>
+          <SquarePen size={19} strokeWidth={1.5} />
+        </RailButton>
+        <RailButton label="Buscar" hint={mac ? '⌘K' : 'Ctrl K'} onClick={() => setCommandPaletteOpen(true)}>
+          <Search size={19} strokeWidth={1.5} />
+        </RailButton>
+        <RailButton label={historyOpen ? 'Cerrar historial' : 'Historial'} pressed={historyOpen} onClick={onToggleHistory}>
+          <PanelLeft size={19} strokeWidth={1.5} />
+        </RailButton>
+      </div>
+      <div className="rail-group rail-sections">
+        {TOOLBAR_ITEMS.map((item) => (
+          <RailButton key={item.path} label={item.label} active={isActive(item.path, pathname)} onClick={() => navigate(item.path)}>
+            <item.icon size={20} strokeWidth={1.5} />
+          </RailButton>
+        ))}
+      </div>
+      <div className="rail-group rail-foot">
+        <RailButton label="Ajustes" active={isActive('/settings', pathname)} onClick={() => navigate('/settings')}>
+          <Settings size={19} strokeWidth={1.5} />
+        </RailButton>
+      </div>
+    </nav>
   );
 }

@@ -161,7 +161,7 @@ function Section({
       >
         <div
           className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
-          style={{ background: 'var(--color-accent-subtle)', color: 'var(--color-accent)' }}
+          style={{ background: 'var(--color-accent-subtle)', color: 'var(--color-accent-text)' }}
         >
           <Icon size={16} />
         </div>
@@ -194,7 +194,7 @@ function HostedView() {
     <div className="text-center mb-14">
       <div
         className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-5"
-        style={{ background: 'var(--color-accent-subtle)', color: 'var(--color-accent)' }}
+        style={{ background: 'var(--color-accent-subtle)', color: 'var(--color-accent-text)' }}
       >
         <Sparkles size={32} />
       </div>
@@ -211,7 +211,7 @@ function HostedView() {
 
       {healthy === true && (
         <div className="flex flex-col items-center gap-4">
-          <div className="flex items-center gap-2 text-sm" style={{ color: 'var(--color-accent)' }}>
+          <div className="flex items-center gap-2 text-sm" style={{ color: 'var(--color-accent-text)' }}>
             <CheckCircle2 size={16} />
             <span>Server is running</span>
           </div>
@@ -258,7 +258,7 @@ function DesktopView() {
       <div className="text-center mb-14">
         <div
           className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-5"
-          style={{ background: 'var(--color-accent-subtle)', color: 'var(--color-accent)' }}
+          style={{ background: 'var(--color-accent-subtle)', color: 'var(--color-accent-text)' }}
         >
           <Sparkles size={32} />
         </div>
@@ -284,7 +284,7 @@ function DesktopView() {
         className="rounded-xl p-6 mb-8 text-center"
         style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}
       >
-        <div className="flex items-center justify-center gap-2 mb-2" style={{ color: 'var(--color-accent)' }}>
+        <div className="flex items-center justify-center gap-2 mb-2" style={{ color: 'var(--color-accent-text)' }}>
           <CheckCircle2 size={18} />
           <span className="text-sm font-medium">All systems running</span>
         </div>
@@ -331,7 +331,7 @@ function SelfHostedView() {
       <div className="text-center mb-14">
         <div
           className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-5"
-          style={{ background: 'var(--color-accent-subtle)', color: 'var(--color-accent)' }}
+          style={{ background: 'var(--color-accent-subtle)', color: 'var(--color-accent-text)' }}
         >
           <Sparkles size={32} />
         </div>

@@ -39,7 +39,7 @@ export function CostComparison() {
         className="flex items-center gap-3 p-3 rounded-lg mb-3"
         style={{ background: 'var(--color-accent-subtle)', border: '1px solid var(--color-accent)' }}
       >
-        <HardDrive size={18} style={{ color: 'var(--color-accent)' }} />
+        <HardDrive size={18} style={{ color: 'var(--color-accent-text)' }} />
         <div className="flex-1">
           <div className="text-sm font-medium" style={{ color: 'var(--color-text)' }}>
             Local (your hardware)

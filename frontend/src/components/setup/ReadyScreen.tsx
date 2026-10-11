@@ -64,7 +64,7 @@ function StarterCard({
       }}
     >
       <div className="flex items-center gap-3">
-        <MessageSquare size={16} style={{ color: 'var(--color-accent)', flexShrink: 0 }} />
+        <MessageSquare size={16} style={{ color: 'var(--color-accent-text)', flexShrink: 0 }} />
         <span className="text-sm" style={{ color: 'var(--color-text)' }}>
           {query}
         </span>
@@ -100,7 +100,7 @@ export function ReadyScreen({
       {/* Icon */}
       <div
         className="w-20 h-20 rounded-2xl flex items-center justify-center"
-        style={{ background: 'var(--color-accent-subtle)', color: 'var(--color-accent)' }}
+        style={{ background: 'var(--color-accent-subtle)', color: 'var(--color-accent-text)' }}
       >
         <Sparkles size={36} />
       </div>

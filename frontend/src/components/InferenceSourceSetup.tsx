@@ -58,7 +58,7 @@ function SetupFrame({ children }: { children: React.ReactNode }) {
         <div className="text-center mb-8">
           <div
             className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
-            style={{ background: 'var(--color-accent-subtle)', color: 'var(--color-accent)' }}
+            style={{ background: 'var(--color-accent-subtle)', color: 'var(--color-accent-text)' }}
           >
             <Cpu size={32} />
           </div>
@@ -94,7 +94,7 @@ export function InferenceSourceChooser({
           className="flex items-start gap-4 p-4 rounded-xl text-left transition-all cursor-pointer"
           style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}
         >
-          <Cpu size={22} className="shrink-0 mt-0.5" style={{ color: 'var(--color-accent)' }} />
+          <Cpu size={22} className="shrink-0 mt-0.5" style={{ color: 'var(--color-accent-text)' }} />
           <span>
             <span className="block text-sm font-semibold" style={{ color: 'var(--color-text)' }}>
               Local Ollama
@@ -110,7 +110,7 @@ export function InferenceSourceChooser({
           className="flex items-start gap-4 p-4 rounded-xl text-left transition-all cursor-pointer"
           style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}
         >
-          <Server size={22} className="shrink-0 mt-0.5" style={{ color: 'var(--color-accent)' }} />
+          <Server size={22} className="shrink-0 mt-0.5" style={{ color: 'var(--color-accent-text)' }} />
           <span>
             <span className="block text-sm font-semibold" style={{ color: 'var(--color-text)' }}>
               OpenAI-compatible server
@@ -179,7 +179,7 @@ export function OllamaConsent({
     <SetupFrame>
       <BackButton onClick={onBack} disabled={busy} />
       <div className="flex items-start gap-3 mb-5">
-        <Download size={22} className="shrink-0 mt-0.5" style={{ color: 'var(--color-accent)' }} />
+        <Download size={22} className="shrink-0 mt-0.5" style={{ color: 'var(--color-accent-text)' }} />
         <div>
           <h2 className="text-base font-semibold mb-1" style={{ color: 'var(--color-text)' }}>
             Allow local model setup?
@@ -193,7 +193,7 @@ export function OllamaConsent({
         className="flex items-start gap-2.5 px-3.5 py-3 rounded-lg text-xs mb-5"
         style={{ background: 'var(--color-accent-subtle)', color: 'var(--color-text-secondary)' }}
       >
-        <ShieldCheck size={16} className="shrink-0" style={{ color: 'var(--color-accent)' }} />
+        <ShieldCheck size={16} className="shrink-0" style={{ color: 'var(--color-accent-text)' }} />
         Going back leaves Ollama stopped and does not save this choice.
       </div>
       {error && <SetupError message={error} />}

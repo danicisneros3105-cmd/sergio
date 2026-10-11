@@ -8,21 +8,18 @@ import { shouldAutoplayFinishedReply, useTtsStore } from '../../lib/tts';
 import { stripThinkTags } from '../../lib/message-text';
 import {
   Brain,
+  ChevronDown,
+  CircleDot,
   PanelRightOpen,
   PanelRightClose,
   Database,
+  Network,
+  NotebookPen,
   Phone,
   MonitorSmartphone,
-  CloudSun,
-  MessageCircle,
-  History,
-  Plus,
   Search,
-  X,
 } from 'lucide-react';
 import { listConnectors } from '../../lib/connectors-api';
-import { PaperHead } from '../Paper/PaperPage';
-import { ConversationList } from '../Sidebar/ConversationList';
 
 function getGreeting(): string {
   const hour = new Date().getHours();
@@ -31,12 +28,14 @@ function getGreeting(): string {
   return 'Buenas noches';
 }
 
-// Each suggestion fills the composer with an editable request.
-const SUGGESTIONS = [
-  { icon: Phone, label: 'Reservar por teléfono', text: 'Llama al restaurante y reserva una mesa para dos a las 8 de la noche. El número es ' },
-  { icon: MonitorSmartphone, label: 'Usar mi pantalla', text: 'Abre Spotify y pon música tranquila' },
-  { icon: CloudSun, label: 'El clima en Quito', text: '¿Cómo está el clima ahora en Quito y a qué hora anochece?' },
-  { icon: MessageCircle, label: 'Enviar un WhatsApp', text: 'Mándale un WhatsApp a  diciendo que llego en 10 minutos' },
+// The mode bar under the composer (as in Kimi): Nodes and the swarm open
+// their own pages; the rest fill the composer with an editable start.
+const MODES: Array<{ icon: typeof Phone; label: string; to?: string; text?: string }> = [
+  { icon: CircleDot, label: 'Nodes', to: '/nodes' },
+  { icon: Network, label: 'Agent Swarm', to: '/swarm' },
+  { icon: NotebookPen, label: 'Workspace', to: '/workspace' },
+  { icon: MonitorSmartphone, label: 'Usar mi pantalla', text: 'En mi pantalla, ' },
+  { icon: Phone, label: 'Llamar', text: 'Llama a  y ' },
 ];
 
 function prefill(text: string) {
@@ -53,10 +52,7 @@ export function ChatArea() {
   const toggleReasoningPanel = useAppStore((s) => s.toggleReasoningPanel);
   const navigate = useNavigate();
   const conversations = useAppStore((s) => s.conversations);
-  const createConversation = useAppStore((s) => s.createConversation);
   const selectedModel = useAppStore((s) => s.selectedModel);
-  const [historyOpen, setHistoryOpen] = useState(false);
-  const [historyQuery, setHistoryQuery] = useState('');
   const title = conversations.find((c) => c.id === activeId)?.title || 'Chat';
   const listRef = useRef<HTMLDivElement>(null);
   const shouldAutoScroll = useRef(true);
@@ -165,100 +161,55 @@ export function ChatArea() {
   const isEmpty = messages.length === 0 && !isCurrentChatStreaming;
 
   const PanelIcon = systemPanelOpen ? PanelRightClose : PanelRightOpen;
+  const setCommandPaletteOpen = useAppStore((s) => s.setCommandPaletteOpen);
+  const modelLabel = selectedModel ? selectedModel.split('/').pop() : 'Elegir modelo';
 
   return (
     <div className="flex flex-col h-full">
-      <div className="px-4 pt-6 shrink-0">
-        <div className="mx-auto" style={{ maxWidth: 1040 }}>
-          <PaperHead
-            title={messages.length ? title.slice(0, 48) : 'Chat'}
-            left={
-              <>
-                <button
-                  type="button"
-                  className="mac-icon-btn"
-                  onClick={() => setHistoryOpen(!historyOpen)}
-                  aria-label="Conversaciones"
-                  aria-pressed={historyOpen}
-                  title="Conversaciones"
-                >
-                  <History size={17} strokeWidth={1.4} />
-                </button>
-                <button
-                  type="button"
-                  className="mac-icon-btn"
-                  onClick={() => {
-                    if (messages.length) createConversation(selectedModel);
-                  }}
-                  aria-label="Nueva conversación"
-                  title="Nueva conversación"
-                >
-                  <Plus size={17} strokeWidth={1.4} />
-                </button>
-              </>
-            }
-            right={
-              <>
-                <button
-                  onClick={toggleReasoningPanel}
-                  className="mac-icon-btn"
-                  title={`${reasoningPanelOpen ? 'Ocultar' : 'Mostrar'} el razonamiento paso a paso`}
-                  aria-label="Razonamiento"
-                  aria-pressed={reasoningPanelOpen}
-                >
-                  <Brain size={17} strokeWidth={1.4} />
-                </button>
-                <button
-                  onClick={toggleSystemPanel}
-                  className="mac-icon-btn hidden lg:inline-grid"
-                  title={`${systemPanelOpen ? 'Ocultar' : 'Mostrar'} el panel del sistema (${navigator.platform.includes('Mac') ? '⌘' : 'Ctrl'}+I)`}
-                  aria-label="Panel del sistema"
-                >
-                  <PanelIcon size={17} strokeWidth={1.4} />
-                </button>
-              </>
-            }
-          />
+      <header className="chat-top">
+        <button
+          type="button"
+          className="chat-model"
+          onClick={() => setCommandPaletteOpen(true)}
+          title="Cambiar de modelo (Ctrl+K)"
+        >
+          <span className="wordmark">Sergio</span>
+          <span className="chat-model-name">{modelLabel}</span>
+          <ChevronDown size={14} strokeWidth={1.75} />
+        </button>
+        <span className="chat-top-title" title={title}>
+          {messages.length ? title : ''}
+        </span>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={toggleReasoningPanel}
+            className="mac-icon-btn"
+            title={`${reasoningPanelOpen ? 'Ocultar' : 'Mostrar'} el razonamiento paso a paso`}
+            aria-label="Razonamiento"
+            aria-pressed={reasoningPanelOpen}
+          >
+            <Brain size={18} strokeWidth={1.5} />
+          </button>
+          <button
+            onClick={toggleSystemPanel}
+            className="mac-icon-btn hidden lg:inline-grid"
+            title={`${systemPanelOpen ? 'Ocultar' : 'Mostrar'} el panel del sistema (${navigator.platform.includes('Mac') ? '⌘' : 'Ctrl'}+I)`}
+            aria-label="Panel del sistema"
+          >
+            <PanelIcon size={18} strokeWidth={1.5} />
+          </button>
         </div>
-      </div>
-
-      {historyOpen && (
-        <aside className="ws-drawer" aria-label="Conversaciones">
-          <div className="flex items-center gap-2 mb-3">
-            <span className="paper-label flex-1">Conversaciones</span>
-            <button type="button" className="mac-icon-btn" aria-label="Cerrar" onClick={() => setHistoryOpen(false)}>
-              <X size={15} />
-            </button>
-          </div>
-          <label className="mac-field text-[13px] mb-2">
-            <Search size={13} />
-            <input
-              value={historyQuery}
-              onChange={(e) => setHistoryQuery(e.target.value)}
-              placeholder="Buscar"
-              className="flex-1 bg-transparent outline-none"
-              aria-label="Buscar conversaciones"
-            />
-          </label>
-          <div onClick={() => setHistoryOpen(false)}>
-            <ConversationList searchQuery={historyQuery} />
-          </div>
-        </aside>
-      )}
+      </header>
 
       <div
         ref={listRef}
         onScroll={handleScroll}
-        className={isEmpty ? 'flex-[1] flex flex-col justify-end px-4 pb-7' : 'flex-1 overflow-y-auto'}
+        className={isEmpty ? 'flex-[1] flex flex-col justify-end px-4 pb-8' : 'flex-1 overflow-y-auto'}
       >
         {isEmpty ? (
           <div className="mac-rise text-center" style={{ ['--i' as string]: 0 }}>
-            <h2 className="paper-title" style={{ fontSize: 26 }}>
-              {getGreeting()}
-            </h2>
-            <p className="mt-1.5 text-[14px]" style={{ color: 'var(--color-text-secondary)' }}>
-              ¿En qué le ayudo?
-            </p>
+            <p className="wordmark wordmark-lg">Sergio</p>
+            <h2 className="chat-hello">{getGreeting()}, señor. ¿En qué trabajamos?</h2>
           </div>
         ) : (
           <div className="max-w-[var(--chat-max-width)] mx-auto px-4 py-6">
@@ -294,25 +245,28 @@ export function ChatArea() {
       </div>
 
       {isEmpty && (
-        <div className="flex-[1.6] px-4 overflow-y-auto">
+        <div className="flex-[1.4] px-4 overflow-y-auto">
           <div
-            className="mac-rise mx-auto flex flex-wrap justify-center gap-2 pt-2"
+            className="mac-rise mx-auto flex flex-wrap justify-center gap-2 pt-1"
             style={{ maxWidth: 'var(--chat-max-width)', ['--i' as string]: 2 }}
           >
-            {SUGGESTIONS.map(({ icon: Icon, label, text }) => (
-              <button key={label} className="mac-chip" onClick={() => prefill(text)}>
-                <Icon size={14} strokeWidth={1.75} />
+            {MODES.map(({ icon: Icon, label, to, text }) => (
+              <button
+                key={label}
+                className="mac-chip"
+                onClick={() => (to ? navigate(to) : prefill(text || ''))}
+              >
+                <Icon size={15} strokeWidth={1.6} />
                 {label}
               </button>
             ))}
             {hasConnectedSources === false && (
               <button className="mac-chip" onClick={() => navigate('/data-sources')}>
-                <Database size={14} strokeWidth={1.75} />
-                Conectar mis datos
+                <Database size={15} strokeWidth={1.6} />
+                Conectar mis apps
               </button>
             )}
           </div>
-
         </div>
       )}
     </div>

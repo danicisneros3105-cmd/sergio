@@ -2,16 +2,24 @@ import { Suspense, useEffect, useState } from 'react';
 import { Outlet, useNavigate } from 'react-router';
 import { ApprovalBell } from './ApprovalBell';
 import { SystemPulse } from './SystemPulse';
-import { StatusBar } from './Shell/StatusBar';
 import { Toolbar } from './Shell/Toolbar';
-import { QuickCapture } from './Shell/QuickCapture';
+import { HistoryPanel } from './Shell/HistoryPanel';
 import { checkHealth } from '../lib/api';
 
-// The e-paper shell: the device's status bar on top, the page in the middle
-// (title centred, content on a calm grid), the toolbar of thin icons at the
-// bottom. A matte grain is painted into the paper (index.css .paper-app).
+const HISTORY_KEY = 'sergio-history-open';
+
+// The shell, like ChatGPT and Kimi: a rail of icons on the left (names on
+// hover), the history beside it when you want it, the page in the middle.
+// Black, white and one light blue; nothing else.
 export function Layout() {
   const [apiReachable, setApiReachable] = useState<boolean | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(() => {
+    try {
+      return localStorage.getItem(HISTORY_KEY) === '1' && window.innerWidth >= 1024;
+    } catch {
+      return false;
+    }
+  });
 
   useEffect(() => {
     const check = () => checkHealth().then(setApiReachable);
@@ -25,42 +33,45 @@ export function Layout() {
     };
   }, []);
 
+  const toggleHistory = () => {
+    setHistoryOpen((open) => {
+      try {
+        localStorage.setItem(HISTORY_KEY, open ? '0' : '1');
+      } catch {
+        // a per-viewer convenience only
+      }
+      return !open;
+    });
+  };
+
   const navigate = useNavigate();
 
   return (
-    <div className="paper-app flex flex-col h-full w-full overflow-hidden">
+    <div className="app-shell">
       <SystemPulse apiReachable={apiReachable} />
-      <StatusBar apiReachable={apiReachable} />
-      <ApprovalBell />
-
-      {apiReachable === false && (
-        <div
-          className="flex items-center gap-3 px-4 py-2 text-[13px] shrink-0"
-          style={{
-            background: 'color-mix(in srgb, var(--color-error) 7%, transparent)',
-            borderTop: '1px solid color-mix(in srgb, var(--color-error) 14%, transparent)',
-            borderBottom: '1px solid color-mix(in srgb, var(--color-error) 14%, transparent)',
-            color: 'var(--color-text)',
-          }}
-        >
-          <span>No puedo conectar con Sergio. Lo que escriba en el Workspace se guarda en este equipo.</span>
-          <button
-            onClick={() => navigate('/settings')}
-            className="underline cursor-pointer ml-auto shrink-0"
-            style={{ color: 'var(--color-accent)' }}
-          >
-            Cambiar dirección
-          </button>
-        </div>
+      <Toolbar historyOpen={historyOpen} onToggleHistory={toggleHistory} />
+      {historyOpen && (
+        <>
+          <div className="history-scrim" onClick={toggleHistory} aria-hidden="true" />
+          <HistoryPanel onClose={toggleHistory} />
+        </>
       )}
-
-      <main className="flex-1 min-h-0 relative">
-        <Suspense fallback={<div className="paper-page" aria-busy="true" />}>
-          <Outlet />
-        </Suspense>
-      </main>
-      <QuickCapture />
-      <Toolbar />
+      <div className="app-main">
+        <ApprovalBell />
+        {apiReachable === false && (
+          <div className="app-banner" role="status">
+            <span>No puedo conectar con Sergio. Lo que escriba en el Workspace se guarda en este equipo.</span>
+            <button onClick={() => navigate('/settings')} className="app-banner-action">
+              Cambiar dirección
+            </button>
+          </div>
+        )}
+        <main className="flex-1 min-h-0 relative">
+          <Suspense fallback={<div className="paper-page" aria-busy="true" />}>
+            <Outlet />
+          </Suspense>
+        </main>
+      </div>
     </div>
   );
 }

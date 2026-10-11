@@ -122,7 +122,7 @@ export function ApprovalBell() {
             style={{ borderBottom: '1px solid var(--color-border)' }}
           >
             <div className="flex items-center gap-2">
-              <Bell size={13} style={{ color: 'var(--color-accent)' }} />
+              <Bell size={13} style={{ color: 'var(--color-accent-text)' }} />
               <span className="text-sm font-semibold" style={{ color: 'var(--color-text)' }}>
                 Agent Approvals
               </span>
@@ -168,7 +168,7 @@ export function ApprovalBell() {
                     <div className="flex items-center justify-between mb-1.5">
                       <span
                         className="text-[11px] font-mono font-semibold"
-                        style={{ color: 'var(--color-accent)' }}
+                        style={{ color: 'var(--color-accent-text)' }}
                       >
                         {action.action_type}
                       </span>
