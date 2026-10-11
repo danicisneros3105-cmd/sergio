@@ -17,8 +17,8 @@ Seven sections, as icons only, in the user's language (idioma.py):
   multitasking, hiding the notch, language and country.
 
 The look is black and white with one light blue for what you press; one
-typeface (estilo.py: Montserrat, the closest legal match to the B&O brand
-type), titles in spaced capitals; every measure on a 4 px grid. Native Qt; data comes from
+typeface (estilo.py: Josefin Sans, measured as the closest free match to
+the B&O logo), titles in spaced capitals; every measure on a 4 px grid. Native Qt; data comes from
 the local Sergio server.
 """
 
@@ -88,7 +88,7 @@ BRAINS = {
 }
 
 STYLE = f"""
-QWidget {{ color: {TEXT}; font-family: {FAMILY}; font-size: 14px; }}
+QWidget {{ color: {TEXT}; font-family: {FAMILY}; font-size: 15px; }}
 QLabel#title {{ font-size: 15px; font-weight: 300; letter-spacing: 3px; }}
 QLabel#subtitle, QLabel#hint {{ color: {SECONDARY}; font-size: 13px; }}
 QLabel#section, QLabel#heading {{ color: {SECONDARY}; font-size: 10px; font-weight: 600;

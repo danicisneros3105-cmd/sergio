@@ -14,6 +14,56 @@ export interface Routine {
   days: number[];
   last_run: number;
   enabled: boolean;
+  kind?: 'time' | 'web' | 'app';
+  url?: string;
+  app?: string;
+  keywords?: string[];
+  last_check?: number;
+}
+
+export interface Avatar {
+  shape: 'bean' | 'blob' | 'drop' | 'heart' | 'frog' | 'bear' | 'star' | 'ghost';
+  color: string;
+  accessory: 'none' | 'headphones' | 'beret' | 'glasses' | 'sunglasses' | 'bow' | 'cap' | 'beanie' | 'crown' | 'scarf';
+  eyes: 'dots' | 'happy' | 'big' | 'sleepy' | 'googly';
+}
+
+export interface Connection {
+  id: string;
+  name: string;
+  command?: string;
+  url?: string;
+  base_url?: string;
+  auth_header?: string;
+  prefix?: string;
+  has_secret?: boolean;
+}
+
+export interface Thread {
+  id: string;
+  title: string;
+  created: number;
+}
+
+export interface Template {
+  id: string;
+  name: string;
+  title: string;
+  description: string;
+  avatar: Avatar;
+}
+
+export interface Catalog {
+  rules: RuleSpec[];
+  colors: string[];
+  shapes: Avatar['shape'][];
+  felt: string[];
+  accessories: Avatar['accessory'][];
+  eyes: Avatar['eyes'][];
+  tones: Array<{ key: string; label: string }>;
+  templates: Template[];
+  plan: string;
+  api_allowed: boolean;
 }
 
 export interface Approval {
@@ -22,6 +72,7 @@ export interface Approval {
   category: string;
   what: string;
   status: 'pending' | 'approved' | 'denied';
+  thread?: string;
 }
 
 export interface SergioNode {
@@ -29,7 +80,7 @@ export interface SergioNode {
   name: string;
   instructions: string;
   color: string;
-  apps: string[];
+  apps: Record<string, 'read' | 'write'>;
   rules: Record<string, RuleChoice>;
   routines: Routine[];
   status: NodeStatus;
@@ -43,6 +94,11 @@ export interface SergioNode {
   approvals: Approval[];
   unread: number;
   computer: string;
+  avatar: Avatar;
+  tone: string;
+  template: string;
+  threads: Thread[];
+  connections: { cli: Connection[]; mcp: Connection[]; api: Connection[] };
 }
 
 export interface NodeMessage {
@@ -52,6 +108,7 @@ export interface NodeMessage {
   text: string;
   tool_calls?: number;
   source?: string;
+  thread?: string;
 }
 
 export interface ActivityItem {
@@ -86,23 +143,41 @@ const send = (method: string, body?: unknown): RequestInit => ({
 export const nodesApi = {
   list: () => json<{ nodes: SergioNode[] }>('/v1/nodes').then((r) => r.nodes),
   rules: () => json<{ rules: RuleSpec[]; colors: string[] }>('/v1/nodes/rules'),
+  catalog: () => json<Catalog>('/v1/nodes/catalog'),
   get: (id: string) => json<SergioNode>(`/v1/nodes/${id}`),
-  create: (body: { name: string; instructions?: string; apps?: string[]; color?: string }) =>
-    json<SergioNode>('/v1/nodes', send('POST', body)),
-  update: (id: string, body: Partial<Pick<SergioNode, 'name' | 'instructions' | 'color' | 'apps' | 'rules'>>) =>
+  create: (body: {
+    name: string;
+    instructions?: string;
+    apps?: Record<string, 'read' | 'write'>;
+    color?: string;
+    template?: string;
+    avatar?: Avatar;
+    tone?: string;
+  }) => json<SergioNode>('/v1/nodes', send('POST', body)),
+  update: (id: string, body: Partial<Pick<SergioNode, 'name' | 'instructions' | 'color' | 'apps' | 'rules' | 'avatar' | 'tone'>>) =>
     json<SergioNode>(`/v1/nodes/${id}`, send('PATCH', body)),
+  newThread: (id: string, title = '') => json<{ thread: Thread }>(`/v1/nodes/${id}/threads`, send('POST', { title })).then((r) => r.thread),
   remove: (id: string) => json<{ deleted: boolean }>(`/v1/nodes/${id}`, send('DELETE')),
   seen: (id: string) => json<{ ok: boolean }>(`/v1/nodes/${id}/seen`, send('POST', {})),
-  messages: (id: string, after = 0) =>
-    json<{ messages: NodeMessage[] }>(`/v1/nodes/${id}/messages?after=${after}`).then((r) => r.messages),
-  say: (id: string, text: string) => json<{ message: NodeMessage }>(`/v1/nodes/${id}/messages`, send('POST', { text })),
+  messages: (id: string, after = 0, thread = 'main') =>
+    json<{ messages: NodeMessage[] }>(`/v1/nodes/${id}/messages?after=${after}&thread=${encodeURIComponent(thread)}`).then((r) => r.messages),
+  say: (id: string, text: string, thread = 'main') =>
+    json<{ message: NodeMessage }>(`/v1/nodes/${id}/messages`, send('POST', { text, thread })),
   activity: (id: string, after = 0) =>
     json<{ activity: ActivityItem[]; status: NodeStatus; doing: string; waiting: string; busy: boolean }>(
       `/v1/nodes/${id}/activity?after=${after}`,
     ),
   setMemory: (id: string, text: string) => json<{ text: string }>(`/v1/nodes/${id}/memory`, send('PUT', { text })),
-  addRoutine: (id: string, body: { task: string; every_minutes?: number; at?: string; days?: number[] }) =>
-    json<SergioNode>(`/v1/nodes/${id}/routines`, send('POST', body)),
+  addRoutine: (
+    id: string,
+    body: { task: string; kind?: 'time' | 'web' | 'app'; every_minutes?: number; at?: string; days?: number[]; url?: string; app?: string; keywords?: string[] },
+  ) => json<SergioNode>(`/v1/nodes/${id}/routines`, send('POST', body)),
+  checkRoutine: (id: string, rid: string) => json<{ woke: boolean; error: string }>(`/v1/nodes/${id}/routines/${rid}/check`, send('POST', {})),
+  addConnection: (id: string, kind: 'cli' | 'mcp' | 'api', body: Record<string, string>) =>
+    json<SergioNode>(`/v1/nodes/${id}/connections/${kind}`, send('POST', body)),
+  removeConnection: (id: string, kind: string, cid: string) => json<SergioNode>(`/v1/nodes/${id}/connections/${kind}/${cid}`, send('DELETE')),
+  mcpTools: (id: string, cid: string) =>
+    json<{ tools: Array<{ name: string; description: string }> }>(`/v1/nodes/${id}/connections/mcp/${cid}/tools`, send('POST', {})).then((r) => r.tools),
   removeRoutine: (id: string, rid: string) => json<SergioNode>(`/v1/nodes/${id}/routines/${rid}`, send('DELETE')),
   decide: (id: string, aid: string, approve: boolean) =>
     json<SergioNode>(`/v1/nodes/${id}/approvals/${aid}`, send('POST', { approve })),
@@ -134,7 +209,47 @@ export function statusLine(node: Pick<SergioNode, 'status' | 'doing' | 'waiting'
 
 const DAYS = ['lun', 'mar', 'mié', 'jue', 'vie', 'sáb', 'dom'];
 
-export function describeRoutine(r: Pick<Routine, 'every_minutes' | 'at' | 'days'>): string {
+function host(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '');
+  } catch {
+    return url;
+  }
+}
+
+export const SHAPE_ES: Record<Avatar['shape'], string> = {
+  bean: 'Peque',
+  blob: 'Gota blanda',
+  drop: 'Triángulo',
+  heart: 'Corazón',
+  frog: 'Ranita',
+  bear: 'Osito',
+  star: 'Estrella',
+  ghost: 'Fantasmita',
+};
+export const ACCESSORY_ES: Record<Avatar['accessory'], string> = {
+  none: 'Nada',
+  headphones: 'Cascos',
+  beret: 'Boina',
+  glasses: 'Gafas',
+  sunglasses: 'Gafas de sol',
+  bow: 'Lazo',
+  cap: 'Gorra',
+  beanie: 'Gorro',
+  crown: 'Corona',
+  scarf: 'Bufanda',
+};
+export const EYES_ES: Record<Avatar['eyes'], string> = {
+  dots: 'Puntitos',
+  happy: 'Felices',
+  big: 'Grandes',
+  sleepy: 'Dormilones',
+  googly: 'Saltones',
+};
+
+export function describeRoutine(r: Pick<Routine, 'every_minutes' | 'at' | 'days'> & Partial<Pick<Routine, 'kind' | 'url' | 'app'>>): string {
+  if (r.kind === 'web') return `Vigila ${host(r.url || '')} · ${describeRoutine({ every_minutes: r.every_minutes, at: '', days: [] }).toLowerCase()}`;
+  if (r.kind === 'app') return `Novedades en ${r.app} · ${describeRoutine({ every_minutes: r.every_minutes, at: '', days: [] }).toLowerCase()}`;
   if (r.every_minutes) {
     const m = r.every_minutes;
     if (m % 1440 === 0) return m === 1440 ? 'Cada día' : `Cada ${m / 1440} días`;

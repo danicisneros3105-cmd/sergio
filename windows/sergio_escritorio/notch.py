@@ -58,7 +58,7 @@ LABELS = {
     "acting": "Usando tu pantalla",
     "paused": "Control pausado",
 }
-FONTS = estilo.families()  # the house typeface (Montserrat), then system fallbacks
+FONTS = estilo.families()  # the house typeface (Josefin Sans), then system fallbacks
 
 CANVAS_W, CANVAS_H = 620, 160
 COMPACT = (132.0, 36.0)
