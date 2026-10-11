@@ -637,6 +637,7 @@ class LiveCall:
                 if self.guard_attention and "Ahora habla" in note:
                     self.attention.speaker("señor" in note.lower() and "otra persona" not in note)
                     self._answer_allowed = False
+                    await self.send_json({"type": "interrupted"})
                 # Context the model should know but not answer ("now Ana is
                 # talking"): added to the conversation without ending a turn.
                 await session.send_client_content(
@@ -684,7 +685,11 @@ class LiveCall:
         if heard is not None and heard.text:
             self._heard_text = (self._heard_text + heard.text)[-4000:]
             if self.guard_attention:
+                was_allowed = self._answer_allowed
                 self._answer_allowed = self.attention.accepts(self._heard_text)
+                if was_allowed and not self._answer_allowed:
+                    # Discard audio already queued at the companion too.
+                    await self.send_json({"type": "interrupted"})
             await self.send_json({"type": "heard", "text": heard.text})
         if getattr(content, "interrupted", False):
             await self.send_json({"type": "interrupted"})
