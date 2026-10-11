@@ -400,7 +400,11 @@ class Orchestrator:
         """The plan's steps as a graph. A step with «para_cada» becomes one
         sub-agent per element, all at once (the swarm); what needed that step
         then waits for all of them."""
-        raw = [s for s in plan.get("pasos") or [] if str(s.get("paso") or "").strip()]
+        raw = plan.get("pasos") or []
+        if not isinstance(raw, list) or len(raw) > 4000:
+            raise ValueError("El plan debe contener una lista de hasta 4000 pasos")
+        if any(not isinstance(s, dict) or not str(s.get("paso") or "").strip() for s in raw):
+            raise ValueError("El plan contiene pasos vacíos o inválidos")
         steps: list[Step] = []
         made: list[list[int]] = []  # plan step -> the steps it became
         for i, s in enumerate(raw):
@@ -409,20 +413,22 @@ class Orchestrator:
                     "El plan usa herramientas no autorizadas o inexistentes"
                 )
             needs = s.get("depende_de")
-            if isinstance(needs, list):  # 1-based, only earlier steps (no cycles)
-                wanted = {
-                    int(n) - 1
+            if needs is not None:
+                if not isinstance(needs, list) or any(
+                    not isinstance(n, int) or isinstance(n, bool) or not 1 <= n <= i
                     for n in needs
-                    if isinstance(n, int) and not isinstance(n, bool) and 1 <= n <= i
-                }
+                ):
+                    raise ValueError(f"Dependencias inválidas en el paso {i + 1}; deben referir a pasos anteriores")
+                wanted = {n - 1 for n in needs}
             else:  # not said: after the previous step (safe, in order)
                 wanted = {i - 1} if i else set()
             after = sorted({k for w in wanted for k in made[w]})
-            items = (
-                [str(x) for x in s.get("para_cada") or []][:MAX_FANOUT]
-                if s.get("donde") != "pantalla"
-                else []
-            )
+            fanout = s.get("para_cada") or []
+            if not isinstance(fanout, list) or len(fanout) > MAX_FANOUT:
+                raise ValueError(f"para_cada debe ser una lista de hasta {MAX_FANOUT} elementos")
+            items = [str(x) for x in fanout] if s.get("donde") != "pantalla" else []
+            if len(steps) + max(1, len(items)) > 4000:
+                raise ValueError("El plan supera 4000 pasos; divide el trabajo en lotes")
             text = str(s.get("paso") or "")
             base = dict(
                 where="pantalla" if s.get("donde") == "pantalla" else "fondo",
@@ -431,7 +437,7 @@ class Orchestrator:
                 important=bool(s.get("importante")),
             )
             start = len(steps)
-            if len(items) > 1:
+            if items:
                 steps += [
                     Step(text=f"{text} — solo para: {item}", after=list(after), **base)
                     for item in items

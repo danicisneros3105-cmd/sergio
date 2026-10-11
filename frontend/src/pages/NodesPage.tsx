@@ -4,6 +4,7 @@ import { nodesRequest, type NodeProfile, type NodeGoal, type NodeMemory, type No
 import { NodeAvatar } from '../components/Nodes/NodeAvatar';
 import { FoldReveal } from '../components/Nodes/FoldReveal';
 import { IntegrationCards } from '../components/Nodes/IntegrationCards';
+import { LiquidNotch } from '../components/Nodes/LiquidNotch';
 
 interface Capabilities { plan: string; custom_api: boolean; external_requirements: string[]; }
 const field = 'rounded-lg border p-2 bg-transparent w-full';
@@ -109,6 +110,7 @@ export function NodesPage() {
     </section>
     {node && <section className="relative border rounded-xl p-4 space-y-4">
       <FoldReveal colour={node.colour} species={node.species} trigger={node.id} />
+      <LiquidNotch running={goals.filter(g => g.status === 'running').length} />
       <h2 className="font-semibold">{node.name}</h2><p>{node.role}</p><a href="/agents" className="underline">Canales, trazas y aprendizaje en Agent Swarm</a>
       <button className={button} disabled={busy} onClick={() => run(async () => {
         await nodesRequest(`/${selected}`, 'PATCH', {name: name.trim() || node.name, role, colour, species, fur, interval_minutes: interval}); await refresh();

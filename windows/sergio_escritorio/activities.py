@@ -83,7 +83,10 @@ class Activities:
                 return
             changes: dict = {}
             if progress is not None:
-                changes["progress"] = max(0.0, min(1.0, float(progress)))
+                value = float(progress)
+                if not math.isfinite(value):
+                    raise ValueError("El progreso debe ser finito")
+                changes["progress"] = max(0.0, min(1.0, value))
             if detail is not None:
                 changes["detail"] = detail[:120]
             if title is not None:
@@ -94,7 +97,7 @@ class Activities:
     def finish(self, aid: int, ok: bool = True, detail: str = "") -> None:
         with self._lock:
             item = self._items.get(aid)
-            if item is None:
+            if item is None or item.state != "running":
                 return
             self._items[aid] = replace(
                 item,
@@ -187,16 +190,17 @@ class Spring:
 
 
 class Fold:
-    """The iPhone Duo fold, for the island splitting in two.
+    """Duo-open's inner-pane frost mapping, adapted to a timed desktop fold.
 
-    After github.com/chuspeeism/iphone-duo (MIT): a panel hinged on one
-    edge swings from closed (0°, lying over the pill) to open (180°, beside
-    it) in 1.4 s with a smoothstep ease. Only that half moves; the pill stays
-    put. While the panel is near closed its face blurs and darkens: the
-    effect grows with the transition, and darkening is twice the effect,
-    capped at black."""
+    The 20..172 degree mapping and 45 degree visual tilt cap follow
+    marcoazeem/duo-open's DuoShader.kt (MIT; see docs/third-party).
+    No display capture or Android service is needed for our own 36px pane.
+    """
 
-    DURATION = 1.4
+    DURATION = 0.65
+    PANEL_ON_HINGE = 20.0
+    FLAT_HINGE = 172.0
+    MAX_TILT = 45.0
 
     def __init__(self, opened: bool = False) -> None:
         self.angle = self.target = 180.0 if opened else 0.0
@@ -211,6 +215,8 @@ class Fold:
             self._from, self.target, self._elapsed = self.angle, target, 0.0
 
     def step(self, dt: float) -> float:
+        if not math.isfinite(dt):
+            raise ValueError("El intervalo debe ser finito")
         if self._elapsed is None:
             return self.angle
         self._elapsed += max(0.0, dt)
@@ -235,9 +241,17 @@ class Fold:
         return self.angle > 90.0
 
     def effect(self) -> float:
-        """0 fully open .. 1 at a right angle or more closed (smoothstep)."""
-        m = min(1.0, max(0.0, (180.0 - self.angle) / 90.0))
-        return m * m * (3 - 2 * m)
+        """Normalized tilt; frost resolves throughout the visible unfold."""
+        return min(1.0, max(0.0, (self.FLAT_HINGE - self.angle)
+                            / (self.FLAT_HINGE - self.PANEL_ON_HINGE)))
+
+    def tilt(self) -> float:
+        return self.effect() * self.MAX_TILT
+
+    def snap(self, opened: bool) -> None:
+        """Accessibility: reach the endpoint without motion or frost."""
+        self.angle = self.target = self._from = 180.0 if opened else 0.0
+        self._elapsed = None
 
     def darken(self) -> float:
         return min(1.0, 2.0 * self.effect())

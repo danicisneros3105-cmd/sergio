@@ -103,12 +103,50 @@ def _font(size: float, weight: QFont.Weight = QFont.Weight.Normal) -> QFont:
     return font
 
 
+def system_reduced_motion() -> bool:
+    """Respect Windows' client-area animation preference; portable fallback."""
+    import sys
+
+    if sys.platform != "win32":
+        return False
+    import ctypes
+
+    enabled = ctypes.c_int(1)
+    try:
+        ok = ctypes.windll.user32.SystemParametersInfoW(0x1042, 0, ctypes.byref(enabled), 0)
+        return bool(ok) and not bool(enabled.value)
+    except (AttributeError, OSError):
+        return False
+
+
+def liquid_bridge(rect: QRectF, bubble: QRectF | None, angle: float) -> QPainterPath:
+    """A bounded vector meniscus; the hit mask uses the same background.
+
+    Like the supplied SVG gooey effect, it joins liquid silhouettes. Qt
+    avoids a full-canvas blur pass and leaves the foreground untouched.
+    """
+    path = QPainterPath()
+    if bubble is None or not 90 < angle < 179:
+        return path
+    strength = math.sin(math.pi * (angle - 90) / 90)
+    left, right = rect.right() - 1, bubble.left() + 2
+    y = min(rect.height(), bubble.height()) / 2
+    half = 8 * strength
+    path.moveTo(left, y - half)
+    path.cubicTo(left + 3, y, right - 3, y, right, y - half)
+    path.lineTo(right, y + half)
+    path.cubicTo(right - 3, y, left + 3, y, left, y + half)
+    path.closeSubpath()
+    return path
+
+
 class Notch(QWidget):
     def __init__(
         self,
         *,
         on_click: Callable[[], None] | None = None,
         fullscreen_app: Callable[[], bool] | None = None,
+        reduced_motion: bool | None = None,
     ) -> None:
         super().__init__(
             None,
@@ -123,6 +161,7 @@ class Notch(QWidget):
         self.setToolTip("Clic para abrir el centro de control de Sergio")
         self.resize(CANVAS_W, CANVAS_H)
         self.on_click = on_click
+        self.reduced_motion = system_reduced_motion() if reduced_motion is None else reduced_motion
         # Hide while a video or game is fullscreen (unless Sergio is active).
         self.fullscreen_app = fullscreen_app or (lambda: False)
         self._mask_rect = None
@@ -153,17 +192,38 @@ class Notch(QWidget):
         self._last_tick = time.monotonic()
         self.activities: Activities | None = None
         self._live: list[Activity] = []
+        self._last_activity_poll = -math.inf
         self._small = _font(8.2, QFont.Weight.DemiBold)
         self._title = _font(9.0, QFont.Weight.DemiBold)
         self._body = _font(10.5)
         self._place()
         self._timer = QTimer(self)
         self._timer.timeout.connect(self._tick)
-        self._timer.start(16)
+        self._timer.start(33)
+
+    def _wake(self) -> None:
+        if not self.hidden and self.isVisible():
+            interval = 33 if self.reduced_motion else 16
+            if not self._timer.isActive():
+                self._last_tick = time.monotonic()
+                self._timer.start(interval)
+            elif self._timer.interval() != interval:
+                self._timer.setInterval(interval)
+
+    def showEvent(self, event) -> None:
+        super().showEvent(event)
+        if hasattr(self, "_timer"):
+            self._wake()
+
+    def hideEvent(self, event) -> None:
+        if hasattr(self, "_timer"):
+            self._timer.stop()
+        super().hideEvent(event)
 
     # -- API ------------------------------------------------------------------
     def set_state(self, state: str) -> None:
         self.state = state if state in STATE_COLORS else "idle"
+        self._wake()
 
     def set_level(self, level: float) -> None:
         """Live microphone volume 0..1 (called ~30 times a second)."""
@@ -193,6 +253,7 @@ class Notch(QWidget):
     def set_multitasking(self, on: bool) -> None:
         """Split the island in two (the iPhone Duo fold) or fold it back."""
         self.multitasking = bool(on)
+        self._wake()
 
     @property
     def hidden(self) -> bool:
@@ -207,9 +268,12 @@ class Notch(QWidget):
         self._vanish.hide()
         self._edge_since = None
         self._edge.start(50)  # 20 checks a second of where the cursor is: nothing else runs
-        if instant:  # e.g. it starts hidden: no film
+        if instant or self.reduced_motion:
             self._vanish.t = 1.0
+            self._timer.stop()
             self.hide()
+        else:
+            self._timer.start(16)
 
     def show_notch(self) -> None:
         """The same film backwards: it drops in and opens up."""
@@ -218,6 +282,9 @@ class Notch(QWidget):
         self._edge.stop()
         self._snap = self._snapshot()
         self._vanish.show()
+        if self.reduced_motion:
+            self._vanish.t = 0.0
+        self._wake()
         if not self.isVisible():
             self.show()
 
@@ -227,6 +294,14 @@ class Notch(QWidget):
             return
         self._edge.stop()
         self._vanish.t = self._vanish.target = 0.0
+        if self.reduced_motion:
+            self._pour.t = 1.0
+            self._last_activity_poll = -math.inf
+            self.show()
+            self._wake()
+            if self.on_shown is not None:
+                self.on_shown()
+            return
         w, h = POUR
         left = (CANVAS_W - w) / 2
         self._pour.start(cursor_x - self.x(), left, left + w, h)
@@ -235,6 +310,7 @@ class Notch(QWidget):
             spring.value = spring.target = value
             spring.velocity = 0.0
         self._last_tick = time.monotonic()
+        self._wake()
         if not self.isVisible():
             self.show()
         if self.on_shown is not None:
@@ -347,7 +423,9 @@ class Notch(QWidget):
         self._levels.append(self._levels[-1] * 0.35 + sample * 0.65)
         now = time.monotonic()
         dt, self._last_tick = now - self._last_tick, now
-        self._live = self.activities.snapshot() if self.activities is not None else []
+        if now - self._last_activity_poll >= 0.25:
+            self._live = self.activities.snapshot() if self.activities is not None else []
+            self._last_activity_poll = now
         if self._pour.active:
             cursor = self.mapFromGlobal(QCursor.pos())
             self._pour.step(dt, float(cursor.x()))
@@ -361,11 +439,16 @@ class Notch(QWidget):
         tw, th = self.target_size()
         # Real springs (a soft iOS overshoot) toward the target size.
         self._sw.target, self._sh.target = tw, th
+        if self.reduced_motion:
+            for spring in (self._sw, self._sh):
+                spring.value, spring.velocity = spring.target, 0.0
+            self._duo.snap(self.multitasking)
         self._w, self._h = self._sw.step(dt), self._sh.step(dt)
         self._duo.open(self.multitasking)
         self._duo.step(dt)
         self._vanish.step(dt)
         if self._vanish.hidden:
+            self._timer.stop()
             if self.isVisible():
                 self.hide()  # gone: nothing left to click
             return
@@ -380,16 +463,26 @@ class Notch(QWidget):
                 self.setMask(region)
             self.update()
             return
-        region = QRegion(self.pill().toAlignedRect().adjusted(-1, 0, 1, 1))
+        rect = self.pill()
+        region = QRegion(notch_path(rect).toFillPolygon().toPolygon())
         bubble = self.bubble()
         if bubble is not None:
             region = region.united(
-                QRegion(bubble.toAlignedRect().adjusted(-1, 0, 1, 1))
+                QRegion(bubble.toAlignedRect(), QRegion.RegionType.Ellipse)
             )
+            bridge = liquid_bridge(rect, bubble, self._duo.angle)
+            if not self.reduced_motion and not bridge.isEmpty():
+                region = region.united(QRegion(bridge.toFillPolygon().toPolygon()))
         if region != self._mask_rect:
             self._mask_rect = region
             self.setMask(region)  # clicks outside the islands go through
         self._respect_fullscreen()
+        moving = not all((self._duo.settled(), self._sw.settled(), self._sh.settled()))
+        interval = 250 if self._hidden_for_fullscreen else (16 if moving and not self.reduced_motion else 33)
+        if self._timer.interval() != interval:
+            self._timer.setInterval(interval)
+        if self._hidden_for_fullscreen:
+            return
         self.update()
 
     def _respect_fullscreen(self) -> None:
@@ -643,6 +736,8 @@ class Notch(QWidget):
         p.setPen(Qt.PenStyle.NoPen)
         p.setBrush(QColor(0, 0, 0))
         p.drawPath(path)
+        if not self.reduced_motion:
+            p.drawPath(liquid_bridge(rect, self.bubble(), self._duo.angle))
 
         compact = rect.height() < 42
         size = 10.5 if compact else 15.0
@@ -815,7 +910,7 @@ class Notch(QWidget):
         q.end()
         if effect > 0.02:
             # Blur by shrinking and enlarging smoothly: cheap, and soft enough.
-            small = max(2, int(size * (1.0 - 0.85 * effect)))
+            small = max(2, int(size * (1.0 - 0.85 * fold.tilt() / Fold.MAX_TILT)))
             mode = Qt.TransformationMode.SmoothTransformation
             face = face.scaled(small, small, mode=mode).scaled(size, size, mode=mode)
         scale_x = fold.reach()  # -1 (lying over the pill) .. 1 (open)
