@@ -11,7 +11,7 @@ Un solo asistente personal que une el poder de tres proyectos:
 No son tres programas sueltos:
 
 - **Un comando** (`sergio gui`) arranca todo, y al cerrarlo se apaga todo.
-- **Una interfaz:** seis secciones, las mismas en la app y en el notch: Chat, Cowork, Agent Swarm, Salud, Perfil y Configuración.
+- **Una interfaz:** las mismas secciones en la app y en el notch: Chat, Nodes, Agent Swarm, Cowork, Salud, Perfil y Configuración (y en la web, además, el Workspace).
 - **Un solo cerebro:** Clacky usa automáticamente el modelo que configures en
   Sergio, sea local o por API. No hay que configurarlo dos veces.
 - **Una sola configuración:** `~/.openjarvis/config.toml`.
@@ -56,8 +56,9 @@ usuarios avanzados).
 
 ## Notch nuevo, multitasking y diseño
 
-**El notch tiene seis secciones y nada más:** Chat, Cowork, Agent Swarm,
-Salud, Perfil y Configuración.
+**El notch tiene siete secciones y nada más:** Chat, Nodes, Agent Swarm,
+Cowork, Salud, Perfil y Configuración.
+- *Nodes*: vea qué hace cada uno y encárguele algo sin abrir la web.
 - *Cowork*: escriba el resultado que quiere; aquí aprueba o rechaza lo que
   Sergio le pregunta.
 - *Agent Swarm*: mande una tarea al enjambre en segundo plano y vea lo que
@@ -412,38 +413,71 @@ sigue, te escucha y usa la computadora por ti:
   (Kimi o Gemini) y reconoce a las personas que registraste en Rostros. La
   cámara se apaga sola 20 s después de usarla.
 - **Voz natural**: voces neuronales de Microsoft (Luis o Andrea de Ecuador,
-  México, Colombia, España, Argentina). Sin internet usa la voz local.
+  México, Colombia, España, Argentina). Sin internet usa la voz local. Con
+  ElevenLabs, cada frase se lee **en su idioma** (español, inglés, francés,
+  portugués, italiano, alemán): el código lo detecta, así el inglés no suena
+  con acento español. No lee asteriscos ni enlaces, y la frase anterior le da
+  la entonación. `SERGIO_VOZ_CALIDAD=alta` en `~/.openjarvis/sergio.env`
+  usa el modelo Multilingual v2 (más rico, tarda un poco más en empezar).
+  La voz es una voz original de la biblioteca de ElevenLabs, grave y
+  rasposa: **no imita a ningún actor** (copiar la voz de una persona real sin
+  su permiso no está permitido).
+- **Modo de voz en el navegador** (como ChatGPT): con la caja vacía, el
+  botón de la derecha abre una esfera azul que respira con la voz. Es la
+  misma llamada en tiempo real que la app de Windows; la clave se queda en
+  su servidor. Puede interrumpirle hablando encima.
 - **Diseño**: como ChatGPT y Kimi, pero solo en negro, blanco y un azul
-  claro para lo que se pulsa (botones, selección). Letra **Montserrat** (libre,
-  licencia OFL): B&O no vende la letra de su logo y, según su propio personal,
-  su letra de marca es Gotham (de pago); Montserrat es su equivalente legal más
-  fiel. Títulos en mayúsculas finas y espaciadas, como el logo de B&O.
+  claro para lo que se pulsa (botones, selección). Letra **Josefin Sans**
+  (libre, licencia OFL): la elegimos **midiendo con código** qué letra libre
+  se parece más a la «B», el «&» y la «O» del logo de B&O
+  (`scripts/font_match.py`). Títulos en mayúsculas finas y espaciadas.
+- **Chat como ChatGPT**: el botón **«+»** de la caja abre las herramientas
+  (Investigación a fondo, Agent Swarm con lo que escribió, un Node, Usar mi
+  pantalla, Modo de voz); el historial se abre al lado en pantallas grandes.
 - **Secciones solo con iconos**: una barra de iconos a la izquierda (abajo en
   el móvil): Chat, Nodes, Agent Swarm, Workspace, Cowork, Salud y Perfil; al
-  pasar el cursor el icono crece y sale su nombre. El historial de chats se
-  abre al lado, como en ChatGPT. En el notch, lo mismo: siete iconos.
+  pasar el cursor el icono crece y sale su nombre. En el notch, lo mismo.
 - **Sergio ya no se personaliza**: un solo nombre, aspecto y forma de ser.
   Lo que usted crea y personaliza son sus **Nodes**.
-- **Nodes** (como los «Dots» de OpenAI): empleados digitales que trabajan
-  24/7. Cada Node tiene su **propia computadora** (una carpeta que es su
-  disco: ahí guarda informes y tablas, y usted los baja), navegador, **memoria
-  a largo plazo** que escribe solo y usted puede corregir, **reglas** (qué hace
-  solo, qué le pregunta antes y qué nunca hace), **apps** que puede leer
-  (las que usted conectó y marque), **rutinas** (cada X minutos o a una hora
-  ciertos días) y una **actividad** en vivo. Al crearlo se presenta. Cuando
-  necesita algo suyo (iniciar sesión, decidir) le avisa: «Tomar el control» y
-  luego «Listo, continúe». **Detener** es la parada de emergencia. Enviar
-  mensajes o correos, borrar y pagar nunca son automáticos: le deja el
-  borrador y usted decide. Ojo: un Node trabaja donde corre el servidor de
-  Sergio (su PC encendido, o un servidor suyo); no en la nube de OpenAI.
-- **Agent Swarm** (como el de Kimi): para una tarea enorme y puntual (50
-  contratos, 30 productos, una auditoría). Un **orquestador** inventa los
-  especialistas que hacen falta y reparte el trabajo (hasta 100 subtareas;
-  cada documento subido tiene su propio lector); los **subagentes** trabajan a
-  la vez (4 a 32 en paralelo) y usted los ve en una cuadrícula en vivo; un
-  **supervisor** une todo, señala contradicciones y huecos y le da un informe.
-  Después el enjambre **se disuelve**: no se queda vigilando nada (para eso
-  están los Nodes).
+- **Nodes** (como los «Dots» de OpenAI y el agente «Muse» de Meta):
+  empleados digitales que trabajan 24/7. Cada uno es un **personaje de
+  fieltro peludo** con diseño propio (8 formas, colores, cascos, boina,
+  gafas, gafas de sol…, ojos) que flota, teclea cuando trabaja, saluda
+  cuando le necesita y mueve la boca cuando le lee en voz alta. Empiece desde
+  una de 12 **plantillas** (Vigía de una web, Precios, Correo y agenda,
+  Investigador, Noticias, Compras, Facturas, Salud, Redes, Programador,
+  Organizador, Tutor) o en blanco. Cada Node tiene su **propia computadora**
+  (una carpeta: ahí guarda informes y tablas), navegador, **memoria** que
+  usted puede leer y corregir, **forma de hablar** (cercano, formal, breve…),
+  **hilos** de conversación, **reglas** (qué hace solo, qué le pregunta y qué
+  nunca hace), **apps** con permiso de **solo leer** o **leer y escribir**,
+  y **rutinas**: a una hora, cada X minutos, **cuando cambia una web** o
+  **cuando llega algo a una app**. Esas vigilancias las hace el **código**
+  (compara la página, extrae precios, mira la app): el modelo solo se
+  despierta si hay un cambio real, así no hay retraso ni gasto inútil.
+  **Conexiones**: comandos **CLI** que usted permita (sin shell, uno a la
+  vez), servidores **MCP**, y sus propias **APIs** (solo en el **plan Dev**;
+  la clave se guarda aparte y nunca se muestra al modelo). Para algo enorme,
+  un Node puede **lanzar un Agent Swarm** (si usted lo permite). Si dice
+  que guardó un archivo que no existe, el código se lo marca. Cuando
+  necesita algo suyo le avisa: «Tomar el control» y luego «Listo, continúe».
+  **Detener** es la parada de emergencia. Enviar mensajes o correos, borrar
+  y pagar nunca son automáticos. Un Node trabaja donde corre el servidor de
+  Sergio (su PC encendido, o un servidor suyo).
+- **Agent Swarm** (como el de Kimi K3): para una tarea enorme y puntual (50
+  contratos, 30 productos, una auditoría). Un **explorador** mira el terreno
+  primero; un **orquestador** inventa los especialistas y reparte el trabajo
+  (hasta **300 subagentes**; cada documento tiene su propio lector); los
+  subagentes trabajan a la vez (4 a 64 en paralelo, con un tope de **4.000
+  llamadas a herramientas** por enjambre) y usted ve en vivo qué herramienta
+  usa cada uno; si uno falla, lo reintenta. Un **supervisor** une todo y
+  luego el **código comprueba** el informe: cada enlace debe venir de un
+  subagente, cada cifra debe aparecer en sus resultados y cada documento
+  debe estar leído; lo que no cuadra vuelve al supervisor una vez y, si
+  sigue mal, queda marcado al final. Descárguelo en **Markdown** o **CSV**
+  (las tablas) o guárdelo en su **Workspace**. Después el enjambre **se
+  disuelve** (para vigilar cosas están los Nodes). Detalle y comparación:
+  [docs/es/NODES-Y-SWARM.md](docs/es/NODES-Y-SWARM.md).
 - Por voz también usa la búsqueda web, los datos del planeta (God's Eye View,
   sin pantalla) y las guías expertas de ECC.
 - **Tareas de varios pasos**: «Sergio, abre Google, busca Nvidia y entra al
