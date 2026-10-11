@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Sergio en Windows: compañero junto al cursor, voz y control de la pantalla."
 requires-python = ">=3.11"
 dependencies = [
-    "PySide6-Essentials>=6.7",
+    "PySide6-Essentials==6.11.2",  # 6.12 segfaulted on shutdown in the validated Qt test lane
     "pillow>=10.0",
     "pynput>=1.7",
     "mss>=9.0",
