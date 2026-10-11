@@ -413,17 +413,37 @@ sigue, te escucha y usa la computadora por ti:
   cámara se apaga sola 20 s después de usarla.
 - **Voz natural**: voces neuronales de Microsoft (Luis o Andrea de Ecuador,
   México, Colombia, España, Argentina). Sin internet usa la voz local.
+- **Diseño**: como ChatGPT y Kimi, pero solo en negro, blanco y un azul
+  claro para lo que se pulsa (botones, selección). Letra **Montserrat** (libre,
+  licencia OFL): B&O no vende la letra de su logo y, según su propio personal,
+  su letra de marca es Gotham (de pago); Montserrat es su equivalente legal más
+  fiel. Títulos en mayúsculas finas y espaciadas, como el logo de B&O.
+- **Secciones solo con iconos**: una barra de iconos a la izquierda (abajo en
+  el móvil): Chat, Nodes, Agent Swarm, Workspace, Cowork, Salud y Perfil; al
+  pasar el cursor el icono crece y sale su nombre. El historial de chats se
+  abre al lado, como en ChatGPT. En el notch, lo mismo: siete iconos.
 - **Sergio ya no se personaliza**: un solo nombre, aspecto y forma de ser.
-  Lo que se personaliza son los **agentes**, como los GPT de ChatGPT:
-  Agent Swarm → **Crear agente** (o la web, `/agents/nuevo`). A la izquierda
-  «Crear» (lo describe hablando y Sergio rellena todo) o «Configurar»
-  (nombre, emoji y color, descripción, instrucciones, hasta 4 frases de
-  inicio, archivos de conocimiento de texto, capacidades —web, código,
-  imágenes, Workspace, memoria— y modelo); a la derecha, una vista previa
-  para hablar con él antes de guardarlo. Se editan desde «…» → Editar.
-- **Secciones solo con iconos**: en la web (barra inferior) y en el panel del
-  notch, Chat, Workspace, Cowork, Agent Swarm, Salud, Perfil y Ajustes son
-  iconos; al pasar el cursor se elevan y aparece su nombre.
+  Lo que usted crea y personaliza son sus **Nodes**.
+- **Nodes** (como los «Dots» de OpenAI): empleados digitales que trabajan
+  24/7. Cada Node tiene su **propia computadora** (una carpeta que es su
+  disco: ahí guarda informes y tablas, y usted los baja), navegador, **memoria
+  a largo plazo** que escribe solo y usted puede corregir, **reglas** (qué hace
+  solo, qué le pregunta antes y qué nunca hace), **apps** que puede leer
+  (las que usted conectó y marque), **rutinas** (cada X minutos o a una hora
+  ciertos días) y una **actividad** en vivo. Al crearlo se presenta. Cuando
+  necesita algo suyo (iniciar sesión, decidir) le avisa: «Tomar el control» y
+  luego «Listo, continúe». **Detener** es la parada de emergencia. Enviar
+  mensajes o correos, borrar y pagar nunca son automáticos: le deja el
+  borrador y usted decide. Ojo: un Node trabaja donde corre el servidor de
+  Sergio (su PC encendido, o un servidor suyo); no en la nube de OpenAI.
+- **Agent Swarm** (como el de Kimi): para una tarea enorme y puntual (50
+  contratos, 30 productos, una auditoría). Un **orquestador** inventa los
+  especialistas que hacen falta y reparte el trabajo (hasta 100 subtareas;
+  cada documento subido tiene su propio lector); los **subagentes** trabajan a
+  la vez (4 a 32 en paralelo) y usted los ve en una cuadrícula en vivo; un
+  **supervisor** une todo, señala contradicciones y huecos y le da un informe.
+  Después el enjambre **se disuelve**: no se queda vigilando nada (para eso
+  están los Nodes).
 - Por voz también usa la búsqueda web, los datos del planeta (God's Eye View,
   sin pantalla) y las guías expertas de ECC.
 - **Tareas de varios pasos**: «Sergio, abre Google, busca Nvidia y entra al
