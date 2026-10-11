@@ -651,12 +651,25 @@ class SergioClient:
         """A streamed voice: Gemini Live (like in the calls) or ElevenLabs."""
         return self.voice.lower().startswith(("gemini:", "elevenlabs:"))
 
+    _said = ("", 0.0)  # the last sentence spoken, and when
+
+    def _voice_body(self, text: str, limit: int) -> dict:
+        """What the server needs to read *text* naturally: the sentence before
+        (so the intonation flows on) and our language as a last resort — each
+        sentence is read in the language it is written in."""
+        before, when = self._said
+        body = {"text": text[:limit], "voice": self._server_voice(), "hint": LANGUAGE}
+        if before and time.monotonic() - when < 20:
+            body["previous"] = before[-600:]
+        self._said = (text, time.monotonic())
+        return body
+
     def speak_stream(self, text: str):
         """PCM 24 kHz chunks of Gemini Live reading *text*, as they arrive."""
         with self.http.stream(
             "POST",
             f"{self.base}/v1/voice/stream",
-            json={"text": text[:2000], "voice": self._server_voice()},
+            json=self._voice_body(text, 2000),
             timeout=httpx.Timeout(30, connect=5),
         ) as resp:
             resp.raise_for_status()
@@ -686,7 +699,7 @@ class SergioClient:
                 try:
                     resp = self.http.post(
                         f"{self.base}/v1/voice/speak",
-                        json={"text": text[:2500], "voice": self._server_voice()},
+                        json=self._voice_body(text, 2500),
                         timeout=httpx.Timeout(30, connect=5),
                     )
                     resp.raise_for_status()

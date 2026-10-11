@@ -461,3 +461,23 @@ def test_live_voice_is_streamed_and_starts_at_once():
     a.say_aloud("Hola.")
     assert played[0] == "start" and played[-1] == "stop" and "wav" not in played
     assert client.last_voice == "Gemini Live (en vivo)"
+
+
+def test_each_sentence_carries_the_one_before_and_our_language_as_a_hint():
+    sent = []
+
+    def handler(request):
+        sent.append(json.loads(request.content))
+        return httpx.Response(200, content=b"\x00\x00")
+
+    client = SergioClient(
+        "http://s", http=httpx.Client(transport=httpx.MockTransport(handler))
+    )
+    client.voice = "elevenlabs:"
+    b"".join(client.speak_stream("Good evening, sir, the report is ready."))
+    b"".join(client.speak_stream("Anything else?"))
+    b"".join(client.speak_stream("OK"))
+    assert "previous" not in sent[0] and sent[0]["hint"] == "es"
+    assert sent[1]["previous"] == "Good evening, sir, the report is ready."
+    assert sent[2]["previous"] == "Anything else?"
+    assert all("language" not in s for s in sent)  # the server reads each one

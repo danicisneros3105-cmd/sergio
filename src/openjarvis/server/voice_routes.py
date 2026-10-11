@@ -34,23 +34,35 @@ def preferred(voice: str) -> str:
 class SpeakRequest(BaseModel):
     text: str
     voice: str = ""
+    # ISO 639-1 ("es", "en", "fr"…); empty = worked out from the text.
+    language: str = ""
+    # The sentence spoken just before, so the intonation flows on (and the
+    # language of a sentence too short to tell, like «OK»).
+    previous: str = ""
+    # The app's language, the last resort for a short first sentence.
+    hint: str = ""
 
 
 @router.post("/speak")
 async def speak(req: SpeakRequest) -> Response:
     from openjarvis.speech import gemini_voice
 
-    req = SpeakRequest(text=req.text, voice=preferred(req.voice))
+    req = req.model_copy(update={"voice": preferred(req.voice)})
     if req.voice.lower().startswith("elevenlabs"):
         from openjarvis.speech import elevenlabs_voice
 
         try:
             wav = await asyncio.to_thread(
-                elevenlabs_voice.speak_wav, req.text, req.voice
+                elevenlabs_voice.speak_wav,
+                req.text,
+                req.voice,
+                language=req.language,
+                previous=req.previous,
+                hint=req.hint,
             )
             return Response(content=wav, media_type="audio/wav")
         except Exception:  # noqa: BLE001 — no key / no credit: Algenib
-            req = SpeakRequest(text=req.text, voice="algenib")
+            req = req.model_copy(update={"voice": "algenib"})
     if req.voice.lower() in ("", "predeterminada", "default", "algenib"):
         # Gemini Live's voice, the same as in calls.
         from openjarvis.speech.gemini_live import speak_live
@@ -98,7 +110,13 @@ async def stream(req: SpeakRequest) -> Any:
     if voice.lower().startswith("elevenlabs"):
         from openjarvis.speech.elevenlabs_voice import stream_pcm
 
-        chunks = stream_pcm(req.text, voice)
+        chunks = stream_pcm(
+            req.text,
+            voice,
+            language=req.language,
+            previous=req.previous,
+            hint=req.hint,
+        )
         try:
             first = await chunks.__anext__()
         except Exception:  # noqa: BLE001 — no key / no credit: Gemini's Algenib

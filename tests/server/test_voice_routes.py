@@ -176,7 +176,7 @@ def test_elevenlabs_streams_when_keyed_and_falls_back_to_algenib(monkeypatch):
 
     used = []
 
-    async def eleven(text, voice=""):
+    async def eleven(text, voice="", **kw):
         used.append(("eleven", voice))
         yield b"\x01\x00" * 10
 
@@ -191,7 +191,7 @@ def test_elevenlabs_streams_when_keyed_and_falls_back_to_algenib(monkeypatch):
     assert r.status_code == 200 and r.content == b"\x01\x00" * 10
     assert used == [("eleven", "elevenlabs:")]  # Sergio's male voice, lower delay
 
-    async def broken(text, voice=""):
+    async def broken(text, voice="", **kw):
         raise RuntimeError("ElevenLabs 401: no credit")
         yield b""  # pragma: no cover
 
@@ -215,3 +215,37 @@ def test_elevenlabs_request_is_the_low_latency_one():
         and body["model_id"] == "eleven_flash_v2_5"
     )
     assert body["language_code"] == "es"
+
+
+def test_the_voice_reads_each_sentence_in_its_own_language(monkeypatch):
+    from openjarvis.speech.elevenlabs_voice import (
+        QUALITY_MODEL,
+        detect_language,
+        request,
+        speakable,
+    )
+
+    assert detect_language("Good evening, sir. The report is ready.") == "en"
+    assert detect_language("Bonjour monsieur, le rapport est prêt.") == "fr"
+    assert detect_language("Buonasera signore, il rapporto è pronto.") == "it"
+    assert detect_language("Olá senhor, o relatório está pronto.") == "pt"
+    assert detect_language("Guten Abend, der Bericht ist fertig.") == "de"
+    assert detect_language("Listo, señor.") == "es"
+    assert detect_language("OK") == "es"  # too short to tell: the default
+    # A short sentence takes the language of the one before, then the hint.
+    _, _, body = request("OK", "elevenlabs:", previous="Good evening, sir.")
+    assert body["language_code"] == "en"
+    _, _, body = request("OK", "elevenlabs:", hint="fr")
+    assert body["language_code"] == "fr"
+    _, _, body = request("Good evening, sir.", "elevenlabs:", previous="**Hola.**")
+    assert body["language_code"] == "en" and body["previous_text"] == "Hola."
+    _, _, body = request("Hola", "elevenlabs:", language="fr")
+    assert body["language_code"] == "fr"  # the caller knows best
+    spoken = speakable(
+        "## Resumen\n**4 pisos**, ver https://www.idealista.com/x y [tabla](https://x.com)."
+        "\n\n| A | B |\n|---|---|\n| 1 | 2 |\n- uno 😀"
+    )
+    assert spoken == "Resumen. 4 pisos, ver idealista.com y tabla. A, B. 1, 2. uno"
+    monkeypatch.setenv("SERGIO_VOZ_CALIDAD", "alta")
+    _, _, body = request("Good evening, sir.", "elevenlabs:")
+    assert body["model_id"] == QUALITY_MODEL and "language_code" not in body
