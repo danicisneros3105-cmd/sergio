@@ -44,7 +44,13 @@ def build_tools_routers() -> Tuple[APIRouter, APIRouter]:
 
     @tools_router.post("/{tool_name}/credentials")
     async def save_tool_credentials(tool_name: str, request: Request) -> Dict[str, Any]:
+        from openjarvis import tiers
         from openjarvis.core.credentials import save_credential
+
+        try:
+            tiers.require("custom_api")
+        except PermissionError as exc:
+            raise HTTPException(403, str(exc)) from exc
 
         body = await request.json()
         saved = []

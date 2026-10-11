@@ -37,7 +37,16 @@ git update-ref "refs/sergio/updates/bootstrap-$(date +%s)-$$" "$previous"
 git merge --ff-only "$target"
 bash scripts/actualizar-sergio.sh "$branch" "$requested"
 '@
-$bootstrap | & wsl.exe -d $Distribucion -- bash -ls -- $Repositorio $Rama $Commit
-if ($LASTEXITCODE -ne 0) {
+$temporary = Join-Path ([IO.Path]::GetTempPath()) ("sergio-update-" + [guid]::NewGuid().ToString("N") + ".sh")
+try {
+    [IO.File]::WriteAllText($temporary, $bootstrap.Replace("`r", "") + "`n", [Text.UTF8Encoding]::new($false))
+    $linuxPath = (& wsl.exe -d $Distribucion --exec wslpath -u $temporary).Trim()
+    if ($LASTEXITCODE -ne 0 -or -not $linuxPath) { throw "No pude convertir la ruta temporal para WSL." }
+    & wsl.exe -d $Distribucion --exec bash $linuxPath $Repositorio $Rama $Commit
+    $updateExit = $LASTEXITCODE
+} finally {
+    Remove-Item -LiteralPath $temporary -ErrorAction SilentlyContinue
+}
+if ($updateExit -ne 0) {
     throw "Actualización detenida. Revisa el error anterior; no se borraron tus cambios ni tu perfil."
 }

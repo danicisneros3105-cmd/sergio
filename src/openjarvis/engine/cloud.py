@@ -121,6 +121,7 @@ _DEEPSEEK_MODELS = [
 ]
 # Kimi (Moonshot). The live list comes from the API; this is the fallback.
 _KIMI_MODELS = [
+    "kimi-k3",
     "kimi-k2.6",
     "kimi-k2.5",
     "kimi-k2-turbo",

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useDevApi } from '../lib/dev-api';
 import { useNavigate } from 'react-router';
 import {
   Palette,
@@ -75,9 +76,8 @@ function ApiKeyInput({
   const [saved, setSaved] = useState(false);
   const [hasKey, setHasKey] = useState(false);
   const [error, setError] = useState('');
-  const desktopKeyStorage = isTauri();
-  const serverToolStorage = !desktopKeyStorage && !!toolName;
-  const canManage = desktopKeyStorage || serverToolStorage;
+  const desktopKeyStorage = !toolName;
+  const canManage = useDevApi();
 
   const refresh = useCallback(async () => {
     if (!canManage) {
@@ -149,10 +149,11 @@ function ApiKeyInput({
         value={value}
         onChange={e => setValue(e.target.value)}
         onBlur={() => { if (value.trim()) void save(value); }}
-        placeholder={hasKey ? (desktopKeyStorage ? 'Saved in secure storage' : 'Saved by local server') : placeholder}
+        placeholder={hasKey ? (desktopKeyStorage ? 'Saved by local server' : 'Saved by local server') : placeholder}
         disabled={!canManage}
         className="w-48 px-2 py-1 rounded text-xs"
         style={{ background: 'var(--color-bg)', border: '1px solid var(--color-border)', color: 'var(--color-text)' }} />
+      {!canManage && <small>API: requiere Dev</small>}
       {hasKey && (
         <button
           onClick={() => void remove()}
@@ -170,7 +171,7 @@ function ApiKeyInput({
 
 function CloudProviderStatus({ label, keyName }: { label: string; keyName: string }) {
   const [hasKey, setHasKey] = useState(false);
-  const desktopKeyStorage = isTauri();
+  const desktopKeyStorage = true;
 
   const refresh = useCallback(async () => {
     if (!desktopKeyStorage) {
@@ -302,6 +303,7 @@ export const MORE_PAGES = [
 ];
 
 export function SettingsPage() {
+  const customApiAllowed = useDevApi();
   const navigate = useNavigate();
   const settings = useAppStore((s) => s.settings);
   const updateSettings = useAppStore((s) => s.updateSettings);
@@ -626,8 +628,8 @@ export function SettingsPage() {
                     <option value="mlx">MLX</option>
                   </select>
                 </SettingRow>
-                <SettingRow label="API key (optional)" description="Only if your server requires one">
-                  <input type="password" value={customKey} onChange={(e) => { setCustomKey(e.target.value); setSrcMsg(''); }} placeholder="leave blank if none"
+                <SettingRow label="API key (optional) · Dev" description="Only if your server requires one; Dev or higher">
+                  <input disabled={!customApiAllowed} type="password" value={customKey} onChange={(e) => { setCustomKey(e.target.value); setSrcMsg(''); }} placeholder="leave blank if none"
                     className="text-sm px-3 py-1.5 rounded-lg outline-none w-56"
                     style={{ background: 'var(--color-bg-secondary)', color: 'var(--color-text)', border: '1px solid var(--color-border)' }} />
                 </SettingRow>
@@ -662,7 +664,8 @@ export function SettingsPage() {
           </Section>
 
           {/* API Keys */}
-          <Section title="API Keys">
+          <Section title="API Keys · Dev">
+            <SettingRow label="Moonshot / Kimi" description="Kimi K3"><ApiKeyInput keyName="MOONSHOT_API_KEY" placeholder="Moonshot API key" /></SettingRow>
             <SettingRow label="OpenAI" description="GPT-4, GPT-3.5, etc.">
               <ApiKeyInput keyName="OPENAI_API_KEY" placeholder="sk-..." />
             </SettingRow>

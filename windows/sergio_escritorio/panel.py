@@ -1145,6 +1145,13 @@ class ControlCenter(QWidget):
         self.colour_stack.setFixedHeight(40)
         col.addWidget(self.colour_stack)
 
+        fur = QComboBox()
+        for label, value in (("Suave", 0.3), ("Peludito", 0.65), ("Muy peludito", 1.0)):
+            fur.addItem(label, value)
+        fur.setCurrentIndex(min(range(3), key=lambda i: abs(fur.itemData(i) - SETTINGS["fur"])))
+        fur.currentIndexChanged.connect(lambda i: self._save(fur=fur.itemData(i)))
+        col.addLayout(_row("Pelaje del Node", fur))
+
         col.addWidget(_label("CARA", "section"))
         self.eye_seg = Segmented(
             EYE_STYLES, SETTINGS["eye_style"], lambda k: self._save(eye_style=k)

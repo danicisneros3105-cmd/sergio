@@ -15,7 +15,7 @@ from rich.markup import escape
 
 console = Console()
 
-KIMI_PREFERENCE = ("kimi-k2.6", "kimi-k2.5", "kimi-k2-turbo")
+KIMI_PREFERENCE = ("kimi-k3", "kimi-k2.6", "kimi-k2.5", "kimi-k2-turbo")
 GEMINI_MODEL = "gemini-3.8-flash"  # fast, sees images, thinking levels
 GEMINI_DEEP_MODEL = "gemini-3.1-pro-preview"  # for hard tasks (effort "profundo")
 KIMI_URLS = ("https://api.moonshot.ai/v1", "https://api.moonshot.cn/v1")
@@ -83,6 +83,12 @@ def configurar(
     kimi_key: str, gemini_key: str, modelo: str, tripo_key: str = ""
 ) -> None:
     """Save the keys, check them and pick Sergio's main cloud model."""
+    from openjarvis.tiers import require
+
+    try:
+        require("custom_api")
+    except PermissionError as exc:
+        raise click.ClickException(str(exc)) from exc
     from openjarvis.cli.phone_cmd import read_env, update_config, write_env
     from openjarvis.cli.service_cmd import env_file
     from openjarvis.core.paths import get_config_dir

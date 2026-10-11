@@ -883,3 +883,24 @@ class TestLightweightSystemEngineResolution:
         assert results == [backend] * 8
         assert runtime.memory_backend is backend
         assert runtime._owns_memory_backend is True
+
+
+def test_manual_worker_flood_is_bounded_and_releases_slots():
+    from openjarvis.server.agent_manager_routes import _start_managed_worker
+
+    state = SimpleNamespace()
+    release = threading.Event()
+    threads = []
+    try:
+        for n in range(8):
+            threads.append(
+                _start_managed_worker(state, lambda: release.wait(5), name=f"test-{n}")
+            )
+        with pytest.raises(RuntimeError, match="8 managed"):
+            _start_managed_worker(state, lambda: None, name="ninth")
+        assert len(state._managed_workers) == 8
+    finally:
+        release.set()
+        for thread in threads:
+            thread.join(2)
+    assert len(state._managed_workers) == 0

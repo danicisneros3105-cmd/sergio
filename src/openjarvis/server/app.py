@@ -564,6 +564,15 @@ def create_app(
     from openjarvis.server.tasks_routes import router as tasks_router
 
     app.include_router(tasks_router)
+    from openjarvis.server.nodes_routes import router as nodes_router
+
+    app.include_router(nodes_router)
+
+    @on_shutdown
+    async def _close_nodes() -> None:
+        node_store = getattr(app.state, "nodes_store", None)
+        if node_store is not None:
+            node_store.close()
     from openjarvis.server.tasks_routes import skills_router
 
     app.include_router(skills_router)

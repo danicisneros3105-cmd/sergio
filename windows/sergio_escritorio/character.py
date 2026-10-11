@@ -1,21 +1,12 @@
-"""Sergio's character, fully customisable (inspired by Meta's Muse).
+"""Original Nodes: procedural furry characters and the legacy light orb.
 
-Two styles:
-
-* ``orbe`` — a living glass orb of flowing colour (ChatGPT / Meta AI voice
-  orbs): blobs drift inside, it breathes, swells with your voice, swirls
-  while thinking and pulses while speaking.
-* ``muse`` — a soft little creature (like Muse's "Jolly"): a rounded body in
-  the colour you pick, dot eyes, a smile, rosy cheeks, and an accessory.
-
-Both blink, look at the pointer, smile when happy, sleep when left alone,
-and open their mouth when speaking. Pure QPainter, shared by the notch, the
-cursor companion and the control center.
+No images, model calls or competitor assets are used to draw a character.
 """
 
 from __future__ import annotations
 
 import math
+from functools import lru_cache
 
 from PySide6.QtCore import QPointF, QRectF, Qt
 from PySide6.QtGui import (
@@ -48,7 +39,7 @@ THEMES = {
     "Menta": ("#00b894", "#55efc4", "#dff9fb", "#1dd1a1"),
     "Grafito": ("#3a3a44", "#8e8e9a", "#e5e5ea", "#9a9aa6"),
 }
-STYLES = {"orbe": "Orbe de luz", "muse": "Personaje"}
+STYLES = {"orbe": "Orbe de luz", "muse": "Node peludito"}
 BODIES = {
     "Crema": "#f3e9d2",
     "Durazno": "#ffc9a8",
@@ -107,6 +98,7 @@ SETTINGS: dict = {
     "eye_style": "ovalos",
     "mouth": "ninguna",
     "accessory": "ninguno",
+    "fur": 0.65,
 }
 
 # Kept for code that only needs one representative colour per state.
@@ -129,6 +121,9 @@ def set_look(**look: object) -> None:
     """Style, body colour, eyes, mouth and accessory (unknown values ignored)."""
     if look.get("style") in STYLES:
         SETTINGS["style"] = look["style"]
+    fur = look.get("fur")
+    if isinstance(fur, (int, float)) and math.isfinite(fur):
+        SETTINGS["fur"] = max(0.0, min(1.0, float(fur)))
     body = look.get("body")
     if isinstance(body, str) and QColor(body).isValid():
         SETTINGS["body"] = QColor(body).name()
@@ -146,7 +141,7 @@ def apply_config(config: dict) -> None:
     set_look(
         **{
             k: config.get(k)
-            for k in ("style", "body", "eye_style", "mouth", "accessory")
+            for k in ("style", "body", "eye_style", "mouth", "accessory", "fur")
         }
     )
 
@@ -292,25 +287,31 @@ def _draw_orb(
 
 
 # -- the Muse-style buddy ----------------------------------------------------------
-def _body_path(centre: QPointF, rx: float, ry: float, t: float) -> QPainterPath:
-    """A soft gumdrop: superellipse, a little wider at the bottom, alive."""
-    path = QPainterPath()
+@lru_cache(maxsize=24)
+def _fur_geometry(fur: float) -> tuple[tuple[float, float, float], ...]:
     points = []
-    for i in range(72):
-        a = 2 * math.pi * i / 72
+    for i in range(180):
+        a = 2 * math.pi * i / 180
         ca, sa = math.cos(a), math.sin(a)
-        n = 2.25
-        x = math.copysign(abs(ca) ** (2 / n), ca)
-        y = math.copysign(abs(sa) ** (2 / n), sa)
-        # Rounder top, a little wider and flatter at the bottom, alive.
-        x *= (
-            1
-            + 0.08 * max(0.0, y)
-            - 0.06 * max(0.0, -y)
-            + 0.012 * math.sin(t * 2.2 + a * 3)
-        )
+        x = math.copysign(abs(ca) ** (2 / 2.25), ca)
+        y = math.copysign(abs(sa) ** (2 / 2.25), sa)
+        x *= 1 + 0.08 * max(0.0, y) - 0.06 * max(0.0, -y)
         y *= 0.94 if y > 0 else 1.0
-        points.append(QPointF(centre.x() + x * rx, centre.y() + y * ry))
+        tuft = 1 + fur * 0.09 * (0.5 + 0.5 * math.sin(i * 2.39996))
+        points.append((x * tuft, y * tuft, a * 3))
+    return tuple(points)
+
+
+def _body_path(centre: QPointF, rx: float, ry: float, t: float) -> QPainterPath:
+    """Cache static fur geometry; animate breathing without model or texture work."""
+    path = QPainterPath()
+    points = [
+        QPointF(
+            centre.x() + x * rx * (1 + 0.012 * math.sin(t * 2.2 + phase)),
+            centre.y() + y * ry,
+        )
+        for x, y, phase in _fur_geometry(round(SETTINGS["fur"] * 20) / 20)
+    ]
     path.addPolygon(QPolygonF(points))
     path.closeSubpath()
     return path
@@ -358,6 +359,13 @@ def _draw_muse(
     p.setBrush(shade)
     p.setPen(QPen(body.darker(135), max(0.6, r * 0.035)))
     p.drawPath(path)
+    # Asymmetric ears and a cream muzzle make this Sergio's own silhouette.
+    p.setPen(Qt.PenStyle.NoPen)
+    p.setBrush(body)
+    p.drawEllipse(centre + QPointF(-rx * 0.68, -ry * 0.82), r * 0.26, r * 0.38)
+    p.drawEllipse(centre + QPointF(rx * 0.67, -ry * 0.80), r * 0.24, r * 0.32)
+    p.setBrush(QColor(255, 242, 223, 145))
+    p.drawEllipse(centre + QPointF(0, ry * 0.12), rx * 0.62, ry * 0.50)
     if state == "thinking":
         sweep = QConicalGradient(centre, -t * 160)
         sweep.setColorAt(0.0, _alpha(glow, 0.0))

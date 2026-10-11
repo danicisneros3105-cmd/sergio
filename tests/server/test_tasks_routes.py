@@ -188,5 +188,27 @@ def test_a_plan_already_made_comes_back_at_once(monkeypatch):
 
     monkeypatch.setattr(brain, "ask", fake)
     first = plan_task("Busca vuelos a Lima, por favor")
-    again = plan_task("busca vuelos a lima por favor")
+    again = plan_task("Busca vuelos a Lima, por favor")
     assert len(calls) == 1 and again.get("cache") and not first.get("cache")
+
+
+def test_cache_preserves_filesystem_case_and_shell_punctuation(monkeypatch):
+    from openjarvis.coach import brain
+
+    calls = []
+
+    def fake(prompt, **kwargs):
+        calls.append(prompt)
+        return {"pasos": [{"paso": "Read file", "herramientas": ["file_read"]}]}
+
+    monkeypatch.setattr(brain, "ask", fake)
+    for text in [
+        "Lee /tmp/Project",
+        "Lee /tmp/project",
+        "echo a && echo b",
+        "echo a echo b",
+        "Lee /tmp/café",
+        "Lee /tmp/cafe\u0301",
+    ]:
+        plan_task(text)
+    assert len(calls) == 6

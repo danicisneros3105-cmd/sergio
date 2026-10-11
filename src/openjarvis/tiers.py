@@ -26,7 +26,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-PLANS = ("free", "pro", "teams", "enterprise")
+PLANS = ("free", "pro", "dev", "teams", "enterprise")
 PREFIX = "sergio-lic-v1"
 # Public key of the official license issuer (base64 of the 32 raw bytes).
 # Empty until the owner generates one with `sergio licencia generar-claves`.
@@ -43,6 +43,10 @@ class Plan:
 
 
 PLAN_INFO: Dict[str, Plan] = {
+    "dev": Plan(
+        "dev", "Dev", "Precio por configurar", "Integraciones para desarrolladores.",
+        ["Todo lo de Pro", "Agregar claves de API propias"],
+    ),
     "free": Plan(
         "free",
         "Free",
@@ -154,6 +158,7 @@ BUNDLES: Dict[str, Bundle] = {
 
 # The lowest plan that includes each paid feature.
 FEATURES: Dict[str, str] = {
+    "custom_api": "dev",
     "hosted_sync": "pro",
     "premium_skills": "pro",
     "early_updates": "pro",
@@ -165,6 +170,7 @@ FEATURES: Dict[str, str] = {
     "sla_support": "enterprise",
 }
 FEATURES_ES = {
+    "custom_api": "agregar claves de API propias",
     "hosted_sync": "sincronización alojada",
     "premium_skills": "skills y plugins premium",
     "early_updates": "actualizaciones anticipadas",

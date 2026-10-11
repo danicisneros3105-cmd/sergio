@@ -304,7 +304,7 @@ def instalar(vision: bool, gpu: bool = False) -> None:
                 "journalctl --user -u sergio -n 50[/yellow]"
             )
     console.print(
-        "\n[green]Listo.[/green] Sergio vive junto a tu cursor (sin ventanas):\n"
+        "\n[green]Instalación completada.[/green] Comprueba el personaje junto al cursor:\n"
         "  Di «Sergio, …»        y pídele lo que quieras\n"
         "  Ctrl+Espacio          hablarle sin decir su nombre\n"
         "  Ctrl+Alt+Fin          pausar / reanudar su control del mouse y teclado\n"

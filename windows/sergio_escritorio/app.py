@@ -4193,6 +4193,7 @@ def run(config: dict[str, Any]) -> None:
         "pregúntame por lo que ves en pantalla.",
         7,
     )
+    app.aboutToQuit.connect(orchestrator.close)
     app.aboutToQuit.connect(server.shutdown)
     app.exec()
 

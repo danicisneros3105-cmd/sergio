@@ -280,8 +280,30 @@ class AgentExecutor:
         result = None
         error_info = None
 
+        # Nodes execute their persisted pending goals, not an unrelated generic
+        # "continue" prompt. The output remains needs_review, never verified
+        # merely because the model produced text.
+        node_tasks = []
+        if agent.get("config", {}).get("node_id"):
+            pending_goals = self._manager.list_tasks(agent_id, status="pending")
+            recurring = [
+                t
+                for t in self._manager.list_tasks(agent_id)
+                if t.get("progress", {}).get("scheduled")
+                and t["status"] not in {"running", "pending"}
+            ]
+            recurring.sort(key=lambda t: t.get("progress", {}).get("last_run", 0))
+            node_tasks = pending_goals[-1:] if pending_goals else recurring[:1]
+            if node_tasks:
+                agent = {**agent, "config": dict(agent["config"])}
+                agent["config"]["instruction"] = "\n\n".join(
+                    t["description"] for t in node_tasks
+                )
+                for task in node_tasks:
+                    self._manager.update_task(task["id"], status="running")
         try:
-            result = self._run_with_retries(agent)
+            if not agent.get("config", {}).get("node_id") or node_tasks:
+                result = self._run_with_retries(agent)
         except AgentTickError as e:
             error_info = e
         finally:
@@ -294,6 +316,18 @@ class AgentExecutor:
 
             tick_duration = time.time() - tick_start
             self._finalize_tick(agent_id, result, error_info, tick_duration)
+            for task in node_tasks:
+                self._manager.update_task(
+                    task["id"],
+                    status="needs_review" if result and not error_info else "failed",
+                    progress={**task.get("progress", {}), "last_run": time.time()},
+                    findings=[
+                        {
+                            "text": (getattr(result, "content", "") or "")[:8000],
+                            "verified": False,
+                        }
+                    ],
+                )
 
             if self._trace_store:
                 self._save_trace(

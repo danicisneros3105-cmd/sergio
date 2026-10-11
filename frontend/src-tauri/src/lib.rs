@@ -2370,19 +2370,8 @@ async fn save_cloud_key(
     backend: tauri::State<'_, SharedBackend>,
     status: tauri::State<'_, SharedStatus>,
 ) -> Result<(), String> {
-    let key_value = key_value.trim().to_string();
-    secure_store_set(&key_name, &key_value)?;
-
-    // Tell only our own ready child to hot-reload its cloud engine.  Posting to
-    // a merely responsive port would disclose the raw key to a port squatter.
-    reload_cloud_keys_for_owned_backend(
-        backend.inner(),
-        status.inner(),
-        vec![(key_name, key_value)],
-    )
-    .await;
-
-    Ok(())
+    let _ = (key_name, key_value, backend, status);
+    Err("Guarda las API desde Nodes: el servidor verifica el plan Dev".to_string())
 }
 
 /// Get which cloud providers have keys configured (without exposing values).
@@ -2405,6 +2394,33 @@ async fn get_inference_source() -> Result<InferenceConfig, String> {
     Ok(read_inference_config())
 }
 
+// Read only the plan from a live server owned by this desktop. This request
+// carries no provider credential; saving custom endpoint keys fails closed.
+async fn require_dev_for_owned_backend(backend: &SharedBackend, status: &SharedStatus) -> Result<(), String> {
+    if !status.lock().await.server_ready {
+        return Err("El servidor debe estar listo para verificar Dev".into());
+    }
+    let mut manager = backend.lock().await;
+    let Some(handle) = manager.jarvis.as_mut() else {
+        return Err("No hay un servidor propio para verificar Dev".into());
+    };
+    if !matches!(handle.child.try_wait(), Ok(None)) {
+        return Err("El servidor propio ya no está activo".into());
+    }
+    let response = reqwest::Client::new()
+        .get(format!("http://127.0.0.1:{}/v1/nodes/capabilities", JARVIS_PORT))
+        .timeout(std::time::Duration::from_secs(5))
+        .send().await.map_err(|_| "No pude verificar el plan Dev".to_string())?;
+    if !response.status().is_success() {
+        return Err("No pude verificar el plan Dev".into());
+    }
+    let caps: serde_json::Value = response.json().await.map_err(|_| "Respuesta de licencia inválida".to_string())?;
+    if caps.get("custom_api").and_then(|v| v.as_bool()) != Some(true) {
+        return Err("Agregar API requiere plan Dev o superior".into());
+    }
+    Ok(())
+}
+
 /// Persist the chosen inference source. `host` is normalized to a bare base
 /// URL. For custom endpoints, an optional API key is stored in secure desktop
 /// storage under `<ENGINE>_API_KEY`. Applies on next app launch.
@@ -2416,7 +2432,12 @@ async fn set_inference_source(
     engine: Option<String>,
     api_key: Option<String>,
     pending: Option<bool>,
+    backend: tauri::State<'_, SharedBackend>,
+    status: tauri::State<'_, SharedStatus>,
 ) -> Result<(), String> {
+    if api_key.as_ref().is_some_and(|key| !key.trim().is_empty()) {
+        require_dev_for_owned_backend(backend.inner(), status.inner()).await?;
+    }
     let kind = match kind.as_str() {
         "ollama" => SourceKind::Ollama,
         "custom" => SourceKind::Custom,

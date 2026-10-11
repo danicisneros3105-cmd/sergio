@@ -54,6 +54,7 @@ export const NAV_ITEMS = [
   { path: '/', icon: MessageSquare, label: 'Chat' },
   { path: '/cowork', icon: Briefcase, label: 'Cowork' },
   { path: '/agents', icon: Network, label: 'Agent Swarm' },
+  { path: '/nodes', icon: UserRound, label: 'Nodes' },
   { path: '/salud', icon: HeartPulse, label: 'Salud' },
   { path: '/perfil', icon: UserRound, label: 'Perfil' },
   { path: '/settings', icon: Settings, label: 'Configuración' },
