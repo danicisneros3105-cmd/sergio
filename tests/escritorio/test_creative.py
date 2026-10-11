@@ -177,7 +177,10 @@ def test_quiet_voice_is_lifted():
         ("Sergio", "Sergio"),
         ("Sergio, abre Google y busca Nvidia", "Sergio, abre Google y busca Nvidia"),
         ("Subtítulos realizados por la comunidad de Amara.org", ""),
-        ("Sergio, abre Google y busca, entra al primer link, abre YouTube,", ""),
+        (
+            "Sergio, abre Google y busca, entra al primer link, abre YouTube,",
+            "Sergio, abre Google y busca, entra al primer link, abre YouTube,",
+        ),
         ("  ", ""),
     ],
 )

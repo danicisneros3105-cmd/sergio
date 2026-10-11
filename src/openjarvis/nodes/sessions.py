@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+__all__ = ["MCPSessions", "SessionBusy"]
+
 import threading
 from dataclasses import dataclass
 from typing import Any

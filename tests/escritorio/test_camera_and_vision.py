@@ -80,7 +80,7 @@ def test_no_vision_model_gives_a_clear_reason(monkeypatch):
         raise AssertionError("expected RuntimeError")
 
 
-def test_neural_voice_used_first_with_local_fallback(monkeypatch):
+def test_neural_voice_used_first_and_local_fallback_requires_opt_in(monkeypatch):
     from sergio_escritorio import neural_voice
     from sergio_escritorio.voice import SergioClient
 
@@ -101,11 +101,15 @@ def test_neural_voice_used_first_with_local_fallback(monkeypatch):
     )
     assert client.speak("hola") == b"RIFFneural:es-EC-LuisNeural" and server == []
 
-    def offline(text, voice):
+    def offline(text, voice, rate="+5%"):
         raise OSError("no internet")
 
     monkeypatch.setattr(neural_voice, "synthesize", offline)
     assert client.speak("hola") == b"RIFFneural:es-EC-LuisNeural"  # remembered
+    with pytest.raises(OSError, match="no internet"):
+        client.speak("buenas")
+    assert server == []  # A failed provider must not silently change identity.
+    client.allow_voice_fallback = True
     assert client.speak("buenas") == b"RIFFlocal"
 
 

@@ -48,7 +48,7 @@ export function SergioMark({ size = 22 }: { size?: number }) {
   );
 }
 
-// The same six sections as the notch on the desktop, and nothing more. The
+// The same seven sections as the notch on the desktop. The
 // other pages (data sources, logs, faces…) are reached from Configuración.
 export const NAV_ITEMS = [
   { path: '/', icon: MessageSquare, label: 'Chat' },
