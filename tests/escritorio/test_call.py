@@ -338,3 +338,48 @@ def test_speaker_waits_for_a_little_voice_before_starting():
     out[:] = bytes(960)
     spk._callback(out, 480, None, None)
     assert all(np.frombuffer(bytes(out), np.int16)[:240])
+
+
+def test_language_is_sent_and_silence_is_not_streamed():
+    """Always-on: after 2 s of silence the microphone stops streaming (one
+    «audio_end»), and the next words arrive with the 400 ms before them."""
+    now = [0.0]
+    line = FakeLine([json.dumps({"type": "ready", "model": "m"})])
+    call = _call(line, language="en", clock=lambda: now[0], idle_hang_up=float("inf"))
+    assert call.start()
+    assert line.json_sent()[0]["language"] == "en"
+    rng = np.random.default_rng(3)
+    voice = lambda n: (rng.normal(0, 4000, 160 * n)).astype(np.int16).tobytes()  # noqa: E731
+    quiet = b"\0" * FRAME_BYTES
+
+    call.feed_mic(voice(20))  # 200 ms of talking: streamed
+    sent_talking = len(line.audio_sent())
+    assert sent_talking > 0
+    for _ in range(100):  # 1 s of silence, still inside the gate: streamed
+        now[0] += 0.01
+        call.feed_mic(quiet)
+    assert len(line.audio_sent()) > sent_talking
+    for _ in range(300):  # 3 more seconds: the gate closes
+        now[0] += 0.01
+        call.feed_mic(quiet)
+    ends = [m for m in line.json_sent() if m.get("type") == "audio_end"]
+    assert len(ends) == 1
+    before = len(line.audio_sent())
+    for _ in range(200):  # 2 more seconds of silence: nothing goes out
+        now[0] += 0.01
+        call.feed_mic(quiet)
+    assert len(line.audio_sent()) == before
+    call.feed_mic(voice(40))  # he talks again: pre-roll + voice
+    assert len(line.audio_sent()) - before >= SEND_BYTES
+    assert len([m for m in line.json_sent() if m.get("type") == "audio_end"]) == 1
+    assert call.active  # never hung up on silence
+    call.hang_up()
+
+
+def test_live_instructions_lock_the_language():
+    from openjarvis.speech.gemini_live import live_instructions
+
+    text = live_instructions({"language": "en"})
+    assert "Hablas siempre en inglés" in text and "cámbialo solo si el señor te lo pide" in text
+    assert "habla SIEMPRE en español" in live_instructions({})
+    assert "no te interrumpas a ti mismo" in text

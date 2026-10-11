@@ -74,6 +74,9 @@ def load_config() -> dict[str, Any]:
     data.setdefault("effort", "auto")
     # Talk like a phone call (Gemini Live); "turnos" = one question at a time.
     data.setdefault("conversation", "llamada")
+    # Always on: the call stays open (reconnects by itself, never hangs up on
+    # silence); only Ctrl+Space (or the tile) puts it away until you call him.
+    data.setdefault("call_always", True)
     # Mental gym: an exercise you cannot skip every 12 minutes (real time).
     data.setdefault("gym", True)
     data.setdefault("gym_camera", True)  # look (locally) that you are there first
@@ -2797,6 +2800,8 @@ def run(config: dict[str, Any]) -> None:
 
     call_failed_at = [-1e9]
     call_error = [""]
+    call_paused = [False]  # you hung up yourself: no automatic reconnect
+    call_backoff = [20.0]
 
     def jpeg_of(image: Any, width: int) -> bytes:
         import io
@@ -2947,6 +2952,10 @@ def run(config: dict[str, Any]) -> None:
         ears.call = None
         voices.enabled = False
         bridge.call_on.emit(False)
+        if why == "colgaste":
+            call_paused[0] = True  # yours: it stays down until you call him
+        if config.get("call_always", True) and not call_paused[0]:
+            return  # the keeper reconnects in a moment, quietly
         if why == "cancelado":  # "Sergio" was not for him after all
             bridge.state.emit("idle")
         elif why == "silencio":
@@ -2958,7 +2967,12 @@ def run(config: dict[str, Any]) -> None:
         """A call set up exactly like the real ones (tools, voice, context)."""
         import datetime as _dt
 
+        from sergio_escritorio import idioma as _idioma
+        from sergio_escritorio.call import ALWAYS_ON, IDLE_HANG_UP
+
         options: dict[str, Any] = {
+            "language": str(config.get("language") or _idioma.system_language()),
+            "idle_hang_up": ALWAYS_ON if config.get("call_always", True) else IDLE_HANG_UP,
             "voice": client.voice,
             "personality": client.personality,
             "context": lambda: call_context(
@@ -3322,10 +3336,12 @@ def run(config: dict[str, Any]) -> None:
             return f"Olvidé la voz de {who}."
         return f"No tenía guardada la voz de {who or 'esa persona'}."
 
-    def start_call(prefill: bytes = b"", force: bool = False) -> bool:
+    def start_call(prefill: bytes = b"", force: bool = False, quiet: bool = False) -> bool:
         """Open a live call (from a worker thread). False = use turns."""
         if not force and config.get("conversation", "llamada") != "llamada":
             return False
+        if not quiet:
+            call_paused[0] = False  # you called him: always-on again
         if call_active():
             return True
         if not force and time.monotonic() - call_failed_at[0] < 20:
@@ -3342,9 +3358,11 @@ def run(config: dict[str, Any]) -> None:
             call_error[0] = session.error
             logging.warning("live call unavailable: %s", session.error)
             ears.mark(f"la llamada falló: {session.error[:80]}")
-            bridge.caption.emit(f"No pude abrir la llamada ({session.error[:90]}); te respondo por turnos.")
+            if not quiet:
+                bridge.caption.emit(f"No pude abrir la llamada ({session.error[:90]}); te respondo por turnos.")
             return False
         call_error[0] = ""
+        call_backoff[0] = 20.0
         ears.mark(f"llamada lista ({session.model})")
         bridge.call_on.emit(True)
         voices.enabled = bool(voice_book.people())  # who is talking, live
@@ -3400,6 +3418,28 @@ def run(config: dict[str, Any]) -> None:
         session = current_call[0]
         if session is not None:
             session.hang_up(why)
+
+    def keep_call() -> None:
+        """Always on: open the call at start-up and whenever it drops (a
+        network cut, Google rotating the session), with a growing pause after
+        failures (20 s, 40 s… up to 5 min). Silence costs nothing: the
+        microphone only streams while someone talks."""
+        time.sleep(8)  # let the rest of Sergio start first
+        while True:
+            try:
+                wanted = (
+                    config.get("call_always", True)
+                    and config.get("conversation", "llamada") == "llamada"
+                    and not call_paused[0]
+                )
+                if wanted and not call_active() and time.monotonic() - call_failed_at[0] > call_backoff[0]:
+                    if not start_call(force=True, quiet=True):
+                        call_backoff[0] = min(300.0, call_backoff[0] * 2)
+            except Exception:  # noqa: BLE001 — the keeper never dies
+                logging.exception("always-on call keeper")
+            time.sleep(3)
+
+    threading.Thread(target=keep_call, daemon=True, name="call-keeper").start()
 
     def talk_hotkey() -> bool:
         """Ctrl+Space: start or end the call (else push-to-talk)."""

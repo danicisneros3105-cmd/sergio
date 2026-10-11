@@ -81,7 +81,7 @@ _search_refused_at = -1e9  # Google Search grounding refused (free keys)
 
 INSTRUCTIONS = """\
 Eres {name}, el asistente personal de {owner} en su computadora con Windows, \
-al estilo de JARVIS. Hablas siempre en español. A tu dueño le dices «señor», \
+al estilo de JARVIS. Hablas siempre en {language}. A tu dueño le dices «señor», \
 como JARVIS a Tony Stark: respeto elegante con un brillo de ironía; a las \
 demás personas, por su nombre.
 
@@ -157,6 +157,13 @@ una frase y usa colgar.
 habla el señor)", sacadas de las voces que conoces. Si habla otra persona y no \
 te nombra ni te pregunta nada, seguramente conversa con el señor o con otros: \
 no respondas ni interrumpas. Al señor respóndele siempre.
+
+Idioma: habla SIEMPRE en {language}. No cambies de idioma por oír palabras \
+sueltas, nombres, canciones, la tele u otras personas hablando otro idioma; \
+cámbialo solo si el señor te lo pide expresamente («háblame en inglés»).
+Turnos: no te interrumpas a ti mismo. Si mientras hablas oyes tu propio eco, \
+ruido, la tele o un «ajá», termina tu frase; calla solo cuando el señor te \
+habla de verdad. Nunca repitas lo que ya dijiste.
 {personality}"""
 
 
@@ -166,12 +173,24 @@ def api_key() -> str:
     ).strip()
 
 
+LANGUAGE_NAMES = {
+    "es": "español",
+    "en": "inglés (English)",
+    "pt": "portugués (português)",
+    "fr": "francés (français)",
+    "de": "alemán (Deutsch)",
+    "it": "italiano",
+}
+
+
 def live_instructions(start: dict[str, Any], owner: str = "") -> str:
     context = str(start.get("context") or "").strip()
     if not context:
         context = time.strftime("hoy es %d/%m/%Y y son las %H:%M.")
     personality = str(start.get("personality") or "").strip()
+    code = str(start.get("language") or "es").split("-")[0].lower()
     return INSTRUCTIONS.format(
+        language=LANGUAGE_NAMES.get(code, LANGUAGE_NAMES["es"]),
         name=str(start.get("name") or "Sergio"),
         owner=owner or "tu dueño",
         context=context[:1500],
@@ -240,6 +259,10 @@ def live_config(
         extra["thinking_config"] = types.ThinkingConfig(thinking_budget=0)
     if proactive and hasattr(types, "ProactivityConfig"):
         extra["proactivity"] = types.ProactivityConfig(proactive_audio=True)
+    detection: dict[str, Any] = {}
+    start_low = getattr(getattr(types, "StartSensitivity", None), "START_SENSITIVITY_LOW", None)
+    if start_low is not None:
+        detection["start_of_speech_sensitivity"] = start_low
     return types.LiveConnectConfig(
         **extra,
         response_modalities=["AUDIO"],
@@ -248,12 +271,15 @@ def live_config(
         tools=tools or None,
         input_audio_transcription=types.AudioTranscriptionConfig(),
         output_audio_transcription=types.AudioTranscriptionConfig(),
-        # Quick turn-taking: he answers ~0.6 s after you stop talking.
+        # Quick turn-taking: he answers ~0.6 s after you stop talking. A
+        # less eager start of speech (low sensitivity, 300 ms of real voice)
+        # keeps his own echo, a cough or an «ajá» from cutting him off.
         realtime_input_config=types.RealtimeInputConfig(
             automatic_activity_detection=types.AutomaticActivityDetection(
+                **detection,
                 end_of_speech_sensitivity=types.EndSensitivity.END_SENSITIVITY_HIGH,
                 silence_duration_ms=450,
-                prefix_padding_ms=150,
+                prefix_padding_ms=300,
             )
         ),
         # Long calls: resume after Google rotates the connection, and keep
@@ -560,6 +586,13 @@ class LiveCall:
                 )
             elif kind == "text" and event.get("text"):
                 await session.send_realtime_input(text=str(event["text"])[:4000])
+            elif kind == "audio_end":
+                # The companion stopped streaming silence: tell Live the
+                # microphone paused, so the last words are answered at once.
+                try:
+                    await session.send_realtime_input(audio_stream_end=True)
+                except Exception:  # noqa: BLE001 — an older SDK: harmless
+                    pass
             elif kind == "note" and event.get("text"):
                 # Context the model should know but not answer ("now Ana is
                 # talking"): added to the conversation without ending a turn.

@@ -1,8 +1,10 @@
 """Talk with Sergio like a phone call (Gemini Live through Sergio's server).
 
-While a call is on, the microphone streams to the server without pauses and
-Sergio's voice streams back: he answers within a second, you can interrupt
-him mid-sentence just by talking, and he can see the camera or your screen.
+While a call is on, the microphone streams to the server and Sergio's voice
+streams back: he answers within a second, you can interrupt him mid-sentence
+just by talking, and he can see the camera or your screen. After two seconds
+of silence the microphone stops streaming (with 400 ms kept back, so the
+next word arrives whole): an always-on call does not send hours of silence.
 
 Laptop speakers sit right next to the microphone, so Sergio would hear
 himself and cut himself off. Every 10 ms of microphone audio goes through
@@ -32,6 +34,9 @@ RATE_OUT = 24_000  # Gemini's voice
 FRAME_BYTES = 320  # 10 ms at 16 kHz, int16 (what the echo canceller takes)
 SEND_BYTES = 3_200  # 100 ms of audio per message to the server
 IDLE_HANG_UP = 60.0  # seconds with nobody talking: the call ends by itself
+ALWAYS_ON = float("inf")  # an always-on call never hangs up on silence
+GATE_AFTER = 2.0  # seconds of silence before the microphone stops streaming
+PREROLL_FRAMES = 40  # 400 ms kept while gated: the first syllable is never lost
 VIDEO_EVERY = 1.0  # seconds between camera/screen frames while sharing
 REF_MAX = 60  # at most 600 ms of speaker reference waiting for the mic
 PREBUFFER = RATE_OUT * 2 * 150 // 1000  # 150 ms of his voice before he starts
@@ -241,6 +246,8 @@ class CallSession:
         echo: EchoCanceller | None = None,
         clock: Callable[[], float] = time.monotonic,
         idle_hang_up: float = IDLE_HANG_UP,
+        language: str = "es",
+        gate_after: float = GATE_AFTER,
     ) -> None:
         self.url = ws_url(server_url)
         self.voice = voice.split(":", 1)[-1] if voice.startswith("gemini:") else voice
@@ -264,6 +271,10 @@ class CallSession:
         self.echo = echo or EchoCanceller()
         self.clock = clock
         self.idle_hang_up = idle_hang_up
+        self.language = language
+        self.gate_after = gate_after
+        self._gated = False
+        self._preroll: list[bytes] = []
         self.model = ""
         self.active = False
         self.error = ""
@@ -297,6 +308,7 @@ class CallSession:
                         "type": "start",
                         "voice": self.voice,
                         "name": "Sergio",
+                        "language": self.language,
                         "personality": self.personality,
                         "context": self.context(),
                         "tools": [t.declaration() for t in self.tools.values()],
@@ -395,8 +407,11 @@ class CallSession:
                 level = 0.0
             if not talking and level < self._noise * 3:
                 self._noise = 0.98 * self._noise + 0.02 * max(level, 30.0)
-            if level > max(250.0, self._noise * 3):
+            voiced = level > max(250.0, self._noise * 3)
+            if voiced:
                 self._last_activity = self.clock()
+            if self._gate(clean, voiced or talking):
+                continue
             self._out.extend(clean)
             if len(self._out) >= SEND_BYTES:
                 data, self._out = bytes(self._out), bytearray()
@@ -407,6 +422,38 @@ class CallSession:
                     return
         if not self.speaker.talking:
             self.on_level(min(1.0, rms(chunk) / 2500.0))
+
+    def _gate(self, frame: bytes, live: bool) -> bool:
+        """True when this frame is held back (silence after *gate_after* s).
+
+        Voice (or his own speech, so you can still interrupt him) opens the
+        gate again: the 400 ms before it go first, then the live audio.
+        """
+        if live or self.clock() - self._last_activity < self.gate_after:
+            if self._gated:
+                self._gated = False
+                self._out.extend(b"".join(self._preroll))
+                self._preroll.clear()
+            return False
+        if not self._gated:
+            self._gated = True
+            self._flush_out()
+            try:
+                self._send(json.dumps({"type": "audio_end"}))
+            except Exception as exc:  # noqa: BLE001
+                self._lost(exc)
+        self._preroll.append(frame)
+        if len(self._preroll) > PREROLL_FRAMES:
+            del self._preroll[0]
+        return True
+
+    def _flush_out(self) -> None:
+        if self._out:
+            data, self._out = bytes(self._out), bytearray()
+            try:
+                self._send(data)
+            except Exception as exc:  # noqa: BLE001
+                self._lost(exc)
 
     def _echo_like(self, level: float, ref_level: float) -> bool:
         """While he talks, is this frame just his voice coming back?"""
@@ -567,6 +614,7 @@ class CallSession:
 
 
 __all__ = [
+    "ALWAYS_ON",
     "CallSession",
     "ClientTool",
     "EchoCanceller",
