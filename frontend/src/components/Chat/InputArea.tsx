@@ -19,6 +19,7 @@ import {
 } from '../../lib/chat-telemetry';
 import { MicButton } from './MicButton';
 import { useSpeech } from '../../hooks/useSpeech';
+import { useOnline } from '../../hooks/useOnline';
 import type {
   ChatMessage,
   MessageTelemetry,
@@ -27,22 +28,6 @@ import type {
   TokenUsage,
   ToolCallInfo,
 } from '../../types';
-
-// Follows the browser's online/offline events so the composer can say
-// what still works without a connection.
-function useOnline(): boolean {
-  const [online, setOnline] = useState(() => !isOffline());
-  useEffect(() => {
-    const update = () => setOnline(!isOffline());
-    window.addEventListener('online', update);
-    window.addEventListener('offline', update);
-    return () => {
-      window.removeEventListener('online', update);
-      window.removeEventListener('offline', update);
-    };
-  }, []);
-  return online;
-}
 
 // While Deep Research is toggled on, poll connected sources for sync
 // progress so we can surface "Searching over N items — sync in progress"

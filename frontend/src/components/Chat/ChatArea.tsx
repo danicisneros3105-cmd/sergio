@@ -15,14 +15,14 @@ import {
   MonitorSmartphone,
   CloudSun,
   MessageCircle,
-  Briefcase,
-  Network,
-  HeartPulse,
-  UserRound,
+  History,
+  Plus,
+  Search,
+  X,
 } from 'lucide-react';
 import { listConnectors } from '../../lib/connectors-api';
-import type { Conversation } from '../../types';
-import { relativeDay } from '../../lib/paper';
+import { PaperHead } from '../Paper/PaperPage';
+import { ConversationList } from '../Sidebar/ConversationList';
 
 function getGreeting(): string {
   const hour = new Date().getHours();
@@ -43,33 +43,6 @@ function prefill(text: string) {
   window.dispatchEvent(new CustomEvent('sergio:prefill', { detail: text }));
 }
 
-// «Marked» on the e-paper home: the other five sections, as document cards.
-const SECTIONS = [
-  { path: '/cowork', icon: Briefcase, label: 'Cowork', meta: 'Trabajos largos' },
-  { path: '/agents', icon: Network, label: 'Agent Swarm', meta: 'Subagentes a la vez' },
-  { path: '/salud', icon: HeartPulse, label: 'Salud', meta: 'Cuerpo, sueño, mente' },
-  { path: '/perfil', icon: UserRound, label: 'Perfil', meta: 'Quién es usted' },
-];
-
-// A conversation as a page thumbnail: its first lines, tiny, like a document.
-function ConversationThumb({ conversation }: { conversation: Conversation }) {
-  const lines = conversation.messages
-    .slice(0, 4)
-    .map((m) => stripThinkTags(m.content).slice(0, 140))
-    .filter(Boolean);
-  return (
-    <span className="paper-thumb" style={{ placeItems: 'start', padding: '10px 9px' }}>
-      <span className="block text-left" style={{ fontSize: 6.5, lineHeight: 1.45, color: 'var(--color-text-secondary)' }}>
-        {lines.map((line, i) => (
-          <span key={i} className="block mb-1.5" style={{ fontWeight: i % 2 === 0 ? 600 : 400 }}>
-            {line}
-          </span>
-        ))}
-      </span>
-    </span>
-  );
-}
-
 export function ChatArea() {
   const activeId = useAppStore((s) => s.activeId);
   const messages = useAppStore((s) => s.messages);
@@ -80,8 +53,11 @@ export function ChatArea() {
   const toggleReasoningPanel = useAppStore((s) => s.toggleReasoningPanel);
   const navigate = useNavigate();
   const conversations = useAppStore((s) => s.conversations);
-  const selectConversation = useAppStore((s) => s.selectConversation);
-  const recent = conversations.filter((c) => c.messages.length > 0).slice(0, 5);
+  const createConversation = useAppStore((s) => s.createConversation);
+  const selectedModel = useAppStore((s) => s.selectedModel);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyQuery, setHistoryQuery] = useState('');
+  const title = conversations.find((c) => c.id === activeId)?.title || 'Chat';
   const listRef = useRef<HTMLDivElement>(null);
   const shouldAutoScroll = useRef(true);
   const wasStreaming = useRef(false);
@@ -192,25 +168,83 @@ export function ChatArea() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center justify-end gap-1 pl-3 pr-14 pt-2 pb-1 shrink-0">
-        <button
-          onClick={toggleReasoningPanel}
-          className="mac-icon-btn"
-          title={`${reasoningPanelOpen ? 'Ocultar' : 'Mostrar'} el razonamiento paso a paso`}
-          aria-label="Razonamiento"
-          aria-pressed={reasoningPanelOpen}
-        >
-          <Brain size={16} strokeWidth={1.75} />
-        </button>
-        <button
-          onClick={toggleSystemPanel}
-          className="mac-icon-btn"
-          title={`${systemPanelOpen ? 'Ocultar' : 'Mostrar'} el panel del sistema (${navigator.platform.includes('Mac') ? '⌘' : 'Ctrl'}+I)`}
-          aria-label="Panel del sistema"
-        >
-          <PanelIcon size={16} strokeWidth={1.75} />
-        </button>
+      <div className="px-4 pt-6 shrink-0">
+        <div className="mx-auto" style={{ maxWidth: 1040 }}>
+          <PaperHead
+            title={messages.length ? title.slice(0, 48) : 'Chat'}
+            left={
+              <>
+                <button
+                  type="button"
+                  className="mac-icon-btn"
+                  onClick={() => setHistoryOpen(!historyOpen)}
+                  aria-label="Conversaciones"
+                  aria-pressed={historyOpen}
+                  title="Conversaciones"
+                >
+                  <History size={17} strokeWidth={1.4} />
+                </button>
+                <button
+                  type="button"
+                  className="mac-icon-btn"
+                  onClick={() => {
+                    if (messages.length) createConversation(selectedModel);
+                  }}
+                  aria-label="Nueva conversación"
+                  title="Nueva conversación"
+                >
+                  <Plus size={17} strokeWidth={1.4} />
+                </button>
+              </>
+            }
+            right={
+              <>
+                <button
+                  onClick={toggleReasoningPanel}
+                  className="mac-icon-btn"
+                  title={`${reasoningPanelOpen ? 'Ocultar' : 'Mostrar'} el razonamiento paso a paso`}
+                  aria-label="Razonamiento"
+                  aria-pressed={reasoningPanelOpen}
+                >
+                  <Brain size={17} strokeWidth={1.4} />
+                </button>
+                <button
+                  onClick={toggleSystemPanel}
+                  className="mac-icon-btn hidden lg:inline-grid"
+                  title={`${systemPanelOpen ? 'Ocultar' : 'Mostrar'} el panel del sistema (${navigator.platform.includes('Mac') ? '⌘' : 'Ctrl'}+I)`}
+                  aria-label="Panel del sistema"
+                >
+                  <PanelIcon size={17} strokeWidth={1.4} />
+                </button>
+              </>
+            }
+          />
+        </div>
       </div>
+
+      {historyOpen && (
+        <aside className="ws-drawer" aria-label="Conversaciones">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="paper-label flex-1">Conversaciones</span>
+            <button type="button" className="mac-icon-btn" aria-label="Cerrar" onClick={() => setHistoryOpen(false)}>
+              <X size={15} />
+            </button>
+          </div>
+          <label className="mac-field text-[13px] mb-2">
+            <Search size={13} />
+            <input
+              value={historyQuery}
+              onChange={(e) => setHistoryQuery(e.target.value)}
+              placeholder="Buscar"
+              className="flex-1 bg-transparent outline-none"
+              aria-label="Buscar conversaciones"
+            />
+          </label>
+          <div onClick={() => setHistoryOpen(false)}>
+            <ConversationList searchQuery={historyQuery} />
+          </div>
+        </aside>
+      )}
 
       <div
         ref={listRef}
@@ -219,9 +253,9 @@ export function ChatArea() {
       >
         {isEmpty ? (
           <div className="mac-rise text-center" style={{ ['--i' as string]: 0 }}>
-            <h1 className="paper-title" style={{ fontSize: 34 }}>
+            <h2 className="paper-title" style={{ fontSize: 26 }}>
               {getGreeting()}
-            </h1>
+            </h2>
             <p className="mt-1.5 text-[14px]" style={{ color: 'var(--color-text-secondary)' }}>
               ¿En qué le ayudo?
             </p>
@@ -279,43 +313,6 @@ export function ChatArea() {
             )}
           </div>
 
-          <div className="mac-rise mx-auto pt-9 pb-8" style={{ maxWidth: 820, ['--i' as string]: 3 }}>
-            <div className="flex items-end justify-between pb-2 mb-4" style={{ borderBottom: '1px solid var(--color-border)' }}>
-              <h2 className="paper-label">Secciones</h2>
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-5 gap-y-6">
-              {SECTIONS.map((s) => (
-                <button key={s.path} type="button" className="paper-card" onClick={() => navigate(s.path)}>
-                  <span className="paper-thumb" style={{ aspectRatio: '4 / 3' }}>
-                    <s.icon size={30} strokeWidth={1.1} />
-                  </span>
-                  <span>
-                    <span className="paper-name block">{s.label}</span>
-                    <span className="paper-meta block">{s.meta}</span>
-                  </span>
-                </button>
-              ))}
-            </div>
-
-            {recent.length > 0 && (
-              <>
-                <div className="flex items-end justify-between pb-2 mt-9 mb-4" style={{ borderBottom: '1px solid var(--color-border)' }}>
-                  <h2 className="paper-label">Abiertas recientemente</h2>
-                </div>
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-x-5 gap-y-6">
-                  {recent.map((c) => (
-                    <button key={c.id} type="button" className="paper-card" onClick={() => selectConversation(c.id)}>
-                      <ConversationThumb conversation={c} />
-                      <span>
-                        <span className="paper-name block truncate">{c.title || 'Conversación'}</span>
-                        <span className="paper-meta block">{relativeDay(c.updatedAt)}</span>
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
         </div>
       )}
     </div>

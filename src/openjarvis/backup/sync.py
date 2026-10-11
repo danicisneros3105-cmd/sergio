@@ -57,6 +57,8 @@ INCLUDE = (
     "reuniones/*",
     "profile/*",
     "cowork/trust.json",
+    "workspace/pages/*",
+    "workspace/files/*",
 )
 SECRET_FILES = ("sergio.env", "credentials.toml")
 NEVER = (
@@ -461,8 +463,22 @@ def sync(
     return report
 
 
+_NUDGE: Optional[Any] = None
+NUDGE_DELAY_S = 20.0  # a burst of edits becomes one sync
+RETRY_S = 60.0  # offline or unreachable: try again soon, not in an hour
+
+
+def nudge() -> None:
+    """Something worth backing up changed (e.g. a Workspace page): sync soon."""
+    if _NUDGE is not None:
+        _NUDGE.set()
+
+
 def start_periodic(config: Any) -> Optional[Any]:
-    """Sync every ``[sync] interval_minutes`` in the background (server only).
+    """Sync every ``[sync] interval_minutes`` in the background (server only),
+    and about 20 s after a change is nudged (``nudge()``), so edits reach the
+    encrypted target almost as they happen; when the network is down it keeps
+    retrying every minute until it is back.
 
     Needs this device to be unlocked once (``sergio sync configurar``).
     Returns a ``threading.Event``; set it to stop. None when not configured.
@@ -470,17 +486,35 @@ def start_periodic(config: Any) -> Optional[Any]:
     import logging
     import threading
 
+    global _NUDGE
     minutes = int(getattr(config.sync, "interval_minutes", 0) or 0)
     url = str(getattr(config.sync, "target", "") or "")
     if minutes <= 0 or not url or local_key() is None:
         return None
-    stop = threading.Event()
+    wake = threading.Event()
+
+    class _Stop(threading.Event):
+        def set(self) -> None:  # stopping also wakes the loop
+            super().set()
+            wake.set()
+
+    stop = _Stop()
+    _NUDGE = wake
     log = logging.getLogger(__name__)
 
     def loop() -> None:
         from openjarvis.backup.targets import open_target
 
-        while not stop.wait(max(1, minutes) * 60):
+        pending = False
+        while not stop.is_set():
+            timeout = RETRY_S if pending else max(1, minutes) * 60
+            if wake.wait(timeout):
+                wake.clear()
+                if stop.is_set() or stop.wait(NUDGE_DELAY_S):
+                    return
+                wake.clear()
+            if stop.is_set():
+                return
             key = local_key()
             if key is None:
                 return
@@ -488,9 +522,11 @@ def start_periodic(config: Any) -> Optional[Any]:
                 report = sync(
                     open_target(url), key, with_secrets=bool(config.sync.with_secrets)
                 )
+                pending = False
                 log.info("Sync: %s", report.summary())
-            except Exception as exc:  # noqa: BLE001 - try again next round
-                log.warning("Sync failed: %s", exc)
+            except Exception as exc:  # noqa: BLE001 - try again soon
+                pending = True
+                log.warning("Sync failed (will retry): %s", exc)
 
     threading.Thread(target=loop, name="sergio-sync", daemon=True).start()
     return stop
@@ -516,6 +552,7 @@ __all__ = [
     "memory_export",
     "memory_import",
     "merge_lines",
+    "nudge",
     "object_name",
     "seal",
     "status",

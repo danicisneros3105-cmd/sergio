@@ -1,13 +1,16 @@
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { Outlet, useNavigate } from 'react-router';
 import { ApprovalBell } from './ApprovalBell';
-import { Sidebar } from './Sidebar/Sidebar';
 import { SystemPulse } from './SystemPulse';
-import { useAppStore } from '../lib/store';
+import { StatusBar } from './Shell/StatusBar';
+import { Toolbar } from './Shell/Toolbar';
+import { QuickCapture } from './Shell/QuickCapture';
 import { checkHealth } from '../lib/api';
 
+// The e-paper shell: the device's status bar on top, the page in the middle
+// (title centred, content on a calm grid), the toolbar of thin icons at the
+// bottom. A matte grain is painted into the paper (index.css .paper-app).
 export function Layout() {
-  const sidebarOpen = useAppStore((s) => s.sidebarOpen);
   const [apiReachable, setApiReachable] = useState<boolean | null>(null);
 
   useEffect(() => {
@@ -25,29 +28,25 @@ export function Layout() {
   const navigate = useNavigate();
 
   return (
-    <div className="flex flex-col h-full w-full overflow-hidden relative">
+    <div className="paper-app flex flex-col h-full w-full overflow-hidden">
       <SystemPulse apiReachable={apiReachable} />
+      <StatusBar apiReachable={apiReachable} />
       <ApprovalBell />
 
-      {/* Health check banner */}
       {apiReachable === false && (
-        // Side padding clears the fixed sidebar toggle and approval bell.
         <div
-          className="flex items-center gap-3 pl-12 pr-12 py-2 text-sm shrink-0"
+          className="flex items-center gap-3 px-4 py-2 text-[13px] shrink-0"
           style={{
-            background: 'color-mix(in srgb, var(--color-error) 8%, transparent)',
-            borderBottom: '1px solid color-mix(in srgb, var(--color-error) 15%, transparent)',
+            background: 'color-mix(in srgb, var(--color-error) 7%, transparent)',
+            borderTop: '1px solid color-mix(in srgb, var(--color-error) 14%, transparent)',
+            borderBottom: '1px solid color-mix(in srgb, var(--color-error) 14%, transparent)',
             color: 'var(--color-text)',
           }}
         >
-          <span
-            className="w-1.5 h-1.5 rounded-full shrink-0"
-            style={{ background: 'var(--color-error)' }}
-          />
-          <span>No puedo conectar con Sergio. ¿Está encendido?</span>
+          <span>No puedo conectar con Sergio. Lo que escriba en el Workspace se guarda en este equipo.</span>
           <button
             onClick={() => navigate('/settings')}
-            className="text-sm underline cursor-pointer ml-auto shrink-0"
+            className="underline cursor-pointer ml-auto shrink-0"
             style={{ color: 'var(--color-accent)' }}
           >
             Cambiar dirección
@@ -55,20 +54,13 @@ export function Layout() {
         </div>
       )}
 
-      <div className="flex flex-1 min-h-0 relative z-10">
-        <Sidebar />
-        {sidebarOpen && (
-          <div
-            className="fixed inset-0 z-20 bg-black/40 md:hidden"
-            onClick={() => useAppStore.getState().setSidebarOpen(false)}
-          />
-        )}
-        <main className="flex-1 flex flex-col min-w-0 h-full relative overflow-hidden" style={{ background: 'transparent' }}>
-          <div className="flex-1 flex flex-col min-w-0 min-h-0 relative z-[2]">
-            <Outlet />
-          </div>
-        </main>
-      </div>
+      <main className="flex-1 min-h-0 relative">
+        <Suspense fallback={<div className="paper-page" aria-busy="true" />}>
+          <Outlet />
+        </Suspense>
+      </main>
+      <QuickCapture />
+      <Toolbar />
     </div>
   );
 }

@@ -604,6 +604,10 @@ def create_app(
     from openjarvis.server.desktop_routes import router as desktop_router
 
     app.include_router(desktop_router)
+    # The Workspace: local-first pages, files, search, export, share links.
+    from openjarvis.server.workspace_routes import router as workspace_router
+
+    app.include_router(workspace_router)
     # Sergio's Gemini voice (British gentleman) and ears.
     from openjarvis.server.voice_routes import router as voice_router
 

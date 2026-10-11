@@ -57,7 +57,7 @@ export function ConversationList({ searchQuery }: Props) {
             <button
               onClick={() => {
                 selectConversation(conv.id);
-                navigate('/');
+                navigate('/chat');
               }}
               className="flex-1 text-left pl-2.5 pr-1 py-1.5 min-w-0 cursor-pointer"
               aria-current={isActive ? 'true' : undefined}

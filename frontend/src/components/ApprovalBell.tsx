@@ -73,14 +73,18 @@ export function ApprovalBell() {
   };
 
   const count = approvals.length;
+  // Quiet when nothing waits for you: the bell only appears with something
+  // to approve (human in the loop), just under the status bar.
+  if (count === 0 && !open) return null;
 
   return (
-    <div ref={containerRef} className="fixed top-2 right-3 z-40">
+    <div ref={containerRef} className="fixed right-4 z-40" style={{ top: 'calc(var(--status-h) + 4px)' }}>
       {/* Bell trigger */}
       <button
         onClick={() => setOpen(o => !o)}
         className="mac-icon-btn relative"
-        title="Agent approvals"
+        title="Aprobaciones pendientes"
+        aria-label={`Aprobaciones pendientes: ${count}`}
         style={{
           color: count > 0 ? 'var(--color-text)' : 'var(--color-text-secondary)',
           background: open

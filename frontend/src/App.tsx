@@ -1,19 +1,23 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { lazy, useEffect, useState, useCallback, useRef } from 'react';
 import { Routes, Route } from 'react-router';
 import { Layout } from './components/Layout';
+import { HomePage } from './pages/HomePage';
 import { ChatPage } from './pages/ChatPage';
-import { DashboardPage } from './pages/DashboardPage';
-import { SettingsPage } from './pages/SettingsPage';
-import { GetStartedPage } from './pages/GetStartedPage';
-import { AgentsPage } from './pages/AgentsPage';
-import { DataSourcesPage } from './pages/DataSourcesPage';
-import { LogsPage } from './pages/LogsPage';
-import { ExtensionPage } from './pages/ExtensionPage';
-import { FacesPage } from './pages/FacesPage';
-import { ThinkPage } from './pages/ThinkPage';
-import { HealthPage } from './pages/HealthPage';
-import { ProfilePage } from './pages/ProfilePage';
-import { CoworkPage } from './pages/CoworkPage';
+// Everything else loads on demand: the first screen opens in milliseconds.
+const DashboardPage = lazy(() => import('./pages/DashboardPage').then((m) => ({ default: m.DashboardPage })));
+const SettingsPage = lazy(() => import('./pages/SettingsPage').then((m) => ({ default: m.SettingsPage })));
+const GetStartedPage = lazy(() => import('./pages/GetStartedPage').then((m) => ({ default: m.GetStartedPage })));
+const AgentsPage = lazy(() => import('./pages/AgentsPage').then((m) => ({ default: m.AgentsPage })));
+const DataSourcesPage = lazy(() => import('./pages/DataSourcesPage').then((m) => ({ default: m.DataSourcesPage })));
+const LogsPage = lazy(() => import('./pages/LogsPage').then((m) => ({ default: m.LogsPage })));
+const ExtensionPage = lazy(() => import('./pages/ExtensionPage').then((m) => ({ default: m.ExtensionPage })));
+const FacesPage = lazy(() => import('./pages/FacesPage').then((m) => ({ default: m.FacesPage })));
+const ThinkPage = lazy(() => import('./pages/ThinkPage').then((m) => ({ default: m.ThinkPage })));
+const HealthPage = lazy(() => import('./pages/HealthPage').then((m) => ({ default: m.HealthPage })));
+const ProfilePage = lazy(() => import('./pages/ProfilePage').then((m) => ({ default: m.ProfilePage })));
+const CoworkPage = lazy(() => import('./pages/CoworkPage').then((m) => ({ default: m.CoworkPage })));
+const WorkspacePage = lazy(() => import('./pages/WorkspacePage'));
+const CapturePage = lazy(() => import('./pages/CapturePage'));
 import { CommandPalette } from './components/CommandPalette';
 import { SetupScreen } from './components/SetupScreen';
 import { Toaster } from './components/ui/sonner';
@@ -176,7 +180,11 @@ export default function App() {
       <UpdateChecker />
       <Routes>
         <Route element={<Layout />}>
-          <Route index element={<ChatPage />} />
+          <Route index element={<HomePage />} />
+          <Route path="chat" element={<ChatPage />} />
+          <Route path="workspace" element={<WorkspacePage />} />
+          <Route path="workspace/:id" element={<WorkspacePage />} />
+          <Route path="capturar" element={<CapturePage />} />
           <Route path="dashboard" element={<DashboardPage />} />
           <Route path="settings" element={<SettingsPage />} />
           <Route path="get-started" element={<GetStartedPage />} />

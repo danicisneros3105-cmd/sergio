@@ -66,6 +66,13 @@ except ImportError as _exc:
     )
 
 try:
+    import openjarvis.tools.workspace_tool  # noqa: F401
+except ImportError as _exc:
+    _logging.getLogger(__name__).debug(
+        "Optional import skipped (openjarvis.tools.workspace_tool): %s", _exc
+    )
+
+try:
     import openjarvis.tools.clacky_task  # noqa: F401
 except ImportError as _exc:
     _logging.getLogger(__name__).debug(
