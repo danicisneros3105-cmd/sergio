@@ -21,14 +21,15 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import hashlib
+import json
 import re
 import threading
 import time
-import unicodedata
 from typing import Any, Callable
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 router = APIRouter(prefix="/v1/tasks", tags=["tasks"])
 skills_router = APIRouter(prefix="/v1/skills", tags=["skills"])
@@ -149,6 +150,7 @@ def validate_plan(data: Any, request: str) -> dict[str, Any]:
                 )[:200],
                 "importante": bool(RISKY.search(text)),
                 "inventadas": unknown,  # tools the model made up (removed)
+                "bloqueado": bool(unknown),
                 **_needs(raw, len(steps)),
                 **_fanout(raw),
             }
@@ -210,15 +212,8 @@ _cache_lock = threading.Lock()
 
 
 def _key(request: str, tools: list[str] | None, role: str) -> str:
-    text = unicodedata.normalize("NFKD", request.lower())
-    text = " ".join(
-        "".join(
-            c
-            for c in text
-            if not unicodedata.combining(c) and (c.isalnum() or c.isspace())
-        ).split()
-    )
-    return f"{text}|{','.join(sorted(tools or []))}|{role}"
+    payload = [request.strip(), tools, role]
+    return hashlib.sha256(json.dumps(payload, ensure_ascii=False).encode()).hexdigest()
 
 
 def plan_task(
@@ -237,7 +232,7 @@ def plan_task(
         from openjarvis.coach.brain import ask
     from openjarvis.coach.skills import rules_for
 
-    allowed = sorted(t for t in (tools or TOOLS) if t in TOOLS) or sorted(TOOLS)
+    allowed = sorted(t for t in (TOOLS if tools is None else tools) if t in TOOLS)
     prompt = PROMPT.format(
         max_steps=MAX_STEPS, tools=", ".join(allowed), request=request
     )
@@ -252,6 +247,7 @@ def plan_task(
         outside = [t for t in step["herramientas"] if t not in allowed]
         step["herramientas"] = [t for t in step["herramientas"] if t in allowed]
         step["inventadas"] += outside
+        step["bloqueado"] = bool(step["inventadas"]) or tools == []
     with _cache_lock:
         if not key:
             return plan
@@ -314,7 +310,7 @@ def design_agent(
 
 
 class PlanRequest(BaseModel):
-    request: str
+    request: str = Field(min_length=1, max_length=8000)
     tools: list[str] | None = None
     role: str = ""
 

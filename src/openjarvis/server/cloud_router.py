@@ -51,8 +51,15 @@ def _load_keys() -> dict[str, str]:
             if line and not line.startswith("#") and "=" in line:
                 k, v = line.split("=", 1)
                 keys[k.strip()] = v.strip()
-    # Process env can override (e.g. during testing)
+    file_keys = dict(keys)
+    nodes_authoritative = (
+        _CLOUD_ENV_FILE.exists()
+        and _CLOUD_ENV_FILE.read_text().startswith("# Sergio Nodes API\n")
+    )
+    # Legacy/manual files let the process environment override. Nodes edits
+    # remain authoritative across a desktop restart, including revocation.
     for name in (
+        "MOONSHOT_API_KEY",
         "OPENAI_API_KEY",
         "ANTHROPIC_API_KEY",
         "GEMINI_API_KEY",
@@ -64,11 +71,15 @@ def _load_keys() -> dict[str, str]:
         val = os.environ.get(name)
         if val:
             keys[name] = val
+    if nodes_authoritative:
+        keys.update(file_keys)
     return keys
 
 
 def get_provider(model: str) -> str | None:
     """Return the provider for a model name, or None if it's a local model."""
+    if model.lower().startswith("kimi-"):
+        return "moonshot"
     if any(model.startswith(p) for p in _OPENAI_PREFIXES):
         return "openai"
     if any(model.startswith(p) for p in _ANTHROPIC_PREFIXES):
@@ -371,6 +382,17 @@ async def stream_cloud(
 
     if provider == "openai":
         async for token in _stream_openai(model, messages, temperature, max_tokens):
+            yield token
+
+    elif provider == "moonshot":
+        async for token in _stream_openai(
+            model,
+            messages,
+            temperature,
+            max_tokens,
+            base_url="https://api.moonshot.ai/v1",
+            api_key_name="MOONSHOT_API_KEY",
+        ):
             yield token
 
     elif provider == "anthropic":

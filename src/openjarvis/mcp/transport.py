@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import queue
 import subprocess
 import threading
 import time
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from openjarvis.mcp.protocol import MCPRequest, MCPResponse
 
@@ -73,11 +74,13 @@ class StdioTransport(MCPTransport):
         command: List[str],
         *,
         response_timeout: float = 600.0,
+        env: Optional[Dict[str, str]] = None,
     ) -> None:
         if response_timeout <= 0:
             raise ValueError("response_timeout must be positive")
         self._command = command
         self._response_timeout = response_timeout
+        self._env = env
         self._process: Optional[subprocess.Popen[str]] = None
         self._stdout_queue: queue.Queue[Any] = queue.Queue(
             maxsize=self._STDOUT_QUEUE_SIZE
@@ -94,13 +97,28 @@ class StdioTransport(MCPTransport):
 
     def _start(self) -> None:
         """Start the subprocess."""
+        self._job = None
         self._process = subprocess.Popen(
             self._command,
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
+            env=self._env,
+            start_new_session=os.name != "nt",
+            creationflags=(getattr(subprocess, "CREATE_NO_WINDOW", 0) | 0x4)
+            if os.name == "nt"
+            else 0,
         )
+        if os.name == "nt":
+            from openjarvis.security.windows_job import WindowsJob
+
+            try:
+                self._job = WindowsJob(int(self._process._handle))
+            except BaseException:
+                self._process.kill()
+                self._process.wait(timeout=5)
+                raise
         self._reader_thread = threading.Thread(
             target=self._read_stdout,
             name="openjarvis-mcp-stdout",
@@ -132,7 +150,9 @@ class StdioTransport(MCPTransport):
 
         try:
             while not self._reader_stop.is_set():
-                line = stdout.readline()
+                line = stdout.readline(1_048_577)
+                if len(line) > 1_048_576:
+                    break  # reject oversized JSON before it enters the queue
                 if not line:
                     break
                 while not self._reader_stop.is_set():
@@ -167,10 +187,9 @@ class StdioTransport(MCPTransport):
         """Continuously read the child's stderr so its pipe never fills."""
         if proc.stderr is None:
             return
-        for line in proc.stderr:
-            line = line.rstrip("\n")
-            if line:
-                logger.debug("[%s stderr] %s", self._command[0], line)
+        while proc.stderr.read(4096):
+            # Drain bounded chunks without retaining or logging server secrets.
+            pass
 
     def send(self, request: MCPRequest) -> MCPResponse:
         """Write request as JSON line, read lines until the matching response.
@@ -241,7 +260,13 @@ class StdioTransport(MCPTransport):
                     self._stdout_queue.put_nowait(self._STDOUT_EOF)
                 except (queue.Empty, queue.Full):
                     pass
-            self._process.terminate()
+            from openjarvis.security.process_runner import terminate_tree
+
+            if self._job:
+                self._job.close()
+                self._job = None
+            else:
+                terminate_tree(self._process)
             try:
                 self._process.wait(timeout=5)
             except subprocess.TimeoutExpired:

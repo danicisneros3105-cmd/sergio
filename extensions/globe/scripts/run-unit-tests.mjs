@@ -1,5 +1,6 @@
 import { readdirSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
+import { availableParallelism } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -16,7 +17,9 @@ export function isCalibratedAllocationRuntime(version = process.versions.node) {
 /** Require the runtime on which allocation budgets were calibrated. */
 export function assertNode24AllocationRuntime(version = process.versions.node) {
   if (!isCalibratedAllocationRuntime(version)) {
-    throw new Error(`Allocation budgets require the calibrated Node 24 runtime; received ${version}`);
+    throw new Error(
+      `Allocation budgets require the calibrated Node 24 runtime; received ${version}`,
+    );
   }
   return version;
 }
@@ -41,9 +44,13 @@ export function discoverUnitTestFiles(root = process.cwd()) {
 /** Partition ordinary parallel tests from the two GC-bracketed probes. */
 export function buildUnitTestPlan(files) {
   const known = new Set(files);
-  const missingAllocationTests = ALLOCATION_TEST_FILES.filter((file) => !known.has(file));
+  const missingAllocationTests = ALLOCATION_TEST_FILES.filter(
+    (file) => !known.has(file),
+  );
   if (missingAllocationTests.length) {
-    throw new Error(`Missing allocation microbenchmarks: ${missingAllocationTests.join(', ')}`);
+    throw new Error(
+      `Missing allocation microbenchmarks: ${missingAllocationTests.join(', ')}`,
+    );
   }
   const allocationSet = new Set(ALLOCATION_TEST_FILES);
   return {
@@ -72,7 +79,13 @@ function runTests(args) {
 
 export function runUnitTests() {
   const plan = buildUnitTestPlan(discoverUnitTestFiles());
-  const parallelStatus = runTests(['--test', ...plan.parallel]);
+  // Keep the developer's workstation usable while the broad suite runs.
+  const concurrency = Math.min(4, availableParallelism());
+  const parallelStatus = runTests([
+    '--test',
+    `--test-concurrency=${concurrency}`,
+    ...plan.parallel,
+  ]);
   if (parallelStatus !== 0) return parallelStatus;
 
   // The GC-bracketed budgets are calibrated on Node 24 and are meaningless on
@@ -85,9 +98,9 @@ export function runUnitTests() {
       assertNode24AllocationRuntime();
     }
     console.warn(
-      `[unit] SKIPPED ${ALLOCATION_TEST_FILES.length} allocation microbenchmarks: `
-      + `budgets are calibrated for Node 24, running ${process.versions.node}. `
-      + 'Run under Node 24 (or set GEV_REQUIRE_ALLOCATION_GATE=1 to fail instead).',
+      `[unit] SKIPPED ${ALLOCATION_TEST_FILES.length} allocation microbenchmarks: ` +
+        `budgets are calibrated for Node 24, running ${process.versions.node}. ` +
+        'Run under Node 24 (or set GEV_REQUIRE_ALLOCATION_GATE=1 to fail instead).',
     );
     return 0;
   }
@@ -98,5 +111,7 @@ export function runUnitTests() {
   return 0;
 }
 
-const invokedPath = process.argv[1] ? pathToFileURL(path.resolve(process.argv[1])).href : '';
+const invokedPath = process.argv[1]
+  ? pathToFileURL(path.resolve(process.argv[1])).href
+  : '';
 if (import.meta.url === invokedPath) process.exitCode = runUnitTests();

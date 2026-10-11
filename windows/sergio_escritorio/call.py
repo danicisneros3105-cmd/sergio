@@ -20,6 +20,7 @@ from __future__ import annotations
 import base64
 import json
 import logging
+import re
 import threading
 import time
 from dataclasses import dataclass, field
@@ -145,8 +146,10 @@ class Speaker:
             # Jitter buffer: start a sentence only with ~150 ms ready (or when
             # no more is coming), so network hiccups never chop the words.
             ready = len(self._buf)
-            if not self._playing and ready and (
-                ready >= PREBUFFER or time.monotonic() - self._last_push > 0.2
+            if (
+                not self._playing
+                and ready
+                and (ready >= PREBUFFER or time.monotonic() - self._last_push > 0.2)
             ):
                 self._playing = True
             if self._playing:
@@ -238,6 +241,7 @@ class CallSession:
         on_state: Callable[[str], None] = lambda _s: None,
         on_caption: Callable[[str], None] = lambda _t: None,
         on_heard: Callable[[str], None] = lambda _t: None,
+        on_turn: Callable[[str, str], None] = lambda _heard, _said: None,
         on_level: Callable[[float], None] = lambda _v: None,
         on_end: Callable[[str], None] = lambda _why: None,
         video: Callable[[], tuple[bytes, str] | None] = lambda: None,
@@ -253,16 +257,17 @@ class CallSession:
         self.voice = voice.split(":", 1)[-1] if voice.startswith("gemini:") else voice
         if self.voice.lower() in ("predeterminada", "default"):
             self.voice = ""  # Gemini Live's own default voice
-        if self.voice.startswith(("es-", "en-")):  # an Edge voice: not for Live
-            self.voice = ""  # an Edge voice: Live uses its default
-        if ":" in self.voice:  # ElevenLabs reads turns; calls are Gemini Live
-            self.voice = "Algenib"  # the same deep, relaxed male voice
+        if ":" in self.voice or re.match(r"^[a-z]{2}-[A-Z]{2}-", self.voice):
+            raise ValueError(
+                "Esta voz requiere conversación por turnos; Gemini Live no conserva su identidad."
+            )
         self.personality = personality
         self.context = context
         self.tools = {t.name: t for t in tools or []}
         self.on_state = on_state
         self.on_caption = on_caption
         self.on_heard = on_heard
+        self.on_turn = on_turn
         self.on_level = on_level
         self.on_end = on_end
         self.video = video
@@ -301,7 +306,9 @@ class CallSession:
             try:
                 self._ws = connect(self.url, max_size=None, open_timeout=8)
             except TimeoutError as exc:
-                raise TimeoutError(f"no pude conectar con el servidor ({self.url}) en 8 s") from exc
+                raise TimeoutError(
+                    f"no pude conectar con el servidor ({self.url}) en 8 s"
+                ) from exc
             self._ws.send(
                 json.dumps(
                     {
@@ -531,7 +538,11 @@ class CallSession:
             self._said = []
             self._set_state("listening")
         elif kind == "turn_complete":
+            heard, said = "".join(self._heard).strip(), "".join(self._said).strip()
+            if heard and said:
+                self.on_turn(heard, said)
             self._heard = []
+            self._said = []
             if self._hang_up_after_turn:
                 threading.Thread(target=self._hang_up_when_quiet, daemon=True).start()
         elif kind == "tool":
@@ -558,7 +569,9 @@ class CallSession:
             result = f"Error: {exc}"
         try:
             self._send(
-                json.dumps({"type": "tool_result", "id": event.get("id"), "result": result})
+                json.dumps(
+                    {"type": "tool_result", "id": event.get("id"), "result": result}
+                )
             )
         except Exception as exc:  # noqa: BLE001
             self._lost(exc)

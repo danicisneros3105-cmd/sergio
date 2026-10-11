@@ -129,8 +129,10 @@ def test_no_live_model_means_no_call():
     assert "sin cuota" in call.error and line.closed and not call.active
 
 
-def test_edge_voices_and_the_default_use_gemini_lives_own_voice():
-    assert _call(FakeLine(), voice="es-ES-AlvaroNeural").voice == ""
+def test_external_voices_cannot_be_silently_replaced_in_calls():
+    for voice in ("es-ES-AlvaroNeural", "elevenlabs:customVoice"):
+        with pytest.raises(ValueError, match="por turnos"):
+            _call(FakeLine(), voice=voice)
     assert _call(FakeLine(), voice="gemini:Predeterminada").voice == ""
     assert _call(FakeLine(), voice="gemini:Charon").voice == "Charon"
 

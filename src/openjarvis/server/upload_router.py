@@ -2,13 +2,19 @@
 
 from __future__ import annotations
 
+import asyncio
 import io
+import json
 import logging
+import os
+import sys
+import tempfile
 import uuid
+from pathlib import Path
 from typing import List, Optional
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from openjarvis.connectors.store import KnowledgeStore
 from openjarvis.core.config import DEFAULT_CONFIG_DIR
@@ -22,6 +28,10 @@ router = APIRouter(prefix="/v1/connectors/upload", tags=["upload"])
 # ---------------------------------------------------------------------------
 
 _ALLOWED_EXTENSIONS = {".txt", ".md", ".csv", ".pdf", ".docx"}
+MAX_FILE_BYTES = 20 * 1024 * 1024
+MAX_BATCH_BYTES = 50 * 1024 * 1024
+MAX_FILES = 10
+MAX_TEXT_CHARS = 5 * 1024 * 1024
 
 
 def _chunk_text(text: str, max_chars: int = 1000) -> List[str]:
@@ -55,6 +65,16 @@ def _chunk_text(text: str, max_chars: int = 1000) -> List[str]:
     return final
 
 
+def _bounded_text(parts) -> str:
+    pages, length = [], 0
+    for part in parts:
+        length += len(part) + 2
+        if length > MAX_TEXT_CHARS:
+            raise HTTPException(413, "Extracted document text is too large")
+        pages.append(part)
+    return "\n\n".join(pages)
+
+
 def _extract_text_from_pdf(data: bytes) -> str:
     """Extract text from a PDF using pdfplumber or PyPDF2."""
     # Try pdfplumber first
@@ -62,8 +82,7 @@ def _extract_text_from_pdf(data: bytes) -> str:
         import pdfplumber  # type: ignore[import-untyped]
 
         with pdfplumber.open(io.BytesIO(data)) as pdf:
-            pages = [p.extract_text() or "" for p in pdf.pages]
-        return "\n\n".join(pages)
+            return _bounded_text(p.extract_text() or "" for p in pdf.pages)
     except ImportError:
         pass
 
@@ -72,8 +91,7 @@ def _extract_text_from_pdf(data: bytes) -> str:
         from PyPDF2 import PdfReader  # type: ignore[import-untyped]
 
         reader = PdfReader(io.BytesIO(data))
-        pages = [p.extract_text() or "" for p in reader.pages]
-        return "\n\n".join(pages)
+        return _bounded_text(p.extract_text() or "" for p in reader.pages)
     except ImportError:
         raise HTTPException(
             status_code=500,
@@ -90,7 +108,7 @@ def _extract_text_from_docx(data: bytes) -> str:
         from docx import Document  # type: ignore[import-untyped]
 
         doc = Document(io.BytesIO(data))
-        return "\n\n".join(p.text for p in doc.paragraphs if p.text.strip())
+        return _bounded_text(p.text for p in doc.paragraphs if p.text.strip())
     except ImportError:
         raise HTTPException(
             status_code=500,
@@ -113,13 +131,109 @@ def _get_store() -> KnowledgeStore:
 
 
 class PasteRequest(BaseModel):
-    title: str = ""
-    content: str
+    title: str = Field(default="", max_length=512)
+    content: str = Field(max_length=MAX_TEXT_CHARS)
 
 
 class IngestResponse(BaseModel):
     chunks_added: int
     source: str = "upload"
+
+
+def _validate_docx(data: bytes) -> None:
+    from zipfile import BadZipFile, ZipFile
+
+    try:
+        with ZipFile(io.BytesIO(data)) as archive:
+            entries = archive.infolist()
+            if (
+                len(entries) > 5000
+                or sum(item.file_size for item in entries) > MAX_BATCH_BYTES
+            ):
+                raise HTTPException(413, "Expanded document is too large")
+    except BadZipFile as exc:
+        raise HTTPException(400, "Document could not be parsed") from exc
+
+
+def _parse_upload(data: bytes, ext: str) -> str:
+    try:
+        if ext in (".txt", ".md", ".csv"):
+            try:
+                return data.decode("utf-8")
+            except UnicodeDecodeError:
+                return data.decode("latin-1")
+        if ext == ".pdf":
+            return _extract_text_from_pdf(data)
+        if ext == ".docx":
+            _validate_docx(data)
+            return _extract_text_from_docx(data)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(400, "Document could not be parsed") from exc
+    return ""
+
+
+def _store_documents(documents: List[tuple[str, str, str]]) -> int:
+    store = _get_store()
+    total = 0
+    try:
+        with store.transaction():
+            for text, doc_type, title in documents:
+                chunks = _chunk_text(text)
+                doc_id = str(uuid.uuid4())
+                for idx, chunk in enumerate(chunks):
+                    store.store(
+                        chunk,
+                        source="upload",
+                        doc_type=doc_type,
+                        doc_id=doc_id,
+                        title=title,
+                        chunk_index=idx,
+                    )
+                total += len(chunks)
+        return total
+    finally:
+        store.close()
+
+
+def _parse_upload_bounded(data: bytes, ext: str) -> str:
+    if ext not in {".pdf", ".docx"}:
+        return _parse_upload(data, ext)
+    from openjarvis.security.process_runner import run_bounded
+
+    if ext == ".docx":
+        _validate_docx(data)
+    # TemporaryDirectory permits reopening the file on Windows too.
+    with tempfile.TemporaryDirectory(prefix="sergio-document-") as folder:
+        path = Path(folder) / ("document" + ext)
+        path.write_bytes(data)
+        env = {
+            k: os.environ[k]
+            for k in ("PATH", "SystemRoot", "TEMP", "TMP")
+            if k in os.environ
+        }
+        env["PYTHONPATH"] = str(Path(__file__).resolve().parents[2])
+        result = run_bounded(
+            [sys.executable, "-m", "openjarvis.server.document_worker", str(path)],
+            timeout=30,
+            env=env,
+            max_output_bytes=MAX_TEXT_CHARS * 6 + 4096,
+            max_memory_bytes=768 * 1024 * 1024,
+        )
+    if result.timed_out:
+        raise HTTPException(408, "Document parsing timed out")
+    if result.truncated:
+        raise HTTPException(413, "Extracted document text is too large")
+    if result.returncode:
+        raise HTTPException(400, "Document parser exceeded its budget or failed")
+    try:
+        payload = json.loads(result.stdout)
+    except (ValueError, TypeError) as exc:
+        raise HTTPException(400, "Invalid document parser response") from exc
+    if "status" in payload:
+        raise HTTPException(payload["status"], payload["detail"])
+    return payload["text"]
 
 
 # ---------------------------------------------------------------------------
@@ -134,22 +248,11 @@ async def ingest_paste(body: PasteRequest) -> IngestResponse:
     if not text:
         raise HTTPException(status_code=400, detail="Content is empty")
 
-    store = _get_store()
-    doc_id = str(uuid.uuid4())
-    chunks = _chunk_text(text)
-
-    for idx, chunk in enumerate(chunks):
-        store.store(
-            chunk,
-            source="upload",
-            doc_type="paste",
-            doc_id=doc_id,
-            title=body.title or "Pasted text",
-            chunk_index=idx,
-        )
-
-    logger.info("Ingested %d chunks from pasted text (doc_id=%s)", len(chunks), doc_id)
-    return IngestResponse(chunks_added=len(chunks))
+    count = await asyncio.to_thread(
+        _store_documents,
+        [(text, "paste", body.title or "Pasted text")],
+    )
+    return IngestResponse(chunks_added=count)
 
 
 @router.post("/ingest/files", response_model=IngestResponse)
@@ -158,8 +261,13 @@ async def ingest_files(
     title: Optional[str] = Form(None),
 ) -> IngestResponse:
     """Ingest uploaded files into the knowledge store."""
-    store = _get_store()
-    total_chunks = 0
+    if len(files) > MAX_FILES:
+        raise HTTPException(413, f"At most {MAX_FILES} files are allowed")
+    if title and len(title) > 512:
+        raise HTTPException(400, "Title is too long")
+    documents = []
+    total_bytes = 0
+    total_text = 0
 
     for upload in files:
         filename = upload.filename or "untitled"
@@ -174,47 +282,22 @@ async def ingest_files(
                 detail=(f"Unsupported file type: {ext}. Allowed: {allowed}"),
             )
 
-        data = await upload.read()
-
-        # Parse content based on extension
-        if ext in (".txt", ".md", ".csv"):
-            try:
-                text = data.decode("utf-8")
-            except UnicodeDecodeError:
-                text = data.decode("latin-1")
-        elif ext == ".pdf":
-            text = _extract_text_from_pdf(data)
-        elif ext == ".docx":
-            text = _extract_text_from_docx(data)
-        else:
-            continue
+        data = await upload.read(MAX_FILE_BYTES + 1)
+        total_bytes += len(data)
+        if len(data) > MAX_FILE_BYTES or total_bytes > MAX_BATCH_BYTES:
+            raise HTTPException(413, "Upload is too large")
+        text = await asyncio.to_thread(_parse_upload_bounded, data, ext)
+        total_text += len(text)
+        if total_text > MAX_TEXT_CHARS:
+            raise HTTPException(413, "Extracted document text is too large")
 
         text = text.strip()
         if not text:
             continue
 
-        doc_id = str(uuid.uuid4())
-        doc_title = title or filename
-        chunks = _chunk_text(text)
+        documents.append((text, ext.lstrip("."), title or filename))
 
-        for idx, chunk in enumerate(chunks):
-            store.store(
-                chunk,
-                source="upload",
-                doc_type=ext.lstrip("."),
-                doc_id=doc_id,
-                title=doc_title,
-                chunk_index=idx,
-            )
-
-        total_chunks += len(chunks)
-        logger.info(
-            "Ingested %d chunks from file %s (doc_id=%s)",
-            len(chunks),
-            filename,
-            doc_id,
-        )
-
+    total_chunks = await asyncio.to_thread(_store_documents, documents)
     return IngestResponse(chunks_added=total_chunks)
 
 

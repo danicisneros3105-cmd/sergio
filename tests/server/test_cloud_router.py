@@ -47,3 +47,23 @@ async def test_stream_cloud_normalizes_openrouter_model_before_forwarding(
 
     assert tokens == ["ok"]
     assert captured["model"] == expected_forwarded_model
+
+
+@pytest.mark.asyncio
+async def test_kimi_k3_routes_to_moonshot_without_model_parity_claim(monkeypatch):
+    captured = {}
+
+    async def fake(model, messages, temperature, max_tokens, **kwargs):
+        captured.update(kwargs, model=model)
+        yield "token"
+
+    monkeypatch.setattr(cloud_router, "_stream_openai", fake)
+    assert cloud_router.get_provider("kimi-k3") == "moonshot"
+    tokens = [
+        token
+        async for token in cloud_router.stream_cloud(
+            "kimi-k3", [Message(role="user", content="hi")]
+        )
+    ]
+    assert tokens == ["token"] and captured["base_url"] == "https://api.moonshot.ai/v1"
+    assert captured["api_key_name"] == "MOONSHOT_API_KEY"

@@ -134,14 +134,14 @@ def test_tiles_typing_and_talk(qt):
 
 def test_sergio_is_not_personalised_only_agents_are(qt):
     panel, *_, saved, _ = _panel(qt)
-    # No look, colour, accessory, personality or voice pickers any more.
+    # No look, colour, accessory or personality pickers any more (the voice
+    # is still chosen in Settings: which voice reads, not who Sergio is).
     for gone in (
         "swatch_group",
         "style_seg",
         "body_group",
         "chip_group",
         "persona",
-        "voice",
         "size_seg",
     ):
         assert not hasattr(panel, gone), gone
@@ -216,6 +216,67 @@ def test_only_the_six_sections_in_the_users_language(qt):
         "Configuración",
     ]
     assert not hasattr(es, "world_list") and not hasattr(es, "guide_list")  # gone
+
+
+def test_custom_voice_id_is_saved_and_survives_reopening(qt):
+    from sergio_escritorio.panel import ControlCenter
+
+    panel, _, _, _, saved, _ = _panel(qt)
+    panel.custom_voice.setText("authorizedVoice123")
+    panel._set_custom_voice()
+    assert saved[-1]["voice"] == "elevenlabs:authorizedVoice123"
+    reopened = ControlCenter(panel.actions)
+    assert reopened.voice.currentData() == "elevenlabs:authorizedVoice123"
+    reopened.custom_voice.setText("../../other")
+    reopened._set_custom_voice()
+    assert reopened.actions.config["voice"] == "elevenlabs:authorizedVoice123"
+
+
+def test_cowork_and_swarm_show_observed_step_results(qt):
+    panel, *_ = _panel(qt)
+    panel._show_cowork(
+        {
+            "runs": [
+                {
+                    "id": "r1",
+                    "goal": "Revisar",
+                    "steps": [
+                        {
+                            "text": "Ejecutar tests",
+                            "status": "done",
+                            "result": "12 passed",
+                        }
+                    ],
+                    "waiting": [],
+                }
+            ]
+        }
+    )
+    assert "12 passed" in panel.cowork_output.toPlainText()
+    cancelled = []
+    panel.actions.swarm_details = lambda: [
+        {
+            "id": 7,
+            "title": "Auditor",
+            "state": "running",
+            "progress": 0.5,
+            "steps": [
+                {
+                    "text": "Tests",
+                    "status": "done",
+                    "where": "fondo",
+                    "result": "14 passed",
+                }
+            ],
+        }
+    ]
+    panel.actions.swarm_cancel = lambda tid: cancelled.append(tid) or True
+    panel.open()
+    panel.show_tab(panel.SWARM)
+    assert "50%" in panel.swarm_list.item(0).text()
+    assert "14 passed" in panel.swarm_output.toPlainText()
+    panel._cancel_swarm()
+    assert cancelled == [7]
 
 
 def test_cowork_starts_and_approves(qt):

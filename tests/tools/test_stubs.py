@@ -165,10 +165,10 @@ class TestBaseTool:
 
 
 class TestToolExecutor:
-    def test_default_deny_blocks_code_interpreter_without_declared_capability(self):
+    def test_default_deny_blocks_code_interpreter_with_explicit_capability(self):
         policy = _RecordingPolicy()
         tool = CodeInterpreterTool()
-        assert tool.spec.required_capabilities == []
+        assert tool.spec.required_capabilities == ["code:execute"]
         executor = ToolExecutor([tool], capability_policy=policy, agent_id="deny-all")
 
         result = executor.execute(

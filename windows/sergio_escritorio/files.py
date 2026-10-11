@@ -12,14 +12,16 @@ from __future__ import annotations
 
 import json
 import os
-import subprocess
 import sys
 import tempfile
+import threading
 import time
+import uuid
 from datetime import datetime
 from pathlib import Path
 
 from sergio_escritorio.media import resolve
+from sergio_escritorio.process_runner import run_bounded
 
 KINDS = {
     "Imágenes": {".jpg", ".jpeg", ".png", ".gif", ".webp", ".heic", ".bmp", ".svg"},
@@ -38,6 +40,19 @@ UNDO_DIR = (
 )
 MAX_FILES = 5000
 MAX_OUTPUT = 6000
+_FILE_LOCK = threading.RLock()
+
+
+def _save_moves(path: Path, moved: list[list[str]]) -> None:
+    tmp = path.with_suffix(".tmp")
+    try:
+        with tmp.open("w", encoding="utf-8") as handle:
+            json.dump(moved, handle, ensure_ascii=False, indent=1)
+            handle.flush()
+            os.fsync(handle.fileno())
+        tmp.replace(path)
+    finally:
+        tmp.unlink(missing_ok=True)
 
 
 def _kind(path: Path) -> str:
@@ -52,23 +67,40 @@ def _month(path: Path) -> str:
     return datetime.fromtimestamp(path.stat().st_mtime).strftime("%Y-%m")
 
 
-def _free(target: Path) -> Path:
+def _free(target: Path, reserved: set[str] | None = None) -> Path:
     """Never overwrite: 'foto.jpg' -> 'foto (2).jpg'."""
     candidate, n = target, 2
-    while candidate.exists():
+    while candidate.exists() or os.path.normcase(str(candidate)) in (reserved or set()):
         candidate = target.with_name(f"{target.stem} ({n}){target.suffix}")
         n += 1
     return candidate
 
 
+def _move_exclusive(source: Path, destination: Path) -> None:
+    """Reserve the destination atomically; never replace another file.
+
+    Both files are on the same filesystem. Failure leaves a recoverable log;
+    a crash between link and unlink leaves both names for undo to reconcile.
+    """
+    os.link(source, destination, follow_symlinks=False)
+    source.unlink()
+
+
 def organize(
     folder: str, by: str = "type", apply: bool = False, home: Path | None = None
 ) -> dict:
+    with _FILE_LOCK:
+        return _organize(folder, by, apply, home)
+
+
+def _organize(folder: str, by: str, apply: bool, home: Path | None) -> dict:
     root = resolve(folder, home)
     if not root.is_dir():
         raise ValueError(f"No encontré la carpeta {folder!r}.")
     files = [
-        p for p in sorted(root.iterdir()) if p.is_file() and not p.name.startswith(".")
+        p
+        for p in sorted(root.iterdir())
+        if p.is_file() and not p.is_symlink() and not p.name.startswith(".")
     ]
     files = [p for p in files if p.suffix.lower() not in {".lnk", ".ini"}][:MAX_FILES]
     group = _month if by == "month" else _kind
@@ -84,36 +116,64 @@ def organize(
     }
     if not apply or not plan:
         return result
-    moved = []
-    for src, dst in plan:
-        dst.parent.mkdir(exist_ok=True)
-        final = _free(dst)
-        src.rename(final)
-        moved.append([str(src), str(final)])
     UNDO_DIR.mkdir(parents=True, exist_ok=True)
-    log = UNDO_DIR / f"orden-{time.strftime('%Y%m%d-%H%M%S')}.json"
-    log.write_text(json.dumps(moved, ensure_ascii=False, indent=1), encoding="utf-8")
+    log = UNDO_DIR / (
+        f"orden-{time.strftime('%Y%m%d-%H%M%S')}-{time.time_ns():020d}-{uuid.uuid4().hex}.json"
+    )
+    moved: list[list[str]] = []
+    reserved: set[str] = set()
+    for src, dst in plan:
+        if dst.parent.is_symlink():
+            raise ValueError("La carpeta de destino no puede ser un enlace simbólico.")
+        dst.parent.mkdir(exist_ok=True)
+        final = _free(dst, reserved)
+        reserved.add(os.path.normcase(str(final)))
+        moved.append([str(src), str(final)])
+    # One durable plan before any move: O(N), rather than rewriting N times.
+    _save_moves(log, moved)
+    for src, final in moved:
+        _move_exclusive(Path(src), Path(final))
     result.update(applied=True, undo=str(log))
     return result
 
 
 def undo(log: str = "") -> int:
     """Put back the files of the last (or the given) organize run."""
+    with _FILE_LOCK:
+        return _undo(log)
+
+
+def _undo(log: str) -> int:
     logs = sorted(UNDO_DIR.glob("orden-*.json")) if not log else [Path(log)]
     if not logs:
         raise ValueError("No hay nada que deshacer.")
     path = logs[-1]
     moved = json.loads(path.read_text(encoding="utf-8"))
     back = 0
+    pending = []
     for original, now in reversed(moved):
+        if Path(now).exists() and Path(original).exists():
+            if os.path.samefile(now, original):
+                Path(now).unlink()
+                back += 1
+                continue
+            pending.append([original, now])
+            continue
         if Path(now).exists() and not Path(original).exists():
-            Path(now).rename(original)
+            try:
+                _move_exclusive(Path(now), Path(original))
+            except FileExistsError:
+                pending.append([original, now])
+                continue
             back += 1
             try:
                 Path(now).parent.rmdir()  # only if it is empty now
             except OSError:
                 pass
-    path.rename(path.with_suffix(".hecho"))
+    if pending:
+        _save_moves(path, list(reversed(pending)))
+    else:
+        path.rename(path.with_suffix(".hecho"))
     return back
 
 
@@ -124,31 +184,54 @@ def run_python(code: str, timeout: float = 120, workdir: str = "") -> dict:
         "w", suffix=".py", delete=False, encoding="utf-8", dir=folder, prefix="sergio-"
     ) as script:
         script.write(code)
-    flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
     python = Path(sys.executable)
-    if python.name.lower() == "pythonw.exe":  # pythonw has no stdout
+    if python.name.lower() == "pythonw.exe":
         python = python.with_name("python.exe")
     try:
-        done = subprocess.run(
+        done = run_bounded(
             [str(python), script.name],
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
             timeout=timeout,
             cwd=folder,
-            creationflags=flags,
-            check=False,
+            env=_execution_env(),
+            max_output_bytes=MAX_OUTPUT,
         )
         out, err, code_ = done.stdout, done.stderr, done.returncode
-    except subprocess.TimeoutExpired:
-        out, err, code_ = "", f"Se pasó de {timeout:g} s y lo detuve.", -1
+        if done.timed_out:
+            err += f"Se pasó de {timeout:g} s y lo detuve."
+    except (OSError, ValueError) as exc:
+        out, err, code_ = "", str(exc), -1
     return {
         "exit_code": code_,
-        "stdout": out[-MAX_OUTPUT:],
-        "stderr": err[-MAX_OUTPUT:],
+        "stdout": out,
+        "stderr": err,
         "script": script.name,
         "folder": str(folder),
+    }
+
+
+def _execution_env() -> dict[str, str]:
+    import os
+
+    keys = (
+        "PATH",
+        "HOME",
+        "USER",
+        "LANG",
+        "TERM",
+        "SystemRoot",
+        "SystemDrive",
+        "COMSPEC",
+        "PATHEXT",
+        "TEMP",
+        "TMP",
+        "USERPROFILE",
+        "LOCALAPPDATA",
+        "APPDATA",
+    )
+    return {
+        **{key: os.environ[key] for key in keys if key in os.environ},
+        "PYTHONIOENCODING": "utf-8",
+        "PYTHONUTF8": "1",
     }
 
 
@@ -174,25 +257,20 @@ def run_shell(
 ) -> dict:
     """Run a PowerShell command in the user's home and return its output."""
     folder = Path(workdir) if workdir else Path.home()
-    flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
     try:
-        done = subprocess.run(
+        done = run_bounded(
             argv or shell_command(command),
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
             timeout=timeout,
             cwd=folder,
-            creationflags=flags,
-            check=False,
+            env=_execution_env(),
+            max_output_bytes=MAX_OUTPUT,
         )
         out, err, code = done.stdout, done.stderr, done.returncode
-    except subprocess.TimeoutExpired:
-        out, err, code = "", f"Se pasó de {timeout:g} s y lo detuve.", -1
-    except OSError as exc:
+        if done.timed_out:
+            err += f"Se pasó de {timeout:g} s y lo detuve."
+    except (OSError, ValueError) as exc:
         out, err, code = "", str(exc), -1
-    return {"exit_code": code, "stdout": out[-MAX_OUTPUT:], "stderr": err[-MAX_OUTPUT:]}
+    return {"exit_code": code, "stdout": out, "stderr": err}
 
 
 __all__ = ["KINDS", "organize", "run_python", "run_shell", "shell_command", "undo"]

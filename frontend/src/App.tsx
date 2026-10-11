@@ -1,5 +1,6 @@
-import { lazy, useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef, lazy, Suspense } from 'react';
 import { Routes, Route } from 'react-router';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { Layout } from './components/Layout';
 import { ChatPage } from './pages/ChatPage';
 // Everything else loads on demand: the first screen opens in milliseconds.
@@ -27,6 +28,7 @@ import { useAppStore } from './lib/store';
 import { fetchModels, fetchServerInfo, fetchSavings, submitSavings, isTauri } from './lib/api';
 import { UpdateChecker } from './components/Desktop/UpdateChecker';
 import { track, hashId } from './lib/analytics';
+
 
 export default function App() {
   const [setupDone, setSetupDone] = useState(!isTauri());
@@ -180,6 +182,8 @@ export default function App() {
   return (
     <>
       <UpdateChecker />
+      <ErrorBoundary>
+      <Suspense fallback={<div role="status" aria-live="polite" className="p-6">Cargando espacio de trabajo…</div>}>
       <Routes>
         <Route element={<Layout />}>
           <Route index element={<ChatPage />} />
@@ -206,6 +210,8 @@ export default function App() {
           <Route path="perfil" element={<ProfilePage />} />
         </Route>
       </Routes>
+      </Suspense>
+      </ErrorBoundary>
       <Toaster position="bottom-right" />
       {commandPaletteOpen && <CommandPalette />}
     </>

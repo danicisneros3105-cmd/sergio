@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
+import pytest
+
 from openjarvis.agents._stubs import AgentContext
 from openjarvis.agents.native_openhands import NativeOpenHandsAgent
 from openjarvis.core.events import EventBus, EventType
@@ -541,6 +543,22 @@ class TestTruncation:
 
 
 class TestUrlExpansion:
+    @pytest.fixture(autouse=True)
+    def _isolated_dns(self, monkeypatch):
+        # HTTP is mocked below; DNS must also stay offline while preserving
+        # the production SSRF check instead of replacing it with "allow".
+        import socket
+
+        monkeypatch.setenv("OPENJARVIS_WEB_SEARCH_ENGINE", "duckduckgo")
+
+        monkeypatch.setattr(
+            socket,
+            "getaddrinfo",
+            lambda *_args, **_kwargs: [
+                (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", 443))
+            ],
+        )
+
     def test_no_url_returns_false(self):
         agent = NativeOpenHandsAgent(MagicMock(), "test-model")
         text, expanded = agent._expand_urls("What is 2+2?")

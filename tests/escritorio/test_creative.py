@@ -117,23 +117,31 @@ def _faces(monkeypatch, wired, seen, enrolled, owner=""):
     monkeypatch.setattr(desktop_tools, "_config_owner", lambda: "")
 
 
-@pytest.mark.parametrize(
-    ("seen", "enrolled", "owner", "approved", "says"),
-    [
-        (["Dani"], ["Dani"], "", True, "APROBADO: Dani"),
-        (["Ana"], ["Dani", "Ana"], "dani", False, "veo a Ana, no a Dani"),
-        (["Dani", "Ana"], ["Dani", "Ana"], "Dani", True, "APROBADO"),
-        ([""], ["Dani"], "", False, "veo a desconocido"),
-        ([], ["Dani"], "", False, "no veo ninguna cara"),
-        (["Ana"], ["Dani", "Ana"], "", False, "no conozco la cara"),
-        ([], [], "", False, "no conozco la cara"),
-    ],
-)
-def test_face_approval(monkeypatch, wired, seen, enrolled, owner, approved, says):
-    _faces(monkeypatch, wired, seen, enrolled, owner)
+@pytest.mark.parametrize("approved", [True, False])
+def test_face_approval_requires_desktop_consent(wired, approved):
+    seen = []
+
+    def decide(args):
+        seen.append(args)
+        return {"what": args["what"], "approved": approved}
+
+    wired.skills["owner_approval"] = decide
     result = FaceApprovalTool().execute(what="publicar el video")
     assert result.success is approved
-    assert says in result.content
+    assert seen == [{"what": "publicar el video"}]
+
+
+def test_face_approval_rejects_a_different_action(wired):
+    wired.skills["owner_approval"] = lambda args: {
+        "what": "otra acción",
+        "approved": True,
+    }
+    assert not FaceApprovalTool().execute(what="publicar el video").success
+
+
+def test_recognized_face_alone_is_not_consent(monkeypatch, wired):
+    _faces(monkeypatch, wired, ["Dani"], ["Dani"])
+    assert not FaceApprovalTool().execute(what="publicar").success
 
 
 def test_face_approval_without_camera(wired):
@@ -169,7 +177,12 @@ def test_quiet_voice_is_lifted():
         ("Sergio", "Sergio"),
         ("Sergio, abre Google y busca Nvidia", "Sergio, abre Google y busca Nvidia"),
         ("Subtítulos realizados por la comunidad de Amara.org", ""),
-        ("Sergio, abre Google y busca, entra al primer link, abre YouTube,", ""),
+        # A real multi-step command (the Whisper prompt is now a word list).
+        (
+            "Sergio, abre Google y busca, entra al primer link, abre YouTube,",
+            "Sergio, abre Google y busca, entra al primer link, abre YouTube,",
+        ),
+        ("Sergio, Google, YouTube, Blender, NVIDIA, WhatsApp, GitHub, Python", ""),
         ("  ", ""),
     ],
 )

@@ -269,6 +269,12 @@ def country_said(text: str) -> str:
 
 # -- interface texts ------------------------------------------------------------------
 TEXTS: dict[str, dict[str, str]] = {
+    "tab_nodes": {code: "Nodes" for code in UI_LANGUAGES},
+    "cancel_selected": {
+        "es": "Cancelar seleccionada", "en": "Cancel selected",
+        "pt": "Cancelar selecionada", "fr": "Annuler la sélection",
+        "de": "Auswahl abbrechen", "it": "Annulla selezionata",
+    },
     "tab_home": {"es": "Inicio", "en": "Home", "pt": "Início", "fr": "Accueil", "de": "Start", "it": "Home"},
     "tab_all": {"es": "Todo", "en": "All", "pt": "Tudo", "fr": "Tout", "de": "Alles", "it": "Tutto"},
     "tab_sergio": {"es": "Sergio", "en": "Sergio", "pt": "Sergio", "fr": "Sergio", "de": "Sergio", "it": "Sergio"},
@@ -280,7 +286,6 @@ TEXTS: dict[str, dict[str, str]] = {
     "tab_cowork": {"es": "Cowork", "en": "Cowork", "pt": "Cowork", "fr": "Cowork", "de": "Cowork", "it": "Cowork"},
     "tab_swarm": {"es": "Agent Swarm", "en": "Agent Swarm", "pt": "Agent Swarm", "fr": "Agent Swarm",
                   "de": "Agent Swarm", "it": "Agent Swarm"},
-    "tab_nodes": {"es": "Nodes", "en": "Nodes", "pt": "Nodes", "fr": "Nodes", "de": "Nodes", "it": "Nodes"},
     "d_health": {
         "es": "Su día, los datos del reloj y consejos",
         "en": "Your day, watch data and advice",

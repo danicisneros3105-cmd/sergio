@@ -19,10 +19,12 @@ from openjarvis.core.registry import ChannelRegistry  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
-def _register_sendblue():
-    if not ChannelRegistry.contains("sendblue"):
-        from openjarvis.channels.sendblue import SendBlueChannel
+def _register_sendblue(monkeypatch):
+    from openjarvis.channels.sendblue import SendBlueChannel
 
+    # Replies run in a background worker. Never send them to the live API.
+    monkeypatch.setattr(SendBlueChannel, "send", MagicMock(return_value=None))
+    if not ChannelRegistry.contains("sendblue"):
         ChannelRegistry.register_value("sendblue", SendBlueChannel)
 
 

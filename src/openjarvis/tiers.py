@@ -75,6 +75,7 @@ PLAN_INFO: Dict[str, Plan] = {
         [
             "Todo lo de Pro",
             "APIs propias en los Nodes (con su clave, guardada solo en su equipo)",
+            "Agregar claves de API propias de proveedores (Moonshot, Gemini…)",
             "Acceso a la API de Sergio para sus programas",
         ],
     ),
@@ -165,6 +166,7 @@ BUNDLES: Dict[str, Bundle] = {
 
 # The lowest plan that includes each paid feature.
 FEATURES: Dict[str, str] = {
+    "custom_api": "dev",
     "hosted_sync": "pro",
     "premium_skills": "pro",
     "early_updates": "pro",
@@ -177,6 +179,7 @@ FEATURES: Dict[str, str] = {
     "sla_support": "enterprise",
 }
 FEATURES_ES = {
+    "custom_api": "agregar claves de API propias",
     "hosted_sync": "sincronización alojada",
     "premium_skills": "skills y plugins premium",
     "early_updates": "actualizaciones anticipadas",

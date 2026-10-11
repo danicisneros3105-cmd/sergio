@@ -53,7 +53,14 @@ ACTIONS = (
     "phone_call",
     "contact",
 )
-MEDIA_KEYS = {"volumeup", "volumedown", "volumemute", "playpause", "nexttrack", "prevtrack"}
+MEDIA_KEYS = {
+    "volumeup",
+    "volumedown",
+    "volumemute",
+    "playpause",
+    "nexttrack",
+    "prevtrack",
+}
 TASKS = ("operate", "message", "phone_call", "contact")  # done by the operator
 
 
@@ -121,7 +128,9 @@ def best_element(query: str, elements: list[dict]) -> dict | None:
             continue
         if name == want:
             score = 100.0
-        elif name.startswith(want + " ") or (len(name) >= 3 and want.startswith(name + " ")):
+        elif name.startswith(want + " ") or (
+            len(name) >= 3 and want.startswith(name + " ")
+        ):
             score = 80.0
         elif f" {want} " in f" {name} ":
             score = 70.0
@@ -169,6 +178,8 @@ class Controller:
         sleep: Callable[[float], None] = time.sleep,
         camera: Callable[[], bytes] | None = None,
         diag: Callable[[], dict] | None = None,
+        approve: Callable[[str], bool] | None = None,
+        strict_permissions: bool = True,
     ) -> None:
         self.backend = backend
         self.camera = camera  # returns a JPEG of the webcam, or None
@@ -188,6 +199,8 @@ class Controller:
         # Tasks done like a person (operate, message, phone_call, contact).
         self.on_task: Callable[[str, dict], str] = lambda _k, _a: "operator unavailable"
         self.enabled = True
+        self.approve = approve
+        self.strict_permissions = strict_permissions
         self._elements: dict[int, tuple[int, int]] = {}
         self._lock = threading.Lock()
         self._on_activity = on_activity or (lambda _msg: None)
@@ -286,7 +299,17 @@ class Controller:
         except (KeyError, TypeError, ValueError) as exc:
             raise ActionError("Give 'element' or both 'x' and 'y'.") from exc
 
+    def _confirm(self, action: dict) -> None:
+        prompt = json.dumps(action, ensure_ascii=False, sort_keys=True)
+        try:
+            approved = self.approve is not None and self.approve(prompt) is True
+        except Exception as exc:
+            raise PermissionError("No se pudo solicitar autorización.") from exc
+        if not approved or not self.enabled:
+            raise PermissionError("Acción no autorizada o control en pausa.")
+
     def act(self, action: dict) -> str:
+        action = dict(action)
         if not self.enabled:
             raise PermissionError(
                 "Screen control is paused by the user (Ctrl+Alt+End to resume)."
@@ -296,6 +319,18 @@ class Controller:
             raise ActionError(
                 f"Unknown action {kind!r}. Use one of: {', '.join(ACTIONS)}"
             )
+        # In professional mode every mutation is approved at this boundary.
+        # Preview and pointing do not change user data; lookups use GET routes.
+        strict_confirmed = self.strict_permissions and kind not in {
+            "wait",
+            "move",
+            "scroll",
+            "point",
+        }
+        if kind == "organize" and not action.get("apply"):
+            strict_confirmed = False
+        if strict_confirmed:
+            self._confirm(action)
         b = self.backend
         before = self._front() if kind in self.SETTLE else ""
         if kind in ("click", "double_click", "right_click", "move"):
@@ -318,9 +353,15 @@ class Controller:
                 raise ActionError(f"No veo «{query}» en la ventana de enfrente.")
             how = str(action.get("button") or "left")
             self.on_click(int(found["x"]), int(found["y"]), "click")
-            b.click(int(found["x"]), int(found["y"]), "right" if how == "right" else "left",
-                    2 if how == "double" else 1)
-            result = f"clicked {found.get('name', query)!r} at ({found['x']}, {found['y']})"
+            b.click(
+                int(found["x"]),
+                int(found["y"]),
+                "right" if how == "right" else "left",
+                2 if how == "double" else 1,
+            )
+            result = (
+                f"clicked {found.get('name', query)!r} at ({found['x']}, {found['y']})"
+            )
         elif kind == "type":
             text = str(action.get("text") or "")
             if not text or len(text) > MAX_TEXT:
@@ -383,6 +424,8 @@ class Controller:
             script = str(action.get("script") or "")
             if not script.strip() or len(script) > 60_000:
                 raise ActionError("'script' is Blender Python (bpy) code.")
+            if not strict_confirmed:
+                self._confirm(action)
             if action.get("hands"):  # shape it with your hands first: holograms
                 self.on_hands("holo")
             result = "Blender opened with script " + b.blender(script)
@@ -391,6 +434,8 @@ class Controller:
             if not folder:
                 raise ActionError("'target' is the folder to organise.")
             by = "month" if action.get("by") == "month" else "type"
+            if action.get("apply") and not strict_confirmed:
+                self._confirm(action)
             plan = b.organize(folder, by, bool(action.get("apply")))
             groups = ", ".join(f"{k}: {v}" for k, v in plan["groups"].items())
             verb = "moved" if plan["applied"] else "would move (preview, nothing moved)"
@@ -404,6 +449,8 @@ class Controller:
             if not code.strip() or len(code) > 60_000:
                 raise ActionError("'code' is the Python program to run.")
             timeout = min(max(float(action.get("seconds") or 120), 5), 900)
+            if not strict_confirmed:
+                self._confirm(action)
             ran = b.python(code, timeout)
             result = (
                 f"exit code {ran['exit_code']} (script {ran['script']})\n"
@@ -432,6 +479,8 @@ class Controller:
             if not command.strip() or len(command) > 20_000:
                 raise ActionError("'command' is the PowerShell command to run.")
             timeout = min(max(float(action.get("seconds") or 120), 5), 900)
+            if not strict_confirmed:
+                self._confirm(action)
             ran = b.shell(command, timeout)
             result = (
                 f"exit code {ran['exit_code']}\n"
@@ -532,13 +581,25 @@ def make_server(
             except Exception as exc:  # noqa: BLE001
                 self._send(500, {"ok": False, "error": str(exc)})
 
+        def _read_json(self, limit: int) -> dict:
+            try:
+                length = int(self.headers.get("Content-Length") or 0)
+            except ValueError as exc:
+                raise ActionError("Invalid Content-Length") from exc
+            if length < 0 or length > limit:
+                raise ActionError("Request body is too large")
+            self.connection.settimeout(15)
+            body = json.loads(self.rfile.read(length) or b"{}")
+            if not isinstance(body, dict):
+                raise ActionError("Send a JSON object")
+            return body
+
         def do_POST(self) -> None:  # noqa: N802
             if not self._authorised():
                 return
             if self.path == "/selftest":
                 try:
-                    length = min(int(self.headers.get("Content-Length") or 0), 4_000)
-                    body = json.loads(self.rfile.read(length) or b"{}")
+                    body = self._read_json(4_000)
                     test = controller.selftest
                     if test is None:
                         self._send(404, {"ok": False, "error": "no self-test"})
@@ -549,13 +610,27 @@ def make_server(
                 return
             if self.path == "/skill":
                 try:
-                    length = min(int(self.headers.get("Content-Length") or 0), 16_000)
-                    body = json.loads(self.rfile.read(length) or b"{}")
+                    body = self._read_json(16_000)
                     skill = controller.skills.get(str(body.get("name") or ""))
                     if skill is None:
                         self._send(404, {"ok": False, "error": "unknown skill"})
                     else:
-                        args = body.get("args") if isinstance(body.get("args"), dict) else {}
+                        args = (
+                            body.get("args")
+                            if isinstance(body.get("args"), dict)
+                            else {}
+                        )
+                        if (
+                            controller.strict_permissions
+                            and body.get("name") != "owner_approval"
+                        ):
+                            controller._confirm(
+                                {
+                                    "action": "skill",
+                                    "name": body.get("name"),
+                                    "args": args,
+                                }
+                            )
                         self._send(200, {"ok": True, "result": skill(args)})
                 except PermissionError as exc:
                     self._send(423, {"ok": False, "error": str(exc)})
@@ -566,8 +641,7 @@ def make_server(
                 self._send(404, {"ok": False, "error": "not found"})
                 return
             try:
-                length = min(int(self.headers.get("Content-Length") or 0), 128_000)
-                action = json.loads(self.rfile.read(length) or b"{}")
+                action = self._read_json(128_000)
                 if not isinstance(action, dict):
                     raise ActionError("Send a JSON object.")
                 self._send(200, {"ok": True, "result": controller.act(action)})
@@ -581,4 +655,11 @@ def make_server(
     return ThreadingHTTPServer((host, port), Handler)
 
 
-__all__ = ["ACTIONS", "ActionError", "Backend", "Controller", "ShotScale", "make_server"]
+__all__ = [
+    "ACTIONS",
+    "ActionError",
+    "Backend",
+    "Controller",
+    "ShotScale",
+    "make_server",
+]

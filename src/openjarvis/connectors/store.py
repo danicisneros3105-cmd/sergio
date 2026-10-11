@@ -14,9 +14,10 @@ import re
 import sqlite3
 import time
 import uuid
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Union
+from typing import Any, Dict, Iterable, Iterator, List, Optional, Union
 
 from openjarvis.core.events import EventType, get_event_bus
 from openjarvis.core.registry import MemoryRegistry
@@ -172,6 +173,7 @@ class KnowledgeStore(MemoryBackend):
         self._conn = sqlite3.connect(self._db_path, check_same_thread=False)
         self._conn.row_factory = sqlite3.Row
         self._setup()
+        self._transaction_events: list[dict[str, Any]] | None = None
 
     def __enter__(self) -> "KnowledgeStore":
         return self
@@ -212,6 +214,28 @@ class KnowledgeStore(MemoryBackend):
     # ------------------------------------------------------------------
     # MemoryBackend interface
     # ------------------------------------------------------------------
+
+    @contextmanager
+    def transaction(self) -> Iterator[None]:
+        """Commit a batch once; publish provenance only after a successful commit.
+
+        A store instance belongs to one worker. Nested batches are rejected.
+        """
+        if self._transaction_events is not None:
+            raise RuntimeError("Nested knowledge transactions are not supported")
+        self._conn.execute("BEGIN IMMEDIATE")
+        self._transaction_events = []
+        try:
+            yield
+            self._conn.commit()
+            events = self._transaction_events
+        except BaseException:
+            self._conn.rollback()
+            raise
+        finally:
+            self._transaction_events = None
+        for event in events:
+            get_event_bus().publish(EventType.MEMORY_STORE, event)
 
     def store(  # type: ignore[override]
         self,
@@ -307,7 +331,8 @@ class KnowledgeStore(MemoryBackend):
                 time.time(),
             ),
         )
-        self._conn.commit()
+        if self._transaction_events is None:
+            self._conn.commit()
 
         # If the natural-key (source, source_id, chunk_index) already existed
         # SQLite skipped the insert. Re-runs of the dogfood script or a
@@ -325,16 +350,17 @@ class KnowledgeStore(MemoryBackend):
                 return existing["id"]
             return chunk_id
 
-        get_event_bus().publish(
-            EventType.MEMORY_STORE,
-            {
-                "backend": self.backend_id,
-                "chunk_id": chunk_id,
-                "doc_id": doc_id,
-                "source": source,
-                "doc_type": doc_type,
-            },
-        )
+        event = {
+            "backend": self.backend_id,
+            "chunk_id": chunk_id,
+            "doc_id": doc_id,
+            "source": source,
+            "doc_type": doc_type,
+        }
+        if self._transaction_events is not None:
+            self._transaction_events.append(event)
+        else:
+            get_event_bus().publish(EventType.MEMORY_STORE, event)
         return chunk_id
 
     def retrieve(

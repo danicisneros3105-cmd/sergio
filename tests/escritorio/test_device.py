@@ -77,7 +77,7 @@ def test_repeated_keys_are_one_quick_action(desktop):
     from sergio_escritorio.control import Controller
 
     slept = []
-    c = Controller(desktop, sleep=slept.append)
+    c = Controller(desktop, sleep=slept.append, approve=lambda _: True)
     assert (
         c.act({"action": "key", "keys": "volumedown", "repeat": 50})
         == "pressed volumedown x50"
@@ -179,7 +179,7 @@ def test_click_name_action_and_no_fixed_waits():
         def active_window(self):
             return "Diálogo"
 
-    c = Controller(B(), sleep=slept.append)
+    c = Controller(B(), sleep=slept.append, approve=lambda _: True)
     out = c.act({"action": "click_name", "target": "aceptar", "button": "double"})
     assert clicks == [(40, 50, "left", 2)] and "now in front: Diálogo" in out
     assert slept == []  # a click is checked at once, not after a fixed pause

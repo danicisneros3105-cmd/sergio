@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import os
-import subprocess
 from pathlib import Path
 from typing import Any, List
 
 from openjarvis.core.registry import ToolRegistry
 from openjarvis.core.types import ToolResult
+from openjarvis.security.process_runner import run_bounded
 from openjarvis.tools._stubs import BaseTool, ToolSpec
 
 # Maximum output size per stream (100 KB)
@@ -93,13 +93,13 @@ class ShellExecTool(BaseTool):
             },
             category="system",
             requires_confirmation=True,
-            timeout_seconds=60.0,
+            timeout_seconds=float(_MAX_TIMEOUT + 15),
             required_capabilities=["code:execute"],
         )
 
     def execute(self, **params: Any) -> ToolResult:
         command = params.get("command", "")
-        if not command:
+        if not isinstance(command, str) or not command.strip():
             return ToolResult(
                 tool_name="shell_exec",
                 content="No command provided.",
@@ -110,7 +110,7 @@ class ShellExecTool(BaseTool):
         timeout = params.get("timeout", _DEFAULT_TIMEOUT)
         try:
             timeout = int(timeout)
-        except (TypeError, ValueError):
+        except (TypeError, ValueError, OverflowError):
             timeout = _DEFAULT_TIMEOUT
         if timeout < 1:
             timeout = 1
@@ -120,6 +120,12 @@ class ShellExecTool(BaseTool):
         # Validate working_dir
         working_dir = params.get("working_dir")
         if working_dir is not None:
+            if not isinstance(working_dir, (str, os.PathLike)):
+                return ToolResult(
+                    tool_name="shell_exec",
+                    content="Invalid working_dir.",
+                    success=False,
+                )
             wd_path = Path(working_dir)
             if not wd_path.exists():
                 return ToolResult(
@@ -141,52 +147,57 @@ class ShellExecTool(BaseTool):
             if val is not None:
                 env[key] = val
 
+        env["PYTHONIOENCODING"] = "utf-8"
+        env["PYTHONUTF8"] = "1"
         env_passthrough: List[str] = params.get("env_passthrough") or []
+        if not isinstance(env_passthrough, (list, tuple)) or any(
+            not isinstance(key, str) for key in env_passthrough
+        ):
+            return ToolResult(
+                tool_name="shell_exec",
+                content="env_passthrough must be a list of names.",
+                success=False,
+            )
         for key in env_passthrough:
             val = os.environ.get(key)
             if val is not None:
                 env[key] = val
 
+        mode = os.environ.get("SERGIO_EXECUTION_MODE", "local")
+        if mode not in {"local", "container"}:
+            return ToolResult(
+                tool_name="shell_exec", content="Unknown execution mode.", success=False
+            )
         try:
-            from openjarvis._rust_bridge import get_rust_module
+            if mode == "container":
+                from openjarvis.security.project_execution import run_in_project
 
-            _rust = get_rust_module()
-            output = _rust.ShellExecTool().execute(command, working_dir)
+                if env_passthrough:
+                    return ToolResult(
+                        tool_name="shell_exec",
+                        content="Host environment passthrough is disabled in container mode.",
+                        success=False,
+                    )
+                result = run_in_project(
+                    command, timeout=timeout, working_dir=working_dir
+                )
+            else:
+                result = run_bounded(
+                    command,
+                    shell=True,
+                    timeout=timeout,
+                    cwd=working_dir,
+                    env=env,
+                    max_output_bytes=_MAX_OUTPUT_BYTES,
+                )
+        except (OSError, ValueError, RuntimeError) as exc:
             return ToolResult(
-                tool_name="shell_exec",
-                content=output or "(no output)",
-                success=True,
-                metadata={
-                    "returncode": 0,
-                    "timeout_used": timeout,
-                    "working_dir": working_dir,
-                },
+                tool_name="shell_exec", content=f"Execution error: {exc}", success=False
             )
-        except ImportError:
-            pass  # Fall through to subprocess below
-        except Exception as exc:
-            return ToolResult(
-                tool_name="shell_exec",
-                content=str(exc),
-                success=False,
-                metadata={
-                    "returncode": -1,
-                    "timeout_used": timeout,
-                    "working_dir": working_dir,
-                },
-            )
-        try:
-            result = subprocess.run(
-                command,
-                # This tool executes shell commands after its confirmation gate.
-                shell=True,  # nosec B602
-                capture_output=True,
-                text=True,
-                timeout=timeout,
-                cwd=working_dir,
-                env=env,
-            )
-        except subprocess.TimeoutExpired:
+        stdout, stderr = result.stdout, result.stderr
+        if result.truncated:
+            stdout += "\n... (output truncated)"
+        if result.timed_out:
             return ToolResult(
                 tool_name="shell_exec",
                 content=f"Command timed out after {timeout} seconds.",
@@ -195,28 +206,9 @@ class ShellExecTool(BaseTool):
                     "returncode": -1,
                     "timeout_used": timeout,
                     "working_dir": working_dir,
+                    "execution_mode": mode,
                 },
             )
-        except PermissionError as exc:
-            return ToolResult(
-                tool_name="shell_exec",
-                content=f"Permission denied: {exc}",
-                success=False,
-            )
-        except OSError as exc:
-            return ToolResult(
-                tool_name="shell_exec",
-                content=f"OS error: {exc}",
-                success=False,
-            )
-
-        # Truncate output if needed
-        stdout = result.stdout
-        stderr = result.stderr
-        if len(stdout) > _MAX_OUTPUT_BYTES:
-            stdout = stdout[:_MAX_OUTPUT_BYTES] + "\n... (stdout truncated)"
-        if len(stderr) > _MAX_OUTPUT_BYTES:
-            stderr = stderr[:_MAX_OUTPUT_BYTES] + "\n... (stderr truncated)"
 
         # Format output
         sections: list[str] = []
@@ -234,6 +226,8 @@ class ShellExecTool(BaseTool):
                 "returncode": result.returncode,
                 "timeout_used": timeout,
                 "working_dir": working_dir,
+                "execution_mode": mode,
+                "output_truncated": result.truncated,
             },
         )
 

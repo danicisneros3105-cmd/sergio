@@ -2297,6 +2297,11 @@ html, body { background: var(--color-bg); }
 .node-locked { display: flex; gap: 12px; align-items: flex-start; padding: 14px 16px; border-radius: var(--radius-lg); border: 1px dashed var(--color-border); color: var(--color-text-secondary); font-size: 14px; line-height: 1.55; }
 .node-locked svg { flex-shrink: 0; margin-top: 2px; color: var(--color-accent-text); }
 .node-stop { flex-shrink: 0; }
+.node-goals { display: flex; flex-direction: column; gap: 26px; }
+.node-goals section { display: flex; flex-direction: column; gap: 8px; }
+.node-goals ul { list-style: none; }
+.node-goals li { display: flex; align-items: flex-start; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--color-border-subtle); font-size: 14px; }
+.node-goal-finding { display: block; margin-top: 4px; font-size: 13px; white-space: pre-wrap; color: var(--color-text-secondary); }
 
 @media (max-width: 767px) {
   .nodes { flex-direction: column; }

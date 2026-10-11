@@ -61,6 +61,7 @@ def test_controller_lets_the_companion_click_first():
 
     c = Controller.__new__(Controller)
     c.enabled, c.backend = True, Backend()
+    c.strict_permissions, c.approve = True, lambda _: True
     c.on_click = lambda x, y, kind: order.append(("companion", x, y))
     c._front = lambda: ""
     c.SETTLE = set()

@@ -1,12 +1,12 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Search, Cpu, X, Download, Loader2, Trash2, Check, Cloud, Key, Eye, EyeOff } from 'lucide-react';
+import { useDevApi } from '../lib/dev-api';
 import { useAppStore } from '../lib/store';
 import {
   pullModel,
   deleteModel,
   fetchModels,
   preloadModel,
-  isTauri,
   getCloudKeyStatus,
   saveCloudKey,
 } from '../lib/api';
@@ -35,6 +35,7 @@ interface CloudProvider {
 }
 
 const CLOUD_PROVIDERS: CloudProvider[] = [
+  {name: "Moonshot / Kimi", envKey: "MOONSHOT_API_KEY", models: [{id: "kimi-k3", desc: "Kimi K3 · requiere acceso del proveedor"}]},
   {
     name: 'OpenAI',
     envKey: 'OPENAI_API_KEY',
@@ -107,13 +108,9 @@ export function CommandPalette() {
   const setCommandPaletteOpen = useAppStore((s) => s.setCommandPaletteOpen);
 
   const installedIds = new Set(models.map((m) => m.id));
-  const desktopKeyStorage = isTauri();
+  const desktopKeyStorage = useDevApi();
 
   const refreshCloudKeyStatus = useCallback(async () => {
-    if (!desktopKeyStorage) {
-      setCloudKeyStatus({});
-      return;
-    }
     try {
       setCloudKeyStatus(await getCloudKeyStatus());
       setCloudKeyError(null);
@@ -467,8 +464,8 @@ export function CommandPalette() {
             <div className="px-4 py-2">
               <div className="text-[11px] mb-3" style={{ color: 'var(--color-text-tertiary)' }}>
                 {desktopKeyStorage
-                  ? 'Add your API keys to use cloud models. Keys are stored in secure desktop storage.'
-                  : 'Configure cloud provider keys in the server environment to use cloud models.'}
+                  ? 'Dev: guarda las API en la configuración privada del servidor.'
+                  : 'Agregar API requiere plan Dev o superior. Puedes gestionar las claves en Nodes.'}
               </div>
 
               {CLOUD_PROVIDERS.map((provider) => {
@@ -499,7 +496,7 @@ export function CommandPalette() {
                           value={key}
                           onChange={(e) => setApiKeys((prev) => ({ ...prev, [provider.envKey]: e.target.value }))}
                           onBlur={() => handleKeyBlur(provider)}
-                          placeholder={hasSavedKey ? 'Saved in secure storage' : provider.envKey}
+                          placeholder={hasSavedKey ? 'Guardada en el servidor' : provider.envKey}
                           disabled={!desktopKeyStorage || isSaving}
                           className="flex-1 text-xs px-2 py-1.5 bg-transparent outline-none font-mono"
                           style={{ color: 'var(--color-text)' }}

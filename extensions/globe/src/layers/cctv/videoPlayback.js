@@ -24,9 +24,13 @@ export function attachCctvVideo(
   let retries = 0;
   const release = () => {
     if (feedType === 'hls') {
-      void fetchImpl?.(mediaUrl, { method: 'DELETE', keepalive: true }).catch(
-        () => {},
-      );
+      try {
+        void Promise.resolve(
+          fetchImpl?.(mediaUrl, { method: 'DELETE', keepalive: true }),
+        ).catch(() => {});
+      } catch {
+        // Releasing a lease is best effort and must not break disposal.
+      }
     }
   };
   const dispose = () => {

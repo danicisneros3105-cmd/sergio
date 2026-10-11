@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import contextlib
 import logging
 import os
@@ -564,6 +565,22 @@ def create_app(
     from openjarvis.server.tasks_routes import router as tasks_router
 
     app.include_router(tasks_router)
+    # Nodes' goals, notes, audit and reviewed integrations (Browser-use,
+    # OpenClaw). Registered before the Nodes router: its fixed paths
+    # (/v1/nodes/capabilities, /api-key…) must win over /v1/nodes/{id}.
+    from openjarvis.server.nodes_pro_routes import router as nodes_pro_router
+
+    app.include_router(nodes_pro_router)
+
+    @on_shutdown
+    async def _close_nodes() -> None:
+        node_sessions = getattr(app.state, "nodes_mcp_sessions", None)
+        if node_sessions is not None:
+            await asyncio.to_thread(node_sessions.close_all)
+        node_records = getattr(app.state, "nodes_records", None)
+        if node_records is not None:
+            node_records.close()
+
     from openjarvis.server.tasks_routes import skills_router
 
     app.include_router(skills_router)
@@ -634,6 +651,10 @@ def create_app(
 
     # Restore SendBlue channel bindings from database on startup
     _restore_sendblue_bindings(app)
+
+    from openjarvis.server.upload_limits import UploadLimitsMiddleware
+
+    app.add_middleware(UploadLimitsMiddleware)
 
     # Add security headers middleware
     try:

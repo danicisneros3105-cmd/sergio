@@ -9,7 +9,7 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
-from fastapi import APIRouter, File, HTTPException, Request, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import Response
 from pydantic import BaseModel
 
@@ -18,17 +18,24 @@ MAX_AUDIO = 8 * 1024 * 1024
 
 
 def preferred(voice: str) -> str:
-    """With an ElevenLabs key saved (sergio nube voz), Sergio's default male
-    voice is spoken by ElevenLabs: same character, lower delay."""
+    """Resolve only the default; never replace an explicitly chosen voice."""
     import os
 
     if (
-        voice.lower() in ("", "algenib")
+        voice.lower() in ("", "default", "predeterminada")
         and os.environ.get("ELEVENLABS_API_KEY", "").strip()
     ):
-        if os.environ.get("SERGIO_VOICE", "elevenlabs").lower() == "elevenlabs":
-            return "elevenlabs:"
-    return voice
+        configured = os.environ.get("SERGIO_VOICE", "").strip()
+        if configured.lower().startswith("elevenlabs"):
+            return configured if ":" in configured else "elevenlabs:"
+    from openjarvis.speech.gemini_voice import DEFAULT_VOICE, VOICES
+
+    if voice.lower() in ("", "default", "predeterminada"):
+        return DEFAULT_VOICE
+    if voice.lower() == "elevenlabs":
+        return "elevenlabs:"
+    name = voice.split(":", 1)[-1] if voice.lower().startswith("gemini:") else voice
+    return next((v for v in VOICES if v.lower() == name.lower()), name)
 
 
 class SpeakRequest(BaseModel):
@@ -61,8 +68,10 @@ async def speak(req: SpeakRequest) -> Response:
                 hint=req.hint,
             )
             return Response(content=wav, media_type="audio/wav")
-        except Exception:  # noqa: BLE001 — no key / no credit: Algenib
-            req = req.model_copy(update={"voice": "algenib"})
+        except Exception as exc:  # noqa: BLE001 — preserve the selected identity
+            raise HTTPException(
+                502, "La voz seleccionada de ElevenLabs no está disponible."
+            ) from exc
     if req.voice.lower() in ("", "predeterminada", "default", "algenib"):
         # Gemini Live's voice, the same as in calls.
         from openjarvis.speech.gemini_live import speak_live
@@ -79,9 +88,7 @@ async def speak(req: SpeakRequest) -> Response:
         except Exception as exc:  # noqa: BLE001 — the TTS models next
             live_error = str(exc)
         try:
-            wav = await asyncio.to_thread(
-                gemini_voice.speak, req.text, "Predeterminada"
-            )
+            wav = await asyncio.to_thread(gemini_voice.speak, req.text, "Algenib")
         except (RuntimeError, ValueError) as exc:
             raise HTTPException(
                 status_code=502, detail=f"{live_error} | {exc}"[:500]
@@ -117,25 +124,31 @@ async def stream(req: SpeakRequest) -> Any:
             previous=req.previous,
             hint=req.hint,
         )
-        try:
-            first = await chunks.__anext__()
-        except Exception:  # noqa: BLE001 — no key / no credit: Gemini's Algenib
-            voice = "Algenib"
-    if not first:
+    else:
         chunks = stream_live(req.text, voice)
     try:
-        first = first or await chunks.__anext__()
+        for _ in range(64):
+            first = await asyncio.wait_for(chunks.__anext__(), timeout=30)
+            if first:
+                break
+        if not first:
+            raise RuntimeError("La voz seleccionada no devolvió audio.")
     except StopAsyncIteration:
+        await chunks.aclose()
         raise HTTPException(
-            status_code=502, detail="La voz de Gemini Live no devolvió audio."
+            status_code=502, detail="La voz seleccionada no devolvió audio."
         ) from None
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(status_code=502, detail=str(exc)[:400]) from exc
+        await chunks.aclose()
+        raise HTTPException(502, "La voz seleccionada no está disponible.") from exc
 
     async def body():
-        yield first
-        async for chunk in chunks:
-            yield chunk
+        try:
+            yield first
+            async for chunk in chunks:
+                yield chunk
+        finally:
+            await chunks.aclose()
 
     return StreamingResponse(body(), media_type="audio/L16;rate=24000")
 
@@ -207,7 +220,7 @@ def grounded_answer(
                     if web is not None and getattr(web, "title", None):
                         sources.append(str(web.title))
             text = str(resp.text or "").strip()
-            if text:
+            if text and sources:
                 return {"content": text, "sources": sources[:5], "grounded": True}
         except Exception as exc:  # noqa: BLE001 — next model
             last = exc
@@ -243,7 +256,7 @@ async def chat(req: ChatRequest, request: Request) -> dict[str, Any]:
             engine.generate,
             messages,
             model=model,
-            temperature=0.7,
+            temperature=0.3,
             max_tokens=req.max_tokens,
         )
 
@@ -253,8 +266,15 @@ async def chat(req: ChatRequest, request: Request) -> dict[str, Any]:
                 asyncio.to_thread(grounded_answer, req.messages, req.max_tokens),
                 timeout=CHAT_SECONDS,
             )
-        except Exception:  # noqa: BLE001 — not grounded, but still an answer (said so)
-            pass
+        except Exception:  # noqa: BLE001 — never substitute unverified current facts
+            return {
+                "content": (
+                    "No pude verificar ese dato con fuentes actuales. Puedes pedirme "
+                    "que lo investigue con las herramientas disponibles."
+                ),
+                "sources": [],
+                "grounded": False,
+            }
 
     try:
         try:
@@ -275,14 +295,16 @@ async def chat(req: ChatRequest, request: Request) -> dict[str, Any]:
 
 
 @router.post("/transcribe")
-async def transcribe(file: UploadFile = File(...)) -> dict[str, Any]:
+async def transcribe(
+    file: UploadFile = File(...), language: str = Form("es")
+) -> dict[str, Any]:
     from openjarvis.speech import gemini_voice
 
     data = await file.read(MAX_AUDIO + 1)
     if len(data) > MAX_AUDIO:
         raise HTTPException(status_code=413, detail="Audio too long")
     try:
-        text = await asyncio.to_thread(gemini_voice.transcribe, data)
+        text = await asyncio.to_thread(gemini_voice.transcribe, data, language)
     except RuntimeError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     return {"text": text}

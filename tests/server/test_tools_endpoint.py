@@ -103,6 +103,17 @@ def test_tool_credentials_browser_lifecycle(tmp_path, monkeypatch):
     app.include_router(tools_router)
     client = TestClient(app)
 
+    from openjarvis import tiers
+
+    assert (
+        client.post(
+            "/v1/tools/web_search/credentials", json={"TAVILY_API_KEY": "blocked"}
+        ).status_code
+        == 403
+    )
+    keys = tiers.generate_keypair()
+    monkeypatch.setenv("SERGIO_LICENSE_PUBKEY", keys["public"])
+    tiers.activate(tiers.issue(keys["private"], "dev", holder="Test"))
     saved = client.post(
         "/v1/tools/web_search/credentials",
         json={"TAVILY_API_KEY": "tvly-browser-test"},
@@ -141,6 +152,17 @@ def test_weather_tool_credentials_browser_lifecycle(tmp_path, monkeypatch):
     app.include_router(tools_router)
     client = TestClient(app)
 
+    from openjarvis import tiers
+
+    assert (
+        client.post(
+            "/v1/tools/web_search/credentials", json={"TAVILY_API_KEY": "blocked"}
+        ).status_code
+        == 403
+    )
+    keys = tiers.generate_keypair()
+    monkeypatch.setenv("SERGIO_LICENSE_PUBKEY", keys["public"])
+    tiers.activate(tiers.issue(keys["private"], "dev", holder="Test"))
     saved = client.post(
         "/v1/tools/get_weather/credentials",
         json={"OPENWEATHERMAP_API_KEY": "weather-browser-test"},

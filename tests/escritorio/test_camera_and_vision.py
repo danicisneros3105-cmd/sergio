@@ -4,6 +4,7 @@ import base64
 import json
 
 import httpx
+import pytest
 
 from openjarvis.tools import vision_look
 from openjarvis.tools.desktop_tools import CameraLookTool
@@ -101,16 +102,19 @@ def test_neural_voice_used_first_with_local_fallback(monkeypatch):
     )
     assert client.speak("hola") == b"RIFFneural:es-EC-LuisNeural" and server == []
 
-    def offline(text, voice):
+    def offline(text, voice, *_a, **_k):
         raise OSError("no internet")
 
     monkeypatch.setattr(neural_voice, "synthesize", offline)
     assert client.speak("hola") == b"RIFFneural:es-EC-LuisNeural"  # remembered
+    # By default the chosen voice is never swapped silently for another one.
+    with pytest.raises(OSError):
+        client.speak("buenas")
+    client.allow_voice_fallback = True  # only when the user allows it
     assert client.speak("buenas") == b"RIFFlocal"
 
 
 # -- direct camera route ("¿qué tengo en la mano?") -------------------------
-import pytest  # noqa: E402
 from sergio_escritorio.voice import wants_camera  # noqa: E402
 
 

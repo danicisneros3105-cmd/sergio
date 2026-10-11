@@ -100,7 +100,10 @@ def control_server(desktop):
 
     from sergio_escritorio.control import Controller, make_server
 
-    controller = Controller(desktop, sleep=lambda _s: None)
+    # The scripted owner consents; denial and missing callbacks are tested separately.
+    controller = Controller(
+        desktop, sleep=lambda _s: None, approve=lambda _request: True
+    )
     server = make_server(controller, "secreto", port=0)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()

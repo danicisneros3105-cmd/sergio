@@ -16,7 +16,9 @@ Steps performed by ``import_skill``:
 
 from __future__ import annotations
 
+import re
 import shutil
+import tempfile
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -25,6 +27,7 @@ from typing import List
 import yaml
 
 from openjarvis.core.paths import get_config_dir
+from openjarvis.skills.audit import audit_resources, audit_text, read_skill_text
 from openjarvis.skills.parser import SkillParser
 from openjarvis.skills.security import (
     TrustTier,
@@ -83,7 +86,24 @@ class SkillImporter:
         tools, untranslated tools, and warnings.
         """
         result = ImportResult()
+        if any(
+            not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}", part)
+            for part in (resolved.source, resolved.name)
+        ):
+            result.success = False
+            result.warnings.append("Refusing invalid skill source/name path components")
+            return result
         target_dir = self._target_root / resolved.source / resolved.name
+        if target_dir.is_symlink() or target_dir.parent.is_symlink():
+            result.success = False
+            result.warnings.append("Refusing a symlinked skill destination")
+            return result
+        if not target_dir.resolve().is_relative_to(self._target_root.resolve()):
+            result.success = False
+            result.warnings.append(
+                "Refusing a skill destination outside the install root"
+            )
+            return result
         result.target_path = target_dir
 
         # Skip if already installed and force is False
@@ -104,7 +124,16 @@ class SkillImporter:
                 return result
 
         try:
-            frontmatter, body = self._read_skill_md(source_md)
+            if resolved.path.is_symlink():
+                raise ValueError("Refusing a symlinked skill source")
+            raw = read_skill_text(source_md)
+            report = audit_text(raw)
+            if report.findings:
+                raise ValueError(
+                    "Static skill audit requires correction: "
+                    + "; ".join(report.findings)
+                )
+            frontmatter, body = self._read_skill_md(source_md, raw=raw)
             manifest = self._parser.parse_frontmatter(
                 frontmatter, markdown_content=body
             )
@@ -148,23 +177,15 @@ class SkillImporter:
         copied_subdirs = list(COPIED_SUBDIRS)
         if with_scripts:
             copied_subdirs.append("scripts")
-        symlinks = [
-            link
-            for subdir in copied_subdirs
-            for link in self._find_symlinks(resolved.path / subdir)
-        ]
-        if symlinks:
-            names = ", ".join(
-                str(link.relative_to(resolved.path)) for link in symlinks[:3]
-            )
-            if len(symlinks) > 3:
-                names += f", and {len(symlinks) - 3} more"
+        try:
+            findings = audit_resources(resolved.path, copied_subdirs)
+            if findings:
+                raise ValueError(
+                    "Static resource audit requires correction: " + "; ".join(findings)
+                )
+        except (ValueError, OSError, UnicodeError) as exc:
             result.success = False
-            result.warnings.append(
-                "Refusing to install: skill contains symlinked entries in "
-                f"copied directories ({names}). Imported skills must not "
-                "read files outside their source package."
-            )
+            result.warnings.append(str(exc))
             return result
 
         translated_body, untranslated = self._translator.translate_markdown(body)
@@ -176,33 +197,56 @@ class SkillImporter:
                 applied.append(f"{ext}->{internal}")
         result.translated_tools = applied
 
-        # 3. Write the target directory
-        if target_dir.exists():
-            shutil.rmtree(target_dir)
-        target_dir.mkdir(parents=True)
-
-        # 3a. Translated SKILL.md
-        new_md = self._render_skill_md(frontmatter, translated_body)
-        (target_dir / "SKILL.md").write_text(new_md, encoding="utf-8")
-
-        # 3b. Always-copied subdirs
-        for subdir in COPIED_SUBDIRS:
-            src_sub = resolved.path / subdir
-            if src_sub.exists():
-                shutil.copytree(src_sub, target_dir / subdir)
-
-        # 3c. Scripts (gated by with_scripts)
-        scripts_src = resolved.path / "scripts"
-        if scripts_src.exists() and with_scripts:
-            shutil.copytree(scripts_src, target_dir / "scripts")
-            result.scripts_imported = True
-        elif scripts_src.exists():
-            result.warnings.append(
-                "Skipped scripts/ directory (use with_scripts=True to import)"
-            )
-
-        # 4. Write .source metadata
-        self._write_source_metadata(target_dir, resolved, result)
+        # Build and audit a private staging copy before replacing an install.
+        # Copy links as links, so a link introduced during copying is rejected
+        # by the second audit rather than dereferenced into another file.
+        target_dir.parent.mkdir(parents=True, exist_ok=True)
+        staging = Path(
+            tempfile.mkdtemp(prefix=".sergio-import-", dir=target_dir.parent)
+        )
+        fresh, previous = staging / "new", staging / "previous"
+        cleanup = True
+        try:
+            fresh.mkdir()
+            new_md = self._render_skill_md(frontmatter, translated_body)
+            (fresh / "SKILL.md").write_text(new_md, encoding="utf-8")
+            for subdir in copied_subdirs:
+                src_sub = resolved.path / subdir
+                if src_sub.exists():
+                    shutil.copytree(src_sub, fresh / subdir, symlinks=True)
+            findings = audit_resources(fresh, copied_subdirs)
+            if findings:
+                raise ValueError(
+                    "Static staged-resource audit requires correction: "
+                    + "; ".join(findings)
+                )
+            result.scripts_imported = with_scripts and (fresh / "scripts").exists()
+            if (resolved.path / "scripts").exists() and not with_scripts:
+                result.warnings.append(
+                    "Skipped scripts/ directory (use with_scripts=True to import)"
+                )
+            self._write_source_metadata(fresh, resolved, result)
+            if target_dir.is_symlink() or target_dir.parent.is_symlink():
+                raise ValueError("Refusing a symlinked skill destination")
+            if target_dir.exists():
+                if not force:
+                    result.skipped = True
+                    return result
+                target_dir.rename(previous)
+            fresh.rename(target_dir)
+        except (OSError, ValueError, UnicodeError) as exc:
+            result.success = False
+            result.scripts_imported = False
+            result.warnings.append(f"Skill import failed: {exc}")
+            if previous.exists() and not target_dir.exists():
+                try:
+                    previous.rename(target_dir)
+                except OSError:
+                    cleanup = False
+                    result.warnings.append(f"Previous install preserved at {previous}")
+        finally:
+            if cleanup:
+                shutil.rmtree(staging, ignore_errors=True)
 
         return result
 
@@ -219,9 +263,9 @@ class SkillImporter:
             return [root]
         return [path for path in root.rglob("*") if path.is_symlink()]
 
-    def _read_skill_md(self, path: Path) -> tuple[dict, str]:
+    def _read_skill_md(self, path: Path, *, raw: str | None = None) -> tuple[dict, str]:
         """Parse a SKILL.md file into (frontmatter dict, markdown body)."""
-        raw = path.read_text(encoding="utf-8")
+        raw = read_skill_text(path) if raw is None else raw
         if not raw.startswith("---"):
             return {}, raw
         rest = raw[3:].lstrip("\n")

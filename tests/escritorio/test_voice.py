@@ -69,7 +69,9 @@ def test_wake_word_turn_answers_aloud():
     # after answering he keeps listening for your reply (a conversation)
     assert ui.states[-3:] == ["thinking", "speaking", "listening"]
     sent = log[0]
-    assert sent[0] == {"role": "system", "content": VOICE_STYLE}
+    assert sent[0]["role"] == "system"
+    assert sent[0]["content"].startswith(VOICE_STYLE)
+    assert "LANGUAGE: reply in Spanish" in sent[0]["content"]
     assert sent[-1] == {"role": "user", "content": "abre Spotify"}
 
 
@@ -149,7 +151,8 @@ def test_each_failing_step_is_named_and_voice_failure_keeps_the_text():
     )
     a = Assistant(client, ui=ui, player=played.append, chime=lambda f: None)
     a.on_utterance(WAV, addressed=True)
-    assert ui.captions[-1] == "Hola." and played == []  # answer shown, no crash
+    assert ui.captions[-1].startswith("Hola.") and played == []
+    assert "No pude reproducir la voz seleccionada" in ui.captions[-1]
 
     def no_model(request):
         if request.url.path == "/v1/speech/transcribe":
@@ -360,6 +363,7 @@ def test_spent_gemini_voice_is_skipped_for_a_while(monkeypatch):
         "http://s", http=httpx.Client(transport=httpx.MockTransport(handler))
     )
     client.voice = "gemini:Algieba"
+    client.allow_voice_fallback = True  # fallback is an explicit opt-in
     monkeypatch.setattr(neural_voice, "synthesize", lambda text, voice, rate: b"EDGE")
     assert client._speak("Hola.") == b"EDGE"
     assert client._speak("Otra frase.") == b"EDGE"

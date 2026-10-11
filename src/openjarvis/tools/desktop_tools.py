@@ -48,6 +48,19 @@ class _DesktopTool(BaseTool):
         return self._http
 
     def _call(self, method: str, path: str, **kwargs: Any) -> dict:
+        if (
+            os.environ.get("SERGIO_EXECUTION_MODE", "local") == "container"
+            and method != "GET"
+        ):
+            owner_consent = (
+                path == "/skill"
+                and kwargs.get("json", {}).get("name") == "owner_approval"
+            )
+            if not owner_consent:
+                raise RuntimeError(
+                    "Desktop mutations are disabled in project container mode. "
+                    "Use shell_exec or code_interpreter inside the configured project."
+                )
         url, headers = _endpoint()
         if not headers["Authorization"].removeprefix("Bearer "):
             raise RuntimeError(_SETUP_HINT)
@@ -474,29 +487,30 @@ class FaceApprovalTool(_DesktopTool):
     def execute(self, **params: Any) -> ToolResult:
         what = str(params.get("what") or "la acción")
         try:
-            _jpeg, seen, enrolled = _camera_faces(self)
+            data = self._call(
+                "POST",
+                "/skill",
+                json={"name": "owner_approval", "args": {"what": what}},
+                timeout=60,
+            )
         except RuntimeError as exc:
             return self._fail(f"NO APROBADO: no pude ver por la cámara ({exc}).")
         except Exception as exc:  # noqa: BLE001 — models missing, etc.
             return self._fail(
                 f"NO APROBADO: reconocimiento facial no disponible ({exc})."
             )
-        owner = _owner_name(enrolled)
-        lookup = {n.lower(): n for n in enrolled}
-        owner = lookup.get(owner.lower(), "")
-        if not owner:
-            return self._fail(
-                "NO APROBADO: todavía no conozco la cara del dueño. Pídele que "
-                "diga 'Sergio, aprende mi cara' mirando a la cámara."
-            )
-        if not seen:
-            return self._fail("NO APROBADO: no veo ninguna cara; que mire a la cámara.")
-        if owner in seen:
+        decision = data.get("result")
+        if (
+            isinstance(decision, dict)
+            and decision.get("approved") is True
+            and decision.get("what") == what
+        ):
             return self._ok(
-                f"APROBADO: {owner} aprobó {what} (cara reconocida).", approved=True
+                f"APROBADO: el dueño confirmó {what} y su identidad.", approved=True
             )
-        others = ", ".join(n or "desconocido" for n in seen)
-        return self._fail(f"NO APROBADO: veo a {others}, no a {owner}.")
+        return self._fail(
+            "NO APROBADO: falta consentimiento explícito e identidad del dueño."
+        )
 
 
 @ToolRegistry.register("face_enroll")

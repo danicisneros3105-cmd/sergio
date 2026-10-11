@@ -1,15 +1,25 @@
 """Live smoke tests for new connectors — require real API credentials.
 
-Run with: uv run pytest tests/connectors/test_new_connectors_live.py -v -m cloud
+Run only with test credentials and explicit SERGIO_RUN_LIVE_CONNECTOR_TESTS=1.
+Command: uv run pytest tests/connectors/test_new_connectors_live.py -v -m cloud
 """
 
 from __future__ import annotations
 
+import os
 from datetime import datetime, timedelta
 
 import pytest
 
 from openjarvis.connectors._stubs import Document
+
+pytestmark = [
+    pytest.mark.live_channel,
+    pytest.mark.skipif(
+        os.environ.get("SERGIO_RUN_LIVE_CONNECTOR_TESTS") != "1",
+        reason="Real-account tests require explicit opt-in and test credentials",
+    ),
+]
 
 
 @pytest.mark.cloud

@@ -212,7 +212,9 @@ class Encoder:
         self._torch = torch
         self.device = device
         net = _build(torch)
-        state = torch.load(str(model_path or ensure_model()), map_location="cpu")
+        state = torch.load(
+            str(model_path or ensure_model()), map_location="cpu", weights_only=True
+        )
         own = {}
         for key, value in state.items():
             if not key.startswith("speaker_encoder."):

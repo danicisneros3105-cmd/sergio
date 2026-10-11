@@ -16,9 +16,11 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import re
 import threading
 import time
+import uuid
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Sequence
@@ -68,7 +70,20 @@ def _read_state() -> dict[str, Any]:
 
 
 def _write_state(state: dict[str, Any]) -> None:
-    _state_file().write_text(json.dumps(state))
+    _atomic_write(_state_file(), json.dumps(state))
+
+
+def _atomic_write(path: Path, text: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
+    try:
+        with tmp.open("w", encoding="utf-8") as handle:
+            handle.write(text)
+            handle.flush()
+            os.fsync(handle.fileno())
+        tmp.replace(path)
+    finally:
+        tmp.unlink(missing_ok=True)
 
 
 def build_messages(profile: str, facts: Sequence[str]) -> list[Message]:
@@ -138,12 +153,15 @@ def evolve_profile(
         return EvolutionResult(False, f"model call failed: {exc}")
 
     stamp = now()
-    _write_state({"last_run": stamp, "newest_fact": newest, "facts": len(facts)})
     if updated.strip() == profile.strip():
+        _write_state({"last_run": stamp, "newest_fact": newest, "facts": len(facts)})
         return EvolutionResult(False, "profile already up to date", path)
     path.parent.mkdir(parents=True, exist_ok=True)
     backup = _backup(path, stamp)
-    path.write_text(updated)
+    # Commit the profile before acknowledging its facts. A failed write must
+    # remain retryable, and a crash must not truncate the previous profile.
+    _atomic_write(path, updated)
+    _write_state({"last_run": stamp, "newest_fact": newest, "facts": len(facts)})
     return EvolutionResult(
         True, f"profile updated from {len(facts)} facts", path, backup
     )

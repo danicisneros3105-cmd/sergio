@@ -3,9 +3,20 @@
 import subprocess
 
 import httpx
+import pytest
 from click.testing import CliRunner
 
 from openjarvis.cli import nube_cmd
+
+
+@pytest.fixture(autouse=True)
+def dev_license(tmp_path, monkeypatch):
+    from openjarvis import tiers
+
+    monkeypatch.setenv("OPENJARVIS_HOME", str(tmp_path / "license-home"))
+    keys = tiers.generate_keypair()
+    monkeypatch.setenv("SERGIO_LICENSE_PUBKEY", keys["public"])
+    tiers.activate(tiers.issue(keys["private"], "dev", holder="Test"))
 
 
 def test_pick_kimi_prefers_newest_known():
@@ -13,7 +24,7 @@ def test_pick_kimi_prefers_newest_known():
         nube_cmd.pick_kimi(["moonshot-v1-8k", "kimi-k2.5", "kimi-k2.6"]) == "kimi-k2.6"
     )
     assert nube_cmd.pick_kimi(["kimi-k3", "kimi-k2.9"]) == "kimi-k3"
-    assert nube_cmd.pick_kimi([]) == "kimi-k2.6"
+    assert nube_cmd.pick_kimi([]) == "kimi-k3"
 
 
 def test_find_kimi_falls_back_to_china_endpoint():

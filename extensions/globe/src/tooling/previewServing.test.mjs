@@ -49,6 +49,7 @@ test('real dev and built-preview servers serve provider JSON and terminate unkno
     OPENSKY_CLIENT_ID: '',
     OPENSKY_CLIENT_SECRET: '',
     CCTV_FORCE_AUSTIN: '0',
+    SERGIO_GLOBE_CCTV: '1', // Enable only the mocked fixture camera for this test.
     CCTV_SOURCES_FILE: path.join(root, 'absent.json'),
     CCTV_SOURCES_JSON: JSON.stringify([
       { id: 'fixture', lat: 30.27, lon: -97.74 },

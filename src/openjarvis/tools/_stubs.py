@@ -11,6 +11,7 @@ import atexit
 import concurrent.futures
 import json
 import logging
+import os
 import queue
 import threading
 import time
@@ -258,6 +259,22 @@ class ToolExecutor:
                 success=False,
             )
 
+        # Project-only mode cannot delegate to host file, desktop, network or
+        # plugin tools and thereby escape the container's mount/network policy.
+        if os.environ.get("SERGIO_EXECUTION_MODE", "local") == "container":
+            permitted = {
+                "shell_exec": "openjarvis.tools.shell_exec",
+                "code_interpreter": "openjarvis.tools.code_interpreter",
+                "calculator": "openjarvis.tools.calculator",
+                "think": "openjarvis.tools.think",
+            }
+            if permitted.get(tool_call.name) != type(tool).__module__:
+                return ToolResult(
+                    tool_name=tool_call.name,
+                    success=False,
+                    content="Host tool disabled in project-only mode; use the project container.",
+                )
+
         # Parse arguments
         try:
             params = json.loads(tool_call.arguments) if tool_call.arguments else {}
@@ -410,7 +427,11 @@ class ToolExecutor:
                     success=False,
                 )
             prompt = f"Allow execution of tool '{tool_call.name}' with args {params}?"
-            if not self._confirm_callback(prompt):
+            try:
+                approved = self._confirm_callback(prompt) is True
+            except Exception:
+                approved = False
+            if not approved:
                 return ToolResult(
                     tool_name=tool_call.name,
                     content=f"Tool '{tool_call.name}' execution denied by user.",

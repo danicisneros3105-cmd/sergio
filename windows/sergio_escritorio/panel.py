@@ -24,6 +24,7 @@ the local Sergio server.
 
 from __future__ import annotations
 
+import re
 import threading
 import time
 from dataclasses import dataclass, field
@@ -60,6 +61,7 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QListWidget,
     QListWidgetItem,
+    QPlainTextEdit,
     QPushButton,
     QScrollArea,
     QStackedWidget,
@@ -102,7 +104,7 @@ QLabel#mine {{ background: #26251f; border: 1px solid #3a3833; border-radius: 12
               padding: 8px 12px; font-size: 14px; }}
 QLabel#row {{ background: {CARD}; border: 1px solid {LINE}; border-radius: 8px;
              padding: 8px 12px; }}
-QLineEdit {{ background: {CARD}; border: 1px solid {LINE}; border-radius: 8px;
+QLineEdit, QPlainTextEdit {{ background: {CARD}; border: 1px solid {LINE}; border-radius: 8px;
              padding: 8px 12px; font-size: 14px;
              selection-background-color: #3a3833; }}
 QLineEdit:focus {{ border: 1px solid {ALUMINIUM}; }}
@@ -170,6 +172,9 @@ class PanelActions:
     open_section: Callable[[str, str], None] = lambda _key, _arg="": None
     # Agent Swarm: one line per task running now.
     swarm: Callable[[], list[str]] = lambda: []
+    swarm_details: Callable[[], list[dict]] = lambda: []
+    swarm_cancel: Callable[[int], bool] = lambda _id: False
+    swarm_task: Callable[[int], dict] = lambda _id: {}
     # The notch itself: multitasking on/off and hiding it.
     multitasking: Callable[[], bool] = lambda: False
     set_multitasking: Callable[[bool], None] = lambda _on: None
@@ -291,7 +296,14 @@ def draw_icon(p: QPainter, kind: str, centre: QPointF, colour: QColor) -> None:
         p.drawPath(path)
         p.drawEllipse(QPointF(x, y), 3.6, 3.6)
     elif kind == "cube":  # holograms / Blender
-        p.drawPolygon([QPointF(x, y - 10), QPointF(x + 9, y - 5), QPointF(x, y), QPointF(x - 9, y - 5)])
+        p.drawPolygon(
+            [
+                QPointF(x, y - 10),
+                QPointF(x + 9, y - 5),
+                QPointF(x, y),
+                QPointF(x - 9, y - 5),
+            ]
+        )
         p.drawLine(QPointF(x - 9, y - 5), QPointF(x - 9, y + 5))
         p.drawLine(QPointF(x + 9, y - 5), QPointF(x + 9, y + 5))
         p.drawLine(QPointF(x, y), QPointF(x, y + 10))
@@ -560,20 +572,33 @@ class SectionTile(QAbstractButton):
         p.setPen(QColor(TEXT))
         p.setFont(_font(10, QFont.Weight.DemiBold))
         if self.description:
-            p.drawText(QRectF(x, rect.top() + 9, width, 20), Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
-                       self.label)
+            p.drawText(
+                QRectF(x, rect.top() + 9, width, 20),
+                Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+                self.label,
+            )
             p.setPen(QColor(SECONDARY))
             p.setFont(_font(8.6))
             metrics = QFontMetricsF(p.font())
             left = Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
-            p.drawText(QRectF(x, rect.top() + 28, width, 18), left,
-                       metrics.elidedText(self.description, Qt.TextElideMode.ElideRight, width))
+            p.drawText(
+                QRectF(x, rect.top() + 28, width, 18),
+                left,
+                metrics.elidedText(
+                    self.description, Qt.TextElideMode.ElideRight, width
+                ),
+            )
         else:
-            p.drawText(QRectF(x, rect.top(), width, rect.height()),
-                       Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, self.label)
+            p.drawText(
+                QRectF(x, rect.top(), width, rect.height()),
+                Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+                self.label,
+            )
         # Chevron
         cx, cy = rect.right() - 20, rect.center().y()
-        p.setPen(QPen(QColor(SECONDARY), 1.4, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
+        p.setPen(
+            QPen(QColor(SECONDARY), 1.4, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap)
+        )
         p.drawLine(QPointF(cx - 3, cy - 5), QPointF(cx + 2, cy))
         p.drawLine(QPointF(cx + 2, cy), QPointF(cx - 3, cy + 5))
         p.end()
@@ -705,6 +730,9 @@ class ControlCenter(QWidget):
         self.state = "idle"
         self._opened_at = 0.0
         self._runs: dict[str, dict] = {}
+        self._swarm_runs: dict[int, dict] = {}
+        self._cowork_loading = False
+        self._nodes_loading = False
         self.cowork_ready.connect(self._show_cowork)
         self.nodes_ready.connect(self._show_nodes)
         self.swarms_ready.connect(self._show_swarms)
@@ -815,7 +843,9 @@ class ControlCenter(QWidget):
         self.answer = self._bubble(idioma.t("ask_me", self.lang), mine=False)
         self.chat_scroll = QScrollArea()
         self.chat_scroll.setWidgetResizable(True)
-        self.chat_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.chat_scroll.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
         self.chat_scroll.setWidget(self.thread)
         col.addWidget(self.chat_scroll, 1)
         ask = QHBoxLayout()
@@ -856,8 +886,12 @@ class ControlCenter(QWidget):
             if old is not None:
                 old.deleteLater()
         if hasattr(self, "chat_scroll"):
-            QTimer.singleShot(0, lambda: self.chat_scroll.verticalScrollBar().setValue(
-                self.chat_scroll.verticalScrollBar().maximum()))
+            QTimer.singleShot(
+                0,
+                lambda: self.chat_scroll.verticalScrollBar().setValue(
+                    self.chat_scroll.verticalScrollBar().maximum()
+                ),
+            )
         return label
 
     def _cowork(self) -> QWidget:
@@ -883,6 +917,10 @@ class ControlCenter(QWidget):
         self.run_list = QListWidget()
         self.run_list.currentItemChanged.connect(lambda _now, _before: self._pick_run())
         col.addWidget(self.run_list, 1)
+        self.cowork_output = QPlainTextEdit()
+        self.cowork_output.setReadOnly(True)
+        self.cowork_output.setMaximumHeight(100)
+        col.addWidget(self.cowork_output)
         self.waiting = _label("", "answer", True)
         col.addWidget(self.waiting)
         decide = QHBoxLayout()
@@ -896,6 +934,9 @@ class ControlCenter(QWidget):
             button.setVisible(False)
             decide.addWidget(button)
         col.addLayout(decide)
+        cancel = QPushButton(idioma.t("cancel_selected", self.lang))
+        cancel.clicked.connect(self._cancel_cowork)
+        col.addWidget(cancel)
         return page
 
     def _nodes_page(self) -> QWidget:
@@ -951,12 +992,19 @@ class ControlCenter(QWidget):
         col.addWidget(_label(idioma.t("running_now", self.lang), "section"))
         self.swarm_list = QListWidget()
         self.swarm_list.itemDoubleClicked.connect(self._open_swarm)
+        self.swarm_list.currentItemChanged.connect(
+            lambda _now, _before: self._pick_swarm()
+        )
         col.addWidget(self.swarm_list, 1)
+        self.swarm_output = QPlainTextEdit()
+        self.swarm_output.setReadOnly(True)
+        self.swarm_output.setMaximumHeight(120)
+        col.addWidget(self.swarm_output)
         buttons = QHBoxLayout()
         big = QPushButton(idioma.t("open_swarm", self.lang))
         big.clicked.connect(lambda: self.actions.open_url(f"{self.actions.server_url.rstrip('/')}/swarm"))
-        cancel = QPushButton(idioma.t("cancel_last", self.lang))
-        cancel.clicked.connect(lambda: self.actions.send("cancela la tarea"))
+        cancel = QPushButton(idioma.t("cancel_selected", self.lang))
+        cancel.clicked.connect(self._cancel_swarm)
         for button in (big, cancel):
             button.setCursor(Qt.CursorShape.PointingHandCursor)
             buttons.addWidget(button)
@@ -967,7 +1015,9 @@ class ControlCenter(QWidget):
         rows = QVBoxLayout()
         rows.setSpacing(8)
         for key in keys:
-            tile = SectionTile(key, idioma.t(key, self.lang), idioma.t(f"d_{key}", self.lang))
+            tile = SectionTile(
+                key, idioma.t(key, self.lang), idioma.t(f"d_{key}", self.lang)
+            )
             tile.clicked.connect(lambda _c=False, k=key: self._open_section(k))
             rows.addWidget(tile)
         return rows
@@ -1059,28 +1109,50 @@ class ControlCenter(QWidget):
                 self.node_list.setCurrentItem(item)
 
     def _open_swarm(self, item: QListWidgetItem) -> None:
-        run_id = item.data(Qt.ItemDataRole.UserRole)
+        key = item.data(Qt.ItemDataRole.UserRole)
+        run_id = key[4:] if isinstance(key, str) and key.startswith("srv:") else ""
         self._web(f"/swarm/{run_id}" if run_id else "/swarm")
 
-    def _show_swarms(self, data: dict) -> None:
-        lines: list[tuple[str, str]] = []
+    def _show_swarms(self, data: dict | None) -> None:
+        """The server's Agent Swarms (cached) and this PC's own tasks, live."""
+        if data is not None:
+            self._server_swarms = data
+        data = getattr(self, "_server_swarms", None) or {}
+        lines: list[tuple[str, object]] = []
         for run in (data.get("runs") or [])[:6]:
             counts = run.get("counts") or {}
             total = len(run.get("subtasks") or [])
             status = idioma.t(f"swarm_{run.get('status', 'done')}", self.lang)
             title = run.get("title") or run.get("task", "")
-            lines.append((f"{title}\n{counts.get('done', 0)}/{total} · {status}", run.get("id", "")))
-        for line in self.actions.swarm() or []:  # this PC's own background tasks
-            lines.append((line, ""))
+            lines.append((f"{title}\n{counts.get('done', 0)}/{total} · {status}", f"srv:{run.get('id', '')}"))
+        details = self.actions.swarm_details()
+        self._swarm_runs = {d["id"]: d for d in details if "id" in d}
+        if details:  # this PC's background tasks, with their real progress
+            for d in reversed(details):
+                progress = d.get("progress")
+                percent = f" · {round(progress * 100)}%" if progress is not None else ""
+                lines.append((f"{d.get('title', '')} · {d.get('state', '')}{percent}\n{d.get('detail', '')}", d.get("id")))
+        else:
+            for line in self.actions.swarm() or []:
+                lines.append((line, None))
         if not lines:
-            lines = [(idioma.t("nothing_running", self.lang), "")]
+            lines = [(idioma.t("nothing_running", self.lang), None)]
         if [self.swarm_list.item(i).text() for i in range(self.swarm_list.count())] == [t for t, _ in lines]:
             return
+        chosen = self.swarm_list.currentItem()
+        keep = chosen.data(Qt.ItemDataRole.UserRole) if chosen else None
+        self.swarm_list.blockSignals(True)
         self.swarm_list.clear()
-        for text, run_id in lines:
+        for text, key in lines:
             item = QListWidgetItem(text)
-            item.setData(Qt.ItemDataRole.UserRole, run_id)
+            item.setData(Qt.ItemDataRole.UserRole, key)
             self.swarm_list.addItem(item)
+            if key is not None and key == keep:
+                self.swarm_list.setCurrentItem(item)
+        if self.swarm_list.currentRow() < 0:
+            self.swarm_list.setCurrentRow(0)
+        self.swarm_list.blockSignals(False)
+        self._pick_swarm()
 
     def _refresh_remote(self) -> None:
         if not self.isVisible():
@@ -1108,19 +1180,27 @@ class ControlCenter(QWidget):
         def job() -> dict:
             resp = self._http().post(f"{base}/v1/cowork", json={"goal": goal})
             resp.raise_for_status()
-            return {"runs": self._http().get(f"{base}/v1/cowork").json().get("runs", [])}
+            return {
+                "runs": self._http().get(f"{base}/v1/cowork").json().get("runs", [])
+            }
 
         self._background(job, self.cowork_ready)
 
     def _load_cowork(self) -> None:
+        if self._cowork_loading:
+            return
+        self._cowork_loading = True
         base = self.actions.server_url
 
         def job() -> dict:
-            return self._http().get(f"{base}/v1/cowork").json()
+            response = self._http().get(f"{base}/v1/cowork")
+            response.raise_for_status()
+            return response.json()
 
         self._background(job, self.cowork_ready)
 
     def _show_cowork(self, data: dict) -> None:
+        self._cowork_loading = False
         if data.get("error"):
             self.cowork_note.setText(idioma.t("no_server", self.lang))
             return
@@ -1132,7 +1212,9 @@ class ControlCenter(QWidget):
         self._runs = {r["id"]: r for r in runs}
         for run in runs:
             done = int(round(float(run.get("progress", 0)) * 100))
-            mark = " · " + idioma.t("needs_you", self.lang) if run.get("waiting") else ""
+            mark = (
+                " · " + idioma.t("needs_you", self.lang) if run.get("waiting") else ""
+            )
             item = QListWidgetItem(
                 f"{run.get('title') or run.get('goal', '')}\n{run.get('status', '')} · {done}%{mark}"
             )
@@ -1141,6 +1223,8 @@ class ControlCenter(QWidget):
             if run["id"] == keep or (keep is None and run.get("waiting")):
                 self.run_list.setCurrentItem(item)
         self._pick_run()
+        if self.run_list.currentItem() is None and self.run_list.count():
+            self.run_list.setCurrentRow(0)
 
     def _current_run(self) -> dict | None:
         item = self.run_list.currentItem()
@@ -1148,6 +1232,13 @@ class ControlCenter(QWidget):
 
     def _pick_run(self) -> None:
         run = self._current_run()
+        lines = [str((run or {}).get("goal", ""))]
+        for step in (run or {}).get("steps", []):
+            lines.append(
+                f"{step.get('status', 'pending')} · {step.get('text', '')}\n{str(step.get('result', ''))[:2000]}"
+            )
+        lines.append(str((run or {}).get("summary", "")))
+        self.cowork_output.setPlainText("\n\n".join(lines)[:12000])
         waiting = (run or {}).get("waiting") or []
         if waiting:
             step = run["steps"][waiting[0]]
@@ -1158,6 +1249,20 @@ class ControlCenter(QWidget):
             self.waiting.setText("")
         for button in (self.approve, self.deny):
             button.setVisible(bool(waiting))
+
+    def _cancel_cowork(self) -> None:
+        run = self._current_run()
+        if not run:
+            return
+
+        def job() -> dict:
+            base = self.actions.server_url
+            self._http().post(f"{base}/v1/cowork/{run['id']}/cancel").raise_for_status()
+            response = self._http().get(f"{base}/v1/cowork")
+            response.raise_for_status()
+            return response.json()
+
+        self._background(job, self.cowork_ready)
 
     def _decide(self, approve: bool) -> None:
         run = self._current_run()
@@ -1194,8 +1299,51 @@ class ControlCenter(QWidget):
         """The local lines tick every second; the server's swarms every 3 s."""
         if not self.isVisible() or self.pages.currentIndex() != self.SWARM:
             return
-        if not self.swarm_list.count():
-            self._show_swarms({})
+        self._show_swarms(None)
+
+    def _pick_swarm(self) -> None:
+        item = self.swarm_list.currentItem()
+        key = item.data(Qt.ItemDataRole.UserRole) if item else None
+        if isinstance(key, str):  # a server swarm: its detail is on the web page
+            self.swarm_output.setPlainText(idioma.t("open_swarm", self.lang))
+            return
+        run = (
+            self._swarm_runs.get(item.data(Qt.ItemDataRole.UserRole), {})
+            if item
+            else {}
+        )
+        if item and item.data(Qt.ItemDataRole.UserRole) is not None:
+            run = {
+                **run,
+                **self.actions.swarm_task(item.data(Qt.ItemDataRole.UserRole)),
+            }
+        lines = [
+            f"{step.get('status', '')} · {step.get('where', '')} · {step.get('text', '')}\n{step.get('result', '')}"
+            for step in run.get("steps", [])
+        ]
+        lines.append(str(run.get("result", "")))
+        if run.get("total_steps", 0) > len(run.get("steps", [])):
+            lines.insert(
+                0,
+                f"Mostrando {len(run['steps'])} de {run['total_steps']} pasos en este panel.",
+            )
+        self.swarm_output.setPlainText("\n\n".join(lines)[:16000])
+
+    def _cancel_swarm(self) -> None:
+        item = self.swarm_list.currentItem()
+        task_id = item.data(Qt.ItemDataRole.UserRole) if item else None
+        if isinstance(task_id, str) and task_id.startswith("srv:"):
+            base = self.actions.server_url.rstrip("/")
+
+            def job() -> dict:
+                self._http().post(f"{base}/v1/swarm/{task_id[4:]}/cancel")
+                return self._http().get(f"{base}/v1/swarm").json()
+
+            self._background(job, self.swarms_ready)
+        elif task_id is not None:
+            self.actions.swarm_cancel(task_id)
+        else:
+            self.actions.send("cancela la tarea")
 
     def _settings(self) -> QWidget:
         """The switches, the notch, language and country."""
@@ -1241,6 +1389,30 @@ class ControlCenter(QWidget):
         self.country_box.currentIndexChanged.connect(self._pick_country)
         self.country_box.setFixedWidth(208)
         col.addLayout(_row(idioma.t("country", self.lang), self.country_box))
+        # Sergio's voice: one of the listed voices, or an ElevenLabs voice you
+        # are authorised to use (its ID only; nothing else is accepted).
+        from sergio_escritorio.neural_voice import VOICES
+
+        self.voice = QComboBox()
+        self.voice.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
+        self.voice.setMinimumContentsLength(16)
+        for voice_id, label in VOICES:
+            self.voice.addItem(label, voice_id)
+        configured = str(cfg.get("voice", ""))
+        if configured.startswith("elevenlabs:") and self.voice.findData(configured) < 0:
+            self.voice.addItem("ElevenLabs · voz personalizada", configured)
+        self.voice.addItem("Voz local (sin internet)", "")
+        self.voice.setCurrentIndex(max(0, self.voice.findData(configured)))
+        self.voice.currentIndexChanged.connect(lambda _i: self._save(voice=self.voice.currentData() or ""))
+        self.voice.setFixedWidth(208)
+        col.addLayout(_row("Voz", self.voice))
+        self.custom_voice = QLineEdit()
+        self.custom_voice.setPlaceholderText("ID de su voz autorizada en ElevenLabs")
+        self.custom_voice.setMaxLength(80)
+        if configured.startswith("elevenlabs:"):
+            self.custom_voice.setText(configured.split(":", 1)[1])
+        self.custom_voice.editingFinished.connect(self._set_custom_voice)
+        col.addWidget(self.custom_voice)
         col.addStretch(1)
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
@@ -1257,6 +1429,8 @@ class ControlCenter(QWidget):
         if index == self.COWORK:
             self._load_cowork()
         elif index in (self.NODES, self.SWARM):
+            if index == self.SWARM:
+                self._show_swarms(None)  # this PC's tasks at once; the server's follow
             self._refresh_remote()
 
     def open(self) -> None:
@@ -1331,6 +1505,21 @@ class ControlCenter(QWidget):
         cfg.update(changes)
         apply_config(cfg)
         self.actions.save_config(cfg)
+
+    def _set_custom_voice(self) -> None:
+        voice_id = self.custom_voice.text().strip()
+        if not re.fullmatch(r"[A-Za-z0-9_-]{1,80}", voice_id):
+            self.custom_voice.setToolTip(
+                "Introduce únicamente el ID de voz de ElevenLabs."
+            )
+            return
+        key = "elevenlabs:" + voice_id
+        index = self.voice.findData(key)
+        if index < 0:
+            self.voice.addItem("ElevenLabs · voz personalizada", key)
+            index = self.voice.count() - 1
+        self.voice.setCurrentIndex(index)
+        self._save(voice=key)
 
     def set_level(self, level: float) -> None:
         if hasattr(self, "mic"):

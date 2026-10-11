@@ -155,6 +155,12 @@ async def reload_cloud_engine(request: Request):
         submitted_keys = None
 
     if submitted_keys is not None:
+        from openjarvis import tiers
+
+        try:
+            tiers.require("custom_api")
+        except PermissionError as exc:
+            raise _routes.HTTPException(status_code=403, detail=str(exc)) from exc
         for key, value in submitted_keys.items():
             if value:
                 os.environ[key] = value

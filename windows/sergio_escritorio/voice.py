@@ -66,7 +66,11 @@ def repeats(answer: str, said: Any) -> bool:
     a = " ".join(_words(answer))
     if len(a) < 25:
         return False
-    return any(SequenceMatcher(None, a, " ".join(_words(b))).ratio() >= 0.85 for b in said)
+    return any(
+        SequenceMatcher(None, a, " ".join(_words(b))).ratio() >= 0.85 for b in said
+    )
+
+
 PTT_TIMEOUT = 10.0  # longest push-to-talk recording
 WAKE_RING_SECONDS = 6.0  # microphone kept in memory for the instant wake word
 WAKE_DECIDE_SECONDS = 12.0  # a "maybe Sergio" without an answer is dropped
@@ -82,6 +86,7 @@ class _Wake:
         self.confirmed = False
         self.failed = False
 
+
 # The language Sergio hears and speaks (idioma.py; set from the settings).
 LANGUAGE = "es"
 
@@ -91,50 +96,24 @@ def set_language(code: str) -> None:
     LANGUAGE = code or "es"
 
 
-PERSONA = (  # every turn: short on purpose (tokens)
-    "You are Sergio, the user's personal AI on their Windows laptop, in the "
-    "spirit of JARVIS: a refined, brilliant gentleman of about forty who "
-    "talks with them out loud, in their language (Spanish unless the LANGUAGE "
-    "rule below says otherwise). Address the owner as «señor» "
-    "(like JARVIS with Tony Stark: elegant respect with a glint of irony); "
-    "other people by their name. This is a real conversation, not a command "
-    "line: answer like a person would, in one or two natural spoken sentences. "
-    "Character: the screen charisma Brad Pitt is known for, as an "
-    "inspiration (you are NOT him: never claim to be him, never talk about his "
-    "real life, never quote his films). Concretely: unhurried, laid-back cool, "
-    "the confidence of someone who never needs to prove anything; few words, "
-    "each one chosen; understatement instead of exaggeration (a disaster is "
-    "'not ideal', a triumph 'not bad'); a lazy half-smile you can hear; quick "
-    "deadpan banter like a heist partner who is always one step ahead and "
-    "calm under pressure; blunt, practical honesty (say the uncomfortable "
-    "truth simply, then help); a data-driven, adapt-or-die pragmatism for "
-    "decisions; now and then a sharp, slightly rebellious question that makes "
-    "the owner think about what really matters; warm and loyal underneath, "
-    "and gentle, slow and sincere when something is emotional. Rhythm: short "
-    "sentences, casual openers ('Mira,', 'Bueno,', 'Tranquilo.'), the pause "
-    "before the punchline, never a lecture. Humour: dry, self-aware, sarcastic "
-    "with affection, never smug. "
-    "Now and then (not every turn) a clever "
-    "dark-humour remark - death, machines taking over, the absurdity of "
-    "existence, everyday disasters - but never about groups of people "
-    "(race, religion, gender, orientation, disability), real recent "
-    "tragedies, or anyone's real illness, grief or problems; when someone is "
-    "sad, worried or the moment is serious: zero dark humour, all help. "
-    "Solve first, then the sharp remark in half a sentence. Genuinely smart: "
-    "anticipate the next step, give the exact fact, have an opinion. Never "
-    "servile, never cruel, no forced or repeated jokes. NEVER repeat yourself: "
-    "no sentence, joke, opening or sign-off you already used in this "
-    "conversation, and never restate the question or your last answer. "
-    "Remember what was said, react to it, "
-    "and ask a short question back when it helps. Never announce what you "
-    "are about to do or read out instructions; just do it and tell them how "
-    "it went. No markdown, lists or emojis. If a request is a task, DO it "
-    "with your tools instead of guessing or only explaining. If you did not "
-    "understand, ask briefly. "
-    "HONESTY: never invent facts, numbers, names, dates, quotes, prices or "
-    "results; when you are not sure, say so in a few words and offer to check. "
-    "If you did not hear well, ask briefly instead of inventing. When done, "
-    "say briefly what you did."
+PERSONA = (
+    "You are Sergio, the user's personal assistant, in the spirit of JARVIS: a "
+    "refined, calm gentleman. Address the owner as «señor» (elegant respect, a "
+    "light glint of irony); other people by their name. Character inspired by "
+    "Brad Pitt's laid-back screen charisma (you are NOT him: never claim to be "
+    "him or talk about his life): unhurried, few well-chosen words, "
+    "understatement. Now and then (not every turn) a short dark-humour remark "
+    "- machines taking over, everyday disasters - but never about groups of "
+    "people, real tragedies or anyone's illness or grief; when the moment is "
+    "serious: zero dark humour, all help. Speak naturally, calmly and clearly. Answer the user's latest request using the actual conversation "
+    "history; do not switch topics or fill gaps in unclear speech. Ask one short "
+    "clarifying question when necessary. Follow the LANGUAGE rule. Use brief "
+    "spoken answers, but retain details needed to complete professional work. "
+    "Prioritize useful, concrete help over jokes or theatrical personality. "
+    "Distinguish verified facts, estimates and uncertainty. Never invent tool "
+    "results, files, citations, completed actions or current facts. For tasks, "
+    "use the available tools and report what actually happened. Never claim "
+    "to be a real person. Avoid unnecessary markdown in spoken replies."
 )
 
 TOOLS_GUIDE = (  # only when Sergio works with his tools (the agent)
@@ -356,7 +335,10 @@ _CONFIRM = {
 
 
 # "usa L99": the task is done no matter what (no chatting, no stopping halfway).
-L99 = re.compile(r"(?:\b(?:usa|usando|modo|con)\s+)?\bl\s*-?\s*99\b|\bele\s+noventa\s+y\s+nueve\b", re.I)
+L99 = re.compile(
+    r"(?:\b(?:usa|usando|modo|con)\s+)?\bl\s*-?\s*99\b|\bele\s+noventa\s+y\s+nueve\b",
+    re.I,
+)
 L99_ROUNDS = 8
 L99_RULES = (
     "L99 MODE: the user requires this task to be COMPLETED. Work through every "
@@ -396,9 +378,13 @@ def l99_status(answer: str) -> tuple[str, str]:
     """('done' | 'more' | 'impossible', detail) from the agent's last line."""
     for line in reversed([x.strip() for x in answer.strip().splitlines() if x.strip()]):
         upper = line.upper()
-        for mark, status in (("TERMINADO:", "done"), ("FALTA:", "more"), ("NO POSIBLE:", "impossible")):
+        for mark, status in (
+            ("TERMINADO:", "done"),
+            ("FALTA:", "more"),
+            ("NO POSIBLE:", "impossible"),
+        ):
             if upper.startswith(mark):
-                return status, line[len(mark):].strip()
+                return status, line[len(mark) :].strip()
     return "more", ""
 
 
@@ -406,7 +392,8 @@ def l99_status(answer: str) -> tuple[str, str]:
 # chat answers them grounded on Google Search (with sources), not from memory.
 FACTUAL = re.compile(
     r"\b(cu[aá]nto (cuesta|vale|mide|pesa|dura|gana|tiene)|precio|cotizaci[oó]n|d[oó]lar|bitcoin|"
-    r"qui[eé]n (es|fue|gan[oó]|invent[oó]|escribi[oó]|dirigi[oó])|cu[aá]ndo (es|fue|naci[oó]|muri[oó]|sale|abre|cierra|juega)|"
+    r"qui[eé]n (es|fue|gan[oó]|invent[oó]|escribi[oó]|dirigi[oó])|"
+    r"cu[aá]ndo (es|fue|naci[oó]|muri[oó]|sale|abre|cierra|juega)|"
     r"d[oó]nde (queda|est[aá]|naci[oó])|qu[eé] pas[oó]|noticias?|resultado|marcador|clima|temperatura|"
     r"[uú]ltim[oa]s?|actual(mente)?|hoy|ayer|esta semana|este a[nñ]o|en 20\d\d|r[eé]cord|estad[ií]stica|"
     r"poblaci[oó]n|capital de|horario|abierto|how much|who (is|was|won)|when (is|was|did)|latest|news|price)\b",
@@ -457,7 +444,7 @@ class SergioClient:
     def __init__(self, base_url: str, http: httpx.Client | None = None) -> None:
         self.base = base_url.rstrip("/")
         self.http = http or httpx.Client(timeout=httpx.Timeout(300, connect=5))
-        self._voice_cache: dict[tuple[str, str], bytes] = {}
+        self._voice_cache: dict[tuple[str, str, str, str], tuple[bytes, str]] = {}
         self.history: list[dict[str, str]] = []
         self._model = ""
 
@@ -485,6 +472,7 @@ class SergioClient:
         resp = self.http.post(
             f"{self.base}/v1/voice/transcribe",
             files={"file": ("voz.wav", wav, "audio/wav")},
+            data={"language": LANGUAGE},
             timeout=httpx.Timeout(30, connect=5),
         )
         resp.raise_for_status()
@@ -497,7 +485,7 @@ class SergioClient:
             data={"language": LANGUAGE},
         )
         resp.raise_for_status()
-        return str(resp.json().get("text") or "").strip()
+        return clean_transcript(str(resp.json().get("text") or "").strip())
 
     def model(self) -> str:
         """The server's main model (e.g. Kimi), else the first one listed."""
@@ -551,7 +539,12 @@ class SergioClient:
             f"{self.country_name or 'Ecuador'}). Si para responder necesitarías buscar en internet o usar "
             "la computadora, dilo en una frase y ofrécete a hacerlo."
         )
-        style = PERSONA + context + (f" {self.personality}" if self.personality else "")
+        style = (
+            PERSONA
+            + self.language_rule()
+            + context
+            + (f" {self.personality}" if self.personality else "")
+        )
         messages = [
             {"role": "system", "content": style},
             *self.history[-HISTORY_TURNS * 2 :],
@@ -575,7 +568,9 @@ class SergioClient:
         self.last_brain, self.last_route = model, "chat"
         return answer
 
-    def ask_until_done(self, task: str, on_step: Callable[[str], None] | None = None) -> str:
+    def ask_until_done(
+        self, task: str, on_step: Callable[[str], None] | None = None
+    ) -> str:
         """L99: keep the agent working on *task* until it is verified done."""
         prompt = f"{L99_RULES}\n\nTarea: {task}"
         answer = ""
@@ -601,7 +596,11 @@ class SergioClient:
             except Exception:  # noqa: BLE001 — the agent can still answer
                 log.warning("fast chat failed; using the agent", exc_info=True)
         self.last_route = "agent"
-        style = VOICE_STYLE + (f" {self.personality}" if self.personality else "")
+        style = (
+            VOICE_STYLE
+            + self.language_rule()
+            + (f" {self.personality}" if self.personality else "")
+        )
         # The question joins the history only with its answer: a failed turn
         # used to stay there unanswered and could break the next ones too.
         messages = [
@@ -621,6 +620,8 @@ class SergioClient:
         answer = no_emoji(
             str(resp.json()["choices"][0]["message"].get("content") or "").strip()
         )
+        if not answer:
+            raise RuntimeError("respuesta vacía")
         self.history += [
             {"role": "user", "content": text},
             {"role": "assistant", "content": answer},
@@ -630,21 +631,43 @@ class SergioClient:
 
     voice = ""  # neural voice id; "" = use the server's local voice
     voice_rate = "+0%"  # Lenta -10% / Normal +0% / Rápida +15%
+    allow_voice_fallback = False
+
+    def language_rule(self) -> str:
+        from sergio_escritorio.idioma import LANGUAGE_NAMES_EN
+
+        return (
+            f" LANGUAGE: reply in {LANGUAGE_NAMES_EN.get(LANGUAGE, LANGUAGE)}. "
+            "Use the conversation history to resolve references. Report only tool "
+            "results you actually observed; ask for clarification when speech is ambiguous."
+        )
+
+    def remember_turn(self, heard: str, said: str) -> None:
+        if heard.strip() and said.strip():
+            self.history.extend(
+                [
+                    {"role": "user", "content": heard},
+                    {"role": "assistant", "content": said},
+                ]
+            )
+            del self.history[: -HISTORY_TURNS * 2]
 
     def speak(self, text: str) -> bytes:
         """Sergio's voice; short phrases are remembered (instant next time)."""
-        key = (self.voice, text)
+        key = (self.voice, self.voice_rate, LANGUAGE, text)
         if key in self._voice_cache:
-            return self._voice_cache[key]
+            wav, self.last_voice = self._voice_cache[key]
+            return wav
         wav = self._speak(text)
-        if len(text) <= 60:
+        if len(text) <= 60 and not self.last_voice.startswith("respaldo"):
             if len(self._voice_cache) > 80:
                 self._voice_cache.pop(next(iter(self._voice_cache)))
-            self._voice_cache[key] = wav
+            self._voice_cache[key] = (wav, self.last_voice)
         return wav
 
     last_voice = ""  # which voice really spoke last (for `sergio probar`)
     _gemini_voice_off_until = 0.0
+    _cooldown_voice = ""
 
     @property
     def live_voice(self) -> bool:
@@ -673,6 +696,11 @@ class SergioClient:
             timeout=httpx.Timeout(30, connect=5),
         ) as resp:
             resp.raise_for_status()
+            self.last_voice = (
+                f"ElevenLabs ({self._server_voice().split(':', 1)[-1]})"
+                if self.voice.startswith("elevenlabs:")
+                else "Gemini Live (en vivo)"
+            )
             carry = b""
             for chunk in resp.iter_bytes():
                 chunk = carry + chunk
@@ -695,7 +723,10 @@ class SergioClient:
         failing models first, so answers came late and sounded different.
         """
         if self.voice.startswith(("gemini:", "elevenlabs:")):
-            if time.monotonic() >= self._gemini_voice_off_until:
+            if (
+                self._cooldown_voice != self.voice
+                or time.monotonic() >= self._gemini_voice_off_until
+            ):
                 try:
                     resp = self.http.post(
                         f"{self.base}/v1/voice/speak",
@@ -703,14 +734,31 @@ class SergioClient:
                         timeout=httpx.Timeout(30, connect=5),
                     )
                     resp.raise_for_status()
-                    self.last_voice = "ElevenLabs" if self.voice.startswith("elevenlabs:") else f"Gemini ({self.voice.split(':', 1)[1]})"
+                    self.last_voice = (
+                        "ElevenLabs"
+                        if self.voice.startswith("elevenlabs:")
+                        else f"Gemini ({self.voice.split(':', 1)[1]})"
+                    )
                     return resp.content
                 except Exception as exc:  # noqa: BLE001 — fall back to the free voice
                     why = explain(exc)
+                    if not self.allow_voice_fallback:
+                        raise RuntimeError(
+                            f"La voz seleccionada no está disponible: {why[:120]}"
+                        ) from exc
                     log.warning("Gemini voice failed (%s); using the neural voice", why)
-                    if "quota" in why.lower() or "429" in why or "exhausted" in why.lower():
+                    if (
+                        "quota" in why.lower()
+                        or "429" in why
+                        or "exhausted" in why.lower()
+                    ):
                         self._gemini_voice_off_until = time.monotonic() + 15 * 60
+                        self._cooldown_voice = self.voice
                     self.last_voice = f"respaldo Edge (Gemini falló: {why[:120]})"
+            if not self.allow_voice_fallback:
+                raise RuntimeError(
+                    "La voz seleccionada está sin cuota; no cambié su identidad."
+                )
             try:
                 from sergio_escritorio.neural_voice import fallback_voice, synthesize
 
@@ -730,6 +778,8 @@ class SergioClient:
                 self.last_voice = f"Edge ({self.voice})"
                 return wav
             except Exception:  # noqa: BLE001 — offline or service hiccup
+                if not self.allow_voice_fallback:
+                    raise
                 log.exception("neural voice failed; using the local voice")
         self.last_voice = "voz local del servidor"
         return self.speak_on_server(text)
@@ -853,7 +903,9 @@ class SergioClient:
         """The minutes of a meeting/call/conversation (Gemini, on the server)."""
         resp = self.http.post(
             f"{self.base}/v1/meeting/summarize",
-            files={"audio": (f"reunion.{'ogg' if 'ogg' in mime else 'wav'}", audio, mime)},
+            files={
+                "audio": (f"reunion.{'ogg' if 'ogg' in mime else 'wav'}", audio, mime)
+            },
             data={
                 "timeline": timeline,
                 "kind": kind,
@@ -873,16 +925,25 @@ class SergioClient:
 
     def owner(self) -> str:
         """Whose assistant this is (Sergio calls them «señor»)."""
-        resp = self.http.get(f"{self.base}/v1/faces/owner", timeout=httpx.Timeout(8, connect=3))
+        resp = self.http.get(
+            f"{self.base}/v1/faces/owner", timeout=httpx.Timeout(8, connect=3)
+        )
         resp.raise_for_status()
         return str(resp.json().get("owner") or "")
 
     def face_scan(self, name: str, jpegs: list[bytes], mesh: dict | None) -> dict:
         """Send a Face ID-style scan (frames + 3D map) to Sergio's server."""
-        files = [("images", (f"escaneo{i}.jpg", data, "image/jpeg")) for i, data in enumerate(jpegs)]
+        files = [
+            ("images", (f"escaneo{i}.jpg", data, "image/jpeg"))
+            for i, data in enumerate(jpegs)
+        ]
         resp = self.http.post(
             f"{self.base}/v1/faces/scan",
-            data={"name": name, "consent": "true", "mesh": json.dumps(mesh) if mesh else ""},
+            data={
+                "name": name,
+                "consent": "true",
+                "mesh": json.dumps(mesh) if mesh else "",
+            },
             files=files,
             timeout=httpx.Timeout(120, connect=5),
         )
@@ -900,7 +961,9 @@ class SergioClient:
         if alt is not None:
             params["alt"] = f"{alt:.0f}"
         resp = self.http.get(
-            f"{self.base}/v1/world/overhead", params=params, timeout=httpx.Timeout(12, connect=3)
+            f"{self.base}/v1/world/overhead",
+            params=params,
+            timeout=httpx.Timeout(12, connect=3),
         )
         if resp.status_code != 200:
             try:
@@ -933,9 +996,17 @@ class SergioClient:
             return str(f["text"])
         route = f.get("route") or {}
         where = " → ".join(x for x in (route.get("from"), route.get("to")) if x)
-        state = "en tierra" if f.get("on_ground") else f"a {f.get('alt_m', '?')} m y {f.get('speed_kmh', '?')} km/h"
+        state = (
+            "en tierra"
+            if f.get("on_ground")
+            else f"a {f.get('alt_m', '?')} m y {f.get('speed_kmh', '?')} km/h"
+        )
         who = f" de {route['airline']}" if route.get("airline") else ""
-        return f"El vuelo {f.get('callsign', number)}{who} va {state}" + (f", ruta {where}" if where else "") + "."
+        return (
+            f"El vuelo {f.get('callsign', number)}{who} va {state}"
+            + (f", ruta {where}" if where else "")
+            + "."
+        )
 
     def speak_on_server(self, text: str) -> bytes:
         resp = self.http.post(
@@ -946,9 +1017,8 @@ class SergioClient:
 
 
 PROMPT = (
-    "Sergio, abre Google y busca, entra al primer link, abre YouTube, "
-    "edita un video con la carpeta, canal, publica, Blender, la cámara, "
-    "qué tengo en la mano, Nvidia, WhatsApp."
+    "Sergio, Google, YouTube, Blender, NVIDIA, WhatsApp, GitHub, "
+    "Python, PowerShell, Visual Studio Code."
 )
 
 
@@ -976,7 +1046,12 @@ def normalise(audio):  # noqa: ANN001, ANN201 — numpy array in, out
     """Quiet laptop mics: lift the voice to a healthy level before Whisper."""
     import numpy as np
 
+    audio = np.asarray(audio, dtype=np.float32)
+    if not audio.size or not np.all(np.isfinite(audio)):
+        return np.zeros_like(audio)
     audio = audio - float(np.mean(audio))
+    if float(np.sqrt(np.mean(audio * audio))) < 0.001:
+        return np.zeros_like(audio)
     peak = float(np.max(np.abs(audio))) if audio.size else 0.0
     if 0.0 < peak < 0.6:
         audio = audio * min(0.9 / peak, 12.0)
@@ -1005,8 +1080,20 @@ def no_emoji(text: str) -> str:
 
 def clean_transcript(text: str) -> str:
     low = text.lower().strip(" .,!¡")
-    echo = len(low) > 25 and low in PROMPT.lower()  # Whisper repeating its prompt
-    if not low or echo or any(h in low for h in HALLUCINATIONS):
+    prompt = PROMPT.lower().strip(" .,!¡")
+    # Whisper repeating (part of) its own prompt: the whole prompt, or a long
+    # piece of it (a real command adds words the prompt does not have).
+    echo = low == prompt or (len(low) > 25 and low in prompt)
+    artifacts = {
+        "suscríbete",
+        "subtítulos",
+        "gracias por ver",
+        "gracias por ver el vídeo",
+        "gracias por ver el video",
+        "subtítulos por amara.org",
+        "subtítulos realizados por la comunidad de amara.org",
+    }
+    if not low or echo or low in artifacts or low == "amara.org":
         return ""
     return text
 
@@ -1032,9 +1119,9 @@ class LocalWhisper:
                     "large-v3-turbo", device="cuda", compute_type="float16"
                 )
                 list(
-                    model.transcribe(np.zeros(16000, dtype=np.float32), language=LANGUAGE)[
-                        0
-                    ]
+                    model.transcribe(
+                        np.zeros(16000, dtype=np.float32), language=LANGUAGE
+                    )[0]
                 )
                 self.model, self.name = model, "large-v3-turbo (GPU)"
             except Exception:  # noqa: BLE001 — no GPU/DLLs: use the CPU
@@ -1049,19 +1136,55 @@ class LocalWhisper:
         import numpy as np
 
         with wave.open(io.BytesIO(wav)) as w:
+            if w.getsampwidth() != 2 or w.getcomptype() != "NONE":
+                raise ValueError("Whisper requiere WAV PCM de 16 bits.")
+            rate, channels = w.getframerate(), w.getnchannels()
             pcm = np.frombuffer(w.readframes(w.getnframes()), dtype=np.int16)
-        audio = normalise(pcm.astype(np.float32) / 32768.0)
+        audio = pcm.astype(np.float32) / 32768.0
+        if channels > 1:
+            audio = audio.reshape(-1, channels).mean(axis=1)
+        if rate != RATE and audio.size:
+            import av
+
+            resampler = av.AudioResampler(format="s16", layout="mono", rate=RATE)
+            samples = []
+            with av.open(io.BytesIO(wav), mode="r") as container:
+                for frame in container.decode(audio=0):
+                    samples.extend(
+                        f.to_ndarray().reshape(-1) for f in resampler.resample(frame)
+                    )
+                samples.extend(
+                    f.to_ndarray().reshape(-1) for f in resampler.resample(None)
+                )
+            audio = (
+                np.concatenate(samples).astype(np.float32) / 32768.0
+                if samples
+                else np.zeros(0, dtype=np.float32)
+            )
+        audio = normalise(audio)
+        if not np.any(audio):
+            return ""
         with self.lock:
             segments, _info = self.model.transcribe(
                 audio,
                 language=LANGUAGE,
-                vad_filter=False,  # the companion already cut the speech
+                vad_filter=True,
+                vad_parameters={
+                    "min_speech_duration_ms": 200,
+                    "min_silence_duration_ms": 300,
+                },
                 beam_size=5,
                 initial_prompt=PROMPT if LANGUAGE == "es" else "Sergio.",
                 condition_on_previous_text=False,
                 no_speech_threshold=0.5,
             )
-            text = "".join(seg.text for seg in segments).strip()
+            text = "".join(
+                seg.text
+                for seg in segments
+                if getattr(seg, "no_speech_prob", 0) < 0.6
+                and getattr(seg, "avg_logprob", 0) > -1.0
+                and getattr(seg, "compression_ratio", 0) < 2.4
+            ).strip()
         return clean_transcript(text)
 
 
@@ -1324,12 +1447,22 @@ class Assistant:
         self._interrupted = False
         self.quick: Callable[[Any], str] | None = None  # instant commands
         self.on_request: Callable[[str], None] | None = None  # the profile notes topics
-        self.redirect: Callable[[str], bool] | None = None  # the consultation takes the voice
+        self.redirect: Callable[[str], bool] | None = (
+            None  # the consultation takes the voice
+        )
         # Checkpoint: important orders from a voice that is not the owner wait
         # for the owner's face (returns True if approved).
         self.approve: Callable[[str], bool] | None = None
         # Instant screen orders answered on screen only (no voice wait).
-        self.silent_quick: set[str] = {"device", "key", "volume", "screenshot", "open_app", "open_url", "close_app"}
+        self.silent_quick: set[str] = {
+            "device",
+            "key",
+            "volume",
+            "screenshot",
+            "open_app",
+            "open_url",
+            "close_app",
+        }
         # Real-time call (Gemini Live): saying "Sergio" opens it with what
         # you said; returns False when no call could start (then turn-based).
         self.start_call: Callable[[bytes], bool] | None = None
@@ -1533,8 +1666,12 @@ class Assistant:
                 log.debug("redirect failed", exc_info=True)
         answer = ""
         if self._speaker_note and self.approve is not None and important(text):
-            self.ui.say("Lo pide alguien que no es el señor: necesito que él lo apruebe mirando la cámara.")
-            self.say_aloud("Esto debe aprobarlo el señor. Señor, mire a la cámara, por favor.")
+            self.ui.say(
+                "Lo pide alguien que no es el señor: necesito que él lo apruebe mirando la cámara."
+            )
+            self.say_aloud(
+                "Esto debe aprobarlo el señor. Señor, mire a la cámara, por favor."
+            )
             try:
                 approved = self.approve(text)
             except Exception:  # noqa: BLE001 — no approval, no action
@@ -1550,7 +1687,9 @@ class Assistant:
             self.ui.state("acting")
             self.ui.say(f"L99: {task}")
             try:
-                answer = self.client.ask_until_done(task, on_step=lambda step: self.ui.say(f"L99 · {step}"))
+                answer = self.client.ask_until_done(
+                    task, on_step=lambda step: self.ui.say(f"L99 · {step}")
+                )
             except Exception as exc:  # noqa: BLE001
                 log.exception("L99 failed")
                 self._fail(f"L99 se detuvo: {explain(exc)}")
@@ -1603,10 +1742,15 @@ class Assistant:
             note, self._speaker_note = self._speaker_note, ""
             try:
                 answer = self.client.ask(f"({note}) {text}" if note else text)
-                if repeats(answer, self.said):  # the same answer again: once more, fresh
-                    answer = self.client.ask(
-                        f"{text}\n(Ya dijiste casi lo mismo antes: no lo repitas; responde algo nuevo y breve.)"
-                    ) or answer
+                if repeats(
+                    answer, self.said
+                ):  # the same answer again: once more, fresh
+                    answer = (
+                        self.client.ask(
+                            f"{text}\n(Ya dijiste casi lo mismo antes: no lo repitas; responde algo nuevo y breve.)"
+                        )
+                        or answer
+                    )
             except Exception as exc:  # noqa: BLE001
                 log.exception("chat failed")
                 self._fail(f"El modelo no respondió: {explain(exc)}")
@@ -1640,7 +1784,9 @@ class Assistant:
                 if self._stream_aloud(answer):
                     return
             except Exception:  # noqa: BLE001 — sentence by sentence instead
-                log.warning("streamed Live voice failed; speaking by sentences", exc_info=True)
+                log.warning(
+                    "streamed Live voice failed; speaking by sentences", exc_info=True
+                )
         parts = split_sentences(answer)
         audio: queue.Queue[bytes | None] = queue.Queue()
 
@@ -1648,8 +1794,11 @@ class Assistant:
             for part in parts:
                 try:
                     audio.put(self.client.speak(part))
-                except Exception:  # noqa: BLE001 — the text is already shown
+                except Exception as exc:  # noqa: BLE001 — keep the answer visible
                     log.exception("speech synthesis failed")
+                    self.ui.say(
+                        f"{answer}\n\nNo pude reproducir la voz seleccionada: {explain(exc)[:160]}"
+                    )
                     break
             audio.put(None)
 
@@ -1660,7 +1809,6 @@ class Assistant:
             if wav is None or self._interrupted:
                 break
             self.player(wav)
-
 
     def _stream_aloud(self, answer: str) -> bool:
         """Gemini Live's voice, played while it is still arriving (~1 s)."""
@@ -1677,10 +1825,13 @@ class Assistant:
                 speaker.play(chunk)
             while got and not self._interrupted and speaker.talking:
                 time.sleep(0.05)
+        except Exception as exc:  # noqa: BLE001 — do not repeat already played speech
+            if not got:
+                raise
+            self.ui.say(f"{answer}\n\nEl audio se interrumpió: {explain(exc)[:160]}")
+            return True
         finally:
             speaker.stop()
-        if got:
-            self.client.last_voice = "Gemini Live (en vivo)"
         return got
 
 

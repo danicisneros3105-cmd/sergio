@@ -8,6 +8,7 @@ within the same session.
 from __future__ import annotations
 
 import io
+import os
 import threading
 import time
 import uuid
@@ -191,10 +192,18 @@ class ReplTool(BaseTool):
                 "required": ["code"],
             },
             category="code",
+            requires_confirmation=True,
+            required_capabilities=["code:execute"],
             metadata={"structured_allow_object_text": True},
         )
 
     def execute(self, **params: Any) -> ToolResult:
+        if os.environ.get("SERGIO_EXECUTION_MODE", "local") != "local":
+            return ToolResult(
+                tool_name="repl",
+                success=False,
+                content="In-process REPL is disabled in container mode; use shell_exec in the project container.",
+            )
         code = params.get("code", "")
         session_id = params.get("session_id")
         reset = params.get("reset", False)

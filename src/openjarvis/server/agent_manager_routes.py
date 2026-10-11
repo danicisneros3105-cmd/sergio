@@ -34,6 +34,7 @@ except ImportError:
 logger = logging.getLogger("openjarvis.server.agent_manager")
 _MEMORY_BACKEND_LOCK_SETUP = threading.Lock()
 _MCP_LOCK_SETUP = threading.Lock()
+_MANAGED_WORKER_LOCK_SETUP = threading.Lock()
 
 
 def _get_runtime_event_bus(runtime: Any = None) -> Any:
@@ -48,14 +49,15 @@ def _get_runtime_event_bus(runtime: Any = None) -> Any:
 def _start_managed_worker(app_state: Any, target: Any, *, name: str) -> Any:
     """Start and track a managed-agent worker for orderly app shutdown."""
 
-    lock = getattr(app_state, "_managed_worker_lock", None)
-    if lock is None:
-        lock = threading.Lock()
-        app_state._managed_worker_lock = lock
-    workers = getattr(app_state, "_managed_workers", None)
-    if workers is None:
-        workers = set()
-        app_state._managed_workers = workers
+    with _MANAGED_WORKER_LOCK_SETUP:
+        lock = getattr(app_state, "_managed_worker_lock", None)
+        if lock is None:
+            lock = threading.Lock()
+            app_state._managed_worker_lock = lock
+        workers = getattr(app_state, "_managed_workers", None)
+        if workers is None:
+            workers = set()
+            app_state._managed_workers = workers
 
     thread: threading.Thread
 
@@ -69,6 +71,10 @@ def _start_managed_worker(app_state: Any, target: Any, *, name: str) -> Any:
     with lock:
         if getattr(app_state, "_managed_runtime_stopping", False):
             raise RuntimeError("managed-agent runtime is shutting down")
+        if len(workers) >= 8:
+            raise RuntimeError(
+                "8 managed agents already running; retry when a slot is available"
+            )
         thread = threading.Thread(target=_run, daemon=True, name=name)
         workers.add(thread)
         try:

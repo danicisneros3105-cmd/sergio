@@ -47,9 +47,28 @@ def _windows_process_alive(pid: int) -> bool:
         kernel32.CloseHandle(handle)
 
 
+def _proc_pid_namespace_matches() -> bool:
+    """A mounted /proc may belong to the host rather than our PID namespace."""
+    try:
+        with open("/proc/self/stat", encoding="utf-8") as stream:
+            return int(stream.read().split(" ", 1)[0]) == os.getpid()
+    except (OSError, ValueError):
+        return False
+
+
 def _posix_process_state(pid: int) -> str | None:
     """Return a POSIX process state letter, or ``None`` when unavailable."""
     proc_root = "/proc"
+    if os.path.isdir(proc_root) and not _proc_pid_namespace_matches():
+        # waitid observes our own child without reaping it; host /proc and ps
+        # cannot safely answer for a PID from a different namespace.
+        if all(hasattr(os, name) for name in ("waitid", "P_PID", "WNOWAIT")):
+            try:
+                result = os.waitid(os.P_PID, pid, os.WEXITED | os.WNOHANG | os.WNOWAIT)
+                return "Z" if result is not None else None
+            except OSError:
+                pass
+        return None
     try:
         with open(f"{proc_root}/{pid}/stat", encoding="utf-8") as stat_file:
             # The command name is parenthesized and may itself contain ``)``.

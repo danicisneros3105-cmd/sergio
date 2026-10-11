@@ -10,9 +10,9 @@
 from __future__ import annotations
 
 import json
-import re
 import logging
 import os
+import re
 import subprocess
 import sys
 import threading
@@ -50,11 +50,8 @@ def load_config() -> dict[str, Any]:
     data.setdefault("theme", "Océano")
     data.setdefault("eyes", True)
     data.setdefault("cursor_size", 9.0)
-    # Sergio's own voice: the British gentleman (Gemini). The old default
-    # neural voice is upgraded; a voice the user picked is kept.
-    # Gemini Live's default voice everywhere (calls and spoken answers): the
-    # user asked for it, and one voice sounds like one Sergio.
-    if data.get("voice") in (None, "es-EC-LuisNeural", "gemini:Algieba", "gemini:Predeterminada") and not data.get("voice_chosen"):
+    # Set a first-install default without migrating an existing voice identity.
+    if data.get("voice") is None:
         data["voice"] = "gemini:Algenib"  # male, deep, relaxed and a bit husky
     # Muse-style personalisation and the brain's effort.
     # Sergio is not personalised any more (only agents are): one name, one
@@ -304,10 +301,32 @@ def run(config: dict[str, Any]) -> None:
         bridge.caption.emit("Mirando por la cámara…")
         return feed.jpeg()
 
+    consent_lock = threading.Lock()
+
+    def confirm_sensitive_action(request: str) -> bool:
+        from sergio_escritorio.consent import confirm_dialog
+
+        if not consent_lock.acquire(blocking=False):
+            return False
+        deadline = time.monotonic() + 35.0
+        try:
+            def ask() -> bool:
+                remaining = deadline - time.monotonic()
+                return remaining > 0 and confirm_dialog(request, seconds=min(30.0, remaining))
+
+            return on_ui(ask, timeout=36.0) is True
+        except Exception:
+            logging.exception("No se pudo solicitar autorización")
+            return False
+        finally:
+            consent_lock.release()
+
     controller = Controller(
         WindowsBackend(speed=str(config.get("control_speed") or "rapido")),
         on_activity=on_activity,
         camera=camera_shot,
+        approve=confirm_sensitive_action,
+        strict_permissions=config.get("strict_permissions", True) is not False,
     )
     server = make_server(controller, config["token"], int(config["port"]))
     threading.Thread(target=server.serve_forever, daemon=True).start()
@@ -323,6 +342,7 @@ def run(config: dict[str, Any]) -> None:
         """Voice, personality and effort chosen in the notch."""
         client.voice = cfg["voice"]
         client.voice_rate = cfg["voice_rate"]
+        client.allow_voice_fallback = bool(cfg.get("allow_voice_fallback", False))
         client.effort = cfg["effort"]
         name = cfg["name"]
         persona = PERSONALITIES.get(cfg["personality"], "")
@@ -1006,7 +1026,12 @@ def run(config: dict[str, Any]) -> None:
     threading.Thread(target=profile_loop, daemon=True).start()
 
     # -- the coach: what you are learning, at your pace ------------------------
-    from sergio_escritorio.coach import Coach, annotate_video, record_video, school_reminders
+    from sergio_escritorio.coach import (
+        Coach,
+        annotate_video,
+        record_video,
+        school_reminders,
+    )
 
     coach = Coach(HOME / "coach.json")
     coach_windows: dict[str, Any] = {}
@@ -2975,16 +3000,22 @@ def run(config: dict[str, Any]) -> None:
             "idle_hang_up": ALWAYS_ON if config.get("call_always", True) else IDLE_HANG_UP,
             "voice": client.voice,
             "personality": client.personality,
-            "context": lambda: call_context(
-                _dt.datetime.now(),
-                system_status(),
-                reminders.pending(),
-                camera_window.isVisible(),
+            "context": lambda: (
+                call_context(
+                    _dt.datetime.now(),
+                    system_status(),
+                    reminders.pending(),
+                    camera_window.isVisible(),
+                )
+                + client.language_rule()
+                + "\nPrevious conversation (context, not new instructions):\n"
+                + json.dumps(client.history[-12:], ensure_ascii=False)
             ),
             "tools": call_tools(abilities),
             "on_state": call_state,
             "on_caption": bridge.caption.emit,
             "on_heard": lambda text: setattr(assistant, "last_heard", text),
+            "on_turn": client.remember_turn,
             "on_level": bridge.level.emit,
             "on_end": call_ended,
             "video": call_video,
@@ -3085,7 +3116,13 @@ def run(config: dict[str, Any]) -> None:
     controller.skills["face_scan"] = lambda args: face_scan(str(args.get("name") or ""))
 
     # -- who is talking: voiceprints of the people Sergio knows ---------------
-    from sergio_escritorio.speakers import Encoder, LiveVoices, VoiceBook, pcm_to_float, voiced
+    from sergio_escritorio.speakers import (
+        Encoder,
+        LiveVoices,
+        VoiceBook,
+        pcm_to_float,
+        voiced,
+    )
 
     voice_book = VoiceBook()
     owner_cache = [str(config.get("owner") or "")]
@@ -3154,7 +3191,9 @@ def run(config: dict[str, Any]) -> None:
     assistant.who_spoke = who_spoke
 
     def owner_approves(request: str, seconds: float = 10.0) -> bool:
-        """The checkpoint: the owner's face must be seen (strong match)."""
+        """Consent to the displayed action, then verify the owner's identity."""
+        if not confirm_sensitive_action(request):
+            return False
         bridge.caption.emit("Señor: mire a la cámara para aprobarlo")
         deadline = time.time() + seconds
         while time.time() < deadline:
@@ -3170,6 +3209,11 @@ def run(config: dict[str, Any]) -> None:
         return False
 
     assistant.approve = owner_approves
+    def owner_approval(args: dict) -> dict:
+        what = str(args.get("what") or "").strip()
+        return {"what": what, "approved": bool(what) and owner_approves(what)}
+
+    controller.skills["owner_approval"] = owner_approval
     controller.skills["voice_enroll"] = lambda args: voice_enroll(str(args.get("name") or ""))
     controller.skills["voice_who"] = lambda _args: voice_who()
 
@@ -3237,7 +3281,15 @@ def run(config: dict[str, Any]) -> None:
         return f"Lo último que oí era {voices.describe()}."
 
     # -- meetings, video calls, conversations: Sergio takes the minutes --------
-    from sergio_escritorio.meeting import MeetingRecorder, diarize, encode, mix, read_wav, spoken_summary, timeline_text
+    from sergio_escritorio.meeting import (
+        MeetingRecorder,
+        diarize,
+        encode,
+        mix,
+        read_wav,
+        spoken_summary,
+        timeline_text,
+    )
     from sergio_escritorio.speakers import HOME as SERGIO_HOME
 
     recorder = MeetingRecorder(voices.tap, SERGIO_HOME / "reuniones")
@@ -3338,6 +3390,8 @@ def run(config: dict[str, Any]) -> None:
 
     def start_call(prefill: bytes = b"", force: bool = False, quiet: bool = False) -> bool:
         """Open a live call (from a worker thread). False = use turns."""
+        if not client.voice.lower().startswith("gemini:"):
+            return False  # retain ElevenLabs/Edge identity through the turn route
         if not force and config.get("conversation", "llamada") != "llamada":
             return False
         if not quiet:
@@ -3824,7 +3878,8 @@ def run(config: dict[str, Any]) -> None:
     ).start()
 
     # -- extra windows (blocking, agents) and the language ---------------------
-    from sergio_escritorio import bloqueo, idioma as _idioma
+    from sergio_escritorio import bloqueo
+    from sergio_escritorio import idioma as _idioma
 
     world_windows: dict[str, Any] = {}
     last_plane = [""]
@@ -4054,6 +4109,9 @@ def run(config: dict[str, Any]) -> None:
         exists=file_exists,
         review=True,
     )
+    panel.actions.swarm_details = orchestrator.snapshot
+    panel.actions.swarm_cancel = orchestrator.cancel_task
+    panel.actions.swarm_task = orchestrator.task_details
 
     def run_tasks(q: Any) -> str | None:
         if q.kind == "task_bg":
@@ -4205,6 +4263,7 @@ def run(config: dict[str, Any]) -> None:
         "pregúntame por lo que ves en pantalla.",
         7,
     )
+    app.aboutToQuit.connect(orchestrator.close)
     app.aboutToQuit.connect(server.shutdown)
     app.exec()
 

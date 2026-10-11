@@ -17,7 +17,8 @@ describe('desktop cloud provider settings', () => {
     expect(html).toContain('Fuentes de datos'); // the «Más» links
     const atlasKeyInput = html.match(/<input[^>]*placeholder="Atlas Cloud API key"[^>]*>/)?.[0];
     expect(atlasKeyInput).toBeDefined();
-    expect(atlasKeyInput).not.toContain('disabled');
+    expect(atlasKeyInput).toContain('disabled'); // locked until server verifies Dev
+    expect(html).toContain('requiere Dev');
     vi.unstubAllGlobals();
   });
 });

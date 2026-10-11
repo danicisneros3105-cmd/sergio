@@ -99,7 +99,7 @@ def test_blender_with_hands_opens_the_holograms(control_server, desktop):
     from sergio_escritorio.control import Controller
 
     modes = []
-    c = Controller(desktop)
+    c = Controller(desktop, approve=lambda _: True)
     c.on_hands = lambda mode: modes.append(mode) or "ok"
     c.act({"action": "blender", "script": "import bpy", "hands": True})
     kind, script = desktop.calls[-1]

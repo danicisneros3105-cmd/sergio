@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { NodeCritter } from '../components/Nodes/NodeCritter';
+import { NodeGoals, ReviewedIntegrations } from '../components/Nodes/NodeGoals';
 import { apiFetch } from '../lib/api';
 import { listConnectors } from '../lib/connectors-api';
 import { useTtsStore } from '../lib/tts';
@@ -46,10 +47,11 @@ import {
   type SergioNode,
 } from '../lib/nodes';
 
-type Tab = 'chat' | 'activity' | 'computer' | 'memory' | 'routines' | 'rules' | 'apps' | 'connections' | 'settings';
+type Tab = 'chat' | 'activity' | 'goals' | 'computer' | 'memory' | 'routines' | 'rules' | 'apps' | 'connections' | 'settings';
 const TABS: Array<{ key: Tab; label: string }> = [
   { key: 'chat', label: 'Chat' },
   { key: 'activity', label: 'Actividad' },
+  { key: 'goals', label: 'Objetivos' },
   { key: 'computer', label: 'Computadora' },
   { key: 'memory', label: 'Memoria' },
   { key: 'routines', label: 'Rutinas' },
@@ -1230,7 +1232,13 @@ export function NodesPage() {
             {tab === 'routines' && <RoutinesTab key={node.id} node={node} onChanged={refresh} />}
             {tab === 'rules' && <RulesTab node={node} catalog={catalog} onChanged={refresh} />}
             {tab === 'apps' && <AppsTab node={node} onChanged={refresh} />}
-            {tab === 'connections' && <ConnectionsTab node={node} catalog={catalog} onChanged={refresh} />}
+            {tab === 'goals' && <NodeGoals nodeId={node.id} />}
+            {tab === 'connections' && (
+              <div className="node-connections">
+                <ConnectionsTab node={node} catalog={catalog} onChanged={refresh} />
+                <ReviewedIntegrations nodeId={node.id} />
+              </div>
+            )}
             {tab === 'settings' && (
               <SettingsTab
                 key={node.id}

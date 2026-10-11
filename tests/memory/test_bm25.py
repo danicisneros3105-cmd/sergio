@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from uuid import UUID
+
 import pytest
 
 rank_bm25 = pytest.importorskip("rank_bm25")
@@ -34,7 +36,8 @@ def test_store_returns_id():
     backend = _make_backend()
     doc_id = backend.store("hello world")
     assert isinstance(doc_id, str)
-    assert len(doc_id) == 32  # hex UUID
+    assert UUID(doc_id).version == 4
+    assert doc_id != backend.store("another document")
 
 
 # -- retrieve ---------------------------------------------------------------

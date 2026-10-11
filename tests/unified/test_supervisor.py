@@ -134,6 +134,7 @@ def test_pid_alive_handles_bad_pids():
 
 
 def test_recycled_pid_is_never_treated_as_ours(tmp_path, monkeypatch):
+    monkeypatch.setattr(sup_mod, "_start_token", lambda pid: "123456")
     sup = Supervisor(_config(tmp_path), which=_which_all, environ={})
     me = os.getpid()
     sup._write_pid("globe", me)
@@ -142,6 +143,15 @@ def test_recycled_pid_is_never_treated_as_ours(tmp_path, monkeypatch):
     monkeypatch.setattr(sup_mod, "_start_token", lambda pid: "999999999")
     assert sup._pid("globe") == 0
     assert sup.stop("globe") is False  # nothing signalled
+
+
+def test_unreadable_recorded_process_identity_is_not_signalled(tmp_path, monkeypatch):
+    sup = Supervisor(_config(tmp_path), which=_which_all, environ={})
+    monkeypatch.setattr(sup_mod, "_start_token", lambda pid: "123456")
+    sup._write_pid("globe", os.getpid())
+    monkeypatch.setattr(sup_mod, "_start_token", lambda pid: None)
+    assert sup._pid("globe") == 0
+    assert sup.stop("globe") is False
 
 
 def test_legacy_plain_pid_files_still_work(tmp_path):

@@ -185,7 +185,7 @@ def test_speech_plays_sentence_by_sentence_and_stops():
 
 def test_actions_report_what_is_in_front(desktop):
     desktop.active_window = lambda: "Spotify Premium"
-    c = Controller(desktop, sleep=lambda s: None)
+    c = Controller(desktop, sleep=lambda s: None, approve=lambda _: True)
     assert c.act({"action": "open_app", "target": "Spotify"}).endswith(
         "| now in front: Spotify Premium"
     )

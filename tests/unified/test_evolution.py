@@ -101,3 +101,29 @@ def test_missing_model_is_reported(config):
     config.memory.extraction_model = ""
     result = evolve_profile(config)
     assert not result.changed and "no model configured" in result.reason
+
+
+def test_failed_profile_commit_keeps_old_profile_and_retries(
+    config, tmp_path, monkeypatch
+):
+    from pathlib import Path
+
+    user = tmp_path / "USER.md"
+    user.write_text("old profile\n")
+    _store(config).add("New preference")
+    monkeypatch.setattr(evolution, "_state_file", lambda: tmp_path / "state.json")
+    replace = Path.replace
+
+    def fail(self, target):
+        if Path(target) == user:
+            raise OSError("simulated write failure")
+        return replace(self, target)
+
+    monkeypatch.setattr(Path, "replace", fail)
+    with pytest.raises(OSError):
+        evolve_profile(config, generate=lambda _: "new profile")
+    assert user.read_text() == "old profile\n"
+    assert not (tmp_path / "state.json").exists()
+    monkeypatch.setattr(Path, "replace", replace)
+    assert evolve_profile(config, generate=lambda _: "new profile").changed
+    assert user.read_text() == "new profile\n"

@@ -5,12 +5,21 @@ from __future__ import annotations
 from pathlib import Path
 from unittest import mock
 
+import pytest
 from click.testing import CliRunner
 
 from openjarvis.cli import cli
 from openjarvis.core.config import generate_default_toml, generate_minimal_toml
 
 _NO_DL = "--no-download"
+
+
+@pytest.fixture(autouse=True)
+def _mock_engine_probe():
+    # Configuration tests must not probe actual LAN or inference services.
+    with mock.patch("openjarvis.cli.init_cmd.httpx") as client:
+        client.get.return_value = mock.Mock(status_code=200)
+        yield
 
 
 class TestInitHost:
