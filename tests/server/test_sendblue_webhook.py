@@ -47,6 +47,8 @@ def sendblue_channel():
         # the test client send the matching header by default.
         webhook_secret="testsecret",
     )
+    # Webhook tests must never send the generated answer to a real service.
+    ch.send = MagicMock(return_value="test-message")
     ch.connect()
     return ch
 

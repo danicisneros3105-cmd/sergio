@@ -174,6 +174,8 @@ class Notch(QWidget):
         self._caption_at = 0.0
         self.level = 0.0
         self.call_since: float | None = None  # in a call with Sergio
+        self.screen_sharing = False
+        self.reduce_motion = False
         self._levels: deque[float] = deque([0.0] * BARS, maxlen=BARS)
         self._t0 = time.monotonic()
         self._w, self._h = COMPACT
@@ -232,6 +234,16 @@ class Notch(QWidget):
     def set_call(self, active: bool) -> None:
         """A green call timer, like the Dynamic Island during a phone call."""
         self.call_since = time.monotonic() if active else None
+        if not active:
+            self.screen_sharing = False
+
+    def set_screen_sharing(self, active: bool) -> None:
+        self.screen_sharing = bool(active)
+        self.setToolTip("Pantalla compartida con Gemini · diga «deja de ver mi pantalla»"
+                        if active else "Clic para abrir el centro de control de Sergio")
+
+    def set_reduce_motion(self, enabled: bool) -> None:
+        self.reduce_motion = bool(enabled)
 
     def call_time(self) -> str:
         if self.call_since is None:
@@ -268,7 +280,7 @@ class Notch(QWidget):
         self._vanish.hide()
         self._edge_since = None
         self._edge.start(50)  # 20 checks a second of where the cursor is: nothing else runs
-        if instant or self.reduced_motion:
+        if instant or (self.reduced_motion or self.reduce_motion):
             self._vanish.t = 1.0
             self._timer.stop()
             self.hide()
@@ -282,7 +294,7 @@ class Notch(QWidget):
         self._edge.stop()
         self._snap = self._snapshot()
         self._vanish.show()
-        if self.reduced_motion:
+        if (self.reduced_motion or self.reduce_motion):
             self._vanish.t = 0.0
         self._wake()
         if not self.isVisible():
@@ -291,6 +303,9 @@ class Notch(QWidget):
     def pour_in(self, cursor_x: float) -> None:
         """Back as a drop of liquid where the cursor touched the edge."""
         if not self.hidden:
+            return
+        if self.reduce_motion:
+            self.show_notch()
             return
         self._edge.stop()
         self._vanish.t = self._vanish.target = 0.0
@@ -445,7 +460,13 @@ class Notch(QWidget):
             self._duo.snap(self.multitasking)
         self._w, self._h = self._sw.step(dt), self._sh.step(dt)
         self._duo.open(self.multitasking)
-        self._duo.step(dt)
+        if self.reduce_motion:
+            self._w, self._h = tw, th
+            for spring in (self._sw, self._sh):
+                spring.value, spring.velocity = spring.target, 0.0
+            self._duo.settle()
+        else:
+            self._duo.step(dt)
         self._vanish.step(dt)
         if self._vanish.hidden:
             self._timer.stop()
@@ -484,6 +505,10 @@ class Notch(QWidget):
         if self._hidden_for_fullscreen:
             return
         self.update()
+        # Keep smooth transitions at 60 Hz; quiet, settled pills use 20 Hz.
+        moving = (not (self._sw.settled() and self._sh.settled())
+                  or self._duo.angle != self._duo.target or self._vanish.active)
+        self._timer.setInterval(16 if moving or self.state != "idle" else 50)
 
     def _respect_fullscreen(self) -> None:
         now = time.monotonic()
@@ -782,6 +807,8 @@ class Notch(QWidget):
             label = self.name
         if self.call_since is not None and self.state in ("idle", "listening"):
             label = f"En llamada · {self.call_time()}"
+            if self.screen_sharing:
+                label = "Pantalla en vivo"
         has_text = bool(self.lines())
         title_y = rect.top() + (24 if has_text else rect.height() / 2 + 4.5)
         p.setFont(self._title)

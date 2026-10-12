@@ -126,8 +126,13 @@ export function CoworkPage() {
   const streamRef = useRef<AbortController | null>(null);
 
   const refreshList = useCallback(async () => {
-    const res = await apiFetch('/v1/cowork');
-    if (res.ok) setRuns(((await res.json()).runs ?? []) as CoworkRun[]);
+    try {
+      const res = await apiFetch('/v1/cowork');
+      if (!res.ok) throw new Error();
+      setRuns(((await res.json()).runs ?? []) as CoworkRun[]);
+    } catch {
+      setError('No pude cargar sus tareas.');
+    }
   }, []);
 
   const follow = useCallback(
@@ -141,11 +146,15 @@ export function CoworkPage() {
       try {
         const res = await apiFetch(`/v1/cowork/${run.id}/events`, { signal: controller.signal });
         await readSSE<{ type: string; run?: CoworkRun }>(res, async (event) => {
+          if (streamRef.current !== controller || controller.signal.aborted) return;
           if (event.type === 'snapshot' && event.run) {
             setSelected(event.run);
           } else {
             const fresh = await apiFetch(`/v1/cowork/${run.id}`);
-            if (fresh.ok) setSelected((await fresh.json()) as CoworkRun);
+            if (fresh.ok) {
+              const snapshot = (await fresh.json()) as CoworkRun;
+              if (streamRef.current === controller && !controller.signal.aborted) setSelected(snapshot);
+            }
           }
         });
       } catch (err) {
@@ -189,21 +198,32 @@ export function CoworkPage() {
 
   const decide = async (step: number, approve: boolean) => {
     if (!selected) return;
-    await apiFetch(`/v1/cowork/${selected.id}/decision`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ step: step + 1, approve }),
-    });
+    try {
+      const res = await apiFetch(`/v1/cowork/${selected.id}/decision`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ step: step + 1, approve }),
+      });
+      if (!res.ok) throw new Error();
+    } catch { setError('No se guardó su decisión. Vuelva a intentarlo.'); }
   };
 
   const cancel = async () => {
-    if (selected) await apiFetch(`/v1/cowork/${selected.id}/cancel`, { method: 'POST' });
+    try {
+      if (selected) {
+        const res = await apiFetch(`/v1/cowork/${selected.id}/cancel`, { method: 'POST' });
+        if (!res.ok) throw new Error();
+      }
+    } catch { setError('No pude detener la tarea. Compruebe su conexión.'); }
   };
 
   const loadAudit = async () => {
     if (!selected) return;
-    const res = await apiFetch(`/v1/cowork/${selected.id}/audit`);
-    if (res.ok) setAudit(await res.json());
+    try {
+      const res = await apiFetch(`/v1/cowork/${selected.id}/audit`);
+      if (!res.ok) throw new Error();
+      setAudit(await res.json());
+    } catch { setError('No pude cargar la auditoría.'); }
   };
 
   const usedPct = selected ? Math.min(100, Math.round((selected.actions_used / selected.max_actions) * 100)) : 0;
@@ -211,23 +231,26 @@ export function CoworkPage() {
   return (
     <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-6 sm:py-8">
       <div className="max-w-3xl mx-auto space-y-6">
-        <header className="space-y-1">
-          <h1 className="text-lg font-semibold flex items-center gap-2" style={{ color: 'var(--color-text)' }}>
+        <header className={`space-y-3 ${!selected ? 'text-center pt-12 pb-4' : ''}`}>
+          <h1 className={`text-2xl font-medium flex items-center gap-2 ${!selected ? 'justify-center' : ''}`} style={{ color: 'var(--color-text)' }}>
             <Briefcase size={18} /> Cowork
           </h1>
           <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-            Describa el resultado que quiere y aléjese. Sergio lo planifica y lo hace; lo delicado espera su visto
-            bueno (aquí o en su teléfono), nunca escribe a otras personas por usted y se detiene en el tope de acciones.
+            ¿En qué trabajamos hoy? Describa el resultado: verá el plan, los avances y los archivos.
           </p>
         </header>
 
-        <section className="space-y-3">
+        <section className="space-y-3 rounded-3xl border p-4 shadow-sm" style={field}>
           <textarea
             value={goal}
             onChange={(e) => setGoal(e.target.value)}
             rows={3}
             placeholder="Ej.: compara los 3 mejores portátiles para Blender y déjame una tabla en Documentos"
-            className="w-full px-3 py-2 rounded-lg text-sm border resize-y"
+            className="w-full px-2 py-2 rounded-2xl text-base border-0 resize-y outline-none"
+            aria-label="Resultado que quiere conseguir"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); void start(); }
+            }}
             style={field}
           />
           <div className="flex flex-wrap gap-3 items-center">

@@ -37,6 +37,16 @@ def test_springs_overshoot_softly_and_settle():
     assert 1.0 < peak < 1.2 and spring.settled()
 
 
+def test_spring_motion_is_consistent_across_frame_rates():
+    coarse, fine = Spring(0), Spring(0)
+    coarse.target = fine.target = 1
+    for _ in range(30):
+        coarse.step(1 / 30)
+    for _ in range(60):
+        fine.step(1 / 60)
+    assert abs(coarse.value - fine.value) < 1e-6
+
+
 def test_the_duo_island_appears_with_two_activities(tmp_path):
     import os
 

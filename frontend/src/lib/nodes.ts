@@ -14,6 +14,8 @@ export interface Routine {
   days: number[];
   last_run: number;
   enabled: boolean;
+  failures?: number;
+  last_error?: string;
   kind?: 'time' | 'web' | 'app';
   url?: string;
   app?: string;
@@ -173,6 +175,7 @@ export const nodesApi = {
     body: { task: string; kind?: 'time' | 'web' | 'app'; every_minutes?: number; at?: string; days?: number[]; url?: string; app?: string; keywords?: string[] },
   ) => json<SergioNode>(`/v1/nodes/${id}/routines`, send('POST', body)),
   checkRoutine: (id: string, rid: string) => json<{ woke: boolean; error: string }>(`/v1/nodes/${id}/routines/${rid}/check`, send('POST', {})),
+  setRoutineEnabled: (id: string, rid: string, enabled: boolean) => json<Node>(`/v1/nodes/${id}/routines/${rid}`, send('PATCH', { enabled })),
   addConnection: (id: string, kind: 'cli' | 'mcp' | 'api', body: Record<string, string>) =>
     json<SergioNode>(`/v1/nodes/${id}/connections/${kind}`, send('POST', body)),
   removeConnection: (id: string, kind: string, cid: string) => json<SergioNode>(`/v1/nodes/${id}/connections/${kind}/${cid}`, send('DELETE')),

@@ -44,7 +44,8 @@ git update-ref "$rollback_ref" "$previous"
 git merge --ff-only "$target"
 echo "Respaldo del código: $rollback_ref ($previous)."
 # Use exact locked versions, retaining manually installed optional dependencies.
-uv sync --locked --inexact --extra server
+uv sync --locked --inexact --extra server --extra desktop
+uv run --no-sync python -c 'from google import genai; from google.genai import types; assert genai.Client and types.LiveConnectConfig; print("SDK Gemini Live: listo")'
 (
   cd frontend
   npm ci --no-audit --no-fund

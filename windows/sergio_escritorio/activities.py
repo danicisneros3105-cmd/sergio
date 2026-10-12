@@ -173,14 +173,26 @@ class Spring:
     def step(self, dt: float) -> float:
         import math
 
-        dt = min(dt, 1 / 30)
+        dt = max(0.0, min(dt, 0.25))
         omega = 2 * math.pi / self.response
-        force = (
-            -omega * omega * (self.value - self.target)
-            - 2 * self.damping * omega * self.velocity
-        )
-        self.velocity += force * dt
-        self.value += self.velocity * dt
+        y, v, z = self.value - self.target, self.velocity, self.damping
+        if z < 1:
+            damped = omega * math.sqrt(1 - z * z)
+            decay = math.exp(-z * omega * dt)
+            c, s = math.cos(damped * dt), math.sin(damped * dt)
+            self.value = self.target + decay * (y*c + (v+z*omega*y)/damped*s)
+            self.velocity = decay * (v*c - (z*omega*v+omega*omega*y)/damped*s)
+        elif z == 1:
+            decay, b = math.exp(-omega * dt), v + omega*y
+            self.value = self.target + decay * (y+b*dt)
+            self.velocity = decay * (v-omega*b*dt)
+        else:
+            root = math.sqrt(z*z - 1)
+            r1, r2 = -omega*(z-root), -omega*(z+root)
+            a = (v-r2*y)/(r1-r2)
+            b = y-a
+            self.value = self.target + a*math.exp(r1*dt) + b*math.exp(r2*dt)
+            self.velocity = r1*a*math.exp(r1*dt) + r2*b*math.exp(r2*dt)
         if abs(self.value - self.target) < 1e-3 and abs(self.velocity) < 1e-3:
             self.value, self.velocity = self.target, 0.0
         return self.value
@@ -213,6 +225,11 @@ class Fold:
             # Starting from wherever it is now, so a quick change of mind
             # reverses smoothly instead of jumping.
             self._from, self.target, self._elapsed = self.angle, target, 0.0
+
+    def settle(self) -> None:
+        """Respect reduced motion without restarting an unfinished fold."""
+        self.angle = self.target
+        self._elapsed = None
 
     def step(self, dt: float) -> float:
         if not math.isfinite(dt):

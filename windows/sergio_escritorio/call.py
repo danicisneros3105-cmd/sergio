@@ -21,6 +21,8 @@ import base64
 import json
 import logging
 import re
+import os
+import queue
 import threading
 import time
 from dataclasses import dataclass, field
@@ -175,6 +177,8 @@ class Speaker:
 
     def play(self, pcm: bytes) -> None:
         with self._lock:
+            if len(self._buf) + len(pcm) > RATE_OUT * 2 * 12:
+                raise BufferError("La voz llegó demasiado adelantada para reproducirla en vivo.")
             self._buf.extend(pcm)
             self._last_push = time.monotonic()
 
@@ -252,8 +256,10 @@ class CallSession:
         idle_hang_up: float = IDLE_HANG_UP,
         language: str = "es",
         gate_after: float = GATE_AFTER,
+        api_key: str = "",
     ) -> None:
         self.url = ws_url(server_url)
+        self.api_key = api_key or os.environ.get("SERGIO_SERVER_API_KEY", "")
         self.voice = voice.split(":", 1)[-1] if voice.startswith("gemini:") else voice
         if self.voice.lower() in ("predeterminada", "default"):
             self.voice = ""  # Gemini Live's own default voice
@@ -294,6 +300,8 @@ class CallSession:
         self._hang_up_after_turn = False
         self._state = ""
         self.share_screen = False
+        self._audio_queue: queue.Queue[bytes | str] = queue.Queue(maxsize=8)
+        self._audio_stalled = False
         self.heard_anything = False  # Gemini heard or said something already
 
     # -- lifecycle ------------------------------------------------------------
@@ -304,7 +312,8 @@ class CallSession:
             if connect is None:
                 from websockets.sync.client import connect
             try:
-                self._ws = connect(self.url, max_size=None, open_timeout=8)
+                auth = {"additional_headers": {"Authorization": f"Bearer {self.api_key}"}} if self.api_key else {}
+                self._ws = connect(self.url, max_size=2_000_000, open_timeout=8, **auth)
             except TimeoutError as exc:
                 raise TimeoutError(
                     f"no pude conectar con el servidor ({self.url}) en 8 s"
@@ -319,6 +328,7 @@ class CallSession:
                         "personality": self.personality,
                         "context": self.context(),
                         "tools": [t.declaration() for t in self.tools.values()],
+                        "attention": "addressed",
                     }
                 )
             )
@@ -348,6 +358,8 @@ class CallSession:
             self._close_ws()
             return False
         self.active = True
+        threading.Thread(target=self._send_audio_loop, daemon=True,
+                         name="live-audio-send").start()
         self._hang_up_after_turn = False
         self._last_activity = self.clock()
         try:
@@ -396,6 +408,35 @@ class CallSession:
         with self._send_lock:
             ws.send(data)
 
+    def _queue_audio(self, data: bytes | str) -> None:
+        """Never wait for the network in the microphone callback.
+
+        A stalled connection ends visibly rather than replaying old speech.
+        Both PCM and its end marker use the same FIFO to preserve order.
+        """
+        try:
+            self._audio_queue.put_nowait(data)
+        except queue.Full:
+            if not self._audio_stalled:
+                self._audio_stalled = True
+                threading.Thread(target=self._lost, args=(RuntimeError(
+                    "La red no está enviando el audio a tiempo; reconectando."
+                ),), daemon=True).start()
+
+    def _send_audio_loop(self) -> None:
+        while self.active:
+            try:
+                data = self._audio_queue.get(timeout=0.2)
+            except queue.Empty:
+                continue
+            try:
+                self._send(data)
+            except Exception as exc:  # noqa: BLE001
+                self._lost(exc)
+                return
+            finally:
+                self._audio_queue.task_done()
+
     # -- what the companion sends -------------------------------------------
     def feed_mic(self, chunk: bytes) -> None:
         """One microphone frame (16 kHz int16) while the call is on."""
@@ -423,7 +464,7 @@ class CallSession:
             if len(self._out) >= SEND_BYTES:
                 data, self._out = bytes(self._out), bytearray()
                 try:
-                    self._send(data)
+                    self._queue_audio(data)
                 except Exception as exc:  # noqa: BLE001
                     self._lost(exc)
                     return
@@ -446,7 +487,7 @@ class CallSession:
             self._gated = True
             self._flush_out()
             try:
-                self._send(json.dumps({"type": "audio_end"}))
+                self._queue_audio(json.dumps({"type": "audio_end"}))
             except Exception as exc:  # noqa: BLE001
                 self._lost(exc)
         self._preroll.append(frame)
@@ -458,7 +499,7 @@ class CallSession:
         if self._out:
             data, self._out = bytes(self._out), bytearray()
             try:
-                self._send(data)
+                self._queue_audio(data)
             except Exception as exc:  # noqa: BLE001
                 self._lost(exc)
 
@@ -518,7 +559,11 @@ class CallSession:
     def _handle(self, msg: bytes | str) -> None:
         if isinstance(msg, bytes):
             self.heard_anything = True
-            self.speaker.play(msg)
+            try:
+                self.speaker.play(msg)
+            except BufferError as exc:
+                self._lost(exc)
+                return
             self._last_activity = self.clock()
             self._set_state("speaking")
             return
@@ -595,6 +640,7 @@ class CallSession:
         if self.active:
             log.warning("call lost: %s", exc)
             self.error = str(exc)[:200]
+            self.on_caption("La conexión de voz se interrumpió; reconectando.")
             self.hang_up("se cortó")
 
     def _watch(self) -> None:

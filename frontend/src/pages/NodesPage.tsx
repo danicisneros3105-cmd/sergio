@@ -735,6 +735,12 @@ function RoutinesTab({ node, onChanged }: { node: SergioNode; onChanged: () => v
           <li key={r.id}>
             <span className="node-routine-when">{describeRoutine(r)}</span>
             <span className="flex-1">{r.task}</span>
+            <button type="button" className="mac-icon-btn" title={r.last_error || ''}
+              aria-label={r.enabled ? 'Pausar rutina' : 'Reanudar rutina'}
+              onClick={() => void nodesApi.setRoutineEnabled(node.id, r.id, !r.enabled)
+                .then(onChanged).catch(() => toast('No pude cambiar la rutina.'))}>
+              {r.enabled ? 'Pausar' : `Reanudar${r.failures ? ` (${r.failures} fallos)` : ''}`}
+            </button>
             {(r.last_check || r.last_run) > 0 && <span className="node-hint">{relative(r.last_check || r.last_run)}</span>}
             {r.kind && r.kind !== 'time' && (
               <button
