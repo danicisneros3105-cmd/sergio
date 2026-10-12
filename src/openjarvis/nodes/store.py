@@ -40,6 +40,8 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
 
+from openjarvis.nodes.own_rules import clean_rules as clean_own_rules
+
 NODE_ID = re.compile(r"^n_[a-z0-9]{8,24}$")
 APP_ID = re.compile(r"^[\w\-]{1,40}$")
 NAME = re.compile(r"^[\w\-. ]{1,40}$")
@@ -215,6 +217,26 @@ def clean_rules(rules: Any, base: Optional[Dict[str, str]] = None) -> Dict[str, 
         if out.get(key) not in spec["choices"]:
             out[key] = spec["default"]
     return {k: v for k, v in out.items() if k in RULES}
+
+
+def effective_rules(
+    rules: Dict[str, str], own: Iterable[Dict[str, Any]] = ()
+) -> Dict[str, str]:
+    """The category rules after the owner's own rules: a rule about files
+    («pídeme permiso antes de borrar archivos») makes «computer» ask (the Node
+    proposes, the owner approves); a forbidding one blocks it."""
+    from openjarvis.nodes.own_rules import blocked_categories
+
+    out = dict(rules)
+    strict = {"allow": 0, "ask": 1, "block": 2}
+    for rule in own or []:
+        for cat in blocked_categories([rule]):
+            if cat not in out:
+                continue
+            want = "block" if rule.get("effect") == "block" else "ask"
+            if strict[want] > strict.get(out[cat], 0):
+                out[cat] = want
+    return out
 
 
 def tools_for(rules: Dict[str, str], extra: Iterable[str] = ()) -> List[str]:
@@ -393,10 +415,15 @@ class Node:
     connections: Dict[str, List[Dict[str, Any]]] = field(
         default_factory=lambda: {"cli": [], "mcp": [], "api": []}
     )
+    # The owner's rules in plain words (own_rules.py), reviewed before actions.
+    own_rules: List[Dict[str, Any]] = field(default_factory=list)
 
     def to_dict(self) -> Dict[str, Any]:
+        from openjarvis.nodes.own_rules import explain
+
         data = asdict(self)
         data["routines"] = [r.public() for r in self.routines]
+        data["own_rules"] = [{**r, "explain": explain(r)} for r in self.own_rules]
         return data
 
     def to_disk(self) -> Dict[str, Any]:
@@ -416,6 +443,7 @@ class Node:
             if isinstance(r, dict)
         ]
         node.rules = clean_rules(node.rules)
+        node.own_rules = clean_own_rules(node.own_rules)
         node.apps = clean_apps(node.apps)
         node.avatar = clean_avatar(node.avatar, random_avatar(node.id))
         if node.tone not in TONES:
@@ -550,6 +578,8 @@ class NodeStore:
                 node.apps = clean_apps(changes["apps"])
             if "rules" in changes:
                 node.rules = clean_rules(changes["rules"], node.rules)
+            if "own_rules" in changes:
+                node.own_rules = clean_own_rules(changes["own_rules"])
             if "avatar" in changes:
                 node.avatar = clean_avatar(changes["avatar"], node.avatar)
             if "tone" in changes and changes["tone"] in TONES:

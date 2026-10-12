@@ -280,4 +280,7 @@ def test_when_the_supervisor_fails_the_report_is_a_readable_table_not_raw_json()
     assert "{" not in md and "```" not in md
     assert "no pudo redactar" in md and "Sin resultado:** Go" in md
     assert summary_line(results[1]["result"]) == "Rust"
-    assert summary_line("## Resumen\nEl precio medio es 12 €.") == "El precio medio es 12 €."
+    assert (
+        summary_line("## Resumen\nEl precio medio es 12 €.")
+        == "El precio medio es 12 €."
+    )

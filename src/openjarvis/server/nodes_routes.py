@@ -270,6 +270,43 @@ async def change(node_id: str, body: NodeChanges, request: Request) -> Dict[str,
     return _full(worker, node_id)
 
 
+class OwnRule(BaseModel):
+    text: str
+
+
+@router.post("/{node_id}/own-rules")
+async def add_own_rule(node_id: str, body: OwnRule, request: Request) -> Dict[str, Any]:
+    """«Pídeme permiso antes de borrar archivos»: understood once, reviewed
+    by code before every action (and shown back so the owner sees how)."""
+    from openjarvis.nodes.own_rules import MAX_RULES, compile_rule, explain
+
+    worker = get_worker(request)
+    node = _node(worker, node_id)
+    try:
+        rule = compile_rule(body.text)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    if len(node.own_rules) >= MAX_RULES:
+        raise HTTPException(status_code=422, detail="Máximo 30 reglas propias.")
+    worker.store.update(node_id, own_rules=[*node.own_rules, rule])
+    worker.store.log(
+        node_id, "rules", f"Nueva regla: «{rule['text']}» · {explain(rule)}"
+    )
+    return {**_full(worker, node_id), "rule": {**rule, "explain": explain(rule)}}
+
+
+@router.delete("/{node_id}/own-rules/{rule_id}")
+async def remove_own_rule(
+    node_id: str, rule_id: str, request: Request
+) -> Dict[str, Any]:
+    worker = get_worker(request)
+    node = _node(worker, node_id)
+    worker.store.update(
+        node_id, own_rules=[r for r in node.own_rules if r.get("id") != rule_id]
+    )
+    return _full(worker, node_id)
+
+
 @router.delete("/{node_id}")
 async def delete(node_id: str, request: Request) -> Dict[str, Any]:
     worker = get_worker(request)

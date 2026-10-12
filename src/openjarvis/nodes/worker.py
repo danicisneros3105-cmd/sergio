@@ -37,6 +37,7 @@ from openjarvis.nodes.store import (
     Node,
     NodeError,
     NodeStore,
+    effective_rules,
     tools_for,
 )
 
@@ -60,6 +61,7 @@ TAG_CLI = re.compile(r"<cli>(.*?)</cli>", re.S | re.I)
 TAG_MCP = re.compile(r"<mcp\s+([^>]*)>(.*?)</mcp>", re.S | re.I)
 TAG_API = re.compile(r"<api\s+([^>]*?)(?:/>|>(.*?)</api>)", re.S | re.I)
 TAG_SWARM = re.compile(r"<enjambre>(.*?)</enjambre>", re.S | re.I)
+TAG_NEXT = re.compile(r"<siguiente>(.*?)</siguiente>", re.S | re.I)
 ATTR = re.compile(r'(\w+)\s*=\s*"([^"]*)"')
 SAVE_VERB = re.compile(
     r"\b(guard|dej|cre|escrib|export|sav|wrote|writ|creat|stor)\w*", re.I
@@ -93,6 +95,9 @@ Nunca envías mensajes ni correos tú mismo: los dejas como borrador para que el
 Si necesitas que el usuario inicie sesión en una web o decida algo, escribe \
 <usuario>qué necesitas, con la URL</usuario> y termina.
 Si aprendes algo duradero sobre el usuario o el proyecto, añade <recordar>el hecho</recordar>.
+Ten iniciativa: al final, si ves 1 a 3 siguientes pasos útiles que el usuario querría, \
+añade cada uno como <siguiente>orden corta en imperativo</siguiente> (él los pulsa para \
+pedírtelos).
 {connections}
 Nunca inventes resultados: si no lo comprobaste con una herramienta, dilo.
 
@@ -201,8 +206,14 @@ def parse_answer(text: str) -> Dict[str, Any]:
         task = " ".join(m.group(1).split())
         if task:
             actions.append({"kind": "swarm", "task": task})
+    suggestions = []
+    for m in TAG_NEXT.finditer(text):
+        idea = " ".join(m.group(1).split())[:120]
+        if idea and idea not in suggestions:
+            suggestions.append(idea)
     say = text
     for tag in (
+        TAG_NEXT,
         TAG_APPROVAL,
         TAG_USER,
         TAG_REMEMBER,
@@ -218,6 +229,7 @@ def parse_answer(text: str) -> Dict[str, Any]:
         "user": [u for u in user if u],
         "remember": [r for r in remember if r],
         "actions": actions[:MAX_ACTIONS],
+        "suggestions": suggestions[:3],
     }
 
 
@@ -496,11 +508,14 @@ class NodeWorker:
         return CONNECTIONS_HELP.format(lines="\n".join(lines)) if lines else ""
 
     def _prompt(self, node: Node, job: Dict[str, Any]) -> str:
+        from openjarvis.nodes.own_rules import prompt_lines
+
+        effective = effective_rules(node.rules, node.own_rules)
         rules = "\n".join(
             f"- {RULES[k]['label']} ({k}): {LABEL[v]}"
-            for k, v in node.rules.items()
+            for k, v in effective.items()
             if k in RULES
-        )
+        ) + prompt_lines(node.own_rules)
         approved = job.get("extra") or []
         if approved:
             rules += (
@@ -526,7 +541,7 @@ class NodeWorker:
             computer=self.store.computer(node.id),
             apps=apps or "ninguna todavía",
             rules=rules,
-            keys=", ".join(k for k, v in node.rules.items() if v == "ask") or "ninguna",
+            keys=", ".join(k for k, v in effective.items() if v == "ask") or "ninguna",
             connections=self._connections_help(node),
             memory=self.store.memory(node.id)[-6000:] or "(nada todavía)",
             recent="\n".join(lines) or "(nada)",
@@ -559,7 +574,9 @@ class NodeWorker:
                 self.store.update(node_id, doing=line)
                 self.store.log(node_id, "tool", line, tool=tool)
 
-        tools = tools_for(node.rules, job.get("extra") or [])
+        tools = tools_for(
+            effective_rules(node.rules, node.own_rules), job.get("extra") or []
+        )
         answer, calls = self.runner(
             self._prompt(node, job), tools, TURN_BUDGET, on_tool
         )
@@ -577,9 +594,24 @@ class NodeWorker:
 
         # Actions the model asked for: run by code under the rules.
         results: List[str] = []
+        from openjarvis.nodes.own_rules import review
+
         for action in parsed["actions"]:
             category = action_category(action)
             rule = node.rules.get(category, "block")
+            # The automatic review: the owner's own rules, checked by code.
+            own = review(node.own_rules, action, describe_action(action))
+            if own is not None:
+                if own["effect"] == "block":
+                    rule = "block"
+                elif rule == "allow" and category not in (job.get("extra") or []):
+                    rule = "ask"
+                self.store.log(
+                    node_id,
+                    "review",
+                    f"Revisión automática: «{own['text']}» → "
+                    + ("prohibido" if own["effect"] == "block" else "pide su permiso"),
+                )
             if (
                 action["kind"] == "api"
                 and action["method"] != "GET"
@@ -656,6 +688,7 @@ class NodeWorker:
                 thread=thread,
                 source=job["source"],
                 tool_calls=calls,
+                suggestions=parsed.get("suggestions") or [],
             )
             self.store.log(node_id, "done", say[:300], tool_calls=calls)
         self.store.update(node_id, status=status, doing="", waiting=waiting)

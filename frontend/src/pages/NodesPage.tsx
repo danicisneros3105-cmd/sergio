@@ -397,10 +397,10 @@ function ChatTab({ node, onChanged }: { node: SergioNode; onChanged: () => void 
     void tts.speak(`node-${last.id}`, last.text.replace(/[*_`#>|]/g, ''));
   }, [messages, aloud]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const send = async () => {
-    const t = text.trim();
+  const send = async (preset?: string) => {
+    const t = (preset ?? text).trim();
     if (!t) return;
-    setText('');
+    if (preset === undefined) setText('');
     try {
       await nodesApi.say(node.id, t, thread);
       load();
@@ -463,6 +463,15 @@ function ChatTab({ node, onChanged }: { node: SergioNode; onChanged: () => void 
               <div className="prose prose-sm">
                 <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.text}</ReactMarkdown>
               </div>
+              {m.role === 'node' && i === messages.length - 1 && (m.suggestions?.length ?? 0) > 0 && (
+                <div className="node-next" aria-label="Siguientes pasos que propone">
+                  {m.suggestions!.map((idea) => (
+                    <button key={idea} type="button" className="node-next-chip" onClick={() => void send(idea)}>
+                      {idea}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         ))}
@@ -514,7 +523,7 @@ function ChatTab({ node, onChanged }: { node: SergioNode; onChanged: () => void 
         >
           <Mic size={17} strokeWidth={1.6} />
         </button>
-        <button type="button" className="mac-send" onClick={send} disabled={!text.trim()} aria-label="Enviar">
+        <button type="button" className="mac-send" onClick={() => void send()} disabled={!text.trim()} aria-label="Enviar">
           <ArrowUp size={17} strokeWidth={2.25} />
         </button>
       </div>
@@ -856,6 +865,91 @@ function RoutinesTab({ node, onChanged }: { node: SergioNode; onChanged: () => v
   );
 }
 
+const RULE_IDEAS = [
+  'Pídeme permiso antes de borrar archivos',
+  'Nunca publiques nada en redes sociales',
+  'No compres nada sin preguntarme',
+  'Avísame antes de enviar correos a clientes',
+];
+
+/** The owner's own rules in plain words, reviewed by code before every action. */
+function OwnRules({ node, onChanged }: { node: SergioNode; onChanged: () => void }) {
+  const [text, setText] = useState('');
+  const [busy, setBusy] = useState(false);
+  const add = async (value = text) => {
+    if (!value.trim()) return;
+    setBusy(true);
+    try {
+      const out = await nodesApi.addOwnRule(node.id, value.trim());
+      toast.success(`Entendido. ${out.rule.explain}.`);
+      setText('');
+      onChanged();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'No pude guardar la regla.');
+    } finally {
+      setBusy(false);
+    }
+  };
+  const rules = node.own_rules ?? [];
+  return (
+    <section className="node-own-rules" aria-label="Reglas propias">
+      <h3>Reglas propias</h3>
+      <p className="node-hint">
+        Escríbalas como se las diría a una persona. Antes de cada acción, {node.name} las revisa por código (no a ojo):
+        lo prohibido no se hace y lo demás le espera para su aprobación.
+      </p>
+      {rules.length > 0 && (
+        <ul>
+          {rules.map((r) => (
+            <li key={r.id} data-effect={r.effect}>
+              <span>
+                <b>{r.text}</b>
+                <small>{r.explain}</small>
+              </span>
+              <button
+                type="button"
+                className="mac-icon-btn"
+                aria-label={`Quitar la regla ${r.text}`}
+                onClick={() => void nodesApi.removeOwnRule(node.id, r.id).then(onChanged)}
+              >
+                <X size={14} />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <form
+        className="node-own-rule-add"
+        onSubmit={(e) => {
+          e.preventDefault();
+          void add();
+        }}
+      >
+        <input
+          className="paper-input"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder="«Pídeme permiso antes de borrar archivos»"
+          aria-label="Nueva regla propia"
+          disabled={busy}
+        />
+        <button type="submit" className="paper-button" disabled={busy || text.trim().length < 6}>
+          Añadir
+        </button>
+      </form>
+      {rules.length === 0 && (
+        <div className="studio-chips">
+          {RULE_IDEAS.map((idea) => (
+            <button key={idea} type="button" onClick={() => void add(idea)} disabled={busy}>
+              {idea}
+            </button>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
 function RulesTab({ node, catalog, onChanged }: { node: SergioNode; catalog: Catalog | null; onChanged: () => void }) {
   const set = async (key: string, choice: RuleChoice) => {
     await nodesApi.update(node.id, { rules: { ...node.rules, [key]: choice } });
@@ -879,6 +973,7 @@ function RulesTab({ node, catalog, onChanged }: { node: SergioNode; catalog: Cat
           </div>
         </div>
       ))}
+      <OwnRules node={node} onChanged={onChanged} />
     </div>
   );
 }

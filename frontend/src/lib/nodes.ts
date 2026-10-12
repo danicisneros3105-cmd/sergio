@@ -77,6 +77,16 @@ export interface Approval {
   thread?: string;
 }
 
+export interface OwnRule {
+  id: string;
+  text: string;
+  effect: 'ask' | 'block';
+  families: string[];
+  words: string[];
+  categories: string[];
+  explain: string; // how Sergio understood it, in one line
+}
+
 export interface SergioNode {
   id: string;
   name: string;
@@ -84,6 +94,7 @@ export interface SergioNode {
   color: string;
   apps: Record<string, 'read' | 'write'>;
   rules: Record<string, RuleChoice>;
+  own_rules?: OwnRule[];
   routines: Routine[];
   status: NodeStatus;
   doing: string;
@@ -111,6 +122,7 @@ export interface NodeMessage {
   tool_calls?: number;
   source?: string;
   thread?: string;
+  suggestions?: string[]; // next steps the Node proposes (click to ask)
 }
 
 export interface ActivityItem {
@@ -158,6 +170,9 @@ export const nodesApi = {
   }) => json<SergioNode>('/v1/nodes', send('POST', body)),
   update: (id: string, body: Partial<Pick<SergioNode, 'name' | 'instructions' | 'color' | 'apps' | 'rules' | 'avatar' | 'tone'>>) =>
     json<SergioNode>(`/v1/nodes/${id}`, send('PATCH', body)),
+  addOwnRule: (id: string, text: string) =>
+    json<SergioNode & { rule: OwnRule }>(`/v1/nodes/${id}/own-rules`, send('POST', { text })),
+  removeOwnRule: (id: string, ruleId: string) => json<SergioNode>(`/v1/nodes/${id}/own-rules/${ruleId}`, send('DELETE')),
   newThread: (id: string, title = '') => json<{ thread: Thread }>(`/v1/nodes/${id}/threads`, send('POST', { title })).then((r) => r.thread),
   remove: (id: string) => json<{ deleted: boolean }>(`/v1/nodes/${id}`, send('DELETE')),
   seen: (id: string) => json<{ ok: boolean }>(`/v1/nodes/${id}/seen`, send('POST', {})),

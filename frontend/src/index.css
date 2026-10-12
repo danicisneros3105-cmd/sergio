@@ -2997,3 +2997,26 @@ html, body { background: var(--color-bg); }
   .swarm-feed li { grid-template-columns: 36px minmax(0, 1fr); }
   .swarm-feed li span { grid-column: 1 / -1; }
 }
+
+/* Nodes: next steps the Node proposes, and the owner's own rules. */
+.node-next { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.node-next-chip {
+  padding: 6px 12px; border-radius: var(--radius-full); font-size: 13px; font-weight: 550;
+  color: var(--color-text); background: color-mix(in srgb, var(--node, var(--sec-nodes)) 10%, var(--color-surface));
+  border: 1px solid color-mix(in srgb, var(--node, var(--sec-nodes)) 35%, transparent);
+  transition: transform 200ms var(--ease-spring), background-color 160ms var(--ease-mac);
+}
+.node-next-chip:hover { transform: translateY(-1px); background: color-mix(in srgb, var(--node, var(--sec-nodes)) 18%, var(--color-surface)); }
+.node-own-rules { margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--color-border-subtle); }
+.node-own-rules h3 { font-size: 15px; font-weight: 650; margin-bottom: 4px; }
+.node-own-rules ul { list-style: none; margin: 10px 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.node-own-rules li {
+  display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: var(--radius-md);
+  border: 1px solid var(--color-border-subtle); background: var(--color-surface);
+  border-left: 3px solid var(--color-accent-amber);
+}
+.node-own-rules li[data-effect='block'] { border-left-color: var(--color-error); }
+.node-own-rules li > span { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.node-own-rules li b { font-weight: 600; font-size: 14px; }
+.node-own-rules li small { font-size: 12.5px; color: var(--color-text-tertiary); }
+.node-own-rule-add { display: flex; gap: 8px; margin: 10px 0; }
