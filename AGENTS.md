@@ -45,8 +45,24 @@ termina en la rama `main`, y el dueño actualiza con un único comando.
 - El correo del dueño no se envía a ningún servicio.
 - La app de Windows corre con el **Python oficial firmado** (Windows App
   Control bloquea los ejecutables sin firma).
-- Diseño: negro, blanco y un azul claro (#9fd3ff) en lo que se pulsa;
-  letra Josefin Sans; secciones como iconos.
+- Diseño (decisión del dueño, oct. 2026): **idéntico al de ChatGPT** (o al de
+  Muse de Meta), no inventado: fondo blanco / #212121, barra lateral gris
+  claro, letra del sistema, botones negros redondeados, sin degradados ni
+  colores de adorno. La marca «Sergio» va en Josefin Sans solo como logotipo.
+- Nodes: personajes 3D brillantes y tiernos como los Dots de OpenAI (formas
+  con ojos simples y accesorios), pero personajes propios; nada de peludos.
+- No se reinventa lo que ya existe: Creator usa programas reales —
+  ArtCraft (+ Kdenlive) para lo de Adobe, FreeCAD + Bonsai/BlenderBIM +
+  LibreCAD para arquitectura, OpenDesign para lo de Canva, VSCodium para
+  código, Kronos para bolsa—. «Anatomy» es una skill oculta que Sergio usa
+  siempre; no es un apartado.
+- Todo es Sergio: ningún logo ni nombre de empresa externa a la vista
+  (los créditos de licencias van en NOTICE, LICENSE y «Acerca de»).
+- La conversación de voz está siempre activa en la web (sin botón de
+  llamada); en el escritorio se abre al decir «Sergio» y sigue abierta.
+- Las llamadas a Gemini van con respaldo en paralelo (`engine/hedge.py`): si
+  un modelo tarda, otro empieza y gana la primera respuesta válida. No lo
+  quite: con Google saturado, sin él Sergio tardaba minutos.
 - Kimi como proveedor y «Digitalsnickers» están descartados.
 - Licencia Apache-2.0 y autoría honesta: no se borran créditos del original.
 

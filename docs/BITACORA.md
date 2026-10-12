@@ -2,6 +2,41 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-10-12 · Claude · 6123384…5b43cfe (pedido grande del dueño)
+- Para el usuario común: el chat contesta enseguida y con el carácter de
+  Sergio (persona escrita en `persona.py`, pensamiento «bajo» por defecto en
+  Gemini 3.x), aspecto nuevo (Inter, degradado aurora, color por sección) en
+  todas las páginas, y la voz siempre activa en la web (`liveSession.ts`,
+  orbe en la barra, subtítulos arriba; sin botón de llamada).
+- Face ID de Sergio (`faces/faceid.py`): las reglas de Apple adaptadas a una
+  webcam (reto aleatorio, giro sostenido, parpadeo con brillo, plantillas
+  cifradas, código con esperas, 5 fallos, 48 h). 15/15 ataques con foto
+  rechazados en pruebas. Sin promesas de 1 en 1 000 000: es una webcam.
+- Una sola marca: Sergio. «OpenJarvis» ya no se ve; créditos en NOTICE.
+- Skill «anatomy» (MIT) convertida (`creator/anatomy`, herramienta
+  `anatomy_figure`) y **Creator** (`/creator`): Modelado 3D y Arquitectura
+  (three.js, atajos de Blender, GLB, muros, DXF, guion para Blender), Diseño
+  e Imagen (Fabric.js, diseños de Sergio, recorte con red U²-Net local),
+  Anatomía y Código (Monaco, ejecutar acotado, cambios de Sergio como diff).
+- Respaldo en paralelo para Gemini (`engine/hedge.py`) en el chat, el
+  coach/cerebro, Creator y el diseño 3D: con Google saturado una respuesta
+  tardaba 1-3 min; ahora otro modelo entra a los pocos segundos.
+- Agent Swarm: registro «En vivo» de lo que hace cada parte; reparto por
+  elementos si el orquestador falla; informe legible (tabla) si el supervisor
+  falla. Probado: 7 agentes, 5 a la vez, 53 s.
+- Nodes: «Reglas propias» en palabras con revisión por código antes de cada
+  acción (como Dots) y sugerencias de siguientes pasos (como Muse).
+- Workspace: vistas Lista/Galería/Calendario, columnas de varias opciones,
+  enlace, correo y teléfono, bloques Ecuación/Índice/Marcador, historial de
+  versiones con restaurar.
+- Revisé lo de Codex: faltaban `verified_math` y `scene_reason` en el
+  inventario de capacidades (añadidas) y el formato de algunos tests.
+- Pendiente / para Codex: los 200 tests de motores locales en
+  `tests/engine` fallan en este entorno sin red simulada (ya fallaban antes);
+  el de PDF malformado sigue necesitando pdfplumber o PyPDF2. La clave de
+  prueba de Gemini no tiene cuota de imágenes (Imagen/Veo): con la del dueño
+  sí, si su cuenta la tiene.
+
 ## 2026-10-12 · Claude · actualizador + 3 commits de Codex
 - El comando universal fallaba en el PC del dueño con «Instala Node 22.22+»:
   `bash -lc` desde PowerShell no ve el Node del instalador. Ahora
