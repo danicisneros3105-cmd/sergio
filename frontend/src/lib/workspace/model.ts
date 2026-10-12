@@ -20,15 +20,18 @@ export type BlockType =
   | 'audio'
   | 'image'
   | 'mindmap'
+  | 'equation'
+  | 'toc'
+  | 'bookmark'
   | 'page';
 
-export type ColumnType = 'text' | 'number' | 'select' | 'date' | 'checkbox';
+export type ColumnType = 'text' | 'number' | 'select' | 'multi' | 'date' | 'checkbox' | 'url' | 'email' | 'phone';
 
 export interface Column {
   id: string;
   name: string;
   type: ColumnType;
-  options?: string[]; // for select
+  options?: string[]; // for select / multi
 }
 
 export interface Row {
@@ -41,7 +44,7 @@ export interface Row {
 export interface TableView {
   id: string;
   name: string;
-  kind: 'table' | 'board';
+  kind: 'table' | 'board' | 'list' | 'gallery' | 'calendar';
   filter?: { column: string; op: 'is' | 'not' | 'contains' | 'gt' | 'lt'; value: string } | null;
   sort?: { column: string; dir: 'asc' | 'desc' } | null;
   groupBy?: string; // board: a select column
@@ -348,6 +351,19 @@ export function toMarkdown(page: Page, titleOf: (id: string) => string = () => '
       case 'page':
         out.push(`[[${titleOf(b.pageId || '') || b.text}]]`);
         break;
+      case 'equation':
+        out.push('$$', b.text, '$$');
+        break;
+      case 'bookmark':
+        if (b.text.trim()) out.push(`<${b.text.trim()}>`);
+        break;
+      case 'toc':
+        out.push(
+          ...page.blocks
+            .filter((x) => (x.type === 'h1' || x.type === 'h2' || x.type === 'h3') && x.text.trim())
+            .map((x) => `${'  '.repeat(Number(x.type[1]) - 1)}- ${x.text}`),
+        );
+        break;
       default:
         out.push(b.text);
     }
@@ -409,6 +425,9 @@ export const SLASH: Array<{ type: BlockType; label: string; hint: string; keywor
   { type: 'audio', label: 'Audio', hint: 'Nota de voz o archivo', keywords: 'audio voz grabar musica' },
   { type: 'image', label: 'Imagen', hint: 'Foto o captura', keywords: 'imagen foto picture' },
   { type: 'mindmap', label: 'Mapa conceptual', hint: 'Ideas enlazadas', keywords: 'mapa mental conceptual mindmap' },
+  { type: 'equation', label: 'Ecuación', hint: 'Fórmula matemática (LaTeX)', keywords: 'ecuacion formula matematica latex math' },
+  { type: 'toc', label: 'Índice', hint: 'Los títulos de esta página', keywords: 'indice contenido toc tabla de contenidos' },
+  { type: 'bookmark', label: 'Marcador web', hint: 'Una tarjeta con un enlace', keywords: 'marcador enlace link web bookmark url' },
   { type: 'page', label: 'Subpágina', hint: 'Una página dentro de esta', keywords: 'pagina subpagina page' },
 ];
 

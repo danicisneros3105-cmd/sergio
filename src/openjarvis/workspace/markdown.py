@@ -53,9 +53,8 @@ def blocks_markdown(
 ) -> str:
     out: List[str] = []
     number = 0
+    blocks = [b for b in blocks if isinstance(b, dict)]  # read twice (index)
     for b in blocks:
-        if not isinstance(b, dict):
-            continue
         kind, text = b.get("type", "text"), str(b.get("text") or "")
         number = number + 1 if kind == "number" else 0
         if kind == "h1":
@@ -100,6 +99,19 @@ def blocks_markdown(
                 )
         elif kind == "page":
             out.append(f"[[{title_of(str(b.get('pageId') or '')) or text}]]")
+        elif kind == "equation":
+            out.extend(["$$", text, "$$"])
+        elif kind == "bookmark":
+            if text.strip():
+                out.append(f"<{text.strip()}>")
+        elif kind == "toc":
+            for h in blocks:
+                if (
+                    h.get("type") in ("h1", "h2", "h3")
+                    and str(h.get("text") or "").strip()
+                ):
+                    depth = int(str(h["type"])[1]) - 1
+                    out.append(f"{'  ' * depth}- {h['text']}")
         else:
             out.append(text)
         out.append("")

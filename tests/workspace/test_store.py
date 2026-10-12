@@ -286,3 +286,39 @@ def test_sergio_tool_finds_reads_and_writes(store):
     )
     assert "cifrada" in tool.execute(action="read", page="p_abc123def").content
     assert json.dumps(tool.spec.parameters)
+
+
+def test_page_history_keeps_old_versions_without_one_per_keystroke(store, monkeypatch):
+    from openjarvis.workspace import store as store_mod
+
+    store.put(page(blocks=[{"id": "b1", "type": "text", "text": "versión uno"}]))
+    first = store.get("p_abc123def")
+    store.put(
+        page(blocks=[{"id": "b1", "type": "text", "text": "versión dos"}]),
+        base_rev=first["rev"],
+    )
+    # typing again a second later: no new version kept
+    second = store.get("p_abc123def")
+    store.put(
+        page(blocks=[{"id": "b1", "type": "text", "text": "versión tres"}]),
+        base_rev=second["rev"],
+    )
+    versions = store.history("p_abc123def")
+    assert [v["rev"] for v in versions] == [1]
+    assert "versión uno" in versions[0]["preview"]
+    old = store.version("p_abc123def", 1)
+    assert old["blocks"][0]["text"] == "versión uno"
+    # after the pause, the next save keeps another version; only the last N stay
+    monkeypatch.setattr(store_mod, "HISTORY_EVERY", 0.0)
+    monkeypatch.setattr(store_mod, "HISTORY_KEEP", 2)
+    for text in ("cuatro", "cinco", "seis"):
+        cur = store.get("p_abc123def")
+        store.put(
+            page(blocks=[{"id": "b1", "type": "text", "text": text}]),
+            base_rev=cur["rev"],
+        )
+        time.sleep(0.01)
+    assert len(store.history("p_abc123def")) == 2
+    assert store.version("p_abc123def", 999) is None
+    with pytest.raises(WorkspaceError):
+        store.history("../etc")

@@ -57,6 +57,8 @@ FILE_TYPES = {
 MAX_PAGE_BYTES = 5_000_000
 MAX_FILE_BYTES = 25_000_000
 MAX_BLOCKS = 5000
+HISTORY_EVERY = 600.0  # seconds between kept versions of a page
+HISTORY_KEEP = 50
 TRASH_DAYS = 30
 
 
@@ -218,9 +220,61 @@ class WorkspaceStore:
             page["rev"] = int((current or {}).get("rev") or 0) + 1
             page.setdefault("createdAt", now)
             page["updatedAt"] = int(page.get("updatedAt") or now)
+            if current is not None:
+                self._snapshot(current)
             self._write(page)
         self._changed()
         return page
+
+    # -- history (like Notion's page history) -------------------------------------
+    def _history_dir(self, page_id: str) -> Path:
+        self._path(page_id)  # validates the id
+        return self.root / "history" / page_id
+
+    def _snapshot(self, page: Dict[str, Any]) -> None:
+        """Keep the version being replaced: at most one every
+        HISTORY_EVERY seconds (typing autosaves often), the last HISTORY_KEEP."""
+        folder = self._history_dir(page["id"])
+        folder.mkdir(parents=True, exist_ok=True)
+        old = sorted(folder.glob("*.json"), key=lambda p: p.stat().st_mtime)
+        if old and time.time() - old[-1].stat().st_mtime < HISTORY_EVERY:
+            return
+        rev = int(page.get("rev") or 0)
+        data = json.dumps(page, ensure_ascii=False).encode("utf-8")
+        _atomic_write(folder / f"{rev:08d}.json", data)
+        for stale in old[: max(0, len(old) + 1 - HISTORY_KEEP)]:
+            stale.unlink(missing_ok=True)
+
+    def history(self, page_id: str) -> List[Dict[str, Any]]:
+        folder = self._history_dir(page_id)
+        out: List[Dict[str, Any]] = []
+        for path in (
+            sorted(folder.glob("*.json"), reverse=True) if folder.is_dir() else []
+        ):
+            try:
+                page = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                continue
+            text = "" if page.get("sealed") else page_text(page, 160)
+            out.append(
+                {
+                    "rev": int(page.get("rev") or 0),
+                    "savedAt": int(path.stat().st_mtime * 1000),
+                    "updatedAt": int(page.get("updatedAt") or 0),
+                    "title": page.get("title") or "",
+                    "blocks": len(page.get("blocks") or []),
+                    "preview": " ".join(text.split())[:160],
+                    "sealed": bool(page.get("sealed")),
+                }
+            )
+        return out
+
+    def version(self, page_id: str, rev: int) -> Optional[Dict[str, Any]]:
+        path = self._history_dir(page_id) / f"{int(rev):08d}.json"
+        try:
+            return json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return None
 
     def delete(self, page_id: str) -> bool:
         path = self._path(page_id)

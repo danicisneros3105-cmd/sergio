@@ -3020,3 +3020,78 @@ html, body { background: var(--color-bg); }
 .node-own-rules li b { font-weight: 600; font-size: 14px; }
 .node-own-rules li small { font-size: 12.5px; color: var(--color-text-tertiary); }
 .node-own-rule-add { display: flex; gap: 8px; margin: 10px 0; }
+
+/* Workspace: Notion-like views (list, gallery, calendar), columns and blocks. */
+.ws-chips { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+.ws-chips i, .ws-multi button[aria-pressed='true'] {
+  font-style: normal; font-size: 12px; padding: 1px 8px; border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--sec-workspace) 16%, transparent); color: var(--color-text);
+}
+.ws-multi { display: inline-flex; flex-wrap: wrap; gap: 4px; padding: 3px 0; }
+.ws-multi button { font-size: 12px; padding: 1px 8px; border-radius: var(--radius-full); border: 1px dashed var(--color-border); color: var(--color-text-tertiary); }
+.ws-multi button[aria-pressed='true'] { border-style: solid; border-color: transparent; }
+.ws-linkcell { display: flex; align-items: center; gap: 4px; }
+.ws-linkcell a { color: var(--color-accent-text); flex: none; }
+.ws-linkcell input[data-invalid] { color: var(--color-error); }
+.ws-link { color: var(--color-accent-text); text-decoration: underline; text-underline-offset: 2px; display: inline-flex; align-items: center; gap: 3px; }
+.ws-empty { color: var(--color-text-tertiary); font-size: 13px; padding: 10px 4px; list-style: none; }
+.ws-list-view { list-style: none; margin: 0; padding: 0; border: 1px solid var(--color-border-subtle); border-radius: var(--radius-md); }
+.ws-list-view li { display: flex; align-items: center; gap: 12px; padding: 9px 12px; border-bottom: 1px solid var(--color-border-subtle); }
+.ws-list-view li:last-child { border-bottom: 0; }
+.ws-list-view li > b { font-weight: 600; font-size: 14px; flex: none; }
+.ws-list-view li > span { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; flex: 1; font-size: 12.5px; color: var(--color-text-secondary); }
+.ws-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
+.ws-gallery-card {
+  border: 1px solid var(--color-border-subtle); border-radius: var(--radius-lg); padding: 12px; background: var(--color-surface);
+  border-top: 4px solid color-mix(in srgb, var(--sec-workspace) 70%, transparent);
+}
+.ws-gallery-card h4 { font-weight: 650; font-size: 15px; margin-bottom: 8px; }
+.ws-gallery-card dl { display: flex; flex-direction: column; gap: 4px; margin: 0; }
+.ws-gallery-card dl > div { display: flex; justify-content: space-between; gap: 8px; font-size: 12.5px; }
+.ws-gallery-card dt { color: var(--color-text-tertiary); }
+.ws-gallery-card dd { margin: 0; text-align: right; overflow-wrap: anywhere; }
+.ws-calendar-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.ws-calendar-bar b { font-weight: 650; min-width: 140px; text-align: center; }
+.ws-calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 2px; }
+.ws-calendar-wd { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--color-text-tertiary); padding: 2px 6px; }
+.ws-calendar-day {
+  position: relative; min-height: 78px; padding: 4px; border-radius: 8px; background: color-mix(in srgb, var(--color-text) 3%, transparent);
+  display: flex; flex-direction: column; gap: 2px; overflow: hidden;
+}
+.ws-calendar-day[data-out] { opacity: 0.45; }
+.ws-calendar-day[data-today] { box-shadow: inset 0 0 0 2px var(--color-accent); }
+.ws-calendar-n { font-size: 11.5px; color: var(--color-text-secondary); font-variant-numeric: tabular-nums; }
+.ws-calendar-item { display: block; width: 100%; text-align: left; border: 0; font: inherit;
+  font-size: 11.5px; padding: 2px 6px; border-radius: 6px; cursor: grab; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  background: color-mix(in srgb, var(--sec-workspace) 20%, var(--color-surface));
+}
+.ws-calendar-add { position: absolute; top: 3px; right: 3px; opacity: 0; color: var(--color-text-tertiary); border-radius: 6px; padding: 2px; }
+.ws-calendar-day:hover .ws-calendar-add, .ws-calendar-add:focus-visible { opacity: 1; }
+.ws-equation { padding: 6px 0 2px; overflow-x: auto; }
+.ws-eq-error { color: var(--color-error); font-size: 12.5px; }
+.ws-toc { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 6px 0; border-left: 2px solid var(--color-border); padding-left: 12px; }
+.ws-toc button { font-size: 14px; color: var(--color-text-secondary); text-align: left; }
+.ws-toc button:hover { color: var(--color-accent-text); }
+.ws-toc button[data-level='h2'] { padding-left: 14px; }
+.ws-toc button[data-level='h3'] { padding-left: 28px; font-size: 13px; }
+.ws-bookmark {
+  display: flex; align-items: center; gap: 12px; margin-top: 6px; padding: 12px 14px; border-radius: var(--radius-md);
+  border: 1px solid var(--color-border); background: var(--color-surface); max-width: 560px;
+}
+.ws-bookmark:hover { border-color: var(--color-accent); }
+.ws-bookmark-icon { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; background: var(--color-accent-subtle); color: var(--color-accent-text); flex: none; }
+.ws-bookmark > span:last-child { display: flex; flex-direction: column; min-width: 0; }
+.ws-bookmark b { font-weight: 600; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ws-bookmark small { font-size: 12px; color: var(--color-text-tertiary); }
+.ws-history {
+  width: min(560px, calc(100vw - 32px)); max-height: 80vh; overflow: auto; background: var(--color-surface);
+  border-radius: var(--radius-xl); box-shadow: var(--shadow-lg); padding: 16px;
+}
+.ws-history header { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.ws-history header b { flex: 1; font-weight: 650; }
+.ws-history ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.ws-history li { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid var(--color-border-subtle); border-radius: var(--radius-md); }
+.ws-history li > span { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.ws-history li small { color: var(--color-text-tertiary); font-size: 12px; }
+.ws-history li em { font-style: normal; font-size: 12.5px; color: var(--color-text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ws-history .paper-button { display: inline-flex; align-items: center; gap: 6px; }

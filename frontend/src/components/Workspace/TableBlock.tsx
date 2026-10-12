@@ -1,16 +1,31 @@
 import { useMemo, useState } from 'react';
-import { Plus, Trash2, Share2, Columns3, LayoutGrid, Filter, ArrowUpDown } from 'lucide-react';
+import { Plus, Trash2, Share2, Columns3, LayoutGrid, Filter, ArrowUpDown, List, GalleryVerticalEnd, CalendarDays, ExternalLink } from 'lucide-react';
 import { columnLetter, computeCell, isFormula, toNumber } from '../../lib/workspace/formula';
 import { stampDone } from '../../lib/workspace/archive';
 import { newId, type Column, type ColumnType, type Row, type TableData, type TableView } from '../../lib/workspace/model';
+import { CalendarView, GalleryView, ListView, cellHref, multiValues } from './TableViews';
 
 const TYPES: Array<{ key: ColumnType; label: string }> = [
   { key: 'text', label: 'Texto' },
   { key: 'number', label: 'Número' },
   { key: 'select', label: 'Opciones' },
+  { key: 'multi', label: 'Varias opciones' },
   { key: 'date', label: 'Fecha' },
   { key: 'checkbox', label: 'Casilla' },
+  { key: 'url', label: 'Enlace' },
+  { key: 'email', label: 'Correo' },
+  { key: 'phone', label: 'Teléfono' },
 ];
+
+const VIEW_KINDS: Array<{ key: TableView['kind']; label: string }> = [
+  { key: 'table', label: 'Tabla' },
+  { key: 'board', label: 'Tablero' },
+  { key: 'list', label: 'Lista' },
+  { key: 'gallery', label: 'Galería' },
+  { key: 'calendar', label: 'Calendario' },
+];
+
+const VIEW_ICON = { table: Columns3, board: LayoutGrid, list: List, gallery: GalleryVerticalEnd, calendar: CalendarDays };
 
 export function visibleRows(table: TableData, view: TableView): Row[] {
   let rows = table.rows.filter((r) => !r.archived);
@@ -89,6 +104,39 @@ function Cell({
   if (column.type === 'date') {
     return <input type="date" className="ws-cell" value={raw} onChange={(e) => onSet(e.target.value)} aria-label={column.name} />;
   }
+  if (column.type === 'multi') {
+    const chosen = multiValues(raw);
+    const toggle = (o: string) => onSet((chosen.includes(o) ? chosen.filter((x) => x !== o) : [...chosen, o]).join(', '));
+    return (
+      <span className="ws-multi" role="group" aria-label={column.name}>
+        {(column.options || []).map((o) => (
+          <button key={o} type="button" aria-pressed={chosen.includes(o)} onClick={() => toggle(o)}>
+            {o}
+          </button>
+        ))}
+      </span>
+    );
+  }
+  if (column.type === 'url' || column.type === 'email' || column.type === 'phone') {
+    const href = cellHref(column, raw);
+    return (
+      <span className="ws-linkcell">
+        <input
+          className="ws-cell"
+          type={column.type === 'email' ? 'email' : column.type === 'phone' ? 'tel' : 'url'}
+          value={raw}
+          onChange={(e) => onSet(e.target.value)}
+          aria-label={column.name}
+          data-invalid={raw && !href ? 'true' : undefined}
+        />
+        {href && (
+          <a href={href} target="_blank" rel="noreferrer" aria-label={`Abrir ${raw}`}>
+            <ExternalLink size={12} />
+          </a>
+        )}
+      </span>
+    );
+  }
   const shown = editing || !isFormula(raw) ? raw : computeCell(table, rowIndex, colIndex);
   return (
     <input
@@ -155,7 +203,10 @@ export function TableBlock({
               aria-selected={v.id === view.id}
               onClick={() => set({ ...table, view: v.id })}
             >
-              {v.kind === 'board' ? <LayoutGrid size={12} className="inline mr-1" /> : <Columns3 size={12} className="inline mr-1" />}
+              {(() => {
+                const Icon = VIEW_ICON[v.kind] ?? Columns3;
+                return <Icon size={12} className="inline mr-1" />;
+              })()}
               {v.name}
             </button>
           ))}
@@ -191,9 +242,25 @@ export function TableBlock({
           </label>
           <label>
             Tipo
-            <select className="ws-mini-input" value={view.kind} onChange={(e) => setView({ kind: e.target.value as TableView['kind'], groupBy: view.groupBy || selects[0]?.id })}>
-              <option value="table">Tabla</option>
-              <option value="board">Tablero</option>
+            <select
+              className="ws-mini-input"
+              value={view.kind}
+              onChange={(e) => {
+                const kind = e.target.value as TableView['kind'];
+                // A view still called by its kind («Tabla», «Vista 2») takes the new kind's name.
+                const generic = VIEW_KINDS.some((k) => k.label === view.name) || /^Vista \d+$/.test(view.name);
+                setView({
+                  kind,
+                  groupBy: view.groupBy || selects[0]?.id,
+                  ...(generic ? { name: VIEW_KINDS.find((k) => k.key === kind)?.label ?? view.name } : {}),
+                });
+              }}
+            >
+              {VIEW_KINDS.map((k) => (
+                <option key={k.key} value={k.key}>
+                  {k.label}
+                </option>
+              ))}
             </select>
           </label>
           <label>
@@ -245,7 +312,23 @@ export function TableBlock({
         </div>
       )}
 
-      {view.kind === 'board' && view.groupBy && table.columns.find((c) => c.id === view.groupBy) ? (
+      {view.kind === 'list' ? (
+        <ListView table={table} rows={rows} />
+      ) : view.kind === 'gallery' ? (
+        <GalleryView table={table} rows={rows} />
+      ) : view.kind === 'calendar' ? (
+        <CalendarView
+          table={table}
+          rows={rows}
+          dateColumn={table.columns.find((c) => c.type === 'date')}
+          onAdd={addRow}
+          onMove={(rowId, iso) => {
+            const date = table.columns.find((c) => c.type === 'date');
+            if (date) setCell(rowId, date.id, iso);
+          }}
+          onRename={(rowId, title) => setCell(rowId, table.columns[0].id, title)}
+        />
+      ) : view.kind === 'board' && view.groupBy && table.columns.find((c) => c.id === view.groupBy) ? (
         <Board table={table} rows={rows} groupBy={table.columns.find((c) => c.id === view.groupBy)!} onSet={setCell} onAdd={addRow} />
       ) : (
         <div className="ws-grid-scroll">
@@ -356,13 +439,18 @@ function ColumnHead({ column, onChange, onDrop }: { column: Column; onChange: (p
               type="button"
               role="menuitemradio"
               aria-checked={column.type === t.key}
-              onClick={() => onChange({ type: t.key, options: t.key === 'select' ? column.options || ['Por hacer', 'En curso', 'Hecho'] : column.options })}
+              onClick={() =>
+                onChange({
+                  type: t.key,
+                  options: t.key === 'select' || t.key === 'multi' ? column.options || ['Por hacer', 'En curso', 'Hecho'] : column.options,
+                })
+              }
             >
               {column.type === t.key ? '● ' : ''}
               {t.label}
             </button>
           ))}
-          {column.type === 'select' && (
+          {(column.type === 'select' || column.type === 'multi') && (
             <label className="block mt-2">
               <span className="paper-label">Opciones (separadas por comas)</span>
               <input

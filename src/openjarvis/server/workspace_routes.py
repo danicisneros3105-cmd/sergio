@@ -101,6 +101,25 @@ async def put_page(page_id: str, body: PutPage) -> Any:
     return {"page": saved}
 
 
+@router.get("/v1/workspace/pages/{page_id}/history")
+async def page_history(page_id: str) -> Dict[str, Any]:
+    try:
+        return {"versions": await asyncio.to_thread(default_store().history, page_id)}
+    except WorkspaceError as exc:
+        raise _bad(exc) from exc
+
+
+@router.get("/v1/workspace/pages/{page_id}/history/{rev}")
+async def page_version(page_id: str, rev: int) -> Dict[str, Any]:
+    try:
+        page = await asyncio.to_thread(default_store().version, page_id, rev)
+    except WorkspaceError as exc:
+        raise _bad(exc) from exc
+    if page is None:
+        raise HTTPException(status_code=404, detail="Esa versión ya no existe.")
+    return {"page": page}
+
+
 @router.delete("/v1/workspace/pages/{page_id}")
 async def delete_page(page_id: str) -> Dict[str, Any]:
     try:

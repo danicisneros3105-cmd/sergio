@@ -8,6 +8,7 @@ import {
   GripVertical,
   Lock,
   MoreHorizontal,
+  History as HistoryIcon,
   Share2,
   Sparkles,
   Star,
@@ -37,8 +38,10 @@ import { PomodoroBlock } from './PomodoroBlock';
 import { MediaBlock } from './MediaBlock';
 import { MindMapBlock } from './MindMapBlock';
 import { ShareDialog, type ShareTarget } from './ShareDialog';
+import { BookmarkView, EquationView, TocView } from './ExtraBlocks';
+import { HistoryDialog } from './HistoryDialog';
 
-const TEXTUAL: BlockType[] = ['text', 'h1', 'h2', 'h3', 'todo', 'bullet', 'number', 'quote', 'callout', 'code', 'toggle'];
+const TEXTUAL: BlockType[] = ['text', 'h1', 'h2', 'h3', 'todo', 'bullet', 'number', 'quote', 'callout', 'code', 'toggle', 'equation', 'bookmark'];
 const PLACEHOLDER: Partial<Record<BlockType, string>> = {
   text: 'Escriba, o «/» para insertar…',
   h1: 'Título 1',
@@ -51,6 +54,8 @@ const PLACEHOLDER: Partial<Record<BlockType, string>> = {
   callout: 'Nota',
   code: 'Código',
   toggle: 'Desplegable (la primera línea es el título)',
+  equation: 'Fórmula en LaTeX, p. ej. E = mc^2 o \\frac{a}{b}',
+  bookmark: 'Pegue un enlace: https://…',
 };
 
 // Passphrases of the pages unlocked in this visit: memory only, never stored.
@@ -78,6 +83,7 @@ export function PageEditor({ pageId }: { pageId: string }) {
   const [focusAt, setFocusAt] = useState<{ id: string; pos: number } | null>(null);
   const [slash, setSlash] = useState<{ id: string; query: string; index: number } | null>(null);
   const [menu, setMenu] = useState<string | null>(null);
+  const [history, setHistory] = useState(false);
   const [share, setShare] = useState<ShareTarget | null>(null);
   const [lockOpen, setLockOpen] = useState(false);
   const [showVault, setShowVault] = useState(false);
@@ -343,6 +349,9 @@ export function PageEditor({ pageId }: { pageId: string }) {
               <button type="button" role="menuitem" onClick={() => (setMenu(null), exportMd())}>
                 <Download size={13} /> Descargar en Markdown
               </button>
+              <button type="button" role="menuitem" onClick={() => (setMenu(null), setHistory(true))}>
+                <HistoryIcon size={13} /> Historial de versiones
+              </button>
               <button type="button" role="menuitem" onClick={() => (setMenu(null), void archive(page.id))}>
                 <Archive size={13} /> Mover al baúl
               </button>
@@ -459,7 +468,7 @@ export function PageEditor({ pageId }: { pageId: string }) {
                       }}
                       className="ws-text"
                       rows={1}
-                      spellCheck={b.type !== 'code'}
+                      spellCheck={b.type !== 'code' && b.type !== 'equation' && b.type !== 'bookmark'}
                       value={b.type === 'toggle' && !b.open ? summary : b.text}
                       placeholder={PLACEHOLDER[b.type]}
                       onChange={(e) => {
@@ -470,6 +479,8 @@ export function PageEditor({ pageId }: { pageId: string }) {
                       onBlur={() => setTimeout(() => setSlash((s) => (s?.id === b.id ? null : s)), 150)}
                       aria-label={PLACEHOLDER[b.type] || 'Texto'}
                     />
+                    {b.type === 'equation' && <EquationView tex={b.text} />}
+                    {b.type === 'bookmark' && <BookmarkView url={b.text} />}
                     {links.length > 0 && (
                       <div className="ws-links">
                         {links.map((l) => (
@@ -504,6 +515,15 @@ export function PageEditor({ pageId }: { pageId: string }) {
                   </div>
                 ) : b.type === 'divider' ? (
                   <hr className="paper-rule w-full my-3" />
+                ) : b.type === 'toc' ? (
+                  <TocView
+                    blocks={live}
+                    onJump={(id) => {
+                      const el = refs.current.get(id);
+                      el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                      el?.focus();
+                    }}
+                  />
                 ) : b.type === 'table' && b.table ? (
                   <TableBlock
                     table={b.table}
@@ -567,6 +587,16 @@ export function PageEditor({ pageId }: { pageId: string }) {
       )}
 
       {share && <ShareDialog target={share} onClose={() => setShare(null)} />}
+      {history && (
+        <HistoryDialog
+          page={page}
+          onClose={() => setHistory(false)}
+          onRestore={(old) =>
+            // The old content becomes the newest version (same id, current revision).
+            update(page.id, (p) => ({ ...old, id: p.id, rev: p.rev, parent: p.parent, openedAt: p.openedAt, updatedAt: Date.now() }))
+          }
+        />
+      )}
       {lockOpen && (
         <LockDialog
           page={page}
