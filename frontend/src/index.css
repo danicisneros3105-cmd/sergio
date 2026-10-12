@@ -3095,3 +3095,56 @@ html, body { background: var(--color-bg); }
 .ws-history li small { color: var(--color-text-tertiary); font-size: 12px; }
 .ws-history li em { font-style: normal; font-size: 12.5px; color: var(--color-text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ws-history .paper-button { display: inline-flex; align-items: center; gap: 6px; }
+
+/* -- The startup look on every page (owner, 2026-10): bold titles in Sergio's
+   aurora instead of spaced capitals; tiles with a section colour. ------------ */
+.paper-title {
+  font-family: var(--font-sans);
+  font-weight: 760;
+  font-size: 30px;
+  line-height: 1.15;
+  letter-spacing: -0.025em;
+  margin-right: 0;
+  text-transform: none;
+  background: var(--grad-sergio);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+h3.paper-title { background: none; color: var(--color-text); letter-spacing: -0.01em; }
+@media (max-width: 520px) {
+  .paper-title { font-size: 24px; letter-spacing: -0.02em; margin-right: 0; }
+}
+.paper-label { letter-spacing: 0.08em; font-weight: 650; }
+.paper-tab { letter-spacing: 0.04em; }
+.wordmark-lg {
+  display: inline-block; font-family: var(--font-sans); font-size: 12px; font-weight: 650; letter-spacing: 0.06em;
+  margin-right: 0; padding: 4px 12px; border-radius: var(--radius-full); text-transform: uppercase;
+  color: var(--sec-swarm); background: color-mix(in srgb, var(--sec-swarm) 12%, transparent);
+}
+.paper-grid > .paper-card:nth-child(6n + 1), .paper-grid > *:nth-child(6n + 1) .paper-card { --tile: #4f7cff; }
+.paper-grid > .paper-card:nth-child(6n + 2), .paper-grid > *:nth-child(6n + 2) .paper-card { --tile: #ec4899; }
+.paper-grid > .paper-card:nth-child(6n + 3), .paper-grid > *:nth-child(6n + 3) .paper-card { --tile: #8b5cf6; }
+.paper-grid > .paper-card:nth-child(6n + 4), .paper-grid > *:nth-child(6n + 4) .paper-card { --tile: #f59e0b; }
+.paper-grid > .paper-card:nth-child(6n + 5), .paper-grid > *:nth-child(6n + 5) .paper-card { --tile: #10b981; }
+.paper-grid > .paper-card:nth-child(6n + 6), .paper-grid > *:nth-child(6n + 6) .paper-card { --tile: #0ea5e9; }
+.paper-card .paper-thumb {
+  border-radius: var(--radius-lg);
+  background-color: color-mix(in srgb, var(--tile, var(--color-accent)) 9%, var(--color-surface));
+  background-image: none;
+  color: var(--tile, var(--color-accent));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tile, var(--color-accent)) 16%, transparent);
+  transition: transform 220ms var(--ease-spring), box-shadow 200ms var(--ease-mac);
+}
+.paper-card .paper-thumb > svg { width: 30px; height: 30px; stroke-width: 1.7; }
+.paper-card:hover .paper-thumb {
+  outline-color: transparent;
+  transform: translateY(-3px);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tile, var(--color-accent)) 30%, transparent),
+    0 16px 32px -20px var(--tile, var(--color-accent));
+}
+.paper-card .paper-name { font-weight: 600; font-size: 14px; }
+.paper-card .paper-meta { font-size: 12px; }
+.paper-grid.desktop-sections { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 24px 20px; }
+@media (max-width: 1023px) { .paper-grid.desktop-sections { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 639px) { .paper-grid.desktop-sections { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

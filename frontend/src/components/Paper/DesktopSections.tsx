@@ -37,7 +37,7 @@ export function DesktopSections({ sections }: { sections: DesktopSection[] }) {
     else toast.success(`${label}: abierto en su PC`);
   };
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-x-5 gap-y-6">
+    <div className="paper-grid desktop-sections">
       {sections.map((s) => (
         <button
           key={s.key}
@@ -48,7 +48,7 @@ export function DesktopSections({ sections }: { sections: DesktopSection[] }) {
           aria-label={`Abrir ${s.label} en el PC`}
         >
           <span className="paper-thumb" style={{ aspectRatio: '1 / 1' }}>
-            <s.icon size={34} strokeWidth={1.1} style={{ color: 'var(--color-text)' }} />
+            <s.icon size={34} strokeWidth={1.6} />
           </span>
           <span>
             <span className="paper-name block">{s.label}</span>

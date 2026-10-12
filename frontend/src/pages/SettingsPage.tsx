@@ -50,7 +50,7 @@ function OllamaModelList() {
       .then(data => setModels((data.models || []).map((m: any) => ({ name: m.name, size: m.size }))))
       .catch(() => setModels([]));
   }, []);
-  if (models.length === 0) return <span className="text-xs" style={{ color: 'var(--color-text-tertiary)' }}>No models loaded</span>;
+  if (models.length === 0) return <span className="text-xs" style={{ color: 'var(--color-text-tertiary)' }}>No hay modelos cargados</span>;
   return (
     <div className="flex flex-wrap gap-1">
       {models.map(m => (
@@ -161,10 +161,10 @@ function ApiKeyInput({
           className="px-2 py-1 rounded text-[10px] cursor-pointer"
           style={{ color: 'var(--color-error)', border: '1px solid var(--color-error)' }}
         >
-          Remove
+          Quitar
         </button>
       )}
-      {saved && <span className="text-[10px]" style={{ color: 'var(--color-success)' }}>Saved</span>}
+      {saved && <span className="text-[10px]" style={{ color: 'var(--color-success)' }}>Guardado</span>}
       {error && <span className="text-[10px]" style={{ color: 'var(--color-error)' }}>{error}</span>}
     </div>
   );
@@ -544,9 +544,9 @@ export function SettingsPage() {
                   border: '1px solid var(--color-border)',
                 }}
               >
-                <option value="small">Small</option>
-                <option value="default">Default</option>
-                <option value="large">Large</option>
+                <option value="small">Pequeño</option>
+                <option value="default">Normal</option>
+                <option value="large">Grande</option>
               </select>
             </SettingRow>
           </Section>
@@ -560,11 +560,11 @@ export function SettingsPage() {
                   style={{ background: healthy === true ? 'var(--color-success)' : healthy === false ? 'var(--color-error)' : 'var(--color-text-tertiary)' }}
                 />
                 <span className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-                  {healthy === true ? 'Connected' : healthy === false ? 'Disconnected' : 'Comprobando…'}
+                  {healthy === true ? 'Conectado' : healthy === false ? 'Sin conexión' : 'Comprobando…'}
                 </span>
               </div>
             </SettingRow>
-            <SettingRow label="Dirección del servidor" description="Set if backend runs on a different port or host">
+            <SettingRow label="Dirección del servidor" description="Solo si Sergio corre en otro puerto u otro equipo">
               <input
                 type="text"
                 value={settings.apiUrl}
@@ -578,12 +578,12 @@ export function SettingsPage() {
                 }}
               />
             </SettingRow>
-            <SettingRow label="Clave del servidor" description="Required only if the server was started with an API key">
+            <SettingRow label="Clave del servidor" description="Solo si el servidor se inició con una clave">
               <input
                 type="password"
                 value={settings.apiKey}
                 onChange={(e) => { updateSettings({ apiKey: e.target.value }); showSaved(); }}
-                placeholder="OPENJARVIS_API_KEY"
+                placeholder="Clave del servidor"
                 autoComplete="off"
                 className="text-sm px-3 py-1.5 rounded-lg outline-none w-56"
                 style={{
@@ -597,25 +597,25 @@ export function SettingsPage() {
 
           {/* Inference source */}
           <Section title="Origen del modelo">
-            <SettingRow label="Origen" description="Where the app runs models. Applies after restart.">
+            <SettingRow label="Origen" description="Dónde se ejecutan los modelos locales. Se aplica al reiniciar.">
               <select
                 value={srcKind}
                 onChange={(e) => { setSrcKind(e.target.value as InferenceSource['kind']); setSrcMsg(''); }}
                 className="text-sm px-3 py-1.5 rounded-lg outline-none w-56"
                 style={{ background: 'var(--color-bg-secondary)', color: 'var(--color-text)', border: '1px solid var(--color-border)' }}
               >
-                <option value="ollama">Bundled Ollama (default)</option>
-                <option value="custom">Custom OpenAI-compatible server</option>
+                <option value="ollama">Ollama incluido (recomendado)</option>
+                <option value="custom">Otro servidor compatible</option>
               </select>
             </SettingRow>
             {srcKind === 'custom' && (
               <>
-                <SettingRow label="Dirección" description="e.g. LM Studio: http://localhost:1234/v1">
+                <SettingRow label="Dirección" description="Por ejemplo LM Studio: http://localhost:1234/v1">
                   <input type="text" value={customHost} onChange={(e) => { setCustomHost(e.target.value); setSrcMsg(''); }} placeholder="http://localhost:1234/v1"
                     className="text-sm px-3 py-1.5 rounded-lg outline-none w-56"
                     style={{ background: 'var(--color-bg-secondary)', color: 'var(--color-text)', border: '1px solid var(--color-border)' }} />
                 </SettingRow>
-                <SettingRow label="Modelo" description="Model id served by your endpoint">
+                <SettingRow label="Modelo" description="El nombre del modelo en ese servidor">
                   <input type="text" value={customModel} onChange={(e) => { setCustomModel(e.target.value); setSrcMsg(''); }} placeholder="qwen2.5-7b-instruct"
                     className="text-sm px-3 py-1.5 rounded-lg outline-none w-56"
                     style={{ background: 'var(--color-bg-secondary)', color: 'var(--color-text)', border: '1px solid var(--color-border)' }} />
@@ -631,7 +631,7 @@ export function SettingsPage() {
                     <option value="mlx">MLX</option>
                   </select>
                 </SettingRow>
-                <SettingRow label="API key (optional) · Dev" description="Only if your server requires one; Dev or higher">
+                <SettingRow label="Clave (opcional) · Dev" description="Solo si su servidor la pide; plan Dev o superior">
                   <input disabled={!customApiAllowed} type="password" value={customKey} onChange={(e) => { setCustomKey(e.target.value); setSrcMsg(''); }} placeholder="leave blank if none"
                     className="text-sm px-3 py-1.5 rounded-lg outline-none w-56"
                     style={{ background: 'var(--color-bg-secondary)', color: 'var(--color-text)', border: '1px solid var(--color-border)' }} />
@@ -649,13 +649,13 @@ export function SettingsPage() {
 
           {/* Models */}
           <Section title="Modelos">
-            <SettingRow label="Modelos en su PC (Ollama)" description="Models available for local inference">
+            <SettingRow label="Modelos en su PC (Ollama)" description="Los que funcionan sin internet en su equipo">
               <OllamaModelList />
             </SettingRow>
             <div className="text-xs mt-2 px-1" style={{ color: 'var(--color-text-tertiary)' }}>
               Run <code className="px-1 py-0.5 rounded text-[11px]" style={{ background: 'var(--color-bg-tertiary)' }}>ollama pull &lt;model-name&gt;</code> in your terminal to add more models
             </div>
-            <SettingRow label="Proveedores en la nube" description="Green dot means API key is configured">
+            <SettingRow label="Proveedores en la nube" description="El punto verde indica que la clave está puesta">
               <div className="flex flex-wrap gap-3">
                 <CloudProviderStatus label="OpenAI" keyName="OPENAI_API_KEY" />
                 <CloudProviderStatus label="Anthropic" keyName="ANTHROPIC_API_KEY" />
@@ -671,23 +671,23 @@ export function SettingsPage() {
             <SettingRow label="OpenAI" description="GPT-4, GPT-3.5, etc.">
               <ApiKeyInput keyName="OPENAI_API_KEY" placeholder="sk-..." />
             </SettingRow>
-            <SettingRow label="Anthropic" description="Claude models">
+            <SettingRow label="Anthropic" description="Modelos Claude">
               <ApiKeyInput keyName="ANTHROPIC_API_KEY" placeholder="sk-ant-..." />
             </SettingRow>
-            <SettingRow label="Google" description="Gemini models">
+            <SettingRow label="Google" description="Modelos Gemini">
               <ApiKeyInput keyName="GEMINI_API_KEY" placeholder="AI..." />
             </SettingRow>
             <SettingRow label="OpenRouter" description="Multi-provider routing">
               <ApiKeyInput keyName="OPENROUTER_API_KEY" placeholder="sk-or-..." />
             </SettingRow>
-            <SettingRow label="Atlas Cloud" description="Models routed through Atlas Cloud">
-              <ApiKeyInput keyName="ATLASCLOUD_API_KEY" placeholder="Atlas Cloud API key" />
+            <SettingRow label="Atlas Cloud" description="Modelos a través de Atlas Cloud">
+              <ApiKeyInput keyName="ATLASCLOUD_API_KEY" placeholder="Clave de Atlas Cloud" />
             </SettingRow>
           </Section>
 
           {/* Tools */}
           <Section title="Herramientas">
-            <SettingRow label="Búsqueda web" description="Tavily key for web search tool">
+            <SettingRow label="Búsqueda web" description="Clave de Tavily para buscar en la web">
               <ApiKeyInput keyName="TAVILY_API_KEY" placeholder="tvly-..." toolName="web_search" />
             </SettingRow>
           </Section>
@@ -717,7 +717,7 @@ export function SettingsPage() {
                 />
               </button>
             </SettingRow>
-            <SettingRow label="Motor de memoria" description="Which retrieval engine to use">
+            <SettingRow label="Motor de memoria" description="Cómo busca Sergio en sus recuerdos">
               <select
                 value={memoryBackend}
                 onChange={(e) => {
@@ -957,7 +957,7 @@ export function SettingsPage() {
                 </button>
               </div>
             </SettingRow>
-            <SettingRow label="Clear all data" description="Permanently delete all conversations">
+            <SettingRow label="Borrar todos los datos" description="Elimina para siempre todas las conversaciones">
               <button
                 onClick={handleClear}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer"
@@ -976,7 +976,7 @@ export function SettingsPage() {
 
           {/* Updates */}
           <Section title="Updates">
-            <SettingRow label="Auto-update" description="Check for new desktop builds automatically every 30 minutes">
+            <SettingRow label="Actualizar solo" description="Busca versiones nuevas de la app cada 30 minutos">
               <button
                 onClick={() => handleAutoUpdateToggle(!autoUpdateEnabled)}
                 className="relative inline-flex h-5 w-9 items-center rounded-full transition-colors"
@@ -991,7 +991,7 @@ export function SettingsPage() {
                 />
               </button>
             </SettingRow>
-            <SettingRow label="Check for updates" description="Manually check for a new version right now">
+            <SettingRow label="Buscar actualizaciones" description="Comprueba ahora si hay una versión nueva">
               <button
                 onClick={handleCheckNow}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"

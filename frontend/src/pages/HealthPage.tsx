@@ -7,7 +7,7 @@ import { DesktopSections, type DesktopSection } from '../components/Paper/Deskto
 
 const SECTIONS: DesktopSection[] = [
   { key: 'health', label: 'Mi salud', meta: 'Cuestionario y registro', icon: HeartPulse },
-  { key: 'night', label: 'Night Shift', meta: 'Sueño y luz', icon: Moon },
+  { key: 'night', label: 'Luz de noche', meta: 'Sueño y luz', icon: Moon },
   { key: 'gym', label: 'Gimnasio mental', meta: 'Ejercicios de hoy', icon: Brain },
   { key: 'results', label: 'Resultados', meta: 'Su progreso', icon: ChartNoAxesColumn },
   { key: 'consult', label: 'Consulta', meta: 'Hablar con calma', icon: Armchair },
