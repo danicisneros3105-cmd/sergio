@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useDevApi } from '../lib/dev-api';
 import { useNavigate } from 'react-router';
+import { useLive, voiceLanguage } from '../lib/liveSession';
 import {
   Palette,
   Globe,
@@ -256,15 +257,15 @@ export function MemoryStatusRow({
         ? 'Memory is not configured'
         : `${stats?.backend} backend — ${stats?.entries} entries`;
   const label = status.kind === 'loading'
-    ? 'Checking...'
+    ? 'Comprobando…'
     : stats?.backend === 'none'
-      ? 'Not configured'
+      ? 'Sin configurar'
       : stats
         ? `${stats.entries} entries`
         : 'Unavailable';
 
   return (
-    <SettingRow label="Memory status" description={description}>
+    <SettingRow label="Estado de la memoria" description={description}>
       <div className="flex items-center gap-2">
         <Brain size={14} style={{ color: stats && stats.backend !== 'none' ? 'var(--color-accent)' : 'var(--color-text-tertiary)' }} />
         <span className="text-xs whitespace-nowrap" style={{ color: 'var(--color-text-secondary)' }}>
@@ -286,23 +287,25 @@ export function MemoryStatusRow({
 }
 
 const themeOptions: { value: ThemeMode; label: string; icon: typeof Sun }[] = [
-  { value: 'light', label: 'Light', icon: Sun },
-  { value: 'dark', label: 'Dark', icon: Moon },
-  { value: 'system', label: 'System', icon: Monitor },
+  { value: 'light', label: 'Claro', icon: Sun },
+  { value: 'dark', label: 'Oscuro', icon: Moon },
+  { value: 'system', label: 'Automático', icon: Monitor },
 ];
 
 // Everything that is not one of the six sections lives here, one tap away.
 export const MORE_PAGES = [
   { path: '/pensar', label: 'Pensar a fondo' },
   { path: '/data-sources', label: 'Fuentes de datos' },
-  { path: '/faces', label: 'Rostros' },
-  { path: '/clacky', label: 'Clacky' },
+  { path: '/faces', label: 'Face ID' },
+  { path: '/clacky', label: 'Agente de código' },
   { path: '/dashboard', label: 'Panel' },
   { path: '/logs', label: 'Registro' },
   { path: '/get-started', label: 'Primeros pasos' },
 ];
 
 export function SettingsPage() {
+  const liveOn = useLive((s) => s.enabled);
+  const setLiveOn = useLive((s) => s.setEnabled);
   const customApiAllowed = useDevApi();
   const navigate = useNavigate();
   const settings = useAppStore((s) => s.settings);
@@ -507,8 +510,8 @@ export function SettingsPage() {
 
         <div className="flex flex-col gap-4">
           {/* Appearance */}
-          <Section title="Appearance">
-            <SettingRow label="Theme" description="Choose how Sergio looks">
+          <Section title="Apariencia">
+            <SettingRow label="Tema" description="Cómo se ve Sergio">
               <div className="flex gap-1 p-0.5 rounded-lg" style={{ background: 'var(--color-bg-secondary)' }}>
                 {themeOptions.map((opt) => {
                   const isActive = settings.theme === opt.value;
@@ -530,7 +533,7 @@ export function SettingsPage() {
                 })}
               </div>
             </SettingRow>
-            <SettingRow label="Font size">
+            <SettingRow label="Tamaño de letra">
               <select
                 value={settings.fontSize}
                 onChange={(e) => { updateSettings({ fontSize: e.target.value as any }); showSaved(); }}
@@ -549,19 +552,19 @@ export function SettingsPage() {
           </Section>
 
           {/* Connection */}
-          <Section title="Connection">
-            <SettingRow label="Server status" description={serverInfo ? `${serverInfo.engine} / ${serverInfo.model}` : 'Not connected'}>
+          <Section title="Conexión">
+            <SettingRow label="Estado del servidor" description={serverInfo ? `${serverInfo.engine} / ${serverInfo.model}` : 'Not connected'}>
               <div className="flex items-center gap-2">
                 <span
                   className="w-2 h-2 rounded-full"
                   style={{ background: healthy === true ? 'var(--color-success)' : healthy === false ? 'var(--color-error)' : 'var(--color-text-tertiary)' }}
                 />
                 <span className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-                  {healthy === true ? 'Connected' : healthy === false ? 'Disconnected' : 'Checking...'}
+                  {healthy === true ? 'Connected' : healthy === false ? 'Disconnected' : 'Comprobando…'}
                 </span>
               </div>
             </SettingRow>
-            <SettingRow label="API URL" description="Set if backend runs on a different port or host">
+            <SettingRow label="Dirección del servidor" description="Set if backend runs on a different port or host">
               <input
                 type="text"
                 value={settings.apiUrl}
@@ -575,7 +578,7 @@ export function SettingsPage() {
                 }}
               />
             </SettingRow>
-            <SettingRow label="API key" description="Required only if the server was started with an API key">
+            <SettingRow label="Clave del servidor" description="Required only if the server was started with an API key">
               <input
                 type="password"
                 value={settings.apiKey}
@@ -593,8 +596,8 @@ export function SettingsPage() {
           </Section>
 
           {/* Inference source */}
-          <Section title="Inference source">
-            <SettingRow label="Source" description="Where the app runs models. Applies after restart.">
+          <Section title="Origen del modelo">
+            <SettingRow label="Origen" description="Where the app runs models. Applies after restart.">
               <select
                 value={srcKind}
                 onChange={(e) => { setSrcKind(e.target.value as InferenceSource['kind']); setSrcMsg(''); }}
@@ -607,17 +610,17 @@ export function SettingsPage() {
             </SettingRow>
             {srcKind === 'custom' && (
               <>
-                <SettingRow label="Server URL" description="e.g. LM Studio: http://localhost:1234/v1">
+                <SettingRow label="Dirección" description="e.g. LM Studio: http://localhost:1234/v1">
                   <input type="text" value={customHost} onChange={(e) => { setCustomHost(e.target.value); setSrcMsg(''); }} placeholder="http://localhost:1234/v1"
                     className="text-sm px-3 py-1.5 rounded-lg outline-none w-56"
                     style={{ background: 'var(--color-bg-secondary)', color: 'var(--color-text)', border: '1px solid var(--color-border)' }} />
                 </SettingRow>
-                <SettingRow label="Model" description="Model id served by your endpoint">
+                <SettingRow label="Modelo" description="Model id served by your endpoint">
                   <input type="text" value={customModel} onChange={(e) => { setCustomModel(e.target.value); setSrcMsg(''); }} placeholder="qwen2.5-7b-instruct"
                     className="text-sm px-3 py-1.5 rounded-lg outline-none w-56"
                     style={{ background: 'var(--color-bg-secondary)', color: 'var(--color-text)', border: '1px solid var(--color-border)' }} />
                 </SettingRow>
-                <SettingRow label="Server type" description="OpenAI-compatible engine">
+                <SettingRow label="Tipo de servidor" description="OpenAI-compatible engine">
                   <select value={customEngine} onChange={(e) => { setCustomEngine(e.target.value); setSrcMsg(''); }}
                     className="text-sm px-3 py-1.5 rounded-lg outline-none w-56"
                     style={{ background: 'var(--color-bg-secondary)', color: 'var(--color-text)', border: '1px solid var(--color-border)' }}>
@@ -645,14 +648,14 @@ export function SettingsPage() {
           </Section>
 
           {/* Models */}
-          <Section title="Models">
-            <SettingRow label="Local models (Ollama)" description="Models available for local inference">
+          <Section title="Modelos">
+            <SettingRow label="Modelos en su PC (Ollama)" description="Models available for local inference">
               <OllamaModelList />
             </SettingRow>
             <div className="text-xs mt-2 px-1" style={{ color: 'var(--color-text-tertiary)' }}>
               Run <code className="px-1 py-0.5 rounded text-[11px]" style={{ background: 'var(--color-bg-tertiary)' }}>ollama pull &lt;model-name&gt;</code> in your terminal to add more models
             </div>
-            <SettingRow label="Cloud providers" description="Green dot means API key is configured">
+            <SettingRow label="Proveedores en la nube" description="Green dot means API key is configured">
               <div className="flex flex-wrap gap-3">
                 <CloudProviderStatus label="OpenAI" keyName="OPENAI_API_KEY" />
                 <CloudProviderStatus label="Anthropic" keyName="ANTHROPIC_API_KEY" />
@@ -664,8 +667,7 @@ export function SettingsPage() {
           </Section>
 
           {/* API Keys */}
-          <Section title="API Keys · Dev">
-            <SettingRow label="Moonshot / Kimi" description="Kimi K3"><ApiKeyInput keyName="MOONSHOT_API_KEY" placeholder="Moonshot API key" /></SettingRow>
+          <Section title="Claves de API · Dev">
             <SettingRow label="OpenAI" description="GPT-4, GPT-3.5, etc.">
               <ApiKeyInput keyName="OPENAI_API_KEY" placeholder="sk-..." />
             </SettingRow>
@@ -684,16 +686,16 @@ export function SettingsPage() {
           </Section>
 
           {/* Tools */}
-          <Section title="Tools">
-            <SettingRow label="Web Search" description="Tavily key for web search tool">
+          <Section title="Herramientas">
+            <SettingRow label="Búsqueda web" description="Tavily key for web search tool">
               <ApiKeyInput keyName="TAVILY_API_KEY" placeholder="tvly-..." toolName="web_search" />
             </SettingRow>
           </Section>
 
           {/* Memory */}
-          <Section title="Memory">
+          <Section title="Memoria">
             <MemoryStatusRow status={memoryStatus} onRetry={() => { void refreshMemoryStatus(); }} />
-            <SettingRow label="Use memory context" description="Automatically inject relevant memories into conversations">
+            <SettingRow label="Usar la memoria" description="Sergio recuerda lo relevante en cada conversación">
               <button
                 onClick={() => {
                   const next = !memoryEnabled;
@@ -715,7 +717,7 @@ export function SettingsPage() {
                 />
               </button>
             </SettingRow>
-            <SettingRow label="Memory backend" description="Which retrieval engine to use">
+            <SettingRow label="Motor de memoria" description="Which retrieval engine to use">
               <select
                 value={memoryBackend}
                 onChange={(e) => {
@@ -737,7 +739,7 @@ export function SettingsPage() {
                 <option value="hybrid">hybrid</option>
               </select>
             </SettingRow>
-            <SettingRow label="Results to inject" description={`${memoryTopK}`}>
+            <SettingRow label="Recuerdos por respuesta" description={`${memoryTopK}`}>
               <input
                 type="range"
                 min="1"
@@ -753,7 +755,7 @@ export function SettingsPage() {
                 className="w-32 cursor-pointer accent-[var(--color-accent)]"
               />
             </SettingRow>
-            <SettingRow label="Min relevance score" description={`${memoryMinScore}`}>
+            <SettingRow label="Relevancia mínima" description={`${memoryMinScore}`}>
               <input
                 type="range"
                 min="0"
@@ -769,7 +771,7 @@ export function SettingsPage() {
                 className="w-32 cursor-pointer accent-[var(--color-accent)]"
               />
             </SettingRow>
-            <SettingRow label="Max context tokens" description={`${memoryMaxTokens}`}>
+            <SettingRow label="Máximo de contexto" description={`${memoryMaxTokens}`}>
               <input
                 type="range"
                 min="256"
@@ -788,8 +790,8 @@ export function SettingsPage() {
           </Section>
 
           {/* Model defaults */}
-          <Section title="Model Defaults">
-            <SettingRow label="Temperature" description={`${settings.temperature}`}>
+          <Section title="Ajustes del modelo">
+            <SettingRow label="Creatividad" description={`${settings.temperature}`}>
               <input
                 type="range"
                 min="0"
@@ -800,7 +802,7 @@ export function SettingsPage() {
                 className="w-32 cursor-pointer accent-[var(--color-accent)]"
               />
             </SettingRow>
-            <SettingRow label="Max tokens" description={`${settings.maxTokens}`}>
+            <SettingRow label="Longitud máxima" description={`${settings.maxTokens}`}>
               <input
                 type="range"
                 min="256"
@@ -814,25 +816,48 @@ export function SettingsPage() {
           </Section>
 
           {/* Speech */}
-          <Section title="Speech">
-            <SettingRow label="Speech-to-Text" description="Enable microphone input for voice dictation">
+          <Section title="Voz">
+            <SettingRow
+              label="Conversación siempre activa"
+              description="Sergio le escucha y responde en voz alta mientras está abierto, como una persona. Apáguela si prefiere solo escribir."
+            >
               <button
-                onClick={() => { updateSettings({ speechEnabled: !settings.speechEnabled }); showSaved(); }}
+                role="switch"
+                aria-checked={liveOn}
+                aria-label="Conversación siempre activa"
+                onClick={() => { setLiveOn(!liveOn); showSaved(); }}
                 className="relative w-11 h-6 rounded-full transition-colors cursor-pointer"
-                style={{
-                  background: settings.speechEnabled ? 'var(--color-accent)' : 'var(--color-bg-tertiary)',
-                }}
+                style={{ background: liveOn ? 'var(--color-accent)' : 'var(--color-bg-tertiary)' }}
               >
                 <span
                   className="absolute top-0.5 left-0.5 w-5 h-5 rounded-full transition-transform bg-white"
-                  style={{
-                    transform: settings.speechEnabled ? 'translateX(20px)' : 'translateX(0)',
-                    boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
-                  }}
+                  style={{ transform: liveOn ? 'translateX(20px)' : 'translateX(0)', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }}
                 />
               </button>
             </SettingRow>
-            <SettingRow label="Text-to-Speech" description="Show a read-aloud button on assistant replies">
+            <SettingRow label="Idioma de Sergio" description="Habla siempre en este idioma, salvo que usted le pida otro.">
+              <select
+                className="paper-input"
+                aria-label="Idioma de Sergio"
+                defaultValue={voiceLanguage()}
+                onChange={(e) => {
+                  try {
+                    localStorage.setItem('sergio.lang', e.target.value);
+                  } catch {
+                    // private window: lasts this session
+                  }
+                  showSaved();
+                }}
+              >
+                <option value="es">Español</option>
+                <option value="en">English</option>
+                <option value="fr">Français</option>
+                <option value="pt">Português</option>
+                <option value="it">Italiano</option>
+                <option value="de">Deutsch</option>
+              </select>
+            </SettingRow>
+            <SettingRow label="Leer respuestas" description="Botón para escuchar cada respuesta escrita">
               <button
                 onClick={() => { updateSettings({ voiceOutputEnabled: !settings.voiceOutputEnabled }); showSaved(); }}
                 className="relative w-11 h-6 rounded-full transition-colors cursor-pointer"
@@ -849,7 +874,7 @@ export function SettingsPage() {
                 />
               </button>
             </SettingRow>
-            <SettingRow label="Speak replies automatically" description="Read every assistant reply aloud as soon as it finishes">
+            <SettingRow label="Leer respuestas escritas en voz alta" description="Sergio lee en voz alta lo que responde por escrito">
               <button
                 onClick={() => { updateSettings({ voiceAutoplay: !settings.voiceAutoplay }); showSaved(); }}
                 disabled={!settings.voiceOutputEnabled}
@@ -869,7 +894,7 @@ export function SettingsPage() {
                 />
               </button>
             </SettingRow>
-            <SettingRow label="Voice" description="Backend and voice used for spoken replies">
+            <SettingRow label="Voz" description="Con qué voz habla">
               <div className="flex items-center gap-2">
                 <span
                   className="w-2 h-2 rounded-full"
@@ -878,13 +903,13 @@ export function SettingsPage() {
                   }}
                 />
                 <span className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-                  {ttsBackend === null ? 'Checking...'
+                  {ttsBackend === null ? 'Comprobando…'
                     : ttsBackend.available ? `${ttsBackend.backend}${ttsBackend.voice_id ? ` / ${ttsBackend.voice_id}` : ''}`
-                    : 'Not configured'}
+                    : 'Sin configurar'}
                 </span>
               </div>
             </SettingRow>
-            <SettingRow label="Backend status" description="Requires Whisper, Deepgram, or another speech backend">
+            <SettingRow label="Estado" description="Reconocimiento de voz del servidor">
               <div className="flex items-center gap-2">
                 <span
                   className="w-2 h-2 rounded-full"
@@ -895,23 +920,22 @@ export function SettingsPage() {
                   }}
                 />
                 <span className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-                  {speechBackendAvailable === null ? 'Checking...'
-                    : speechBackendAvailable ? 'Available'
-                    : 'Not configured'}
+                  {speechBackendAvailable === null ? 'Comprobando…'
+                    : speechBackendAvailable ? 'Disponible'
+                    : 'Sin configurar'}
                 </span>
               </div>
             </SettingRow>
             {!speechBackendAvailable && speechBackendAvailable !== null && (
               <div className="text-xs mt-2 px-1" style={{ color: 'var(--color-text-tertiary)' }}>
-                Set up a speech backend to use voice input.
-                See the <a href="https://open-jarvis.github.io/OpenJarvis/user-guide/tools/" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--color-accent-text)' }}>documentation</a> for details.
+                La conversación por voz usa la voz en tiempo real del servidor (clave de Gemini en Ajustes).
               </div>
             )}
           </Section>
 
           {/* Data */}
-          <Section title="Data">
-            <SettingRow label="Conversations" description={`${conversations.length} stored locally`}>
+          <Section title="Datos">
+            <SettingRow label="Conversaciones" description={`${conversations.length} stored locally`}>
               <div className="flex gap-2">
                 <button
                   onClick={handleExport}
@@ -975,7 +999,7 @@ export function SettingsPage() {
                 disabled={updateCheckState === 'checking'}
               >
                 <RefreshCw size={12} className={updateCheckState === 'checking' ? 'animate-spin' : ''} />
-                {updateCheckState === 'checking' && 'Checking...'}
+                {updateCheckState === 'checking' && 'Comprobando…'}
                 {updateCheckState === 'available' && 'Update available — see banner above'}
                 {updateCheckState === 'latest' && 'Already up to date'}
                 {updateCheckState === 'idle' && 'Check now'}
@@ -984,32 +1008,17 @@ export function SettingsPage() {
           </Section>
 
           {/* About */}
-          <Section title="About">
+          <Section title="Acerca de">
             <div className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
               <p className="mb-2">
-                <span className="font-semibold" style={{ color: 'var(--color-text)' }}>OpenJarvis</span> — Programming abstractions for on-device AI.
+                <span className="font-semibold" style={{ color: 'var(--color-text)' }}>Sergio</span> — su asistente de IA,
+                en su propio equipo.
               </p>
+              {/* Apache-2.0 asks to keep the original's notice; it stays here, as text, not as a brand. */}
               <p className="text-xs" style={{ color: 'var(--color-text-tertiary)' }}>
-                Part of Intelligence Per Watt, a research initiative at Stanford SAIL.
+                Licencias: incluye software de código abierto bajo Apache-2.0 y otras licencias libres (ver LICENSE y
+                NOTICE).
               </p>
-              <div className="flex gap-3 mt-3 text-xs">
-                <a
-                  href="https://openjarvis.stanford.edu/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{ color: 'var(--color-accent-text)' }}
-                >
-                  Project site
-                </a>
-                <a
-                  href="https://open-jarvis.github.io/OpenJarvis/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{ color: 'var(--color-accent-text)' }}
-                >
-                  Documentation
-                </a>
-              </div>
             </div>
           </Section>
         </div>

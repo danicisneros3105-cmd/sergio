@@ -574,7 +574,7 @@ export function CommandPalette() {
           ) : tab === 'catalogue' ? (
             <span>Models are downloaded from the Ollama registry</span>
           ) : (
-            <span>API keys are stored locally and never sent to OpenJarvis servers</span>
+            <span>Las claves se guardan en este equipo y nunca salen de él</span>
           )}
         </div>
       </div>

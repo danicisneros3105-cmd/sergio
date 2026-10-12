@@ -156,6 +156,10 @@ def translate(
     program = program or program_name()
     if program != "jarvis":
         out = _PROGRAM_WORD.sub(program, out)
+    if program == "sergio":
+        # One product, one name: what the owner sees is Sergio (the original
+        # project keeps its credit in LICENSE/NOTICE and «Acerca de»).
+        out = out.replace("OpenJarvis", "Sergio")
     return out
 
 

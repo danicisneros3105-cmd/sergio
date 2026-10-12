@@ -59,8 +59,9 @@ def test_templates_put_values_back_and_keep_braces():
         ("config in ~/.openjarvis/config.toml", "config in ~/.openjarvis/config.toml"),
         ("backend jarvis-agent", "backend jarvis-agent"),
         (
+            # The product is Sergio on screen; env vars and paths keep their names.
             "OpenJarvis and JARVIS_SKIP_MODEL_PICK",
-            "OpenJarvis and JARVIS_SKIP_MODEL_PICK",
+            "Sergio and JARVIS_SKIP_MODEL_PICK",
         ),
         ("module openjarvis.cli", "module openjarvis.cli"),
     ],

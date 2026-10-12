@@ -39,7 +39,7 @@ describe('Settings memory status', () => {
     );
 
     expect(html).toContain('Memory is not configured');
-    expect(html).toContain('Not configured');
+    expect(html).toContain('Sin configurar');
     expect(html).not.toContain('0 entries');
   });
 });

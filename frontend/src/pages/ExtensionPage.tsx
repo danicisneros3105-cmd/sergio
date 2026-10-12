@@ -16,7 +16,7 @@ const COPY: Record<ExtensionName, { title: string; hint: string }> = {
     hint: 'Live 3D globe. Ask in chat: "show me Tokyo in night vision".',
   },
   clacky: {
-    title: 'Clacky',
+    title: 'Agente de código',
     hint: 'Hands-on agent for your computer and browser. Sergio delegates tasks here.',
   },
 };
