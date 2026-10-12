@@ -15,7 +15,8 @@ def test_enable_tools_adds_desktop_tools_and_turns(tmp_path):
     escritorio_cmd.enable_tools(cfg)
     text = cfg.read_text()
     assert (
-        'enabled = ["think", "screen_read", "calculator", "get_weather", '
+        'enabled = ["think", "screen_read", "verified_math", "scene_reason", '
+        '"calculator", "get_weather", '
         '"globe_view", "live_flights", "flights_overhead", "live_earthquakes", "desktop_action", '
         '"camera_look", "video_edit", "blender_create", "face_approval", '
         '"face_enroll", "files_organize", "python_run", "terminal_run", '
@@ -141,6 +142,8 @@ def test_sync_server_adds_the_face_mesh_without_removing_anything(
     assert ok and cmd[:3] == [str(uv), "sync", "--inexact"]
     extras = [cmd[i + 1] for i, a in enumerate(cmd) if a == "--extra"]
     assert extras == [
+        "server",
+        "desktop",
         "faces",
         "evolution",
         "cad",

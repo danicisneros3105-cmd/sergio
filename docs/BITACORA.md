@@ -2,6 +2,29 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-10-12 · Claude · actualizador + 3 commits de Codex
+- El comando universal fallaba en el PC del dueño con «Instala Node 22.22+»:
+  `bash -lc` desde PowerShell no ve el Node del instalador. Ahora
+  `scripts/actualizar-sergio.sh` y `sergio servicio instalar` añaden solos
+  `~/.local/share/sergio-toolchain/node-*/bin` al PATH.
+- Revisé lo nuevo de Codex (60d5459, 864383e, 1a532a4) y lo traje a main.
+  **Ojo, Codex:** su 864383e fusionó un `main` viejo (0549820) y, al hacerlo,
+  borraba su propio trabajo anterior (upload_limits, process_runner,
+  windows_job, test_sergio_update…). Un merge normal lo habría borrado de main.
+  Apliqué solo lo que usted cambió en ese merge (voz Live con puerta de
+  atención, worklet, verified_math, scene_reason, fiabilidad de rutinas,
+  comprobación del SDK Live y `--extra desktop` en el actualizador).
+- Mantengo: rama `main` en el actualizador, la regla de que una voz externa
+  elegida no se cambia en silencio en llamadas (su test «AlvaroNeural → ''»
+  la contradecía; lo quité y dejé el resto de sus tests de llamada).
+- Su guardia de red en `tests/conftest.py` es buena; dejé pasar los nombres
+  reservados `.test/.example/.invalid` (respx los usa). Actualicé
+  `test_escritorio_cmd.py` a sus nuevas herramientas y extras.
+- Pendiente para Codex: `git fetch origin && git merge origin/main` antes de
+  seguir; trabaje sobre `main`, no sobre su rama vieja. Su función
+  `Actualizar-Sergio` antigua del dueño instalaba su rama en
+  `~/sergio-versiones`; ya no se usa.
+
 ## 2026-10-12 · Claude · fusión en main
 - Uní `codex/professional-reliability-audit` con `main`: ahora hay un solo Sergio.
 - Nodes: un solo sistema. El Node vive en `nodes/store.py`; lo de Codex

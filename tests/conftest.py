@@ -28,23 +28,33 @@ def _no_external_http(monkeypatch):
     import httpx
 
     def local(url):
-        return url.host in ("localhost", "127.0.0.1", "::1", "testserver")
+        # Reserved test names (RFC 2606) never reach a real account; respx
+        # mocks below the transport, so its fake hosts must pass through.
+        host = url.host
+        return host in ("localhost", "127.0.0.1", "::1", "testserver") or (
+            host.rsplit(".", 1)[-1] in ("test", "example", "invalid", "localhost")
+        )
 
     real_sync = httpx.HTTPTransport.handle_request
     real_async = httpx.AsyncHTTPTransport.handle_async_request
 
     def sync(transport, request):
         if not local(request.url):
-            raise AssertionError("External HTTP requires a mock transport in unit tests.")
+            raise AssertionError(
+                "External HTTP requires a mock transport in unit tests."
+            )
         return real_sync(transport, request)
 
     async def asynchronous(transport, request):
         if not local(request.url):
-            raise AssertionError("External HTTP requires a mock transport in unit tests.")
+            raise AssertionError(
+                "External HTTP requires a mock transport in unit tests."
+            )
         return await real_async(transport, request)
 
     monkeypatch.setattr(httpx.HTTPTransport, "handle_request", sync)
     monkeypatch.setattr(httpx.AsyncHTTPTransport, "handle_async_request", asynchronous)
+
 
 # Set BEFORE importing openjarvis.core.config: DEFAULT_CONFIG_DIR /
 # DEFAULT_CONFIG_PATH are resolved once at import time (the install-script
