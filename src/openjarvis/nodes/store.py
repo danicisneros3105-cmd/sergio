@@ -79,7 +79,13 @@ RULES: Dict[str, Dict[str, Any]] = {
     },
     "code": {
         "label": "Ejecutar código",
-        "tools": ["python_run", "code_interpreter", "calculator", "verified_math", "scene_reason"],
+        "tools": [
+            "python_run",
+            "code_interpreter",
+            "calculator",
+            "verified_math",
+            "scene_reason",
+        ],
         "default": "allow",
         "choices": ["allow", "ask", "block"],
     },
@@ -161,6 +167,10 @@ FELT = (
     "#b58cf0",  # lilac
     "#2b2b2b",  # charcoal
     "#fafafa",  # snow
+    "#7c5cff",  # violet
+    "#16c79a",  # mint
+    "#ff5e6c",  # coral
+    "#22b8ff",  # sky
 )
 ACCESSORIES = (
     "none",

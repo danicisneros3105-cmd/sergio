@@ -7,6 +7,7 @@ import { initApiBase } from './lib/api';
 import { initAnalytics } from './lib/analytics';
 import { consumePairFragment } from './lib/pairing';
 import '@fontsource-variable/josefin-sans';
+import '@fontsource-variable/inter';
 import './index.css';
 
 function applyTheme() {

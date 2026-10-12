@@ -240,8 +240,16 @@ function CreateNode({
         </p>
         <div className="node-templates">
           {(catalog?.templates || []).map((t) => (
-            <button key={t.id} type="button" className="node-template" onClick={() => choose(t.id)}>
-              <NodeCritter look={t.avatar} size={56} />
+            <button
+              key={t.id}
+              type="button"
+              className="node-template"
+              style={{ '--node': t.avatar.color } as React.CSSProperties}
+              onClick={() => choose(t.id)}
+            >
+              <span className="node-template-stage">
+                <NodeCritter look={t.avatar} size={72} />
+              </span>
               <span>
                 <b>{t.title}</b>
                 <em>{t.description}</em>
@@ -1178,7 +1186,14 @@ export function NodesPage() {
           </button>
         </div>
         {nodes.map((n) => (
-          <button key={n.id} type="button" className="nodes-item" aria-current={node?.id === n.id ? 'true' : undefined} onClick={() => open(n)}>
+          <button
+            key={n.id}
+            type="button"
+            className="nodes-item"
+            style={{ '--node': look(n).color } as React.CSSProperties}
+            aria-current={node?.id === n.id ? 'true' : undefined}
+            onClick={() => open(n)}
+          >
             <NodeCritter look={look(n)} status={n.status} size={40} />
             <span className="min-w-0 flex-1 text-left">
               <span className="nodes-item-name">{n.name}</span>
@@ -1196,7 +1211,7 @@ export function NodesPage() {
       </aside>
 
       {node && (
-        <section className="node-page" aria-label={node.name}>
+        <section className="node-page" aria-label={node.name} style={{ '--node': look(node).color } as React.CSSProperties}>
           <header className="node-head">
             <NodeCritter look={look(node)} status={node.status} size={64} label={`${node.name}: ${STATUS_ES[node.status]}`} />
             <div className="min-w-0 flex-1">

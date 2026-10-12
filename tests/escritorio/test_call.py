@@ -149,7 +149,9 @@ def test_private_server_credentials_stay_in_the_handshake():
     call = _call(line, api_key="local-test-key")
     assert call.start()
     try:
-        assert line.options["additional_headers"] == {"Authorization": "Bearer local-test-key"}
+        assert line.options["additional_headers"] == {
+            "Authorization": "Bearer local-test-key"
+        }
         assert "local-test-key" not in line.sent[0]
     finally:
         call.hang_up()

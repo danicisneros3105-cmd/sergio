@@ -5,11 +5,22 @@ from openjarvis.nodes.worker import NodeWorker
 
 
 def worker_with_watch(tmp_path, fetch):
-    worker = NodeWorker(NodeStore(tmp_path), fetch=fetch, ask=lambda *a, **k: {},
-                        runner=lambda *a: ("Hecho.", 0))
+    worker = NodeWorker(
+        NodeStore(tmp_path),
+        fetch=fetch,
+        ask=lambda *a, **k: {},
+        runner=lambda *a: ("Hecho.", 0),
+    )
     node = worker.create("Scout")
-    routine = worker.store.add_routine(node.id, {"kind": "web", "url": "https://example.test",
-                                               "task": "Avisar si cambia", "every_minutes": 15})
+    routine = worker.store.add_routine(
+        node.id,
+        {
+            "kind": "web",
+            "url": "https://example.test",
+            "task": "Avisar si cambia",
+            "every_minutes": 15,
+        },
+    )
     return worker, node, routine
 
 
@@ -23,7 +34,9 @@ def test_three_real_failures_pause_and_a_user_can_resume(tmp_path):
     paused = worker.store.get(node.id).routines[0]
     assert not paused.enabled and paused.failures == 3
     assert worker.tick(10**10) == 0
-    worker.store.mark_routine(node.id, routine.id, 0, enabled=True, failures=0, last_error="")
+    worker.store.mark_routine(
+        node.id, routine.id, 0, enabled=True, failures=0, last_error=""
+    )
     assert worker.store.get(node.id).routines[0].enabled
 
 

@@ -43,6 +43,16 @@ async def list_models(request: Request) -> ModelListResponse:
     # the UI auto-select nomic-embed-text and fail every generation with 400.
     model_ids = [m for m in model_ids if not _routes.is_embed_only_model(m)]
 
+    # The configured default (e.g. a Gemini model) must always be selectable,
+    # or the chat stays locked on "choose a model" with a working key.
+    default = getattr(request.app.state, "model", "") or ""
+    if (
+        default
+        and default not in model_ids
+        and not _routes.is_embed_only_model(default)
+    ):
+        model_ids.insert(0, default)
+
     return _routes.ModelListResponse(
         data=[
             _routes.ModelObject(

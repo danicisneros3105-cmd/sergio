@@ -8,18 +8,27 @@ import { shouldAutoplayFinishedReply, useTtsStore } from '../../lib/tts';
 import { stripThinkTags } from '../../lib/message-text';
 import {
   Brain,
+  CalendarCheck,
   ChevronDown,
   CircleDot,
   PanelRightOpen,
   PanelRightClose,
   Database,
+  FileText,
   Network,
   NotebookPen,
-  Phone,
-  MonitorSmartphone,
+  Shapes,
   Search,
 } from 'lucide-react';
 import { listConnectors } from '../../lib/connectors-api';
+
+/** What a person needs to know about the model: fast, thorough or on this PC. */
+export function friendlyModel(id: string): string {
+  const name = (id.split('/').pop() || id).split('@')[0].toLowerCase();
+  if (/(^|-)pro($|-)|opus|deep-research|thinking/.test(name)) return 'A fondo';
+  if (/flash|lite|mini|haiku|sonnet|gpt|claude|gemini/.test(name)) return 'Rápido';
+  return 'En su PC';
+}
 
 function getGreeting(): string {
   const hour = new Date().getHours();
@@ -28,14 +37,23 @@ function getGreeting(): string {
   return 'Buenas noches';
 }
 
-// The mode bar under the composer (as in Kimi): Nodes and the swarm open
-// their own pages; the rest fill the composer with an editable start.
-const MODES: Array<{ icon: typeof Phone; label: string; to?: string; text?: string }> = [
-  { icon: CircleDot, label: 'Nodes', to: '/nodes' },
-  { icon: Network, label: 'Agent Swarm', to: '/swarm' },
-  { icon: NotebookPen, label: 'Workspace', to: '/workspace' },
-  { icon: MonitorSmartphone, label: 'Usar mi pantalla', text: 'En mi pantalla, ' },
-  { icon: Phone, label: 'Llamar', text: 'Llama a  y ' },
+// What people actually do with Sergio, as cards under the composer: some
+// open their section, the rest fill the composer with an editable start.
+// Each card wears its section's colour.
+const MODES: Array<{
+  icon: typeof Search;
+  label: string;
+  hint: string;
+  color: string;
+  to?: string;
+  text?: string;
+}> = [
+  { icon: CalendarCheck, label: 'Organiza mi semana', hint: 'Tareas, horarios y recordatorios', color: 'var(--sec-chat)', text: 'Ayúdame a organizar mi semana: ' },
+  { icon: FileText, label: 'Resume un documento', hint: 'Adjunte un PDF o pegue el texto', color: 'var(--sec-cowork)', text: 'Resume esto en cinco puntos: ' },
+  { icon: Shapes, label: 'Crea algo', hint: 'Imagen, diseño o modelo 3D', color: 'var(--sec-creator)', to: '/creator' },
+  { icon: CircleDot, label: 'Vigila algo por mí', hint: 'Un Node que avisa cuando cambia', color: 'var(--sec-nodes)', to: '/nodes?nuevo=1' },
+  { icon: Network, label: 'Investiga a fondo', hint: 'Muchos agentes a la vez', color: 'var(--sec-swarm)', to: '/swarm' },
+  { icon: NotebookPen, label: 'Toma notas', hint: 'Páginas, tablas y tareas', color: 'var(--sec-workspace)', to: '/workspace' },
 ];
 
 function prefill(text: string) {
@@ -162,7 +180,7 @@ export function ChatArea() {
 
   const PanelIcon = systemPanelOpen ? PanelRightClose : PanelRightOpen;
   const setCommandPaletteOpen = useAppStore((s) => s.setCommandPaletteOpen);
-  const modelLabel = selectedModel ? selectedModel.split('/').pop() : 'Elegir modelo';
+  const modelLabel = selectedModel ? friendlyModel(selectedModel) : 'Elegir modelo';
 
   return (
     <div className="flex flex-col h-full">
@@ -171,7 +189,7 @@ export function ChatArea() {
           type="button"
           className="chat-model"
           onClick={() => setCommandPaletteOpen(true)}
-          title="Cambiar de modelo (Ctrl+K)"
+          title={`Modelo: ${selectedModel || "ninguno"} (cambiar con Ctrl+K)`}
         >
           <span className="wordmark">Sergio</span>
           <span className="chat-model-name">{modelLabel}</span>
@@ -208,8 +226,10 @@ export function ChatArea() {
       >
         {isEmpty ? (
           <div className="mac-rise text-center" style={{ ['--i' as string]: 0 }}>
-            <p className="wordmark wordmark-lg">Sergio</p>
-            <h2 className="chat-hello">{getGreeting()}, señor. ¿En qué trabajamos?</h2>
+            <h2 className="chat-hello">
+              <span className="chat-hello-name">{getGreeting()}, señor</span>
+              <span className="chat-hello-ask">¿En qué trabajamos hoy?</span>
+            </h2>
           </div>
         ) : (
           <div className="max-w-[var(--chat-max-width)] mx-auto px-4 py-6">
@@ -247,17 +267,21 @@ export function ChatArea() {
       {isEmpty && (
         <div className="flex-[1.4] px-4 overflow-y-auto">
           <div
-            className="mac-rise mx-auto flex flex-wrap justify-center gap-2 pt-1"
+            className="mac-rise mx-auto starter-grid pt-1"
             style={{ maxWidth: 'var(--chat-max-width)', ['--i' as string]: 2 }}
           >
-            {MODES.map(({ icon: Icon, label, to, text }) => (
+            {MODES.map(({ icon: Icon, label, hint, color, to, text }) => (
               <button
                 key={label}
-                className="mac-chip"
+                className="starter-card"
+                style={{ '--sec': color } as React.CSSProperties}
                 onClick={() => (to ? navigate(to) : prefill(text || ''))}
               >
-                <Icon size={15} strokeWidth={1.6} />
-                {label}
+                <span className="starter-icon" aria-hidden="true">
+                  <Icon size={18} strokeWidth={1.8} />
+                </span>
+                <b>{label}</b>
+                <small>{hint}</small>
               </button>
             ))}
             {hasConnectedSources === false && (

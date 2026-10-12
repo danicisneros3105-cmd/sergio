@@ -15,14 +15,20 @@ from typing import Callable
 
 def normalized(text: str) -> str:
     return "".join(
-        c for c in unicodedata.normalize("NFKD", text.lower())
+        c
+        for c in unicodedata.normalize("NFKD", text.lower())
         if not unicodedata.combining(c)
     )
 
 
 class Attention:
-    def __init__(self, name: str = "Sergio", *, window: float = 90,
-                 clock: Callable[[], float] = time.monotonic) -> None:
+    def __init__(
+        self,
+        name: str = "Sergio",
+        *,
+        window: float = 90,
+        clock: Callable[[], float] = time.monotonic,
+    ) -> None:
         self.name = re.escape(normalized(name))
         self.clock, self.window = clock, window
         self.until = clock() + window  # opening a call explicitly addresses him
@@ -34,8 +40,11 @@ class Attention:
 
     def accepts(self, text: str) -> bool:
         text = normalized(text)
-        if re.search(r"\b(no te hablo|no era para ti|hablo con otra persona|"
-                     r"estoy hablando por telefono|no te estoy hablando)\b", text):
+        if re.search(
+            r"\b(no te hablo|no era para ti|hablo con otra persona|"
+            r"estoy hablando por telefono|no te estoy hablando)\b",
+            text,
+        ):
             self.until = 0
             return False
         # Mentioning him in the third person is not calling him.

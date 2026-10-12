@@ -520,7 +520,12 @@ export const useAppStore = create<AppState>((set, get) => {
       }),
     setModelsLoading: (loading: boolean) => set({ modelsLoading: loading }),
     setSelectedModel: (model: string) => set({ selectedModel: model }),
-    setServerInfo: (info: ServerInfo | null) => set({ serverInfo: info }),
+    // The server's own model is the fallback, so the chat is never locked.
+    setServerInfo: (info: ServerInfo | null) =>
+      set((state) => ({
+        serverInfo: info,
+        ...(!state.selectedModel && info?.model ? { selectedModel: info.model } : {}),
+      })),
     setSavings: (data: SavingsData | null) => set({ savings: data }),
     incrementSavings: (usage: TokenUsage) => {
       const cur = get().savings;

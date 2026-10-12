@@ -533,8 +533,10 @@ class LiveCall:
                     try:
                         session = await asyncio.wait_for(self._open(stack), timeout=18)
                     except asyncio.TimeoutError as exc:
-                        raise RuntimeError("Gemini tardó demasiado en abrir la voz en vivo. "
-                                           "Compruebe conexión, clave y cuota.") from exc
+                        raise RuntimeError(
+                            "Gemini tardó demasiado en abrir la voz en vivo. "
+                            "Compruebe conexión, clave y cuota."
+                        ) from exc
                     log.info(
                         "Live session open on %s in %.1f s",
                         self.model,
@@ -635,7 +637,9 @@ class LiveCall:
             elif kind == "note" and event.get("text"):
                 note = str(event["text"])
                 if self.guard_attention and "Ahora habla" in note:
-                    self.attention.speaker("señor" in note.lower() and "otra persona" not in note)
+                    self.attention.speaker(
+                        "señor" in note.lower() and "otra persona" not in note
+                    )
                     self._answer_allowed = False
                     await self.send_json({"type": "interrupted"})
                 # Context the model should know but not answer ("now Ana is
@@ -710,10 +714,15 @@ class LiveCall:
         args = dict(fc.args or {})
         call_id = str(fc.id or uuid.uuid4().hex)
         if self.guard_attention and not self._answer_allowed:
-            await session.send_tool_response(function_responses=self._types.FunctionResponse(
-                id=call_id, name=name,
-                response={"result": "No se ejecutó: conversación no dirigida a Sergio."},
-            ))
+            await session.send_tool_response(
+                function_responses=self._types.FunctionResponse(
+                    id=call_id,
+                    name=name,
+                    response={
+                        "result": "No se ejecutó: conversación no dirigida a Sergio."
+                    },
+                )
+            )
             return
         try:
             if name in self.client_tools:
@@ -932,7 +941,9 @@ def make_executor(agent: Any) -> tuple[Callable[[str, dict], str] | None, list]:
     except Exception:  # noqa: BLE001
         tools = []
     configured = {t.get("function", {}).get("name") for t in tools}
-    tools += [t for t in local.get_openai_tools() if t["function"]["name"] not in configured]
+    tools += [
+        t for t in local.get_openai_tools() if t["function"]["name"] not in configured
+    ]
 
     def execute(name: str, args: dict[str, Any]) -> str:
         selected = executor if name in configured else local

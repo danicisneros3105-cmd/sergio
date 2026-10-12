@@ -266,6 +266,7 @@ async def chat_completions(request_body: ChatCompletionRequest, request: Request
             # the client requested — never reduce below the request value.
             if suggested > request_body.max_tokens:
                 request_body.max_tokens = suggested
+            model = _effort_for(model, cr.tier)
         except Exception:
             logging.getLogger("openjarvis.server").debug(
                 "Complexity analysis failed",
@@ -423,6 +424,25 @@ def _remember_exchange(
         bus=bus,
         source=source,
     )
+
+
+def _effort_for(model: str, tier: str) -> str:
+    """Pick the thinking level of a Gemini 3+ model from the question.
+
+    Left to its default, Gemini 3.8 Flash thinks hard on "hola" (about 6 s
+    instead of 2 s). Easy questions get ``low``; only hard ones think more.
+    An explicit ``model@effort`` or ``SERGIO_EFFORT`` always wins.
+    """
+    import os
+    import re
+
+    if "@" in model or os.environ.get("SERGIO_EFFORT", "").strip():
+        return model
+    found = re.match(r"gemini-(\d+(?:\.\d+)?)", model)
+    if not found or float(found.group(1)) < 3:
+        return model
+    effort = {"complex": "medium", "very_complex": "high"}.get(tier, "low")
+    return f"{model}@{effort}"
 
 
 def _engine_key_for_model(engine: Any, model: str) -> str | None:

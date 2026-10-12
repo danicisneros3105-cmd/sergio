@@ -1,6 +1,6 @@
-import { useState, useRef, useCallback, useEffect, lazy, Suspense } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router';
-import { ArrowUp, AudioLines, CircleDot, MonitorSmartphone, Network, Plus, Search, Square, X } from 'lucide-react';
+import { ArrowUp, CircleDot, MonitorSmartphone, Network, Plus, Search, Square, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAppStore, generateId } from '../../lib/store';
 import { streamChat, streamResearch } from '../../lib/sse';
@@ -18,10 +18,9 @@ import {
   engineFromCompletionChunk,
   resolveChatEngine,
 } from '../../lib/chat-telemetry';
-import { MicButton } from './MicButton';
 
-const VoiceMode = lazy(() => import('./VoiceMode'));
-import { useSpeech } from '../../hooks/useSpeech';
+import { LiveOrb } from '../Live/LiveOrb';
+import { useLive } from '../../lib/liveSession';
 import { useOnline } from '../../hooks/useOnline';
 import type {
   ChatMessage,
@@ -100,7 +99,6 @@ export function InputArea() {
   const selectedModel = useAppStore((s) => s.selectedModel);
   const streamState = useAppStore((s) => s.streamState);
   const messages = useAppStore((s) => s.messages);
-  const speechEnabled = useAppStore((s) => s.settings.speechEnabled);
   const maxTokens = useAppStore((s) => s.settings.maxTokens);
   const temperature = useAppStore((s) => s.settings.temperature);
   const createConversation = useAppStore((s) => s.createConversation);
@@ -113,14 +111,6 @@ export function InputArea() {
   const setDeepResearch = useAppStore((s) => s.setDeepResearch);
   const corpusSync = useResearchCorpusSync(deepResearch);
   const isCurrentChatStreaming = streamState.isStreaming && streamState.conversationId === activeId;
-
-  const {
-    state: speechState,
-    error: speechError,
-    available: speechAvailable,
-    startRecording,
-    stopRecording,
-  } = useSpeech();
 
   // Abort in-flight stream when the user switches models mid-generation.
   // This prevents errors from trying to continue a stream with a stale model.
@@ -155,34 +145,6 @@ export function InputArea() {
     return () => window.removeEventListener('sergio:prefill', onPrefill);
   }, []);
 
-  const micDisabled = !speechEnabled || !speechAvailable || streamState.isStreaming;
-  const micReason: 'not-enabled' | 'no-backend' | 'streaming' | undefined =
-    !speechEnabled ? 'not-enabled'
-    : !speechAvailable ? 'no-backend'
-    : streamState.isStreaming ? 'streaming'
-    : undefined;
-
-  useEffect(() => {
-    if (speechError) {
-      toast.error(speechError, { duration: 8000 });
-    }
-  }, [speechError]);
-
-  const handleMicClick = useCallback(async () => {
-    if (speechState === 'recording') {
-      try {
-        const text = await stopRecording();
-        if (text) {
-          setInput((prev) => (prev ? prev + ' ' + text : text));
-        }
-      } catch {
-        // Error is captured in useSpeech
-      }
-    } else {
-      await startRecording();
-    }
-  }, [speechState, startRecording, stopRecording]);
-
   useEffect(() => {
     const el = textareaRef.current;
     if (!el) return;
@@ -203,7 +165,7 @@ export function InputArea() {
     const content = input.trim();
     if (!content || streamState.isStreaming) return;
     if (!selectedModel) {
-      toast.error('Pick a model first (⌘K)');
+      toast.error('Elija un modelo en Ajustes (Ctrl K) y vuelva a enviar.');
       return;
     }
 
@@ -554,17 +516,25 @@ export function InputArea() {
       };
       // Check if the response has digest audio available
       let audioMeta: { url: string } | undefined;
-      try {
-        const digestRes = await fetch(`${getBase()}/api/digest`);
-        if (digestRes.ok) {
-          const digest = await digestRes.json();
-          if (digest.audio_available) {
-            audioMeta = { url: `${getBase()}/api/digest/audio` };
+      // Only a morning-digest answer can carry audio; asking on every reply 404s.
+      if (toolCalls.some((t) => /digest/i.test(t.tool))) {
+        try {
+          const digestRes = await fetch(`${getBase()}/api/digest`);
+          if (digestRes.ok) {
+            const digest = await digestRes.json();
+            if (digest.audio_available) {
+              audioMeta = { url: `${getBase()}/api/digest/audio` };
+            }
           }
+        } catch {
+          // Server unavailable — skip the audio
         }
-      } catch {
-        // Not a digest response or server unavailable — skip
       }
+
+      // The voice shares this context: what was written is known out loud too.
+      useLive.getState().note(
+        `(En el chat escrito el señor dijo: «${content.slice(0, 600)}». Respondiste: «${accumulatedContent.slice(0, 900)}».)`,
+      );
 
       updateLastAssistant(
         convId,
@@ -625,7 +595,6 @@ export function InputArea() {
   const isWelcome = messages.length === 0 && !isCurrentChatStreaming;
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [voiceOpen, setVoiceOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!menuOpen) return;
@@ -665,7 +634,6 @@ export function InputArea() {
       hint: 'Lo hace en su PC, a la vista',
       run: () => setInput(input.startsWith('En mi pantalla, ') ? input : `En mi pantalla, ${input}`),
     },
-    { icon: AudioLines, label: 'Modo de voz', hint: 'Hablar en tiempo real', run: () => setVoiceOpen(true) },
   ];
   const online = useOnline();
   const canSend = !streamState.isStreaming && !!input.trim() && !modelLoading && !!selectedModel;
@@ -756,12 +724,6 @@ export function InputArea() {
             </button>
           ) : (
             <>
-              <MicButton
-                state={speechState}
-                onClick={handleMicClick}
-                disabled={micDisabled}
-                reason={micReason}
-              />
               {input.trim() ? (
                 <button
                   onClick={sendMessage}
@@ -773,15 +735,7 @@ export function InputArea() {
                   <ArrowUp size={17} strokeWidth={2.25} />
                 </button>
               ) : (
-                <button
-                  type="button"
-                  onClick={() => setVoiceOpen(true)}
-                  title="Modo de voz: hablar en tiempo real"
-                  aria-label="Modo de voz"
-                  className="mac-send voice-launch"
-                >
-                  <AudioLines size={17} strokeWidth={2} />
-                </button>
+                <LiveOrb size="sm" />
               )}
             </>
           )}
@@ -800,11 +754,6 @@ export function InputArea() {
         <p className="mt-2 text-center text-[11.5px]" style={{ color: 'var(--color-text-tertiary)' }}>
           Sergio puede equivocarse. Compruebe la información importante.
         </p>
-      )}
-      {voiceOpen && (
-        <Suspense fallback={null}>
-          <VoiceMode onClose={() => setVoiceOpen(false)} />
-        </Suspense>
       )}
     </div>
   );

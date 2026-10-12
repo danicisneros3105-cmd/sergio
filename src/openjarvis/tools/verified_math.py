@@ -21,7 +21,9 @@ Poly = list[Fraction]
 
 
 def bounded(values: Poly) -> Poly:
-    if any(max(v.numerator.bit_length(), v.denominator.bit_length()) > 4096 for v in values):
+    if any(
+        max(v.numerator.bit_length(), v.denominator.bit_length()) > 4096 for v in values
+    ):
         raise ValueError("El cálculo excede el límite de tamaño.")
     while len(values) > 1 and values[-1] == 0:
         values.pop()
@@ -58,16 +60,23 @@ def polynomial(expression: str, variable: str = "x") -> Poly:
             if exponent and abs(int(exponent[1])) > 500:
                 raise ValueError("Exponente decimal fuera del límite.")
             # Keep the typed decimal, even when Python's float rounds it.
-            value = Fraction(node.value) if type(node.value) is int else Fraction(literal)
+            value = (
+                Fraction(node.value) if type(node.value) is int else Fraction(literal)
+            )
             return bounded([value])
         if isinstance(node, ast.Name) and node.id == variable:
             return [Fraction(0), Fraction(1)]
         if isinstance(node, ast.UnaryOp) and isinstance(node.op, (ast.UAdd, ast.USub)):
-            return [v * (-1 if isinstance(node.op, ast.USub) else 1) for v in visit(node.operand)]
+            return [
+                v * (-1 if isinstance(node.op, ast.USub) else 1)
+                for v in visit(node.operand)
+            ]
         if isinstance(node, ast.BinOp):
             a, b = visit(node.left), visit(node.right)
             if isinstance(node.op, (ast.Add, ast.Sub)):
-                return combine(a, [v * (-1 if isinstance(node.op, ast.Sub) else 1) for v in b])
+                return combine(
+                    a, [v * (-1 if isinstance(node.op, ast.Sub) else 1) for v in b]
+                )
             if isinstance(node.op, ast.Mult):
                 return combine(a, b, True)
             if isinstance(node.op, ast.Div) and len(b) == 1:
@@ -80,7 +89,9 @@ def polynomial(expression: str, variable: str = "x") -> Poly:
                 for _ in range(power):
                     result = combine(result, a, True)
                 return result
-        raise ValueError("Use números, x, paréntesis y + - * / **; sin funciones ni código.")
+        raise ValueError(
+            "Use números, x, paréntesis y + - * / **; sin funciones ni código."
+        )
 
     return visit(tree.body)
 
@@ -92,16 +103,23 @@ def verified(expression: str, variable: str = "x") -> dict[str, Any]:
         values = polynomial(expression, variable)
         if len(values) != 1:
             raise ValueError("Falta una ecuación para resolver la variable.")
-        return {"exact": str(values[0]), "decimal": float(values[0]), "verified": True,
-                "method": "aritmética racional exacta"}
+        return {
+            "exact": str(values[0]),
+            "decimal": float(values[0]),
+            "verified": True,
+            "method": "aritmética racional exacta",
+        }
     if expression.count("=") != 1:
         raise ValueError("Use una sola igualdad.")
     left, right = expression.split("=")
     a, b = polynomial(left.strip(), variable), polynomial(right.strip(), variable)
     coefficients = combine(a, [-v for v in b])
     if len(coefficients) == 1:
-        return {"solutions": [], "kind": "identity" if coefficients[0] == 0 else "inconsistent",
-                "verified": True}
+        return {
+            "solutions": [],
+            "kind": "identity" if coefficients[0] == 0 else "inconsistent",
+            "verified": True,
+        }
     if len(coefficients) == 2:
         roots = [-coefficients[0] / coefficients[1]]
     else:
@@ -111,15 +129,23 @@ def verified(expression: str, variable: str = "x") -> dict[str, Any]:
             return {"solutions": [], "kind": "no_real_roots", "verified": True}
         n, d = math.isqrt(discriminant.numerator), math.isqrt(discriminant.denominator)
         if n * n != discriminant.numerator or d * d != discriminant.denominator:
-            return {"kind": "irrational", "coefficients": [str(v) for v in coefficients],
-                    "discriminant": str(discriminant), "verified": False,
-                    "note": "Raíces irracionales: no se afirma una verificación racional exacta."}
+            return {
+                "kind": "irrational",
+                "coefficients": [str(v) for v in coefficients],
+                "discriminant": str(discriminant),
+                "verified": False,
+                "note": "Raíces irracionales: no se afirma una verificación racional exacta.",
+            }
         root = Fraction(n, d)
         roots = list(dict.fromkeys([(-b1 + root) / (2 * a2), (-b1 - root) / (2 * a2)]))
     checks = [sum(v * r**i for i, v in enumerate(coefficients)) for r in roots]
-    return {"solutions": [str(r) for r in roots], "variable": variable,
-            "residuals": [str(c) for c in checks], "verified": all(c == 0 for c in checks),
-            "method": "raíces sustituidas en la ecuación original"}
+    return {
+        "solutions": [str(r) for r in roots],
+        "variable": variable,
+        "residuals": [str(c) for c in checks],
+        "verified": all(c == 0 for c in checks),
+        "method": "raíces sustituidas en la ecuación original",
+    }
 
 
 @ToolRegistry.register("verified_math")
@@ -128,20 +154,44 @@ class VerifiedMathTool(BaseTool):
 
     @property
     def spec(self) -> ToolSpec:
-        return ToolSpec(name=self.tool_id, category="math", description=(
-            "Exact rational arithmetic and linear/quadratic equations. Returns checked roots "
-            "and residuals, not a model's guess. Example: 0.1+0.2 or 2*x+3=11. "
-            "Explicit multiplication is required. Unsupported problems are reported honestly."
-        ), parameters={"type": "object", "properties": {
-            "expression": {"type": "string"}, "variable": {"type": "string", "default": "x"}
-        }, "required": ["expression"]})
+        return ToolSpec(
+            name=self.tool_id,
+            category="math",
+            description=(
+                "Exact rational arithmetic and linear/quadratic equations. Returns checked roots "
+                "and residuals, not a model's guess. Example: 0.1+0.2 or 2*x+3=11. "
+                "Explicit multiplication is required. Unsupported problems are reported honestly."
+            ),
+            parameters={
+                "type": "object",
+                "properties": {
+                    "expression": {"type": "string"},
+                    "variable": {"type": "string", "default": "x"},
+                },
+                "required": ["expression"],
+            },
+        )
 
     def execute(self, **params: Any) -> ToolResult:
         try:
-            result = verified(str(params.get("expression") or ""), str(params.get("variable") or "x"))
-            return ToolResult(tool_name=self.tool_id, content=json.dumps(result, ensure_ascii=False), success=True)
-        except (ValueError, SyntaxError, ZeroDivisionError, OverflowError, RecursionError) as exc:
-            return ToolResult(tool_name=self.tool_id, content=f"No verificado: {exc}", success=False)
+            result = verified(
+                str(params.get("expression") or ""), str(params.get("variable") or "x")
+            )
+            return ToolResult(
+                tool_name=self.tool_id,
+                content=json.dumps(result, ensure_ascii=False),
+                success=True,
+            )
+        except (
+            ValueError,
+            SyntaxError,
+            ZeroDivisionError,
+            OverflowError,
+            RecursionError,
+        ) as exc:
+            return ToolResult(
+                tool_name=self.tool_id, content=f"No verificado: {exc}", success=False
+            )
 
 
 __all__ = ["VerifiedMathTool", "verified"]

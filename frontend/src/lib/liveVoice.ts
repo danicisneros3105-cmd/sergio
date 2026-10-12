@@ -58,6 +58,8 @@ export interface VoiceCallbacks {
   onLevel: (level: number) => void; // 0..1, for the orb
   onError: (message: string) => void;
   onScreen?: (sharing: boolean) => void;
+  /** A finished exchange: what you said and what Sergio answered. */
+  onTurn?: (heard: string, said: string) => void;
 }
 
 /** One voice-mode call. `start()` asks for the microphone and connects. */
@@ -197,7 +199,9 @@ export class VoiceCall {
         this.cb.onState('listening');
         break;
       case 'turn_complete':
+        if (this.heard.trim() || this.said.trim()) this.cb.onTurn?.(this.heard.trim(), this.said.trim());
         this.heard = '';
+        this.said = '';
         break;
       case 'tool':
         if (event.status === 'running') this.cb.onState('thinking');
@@ -243,6 +247,26 @@ export class VoiceCall {
     }
     this.playing = [];
     this.playAt = 0;
+  }
+
+  /** Context for the voice without a reply (e.g. what was written in the chat). */
+  sendNote(text: string): void {
+    if (text.trim()) this.send(JSON.stringify({ type: 'note', text }));
+  }
+
+  /** Something to tell Sergio that he should answer out loud. */
+  sendText(text: string): void {
+    if (text.trim()) this.send(JSON.stringify({ type: 'text', text }));
+  }
+
+  /** Browsers start audio suspended until a click: wake it on the next one. */
+  resumeAudio(): void {
+    void this.input?.resume().catch(() => {});
+    void this.output?.resume().catch(() => {});
+  }
+
+  get open(): boolean {
+    return this.ws?.readyState === WebSocket.OPEN;
   }
 
   setMuted(muted: boolean): void {

@@ -5,12 +5,13 @@ import { SystemPulse } from './SystemPulse';
 import { Toolbar } from './Shell/Toolbar';
 import { HistoryPanel } from './Shell/HistoryPanel';
 import { checkHealth } from '../lib/api';
+import { LiveCaptions, LiveStarter } from './Live/LiveOrb';
 
 const HISTORY_KEY = 'sergio-history-open';
 
-// The shell, like ChatGPT and Kimi: a rail of icons on the left (names on
-// hover), the history beside it when you want it, the page in the middle.
-// Black, white and one light blue; nothing else.
+// The shell: a rail of colour-coded section icons on the left (names on
+// hover) with Sergio's living orb, the history beside it when you want it,
+// the page in the middle, and the always-on conversation underneath it all.
 export function Layout() {
   const [apiReachable, setApiReachable] = useState<boolean | null>(null);
   const [historyOpen, setHistoryOpen] = useState(() => {
@@ -51,6 +52,7 @@ export function Layout() {
   return (
     <div className="app-shell">
       <SystemPulse apiReachable={apiReachable} />
+      <LiveStarter />
       <Toolbar historyOpen={historyOpen} onToggleHistory={toggleHistory} />
       {historyOpen && (
         <>
@@ -72,6 +74,7 @@ export function Layout() {
           <Suspense fallback={<div className="paper-page" aria-busy="true" />}>
             <Outlet />
           </Suspense>
+          <LiveCaptions />
         </main>
       </div>
     </div>

@@ -35,15 +35,29 @@ def test_live_does_not_play_or_act_on_explicit_side_conversation():
     async def run():
         ws = FakeWS()
         invoked = []
-        call = LiveCall(ws, {"attention": "addressed"}, types=FakeTypes(),
-                        execute=lambda *args: invoked.append(args))
-        await call._content(NS(input_transcription=NS(text="No te hablo"),
-                               model_turn=NS(parts=[NS(inline_data=NS(data=b"sound"))]),
-                               output_transcription=NS(text="Lo abro")))
+        call = LiveCall(
+            ws,
+            {"attention": "addressed"},
+            types=FakeTypes(),
+            execute=lambda *args: invoked.append(args),
+        )
+        await call._content(
+            NS(
+                input_transcription=NS(text="No te hablo"),
+                model_turn=NS(parts=[NS(inline_data=NS(data=b"sound"))]),
+                output_transcription=NS(text="Lo abro"),
+            )
+        )
         session = FakeSession([])
-        await call._run_tool(session, NS(name="desktop_action", args={"action": "click"}, id="x"))
+        await call._run_tool(
+            session, NS(name="desktop_action", args={"action": "click"}, id="x")
+        )
         assert ws.audio == [] and invoked == []
         assert any(e["type"] == "interrupted" for e in ws.json)
         assert not any(e["type"] == "said" for e in ws.json)
-        assert "No se ejecutó" in session.sent[0][1]["function_responses"].response["result"]
+        assert (
+            "No se ejecutó"
+            in session.sent[0][1]["function_responses"].response["result"]
+        )
+
     asyncio.run(run())

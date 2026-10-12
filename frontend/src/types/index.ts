@@ -127,6 +127,8 @@ export interface ChatMessage {
   usage?: TokenUsage;
   telemetry?: MessageTelemetry;
   audio?: { url: string };
+  /** Said out loud in the always-on conversation (not typed). */
+  voice?: boolean;
 }
 
 export interface Conversation {

@@ -9,8 +9,10 @@ import {
   HeartPulse,
   UserRound,
   Settings,
+  Shapes,
 } from 'lucide-react';
 import { useAppStore } from '../../lib/store';
+import { LiveOrb } from '../Live/LiveOrb';
 
 // Nodes: a few dots, like the persistent agents they are.
 function NodesIcon({ size = 20, strokeWidth = 1.5 }: { size?: number; strokeWidth?: number }) {
@@ -38,15 +40,17 @@ function SwarmIcon({ size = 20, strokeWidth = 1.5 }: { size?: number; strokeWidt
   );
 }
 
-// Every part of Sergio, as icons only. Their names appear on hover.
+// Every part of Sergio, as icons only, each with its own colour (names on
+// hover). The colour follows the section everywhere: icon, cards, accents.
 export const TOOLBAR_ITEMS = [
-  { path: '/chat', icon: MessageSquare, label: 'Chat' },
-  { path: '/nodes', icon: NodesIcon, label: 'Nodes' },
-  { path: '/swarm', icon: SwarmIcon, label: 'Agent Swarm' },
-  { path: '/workspace', icon: NotebookPen, label: 'Workspace' },
-  { path: '/cowork', icon: Briefcase, label: 'Cowork' },
-  { path: '/salud', icon: HeartPulse, label: 'Salud' },
-  { path: '/perfil', icon: UserRound, label: 'Perfil' },
+  { path: '/chat', icon: MessageSquare, label: 'Chat', color: 'var(--sec-chat)' },
+  { path: '/nodes', icon: NodesIcon, label: 'Nodes', color: 'var(--sec-nodes)' },
+  { path: '/swarm', icon: SwarmIcon, label: 'Agent Swarm', color: 'var(--sec-swarm)' },
+  { path: '/workspace', icon: NotebookPen, label: 'Workspace', color: 'var(--sec-workspace)' },
+  { path: '/creator', icon: Shapes, label: 'Creator', color: 'var(--sec-creator)' },
+  { path: '/cowork', icon: Briefcase, label: 'Cowork', color: 'var(--sec-cowork)' },
+  { path: '/salud', icon: HeartPulse, label: 'Salud', color: 'var(--sec-health)' },
+  { path: '/perfil', icon: UserRound, label: 'Perfil', color: 'var(--sec-profile)' },
 ] as const;
 
 export function isActive(path: string, pathname: string): boolean {
@@ -61,11 +65,13 @@ function RailButton({
   onClick,
   children,
   pressed,
+  color,
 }: {
   label: string;
   hint?: string;
   active?: boolean;
   pressed?: boolean;
+  color?: string;
   onClick: () => void;
   children: React.ReactNode;
 }) {
@@ -73,6 +79,7 @@ function RailButton({
     <button
       type="button"
       className="rail-item"
+      style={color ? ({ '--sec': color } as React.CSSProperties) : undefined}
       aria-label={label}
       aria-current={active ? 'page' : undefined}
       aria-pressed={pressed}
@@ -87,9 +94,10 @@ function RailButton({
   );
 }
 
-// The rail on the left (ChatGPT/Kimi): the mark, new chat, search and the
-// history on top; the sections in the middle; settings at the foot. On a
-// phone it becomes a bar of icons at the bottom.
+// The rail on the left: the mark, new chat, search and the history on top;
+// the colour-coded sections in the middle; Sergio's living orb (the
+// always-on conversation) and settings at the foot. On a phone it becomes a
+// bar of icons at the bottom.
 export function Toolbar({ historyOpen, onToggleHistory }: { historyOpen: boolean; onToggleHistory: () => void }) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
@@ -122,12 +130,19 @@ export function Toolbar({ historyOpen, onToggleHistory }: { historyOpen: boolean
       </div>
       <div className="rail-group rail-sections">
         {TOOLBAR_ITEMS.map((item) => (
-          <RailButton key={item.path} label={item.label} active={isActive(item.path, pathname)} onClick={() => navigate(item.path)}>
+          <RailButton
+            key={item.path}
+            label={item.label}
+            color={item.color}
+            active={isActive(item.path, pathname)}
+            onClick={() => navigate(item.path)}
+          >
             <item.icon size={20} strokeWidth={1.5} />
           </RailButton>
         ))}
       </div>
       <div className="rail-group rail-foot">
+        <LiveOrb />
         <RailButton label="Ajustes" active={isActive('/settings', pathname)} onClick={() => navigate('/settings')}>
           <Settings size={19} strokeWidth={1.5} />
         </RailButton>

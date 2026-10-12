@@ -913,7 +913,9 @@ class NodeWorker:
             # burning the routine's allowance of three real failures.
             import httpx
 
-            if not isinstance(exc, (ConnectionError, TimeoutError, httpx.TransportError)):
+            if not isinstance(
+                exc, (ConnectionError, TimeoutError, httpx.TransportError)
+            ):
                 self.store.routine_result(node_id, routine_id, str(exc))
             self.store.log(
                 node_id,

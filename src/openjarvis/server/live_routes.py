@@ -56,7 +56,9 @@ async def live_status() -> dict[str, Any]:
         sdk = False
     key = bool(api_key())
     return {
-        "available": sdk and key, "sdk_installed": sdk, "key_configured": key,
+        "available": sdk and key,
+        "sdk_installed": sdk,
+        "key_configured": key,
         "models": list(LIVE_MODELS),
         "reason": "missing_sdk" if not sdk else "missing_key" if not key else "ready",
     }

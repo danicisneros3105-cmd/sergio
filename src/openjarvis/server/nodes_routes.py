@@ -394,14 +394,16 @@ class RoutineState(BaseModel):
 
 
 @router.patch("/{node_id}/routines/{routine_id}")
-async def routine_state(node_id: str, routine_id: str, body: RoutineState,
-                        request: Request) -> Dict[str, Any]:
+async def routine_state(
+    node_id: str, routine_id: str, body: RoutineState, request: Request
+) -> Dict[str, Any]:
     worker = get_worker(request)
     node = _node(worker, node_id)
     if not any(r.id == routine_id for r in node.routines):
         raise HTTPException(status_code=404, detail="Rutina no encontrada.")
-    worker.store.mark_routine(node_id, routine_id, 0, enabled=body.enabled,
-                              failures=0, last_error="")
+    worker.store.mark_routine(
+        node_id, routine_id, 0, enabled=body.enabled, failures=0, last_error=""
+    )
     return _full(worker, node_id)
 
 

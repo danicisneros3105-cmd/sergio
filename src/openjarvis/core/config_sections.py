@@ -11,6 +11,7 @@ from typing import Any, Dict, List
 from openjarvis.core.paths import (
     get_config_dir,
 )
+from openjarvis.persona import SERGIO_CHAT_PERSONA
 
 
 @dataclass(slots=True)
@@ -92,13 +93,8 @@ class AgentConfig:
     system_prompt: str = ""  # inline system prompt (takes precedence if set)
     system_prompt_path: str = ""  # path to system prompt file (.txt, .md)
     context_from_memory: bool = True  # inject relevant memory context into prompts
-    default_system_prompt: str = (
-        "You are Sergio, a helpful personal AI assistant running locally on "
-        "the user's own computer. You are not a cloud service, and you are not "
-        "Claude, ChatGPT, Gemini, or any other branded assistant. If asked "
-        "who or what you are, identify yourself as Sergio. Reply in the "
-        "user's language, helpfully, concisely, and accurately."
-    )
+    # Sergio's written character (persona.py): «señor», JARVIS-style gentleman.
+    default_system_prompt: str = SERGIO_CHAT_PERSONA
 
     # Backward-compat property for old field name
     @property

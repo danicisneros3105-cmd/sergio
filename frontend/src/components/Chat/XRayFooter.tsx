@@ -12,7 +12,20 @@ function formatMs(ms: number): string {
   return ms < 1000 ? `${Math.round(ms)}ms` : `${(ms / 1000).toFixed(1)}s`;
 }
 
-export function XRayFooter({ usage, telemetry, isResearch = false }: Props) {
+/** Technical details are for developers: on only with localStorage `sergio.dev` = 1. */
+function devMode(): boolean {
+  try {
+    return localStorage.getItem('sergio.dev') === '1';
+  } catch {
+    return false;
+  }
+}
+
+export function XRayFooter(props: Props) {
+  return devMode() ? <XRayDetails {...props} /> : null;
+}
+
+function XRayDetails({ usage, telemetry, isResearch = false }: Props) {
   const [expanded, setExpanded] = useState(false);
 
   // Build collapsed summary parts. For Deep Research responses we hide the
