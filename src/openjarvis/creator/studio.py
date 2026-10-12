@@ -2,8 +2,9 @@
 
 * ``design_layout``: a Canva-style layout (texts, shapes, colours) for a
   canvas size, written by Gemini and checked field by field.
-* ``cutout``: removes the background of a photo on this computer (OpenCV
-  GrabCut around the subject), no cloud needed.
+* ``cutout``: removes the background of a photo on this computer with a
+  segmentation network (``segment.py``; GrabCut when it cannot be
+  downloaded), no cloud needed.
 * ``generate_image`` / ``edit_image``: Firefly-style generation and
   generative edits with Gemini's image model; a refused quota is reported as
   it is, never replaced by something else in silence.
@@ -40,7 +41,12 @@ Answer ONLY JSON:
 "weight": 800, "color": "#hex", "align": "left"}}
 ]}}
 Coordinates are the top-left corner in pixels inside the canvas. 4-14 \
-elements, texts in Spanish, no images."""
+elements, texts in Spanish, no images.
+Layout rules (they are checked): a text block is about lines x size x 1.25 \
+px tall (estimate the lines from its width: ~0.55 x size px per character); \
+a text placed on a shape sits fully inside it with padding; nothing leaves \
+the canvas; use the whole height (no empty third), clear visual order from \
+top to bottom."""
 
 HEX = re.compile(r"^#[0-9a-fA-F]{6}$")
 
@@ -150,15 +156,62 @@ def _decode(data: bytes) -> Any:
 
 
 def cutout(data: bytes, box: tuple[float, float, float, float] | None = None) -> bytes:
-    """The subject with a transparent background (PNG), computed here.
+    """The subject with a transparent background (PNG), computed here."""
+    return cutout_detail(data, box)[0]
 
-    *box* (x, y, w, h as fractions) marks the subject; by default the centre
-    90 % of the picture. GrabCut separates it from the background around it.
+
+def cutout_detail(
+    data: bytes,
+    box: tuple[float, float, float, float] | None = None,
+    neural: bool = True,
+) -> tuple[bytes, str]:
+    """(PNG, method). The segmentation network first ("red"); without it
+    (no download possible) GrabCut ("grabcut"), which is cruder.
+
+    *box* (x, y, w, h as fractions) marks the subject; by default the whole
+    picture for the network and the centre 90 % for GrabCut.
     """
     import cv2
     import numpy as np
 
     image = _decode(data)
+    h, w = image.shape[:2]
+    alpha = None
+    method = "grabcut"
+    if neural:
+        try:
+            from openjarvis.creator import segment
+
+            alpha = (segment.alpha(image) * 255).astype(np.uint8)
+            method = "red"
+        except Exception:  # noqa: BLE001 — offline or no onnxruntime: GrabCut
+            alpha = None
+    if alpha is None:
+        alpha = _grabcut_alpha(image, box)
+    if box is not None:  # outside the marked box is background
+        fx, fy, fw, fh = box
+        keep = np.zeros((h, w), np.uint8)
+        keep[
+            int(max(0, fy) * h) : int(min(1, fy + fh) * h),
+            int(max(0, fx) * w) : int(min(1, fx + fw) * w),
+        ] = 1
+        alpha = alpha * keep
+    if alpha.mean() < 2:
+        raise CreatorError(
+            "No distinguí el sujeto del fondo: pruebe con más contraste."
+        )
+    rgba = cv2.cvtColor(image, cv2.COLOR_BGR2BGRA)
+    rgba[:, :, 3] = alpha
+    ok, png = cv2.imencode(".png", rgba)
+    if not ok:
+        raise CreatorError("No pude guardar el recorte.")
+    return png.tobytes(), method
+
+
+def _grabcut_alpha(image: Any, box: tuple[float, float, float, float] | None) -> Any:
+    import cv2
+    import numpy as np
+
     h, w = image.shape[:2]
     scale = min(1.0, 900.0 / max(h, w))
     small = cv2.resize(image, (int(w * scale), int(h * scale))) if scale < 1 else image
@@ -179,16 +232,7 @@ def cutout(data: bytes, box: tuple[float, float, float, float] | None = None) ->
     alpha = cv2.GaussianBlur(alpha, (5, 5), 0)
     if scale < 1:
         alpha = cv2.resize(alpha, (w, h), interpolation=cv2.INTER_LINEAR)
-    if alpha.mean() < 2:
-        raise CreatorError(
-            "No distinguí el sujeto del fondo: pruebe con más contraste."
-        )
-    rgba = cv2.cvtColor(image, cv2.COLOR_BGR2BGRA)
-    rgba[:, :, 3] = alpha
-    ok, png = cv2.imencode(".png", rgba)
-    if not ok:
-        raise CreatorError("No pude guardar el recorte.")
-    return png.tobytes()
+    return alpha
 
 
 IMAGE_MODELS = (
@@ -496,6 +540,7 @@ __all__ = [
     "ai_edit",
     "check_layout",
     "cutout",
+    "cutout_detail",
     "design_layout",
     "edit_image",
     "generate_image",

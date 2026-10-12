@@ -124,3 +124,41 @@ def test_busy_model_moves_on_too(genai):
     models = Busy(())
     result = _ask(_engine(models), "gemini-3.8-flash@low")
     assert result["model"] == "gemini-3.7-flash"
+
+
+class SlowModels(Models):
+    """The primary model is busy (slow); siblings answer at once."""
+
+    def __init__(self, slow, seconds, fatal=()):
+        super().__init__(())
+        self.slow = slow
+        self.seconds = seconds
+        self.fatal = set(fatal)
+
+    def generate_content(self, model, contents, config):
+        import time as _time
+
+        if model in self.fatal:
+            raise ValueError("400 INVALID_ARGUMENT: bad request")
+        if model == self.slow:
+            _time.sleep(self.seconds)
+        return super().generate_content(model, contents, config)
+
+
+def test_a_slow_busy_model_gets_a_sibling_and_sergio_answers_fast(genai, monkeypatch):
+    import time as _time
+
+    monkeypatch.setattr(cloud, "HEDGE_AFTER", 0.1)
+    engine = _engine(SlowModels("gemini-3.8-flash", 3.0))
+    t0 = _time.monotonic()
+    out = _ask(engine, "gemini-3.8-flash")
+    assert out["model"] == "gemini-3.7-flash"
+    assert out["content"] == "hola desde gemini-3.7-flash"
+    assert _time.monotonic() - t0 < 2.0
+
+
+def test_a_bad_request_is_not_hidden_by_trying_siblings(genai, monkeypatch):
+    monkeypatch.setattr(cloud, "HEDGE_AFTER", 5)
+    engine = _engine(SlowModels("", 0, fatal={"gemini-3.8-flash"}))
+    with pytest.raises(ValueError, match="INVALID_ARGUMENT"):
+        _ask(engine, "gemini-3.8-flash")

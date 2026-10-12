@@ -105,8 +105,9 @@ async def design(req: DesignRequest) -> dict[str, Any]:
 @router.post("/image/cutout")
 async def image_cutout(image: UploadFile = File(...)) -> Response:
     data = await image.read(studio.MAX_IMAGE + 1)
-    png = await _run(studio.cutout, data)
-    return Response(png, media_type="image/png")
+    png, method = await _run(studio.cutout_detail, data)
+    # The UI tells the owner when the cruder fallback was used.
+    return Response(png, media_type="image/png", headers={"X-Sergio-Recorte": method})
 
 
 class ImagePrompt(BaseModel):

@@ -98,6 +98,40 @@ export function primitive(shape: Shape, at: [number, number, number] = [0, 0.5, 
   };
 }
 
+/** "cuerpo_taza" → "Cuerpo taza": part names read like words. */
+export function partName(raw: unknown, fallback: string): string {
+  const words = String(raw ?? '').replace(/[_\-.]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 40);
+  if (!words) return fallback;
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+/** The floor-plan box of some items (approximate: sizes times scale). */
+export function boundsOf(items: Item[]): { min: [number, number, number]; max: [number, number, number] } | null {
+  if (!items.length) return null;
+  const min: [number, number, number] = [Infinity, Infinity, Infinity];
+  const max: [number, number, number] = [-Infinity, -Infinity, -Infinity];
+  for (const it of items) {
+    const r = Math.max(...it.size.map((v, i) => v * it.scale[i])) / 2;
+    for (let i = 0; i < 3; i++) {
+      const half = it.rot.some((a) => Math.abs(a) > 1) ? r : (it.size[i] * it.scale[i]) / 2;
+      min[i] = Math.min(min[i], it.pos[i] - half);
+      max[i] = Math.max(max[i], it.pos[i] + half);
+    }
+  }
+  return { min, max };
+}
+
+/** Put a new object on the floor, beside what is already in the scene. */
+export function placeBeside(existing: Item[], added: Item[], gap = 0.15): Item[] {
+  const b = boundsOf(added);
+  if (!b) return added;
+  const lift = -b.min[1];
+  const others = boundsOf(existing.filter((i) => i.visible));
+  const shift = others ? others.max[0] + gap - b.min[0] : -(b.min[0] + b.max[0]) / 2;
+  const centreZ = -(b.min[2] + b.max[2]) / 2;
+  return added.map((it) => ({ ...it, pos: [it.pos[0] + shift, it.pos[1] + lift, it.pos[2] + centreZ] }));
+}
+
 /** Sergio's designed parts → scene items (one group per object). */
 export function fromRecipe(parts: RecipePart[], group: string): Item[] {
   return parts.map((p) => {
@@ -108,7 +142,7 @@ export function fromRecipe(parts: RecipePart[], group: string): Item[] {
     ) as Shape;
     const item: Item = {
       id: newId(),
-      name: String(p.name || shape).slice(0, 40),
+      name: partName(p.name, shape),
       shape,
       size: vec3(p.size, 0.05).map((v) => Math.max(0.0005, Math.abs(v))) as [number, number, number],
       pos: vec3(p.pos, 0),

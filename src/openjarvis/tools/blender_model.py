@@ -473,7 +473,9 @@ _scene["sergio_model"] = {json.dumps(name)}
         + TOPOLOGY
         + SPATIAL
         + RENDER
-        + f"""_path = {json.dumps(save_path)}
+        + f"""import os as _os
+_path = _os.path.abspath(_os.path.expanduser({json.dumps(save_path)}))  # "~/Sergio/x.blend" works on any PC
+_os.makedirs(_os.path.dirname(_path) or ".", exist_ok=True)
 _bpy.ops.wm.save_as_mainfile(filepath=_path)
 print("SERGIO_SAVED", _path, len(_objs))
 _dims = (_hi - _lo) * 100

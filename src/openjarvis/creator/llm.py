@@ -42,35 +42,53 @@ def ask(
     check: Callable[[str], Any] | None = None,
     models: tuple[str, ...] = MODELS,
     client: Any = None,
+    hedge_after: float = 15.0,
+    timeout: float = 240.0,
 ) -> str:
     """Gemini's answer that passed *check* (raises CreatorError otherwise)."""
     from google.genai import types
 
     from openjarvis.engine.cloud import google_config_kwargs
     from openjarvis.engine.google_client import SwitchingClient, short_wait
+    from openjarvis.engine.hedge import HedgeError, first_valid
 
     client = client or SwitchingClient(gemini_key())
     contents = prompt if isinstance(prompt, list) else [prompt]
+
+    def call(model: str) -> Callable[[], str]:
+        def run() -> str:
+            config = google_config_kwargs(model, 0.4, max_tokens, effort)
+            if json_mode:
+                config["response_mime_type"] = "application/json"
+            resp = client.models.generate_content(
+                model=model,
+                contents=contents,
+                config=types.GenerateContentConfig(**config),
+            )
+            text = str(resp.text or "")
+            if not text.strip():
+                raise ValueError("respuesta vacía")
+            return text
+
+        return run
+
     errors: list[str] = []
     for attempt in range(2):
-        for model in models:
-            try:
-                config = google_config_kwargs(model, 0.4, max_tokens, effort)
-                if json_mode:
-                    config["response_mime_type"] = "application/json"
-                resp = client.models.generate_content(
-                    model=model,
-                    contents=contents,
-                    config=types.GenerateContentConfig(**config),
-                )
-                text = str(resp.text or "")
-                if not text.strip():
-                    raise ValueError("respuesta vacía")
-                if check is not None:
-                    check(text)
-                return text
-            except Exception as exc:  # noqa: BLE001 — try the next model
-                errors.append(f"{model}: {str(exc)[:120]}")
+        # Hedged: a model that is slow because Google is busy gets company
+        # after hedge_after seconds; the first answer that passes wins.
+        try:
+            _, text = first_valid(
+                [call(m) for m in models],
+                names=models,
+                check=check,
+                hedge_after=hedge_after,
+                timeout=timeout,
+            )
+            return text
+        except HedgeError as exc:
+            errors.extend(exc.errors)
+            if exc.timed_out:
+                break
         wait = short_wait(errors) if attempt == 0 else 0.0
         if not wait:
             break

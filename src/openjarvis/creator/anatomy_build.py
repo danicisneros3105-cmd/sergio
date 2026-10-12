@@ -193,7 +193,21 @@ def build_example(name: str, light: bool = False, root: Path | None = None) -> P
     folder = ws / "examples" / name
     script = folder / "build.mjs"
     page = folder / f"{name}{'-light' if light else ''}.html"
-    if page.exists() and page.stat().st_mtime >= script.stat().st_mtime:
+    recipe = _sha256(script)
+    stamp = page.with_suffix(".sha256")
+    if page.exists() and stamp.exists() and stamp.read_text().strip() == recipe:
+        return page
+    if (
+        page.exists()
+        and not stamp.exists()
+        and page.stat().st_mtime >= script.stat().st_mtime
+    ):
+        return page  # built before stamps existed
+    # A heavy example ships already built from this exact recipe: no wait.
+    shipped = KIT_ROOT / "prebuilt" / page.name
+    if shipped.exists() and _prebuilt_stamps().get(name) == recipe:
+        shutil.copyfile(shipped, page)
+        stamp.write_text(recipe)
         return page
     done = _run(
         node_binary(),
@@ -209,7 +223,21 @@ def build_example(name: str, light: bool = False, root: Path | None = None) -> P
         raise CreatorError(
             "Node no pudo construir la lámina: " + (done.stderr or done.stdout)[-600:]
         )
+    stamp.write_text(recipe)
     return page
+
+
+def _sha256(path: Path) -> str:
+    import hashlib
+
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _prebuilt_stamps() -> dict[str, str]:
+    try:
+        return json.loads((KIT_ROOT / "prebuilt" / "STAMPS.json").read_text())
+    except (OSError, ValueError):
+        return {}
 
 
 # -- new figures ------------------------------------------------------------------

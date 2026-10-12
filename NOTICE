@@ -13,3 +13,17 @@ Fold de activities.py) sigue la transición de pliegue de iPhone Duo · Fold Pre
 duración de 1,4 s con suavizado smoothstep, solo gira la mitad de la tapa, y el
 desenfoque y el oscurecido (el doble de la intensidad, con tope en negro) siguen
 la transición. No se copia código ni recursos de Apple; la idea se reimplementó en Qt.
+
+Creator (src/openjarvis/creator y frontend/src/components/Creator) usa piezas
+de código abierto, cada una con su licencia, sin logotipos ni marcas a la vista:
+- three.js (MIT, © 2010-2026 three.js authors): la vista 3D, el gizmo y la
+  exportación GLB.
+- Fabric.js (MIT, © 2008-2026 Printio, Juriy Zaytsev, Maxim Chernyak y
+  colaboradores): el lienzo de Diseño e Imagen.
+- Monaco Editor (MIT, © Microsoft Corporation): el editor de Código.
+- anatomy (MIT, © 2026 Ryan; https://github.com/IvoSegovia/anatomy): el kit,
+  las guías y los ejemplos de Anatomía (licencia en creator/anatomy/LICENSE).
+- U²-Net (Apache-2.0, Xuebin Qin et al.) en la variante «silueta» de rembg
+  (MIT, Daniel Gatis): la red que quita el fondo, descargada al primer uso.
+- ezdxf (MIT) para los planos DXF y OpenCV (Apache-2.0) para el respaldo
+  GrabCut.

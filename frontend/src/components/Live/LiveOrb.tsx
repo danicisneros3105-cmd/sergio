@@ -2,7 +2,7 @@
 // Click it to mute or unmute (it never hangs up); if the microphone was
 // refused, clicking asks again. Its glow follows his voice and yours.
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { MicOff } from 'lucide-react';
 import { onLiveLevel, useLive, type LiveStatus } from '../../lib/liveSession';
 
@@ -63,10 +63,19 @@ export function LiveCaptions() {
   const status = useLive((s) => s.status);
   const error = useLive((s) => s.error);
   const text = said || heard;
-  if (!text && !(status === 'blocked' && error)) return null;
+  // A refused microphone is said once, for a few seconds (the orb in the rail
+  // keeps showing it); it never sits on top of what the owner is doing.
+  const [showError, setShowError] = useState(false);
+  useEffect(() => {
+    if (!(status === 'blocked' && error)) return setShowError(false);
+    setShowError(true);
+    const t = window.setTimeout(() => setShowError(false), 7000);
+    return () => window.clearTimeout(t);
+  }, [status, error]);
+  if (!text && !showError) return null;
   return (
     <div className="live-captions" role="status" aria-live="polite">
-      {status === 'blocked' && error ? (
+      {!text && showError ? (
         <p className="live-captions-error">{error}</p>
       ) : (
         <p data-who={said ? 'sergio' : 'you'}>

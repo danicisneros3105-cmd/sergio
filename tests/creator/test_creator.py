@@ -104,9 +104,64 @@ def test_cutout_keeps_the_subject_and_clears_the_background():
 
     img = np.full((240, 320, 3), 235, np.uint8)
     cv2.circle(img, (160, 120), 70, (40, 70, 210), -1)
-    png = studio.cutout(cv2.imencode(".jpg", img)[1].tobytes())
+    png, method = studio.cutout_detail(
+        cv2.imencode(".jpg", img)[1].tobytes(), neural=False
+    )
     out = cv2.imdecode(np.frombuffer(png, np.uint8), cv2.IMREAD_UNCHANGED)
+    assert method == "grabcut"
     assert out.shape[2] == 4 and out[120, 160, 3] == 255 and out[5, 5, 3] == 0
+
+
+def test_cutout_uses_the_network_and_falls_back_when_it_is_missing(monkeypatch):
+    cv2 = pytest.importorskip("cv2")
+    import numpy as np
+
+    from openjarvis.creator import segment
+
+    img = np.full((120, 160, 3), 235, np.uint8)
+    cv2.rectangle(img, (40, 30), (120, 90), (20, 40, 200), -1)
+    data = cv2.imencode(".png", img)[1].tobytes()
+
+    def fake_alpha(image):
+        a = np.zeros(image.shape[:2], np.float32)
+        a[30:91, 40:121] = 1.0
+        return a
+
+    monkeypatch.setattr(segment, "alpha", fake_alpha)
+    png, method = studio.cutout_detail(data)
+    out = cv2.imdecode(np.frombuffer(png, np.uint8), cv2.IMREAD_UNCHANGED)
+    assert method == "red" and out[60, 80, 3] == 255 and out[5, 5, 3] == 0
+
+    def offline(image):
+        raise OSError("sin internet")
+
+    monkeypatch.setattr(segment, "alpha", offline)
+    assert studio.cutout_detail(data)[1] == "grabcut"
+
+
+def test_segmentation_model_is_verified_before_use(tmp_path, monkeypatch):
+    from openjarvis.creator import segment
+
+    class Resp:
+        def __init__(self):
+            self.done = False
+
+        def read(self, n):
+            if self.done:
+                return b""
+            self.done = True
+            return b"not the model"
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+    monkeypatch.setattr(segment.urllib.request, "urlopen", lambda *a, **k: Resp())
+    with pytest.raises(RuntimeError, match="huella"):
+        segment.ensure_model(tmp_path)
+    assert not list(tmp_path.iterdir())  # nothing half-downloaded is kept
 
 
 def test_floor_plan_exports_walls_doors_and_dimensions():
@@ -146,3 +201,22 @@ def test_ai_edit_returns_the_whole_new_file():
 
     out = studio.ai_edit("a.py", "print('hola')", "salúdame como señor", ask=ask)
     assert out.strip() == "print('hola, señor')"
+
+
+def test_heavy_example_opens_at_once_from_its_shipped_build(tmp_path, monkeypatch):
+    from openjarvis.creator import anatomy_build
+
+    def no_node(*a, **k):
+        raise AssertionError("Node should not run for a shipped, matching build")
+
+    monkeypatch.setattr(anatomy_build, "_run", no_node)
+    for light in (False, True):
+        page = anatomy_build.build_example("raptor-engine", light, tmp_path)
+        assert page.stat().st_size > 100_000
+        assert page.with_suffix(".sha256").exists()
+    # a changed recipe no longer matches the shipped build: Node must run
+    script = tmp_path / "examples" / "raptor-engine" / "build.mjs"
+    script.write_text(script.read_text() + "\n// edited\n")
+    (tmp_path / "examples" / "raptor-engine" / "raptor-engine.html").unlink()
+    with pytest.raises(AssertionError, match="Node should not run"):
+        anatomy_build.build_example("raptor-engine", False, tmp_path)

@@ -582,6 +582,10 @@ def _is_quota_error(exc: Exception) -> bool:
 
 
 BUSY_COOLDOWN = 120.0  # an overloaded model gets a short rest only
+# A model that has not answered after this many seconds gets a sibling
+# started alongside it (first answer wins); the whole try ends at the timeout.
+HEDGE_AFTER = float(os.environ.get("SERGIO_HEDGE_AFTER", "8") or 8)
+HEDGE_TIMEOUT = float(os.environ.get("SERGIO_HEDGE_TIMEOUT", "150") or 150)
 
 
 def _is_busy_error(exc: Exception) -> bool:

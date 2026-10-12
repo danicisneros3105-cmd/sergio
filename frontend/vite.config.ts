@@ -53,11 +53,20 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
+        // Creator's big studios (3D, design, the code editor) are not part of
+        // every update: they download the first time they are opened and
+        // then stay cached (their file names change when they change).
+        globIgnores: ['**/{CodeStudio,Studio3D,DesignStudio,editor.worker}-*.{js,css}'],
         navigateFallbackDenylist: [/^\/v1\//, /^\/health/, /^\/dashboard/, /^\/api\//],
         // Offline: the model list and server info come from the last time
         // there was a connection, so the chat still opens. Answers are kept
         // separately in IndexedDB (src/lib/offline.ts).
         runtimeCaching: [
+          {
+            urlPattern: ({ url }) => /\/assets\/(CodeStudio|Studio3D|DesignStudio|editor\.worker)-[\w-]+\.(js|css)$/.test(url.pathname),
+            handler: 'CacheFirst',
+            options: { cacheName: 'sergio-creator', expiration: { maxEntries: 24, maxAgeSeconds: 90 * 86400 } },
+          },
           {
             urlPattern: ({ url, request }) =>
               request.method === 'GET' && /^\/v1\/(models|info)$/.test(url.pathname),

@@ -147,6 +147,27 @@ def parse_recipe(text: str) -> dict[str, Any]:
     }
 
 
+# Best first; the light model only when the others are busy or refuse.
+DESIGN_MODELS = (
+    "gemini-3.8-flash",
+    "gemini-3.7-flash",
+    "gemini-3.1-pro-preview",
+    "gemini-3.6-flash",
+    "gemini-3.5-flash",
+    "gemini-2.5-flash",
+    "gemini-flash-lite-latest",
+)
+HEDGE_AFTER = 15.0
+
+
+def _good_recipe(text: str) -> dict[str, Any]:
+    """A recipe worth showing: parsed, and more than a few blocks."""
+    recipe = parse_recipe(text)
+    if len(recipe["parts"]) < 5:
+        raise ValueError(f"solo {len(recipe['parts'])} piezas")
+    return recipe
+
+
 def design(request: str, ask: Callable[[str], str] | None = None) -> dict[str, Any]:
     return parse_recipe((ask or _ask)(PROMPT.format(request=request)))
 
@@ -164,18 +185,10 @@ def _ask(prompt: str, retry: bool = True) -> str:
         raise RuntimeError("Falta GEMINI_API_KEY")
     client = SwitchingClient(key)
     from openjarvis.engine.google_client import short_wait
+    from openjarvis.engine.hedge import HedgeError, first_valid
 
-    errors: list[str] = []
-    for model in (
-        "gemini-3.8-flash",
-        "gemini-3.7-flash",
-        "gemini-3.6-flash",
-        "gemini-3.1-pro-preview",
-        "gemini-3.5-flash",
-        "gemini-2.5-flash",
-        "gemini-flash-lite-latest",
-    ):
-        try:
+    def call(model: str) -> Callable[[], str]:
+        def run() -> str:
             resp = client.models.generate_content(
                 model=model,
                 contents=[prompt],
@@ -184,11 +197,24 @@ def _ask(prompt: str, retry: bool = True) -> str:
                     response_mime_type="application/json",
                 ),
             )
-            text = str(resp.text or "")
-            parse_recipe(text)
-            return text
-        except Exception as exc:  # noqa: BLE001 — next model
-            errors.append(f"{model}: {str(exc)[:100]}")
+            return str(resp.text or "")
+
+        return run
+
+    # Hedged: a busy model that takes minutes never makes the owner wait;
+    # after HEDGE_AFTER s the next model starts too and the first valid
+    # recipe wins (a refusal starts the next one at once).
+    try:
+        _, text = first_valid(
+            [call(m) for m in DESIGN_MODELS],
+            names=DESIGN_MODELS,
+            check=_good_recipe,
+            hedge_after=HEDGE_AFTER,
+            timeout=240,
+        )
+        return text
+    except HedgeError as exc:
+        errors = exc.errors
     wait = short_wait(errors) if retry else 0.0
     if wait:  # a short quota pause ("back in ~1 min"): one more try after it
         import time

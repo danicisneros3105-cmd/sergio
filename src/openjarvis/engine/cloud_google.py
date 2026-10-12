@@ -195,59 +195,92 @@ class GoogleMixin:
         """
         candidates = [model, *_cloud.quota_fallbacks(model)]
         fresh = [c for c in candidates if not _cloud._exhausted(c)] or candidates
-        last: Exception | None = None
-        for candidate in fresh:
-            if candidate != model:
-                from google.genai import types as genai_types
+        primary_contents, primary_config = contents, config
 
-                config = genai_types.GenerateContentConfig(
-                    **_cloud.google_config_kwargs(
-                        candidate, temperature, max_tokens, effort
-                    ),
-                    system_instruction=config.system_instruction,
-                    tools=config.tools,
-                    response_mime_type=config.response_mime_type,
-                    response_schema=config.response_schema,
-                )
-                # Thought signatures belong to the model that wrote them; the
-                # new model gets the placeholder on its function calls.
-                contents = [
-                    {
-                        **c,
-                        "parts": [
-                            {k: v for k, v in part.items() if k != "thought_signature"}
-                            | (
-                                {"thought_signature": _cloud.SKIP_SIGNATURE}
-                                if "function_call" in part
-                                else {}
-                            )
-                            for part in c["parts"]
-                        ],
-                    }
-                    for c in contents
-                ]
-            try:
-                resp = self._google_client.models.generate_content(
-                    model=candidate, contents=contents, config=config
-                )
-            except Exception as exc:  # noqa: BLE001
-                if _cloud._is_quota_error(exc):
-                    cooldown = _cloud.QUOTA_COOLDOWN
-                elif _cloud._is_busy_error(exc):
-                    cooldown = _cloud.BUSY_COOLDOWN
-                else:
+        def request_for(candidate: str) -> tuple[List[Dict[str, Any]], Any]:
+            if candidate == model:
+                return primary_contents, primary_config
+            from google.genai import types as genai_types
+
+            cfg = genai_types.GenerateContentConfig(
+                **_cloud.google_config_kwargs(
+                    candidate, temperature, max_tokens, effort
+                ),
+                system_instruction=primary_config.system_instruction,
+                tools=primary_config.tools,
+                response_mime_type=primary_config.response_mime_type,
+                response_schema=primary_config.response_schema,
+            )
+            # Thought signatures belong to the model that wrote them; the
+            # new model gets the placeholder on its function calls.
+            cts = [
+                {
+                    **c,
+                    "parts": [
+                        {k: v for k, v in part.items() if k != "thought_signature"}
+                        | (
+                            {"thought_signature": _cloud.SKIP_SIGNATURE}
+                            if "function_call" in part
+                            else {}
+                        )
+                        for part in c["parts"]
+                    ],
+                }
+                for c in primary_contents
+            ]
+            return cts, cfg
+
+        class _Fatal:
+            def __init__(self, exc: Exception) -> None:
+                self.exc = exc
+
+        def attempt(index: int, candidate: str) -> Any:
+            def run() -> Any:
+                cts, cfg = request_for(candidate)
+                try:
+                    return self._google_client.models.generate_content(
+                        model=candidate, contents=cts, config=cfg
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    if _cloud._is_quota_error(exc):
+                        cooldown = _cloud.QUOTA_COOLDOWN
+                    elif _cloud._is_busy_error(exc):
+                        cooldown = _cloud.BUSY_COOLDOWN
+                    elif index == 0:
+                        return _Fatal(exc)  # a bad request: no sibling fixes it
+                    else:
+                        raise
+                    _cloud._QUOTA_EXHAUSTED[candidate] = (
+                        _cloud.time.monotonic() + cooldown
+                    )
+                    # Expected with free-tier quotas: the next model answers.
+                    _cloud.logger.info(
+                        "Gemini %s unavailable (%s); trying the next",
+                        candidate,
+                        str(exc)[:80],
+                    )
                     raise
-                _cloud._QUOTA_EXHAUSTED[candidate] = _cloud.time.monotonic() + cooldown
-                last = exc
-                # Expected with free-tier quotas: the next model answers instead.
-                _cloud.logger.info(
-                    "Gemini %s unavailable (%s); trying the next",
-                    candidate,
-                    str(exc)[:80],
-                )
-                continue
-            return resp, candidate
-        raise last if last is not None else RuntimeError("no Gemini model")
+
+            return run
+
+        # Hedged: when Google is busy a model may take minutes; after
+        # HEDGE_AFTER s the next sibling starts too and the first answer wins.
+        from openjarvis.engine.hedge import HedgeError, first_valid
+
+        try:
+            index, resp = first_valid(
+                [attempt(i, c) for i, c in enumerate(fresh)],
+                names=fresh,
+                hedge_after=_cloud.HEDGE_AFTER,
+                timeout=_cloud.HEDGE_TIMEOUT,
+            )
+        except HedgeError as exc:
+            raise RuntimeError(
+                "Gemini no respondió: " + " | ".join(exc.errors[-3:])
+            ) from exc
+        if isinstance(resp, _Fatal):
+            raise resp.exc
+        return resp, fresh[index]
 
     async def _stream_google(
         self,
