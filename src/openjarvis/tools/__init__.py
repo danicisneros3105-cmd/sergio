@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging as _logging
 
+import openjarvis.tools.creator_tools  # noqa: F401
 import openjarvis.tools.scene_reason  # noqa: F401
 import openjarvis.tools.verified_math  # noqa: F401
 from openjarvis.tools._stubs import BaseTool, ToolExecutor, ToolSpec

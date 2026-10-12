@@ -225,6 +225,9 @@ DEFAULT_TOOL_CAPABILITIES: Dict[str, List[str]] = {
     "browser_screenshot": [Capability.NETWORK_FETCH],
     "browser_type": [Capability.NETWORK_FETCH],
     "calculator": [],
+    # Codex's verified reasoning: pure computation, like the calculator.
+    "verified_math": [],
+    "scene_reason": [],
     "calendar_search": [Capability.FILE_READ],
     "calendar_upcoming": [Capability.FILE_READ],
     "camera_look": [Capability.NETWORK_FETCH],
@@ -291,6 +294,8 @@ DEFAULT_TOOL_CAPABILITIES: Dict[str, List[str]] = {
     "screen_read": [Capability.NETWORK_FETCH],
     "shell_exec": [Capability.CODE_EXECUTE],
     "skill_guide": [Capability.FILE_READ],
+    # Writes figure pages in Sergio's own Creator folder (Node, sandboxed).
+    "anatomy_figure": [Capability.FILE_WRITE],
     "skill_manage": [Capability.FILE_READ, Capability.FILE_WRITE],
     "terminal_run": [Capability.CODE_EXECUTE],
     "text_to_speech": [Capability.NETWORK_FETCH, Capability.FILE_WRITE],

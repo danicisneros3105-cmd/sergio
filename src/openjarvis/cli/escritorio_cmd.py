@@ -35,6 +35,7 @@ DESKTOP_TOOLS = (
 )
 # Always on as well, so Sergio is never left with only the server defaults.
 BASE_TOOLS = (
+    "anatomy_figure",
     "verified_math",
     "scene_reason",
     "think",

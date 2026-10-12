@@ -572,6 +572,11 @@ def create_app(
 
     app.include_router(nodes_pro_router)
 
+    # Creator: 3D, design, image, anatomy figures, plans and code.
+    from openjarvis.creator.routes import router as creator_router
+
+    app.include_router(creator_router)
+
     @on_shutdown
     async def _close_nodes() -> None:
         node_sessions = getattr(app.state, "nodes_mcp_sessions", None)

@@ -15,7 +15,7 @@ def test_enable_tools_adds_desktop_tools_and_turns(tmp_path):
     escritorio_cmd.enable_tools(cfg)
     text = cfg.read_text()
     assert (
-        'enabled = ["think", "screen_read", "verified_math", "scene_reason", '
+        'enabled = ["think", "screen_read", "anatomy_figure", "verified_math", "scene_reason", '
         '"calculator", "get_weather", '
         '"globe_view", "live_flights", "flights_overhead", "live_earthquakes", "desktop_action", '
         '"camera_look", "video_edit", "blender_create", "face_approval", '
