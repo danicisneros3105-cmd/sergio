@@ -7,6 +7,8 @@ import { toast } from 'sonner';
 import {
   AGENT_ES,
   checkIssues,
+  clock,
+  speaker,
   elapsed,
   FINAL,
   hasTables,
@@ -18,6 +20,7 @@ import {
   swarmApi,
   type SwarmAgent,
   type SwarmChecks,
+  type SwarmLine,
   type SwarmRun,
 } from '../lib/swarm';
 
@@ -81,6 +84,43 @@ function Checks({ run }: { run: SwarmRun }) {
         </span>
       </div>
     </div>
+  );
+}
+
+/** The swarm working, line by line: what the scout searches, how the
+ *  orchestrator splits the work, what each agent is reading right now. */
+function LiveFeed({ lines, live }: { lines: SwarmLine[]; live: boolean }) {
+  const box = useRef<HTMLOListElement>(null);
+  useEffect(() => {
+    const el = box.current;
+    if (el && live) el.scrollTop = el.scrollHeight;
+  }, [lines.length, live]);
+  if (!lines.length) return null;
+  const list = (
+    <ol className="swarm-feed" ref={box} aria-live={live ? 'polite' : undefined}>
+      {lines.map((l, i) => (
+        <li key={`${l.t}-${i}`} data-who={speaker(l.who)}>
+          <time>{clock(l.t)}</time>
+          <b>{l.who}</b>
+          <span>{l.text}</span>
+        </li>
+      ))}
+    </ol>
+  );
+  if (live)
+    return (
+      <section className="swarm-live" aria-label="En vivo">
+        <h2 className="paper-label swarm-section">
+          <i className="swarm-live-dot" /> En vivo
+        </h2>
+        {list}
+      </section>
+    );
+  return (
+    <details className="swarm-live">
+      <summary className="paper-label swarm-section">Lo que hizo el enjambre · {lines.length} pasos</summary>
+      {list}
+    </details>
   );
 }
 
@@ -259,6 +299,8 @@ function RunView({ id }: { id: string }) {
       )}
       {run.error && <p className="swarm-error">{run.error}</p>}
 
+      <LiveFeed lines={run.activity ?? []} live={!final} />
+
       {run.scout && (
         <details className="swarm-scout">
           <summary>
@@ -278,7 +320,7 @@ function RunView({ id }: { id: string }) {
             <AgentCard key={a.id} agent={a} open={openAgent === a.id} onToggle={() => setOpenAgent(openAgent === a.id ? null : a.id)} />
           ))}
           {(run.status === 'planning' || run.status === 'scouting') &&
-            Array.from({ length: 8 }, (_, i) => <span key={i} className="swarm-agent swarm-ghost" aria-hidden="true" />)}
+            Array.from({ length: 4 }, (_, i) => <span key={i} className="swarm-agent swarm-ghost" aria-hidden="true" />)}
         </div>
       </section>
 

@@ -59,7 +59,25 @@ export interface SwarmRun {
   scout_calls?: number;
   checks?: SwarmChecks | Record<string, never>;
   revised?: boolean;
+  activity?: SwarmLine[]; // what is happening, in words, as it happens
 }
+
+export interface SwarmLine {
+  t: number; // seconds since the swarm started
+  who: string; // Explorador · Orquestador · #3 Rol · Supervisor · Comprobación
+  text: string;
+}
+
+/** The colour family of a feed line's speaker. */
+export function speaker(who: string): 'scout' | 'plan' | 'agent' | 'sup' | 'check' {
+  if (who.startsWith('#')) return 'agent';
+  if (who === 'Explorador') return 'scout';
+  if (who === 'Orquestador') return 'plan';
+  if (who === 'Supervisor') return 'sup';
+  return 'check';
+}
+
+export const clock = (t: number) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
 
 export const MAX_AGENTS = 300;
 export const RUN_BUDGET = 4000;

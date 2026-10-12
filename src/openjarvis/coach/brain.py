@@ -19,6 +19,8 @@ MODELS = (
     "gemini-2.5-flash",
 )
 DEEP_MODELS = ("gemini-3.1-pro-preview",) + MODELS
+HEDGE_AFTER = 12.0  # a quick JSON answer: a sibling joins after 12 s
+HEDGE_AFTER_DEEP = 30.0  # deep thinking takes longer on its own
 
 
 @lru_cache(maxsize=None)
@@ -89,20 +91,21 @@ def ask(
         types.Part.from_bytes(data=data, mime_type=mime) for data, mime in media or []
     ]
     contents.append(prompt)
-    errors = []
-    for model in DEEP_MODELS if deep else MODELS:
-        kwargs = dict(
-            google_config_kwargs(
-                model, 0.5, max_tokens, effort or ("medium" if deep else "low")
+    from openjarvis.engine.hedge import HedgeError, first_valid
+
+    def attempt(model: str) -> Callable[[], Any]:
+        def run() -> Any:
+            kwargs = dict(
+                google_config_kwargs(
+                    model, 0.5, max_tokens, effort or ("medium" if deep else "low")
+                )
             )
-        )
-        if system:
-            kwargs["system_instruction"] = system
-        if search:  # grounding and a JSON mime type can't go together
-            kwargs["tools"] = [types.Tool(google_search=types.GoogleSearch())]
-        else:
-            kwargs["response_mime_type"] = "application/json"
-        try:
+            if system:
+                kwargs["system_instruction"] = system
+            if search:  # grounding and a JSON mime type can't go together
+                kwargs["tools"] = [types.Tool(google_search=types.GoogleSearch())]
+            else:
+                kwargs["response_mime_type"] = "application/json"
             resp = client.models.generate_content(
                 model=model,
                 contents=contents,
@@ -112,8 +115,22 @@ def ask(
             if search:
                 data = _with_sources(data, resp)
             return check(data) if check else data
-        except Exception as exc:  # noqa: BLE001 — the next model
-            errors.append(f"{model}: {str(exc)[:120]}")
+
+        return run
+
+    # Hedged: when Google is busy a model can take minutes; after HEDGE_AFTER
+    # seconds the next one starts too and the first valid answer wins.
+    models = DEEP_MODELS if deep else MODELS
+    errors: list[str] = []
+    try:
+        return first_valid(
+            [attempt(m) for m in models],
+            names=models,
+            hedge_after=HEDGE_AFTER_DEEP if deep else HEDGE_AFTER,
+            timeout=300,
+        )[1]
+    except HedgeError as exc:
+        errors = exc.errors
     raise RuntimeError("El coach no pudo responder: " + " | ".join(errors[-3:]))
 
 

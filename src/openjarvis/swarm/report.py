@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import csv
 import io
+import json
 import re
 import secrets
 import time
@@ -348,7 +349,100 @@ def workspace_page(run: Dict[str, Any], parent: Optional[str] = None) -> Dict[st
     }
 
 
+# -- when the supervisor cannot write ------------------------------------------------
+
+
+def structured(text: str) -> Any:
+    """A sub-agent's answer as data when it is JSON (also inside ``` fences)."""
+    raw = (text or "").strip()
+    fence = re.search(r"```(?:json)?\s*(.*?)```", raw, re.S)
+    if fence:
+        raw = fence.group(1).strip()
+    if raw[:1] not in "{[":
+        return None
+    try:
+        return json.loads(raw)
+    except ValueError:
+        return None
+
+
+def _plain(value: Any, limit: int = 220) -> str:
+    if isinstance(value, list):
+        text = "; ".join(_plain(v, limit) for v in value)
+    elif isinstance(value, dict):
+        text = "; ".join(f"{k}: {_plain(v, limit)}" for k, v in value.items())
+    else:
+        text = str(value)
+    text = " ".join(text.replace("|", "/").split())
+    return text if len(text) <= limit else text[: limit - 1] + "…"
+
+
+def _label(key: str) -> str:
+    words = str(key).replace("_", " ").strip()
+    return words[:1].upper() + words[1:]
+
+
+def summary_line(result: str) -> str:
+    """One readable line about a result (never a line of raw JSON)."""
+    data = structured(result)
+    if isinstance(data, dict):
+        for value in data.values():
+            if isinstance(value, str) and len(value.strip()) > 1:
+                return _plain(value, 140)
+    for line in (result or "").splitlines():
+        line = line.strip(" #*-|>`")
+        if len(line) > 12 and line[:1] not in '{["' and not line.startswith("```"):
+            return _plain(line, 140)
+    return ""
+
+
+def fallback_report(title: str, task: str, results: List[Dict[str, Any]]) -> str:
+    """A readable report built by code from the sub-agents' results, for when
+    the supervisor (the AI) could not write one: a table when the results
+    share fields, sections otherwise. Says plainly how it was made."""
+    lines = [
+        f"# {title or task}",
+        "",
+        "> El supervisor no pudo redactar el informe (la IA no respondió a "
+        "tiempo o sin cuota). Sergio ordenó aquí, sin inventar nada, lo que "
+        "trajo cada agente.",
+        "",
+    ]
+    done = [r for r in results if r.get("status") == "done" and r.get("result")]
+    rows = [(r, structured(r["result"])) for r in done]
+    dicts = [(r, d) for r, d in rows if isinstance(d, dict)]
+    if len(dicts) >= 2:
+        counts: Dict[str, int] = {}
+        for _, d in dicts:
+            for k in d:
+                counts[k] = counts.get(k, 0) + 1
+        keys = [k for k, n in counts.items() if n >= max(2, len(dicts) // 2)][:7]
+        if len(keys) >= 2:
+            lines.append("| " + " | ".join(_label(k) for k in keys) + " |")
+            lines.append("|" + "---|" * len(keys))
+            for _, d in dicts:
+                lines.append(
+                    "| " + " | ".join(_plain(d.get(k, "—")) or "—" for k in keys) + " |"
+                )
+            lines.append("")
+    for r, d in rows:
+        lines.append(f"## {r.get('title') or 'Resultado'}")
+        if isinstance(d, dict):
+            for k, v in d.items():
+                lines.append(f"- **{_label(k)}:** {_plain(v, 600)}")
+        else:
+            lines.append(str(r["result"]).strip())
+        lines.append("")
+    missing = [r.get("title", "") for r in results if r.get("status") != "done"]
+    if missing:
+        lines.append("**Sin resultado:** " + ", ".join(m for m in missing if m))
+    return "\n".join(lines).strip() + "\n"
+
+
 __all__ = [
+    "fallback_report",
+    "structured",
+    "summary_line",
     "check_note",
     "figures",
     "issues",

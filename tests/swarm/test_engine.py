@@ -177,3 +177,107 @@ def test_routes_start_and_read(tmp_path, monkeypatch):
     )
     assert bad.status_code == 400
     assert client.get("/v1/swarm/nope").status_code == 404
+
+
+def test_a_failed_plan_still_splits_a_listed_task_one_agent_per_item():
+    from openjarvis.swarm.engine import listed_items, plan_subtasks
+
+    task = (
+        "Compara 6 lenguajes (Python, JavaScript, Rust, Go, Java, C#): ventajas, "
+        "desventajas y sueldo medio"
+    )
+    assert listed_items(task) == ["Python", "JavaScript", "Rust", "Go", "Java", "C#"]
+    _, roles, subs, _ = plan_subtasks(task, {}, [])
+    assert [s.title for s in subs] == [
+        "Python",
+        "JavaScript",
+        "Rust",
+        "Go",
+        "Java",
+        "C#",
+    ]
+    assert roles[0]["nombre"] == "Investigador"
+    assert all("Python" in subs[0].instruction for _ in [0])
+
+
+def test_attribute_lists_are_not_mistaken_for_items():
+    from openjarvis.swarm.engine import listed_items, plan_subtasks
+
+    task = (
+        "Investiga el mercado del café en Ecuador: precios, exportaciones y tendencias"
+    )
+    assert listed_items(task) == []
+    _, _, subs, _ = plan_subtasks(task, {}, [])
+    assert len(subs) == 1 and subs[0].role == "Generalista"
+
+
+def test_the_scout_map_can_give_the_items():
+    from openjarvis.swarm.engine import plan_subtasks
+
+    scout = "1. Elementos:\n- Quito\n- Guayaquil\n- Cuenca\n2. Fuentes: https://ine.gob.ec\n"
+    _, _, subs, _ = plan_subtasks(
+        "Clima de las ciudades grandes de Ecuador", {}, [], scout
+    )
+    assert [s.title for s in subs] == ["Quito", "Guayaquil", "Cuenca"]
+
+
+def test_the_live_feed_says_what_each_part_is_doing(tmp_path):
+    from openjarvis.swarm.engine import SwarmEngine
+
+    def ask(prompt, **kw):
+        if "orquestador" in prompt:
+            return {
+                "titulo": "Prueba",
+                "roles": [{"nombre": "Buscador", "especialidad": "busca"}],
+                "subtareas": [
+                    {"titulo": "A", "rol": "Buscador", "instruccion": "busca A"},
+                    {"titulo": "B", "rol": "Buscador", "instruccion": "busca B"},
+                ],
+            }
+        return {"informe": "Informe final con A y B."}
+
+    def runner(prompt, tools, budget, on_tool=None):
+        if on_tool:
+            on_tool("web_search", {"query": "algo"})
+        return "Resultado concreto de la parte pedida", 1
+
+    eng = SwarmEngine(ask=ask, runner=runner, home=tmp_path, retry_delays=())
+    run = eng.start("Haz A y B", parallel=2, background=False, scout=True)
+    who = [a["who"] for a in run.activity]
+    texts = " | ".join(a["text"] for a in run.activity)
+    assert run.status == "done"
+    assert "Explorador" in who and "Orquestador" in who and "Supervisor" in who
+    assert any(w.startswith("#1 ") for w in who) and any(
+        w.startswith("#2 ") for w in who
+    )
+    assert "Repartió el trabajo en 2 subtareas" in texts
+    assert "Terminó: Resultado concreto" in texts
+    assert all(a["t"] >= 0 for a in run.activity)
+
+
+def test_when_the_supervisor_fails_the_report_is_a_readable_table_not_raw_json():
+    from openjarvis.swarm.report import fallback_report, summary_line, tables_in
+
+    results = [
+        {
+            "title": "Python",
+            "status": "done",
+            "result": "```json\n"
+            '{"lenguaje": "Python", "ventajas": ["legible", "librerías"], '
+            '"sueldo": "70 000 $"}\n```',
+        },
+        {
+            "title": "Rust",
+            "status": "done",
+            "result": '{"lenguaje": "Rust", "ventajas": ["seguro"], "sueldo": "90 000 $"}',
+        },
+        {"title": "Go", "status": "failed", "result": "Falló: 429"},
+    ]
+    md = fallback_report("Lenguajes", "Compara", results)
+    table = tables_in(md)[0]
+    assert table[0] == ["Lenguaje", "Ventajas", "Sueldo"]
+    assert table[1] == ["Python", "legible; librerías", "70 000 $"]
+    assert "{" not in md and "```" not in md
+    assert "no pudo redactar" in md and "Sin resultado:** Go" in md
+    assert summary_line(results[1]["result"]) == "Rust"
+    assert summary_line("## Resumen\nEl precio medio es 12 €.") == "El precio medio es 12 €."

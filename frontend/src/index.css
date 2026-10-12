@@ -2955,3 +2955,45 @@ html, body { background: var(--color-bg); }
   background-size: 18px 18px;
   background-position: 0 0, 0 9px, 9px -9px, -9px 0;
 }
+
+/* Agent Swarm: the live feed (what each part is doing right now). */
+.swarm-live { margin-top: 18px; }
+.swarm-live > summary { cursor: pointer; list-style: none; }
+.swarm-live-dot {
+  display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: 1px;
+  background: var(--sec-swarm); box-shadow: 0 0 0 0 color-mix(in srgb, var(--sec-swarm) 60%, transparent);
+  animation: swarm-pulse 1.6s ease-out infinite;
+}
+@keyframes swarm-pulse { to { box-shadow: 0 0 0 10px transparent; } }
+.swarm-feed {
+  list-style: none; margin: 8px 0 0; padding: 6px; max-height: 260px; overflow-y: auto;
+  border: 1px solid var(--color-border-subtle); border-radius: var(--radius-lg); background: var(--color-surface);
+  font-size: 13.5px; scroll-behavior: smooth;
+}
+.swarm-feed li {
+  display: grid; grid-template-columns: 42px minmax(0, max-content) minmax(0, 1fr); gap: 10px; align-items: baseline;
+  padding: 6px 8px; border-radius: 10px; animation: swarm-line-in 260ms var(--ease-mac);
+}
+.swarm-feed li:last-child { background: color-mix(in srgb, var(--sec-swarm) 6%, transparent); }
+.swarm-feed time { color: var(--color-text-tertiary); font-variant-numeric: tabular-nums; font-size: 12px; }
+.swarm-feed b {
+  font-weight: 600; font-size: 12px; padding: 2px 8px; border-radius: var(--radius-full); white-space: nowrap;
+  max-width: 220px; overflow: hidden; text-overflow: ellipsis;
+  color: var(--who); background: color-mix(in srgb, var(--who) 12%, transparent);
+}
+.swarm-feed span { color: var(--color-text-secondary); overflow-wrap: anywhere; }
+.swarm-feed li[data-who='scout'] { --who: #d97706; }
+.swarm-feed li[data-who='plan'] { --who: #7c3aed; }
+.swarm-feed li[data-who='agent'] { --who: #2f5ee8; }
+.swarm-feed li[data-who='sup'] { --who: #db2777; }
+.swarm-feed li[data-who='check'] { --who: #059669; }
+.dark .swarm-feed li[data-who='scout'] { --who: #fbbf24; }
+.dark .swarm-feed li[data-who='plan'] { --who: #b190ff; }
+.dark .swarm-feed li[data-who='agent'] { --who: #9cb4ff; }
+.dark .swarm-feed li[data-who='sup'] { --who: #f472b6; }
+.dark .swarm-feed li[data-who='check'] { --who: #34d399; }
+@keyframes swarm-line-in { from { opacity: 0; transform: translateY(4px); } }
+@media (max-width: 640px) {
+  .swarm-feed li { grid-template-columns: 36px minmax(0, 1fr); }
+  .swarm-feed li span { grid-column: 1 / -1; }
+}

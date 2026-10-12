@@ -53,6 +53,7 @@ SCOUT_BUDGET = 6
 RETRY_DELAYS = (2.0, 6.0)  # a failed sub-agent tries twice more
 RESULT_CHARS = 6000  # each result as the supervisor reads it
 REPORT_INPUT_CHARS = 160_000
+ACTIVITY_KEEP = 80  # lines of the live feed kept per swarm
 # Tools a sub-agent may be given (the rest of the toolbox stays home).
 SWARM_TOOLS = (
     "web_search",
@@ -187,6 +188,8 @@ class SwarmRun:
     scout_calls: int = 0
     checks: Dict[str, Any] = field(default_factory=dict)
     revised: bool = False  # the supervisor corrected its report once
+    # What is happening, in words, as it happens: {t, who, text}.
+    activity: List[Dict[str, Any]] = field(default_factory=list)
 
     def counts(self) -> Dict[str, int]:
         out = {"queued": 0, "running": 0, "done": 0, "failed": 0, "cancelled": 0}
@@ -239,8 +242,49 @@ def allowed_tools(names: Any) -> List[str]:
     return list(dict.fromkeys(tools)) or list(DEFAULT_TOOLS)
 
 
+_LIST_SPLIT = re.compile(r"\s*(?:,|;|/|\by\b|\be\b|\bo\b|\band\b)\s*", re.I)
+
+
+def listed_items(text: str, limit: int = 60) -> List[str]:
+    """The elements a task or a scout map lists: «(Python, Go, Rust)», «: a, b
+    y c», or one per line (bullets / numbers). Short names only."""
+    text = text or ""
+    found: List[str] = []
+
+    def add(raw: str) -> None:
+        item = raw.strip(" .:*-•\t\"'«»")
+        item = re.sub(r"^\d+[.)]\s*", "", item).strip()
+        if 1 < len(item) <= 60 and item.lower() not in {f.lower() for f in found}:
+            found.append(item)
+
+    groups = [(g, False) for g in re.findall(r"\(([^()]{3,500})\)", text)]
+    groups += [(g, True) for g in re.findall(r":\s*([^.:\n]{3,500})", text)]
+    for group, names_only in groups:
+        parts = [p.strip() for p in _LIST_SPLIT.split(group) if p and p.strip()]
+        if len(parts) < 3 or any(len(p) > 60 for p in parts):
+            continue
+        # After a colon, only a list of names (Rust, Go, iPhone 17…), not of
+        # attributes («ventajas, desventajas y precio»).
+        if (
+            names_only
+            and sum(p[:1].isupper() or p[:1].isdigit() for p in parts)
+            < len(parts) * 0.7
+        ):
+            continue
+        for p in parts:
+            add(p)
+        if found:
+            return found[:limit]
+    for line in text.splitlines():
+        if re.match(r"^\s*(?:[-*•]|\d+[.)])\s+\S", line) and len(line.strip()) <= 70:
+            if "http" in line or line.rstrip().endswith(":"):  # links, headings
+                continue
+            add(line)
+    return found[:limit] if len(found) >= 3 else []
+
+
 def plan_subtasks(
-    task: str, data: Any, documents: List[Document]
+    task: str, data: Any, documents: List[Document], scout: str = ""
 ) -> Tuple[str, List[Dict[str, str]], List[SubTask], str]:
     """The orchestrator's JSON, checked: real tools, bounded size, one reader
     per document (whatever the plan said)."""
@@ -302,7 +346,26 @@ def plan_subtasks(
                 tools=allowed_tools(raw.get("herramientas") or raw.get("tools")),
             )
         )
-    if not subtasks:  # the orchestrator failed: one generalist does it all
+    items = [] if subtasks else listed_items(task) or listed_items(scout)
+    if items:  # no plan, but the work lists its elements: one agent each
+        roles = [
+            {
+                "nombre": "Investigador",
+                "especialidad": "Cubre un elemento de la lista a fondo",
+            }
+        ]
+        for item in items[:MAX_SUBTASKS]:
+            subtasks.append(
+                SubTask(
+                    id=len(subtasks) + 1,
+                    title=_clean(item, 90),
+                    role="Investigador",
+                    instruction=f"Haz la tarea solo para «{item}»: {task}",
+                    deliver="Los datos pedidos sobre este elemento, con sus fuentes.",
+                    tools=["web_search", "http_request", "think"],
+                )
+            )
+    if not subtasks:  # nothing to split by: one generalist does it all
         subtasks.append(
             SubTask(
                 id=1,
@@ -472,6 +535,18 @@ class SwarmEngine:
         for box in boxes:
             box.put(event)
 
+    def _say(self, run: SwarmRun, who: str, text: str) -> None:
+        """One line of the live feed: who does what, right now."""
+        line = {
+            "t": round(time.time() - run.created, 1),
+            "who": _clean(who, 60),
+            "text": _clean(text, 220),
+        }
+        with self._lock:
+            run.activity.append(line)
+            del run.activity[:-ACTIVITY_KEEP]
+        self._event(run, "say", **line)
+
     def _work(self, run: SwarmRun) -> None:
         stop = self._cancel[run.id]
         self._reserved[run.id] = 0
@@ -483,6 +558,7 @@ class SwarmEngine:
                     return
             run.status = "planning"
             self._event(run, "planning")
+            self._say(run, "Orquestador", "Lee la tarea y decide cómo repartirla")
             docs = "\n".join(f"- {d.name}" for d in run.documents)
             prompt = PLAN_PROMPT.format(
                 task=run.task,
@@ -506,7 +582,15 @@ class SwarmEngine:
                 logger.warning("swarm plan failed: %s", exc)
                 data = {}
             run.title, run.roles, run.subtasks, run.synthesis = plan_subtasks(
-                run.task, data, run.documents
+                run.task, data, run.documents, run.scout
+            )
+            names = ", ".join(r["nombre"] for r in run.roles[:4])
+            self._say(
+                run,
+                "Orquestador",
+                f"Repartió el trabajo en {len(run.subtasks)} "
+                f"{'subtarea' if len(run.subtasks) == 1 else 'subtareas'}"
+                + (f" para: {names}" if names else ""),
             )
             run.status = "running"
             self._event(
@@ -529,10 +613,22 @@ class SwarmEngine:
                 return
             run.status = "synthesizing"
             self._event(run, "synthesizing")
+            done = run.counts()["done"]
+            self._say(
+                run, "Supervisor", f"Une {done} de {len(run.subtasks)} resultados"
+            )
             self._synthesize(run)
             run.status = "checking"
             self._event(run, "checking")
+            self._say(run, "Comprobación", "Coteja enlaces y cifras con las fuentes")
             self._check(run)
+            c = run.checks or {}
+            self._say(
+                run,
+                "Comprobación",
+                f"{c.get('links', 0)} enlaces y {c.get('figures', 0)} cifras cotejados"
+                + (" · el supervisor corrigió el informe" if run.revised else ""),
+            )
             run.status = "done"
         except Exception as exc:  # noqa: BLE001
             logger.exception("swarm %s failed", run.id)
@@ -574,8 +670,12 @@ class SwarmEngine:
         self._event(run, "scouting")
         budget = self._reserve(run, SCOUT_BUDGET)
 
+        self._say(run, "Explorador", "Mira el terreno antes de repartir")
+
         def seen(tool: str, args: Any) -> None:
-            self._event(run, "scout_tool", text=describe(tool, args))
+            text = describe(tool, args)
+            self._event(run, "scout_tool", text=text)
+            self._say(run, "Explorador", text)
 
         try:
             answer, calls = self._call(
@@ -591,6 +691,16 @@ class SwarmEngine:
         finally:
             self._release(run, budget)
         self._event(run, "scouted", preview=run.scout[:400], tool_calls=run.scout_calls)
+        found = len(listed_items(run.scout))
+        self._say(
+            run,
+            "Explorador",
+            f"Mapa listo: {found} elementos y sus fuentes"
+            if found
+            else (
+                "Mapa listo" if run.scout else "Sin mapa: el orquestador reparte igual"
+            ),
+        )
 
     def _sub(self, run: SwarmRun, sub: SubTask, stop: threading.Event) -> None:
         if stop.is_set():
@@ -611,9 +721,12 @@ class SwarmEngine:
             deliver=sub.deliver or "un resultado concreto y verificable",
         )
 
+        who = f"#{sub.id} {sub.role}"
+
         def seen(tool: str, args: Any) -> None:
             sub.current = describe(tool, args)
             self._event(run, "tool", id=sub.id, text=sub.current, tool=tool)
+            self._say(run, who, sub.current)
 
         delays = (0.0, *self.retry_delays)
         for attempt, delay in enumerate(delays):
@@ -622,6 +735,7 @@ class SwarmEngine:
                 break
             if attempt:
                 self._event(run, "retry", id=sub.id, attempt=attempt + 1, wait=delay)
+                self._say(run, who, f"Lo intenta otra vez ({attempt + 1}.º intento)")
                 if delay and stop.wait(delay):
                     sub.status = "cancelled"
                     break
@@ -649,6 +763,13 @@ class SwarmEngine:
         sub.current = ""
         sub.sources = sources_in(sub.result)
         sub.ended = time.time()
+        if sub.status == "done":
+            from openjarvis.swarm.report import summary_line
+
+            first = summary_line(sub.result)
+            self._say(run, who, f"Terminó: {first}" if first else "Terminó")
+        elif sub.status == "failed":
+            self._say(run, who, sub.result[:160])
         self._event(
             run,
             "agent",
@@ -694,8 +815,22 @@ class SwarmEngine:
             data = {}
         data = data if isinstance(data, dict) else {}
         report = str(data.get("informe") or "").strip()
-        if not report:
-            report = f"# {run.title}\n\n" + results
+        if not report:  # the AI could not write: code orders the results
+            from openjarvis.swarm.report import fallback_report
+
+            report = fallback_report(
+                run.title,
+                run.task,
+                [
+                    {"title": s.title, "status": s.status, "result": s.result}
+                    for s in run.subtasks
+                ],
+            )
+            self._say(
+                run,
+                "Supervisor",
+                "La IA no respondió; Sergio ordenó los resultados en una tabla sin inventar nada",
+            )
         run.report = report
         run.contradictions = [
             _clean(c, 300) for c in data.get("contradicciones") or [] if _clean(c, 300)
