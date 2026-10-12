@@ -3214,21 +3214,90 @@ def run(config: dict[str, Any]) -> None:
 
     assistant.who_spoke = who_spoke
 
+    def ask_passcode(reason: str) -> bool:
+        """Face ID's backup, as on the iPhone: the owner's passcode."""
+        from PySide6.QtWidgets import QInputDialog, QLineEdit
+
+        code, ok = on_ui(
+            lambda: QInputDialog.getText(
+                None, "Código de Sergio", reason, QLineEdit.EchoMode.Password
+            ),
+            timeout=120.0,
+        ) or ("", False)
+        if not ok or not code.strip():
+            return False
+        try:
+            out = client.http.post(
+                f"{client.base}/v1/faces/faceid/passcode/check",
+                data={"code": code.strip()},
+                timeout=10,
+            ).json()
+        except Exception:  # noqa: BLE001
+            return False
+        if out.get("wait"):
+            bridge.caption.emit(f"Demasiados intentos: espere {out['wait']} s.")
+        return out.get("ok") is True
+
+    PASSCODE_WHY = {
+        "sin_codigo": (
+            "Cree su Face ID en Sergio (sección Rostros) para aprobar con la cara. "
+            "Mientras, escriba el código si ya lo tiene:"
+        ),
+        "reinicio": "Sergio se reinició. Escriba su código:",
+        "intentos": "Cinco intentos fallidos. Escriba su código:",
+        "inactivo": "Más de 48 horas sin desbloquear. Escriba su código:",
+        "codigo_antiguo": "Hace días que no usa su código. Escríbalo:",
+        "bloqueado": "Lo bloqueó usted. Escriba su código:",
+    }
+
     def owner_approves(request: str, seconds: float = 10.0) -> bool:
-        """Consent to the displayed action, then verify the owner's identity."""
+        """Consent to the displayed action, then Face ID (a random movement a
+        photo cannot do), with the passcode as backup — the same rules as
+        the web (faces/faceid.py)."""
         if not confirm_sensitive_action(request):
             return False
-        bridge.caption.emit("Señor: mire a la cámara para aprobarlo")
-        deadline = time.time() + seconds
-        while time.time() < deadline:
+        for _ in range(3):
             try:
-                faces = identify(feed.jpeg())
-            except Exception:  # noqa: BLE001 — keep trying until the deadline
-                faces = []
-            if any(f.get("owner") and f.get("strong", True) for f in faces):
-                logging.info("checkpoint approved by the owner: %s", request[:80])
+                challenge = client.http.post(
+                    f"{client.base}/v1/faces/faceid/challenge", timeout=10
+                ).json()
+            except Exception:  # noqa: BLE001 — server down: never approve
+                logging.info("checkpoint NOT approved (no Face ID): %s", request[:80])
+                return False
+            if challenge.get("passcode_required"):
+                why = PASSCODE_WHY.get(str(challenge.get("reason")), "Escriba su código:")
+                if ask_passcode(why):
+                    logging.info("checkpoint approved with the passcode: %s", request[:80])
+                    return True
+                return False
+            say = str(challenge.get("say") or "Mire a la cámara")
+            bridge.caption.emit(f"Señor, mire a la cámara: {say.lower()}")
+            frames: list[bytes] = []
+            deadline = time.time() + min(seconds, 3.0)
+            while len(frames) < 12 and time.time() < deadline:
+                try:
+                    frames.append(feed.jpeg())
+                except Exception:  # noqa: BLE001
+                    pass
+                time.sleep(0.14)
+            try:
+                out = client.http.post(
+                    f"{client.base}/v1/faces/faceid/unlock",
+                    data={"nonce": str(challenge.get("nonce") or "")},
+                    files=[
+                        ("images", (f"u{i}.jpg", jpg, "image/jpeg"))
+                        for i, jpg in enumerate(frames)
+                    ],
+                    timeout=30,
+                ).json()
+            except Exception:  # noqa: BLE001
+                out = {"ok": False}
+            if out.get("ok"):
+                logging.info("checkpoint approved by the owner's Face ID: %s", request[:80])
                 return True
-            time.sleep(0.8)
+            bridge.caption.emit(str(out.get("message") or "No le reconozco."))
+            if not out.get("passcode_required"):
+                continue  # another random movement, up to three tries here
         logging.info("checkpoint NOT approved: %s", request[:80])
         return False
 

@@ -2707,3 +2707,57 @@ html, body { background: var(--color-bg); }
   background: linear-gradient(135deg, color-mix(in srgb, var(--node) 22%, var(--color-surface)), color-mix(in srgb, var(--node) 6%, var(--color-surface)));
 }
 .node-page .paper-tab[aria-selected='true'] { border-bottom-color: var(--node); color: var(--color-text); }
+
+/* Face ID de Sergio: Apple's ritual (the ring that lights up, the check),
+   in Sergio's colours. */
+.faceid-page { height: 100%; overflow-y: auto; padding: 32px 16px 48px; display: flex; flex-direction: column; align-items: center; gap: 28px; }
+.faceid-stage { width: min(560px, 100%); display: flex; flex-direction: column; align-items: center; text-align: center; gap: 14px; }
+.faceid-home h1, .faceid-done h1 { font-size: 30px; font-weight: 700; letter-spacing: -0.03em; margin-top: 6px; }
+.faceid-home > p, .faceid-done > p { color: var(--color-text-secondary); max-width: 460px; line-height: 1.5; }
+.faceid-glyph { fill: none; stroke: url(#none); stroke: var(--color-accent); stroke-width: 3.2; stroke-linecap: round; stroke-linejoin: round; }
+.faceid-glyph[data-state='ok'] { stroke: var(--color-success); }
+.faceid-check { stroke-dasharray: 40; stroke-dashoffset: 40; animation: faceid-draw 420ms var(--ease-mac) forwards; }
+@keyframes faceid-draw { to { stroke-dashoffset: 0; } }
+.faceid-actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 6px; }
+.faceid-facts { list-style: none; display: grid; gap: 6px; margin-top: 8px; font-size: 13.5px; color: var(--color-text-secondary); }
+.faceid-facts li { display: flex; align-items: center; gap: 8px; justify-content: center; }
+.faceid-facts li::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--color-text-tertiary); }
+.faceid-facts li[data-on]::before { background: var(--color-success); box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-success) 20%, transparent); }
+.faceid-link { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--color-accent-text); background: none; border: 0; cursor: pointer; }
+.faceid-error { color: var(--color-error); font-size: 13.5px; }
+.faceid-view { position: relative; width: 300px; height: 300px; display: grid; place-items: center; }
+.faceid-view video { width: 236px; height: 236px; border-radius: 50%; object-fit: cover; transform: scaleX(-1); background: #000; box-shadow: 0 20px 50px -20px rgba(0, 0, 0, 0.5); }
+.faceid-ring { position: absolute; inset: 0; }
+.faceid-ring line { stroke: color-mix(in srgb, var(--color-text) 22%, transparent); stroke-width: 3.2; stroke-linecap: round; transition: stroke 160ms var(--ease-mac); }
+.faceid-ring line[data-on] { stroke: #34c759; }
+.faceid-stage[data-mode='unlock'] .faceid-ring line[data-on] { stroke: var(--color-accent); animation: faceid-pulse 1.2s ease-in-out infinite; }
+@keyframes faceid-pulse { 50% { opacity: 0.45; } }
+.faceid-say { font-size: 17px; font-weight: 600; min-height: 26px; }
+.faceid-badge { width: 92px; height: 92px; border-radius: 50%; display: grid; place-items: center; color: #fff; background: #34c759; box-shadow: 0 16px 40px -14px #34c759; animation: faceid-pop 420ms var(--ease-spring); }
+.faceid-done[data-ok='0'] .faceid-badge { background: var(--color-error); box-shadow: 0 16px 40px -14px var(--color-error); animation: faceid-shake 420ms var(--ease-mac); }
+@keyframes faceid-pop { from { transform: scale(0.6); opacity: 0; } }
+@keyframes faceid-shake { 20%, 60% { transform: translateX(-8px); } 40%, 80% { transform: translateX(8px); } }
+.faceid-pin { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.faceid-pin h2 { font-size: 22px; font-weight: 700; }
+.faceid-pin > p { color: var(--color-text-secondary); font-size: 14px; max-width: 360px; }
+.faceid-dots { display: flex; gap: 12px; margin: 8px 0; }
+.faceid-dots i { width: 13px; height: 13px; border-radius: 50%; border: 1.5px solid var(--color-text-secondary); }
+.faceid-dots i[data-on] { background: var(--color-text); border-color: var(--color-text); }
+.faceid-keys { display: grid; grid-template-columns: repeat(3, 72px); gap: 12px; margin: 6px 0 10px; }
+.faceid-keys button { width: 72px; height: 72px; border-radius: 50%; border: 0; font-size: 26px; font-weight: 500; background: var(--color-tile); color: var(--color-text); cursor: pointer; transition: background-color 120ms; }
+.faceid-keys button:active { background: color-mix(in srgb, var(--color-accent) 25%, var(--color-tile)); }
+.faceid-people { width: min(560px, 100%); display: flex; flex-direction: column; gap: 10px; }
+.faceid-people h2 { font-size: 16px; font-weight: 700; }
+.faceid-people > p { font-size: 13px; color: var(--color-text-secondary); }
+.faceid-person { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 16px; background: var(--color-bg-secondary); }
+.faceid-person b { display: block; font-size: 14px; }
+.faceid-person em { font-style: normal; color: var(--color-accent-text); font-size: 13px; }
+.faceid-person small { display: block; font-size: 12px; color: var(--color-text-tertiary); }
+.faceid-avatar { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; color: #fff; font-weight: 700; background: var(--grad-sergio); }
+.faceid-add { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.faceid-add .paper-input { flex: 1; min-width: 180px; }
+.faceid-add label { display: inline-flex; gap: 6px; align-items: center; font-size: 13px; color: var(--color-text-secondary); }
+.faceid-home, .faceid-done { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.faceid-done { padding-top: 24px; }
+.faceid-page { justify-content: flex-start; }
+.faceid-stage { min-height: 420px; justify-content: center; }

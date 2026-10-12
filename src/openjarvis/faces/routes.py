@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 
 from openjarvis.faces.book import MAX_IMAGE_BYTES, FaceBook, FaceError
 
@@ -281,6 +281,126 @@ async def look(
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
 
+# -- Face ID (faceid.py): Apple's rules on a webcam ---------------------------
+
+_gate: Any = None
+
+
+def _get_gate() -> Any:
+    global _gate
+    if _gate is None:
+        from openjarvis.faces.faceid import Gate
+
+        _gate = Gate(_get_book()._root)
+    return _gate
+
+
+def _local_only(request: Request) -> None:
+    """The passcode and unlock never travel beyond this computer: a request
+    relayed by a tunnel (``sergio movil``) or proxy is refused, even though it
+    reaches the server from 127.0.0.1."""
+    from openjarvis.server.vision_routes import from_this_computer
+
+    host = request.client.host if request.client else ""
+    if host != "testclient" and not from_this_computer(request):
+        raise HTTPException(status_code=403, detail="Face ID solo desde este equipo.")
+
+
+def _owner_key() -> str:
+    """The enrolled name of the owner (case-insensitive), or the only person."""
+    people = [p["name"] for p in _get_book().people()]
+    boss = owner_name().lower()
+    found = next((n for n in people if n.lower() == boss), "")
+    return found or (people[0] if len(people) == 1 else "")
+
+
+@router.get("/faceid")
+async def faceid_status(request: Request) -> dict[str, Any]:
+    _local_only(request)
+    return {**_get_gate().status(), "owner": _owner_key()}
+
+
+@router.post("/faceid/passcode")
+async def faceid_set_passcode(
+    request: Request, code: str = Form(...), current: str = Form("")
+) -> dict[str, Any]:
+    _local_only(request)
+    try:
+        await asyncio.to_thread(_get_gate().set_passcode, code, current)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    return _get_gate().status()
+
+
+@router.post("/faceid/passcode/check")
+async def faceid_check_passcode(
+    request: Request, code: str = Form(...)
+) -> dict[str, Any]:
+    _local_only(request)
+    return await asyncio.to_thread(_get_gate().check_passcode, code)
+
+
+@router.post("/faceid/lock")
+async def faceid_lock(request: Request) -> dict[str, Any]:
+    _local_only(request)
+    _get_gate().lock_now()
+    return _get_gate().status()
+
+
+@router.post("/faceid/challenge")
+async def faceid_challenge(request: Request) -> dict[str, Any]:
+    _local_only(request)
+    reason = _get_gate().passcode_reason()
+    if reason:
+        return {"passcode_required": True, "reason": reason}
+    return _get_gate().challenge().to_dict()
+
+
+@router.post("/faceid/unlock")
+async def faceid_unlock(
+    request: Request,
+    nonce: str = Form(...),
+    images: list[UploadFile] = File(...),
+) -> dict[str, Any]:
+    _local_only(request)
+    from openjarvis.faces.faceid import unlock
+
+    owner = _owner_key()
+    if not owner:
+        raise HTTPException(status_code=409, detail="Primero configure Face ID.")
+    frames = [await _read(image) for image in images[:16]]
+    try:
+        return await asyncio.to_thread(
+            unlock, _get_book(), _get_gate(), nonce, frames, owner
+        )
+    except ImportError as exc:
+        raise _missing_opencv() from exc
+
+
+@router.post("/pose")
+async def pose(image: UploadFile = File(...)) -> dict[str, Any]:
+    """Where the face points (for the Face ID ring while setting it up)."""
+    from openjarvis.faces.faceid import read_frames
+
+    data = await _read(image)
+    try:
+        frames = await asyncio.to_thread(read_frames, _get_book(), [data])
+    except ImportError as exc:
+        raise _missing_opencv() from exc
+    if not frames:
+        return {"face": False}
+    f = frames[0]
+    return {
+        "face": True,
+        "yaw": f.yaw,
+        "pitch": f.pitch,
+        "eyes_open": f.eyes_open,
+        "faces": f.faces,
+    }
+
+
 @router.delete("/{name}")
 async def forget(name: str) -> dict[str, Any]:
     if not _get_book().forget(name):
@@ -292,6 +412,12 @@ __all__ = [
     "describe_kinship",
     "describe_photo",
     "enroll",
+    "faceid_challenge",
+    "faceid_check_passcode",
+    "faceid_lock",
+    "faceid_set_passcode",
+    "faceid_status",
+    "faceid_unlock",
     "forget",
     "identify",
     "kinship",
@@ -301,5 +427,6 @@ __all__ = [
     "owner",
     "owner_name",
     "photo",
+    "pose",
     "scan",
 ]

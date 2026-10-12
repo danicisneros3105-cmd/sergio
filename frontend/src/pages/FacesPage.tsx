@@ -1,16 +1,43 @@
+// Face ID de Sergio. Set up like Apple's: look into the circle and move your
+// head slowly in a circle (twice) while the ring lights up; unlock by
+// looking at the screen and doing the random movement it asks for (a photo
+// cannot). The passcode backs it up exactly when Apple would ask for it.
+// Everything stays on this computer: frames go only to this Sergio server.
+
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Camera, Loader2, Trash2, UserPlus, ScanFace } from 'lucide-react';
+import { Check, Lock, ScanFace, Trash2, UserPlus, X } from 'lucide-react';
 import { apiFetch } from '../lib/api';
 
 interface Person {
   name: string;
   samples: number;
+  angles?: number;
 }
 
-interface FaceResult {
-  name: string | null;
-  score: number;
+interface Status {
+  passcode_set: boolean;
+  face_allowed: boolean;
+  passcode_reason: string;
+  attempts_left: number;
+  owner: string;
 }
+
+type Mode =
+  | { kind: 'home' }
+  | { kind: 'passcode'; then: 'setup' | 'unlock' }
+  | { kind: 'scan'; who: string; consent: boolean; round: 1 | 2 }
+  | { kind: 'unlock' }
+  | { kind: 'done'; title: string; text: string; ok: boolean };
+
+const TICKS = 60;
+const REASON_ES: Record<string, string> = {
+  sin_codigo: 'Face ID necesita un código de respaldo.',
+  reinicio: 'Sergio se reinició: introduzca su código una vez.',
+  intentos: 'Cinco intentos fallidos: introduzca su código.',
+  inactivo: 'Hace más de 48 horas que no desbloquea: introduzca su código.',
+  codigo_antiguo: 'Hace más de 6 días y medio que no usa su código: introdúzcalo.',
+  bloqueado: 'Lo bloqueó usted: introduzca su código.',
+};
 
 async function readError(res: Response): Promise<string> {
   try {
@@ -21,192 +48,433 @@ async function readError(res: Response): Promise<string> {
   }
 }
 
-// Local face recognition: the photo goes only to this computer's Sergio server.
+/** Apple-style Face ID glyph, Sergio's colours. */
+export function FaceGlyph({ size = 72, state = 'idle' }: { size?: number; state?: 'idle' | 'scan' | 'ok' | 'fail' }) {
+  return (
+    <svg className="faceid-glyph" data-state={state} width={size} height={size} viewBox="0 0 64 64" aria-hidden="true">
+      <path d="M6 20V12a6 6 0 0 1 6-6h8M44 6h8a6 6 0 0 1 6 6v8M58 44v8a6 6 0 0 1-6 6h-8M20 58h-8a6 6 0 0 1-6-6v-8" />
+      {state === 'ok' ? (
+        <path className="faceid-check" d="M20 33l8 8 16-18" />
+      ) : (
+        <>
+          <path d="M22 24v5M42 24v5M32 24v12h-3M24 44c5 4 11 4 16 0" />
+        </>
+      )}
+    </svg>
+  );
+}
+
+function Ring({ lit, size }: { lit: boolean[]; size: number }) {
+  const r1 = size / 2 - 4;
+  const r0 = r1 - 14;
+  return (
+    <svg className="faceid-ring" width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden="true">
+      {lit.map((on, i) => {
+        const a = (i / TICKS) * Math.PI * 2;
+        const c = size / 2;
+        return (
+          <line
+            key={i}
+            x1={c + Math.cos(a) * r0}
+            y1={c - Math.sin(a) * r0}
+            x2={c + Math.cos(a) * r1}
+            y2={c - Math.sin(a) * r1}
+            data-on={on ? '1' : undefined}
+          />
+        );
+      })}
+    </svg>
+  );
+}
+
+function PinPad({ title, subtitle, onDone, error }: { title: string; subtitle: string; onDone: (code: string) => void; error: string }) {
+  const [code, setCode] = useState('');
+  const press = (d: string) => setCode((c) => (c.length < 12 ? c + d : c));
+  return (
+    <div className="faceid-pin">
+      <Lock size={22} />
+      <h2>{title}</h2>
+      <p>{subtitle}</p>
+      <div className="faceid-dots" aria-label={`${code.length} cifras`}>
+        {Array.from({ length: Math.max(6, code.length) }, (_, i) => (
+          <i key={i} data-on={i < code.length ? '1' : undefined} />
+        ))}
+      </div>
+      {error && <p className="faceid-error" role="alert">{error}</p>}
+      <div className="faceid-keys">
+        {['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', '⌫'].map((k, i) =>
+          k ? (
+            <button
+              key={i}
+              type="button"
+              onClick={() => (k === '⌫' ? setCode((c) => c.slice(0, -1)) : press(k))}
+              aria-label={k === '⌫' ? 'Borrar' : k}
+            >
+              {k}
+            </button>
+          ) : (
+            <span key={i} />
+          ),
+        )}
+      </div>
+      <button type="button" className="paper-button" disabled={code.length < 6} onClick={() => (onDone(code), setCode(''))}>
+        Continuar
+      </button>
+    </div>
+  );
+}
+
 export function FacesPage() {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [cameraOn, setCameraOn] = useState(false);
+  const streamRef = useRef<MediaStream | null>(null);
+  const [mode, setMode] = useState<Mode>({ kind: 'home' });
+  const [status, setStatus] = useState<Status | null>(null);
   const [people, setPeople] = useState<Person[]>([]);
-  const [results, setResults] = useState<FaceResult[] | null>(null);
-  const [name, setName] = useState('');
-  const [consent, setConsent] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState('');
+  const [lit, setLit] = useState<boolean[]>(() => Array(TICKS).fill(false));
+  const [say, setSay] = useState('');
+  const [error, setError] = useState('');
+  const [other, setOther] = useState({ name: '', consent: false });
+  const shots = useRef<Blob[]>([]);
 
-  const loadPeople = useCallback(async () => {
-    const res = await apiFetch('/v1/faces');
-    if (res.ok) setPeople((await res.json()).people);
+  const load = useCallback(async () => {
+    const [s, p] = await Promise.all([apiFetch('/v1/faces/faceid'), apiFetch('/v1/faces')]);
+    if (s.ok) setStatus(await s.json());
+    if (p.ok) setPeople((await p.json()).people);
   }, []);
 
   useEffect(() => {
-    loadPeople();
-    const video = videoRef.current;
-    return () => {
-      const stream = video?.srcObject as MediaStream | null;
-      stream?.getTracks().forEach((t) => t.stop());
-    };
-  }, [loadPeople]);
+    load().catch(() => {});
+  }, [load]);
 
-  const startCamera = async () => {
+  const stopCamera = () => {
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current = null;
+  };
+  useEffect(() => stopCamera, []);
+
+  const startCamera = async (): Promise<boolean> => {
+    // The <video> appears with the camera view: wait for it to be on screen.
+    for (let i = 0; i < 20 && !videoRef.current; i++) await new Promise((r) => requestAnimationFrame(r));
+    if (streamRef.current) {
+      if (videoRef.current && videoRef.current.srcObject !== streamRef.current) {
+        videoRef.current.srcObject = streamRef.current;
+        await videoRef.current.play().catch(() => {});
+      }
+      return true;
+    }
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480, facingMode: 'user' } });
+      streamRef.current = stream;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         await videoRef.current.play();
       }
-      setCameraOn(true);
-      setMessage('');
+      return true;
     } catch {
-      setMessage('Could not open the camera. Allow camera access in the browser.');
+      setError('No pude abrir la cámara. Permita el acceso a la cámara en el navegador.');
+      return false;
     }
   };
 
-  const snapshot = (): Promise<Blob | null> =>
+  const frame = (): Promise<Blob | null> =>
     new Promise((resolve) => {
       const video = videoRef.current;
       if (!video || !video.videoWidth) return resolve(null);
       const canvas = document.createElement('canvas');
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      canvas.getContext('2d')?.drawImage(video, 0, 0);
-      canvas.toBlob((blob) => resolve(blob), 'image/jpeg', 0.9);
+      canvas.width = 640;
+      canvas.height = Math.round((video.videoHeight / video.videoWidth) * 640);
+      canvas.getContext('2d')?.drawImage(video, 0, 0, canvas.width, canvas.height);
+      canvas.toBlob((blob) => resolve(blob), 'image/jpeg', 0.85);
     });
 
-  const send = async (path: string, extra: Record<string, string> = {}) => {
-    const blob = await snapshot();
-    if (!blob) {
-      setMessage('Turn on the camera first.');
-      return null;
+  // -- setting up: two slow circles with the head ---------------------------
+  useEffect(() => {
+    if (mode.kind !== 'scan') return;
+    let stop = false;
+    const ring: boolean[] = Array(TICKS).fill(false);
+    setLit(ring.slice());
+    setSay('Coloque la cara dentro del círculo');
+    const started = Date.now();
+    (async () => {
+      if (!(await startCamera())) return;
+      while (!stop) {
+        const blob = await frame();
+        if (blob) {
+          const form = new FormData();
+          form.append('image', blob, 'f.jpg');
+          const res = await apiFetch('/v1/faces/pose', { method: 'POST', body: form }).catch(() => null);
+          const pose = res && res.ok ? await res.json() : null;
+          if (pose?.face) {
+            if (pose.faces > 1) setSay('Solo una persona frente a la cámara');
+            else {
+              shots.current.push(blob);
+              const tilt = Math.hypot(pose.yaw, pose.pitch);
+              if (tilt < 8) setSay('Mueva la cabeza despacio para completar el círculo');
+              else {
+                // Shown mirrored: turning to your left lights the left side.
+                const a = (Math.atan2(pose.pitch, -pose.yaw) + Math.PI * 2) % (Math.PI * 2);
+                const k = Math.round((a / (Math.PI * 2)) * TICKS) % TICKS;
+                for (let d = -2; d <= 2; d++) ring[(k + d + TICKS) % TICKS] = true;
+                setLit(ring.slice());
+              }
+            }
+          } else setSay('Coloque la cara dentro del círculo');
+        }
+        const done = ring.filter(Boolean).length / TICKS >= 0.8 && Date.now() - started > 2500;
+        if (done || Date.now() - started > 30000) break;
+        await new Promise((r) => setTimeout(r, 120));
+      }
+      if (stop) return;
+      if (mode.round === 1) {
+        setMode({ ...mode, round: 2 });
+        return;
+      }
+      // Save: the sharpest shots of each angle, both rounds.
+      const form = new FormData();
+      form.append('name', mode.who);
+      form.append('consent', String(mode.consent));
+      const pick = shots.current.filter((_, i) => i % Math.max(1, Math.ceil(shots.current.length / 60)) === 0).slice(0, 60);
+      pick.forEach((b, i) => form.append('images', b, `s${i}.jpg`));
+      shots.current = [];
+      stopCamera();
+      const res = await apiFetch('/v1/faces/scan', { method: 'POST', body: form });
+      if (!res.ok) {
+        setMode({ kind: 'done', ok: false, title: 'No se completó', text: await readError(res) });
+        return;
+      }
+      await load();
+      setMode({
+        kind: 'done',
+        ok: true,
+        title: mode.who === (status?.owner || mode.who) ? 'Face ID está listo' : `${mode.who} guardado`,
+        text: 'Ahora puede desbloquear mirando a la pantalla.',
+      });
+    })();
+    return () => {
+      stop = true;
+    };
+  }, [mode]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // -- unlocking: look, do the random movement, done ------------------------
+  const unlock = async () => {
+    setError('');
+    const cRes = await apiFetch('/v1/faces/faceid/challenge', { method: 'POST' });
+    const challenge = cRes.ok ? await cRes.json() : null;
+    if (!challenge) return setError(await readError(cRes));
+    if (challenge.passcode_required) {
+      setError('');
+      return setMode({ kind: 'passcode', then: 'unlock' });
+    }
+    setMode({ kind: 'unlock' });
+    if (!(await startCamera())) return;
+    setSay(challenge.say);
+    await new Promise((r) => setTimeout(r, 350));
+    const frames: Blob[] = [];
+    for (let i = 0; i < 12; i++) {
+      const b = await frame();
+      if (b) frames.push(b);
+      await new Promise((r) => setTimeout(r, 140));
     }
     const form = new FormData();
-    form.append('image', blob, 'camera.jpg');
-    Object.entries(extra).forEach(([k, v]) => form.append(k, v));
-    setBusy(true);
-    try {
-      const res = await apiFetch(path, { method: 'POST', body: form });
-      if (!res.ok) {
-        setMessage(await readError(res));
-        return null;
-      }
-      return res.json();
-    } finally {
-      setBusy(false);
+    form.append('nonce', challenge.nonce);
+    frames.forEach((b, i) => form.append('images', b, `u${i}.jpg`));
+    setSay('Comprobando…');
+    const res = await apiFetch('/v1/faces/faceid/unlock', { method: 'POST', body: form });
+    stopCamera();
+    const out = res.ok ? await res.json() : { ok: false, message: await readError(res) };
+    await load();
+    if (out.passcode_required && !out.message) {
+      setError('');
+      return setMode({ kind: 'passcode', then: 'unlock' });
     }
+    setMode(
+      out.ok
+        ? { kind: 'done', ok: true, title: `Hola, ${out.name || 'señor'}`, text: `Desbloqueado en ${out.ms} ms.` }
+        : {
+            kind: 'done',
+            ok: false,
+            title: 'No se pudo',
+            text: `${out.message || 'Inténtelo de nuevo.'} ${
+              out.attempts_left === 0
+                ? 'Ahora le pediré su código.'
+                : out.attempts_left === 1
+                  ? 'Queda 1 intento antes de pedir el código.'
+                  : `Quedan ${out.attempts_left ?? '—'} intentos antes de pedir el código.`
+            }`,
+          },
+    );
   };
 
-  const identify = async () => {
-    const body = await send('/v1/faces/identify');
-    if (body) {
-      setResults(body.faces);
-      setMessage(body.faces.length ? '' : 'No faces in the picture.');
+  const submitPasscode = async (code: string, then: 'setup' | 'unlock') => {
+    setError('');
+    const form = new FormData();
+    form.append('code', code);
+    if (!status?.passcode_set) {
+      const res = await apiFetch('/v1/faces/faceid/passcode', { method: 'POST', body: form });
+      if (!res.ok) return setError(await readError(res));
+      await load();
+      return setMode(then === 'setup' ? { kind: 'scan', who: status?.owner || 'Señor', consent: true, round: 1 } : { kind: 'home' });
     }
+    const res = await apiFetch('/v1/faces/faceid/passcode/check', { method: 'POST', body: form });
+    const out = res.ok ? await res.json() : { ok: false };
+    if (!out.ok) return setError(out.wait ? `Espere ${out.wait} s antes de volver a intentarlo.` : 'Código incorrecto.');
+    await load();
+    setMode(then === 'setup' ? { kind: 'scan', who: status?.owner || 'Señor', consent: true, round: 1 } : { kind: 'done', ok: true, title: 'Desbloqueado', text: 'Face ID vuelve a estar disponible.' });
   };
 
-  const enroll = async () => {
-    const body = await send('/v1/faces/enroll', { name, consent: String(consent) });
-    if (body) {
-      setMessage(`${body.name} saved (${body.samples} photo(s)). Add 3–5 from different angles.`);
-      loadPeople();
-    }
+  const setup = () => {
+    setError('');
+    shots.current = [];
+    if (!status?.passcode_set) return setMode({ kind: 'passcode', then: 'setup' });
+    setMode({ kind: 'scan', who: status.owner || 'Señor', consent: true, round: 1 });
   };
 
   const forget = async (person: string) => {
+    if (!window.confirm(`¿Olvidar la cara de ${person}?`)) return;
     const res = await apiFetch(`/v1/faces/${encodeURIComponent(person)}`, { method: 'DELETE' });
-    if (res.ok) loadPeople();
+    if (res.ok) load();
   };
 
+  const enrolled = !!status?.owner;
+  const camera = mode.kind === 'scan' || mode.kind === 'unlock';
+
   return (
-    <div className="flex-1 overflow-y-auto px-6 py-8">
-      <div className="max-w-3xl mx-auto space-y-6">
-        <header>
-          <h1 className="text-lg font-semibold" style={{ color: 'var(--color-text)' }}>
-            Faces
-          </h1>
-          <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-            Sergio recognizes only the people you enroll, with their consent. Everything stays on
-            this computer.
-          </p>
-        </header>
-
-        <div className="rounded-xl overflow-hidden bg-black aspect-video flex items-center justify-center">
-          <video ref={videoRef} className={cameraOn ? 'w-full h-full object-cover' : 'hidden'} muted playsInline />
-          {!cameraOn && (
-            <button
-              onClick={startCamera}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm text-white"
-              style={{ background: 'var(--color-accent)' }}
-            >
-              <Camera size={16} /> Turn on camera
+    <div className="faceid-page">
+      <div className="faceid-stage" data-mode={mode.kind}>
+        {camera ? (
+          <>
+            <div className="faceid-view">
+              <video ref={videoRef} muted playsInline />
+              <Ring lit={mode.kind === 'scan' ? lit : Array(TICKS).fill(true)} size={300} />
+            </div>
+            <p className="faceid-say" aria-live="polite">
+              {mode.kind === 'scan' && mode.round === 2 && lit.filter(Boolean).length === 0
+                ? 'Primera exploración completada. Haga otra vuelta.'
+                : say}
+            </p>
+            <button type="button" className="paper-button" data-variant="quiet" onClick={() => (stopCamera(), setMode({ kind: 'home' }))}>
+              Cancelar
             </button>
-          )}
-        </div>
-
-        <div className="flex flex-wrap gap-3 items-center">
-          <button
-            onClick={identify}
-            disabled={busy || !cameraOn}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm text-white disabled:opacity-50"
-            style={{ background: 'var(--color-accent)' }}
-          >
-            {busy ? <Loader2 size={16} className="animate-spin" /> : <ScanFace size={16} />} Who is this?
-          </button>
-          {results && (
-            <span className="text-sm" style={{ color: 'var(--color-text)' }}>
-              {results.map((r) => r.name ?? 'Unknown person').join(', ')}
-            </span>
-          )}
-        </div>
-
-        <section className="rounded-xl p-4 space-y-3" style={{ background: 'var(--color-bg-secondary)' }}>
-          <h2 className="text-sm font-semibold" style={{ color: 'var(--color-text)' }}>
-            Enroll a person
-          </h2>
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Name"
-            className="w-full px-3 py-2 rounded-lg text-sm border"
-            style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface)' }}
+          </>
+        ) : mode.kind === 'passcode' ? (
+          <PinPad
+            title={status?.passcode_set ? 'Introduzca su código' : 'Cree un código'}
+            subtitle={
+              status?.passcode_set
+                ? REASON_ES[status.passcode_reason] || 'Respaldo de Face ID, como en el iPhone.'
+                : 'De 6 a 12 cifras. Se pide tras reiniciar, tras 5 fallos y tras 48 horas.'
+            }
+            error={error}
+            onDone={(c) => submitPasscode(c, mode.then)}
           />
-          <label className="flex items-start gap-2 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-            <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-1" />
-            This person agreed to be recognized by Sergio.
-          </label>
-          <button
-            onClick={enroll}
-            disabled={busy || !cameraOn || !name.trim() || !consent}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm text-white disabled:opacity-50"
-            style={{ background: 'var(--color-accent)' }}
-          >
-            <UserPlus size={16} /> Save face
-          </button>
-        </section>
-
-        {message && (
-          <p className="text-sm" style={{ color: 'var(--color-warning)' }}>
-            {message}
-          </p>
+        ) : mode.kind === 'done' ? (
+          <div className="faceid-done" data-ok={mode.ok ? '1' : '0'} role="status">
+            <span className="faceid-badge">{mode.ok ? <Check size={44} strokeWidth={2.4} /> : <X size={44} strokeWidth={2.4} />}</span>
+            <h1>{mode.title}</h1>
+            <p>{mode.text}</p>
+            <button type="button" className="paper-button" onClick={() => setMode({ kind: 'home' })}>
+              Listo
+            </button>
+          </div>
+        ) : (
+          <div className="faceid-home">
+            <FaceGlyph size={84} />
+            <h1>Face ID de Sergio</h1>
+            <p>
+              Sergio le reconoce al mirar la pantalla: rápido, privado y solo en este equipo. Para desbloquear le pedirá
+              un pequeño movimiento al azar, así una foto nunca sirve.
+            </p>
+            {error && <p className="faceid-error">{error}</p>}
+            <div className="faceid-actions">
+              {enrolled ? (
+                <>
+                  <button type="button" className="paper-button" onClick={unlock}>
+                    <ScanFace size={16} /> Desbloquear con la cara
+                  </button>
+                  <button type="button" className="paper-button" data-variant="quiet" onClick={setup}>
+                    Volver a configurar
+                  </button>
+                </>
+              ) : (
+                <button type="button" className="paper-button" onClick={setup}>
+                  <ScanFace size={16} /> Configurar Face ID
+                </button>
+              )}
+            </div>
+            {status && (
+              <ul className="faceid-facts">
+                <li data-on={status.passcode_set ? '1' : undefined}>
+                  {status.passcode_set ? 'Código de respaldo activo' : 'Sin código de respaldo todavía'}
+                </li>
+                <li data-on={status.face_allowed ? '1' : undefined}>
+                  {status.face_allowed
+                    ? `Face ID disponible · ${status.attempts_left} intentos`
+                    : REASON_ES[status.passcode_reason] || 'Face ID no disponible'}
+                </li>
+                <li data-on="1">Su cara se guarda cifrada, nunca como foto</li>
+              </ul>
+            )}
+            {status?.passcode_set && (
+              <button
+                type="button"
+                className="faceid-link"
+                onClick={async () => (await apiFetch('/v1/faces/faceid/lock', { method: 'POST' }), load())}
+              >
+                <Lock size={13} /> Bloquear ahora
+              </button>
+            )}
+          </div>
         )}
+      </div>
 
-        <section className="space-y-2">
-          <h2 className="text-sm font-semibold" style={{ color: 'var(--color-text)' }}>
-            Enrolled ({people.length})
-          </h2>
+      {mode.kind === 'home' && (
+        <section className="faceid-people">
+          <h2>Personas que Sergio reconoce</h2>
+          <p>Solo con su permiso. Útil para saber quién habla o quién está en una foto.</p>
           {people.map((p) => (
-            <div
-              key={p.name}
-              className="flex items-center justify-between px-3 py-2 rounded-lg"
-              style={{ background: 'var(--color-bg-secondary)' }}
-            >
-              <span className="text-sm" style={{ color: 'var(--color-text)' }}>
-                {p.name} · {p.samples} photo(s)
+            <div key={p.name} className="faceid-person">
+              <span className="faceid-avatar">{p.name.slice(0, 1).toUpperCase()}</span>
+              <span className="flex-1 min-w-0">
+                <b>{p.name}</b>
+                {p.name === status?.owner && <em> · usted</em>}
+                <small>
+                  {p.samples} muestras · {p.angles ?? 1} ángulos
+                </small>
               </span>
-              <button onClick={() => forget(p.name)} title="Forget" style={{ color: 'var(--color-text-secondary)' }}>
+              <button type="button" className="mac-icon-btn" aria-label={`Olvidar a ${p.name}`} onClick={() => forget(p.name)}>
                 <Trash2 size={16} />
               </button>
             </div>
           ))}
+          <div className="faceid-add">
+            <input
+              className="paper-input"
+              value={other.name}
+              onChange={(e) => setOther({ ...other, name: e.target.value })}
+              placeholder="Nombre de otra persona"
+              maxLength={60}
+            />
+            <label>
+              <input type="checkbox" checked={other.consent} onChange={(e) => setOther({ ...other, consent: e.target.checked })} />
+              Esta persona está de acuerdo
+            </label>
+            <button
+              type="button"
+              className="paper-button"
+              data-variant="quiet"
+              disabled={!other.name.trim() || !other.consent}
+              onClick={() => {
+                shots.current = [];
+                setMode({ kind: 'scan', who: other.name.trim(), consent: true, round: 1 });
+              }}
+            >
+              <UserPlus size={15} /> Añadir
+            </button>
+          </div>
         </section>
-      </div>
+      )}
     </div>
   );
 }
+
+export default FacesPage;

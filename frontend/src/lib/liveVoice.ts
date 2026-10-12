@@ -121,7 +121,9 @@ export class VoiceCall {
     this.output = new Ctx({ sampleRate: OUT_RATE });
     const source = this.input.createMediaStreamSource(this.mic);
     const context = this.input;
-    await context.audioWorklet.addModule(new URL('./voiceCapture.worklet.js', import.meta.url));
+    // A real file from the same origin: bundlers inline small scripts as
+    // data: URLs, which the page's security policy refuses for worklets.
+    await context.audioWorklet.addModule(new URL('voice-capture.worklet.js', document.baseURI).toString());
     if (this.stopped) return;
     this.node = new AudioWorkletNode(context, 'sergio-capture');
     await Promise.all([context.resume(), this.output.resume()]);

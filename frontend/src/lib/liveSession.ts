@@ -33,6 +33,18 @@ function writePref(on: boolean): void {
   }
 }
 
+/** Sergio speaks Spanish unless the owner chose another language for him
+ *  (localStorage `sergio.lang`); the browser's language is not a choice. */
+export function voiceLanguage(): string {
+  try {
+    const chosen = (localStorage.getItem('sergio.lang') || '').trim().toLowerCase();
+    if (/^[a-z]{2}$/.test(chosen)) return chosen;
+  } catch {
+    // private window
+  }
+  return 'es';
+}
+
 interface LiveStore {
   enabled: boolean;
   status: LiveStatus;
@@ -88,7 +100,7 @@ export const useLive = create<LiveStore>((set, get) => {
 
   const connect = () => {
     if (call || !get().enabled) return;
-    const language = (navigator.language || 'es').slice(0, 2).toLowerCase();
+    const language = voiceLanguage();
     let blocked = false;
     const c = new VoiceCall(
       {
@@ -106,6 +118,7 @@ export const useLive = create<LiveStore>((set, get) => {
         onHeard: (heard) => set({ heard, said: '' }),
         onSaid: (said) => set({ said }),
         onError: (message) => {
+          console.warn('[Sergio voz]', message);
           blocked = /micr[oó]fono/i.test(message);
           set({ error: message });
         },

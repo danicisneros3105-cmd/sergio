@@ -334,6 +334,36 @@ class FaceBook(_IdentifyMixin):
     def _db(self) -> Path:
         return self._root / "people.json"
 
+    @property
+    def _key_path(self) -> Path:
+        # Kept away from the faces folder: copying people.json alone (a
+        # backup, a sync) reveals nothing without this key (Face ID keeps its
+        # key in the Secure Enclave; this is the closest a PC gets).
+        return self._root.parent / "keys" / "faces.key"
+
+    def _cipher(self) -> Any:
+        from cryptography.fernet import Fernet
+
+        path = self._key_path
+        if not path.exists():
+            path.parent.mkdir(parents=True, exist_ok=True)
+            tmp = path.with_suffix(".tmp")
+            tmp.write_bytes(Fernet.generate_key())
+            tmp.chmod(0o600)
+            tmp.replace(path)
+        return Fernet(path.read_bytes().strip())
+
+    def _read_db(self) -> str:
+        raw = self._db.read_bytes()
+        if raw.startswith(b"gAAAA"):  # encrypted (Fernet token)
+            from cryptography.fernet import InvalidToken
+
+            try:
+                return self._cipher().decrypt(raw).decode()
+            except (InvalidToken, OSError) as exc:
+                raise ValueError(f"cannot decrypt ({exc.__class__.__name__})") from exc
+        return raw.decode()  # older, plain file: encrypted on the next save
+
     def _load(self, *, strict: bool = False) -> dict[str, dict[str, Any]]:
         """Enrolled people. *strict* (write paths) refuses a damaged file
         instead of treating it as empty, so one bad read can never erase
@@ -341,7 +371,7 @@ class FaceBook(_IdentifyMixin):
         if not self._db.exists():
             return {}
         try:
-            data = json.loads(self._db.read_text())
+            data = json.loads(self._read_db())
             if not isinstance(data, dict):
                 raise ValueError("not an object")
             return _tidy(data)
@@ -355,7 +385,8 @@ class FaceBook(_IdentifyMixin):
     def _save(self, people: dict[str, dict[str, Any]]) -> None:
         self._root.mkdir(parents=True, exist_ok=True)
         tmp = self._db.with_suffix(".tmp")
-        tmp.write_text(json.dumps(people))
+        tmp.write_bytes(self._cipher().encrypt(json.dumps(people).encode()))
+        tmp.chmod(0o600)
         tmp.replace(self._db)
         self._db.chmod(0o600)
         self._cache = None

@@ -227,12 +227,10 @@ def test_two_similar_people_need_a_clear_winner(tmp_path, monkeypatch):
     with pytest.raises(FaceError, match="ya está guardada como Ana"):
         b.enroll("Carla", b"c", consent=True)
     # ...but if both were saved before (twins), it is never guessed.
-    import json
-
-    db = tmp_path / "faces" / "people.json"
-    people = json.loads(db.read_text())
+    # (the file is encrypted at rest: edit it through the book)
+    people = b._load()
     people["Carla"] = {"embeddings": [c.tolist()], "enrolled_at": 2}
-    db.write_text(json.dumps(people))
+    b._save(people)
     assert b.identify(b"a")[0].name == ""  # too close to call: not guessed
     assert b.identify(b"between")[0].name == ""
 
@@ -537,3 +535,25 @@ def test_face_enroll_tool_falls_back_to_photos_on_an_old_companion(
     monkeypatch.setattr("time.sleep", lambda s: None)
     result = desktop_tools.FaceEnrollTool().execute(name="Ana")
     assert result.success and shots == ["/camera"] * 5
+
+
+def test_faces_are_encrypted_at_rest_and_old_plain_files_still_read(tmp_path):
+    import json
+
+    root = tmp_path / "faces"
+    root.mkdir()
+    db = root / "people.json"
+    db.write_text(json.dumps({"Ana": {"embeddings": [[1, 0]], "enrolled_at": 1}}))
+    book = FaceBook(root)
+    assert [p["name"] for p in book.people()] == ["Ana"]  # plain file still read
+    book._save(book._load())
+    raw = db.read_bytes()
+    assert raw.startswith(b"gAAAA") and b"Ana" not in raw and b"embeddings" not in raw
+    key = tmp_path / "keys" / "faces.key"
+    assert key.stat().st_mode & 0o077 == 0
+    assert [p["name"] for p in FaceBook(root).people()] == ["Ana"]
+    key.write_bytes(
+        b"x" * 44
+    )  # the wrong key: unreadable, never "empty and overwritten"
+    with pytest.raises(FaceError, match="damaged"):
+        FaceBook(root)._load(strict=True)
