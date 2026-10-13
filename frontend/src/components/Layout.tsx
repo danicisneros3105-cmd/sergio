@@ -1,24 +1,24 @@
 import { Suspense, useEffect, useState } from 'react';
 import { Outlet, useNavigate } from 'react-router';
+import { Menu } from 'lucide-react';
 import { ApprovalBell } from './ApprovalBell';
 import { SystemPulse } from './SystemPulse';
 import { Toolbar } from './Shell/Toolbar';
-import { HistoryPanel } from './Shell/HistoryPanel';
 import { checkHealth } from '../lib/api';
 import { LiveCaptions, LiveStarter } from './Live/LiveOrb';
 
 const HISTORY_KEY = 'sergio-history-open';
 
-// The shell: a rail of colour-coded section icons on the left (names on
-// hover) with Sergio's living orb, the history beside it when you want it,
-// the page in the middle, and the always-on conversation underneath it all.
+// The shell, like ChatGPT's: one sidebar on the left (open with names and
+// chats, or folded into a rail of icons; a drawer on a phone), the page in
+// the middle, and the always-on conversation underneath it all.
 export function Layout() {
   const [apiReachable, setApiReachable] = useState<boolean | null>(null);
   const [historyOpen, setHistoryOpen] = useState(() => {
     try {
-      // Like ChatGPT: open on a wide screen until you close it.
+      // Like ChatGPT: open on a computer until you close it; closed on a phone.
       const saved = localStorage.getItem(HISTORY_KEY);
-      return window.innerWidth >= 1280 ? saved !== '0' : saved === '1' && window.innerWidth >= 1024;
+      return window.innerWidth >= 768 && saved !== '0';
     } catch {
       return false;
     }
@@ -54,13 +54,12 @@ export function Layout() {
       <SystemPulse apiReachable={apiReachable} />
       <LiveStarter />
       <Toolbar historyOpen={historyOpen} onToggleHistory={toggleHistory} />
-      {historyOpen && (
-        <>
-          <div className="history-scrim" onClick={toggleHistory} aria-hidden="true" />
-          <HistoryPanel onClose={toggleHistory} />
-        </>
-      )}
       <div className="app-main">
+        {!historyOpen && (
+          <button type="button" className="sb-open-mobile" aria-label="Abrir la barra lateral" onClick={toggleHistory}>
+            <Menu size={20} strokeWidth={1.8} />
+          </button>
+        )}
         <ApprovalBell />
         {apiReachable === false && (
           <div className="app-banner" role="status">

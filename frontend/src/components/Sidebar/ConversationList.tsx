@@ -59,13 +59,11 @@ export function ConversationList({ searchQuery }: Props) {
                 selectConversation(conv.id);
                 navigate('/chat');
               }}
-              className="flex-1 text-left pl-2.5 pr-1 py-1.5 min-w-0 cursor-pointer"
+              className="flex-1 text-left pl-2.5 pr-1 py-2 min-w-0 cursor-pointer"
               aria-current={isActive ? 'true' : undefined}
+              title={`${conv.title} · ${formatRelativeTime(conv.updatedAt)}`}
             >
-              <div className="text-[13.5px] truncate">{conv.title}</div>
-              <div className="text-[11.5px] font-normal" style={{ color: 'var(--color-text-tertiary)' }}>
-                {formatRelativeTime(conv.updatedAt)}
-              </div>
+              <div className="text-[14px] truncate">{conv.title}</div>
             </button>
             <button
               onClick={(e) => {

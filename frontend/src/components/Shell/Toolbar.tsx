@@ -1,18 +1,21 @@
+import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import {
   SquarePen,
   Search,
   PanelLeft,
-  MessageSquare,
   NotebookPen,
   Briefcase,
   HeartPulse,
   UserRound,
   Settings,
   Shapes,
+  Library,
+  MessageSquare,
 } from 'lucide-react';
 import { useAppStore } from '../../lib/store';
 import { LiveOrb } from '../Live/LiveOrb';
+import { ConversationList } from '../Sidebar/ConversationList';
 
 // Nodes: a few dots, like the persistent agents they are.
 function NodesIcon({ size = 20, strokeWidth = 1.5 }: { size?: number; strokeWidth?: number }) {
@@ -40,17 +43,17 @@ function SwarmIcon({ size = 20, strokeWidth = 1.5 }: { size?: number; strokeWidt
   );
 }
 
-// Every part of Sergio, as icons only, each with its own colour (names on
-// hover). The colour follows the section everywhere: icon, cards, accents.
+// Sergio's parts, listed in the sidebar like ChatGPT lists GPTs and
+// projects: plain monochrome icons and names.
 export const TOOLBAR_ITEMS = [
-  { path: '/chat', icon: MessageSquare, label: 'Chat', color: 'var(--sec-chat)' },
-  { path: '/nodes', icon: NodesIcon, label: 'Nodes', color: 'var(--sec-nodes)' },
-  { path: '/swarm', icon: SwarmIcon, label: 'Agent Swarm', color: 'var(--sec-swarm)' },
-  { path: '/workspace', icon: NotebookPen, label: 'Workspace', color: 'var(--sec-workspace)' },
-  { path: '/creator', icon: Shapes, label: 'Creator', color: 'var(--sec-creator)' },
-  { path: '/cowork', icon: Briefcase, label: 'Cowork', color: 'var(--sec-cowork)' },
-  { path: '/salud', icon: HeartPulse, label: 'Salud', color: 'var(--sec-health)' },
-  { path: '/perfil', icon: UserRound, label: 'Perfil', color: 'var(--sec-profile)' },
+  { path: '/chat', icon: MessageSquare, label: 'Chat' },
+  { path: '/nodes', icon: NodesIcon, label: 'Nodes' },
+  { path: '/swarm', icon: SwarmIcon, label: 'Agent Swarm' },
+  { path: '/workspace', icon: NotebookPen, label: 'Workspace' },
+  { path: '/creator', icon: Shapes, label: 'Creator' },
+  { path: '/cowork', icon: Briefcase, label: 'Cowork' },
+  { path: '/salud', icon: HeartPulse, label: 'Salud' },
+  { path: '/perfil', icon: UserRound, label: 'Perfil' },
 ] as const;
 
 export function isActive(path: string, pathname: string): boolean {
@@ -58,95 +61,175 @@ export function isActive(path: string, pathname: string): boolean {
   return pathname === path || pathname.startsWith(`${path}/`);
 }
 
-function RailButton({
+function Item({
+  icon,
   label,
   hint,
   active,
   onClick,
-  children,
-  pressed,
-  color,
 }: {
+  icon: React.ReactNode;
   label: string;
   hint?: string;
   active?: boolean;
-  pressed?: boolean;
-  color?: string;
   onClick: () => void;
-  children: React.ReactNode;
 }) {
   return (
-    <button
-      type="button"
-      className="rail-item"
-      style={color ? ({ '--sec': color } as React.CSSProperties) : undefined}
-      aria-label={label}
-      aria-current={active ? 'page' : undefined}
-      aria-pressed={pressed}
-      onClick={onClick}
-    >
-      {children}
-      <span className="rail-tip" aria-hidden="true">
-        {label}
-        {hint && <kbd>{hint}</kbd>}
-      </span>
+    <button type="button" className="sb-item" aria-current={active ? 'page' : undefined} onClick={onClick} title={label} aria-label={label}>
+      <span className="sb-ico">{icon}</span>
+      <span className="sb-label">{label}</span>
+      {hint && <kbd className="sb-kbd">{hint}</kbd>}
     </button>
   );
 }
 
-// The rail on the left: the mark, new chat, search and the history on top;
-// the colour-coded sections in the middle; Sergio's living orb (the
-// always-on conversation) and settings at the foot. On a phone it becomes a
-// bar of icons at the bottom.
+// The sidebar, like ChatGPT's: the mark and the toggle on top; new chat,
+// search and the library; Sergio's parts; the chats; and at the foot the
+// always-on conversation and the owner's row. Closed it folds into a rail
+// of icons; on a phone it slides over the page.
 export function Toolbar({ historyOpen, onToggleHistory }: { historyOpen: boolean; onToggleHistory: () => void }) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
-  const setCommandPaletteOpen = useAppStore((s) => s.setCommandPaletteOpen);
   const createConversation = useAppStore((s) => s.createConversation);
   const selectedModel = useAppStore((s) => s.selectedModel);
   const mac = typeof navigator !== 'undefined' && navigator.platform.includes('Mac');
+  const [query, setQuery] = useState('');
+  const [searching, setSearching] = useState(false);
+  const searchRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (searching && historyOpen) searchRef.current?.focus();
+  }, [searching, historyOpen]);
+  // Ctrl/⌘ ⇧ O starts a new chat, as in ChatGPT.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'o') {
+        e.preventDefault();
+        createConversation(useAppStore.getState().selectedModel);
+        navigate('/chat');
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [createConversation, navigate]);
+  const narrow = () => typeof window !== 'undefined' && window.innerWidth < 768;
+  const go = (path: string) => {
+    navigate(path);
+    if (narrow() && historyOpen) onToggleHistory();
+  };
 
   return (
-    <nav className="rail" aria-label="Secciones">
-      <div className="rail-group rail-top">
-        <button type="button" className="rail-mark" aria-label="Sergio, inicio" onClick={() => navigate('/')}>
-          S
-        </button>
-        <RailButton
-          label="Nuevo chat"
-          onClick={() => {
-            createConversation(selectedModel);
-            navigate('/chat');
-          }}
-        >
-          <SquarePen size={19} strokeWidth={1.5} />
-        </RailButton>
-        <RailButton label="Buscar" hint={mac ? '⌘K' : 'Ctrl K'} onClick={() => setCommandPaletteOpen(true)}>
-          <Search size={19} strokeWidth={1.5} />
-        </RailButton>
-        <RailButton label={historyOpen ? 'Cerrar historial' : 'Historial'} pressed={historyOpen} onClick={onToggleHistory}>
-          <PanelLeft size={19} strokeWidth={1.5} />
-        </RailButton>
-      </div>
-      <div className="rail-group rail-sections">
-        {TOOLBAR_ITEMS.map((item) => (
-          <RailButton
-            key={item.path}
-            label={item.label}
-            color={item.color}
-            active={isActive(item.path, pathname)}
-            onClick={() => navigate(item.path)}
+    <>
+      {historyOpen && <div className="sb-scrim" onClick={onToggleHistory} aria-hidden="true" />}
+      <nav className="sb" data-open={historyOpen || undefined} aria-label="Barra lateral">
+        <div className="sb-head">
+          <button
+            type="button"
+            className="sb-mark"
+            aria-label={historyOpen ? 'Sergio, inicio' : 'Abrir la barra lateral'}
+            title={historyOpen ? 'Inicio' : 'Abrir la barra lateral'}
+            onClick={() => (historyOpen ? go('/') : onToggleHistory())}
           >
-            <item.icon size={20} strokeWidth={1.5} />
-          </RailButton>
-        ))}
-      </div>
-      <div className="rail-group rail-foot">
-        <LiveOrb />
-        <RailButton label="Ajustes" active={isActive('/settings', pathname)} onClick={() => navigate('/settings')}>
-          <Settings size={19} strokeWidth={1.5} />
-        </RailButton>
-      </div>
-    </nav>
+            <span className="sb-mark-s">S</span>
+            <PanelLeft className="sb-mark-panel" size={20} strokeWidth={1.6} />
+          </button>
+          <button
+            type="button"
+            className="sb-toggle"
+            aria-label="Cerrar la barra lateral"
+            title="Cerrar la barra lateral"
+            onClick={onToggleHistory}
+          >
+            <PanelLeft size={20} strokeWidth={1.6} />
+          </button>
+        </div>
+
+        <div className="sb-scroll">
+          <div className="sb-group">
+            <Item
+              icon={<SquarePen size={18} strokeWidth={1.7} />}
+              label="Nuevo chat"
+              hint={mac ? '⇧⌘O' : 'Ctrl ⇧ O'}
+              onClick={() => {
+                createConversation(selectedModel);
+                go('/chat');
+              }}
+            />
+            <Item
+              icon={<Search size={18} strokeWidth={1.7} />}
+              label="Buscar chats"
+              active={searching}
+              onClick={() => {
+                if (!historyOpen) onToggleHistory();
+                setSearching((on) => (historyOpen ? !on : true));
+                if (searching) setQuery('');
+              }}
+            />
+            <Item
+              icon={<Library size={18} strokeWidth={1.7} />}
+              label="Biblioteca"
+              active={isActive('/biblioteca', pathname)}
+              onClick={() => go('/biblioteca')}
+            />
+          </div>
+
+          <div className="sb-group">
+            {TOOLBAR_ITEMS.filter((i) => i.path !== '/chat').map((item) => (
+              <Item
+                key={item.path}
+                icon={<item.icon size={18} strokeWidth={1.7} />}
+                label={item.label}
+                active={isActive(item.path, pathname)}
+                onClick={() => go(item.path)}
+              />
+            ))}
+          </div>
+
+          <div className="sb-chats">
+            {searching ? (
+              <label className="sb-search">
+                <Search size={14} strokeWidth={1.7} />
+                <input
+                  ref={searchRef}
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Escape' && (setQuery(''), setSearching(false))}
+                  placeholder="Buscar chats…"
+                  aria-label="Buscar chats"
+                />
+              </label>
+            ) : (
+              <h2 className="sb-section">Chats</h2>
+            )}
+            <div className="sb-list" onClick={() => narrow() && historyOpen && onToggleHistory()}>
+              <ConversationList searchQuery={query} />
+            </div>
+          </div>
+        </div>
+
+        <div className="sb-foot">
+          <div className="sb-live">
+            <LiveOrb size="sm" />
+            <span className="sb-label">Conversación</span>
+          </div>
+          <button
+            type="button"
+            className="sb-user"
+            aria-label="Ajustes"
+            title="Ajustes"
+            aria-current={isActive('/settings', pathname) ? 'page' : undefined}
+            onClick={() => go('/settings')}
+          >
+            <span className="sb-avatar" aria-hidden="true">
+              S
+            </span>
+            <span className="sb-label">
+              <b>Señor</b>
+              <small>Ajustes</small>
+            </span>
+            <Settings className="sb-user-gear" size={16} strokeWidth={1.7} />
+          </button>
+        </div>
+      </nav>
+    </>
   );
 }

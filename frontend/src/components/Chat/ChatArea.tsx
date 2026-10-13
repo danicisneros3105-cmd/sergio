@@ -16,7 +16,6 @@ import {
   Database,
   FileText,
   Network,
-  NotebookPen,
   Shapes,
   Search,
 } from 'lucide-react';
@@ -30,30 +29,21 @@ export function friendlyModel(id: string): string {
   return 'En su PC';
 }
 
-function getGreeting(): string {
-  const hour = new Date().getHours();
-  if (hour < 12) return 'Buenos días';
-  if (hour < 19) return 'Buenas tardes';
-  return 'Buenas noches';
-}
-
-// What people actually do with Sergio, as cards under the composer: some
-// open their section, the rest fill the composer with an editable start.
-// Each card wears its section's colour.
+// What people actually do with Sergio, as ChatGPT's pills under the
+// composer: some open their section, the rest fill the composer with an
+// editable start.
 const MODES: Array<{
   icon: typeof Search;
   label: string;
   hint: string;
-  color: string;
   to?: string;
   text?: string;
 }> = [
-  { icon: CalendarCheck, label: 'Organiza mi semana', hint: 'Tareas, horarios y recordatorios', color: 'var(--sec-chat)', text: 'Ayúdame a organizar mi semana: ' },
-  { icon: FileText, label: 'Resume un documento', hint: 'Adjunte un PDF o pegue el texto', color: 'var(--sec-cowork)', text: 'Resume esto en cinco puntos: ' },
-  { icon: Shapes, label: 'Crea algo', hint: 'Imagen, diseño o modelo 3D', color: 'var(--sec-creator)', to: '/creator' },
-  { icon: CircleDot, label: 'Vigila algo por mí', hint: 'Un Node que avisa cuando cambia', color: 'var(--sec-nodes)', to: '/nodes?nuevo=1' },
-  { icon: Network, label: 'Investiga a fondo', hint: 'Muchos agentes a la vez', color: 'var(--sec-swarm)', to: '/swarm' },
-  { icon: NotebookPen, label: 'Toma notas', hint: 'Páginas, tablas y tareas', color: 'var(--sec-workspace)', to: '/workspace' },
+  { icon: CalendarCheck, label: 'Mi semana', hint: 'Tareas, horarios y recordatorios', text: 'Ayúdame a organizar mi semana: ' },
+  { icon: FileText, label: 'Resumir texto', hint: 'Adjunte un PDF o pegue el texto', text: 'Resume esto en cinco puntos: ' },
+  { icon: Shapes, label: 'Crear algo', hint: 'Imagen, diseño o modelo 3D', to: '/creator' },
+  { icon: CircleDot, label: 'Vigilar algo', hint: 'Un Node que avisa cuando cambia', to: '/nodes?nuevo=1' },
+  { icon: Network, label: 'Investigar', hint: 'Muchos agentes a la vez', to: '/swarm' },
 ];
 
 function prefill(text: string) {
@@ -191,9 +181,9 @@ export function ChatArea() {
           onClick={() => setCommandPaletteOpen(true)}
           title={`Modelo: ${selectedModel || "ninguno"} (cambiar con Ctrl+K)`}
         >
-          <span className="wordmark">Sergio</span>
+          <span className="chat-model-brand">Sergio</span>
           <span className="chat-model-name">{modelLabel}</span>
-          <ChevronDown size={14} strokeWidth={1.75} />
+          <ChevronDown size={16} strokeWidth={2} />
         </button>
         <span className="chat-top-title" title={title}>
           {messages.length ? title : ''}
@@ -226,10 +216,7 @@ export function ChatArea() {
       >
         {isEmpty ? (
           <div className="mac-rise text-center" style={{ ['--i' as string]: 0 }}>
-            <h2 className="chat-hello">
-              <span className="chat-hello-name">{getGreeting()}, señor</span>
-              <span className="chat-hello-ask">¿En qué trabajamos hoy?</span>
-            </h2>
+            <h1 className="chat-hello">¿En qué trabajamos hoy, señor?</h1>
           </div>
         ) : (
           <div className="max-w-[var(--chat-max-width)] mx-auto px-4 py-6">
@@ -267,26 +254,24 @@ export function ChatArea() {
       {isEmpty && (
         <div className="flex-[1.4] px-4 overflow-y-auto">
           <div
-            className="mac-rise mx-auto starter-grid pt-1"
+            className="mac-rise mx-auto starter-pills pt-1"
             style={{ maxWidth: 'var(--chat-max-width)', ['--i' as string]: 2 }}
           >
-            {MODES.map(({ icon: Icon, label, hint, color, to, text }) => (
+            {MODES.map(({ icon: Icon, label, hint, to, text }) => (
               <button
                 key={label}
-                className="starter-card"
-                style={{ '--sec': color } as React.CSSProperties}
+                type="button"
+                className="starter-pill"
+                title={hint}
                 onClick={() => (to ? navigate(to) : prefill(text || ''))}
               >
-                <span className="starter-icon" aria-hidden="true">
-                  <Icon size={18} strokeWidth={1.8} />
-                </span>
-                <b>{label}</b>
-                <small>{hint}</small>
+                <Icon size={16} strokeWidth={1.8} aria-hidden="true" />
+                {label}
               </button>
             ))}
             {hasConnectedSources === false && (
-              <button className="mac-chip" onClick={() => navigate('/data-sources')}>
-                <Database size={15} strokeWidth={1.6} />
+              <button type="button" className="starter-pill" onClick={() => navigate('/data-sources')}>
+                <Database size={16} strokeWidth={1.8} aria-hidden="true" />
                 Conectar mis apps
               </button>
             )}

@@ -1,6 +1,7 @@
-// Sergio's living orb: the always-on conversation, visible on every page.
-// Click it to mute or unmute (it never hangs up); if the microphone was
-// refused, clicking asks again. Its glow follows his voice and yours.
+// The always-on conversation, visible on every page. Small, it is ChatGPT's
+// voice button (a black circle whose bars move with the voice); large, the
+// light-blue sphere of voice mode. Click to mute or unmute (it never hangs
+// up); if the microphone was refused, clicking asks again.
 
 import { useEffect, useRef, useState } from 'react';
 import { MicOff } from 'lucide-react';
@@ -50,7 +51,16 @@ export function LiveOrb({ size = 'md' }: { size?: 'sm' | 'md' | 'lg' }) {
         else ensure();
       }}
     >
-      <i aria-hidden="true" />
+      <i aria-hidden="true">
+        {size !== 'lg' && !muted && (
+          <>
+            <b />
+            <b />
+            <b />
+            <b />
+          </>
+        )}
+      </i>
       {muted && <MicOff size={size === 'sm' ? 12 : 15} strokeWidth={2} aria-hidden="true" />}
     </button>
   );
