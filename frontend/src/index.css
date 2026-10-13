@@ -3325,3 +3325,37 @@ h1, .chat-hello, .creator-head h1, .ext-title, .paper-title, .studio-heading h1,
 
 /* Minimal (owner): no explanatory subtexts under titles. Data stays. */
 p.node-hint:not(.node-path), .node-create-sub, .swarm-sub, .swarm-hint, .studio-heading p, .studio-kicker { display: none; }
+
+/* ===========================================================================
+   Nodes in 3D (dots3d.ts): rendered frames shown as images, brought to life
+   with CSS — breathing, a blink every few seconds, talking, typing bounce.
+   =========================================================================== */
+.critter3d { position: relative; display: inline-grid; place-items: center; flex-shrink: 0; }
+.critter3d-body {
+  position: relative; display: block; width: 115%; height: 115%; margin: -7.5%;
+  transform-origin: 50% 88%; animation: dots-breathe 4.6s ease-in-out infinite;
+  opacity: 0; transition: opacity 0.35s ease;
+}
+.critter3d[data-ready] .critter3d-body { opacity: 1; }
+.critter3d-body img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; user-select: none; pointer-events: none; }
+.critter3d-blink { opacity: 0; animation: dots-blink 5.4s infinite; }
+.critter3d-talk { animation: dots-talk 0.26s steps(1) infinite; }
+.critter3d[data-talking] .critter3d-blink { display: none; }
+.critter3d[data-status='working'] .critter3d-body { animation: dots-bounce 0.9s cubic-bezier(.3,0,.3,1) infinite; }
+.critter3d[data-status='needs_you'] .critter3d-body,
+.critter3d[data-status='waiting_approval'] .critter3d-body { animation: dots-wiggle 1.6s ease-in-out infinite; }
+.critter3d[data-status='paused'] { filter: grayscale(0.85) opacity(0.6); }
+.critter3d[data-status='paused'] .critter3d-body { animation: none; }
+.critter3d-alert {
+  position: absolute; top: 4%; right: 4%; width: 22%; height: 22%; min-width: 8px; min-height: 8px;
+  border-radius: 50%; background: #ff4d4f; box-shadow: 0 0 0 2px var(--color-bg); animation: dots-pulse 1.4s ease-in-out infinite;
+}
+@keyframes dots-breathe { 0%, 100% { transform: translateY(0) scale(1, 1); } 50% { transform: translateY(-2.5%) scale(1.015, 0.99); } }
+@keyframes dots-blink { 0%, 93%, 100% { opacity: 0; } 94.5%, 97.5% { opacity: 1; } }
+@keyframes dots-talk { 0% { opacity: 1; } 50% { opacity: 0; } }
+@keyframes dots-bounce { 0%, 100% { transform: translateY(0) scale(1, 1); } 30% { transform: translateY(-6%) scale(0.98, 1.03); } 60% { transform: translateY(0) scale(1.04, 0.96); } }
+@keyframes dots-wiggle { 0%, 100% { transform: rotate(0); } 20% { transform: rotate(-5deg); } 40% { transform: rotate(4deg); } 60% { transform: rotate(-2deg); } }
+@keyframes dots-pulse { 50% { transform: scale(1.25); } }
+@media (prefers-reduced-motion: reduce) {
+  .critter3d-body, .critter3d-blink, .critter3d-talk { animation: none; }
+}

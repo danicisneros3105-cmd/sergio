@@ -66,7 +66,7 @@ def test_face_tone_and_apps_are_checked():
 def test_template_creates_a_ready_node(tmp_path):
     worker, seen = _worker(tmp_path, [])
     node = worker.create("Mía", template="correo")
-    assert node.avatar["shape"] == "heart" and node.apps == {
+    assert node.avatar["shape"] == "glove" and node.apps == {
         "gmail": "read",
         "gcalendar": "read",
     }

@@ -1,4 +1,5 @@
-import { useId } from 'react';
+import { useEffect, useId, useState } from 'react';
+import { cachedFrames, renderFrames, webglAvailable, type DotsFrames } from './dots3d';
 import type { NodeStatus } from '../../lib/nodes';
 
 // Sergio's own little characters, made like glossy vinyl toys (the look of
@@ -9,6 +10,10 @@ import type { NodeStatus } from '../../lib/nodes';
 // base; there is no fur. Pure SVG: no images, no lag.
 
 export type CritterShape =
+  | 'rhino'
+  | 'dalmatian'
+  | 'glove'
+  | 'orb'
   | 'bean'
   | 'blob'
   | 'drop'
@@ -54,7 +59,9 @@ interface ShapeSpec {
   ring?: boolean; // the planet's ring
 }
 
-const SHAPES: Record<CritterShape, ShapeSpec> = {
+type FlatShape = Exclude<CritterShape, 'rhino' | 'dalmatian' | 'glove' | 'orb'>;
+const FLAT_OF: Record<string, FlatShape> = { rhino: 'bean', dalmatian: 'bear', glove: 'blob', orb: 'ghost' };
+const SHAPES: Record<FlatShape, ShapeSpec> = {
   // 'bean' is drawn as a smooth pebble (wide and low)
   bean: {
     body: 'M60 34 C90 34 104 52 104 72 C104 94 86 104 60 104 C34 104 16 94 16 72 C16 52 30 34 60 34 Z',
@@ -307,21 +314,67 @@ function Accessory({ kind, spec }: { kind: CritterAccessory; spec: ShapeSpec }) 
   }
 }
 
-export function NodeCritter({
-  look,
-  status = 'idle',
-  size = 48,
-  label,
-  talking = false,
-}: {
+interface CritterProps {
   look: CritterLook;
   status?: NodeStatus;
   size?: number;
   label?: string;
   talking?: boolean;
-}) {
+}
+
+const HAS_WEBGL = webglAvailable();
+
+/** A Node's character: real 3D (flocked, lit, with depth) where the browser
+ * has WebGL, the flat drawing otherwise. */
+export function NodeCritter(props: CritterProps) {
+  const { look, size = 48 } = props;
+  const px = Math.round(size * (typeof window !== 'undefined' ? Math.min(window.devicePixelRatio || 1, 2) : 1) * 1.15);
+  const [frames, setFrames] = useState<DotsFrames | null | undefined>(() => (HAS_WEBGL ? cachedFrames(look, px) : null));
+  const key = `${look.shape}|${look.color}|${look.accessory}|${look.eyes}|${px}`;
+  useEffect(() => {
+    if (!HAS_WEBGL) return;
+    let live = true;
+    const hit = cachedFrames(look, px);
+    if (hit) setFrames(hit);
+    else {
+      setFrames(undefined);
+      void renderFrames(look, px).then((f) => live && setFrames(f));
+    }
+    return () => {
+      live = false;
+    };
+  }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
+  if (frames === null) return <CritterSvg {...props} />;
+  return <Critter3D {...props} frames={frames} />;
+}
+
+function Critter3D({ status = 'idle', size = 48, label, talking = false, frames }: CritterProps & { frames?: DotsFrames }) {
+  return (
+    <span
+      className="critter critter3d"
+      data-status={status}
+      data-talking={talking || undefined}
+      data-ready={frames ? true : undefined}
+      role={label ? 'img' : undefined}
+      aria-label={label}
+      aria-hidden={label ? undefined : true}
+      style={{ width: size, height: size }}
+    >
+      {frames && (
+        <span className="critter3d-body">
+          <img src={frames.open} alt="" draggable={false} className="critter3d-open" />
+          <img src={frames.blink} alt="" draggable={false} className="critter3d-blink" />
+          {talking && <img src={frames.talk} alt="" draggable={false} className="critter3d-talk" />}
+        </span>
+      )}
+      {(status === 'needs_you' || status === 'waiting_approval') && <i className="critter3d-alert" />}
+    </span>
+  );
+}
+
+function CritterSvg({ look, status = 'idle', size = 48, label, talking = false }: CritterProps) {
   const uid = useId().replace(/[^a-zA-Z0-9]/g, '');
-  const spec = SHAPES[look.shape] || SHAPES.bean;
+  const spec = SHAPES[(FLAT_OF[look.shape] || look.shape) as FlatShape] || SHAPES.bean;
   const chosen = /^#[0-9a-f]{6}$/i.test(look.color) ? look.color : '#9fd3ff';
   // The mushroom wears the chosen colour on its cap; its stem is cream.
   const color = spec.cap ? '#f6ead8' : chosen;
@@ -416,5 +469,6 @@ export function NodeCritter({
   );
 }
 
-const SHAPE_LIST: CritterShape[] = ['bean', 'blob', 'drop', 'heart', 'frog', 'bear', 'star', 'ghost', 'mushroom', 'cactus', 'planet'];
+// The cast offered for new Nodes; the older shapes still draw (as one of these).
+const SHAPE_LIST: CritterShape[] = ['rhino', 'dalmatian', 'glove', 'orb'];
 export const CRITTER_SHAPES = SHAPE_LIST;

@@ -165,6 +165,12 @@ COLORS = ("#9fd3ff", "#111111", "#ffffff", "#5fb4f0", "#cfe9ff", "#3a3a3a")
 # The characters (own design, glossy like vinyl toys): body shapes, colours,
 # things they wear and their eyes. Any combination is a valid character.
 SHAPES = (
+    # the cast (real 3D, flocked like Dots): new Nodes choose among these
+    "rhino",
+    "dalmatian",
+    "glove",
+    "orb",
+    # older shapes still load; the web draws each as one of the cast
     "bean",
     "blob",
     "drop",
@@ -272,7 +278,7 @@ def tools_for(rules: Dict[str, str], extra: Iterable[str] = ()) -> List[str]:
 def random_avatar(seed: str = "") -> Dict[str, str]:
     rng = random.Random(seed or secrets.token_hex(4))
     return {
-        "shape": rng.choice(SHAPES),
+        "shape": rng.choice(SHAPES[:4]),  # the cast
         "color": rng.choice(FELT[:8]),
         "accessory": rng.choice(ACCESSORIES),
         "eyes": rng.choice(EYES[:4]),

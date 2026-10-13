@@ -48,9 +48,14 @@ termina en la rama `main`, y el dueño actualiza con un único comando.
 - Diseño (decisión del dueño, oct. 2026): **idéntico al de ChatGPT** (o al de
   Muse de Meta), no inventado: fondo blanco / #212121, barra lateral gris
   claro, letra del sistema, botones negros redondeados, sin degradados ni
-  colores de adorno. La marca «Sergio» va en Josefin Sans solo como logotipo.
-- Nodes: personajes 3D brillantes y tiernos como los Dots de OpenAI (formas
-  con ojos simples y accesorios), pero personajes propios; nada de peludos.
+  colores de adorno.
+- Nodes (dueño, oct. 2026): 3D de verdad con el estilo exacto de los Dots
+  (flocado aterciopelado, profundidad, luz de estudio), elenco propio:
+  rinoceronte de ojos cerrados con camiseta a rayas celeste y blanco,
+  dálmata, guante médico azul inflado con boina y cara de marcador, y orbe
+  invisible con gafas de leopardo y ojos negros. `components/Nodes/dots3d.ts`.
+- Ningún subtexto explicativo bajo los títulos; los títulos y la marca van
+  con las letras del logo B&O (Josefin Sans), el resto con la del sistema.
 - No se reinventa lo que ya existe: Creator usa programas reales —
   ArtCraft (+ Kdenlive) para lo de Adobe, FreeCAD + Bonsai/BlenderBIM +
   LibreCAD para arquitectura, OpenDesign para lo de Canva, VSCodium para
@@ -58,6 +63,8 @@ termina en la rama `main`, y el dueño actualiza con un único comando.
   en Ubuntu con `scripts/instalar-programas.sh` (lo llama la actualización);
   los de Windows, en segundo plano con `sergio_escritorio/creator_apps.py`.
   LidoJS no tiene licencia abierta: no se usa sin comprarla.
+  En la interfaz se ven con nombres de Sergio (Diseño, Código, Imagen,
+  Video, Planos, BIM, Plano 2D, Estudio 3D, Pronóstico), nunca con los suyos.
 - «Anatomy» es una skill oculta que Sergio usa siempre (herramienta
   `anatomy_figure`, siempre activa): la lámina aparece dentro del chat; no
   es un apartado de la app.
