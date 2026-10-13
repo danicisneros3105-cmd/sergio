@@ -51,6 +51,9 @@ uv run --no-sync python -c 'from google import genai; from google.genai import t
   npm ci --no-audit --no-fund
   npm run build
 )
+# Creator's programs inside Ubuntu (OpenDesign, VSCodium web, Kronos): never
+# blocks the update; whatever fails is retried next time.
+bash scripts/instalar-programas.sh || echo "Aviso: algún programa de Creator no se instaló; se reintenta en la próxima actualización." >&2
 uv run --no-sync sergio escritorio instalar
 # The background service must run this checkout (older updates used other folders).
 uv run --no-sync sergio servicio instalar </dev/null || echo "Aviso: no pude reinstalar el servicio; ejecuta «sergio servicio instalar»." >&2

@@ -10,8 +10,10 @@ __all__ = [
     "create_security_middleware",
 ]
 
-# Ports of the bundled extensions (OpenClacky, 3D globe) that the UI embeds.
-_DEFAULT_EMBED_PORTS = (7070, 4173)
+# Ports of the bundled extensions (OpenClacky, 3D globe) and of Creator's
+# programs (OpenDesign, VSCodium web) that the UI embeds.
+_CREATOR_EMBED_PORTS = (8790, 8791)
+_DEFAULT_EMBED_PORTS = (7070, 4173, *_CREATOR_EMBED_PORTS)
 
 
 def content_security_policy(embed_ports: tuple[int, ...] = _DEFAULT_EMBED_PORTS) -> str:
@@ -40,7 +42,7 @@ def _embed_ports() -> tuple[int, ...]:
         from openjarvis.core.config import load_config
 
         ext = load_config().extensions
-        return (int(ext.clacky.port), int(ext.globe.port))
+        return (int(ext.clacky.port), int(ext.globe.port), *_CREATOR_EMBED_PORTS)
     except Exception:  # noqa: BLE001 — fall back to the default ports
         return _DEFAULT_EMBED_PORTS
 

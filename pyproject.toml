@@ -167,7 +167,7 @@ faces = ["opencv-python-headless>=4.10"]
 # the memory uses a JSON vector store, without langgraph a plain loop.
 evolution = ["chromadb>=1.0", "langgraph>=0.6"]
 # Professional CAD files (DXF) from images and 3D models, with previews.
-cad = ["ezdxf>=1.3", "opencv-python-headless>=4.10", "matplotlib>=3.8"]
+cad = ["ezdxf>=1.3", "opencv-python-headless>=4.10", "matplotlib>=3.8", "ifcopenshell>=0.8"]
 # Tripo 3D: text / image -> textured 3D models (needs a tsk_ key).
 tripo = ["tripo3d>=0.4"]
 channel-gmail = [

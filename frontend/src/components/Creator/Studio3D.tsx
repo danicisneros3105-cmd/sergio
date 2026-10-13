@@ -531,6 +531,36 @@ export function Studio3D({ mode }: { mode: 'modelado' | 'arquitectura' }) {
     toast.success('Plano DXF descargado (muros, huecos y cotas).');
   };
 
+  // The same plan as a BIM building (IFC): walls, and doors and windows cut
+  // into them, for FreeCAD or Blender with Bonsai.
+  const exportIfc = async () => {
+    const plan = planOf(items);
+    if (!plan.walls.length) return toast.error('Dibuje al menos un muro.');
+    const res = await apiFetch('/v1/creator/plan/ifc', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(plan),
+    });
+    if (!res.ok) return toast.error((await res.json().catch(() => ({}))).detail || 'No pude crear el edificio IFC.');
+    download(await res.blob(), 'plano-sergio.ifc');
+    toast.success('Edificio IFC descargado: ábralo en FreeCAD o en Blender con Bonsai.');
+  };
+
+  // Make the file and open it in the real program on the owner's PC.
+  const openPlan = async (program: 'freecad' | 'bonsai' | 'librecad') => {
+    const plan = planOf(items);
+    if (!plan.walls.length) return toast.error('Dibuje al menos un muro.');
+    const kind = program === 'librecad' ? 'dxf' : 'ifc';
+    const res = await apiFetch('/v1/creator/plan/open', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...plan, program, kind }),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) return toast.error(body.detail || 'No pude abrir el plano.');
+    toast.success(body.message || 'Abriendo el plano…');
+  };
+
   // Blender Pro writes a checked script from the same request; the owner's
   // Blender runs it (Scripting → Run) and it saves the .blend by itself.
   const toBlender = async () => {
@@ -761,9 +791,26 @@ export function Studio3D({ mode }: { mode: 'modelado' | 'arquitectura' }) {
             <Download size={15} /> Exportar GLB
           </button>
           {arch && (
-            <button type="button" className="paper-button" data-variant="quiet" onClick={exportDxf}>
-              <Download size={15} /> Plano DXF
-            </button>
+            <>
+              <button type="button" className="paper-button" data-variant="quiet" onClick={exportDxf}>
+                <Download size={15} /> Plano DXF
+              </button>
+              <button type="button" className="paper-button" data-variant="quiet" onClick={exportIfc}>
+                <Download size={15} /> Edificio IFC (BIM)
+              </button>
+              <div className="studio-open-in" role="group" aria-label="Abrir el plano en">
+                <span>Abrir en</span>
+                <button type="button" className="mac-chip" onClick={() => void openPlan('freecad')}>
+                  FreeCAD
+                </button>
+                <button type="button" className="mac-chip" onClick={() => void openPlan('bonsai')}>
+                  Bonsai
+                </button>
+                <button type="button" className="mac-chip" onClick={() => void openPlan('librecad')}>
+                  LibreCAD
+                </button>
+              </div>
+            </>
           )}
           {lastRequest && (
             <button type="button" className="paper-button" onClick={toBlender} disabled={!!busy}>

@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import json
 import os
+import secrets
+import shlex
 import shutil
 import signal
 import socket
@@ -24,6 +26,13 @@ from openjarvis.unified.model_bridge import ModelBridgeError, clacky_env
 from openjarvis.unified.paths import extension_dir, state_dir
 
 _IS_WINDOWS = sys.platform == "win32"
+
+# Creator's programs that run here and show inside Sergio's web (installed
+# by scripts/instalar-programas.sh into ~/.openjarvis/apps).
+OPENDESIGN_PORT = 8790  # its editor (vite preview, proxies /api)
+OPENDESIGN_API_PORT = 8787  # its API (wrangler dev: Hono + local SQLite)
+VSCODIUM_PORT = 8791
+CREATOR_APPS = ("opendesign", "vscodium")
 
 
 @dataclass
@@ -152,6 +161,88 @@ class Supervisor:
             out.append(self._tunnel(tunnel))
         return out
 
+    def creator_services(self) -> list[Service]:
+        """Creator's programs: started on demand from the web, never at boot."""
+        return [self._opendesign(), self._vscodium()]
+
+    @staticmethod
+    def apps_dir() -> Path:
+        from openjarvis.core.paths import get_config_dir
+
+        return get_config_dir() / "apps"
+
+    def _node_path(self, tool: str) -> str:
+        node_dir = str(Path(tool).resolve().parent)
+        return os.pathsep.join([node_dir, self._environ.get("PATH", ""), *tool_dirs()])
+
+    def _opendesign(self) -> Service:
+        """OpenDesign (MIT): the Canva-like editor, its API and its editor in
+        one process group so a single stop ends both."""
+        cwd = self.apps_dir() / "opendesign"
+        svc = Service("opendesign", "OpenDesign", OPENDESIGN_PORT, cwd)
+        if not (cwd / "dist" / "index.html").is_file():
+            svc.problem = "OpenDesign no está instalado (se instala al actualizar)"
+            return svc
+        npx = self._which("npx")
+        if npx is None:
+            svc.problem = "Falta Node.js (npx) para OpenDesign"
+            return svc
+        svc.env = {"PATH": self._node_path(npx), "WRANGLER_SEND_METRICS": "false"}
+        tool = shlex.quote(npx)
+        # The editor proxies /api to the API: it only opens its port once the
+        # API answers, so "running" means both are ready.
+        wait_api = (
+            "for _ in $(seq 240); do "
+            f"(exec 3<>/dev/tcp/127.0.0.1/{OPENDESIGN_API_PORT}) 2>/dev/null && break; "
+            "sleep 0.5; done"
+        )
+        svc.command = [
+            "bash",
+            "-c",
+            f"{tool} wrangler dev --port {OPENDESIGN_API_PORT} --ip 127.0.0.1 & "
+            f"{wait_api}; "
+            f"exec {tool} vite preview --port {OPENDESIGN_PORT} --host 127.0.0.1 --strictPort",
+        ]
+        return svc
+
+    def vscodium_token(self) -> str:
+        """The VSCodium web server's connection token (created once, private)."""
+        path = self._state / "vscodium.token"
+        try:
+            token = path.read_text().strip()
+        except OSError:
+            token = ""
+        if not token:
+            token = secrets.token_urlsafe(24)
+            path.write_text(token)
+            path.chmod(0o600)
+        return token
+
+    def _vscodium(self) -> Service:
+        """VSCodium in the browser (its official reh-web server)."""
+        cwd = self.apps_dir() / "vscodium-web"
+        svc = Service("vscodium", "VSCodium", VSCODIUM_PORT, cwd)
+        server = cwd / "bin" / "codium-server"
+        if not server.is_file():
+            svc.problem = "VSCodium web no está instalado (se instala al actualizar)"
+            return svc
+        self.vscodium_token()
+        from openjarvis.creator.studio import projects_root
+
+        svc.command = [
+            str(server),
+            "--host",
+            "127.0.0.1",
+            "--port",
+            str(VSCODIUM_PORT),
+            "--connection-token-file",
+            str(self._state / "vscodium.token"),
+            "--accept-server-license-terms",
+            "--default-folder",
+            str(projects_root()),
+        ]
+        return svc
+
     def server_port(self) -> int:
         """The API port actually in use (gui/service override, then config)."""
         if self._server_port:
@@ -278,7 +369,7 @@ class Supervisor:
         return svc
 
     def get(self, name: str) -> Service:
-        for svc in self.services():
+        for svc in [*self.services(), *self.creator_services()]:
             if svc.name == name:
                 return svc
         raise KeyError(f"Extension '{name}' is disabled or unknown")
@@ -398,11 +489,12 @@ class Supervisor:
         return {svc.name: self.start(svc) for svc in self.services()}
 
     def stop_all(self) -> dict[str, bool]:
-        return {name: self.stop(name) for name in ("clacky", "globe", "tunnel")}
+        names = ("clacky", "globe", "tunnel", *CREATOR_APPS)
+        return {name: self.stop(name) for name in names}
 
-    def status(self) -> list[dict[str, Any]]:
+    def status(self, creator: bool = False) -> list[dict[str, Any]]:
         rows = []
-        for svc in self.services():
+        for svc in [*self.services(), *(self.creator_services() if creator else [])]:
             rows.append(
                 {
                     "name": svc.name,

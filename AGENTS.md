@@ -54,8 +54,13 @@ termina en la rama `main`, y el dueño actualiza con un único comando.
 - No se reinventa lo que ya existe: Creator usa programas reales —
   ArtCraft (+ Kdenlive) para lo de Adobe, FreeCAD + Bonsai/BlenderBIM +
   LibreCAD para arquitectura, OpenDesign para lo de Canva, VSCodium para
-  código, Kronos para bolsa—. «Anatomy» es una skill oculta que Sergio usa
-  siempre; no es un apartado.
+  código, Kronos para bolsa—. OpenDesign, VSCodium web y Kronos se instalan
+  en Ubuntu con `scripts/instalar-programas.sh` (lo llama la actualización);
+  los de Windows, en segundo plano con `sergio_escritorio/creator_apps.py`.
+  LidoJS no tiene licencia abierta: no se usa sin comprarla.
+- «Anatomy» es una skill oculta que Sergio usa siempre (herramienta
+  `anatomy_figure`, siempre activa): la lámina aparece dentro del chat; no
+  es un apartado de la app.
 - Todo es Sergio: ningún logo ni nombre de empresa externa a la vista
   (los créditos de licencias van en NOTICE, LICENSE y «Acerca de»).
 - La conversación de voz está siempre activa en la web (sin botón de

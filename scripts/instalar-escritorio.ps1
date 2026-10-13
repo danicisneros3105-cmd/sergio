@@ -133,3 +133,8 @@ Start-Sleep -Seconds 3
 $started.Refresh()
 if ($started.HasExited) { throw "El escritorio se cerró al arrancar. Revisa $dest\sergio.log; no puedo confirmar que esté visible." }
 Write-Host "Proceso de escritorio iniciado (PID $($started.Id)). Comprueba el personaje junto al cursor; Ctrl+Espacio abre el panel." -ForegroundColor Green
+# Los programas de Creator (ArtCraft, Kdenlive, FreeCAD, LibreCAD, Blender con
+# Bonsai, VSCodium): se instalan en segundo plano los que falten; el registro
+# queda en %LOCALAPPDATA%\Sergio\programas.log.
+Start-Process (Join-Path $venv "Scripts\pythonw.exe") -ArgumentList "-m", "sergio_escritorio.creator_apps", "instalar-todo" -WorkingDirectory $dest -WindowStyle Hidden
+Write-Host "Instalando en segundo plano los programas de Creator que falten (ArtCraft, Kdenlive, FreeCAD, LibreCAD, Blender + Bonsai, VSCodium)."

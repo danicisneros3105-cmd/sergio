@@ -14,6 +14,8 @@ import { XRayFooter } from './XRayFooter';
 import { SpeakMessageButton } from './SpeakMessageButton';
 import type { ChatMessage } from '../../types';
 import { stripThinkTags } from '../../lib/message-text';
+import { anatomyNames, withoutAnatomyLinks } from '../../lib/anatomy';
+import { AnatomyEmbed } from './AnatomyEmbed';
 
 interface Props {
   message: ChatMessage;
@@ -100,7 +102,9 @@ function CopyMessageButton({ content }: { content: string }) {
 export function MessageBubble({ message, isLive = false }: Props) {
   const isUser = message.role === 'user';
 
-  const cleanContent = useMemo(() => stripThinkTags(message.content), [message.content]);
+  const rawContent = useMemo(() => stripThinkTags(message.content), [message.content]);
+  // Figure links become the figures themselves (drawn below), never raw text.
+  const cleanContent = useMemo(() => withoutAnatomyLinks(rawContent), [rawContent]);
 
   // Build a ref→source lookup once per render. Memoized so the rehype plugin
   // identity stays stable until the source list actually changes.
@@ -174,6 +178,12 @@ export function MessageBubble({ message, isLive = false }: Props) {
           </ReactMarkdown>
         </div>
       )}
+
+      {/* Anatomy figures Sergio drew for this answer (the hidden skill) */}
+      {!isLive &&
+        anatomyNames(rawContent, ...(message.toolCalls ?? []).map((tc) => tc.result)).map((name) => (
+          <AnatomyEmbed key={name} name={name} />
+        ))}
 
       {/* Footer: copy + read aloud + x-ray */}
       <div className="flex items-center gap-2 mt-1.5">

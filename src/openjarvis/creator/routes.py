@@ -16,6 +16,8 @@ router = APIRouter(prefix="/v1/creator", tags=["creator"])
 
 
 def _fail(exc: Exception) -> HTTPException:
+    if isinstance(exc, HTTPException):  # already readable (e.g. the desktop is closed)
+        return exc
     if isinstance(exc, CreatorError):
         return HTTPException(status_code=422, detail=str(exc))
     if isinstance(exc, ImportError):
@@ -145,6 +147,152 @@ async def plan_dxf(req: PlanRequest) -> Response:
         media_type="application/dxf",
         headers={"Content-Disposition": 'attachment; filename="plano-sergio.dxf"'},
     )
+
+
+@router.post("/plan/ifc")
+async def plan_ifc(req: PlanRequest) -> Response:
+    """The plan as an IFC building (BIM) for FreeCAD or Blender with Bonsai."""
+    from openjarvis.creator import bim
+
+    data = await _run(bim.plan_ifc, req.walls, req.openings)
+    return Response(
+        data,
+        media_type="application/x-step",
+        headers={"Content-Disposition": 'attachment; filename="plano-sergio.ifc"'},
+    )
+
+
+class PlanOpenRequest(PlanRequest):
+    program: str  # librecad / freecad (DXF) or freecad / bonsai (IFC)
+    kind: str = "ifc"
+
+
+@router.post("/plan/open")
+async def plan_open(request: Request, req: PlanOpenRequest) -> dict[str, Any]:
+    """Make the file and open it in the program on the owner's PC."""
+    from openjarvis.creator import bim, programs
+
+    _local_only(request)
+    if req.kind not in programs.OPENS or req.program not in programs.OPENS[req.kind]:
+        raise HTTPException(status_code=400, detail="Ese programa no abre ese archivo.")
+    make = bim.plan_ifc if req.kind == "ifc" else studio.plan_dxf
+    data = await _run(make, req.walls, req.openings)
+    message = await _run(
+        programs.open_in_windows, req.program, f"plano-sergio.{req.kind}", data
+    )
+    return {"message": message}
+
+
+# -- the real programs (OpenDesign, VSCodium, ArtCraft, FreeCAD…) ----------------------
+
+
+@router.get("/programs")
+async def programs_list(request: Request) -> dict[str, Any]:
+    from openjarvis.creator import programs
+    from openjarvis.server.vision_routes import from_this_computer
+
+    local = from_this_computer(request) or (
+        request.client and request.client.host == "testclient"
+    )
+    return {"programs": await _run(programs.status, bool(local))}
+
+
+@router.post("/programs/{pid}/start")
+async def programs_start(request: Request, pid: str) -> dict[str, Any]:
+    from openjarvis.creator import programs
+
+    _local_only(request)
+    return await _run(programs.start, pid)
+
+
+class InstallRequest(BaseModel):
+    where: str = ""  # "windows" for VSCodium's desktop app
+
+
+@router.post("/programs/{pid}/install")
+async def programs_install(
+    request: Request, pid: str, req: InstallRequest | None = None
+) -> dict[str, Any]:
+    from openjarvis.creator import programs
+
+    _local_only(request)
+    return await _run(programs.install, pid, (req.where if req else ""))
+
+
+@router.post("/programs/{pid}/open")
+async def programs_open(request: Request, pid: str) -> dict[str, Any]:
+    from openjarvis.creator import programs
+
+    _local_only(request)
+    return {"message": await _run(programs.open_in_windows, pid)}
+
+
+class OpenFileRequest(BaseModel):
+    name: str
+    data: str  # base64
+
+
+@router.post("/programs/{pid}/open-file")
+async def programs_open_file(
+    request: Request, pid: str, req: OpenFileRequest
+) -> dict[str, Any]:
+    """Open a file made in the web (an image, a model) in a Windows program."""
+    import base64
+    import binascii
+
+    from openjarvis.creator import programs
+
+    _local_only(request)
+    try:
+        data = base64.b64decode(req.data, validate=True)
+    except (binascii.Error, ValueError) as exc:
+        raise HTTPException(status_code=400, detail="Archivo no válido.") from exc
+    if len(data) > 60 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="El archivo pasa de 60 MB.")
+    message = await _run(programs.open_in_windows, pid, req.name, data)
+    return {"message": message}
+
+
+class OpenDesignRequest(BaseModel):
+    request: str
+    width: int = 1080
+    height: int = 1080
+
+
+@router.post("/opendesign/create")
+async def opendesign_create(req: OpenDesignRequest) -> dict[str, Any]:
+    """Sergio lays the design out and creates it inside OpenDesign."""
+    from openjarvis.creator import opendesign
+
+    layout = await _run(studio.design_layout, req.request, req.width, req.height)
+    row = await _run(
+        opendesign.create_design, req.request[:60], layout, req.width, req.height
+    )
+    return {"id": row["id"], "name": row.get("name", "")}
+
+
+# -- Bolsa (Kronos) ----------------------------------------------------------------------
+
+
+class ForecastRequest(BaseModel):
+    symbol: str
+    horizon: int = 20
+    size: str = "small"
+
+
+@router.post("/bolsa/forecast")
+async def bolsa_forecast(req: ForecastRequest) -> dict[str, Any]:
+    from openjarvis.creator import kronos
+
+    return await _run(kronos.forecast, req.symbol, req.horizon, req.size)
+
+
+@router.get("/bolsa/history")
+async def bolsa_history(symbol: str) -> dict[str, Any]:
+    from openjarvis.creator import kronos
+
+    rows = await _run(kronos.history, symbol)
+    return {"symbol": symbol.upper(), "history": rows[-120:]}
 
 
 # -- code ----------------------------------------------------------------------------

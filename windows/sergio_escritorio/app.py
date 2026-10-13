@@ -4356,6 +4356,11 @@ def run(config: dict[str, Any]) -> None:
     controller.skills["health_summary"] = health_summary
     controller.skills["profile_summary"] = profile_summary
     controller.skills["open_section"] = open_from_web
+    # Creator's real programs (ArtCraft, Kdenlive, FreeCAD, LibreCAD,
+    # Blender + Bonsai, VSCodium): status, install and open, from the web.
+    from sergio_escritorio import creator_apps
+
+    controller.skills["creator_apps"] = creator_apps.skill
 
     notch.on_click = panel.toggle
     companion.setVisible(bool(config["show_companion"]))

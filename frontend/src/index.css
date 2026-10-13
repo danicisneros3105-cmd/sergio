@@ -3179,3 +3179,72 @@ h3.paper-title { font-size: 18px; }
 }
 .node-template { background: color-mix(in srgb, var(--node) 7%, var(--color-surface)); box-shadow: none; }
 .node-template b { font-weight: 600; }
+
+/* -- Creator on real programs ---------------------------------------------- */
+.creator-head h1 { font-family: var(--font-sans); font-size: 18px; font-weight: 600; letter-spacing: 0; background: none; color: var(--color-text); }
+.creator-tab { font-weight: 500; }
+.creator-tab svg { color: currentColor; }
+.creator-stack { height: 100%; min-height: 0; display: flex; flex-direction: column; }
+.creator-stack > :last-child { flex: 1; min-height: 0; }
+.program-shelf { display: flex; gap: 8px; padding: 8px 12px; overflow-x: auto; border-bottom: 1px solid var(--color-border-subtle); flex-shrink: 0; }
+.program-card {
+  display: flex; align-items: center; gap: 12px; min-width: 260px; padding: 8px 8px 8px 14px;
+  border: 1px solid var(--color-border); border-radius: 14px; background: var(--color-surface);
+}
+.program-card > div { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.program-card b { font-size: 14px; font-weight: 600; }
+.program-card span { font-size: 12px; color: var(--color-text-tertiary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 220px; }
+.program-card em { font-style: normal; font-size: 12px; color: var(--color-text-secondary); white-space: nowrap; }
+.program-card[data-state='listo'] em { color: var(--color-success); }
+.program-card .paper-button { padding: 0.35rem 0.8rem; font-size: 13px; display: inline-flex; align-items: center; gap: 6px; }
+.program-spin { animation: program-spin 1s linear infinite; color: var(--color-text-tertiary); }
+@keyframes program-spin { to { transform: rotate(360deg); } }
+.program-embed { height: 100%; min-height: 0; display: flex; flex-direction: column; }
+.program-embed-bar { display: flex; align-items: center; gap: 10px; padding: 6px 12px; border-bottom: 1px solid var(--color-border-subtle); flex-shrink: 0; }
+.program-embed-bar > b { font-size: 14px; font-weight: 600; }
+.program-embed-bar .paper-button { display: inline-flex; align-items: center; gap: 6px; padding: 0.35rem 0.8rem; font-size: 13px; }
+.program-embed-spacer { flex: 1; }
+.program-frame { flex: 1; width: 100%; min-height: 0; border: 0; background: var(--color-bg); }
+.program-ask { flex: 1; max-width: 640px; display: flex; align-items: center; gap: 8px; height: 36px; padding: 0 4px 0 12px; border-radius: 999px; box-shadow: var(--shadow-composer); background: var(--color-composer); color: var(--color-text-tertiary); }
+.program-ask input { flex: 1; min-width: 0; background: transparent; outline: none; color: var(--color-text); font-size: 14px; }
+.program-ask .paper-button { padding: 0.3rem 0.85rem; }
+.program-missing { height: 100%; min-height: 0; display: flex; flex-direction: column; }
+.program-missing-card { margin: 16px auto; max-width: 560px; padding: 18px 20px; border: 1px solid var(--color-border); border-radius: 18px; display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+.program-missing-card b { font-size: 16px; font-weight: 600; }
+.program-missing-card p { margin: 0; color: var(--color-text-secondary); font-size: 14px; }
+.program-missing-card .paper-button { display: inline-flex; align-items: center; gap: 6px; }
+.program-fallback { flex: 1; min-height: 0; border-top: 1px solid var(--color-border-subtle); }
+.studio-open-in { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.studio-open-in span { font-size: 12px; color: var(--color-text-tertiary); width: 100%; }
+.studio-open-in .mac-chip { padding: 0.3rem 0.75rem; font-size: 12.5px; }
+
+/* Bolsa (Kronos) */
+.bolsa { height: 100%; overflow-y: auto; padding: 20px 24px 40px; max-width: 920px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
+.bolsa-form { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; }
+.bolsa-form label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--color-text-tertiary); }
+.bolsa-form input { height: 38px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--color-border); background: var(--color-input-bg); color: var(--color-text); font-size: 15px; width: 140px; }
+.bolsa-form input[type='number'] { width: 80px; }
+.bolsa-form .paper-button { height: 38px; display: inline-flex; align-items: center; gap: 6px; }
+.bolsa-ideas { display: flex; flex-wrap: wrap; gap: 6px; width: 100%; }
+.bolsa-ideas .mac-chip { padding: 0.3rem 0.75rem; font-size: 12.5px; }
+.bolsa-result { border: 1px solid var(--color-border); border-radius: 18px; padding: 16px 18px; }
+.bolsa-result header h2 { font-size: 20px; font-weight: 600; margin: 0; }
+.bolsa-result header p { margin: 2px 0 8px; color: var(--color-text-secondary); font-size: 14px; }
+.bolsa-result [data-up='true'] { color: var(--color-success); }
+.bolsa-result [data-up='false'] { color: var(--color-error); }
+.bolsa-chart { width: 100%; height: auto; display: block; }
+.bolsa-past { fill: none; stroke: var(--color-text); stroke-width: 1.8; }
+.bolsa-ahead { fill: none; stroke: var(--color-accent-text); stroke-width: 2; stroke-dasharray: 5 4; }
+.bolsa-band { fill: color-mix(in srgb, var(--color-accent-text) 14%, transparent); stroke: none; }
+.bolsa-split { stroke: var(--color-border); stroke-dasharray: 3 3; }
+.bolsa-axis { font-size: 11px; fill: var(--color-text-tertiary); }
+.bolsa-note { font-size: 12.5px; color: var(--color-text-tertiary); margin: 8px 0 0; }
+.bolsa-empty { margin-top: 24px; }
+
+/* Anatomy figures inside the chat */
+.anatomy-embed { position: relative; margin: 12px 0 4px; border: 1px solid var(--color-border); border-radius: 16px; overflow: hidden; background: var(--color-bg-secondary); }
+.anatomy-embed iframe { display: block; width: 100%; height: 440px; border: 0; background: #fff; }
+.anatomy-embed-wait { height: 120px; display: grid; place-items: center; color: var(--color-text-tertiary); font-size: 14px; }
+.anatomy-embed-full { position: absolute; top: 8px; right: 8px; background: var(--color-sheet); box-shadow: var(--shadow-sm); }
+.anatomy-embed-error { font-size: 13px; color: var(--color-text-tertiary); margin: 8px 0; }
+@media (max-width: 640px) { .anatomy-embed iframe { height: 340px; } }

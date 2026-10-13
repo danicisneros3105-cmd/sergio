@@ -92,7 +92,7 @@ def node_binary() -> str:
     if toolchain:
         return str(toolchain[0])
     raise CreatorError(
-        "Anatomía necesita Node.js 22: ejecute la actualización de Sergio, que lo instala."
+        "Las láminas necesitan Node.js 22: ejecute la actualización de Sergio, que lo instala."
     )
 
 

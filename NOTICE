@@ -22,8 +22,27 @@ de código abierto, cada una con su licencia, sin logotipos ni marcas a la vista
   colaboradores): el lienzo de Diseño e Imagen.
 - Monaco Editor (MIT, © Microsoft Corporation): el editor de Código.
 - anatomy (MIT, © 2026 Ryan; https://github.com/IvoSegovia/anatomy): el kit,
-  las guías y los ejemplos de Anatomía (licencia en creator/anatomy/LICENSE).
+  las guías y los ejemplos de las láminas «Anatomy», que Sergio dibuja en el
+  chat (licencia en creator/anatomy/LICENSE).
 - U²-Net (Apache-2.0, Xuebin Qin et al.) en la variante «silueta» de rembg
   (MIT, Daniel Gatis): la red que quita el fondo, descargada al primer uso.
 - ezdxf (MIT) para los planos DXF y OpenCV (Apache-2.0) para el respaldo
   GrabCut.
+- IfcOpenShell (LGPL-3.0, © IfcOpenShell contributors): el edificio IFC
+  (BIM) que sale del plano de Arquitectura.
+
+Programas reales que Creator instala y abre (no se incluyen en este
+repositorio; cada uno se descarga de su fuente oficial con su licencia):
+- OpenDesign (MIT, © 2026 Clawnify; https://github.com/clawnify/OpenDesign):
+  el editor de Diseño. Sergio le aplica textos en español al instalarlo.
+- VSCodium (MIT, © VSCodium y colaboradores de Code - OSS): Código, en la
+  web (servidor «reh-web») y en Windows.
+- ArtCraft (MIT / Apache-2.0, © Storyteller; https://github.com/storytold/artcraft):
+  imagen y video.
+- Kdenlive (GPL-3.0, KDE), FreeCAD (LGPL-2.1), LibreCAD (GPL-2.0), Blender
+  (GPL-3.0) y Bonsai/BlenderBIM (GPL-3.0, IfcOpenShell): se instalan con
+  winget o desde sus versiones publicadas.
+- Kronos (MIT, © shiyu-coder; https://github.com/shiyu-coder/Kronos) con
+  PyTorch (BSD-3-Clause): la predicción de Bolsa, en su propio entorno.
+- LidoJS no se usa: su paquete no tiene licencia abierta (es un producto de
+  pago) y no puede incluirse sin comprar una licencia.

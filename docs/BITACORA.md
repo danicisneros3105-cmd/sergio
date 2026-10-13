@@ -2,6 +2,39 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-10-13 · Claude · 7632a4b…(este envío) (diseño ChatGPT, Dots y programas reales)
+- Diseño igual a ChatGPT (petición del dueño: «no vibe coded»): una sola
+  barra lateral (nuevo chat, buscar chats, biblioteca, secciones, chats, la
+  conversación y «Señor»), plegable a carril de iconos y cajón en el móvil;
+  paleta neutra (#fff/#212121, barra #f9f9f9/#181818), letra del sistema,
+  botones negros (blancos de noche), burbuja gris del usuario, respuestas sin
+  burbuja, compositor con el anillo de ChatGPT y botón de voz negro con
+  barras. Se quitaron degradados, colores por sección y el panel de historial
+  aparte. Ctrl/⌘ ⇧ O abre un chat nuevo.
+- Nodes: los personajes ya no son de fieltro (el filtro de pelo daba miedo);
+  ahora son juguetes de vinilo brillantes como los Dots, con elenco propio
+  (guijarro, mochi, gotita, corazón, ranita, osito, estrella, fantasmita,
+  setita, cactus y planeta). Los aspectos guardados siguen valiendo.
+- Creator sobre programas reales: Diseño = OpenDesign (MIT) dentro de la web,
+  traducido al español al instalarlo, y «Pídale un diseño a Sergio» lo crea
+  allí (probado: post en 6 s, editable); Código = VSCodium web (reh-web, con
+  token) + VSCodium de Windows; Arquitectura = plano → IFC4 con IfcOpenShell
+  (muros, puertas y ventanas recortadas) o DXF, abierto en FreeCAD, Bonsai o
+  LibreCAD; Imagen y video = ArtCraft + Kdenlive; Bolsa = Kronos en su propio
+  Python (torch CPU). Los de Windows los instala y abre
+  `sergio_escritorio/creator_apps.py` (winget o la versión de GitHub; Bonsai
+  vía extensiones de Blender) y el instalador los pide en segundo plano.
+- «Anatomy» ya no es una pestaña: la herramienta sigue siempre activa y la
+  lámina se dibuja dentro de la respuesta del chat (el enlace no se ve ni se
+  lee en voz alta). `/creator/anatomia` redirige a Creator.
+- Revisé lo de Codex: no hubo cambios nuevos en `main` desde e1396e7.
+- Pendiente / para el otro: no pude probar aquí nada de Windows (ArtCraft,
+  Kdenlive, FreeCAD, LibreCAD, Bonsai), ni VSCodium web ni Kronos con datos
+  reales (este entorno bloquea GitHub-descargas, Hugging Face y los datos de
+  bolsa): quedaron probados con dobles. LidoJS no se usa (sin licencia
+  abierta). Fallos viejos que siguen: tests/tools/test_http_request (red) y
+  el PDF malformado de subida.
+
 ## 2026-10-12 · Claude · 6123384…5b43cfe (pedido grande del dueño)
 - Para el usuario común: el chat contesta enseguida y con el carácter de
   Sergio (persona escrita en `persona.py`, pensamiento «bajo» por defecto en
