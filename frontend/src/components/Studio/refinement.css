@@ -1,0 +1,27 @@
+/* Reuse the team's shell and type. Quiet finish, one interaction colour. */
+:root, :root.light { --color-bg-secondary:#f7f7f7; --color-bg-tertiary:#eeeeef; --color-sidebar:#f8f8f8; --color-tile:#f5f5f5; --color-border:rgba(20,20,22,.11); --color-text:#202123; --color-text-secondary:#66676b; --color-text-tertiary:#75767a; --color-accent:#9fd3ff; --color-accent-hover:#bce0ff; --color-accent-text:#285c83; --color-on-accent:#162a3b; --color-accent-subtle:rgba(159,211,255,.16); --color-ink:#202123; --grad-sergio:linear-gradient(120deg,#88c7fa,#b8dfff); --grad-sergio-soft:linear-gradient(120deg,#9fd3ff18,#9fd3ff08); }
+.dark { --color-bg:#171717; --color-bg-secondary:#202020; --color-bg-tertiary:#2b2b2b; --color-sidebar:#1e1e1e; --color-surface:#202020; --color-border:rgba(255,255,255,.12); --color-text:#ededed; --color-text-secondary:#b0b0b4; --color-text-tertiary:#a0a0a4; --color-accent:#9fd3ff; --color-accent-hover:#c1e2ff; --color-accent-text:#b5dcfa; --color-on-accent:#172b3a; --color-ink:#ededed; --grad-sergio:linear-gradient(120deg,#88c7fa,#b8dfff); --grad-sergio-soft:linear-gradient(120deg,#9fd3ff18,#9fd3ff08); }
+.rail { overflow-y:auto; scrollbar-width:none; }
+.rail-mark { background:var(--color-bg-tertiary); color:var(--color-text); box-shadow:none; border:1px solid var(--color-border-subtle); }
+.rail-item[style*='--sec'] { color:var(--color-text-secondary); }
+.rail-item[style*='--sec'][aria-current='page'] { color:var(--color-accent-text); background:var(--color-accent-subtle); }
+.rail-item[style*='--sec'][aria-current='page']::before { background:#9fd3ff; }
+@media(hover:hover) { .rail-item[style*='--sec']:hover { color:var(--color-text); background:var(--color-bg-tertiary); } }
+.starter-card { background:var(--color-surface); }
+.starter-card:hover { box-shadow:0 8px 24px -18px #0005; border-color:var(--color-border); }
+.paper-button { color:var(--color-on-accent); box-shadow:none; }
+.paper-button[data-variant=quiet] { color:var(--color-text); }
+.faceid-avatar { background:var(--color-bg-tertiary); color:var(--color-text); }
+.faceid-home > h1 { font-weight:500; letter-spacing:-.045em; }
+.faceid-ring line[data-on='1'] { stroke:#9fd3ff; }
+.faceid-glyph { color:var(--color-accent-text); }
+.critter { content-visibility:auto; contain-intrinsic-size:48px 48px; }
+.node-template { background:var(--color-surface); border:1px solid var(--color-border); border-radius:18px; }
+.node-template-stage { background:var(--color-bg-secondary); }
+.node-template-stage::before { opacity:0; }
+.node-template:hover { border-color:color-mix(in srgb,var(--color-text) 26%,transparent); box-shadow:0 10px 24px -22px #0005; }
+.node-create-title { font-weight:500; letter-spacing:-.04em; }
+.studio-program-source { font-size:10px; }
+.studio-detection { font-size:10px; }
+@media(max-width:760px) { .rail { overflow-x:auto; overflow-y:hidden; justify-content:flex-start; } .rail-sections { flex-shrink:0; } }
+@media(prefers-reduced-motion:reduce) { .faceid-glyph,.faceid-badge,.faceid-ring,.live-orb { animation:none!important; } }

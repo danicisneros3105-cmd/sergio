@@ -549,6 +549,9 @@ def create_app(
     from openjarvis.faces.routes import router as faces_router
 
     app.include_router(faces_router)
+    from openjarvis.professional.routes import router as programs_router
+
+    app.include_router(programs_router)
     # Screen help for the cursor companion (look and point, Clicky-style).
     from openjarvis.server.vision_routes import router as vision_router
 

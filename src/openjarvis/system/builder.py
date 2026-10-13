@@ -246,6 +246,7 @@ class SystemBuilder:
                 if tool_executor:
                     skill_manager.set_tool_executor(tool_executor)
                 skill_tools = skill_manager.get_skill_tools(
+                    include_internal=True,
                     tool_executor=tool_executor,
                 )
                 tool_list.extend(skill_tools)

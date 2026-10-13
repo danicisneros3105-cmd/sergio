@@ -17,7 +17,8 @@ def test_enable_tools_adds_desktop_tools_and_turns(tmp_path):
     assert (
         'enabled = ["think", "screen_read", "verified_math", "scene_reason", '
         '"calculator", "get_weather", '
-        '"globe_view", "live_flights", "flights_overhead", "live_earthquakes", "desktop_action", '
+        '"globe_view", "live_flights", "flights_overhead", "live_earthquakes", '
+        '"professional_apps", "opendesign", "kronos_forecast", "desktop_action", '
         '"camera_look", "video_edit", "blender_create", "face_approval", '
         '"face_enroll", "files_organize", "python_run", "terminal_run", '
         '"skill_guide", "web_search"]'

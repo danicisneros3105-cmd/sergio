@@ -329,7 +329,7 @@ def run(config: dict[str, Any]) -> None:
         WindowsBackend(speed=str(config.get("control_speed") or "rapido")),
         on_activity=on_activity,
         camera=camera_shot,
-        approve=confirm_sensitive_action,
+        approve=lambda _request: False,  # fail closed until Windows Hello is wired
         strict_permissions=config.get("strict_permissions", True) is not False,
     )
     server = make_server(controller, config["token"], int(config["port"]))
@@ -3251,60 +3251,32 @@ def run(config: dict[str, Any]) -> None:
     }
 
     def owner_approves(request: str, seconds: float = 10.0) -> bool:
-        """Consent to the displayed action, then Face ID (a random movement a
-        photo cannot do), with the passcode as backup — the same rules as
-        the web (faces/faceid.py)."""
-        if not confirm_sensitive_action(request):
+        """Explicit action consent and Windows Hello; webcam matches are labels."""
+        if not request.strip():
             return False
-        for _ in range(3):
-            try:
-                challenge = client.http.post(
-                    f"{client.base}/v1/faces/faceid/challenge", timeout=10
-                ).json()
-            except Exception:  # noqa: BLE001 — server down: never approve
-                logging.info("checkpoint NOT approved (no Face ID): %s", request[:80])
-                return False
-            if challenge.get("passcode_required"):
-                why = PASSCODE_WHY.get(str(challenge.get("reason")), "Escriba su código:")
-                if ask_passcode(why):
-                    logging.info("checkpoint approved with the passcode: %s", request[:80])
-                    return True
-                return False
-            say = str(challenge.get("say") or "Mire a la cámara")
-            bridge.caption.emit(f"Señor, mire a la cámara: {say.lower()}")
-            frames: list[bytes] = []
-            deadline = time.time() + min(seconds, 3.0)
-            while len(frames) < 12 and time.time() < deadline:
-                try:
-                    frames.append(feed.jpeg())
-                except Exception:  # noqa: BLE001
-                    pass
-                time.sleep(0.14)
-            try:
-                out = client.http.post(
-                    f"{client.base}/v1/faces/faceid/unlock",
-                    data={"nonce": str(challenge.get("nonce") or "")},
-                    files=[
-                        ("images", (f"u{i}.jpg", jpg, "image/jpeg"))
-                        for i, jpg in enumerate(frames)
-                    ],
-                    timeout=30,
-                ).json()
-            except Exception:  # noqa: BLE001
-                out = {"ok": False}
-            if out.get("ok"):
-                logging.info("checkpoint approved by the owner's Face ID: %s", request[:80])
-                return True
-            bridge.caption.emit(str(out.get("message") or "No le reconozco."))
-            if not out.get("passcode_required"):
-                continue  # another random movement, up to three tries here
-        logging.info("checkpoint NOT approved: %s", request[:80])
-        return False
+        from sergio_escritorio.facegate import ConsentDialog
+
+        def ask() -> bool:
+            dialog = ConsentDialog(request)
+            dialog.exec()
+            return dialog.verified and not dialog.cancelled.is_set()
+
+        try:
+            return on_ui(ask, timeout=70.0) is True
+        except Exception:  # noqa: BLE001 — fail closed if the OS is unavailable
+            logging.exception("Windows Hello verification unavailable")
+            bridge.caption.emit("No aprobado: confirme con Windows Hello en este equipo.")
+            return False
 
     assistant.approve = owner_approves
+    # The control API uses the same verifier, so direct desktop actions
+    # cannot bypass the identity check by skipping the face_approval tool.
+    controller.approve = owner_approves
+
     def owner_approval(args: dict) -> dict:
         what = str(args.get("what") or "").strip()
-        return {"what": what, "approved": bool(what) and owner_approves(what)}
+        return {"what": what, "approved": bool(what) and owner_approves(what),
+                "method": "windows_hello"}
 
     controller.skills["owner_approval"] = owner_approval
     controller.skills["voice_enroll"] = lambda args: voice_enroll(str(args.get("name") or ""))

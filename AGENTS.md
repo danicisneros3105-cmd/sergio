@@ -78,13 +78,16 @@ Al terminar cada sesión, añada arriba de `docs/BITACORA.md`:
 En PowerShell de Windows, siempre el mismo:
 
 ```powershell
-wsl -d Ubuntu -- bash -lc "cd ~/sergio && git fetch origin main && git checkout -B main origin/main && bash scripts/actualizar-sergio.sh main"
+wsl -d Ubuntu -- bash -lc "cd ~/sergio && git fetch origin main && bash scripts/actualizar-sergio.sh main"
 ```
 
 `scripts/actualizar-sergio.sh` instala las dependencias exactas, compila la
 web, instala la app de Windows y deja el servicio apuntando a `~/sergio`.
 Si cambian lo que hace la actualización, cambien ese script: el comando del
 dueño no cambia nunca.
+
+El actualizador conserva los cambios y exige fast-forward. No anteponga
+`git checkout -B` ni `reset --hard`: podrían perder commits locales.
 
 ## 7. Cómo informar al dueño
 

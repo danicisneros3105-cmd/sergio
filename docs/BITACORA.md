@@ -2,6 +2,36 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-10-13 · Codex · diseño profesional y consentimiento Windows Hello
+- Partí de main e1396e7 y conservo su árbol completo, incluidos los cambios de
+  Claude y los archivos que faltaban en mi checkout parcial anterior. La rama
+  corta es `codex/design-professional-2026-10-12`; esta publicación sustituye
+  el estado bloqueado descrito en RECUPERACION-DISENO-2026-10-12.md.
+- Estudio reúne 32 programas completos y un instalador WinGet selectivo;
+  alias /developer y /creator, adaptadores reales OpenDesign y Kronos aislado.
+  No simulo aplicaciones instaladas ni previsiones si faltan los pesos.
+- Anatomy MIT está adaptada y incluida como guía interna, siempre aplicada a
+  agentes y Live. Mantengo Inter/Josefin, el shell y los personajes del equipo,
+  con superficies más calmadas, pelo suave y hologramas sin polos degenerados.
+- Revisé la galería y el escaneo de Claude: preservo Fernet, cifro galerías
+  heredadas válidas al leerlas, evito regenerar claves perdidas y guardo de
+  forma atómica. La webcam sirve para reconocimiento, no autorización segura.
+- El compañero y su API de control requieren consentimiento Windows Hello
+  para las acciones que necesitan aprobación; errores y cancelaciones deniegan.
+  La hoja permite leer la acción íntegra como texto plano, sin truncarla.
+- El comando universal conserva los commits locales: eliminé checkout -B
+  de AGENTS; el actualizador ya exige fast-forward y crea respaldo.
+- Validación final: 720 pruebas escritorio + 526 backend + 161 frontend;
+  6 omitidas en Python. Ruff analiza/formatea 1821 archivos; tsc y build pasan.
+  Anatomy: 32 pruebas puras. No se ejecutaron los tests Live con Ollama,
+  autenticación Windows Hello física, inferencia Kronos con pesos ni todas las
+  funciones de las aplicaciones externas. No afirmo equivalencia con Face ID,
+  Muse/Dots, ChatGPT o Kimi, ni un rendimiento sin latencia medido.
+- Pendiente: instalar/probar los programas en Windows, activar Bonsai en
+  Blender, poner los pesos de Kronos y validar Hello en hardware compatible.
+  LidoJS queda como referencia por falta de licencia declarada. Véase el
+  informe DISENO-Y-APLICACIONES-2026-10-12.md para contratos y comandos.
+
 ## 2026-10-12 · Claude · actualizador + 3 commits de Codex
 - El comando universal fallaba en el PC del dueño con «Instala Node 22.22+»:
   `bash -lc` desde PowerShell no ve el Node del instalador. Ahora

@@ -1,0 +1,5 @@
+repository = "https://github.com/wheresryan22/anatomy"
+revision = "240a9bf7c50cc6226148762a1017466fcbc08523"
+license = "MIT"
+author = "Ryan"
+adaptation = "Sergio internal design policy; original resources preserved"

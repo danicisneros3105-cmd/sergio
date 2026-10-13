@@ -80,7 +80,7 @@ class SkillManager:
             caller had previously seeded ``self._skills`` directly).
         """
         if paths:
-            for directory in paths:
+            for directory in [*paths, Path(__file__).with_name("bundled")]:
                 manifests = discover_skills(directory)
                 for manifest in manifests:
                     # First-seen wins: do not overwrite an already-registered skill
@@ -165,16 +165,23 @@ class SkillManager:
             raise KeyError(f"Skill '{name}' not found")
         return self._skills[name]
 
-    def skill_names(self) -> List[str]:
-        """Return the names of all registered skills."""
-        return list(self._skills.keys())
+    def skill_names(self, *, include_internal: bool = False) -> List[str]:
+        """List user-facing skills; internal design guides stay out of menus."""
+        return [
+            name
+            for name, skill in self._skills.items()
+            if include_internal or skill.user_invocable
+        ]
 
     # ------------------------------------------------------------------
     # Tool wrapping
     # ------------------------------------------------------------------
 
     def get_skill_tools(
-        self, *, tool_executor: Optional[ToolExecutor] = None
+        self,
+        *,
+        tool_executor: Optional[ToolExecutor] = None,
+        include_internal: bool = False,
     ) -> List[BaseTool]:
         """Wrap each registered skill as a :class:`SkillTool` (a :class:`BaseTool`).
 
@@ -193,6 +200,8 @@ class SkillManager:
         tools: List[BaseTool] = []
 
         for manifest in self._skills.values():
+            if not include_internal and not manifest.user_invocable:
+                continue
             if manifest.disable_model_invocation:
                 continue
             real_executor = executor or _NullToolExecutor()

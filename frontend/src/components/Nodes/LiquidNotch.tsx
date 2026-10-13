@@ -6,7 +6,7 @@ export function LiquidNotch({ running }: { running: number }) {
   const id = `node-liquid-${useId().replace(/:/g, '')}`;
   if (!Number.isFinite(running) || running < 1) return null;
   const count = Math.floor(running);
-  return <a href="/agents" className="node-liquid-notch" aria-label={`${count} objetivos en ejecución. Abrir Agent Swarm`}>
+  return <a href="/swarm" className="node-liquid-notch" aria-label={`${count} objetivos en ejecución. Abrir Agent Swarm`}>
     <svg className="node-liquid-background" width="180" height="64" viewBox="0 0 180 64" aria-hidden="true">
       <defs><filter id={id} filterUnits="userSpaceOnUse" x="0" y="0" width="180" height="64" colorInterpolationFilters="sRGB">
         <feGaussianBlur in="SourceGraphic" stdDeviation="12" result="blur" />

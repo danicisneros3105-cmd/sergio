@@ -73,7 +73,13 @@ RULES: Dict[str, Dict[str, Any]] = {
     },
     "computer": {
         "label": "Crear y editar archivos en su computadora",
-        "tools": ["file_read", "file_write", "pdf_extract"],
+        "tools": [
+            "file_read",
+            "file_write",
+            "pdf_extract",
+            "professional_apps",
+            "opendesign",
+        ],
         "default": "allow",
         "choices": ["allow", "ask", "block"],
     },
@@ -85,6 +91,8 @@ RULES: Dict[str, Dict[str, Any]] = {
             "calculator",
             "verified_math",
             "scene_reason",
+            "kronos_forecast",
+            "skill_anatomy",
         ],
         "default": "allow",
         "choices": ["allow", "ask", "block"],

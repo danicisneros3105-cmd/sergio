@@ -21,6 +21,7 @@ const CapturePage = lazy(() => import('./pages/CapturePage'));
 const HomePage = lazy(() => import('./pages/HomePage'));
 const NodesPage = lazy(() => import('./pages/NodesPage'));
 const SwarmPage = lazy(() => import('./pages/SwarmPage'));
+const ProgramsPage = lazy(() => import('./pages/ProgramsPage').then(m => ({ default: m.ProgramsPage })));
 import { CommandPalette } from './components/CommandPalette';
 import { SetupScreen } from './components/SetupScreen';
 import { Toaster } from './components/ui/sonner';
@@ -204,6 +205,9 @@ export default function App() {
           <Route path="logs" element={<LogsPage />} />
           <Route path="clacky" element={<ExtensionPage name="clacky" />} />
           <Route path="faces" element={<FacesPage />} />
+          <Route path="studio" element={<ProgramsPage />} />
+          <Route path="creator" element={<ProgramsPage />} />
+          <Route path="developer" element={<ProgramsPage />} />
           <Route path="pensar" element={<ThinkPage />} />
           <Route path="cowork" element={<CoworkPage />} />
           <Route path="salud" element={<HealthPage />} />

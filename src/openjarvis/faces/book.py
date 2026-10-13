@@ -120,6 +120,7 @@ class Match:
         """Sure enough to name on this one look."""
         return (
             bool(self.name)
+            and self.quality == "ok"
             and self.score >= STRONG_MATCH
             and self.margin >= STRONG_MARGIN
         )
@@ -319,7 +320,7 @@ class FaceBook(_IdentifyMixin):
             root = get_config_dir() / "faces"
         self._root = Path(root)
         self._models_dir = Path(models_dir) if models_dir else self._root / "models"
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
         self._init_lock = threading.Lock()
         self._detector: Any = None
         self._recognizer: Any = None
@@ -338,7 +339,7 @@ class FaceBook(_IdentifyMixin):
     def _key_path(self) -> Path:
         # Kept away from the faces folder: copying people.json alone (a
         # backup, a sync) reveals nothing without this key (Face ID keeps its
-        # key in the Secure Enclave; this is the closest a PC gets).
+        # key in the Secure Enclave; this file is NOT hardware-protected).
         return self._root.parent / "keys" / "faces.key"
 
     def _cipher(self) -> Any:
@@ -346,11 +347,19 @@ class FaceBook(_IdentifyMixin):
 
         path = self._key_path
         if not path.exists():
-            path.parent.mkdir(parents=True, exist_ok=True)
-            tmp = path.with_suffix(".tmp")
-            tmp.write_bytes(Fernet.generate_key())
-            tmp.chmod(0o600)
-            tmp.replace(path)
+            if self._db.exists() and self._db.read_bytes().startswith(b"gAAAA"):
+                raise ValueError("encrypted gallery key is missing")
+            path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+            path.parent.chmod(0o700)
+            try:
+                fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+            except FileExistsError:
+                pass
+            else:
+                with os.fdopen(fd, "wb") as out:
+                    out.write(Fernet.generate_key())
+                    out.flush()
+                    os.fsync(out.fileno())
         return Fernet(path.read_bytes().strip())
 
     def _read_db(self) -> str:
@@ -368,26 +377,41 @@ class FaceBook(_IdentifyMixin):
         """Enrolled people. *strict* (write paths) refuses a damaged file
         instead of treating it as empty, so one bad read can never erase
         everyone else on the next save."""
-        if not self._db.exists():
-            return {}
-        try:
-            data = json.loads(self._read_db())
-            if not isinstance(data, dict):
-                raise ValueError("not an object")
-            return _tidy(data)
-        except (OSError, ValueError) as exc:
-            if strict:
-                raise FaceError(
-                    f"{self._db} is damaged ({exc}); restore or delete it."
-                ) from exc
-            return {}
+        with self._lock:
+            if not self._db.exists():
+                return {}
+            try:
+                raw = self._db.read_bytes()
+                data = json.loads(self._read_db())
+                if not isinstance(data, dict):
+                    raise ValueError("not an object")
+                cleaned = _tidy(data)
+                if not raw.startswith(b"gAAAA") and self._db.read_bytes() == raw:
+                    # Encrypt valid legacy data on first use, preserving all
+                    # original fields. Corruption never triggers a replacement.
+                    self._save(data)
+                return cleaned
+            except (OSError, ValueError) as exc:
+                if strict:
+                    raise FaceError(
+                        f"{self._db} is damaged ({exc}); restore or delete it."
+                    ) from exc
+                return {}
 
     def _save(self, people: dict[str, dict[str, Any]]) -> None:
-        self._root.mkdir(parents=True, exist_ok=True)
-        tmp = self._db.with_suffix(".tmp")
-        tmp.write_bytes(self._cipher().encrypt(json.dumps(people).encode()))
-        tmp.chmod(0o600)
-        tmp.replace(self._db)
+        self._root.mkdir(parents=True, exist_ok=True, mode=0o700)
+        self._root.chmod(0o700)
+        encrypted = self._cipher().encrypt(json.dumps(people, allow_nan=False).encode())
+        fd, tmp_name = tempfile.mkstemp(dir=self._root, suffix=".tmp")
+        tmp = Path(tmp_name)
+        try:
+            with os.fdopen(fd, "wb") as out:
+                out.write(encrypted)
+                out.flush()
+                os.fsync(out.fileno())
+            tmp.replace(self._db)
+        finally:
+            tmp.unlink(missing_ok=True)
         self._db.chmod(0o600)
         self._cache = None
 

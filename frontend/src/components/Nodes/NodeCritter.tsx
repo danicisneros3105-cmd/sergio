@@ -155,8 +155,8 @@ function Eyes({ kind, spec, ink, status }: { kind: CritterEyes; spec: ShapeSpec;
       <g className="critter-blink">
         {xs.map((x) => (
           <g key={x}>
-            <circle cx={x} cy={y} r={7.5} fill="#fff" stroke="rgba(0,0,0,0.15)" />
-            <circle className="critter-pupil" cx={x + 1.5} cy={y + 1} r={3.4} fill="#111" />
+            <circle cx={x} cy={y} r={5} fill="#fff" stroke="rgba(0,0,0,0.1)" />
+            <circle className="critter-pupil" cx={x + 1.5} cy={y + 1} r={2.8} fill="#292431" />
           </g>
         ))}
       </g>
@@ -277,7 +277,7 @@ export function NodeCritter({
   const spec = SHAPES[look.shape] || SHAPES.bean;
   const color = /^#[0-9a-f]{6}$/i.test(look.color) ? look.color : '#9fd3ff';
   const ink = luminance(color) < 0.32 ? '#f4f4f4' : '#1a1a1a';
-  const fuzz = size >= 40 ? 3.2 : 2.2;
+  const fuzz = size >= 40 ? 2.0 : 0.7;
   const arm = shade(color, -0.08);
   const [ax1, ax2, ay] = spec.arms || [0, 0, 0];
   return (
@@ -293,10 +293,10 @@ export function NodeCritter({
       <svg viewBox="0 0 120 124" width={size} height={size}>
         <defs>
           <filter id={`fur${uid}`} x="-15%" y="-15%" width="130%" height="130%">
-            <feTurbulence type="fractalNoise" baseFrequency="0.95" numOctaves="2" seed="7" result="n" />
+            <feTurbulence type="fractalNoise" baseFrequency="0.7" numOctaves="1" seed="7" result="n" />
             <feDisplacementMap in="SourceGraphic" in2="n" scale={fuzz} xChannelSelector="R" yChannelSelector="G" result="d" />
             <feTurbulence type="fractalNoise" baseFrequency="2.2" numOctaves="1" seed="3" result="f" />
-            <feColorMatrix in="f" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -0.9 0.62" result="fibres" />
+            <feColorMatrix in="f" type="matrix" values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.08 0" result="fibres" />
             <feComposite in="fibres" in2="d" operator="in" result="fibresIn" />
             <feMerge>
               <feMergeNode in="d" />
@@ -306,10 +306,10 @@ export function NodeCritter({
           <radialGradient id={`vol${uid}`} cx="34%" cy="26%" r="78%">
             <stop offset="0" stopColor="#fff" stopOpacity="0.42" />
             <stop offset="0.45" stopColor="#fff" stopOpacity="0" />
-            <stop offset="1" stopColor="#000" stopOpacity="0.22" />
+            <stop offset="1" stopColor="#000" stopOpacity="0.14" />
           </radialGradient>
         </defs>
-        <ellipse className="critter-shadow" cx="60" cy="116" rx="30" ry="5" fill="#000" opacity="0.14" />
+        <ellipse className="critter-shadow" cx="60" cy="116" rx="30" ry="5" fill="#000" opacity="0.08" />
         <g className="critter-body">
           {spec.arms && (
             <g filter={`url(#fur${uid})`}>
@@ -332,7 +332,7 @@ export function NodeCritter({
           {!OVER_FACE.has(look.accessory) && <Accessory kind={look.accessory} spec={spec} />}
           <ellipse cx={60 - spec.eyeGap - 7} cy={spec.eyeY + 9} rx={5} ry={3} fill="#ff7a9a" opacity={0.35} />
           <ellipse cx={60 + spec.eyeGap + 7} cy={spec.eyeY + 9} rx={5} ry={3} fill="#ff7a9a" opacity={0.35} />
-          <Eyes kind={look.shape === 'frog' ? 'googly' : look.eyes} spec={spec} ink={ink} status={status} />
+          <Eyes kind={look.eyes} spec={spec} ink={ink} status={status} />
           <path
             className="critter-mouth"
             d={`M${54} ${spec.mouthY} Q60 ${spec.mouthY + 5} ${66} ${spec.mouthY}`}

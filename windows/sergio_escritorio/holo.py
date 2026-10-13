@@ -126,6 +126,13 @@ def revolve(
     verts: list[list[float]] = []
     for r, y in profile:
         ring = []
+        if r <= 1e-8:
+            # One real pole, not a ring of coincident vertices. The old
+            # quads had zero-area triangles and disappeared in glass shading.
+            index = len(verts)
+            verts.append([0.0, y, 0.0])
+            rings.append([index] * segments)
+            continue
         for k in range(segments):
             a = 2 * math.pi * k / segments
             ring.append(len(verts))
@@ -135,7 +142,9 @@ def revolve(
     for lo, hi in zip(rings, rings[1:]):
         for k in range(segments):
             k2 = (k + 1) % segments
-            faces.append((lo[k], hi[k], hi[k2], lo[k2]))
+            face = tuple(dict.fromkeys((lo[k], hi[k], hi[k2], lo[k2])))
+            if len(face) >= 3:
+                faces.append(face)
     if cap and profile[0][0] > 1e-6:
         faces.append(tuple(rings[0]))
     if cap and profile[-1][0] > 1e-6:
@@ -143,7 +152,7 @@ def revolve(
     return Mesh(np.array(verts, float), faces, smooth=True)
 
 
-def sphere(radius: float = 0.3, rings: int = 12, segments: int = 18) -> Mesh:
+def sphere(radius: float = 0.3, rings: int = 16, segments: int = 28) -> Mesh:
     profile = [
         (
             radius * math.sin(math.pi * i / rings),
@@ -154,7 +163,7 @@ def sphere(radius: float = 0.3, rings: int = 12, segments: int = 18) -> Mesh:
     return revolve(profile, segments, cap=False)
 
 
-def cylinder(radius: float = 0.22, height: float = 0.55, segments: int = 20) -> Mesh:
+def cylinder(radius: float = 0.22, height: float = 0.55, segments: int = 32) -> Mesh:
     mesh = revolve([(radius, -height / 2), (radius, height / 2)], segments)
     mesh.smooth = False
     return mesh
@@ -1346,6 +1355,7 @@ class HoloScene:
                     "hover_k": float(obj.hover_k),
                     "color": obj.color,
                     "model": colors is not None,
+                    "smooth": obj.mesh.smooth,
                     "held": obj.held,
                     "selected": obj.id == self.selected,
                     "hover": obj.id in self.hover.values(),

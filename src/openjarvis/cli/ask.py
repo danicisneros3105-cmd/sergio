@@ -496,6 +496,7 @@ def _run_agent(
 
             existing = {tool.spec.name for tool in tools}
             for skill_tool in skill_manager.get_skill_tools(
+                include_internal=True,
                 tool_executor=pipeline_executor,
             ):
                 if skill_tool.spec.name not in existing:

@@ -9,7 +9,8 @@ import {
   HeartPulse,
   UserRound,
   Settings,
-  Shapes,
+  ScanFace,
+  PanelsTopLeft,
 } from 'lucide-react';
 import { useAppStore } from '../../lib/store';
 import { LiveOrb } from '../Live/LiveOrb';
@@ -47,8 +48,9 @@ export const TOOLBAR_ITEMS = [
   { path: '/nodes', icon: NodesIcon, label: 'Nodes', color: 'var(--sec-nodes)' },
   { path: '/swarm', icon: SwarmIcon, label: 'Agent Swarm', color: 'var(--sec-swarm)' },
   { path: '/workspace', icon: NotebookPen, label: 'Workspace', color: 'var(--sec-workspace)' },
-  { path: '/creator', icon: Shapes, label: 'Creator', color: 'var(--sec-creator)' },
   { path: '/cowork', icon: Briefcase, label: 'Cowork', color: 'var(--sec-cowork)' },
+  { path: '/studio', icon: PanelsTopLeft, label: 'Estudio', color: 'var(--sec-creator)' },
+  { path: '/faces', icon: ScanFace, label: 'Rostros', color: 'var(--sec-profile)' },
   { path: '/salud', icon: HeartPulse, label: 'Salud', color: 'var(--sec-health)' },
   { path: '/perfil', icon: UserRound, label: 'Perfil', color: 'var(--sec-profile)' },
 ] as const;
