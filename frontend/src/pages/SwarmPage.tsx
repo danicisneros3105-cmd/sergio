@@ -405,7 +405,7 @@ function Launcher() {
         </div>
       </div>
       <p className="swarm-hint">
-        Hasta {MAX_AGENTS} subagentes y {RUN_BUDGET.toLocaleString('es')} llamadas a herramientas por enjambre. Cada documento
+        Hasta {MAX_AGENTS} subtareas, máximo 64 agentes a la vez y {RUN_BUDGET.toLocaleString('es')} llamadas a herramientas por enjambre. Cada documento
         tiene su propio agente lector, y el código comprueba enlaces y cifras del informe. Nunca envía mensajes, compra ni
         borra nada.
       </p>

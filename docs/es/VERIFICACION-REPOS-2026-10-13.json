@@ -1,0 +1,525 @@
+{
+  "schema_version": 1,
+  "audited_source_commit": "7acb4b0d05e90ab059762b92989b167b962be1a0",
+  "date_utc": "2026-10-13",
+  "date_user": "2026-10-12",
+  "complete_equivalence_verified": false,
+  "scope": "Presencia de fuentes, adaptadores y contratos; detección local no certifica funcionamiento ni el PC del propietario.",
+  "organization": {
+    "url": "https://github.com/orgs/The-Swarm-Corporation/repositories",
+    "repositories_listed": 163,
+    "all_organization_repositories_embedded": false
+  },
+  "repositories": [
+    {
+      "repository": "Anil-matcha/open-dots",
+      "url": "https://github.com/Anil-matcha/open-dots",
+      "github_resolved": true,
+      "license_metadata": null,
+      "reviewed_revision": "fb871a1549911981658383f994215fba9dcb3949",
+      "representation": "patrón propio",
+      "whole_upstream_repository_embedded": false,
+      "evidence_files": [
+        "src/openjarvis/nodes/worker.py",
+        "tests/nodes/test_routine_reliability.py"
+      ],
+      "binaries": []
+    },
+    {
+      "repository": "openclaw/openclaw",
+      "url": "https://github.com/openclaw/openclaw",
+      "github_resolved": true,
+      "license_metadata": "MIT",
+      "reviewed_revision": "3529142cc84f8b45d00bda9c78e03d29e82dfd7d",
+      "representation": "adaptador CLI opcional",
+      "whole_upstream_repository_embedded": false,
+      "evidence_files": [
+        "src/openjarvis/nodes/catalog.py",
+        "src/openjarvis/nodes/integrations.py"
+      ],
+      "binaries": [
+        "openclaw"
+      ]
+    },
+    {
+      "repository": "kyegomez/swarms",
+      "url": "https://github.com/kyegomez/swarms",
+      "github_resolved": true,
+      "license_metadata": "Apache-2.0",
+      "reviewed_revision": "cdd3e9ea5311e696ae3594891364b13d04fe0924",
+      "representation": "workflows propios; motor externo no incluido",
+      "whole_upstream_repository_embedded": false,
+      "evidence_files": [
+        "src/openjarvis/agents/workflows.py"
+      ],
+      "binaries": []
+    },
+    {
+      "repository": "The-Swarm-Corporation/swarms",
+      "url": "https://github.com/The-Swarm-Corporation/swarms",
+      "github_resolved": false,
+      "license_metadata": null,
+      "reviewed_revision": null,
+      "representation": "URL no resuelta: GitHub 404",
+      "whole_upstream_repository_embedded": false,
+      "evidence_files": [
+        "docs/swarms-duo-notch-auditoria-2026-10-11.md"
+      ],
+      "binaries": []
+    },
+    {
+      "repository": "The-Swarm-Corporation/SkillScanner",
+      "url": "https://github.com/The-Swarm-Corporation/SkillScanner",
+      "github_resolved": true,
+      "license_metadata": "Apache-2.0",
+      "reviewed_revision": "2811b2d57fd5d4dffd41431763e221054628cfc6",
+      "representation": "análisis propio de skills",
+      "whole_upstream_repository_embedded": false,
+      "evidence_files": [
+        "src/openjarvis/skills/audit.py"
+      ],
+      "binaries": []
+    },
+    {
+      "repository": "The-Swarm-Corporation/GraphWorkflow-Paper",
+      "url": "https://github.com/The-Swarm-Corporation/GraphWorkflow-Paper",
+      "github_resolved": true,
+      "license_metadata": "Apache-2.0",
+      "reviewed_revision": "9364cb7633825da1ba5009b3dd8c2939d6517816",
+      "representation": "validación propia de dependencias",
+      "whole_upstream_repository_embedded": false,
+      "evidence_files": [
+        "src/openjarvis/agents/workflows.py"
+      ],
+      "binaries": []
+    },
+    {
+      "repository": "browser-use/browser-use",
+      "url": "https://github.com/browser-use/browser-use",
+      "github_resolved": true,
+      "license_metadata": "MIT",
+      "reviewed_revision": "c75e8476e26d18b7617643bc2ae082fae8eae431",
+      "representation": "adaptador MCP opcional",
+      "whole_upstream_repository_embedded": false,
+      "evidence_files": [
+        "src/openjarvis/nodes/catalog.py",
+        "src/openjarvis/nodes/sessions.py"
+      ],
+      "binaries": [
+        "browser-use"
+      ]
+    },
+    {
+      "repository": "marcoazeem/duo-open",
+      "url": "https://github.com/marcoazeem/duo-open",
+      "github_resolved": true,
+      "license_metadata": "MIT",
+      "reviewed_revision": "b6d6c8dccf63999b407c59ca9c9c6e423ecd2643",
+      "representation": "adaptación Qt de animación",
+      "whole_upstream_repository_embedded": false,
+      "evidence_files": [
+        "windows/sergio_escritorio/activities.py",
+        "windows/sergio_escritorio/notch.py",
+        "windows/sergio_escritorio/resources/licenses/duo-open-LICENSE.txt"
+      ],
+      "binaries": []
+    },
+    {
+      "repository": "wheresryan22/anatomy",
+      "url": "https://github.com/wheresryan22/anatomy",
+      "github_resolved": true,
+      "license_metadata": "MIT",
+      "reviewed_revision": "240a9bf7c50cc6226148762a1017466fcbc08523",
+      "representation": "skill interna adaptada y recursos copiados",
+      "whole_upstream_repository_embedded": false,
+      "evidence_files": [
+        "src/openjarvis/skills/bundled/anatomy/SKILL.md",
+        "src/openjarvis/skills/bundled/anatomy/SOURCE.toml",
+        "src/openjarvis/skills/design_policy.py",
+        "src/openjarvis/agents/_stubs.py",
+        "src/openjarvis/speech/gemini_live.py"
+      ],
+      "binaries": []
+    },
+    {
+      "repository": "FreeCAD/FreeCAD",
+      "url": "https://github.com/FreeCAD/FreeCAD",
+      "github_resolved": true,
+      "license_metadata": "LGPL-2.1",
+      "reviewed_revision": null,
+      "representation": "catálogo, instalación y apertura Windows",
+      "whole_upstream_repository_embedded": false,
+      "evidence_files": [
+        "src/openjarvis/professional/catalog.py",
+        "windows/sergio_escritorio/apps.py"
+      ],
+      "binaries": [
+        "FreeCAD",
+        "freecad",
+        "FreeCADCmd"
+      ]
+    },
+    {
+      "repository": "IfcOpenShell/IfcOpenShell",
+      "url": "https://github.com/IfcOpenShell/IfcOpenShell",
+      "github_resolved": true,
+      "license_metadata": "LGPL-3.0",
+      "reviewed_revision": null,
+      "representation": "Bonsai/BlenderBIM: referencia de extensión",
+      "whole_upstream_repository_embedded": false,
+      "evidence_files": [
+        "src/openjarvis/professional/catalog.py"
+      ],
+      "binaries": []
+    },
+    {
+      "repository": "LibreCAD/LibreCAD",
+      "url": "https://github.com/LibreCAD/LibreCAD",
+      "github_resolved": true,
+      "license_metadata": "NOASSERTION",
+      "reviewed_revision": null,
+      "representation": "catálogo, instalación y apertura Windows",
+      "whole_upstream_repository_embedded": false,
+      "evidence_files": [
+        "src/openjarvis/professional/catalog.py",
+        "windows/sergio_escritorio/apps.py"
+      ],
+      "binaries": [
+        "librecad"
+      ]
+    },
+    {
+      "repository": "KDE/kdenlive",
+      "url": "https://github.com/KDE/kdenlive",
+      "github_resolved": true,
+      "license_metadata": "GPL-3.0",
+      "reviewed_revision": null,
+      "representation": "catálogo, instalación y apertura Windows",
+      "whole_upstream_repository_embedded": false,
+      "evidence_files": [
+        "src/openjarvis/professional/catalog.py",
+        "windows/sergio_escritorio/apps.py"
+      ],
+      "binaries": [
+        "kdenlive"
+      ]
+    },
+    {
+      "repository": "shiyu-coder/Kronos",
+      "url": "https://github.com/shiyu-coder/Kronos",
+      "github_resolved": true,
+      "license_metadata": "MIT",
+      "reviewed_revision": "67b630e67f6a18c9e9be918d9b4337c960db1e9a",
+      "representation": "adaptador aislado; pesos externos requeridos",
+      "whole_upstream_repository_embedded": false,
+      "evidence_files": [
+        "src/openjarvis/professional/kronos.py",
+        "src/openjarvis/professional/kronos_worker.py",
+        "scripts/preparar-integraciones.sh"
+      ],
+      "binaries": []
+    },
+    {
+      "repository": "lidojs/canva-clone",
+      "url": "https://github.com/lidojs/canva-clone",
+      "github_resolved": true,
+      "license_metadata": null,
+      "reviewed_revision": null,
+      "representation": "solo referencia; licencia pendiente",
+      "whole_upstream_repository_embedded": false,
+      "evidence_files": [
+        "src/openjarvis/professional/catalog.py"
+      ],
+      "binaries": []
+    },
+    {
+      "repository": "clawnify/OpenDesign",
+      "url": "https://github.com/clawnify/OpenDesign",
+      "github_resolved": true,
+      "license_metadata": "MIT",
+      "reviewed_revision": "a0ea785a3be38f61a944571c7a7f72c2ce7d2c2f",
+      "representation": "adaptador REST y preparación externa",
+      "whole_upstream_repository_embedded": false,
+      "evidence_files": [
+        "src/openjarvis/professional/opendesign.py",
+        "src/openjarvis/professional/routes.py",
+        "scripts/preparar-integraciones.sh"
+      ],
+      "binaries": []
+    },
+    {
+      "repository": "VSCodium/vscodium",
+      "url": "https://github.com/VSCodium/vscodium",
+      "github_resolved": true,
+      "license_metadata": "MIT",
+      "reviewed_revision": null,
+      "representation": "catálogo, instalación y apertura Windows",
+      "whole_upstream_repository_embedded": false,
+      "evidence_files": [
+        "src/openjarvis/professional/catalog.py",
+        "windows/sergio_escritorio/apps.py"
+      ],
+      "binaries": [
+        "codium"
+      ]
+    },
+    {
+      "repository": "storytold/artcraft",
+      "url": "https://github.com/storytold/artcraft",
+      "github_resolved": true,
+      "license_metadata": "Apache-2.0",
+      "reviewed_revision": null,
+      "representation": "catálogo y apertura Windows; aplicación externa",
+      "whole_upstream_repository_embedded": false,
+      "evidence_files": [
+        "src/openjarvis/professional/catalog.py",
+        "windows/sergio_escritorio/apps.py"
+      ],
+      "binaries": [
+        "artcraft"
+      ]
+    },
+    {
+      "repository": "storytold/photocraft",
+      "url": "https://github.com/storytold/photocraft",
+      "github_resolved": true,
+      "license_metadata": "Apache-2.0",
+      "reviewed_revision": null,
+      "representation": "catálogo y apertura Windows; aplicación externa",
+      "whole_upstream_repository_embedded": false,
+      "evidence_files": [
+        "src/openjarvis/professional/catalog.py",
+        "windows/sergio_escritorio/apps.py"
+      ],
+      "binaries": [
+        "photocraft"
+      ]
+    },
+    {
+      "repository": "storytold/lightcraft",
+      "url": "https://github.com/storytold/lightcraft",
+      "github_resolved": true,
+      "license_metadata": "Apache-2.0",
+      "reviewed_revision": null,
+      "representation": "catálogo y apertura Windows; aplicación externa",
+      "whole_upstream_repository_embedded": false,
+      "evidence_files": [
+        "src/openjarvis/professional/catalog.py",
+        "windows/sergio_escritorio/apps.py"
+      ],
+      "binaries": [
+        "lightcraft"
+      ]
+    },
+    {
+      "repository": "storytold/vectorcraft",
+      "url": "https://github.com/storytold/vectorcraft",
+      "github_resolved": true,
+      "license_metadata": "Apache-2.0",
+      "reviewed_revision": null,
+      "representation": "catálogo y apertura Windows; aplicación externa",
+      "whole_upstream_repository_embedded": false,
+      "evidence_files": [
+        "src/openjarvis/professional/catalog.py",
+        "windows/sergio_escritorio/apps.py"
+      ],
+      "binaries": [
+        "vectorcraft"
+      ]
+    },
+    {
+      "repository": "storytold/filmcraft",
+      "url": "https://github.com/storytold/filmcraft",
+      "github_resolved": true,
+      "license_metadata": "Apache-2.0",
+      "reviewed_revision": null,
+      "representation": "catálogo y apertura Windows; aplicación externa",
+      "whole_upstream_repository_embedded": false,
+      "evidence_files": [
+        "src/openjarvis/professional/catalog.py",
+        "windows/sergio_escritorio/apps.py"
+      ],
+      "binaries": [
+        "filmcraft"
+      ]
+    },
+    {
+      "repository": "storytold/effectcraft",
+      "url": "https://github.com/storytold/effectcraft",
+      "github_resolved": true,
+      "license_metadata": "Apache-2.0",
+      "reviewed_revision": null,
+      "representation": "catálogo y apertura Windows; aplicación externa",
+      "whole_upstream_repository_embedded": false,
+      "evidence_files": [
+        "src/openjarvis/professional/catalog.py",
+        "windows/sergio_escritorio/apps.py"
+      ],
+      "binaries": [
+        "effectcraft"
+      ]
+    },
+    {
+      "repository": "storytold/designcraft",
+      "url": "https://github.com/storytold/designcraft",
+      "github_resolved": true,
+      "license_metadata": "Apache-2.0",
+      "reviewed_revision": null,
+      "representation": "catálogo y apertura Windows; aplicación externa",
+      "whole_upstream_repository_embedded": false,
+      "evidence_files": [
+        "src/openjarvis/professional/catalog.py",
+        "windows/sergio_escritorio/apps.py"
+      ],
+      "binaries": [
+        "designcraft"
+      ]
+    },
+    {
+      "repository": "storytold/pdfcraft",
+      "url": "https://github.com/storytold/pdfcraft",
+      "github_resolved": true,
+      "license_metadata": "Apache-2.0",
+      "reviewed_revision": null,
+      "representation": "catálogo y apertura Windows; aplicación externa",
+      "whole_upstream_repository_embedded": false,
+      "evidence_files": [
+        "src/openjarvis/professional/catalog.py",
+        "windows/sergio_escritorio/apps.py"
+      ],
+      "binaries": [
+        "pdfcraft"
+      ]
+    },
+    {
+      "repository": "storytold/wordcraft",
+      "url": "https://github.com/storytold/wordcraft",
+      "github_resolved": true,
+      "license_metadata": "Apache-2.0",
+      "reviewed_revision": null,
+      "representation": "catálogo y apertura Windows; aplicación externa",
+      "whole_upstream_repository_embedded": false,
+      "evidence_files": [
+        "src/openjarvis/professional/catalog.py",
+        "windows/sergio_escritorio/apps.py"
+      ],
+      "binaries": [
+        "wordcraft"
+      ]
+    },
+    {
+      "repository": "storytold/soundcraft",
+      "url": "https://github.com/storytold/soundcraft",
+      "github_resolved": true,
+      "license_metadata": "Apache-2.0",
+      "reviewed_revision": null,
+      "representation": "catálogo y apertura Windows; aplicación externa",
+      "whole_upstream_repository_embedded": false,
+      "evidence_files": [
+        "src/openjarvis/professional/catalog.py",
+        "windows/sergio_escritorio/apps.py"
+      ],
+      "binaries": [
+        "soundcraft"
+      ]
+    },
+    {
+      "repository": "storytold/deckcraft",
+      "url": "https://github.com/storytold/deckcraft",
+      "github_resolved": true,
+      "license_metadata": "Apache-2.0",
+      "reviewed_revision": null,
+      "representation": "catálogo y apertura Windows; aplicación externa",
+      "whole_upstream_repository_embedded": false,
+      "evidence_files": [
+        "src/openjarvis/professional/catalog.py",
+        "windows/sergio_escritorio/apps.py"
+      ],
+      "binaries": [
+        "deckcraft"
+      ]
+    },
+    {
+      "repository": "storytold/cadcraft",
+      "url": "https://github.com/storytold/cadcraft",
+      "github_resolved": true,
+      "license_metadata": "Apache-2.0",
+      "reviewed_revision": null,
+      "representation": "catálogo y apertura Windows; aplicación externa",
+      "whole_upstream_repository_embedded": false,
+      "evidence_files": [
+        "src/openjarvis/professional/catalog.py",
+        "windows/sergio_escritorio/apps.py"
+      ],
+      "binaries": [
+        "cadcraft"
+      ]
+    },
+    {
+      "repository": "storytold/gridcraft",
+      "url": "https://github.com/storytold/gridcraft",
+      "github_resolved": true,
+      "license_metadata": "Apache-2.0",
+      "reviewed_revision": null,
+      "representation": "catálogo y apertura Windows; aplicación externa",
+      "whole_upstream_repository_embedded": false,
+      "evidence_files": [
+        "src/openjarvis/professional/catalog.py",
+        "windows/sergio_escritorio/apps.py"
+      ],
+      "binaries": [
+        "gridcraft"
+      ]
+    }
+  ],
+  "probes": {
+    "browser_use": {
+      "version": "0.13.11",
+      "real_process": true,
+      "mcp_tools": 16,
+      "full_browser_navigation_tested": false,
+      "installed_in_release": false
+    },
+    "openclaw": {
+      "version": "2026.9.9",
+      "real_process": true,
+      "exit_code": 0,
+      "full_agent_gateway_tested": false,
+      "installed_in_release": false
+    },
+    "anatomy": {
+      "upstreamBlobs": 122,
+      "localFiles": 93,
+      "adaptations": 3,
+      "exact": 90,
+      "missing": [],
+      "differences": []
+    },
+    "focused_tests": {
+      "python_passed": 170,
+      "python_skipped": 2,
+      "frontend_passed": 161
+    }
+  },
+  "counterexamples": {
+    "swarm": {
+      "requested_parallel": 300,
+      "effective_parallel": 64,
+      "subtasks": 300,
+      "status": "done",
+      "model_runner": "controlled fixture; no model quality measured"
+    },
+    "report_grounding": {
+      "same_synthetic_claim_in_result_and_report_passes": true,
+      "external_fact_verification": false
+    }
+  },
+  "sources": {
+    "face_id": "https://support.apple.com/en-us/102381",
+    "muse": "https://about.fb.com/news/2026/09/introducing-muse-personal-ai-agent/",
+    "dots": "https://openai.com/index/introducing-dots/",
+    "kimi": "https://www.kimi.com/help/agent/agent-swarm",
+    "chatgpt_work": "https://openai.com/chatgpt-work/",
+    "heyclicky": "https://www.heyclicky.com/"
+  }
+}

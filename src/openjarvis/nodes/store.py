@@ -1,18 +1,17 @@
-"""Nodes: your digital employees, working 24/7 (OpenAI's Dots + Meta's Muse).
+"""Persistent digital assistants while the Sergio server is running.
 
 A Node is not a chat that answers and forgets. Each one has:
 
 * a **face of its own**: a plush character you design (shape, colour,
   accessory, eyes), a name and a **way of talking** (tone);
-* its own **computer**: a folder that is its disk (files it makes stay
-  there, and you can open them), plus the browser and code tools it is
-  allowed to use;
+* its own **workspace folder**, plus permitted browser and code tools.
+  A folder is not an isolated computer or a dedicated virtual machine;
 * **long-term memory** that it writes itself (``<recordar>``) and you can
-  read and edit (unlike Dots, nothing about you is hidden);
+  read and edit;
 * **rules** for what it does on its own, what it must ask you first and
   what it never does (sending, paying and deleting are never automatic);
-* **apps** it may use, each with its own access — read, or read and write
-  (Muse's Sentinel); writing always goes through your approval;
+* **apps** it may use, each with its own access — read, or read and write.
+  These policies are not Muse's separate OS-level Sentinel;
 * **connections**: commands it may run (CLI allow-list), MCP servers and,
   on the Dev plan, your own APIs (the key stays on this computer);
 * **routines and triggers**: work it repeats on its own (every N minutes, at

@@ -11,8 +11,9 @@ next day (that is what Nodes are for).
 Documents handed in (50 contracts, a folder of invoices…) each get their own
 reading sub-agent, so nothing is skipped.
 
-Like Kimi's newest swarm it scales to 300 sub-agents and a shared budget of
-4,000 tool calls per run, and a *scout* maps the ground first (what items
+It supports 300 planned subtasks, at most 64 concurrent workers, and a shared
+budget of 4,000 sub-agent tool calls per run. These limits do not establish
+parity with Kimi K3's model, PARL training or runtime. A *scout* maps the ground first (what items
 exist, where the good sources are) so the orchestrator splits real work.
 You see each sub-agent's current tool live; a sub-agent that fails is
 retried with backoff; and before you read the report, code checks it

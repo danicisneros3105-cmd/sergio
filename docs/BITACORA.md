@@ -2,6 +2,31 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-10-13 · Codex · verificación paralela Creator y equivalencia
+- Revisé main 7acb4b0 completo y las funciones de Nodes/Swarm/Cowork del equipo,
+  con una revisión independiente de Creator autorizada por el señor.
+- Resultado: nombres de Creator y ArtCraft 13 representados; no todos los motores
+  completos instalados/integrados. LidoJS solo referencia. No hay equivalencia
+  completa con Face ID, Muse, Dots, ChatGPT Work o Kimi: carpeta no es VM,
+  reglas no son Sentinel y 300 subtareas no son 300 trabajadores simultáneos.
+- Corregí esas afirmaciones en docstrings, presentación de Node, texto Swarm y
+  NODES-Y-SWARM.md. No cambié el motor, permisos o límites para fingir paridad.
+- Consulté 30 refs GitHub: 29 resuelven, The-Swarm-Corporation/swarms devuelve 404.
+  Mantengo sus proyectos específicos revisados y los pins; no importo los 163 repos.
+- Pruebas actuales: 170 Python pasan, 2 omitidas; 161 frontend, tsc/build y Ruff pasan.
+  Browser-use 0.13.11 MCP real: 16 herramientas, cierre; OpenClaw 2026.9.9 CLI real:
+  --version exit 0. Instalados solo en entornos de auditoría, sin cuentas personales.
+  Anatomy: 93 archivos, 3 adaptaciones, 90 blobs idénticos al pin. SwarmEngine controlado:
+  300 subtareas terminadas con parallel solicitado 300 limitado a 64. No benchmark IA.
+- El cotejo textual puede aceptar una misma afirmación falsa repetida por un
+  subagente: no es verificación de verdad externa. Se documenta ese contraejemplo.
+- Entrego matrices VERIFICACION-REPOS-Y-PARIDAD y CREATOR-VERIFICACION,
+  inventario JSON y scripts/verificar-integraciones.py de solo lectura.
+- Pendiente de uso real: hardware Windows Hello, instalaciones/artefactos de
+  aplicaciones, activación Bonsai/IFC, editor OpenDesign, pesos/inferencia Kronos,
+  navegación completa Browser-use y Gateway OpenClaw. No atribuyo pruebas
+  simuladas a motores reales ni afirmo seguridad/velocidad/calidad iguales.
+
 ## 2026-10-13 · Codex · diseño profesional y consentimiento Windows Hello
 - Partí de main e1396e7 y conservo su árbol completo, incluidos los cambios de
   Claude y los archivos que faltaban en mi checkout parcial anterior. La rama

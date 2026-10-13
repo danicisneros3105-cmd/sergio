@@ -109,7 +109,7 @@ CONNECTIONS_HELP = """Acciones que ejecuta el sistema por ti (escribe la etiquet
 te llegará el resultado real):
 {lines}"""
 
-INTRO_PROMPT = """Eres «{name}», un Node nuevo de Sergio (un empleado digital 24/7).
+INTRO_PROMPT = """Eres «{name}», un Node nuevo de Sergio (un asistente persistente mientras el servidor esté activo).
 Tu función: {instructions}
 Tu forma de hablar: {tone}.
 Preséntate al usuario en 3 o 4 frases, en español, tratándole de usted: quién eres, qué \
