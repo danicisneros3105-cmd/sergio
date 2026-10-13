@@ -34,6 +34,20 @@ opendesign() {
   )
 }
 
+# The editor shows Sergio's name for it («Código»), not its own.
+codigo_name() {
+  local product="$1/product.json"
+  [[ -f "$product" ]] || return 0
+  python3 - "$product" <<'PY'
+import json, sys
+path = sys.argv[1]
+data = json.load(open(path, encoding="utf-8"))
+if data.get("nameShort") != "Código":
+    data.update(nameShort="Código", nameLong="Código")
+    json.dump(data, open(path, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+PY
+}
+
 vscodium() {
   local dir="$apps/vscodium-web" arch url tmp
   case "$(uname -m)" in
@@ -46,6 +60,7 @@ vscodium() {
     grep -o "https://[^\"]*vscodium-reh-web-linux-${arch}-[^\"]*\.tar\.gz" | head -n1)"
   [[ -n "$url" ]] || { echo "VSCodium web: no encontré la descarga" >&2; return 1; }
   if [[ -f "$dir/.version" && "$(cat "$dir/.version")" == "$url" ]]; then
+    codigo_name "$dir"
     return 0  # already the latest
   fi
   tmp="$(mktemp -d)"
@@ -54,6 +69,7 @@ vscodium() {
   tar -xzf "$tmp/reh.tar.gz" -C "$dir.new" || { rm -rf "$tmp" "$dir.new"; return 1; }
   rm -rf "$tmp" "$dir" && mv "$dir.new" "$dir"
   echo "$url" > "$dir/.version"
+  codigo_name "$dir"
   [[ -x "$dir/bin/codium-server" ]]
 }
 

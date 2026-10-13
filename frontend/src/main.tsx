@@ -6,6 +6,7 @@ import App from './App';
 import { initApiBase } from './lib/api';
 import { initAnalytics } from './lib/analytics';
 import { consumePairFragment } from './lib/pairing';
+import { watchFreshness } from './lib/freshness';
 import '@fontsource-variable/josefin-sans';
 import '@fontsource-variable/inter';
 import './index.css';
@@ -29,6 +30,7 @@ function applyTheme() {
 // A phone opened from the `sergio movil` QR code: keep its key, then render.
 consumePairFragment();
 applyTheme();
+watchFreshness();
 
 // Fetch the API base URL from the Tauri backend before rendering.
 // This ensures JARVIS_PORT is defined in one place (the Rust backend).

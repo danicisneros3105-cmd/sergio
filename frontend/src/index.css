@@ -3249,3 +3249,79 @@ h3.paper-title { font-size: 18px; }
 .anatomy-embed-error { font-size: 13px; color: var(--color-text-tertiary); margin: 8px 0; }
 @media (max-width: 640px) { .anatomy-embed iframe { height: 340px; } }
 .creator-all { margin-left: auto; color: var(--color-text-tertiary); }
+
+/* ===========================================================================
+   Typography (owner, oct. 2026): the letterforms of the B&O logo — Josefin
+   Sans — for the brand and every title; the body stays in the system font.
+   =========================================================================== */
+:root { --font-display: var(--font-wordmark); }
+h1, .chat-hello, .creator-head h1, .ext-title, .paper-title, .studio-heading h1, .node-title, .nodes-title {
+  font-family: var(--font-wordmark);
+  font-weight: 600;
+  letter-spacing: 0.005em;
+}
+
+/* ===========================================================================
+   Extensiones — Programas · Plugins · Skills · Conectores. One quiet list.
+   =========================================================================== */
+.ext-page { max-width: 720px; margin: 0 auto; padding: 48px 20px 80px; }
+.ext-title { font-size: 30px; line-height: 1.2; margin: 0 0 22px; color: var(--color-text); }
+.ext-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 18px; }
+.ext-tab {
+  display: inline-flex; align-items: center; gap: 7px; height: 34px; padding: 0 14px;
+  border-radius: 999px; font-size: 14px; color: var(--color-text-secondary); text-decoration: none;
+  transition: background 0.15s, color 0.15s;
+}
+.ext-tab:hover { background: var(--color-hover); color: var(--color-text); }
+.ext-tab[aria-current='page'] { background: var(--color-text); color: var(--color-bg); }
+.ext-list { list-style: none; margin: 0; padding: 0; }
+.ext-row {
+  display: flex; align-items: center; gap: 12px; min-height: 54px; padding: 6px 4px;
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+.ext-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--color-border); flex: none; }
+.ext-dot[data-on] { background: #19c37d; }
+.ext-name { flex: 1; min-width: 0; font-size: 15px; color: var(--color-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ext-actions { display: inline-flex; align-items: center; gap: 8px; color: var(--color-text-secondary); }
+.ext-btn {
+  height: 32px; padding: 0 14px; border-radius: 999px; font-size: 13.5px; font-weight: 500;
+  border: 1px solid var(--color-border); background: transparent; color: var(--color-text); cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+}
+.ext-btn:hover { background: var(--color-hover); }
+.ext-btn[data-primary] { background: var(--color-text); color: var(--color-bg); border-color: transparent; }
+.ext-btn[data-primary]:hover { opacity: 0.88; }
+.ext-btn:disabled { opacity: 0.45; cursor: default; }
+.ext-icon { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; color: var(--color-text-secondary); background: none; border: 0; cursor: pointer; }
+.ext-icon:hover { background: var(--color-hover); color: var(--color-text); }
+.ext-switch {
+  width: 40px; height: 24px; border-radius: 999px; border: 0; padding: 0; cursor: pointer; position: relative;
+  background: var(--color-border); transition: background 0.2s;
+}
+.ext-switch::after {
+  content: ''; position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; border-radius: 50%;
+  background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.25); transition: transform 0.25s cubic-bezier(.3,1.4,.5,1);
+}
+.ext-switch[aria-checked='true'] { background: #19c37d; }
+.ext-switch[aria-checked='true']::after { transform: translateX(16px); }
+.ext-add { margin-top: 14px; height: 40px; padding: 0 16px; border-radius: 999px; border: 1px dashed var(--color-border); background: none; color: var(--color-text-secondary); cursor: pointer; font-size: 14px; }
+.ext-add:hover { color: var(--color-text); border-color: var(--color-text-tertiary); }
+.ext-spin { animation: ext-spin 0.9s linear infinite; color: var(--color-text-tertiary); }
+@keyframes ext-spin { to { transform: rotate(360deg); } }
+.ext-sheet { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; background: rgba(0,0,0,.32); padding: 16px; animation: ext-fade 0.18s ease-out; }
+.ext-sheet-card {
+  position: relative; width: min(420px, 100%); display: flex; flex-direction: column; gap: 12px;
+  padding: 26px 22px 22px; border-radius: 20px; background: var(--color-bg); box-shadow: 0 24px 60px rgba(0,0,0,.25);
+  animation: ext-pop 0.32s cubic-bezier(.2,1.3,.4,1);
+}
+.ext-sheet-card h2 { font-family: var(--font-wordmark); font-size: 22px; font-weight: 600; margin: 0; }
+.ext-x { position: absolute; top: 12px; right: 12px; width: 30px; height: 30px; border-radius: 50%; border: 0; background: none; color: var(--color-text-secondary); cursor: pointer; display: grid; place-items: center; }
+.ext-x:hover { background: var(--color-hover); }
+.ext-perms { margin: 0; padding: 0 0 0 18px; font-size: 14px; color: var(--color-text-secondary); line-height: 1.7; }
+.ext-input { width: 100%; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--color-border); background: transparent; color: var(--color-text); font: inherit; font-size: 14px; resize: vertical; }
+@keyframes ext-fade { from { opacity: 0; } }
+@keyframes ext-pop { from { opacity: 0; transform: scale(.94) translateY(8px); } }
+@media (prefers-reduced-motion: reduce) { .ext-sheet, .ext-sheet-card { animation: none; } }
+
+/* Minimal (owner): no explanatory subtexts under titles. Data stays. */
+p.node-hint:not(.node-path), .node-create-sub, .swarm-sub, .swarm-hint, .studio-heading p, .studio-kicker { display: none; }

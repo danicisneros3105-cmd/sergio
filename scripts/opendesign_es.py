@@ -14,6 +14,7 @@ import sys
 from pathlib import Path
 
 TEXT = {  # shown between tags (also when the text sits on its own line)
+    "OpenDesign": "Diseño",  # no external names in sight: it is Sergio's Diseño
     "Alignment": "Alineación",
     "All pages": "Todas las páginas",
     "Background color": "Color de fondo",
@@ -143,6 +144,13 @@ def main(folder: str) -> int:
         new = translate(text)
         if new != text:
             path.write_text(new, encoding="utf-8")
+            changed += 1
+    index = Path(folder) / "index.html"
+    if index.is_file():
+        page = index.read_text(encoding="utf-8")
+        titled = re.sub(r"<title>[^<]*</title>", "<title>Diseño</title>", page)
+        if titled != page:
+            index.write_text(titled, encoding="utf-8")
             changed += 1
     print(f"OpenDesign en español: {changed} archivos.")
     return 0

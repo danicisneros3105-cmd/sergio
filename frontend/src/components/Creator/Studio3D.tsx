@@ -543,7 +543,7 @@ export function Studio3D({ mode }: { mode: 'modelado' | 'arquitectura' }) {
     });
     if (!res.ok) return toast.error((await res.json().catch(() => ({}))).detail || 'No pude crear el edificio IFC.');
     download(await res.blob(), 'plano-sergio.ifc');
-    toast.success('Edificio IFC descargado: ábralo en FreeCAD o en Blender con Bonsai.');
+    toast.success('Edificio IFC descargado.');
   };
 
   // Make the file and open it in the real program on the owner's PC.
@@ -565,7 +565,7 @@ export function Studio3D({ mode }: { mode: 'modelado' | 'arquitectura' }) {
   // Blender runs it (Scripting → Run) and it saves the .blend by itself.
   const toBlender = async () => {
     if (!lastRequest) return;
-    setBusy('Sergio está escribiendo la versión de producción para Blender…');
+    setBusy('Sergio está preparando la versión de producción…');
     try {
       const name = lastRequest.replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-|-$/g, '').slice(0, 40).toLowerCase() || 'modelo';
       const res = await apiFetch('/v1/vision/blender/text', {
@@ -574,13 +574,13 @@ export function Studio3D({ mode }: { mode: 'modelado' | 'arquitectura' }) {
         body: JSON.stringify({ request: lastRequest, save_path: `~/Sergio/Creator/${name}.blend` }),
       });
       const body = await res.json().catch(() => ({}));
-      if (!res.ok || typeof body.script !== 'string') throw new Error(body.detail || 'Blender Pro no respondió.');
+      if (!res.ok || typeof body.script !== 'string') throw new Error(body.detail || 'El estudio 3D no respondió.');
       download(new Blob([body.script], { type: 'text/x-python' }), `sergio-${name}.py`);
-      toast.success(`Listo: abra sergio-${name}.py en Blender (Scripting → Ejecutar). Se guarda en Sergio/Creator/${name}.blend.`, {
+      toast.success(`Listo: sergio-${name}.py (Estudio 3D → Scripting → Ejecutar).`, {
         duration: 9000,
       });
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Blender Pro no respondió.');
+      toast.error(e instanceof Error ? e.message : 'El estudio 3D no respondió.');
     } finally {
       setBusy('');
     }
@@ -801,20 +801,20 @@ export function Studio3D({ mode }: { mode: 'modelado' | 'arquitectura' }) {
               <div className="studio-open-in" role="group" aria-label="Abrir el plano en">
                 <span>Abrir en</span>
                 <button type="button" className="mac-chip" onClick={() => void openPlan('freecad')}>
-                  FreeCAD
+                  Planos
                 </button>
                 <button type="button" className="mac-chip" onClick={() => void openPlan('bonsai')}>
-                  Bonsai
+                  BIM
                 </button>
                 <button type="button" className="mac-chip" onClick={() => void openPlan('librecad')}>
-                  LibreCAD
+                  Plano 2D
                 </button>
               </div>
             </>
           )}
           {lastRequest && (
             <button type="button" className="paper-button" onClick={toBlender} disabled={!!busy}>
-              Llevar a Blender (producción)
+              Producción 3D
             </button>
           )}
           <button

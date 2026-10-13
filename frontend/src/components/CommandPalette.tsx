@@ -35,7 +35,6 @@ interface CloudProvider {
 }
 
 const CLOUD_PROVIDERS: CloudProvider[] = [
-  {name: "Moonshot / Kimi", envKey: "MOONSHOT_API_KEY", models: [{id: "kimi-k3", desc: "Kimi K3 · requiere acceso del proveedor"}]},
   {
     name: 'OpenAI',
     envKey: 'OPENAI_API_KEY',

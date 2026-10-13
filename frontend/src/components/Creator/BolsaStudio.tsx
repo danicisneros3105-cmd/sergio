@@ -67,7 +67,7 @@ export default function BolsaStudio({ programs, reload }: { programs: Program[] 
   const paths = useMemo(() => (result ? chartPaths(result.history, result.forecast) : null), [result]);
 
   const run = async (sym = symbol) => {
-    setBusy('Kronos está leyendo las velas y prediciendo…');
+    setBusy('Leyendo las velas…');
     setError('');
     try {
       const res = await apiFetch('/v1/creator/bolsa/forecast', {
@@ -76,7 +76,7 @@ export default function BolsaStudio({ programs, reload }: { programs: Program[] 
         body: JSON.stringify({ symbol: sym, horizon }),
       });
       const body = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(body.detail || 'Kronos no pudo predecir.');
+      if (!res.ok) throw new Error(body.detail || 'No se pudo predecir.');
       setResult(body as Forecast);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -89,8 +89,8 @@ export default function BolsaStudio({ programs, reload }: { programs: Program[] 
     return (
       <div className="program-missing">
         <div className="program-missing-card">
-          <b>Bolsa con Kronos</b>
-          <p>{kronos.what} Se ejecuta en este equipo.</p>
+          <b>Bolsa</b>
+          <p>{kronos.what}</p>
           <p className="studio-note">
             {kronos.installing
               ? `Instalando: ${kronos.step || 'empezando'}… (PyTorch tarda unos minutos la primera vez)`
@@ -108,7 +108,7 @@ export default function BolsaStudio({ programs, reload }: { programs: Program[] 
                   .catch((e) => toast.error(e instanceof Error ? e.message : String(e)))
               }
             >
-              <Download size={15} /> Instalar Kronos
+              <Download size={15} /> Instalar
             </button>
           )}
           {kronos.error && <p className="studio-error">{kronos.error}</p>}
@@ -192,14 +192,13 @@ export default function BolsaStudio({ programs, reload }: { programs: Program[] 
             </text>
           </svg>
           <p className="bolsa-note">
-            {result.note} Modelo {result.model}, en este equipo. Los precios pasados son públicos (Yahoo Finance o Stooq).
+            {result.note}
           </p>
         </section>
       )}
       {!result && !busy && !error && (
         <p className="studio-note bolsa-empty">
-          Escriba un símbolo (acciones, índices como ^GSPC o cripto como BTC-USD) y Kronos dibuja hacia dónde podría ir.
-          Es una predicción de un modelo, no un consejo financiero.
+          No es un consejo financiero.
         </p>
       )}
     </div>

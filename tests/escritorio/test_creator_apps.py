@@ -57,7 +57,7 @@ def test_find_and_status(monkeypatch):
     assert ca.find("bonsai") == ""  # Blender is there, Bonsai is not
     st = ca.status()
     assert st["freecad"]["installed"] and not st["kdenlive"]["installed"]
-    assert st["freecad"]["name"] == "FreeCAD"
+    assert st["freecad"]["name"] == "Planos"
 
 
 def test_bonsai_counts_once_blender_has_it(monkeypatch):
@@ -81,7 +81,7 @@ def test_winget_install_falls_back_to_machine_scope(monkeypatch):
         and "--scope" in calls[0]
     )
     assert "--scope" not in calls[1]
-    assert "Kdenlive" in line and not ca._state["kdenlive"]
+    assert "Video" in line and not ca._state["kdenlive"]
 
 
 def test_failed_install_is_reported_not_raised(monkeypatch):
@@ -184,7 +184,7 @@ def test_files_from_sergio_open_in_the_right_program(monkeypatch, tmp_path):
             "data": data,
         }
     )
-    assert "FreeCAD" in out
+    assert "Planos" in out
     saved = ca.INCOMING / "plano sergio.ifc"
     assert saved.read_bytes() == b"ISO-10303-21;"  # no path tricks: kept in Creator
     assert opened[-1] == ["C:/Apps/freecad.exe", str(saved)]
@@ -207,7 +207,7 @@ def test_skill_install_runs_in_the_background(monkeypatch):
             start=lambda: started.append(args)
         ),
     )
-    assert "Instalando FreeCAD" in ca.skill({"action": "install", "app": "freecad"})
+    assert "Instalando Planos" in ca.skill({"action": "install", "app": "freecad"})
     assert ca.status()["freecad"]["installing"]
     assert "ya se está instalando" in ca.skill({"action": "install", "app": "freecad"})
     assert started == [("freecad",)]

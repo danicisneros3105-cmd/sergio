@@ -84,11 +84,17 @@ def install_steps(base: Path, uv: str | None, git: str) -> list[tuple[str, list[
     steps: list[tuple[str, list[str]]] = []
     if (repo / ".git").is_dir():
         steps.append(
-            ("Actualizando Kronos", [git, "-C", str(repo), "pull", "--ff-only"])
+            (
+                "Actualizando el modelo de pronóstico",
+                [git, "-C", str(repo), "pull", "--ff-only"],
+            )
         )
     else:
         steps.append(
-            ("Descargando Kronos", [git, "clone", "--depth", "1", REPO_URL, str(repo)])
+            (
+                "Descargando el modelo de pronóstico",
+                [git, "clone", "--depth", "1", REPO_URL, str(repo)],
+            )
         )
     fresh = not py.exists()
     if uv:
@@ -139,7 +145,7 @@ def install(run: Callable[..., Any] = subprocess.run, base: Path | None = None) 
     base.mkdir(parents=True, exist_ok=True)
     git = shutil.which("git")
     if not git:
-        raise CreatorError("Falta git para descargar Kronos.")
+        raise CreatorError("Falta git para descargar el modelo de pronóstico.")
     for step, cmd in install_steps(base, shutil.which("uv"), git):
         _state["step"] = step
         done = run(cmd, capture_output=True, text=True, timeout=1800, check=False)
@@ -288,7 +294,7 @@ def forecast(
 ) -> dict[str, Any]:
     base = base or folder()
     if not installed(base):
-        raise CreatorError("Kronos aún no está instalado. Pulse «Instalar Kronos».")
+        raise CreatorError("El pronóstico aún no está instalado. Pulse «Instalar».")
     symbol = _clean_symbol(symbol)
     horizon = max(1, min(int(horizon), MAX_HORIZON))
     model, tokenizer, context = MODELS.get(size, MODELS["small"])
@@ -316,19 +322,19 @@ def forecast(
     )
     if getattr(done, "returncode", 1) != 0:
         tail = (getattr(done, "stderr", "") or "")[-400:]
-        raise CreatorError(f"Kronos no pudo predecir ({tail.strip()})")
+        raise CreatorError(f"El pronóstico falló ({tail.strip()})")
     try:
         lines = [
             ln for ln in (done.stdout or "").splitlines() if ln.strip().startswith("{")
         ]
         out = json.loads(lines[-1])["forecast"]
     except (IndexError, KeyError, ValueError) as exc:
-        raise CreatorError("Kronos no devolvió una predicción.") from exc
+        raise CreatorError("El modelo no devolvió una predicción.") from exc
     last, end = rows[-1]["close"], out[-1]["close"]
     change = (end - last) / last * 100 if last else 0.0
     return {
         "symbol": symbol,
-        "model": f"Kronos-{size}",
+        "model": f"pronostico-{size}",
         "history": rows[-120:],
         "forecast": out,
         "last_close": last,

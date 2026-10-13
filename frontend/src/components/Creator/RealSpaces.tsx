@@ -70,7 +70,7 @@ export function DesignSpace({ programs, reload }: { programs: Program[] | null; 
             <input
               value={request}
               onChange={(e) => setRequest(e.target.value)}
-              placeholder={busy ? `${busy}${elapsedNote(elapsed)}` : 'Pídale un diseño a Sergio: «post para la apertura de mi tienda»'}
+              placeholder={busy ? `${busy}${elapsedNote(elapsed)}` : 'Pida un diseño'}
               aria-label="Pídale un diseño a Sergio"
               disabled={!!busy}
             />

@@ -154,7 +154,10 @@ def test_future_days_skip_weekends_for_stocks_only():
 def test_install_steps_use_uv_and_keep_an_existing_python(tmp_path):
     steps = kronos.install_steps(tmp_path, "/usr/bin/uv", "/usr/bin/git")
     names = [s for s, _ in steps]
-    assert names[0] == "Descargando Kronos" and "Preparando su Python" in names
+    assert (
+        names[0] == "Descargando el modelo de pronóstico"
+        and "Preparando su Python" in names
+    )
     torch = next(cmd for s, cmd in steps if "PyTorch" in s)
     assert kronos.TORCH_INDEX in torch
     py = kronos.python_path(tmp_path)
@@ -162,7 +165,10 @@ def test_install_steps_use_uv_and_keep_an_existing_python(tmp_path):
     py.write_text("")
     (tmp_path / "repo" / ".git").mkdir(parents=True)
     again = [s for s, _ in kronos.install_steps(tmp_path, None, "/usr/bin/git")]
-    assert again[0] == "Actualizando Kronos" and "Preparando su Python" not in again
+    assert (
+        again[0] == "Actualizando el modelo de pronóstico"
+        and "Preparando su Python" not in again
+    )
 
 
 def test_install_reports_the_failing_step(tmp_path, monkeypatch):
@@ -187,7 +193,7 @@ def _ready(tmp_path: Path) -> None:
 
 
 def test_forecast_needs_kronos_installed(tmp_path):
-    with pytest.raises(CreatorError, match="Instalar Kronos"):
+    with pytest.raises(CreatorError, match="Instalar"):
         kronos.forecast("AAPL", base=tmp_path, rows=_candles(80))
 
 
@@ -322,7 +328,7 @@ def test_create_design_posts_to_opendesign_and_explains_when_closed():
     def down(url, payload):
         raise OSError("connection refused")
 
-    with pytest.raises(CreatorError, match="OpenDesign no responde"):
+    with pytest.raises(CreatorError, match="Diseño no responde"):
         opendesign.create_design("x", LAYOUT, 1080, 1080, post=down)
 
 

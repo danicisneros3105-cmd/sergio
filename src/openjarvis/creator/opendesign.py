@@ -112,10 +112,10 @@ def create_design(
         row = post(f"{API}/designs", body)
     except Exception as exc:  # noqa: BLE001 — the editor is not running
         raise CreatorError(
-            "OpenDesign no responde. Ábralo en Creator → Diseño y vuelva a pedírmelo."
+            "El editor de Diseño no responde. Ábralo en Creator → Diseño y vuelva a pedírmelo."
         ) from exc
     if not isinstance(row, dict) or "id" not in row:
-        raise CreatorError("OpenDesign no creó el diseño.")
+        raise CreatorError("El editor de Diseño no creó el diseño.")
     return row
 
 

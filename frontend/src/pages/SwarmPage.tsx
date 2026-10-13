@@ -26,7 +26,7 @@ import {
 
 const EXAMPLES = [
   'Analiza estos contratos: partes, plazos, penalizaciones y riesgos, en una tabla',
-  'Compara precio, garantía y opiniones de los 20 portátiles más vendidos para Blender',
+  'Compara precio, garantía y opiniones de los 20 portátiles más vendidos para diseño 3D',
   'Investiga a 15 competidores de mi negocio: precios, puntos fuertes y débiles',
   'Audita este código: errores, seguridad y rendimiento, archivo por archivo',
 ];

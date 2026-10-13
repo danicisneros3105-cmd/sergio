@@ -592,6 +592,10 @@ def create_app(
     from openjarvis.server.tasks_routes import skills_router
 
     app.include_router(skills_router)
+    # Extensiones: plugins and skills in one place (connectors keep /v1/connectors).
+    from openjarvis.server.hub_routes import router as hub_router
+
+    app.include_router(hub_router)
     # Evolution: long-term memory (RAG + feedback) and the crewAI team.
     from openjarvis.server.evolution_routes import router as evolution_router
 

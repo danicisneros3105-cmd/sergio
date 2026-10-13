@@ -31,7 +31,9 @@ from typing import Any, Callable
 
 HOME = Path.home() / "Sergio"
 INCOMING = HOME / "Creator"
-LOG = Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / "Sergio" / "programas.log"
+LOG = (
+    Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / "Sergio" / "programas.log"
+)
 
 
 @dataclass(frozen=True)
@@ -49,8 +51,8 @@ class Program:
 
 PROGRAMS: dict[str, Program] = {
     "artcraft": Program(
-        "ArtCraft",
-        "imagen y video con IA, composición 2D y 3D (lo de Adobe)",
+        "Imagen",
+        "imagen y video con IA",
         github="storytold/artcraft",
         asset=r"ArtCraft_[\d.]+_x64-setup\.exe",
         silent=("/S",),
@@ -62,7 +64,7 @@ PROGRAMS: dict[str, Program] = {
         opens=(".png", ".jpg", ".jpeg", ".webp"),
     ),
     "kdenlive": Program(
-        "Kdenlive",
+        "Video",
         "edición de video",
         winget="KDE.Kdenlive",
         exe=(
@@ -72,8 +74,8 @@ PROGRAMS: dict[str, Program] = {
         opens=(".kdenlive", ".mp4", ".mov", ".mkv", ".webm"),
     ),
     "freecad": Program(
-        "FreeCAD",
-        "arquitectura y BIM paramétrico",
+        "Planos",
+        "arquitectura y BIM",
         winget="FreeCAD.FreeCAD",
         exe=(
             r"%ProgramFiles%\FreeCAD*\bin\freecad.exe",
@@ -82,8 +84,8 @@ PROGRAMS: dict[str, Program] = {
         opens=(".fcstd", ".ifc", ".dxf", ".step", ".stp", ".stl", ".obj"),
     ),
     "librecad": Program(
-        "LibreCAD",
-        "planos 2D en DXF",
+        "Plano 2D",
+        "dibujo en DXF",
         winget="LibreCAD.LibreCAD",
         exe=(
             r"%ProgramFiles%\LibreCAD\librecad.exe",
@@ -92,22 +94,22 @@ PROGRAMS: dict[str, Program] = {
         opens=(".dxf",),
     ),
     "blender": Program(
-        "Blender",
+        "Estudio 3D",
         "modelado 3D",
         winget="BlenderFoundation.Blender",
         exe=(r"%ProgramFiles%\Blender Foundation\Blender*\blender.exe",),
         opens=(".blend", ".glb", ".gltf", ".obj", ".fbx", ".stl", ".py"),
     ),
     "bonsai": Program(
-        "Bonsai (BlenderBIM)",
-        "BIM en Blender: abre y edita IFC",
+        "BIM",
+        "el edificio en IFC",
         github="IfcOpenShell/IfcOpenShell",
         asset=r"bonsai_py3\d+-[\d.]+-win(dows)?(-x64)?\.zip",
         opens=(".ifc",),
         needs="blender",
     ),
     "vscodium": Program(
-        "VSCodium",
+        "Código",
         "editor de código",
         winget="VSCodium.VSCodium",
         exe=(
@@ -155,8 +157,12 @@ def bonsai_installed() -> bool:
     """Bonsai is a Blender extension: look for it in Blender's user folders."""
     roots = _expand(r"%APPDATA%\Blender Foundation\Blender\*")
     for root in roots:
-        for sub in ("extensions\\blender_org\\bonsai", "extensions\\user_default\\bonsai",
-                    "scripts\\addons\\bonsai", "scripts\\addons\\blenderbim"):
+        for sub in (
+            "extensions\\blender_org\\bonsai",
+            "extensions\\user_default\\bonsai",
+            "scripts\\addons\\bonsai",
+            "scripts\\addons\\blenderbim",
+        ):
             if os.path.isdir(os.path.join(root, sub)):
                 return True
     return False
@@ -179,24 +185,42 @@ def status() -> dict[str, dict[str, Any]]:
 # -- installing ------------------------------------------------------------------
 def _run(cmd: list[str], timeout: float = 1800.0) -> subprocess.CompletedProcess:
     flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
-    return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout,
-                          creationflags=flags, check=False)
+    return subprocess.run(
+        cmd,
+        capture_output=True,
+        text=True,
+        timeout=timeout,
+        creationflags=flags,
+        check=False,
+    )
 
 
 def winget_command(package: str, user_scope: bool = True) -> list[str]:
-    cmd = ["winget", "install", "--id", package, "--exact", "--silent",
-           "--accept-package-agreements", "--accept-source-agreements",
-           "--disable-interactivity"]
+    cmd = [
+        "winget",
+        "install",
+        "--id",
+        package,
+        "--exact",
+        "--silent",
+        "--accept-package-agreements",
+        "--accept-source-agreements",
+        "--disable-interactivity",
+    ]
     return cmd + (["--scope", "user"] if user_scope else [])
 
 
-def latest_asset(repo: str, pattern: str, get: Callable[[str], Any] | None = None) -> str:
+def latest_asset(
+    repo: str, pattern: str, get: Callable[[str], Any] | None = None
+) -> str:
     """Download link of the newest release asset whose name matches."""
     if get is None:
         import httpx
 
         def get(url: str) -> Any:
-            resp = httpx.get(url, timeout=30, headers={"Accept": "application/vnd.github+json"})
+            resp = httpx.get(
+                url, timeout=30, headers={"Accept": "application/vnd.github+json"}
+            )
             resp.raise_for_status()
             return resp.json()
 
@@ -207,7 +231,9 @@ def latest_asset(repo: str, pattern: str, get: Callable[[str], Any] | None = Non
         for asset in release.get("assets", []):
             if re.fullmatch(pattern, asset.get("name", ""), flags=re.I):
                 return asset["browser_download_url"]
-    raise RuntimeError(f"No encontré el instalador de {repo} en sus versiones publicadas.")
+    raise RuntimeError(
+        f"No encontré el instalador de {repo} en sus versiones publicadas."
+    )
 
 
 def _download(url: str) -> Path:
@@ -216,7 +242,10 @@ def _download(url: str) -> Path:
     folder = Path(os.environ.get("TEMP", str(HOME))) / "sergio-programas"
     folder.mkdir(parents=True, exist_ok=True)
     path = folder / url.rsplit("/", 1)[-1]
-    with httpx.stream("GET", url, follow_redirects=True, timeout=1200) as resp, path.open("wb") as fh:
+    with (
+        httpx.stream("GET", url, follow_redirects=True, timeout=1200) as resp,
+        path.open("wb") as fh,
+    ):
         resp.raise_for_status()
         for chunk in resp.iter_bytes(1 << 20):
             fh.write(chunk)
@@ -235,8 +264,20 @@ def bonsai_commands(blender: str, zip_path: str = "") -> list[list[str]]:
             "print('SERGIO_BONSAI_OK')\n"
         )
         return [[blender, "--background", "--factory-startup", "--python-expr", script]]
-    return [[blender, "--online-mode", "--command", "extension", "install",
-             "--sync", "--repo", "blender_org", "--enable", "bonsai"]]
+    return [
+        [
+            blender,
+            "--online-mode",
+            "--command",
+            "extension",
+            "install",
+            "--sync",
+            "--repo",
+            "blender_org",
+            "--enable",
+            "bonsai",
+        ]
+    ]
 
 
 def install(key: str, run: Callable[[list[str]], Any] = _run) -> str:
@@ -264,7 +305,9 @@ def install(key: str, run: Callable[[list[str]], Any] = _run) -> str:
                 # Some installers only offer a machine-wide install.
                 done = run(winget_command(prog.winget, user_scope=False))
             if getattr(done, "returncode", 1) != 0 and not find(key):
-                tail = (getattr(done, "stdout", "") or getattr(done, "stderr", ""))[-200:]
+                tail = (getattr(done, "stdout", "") or getattr(done, "stderr", ""))[
+                    -200:
+                ]
                 raise RuntimeError(f"winget no pudo instalarlo ({tail.strip()})")
         elif prog.github:
             installer = _download(latest_asset(prog.github, prog.asset))
@@ -321,7 +364,9 @@ def open_command(key: str, file: str = "") -> list[str]:
     return [exe, file] if file else [exe]
 
 
-def open_program(key: str, file: str = "", popen: Callable[..., Any] | None = None) -> str:
+def open_program(
+    key: str, file: str = "", popen: Callable[..., Any] | None = None
+) -> str:
     cmd = open_command(key, file)
     (popen or subprocess.Popen)(cmd, cwd=str(Path(file).parent) if file else None)
     shown = f" con {Path(file).name}" if file else ""
@@ -359,7 +404,9 @@ def main(argv: list[str] | None = None) -> int:
     if what == "instalar" and len(argv) > 1:
         print(install(argv[1]))
         return 0
-    print("Uso: python -m sergio_escritorio.creator_apps estado | instalar-todo | instalar <programa>")
+    print(
+        "Uso: python -m sergio_escritorio.creator_apps estado | instalar-todo | instalar <programa>"
+    )
     return 2
 
 

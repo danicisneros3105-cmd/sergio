@@ -16,12 +16,12 @@ const DesignStudio = lazy(() => import('../components/Creator/DesignStudio'));
 const BolsaStudio = lazy(() => import('../components/Creator/BolsaStudio'));
 
 export const SPACES = [
-  { id: 'modelado', label: 'Modelado 3D', hint: 'Objetos en 3D; producción en Blender', icon: Box },
-  { id: 'arquitectura', label: 'Arquitectura', hint: 'Planos y edificios: FreeCAD, Bonsai y LibreCAD', icon: Building2 },
-  { id: 'diseno', label: 'Diseño', hint: 'Posts, carruseles y plantillas en OpenDesign', icon: LayoutTemplate },
-  { id: 'imagen', label: 'Imagen y video', hint: 'ArtCraft y Kdenlive, y retoques rápidos', icon: Image },
-  { id: 'codigo', label: 'Código', hint: 'VSCodium, en la web y en Windows', icon: Code2 },
-  { id: 'bolsa', label: 'Bolsa', hint: 'Predicción de acciones y cripto con Kronos', icon: LineChart },
+  { id: 'modelado', label: 'Modelado 3D', hint: 'Modelado 3D', icon: Box },
+  { id: 'arquitectura', label: 'Arquitectura', hint: 'Arquitectura', icon: Building2 },
+  { id: 'diseno', label: 'Diseño', hint: 'Diseño', icon: LayoutTemplate },
+  { id: 'imagen', label: 'Imagen y video', hint: 'Imagen y video', icon: Image },
+  { id: 'codigo', label: 'Código', hint: 'Código', icon: Code2 },
+  { id: 'bolsa', label: 'Bolsa', hint: 'Bolsa', icon: LineChart },
 ] as const;
 
 type SpaceId = (typeof SPACES)[number]['id'];
@@ -77,11 +77,9 @@ export default function CreatorPage() {
             </NavLink>
           ))}
         </nav>
-        {/* The full shelf of reviewed programs (code tools, CAD, creative,
-            markets) with the selective WinGet installer. */}
-        <NavLink to="/studio" className="creator-tab creator-all" title="Todos los programas revisados y su instalador">
+        <NavLink to="/extensiones" className="creator-tab creator-all" title="Extensiones">
           <PanelsTopLeft size={16} strokeWidth={1.8} />
-          <span>Todos los programas</span>
+          <span>Extensiones</span>
         </NavLink>
       </header>
       <main className="creator-body">

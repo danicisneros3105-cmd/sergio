@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import {
+  Puzzle,
   SquarePen,
   Search,
   PanelLeft,
@@ -53,6 +54,7 @@ export const TOOLBAR_ITEMS = [
   { path: '/workspace', icon: NotebookPen, label: 'Workspace' },
   { path: '/creator', icon: Shapes, label: 'Creator' },
   { path: '/cowork', icon: Briefcase, label: 'Cowork' },
+  { path: '/extensiones', icon: Puzzle, label: 'Extensiones' },
   { path: '/faces', icon: ScanFace, label: 'Rostros' },
   { path: '/salud', icon: HeartPulse, label: 'Salud' },
   { path: '/perfil', icon: UserRound, label: 'Perfil' },

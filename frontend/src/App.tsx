@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef, lazy, Suspense } from 'react';
-import { Routes, Route } from 'react-router';
+import { Routes, Route, Navigate } from 'react-router';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { Layout } from './components/Layout';
 import { ChatPage } from './pages/ChatPage';
@@ -22,7 +22,7 @@ const HomePage = lazy(() => import('./pages/HomePage'));
 const NodesPage = lazy(() => import('./pages/NodesPage'));
 const SwarmPage = lazy(() => import('./pages/SwarmPage'));
 const CreatorPage = lazy(() => import('./pages/CreatorPage'));
-const ProgramsPage = lazy(() => import('./pages/ProgramsPage').then(m => ({ default: m.ProgramsPage })));
+const ExtensionsPage = lazy(() => import('./pages/ExtensionsPage'));
 import { CommandPalette } from './components/CommandPalette';
 import { SetupScreen } from './components/SetupScreen';
 import { Toaster } from './components/ui/sonner';
@@ -208,8 +208,10 @@ export default function App() {
           <Route path="logs" element={<LogsPage />} />
           <Route path="clacky" element={<ExtensionPage name="clacky" />} />
           <Route path="faces" element={<FacesPage />} />
-          <Route path="studio" element={<ProgramsPage />} />
-          <Route path="developer" element={<ProgramsPage />} />
+          <Route path="extensiones" element={<ExtensionsPage />} />
+          <Route path="extensiones/:tab" element={<ExtensionsPage />} />
+          <Route path="studio" element={<Navigate to="/extensiones" replace />} />
+          <Route path="developer" element={<Navigate to="/extensiones" replace />} />
           <Route path="pensar" element={<ThinkPage />} />
           <Route path="cowork" element={<CoworkPage />} />
           <Route path="salud" element={<HealthPage />} />

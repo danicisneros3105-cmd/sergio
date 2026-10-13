@@ -245,7 +245,7 @@ export function CoworkPage() {
             value={goal}
             onChange={(e) => setGoal(e.target.value)}
             rows={3}
-            placeholder="Ej.: compara los 3 mejores portátiles para Blender y déjame una tabla en Documentos"
+            placeholder="Ej.: compara los 3 mejores portátiles para diseño 3D y déjame una tabla en Documentos"
             className="w-full px-2 py-2 rounded-2xl text-base border-0 resize-y outline-none"
             aria-label="Resultado que quiere conseguir"
             onKeyDown={(e) => {

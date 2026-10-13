@@ -3,6 +3,20 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { VitePWA } from 'vite-plugin-pwa';
+import { execSync } from 'child_process';
+import fs from 'fs';
+
+// Every build has its own id; /version.json tells an old open copy to reload
+// (src/lib/freshness.ts), so after an update nobody keeps seeing the old web.
+const buildId = (() => {
+  let sha = 'local';
+  try {
+    sha = execSync('git rev-parse --short HEAD', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+  } catch {
+    /* not a git checkout */
+  }
+  return `${sha}-${Date.now().toString(36)}`;
+})();
 
 // VITE_SUPABASE_ANON_KEY is intentionally NOT required here: a missing key
 // disables the savings leaderboard at runtime (see src/lib/supabase.ts) rather
@@ -14,12 +28,20 @@ const apiTarget = process.env.OPENJARVIS_VITE_PROXY_TARGET
   || 'http://localhost:8000';
 
 export default defineConfig({
+  define: { __BUILD_ID__: JSON.stringify(buildId) },
   resolve: {
     alias: {
       '@': path.resolve(import.meta.dirname, './src'),
     },
   },
   plugins: [
+    {
+      name: 'sergio-version',
+      apply: 'build',
+      writeBundle(options) {
+        fs.writeFileSync(path.join(options.dir || 'dist', 'version.json'), JSON.stringify({ build: buildId }));
+      },
+    },
     react(),
     tailwindcss(),
     VitePWA({
@@ -52,12 +74,15 @@ export default defineConfig({
         ],
       },
       workbox: {
+        skipWaiting: true,
+        clientsClaim: true,
+        cleanupOutdatedCaches: true,
         globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
         // Creator's big studios (3D, design, the code editor) are not part of
         // every update: they download the first time they are opened and
         // then stay cached (their file names change when they change).
         globIgnores: ['**/{CodeStudio,Studio3D,DesignStudio,editor.worker}-*.{js,css}'],
-        navigateFallbackDenylist: [/^\/v1\//, /^\/health/, /^\/dashboard/, /^\/api\//],
+        navigateFallbackDenylist: [/^\/version\.json/, /^\/v1\//, /^\/health/, /^\/dashboard/, /^\/api\//],
         // Offline: the model list and server info come from the last time
         // there was a connection, so the chat still opens. Answers are kept
         // separately in IndexedDB (src/lib/offline.ts).
