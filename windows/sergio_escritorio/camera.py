@@ -1393,7 +1393,6 @@ class CameraWindow(QWidget):
         lit from the top left, a thin-film rainbow where the surface turns
         away and a crisp iridescent rim along the silhouette."""
         ox, oy, w, h = card.left(), card.top(), card.width(), card.height()
-        t = time.monotonic()
         frost = getattr(self, "_frost", None)
         shown = self._shown
 
@@ -1434,24 +1433,36 @@ class CameraWindow(QWidget):
                     k = f["shade"]
                     p.setBrush(QColor.fromRgbF(min(1, fr * k + 0.05), min(1, fg * k + 0.05), min(1, fb * k + 0.06), 0.9))
                     p.drawPolygon(QPolygonF([pt(xy) for xy in f["points"]]))
+            elif ob.get("smooth"):
+                if frost is not None and shown is not None:
+                    p.drawImage(shown[0], frost)
+                p.fillPath(body, QColor.fromRgbF(r, g, b, 0.14))
+                # Continuous light over the rounded silhouette avoids the
+                # staircase of flat face tones, without a per-frame blur.
+                light = QLinearGradient(centre.x() - radius, centre.y() - radius,
+                                        centre.x() + radius, centre.y() + radius)
+                light.setColorAt(0, QColor(245, 251, 255, 72))
+                light.setColorAt(0.48, QColor(195, 220, 245, 18))
+                light.setColorAt(1, QColor(10, 20, 35, 60))
+                p.fillPath(body, QBrush(light))
             else:
                 if frost is not None and shown is not None:
                     p.drawImage(shown[0], frost)  # the room, frosted
-                p.fillPath(body, QColor.fromRgbF(r, g, b, 0.22))  # a hint of colour
-                for i, f in enumerate(ob["faces"]):
+                p.fillPath(body, QColor.fromRgbF(r, g, b, 0.14))  # a hint of colour
+                for f in ob["faces"]:
                     poly = QPolygonF([pt(xy) for xy in f["points"]])
                     k = f["shade"]
                     light = QColor(255, 255, 255, int(max(0.0, k - 0.55) * 150)) if k > 0.55 else QColor(10, 20, 40, int((0.55 - k) * 110))
                     p.setBrush(light)
                     p.drawPolygon(poly)
-                    if f["rim"] > 0.55:  # a faint cool sheen toward the edges (Apple glass)
-                        hue = 0.55 + 0.08 * math.sin(t * 0.4 + i * 0.05)
+                    if f["rim"] > 0.55:  # a faint cool sheen toward the edges (Sergio glass)
+                        hue = 0.57  # stable cool tint; no distracting colour cycling
                         film = QColor.fromHsvF(hue % 1.0, 0.18, 1.0, min(0.14, (f["rim"] - 0.55) * 0.4))
                         p.setBrush(film)
                         p.drawPolygon(poly)
             # The shine where the light hits, and a glow at the bottom.
             shine = QRadialGradient(QPointF(centre.x() - radius * 0.35, centre.y() - radius * 0.45), radius * 0.8)
-            shine.setColorAt(0, QColor(255, 255, 255, 120))
+            shine.setColorAt(0, QColor(255, 255, 255, 155))
             shine.setColorAt(0.5, QColor(255, 255, 255, 30))
             shine.setColorAt(1, QColor(255, 255, 255, 0))
             p.fillPath(body, QBrush(shine))

@@ -9,6 +9,7 @@ import { consumePairFragment } from './lib/pairing';
 import '@fontsource-variable/josefin-sans';
 import '@fontsource-variable/inter';
 import './index.css';
+import './components/Studio/refinement.css';
 
 function applyTheme() {
   try {

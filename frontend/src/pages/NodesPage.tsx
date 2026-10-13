@@ -235,8 +235,7 @@ function CreateNode({
         </div>
         <h1 className="node-create-title">{first ? 'Su primer Node' : 'Un Node nuevo'}</h1>
         <p className="node-create-sub">
-          Empleados digitales que trabajan 24/7, cada uno con su propia computadora, navegador y memoria. Elija por dónde
-          empezar.
+          Cada Node tiene su memoria, reglas y espacio de trabajo. Trabajan mientras Sergio está activo. Elija por dónde empezar.
         </p>
         <div className="node-templates">
           {(catalog?.templates || []).map((t) => (

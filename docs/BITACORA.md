@@ -2,7 +2,7 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
-## 2026-10-13 · Claude · 7632a4b…(este envío) (diseño ChatGPT, Dots y programas reales)
+## 2026-10-13 · Claude · 7632a4b…(fusión con main) (diseño ChatGPT, Dots y programas reales)
 - Diseño igual a ChatGPT (petición del dueño: «no vibe coded»): una sola
   barra lateral (nuevo chat, buscar chats, biblioteca, secciones, chats, la
   conversación y «Señor»), plegable a carril de iconos y cajón en el móvil;
@@ -27,13 +27,87 @@ Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 - «Anatomy» ya no es una pestaña: la herramienta sigue siempre activa y la
   lámina se dibuja dentro de la respuesta del chat (el enlace no se ve ni se
   lee en voz alta). `/creator/anatomia` redirige a Creator.
-- Revisé lo de Codex: no hubo cambios nuevos en `main` desde e1396e7.
+- Fusión con lo de Codex (60d5459…79b7a0c, llegó mientras trabajaba): se
+  conserva todo (Windows Hello y consentimiento, Anatomy interna en
+  `skills/bundled/anatomy`, catálogo de 32 programas `/v1/programs` con su
+  instalador WinGet, adaptadores `professional/`, auditoría y documentos,
+  textos honestos de Nodes/Swarm). Decisiones al unir, para que Codex las
+  vea: (1) `/creator` sigue siendo Creator (ahora sobre programas reales) y
+  su página «Estudio» queda en `/studio` y `/developer`, enlazada desde
+  Creator con «Todos los programas»; (2) la barra lateral lleva «Rostros»
+  como él puso; (3) sus fichas de color azul claro de `refinement.css`
+  cedieron al diseño ChatGPT que pidió el dueño después (botones negros);
+  quité esos tokens y los fondos grises de las tarjetas de Nodes (el dueño
+  quiere los Nodes como Dots, con su color); (4) de su cambio en los
+  personajes mantengo los ojos más pequeños y que la ranita no fuerce ojos
+  saltones; el pelo ya no existe; (5) restauré el comando universal del
+  dueño con `git checkout -B main origin/main` (regla §6: no cambia) y dejé
+  explicado por qué es seguro (el dueño no hace commits propios).
+- Pendiente para Codex/Claude: hay dos caminos para OpenDesign y Kronos
+  (los de Codex, fijados a una versión en `~/.local/share/sergio-integrations`,
+  y los míos, que Sergio instala y arranca solo en `~/.openjarvis/apps`).
+  Los dos usan la API de OpenDesign en el puerto 8787. Conviene unificarlos.
 - Pendiente / para el otro: no pude probar aquí nada de Windows (ArtCraft,
   Kdenlive, FreeCAD, LibreCAD, Bonsai), ni VSCodium web ni Kronos con datos
   reales (este entorno bloquea GitHub-descargas, Hugging Face y los datos de
   bolsa): quedaron probados con dobles. LidoJS no se usa (sin licencia
   abierta). Fallos viejos que siguen: tests/tools/test_http_request (red) y
   el PDF malformado de subida.
+
+## 2026-10-13 · Codex · verificación paralela Creator y equivalencia
+- Revisé main 7acb4b0 completo y las funciones de Nodes/Swarm/Cowork del equipo,
+  con una revisión independiente de Creator autorizada por el señor.
+- Resultado: nombres de Creator y ArtCraft 13 representados; no todos los motores
+  completos instalados/integrados. LidoJS solo referencia. No hay equivalencia
+  completa con Face ID, Muse, Dots, ChatGPT Work o Kimi: carpeta no es VM,
+  reglas no son Sentinel y 300 subtareas no son 300 trabajadores simultáneos.
+- Corregí esas afirmaciones en docstrings, presentación de Node, texto Swarm y
+  NODES-Y-SWARM.md. No cambié el motor, permisos o límites para fingir paridad.
+- Consulté 30 refs GitHub: 29 resuelven, The-Swarm-Corporation/swarms devuelve 404.
+  Mantengo sus proyectos específicos revisados y los pins; no importo los 163 repos.
+- Pruebas actuales: 170 Python pasan, 2 omitidas; 161 frontend, tsc/build y Ruff pasan.
+  Browser-use 0.13.11 MCP real: 16 herramientas, cierre; OpenClaw 2026.9.9 CLI real:
+  --version exit 0. Instalados solo en entornos de auditoría, sin cuentas personales.
+  Anatomy: 93 archivos, 3 adaptaciones, 90 blobs idénticos al pin. SwarmEngine controlado:
+  300 subtareas terminadas con parallel solicitado 300 limitado a 64. No benchmark IA.
+- El cotejo textual puede aceptar una misma afirmación falsa repetida por un
+  subagente: no es verificación de verdad externa. Se documenta ese contraejemplo.
+- Entrego matrices VERIFICACION-REPOS-Y-PARIDAD y CREATOR-VERIFICACION,
+  inventario JSON y scripts/verificar-integraciones.py de solo lectura.
+- Pendiente de uso real: hardware Windows Hello, instalaciones/artefactos de
+  aplicaciones, activación Bonsai/IFC, editor OpenDesign, pesos/inferencia Kronos,
+  navegación completa Browser-use y Gateway OpenClaw. No atribuyo pruebas
+  simuladas a motores reales ni afirmo seguridad/velocidad/calidad iguales.
+
+## 2026-10-13 · Codex · diseño profesional y consentimiento Windows Hello
+- Partí de main e1396e7 y conservo su árbol completo, incluidos los cambios de
+  Claude y los archivos que faltaban en mi checkout parcial anterior. La rama
+  corta es `codex/design-professional-2026-10-12`; esta publicación sustituye
+  el estado bloqueado descrito en RECUPERACION-DISENO-2026-10-12.md.
+- Estudio reúne 32 programas completos y un instalador WinGet selectivo;
+  alias /developer y /creator, adaptadores reales OpenDesign y Kronos aislado.
+  No simulo aplicaciones instaladas ni previsiones si faltan los pesos.
+- Anatomy MIT está adaptada y incluida como guía interna, siempre aplicada a
+  agentes y Live. Mantengo Inter/Josefin, el shell y los personajes del equipo,
+  con superficies más calmadas, pelo suave y hologramas sin polos degenerados.
+- Revisé la galería y el escaneo de Claude: preservo Fernet, cifro galerías
+  heredadas válidas al leerlas, evito regenerar claves perdidas y guardo de
+  forma atómica. La webcam sirve para reconocimiento, no autorización segura.
+- El compañero y su API de control requieren consentimiento Windows Hello
+  para las acciones que necesitan aprobación; errores y cancelaciones deniegan.
+  La hoja permite leer la acción íntegra como texto plano, sin truncarla.
+- El comando universal conserva los commits locales: eliminé checkout -B
+  de AGENTS; el actualizador ya exige fast-forward y crea respaldo.
+- Validación final: 720 pruebas escritorio + 526 backend + 161 frontend;
+  6 omitidas en Python. Ruff analiza/formatea 1821 archivos; tsc y build pasan.
+  Anatomy: 32 pruebas puras. No se ejecutaron los tests Live con Ollama,
+  autenticación Windows Hello física, inferencia Kronos con pesos ni todas las
+  funciones de las aplicaciones externas. No afirmo equivalencia con Face ID,
+  Muse/Dots, ChatGPT o Kimi, ni un rendimiento sin latencia medido.
+- Pendiente: instalar/probar los programas en Windows, activar Bonsai en
+  Blender, poner los pesos de Kronos y validar Hello en hardware compatible.
+  LidoJS queda como referencia por falta de licencia declarada. Véase el
+  informe DISENO-Y-APLICACIONES-2026-10-12.md para contratos y comandos.
 
 ## 2026-10-12 · Claude · 6123384…5b43cfe (pedido grande del dueño)
 - Para el usuario común: el chat contesta enseguida y con el carácter de

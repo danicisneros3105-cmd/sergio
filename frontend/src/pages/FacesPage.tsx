@@ -1,12 +1,9 @@
-// Face ID de Sergio. Set up like Apple's: look into the circle and move your
-// head slowly in a circle (twice) while the ring lights up; unlock by
-// looking at the screen and doing the random movement it asks for (a photo
-// cannot). The passcode backs it up exactly when Apple would ask for it.
-// Everything stays on this computer: frames go only to this Sergio server.
+// Recognition is approximate. Sensitive actions use Windows Hello in the companion.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Check, Lock, ScanFace, Trash2, UserPlus, X } from 'lucide-react';
 import { apiFetch } from '../lib/api';
+import '../components/Studio/studio.css';
 
 interface Person {
   name: string;
@@ -361,7 +358,7 @@ export function FacesPage() {
             title={status?.passcode_set ? 'Introduzca su código' : 'Cree un código'}
             subtitle={
               status?.passcode_set
-                ? REASON_ES[status.passcode_reason] || 'Respaldo de Face ID, como en el iPhone.'
+                ? REASON_ES[status.passcode_reason] || 'Código de Sergio para este reconocimiento.'
                 : 'De 6 a 12 cifras. Se pide tras reiniciar, tras 5 fallos y tras 48 horas.'
             }
             error={error}
@@ -378,18 +375,17 @@ export function FacesPage() {
           </div>
         ) : (
           <div className="faceid-home">
-            <FaceGlyph size={84} />
-            <h1>Face ID de Sergio</h1>
+            <span className="face-presence-mark"><FaceGlyph size={84} /></span>
+            <h1>Reconocimiento facial</h1>
             <p>
-              Sergio le reconoce al mirar la pantalla: rápido, privado y solo en este equipo. Para desbloquear le pedirá
-              un pequeño movimiento al azar, así una foto nunca sirve.
+              Sergio aprende sus rasgos y le reconoce para conversar. Un reto de movimiento reduce errores, pero una webcam no reemplaza la cámara de profundidad de Face ID.
             </p>
             {error && <p className="faceid-error">{error}</p>}
             <div className="faceid-actions">
               {enrolled ? (
                 <>
                   <button type="button" className="paper-button" onClick={unlock}>
-                    <ScanFace size={16} /> Desbloquear con la cara
+                    <ScanFace size={16} /> Probar reconocimiento
                   </button>
                   <button type="button" className="paper-button" data-variant="quiet" onClick={setup}>
                     Volver a configurar
@@ -397,7 +393,7 @@ export function FacesPage() {
                 </>
               ) : (
                 <button type="button" className="paper-button" onClick={setup}>
-                  <ScanFace size={16} /> Configurar Face ID
+                  <ScanFace size={16} /> Configurar mi rostro
                 </button>
               )}
             </div>
@@ -408,7 +404,7 @@ export function FacesPage() {
                 </li>
                 <li data-on={status.face_allowed ? '1' : undefined}>
                   {status.face_allowed
-                    ? `Face ID disponible · ${status.attempts_left} intentos`
+                    ? `Reconocimiento disponible · ${status.attempts_left} intentos`
                     : REASON_ES[status.passcode_reason] || 'Face ID no disponible'}
                 </li>
                 <li data-on="1">Su cara se guarda cifrada, nunca como foto</li>
@@ -426,6 +422,8 @@ export function FacesPage() {
           </div>
         )}
       </div>
+
+      <aside className="face-system-proof"><Lock size={20} /><div><strong>Usted confirma. El sistema verifica.</strong><p>Las acciones sensibles requieren consentimiento y Windows Hello: rostro con cámara compatible, huella o PIN. Las muestras de la webcam no autorizan acciones.</p><a href="ms-settings:signinoptions">Configurar Windows Hello ↗</a></div></aside>
 
       {mode.kind === 'home' && (
         <section className="faceid-people">

@@ -20,6 +20,9 @@ from rich.console import Console
 console = Console()
 
 DESKTOP_TOOLS = (
+    "professional_apps",
+    "opendesign",
+    "kronos_forecast",
     "screen_read",
     "desktop_action",
     "camera_look",

@@ -12,6 +12,7 @@ import {
   Shapes,
   Library,
   MessageSquare,
+  ScanFace,
 } from 'lucide-react';
 import { useAppStore } from '../../lib/store';
 import { LiveOrb } from '../Live/LiveOrb';
@@ -52,6 +53,7 @@ export const TOOLBAR_ITEMS = [
   { path: '/workspace', icon: NotebookPen, label: 'Workspace' },
   { path: '/creator', icon: Shapes, label: 'Creator' },
   { path: '/cowork', icon: Briefcase, label: 'Cowork' },
+  { path: '/faces', icon: ScanFace, label: 'Rostros' },
   { path: '/salud', icon: HeartPulse, label: 'Salud' },
   { path: '/perfil', icon: UserRound, label: 'Perfil' },
 ] as const;

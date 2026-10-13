@@ -243,6 +243,9 @@ class BaseAgent(ABC):
             for message in context_messages
         )
         system_parts = []
+        from openjarvis.skills.design_policy import ANATOMY_POLICY
+
+        system_parts.append(ANATOMY_POLICY)
         if effective_system_prompt and not identity_already_applied:
             system_parts.append(effective_system_prompt)
         system_parts.extend(

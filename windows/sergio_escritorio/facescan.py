@@ -54,6 +54,8 @@ class ScanRing:
     def feed(self, yaw: float, pitch: float) -> int | None:
         """Head angles (degrees; yaw + = to your left on screen, pitch + =
         up) -> the mark it lit now (None if near the centre)."""
+        if not math.isfinite(yaw) or not math.isfinite(pitch):
+            return None
         if math.hypot(yaw, pitch) < MIN_TILT:
             self.last = None
             return None
@@ -251,6 +253,11 @@ class Scanner:
         finally:
             self.active = False
         mesh = canonical_mesh(self.samples[::2] if len(self.samples) > 40 else self.samples)
+        if self.ring.fraction < DONE_FRACTION:
+            if self.message.startswith(("Siga girando", "Ya casi")):
+                self.message = "Escaneo incompleto: vuelva a intentarlo con una sola cara bien iluminada."
+            self.jpegs = []
+            mesh = None
         self.result = mesh
         self.finished_at = self.clock()
         return self.jpegs, mesh

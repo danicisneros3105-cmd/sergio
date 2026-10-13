@@ -5,7 +5,7 @@ import { LiquidNotch } from './LiquidNotch';
 it('shows real running counts and provides a keyboard accessible destination', () => {
   const html = renderToStaticMarkup(<LiquidNotch running={3} />);
   expect(html).toContain('3 objetivos en ejecución. Abrir Agent Swarm');
-  expect(html).toContain('href="/agents"');
+  expect(html).toContain('href="/swarm"');
   expect(html).toContain('+2');
   expect(html).toContain('filterUnits="userSpaceOnUse"');
   expect(html).not.toContain('display: none');

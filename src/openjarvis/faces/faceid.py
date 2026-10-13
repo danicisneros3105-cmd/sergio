@@ -1,30 +1,10 @@
-"""Sergio's Face ID: Apple's published rules, applied to a webcam.
+"""Webcam recognition with attention and movement checks, not Face ID security.
 
-What Apple does (Face ID security guide / Apple Platform Security) and what
-Sergio does with a normal camera:
-
-* **Attention.** Face ID only unlocks if your eyes are open and looking at
-  the device. Sergio checks that the face looks at the screen (head pose
-  within ±18°) and that both eyes are found open in the same frame.
-* **Liveness.** The TrueDepth camera randomises its capture to defeat photos
-  and masks. A webcam has no depth sensor, so Sergio randomises a *challenge*
-  instead: turn left, right, up, or blink, chosen at random for each attempt
-  and valid once for 20 seconds. A photo cannot turn or blink; a recorded
-  video does not know which movement will be asked. Identical frames
-  (an injected still image) are refused.
-* **Matching.** Several frames must match the owner strongly (SFace cosine
-  ≥ 0.55, at least two frames ≥ 0.50) and beat anyone else enrolled by a
-  clear margin. A webcam cannot honestly promise Apple's 1-in-1,000,000;
-  the threshold is set strict on purpose, and the passcode is always there.
-* **The template stays here, encrypted.** Faces are stored as numbers, never
-  photos, encrypted at rest (``book.py``); nothing is sent anywhere.
-* **When the passcode is required** (exactly Apple's list): no passcode set
-  yet (Face ID needs one), after Sergio restarts, after 5 failed matches,
-  after 48 hours without an unlock, when the passcode has not been used for
-  156 hours and Face ID has not unlocked in the last 4 hours, and after a
-  manual lock ("bloquear ahora"). Wrong passcodes wait longer each time.
-* **Adapts to you.** A very sure unlock is kept as one more sample of an
-  angle it lacks (rate-limited); big changes need the passcode first.
+These checks reduce simple replay errors, but RGB images do not provide trusted
+depth capture, hardware-backed keys or Apple's anti-spoofing guarantees. This
+module never grants sensitive desktop action approval: the companion delegates
+that to explicit consent and Windows Hello. The backup code belongs to Sergio's
+recognition state, not to Windows authentication.
 """
 
 from __future__ import annotations

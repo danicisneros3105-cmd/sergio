@@ -107,6 +107,11 @@ web, instala la app de Windows y deja el servicio apuntando a `~/sergio`.
 Si cambian lo que hace la actualización, cambien ese script: el comando del
 dueño no cambia nunca.
 
+El actualizador exige fast-forward y guarda un respaldo. El `checkout -B
+main origin/main` del comando solo pone la rama `main` del PC del dueño
+igual que la de GitHub (así funciona aunque su copia esté en otra rama; el
+dueño no hace commits propios). No añada `reset --hard` ni otros pasos.
+
 ## 7. Cómo informar al dueño
 
 En español sencillo, llamándole «señor»: qué cambió, qué se probó (y qué no

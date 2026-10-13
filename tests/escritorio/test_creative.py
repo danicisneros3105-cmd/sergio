@@ -123,7 +123,7 @@ def test_face_approval_requires_desktop_consent(wired, approved):
 
     def decide(args):
         seen.append(args)
-        return {"what": args["what"], "approved": approved}
+        return {"what": args["what"], "approved": approved, "method": "windows_hello"}
 
     wired.skills["owner_approval"] = decide
     result = FaceApprovalTool().execute(what="publicar el video")

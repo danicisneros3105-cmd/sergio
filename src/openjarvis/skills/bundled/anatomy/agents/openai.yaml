@@ -1,0 +1,4 @@
+interface:
+  display_name: "Anatomy para Sergio"
+  short_description: "Figuras técnicas e isométricas interactivas"
+  default_prompt: "Crea una figura técnica isométrica de este mecanismo con Anatomy."

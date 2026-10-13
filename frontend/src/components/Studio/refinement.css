@@ -1,0 +1,21 @@
+/* Codex's quiet finish. Its colour tokens (light blue) gave way to the
+   owner's ChatGPT look (index.css); the rest still applies. */
+.rail { overflow-y:auto; scrollbar-width:none; }
+.rail-mark { background:var(--color-bg-tertiary); color:var(--color-text); box-shadow:none; border:1px solid var(--color-border-subtle); }
+.rail-item[style*='--sec'] { color:var(--color-text-secondary); }
+.rail-item[style*='--sec'][aria-current='page'] { color:var(--color-accent-text); background:var(--color-accent-subtle); }
+.rail-item[style*='--sec'][aria-current='page']::before { background:#9fd3ff; }
+@media(hover:hover) { .rail-item[style*='--sec']:hover { color:var(--color-text); background:var(--color-bg-tertiary); } }
+.starter-card { background:var(--color-surface); }
+.starter-card:hover { box-shadow:0 8px 24px -18px #0005; border-color:var(--color-border); }
+.faceid-avatar { background:var(--color-bg-tertiary); color:var(--color-text); }
+.faceid-home > h1 { font-weight:500; letter-spacing:-.045em; }
+.faceid-ring line[data-on='1'] { stroke:#9fd3ff; }
+.faceid-glyph { color:var(--color-accent-text); }
+.critter { content-visibility:auto; contain-intrinsic-size:48px 48px; }
+.node-template-stage::before { opacity:0; }
+.node-create-title { font-weight:500; letter-spacing:-.04em; }
+.studio-program-source { font-size:10px; }
+.studio-detection { font-size:10px; }
+@media(max-width:760px) { .rail { overflow-x:auto; overflow-y:hidden; justify-content:flex-start; } .rail-sections { flex-shrink:0; } }
+@media(prefers-reduced-motion:reduce) { .faceid-glyph,.faceid-badge,.faceid-ring,.live-orb { animation:none!important; } }

@@ -202,8 +202,8 @@ function Eyes({ kind, spec, ink, status }: { kind: CritterEyes; spec: ShapeSpec;
       <g className="critter-blink">
         {xs.map((x) => (
           <g key={x}>
-            <circle cx={x} cy={y} r={7.5} fill="#fff" stroke="rgba(0,0,0,0.15)" />
-            <circle className="critter-pupil" cx={x + 1.5} cy={y + 1} r={3.4} fill="#111" />
+            <circle cx={x} cy={y} r={5} fill="#fff" stroke="rgba(0,0,0,0.1)" />
+            <circle className="critter-pupil" cx={x + 1.5} cy={y + 1} r={2.8} fill="#292431" />
           </g>
         ))}
       </g>
@@ -395,7 +395,7 @@ export function NodeCritter({
           {!OVER_FACE.has(look.accessory) && <Accessory kind={look.accessory} spec={spec} />}
           <ellipse cx={60 - spec.eyeGap - 7} cy={spec.eyeY + 9} rx={5.5} ry={3.2} fill="#ff6f91" opacity={0.4} filter={`url(#${soft})`} />
           <ellipse cx={60 + spec.eyeGap + 7} cy={spec.eyeY + 9} rx={5.5} ry={3.2} fill="#ff6f91" opacity={0.4} filter={`url(#${soft})`} />
-          <Eyes kind={look.shape === 'frog' ? 'googly' : look.eyes} spec={spec} ink={ink} status={status} />
+          <Eyes kind={look.eyes} spec={spec} ink={ink} status={status} />
           <path
             className="critter-mouth"
             d={`M${55} ${spec.mouthY} Q60 ${spec.mouthY + 4.5} ${65} ${spec.mouthY}`}

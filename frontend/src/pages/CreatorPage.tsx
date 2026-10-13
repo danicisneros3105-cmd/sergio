@@ -7,7 +7,7 @@
 
 import { lazy, Suspense } from 'react';
 import { Navigate, NavLink, useParams } from 'react-router';
-import { Box, Building2, Code2, Image, LayoutTemplate, LineChart } from 'lucide-react';
+import { Box, Building2, Code2, Image, LayoutTemplate, LineChart, PanelsTopLeft } from 'lucide-react';
 import { ProgramShelf, usePrograms } from '../components/Creator/Programs';
 import { CodeSpace, DesignSpace } from '../components/Creator/RealSpaces';
 
@@ -77,6 +77,12 @@ export default function CreatorPage() {
             </NavLink>
           ))}
         </nav>
+        {/* The full shelf of reviewed programs (code tools, CAD, creative,
+            markets) with the selective WinGet installer. */}
+        <NavLink to="/studio" className="creator-tab creator-all" title="Todos los programas revisados y su instalador">
+          <PanelsTopLeft size={16} strokeWidth={1.8} />
+          <span>Todos los programas</span>
+        </NavLink>
       </header>
       <main className="creator-body">
         <Suspense fallback={<div className="creator-loading">Abriendo {SPACES.find((s) => s.id === current)?.label}…</div>}>

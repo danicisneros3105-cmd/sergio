@@ -104,6 +104,13 @@ except ImportError as _exc:
     )
 
 try:
+    import openjarvis.tools.professional  # noqa: F401
+except ImportError as _exc:
+    _logging.getLogger(__name__).debug(
+        "Optional professional tools unavailable: %s", _exc
+    )
+
+try:
     import openjarvis.tools.skill_guide_tool  # noqa: F401
 except ImportError as _exc:
     _logging.getLogger(__name__).debug(

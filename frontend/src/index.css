@@ -3248,3 +3248,4 @@ h3.paper-title { font-size: 18px; }
 .anatomy-embed-full { position: absolute; top: 8px; right: 8px; background: var(--color-sheet); box-shadow: var(--shadow-sm); }
 .anatomy-embed-error { font-size: 13px; color: var(--color-text-tertiary); margin: 8px 0; }
 @media (max-width: 640px) { .anatomy-embed iframe { height: 340px; } }
+.creator-all { margin-left: auto; color: var(--color-text-tertiary); }

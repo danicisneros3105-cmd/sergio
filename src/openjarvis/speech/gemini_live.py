@@ -58,6 +58,10 @@ _PROACTIVE_OK = [True]
 OUT_RATE = 24000
 # Sergio's own tools offered during a call (the rest stay for the agent).
 SERVER_TOOLS = (
+    "professional_apps",
+    "opendesign",
+    "kronos_forecast",
+    "face_approval",
     "verified_math",
     "scene_reason",
     "desktop_action",
@@ -196,12 +200,17 @@ def live_instructions(start: dict[str, Any], owner: str = "") -> str:
         context = time.strftime("hoy es %d/%m/%Y y son las %H:%M.")
     personality = str(start.get("personality") or "").strip()
     code = str(start.get("language") or "es").split("-")[0].lower()
-    return INSTRUCTIONS.format(
-        language=LANGUAGE_NAMES.get(code, LANGUAGE_NAMES["es"]),
-        name=str(start.get("name") or "Sergio"),
-        owner=owner or "tu dueño",
-        context=context[:1500],
-        personality=f"\nPersonalidad: {personality[:800]}" if personality else "",
+    from openjarvis.skills.design_policy import ANATOMY_POLICY
+
+    return (
+        INSTRUCTIONS.format(
+            language=LANGUAGE_NAMES.get(code, LANGUAGE_NAMES["es"]),
+            name=str(start.get("name") or "Sergio"),
+            owner=owner or "tu dueño",
+            context=context[:1500],
+            personality=f"\nPersonalidad: {personality[:800]}" if personality else "",
+        )
+        + ANATOMY_POLICY
     )
 
 

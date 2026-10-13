@@ -259,7 +259,7 @@ class DesktopActionTool(_DesktopTool):
         action = {k: v for k, v in params.items() if v not in (None, "")}
         slow = action.get("action") in ("operate", "message", "phone_call")
         try:
-            data = self._call("POST", "/act", json=action, timeout=300 if slow else 60)
+            data = self._call("POST", "/act", json=action, timeout=300 if slow else 110)
         except RuntimeError as exc:
             return self._fail(str(exc))
         return self._ok(str(data.get("result", "done")))
@@ -468,10 +468,10 @@ class FaceApprovalTool(_DesktopTool):
         return ToolSpec(
             name="face_approval",
             description=(
-                "Confirm with face recognition that the OWNER (not someone else) "
+                "Confirm with Windows Hello that the OWNER "
                 "approves something. REQUIRED before publishing/uploading, "
-                "sending, buying, paying or deleting. Ask the user to look at "
-                "the camera, then call it; only go ahead if it says APROBADO."
+                "sending, buying, paying or deleting. Display the exact action "
+                "and request system verification; only proceed on APROBADO."
             ),
             parameters={
                 "type": "object",
@@ -491,19 +491,20 @@ class FaceApprovalTool(_DesktopTool):
                 "POST",
                 "/skill",
                 json={"name": "owner_approval", "args": {"what": what}},
-                timeout=60,
+                timeout=100,
             )
         except RuntimeError as exc:
-            return self._fail(f"NO APROBADO: no pude ver por la cámara ({exc}).")
+            return self._fail(f"NO APROBADO: Windows Hello no disponible ({exc}).")
         except Exception as exc:  # noqa: BLE001 — models missing, etc.
             return self._fail(
-                f"NO APROBADO: reconocimiento facial no disponible ({exc})."
+                f"NO APROBADO: verificación del sistema no disponible ({exc})."
             )
         decision = data.get("result")
         if (
             isinstance(decision, dict)
             and decision.get("approved") is True
             and decision.get("what") == what
+            and decision.get("method") == "windows_hello"
         ):
             return self._ok(
                 f"APROBADO: el dueño confirmó {what} y su identidad.", approved=True
