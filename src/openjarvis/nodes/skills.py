@@ -234,9 +234,9 @@ TEMPLATES: List[Dict[str, Any]] = [
         "description": "Vigila productos y le avisa cuando bajan de precio. Nunca compra.",
         "instructions": "Sigues precios de productos. Compara con el precio anterior y avisa solo de bajadas reales. Nunca compras.",
         "avatar": {
-            "shape": "drop",
-            "color": "#f6c945",
-            "accessory": "cap",
+            "shape": "mushroom",
+            "color": "#ff5e6c",
+            "accessory": "none",
             "eyes": "happy",
         },
         "routines": [
@@ -284,9 +284,9 @@ TEMPLATES: List[Dict[str, Any]] = [
         "description": "Investiga a fondo con fuentes y deja un informe en su computadora; para lo enorme lanza un Agent Swarm.",
         "instructions": "Investigas a fondo y con fuentes citadas. Guardas cada informe en tu computadora en Markdown. Si el trabajo es enorme (decenas de fuentes o documentos), pide lanzar un Agent Swarm.",
         "avatar": {
-            "shape": "blob",
-            "color": "#3f7be8",
-            "accessory": "beret",
+            "shape": "planet",
+            "color": "#7c5cff",
+            "accessory": "glasses",
             "eyes": "dots",
         },
         "rules": {"swarm": "ask"},
@@ -371,8 +371,8 @@ TEMPLATES: List[Dict[str, Any]] = [
         "description": "Revisa repositorios y ejecuta los comandos que usted permita (git, pruebas).",
         "instructions": "Trabajas con código: lees repositorios, ejecutas las pruebas y comandos permitidos y propones cambios con explicación. No haces commits ni push sin permiso.",
         "avatar": {
-            "shape": "blob",
-            "color": "#2b2b2b",
+            "shape": "cactus",
+            "color": "#16c79a",
             "accessory": "headphones",
             "eyes": "sleepy",
         },

@@ -155,9 +155,21 @@ RULES: Dict[str, Dict[str, Any]] = {
 STATUSES = ("idle", "working", "waiting_approval", "needs_you", "paused")
 COLORS = ("#9fd3ff", "#111111", "#ffffff", "#5fb4f0", "#cfe9ff", "#3a3a3a")
 
-# The plush characters (own design): body shapes, felt colours, things they
-# wear and their eyes. Any combination is a valid character.
-SHAPES = ("bean", "blob", "drop", "heart", "frog", "bear", "star", "ghost")
+# The characters (own design, glossy like vinyl toys): body shapes, colours,
+# things they wear and their eyes. Any combination is a valid character.
+SHAPES = (
+    "bean",
+    "blob",
+    "drop",
+    "heart",
+    "frog",
+    "bear",
+    "star",
+    "ghost",
+    "mushroom",
+    "cactus",
+    "planet",
+)
 FELT = (
     "#f1e6d6",  # oat
     "#3f7be8",  # blue

@@ -1,13 +1,25 @@
 import { useId } from 'react';
 import type { NodeStatus } from '../../lib/nodes';
 
-// Sergio's own plush characters (inspired by the felt toys of Dots and Muse,
-// drawn from scratch): a fuzzy edge (turbulence-displaced outline), felt
-// fibres (fine noise), soft volume (light from the top left), little arms
-// that wave, and things they wear. Any combination of shape × colour ×
-// accessory × eyes is a character. Pure SVG: no images, no lag.
+// Sergio's own little characters, made like glossy vinyl toys (the look of
+// OpenAI's Dots: smooth 3D shapes with a soft sheen, simple eyes and things
+// they wear), but our own cast: a pebble, a mochi, a droplet, a heart, a
+// frog, a bear, a star, a ghost, a mushroom, a cactus and a planet. Volume
+// comes from a lit gradient, a blurred highlight and a soft shadow at the
+// base; there is no fur. Pure SVG: no images, no lag.
 
-export type CritterShape = 'bean' | 'blob' | 'drop' | 'heart' | 'frog' | 'bear' | 'star' | 'ghost';
+export type CritterShape =
+  | 'bean'
+  | 'blob'
+  | 'drop'
+  | 'heart'
+  | 'frog'
+  | 'bear'
+  | 'star'
+  | 'ghost'
+  | 'mushroom'
+  | 'cactus'
+  | 'planet';
 export type CritterAccessory =
   | 'none'
   | 'headphones'
@@ -36,35 +48,40 @@ interface ShapeSpec {
   mouthY: number;
   arms?: [number, number, number]; // left x, right x, y
   feet?: number; // y of the feet
-  extra?: string; // ears, eye bumps (same felt)
+  extra?: string; // ears, eye bumps, cactus arms (same colour)
+  cap?: string; // the mushroom's cap: the chosen colour, over a cream stem
+  spots?: Array<[number, number, number]>; // light spots on top (x, y, r)
+  ring?: boolean; // the planet's ring
 }
 
 const SHAPES: Record<CritterShape, ShapeSpec> = {
+  // 'bean' is drawn as a smooth pebble (wide and low)
   bean: {
-    body: 'M60 16 C86 16 96 36 96 58 C96 86 82 104 60 104 C38 104 24 86 24 58 C24 36 34 16 60 16 Z',
-    top: 16,
-    eyeY: 50,
-    eyeGap: 12,
-    mouthY: 62,
-    arms: [25, 95, 70],
-    feet: 103,
-  },
-  blob: {
-    body: 'M60 22 C80 18 100 32 101 54 C103 76 96 100 70 103 C52 106 22 102 19 78 C16 56 30 26 60 22 Z',
-    top: 22,
-    eyeY: 54,
+    body: 'M60 34 C90 34 104 52 104 72 C104 94 86 104 60 104 C34 104 16 94 16 72 C16 52 30 34 60 34 Z',
+    top: 34,
+    eyeY: 64,
     eyeGap: 13,
-    mouthY: 66,
-    arms: [20, 100, 72],
+    mouthY: 76,
+    arms: [18, 102, 80],
+    feet: 102,
+  },
+  // 'blob' is a soft mochi (a rounded square)
+  blob: {
+    body: 'M60 28 C92 28 100 36 100 66 C100 96 92 104 60 104 C28 104 20 96 20 66 C20 36 28 28 60 28 Z',
+    top: 28,
+    eyeY: 62,
+    eyeGap: 13,
+    mouthY: 74,
+    arms: [20, 100, 78],
     feet: 102,
   },
   drop: {
-    body: 'M60 14 C68 14 100 78 100 92 C100 104 86 106 60 106 C34 106 20 104 20 92 C20 78 52 14 60 14 Z',
-    top: 14,
-    eyeY: 66,
+    body: 'M60 12 C68 28 98 56 98 78 C98 96 82 106 60 106 C38 106 22 96 22 78 C22 56 52 28 60 12 Z',
+    top: 16,
+    eyeY: 72,
     eyeGap: 12,
-    mouthY: 78,
-    arms: [28, 92, 82],
+    mouthY: 84,
+    arms: [23, 97, 86],
     feet: 105,
   },
   heart: {
@@ -96,19 +113,49 @@ const SHAPES: Record<CritterShape, ShapeSpec> = {
     feet: 103,
   },
   star: {
-    body: 'M60 12 C64 12 66 16 70 32 C72 40 74 42 82 42 C100 42 106 44 106 48 C106 52 98 58 88 66 C82 70 82 74 84 80 C90 98 90 104 86 106 C82 108 74 102 66 96 C62 92 58 92 54 96 C46 102 38 108 34 106 C30 104 30 98 36 80 C38 74 38 70 32 66 C22 58 14 52 14 48 C14 44 20 42 38 42 C46 42 48 40 50 32 C54 16 56 12 60 12 Z',
+    body: 'M60 10 C66 10 69 18 73 30 C75 37 78 40 86 40 C100 40 108 42 108 48 C108 54 100 59 92 66 C86 71 85 74 87 81 C91 95 92 104 86 106 C80 108 72 102 66 97 C62 94 58 94 54 97 C48 102 40 108 34 106 C28 104 29 95 33 81 C35 74 34 71 28 66 C20 59 12 54 12 48 C12 42 20 40 34 40 C42 40 45 37 47 30 C51 18 54 10 60 10 Z',
     top: 14,
-    eyeY: 58,
+    eyeY: 60,
     eyeGap: 10,
-    mouthY: 70,
+    mouthY: 72,
   },
   ghost: {
-    body: 'M60 16 C84 16 98 34 98 60 L98 98 C98 104 92 106 88 100 C84 94 80 94 76 100 C72 106 66 106 62 100 C58 94 54 94 50 100 C46 106 40 106 36 100 C32 94 28 94 24 100 C20 106 22 104 22 98 L22 60 C22 34 36 16 60 16 Z',
+    body: 'M60 16 C84 16 98 34 98 60 L98 96 C98 104 92 106 88 100 C84 94 80 94 76 100 C72 106 66 106 62 100 C58 94 54 94 50 100 C46 106 40 106 36 100 C32 94 28 94 24 100 C20 106 22 104 22 96 L22 60 C22 34 36 16 60 16 Z',
     top: 16,
     eyeY: 52,
     eyeGap: 12,
     mouthY: 64,
     arms: [23, 97, 68],
+  },
+  mushroom: {
+    body: 'M40 62 L80 62 C84 76 85 94 80 101 C76 107 44 107 40 101 C35 94 36 76 40 62 Z',
+    cap: 'M12 60 C12 30 34 12 60 12 C86 12 108 30 108 60 C108 68 102 70 94 70 L26 70 C18 70 12 68 12 60 Z',
+    spots: [[38, 32, 7], [62, 24, 5], [84, 38, 8], [26, 52, 4], [96, 58, 4]],
+    top: 14,
+    eyeY: 82,
+    eyeGap: 9,
+    mouthY: 92,
+    arms: [37, 83, 88],
+    feet: 103,
+  },
+  cactus: {
+    body: 'M60 18 C76 18 82 28 82 42 L82 92 C82 102 74 106 60 106 C46 106 38 102 38 92 L38 42 C38 28 44 18 60 18 Z',
+    extra:
+      'M40 74 C28 74 22 68 22 58 L22 46 C22 38 32 38 32 46 L32 58 C32 63 35 65 40 65 Z M80 64 C92 64 98 58 98 48 L98 38 C98 30 88 30 88 38 L88 48 C88 53 85 55 80 55 Z',
+    spots: [[48, 36, 1.6], [72, 34, 1.6], [46, 90, 1.6], [74, 88, 1.6], [27, 50, 1.4], [93, 42, 1.4]],
+    top: 20,
+    eyeY: 54,
+    eyeGap: 9,
+    mouthY: 65,
+    feet: 105,
+  },
+  planet: {
+    body: 'M60 26 C81 26 98 43 98 64 C98 85 81 102 60 102 C39 102 22 85 22 64 C22 43 39 26 60 26 Z',
+    ring: true,
+    top: 28,
+    eyeY: 58,
+    eyeGap: 12,
+    mouthY: 70,
   },
 };
 
@@ -275,11 +322,22 @@ export function NodeCritter({
 }) {
   const uid = useId().replace(/[^a-zA-Z0-9]/g, '');
   const spec = SHAPES[look.shape] || SHAPES.bean;
-  const color = /^#[0-9a-f]{6}$/i.test(look.color) ? look.color : '#9fd3ff';
+  const chosen = /^#[0-9a-f]{6}$/i.test(look.color) ? look.color : '#9fd3ff';
+  // The mushroom wears the chosen colour on its cap; its stem is cream.
+  const color = spec.cap ? '#f6ead8' : chosen;
   const ink = luminance(color) < 0.32 ? '#f4f4f4' : '#1a1a1a';
-  const fuzz = size >= 40 ? 3.2 : 2.2;
-  const arm = shade(color, -0.08);
   const [ax1, ax2, ay] = spec.arms || [0, 0, 0];
+  const lit = (c: string, id: string) => (
+    <radialGradient id={id} cx="34%" cy="24%" r="82%">
+      <stop offset="0" stopColor={shade(c, 0.42)} />
+      <stop offset="0.42" stopColor={c} />
+      <stop offset="1" stopColor={shade(c, -0.3)} />
+    </radialGradient>
+  );
+  const sheen = `sheen${uid}`;
+  const soft = `soft${uid}`;
+  const ringFront = 'M14 70 C14 82 106 66 106 54';
+  const ringBack = 'M14 70 C14 58 106 42 106 54';
   return (
     <span
       className="critter"
@@ -292,50 +350,55 @@ export function NodeCritter({
     >
       <svg viewBox="0 0 120 124" width={size} height={size}>
         <defs>
-          <filter id={`fur${uid}`} x="-15%" y="-15%" width="130%" height="130%">
-            <feTurbulence type="fractalNoise" baseFrequency="0.95" numOctaves="2" seed="7" result="n" />
-            <feDisplacementMap in="SourceGraphic" in2="n" scale={fuzz} xChannelSelector="R" yChannelSelector="G" result="d" />
-            <feTurbulence type="fractalNoise" baseFrequency="2.2" numOctaves="1" seed="3" result="f" />
-            <feColorMatrix in="f" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -0.9 0.62" result="fibres" />
-            <feComposite in="fibres" in2="d" operator="in" result="fibresIn" />
-            <feMerge>
-              <feMergeNode in="d" />
-              <feMergeNode in="fibresIn" />
-            </feMerge>
+          {lit(color, `body${uid}`)}
+          {lit(chosen, `cap${uid}`)}
+          {lit(shade(color, -0.06), `limb${uid}`)}
+          <filter id={soft} x="-30%" y="-30%" width="160%" height="160%">
+            <feGaussianBlur stdDeviation="3.2" />
           </filter>
-          <radialGradient id={`vol${uid}`} cx="34%" cy="26%" r="78%">
-            <stop offset="0" stopColor="#fff" stopOpacity="0.42" />
-            <stop offset="0.45" stopColor="#fff" stopOpacity="0" />
-            <stop offset="1" stopColor="#000" stopOpacity="0.22" />
-          </radialGradient>
+          <linearGradient id={`base${uid}`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0.55" stopColor="#000" stopOpacity="0" />
+            <stop offset="1" stopColor="#000" stopOpacity="0.16" />
+          </linearGradient>
+          <clipPath id={sheen}>
+            <path d={spec.cap || spec.body} />
+          </clipPath>
         </defs>
-        <ellipse className="critter-shadow" cx="60" cy="116" rx="30" ry="5" fill="#000" opacity="0.14" />
+        <ellipse className="critter-shadow" cx="60" cy="114" rx="30" ry="5" fill="#000" opacity="0.18" filter={`url(#${soft})`} />
         <g className="critter-body">
+          {spec.ring && <path d={ringBack} fill="none" stroke={shade(chosen, 0.55)} strokeWidth={7} strokeLinecap="round" opacity={0.9} />}
           {spec.arms && (
-            <g filter={`url(#fur${uid})`}>
-              <ellipse className="critter-arm critter-arm-l" cx={ax1} cy={ay} rx={8} ry={12} fill={arm} />
-              <ellipse className="critter-arm critter-arm-r" cx={ax2} cy={ay} rx={8} ry={12} fill={arm} />
+            <g fill={`url(#limb${uid})`}>
+              <ellipse className="critter-arm critter-arm-l" cx={ax1} cy={ay} rx={7.5} ry={11} />
+              <ellipse className="critter-arm critter-arm-r" cx={ax2} cy={ay} rx={7.5} ry={11} />
             </g>
           )}
           {spec.feet && (
-            <g filter={`url(#fur${uid})`} fill={shade(color, -0.12)}>
-              <ellipse cx={46} cy={spec.feet + 4} rx={10} ry={6} />
-              <ellipse cx={74} cy={spec.feet + 4} rx={10} ry={6} />
+            <g fill={`url(#limb${uid})`}>
+              <ellipse cx={47} cy={spec.feet + 3} rx={10} ry={6} />
+              <ellipse cx={73} cy={spec.feet + 3} rx={10} ry={6} />
             </g>
           )}
-          <g filter={`url(#fur${uid})`}>
-            <path d={spec.body} fill={color} />
-            {spec.extra && <path d={spec.extra} fill={color} />}
+          <path d={spec.body} fill={`url(#body${uid})`} />
+          {spec.extra && <path d={spec.extra} fill={`url(#body${uid})`} />}
+          <path d={spec.body} fill={`url(#base${uid})`} />
+          {spec.cap && <path d={spec.cap} fill={`url(#cap${uid})`} />}
+          {spec.spots?.map(([x, y, r]) => (
+            <circle key={`${x}-${y}`} cx={x} cy={y} r={r} fill="#fff" opacity={spec.cap ? 0.92 : 0.7} />
+          ))}
+          {/* the vinyl sheen: a soft highlight and a crisp glint, top left */}
+          <g clipPath={`url(#${sheen})`}>
+            <ellipse cx={42} cy={spec.top + 16} rx={20} ry={11} fill="#fff" opacity={0.55} filter={`url(#${soft})`} transform={`rotate(-24 42 ${spec.top + 16})`} />
           </g>
-          <path d={spec.body} fill={`url(#vol${uid})`} />
-          {spec.extra && <path d={spec.extra} fill={`url(#vol${uid})`} />}
+          <ellipse cx={38} cy={spec.top + 12} rx={5.5} ry={3} fill="#fff" opacity={0.85} transform={`rotate(-30 38 ${spec.top + 12})`} />
+          {spec.ring && <path d={ringFront} fill="none" stroke={shade(chosen, 0.55)} strokeWidth={7} strokeLinecap="round" />}
           {!OVER_FACE.has(look.accessory) && <Accessory kind={look.accessory} spec={spec} />}
-          <ellipse cx={60 - spec.eyeGap - 7} cy={spec.eyeY + 9} rx={5} ry={3} fill="#ff7a9a" opacity={0.35} />
-          <ellipse cx={60 + spec.eyeGap + 7} cy={spec.eyeY + 9} rx={5} ry={3} fill="#ff7a9a" opacity={0.35} />
+          <ellipse cx={60 - spec.eyeGap - 7} cy={spec.eyeY + 9} rx={5.5} ry={3.2} fill="#ff6f91" opacity={0.4} filter={`url(#${soft})`} />
+          <ellipse cx={60 + spec.eyeGap + 7} cy={spec.eyeY + 9} rx={5.5} ry={3.2} fill="#ff6f91" opacity={0.4} filter={`url(#${soft})`} />
           <Eyes kind={look.shape === 'frog' ? 'googly' : look.eyes} spec={spec} ink={ink} status={status} />
           <path
             className="critter-mouth"
-            d={`M${54} ${spec.mouthY} Q60 ${spec.mouthY + 5} ${66} ${spec.mouthY}`}
+            d={`M${55} ${spec.mouthY} Q60 ${spec.mouthY + 4.5} ${65} ${spec.mouthY}`}
             stroke={ink}
             strokeWidth={2.2}
             strokeLinecap="round"
@@ -345,7 +408,7 @@ export function NodeCritter({
         </g>
         {(status === 'needs_you' || status === 'waiting_approval') && (
           <g className="critter-alert">
-            <path d="M96 10 L100 2 M104 14 L112 10 M92 6 L92 -2" stroke="var(--color-accent, #9fd3ff)" strokeWidth={3} strokeLinecap="round" />
+            <path d="M96 10 L100 2 M104 14 L112 10 M92 6 L92 -2" stroke="var(--color-text, #1a1a1a)" strokeWidth={3} strokeLinecap="round" />
           </g>
         )}
       </svg>
@@ -353,5 +416,5 @@ export function NodeCritter({
   );
 }
 
-const SHAPE_LIST: CritterShape[] = ['bean', 'blob', 'drop', 'heart', 'frog', 'bear', 'star', 'ghost'];
+const SHAPE_LIST: CritterShape[] = ['bean', 'blob', 'drop', 'heart', 'frog', 'bear', 'star', 'ghost', 'mushroom', 'cactus', 'planet'];
 export const CRITTER_SHAPES = SHAPE_LIST;

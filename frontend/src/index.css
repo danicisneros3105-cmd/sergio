@@ -3169,3 +3169,13 @@ h3.paper-title { font-size: 18px; }
 .app-banner { background: var(--color-hover); }
 .live-captions { top: 60px; z-index: 30; }
 .live-orb:not(.live-orb-lg)[data-state='blocked'] > i > b { background: var(--color-text-tertiary); }
+
+/* Nodes: a pastel stage like Dots' cards, the character large and glossy. */
+.node-template-stage {
+  height: 150px;
+  background:
+    radial-gradient(ellipse 30% 7% at 50% 84%, color-mix(in srgb, var(--node) 48%, #fff) 0 70%, transparent 100%),
+    color-mix(in srgb, var(--node) 32%, #fff);
+}
+.node-template { background: color-mix(in srgb, var(--node) 7%, var(--color-surface)); box-shadow: none; }
+.node-template b { font-weight: 600; }

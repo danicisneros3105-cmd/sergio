@@ -22,7 +22,7 @@ import {
   X,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { NodeCritter } from '../components/Nodes/NodeCritter';
+import { CRITTER_SHAPES, NodeCritter } from '../components/Nodes/NodeCritter';
 import { NodeGoals, ReviewedIntegrations } from '../components/Nodes/NodeGoals';
 import { apiFetch } from '../lib/api';
 import { listConnectors } from '../lib/connectors-api';
@@ -104,7 +104,7 @@ function useConnectors() {
 function randomAvatar(c: Catalog | null): Avatar {
   const pick = <T,>(xs: T[]) => xs[Math.floor(Math.random() * xs.length)];
   return {
-    shape: pick(c?.shapes || ['bean', 'blob', 'drop', 'heart', 'frog', 'bear', 'star', 'ghost']),
+    shape: pick(c?.shapes || CRITTER_SHAPES),
     color: pick(c?.felt?.slice(0, 8) || ['#9fd3ff']),
     accessory: pick(c?.accessories || ['none']),
     eyes: pick(c?.eyes?.slice(0, 4) || ['dots']),
@@ -248,7 +248,7 @@ function CreateNode({
               onClick={() => choose(t.id)}
             >
               <span className="node-template-stage">
-                <NodeCritter look={t.avatar} size={72} />
+                <NodeCritter look={t.avatar} size={108} />
               </span>
               <span>
                 <b>{t.title}</b>

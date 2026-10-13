@@ -24,7 +24,7 @@ export interface Routine {
 }
 
 export interface Avatar {
-  shape: 'bean' | 'blob' | 'drop' | 'heart' | 'frog' | 'bear' | 'star' | 'ghost';
+  shape: 'bean' | 'blob' | 'drop' | 'heart' | 'frog' | 'bear' | 'star' | 'ghost' | 'mushroom' | 'cactus' | 'planet';
   color: string;
   accessory: 'none' | 'headphones' | 'beret' | 'glasses' | 'sunglasses' | 'bow' | 'cap' | 'beanie' | 'crown' | 'scarf';
   eyes: 'dots' | 'happy' | 'big' | 'sleepy' | 'googly';
@@ -236,14 +236,17 @@ function host(url: string): string {
 }
 
 export const SHAPE_ES: Record<Avatar['shape'], string> = {
-  bean: 'Peque',
-  blob: 'Gota blanda',
-  drop: 'Triángulo',
+  bean: 'Guijarro',
+  blob: 'Mochi',
+  drop: 'Gotita',
   heart: 'Corazón',
   frog: 'Ranita',
   bear: 'Osito',
   star: 'Estrella',
   ghost: 'Fantasmita',
+  mushroom: 'Setita',
+  cactus: 'Cactus',
+  planet: 'Planeta',
 };
 export const ACCESSORY_ES: Record<Avatar['accessory'], string> = {
   none: 'Nada',
