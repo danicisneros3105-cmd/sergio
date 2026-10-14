@@ -202,8 +202,175 @@ def _inline(text: str) -> str:
     return out
 
 
-def render_html(page: Dict[str, Any], blocks: List[Dict[str, Any]], token: str) -> str:
-    """A calm read-only page in the Digital Paper look, everything escaped."""
+def _form_html(page: Dict[str, Any], b: Dict[str, Any], token: str, nonce: str) -> str:
+    """A public form (Notion Forms, with conditional fields): it adds a row to
+    its table. No user text ever reaches the script; it only reads data-*."""
+    spec = b.get("form") or {}
+    table = next(
+        (
+            x.get("table")
+            for x in page.get("blocks") or []
+            if x.get("id") == spec.get("table")
+        ),
+        None,
+    )
+    if not table:
+        return ""
+    cols = {c.get("id"): c for c in table.get("columns") or []}
+    fields = []
+    for f in (spec.get("fields") or [])[:40]:
+        col = cols.get(f.get("column"))
+        if not col:
+            continue
+        name = html.escape(str(col["id"]))
+        label = html.escape(str(f.get("label") or col.get("name") or ""))
+        req = " required" if f.get("required") else ""
+        kind = col.get("type")
+        if kind in ("select", "multi") and col.get("options"):
+            opts = "".join(
+                f"<option>{html.escape(str(o))}</option>" for o in col["options"][:50]
+            )
+            control = (
+                f"<select name='{name}'{req}><option value=''></option>{opts}</select>"
+            )
+        elif kind == "checkbox":
+            control = f"<input type='checkbox' name='{name}' value='true'>"
+        else:
+            itype = {
+                "number": "number",
+                "date": "date",
+                "email": "email",
+                "url": "url",
+                "phone": "tel",
+            }.get(kind, "text")
+            control = f"<input type='{itype}' name='{name}' maxlength='2000'{req}>"
+        cond = f.get("showIf") or None
+        data = ""
+        if cond:
+            data = (
+                f" data-if='{html.escape(str(cond.get('column')))}'"
+                f" data-op='{html.escape(str(cond.get('op')))}'"
+                f" data-v='{html.escape(str(cond.get('value') or ''))}'"
+            )
+        fields.append(
+            f"<label class='field'{data}><span>{label}</span>{control}</label>"
+        )
+    title = html.escape(str(spec.get("title") or b.get("text") or "Formulario"))
+    action = f"/s/{html.escape(token)}/form/{html.escape(str(b.get('id')))}"
+    script = (
+        f"<script nonce='{nonce}'>(()=>{{const f=document.currentScript.previousElementSibling;"
+        "const val=n=>{const e=f.elements[n];if(!e)return'';if(e.type==='checkbox')return e.checked?'true':'';return (e.value||'').toLowerCase().trim()};"
+        "const up=()=>f.querySelectorAll('[data-if]').forEach(l=>{const v=val(l.dataset.if),w=(l.dataset.v||'').toLowerCase().trim(),o=l.dataset.op;"
+        "const ok=o==='is'?v===w:o==='not'?v!==w:o==='contains'?v.includes(w):o==='filled'?!!v:o==='empty'?!v:"
+        "o==='gt'?parseFloat(v)>parseFloat(w):o==='lt'?parseFloat(v)<parseFloat(w):true;"
+        "l.hidden=!ok;l.querySelectorAll('input,select').forEach(i=>i.disabled=!ok)});"
+        "f.addEventListener('input',up);up()})()</script>"
+    )
+    return (
+        f"<form class='form' method='post' action='{action}'><h3>{title}</h3>{''.join(fields)}"
+        f"<button type='submit'>Enviar</button></form>{script}"
+    )
+
+
+def submit_form(
+    page: Dict[str, Any], block_id: str, values: Dict[str, str]
+) -> tuple[Dict[str, Any], Dict[str, str]]:
+    """Validate a public submission and add it as a row (hidden fields drop)."""
+    import secrets
+
+    form_block = next(
+        (
+            b
+            for b in page.get("blocks") or []
+            if b.get("id") == block_id and b.get("type") == "form"
+        ),
+        None,
+    )
+    if form_block is None:
+        raise WorkspaceError("Este formulario ya no existe.")
+    spec = form_block.get("form") or {}
+    target = next(
+        (
+            b
+            for b in page.get("blocks") or []
+            if b.get("id") == spec.get("table") and b.get("table")
+        ),
+        None,
+    )
+    if target is None:
+        raise WorkspaceError("La tabla de este formulario ya no existe.")
+    table = target["table"]
+    cols = {c.get("id"): c for c in table.get("columns") or []}
+    clean = {k: str(v)[:2000].strip() for k, v in values.items() if k in cols}
+
+    def shown(f: Dict[str, Any]) -> bool:
+        cond = f.get("showIf")
+        if not cond:
+            return True
+        v = clean.get(str(cond.get("column")), "").lower()
+        w = str(cond.get("value") or "").lower().strip()
+        op = cond.get("op")
+        try:
+            return {
+                "is": v == w,
+                "not": v != w,
+                "contains": w in v,
+                "filled": bool(v),
+                "empty": not v,
+                "gt": op == "gt" and float(v or "nan") > float(w or "nan"),
+                "lt": op == "lt" and float(v or "nan") < float(w or "nan"),
+            }.get(op, True)
+        except ValueError:
+            return False
+
+    errors: Dict[str, str] = {}
+    keep: Dict[str, str] = {}
+    for f in (spec.get("fields") or [])[:40]:
+        col = cols.get(f.get("column"))
+        if not col or not shown(f):
+            continue
+        v = clean.get(col["id"], "")
+        if f.get("required") and not v:
+            errors[col["id"]] = "Obligatorio"
+        elif (
+            v
+            and col.get("type") == "number"
+            and not re.fullmatch(r"-?\d+([.,]\d+)?", v)
+        ):
+            errors[col["id"]] = "Un número"
+        elif (
+            v
+            and col.get("type") == "email"
+            and not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", v)
+        ):
+            errors[col["id"]] = "Un correo válido"
+        elif (
+            v
+            and col.get("type") == "date"
+            and not re.fullmatch(r"\d{4}-\d{2}-\d{2}", v)
+        ):
+            errors[col["id"]] = "Una fecha"
+        keep[col["id"]] = v
+    if errors:
+        return page, errors
+    if len(table.get("rows") or []) >= 5000:
+        raise WorkspaceError("Este formulario ya no admite más respuestas.")
+    row = {
+        "id": "r_" + secrets.token_hex(6),
+        "cells": {cid: keep.get(cid, "") for cid in cols},
+    }
+    new_page = json.loads(json.dumps(page))
+    for b in new_page["blocks"]:
+        if b.get("id") == target["id"]:
+            b["table"]["rows"] = [*(b["table"].get("rows") or []), row]
+    return new_page, {}
+
+
+def render_html(
+    page: Dict[str, Any], blocks: List[Dict[str, Any]], token: str, nonce: str = ""
+) -> str:
+    """A calm read-only page (or a small website, when the page is set as
+    one), everything escaped."""
     parts: List[str] = []
     for b in blocks:
         kind, text = b.get("type"), str(b.get("text") or "")
@@ -246,6 +413,13 @@ def render_html(page: Dict[str, Any], blocks: List[Dict[str, Any]], token: str) 
         elif kind == "audio" and (b.get("media") or {}).get("file"):
             name = html.escape(str(b["media"]["file"]))
             parts.append(f"<audio controls src='/s/{token}/files/{name}'></audio>")
+        elif kind == "video" and (b.get("media") or {}).get("file"):
+            name = html.escape(str(b["media"]["file"]))
+            parts.append(
+                f"<video controls playsinline src='/s/{token}/files/{name}'></video>"
+            )
+        elif kind == "form" and nonce:
+            parts.append(_form_html(page, b, token, nonce))
         elif kind == "mindmap":
             from openjarvis.workspace.markdown import mind_outline
 
@@ -257,6 +431,22 @@ def render_html(page: Dict[str, Any], blocks: List[Dict[str, Any]], token: str) 
         elif text:
             parts.append(f"<p>{_inline(text)}</p>")
     title = html.escape(page.get("title") or "Sin título")
+    if (page.get("site") or {}).get("on"):
+        from openjarvis.workspace.intel import site_html
+
+        nav = [
+            {"href": f"#s{i}", "title": str(b.get("text") or "")}
+            for i, b in enumerate(blocks)
+            if b.get("type") in ("h1", "h2") and b.get("text")
+        ]
+        body = f"<h1>{title}</h1>" + "".join(parts)
+        heads = iter(range(len(blocks)))
+        body = re.sub(
+            r"<h([23])>",
+            lambda m: f"<h{m.group(1)} id='s{_next_head(blocks, heads)}'>",
+            body,
+        )
+        return site_html(page, body + FORM_CSS, nav)
     return f"""<!doctype html><html lang="es"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex">
 <title>{title}</title><style>
@@ -268,7 +458,21 @@ pre{{background:#dcddda;padding:12px;overflow:auto}}img{{max-width:100%}}.link{{
 footer{{margin-top:48px;font-size:12px;color:#858683;text-align:center}}
 @media (prefers-color-scheme:dark){{body{{background:#151514;color:#ece9e2}}pre{{background:#222220}}
 td,th{{border-color:rgba(236,233,226,.13)}}blockquote{{border-color:#ece9e2}}}}</style></head>
-<body><main><h1>{title}</h1>{"".join(parts)}<footer>Compartido desde Sergio · solo lectura</footer></main></body></html>"""
+{FORM_CSS}<body><main><h1>{title}</h1>{"".join(parts)}<footer>Compartido desde Sergio</footer></main></body></html>"""
+
+
+FORM_CSS = """<style>.form{display:flex;flex-direction:column;gap:12px;margin:24px 0;padding:20px;border-radius:16px;
+border:1px solid rgba(127,127,127,.25)}.form h3{margin:0}.field{display:flex;flex-direction:column;gap:4px;font-size:14px}
+.field input,.field select{font:inherit;padding:9px 12px;border-radius:10px;border:1px solid rgba(127,127,127,.35);
+background:transparent;color:inherit}.form button{align-self:flex-start;font:inherit;padding:9px 18px;border-radius:999px;
+border:0;background:#0d0d0d;color:#fff;cursor:pointer}video{max-width:100%;border-radius:12px}</style>"""
+
+
+def _next_head(blocks: List[Dict[str, Any]], counter: Any) -> int:
+    for i in counter:
+        if blocks[i].get("type") in ("h1", "h2") and blocks[i].get("text"):
+            return i
+    return 0
 
 
 __all__ = ["SCOPES", "Shares", "render_html", "scoped_blocks", "shared_files"]

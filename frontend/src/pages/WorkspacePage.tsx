@@ -16,7 +16,12 @@ import {
   KanbanSquare,
   BookOpen,
   Timer,
+  CalendarDays,
+  Inbox,
+  ShieldCheck,
+  Scissors,
 } from 'lucide-react';
+import { HubPanels, type HubPanel } from '../components/Workspace/HubPanels';
 import { PaperHead } from '../components/Paper/PaperPage';
 import { PageEditor } from '../components/Workspace/PageEditor';
 import { Graph3D } from '../components/Workspace/Graph3D';
@@ -193,9 +198,7 @@ function Start() {
   const create = useWorkspace((s) => s.create);
   return (
     <div className="ws-start">
-      <p className="text-center text-[14px] mb-8" style={{ color: 'var(--color-text-secondary)' }}>
-        Empiece con una de estas. Todo se guarda en su equipo al instante, también sin internet.
-      </p>
+
       <div className="paper-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))' }}>
         {TEMPLATES.map((t) => {
           const Icon = TEMPLATE_ICONS[t.icon] || FileText;
@@ -206,16 +209,12 @@ function Start() {
               </span>
               <span>
                 <span className="paper-name block">{t.name}</span>
-                <span className="paper-meta block">{t.description}</span>
               </span>
             </button>
           );
         })}
       </div>
-      <p className="text-center text-[12.5px] mt-8" style={{ color: 'var(--color-text-tertiary)' }}>
-        En una página: «/» inserta tablas, gráficos, un pomodoro, audio o un mapa conceptual · [[Título]] enlaza páginas ·
-        Alt+↑/↓ mueve bloques.
-      </p>
+
     </div>
   );
 }
@@ -238,6 +237,7 @@ export function WorkspacePage() {
   const create = useWorkspace((s) => s.create);
   const syncNow = useWorkspace((s) => s.syncNow);
   const [panel, setPanel] = useState<null | 'tree' | 'graph' | 'vault' | 'layout'>(null);
+  const [hub, setHub] = useState<HubPanel | null>(null);
   const body = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -313,6 +313,21 @@ export function WorkspacePage() {
           }
           right={
             <span className="relative flex gap-1">
+              <button type="button" className="mac-icon-btn" aria-label="Buscar" title="Buscar por significado" onClick={() => setHub('search')}>
+                <Search size={17} strokeWidth={1.4} />
+              </button>
+              <button type="button" className="mac-icon-btn" aria-label="Calendario" title="Calendario" onClick={() => setHub('agenda')}>
+                <CalendarDays size={17} strokeWidth={1.4} />
+              </button>
+              <button type="button" className="mac-icon-btn" aria-label="Correo" title="Correo" onClick={() => setHub('mail')}>
+                <Inbox size={17} strokeWidth={1.4} />
+              </button>
+              <button type="button" className="mac-icon-btn" aria-label="Recortar web" title="Recortar web" onClick={() => setHub('clip')}>
+                <Scissors size={17} strokeWidth={1.4} />
+              </button>
+              <button type="button" className="mac-icon-btn" aria-label="Permisos" title="Permisos" onClick={() => setHub('shares')}>
+                <ShieldCheck size={17} strokeWidth={1.4} />
+              </button>
               <button type="button" className="mac-icon-btn" aria-label="Grafo de conocimiento" title="Grafo 3D" aria-pressed={panel === 'graph'} onClick={() => setPanel(panel === 'graph' ? null : 'graph')}>
                 <Network size={17} strokeWidth={1.4} />
               </button>
@@ -391,6 +406,7 @@ export function WorkspacePage() {
 
       {panel === 'tree' && <Tree onPick={pick} onClose={() => setPanel(null)} />}
       {panel === 'vault' && <Vault onClose={() => setPanel(null)} />}
+      {hub && <HubPanels panel={hub} onClose={() => setHub(null)} />}
     </div>
   );
 }

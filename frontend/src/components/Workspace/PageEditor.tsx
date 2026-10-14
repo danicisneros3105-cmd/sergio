@@ -16,7 +16,15 @@ import {
   Unlock,
   ArrowUp,
   ArrowDown,
+  Brain,
+  FileDown,
+  Printer,
+  Replace,
 } from 'lucide-react';
+import { apiFetch } from '../../lib/api';
+import { inferTable, parseGrid } from '../../lib/workspace/brain';
+import { ButtonBlock, DashboardBlock, FormBlock, MediaLook, VideoBlock } from './SmartBlocks';
+import { IntelPanel } from './IntelPanel';
 import { toast } from 'sonner';
 import { useWorkspace } from '../../lib/workspace/store';
 import {
@@ -88,6 +96,8 @@ export function PageEditor({ pageId }: { pageId: string }) {
   const [lockOpen, setLockOpen] = useState(false);
   const [showVault, setShowVault] = useState(false);
   const [thinking, setThinking] = useState(false);
+  const [intel, setIntel] = useState(false);
+  const [finder, setFinder] = useState<{ find: string; with: string } | null>(null);
   const resealTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const sealed = !!page?.sealed;
@@ -301,6 +311,39 @@ export function PageEditor({ pageId }: { pageId: string }) {
     setTimeout(() => URL.revokeObjectURL(a.href), 2000);
   };
 
+  const exportDocx = async () => {
+    const r = await apiFetch(`/v1/workspace/pages/${page.id}/docx`).catch(() => null);
+    if (!r || !r.ok) return toast.error('Para Word, su servidor de Sergio debe estar encendido.');
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(await r.blob());
+    a.download = `${(page.title || 'pagina').replace(/[^\p{L}\p{N} _-]/gu, '').trim() || 'pagina'}.docx`;
+    a.click();
+  };
+  const replaceAll = (find: string, by: string) => {
+    if (!find) return 0;
+    let n = 0;
+    const re = new RegExp(find.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+    setBlocks(
+      blocks.map((b) => {
+        if (!b.text || !re.test(b.text)) return b;
+        n += (b.text.match(re) || []).length;
+        return { ...b, text: b.text.replace(re, by) };
+      }),
+    );
+    return n;
+  };
+  const words = live.reduce((n, b) => n + (b.text.match(/\S+/g) || []).length, 0);
+  const onPasteGrid = (e: React.ClipboardEvent<HTMLTextAreaElement>, b: Block) => {
+    const text = e.clipboardData.getData('text/plain');
+    const lines = text.trim().split('\n');
+    const tabular = lines.length >= 2 && (lines.every((l) => l.includes('\t')) || lines.every((l) => /^\s*\|.*\|\s*$/.test(l)));
+    if (!tabular || b.text) return;
+    e.preventDefault();
+    const t = inferTable(parseGrid(text));
+    setBlocks(blocks.map((x) => (x.id === b.id ? { ...makeBlock('table'), id: b.id, table: t } : x)));
+    toast.success(`Tabla de ${t.rows.length} filas con columnas tipadas.`);
+  };
+
   return (
     <article
       className="ws-page"
@@ -308,6 +351,9 @@ export function PageEditor({ pageId }: { pageId: string }) {
       style={{ ['--ws-font' as string]: `${layout.fontSize}px`, ['--ws-margin' as string]: `${layout.margin}px` }}
     >
       <div className="ws-page-tools">
+        <button type="button" className="mac-icon-btn" aria-pressed={intel} aria-label="Sergio en esta página" title="Sergio en esta página" onClick={() => setIntel(!intel)}>
+          <Brain size={15} strokeWidth={1.5} />
+        </button>
         <button
           type="button"
           className="mac-icon-btn"
@@ -348,6 +394,15 @@ export function PageEditor({ pageId }: { pageId: string }) {
             <span className="ws-pop" role="menu" style={{ right: 0 }}>
               <button type="button" role="menuitem" onClick={() => (setMenu(null), exportMd())}>
                 <Download size={13} /> Descargar en Markdown
+              </button>
+              <button type="button" role="menuitem" onClick={() => (setMenu(null), void exportDocx())}>
+                <FileDown size={13} /> Descargar en Word
+              </button>
+              <button type="button" role="menuitem" onClick={() => (setMenu(null), window.print())}>
+                <Printer size={13} /> Imprimir o PDF
+              </button>
+              <button type="button" role="menuitem" onClick={() => (setMenu(null), setFinder({ find: '', with: '' }))}>
+                <Replace size={13} /> Buscar y reemplazar
               </button>
               <button type="button" role="menuitem" onClick={() => (setMenu(null), setHistory(true))}>
                 <HistoryIcon size={13} /> Historial de versiones
@@ -399,7 +454,18 @@ export function PageEditor({ pageId }: { pageId: string }) {
           const links = textual ? [...b.text.matchAll(/\[\[([^\]\n]{1,120})\]\]/g)].map((m) => m[1].trim()) : [];
           const [summary, ...rest] = b.type === 'toggle' ? b.text.split('\n') : [b.text];
           return (
-            <div key={b.id} className="ws-block" data-type={b.type} data-done={b.type === 'todo' && b.checked ? 'true' : undefined}>
+            <div key={b.id} className="ws-block" data-type={b.type} data-conflict={b.conflict || undefined} data-done={b.type === 'todo' && b.checked ? 'true' : undefined}>
+              {b.conflict && (
+                <span className="ws-conflict">
+                  Editado a la vez
+                  <button type="button" className="paper-tab" onClick={() => patch(b.id, { conflict: undefined })}>
+                    Quedarse
+                  </button>
+                  <button type="button" className="paper-tab" onClick={() => setBlocks(blocks.filter((x) => x.id !== b.id))}>
+                    Descartar
+                  </button>
+                </span>
+              )}
               <span className="ws-gutter">
                 <button type="button" className="ws-handle" aria-label="Opciones del bloque" onClick={() => setMenu(menu === b.id ? null : b.id)}>
                   <GripVertical size={14} strokeWidth={1.5} />
@@ -476,6 +542,7 @@ export function PageEditor({ pageId }: { pageId: string }) {
                         autosize(e.currentTarget);
                       }}
                       onKeyDown={(e) => onKey(e, b)}
+                      onPaste={(e) => onPasteGrid(e, b)}
                       onBlur={() => setTimeout(() => setSlash((s) => (s?.id === b.id ? null : s)), 150)}
                       aria-label={PLACEHOLDER[b.type] || 'Texto'}
                     />
@@ -528,6 +595,14 @@ export function PageEditor({ pageId }: { pageId: string }) {
                   <TableBlock
                     table={b.table}
                     onChange={(t) => patch(b.id, { table: t })}
+                    onEffects={(fx) => {
+                      fx.notes.forEach((n) => toast(n));
+                      if (fx.todos.length) {
+                        const i = index(b.id);
+                        const next = blocks.map((x) => (x.id === b.id ? x : x));
+                        setBlocks([...next.slice(0, i + 1), ...fx.todos.map((t) => makeBlock('todo', t)), ...next.slice(i + 1)]);
+                      }
+                    }}
                     onShareRows={sealed ? undefined : (rows) => setShare({ page: page.id, scope: 'rows', block: b.id, rows })}
                     onShareView={sealed ? undefined : (view) => setShare({ page: page.id, scope: 'view', block: b.id, view })}
                   />
@@ -535,8 +610,38 @@ export function PageEditor({ pageId }: { pageId: string }) {
                   <ChartBlock block={b} tables={tables} onChange={(c) => patch(b.id, { chart: c })} />
                 ) : b.type === 'pomodoro' ? (
                   <PomodoroBlock work={b.pomodoro?.work ?? 25} rest={b.pomodoro?.rest ?? 5} onChange={(p) => patch(b.id, { pomodoro: p })} />
+                ) : b.type === 'image' && b.media ? (
+                  <div className="ws-image-edit">
+                    <div style={{ filter: b.media.edit?.filter || undefined, transform: `rotate(${b.media.edit?.rotate || 0}deg)${b.media.edit?.flip ? ' scaleX(-1)' : ''}` }}>
+                      <MediaBlock block={b} onMedia={(m) => patch(b.id, { media: m })} />
+                    </div>
+                    <div className="ws-media-tools">
+                      <MediaLook media={b.media} onMedia={(m) => patch(b.id, { media: m })} />
+                    </div>
+                  </div>
                 ) : b.type === 'audio' || b.type === 'image' ? (
                   <MediaBlock block={b} onMedia={(m) => patch(b.id, { media: m })} />
+                ) : b.type === 'video' ? (
+                  <VideoBlock block={b} onMedia={(m) => patch(b.id, { media: m })} />
+                ) : b.type === 'form' ? (
+                  <FormBlock
+                    block={b}
+                    tables={tables}
+                    onChange={(f) => patch(b.id, { form: f })}
+                    onSubmitRow={(tableId, t) => patch(tableId, { table: t })}
+                    onShare={sealed ? undefined : () => setShare({ page: page.id, scope: 'page' })}
+                  />
+                ) : b.type === 'button' ? (
+                  <ButtonBlock
+                    block={b}
+                    page={{ ...page, blocks }}
+                    tables={tables}
+                    onChange={(spec) => patch(b.id, { button: spec })}
+                    onRun={(p) => setBlocks(p.blocks)}
+                    onOpenPage={followLink}
+                  />
+                ) : b.type === 'dashboard' ? (
+                  <DashboardBlock tables={tables} />
                 ) : b.type === 'mindmap' ? (
                   <MindMapBlock nodes={b.mind || []} onChange={(m) => patch(b.id, { mind: m })} />
                 ) : b.type === 'page' ? (
@@ -586,10 +691,31 @@ export function PageEditor({ pageId }: { pageId: string }) {
         </div>
       )}
 
+      <div className="ws-count" aria-live="polite">
+        {words.toLocaleString('es')} palabras · {Math.max(1, Math.round(words / 220))} min
+      </div>
+
+      {finder && (
+        <div className="ws-finder" role="dialog" aria-label="Buscar y reemplazar">
+          <input autoFocus className="ws-mini-input" placeholder="Buscar" value={finder.find} onChange={(e) => setFinder({ ...finder, find: e.target.value })} />
+          <input className="ws-mini-input" placeholder="Reemplazar por" value={finder.with} onChange={(e) => setFinder({ ...finder, with: e.target.value })} />
+          <span className="text-[12px]">{finder.find ? live.reduce((n, b) => n + (b.text.toLowerCase().split(finder.find.toLowerCase()).length - 1), 0) : 0}</span>
+          <button type="button" className="paper-tab" onClick={() => toast.success(`${replaceAll(finder.find, finder.with)} cambios.`)}>
+            Reemplazar todo
+          </button>
+          <button type="button" className="mac-icon-btn" aria-label="Cerrar" onClick={() => setFinder(null)}>
+            ×
+          </button>
+        </div>
+      )}
+
+      {intel && <IntelPanel page={page} blocks={blocks} onBlocks={setBlocks} onClose={() => setIntel(false)} />}
+
       {share && <ShareDialog target={share} onClose={() => setShare(null)} />}
       {history && (
         <HistoryDialog
-          page={page}
+          page={{ ...page, blocks }}
+          onBlocks={setBlocks}
           onClose={() => setHistory(false)}
           onRestore={(old) =>
             // The old content becomes the newest version (same id, current revision).

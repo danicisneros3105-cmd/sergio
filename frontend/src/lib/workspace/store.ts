@@ -57,6 +57,15 @@ export const httpRemote: Remote = {
 
 const LOCAL = 'local:';
 
+function learnedBlocks(key: string): Array<Pick<Block, 'type' | 'text'>> | null {
+  try {
+    const all = JSON.parse(globalThis.localStorage?.getItem('sergio-templates') || '{}');
+    return Array.isArray(all[key]) && all[key].length ? all[key] : null;
+  } catch {
+    return null;
+  }
+}
+
 // A voice note or photo: to the server when it answers, else kept on this
 // device and uploaded by the next sync.
 export async function saveMedia(blob: Blob, name: string): Promise<NonNullable<Block['media']>> {
@@ -244,7 +253,10 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
     create(opts = {}) {
       const tpl = TEMPLATES.find((t) => t.key === (opts.template || 'blank')) || TEMPLATES[0];
       const made = tpl.make();
-      const page = newPage(opts.title ?? made.title, opts.parent ?? null, made.blocks);
+      // A template that learned from use (Sergio → Plantilla) replaces its headings.
+      const learned = learnedBlocks(tpl.key);
+      const blocks = learned ? learned.map((x) => block(x.type, x.text)) : made.blocks;
+      const page = { ...newPage(opts.title ?? made.title, opts.parent ?? null, blocks), ...(tpl.key !== 'blank' ? { template: tpl.key } : {}) };
       set({ pages: { ...get().pages, [page.id]: page } });
       markDirty(page.id);
       if (opts.parent) {

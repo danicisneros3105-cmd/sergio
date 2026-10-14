@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react';
-import { Plus, Trash2, Share2, Columns3, LayoutGrid, Filter, ArrowUpDown, List, GalleryVerticalEnd, CalendarDays, ExternalLink } from 'lucide-react';
+import { Plus, Trash2, Share2, Columns3, LayoutGrid, Filter, ArrowUpDown, List, GalleryVerticalEnd, CalendarDays, ExternalLink, GanttChart, Zap } from 'lucide-react';
+import { applyRules, rollup } from '../../lib/workspace/brain';
+import { AiTable, FormulaWords, RulesEditor, TimelineView } from './TableSmarts';
 import { columnLetter, computeCell, isFormula, toNumber } from '../../lib/workspace/formula';
 import { stampDone } from '../../lib/workspace/archive';
 import { newId, type Column, type ColumnType, type Row, type TableData, type TableView } from '../../lib/workspace/model';
@@ -23,9 +25,10 @@ const VIEW_KINDS: Array<{ key: TableView['kind']; label: string }> = [
   { key: 'list', label: 'Lista' },
   { key: 'gallery', label: 'Galería' },
   { key: 'calendar', label: 'Calendario' },
+  { key: 'timeline', label: 'Cronograma' },
 ];
 
-const VIEW_ICON = { table: Columns3, board: LayoutGrid, list: List, gallery: GalleryVerticalEnd, calendar: CalendarDays };
+const VIEW_ICON = { table: Columns3, board: LayoutGrid, list: List, gallery: GalleryVerticalEnd, calendar: CalendarDays, timeline: GanttChart };
 
 export function visibleRows(table: TableData, view: TableView): Row[] {
   let rows = table.rows.filter((r) => !r.archived);
@@ -158,18 +161,41 @@ export function TableBlock({
   onChange,
   onShareRows,
   onShareView,
+  onEffects,
 }: {
   table: TableData;
   onChange: (t: TableData) => void;
   onShareRows?: (rowIds: string[]) => void;
   onShareView?: (viewId: string) => void;
+  onEffects?: (fx: { todos: string[]; notes: string[] }) => void;
 }) {
   const view = table.views.find((v) => v.id === table.view) || table.views[0];
   const [picked, setPicked] = useState<string[]>([]);
   const [tools, setTools] = useState(false);
+  const [rulesOpen, setRulesOpen] = useState(false);
   const all = table.rows.filter((r) => !r.archived);
   const rows = useMemo(() => visibleRows(table, view), [table, view]);
-  const set = (t: TableData) => onChange(stampDone(t));
+  // Every change runs the table's automations on the rows it touched.
+  const set = (t: TableData) => {
+    let next = stampDone(t);
+    if (next.rules?.some((x) => x.on)) {
+      const before = new Map(table.rows.map((row) => [row.id, row]));
+      const todos: string[] = [];
+      const notes: string[] = [];
+      for (const row of next.rows) {
+        const old = before.get(row.id);
+        if (old && JSON.stringify(old.cells) === JSON.stringify(row.cells)) continue;
+        const fx = applyRules(next, next.rules || [], row.id, old);
+        next = fx.table;
+        todos.push(...fx.todos);
+        notes.push(...fx.notes);
+        for (const hook of fx.webhooks) void fetch(hook.url, { method: 'POST', mode: 'no-cors', body: JSON.stringify(hook.row) }).catch(() => undefined);
+      }
+      if (todos.length || notes.length) onEffects?.({ todos, notes });
+    }
+    onChange(next);
+  };
+  const blank = table.rows.length <= 1 && table.rows.every((row) => Object.values(row.cells).every((v) => !v || v === 'Por hacer'));
   const setView = (patch: Partial<TableView>) =>
     set({ ...table, views: table.views.map((v) => (v.id === view.id ? { ...v, ...patch } : v)) });
   const setCell = (rowId: string, colId: string, value: string) =>
@@ -223,6 +249,9 @@ export function TableBlock({
           </button>
         </div>
         <div className="flex items-center gap-1">
+          <button type="button" className="mac-icon-btn" onClick={() => setRulesOpen(!rulesOpen)} aria-label="Automatizaciones" title="Automatizaciones" aria-pressed={rulesOpen}>
+            <Zap size={14} strokeWidth={1.5} fill={table.rules?.some((x) => x.on) ? 'currentColor' : 'none'} />
+          </button>
           <button type="button" className="mac-icon-btn" onClick={() => setTools(!tools)} aria-label="Filtrar y ordenar" aria-pressed={tools}>
             <Filter size={14} strokeWidth={1.5} />
           </button>
@@ -312,7 +341,11 @@ export function TableBlock({
         </div>
       )}
 
-      {view.kind === 'list' ? (
+      {rulesOpen && <RulesEditor table={table} onChange={set} onClose={() => setRulesOpen(false)} />}
+      {blank && <AiTable onTable={(t) => set(t)} />}
+      {view.kind === 'timeline' ? (
+        <TimelineView table={table} />
+      ) : view.kind === 'list' ? (
         <ListView table={table} rows={rows} />
       ) : view.kind === 'gallery' ? (
         <GalleryView table={table} rows={rows} />
@@ -384,18 +417,13 @@ export function TableBlock({
                 );
               })}
             </tbody>
-            {numbers.length > 0 && (
+            {rows.length > 1 && (
               <tfoot>
                 <tr>
-                  <td className="ws-rownum">Σ</td>
+                  <td className="ws-rownum" />
                   {table.columns.map((c, ci) => (
                     <td key={c.id} className="ws-sum">
-                      {c.type === 'number'
-                        ? String(
-                            rows.reduce((s, r) => s + (toNumber(computeCell(table, all.indexOf(r), ci)) || 0), 0)
-                              .toLocaleString('es', { maximumFractionDigits: 2 }),
-                          )
-                        : ''}
+                      {ci === 0 ? '' : rollup(table, c.id)}
                     </td>
                   ))}
                   <td />
@@ -414,9 +442,7 @@ export function TableBlock({
             Compartir {picked.length} {picked.length === 1 ? 'fila' : 'filas'}
           </button>
         )}
-        <span className="ml-auto text-[11px]" style={{ color: 'var(--color-text-tertiary)' }}>
-          Fórmulas: =A1*B1 · ={'{'}Precio{'}'}*2 · =SUMA(C:C)
-        </span>
+        <FormulaWords table={table} onChange={set} />
       </div>
     </div>
   );

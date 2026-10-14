@@ -26,7 +26,14 @@ from fastapi import APIRouter, File, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, Response
 from pydantic import BaseModel
 
-from openjarvis.workspace.shares import Shares, render_html, scoped_blocks, shared_files
+from openjarvis.workspace import intel
+from openjarvis.workspace.shares import (
+    Shares,
+    render_html,
+    scoped_blocks,
+    shared_files,
+    submit_form,
+)
 from openjarvis.workspace.store import (
     FILE_TYPES,
     Conflict,
@@ -136,7 +143,7 @@ async def upload_file(file: UploadFile = File(...)) -> Dict[str, Any]:
     if not ext:
         guess = {v: k for k, v in FILE_TYPES.items()}
         ext = guess.get((file.content_type or "").split(";")[0], "")
-    data = await file.read(26_000_000)
+    data = await file.read(201_000_000)
     try:
         file_id = await asyncio.to_thread(default_store().save_file, data, ext)
     except WorkspaceError as exc:
@@ -220,10 +227,121 @@ def _shared(token: str) -> tuple[Dict[str, Any], List[Dict[str, Any]]]:
     return page, scoped_blocks(page, record)
 
 
+def _public_headers(nonce: str) -> Dict[str, str]:
+    headers = dict(PUBLIC_HEADERS)
+    headers["Content-Security-Policy"] = (
+        f"{PUBLIC_HEADERS['Content-Security-Policy']}; script-src 'nonce-{nonce}'; "
+        "form-action 'self'"
+    )
+    return headers
+
+
 @router.get("/s/{token}", response_class=HTMLResponse, include_in_schema=False)
 async def public_share(token: str) -> HTMLResponse:
+    import secrets
+
     page, blocks = await asyncio.to_thread(_shared, token)
-    return HTMLResponse(render_html(page, blocks, token), headers=PUBLIC_HEADERS)
+    nonce = secrets.token_urlsafe(12)
+    return HTMLResponse(
+        render_html(page, blocks, token, nonce), headers=_public_headers(nonce)
+    )
+
+
+_FORM_HITS: Dict[str, List[float]] = {}
+
+
+@router.post("/s/{token}/form/{block_id}", include_in_schema=False)
+async def public_form(token: str, block_id: str, request: Request) -> HTMLResponse:
+    """A public form answer becomes a row (30 per minute per link at most)."""
+    import time as _time
+
+    hits = [t for t in _FORM_HITS.get(token, []) if _time.time() - t < 60]
+    if len(hits) >= 30:
+        raise HTTPException(
+            status_code=429, detail="Demasiadas respuestas; espere un minuto."
+        )
+    _FORM_HITS[token] = [*hits, _time.time()]
+    page, blocks = await asyncio.to_thread(_shared, token)
+    if not any(b.get("id") == block_id and b.get("type") == "form" for b in blocks):
+        raise HTTPException(
+            status_code=404, detail="Este formulario no está compartido."
+        )
+    form = await request.form()
+    values = {str(k): str(v) for k, v in list(form.items())[:60]}
+    try:
+        new_page, errors = submit_form(page, block_id, values)
+        if not errors:
+            await asyncio.to_thread(
+                default_store().put, new_page, int(page.get("rev") or 0)
+            )
+    except (WorkspaceError, Conflict) as exc:
+        raise _bad(exc) from exc
+    text = (
+        "Faltan datos: " + ", ".join(sorted(set(errors.values())))
+        if errors
+        else "¡Gracias! Su respuesta quedó guardada."
+    )
+    body = (
+        "<!doctype html><meta charset=utf-8><meta name=viewport content='width=device-width'>"
+        "<body style='font:17px system-ui;display:grid;place-items:center;min-height:90vh'>"
+        f"<p>{text}</p><p><a href='/s/{token}'>Volver</a></p></body>"
+    )
+    return HTMLResponse(
+        body, status_code=400 if errors else 200, headers=PUBLIC_HEADERS
+    )
+
+
+# -- beyond Notion: clipper, Word, one calendar, one inbox ----------------------------
+
+
+class Clip(BaseModel):
+    url: str
+
+
+@router.post("/v1/workspace/clip")
+async def clip(body: Clip) -> Dict[str, Any]:
+    try:
+        return await asyncio.to_thread(intel.clip, body.url.strip())
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001 — the site did not answer
+        raise HTTPException(status_code=502, detail="No pude leer esa página.") from exc
+
+
+@router.get("/v1/workspace/pages/{page_id}/docx")
+async def page_docx(page_id: str) -> Response:
+    try:
+        page = await asyncio.to_thread(default_store().get, page_id)
+    except WorkspaceError as exc:
+        raise _bad(exc) from exc
+    if not page:
+        raise HTTPException(status_code=404, detail="No encuentro esa página.")
+    if page.get("sealed"):
+        raise HTTPException(status_code=400, detail="Ábrala en la app: está cifrada.")
+    data = await asyncio.to_thread(intel.docx_bytes, page)
+    name = (
+        "".join(
+            c for c in (page.get("title") or "pagina") if c.isalnum() or c in " -_"
+        )[:60]
+        or "pagina"
+    )
+    return Response(
+        content=data,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f'attachment; filename="{name}.docx"'},
+    )
+
+
+@router.get("/v1/workspace/agenda")
+async def agenda(days: int = 30) -> Dict[str, Any]:
+    pages = await asyncio.to_thread(default_store().all)
+    items = await asyncio.to_thread(intel.agenda, pages, max(1, min(days, 365)))
+    return {"items": items}
+
+
+@router.get("/v1/workspace/mail")
+async def mail(q: str = "", days: int = 14) -> Dict[str, Any]:
+    return {"messages": await asyncio.to_thread(intel.mail, q, max(1, min(days, 90)))}
 
 
 @router.get("/s/{token}/files/{file_id}", include_in_schema=False)

@@ -38,7 +38,7 @@ log = logging.getLogger(__name__)
 
 PAGE_ID = re.compile(r"^p_[a-z0-9]{6,24}$")
 FILE_ID = re.compile(
-    r"^f_[a-z0-9]{6,24}\.(png|jpe?g|webp|gif|webm|ogg|oga|mp3|m4a|wav|mp4)$"
+    r"^f_[a-z0-9]{6,24}\.(png|jpe?g|webp|gif|webm|ogg|oga|mp3|m4a|wav|mp4|m4v|mov)$"
 )
 FILE_TYPES = {
     "png": "image/png",
@@ -52,10 +52,13 @@ FILE_TYPES = {
     "mp3": "audio/mpeg",
     "m4a": "audio/mp4",
     "wav": "audio/wav",
-    "mp4": "audio/mp4",
+    "mp4": "video/mp4",
+    "m4v": "video/mp4",
+    "mov": "video/quicktime",
 }
 MAX_PAGE_BYTES = 5_000_000
-MAX_FILE_BYTES = 25_000_000
+MAX_FILE_BYTES = 200_000_000  # videos too
+RECENT_KEEP = 12  # every recent revision, for merging simultaneous edits
 MAX_BLOCKS = 5000
 HISTORY_EVERY = 600.0  # seconds between kept versions of a page
 HISTORY_KEEP = 50
@@ -173,6 +176,7 @@ class WorkspaceStore:
         out = []
         if not self.pages_dir.is_dir():
             return out
+        self.import_markdown_edits()
         for path in sorted(self.pages_dir.glob("p_*.json")):
             page = self.get(path.stem)
             if page and (include_archived or not page.get("archived")):
@@ -207,6 +211,15 @@ class WorkspaceStore:
                 and base_rev is not None
                 and int(current.get("rev") or 0) != int(base_rev)
             ):
+                merged = self._merge(current, page, int(base_rev))
+                if merged is not None:
+                    page = merged
+                    base_rev = int(current.get("rev") or 0)
+            if (
+                current is not None
+                and base_rev is not None
+                and int(current.get("rev") or 0) != int(base_rev)
+            ):
                 copy = dict(page)
                 copy["id"] = "p_" + secrets.token_hex(8)
                 copy["title"] = (
@@ -223,8 +236,90 @@ class WorkspaceStore:
             if current is not None:
                 self._snapshot(current)
             self._write(page)
+            self._remember(page)
         self._changed()
         return page
+
+    # -- simultaneous edits: merged, not copied -----------------------------------
+    def _recent_dir(self, page_id: str) -> Path:
+        return self._history_dir(page_id) / "recent"
+
+    def _remember(self, page: Dict[str, Any]) -> None:
+        folder = self._recent_dir(page["id"])
+        folder.mkdir(parents=True, exist_ok=True)
+        _atomic_write(
+            folder / f"{int(page['rev']):08d}.json",
+            json.dumps(page, ensure_ascii=False).encode("utf-8"),
+        )
+        for stale in sorted(folder.glob("*.json"))[:-RECENT_KEEP]:
+            stale.unlink(missing_ok=True)
+
+    def _merge(
+        self, current: Dict[str, Any], mine: Dict[str, Any], base_rev: int
+    ) -> Optional[Dict[str, Any]]:
+        """Three-way merge against the revision the client started from."""
+        if current.get("sealed") or mine.get("sealed"):
+            return None  # the server cannot read encrypted pages
+        try:
+            base = json.loads(
+                (self._recent_dir(current["id"]) / f"{base_rev:08d}.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+        except (OSError, ValueError):
+            base = self.version(current["id"], base_rev)
+        if base is None:
+            return None
+        titles = (
+            base.get("title") or "",
+            mine.get("title") or "",
+            current.get("title") or "",
+        )
+        if titles[1] != titles[0] and titles[2] != titles[0] and titles[1] != titles[2]:
+            return None  # both renamed it differently: keep a conflict copy
+        from openjarvis.workspace.intel import merge3
+
+        blocks, conflicts = merge3(
+            base.get("blocks") or [],
+            mine.get("blocks") or [],
+            current.get("blocks") or [],
+        )
+        merged = {**current, **{k: v for k, v in mine.items() if k != "blocks"}}
+        if (mine.get("title") or "") == (base.get("title") or ""):
+            merged["title"] = current.get("title") or ""
+        merged["blocks"] = blocks
+        merged["merged"] = {"at": int(time.time() * 1000), "conflicts": conflicts}
+        return merged
+
+    # -- two-way Markdown: edit the .md in any program, it comes back -------------
+    def import_markdown_edits(self) -> int:
+        from openjarvis.workspace.intel import markdown_blocks
+
+        changed = 0
+        for md_path in sorted(self.pages_dir.glob("p_*.md")):
+            json_path = md_path.with_suffix(".json")
+            try:
+                if md_path.stat().st_mtime <= json_path.stat().st_mtime + 1.0:
+                    continue
+                page = self.get(md_path.stem)
+                if page is None or page.get("sealed"):
+                    continue
+                text = md_path.read_text(encoding="utf-8")
+            except (OSError, WorkspaceError):
+                continue
+            if text == page_markdown(page, self.title_of):
+                continue
+            parsed = markdown_blocks(text)
+            new = dict(page)
+            new["title"] = parsed["title"] or page.get("title") or ""
+            new["blocks"] = _keep_ids(page.get("blocks") or [], parsed["blocks"])
+            new["updatedAt"] = int(md_path.stat().st_mtime * 1000)
+            try:
+                self.put(new, base_rev=int(page.get("rev") or 0))
+                changed += 1
+            except (Conflict, WorkspaceError):
+                continue
+        return changed
 
     # -- history (like Notion's page history) -------------------------------------
     def _history_dir(self, page_id: str) -> Path:
@@ -385,6 +480,42 @@ class WorkspaceStore:
                 "Las páginas cifradas siguen cifradas: ábralas en Sergio con su frase.\n",
             )
         return buf.getvalue()
+
+
+def _keep_ids(
+    old: List[Dict[str, Any]], new: List[Dict[str, Any]]
+) -> List[Dict[str, Any]]:
+    """Blocks edited outside keep their ids (and their extras) where the kind
+    is the same at the same place; tables keep their column types."""
+    out = []
+    for i, b in enumerate(new):
+        prev = old[i] if i < len(old) else None
+        if prev and prev.get("type") == b.get("type"):
+            merged = {**prev, "text": b.get("text", "")}
+            if "checked" in b:
+                merged["checked"] = b["checked"]
+            if b.get("table") and prev.get("table"):
+                cols = prev["table"].get("columns") or []
+                new_cols = b["table"].get("columns") or []
+                if [c.get("name") for c in cols] == [c.get("name") for c in new_cols]:
+                    ids = {n["id"]: c["id"] for n, c in zip(new_cols, cols)}
+                    rows = [
+                        {
+                            **r,
+                            "cells": {
+                                ids.get(k, k): v
+                                for k, v in (r.get("cells") or {}).items()
+                            },
+                        }
+                        for r in b["table"].get("rows") or []
+                    ]
+                    merged["table"] = {**prev["table"], "rows": rows}
+                else:
+                    merged["table"] = b["table"]
+            out.append(merged)
+        else:
+            out.append(b)
+    return out
 
 
 def _slug(text: str) -> str:

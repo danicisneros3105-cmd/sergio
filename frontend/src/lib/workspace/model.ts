@@ -1,6 +1,8 @@
 // The Workspace's data: pages made of blocks, in plain JSON (lossless) with
 // a Markdown mirror for portability. Pure functions, no store, no DOM.
 
+import type { ButtonSpec, FormSpec, Rule } from './brain';
+
 export type BlockType =
   | 'text'
   | 'h1'
@@ -23,7 +25,11 @@ export type BlockType =
   | 'equation'
   | 'toc'
   | 'bookmark'
-  | 'page';
+  | 'page'
+  | 'form'
+  | 'button'
+  | 'dashboard'
+  | 'video';
 
 export type ColumnType = 'text' | 'number' | 'select' | 'multi' | 'date' | 'checkbox' | 'url' | 'email' | 'phone';
 
@@ -32,6 +38,7 @@ export interface Column {
   name: string;
   type: ColumnType;
   options?: string[]; // for select / multi
+  relation?: { kind: 'table'; block: string; page: string } | { kind: 'pages' }; // values name rows of another table, or pages
 }
 
 export interface Row {
@@ -44,7 +51,7 @@ export interface Row {
 export interface TableView {
   id: string;
   name: string;
-  kind: 'table' | 'board' | 'list' | 'gallery' | 'calendar';
+  kind: 'table' | 'board' | 'list' | 'gallery' | 'calendar' | 'timeline';
   filter?: { column: string; op: 'is' | 'not' | 'contains' | 'gt' | 'lt'; value: string } | null;
   sort?: { column: string; dir: 'asc' | 'desc' } | null;
   groupBy?: string; // board: a select column
@@ -55,6 +62,7 @@ export interface TableData {
   rows: Row[];
   views: TableView[];
   view: string;
+  rules?: Rule[]; // automations: when … then …
 }
 
 export interface ChartData {
@@ -81,11 +89,22 @@ export interface Block {
   table?: TableData;
   chart?: ChartData;
   pomodoro?: { work: number; rest: number };
-  media?: { file: string; name: string; mime: string }; // audio / image, stored apart
+  media?: {
+    file: string;
+    name: string;
+    mime: string;
+    caption?: string; // what is in the image (searchable)
+    transcript?: string; // what is said in the audio (searchable)
+    edit?: { rotate?: number; flip?: boolean; crop?: [number, number, number, number]; filter?: string; start?: number; end?: number };
+  }; // audio / image / video, stored apart
   mind?: MindNode[];
   pageId?: string; // a link to another page
   doneAt?: number; // when a task was ticked
   archived?: boolean; // moved to the page's vault (old finished tasks)
+  form?: FormSpec;
+  button?: ButtonSpec;
+  dashboard?: { tables: string[] }; // block ids of tables on the page ([] = all)
+  conflict?: boolean; // kept from a simultaneous edit by someone else
 }
 
 export interface Sealed {
@@ -109,6 +128,9 @@ export interface Page {
   archived?: boolean; // in the vault («baúl»): out of lists and search
   tags?: string[];
   sealed?: Sealed | null; // end-to-end encrypted: blocks are empty until unlocked
+  verifiedAt?: number; // a wiki page someone confirmed is still right
+  template?: string; // the template it was made from (templates learn from use)
+  site?: { on: boolean; theme: 'claro' | 'oscuro'; accent: string; font: 'sistema' | 'marca'; nav: boolean } | null;
 }
 
 export function newId(prefix = ''): string {
@@ -417,6 +439,10 @@ export const SLASH: Array<{ type: BlockType; label: string; hint: string; keywor
   { type: 'toggle', label: 'Desplegable', hint: 'Se abre y se cierra', keywords: 'desplegable toggle' },
   { type: 'quote', label: 'Cita', hint: 'Texto citado', keywords: 'cita quote' },
   { type: 'callout', label: 'Nota destacada', hint: 'Un aviso', keywords: 'nota aviso callout' },
+  { type: 'form', label: 'Formulario', hint: 'Llena una tabla, con campos que aparecen según respuestas', keywords: 'formulario form encuesta' },
+  { type: 'button', label: 'Botón', hint: 'Acciones con un clic, también con Sergio', keywords: 'boton button accion automatizar' },
+  { type: 'dashboard', label: 'Panel', hint: 'Indicadores de las tablas', keywords: 'panel dashboard kpi indicadores' },
+  { type: 'video', label: 'Video', hint: 'Con recorte de inicio y fin', keywords: 'video pelicula clip' },
   { type: 'code', label: 'Código', hint: 'Bloque de código', keywords: 'codigo code' },
   { type: 'divider', label: 'Separador', hint: 'Una línea', keywords: 'separador linea divider' },
   { type: 'table', label: 'Tabla', hint: 'Hoja de cálculo y base de datos', keywords: 'tabla base datos hoja calculo database' },
