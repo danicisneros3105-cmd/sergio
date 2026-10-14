@@ -3473,3 +3473,6 @@ p.node-hint:not(.node-path), .node-create-sub, .swarm-sub, .swarm-hint, .studio-
 .sb-update { display: flex; align-items: center; gap: 10px; width: 100%; height: 36px; padding: 0 10px; border: 0; border-radius: 10px; background: none; color: var(--color-text-secondary); font: inherit; font-size: 13.5px; cursor: pointer; }
 .sb-update:hover:not(:disabled) { background: var(--color-hover); color: var(--color-text); }
 .sb-update:disabled { cursor: default; }
+.node-template em { display: none; }
+.sb-update .sb-label { text-align: left; }
+.sb-update { padding-left: 14px; gap: 14px; }

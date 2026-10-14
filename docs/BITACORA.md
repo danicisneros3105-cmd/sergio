@@ -2,6 +2,64 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-10-14 · Claude · (ver git log: Nodes 3D, Workspace, ojo en vivo, instalador)
+- «Sigo viendo lo viejo»: cada compilación escribe /version.json; si la copia
+  abierta (o la guardada sin conexión) es de otra compilación, borra su caché
+  y su service worker y se recarga una vez. El service worker ahora toma el
+  control al momento. El centro de control del escritorio pasó a la paleta
+  oscura de ChatGPT (tarjetas grises, botones blancos, letra del sistema).
+- Nodes en 3D de verdad, con el estilo de los Dots (petición del dueño):
+  `components/Nodes/dots3d.ts` modela en Three.js un rinoceronte de ojos
+  cerrados con camiseta a rayas celeste y blanco, un dálmata, un guante
+  médico azul inflado con boina y cara de marcador, y un orbe invisible
+  (solo su borde, ojos negros y gafas de leopardo); flocado aterciopelado,
+  pelusa corta en la silueta, luz de estudio y sombra. Se dibuja una vez por
+  tamaño y la página lo anima con CSS. Los Nodes viejos se ven como uno del
+  elenco. Cambié la regla de AGENTS («nada de peludos» → flocado de Dots).
+- Sin marcas a la vista: los programas se ven como Diseño, Código, Imagen,
+  Video, Planos, BIM, Plano 2D, Estudio 3D y Pronóstico (también dentro del
+  editor de diseño y del de código). Títulos con las letras del logo B&O
+  (Josefin Sans) y sin subtextos. Kimi salió de la paleta de comandos.
+- Extensiones (Programas · Plugins · Skills · Conectores) reemplaza la
+  página /studio de Codex (ProgramsPage): tenía nombres y enlaces de GitHub a
+  la vista y un instalador por PowerShell, contra lo que pidió el dueño. Su
+  catálogo /v1/programs sigue en el servidor intacto. /studio y /developer
+  redirigen a /extensiones.
+- Workspace, las 25 fallas de Notion con su solución y las 5 mejoras:
+  `lib/workspace/brain.ts` (memoria, búsqueda por significado, tablas con
+  tipos adivinados, relaciones detectadas, rollups, fórmulas en palabras,
+  cronograma con ruta crítica, riesgos y presupuesto, vigencia de wikis,
+  automatizaciones Y/O, formularios condicionales, botones, plantillas que
+  aprenden, diff visual, fusión a tres bandas, paneles, agenda), el panel
+  «Sergio» de cada página (agente por pasos con aprobación o encargo a un
+  Node), calendario y correo de todas las cuentas (borradores, nunca envía),
+  permisos en un sitio, recortador web (rechaza direcciones privadas), Word,
+  imprimir/PDF, buscar y reemplazar, video con recorte, páginas como sitio,
+  formularios públicos que crean filas, y el Markdown de cada página editable
+  fuera (vuelve solo). En el servidor las ediciones simultáneas se fusionan
+  en vez de crear «copia en conflicto» (salvo títulos distintos a la vez).
+- Pantalla en vivo, sin retraso: `sergio_escritorio/live_screen.py` mira la
+  pantalla en segundo plano; mirar es instantáneo (JPEG en caché), el árbol
+  de accesibilidad se relee solo tras un cambio, y cada acción se comprueba
+  en cuanto el resultado aparece. /screen.jpg, /screen/wait y /screen/stream.
+  En llamada con pantalla compartida, un cuadro sale apenas cambia.
+- Instalación sin PowerShell: `installer/Sergio-Instalador.exe` (NSIS,
+  `scripts/build-instalador.sh`), un «Sí» de administrador y sigue solo tras
+  reiniciar. «Actualizar» en la barra lateral y en el menú del icono ejecuta
+  el comando universal (sin cambiarlo).
+- Notch como la isla de Apple (orejas cóncavas, esquinas continuas, resorte
+  al crecer y al encoger distinto, el contenido se funde mientras cambia de
+  forma, se aprieta al tocar y abre al soltar) y Face ID con guiño (también
+  en el diálogo de Windows Hello de Codex, que solo cambió su dibujo).
+- Revisé lo de Codex: ProgramsPage (reemplazada, explicado arriba) y su
+  ConsentDialog (le puse la animación nueva; la verificación del sistema no
+  cambió). Un test suyo esperaba que el notch abriera al presionar: ahora
+  abre al soltar, actualizado.
+- Pendiente / no probado aquí: el instalador .exe y la app de Windows no se
+  pueden ejecutar en este entorno (sin Windows); el ojo en vivo y el Face ID
+  se probaron con pruebas y dibujos fuera de pantalla. El correo y el
+  calendario muestran lo que ya indexaron los conectores del dueño.
+
 ## 2026-10-13 · Claude · 7632a4b…(fusión con main) (diseño ChatGPT, Dots y programas reales)
 - Diseño igual a ChatGPT (petición del dueño: «no vibe coded»): una sola
   barra lateral (nuevo chat, buscar chats, biblioteca, secciones, chats, la

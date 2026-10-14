@@ -292,11 +292,12 @@ export function detectRelations(pages: Page[]): RelationHint[] {
       if (values.length < 2) continue;
       let best: RelationHint | null = null;
       for (const other of tables) {
-        if (other.blockId === t.blockId) continue;
+        // a column naming rows of its own table (dependencies) is a relation too
         const first = other.table.columns[0];
         const names = new Set(other.table.rows.map((r) => fold((r.cells[first.id] || '').trim())).filter(Boolean));
         const matches = values.filter((v) => names.has(v)).length;
-        if (matches / values.length >= 0.6 && (!best || matches > best.matches)) best = { pageId: t.pageId, blockId: t.blockId, column: col, target: { kind: 'table', ref: other }, matches };
+        const ref = other.blockId === t.blockId ? { ...other, title: 'esta tabla' } : other;
+        if (matches / values.length >= 0.6 && (!best || matches > best.matches)) best = { pageId: t.pageId, blockId: t.blockId, column: col, target: { kind: 'table', ref }, matches };
       }
       const pageMatches = values.filter((v) => titles.has(v)).length;
       if (!best && pageMatches / values.length >= 0.6) best = { pageId: t.pageId, blockId: t.blockId, column: col, target: { kind: 'pages' }, matches: pageMatches };
@@ -514,7 +515,7 @@ export function projectRisk(table: TableData, now = Date.now()): ProjectRisk {
   const done = rows.filter((r) => isDone(table, r));
   const dues = rows.map((r) => (dueCol ? dayOf(r.cells[dueCol.id]) : null)).filter((d): d is number => d !== null);
   const dueEnd = dues.length ? Math.max(...dues) : null;
-  const pending = plan.tasks.filter((t) => !t.done);
+  const pending = plan.tasks.filter((t) => !t.done && t.name.trim());
   const predictedEnd = pending.length ? Math.max(...pending.map((t) => t.end)) : now;
   // the worst lateness of any open task against its own date
   const lateness = pending
