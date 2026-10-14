@@ -24,17 +24,17 @@ FALLBACK = ["Segoe UI Variable Text", "Segoe UI", "SF Pro Text", "Helvetica Neue
 
 # Colours: black, white (and white at lower strength), one light blue.
 INK = "#000000"
-GLASS = "#0a0a0a"
-CARD = "#141414"
-CARD_HOT = "#1c1c1c"
-LINE = "#262626"
-LINE_HOT = "#3d3d3d"
-BLUE = "#9fd3ff"  # the one accent: buttons, selection, focus
-BLUE_HOT = "#bfe2ff"
+GLASS = "#171717"
+CARD = "#212121"
+CARD_HOT = "#2f2f2f"
+LINE = "#303030"
+LINE_HOT = "#424242"
+BLUE = "#ececec"  # the one accent (ChatGPT dark): white pill buttons, selection, focus
+BLUE_HOT = "#ffffff"
 ALUMINIUM = BLUE  # older names, same accent
 ALUMINIUM_HOT = BLUE_HOT
 TEXT = "#ffffff"
-SECONDARY = "#8a8a8a"
+SECONDARY = "#b4b4b4"
 BRONZE = BLUE
 
 # The 4 px grid.
@@ -89,11 +89,17 @@ def font(size: float, weight: str = "regular", caps: bool = False, spacing: floa
 
 
 def css_family() -> str:
+    """Body text in the system font (like ChatGPT); titles keep the house
+    typeface through ``font()`` and ``title_css()``."""
+    return ", ".join(f"'{name}'" for name in [*FALLBACK, FAMILY])
+
+
+def title_css() -> str:
     return ", ".join(f"'{name}'" for name in families())
 
 
 __all__ = [
     "ALUMINIUM", "ALUMINIUM_HOT", "BRONZE", "CARD", "CARD_HOT", "FAMILY", "FONT_DIR", "GAP", "GLASS", "INK", "LINE",
     "LINE_HOT", "MARGIN", "PAD", "RADIUS_L", "RADIUS_M", "RADIUS_S", "SECONDARY", "TEXT", "UNIT", "css_family",
-    "families", "font", "load_fonts",
+    "families", "font", "load_fonts", "title_css",
 ]

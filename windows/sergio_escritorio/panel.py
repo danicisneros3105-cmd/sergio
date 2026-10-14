@@ -91,7 +91,7 @@ BRAINS = {
 
 STYLE = f"""
 QWidget {{ color: {TEXT}; font-family: {FAMILY}; font-size: 15px; }}
-QLabel#title {{ font-size: 15px; font-weight: 300; letter-spacing: 3px; }}
+QLabel#title {{ font-family: {estilo.title_css()}; font-size: 17px; font-weight: 600; letter-spacing: 0px; }}
 QLabel#subtitle, QLabel#hint {{ color: {SECONDARY}; font-size: 13px; }}
 QLabel#section, QLabel#heading {{ color: {SECONDARY}; font-size: 10px; font-weight: 600;
                   letter-spacing: 2px; }}
