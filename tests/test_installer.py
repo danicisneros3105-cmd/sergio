@@ -29,7 +29,7 @@ def test_installer_asks_admin_once_and_runs_hidden():
 def test_installer_builds(tmp_path):
     out = tmp_path / "Sergio-Instalador.exe"
     done = subprocess.run(
-        ["makensis", "-V2", f"-XOutFile {out}", "sergio.nsi"],
+        ["makensis", "-V2", f"-DOUTFILE={out}", "sergio.nsi"],
         cwd=ROOT / "installer",
         capture_output=True,
         text=True,

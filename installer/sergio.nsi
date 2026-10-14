@@ -18,7 +18,10 @@ RequestExecutionLevel admin
 Name "${APP}"
 Caption "${APP}"
 BrandingText " "
-OutFile "Sergio-Instalador.exe"
+!ifndef OUTFILE
+  !define OUTFILE "Sergio-Instalador.exe"
+!endif
+OutFile "${OUTFILE}"
 InstallDir "$LOCALAPPDATA\Sergio"
 ShowInstDetails show
 VIProductVersion "${VERSION}.0"
