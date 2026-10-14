@@ -713,6 +713,31 @@ def run(config: dict[str, Any]) -> None:
     chat_action = QAction("Abrir el chat en el navegador", menu)
     chat_action.triggered.connect(lambda: webbrowser.open(config["server_url"]))
     menu.addAction(chat_action)
+
+    def update_sergio() -> None:
+        # The owner's universal update, without opening PowerShell.
+        def run() -> None:
+            import httpx
+
+            try:
+                resp = httpx.post(
+                    config["server_url"].rstrip("/") + "/v1/sistema/actualizar",
+                    timeout=10,
+                )
+                text = (
+                    "Actualizando Sergio; se reinicia solo en unos minutos."
+                    if resp.status_code == 200
+                    else f"No se pudo actualizar ({resp.status_code})."
+                )
+            except Exception as exc:  # noqa: BLE001 — server off
+                text = f"No pude hablar con Sergio: {exc}"
+            bridge.caption.emit(text)
+
+        threading.Thread(target=run, daemon=True).start()
+
+    update_action = QAction("Actualizar Sergio", menu)
+    update_action.triggered.connect(update_sergio)
+    menu.addAction(update_action)
     quit_action = QAction("Salir", menu)
     quit_action.triggered.connect(app.quit)
     menu.addAction(quit_action)

@@ -109,6 +109,11 @@ En PowerShell de Windows, siempre el mismo:
 wsl -d Ubuntu -- bash -lc "cd ~/sergio && git fetch origin main && git checkout -B main origin/main && bash scripts/actualizar-sergio.sh main"
 ```
 
+Instalación nueva (sin PowerShell): `installer/Sergio-Instalador.exe`
+(se construye con `bash scripts/build-instalador.sh`; pide permiso de
+administrador una vez y continúa solo tras reiniciar). Dentro de la app,
+«Actualizar» (barra lateral y menú del icono) ejecuta este mismo comando.
+
 `scripts/actualizar-sergio.sh` instala las dependencias exactas, compila la
 web, instala la app de Windows y deja el servicio apuntando a `~/sergio`.
 Si cambian lo que hace la actualización, cambien ese script: el comando del

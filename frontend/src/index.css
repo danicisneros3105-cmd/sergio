@@ -3469,3 +3469,7 @@ p.node-hint:not(.node-path), .node-create-sub, .swarm-sub, .swarm-hint, .studio-
   .ws-page { padding: 0 !important; }
 }
 @media (prefers-reduced-motion: reduce) { .ws-intel, .ws-hub { animation: none; } }
+
+.sb-update { display: flex; align-items: center; gap: 10px; width: 100%; height: 36px; padding: 0 10px; border: 0; border-radius: 10px; background: none; color: var(--color-text-secondary); font: inherit; font-size: 13.5px; cursor: pointer; }
+.sb-update:hover:not(:disabled) { background: var(--color-hover); color: var(--color-text); }
+.sb-update:disabled { cursor: default; }

@@ -596,6 +596,10 @@ def create_app(
     from openjarvis.server.hub_routes import router as hub_router
 
     app.include_router(hub_router)
+    # «Actualizar»: the owner's universal update command, from the app.
+    from openjarvis.server.update_routes import router as update_router
+
+    app.include_router(update_router)
     # Evolution: long-term memory (RAG + feedback) and the crewAI team.
     from openjarvis.server.evolution_routes import router as evolution_router
 

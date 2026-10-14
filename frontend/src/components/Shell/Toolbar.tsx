@@ -18,6 +18,7 @@ import {
 import { useAppStore } from '../../lib/store';
 import { LiveOrb } from '../Live/LiveOrb';
 import { ConversationList } from '../Sidebar/ConversationList';
+import { UpdateButton } from './UpdateButton';
 
 // Nodes: a few dots, like the persistent agents they are.
 function NodesIcon({ size = 20, strokeWidth = 1.5 }: { size?: number; strokeWidth?: number }) {
@@ -215,6 +216,7 @@ export function Toolbar({ historyOpen, onToggleHistory }: { historyOpen: boolean
             <LiveOrb size="sm" />
             <span className="sb-label">Conversación</span>
           </div>
+          <UpdateButton />
           <button
             type="button"
             className="sb-user"
