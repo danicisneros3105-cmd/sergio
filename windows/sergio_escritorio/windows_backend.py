@@ -14,6 +14,7 @@ from __future__ import annotations
 import ctypes
 import os
 import subprocess
+import threading
 import time
 from typing import Any
 
@@ -124,8 +125,8 @@ class WindowsBackend:
         pyautogui.FAILSAFE = True
         pyautogui.PAUSE = 0.0  # no built-in wait after every key
         self._gui = pyautogui
-        from pathlib import Path
         import threading
+        from pathlib import Path
 
         from sergio_escritorio.apps import Launcher
 
@@ -144,7 +145,15 @@ class WindowsBackend:
         import mss
         from PIL import Image
 
-        with mss.mss() as shot:
+        # One capture context per thread, kept open: opening it costs more
+        # than the capture itself (the live eye grabs 15 times a second).
+        local = getattr(self, "_mss_local", None)
+        if local is None:
+            local = self._mss_local = threading.local()
+        if getattr(local, "shot", None) is None:
+            local.shot = mss.mss()
+        shot = local.shot
+        if True:
             # The monitor you are using (where the mouse is), not always the
             # main one: Sergio sees and acts on the screen in front of you.
             x, y = self._gui.position()
@@ -334,7 +343,10 @@ class WindowsBackend:
         if not closed:
             from sergio_escritorio.apps import ALIASES, lookup, normalise
 
-            for exe in [normalise(name).replace(" ", ""), *(lookup(ALIASES, name) or [])]:
+            for exe in [
+                normalise(name).replace(" ", ""),
+                *(lookup(ALIASES, name) or []),
+            ]:
                 done = subprocess.run(
                     ["taskkill", "/im", f"{exe.replace(' ', '')}.exe"],
                     capture_output=True,

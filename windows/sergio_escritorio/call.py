@@ -40,7 +40,7 @@ IDLE_HANG_UP = 60.0  # seconds with nobody talking: the call ends by itself
 ALWAYS_ON = float("inf")  # an always-on call never hangs up on silence
 GATE_AFTER = 2.0  # seconds of silence before the microphone stops streaming
 PREROLL_FRAMES = 40  # 400 ms kept while gated: the first syllable is never lost
-VIDEO_EVERY = 1.0  # seconds between camera/screen frames while sharing
+VIDEO_EVERY = 0.9  # at most this often (the server keeps ~1/s); an unchanged screen sends nothing
 REF_MAX = 60  # at most 600 ms of speaker reference waiting for the mic
 PREBUFFER = RATE_OUT * 2 * 150 // 1000  # 150 ms of his voice before he starts
 

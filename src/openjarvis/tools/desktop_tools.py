@@ -153,8 +153,12 @@ class ScreenReadTool(_DesktopTool):
             lines.append("No accessible elements found; use look=true.")
         if params.get("look"):
             try:
-                shot = self._call("GET", "/screen")
-                described = _describe_image(shot["image_png_b64"], self._client())
+                try:  # the live eye answers a JPEG at once
+                    shot = self._call("GET", "/screen?format=jpeg")
+                except RuntimeError:  # an older Sergio Escritorio
+                    shot = self._call("GET", "/screen")
+                image = shot.get("image_jpeg_b64") or shot["image_png_b64"]
+                described = _describe_image(image, self._client())
                 lines.append(
                     "Screen: "
                     + (

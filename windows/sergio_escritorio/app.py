@@ -325,13 +325,35 @@ def run(config: dict[str, Any]) -> None:
         finally:
             consent_lock.release()
 
+    from sergio_escritorio.live_screen import LiveScreen
+
+    backend = WindowsBackend(speed=str(config.get("control_speed") or "rapido"))
+    # The live eye: watches the screen in the background, so every look and
+    # every check after an action is instant (live_screen.py).
+    live = LiveScreen(backend.screenshot, lambda: getattr(backend, "shot_origin", (0, 0)))
     controller = Controller(
-        WindowsBackend(speed=str(config.get("control_speed") or "rapido")),
+        backend,
         on_activity=on_activity,
         camera=camera_shot,
         approve=lambda _request: False,  # fail closed until Windows Hello is wired
         strict_permissions=config.get("strict_permissions", True) is not False,
+        live=live,
     )
+    _ui_warm = threading.Event()
+
+    def _warm_loop() -> None:
+        # Re-read buttons and fields shortly after the screen changes (in the
+        # background), so screen_read never waits for the accessibility tree.
+        while True:
+            _ui_warm.wait()
+            time.sleep(0.12)
+            _ui_warm.clear()
+            controller.warm_ui()
+
+    live.on_change = lambda _frame: _ui_warm.set()
+    threading.Thread(target=_warm_loop, name="ui-warm", daemon=True).start()
+    if config.get("live_eye", True) is not False:
+        live.start()
     server = make_server(controller, config["token"], int(config["port"]))
     threading.Thread(target=server.serve_forever, daemon=True).start()
 
@@ -2851,12 +2873,24 @@ def run(config: dict[str, Any]) -> None:
         image.save(buf, "JPEG", quality=80)
         return buf.getvalue()
 
+    sent_frame = [0, 0.0]  # last screen frame sent to the call, and when
+
+    def screen_for_call() -> tuple[bytes, str] | None:
+        # Live: a frame as soon as the screen changes; the same picture is
+        # not resent (it only refreshes every few seconds).
+        frame = live.latest()
+        now = time.monotonic()
+        if frame.id == sent_frame[0] and now - sent_frame[1] < 4.0:
+            return None
+        sent_frame[0], sent_frame[1] = frame.id, now
+        return frame.encode("JPEG", 1280, 80), "pantalla"
+
     def call_video() -> tuple[bytes, str] | None:
         session = current_call[0]
         if session is not None and session.share_screen and (
             not camera_window.isVisible() or int(time.monotonic()) % 2 == 0
         ):
-            return jpeg_of(controller.backend.screenshot(), 1280), "pantalla"
+            return screen_for_call()
         if camera_window.isVisible():
             frame = feed.frame()
             if frame is not None:
@@ -2868,14 +2902,14 @@ def run(config: dict[str, Any]) -> None:
                 if ok:
                     return jpeg.tobytes(), "cámara"
         if session is not None and session.share_screen:
-            return jpeg_of(controller.backend.screenshot(), 1280), "pantalla"
+            return screen_for_call()
         return None
 
     def look_screen(question: str) -> str:
         session = current_call[0]
         if session is None:
             return "No hay llamada."
-        session.send_image(jpeg_of(controller.backend.screenshot(), 1280), "pantalla")
+        session.send_image(live.latest().encode("JPEG", 1280, 80), "pantalla")
         return "Te envié una captura de la pantalla: mírala y responde."
 
     def share_screen(on: bool) -> str:

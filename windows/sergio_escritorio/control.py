@@ -6,7 +6,11 @@ slamming the mouse into the top-left corner (pyautogui fail-safe).
 
 Protocol (JSON):
   GET  /health -> {"ok": true, "enabled": bool}
-  GET  /screen -> {"image_png_b64", "width", "height", "scale"}
+  GET  /screen -> {"image_png_b64", "width", "height", "scale", "frame"}
+  GET  /screen?format=jpeg -> the same with "image_jpeg_b64" (4–8× faster)
+  GET  /screen.jpg         -> the live frame as a JPEG (no JSON, no base64)
+  GET  /screen/stream      -> MJPEG: the screen live, a part per change
+  GET  /screen/wait?after=<frame>&timeout=<s> -> the next changed frame
   GET  /ui     -> {"window", "windows", "elements": [{"id","name","type","x","y"}]}
   POST /act    -> {"ok": bool, "result": str}
 
@@ -170,6 +174,9 @@ class ShotScale(float):
 class Controller:
     """Turns validated requests into backend calls. Thread-safe."""
 
+    live: Any = None  # the live eye (set in __init__)
+    _ui_cache: tuple[int, dict] | None = None
+
     def __init__(
         self,
         backend: Backend,
@@ -180,8 +187,13 @@ class Controller:
         diag: Callable[[], dict] | None = None,
         approve: Callable[[str], bool] | None = None,
         strict_permissions: bool = True,
+        live: Any = None,
     ) -> None:
         self.backend = backend
+        # The live eye (live_screen.LiveScreen): every look is the frame it
+        # already has, and actions are checked the moment the screen changes.
+        self.live = live
+        self._ui_cache: tuple[int, dict] | None = None
         self.camera = camera  # returns a JPEG of the webcam, or None
         self.diag = diag or (lambda: {})  # what the ear is doing (revisar)
         # The companion flies to a spot to show the user something.
@@ -213,7 +225,26 @@ class Controller:
         jpeg = self.camera()
         return {"image_jpeg_b64": base64.b64encode(jpeg).decode("ascii")}
 
-    def screen(self) -> dict:
+    def screen(self, fmt: str = "png") -> dict:
+        if self.live is not None:
+            frame = self.live.latest()
+            width, height = frame.size
+            scale = width / MAX_SHOT_WIDTH if width > MAX_SHOT_WIDTH else 1.0
+            jpeg = fmt == "jpeg"
+            data = frame.encode("JPEG" if jpeg else "PNG", MAX_SHOT_WIDTH)
+            left, top = frame.origin
+            return {
+                ("image_jpeg_b64" if jpeg else "image_png_b64"): base64.b64encode(
+                    data
+                ).decode("ascii"),
+                "width": width,
+                "height": height,
+                "scale": scale,
+                "left": left,
+                "top": top,
+                "frame": frame.id,
+                "changed": frame.changed,
+            }
         image = self.backend.screenshot()
         width, height = image.size
         scale = 1.0
@@ -222,10 +253,15 @@ class Controller:
             image = image.resize((MAX_SHOT_WIDTH, round(height / scale)))
         buf = io.BytesIO()
         # Fast PNG: "optimize" cost ~0.5 s per look for a few KB less.
-        image.convert("RGB").save(buf, format="PNG", compress_level=1)
+        if fmt == "jpeg":
+            image.convert("RGB").save(buf, format="JPEG", quality=78)
+        else:
+            image.convert("RGB").save(buf, format="PNG", compress_level=1)
         left, top = getattr(self.backend, "shot_origin", (0, 0))
         return {
-            "image_png_b64": base64.b64encode(buf.getvalue()).decode("ascii"),
+            ("image_jpeg_b64" if fmt == "jpeg" else "image_png_b64"): base64.b64encode(
+                buf.getvalue()
+            ).decode("ascii"),
             "width": width,
             "height": height,
             "scale": scale,
@@ -234,6 +270,14 @@ class Controller:
         }
 
     def ui(self) -> dict:
+        # The accessibility tree only changes when the screen does: while the
+        # live frame is the same, the last reading is still the truth.
+        frame_id = self.live.latest().id if self.live is not None else 0
+        cached = self._ui_cache
+        if frame_id and cached and cached[0] == frame_id:
+            with self._lock:
+                self._elements = cached[1]["_mapping"]
+            return {k: v for k, v in cached[1].items() if k != "_mapping"}
         info = self.backend.ui()
         elements = []
         mapping: dict[int, tuple[int, int]] = {}
@@ -252,19 +296,30 @@ class Controller:
             )
         with self._lock:
             self._elements = mapping
-        return {
+        out = {
             "window": info.get("window", ""),
             "windows": info.get("windows", []),
             "elements": elements,
         }
+        if frame_id:
+            self._ui_cache = (frame_id, {**out, "_mapping": mapping})
+        return out
 
-    def snapshot(self) -> tuple[bytes, list[dict], float]:
-        """Screenshot (PNG) + elements in screenshot pixels + scale to screen.
+    def warm_ui(self, frame: Any = None) -> None:
+        """Read the accessibility tree in the background after a change, so
+        the next screen_read answers at once."""
+        try:
+            self.ui()
+        except Exception:  # noqa: BLE001 — accessibility is a bonus
+            pass
+
+    def snapshot(self, fmt: str = "png") -> tuple[bytes, list[dict], float]:
+        """Screenshot + elements in screenshot pixels + scale to screen.
 
         Used by the companion's screen help: the vision model sees the same
         picture the element coordinates refer to.
         """
-        shot = self.screen()
+        shot = self.screen(fmt)
         left, top = shot.get("left", 0), shot.get("top", 0)
         scale = ShotScale(float(shot["scale"]) or 1.0, (left, top))
         try:
@@ -276,7 +331,8 @@ class Controller:
             x, y = (el["x"] - left) / scale, (el["y"] - top) / scale
             if 0 <= x <= shot["width"] / scale and 0 <= y <= shot["height"] / scale:
                 in_shot.append({**el, "x": round(x), "y": round(y)})
-        return base64.b64decode(shot["image_png_b64"]), in_shot, scale
+        data = shot.get("image_jpeg_b64") or shot["image_png_b64"]
+        return base64.b64decode(data), in_shot, scale
 
     # -- acting ------------------------------------------------------------
     def _point(self, action: dict) -> tuple[int, int]:
@@ -516,7 +572,11 @@ class Controller:
         No fixed wait: it looks every 30 ms and answers as soon as the
         window in front changes (or right away for clicks and keys)."""
         active = getattr(self.backend, "active_window", None)
-        if kind not in self.VERIFY or active is None:
+        if kind not in self.VERIFY:
+            return ""
+        if self.live is not None:
+            return self._verify_live(kind, before, active)
+        if active is None:
             return ""
         try:
             limit = time.monotonic() + self.SETTLE.get(kind, 0.03)
@@ -527,6 +587,29 @@ class Controller:
         except Exception:  # noqa: BLE001 — a check must never break the action
             return ""
         return f" | now in front: {(title or '(escritorio)')[:80]}"
+
+    def _verify_live(self, kind: str, before: str, active: Any) -> str:
+        """With the live eye: answer the moment the screen shows the result
+        (and has settled), not after a guess of how long it takes."""
+        try:
+            start = self.live.latest().id
+            changed = self.live.wait_change(start, self.SETTLE.get(kind, 0.35))
+            if changed is not None:
+                self.live.wait_settled(quiet=0.08, timeout=0.6)
+            title = active() if active is not None else ""
+        except Exception:  # noqa: BLE001 — a check must never break the action
+            return ""
+        seen = (
+            " | the screen changed"
+            if changed is not None
+            else " | the screen did not change"
+        )
+        front = (
+            f" | now in front: {(title or '(escritorio)')[:80]}"
+            if active is not None
+            else ""
+        )
+        return front + seen
 
     def _front(self) -> str:
         active = getattr(self.backend, "active_window", None)
@@ -565,16 +648,65 @@ def make_server(
         def do_GET(self) -> None:  # noqa: N802
             if not self._authorised():
                 return
+            from urllib.parse import parse_qs, urlsplit
+
+            parts = urlsplit(self.path)
+            query = {k: v[-1] for k, v in parse_qs(parts.query).items()}
+            path = parts.path
             try:
-                if self.path == "/health":
+                if path == "/health":
                     self._send(200, {"ok": True, "enabled": controller.enabled})
-                elif self.path == "/screen":
-                    self._send(200, controller.screen())
-                elif self.path == "/ui":
+                elif path == "/screen":
+                    self._send(200, controller.screen(query.get("format", "png")))
+                elif path == "/screen.jpg":
+                    frame = controller.live.latest() if controller.live else None
+                    data = (
+                        frame.encode("JPEG", int(query.get("width", MAX_SHOT_WIDTH)))
+                        if frame
+                        else base64.b64decode(
+                            controller.screen("jpeg")["image_jpeg_b64"]
+                        )
+                    )
+                    self.send_response(200)
+                    self.send_header("Content-Type", "image/jpeg")
+                    self.send_header("Content-Length", str(len(data)))
+                    self.send_header("Cache-Control", "no-store")
+                    self.end_headers()
+                    self.wfile.write(data)
+                elif path == "/screen/wait" and controller.live is not None:
+                    after = int(query.get("after", "0") or 0)
+                    timeout = min(max(float(query.get("timeout", "2") or 2), 0.0), 10.0)
+                    frame = controller.live.wait_change(after, timeout)
+                    if frame is None:
+                        self._send(200, {"ok": True, "changed": False})
+                    else:
+                        self._send(
+                            200,
+                            {
+                                "ok": True,
+                                "changed": True,
+                                "frame": frame.id,
+                                "box": frame.changed,
+                            },
+                        )
+                elif path == "/screen/stream" and controller.live is not None:
+                    self.send_response(200)
+                    self.send_header(
+                        "Content-Type", "multipart/x-mixed-replace; boundary=frame"
+                    )
+                    self.send_header("Cache-Control", "no-store")
+                    self.end_headers()
+                    fps = min(max(float(query.get("fps", "8") or 8), 1.0), 15.0)
+                    try:
+                        for part in controller.live.stream(fps=fps):
+                            self.wfile.write(part)
+                    except (BrokenPipeError, ConnectionResetError):
+                        return
+                elif path == "/ui":
                     self._send(200, controller.ui())
-                elif self.path == "/camera":
+                elif path == "/camera":
                     self._send(200, controller.camera_shot())
-                elif self.path == "/diag":
+                elif path == "/diag":
                     self._send(200, {"ok": True, **controller.diag()})
                 else:
                     self._send(404, {"ok": False, "error": "not found"})
