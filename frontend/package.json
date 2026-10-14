@@ -11,6 +11,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "build:demo": "VITE_DEMO=1 vite build",
     "build:tauri": "tsc -b && vite build --outDir dist",
     "preview": "vite preview",
     "tauri": "tauri",

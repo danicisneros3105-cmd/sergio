@@ -143,3 +143,4 @@ oj-debug.*.json
 mobileclip*
 yolo*.pt
 !windows/sergio_escritorio/models/*-vocab.pt
+frontend/dist-demo/

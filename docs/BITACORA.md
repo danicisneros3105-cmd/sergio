@@ -2,6 +2,22 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-10-14 · Claude · Demo interactivo de toda la web
+- El dueño está en su iPad sin el PC: pidió probar *toda* la app. Nuevo modo
+  demo: `npm run build:demo` (en `frontend/`) compila la web real a
+  `frontend/dist-demo/` sin servidor. `src/demo/install.ts` responde cada
+  llamada /v1 dentro del navegador: respuestas grabadas de un servidor real
+  (`src/demo/fixtures.json`, con los 4 Nodes del elenco), un almacén en
+  memoria (Workspace, mensajes de Nodes) y datos de ejemplo de Salud y
+  Perfil (dicen que son de ejemplo). El chat y los Nodes contestan de
+  verdad con el asistente de la página si lo hay; si no, respuestas fijas.
+  La voz lee con la del iPad; la conversación siempre activa empieza
+  apagada (el demo no puede usar el micrófono).
+- La compilación normal no cambia: el alias `sergio-demo` apunta a
+  `src/demo/none.ts`, y la PWA sigue igual (comprobado: sw.js y manifiesto).
+- Para regrabar los datos: arrancar `jarvis serve` con un HOME limpio,
+  crear los Nodes y guardar los GET de cada página (lo hice con Playwright).
+
 ## 2026-10-14 · Claude · Gemini en la pantalla (video en vivo)
 - Petición del dueño: que Gemini *esté* en la pantalla, no que la pantalla le
   mande actualizaciones. Al compartir pantalla en la llamada, ahora le llega

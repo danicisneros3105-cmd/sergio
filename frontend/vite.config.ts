@@ -27,11 +27,16 @@ const apiTarget = process.env.OPENJARVIS_VITE_PROXY_TARGET
   || process.env.VITE_API_URL
   || 'http://localhost:8000';
 
+// `npm run build:demo`: the whole app with no server, for the interactive demo.
+const demo = process.env.VITE_DEMO === '1';
+
 export default defineConfig({
   define: { __BUILD_ID__: JSON.stringify(buildId) },
+  base: demo ? './' : '/',
   resolve: {
     alias: {
       '@': path.resolve(import.meta.dirname, './src'),
+      'sergio-demo': path.resolve(import.meta.dirname, demo ? './src/demo/install.ts' : './src/demo/none.ts'),
     },
   },
   plugins: [
@@ -44,7 +49,7 @@ export default defineConfig({
     },
     react(),
     tailwindcss(),
-    VitePWA({
+    !demo && VitePWA({
       registerType: 'autoUpdate',
       manifest: {
         name: 'Sergio',
@@ -107,7 +112,7 @@ export default defineConfig({
     }),
   ],
   build: {
-    outDir: '../src/openjarvis/server/static',
+    outDir: demo ? 'dist-demo' : '../src/openjarvis/server/static',
     emptyOutDir: true,
     // Preserve the Vite 6 browser baseline for existing desktop webviews.
     target: ['es2020', 'edge88', 'firefox78', 'chrome87', 'safari14'],
