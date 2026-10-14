@@ -2,6 +2,28 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-10-14 · Claude · Gemini en la pantalla (video en vivo)
+- Petición del dueño: que Gemini *esté* en la pantalla, no que la pantalla le
+  mande actualizaciones. Al compartir pantalla en la llamada, ahora le llega
+  un video continuo (1 cuadro por segundo siempre, 2 justo después de un
+  cambio) con el cursor dibujado como un círculo amarillo
+  (`live_screen.with_cursor`; las capturas no incluyen el puntero). Se le
+  avisa una sola vez que lo que recibe es la pantalla en vivo, y el prompt
+  del servidor le dice que la mire directamente, sin pedir capturas.
+- Probado contra Gemini Live real: con un solo cuadro decía «no veo tu
+  cursor»; con el video continuo acertó el botón bajo el cursor y dio las
+  coordenadas de otro botón (811,500 frente a 812,509 reales).
+- `senalar` acepta x,y (0–1000) del video: señala al instante sin otra
+  mirada (antes hacía captura + otra consulta al modelo).
+- `media_resolution` medio en la sesión Live (letra legible;
+  `SERGIO_LIVE_RESOLUTION=low|medium|high`) y el servidor acepta hasta 2
+  cuadros por segundo (antes 1).
+- `screen_glow.py`: mientras mira, una luz suave respira por los bordes del
+  monitor compartido (más viva cuando habla), sin tomar clics; respeta
+  «Reducir movimiento». El puntero se lee con GetCursorPos (píxeles reales).
+- Revisé lo último de Codex en main: no había cambios nuevos que chocaran.
+- Pendiente: probarlo en el PC del dueño con pantallas escaladas (125–150 %).
+
 ## 2026-10-14 · Claude · (ver git log: Nodes 3D, Workspace, ojo en vivo, instalador)
 - «Sigo viendo lo viejo»: cada compilación escribe /version.json; si la copia
   abierta (o la guardada sin conexión) es de otra compilación, borra su caché

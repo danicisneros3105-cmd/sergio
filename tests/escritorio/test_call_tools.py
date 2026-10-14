@@ -163,3 +163,23 @@ def test_during_a_call_the_microphone_goes_to_it():
     ears.on_talk = lambda: handled.append(1) or True
     ears.talk()
     assert handled == [1] and not ears.push_to_talk
+
+
+def test_point_straight_at_what_he_sees_live():
+    pointed = []
+    looked = []
+    tools, _ = _tools(
+        screen_box=lambda: (1920, 0, 2560, 1440),
+        snapshot=lambda: looked.append(1) or (b"png", [], 1.0),
+        screen_help=lambda png, q, els: {},
+        point=lambda x, y, label: pointed.append((x, y, label)),
+    )
+    reply = tools["senalar"].run({"que": "Exportar", "x": 500, "y": 250})
+    assert reply == "Lo señalé en la pantalla."
+    assert pointed == [(1920 + 1280, 360, "Exportar")]
+    assert not looked  # no extra look: he already sees it
+    # out of range is kept on the screen
+    tools["senalar"].run({"que": "esquina", "x": 2000, "y": -5})
+    assert pointed[-1][:2] == (1920 + 2560, 0)
+    schema = next(t for t in call_tools(Abilities()) if t.name == "senalar").parameters
+    assert {"x", "y"} <= set(schema["properties"])

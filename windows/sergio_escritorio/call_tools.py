@@ -27,6 +27,9 @@ class Abilities:
 
     act: Callable[[dict], Any] = _nothing  # control server action
     snapshot: Callable[[], tuple[bytes, list, float]] | None = None
+    # The live video's place on the screen: (left, top, width, height) in
+    # real pixels, so Gemini can point straight at what he sees.
+    screen_box: Callable[[], tuple[int, int, int, int]] | None = None
     screen_help: Callable[[bytes, str, list], dict] | None = None
     point: Callable[[int, int, str], None] = lambda _x, _y, _l: None
     camera: Callable[[bool], str] = _nothing
@@ -146,6 +149,11 @@ def call_tools(ab: Abilities) -> list[ClientTool]:
 
     def senalar(args: dict) -> str:
         what = str(args.get("que") or "").strip()
+        spot = live_spot(args)
+        if spot is not None:
+            # He sees the screen live: point where he looks, no extra look.
+            ab.point(spot[0], spot[1], what or "aquí")
+            return "Lo señalé en la pantalla."
         if ab.snapshot is None or ab.screen_help is None:
             return "No puedo ver la pantalla ahora."
         png, elements, scale = ab.snapshot()
@@ -157,6 +165,18 @@ def call_tools(ab: Abilities) -> list[ClientTool]:
             return str(reply.get("answer") or f"No encuentro «{what}» en la pantalla.")
         ab.point(spot[0], spot[1], str(reply.get("label") or what))
         return f"Lo señalé en la pantalla. {reply.get('answer') or ''}".strip()
+
+    def live_spot(args: dict) -> tuple[int, int] | None:
+        """x, y in Gemini's 0–1000 coordinates of the live video → pixels."""
+        if ab.screen_box is None or args.get("x") is None or args.get("y") is None:
+            return None
+        try:
+            fx = min(max(float(args["x"]), 0.0), 1000.0) / 1000.0
+            fy = min(max(float(args["y"]), 0.0), 1000.0) / 1000.0
+            left, top, width, height = ab.screen_box()
+        except (TypeError, ValueError):
+            return None
+        return round(left + fx * width), round(top + fy * height)
 
     def recordatorio(args: dict) -> str:
         text = str(args.get("texto") or "").strip()
@@ -209,9 +229,15 @@ def call_tools(ab: Abilities) -> list[ClientTool]:
         ClientTool(
             "senalar",
             "Vuela el compañero del cursor hasta algo de la pantalla (un botón, "
-            "menú, campo o texto) para mostrárselo al usuario.",
+            "menú, campo o texto) para mostrárselo al usuario. Si ves la pantalla "
+            "en vivo, da también x e y donde está en el video (de 0 a 1000, "
+            "esquina superior izquierda = 0,0): señala al instante.",
             senalar,
-            _obj(que=_str("Qué señalar, p. ej. 'el botón Exportar'", required=True)),
+            _obj(
+                que=_str("Qué señalar, p. ej. 'el botón Exportar'", required=True),
+                x={"type": "number", "description": "Horizontal en el video, 0–1000"},
+                y={"type": "number", "description": "Vertical en el video, 0–1000"},
+            ),
         ),
         ClientTool(
             "abrir",

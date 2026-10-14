@@ -115,3 +115,30 @@ def test_controller_looks_through_the_live_eye():
     assert backend.ui_reads == 2  # new frame: read again
     png, elements, scale = ctl.snapshot("jpeg")
     assert png[:2] == b"\xff\xd8" and elements and scale == 1600 / 1280
+
+
+def test_the_live_video_shows_the_mouse_pointer():
+    from sergio_escritorio.live_screen import with_cursor
+
+    screen = Screen()
+    live = LiveScreen(screen.grab)
+    frame = live.capture()
+    plain = with_cursor(frame, None)
+    assert plain == frame.encode("JPEG", 1280, 80)
+    marked = with_cursor(frame, (800, 450))
+    assert marked != plain
+    centre = Image.open(io.BytesIO(marked)).convert("RGB").getpixel((640, 360))
+    assert centre[0] > 200 and centre[1] > 160 and centre[2] < 100  # yellow
+    assert with_cursor(frame, (800, 450)) is marked  # cached
+    with_cursor(frame, (100, 100))
+    assert sum(1 for k in frame._encoded if k[0] == "cursor") == 1  # only the latest
+    assert with_cursor(frame, (5000, 5000)) == plain  # off this monitor
+
+
+def test_the_glow_breathes_and_rises_with_his_voice():
+    from sergio_escritorio.screen_glow import intensity
+
+    quiet = [intensity(t / 10, 0.0, False) for t in range(60)]
+    assert 0.35 < min(quiet) < max(quiet) < 0.75
+    assert intensity(0.0, 0.8, True) > intensity(0.0, 0.8, False)
+    assert intensity(0.0, 1.0, True) <= 1.0

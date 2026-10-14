@@ -2900,15 +2900,27 @@ def run(config: dict[str, Any]) -> None:
 
     sent_frame = [0, 0.0]  # last screen frame sent to the call, and when
 
+    def cursor_now() -> tuple[int, int] | None:
+        # real pixels, like the frame (the app is DPI aware; Qt's are scaled)
+        try:
+            import ctypes
+            from ctypes import wintypes
+
+            point = wintypes.POINT()
+            if ctypes.windll.user32.GetCursorPos(ctypes.byref(point)):
+                return point.x, point.y
+        except Exception:  # noqa: BLE001 — not Windows
+            pass
+        return None
+
     def screen_for_call() -> tuple[bytes, str] | None:
-        # Live: a frame as soon as the screen changes; the same picture is
-        # not resent (it only refreshes every few seconds).
+        # Gemini on the screen: a continuous video (every second, sooner
+        # right after a change), with the mouse pointer drawn in.
+        from sergio_escritorio.live_screen import with_cursor
+
         frame = live.latest()
-        now = time.monotonic()
-        if frame.id == sent_frame[0] and now - sent_frame[1] < 4.0:
-            return None
-        sent_frame[0], sent_frame[1] = frame.id, now
-        return frame.encode("JPEG", 1280, 80), "pantalla"
+        sent_frame[0], sent_frame[1] = frame.id, time.monotonic()
+        return with_cursor(frame, cursor_now(), 1280, 80), "pantalla"
 
     def call_video() -> tuple[bytes, str] | None:
         session = current_call[0]
@@ -2941,6 +2953,8 @@ def run(config: dict[str, Any]) -> None:
         session = current_call[0]
         if session is not None:
             session.share_screen = on
+            if on:
+                session._told_screen = False  # tell Gemini again it is watching
         config["live_screen"] = on
         save_config(config)
         bridge.screen_on.emit(on and session is not None)
@@ -3016,6 +3030,7 @@ def run(config: dict[str, Any]) -> None:
         act=controller.act,
         snapshot=controller.snapshot,
         screen_help=client.screen_help,
+        screen_box=lambda: (*live.latest().origin, *live.latest().size),
         point=lambda x, y, label: bridge.point.emit(x, y, label),
         camera=camera_tool,
         hands=hands_tool,
@@ -3104,6 +3119,7 @@ def run(config: dict[str, Any]) -> None:
         options.update(changes)
         session = CallSession(config["server_url"], **options)
         session.share_screen = bool(config.get("live_screen", True))
+        session.video_fresh = lambda: live.latest().id != sent_frame[0]
         return session
 
     def selftest(kind: str) -> dict:
@@ -3670,6 +3686,34 @@ def run(config: dict[str, Any]) -> None:
     bridge.call_on.connect(call_changed)
     bridge.screen_on.connect(notch.set_screen_sharing)
     notch.set_reduce_motion(bool(config.get("reduce_motion", False)))
+
+    # Gemini on the screen: while he watches it live, a soft light breathes
+    # along the edges of the monitor he sees (brighter while he talks).
+    from sergio_escritorio.screen_glow import ScreenGlow
+
+    glow = ScreenGlow(reduce_motion=bool(config.get("reduce_motion", False)))
+
+    def glow_box() -> tuple[int, int, int, int] | None:
+        # the shared frame is in real pixels; the glow needs the Qt screen
+        try:
+            from PySide6.QtCore import QPoint
+            from PySide6.QtGui import QGuiApplication
+
+            from sergio_escritorio.companion import to_logical
+
+            origin = to_logical(*live.latest().origin).toPoint()
+            screen = QGuiApplication.screenAt(origin + QPoint(4, 4))
+            if screen is None:
+                return None
+            g = screen.geometry()
+            return (g.x(), g.y(), g.width(), g.height())
+        except Exception:  # noqa: BLE001 — then the monitor under the mouse
+            return None
+
+    bridge.screen_on.connect(lambda on: glow.set_on(on, glow_box() if on else None))
+    bridge.level.connect(glow.set_level)
+    bridge.state.connect(lambda name: glow.set_level(glow.level, speaking=name == "speaking"))
+    reduced_action.toggled.connect(lambda on: setattr(glow, "reduce_motion", bool(on)))
 
     # -- mental gym: an exercise you cannot skip every 12 minutes -------------
     from PySide6.QtCore import QTimer

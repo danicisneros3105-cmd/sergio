@@ -40,7 +40,8 @@ IDLE_HANG_UP = 60.0  # seconds with nobody talking: the call ends by itself
 ALWAYS_ON = float("inf")  # an always-on call never hangs up on silence
 GATE_AFTER = 2.0  # seconds of silence before the microphone stops streaming
 PREROLL_FRAMES = 40  # 400 ms kept while gated: the first syllable is never lost
-VIDEO_EVERY = 0.9  # at most this often (the server keeps ~1/s); an unchanged screen sends nothing
+VIDEO_EVERY = 1.0  # the live video: a frame every second, always, like a camera
+VIDEO_FRESH = 0.5  # and sooner when the screen just changed
 REF_MAX = 60  # at most 600 ms of speaker reference waiting for the mic
 PREBUFFER = RATE_OUT * 2 * 150 // 1000  # 150 ms of his voice before he starts
 
@@ -300,6 +301,10 @@ class CallSession:
         self._hang_up_after_turn = False
         self._state = ""
         self.share_screen = False
+        # True when the screen changed since the last frame (the live eye):
+        # the next frame goes out at once instead of waiting for its second.
+        self.video_fresh: Callable[[], bool] = lambda: False
+        self._told_screen = False
         self._audio_queue: queue.Queue[bytes | str] = queue.Queue(maxsize=8)
         self._audio_stalled = False
         self.heard_anything = False  # Gemini heard or said something already
@@ -648,7 +653,20 @@ class CallSession:
         last_frame = 0.0
         while self.active:
             now = self.clock()
-            if now - last_frame >= VIDEO_EVERY:
+            if self.share_screen and not self._told_screen:
+                # Gemini is told once that what he receives is the screen,
+                # live: he looks at it instead of asking for screenshots.
+                self._told_screen = True
+                self.send_note(
+                    "(Desde ahora ves la pantalla del señor en vivo, como un video, con su "
+                    "cursor marcado con un círculo amarillo. Mírala directamente: no pidas "
+                    "capturas; usa las herramientas solo para actuar.)"
+                )
+            try:
+                fresh = bool(self.video_fresh())
+            except Exception:  # noqa: BLE001
+                fresh = False
+            if now - last_frame >= (VIDEO_FRESH if fresh else VIDEO_EVERY):
                 last_frame = now
                 try:
                     shot = self.video()

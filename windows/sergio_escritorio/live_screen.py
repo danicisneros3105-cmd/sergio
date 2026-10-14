@@ -71,6 +71,40 @@ class Frame:
         return data
 
 
+def with_cursor(
+    frame: "Frame", cursor: Optional[tuple[int, int]], width: int = 1280, quality: int = 80
+) -> bytes:
+    """The frame as Gemini sees it live: a JPEG with the mouse pointer drawn
+    in (screenshots do not include it), so he knows where you are pointing."""
+    if cursor is None:
+        return frame.encode("JPEG", width, quality)
+    x, y = cursor[0] - frame.origin[0], cursor[1] - frame.origin[1]
+    w, h = frame.size
+    if not (0 <= x < w and 0 <= y < h):
+        return frame.encode("JPEG", width, quality)
+    key = ("cursor", x // 2, y // 2, width, quality)
+    hit = frame._encoded.get(key)
+    if hit is not None:
+        return hit
+    from PIL import Image, ImageDraw
+
+    image = frame.image.convert("RGB").copy()
+    draw = ImageDraw.Draw(image)
+    r = max(10, w // 110)  # stays visible after the resize to 1280
+    draw.ellipse((x - r, y - r, x + r, y + r), outline=(0, 0, 0), width=max(3, r // 3))
+    draw.ellipse((x - r + 2, y - r + 2, x + r - 2, y + r - 2), outline=(255, 214, 10), width=max(2, r // 4))
+    draw.ellipse((x - 2, y - 2, x + 2, y + 2), fill=(255, 214, 10))
+    if image.width > width:
+        image = image.resize((width, round(image.height * width / image.width)), Image.BILINEAR)
+    buf = io.BytesIO()
+    image.save(buf, format="JPEG", quality=quality)
+    data = buf.getvalue()
+    for old in [k for k in frame._encoded if k[0] == "cursor"]:
+        del frame._encoded[old]  # only the latest pointer position is kept
+    frame._encoded[key] = data
+    return data
+
+
 def signature(image: Any) -> bytes:
     """A 64×36 grey thumbnail: enough to see a click's effect, cheap to compare."""
     from PIL import Image
@@ -244,4 +278,4 @@ class LiveScreen:
             self._sleep(1.0 / fps)
 
 
-__all__ = ["Frame", "LiveScreen", "changed_box", "signature"]
+__all__ = ["Frame", "LiveScreen", "changed_box", "signature", "with_cursor"]

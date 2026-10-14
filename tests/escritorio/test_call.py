@@ -445,3 +445,23 @@ def test_live_instructions_lock_the_language():
     )
     assert "habla SIEMPRE en español" in live_instructions({})
     assert "no te interrumpas a ti mismo" in text
+
+
+def test_shared_screen_is_a_live_video_he_is_told_about_once():
+    line = FakeLine([json.dumps({"type": "ready", "model": "m"})])
+    call = _call(line, video=lambda: (b"jpeg!", "pantalla"))
+    call.share_screen = True
+    call.video_fresh = lambda: True  # the screen keeps changing
+    assert call.start()
+    try:
+        assert _wait(
+            lambda: sum(m.get("type") == "image" for m in line.json_sent()) >= 2, 4
+        )
+        notes = [
+            m
+            for m in line.json_sent()
+            if m.get("type") == "note" and "en vivo" in m["text"]
+        ]
+        assert len(notes) == 1
+    finally:
+        call.hang_up()

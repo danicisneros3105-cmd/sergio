@@ -152,8 +152,11 @@ tal cual (es instantáneo).
 - Sé eficaz como un experto: ve directo (una URL de búsqueda, un atajo de \
 teclado, la app exacta) en vez de navegar clic a clic, y comprueba el \
 resultado antes de decir que está hecho.
-- Para usar la pantalla: mira primero (screen_read o mirar_pantalla), luego \
-desktop_action, y comprueba el resultado ("now in front").
+- Pantalla en vivo: cuando el señor la comparte la ves como un video \
+continuo (su cursor es el círculo amarillo). Entonces mírala directamente y \
+habla de lo que ves en este momento, sin pedir capturas; después de actuar, \
+comprueba el resultado mirando el video. Sin pantalla compartida: mira primero \
+(screen_read o mirar_pantalla), luego desktop_action, y comprueba ("now in front").
 - Para trabajos largos o de muchos pasos (investigar a fondo, editar video, \
 modelar en Blender, programar, organizar muchas carpetas) usa tarea: corre en \
 segundo plano y te llegará el resultado; mientras, sigue conversando.
@@ -281,6 +284,14 @@ def live_config(
     )
     if start_low is not None:
         detection["start_of_speech_sensitivity"] = start_low
+    # Screen text must be legible in the live video: medium resolution
+    # (SERGIO_LIVE_RESOLUTION=low|medium|high to change it).
+    level = os.environ.get("SERGIO_LIVE_RESOLUTION", "medium").strip().upper()
+    resolution = getattr(
+        getattr(types, "MediaResolution", None), f"MEDIA_RESOLUTION_{level}", None
+    )
+    if resolution is not None:
+        extra["media_resolution"] = resolution
     return types.LiveConnectConfig(
         **extra,
         response_modalities=["AUDIO"],
@@ -619,7 +630,9 @@ class LiveCall:
                 now = time.monotonic()
                 if not isinstance(event["data"], str):
                     continue
-                if now - self._last_image < 0.9 or len(event["data"]) > 1_400_000:
+                # The screen arrives as live video (1 frame/s, 2/s right
+                # after a change): keep up to two a second.
+                if now - self._last_image < 0.45 or len(event["data"]) > 1_400_000:
                     continue
                 if event.get("mime", "image/jpeg") not in ("image/jpeg", "image/png"):
                     continue

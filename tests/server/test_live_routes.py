@@ -451,6 +451,20 @@ def test_no_voice_means_gemini_lives_default_voice():
     assert cfg.speech_config is not None
 
 
+def test_the_shared_screen_is_watched_at_a_legible_resolution(monkeypatch):
+    types = pytest.importorskip("google.genai.types")
+    cfg = gemini_live.live_config(
+        types, voice="", instructions="x", decls=[], search=False
+    )
+    assert cfg.media_resolution == types.MediaResolution.MEDIA_RESOLUTION_MEDIUM
+    monkeypatch.setenv("SERGIO_LIVE_RESOLUTION", "high")
+    cfg = gemini_live.live_config(
+        types, voice="", instructions="x", decls=[], search=False
+    )
+    assert cfg.media_resolution == types.MediaResolution.MEDIA_RESOLUTION_HIGH
+    assert "video continuo" in gemini_live.INSTRUCTIONS
+
+
 def test_notes_reach_the_model_without_ending_a_turn():
     """«Ahora habla Ana»: context for the model, not a question to answer."""
 
