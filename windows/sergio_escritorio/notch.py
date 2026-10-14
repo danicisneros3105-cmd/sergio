@@ -71,24 +71,41 @@ PAD = 16.0
 RADIUS = 22.0
 BARS = 22
 TYPE_SPEED = 55.0  # characters per second for answers
+FACEID = (148.0, 148.0)  # the island while Face ID looks at you
+EXPAND_SPRING = (0.48, 0.78)  # response, damping: growing overshoots softly
+COLLAPSE_SPRING = (0.38, 0.95)  # shrinking settles without a bounce
 POUR = (196.0, 54.0)  # the lake the drop fills, before it settles to size
 EDGE_PX = 2  # the cursor this close to the top edge (near the centre) calls it back
 EDGE_HALF_W = 170
 EDGE_DWELL_S = 0.12
 
 
+EAR = 6.0  # the concave flare where Apple's notch meets the top edge
+SMOOTH = 0.6  # continuous ("squircle") corners, like Apple's, not plain arcs
+
+
+def corner_radius(height: float) -> float:
+    """Pill-round when compact, Apple's larger soft corners when it grows."""
+    return min(height / 2, max(RADIUS, height * 0.28))
+
+
 def notch_path(rect: QRectF) -> QPainterPath:
-    """Flat top (flush with the screen edge), soft round bottom: a notch."""
+    """Apple's notch: flush with the top edge, flared into it by two small
+    concave ears, with continuous (smoothed) bottom corners."""
     path = QPainterPath()
-    r = min(RADIUS, rect.height() / 2)
-    path.moveTo(rect.left(), rect.top())
-    path.lineTo(rect.right(), rect.top())
-    path.lineTo(rect.right(), rect.bottom() - r)
-    path.cubicTo(rect.right(), rect.bottom() - r * 0.2, rect.right() - r * 0.2, rect.bottom(),
-                 rect.right() - r, rect.bottom())
-    path.lineTo(rect.left() + r, rect.bottom())
-    path.cubicTo(rect.left() + r * 0.2, rect.bottom(), rect.left(), rect.bottom() - r * 0.2,
-                 rect.left(), rect.bottom() - r)
+    r = corner_radius(rect.height())
+    e = min(EAR, rect.height() / 3)
+    top, bottom, left, right = rect.top(), rect.bottom(), rect.left(), rect.right()
+    k = r * (1 - SMOOTH * 0.55)  # control-point inset: smaller = smoother
+    path.moveTo(left - e, top)
+    path.lineTo(right + e, top)
+    path.quadTo(right, top, right, top + e)  # right ear (concave)
+    path.lineTo(right, bottom - r)
+    path.cubicTo(right, bottom - r + k, right - r + k, bottom, right - r, bottom)
+    path.lineTo(left + r, bottom)
+    path.cubicTo(left + r - k, bottom, left, bottom - r + k, left, bottom - r)
+    path.lineTo(left, top + e)
+    path.quadTo(left, top, left - e, top)  # left ear (concave)
     path.closeSubpath()
     return path
 
@@ -180,6 +197,13 @@ class Notch(QWidget):
         self._t0 = time.monotonic()
         self._w, self._h = COMPACT
         self._sw, self._sh = Spring(COMPACT[0]), Spring(COMPACT[1])
+        # Apple's island: the old content fades and shrinks away while the
+        # shape morphs, the new one fades in once the shape is nearly there.
+        self._content = Spring(1.0, response=0.24, damping=1.0)
+        # A touch squeezes it a little and it springs back (like a tap on iOS).
+        self._press = Spring(1.0, response=0.28, damping=0.6)
+        self._pressed = False
+        self._faceid = None  # faceid_anim.FaceIDGlyph while approving with the face
         self._duo = Fold()  # the iPhone Duo fold: 0° merged .. 180° split
         # «Sergio, activa multitasking» splits the island; off folds it back.
         self.multitasking = False
@@ -223,6 +247,19 @@ class Notch(QWidget):
         super().hideEvent(event)
 
     # -- API ------------------------------------------------------------------
+    def faceid(self, phase: str) -> None:
+        """Face ID in the island, as on the iPhone: it grows into a rounded
+        square with the glyph ('scan'), then 'success' or 'fail', then back."""
+        from sergio_escritorio.faceid_anim import FaceIDGlyph
+
+        if phase == "idle":
+            self._faceid = None
+        else:
+            if self._faceid is None:
+                self._faceid = FaceIDGlyph()
+            self._faceid.start(phase)
+        self._wake()
+
     def set_state(self, state: str) -> None:
         self.state = state if state in STATE_COLORS else "idle"
         self._wake()
@@ -398,6 +435,8 @@ class Notch(QWidget):
         return out
 
     def target_size(self) -> tuple[float, float]:
+        if self._faceid is not None:
+            return FACEID
         if not self.expanded():
             return LIVE if self._live and self.call_since is None else COMPACT
         lines = self.lines()
@@ -407,7 +446,9 @@ class Notch(QWidget):
         return EXPANDED_W, max(62.0, 34.0 + len(lines) * metrics.lineSpacing() + PAD)
 
     def pill(self) -> QRectF:
-        return QRectF((CANVAS_W - self._w) / 2, 0, self._w, self._h)
+        squeeze = self._press.value if hasattr(self, "_press") else 1.0
+        w, h = self._w * squeeze, self._h * (1 - (1 - squeeze) * 0.6)
+        return QRectF((CANVAS_W - w) / 2, 0, w, h)
 
     def hinge(self) -> float:
         """The x of the fold's hinge, just right of the pill."""
@@ -451,9 +492,21 @@ class Notch(QWidget):
                 self.setMask(region)
             self.update()
             return
+        if self._faceid is not None and self._faceid.finished():
+            self._faceid = None
         tw, th = self.target_size()
-        # Real springs (a soft iOS overshoot) toward the target size.
+        # Real springs toward the target size: growing overshoots softly,
+        # shrinking settles cleanly (Apple's island does both).
+        growing = tw * th > self._sw.value * self._sh.value + 1
+        response, damping = EXPAND_SPRING if growing else COLLAPSE_SPRING
+        for spring in (self._sw, self._sh):
+            spring.response, spring.damping = response, damping
         self._sw.target, self._sh.target = tw, th
+        near = abs(self._sw.value - tw) < 0.14 * tw and abs(self._sh.value - th) < 0.18 * th
+        self._content.target = 1.0 if near else 0.0
+        self._content.step(dt)
+        self._press.target = 0.95 if self._pressed else 1.0
+        self._press.step(dt)
         if self.reduced_motion:
             for spring in (self._sw, self._sh):
                 spring.value, spring.velocity = spring.target, 0.0
@@ -506,8 +559,10 @@ class Notch(QWidget):
             return
         self.update()
         # Keep smooth transitions at 60 Hz; quiet, settled pills use 20 Hz.
-        moving = (not (self._sw.settled() and self._sh.settled())
-                  or self._duo.angle != self._duo.target or self._vanish.active)
+        moving = (not (self._sw.settled() and self._sh.settled() and self._content.settled()
+                       and self._press.settled())
+                  or self._duo.angle != self._duo.target or self._vanish.active
+                  or self._faceid is not None)
         self._timer.setInterval(16 if moving or self.state != "idle" else 50)
 
     def _respect_fullscreen(self) -> None:
@@ -527,7 +582,14 @@ class Notch(QWidget):
             self.setWindowOpacity(1.0)
 
     def mousePressEvent(self, event: object) -> None:  # noqa: N802 (Qt API)
-        if self.on_click is not None:
+        self._pressed = True  # squeezes while held (spring), opens on release
+        self._wake()
+
+    def mouseReleaseEvent(self, event: object) -> None:  # noqa: N802 (Qt API)
+        was = self._pressed
+        self._pressed = False
+        self._wake()
+        if was and self.on_click is not None:
             self.on_click()
 
     # -- drawing ----------------------------------------------------------------
@@ -763,6 +825,22 @@ class Notch(QWidget):
         p.drawPath(path)
         if not self.reduced_motion:
             p.drawPath(liquid_bridge(rect, self.bubble(), self._duo.angle))
+
+        # Content rides the morph: faded and slightly shrunk while the shape
+        # moves, back to full once it is nearly there (Apple's crossfade).
+        alpha = 1.0 if self.reduced_motion else max(0.0, min(1.0, self._content.value))
+        p.setOpacity(alpha)
+        if alpha < 1.0:
+            k = 0.9 + 0.1 * alpha
+            c = rect.center()
+            p.translate(c)
+            p.scale(k, k)
+            p.translate(-c)
+        if self._faceid is not None:
+            side = min(rect.width(), rect.height()) - 2 * PAD
+            box = QRectF(rect.center().x() - side / 2, rect.center().y() - side / 2, side, side)
+            self._faceid.paint(p, box)
+            return
 
         compact = rect.height() < 42
         size = 10.5 if compact else 15.0

@@ -11,6 +11,7 @@ from PySide6.QtGui import QColor, QPainter, QPen
 from PySide6.QtWidgets import QDialog, QLabel, QPlainTextEdit, QPushButton, QVBoxLayout
 
 from sergio_escritorio import estilo
+from sergio_escritorio.faceid_anim import FaceIDGlyph
 from sergio_escritorio.platform_auth import Consent, verify
 
 
@@ -80,13 +81,16 @@ class ConsentDialog(QDialog):
         self.completed.connect(self._finish)
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.update)
+        # Face ID's animation (scan → wink and check, or the shake).
+        self.glyph = FaceIDGlyph()
 
     def _start(self):
         if self.checking:
             return
         self.checking = True
+        self.glyph.start("scan")
         if not self.reduce_motion:
-            self.timer.start(40)
+            self.timer.start(16)
         self.button.setEnabled(False)
         self.detail.setText("Complete la verificación en la ventana de Windows.")
         hwnd = int(self.winId())
@@ -104,14 +108,17 @@ class ConsentDialog(QDialog):
         if self.cancelled.is_set():
             return
         self.checking = False
-        self.timer.stop()
         self.verified = isinstance(result, Consent) and result.verified is True
+        self.glyph.start("success" if self.verified else "fail")
+        if self.reduce_motion:
+            self.timer.stop()
         self.button.setEnabled(True)
         self.detail.setText(
             result.reason if isinstance(result, Consent) else "No verificado"
         )
         if self.verified:
-            QTimer.singleShot(350 if not self.reduce_motion else 0, self.accept)
+            # let the wink and the check play before closing
+            QTimer.singleShot(1100 if not self.reduce_motion else 0, self.accept)
         self.update()
 
     def reject(self):
@@ -126,12 +133,14 @@ class ConsentDialog(QDialog):
         painter.setPen(QPen(QColor("#303947"), 1))
         painter.setBrush(QColor("#11171f"))
         painter.drawRoundedRect(QRectF(1, 1, self.width() - 2, self.height() - 2), 28, 28)
-        pulse = (
-            0
-            if self.reduce_motion or not self.checking
-            else (time.monotonic() - self.started) * 1.8
-        )
         ring = QRectF(147, 32, 106, 106)
+        if not self.reduce_motion:
+            self.glyph.paint(painter, ring, "#dce9f5")
+            if self.glyph.finished() and not self.checking:
+                self.timer.stop()
+            painter.end()
+            return
+        pulse = 0
         for i in range(36):
             alpha = (
                 210

@@ -83,7 +83,9 @@ def test_notch_grows_with_text_and_shrinks_back():
         n._tick()
     assert round(n._w) == round(notch_mod.COMPACT[0])
     n.mousePressEvent(None)
-    assert clicks == [1]
+    assert clicks == []  # pressed: it squeezes, like a tap on iOS
+    n.mouseReleaseEvent(None)
+    assert clicks == [1]  # released: it opens
 
 
 def test_notch_hides_over_fullscreen_apps_unless_active():

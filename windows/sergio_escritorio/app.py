@@ -3316,9 +3316,19 @@ def run(config: dict[str, Any]) -> None:
         from sergio_escritorio.facegate import ConsentDialog
 
         def ask() -> bool:
+            # The island shows Face ID too, as on the iPhone.
+            try:
+                notch.faceid("scan")
+            except Exception:  # noqa: BLE001 — the notch is a bonus
+                pass
             dialog = ConsentDialog(request)
             dialog.exec()
-            return dialog.verified and not dialog.cancelled.is_set()
+            ok = dialog.verified and not dialog.cancelled.is_set()
+            try:
+                notch.faceid("success" if ok else "fail")
+            except Exception:  # noqa: BLE001
+                pass
+            return ok
 
         try:
             return on_ui(ask, timeout=70.0) is True
