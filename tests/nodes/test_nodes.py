@@ -216,3 +216,21 @@ def test_routes(tmp_path):
     assert c.post(f"/v1/nodes/{nid}/stop").json()["status"] == "paused"
     assert c.delete(f"/v1/nodes/{nid}").json()["deleted"]
     assert c.get(f"/v1/nodes/{nid}").status_code == 404
+
+
+def test_a_node_is_called_node_in_every_language(tmp_path):
+    """The owner's rule: «Node», never «nodo», «nœud», «Knoten»…"""
+    from openjarvis.nodes.store import NodeStore, node_word
+
+    assert node_word("Soy Vigía, un nodo nuevo; los nodos trabajan.") == (
+        "Soy Vigía, un Node nuevo; los Nodes trabajan."
+    )
+    assert node_word("Je suis un nœud, ein Knoten, the nodes") == (
+        "Je suis un Node, ein Node, the Nodes"
+    )
+    store = NodeStore(tmp_path)
+    node = store.create(name="Vigía")
+    said = store.say(node.id, "node", "Soy un nodo de Sergio.")
+    assert said["text"] == "Soy un Node de Sergio."
+    mine = store.say(node.id, "user", "¿Eres un nodo?")
+    assert mine["text"] == "¿Eres un nodo?"  # the owner's words stay his own

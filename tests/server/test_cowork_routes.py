@@ -95,6 +95,26 @@ def test_events_stream_ends_with_the_run(client):
     )
 
 
+def test_steer_while_waiting_and_follow_up(client):
+    started = client.post("/v1/cowork", json={"goal": GOAL}).json()
+    run = _wait(client, started["id"], ("waiting_approval",))
+    ok = client.post(
+        f"/v1/cowork/{run['id']}/note", json={"text": "Mejor de 14 pulgadas"}
+    )
+    assert ok.json() == {"ok": True}
+    assert client.get(f"/v1/cowork/{run['id']}").json()["notes"][0]["text"] == (
+        "Mejor de 14 pulgadas"
+    )
+    client.post(f"/v1/cowork/{run['id']}/decision", json={"step": 2, "approve": False})
+    run = _wait(client, run["id"], ("partial",))
+    late = client.post(f"/v1/cowork/{run['id']}/note", json={"text": "otra cosa"})
+    assert late.status_code == 409
+    nxt = client.post(
+        "/v1/cowork", json={"goal": "Y ahora una tabla", "follows": run["id"]}
+    )
+    assert nxt.json()["follows"] == run["id"] and "Portátiles" in nxt.json()["context"]
+
+
 def test_scrutinize_and_axes(client):
     verdict = client.post(
         "/v1/cowork/scrutinize",
@@ -136,3 +156,25 @@ def test_owner_notices_only_to_the_owner():
     assert owner_sender(cfg("", ""), bridge) is None
     assert owner_sender(cfg("discord", "x"), bridge) is None  # not connected
     assert sent == [("+593991112222", "hola"), ("12345", "ok")]
+
+
+def test_plan_mode_waits_for_the_plan(client):
+    started = client.post("/v1/cowork", json={"goal": GOAL, "plan_first": True}).json()
+    run = _wait(client, started["id"], ("waiting_plan",))
+    assert [s["status"] for s in run["steps"]] == ["pending", "pending"]
+    ok = client.post(
+        f"/v1/cowork/{run['id']}/decision", json={"step": 0, "approve": True}
+    )
+    assert ok.json() == {"ok": True}
+    run = _wait(client, run["id"], ("waiting_approval",))
+    assert run["steps"][0]["status"] == "done"
+    client.post(f"/v1/cowork/{run['id']}/cancel")
+
+
+def test_plan_mode_refused_does_nothing(client):
+    started = client.post("/v1/cowork", json={"goal": GOAL, "plan_first": True}).json()
+    run = _wait(client, started["id"], ("waiting_plan",))
+    client.post(f"/v1/cowork/{run['id']}/decision", json={"step": 0, "approve": False})
+    run = _wait(client, run["id"], ("cancelled",))
+    assert all(s["status"] == "pending" for s in run["steps"])
+    assert "plan" in run["summary"]

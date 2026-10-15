@@ -6,6 +6,7 @@
 // Nothing here is part of the normal build.
 
 import fixtures from './fixtures.json';
+import { handleCowork } from './cowork';
 
 type Json = Record<string, unknown>;
 type Fixture = { status: number; json?: unknown; text?: string; ct?: string; sse?: boolean };
@@ -21,11 +22,16 @@ sobre grupos, tragedias ni dolor). Respondes en español sencillo y breve salvo 
 detalle, con Markdown cuando ayude. Esto es un demo de la app en el iPad del señor: no tienes \
 acceso a su PC, su correo ni internet; si te pide algo así, explica en una frase qué harías en \
 la app real (por ejemplo, «en su PC abriría…») y ofrece lo que sí puedes hacer aquí. \
-Nunca envíes mensajes, compres ni borres nada por tu cuenta. Si notas riesgo para su vida, \
+Sus empleados digitales se llaman «Nodes» (uno: «Node») en cualquier idioma, nunca «nodos». Nunca envíes mensajes, compres ni borres nada por tu cuenta. Si notas riesgo para su vida, \
 dale con calma el número de emergencias local.`;
 
 // ---- the assistant behind the demo ---------------------------------------
 let sampler: Promise<Sampler> | null = null;
+
+// A Node is a «Node» in every language (the owner's rule).
+const nodeWord = (t: string) =>
+  t.replace(/\b(nodos|nodo|nœuds|nœud|noeuds|noeud|knoten|nodi|nodes|node)\b/gi, (w) =>
+    /^(nodos|nœuds|noeuds|nodi|nodes)$/i.test(w) ? 'Nodes' : 'Node');
 function getSampler(): Promise<Sampler> {
   if (!sampler) {
     const claude = (window as unknown as { claude?: { use?: (n: string) => Promise<unknown> } }).claude;
@@ -160,10 +166,10 @@ function nodeReply(nodeId: string, thread: string, text: string): Json {
   const node = ((recorded['GET /v1/nodes']?.json as { nodes?: Json[] })?.nodes || []).find((n) => n.id === nodeId);
   const persona = `Eres ${node?.name || 'un Node'}, un empleado digital persistente de la app Sergio (estilo Dots). \
 Tus instrucciones: ${node?.instructions || ''}\nHablas al usuario de usted, en español, breve y con calidez. Es un demo: no tienes internet ni su PC; \
-responde con lo que harías y una propuesta concreta.`;
+responde con lo que harías y una propuesta concreta. Te llamas «Node» (plural «Nodes») en cualquier idioma, nunca «nodo».`;
   const history = list.map((m) => ({ role: m.role === 'user' ? 'user' : 'assistant', content: String(m.text || '') }));
   void answer(history, () => {}, persona).then((reply) => {
-    list.push({ id: Math.random().toString(16).slice(2, 12), at: Date.now() / 1000, role: 'node', text: reply, thread, source: 'Encargo del usuario' });
+    list.push({ id: Math.random().toString(16).slice(2, 12), at: Date.now() / 1000, role: 'node', text: nodeWord(reply), thread, source: 'Encargo del usuario' });
   });
   return mine;
 }
@@ -185,6 +191,12 @@ async function handle(method: string, url: URL, init?: RequestInit): Promise<Res
   if (path === '/health') return json({ status: 'ok' });
   if (method === 'POST' && path === '/v1/speech/synthesize') return speak(String(body.text || ''));
   if (method === 'POST' && path === '/v1/chat/completions') return chatStream(body);
+
+  const cowork = handleCowork(method, path, body, async (prompt) => {
+    if (!(await getSampler())) throw new Error('no assistant here');
+    return answer([{ role: 'user', content: prompt }], () => {});
+  });
+  if (cowork) return cowork;
 
   const nodeMsg = path.match(/^\/v1\/nodes\/([^/]+)\/messages$/);
   if (nodeMsg) {

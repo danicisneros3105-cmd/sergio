@@ -61,6 +61,13 @@ termina en la rama `main`, y el dueño actualiza con un único comando.
   Canva (`Creator/DesignStudio.tsx` + `canva.css`); Creator › Prototipos es
   otra cosa: diseñar conversando, como Claude Design
   (`Creator/Prototypes.tsx`, `lib/prototypes.ts`). No se mezclan.
+- Cowork igual al modo de trabajo de ChatGPT (dueño, oct. 2026): una caja
+  central «¿En qué trabajamos?» con «+» (adjuntar, modo plan, autonomía,
+  tope) y comandos «/»; la tarea como conversación con la actividad plegable,
+  indicaciones a mitad de trabajo, seguir una tarea terminada, y panel
+  lateral Plan · Archivos · Registro (`pages/CoworkPage.tsx`, `lib/cowork.ts`).
+- Los Nodes se llaman «Nodes» (uno: «Node») en cualquier idioma: nunca
+  «nodo», «nœud»… (`nodes/store.py: node_word` lo corrige en todo lo que dicen).
 - Ningún subtexto explicativo bajo los títulos; los títulos y la marca van
   con las letras del logo B&O (Josefin Sans), el resto con la del sistema.
 - No se reinventa lo que ya existe: Creator usa programas reales —

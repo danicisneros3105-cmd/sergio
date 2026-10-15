@@ -222,6 +222,21 @@ TONES = {
 }
 API_METHODS = ("GET", "POST", "PUT", "PATCH", "DELETE")
 
+# The owner's rule: a Node is a «Node» (plural «Nodes») in every language,
+# never «nodo», «nœud», «Knoten»… Applied to everything a Node says.
+_NODE_WORDS = re.compile(
+    r"\b(nodos|nodo|nœuds|nœud|noeuds|noeud|knoten|nodi|nodes|node)\b", re.IGNORECASE
+)
+
+
+def node_word(text: str) -> str:
+    def fix(m: "re.Match[str]") -> str:
+        word = m.group(1).lower()
+        plural = word in ("nodos", "nœuds", "noeuds", "nodi", "nodes")
+        return "Nodes" if plural else "Node"
+
+    return _NODE_WORDS.sub(fix, text)
+
 
 class NodeError(ValueError):
     """Something a Node cannot be or do as asked."""
@@ -887,7 +902,7 @@ class NodeStore:
             "id": secrets.token_hex(5),
             "at": time.time(),
             "role": role,
-            "text": str(text)[:20000],
+            "text": (node_word(str(text)) if role == "node" else str(text))[:20000],
             "thread": thread or MAIN_THREAD,
             **data,
         }

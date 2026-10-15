@@ -113,6 +113,12 @@ class CoworkRun:
     created: float = field(default_factory=time.time)
     updated: float = field(default_factory=time.time)
     dropped: List[str] = field(default_factory=list)
+    # What the owner says while the run works (read before every step), and
+    # the earlier task this one continues, with its outcome.
+    notes: List[Dict[str, Any]] = field(default_factory=list)
+    follows: str = ""
+    context: str = ""
+    plan_first: bool = False  # «modo plan»: the owner approves the plan first
 
     def to_dict(self) -> Dict[str, Any]:
         data = asdict(self)
@@ -200,6 +206,8 @@ class CoworkEngine:
         max_actions: int = DEFAULT_MAX_ACTIONS,
         wait: bool = False,
         listener: Optional["queue.Queue[Dict[str, Any]]"] = None,
+        follows: str = "",
+        plan_first: bool = False,
     ) -> CoworkRun:
         """Start a run. Pass *listener* to receive every event from the very
         first one (``listen()`` after ``start()`` may miss the plan)."""
@@ -208,10 +216,19 @@ class CoworkEngine:
             raise ValueError("Describa el resultado que quiere.")
         run = CoworkRun(
             id=time.strftime("%Y%m%d-%H%M%S") + "-" + uuid.uuid4().hex[:6],
-            goal=goal[:2000],
+            goal=goal[:8000],  # room for the attached files
             autonomy=normalize_autonomy(autonomy),
             max_actions=ActionBudget(max_actions).limit,
+            plan_first=bool(plan_first),
         )
+        parent = self.get(follows) if follows else None
+        if parent is not None:
+            run.follows = parent.id
+            run.context = (
+                f"Esto continúa la tarea «{parent.title or parent.goal[:60]}» "
+                f"(objetivo: «{parent.goal[:600]}»; resultado: "
+                f"{(parent.summary or 'sin resumen')[:600]})."
+            )
         with self._lock:
             self.runs[run.id] = run
             self._cancel[run.id] = threading.Event()
@@ -242,6 +259,20 @@ class CoworkEngine:
         if box is None:
             return False
         box.put(bool(approve))
+        return True
+
+    def note(self, run_id: str, text: str) -> bool:
+        """An instruction from the owner while the run works; every later
+        step reads it. False when the run is unknown or already finished."""
+        text = " ".join(str(text).split())[:1000]
+        run = self.get(run_id)
+        if run is None or not text or run.status in FINAL_STATES:
+            return False
+        with self._lock:
+            run.notes.append({"text": text, "at": round(time.time(), 3)})
+        self._audit(run).record("owner_note", text=text)
+        self._save(run)
+        self._event(run, "note", text=text)
         return True
 
     def cancel(self, run_id: str) -> bool:
@@ -283,7 +314,7 @@ class CoworkEngine:
         scrutiny = AdaptiveScrutiny(run.autonomy, self.trust)
         budget = ActionBudget(run.max_actions)
         try:
-            plan = self._plan(run.goal)
+            plan = self._plan(f"{run.goal}\n{run.context}" if run.context else run.goal)
             run.title = str(plan.get("titulo") or run.goal[:50])
             run.steps = steps_from_plan(plan) or [CoworkStep(0, run.goal, "fondo")]
             run.dropped = [str(d) for d in plan.get("descartados") or []]
@@ -300,6 +331,9 @@ class CoworkEngine:
                 f"Cowork «{run.title}»: empiezo, {len(run.steps)} pasos.",
                 force=True,
             )
+            if run.plan_first and not self._approve_plan(run, cancel):
+                run.status = "cancelled"
+                run.summary = "Usted no aprobó el plan; no hice nada."
             while run.status == "running":
                 if cancel.is_set():
                     run.status = "cancelled"
@@ -441,6 +475,32 @@ class CoworkEngine:
             )
             self._save(run)
 
+    def _approve_plan(self, run: CoworkRun, cancel: threading.Event) -> bool:
+        """«Modo plan»: show the plan and wait for the owner's yes (decision
+        on step 0 over HTTP, -1 here) before doing anything."""
+        box: "queue.Queue[bool]" = queue.Queue()
+        with self._lock:
+            self._decisions[(run.id, -1)] = box
+        run.status = "waiting_plan"
+        self._save(run)
+        self._event(
+            run, "plan_approval", text=f"¿Sigo este plan? {len(run.steps)} pasos."
+        )
+        self._notify(
+            run, f"Cowork «{run.title}»: el plan espera su visto bueno.", force=True
+        )
+        try:
+            approved = box.get(timeout=self.approval_timeout)
+        except queue.Empty:
+            approved = False
+        finally:
+            with self._lock:
+                self._decisions.pop((run.id, -1), None)
+        approved = approved and not cancel.is_set()
+        self._audit(run).record("plan_decision", approved=approved)
+        run.status = "running" if approved else "cancelled"
+        return approved
+
     def _ask_owner(
         self,
         run: CoworkRun,
@@ -489,6 +549,13 @@ class CoworkEngine:
             "Trabajas en modo Cowork: el usuario no está mirando. Haz el paso con las "
             "herramientas, sin pedir confirmación, y sin enviar mensajes a nadie.",
             f"Objetivo del usuario: «{run.goal}»",
+            run.context,
+            (
+                "Indicaciones del usuario mientras trabajas (síguelas; la más "
+                "reciente manda):\n" + "\n".join(f"- {n['text']}" for n in run.notes)
+            )
+            if run.notes
+            else "",
             ("Ya hecho:\n" + "\n".join(done)) if done else "",
             f"Paso actual: {step.text}",
             each,

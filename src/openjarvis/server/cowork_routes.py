@@ -29,10 +29,16 @@ class StartRequest(BaseModel):
     goal: str
     autonomy: Optional[str] = None
     max_actions: Optional[int] = None
+    follows: Optional[str] = None  # the earlier task this one continues
+    plan_first: bool = False  # «modo plan»: approve the plan before it starts
+
+
+class NoteRequest(BaseModel):
+    text: str
 
 
 class DecisionRequest(BaseModel):
-    step: int  # 1-based, as shown to the owner
+    step: int  # 1-based, as shown to the owner; 0 answers the plan itself
     approve: bool
 
 
@@ -81,6 +87,8 @@ async def start_run(req: StartRequest, request: Request) -> Dict[str, Any]:
             req.goal,
             autonomy=req.autonomy or config.cowork.autonomy,
             max_actions=req.max_actions or config.cowork.max_actions,
+            follows=req.follows or "",
+            plan_first=req.plan_first,
         )
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
@@ -118,6 +126,16 @@ async def decide(run_id: str, req: DecisionRequest, request: Request) -> Dict[st
     _run_or_404(engine, run_id)
     if not engine.decide(run_id, req.step - 1, req.approve):
         raise HTTPException(409, "Ese paso no está esperando su respuesta.")
+    return {"ok": True}
+
+
+@router.post("/{run_id}/note")
+async def note(run_id: str, req: NoteRequest, request: Request) -> Dict[str, Any]:
+    """Steer a run while it works: the next steps read the owner's words."""
+    engine = get_engine(request)
+    _run_or_404(engine, run_id)
+    if not engine.note(run_id, req.text):
+        raise HTTPException(409, "Esa tarea ya terminó o la indicación está vacía.")
     return {"ok": True}
 
 

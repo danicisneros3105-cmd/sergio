@@ -2,6 +2,32 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-10-15 · Claude · Cowork como el modo de trabajo de ChatGPT; «Node» en todo idioma
+- Petición del dueño: «Cowork debe ser igual al de ChatGPT; los Nodes solo son
+  Nodes en cualquier idioma».
+- Cowork (web) rehecho como el modo de trabajo de ChatGPT: inicio con
+  «¿En qué trabajamos?», una caja con «+» (adjuntar archivos, modo plan,
+  autonomía, tope de acciones), comandos «/plan», «/cauteloso», «/autonomo»,
+  «/tope N», sugerencias y la lista de tareas. Cada tarea es una conversación:
+  su encargo, la actividad plegable («Trabajó 4 min · 5 pasos»), las tarjetas
+  de visto bueno dentro del hilo, el resultado con sus archivos, y abajo la
+  caja para dar indicaciones mientras trabaja o pedir el siguiente paso cuando
+  termina. Panel lateral Plan · Archivos · Registro (en tableta y móvil se
+  abre encima).
+- Servidor (`cowork/session.py`, `server/cowork_routes.py`): indicaciones a
+  mitad de trabajo (`POST /v1/cowork/{id}/note`, cada paso siguiente las lee),
+  tarea que sigue a otra (`follows`, con el objetivo y el resultado de la
+  anterior), y modo plan (`plan_first`: el plan espera el visto bueno, que se
+  da con la decisión del paso 0). Objetivo hasta 8000 caracteres para los
+  adjuntos. Pruebas nuevas en `tests/cowork` y `tests/server`.
+- Nodes: las instrucciones de los Nodes y de Sergio dicen «Node»/«Nodes» en
+  cualquier idioma, y `nodes/store.py: node_word` corrige todo lo que dice un
+  Node («nodo», «nœud», «Knoten»… → «Node»); lo que escribe el dueño no se toca.
+- La demo simula Cowork entero (plan, visto bueno, indicaciones, archivos).
+- Revisé lo de Codex: nada nuevo en estos archivos. Ojo: dos pruebas de
+  `tests/agents/test_executor_tools.py` ya fallaban antes de esta sesión
+  (no las toqué).
+
 ## 2026-10-15 · Claude · Pulido general (tableta, textos, contraste)
 - Petición del dueño: «Pule todo». Recorrí todas las páginas en PC claro, PC
   oscuro e iPad vertical con la demo, y arreglé lo que no estaba a la altura.

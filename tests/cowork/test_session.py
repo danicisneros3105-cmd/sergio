@@ -244,3 +244,60 @@ def test_audit_detects_tampering(tmp_path):
     trail.path.write_text("\n".join(lines) + "\n")
     assert trail.verify() == (False, 2)
     assert AuditTrail(trail.path)._seq == 3  # appending continues after the last line
+
+
+def test_owner_can_steer_a_run_while_it_works(engine_factory):
+    """Like steering a ChatGPT Work task: words sent mid-run reach every later step."""
+    box = {}
+
+    class SteeredRunner(FakeRunner):
+        def __call__(self, prompt, tools, budget):
+            if not self.prompts:
+                assert box["engine"].note(
+                    box["run"].id, "Solo marcas europeas, por favor"
+                )
+            return super().__call__(prompt, tools, budget)
+
+    runner = SteeredRunner()
+    engine = engine_factory(
+        _plan(_step("Buscar portátiles"), _step("Hacer la tabla")), runner
+    )
+    box["engine"] = engine
+    started = threading.Event()
+
+    def hold(goal):
+        started.wait(5)
+        return {
+            "titulo": "Portátiles",
+            "pasos": [_step("Buscar portátiles"), _step("Hacer la tabla")],
+        }
+
+    engine.planner = hold
+    box["run"] = engine.start(GOAL)
+    started.set()
+    for _ in range(200):
+        if box["run"].status in ("done", "failed", "partial"):
+            break
+        threading.Event().wait(0.02)
+    run = box["run"]
+    assert run.status == "done"
+    assert [n["text"] for n in run.notes] == ["Solo marcas europeas, por favor"]
+    assert "Solo marcas europeas" not in runner.prompts[0][0]
+    assert "Solo marcas europeas" in runner.prompts[1][0]
+    assert not engine.note(run.id, "tarde")  # a finished run takes no more notes
+    assert "owner_note" in [e["event"] for e in engine.audit(run.id).entries()]
+
+
+def test_a_follow_up_task_knows_the_earlier_one(engine_factory):
+    runner = FakeRunner(["TERMINADO: tabla.xlsx", "TERMINADO: gráfico.png"])
+    seen = []
+
+    def planner(goal):
+        seen.append(goal)
+        return {"titulo": "T", "pasos": [_step("Hacerlo")]}
+
+    engine = engine_factory(planner, runner)
+    first = engine.start(GOAL, wait=True)
+    second = engine.start("Ahora haz un gráfico", follows=first.id, wait=True)
+    assert second.follows == first.id and "tabla.xlsx" in second.context
+    assert "tabla.xlsx" in seen[1] and "tabla.xlsx" in runner.prompts[1][0]
