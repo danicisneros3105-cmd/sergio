@@ -7,18 +7,20 @@
 
 import { lazy, Suspense } from 'react';
 import { Navigate, NavLink, useParams } from 'react-router';
-import { Box, Building2, Code2, Image, LayoutTemplate, LineChart, PanelsTopLeft } from 'lucide-react';
+import { Box, Building2, Code2, Image, LayoutTemplate, LineChart, MessagesSquare, PanelsTopLeft } from 'lucide-react';
 import { ProgramShelf, usePrograms } from '../components/Creator/Programs';
 import { CodeSpace, DesignSpace } from '../components/Creator/RealSpaces';
 
 const Studio3D = lazy(() => import('../components/Creator/Studio3D'));
 const DesignStudio = lazy(() => import('../components/Creator/DesignStudio'));
 const BolsaStudio = lazy(() => import('../components/Creator/BolsaStudio'));
+const Prototypes = lazy(() => import('../components/Creator/Prototypes'));
 
 export const SPACES = [
   { id: 'modelado', label: 'Modelado 3D', hint: 'Modelado 3D', icon: Box },
   { id: 'arquitectura', label: 'Arquitectura', hint: 'Arquitectura', icon: Building2 },
   { id: 'diseno', label: 'Diseño', hint: 'Diseño', icon: LayoutTemplate },
+  { id: 'prototipos', label: 'Prototipos', hint: 'Diseñar conversando con Sergio', icon: MessagesSquare },
   { id: 'imagen', label: 'Imagen y video', hint: 'Imagen y video', icon: Image },
   { id: 'codigo', label: 'Código', hint: 'Código', icon: Code2 },
   { id: 'bolsa', label: 'Bolsa', hint: 'Bolsa', icon: LineChart },
@@ -39,6 +41,8 @@ function Space({ id }: { id: SpaceId }) {
       );
     case 'diseno':
       return <DesignSpace programs={programs} reload={reload} />;
+    case 'prototipos':
+      return <Prototypes />;
     case 'imagen':
       return (
         <div className="creator-stack">

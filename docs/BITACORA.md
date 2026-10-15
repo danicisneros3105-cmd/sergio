@@ -2,6 +2,31 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-10-15 · Claude · Diseño como Canva, Prototipos como Claude Design, sin emojis ni colores
+- Petición del dueño: «Diseño igual a Canva y el otro a Claude Design, NO son
+  lo mismo; quita TODOS los emojis y colores; Workspace es igual a Notion».
+- Creator › Diseño: el editor de Sergio con la disposición de Canva (barra
+  superior con Archivo, Redimensionar, deshacer, nombre y Descargar; carril
+  de iconos Diseño/Elementos/Texto/Subidas/Dibujar/Capas con su panel; barra
+  del elemento sobre la página; zoom abajo). Antes mostraba OpenDesign cuando
+  estaba instalado: OpenDesign sigue instalado y se abre desde Extensiones.
+  Arreglado un fallo antiguo: con Fabric 7 los textos y formas nuevos salían
+  medio fuera de la página (origen en el centro); ahora entran centrados.
+- Creator › Prototipos (nuevo, como Claude Design): conversación a la
+  izquierda y el diseño vivo a la derecha (un HTML completo que Sergio
+  escribe y se ve mientras lo escribe). Comentar un elemento tocándolo,
+  editar el texto encima, «Ajustes» con las variables CSS del diseño,
+  versiones, código, vista escritorio/tableta/móvil y exportar (HTML, PDF,
+  copiar). Se guarda en el navegador. `lib/prototypes.ts` con tests.
+- Sin emojis ni colores en la interfaz: la paleta y los estilos pasan a
+  grises de la misma luminosidad (script; quedan intactos los diseños, fotos
+  y 3D del dueño y los personajes de los Nodes). Workspace en blanco y negro:
+  iconos de línea en vez de emojis, portadas en grises, sin colores de
+  bloque (el menú «Color» se quitó), etiquetas grises, botón «Nuevo» negro.
+  AGENTS.md recoge estas decisiones.
+- Pendiente: si el dueño quiere también los personajes de los Nodes en gris,
+  es un cambio de una línea en `dots3d.ts`.
+
 ## 2026-10-15 · Claude · Gemini a 30 FPS y Workspace como Notion
 - 30 FPS (petición del dueño). Probé Gemini Live real: con 30 cuadros por
   segundo de números al azar nombró sin error los 48 primeros (Google

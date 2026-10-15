@@ -7,7 +7,6 @@ import {
   ChevronsLeft,
   Copy,
   Download,
-  FileText,
   Home,
   Inbox,
   LayoutTemplate,
@@ -22,13 +21,14 @@ import {
   Trash2,
 } from 'lucide-react';
 import { useWorkspace } from '../../lib/workspace/store';
+import { NxIcon } from './NxIcon';
 import { childrenOf } from '../../lib/workspace/notion';
 import type { Page } from '../../lib/workspace/model';
 
 export type SidebarAction = 'search' | 'home' | 'inbox' | 'agenda' | 'templates' | 'graph' | 'clip' | 'shares' | 'vault' | 'layout' | 'export';
 
 function PageIcon({ page }: { page: Page }) {
-  return page.icon ? <span className="nx-emoji">{page.icon}</span> : <FileText size={16} strokeWidth={1.6} />;
+  return <NxIcon icon={page.icon} size={16} />;
 }
 
 function TreeRow({ page, depth, onPick }: { page: Page; depth: number; onPick: (id: string) => void }) {

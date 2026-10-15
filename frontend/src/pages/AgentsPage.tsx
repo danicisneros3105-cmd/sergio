@@ -597,7 +597,7 @@ function ToolsPicker({
                 color: hovered
                   ? hovered.configured
                     ? 'var(--color-accent)'
-                    : '#f59e0b'
+                    : '#a6a6a6'
                   : 'var(--color-text-tertiary)',
                 opacity: hovered ? 1 : 0.5,
               }}
@@ -800,7 +800,7 @@ function LaunchWizard({
                 onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--color-border)'; e.currentTarget.style.background = 'var(--color-bg-secondary)'; }}
               >
                 <div className="flex items-center gap-2 mb-1">
-                  <span className="text-lg">{(tpl as any).icon || '🤖'}</span>
+                  <Bot size={18} strokeWidth={1.6} />
                   <span className="font-semibold text-sm" style={{ color: 'var(--color-text)' }}>{tpl.name}</span>
                 </div>
                 <div className="text-xs mt-1" style={{ color: 'var(--color-text-tertiary)', textAlign: 'left' }}>{tpl.description}</div>
@@ -824,7 +824,7 @@ function LaunchWizard({
               onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--color-border)'; e.currentTarget.style.background = 'var(--color-bg-secondary)'; }}
             >
               <div className="flex items-center gap-2 mb-1">
-                <span className="text-lg">⚙️</span>
+                <Settings size={18} strokeWidth={1.6} />
                 <span className="font-semibold text-sm" style={{ color: 'var(--color-text)' }}>Custom Agent</span>
               </div>
               <div className="text-xs mt-1" style={{ color: 'var(--color-text-tertiary)', textAlign: 'left' }}>Start from scratch. Pick your own tools, schedule, and behavior.</div>
@@ -1843,7 +1843,7 @@ function InteractTab({ agentId, agentStatus, onRunStateChange }: { agentId: stri
           <div
             className="text-sm px-3 py-2 rounded-lg"
             style={{
-              background: 'rgba(255,80,80,0.08)',
+              background: 'rgba(117, 117, 117,0.08)',
               border: '1px solid var(--color-error)',
               color: 'var(--color-error)',
             }}

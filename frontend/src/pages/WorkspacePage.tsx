@@ -4,6 +4,7 @@ import { Columns2, Menu, X } from 'lucide-react';
 import { HubPanels, type HubPanel } from '../components/Workspace/HubPanels';
 import { NxSidebar, type SidebarAction } from '../components/Workspace/NxSidebar';
 import { NxHome } from '../components/Workspace/NxHome';
+import { NxIcon } from '../components/Workspace/NxIcon';
 import '../components/Workspace/notion.css';
 import { PageEditor } from '../components/Workspace/PageEditor';
 import { Graph3D } from '../components/Workspace/Graph3D';
@@ -245,7 +246,7 @@ export function WorkspacePage() {
             {tabs.map((t) => (
               <span key={t} className="nx-tab" data-active={t === active || undefined} data-split={t === split || undefined}>
                 <button type="button" role="tab" aria-selected={t === active} onClick={() => setActive(t)}>
-                  <span className="nx-tab-icon">{pages[t]?.icon || '📄'}</span>
+                  <span className="nx-tab-icon"><NxIcon icon={pages[t]?.icon} size={13} /></span>
                   {pages[t]?.title || 'Sin título'}
                 </button>
                 <button type="button" className="nx-tab-x" aria-label={`Cerrar ${pages[t]?.title || 'pestaña'}`} onClick={() => close(t)}>

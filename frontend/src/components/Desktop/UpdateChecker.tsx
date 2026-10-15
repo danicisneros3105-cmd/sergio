@@ -141,7 +141,7 @@ export function UpdateChecker() {
 
       {state === 'ready' && (
         <div style={styles.row}>
-          <span style={{ color: '#a6e3a1' }}>Update installed.</span>
+          <span style={{ color: '#d1d1d1' }}>Update installed.</span>
           <div style={styles.actions}>
             <button style={styles.successBtn} onClick={handleRelaunch}>Relaunch now</button>
             <button style={styles.secondaryBtn} onClick={() => setDismissed(true)}>Later</button>
@@ -151,7 +151,7 @@ export function UpdateChecker() {
 
       {state === 'error' && (
         <div style={styles.row}>
-          <span style={{ color: '#f38ba8' }}>Update error: {errorMsg}</span>
+          <span style={{ color: '#a3a3a3' }}>Update error: {errorMsg}</span>
         </div>
       )}
     </div>
@@ -180,7 +180,7 @@ const styles: Record<string, React.CSSProperties> = {
     padding: '4px 14px',
     border: 'none',
     borderRadius: '4px',
-    backgroundColor: '#89b4fa',
+    backgroundColor: '#b0b0b0',
     color: '#1e1e2e',
     fontSize: '12px',
     fontWeight: 600,
@@ -190,7 +190,7 @@ const styles: Record<string, React.CSSProperties> = {
     padding: '4px 14px',
     border: 'none',
     borderRadius: '4px',
-    backgroundColor: '#a6e3a1',
+    backgroundColor: '#d1d1d1',
     color: '#1e1e2e',
     fontSize: '12px',
     fontWeight: 600,
@@ -201,7 +201,7 @@ const styles: Record<string, React.CSSProperties> = {
     border: '1px solid #45475a',
     borderRadius: '4px',
     backgroundColor: 'transparent',
-    color: '#a6adc8',
+    color: '#adadad',
     fontSize: '12px',
     cursor: 'pointer',
   },
@@ -224,7 +224,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   progressFill: {
     height: '100%',
-    backgroundColor: '#89b4fa',
+    backgroundColor: '#b0b0b0',
     borderRadius: '3px',
     transition: 'width 0.3s ease',
   },

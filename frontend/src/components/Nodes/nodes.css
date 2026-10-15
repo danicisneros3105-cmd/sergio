@@ -9,7 +9,7 @@
 @media (prefers-reduced-motion: reduce) { .node-fold-overlay { display: none; } }
 
 .node-liquid-notch { position: relative; display: block; width: 180px; height: 64px; color: white; border-radius: 22px; }
-.node-liquid-notch:focus-visible { outline: 2px solid #0a84ff; outline-offset: 2px; }
+.node-liquid-notch:focus-visible { outline: 2px solid #737373; outline-offset: 2px; }
 .node-liquid-background { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
 .node-liquid-label { position: absolute; left: 12px; top: 14px; width: 112px; height: 36px; display: grid; place-items: center; font-size: 12px; pointer-events: none; }
 .node-liquid-count { position: absolute; left: 132px; top: 14px; width: 36px; height: 36px; display: grid; place-items: center; font-size: 11px; pointer-events: none; }

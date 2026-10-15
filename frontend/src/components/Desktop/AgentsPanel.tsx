@@ -28,16 +28,16 @@ const C = {
   surface0: '#313244',
   surface1: '#45475a',
   surface2: '#585b70',
-  text: '#cdd6f4',
-  subtext1: '#bac2de',
-  subtext0: '#a6adc8',
-  overlay1: '#7f849c',
-  overlay0: '#6c7086',
-  accent: '#89b4fa',
-  green: '#a6e3a1',
-  red: '#f38ba8',
-  peach: '#fab387',
-  yellow: '#f9e2af',
+  text: '#d6d6d6',
+  subtext1: '#c2c2c2',
+  subtext0: '#adadad',
+  overlay1: '#858585',
+  overlay0: '#717171',
+  accent: '#b0b0b0',
+  green: '#d1d1d1',
+  red: '#a3a3a3',
+  peach: '#bfbfbf',
+  yellow: '#e3e3e3',
   border: '#45475a',
 };
 
@@ -757,7 +757,7 @@ function OverviewTab({ agent, onRun, onPause, onResume, onRecover }: {
               cursor: 'pointer', fontSize: 12, fontWeight: 600,
             }}
           >
-            ⏸ Pause
+            Pause
           </button>
         )}
         {canResume && (
@@ -781,7 +781,7 @@ function OverviewTab({ agent, onRun, onPause, onResume, onRecover }: {
               cursor: 'pointer', fontSize: 12, fontWeight: 600,
             }}
           >
-            ↺ Recover
+            Recover
           </button>
         )}
       </div>

@@ -263,7 +263,7 @@ function seedWorkspace() {
     view: 'v_tabla',
   };
   const pages = [
-    page('p_demo_bienvenida', 'Bienvenido a su Workspace', '👋', [
+    page('p_demo_bienvenida', 'Bienvenido a su Workspace', 'i:file', [
       b('b1', 'callout', 'Página de ejemplo del demo. Escriba en cualquier sitio, pulse «/» para insertar bloques o «@» para enlazar otra página.'),
       b('b2', 'h2', 'Lo básico'),
       b('b3', 'todo', 'Pulse **/** en una línea vacía y elija un bloque', { checked: true }),
@@ -275,7 +275,7 @@ function seedWorkspace() {
       b('b9', 'toggle', 'Qué más sabe hacer Sergio aquí\nResumir, sacar tareas, buscar por significado, cifrar páginas, compartir solo una parte y ver el historial de versiones.', { open: false }),
       b('b10', 'quote', 'La mejor forma de empezar es empezar.', { color: 'gray' }),
     ], { cover: 'g3', favorite: true }),
-    page('p_demo_lanzamiento', 'Lanzamiento de la tienda', '🚀', [
+    page('p_demo_lanzamiento', 'Lanzamiento de la tienda', 'i:rocket', [
       b('l1', 'text', 'Ejemplo: el plan de lanzamiento, con su base de datos de tareas.'),
       b('l2', 'h2', 'Tareas'),
       b('l3', 'table', '', { table }),
@@ -283,7 +283,7 @@ function seedWorkspace() {
       b('l5', 'bullet', 'La web podría retrasarse una semana', { color: 'orange' }),
       b('l6', 'bullet', 'El presupuesto de campaña está al 80 %'),
     ], { cover: 'g2' }),
-    page('p_demo_reunion', 'Reunión del lunes', '👥', [
+    page('p_demo_reunion', 'Reunión del lunes', 'i:users', [
       b('m1', 'h2', 'Asistentes'),
       b('m2', 'bullet', 'Señor, Leo y Mía'),
       b('m3', 'h2', 'Decisiones'),
@@ -293,7 +293,7 @@ function seedWorkspace() {
       b('m7', 'todo', 'Enviar el resumen a todos', { checked: false }),
       b('m8', 'page', 'Ideas para la campaña', { pageId: 'p_demo_ideas' }),
     ]),
-    page('p_demo_ideas', 'Ideas para la campaña', '💡', [
+    page('p_demo_ideas', 'Ideas para la campaña', 'i:bulb', [
       b('i1', 'bullet', 'Vídeo corto con el antes y el después'),
       b('i2', 'bullet', 'Descuento para los primeros 100'),
     ], { parent: 'p_demo_reunion' }),

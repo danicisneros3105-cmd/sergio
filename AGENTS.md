@@ -54,11 +54,19 @@ termina en la rama `main`, y el dueño actualiza con un único comando.
   rinoceronte de ojos cerrados con camiseta a rayas celeste y blanco,
   dálmata, guante médico azul inflado con boina y cara de marcador, y orbe
   invisible con gafas de leopardo y ojos negros. `components/Nodes/dots3d.ts`.
+- Sin emojis y sin colores en la interfaz (dueño, oct. 2026): negro, blanco y
+  grises; iconos de línea. El color solo vive en lo que el dueño crea (sus
+  diseños, fotos, 3D) y en los personajes de los Nodes que él eligió.
+- Workspace igual a Notion (en blanco y negro). Creator › Diseño igual a
+  Canva (`Creator/DesignStudio.tsx` + `canva.css`); Creator › Prototipos es
+  otra cosa: diseñar conversando, como Claude Design
+  (`Creator/Prototypes.tsx`, `lib/prototypes.ts`). No se mezclan.
 - Ningún subtexto explicativo bajo los títulos; los títulos y la marca van
   con las letras del logo B&O (Josefin Sans), el resto con la del sistema.
 - No se reinventa lo que ya existe: Creator usa programas reales —
   ArtCraft (+ Kdenlive) para lo de Adobe, FreeCAD + Bonsai/BlenderBIM +
-  LibreCAD para arquitectura, OpenDesign para lo de Canva, VSCodium para
+  LibreCAD para arquitectura, OpenDesign (instalado, se abre desde
+  Extensiones; Diseño es el editor tipo Canva de Sergio), VSCodium para
   código, Kronos para bolsa—. OpenDesign, VSCodium web y Kronos se instalan
   en Ubuntu con `scripts/instalar-programas.sh` (lo llama la actualización);
   los de Windows, en segundo plano con `sergio_escritorio/creator_apps.py`.

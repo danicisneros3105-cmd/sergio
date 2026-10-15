@@ -63,7 +63,7 @@ interface LearningPolicy {
 const styles: Record<string, React.CSSProperties> = {
   container: {
     backgroundColor: '#1e1e2e',
-    color: '#cdd6f4',
+    color: '#d6d6d6',
     padding: 24,
     borderRadius: 12,
     fontFamily: 'system-ui, -apple-system, sans-serif',
@@ -73,7 +73,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 20,
     fontWeight: 700,
     marginBottom: 20,
-    color: '#cdd6f4',
+    color: '#d6d6d6',
   },
   grid: {
     display: 'grid',
@@ -91,7 +91,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 600,
     textTransform: 'uppercase' as const,
     letterSpacing: '0.05em',
-    color: '#89b4fa',
+    color: '#b0b0b0',
     marginBottom: 12,
   },
   row: {
@@ -102,12 +102,12 @@ const styles: Record<string, React.CSSProperties> = {
   },
   label: {
     fontSize: 13,
-    color: '#a6adc8',
+    color: '#adadad',
   },
   value: {
     fontSize: 13,
     fontWeight: 500,
-    color: '#cdd6f4',
+    color: '#d6d6d6',
   },
   badge: {
     display: 'inline-block',
@@ -117,12 +117,12 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 600,
   },
   badgeEnabled: {
-    backgroundColor: '#a6e3a133',
-    color: '#a6e3a1',
+    backgroundColor: '#d1d1d133',
+    color: '#d1d1d1',
   },
   badgeDisabled: {
-    backgroundColor: '#f3858833',
-    color: '#f38588',
+    backgroundColor: '#9d9d9d33',
+    color: '#9d9d9d',
   },
   chartContainer: {
     backgroundColor: '#313244',
@@ -139,7 +139,7 @@ const styles: Record<string, React.CSSProperties> = {
     textAlign: 'left' as const,
     padding: '6px 8px',
     borderBottom: '1px solid #45475a',
-    color: '#89b4fa',
+    color: '#b0b0b0',
     fontWeight: 600,
     fontSize: 12,
     textTransform: 'uppercase' as const,
@@ -147,7 +147,7 @@ const styles: Record<string, React.CSSProperties> = {
   td: {
     padding: '6px 8px',
     borderBottom: '1px solid #313244',
-    color: '#cdd6f4',
+    color: '#d6d6d6',
   },
   weightBar: {
     height: 6,
@@ -159,29 +159,29 @@ const styles: Record<string, React.CSSProperties> = {
   weightFill: {
     height: '100%',
     borderRadius: 3,
-    backgroundColor: '#89b4fa',
+    backgroundColor: '#b0b0b0',
   },
   error: {
-    color: '#f38588',
+    color: '#9d9d9d',
     padding: 12,
-    backgroundColor: '#f3858811',
+    backgroundColor: '#9d9d9d11',
     borderRadius: 8,
     fontSize: 13,
   },
   loading: {
-    color: '#a6adc8',
+    color: '#adadad',
     textAlign: 'center' as const,
     padding: 40,
   },
   statNumber: {
     fontSize: 28,
     fontWeight: 700,
-    color: '#89b4fa',
+    color: '#b0b0b0',
     lineHeight: 1.2,
   },
   statLabel: {
     fontSize: 12,
-    color: '#a6adc8',
+    color: '#adadad',
     marginTop: 4,
   },
 };
@@ -309,30 +309,30 @@ export function LearningCurve({ apiUrl }: { apiUrl: string }) {
               <CartesianGrid strokeDasharray="3 3" stroke="#45475a" />
               <XAxis
                 dataKey="time"
-                tick={{ fill: '#a6adc8', fontSize: 11 }}
+                tick={{ fill: '#adadad', fontSize: 11 }}
                 stroke="#45475a"
               />
               <YAxis
                 yAxisId="left"
-                tick={{ fill: '#a6adc8', fontSize: 11 }}
+                tick={{ fill: '#adadad', fontSize: 11 }}
                 stroke="#45475a"
                 label={{
                   value: 'Accuracy %',
                   angle: -90,
                   position: 'insideLeft',
-                  style: { fill: '#a6adc8', fontSize: 11 },
+                  style: { fill: '#adadad', fontSize: 11 },
                 }}
               />
               <YAxis
                 yAxisId="right"
                 orientation="right"
-                tick={{ fill: '#a6adc8', fontSize: 11 }}
+                tick={{ fill: '#adadad', fontSize: 11 }}
                 stroke="#45475a"
                 label={{
                   value: 'Latency (ms)',
                   angle: 90,
                   position: 'insideRight',
-                  style: { fill: '#a6adc8', fontSize: 11 },
+                  style: { fill: '#adadad', fontSize: 11 },
                 }}
               />
               <Tooltip
@@ -340,17 +340,17 @@ export function LearningCurve({ apiUrl }: { apiUrl: string }) {
                   backgroundColor: '#313244',
                   border: '1px solid #45475a',
                   borderRadius: 6,
-                  color: '#cdd6f4',
+                  color: '#d6d6d6',
                   fontSize: 12,
                 }}
               />
-              <Legend wrapperStyle={{ color: '#cdd6f4', fontSize: 12 }} />
+              <Legend wrapperStyle={{ color: '#d6d6d6', fontSize: 12 }} />
               <Line
                 yAxisId="left"
                 type="monotone"
                 dataKey="accuracy"
                 name="Accuracy %"
-                stroke="#89b4fa"
+                stroke="#b0b0b0"
                 strokeWidth={2}
                 dot={false}
                 activeDot={{ r: 4 }}
@@ -360,7 +360,7 @@ export function LearningCurve({ apiUrl }: { apiUrl: string }) {
                 type="monotone"
                 dataKey="latency"
                 name="Latency (ms)"
-                stroke="#f9e2af"
+                stroke="#e3e3e3"
                 strokeWidth={2}
                 dot={false}
                 activeDot={{ r: 4 }}

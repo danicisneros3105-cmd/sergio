@@ -6,18 +6,18 @@ import type { BlockType, Page } from './model';
 
 // -- covers: the gallery's colours and gradients, or an uploaded image --------
 export const COVERS: Array<{ key: string; name: string; css: string }> = [
-  { key: 'g1', name: 'Amanecer', css: 'linear-gradient(120deg, #f6d365 0%, #fda085 100%)' },
-  { key: 'g2', name: 'Lago', css: 'linear-gradient(120deg, #89f7fe 0%, #66a6ff 100%)' },
-  { key: 'g3', name: 'Lavanda', css: 'linear-gradient(120deg, #e0c3fc 0%, #8ec5fc 100%)' },
-  { key: 'g4', name: 'Menta', css: 'linear-gradient(120deg, #d4fc79 0%, #96e6a1 100%)' },
-  { key: 'g5', name: 'Rosa', css: 'linear-gradient(120deg, #fbc2eb 0%, #a6c1ee 100%)' },
-  { key: 'g6', name: 'Noche', css: 'linear-gradient(120deg, #30cfd0 0%, #330867 100%)' },
-  { key: 'c1', name: 'Rojo', css: '#e16259' },
-  { key: 'c2', name: 'Amarillo', css: '#dfab01' },
-  { key: 'c3', name: 'Azul', css: '#0b6e99' },
-  { key: 'c4', name: 'Verde', css: '#0f7b6c' },
-  { key: 'c5', name: 'Morado', css: '#6940a5' },
-  { key: 'c6', name: 'Gris', css: '#9b9a97' },
+  { key: 'g1', name: 'Niebla', css: 'linear-gradient(120deg, #f2f2f2 0%, #d9d9d9 100%)' },
+  { key: 'g2', name: 'Grafito', css: 'linear-gradient(120deg, #3a3a3a 0%, #121212 100%)' },
+  { key: 'g3', name: 'Papel', css: 'linear-gradient(180deg, #fafafa 0%, #ececec 100%)' },
+  { key: 'g4', name: 'Humo', css: 'linear-gradient(120deg, #bdbdbd 0%, #8a8a8a 100%)' },
+  { key: 'g5', name: 'Tinta', css: 'linear-gradient(160deg, #1f1f1f 0%, #4a4a4a 100%)' },
+  { key: 'g6', name: 'Plata', css: 'linear-gradient(120deg, #e6e6e6 0%, #a8a8a8 100%)' },
+  { key: 'c1', name: 'Blanco', css: '#f7f7f7' },
+  { key: 'c2', name: 'Gris claro', css: '#d6d6d6' },
+  { key: 'c3', name: 'Gris', css: '#9b9b9b' },
+  { key: 'c4', name: 'Gris oscuro', css: '#5c5c5c' },
+  { key: 'c5', name: 'Carbón', css: '#2e2e2e' },
+  { key: 'c6', name: 'Negro', css: '#0d0d0d' },
 ];
 
 /** The CSS background of a cover ('' when the page has none). Uploaded
@@ -27,15 +27,23 @@ export function coverCss(cover: string | null | undefined): string {
   return COVERS.find((c) => c.key === cover)?.css ?? '';
 }
 
-export const EMOJI = [
-  '📄', '📝', '📌', '📎', '📚', '📖', '🗂️', '🗃️', '📅', '🗓️', '✅', '☑️', '🎯', '🚀', '💡', '🧠',
-  '⭐', '🔥', '⚡', '🌱', '🌿', '🌳', '🌊', '☀️', '🌙', '❤️', '💼', '🏠', '🏢', '🛒', '💰', '📈',
-  '📊', '🧾', '✈️', '🗺️', '🍽️', '☕', '🏋️', '🧘', '🎨', '🎬', '🎵', '📷', '💻', '🛠️', '🔧', '🧪',
-  '🔬', '🩺', '💊', '🎓', '✏️', '🗣️', '👥', '🤝', '🎁', '🎉', '🔒', '🔑', '🐶', '🦏', '🧤', '🔮',
+// Page icons: line icons only, no emoji, no colour (owner, 2026-10). Stored
+// as 'i:<name>'; the names map to the icon set in NxParts.
+export const ICONS = [
+  'file', 'note', 'book', 'bookmark', 'folder', 'archive', 'calendar', 'clock', 'check', 'list', 'target', 'flag',
+  'star', 'bolt', 'bulb', 'brain', 'rocket', 'briefcase', 'home', 'building', 'cart', 'wallet', 'chart', 'receipt',
+  'plane', 'map', 'coffee', 'heart', 'dumbbell', 'music', 'camera', 'film', 'palette', 'code', 'wrench', 'flask',
+  'graduation', 'users', 'chat', 'mail', 'phone', 'lock', 'key', 'globe', 'leaf', 'sun', 'moon', 'gift',
 ];
+export const EMOJI = ICONS.map((n) => `i:${n}`);
 
 export function randomEmoji(rng: () => number = Math.random): string {
   return EMOJI[Math.floor(rng() * EMOJI.length) % EMOJI.length];
+}
+
+/** The icon's name, or '' for none / an old emoji (emoji are not shown). */
+export function iconName(icon: string | undefined | null): string {
+  return icon && icon.startsWith('i:') ? icon.slice(2) : '';
 }
 
 // -- block colours: text or background, the same ten as the original ----------
@@ -59,7 +67,7 @@ export function colorParts(color: string | undefined): { text: string; bg: strin
 }
 
 // Select options get a stable colour from their name, like tags do.
-const TAG_COLORS = ['gray', 'brown', 'orange', 'yellow', 'green', 'blue', 'purple', 'pink', 'red'];
+const TAG_COLORS = ['gray']; // one neutral tag: no colours in the interface
 export function tagColor(option: string): string {
   let h = 0;
   for (const ch of option) h = (h * 31 + ch.charCodeAt(0)) >>> 0;

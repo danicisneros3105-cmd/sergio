@@ -42,7 +42,7 @@ function saveSettings(settings: Settings): void {
 const styles: Record<string, React.CSSProperties> = {
   container: {
     backgroundColor: '#1e1e2e',
-    color: '#cdd6f4',
+    color: '#d6d6d6',
     padding: 24,
     maxWidth: 600,
   },
@@ -50,7 +50,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 20,
     fontWeight: 600,
     marginBottom: 24,
-    color: '#89b4fa',
+    color: '#b0b0b0',
   },
   fieldGroup: {
     marginBottom: 20,
@@ -59,7 +59,7 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'block',
     fontSize: 13,
     fontWeight: 500,
-    color: '#a6adc8',
+    color: '#adadad',
     marginBottom: 6,
   },
   input: {
@@ -68,7 +68,7 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: 6,
     border: '1px solid #313244',
     backgroundColor: '#181825',
-    color: '#cdd6f4',
+    color: '#d6d6d6',
     fontSize: 14,
     outline: 'none',
     boxSizing: 'border-box' as const,
@@ -78,7 +78,7 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: 6,
     border: '1px solid #313244',
     backgroundColor: '#181825',
-    color: '#cdd6f4',
+    color: '#d6d6d6',
     fontSize: 14,
     outline: 'none',
     cursor: 'pointer',
@@ -92,7 +92,7 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: 6,
     border: '1px solid #313244',
     backgroundColor: 'transparent',
-    color: '#a6adc8',
+    color: '#adadad',
     cursor: 'pointer',
     fontSize: 14,
     fontWeight: 500,
@@ -100,15 +100,15 @@ const styles: Record<string, React.CSSProperties> = {
   },
   toggleActive: {
     backgroundColor: '#313244',
-    color: '#cdd6f4',
-    borderColor: '#89b4fa',
+    color: '#d6d6d6',
+    borderColor: '#b0b0b0',
   },
   savedNotice: {
     marginTop: 16,
     padding: '8px 12px',
     borderRadius: 6,
-    backgroundColor: '#1e3a2f',
-    color: '#a6e3a1',
+    backgroundColor: '#333333',
+    color: '#d1d1d1',
     fontSize: 13,
   },
 };

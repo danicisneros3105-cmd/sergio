@@ -10,24 +10,24 @@
   --nx-hover: rgba(55, 53, 47, 0.06);
   --nx-hover-2: rgba(55, 53, 47, 0.12);
   --nx-border: rgba(55, 53, 47, 0.09);
-  --nx-blue: #2383e2;
-  --nx-blue-hover: #0077d4;
+  --nx-blue: #191919;
+  --nx-blue-hover: #000000;
   --nx-menu: #ffffff;
   --nx-shadow: rgba(15, 15, 15, 0.05) 0 0 0 1px, rgba(15, 15, 15, 0.1) 0 3px 6px, rgba(15, 15, 15, 0.2) 0 9px 24px;
   --nx-code: rgba(135, 131, 120, 0.15);
-  --nx-code-text: #eb5757;
+  --nx-code-text: inherit;
   --nx-callout: rgb(241, 241, 239);
   --nx-font: ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI Variable Display', 'Segoe UI', Helvetica, 'Apple Color Emoji', Arial, sans-serif, 'Segoe UI Emoji', 'Segoe UI Symbol';
   --nx-serif: Lyon-Text, Georgia, ui-serif, serif;
   --nx-mono: iawriter-mono, Nitti, Menlo, Courier, monospace;
   /* block colours */
-  --c-gray: #787774; --c-brown: #9f6b53; --c-orange: #d9730d; --c-yellow: #cb912f; --c-green: #448361;
-  --c-blue: #337ea9; --c-purple: #9065b0; --c-pink: #c14c8a; --c-red: #d44c47;
-  --b-gray: #f1f1ef; --b-brown: #f4eeee; --b-orange: #fbecdd; --b-yellow: #fbf3db; --b-green: #edf3ec;
-  --b-blue: #e7f3f8; --b-purple: #f6f3f9; --b-pink: #faf1f5; --b-red: #fdebec;
+  --c-gray: inherit; --c-brown: inherit; --c-orange: inherit; --c-yellow: inherit; --c-green: inherit;
+  --c-blue: inherit; --c-purple: inherit; --c-pink: inherit; --c-red: inherit;
+  --b-gray: transparent; --b-brown: transparent; --b-orange: transparent; --b-yellow: transparent; --b-green: transparent;
+  --b-blue: transparent; --b-purple: transparent; --b-pink: transparent; --b-red: transparent;
   /* select tags */
-  --t-gray: #e3e2e0; --t-brown: #eee0da; --t-orange: #fadec9; --t-yellow: #fdecc8; --t-green: #dbeddb;
-  --t-blue: #d3e5ef; --t-purple: #e8deee; --t-pink: #f5e0e9; --t-red: #ffe2dd; --t-text: #32302c;
+  --t-gray: var(--nx-hover-2); --t-brown: var(--nx-hover-2); --t-orange: var(--nx-hover-2); --t-yellow: var(--nx-hover-2); --t-green: var(--nx-hover-2);
+  --t-blue: var(--nx-hover-2); --t-purple: var(--nx-hover-2); --t-pink: var(--nx-hover-2); --t-red: var(--nx-hover-2); --t-text: var(--nx-text);
 
   display: flex;
   height: 100%;
@@ -40,31 +40,33 @@
 }
 
 .dark .nx {
+  --nx-blue: #e6e6e6; --nx-blue-hover: #ffffff;
   --nx-bg: #191919; --nx-side: #202020; --nx-text: rgba(255, 255, 255, 0.81); --nx-text-2: rgba(255, 255, 255, 0.46);
   --nx-text-3: rgba(255, 255, 255, 0.282); --nx-hover: rgba(255, 255, 255, 0.055); --nx-hover-2: rgba(255, 255, 255, 0.1);
   --nx-border: rgba(255, 255, 255, 0.094); --nx-menu: #252525;
   --nx-shadow: rgba(15, 15, 15, 0.1) 0 0 0 1px, rgba(15, 15, 15, 0.2) 0 3px 6px, rgba(15, 15, 15, 0.4) 0 9px 24px;
-  --nx-code: rgba(135, 131, 120, 0.15); --nx-code-text: #ff7369; --nx-callout: rgb(37, 37, 37);
-  --c-gray: #9b9b9b; --c-brown: #ba856f; --c-orange: #c77d48; --c-yellow: #ca9849; --c-green: #529e72;
-  --c-blue: #5e87c9; --c-purple: #9d68d3; --c-pink: #d15796; --c-red: #df5452;
-  --b-gray: #2f2f2f; --b-brown: #4a3228; --b-orange: #5c3b23; --b-yellow: #564328; --b-green: #243d30;
-  --b-blue: #143a4e; --b-purple: #3c2d49; --b-pink: #4e2c3c; --b-red: #522e2a;
-  --t-gray: #5a5a5a; --t-brown: #603b2c; --t-orange: #854c1d; --t-yellow: #89632a; --t-green: #2b593f;
-  --t-blue: #28456c; --t-purple: #492f64; --t-pink: #69314c; --t-red: #6e3630; --t-text: rgba(255, 255, 255, 0.88);
+  --nx-code: rgba(135, 131, 120, 0.15); --nx-code-text: inherit; --nx-callout: rgb(37, 37, 37);
+  --c-gray: inherit; --c-brown: inherit; --c-orange: inherit; --c-yellow: inherit; --c-green: inherit;
+  --c-blue: inherit; --c-purple: inherit; --c-pink: inherit; --c-red: inherit;
+  --b-gray: transparent; --b-brown: transparent; --b-orange: transparent; --b-yellow: transparent; --b-green: transparent;
+  --b-blue: transparent; --b-purple: transparent; --b-pink: transparent; --b-red: transparent;
+  --t-gray: var(--nx-hover-2); --t-brown: var(--nx-hover-2); --t-orange: var(--nx-hover-2); --t-yellow: var(--nx-hover-2); --t-green: var(--nx-hover-2);
+  --t-blue: var(--nx-hover-2); --t-purple: var(--nx-hover-2); --t-pink: var(--nx-hover-2); --t-red: var(--nx-hover-2); --t-text: var(--nx-text);
 }
 @media (prefers-color-scheme: dark) {
   :root:not(.light) .nx {
+    --nx-blue: #e6e6e6; --nx-blue-hover: #ffffff;
     --nx-bg: #191919; --nx-side: #202020; --nx-text: rgba(255, 255, 255, 0.81); --nx-text-2: rgba(255, 255, 255, 0.46);
     --nx-text-3: rgba(255, 255, 255, 0.282); --nx-hover: rgba(255, 255, 255, 0.055); --nx-hover-2: rgba(255, 255, 255, 0.1);
     --nx-border: rgba(255, 255, 255, 0.094); --nx-menu: #252525;
     --nx-shadow: rgba(15, 15, 15, 0.1) 0 0 0 1px, rgba(15, 15, 15, 0.2) 0 3px 6px, rgba(15, 15, 15, 0.4) 0 9px 24px;
-    --nx-code-text: #ff7369; --nx-callout: rgb(37, 37, 37);
-    --c-gray: #9b9b9b; --c-brown: #ba856f; --c-orange: #c77d48; --c-yellow: #ca9849; --c-green: #529e72;
-    --c-blue: #5e87c9; --c-purple: #9d68d3; --c-pink: #d15796; --c-red: #df5452;
-    --b-gray: #2f2f2f; --b-brown: #4a3228; --b-orange: #5c3b23; --b-yellow: #564328; --b-green: #243d30;
-    --b-blue: #143a4e; --b-purple: #3c2d49; --b-pink: #4e2c3c; --b-red: #522e2a;
-    --t-gray: #5a5a5a; --t-brown: #603b2c; --t-orange: #854c1d; --t-yellow: #89632a; --t-green: #2b593f;
-    --t-blue: #28456c; --t-purple: #492f64; --t-pink: #69314c; --t-red: #6e3630; --t-text: rgba(255, 255, 255, 0.88);
+    --nx-code-text: inherit; --nx-callout: rgb(37, 37, 37);
+    --c-gray: inherit; --c-brown: inherit; --c-orange: inherit; --c-yellow: inherit; --c-green: inherit;
+    --c-blue: inherit; --c-purple: inherit; --c-pink: inherit; --c-red: inherit;
+    --b-gray: transparent; --b-brown: transparent; --b-orange: transparent; --b-yellow: transparent; --b-green: transparent;
+    --b-blue: transparent; --b-purple: transparent; --b-pink: transparent; --b-red: transparent;
+    --t-gray: var(--nx-hover-2); --t-brown: var(--nx-hover-2); --t-orange: var(--nx-hover-2); --t-yellow: var(--nx-hover-2); --t-green: var(--nx-hover-2);
+    --t-blue: var(--nx-hover-2); --t-purple: var(--nx-hover-2); --t-pink: var(--nx-hover-2); --t-red: var(--nx-hover-2); --t-text: var(--nx-text);
   }
 }
 
@@ -200,8 +202,8 @@
 .nx .nx-blocks { gap: 1px; padding-top: 4px; }
 .nx .nx-block { position: relative; display: flex; border-radius: 3px; }
 .nx .nx-block[data-dragging] { opacity: 0.4; }
-.nx .nx-block[data-drop='before'] { box-shadow: 0 -3px 0 rgba(35, 131, 226, 0.45); }
-.nx .nx-block[data-drop='after'] { box-shadow: 0 3px 0 rgba(35, 131, 226, 0.45); }
+.nx .nx-block[data-drop='before'] { box-shadow: 0 -3px 0 var(--nx-text-2); }
+.nx .nx-block[data-drop='after'] { box-shadow: 0 3px 0 var(--nx-text-2); }
 .nx-gutter { position: absolute; left: -50px; top: 3px; width: 48px; display: flex; justify-content: flex-end; gap: 0; opacity: 0; transition: opacity 120ms; }
 .nx-block:hover > .nx-gutter, .nx-gutter:focus-within { opacity: 1; }
 @container nxmain (max-width: 699px) { .nx-content, .nx-head-inner { padding-left: 40px !important; } .nx-gutter { left: -36px; width: 36px; } .nx-gutter .nx-gutter-btn:first-child { display: none; } }
@@ -324,6 +326,7 @@
 .nx-switch-row input { appearance: none; -webkit-appearance: none; width: 28px; height: 16px; border-radius: 99px; background: var(--nx-hover-2); position: relative; cursor: pointer; transition: background 160ms; }
 .nx-switch-row input::after { content: ''; position: absolute; left: 2px; top: 2px; width: 12px; height: 12px; border-radius: 50%; background: #fff; transition: transform 160ms; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2); }
 .nx-switch-row input:checked { background: var(--nx-blue); }
+.nx-switch-row input:checked::after { background: var(--nx-bg); }
 .nx-switch-row input:checked::after { transform: translateX(12px); }
 .nx-emoji-picker { width: 352px; max-width: 92vw; left: 0; top: 84px; }
 .nx-emoji-grid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 2px; }
@@ -346,7 +349,7 @@
 .nx-avatar { width: 24px; height: 24px; border-radius: 50%; background: var(--nx-text); color: var(--nx-bg); display: grid; place-items: center; font-size: 12px; font-weight: 600; flex-shrink: 0; }
 .nx-comment-meta { display: flex; gap: 8px; align-items: baseline; font-size: 14px; }
 .nx-comment-meta span { color: var(--nx-text-3); font-size: 12px; }
-.nx-comment-quote { border-left: 2px solid var(--c-yellow); padding-left: 8px; color: var(--nx-text-2); font-size: 13px; margin: 2px 0; }
+.nx-comment-quote { border-left: 2px solid var(--nx-text-3); padding-left: 8px; color: var(--nx-text-2); font-size: 13px; margin: 2px 0; }
 .nx-comment-text { white-space: pre-wrap; }
 .nx-comment-new textarea { flex: 1; resize: none; border: 0; outline: none; background: transparent; color: var(--nx-text); font: inherit; padding: 2px 0; }
 
@@ -381,7 +384,7 @@
 .nx .ws-table-bar .mac-icon-btn:hover { background: var(--nx-hover); color: var(--nx-text-2); }
 .nx-new-btn {
   display: inline-flex; align-items: center; height: 28px; padding: 0 10px; border-radius: 6px; margin-left: 4px;
-  background: var(--nx-blue) !important; color: #fff !important; font-size: 14px; font-weight: 500;
+  background: var(--nx-blue) !important; color: var(--nx-bg) !important; font-size: 14px; font-weight: 500;
 }
 .nx-new-btn:hover { background: var(--nx-blue-hover) !important; }
 .nx .ws-grid { font-size: 14px; border-collapse: collapse; }
@@ -397,9 +400,9 @@
 .nx .ws-rownum span { display: none; }
 .nx .ws-pick input { opacity: 0; accent-color: var(--nx-blue); width: 14px; height: 14px; }
 .nx .ws-grid tr:hover .ws-pick input, .nx .ws-grid tr[data-picked] .ws-pick input { opacity: 1; }
-.nx .ws-grid tr[data-picked] td { background: rgba(35, 131, 226, 0.08); }
+.nx .ws-grid tr[data-picked] td { background: var(--nx-hover); }
 .nx .ws-cell { padding: 7px 8px; font-size: 14px; color: var(--nx-text); }
-.nx .ws-cell:focus { box-shadow: inset 0 0 0 2px rgba(35, 131, 226, 0.5); background: var(--nx-bg); border-radius: 2px; }
+.nx .ws-cell:focus { box-shadow: inset 0 0 0 2px var(--nx-text-3); background: var(--nx-bg); border-radius: 2px; }
 .nx .ws-sum { color: var(--nx-text-3); font-size: 12px; }
 .nx .ws-table-foot .paper-tab { font-size: 14px; color: var(--nx-text-3); border: 0; background: none; padding: 6px 8px; border-radius: 4px; text-transform: none; letter-spacing: 0; font-family: inherit; }
 .nx .ws-table-foot .paper-tab:hover { background: var(--nx-hover); color: var(--nx-text-2); }

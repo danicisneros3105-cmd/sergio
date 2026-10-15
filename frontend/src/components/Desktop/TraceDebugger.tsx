@@ -47,24 +47,24 @@ interface TraceDetail {
 // ---------------------------------------------------------------------------
 
 const STEP_COLORS: Record<string, string> = {
-  route: '#89b4fa',
-  retrieve: '#a6e3a1',
-  generate: '#f9e2af',
-  tool_call: '#cba6f7',
-  respond: '#f38ba8',
+  route: '#b0b0b0',
+  retrieve: '#d1d1d1',
+  generate: '#e3e3e3',
+  tool_call: '#b4b4b4',
+  respond: '#a3a3a3',
 };
 
-const DEFAULT_STEP_COLOR = '#9399b2';
+const DEFAULT_STEP_COLOR = '#9a9a9a';
 
 const colors = {
   bg: '#1e1e2e',
   surface: '#282840',
-  surfaceHover: '#313150',
-  text: '#cdd6f4',
-  textMuted: '#a6adc8',
-  accent: '#89b4fa',
+  surfaceHover: '#333333',
+  text: '#d6d6d6',
+  textMuted: '#adadad',
+  accent: '#b0b0b0',
   border: '#45475a',
-  red: '#f38ba8',
+  red: '#a3a3a3',
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -290,7 +290,7 @@ const styles: Record<string, React.CSSProperties> = {
     textAlign: 'center',
   },
   errorBanner: {
-    background: 'rgba(243,139,168,0.1)',
+    background: 'rgba(163, 163, 163,0.1)',
     border: `1px solid ${colors.red}`,
     borderRadius: 8,
     padding: '10px 16px',

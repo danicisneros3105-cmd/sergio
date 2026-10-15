@@ -93,9 +93,9 @@ function StepIcon({ status }: { status: string }) {
     case 'done':
       return <CheckCircle2 size={size} style={{ color: 'var(--color-accent-text)' }} />;
     case 'failed':
-      return <XCircle size={size} style={{ color: 'var(--color-error, #e5484d)' }} />;
+      return <XCircle size={size} style={{ color: 'var(--color-error, #6a6a6a)' }} />;
     case 'blocked':
-      return <Ban size={size} style={{ color: 'var(--color-error, #e5484d)' }} />;
+      return <Ban size={size} style={{ color: 'var(--color-error, #6a6a6a)' }} />;
     case 'skipped':
       return <MinusCircle size={size} style={{ color: 'var(--color-text-secondary)' }} />;
     case 'running':
@@ -344,7 +344,7 @@ export function CoworkPage() {
                           key={chip.axis}
                           className="text-[11px] px-1.5 py-0.5 rounded"
                           style={{
-                            background: chip.score >= 2 ? 'rgba(229,72,77,0.12)' : 'var(--color-surface)',
+                            background: chip.score >= 2 ? 'rgba(106, 106, 106,0.12)' : 'var(--color-surface)',
                             color: 'var(--color-text-secondary)',
                           }}
                         >
@@ -399,7 +399,7 @@ export function CoworkPage() {
                 <div className="space-y-1">
                   <p
                     className="text-xs flex items-center gap-1"
-                    style={{ color: audit.intact ? 'var(--color-accent)' : 'var(--color-error, #e5484d)' }}
+                    style={{ color: audit.intact ? 'var(--color-accent)' : 'var(--color-error, #6a6a6a)' }}
                   >
                     {audit.intact ? <ShieldCheck size={12} /> : <ShieldAlert size={12} />}
                     {audit.intact ? 'Registro íntegro: nadie lo modificó.' : 'El registro fue alterado.'}

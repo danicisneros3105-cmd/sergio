@@ -80,9 +80,9 @@ const ACTIVITY_ICON: Record<string, string> = {
   blocked: '×',
   discarded: '×',
   watch: '◌',
-  trigger: '⚡',
-  verify: '⚠',
-  swarm: '✳',
+  trigger: '↯',
+  verify: '!',
+  swarm: '*',
   connection: '⌁',
 };
 const FALLBACK_AVATAR: Avatar = { shape: 'bean', color: '#9fd3ff', accessory: 'none', eyes: 'dots' };

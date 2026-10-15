@@ -32,7 +32,7 @@ interface MemoryStats {
 const styles: Record<string, React.CSSProperties> = {
   container: {
     backgroundColor: '#1e1e2e',
-    color: '#cdd6f4',
+    color: '#d6d6d6',
     padding: 24,
     borderRadius: 12,
     fontFamily: 'system-ui, -apple-system, sans-serif',
@@ -42,7 +42,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 20,
     fontWeight: 700,
     marginBottom: 20,
-    color: '#cdd6f4',
+    color: '#d6d6d6',
   },
   searchBar: {
     display: 'flex',
@@ -56,14 +56,14 @@ const styles: Record<string, React.CSSProperties> = {
     backgroundColor: '#313244',
     border: '1px solid #45475a',
     borderRadius: 8,
-    color: '#cdd6f4',
+    color: '#d6d6d6',
     outline: 'none',
   },
   button: {
     padding: '10px 20px',
     fontSize: 14,
     fontWeight: 600,
-    backgroundColor: '#89b4fa',
+    backgroundColor: '#b0b0b0',
     color: '#1e1e2e',
     border: 'none',
     borderRadius: 8,
@@ -89,12 +89,12 @@ const styles: Record<string, React.CSSProperties> = {
   statValue: {
     fontSize: 22,
     fontWeight: 700,
-    color: '#89b4fa',
+    color: '#b0b0b0',
     lineHeight: 1.2,
   },
   statLabel: {
     fontSize: 12,
-    color: '#a6adc8',
+    color: '#adadad',
     marginTop: 4,
     textTransform: 'uppercase' as const,
     letterSpacing: '0.04em',
@@ -108,12 +108,12 @@ const styles: Record<string, React.CSSProperties> = {
     backgroundColor: '#313244',
     borderRadius: 8,
     padding: 16,
-    borderLeft: '3px solid #89b4fa',
+    borderLeft: '3px solid #b0b0b0',
   },
   resultContent: {
     fontSize: 14,
     lineHeight: 1.6,
-    color: '#cdd6f4',
+    color: '#d6d6d6',
     marginBottom: 10,
     wordBreak: 'break-word' as const,
   },
@@ -128,12 +128,12 @@ const styles: Record<string, React.CSSProperties> = {
   },
   scoreLabel: {
     fontSize: 12,
-    color: '#a6adc8',
+    color: '#adadad',
   },
   scoreValue: {
     fontSize: 12,
     fontWeight: 600,
-    color: '#89b4fa',
+    color: '#b0b0b0',
   },
   scoreBar: {
     height: 6,
@@ -144,7 +144,7 @@ const styles: Record<string, React.CSSProperties> = {
   scoreFill: {
     height: '100%',
     borderRadius: 3,
-    backgroundColor: '#89b4fa',
+    backgroundColor: '#b0b0b0',
     transition: 'width 0.3s ease',
   },
   metadataRow: {
@@ -159,24 +159,24 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: 4,
     fontSize: 11,
     backgroundColor: '#45475a',
-    color: '#a6adc8',
+    color: '#adadad',
   },
   emptyState: {
     textAlign: 'center' as const,
     padding: 40,
-    color: '#a6adc8',
+    color: '#adadad',
   },
   error: {
-    color: '#f38588',
+    color: '#9d9d9d',
     padding: 12,
-    backgroundColor: '#f3858811',
+    backgroundColor: '#9d9d9d11',
     borderRadius: 8,
     fontSize: 13,
     marginBottom: 16,
   },
   resultCount: {
     fontSize: 13,
-    color: '#a6adc8',
+    color: '#adadad',
     marginBottom: 12,
   },
 };

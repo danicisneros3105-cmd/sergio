@@ -48,7 +48,8 @@ import {
 } from 'lucide-react';
 import type { Block, BlockType, Comment, Page } from '../../lib/workspace/model';
 import { newId, slashMatches } from '../../lib/workspace/model';
-import { COLORS, COVERS, EMOJI, SLASH_GROUPS, coverCss, groupOf, parseInline, randomEmoji } from '../../lib/workspace/notion';
+import { COVERS, EMOJI, SLASH_GROUPS, coverCss, groupOf, iconName, parseInline, randomEmoji } from '../../lib/workspace/notion';
+import { NxIcon } from './NxIcon';
 import { mediaUrl, saveMedia } from '../../lib/workspace/store';
 
 export const TYPE_ICON: Record<BlockType, typeof FileText> = {
@@ -132,14 +133,14 @@ export function PageHeader({
         </div>
       )}
       <div className="nx-head-inner">
-        {page.icon && (
+        {iconName(page.icon) && (
           <button type="button" className="nx-page-icon" aria-label="Cambiar icono" disabled={readOnly} onClick={() => setPicker('icon')}>
-            {page.icon}
+            <NxIcon icon={page.icon} size={64} />
           </button>
         )}
         {!readOnly && (
           <div className="nx-head-actions">
-            {!page.icon && (
+            {!iconName(page.icon) && (
               <button type="button" onClick={() => onChange({ icon: randomEmoji() })}>
                 <Smile size={15} /> Añadir icono
               </button>
@@ -157,15 +158,15 @@ export function PageHeader({
         {picker === 'icon' && (
           <div className="nx-menu nx-emoji-picker" role="dialog" aria-label="Icono">
             <div className="nx-menu-head">
-              <span>Emoji</span>
+              <span>Iconos</span>
               <button type="button" onClick={() => (onChange({ icon: '' }), setPicker(null))}>
                 Quitar
               </button>
             </div>
             <div className="nx-emoji-grid">
               {EMOJI.map((e) => (
-                <button key={e} type="button" onClick={() => (onChange({ icon: e }), setPicker(null))}>
-                  {e}
+                <button key={e} type="button" aria-label={e.slice(2)} onClick={() => (onChange({ icon: e }), setPicker(null))}>
+                  <NxIcon icon={e} size={20} />
                 </button>
               ))}
             </div>
@@ -349,7 +350,7 @@ export function MentionMenu({ pages, query, onPick }: { pages: Page[]; query: st
             onPick(p);
           }}
         >
-          <span className="nx-mention-icon">{p.icon || <FileText size={15} />}</span>
+          <span className="nx-mention-icon"><NxIcon icon={p.icon} size={15} /></span>
           {p.title || 'Sin título'}
         </button>
       ))}
@@ -362,7 +363,6 @@ export function BlockMenu({
   block,
   canShare,
   onTurnInto,
-  onColor,
   onMove,
   onDuplicate,
   onDelete,
@@ -373,7 +373,6 @@ export function BlockMenu({
   block: Block;
   canShare: boolean;
   onTurnInto: (t: BlockType) => void;
-  onColor: (c: string) => void;
   onMove: (dir: -1 | 1) => void;
   onDuplicate: () => void;
   onDelete: () => void;
@@ -382,14 +381,13 @@ export function BlockMenu({
   onClose: () => void;
 }) {
   const [q, setQ] = useState('');
-  const [sub, setSub] = useState<null | 'turn' | 'color'>(null);
+  const [sub, setSub] = useState<null | 'turn'>(null);
   const actions = useMemo(
     () =>
       [
         { key: 'delete', label: 'Borrar', hint: 'Supr', icon: Trash2, run: onDelete },
         { key: 'dup', label: 'Duplicar', hint: 'Ctrl+D', icon: Copy, run: onDuplicate },
         { key: 'turn', label: 'Convertir en', icon: Hash, sub: 'turn' as const },
-        { key: 'color', label: 'Color', icon: PaintIcon, sub: 'color' as const },
         { key: 'comment', label: 'Comentar', icon: MessageSquare, run: onComment },
         { key: 'up', label: 'Subir', hint: 'Alt+↑', icon: ArrowUp, run: () => onMove(-1) },
         { key: 'down', label: 'Bajar', hint: 'Alt+↓', icon: ArrowDown, run: () => onMove(1) },
@@ -429,40 +427,7 @@ export function BlockMenu({
           })}
         </div>
       )}
-      {sub === 'color' && (
-        <div className="nx-menu nx-submenu" role="menu">
-          <div className="nx-menu-group">Color</div>
-          <button type="button" role="menuitem" onClick={() => (onColor(''), onClose())}>
-            <span className="nx-swatch">A</span> Predeterminado
-          </button>
-          {COLORS.map((c) => (
-            <button key={c.key} type="button" role="menuitem" onClick={() => (onColor(c.key), onClose())}>
-              <span className="nx-swatch" data-color={c.key}>
-                A
-              </span>
-              {c.name}
-            </button>
-          ))}
-          <div className="nx-menu-group">Fondo</div>
-          {COLORS.map((c) => (
-            <button key={`${c.key}_bg`} type="button" role="menuitem" onClick={() => (onColor(`${c.key}_bg`), onClose())}>
-              <span className="nx-swatch" data-bg={c.key}>
-                A
-              </span>
-              Fondo {c.name.toLowerCase()}
-            </button>
-          ))}
-        </div>
-      )}
     </div>
-  );
-}
-
-function PaintIcon(props: { size?: number; strokeWidth?: number }) {
-  return (
-    <span className="nx-paint" style={{ width: props.size, height: props.size }}>
-      A
-    </span>
   );
 }
 

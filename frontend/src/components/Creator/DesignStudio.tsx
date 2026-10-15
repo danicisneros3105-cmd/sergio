@@ -10,13 +10,27 @@ import {
   Canvas,
   Circle,
   FabricImage,
-  type FabricObject,
+  FabricObject,
   PencilBrush,
   Rect,
   Textbox,
   filters,
 } from 'fabric';
 import {
+  AlignCenter,
+  AlignLeft,
+  AlignRight,
+  Blend,
+  Bold,
+  FilePlus2,
+  Italic,
+  Layers,
+  LayoutTemplate,
+  Maximize2,
+  PenTool,
+  Shapes,
+  Underline,
+  Upload,
   ArrowDown,
   ArrowUp,
   Brush,
@@ -37,8 +51,14 @@ import {
 import { toast } from 'sonner';
 import { apiFetch } from '../../lib/api';
 import { elapsedNote, useElapsed } from './useElapsed';
+import './canva.css';
 
 type Mode = 'diseno' | 'imagen';
+
+// Fabric 7 places objects by their centre by default; every position here is
+// the top-left corner (as before), or new texts and shapes land half off the page.
+FabricObject.ownDefaults.originX = 'left';
+FabricObject.ownDefaults.originY = 'top';
 
 export const FORMATS = [
   { id: 'post', label: 'Post cuadrado', w: 1080, h: 1080 },
@@ -228,7 +248,7 @@ export function DesignStudio({ mode }: { mode: Mode }) {
     fabric.current = c;
     c.freeDrawingBrush = new PencilBrush(c);
     c.freeDrawingBrush.width = 8;
-    c.freeDrawingBrush.color = '#4f7cff';
+    c.freeDrawingBrush.color = '#111111';
     const onChange = () => recordRef.current();
     c.on('object:modified', onChange);
     c.on('object:added', onChange);
@@ -285,11 +305,36 @@ export function DesignStudio({ mode }: { mode: Mode }) {
     if (c) c.isDrawingMode = drawing;
   }, [drawing]);
 
+  const applyZoom = (z: number) => {
+    const c = fabric.current;
+    if (!c) return;
+    const zz = Math.min(4, Math.max(0.05, z));
+    setZoom(zz);
+    c.setDimensions({ width: Math.round(format.w * zz), height: Math.round(format.h * zz) });
+    c.setZoom(zz);
+    c.requestRenderAll();
+  };
+  const fitZoom = () => {
+    const el = stage.current;
+    if (el) applyZoom(Math.min((el.clientWidth - 48) / format.w, (el.clientHeight - 48) / format.h, 1));
+  };
+  const [tab, setTab] = useState<'diseno' | 'elementos' | 'texto' | 'subidas' | 'dibujar' | 'capas' | null>('diseno');
+  const [title, setTitle] = useState(() => {
+    try {
+      return localStorage.getItem(`${storeKey}.title`) || 'Diseño sin título';
+    } catch {
+      return 'Diseño sin título';
+    }
+  });
+  const [menu, setMenu] = useState<null | 'archivo' | 'tamano' | 'descargar'>(null);
+
   // -- actions ----------------------------------------------------------------------
-  const add = (o: FabricObject) => {
+  const add = (o: FabricObject, centred = true) => {
     const c = fabric.current;
     if (!c) return;
     setDrawing(false);
+    // A new element lands in the middle of the page, like in the design editor.
+    if (centred) o.set({ left: (format.w - o.getScaledWidth()) / 2, top: (format.h - o.getScaledHeight()) / 2 });
     c.add(o);
     c.setActiveObject(o);
     c.requestRenderAll();
@@ -299,11 +344,11 @@ export function DesignStudio({ mode }: { mode: Mode }) {
   const centre = () => ({ left: format.w * 0.1, top: format.h * 0.1 });
 
   const addTitle = () =>
-    add(new Textbox('Su título aquí', { ...centre(), width: format.w * 0.8, fontSize: Math.round(format.w / 12), fontWeight: 800, fill: '#14161f', fontFamily: FONTS[0] }));
+    add(new Textbox('Su título aquí', { ...centre(), width: format.w * 0.8, fontSize: Math.round(format.w / 12), fontWeight: 800, fill: '#111111', fontFamily: FONTS[0] }));
   const addText = () =>
-    add(new Textbox('Escriba algo', { ...centre(), width: format.w * 0.6, fontSize: Math.round(format.w / 30), fontWeight: 450, fill: '#3a3f55', fontFamily: FONTS[0] }));
-  const addRect = () => add(new Rect({ ...centre(), width: format.w * 0.3, height: format.h * 0.2, fill: '#4f7cff', rx: 24, ry: 24 }));
-  const addCircle = () => add(new Circle({ ...centre(), radius: Math.min(format.w, format.h) * 0.12, fill: '#a35cff' }));
+    add(new Textbox('Escriba algo', { ...centre(), width: format.w * 0.6, fontSize: Math.round(format.w / 30), fontWeight: 450, fill: '#333333', fontFamily: FONTS[0] }));
+  const addRect = () => add(new Rect({ ...centre(), width: format.w * 0.3, height: format.h * 0.2, fill: '#d9d9d9', rx: 0, ry: 0 }));
+  const addCircle = () => add(new Circle({ ...centre(), radius: Math.min(format.w, format.h) * 0.12, fill: '#9b9b9b' }));
 
   const placeImage = async (url: string, fill = false) => {
     const c = fabric.current;
@@ -317,7 +362,7 @@ export function DesignStudio({ mode }: { mode: Mode }) {
       left: (format.w - (img.width || 0) * scale) / 2,
       top: (format.h - (img.height || 0) * scale) / 2,
     });
-    add(img);
+    add(img, false);
     return img;
   };
 
@@ -357,7 +402,7 @@ export function DesignStudio({ mode }: { mode: Mode }) {
     if (!c || !o) return;
     const copy = await o.clone();
     copy.set({ left: (o.left ?? 0) + 30, top: (o.top ?? 0) + 30 });
-    add(copy);
+    add(copy, false);
   };
 
   const layer = (dir: 'up' | 'down') => {
@@ -571,6 +616,435 @@ export function DesignStudio({ mode }: { mode: Mode }) {
   const adj = adjustOf(img);
   const text = active instanceof Textbox ? active : null;
   const fill = typeof active?.fill === 'string' ? active.fill : '#000000';
+
+  if (!isImage) {
+    const bg = typeof fabric.current?.backgroundColor === 'string' && fabric.current.backgroundColor ? fabric.current.backgroundColor : '#ffffff';
+    const setBg = (v: string) => {
+      const c = fabric.current;
+      if (!c) return;
+      c.backgroundColor = v;
+      c.requestRenderAll();
+      record();
+      force((n) => n + 1);
+    };
+    const RAIL = [
+      { id: 'diseno', label: 'Diseño', icon: LayoutTemplate },
+      { id: 'elementos', label: 'Elementos', icon: Shapes },
+      { id: 'texto', label: 'Texto', icon: Type },
+      { id: 'subidas', label: 'Subidas', icon: Upload },
+      { id: 'dibujar', label: 'Dibujar', icon: PenTool },
+      { id: 'capas', label: 'Capas', icon: Layers },
+    ] as const;
+    const toggleMenu = (m: 'archivo' | 'tamano' | 'descargar') => setMenu(menu === m ? null : m);
+    return (
+      <div className="cv" data-panel={tab ? 'open' : undefined}>
+        <header className="cv-top">
+          <span className="cv-menu-wrap">
+            <button type="button" className="cv-top-btn" onClick={() => toggleMenu('archivo')} aria-expanded={menu === 'archivo'}>
+              Archivo
+            </button>
+            {menu === 'archivo' && (
+              <div className="cv-menu" role="menu">
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setMenu(null);
+                    const c = fabric.current;
+                    if (!c || (c.getObjects().length && !window.confirm('¿Empezar un diseño nuevo? El actual se borra.'))) return;
+                    c.clear();
+                    c.backgroundColor = '#ffffff';
+                    c.requestRenderAll();
+                    record();
+                  }}
+                >
+                  <FilePlus2 size={16} /> Diseño nuevo
+                </button>
+                <button type="button" role="menuitem" onClick={() => (setMenu(null), fileInput.current?.click())}>
+                  <Upload size={16} /> Subir una imagen
+                </button>
+                <button type="button" role="menuitem" onClick={() => (setMenu(null), exportAs('png'))}>
+                  <Download size={16} /> Descargar
+                </button>
+              </div>
+            )}
+          </span>
+          <span className="cv-menu-wrap">
+            <button type="button" className="cv-top-btn" onClick={() => toggleMenu('tamano')} aria-expanded={menu === 'tamano'}>
+              <Maximize2 size={15} /> Redimensionar
+            </button>
+            {menu === 'tamano' && (
+              <div className="cv-menu" role="menu">
+                {FORMATS.map((f) => (
+                  <button key={f.id} type="button" role="menuitemradio" aria-checked={format.id === f.id} onClick={() => (setMenu(null), setFormat(f))}>
+                    <span className="flex-1">{f.label}</span>
+                    <span className="cv-dim">
+                      {f.w} × {f.h}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </span>
+          <span className="cv-sep" />
+          <button type="button" className="cv-icon" title="Deshacer (Ctrl+Z)" aria-label="Deshacer" onClick={() => void undo()}>
+            <Undo2 size={17} />
+          </button>
+          <button type="button" className="cv-icon" title="Rehacer (Ctrl+Y)" aria-label="Rehacer" onClick={() => void redo()}>
+            <Redo2 size={17} />
+          </button>
+          <span className="cv-saved">{busy ? `${busy}${elapsedNote(elapsed)}` : 'Guardado'}</span>
+          <input
+            className="cv-title"
+            value={title}
+            aria-label="Nombre del diseño"
+            onChange={(e) => {
+              setTitle(e.target.value);
+              try {
+                localStorage.setItem(`${storeKey}.title`, e.target.value);
+              } catch {
+                /* storage blocked */
+              }
+            }}
+          />
+          <span className="cv-menu-wrap">
+            <button type="button" className="cv-primary" onClick={() => toggleMenu('descargar')} aria-expanded={menu === 'descargar'}>
+              <Download size={16} /> Descargar
+            </button>
+            {menu === 'descargar' && (
+              <div className="cv-menu cv-menu-right" role="menu">
+                <div className="cv-menu-label">Tipo de archivo</div>
+                <button type="button" role="menuitem" onClick={() => (setMenu(null), exportAs('png'))}>
+                  PNG <span className="cv-dim">Imagen de alta calidad</span>
+                </button>
+                <button type="button" role="menuitem" onClick={() => (setMenu(null), exportAs('jpeg'))}>
+                  JPG <span className="cv-dim">Archivo pequeño</span>
+                </button>
+                <button type="button" role="menuitem" onClick={() => (setMenu(null), exportAs('svg'))}>
+                  SVG <span className="cv-dim">Vectorial, se escala sin perder</span>
+                </button>
+              </div>
+            )}
+          </span>
+        </header>
+
+        <div className="cv-body">
+          <nav className="cv-rail" aria-label="Herramientas">
+            {RAIL.map(({ id, label, icon: Icon }) => (
+              <button
+                key={id}
+                type="button"
+                className="cv-rail-btn"
+                aria-pressed={tab === id}
+                onClick={() => {
+                  setTab(tab === id ? null : id);
+                  setDrawing(id === 'dibujar' && tab !== id);
+                }}
+              >
+                <Icon size={22} strokeWidth={1.5} />
+                <span>{label}</span>
+              </button>
+            ))}
+          </nav>
+
+          {tab && (
+            <aside className="cv-panel" aria-label={RAIL.find((r) => r.id === tab)?.label}>
+              {tab === 'diseno' && (
+                <>
+                  <form
+                    className="cv-ask"
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      void designWithSergio();
+                    }}
+                  >
+                    <textarea
+                      value={prompt}
+                      onChange={(e) => setPrompt(e.target.value)}
+                      disabled={!!busy}
+                      rows={3}
+                      aria-label="Describa su diseño"
+                      placeholder="Describa su diseño: «post para la apertura de mi cafetería el sábado, 20 % de descuento»"
+                    />
+                    <button type="submit" className="cv-primary cv-wide" disabled={!!busy || !prompt.trim()}>
+                      <Wand2 size={16} /> Diseñar con Sergio
+                    </button>
+                  </form>
+                  <div className="cv-panel-label">Formatos</div>
+                  <div className="cv-formats">
+                    {FORMATS.map((f) => (
+                      <button key={f.id} type="button" aria-pressed={format.id === f.id} onClick={() => setFormat(f)}>
+                        <span className="cv-format-box">
+                          <i style={{ aspectRatio: `${f.w} / ${f.h}` }} />
+                        </span>
+                        <span>{f.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+              {tab === 'elementos' && (
+                <>
+                  <div className="cv-panel-label">Formas</div>
+                  <div className="cv-shapes">
+                    <button type="button" aria-label="Cuadrado" onClick={addRect}>
+                      <i className="cv-shape-rect" />
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="Rectángulo redondeado"
+                      onClick={() => add(new Rect({ ...centre(), width: format.w * 0.3, height: format.h * 0.2, fill: '#d9d9d9', rx: 32, ry: 32 }))}
+                    >
+                      <i className="cv-shape-round" />
+                    </button>
+                    <button type="button" aria-label="Círculo" onClick={addCircle}>
+                      <i className="cv-shape-circle" />
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="Línea"
+                      onClick={() => add(new Rect({ ...centre(), width: format.w * 0.5, height: Math.max(4, format.w / 200), fill: '#111111' }))}
+                    >
+                      <i className="cv-shape-line" />
+                    </button>
+                  </div>
+                </>
+              )}
+              {tab === 'texto' && (
+                <>
+                  <button type="button" className="cv-primary cv-wide" onClick={addText}>
+                    <Type size={16} /> Añadir un cuadro de texto
+                  </button>
+                  <div className="cv-panel-label">Estilos de texto predeterminados</div>
+                  <button type="button" className="cv-text-style cv-h" onClick={addTitle}>
+                    Añadir un título
+                  </button>
+                  <button
+                    type="button"
+                    className="cv-text-style cv-s"
+                    onClick={() =>
+                      add(new Textbox('Añadir un subtítulo', { ...centre(), width: format.w * 0.7, fontSize: Math.round(format.w / 20), fontWeight: 600, fill: '#222222', fontFamily: FONTS[0] }))
+                    }
+                  >
+                    Añadir un subtítulo
+                  </button>
+                  <button type="button" className="cv-text-style cv-b" onClick={addText}>
+                    Añadir un poco de texto
+                  </button>
+                </>
+              )}
+              {tab === 'subidas' && (
+                <>
+                  <button type="button" className="cv-primary cv-wide" onClick={() => fileInput.current?.click()}>
+                    <Upload size={16} /> Subir archivos
+                  </button>
+                  <div
+                    className="cv-drop"
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      const f = e.dataTransfer.files?.[0];
+                      if (f) void openFile(f);
+                    }}
+                  >
+                    Arrastre sus imágenes aquí
+                  </div>
+                </>
+              )}
+              {tab === 'dibujar' && (
+                <>
+                  <div className="cv-panel-label">Pincel</div>
+                  <label className="cv-row">
+                    Color
+                    <input
+                      type="color"
+                      defaultValue="#111111"
+                      onChange={(e) => {
+                        const b = fabric.current?.freeDrawingBrush;
+                        if (b) b.color = e.target.value;
+                      }}
+                    />
+                  </label>
+                  <label className="cv-row">
+                    Grosor
+                    <input
+                      type="range"
+                      min={1}
+                      max={60}
+                      defaultValue={8}
+                      onChange={(e) => {
+                        const b = fabric.current?.freeDrawingBrush;
+                        if (b) b.width = Number(e.target.value);
+                      }}
+                    />
+                  </label>
+                  <button type="button" className="cv-secondary cv-wide" onClick={() => setDrawing((d) => !d)}>
+                    {drawing ? 'Dejar de dibujar' : 'Dibujar'}
+                  </button>
+                </>
+              )}
+              {tab === 'capas' && (
+                <ul className="cv-layers">
+                  {layers.length === 0 && <li className="cv-dim">Sin elementos todavía.</li>}
+                  {layers.map((o, i) => (
+                    <li key={i}>
+                      <button
+                        type="button"
+                        aria-pressed={o === active}
+                        onClick={() => {
+                          fabric.current?.setActiveObject(o);
+                          fabric.current?.requestRenderAll();
+                          refresh();
+                        }}
+                      >
+                        <i style={{ background: typeof o.fill === 'string' ? o.fill : '#9b9b9b' }} />
+                        {objectLabel(o)}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </aside>
+          )}
+
+          <main className="cv-main">
+            <div className="cv-context" role="toolbar" aria-label="Opciones del elemento">
+              {active ? (
+                <>
+                  {text && (
+                    <>
+                      <select className="cv-select" value={String(text.fontFamily)} onChange={(e) => set({ fontFamily: e.target.value })} aria-label="Letra">
+                        {FONTS.map((f) => (
+                          <option key={f} value={f}>
+                            {f.replace(' Variable', '')}
+                          </option>
+                        ))}
+                      </select>
+                      <span className="cv-size">
+                        <button type="button" aria-label="Más pequeño" onClick={() => set({ fontSize: Math.max(6, Math.round((text.fontSize ?? 40) - 2)) })}>
+                          −
+                        </button>
+                        <input
+                          type="number"
+                          min={6}
+                          max={600}
+                          value={Math.round(text.fontSize ?? 40)}
+                          onChange={(e) => set({ fontSize: Math.max(6, Number(e.target.value) || 6) })}
+                          aria-label="Tamaño"
+                        />
+                        <button type="button" aria-label="Más grande" onClick={() => set({ fontSize: Math.round((text.fontSize ?? 40) + 2) })}>
+                          +
+                        </button>
+                      </span>
+                    </>
+                  )}
+                  {!(active instanceof FabricImage) && (
+                    <label className="cv-swatch" title="Color" style={{ background: /^#[0-9a-f]{6}$/i.test(fill) ? fill : '#000000' }}>
+                      <input type="color" value={/^#[0-9a-f]{6}$/i.test(fill) ? fill : '#000000'} onChange={(e) => set({ fill: e.target.value })} aria-label="Color" />
+                    </label>
+                  )}
+                  {text && (
+                    <>
+                      <button type="button" className="cv-icon" aria-pressed={Number(text.fontWeight) >= 700} aria-label="Negrita" onClick={() => set({ fontWeight: Number(text.fontWeight) >= 700 ? 450 : 800 })}>
+                        <Bold size={16} />
+                      </button>
+                      <button type="button" className="cv-icon" aria-pressed={text.fontStyle === 'italic'} aria-label="Cursiva" onClick={() => set({ fontStyle: text.fontStyle === 'italic' ? 'normal' : 'italic' })}>
+                        <Italic size={16} />
+                      </button>
+                      <button type="button" className="cv-icon" aria-pressed={!!text.underline} aria-label="Subrayado" onClick={() => set({ underline: !text.underline })}>
+                        <Underline size={16} />
+                      </button>
+                      <button
+                        type="button"
+                        className="cv-icon"
+                        aria-label="Alineación"
+                        onClick={() => set({ textAlign: text.textAlign === 'left' ? 'center' : text.textAlign === 'center' ? 'right' : 'left' })}
+                      >
+                        {text.textAlign === 'center' ? <AlignCenter size={16} /> : text.textAlign === 'right' ? <AlignRight size={16} /> : <AlignLeft size={16} />}
+                      </button>
+                    </>
+                  )}
+                  <span className="cv-sep" />
+                  <label className="cv-opacity" title="Transparencia">
+                    <Blend size={16} />
+                    <input type="range" min={0.05} max={1} step={0.05} value={active.opacity ?? 1} onChange={(e) => set({ opacity: Number(e.target.value) })} aria-label="Transparencia" />
+                  </label>
+                  <span className="ml-auto flex items-center gap-1">
+                    <button type="button" className="cv-icon" title="Traer adelante" aria-label="Traer adelante" onClick={() => layer('up')}>
+                      <ArrowUp size={16} />
+                    </button>
+                    <button type="button" className="cv-icon" title="Enviar atrás" aria-label="Enviar atrás" onClick={() => layer('down')}>
+                      <ArrowDown size={16} />
+                    </button>
+                    <button type="button" className="cv-icon" title="Duplicar (Ctrl+D)" aria-label="Duplicar" onClick={() => void duplicate()}>
+                      <Copy size={16} />
+                    </button>
+                    <button type="button" className="cv-icon" title="Borrar (Supr)" aria-label="Borrar" onClick={remove}>
+                      <Trash2 size={16} />
+                    </button>
+                  </span>
+                </>
+              ) : (
+                <>
+                  <label className="cv-swatch" title="Color de fondo" style={{ background: bg }}>
+                    <input type="color" value={/^#[0-9a-f]{6}$/i.test(bg) ? bg : '#ffffff'} onChange={(e) => setBg(e.target.value)} aria-label="Color de fondo" />
+                  </label>
+                  <span className="cv-dim">Fondo</span>
+                  <span className="ml-auto cv-dim">
+                    {format.label} · {format.w} × {format.h} px
+                  </span>
+                </>
+              )}
+            </div>
+            <div
+              ref={stage}
+              className="cv-stage studio-stage"
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(e) => {
+                e.preventDefault();
+                const f = e.dataTransfer.files?.[0];
+                if (f) void openFile(f);
+              }}
+            >
+              <div className="studio-page cv-page" data-testid="design-page">
+                <canvas ref={canvasEl} />
+              </div>
+            </div>
+            <footer className="cv-foot">
+              <span className="cv-dim">Página 1 / 1</span>
+              <span className="ml-auto flex items-center gap-2">
+                <input
+                  type="range"
+                  min={10}
+                  max={200}
+                  value={Math.round(zoom * 100)}
+                  onChange={(e) => applyZoom(Number(e.target.value) / 100)}
+                  aria-label="Zoom"
+                  className="cv-zoom"
+                />
+                <button type="button" className="cv-zoom-pct" onClick={fitZoom} title="Ajustar a la pantalla">
+                  {Math.round(zoom * 100)} %
+                </button>
+              </span>
+            </footer>
+          </main>
+        </div>
+        <input
+          ref={fileInput}
+          type="file"
+          accept="image/*"
+          hidden
+          data-testid="image-file"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) void openFile(f);
+            e.target.value = '';
+          }}
+        />
+        {menu && <button type="button" className="cv-away" aria-label="Cerrar" onClick={() => setMenu(null)} />}
+      </div>
+    );
+  }
 
   return (
     <div className="studio2d" data-mode={mode}>
@@ -845,7 +1319,7 @@ export function DesignStudio({ mode }: { mode: Mode }) {
                 Color del pincel
                 <input
                   type="color"
-                  defaultValue="#4f7cff"
+                  defaultValue="#111111"
                   onChange={(e) => {
                     const b = fabric.current?.freeDrawingBrush;
                     if (b) b.color = e.target.value;
@@ -870,7 +1344,7 @@ export function DesignStudio({ mode }: { mode: Mode }) {
                     refresh();
                   }}
                 >
-                  <i style={{ background: typeof o.fill === 'string' ? o.fill : '#9aa3b5' }} />
+                  <i style={{ background: typeof o.fill === 'string' ? o.fill : '#9b9b9b' }} />
                   {objectLabel(o)}
                 </button>
               </li>

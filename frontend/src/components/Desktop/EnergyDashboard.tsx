@@ -46,13 +46,13 @@ interface ChartPoint {
 const colors = {
   bg: '#1e1e2e',
   surface: '#282840',
-  surfaceHover: '#313150',
-  text: '#cdd6f4',
-  textMuted: '#a6adc8',
-  accent: '#89b4fa',
-  green: '#a6e3a1',
-  yellow: '#f9e2af',
-  red: '#f38ba8',
+  surfaceHover: '#333333',
+  text: '#d6d6d6',
+  textMuted: '#adadad',
+  accent: '#b0b0b0',
+  green: '#d1d1d1',
+  yellow: '#e3e3e3',
+  red: '#a3a3a3',
   border: '#45475a',
 } as const;
 
@@ -84,7 +84,7 @@ const styles: Record<string, React.CSSProperties> = {
     gap: 6,
     fontSize: 12,
     color: colors.green,
-    background: 'rgba(166,227,161,0.1)',
+    background: 'rgba(209, 209, 209,0.1)',
     padding: '4px 10px',
     borderRadius: 12,
     fontWeight: 500,
@@ -158,7 +158,7 @@ const styles: Record<string, React.CSSProperties> = {
     textAlign: 'center' as const,
   },
   errorBanner: {
-    background: 'rgba(243,139,168,0.1)',
+    background: 'rgba(163, 163, 163,0.1)',
     border: `1px solid ${colors.red}`,
     borderRadius: 8,
     padding: '10px 16px',

@@ -1,9 +1,10 @@
-import { Clock, FileText, LayoutTemplate } from 'lucide-react';
+import { Clock, LayoutTemplate } from 'lucide-react';
+import { NxIcon } from './NxIcon';
 import { useWorkspace } from '../../lib/workspace/store';
 import { TEMPLATES } from '../../lib/workspace/model';
 import { coverCss, greeting } from '../../lib/workspace/notion';
 
-const TEMPLATE_EMOJI: Record<string, string> = { blank: '📄', meeting: '👥', project: '🚀', journal: '📖', focus: '⏱️' };
+const TEMPLATE_ICON: Record<string, string> = { blank: 'i:file', meeting: 'i:users', project: 'i:rocket', journal: 'i:book', focus: 'i:clock' };
 
 export function NxHome({ onPick, templatesOnly = false }: { onPick: (id: string) => void; templatesOnly?: boolean }) {
   const pages = useWorkspace((s) => s.pages);
@@ -26,7 +27,7 @@ export function NxHome({ onPick, templatesOnly = false }: { onPick: (id: string)
             {recent.map((p) => (
               <button key={p.id} type="button" className="nx-card" onClick={() => onPick(p.id)}>
                 <span className="nx-card-cover" style={{ background: coverCss(p.cover) || 'var(--nx-hover)' }} />
-                <span className="nx-card-icon">{p.icon || <FileText size={22} strokeWidth={1.5} />}</span>
+                <span className="nx-card-icon"><NxIcon icon={p.icon} size={22} /></span>
                 <span className="nx-card-title">{p.title || 'Sin título'}</span>
               </button>
             ))}
@@ -46,7 +47,7 @@ export function NxHome({ onPick, templatesOnly = false }: { onPick: (id: string)
           {TEMPLATES.map((t) => (
             <button key={t.key} type="button" className="nx-card" onClick={() => onPick(create({ template: t.key, open: false }).id)}>
               <span className="nx-card-cover" style={{ background: 'var(--nx-hover)' }} />
-              <span className="nx-card-icon">{TEMPLATE_EMOJI[t.key] || '📄'}</span>
+              <span className="nx-card-icon"><NxIcon icon={TEMPLATE_ICON[t.key]} size={22} /></span>
               <span className="nx-card-title">{t.name}</span>
               <span className="nx-card-hint">{t.description}</span>
             </button>

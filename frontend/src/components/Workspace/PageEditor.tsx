@@ -2,6 +2,8 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import {
   Archive,
   Brain,
+  Check,
+  Lightbulb,
   ChevronDown,
   ChevronRight,
   Download,
@@ -40,7 +42,6 @@ import {
 } from '../../lib/workspace/model';
 import {
   ancestors,
-  colorParts,
   editedAgo,
   hasInline,
   insertMention,
@@ -59,6 +60,7 @@ import { MindMapBlock } from './MindMapBlock';
 import { ShareDialog, type ShareTarget } from './ShareDialog';
 import { BookmarkView, EquationView, TocView } from './ExtraBlocks';
 import { HistoryDialog } from './HistoryDialog';
+import { NxIcon } from './NxIcon';
 import { BlockMenu, Comments, FormatBar, MentionMenu, PageHeader, RichText, SlashMenu, slashOrder } from './NxParts';
 
 const TEXTUAL: BlockType[] = ['text', 'h1', 'h2', 'h3', 'todo', 'bullet', 'number', 'quote', 'callout', 'code', 'toggle', 'equation', 'bookmark'];
@@ -598,7 +600,7 @@ export function PageEditor({
       const child = b.pageId ? pages[b.pageId] : undefined;
       return (
         <button type="button" className="nx-subpage" onClick={() => child && open(child.id)}>
-          <span className="nx-subpage-icon">{child?.icon || <FileText size={18} strokeWidth={1.6} />}</span>
+          <span className="nx-subpage-icon"><NxIcon icon={child?.icon} size={18} /></span>
           <span className="nx-subpage-title">{titleOf(b.pageId || '') || b.text || 'Página'}</span>
         </button>
       );
@@ -627,7 +629,7 @@ export function PageEditor({
             <span key={p.id} className="nx-crumb-wrap">
               {i > 0 && <span className="nx-crumb-sep">/</span>}
               <button type="button" className="nx-crumb" onClick={() => open(p.id)}>
-                {p.icon && <span className="nx-crumb-icon">{p.icon}</span>}
+                <span className="nx-crumb-icon"><NxIcon icon={p.icon} size={14} /></span>
                 <span className="truncate">{p.title || 'Sin título'}</span>
               </button>
             </span>
@@ -673,7 +675,7 @@ export function PageEditor({
           title="Favorito"
           onClick={() => update(page.id, (p) => ({ ...p, favorite: !p.favorite }))}
         >
-          <Star size={17} strokeWidth={1.6} fill={page.favorite ? '#f5c000' : 'none'} color={page.favorite ? '#f5c000' : 'currentColor'} />
+          <Star size={17} strokeWidth={1.6} fill={page.favorite ? 'currentColor' : 'none'} />
         </button>
         <span className="relative">
           <button type="button" className="nx-icon" aria-label="Más" onClick={() => setMenu(menu === 'more' ? null : 'more')}>
@@ -777,12 +779,12 @@ export function PageEditor({
           {backlinks.length > 0 && (
             <div className="nx-backlinks">
               <button type="button" className="nx-text-btn nx-muted" onClick={() => setShowRefs(!showRefs)}>
-                ↗ {backlinks.length} {backlinks.length === 1 ? 'referencia' : 'referencias'}
+                {backlinks.length} {backlinks.length === 1 ? 'referencia' : 'referencias'}
               </button>
               {showRefs &&
                 backlinks.map((p) => (
                   <button key={p.id} type="button" className="nx-page-mention" onClick={() => open(p.id)}>
-                    {p.icon || '📄'} {p.title || 'Sin título'}
+                    <NxIcon icon={p.icon} size={14} /> {p.title || 'Sin título'}
                   </button>
                 ))}
             </div>
@@ -796,15 +798,12 @@ export function PageEditor({
               const textual = TEXTUAL.includes(b.type);
               const links = textual ? [...b.text.matchAll(/\[\[([^\]\n]{1,120})\]\]/g)].map((m) => m[1].trim()) : [];
               const [summary, ...rest] = b.type === 'toggle' ? b.text.split('\n') : [b.text];
-              const { text: fg, bg } = colorParts(b.color);
               const commentCount = comments.filter((c) => c.block === b.id && !c.resolved).length;
               return (
                 <div
                   key={b.id}
                   className="ws-block nx-block"
                   data-type={b.type}
-                  data-color={fg || undefined}
-                  data-bg={bg || undefined}
                   data-dragging={dragging === b.id || undefined}
                   data-drop={dropAt?.id === b.id ? (dropAt.after ? 'after' : 'before') : undefined}
                   data-conflict={b.conflict || undefined}
@@ -875,7 +874,6 @@ export function PageEditor({
                           block={b}
                           canShare={!sealed}
                           onTurnInto={(t) => turnInto(b.id, t)}
-                          onColor={(c) => patch(b.id, { color: c || undefined })}
                           onMove={(dir) => move(b.id, dir)}
                           onDuplicate={() => insertAfter(b.id, { ...structuredClone(b), id: newId('b') })}
                           onDelete={() => setBlocks(blocks.length > 1 ? blocks.filter((x) => x.id !== b.id) : [makeBlock('text')])}
@@ -899,7 +897,11 @@ export function PageEditor({
                     )}
                     {b.type === 'bullet' && <span className="ws-marker nx-marker">•</span>}
                     {b.type === 'number' && <span className="ws-marker nx-marker">{numberRun}.</span>}
-                    {b.type === 'callout' && <span className="nx-callout-icon">💡</span>}
+                    {b.type === 'callout' && (
+                      <span className="nx-callout-icon">
+                        <Lightbulb size={18} strokeWidth={1.5} />
+                      </span>
+                    )}
                     {b.type === 'toggle' && (
                       <button type="button" className="ws-marker nx-marker" onClick={() => patch(b.id, { open: !b.open })} aria-label={b.open ? 'Plegar' : 'Desplegar'} aria-expanded={!!b.open}>
                         {b.open ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
@@ -938,7 +940,7 @@ export function PageEditor({
                 <ul className="mt-2 text-[13px]" style={{ color: 'var(--nx-text-2)' }}>
                   {vaulted.map((b) => (
                     <li key={b.id} className="flex items-center gap-2">
-                      ☑ {b.text}
+                      <Check size={13} /> {b.text}
                       <button type="button" className="nx-text-btn" onClick={() => patch(b.id, { archived: false })}>
                         devolver
                       </button>
