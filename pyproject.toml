@@ -59,6 +59,9 @@ dev = [
     # The evolution tests exercise the real vector store and state graph.
     "chromadb>=1.0",
     "langgraph>=0.6",
+    # Connector tests run real MCP servers (OAuth included) built with the
+    # official SDK; Sergio itself does not need it at runtime.
+    "mcp>=2.3",
 ]
 inference-mlx = ["mlx-lm>=0.31.1; sys_platform == 'darwin'"]
 inference-vllm = ["vllm>=0.16.0"]

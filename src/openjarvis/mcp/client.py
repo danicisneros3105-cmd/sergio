@@ -20,8 +20,17 @@ class MCPClient:
         The transport layer to use for communication.
     """
 
-    def __init__(self, transport: MCPTransport) -> None:
+    def __init__(
+        self,
+        transport: MCPTransport,
+        *,
+        protocol_version: str = "2025-03-26",
+        client_info: Dict[str, str] | None = None,
+    ) -> None:
         self._transport = transport
+        self._protocol_version = protocol_version
+        self._client_info = client_info or {"name": "openjarvis", "version": "0.1.0"}
+        self.server_info: Dict[str, Any] = {}
         self._initialized = False
         self._capabilities: Dict[str, Any] = {}
         self._id_counter = itertools.count(1)
@@ -72,13 +81,18 @@ class MCPClient:
         Returns the server capabilities.
         """
         params = {
-            "protocolVersion": "2025-03-26",
+            "protocolVersion": self._protocol_version,
             "capabilities": {},
-            "clientInfo": {"name": "openjarvis", "version": "0.1.0"},
+            "clientInfo": dict(self._client_info),
         }
         response = self._send("initialize", params)
         self._initialized = True
         self._capabilities = response.result.get("capabilities", {})
+        self.server_info = response.result.get("serverInfo", {}) or {}
+        # Streamable HTTP asks for the negotiated version on every request.
+        negotiated = response.result.get("protocolVersion")
+        if negotiated and hasattr(self._transport, "protocol_version"):
+            self._transport.protocol_version = negotiated
         # Send the required initialized notification per MCP spec
         self.notify("notifications/initialized")
         return response.result
@@ -116,6 +130,21 @@ class MCPClient:
             )
             for t in tools
         ]
+
+    def list_tools_raw(self) -> List[Dict[str, Any]]:
+        """Every tool as the server describes it (with ``annotations``),
+        following ``nextCursor`` pages."""
+        tools: List[Dict[str, Any]] = []
+        cursor = None
+        for _ in range(50):
+            response = self._send("tools/list", {"cursor": cursor} if cursor else None)
+            tools.extend(
+                t for t in response.result.get("tools", []) if isinstance(t, dict)
+            )
+            cursor = response.result.get("nextCursor")
+            if not cursor:
+                break
+        return tools
 
     def call_tool(
         self,

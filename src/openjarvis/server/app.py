@@ -596,6 +596,11 @@ def create_app(
     from openjarvis.server.hub_routes import router as hub_router
 
     app.include_router(hub_router)
+    # Connectors like Claude's: remote MCP servers with OAuth, local ones,
+    # per-tool permissions (/v1/mcp; `sergio mcp` is the same from the CLI).
+    from openjarvis.server.mcp_routes import router as mcp_router
+
+    app.include_router(mcp_router)
     # «Actualizar»: the owner's universal update command, from the app.
     from openjarvis.server.update_routes import router as update_router
 

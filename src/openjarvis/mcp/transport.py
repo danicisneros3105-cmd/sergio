@@ -10,7 +10,7 @@ import subprocess
 import threading
 import time
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 
 from openjarvis.mcp.protocol import MCPRequest, MCPResponse
 
@@ -18,6 +18,14 @@ if TYPE_CHECKING:
     from openjarvis.mcp.server import MCPServer
 
 logger = logging.getLogger(__name__)
+
+
+class MCPAuthRequired(RuntimeError):
+    """The server wants a (new) sign-in; ``challenge`` is its WWW-Authenticate."""
+
+    def __init__(self, message: str, challenge: str = "") -> None:
+        super().__init__(message)
+        self.challenge = challenge
 
 
 class MCPTransport(ABC):
@@ -296,12 +304,19 @@ class StreamableHTTPTransport(MCPTransport):
         token: Optional[str] = None,
         connect_timeout: float = 10.0,
         request_timeout: float = 60.0,
+        auth: Optional[Callable[[bool], Optional[str]]] = None,
+        headers: Optional[Dict[str, str]] = None,
     ) -> None:
         import httpx
 
         self._url = url
         self._token = token
+        # ``auth(force_refresh)`` returns the current access token (or a
+        # renewed one after a 401) — how OAuth connectors stay signed in.
+        self._auth = auth
+        self._extra_headers = dict(headers or {})
         self._session_id: Optional[str] = None
+        self.protocol_version: Optional[str] = None
         self._client = httpx.Client(
             timeout=httpx.Timeout(
                 connect=connect_timeout,
@@ -332,10 +347,14 @@ class StreamableHTTPTransport(MCPTransport):
             "Content-Type": "application/json",
             "Accept": "application/json, text/event-stream",
         }
-        if self._token:
-            headers["Authorization"] = f"Bearer {self._token}"
+        headers.update(self._extra_headers)
+        token = self._auth(False) if self._auth is not None else self._token
+        if token:
+            headers["Authorization"] = f"Bearer {token}"
         if self._session_id is not None:
             headers["Mcp-Session-Id"] = self._session_id
+        if self.protocol_version:
+            headers["MCP-Protocol-Version"] = self.protocol_version
         return headers
 
     def _post(self, request: MCPRequest) -> Any:
@@ -349,6 +368,22 @@ class StreamableHTTPTransport(MCPTransport):
                 json=request.to_dict(),
                 headers=headers,
             )
+            if response.status_code == 401 and self._auth is not None:
+                # The token may have just expired: renew it once and retry.
+                if self._auth(True):
+                    response = self._client.post(
+                        self._url, json=request.to_dict(), headers=self._build_headers()
+                    )
+            if response.status_code in (401, 403) and (
+                self._auth is not None or "www-authenticate" in response.headers
+            ):
+                raise MCPAuthRequired(
+                    "El servidor pide iniciar sesión de nuevo.",
+                    response.headers.get("www-authenticate", ""),
+                )
+            if response.status_code == 404 and self._session_id is not None:
+                # The server forgot our session: start a new one next time.
+                self._session_id = None
             response.raise_for_status()
         except httpx.ConnectError as exc:
             raise RuntimeError(
@@ -394,6 +429,31 @@ class StreamableHTTPTransport(MCPTransport):
             )
         return last_data
 
+    @staticmethod
+    def _response_from_sse(text: str, request_id: Any) -> Optional[str]:
+        """The JSON-RPC message answering *request_id* in an SSE body (the
+        stream may also carry notifications and progress before it)."""
+        events: List[str] = []
+        data: List[str] = []
+        for line in text.splitlines() + [""]:
+            if line.startswith("data:"):
+                data.append(line[5:].lstrip())
+            elif not line.strip() and data:
+                events.append("\n".join(data))
+                data = []
+        for payload in events:
+            try:
+                message = json.loads(payload)
+            except ValueError:
+                continue
+            if (
+                isinstance(message, dict)
+                and message.get("id") == request_id
+                and ("result" in message or "error" in message)
+            ):
+                return payload
+        return None
+
     def send(self, request: MCPRequest) -> MCPResponse:
         """Send request via HTTP POST following the MCP Streamable HTTP spec.
 
@@ -404,7 +464,9 @@ class StreamableHTTPTransport(MCPTransport):
         content_type = response.headers.get("content-type", "")
         body = response.text
         if "text/event-stream" in content_type or body.lstrip().startswith("event:"):
-            body = self._extract_json_from_sse(body)
+            body = self._response_from_sse(
+                body, request.id
+            ) or self._extract_json_from_sse(body)
         return MCPResponse.from_json(body)
 
     def send_notification(self, request: MCPRequest) -> None:
@@ -418,12 +480,148 @@ class StreamableHTTPTransport(MCPTransport):
         self._client.close()
 
 
+class LegacySSETransport(MCPTransport):
+    """The HTTP+SSE transport of MCP 2024-11-05 (URLs ending in ``/sse``).
+
+    A GET opens an event stream whose first ``endpoint`` event says where to
+    POST messages; every answer then arrives on that stream.
+    """
+
+    def __init__(
+        self,
+        url: str,
+        *,
+        auth: Optional[Callable[[bool], Optional[str]]] = None,
+        token: Optional[str] = None,
+        request_timeout: float = 60.0,
+    ) -> None:
+        import httpx
+
+        self._url = url
+        self._auth = auth
+        self._token = token
+        self._timeout = request_timeout
+        self._client = httpx.Client(timeout=httpx.Timeout(10.0, read=None))
+        self._endpoint: Optional[str] = None
+        self._ready = threading.Event()
+        self._waiting: Dict[Any, "queue.Queue[str]"] = {}
+        self._lock = threading.Lock()
+        self._closed = False
+        self._error: Optional[BaseException] = None
+        self._thread = threading.Thread(target=self._listen, daemon=True)
+        self._thread.start()
+        if not self._ready.wait(15):
+            self.close()
+            raise self._error or RuntimeError(
+                "El servidor SSE no indicó dónde enviar mensajes."
+            )
+
+    def _headers(self) -> Dict[str, str]:
+        token = self._auth(False) if self._auth is not None else self._token
+        return {"Authorization": f"Bearer {token}"} if token else {}
+
+    def _listen(self) -> None:
+        from urllib.parse import urljoin
+
+        try:
+            with self._client.stream(
+                "GET",
+                self._url,
+                headers={"Accept": "text/event-stream", **self._headers()},
+            ) as response:
+                if response.status_code in (401, 403):
+                    raise MCPAuthRequired(
+                        "El servidor pide iniciar sesión.",
+                        response.headers.get("www-authenticate", ""),
+                    )
+                response.raise_for_status()
+                event, data = "message", []
+                for line in response.iter_lines():
+                    if self._closed:
+                        return
+                    if line.startswith("event:"):
+                        event = line[6:].strip()
+                    elif line.startswith("data:"):
+                        data.append(line[5:].lstrip())
+                    elif not line.strip() and data:
+                        payload = "\n".join(data)
+                        data = []
+                        if event == "endpoint":
+                            self._endpoint = urljoin(self._url, payload)
+                            self._ready.set()
+                        else:
+                            self._deliver(payload)
+                        event = "message"
+        except BaseException as exc:  # noqa: BLE001 - surfaced to callers
+            self._error = exc
+            self._ready.set()
+            with self._lock:
+                for box in self._waiting.values():
+                    box.put("")
+
+    def _deliver(self, payload: str) -> None:
+        try:
+            message = json.loads(payload)
+        except ValueError:
+            return
+        if not isinstance(message, dict):
+            return
+        with self._lock:
+            box = self._waiting.get(message.get("id"))
+        if box is not None:
+            box.put(payload)
+
+    def _post(self, request: MCPRequest) -> None:
+        if self._error is not None or not self._endpoint:
+            raise self._error or RuntimeError("Sin conexión con el servidor SSE.")
+        response = self._client.post(
+            self._endpoint,
+            json=request.to_dict(),
+            headers={"Content-Type": "application/json", **self._headers()},
+            timeout=self._timeout,
+        )
+        if response.status_code in (401, 403):
+            raise MCPAuthRequired(
+                "El servidor pide iniciar sesión.",
+                response.headers.get("www-authenticate", ""),
+            )
+        response.raise_for_status()
+
+    def send(self, request: MCPRequest) -> MCPResponse:
+        box: "queue.Queue[str]" = queue.Queue()
+        with self._lock:
+            self._waiting[request.id] = box
+        try:
+            self._post(request)
+            payload = box.get(timeout=self._timeout)
+        except queue.Empty as exc:
+            raise RuntimeError("El servidor SSE no respondió a tiempo.") from exc
+        finally:
+            with self._lock:
+                self._waiting.pop(request.id, None)
+        if not payload:
+            raise self._error or RuntimeError("Se cerró la conexión SSE.")
+        return MCPResponse.from_json(payload)
+
+    def send_notification(self, request: MCPRequest) -> None:
+        self._post(request)
+
+    def close(self) -> None:
+        self._closed = True
+        try:
+            self._client.close()
+        except Exception:  # noqa: BLE001 - closing is best effort
+            pass
+
+
 # Backward-compatible alias
 SSETransport = StreamableHTTPTransport
 
 
 __all__ = [
     "InProcessTransport",
+    "LegacySSETransport",
+    "MCPAuthRequired",
     "MCPTransport",
     "SSETransport",
     "StdioTransport",

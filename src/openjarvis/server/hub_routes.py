@@ -146,4 +146,82 @@ async def uninstall(name: str) -> Dict[str, Any]:
     return {"name": name, "installed": False}
 
 
+# -- plugins in Claude's format, from Claude's marketplaces -------------------
+def _claude() -> Any:
+    from openjarvis.plugins.claude_format import ClaudePlugins
+
+    return ClaudePlugins()
+
+
+def _claude_call(fn: Any, *args: Any) -> Any:
+    from openjarvis.plugins.claude_format import ClaudePluginError
+
+    try:
+        return fn(*args)
+    except ClaudePluginError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from None
+
+
+@router.get("/marketplaces")
+async def marketplaces() -> Dict[str, Any]:
+    plugins_ = _claude()
+    if not plugins_.marketplaces():
+        # The first time, the two official marketplaces (as Claude ships them).
+        await asyncio.to_thread(plugins_.ensure_defaults)
+    return {"marketplaces": plugins_.marketplaces()}
+
+
+class MarketSource(BaseModel):
+    source: str
+
+
+@router.post("/marketplaces")
+async def add_marketplace(body: MarketSource) -> Dict[str, Any]:
+    return await asyncio.to_thread(_claude_call, _claude().add_marketplace, body.source)
+
+
+@router.post("/marketplaces/{name}/update")
+async def update_marketplace(name: str) -> Dict[str, Any]:
+    return await asyncio.to_thread(_claude_call, _claude().update_marketplace, name)
+
+
+@router.delete("/marketplaces/{name}")
+async def remove_marketplace(name: str) -> Dict[str, Any]:
+    await asyncio.to_thread(_claude().remove_marketplace, name)
+    return {"ok": True}
+
+
+@router.get("/claude-plugins")
+async def claude_plugins(q: str = "", marketplace: str = "") -> Dict[str, Any]:
+    plugins_ = _claude()
+    return {
+        "available": await asyncio.to_thread(plugins_.available, q, marketplace),
+        "installed": plugins_.installed(),
+    }
+
+
+class PluginId(BaseModel):
+    id: str
+
+
+@router.post("/claude-plugins/install")
+async def install_claude_plugin(body: PluginId) -> Dict[str, Any]:
+    return {"plugin": await asyncio.to_thread(_claude_call, _claude().install, body.id)}
+
+
+@router.post("/claude-plugins/enabled")
+async def toggle_claude_plugin(body: PluginId, enabled: bool = True) -> Dict[str, Any]:
+    return {
+        "plugin": await asyncio.to_thread(
+            _claude_call, _claude().set_enabled, body.id, enabled
+        )
+    }
+
+
+@router.post("/claude-plugins/remove")
+async def remove_claude_plugin(body: PluginId) -> Dict[str, Any]:
+    await asyncio.to_thread(_claude_call, _claude().remove, body.id)
+    return {"ok": True}
+
+
 __all__ = ["router", "plugins", "skills"]

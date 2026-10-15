@@ -1,15 +1,15 @@
 // Extensiones: everything Sergio can add to itself, in one minimal list.
-// Programas · Plugins · Skills · Conectores.
+// Programas · Plugins · Skills · Conectores (the last two laid out like Claude's).
 
 import { useCallback, useEffect, useState } from 'react';
-import { NavLink, useNavigate, useParams } from 'react-router';
+import { NavLink, useParams } from 'react-router';
 import { AppWindow, BookOpen, Check, Loader2, Plug, Puzzle, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { usePrograms } from '../components/Creator/Programs';
 import { installProgram, openProgram, programState, type Program } from '../lib/creatorPrograms';
 import { fetchHub, installPlugin, learnSkill, prettyName, removePlugin, setPluginEnabled, type HubPlugin, type HubSkill } from '../lib/hub';
-import { listConnectors } from '../lib/connectors-api';
-import type { ConnectorInfo } from '../types/connectors';
+import { ConnectorsPanel } from '../components/Extensions/ConnectorsPanel';
+import { PluginsPanel } from '../components/Extensions/PluginsPanel';
 
 const TABS = [
   { id: 'programas', label: 'Programas', icon: AppWindow },
@@ -223,33 +223,6 @@ function Skills({ skills, reload }: { skills: HubSkill[]; reload: () => void }) 
   );
 }
 
-function Connectors() {
-  const [list, setList] = useState<ConnectorInfo[] | null>(null);
-  const navigate = useNavigate();
-  useEffect(() => {
-    listConnectors().then(setList, () => setList([]));
-  }, []);
-  if (!list) return <Loader2 className="ext-spin" size={18} />;
-  return (
-    <ul className="ext-list">
-      {[...list]
-        .sort((a, b) => Number(b.connected) - Number(a.connected) || a.display_name.localeCompare(b.display_name, 'es'))
-        .map((c) => (
-          <Row key={c.connector_id} name={c.display_name} on={c.connected}>
-            <button
-              type="button"
-              className="ext-btn"
-              data-primary={!c.connected || undefined}
-              onClick={() => navigate(`/data-sources?connect=${encodeURIComponent(c.connector_id)}`)}
-            >
-              {c.connected ? 'Ajustes' : 'Conectar'}
-            </button>
-          </Row>
-        ))}
-    </ul>
-  );
-}
-
 export function ExtensionsPage() {
   const { tab } = useParams();
   const current: Tab = (TABS.find((t) => t.id === tab)?.id ?? 'programas') as Tab;
@@ -273,9 +246,20 @@ export function ExtensionsPage() {
         ))}
       </nav>
       {current === 'programas' && <Programs />}
-      {current === 'plugins' && <Plugins plugins={hub.plugins} reload={reload} />}
+      {current === 'plugins' && (
+        <PluginsPanel
+          legacy={
+            hub.plugins.length > 0 ? (
+              <section className="cx-section">
+                <h3 className="cx-legacy">Plugins de Sergio</h3>
+                <Plugins plugins={hub.plugins} reload={reload} />
+              </section>
+            ) : null
+          }
+        />
+      )}
       {current === 'skills' && <Skills skills={hub.skills} reload={reload} />}
-      {current === 'conectores' && <Connectors />}
+      {current === 'conectores' && <ConnectorsPanel />}
     </div>
   );
 }

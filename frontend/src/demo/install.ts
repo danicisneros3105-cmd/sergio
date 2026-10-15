@@ -7,6 +7,7 @@
 
 import fixtures from './fixtures.json';
 import { handleCowork } from './cowork';
+import { handleExtensions } from './extensions';
 
 type Json = Record<string, unknown>;
 type Fixture = { status: number; json?: unknown; text?: string; ct?: string; sse?: boolean };
@@ -192,6 +193,8 @@ async function handle(method: string, url: URL, init?: RequestInit): Promise<Res
   if (method === 'POST' && path === '/v1/speech/synthesize') return speak(String(body.text || ''));
   if (method === 'POST' && path === '/v1/chat/completions') return chatStream(body);
 
+  const extension = handleExtensions(method, path, url, body);
+  if (extension) return extension;
   const cowork = handleCowork(method, path, body, async (prompt) => {
     if (!(await getSampler())) throw new Error('no assistant here');
     return answer([{ role: 'user', content: prompt }], () => {});

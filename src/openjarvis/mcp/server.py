@@ -217,6 +217,8 @@ class MCPServer:
         """Dispatch an MCP request and return a response."""
         if request.method == "initialize":
             return self._handle_initialize(request)
+        elif request.method == "ping":
+            return MCPResponse(result={}, id=request.id)
         elif request.method == "tools/list":
             return self._handle_tools_list(request)
         elif request.method == "tools/call":
@@ -228,11 +230,18 @@ class MCPServer:
                 f"Unknown method: {request.method}",
             )
 
+    SUPPORTED_VERSIONS = ("2024-11-05", "2025-03-26", "2025-06-18", "2025-11-25")
+
+    def _negotiate(self, req: MCPRequest) -> str:
+        """The client's version when we speak it, else our newest (spec rule)."""
+        asked = (req.params or {}).get("protocolVersion")
+        return asked if asked in self.SUPPORTED_VERSIONS else self.PROTOCOL_VERSION
+
     def _handle_initialize(self, req: MCPRequest) -> MCPResponse:
         """Handle the initialize handshake."""
         return MCPResponse(
             result={
-                "protocolVersion": self.PROTOCOL_VERSION,
+                "protocolVersion": self._negotiate(req),
                 "capabilities": {
                     "tools": {"listChanged": True},
                 },

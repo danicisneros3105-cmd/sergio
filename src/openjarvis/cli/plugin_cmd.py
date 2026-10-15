@@ -10,6 +10,13 @@
     sergio plugin crear mi-plugin       # a ready-to-edit skeleton
     sergio plugin empaquetar mi-plugin  # → mi-plugin-0.1.0.zip + sha256
 
+Plugins in Claude's format, from Claude's marketplaces (same commands as Claude):
+
+    sergio plugin marketplace add anthropics/knowledge-work-plugins
+    sergio plugin marketplace list
+    sergio plugin explorar diseño        # browse the marketplaces
+    sergio plugin instalar design@knowledge-work-plugins
+
 English names work too: search, install, uninstall, info, list, create, pack,
 enable, disable. Before installing, Sergio shows what the plugin may do
 (its permissions) and asks.
@@ -121,7 +128,11 @@ def buscar(consulta: tuple[str, ...]) -> None:
 )
 @click.option("--sha256", "sha", default="", help="Huella esperada del archivo.")
 def instalar(plugin_spec: str, yes: bool, force: bool, sha: str) -> None:
-    """Instala un plugin por nombre, desde un .zip o desde una URL https."""
+    """Instala un plugin por nombre, desde un .zip, una URL https o
+    «nombre@marketplace» (formato de Claude)."""
+    if "@" in plugin_spec and not plugin_spec.startswith("https://"):
+        _claude_install(plugin_spec)
+        return
     from openjarvis.plugins import index
     from openjarvis.plugins.loader import load_enabled
     from openjarvis.plugins.package import PackageError, read_manifest
@@ -193,6 +204,15 @@ def instalar(plugin_spec: str, yes: bool, force: bool, sha: str) -> None:
 @click.argument("nombre")
 def desinstalar(nombre: str) -> None:
     """Quita un plugin y sus archivos."""
+    if "@" in nombre:
+        from openjarvis.plugins.claude_format import ClaudePluginError, ClaudePlugins
+
+        try:
+            ClaudePlugins().remove(nombre)
+        except ClaudePluginError as exc:
+            _fail(exc)
+        console.print(f"«{nombre}» desinstalado.")
+        return
     from openjarvis.plugins.loader import forget
     from openjarvis.plugins.store import PluginError
 
@@ -250,9 +270,18 @@ def info(nombre: str) -> None:
 @plugin.command("lista")
 def lista() -> None:
     """Los plugins instalados."""
+    from openjarvis.plugins.claude_format import ClaudePlugins
+
     installed = _store().installed()
-    if not installed:
-        console.print("No hay plugins instalados. Busque con: sergio plugin buscar")
+    claude = ClaudePlugins().installed()
+    for info in claude:
+        on = "activo" if info.get("enabled") else "desactivado"
+        console.print(
+            f"{info['id']} {info.get('version', '')}  ·  {on}  ·  "
+            f"{len(info.get('skills') or [])} skills, {len(info.get('connectors') or [])} conectores"
+        )
+    if not installed and not claude:
+        console.print("No hay plugins instalados. Explore con: sergio plugin explorar")
         return
     for name, state in sorted(installed.items()):
         on = "activo" if state.get("enabled", True) else "desactivado"
@@ -263,6 +292,16 @@ def lista() -> None:
 def _toggle(nombre: str, enabled: bool) -> None:
     from openjarvis.plugins.loader import forget
     from openjarvis.plugins.store import PluginError
+
+    if "@" in nombre:
+        from openjarvis.plugins.claude_format import ClaudePluginError, ClaudePlugins
+
+        try:
+            ClaudePlugins().set_enabled(nombre, enabled)
+        except ClaudePluginError as exc:
+            _fail(exc)
+        console.print(f"«{nombre}» {'activado' if enabled else 'desactivado'}.")
+        return
 
     try:
         _store().set_enabled(nombre, enabled)
@@ -340,6 +379,115 @@ def empaquetar(carpeta: str, salida: Optional[str]) -> None:
     )
 
 
+def _claude_install(spec: str) -> None:
+    from openjarvis.plugins.claude_format import ClaudePluginError, ClaudePlugins
+
+    plugins = ClaudePlugins()
+    try:
+        if not plugins.marketplaces():
+            plugins.ensure_defaults()
+        info = plugins.install(spec)
+    except ClaudePluginError as exc:
+        _fail(exc)
+        return
+    console.print(f"«{info['display_name']}» instalado ({info['id']}).")
+    if info.get("skills"):
+        console.print(f"  Skills: {', '.join(info['skills'])}")
+    if info.get("connectors"):
+        console.print(
+            f"  Conectores añadidos: {', '.join(info['connectors'])} — conéctelos con: sergio mcp conectar <nombre>"
+        )
+    if info.get("hooks"):
+        console.print("  Trae hooks de Claude: Sergio no los ejecuta.")
+
+
+@plugin.command("explorar")
+@click.argument("consulta", nargs=-1)
+@click.option("--marketplace", "-m", default="", help="Solo este marketplace.")
+def explorar(consulta: tuple[str, ...], marketplace: str) -> None:
+    """Los plugins de sus marketplaces (formato de Claude)."""
+    from openjarvis.plugins.claude_format import ClaudePlugins
+
+    plugins = ClaudePlugins()
+    if not plugins.marketplaces():
+        console.print("Añadiendo los marketplaces oficiales…")
+        plugins.ensure_defaults()
+    found = plugins.available(" ".join(consulta), marketplace)
+    if not found:
+        console.print("Nada encontrado.")
+        return
+    table = Table(show_header=True, header_style="bold")
+    table.add_column("Plugin")
+    table.add_column("Qué hace", overflow="fold")
+    table.add_column("")
+    for item in found[:200]:
+        table.add_row(
+            item["id"],
+            item["description"][:110],
+            "instalado" if item["installed"] else "",
+        )
+    console.print(table)
+
+
+@plugin.group("marketplace")
+def marketplace() -> None:
+    """Marketplaces de plugins (repositorios con .claude-plugin/marketplace.json)."""
+
+
+@marketplace.command("add")
+@click.argument("origen")
+def marketplace_add(origen: str) -> None:
+    """Añade un marketplace: «propietario/repo», URL git o carpeta."""
+    from openjarvis.plugins.claude_format import ClaudePluginError, ClaudePlugins
+
+    try:
+        out = ClaudePlugins().add_marketplace(origen)
+    except ClaudePluginError as exc:
+        _fail(exc)
+        return
+    console.print(f"Marketplace «{out['name']}» añadido: {out['plugins']} plugins.")
+
+
+@marketplace.command("list")
+def marketplace_list() -> None:
+    """Los marketplaces añadidos."""
+    from openjarvis.plugins.claude_format import ClaudePlugins
+
+    found = ClaudePlugins().marketplaces()
+    if not found:
+        console.print(
+            "Ninguno. Añada uno con: sergio plugin marketplace add anthropics/knowledge-work-plugins"
+        )
+    for item in found:
+        console.print(
+            f"{item['name']}  ·  {item['plugins']} plugins  ·  {item['source']}"
+        )
+
+
+@marketplace.command("update")
+@click.argument("nombre")
+def marketplace_update(nombre: str) -> None:
+    """Trae la última versión de un marketplace."""
+    from openjarvis.plugins.claude_format import ClaudePluginError, ClaudePlugins
+
+    try:
+        out = ClaudePlugins().update_marketplace(nombre)
+    except ClaudePluginError as exc:
+        _fail(exc)
+        return
+    console.print(f"«{out['name']}» al día: {out['plugins']} plugins.")
+
+
+@marketplace.command("remove")
+@click.argument("nombre")
+def marketplace_remove(nombre: str) -> None:
+    """Quita un marketplace (los plugins instalados se quedan)."""
+    from openjarvis.plugins.claude_format import ClaudePlugins
+
+    ClaudePlugins().remove_marketplace(nombre)
+    console.print(f"«{nombre}» quitado.")
+
+
 # English names for the same commands.
 for _en, _cmd in (
     ("search", buscar),
@@ -350,6 +498,7 @@ for _en, _cmd in (
     ("disable", desactivar),
     ("create", crear),
     ("pack", empaquetar),
+    ("browse", explorar),
 ):
     plugin.add_command(_cmd, _en)
 

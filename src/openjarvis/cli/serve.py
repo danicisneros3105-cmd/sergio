@@ -371,6 +371,14 @@ def serve(
                                 tools.append(t)
                                 existing.add(t.spec.name)
 
+                    # The owner's connectors (Gmail, Notion, Higgsfield…).
+                    try:
+                        from openjarvis.mcp.hub import connector_tools
+
+                        tools.extend(connector_tools({t.spec.name for t in tools}))
+                    except Exception as exc:  # noqa: BLE001
+                        logger.warning("Connectors not loaded: %s", exc)
+
                     if tools:
                         agent_kwargs["tools"] = tools
                     # Reuse these for the scheduler's ToolExecutor (#263).

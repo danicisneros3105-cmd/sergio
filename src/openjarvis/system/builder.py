@@ -532,6 +532,16 @@ class SystemBuilder:
             except (OSError, UnicodeError, ValueError, TypeError) as exc:
                 logger.warning("Failed to parse MCP server config: %s", exc)
 
+        # The owner's connectors (Extensiones › Conectores, `sergio mcp`). An
+        # explicit tool allowlist keeps them out unless it names «conectores».
+        if config.tools.mcp.enabled and (not tool_names or "conectores" in tool_names):
+            try:
+                from openjarvis.mcp.hub import connector_tools
+
+                tools.extend(connector_tools({t.spec.name for t in tools}))
+            except Exception as exc:  # noqa: BLE001 - connectors never block startup
+                logger.warning("Connectors not loaded: %s", exc)
+
         return tools
 
     @staticmethod
