@@ -465,6 +465,11 @@ def test_the_shared_screen_is_watched_at_a_legible_resolution(monkeypatch):
     assert "video continuo" in gemini_live.INSTRUCTIONS
 
 
+def test_live_video_is_accepted_at_30_frames_a_second():
+    assert gemini_live.LIVE_FPS == 30.0
+    assert gemini_live.FRAME_GAP < 1 / 30
+
+
 def test_notes_reach_the_model_without_ending_a_turn():
     """«Ahora habla Ana»: context for the model, not a question to answer."""
 

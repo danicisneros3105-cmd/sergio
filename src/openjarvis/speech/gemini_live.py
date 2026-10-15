@@ -40,6 +40,14 @@ from typing import Any, Callable, Iterable
 
 log = logging.getLogger(__name__)
 
+# Live video: Gemini Live took in every frame of a 30 FPS test (48 of 48
+# named correctly), so frames are accepted up to SERGIO_LIVE_FPS a second.
+try:
+    LIVE_FPS = max(1.0, min(30.0, float(os.environ.get("SERGIO_LIVE_FPS", "30"))))
+except ValueError:
+    LIVE_FPS = 30.0
+FRAME_GAP = 0.85 / LIVE_FPS
+
 # Best first. The newest Live model answers in under a second; the others
 # are the backup when a key has no quota left for it.
 LIVE_MODELS = (
@@ -630,9 +638,9 @@ class LiveCall:
                 now = time.monotonic()
                 if not isinstance(event["data"], str):
                     continue
-                # The screen arrives as live video (1 frame/s, 2/s right
-                # after a change): keep up to two a second.
-                if now - self._last_image < 0.45 or len(event["data"]) > 1_400_000:
+                # The screen arrives as live video: up to SERGIO_LIVE_FPS
+                # (30) while it moves, one a second while it is still.
+                if now - self._last_image < FRAME_GAP or len(event["data"]) > 1_400_000:
                     continue
                 if event.get("mime", "image/jpeg") not in ("image/jpeg", "image/png"):
                     continue

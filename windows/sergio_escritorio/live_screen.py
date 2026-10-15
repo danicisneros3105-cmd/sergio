@@ -4,7 +4,7 @@ Before, every look took a fresh screenshot (new capture context, resize, PNG)
 and read the accessibility tree on the spot: 150–600 ms before Sergio could
 even start thinking, and actions were checked with fixed waits.
 
-Now one background thread watches the screen continuously (15 frames a
+Now one background thread watches the screen continuously (30 frames a
 second while something moves, 4 when it is still) with a persistent capture
 context, and keeps:
 
@@ -30,7 +30,7 @@ from typing import Any, Callable, Iterator, Optional
 
 SIG_W, SIG_H = 64, 36  # the tiny grey picture changes are measured on
 CHANGE = 6  # mean grey difference of a cell that counts as a change
-FAST_FPS = 15.0
+FAST_FPS = 30.0  # the live video to Gemini runs at up to 30 FPS
 IDLE_FPS = 4.0
 IDLE_AFTER = 3.0  # seconds without changes before slowing down
 

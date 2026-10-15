@@ -465,3 +465,33 @@ def test_shared_screen_is_a_live_video_he_is_told_about_once():
         assert len(notes) == 1
     finally:
         call.hang_up()
+
+
+def test_a_moving_screen_goes_out_at_up_to_30_frames_a_second():
+    from sergio_escritorio import call as call_mod
+
+    line = FakeLine([json.dumps({"type": "ready", "model": "m"})])
+    call = _call(line, video=lambda: (b"jpeg!", "pantalla"))
+    call.share_screen = True
+    call.video_fresh = lambda: True  # it keeps moving
+    assert call_mod.VIDEO_FPS == 30.0
+    assert call.start()
+    try:
+        time.sleep(1.0)
+        images = sum(m.get("type") == "image" for m in line.json_sent())
+        assert images >= 15  # far beyond the old 1–2 a second
+    finally:
+        call.hang_up()
+
+
+def test_a_still_screen_sends_one_sharp_frame_a_second():
+    line = FakeLine([json.dumps({"type": "ready", "model": "m"})])
+    call = _call(line, video=lambda: (b"jpeg!", "pantalla"))
+    call.share_screen = True
+    assert call.start()
+    try:
+        time.sleep(1.5)
+        images = sum(m.get("type") == "image" for m in line.json_sent())
+        assert 1 <= images <= 2
+    finally:
+        call.hang_up()

@@ -2919,7 +2919,12 @@ def run(config: dict[str, Any]) -> None:
         from sergio_escritorio.live_screen import with_cursor
 
         frame = live.latest()
+        # While it moves (up to 30 FPS) each frame is light; once still, the
+        # frame that stays is sharp, so small text can be read.
+        moving = time.monotonic() - sent_frame[1] < 0.3
         sent_frame[0], sent_frame[1] = frame.id, time.monotonic()
+        if moving:
+            return with_cursor(frame, cursor_now(), 1024, 62), "pantalla"
         return with_cursor(frame, cursor_now(), 1280, 80), "pantalla"
 
     def call_video() -> tuple[bytes, str] | None:

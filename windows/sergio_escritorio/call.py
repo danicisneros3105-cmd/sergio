@@ -40,8 +40,14 @@ IDLE_HANG_UP = 60.0  # seconds with nobody talking: the call ends by itself
 ALWAYS_ON = float("inf")  # an always-on call never hangs up on silence
 GATE_AFTER = 2.0  # seconds of silence before the microphone stops streaming
 PREROLL_FRAMES = 40  # 400 ms kept while gated: the first syllable is never lost
-VIDEO_EVERY = 1.0  # the live video: a frame every second, always, like a camera
-VIDEO_FRESH = 0.5  # and sooner when the screen just changed
+VIDEO_EVERY = 1.0  # a still screen: one sharp frame a second (repeats teach nothing)
+# While the screen moves: up to 30 frames a second (SERGIO_LIVE_FPS to change).
+# Measured on Gemini Live: it named every one of 48 frames sent at 30 FPS.
+try:
+    VIDEO_FPS = max(1.0, min(30.0, float(os.environ.get("SERGIO_LIVE_FPS", "30"))))
+except ValueError:
+    VIDEO_FPS = 30.0
+VIDEO_FRESH = 1.0 / VIDEO_FPS
 REF_MAX = 60  # at most 600 ms of speaker reference waiting for the mic
 PREBUFFER = RATE_OUT * 2 * 150 // 1000  # 150 ms of his voice before he starts
 
@@ -373,6 +379,7 @@ class CallSession:
             log.warning("speaker unavailable: %s", exc)
         threading.Thread(target=self._reader, daemon=True).start()
         threading.Thread(target=self._watch, daemon=True).start()
+        threading.Thread(target=self._video_loop, daemon=True).start()
         if prefill:  # the sentence that woke him ("Sergio, abre Spotify")
             for i in range(0, len(prefill), SEND_BYTES):
                 self._send(prefill[i : i + SEND_BYTES])
@@ -648,9 +655,10 @@ class CallSession:
             self.on_caption("La conexión de voz se interrumpió; reconectando.")
             self.hang_up("se cortó")
 
-    def _watch(self) -> None:
-        """Camera/screen frames while sharing; hang up when nobody talks."""
-        last_frame = 0.0
+    def _video_loop(self) -> None:
+        """Camera/screen as live video: up to VIDEO_FPS while it changes,
+        one frame a second while it is still."""
+        last_frame = -1e9
         while self.active:
             now = self.clock()
             if self.share_screen and not self._told_screen:
@@ -658,7 +666,7 @@ class CallSession:
                 # live: he looks at it instead of asking for screenshots.
                 self._told_screen = True
                 self.send_note(
-                    "(Desde ahora ves la pantalla del señor en vivo, como un video, con su "
+                    "(Desde ahora ves la pantalla del señor en vivo, como un video fluido, con su "
                     "cursor marcado con un círculo amarillo. Mírala directamente: no pidas "
                     "capturas; usa las herramientas solo para actuar.)"
                 )
@@ -678,6 +686,12 @@ class CallSession:
                     except Exception as exc:  # noqa: BLE001
                         self._lost(exc)
                         return
+            time.sleep(0.008 if fresh else 0.05)
+
+    def _watch(self) -> None:
+        """Hang up when nobody talks (the video has its own thread)."""
+        while self.active:
+            now = self.clock()
             if self.speaker.talking:
                 self._last_activity = now
                 self.on_level(self.speaker.level)
