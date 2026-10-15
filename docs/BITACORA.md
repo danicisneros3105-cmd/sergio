@@ -2,6 +2,40 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-10-15 · Claude · Gemini a 30 FPS y Workspace como Notion
+- 30 FPS (petición del dueño). Probé Gemini Live real: con 30 cuadros por
+  segundo de números al azar nombró sin error los 48 primeros (Google
+  documenta 1 FPS; el modelo actual ve mucho más). La llamada ahora manda
+  hasta 30 FPS mientras la pantalla se mueve (cuadros ligeros 1024 px) y uno
+  nítido por segundo cuando está quieta (repetir cuadros iguales solo gasta
+  cuota). `SERGIO_LIVE_FPS` lo cambia (1–30). El video va en su propio hilo
+  (`call._video_loop`); el ojo en vivo captura a 30 FPS. Cuidado: a 30 FPS
+  se gastan ~7.700 tókenes por segundo mientras algo se mueve; la clave de
+  pruebas se quedó sin cuota en la tercera prueba. La ventana deslizante de
+  contexto ya estaba activada, así que la sesión no se corta.
+- Workspace idéntico a Notion (petición del dueño; para esta sección manda
+  sobre la regla «diseño ChatGPT» y la letra B&O de los títulos: aquí la
+  letra es la del sistema, como en Notion): barra lateral propia (buscar,
+  inicio, bandeja, calendario, favoritos, árbol privado con subpáginas,
+  plantillas, grafo, recortar, permisos, exportar, diseño, baúl), barra
+  superior con ruta, «Editado hace…», Compartir, comentarios, Sergio,
+  favorito y «•••» (letra predeterminada/serif/mono, texto pequeño, ancho
+  completo, bloquear, cifrar, buscar/reemplazar, historial, exportar,
+  recuento de palabras). Portadas e iconos, comentarios (por página y por
+  bloque), menú «/» por grupos con iconos, menú del bloque con búsqueda,
+  colores de texto y fondo, arrastrar bloques, barra de formato al
+  seleccionar (negrita, cursiva, subrayado, tachado, código, enlace),
+  menciones «@», texto con formato al no editar, bases de datos con
+  etiquetas de color, iconos por tipo de columna y botón azul «Nuevo»;
+  modo oscuro con la paleta de Notion. Todas las funciones de antes siguen
+  (están en la barra lateral o en «•••»). Piezas: `lib/workspace/notion.ts`
+  (puro, con tests), `NxSidebar`, `NxHome`, `NxParts`, `notion.css`.
+- Servidor: al fusionar ediciones simultáneas ahora se conservan los
+  comentarios de los dos lados.
+- Demo (`npm run build:demo`): trae páginas de ejemplo en el Workspace.
+- Pendiente: probarlo en su PC real; la app de escritorio no se puede
+  ejecutar aquí (sin Windows).
+
 ## 2026-10-14 · Claude · Demo interactivo de toda la web
 - El dueño está en su iPad sin el PC: pidió probar *toda* la app. Nuevo modo
   demo: `npm run build:demo` (en `frontend/`) compila la web real a

@@ -1,38 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
-import {
-  Archive,
-  Columns2,
-  Download,
-  FileText,
-  ListTree,
-  Network,
-  Plus,
-  Search,
-  SlidersHorizontal,
-  Star,
-  X,
-  Users,
-  KanbanSquare,
-  BookOpen,
-  Timer,
-  CalendarDays,
-  Inbox,
-  ShieldCheck,
-  Scissors,
-} from 'lucide-react';
+import { Columns2, Menu, X } from 'lucide-react';
 import { HubPanels, type HubPanel } from '../components/Workspace/HubPanels';
-import { PaperHead } from '../components/Paper/PaperPage';
+import { NxSidebar, type SidebarAction } from '../components/Workspace/NxSidebar';
+import { NxHome } from '../components/Workspace/NxHome';
+import '../components/Workspace/notion.css';
 import { PageEditor } from '../components/Workspace/PageEditor';
 import { Graph3D } from '../components/Workspace/Graph3D';
 import { useWorkspace } from '../lib/workspace/store';
-import { TEMPLATES, previewLines, type Page } from '../lib/workspace/model';
 import { apiFetch } from '../lib/api';
 import { relativeDay } from '../lib/paper';
 
-const TEMPLATE_ICONS: Record<string, typeof FileText> = { file: FileText, users: Users, kanban: KanbanSquare, book: BookOpen, timer: Timer };
-
-function SyncNote() {
+export function SyncNote() {
   const sync = useWorkspace((s) => s.sync);
   const dirty = useWorkspace((s) => s.dirty.length);
   const text =
@@ -52,65 +31,11 @@ function SyncNote() {
   );
 }
 
-function Tree({ onPick, onClose }: { onPick: (id: string) => void; onClose: () => void }) {
-  const pages = useWorkspace((s) => s.pages);
-  const create = useWorkspace((s) => s.create);
-  const [q, setQ] = useState('');
-  const all = Object.values(pages);
-  const match = (p: Page) => !q || `${p.title} ${previewLines(p, 20).join(' ')}`.toLowerCase().includes(q.toLowerCase());
-  const children = (parent: string | null) =>
-    all.filter((p) => p.parent === parent && (parent !== null || !p.parent || !pages[p.parent])).sort((a, b) => a.title.localeCompare(b.title, 'es'));
-  const render = (parent: string | null, depth: number): React.ReactNode =>
-    children(parent).map((p) => (
-      <div key={p.id}>
-        {match(p) && (
-          <button type="button" className="mac-row" style={{ paddingLeft: 10 + depth * 14 }} onClick={() => onPick(p.id)}>
-            {p.favorite ? <Star size={12} fill="currentColor" /> : <FileText size={13} strokeWidth={1.5} />}
-            <span className="truncate">{p.title || 'Sin título'}</span>
-          </button>
-        )}
-        {render(p.id, depth + 1)}
-      </div>
-    ));
-  return (
-    <aside className="ws-drawer" aria-label="Páginas">
-      <div className="flex items-center gap-2 mb-3">
-        <span className="paper-label flex-1">Páginas</span>
-        <button type="button" className="mac-icon-btn" aria-label="Nueva página" onClick={() => onPick(create({ open: false }).id)}>
-          <Plus size={15} />
-        </button>
-        <button type="button" className="mac-icon-btn" aria-label="Cerrar" onClick={onClose}>
-          <X size={15} />
-        </button>
-      </div>
-      <label className="mac-field text-[13px] mb-3">
-        <Search size={13} />
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar en páginas" className="flex-1 bg-transparent outline-none" aria-label="Buscar en páginas" />
-      </label>
-      {all.filter((p) => p.favorite).length > 0 && !q && (
-        <>
-          <div className="paper-label mb-1">Favoritas</div>
-          {all
-            .filter((p) => p.favorite)
-            .map((p) => (
-              <button key={p.id} type="button" className="mac-row" onClick={() => onPick(p.id)}>
-                <Star size={12} fill="currentColor" />
-                <span className="truncate">{p.title || 'Sin título'}</span>
-              </button>
-            ))}
-          <div className="paper-label mt-3 mb-1">Todas</div>
-        </>
-      )}
-      <nav>{render(null, 0)}</nav>
-    </aside>
-  );
-}
-
 function LayoutPanel({ onClose }: { onClose: () => void }) {
   const layout = useWorkspace((s) => s.layout);
   const setLayout = useWorkspace((s) => s.setLayout);
   return (
-    <div className="ws-pop" style={{ right: 0, top: 40, width: 260 }} role="dialog" aria-label="Diseño">
+    <div role="dialog" aria-label="Diseño">
       <div className="paper-label mb-2">Diseño de las páginas</div>
       <label className="ws-setting">
         Densidad
@@ -194,31 +119,6 @@ function Vault({ onClose }: { onClose: () => void }) {
   );
 }
 
-function Start() {
-  const create = useWorkspace((s) => s.create);
-  return (
-    <div className="ws-start">
-
-      <div className="paper-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))' }}>
-        {TEMPLATES.map((t) => {
-          const Icon = TEMPLATE_ICONS[t.icon] || FileText;
-          return (
-            <button key={t.key} type="button" className="paper-card" onClick={() => create({ template: t.key })}>
-              <span className="paper-thumb">
-                <Icon size={28} strokeWidth={1.1} />
-              </span>
-              <span>
-                <span className="paper-name block">{t.name}</span>
-              </span>
-            </button>
-          );
-        })}
-      </div>
-
-    </div>
-  );
-}
-
 export function WorkspacePage() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -229,16 +129,33 @@ export function WorkspacePage() {
   const active = useWorkspace((s) => s.active);
   const split = useWorkspace((s) => s.split);
   const ratio = useWorkspace((s) => s.ratio);
-  const layout = useWorkspace((s) => s.layout);
   const open = useWorkspace((s) => s.open);
   const close = useWorkspace((s) => s.close);
   const setActive = useWorkspace((s) => s.setActive);
   const setRatio = useWorkspace((s) => s.setRatio);
-  const create = useWorkspace((s) => s.create);
   const syncNow = useWorkspace((s) => s.syncNow);
-  const [panel, setPanel] = useState<null | 'tree' | 'graph' | 'vault' | 'layout'>(null);
+  const [view, setView] = useState<'page' | 'home' | 'templates' | 'graph'>('page');
+  const [panel, setPanel] = useState<null | 'vault' | 'layout'>(null);
   const [hub, setHub] = useState<HubPanel | null>(null);
+  const narrow = typeof window !== 'undefined' && window.matchMedia?.('(max-width: 1099px)').matches;
+  const [sidebar, setSidebar] = useState(() => {
+    try {
+      const saved = localStorage.getItem('sergio-ws-sidebar');
+      return saved === null ? !narrow : saved === '1';
+    } catch {
+      return !narrow;
+    }
+  });
   const body = useRef<HTMLDivElement>(null);
+
+  const showSidebar = (on: boolean) => {
+    setSidebar(on);
+    try {
+      localStorage.setItem('sergio-ws-sidebar', on ? '1' : '0');
+    } catch {
+      /* storage blocked */
+    }
+  };
 
   useEffect(() => {
     if (!ready) void load();
@@ -263,7 +180,8 @@ export function WorkspacePage() {
   const pick = useCallback(
     (pid: string) => {
       open(pid);
-      setPanel(null);
+      setView('page');
+      if (window.matchMedia?.('(max-width: 1099px)').matches) setSidebar(false);
     },
     [open],
   );
@@ -284,7 +202,6 @@ export function WorkspacePage() {
   };
 
   const list = useMemo(() => Object.values(pages), [pages]);
-  const maxWidth = layout.width === 'narrow' ? 720 : layout.width === 'wide' ? 1040 : 'none';
 
   const exportAll = async () => {
     const r = await apiFetch('/v1/workspace/export').catch(() => null);
@@ -298,116 +215,116 @@ export function WorkspacePage() {
     a.click();
   };
 
-  return (
-    <div className="paper-page" style={{ paddingBottom: 0 }}>
-      <div className="paper-page-inner" style={{ maxWidth }}>
-        <PaperHead
-          title="Workspace"
-          left={
-            <>
-              <button type="button" className="mac-icon-btn" aria-label="Páginas" title="Páginas" onClick={() => setPanel(panel === 'tree' ? null : 'tree')}>
-                <ListTree size={17} strokeWidth={1.4} />
-              </button>
-              <SyncNote />
-            </>
-          }
-          right={
-            <span className="relative flex gap-1">
-              <button type="button" className="mac-icon-btn" aria-label="Buscar" title="Buscar por significado" onClick={() => setHub('search')}>
-                <Search size={17} strokeWidth={1.4} />
-              </button>
-              <button type="button" className="mac-icon-btn" aria-label="Calendario" title="Calendario" onClick={() => setHub('agenda')}>
-                <CalendarDays size={17} strokeWidth={1.4} />
-              </button>
-              <button type="button" className="mac-icon-btn" aria-label="Correo" title="Correo" onClick={() => setHub('mail')}>
-                <Inbox size={17} strokeWidth={1.4} />
-              </button>
-              <button type="button" className="mac-icon-btn" aria-label="Recortar web" title="Recortar web" onClick={() => setHub('clip')}>
-                <Scissors size={17} strokeWidth={1.4} />
-              </button>
-              <button type="button" className="mac-icon-btn" aria-label="Permisos" title="Permisos" onClick={() => setHub('shares')}>
-                <ShieldCheck size={17} strokeWidth={1.4} />
-              </button>
-              <button type="button" className="mac-icon-btn" aria-label="Grafo de conocimiento" title="Grafo 3D" aria-pressed={panel === 'graph'} onClick={() => setPanel(panel === 'graph' ? null : 'graph')}>
-                <Network size={17} strokeWidth={1.4} />
-              </button>
-              <button type="button" className="mac-icon-btn" aria-label="Baúl" title="Baúl" onClick={() => setPanel('vault')}>
-                <Archive size={17} strokeWidth={1.4} />
-              </button>
-              <button type="button" className="mac-icon-btn" aria-label="Diseño" title="Diseño" onClick={() => setPanel(panel === 'layout' ? null : 'layout')}>
-                <SlidersHorizontal size={17} strokeWidth={1.4} />
-              </button>
-              <button type="button" className="mac-icon-btn" aria-label="Exportar todo" title="Exportar todo (Markdown + JSON)" onClick={() => void exportAll()}>
-                <Download size={17} strokeWidth={1.4} />
-              </button>
-              <button type="button" className="mac-icon-btn" aria-label="Nueva página" title="Nueva página" onClick={() => create()}>
-                <Plus size={17} strokeWidth={1.4} />
-              </button>
-              {panel === 'layout' && <LayoutPanel onClose={() => setPanel(null)} />}
-            </span>
-          }
-        />
+  const act = (a: SidebarAction) => {
+    if (a === 'search') setHub('search');
+    else if (a === 'inbox') setHub('mail');
+    else if (a === 'agenda') setHub('agenda');
+    else if (a === 'clip') setHub('clip');
+    else if (a === 'shares') setHub('shares');
+    else if (a === 'home') {
+      useWorkspace.setState({ active: null, split: null });
+      setView('home');
+      navigate('/workspace', { replace: true });
+    } else if (a === 'templates') setView('templates');
+    else if (a === 'graph') setView('graph');
+    else if (a === 'vault') setPanel('vault');
+    else if (a === 'layout') setPanel('layout');
+    else if (a === 'export') void exportAll();
+  };
 
-        {tabs.length > 0 && (
-          <div className="ws-tabs" role="tablist" aria-label="Páginas abiertas">
+  const showPage = view === 'page' && ready && active && pages[active];
+  const toggle = { sidebarOpen: sidebar, onToggleSidebar: () => showSidebar(!sidebar) };
+
+  return (
+    <div className="nx" data-sidebar={sidebar || undefined}>
+      {sidebar && <NxSidebar onPick={pick} onAction={act} onCollapse={() => showSidebar(false)} />}
+      {sidebar && narrow && <button type="button" className="nx-scrim" aria-label="Cerrar la barra" onClick={() => showSidebar(false)} />}
+      <main className="nx-main">
+        {tabs.length > 1 && showPage && (
+          <div className="nx-tabs" role="tablist" aria-label="Páginas abiertas">
             {tabs.map((t) => (
-              <span key={t} className="ws-tab" data-active={t === active || undefined} data-split={t === split || undefined}>
+              <span key={t} className="nx-tab" data-active={t === active || undefined} data-split={t === split || undefined}>
                 <button type="button" role="tab" aria-selected={t === active} onClick={() => setActive(t)}>
+                  <span className="nx-tab-icon">{pages[t]?.icon || '📄'}</span>
                   {pages[t]?.title || 'Sin título'}
                 </button>
-                <button type="button" className="ws-tab-x" aria-label={`Cerrar ${pages[t]?.title || 'pestaña'}`} onClick={() => close(t)}>
-                  <X size={11} />
+                <button type="button" className="nx-tab-x" aria-label={`Cerrar ${pages[t]?.title || 'pestaña'}`} onClick={() => close(t)}>
+                  <X size={12} />
                 </button>
               </span>
             ))}
-            {active && (
-              <button
-                type="button"
-                className="mac-icon-btn ml-auto"
-                aria-label="Pantalla dividida"
-                title="Abrir otra página al lado"
-                aria-pressed={!!split}
-                onClick={() => {
-                  if (split) return useWorkspace.setState({ split: null });
-                  const other = tabs.find((t) => t !== active) || list.find((p) => p.id !== active)?.id;
-                  if (other) open(other, 'split');
-                }}
-              >
-                <Columns2 size={15} strokeWidth={1.4} />
-              </button>
+            <button
+              type="button"
+              className="nx-icon nx-tab-split"
+              aria-label="Pantalla dividida"
+              title="Abrir otra página al lado"
+              aria-pressed={!!split}
+              onClick={() => {
+                if (split) return useWorkspace.setState({ split: null });
+                const other = tabs.find((t) => t !== active) || list.find((p) => p.id !== active)?.id;
+                if (other) open(other, 'split');
+              }}
+            >
+              <Columns2 size={15} strokeWidth={1.6} />
+            </button>
+          </div>
+        )}
+
+        {view === 'graph' ? (
+          <div className="nx-plain">
+            <NxBar {...toggle} title="Grafo" />
+            <div className="nx-plain-body">
+              <Graph3D pages={list} onOpen={pick} />
+            </div>
+          </div>
+        ) : !ready ? null : view === 'templates' || !showPage ? (
+          <div className="nx-plain">
+            <NxBar {...toggle} title={view === 'templates' ? 'Plantillas' : 'Inicio'} />
+            <NxHome onPick={pick} templatesOnly={view === 'templates'} />
+          </div>
+        ) : (
+          <div ref={body} className="nx-panes">
+            <div className="nx-pane" style={{ flexBasis: split ? `${ratio * 100}%` : '100%' }}>
+              <PageEditor key={active} pageId={active!} onOpen={pick} {...toggle} />
+            </div>
+            {split && pages[split] && (
+              <>
+                <div className="ws-divider" role="separator" aria-orientation="vertical" aria-label="Ajustar división" onPointerDown={drag} onDoubleClick={() => setRatio(0.5)} />
+                <div className="nx-pane" style={{ flexBasis: `${(1 - ratio) * 100}%` }}>
+                  <PageEditor key={split} pageId={split} onOpen={pick} />
+                </div>
+              </>
             )}
           </div>
         )}
-      </div>
+      </main>
 
-      {panel === 'graph' ? (
-        <div className="paper-page-inner" style={{ maxWidth: 1040 }}>
-          <Graph3D pages={list} onOpen={pick} />
-        </div>
-      ) : !ready ? null : !active || !pages[active] ? (
-        <div className="paper-page-inner">
-          <Start />
-        </div>
-      ) : (
-        <div ref={body} className="ws-panes" style={{ maxWidth: split ? 'none' : maxWidth }}>
-          <div className="ws-pane" style={{ flexBasis: split ? `${ratio * 100}%` : '100%' }}>
-            <PageEditor key={active} pageId={active} />
+      {panel === 'vault' && <Vault onClose={() => setPanel(null)} />}
+      {panel === 'layout' && (
+        <div className="ws-modal" role="dialog" aria-modal="true" aria-label="Diseño" onClick={(e) => e.target === e.currentTarget && setPanel(null)}>
+          <div className="ws-modal-sheet" style={{ maxWidth: 320, position: 'relative' }}>
+            <LayoutPanel onClose={() => setPanel(null)} />
           </div>
-          {split && pages[split] && (
-            <>
-              <div className="ws-divider" role="separator" aria-orientation="vertical" aria-label="Ajustar división" onPointerDown={drag} onDoubleClick={() => setRatio(0.5)} />
-              <div className="ws-pane" style={{ flexBasis: `${(1 - ratio) * 100}%` }}>
-                <PageEditor key={split} pageId={split} />
-              </div>
-            </>
-          )}
         </div>
       )}
-
-      {panel === 'tree' && <Tree onPick={pick} onClose={() => setPanel(null)} />}
-      {panel === 'vault' && <Vault onClose={() => setPanel(null)} />}
       {hub && <HubPanels panel={hub} onClose={() => setHub(null)} />}
     </div>
+  );
+}
+
+function NxBar({ title, sidebarOpen, onToggleSidebar }: { title: string; sidebarOpen: boolean; onToggleSidebar: () => void }) {
+  return (
+    <header className="nx-topbar">
+      {!sidebarOpen && (
+        <button type="button" className="nx-icon" aria-label="Mostrar la barra" title="Mostrar la barra" onClick={onToggleSidebar}>
+          <Menu size={17} />
+        </button>
+      )}
+      <span className="nx-crumb">{title}</span>
+      <span className="ml-auto">
+        <SyncNote />
+      </span>
+    </header>
   );
 }
 

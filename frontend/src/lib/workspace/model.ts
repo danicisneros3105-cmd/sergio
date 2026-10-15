@@ -105,6 +105,15 @@ export interface Block {
   button?: ButtonSpec;
   dashboard?: { tables: string[] }; // block ids of tables on the page ([] = all)
   conflict?: boolean; // kept from a simultaneous edit by someone else
+  color?: string; // 'red' text, 'red_bg' background (lib/workspace/notion.ts)
+}
+
+export interface Comment {
+  id: string;
+  text: string;
+  at: number;
+  block?: string; // a comment on one block (else on the page)
+  resolved?: boolean;
 }
 
 export interface Sealed {
@@ -130,6 +139,10 @@ export interface Page {
   sealed?: Sealed | null; // end-to-end encrypted: blocks are empty until unlocked
   verifiedAt?: number; // a wiki page someone confirmed is still right
   template?: string; // the template it was made from (templates learn from use)
+  cover?: string | null; // a gallery key ('g1'…) or an uploaded file ('file:…')
+  coverY?: number; // 0–100: which part of an image cover shows
+  comments?: Comment[];
+  style?: { font?: 'default' | 'serif' | 'mono'; small?: boolean; full?: boolean; locked?: boolean };
   site?: { on: boolean; theme: 'claro' | 'oscuro'; accent: string; font: 'sistema' | 'marca'; nav: boolean } | null;
 }
 

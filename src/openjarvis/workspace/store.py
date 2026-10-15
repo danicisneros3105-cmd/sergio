@@ -288,6 +288,15 @@ class WorkspaceStore:
         if (mine.get("title") or "") == (base.get("title") or ""):
             merged["title"] = current.get("title") or ""
         merged["blocks"] = blocks
+        # Comments from both sides are kept (a resolved one stays resolved).
+        by_id: Dict[str, Dict[str, Any]] = {}
+        for c in (current.get("comments") or []) + (mine.get("comments") or []):
+            if isinstance(c, dict) and c.get("id"):
+                prev = by_id.get(str(c["id"])) or {}
+                done = bool(prev.get("resolved") or c.get("resolved"))
+                by_id[str(c["id"])] = {**prev, **c, "resolved": done}
+        if by_id:
+            merged["comments"] = sorted(by_id.values(), key=lambda c: c.get("at") or 0)
         merged["merged"] = {"at": int(time.time() * 1000), "conflicts": conflicts}
         return merged
 

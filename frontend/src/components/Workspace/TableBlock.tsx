@@ -6,6 +6,20 @@ import { columnLetter, computeCell, isFormula, toNumber } from '../../lib/worksp
 import { stampDone } from '../../lib/workspace/archive';
 import { newId, type Column, type ColumnType, type Row, type TableData, type TableView } from '../../lib/workspace/model';
 import { CalendarView, GalleryView, ListView, cellHref, multiValues } from './TableViews';
+import { tagColor } from '../../lib/workspace/notion';
+import { AtSign, Calendar, CheckSquare, ChevronDown as ChevronDownIcon, Hash, Link2, ListChecks, Phone, Text as TextIcon, Type } from 'lucide-react';
+
+const TYPE_ICON: Record<ColumnType, typeof Hash> = {
+  text: TextIcon,
+  number: Hash,
+  select: ChevronDownIcon,
+  multi: ListChecks,
+  date: Calendar,
+  checkbox: CheckSquare,
+  url: Link2,
+  email: AtSign,
+  phone: Phone,
+};
 
 const TYPES: Array<{ key: ColumnType; label: string }> = [
   { key: 'text', label: 'Texto' },
@@ -94,14 +108,21 @@ function Cell({
   }
   if (column.type === 'select') {
     return (
-      <select className="ws-cell" value={raw} onChange={(e) => onSet(e.target.value)} aria-label={column.name}>
-        <option value="" />
-        {(column.options || []).map((o) => (
-          <option key={o} value={o}>
-            {o}
-          </option>
-        ))}
-      </select>
+      <span className="nx-tag-wrap">
+        {raw && (
+          <span className="nx-tag" data-tag={tagColor(raw)}>
+            {raw}
+          </span>
+        )}
+        <select value={raw} onChange={(e) => onSet(e.target.value)} aria-label={column.name}>
+          <option value="" />
+          {(column.options || []).map((o) => (
+            <option key={o} value={o}>
+              {o}
+            </option>
+          ))}
+        </select>
+      </span>
     );
   }
   if (column.type === 'date') {
@@ -260,6 +281,9 @@ export function TableBlock({
               <Share2 size={14} strokeWidth={1.5} />
             </button>
           )}
+          <button type="button" className="nx-new-btn" onClick={() => addRow()}>
+            Nuevo
+          </button>
         </div>
       </div>
 
@@ -372,7 +396,7 @@ export function TableBlock({
                 {table.columns.map((c, i) => (
                   <th key={c.id}>
                     <span className="ws-letter">{columnLetter(i)}</span>
-                    <ColumnHead column={c} onChange={(patch) => setColumn(c.id, patch)} onDrop={() => dropColumn(c.id)} />
+                    <ColumnHead column={c} first={i === 0} onChange={(patch) => setColumn(c.id, patch)} onDrop={() => dropColumn(c.id)} />
                   </th>
                 ))}
                 <th className="ws-add">
@@ -435,7 +459,7 @@ export function TableBlock({
       )}
       <div className="ws-table-foot">
         <button type="button" className="paper-tab" onClick={() => addRow()}>
-          + Nueva fila
+          + Nuevo
         </button>
         {picked.length > 0 && onShareRows && (
           <button type="button" className="paper-tab" onClick={() => onShareRows(picked)}>
@@ -448,10 +472,16 @@ export function TableBlock({
   );
 }
 
-function ColumnHead({ column, onChange, onDrop }: { column: Column; onChange: (p: Partial<Column>) => void; onDrop: () => void }) {
+function ColumnHead({ column, first, onChange, onDrop }: { column: Column; first?: boolean; onChange: (p: Partial<Column>) => void; onDrop: () => void }) {
   const [open, setOpen] = useState(false);
   return (
     <span className="ws-col-head">
+      <span className="nx-col-type" aria-hidden="true">
+        {first ? <Type size={14} /> : (() => {
+          const Icon = TYPE_ICON[column.type] ?? TextIcon;
+          return <Icon size={14} />;
+        })()}
+      </span>
       <input value={column.name} onChange={(e) => onChange({ name: e.target.value })} aria-label="Nombre de la columna" />
       <button type="button" className="ws-col-menu" onClick={() => setOpen(!open)} aria-label={`Opciones de ${column.name}`}>
         ⋯
@@ -520,8 +550,11 @@ function Board({
         if (!lane && !items.length) return null;
         return (
           <div key={lane || '_'} className="ws-lane">
-            <div className="paper-label mb-2">
-              {lane || 'Sin estado'} · {items.length}
+            <div className="flex items-center gap-2 mb-2 text-[14px]">
+              <span className="nx-tag" data-tag={lane ? tagColor(lane) : 'gray'}>
+                {lane || 'Sin estado'}
+              </span>
+              <span style={{ color: 'var(--nx-text-3, inherit)' }}>{items.length}</span>
             </div>
             {items.map((r) => (
               <div key={r.id} className="ws-board-card">
@@ -541,8 +574,8 @@ function Board({
                 </select>
               </div>
             ))}
-            <button type="button" className="paper-tab text-[12px]" onClick={() => onAdd({ [groupBy.id]: lane })}>
-              + Añadir
+            <button type="button" className="paper-tab text-[14px]" onClick={() => onAdd({ [groupBy.id]: lane })}>
+              + Nueva
             </button>
           </div>
         );

@@ -207,8 +207,8 @@ async function handle(method: string, url: URL, init?: RequestInit): Promise<Res
   }
   if (page && method === 'DELETE') { store.delete(`page:${page[1]}`); return json({ ok: true }); }
   if (path === '/v1/workspace/pages' && method === 'GET') {
-    const pages = [...store.entries()].filter(([k]) => k.startsWith('page:')).map(([, v]) => v);
-    return json({ pages });
+    const pages = [...store.entries()].filter(([k]) => k.startsWith('page:')).map(([, v]) => v as Json);
+    return json({ pages: pages.map((p) => ({ id: p.id, rev: p.rev, updatedAt: p.updatedAt, archived: p.archived })) });
   }
 
   const example = EXAMPLES[path];
@@ -225,6 +225,82 @@ async function handle(method: string, url: URL, init?: RequestInit): Promise<Res
   // Anything else that changes something: accepted, nothing leaves the iPad.
   return json({ ok: true, demo: true, ...body });
 }
+
+
+// Example Workspace pages (the editor is local-first; it pulls these from
+// the «server» on its first sync), marked as examples in their text.
+function seedWorkspace() {
+  const now = Date.now();
+  const b = (id: string, type: string, text = '', extra: Json = {}) => ({ id, type, text, ...extra });
+  const page = (id: string, title: string, icon: string, blocks: Json[], extra: Json = {}) => ({
+    id, title, icon, parent: null, blocks, createdAt: now - 86_400_000, updatedAt: now - 3_600_000, openedAt: now - 3_600_000,
+    rev: 1, tags: [], sealed: null, ...extra,
+  });
+  const cName = 'c_nombre', cState = 'c_estado', cOwner = 'c_resp', cDate = 'c_fecha', cCost = 'c_coste';
+  const table = {
+    columns: [
+      { id: cName, name: 'Tarea', type: 'text' },
+      { id: cState, name: 'Estado', type: 'select', options: ['Por hacer', 'En curso', 'Hecho'] },
+      { id: cOwner, name: 'Responsable', type: 'select', options: ['Señor', 'Leo', 'Mía', 'Ordo'] },
+      { id: cDate, name: 'Fecha', type: 'date' },
+      { id: cCost, name: 'Coste', type: 'number' },
+    ],
+    rows: [
+      ['Definir el precio', 'Hecho', 'Señor', 2, 0],
+      ['Investigar a la competencia', 'Hecho', 'Leo', 4, 120],
+      ['Diseñar la web', 'En curso', 'Mía', 9, 900],
+      ['Preparar la campaña', 'En curso', 'Ordo', 12, 450],
+      ['Lanzamiento', 'Por hacer', 'Señor', 20, 300],
+    ].map(([n, st, o, d, c], i) => ({
+      id: `r_${i}`,
+      cells: { [cName]: n, [cState]: st, [cOwner]: o, [cDate]: new Date(now + Number(d) * 86_400_000).toISOString().slice(0, 10), [cCost]: String(c) },
+    })),
+    views: [
+      { id: 'v_tabla', name: 'Tabla', kind: 'table' },
+      { id: 'v_tablero', name: 'Tablero', kind: 'board', groupBy: cState },
+      { id: 'v_cal', name: 'Calendario', kind: 'calendar' },
+    ],
+    view: 'v_tabla',
+  };
+  const pages = [
+    page('p_demo_bienvenida', 'Bienvenido a su Workspace', '👋', [
+      b('b1', 'callout', 'Página de ejemplo del demo. Escriba en cualquier sitio, pulse «/» para insertar bloques o «@» para enlazar otra página.'),
+      b('b2', 'h2', 'Lo básico'),
+      b('b3', 'todo', 'Pulse **/** en una línea vacía y elija un bloque', { checked: true }),
+      b('b4', 'todo', 'Seleccione texto para ponerlo en **negrita**, *cursiva* o `código`', { checked: false }),
+      b('b5', 'todo', 'Arrastre el ⋮⋮ de la izquierda para mover un bloque', { checked: false }),
+      b('b6', 'todo', 'Añada un icono y una portada (pase el ratón sobre el título)', { checked: false }),
+      b('b7', 'h2', 'Sus páginas'),
+      b('b8', 'text', 'El plan está en [[Lanzamiento de la tienda]] y las notas en [[Reunión del lunes]].'),
+      b('b9', 'toggle', 'Qué más sabe hacer Sergio aquí\nResumir, sacar tareas, buscar por significado, cifrar páginas, compartir solo una parte y ver el historial de versiones.', { open: false }),
+      b('b10', 'quote', 'La mejor forma de empezar es empezar.', { color: 'gray' }),
+    ], { cover: 'g3', favorite: true }),
+    page('p_demo_lanzamiento', 'Lanzamiento de la tienda', '🚀', [
+      b('l1', 'text', 'Ejemplo: el plan de lanzamiento, con su base de datos de tareas.'),
+      b('l2', 'h2', 'Tareas'),
+      b('l3', 'table', '', { table }),
+      b('l4', 'h2', 'Riesgos'),
+      b('l5', 'bullet', 'La web podría retrasarse una semana', { color: 'orange' }),
+      b('l6', 'bullet', 'El presupuesto de campaña está al 80 %'),
+    ], { cover: 'g2' }),
+    page('p_demo_reunion', 'Reunión del lunes', '👥', [
+      b('m1', 'h2', 'Asistentes'),
+      b('m2', 'bullet', 'Señor, Leo y Mía'),
+      b('m3', 'h2', 'Decisiones'),
+      b('m4', 'number', 'Lanzar en tres semanas'),
+      b('m5', 'number', 'Mía cierra el diseño el viernes'),
+      b('m6', 'h2', 'Tareas'),
+      b('m7', 'todo', 'Enviar el resumen a todos', { checked: false }),
+      b('m8', 'page', 'Ideas para la campaña', { pageId: 'p_demo_ideas' }),
+    ]),
+    page('p_demo_ideas', 'Ideas para la campaña', '💡', [
+      b('i1', 'bullet', 'Vídeo corto con el antes y el después'),
+      b('i2', 'bullet', 'Descuento para los primeros 100'),
+    ], { parent: 'p_demo_reunion' }),
+  ];
+  for (const p of pages) store.set(`page:${p.id}`, p);
+}
+seedWorkspace();
 
 // ---- install ---------------------------------------------------------------
 const realFetch = window.fetch.bind(window);

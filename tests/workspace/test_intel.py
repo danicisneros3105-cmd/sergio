@@ -41,6 +41,17 @@ def test_simultaneous_edits_are_merged_not_copied(store):
     assert len(store.list()) == 1  # no conflict copy
 
 
+def test_comments_from_two_devices_are_both_kept(store):
+    base = {"id": "p_merge0c01", "title": "Plan", "blocks": [b(1, "uno")]}
+    store.put(base)
+    phone = {"id": "c1", "text": "desde el móvil", "at": 1}
+    pc = {"id": "c2", "text": "desde el PC", "at": 2}
+    store.put({**base, "comments": [{**phone, "resolved": True}]}, base_rev=1)
+    merged = store.put({**base, "comments": [phone, pc]}, base_rev=1)
+    assert [c["id"] for c in merged["comments"]] == ["c1", "c2"]
+    assert merged["comments"][0]["resolved"] is True  # resolved stays resolved
+
+
 def test_the_same_block_changed_twice_keeps_both(store):
     base = {"id": "p_merge0002", "title": "Plan", "blocks": [b(1, "uno")]}
     store.put(base)
