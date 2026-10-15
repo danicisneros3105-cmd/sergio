@@ -294,7 +294,7 @@ export const useAppStore = create<AppState>((set, get) => {
     commandPaletteOpen: false,
     // Calm by default (Kimi): sidebar only when there is room, system panel
     // on demand (button or Ctrl+I).
-    sidebarOpen: typeof window === 'undefined' || window.innerWidth >= 768,
+    sidebarOpen: typeof window === 'undefined' || window.innerWidth >= 1100,
     systemPanelOpen: false,
     reasoningPanelOpen: false,
 
@@ -357,7 +357,7 @@ export const useAppStore = create<AppState>((set, get) => {
       const store = loadConversations();
       const conv: Conversation = {
         id: generateId(),
-        title: 'New chat',
+        title: 'Chat nuevo',
         createdAt: Date.now(),
         updatedAt: Date.now(),
         model: model || get().selectedModel || 'default',
@@ -427,7 +427,7 @@ export const useAppStore = create<AppState>((set, get) => {
       if (!conv) return;
       conv.messages.push(message);
       conv.updatedAt = Date.now();
-      if (message.role === 'user' && conv.title === 'New chat') {
+      if (message.role === 'user' && (conv.title === 'Chat nuevo' || conv.title === 'New chat')) {
         conv.title =
           message.content.slice(0, 50) +
           (message.content.length > 50 ? '...' : '');

@@ -119,7 +119,7 @@ export function ExtensionPage({ name }: { name: ExtensionName }) {
                 onClick={handleStart}
                 disabled={starting}
                 className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm"
-                style={{ background: 'var(--color-accent)', color: 'white' }}
+                style={{ background: 'var(--color-accent)', color: 'var(--color-on-accent)' }}
               >
                 {starting ? <Loader2 size={16} className="animate-spin" /> : <Play size={16} />}
                 {starting ? 'Starting…' : `Start ${copy.title}`}

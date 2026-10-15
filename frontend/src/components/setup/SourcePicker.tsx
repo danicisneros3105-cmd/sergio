@@ -164,7 +164,7 @@ export function SourcePicker({ onContinue }: { onContinue: (selectedIds: string[
           className="w-full py-3 px-4 rounded-xl font-semibold text-sm transition-all"
           style={{
             background: selected.size > 0 ? 'var(--color-accent)' : 'var(--color-bg-tertiary)',
-            color: selected.size > 0 ? 'white' : 'var(--color-text-tertiary)',
+            color: selected.size > 0 ? 'var(--color-on-accent)' : 'var(--color-text-tertiary)',
             cursor: selected.size > 0 ? 'pointer' : 'not-allowed',
           }}
         >

@@ -16,9 +16,9 @@ export function Layout() {
   const [apiReachable, setApiReachable] = useState<boolean | null>(null);
   const [historyOpen, setHistoryOpen] = useState(() => {
     try {
-      // Like ChatGPT: open on a computer until you close it; closed on a phone.
+      // Like ChatGPT: open on a computer until you close it; a rail on a tablet, closed on a phone.
       const saved = localStorage.getItem(HISTORY_KEY);
-      return window.innerWidth >= 768 && saved !== '0';
+      return window.innerWidth >= 1100 && saved !== '0';
     } catch {
       return false;
     }

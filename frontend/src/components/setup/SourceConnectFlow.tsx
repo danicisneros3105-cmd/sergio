@@ -117,7 +117,7 @@ function FilesystemPanel({
           className="px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-all"
           style={{
             background: path.trim() ? 'var(--color-accent)' : 'var(--color-bg-tertiary)',
-            color: path.trim() ? 'white' : 'var(--color-text-tertiary)',
+            color: path.trim() ? 'var(--color-on-accent)' : 'var(--color-text-tertiary)',
             cursor: path.trim() && !isConnecting ? 'pointer' : 'not-allowed',
           }}
         >

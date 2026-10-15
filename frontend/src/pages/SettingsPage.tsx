@@ -139,7 +139,7 @@ function ApiKeyInput({
       window.dispatchEvent(new Event(CLOUD_KEY_STATUS_CHANGED));
       setTimeout(() => setSaved(false), 2000);
     } catch (e: any) {
-      setError(e?.message || 'Failed to remove API key');
+      setError(e?.message || 'No se pudo quitar la clave');
     }
   };
 
@@ -150,7 +150,7 @@ function ApiKeyInput({
         value={value}
         onChange={e => setValue(e.target.value)}
         onBlur={() => { if (value.trim()) void save(value); }}
-        placeholder={hasKey ? (desktopKeyStorage ? 'Saved by local server' : 'Saved by local server') : placeholder}
+        placeholder={hasKey ? (desktopKeyStorage ? 'Guardada en su PC' : 'Guardada en su PC') : placeholder}
         disabled={!canManage}
         className="w-48 px-2 py-1 rounded text-xs"
         style={{ background: 'var(--color-bg)', border: '1px solid var(--color-border)', color: 'var(--color-text)' }} />
@@ -379,9 +379,9 @@ export function SettingsPage() {
       } else {
         await setInferenceSource({ kind: 'ollama' });
       }
-      setSrcMsg('Saved — restart the app to apply.');
+      setSrcMsg('Guardado. Se aplica al reiniciar Sergio.');
     } catch (e: any) {
-      setSrcMsg(e?.message ?? 'Failed to save.');
+      setSrcMsg(e?.message ?? 'No se pudo guardar.');
     }
   }, [srcKind, customHost, customModel, customEngine, customKey]);
 
@@ -486,13 +486,10 @@ export function SettingsPage() {
                 background: 'var(--color-accent-subtle)',
                 color: 'var(--color-success)',
               }}>
-                <Check size={12} /> Saved
+                <Check size={12} /> Guardado
               </span>
             )}
           </div>
-          <p className="text-sm mt-2 mx-auto max-w-2xl" style={{ color: 'var(--color-text-secondary)' }}>
-            Apariencia, modelo, atajos y datos.
-          </p>
         </header>
 
         <nav aria-label="Más" className="mb-8">
@@ -553,7 +550,7 @@ export function SettingsPage() {
 
           {/* Connection */}
           <Section title="Conexión">
-            <SettingRow label="Estado del servidor" description={serverInfo ? `${serverInfo.engine} / ${serverInfo.model}` : 'Not connected'}>
+            <SettingRow label="Estado del servidor" description={serverInfo ? `${serverInfo.engine} / ${serverInfo.model}` : 'Sin conexión'}>
               <div className="flex items-center gap-2">
                 <span
                   className="w-2 h-2 rounded-full"
@@ -604,7 +601,7 @@ export function SettingsPage() {
                 className="text-sm px-3 py-1.5 rounded-lg outline-none w-56"
                 style={{ background: 'var(--color-bg-secondary)', color: 'var(--color-text)', border: '1px solid var(--color-border)' }}
               >
-                <option value="ollama">Ollama incluido (recomendado)</option>
+                <option value="ollama">Modelo local incluido (recomendado)</option>
                 <option value="custom">Otro servidor compatible</option>
               </select>
             </SettingRow>
@@ -620,7 +617,7 @@ export function SettingsPage() {
                     className="text-sm px-3 py-1.5 rounded-lg outline-none w-56"
                     style={{ background: 'var(--color-bg-secondary)', color: 'var(--color-text)', border: '1px solid var(--color-border)' }} />
                 </SettingRow>
-                <SettingRow label="Tipo de servidor" description="OpenAI-compatible engine">
+                <SettingRow label="Tipo de servidor" description="El motor que usa ese servidor">
                   <select value={customEngine} onChange={(e) => { setCustomEngine(e.target.value); setSrcMsg(''); }}
                     className="text-sm px-3 py-1.5 rounded-lg outline-none w-56"
                     style={{ background: 'var(--color-bg-secondary)', color: 'var(--color-text)', border: '1px solid var(--color-border)' }}>
@@ -632,30 +629,25 @@ export function SettingsPage() {
                   </select>
                 </SettingRow>
                 <SettingRow label="Clave (opcional) · Dev" description="Solo si su servidor la pide; plan Dev o superior">
-                  <input disabled={!customApiAllowed} type="password" value={customKey} onChange={(e) => { setCustomKey(e.target.value); setSrcMsg(''); }} placeholder="leave blank if none"
+                  <input disabled={!customApiAllowed} type="password" value={customKey} onChange={(e) => { setCustomKey(e.target.value); setSrcMsg(''); }} placeholder="vacía si no hace falta"
                     className="text-sm px-3 py-1.5 rounded-lg outline-none w-56"
                     style={{ background: 'var(--color-bg-secondary)', color: 'var(--color-text)', border: '1px solid var(--color-border)' }} />
                 </SettingRow>
               </>
             )}
             <SettingRow label="" description={srcMsg}>
-              <button onClick={saveSource}
-                className="text-sm px-3 py-1.5 rounded-lg outline-none cursor-pointer"
-                style={{ background: 'var(--color-accent, var(--color-bg-tertiary))', color: 'var(--color-text)', border: '1px solid var(--color-border)' }}>
-                Save inference source
+              <button onClick={saveSource} className="paper-button">
+                Guardar
               </button>
             </SettingRow>
           </Section>
 
           {/* Models */}
           <Section title="Modelos">
-            <SettingRow label="Modelos en su PC (Ollama)" description="Los que funcionan sin internet en su equipo">
+            <SettingRow label="Modelos en su PC" description="Los que funcionan sin internet en su equipo">
               <OllamaModelList />
             </SettingRow>
-            <div className="text-xs mt-2 px-1" style={{ color: 'var(--color-text-tertiary)' }}>
-              Run <code className="px-1 py-0.5 rounded text-[11px]" style={{ background: 'var(--color-bg-tertiary)' }}>ollama pull &lt;model-name&gt;</code> in your terminal to add more models
-            </div>
-            <SettingRow label="Proveedores en la nube" description="El punto verde indica que la clave está puesta">
+            <SettingRow label="Proveedores en la nube" description="El punto lleno indica que la clave está puesta">
               <div className="flex flex-wrap gap-3">
                 <CloudProviderStatus label="OpenAI" keyName="OPENAI_API_KEY" />
                 <CloudProviderStatus label="Anthropic" keyName="ANTHROPIC_API_KEY" />
@@ -677,7 +669,7 @@ export function SettingsPage() {
             <SettingRow label="Google" description="Modelos Gemini">
               <ApiKeyInput keyName="GEMINI_API_KEY" placeholder="AI..." />
             </SettingRow>
-            <SettingRow label="OpenRouter" description="Multi-provider routing">
+            <SettingRow label="OpenRouter" description="Varios proveedores con una clave">
               <ApiKeyInput keyName="OPENROUTER_API_KEY" placeholder="sk-or-..." />
             </SettingRow>
             <SettingRow label="Atlas Cloud" description="Modelos a través de Atlas Cloud">

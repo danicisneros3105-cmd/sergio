@@ -36,7 +36,7 @@ export function ProfilePage() {
   }, []);
 
   return (
-    <PaperPage title="Perfil" subtitle="Quién es usted para Sergio. Se actualiza solo, al menos dos veces y media por semana." wide>
+    <PaperPage title="Perfil" wide>
       <PaperSection
         label="Resumen"
         aside={

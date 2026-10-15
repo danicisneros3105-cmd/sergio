@@ -2542,13 +2542,13 @@ html, body { background: var(--color-bg); }
 .node-template-blank > svg { margin: 30px auto 10px; color: var(--color-text-tertiary); }
 .node-create-title { font-weight: 750; letter-spacing: -0.03em; }
 .nodes-item { border-radius: 16px; }
-.nodes-item[aria-current='true'] { background: color-mix(in srgb, var(--node) 16%, var(--color-surface)); }
+.nodes-item[aria-current='true'] { background: var(--color-hover); }
 .node-head {
   border-radius: 22px;
   padding: 16px 18px;
-  background: linear-gradient(135deg, color-mix(in srgb, var(--node) 22%, var(--color-surface)), color-mix(in srgb, var(--node) 6%, var(--color-surface)));
+  background: var(--color-bg-secondary);
 }
-.node-page .paper-tab[aria-selected='true'] { border-bottom-color: var(--node); color: var(--color-text); }
+.node-page .paper-tab[aria-selected='true'] { border-bottom-color: var(--color-ink); color: var(--color-text); }
 
 /* Face ID de Sergio: Apple's ritual (the ring that lights up, the check),
    in Sergio's colours. */
@@ -2669,7 +2669,7 @@ html, body { background: var(--color-bg); }
 .studio-menu button:hover { background: var(--color-accent-subtle); }
 
 .studio-view { position: relative; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
-.studio-canvas { flex: 1; min-height: 0; position: relative; overflow: hidden; background: #1d1f27; touch-action: none; }
+.studio-canvas { flex: 1; min-height: 0; position: relative; overflow: hidden; background: #202020; touch-action: none; }
 .studio-canvas canvas { display: block; }
 .studio-hud {
   position: absolute; top: 12px; left: 12px; z-index: 2; padding: 6px 12px; border-radius: var(--radius-full);
@@ -3177,7 +3177,7 @@ h3.paper-title { font-size: 18px; }
     radial-gradient(ellipse 30% 7% at 50% 84%, color-mix(in srgb, var(--node) 48%, #fff) 0 70%, transparent 100%),
     color-mix(in srgb, var(--node) 32%, #fff);
 }
-.node-template { background: color-mix(in srgb, var(--node) 7%, var(--color-surface)); box-shadow: none; }
+.node-template { background: var(--color-surface); box-shadow: 0 0 0 1px var(--color-border); }
 .node-template b { font-weight: 600; }
 
 /* -- Creator on real programs ---------------------------------------------- */

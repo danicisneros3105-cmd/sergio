@@ -52,7 +52,7 @@ export function DesktopSections({ sections }: { sections: DesktopSection[] }) {
           </span>
           <span>
             <span className="paper-name block">{s.label}</span>
-            <span className="paper-meta block">{busy === s.key ? 'Abriendo…' : s.meta}</span>
+            {busy === s.key && <span className="paper-meta block">Abriendo…</span>}
           </span>
         </button>
       ))}

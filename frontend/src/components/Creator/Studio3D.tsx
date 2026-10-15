@@ -140,7 +140,7 @@ export function Studio3D({ mode }: { mode: 'modelado' | 'arquitectura' }) {
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     el.appendChild(renderer.domElement);
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color('#1d1f27');
+    scene.background = new THREE.Color('#202020');
     const pmrem = new THREE.PMREMGenerator(renderer);
     scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
     const camera = new THREE.PerspectiveCamera(45, 1, 0.005, 2000);

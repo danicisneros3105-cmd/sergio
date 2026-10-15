@@ -2,6 +2,27 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-10-15 · Claude · Pulido general (tableta, textos, contraste)
+- Petición del dueño: «Pule todo». Recorrí todas las páginas en PC claro, PC
+  oscuro e iPad vertical con la demo, y arreglé lo que no estaba a la altura.
+- Tableta (768–1099 px): la barra lateral arranca plegada en carril de iconos
+  (antes ocupaba 260 px y aplastaba Nodes, Creator y Workspace).
+- Textos: «New chat» pasa a «Chat nuevo» (los chats viejos con el título en
+  inglés se siguen renombrando con el primer mensaje); Configuración queda en
+  español y sin marcas («Modelo local incluido», «Modelos en su PC», botón
+  «Guardar» con el estilo de la casa; antes era una barra negra vacía).
+- Regla «sin subtextos»: quité los de Salud, Perfil, Configuración, Cowork y
+  las líneas bajo las tarjetas de escritorio.
+- Sin colores: el encabezado, la selección y las pestañas de los Nodes ya no
+  se tiñen con el color del personaje (los personajes y su escenario sí lo
+  conservan); el fondo del Estudio 3D pasa de azul marino a gris.
+- Contraste: los botones con texto blanco sobre el acento (Cowork «Empezar»,
+  Pensar, razonamiento, extensiones, asistentes) eran invisibles en oscuro;
+  ahora usan tinta/sobre-tinta.
+- Revisé lo de Codex: nada nuevo que tocara estos archivos.
+- Pendiente: el asistente de primer arranque (SetupScreen/InferenceSourceSetup)
+  aún tiene textos en inglés.
+
 ## 2026-10-15 · Claude · Diseño como Canva, Prototipos como Claude Design, sin emojis ni colores
 - Petición del dueño: «Diseño igual a Canva y el otro a Claude Design, NO son
   lo mismo; quita TODOS los emojis y colores; Workspace es igual a Notion».

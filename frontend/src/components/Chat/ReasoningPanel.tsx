@@ -96,8 +96,8 @@ export function ReasoningPanel() {
           <button
             onClick={think}
             disabled={!question.trim()}
-            className="w-full inline-flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg text-xs text-white disabled:opacity-50"
-            style={{ background: 'var(--color-accent)' }}
+            className="w-full inline-flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg text-xs disabled:opacity-50"
+            style={{ background: 'var(--color-ink)', color: 'var(--color-on-ink)' }}
           >
             <Brain size={13} /> Pensar a fondo
           </button>

@@ -38,7 +38,7 @@ export function HealthPage() {
   const figures = data ? FIGURES.map((f) => ({ ...f, value: figureValue(data, f) })).filter((f) => f.value) : [];
 
   return (
-    <PaperPage title="Salud" subtitle="Su cuerpo, su sueño y su mente. Todo se queda en su PC." wide>
+    <PaperPage title="Salud" wide>
       <PaperSection label="Hoy">
         {problem ? (
           <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>

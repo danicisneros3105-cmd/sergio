@@ -235,9 +235,6 @@ export function CoworkPage() {
           <h1 className={`text-2xl font-medium flex items-center gap-2 ${!selected ? 'justify-center' : ''}`} style={{ color: 'var(--color-text)' }}>
             <Briefcase size={18} /> Cowork
           </h1>
-          <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-            ¿En qué trabajamos hoy? Describa el resultado: verá el plan, los avances y los archivos.
-          </p>
         </header>
 
         <section className="space-y-3 rounded-3xl border p-4 shadow-sm" style={field}>
@@ -282,8 +279,8 @@ export function CoworkPage() {
             <button
               onClick={start}
               disabled={!goal.trim() || busy}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm text-white disabled:opacity-50"
-              style={{ background: 'var(--color-accent)' }}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm disabled:opacity-50"
+              style={{ background: 'var(--color-ink)', color: 'var(--color-on-ink)' }}
             >
               <Briefcase size={16} /> Empezar
             </button>
@@ -366,8 +363,8 @@ export function CoworkPage() {
                       <div className="flex gap-2">
                         <button
                           onClick={() => decide(step.index, true)}
-                          className="px-3 py-1.5 rounded-lg text-xs text-white"
-                          style={{ background: 'var(--color-accent)' }}
+                          className="px-3 py-1.5 rounded-lg text-xs"
+                          style={{ background: 'var(--color-ink)', color: 'var(--color-on-ink)' }}
                         >
                           Sí, hazlo
                         </button>

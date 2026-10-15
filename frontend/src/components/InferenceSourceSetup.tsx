@@ -202,7 +202,7 @@ export function OllamaConsent({
         onClick={onConfirm}
         disabled={busy}
         className="w-full py-3 px-4 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed disabled:opacity-70"
-        style={{ background: 'var(--color-accent)', color: 'white' }}
+        style={{ background: 'var(--color-accent)', color: 'var(--color-on-accent)' }}
       >
         {busy && <Loader2 size={16} className="animate-spin" />}
         {busy ? 'Starting local setup...' : 'Use Ollama and continue'}
@@ -330,7 +330,7 @@ export function CustomEndpointSetup({
           type="submit"
           disabled={busy || !host.trim() || !model.trim()}
           className="w-full py-3 px-4 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
-          style={{ background: 'var(--color-accent)', color: 'white' }}
+          style={{ background: 'var(--color-accent)', color: 'var(--color-on-accent)' }}
         >
           {busy && <Loader2 size={16} className="animate-spin" />}
           {busy ? 'Connecting...' : 'Save and connect'}

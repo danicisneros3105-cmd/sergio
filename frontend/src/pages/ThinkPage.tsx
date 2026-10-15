@@ -163,8 +163,8 @@ export function ThinkPage() {
               <button
                 onClick={think}
                 disabled={!question.trim()}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm text-white disabled:opacity-50"
-                style={{ background: 'var(--color-accent)' }}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm disabled:opacity-50"
+                style={{ background: 'var(--color-ink)', color: 'var(--color-on-ink)' }}
               >
                 <Brain size={16} /> Pensar
               </button>
