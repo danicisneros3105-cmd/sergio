@@ -4,13 +4,13 @@ import { Columns2, Menu, X } from 'lucide-react';
 import { HubPanels, type HubPanel } from '../components/Workspace/HubPanels';
 import { NxSidebar, type SidebarAction } from '../components/Workspace/NxSidebar';
 import { NxHome } from '../components/Workspace/NxHome';
+import { NxLibrary, type LibraryTab } from '../components/Workspace/NxLibrary';
 import { NxIcon } from '../components/Workspace/NxIcon';
 import '../components/Workspace/notion.css';
 import { PageEditor } from '../components/Workspace/PageEditor';
 import { Graph3D } from '../components/Workspace/Graph3D';
-import { useWorkspace } from '../lib/workspace/store';
+import { SIDEBAR_SECTIONS, useWorkspace } from '../lib/workspace/store';
 import { apiFetch } from '../lib/api';
-import { relativeDay } from '../lib/paper';
 
 export function SyncNote() {
   const sync = useWorkspace((s) => s.sync);
@@ -35,6 +35,7 @@ export function SyncNote() {
 function LayoutPanel({ onClose }: { onClose: () => void }) {
   const layout = useWorkspace((s) => s.layout);
   const setLayout = useWorkspace((s) => s.setLayout);
+  const toggleSection = useWorkspace((s) => s.toggleSection);
   return (
     <div role="dialog" aria-label="Diseño">
       <div className="paper-label mb-2">Diseño de las páginas</div>
@@ -61,61 +62,16 @@ function LayoutPanel({ onClose }: { onClose: () => void }) {
         Márgenes · {layout.margin}px
         <input type="range" min={0} max={96} step={8} value={layout.margin} onChange={(e) => setLayout({ margin: Number(e.target.value) })} />
       </label>
+      <div className="paper-label mt-3 mb-1">Barra lateral</div>
+      {SIDEBAR_SECTIONS.map((sec) => (
+        <label key={sec.key} className="ws-setting" style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          {sec.name}
+          <input type="checkbox" checked={!(layout.hidden || []).includes(sec.key)} onChange={(e) => toggleSection(sec.key, e.target.checked)} />
+        </label>
+      ))}
       <button type="button" className="paper-button w-full mt-2" data-variant="quiet" onClick={onClose}>
         Listo
       </button>
-    </div>
-  );
-}
-
-function Vault({ onClose }: { onClose: () => void }) {
-  const vault = useWorkspace((s) => s.vault);
-  const loadVault = useWorkspace((s) => s.loadVault);
-  const restore = useWorkspace((s) => s.restore);
-  const autoArchive = useWorkspace((s) => s.autoArchive);
-  const [note, setNote] = useState('');
-  useEffect(() => {
-    void loadVault();
-  }, [loadVault]);
-  return (
-    <div className="ws-modal" role="dialog" aria-modal="true" aria-label="Baúl">
-      <div className="ws-modal-sheet" style={{ maxWidth: 560 }}>
-        <h3 className="paper-title" style={{ fontSize: 16 }}>Baúl</h3>
-        <p className="text-[13.5px] mt-3">
-          Lo que no se abre en 90 días, y las tareas terminadas hace más de 30, viene aquí solo: fuera de las listas y de la
-          búsqueda, para que todo vaya rápido. Nada se borra.
-        </p>
-        <div className="mt-3 max-h-[45vh] overflow-y-auto">
-          {(vault || []).length === 0 && <p className="text-[13px]" style={{ color: 'var(--color-text-tertiary)' }}>El baúl está vacío.</p>}
-          {(vault || []).map((p) => (
-            <div key={p.id} className="flex items-center gap-2 py-1.5" style={{ borderBottom: '1px solid var(--color-border-subtle)' }}>
-              <span className="flex-1 truncate">{p.title || 'Sin título'}</span>
-              <span className="text-[11.5px]" style={{ color: 'var(--color-text-tertiary)' }}>{relativeDay(p.updatedAt)}</span>
-              <button type="button" className="paper-tab text-[12px]" onClick={() => void restore(p.id)}>
-                Devolver
-              </button>
-            </div>
-          ))}
-        </div>
-        {note && <p className="mt-2 text-[13px]">{note}</p>}
-        <div className="flex gap-2 justify-end mt-4">
-          <button
-            type="button"
-            className="paper-button"
-            data-variant="quiet"
-            onClick={async () => {
-              const r = await autoArchive();
-              setNote(`Ordenado: ${r.pages} páginas, ${r.rows} filas y ${r.todos} tareas al baúl.`);
-              void loadVault();
-            }}
-          >
-            Ordenar ahora
-          </button>
-          <button type="button" className="paper-button" onClick={onClose}>
-            Cerrar
-          </button>
-        </div>
-      </div>
     </div>
   );
 }
@@ -135,8 +91,9 @@ export function WorkspacePage() {
   const setActive = useWorkspace((s) => s.setActive);
   const setRatio = useWorkspace((s) => s.setRatio);
   const syncNow = useWorkspace((s) => s.syncNow);
-  const [view, setView] = useState<'page' | 'home' | 'templates' | 'graph'>('page');
-  const [panel, setPanel] = useState<null | 'vault' | 'layout'>(null);
+  const [view, setView] = useState<'page' | 'home' | 'templates' | 'graph' | 'library'>('page');
+  const [libraryTab, setLibraryTab] = useState<LibraryTab>('recents');
+  const [panel, setPanel] = useState<null | 'layout'>(null);
   const [hub, setHub] = useState<HubPanel | null>(null);
   const narrow = typeof window !== 'undefined' && window.matchMedia?.('(max-width: 1099px)').matches;
   const [sidebar, setSidebar] = useState(() => {
@@ -228,7 +185,10 @@ export function WorkspacePage() {
       navigate('/workspace', { replace: true });
     } else if (a === 'templates') setView('templates');
     else if (a === 'graph') setView('graph');
-    else if (a === 'vault') setPanel('vault');
+    else if (a === 'library' || a === 'vault' || a === 'trash') {
+      setLibraryTab(a === 'vault' ? 'archived' : a === 'trash' ? 'trash' : libraryTab);
+      setView('library');
+    }
     else if (a === 'layout') setPanel('layout');
     else if (a === 'export') void exportAll();
   };
@@ -238,7 +198,14 @@ export function WorkspacePage() {
 
   return (
     <div className="nx" data-sidebar={sidebar || undefined}>
-      {sidebar && <NxSidebar onPick={pick} onAction={act} onCollapse={() => showSidebar(false)} />}
+      {sidebar && (
+        <NxSidebar
+          onPick={pick}
+          onAction={act}
+          onCollapse={() => showSidebar(false)}
+          current={view === 'library' ? 'library' : view === 'graph' ? 'graph' : view === 'templates' ? 'templates' : null}
+        />
+      )}
       {sidebar && narrow && <button type="button" className="nx-scrim" aria-label="Cerrar la barra" onClick={() => showSidebar(false)} />}
       <main className="nx-main">
         {tabs.length > 1 && showPage && (
@@ -278,6 +245,11 @@ export function WorkspacePage() {
               <Graph3D pages={list} onOpen={pick} />
             </div>
           </div>
+        ) : view === 'library' ? (
+          <div className="nx-plain">
+            <NxBar {...toggle} title="Biblioteca" />
+            <NxLibrary tab={libraryTab} onTab={setLibraryTab} onPick={pick} />
+          </div>
         ) : !ready ? null : view === 'templates' || !showPage ? (
           <div className="nx-plain">
             <NxBar {...toggle} title={view === 'templates' ? 'Plantillas' : 'Inicio'} />
@@ -300,7 +272,6 @@ export function WorkspacePage() {
         )}
       </main>
 
-      {panel === 'vault' && <Vault onClose={() => setPanel(null)} />}
       {panel === 'layout' && (
         <div className="ws-modal" role="dialog" aria-modal="true" aria-label="Diseño" onClick={(e) => e.target === e.currentTarget && setPanel(null)}>
           <div className="ws-modal-sheet" style={{ maxWidth: 320, position: 'relative' }}>

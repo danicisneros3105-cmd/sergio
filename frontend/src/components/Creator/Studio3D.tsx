@@ -149,8 +149,8 @@ export function Studio3D({ mode }: { mode: 'modelado' | 'arquitectura' }) {
     sun.position.set(5, 9, 6);
     sun.castShadow = true;
     sun.shadow.mapSize.set(2048, 2048);
-    scene.add(sun, new THREE.HemisphereLight('#dfe8ff', '#30323d', 0.6));
-    const grid = new THREE.GridHelper(40, 40, '#5b6178', '#33364a');
+    scene.add(sun, new THREE.HemisphereLight('#e8e8e8', '#303030', 0.6));
+    const grid = new THREE.GridHelper(40, 40, '#5c5c5c', '#353535');
     scene.add(grid);
     const floor = new THREE.Mesh(new THREE.PlaneGeometry(400, 400), new THREE.ShadowMaterial({ opacity: 0.22 }));
     floor.rotation.x = -Math.PI / 2;
@@ -159,7 +159,7 @@ export function Studio3D({ mode }: { mode: 'modelado' | 'arquitectura' }) {
     scene.add(floor);
     const preview = new THREE.Line(
       new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]),
-      new THREE.LineBasicMaterial({ color: '#7b9cff' }),
+      new THREE.LineBasicMaterial({ color: '#e6e6e6' }),
     );
     preview.visible = false;
     scene.add(preview);

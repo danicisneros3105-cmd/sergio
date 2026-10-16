@@ -133,6 +133,7 @@
   height: 45px; flex-shrink: 0; display: flex; align-items: center; gap: 2px; padding: 0 12px;
   background: var(--nx-bg); font-size: 14px; position: relative; z-index: 3;
 }
+.nx-topbar:has(.nx-menu) { z-index: 45; } /* its menus sit above the click-away layer */
 .nx-crumbs { display: flex; align-items: center; min-width: 0; flex: 1; overflow: hidden; }
 .nx-crumb-wrap { display: inline-flex; align-items: center; min-width: 0; }
 .nx-crumb { display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 6px; border-radius: 4px; max-width: 220px; color: var(--nx-text); white-space: nowrap; }
@@ -434,3 +435,93 @@
   .nx-sidebar, .nx-topbar, .nx-tabs, .nx-gutter, .nx-head-actions, .nx-tail { display: none !important; }
   .nx, .nx-main, .nx-scroller { height: auto; overflow: visible; }
 }
+
+/* -- Library (Biblioteca): every page on one full page -------------------------- */
+.nx-library { flex: 1; max-width: 960px; width: 100%; margin: 0 auto; padding: 40px 48px 80px; overflow-y: auto; }
+.nx-library-title { font-size: 32px; font-weight: 700; margin: 0 0 20px; color: var(--nx-text); }
+.nx-library-bar { display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--nx-border); flex-wrap: wrap; }
+.nx-library-tabs { display: flex; gap: 2px; overflow-x: auto; flex: 1; min-width: 0; }
+.nx-library-tab {
+  height: 34px; padding: 0 10px; font-size: 14px; color: var(--nx-text-2); white-space: nowrap;
+  border-bottom: 2px solid transparent; margin-bottom: -1px;
+}
+.nx-library-tab:hover { color: var(--nx-text); }
+.nx-library-tab[aria-selected='true'] { color: var(--nx-text); border-bottom-color: var(--nx-text); font-weight: 500; }
+.nx-library-search { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 8px; border-radius: 6px; color: var(--nx-text-3); background: var(--nx-hover); margin-bottom: 4px; }
+.nx-library-search input { background: transparent; border: 0; outline: 0; font-size: 13px; color: var(--nx-text); width: 150px; }
+.nx-library-tools { display: flex; align-items: center; gap: 12px; min-height: 40px; flex-wrap: wrap; }
+.nx-library-check { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--nx-text-2); cursor: pointer; }
+.nx-library-check input { accent-color: var(--nx-text); }
+.nx-library-note { font-size: 13px; color: var(--nx-text-2); }
+.nx-pill { height: 28px; padding: 0 10px; border-radius: 6px; font-size: 13px; color: var(--nx-text); border: 1px solid var(--nx-border); }
+.nx-pill:hover { background: var(--nx-hover); }
+.nx-library-row { display: grid; grid-template-columns: minmax(0, 1fr) 180px 110px 72px; align-items: center; gap: 8px; min-height: 38px; border-bottom: 1px solid var(--nx-border); }
+.nx-library-head { min-height: 32px; font-size: 12px; color: var(--nx-text-3); }
+.nx-library-name { display: flex; align-items: center; gap: 8px; min-width: 0; height: 32px; padding: 0 6px; border-radius: 4px; text-align: left; font-size: 14px; color: var(--nx-text); }
+.nx-library-name span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nx-library-name:not(:disabled):hover { background: var(--nx-hover); }
+.nx-library-name:disabled { cursor: default; }
+.nx-library-meta { font-size: 13px; color: var(--nx-text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nx-library-actions { display: flex; justify-content: flex-end; gap: 2px; }
+.nx-library-empty { padding: 24px 6px; font-size: 14px; color: var(--nx-text-3); }
+.nx-library-link { margin-top: 8px; }
+@media (max-width: 720px) {
+  .nx-library { padding: 24px 16px 64px; }
+  .nx-library-row { grid-template-columns: minmax(0, 1fr) 90px 64px; }
+  .nx-library-row > :nth-child(2) { display: none; }
+}
+
+/* -- tabs block --------------------------------------------------------------- */
+.nx-tabsblock { border: 1px solid var(--nx-border); border-radius: 8px; margin: 4px 0; }
+.nx-tabsblock-bar { display: flex; align-items: center; gap: 2px; padding: 4px 6px 0; border-bottom: 1px solid var(--nx-border); overflow-x: auto; }
+.nx-tabsblock-tab { display: inline-flex; align-items: center; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.nx-tabsblock-tab button[role='tab'] { height: 30px; padding: 0 8px; font-size: 14px; color: var(--nx-text-2); white-space: nowrap; }
+.nx-tabsblock-tab[data-active] { border-bottom-color: var(--nx-text); }
+.nx-tabsblock-tab[data-active] button[role='tab'] { color: var(--nx-text); font-weight: 500; }
+.nx-tabsblock-x, .nx-tabsblock-add { width: 22px; height: 22px; display: grid; place-items: center; border-radius: 4px; color: var(--nx-text-3); }
+.nx-tabsblock-x:hover, .nx-tabsblock-add:hover { background: var(--nx-hover); color: var(--nx-text); }
+.nx-tabsblock-name { height: 26px; width: 130px; font-size: 14px; padding: 0 6px; border-radius: 4px; border: 1px solid var(--nx-border); background: var(--nx-bg); color: var(--nx-text); }
+.nx-tabsblock-body {
+  display: block; width: 100%; resize: none; border: 0; outline: 0; background: transparent; color: var(--nx-text);
+  font: inherit; line-height: 1.5; padding: 10px 12px; overflow: hidden; min-height: 44px;
+}
+.nx-tabsblock-body::placeholder { color: var(--nx-text-3); }
+
+/* -- presentation mode ------------------------------------------------------------ */
+.nx-present { position: fixed; inset: 0; z-index: 90; background: var(--nx-bg); display: flex; flex-direction: column; outline: none; }
+.nx-slide { flex: 1; display: grid; place-items: center; padding: 6vh 8vw; overflow: auto; cursor: default; }
+.nx-slide-cover { text-align: center; }
+.nx-slide-cover h1 { font-size: clamp(36px, 5.5vw, 72px); font-weight: 700; line-height: 1.1; margin: 16px 0 0; }
+.nx-slide-icon { display: inline-grid; place-items: center; }
+.nx-slide-body { width: min(1100px, 100%); font-size: clamp(18px, 2.1vw, 28px); line-height: 1.5; }
+.nx-slide-body h1 { font-size: 2em; font-weight: 700; margin: 0 0 0.5em; line-height: 1.15; }
+.nx-slide-body h2 { font-size: 1.5em; font-weight: 600; margin: 0.6em 0 0.3em; }
+.nx-slide-body h3 { font-size: 1.2em; font-weight: 600; margin: 0.5em 0 0.2em; }
+.nx-slide-body p { margin: 0.35em 0; }
+.nx-slide-li { position: relative; padding-left: 1.3em; margin: 0.3em 0; }
+.nx-slide-li::before { content: '•'; position: absolute; left: 0.2em; }
+.nx-slide-li[data-n]::before { content: attr(data-n); left: 0; }
+.nx-slide-todo { display: flex; gap: 0.5em; margin: 0.3em 0; }
+.nx-slide-todo[data-done] { color: var(--nx-text-3); text-decoration: line-through; }
+.nx-slide-body blockquote { border-left: 3px solid currentColor; padding-left: 0.8em; margin: 0.5em 0; }
+.nx-slide-callout { background: var(--nx-callout); border-radius: 8px; padding: 0.6em 0.9em; margin: 0.5em 0; }
+.nx-slide-body pre { font-family: var(--nx-mono); font-size: 0.7em; background: var(--nx-code); border-radius: 8px; padding: 0.8em 1em; overflow-x: auto; }
+.nx-slide-image { max-width: 100%; max-height: 60vh; border-radius: 8px; display: block; margin: 0.5em auto; }
+.nx-slide-tab { margin: 0.4em 0; }
+.nx-present-bar { position: absolute; right: 16px; bottom: 16px; display: flex; align-items: center; gap: 4px; padding: 4px; border-radius: 8px; background: var(--nx-menu); box-shadow: var(--nx-shadow); opacity: 0.35; transition: opacity 0.2s; }
+.nx-present-bar:hover, .nx-present:focus-within .nx-present-bar:focus-within { opacity: 1; }
+.nx-present-count { font-size: 13px; color: var(--nx-text-2); min-width: 52px; text-align: center; font-variant-numeric: tabular-nums; }
+
+/* -- database dashboard view -------------------------------------------------------- */
+.ws-dashview { display: flex; flex-direction: column; gap: 10px; padding: 8px 0; }
+.ws-dashview-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(200px, 100%), 1fr)); gap: 10px; }
+.ws-dashview-card { border: 1px solid var(--nx-border); border-radius: 8px; padding: 12px 14px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.ws-dashview-card small { font-size: 12px; color: var(--nx-text-2); }
+.ws-dashview-card strong { font-size: 26px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.ws-dashview-wide { grid-column: span 2; }
+@media (max-width: 560px) { .ws-dashview-wide { grid-column: auto; } }
+.ws-dashview-bar { display: grid; grid-template-columns: minmax(60px, 34%) 1fr 32px; align-items: center; gap: 8px; font-size: 13px; }
+.ws-dashview-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--nx-text); }
+.ws-dashview-track { height: 8px; border-radius: 4px; background: var(--nx-hover); overflow: hidden; }
+.ws-dashview-track span { display: block; height: 100%; background: var(--nx-text); border-radius: 4px; }
+.ws-dashview-n { text-align: right; color: var(--nx-text-2); font-variant-numeric: tabular-nums; }

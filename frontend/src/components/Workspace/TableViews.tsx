@@ -5,7 +5,7 @@
 
 import { useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight, ExternalLink, Plus } from 'lucide-react';
-import { computeCell } from '../../lib/workspace/formula';
+import { computeCell, toNumber } from '../../lib/workspace/formula';
 import type { Column, Row, TableData } from '../../lib/workspace/model';
 
 /** What a cell shows (formulas computed, multi-select as a list). */
@@ -226,6 +226,70 @@ export function CalendarView({
           );
         })}
       </div>
+    </div>
+  );
+}
+
+// -- dashboard view: the table as widgets (Notion's «Panel» view) -------------------
+// Number cards first, then one bar widget per select column; the view's
+// filter applies to every widget, as in Notion. Up to four per row.
+export function DashboardView({ table, rows }: { table: TableData; rows: Row[] }) {
+  const widgets = useMemo(() => {
+    const cards: Array<{ label: string; value: string }> = [{ label: 'Filas', value: rows.length.toLocaleString('es') }];
+    for (const c of table.columns.filter((c) => c.type === 'number')) {
+      const values = rows.map((r) => toNumber(shownValue(table, r, c))).filter((n): n is number => n !== null && Number.isFinite(n));
+      if (!values.length) continue;
+      const sum = values.reduce((a, b) => a + b, 0);
+      cards.push({ label: `${c.name} · suma`, value: sum.toLocaleString('es', { maximumFractionDigits: 2 }) });
+      cards.push({ label: `${c.name} · promedio`, value: (sum / values.length).toLocaleString('es', { maximumFractionDigits: 2 }) });
+    }
+    for (const c of table.columns.filter((c) => c.type === 'checkbox')) {
+      const done = rows.filter((r) => r.cells[c.id] === 'true' || r.cells[c.id] === '1').length;
+      cards.push({ label: c.name, value: `${rows.length ? Math.round((done / rows.length) * 100) : 0} %` });
+    }
+    const bars = table.columns
+      .filter((c) => c.type === 'select' || c.type === 'multi')
+      .map((c) => {
+        const counts = new Map<string, number>();
+        for (const r of rows) {
+          const values = c.type === 'multi' ? multiValues(r.cells[c.id] || '') : [r.cells[c.id] || ''];
+          for (const v of values.length ? values : ['']) counts.set(v || 'Vacío', (counts.get(v || 'Vacío') || 0) + 1);
+        }
+        const order = [...(c.options || []), 'Vacío'];
+        const items = [...counts.entries()].sort((a, b) => order.indexOf(a[0]) - order.indexOf(b[0]) || b[1] - a[1]);
+        return { name: c.name, items, max: Math.max(1, ...items.map((i) => i[1])) };
+      });
+    return { cards, bars };
+  }, [table, rows]);
+
+  return (
+    <div className="ws-dashview">
+      <div className="ws-dashview-grid">
+        {widgets.cards.map((k) => (
+          <section key={k.label} className="ws-dashview-card">
+            <small>{k.label}</small>
+            <strong>{k.value}</strong>
+          </section>
+        ))}
+      </div>
+      {widgets.bars.length > 0 && (
+        <div className="ws-dashview-grid">
+          {widgets.bars.map((b) => (
+            <section key={b.name} className="ws-dashview-card ws-dashview-wide">
+              <small>{b.name}</small>
+              {b.items.map(([label, n]) => (
+                <div key={label} className="ws-dashview-bar">
+                  <span className="ws-dashview-label">{label}</span>
+                  <span className="ws-dashview-track">
+                    <span style={{ width: `${(n / b.max) * 100}%` }} />
+                  </span>
+                  <span className="ws-dashview-n">{n}</span>
+                </div>
+              ))}
+            </section>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

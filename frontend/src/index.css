@@ -3479,3 +3479,32 @@ p.node-hint:not(.node-path), .node-create-sub, .swarm-sub, .swarm-hint, .studio-
 
 /* Black and white only (owner, 2026-10): native controls follow the ink, never blue. */
 :root { accent-color: var(--color-ink); }
+
+/* -- Creator polish (oct. 2026) ------------------------------------------------- */
+/* Seven spaces fit in one row: tighter tabs, «Extensiones» as an icon, and a
+   soft edge instead of a cut-off tab when the window is narrow. */
+.creator-head { gap: 12px; }
+.creator-tabs { flex: 1; min-width: 0; gap: 2px; mask-image: linear-gradient(90deg, #000 calc(100% - 24px), transparent); }
+.creator-tab { padding: 7px 11px; gap: 7px; }
+.creator-all { flex-shrink: 0; padding: 7px 9px; }
+.creator-all span { display: none; }
+@media (max-width: 1240px) {
+  .creator-tabs .creator-tab span { display: none; }
+  .creator-tabs .creator-tab[aria-current='page'] span { display: inline; }
+}
+/* program shelf: name and state on one line */
+.program-shelf { padding: 6px 12px; }
+.program-card { min-width: 0; padding: 5px 6px 5px 12px; border-radius: 12px; gap: 10px; }
+.program-card > div { flex: 0 1 auto; }
+/* not installed: a slim bar above the quick editor, not a big card */
+.program-missing-card {
+  margin: 0; max-width: none; flex-direction: row; align-items: center; flex-wrap: wrap; gap: 6px 12px;
+  padding: 8px 12px; border: 0; border-bottom: 1px solid var(--color-border-subtle); border-radius: 0;
+}
+.program-missing-card b { font-size: 14px; }
+.program-missing-card p { font-size: 13px; flex: 1; min-width: 200px; }
+.program-missing-card .paper-button { padding: 0.35rem 0.85rem; font-size: 13px; }
+.program-fallback { flex: 1; min-height: 0; border-top: 0; }
+/* colour pickers: a swatch, not a full-width bar */
+.studio-side label:has(> input[type='color']) { display: flex; flex-direction: row; align-items: center; justify-content: space-between; gap: 8px; }
+.studio-side input[type='color'] { width: 34px; height: 26px; flex: none; padding: 2px; border-radius: 6px; border: 1px solid var(--color-border); background: var(--color-surface); cursor: pointer; }

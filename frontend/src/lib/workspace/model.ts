@@ -29,6 +29,7 @@ export type BlockType =
   | 'form'
   | 'button'
   | 'dashboard'
+  | 'tabs'
   | 'video';
 
 export type ColumnType = 'text' | 'number' | 'select' | 'multi' | 'date' | 'checkbox' | 'url' | 'email' | 'phone';
@@ -51,7 +52,7 @@ export interface Row {
 export interface TableView {
   id: string;
   name: string;
-  kind: 'table' | 'board' | 'list' | 'gallery' | 'calendar' | 'timeline';
+  kind: 'table' | 'board' | 'list' | 'gallery' | 'calendar' | 'timeline' | 'dashboard';
   filter?: { column: string; op: 'is' | 'not' | 'contains' | 'gt' | 'lt'; value: string } | null;
   sort?: { column: string; dir: 'asc' | 'desc' } | null;
   groupBy?: string; // board: a select column
@@ -104,8 +105,16 @@ export interface Block {
   form?: FormSpec;
   button?: ButtonSpec;
   dashboard?: { tables: string[] }; // block ids of tables on the page ([] = all)
+  tabs?: TabPane[]; // a tabs block: one pane shows at a time (block.tab)
+  tab?: string;
   conflict?: boolean; // kept from a simultaneous edit by someone else
   color?: string; // 'red' text, 'red_bg' background (lib/workspace/notion.ts)
+}
+
+export interface TabPane {
+  id: string;
+  name: string;
+  text: string;
 }
 
 export interface Comment {
@@ -135,6 +144,7 @@ export interface Page {
   rev: number; // the server's revision this copy is based on
   favorite?: boolean;
   archived?: boolean; // in the vault («baúl»): out of lists and search
+  trashedAt?: number; // deleted: kept 30 days in the trash («Papelera»), then gone
   tags?: string[];
   sealed?: Sealed | null; // end-to-end encrypted: blocks are empty until unlocked
   verifiedAt?: number; // a wiki page someone confirmed is still right
@@ -159,6 +169,10 @@ export function block(type: BlockType, text = '', extra: Partial<Block> = {}): B
   if (type === 'toggle' && b.open === undefined) b.open = true;
   if (type === 'table' && !b.table) b.table = emptyTable();
   if (type === 'pomodoro' && !b.pomodoro) b.pomodoro = { work: 25, rest: 5 };
+  if (type === 'tabs' && !b.tabs) {
+    b.tabs = [1, 2].map((n) => ({ id: newId('t'), name: `Pestaña ${n}`, text: '' }));
+    b.tab = b.tabs[0].id;
+  }
   if (type === 'mindmap' && !b.mind) b.mind = [{ id: newId('n'), text: text || 'Idea central', parent: null }];
   return b;
 }
@@ -367,6 +381,9 @@ export function toMarkdown(page: Page, titleOf: (id: string) => string = () => '
       case 'toggle':
         out.push(`<details><summary>${b.text}</summary></details>`);
         break;
+      case 'tabs':
+        for (const t of b.tabs || []) out.push(`**${t.name}**`, '', t.text, '');
+        break;
       case 'table':
         if (b.table) out.push(tableMarkdown(b.table));
         break;
@@ -454,6 +471,7 @@ export const SLASH: Array<{ type: BlockType; label: string; hint: string; keywor
   { type: 'callout', label: 'Nota destacada', hint: 'Un aviso', keywords: 'nota aviso callout' },
   { type: 'form', label: 'Formulario', hint: 'Llena una tabla, con campos que aparecen según respuestas', keywords: 'formulario form encuesta' },
   { type: 'button', label: 'Botón', hint: 'Acciones con un clic, también con Sergio', keywords: 'boton button accion automatizar' },
+  { type: 'tabs', label: 'Pestañas', hint: 'Contenido en pestañas', keywords: 'pestanas tabs pestana' },
   { type: 'dashboard', label: 'Panel', hint: 'Indicadores de las tablas', keywords: 'panel dashboard kpi indicadores' },
   { type: 'video', label: 'Video', hint: 'Con recorte de inicio y fin', keywords: 'video pelicula clip' },
   { type: 'code', label: 'Código', hint: 'Bloque de código', keywords: 'codigo code' },

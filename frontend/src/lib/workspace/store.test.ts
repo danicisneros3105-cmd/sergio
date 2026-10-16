@@ -45,7 +45,7 @@ describe('workspace store (local-first)', () => {
     server = fakeServer();
     db = memoryDB();
     configureWorkspace({ db, remote: server.remote });
-    useWorkspace.setState({ pages: {}, dirty: [], deleted: [], tabs: [], active: null, split: null, vault: null, sync: 'idle' });
+    useWorkspace.setState({ pages: {}, dirty: [], deleted: [], tabs: [], active: null, split: null, vault: null, trash: null, sync: 'idle' });
     await useWorkspace.getState().load();
   });
 
@@ -136,5 +136,40 @@ describe('workspace store (local-first)', () => {
     expect(server.calls).toContain('upload nota.webm');
     const stored = server.pages.get(page.id)!;
     expect(stored.blocks.some((b) => b.media?.file === 'f_server0001.webm')).toBe(true);
+  });
+
+  it('deleting moves a page to the trash; it can come back or be gone for good', async () => {
+    const page = useWorkspace.getState().create({ title: 'Borrador' });
+    await useWorkspace.getState().syncNow();
+    useWorkspace.getState().remove(page.id);
+    await useWorkspace.getState().syncNow();
+    expect(server.pages.has(page.id)).toBe(false);
+    await useWorkspace.getState().loadTrash();
+    expect(useWorkspace.getState().trash!.map((p) => p.title)).toEqual(['Borrador']);
+    await useWorkspace.getState().loadVault();
+    expect(useWorkspace.getState().vault).toEqual([]); // the trash is not the vault
+    await useWorkspace.getState().restoreTrash(page.id);
+    expect(useWorkspace.getState().pages[page.id].title).toBe('Borrador');
+    await useWorkspace.getState().syncNow();
+    expect(server.pages.get(page.id)?.title).toBe('Borrador');
+    useWorkspace.getState().remove(page.id);
+    await useWorkspace.getState().loadTrash();
+    await useWorkspace.getState().purge(page.id);
+    expect(useWorkspace.getState().trash).toEqual([]);
+    expect(await db.get('vault', page.id)).toBeUndefined();
+  });
+
+  it('empties trash older than 30 days by itself', async () => {
+    const page = useWorkspace.getState().create({ title: 'Viejo' });
+    useWorkspace.getState().remove(page.id);
+    await useWorkspace.getState().loadTrash(Date.now() + 31 * 86_400_000);
+    expect(useWorkspace.getState().trash).toEqual([]);
+  });
+
+  it('hides and shows sidebar sections', () => {
+    useWorkspace.getState().toggleSection('recents');
+    expect(useWorkspace.getState().layout.hidden).toEqual(['recents']);
+    useWorkspace.getState().toggleSection('recents', true);
+    expect(useWorkspace.getState().layout.hidden).toEqual([]);
   });
 });

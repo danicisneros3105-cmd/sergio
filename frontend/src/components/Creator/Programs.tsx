@@ -62,10 +62,9 @@ function ProgramCard({ p, reload }: { p: Program; reload: () => void }) {
     }
   };
   return (
-    <article className="program-card" data-state={state}>
+    <article className="program-card" data-state={state} title={p.what}>
       <div>
         <b>{p.name}</b>
-        <span>{p.what}</span>
       </div>
       <em>{p.error && state === 'falta' ? `No se pudo: ${p.error.slice(0, 80)}` : STATE_LABEL[state]}</em>
       {state === 'listo' ? (
@@ -136,11 +135,10 @@ export function EmbeddedProgram({
       <div className="program-missing">
         <div className="program-missing-card">
           <b>{program.name}</b>
-          <p>{program.what}</p>
           <p className="studio-note">
             {program.installing
               ? 'Se está instalando en este equipo (un par de minutos).'
-              : 'Aún no está instalado en este equipo. Se instala solo con la próxima actualización, o ahora:'}
+              : 'Sin instalar en este equipo: se instala con la próxima actualización.'}
           </p>
           {!program.installing && (
             <button

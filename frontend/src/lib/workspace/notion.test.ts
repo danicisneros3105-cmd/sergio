@@ -11,10 +11,11 @@ import {
   mentionQuery,
   parseInline,
   slashTypesAreGrouped,
+  slidesOf,
   tagColor,
   toggleMark,
 } from './notion';
-import { newPage, SLASH } from './model';
+import { block, newPage, SLASH, toMarkdown } from './model';
 
 describe('the notes-app look', () => {
   it('parses inline formatting', () => {
@@ -64,5 +65,25 @@ describe('the notes-app look', () => {
     expect(editedAgo(1_000, 1_000 + 30_000)).toBe('Editado ahora');
     expect(editedAgo(0, 3 * 3600_000)).toBe('Editado hace 3 h');
     expect(slashTypesAreGrouped(SLASH.map((s) => s.type))).toBe(true);
+  });
+});
+
+describe('presentation and tabs', () => {
+  it('splits slides at dividers, else at each Título 1', () => {
+    const byDivider = slidesOf([block('h1', 'Uno'), block('text', 'a'), block('divider'), block('h1', 'Dos'), block('h1', 'Sigue')]);
+    expect(byDivider.map((s) => s.map((b) => b.text))).toEqual([['Uno', 'a'], ['Dos', 'Sigue']]);
+    const byHeading = slidesOf([block('text', 'intro'), block('h1', 'A'), block('bullet', 'x'), block('h1', 'B'), block('text', '')]);
+    expect(byHeading.map((s) => s.map((b) => b.text))).toEqual([['intro'], ['A', 'x'], ['B', '']]);
+    expect(slidesOf([block('text', '')])).toEqual([]);
+  });
+
+  it('a tabs block starts with two panes and exports each one', () => {
+    const tabs = block('tabs');
+    expect(tabs.tabs).toHaveLength(2);
+    expect(tabs.tab).toBe(tabs.tabs![0].id);
+    tabs.tabs![0].text = 'Contenido A';
+    const md = toMarkdown({ ...newPage('P'), blocks: [tabs] });
+    expect(md).toContain('**Pestaña 1**');
+    expect(md).toContain('Contenido A');
   });
 });

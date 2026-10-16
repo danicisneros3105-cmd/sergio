@@ -1,11 +1,11 @@
 import { useMemo, useState } from 'react';
-import { Plus, Trash2, Share2, Columns3, LayoutGrid, Filter, ArrowUpDown, List, GalleryVerticalEnd, CalendarDays, ExternalLink, GanttChart, Zap } from 'lucide-react';
+import { Plus, Trash2, Share2, Columns3, LayoutGrid, Filter, ArrowUpDown, List, GalleryVerticalEnd, CalendarDays, ExternalLink, GanttChart, LayoutDashboard, Zap } from 'lucide-react';
 import { applyRules, rollup } from '../../lib/workspace/brain';
 import { AiTable, FormulaWords, RulesEditor, TimelineView } from './TableSmarts';
 import { columnLetter, computeCell, isFormula, toNumber } from '../../lib/workspace/formula';
 import { stampDone } from '../../lib/workspace/archive';
 import { newId, type Column, type ColumnType, type Row, type TableData, type TableView } from '../../lib/workspace/model';
-import { CalendarView, GalleryView, ListView, cellHref, multiValues } from './TableViews';
+import { CalendarView, DashboardView, GalleryView, ListView, cellHref, multiValues } from './TableViews';
 import { tagColor } from '../../lib/workspace/notion';
 import { AtSign, Calendar, CheckSquare, ChevronDown as ChevronDownIcon, Hash, Link2, ListChecks, Phone, Text as TextIcon, Type } from 'lucide-react';
 
@@ -40,9 +40,10 @@ const VIEW_KINDS: Array<{ key: TableView['kind']; label: string }> = [
   { key: 'gallery', label: 'Galería' },
   { key: 'calendar', label: 'Calendario' },
   { key: 'timeline', label: 'Cronograma' },
+  { key: 'dashboard', label: 'Panel' },
 ];
 
-const VIEW_ICON = { table: Columns3, board: LayoutGrid, list: List, gallery: GalleryVerticalEnd, calendar: CalendarDays, timeline: GanttChart };
+const VIEW_ICON = { table: Columns3, board: LayoutGrid, list: List, gallery: GalleryVerticalEnd, calendar: CalendarDays, timeline: GanttChart, dashboard: LayoutDashboard };
 
 export function visibleRows(table: TableData, view: TableView): Row[] {
   let rows = table.rows.filter((r) => !r.archived);
@@ -193,6 +194,7 @@ export function TableBlock({
   const view = table.views.find((v) => v.id === table.view) || table.views[0];
   const [picked, setPicked] = useState<string[]>([]);
   const [tools, setTools] = useState(false);
+  const [adding, setAdding] = useState(false);
   const [rulesOpen, setRulesOpen] = useState(false);
   const all = table.rows.filter((r) => !r.archived);
   const rows = useMemo(() => visibleRows(table, view), [table, view]);
@@ -257,17 +259,32 @@ export function TableBlock({
               {v.name}
             </button>
           ))}
-          <button
-            type="button"
-            className="paper-tab"
-            onClick={() => {
-              const v: TableView = { id: newId('v'), name: `Vista ${table.views.length + 1}`, kind: 'table' };
-              set({ ...table, views: [...table.views, v], view: v.id });
-            }}
-            aria-label="Nueva vista"
-          >
-            +
-          </button>
+          <span className="relative">
+            <button type="button" className="paper-tab" onClick={() => setAdding(!adding)} aria-label="Nueva vista" aria-expanded={adding}>
+              +
+            </button>
+            {adding && (
+              <div className="nx-menu" role="menu" style={{ top: 30, minWidth: 180 }} onMouseLeave={() => setAdding(false)}>
+                {VIEW_KINDS.map((k) => {
+                  const Icon = VIEW_ICON[k.key];
+                  return (
+                    <button
+                      key={k.key}
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setAdding(false);
+                        const v: TableView = { id: newId('v'), name: k.label, kind: k.key, ...(k.key === 'board' ? { groupBy: selects[0]?.id } : {}) };
+                        set({ ...table, views: [...table.views, v], view: v.id });
+                      }}
+                    >
+                      <Icon size={15} /> {k.label}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </span>
         </div>
         <div className="flex items-center gap-1">
           <button type="button" className="mac-icon-btn" onClick={() => setRulesOpen(!rulesOpen)} aria-label="Automatizaciones" title="Automatizaciones" aria-pressed={rulesOpen}>
@@ -367,7 +384,9 @@ export function TableBlock({
 
       {rulesOpen && <RulesEditor table={table} onChange={set} onClose={() => setRulesOpen(false)} />}
       {blank && <AiTable onTable={(t) => set(t)} />}
-      {view.kind === 'timeline' ? (
+      {view.kind === 'dashboard' ? (
+        <DashboardView table={table} rows={rows} />
+      ) : view.kind === 'timeline' ? (
         <TimelineView table={table} />
       ) : view.kind === 'list' ? (
         <ListView table={table} rows={rows} />

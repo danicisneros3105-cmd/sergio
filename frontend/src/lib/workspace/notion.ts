@@ -2,7 +2,7 @@
 // covers, icons, block colours, the grouped «/» menu, inline formatting and
 // page paths. Pure functions and data only (no React), so they are tested.
 
-import type { BlockType, Page } from './model';
+import type { Block, BlockType, Page } from './model';
 
 // -- covers: the gallery's colours and gradients, or an uploaded image --------
 export const COVERS: Array<{ key: string; name: string; css: string }> = [
@@ -76,7 +76,7 @@ export function tagColor(option: string): string {
 
 // -- the «/» menu, grouped ----------------------------------------------------
 export const SLASH_GROUPS: Array<{ name: string; types: BlockType[] }> = [
-  { name: 'Bloques básicos', types: ['text', 'page', 'todo', 'h1', 'h2', 'h3', 'table', 'bullet', 'number', 'toggle', 'quote', 'divider', 'callout'] },
+  { name: 'Bloques básicos', types: ['text', 'page', 'todo', 'h1', 'h2', 'h3', 'table', 'bullet', 'number', 'toggle', 'tabs', 'quote', 'divider', 'callout'] },
   { name: 'Multimedia', types: ['image', 'video', 'audio', 'bookmark', 'code'] },
   { name: 'Avanzados', types: ['toc', 'equation', 'button', 'form', 'chart', 'dashboard', 'mindmap', 'pomodoro'] },
 ];
@@ -192,4 +192,18 @@ export function greeting(now = new Date()): string {
 /** Every «/» entry belongs to exactly one group (the menu shows them all). */
 export function slashTypesAreGrouped(types: BlockType[]): boolean {
   return types.every((t) => SLASH_GROUPS.filter((g) => g.types.includes(t)).length === 1);
+}
+
+// -- presentation mode: a page as slides ------------------------------------------
+// Like Notion's: a divider starts a new slide; a page with no dividers gets
+// one slide per «Título 1». Empty slides are dropped; the page title opens.
+export function slidesOf(blocks: Block[]): Block[][] {
+  const shown = blocks.filter((b) => !b.archived);
+  const byDivider = shown.some((b) => b.type === 'divider');
+  const slides: Block[][] = [[]];
+  for (const b of shown) {
+    if (byDivider ? b.type === 'divider' : b.type === 'h1' && slides[slides.length - 1].length) slides.push([]);
+    if (b.type !== 'divider') slides[slides.length - 1].push(b);
+  }
+  return slides.filter((s) => s.some((b) => b.text.trim() || (b.type !== 'text' && b.type !== 'h1' && b.type !== 'h2' && b.type !== 'h3')));
 }

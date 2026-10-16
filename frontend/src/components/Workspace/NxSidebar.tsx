@@ -9,6 +9,7 @@ import {
   Download,
   Home,
   Inbox,
+  Library,
   LayoutTemplate,
   MoreHorizontal,
   Network,
@@ -20,12 +21,26 @@ import {
   Star,
   Trash2,
 } from 'lucide-react';
-import { useWorkspace } from '../../lib/workspace/store';
+import { useWorkspace, type SidebarSection } from '../../lib/workspace/store';
+import { useSharedPages } from './NxLibrary';
 import { NxIcon } from './NxIcon';
 import { childrenOf } from '../../lib/workspace/notion';
 import type { Page } from '../../lib/workspace/model';
 
-export type SidebarAction = 'search' | 'home' | 'inbox' | 'agenda' | 'templates' | 'graph' | 'clip' | 'shares' | 'vault' | 'layout' | 'export';
+export type SidebarAction =
+  | 'search'
+  | 'home'
+  | 'inbox'
+  | 'agenda'
+  | 'templates'
+  | 'graph'
+  | 'clip'
+  | 'shares'
+  | 'vault'
+  | 'trash'
+  | 'library'
+  | 'layout'
+  | 'export';
 
 function PageIcon({ page }: { page: Page }) {
   return <NxIcon icon={page.icon} size={16} />;
@@ -86,7 +101,7 @@ function TreeRow({ page, depth, onPick }: { page: Page; depth: number; onPick: (
               <Copy size={15} /> Duplicar
             </button>
             <button type="button" role="menuitem" onClick={() => (setMenu(false), void archive(page.id))}>
-              <Archive size={15} /> Mover al baúl
+              <Archive size={15} /> Archivar
             </button>
             <button
               type="button"
@@ -94,10 +109,10 @@ function TreeRow({ page, depth, onPick }: { page: Page; depth: number; onPick: (
               className="nx-danger"
               onClick={() => {
                 setMenu(false);
-                if (window.confirm(`¿Borrar «${page.title || 'Sin título'}»?`)) remove(page.id);
+                remove(page.id);
               }}
             >
-              <Trash2 size={15} /> Borrar
+              <Trash2 size={15} /> Mover a la papelera
             </button>
           </div>
         )}
@@ -114,21 +129,79 @@ function TreeRow({ page, depth, onPick }: { page: Page; depth: number; onPick: (
   );
 }
 
-export function NxSidebar({ onPick, onAction, onCollapse }: { onPick: (id: string) => void; onAction: (a: SidebarAction) => void; onCollapse: () => void }) {
+// A section header like Notion's: click folds it, «•••» hides it from the bar.
+function Section({
+  name,
+  section,
+  children,
+  onAdd,
+}: {
+  name: string;
+  section: SidebarSection;
+  children: React.ReactNode;
+  onAdd?: () => void;
+}) {
+  const toggleSection = useWorkspace((s) => s.toggleSection);
+  const [open, setOpen] = useState(true);
+  const [menu, setMenu] = useState(false);
+  return (
+    <div className="nx-group">
+      <div className="nx-group-head-row">
+        <button type="button" className="nx-group-head" aria-expanded={open} onClick={() => setOpen(!open)}>
+          {name}
+        </button>
+        <button type="button" className="nx-icon nx-group-add" aria-label={`Opciones de ${name}`} onClick={() => setMenu(!menu)}>
+          <MoreHorizontal size={14} />
+        </button>
+        {onAdd && (
+          <button type="button" className="nx-icon nx-group-add" aria-label="Añadir una página" onClick={onAdd}>
+            <Plus size={14} />
+          </button>
+        )}
+        {menu && (
+          <div className="nx-menu" role="menu" style={{ left: 'auto', right: 4, top: 26 }} onMouseLeave={() => setMenu(false)}>
+            <button type="button" role="menuitem" onClick={() => (setMenu(false), toggleSection(section, false))}>
+              Ocultar la sección
+            </button>
+          </div>
+        )}
+      </div>
+      {open && children}
+    </div>
+  );
+}
+
+export function NxSidebar({
+  onPick,
+  onAction,
+  onCollapse,
+  current,
+}: {
+  onPick: (id: string) => void;
+  onAction: (a: SidebarAction) => void;
+  onCollapse: () => void;
+  current?: SidebarAction | null;
+}) {
   const pages = useWorkspace((s) => s.pages);
   const active = useWorkspace((s) => s.active);
   const create = useWorkspace((s) => s.create);
-  const [showFav, setShowFav] = useState(true);
-  const [showPriv, setShowPriv] = useState(true);
-  const favorites = Object.values(pages).filter((p) => p.favorite && !p.archived);
+  const hidden = useWorkspace((s) => s.layout.hidden) || [];
+  const shared = useSharedPages();
+  const shows = (key: SidebarSection) => !hidden.includes(key);
+  const live = Object.values(pages).filter((p) => !p.archived);
+  const favorites = live.filter((p) => p.favorite);
+  const recents = [...live].sort((a, b) => (b.openedAt || 0) - (a.openedAt || 0)).slice(0, 5);
+  const sharedPages = live.filter((p) => shared.has(p.id));
   const top = childrenOf(pages, null);
+  const newPage = () => onPick(create({ open: false }).id);
 
-  const item = (icon: React.ReactNode, label: string, action: SidebarAction, current = false) => (
-    <button type="button" className="nx-row nx-item" data-active={current || undefined} onClick={() => onAction(action)}>
+  const item = (icon: React.ReactNode, label: string, action: SidebarAction, on = false) => (
+    <button type="button" className="nx-row nx-item" data-active={on || current === action || undefined} onClick={() => onAction(action)}>
       <span className="nx-row-icon">{icon}</span>
       <span className="nx-row-label">{label}</span>
     </button>
   );
+  const flat = (list: typeof live, prefix: string) => list.map((p) => <TreeRow key={`${prefix}-${p.id}`} page={p} depth={0} onPick={onPick} />);
 
   return (
     <aside className="nx-sidebar" aria-label="Workspace">
@@ -138,46 +211,48 @@ export function NxSidebar({ onPick, onAction, onCollapse }: { onPick: (id: strin
         <button type="button" className="nx-icon" aria-label="Ocultar la barra" title="Ocultar la barra" onClick={onCollapse}>
           <ChevronsLeft size={17} />
         </button>
-        <button type="button" className="nx-icon" aria-label="Nueva página" title="Nueva página" onClick={() => onPick(create({ open: false }).id)}>
+        <button type="button" className="nx-icon" aria-label="Nueva página" title="Nueva página" onClick={newPage}>
           <Plus size={17} />
         </button>
       </div>
 
       <nav className="nx-section">
         {item(<Search size={16} />, 'Buscar', 'search')}
-        {item(<Home size={16} />, 'Inicio', 'home', !active)}
+        {item(<Home size={16} />, 'Inicio', 'home', !active && !current)}
         {item(<Inbox size={16} />, 'Bandeja de entrada', 'inbox')}
         {item(<CalendarDays size={16} />, 'Calendario', 'agenda')}
       </nav>
 
       <div className="nx-scroll">
-        {favorites.length > 0 && (
-          <div className="nx-group">
-            <button type="button" className="nx-group-head" onClick={() => setShowFav(!showFav)}>
-              Favoritos
-            </button>
-            {showFav && favorites.map((p) => <TreeRow key={`f-${p.id}`} page={p} depth={0} onPick={onPick} />)}
-          </div>
+        {shows('recents') && recents.length > 0 && (
+          <Section name="Recientes" section="recents">
+            {flat(recents, 'r')}
+          </Section>
         )}
-        <div className="nx-group">
-          <div className="nx-group-head-row">
-            <button type="button" className="nx-group-head" onClick={() => setShowPriv(!showPriv)}>
-              Privado
-            </button>
-            <button type="button" className="nx-icon nx-group-add" aria-label="Añadir una página" onClick={() => onPick(create({ open: false }).id)}>
-              <Plus size={14} />
-            </button>
-          </div>
-          {showPriv && top.map((p) => <TreeRow key={p.id} page={p} depth={0} onPick={onPick} />)}
-          {showPriv && (
-            <button type="button" className="nx-row nx-item nx-muted" onClick={() => onPick(create({ open: false }).id)}>
+        {shows('favorites') && favorites.length > 0 && (
+          <Section name="Favoritos" section="favorites">
+            {flat(favorites, 'f')}
+          </Section>
+        )}
+        {shows('shared') && sharedPages.length > 0 && (
+          <Section name="Compartido" section="shared">
+            {flat(sharedPages, 's')}
+          </Section>
+        )}
+        {shows('private') && (
+          <Section name="Privado" section="private" onAdd={newPage}>
+            {top.map((p) => (
+              <TreeRow key={p.id} page={p} depth={0} onPick={onPick} />
+            ))}
+            <button type="button" className="nx-row nx-item nx-muted" onClick={newPage}>
               <span className="nx-row-icon">
                 <Plus size={16} />
               </span>
               <span className="nx-row-label">Añadir una página</span>
             </button>
-          )}
-        </div>
+          </Section>
+        )}
+        {shows('library') && <nav className="nx-section nx-library-link">{item(<Library size={16} />, 'Biblioteca', 'library')}</nav>}
 
         <nav className="nx-section nx-bottom">
           {item(<LayoutTemplate size={16} />, 'Plantillas', 'templates')}
@@ -187,8 +262,10 @@ export function NxSidebar({ onPick, onAction, onCollapse }: { onPick: (id: strin
           {item(<Download size={16} />, 'Exportar todo', 'export')}
           {item(<Settings2 size={16} />, 'Diseño', 'layout')}
           {item(<Archive size={16} />, 'Baúl', 'vault')}
+          {item(<Trash2 size={16} />, 'Papelera', 'trash')}
         </nav>
       </div>
     </aside>
   );
 }
+

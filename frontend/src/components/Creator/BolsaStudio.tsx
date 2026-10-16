@@ -90,11 +90,10 @@ export default function BolsaStudio({ programs, reload }: { programs: Program[] 
       <div className="program-missing">
         <div className="program-missing-card">
           <b>Bolsa</b>
-          <p>{kronos.what}</p>
           <p className="studio-note">
             {kronos.installing
-              ? `Instalando: ${kronos.step || 'empezando'}… (PyTorch tarda unos minutos la primera vez)`
-              : 'Necesita instalarse una vez (unos 800 MB con PyTorch). Se instala solo al actualizar, o ahora:'}
+              ? `Instalando: ${kronos.step || 'empezando'}… (la primera vez tarda unos minutos)`
+              : 'Sin instalar en este equipo (unos 800 MB): se instala con la próxima actualización.'}
           </p>
           {kronos.installing ? (
             <Loader2 className="program-spin" size={18} />

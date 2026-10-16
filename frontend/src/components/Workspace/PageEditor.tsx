@@ -11,6 +11,7 @@ import {
   FileText,
   GripVertical,
   History as HistoryIcon,
+  Presentation as Presentation_Icon,
   Lock,
   Menu,
   MessageSquare,
@@ -59,6 +60,8 @@ import { MediaBlock } from './MediaBlock';
 import { MindMapBlock } from './MindMapBlock';
 import { ShareDialog, type ShareTarget } from './ShareDialog';
 import { BookmarkView, EquationView, TocView } from './ExtraBlocks';
+import { TabsBlock, tabsText } from './TabsBlock';
+import { Presentation } from './Presentation';
 import { HistoryDialog } from './HistoryDialog';
 import { NxIcon } from './NxIcon';
 import { BlockMenu, Comments, FormatBar, MentionMenu, PageHeader, RichText, SlashMenu, slashOrder } from './NxParts';
@@ -121,6 +124,8 @@ export function PageEditor({
   const [selection, setSelection] = useState<{ id: string; start: number; end: number } | null>(null);
   const [menu, setMenu] = useState<string | null>(null);
   const [history, setHistory] = useState(false);
+  const [presenting, setPresenting] = useState(false);
+  const stopPresenting = useCallback(() => setPresenting(false), []);
   const [share, setShare] = useState<ShareTarget | null>(null);
   const [lockOpen, setLockOpen] = useState(false);
   const [showVault, setShowVault] = useState(false);
@@ -595,6 +600,15 @@ export function PageEditor({
         />
       );
     if (b.type === 'dashboard') return <DashboardBlock tables={tables} />;
+    if (b.type === 'tabs')
+      return (
+        <TabsBlock
+          tabs={b.tabs || []}
+          active={b.tab}
+          readOnly={locked}
+          onChange={(tabs, tab) => patch(b.id, { tabs, tab, text: tabsText(tabs) })}
+        />
+      );
     if (b.type === 'mindmap') return <MindMapBlock nodes={b.mind || []} onChange={(m) => patch(b.id, { mind: m })} />;
     if (b.type === 'page') {
       const child = b.pageId ? pages[b.pageId] : undefined;
@@ -713,6 +727,9 @@ export function PageEditor({
               <button type="button" role="menuitem" onClick={() => (setMenu(null), setHistory(true))}>
                 <HistoryIcon size={15} /> Historial de versiones
               </button>
+              <button type="button" role="menuitem" onClick={() => (setMenu(null), setPresenting(true))}>
+                <Presentation_Icon size={15} /> Presentar
+              </button>
               <div className="nx-menu-rule" />
               <button type="button" role="menuitem" onClick={() => (setMenu(null), exportMd())}>
                 <Download size={15} /> Exportar a Markdown
@@ -725,7 +742,7 @@ export function PageEditor({
               </button>
               <div className="nx-menu-rule" />
               <button type="button" role="menuitem" onClick={() => (setMenu(null), void archive(page.id))}>
-                <Archive size={15} /> Mover al baúl
+                <Archive size={15} /> Archivar
               </button>
               <button
                 type="button"
@@ -733,10 +750,10 @@ export function PageEditor({
                 className="nx-danger"
                 onClick={() => {
                   setMenu(null);
-                  if (window.confirm(`¿Borrar «${page.title || 'Sin título'}»? Queda 30 días en la papelera del servidor.`)) remove(page.id);
+                  remove(page.id);
                 }}
               >
-                <Trash2 size={15} /> Borrar
+                <Trash2 size={15} /> Mover a la papelera
               </button>
               <div className="nx-menu-rule" />
               <div className="nx-menu-foot">
@@ -972,6 +989,7 @@ export function PageEditor({
       {intel && <IntelPanel page={page} blocks={blocks} onBlocks={setBlocks} onClose={() => setIntel(false)} />}
 
       {share && <ShareDialog target={share} onClose={() => setShare(null)} />}
+      {presenting && <Presentation page={page} blocks={blocks} onClose={stopPresenting} />}
       {history && (
         <HistoryDialog
           page={{ ...page, blocks }}

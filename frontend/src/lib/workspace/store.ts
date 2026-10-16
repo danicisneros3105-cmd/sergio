@@ -117,9 +117,21 @@ export interface Layout {
   fontSize: number; // px
   width: 'narrow' | 'wide' | 'full';
   margin: number; // px, side padding of the page
+  hidden?: SidebarSection[]; // sidebar sections the owner took out (Biblioteca brings them back)
 }
 
 export const DEFAULT_LAYOUT: Layout = { density: 'comfortable', fontSize: 15, width: 'wide', margin: 32 };
+
+// The sidebar's sections, like Notion's: each one can be hidden and shown again.
+export type SidebarSection = 'recents' | 'favorites' | 'shared' | 'private' | 'library';
+export const SIDEBAR_SECTIONS: Array<{ key: SidebarSection; name: string }> = [
+  { key: 'recents', name: 'Recientes' },
+  { key: 'favorites', name: 'Favoritos' },
+  { key: 'shared', name: 'Compartido' },
+  { key: 'private', name: 'Privado' },
+  { key: 'library', name: 'Biblioteca' },
+];
+export const TRASH_DAYS = 30;
 
 interface Meta {
   dirty: string[];
@@ -139,6 +151,7 @@ interface WorkspaceState extends Meta {
   ready: boolean;
   pages: Record<string, Page>;
   vault: Page[] | null; // loaded on demand
+  trash: Page[] | null; // loaded on demand
   sync: SyncState;
   // Decrypted blocks of sealed pages, in memory only (never stored).
   unlocked: Record<string, Block[]>;
@@ -154,6 +167,10 @@ interface WorkspaceState extends Meta {
   archive: (id: string) => Promise<void>;
   restore: (id: string) => Promise<void>;
   loadVault: () => Promise<void>;
+  loadTrash: (now?: number) => Promise<void>;
+  restoreTrash: (id: string) => Promise<void>;
+  purge: (id: string) => Promise<void>;
+  toggleSection: (key: SidebarSection, show?: boolean) => void;
   autoArchive: (now?: number) => Promise<{ pages: number; rows: number; todos: number }>;
   capture: (item: { text?: string; media?: Block['media']; kind?: 'audio' | 'image' }) => Page;
   syncNow: () => Promise<void>;
@@ -216,6 +233,7 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
     ready: false,
     pages: {},
     vault: null,
+    trash: null,
     sync: 'idle',
     unlocked: {},
     dirty: [],
@@ -276,6 +294,12 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
 
     remove(id) {
       const { [id]: _gone, ...rest } = get().pages;
+      if (_gone) {
+        // Like Notion: it goes to the trash (on this device) for 30 days.
+        const trashed = { ..._gone, trashedAt: Date.now() };
+        void db.put('vault', id, trashed);
+        if (get().trash) set({ trash: [...get().trash!, trashed] });
+      }
       const tabs = get().tabs.filter((t) => t !== id);
       set({
         pages: rest,
@@ -350,7 +374,41 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
     },
 
     async loadVault() {
-      set({ vault: await db.all<Page>('vault') });
+      set({ vault: (await db.all<Page>('vault')).filter((p) => !p.trashedAt) });
+    },
+
+    async loadTrash(now = Date.now()) {
+      const all = (await db.all<Page>('vault')).filter((p) => p.trashedAt);
+      const old = all.filter((p) => now - p.trashedAt! > TRASH_DAYS * 86_400_000);
+      for (const p of old) await db.del('vault', p.id);
+      set({ trash: all.filter((p) => !old.includes(p)).sort((a, b) => b.trashedAt! - a.trashedAt!) });
+    },
+
+    async restoreTrash(id) {
+      const page = await db.get<Page>('vault', id);
+      if (!page) return;
+      await db.del('vault', id);
+      // The server forgot it: it comes back as a new page with the same id.
+      const { trashedAt: _t, ...kept } = page;
+      const back: Page = { ...kept, archived: false, rev: 0, openedAt: Date.now(), updatedAt: Date.now() };
+      if (back.parent && !get().pages[back.parent]) back.parent = null;
+      set({
+        pages: { ...get().pages, [id]: back },
+        trash: (get().trash || []).filter((p) => p.id !== id),
+        deleted: get().deleted.filter((d) => d !== id),
+      });
+      markDirty(id);
+    },
+
+    async purge(id) {
+      await db.del('vault', id);
+      set({ trash: (get().trash || []).filter((p) => p.id !== id) });
+    },
+
+    toggleSection(key, show) {
+      const hidden = get().layout.hidden || [];
+      const on = show ?? hidden.includes(key);
+      get().setLayout({ hidden: on ? hidden.filter((h) => h !== key) : [...hidden, key] });
     },
 
     async autoArchive(now = Date.now()) {

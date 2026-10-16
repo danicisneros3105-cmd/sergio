@@ -23,6 +23,7 @@ import {
   Image as ImageIcon,
   Italic,
   LayoutDashboard,
+  PanelTop,
   Link2,
   List,
   ListChecks,
@@ -78,6 +79,7 @@ export const TYPE_ICON: Record<BlockType, typeof FileText> = {
   form: FormInput,
   button: MousePointerClick,
   dashboard: LayoutDashboard,
+  tabs: PanelTop,
   video: Film,
 };
 

@@ -57,8 +57,9 @@ termina en la rama `main`, y el dueño actualiza con un único comando.
 - Sin emojis y sin colores en la interfaz (dueño, oct. 2026): negro, blanco y
   grises; iconos de línea. El color solo vive en lo que el dueño crea (sus
   diseños, fotos, 3D) y en los personajes de los Nodes que él eligió.
-- Workspace igual a Notion (en blanco y negro). Creator › Diseño igual a
-  Canva (`Creator/DesignStudio.tsx` + `canva.css`); Creator › Prototipos es
+- Workspace igual a Notion (en blanco y negro), con lo de Notion 2026:
+  Biblioteca, secciones de la barra, Papelera, pestañas, Presentar y Panel.
+  Creator › Diseño igual a Canva (`Creator/DesignStudio.tsx` + `canva.css`); Creator › Prototipos es
   otra cosa: diseñar conversando, como Claude Design
   (`Creator/Prototypes.tsx`, `lib/prototypes.ts`). No se mezclan.
 - Cowork igual al modo de trabajo de ChatGPT (dueño, oct. 2026): una caja
@@ -66,6 +67,14 @@ termina en la rama `main`, y el dueño actualiza con un único comando.
   tope) y comandos «/»; la tarea como conversación con la actividad plegable,
   indicaciones a mitad de trabajo, seguir una tarea terminada, y panel
   lateral Plan · Archivos · Registro (`pages/CoworkPage.tsx`, `lib/cowork.ts`).
+- Conectores y plugins como los de Claude (dueño, oct. 2026): MCP remoto con
+  el inicio de sesión del servicio (OAuth, PKCE), directorio, personalizados,
+  permiso por herramienta y plugins de marketplaces en el formato de Claude
+  (`mcp/hub.py`, `plugins/claude_format.py`, `sergio mcp`). Los tokens solo en
+  `~/.openjarvis/connectors/secrets.json`; los hooks de plugins no se ejecutan.
+- Gemini ve la pantalla a 32 FPS estables (`SERGIO_LIVE_FPS`, por defecto 32):
+  ritmo fijo y carril de video aparte que nunca retrasa la voz. No lo baje en
+  silencio.
 - Los Nodes se llaman «Nodes» (uno: «Node») en cualquier idioma: nunca
   «nodo», «nœud»… (`nodes/store.py: node_word` lo corrige en todo lo que dicen).
 - Ningún subtexto explicativo bajo los títulos; los títulos y la marca van

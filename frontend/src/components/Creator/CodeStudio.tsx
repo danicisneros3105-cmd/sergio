@@ -137,7 +137,7 @@ export function CodeStudio() {
     const sub = ed.onDidChangeModelContent(() => setDirty(true));
     loadFiles()
       .then((list) => list[0] && open(list[0].path))
-      .catch((e) => toast.error(e instanceof Error ? e.message : String(e)));
+      .catch(() => undefined); // no server yet: the list just stays empty
     return () => {
       sub.dispose();
       ed.getModel()?.dispose();

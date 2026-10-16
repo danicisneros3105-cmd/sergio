@@ -2,6 +2,59 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-10-16 · Claude · Conectores y plugins como Claude, MCP/CLI reales, Gemini a 32 FPS, Workspace como Notion 2026, Creator pulido
+- Petición del dueño: «Workspace idéntico a Notion; conectores y plugins
+  idénticos a Claude (Gmail, Notion, Higgsfield, todo); MCP y CLI reales;
+  Gemini viendo la pantalla a 32 FPS reales y estables; pulir Creator».
+- Conectores (`mcp/hub.py`, `mcp/oauth.py`, `mcp/directory.py`,
+  `server/mcp_routes.py`, Extensiones › Conectores): MCP remoto con el
+  inicio de sesión del propio servicio (401 + metadatos del recurso,
+  registro dinámico del cliente, PKCE, renovación del token), directorio de
+  unos 70 conectores (Gmail, Notion, Higgsfield, Linear…) y locales (archivos,
+  navegador, Git, Blender…), personalizados por URL o por orden, permiso por
+  herramienta (Permitir / Preguntar / Nunca; «Preguntar» usa la campana de
+  aprobaciones). Los tokens viven en `~/.openjarvis/connectors/secrets.json`
+  (0600), nunca en `servers.json`.
+- Plugins en el formato de Claude (`plugins/claude_format.py`): marketplaces
+  (los dos oficiales por defecto), instalar `nombre@marketplace`; sus skills,
+  comandos y agentes pasan a skills de Sergio y su `.mcp.json` a conectores.
+  Los hooks no se ejecutan.
+- CLI real: `sergio mcp add|add-json|add-from-claude-desktop|list|get|login|
+  logout|remove|tools|call|permiso|serve|directorio`. Probado contra
+  servidores reales hechos con el SDK oficial de MCP (incluido uno con OAuth)
+  y contra el servidor de archivos oficial por npx.
+- Gemini Live a 32 FPS: captura y envío a ritmo fijo, imagen reducida antes
+  de codificar (7–11 ms por imagen de 1080p a 4K), una imagen nítida por
+  cada segundo quieto, y en el servidor un carril de video que solo guarda la
+  última imagen y nunca retrasa la voz. Medido con Gemini de verdad: 64
+  imágenes numeradas a 32,0 FPS y las nombró las 64 en orden. Cuesta más
+  tokens que el modo ahorro (`SERGIO_LIVE_FPS` lo baja).
+- Workspace como Notion 2026: Biblioteca a página completa (Recientes,
+  Favoritos, Privado, Compartido, Archivado, Papelera), barra lateral por
+  secciones que se ocultan y se vuelven a mostrar (desde la sección, la
+  Biblioteca o Diseño), Papelera de 30 días con restaurar y borrar para
+  siempre (borrar ya no pide confirmación: se puede deshacer), bloque
+  «/pestañas», modo «Presentar» (diapositivas por separadores o por Título 1,
+  pantalla completa, flechas) y vista «Panel» en las bases de datos. El «+»
+  de las vistas ahora ofrece el tipo, como en Notion.
+- Arreglo de un fallo viejo: las opciones de los menús «•••» y «Pedir a
+  Sergio» de una página no hacían nada (la capa que cierra el menú quedaba
+  encima). Ahora la barra sube por encima mientras su menú está abierto.
+- Creator pulido: los siete espacios caben en la barra, la tarjeta de cada
+  programa es una línea (sin subtítulo), «sin instalar» es una franja fina
+  sobre el editor rápido, el selector de fondo es una muestra y no una barra,
+  cuadrícula y guías 3D en grises, sin nombres externos a la vista, y Código
+  ya no muestra un error al abrir sin servidor.
+- Pendiente / para Codex: Gmail oficial necesita el Client ID propio del
+  dueño (Google Cloud); los servicios sin registro dinámico (Slack, por
+  ejemplo) también piden Client ID. Siguen fallando desde antes de esta
+  sesión (no son de estos cambios): `tests/server/test_upload_limits.py::
+  test_malformed_pdf_and_expanded_docx_rejected`, 4 de
+  `tests/skills/test_integration_live.py` y 2 de
+  `tests/agents/test_executor_tools.py`.
+- Revisé lo de Codex: no hay commits suyos nuevos en `main` desde la sesión
+  anterior.
+
 ## 2026-10-15 · Claude · Cowork como el modo de trabajo de ChatGPT; «Node» en todo idioma
 - Petición del dueño: «Cowork debe ser igual al de ChatGPT; los Nodes solo son
   Nodes en cualquier idioma».
