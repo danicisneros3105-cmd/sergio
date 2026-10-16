@@ -2,6 +2,32 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-10-16 · Codex · interfaz de app y notch discreto
+- Base verificada: main 2c58786. La rama Claude gracious-pascal sigue en
+  6e6500b, ya revisada; no hay una actualización posterior publicada en main.
+  La otra rama Claude (73c2e31, 7 de octubre) añade solo wearable: un commit
+  separado y 95 por detrás, sin nueva UI/backend principal; no se integra aquí.
+- Creator sale de la barra y de las rutas activas. Enlaces antiguos redirigen
+  al chat; «Crear algo» prepara una solicitud en la conversación. Los programas,
+  herramientas internas y Anatomy se conservan, sin borrar archivos del usuario.
+- Notch: ocultar y recuperar comparten 220 ms reversibles, diez píxeles de
+  desplazamiento y opacidad. Sin agujero negro, destellos, giro, gotas ni espera
+  de llenado. Se conserva reducción de movimiento, recuperación por borde,
+  actividad simultánea y suspensión del render cuando está oculto.
+- «Abrir chat», Nodes y Swarm abren ventanas de aplicación Edge --app, sin
+  barra de direcciones; enlaces externos conservan navegador. Es el shell de
+  Windows existente, no una migración completa a widgets nativos. Se avisa si
+  Edge falta o su ejecución falla, sin fallback silencioso al navegador local.
+- El servicio HTTP de loopback sigue como transporte interno; eliminarlo
+  rompería frontend/backend. No se requiere abrir una URL manualmente. Ajustes
+  de dirección y clave pasan al desplegable «Conexión avanzada».
+- Verificación: 224 pruebas frontend, TypeScript/build, Ruff src/tests y
+  uv lock --check. Cinco pruebas backend de ciclo de vida y Workspace pasan.
+  Suite completa de escritorio: 755 pasan, incluidos fallos del shell y
+  recuperación por borde; cuatro dependientes de entorno omitidas.
+  Revisé tres estados del notch renderizados con Qt offscreen. No se ejecutó
+  Windows físico ni se presenta simulación de procesos como prueba de ese PC.
+
 ## 2026-10-16 · Codex · reparación del lockfile de actualización
 - Reproduje el bloqueo de `uv sync --locked`: el cambio 9070964 añadió
   `mcp>=2.3` al extra dev sin actualizar uv.lock (seguía en MCP 1.26).

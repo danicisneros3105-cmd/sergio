@@ -12,7 +12,7 @@ interface Settings {
 }
 
 const DEFAULT_SETTINGS: Settings = {
-  apiUrl: 'http://localhost:8000',
+  apiUrl: 'http://127.0.0.1:8000',
   refreshInterval: 5,
   theme: 'dark',
 };
@@ -137,18 +137,21 @@ export function SettingsPanel({ onSettingsChange }: SettingsPanelProps) {
     <div style={styles.container}>
       <h2 style={styles.heading}>Settings</h2>
 
-      <div style={styles.fieldGroup}>
-        <label style={styles.label}>API URL</label>
-        <input
-          style={styles.input}
-          type="text"
-          value={settings.apiUrl}
-          onChange={(e) =>
-            setSettings((s) => ({ ...s, apiUrl: e.target.value }))
-          }
-          placeholder="http://localhost:8000"
-        />
-      </div>
+      <details>
+        <summary>Conexión avanzada</summary>
+        <div style={styles.fieldGroup}>
+          <label style={styles.label}>Dirección de conexión</label>
+          <input
+            style={styles.input}
+            type="text"
+            value={settings.apiUrl}
+            onChange={(e) =>
+              setSettings((s) => ({ ...s, apiUrl: e.target.value }))
+            }
+            placeholder="Automática en este equipo"
+          />
+        </div>
+      </details>
 
       <div style={styles.fieldGroup}>
         <label style={styles.label}>Auto-refresh interval</label>

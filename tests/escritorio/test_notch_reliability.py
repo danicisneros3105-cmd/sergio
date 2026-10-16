@@ -131,3 +131,29 @@ def test_activity_snapshot_is_not_taken_every_frame(notch_app):
         assert n.activities.snapshot.call_count == 1
     finally:
         n.close()
+
+
+def test_edge_recall_uses_short_reversible_transition(notch_app):
+    from sergio_escritorio.notch import Notch
+
+    n = Notch()
+    recalled = []
+    n.on_shown = lambda: recalled.append(True)
+    try:
+        n.show()
+        n.hide_notch(instant=True)
+        n.pour_in(n.x() + 100)
+        assert not n.hidden and n.isVisible() and not n._pour.active
+        assert recalled == [True]
+        assert n._vanish.DURATION <= 0.25
+        n._vanish.step(0.1)
+        before = n._vanish.t
+        n.hide_notch()
+        n._vanish.step(0.03)
+        assert n._vanish.t > before
+        n.show_notch()
+        n._vanish.step(1)
+        assert n._vanish.t == 0
+    finally:
+        n._edge.stop()
+        n.close()

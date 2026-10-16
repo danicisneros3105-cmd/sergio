@@ -275,14 +275,13 @@ class Fold:
 
 
 class Vanish:
-    """Hiding the notch: it collapses like a black hole, then rises away.
+    """Reversible visibility progress for the notch's short crossfade.
 
-    ``t`` runs 0 (shown) .. 1 (gone). The first ``COLLAPSE`` of it the island
-    falls into a small ball (ease-in, faster and faster, as if pulled in);
-    the rest the ball rises off the top of the screen. Showing it plays the
-    same film backwards."""
+    ``t`` runs 0 (shown) .. 1 (gone). Direction changes preserve progress.
+    Geometry helpers remain for legacy callers; the renderer only fades and
+    slides ten pixels, without glow or particles."""
 
-    DURATION = 1.15
+    DURATION = 0.22
     COLLAPSE = 0.6  # share of the film spent collapsing
 
     def __init__(self, hidden: bool = False) -> None:

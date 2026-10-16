@@ -264,7 +264,7 @@ def test_globe_urls_open_as_app_windows():
     assert launch.is_app_page("http://127.0.0.1:4173/#lat=1")
     assert launch.is_app_page("http://localhost:4173/")
     assert not launch.is_app_page("https://www.google.com/search?q=nvidia")
-    assert not launch.is_app_page("http://localhost:8000/globe")
+    assert launch.is_app_page("http://localhost:8000/globe")
 
 
 def test_diag_endpoint(control_server):

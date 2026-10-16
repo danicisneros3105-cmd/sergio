@@ -59,9 +59,16 @@ termina en la rama `main`, y el dueño actualiza con un único comando.
   diseños, fotos, 3D) y en los personajes de los Nodes que él eligió.
 - Workspace igual a Notion (en blanco y negro), con lo de Notion 2026:
   Biblioteca, secciones de la barra, Papelera, pestañas, Presentar y Panel.
-  Creator › Diseño igual a Canva (`Creator/DesignStudio.tsx` + `canva.css`); Creator › Prototipos es
+  Creator retirado de la interfaz por petición del dueño (2026-10-16): sin menú ni
+  rutas de editor; enlaces antiguos redirigen al chat. Herramientas internas y
+  programas instalados se conservan. Referencia histórica: Diseño igual a Canva
+  (`Creator/DesignStudio.tsx` + `canva.css`); Creator › Prototipos es
   otra cosa: diseñar conversando, como Claude Design
   (`Creator/Prototypes.tsx`, `lib/prototypes.ts`). No se mezclan.
+- Windows es una app: chat/Nodes/Swarm en ventana sin barra de direcciones
+  (launch.py, Edge --app), nunca fallback de páginas internas a una pestaña.
+  Loopback es transporte interno. Notch: ocultar/recuperar en 220 ms, sin
+  partículas ni gotas; respetar movimiento reducido y reposo oculto.
 - Cowork igual al modo de trabajo de ChatGPT (dueño, oct. 2026): una caja
   central «¿En qué trabajamos?» con «+» (adjuntar, modo plan, autonomía,
   tope) y comandos «/»; la tarea como conversación con la actividad plegable,

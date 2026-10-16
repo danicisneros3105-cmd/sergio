@@ -21,7 +21,6 @@ const CapturePage = lazy(() => import('./pages/CapturePage'));
 const HomePage = lazy(() => import('./pages/HomePage'));
 const NodesPage = lazy(() => import('./pages/NodesPage'));
 const SwarmPage = lazy(() => import('./pages/SwarmPage'));
-const CreatorPage = lazy(() => import('./pages/CreatorPage'));
 const ExtensionsPage = lazy(() => import('./pages/ExtensionsPage'));
 import { CommandPalette } from './components/CommandPalette';
 import { SetupScreen } from './components/SetupScreen';
@@ -194,8 +193,7 @@ export default function App() {
           <Route path="nodes/:id" element={<NodesPage />} />
           <Route path="swarm" element={<SwarmPage />} />
           <Route path="swarm/:id" element={<SwarmPage />} />
-          <Route path="creator" element={<CreatorPage />} />
-          <Route path="creator/:space" element={<CreatorPage />} />
+          <Route path="creator/*" element={<Navigate to="/chat" replace />} />
           <Route path="chat" element={<ChatPage />} />
           <Route path="workspace" element={<WorkspacePage />} />
           <Route path="workspace/:id" element={<WorkspacePage />} />

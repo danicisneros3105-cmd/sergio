@@ -96,7 +96,7 @@ def test_island_voice_orders():
     assert parse_quick("vuelve a poner el notch").kind == "notch_show"
 
 
-def test_the_notch_falls_into_a_black_hole_and_comes_back():
+def test_the_notch_visibility_progress_hides_and_recalls():
     import os
 
     os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
@@ -472,7 +472,7 @@ def test_the_duo_unfolds_like_the_iphone_duo():
     assert 0 < fold.angle < 180 and fold.step(Fold.DURATION) == 180
 
 
-def test_the_cursor_brings_the_notch_back_as_a_drop_of_liquid():
+def test_legacy_liquid_geometry_and_minimal_edge_recall():
     import os
 
     os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
@@ -531,7 +531,7 @@ def test_the_cursor_brings_the_notch_back_as_a_drop_of_liquid():
         n._watch_edge()
         n._edge_since -= 1.0  # dwelt long enough
         n._watch_edge()
-        assert not n.hidden and n._pour.active and shown == [True] and n.isVisible()
+        assert not n.hidden and not n._pour.active and shown == [True] and n.isVisible()
         for _ in range(200):
             n._last_tick -= 1 / 60
             n._tick()

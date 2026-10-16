@@ -36,3 +36,8 @@ it('opens the real Nodes page from its desktop/menu URL', async () => {
   expect(html).not.toContain('Cargando espacio de trabajo');
   expect(TOOLBAR_ITEMS.filter(item => item.path === '/nodes')).toHaveLength(1);
 });
+
+it('keeps Creator out of the application navigation', () => {
+  expect(TOOLBAR_ITEMS.some(item => String(item.path).startsWith('/creator'))).toBe(false);
+  expect(TOOLBAR_ITEMS.some(item => String(item.label) === 'Creator')).toBe(false);
+});

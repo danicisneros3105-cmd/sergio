@@ -17,7 +17,6 @@ import subprocess
 import sys
 import threading
 import time
-import webbrowser
 from pathlib import Path
 from typing import Any, Callable
 
@@ -711,7 +710,7 @@ def run(config: dict[str, Any]) -> None:
     menu.addSeparator()
 
     chat_action = QAction("Abrir el chat en el navegador", menu)
-    chat_action.triggered.connect(lambda: webbrowser.open(config["server_url"]))
+    chat_action.triggered.connect(lambda: open_app_window(config["server_url"]))
     menu.addAction(chat_action)
 
     def update_sergio() -> None:

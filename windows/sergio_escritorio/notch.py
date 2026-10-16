@@ -22,7 +22,6 @@ from typing import Callable
 from PySide6.QtCore import QPointF, QRectF, Qt, QTimer
 from PySide6.QtGui import (
     QColor,
-    QConicalGradient,
     QCursor,
     QFont,
     QFontMetricsF,
@@ -207,8 +206,8 @@ class Notch(QWidget):
         self._duo = Fold()  # the iPhone Duo fold: 0° merged .. 180° split
         # «Sergio, activa multitasking» splits the island; off folds it back.
         self.multitasking = False
-        self._vanish = Vanish()  # «esconde el notch»: black hole, then up
-        self._snap: QPixmap | None = None  # the island as it was, to swallow
+        self._vanish = Vanish()  # «esconde el notch»: short reversible crossfade
+        self._snap: QPixmap | None = None  # stable content during the crossfade
         # Hidden, the cursor at the top edge calls it back as a drop of liquid.
         self._pour = Pour()
         self.on_shown: Callable[[], None] | None = None
@@ -309,7 +308,7 @@ class Notch(QWidget):
         return self._vanish.target >= 1.0
 
     def hide_notch(self, instant: bool = False) -> None:
-        """Collapse into a small black hole, then rise off the screen."""
+        """Slide upward and fade out in 220 ms."""
         if self._vanish.target >= 1.0:
             return
         self._pour.t = 1.0
@@ -325,7 +324,7 @@ class Notch(QWidget):
             self._timer.start(16)
 
     def show_notch(self) -> None:
-        """The same film backwards: it drops in and opens up."""
+        """Reveal with the same short, reversible transition."""
         if self._vanish.target <= 0.0:
             return
         self._edge.stop()
@@ -338,33 +337,10 @@ class Notch(QWidget):
             self.show()
 
     def pour_in(self, cursor_x: float) -> None:
-        """Back as a drop of liquid where the cursor touched the edge."""
+        """Recall at the screen edge using the same quiet reveal as the menu."""
         if not self.hidden:
             return
-        if self.reduce_motion:
-            self.show_notch()
-            return
-        self._edge.stop()
-        self._vanish.t = self._vanish.target = 0.0
-        if self.reduced_motion:
-            self._pour.t = 1.0
-            self._last_activity_poll = -math.inf
-            self.show()
-            self._wake()
-            if self.on_shown is not None:
-                self.on_shown()
-            return
-        w, h = POUR
-        left = (CANVAS_W - w) / 2
-        self._pour.start(cursor_x - self.x(), left, left + w, h)
-        self._w, self._h = POUR
-        for spring, value in ((self._sw, w), (self._sh, h)):
-            spring.value = spring.target = value
-            spring.velocity = 0.0
-        self._last_tick = time.monotonic()
-        self._wake()
-        if not self.isVisible():
-            self.show()
+        self.show_notch()
         if self.on_shown is not None:
             self.on_shown()
 
@@ -527,11 +503,11 @@ class Notch(QWidget):
                 self.hide()  # gone: nothing left to click
             return
         if self._vanish.active:
-            # The disc spreads past the pill while it collapses.
-            r = self.pill()
-            region = QRegion(
-                r.adjusted(-r.width() * 0.25, 0, r.width() * 0.25, 24).toAlignedRect()
-            )
+            # Preserve both activities while they fade; no oversized hit area.
+            region = QRegion(self.pill().toAlignedRect())
+            bubble = self.bubble()
+            if bubble is not None:
+                region = region.united(QRegion(bubble.toAlignedRect()))
             if region != self._mask_rect:
                 self._mask_rect = region
                 self.setMask(region)
@@ -726,93 +702,15 @@ class Notch(QWidget):
             p.setOpacity(1.0)
 
     def _paint_vanish(self, p: QPainter) -> None:
-        """The island falls into a black hole, then the ball rises away.
-
-        A snapshot of the island twists and shrinks into a sphere; behind and
-        in front of it an accretion disc, tilted for depth, glows and spins;
-        a thin photon ring hugs the ball; a few sparks spiral in."""
-        v = self._vanish
-        t = time.monotonic() - self._t0
-        c, rise, glow = v.collapse(), v.rise(), v.glow()
-        rect = self.pill()
-        ball = 12.0 * (1.0 - 0.35 * rise)
-        width = rect.width() + (ball - rect.width()) * c
-        height = rect.height() + (ball - rect.height()) * c
-        cx = rect.center().x()
-        cy = rect.height() / 2 + (-(rect.height() / 2) - 3 * ball) * rise
-        body = QRectF(cx - width / 2, cy - height / 2, width, height)
-        # The disc hugs the hole: wide while the island is wide, tight
-        # around the ball at the end.
-        disc_w = (ball * 4.6 + (width - ball) * 0.55) * (1.0 - 0.5 * rise)
-        disc = QRectF(-disc_w / 2, -disc_w * 0.11, disc_w, disc_w * 0.22)
-
-        def draw_disc(front: bool) -> None:
-            if glow <= 0.01:
-                return
-            p.save()
-            p.translate(cx, cy)
-            p.rotate(-11.0)  # tilted: we look at it from a little above
-            p.setClipRect(QRectF(-disc_w, 0 if front else -disc_w, 2 * disc_w, disc_w))
-            ring = QConicalGradient(QPointF(0, 0), (t * 260.0) % 360.0)
-            hot = QColor(255, 236, 205, int(235 * glow))
-            warm = QColor(255, 150, 70, int(170 * glow))
-            cool = QColor(255, 120, 60, 0)
-            ring.setColorAt(0.0, hot)
-            ring.setColorAt(0.18, warm)
-            ring.setColorAt(0.5, cool)
-            ring.setColorAt(0.82, warm)
-            ring.setColorAt(1.0, hot)
-            p.setPen(QPen(ring, 1.6 + 2.6 * glow, Qt.PenStyle.SolidLine))
-            p.setBrush(Qt.BrushStyle.NoBrush)
-            p.drawEllipse(disc)
-            p.setPen(QPen(QColor(255, 210, 160, int(90 * glow)), 1.0))
-            p.drawEllipse(disc.adjusted(disc_w * 0.12, 1.5, -disc_w * 0.12, -1.5))
-            p.restore()
-
-        draw_disc(front=False)
-        # Sparks spiralling in, on the disc's plane.
-        if glow > 0.05:
-            p.save()
-            p.translate(cx, cy)
-            p.rotate(-11.0)
-            p.setPen(Qt.PenStyle.NoPen)
-            p.setBrush(QColor(255, 225, 190, int(200 * glow)))
-            for i in range(9):
-                a = i * 0.698 + t * 3.0 + c * 9.0
-                radius = (1.0 - c) * rect.width() * 0.55 + width / 2 + 4 + (i % 3) * 3
-                spark = QPointF(math.cos(a) * radius, math.sin(a) * radius * 0.22)
-                p.drawEllipse(spark, 1.3, 1.3)
-            p.restore()
-        # The island itself, swallowed: black body, its picture twisting in.
-        path = QPainterPath()
-        path.addRoundedRect(body, height / 2, height / 2)
-        p.setPen(Qt.PenStyle.NoPen)
-        p.setBrush(QColor(0, 0, 0))
-        p.drawPath(path)
-        if self._snap is not None and c < 0.9:
-            p.save()
-            p.setClipPath(path)
-            p.setOpacity(max(0.0, 1.0 - c * 1.25))
-            p.translate(cx, cy)
-            p.rotate(c * 210.0)
-            p.scale(width / rect.width(), height / rect.height())
-            p.translate(-cx, -rect.height() / 2)
+        """Short upward slide and crossfade without decorative effects."""
+        progress = self._vanish.t
+        eased = progress * progress * (3.0 - 2.0 * progress)
+        p.save()
+        p.setOpacity(1.0 - eased)
+        p.translate(0, -10.0 * eased)
+        if self._snap is not None:
             p.drawPixmap(0, 0, self._snap)
-            p.restore()
-        # Event horizon, once it is a ball: a warm halo bent around it
-        # (lensing) and the thin bright photon ring.
-        if c > 0.7:
-            halo = QRadialGradient(QPointF(cx, cy), ball * 1.6)
-            halo.setColorAt(0.55, QColor(255, 190, 120, int(120 * glow)))
-            halo.setColorAt(1.0, QColor(255, 160, 90, 0))
-            p.setBrush(halo)
-            p.drawEllipse(QPointF(cx, cy), ball * 1.6, ball * 1.6)
-            p.setBrush(QColor(0, 0, 0))
-            p.drawEllipse(QPointF(cx, cy), width / 2, height / 2)
-            p.setBrush(Qt.BrushStyle.NoBrush)
-            p.setPen(QPen(QColor(255, 240, 220, int(230 * glow)), 1.1))
-            p.drawEllipse(QPointF(cx, cy), width / 2 + 1.4, height / 2 + 1.4)
-        draw_disc(front=True)
+        p.restore()
 
     def _paint_normal(self, p: QPainter) -> None:
         t = time.monotonic() - self._t0
