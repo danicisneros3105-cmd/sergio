@@ -92,6 +92,27 @@ def test_discovery_redirect_cannot_downgrade():
     assert len(requests) == 1
 
 
+def test_direct_resource_metadata_cannot_downgrade_to_loopback():
+    requests = []
+    with httpx.Client(
+        transport=httpx.MockTransport(lambda r: requests.append(r))
+    ) as http:
+        with pytest.raises(oauth.OAuthError, match="https"):
+            oauth.discover(
+                http,
+                "https://resource.test/mcp",
+                {"resource_metadata": "http://127.0.0.1/metadata"},
+            )
+    assert requests == []
+
+
+def test_oidc_metadata_for_path_issuer_uses_oidc_path_order():
+    assert (
+        oauth._well_known("https://auth.test/tenant", "openid-configuration")[0]
+        == "https://auth.test/tenant/.well-known/openid-configuration"
+    )
+
+
 def test_expired_and_empty_callback_codes_rejected_before_exchange(
     tmp_path, monkeypatch
 ):
@@ -181,3 +202,75 @@ def test_rejected_token_response_does_not_echo_secrets():
                 oauth.Tokens("a", refresh_token="r"),
             )
     assert "secret-from-provider" not in str(caught.value)
+
+
+def test_sse_credentials_cannot_follow_an_endpoint_to_another_origin():
+    from openjarvis.mcp.transport import LegacySSETransport
+
+    transport = LegacySSETransport.__new__(LegacySSETransport)
+    transport._url = "https://mcp.test/sse"
+    assert transport._message_endpoint("/messages") == "https://mcp.test/messages"
+    for target in (
+        "https://other.test/messages",
+        "http://mcp.test/messages",
+        "https://u:p@mcp.test/messages",
+    ):
+        with pytest.raises((RuntimeError, oauth.OAuthError)):
+            transport._message_endpoint(target)
+
+
+def test_google_login_requests_only_intended_scopes_and_refresh_access(tmp_path):
+    from urllib.parse import parse_qs, urlparse
+
+    def reply(request):
+        url = str(request.url)
+        if request.method == "POST":
+            return httpx.Response(
+                401,
+                headers={
+                    "WWW-Authenticate": 'Bearer resource_metadata="https://gmailmcp.googleapis.com/meta"'
+                },
+            )
+        if url.endswith("/meta"):
+            return httpx.Response(
+                200,
+                json={
+                    "resource": "https://gmailmcp.googleapis.com/mcp/v1",
+                    "authorization_servers": ["https://accounts.google.com"],
+                    "scopes_supported": ["https://www.googleapis.com/auth/gmail.send"],
+                },
+            )
+        return httpx.Response(
+            200,
+            json={
+                "issuer": "https://accounts.google.com",
+                "authorization_endpoint": "https://accounts.google.com/authorize",
+                "token_endpoint": "https://oauth2.googleapis.com/token",
+                "code_challenge_methods_supported": ["S256"],
+            },
+        )
+
+    with httpx.Client(transport=httpx.MockTransport(reply)) as http:
+        hub = ConnectorHub(tmp_path, http=http)
+        server = hub.add_from_directory("gmail", client_id="test-client")
+        started = hub.connect(server["id"], "http://localhost/v1/mcp/oauth/callback")
+    query = parse_qs(urlparse(started["auth_url"]).query)
+    assert query["access_type"] == ["offline"]
+    assert query["code_challenge_method"] == ["S256"]
+    assert set(query["scope"][0].split()) == {
+        "https://www.googleapis.com/auth/gmail.readonly",
+        "https://www.googleapis.com/auth/gmail.compose",
+    }
+
+
+def test_configuring_existing_connector_replaces_old_session_not_duplicate(tmp_path):
+    hub = ConnectorHub(tmp_path)
+    first = hub.add_remote(
+        "Old", "https://resource.test/mcp", headers={"Authorization": "Bearer old"}
+    )
+    second = hub.add_remote(
+        "Updated", "https://resource.test/mcp", client_id="new-client"
+    )
+    assert first["id"] == second["id"] and len(hub.list()) == 1
+    secrets = hub._secrets()[first["id"]]
+    assert secrets["client"]["client_id"] == "new-client" and "headers" not in secrets

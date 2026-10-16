@@ -11,6 +11,7 @@ import {
   STATUS_ES,
   addConnector,
   connectConnector,
+  configureConnector,
   disconnectConnector,
   fetchConnectors,
   fetchDirectory,
@@ -20,6 +21,7 @@ import {
   setConnectorEnabled,
   setToolPermission,
   signInWindow,
+  reserveSignInWindow,
   type Connector,
   type DirectoryEntry,
   type Permission,
@@ -39,11 +41,16 @@ function Tile({ name, size = 36 }: { name: string; size?: number }) {
 }
 
 /** Connect: open the service's sign-in page when it asks for one. */
-async function runConnect(id: string): Promise<Connector | null> {
-  const started = await connectConnector(id);
-  if (started.status === 'connected') return started.server ?? null;
-  if (!started.auth_url) return null;
-  const ok = await signInWindow(started.auth_url);
+async function runConnect(id: string, popup: Window | null = reserveSignInWindow()): Promise<Connector | null> {
+  let started;
+  try { started = await connectConnector(id); }
+  catch (e) { popup?.close(); throw e; }
+  if (started.status === 'connected') { popup?.close(); return started.server ?? null; }
+  if (!started.auth_url) { popup?.close(); throw new Error('El servicio no devolvió una URL para iniciar sesión.'); }
+  const ok = await signInWindow(started.auth_url, popup, async () => {
+    const { servers } = await fetchConnectors();
+    return servers.some((server) => server.id === id && server.status === 'connected');
+  });
   const { servers } = await fetchConnectors();
   const server = servers.find((s) => s.id === id) ?? null;
   if (!ok && server?.status !== 'connected') toast('No se completó el inicio de sesión.');
@@ -140,6 +147,7 @@ function EntryDetail({ entry, onBack, onAdded }: { entry: DirectoryEntry; onBack
   const [secret, setSecret] = useState('');
   const [args, setArgs] = useState('');
   const add = async () => {
+    const popup = entry.kind === 'remote' ? reserveSignInWindow() : null;
     setBusy(true);
     try {
       const { server } = await addConnector({
@@ -148,12 +156,13 @@ function EntryDetail({ entry, onBack, onAdded }: { entry: DirectoryEntry; onBack
         client_secret: secret.trim() || undefined,
         args: args.trim() ? args.trim().split(/\s+/) : undefined,
       });
-      const connected = await runConnect(server.id).catch((e) => {
+      const connected = await runConnect(server.id, popup).catch((e) => {
         fail(e);
         return server;
       });
       onAdded(connected ?? server);
     } catch (e) {
+      popup?.close();
       fail(e);
     } finally {
       setBusy(false);
@@ -173,6 +182,7 @@ function EntryDetail({ entry, onBack, onAdded }: { entry: DirectoryEntry; onBack
       </div>
       <p>{entry.description}</p>
       {entry.note && <p className="cx-note">{entry.note}</p>}
+      {entry.setup_url && <a className="cx-back" href={entry.setup_url} target="_blank" rel="noopener noreferrer">Requisitos del servicio</a>}
       {entry.kind === 'local' ? (
         <>
           <code className="cx-code">{entry.command?.join(' ')}</code>
@@ -195,7 +205,7 @@ function EntryDetail({ entry, onBack, onAdded }: { entry: DirectoryEntry; onBack
           )}
         </>
       )}
-      <button type="button" className="ext-btn cx-wide" data-primary disabled={busy || entry.added} onClick={() => void add()}>
+      <button type="button" className="ext-btn cx-wide" data-primary disabled={busy || entry.added || (entry.requires_client_id && !clientId.trim())} onClick={() => void add()}>
         {busy ? <Loader2 className="ext-spin" size={15} /> : entry.added ? 'Ya añadido' : 'Conectar'}
       </button>
     </div>
@@ -212,21 +222,24 @@ function Custom({ redirect, onClose, onAdded }: { redirect: string; onClose: () 
   const [clientId, setClientId] = useState('');
   const [secret, setSecret] = useState('');
   const [busy, setBusy] = useState(false);
+  const [bearer, setBearer] = useState('');
   const ready = kind === 'remote' ? /^https?:\/\/\S+/.test(url.trim()) : command.trim().length > 0;
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const popup = kind === 'remote' ? reserveSignInWindow() : null;
     setBusy(true);
     try {
       const { server } =
         kind === 'remote'
-          ? await addConnector({ name: name.trim(), url: url.trim(), client_id: clientId.trim() || undefined, client_secret: secret.trim() || undefined })
+          ? await addConnector({ name: name.trim(), url: url.trim(), client_id: clientId.trim() || undefined, client_secret: secret.trim() || undefined, headers: bearer.trim() ? { Authorization: `Bearer ${bearer.trim()}` } : undefined })
           : await addConnector({ name: name.trim(), command: command.trim().split(/\s+/) });
-      const connected = await runConnect(server.id).catch((err) => {
+      const connected = await runConnect(server.id, popup).catch((err) => {
         fail(err);
         return server;
       });
       onAdded(connected ?? server);
     } catch (err) {
+      popup?.close();
       fail(err);
     } finally {
       setBusy(false);
@@ -255,6 +268,7 @@ function Custom({ redirect, onClose, onAdded }: { redirect: string; onClose: () 
               <div className="cx-fields">
                 <input className="cx-input" placeholder="OAuth Client ID (opcional)" value={clientId} onChange={(e) => setClientId(e.target.value)} />
                 <input className="cx-input" type="password" placeholder="OAuth Client Secret (opcional)" value={secret} onChange={(e) => setSecret(e.target.value)} />
+                <input className="cx-input" type="password" autoComplete="off" placeholder="Token Bearer (opcional)" value={bearer} onChange={(e) => setBearer(e.target.value)} />
                 <p className="cx-dim">
                   URL de retorno: <code>{redirect}</code>
                 </p>
@@ -276,6 +290,10 @@ function Custom({ redirect, onClose, onAdded }: { redirect: string; onClose: () 
 // ── one connector ───────────────────────────────────────────────────────────
 function ConnectorPage({ server, onBack, onChange, onRemoved }: { server: Connector; onBack: () => void; onChange: (c: Connector) => void; onRemoved: () => void }) {
   const [busy, setBusy] = useState('');
+  const [configure, setConfigure] = useState(false);
+  const [clientId, setClientId] = useState('');
+  const [secret, setSecret] = useState('');
+  const [bearer, setBearer] = useState('');
   const act = async (what: string, fn: () => Promise<Connector | null | void>) => {
     setBusy(what);
     try {
@@ -313,6 +331,20 @@ function ConnectorPage({ server, onBack, onChange, onRemoved }: { server: Connec
       </div>
       <code className="cx-code">{server.url || server.command.join(' ')}</code>
       {server.error && <p className="cx-note">{server.error}</p>}
+      {server.kind === 'remote' && <button type="button" className="cx-adv" aria-expanded={configure} onClick={() => setConfigure(!configure)}>Configurar <ChevronDown size={14} /></button>}
+      {configure && <form className="cx-fields" onSubmit={(e) => {
+        e.preventDefault();
+        void act('configure', async () => {
+          const result = await configureConnector(server.id, { client_id: clientId.trim() || undefined, client_secret: secret.trim() || undefined, headers: bearer.trim() ? { Authorization: `Bearer ${bearer.trim()}` } : undefined });
+          setSecret(''); setBearer(''); setConfigure(false);
+          return result.server;
+        });
+      }}>
+        <input className="cx-input" aria-label="OAuth Client ID" placeholder="OAuth Client ID" value={clientId} onChange={(e) => setClientId(e.target.value)} />
+        <input className="cx-input" aria-label="OAuth Client Secret" placeholder="OAuth Client Secret" type="password" autoComplete="off" value={secret} onChange={(e) => setSecret(e.target.value)} />
+        <input className="cx-input" aria-label="Token Bearer" placeholder="Token Bearer (opcional)" type="password" autoComplete="off" value={bearer} onChange={(e) => setBearer(e.target.value)} />
+        <button className="ext-btn" type="submit" disabled={!!busy || (!clientId.trim() && !bearer.trim())}>Guardar credenciales</button>
+      </form>}
       <div className="cx-actions">
         {server.status !== 'connected' ? (
           <button type="button" className="ext-btn" data-primary disabled={!!busy || !server.enabled} onClick={() => void act('connect', () => runConnect(server.id))}>

@@ -2,6 +2,34 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-10-16 · Codex · correcciones profesionales (checkpoint b2f4723)
+- Corregí los cinco hallazgos de 9c93b13: reintentos MCP con resultado incierto,
+  transporte OAuth inseguro, callback bloqueado por autenticación, borrado de
+  marketplaces fuera de carpeta y retención de Papelera. Incluye archivos antiguos.
+- Conectores: credenciales editables y privadas, migración de headers/env,
+  PKCE/state de un uso y caducidad, permisos, scopes mínimos Google y renovación.
+  UI reserva la ventana al pulsar, comprueba origen/ventana y confirma contra
+  el estado real del servidor. Errores parciales de plugins visibles; skills
+  homónimas separadas en disco y al cargarse. Cabeceras y destino SSE protegidos.
+- Cambio pedido expresamente por el dueño: objetivo local por defecto
+  32.310520139305 FPS, carril de vídeo independiente, métricas SDK/descartes.
+  AGENTS actualizado: la tasa de envío no certifica recepción de Gemini.
+  La documentación Live limita a 1 FPS; no afirmo recepción exacta ni estable.
+- Caché con invalidación comprobada: 999 hits/1.000 lecturas; cliente HTTP
+  reutilizado. Nuevo diagnóstico público del catálogo con caché de una hora.
+- Revisé y conservé el diseño/programas de Claude. 755 tests focalizados y
+  816 escritorio/voz pasan; 223 web, TypeScript/build y Ruff pasan. 12 omitidos:
+  cuatro son live de Ollama que ahora exigen opt-in explícito y modelo instalado.
+  Las dos expectativas antiguas de prompts comprueban ahora texto propio + Anatomy.
+- Red pública: 65 conectores remotos comprobados, 42 con metadatos OAuth
+  verificados; 5 solo respuesta inicial, 4 fallback sin verificar y 14 pendientes.
+  Gmail/Notion/Higgsfield publican OAuth. Cuentas autenticadas verificadas: cero.
+  Figma exige aprobar el cliente; se informa su alternativa de escritorio.
+- Pendiente: QA con cuentas reales, créditos de Higgsfield, Windows físico y
+  participantes humanos; Chromium llegó como ZIP inválido. No certifico paridad
+  completa con productos propietarios ni todas sus funciones. Comparación y
+  evidencias: docs/es/CORRECCIONES-PROFESIONALES-2026-10-16.md y JSON adjunto.
+
 ## 2026-10-16 · Codex · revisión de la gran actualización 6e6500b
 - Revisé los 32 commits posteriores a 79b7a0c sobre una copia aislada, con
   fuentes contrastadas por SHA. Respeto los cambios de interfaz y los 32 FPS.

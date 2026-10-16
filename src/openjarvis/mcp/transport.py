@@ -494,6 +494,7 @@ class LegacySSETransport(MCPTransport):
         auth: Optional[Callable[[bool], Optional[str]]] = None,
         token: Optional[str] = None,
         request_timeout: float = 60.0,
+        headers: Optional[Dict[str, str]] = None,
     ) -> None:
         import httpx
 
@@ -501,6 +502,7 @@ class LegacySSETransport(MCPTransport):
         self._auth = auth
         self._token = token
         self._timeout = request_timeout
+        self._extra_headers = dict(headers or {})
         self._client = httpx.Client(timeout=httpx.Timeout(10.0, read=None))
         self._endpoint: Optional[str] = None
         self._ready = threading.Event()
@@ -518,10 +520,12 @@ class LegacySSETransport(MCPTransport):
 
     def _headers(self) -> Dict[str, str]:
         token = self._auth(False) if self._auth is not None else self._token
-        return {"Authorization": f"Bearer {token}"} if token else {}
+        headers = dict(self._extra_headers)
+        if token:
+            headers["Authorization"] = f"Bearer {token}"
+        return headers
 
     def _listen(self) -> None:
-        from urllib.parse import urljoin
 
         try:
             with self._client.stream(
@@ -547,7 +551,7 @@ class LegacySSETransport(MCPTransport):
                         payload = "\n".join(data)
                         data = []
                         if event == "endpoint":
-                            self._endpoint = urljoin(self._url, payload)
+                            self._endpoint = self._message_endpoint(payload)
                             self._ready.set()
                         else:
                             self._deliver(payload)
@@ -558,6 +562,25 @@ class LegacySSETransport(MCPTransport):
             with self._lock:
                 for box in self._waiting.values():
                     box.put("")
+
+    def _message_endpoint(self, payload: str) -> str:
+        from urllib.parse import urljoin, urlparse
+
+        from openjarvis.mcp.oauth import validate_endpoint
+
+        endpoint = validate_endpoint(urljoin(self._url, payload))
+        source, target = urlparse(self._url), urlparse(endpoint)
+
+        def origin(parts):
+            return (
+                parts.scheme,
+                parts.hostname,
+                parts.port or (443 if parts.scheme == "https" else 80),
+            )
+
+        if origin(source) != origin(target):
+            raise RuntimeError("El servidor SSE indicó un destino de otro origen.")
+        return endpoint
 
     def _deliver(self, payload: str) -> None:
         try:

@@ -2,7 +2,7 @@
 // shows them: a directory, custom connectors, per-tool permissions, and
 // plugins from marketplaces.
 
-import { apiFetch } from './api';
+import { apiFetch, getBase } from './api';
 
 export type Permission = 'allow' | 'ask' | 'block';
 export const PERMISSION_ES: Record<Permission, string> = {
@@ -24,6 +24,8 @@ export interface DirectoryEntry {
   needs?: string;
   args_hint?: string;
   added: boolean;
+  setup_url?: string;
+  requires_client_id?: boolean;
 }
 
 export interface ConnectorTool {
@@ -83,6 +85,7 @@ export interface InstalledPlugin {
   commands: string[];
   agents: string[];
   hooks: boolean;
+  connector_errors?: string[];
 }
 
 async function call<T>(path: string, init: RequestInit = {}): Promise<T> {
@@ -108,7 +111,10 @@ export const addConnector = (body: {
   args?: string[];
   client_id?: string;
   client_secret?: string;
+  headers?: Record<string, string>;
 }) => post<{ server: Connector }>('/v1/mcp/servers', body);
+export const configureConnector = (id: string, body: { client_id?: string; client_secret?: string; headers?: Record<string, string> }) =>
+  post<{ server: Connector }>(`/v1/mcp/servers/${encodeURIComponent(id)}/credentials`, body);
 export const removeConnector = (id: string) => call(`/v1/mcp/servers/${encodeURIComponent(id)}`, { method: 'DELETE' });
 export const connectConnector = (id: string) =>
   post<{ status: 'connected' | 'needs_auth'; auth_url?: string; server?: Connector }>(`/v1/mcp/servers/${encodeURIComponent(id)}/connect`);
@@ -132,24 +138,39 @@ export const removeClaudePlugin = (id: string) => post('/v1/hub/claude-plugins/r
 
 /** Opens the service's sign-in page and resolves when Sergio's callback page
  * reports back (or the window closes). */
-export function signInWindow(url: string): Promise<boolean> {
+export const reserveSignInWindow = (): Window | null => window.open('about:blank', '_blank', 'width=520,height=720');
+
+export function signInWindow(url: string, reserved?: Window | null, verify?: () => Promise<boolean>): Promise<boolean> {
+  const win = reserved === undefined ? reserveSignInWindow() : reserved;
+  if (!win) return Promise.reject(new Error('Permita la ventana de inicio de sesión y vuelva a conectar.'));
+  const expectedOrigin = new URL(getBase() || window.location.origin, window.location.origin).origin;
   return new Promise((resolve) => {
-    const win = window.open(url, 'sergio-conectar', 'width=520,height=720');
     let done = false;
+    let checking = false;
     const finish = (ok: boolean) => {
       if (done) return;
       done = true;
       window.removeEventListener('message', onMessage);
       clearInterval(timer);
+      clearTimeout(expiry);
+      win.close();
       resolve(ok);
     };
     const onMessage = (e: MessageEvent) => {
-      if (e.data && e.data.sergio === 'mcp-connected') finish(Boolean(e.data.ok));
+      if (e.origin === expectedOrigin && e.source === win && e.data?.sergio === 'mcp-connected') finish(Boolean(e.data.ok));
     };
     window.addEventListener('message', onMessage);
     const timer = setInterval(() => {
-      if (!win || win.closed) finish(false);
-    }, 600);
+      if (verify && !checking && !done) {
+        checking = true;
+        void verify().then((ok) => {
+          if (ok) finish(true);
+          else if (win.closed) finish(false);
+        }).catch(() => { if (win.closed) finish(false); }).finally(() => { checking = false; });
+      } else if (!verify && win.closed) finish(false);
+    }, 1000);
+    const expiry = setTimeout(() => finish(false), 15 * 60 * 1000);
+    win.location.href = url;
   });
 }
 

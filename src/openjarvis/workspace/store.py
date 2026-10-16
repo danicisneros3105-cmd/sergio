@@ -403,7 +403,18 @@ class WorkspaceStore:
         cutoff = time.time() - days * 86400
         gone = 0
         for path in self.trash_dir.iterdir():
-            if path.stat().st_mtime < cutoff:
+            deleted_at = path.stat().st_mtime
+            # Older versions preserved the page's edit mtime. Their filename
+            # still contains the actual deletion date; preserve that retention.
+            try:
+                stamp = path.stem.rsplit(".", 1)[1]
+                if len(stamp) > 16:
+                    deleted_at = int(stamp[16:]) / 1_000_000_000
+                else:
+                    deleted_at = time.mktime(time.strptime(stamp, "%Y%m%d-%H%M%S"))
+            except (IndexError, ValueError, OverflowError):
+                pass
+            if deleted_at < cutoff:
                 path.unlink()
                 gone += 1
         return gone

@@ -93,7 +93,8 @@ function Detail({ plugin, installed, onClose, onChanged }: { plugin: ClaudePlugi
               onClick={() =>
                 void run(async () => {
                   const { plugin: p } = await installClaudePlugin(plugin.id);
-                  toast.success(`${p.display_name} instalado: ${counts(p)}.`);
+                  if (p.connector_errors?.length) toast.error(p.connector_errors.join(' '));
+                  else toast.success(`${p.display_name} instalado: ${counts(p)}.`);
                 })
               }
             >

@@ -50,7 +50,9 @@ class CredentialsRequest(BaseModel):
 @router.post("/servers/{server_id}/credentials")
 async def credentials(server_id: str, req: CredentialsRequest) -> Dict[str, Any]:
     try:
-        server = await asyncio.to_thread(get_hub().configure_credentials, server_id, **req.model_dump())
+        server = await asyncio.to_thread(
+            get_hub().configure_credentials, server_id, **req.model_dump()
+        )
         return {"server": server}
     except ConnectorError as exc:
         raise _fail(exc) from exc

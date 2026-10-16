@@ -470,6 +470,23 @@ def test_live_video_preserves_fractional_target():
     assert gemini_live.FRAME_GAP < 1 / 32
 
 
+def test_video_metrics_do_not_claim_provider_acknowledgments():
+    async def scenario():
+        ws = FakeWS()
+        call = _call(ws, FakeClient([]))
+        now = gemini_live.time.monotonic()
+        call._video_reported = now - 3
+        call._video_sent = [now - 0.1, now]
+        call._video_dropped = 4
+        await call._report_video(now)
+        return ws.json[-1]
+
+    report = asyncio.run(scenario())
+    assert report["target_fps"] == 32.310520139305
+    assert report["provider_fps"] is None and report["provider_verified"] is False
+    assert report["dropped_frames"] == 4 and report["slow"] is True
+
+
 def test_notes_reach_the_model_without_ending_a_turn():
     """«Ahora habla Ana»: context for the model, not a question to answer."""
 

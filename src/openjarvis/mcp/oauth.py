@@ -95,6 +95,7 @@ class AuthServer:
     scopes: List[str] = field(default_factory=list)
     code_challenge_methods: List[str] = field(default_factory=list)
     token_auth_methods: List[str] = field(default_factory=list)
+    metadata_verified: bool = False
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
@@ -169,6 +170,8 @@ def _well_known(url: str, name: str) -> List[str]:
     parts = urlparse(url)
     path = parts.path.rstrip("/")
     base = f"{parts.scheme}://{parts.netloc}/.well-known/{name}"
+    if name == "openid-configuration" and path:
+        return [f"{_origin(url)}{path}/.well-known/{name}", base]
     return [base + path, base] if path else [base]
 
 
@@ -240,6 +243,8 @@ def discover(
     )
     candidates += _well_known(url, "oauth-protected-resource")
     for candidate in candidates:
+        if urlparse(url).scheme == "https" and urlparse(candidate).scheme != "https":
+            raise OAuthError("Los metadatos de un servicio remoto deben usar https.")
         resource_meta = _get_json(http, candidate)
         if resource_meta and resource_meta.get("authorization_servers"):
             break
@@ -254,10 +259,13 @@ def discover(
     for candidate in _well_known(issuer, "oauth-authorization-server") + _well_known(
         issuer, "openid-configuration"
     ):
+        if urlparse(url).scheme == "https" and urlparse(candidate).scheme != "https":
+            raise OAuthError("Los metadatos de un servicio remoto deben usar https.")
         auth_meta = _get_json(http, candidate)
         if auth_meta and auth_meta.get("authorization_endpoint"):
             break
         auth_meta = None
+    metadata_verified = auth_meta is not None
     if auth_meta is None:
         # 2025-03-26 fallback: the default endpoints on the server's origin.
         origin = _origin(issuer)
@@ -301,6 +309,7 @@ def discover(
         token_auth_methods=list(
             auth_meta.get("token_endpoint_auth_methods_supported") or []
         ),
+        metadata_verified=metadata_verified,
     )
 
 

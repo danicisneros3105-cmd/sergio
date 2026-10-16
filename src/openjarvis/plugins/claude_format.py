@@ -323,6 +323,7 @@ class ClaudePlugins:
             )
         market = matches[0]["marketplace"]
         key = f"{name}@{market}"
+        previous = self._state()["installed"].get(key, {})
         entry = next(
             e
             for e in self._manifest(self.markets_dir / market)["plugins"]
@@ -351,6 +352,16 @@ class ClaudePlugins:
             }
         )
         info["skills"] = self._place_skills(name, target, info)
+        if (
+            previous
+            and not previous.get("skill_root")
+            and not any(
+                k != key and v.get("name") == name and not v.get("skill_root")
+                for k, v in self._state()["installed"].items()
+            )
+        ):
+            shutil.rmtree(self.skills_dir / f"plugin-{name}", ignore_errors=True)
+
         info["connector_errors"] = []
         info["connectors"] = self._add_connectors(
             name, target, entry, info["connector_errors"]
@@ -390,6 +401,10 @@ class ClaudePlugins:
         """Skills, commands and agents → ``skills/plugin-<name>/<skill>/SKILL.md``."""
         root = self.skills_dir / info.get("skill_root", f"plugin-{name}")
         shutil.rmtree(root, ignore_errors=True)
+        root.mkdir(parents=True, exist_ok=True)
+        (root / ".sergio-plugin.json").write_text(
+            json.dumps({"id": info.get("id", name)}), "utf-8"
+        )
         placed: List[str] = []
         for skill_md in sorted((folder / "skills").glob("*/SKILL.md")):
             dest = root / skill_md.parent.name

@@ -1,0 +1,511 @@
+{
+  "created": 1792185956.390955,
+  "catalog_entries": 72,
+  "remote_checked": 65,
+  "local_entries": 7,
+  "counts": {
+    "oauth_available": 42,
+    "not_verified": 14,
+    "initialize_response_only": 5,
+    "oauth_fallback_unverified": 4
+  },
+  "account_connections_verified": 0,
+  "results": [
+    {
+      "id": "gmail",
+      "url": "https://gmailmcp.googleapis.com/mcp/v1",
+      "account_verified": false,
+      "status": "oauth_available",
+      "issuer": "https://accounts.google.com",
+      "requires_client_id": true
+    },
+    {
+      "id": "notion",
+      "url": "https://mcp.notion.com/mcp",
+      "account_verified": false,
+      "status": "oauth_available",
+      "issuer": "https://mcp.notion.com",
+      "requires_client_id": false
+    },
+    {
+      "id": "higgsfield",
+      "url": "https://mcp.higgsfield.ai/mcp",
+      "account_verified": false,
+      "status": "oauth_available",
+      "issuer": "https://clerk.higgsfield.ai",
+      "requires_client_id": false
+    },
+    {
+      "id": "google-calendar",
+      "url": "https://calendarmcp.googleapis.com/mcp/v1",
+      "account_verified": false,
+      "status": "oauth_available",
+      "issuer": "https://accounts.google.com",
+      "requires_client_id": true
+    },
+    {
+      "id": "google-drive",
+      "url": "https://drivemcp.googleapis.com/mcp/v1",
+      "account_verified": false,
+      "status": "oauth_available",
+      "issuer": "https://accounts.google.com",
+      "requires_client_id": true
+    },
+    {
+      "id": "github",
+      "url": "https://api.githubcopilot.com/mcp/",
+      "account_verified": false,
+      "status": "oauth_available",
+      "issuer": "https://github.com/login/oauth",
+      "requires_client_id": true
+    },
+    {
+      "id": "canva",
+      "url": "https://mcp.canva.com/mcp",
+      "account_verified": false,
+      "status": "oauth_available",
+      "issuer": "https://mcp.canva.com",
+      "requires_client_id": false
+    },
+    {
+      "id": "figma",
+      "url": "https://mcp.figma.com/mcp",
+      "account_verified": false,
+      "status": "not_verified",
+      "error_type": "OAuthError"
+    },
+    {
+      "id": "slack",
+      "url": "https://mcp.slack.com/mcp",
+      "account_verified": false,
+      "status": "not_verified",
+      "error_type": "OAuthError"
+    },
+    {
+      "id": "linear",
+      "url": "https://mcp.linear.app/mcp",
+      "account_verified": false,
+      "status": "oauth_available",
+      "issuer": "https://mcp.linear.app",
+      "requires_client_id": false
+    },
+    {
+      "id": "asana",
+      "url": "https://mcp.asana.com/v2/mcp",
+      "account_verified": false,
+      "status": "oauth_available",
+      "issuer": "https://app.asana.com",
+      "requires_client_id": true
+    },
+    {
+      "id": "atlassian",
+      "url": "https://mcp.atlassian.com/v1/mcp",
+      "account_verified": false,
+      "status": "oauth_available",
+      "issuer": "https://mcp.atlassian.com",
+      "requires_client_id": false
+    },
+    {
+      "id": "monday",
+      "url": "https://mcp.monday.com/mcp",
+      "account_verified": false,
+      "status": "not_verified",
+      "error_type": "OAuthError"
+    },
+    {
+      "id": "clickup",
+      "url": "https://mcp.clickup.com/mcp",
+      "account_verified": false,
+      "status": "oauth_available",
+      "issuer": "https://mcp.clickup.com",
+      "requires_client_id": false
+    },
+    {
+      "id": "trello",
+      "url": "https://mcp.trello.com/v1",
+      "account_verified": false,
+      "status": "oauth_available",
+      "issuer": "https://auth.atlassian.com/VCeDsk8ZHncYF1g234fKtc4lNipbBhu3",
+      "requires_client_id": false
+    },
+    {
+      "id": "box",
+      "url": "https://mcp.box.com",
+      "account_verified": false,
+      "status": "oauth_available",
+      "issuer": "https://api.box.com",
+      "requires_client_id": true
+    },
+    {
+      "id": "egnyte",
+      "url": "https://mcp-server.egnyte.com/mcp",
+      "account_verified": false,
+      "status": "oauth_available",
+      "issuer": "https://mcp-oauth.egnyte.com/egnyte-connect",
+      "requires_client_id": false
+    },
+    {
+      "id": "granola",
+      "url": "https://mcp.granola.ai/mcp",
+      "account_verified": false,
+      "status": "oauth_available",
+      "issuer": "https://mcp-auth.granola.ai",
+      "requires_client_id": false
+    },
+    {
+      "id": "otter",
+      "url": "https://mcp.otter.ai/mcp",
+      "account_verified": false,
+      "status": "not_verified",
+      "error_type": "OAuthError"
+    },
+    {
+      "id": "fireflies",
+      "url": "https://api.fireflies.ai/mcp",
+      "account_verified": false,
+      "status": "oauth_available",
+      "issuer": "https://api.fireflies.ai/",
+      "requires_client_id": false
+    },
+    {
+      "id": "zoom",
+      "url": "https://mcp.zoom.us/mcp/zoom/streamable",
+      "account_verified": false,
+      "status": "oauth_available",
+      "issuer": "https://zoom.us",
+      "requires_client_id": true
+    },
+    {
+      "id": "intercom",
+      "url": "https://mcp.intercom.com/mcp",
+      "account_verified": false,
+      "status": "oauth_available",
+      "issuer": "https://mcp.intercom.com",
+      "requires_client_id": false
+    },
+    {
+      "id": "calendly",
+      "url": "https://mcp.calendly.com/",
+      "account_verified": false,
+      "status": "oauth_available",
+      "issuer": "https://calendly.com/",
+      "requires_client_id": false
+    },
+    {
+      "id": "docusign",
+      "url": "https://mcp.docusign.com/mcp",
+      "account_verified": false,
+      "status": "not_verified",
+      "error_type": "OAuthError"
+    },
+    {
+      "id": "wix",
+      "url": "https://mcp.wix.com/mcp",
+      "account_verified": false,
+      "status": "oauth_available",
+      "issuer": "https://mcp.wix.com",
+      "requires_client_id": false
+    },
+    {
+      "id": "biorender",
+      "url": "https://mcp.services.biorender.com/mcp",
+      "account_verified": false,
+      "status": "oauth_available",
+      "issuer": "https://mcp.services.biorender.com",
+      "requires_client_id": false
+    },
+    {
+      "id": "gitlab",
+      "url": "https://gitlab.com/api/v4/mcp",
+      "account_verified": false,
+      "status": "oauth_available",
+      "issuer": "https://gitlab.com",
+      "requires_client_id": false
+    },
+    {
+      "id": "pagerduty",
+      "url": "https://mcp.pagerduty.com/mcp",
+      "account_verified": false,
+      "status": "not_verified",
+      "error_type": "OAuthError"
+    },
+    {
+      "id": "datadog",
+      "url": "https://mcp.datadoghq.com/api/unstable/mcp-server/mcp",
+      "account_verified": false,
+      "status": "oauth_available",
+      "issuer": "https://mcp.datadoghq.com/v1/mcp",
+      "requires_client_id": false
+    },
+    {
+      "id": "sentry",
+      "url": "https://mcp.sentry.dev/mcp",
+      "account_verified": false,
+      "status": "oauth_available",
+      "issuer": "https://mcp.sentry.dev",
+      "requires_client_id": false
+    },
+    {
+      "id": "context7",
+      "url": "https://mcp.context7.com/mcp",
+      "account_verified": false,
+      "status": "initialize_response_only"
+    },
+    {
+      "id": "emergent",
+      "url": "https://mcp.emergent.sh",
+      "account_verified": false,
+      "status": "oauth_available",
+      "issuer": "https://mcp.emergent.sh",
+      "requires_client_id": false
+    },
+    {
+      "id": "bigquery",
+      "url": "https://bigquery.googleapis.com/mcp",
+      "account_verified": false,
+      "status": "initialize_response_only"
+    },
+    {
+      "id": "amplitude",
+      "url": "https://mcp.amplitude.com/mcp",
+      "account_verified": false,
+      "status": "not_verified",
+      "error_type": "OAuthError"
+    },
+    {
+      "id": "hex",
+      "url": "https://app.hex.tech/mcp",
+      "account_verified": false,
+      "status": "oauth_available",
+      "issuer": "https://auth.app.hex.tech",
+      "requires_client_id": false
+    },
+    {
+      "id": "definite",
+      "url": "https://api.definite.app/v3/mcp/http",
+      "account_verified": false,
+      "status": "not_verified",
+      "error_type": "OAuthError"
+    },
+    {
+      "id": "similarweb",
+      "url": "https://mcp.similarweb.com/mcp",
+      "account_verified": false,
+      "status": "not_verified",
+      "error_type": "OAuthError"
+    },
+    {
+      "id": "ahrefs",
+      "url": "https://api.ahrefs.com/mcp/mcp",
+      "account_verified": false,
+      "status": "not_verified",
+      "error_type": "OAuthError"
+    },
+    {
+      "id": "supermetrics",
+      "url": "https://mcp.supermetrics.com/mcp",
+      "account_verified": false,
+      "status": "not_verified",
+      "error_type": "OAuthError"
+    },
+    {
+      "id": "klaviyo",
+      "url": "https://mcp.klaviyo.com/mcp",
+      "account_verified": false,
+      "status": "oauth_available",
+      "issuer": "https://mcp.klaviyo.com",
+      "requires_client_id": false
+    },
+    {
+      "id": "apollo",
+      "url": "https://mcp.apollo.io/mcp",
+      "account_verified": false,
+      "status": "oauth_available",
+      "issuer": "https://mcp.apollo.io",
+      "requires_client_id": false
+    },
+    {
+      "id": "close",
+      "url": "https://mcp.close.com/mcp",
+      "account_verified": false,
+      "status": "oauth_available",
+      "issuer": "https://api.close.com",
+      "requires_client_id": false
+    },
+    {
+      "id": "gong",
+      "url": "https://mcp.gong.io/mcp",
+      "account_verified": false,
+      "status": "oauth_available",
+      "issuer": "https://mcp.gong.io",
+      "requires_client_id": false
+    },
+    {
+      "id": "outreach",
+      "url": "https://api.outreach.io/mcp/",
+      "account_verified": false,
+      "status": "oauth_available",
+      "issuer": "https://api.outreach.io",
+      "requires_client_id": false
+    },
+    {
+      "id": "clay",
+      "url": "https://api.clay.com/v3/mcp",
+      "account_verified": false,
+      "status": "oauth_available",
+      "issuer": "https://api.clay.com",
+      "requires_client_id": false
+    },
+    {
+      "id": "common-room",
+      "url": "https://mcp.commonroom.io/mcp",
+      "account_verified": false,
+      "status": "oauth_available",
+      "issuer": "https://login.commonroom.io/",
+      "requires_client_id": false
+    },
+    {
+      "id": "crunchbase",
+      "url": "https://mcp.crunchbase.com/",
+      "account_verified": false,
+      "status": "oauth_fallback_unverified",
+      "issuer": "https://www.crunchbase.com",
+      "requires_client_id": false
+    },
+    {
+      "id": "zoominfo",
+      "url": "https://mcp.zoominfo.com/mcp",
+      "account_verified": false,
+      "status": "not_verified",
+      "error_type": "OAuthError"
+    },
+    {
+      "id": "shopify",
+      "url": "https://setup.shopify.com/mcp",
+      "account_verified": false,
+      "status": "initialize_response_only"
+    },
+    {
+      "id": "tiktok-ads",
+      "url": "https://business-api.tiktok.com/open_mcp/tt-ads-mcp-layer",
+      "account_verified": false,
+      "status": "oauth_fallback_unverified",
+      "issuer": "https://business-api.tiktok.com",
+      "requires_client_id": false
+    },
+    {
+      "id": "stripe",
+      "url": "https://mcp.stripe.com",
+      "account_verified": false,
+      "status": "oauth_available",
+      "issuer": "https://access.stripe.com/mcp",
+      "requires_client_id": false
+    },
+    {
+      "id": "paypal",
+      "url": "https://mcp.paypal.com/mcp",
+      "account_verified": false,
+      "status": "oauth_available",
+      "issuer": "https://mcp.paypal.com",
+      "requires_client_id": false
+    },
+    {
+      "id": "square",
+      "url": "https://mcp.squareup.com/mcp",
+      "account_verified": false,
+      "status": "oauth_available",
+      "issuer": "https://mcp.squareup.com",
+      "requires_client_id": false
+    },
+    {
+      "id": "ramp",
+      "url": "https://mcp.ramp.com/mcp",
+      "account_verified": false,
+      "status": "oauth_available",
+      "issuer": "https://mcp.ramp.com",
+      "requires_client_id": false
+    },
+    {
+      "id": "xero",
+      "url": "https://mcp.xero.com/mcp",
+      "account_verified": false,
+      "status": "oauth_fallback_unverified",
+      "issuer": "https://mcp.xero.com",
+      "requires_client_id": false
+    },
+    {
+      "id": "quickbooks",
+      "url": "https://ai-inc.quickbooks.intuit.com/v1/mcp",
+      "account_verified": false,
+      "status": "oauth_fallback_unverified",
+      "issuer": "https://ai-inc.quickbooks.intuit.com",
+      "requires_client_id": false
+    },
+    {
+      "id": "expensify",
+      "url": "https://www.expensify.com/mcp",
+      "account_verified": false,
+      "status": "not_verified",
+      "error_type": "OAuthError"
+    },
+    {
+      "id": "airwallex",
+      "url": "https://mcp.airwallex.com/mcp",
+      "account_verified": false,
+      "status": "oauth_available",
+      "issuer": "https://mcp.airwallex.com/mcp",
+      "requires_client_id": false
+    },
+    {
+      "id": "myob",
+      "url": "https://mcp.myob.com/mcp",
+      "account_verified": false,
+      "status": "oauth_available",
+      "issuer": "https://id.myob.com/",
+      "requires_client_id": false
+    },
+    {
+      "id": "consensus",
+      "url": "https://mcp.consensus.app/mcp",
+      "account_verified": false,
+      "status": "not_verified",
+      "error_type": "OAuthError"
+    },
+    {
+      "id": "open-targets",
+      "url": "https://mcp.platform.opentargets.org/mcp",
+      "account_verified": false,
+      "status": "initialize_response_only"
+    },
+    {
+      "id": "synapse",
+      "url": "https://mcp.synapse.org/mcp",
+      "account_verified": false,
+      "status": "oauth_available",
+      "issuer": "https://mcp.synapse.org/",
+      "requires_client_id": false
+    },
+    {
+      "id": "scholar-gateway",
+      "url": "https://connector.scholargateway.ai/mcp",
+      "account_verified": false,
+      "status": "oauth_available",
+      "issuer": "https://connector.scholargateway.ai",
+      "requires_client_id": false
+    },
+    {
+      "id": "zapier",
+      "url": "https://mcp.zapier.com/api/v1/connect",
+      "account_verified": false,
+      "status": "oauth_available",
+      "issuer": "https://mcp.zapier.com",
+      "requires_client_id": false
+    },
+    {
+      "id": "hugging-face",
+      "url": "https://huggingface.co/mcp",
+      "account_verified": false,
+      "status": "initialize_response_only"
+    }
+  ]
+}

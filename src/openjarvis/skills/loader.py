@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
+import re
 from pathlib import Path
 from typing import Optional
 
@@ -259,6 +262,25 @@ def load_skill_directory(path: str | Path) -> SkillManifest:
             oj["source"] = source_name
             new_metadata["openjarvis"] = oj
             manifest.metadata = new_metadata
+
+    # Imported plugins may reuse skill names. Keep their tool identifiers
+    # independent, short and provider-safe, without rewriting upstream files.
+    try:
+        scope = json.loads((path.parent / ".sergio-plugin.json").read_text("utf-8"))[
+            "id"
+        ]
+    except (OSError, ValueError, KeyError, TypeError):
+        scope = ""
+    if isinstance(scope, str) and scope:
+        original = manifest.name
+        digest = hashlib.sha256(f"{scope}:{original}".encode()).hexdigest()[:16]
+        label = re.sub(r"[^a-zA-Z0-9_-]", "_", original)[:28] or "skill"
+        manifest.name = f"plugin_{label}_{digest}"
+        manifest.metadata = {
+            **manifest.metadata,
+            "plugin_id": scope,
+            "original_name": original,
+        }
 
     return manifest
 

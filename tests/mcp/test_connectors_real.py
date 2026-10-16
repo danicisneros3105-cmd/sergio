@@ -121,6 +121,37 @@ def test_open_server_needs_no_sign_in(tmp_path, open_site):
     assert out.success and out.content == "7"
 
 
+def test_api_key_connector_authenticates_and_executes_over_real_http(tmp_path):
+    from starlette.middleware.base import BaseHTTPMiddleware
+    from starlette.responses import JSONResponse
+
+    observed = []
+
+    class RequireAPIKey(BaseHTTPMiddleware):
+        async def dispatch(self, request, call_next):
+            observed.append(request.headers.get("x-api-key"))
+            if request.headers.get("x-api-key") != "test-only-key":
+                return JSONResponse({"error": "unauthorized"}, status_code=401)
+            return await call_next(request)
+
+    port = real.free_port()
+    app = real.tool_server().streamable_http_app()
+    app.add_middleware(RequireAPIKey)
+    real.serve(app, port)
+    hub = ConnectorHub(tmp_path)
+    server = hub.add_remote(
+        "API", f"http://127.0.0.1:{port}/mcp", headers={"X-API-Key": "test-only-key"}
+    )
+    try:
+        assert hub.connect(server["id"])["status"] == "connected"
+        assert hub.call(server["id"], "sumar", {"a": 19, "b": 23}, approved=True)[
+            "structuredContent"
+        ] == {"result": 42}
+        assert observed and all(value == "test-only-key" for value in observed)
+    finally:
+        hub.remove(server["id"])
+
+
 def test_local_connector_runs_the_real_sdk_over_stdio(tmp_path):
     script = tmp_path / "srv.py"
     script.write_text(

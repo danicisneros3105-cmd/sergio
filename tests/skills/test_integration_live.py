@@ -6,6 +6,8 @@ Mark: live
 
 from __future__ import annotations
 
+import os
+
 import pytest
 
 from openjarvis.core.events import EventBus, EventType
@@ -15,6 +17,10 @@ from openjarvis.system import SystemBuilder
 
 
 @pytest.mark.live
+@pytest.mark.skipif(
+    os.environ.get("OPENJARVIS_TEST_LIVE_NETWORK") != "1",
+    reason="Requires explicit live opt-in and Ollama with qwen3.5:4b; not an offline test.",
+)
 class TestSkillSystemIntegration:
     """Integration tests verifying skills flow end-to-end with a real engine."""
 

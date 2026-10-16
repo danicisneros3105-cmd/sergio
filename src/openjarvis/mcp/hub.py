@@ -316,6 +316,7 @@ class ConnectorHub:
                     "client_secret": client_secret.strip(),
                     "manual": True,
                 }
+                mine.pop("headers", None)
             if headers is not None:
                 mine["headers"] = dict(headers)
             mine.pop("tokens", None)
@@ -324,7 +325,9 @@ class ConnectorHub:
                 k: p for k, p in self._pending.items() if p.server_id != server_id
             }
             self._drop_client(server_id)
-            return self.public(self._update(server_id, connected=False, error=""))
+            return self.public(
+                self._update(server_id, connected=False, auth=None, error="")
+            )
 
     def add_local(
         self,
@@ -426,8 +429,13 @@ class ConnectorHub:
             from openjarvis.mcp.directory import find
 
             entry = find(server["directory_id"])
-            if entry.get("requires_client_id") and not self._secrets().get(server_id, {}).get("client", {}).get("client_id"):
-                raise ConnectorError("Este servicio requiere un Client ID propio. Abra «Configurar» y complete los requisitos del proveedor.")
+            if entry.get("requires_client_id") and not self._secrets().get(
+                server_id, {}
+            ).get("client", {}).get("client_id"):
+                raise ConnectorError(
+                    "Este servicio requiere un Client ID propio. Abra «Configurar» "
+                    "y complete los requisitos del proveedor."
+                )
         http = self._http_client()
         try:
             challenge = oauth.probe(http, server["url"])
@@ -476,7 +484,7 @@ class ConnectorHub:
                 if time.time() - p.created < 900 and p.server_id != server_id
             }
             self._pending[pending.state] = pending
-        self._update(server_id, auth=auth_server.to_dict(), error="")
+        self._update(server_id, auth=auth_server.to_dict(), connected=False, error="")
         return {"status": "needs_auth", "auth_url": url, "state": pending.state}
 
     def finish(self, state: str, code: str) -> Dict[str, Any]:
@@ -582,7 +590,12 @@ class ConnectorHub:
                     return self._token(sid, force)
 
                 if server.get("transport") == "sse":
-                    transport = LegacySSETransport(server["url"], auth=auth)
+                    transport = LegacySSETransport(
+                        server["url"],
+                        auth=auth,
+                        headers=self._secrets().get(server_id, {}).get("headers")
+                        or None,
+                    )
                 else:
                     transport = StreamableHTTPTransport(
                         server["url"],
