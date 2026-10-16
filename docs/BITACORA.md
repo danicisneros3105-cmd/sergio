@@ -2,6 +2,22 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-10-16 · Codex · reparación del lockfile de actualización
+- Reproduje el bloqueo de `uv sync --locked`: el cambio 9070964 añadió
+  `mcp>=2.3` al extra dev sin actualizar uv.lock (seguía en MCP 1.26).
+  Mi entrega 664e7f7 no detectó este desfase; queda corregido en esta revisión.
+- Regeneré el lockfile sin --upgrade y conservé --locked en el actualizador.
+  La resolución queda en 487 paquetes e incluye MCP 2.3 y sus dependencias.
+- CI comprueba `uv lock --check` antes de instalar y sus sincronizaciones
+  usan --locked; ya no puede corregir el lockfile silenciosamente en el runner.
+- Verificado: `uv lock --check`, instalación real con server + desktop y
+  --locked --inexact, compatibilidad con uv 0.12.22 y 0.12.23 e importación
+  de google.genai / LiveConnectConfig. YAML de CI y Ruff verificados.
+- Revisé el cambio de dependencias de Claude y preservé su intención.
+  No cambié la lógica de la app ni el comando universal. La instalación de
+  Windows y los servicios del PC del dueño requieren ejecutar de nuevo ese comando.
+
+
 ## 2026-10-16 · Codex · correcciones profesionales (checkpoint b2f4723)
 - Corregí los cinco hallazgos de 9c93b13: reintentos MCP con resultado incierto,
   transporte OAuth inseguro, callback bloqueado por autenticación, borrado de

@@ -33,8 +33,11 @@ jobs:
         with:
           enable-cache: true
 
+      - name: Check committed dependency lock
+        run: uv lock --check
+
       - name: Install dependencies
-        run: uv sync --extra dev --extra framework-comparison --extra server
+        run: uv sync --locked --extra dev --extra framework-comparison --extra server
 
       - name: Ruff check
         run: uv run ruff check src/ tests/
@@ -73,7 +76,7 @@ jobs:
           enable-cache: true
 
       - name: Install dependencies
-        run: uv sync --extra dev --extra framework-comparison --extra server
+        run: uv sync --locked --extra dev --extra framework-comparison --extra server
 
       - name: Build Rust extension
         run: uv run maturin develop --manifest-path rust/crates/openjarvis-python/Cargo.toml
@@ -162,7 +165,7 @@ jobs:
           enable-cache: true
 
       - name: Install dependencies
-        run: uv sync --extra dev --extra server
+        run: uv sync --locked --extra dev --extra server
 
       # Pure-Python check — runs before the Rust build so a flaky toolchain
       # install can never mask the actual RAM-detection verification.
@@ -258,7 +261,7 @@ jobs:
           enable-cache: true
 
       - name: Install dependencies
-        run: uv sync --extra server
+        run: uv sync --locked --extra server
 
       - name: Performance smoke benchmark
         run: uv run python benchmarks/perf_smoke.py --check benchmarks/perf_baseline.json --summary "$GITHUB_STEP_SUMMARY"
@@ -345,3 +348,4 @@ jobs:
           cargo fmt --manifest-path ../examples/cross_device_travel/Cargo.toml --check
           cargo clippy --locked --manifest-path ../examples/cross_device_travel/Cargo.toml --all-targets -- -D warnings
           cargo test --locked --manifest-path ../examples/cross_device_travel/Cargo.toml
+
