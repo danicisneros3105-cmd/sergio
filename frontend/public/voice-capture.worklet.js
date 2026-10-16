@@ -2,7 +2,8 @@
 class SergioCapture extends AudioWorkletProcessor {
   constructor() {
     super();
-    this.samples = new Float32Array(1024);
+    this.chunkSize = Math.max(1, Math.round(sampleRate * 0.02));
+    this.samples = new Float32Array(this.chunkSize);
     this.used = 0;
   }
   process(inputs) {
@@ -12,7 +13,7 @@ class SergioCapture extends AudioWorkletProcessor {
         this.samples[this.used++] = input[i];
         if (this.used === this.samples.length) {
           this.port.postMessage(this.samples, [this.samples.buffer]);
-          this.samples = new Float32Array(1024);
+          this.samples = new Float32Array(this.chunkSize);
           this.used = 0;
         }
       }

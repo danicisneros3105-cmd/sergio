@@ -49,8 +49,34 @@ def test_same_picture_keeps_the_frame_and_its_encoding():
     jpeg = first.encode("JPEG", 1280)
     again = eye.capture()
     assert again is first and again.encode("JPEG", 1280) is jpeg  # encoded once
+    assert eye.cache_hits == 1
     screen.image = picture(box=(0, 0, 400, 400))
     assert eye.capture().id == first.id + 1
+
+
+def test_capture_deadlines_keep_fractional_target_and_report_observed_fps():
+    from sergio_escritorio.live_screen import FAST_FPS
+
+    now = [0.0]
+    frames = []
+    image = picture(size=(64, 36))
+
+    def grab():
+        frames.append(now[0])
+        now[0] += 0.007  # simulated capture takes 7 ms, not a zero-cost stub
+        return image
+
+    def sleep(delay):
+        now[0] += delay
+        if len(frames) >= 200:
+            eye._running = False
+
+    eye = LiveScreen(grab, clock=lambda: now[0], sleep=sleep)
+    eye.streaming = eye._running = True
+    eye._loop()
+    assert abs((frames[-1] - frames[0]) - 199 / FAST_FPS) < 1e-9
+    assert abs(eye.capture_fps - FAST_FPS) < 1e-9
+    assert eye.cache_hits == 199
 
 
 def test_watcher_wakes_up_on_the_change():

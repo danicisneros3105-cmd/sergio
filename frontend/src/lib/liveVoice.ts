@@ -8,7 +8,7 @@ import { buildWsProtocols } from './useAgentEvents';
 
 export const IN_RATE = 16000;
 export const OUT_RATE = 24000;
-export const SILENCE_AFTER = 1.2; // seconds of quiet that end your turn
+export const SILENCE_AFTER = 0.4; // seconds of quiet before explicitly ending input
 const VOICE_LEVEL = 0.012; // RMS that counts as speech (after the browser's noise suppression)
 const PREROLL = 3; // buffers kept from just before you start talking
 
@@ -58,6 +58,8 @@ export interface VoiceCallbacks {
   onLevel: (level: number) => void; // 0..1, for the orb
   onError: (message: string) => void;
   onScreen?: (sharing: boolean) => void;
+  /** Server input-end to first audio forwarded; excludes device/network playback. */
+  onLatency?: (serverMs: number) => void;
   /** A finished exchange: what you said and what Sergio answered. */
   onTurn?: (heard: string, said: string) => void;
 }
@@ -117,8 +119,8 @@ export class VoiceCall {
   private async listen(): Promise<void> {
     if (!this.mic) return;
     const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-    this.input = new Ctx();
-    this.output = new Ctx({ sampleRate: OUT_RATE });
+    this.input = new Ctx({ latencyHint: 'interactive' });
+    this.output = new Ctx({ sampleRate: OUT_RATE, latencyHint: 'interactive' });
     const source = this.input.createMediaStreamSource(this.mic);
     const context = this.input;
     // A real file from the same origin: bundlers inline small scripts as
@@ -174,7 +176,7 @@ export class VoiceCall {
       this.play(pcmToFloat(data));
       return;
     }
-    let event: { type?: string; text?: string; message?: string; status?: string };
+    let event: { type?: string; text?: string; message?: string; status?: string; server_end_to_first_audio_ms?: number };
     try {
       event = JSON.parse(data);
     } catch {
@@ -210,6 +212,12 @@ export class VoiceCall {
         break;
       case 'error':
         this.fail(event.message || 'La llamada falló.');
+        break;
+      case 'latency':
+        if (typeof event.server_end_to_first_audio_ms === 'number' &&
+            Number.isFinite(event.server_end_to_first_audio_ms) && event.server_end_to_first_audio_ms >= 0) {
+          this.cb.onLatency?.(event.server_end_to_first_audio_ms);
+        }
         break;
     }
   }

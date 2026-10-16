@@ -213,8 +213,11 @@ def test_microphone_goes_through_the_echo_canceller_in_10ms_frames():
         for i in range(7):
             call.feed_mic(voice[i * 512 : (i + 1) * 512].tobytes())
         assert seen and all(s == (FRAME_BYTES, FRAME_BYTES) for s in seen)
-        # 7 x 32 ms = 224 ms: two 100 ms messages sent, the rest waits
-        assert _wait(lambda: len(line.audio_sent()) == 2 * SEND_BYTES)
+        # 224 ms: five 40 ms packets; the final 24 ms waits, without loss.
+        assert _wait(lambda: len(line.audio_sent()) == 5 * SEND_BYTES)
+        assert (
+            line.audio_sent() + bytes(call._out) + bytes(call._mic) == voice.tobytes()
+        )
     finally:
         call.hang_up()
 
@@ -232,8 +235,7 @@ def test_while_he_talks_his_own_echo_is_not_sent():
         assert set(line.audio_sent()) == {0}
         loud = (np.random.default_rng(2).normal(0, 4000, 1600)).astype(np.int16)
         call.feed_mic(loud.tobytes())  # you talk over him: it goes through
-        assert _wait(lambda: len(line.audio_sent()) >= 2 * SEND_BYTES)
-        assert rms(line.audio_sent()[-SEND_BYTES:]) > 1000
+        assert _wait(lambda: rms(line.audio_sent()[-SEND_BYTES:]) > 1000)
     finally:
         call.hang_up()
 
@@ -396,13 +398,39 @@ def test_speaker_waits_for_a_little_voice_before_starting():
     for _ in range(PREBUFFER // len(tone)):
         spk.play(tone)
     spk._callback(out, 480, None, None)
-    assert all(np.frombuffer(bytes(out), np.int16))  # 150 ms ready: he speaks
+    assert all(np.frombuffer(bytes(out), np.int16))  # 60 ms ready: he speaks
     spk.flush()
     spk.play(tone)
     spk._last_push = _time.monotonic() - 1  # the sentence ended: play the tail
     out[:] = bytes(960)
     spk._callback(out, 480, None, None)
     assert all(np.frombuffer(bytes(out), np.int16)[:240])
+
+
+def test_shorter_playback_buffer_preserves_words_and_adapts_after_underrun():
+    from sergio_escritorio.call import PREBUFFER, RATE_OUT
+
+    speaker = Speaker(stream_factory=SilentStream)
+    pcm = (np.ones(RATE_OUT * 70 // 1000) * 1234).astype(np.int16).tobytes()
+    speaker.play(pcm)
+    output = bytearray()
+    for _ in range(4):
+        block = bytearray(960)
+        speaker._callback(block, 480, None, None)
+        output.extend(block)
+    assert output[: len(pcm)] == pcm
+    assert not any(output[len(pcm) :])
+    assert speaker._prebuffer > PREBUFFER
+    speaker.flush()
+    assert speaker._prebuffer == PREBUFFER
+
+
+def test_server_latency_is_exposed_without_claiming_device_playback_time():
+    call = _call(FakeLine())
+    call._handle(json.dumps({"type": "latency", "server_end_to_first_audio_ms": 123.4}))
+    assert call.server_first_audio_ms == 123.4
+    call._handle(json.dumps({"type": "latency", "server_end_to_first_audio_ms": -1}))
+    assert call.server_first_audio_ms == 123.4
 
 
 def test_language_is_sent_and_silence_is_not_streamed():
@@ -469,7 +497,7 @@ def test_shared_screen_is_a_live_video_he_is_told_about_once():
         notes = [
             m
             for m in line.json_sent()
-            if m.get("type") == "note" and "en vivo" in m["text"]
+            if m.get("type") == "note" and "muestreado" in m["text"]
         ]
         assert len(notes) == 1
     finally:
@@ -480,8 +508,8 @@ def _image_times(line):
     return [t for t, m in line.timed_json() if m.get("type") == "image"]
 
 
-def test_the_shared_screen_is_a_steady_32_frames_a_second():
-    """Moving or still, the screen goes out on a fixed beat of 32 a second."""
+def test_shared_screen_samples_at_provider_limit_without_changing_capture_target():
+    """Capture stays fast; cloud samples do not congest the audio socket."""
     from sergio_escritorio import call as call_mod
 
     assert call_mod.VIDEO_FPS == 32.310520139305 and call_mod.VIDEO_STEADY
@@ -499,10 +527,10 @@ def test_the_shared_screen_is_a_steady_32_frames_a_second():
         window = [
             t for t in times if times[0] + 0.5 <= t <= times[0] + 2.5
         ]  # two full seconds
-        assert 62 <= len(window) <= 66, len(window)
+        assert len(window) == 2, len(window)
         gaps = [b - a for a, b in zip(window, window[1:])]
-        assert max(gaps) < 0.06  # no stalls: never two frames' worth missing
-        assert 29 <= call.video_fps <= 34
+        assert all(0.98 <= gap <= 1.1 for gap in gaps)
+        assert 0.8 <= call.video_fps <= 1.2
 
 
 def test_the_camera_alone_still_sends_one_frame_a_second():

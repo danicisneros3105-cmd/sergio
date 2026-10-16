@@ -4,8 +4,9 @@ Before, every look took a fresh screenshot (new capture context, resize, PNG)
 and read the accessibility tree on the spot: 150–600 ms before Sergio could
 even start thinking, and actions were checked with fixed waits.
 
-Now one background thread watches the screen continuously (the configured frame rate while something moves or while Gemini watches it live, 4 when it is
-still and nobody watches) with a persistent capture context, and keeps:
+Now one background thread watches the screen continuously at the configured
+frame rate while something moves or screen sharing is active (4 when it is
+still and nobody watches), with a persistent capture context, and keeps:
 
 * the latest frame, its id and *what* changed (the changed box),
 * the frame already encoded (JPEG and PNG) — encoded once per frame, so
@@ -22,10 +23,11 @@ control server (token-protected) and to the call when screen sharing is on.
 from __future__ import annotations
 
 import io
-import os
 import math
+import os
 import threading
 import time
+from collections import deque
 from dataclasses import dataclass, field
 from typing import Any, Callable, Iterator, Optional
 
@@ -255,6 +257,9 @@ class LiveScreen:
         # While Gemini watches it live the eye never slows down to idle.
         self.streaming = False
         self.capture_ms = 0.0  # how long the last grab took (for the stats)
+        self.capture_fps = 0.0  # observed captures, including unchanged images
+        self.cache_hits = 0  # identical images reuse the frame and encodings
+        self._capture_times: deque[float] = deque(maxlen=256)
         self.on_change: Callable[[Frame], None] = lambda _f: None
 
     # -- the eye --------------------------------------------------------------
@@ -264,11 +269,20 @@ class LiveScreen:
         sig = signature(image)
         now = self._clock()
         with self._cond:
+            self._capture_times.append(now)
+            while self._capture_times and now - self._capture_times[0] > 2.0:
+                self._capture_times.popleft()
+            if len(self._capture_times) > 1:
+                span = now - self._capture_times[0]
+                self.capture_fps = (
+                    (len(self._capture_times) - 1) / span if span > 0 else 0.0
+                )
             prev = self._frame
             box = (
                 changed_box(self._sig, sig, image.size) if prev else (0, 0, *image.size)
             )
             if prev is not None and box is None:
+                self.cache_hits += 1
                 # same picture: keep the old frame (and its encodings), fresher
                 prev.at = now
                 return prev
@@ -289,7 +303,8 @@ class LiveScreen:
 
     def _loop(self) -> None:
         # A fixed beat (next += period), not «sleep the rest»: rounding and
-        # slow grabs do not pile up, so 32 a second stays 32 a second.
+        # slow grabs do not accumulate drift. The OS/hardware can still miss
+        # deadlines: capture_fps reports observations rather than the target.
         due = self._clock()
         while self._running:
             started = self._clock()

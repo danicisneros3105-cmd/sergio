@@ -288,7 +288,12 @@ def test_falls_back_without_search_then_to_the_next_model(monkeypatch):
         ("gemini-3.8-live", False),
         ("gemini-3.1-flash-live-preview", False),
     ]
-    assert ws.json[0] == {"type": "ready", "model": "gemini-3.1-flash-live-preview"}
+    assert ws.json[0] == {
+        "type": "ready",
+        "model": "gemini-3.1-flash-live-preview",
+        "capture_target_fps": 32.310520139305,
+        "video_send_fps": 1.0,
+    }
     # Search was refused: the next call does not even try it.
     assert gemini_live._search_refused_at > 0
 
@@ -468,6 +473,49 @@ def test_the_shared_screen_is_watched_at_a_legible_resolution(monkeypatch):
 def test_live_video_preserves_fractional_target():
     assert gemini_live.LIVE_FPS == 32.310520139305
     assert gemini_live.FRAME_GAP < 1 / 32
+    assert gemini_live.PROVIDER_VIDEO_FPS == 1
+
+
+def test_live_config_uses_supported_low_latency_settings_in_real_sdk():
+    types = pytest.importorskip("google.genai.types")
+    for model in ("gemini-3.8-live", "gemini-3.1-flash-live-preview"):
+        cfg = gemini_live.live_config(
+            types, voice="", instructions="x", decls=[], search=False, model=model
+        )
+        vad = cfg.realtime_input_config.automatic_activity_detection
+        assert vad.silence_duration_ms == 250
+        assert vad.prefix_padding_ms == 300  # keep the beginning of words
+        if model == "gemini-3.8-live":
+            assert cfg.thinking_config is None
+        else:
+            assert cfg.thinking_config.thinking_level.value.lower() == "minimal"
+
+
+def test_latency_is_measured_once_after_input_end_and_not_after_interruption():
+    async def scenario():
+        ws = FakeWS()
+        session = FakeSession([])
+        call = _call(ws, FakeClient([]))
+        pump = asyncio.create_task(call._pump_up(session))
+        ws.put(type="websocket.receive", text=json.dumps({"type": "audio_end"}))
+        await asyncio.sleep(0.02)
+        audio = _content(
+            model_turn=NS(parts=[NS(inline_data=NS(data=b"voice"))])
+        ).server_content
+        await call._content(audio)
+        await call._content(audio)
+        await call._content(_content(interrupted=True).server_content)
+        await call._content(audio)
+        ws.put(type="websocket.disconnect")
+        await pump
+        return ws
+
+    ws = asyncio.run(scenario())
+    reports = [event for event in ws.json if event["type"] == "latency"]
+    assert len(reports) == 1
+    assert 10 <= reports[0]["server_end_to_first_audio_ms"] < 500
+    assert reports[0]["end_to_end_verified"] is False
+    assert ws.audio == [b"voice"] * 3
 
 
 def test_video_metrics_do_not_claim_provider_acknowledgments():
@@ -546,14 +594,19 @@ def test_proactive_audio_first_and_plain_sessions_when_refused(monkeypatch):
 
 
 def test_video_lane_keeps_the_newest_frame_and_never_holds_the_voice(monkeypatch):
-    """A slow uplink: frames are dropped (newest kept) and reported as slow,
-    while audio still goes straight through."""
+    """32 FPS capture is coalesced to provider samples; audio is not queued."""
     monkeypatch.setattr(gemini_live, "VIDEO_REPORT_EVERY", 0.5)
 
     class SlowSession(FakeSession):
+        audio_received_at = None
+        video_times = []
+
         async def send_realtime_input(self, **kw):
             if "video" in kw:
                 await asyncio.sleep(0.08)  # ~12 frames a second at most
+                self.video_times.append(gemini_live.time.monotonic())
+            if "audio" in kw:
+                self.audio_received_at = gemini_live.time.monotonic()
             self.sent.append(("input", kw))
 
     async def scenario():
@@ -562,9 +615,11 @@ def test_video_lane_keeps_the_newest_frame_and_never_holds_the_voice(monkeypatch
         call = _call(ws, FakeClient([session]))
         task = asyncio.ensure_future(call.run())
         await asyncio.sleep(0.05)
-        frame = json.dumps({"type": "image", "data": base64.b64encode(b"jpg").decode()})
         audio_at = None
         for i in range(48):  # 1.5 s of a 32 FPS video
+            frame = json.dumps(
+                {"type": "image", "data": base64.b64encode(str(i).encode()).decode()}
+            )
             ws.put(type="websocket.receive", text=frame)
             if i == 24:
                 ws.put(type="websocket.receive", bytes=b"\0\0" * 160)
@@ -579,6 +634,10 @@ def test_video_lane_keeps_the_newest_frame_and_never_holds_the_voice(monkeypatch
     videos = [kw for kind, kw in session.sent if "video" in kw]
     audio = [kw for kind, kw in session.sent if "audio" in kw]
     assert audio, "the voice went through"
-    assert 8 <= len(videos) < 40  # the lane dropped frames instead of queueing them
+    assert len(videos) == 2
+    assert session.video_times[1] - session.video_times[0] >= 1.0
+    assert int(videos[1]["video"].data) >= 30  # newest, not frame 1 from a backlog
+    assert session.audio_received_at - audio_at < 0.1
     reports = [m for m in ws.json if m.get("type") == "video"]
-    assert reports and reports[-1]["slow"] is True and reports[-1]["fps"] < 20
+    assert reports and reports[-1]["send_limit_fps"] == 1
+    assert reports[-1]["coalesced_frames"] > 20

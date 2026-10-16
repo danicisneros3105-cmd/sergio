@@ -20,8 +20,8 @@ from __future__ import annotations
 import base64
 import json
 import logging
-import os
 import math
+import os
 import queue
 import re
 import threading
@@ -37,7 +37,7 @@ log = logging.getLogger(__name__)
 RATE_IN = 16_000  # microphone -> Gemini
 RATE_OUT = 24_000  # Gemini's voice
 FRAME_BYTES = 320  # 10 ms at 16 kHz, int16 (what the echo canceller takes)
-SEND_BYTES = 3_200  # 100 ms of audio per message to the server
+SEND_BYTES = 1_280  # 40 ms: small packets without per-10-ms socket overhead
 IDLE_HANG_UP = 60.0  # seconds with nobody talking: the call ends by itself
 ALWAYS_ON = float("inf")  # an always-on call never hangs up on silence
 GATE_AFTER = 2.0  # seconds of silence before the microphone stops streaming
@@ -54,7 +54,7 @@ except ValueError:
 VIDEO_FRESH = 1.0 / VIDEO_FPS
 VIDEO_STEADY = os.environ.get("SERGIO_LIVE_STEADY", "1") != "0"
 REF_MAX = 60  # at most 600 ms of speaker reference waiting for the mic
-PREBUFFER = RATE_OUT * 2 * 150 // 1000  # 150 ms of his voice before he starts
+PREBUFFER = RATE_OUT * 2 * 60 // 1000  # 60 ms initially; grow after underruns
 
 
 def rms(data: bytes | np.ndarray) -> float:
@@ -133,6 +133,7 @@ class Speaker:
         self._lock = threading.Lock()
         self._ref = bytearray()  # what was played, 16 kHz, for the mic side
         self._playing = False
+        self._prebuffer = PREBUFFER
         self._last_push = 0.0
         self._stream: Any = None
         self.level = 0.0  # 0..1, for the waveform
@@ -169,18 +170,25 @@ class Speaker:
     def _callback(self, outdata: Any, frames: int, _time: Any, _status: Any) -> None:
         need = frames * 2
         with self._lock:
-            # Jitter buffer: start a sentence only with ~150 ms ready (or when
-            # no more is coming), so network hiccups never chop the words.
+            # Start promptly; retain every PCM byte when packets arrive late.
             ready = len(self._buf)
             if (
                 not self._playing
                 and ready
-                and (ready >= PREBUFFER or time.monotonic() - self._last_push > 0.2)
+                and (
+                    ready >= self._prebuffer
+                    or time.monotonic() - self._last_push > 0.08
+                )
             ):
                 self._playing = True
             if self._playing:
                 chunk = bytes(self._buf[:need])
                 del self._buf[:need]
+                if len(chunk) < need:
+                    self._prebuffer = min(
+                        RATE_OUT * 2 * 150 // 1000,
+                        self._prebuffer + RATE_OUT * 2 * 20 // 1000,
+                    )
                 if not self._buf:
                     self._playing = False
             else:
@@ -213,6 +221,7 @@ class Speaker:
         with self._lock:
             self._buf.clear()
             self._playing = False
+            self._prebuffer = PREBUFFER
 
     @property
     def talking(self) -> bool:
@@ -331,11 +340,13 @@ class CallSession:
         self.video_fresh: Callable[[], bool] = lambda: False
         self._told_screen = False
         # The live video, measured: frames sent a second (here) and frames
-        # that reached Gemini a second (reported by the server).
+        # submitted to the Gemini SDK a second (not model acknowledgments).
         self.video_fps = 0.0
+        self.video_send_fps = 1.0  # Gemini Live limit; local capture stays faster
         self.gemini_fps = 0.0
         self.video_slow = False  # the server could not keep up: send lighter frames
-        self._audio_queue: queue.Queue[bytes | str] = queue.Queue(maxsize=8)
+        self._audio_queue: queue.Queue[bytes | str] = queue.Queue(maxsize=20)
+        self.server_first_audio_ms: float | None = None
         self._audio_stalled = False
         self.heard_anything = False  # Gemini heard or said something already
 
@@ -386,6 +397,9 @@ class CallSession:
                 event = json.loads(msg)
                 if event.get("type") == "ready":
                     self.model = str(event.get("model") or "")
+                    fps = event.get("video_send_fps", 1.0)
+                    if isinstance(fps, (int, float)) and math.isfinite(fps) and fps > 0:
+                        self.video_send_fps = min(1.0, fps)
                     break
                 if event.get("type") == "error":
                     raise RuntimeError(event.get("message") or "error")
@@ -508,8 +522,9 @@ class CallSession:
             if self._gate(clean, voiced or talking):
                 continue
             self._out.extend(clean)
-            if len(self._out) >= SEND_BYTES:
-                data, self._out = bytes(self._out), bytearray()
+            while len(self._out) >= SEND_BYTES:
+                data = bytes(self._out[:SEND_BYTES])
+                del self._out[:SEND_BYTES]
                 try:
                     self._queue_audio(data)
                 except Exception as exc:  # noqa: BLE001
@@ -645,6 +660,10 @@ class CallSession:
         elif kind == "video":
             self.gemini_fps = float(event.get("fps") or 0.0)
             self.video_slow = bool(event.get("slow"))
+        elif kind == "latency":
+            value = event.get("server_end_to_first_audio_ms")
+            if isinstance(value, (int, float)) and math.isfinite(value) and value >= 0:
+                self.server_first_audio_ms = value
         elif kind == "error":
             self.error = str(event.get("message") or "")
             self.on_caption(f"La llamada falló: {self.error[:120]}")
@@ -694,9 +713,7 @@ class CallSession:
             self.hang_up("se cortó")
 
     def _video_loop(self) -> None:
-        """Camera/screen as live video on a fixed beat: the shared screen at
-        VIDEO_FPS always (steady), the camera at VIDEO_FPS while it changes
-        and once a second while it is still."""
+        """Sample the latest locally captured frame at the provider's rate."""
         _fine_timer(True)
         try:
             self._video_beat()
@@ -714,16 +731,19 @@ class CallSession:
                 # live: he looks at it instead of asking for screenshots.
                 self._told_screen = True
                 self.send_note(
-                    "(Desde ahora ves la pantalla del señor en vivo, como un video fluido, con su "
+                    "(Recibes un video de la pantalla del señor muestreado una vez por segundo, con su "
                     "cursor marcado con un círculo amarillo. Mírala directamente: no pidas "
-                    "capturas; usa las herramientas solo para actuar.)"
+                    "capturas; usa las herramientas solo para actuar. No supongas cambios "
+                    "entre fotogramas que no hayas observado.)"
                 )
             steady = self.share_screen and VIDEO_STEADY
             try:
                 fresh = steady or bool(self.video_fresh())
             except Exception:  # noqa: BLE001
                 fresh = False
-            interval = VIDEO_FRESH if fresh else VIDEO_EVERY
+            interval = max(
+                1.0 / self.video_send_fps, VIDEO_FRESH if fresh else VIDEO_EVERY
+            )
             # A change after a still spell is sent at once, not a second later.
             due = min(due, last_frame + interval)
             if now >= due:
@@ -745,7 +765,7 @@ class CallSession:
                         self._lost(exc)
                         return
                     sent.append(now)
-                    while sent and now - sent[0] > 1.0:
+                    while sent and now - sent[0] > 5.0:
                         sent.popleft()
                     self.video_fps = (
                         (len(sent) - 1) / (sent[-1] - sent[0])

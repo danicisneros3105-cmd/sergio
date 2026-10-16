@@ -2,6 +2,45 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-10-16 · Codex · captura independiente y menos esperas de voz
+- Investigué límites reales: Gemini Live acepta como máximo una imagen por
+  segundo, no 32,310520139305. Separé la captura local (conserva ese objetivo)
+  del envío al proveedor (1 imagen/s, siempre la más reciente). No se acumulan
+  imágenes viejas ni se anuncian envíos SDK como imágenes interpretadas.
+  Escritorio respeta el límite incluso con un servidor antiguo. El servidor
+  anuncia ambas tasas al conectar y distingue muestreo intencional de lentitud.
+- Voz Windows: mensajes de 40 ms en lugar de 100 ms; PCM previo a la palabra
+  también dividido sin perder bytes. Cola acotada a 800 ms, sin esperar por
+  la red en el micrófono. Si se llena, se informa y reconecta. Reproducción
+  empieza con 60 ms en lugar de 150; aumenta hasta 150 tras falta de datos,
+  conserva palabras y se vacía al interrumpir. Dispositivo conserva su margen.
+- Cliente de voz integrado: worklet produce bloques de 20 ms a 16/44,1/48 kHz;
+  contextos de audio interactivos y fin de entrada tras 400 ms, antes 1.200.
+  Gemini conserva 300 ms de audio previo a la palabra y reduce silencio de
+  detección de 450 a 250 ms. No se cambió la voz ni se clonó una persona.
+- Configuración según modelo: 3.8 Live omite thinking_config; 3.1 utiliza
+  nivel minimal. Evita enviar opciones incompatibles antes de reconectar.
+- Medición: captura informa FPS observados y aciertos al reutilizar imágenes.
+  El servidor emite latency.server_end_to_first_audio_ms una vez cuando hay
+  un fin de entrada explícito antes de la respuesta. Excluye transporte al
+  dispositivo, DAC y micrófono; un turno respondido antes de ese marcador no
+  inventa una medida. Interrupción/turno terminado descartan la muestra previa.
+  Disponible en CallSession.server_first_audio_ms y VoiceCallbacks.onLatency.
+- Pruebas: fotograma reciente bajo carga simulada a 32 FPS, voz independiente,
+  plazos de captura fraccionarios con reloj simulado y caché; PCM completo,
+  búfer adaptativo, interrupción y cierre de turno. Pasan 846 pruebas Python
+  (escritorio completo, puente Live y speech) y 235 frontend; TypeScript,
+  build, Ruff check y format pasan. Cinco omitidas: Blender, Torch, dos
+  imágenes de prueba ausentes y soundfile opcional. Comprobado con el SDK
+  google-genai 2.29.0 del lock y con 2.31.0; Qt 6.11.2, OpenCV 4.13.0.92
+  y PyAV 16.1.0 se usan en la comprobación final. Sin cambiar dependencias.
+- Fuentes: https://ai.google.dev/gemini-api/docs/live-api/capabilities y
+  https://ai.google.dev/gemini-api/docs/live-api/best-practices . Analizar archivos
+  con FPS personalizados es otra API; no equivale a conversación Live.
+- Pendiente real: medir con la cuenta Gemini y micrófono/altavoces Windows del
+  dueño. Aquí no se utilizó su clave ni se verificó latencia física. No existe
+  garantía de 0 ms ni de FPS exactamente constantes en hardware no controlado.
+
 ## 2026-10-16 · Codex · conexiones MCP/CLI y diseño de Extensiones
 - Revisé el recorrido de Extensiones: conectar, configurar, permisos, probar,
   errores y diálogos. Corregí rutas/argumentos con espacios: ejecutable separado

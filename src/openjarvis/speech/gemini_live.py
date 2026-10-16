@@ -51,6 +51,8 @@ try:
 except ValueError:
     LIVE_FPS = 32.310520139305
 FRAME_GAP = 0.85 / LIVE_FPS
+# Live accepts at most one video frame per second. Capture is independent.
+PROVIDER_VIDEO_FPS = min(1.0, LIVE_FPS)
 VIDEO_REPORT_EVERY = 2.0
 
 # Best first. The newest Live model answers in under a second; the others
@@ -269,6 +271,7 @@ def live_config(
     search: bool,
     handle: str | None = None,
     proactive: bool = False,
+    model: str = "",
 ) -> Any:
     tools = []
     if decls:
@@ -286,9 +289,13 @@ def live_config(
         else None
     )
     extra: dict[str, Any] = {}
-    if _THINKING_OK[0]:
-        # No "thinking" before speaking: the first word comes sooner.
-        extra["thinking_config"] = types.ThinkingConfig(thinking_budget=0)
+    if _THINKING_OK[0] and not model.startswith("gemini-3.8"):
+        # 3.8 Live rejects thinking configuration. 3.1 uses levels, not budgets.
+        extra["thinking_config"] = (
+            types.ThinkingConfig(thinking_level="minimal")
+            if model.startswith("gemini-3.1")
+            else types.ThinkingConfig(thinking_budget=0)
+        )
     if proactive and hasattr(types, "ProactivityConfig"):
         extra["proactivity"] = types.ProactivityConfig(proactive_audio=True)
     detection: dict[str, Any] = {}
@@ -320,7 +327,7 @@ def live_config(
             automatic_activity_detection=types.AutomaticActivityDetection(
                 **detection,
                 end_of_speech_sensitivity=types.EndSensitivity.END_SENSITIVITY_HIGH,
-                silence_duration_ms=450,
+                silence_duration_ms=250,
                 prefix_padding_ms=300,
             )
         ),
@@ -387,6 +394,8 @@ class LiveCall:
         self._video_sent: list[float] = []
         self._video_dropped = 0
         self._video_reported = time.monotonic()
+        self._audio_ended_at: float | None = None
+        self._response_started = False
 
     # -- plumbing -----------------------------------------------------------
     def _genai(self) -> tuple[Any, Any]:
@@ -471,6 +480,7 @@ class LiveCall:
                                 search=False,
                                 handle=self._handle,
                                 proactive=True,
+                                model=model,
                             ),
                         )
                     )
@@ -499,6 +509,7 @@ class LiveCall:
                     decls=self.decls,
                     search=search,
                     handle=self._handle,
+                    model=model,
                 )
                 try:
                     session = await stack.enter_async_context(
@@ -518,6 +529,7 @@ class LiveCall:
                                         decls=self.decls,
                                         search=search,
                                         handle=self._handle,
+                                        model=model,
                                     ),
                                 )
                             )
@@ -583,7 +595,14 @@ class LiveCall:
                     )
                     self._session = session
                     if first:
-                        await self.send_json({"type": "ready", "model": self.model})
+                        await self.send_json(
+                            {
+                                "type": "ready",
+                                "model": self.model,
+                                "capture_target_fps": LIVE_FPS,
+                                "video_send_fps": PROVIDER_VIDEO_FPS,
+                            }
+                        )
                         first = False
                     up = asyncio.ensure_future(self._pump_up(session))
                     down = asyncio.ensure_future(self._pump_down(session))
@@ -632,6 +651,7 @@ class LiveCall:
             if data is not None:
                 if len(data) > 64_000 or len(data) % 2:
                     continue  # at most two seconds of aligned PCM per message
+                self._audio_ended_at = None
                 await session.send_realtime_input(
                     audio=types.Blob(data=data, mime_type=IN_MIME)
                 )
@@ -650,8 +670,8 @@ class LiveCall:
                 now = time.monotonic()
                 if not isinstance(event["data"], str):
                     continue
-                # The screen arrives as live video: up to SERGIO_LIVE_FPS
-                # (30) while it moves, one a second while it is still.
+                # Capture may run faster than the provider. Keep only the
+                # latest image; never create an unbounded video backlog.
                 if now - self._last_image < FRAME_GAP or len(event["data"]) > 1_400_000:
                     continue
                 if event.get("mime", "image/jpeg") not in ("image/jpeg", "image/png"):
@@ -671,6 +691,8 @@ class LiveCall:
             elif kind == "audio_end":
                 # The companion stopped streaming silence: tell Live the
                 # microphone paused, so the last words are answered at once.
+                if not self._response_started:
+                    self._audio_ended_at = time.monotonic()
                 try:
                     await session.send_realtime_input(audio_stream_end=True)
                 except Exception:  # noqa: BLE001 — an older SDK: harmless
@@ -700,7 +722,7 @@ class LiveCall:
         """Pace newest frames and report SDK sends, not model reception."""
         types = self._types
         due = time.monotonic()
-        period = 1.0 / LIVE_FPS
+        period = 1.0 / PROVIDER_VIDEO_FPS
         while True:
             await self._frame_ready.wait()
             await asyncio.sleep(max(0.0, due - time.monotonic()))
@@ -712,9 +734,8 @@ class LiveCall:
                 video=types.Blob(data=frame[0], mime_type=frame[1])
             )
             now = time.monotonic()
-            due += period
-            if now - due > period:
-                due = now + period
+            # No catch-up burst after a slow SDK send or an idle period.
+            due = now + period
             self._video_sent.append(now)
             await self._report_video(now)
 
@@ -725,7 +746,8 @@ class LiveCall:
         self._video_sent = [t for t in self._video_sent if now - t <= span]
         fps = len(self._video_sent) / span if span else 0.0
         dropped = self._video_dropped
-        slow = dropped > 0 or fps < LIVE_FPS * 0.92
+        # Replacing pending capture frames is intentional sampling, not lag.
+        slow = fps < PROVIDER_VIDEO_FPS * 0.8
         self._video_reported, self._video_dropped = now, 0
         with contextlib.suppress(Exception):
             await self.send_json(
@@ -734,10 +756,12 @@ class LiveCall:
                     "fps": round(fps, 3),
                     "slow": slow,
                     "target_fps": LIVE_FPS,
+                    "send_limit_fps": PROVIDER_VIDEO_FPS,
                     "sdk_fps": round(fps, 3),
                     "provider_fps": None,
                     "provider_verified": False,
                     "dropped_frames": dropped,
+                    "coalesced_frames": dropped,
                 }
             )
 
@@ -782,17 +806,32 @@ class LiveCall:
                     await self.send_json({"type": "interrupted"})
             await self.send_json({"type": "heard", "text": heard.text})
         if getattr(content, "interrupted", False):
+            self._response_started = False
+            self._audio_ended_at = None
             await self.send_json({"type": "interrupted"})
         turn = getattr(content, "model_turn", None)
         for part in (turn.parts if turn is not None else None) or []:
             blob = getattr(part, "inline_data", None)
             if blob is not None and blob.data and self._answer_allowed:
+                self._response_started = True
                 await self.send_audio(bytes(blob.data))
+                if self._audio_ended_at is not None:
+                    elapsed = (time.monotonic() - self._audio_ended_at) * 1000
+                    self._audio_ended_at = None
+                    await self.send_json(
+                        {
+                            "type": "latency",
+                            "server_end_to_first_audio_ms": round(elapsed, 1),
+                            "end_to_end_verified": False,
+                        }
+                    )
         said = getattr(content, "output_transcription", None)
         if said is not None and said.text and self._answer_allowed:
             await self.send_json({"type": "said", "text": said.text})
         if getattr(content, "turn_complete", False):
             self._heard_text = ""
+            self._response_started = False
+            self._audio_ended_at = None
             await self.send_json({"type": "turn_complete"})
 
     async def _run_tool(self, session: Any, fc: Any) -> None:
