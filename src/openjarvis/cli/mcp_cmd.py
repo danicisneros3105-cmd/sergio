@@ -148,6 +148,33 @@ def add(
     console.print(f"Conéctelo con: [bold]sergio mcp login {server['id']}[/bold]")
 
 
+@mcp.command("add-cli", context_settings={"ignore_unknown_options": True})
+@click.option("--cwd", required=True, type=click.Path(exists=True, file_okay=False))
+@click.option("--env", "-e", multiple=True, help="Variable privada KEY=valor.")
+@click.argument("name")
+@click.argument("command", nargs=-1, required=True, type=click.UNPROCESSED)
+def add_cli(
+    cwd: str, env: tuple[str, ...], name: str, command: tuple[str, ...]
+) -> None:
+    """Connect an installed CLI (not an MCP server), asking before each call."""
+    from openjarvis.mcp.hub import ConnectorError
+
+    if any("=" not in item for item in env):
+        _fail(ValueError("Use KEY=valor para cada variable."))
+    try:
+        server = _hub().add_cli(
+            name,
+            list(command),
+            cwd=str(Path(cwd).resolve()),
+            env=dict(item.split("=", 1) for item in env),
+        )
+        _hub().connect(server["id"])
+    except ConnectorError as exc:
+        _fail(exc)
+        return
+    console.print(f"CLI conectada: {server['id']}. Cada ejecución requiere permiso.")
+
+
 @mcp.command("add-json")
 @click.argument("name")
 @click.argument("config")

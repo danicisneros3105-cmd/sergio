@@ -25,7 +25,7 @@
 .cx-select { height: 34px; padding: 0 10px; border-radius: 10px; border: 1px solid var(--color-border); background: var(--color-bg); color: var(--color-text); font: inherit; font-size: 13.5px; }
 .cx-chips { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
 .cx-chips button { flex: none; height: 32px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--color-border); background: none; color: var(--color-text-secondary); cursor: pointer; font-size: 13.5px; }
-.cx-chips button[aria-selected='true'] { background: var(--color-text); color: var(--color-bg); border-color: transparent; }
+.cx-chips button[aria-pressed='true'] { background: var(--color-text); color: var(--color-bg); border-color: transparent; }
 .cx-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
 .cx-entry {
   position: relative; display: flex; gap: 12px; align-items: flex-start; padding: 14px; min-height: 92px;
@@ -91,3 +91,17 @@
   .cx-tools li { flex-wrap: wrap; }
   .cx-tools li .cx-select { width: 100%; }
 }
+
+/* Quiet native-style sheets, clear focus and bounded tool output. */
+.cx-card { animation: cx-reveal 180ms cubic-bezier(.2,.7,.3,1); box-shadow: 0 18px 55px rgb(0 0 0 / .18); }
+@keyframes cx-reveal { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+.cx-field { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--color-text-secondary); }
+.cx-json { height: auto; min-height: 88px; padding: 10px 12px; resize: vertical; font-family: ui-monospace, monospace; font-size: 12px; }
+.cx-test { margin-top: 12px; padding: 16px; border: 1px solid var(--color-border); border-radius: 16px; }
+.cx-test h3 { margin: 0; font-size: 14px; overflow-wrap: anywhere; }
+.cx-result { max-height: 340px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; padding: 12px; background: var(--color-bg-secondary); border-radius: 10px; font-size: 12px; }
+.cx button:focus-visible, .cx-card button:focus-visible, .cx-card input:focus-visible, .cx-card textarea:focus-visible, .cx-card select:focus-visible { outline: 2px solid var(--color-text); outline-offset: 3px; }
+@media (prefers-reduced-motion: reduce) { .cx-sheet, .cx-card { animation: none; } }
+@media (max-width: 640px) { .cx-bar { flex-wrap: wrap; } .cx-bar .ext-btn { min-height: 40px; } .cx-tools header { flex-wrap: wrap; } }
+
+.cx-card:focus { outline: none; }

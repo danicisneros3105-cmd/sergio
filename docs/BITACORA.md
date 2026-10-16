@@ -2,6 +2,47 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-10-16 · Codex · conexiones MCP/CLI y diseño de Extensiones
+- Revisé el recorrido de Extensiones: conectar, configurar, permisos, probar,
+  errores y diálogos. Corregí rutas/argumentos con espacios: ejecutable separado
+  de lista JSON, sin dividir por espacios ni interpretar un shell. Conectores
+  pasa a ser la entrada predeterminada de Extensiones; Programas sigue disponible.
+- CLI real: nuevo adaptador interno CLITransport reutiliza ConnectorHub y sus
+  permisos. Ejecutable instalado y carpeta absoluta existente, argv sin shell,
+  timeout 0,1–90 s, salida acotada, exit code, truncamiento y errores visibles.
+  Conectar valida el ejecutable sin ejecutar órdenes ni instalar paquetes.
+  Cada llamada pide permiso por defecto; bloquear prevalece sobre aprobación.
+  Configuración por UI/API y sergio mcp add-cli --cwd /ruta nombre -- git.
+  No es un servidor MCP externo ni un sandbox de archivos. Se ejecuta en el
+  motor de Sergio (Ubuntu cuando el dueño utiliza WSL), no en un PC supuesto.
+- MCP: mantuve OAuth/PKCE, tokens, HTTP/SSE y stdio. Procesos locales reciben
+  entorno mínimo y variables privadas explícitas, no todas las claves/proxies
+  del servidor. Fijé UTF-8 en pipes y Python para texto correcto en Windows.
+  Variables privadas quedan en secrets.json; no se devuelven en el catálogo.
+- «Probar» muestra argumentos JSON y exige pulsar «Autorizar y ejecutar» antes
+  de llamar realmente a la herramienta. Resultado y fallo aparecen dentro de
+  la app; no se presenta un error de conexión como una lista vacía. Catálogo
+  fallido ofrece Reintentar, no un indicador de carga eterno.
+- Diseño: diálogos compartidos para conectores, plugins, marketplaces, skills
+  y permisos; teclado contenido, Escape, foco restaurado y scroll bloqueado.
+  Transición breve sin rebote, movimiento reducido, foco visible y adaptación
+  móvil. Etiquetas accesibles y categorías como filtros, no pestañas falsas.
+  Un fallo al desinstalar plugin mantiene su diálogo abierto.
+- Verificado: 2.134 tests Python pasan; 8 omitidos (7 requieren Rust nativo y
+  1 Windows Job Object real). Incluye SDK oficial MCP 2.3, OAuth y renovación,
+  HTTP local real, pipes reales, Git/Python reales, permisos, salidas grandes,
+  timeout, Unicode, claves no heredadas y entrypoint instalado de Sergio.
+  Frontend: 231 pruebas en 51 archivos, TypeScript y build pasan. Interacciones
+  de formulario, foco, Escape, errores/reintento y ejecución explícita probadas
+  con DOM simulado. Ruff check y format src/tests pasan.
+- Añadí Testing Library/React y jsdom como dependencias de desarrollo; lock npm
+  actualizado. Sin nuevos paquetes de producción ni cambios en uv.lock.
+- Límites: el navegador de pruebas no alcanza el servidor de esta sesión
+  (ERR_CONNECTION_REFUSED); no se verificaron píxeles ni Windows físico.
+  El artefacto de Claude sigue requiriendo sesión. No certifico equivalencia
+  visual ni cuentas externas autenticadas: el usuario debe iniciar sesión en
+  sus servicios. Las pruebas de OAuth utilizan cuentas y servidores de prueba.
+
 ## 2026-10-16 · Codex · contratos públicos y compatibilidad Windows
 - Revisé los nueve cambios descritos por Claude que el dueño mantiene sin
   commit en su PC. No tengo acceso a ese working tree; reproduje los ocho

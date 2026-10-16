@@ -3,19 +3,20 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { NavLink, useParams } from 'react-router';
-import { AppWindow, BookOpen, Check, Loader2, Plug, Puzzle, Trash2, X } from 'lucide-react';
+import { AppWindow, BookOpen, Check, Loader2, Plug, Puzzle, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { usePrograms } from '../components/Creator/Programs';
 import { installProgram, openProgram, programState, type Program } from '../lib/creatorPrograms';
 import { fetchHub, installPlugin, learnSkill, prettyName, removePlugin, setPluginEnabled, type HubPlugin, type HubSkill } from '../lib/hub';
 import { ConnectorsPanel } from '../components/Extensions/ConnectorsPanel';
+import { ExtensionSheet as Sheet } from '../components/Extensions/ExtensionSheet';
 import { PluginsPanel } from '../components/Extensions/PluginsPanel';
 
 const TABS = [
+  { id: 'conectores', label: 'Conectores', icon: Plug },
   { id: 'programas', label: 'Programas', icon: AppWindow },
   { id: 'plugins', label: 'Plugins', icon: Puzzle },
   { id: 'skills', label: 'Skills', icon: BookOpen },
-  { id: 'conectores', label: 'Conectores', icon: Plug },
 ] as const;
 type Tab = (typeof TABS)[number]['id'];
 
@@ -80,11 +81,7 @@ function Programs() {
 function PermissionSheet({ plugin, onClose, onDone }: { plugin: HubPlugin; onClose: () => void; onDone: () => void }) {
   const [busy, setBusy] = useState(false);
   return (
-    <div className="ext-sheet" role="dialog" aria-modal="true" aria-label={prettyName(plugin.name)}>
-      <div className="ext-sheet-card">
-        <button type="button" className="ext-x" aria-label="Cerrar" onClick={onClose}>
-          <X size={16} />
-        </button>
+    <Sheet label={prettyName(plugin.name)} onClose={onClose}>
         <h2>{prettyName(plugin.name)}</h2>
         <ul className="ext-perms">
           {plugin.permissions.map((p) => (
@@ -110,8 +107,7 @@ function PermissionSheet({ plugin, onClose, onDone }: { plugin: HubPlugin; onClo
         >
           {busy ? <Loader2 className="ext-spin" size={15} /> : 'Permitir e instalar'}
         </button>
-      </div>
-    </div>
+    </Sheet>
   );
 }
 
@@ -186,9 +182,9 @@ function Skills({ skills, reload }: { skills: HubSkill[]; reload: () => void }) 
         </li>
       </ul>
       {open && (
-        <div className="ext-sheet" role="dialog" aria-modal="true" aria-label="Enseñar una skill">
+        <Sheet label="Enseñar una skill" onClose={() => setOpen(false)}>
           <form
-            className="ext-sheet-card"
+            className="cx-form"
             onSubmit={async (e) => {
               e.preventDefault();
               setBusy(true);
@@ -206,18 +202,15 @@ function Skills({ skills, reload }: { skills: HubSkill[]; reload: () => void }) 
               }
             }}
           >
-            <button type="button" className="ext-x" aria-label="Cerrar" onClick={() => setOpen(false)}>
-              <X size={16} />
-            </button>
-            <h2>Skill</h2>
-            <input className="ext-input" placeholder="Nombre" value={name} onChange={(e) => setName(e.target.value)} />
-            <textarea className="ext-input" rows={6} placeholder="Instrucciones" value={text} onChange={(e) => setText(e.target.value)} />
+            <h2 className="cx-h2">Skill</h2>
+            <input className="ext-input" aria-label="Nombre de la skill" placeholder="Nombre" value={name} onChange={(e) => setName(e.target.value)} />
+            <textarea className="ext-input" rows={6} aria-label="Instrucciones de la skill" placeholder="Instrucciones" value={text} onChange={(e) => setText(e.target.value)} />
             <input type="file" accept="application/pdf" aria-label="PDF" onChange={(e) => setPdf(e.target.files?.[0])} />
             <button type="submit" className="ext-btn" data-primary disabled={busy || (!text.trim() && !pdf)}>
               {busy ? <Loader2 className="ext-spin" size={15} /> : 'Enseñar'}
             </button>
           </form>
-        </div>
+        </Sheet>
       )}
     </>
   );
@@ -225,7 +218,7 @@ function Skills({ skills, reload }: { skills: HubSkill[]; reload: () => void }) 
 
 export function ExtensionsPage() {
   const { tab } = useParams();
-  const current: Tab = (TABS.find((t) => t.id === tab)?.id ?? 'programas') as Tab;
+  const current: Tab = (TABS.find((t) => t.id === tab)?.id ?? 'conectores') as Tab;
   const [hub, setHub] = useState<{ plugins: HubPlugin[]; skills: HubSkill[] }>({ plugins: [], skills: [] });
   const reload = useCallback(() => {
     fetchHub().then(setHub, fail);

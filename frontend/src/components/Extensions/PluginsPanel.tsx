@@ -3,7 +3,7 @@
 // Sergio's older plugins (tools in Python) stay listed below.
 
 import { useCallback, useEffect, useState } from 'react';
-import { Loader2, Plus, Search, X } from 'lucide-react';
+import { Loader2, Plus, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   addMarketplace,
@@ -17,6 +17,7 @@ import {
   type InstalledPlugin,
   type Marketplace,
 } from '../../lib/mcp';
+import { ExtensionSheet as Sheet } from './ExtensionSheet';
 import './extensions.css';
 
 const fail = (e: unknown) => toast.error(e instanceof Error ? e.message : String(e));
@@ -36,18 +37,16 @@ function Detail({ plugin, installed, onClose, onChanged }: { plugin: ClaudePlugi
       await fn();
       if (done) toast.success(done);
       onChanged();
+      return true;
     } catch (e) {
       fail(e);
+      return false;
     } finally {
       setBusy(false);
     }
   };
   return (
-    <div className="cx-sheet" role="dialog" aria-modal="true" aria-label={plugin.display_name} onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="cx-card">
-        <button type="button" className="cx-x" aria-label="Cerrar" onClick={onClose}>
-          <X size={18} />
-        </button>
+    <Sheet label={plugin.display_name} onClose={onClose}>
         <div className="cx-detail-head">
           <span className="cx-tile" style={{ width: 52, height: 52, fontSize: 18 }} aria-hidden>
             {monogram(plugin.display_name)}
@@ -105,14 +104,13 @@ function Detail({ plugin, installed, onClose, onChanged }: { plugin: ClaudePlugi
               <button type="button" className="ext-btn" disabled={busy} onClick={() => void run(() => setClaudePluginEnabled(plugin.id, !installed.enabled))}>
                 {installed.enabled ? 'Desactivar' : 'Activar'}
               </button>
-              <button type="button" className="ext-btn cx-danger" disabled={busy} onClick={() => void run(() => removeClaudePlugin(plugin.id), 'Desinstalado.').then(onClose)}>
+              <button type="button" className="ext-btn cx-danger" disabled={busy} onClick={() => void run(() => removeClaudePlugin(plugin.id), 'Desinstalado.').then(ok => { if (ok) onClose(); })}>
                 Desinstalar
               </button>
             </>
           )}
         </div>
-      </div>
-    </div>
+    </Sheet>
   );
 }
 
@@ -149,7 +147,7 @@ export function PluginsPanel({ legacy }: { legacy?: React.ReactNode }) {
       <div className="cx-bar">
         <label className="cx-search cx-grow">
           <Search size={16} />
-          <input placeholder="Buscar plugins" value={query} onChange={(e) => setQuery(e.target.value)} />
+          <input aria-label="Buscar plugins" placeholder="Buscar plugins" value={query} onChange={(e) => setQuery(e.target.value)} />
         </label>
         {markets && markets.length > 1 && (
           <select className="cx-select" value={market} onChange={(e) => setMarket(e.target.value)} aria-label="Marketplace">
@@ -236,9 +234,9 @@ export function PluginsPanel({ legacy }: { legacy?: React.ReactNode }) {
         />
       )}
       {adding && (
-        <div className="cx-sheet" role="dialog" aria-modal="true" aria-label="Añadir marketplace" onMouseDown={(e) => e.target === e.currentTarget && setAdding(false)}>
+        <Sheet label="Añadir marketplace" onClose={() => setAdding(false)}>
           <form
-            className="cx-card cx-form"
+            className="cx-form"
             onSubmit={async (e) => {
               e.preventDefault();
               setBusy(true);
@@ -256,11 +254,8 @@ export function PluginsPanel({ legacy }: { legacy?: React.ReactNode }) {
               }
             }}
           >
-            <button type="button" className="cx-x" aria-label="Cerrar" onClick={() => setAdding(false)}>
-              <X size={18} />
-            </button>
             <h2 className="cx-h2">Añadir marketplace</h2>
-            <input className="cx-input" autoFocus placeholder="propietario/repositorio o URL git" value={source} onChange={(e) => setSource(e.target.value)} />
+            <input className="cx-input" autoFocus aria-label="Repositorio del marketplace" placeholder="propietario/repositorio o URL git" value={source} onChange={(e) => setSource(e.target.value)} />
             {markets && markets.length > 0 && (
               <ul className="cx-markets">
                 {markets.map((m) => (
@@ -274,7 +269,7 @@ export function PluginsPanel({ legacy }: { legacy?: React.ReactNode }) {
               {busy ? <Loader2 className="ext-spin" size={15} /> : 'Añadir'}
             </button>
           </form>
-        </div>
+        </Sheet>
       )}
     </div>
   );

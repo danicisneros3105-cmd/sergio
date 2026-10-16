@@ -21,6 +21,8 @@ router = APIRouter(prefix="/v1/mcp", tags=["mcp"])
 
 
 class AddRequest(BaseModel):
+    kind: str = "mcp"
+    cwd: str = ""
     directory_id: Optional[str] = None
     name: str = ""
     url: str = ""
@@ -94,7 +96,15 @@ async def servers(request: Request) -> Dict[str, Any]:
 async def add(req: AddRequest) -> Dict[str, Any]:
     hub = get_hub()
     try:
-        if req.directory_id:
+        if req.kind not in ("mcp", "cli"):
+            raise ConnectorError("Tipo de conexión no válido.")
+        if req.kind == "cli":
+            if req.url or req.directory_id:
+                raise ConnectorError("CLI requiere un ejecutable, no una URL MCP.")
+            server = hub.add_cli(
+                req.name, [*req.command, *req.args], cwd=req.cwd, env=req.env
+            )
+        elif req.directory_id:
             server = hub.add_from_directory(
                 req.directory_id,
                 args=req.args,

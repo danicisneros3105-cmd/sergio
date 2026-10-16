@@ -41,7 +41,8 @@ export type ConnectorStatus = 'connected' | 'needs_auth' | 'error' | 'disabled' 
 export interface Connector {
   id: string;
   name: string;
-  kind: 'remote' | 'local';
+  kind: 'remote' | 'local' | 'cli';
+  cwd?: string;
   url: string;
   command: string[];
   source: string;
@@ -94,7 +95,10 @@ async function call<T>(path: string, init: RequestInit = {}): Promise<T> {
     headers: init.body ? { 'Content-Type': 'application/json', ...(init.headers || {}) } : init.headers,
   });
   const body = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(body.detail || 'Sergio no respondió.');
+  if (!res.ok) {
+    const detail = body.detail;
+    throw new Error(typeof detail === 'string' ? detail : Array.isArray(detail) ? detail.map((d: { msg?: string }) => d.msg || 'Dato no válido').join('; ') : 'Sergio no respondió.');
+  }
   return body as T;
 }
 
@@ -104,6 +108,9 @@ const post = <T>(path: string, body?: unknown) =>
 export const fetchDirectory = () => call<{ categories: string[]; connectors: DirectoryEntry[] }>('/v1/mcp/directory');
 export const fetchConnectors = () => call<{ servers: Connector[]; redirect_uri: string }>('/v1/mcp/servers');
 export const addConnector = (body: {
+  kind?: 'mcp' | 'cli';
+  cwd?: string;
+  env?: Record<string, string>;
   directory_id?: string;
   name?: string;
   url?: string;
@@ -113,6 +120,8 @@ export const addConnector = (body: {
   client_secret?: string;
   headers?: Record<string, string>;
 }) => post<{ server: Connector }>('/v1/mcp/servers', body);
+export const callConnector = (id: string, tool: string, arguments_: Record<string, unknown>) =>
+  post<{ content?: unknown[]; isError?: boolean; structuredContent?: unknown }>(`/v1/mcp/servers/${encodeURIComponent(id)}/call`, { tool, arguments: arguments_ });
 export const configureConnector = (id: string, body: { client_id?: string; client_secret?: string; headers?: Record<string, string> }) =>
   post<{ server: Connector }>(`/v1/mcp/servers/${encodeURIComponent(id)}/credentials`, body);
 export const removeConnector = (id: string) => call(`/v1/mcp/servers/${encodeURIComponent(id)}`, { method: 'DELETE' });

@@ -112,6 +112,7 @@ class StdioTransport(MCPTransport):
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
+            encoding="utf-8",  # MCP frames are UTF-8, including on Windows.
             env=self._env,
             start_new_session=os.name != "nt",
             creationflags=(getattr(subprocess, "CREATE_NO_WINDOW", 0) | 0x4)

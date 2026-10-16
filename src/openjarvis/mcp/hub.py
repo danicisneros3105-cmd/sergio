@@ -199,6 +199,7 @@ class ConnectorHub:
             "url": server.get("url", ""),
             "transport": server.get("transport", ""),
             "command": server.get("command", []),
+            "cwd": server.get("cwd", ""),
             "source": server.get("source", "custom"),
             "directory_id": server.get("directory_id", ""),
             "enabled": server.get("enabled", True),
@@ -338,9 +339,13 @@ class ConnectorHub:
         source: str = "custom",
         directory_id: str = "",
     ) -> Dict[str, Any]:
-        command = [str(part) for part in command if str(part).strip()]
-        if not command:
-            raise ConnectorError("Indique la orden que arranca el servidor.")
+        from openjarvis.mcp.local import local_environment, validate_command
+
+        try:
+            command = validate_command(command)
+            local_environment(env)
+        except ValueError as exc:
+            raise ConnectorError(str(exc)) from exc
         with self._lock:
             server = {
                 "id": self._new_id(name or command[0]),
@@ -360,6 +365,23 @@ class ConnectorHub:
                 secrets.setdefault(server["id"], {})["env"] = dict(env)
                 self._save_secrets(secrets)
         return self.public(server)
+
+    def add_cli(
+        self,
+        name: str,
+        command: List[str],
+        *,
+        cwd: str,
+        env: Optional[Dict[str, str]] = None,
+    ) -> Dict[str, Any]:
+        from openjarvis.mcp.cli_transport import CLITransport
+
+        try:
+            check = CLITransport(command, cwd=cwd, env=env)
+        except (OSError, ValueError) as exc:
+            raise ConnectorError(str(exc)) from exc
+        server = self.add_local(name, check.command, env=env)
+        return self.public(self._update(server["id"], kind="cli", cwd=check.cwd))
 
     def add_from_directory(
         self, entry_id: str, *, args: Optional[List[str]] = None, **client: str
@@ -421,9 +443,9 @@ class ConnectorHub:
         """Connect now; for a service that asks for a sign-in, returns the page
         to open (``auth_url``) and finishes in :meth:`finish`."""
         server = self._get(server_id)
-        if server.get("kind") == "local" or self._secrets().get(server_id, {}).get(
-            "headers"
-        ):
+        if server.get("kind") in ("local", "cli") or self._secrets().get(
+            server_id, {}
+        ).get("headers"):
             return {"status": "connected", "server": self.refresh_tools(server_id)}
         if server.get("directory_id"):
             from openjarvis.mcp.directory import find
@@ -576,14 +598,22 @@ class ConnectorHub:
             server = self._get(server_id)
             if not server.get("enabled", True):
                 raise ConnectorError(f"«{server['name']}» está desactivado.")
-            if server.get("kind") == "local":
-                env = {
-                    **os.environ,
-                    **self._secrets().get(server_id, {}).get("env", {}),
-                }
-                transport: Any = StdioTransport(
-                    list(server["command"]), env=env, response_timeout=120.0
+            if server.get("kind") in ("local", "cli"):
+                from openjarvis.mcp.local import local_environment
+
+                env = local_environment(
+                    self._secrets().get(server_id, {}).get("env", {})
                 )
+                if server.get("kind") == "cli":
+                    from openjarvis.mcp.cli_transport import CLITransport
+
+                    transport: Any = CLITransport(
+                        list(server["command"]), cwd=server["cwd"], env=env
+                    )
+                else:
+                    transport = StdioTransport(
+                        list(server["command"]), env=env, response_timeout=120.0
+                    )
             else:
 
                 def auth(force: bool, sid: str = server_id) -> Optional[str]:
