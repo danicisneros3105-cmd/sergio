@@ -27,7 +27,7 @@ import secrets
 import time
 from dataclasses import asdict, dataclass, field
 from typing import Any, Dict, List, Optional
-from urllib.parse import urlencode, urlparse
+from urllib.parse import urlencode, urljoin, urlparse
 
 PROTOCOL_VERSION = "2025-06-18"
 CLIENT_NAME = "Sergio"
@@ -35,6 +35,52 @@ CLIENT_NAME = "Sergio"
 
 class OAuthError(RuntimeError):
     """Signing in could not be completed; the message is for the owner."""
+
+
+def validate_endpoint(url: str) -> str:
+    """TLS required; explicit loopback HTTP supports local MCP servers."""
+    try:
+        p = urlparse(url)
+        valid = (
+            bool(p.hostname)
+            and not p.username
+            and not p.password
+            and not p.fragment
+            and (p.port is None or 0 < p.port < 65536)
+            and (
+                p.scheme == "https"
+                or (
+                    p.scheme == "http"
+                    and p.hostname in {"localhost", "127.0.0.1", "::1"}
+                )
+            )
+        )
+    except ValueError:
+        valid = False
+    if not valid:
+        raise OAuthError(
+            "El servicio debe usar https; HTTP solo se admite en localhost."
+        )
+    return url
+
+
+def _request(http: Any, method: str, url: str, **kwargs: Any) -> Any:
+    """Validate every hop; never replay a credential-bearing POST elsewhere."""
+    for _ in range(6):
+        validate_endpoint(url)
+        response = http.request(method, url, follow_redirects=False, **kwargs)
+        if response.status_code not in (301, 302, 303, 307, 308):
+            return response
+        if method != "GET":
+            raise OAuthError(
+                "El servicio redirigió una solicitud privada; revise su URL."
+            )
+        target = urljoin(url, response.headers.get("location", ""))
+        validate_endpoint(target)
+        if urlparse(url).scheme == "https" and urlparse(target).scheme != "https":
+            raise OAuthError("El servicio intentó bajar la seguridad de la conexión.")
+        url = target
+    raise OAuthError("El servicio redirigió demasiadas veces.")
 
 
 @dataclass
@@ -143,9 +189,13 @@ def probe(http: Any, url: str) -> Optional[Dict[str, str]]:
         "Content-Type": "application/json",
     }
     try:
-        response = http.post(url, json=body, headers=headers)
+        response = _request(http, "POST", url, json=body, headers=headers)
+    except OAuthError:
+        raise
     except Exception as exc:  # noqa: BLE001 - the message goes to the owner
-        raise OAuthError(f"No pude llegar al servidor: {exc}") from exc
+        raise OAuthError(
+            "No pude llegar al servidor. Revise la conexión y su URL."
+        ) from exc
     if response.status_code in (401, 403):
         return parse_www_authenticate(response.headers.get("www-authenticate", ""))
     if response.status_code == 405 and url.rstrip("/").endswith("/sse"):
@@ -157,13 +207,17 @@ def probe(http: Any, url: str) -> Optional[Dict[str, str]]:
 
 def _get_json(http: Any, url: str) -> Optional[Dict[str, Any]]:
     try:
-        response = http.get(
+        response = _request(
+            http,
+            "GET",
             url,
             headers={
                 "Accept": "application/json",
                 "MCP-Protocol-Version": PROTOCOL_VERSION,
             },
         )
+    except OAuthError:
+        raise
     except Exception:  # noqa: BLE001 - try the next candidate
         return None
     if response.status_code != 200:
@@ -192,7 +246,10 @@ def discover(
         resource_meta = None
 
     issuer = str((resource_meta or {}).get("authorization_servers", [_origin(url)])[0])
+    validate_endpoint(issuer)
     resource = str((resource_meta or {}).get("resource") or url)
+    if resource.rstrip("/") != url.rstrip("/"):
+        raise OAuthError("Los metadatos pertenecen a otro recurso MCP.")
     auth_meta: Optional[Dict[str, Any]] = None
     for candidate in _well_known(issuer, "oauth-authorization-server") + _well_known(
         issuer, "openid-configuration"
@@ -210,6 +267,21 @@ def discover(
             "token_endpoint": f"{origin}/token",
             "registration_endpoint": f"{origin}/register",
         }
+    elif str(auth_meta.get("issuer", issuer)).rstrip("/") != issuer.rstrip("/"):
+        raise OAuthError("El emisor OAuth no coincide con sus metadatos.")
+    for key in ("authorization_endpoint", "token_endpoint", "registration_endpoint"):
+        endpoint = auth_meta.get(key)
+        if endpoint:
+            validate_endpoint(str(endpoint))
+            if (
+                urlparse(url).scheme == "https"
+                and urlparse(str(endpoint)).scheme != "https"
+            ):
+                raise OAuthError(
+                    "Un servicio remoto no puede usar endpoints OAuth HTTP."
+                )
+    if not auth_meta.get("token_endpoint"):
+        raise OAuthError("El servicio no publicó su dirección de tokens.")
     scopes = challenge.get("scope", "").split() or list(
         (resource_meta or {}).get("scopes_supported") or []
     )
@@ -249,8 +321,12 @@ def register(http: Any, server: AuthServer, redirect_uri: str) -> Dict[str, str]
     }
     if server.scopes:
         body["scope"] = " ".join(server.scopes)
-    response = http.post(
-        server.registration_endpoint, json=body, headers={"Accept": "application/json"}
+    response = _request(
+        http,
+        "POST",
+        server.registration_endpoint,
+        json=body,
+        headers={"Accept": "application/json"},
     )
     if response.status_code not in (200, 201):
         raise OAuthError(
@@ -290,6 +366,8 @@ class Pending:
 def authorize_url(
     server: AuthServer, client_id: str, redirect_uri: str, server_id: str
 ) -> tuple[str, Pending]:
+    validate_endpoint(server.authorization_endpoint)
+    validate_endpoint(redirect_uri)
     verifier, challenge = pkce_pair()
     state = secrets.token_urlsafe(24)
     query = {
@@ -303,6 +381,9 @@ def authorize_url(
     }
     if server.scopes:
         query["scope"] = " ".join(server.scopes)
+    if server.issuer.rstrip("/") == "https://accounts.google.com":
+        query["access_type"] = "offline"
+        query["prompt"] = "consent"
     sep = "&" if "?" in server.authorization_endpoint else "?"
     return f"{server.authorization_endpoint}{sep}{urlencode(query)}", Pending(
         state, verifier, redirect_uri, server_id
@@ -322,7 +403,14 @@ def _token_request(
             auth = (client["client_id"], client["client_secret"])
         else:
             form["client_secret"] = client["client_secret"]
-    response = http.post(
+    if (
+        urlparse(server.resource).scheme == "https"
+        and urlparse(server.token_endpoint).scheme != "https"
+    ):
+        raise OAuthError("Un servicio remoto no puede enviar tokens por HTTP.")
+    response = _request(
+        http,
+        "POST",
         server.token_endpoint,
         data=form,
         auth=auth,
@@ -333,8 +421,10 @@ def _token_request(
     except ValueError:
         data = {}
     if response.status_code != 200:
-        why = data.get("error_description") or data.get("error") or response.status_code
-        raise OAuthError(f"El servicio rechazó el inicio de sesión: {why}.")
+        raise OAuthError(
+            f"El servicio rechazó el inicio de sesión ({response.status_code}). "
+            "Vuelva a conectar o revise el Client ID y sus permisos."
+        )
     return data
 
 

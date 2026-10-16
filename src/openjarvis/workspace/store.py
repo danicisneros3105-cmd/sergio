@@ -387,7 +387,9 @@ class WorkspaceStore:
                 return False
             self.trash_dir.mkdir(parents=True, exist_ok=True)
             stamp = time.strftime("%Y%m%d-%H%M%S")
-            shutil.move(str(path), str(self.trash_dir / f"{page_id}.{stamp}.json"))
+            trashed = self.trash_dir / f"{page_id}.{stamp}-{time.time_ns()}.json"
+            shutil.move(str(path), str(trashed))
+            os.utime(trashed, None)  # Retention starts at deletion, not last edit.
             md = self.pages_dir / f"{page_id}.md"
             if md.exists():
                 md.unlink()

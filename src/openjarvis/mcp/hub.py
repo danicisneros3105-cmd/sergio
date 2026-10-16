@@ -22,6 +22,7 @@ import re
 import threading
 import time
 import uuid
+from copy import deepcopy
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
@@ -78,24 +79,61 @@ class ConnectorHub:
         self._lock = threading.RLock()
         self._clients: Dict[str, Any] = {}
         self._pending: Dict[str, Pending] = {}
+        self._file_cache: Dict[str, Any] = {}
+        self.cache_hits = 0
+        self.cache_misses = 0
+        self._migrate_private_config()
 
     # -- storage --------------------------------------------------------------
     def _read(self, name: str) -> Dict[str, Any]:
         path = self.root / name
-        try:
-            data = json.loads(path.read_text("utf-8"))
-        except (OSError, ValueError):
-            return {}
-        return data if isinstance(data, dict) else {}
+        with self._lock:
+            try:
+                stat = path.stat()
+                signature = (
+                    stat.st_ino,
+                    stat.st_mtime_ns,
+                    stat.st_ctime_ns,
+                    stat.st_size,
+                )
+                cached = self._file_cache.get(name)
+                if cached and cached[0] == signature:
+                    self.cache_hits += 1
+                    return deepcopy(cached[1])
+                self.cache_misses += 1
+                data = json.loads(path.read_text("utf-8"))
+            except (OSError, ValueError):
+                self._file_cache.pop(name, None)
+                return {}
+            data = data if isinstance(data, dict) else {}
+            self._file_cache[name] = (signature, data)
+            return deepcopy(data)
+
+    def _migrate_private_config(self) -> None:
+        with self._lock:
+            servers, secrets = self._servers(), self._secrets()
+            changed = False
+            for server in servers:
+                for key in ("headers", "env"):
+                    if key in server:
+                        value = server.pop(key)
+                        secrets.setdefault(server["id"], {}).setdefault(key, value)
+                        changed = True
+            if changed:
+                self._save_secrets(secrets)
+                self._save_servers(servers)
 
     def _write(self, name: str, data: Dict[str, Any], *, private: bool = False) -> None:
         self.root.mkdir(parents=True, exist_ok=True)
         path = self.root / name
         tmp = path.with_suffix(f".{uuid.uuid4().hex[:6]}.tmp")
-        tmp.write_text(json.dumps(data, ensure_ascii=False, indent=1), "utf-8")
-        if private:
-            os.chmod(tmp, 0o600)
+        fd = os.open(
+            tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600 if private else 0o644
+        )
+        with os.fdopen(fd, "w", encoding="utf-8") as stream:
+            json.dump(data, stream, ensure_ascii=False, indent=1)
         tmp.replace(path)
+        self._file_cache.pop(name, None)
 
     def _servers(self) -> List[Dict[str, Any]]:
         return list(self._read("servers.json").get("servers", []))
@@ -130,7 +168,10 @@ class ConnectorHub:
             return self._http
         import httpx
 
-        return httpx.Client(timeout=20.0, follow_redirects=True)
+        with self._lock:
+            if self._http is None:
+                self._http = httpx.Client(timeout=20.0, follow_redirects=False)
+            return self._http
 
     # -- what the owner sees --------------------------------------------------
     def public(self, server: Dict[str, Any]) -> Dict[str, Any]:
@@ -210,18 +251,23 @@ class ConnectorHub:
         headers: Optional[Dict[str, str]] = None,
     ) -> Dict[str, Any]:
         url = url.strip()
-        if not re.match(r"^https?://", url):
-            raise ConnectorError("La URL del servidor MCP debe empezar por https://")
-        if url.startswith("http://") and not re.match(
-            r"^http://(localhost|127\.0\.0\.1|\[::1\])(:|/)", url
-        ):
-            raise ConnectorError("Por seguridad, un servidor remoto debe usar https://")
+        try:
+            oauth.validate_endpoint(url)
+        except OAuthError as exc:
+            raise ConnectorError(str(exc)) from exc
         name = (name or "").strip() or re.sub(r"^https?://(mcp\.)?", "", url).split(
             "/"
         )[0]
         with self._lock:
             for existing in self._servers():
                 if existing.get("url") == url:
+                    if client_id or headers:
+                        return self.configure_credentials(
+                            existing["id"],
+                            client_id=client_id,
+                            client_secret=client_secret,
+                            headers=headers,
+                        )
                     return self.public(existing)
             server = {
                 "id": self._new_id(name),
@@ -235,19 +281,50 @@ class ConnectorHub:
                 "enabled": True,
                 "permissions": {},
                 "tools": [],
-                "headers": dict(headers or {}),
                 "added": time.time(),
             }
             self._save_servers([*self._servers(), server])
-            if client_id:
+            if client_id or headers:
                 secrets = self._secrets()
-                secrets.setdefault(server["id"], {})["client"] = {
+                mine = secrets.setdefault(server["id"], {})
+                if headers:
+                    mine["headers"] = dict(headers)
+                if client_id:
+                    mine["client"] = {
+                        "client_id": client_id.strip(),
+                        "client_secret": client_secret.strip(),
+                        "manual": True,
+                    }
+                self._save_secrets(secrets)
+        return self.public(server)
+
+    def configure_credentials(
+        self,
+        server_id: str,
+        *,
+        client_id: str = "",
+        client_secret: str = "",
+        headers: Optional[Dict[str, str]] = None,
+    ) -> Dict[str, Any]:
+        with self._lock:
+            self._get(server_id)
+            secrets = self._secrets()
+            mine = secrets.setdefault(server_id, {})
+            if client_id:
+                mine["client"] = {
                     "client_id": client_id.strip(),
                     "client_secret": client_secret.strip(),
                     "manual": True,
                 }
-                self._save_secrets(secrets)
-        return self.public(server)
+            if headers is not None:
+                mine["headers"] = dict(headers)
+            mine.pop("tokens", None)
+            self._save_secrets(secrets)
+            self._pending = {
+                k: p for k, p in self._pending.items() if p.server_id != server_id
+            }
+            self._drop_client(server_id)
+            return self.public(self._update(server_id, connected=False, error=""))
 
     def add_local(
         self,
@@ -267,7 +344,6 @@ class ConnectorHub:
                 "name": (name or command[0])[:60],
                 "kind": "local",
                 "command": command,
-                "env": dict(env or {}),
                 "source": source,
                 "directory_id": directory_id,
                 "enabled": True,
@@ -276,6 +352,10 @@ class ConnectorHub:
                 "added": time.time(),
             }
             self._save_servers([*self._servers(), server])
+            if env:
+                secrets = self._secrets()
+                secrets.setdefault(server["id"], {})["env"] = dict(env)
+                self._save_secrets(secrets)
         return self.public(server)
 
     def add_from_directory(
@@ -338,8 +418,16 @@ class ConnectorHub:
         """Connect now; for a service that asks for a sign-in, returns the page
         to open (``auth_url``) and finishes in :meth:`finish`."""
         server = self._get(server_id)
-        if server.get("kind") == "local":
+        if server.get("kind") == "local" or self._secrets().get(server_id, {}).get(
+            "headers"
+        ):
             return {"status": "connected", "server": self.refresh_tools(server_id)}
+        if server.get("directory_id"):
+            from openjarvis.mcp.directory import find
+
+            entry = find(server["directory_id"])
+            if entry.get("requires_client_id") and not self._secrets().get(server_id, {}).get("client", {}).get("client_id"):
+                raise ConnectorError("Este servicio requiere un Client ID propio. Abra «Configurar» y complete los requisitos del proveedor.")
         http = self._http_client()
         try:
             challenge = oauth.probe(http, server["url"])
@@ -357,6 +445,12 @@ class ConnectorHub:
             auth_server = oauth.discover(http, server["url"], challenge or {})
         except OAuthError as exc:
             raise ConnectorError(str(exc)) from exc
+        if server.get("directory_id"):
+            from openjarvis.mcp.directory import find
+
+            entry = find(server["directory_id"])
+            if entry.get("scopes"):
+                auth_server.scopes = list(entry["scopes"])
         secrets = self._secrets()
         mine = secrets.setdefault(server_id, {})
         client = mine.get("client") or {}
@@ -368,14 +462,18 @@ class ConnectorHub:
                 }
             except OAuthError as exc:
                 raise ConnectorError(str(exc)) from exc
-            mine["client"] = client
-            self._save_secrets(secrets)
+            with self._lock:
+                secrets = self._secrets()
+                secrets.setdefault(server_id, {})["client"] = client
+                self._save_secrets(secrets)
         url, pending = oauth.authorize_url(
             auth_server, client["client_id"], redirect_uri, server_id
         )
         with self._lock:
             self._pending = {
-                k: p for k, p in self._pending.items() if time.time() - p.created < 900
+                k: p
+                for k, p in self._pending.items()
+                if time.time() - p.created < 900 and p.server_id != server_id
             }
             self._pending[pending.state] = pending
         self._update(server_id, auth=auth_server.to_dict(), error="")
@@ -385,7 +483,7 @@ class ConnectorHub:
         """The browser came back from the service with ``code``."""
         with self._lock:
             pending = self._pending.pop(state, None)
-        if pending is None:
+        if pending is None or not code or not 0 <= time.time() - pending.created < 900:
             raise ConnectorError(
                 "Ese inicio de sesión ya no es válido; vuelva a pulsar «Conectar»."
             )
@@ -400,8 +498,10 @@ class ConnectorHub:
         except OAuthError as exc:
             self._update(pending.server_id, error=str(exc), connected=False)
             raise ConnectorError(str(exc)) from exc
-        secrets.setdefault(pending.server_id, {})["tokens"] = tokens.to_dict()
-        self._save_secrets(secrets)
+        with self._lock:
+            secrets = self._secrets()
+            secrets.setdefault(pending.server_id, {})["tokens"] = tokens.to_dict()
+            self._save_secrets(secrets)
         self._drop_client(pending.server_id)
         return self.refresh_tools(pending.server_id)
 
@@ -469,7 +569,10 @@ class ConnectorHub:
             if not server.get("enabled", True):
                 raise ConnectorError(f"«{server['name']}» está desactivado.")
             if server.get("kind") == "local":
-                env = {**os.environ, **(server.get("env") or {})}
+                env = {
+                    **os.environ,
+                    **self._secrets().get(server_id, {}).get("env", {}),
+                }
                 transport: Any = StdioTransport(
                     list(server["command"]), env=env, response_timeout=120.0
                 )
@@ -484,7 +587,8 @@ class ConnectorHub:
                     transport = StreamableHTTPTransport(
                         server["url"],
                         auth=auth,
-                        headers=server.get("headers") or None,
+                        headers=self._secrets().get(server_id, {}).get("headers")
+                        or None,
                         request_timeout=120.0,
                     )
             client = MCPClient(
@@ -573,7 +677,7 @@ class ConnectorHub:
             return self._client(server_id).call_tool(tool, args or {})
         except ConnectorError:
             raise
-        except Exception as first:  # noqa: BLE001 - one reconnect, then report
+        except Exception as first:  # noqa: BLE001 - the write may be committed
             from openjarvis.mcp.transport import MCPAuthRequired
 
             if isinstance(first, MCPAuthRequired):
@@ -582,10 +686,11 @@ class ConnectorHub:
                     f"{server['name']} pide iniciar sesión de nuevo: pulse «Conectar»."
                 ) from first
             self._drop_client(server_id)
-            try:
-                return self._client(server_id).call_tool(tool, args or {})
-            except Exception as exc:  # noqa: BLE001
-                raise ConnectorError(f"{server['name']} falló: {exc}"[:300]) from exc
+            raise ConnectorError(
+                f"{server['name']}: no pude confirmar el resultado. "
+                "No repetí la operación para evitar duplicados. "
+                "Revise el resultado en la app antes de volver a intentarlo."
+            ) from first
 
     # -- for the agents -------------------------------------------------------
     def agent_tools(self) -> List[Any]:

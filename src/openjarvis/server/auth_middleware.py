@@ -87,6 +87,9 @@ class AuthMiddleware(BaseHTTPMiddleware):
         endpoints. This only applies when an API key is configured at all, so
         keyless local use is unchanged.
         """
+        # Browser returns without Bearer; this exact route checks state + PKCE.
+        if path == "/v1/mcp/oauth/callback":
+            return False
         return (
             path.startswith("/v1/")
             or path.startswith("/api/")

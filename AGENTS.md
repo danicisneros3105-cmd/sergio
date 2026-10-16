@@ -72,9 +72,10 @@ termina en la rama `main`, y el dueño actualiza con un único comando.
   permiso por herramienta y plugins de marketplaces en el formato de Claude
   (`mcp/hub.py`, `plugins/claude_format.py`, `sergio mcp`). Los tokens solo en
   `~/.openjarvis/connectors/secrets.json`; los hooks de plugins no se ejecutan.
-- Gemini ve la pantalla a 32 FPS estables (`SERGIO_LIVE_FPS`, por defecto 32):
-  ritmo fijo y carril de video aparte que nunca retrasa la voz. No lo baje en
-  silencio.
+- Captura/envío local: objetivo 32.310520139305 FPS (`SERGIO_LIVE_FPS`):
+  ritmo fijo y carril de video aparte que no bloquea la voz. No lo baje en
+  silencio. Los envíos SDK no certifican recepción/interpretación de Gemini;
+  su documentación Live indica máximo 1 FPS. Reporte ambas cosas por separado.
 - Los Nodes se llaman «Nodes» (uno: «Node») en cualquier idioma: nunca
   «nodo», «nœud»… (`nodes/store.py: node_word` lo corrige en todo lo que dicen).
 - Ningún subtexto explicativo bajo los títulos; los títulos y la marca van

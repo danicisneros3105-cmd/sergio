@@ -33,6 +33,7 @@ import base64
 import contextlib
 import json
 import logging
+import math
 import os
 import time
 import uuid
@@ -40,15 +41,15 @@ from typing import Any, Callable, Iterable
 
 log = logging.getLogger(__name__)
 
-# Live video: Gemini Live took in every frame of a 30 FPS test (48 of 48
-# named correctly). The shared screen arrives as a steady 32 FPS video
-# (SERGIO_LIVE_FPS); frames go out on their own lane, newest first, so a slow
-# uplink never delays the voice — and the rate that really reached Gemini is
-# reported back to the PC every two seconds.
+# Requested local target. SDK sends are not provider acknowledgments.
+# Gemini Live documents a 1 FPS limit; higher rates are experimental and
+# must be measured on the actual account. Video stays independent of voice.
 try:
-    LIVE_FPS = max(1.0, min(60.0, float(os.environ.get("SERGIO_LIVE_FPS", "32"))))
+    LIVE_FPS = float(os.environ.get("SERGIO_LIVE_FPS", "32.310520139305"))
+    if not math.isfinite(LIVE_FPS) or not 1 <= LIVE_FPS <= 60:
+        raise ValueError("Invalid frame rate")
 except ValueError:
-    LIVE_FPS = 32.0
+    LIVE_FPS = 32.310520139305
 FRAME_GAP = 0.85 / LIVE_FPS
 VIDEO_REPORT_EVERY = 2.0
 
@@ -696,10 +697,13 @@ class LiveCall:
                     fut.set_result(str(event.get("result") or ""))
 
     async def _pump_video(self, session: Any) -> None:
-        """Send the newest frame, one at a time, and report the real rate."""
+        """Pace newest frames and report SDK sends, not model reception."""
         types = self._types
+        due = time.monotonic()
+        period = 1.0 / LIVE_FPS
         while True:
             await self._frame_ready.wait()
+            await asyncio.sleep(max(0.0, due - time.monotonic()))
             self._frame_ready.clear()
             frame, self._frame = self._frame, None
             if frame is None:
@@ -708,6 +712,9 @@ class LiveCall:
                 video=types.Blob(data=frame[0], mime_type=frame[1])
             )
             now = time.monotonic()
+            due += period
+            if now - due > period:
+                due = now + period
             self._video_sent.append(now)
             await self._report_video(now)
 
@@ -717,10 +724,22 @@ class LiveCall:
         span = now - self._video_reported
         self._video_sent = [t for t in self._video_sent if now - t <= span]
         fps = len(self._video_sent) / span if span else 0.0
-        slow = self._video_dropped > 0.08 * LIVE_FPS * span
+        dropped = self._video_dropped
+        slow = dropped > 0 or fps < LIVE_FPS * 0.92
         self._video_reported, self._video_dropped = now, 0
         with contextlib.suppress(Exception):
-            await self.send_json({"type": "video", "fps": round(fps, 1), "slow": slow})
+            await self.send_json(
+                {
+                    "type": "video",
+                    "fps": round(fps, 3),
+                    "slow": slow,
+                    "target_fps": LIVE_FPS,
+                    "sdk_fps": round(fps, 3),
+                    "provider_fps": None,
+                    "provider_verified": False,
+                    "dropped_frames": dropped,
+                }
+            )
 
     # -- Gemini -> companion --------------------------------------------------
     async def _pump_down(self, session: Any) -> None:

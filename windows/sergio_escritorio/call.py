@@ -21,6 +21,7 @@ import base64
 import json
 import logging
 import os
+import math
 import queue
 import re
 import threading
@@ -42,14 +43,14 @@ ALWAYS_ON = float("inf")  # an always-on call never hangs up on silence
 GATE_AFTER = 2.0  # seconds of silence before the microphone stops streaming
 PREROLL_FRAMES = 40  # 400 ms kept while gated: the first syllable is never lost
 VIDEO_EVERY = 1.0  # the camera when nothing moves: one frame a second
-# The shared screen is a steady video: 32 frames a second, on a fixed beat,
-# moving or still (SERGIO_LIVE_FPS to change it, SERGIO_LIVE_STEADY=0 to send
-# only while it moves). Measured on Gemini Live: it named every one of 48
-# frames sent at 30 FPS.
+# Requested local target. Actual OS timing and provider delivery vary;
+# the SDK send rate is measured separately from model reception.
 try:
-    VIDEO_FPS = max(1.0, min(60.0, float(os.environ.get("SERGIO_LIVE_FPS", "32"))))
+    VIDEO_FPS = float(os.environ.get("SERGIO_LIVE_FPS", "32.310520139305"))
+    if not math.isfinite(VIDEO_FPS) or not 1 <= VIDEO_FPS <= 60:
+        raise ValueError("Invalid frame rate")
 except ValueError:
-    VIDEO_FPS = 32.0
+    VIDEO_FPS = 32.310520139305
 VIDEO_FRESH = 1.0 / VIDEO_FPS
 VIDEO_STEADY = os.environ.get("SERGIO_LIVE_STEADY", "1") != "0"
 REF_MAX = 60  # at most 600 ms of speaker reference waiting for the mic
@@ -201,7 +202,9 @@ class Speaker:
     def play(self, pcm: bytes) -> None:
         with self._lock:
             if len(self._buf) + len(pcm) > RATE_OUT * 2 * 12:
-                raise BufferError("La voz llegó demasiado adelantada para reproducirla en vivo.")
+                raise BufferError(
+                    "La voz llegó demasiado adelantada para reproducirla en vivo."
+                )
             self._buf.extend(pcm)
             self._last_push = time.monotonic()
 
@@ -344,7 +347,11 @@ class CallSession:
             if connect is None:
                 from websockets.sync.client import connect
             try:
-                auth = {"additional_headers": {"Authorization": f"Bearer {self.api_key}"}} if self.api_key else {}
+                auth = (
+                    {"additional_headers": {"Authorization": f"Bearer {self.api_key}"}}
+                    if self.api_key
+                    else {}
+                )
                 self._ws = connect(self.url, max_size=2_000_000, open_timeout=8, **auth)
             except TimeoutError as exc:
                 raise TimeoutError(
@@ -390,8 +397,9 @@ class CallSession:
             self._close_ws()
             return False
         self.active = True
-        threading.Thread(target=self._send_audio_loop, daemon=True,
-                         name="live-audio-send").start()
+        threading.Thread(
+            target=self._send_audio_loop, daemon=True, name="live-audio-send"
+        ).start()
         self._hang_up_after_turn = False
         self._last_activity = self.clock()
         try:
@@ -452,9 +460,15 @@ class CallSession:
         except queue.Full:
             if not self._audio_stalled:
                 self._audio_stalled = True
-                threading.Thread(target=self._lost, args=(RuntimeError(
-                    "La red no está enviando el audio a tiempo; reconectando."
-                ),), daemon=True).start()
+                threading.Thread(
+                    target=self._lost,
+                    args=(
+                        RuntimeError(
+                            "La red no está enviando el audio a tiempo; reconectando."
+                        ),
+                    ),
+                    daemon=True,
+                ).start()
 
     def _send_audio_loop(self) -> None:
         while self.active:
@@ -733,7 +747,11 @@ class CallSession:
                     sent.append(now)
                     while sent and now - sent[0] > 1.0:
                         sent.popleft()
-                    self.video_fps = float(len(sent))
+                    self.video_fps = (
+                        (len(sent) - 1) / (sent[-1] - sent[0])
+                        if len(sent) > 1 and sent[-1] > sent[0]
+                        else 0.0
+                    )
             wait = due - self.clock()
             time.sleep(min(max(wait, 0.0), 0.05))
 

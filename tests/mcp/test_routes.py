@@ -33,7 +33,14 @@ def client(tmp_path, monkeypatch):
     app = FastAPI()
     app.include_router(router)
     app.include_router(hub_router)
-    return TestClient(app)
+    from openjarvis.server.auth_middleware import AuthMiddleware
+    from openjarvis.server.mobile import RemoteAccessMiddleware
+
+    app.add_middleware(AuthMiddleware, api_key="test-key")
+    app.add_middleware(RemoteAccessMiddleware, api_key="test-key")
+    return TestClient(
+        app, base_url="http://localhost", headers={"Authorization": "Bearer test-key"}
+    )
 
 
 @pytest.fixture(scope="module")
@@ -61,13 +68,16 @@ def test_custom_connector_signs_in_through_the_callback_page(client, site):
     started = client.post(f"/v1/mcp/servers/{server['id']}/connect").json()
     assert started["status"] == "needs_auth"
     assert (
-        "redirect_uri=http%3A%2F%2Ftestserver%2Fv1%2Fmcp%2Foauth%2Fcallback"
+        "redirect_uri=http%3A%2F%2Flocalhost%2Fv1%2Fmcp%2Foauth%2Fcallback"
         in started["auth_url"]
     )
     back = urlparse(
         httpx.get(started["auth_url"], follow_redirects=False).headers["location"]
     )
-    page = client.get(f"/v1/mcp/oauth/callback?{back.query}")
+    page = client.get(
+        f"/v1/mcp/oauth/callback?{back.query}",
+        headers={"Authorization": "", "x-forwarded-for": "203.0.113.1"},
+    )
     assert page.status_code == 200 and "Protegido conectado" in page.text
     listed = client.get("/v1/mcp/servers").json()["servers"][0]
     assert listed["status"] == "connected" and len(listed["tools"]) == 2
@@ -140,7 +150,7 @@ def test_claude_plugin_marketplace_from_a_local_folder(client, tmp_path):
         "/v1/hub/claude-plugins/install", json={"id": "demo@prueba"}
     ).json()["plugin"]
     assert info["skills"] == ["saludo", "resumen"] and info["connectors"] == ["notas"]
-    skills_dir = tmp_path / "skills" / "plugin-demo"
+    skills_dir = tmp_path / "skills" / info["skill_root"]
     assert (skills_dir / "saludo" / "SKILL.md").exists() and (
         skills_dir / "resumen" / "SKILL.md"
     ).exists()

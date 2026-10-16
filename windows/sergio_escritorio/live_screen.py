@@ -4,8 +4,7 @@ Before, every look took a fresh screenshot (new capture context, resize, PNG)
 and read the accessibility tree on the spot: 150–600 ms before Sergio could
 even start thinking, and actions were checked with fixed waits.
 
-Now one background thread watches the screen continuously (32 frames a
-second while something moves or while Gemini watches it live, 4 when it is
+Now one background thread watches the screen continuously (the configured frame rate while something moves or while Gemini watches it live, 4 when it is
 still and nobody watches) with a persistent capture context, and keeps:
 
 * the latest frame, its id and *what* changed (the changed box),
@@ -24,6 +23,7 @@ from __future__ import annotations
 
 import io
 import os
+import math
 import threading
 import time
 from dataclasses import dataclass, field
@@ -31,10 +31,12 @@ from typing import Any, Callable, Iterator, Optional
 
 SIG_W, SIG_H = 64, 36  # the tiny grey picture changes are measured on
 CHANGE = 6  # mean grey difference of a cell that counts as a change
-try:  # the live video to Gemini: 32 frames a second, steady
-    FAST_FPS = max(1.0, min(60.0, float(os.environ.get("SERGIO_LIVE_FPS", "32"))))
+try:  # Local target; provider delivery must be measured separately.
+    FAST_FPS = float(os.environ.get("SERGIO_LIVE_FPS", "32.310520139305"))
+    if not math.isfinite(FAST_FPS) or not 1 <= FAST_FPS <= 60:
+        raise ValueError("Invalid frame rate")
 except ValueError:
-    FAST_FPS = 32.0
+    FAST_FPS = 32.310520139305
 IDLE_FPS = 4.0
 IDLE_AFTER = 3.0  # seconds without changes before slowing down
 
@@ -72,7 +74,9 @@ class Frame:
             if image.width > width * 1.3:
                 from PIL import Image
 
-                image = image.resize((width, round(image.height * width / image.width)), Image.BILINEAR)
+                image = image.resize(
+                    (width, round(image.height * width / image.width)), Image.BILINEAR
+                )
         self._encoded[key] = image
         return image
 
@@ -100,7 +104,10 @@ class Frame:
 
 
 def with_cursor(
-    frame: "Frame", cursor: Optional[tuple[int, int]], width: int = 1280, quality: int = 80
+    frame: "Frame",
+    cursor: Optional[tuple[int, int]],
+    width: int = 1280,
+    quality: int = 80,
 ) -> bytes:
     """The frame as Gemini sees it live: a JPEG with the mouse pointer drawn
     in (screenshots do not include it), so he knows where you are pointing."""
@@ -120,10 +127,16 @@ def with_cursor(
     draw = ImageDraw.Draw(image)
     r = max(10, w // 110)  # stays visible after the resize to 1280
     draw.ellipse((x - r, y - r, x + r, y + r), outline=(0, 0, 0), width=max(3, r // 3))
-    draw.ellipse((x - r + 2, y - r + 2, x + r - 2, y + r - 2), outline=(255, 214, 10), width=max(2, r // 4))
+    draw.ellipse(
+        (x - r + 2, y - r + 2, x + r - 2, y + r - 2),
+        outline=(255, 214, 10),
+        width=max(2, r // 4),
+    )
     draw.ellipse((x - 2, y - 2, x + 2, y + 2), fill=(255, 214, 10))
     if image.width > width:
-        image = image.resize((width, round(image.height * width / image.width)), Image.BILINEAR)
+        image = image.resize(
+            (width, round(image.height * width / image.width)), Image.BILINEAR
+        )
     buf = io.BytesIO()
     image.save(buf, format="JPEG", quality=quality)
     data = buf.getvalue()
@@ -134,7 +147,10 @@ def with_cursor(
 
 
 def video_jpeg(
-    frame: "Frame", cursor: Optional[tuple[int, int]], width: int = 1024, quality: int = 62
+    frame: "Frame",
+    cursor: Optional[tuple[int, int]],
+    width: int = 1024,
+    quality: int = 62,
 ) -> bytes:
     """One frame of the live video for Gemini, fast: shrink first, then draw
     the pointer on the small picture and encode. Cached per frame, pointer
@@ -158,13 +174,21 @@ def video_jpeg(
         x, y = pos[0] * scale, pos[1] * scale
         r = max(6, image.width // 110)
         draw = ImageDraw.Draw(image)
-        draw.ellipse((x - r, y - r, x + r, y + r), outline=(0, 0, 0), width=max(2, r // 3))
-        draw.ellipse((x - r + 2, y - r + 2, x + r - 2, y + r - 2), outline=(255, 214, 10), width=max(2, r // 4))
+        draw.ellipse(
+            (x - r, y - r, x + r, y + r), outline=(0, 0, 0), width=max(2, r // 3)
+        )
+        draw.ellipse(
+            (x - r + 2, y - r + 2, x + r - 2, y + r - 2),
+            outline=(255, 214, 10),
+            width=max(2, r // 4),
+        )
         draw.ellipse((x - 2, y - 2, x + 2, y + 2), fill=(255, 214, 10))
     buf = io.BytesIO()
     image.save(buf, format="JPEG", quality=quality)
     data = buf.getvalue()
-    for old in [k for k in frame._encoded if k[0] == "video" and k[1:3] == (width, quality)]:
+    for old in [
+        k for k in frame._encoded if k[0] == "video" and k[1:3] == (width, quality)
+    ]:
         del frame._encoded[old]  # only the latest pointer spot is kept
     frame._encoded[key] = data
     return data
@@ -175,7 +199,11 @@ def signature(image: Any) -> bytes:
     from PIL import Image
 
     # Shrink before turning grey: converting a 4K frame first costs ~10 ms.
-    small = image.reduce(max(1, image.width // (SIG_W * 8))) if image.width > SIG_W * 16 else image
+    small = (
+        image.reduce(max(1, image.width // (SIG_W * 8)))
+        if image.width > SIG_W * 16
+        else image
+    )
     return small.convert("L").resize((SIG_W, SIG_H), Image.BOX).tobytes()
 
 
@@ -357,4 +385,11 @@ class LiveScreen:
             self._sleep(1.0 / fps)
 
 
-__all__ = ["Frame", "LiveScreen", "changed_box", "signature", "video_jpeg", "with_cursor"]
+__all__ = [
+    "Frame",
+    "LiveScreen",
+    "changed_box",
+    "signature",
+    "video_jpeg",
+    "with_cursor",
+]

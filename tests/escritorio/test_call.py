@@ -484,7 +484,7 @@ def test_the_shared_screen_is_a_steady_32_frames_a_second():
     """Moving or still, the screen goes out on a fixed beat of 32 a second."""
     from sergio_escritorio import call as call_mod
 
-    assert call_mod.VIDEO_FPS == 32.0 and call_mod.VIDEO_STEADY
+    assert call_mod.VIDEO_FPS == 32.310520139305 and call_mod.VIDEO_STEADY
     for moving in (True, False):
         line = FakeLine([json.dumps({"type": "ready", "model": "m"})])
         call = _call(line, video=lambda: (b"jpeg!", "pantalla"))

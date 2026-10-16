@@ -16,6 +16,7 @@ any of ``skills/<name>/SKILL.md``, ``commands/*.md``, ``agents/*.md`` and
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
@@ -172,11 +173,22 @@ class ClaudePlugins:
         return self.add_marketplace(state["marketplaces"][name]["source"])
 
     def remove_marketplace(self, name: str) -> None:
+        if not NAME_RE.fullmatch(name):
+            raise ClaudePluginError("Nombre de marketplace inválido.")
         with self._lock:
             state = self._state()
-            state["marketplaces"].pop(name, None)
+            if name not in state["marketplaces"]:
+                raise ClaudePluginError(f"No hay un marketplace «{name}».")
+            target = self.markets_dir / name
+            if (
+                target.is_symlink()
+                or target.resolve().parent != self.markets_dir.resolve()
+            ):
+                raise ClaudePluginError("El marketplace apunta fuera de su carpeta.")
+            if target.exists():
+                shutil.rmtree(target)
+            state["marketplaces"].pop(name)
             self._save(state)
-        shutil.rmtree(self.markets_dir / name, ignore_errors=True)
 
     def ensure_defaults(self) -> List[str]:
         """The two official marketplaces, the first time (as Claude ships them)."""
@@ -305,6 +317,10 @@ class ClaudePlugins:
             raise ClaudePluginError(
                 f"No encuentro el plugin «{plugin_id}» en sus marketplaces."
             )
+        if len(matches) > 1:
+            raise ClaudePluginError(
+                "Hay varios plugins con ese nombre; indique nombre@marketplace."
+            )
         market = matches[0]["marketplace"]
         key = f"{name}@{market}"
         entry = next(
@@ -331,10 +347,14 @@ class ClaudePlugins:
                 "marketplace": market,
                 "path": str(target),
                 "installed": time.time(),
+                "skill_root": f"plugin-{name}-{hashlib.sha256(market.encode()).hexdigest()[:12]}",
             }
         )
         info["skills"] = self._place_skills(name, target, info)
-        info["connectors"] = self._add_connectors(name, target, entry)
+        info["connector_errors"] = []
+        info["connectors"] = self._add_connectors(
+            name, target, entry, info["connector_errors"]
+        )
         info["enabled"] = True
         with self._lock:
             state = self._state()
@@ -368,7 +388,7 @@ class ClaudePlugins:
 
     def _place_skills(self, name: str, folder: Path, info: Dict[str, Any]) -> List[str]:
         """Skills, commands and agents → ``skills/plugin-<name>/<skill>/SKILL.md``."""
-        root = self.skills_dir / f"plugin-{name}"
+        root = self.skills_dir / info.get("skill_root", f"plugin-{name}")
         shutil.rmtree(root, ignore_errors=True)
         placed: List[str] = []
         for skill_md in sorted((folder / "skills").glob("*/SKILL.md")):
@@ -397,14 +417,21 @@ class ClaudePlugins:
         return placed
 
     def _add_connectors(
-        self, name: str, folder: Path, entry: Dict[str, Any]
+        self,
+        name: str,
+        folder: Path,
+        entry: Dict[str, Any],
+        errors: Optional[List[str]] = None,
     ) -> List[str]:
         servers: Dict[str, Any] = {}
         try:
             data = json.loads((folder / ".mcp.json").read_text("utf-8"))
             servers.update(data.get("mcpServers") or {})
-        except (OSError, ValueError):
+        except FileNotFoundError:
             pass
+        except (OSError, ValueError, AttributeError):
+            if errors is not None:
+                errors.append("No se pudo leer .mcp.json; revise su formato.")
         if isinstance(entry.get("mcpServers"), dict):
             servers.update(entry["mcpServers"])
         added: List[str] = []
@@ -419,7 +446,11 @@ class ClaudePlugins:
                     if cfg["url"] in existing:
                         continue
                     server = hub.add_remote(
-                        label.title(), cfg["url"], source=f"plugin:{name}"
+                        label.title(),
+                        cfg["url"],
+                        source=f"plugin:{name}",
+                        headers=cfg.get("headers"),
+                        transport=cfg.get("type", ""),
                     )
                 elif cfg.get("command"):
                     command = [
@@ -439,6 +470,10 @@ class ClaudePlugins:
                 else:
                     continue
             except Exception:  # noqa: BLE001 - one bad server never blocks the plugin
+                if errors is not None:
+                    errors.append(
+                        f"No se pudo añadir el conector «{label}»; revise su configuración."
+                    )
                 continue
             added.append(server["id"])
         return added
@@ -459,7 +494,8 @@ class ClaudePlugins:
                 )
             else:
                 shutil.rmtree(
-                    self.skills_dir / f"plugin-{info['name']}", ignore_errors=True
+                    self.skills_dir / info.get("skill_root", f"plugin-{info['name']}"),
+                    ignore_errors=True,
                 )
             for server_id in info.get("connectors") or []:
                 try:
@@ -477,7 +513,10 @@ class ClaudePlugins:
             self._save(state)
         if info is None:
             raise ClaudePluginError(f"«{plugin_id}» no está instalado.")
-        shutil.rmtree(self.skills_dir / f"plugin-{info['name']}", ignore_errors=True)
+        shutil.rmtree(
+            self.skills_dir / info.get("skill_root", f"plugin-{info['name']}"),
+            ignore_errors=True,
+        )
         shutil.rmtree(info.get("path", ""), ignore_errors=True)
         for server_id in info.get("connectors") or []:
             try:

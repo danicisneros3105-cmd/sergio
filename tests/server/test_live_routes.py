@@ -465,8 +465,8 @@ def test_the_shared_screen_is_watched_at_a_legible_resolution(monkeypatch):
     assert "video continuo" in gemini_live.INSTRUCTIONS
 
 
-def test_live_video_is_accepted_at_32_frames_a_second():
-    assert gemini_live.LIVE_FPS == 32.0
+def test_live_video_preserves_fractional_target():
+    assert gemini_live.LIVE_FPS == 32.310520139305
     assert gemini_live.FRAME_GAP < 1 / 32
 
 

@@ -31,6 +31,7 @@ FORWARDED_HEADERS = (
     b"forwarded",
 )
 _PUBLIC_EXACT = {
+    "/v1/mcp/oauth/callback",  # Expiring single-use OAuth state and PKCE.
     "/",
     "/health",
     "/manifest.webmanifest",

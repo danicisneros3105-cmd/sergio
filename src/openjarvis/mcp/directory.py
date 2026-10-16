@@ -585,6 +585,31 @@ DIRECTORY: List[Dict[str, Any]] = [
 ]
 
 
+# Supported scopes are a menu. Request only what this integration uses.
+_SETUP = {
+    "gmail": {
+        "scopes": ["https://www.googleapis.com/auth/gmail.readonly", "https://www.googleapis.com/auth/gmail.compose"],
+        "setup_url": "https://developers.google.com/workspace/guides/configure-mcp-servers",
+        "requires_client_id": True,
+        "note": "Requiere Google Workspace Developer Preview, APIs habilitadas y Client ID/Secret de Google Cloud. Registre la URL de retorno de Sergio y marque el cliente como agente de IA. Solo borradores.",
+    },
+    "google-calendar": {
+        "scopes": ["https://www.googleapis.com/auth/calendar.calendarlist.readonly", "https://www.googleapis.com/auth/calendar.events.readonly"],
+        "setup_url": "https://developers.google.com/workspace/guides/configure-mcp-servers",
+        "requires_client_id": True,
+    },
+    "google-drive": {
+        "scopes": ["https://www.googleapis.com/auth/drive.readonly"],
+        "setup_url": "https://developers.google.com/workspace/guides/configure-mcp-servers",
+        "requires_client_id": True,
+    },
+    "notion": {"setup_url": "https://developers.notion.com/guides/mcp/get-started-with-mcp"},
+    "higgsfield": {"setup_url": "https://higgsfield.ai/creator-hub/help-center/integrations/how-do-i-connect-higgsfield-to-ai-agent"},
+}
+for _entry in DIRECTORY:
+    _entry.update(_SETUP.get(_entry["id"], {}))
+
+
 def directory() -> List[Dict[str, Any]]:
     return [dict(entry) for entry in DIRECTORY]
 

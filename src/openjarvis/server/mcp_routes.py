@@ -29,6 +29,7 @@ class AddRequest(BaseModel):
     env: Dict[str, str] = {}
     client_id: str = ""
     client_secret: str = ""
+    headers: Dict[str, str] = {}
 
 
 class PermissionRequest(BaseModel):
@@ -38,6 +39,21 @@ class PermissionRequest(BaseModel):
 
 class EnabledRequest(BaseModel):
     enabled: bool
+
+
+class CredentialsRequest(BaseModel):
+    client_id: str = ""
+    client_secret: str = ""
+    headers: Optional[Dict[str, str]] = None
+
+
+@router.post("/servers/{server_id}/credentials")
+async def credentials(server_id: str, req: CredentialsRequest) -> Dict[str, Any]:
+    try:
+        server = await asyncio.to_thread(get_hub().configure_credentials, server_id, **req.model_dump())
+        return {"server": server}
+    except ConnectorError as exc:
+        raise _fail(exc) from exc
 
 
 class CallRequest(BaseModel):
@@ -89,6 +105,7 @@ async def add(req: AddRequest) -> Dict[str, Any]:
                 req.url,
                 client_id=req.client_id,
                 client_secret=req.client_secret,
+                headers=req.headers,
             )
         elif req.command:
             server = hub.add_local(req.name, [*req.command, *req.args], env=req.env)
