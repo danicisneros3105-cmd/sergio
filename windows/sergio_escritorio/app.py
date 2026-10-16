@@ -2913,19 +2913,40 @@ def run(config: dict[str, Any]) -> None:
             pass
         return None
 
-    def screen_for_call() -> tuple[bytes, str] | None:
-        # Gemini on the screen: a continuous video (every second, sooner
-        # right after a change), with the mouse pointer drawn in.
-        from sergio_escritorio.live_screen import with_cursor
+    # The live video's sizes, lightest last: it steps down while the server
+    # says frames are not reaching Gemini on time, and back up after.
+    video_steps = ((1024, 62), (896, 56), (768, 50), (640, 45))
+    video_level = [0, 0.0, 0.0]  # step, last change, last «slow» seen
+    sharp_at = [0.0]
 
+    def screen_for_call() -> tuple[bytes, str] | None:
+        # Gemini on the screen: a steady 32-frame-a-second video with the
+        # mouse pointer drawn in. Each frame is light (shrunk first, then
+        # encoded, cached); once a second, while the screen is still, the
+        # frame is a sharp one, so small text can be read.
+        from sergio_escritorio.live_screen import video_jpeg
+
+        session = current_call[0]
+        live.streaming = bool(session is not None and session.active and session.share_screen)
         frame = live.latest()
-        # While it moves (up to 30 FPS) each frame is light; once still, the
-        # frame that stays is sharp, so small text can be read.
-        moving = time.monotonic() - sent_frame[1] < 0.3
-        sent_frame[0], sent_frame[1] = frame.id, time.monotonic()
-        if moving:
-            return with_cursor(frame, cursor_now(), 1024, 62), "pantalla"
-        return with_cursor(frame, cursor_now(), 1280, 80), "pantalla"
+        now = time.monotonic()
+        if session is not None:
+            if session.video_slow:
+                video_level[2] = now
+                if now - video_level[1] > 2.0 and video_level[0] < len(video_steps) - 1:
+                    video_level[0] += 1
+                    video_level[1] = now
+            elif now - video_level[2] > 6.0 and now - video_level[1] > 6.0 and video_level[0] > 0:
+                video_level[0] -= 1
+                video_level[1] = now
+        cursor = cursor_now()
+        if frame.id != sent_frame[0]:
+            sent_frame[0], sent_frame[1] = frame.id, now
+        elif now - sent_frame[1] >= 0.5 and now - sharp_at[0] >= 1.0 and video_level[0] == 0:
+            sharp_at[0] = now
+            return video_jpeg(frame, cursor, 1600, 80), "pantalla"
+        width, quality = video_steps[video_level[0]]
+        return video_jpeg(frame, cursor, width, quality), "pantalla"
 
     def call_video() -> tuple[bytes, str] | None:
         session = current_call[0]
@@ -3074,6 +3095,7 @@ def run(config: dict[str, Any]) -> None:
 
     def call_ended(why: str) -> None:
         current_call[0] = None
+        live.streaming = False
         ears.call = None
         voices.enabled = False
         bridge.call_on.emit(False)

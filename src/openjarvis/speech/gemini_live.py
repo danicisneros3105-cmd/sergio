@@ -41,12 +41,16 @@ from typing import Any, Callable, Iterable
 log = logging.getLogger(__name__)
 
 # Live video: Gemini Live took in every frame of a 30 FPS test (48 of 48
-# named correctly), so frames are accepted up to SERGIO_LIVE_FPS a second.
+# named correctly). The shared screen arrives as a steady 32 FPS video
+# (SERGIO_LIVE_FPS); frames go out on their own lane, newest first, so a slow
+# uplink never delays the voice — and the rate that really reached Gemini is
+# reported back to the PC every two seconds.
 try:
-    LIVE_FPS = max(1.0, min(30.0, float(os.environ.get("SERGIO_LIVE_FPS", "30"))))
+    LIVE_FPS = max(1.0, min(60.0, float(os.environ.get("SERGIO_LIVE_FPS", "32"))))
 except ValueError:
-    LIVE_FPS = 30.0
+    LIVE_FPS = 32.0
 FRAME_GAP = 0.85 / LIVE_FPS
+VIDEO_REPORT_EVERY = 2.0
 
 # Best first. The newest Live model answers in under a second; the others
 # are the backup when a key has no quota left for it.
@@ -376,6 +380,12 @@ class LiveCall:
         self._heard_text = ""
         self._answer_allowed = True
         self._last_image = -1e9
+        # The video lane: only the newest frame waits; older ones are dropped.
+        self._frame: tuple[bytes, str] | None = None
+        self._frame_ready = asyncio.Event()
+        self._video_sent: list[float] = []
+        self._video_dropped = 0
+        self._video_reported = time.monotonic()
 
     # -- plumbing -----------------------------------------------------------
     def _genai(self) -> tuple[Any, Any]:
@@ -576,8 +586,9 @@ class LiveCall:
                         first = False
                     up = asyncio.ensure_future(self._pump_up(session))
                     down = asyncio.ensure_future(self._pump_down(session))
+                    video = asyncio.ensure_future(self._pump_video(session))
                     done, pending = await asyncio.wait(
-                        {up, down}, return_when=asyncio.FIRST_COMPLETED
+                        {up, down, video}, return_when=asyncio.FIRST_COMPLETED
                     )
                     for task in pending:
                         task.cancel()
@@ -648,11 +659,10 @@ class LiveCall:
                     image = base64.b64decode(event["data"], validate=True)
                 except (ValueError, TypeError):
                     continue
-                await session.send_realtime_input(
-                    video=types.Blob(
-                        data=image, mime_type=event.get("mime") or "image/jpeg"
-                    )
-                )
+                if self._frame is not None:
+                    self._video_dropped += 1  # the lane is behind: keep the newest
+                self._frame = (image, event.get("mime") or "image/jpeg")
+                self._frame_ready.set()
                 self._last_image = now
             elif kind == "text" and event.get("text"):
                 self._answer_allowed = True  # typed requests explicitly address him
@@ -684,6 +694,33 @@ class LiveCall:
                 fut = self._pending.pop(str(event.get("id")), None)
                 if fut is not None and not fut.done():
                     fut.set_result(str(event.get("result") or ""))
+
+    async def _pump_video(self, session: Any) -> None:
+        """Send the newest frame, one at a time, and report the real rate."""
+        types = self._types
+        while True:
+            await self._frame_ready.wait()
+            self._frame_ready.clear()
+            frame, self._frame = self._frame, None
+            if frame is None:
+                continue
+            await session.send_realtime_input(
+                video=types.Blob(data=frame[0], mime_type=frame[1])
+            )
+            now = time.monotonic()
+            self._video_sent.append(now)
+            await self._report_video(now)
+
+    async def _report_video(self, now: float) -> None:
+        if now - self._video_reported < VIDEO_REPORT_EVERY:
+            return
+        span = now - self._video_reported
+        self._video_sent = [t for t in self._video_sent if now - t <= span]
+        fps = len(self._video_sent) / span if span else 0.0
+        slow = self._video_dropped > 0.08 * LIVE_FPS * span
+        self._video_reported, self._video_dropped = now, 0
+        with contextlib.suppress(Exception):
+            await self.send_json({"type": "video", "fps": round(fps, 1), "slow": slow})
 
     # -- Gemini -> companion --------------------------------------------------
     async def _pump_down(self, session: Any) -> None:

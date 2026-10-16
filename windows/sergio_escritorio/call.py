@@ -20,11 +20,12 @@ from __future__ import annotations
 import base64
 import json
 import logging
-import re
 import os
 import queue
+import re
 import threading
 import time
+from collections import deque
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
@@ -40,14 +41,17 @@ IDLE_HANG_UP = 60.0  # seconds with nobody talking: the call ends by itself
 ALWAYS_ON = float("inf")  # an always-on call never hangs up on silence
 GATE_AFTER = 2.0  # seconds of silence before the microphone stops streaming
 PREROLL_FRAMES = 40  # 400 ms kept while gated: the first syllable is never lost
-VIDEO_EVERY = 1.0  # a still screen: one sharp frame a second (repeats teach nothing)
-# While the screen moves: up to 30 frames a second (SERGIO_LIVE_FPS to change).
-# Measured on Gemini Live: it named every one of 48 frames sent at 30 FPS.
+VIDEO_EVERY = 1.0  # the camera when nothing moves: one frame a second
+# The shared screen is a steady video: 32 frames a second, on a fixed beat,
+# moving or still (SERGIO_LIVE_FPS to change it, SERGIO_LIVE_STEADY=0 to send
+# only while it moves). Measured on Gemini Live: it named every one of 48
+# frames sent at 30 FPS.
 try:
-    VIDEO_FPS = max(1.0, min(30.0, float(os.environ.get("SERGIO_LIVE_FPS", "30"))))
+    VIDEO_FPS = max(1.0, min(60.0, float(os.environ.get("SERGIO_LIVE_FPS", "32"))))
 except ValueError:
-    VIDEO_FPS = 30.0
+    VIDEO_FPS = 32.0
 VIDEO_FRESH = 1.0 / VIDEO_FPS
+VIDEO_STEADY = os.environ.get("SERGIO_LIVE_STEADY", "1") != "0"
 REF_MAX = 60  # at most 600 ms of speaker reference waiting for the mic
 PREBUFFER = RATE_OUT * 2 * 150 // 1000  # 150 ms of his voice before he starts
 
@@ -67,6 +71,18 @@ def resample(pcm: bytes, src: int, dst: int) -> bytes:
     n = max(1, int(round(x.size * dst / src)))
     y = np.interp(np.linspace(0, x.size - 1, n), np.arange(x.size), x)
     return np.clip(y, -32768, 32767).astype(np.int16).tobytes()
+
+
+def _fine_timer(on: bool) -> None:
+    """Ask Windows for 1 ms timers while the video runs (its default 15.6 ms
+    tick turns a 31 ms wait into 47). Elsewhere it does nothing."""
+    try:
+        import ctypes
+
+        winmm = ctypes.WinDLL("winmm")
+        (winmm.timeBeginPeriod if on else winmm.timeEndPeriod)(1)
+    except Exception:  # noqa: BLE001 — not Windows
+        pass
 
 
 class EchoCanceller:
@@ -311,6 +327,11 @@ class CallSession:
         # the next frame goes out at once instead of waiting for its second.
         self.video_fresh: Callable[[], bool] = lambda: False
         self._told_screen = False
+        # The live video, measured: frames sent a second (here) and frames
+        # that reached Gemini a second (reported by the server).
+        self.video_fps = 0.0
+        self.gemini_fps = 0.0
+        self.video_slow = False  # the server could not keep up: send lighter frames
         self._audio_queue: queue.Queue[bytes | str] = queue.Queue(maxsize=8)
         self._audio_stalled = False
         self.heard_anything = False  # Gemini heard or said something already
@@ -607,6 +628,9 @@ class CallSession:
                 self._set_state("acting")
         elif kind == "call":
             threading.Thread(target=self._run_tool, args=(event,), daemon=True).start()
+        elif kind == "video":
+            self.gemini_fps = float(event.get("fps") or 0.0)
+            self.video_slow = bool(event.get("slow"))
         elif kind == "error":
             self.error = str(event.get("message") or "")
             self.on_caption(f"La llamada falló: {self.error[:120]}")
@@ -656,9 +680,19 @@ class CallSession:
             self.hang_up("se cortó")
 
     def _video_loop(self) -> None:
-        """Camera/screen as live video: up to VIDEO_FPS while it changes,
-        one frame a second while it is still."""
+        """Camera/screen as live video on a fixed beat: the shared screen at
+        VIDEO_FPS always (steady), the camera at VIDEO_FPS while it changes
+        and once a second while it is still."""
+        _fine_timer(True)
+        try:
+            self._video_beat()
+        finally:
+            _fine_timer(False)
+
+    def _video_beat(self) -> None:
         last_frame = -1e9
+        due = self.clock()
+        sent: deque[float] = deque()
         while self.active:
             now = self.clock()
             if self.share_screen and not self._told_screen:
@@ -670,12 +704,22 @@ class CallSession:
                     "cursor marcado con un círculo amarillo. Mírala directamente: no pidas "
                     "capturas; usa las herramientas solo para actuar.)"
                 )
+            steady = self.share_screen and VIDEO_STEADY
             try:
-                fresh = bool(self.video_fresh())
+                fresh = steady or bool(self.video_fresh())
             except Exception:  # noqa: BLE001
                 fresh = False
-            if now - last_frame >= (VIDEO_FRESH if fresh else VIDEO_EVERY):
+            interval = VIDEO_FRESH if fresh else VIDEO_EVERY
+            # A change after a still spell is sent at once, not a second later.
+            due = min(due, last_frame + interval)
+            if now >= due:
                 last_frame = now
+                # A fixed beat: the next frame is due one period after this
+                # one was due, so timing errors never pile up; after a stall
+                # (a slow capture) the beat restarts instead of bursting.
+                due += interval
+                if now - due > interval:
+                    due = now + interval
                 try:
                     shot = self.video()
                 except Exception:  # noqa: BLE001
@@ -686,7 +730,12 @@ class CallSession:
                     except Exception as exc:  # noqa: BLE001
                         self._lost(exc)
                         return
-            time.sleep(0.008 if fresh else 0.05)
+                    sent.append(now)
+                    while sent and now - sent[0] > 1.0:
+                        sent.popleft()
+                    self.video_fps = float(len(sent))
+            wait = due - self.clock()
+            time.sleep(min(max(wait, 0.0), 0.05))
 
     def _watch(self) -> None:
         """Hang up when nobody talks (the video has its own thread)."""

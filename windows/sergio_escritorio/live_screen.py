@@ -4,9 +4,9 @@ Before, every look took a fresh screenshot (new capture context, resize, PNG)
 and read the accessibility tree on the spot: 150–600 ms before Sergio could
 even start thinking, and actions were checked with fixed waits.
 
-Now one background thread watches the screen continuously (30 frames a
-second while something moves, 4 when it is still) with a persistent capture
-context, and keeps:
+Now one background thread watches the screen continuously (32 frames a
+second while something moves or while Gemini watches it live, 4 when it is
+still and nobody watches) with a persistent capture context, and keeps:
 
 * the latest frame, its id and *what* changed (the changed box),
 * the frame already encoded (JPEG and PNG) — encoded once per frame, so
@@ -23,6 +23,7 @@ control server (token-protected) and to the call when screen sharing is on.
 from __future__ import annotations
 
 import io
+import os
 import threading
 import time
 from dataclasses import dataclass, field
@@ -30,7 +31,10 @@ from typing import Any, Callable, Iterator, Optional
 
 SIG_W, SIG_H = 64, 36  # the tiny grey picture changes are measured on
 CHANGE = 6  # mean grey difference of a cell that counts as a change
-FAST_FPS = 30.0  # the live video to Gemini runs at up to 30 FPS
+try:  # the live video to Gemini: 32 frames a second, steady
+    FAST_FPS = max(1.0, min(60.0, float(os.environ.get("SERGIO_LIVE_FPS", "32"))))
+except ValueError:
+    FAST_FPS = 32.0
 IDLE_FPS = 4.0
 IDLE_AFTER = 3.0  # seconds without changes before slowing down
 
@@ -47,6 +51,30 @@ class Frame:
     @property
     def size(self) -> tuple[int, int]:
         return self.image.size
+
+    def small(self, width: int) -> Any:
+        """The frame at most *width* wide, in RGB (cached). Big screens are
+        first halved with a box filter, which costs a few milliseconds where
+        a full-size resize costs tens — what keeps 32 frames a second."""
+        key = ("small", width)
+        hit = self._encoded.get(key)
+        if hit is not None:
+            return hit
+        image = self.image
+        if image.mode != "RGB":
+            image = image.convert("RGB")
+        if image.width > width:
+            # Halve (or quarter) with a box filter when that lands near the
+            # size asked: 1920 → 960, 3840 → 960. Far cheaper than a resize.
+            factor = max(1, round(image.width / width))
+            if factor >= 2:
+                image = image.reduce(factor)
+            if image.width > width * 1.3:
+                from PIL import Image
+
+                image = image.resize((width, round(image.height * width / image.width)), Image.BILINEAR)
+        self._encoded[key] = image
+        return image
 
     def encode(self, fmt: str = "JPEG", width: int = 1280, quality: int = 78) -> bytes:
         """The frame as JPEG or PNG at most *width* wide (cached)."""
@@ -105,11 +133,50 @@ def with_cursor(
     return data
 
 
+def video_jpeg(
+    frame: "Frame", cursor: Optional[tuple[int, int]], width: int = 1024, quality: int = 62
+) -> bytes:
+    """One frame of the live video for Gemini, fast: shrink first, then draw
+    the pointer on the small picture and encode. Cached per frame, pointer
+    spot and size, so a still screen costs nothing to send again."""
+    pos = None
+    if cursor is not None:
+        x, y = cursor[0] - frame.origin[0], cursor[1] - frame.origin[1]
+        w, h = frame.size
+        if 0 <= x < w and 0 <= y < h:
+            pos = (x, y)
+    key = ("video", width, quality, (pos[0] // 4, pos[1] // 4) if pos else None)
+    hit = frame._encoded.get(key)
+    if hit is not None:
+        return hit
+    image = frame.small(width)
+    if pos is not None:
+        from PIL import ImageDraw
+
+        image = image.copy()
+        scale = image.width / frame.size[0]
+        x, y = pos[0] * scale, pos[1] * scale
+        r = max(6, image.width // 110)
+        draw = ImageDraw.Draw(image)
+        draw.ellipse((x - r, y - r, x + r, y + r), outline=(0, 0, 0), width=max(2, r // 3))
+        draw.ellipse((x - r + 2, y - r + 2, x + r - 2, y + r - 2), outline=(255, 214, 10), width=max(2, r // 4))
+        draw.ellipse((x - 2, y - 2, x + 2, y + 2), fill=(255, 214, 10))
+    buf = io.BytesIO()
+    image.save(buf, format="JPEG", quality=quality)
+    data = buf.getvalue()
+    for old in [k for k in frame._encoded if k[0] == "video" and k[1:3] == (width, quality)]:
+        del frame._encoded[old]  # only the latest pointer spot is kept
+    frame._encoded[key] = data
+    return data
+
+
 def signature(image: Any) -> bytes:
     """A 64×36 grey thumbnail: enough to see a click's effect, cheap to compare."""
     from PIL import Image
 
-    return image.convert("L").resize((SIG_W, SIG_H), Image.BOX).tobytes()
+    # Shrink before turning grey: converting a 4K frame first costs ~10 ms.
+    small = image.reduce(max(1, image.width // (SIG_W * 8))) if image.width > SIG_W * 16 else image
+    return small.convert("L").resize((SIG_W, SIG_H), Image.BOX).tobytes()
 
 
 def changed_box(
@@ -157,6 +224,9 @@ class LiveScreen:
         self._thread: Optional[threading.Thread] = None
         self._running = False
         self.paused = False  # e.g. while the screen is locked
+        # While Gemini watches it live the eye never slows down to idle.
+        self.streaming = False
+        self.capture_ms = 0.0  # how long the last grab took (for the stats)
         self.on_change: Callable[[Frame], None] = lambda _f: None
 
     # -- the eye --------------------------------------------------------------
@@ -190,6 +260,9 @@ class LiveScreen:
         return frame
 
     def _loop(self) -> None:
+        # A fixed beat (next += period), not «sleep the rest»: rounding and
+        # slow grabs do not pile up, so 32 a second stays 32 a second.
+        due = self._clock()
         while self._running:
             started = self._clock()
             if not self.paused:
@@ -197,10 +270,16 @@ class LiveScreen:
                     self.capture()
                 except Exception:  # noqa: BLE001 — e.g. secure desktop: try again
                     self._sleep(0.5)
+                    due = self._clock()
                     continue
-            idle = started - self._last_change > IDLE_AFTER
+                self.capture_ms = (self._clock() - started) * 1000
+            idle = not self.streaming and started - self._last_change > IDLE_AFTER
             period = 1.0 / (IDLE_FPS if idle else FAST_FPS)
-            self._sleep(max(0.0, period - (self._clock() - started)))
+            due += period
+            now = self._clock()
+            if now - due > period:  # fell behind (a slow grab): start a new beat
+                due = now
+            self._sleep(max(0.0, due - now))
 
     def start(self) -> "LiveScreen":
         if self._thread is None or not self._thread.is_alive():
@@ -278,4 +357,4 @@ class LiveScreen:
             self._sleep(1.0 / fps)
 
 
-__all__ = ["Frame", "LiveScreen", "changed_box", "signature", "with_cursor"]
+__all__ = ["Frame", "LiveScreen", "changed_box", "signature", "video_jpeg", "with_cursor"]

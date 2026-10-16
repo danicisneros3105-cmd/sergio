@@ -37,6 +37,8 @@ class FakeLine:
 
     def send(self, data):
         self.sent.append(data)
+        self.times = getattr(self, "times", [])
+        self.times.append(time.monotonic())
 
     def recv(self, timeout=None):
         try:
@@ -46,6 +48,13 @@ class FakeLine:
 
     def close(self):
         self.closed = True
+
+    def timed_json(self):
+        return [
+            (t, json.loads(m))
+            for t, m in zip(self.times, self.sent)
+            if isinstance(m, str)
+        ]
 
     def json_sent(self):
         return [json.loads(m) for m in self.sent if isinstance(m, str)]
@@ -467,31 +476,58 @@ def test_shared_screen_is_a_live_video_he_is_told_about_once():
         call.hang_up()
 
 
-def test_a_moving_screen_goes_out_at_up_to_30_frames_a_second():
+def _image_times(line):
+    return [t for t, m in line.timed_json() if m.get("type") == "image"]
+
+
+def test_the_shared_screen_is_a_steady_32_frames_a_second():
+    """Moving or still, the screen goes out on a fixed beat of 32 a second."""
     from sergio_escritorio import call as call_mod
 
-    line = FakeLine([json.dumps({"type": "ready", "model": "m"})])
-    call = _call(line, video=lambda: (b"jpeg!", "pantalla"))
-    call.share_screen = True
-    call.video_fresh = lambda: True  # it keeps moving
-    assert call_mod.VIDEO_FPS == 30.0
-    assert call.start()
-    try:
-        time.sleep(1.0)
-        images = sum(m.get("type") == "image" for m in line.json_sent())
-        assert images >= 15  # far beyond the old 1–2 a second
-    finally:
-        call.hang_up()
+    assert call_mod.VIDEO_FPS == 32.0 and call_mod.VIDEO_STEADY
+    for moving in (True, False):
+        line = FakeLine([json.dumps({"type": "ready", "model": "m"})])
+        call = _call(line, video=lambda: (b"jpeg!", "pantalla"))
+        call.share_screen = True
+        call.video_fresh = lambda moving=moving: moving
+        assert call.start()
+        try:
+            time.sleep(3.2)
+        finally:
+            call.hang_up()
+        times = _image_times(line)
+        window = [
+            t for t in times if times[0] + 0.5 <= t <= times[0] + 2.5
+        ]  # two full seconds
+        assert 62 <= len(window) <= 66, len(window)
+        gaps = [b - a for a, b in zip(window, window[1:])]
+        assert max(gaps) < 0.06  # no stalls: never two frames' worth missing
+        assert 29 <= call.video_fps <= 34
 
 
-def test_a_still_screen_sends_one_sharp_frame_a_second():
+def test_the_camera_alone_still_sends_one_frame_a_second():
     line = FakeLine([json.dumps({"type": "ready", "model": "m"})])
-    call = _call(line, video=lambda: (b"jpeg!", "pantalla"))
-    call.share_screen = True
+    call = _call(line, video=lambda: (b"jpeg!", "cámara"))
+    call.share_screen = False
     assert call.start()
     try:
         time.sleep(1.5)
         images = sum(m.get("type") == "image" for m in line.json_sent())
         assert 1 <= images <= 2
+    finally:
+        call.hang_up()
+
+
+def test_the_server_report_reaches_the_call():
+    line = FakeLine(
+        [
+            json.dumps({"type": "ready", "model": "m"}),
+            json.dumps({"type": "video", "fps": 31.9, "slow": True}),
+        ]
+    )
+    call = _call(line)
+    assert call.start()
+    try:
+        assert _wait(lambda: call.gemini_fps == 31.9 and call.video_slow, 3)
     finally:
         call.hang_up()

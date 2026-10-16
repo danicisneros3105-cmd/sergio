@@ -465,9 +465,9 @@ def test_the_shared_screen_is_watched_at_a_legible_resolution(monkeypatch):
     assert "video continuo" in gemini_live.INSTRUCTIONS
 
 
-def test_live_video_is_accepted_at_30_frames_a_second():
-    assert gemini_live.LIVE_FPS == 30.0
-    assert gemini_live.FRAME_GAP < 1 / 30
+def test_live_video_is_accepted_at_32_frames_a_second():
+    assert gemini_live.LIVE_FPS == 32.0
+    assert gemini_live.FRAME_GAP < 1 / 32
 
 
 def test_notes_reach_the_model_without_ending_a_turn():
@@ -526,3 +526,42 @@ def test_proactive_audio_first_and_plain_sessions_when_refused(monkeypatch):
     call, plain = asyncio.run(scenario(refused))
     assert gemini_live._PROACTIVE_OK == [False]
     assert len(plain.connects) == 1 and not hasattr(plain.connects[0][1], "proactivity")
+
+
+def test_video_lane_keeps_the_newest_frame_and_never_holds_the_voice(monkeypatch):
+    """A slow uplink: frames are dropped (newest kept) and reported as slow,
+    while audio still goes straight through."""
+    monkeypatch.setattr(gemini_live, "VIDEO_REPORT_EVERY", 0.5)
+
+    class SlowSession(FakeSession):
+        async def send_realtime_input(self, **kw):
+            if "video" in kw:
+                await asyncio.sleep(0.08)  # ~12 frames a second at most
+            self.sent.append(("input", kw))
+
+    async def scenario():
+        ws = FakeWS()
+        session = SlowSession([])
+        call = _call(ws, FakeClient([session]))
+        task = asyncio.ensure_future(call.run())
+        await asyncio.sleep(0.05)
+        frame = json.dumps({"type": "image", "data": base64.b64encode(b"jpg").decode()})
+        audio_at = None
+        for i in range(48):  # 1.5 s of a 32 FPS video
+            ws.put(type="websocket.receive", text=frame)
+            if i == 24:
+                ws.put(type="websocket.receive", bytes=b"\0\0" * 160)
+                audio_at = asyncio.get_running_loop().time()
+            await asyncio.sleep(1 / 32)
+        await asyncio.sleep(0.3)
+        ws.put(type="websocket.receive", text=json.dumps({"type": "end"}))
+        await asyncio.wait_for(task, 5)
+        return ws, session, audio_at
+
+    ws, session, audio_at = asyncio.run(scenario())
+    videos = [kw for kind, kw in session.sent if "video" in kw]
+    audio = [kw for kind, kw in session.sent if "audio" in kw]
+    assert audio, "the voice went through"
+    assert 8 <= len(videos) < 40  # the lane dropped frames instead of queueing them
+    reports = [m for m in ws.json if m.get("type") == "video"]
+    assert reports and reports[-1]["slow"] is True and reports[-1]["fps"] < 20
