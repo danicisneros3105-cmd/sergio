@@ -31,7 +31,8 @@ class _PipelineSkillManager:
     def set_tool_executor(self, executor) -> None:
         self._executor = executor
 
-    def get_skill_tools(self, *, tool_executor=None):
+    def get_skill_tools(self, *, tool_executor=None, include_internal=False):
+        assert include_internal is True
         executor = tool_executor or self._executor
         type(self).inner_executor = executor
         manifest = SkillManifest(

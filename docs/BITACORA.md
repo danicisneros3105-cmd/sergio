@@ -2,6 +2,31 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-10-16 · Codex · contratos públicos y compatibilidad Windows
+- Revisé los nueve cambios descritos por Claude que el dueño mantiene sin
+  commit en su PC. No tengo acceso a ese working tree; reproduje los ocho
+  fallos de contratos contra main bffe971 y apliqué su solución equivalente:
+  siete __all__ y capacidades explícitas de Kronos/OpenDesign/programas.
+- Corregí la documentación del puente Rust: get_rust_module requiere extensión;
+  get_native permite el fallback Python. Comparación AST sin docstrings confirma
+  cero cambio de lógica en ese archivo.
+- El fallo pendiente de tests está en test_builder_skill_identity: su doble de
+  SkillManager no aceptaba include_internal. Ahora respeta la firma y exige
+  True, manteniendo la prueba real de denegación en skills anidadas.
+- No atribuí todo a POSIX: kill_process_tree llamaba os.getpgid en Windows.
+  Ahora usa taskkill /PID /T /F sin shell, con timeout, y valida PID positivo;
+  conserva comportamiento POSIX. Siete regresiones de rama Windows simulada
+  y tres de denegación profesional comprueban que no se despachan acciones.
+- Validación Linux: 1.909 pasan y ocho omitidas (extensión/dependencias nativas
+  opcionales y prueba Windows Job Object); Ruff check/format src y tests pasan.
+  Los permisos 0600 pasan en Linux; no certifican ACL de Windows. No cambié ni
+  regeneré uv.lock. No oculté fallos con skips nuevos ni toqué archivos del PC.
+- El artefacto JV8eDBTHp1aEUaUMwkpNsU muestra «Sign in to view this page».
+  Comparación visual pendiente hasta disponer de versión accesible o fuente.
+  La ventana Edge --app anterior es un shell del frontend con HTTP interno,
+  no una conversión completa a widgets nativos; pruebas verdes no prueban
+  equivalencia estética con un prototipo que no he podido ver.
+
 ## 2026-10-16 · Codex · interfaz de app y notch discreto
 - Base verificada: main 2c58786. La rama Claude gracious-pascal sigue en
   6e6500b, ya revisada; no hay una actualización posterior publicada en main.

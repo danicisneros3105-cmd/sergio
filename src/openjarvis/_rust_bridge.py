@@ -1,8 +1,9 @@
 """Single point of contact between Python and the Rust ``openjarvis_rust`` module.
 
 Every Python module that wants to delegate to Rust should import helpers from
-here rather than importing ``openjarvis_rust`` directly.  The Rust backend is
-mandatory — if it cannot be imported, a hard ``ImportError`` is raised.
+here rather than importing ``openjarvis_rust`` directly. ``get_rust_module``
+requires the compiled extension; ``get_native`` uses the available Python twin
+when the extension is not installed.
 """
 
 from __future__ import annotations
@@ -15,7 +16,7 @@ if TYPE_CHECKING:
     import types as _types
 
 # ---------------------------------------------------------------------------
-# Mandatory import — Rust backend is required
+# Direct import of the optional Rust backend
 # ---------------------------------------------------------------------------
 
 
@@ -24,8 +25,8 @@ def get_rust_module() -> _types.ModuleType:
     """Return the ``openjarvis_rust`` module.
 
     Raises ``ImportError`` if the compiled extension is not available.
-    The Rust backend is mandatory for all modules that have Rust
-    implementations — there is no Python fallback.
+    This direct accessor has no fallback. Call ``get_native`` for a supported
+    class or function that must also work without the compiled extension.
     """
     import openjarvis_rust  # type: ignore[import-untyped]
 

@@ -313,3 +313,6 @@ def installer(ids: list[str]) -> str:
         "Write-Host 'Selección completada. Reinicie las terminales para refrescar PATH.'",
     ]
     return "\r\n".join(lines) + "\r\n"
+
+
+__all__ = ["BY_ID", "PROGRAMS", "Program", "catalog", "installer"]

@@ -125,3 +125,6 @@ def forecast(rows: list[dict], future: list[str]) -> dict:
         "kind": "model_scenario",
         "accuracy": "not_calibrated",
     }
+
+
+__all__ = ["REVISION", "validate", "forecast"]

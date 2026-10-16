@@ -83,3 +83,6 @@ def request(operation: str, payload: dict | None = None, *, client=None):
     finally:
         if owns_client:
             client.close()
+
+
+__all__ = ["endpoint", "request"]

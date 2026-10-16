@@ -270,6 +270,7 @@ DEFAULT_TOOL_CAPABILITIES: Dict[str, List[str]] = {
     "kg_query": [Capability.MEMORY_READ],
     "knowledge_search": [Capability.MEMORY_READ],
     "knowledge_sql": [Capability.MEMORY_READ],
+    "kronos_forecast": [Capability.CODE_EXECUTE],
     "list_scheduled_tasks": [Capability.SCHEDULE_CREATE],
     "live_earthquakes": [Capability.NETWORK_FETCH],
     "live_flights": [Capability.NETWORK_FETCH],
@@ -331,7 +332,9 @@ DEFAULT_TOOL_CAPABILITIES: Dict[str, List[str]] = {
         Capability.FILE_READ,
         Capability.NETWORK_FETCH,
     ],
+    "opendesign": [Capability.NETWORK_FETCH],
     "polyglot": [Capability.CODE_EXECUTE, Capability.NETWORK_FETCH],
+    "professional_apps": [Capability.SYSTEM_ADMIN],
     "upcoming_launches": [Capability.NETWORK_FETCH],
     "user_profile_manage": [Capability.FILE_READ, Capability.FILE_WRITE],
     "video_edit": [

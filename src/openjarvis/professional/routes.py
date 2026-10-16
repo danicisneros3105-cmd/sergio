@@ -93,3 +93,15 @@ async def open_program(program_id: str) -> dict:
     if not result.success:
         raise HTTPException(503, result.content)
     return {"result": result.content}
+
+
+__all__ = [
+    "Canvas",
+    "Selection",
+    "create_canvas",
+    "design_status",
+    "open_program",
+    "prepare_installer",
+    "programs",
+    "router",
+]

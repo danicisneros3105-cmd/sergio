@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import os
 import signal
+import subprocess
 from dataclasses import dataclass
 from typing import Dict, List, Optional
 
@@ -59,7 +60,31 @@ def build_safe_env(
 
 
 def kill_process_tree(pid: int) -> None:
-    """Kill a process and all its children (best effort)."""
+    """Kill a process and its children, using the host platform's process API."""
+    if type(pid) is not int or pid <= 0:
+        raise ValueError("A positive process ID is required")
+    if os.name == "nt":
+        try:
+            subprocess.run(
+                [
+                    os.path.join(
+                        os.environ.get("SystemRoot", r"C:\Windows"),
+                        "System32",
+                        "taskkill.exe",
+                    ),
+                    "/PID",
+                    str(pid),
+                    "/T",
+                    "/F",
+                ],
+                capture_output=True,
+                timeout=5,
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+                check=False,
+            )
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            logger.debug("Failed to terminate process %d: %s", pid, exc)
+        return
     try:
         if os.getpgid(pid) == pid:
             os.killpg(pid, signal.SIGKILL)
