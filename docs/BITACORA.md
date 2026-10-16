@@ -2,6 +2,24 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-10-16 · Codex · revisión de la gran actualización 6e6500b
+- Revisé los 32 commits posteriores a 79b7a0c sobre una copia aislada, con
+  fuentes contrastadas por SHA. Respeto los cambios de interfaz y los 32 FPS.
+- Frontend: 219 tests, tsc/build correctos. Escritorio/voz: 816 pasan, 4 omitidos.
+  Áreas nuevas y rutas/agentes: 389 pasan, 4 omitidos, 2 fallos; los dos prompts
+  personalizados se conservan, pero los tests exigen igualdad sin Anatomy.
+  Ruff: 1.872 archivos. El PDF malformado pasa con sus dependencias instaladas.
+- Hallazgos reproducidos y pendientes: reintento MCP duplica una escritura
+  tras perder respuesta; OAuth acepta token_endpoint HTTP externo con secreto;
+  callback OAuth responde 401 con clave de API; quitar marketplace admite rutas
+  fuera de su carpeta; limpieza de Papelera usa mtime de edición, no de borrado.
+  Reproducciones solo con temporales, clientes de prueba y secretos ficticios.
+- Informe: docs/es/REVISION-ACTUALIZACION-2026-10-16.md. Esta entrega es una
+  revisión; no corrige producción ni cuenta hallazgos pendientes como resueltos.
+  No medí Gemini pagado, Windows real o el instalador; los envíos SDK no prueban
+  interpretación de cada cuadro. El formato no implica paridad certificada.
+
+
 ## 2026-10-16 · Claude · Conectores y plugins como Claude, MCP/CLI reales, Gemini a 32 FPS, Workspace como Notion 2026, Creator pulido
 - Petición del dueño: «Workspace idéntico a Notion; conectores y plugins
   idénticos a Claude (Gmail, Notion, Higgsfield, todo); MCP y CLI reales;
