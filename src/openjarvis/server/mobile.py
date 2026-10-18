@@ -32,6 +32,7 @@ FORWARDED_HEADERS = (
 )
 _PUBLIC_EXACT = {
     "/v1/mcp/oauth/callback",  # Expiring single-use OAuth state and PKCE.
+    "/v1/healthdata/ingest",  # Phones push health data; the route checks its own sync key.
     "/",
     "/health",
     "/manifest.webmanifest",

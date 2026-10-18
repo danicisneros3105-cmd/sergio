@@ -2,6 +2,38 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-10-18 · Claude · Salud como la del teléfono (iOS 27.2) + dispositivos
+- Petición del dueño: «investiga Apple Health 2027 y haz Salud idéntico pero
+  con funciones que los usuarios desearían; conecta relojes y medidores».
+- Investigación: el rediseño de Salud está en iOS 27.2 (beta, se retiró en la
+  beta 4 y Apple promete salida antes de fin de 2026): pestañas Insights
+  (resúmenes, preparación, sueño, signos vitales), Longevity (siete áreas
+  contra guías clínicas y «Health Age»), Browse con tarjetas y búsqueda,
+  pruebas en casa y analíticas. No hay «Salud 2027» anunciada.
+- Hecho: módulo nuevo `health/` con datos propios en SQLite local (cada dato
+  con su fuente; reimportar no duplica), catálogo de 26 medidas con rangos de
+  guías públicas (OMS, AHA, AASM…), preparación (variabilidad, pulso en
+  reposo y sueño contra la base de 30 días del propio dueño; con menos de dos
+  entradas no da número), lo destacado, siete áreas de longevidad,
+  correlaciones con número de días y con etiquetas del día («café tarde»),
+  metas, fijadas, resumen imprimible para el médico y exportación CSV.
+- Lo que los usuarios piden y Salud del teléfono no da: abrirla desde el PC,
+  datos de cualquier marca (no solo de un ecosistema), etiquetas y notas por
+  día, «qué influye en mi sueño», exportar todo en un clic, borrar todo lo
+  que trajo una fuente, y un día en curso que no se juzga a medias.
+- Dispositivos: anillo Oura por token personal (sueño, variabilidad, pulso,
+  pasos, oxígeno); enlace de sincronización con clave propia para apps de
+  automatización del iPhone/Android (lee su JSON y el de Sergio); archivos
+  (export.zip del teléfono con conversión de unidades, CSV de Garmin,
+  Fitbit, Samsung, Withings, etc.). La ruta de ingesta es la única abierta
+  en `mobile.py` y `auth_middleware.py`, y comprueba su clave.
+- No hecho (honesto): la «Edad de salud» no se imita (no hay fórmula
+  validada); Garmin, Fitbit, Whoop y Withings directos necesitan apps OAuth
+  registradas, así que van por archivo o por el teléfono; el gimnasio mental
+  sigue en el hub antiguo (pestaña Mente). Probado con datos sembrados en un
+  navegador real; no probado con un teléfono real.
+- Pruebas: 12 nuevas en `tests/health`, 678 de server+nodes+health, 244 web.
+
 ## 2026-10-18 · Claude · Errores de código, Post-its movibles, Perfil, Face ID fácil, Leo fuera, Salud minimalista
 - Petición del dueño: arregla todos los errores, que los Post-it se muevan,
   mejora Perfil y que abra bien, Face ID más fácil, elimina a Leo, Salud más

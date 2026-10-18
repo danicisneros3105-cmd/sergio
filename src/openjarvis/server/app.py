@@ -671,6 +671,10 @@ def create_app(
     from openjarvis.server.desktop_routes import router as desktop_router
 
     app.include_router(desktop_router)
+    # Salud: the owner's health data, insights and watch/ring/scale connections.
+    from openjarvis.server.health_routes import router as health_data_router
+
+    app.include_router(health_data_router)
     # The Workspace: local-first pages, files, search, export, share links.
     from openjarvis.server.workspace_routes import router as workspace_router
 

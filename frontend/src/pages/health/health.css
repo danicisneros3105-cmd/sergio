@@ -1,13 +1,107 @@
-/* Salud: quiet, black and white. */
-.health-metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
-.health-metric { display: flex; flex-direction: column; gap: 4px; padding: 14px 16px; border: 1px solid var(--color-border); border-radius: 14px; }
-.health-metric b { font-size: 22px; font-weight: 600; letter-spacing: -0.01em; line-height: 1.15; overflow-wrap: anywhere; }
-.health-metric span { font-size: 12.5px; color: var(--color-text-tertiary); }
-.health-metric[data-empty='1'] b { color: var(--color-text-tertiary); font-weight: 400; }
-.health-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; align-items: center; }
-.health-line { display: flex; gap: 8px; margin-top: 12px; }
-.health-line .paper-input { flex: 1; min-width: 0; }
-.health-meals { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 6px; font-size: 14px; }
-.health-meals span { color: var(--color-text-tertiary); margin-right: 6px; font-variant-numeric: tabular-nums; }
-.health-meals em { font-style: normal; color: var(--color-text-tertiary); }
-.health-reply { margin: 14px 0 6px; font-size: 15px; line-height: 1.55; max-width: 62ch; white-space: pre-wrap; }
+/* Salud: black, white and greys; cards like the phone's Health app, ink lines for charts. */
+.salud-tabs { margin: -8px 0 22px; overflow-x: auto; }
+.salud-block { margin: 28px 0; }
+.salud-block > h2, .salud-block > h3 { margin-bottom: 10px; }
+.salud-block p { margin: 0 0 10px; font-size: 14px; line-height: 1.55; color: var(--color-text-secondary); max-width: 68ch; }
+.salud-lead { font-size: 15.5px; line-height: 1.55; margin: 0 0 16px; }
+
+.salud-empty { border: 1px dashed var(--color-border); border-radius: 14px; padding: 18px; margin-bottom: 20px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; }
+.salud-empty p { margin: 0; font-size: 14.5px; }
+
+/* readiness ring */
+.salud-readiness { display: flex; gap: 18px; align-items: center; padding: 16px 18px; border: 1px solid var(--color-border); border-radius: 16px; }
+.salud-readiness p { margin: 2px 0; font-size: 15px; }
+.salud-readiness small { color: var(--color-text-tertiary); font-size: 12.5px; }
+.salud-ring { --p: 0; width: 76px; height: 76px; border-radius: 50%; flex-shrink: 0; display: grid; place-items: center;
+  background: conic-gradient(var(--color-text) calc(var(--p) * 1%), var(--color-hover) 0); position: relative; }
+.salud-ring::before { content: ''; position: absolute; inset: 7px; border-radius: 50%; background: var(--color-bg, #fff); }
+.salud-ring b { position: relative; font-size: 22px; font-weight: 600; }
+.salud-readiness[data-empty='1'] .salud-ring b { color: var(--color-text-tertiary); }
+
+/* highlights */
+.salud-highlights { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.salud-highlights button { text-align: left; width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--color-border); background: none; font-size: 14px; line-height: 1.45; cursor: pointer; color: var(--color-text); }
+.salud-highlights button:hover { background: var(--color-hover); }
+
+/* metric cards */
+.salud-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
+.salud-card-wrap { position: relative; }
+.salud-card { width: 100%; display: flex; flex-direction: column; gap: 4px; text-align: left; padding: 14px 14px 12px; border-radius: 14px; border: 1px solid var(--color-border); background: var(--color-surface, transparent); cursor: pointer; color: var(--color-text); }
+.salud-card:hover { background: var(--color-hover); }
+.salud-card-label { font-size: 12.5px; color: var(--color-text-secondary); padding-right: 22px; }
+.salud-card b { font-size: 22px; font-weight: 600; letter-spacing: -0.01em; }
+.salud-card-meta { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 11.5px; color: var(--color-text-tertiary); }
+.salud-card-meta em { font-style: normal; color: var(--color-text-secondary); }
+.salud-pin { position: absolute; top: 8px; right: 8px; opacity: 0.55; }
+.salud-pin:hover { opacity: 1; }
+.salud-spark { display: block; margin: 4px 0 2px; max-width: 100%; }
+.salud-spark path { stroke: var(--color-text); }
+.salud-spark circle { fill: var(--color-text); }
+.salud-spark-band { fill: var(--color-hover); }
+
+/* forms */
+.salud-add { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; }
+.salud-add .paper-input { flex: 1; min-width: 150px; }
+.salud-note { margin-top: 12px; display: grid; gap: 8px; }
+.salud-tags { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.salud-tag-input { flex: 1; min-width: 180px; }
+.salud-reply { margin: 12px 0 6px; font-size: 15px; line-height: 1.55; max-width: 68ch; white-space: pre-wrap; }
+.salud-affects ul { list-style: none; margin: 12px 0; padding: 0; display: grid; gap: 6px; font-size: 14px; }
+
+/* longevity */
+.salud-areas { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
+.salud-area { border: 1px solid var(--color-border); border-radius: 14px; padding: 14px; }
+.salud-area header { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.salud-area header span { font-size: 12.5px; color: var(--color-text-secondary); }
+.salud-area[data-state='atencion'] header span { color: var(--color-text); font-weight: 600; }
+.salud-area[data-state='sin_datos'] { opacity: 0.6; }
+.salud-check { width: 100%; display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; text-align: left; padding: 8px 0; border: 0; border-top: 1px solid var(--color-border); background: none; cursor: pointer; color: var(--color-text); }
+.salud-check em { font-style: normal; font-size: 12px; color: var(--color-text-secondary); }
+.salud-check small { grid-column: 1 / -1; font-size: 11.5px; color: var(--color-text-tertiary); line-height: 1.4; }
+
+/* browse */
+.salud-search { display: flex; align-items: center; gap: 8px; padding: 9px 12px; border: 1px solid var(--color-border); border-radius: 12px; margin-bottom: 8px; color: var(--color-text-tertiary); }
+.salud-search input { flex: 1; border: 0; outline: 0; background: none; font-size: 14.5px; color: var(--color-text); }
+.salud-list { border: 1px solid var(--color-border); border-radius: 14px; overflow: hidden; }
+.salud-row { width: 100%; display: grid; grid-template-columns: 1fr auto 96px; gap: 12px; align-items: center; padding: 11px 14px; border: 0; border-top: 1px solid var(--color-border); background: none; text-align: left; cursor: pointer; color: var(--color-text); font-size: 14.5px; }
+.salud-row:first-child { border-top: 0; }
+.salud-row:hover { background: var(--color-hover); }
+.salud-row em { font-style: normal; font-size: 12px; color: var(--color-text-tertiary); text-align: right; }
+
+/* detail */
+.salud-detail { display: grid; gap: 14px; }
+.salud-detail > .paper-button { justify-self: start; }
+.salud-detail-title { font-size: 26px; font-weight: 600; margin: 0; }
+.salud-detail-head { display: flex; flex-wrap: wrap; gap: 28px; }
+.salud-detail-head div { display: flex; flex-direction: column; }
+.salud-detail-head b { font-size: 24px; font-weight: 600; }
+.salud-detail-head span { font-size: 12.5px; color: var(--color-text-tertiary); }
+.salud-bars { width: 100%; height: 170px; display: block; }
+.salud-bars rect { fill: var(--color-text); }
+.salud-goal { stroke: var(--color-text-tertiary); stroke-width: 0.6; stroke-dasharray: 2 2; vector-effect: non-scaling-stroke; }
+.salud-guide { font-size: 13px; color: var(--color-text-secondary); margin: 0; }
+.salud-readings { list-style: none; margin: 0; padding: 0; }
+.salud-readings li { display: grid; grid-template-columns: 1fr auto 110px auto; gap: 12px; align-items: center; padding: 7px 0; border-top: 1px solid var(--color-border); font-size: 13.5px; }
+.salud-readings em { font-style: normal; color: var(--color-text-tertiary); font-size: 12px; text-align: right; }
+
+/* devices */
+.salud-sync { display: grid; gap: 10px; }
+.salud-sync label { display: grid; grid-template-columns: 90px 1fr auto; gap: 10px; align-items: center; }
+.salud-sync code, .salud-block code { font-size: 12.5px; padding: 6px 8px; border-radius: 8px; background: var(--color-hover); overflow-wrap: anywhere; }
+.salud-sync-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.salud-device-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; }
+.salud-device { border: 1px solid var(--color-border); border-radius: 14px; padding: 14px; display: grid; gap: 8px; align-content: start; }
+.salud-device header { display: flex; flex-direction: column; gap: 2px; }
+.salud-device header span { font-size: 12px; color: var(--color-text-tertiary); }
+.salud-device p { margin: 0; font-size: 13px; line-height: 1.5; color: var(--color-text-secondary); }
+.salud-device-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.salud-device-actions .paper-input { flex: 1; min-width: 140px; }
+.salud-sources { list-style: none; margin: 0; padding: 0; }
+.salud-sources li { display: grid; grid-template-columns: 160px 1fr auto; gap: 12px; align-items: center; padding: 8px 0; border-top: 1px solid var(--color-border); font-size: 14px; }
+.salud-sources span { color: var(--color-text-tertiary); font-size: 13px; }
+
+@media (max-width: 640px) {
+  .salud-row { grid-template-columns: 1fr auto; }
+  .salud-row em { display: none; }
+  .salud-sync label, .salud-sources li { grid-template-columns: 1fr; }
+}

@@ -71,12 +71,22 @@ termina en la rama `main`, y el dueño actualiza con un único comando.
   «Detener» es la parada de emergencia y lo deja en pausa.
   La página: `pages/NodesPage.tsx` (marco) y una pestaña por archivo en
   `pages/nodes/`.
-- Salud, Perfil, Face ID y Post-its (dueño, oct. 2026): **Salud minimalista**
-  (`pages/HealthPage.tsx`: Hoy, Anotar, Preguntar, Mente; el gimnasio mental
-  está en `pages/health/HealthGym.tsx`, plegado). Una cifra de salud solo se
-  muestra si el dueño la anotó o la trajo una fuente (`hub["entered"]` en
-  `server/desktop_routes.py`): **nunca se inventan datos suyos**, ni en la
-  pantalla, ni en el coach, ni en el perfil. El **Perfil** lo arma Sergio
+- Salud, Perfil, Face ID y Post-its (dueño, oct. 2026): **Salud como la app
+  Salud del teléfono (iOS 27.2)** más lo que sus usuarios piden: pestañas
+  Resumen (preparación, lo destacado, fijadas, anotar, nota y etiquetas del
+  día, «qué influye», preguntar), Longevidad (siete áreas contra guías
+  públicas), Explorar (por categoría, detalle con gráfica, metas), Compartir
+  (resumen para el médico, CSV completo), Dispositivos y Mente (gimnasio).
+  Datos propios en `health/` (`store.py` SQLite local, `metrics.py`,
+  `insights.py`, `importers.py`, `devices.py`) y `server/health_routes.py`
+  (`/v1/healthdata`). Dispositivos: anillo por token personal, enlace de
+  sincronización con clave propia (`/v1/healthdata/ingest`, la única ruta
+  abierta, comprueba su clave) para apps del teléfono, y archivos (export.zip
+  del teléfono, CSV, JSON). Los nombres de relojes y marcas aparecen solo
+  como texto para elegir, sin logos. **Nunca se inventan datos suyos**: sin
+  datos no hay cifra, ni en la pantalla, ni en el coach, ni en el perfil;
+  la «Edad de salud» de Apple no se imita porque no hay un cálculo validado.
+  El **Perfil** lo arma Sergio
   Escritorio; con la app cerrada se dice, no se rellena. Los botones «Abrir
   en el PC» no dicen «abierto» si la app no responde (`companion: false`).
   **Face ID** se configura de un toque: se abre la cámara, se mira, y el

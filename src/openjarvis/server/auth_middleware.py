@@ -90,6 +90,9 @@ class AuthMiddleware(BaseHTTPMiddleware):
         # Browser returns without Bearer; this exact route checks state + PKCE.
         if path == "/v1/mcp/oauth/callback":
             return False
+        # Phones push health data with Salud's own sync key, checked by the route.
+        if path == "/v1/healthdata/ingest":
+            return False
         return (
             path.startswith("/v1/")
             or path.startswith("/api/")
