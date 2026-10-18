@@ -117,9 +117,12 @@ def _wait(qt, condition):
 
 
 def test_tiles_typing_and_talk(qt):
-    panel, state, sent, _, _, talked = _panel(qt)
+    panel, state, sent, opened, _, talked = _panel(qt)
     panel.open()
     assert panel.subtitle.text() == "Piensa con Gemini"
+    panel.open_app_button.click()
+    assert opened[-1] == "http://sergio.test" and not panel.isVisible()
+    panel.open()
     panel.tiles[0].click()  # the switches live in Configuration now
     assert state["wake"] is False
     panel.entry.setText("  ¿qué hora es?  ")

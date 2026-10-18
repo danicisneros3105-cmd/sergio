@@ -776,6 +776,16 @@ class ControlCenter(QWidget):
         self.subtitle.setVisible(False)  # only when there is something to say
         texts.addWidget(self.subtitle)
         row.addLayout(texts, 1)
+        self.open_app_button = QPushButton(idioma.t("open_app", self.lang))
+        self.open_app_button.setObjectName("primary")
+        self.open_app_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.open_app_button.setStyleSheet(
+            "padding: 5px 12px; border-radius: 14px; font-size: 12px; font-weight: 600;"
+        )
+        self.open_app_button.clicked.connect(
+            lambda: (self.hide(), self.actions.open_url(self.actions.server_url))
+        )
+        row.addWidget(self.open_app_button, 0, Qt.AlignmentFlag.AlignVCenter)
         close = QPushButton("×")
         close.setFixedSize(28, 28)
         close.setAccessibleName("Cerrar")

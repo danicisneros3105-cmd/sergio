@@ -1,4 +1,4 @@
-﻿# Instala a Sergio en Windows como compañero del cursor: sin ventana, una
+# Instala a Sergio en Windows como compañero del cursor: sin ventana, una
 # esfera junto al puntero, voz ("Sergio, ..." o Ctrl+Espacio) y control de la
 # pantalla. No necesita administrador.
 # Se ejecuta desde Ubuntu con:  sergio escritorio instalar
@@ -112,10 +112,8 @@ Say "4/4 Arranque con Windows"
 $ico = Join-Path $dest "sergio.ico"
 & (Join-Path $venv "Scripts\python.exe") -c "from sergio_escritorio.app import make_icon; make_icon('idle').save(r'$ico', sizes=[(16,16),(32,32),(48,48),(64,64)])"
 $shell = New-Object -ComObject WScript.Shell
-# Sin icono en el escritorio: arranca con Windows y queda en el menú Inicio
-# por si lo cierras. Quita el acceso directo de versiones anteriores.
-Remove-Item (Join-Path ([Environment]::GetFolderPath("Desktop")) "Sergio.lnk") -ErrorAction SilentlyContinue
 $places = @(
+    [Environment]::GetFolderPath("Desktop"),
     [Environment]::GetFolderPath("Startup"),
     (Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs")
 )

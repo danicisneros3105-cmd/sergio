@@ -156,6 +156,13 @@ def main() -> None:
 
     setup_log(HOME / "sergio.log")
     if not single_instance():
+        try:
+            url = str(load_config().get("server_url") or "http://localhost:8000")
+        except Exception:  # noqa: BLE001
+            url = "http://localhost:8000"
+        from sergio_escritorio.launch import open_app_window
+
+        open_app_window(url)
         return
     from sergio_escritorio.windows_backend import set_dpi_aware
 
@@ -743,7 +750,13 @@ def run(config: dict[str, Any]) -> None:
     tray.setContextMenu(menu)
     tray.activated.connect(
         lambda reason: (
-            ears.talk() if reason == QSystemTrayIcon.ActivationReason.Trigger else None
+            open_app_window(config["server_url"])
+            if reason == QSystemTrayIcon.ActivationReason.DoubleClick
+            else (
+                ears.talk()
+                if reason == QSystemTrayIcon.ActivationReason.Trigger
+                else None
+            )
         )
     )
     tray.show()
@@ -4479,6 +4492,8 @@ def run(config: dict[str, Any]) -> None:
     if not show_notch:
         notch.hide_notch(instant=True)
     notch.set_multitasking(bool(config.get("multitasking", False)))
+    if "--background" not in sys.argv and bool(config.get("open_app_on_start", True)):
+        _QTimer.singleShot(350, lambda: open_app_window(config["server_url"]))
     show_text(
         f"Hola, soy {config['name']}. Di «Sergio…», o mantén Ctrl+Alt y "
         "pregúntame por lo que ves en pantalla.",

@@ -283,6 +283,10 @@ TEXTS: dict[str, dict[str, str]] = {
     "tab_settings": {"es": "Configuración", "en": "Settings", "pt": "Configurações", "fr": "Réglages",
                      "de": "Einstellungen", "it": "Impostazioni"},
     "tab_chat": {"es": "Chat", "en": "Chat", "pt": "Chat", "fr": "Chat", "de": "Chat", "it": "Chat"},
+    "open_app": {
+        "es": "Abrir app", "en": "Open app", "pt": "Abrir app",
+        "fr": "Ouvrir l'app", "de": "App öffnen", "it": "Apri app",
+    },
     "tab_cowork": {"es": "Cowork", "en": "Cowork", "pt": "Cowork", "fr": "Cowork", "de": "Cowork", "it": "Cowork"},
     "tab_swarm": {"es": "Agent Swarm", "en": "Agent Swarm", "pt": "Agent Swarm", "fr": "Agent Swarm",
                   "de": "Agent Swarm", "it": "Agent Swarm"},
