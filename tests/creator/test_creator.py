@@ -222,30 +222,31 @@ def test_heavy_example_opens_at_once_from_its_shipped_build(tmp_path, monkeypatc
         anatomy_build.build_example("raptor-engine", False, tmp_path)
 
 
-def test_professional_apps_tool_runs_creator_engines(tmp_path, monkeypatch):
+def test_professional_apps_tool_runs_creator_engines(tmp_path):
     pytest.importorskip("ezdxf")
     cv2 = pytest.importorskip("cv2")
     import numpy as np
 
     from openjarvis.tools.professional import ProfessionalAppsTool
 
-    monkeypatch.setenv("HOME", str(tmp_path))
     tool = ProfessionalAppsTool()
-
+    dxf_out = tmp_path / "plano.dxf"
     res_dxf = tool.execute(
         action="plan_dxf",
+        path=str(dxf_out),
         walls=[
             {"x1": 0, "y1": 0, "x2": 5, "y2": 0},
             {"x1": 5, "y1": 0, "x2": 5, "y2": 4},
         ],
         openings=[{"x": 2.5, "y": 0, "kind": "puerta"}],
     )
-    assert res_dxf.success and res_dxf.metadata["path"].endswith(".dxf")
+    assert res_dxf.success and dxf_out.exists() and ".dxf" in res_dxf.content
 
     img = np.full((160, 200, 3), 240, np.uint8)
     cv2.circle(img, (100, 80), 45, (30, 60, 210), -1)
     src = tmp_path / "sujeto.png"
     cv2.imwrite(str(src), img)
-    res_cut = tool.execute(action="image_cutout", image_path=str(src), neural=False)
-    assert res_cut.success and res_cut.metadata["method"] == "grabcut"
+    res_cut = tool.execute(action="image_cutout", path=str(src))
+    assert res_cut.success and (tmp_path / "sujeto-recorte.png").exists()
+
 
