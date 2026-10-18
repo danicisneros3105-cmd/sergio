@@ -121,12 +121,20 @@ def _maybe_register_mining_sidecar_engine() -> None:
 
 def _ensure_cloud_env_loaded() -> None:
     """Load ~/.openjarvis/sergio.env if present so cloud keys are visible."""
-    try:
-        from openjarvis.cli.nube_cmd import load_env_file
+    import os
 
-        load_env_file()
+    if os.environ.get("PYTEST_CURRENT_TEST"):
+        return
+    try:
+        from openjarvis.cli.phone_cmd import read_env
+        from openjarvis.cli.service_cmd import env_file
+
+        for key, value in read_env(env_file()).items():
+            if key and value:
+                os.environ.setdefault(key, value)
     except Exception:
         pass
+
 
 
 def discover_engines(config: JarvisConfig) -> List[Tuple[str, InferenceEngine]]:

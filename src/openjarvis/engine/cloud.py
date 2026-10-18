@@ -684,6 +684,9 @@ class CloudEngine(
         self._init_clients()
 
     def _init_clients(self) -> None:
+        from openjarvis.engine._discovery import _ensure_cloud_env_loaded
+
+        _ensure_cloud_env_loaded()
         if os.environ.get("OPENAI_API_KEY"):
             try:
                 import openai
