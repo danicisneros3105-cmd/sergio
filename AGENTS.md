@@ -59,9 +59,8 @@ termina en la rama `main`, y el dueño actualiza con un único comando.
   diseños, fotos, 3D) y en los personajes de los Nodes que él eligió.
 - Workspace igual a Notion (en blanco y negro), con lo de Notion 2026:
   Biblioteca, secciones de la barra, Papelera, pestañas, Presentar y Panel.
-  Creator retirado de la interfaz por petición del dueño (2026-10-16): sin menú ni
-  rutas de editor; enlaces antiguos redirigen al chat. Herramientas internas y
-  programas instalados se conservan. Referencia histórica: Diseño igual a Canva
+- Creator (`/creator` y `/creator/:space`) activo en la barra lateral y en las
+  rutas igual que en la demo (`JV8eDBTHp1aEUaUMwkpNsU`): Diseño igual a Canva
   (`Creator/DesignStudio.tsx` + `canva.css`); Creator › Prototipos es
   otra cosa: diseñar conversando, como Claude Design
   (`Creator/Prototypes.tsx`, `lib/prototypes.ts`). No se mezclan.

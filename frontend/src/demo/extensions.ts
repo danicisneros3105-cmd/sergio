@@ -134,6 +134,16 @@ export function handleExtensions(method: string, path: string, url: URL, body: J
       for (const tool of server.tools) if (!body.tool || tool.name === body.tool) tool.permission = String(body.permission);
       return json({ server });
     }
+    if (action === 'credentials') {
+      server.own_client = Boolean(body.client_id || body.headers);
+      return json({ server });
+    }
+    if (action === 'call') {
+      return json({
+        content: [{ type: 'text', text: `[Demo] ${server.name} · ${String(body.tool || 'herramienta')} ejecutada con éxito.` }],
+        isError: false,
+      });
+    }
   }
   if (path === '/v1/hub/marketplaces' && method === 'GET') {
     const count = (name: string) => data.plugins.filter((p: Plugin) => p.marketplace === name).length;

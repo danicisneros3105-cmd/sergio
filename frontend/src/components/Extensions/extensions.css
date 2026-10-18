@@ -25,7 +25,7 @@
 .cx-select { height: 34px; padding: 0 10px; border-radius: 10px; border: 1px solid var(--color-border); background: var(--color-bg); color: var(--color-text); font: inherit; font-size: 13.5px; }
 .cx-chips { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
 .cx-chips button { flex: none; height: 32px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--color-border); background: none; color: var(--color-text-secondary); cursor: pointer; font-size: 13.5px; }
-.cx-chips button[aria-pressed='true'] { background: var(--color-text); color: var(--color-bg); border-color: transparent; }
+.cx-chips button[aria-selected='true'], .cx-chips button[aria-pressed='true'] { background: var(--color-text); color: var(--color-bg); border-color: transparent; }
 .cx-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
 .cx-entry {
   position: relative; display: flex; gap: 12px; align-items: flex-start; padding: 14px; min-height: 92px;

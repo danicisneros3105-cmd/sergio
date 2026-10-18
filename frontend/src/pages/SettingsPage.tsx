@@ -550,7 +550,7 @@ export function SettingsPage() {
 
           {/* Connection */}
           <Section title="Conexión">
-            <SettingRow label="Estado de Sergio" description={serverInfo ? `${serverInfo.engine} / ${serverInfo.model}` : 'Sin conexión'}>
+            <SettingRow label="Estado del servidor" description={serverInfo ? `${serverInfo.engine} / ${serverInfo.model}` : 'Sin conexión'}>
               <div className="flex items-center gap-2">
                 <span
                   className="w-2 h-2 rounded-full"
@@ -561,38 +561,35 @@ export function SettingsPage() {
                 </span>
               </div>
             </SettingRow>
-            <details className="mt-3">
-              <summary className="cursor-pointer text-sm">Conexión avanzada</summary>
-              <SettingRow label="Dirección del servidor" description="Solo si Sergio corre en otro puerto u otro equipo">
-                <input
-                  type="text"
-                  value={settings.apiUrl}
-                  onChange={(e) => { updateSettings({ apiUrl: e.target.value }); showSaved(); }}
-                  placeholder="Automática en este equipo"
-                  className="text-sm px-3 py-1.5 rounded-lg outline-none w-56"
-                  style={{
-                    background: 'var(--color-bg-secondary)',
-                    color: 'var(--color-text)',
-                    border: '1px solid var(--color-border)',
-                  }}
-                />
-              </SettingRow>
-              <SettingRow label="Clave del servidor" description="Solo si el servidor se inició con una clave">
-                <input
-                  type="password"
-                  value={settings.apiKey}
-                  onChange={(e) => { updateSettings({ apiKey: e.target.value }); showSaved(); }}
-                  placeholder="Clave del servidor"
-                  autoComplete="off"
-                  className="text-sm px-3 py-1.5 rounded-lg outline-none w-56"
-                  style={{
-                    background: 'var(--color-bg-secondary)',
-                    color: 'var(--color-text)',
-                    border: '1px solid var(--color-border)',
-                  }}
-                />
-              </SettingRow>
-            </details>
+            <SettingRow label="Dirección del servidor" description="Solo si Sergio corre en otro puerto u otro equipo">
+              <input
+                type="text"
+                value={settings.apiUrl}
+                onChange={(e) => { updateSettings({ apiUrl: e.target.value }); showSaved(); }}
+                placeholder="http://localhost:8000"
+                className="text-sm px-3 py-1.5 rounded-lg outline-none w-56"
+                style={{
+                  background: 'var(--color-bg-secondary)',
+                  color: 'var(--color-text)',
+                  border: '1px solid var(--color-border)',
+                }}
+              />
+            </SettingRow>
+            <SettingRow label="Clave del servidor" description="Solo si el servidor se inició con una clave">
+              <input
+                type="password"
+                value={settings.apiKey}
+                onChange={(e) => { updateSettings({ apiKey: e.target.value }); showSaved(); }}
+                placeholder="Clave del servidor"
+                autoComplete="off"
+                className="text-sm px-3 py-1.5 rounded-lg outline-none w-56"
+                style={{
+                  background: 'var(--color-bg-secondary)',
+                  color: 'var(--color-text)',
+                  border: '1px solid var(--color-border)',
+                }}
+              />
+            </SettingRow>
           </Section>
 
           {/* Inference source */}

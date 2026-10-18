@@ -2,6 +2,13 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-10-17 · Antigravity · alineación total con la demo JV8eDBTHp1aEUaUMwkpNsU
+- Analicé la demo `https://claude.ai/artifact/JV8eDBTHp1aEUaUMwkpNsU` (`Demo of Sergio with the Notion-style Workspace (Library, trash, tabs, present, dashboard), Claude-style connectors and a polished Creator`, generada en `6e6500b8dc4862f774d700091b0654b1a97002b0`) y la comparé archivo por archivo con `main`.
+- Restauré **Creator** (`/creator` y `/creator/:space`) en `frontend/src/App.tsx`, en la barra lateral (`frontend/src/components/Shell/Toolbar.tsx`), en el acceso rápido «Crear algo» del chat (`frontend/src/components/Chat/ChatArea.tsx`) y en `AGENTS.md`, que habían sido retirados en `664e7f7` cuando no se pudo abrir el artefacto.
+- Restauré en `frontend/src/pages/ExtensionsPage.tsx` el orden de pestañas de la demo (`Programas · Plugins · Skills · Conectores`, con `Programas` al abrir `/extensiones` desde Creator y `/extensiones/conectores` para Conectores), mantuve compatibilidad de estilos en `frontend/src/components/Extensions/extensions.css` y añadí soporte de `call` y `credentials` al modo demo (`frontend/src/demo/extensions.ts`).
+- Restauré en `frontend/src/pages/SettingsPage.tsx` las filas visibles de «Conexión» (`Estado del servidor`, `Dirección del servidor` y `Clave del servidor`) tal como aparecen en la demo.
+- Actualicé la prueba de navegación en `frontend/src/App.nodes.test.tsx`.
+
 ## 2026-10-17 · Antigravity · auditoría integral y pulido 10/10 en todos los módulos
 - Audité el repositorio completo y el estado real en el PC del dueño (WSL2 Ubuntu + compañero de escritorio Windows).
 - Corregí un fallo real en `src/openjarvis/cli/service_cmd.py` (`render_units` y `_service_path`): la línea `Environment=PATH=...` se escribía sin comillas en `sergio.service` y `sergio-extensiones.service`. En WSL2, `$PATH` hereda rutas de Windows con espacios (como `/mnt/c/Program Files (x86)/...`), lo que hacía que systemd cortara `PATH` en el primer espacio, emitiera 16 avisos `Invalid environment assignment` en cada arranque y dejara fuera `.local/bin`, `.cargo/bin` y `.local/share/mise/shims` (Ruby para Clacky). Ahora `Environment="PATH=..."` va entre comillas con escape seguro y las rutas de usuario de Linux se anteponen antes de `/mnt/c/...`. Añadí prueba de regresión en `tests/cli/test_service_cmd.py`.
