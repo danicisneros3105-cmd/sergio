@@ -174,10 +174,10 @@ def prefer_cloud(config_path: Path, env: dict[str, str]) -> str:
         return GEMINI_MAIN
     if current.lower().startswith(CLOUD_PREFIXES):
         return current
-    if env.get("MOONSHOT_API_KEY"):
-        chosen = "kimi-k2.6"
-    elif env.get("GEMINI_API_KEY"):
+    if env.get("GEMINI_API_KEY"):
         chosen = GEMINI_MAIN
+    elif env.get("MOONSHOT_API_KEY"):
+        chosen = "kimi-k2.6"
     else:
         return ""
     intel["default_model"] = chosen
@@ -203,24 +203,24 @@ def pull_model(model: str) -> bool:
 
 @click.group()
 def escritorio() -> None:
-    """Sergio in Windows: cursor companion, voice, and control of the screen."""
+    """Sergio en Windows: compañero junto al cursor, voz y control de pantalla."""
 
 
 @escritorio.command("instalar")
 @click.option(
     "--vision",
     is_flag=True,
-    help=f"Also download a local vision model ({VISION_MODEL}, ~6 GB) so "
-    "Sergio can describe images on screen.",
+    help=f"Descarga también el modelo local de visión ({VISION_MODEL}, ~6 GB) "
+    "para describir imágenes en pantalla.",
 )
 @click.option(
     "--gpu",
     is_flag=True,
-    help="Also download the NVIDIA libraries (~1 GB) so Sergio hears with the "
-    "big Whisper model on the graphics card.",
+    help="Descarga también las librerías NVIDIA (~1 GB) para escuchar con "
+    "el modelo grande de Whisper en la tarjeta gráfica.",
 )
 def instalar(vision: bool, gpu: bool = False) -> None:
-    """Install (or update) Sergio Escritorio in Windows."""
+    """Instala o actualiza Sergio Escritorio en Windows."""
     from openjarvis.cli.phone_cmd import read_env, write_env
     from openjarvis.cli.service_cmd import env_file
     from openjarvis.core.paths import get_config_dir
@@ -228,7 +228,7 @@ def instalar(vision: bool, gpu: bool = False) -> None:
 
     if shutil.which("powershell.exe") is None:
         raise click.ClickException(
-            "Run this in Ubuntu on Windows (WSL): Sergio Escritorio is a Windows app."
+            "Ejecute esto en Ubuntu sobre Windows (WSL): Sergio Escritorio es una app de Windows."
         )
     env_path = env_file()
     env = read_env(env_path)
@@ -236,12 +236,12 @@ def instalar(vision: bool, gpu: bool = False) -> None:
     updates = {"SERGIO_DESKTOP_TOKEN": token}
 
     if vision:
-        console.print(f"Downloading the vision model {VISION_MODEL} (one time)…")
+        console.print(f"Descargando el modelo de visión {VISION_MODEL} (una sola vez)…")
         if pull_model(VISION_MODEL):
             updates["SERGIO_VISION_MODEL"] = VISION_MODEL
         else:
             console.print(
-                f"[yellow]Could not download it; later run in PowerShell: "
+                f"[yellow]No se pudo descargar; más tarde ejecute en PowerShell: "
                 f"ollama pull {VISION_MODEL}[/yellow]"
             )
     write_env(env_path, updates)
@@ -267,7 +267,7 @@ def instalar(vision: bool, gpu: bool = False) -> None:
 
     script = _wslpath(_REPO_ROOT / "scripts" / "instalar-escritorio.ps1")
     source = _wslpath(_REPO_ROOT / "windows")
-    console.print("Installing in Windows (a few minutes the first time)…")
+    console.print("Instalando en Windows (unos minutos la primera vez)…")
     # The token travels as an environment variable (WSLENV), not on a
     # command line other programs could read.
     child_env = dict(os.environ, SERGIO_DESKTOP_TOKEN=token)
@@ -291,7 +291,7 @@ def instalar(vision: bool, gpu: bool = False) -> None:
     )
     if done.returncode != 0:
         raise click.ClickException(
-            "The Windows installer failed (see the messages above)."
+            "Falló el instalador de Windows (vea los mensajes de arriba)."
         )
 
     # Load the token and the new tools into the running Sergio.
@@ -322,14 +322,14 @@ def instalar(vision: bool, gpu: bool = False) -> None:
 
 @escritorio.command("estado")
 def estado() -> None:
-    """Check that Sergio can reach Sergio Escritorio."""
+    """Comprueba que Sergio pueda comunicarse con Sergio Escritorio."""
     from openjarvis.cli.phone_cmd import read_env
     from openjarvis.cli.service_cmd import env_file
 
     token = read_env(env_file()).get("SERGIO_DESKTOP_TOKEN", "")
     url = os.environ.get("SERGIO_DESKTOP_URL", "http://127.0.0.1:8765")
     if not token:
-        raise click.ClickException("Not installed: run `sergio escritorio instalar`.")
+        raise click.ClickException("No instalado: ejecute `sergio escritorio instalar`.")
     try:
         resp = httpx.get(
             f"{url}/health", headers={"Authorization": f"Bearer {token}"}, timeout=5
@@ -337,15 +337,15 @@ def estado() -> None:
         data = resp.json()
     except (httpx.HTTPError, ValueError) as exc:
         raise click.ClickException(
-            "Sergio Escritorio is not answering. Open 'Sergio' from the Windows "
-            f"Start menu. ({exc})"
+            "Sergio Escritorio no responde. Abra «Sergio» desde el menú Inicio "
+            f"de Windows. ({exc})"
         ) from exc
     if resp.status_code != 200:
         raise click.ClickException(
-            f"Sergio Escritorio refused the token ({resp.status_code})."
+            f"Sergio Escritorio rechazó el token ({resp.status_code})."
         )
-    state = "active" if data.get("enabled") else "PAUSED (Ctrl+Alt+End)"
-    console.print(f"Sergio Escritorio is running. Screen control: {state}")
+    state = "activo" if data.get("enabled") else "EN PAUSA (Ctrl+Alt+Fin)"
+    console.print(f"Sergio Escritorio está encendido. Control de pantalla: {state}")
 
 
 __all__ = [

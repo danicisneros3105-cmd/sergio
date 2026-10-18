@@ -839,14 +839,16 @@ class LiveCall:
         args = dict(fc.args or {})
         call_id = str(fc.id or uuid.uuid4().hex)
         if self.guard_attention and not self._answer_allowed:
-            await session.send_tool_response(
-                function_responses=self._types.FunctionResponse(
-                    id=call_id,
-                    name=name,
-                    response={
-                        "result": "No se ejecutó: conversación no dirigida a Sergio."
-                    },
-                )
+            await (self._session or session).send_tool_response(
+                function_responses=[
+                    self._types.FunctionResponse(
+                        id=call_id,
+                        name=name,
+                        response={
+                            "result": "No se ejecutó: conversación no dirigida a Sergio."
+                        },
+                    )
+                ]
             )
             return
         try:

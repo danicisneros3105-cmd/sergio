@@ -930,7 +930,7 @@ export function SettingsPage() {
 
           {/* Data */}
           <Section title="Datos">
-            <SettingRow label="Conversaciones" description={`${conversations.length} stored locally`}>
+            <SettingRow label="Conversaciones" description={`${conversations.length} guardadas en este equipo`}>
               <div className="flex gap-2">
                 <button
                   onClick={handleExport}
@@ -939,7 +939,7 @@ export function SettingsPage() {
                   onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--color-bg-tertiary)')}
                   onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--color-bg-secondary)')}
                 >
-                  <Download size={12} /> Export
+                  <Download size={12} /> Exportar
                 </button>
                 <button
                   onClick={handleImport}
@@ -948,7 +948,7 @@ export function SettingsPage() {
                   onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--color-bg-tertiary)')}
                   onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--color-bg-secondary)')}
                 >
-                  <Upload size={12} /> Import
+                  <Upload size={12} /> Importar
                 </button>
               </div>
             </SettingRow>
@@ -964,13 +964,13 @@ export function SettingsPage() {
                 onMouseEnter={(e) => { if (!confirmClear) e.currentTarget.style.background = 'rgba(220,38,38,0.1)'; }}
                 onMouseLeave={(e) => { if (!confirmClear) e.currentTarget.style.background = 'transparent'; }}
               >
-                <Trash2 size={12} /> {confirmClear ? 'Click again to confirm' : 'Clear'}
+                <Trash2 size={12} /> {confirmClear ? 'Pulse otra vez para confirmar' : 'Borrar'}
               </button>
             </SettingRow>
           </Section>
 
           {/* Updates */}
-          <Section title="Updates">
+          <Section title="Actualizaciones">
             <SettingRow label="Actualizar solo" description="Busca versiones nuevas de la app cada 30 minutos">
               <button
                 onClick={() => handleAutoUpdateToggle(!autoUpdateEnabled)}
@@ -995,9 +995,9 @@ export function SettingsPage() {
               >
                 <RefreshCw size={12} className={updateCheckState === 'checking' ? 'animate-spin' : ''} />
                 {updateCheckState === 'checking' && 'Comprobando…'}
-                {updateCheckState === 'available' && 'Update available — see banner above'}
-                {updateCheckState === 'latest' && 'Already up to date'}
-                {updateCheckState === 'idle' && 'Check now'}
+                {updateCheckState === 'available' && 'Actualización disponible — vea el aviso arriba'}
+                {updateCheckState === 'latest' && 'Ya está al día'}
+                {updateCheckState === 'idle' && 'Comprobar ahora'}
               </button>
             </SettingRow>
           </Section>

@@ -2,10 +2,13 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
-## 2026-10-17 · Antigravity · auditoría integral y corrección de PATH en systemd
+## 2026-10-17 · Antigravity · auditoría integral y pulido 10/10 en todos los módulos
 - Audité el repositorio completo y el estado real en el PC del dueño (WSL2 Ubuntu + compañero de escritorio Windows).
 - Corregí un fallo real en `src/openjarvis/cli/service_cmd.py` (`render_units` y `_service_path`): la línea `Environment=PATH=...` se escribía sin comillas en `sergio.service` y `sergio-extensiones.service`. En WSL2, `$PATH` hereda rutas de Windows con espacios (como `/mnt/c/Program Files (x86)/...`), lo que hacía que systemd cortara `PATH` en el primer espacio, emitiera 16 avisos `Invalid environment assignment` en cada arranque y dejara fuera `.local/bin`, `.cargo/bin` y `.local/share/mise/shims` (Ruby para Clacky). Ahora `Environment="PATH=..."` va entre comillas con escape seguro y las rutas de usuario de Linux se anteponen antes de `/mnt/c/...`. Añadí prueba de regresión en `tests/cli/test_service_cmd.py`.
-- Blindé `submitSavings` en `frontend/src/App.tsx` y `frontend/src/lib/api.ts` para que el campo `email` viaje siempre vacío (`''`) y el correo del dueño jamás pueda enviarse a ningún servicio externo (cumpliendo `AGENTS.md` §3).
+- En `src/openjarvis/cli/escritorio_cmd.py` (`prefer_cloud`), di prioridad a `GEMINI_API_KEY` (`gemini-3.8-flash`) frente a cualquier clave antigua y traduje al español claro los textos restantes del comando `sergio escritorio`.
+- En `src/openjarvis/speech/gemini_live.py` (`LiveCall._run_tool`), corregí el envío de `function_responses` como lista `[FunctionResponse(...)]` cuando el filtro de atención descarta una herramienta por tratarse de una conversación no dirigida a Sergio.
+- En `src/openjarvis/mcp/hub.py` (`_ensure_shared_client`), permití que los conectores de Google (`gmail`, `google-calendar`, `google-drive`) compartan automáticamente el Client ID manual ya configurado en cualquiera de ellos o en `GOOGLE_OAUTH_CLIENT_ID`, para no tener que introducirlo tres veces.
+- Blindé `submitSavings` en `frontend/src/App.tsx` y `frontend/src/lib/api.ts` para que el campo `email` viaje siempre vacío (`''`) y traduje al español las secciones «Datos» y «Actualizaciones» de `frontend/src/pages/SettingsPage.tsx` (`AGENTS.md` §3 y §6).
 - Eliminé el enlace roto `../badges/coverage.svg` en `README.md`.
 
 ## 2026-10-16 · Codex · captura independiente y menos esperas de voz

@@ -439,6 +439,44 @@ class ConnectorHub:
         return self.public(self._update(server_id, permissions=perms))
 
     # -- signing in -----------------------------------------------------------
+    def _ensure_shared_client(self, server: Dict[str, Any]) -> None:
+        """Reuse a sibling provider's manual OAuth client (e.g. Google) or env var."""
+        server_id = server["id"]
+        directory_id = str(server.get("directory_id") or "")
+        with self._lock:
+            secrets = self._secrets()
+            if secrets.get(server_id, {}).get("client", {}).get("client_id"):
+                return
+            google_ids = {"gmail", "google-calendar", "google-drive"}
+            found_client: Optional[Dict[str, Any]] = None
+            if directory_id in google_ids:
+                for other in self._servers():
+                    if other.get("directory_id") in google_ids:
+                        cand = secrets.get(other["id"], {}).get("client") or {}
+                        if cand.get("client_id") and cand.get("manual"):
+                            found_client = dict(cand)
+                            break
+                if not found_client and os.environ.get("GOOGLE_OAUTH_CLIENT_ID"):
+                    found_client = {
+                        "client_id": os.environ["GOOGLE_OAUTH_CLIENT_ID"].strip(),
+                        "client_secret": os.environ.get(
+                            "GOOGLE_OAUTH_CLIENT_SECRET", ""
+                        ).strip(),
+                        "manual": True,
+                    }
+            env_prefix = f"SERGIO_OAUTH_{directory_id.upper().replace('-', '_')}"
+            if not found_client and os.environ.get(f"{env_prefix}_CLIENT_ID"):
+                found_client = {
+                    "client_id": os.environ[f"{env_prefix}_CLIENT_ID"].strip(),
+                    "client_secret": os.environ.get(
+                        f"{env_prefix}_CLIENT_SECRET", ""
+                    ).strip(),
+                    "manual": True,
+                }
+            if found_client:
+                secrets.setdefault(server_id, {})["client"] = found_client
+                self._save_secrets(secrets)
+
     def connect(self, server_id: str, redirect_uri: str = "") -> Dict[str, Any]:
         """Connect now; for a service that asks for a sign-in, returns the page
         to open (``auth_url``) and finishes in :meth:`finish`."""
@@ -451,13 +489,18 @@ class ConnectorHub:
             from openjarvis.mcp.directory import find
 
             entry = find(server["directory_id"])
-            if entry.get("requires_client_id") and not self._secrets().get(
-                server_id, {}
-            ).get("client", {}).get("client_id"):
-                raise ConnectorError(
-                    "Este servicio requiere un Client ID propio. Abra «Configurar» "
-                    "y complete los requisitos del proveedor."
-                )
+            if entry.get("requires_client_id"):
+                self._ensure_shared_client(server)
+                if (
+                    not self._secrets()
+                    .get(server_id, {})
+                    .get("client", {})
+                    .get("client_id")
+                ):
+                    raise ConnectorError(
+                        "Este servicio requiere un Client ID propio. Abra «Configurar» "
+                        "y complete los requisitos del proveedor."
+                    )
         http = self._http_client()
         try:
             challenge = oauth.probe(http, server["url"])
