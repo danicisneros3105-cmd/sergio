@@ -209,19 +209,6 @@ def escritorio() -> None:
     """Sergio en Windows: compañero junto al cursor, voz y control de pantalla."""
 
 
-@escritorio.command("instalar")
-@click.option(
-    "--vision",
-    is_flag=True,
-    help=f"Descarga también el modelo local de visión ({VISION_MODEL}, ~6 GB) "
-    "para describir imágenes en pantalla.",
-)
-@click.option(
-    "--gpu",
-    is_flag=True,
-    help="Descarga también las librerías NVIDIA (~1 GB) para escuchar con "
-    "el modelo grande de Whisper en la tarjeta gráfica.",
-)
 def _do_instalar(vision: bool, gpu: bool = False) -> None:
     from openjarvis.cli.phone_cmd import read_env, write_env
     from openjarvis.cli.service_cmd import env_file
