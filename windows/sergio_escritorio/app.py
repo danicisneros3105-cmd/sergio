@@ -150,42 +150,66 @@ def _quick_kind(kind: str, arg: str = "") -> Any:
     return Quick(kind, arg)
 
 
+_WSL_KEEPALIVE: subprocess.Popen[bytes] | None = None
+_WSL_LOCK = threading.Lock()
+
+
+def stop_wsl_keepalive() -> None:
+    """Close the hidden WSL keepalive process when Sergio Escritorio exits."""
+    global _WSL_KEEPALIVE
+    with _WSL_LOCK:
+        proc, _WSL_KEEPALIVE = _WSL_KEEPALIVE, None
+    if proc is not None and proc.poll() is None:
+        try:
+            proc.terminate()
+        except OSError:
+            pass
+
+
 def ensure_server_running(url: str = "http://localhost:8000") -> None:
-    """Wake up the local WSL Sergio service if Windows just booted and port 8000 is down."""
+    """Wake up the local WSL Sergio service and keep WSL alive while Sergio Escritorio runs."""
+    global _WSL_KEEPALIVE
     if sys.platform != "win32":
         return
     import httpx
 
-    probe = url.rstrip("/") + "/"
+    # Always keep one lightweight WSL process open so Windows 11's vmIdleTimeout
+    # never suspends Ubuntu or stops user@1000.service while Sergio is open.
+    with _WSL_LOCK:
+        if _WSL_KEEPALIVE is None or _WSL_KEEPALIVE.poll() is not None:
+            try:
+                _WSL_KEEPALIVE = subprocess.Popen(
+                    [
+                        "wsl.exe",
+                        "-d",
+                        "Ubuntu",
+                        "-e",
+                        "bash",
+                        "-lc",
+                        "systemctl --user start sergio.service sergio-extensiones.service && exec sleep infinity",
+                    ],
+                    stdin=subprocess.DEVNULL,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000),
+                )
+            except Exception:  # noqa: BLE001
+                pass
+
+    probe = url.rstrip("/").replace("://localhost", "://127.0.0.1") + "/"
     try:
         if httpx.get(probe, timeout=1.5).status_code < 500:
             return
     except Exception:  # noqa: BLE001
         pass
-    try:
-        subprocess.run(
-            [
-                "wsl.exe",
-                "-d",
-                "Ubuntu",
-                "-e",
-                "bash",
-                "-lc",
-                "systemctl --user start sergio.service sergio-extensiones.service",
-            ],
-            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000),
-            timeout=20,
-            check=False,
-        )
-    except Exception:  # noqa: BLE001
-        return
-    deadline = time.monotonic() + 15.0
+    deadline = time.monotonic() + 18.0
     while time.monotonic() < deadline:
         try:
             if httpx.get(probe, timeout=1.5).status_code < 500:
                 return
         except Exception:  # noqa: BLE001
             time.sleep(0.4)
+
 
 
 def main() -> None:
@@ -207,7 +231,13 @@ def main() -> None:
 
     set_dpi_aware()  # before Qt creates anything
     try:
-        run(load_config())
+        cfg = load_config()
+        threading.Thread(
+            target=ensure_server_running,
+            args=(str(cfg.get("server_url") or "http://localhost:8000"),),
+            daemon=True,
+        ).start()
+        run(cfg)
     except Exception:
         logging.exception("Sergio crashed")
         raise
@@ -4545,6 +4575,7 @@ def run(config: dict[str, Any]) -> None:
     )
     app.aboutToQuit.connect(orchestrator.close)
     app.aboutToQuit.connect(server.shutdown)
+    app.aboutToQuit.connect(stop_wsl_keepalive)
     app.exec()
 
 

@@ -135,8 +135,38 @@ _NO_CACHE_HEADERS = {
 }
 
 
+import re as _re
+
+_HASHED_ASSET_RE = _re.compile(
+    r"^(?P<stem>[A-Za-z0-9_.-]+)-[A-Za-z0-9_-]{6,16}\.(?P<ext>js|css)$"
+)
+
+
 class _NoCacheStaticFiles(StaticFiles):
-    """StaticFiles subclass that adds no-cache headers to every response."""
+    """StaticFiles subclass that adds no-cache headers and resolves updated chunk hashes."""
+
+    def lookup_path(self, path: str) -> tuple[str, os.stat_result | None]:
+        full_path, stat_result = super().lookup_path(path)
+        if stat_result is not None or not self.directory:
+            return full_path, stat_result
+        name = pathlib.Path(path).name
+        match = _HASHED_ASSET_RE.match(name)
+        if match:
+            stem = match.group("stem")
+            ext = match.group("ext")
+            base_dir = pathlib.Path(str(self.directory))
+            candidates = sorted(
+                base_dir.glob(f"{stem}-*.{ext}"),
+                key=lambda p: p.stat().st_mtime if p.is_file() else 0.0,
+                reverse=True,
+            )
+            for candidate in candidates:
+                if candidate.is_file():
+                    try:
+                        return str(candidate), candidate.stat()
+                    except OSError:
+                        continue
+        return full_path, stat_result
 
     async def __call__(self, scope, receive, send):
         async def _send_with_headers(message):
@@ -152,6 +182,7 @@ class _NoCacheStaticFiles(StaticFiles):
             await send(message)
 
         await super().__call__(scope, receive, _send_with_headers)
+
 
 
 def create_app(

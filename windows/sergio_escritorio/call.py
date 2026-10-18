@@ -363,7 +363,19 @@ class CallSession:
                     if self.api_key
                     else {}
                 )
-                self._ws = connect(self.url, max_size=2_000_000, open_timeout=8, **auth)
+                try:
+                    self._ws = connect(
+                        self.url, max_size=2_000_000, open_timeout=8, **auth
+                    )
+                except OSError:
+                    if self._connect is not None:
+                        raise
+                    from sergio_escritorio.app import ensure_server_running
+
+                    ensure_server_running("http://127.0.0.1:8000")
+                    self._ws = connect(
+                        self.url, max_size=2_000_000, open_timeout=8, **auth
+                    )
             except TimeoutError as exc:
                 raise TimeoutError(
                     f"no pude conectar con el servidor ({self.url}) en 8 s"
