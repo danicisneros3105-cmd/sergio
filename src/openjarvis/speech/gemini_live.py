@@ -39,6 +39,8 @@ import time
 import uuid
 from typing import Any, Callable, Iterable
 
+from openjarvis.speech.gemini_voice import sergio_voice
+
 log = logging.getLogger(__name__)
 
 # Requested local target. SDK sends are not provider acknowledgments.
@@ -64,7 +66,6 @@ LIVE_MODELS = (
     "gemini-2.5-flash-native-audio-preview-12-2025",
 )
 IN_MIME = "audio/pcm;rate=16000"
-DEFAULT_VOICE_NAMES = {"", "predeterminada", "default"}
 _THINKING_OK = [True]  # the model accepted thinking_budget=0 (else left out)
 # "Proactive audio" (API v1alpha): the model may stay quiet when the people
 # in the room talk to each other instead of to Sergio. Left out for good the
@@ -132,7 +133,9 @@ opinas con criterio. Nunca servil, nunca cruel, nunca chistes forzados ni \
 repetidos.
 
 Tu voz: masculina, grave y relajada, algo rasposa, cálida, con un carisma \
-despreocupado y seguro; sonríes al hablar y nunca suenas a locutor.
+despreocupado y seguro; sonríes al hablar y nunca suenas a locutor. Eres un \
+hombre: hablas siempre en masculino de ti mismo («encantado», «listo», «seguro», \
+«cansado»), nunca en femenino, ni imitas voces de mujer ni de otras personas.
 
 Esto es una llamada en tiempo real, no un chat: responde de inmediato, en una \
 a tres frases naturales, como en una conversación. Habla a un ritmo pausado y \
@@ -286,15 +289,14 @@ def live_config(
         tools.append(types.Tool(function_declarations=decls))
     if search:
         tools.append(types.Tool(google_search=types.GoogleSearch()))
-    # No voice (or "Predeterminada"): Gemini Live's own default voice.
-    speech = (
-        types.SpeechConfig(
-            voice_config=types.VoiceConfig(
-                prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name=voice)
+    # Always one of Sergio's own male voices: Gemini Live's unpinned default
+    # voice can be a woman's and changes between models and reconnections.
+    speech = types.SpeechConfig(
+        voice_config=types.VoiceConfig(
+            prebuilt_voice_config=types.PrebuiltVoiceConfig(
+                voice_name=sergio_voice(voice)
             )
         )
-        if voice and voice.lower() not in DEFAULT_VOICE_NAMES
-        else None
     )
     extra: dict[str, Any] = {}
     if _THINKING_OK[0] and not model.startswith("gemini-3.8"):
@@ -923,16 +925,12 @@ async def _speak_live(
     for model in models:
         config = types.LiveConnectConfig(
             response_modalities=["AUDIO"],
-            speech_config=(
-                types.SpeechConfig(
-                    voice_config=types.VoiceConfig(
-                        prebuilt_voice_config=types.PrebuiltVoiceConfig(
-                            voice_name=voice
-                        )
+            speech_config=types.SpeechConfig(
+                voice_config=types.VoiceConfig(
+                    prebuilt_voice_config=types.PrebuiltVoiceConfig(
+                        voice_name=sergio_voice(voice)
                     )
                 )
-                if voice and voice.lower() not in DEFAULT_VOICE_NAMES
-                else None
             ),
             system_instruction=READ_ALOUD,
         )
@@ -984,16 +982,12 @@ async def stream_live(
     for model in models:
         config = types.LiveConnectConfig(
             response_modalities=["AUDIO"],
-            speech_config=(
-                types.SpeechConfig(
-                    voice_config=types.VoiceConfig(
-                        prebuilt_voice_config=types.PrebuiltVoiceConfig(
-                            voice_name=voice
-                        )
+            speech_config=types.SpeechConfig(
+                voice_config=types.VoiceConfig(
+                    prebuilt_voice_config=types.PrebuiltVoiceConfig(
+                        voice_name=sergio_voice(voice)
                     )
                 )
-                if voice and voice.lower() not in DEFAULT_VOICE_NAMES
-                else None
             ),
             system_instruction=READ_ALOUD,
         )

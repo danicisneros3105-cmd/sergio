@@ -378,8 +378,10 @@ class SpeechConfig:
     # back to a different backend that backend's own default voice is used.
     # Kokoro IDs: bm_george / bm_lewis (British male), bf_emma / bf_isabella
     # (British female), af_* / am_* (American).
-    tts_backend: str = "kokoro"  # "kokoro", "openai_tts", "cartesia"
-    voice_id: str = "bm_george"
+    # Sergio's own voice by default ("gemini": the same male voice as in the
+    # live call), so he sounds the same everywhere.
+    tts_backend: str = "gemini"  # "gemini", "kokoro", "openai_tts", "cartesia"
+    voice_id: str = "Algenib"
     voice_speed: float = 1.0
 
 

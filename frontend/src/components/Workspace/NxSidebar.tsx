@@ -16,7 +16,9 @@ import {
   Plus,
   Scissors,
   Search,
+  Settings,
   Settings2,
+  SquarePen,
   ShieldCheck,
   Star,
   Trash2,
@@ -41,6 +43,17 @@ export type SidebarAction =
   | 'library'
   | 'layout'
   | 'export';
+
+// Sergio's own tools, gathered under «Configuración» as Notion keeps them in Settings.
+const SETTINGS: [typeof Network, string, SidebarAction][] = [
+  [Settings2, 'Diseño de la barra', 'layout'],
+  [ShieldCheck, 'Permisos', 'shares'],
+  [Archive, 'Baúl cifrado', 'vault'],
+  [Network, 'Grafo', 'graph'],
+  [Scissors, 'Recortar web', 'clip'],
+  [Download, 'Exportar todo', 'export'],
+];
+export const SETTINGS_ACTIONS: SidebarAction[] = SETTINGS.map(([, , a]) => a);
 
 function PageIcon({ page }: { page: Page }) {
   return <NxIcon icon={page.icon} size={16} />;
@@ -194,6 +207,7 @@ export function NxSidebar({
   const sharedPages = live.filter((p) => shared.has(p.id));
   const top = childrenOf(pages, null);
   const newPage = () => onPick(create({ open: false }).id);
+  const [settings, setSettings] = useState(false);
 
   const item = (icon: React.ReactNode, label: string, action: SidebarAction, on = false) => (
     <button type="button" className="nx-row nx-item" data-active={on || current === action || undefined} onClick={() => onAction(action)}>
@@ -208,11 +222,11 @@ export function NxSidebar({
       <div className="nx-switcher">
         <span className="nx-ws-avatar">S</span>
         <span className="nx-ws-name">Workspace de Sergio</span>
-        <button type="button" className="nx-icon" aria-label="Ocultar la barra" title="Ocultar la barra" onClick={onCollapse}>
+        <button type="button" className="nx-icon nx-hover-only" aria-label="Ocultar la barra" title="Ocultar la barra" onClick={onCollapse}>
           <ChevronsLeft size={17} />
         </button>
         <button type="button" className="nx-icon" aria-label="Nueva página" title="Nueva página" onClick={newPage}>
-          <Plus size={17} />
+          <SquarePen size={16} />
         </button>
       </div>
 
@@ -254,14 +268,32 @@ export function NxSidebar({
         )}
         {shows('library') && <nav className="nx-section nx-library-link">{item(<Library size={16} />, 'Biblioteca', 'library')}</nav>}
 
+        {/* Like Notion's foot of the bar: Configuración, Plantillas, Papelera.
+            The rest of Sergio's tools live inside Configuración. */}
         <nav className="nx-section nx-bottom">
+          <div className="nx-settings-wrap">
+            <button
+              type="button"
+              className="nx-row nx-item"
+              aria-haspopup="menu"
+              aria-expanded={settings}
+              data-active={settings || (current && SETTINGS_ACTIONS.includes(current)) || undefined}
+              onClick={() => setSettings(!settings)}
+            >
+              <span className="nx-row-icon"><Settings size={16} /></span>
+              <span className="nx-row-label">Configuración</span>
+            </button>
+            {settings && (
+              <div className="nx-menu nx-settings-menu" role="menu" onMouseLeave={() => setSettings(false)}>
+                {SETTINGS.map(([Icon, label, action]) => (
+                  <button key={action} type="button" role="menuitem" onClick={() => (setSettings(false), onAction(action))}>
+                    <Icon size={15} /> {label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           {item(<LayoutTemplate size={16} />, 'Plantillas', 'templates')}
-          {item(<Network size={16} />, 'Grafo', 'graph')}
-          {item(<Scissors size={16} />, 'Recortar web', 'clip')}
-          {item(<ShieldCheck size={16} />, 'Permisos', 'shares')}
-          {item(<Download size={16} />, 'Exportar todo', 'export')}
-          {item(<Settings2 size={16} />, 'Diseño', 'layout')}
-          {item(<Archive size={16} />, 'Baúl', 'vault')}
           {item(<Trash2 size={16} />, 'Papelera', 'trash')}
         </nav>
       </div>

@@ -18,6 +18,7 @@ export const LIVE_ES: Record<LiveStatus, string> = {
   ended: 'Reconectando…',
   error: 'Reconectando…',
   blocked: 'Necesito permiso para el micrófono: haga clic para concederlo',
+  replaced: 'Otra ventana tiene la conversación: haga clic para hablar aquí',
 };
 
 export function LiveOrb({ size = 'md' }: { size?: 'sm' | 'md' | 'lg' }) {
@@ -26,6 +27,7 @@ export function LiveOrb({ size = 'md' }: { size?: 'sm' | 'md' | 'lg' }) {
   const enabled = useLive((s) => s.enabled);
   const toggleMute = useLive((s) => s.toggleMute);
   const ensure = useLive((s) => s.ensure);
+  const takeBack = useLive((s) => s.takeBack);
   const orb = useRef<HTMLButtonElement>(null);
 
   useEffect(
@@ -48,6 +50,7 @@ export function LiveOrb({ size = 'md' }: { size?: 'sm' | 'md' | 'lg' }) {
       onClick={(e) => {
         e.stopPropagation();
         if (live) toggleMute();
+        else if (status === 'replaced') takeBack();
         else ensure();
       }}
     >

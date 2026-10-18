@@ -22,6 +22,11 @@ const NewSessionView = (() => {
     return I18n.lang && I18n.lang().startsWith("zh");
   }
 
+  // Sergio: Spanish labels for the chips under the first message.
+  function _isEs() {
+    return I18n.lang && I18n.lang() === "es";
+  }
+
   function _loadAgentName() {
     if (_agentName) return Promise.resolve(_agentName);
     if (_agentNamePromise) return _agentNamePromise;
@@ -815,7 +820,7 @@ const NewSessionView = (() => {
       : null;
     const projectLabel = project
       ? project.name
-      : (zh ? "选择项目" : "Project");
+      : (zh ? "选择项目" : _isEs() ? "Proyecto" : "Project");
     const projectIcon = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>`;
     const projectChip = _makeChip(projectIcon, projectLabel, _openProjectPopover);
     if (!projectId) projectChip.classList.add("ns-ctx-chip--muted");
@@ -823,14 +828,14 @@ const NewSessionView = (() => {
 
     // Session name chip (2nd position)
     const nameVal = adv.name || "";
-    const nameLabel = nameVal || (zh ? "会话名称" : "Name");
+    const nameLabel = nameVal || (zh ? "会话名称" : _isEs() ? "Nombre" : "Name");
     const nameIcon = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>`;
     const nameChip = _makeChip(nameIcon, nameLabel, _openNamePopover);
     if (!nameVal) nameChip.classList.add("ns-ctx-chip--muted");
     bar.appendChild(nameChip);
 
     // Model chip — show selected model name from store (strip prefix/suffix for brevity)
-    let modelLabel = zh ? "模型" : "Model";
+    let modelLabel = zh ? "模型" : _isEs() ? "Modelo" : "Model";
     let modelRaw = "";
     const modelId = adv.modelId;
     if (modelId) {
@@ -850,16 +855,16 @@ const NewSessionView = (() => {
     const dirVal = adv.workingDir || "";
     const dirShort = dirVal
       ? dirVal.replace(/^.*[\/]([^\/]+[\/][^\/]*)$/, "$1").replace(/^.*[\/]/, "").slice(-32)
-      : (zh ? "工作目录" : "Directory");
+      : (zh ? "工作目录" : _isEs() ? "Carpeta" : "Directory");
     const dirIcon = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/></svg>`;
-    const dirChip = _makeChip(dirIcon, dirShort || (zh ? "工作目录" : "Directory"), _openDirPopover);
+    const dirChip = _makeChip(dirIcon, (dirShort === "clacky_workspace" && _isEs() ? "Carpeta de trabajo" : dirShort) || (zh ? "工作目录" : _isEs() ? "Carpeta" : "Directory"), _openDirPopover);
     if (!dirVal) dirChip.classList.add("ns-ctx-chip--muted");
     bar.appendChild(dirChip);
 
     // Init project chip — only for coding agent
     if (agent && agent.id === "coding") {
       const active = NewSessionStore.state.advanced.initProject === true;
-      const initLabel = zh ? "初始化项目" : "Init project";
+      const initLabel = zh ? "初始化项目" : _isEs() ? "Crear proyecto" : "Init project";
       const initIcon = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>`;
       const initChip = _makeChip(initIcon, initLabel, _toggleInitProject);
       if (active) initChip.classList.add("ns-ctx-chip--active");

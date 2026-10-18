@@ -82,6 +82,13 @@ const Onboard = (() => {
       _updateLangBtns("zh");
     });
 
+    const btnEs = $("setup-btn-lang-es");
+    if (btnEs) btnEs.addEventListener("click", () => {
+      _selectedLang = "es";
+      I18n.setLang("es");
+      _updateLangBtns("es");
+    });
+
     btnNext.addEventListener("click", async () => {
       _showSetupStep("key");
       await _loadProviders();
@@ -102,7 +109,9 @@ const Onboard = (() => {
     if (!btnEn || !btnZh) return;
     btnEn.classList.toggle("active", lang === "en");
     btnZh.classList.toggle("active", lang === "zh");
-    if (nextLabel) nextLabel.textContent = lang === "zh" ? "继续" : "Continue";
+    const btnEs = $("setup-btn-lang-es");
+    if (btnEs) btnEs.classList.toggle("active", lang === "es");
+    if (nextLabel) nextLabel.textContent = lang === "zh" ? "继续" : lang === "es" ? "Continuar" : "Continue";
   }
 
   function _showSetupStep(step) {
@@ -128,7 +137,7 @@ const Onboard = (() => {
       try {
         const res  = await fetch("/api/providers");
         const data = await res.json();
-        _providers = data.providers || [];
+        _providers = (data.providers || []).filter(p => p.id !== "openclacky");
         _providersLoaded = true;
       } catch (_) { /* ignore */ }
     }

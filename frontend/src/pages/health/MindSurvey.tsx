@@ -5,7 +5,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, X } from 'lucide-react';
 import { toast } from 'sonner';
-import { salud, type SurveyDefinition, type SurveyItem, type SurveyResult } from '../../lib/salud';
+import { salud, type SurveyDefinition, type SurveyItem, type SurveyResult, type SurveyVariant } from '../../lib/salud';
 import noSuficiente from '../../assets/salud/no-suficiente.webp';
 import pensarDemasiado from '../../assets/salud/pensar-demasiado.webp';
 import encajar from '../../assets/salud/encajar.webp';
@@ -16,7 +16,7 @@ export const SURVEY_IMAGES: Record<string, string> = {
   encajar,
 };
 
-const DRAFT = 'sergio:salud-mental:borrador';
+const draftKey = (variant: SurveyVariant) => `sergio:salud-mental:borrador:${variant}`;
 
 type Answers = Record<string, number | string>;
 
@@ -26,36 +26,44 @@ interface Step {
   firstOfSection: boolean;
 }
 
-function readDraft(): Answers {
+function readDraft(variant: SurveyVariant): Answers {
   try {
-    return JSON.parse(localStorage.getItem(DRAFT) || '{}') as Answers;
+    return JSON.parse(localStorage.getItem(draftKey(variant)) || '{}') as Answers;
   } catch {
     return {};
   }
 }
 
-function writeDraft(answers: Answers | null) {
+function writeDraft(variant: SurveyVariant, answers: Answers | null) {
   try {
-    if (answers) localStorage.setItem(DRAFT, JSON.stringify(answers));
-    else localStorage.removeItem(DRAFT);
+    if (answers) localStorage.setItem(draftKey(variant), JSON.stringify(answers));
+    else localStorage.removeItem(draftKey(variant));
   } catch {
     /* private window: the draft just is not kept */
   }
 }
 
-export function hasDraft(): boolean {
-  return Object.keys(readDraft()).length > 0;
+export function hasDraft(variant: SurveyVariant): boolean {
+  return Object.keys(readDraft(variant)).length > 0;
 }
 
-export function MindSurvey({ onClose, onSent }: { onClose: () => void; onSent: (r: SurveyResult) => void }) {
+export function MindSurvey({
+  variant,
+  onClose,
+  onSent,
+}: {
+  variant: SurveyVariant;
+  onClose: () => void;
+  onSent: (r: SurveyResult) => void;
+}) {
   const [def, setDef] = useState<SurveyDefinition | null>(null);
-  const [answers, setAnswers] = useState<Answers>(readDraft);
+  const [answers, setAnswers] = useState<Answers>(() => readDraft(variant));
   const [at, setAt] = useState(0);
   const [sending, setSending] = useState(false);
 
   useEffect(() => {
-    salud.survey().then(setDef).catch(() => toast.error('No pude cargar la encuesta.'));
-  }, []);
+    salud.survey(variant).then(setDef).catch(() => toast.error('No pude cargar la encuesta.'));
+  }, [variant]);
 
   const steps = useMemo<Step[]>(
     () =>
@@ -75,8 +83,8 @@ export function MindSurvey({ onClose, onSent }: { onClose: () => void; onSent: (
   }, [steps.length]);
 
   useEffect(() => {
-    writeDraft(answers);
-  }, [answers]);
+    writeDraft(variant, answers);
+  }, [variant, answers]);
 
   const step = steps[at];
   const last = at === steps.length - 1;
@@ -93,8 +101,8 @@ export function MindSurvey({ onClose, onSent }: { onClose: () => void; onSent: (
   const send = async () => {
     setSending(true);
     try {
-      const result = await salud.submitSurvey(answers);
-      writeDraft(null);
+      const result = await salud.submitSurvey(answers, variant);
+      writeDraft(variant, null);
       onSent(result);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'No pude enviar la encuesta.');

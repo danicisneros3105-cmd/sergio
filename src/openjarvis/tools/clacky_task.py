@@ -90,7 +90,8 @@ class ClackyTaskTool(BaseTool):
         return ToolSpec(
             name=_TOOL_NAME,
             description=(
-                "Delegate a hands-on computer task to the OpenClacky agent, which "
+                "Delegate a hands-on computer task to the coding agent (call it "
+                '"Agente de código" when talking to the user), which '
                 "can run terminal commands, read and write files, search the web "
                 "and control the user's Chrome browser (open sites, click, type, "
                 "fill forms). Use it for multi-step tasks on the user's computer "
@@ -159,7 +160,7 @@ class ClackyTaskTool(BaseTool):
         decision = request_approval(
             self._store(),
             action_type=_TOOL_NAME,
-            description=f"Clacky will do on your computer: {task}",
+            description=f"El agente de código hará en su equipo: {task}",
             payload={
                 "task": task,
                 "working_dir": str(params.get("working_dir") or Path.home()),
@@ -193,15 +194,19 @@ class ClackyTaskTool(BaseTool):
             return self._fail("The 'task' parameter is required.")
         cfg = self._config.extensions.clacky
         if not cfg.enabled:
-            return self._fail("OpenClacky is disabled ([extensions.clacky] enabled).")
+            return self._fail(
+                "El agente de código está apagado ([extensions.clacky] enabled)."
+            )
         root = extension_dir("clacky", cfg.path)
         if root is None:
             return self._fail(
-                "OpenClacky is not installed (extensions/clacky missing)."
+                "El agente de código no está instalado (falta extensions/clacky)."
             )
         bundle = self._which("bundle")
         if bundle is None or self._which("ruby") is None:
-            return self._fail("OpenClacky needs Ruby and Bundler; run the installer.")
+            return self._fail(
+                "El agente de código necesita Ruby y Bundler; ejecute el instalador."
+            )
         try:
             env = {**os.environ, **clacky_env(self._config)}
         except ModelBridgeError as exc:
@@ -234,17 +239,17 @@ class ClackyTaskTool(BaseTool):
             )
         except subprocess.TimeoutExpired:
             return self._fail(
-                f"OpenClacky did not finish within {cfg.timeout_seconds:.0f}s."
+                f"El agente de código no terminó en {cfg.timeout_seconds:.0f} s."
             )
         except OSError as exc:
-            return self._fail(f"Could not start OpenClacky: {exc}")
+            return self._fail(f"No pude abrir el agente de código: {exc}")
 
         final, tools, error, cost = summarize_events(done.stdout or "")
         if done.returncode != 0 or error:
             detail = error or (done.stderr or "").strip()[-1000:] or "no output"
             return ToolResult(
                 tool_name=_TOOL_NAME,
-                content=f"OpenClacky failed: {detail}",
+                content=f"El agente de código falló: {detail}",
                 success=False,
                 cost_usd=cost,
                 metadata={"tools_used": tools},

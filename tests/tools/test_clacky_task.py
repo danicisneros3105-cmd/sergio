@@ -126,7 +126,9 @@ def test_execute_reports_agent_errors_and_timeouts(tmp_path):
         which=_which,
         approvals=AutoDecide(tmp_path / "b.db"),
     )
-    assert "did not finish" in tool.execute(task="x", working_dir=str(tmp_path)).content
+    assert (
+        "no terminó" in tool.execute(task="x", working_dir=str(tmp_path)).content
+    )  # Spanish, the owner reads it
 
 
 def test_execute_validates_inputs_and_environment(tmp_path):
@@ -151,13 +153,13 @@ def test_execute_validates_inputs_and_environment(tmp_path):
 
     cfg.extensions.clacky.enabled = False
     assert (
-        "disabled" in ClackyTaskTool(config=cfg, which=_which).execute(task="x").content
+        "apagado" in ClackyTaskTool(config=cfg, which=_which).execute(task="x").content
     )
 
     cfg.extensions.clacky.enabled = True
     cfg.extensions.clacky.path = str(tmp_path / "missing")
     assert (
-        "not installed"
+        "no está instalado"
         in ClackyTaskTool(config=cfg, which=_which).execute(task="x").content
     )
 

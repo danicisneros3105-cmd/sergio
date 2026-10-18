@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 import threading
 import time
 import uuid
@@ -96,6 +97,67 @@ def _skill(
             status_code=502, detail=str(data.get("error") or resp.status_code)
         )
     return data.get("result")
+
+
+# The five mental-gym exercises and the research behind each one. The study
+# lines carry no institution names: who did each study, with DOIs, comes from
+# ``health/credits.py`` and is shown in small print at the end of the section.
+GYM_PILLARS: List[Dict[str, str]] = [
+    {
+        "id": "dual_nback",
+        "name": "Dual N-Back adaptativo (posición y letra)",
+        "study": "Jaeggi et al. (PNAS, 2008) · Au et al. (2015): efecto pequeño, aún en debate",
+        "mechanism": "Entrena mantener y actualizar a la vez lo que ve y lo que oye (memoria de trabajo).",
+    },
+    {
+        "id": "raven_matrices",
+        "name": "Matrices de razonamiento",
+        "study": "Klauer y Phye (Review of Educational Research, 2008) · razonamiento inductivo",
+        "mechanism": "Encontrar la regla que une varias figuras: comparar semejanzas y diferencias.",
+    },
+    {
+        "id": "ufov_speed",
+        "name": "Doble decisión y campo visual útil",
+        "study": "Ball et al. (JAMA, 2002) · Edwards et al. (2017): adultos mayores, ~29 % menos demencia a 10 años",
+        "mechanism": "Mirar al centro y a la vez localizar algo en la periferia, cada vez más rápido.",
+    },
+    {
+        "id": "stroop_switch",
+        "name": "Alternancia y control inhibitorio",
+        "study": "Karbach y Kray (Developmental Science, 2009) · Diamond (Annual Review of Psychology, 2013)",
+        "mechanism": "Cambiar de regla con rapidez y frenar la respuesta automática (tareas tipo Stroop).",
+    },
+    {
+        "id": "dsst_control",
+        "name": "Símbolos y dígitos",
+        "study": "Inspirado en el subtest de claves de la escala de Wechsler (WAIS-IV); no es la prueba oficial",
+        "mechanism": "Velocidad al emparejar símbolos y números. Sirve para comparar sus propias sesiones.",
+    },
+]
+_DATED = re.compile(r"^\d{2}/\d{2} \d{2}:\d{2}$")
+
+
+def _clean_gym(old: Dict[str, Any]) -> Dict[str, Any]:
+    """The gym the owner really did. Earlier versions kept invented numbers here
+    (a cognitive index, a percentile, 14 sessions, fake history): those are
+    dropped; only sessions with a real date (written by ``gym_session``) stay."""
+    history = [
+        h
+        for h in (old.get("history") or [])
+        if isinstance(h, dict) and _DATED.match(str(h.get("date", "")))
+    ]
+    best: Dict[str, int] = {}
+    for h in history:
+        best[h["exercise"]] = max(best.get(h["exercise"], 0), int(h.get("score", 0)))
+    level = int(old.get("n_back_level") or 2) if history else 2
+    return {
+        "v": 2,
+        "n_back_level": level,
+        "sessions_completed": len(history),
+        "best": best,
+        "history": history[-25:],
+        "scientific_pillars": [dict(p) for p in GYM_PILLARS],
+    }
 
 
 def _default_health_hub() -> Dict[str, Any]:
@@ -424,111 +486,9 @@ def _default_health_hub() -> Dict[str, Any]:
                 "metrics": "Ciclismo, Carrera, Segmentos y Zonas de potencia",
             },
         ],
-        # 13. Harvard / PNAS / ACTIVE Cognitive Gym (Fluid Intelligence Gf & IQ Transfer)
-        "gym": {
-            "cognitive_index": 124,
-            "gf_percentile": 94,
-            "n_back_level": 2,
-            "sessions_completed": 14,
-            "minutes_trained": 165,
-            "scientific_pillars": [
-                {
-                    "id": "dual_nback",
-                    "name": "Dual N-Back Adaptativo (Posición + Audio/Letra)",
-                    "study": (
-                        "Jaeggi et al. (PNAS, 2008) · Au et al. (Psychonomic Bulletin & Review, 2015) · Meta-análisis "
-                        "de transferencia a inteligencia fluida (Gf)"
-                    ),
-                    "mechanism": (
-                        "Entrena la actualización simultánea visuoespacial y fonológica en la corteza prefrontal "
-                        "dorsolateral (DLPFC) y parietal posterior."
-                    ),
-                    "best_level": "3-Back",
-                },
-                {
-                    "id": "raven_matrices",
-                    "name": "Matrices Progresivas Relacionales (Inducción Gf)",
-                    "study": (
-                        "Raven / Klauer & Phye (Review of Educational Research, 2008) · Razonamiento analógico e "
-                        "integración relacional"
-                    ),
-                    "mechanism": (
-                        "Activa la red fronto-parietal (P-FIT de Haier & Jung) resolviendo transformaciones simultáneas"
-                        " de cantidad, rotación y progresión lógica."
-                    ),
-                    "best_level": "Nivel 4",
-                },
-                {
-                    "id": "ufov_speed",
-                    "name": "Doble Decisión & Campo Visual Útil (UFOV)",
-                    "study": (
-                        "Ball et al. / Estudio multicéntrico ACTIVE (JAMA / Harvard Medical School) · Velocidad de "
-                        "procesamiento neuronal"
-                    ),
-                    "mechanism": (
-                        "Foco foveal + localización periférica simultánea bajo umbral temporal; demostró 29% de "
-                        "protección cognitiva a 10 años."
-                    ),
-                    "best_level": "92%",
-                },
-                {
-                    "id": "stroop_switch",
-                    "name": "Alternancia Ejecutiva & Control Inhibitorio",
-                    "study": (
-                        "Karbach & Kray (Psychological Science, 2009) · Diamond (Annual Review of Psychology, Harvard, "
-                        "2013)"
-                    ),
-                    "mechanism": (
-                        "Cambio rápido entre reglas en conflicto (Task-Switching + Stroop) para reducir el coste de "
-                        "conmutación sináptica."
-                    ),
-                    "best_level": "95%",
-                },
-                {
-                    "id": "dsst_control",
-                    "name": "Prueba de Control WAIS Digit-Symbol (DSST)",
-                    "study": (
-                        "Wechsler Adult Intelligence Scale (WAIS-IV) · Medidor objetivo de transferencia lejana sin "
-                        "sesgo de práctica"
-                    ),
-                    "mechanism": (
-                        "Evalúa velocidad psicomotora, memoria de trabajo e inteligencia fluida real fuera de los "
-                        "ejercicios entrenados."
-                    ),
-                    "best_level": "68 símbolos/90s",
-                },
-            ],
-            "history": [
-                {
-                    "date": "Hace 3 días",
-                    "exercise": "dual_nback",
-                    "score": 84,
-                    "level": 2,
-                    "iq_est": 120,
-                },
-                {
-                    "date": "Hace 2 días",
-                    "exercise": "raven_matrices",
-                    "score": 90,
-                    "level": 3,
-                    "iq_est": 122,
-                },
-                {
-                    "date": "Ayer",
-                    "exercise": "ufov_speed",
-                    "score": 88,
-                    "level": 3,
-                    "iq_est": 123,
-                },
-                {
-                    "date": "Hoy",
-                    "exercise": "dual_nback",
-                    "score": 92,
-                    "level": 3,
-                    "iq_est": 124,
-                },
-            ],
-        },
+        # 13. Mental gym: five short exercises from published research. Only the
+        # owner's own sessions fill in numbers; none is invented (see _clean_gym).
+        "gym": _clean_gym({}),
         # 14. Active AI Coach conversation
         "coach_messages": [
             {
@@ -580,6 +540,9 @@ def load_health_hub() -> Dict[str, Any]:
             try:
                 data = json.loads(path.read_text(encoding="utf-8"))
                 if isinstance(data, dict) and "readiness" in data:
+                    if (data.get("gym") or {}).get("v") != 2:
+                        data["gym"] = _clean_gym(data.get("gym") or {})
+                        save_health_hub(data)
                     return data
             except Exception:  # noqa: BLE001
                 pass
@@ -1039,9 +1002,6 @@ async def gym_session(req: GymSessionRequest) -> Dict[str, Any]:
     hub = load_health_hub()
     gym = hub["gym"]
     gym["sessions_completed"] = int(gym.get("sessions_completed", 0)) + 1
-    gym["minutes_trained"] = int(gym.get("minutes_trained", 0)) + max(
-        1, round(req.duration_sec / 60)
-    )
 
     # Adaptive N-Back progression (Jaeggi et al., PNAS 2008 threshold: >=80% advances N, <50% lowers N)
     if req.exercise == "dual_nback":
@@ -1052,41 +1012,36 @@ async def gym_session(req: GymSessionRequest) -> Dict[str, Any]:
         elif req.score < 50 and int(gym.get("n_back_level", 2)) > 1:
             gym["n_back_level"] = max(1, int(gym.get("n_back_level", 2)) - 1)
 
-    # Recalculate Fluid Intelligence (Gf) Cognitive Index
-    prev_idx = int(gym.get("cognitive_index", 120))
-    gain = 1 if req.score >= 75 else (2 if req.score >= 90 else 0)
-    new_idx = min(160, max(100, prev_idx + gain))
-    gym["cognitive_index"] = new_idx
-    gym["gf_percentile"] = min(99, max(50, int(round(50 + (new_idx - 100) * 1.1))))
-
     gym["history"].append(
         {
             "date": time.strftime("%d/%m %H:%M"),
             "exercise": req.exercise,
             "score": req.score,
             "level": req.level,
-            "iq_est": new_idx,
         }
     )
     gym["history"] = gym["history"][-25:]
+    best = gym.setdefault("best", {})
+    best[req.exercise] = max(int(best.get(req.exercise, 0)), req.score)
     hub["gamification"]["xp"] = (
         int(hub["gamification"].get("xp", 3400)) + 60 + req.level * 15
     )
     hub["gamification"]["level"] = 1 + hub["gamification"]["xp"] // 250
     _mark_entered(hub, "gym")
     save_health_hub(hub)
+
     # Also notify Windows companion brain.py in background if running
-    try:
-        threading.Thread(
-            target=lambda: _skill(
+    def tell_desktop() -> None:
+        try:
+            _skill(
                 "gym_record",
                 {"exercise": req.exercise, "score": req.score, "level": req.level},
                 timeout_s=1.0,
-            ),
-            daemon=True,
-        ).start()
-    except Exception:  # noqa: BLE001
-        pass
+            )
+        except Exception:  # noqa: BLE001 — the desktop app may simply be closed
+            pass
+
+    threading.Thread(target=tell_desktop, daemon=True).start()
     return {"ok": True, "gym": gym, "hub": hub}
 
 

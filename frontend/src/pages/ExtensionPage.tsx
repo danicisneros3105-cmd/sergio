@@ -10,18 +10,14 @@ import {
 
 const POLL_MS = 3000;
 
-const COPY: Record<ExtensionName, { title: string; hint: string }> = {
-  globe: {
-    title: 'Globe',
-    hint: 'Live 3D globe. Ask in chat: "show me Tokyo in night vision".',
-  },
-  clacky: {
-    title: 'Agente de código',
-    hint: 'Hands-on agent for your computer and browser. Sergio delegates tasks here.',
-  },
+// Only Sergio's names in sight (the agent's own interface is patched to match:
+// scripts/marca_agente.py). No subtext under the title.
+export const EXTENSION_TITLE: Record<ExtensionName, string> = {
+  globe: 'Globo',
+  clacky: 'Agente de código',
 };
 
-// Embeds one bundled extension (OpenClacky or the globe) as a full-page panel.
+// Embeds one bundled extension (the coding agent or the globe) as a full-page panel.
 export function ExtensionPage({ name }: { name: ExtensionName }) {
   const [state, setState] = useState<ExtensionsState | null>(null);
   const [error, setError] = useState('');
@@ -45,7 +41,7 @@ export function ExtensionPage({ name }: { name: ExtensionName }) {
   }, [refresh]);
 
   const svc = state?.services.find((s) => s.name === name);
-  const copy = COPY[name];
+  const title = EXTENSION_TITLE[name];
 
   const handleStart = async () => {
     setStarting(true);
@@ -73,12 +69,9 @@ export function ExtensionPage({ name }: { name: ExtensionName }) {
       >
         <div className="min-w-0">
           <h1 className="text-sm font-semibold" style={{ color: 'var(--color-text)' }}>
-            {copy.title}
+            {title}
             {name === 'globe' && state?.globe_target ? ` · ${state.globe_target.label}` : ''}
           </h1>
-          <p className="text-xs truncate" style={{ color: 'var(--color-text-secondary)' }}>
-            {copy.hint}
-          </p>
         </div>
         {svc?.running && (
           <a
@@ -88,7 +81,7 @@ export function ExtensionPage({ name }: { name: ExtensionName }) {
             className="flex items-center gap-1 text-xs"
             style={{ color: 'var(--color-accent-text)' }}
           >
-            <ExternalLink size={14} /> Open in new tab
+            <ExternalLink size={14} /> Abrir aparte
           </a>
         )}
       </header>
@@ -96,7 +89,7 @@ export function ExtensionPage({ name }: { name: ExtensionName }) {
       {svc?.running ? (
         <iframe
           key={src}
-          title={copy.title}
+          title={title}
           src={src}
           className="flex-1 w-full border-0"
           allow="microphone; clipboard-read; clipboard-write; fullscreen"
@@ -111,7 +104,7 @@ export function ExtensionPage({ name }: { name: ExtensionName }) {
             )}
             {state && !svc && (
               <p style={{ color: 'var(--color-text-secondary)' }}>
-                This extension is disabled in config.toml ([extensions.{name}] enabled = false).
+                Está apagado en config.toml ([extensions.{name}] enabled = false).
               </p>
             )}
             {svc?.available && (
@@ -122,7 +115,7 @@ export function ExtensionPage({ name }: { name: ExtensionName }) {
                 style={{ background: 'var(--color-accent)', color: 'var(--color-on-accent)' }}
               >
                 {starting ? <Loader2 size={16} className="animate-spin" /> : <Play size={16} />}
-                {starting ? 'Starting…' : `Start ${copy.title}`}
+                {starting ? 'Abriendo…' : `Abrir ${title.toLowerCase()}`}
               </button>
             )}
           </div>

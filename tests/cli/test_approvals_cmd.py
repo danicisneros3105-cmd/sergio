@@ -13,7 +13,7 @@ def _queue() -> str:
         ApprovalStore()
         .queue_action(
             action_type="clacky_task",
-            description="Clacky will do on your computer: tidy Downloads",
+            description="El agente de código hará en su equipo: tidy Downloads",
             payload={"task": "tidy Downloads"},
             permission_key="clacky_task",
             tier="high",

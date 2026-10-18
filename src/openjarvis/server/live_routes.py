@@ -20,6 +20,27 @@ from openjarvis.server.auth_middleware import authenticate_websocket
 log = logging.getLogger(__name__)
 router = APIRouter(tags=["live"])
 
+# One voice at a time. Two windows (the app, a browser tab, the phone) with
+# an open conversation would each hear the other's Sergio, answer it and cut
+# each other off. The newest conversation takes over; the older one is told
+# and does not reconnect by itself.
+_active: Any = None
+
+
+async def _take_over(call: Any) -> None:
+    global _active
+    old, _active = _active, call
+    if old is None or old is call or getattr(old, "closed", True):
+        return
+    old.closed = True
+    try:
+        await old.send_json(
+            {"type": "replaced", "message": "Otra ventana tomó la conversación."}
+        )
+        await old.ws.close()
+    except Exception:  # noqa: BLE001 — it was already gone
+        pass
+
 
 def _owner() -> str:
     """The owner's name for Sergio's instructions (who he works for)."""
@@ -87,6 +108,7 @@ async def live(websocket: WebSocket) -> None:
     call = LiveCall(
         websocket, start, execute=execute, openai_tools=tools, owner=_owner()
     )
+    await _take_over(call)
     try:
         await call.run()
     except Exception as exc:  # noqa: BLE001 — tell the companion, then close
@@ -95,6 +117,10 @@ async def live(websocket: WebSocket) -> None:
             await websocket.send_json({"type": "error", "message": str(exc)[:500]})
         except Exception:  # noqa: BLE001 — already gone
             pass
+    finally:
+        global _active
+        if _active is call:
+            _active = None
     try:
         await websocket.close()
     except Exception:  # noqa: BLE001

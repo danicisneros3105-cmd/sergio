@@ -1,14 +1,15 @@
 <!DOCTYPE html>
-<html lang="en" id="html-root" data-font-size="medium">
+<html lang="es" id="html-root" data-font-size="medium">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title id="page-title">{{BRAND_NAME}}</title>
-  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-  <link rel="apple-touch-icon" href="/apple-touch-icon-180.png">
+  <link rel="icon" type="image/png" href="/sergio/icon.png">
+  <link rel="apple-touch-icon" href="/sergio/icon.png">
   <link rel="stylesheet" href="/vendor/katex/katex.min.css">
   <link rel="stylesheet" href="/vendor/hljs/hljs-theme.css">
   <link rel="stylesheet" href="/app.css">
+  <link rel="stylesheet" href="/sergio/skin.css">
   <script>
     // Inline theme init — must run before CSS renders to prevent flash of wrong theme.
     (function() {
@@ -1065,6 +1066,7 @@
               <span data-i18n="settings.lang.title">Language</span>
             </div>
             <div class="settings-lang-btns">
+              <button id="settings-btn-lang-es" class="settings-lang-btn" data-lang="es">Español</button>
               <button id="settings-btn-lang-en" class="settings-lang-btn" data-lang="en" data-i18n="settings.lang.en">English</button>
               <button id="settings-btn-lang-zh" class="settings-lang-btn" data-lang="zh" data-i18n="settings.lang.zh">中文</button>
             </div>
@@ -1424,7 +1426,7 @@
             <div class="settings-about-info">
               <div class="about-item">
                 <span class="about-label" data-i18n="settings.about.appName">Application</span>
-                <span class="about-value" id="about-app-name">OpenClacky</span>
+                <span class="about-value" id="about-app-name">Sergio · Agente de código</span>
               </div>
               <div class="about-item">
                 <span class="about-label" data-i18n="settings.about.versionLabel">Version</span>
@@ -1438,7 +1440,8 @@
             <div class="settings-section-title">
               <span data-i18n="settings.about.links">Links</span>
             </div>
-            <div class="settings-about-links">
+            <p class="sergio-credit">Agente de código de Sergio, basado en OpenClacky (licencia MIT) con cambios de Sergio. La licencia original está en extensions/clacky/LICENSE.txt.</p>
+            <div class="settings-about-links" hidden>
               <a href="https://github.com/clacky-ai/openclacky" target="_blank" rel="noopener noreferrer" class="about-link">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
                 <span>GitHub</span>
@@ -1596,11 +1599,12 @@
       <p class="setup-phase-label" data-i18n="onboard.lang.prompt">Choose your language</p>
       <div id="setup-lang-row">
         <div id="setup-lang-btns">
-          <button id="setup-btn-lang-zh" class="setup-lang-btn active">中文</button>
+          <button id="setup-btn-lang-es" class="setup-lang-btn active">Español</button>
+          <button id="setup-btn-lang-zh" class="setup-lang-btn">中文</button>
           <button id="setup-btn-lang-en" class="setup-lang-btn">English</button>
         </div>
         <button id="setup-btn-lang-next" class="setup-next-btn">
-          <span id="setup-btn-lang-next-label">继续</span>
+          <span id="setup-btn-lang-next-label">Continuar</span>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg>
         </button>
       </div>
@@ -1614,7 +1618,7 @@
       <div id="setup-device-block">
         <div id="setup-device-card" class="setup-device-card">
           <div class="setup-device-card-head">
-            <span class="setup-device-card-title" data-i18n="onboard.device.card.title">OpenClacky AI Keys</span>
+            <span class="setup-device-card-title" data-i18n="onboard.device.card.title">Claves de IA de un tercero</span>
             <span class="setup-device-card-badge" data-i18n="provider.recommended">Recommended</span>
           </div>
           <p class="setup-device-card-lead" data-i18n="onboard.device.card.lead">Sign up and get $1 free credit · no subscription · pay as you go</p>
@@ -1658,7 +1662,7 @@
             </li>
             <li class="setup-device-success-note" data-i18n="onboard.device.success.note">During the trial only Gemini 3.8 Flash is available — top up any amount to unlock all frontier models on this same key.</li>
           </ul>
-          <button id="setup-btn-device-continue" class="setup-submit-btn"><span data-i18n="onboard.device.success.btn">Start using Clacky</span><svg class="setup-btn-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg></button>
+          <button id="setup-btn-device-continue" class="setup-submit-btn"><span data-i18n="onboard.device.success.btn">Empezar a usar Sergio</span><svg class="setup-btn-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg></button>
         </div>
 
         <div id="setup-device-error" class="setup-test-result" style="min-height:0;"></div>
@@ -1807,6 +1811,7 @@
 <script src="/core/aside.js"></script>
 <script src="/components/composer.js"></script>
 <script src="/components/mentions.js"></script>
+<script src="/sergio/es.js"></script>
 <script src="/i18n.js"></script>
 <script src="/components/model-picker.js"></script>
 <script src="/auth.js"></script>

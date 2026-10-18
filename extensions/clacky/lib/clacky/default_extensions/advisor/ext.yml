@@ -1,6 +1,6 @@
 id: advisor
 name: Advisor
-display_name: Advisor
+display_name: Sugerencias
 display_name_zh: 工作建议
 description: Recommends next steps after each task, based on your own workflow
 description_zh: 每轮任务结束后，基于你的专属流程推荐下一步工作
@@ -11,7 +11,7 @@ license: MIT
 contributes:
   agents:
     - id: advisor
-      title: Advisor
+      title: Sugerencias
       title_zh: 工作建议
       description: Recommends next steps after each task
       description_zh: 任务结束后推荐下一步
@@ -26,7 +26,7 @@ contributes:
   api: api/handler.rb
   panels:
     - id: advisor
-      title: Advisor
+      title: Sugerencias
       title_zh: 工作建议
       description: Shows advisor recommendations
       description_zh: 展示工作建议卡片

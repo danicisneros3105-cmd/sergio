@@ -1199,7 +1199,7 @@ export async function getMemoryStats(): Promise<MemoryStats> {
   try {
     res = await apiFetch(`/v1/memory/stats`);
   } catch {
-    throw new Error('Could not reach the OpenJarvis API. Check the server status and API URL, then retry.');
+    throw new Error('No hay conexión con Sergio. Compruebe que el servidor está en marcha y vuelva a intentarlo.');
   }
   if (!res.ok) {
     const detail = await memoryErrorDetail(res, 'Memory status request failed');

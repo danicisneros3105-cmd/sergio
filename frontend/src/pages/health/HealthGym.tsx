@@ -2,6 +2,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Brain, Play } from 'lucide-react';
 import { toast } from 'sonner';
 import { apiFetch } from '../../lib/api';
+import { suspendLive } from '../../lib/liveSession';
+import { speakLetter } from '../../lib/letterVoice';
+import { Credits } from './Credits';
 
 type GymGame = 'none' | 'dual_nback' | 'raven_matrices' | 'ufov_speed' | 'stroop_switch' | 'dsst_control';
 
@@ -75,6 +78,12 @@ export function HealthGym({ hub, setHub }: { hub: any; setHub: (hub: any) => voi
 
   // PNAS Cognitive Gym state
   const [game, setGame] = useState<GymGame>('none');
+  // While an exercise is on, the always-on microphone must not hear its letters and answer them.
+  useEffect(() => {
+    if (game === 'none') return;
+    suspendLive(true);
+    return () => suspendLive(false);
+  }, [game]);
 
   // 1) Dual N-Back state
   const [nLevel, setNLevel] = useState<number>(hub.gym?.n_back_level || 2);
@@ -125,7 +134,7 @@ export function HealthGym({ hub, setHub }: { hub: any; setHub: (hub: any) => voi
       if (res.ok) {
         const data = await res.json();
         if (data.hub) setHub(data.hub);
-        toast.success(`Sesión completada (${Math.round(score)}%). Índice cognitivo: ${data.gym?.cognitive_index}`);
+        toast.success(`Sesión guardada: ${Math.round(score)} %.`);
       }
     },
     [],
@@ -148,9 +157,7 @@ export function HealthGym({ hub, setHub }: { hub: any; setHub: (hub: any) => voi
     setNBackHistory(seq);
     setNBackCurrent(seq[0]);
     setNBackPressed({ pos: false, let: false });
-    try {
-      window.speechSynthesis?.speak(new SpeechSynthesisUtterance(seq[0].let));
-    } catch {}
+    speakLetter(seq[0].let);
     let idx = 0;
     if (nBackTimer.current) clearInterval(nBackTimer.current);
     nBackTimer.current = setInterval(() => {
@@ -163,9 +170,7 @@ export function HealthGym({ hub, setHub }: { hub: any; setHub: (hub: any) => voi
       setNBackStep(idx);
       setNBackCurrent(seq[idx]);
       setNBackPressed({ pos: false, let: false });
-      try {
-        window.speechSynthesis?.speak(new SpeechSynthesisUtterance(seq[idx].let));
-      } catch {}
+      speakLetter(seq[idx].let);
     }, 2400);
   };
 
@@ -286,29 +291,15 @@ export function HealthGym({ hub, setHub }: { hub: any; setHub: (hub: any) => voi
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <section style={cardStyle}>
               <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 14 }}>
-                <div>
-                  <span style={{ fontSize: 11.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text)' }}>
-                    Gimnasio mental
-                  </span>
-                  <h2 style={{ fontSize: 20, fontWeight: 800, margin: '2px 0' }}>
-                    Cinco ejercicios cortos
-                  </h2>
-                  <p style={{ fontSize: 13, color: 'var(--color-text-tertiary)', margin: 0 }}>
-                    Memoria de trabajo, razonamiento, atención y velocidad.
-                  </p>
-                </div>
+                <h2 style={{ fontSize: 20, fontWeight: 800, margin: 0 }}>Cinco ejercicios cortos</h2>
                 <div style={{ display: 'flex', gap: 12, alignItems: 'center', background: 'var(--color-hover)', padding: '10px 16px', borderRadius: 16, border: '1px solid var(--color-border)' }}>
                   <div>
-                    <small style={{ fontSize: 11, color: 'var(--color-text-tertiary)', display: 'block' }}>Índice cognitivo</small>
-                    <b style={{ fontSize: 26, color: 'var(--color-text)', fontFamily: 'var(--font-serif, Georgia, serif)' }}>{gym.cognitive_index}</b>
-                  </div>
-                  <div style={{ borderLeft: '1px solid var(--color-border)', paddingLeft: 12 }}>
-                    <small style={{ fontSize: 11, color: 'var(--color-text-tertiary)', display: 'block' }}>Percentil</small>
-                    <b style={{ fontSize: 18, color: 'var(--color-text)' }}>{gym.gf_percentile}º</b>
+                    <small style={{ fontSize: 11, color: 'var(--color-text-tertiary)', display: 'block' }}>Sesiones</small>
+                    <b style={{ fontSize: 22, color: 'var(--color-text)' }}>{gym.sessions_completed || 0}</b>
                   </div>
                   <div style={{ borderLeft: '1px solid var(--color-border)', paddingLeft: 12 }}>
                     <small style={{ fontSize: 11, color: 'var(--color-text-tertiary)', display: 'block' }}>Nivel N-Back</small>
-                    <b style={{ fontSize: 18, color: 'var(--color-text)' }}>{nLevel}-Back</b>
+                    <b style={{ fontSize: 18, color: 'var(--color-text)' }}>{gym.sessions_completed ? `${nLevel}-Back` : '—'}</b>
                   </div>
                 </div>
               </div>
@@ -521,7 +512,7 @@ export function HealthGym({ hub, setHub }: { hub: any; setHub: (hub: any) => voi
                   <div key={p.id} style={subCardStyle}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
                       <b style={{ fontSize: 14, color: 'var(--color-text)' }}>{p.name}</b>
-                      <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--color-text)' }}>{p.best_level}</span>
+                      <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--color-text)' }}>{gym.best?.[p.id] != null ? `Mejor: ${gym.best[p.id]} %` : ''}</span>
                     </div>
                     <div style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--color-text)', marginBottom: 6 }}>{p.study}</div>
                     <p style={{ fontSize: 12.5, color: 'var(--color-text-tertiary)', margin: '0 0 10px', lineHeight: 1.45 }}>{p.mechanism}</p>
@@ -544,6 +535,18 @@ export function HealthGym({ hub, setHub }: { hub: any; setHub: (hub: any) => voi
                   </div>
                 ))}
               </div>
+              {gym.history?.length > 0 && (
+                <ul className="gym-history" aria-label="Sus últimas sesiones">
+                  {gym.history.slice(-6).reverse().map((h: any, i: number) => (
+                    <li key={`${h.date}-${i}`}>
+                      <span>{h.date}</span>
+                      <b>{gym.scientific_pillars.find((p: any) => p.id === h.exercise)?.name ?? h.exercise}</b>
+                      <em>{h.score} %</em>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <Credits scope="gimnasio" />
             </section>
           </div>
   );

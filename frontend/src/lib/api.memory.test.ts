@@ -57,7 +57,7 @@ describe('getMemoryStats', () => {
     ));
     const { getMemoryStats } = await import('./api');
 
-    await expect(getMemoryStats()).rejects.toThrow(/Check the server status and API URL/);
+    await expect(getMemoryStats()).rejects.toThrow(/Compruebe que el servidor/);
     localStorage.setItem('openjarvis-settings', JSON.stringify({ apiUrl: 'http://localhost:8010' }));
     await expect(getMemoryStats()).resolves.toEqual({ backend: 'sqlite', entries: 3 });
     expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([

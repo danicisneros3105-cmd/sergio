@@ -8,10 +8,12 @@
 
 const I18n = (() => {
   const STORAGE_KEY = "clacky-lang";
-  const DEFAULT_LANG = "en";
+  const DEFAULT_LANG = "es";
 
   // ── Translation dictionary ─────────────────────────────────────────────────
   const TRANSLATIONS = {
+    // Sergio: Spanish (sergio/es.js) first; English stays the fallback.
+    es: window.SERGIO_ES || {},
     en: {
       // ── Phases ──
       "phase.no_changes":      "no changes needed",
@@ -734,7 +736,7 @@ const I18n = (() => {
       "channels.section.unconfigured": "Not Configured",
       "channels.section.settings":     "Message settings",
       "channels.customDev.title":      "Build Your Own Adapter",
-      "channels.customDev.desc":       "Clacky's channel system has an open adapter interface. Implement a few methods and your IM platform gets first-class support — WebSocket connection, session binding, and Agent-powered chat.",
+      "channels.customDev.desc":       "The agent's channel system has an open adapter interface. Implement a few methods and your IM platform gets first-class support — WebSocket connection, session binding, and Agent-powered chat.",
       "channels.customDev.btn":        "Develop with Agent",
       "channels.customDev.prompt":     "Read the documentation at https://www.openclacky.com/docs/extend-channel-adapter and help me develop a new IM adapter. Read the docs first to understand the adapter interface, then guide me through it.",
 
@@ -1111,7 +1113,7 @@ const I18n = (() => {
       "onboard.device.success.credit.value": "$1.00 (one-time, on us)",
       "onboard.device.success.model.label": "Trial model:",
       "onboard.device.success.note":        "During the trial only Gemini 3.8 Flash is available — top up any amount to unlock all frontier models on this same key.",
-      "onboard.device.success.btn":         "Start using Clacky",
+      "onboard.device.success.btn":         "Start using Sergio",
       "onboard.manual.toggle":      "Configure manually with your own API key",
       "onboard.provider.custom":    "Custom",
       "provider.recommended":        "Recommended",
@@ -2034,7 +2036,7 @@ const I18n = (() => {
       "channels.section.unconfigured": "未配置",
       "channels.section.settings":     "消息设置",
       "channels.customDev.title":      "开发自己的适配器",
-      "channels.customDev.desc":       "Clacky 频道系统提供开放的适配器接口，只需实现几个方法，你的 IM 平台就能获得完整支持——WebSocket 长连接、会话绑定、Agent 智能对话。",
+      "channels.customDev.desc":       "智能体频道系统提供开放的适配器接口，只需实现几个方法，你的 IM 平台就能获得完整支持——WebSocket 长连接、会话绑定、Agent 智能对话。",
       "channels.customDev.btn":        "用 Agent 开发",
       "channels.customDev.prompt":     "参考 https://www.openclacky.com/docs/extend-channel-adapter 这篇文档，帮我开发一个新的 IM 适配器。请先读取这篇文档了解适配器的接口规范，然后引导我完成开发。",
 
@@ -2653,7 +2655,7 @@ const I18n = (() => {
    */
   function t(key, vars = {}) {
     const dict = TRANSLATIONS[_lang] || TRANSLATIONS[DEFAULT_LANG];
-    let str = dict[key] ?? TRANSLATIONS[DEFAULT_LANG][key] ?? key;
+    let str = dict[key] ?? TRANSLATIONS[DEFAULT_LANG][key] ?? TRANSLATIONS.en[key] ?? key;
     Object.entries(vars).forEach(([k, v]) => {
       // Function replacement: unlike the string form it never interprets `$`
       // patterns (`$&`, `$$`…) inside the value — interpolated values can
@@ -2671,7 +2673,7 @@ const I18n = (() => {
     const out = [];
     for (let i = 1; ; i++) {
       const key = prefix + "." + i;
-      if (dict[key] == null && TRANSLATIONS[DEFAULT_LANG][key] == null) break;
+      if (dict[key] == null && TRANSLATIONS[DEFAULT_LANG][key] == null && TRANSLATIONS.en[key] == null) break;
       out.push(t(key, vars));
     }
     return out;
@@ -2782,12 +2784,12 @@ const THINKING_VERBS = {
 // is a single-number change here, independent of the list contents.
 function getRandomThinkingVerb() {
   const lang    = I18n.lang();
-  const primary = lang === "zh" ? "思考中" : "Thinking";
+  const primary = lang === "zh" ? "思考中" : lang === "es" ? "Pensando" : "Thinking";
 
   // 90% primary, 10% variant
   if (Math.random() < 0.9) return primary;
 
-  const verbs = THINKING_VERBS[lang] || THINKING_VERBS.en;
+  const verbs = lang === "es" ? null : (THINKING_VERBS[lang] || THINKING_VERBS.en);
   if (!verbs || verbs.length === 0) return primary;
   return verbs[Math.floor(Math.random() * verbs.length)];
 }

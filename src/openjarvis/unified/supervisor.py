@@ -293,14 +293,14 @@ class Supervisor:
 
     def _clacky(self, cfg: Any) -> Service:
         svc = Service(
-            "clacky", "OpenClacky agent", cfg.port, extension_dir("clacky", cfg.path)
+            "clacky", "Agente de código", cfg.port, extension_dir("clacky", cfg.path)
         )
         if svc.cwd is None:
-            svc.problem = "extensions/clacky is not present in this installation"
+            svc.problem = "Falta extensions/clacky en esta instalación"
             return svc
         bundle = self._which("bundle")
         if self._which("ruby") is None or bundle is None:
-            svc.problem = "Ruby >= 3.1 and Bundler are required (run the installer)"
+            svc.problem = "Hacen falta Ruby 3.1 o más y Bundler (ejecute el instalador)"
             return svc
         try:
             svc.env = clacky_env(self._config, self._environ)
@@ -328,15 +328,13 @@ class Supervisor:
         return svc
 
     def _globe(self, cfg: Any) -> Service:
-        svc = Service(
-            "globe", "God's Eye View globe", cfg.port, extension_dir("globe", cfg.path)
-        )
+        svc = Service("globe", "Globo", cfg.port, extension_dir("globe", cfg.path))
         if svc.cwd is None:
-            svc.problem = "extensions/globe is not present in this installation"
+            svc.problem = "Falta extensions/globe en esta instalación"
             return svc
         npm = self._which("npm") or self._which("npm.cmd")
         if npm is None:
-            svc.problem = "Node.js 24+ and npm are required (run the installer)"
+            svc.problem = "Hacen falta Node.js 24 o más y npm (ejecute el instalador)"
             return svc
         # Let the OpenJarvis UI (Vite dev server or the API's static build)
         # embed the globe; the globe denies all other embedders.

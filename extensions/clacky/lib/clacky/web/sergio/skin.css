@@ -1,0 +1,187 @@
+/* Sergio's look for the coding agent (applied by scripts/marca_agente.py).
+   Same palette as the rest of Sergio: white / #212121, a light grey sidebar,
+   black rounded buttons, greys for every state, the system letters and the
+   wordmark in Josefin Sans. Nothing here changes how the agent works. */
+
+@font-face {
+  font-family: "Sergio Wordmark";
+  src: url("/sergio/josefin-sans.woff2") format("woff2");
+  font-weight: 100 700;
+  font-display: swap;
+}
+
+:root,
+[data-theme="warm"] {
+  --color-bg-primary: #f9f9f9;
+  --color-bg-secondary: #ffffff;
+  --color-bg-tertiary: #ffffff;
+  --color-bg-hover: #ececec;
+  --color-bg-input: #ffffff;
+  --color-bg-card: #ffffff;
+  --color-bg-overlay: rgba(0, 0, 0, 0.4);
+  --color-border-primary: rgba(0, 0, 0, 0.1);
+  --color-border-secondary: rgba(0, 0, 0, 0.06);
+  --color-border-strong: rgba(0, 0, 0, 0.22);
+  --color-text-primary: #0d0d0d;
+  --color-text-secondary: #5d5d5d;
+  --color-text-tertiary: #8f8f8f;
+  --color-text-muted: #a3a3a3;
+  --color-text-inverse: #ffffff;
+  --color-accent-primary: #0d0d0d;
+  --color-accent-hover: #2f2f2f;
+  --color-accent-soft: rgba(0, 0, 0, 0.05);
+  --color-link: #0d0d0d;
+  --color-link-visited: #5d5d5d;
+  --color-success: #818181;
+  --color-success-bg: #f4f4f4;
+  --color-success-border: #d9d9d9;
+  --color-error: #545454;
+  --color-error-bg: #f4f4f4;
+  --color-error-border: #cfcfcf;
+  --color-warning: #626262;
+  --color-warning-bg: #f4f4f4;
+  --color-warning-border: #d9d9d9;
+  --color-warning-text: #3a3a3a;
+  --color-info: #5d5d5d;
+  --color-secondary: #818181;
+  --color-accent-alt: #626262;
+  --color-button-primary: #0d0d0d;
+  --color-button-primary-hover: #2f2f2f;
+  --color-button-primary-text: #ffffff;
+  --live: #5d5d5d;
+}
+
+[data-theme="dark"],
+[data-theme="dim"],
+[data-theme="bluedark"] {
+  --color-bg-primary: #181818;
+  --color-bg-secondary: #212121;
+  --color-bg-tertiary: #212121;
+  --color-bg-hover: #303030;
+  --color-bg-input: #2a2a2a;
+  --color-bg-card: #212121;
+  --color-bg-overlay: rgba(0, 0, 0, 0.6);
+  --color-border-primary: rgba(255, 255, 255, 0.1);
+  --color-border-secondary: rgba(255, 255, 255, 0.06);
+  --color-border-strong: rgba(255, 255, 255, 0.22);
+  --color-text-primary: #ececec;
+  --color-text-secondary: #b4b4b4;
+  --color-text-tertiary: #8f8f8f;
+  --color-text-muted: #6b6b6b;
+  --color-text-inverse: #0d0d0d;
+  --color-accent-primary: #ffffff;
+  --color-accent-hover: #e0e0e0;
+  --color-accent-soft: rgba(255, 255, 255, 0.07);
+  --color-link: #ececec;
+  --color-link-visited: #b4b4b4;
+  --color-success: #9a9a9a;
+  --color-success-bg: #262626;
+  --color-success-border: #3a3a3a;
+  --color-error: #b4b4b4;
+  --color-error-bg: #262626;
+  --color-error-border: #444444;
+  --color-warning: #a0a0a0;
+  --color-warning-bg: #262626;
+  --color-warning-border: #3a3a3a;
+  --color-warning-text: #d0d0d0;
+  --color-info: #b4b4b4;
+  --color-secondary: #9a9a9a;
+  --color-accent-alt: #a0a0a0;
+  --color-button-primary: #ffffff;
+  --color-button-primary-hover: #e0e0e0;
+  --color-button-primary-text: #0d0d0d;
+  --live: #b4b4b4;
+}
+
+body,
+button,
+input,
+select,
+textarea {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+/* The mark is the name, set like Sergio's wordmark; no picture logo. */
+#header-logo {
+  font-family: "Sergio Wordmark", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-weight: 400;
+  font-size: 13px;
+  letter-spacing: 0.32em;
+  margin-right: -0.32em;
+  text-transform: uppercase;
+  color: var(--color-text-primary);
+}
+#header-logo-img,
+.header-logo-divider {
+  display: none !important;
+}
+
+/* In the dark the buttons are white, as in Sergio: their letters turn black
+   (the original CSS writes white text on the accent in these rules). */
+[data-theme="dark"] :is(.btn-split-main, .btn-split-arrow, .btn-create-task, .task-create-btn,
+  .new-session-send, #btn-send, .btn-settings-add, .btn-primary, .btn-create-skill,
+  .btn-skill-import-confirm, .brand-skills-activate-btn:hover, .setup-step.active,
+  .setup-device-success-icon, #setup-btn-device-continue, .onboard-step.active, .onboard-step.done,
+  .onboard-lang-btn.active, .settings-lang-btn.active, .onboard-btn-primary, .trash-filter-chip.active,
+  .btn-mcp-cta, .media-row-segmented button.is-active, .media-row-btn.is-primary, #btn-interrupt, .btn-danger),
+[data-theme="dim"] :is(.btn-split-main, .btn-split-arrow, .btn-create-task, .task-create-btn,
+  .new-session-send, #btn-send, .btn-settings-add, .btn-primary, .btn-create-skill,
+  .btn-skill-import-confirm, .brand-skills-activate-btn:hover, .setup-step.active,
+  .setup-device-success-icon, #setup-btn-device-continue, .onboard-step.active, .onboard-step.done,
+  .onboard-lang-btn.active, .settings-lang-btn.active, .onboard-btn-primary, .trash-filter-chip.active,
+  .btn-mcp-cta, .media-row-segmented button.is-active, .media-row-btn.is-primary, #btn-interrupt, .btn-danger),
+[data-theme="bluedark"] :is(.btn-split-main, .btn-split-arrow, .btn-create-task, .task-create-btn,
+  .new-session-send, #btn-send, .btn-settings-add, .btn-primary, .btn-create-skill,
+  .btn-skill-import-confirm, .brand-skills-activate-btn:hover, .setup-step.active,
+  .setup-device-success-icon, #setup-btn-device-continue, .onboard-step.active, .onboard-step.done,
+  .onboard-lang-btn.active, .settings-lang-btn.active, .onboard-btn-primary, .trash-filter-chip.active,
+  .btn-mcp-cta, .media-row-segmented button.is-active, .media-row-btn.is-primary, #btn-interrupt, .btn-danger) {
+  color: var(--color-button-primary-text);
+}
+
+/* Icons, avatars and service badges in grey: colour only lives in what the
+   owner makes. */
+.agent-card-avatar,
+.agent-card-avatar img,
+img[src*="/agent_avatar/"],
+.sib-vendor-badge,
+[class*="channel-logo"] {
+  filter: grayscale(1);
+}
+
+/* No explanatory text under titles (owner's rule). */
+[data-i18n$=".subtitle"],
+.channels-page-subtitle {
+  display: none !important;
+}
+
+/* What belongs to the original vendor: its update channel, its paid gateway,
+   its licences and marketplace, its promotion posters. Sergio updates the
+   agent with its own update command and uses the model chosen in Sergio. */
+#version-badge,
+#header-owner-badge,
+#header-print-receipt,
+#setup-device-block,
+#setup-manual-toggle,
+#setup-docs-link,
+#brand-license-section,
+#brand-activation-banner,
+#brand-warning-bar,
+#accent-color-section,
+.provider-badge-recommended,
+#model-modal-promo-hint {
+  display: none !important;
+}
+#setup-manual-section {
+  display: block !important;
+}
+.settings-about-links[hidden] {
+  display: none !important;
+}
+
+.sergio-credit {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--color-text-tertiary);
+}

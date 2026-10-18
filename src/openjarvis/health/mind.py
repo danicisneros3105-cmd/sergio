@@ -306,6 +306,59 @@ ITEM_SCALE = {item_id: s for s in SCALES for item_id, _ in s.items}
 PICTURE_IDS = {p["id"] for p in PICTURES}
 OPEN_IDS = {k for k, _ in OPEN}
 
+# The short survey uses the published two-item screeners that come from the same
+# scales (the same items, so the answers are compatible with the long one).
+PHQ2 = Scale(
+    key="phq2",
+    label="Ánimo",
+    stem=BY_KEY["phq9"].stem,
+    options=FREQ_2W,
+    first=0,
+    items=BY_KEY["phq9"].items[:2],
+    bands=[
+        (2, "minimo", "por debajo del corte"),
+        (6, "positivo", "en el corte o por encima (3 o más)"),
+    ],
+    source="PHQ-2. Kroenke, Spitzer y Williams (2003), Medical Care. Cribado de dos ítems: un resultado de 3 o más pide hablar con un profesional, no es un diagnóstico.",
+    url="https://doi.org/10.1097/01.MLR.0000093487.78664.3C",
+)
+GAD2 = Scale(
+    key="gad2",
+    label="Ansiedad",
+    stem=BY_KEY["gad7"].stem,
+    options=FREQ_2W,
+    first=0,
+    items=BY_KEY["gad7"].items[:2],
+    bands=[
+        (2, "minimo", "por debajo del corte"),
+        (6, "positivo", "en el corte o por encima (3 o más)"),
+    ],
+    source="GAD-2. Kroenke et al. (2007), Annals of Internal Medicine. Cribado de dos ítems: un resultado de 3 o más pide hablar con un profesional, no es un diagnóstico.",
+    url="https://doi.org/10.7326/0003-4819-146-5-200703060-00004",
+)
+VARIANTS: Dict[str, Dict[str, Any]] = {
+    "corta": {
+        "label": "Corta",
+        "minutes": 3,
+        "scales": [PHQ2, GAD2, BY_KEY["ucla3"]],
+        # PHQ-9 item 9 stays in the short survey: it is the safety question.
+        "extra_items": {"phq2": [BY_KEY["phq9"].items[8]]},
+        "open": ["open_cambio"],
+    },
+    "larga": {
+        "label": "Larga",
+        "minutes": 12,
+        "scales": list(SCALES),
+        "extra_items": {},
+        "open": [k for k, _ in OPEN],
+    },
+}
+DEFAULT_VARIANT = "larga"
+
+
+def variant_of(name: str) -> str:
+    return name if name in VARIANTS else DEFAULT_VARIANT
+
 
 def delay_seconds() -> int:
     try:
@@ -314,8 +367,10 @@ def delay_seconds() -> int:
         return DELAY_SECONDS
 
 
-def definition() -> Dict[str, Any]:
+def definition(variant: str = DEFAULT_VARIANT) -> Dict[str, Any]:
     """The survey as the app shows it, one question per screen."""
+    variant = variant_of(variant)
+    plan = VARIANTS[variant]
     pictures = [
         {
             **p,
@@ -327,8 +382,9 @@ def definition() -> Dict[str, Any]:
     sections: List[Dict[str, Any]] = [
         {"key": "inicio", "title": "Para empezar", "items": pictures}
     ]
-    for s in SCALES:
+    for s in plan["scales"]:
         options = [{"value": s.first + i, "label": o} for i, o in enumerate(s.options)]
+        items = list(s.items) + list(plan["extra_items"].get(s.key, []))
         sections.append(
             {
                 "key": s.key,
@@ -336,7 +392,7 @@ def definition() -> Dict[str, Any]:
                 "stem": s.stem,
                 "items": [
                     {"id": i, "kind": "choice", "text": t, "options": options}
-                    for i, t in s.items
+                    for i, t in items
                 ],
             }
         )
@@ -344,19 +400,48 @@ def definition() -> Dict[str, Any]:
         {
             "key": "abiertas",
             "title": "Con sus palabras",
-            "items": [{"id": k, "kind": "open", "text": t} for k, t in OPEN],
+            "items": [
+                {"id": k, "kind": "open", "text": t}
+                for k, t in OPEN
+                if k in plan["open"]
+            ],
         }
     )
     return {
+        "variant": variant,
+        "label": plan["label"],
+        "minutes": plan["minutes"],
         "sections": sections,
-        "count": sum(len(s["items"]) for s in sections),
+        "count": sum(len(sec["items"]) for sec in sections),
         "delay_minutes": round(delay_seconds() / 60),
-        "sources": sources(),
+        "sources": sources(variant),
+        "variants": [
+            {
+                "key": k,
+                "label": v["label"],
+                "minutes": v["minutes"],
+                "count": definition_count(k),
+            }
+            for k, v in VARIANTS.items()
+        ],
     }
 
 
-def sources() -> List[Dict[str, str]]:
-    return [{"scale": s.label, "cite": s.source, "url": s.url} for s in SCALES]
+def definition_count(variant: str) -> int:
+    plan = VARIANTS[variant_of(variant)]
+    return (
+        len(PICTURES)
+        + sum(
+            len(s.items) + len(plan["extra_items"].get(s.key, []))
+            for s in plan["scales"]
+        )
+        + len(plan["open"])
+    )
+
+
+def sources(variant: str = DEFAULT_VARIANT) -> List[Dict[str, str]]:
+    scales = VARIANTS[variant_of(variant)]["scales"]
+    return [{"scale": s.label, "cite": s.source, "url": s.url} for s in scales]
 
 
 def clean_answers(raw: Dict[str, Any]) -> Dict[str, Any]:
@@ -407,10 +492,11 @@ def _sub_band(total: int, low: int, high: int) -> Tuple[str, str]:
     return "alta", "alta"
 
 
-def score(answers: Dict[str, Any]) -> Dict[str, Any]:
+def score(answers: Dict[str, Any], variant: str = DEFAULT_VARIANT) -> Dict[str, Any]:
     """Sum every complete scale; incomplete scales say how many items are missing."""
+    variant = variant_of(variant)
     scales: List[Dict[str, Any]] = []
-    for s in SCALES:
+    for s in VARIANTS[variant]["scales"]:
         ids = [i for i, _ in s.items]
         answered = [i for i in ids if i in answers]
         low = s.first * len(ids)
@@ -479,7 +565,12 @@ def score(answers: Dict[str, Any]) -> Dict[str, Any]:
         }
         for p in PICTURES
     ]
-    return {"scales": scales, "pictures": pictures, "crisis": at_risk(answers)}
+    return {
+        "variant": variant,
+        "scales": scales,
+        "pictures": pictures,
+        "crisis": at_risk(answers),
+    }
 
 
 def at_risk(answers: Dict[str, Any]) -> bool:
@@ -500,17 +591,22 @@ def crisis_text() -> str:
 
 
 def needs_professional(scores: Dict[str, Any]) -> bool:
-    by = {s["key"]: s for s in scores["scales"]}
+    """Published cut-offs: PHQ-9 and GAD-7 from 10, their two-item screeners from 3."""
+    by = {s["key"]: (s["score"] or 0) for s in scores["scales"]}
     return bool(
         scores.get("crisis")
-        or (by["phq9"]["score"] or 0) >= 10
-        or (by["gad7"]["score"] or 0) >= 10
+        or by.get("phq9", 0) >= 10
+        or by.get("gad7", 0) >= 10
+        or by.get("phq2", 0) >= 3
+        or by.get("gad2", 0) >= 3
     )
 
 
 # -- the reading ----------------------------------------------------------------
 
 STEPS = {
+    "phq2": "",
+    "gad2": "",
     "phq9": "Activación conductual: cada día, una actividad pequeña que antes le gustaba o que tenga sentido para usted, apuntada a una hora fija, aunque no tenga ganas. Es de los tratamientos con más evidencia para el ánimo bajo (Dimidjian et al., 2006, Universidad de Washington).",
     "gad7": "Respiración lenta (unas 6 respiraciones por minuto, 5 minutos) cuando note la tensión, y acercarse poco a poco a lo que evita en lugar de huir de ello.",
     "rses": "Autocompasión: escríbase unas líneas como se las escribiría a un buen amigo que pasa por lo mismo (Neff, Universidad de Texas). Hablarse con dureza no motiva; hablarse con respeto, sí.",
@@ -519,6 +615,9 @@ STEPS = {
     "auth": "Escriba sus tres valores más importantes y, esta semana, haga una cosa pequeña que vaya con uno de ellos aunque a otros no les encaje.",
     "ucla3": "Un contacto concreto esta semana: escribir o quedar con alguien con quien se siente cómodo, o sumarse a una actividad de grupo que le interese.",
 }
+
+
+STEPS["phq2"], STEPS["gad2"] = STEPS["phq9"], STEPS["gad7"]
 
 
 def _concerns(scores: Dict[str, Any]) -> List[str]:
@@ -581,9 +680,18 @@ def reading_prompt(scores: Dict[str, Any], answers: Dict[str, Any]) -> str:
         f"- {p['domain']}: {p['label'] or 'sin responder'}" for p in scores["pictures"]
     ]
     opens = [f"- {t} {answers[k]}" for k, t in OPEN if answers.get(k)]
+    short = (
+        "Es la versión CORTA: solo hay cribados de dos ítems (orientan, no miden la gravedad) "
+        "y la soledad; no saques conclusiones de lo que no se preguntó.\n"
+        if scores.get("variant") == "corta"
+        else ""
+    )
     return (
         "Resultados de la encuesta de salud mental del señor.\n"
-        "Punto de partida (preguntas con imagen):\n" + "\n".join(pics) + "\n"
+        + short
+        + "Punto de partida (preguntas con imagen):\n"
+        + "\n".join(pics)
+        + "\n"
         "Escalas validadas:\n"
         + "\n".join(rows)
         + "\n"
@@ -641,6 +749,10 @@ def write_reading(
 
 
 __all__ = [
+    "DEFAULT_VARIANT",
+    "VARIANTS",
+    "definition_count",
+    "variant_of",
     "DELAY_SECONDS",
     "OPEN",
     "PICTURES",

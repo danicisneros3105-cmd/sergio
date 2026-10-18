@@ -11,6 +11,27 @@ export const OUT_RATE = 24000;
 export const SILENCE_AFTER = 0.4; // seconds of quiet before explicitly ending input
 const VOICE_LEVEL = 0.012; // RMS that counts as speech (after the browser's noise suppression)
 const PREROLL = 3; // buffers kept from just before you start talking
+// While Sergio talks, his own voice coming back or people nearby must not cut
+// him off: only a voice clearly louder than that, kept up for 200 ms, does.
+export const BARGE_LEVEL = 0.05;
+export const BARGE_CHUNKS = 10; // 20 ms each
+
+export interface Barge {
+  /** Consecutive loud chunks heard while Sergio talks. */
+  run: number;
+  /** Smoothed level of what is NOT a deliberate interruption (echo, room). */
+  echo: number;
+}
+
+/** One 20 ms chunk while Sergio is talking: has the owner really started to talk over him? */
+export function nextBarge(state: Barge, level: number): { voiced: boolean; state: Barge } {
+  const bar = Math.max(BARGE_LEVEL, state.echo * 2.5);
+  if (level > bar) {
+    const run = state.run + 1;
+    return { voiced: run >= BARGE_CHUNKS, state: { run, echo: state.echo } };
+  }
+  return { voiced: false, state: { run: 0, echo: 0.95 * state.echo + 0.05 * level } };
+}
 
 export function liveUrl(base: string, origin: string): string {
   const url = new URL('/v1/live', base || origin);
@@ -62,6 +83,8 @@ export interface VoiceCallbacks {
   onLatency?: (serverMs: number) => void;
   /** A finished exchange: what you said and what Sergio answered. */
   onTurn?: (heard: string, said: string) => void;
+  /** Another window took the conversation: do not reconnect by yourself. */
+  onReplaced?: () => void;
 }
 
 /** One voice-mode call. `start()` asks for the microphone and connects. */
@@ -81,6 +104,8 @@ export class VoiceCall {
   private heard = '';
   private said = '';
   private stopped = false;
+  private barge: Barge = { run: 0, echo: 0.02 };
+  private suspended = false;
   muted = false;
 
   constructor(
@@ -134,11 +159,21 @@ export class VoiceCall {
       if (this.stopped) return;
       const samples = e.data;
       const level = rms(samples);
-      if (!this.playing.length) this.cb.onLevel(Math.min(1, level * 12));
+      const speaking = this.playing.length > 0;
+      if (!speaking) this.cb.onLevel(Math.min(1, level * 12));
       const pcm = downsample(samples, rate);
       const now = performance.now() / 1000;
-      if (!this.muted && level > VOICE_LEVEL) this.lastVoice = now;
-      const open = !this.muted && now - this.lastVoice < SILENCE_AFTER;
+      const deaf = this.muted || this.suspended;
+      let voiced = level > VOICE_LEVEL;
+      if (speaking) {
+        const next = nextBarge(this.barge, level);
+        this.barge = next.state;
+        voiced = next.voiced;
+      } else {
+        this.barge.run = 0;
+      }
+      if (!deaf && voiced) this.lastVoice = now;
+      const open = !deaf && now - this.lastVoice < SILENCE_AFTER;
       if (open) {
         if (this.gated) {
           this.gated = false;
@@ -151,9 +186,10 @@ export class VoiceCall {
           this.gated = true;
           this.send(JSON.stringify({ type: 'audio_end' })); // your turn is over
         }
-        if (!this.muted) {
+        if (!deaf) {
           this.preroll.push(pcm);
-          if (this.preroll.length > PREROLL) this.preroll.shift();
+          // While he talks, keep the start of a deliberate interruption too.
+          if (this.preroll.length > PREROLL + (speaking ? BARGE_CHUNKS : 0)) this.preroll.shift();
         } else this.preroll = [];
       }
     };
@@ -196,6 +232,10 @@ export class VoiceCall {
       case 'said':
         this.said += event.text || '';
         this.cb.onSaid(this.said.trim());
+        break;
+      case 'replaced':
+        this.stop(false);
+        this.cb.onReplaced?.();
         break;
       case 'interrupted':
         this.hush();
@@ -281,12 +321,20 @@ export class VoiceCall {
 
   setMuted(muted: boolean): void {
     this.muted = muted;
-    if (muted) {
-      this.preroll = [];
-      if (!this.gated) this.send(JSON.stringify({ type: 'audio_end' }));
-      this.gated = true;
-      this.lastVoice = -Infinity;
-    }
+    if (muted) this.closeGate();
+  }
+
+  /** The microphone is deaf for a while without the owner muting it (another voice is playing). */
+  setSuspended(suspended: boolean): void {
+    this.suspended = suspended;
+    if (suspended) this.closeGate();
+  }
+
+  private closeGate(): void {
+    this.preroll = [];
+    if (!this.gated) this.send(JSON.stringify({ type: 'audio_end' }));
+    this.gated = true;
+    this.lastVoice = -Infinity;
   }
 
   /** The browser chooser grants access; stopping revokes the tracks immediately. */

@@ -62,7 +62,8 @@ def test_disabled_and_absent_extensions(tmp_path):
     cfg.extensions.clacky.path = str(tmp_path / "missing")
     sup = Supervisor(cfg, which=_which_all, environ={})
     assert [s.name for s in sup.services()] == ["clacky"]
-    assert "not present" in sup.get("clacky").problem
+    # Spanish, as the owner sees it.
+    assert "Falta extensions/clacky" in sup.get("clacky").problem
     with pytest.raises(KeyError):
         sup.get("globe")
     assert sup.start(sup.get("clacky")).startswith("skipped")

@@ -228,27 +228,32 @@ class SergioAppControlTool(BaseTool):
                 )
 
             if action == "health_status":
-                from openjarvis.server.desktop_routes import load_health_hub
+                # Only what the owner really has: connected or typed-in data and
+                # the gym sessions he did. Placeholders are never reported.
+                from openjarvis.health import insights
+                from openjarvis.health.store import get_store
+                from openjarvis.server.desktop_routes import (
+                    _known_facts,
+                    load_health_hub,
+                )
 
                 hub = load_health_hub()
+                facts = " ".join(
+                    f
+                    for f in (insights.known_facts(get_store()), _known_facts(hub))
+                    if f
+                )
+                gym = hub["gym"]
                 summary = {
-                    "readiness": hub["readiness"],
-                    "heart": {k: v for k, v in hub["heart"].items() if k != "history"},
-                    "sleep": {k: v for k, v in hub["sleep"].items() if k != "nights"},
-                    "activity": {
-                        k: v for k, v in hub["activity"].items() if k != "workouts"
+                    "datos_reales": facts
+                    or "El señor aún no ha conectado ni anotado datos de salud.",
+                    "gimnasio_mental": {
+                        "sesiones": gym["sessions_completed"],
+                        "nivel_n_back": gym["n_back_level"]
+                        if gym["sessions_completed"]
+                        else None,
+                        "mejores_puntuaciones": gym.get("best", {}),
                     },
-                    "training_plan_today": hub["training_plan"]["today"],
-                    "nutrition": {
-                        k: v for k, v in hub["nutrition"].items() if k != "meals"
-                    },
-                    "gym": {
-                        "cognitive_index": hub["gym"]["cognitive_index"],
-                        "gf_percentile": hub["gym"]["gf_percentile"],
-                        "n_back_level": hub["gym"]["n_back_level"],
-                        "sessions_completed": hub["gym"]["sessions_completed"],
-                    },
-                    "connectors": hub["connectors"],
                 }
                 return ToolResult(
                     tool_name=self.tool_id,

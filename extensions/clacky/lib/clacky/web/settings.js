@@ -56,7 +56,7 @@ const Settings = (() => {
       const configData   = await configRes.json();
       const providerData = await providerRes.json();
       _models    = configData.models   || [];
-      _providers = providerData.providers || [];
+      _providers = (providerData.providers || []).filter(p => p.id !== "openclacky");
       _renderCards();
     } catch (e) {
       container.innerHTML = `<div class="settings-error">${I18n.t("settings.models.error", { msg: e.message })}</div>`;
@@ -2751,7 +2751,7 @@ const Settings = (() => {
 
         if (data.ok) {
           // Clear brand name and logo from header
-          Brand.applyBrandName("OpenClacky");
+          Brand.applyBrandName("Sergio");
           Brand.clearBrandCache();
           Brand.applyHeaderLogo();
           const userAccent = (() => { try { return localStorage.getItem("clacky-accent-color"); } catch (_) { return null; } })();

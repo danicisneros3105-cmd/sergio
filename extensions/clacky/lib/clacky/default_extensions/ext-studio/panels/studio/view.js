@@ -8,8 +8,8 @@
 (function () {
   const STUDIO_I18N = {
     en: {
-      "nav.entry": "Creator Center",
-      "ws.title": "Creator Center",
+      "nav.entry": "Taller de extensiones",
+      "ws.title": "Taller de extensiones",
       "tab.extensions": "Extensions",
       "tab.skills": "Skills",
       "ext.debug.section": "Debug",
@@ -423,7 +423,7 @@
 
   function t(key, vars) {
     const lang = (typeof I18n !== "undefined" && I18n.lang && I18n.lang()) || "en";
-    const dict = STUDIO_I18N[lang] || STUDIO_I18N.en;
+    const dict = (lang === "es" && window.SERGIO_ES_EXT && window.SERGIO_ES_EXT.studio) || STUDIO_I18N[lang] || STUDIO_I18N.en;
     let str = dict[key] != null ? dict[key] : (STUDIO_I18N.en[key] != null ? STUDIO_I18N.en[key] : key);
     if (vars) Object.keys(vars).forEach((k) => { str = str.split("{{" + k + "}}").join(vars[k]); });
     return str;

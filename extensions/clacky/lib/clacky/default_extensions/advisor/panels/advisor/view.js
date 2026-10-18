@@ -65,7 +65,7 @@
 
   function t(key, fallback) {
     const lang = (typeof I18n !== "undefined" && I18n.lang) ? I18n.lang() : "zh";
-    const v = (DICT[lang] && DICT[lang][key]) || DICT.en[key];
+    const v = (lang === "es" && window.SERGIO_ES_EXT && window.SERGIO_ES_EXT.advisor[key]) || (DICT[lang] && DICT[lang][key]) || DICT.en[key];
     return v || fallback;
   }
 

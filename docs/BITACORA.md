@@ -2,6 +2,56 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-10-18 · Claude · Voz siempre masculina, encuesta corta y larga, créditos sin logos, agente de código con marca Sergio, Workspace como Notion
+- Petición del dueño: usar todas sus imágenes en la encuesta de salud mental y
+  que no se corten; dejar una encuesta corta y otra larga; que Sergio no
+  responda con voz de mujer ni se interrumpa entre varias voces; revisar si es
+  legal poner logos de universidades y mostrar las investigaciones al final de
+  Salud mental y del gimnasio; poner parches de marca a lo externo (nombres,
+  interfaces, logos); Workspace igual a Notion.
+- Voz: la de mujer salía porque Gemini Live sin voz fija usa su voz por
+  defecto, por voces femeninas elegibles y por la lectura en voz alta con otros
+  motores. Ahora todo usa una voz masculina fija (`sergio_voice`, Algenib), la
+  lectura en voz alta va con Gemini (`speech/gemini_tts.py`) y el gimnasio con
+  una voz masculina del sistema. «Varias voces que se cortan»: cada ventana
+  abierta tenía su propia conversación y el micrófono oía la lectura. Ahora solo
+  una ventana conversa (la anterior queda en «Otra ventana tiene la
+  conversación»), el micrófono se pausa mientras suena la lectura y cuesta más
+  interrumpir con eco.
+- Salud mental: corta (12 preguntas: imágenes, PHQ-2 + ítem 9, GAD-2, UCLA-3,
+  una abierta) y larga (56). Las cinco imágenes se ven enteras.
+- Créditos: `health/credits.py` + `Credits.tsx` al final de Salud mental y del
+  gimnasio. Logos: son marcas y las universidades piden permiso escrito, así que
+  no se incluyen; solo nombres como texto y aviso de no afiliación
+  (`docs/LEGAL-MARCAS.md`). Corregí atribuciones mal puestas (Harvard en ACTIVE
+  y Diamond; revista de Karbach y Kray) y quité del gimnasio un «índice
+  cognitivo 124 / percentil 94» inventado y datos falsos que la herramienta
+  `health_status` daba por reales.
+- Marca: el agente de código (OpenClacky, MIT) se ve ahora como Sergio:
+  nombre, sin logo de cubo, grises de Sergio (claro y oscuro), letra de marca,
+  1228 textos traducidos al español (más los de sus extensiones), sin la
+  pasarela de pago ni el aviso de actualizaciones del proveedor, reuniones que
+  responden a «Oye Sergio». Todo con `scripts/marca_agente.py` (reaplicable,
+  `--check` en `tests/unified/test_marca_agente.py`). Créditos en «Acerca de»
+  del agente y en NOTICE. También quité «OpenJarvis» de las guías de
+  conectores, de un error de la web, de los títulos de la línea de comandos y
+  de los mensajes del agente (aprobaciones y errores ahora en español).
+- Workspace: ya estaba muy cerca de Notion (lo hizo Codex). Cerré lo que
+  faltaba frente a Notion 3.4: el pie de la barra queda en Configuración,
+  Plantillas y Papelera (las herramientas propias de Sergio dentro de
+  Configuración, sin quitar ninguna), «nueva página» con el icono de Notion,
+  «ocultar barra» solo al pasar el ratón, e icono de las tarjetas de Inicio
+  que la portada tapaba.
+- Revisé lo de Codex: respeté Biblioteca, secciones, pestañas, Presentar y
+  Panel del Workspace. Un test suyo de `tts` dejó de cargar por mi cambio
+  anterior (la lectura ahora pausa la voz en vivo); lo arreglé con un simulacro
+  y una prueba nueva de esa pausa.
+- Pendiente / para el otro: probar con micrófono real el umbral para
+  interrumpir (aquí no hay audio); si se actualiza `extensions/clacky`, correr
+  `python3 scripts/marca_agente.py`; la carpeta de trabajo del agente sigue
+  llamándose `clacky_workspace` en disco (en pantalla dice «Carpeta de
+  trabajo»).
+
 ## 2026-10-18 · Claude · Biblioteca de prompts, encuesta de salud mental, atajos tipo cerebro de mosca, API más robusta
 - Petición del dueño: usar siempre «Awesome-System-Prompts» y
   «LLM-Persona-Prompts» completos como reentrenamiento; encuesta de salud

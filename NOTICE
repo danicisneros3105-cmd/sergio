@@ -46,3 +46,16 @@ repositorio; cada uno se descarga de su fuente oficial con su licencia):
   PyTorch (BSD-3-Clause): la predicción de Bolsa, en su propio entorno.
 - LidoJS no se usa: su paquete no tiene licencia abierta (es un producto de
   pago) y no puede incluirse sin comprar una licencia.
+
+Agente de código (extensions/clacky): es OpenClacky (MIT, © clacky-ai;
+https://github.com/clacky-ai/openclacky), incluido en este repositorio con su
+licencia en extensions/clacky/LICENSE.txt. Sergio le cambia lo visible (nombre,
+logo, colores, textos en español y sin la pasarela de pago ni el canal de
+actualizaciones del proveedor) con scripts/marca_agente.py; los archivos nuevos
+están en extensions/clacky/lib/clacky/web/sergio/. Lleva la letra Josefin Sans
+(SIL Open Font License 1.1, © 2010 The Josefin Sans Project Authors) para la
+marca, como el resto de Sergio.
+
+Salud mental y gimnasio mental citan las investigaciones que usan (autores,
+revista, DOI) y nombran como texto las instituciones donde se hicieron, sin
+logos y sin relación ni aval (ver docs/LEGAL-MARCAS.md).

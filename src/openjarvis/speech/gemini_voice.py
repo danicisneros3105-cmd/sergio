@@ -42,6 +42,22 @@ VOICES = {  # Gemini prebuilt voices that fit Sergio (male, adult)
     "Iapetus": "Sergio (claro)",
 }
 DEFAULT_VOICE = "Algenib"
+
+
+def sergio_voice(name: str = "") -> str:
+    """The Gemini voice to use for *name*: always one of Sergio's male voices.
+
+    No name, "Predeterminada", an unknown name or a voice that is not his
+    (Gemini's own default can be a woman's) all become Sergio's own voice, so
+    a call never answers in a voice that is not his.
+    """
+    wanted = (name or "").split(":", 1)[-1].strip().lower()
+    for known in VOICES:
+        if known.lower() == wanted:
+            return known
+    return DEFAULT_VOICE
+
+
 STYLE = (
     "Lee en español, con una voz masculina grave y relajada, algo rasposa y "
     "cálida, de unos cuarenta años: segura, carismática, con media sonrisa y "

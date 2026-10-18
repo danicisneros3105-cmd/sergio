@@ -5,8 +5,13 @@ vi.mock('./api', () => ({
   fetchTtsHealth: vi.fn(),
 }));
 
+// The live conversation is its own module (microphone, socket); here only the
+// pause it gets while a reply is read aloud matters.
+vi.mock('./liveSession', () => ({ suspendLive: vi.fn() }));
+
 import { synthesizeSpeech, fetchTtsHealth } from './api';
 import { useTtsStore, __resetTtsForTests, shouldAutoplayFinishedReply } from './tts';
+import { suspendLive } from './liveSession';
 
 const synth = vi.mocked(synthesizeSpeech);
 const health = vi.mocked(fetchTtsHealth);
@@ -149,6 +154,17 @@ describe('shared voice output', () => {
     expect(useTtsStore.getState().error).toBeNull();
     expect(useTtsStore.getState().state).toBe('idle');
     expect(revoked).toEqual(created);
+  });
+
+  it('pauses the live microphone while reading aloud, and resumes it after', async () => {
+    synth.mockResolvedValue(new Blob(['wav']));
+    vi.mocked(suspendLive).mockClear();
+
+    await useTtsStore.getState().speak('m1', 'Hola');
+    expect(vi.mocked(suspendLive)).toHaveBeenLastCalledWith(true);
+
+    FakeAudio.instances[0].onended?.();
+    expect(vi.mocked(suspendLive)).toHaveBeenLastCalledWith(false);
   });
 
   it('surfaces a synthesis failure', async () => {

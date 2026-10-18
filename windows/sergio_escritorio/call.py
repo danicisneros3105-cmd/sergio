@@ -676,6 +676,10 @@ class CallSession:
             value = event.get("server_end_to_first_audio_ms")
             if isinstance(value, (int, float)) and math.isfinite(value) and value >= 0:
                 self.server_first_audio_ms = value
+        elif kind == "replaced":
+            # Another window (the web, the phone) took the conversation: two
+            # open at once would answer each other. Stay down, do not redial.
+            self.hang_up("otra ventana")
         elif kind == "error":
             self.error = str(event.get("message") or "")
             self.on_caption(f"La llamada falló: {self.error[:120]}")

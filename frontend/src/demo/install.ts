@@ -165,7 +165,7 @@ function nodeReply(nodeId: string, thread: string, text: string): Json {
   const mine = { id: Math.random().toString(16).slice(2, 12), at: now, role: 'user', text, thread };
   list.push(mine);
   const node = ((recorded['GET /v1/nodes']?.json as { nodes?: Json[] })?.nodes || []).find((n) => n.id === nodeId);
-  const persona = `Eres ${node?.name || 'un Node'}, un empleado digital persistente de la app Sergio (estilo Dots). \
+  const persona = `Eres ${node?.name || 'un Node'}, un empleado digital persistente de la app Sergio. \
 Tus instrucciones: ${node?.instructions || ''}\nHablas al usuario de usted, en español, breve y con calidez. Es un demo: no tienes internet ni su PC; \
 responde con lo que harías y una propuesta concreta. Te llamas «Node» (plural «Nodes») en cualquier idioma, nunca «nodo».`;
   const history = list.map((m) => ({ role: m.role === 'user' ? 'user' : 'assistant', content: String(m.text || '') }));

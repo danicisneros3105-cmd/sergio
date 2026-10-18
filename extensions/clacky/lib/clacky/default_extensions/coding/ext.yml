@@ -8,9 +8,9 @@ license: MIT
 contributes:
   agents:
     - id: coding
-      title: Coding
+      title: Código
       title_zh: 编程开发
-      description: Claude Code-grade coding capability, your technical co-founder
+      description: "Programa con usted: lee, escribe y prueba código"
       description_zh: 对齐 Claude Code 的编程能力，你的技术合伙人
       order: 2
       prompt: agents/coding/system_prompt.md

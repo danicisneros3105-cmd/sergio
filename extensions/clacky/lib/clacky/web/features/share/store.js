@@ -14,8 +14,8 @@
 // ───────────────────────────────────────────────────────────────────────────
 
 const ShareStore = (() => {
-  const DEFAULT_NAME     = "OpenClacky";
-  const DEFAULT_HOMEPAGE = "https://www.openclacky.com/";
+  const DEFAULT_NAME     = "Sergio";
+  const DEFAULT_HOMEPAGE = null;
 
   const COUNT_KEY    = "clacky-share-success-count";
   const COOLDOWN_KEY = "clacky-share-cooldown-until";

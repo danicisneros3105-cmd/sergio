@@ -193,9 +193,19 @@ def test_a_blocked_network_does_not_block_the_microphone_callback():
         call.hang_up()
 
 
-def test_gemini_voices_and_the_default_use_gemini_lives_own_voice():
+def test_the_default_voice_is_sent_empty_and_the_server_pins_his_own():
     assert _call(FakeLine(), voice="gemini:Predeterminada").voice == ""
     assert _call(FakeLine(), voice="gemini:Charon").voice == "Charon"
+
+
+def test_another_window_taking_the_conversation_hangs_up_without_redialing():
+    line = FakeLine([json.dumps({"type": "ready", "model": "m"})])
+    ended = []
+    call = _call(line, on_end=ended.append)
+    assert call.start()
+    line.inbox.put(json.dumps({"type": "replaced", "message": "Otra ventana"}))
+    assert _wait(lambda: ended)
+    assert ended == ["otra ventana"] and not call.active
 
 
 def test_microphone_goes_through_the_echo_canceller_in_10ms_frames():

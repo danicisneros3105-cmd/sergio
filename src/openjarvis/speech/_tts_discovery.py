@@ -15,13 +15,16 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# Priority order: local first, then cloud.
-TTS_BACKEND_ORDER = ("kokoro", "kokoro_onnx", "openai_tts", "cartesia")
+# Priority order: local first, then cloud. Sergio's own voice (the same one
+# as in the live call) is the configured default (``speech.tts_backend``), so
+# it comes first through ``preferred``; here it is also the last resort.
+TTS_BACKEND_ORDER = ("kokoro", "kokoro_onnx", "openai_tts", "cartesia", "gemini")
 
 # Voice IDs are backend-specific and NOT portable. ``speech.voice_id`` applies
 # only to ``speech.tts_backend``; if synthesis falls back to another backend we
 # use that backend's own default rather than passing an unrecognized ID through.
 BACKEND_DEFAULT_VOICE = {
+    "gemini": "Algenib",  # Sergio: deep, relaxed, husky, male
     "kokoro": "bm_george",  # British male
     "kokoro_onnx": "em_alex",  # Spanish male (no PyTorch needed)
     "openai_tts": "onyx",  # deepest OpenAI preset

@@ -87,7 +87,7 @@ def _ensure_frontend_dependencies(frontend: Path, npm: str) -> None:
 @click.option(
     "--no-extensions",
     is_flag=True,
-    help="Do not start the bundled OpenClacky agent and 3D globe.",
+    help="Do not start the bundled coding agent and 3D globe.",
 )
 @click.option("--no-browser", is_flag=True, help="Only start the frontend.")
 def gui(
@@ -100,14 +100,14 @@ def gui(
     """Start the browser-based graphical mode in the default browser.
 
     This command is intended for source checkouts. For an installed desktop
-    application, launch OpenJarvis from the operating system menu instead.
+    application, launch Sergio from the operating system menu instead.
     """
     console = Console(stderr=True)
     frontend = _frontend_dir()
     if frontend is None:
         raise click.ClickException(
             "The graphical frontend is not available in this installation. "
-            "Download the OpenJarvis desktop app or run this command "
+            "Download the Sergio desktop app or run this command "
             "from a source checkout."
         )
     npm = shutil.which("npm") or shutil.which("npm.cmd")
@@ -140,7 +140,7 @@ def gui(
             check=False,
         )
         if server.returncode != 0:
-            raise click.ClickException("Could not start the OpenJarvis API server.")
+            raise click.ClickException("Could not start the Sergio API server.")
 
     from openjarvis.cli.extensions_cmd import start_extensions, stop_extensions
     from openjarvis.core.config import load_config
@@ -194,7 +194,7 @@ def gui(
             )
 
         url = f"http://127.0.0.1:{frontend_port}"
-        console.print(f"[green]OpenJarvis graphical mode is ready:[/green] {url}")
+        console.print(f"[green]Sergio graphical mode is ready:[/green] {url}")
         if not no_browser:
             webbrowser.open(url)
         try:

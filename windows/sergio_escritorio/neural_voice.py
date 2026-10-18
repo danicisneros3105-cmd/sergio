@@ -10,23 +10,21 @@ import asyncio
 import io
 import wave
 
-# Voices worth offering (id, label). "gemini:" voices are Sergio's own: a
-# refined British gentleman speaking Spanish (Gemini TTS, via the server).
+# Voices worth offering (id, label). Sergio is a man: only men's voices are
+# offered, and "gemini:" voices are his own (Gemini TTS, via the server). The
+# old "Predeterminada" choice is gone: Gemini's own default can be a woman's
+# (a saved one still works and means Algenib, see gemini_voice.sergio_voice).
 VOICES = [
     ("gemini:Algenib", "Sergio: masculina, grave y relajada (ronca)"),
     ("elevenlabs:f5gk6ENs9vgDBvfkTj7e", "Grave, cálida y rasposa (ElevenLabs, la más rápida; necesita clave)"),
-    ("gemini:Predeterminada", "Gemini Live (voz predeterminada)"),
     ("gemini:Algieba", "Sergio británico (suave)"),
     ("gemini:Charon", "Sergio británico (informativo)"),
     ("gemini:Sadaltager", "Sergio británico (erudito)"),
     ("gemini:Orus", "Sergio británico (firme)"),
     ("es-ES-AlvaroNeural", "Álvaro (España)"),
     ("es-EC-LuisNeural", "Luis (Ecuador)"),
-    ("es-EC-AndreaNeural", "Andrea (Ecuador)"),
     ("es-MX-JorgeNeural", "Jorge (México)"),
-    ("es-MX-DaliaNeural", "Dalia (México)"),
     ("es-CO-GonzaloNeural", "Gonzalo (Colombia)"),
-    ("es-ES-ElviraNeural", "Elvira (España)"),
     ("es-AR-TomasNeural", "Tomás (Argentina)"),
     ("en-GB-RyanNeural", "Ryan (English, UK)"),
     ("en-US-AndrewNeural", "Andrew (English, US)"),

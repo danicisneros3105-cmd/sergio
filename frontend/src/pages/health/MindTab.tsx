@@ -5,9 +5,10 @@ import ReactMarkdown from 'react-markdown';
 import { Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { apiFetch } from '../../lib/api';
-import { clock, countdown, salud, type ScaleScore, type SurveyResult } from '../../lib/salud';
+import { clock, countdown, salud, type ScaleScore, type SurveyResult, type SurveyVariant } from '../../lib/salud';
 import portada from '../../assets/salud/portada-salud-mental.webp';
 import { HealthGym } from './HealthGym';
+import { Credits } from './Credits';
 import { MindSurvey, SURVEY_IMAGES, hasDraft } from './MindSurvey';
 
 const PICTURE_IMAGE: Record<string, string> = {
@@ -97,7 +98,10 @@ function Result({ result, onBack }: { result: SurveyResult; onBack: () => void }
       <button type="button" className="paper-button" data-variant="quiet" onClick={onBack}>
         Volver
       </button>
-      <h2 className="mind-result-title">Resultado del {day(result.created)}</h2>
+      <h2 className="mind-result-title">
+        Resultado del {day(result.created)}
+        <small>{result.variant === 'corta' ? 'Encuesta corta' : 'Encuesta larga'}</small>
+      </h2>
       {result.crisis && result.crisis_text && <Crisis text={result.crisis_text} />}
       {result.reading && (
         <section className="mind-reading">
@@ -132,18 +136,7 @@ function Result({ result, onBack }: { result: SurveyResult; onBack: () => void }
           </section>
         </>
       )}
-      {result.sources && (
-        <section className="salud-block">
-          <h3 className="paper-label">Fuentes</h3>
-          <ul className="mind-sources">
-            {result.sources.map((s) => (
-              <li key={s.scale}>
-                <b>{s.scale}.</b> {s.url ? <a href={s.url} target="_blank" rel="noreferrer">{s.cite}</a> : s.cite}
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
+      <Credits scope="mente" />
       <p className="paper-meta">Es una orientación a partir de escalas validadas, no un diagnóstico. Si algo le preocupa, hable con un profesional de salud mental.</p>
     </div>
   );
@@ -164,6 +157,7 @@ function Gym() {
 
 export function MindTab() {
   const [mode, setMode] = useState<'home' | 'survey' | 'view'>('home');
+  const [variant, setVariant] = useState<SurveyVariant>('corta');
   const [list, setList] = useState<SurveyResult[]>([]);
   const [current, setCurrent] = useState<SurveyResult | null>(null);
 
@@ -184,6 +178,7 @@ export function MindTab() {
   if (mode === 'survey') {
     return (
       <MindSurvey
+        variant={variant}
         onClose={() => setMode('home')}
         onSent={(r) => {
           setCurrent(r);
@@ -213,11 +208,10 @@ export function MindTab() {
     );
   }
 
-  const draft = hasDraft();
   return (
     <div className="mind-home">
       <section className="mind-cover">
-        <img src={portada} alt="Un cerebro flotando sobre un traje con corbata, sobre fondo rojo" />
+        <img className="mind-cover-art" src={portada} width={754} height={1000} alt="Un cerebro flotando sobre un traje con corbata, sobre fondo rojo" />
         <div className="mind-cover-body">
           <h2>Encuesta de salud mental</h2>
           <ul className="mind-covers">
@@ -225,12 +219,45 @@ export function MindTab() {
             <li>Pensar demasiado y problemas acumulados</li>
             <li>Querer encajar siendo otra persona</li>
           </ul>
-          <button type="button" className="paper-button" onClick={() => setMode('survey')}>
-            {draft ? 'Continuar la encuesta' : 'Empezar la encuesta'}
-          </button>
-          <p className="paper-meta">56 preguntas, unos 10 minutos, con escalas validadas de Columbia, Penn State, Michigan, Chicago y UCLA, entre otras. El análisis llega unos 30 minutos después.</p>
+          <div className="mind-choose">
+            {(
+              [
+                ['corta', 'Corta', '12 preguntas · unos 3 minutos'],
+                ['larga', 'Larga', '56 preguntas · unos 12 minutos'],
+              ] as const
+            ).map(([key, label, meta]) => (
+              <button
+                key={key}
+                type="button"
+                className="mind-variant"
+                onClick={() => {
+                  setVariant(key);
+                  setMode('survey');
+                }}
+              >
+                <b>{hasDraft(key) ? `Continuar la ${label.toLowerCase()}` : label}</b>
+                <span>{meta}</span>
+              </button>
+            ))}
+          </div>
+          <p className="paper-meta">El análisis de Sergio llega unos 30 minutos después de enviarla. No es un diagnóstico.</p>
         </div>
       </section>
+
+      <div className="mind-strip" aria-label="Las tres preguntas con imagen">
+        {(
+          [
+            ['no-suficiente', 'Un espejo roto frente a una silueta con sombrero', 'No sentirse suficiente'],
+            ['pensar-demasiado', 'Una figura enterrada bajo montones de periódicos', 'Pensar demasiado'],
+            ['encajar', 'Un hombre con máscara de león rodeado de leones rojos', 'Querer encajar'],
+          ] as const
+        ).map(([image, alt, caption]) => (
+          <figure key={image}>
+            <img src={SURVEY_IMAGES[image]} alt={alt} loading="lazy" />
+            <figcaption>{caption}</figcaption>
+          </figure>
+        ))}
+      </div>
 
       {list.length > 0 && (
         <section className="salud-block">
@@ -259,6 +286,8 @@ export function MindTab() {
           </ul>
         </section>
       )}
+
+      <Credits scope="mente" />
 
       <section className="salud-block">
         <h3 className="paper-label">Gimnasio mental</h3>

@@ -12,7 +12,7 @@ import { create } from 'zustand';
 import { useAppStore } from './store';
 import { VoiceCall, type VoiceState } from './liveVoice';
 
-export type LiveStatus = VoiceState | 'off' | 'waiting' | 'blocked' | 'reconnecting';
+export type LiveStatus = VoiceState | 'off' | 'waiting' | 'blocked' | 'reconnecting' | 'replaced';
 
 const PREF = 'sergio.live';
 const RETRY = [1000, 2000, 4000, 8000, 15000, 30000];
@@ -56,6 +56,8 @@ interface LiveStore {
   toggleMute: () => void;
   /** Start (or resume) the session; called on the first click/key press. */
   ensure: () => void;
+  /** Take the conversation back from the other window (the owner chose to). */
+  takeBack: () => void;
   /** Tell the voice what was said in writing, so both share one context. */
   note: (text: string) => void;
 }
@@ -130,6 +132,15 @@ export const useLive = create<LiveStore>((set, get) => {
           writeTurn(heard, said);
           set({ heard: '', said: '' });
         },
+        onReplaced: () => {
+          if (call !== c) return;
+          // Another window (the app, a tab) has the conversation now. Two open at
+          // once would answer each other, so this one stays quiet until asked.
+          call = null;
+          if (retryTimer) clearTimeout(retryTimer);
+          retryTimer = null;
+          set({ status: 'replaced', heard: '', said: '' });
+        },
       },
       language,
     );
@@ -165,8 +176,13 @@ export const useLive = create<LiveStore>((set, get) => {
       call?.setMuted(muted);
       set({ muted });
     },
+    takeBack: () => {
+      if (!get().enabled || call) return;
+      attempt = 0;
+      connect();
+    },
     ensure: () => {
-      if (!get().enabled) return;
+      if (!get().enabled || get().status === 'replaced') return;
       if (call) {
         call.resumeAudio();
         return;
@@ -178,6 +194,19 @@ export const useLive = create<LiveStore>((set, get) => {
   };
 });
 
+let suspensions = 0;
+
+/** Another voice (a read-aloud reply) is playing: the microphone must not hear it and answer. */
+export function suspendLive(on: boolean): void {
+  suspensions = Math.max(0, suspensions + (on ? 1 : -1));
+  call?.setSuspended(suspensions > 0);
+}
+
+/** Is Sergio's live voice talking right now? */
+export function liveIsSpeaking(): boolean {
+  return useLive.getState().status === 'speaking';
+}
+
 /** Test hook: drop the session between tests. */
 export function resetLiveForTests(): void {
   if (retryTimer) clearTimeout(retryTimer);
@@ -185,4 +214,5 @@ export function resetLiveForTests(): void {
   call?.stop(false);
   call = null;
   attempt = 0;
+  suspensions = 0;
 }

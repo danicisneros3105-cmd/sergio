@@ -15,8 +15,8 @@ class MeetingExt < Clacky::ApiExtension
   VOCABULARY_PATH = File.join(MEETINGS_ROOT, "vocabulary.txt")
   # Always injected into STT vocabulary — these are our own wake words / brand
   # names and must not be droppable by the user's saved list.
-  SYSTEM_VOCABULARY = "Clacky, 小克".freeze
-  DEFAULT_VOCABULARY = "Clacky, 小克, OpenClacky, openclacky"
+  SYSTEM_VOCABULARY = "Sergio, Clacky, 小克".freeze
+  DEFAULT_VOCABULARY = "Sergio, Clacky, 小克, OpenClacky, openclacky"
 
   # annotate is a read-only analysis: block every side-effecting tool so the
   # forked subagent can only read/think, never write files, run commands,
@@ -145,7 +145,7 @@ class MeetingExt < Clacky::ApiExtension
       logger.warn("ask: question too short, dropping (question=#{question.inspect})")
       next json(ok: false, dropped: true, reason: "question_too_short")
     end
-    if question.match?(/\A(open)?clacky\z/i) || question.match?(/\A小?克\z/) || question.match?(/\A克拉奇\z/)
+    if question.match?(/\A((open)?clacky|sergio)\z/i) || question.match?(/\A小?克\z/) || question.match?(/\A克拉奇\z/)
       logger.warn("ask: question is a bare wake/brand word, dropping (question=#{question.inspect})")
       next json(ok: false, dropped: true, reason: "question_is_brand_word")
     end

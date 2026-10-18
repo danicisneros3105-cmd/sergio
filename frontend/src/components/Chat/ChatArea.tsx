@@ -5,6 +5,7 @@ import { InputArea } from './InputArea';
 import { StreamingDots } from './StreamingDots';
 import { useAppStore } from '../../lib/store';
 import { shouldAutoplayFinishedReply, useTtsStore } from '../../lib/tts';
+import { liveIsSpeaking } from '../../lib/liveSession';
 import { stripThinkTags } from '../../lib/message-text';
 import {
   Brain,
@@ -117,6 +118,8 @@ export function ChatArea() {
       if (!app.settings.voiceOutputEnabled || !app.settings.voiceAutoplay) return;
       if (currentLast?.id !== completedMessageId || currentTts.available !== true) return;
       if (currentTts.autoSpokenId === completedMessageId) return;
+      // His live voice is already talking: a second voice on top would be noise.
+      if (liveIsSpeaking()) return;
 
       const text = stripThinkTags(currentLast.content);
       if (!text) return;

@@ -176,3 +176,124 @@ def test_empty_survey_is_refused(client):
         ).status_code
         == 400
     )
+
+
+def test_short_survey_is_twelve_questions_with_the_safety_item():
+    d = mind.definition("corta")
+    assert d["variant"] == "corta" and d["count"] == 12
+    assert [s["key"] for s in d["sections"]] == [
+        "inicio",
+        "phq2",
+        "gad2",
+        "ucla3",
+        "abiertas",
+    ]
+    ids = [i["id"] for s in d["sections"] for i in s["items"]]
+    assert "phq9_9" in ids  # the safety question is never dropped
+    assert len(ids) == len(set(ids))
+    assert [v["key"] for v in d["variants"]] == ["corta", "larga"]
+    assert [v["count"] for v in d["variants"]] == [12, 56]
+    assert mind.definition("whatever")["variant"] == "larga"
+
+
+def test_two_item_screeners_use_the_published_cutoff_of_three():
+    base = {p["id"]: 1 for p in mind.PICTURES}
+    base.update({"ucla3_1": 1, "ucla3_2": 1, "ucla3_3": 1, "phq9_9": 0})
+    low = mind.score(
+        {**base, "phq9_1": 1, "phq9_2": 1, "gad7_1": 1, "gad7_2": 0}, "corta"
+    )
+    by = {s["key"]: s for s in low["scales"]}
+    assert by["phq2"]["score"] == 2 and by["phq2"]["band"] == "minimo"
+    assert by["gad2"]["score"] == 1 and not mind.needs_professional(low)
+    assert low["variant"] == "corta"
+    high = mind.score(
+        {**base, "phq9_1": 2, "phq9_2": 1, "gad7_1": 0, "gad7_2": 0}, "corta"
+    )
+    assert {s["key"]: s for s in high["scales"]}["phq2"]["band"] == "positivo"
+    assert mind.needs_professional(high)
+    gad = mind.score(
+        {**base, "phq9_1": 0, "phq9_2": 0, "gad7_1": 2, "gad7_2": 1}, "corta"
+    )
+    assert mind.needs_professional(gad)
+
+
+def test_short_survey_still_raises_the_alarm_on_item_nine():
+    answers = {p["id"]: 0 for p in mind.PICTURES}
+    answers.update({"phq9_1": 0, "phq9_2": 0, "phq9_9": 1, "gad7_1": 0, "gad7_2": 0})
+    assert mind.score(answers, "corta")["crisis"]
+
+
+def test_the_short_reading_says_it_is_the_short_one():
+    answers = {p["id"]: 1 for p in mind.PICTURES}
+    answers.update({"phq9_1": 1, "phq9_2": 1, "phq9_9": 0, "gad7_1": 1, "gad7_2": 1})
+    answers.update({"ucla3_1": 1, "ucla3_2": 1, "ucla3_3": 1})
+    scores = mind.score(answers, "corta")
+    assert "versión CORTA" in mind.reading_prompt(scores, answers)
+    assert "versión CORTA" not in mind.reading_prompt(
+        mind.score(_all(), "larga"), _all()
+    )
+
+
+def test_both_variants_travel_through_the_api(client, monkeypatch):
+    monkeypatch.setenv("SERGIO_MIND_DELAY", "0")
+    assert client.get("/v1/healthdata/mind/survey?variant=corta").json()["count"] == 12
+    assert client.get("/v1/healthdata/mind/survey").json()["count"] == 56
+    answers = {p["id"]: 1 for p in mind.PICTURES}
+    answers.update({"phq9_1": 1, "phq9_2": 1, "gad7_1": 1, "gad7_2": 1})
+    answers.update({"ucla3_1": 1, "ucla3_2": 1, "ucla3_3": 1})
+    sent = client.post(
+        "/v1/healthdata/mind/surveys", json={"answers": answers, "variant": "corta"}
+    ).json()
+    assert sent["variant"] == "corta"
+    done = client.get(f"/v1/healthdata/mind/surveys/{sent['id']}").json()
+    assert done["status"] == "ready" and done["variant"] == "corta"
+    assert {s["key"] for s in done["scores"]["scales"]} == {"phq2", "gad2", "ucla3"}
+
+
+def test_credits_name_institutions_but_ship_no_logo(client, tmp_path, monkeypatch):
+    from openjarvis.health import credits as credits_mod
+
+    monkeypatch.setattr(credits_mod, "logos_dir", lambda: tmp_path / "instituciones")
+    mente = client.get("/v1/healthdata/credits?scope=mente").json()
+    names = {i["name"] for s in mente["studies"] for i in s["institutions"]}
+    assert {"Universidad de Columbia", "Universidad de Chicago"} <= names
+    assert not mente["logos_added_by_owner"]
+    assert (
+        "no tiene relación" in mente["notice"]
+        and "permiso por escrito" in mente["notice"]
+    )
+    assert all(
+        s["url"].startswith("https://doi.org/") or not s["url"]
+        for s in mente["studies"]
+    )
+    gym = client.get("/v1/healthdata/credits?scope=gimnasio").json()
+    topics = {s["topic"] for s in gym["studies"]}
+    assert "Dual N-Back" in topics and "Símbolos y dígitos" in topics
+    # Harvard was wrongly credited before: it is not an institution here.
+    assert "Harvard" not in str(gym) and "Harvard" not in str(mente)
+    assert client.get("/v1/healthdata/credits?scope=otra").status_code == 400
+    assert client.get("/v1/healthdata/instituciones/columbia/logo").status_code == 404
+
+
+def test_a_logo_the_owner_added_is_shown_and_nothing_else_is_served(
+    client, tmp_path, monkeypatch
+):
+    from openjarvis.health import credits as credits_mod
+
+    folder = tmp_path / "instituciones"
+    folder.mkdir()
+    (folder / "columbia.png").write_bytes(b"\x89PNG\r\n\x1a\n" + b"0" * 20)
+    (folder / "secreto.png").write_bytes(b"x")
+    monkeypatch.setattr(credits_mod, "logos_dir", lambda: folder)
+    mente = client.get("/v1/healthdata/credits?scope=mente").json()
+    assert mente["logos_added_by_owner"]
+    shown = {i["key"]: i["logo"] for s in mente["studies"] for i in s["institutions"]}
+    assert shown["columbia"] and not shown["michigan"]
+    assert (
+        client.get("/v1/healthdata/instituciones/columbia/logo").headers["content-type"]
+        == "image/png"
+    )
+    assert client.get("/v1/healthdata/instituciones/secreto/logo").status_code == 404
+    assert client.get(
+        "/v1/healthdata/instituciones/..%2F..%2Fetc/logo"
+    ).status_code in (404, 422)

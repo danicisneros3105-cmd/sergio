@@ -95,16 +95,34 @@ termina en la rama `main`, y el dueño actualiza con un único comando.
   código de respaldo (dos veces) se pide después y puede esperar. Los
   **Post-its** se mueven desde toda su cabecera, en la web (puntero, también
   táctil) y en Windows (`organizer_ui.py`), y nunca quedan fuera de alcance.
-- Salud mental (dueño, oct. 2026): una **encuesta** con tres preguntas de
-  imagen al inicio, en este orden (no sentirse suficiente, pensar demasiado,
-  querer encajar), y después escalas validadas con su texto publicado:
-  PHQ-9, GAD-7, Rosenberg, rumiación (brooding), PSWQ-3, Autenticidad y
-  soledad UCLA-3, más cuatro preguntas abiertas (`health/mind.py`,
-  `/v1/healthdata/mind/…`). Las puntuaciones son sumas con los cortes
-  publicados (o «orientativas» si la escala no tiene). Resultado y lectura de
+- Salud mental (dueño, oct. 2026): **dos encuestas, corta (12 preguntas) y
+  larga (56)**, con tres preguntas de imagen al inicio, en este orden (no
+  sentirse suficiente, pensar demasiado, querer encajar), y después escalas
+  validadas con su texto publicado. Larga: PHQ-9, GAD-7, Rosenberg, rumiación
+  (brooding), PSWQ-3, Autenticidad y soledad UCLA-3, más cuatro abiertas.
+  Corta: PHQ-2 + ítem 9 del PHQ-9, GAD-2, UCLA-3 y una abierta (corte ≥ 3 en
+  PHQ-2/GAD-2) (`health/mind.py`, `/v1/healthdata/mind/…?variant=`). Las cinco
+  imágenes del dueño se ven enteras (`object-fit: contain`), nunca recortadas.
+  Las puntuaciones son sumas con los cortes publicados (o «orientativas» si la escala no tiene). Resultado y lectura de
   la IA llegan **a los 30 minutos** (`SERGIO_MIND_DELAY`), pero si el ítem 9
   del PHQ-9 es mayor que 0 o lo escrito tiene palabras de riesgo, las líneas
   de crisis salen **al instante**. Nunca es un diagnóstico.
+- Créditos de investigación (dueño, oct. 2026): al final de Salud mental y del
+  gimnasio mental, en letra pequeña, cada estudio con autores, revista y DOI, y
+  las instituciones **solo como texto** con aviso de que no hay relación ni aval
+  (`health/credits.py`, `pages/health/Credits.tsx`). Ningún logo de universidad
+  viene con Sergio: son marcas y piden permiso escrito; solo se muestran si el
+  dueño pone el archivo con permiso en `~/.openjarvis/instituciones/`
+  (`docs/LEGAL-MARCAS.md`). El gimnasio no inventa índices ni percentiles: solo
+  muestra sesiones reales con fecha.
+- Voz de Sergio (dueño, oct. 2026): **siempre masculina**. Gemini Live va con
+  una voz fija de la lista de hombres (`gemini_voice.sergio_voice`, Algenib por
+  defecto), nunca la predeterminada; la lectura en voz alta usa el mismo motor
+  (`tts_backend = "gemini"`); el gimnasio usa una voz masculina del sistema.
+  **Una sola conversación de voz a la vez**: la ventana nueva se queda la
+  conversación y la anterior recibe «replaced» y no se reconecta sola. Mientras
+  suena la lectura o el gimnasio, el micrófono en vivo se pausa; para
+  interrumpir a Sergio hace falta hablar claramente más fuerte que el eco.
 - Biblioteca de prompts (dueño, oct. 2026): Sergio usa siempre las
   colecciones públicas de prompts de sistema y de personaje
   (`prompt_library/sources.py`), descargadas **completas** al equipo del dueño
@@ -131,7 +149,10 @@ termina en la rama `main`, y el dueño actualiza con un único comando.
   grises; iconos de línea. El color solo vive en lo que el dueño crea (sus
   diseños, fotos, 3D) y en los cuatro personajes de los Nodes.
 - Workspace igual a Notion (en blanco y negro), con lo de Notion 2026:
-  Biblioteca, secciones de la barra, Papelera, pestañas, Presentar y Panel.
+  Biblioteca, secciones de la barra, Papelera, pestañas, Presentar y Panel. Al
+  pie de la barra, como Notion, solo Configuración, Plantillas y Papelera; las
+  herramientas propias de Sergio (diseño de la barra, permisos, baúl, grafo,
+  recortar web, exportar) viven dentro de Configuración.
 - Creator retirado de la interfaz por petición del dueño (2026-10-16): sin menú
   ni rutas de editor; enlaces antiguos redirigen al chat. Herramientas internas
   y programas instalados (`professional_apps`, `opendesign`, `kronos_forecast`,
@@ -176,7 +197,12 @@ termina en la rama `main`, y el dueño actualiza con un único comando.
   `anatomy_figure`, siempre activa): la lámina aparece dentro del chat; no
   es un apartado de la app.
 - Todo es Sergio: ningún logo ni nombre de empresa externa a la vista
-  (los créditos de licencias van en NOTICE, LICENSE y «Acerca de»).
+  (los créditos de licencias van en NOTICE, LICENSE y «Acerca de»). El agente
+  de código (OpenClacky en `extensions/clacky`) se ve como «Agente de código»:
+  nombre, logo, colores grises, español y sin la pasarela de pago ni las
+  actualizaciones del proveedor, con el parche `scripts/marca_agente.py`
+  (`--check` en las pruebas). Si se actualiza el código del agente, vuelva a
+  correr ese guion; no edite a mano lo que el guion ya cambia.
 - La conversación de voz está siempre activa en la web (sin botón de
   llamada); en el escritorio se abre al decir «Sergio» y sigue abierta.
 - Las llamadas a Gemini van con respaldo en paralelo (`engine/hedge.py`): si

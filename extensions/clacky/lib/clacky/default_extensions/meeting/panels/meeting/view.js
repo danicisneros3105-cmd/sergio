@@ -10,6 +10,8 @@
   // Reduplicated Chinese calls ("小克小克", "克拉奇克拉奇") are natural
   // attention-getters and count as wake too.
   const WAKE_PATTERNS = [
+    /@sergio\b/i,
+    /\b(hey|hola|oye|ok|okay|eh)[\s,，]+sergio\b/i,
     /@clacky\b/i,
     /\b(hey|hi|hello|ok|okay|yo)[\s,，]+clacky\b/i,
     /(你好|嘿|喂|哎|请问)[\s,，]*小[克客可刻课氪]/,
@@ -18,6 +20,8 @@
     /克拉奇[\s,，]*克拉奇/,
   ];
   const WAKE_STRIP = [
+    /@sergio/gi,
+    /\b(hey|hola|oye|ok|okay|eh)[\s,，]+sergio\b/gi,
     /@clacky/gi,
     /\b(hey|hi|hello|ok|okay|yo)[\s,，]+clacky\b/gi,
     /(你好|嘿|喂|哎|请问)[\s,，]*小[克客可刻课氪]/g,
@@ -99,7 +103,7 @@
 
   function t(key, vars) {
     const lang = (typeof I18n !== "undefined" && I18n.lang && I18n.lang()) || "en";
-    const dict = MEETING_I18N[lang] || MEETING_I18N.en;
+    const dict = (lang === "es" && window.SERGIO_ES_EXT && window.SERGIO_ES_EXT.meeting) || MEETING_I18N[lang] || MEETING_I18N.en;
     let str = dict[key] != null ? dict[key] : (MEETING_I18N.en[key] != null ? MEETING_I18N.en[key] : key);
     if (vars) Object.keys(vars).forEach((k) => { str = str.split("{{" + k + "}}").join(vars[k]); });
     return str;

@@ -3159,10 +3159,10 @@ const Sessions = (() => {
     /** Return the next available "Session N" name based on loaded sessions. */
     nextDefaultName() {
       const maxN = _sessions.reduce((max, s) => {
-        const m = s.name && s.name.match(/^Session (\d+)$/);
+        const m = s.name && s.name.match(/^(?:Session|Sesión) (\d+)$/);
         return m ? Math.max(max, parseInt(m[1], 10)) : max;
       }, 0);
-      return "Session " + (maxN + 1);
+      return (I18n.lang && I18n.lang() === "es" ? "Sesión " : "Session ") + (maxN + 1);
     },
 
     // Async variant of `find`: when not found in memory, falls back to
@@ -5376,10 +5376,10 @@ const Sessions = (() => {
     /** Create a new session and navigate to it. */
     async create(agentProfile = "general") {
       const maxN = _sessions.reduce((max, s) => {
-        const m = s.name.match(/^Session (\d+)$/);
+        const m = s.name.match(/^(?:Session|Sesión) (\d+)$/);
         return m ? Math.max(max, parseInt(m[1], 10)) : max;
       }, 0);
-      const name = "Session " + (maxN + 1);
+      const name = (I18n.lang && I18n.lang() === "es" ? "Sesión " : "Session ") + (maxN + 1);
 
       const res  = await fetch("/api/sessions", {
         method:  "POST",

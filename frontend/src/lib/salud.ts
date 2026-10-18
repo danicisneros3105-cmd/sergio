@@ -127,11 +127,29 @@ export interface SurveySource {
   url: string;
 }
 
+export type SurveyVariant = 'corta' | 'larga';
+
 export interface SurveyDefinition {
+  variant: SurveyVariant;
+  label: string;
+  minutes: number;
   sections: SurveySection[];
   count: number;
   delay_minutes: number;
   sources: SurveySource[];
+  variants: Array<{ key: SurveyVariant; label: string; minutes: number; count: number }>;
+}
+
+export interface CreditsInfo {
+  scope: string;
+  notice: string;
+  logos_added_by_owner: boolean;
+  studies: Array<{
+    topic: string;
+    cite: string;
+    url: string;
+    institutions: Array<{ key: string; name: string; logo: boolean }>;
+  }>;
 }
 
 export interface ScaleScore {
@@ -151,6 +169,7 @@ export interface ScaleScore {
 
 export interface SurveyResult {
   id: string;
+  variant: SurveyVariant;
   created: number;
   ready_at: number;
   status: 'waiting' | 'ready';
@@ -205,8 +224,16 @@ export const salud = {
   report: () => json<{ generated: string; rows: Array<{ label: string; unit: string; avg: number; min: number; max: number; days: number; status: Status; guide: string }>; areas: Area[]; notes: Record<string, { text: string; tags: string[] }> }>(`${B}/report`),
   ask: (message: string) => json<{ reply: string }>(`${B}/ask`, send('POST', { message })),
   exportUrl: `${B}/export.csv`,
-  survey: () => json<SurveyDefinition>(`${B}/mind/survey`),
-  submitSurvey: (answers: Record<string, number | string>) => json<SurveyResult>(`${B}/mind/surveys`, send('POST', { answers })),
+  survey: (variant: SurveyVariant = 'larga') => json<SurveyDefinition>(`${B}/mind/survey?variant=${variant}`),
+  submitSurvey: (answers: Record<string, number | string>, variant: SurveyVariant = 'larga') =>
+    json<SurveyResult>(`${B}/mind/surveys`, send('POST', { answers, variant })),
+  credits: (scope: 'mente' | 'gimnasio') => json<CreditsInfo>(`${B}/credits?scope=${scope}`),
+  /** A logo the owner added with the institution's permission (needs the app's auth, so it is fetched). */
+  logo: async (key: string) => {
+    const res = await apiFetch(`${B}/instituciones/${encodeURIComponent(key)}/logo`);
+    if (!res.ok) throw new Error('sin logo');
+    return res.blob();
+  },
   surveys: () => json<{ surveys: SurveyResult[] }>(`${B}/mind/surveys`).then((r) => r.surveys),
   surveyResult: (id: string) => json<SurveyResult>(`${B}/mind/surveys/${encodeURIComponent(id)}`),
   dropSurvey: (id: string) => json<{ ok: boolean }>(`${B}/mind/surveys/${encodeURIComponent(id)}`, send('DELETE')),

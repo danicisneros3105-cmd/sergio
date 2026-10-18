@@ -65,7 +65,7 @@ const VersionStore = (() => {
       const data = await res.json();
       _current     = data.current;
       _latest      = data.latest;
-      _needsUpdate = !!data.needs_update;
+      _needsUpdate = false;  // Sergio updates the agent with its own update command
       if (data.cli_command) _cliCommand = data.cli_command;
       _emit();
     } catch (e) {

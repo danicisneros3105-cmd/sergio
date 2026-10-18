@@ -142,3 +142,62 @@ def test_open_with_the_pc_app_closed_says_so(monkeypatch, client):
     monkeypatch.delenv("SERGIO_DESKTOP_TOKEN", raising=False)
     out = client.post("/v1/desktop/open", json={"section": "faces"}).json()
     assert out["ok"] is True and out["companion"] is False
+
+
+def test_the_gym_never_shows_numbers_the_owner_did_not_earn(client, tmp_path):
+    hub = client.get("/v1/desktop/health").json()["hub"]
+    gym = hub["gym"]
+    assert gym["sessions_completed"] == 0 and gym["history"] == [] and gym["best"] == {}
+    assert "cognitive_index" not in gym and "gf_percentile" not in gym
+    assert len(gym["scientific_pillars"]) == 5
+    assert all("best_level" not in p for p in gym["scientific_pillars"])
+    blob = str(gym)
+    assert "Harvard" not in blob and "29%" not in blob
+
+
+def test_an_old_hub_with_invented_gym_numbers_is_cleaned_once(client, tmp_path):
+    import json
+
+    from openjarvis.server.desktop_routes import _default_health_hub
+
+    hub = _default_health_hub()
+    hub["gym"] = {
+        "cognitive_index": 124,
+        "gf_percentile": 94,
+        "n_back_level": 4,
+        "sessions_completed": 14,
+        "minutes_trained": 165,
+        "history": [
+            {
+                "date": "Hace 3 días",
+                "exercise": "dual_nback",
+                "score": 84,
+                "level": 2,
+                "iq_est": 120,
+            },
+            {
+                "date": "18/10 09:15",
+                "exercise": "dual_nback",
+                "score": 92,
+                "level": 3,
+                "iq_est": 124,
+            },
+        ],
+        "scientific_pillars": [],
+    }
+    (tmp_path / "health_hub.json").write_text(json.dumps(hub), encoding="utf-8")
+    gym = client.get("/v1/desktop/health").json()["hub"]["gym"]
+    assert gym["v"] == 2 and gym["sessions_completed"] == 1
+    assert [h["date"] for h in gym["history"]] == ["18/10 09:15"]
+    assert gym["best"] == {"dual_nback": 92} and "cognitive_index" not in gym
+
+
+def test_a_real_session_is_recorded_without_an_invented_index(client):
+    out = client.post(
+        "/v1/desktop/health/gym-session",
+        json={"exercise": "dual_nback", "score": 85, "level": 2, "duration_sec": 120},
+    ).json()
+    gym = out["gym"]
+    assert gym["sessions_completed"] == 1 and gym["best"] == {"dual_nback": 85}
+    assert gym["n_back_level"] == 3  # 80 % or more moves up, as in the study
+    assert "cognitive_index" not in gym and "iq_est" not in gym["history"][0]

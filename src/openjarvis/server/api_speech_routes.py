@@ -156,6 +156,28 @@ def _tts_voice_and_speed(request: Request, backend) -> tuple[str, float]:
     return voice_id, speed
 
 
+async def _fallback_synthesis(failed, text: str, speed: float):
+    """Try the next healthy backend after *failed*; None when none works."""
+    from openjarvis.speech._tts_discovery import default_voice_for, get_tts_backend
+
+    tried = {getattr(failed, "backend_id", "")}
+    for _ in range(4):
+        other = await _api.asyncio.to_thread(get_tts_backend, "", attempted=tried)
+        if other is None:
+            return None
+        try:
+            return await _api.asyncio.to_thread(
+                other.synthesize,
+                text,
+                voice_id=default_voice_for(other.backend_id),
+                speed=speed,
+                output_format="wav",
+            )
+        except Exception:  # noqa: BLE001 — the next one
+            _api.logger.exception("Fallback speech synthesis failed")
+    return None
+
+
 @_api.speech_router.post("/synthesize")
 async def synthesize_speech(request: Request, body: _api.SpeechSynthesizeRequest):
     """Synthesize text to speech and return the audio as WAV."""
@@ -190,9 +212,13 @@ async def synthesize_speech(request: Request, body: _api.SpeechSynthesizeRequest
         )
     except Exception as exc:
         _api.logger.exception("Speech synthesis failed")
-        raise _api.HTTPException(
-            status_code=500, detail="Speech synthesis failed"
-        ) from exc
+        # Sergio's Gemini voice may be out of quota: the next healthy backend
+        # reads it instead of the reply staying silent.
+        result = await _fallback_synthesis(backend, text, speed)
+        if result is None:
+            raise _api.HTTPException(
+                status_code=500, detail="Speech synthesis failed"
+            ) from exc
 
     return _api.Response(
         content=result.audio,

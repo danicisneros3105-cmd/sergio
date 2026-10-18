@@ -309,7 +309,7 @@ module Clacky
         ENV["CLACKY_SERVER_PORT"]  = @port.to_s
         ENV["CLACKY_SERVER_HOST"]  = "127.0.0.1"
         product_name = Clacky::BrandConfig.load.product_name
-        ENV["CLACKY_PRODUCT_NAME"] = (product_name.nil? || product_name.strip.empty?) ? "OpenClacky" : product_name
+        ENV["CLACKY_PRODUCT_NAME"] = (product_name.nil? || product_name.strip.empty?) ? "Sergio" : product_name
 
         # Override WEBrick's built-in signal traps via StartCallback,
         # which fires after WEBrick sets its own INT/TERM handlers.
@@ -483,9 +483,9 @@ module Clacky
         server.mount_proc("/") do |req, res|
           if req.path == "/" || req.path == "/index.html"
             brand        = Clacky::BrandConfig.load
-            product_name = brand.product_name || "OpenClacky"
-            logo_url     = brand.logo_url || "/logo_nav_dark.png"
-            logo_hidden  = logo_url.start_with?("http://", "https://") ? 'style="display:none"' : ""
+            product_name = brand.product_name || "Sergio"
+            logo_url     = brand.logo_url || ""
+            logo_hidden  = (logo_url.empty? || logo_url.start_with?("http://", "https://")) ? 'style="display:none"' : ""
             pure         = req.query["pure"] == "true"
             html = File.read(index_html_path)
                        .gsub("{{BRAND_NAME}}", product_name)

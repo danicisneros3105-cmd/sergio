@@ -21,7 +21,7 @@ const BrandView = (() => {
         _scheduleDistributionRefreshPoll();
         return;
       }
-      _applyBrandName("OpenClacky");
+      _applyBrandName("Sergio");
       Brand.clearBrandCache();
       _applyHeaderLogo();
       const banner = document.getElementById("brand-activation-banner");
@@ -271,7 +271,7 @@ const BrandView = (() => {
           logoText.textContent    = name;
           logoText.style.display  = "";
         } else {
-          logoText.textContent   = "OpenClacky";
+          logoText.textContent   = "Sergio";
           logoText.style.display = "";
         }
       }
@@ -283,11 +283,11 @@ const BrandView = (() => {
     const brandWrap = document.getElementById("header-brand");
     if (!logoImg) return;
 
-    logoImg.src           = "/logo_nav_dark.png";
-    logoImg.alt           = "OpenClacky";
-    logoImg.style.display = "";
-    if (brandWrap) brandWrap.classList.add("has-logo");
-    _applyFavicon("/favicon.svg");
+    // Sergio: the name is the mark; no picture logo.
+    logoImg.style.display = "none";
+    logoImg.removeAttribute("src");
+    if (brandWrap) brandWrap.classList.remove("has-logo");
+    _applyFavicon("/sergio/icon.png");
   }
 
   function _applyFavicon(url) {

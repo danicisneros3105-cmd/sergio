@@ -454,8 +454,10 @@ def _survey_view(row: Dict[str, Any], *, full: bool) -> Dict[str, Any]:
     from openjarvis.health import mind
 
     ready = time.time() >= row["ready_at"] and bool(row["reading"])
+    variant = mind.variant_of(row["scores"].get("variant", "larga"))
     view: Dict[str, Any] = {
         "id": row["id"],
+        "variant": variant,
         "created": row["created"],
         "ready_at": row["ready_at"],
         "status": "ready" if ready else "waiting",
@@ -474,19 +476,20 @@ def _survey_view(row: Dict[str, Any], *, full: bool) -> Dict[str, Any]:
             view["answers"] = {
                 k: v for k, v in row["answers"].items() if k.startswith("open_")
             }
-            view["sources"] = mind.sources()
+            view["sources"] = mind.sources(variant)
     return view
 
 
 class SurveyAnswers(BaseModel):
     answers: Dict[str, Any]
+    variant: str = "larga"
 
 
 @router.get("/mind/survey")
-def mind_survey() -> Dict[str, Any]:
+def mind_survey(variant: str = "larga") -> Dict[str, Any]:
     from openjarvis.health import mind
 
-    return mind.definition()
+    return mind.definition(variant)
 
 
 @router.post("/mind/surveys")
@@ -494,7 +497,7 @@ def mind_submit(body: SurveyAnswers) -> Dict[str, Any]:
     from openjarvis.health import mind
 
     answers = mind.clean_answers(body.answers)
-    scores = mind.score(answers)
+    scores = mind.score(answers, body.variant)
     if not any(s["score"] is not None for s in scores["scales"]):
         raise HTTPException(400, "Responda al menos una escala completa.")
     store = _store()
@@ -535,6 +538,38 @@ def mind_delete(sid: str) -> Dict[str, Any]:
     if not _store().delete_survey(sid):
         raise HTTPException(404, "No encuentro esa encuesta.")
     return {"ok": True}
+
+
+# -- Credits: who did the research behind Salud mental and the mental gym ------
+
+
+@router.get("/credits")
+def credits(scope: str = "mente") -> Dict[str, Any]:
+    from openjarvis.health import credits as credits_mod
+
+    if scope not in ("mente", "gimnasio"):
+        raise HTTPException(400, "Use scope=mente o scope=gimnasio.")
+    return credits_mod.credits(scope)
+
+
+@router.get("/instituciones/{key}/logo")
+def institution_logo(key: str) -> Response:
+    """A logo the owner added with the institution's permission (never shipped)."""
+    from openjarvis.health import credits as credits_mod
+
+    path = credits_mod.logo_path(key)
+    if path is None:
+        raise HTTPException(404, "No hay logo para esa institución.")
+    kind = {".png": "image/png", ".svg": "image/svg+xml", ".webp": "image/webp"}[
+        path.suffix
+    ]
+    return Response(
+        content=path.read_bytes(),
+        media_type=kind,
+        headers={
+            "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'"
+        },
+    )
 
 
 __all__ = ["router"]

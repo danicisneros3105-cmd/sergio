@@ -40,13 +40,13 @@ const TasksStore = (() => {
   // Create a session and queue a command. Shared by run/create/edit actions.
   async function _openSessionWith(message, onSession) {
     const maxN = Sessions.all.reduce((max, s) => {
-      const m = s.name.match(/^Session (\d+)$/);
+      const m = s.name.match(/^(?:Session|Sesión) (\d+)$/);
       return m ? Math.max(max, parseInt(m[1], 10)) : max;
     }, 0);
     const res = await fetch("/api/sessions", {
       method:  "POST",
       headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify({ name: "Session " + (maxN + 1), source: "manual" })
+      body:    JSON.stringify({ name: (I18n.lang && I18n.lang() === "es" ? "Sesión " : "Session ") + (maxN + 1), source: "manual" })
     });
     const data = await res.json();
     if (!res.ok) { Modal.toast(I18n.t("tasks.sessionError") + (data.error || "unknown"), "error"); return null; }

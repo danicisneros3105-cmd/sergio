@@ -445,15 +445,23 @@ def test_a_dropped_call_reconnects_on_its_own_model_without_an_error():
     assert not [m for m in ws.json if m["type"] == "error"]
 
 
-def test_no_voice_means_gemini_lives_default_voice():
-    cfg = gemini_live.live_config(
-        FakeTypes(), voice="", instructions="x", decls=[], search=False
-    )
-    assert cfg.speech_config is None
+def _voice_name(cfg):
+    return cfg.speech_config.voice_config.prebuilt_voice_config.voice_name
+
+
+def test_the_voice_is_always_one_of_sergios_men():
+    # No voice, Gemini's default and a woman's voice all become his own voice:
+    # Gemini Live's unpinned default can be a woman's.
+    for asked in ("", "Predeterminada", "default", "Zephyr", "Kore", "nonsense"):
+        cfg = gemini_live.live_config(
+            FakeTypes(), voice=asked, instructions="x", decls=[], search=False
+        )
+        assert _voice_name(cfg) == "Algenib", asked
     cfg = gemini_live.live_config(
         FakeTypes(), voice="Charon", instructions="x", decls=[], search=False
     )
-    assert cfg.speech_config is not None
+    assert _voice_name(cfg) == "Charon"
+    assert "hablas siempre en masculino" in gemini_live.INSTRUCTIONS
 
 
 def test_the_shared_screen_is_watched_at_a_legible_resolution(monkeypatch):
@@ -641,3 +649,46 @@ def test_video_lane_keeps_the_newest_frame_and_never_holds_the_voice(monkeypatch
     reports = [m for m in ws.json if m.get("type") == "video"]
     assert reports and reports[-1]["send_limit_fps"] == 1
     assert reports[-1]["coalesced_frames"] > 20
+
+
+def test_the_newest_conversation_takes_over_and_the_old_one_is_told():
+    from openjarvis.server import live_routes
+
+    class Ws(FakeWS):
+        closed = False
+
+        async def close(self):
+            self.closed = True
+
+    async def scenario():
+        live_routes._active = None
+        old_ws, new_ws = Ws(), Ws()
+        old = _call(old_ws, FakeClient([]))
+        new = _call(new_ws, FakeClient([]))
+        await live_routes._take_over(old)
+        assert live_routes._active is old
+        await live_routes._take_over(new)
+        return old_ws, old, new
+
+    old_ws, old, new = asyncio.run(scenario())
+    assert live_routes._active is new
+    assert old.closed and old_ws.closed
+    assert old_ws.json == [
+        {"type": "replaced", "message": "Otra ventana tomó la conversación."}
+    ]
+    live_routes._active = None
+
+
+def test_a_call_that_is_already_over_is_not_notified_again():
+    from openjarvis.server import live_routes
+
+    async def scenario():
+        gone = _call(FakeWS(), FakeClient([]))
+        gone.closed = True
+        live_routes._active = gone
+        await live_routes._take_over(_call(FakeWS(), FakeClient([])))
+        return gone
+
+    gone = asyncio.run(scenario())
+    assert gone.ws.json == []
+    live_routes._active = None

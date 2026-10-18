@@ -342,6 +342,7 @@ max-line-length = 120
 # Survey items, region descriptions and prompt principles are prose shown or
 # sent verbatim; wrapping them would only split sentences.
 "src/openjarvis/health/mind.py" = ["E501"]
+"src/openjarvis/health/credits.py" = ["E501"]
 "src/openjarvis/connectome/regions.py" = ["E501"]
 "src/openjarvis/prompt_library/guidance.py" = ["E501"]
 # Test fixtures that hold real tool output / data rows verbatim.

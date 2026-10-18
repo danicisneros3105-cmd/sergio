@@ -3180,8 +3180,8 @@ def run(config: dict[str, Any]) -> None:
         ears.call = None
         voices.enabled = False
         bridge.call_on.emit(False)
-        if why == "colgaste":
-            call_paused[0] = True  # yours: it stays down until you call him
+        if why in ("colgaste", "otra ventana"):
+            call_paused[0] = True  # yours (or another window's): down until you call him
         if config.get("call_always", True) and not call_paused[0]:
             return  # the keeper reconnects in a moment, quietly
         if why == "cancelado":  # "Sergio" was not for him after all
@@ -3190,6 +3190,8 @@ def run(config: dict[str, Any]) -> None:
             bridge.caption.emit("Quedo atento. Di «Sergio» cuando me necesites.")
         elif why == "se cortó":
             bridge.caption.emit("Se cortó la llamada. Di «Sergio» para volver.")
+        elif why == "otra ventana":
+            bridge.caption.emit("Otra ventana tomó la conversación. Di «Sergio» para volver.")
 
     def new_session(**changes: Any) -> CallSession:
         """A call set up exactly like the real ones (tools, voice, context)."""

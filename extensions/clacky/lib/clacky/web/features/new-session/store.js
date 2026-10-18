@@ -140,10 +140,10 @@ const NewSessionStore = (() => {
 
   function _autoName(existingSessions) {
     const maxN = (existingSessions || []).reduce((max, s) => {
-      const m = s.name && s.name.match(/^Session (\d+)$/);
+      const m = s.name && s.name.match(/^(?:Session|Sesión) (\d+)$/);
       return m ? Math.max(max, parseInt(m[1], 10)) : max;
     }, 0);
-    return "Session " + (maxN + 1);
+    return (I18n.lang && I18n.lang() === "es" ? "Sesión " : "Session ") + (maxN + 1);
   }
 
   async function createSession({ existingSessions, useDefaults = false } = {}) {
