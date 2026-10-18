@@ -26,6 +26,9 @@ PASSCODE_STALE_S = 156 * 3600
 RECENT_FACE_S = 4 * 3600
 CHALLENGE_TTL = 20.0
 ACTIONS = ("izquierda", "derecha", "arriba", "parpadee")
+# What a challenge asks: a gentle turn (a blink is hard to see on a webcam;
+# a natural blink or turn still counts as a live face).
+ASKED = ("izquierda", "derecha")
 ACTION_ES = {
     "izquierda": "Gire la cabeza suavemente hacia su izquierda",
     "derecha": "Gire la cabeza suavemente hacia su derecha",
@@ -209,7 +212,7 @@ class Gate:
                 del self._challenges[key]
             c = Challenge(
                 secrets.token_urlsafe(18),
-                secrets.choice(ACTIONS),
+                secrets.choice(ASKED),
                 now + CHALLENGE_TTL,
             )
             self._challenges[c.nonce] = c
@@ -365,6 +368,11 @@ def alive(frames: list[Frame], action: str) -> tuple[bool, str]:
             return True, ""
     elif action == "parpadee" and blinked(frames):
         return True, ""
+    # A person who blinked or turned the other way is still a live person:
+    # asking again only made setup feel broken.
+    yaws = [f.yaw for f in frames]
+    if blinked(frames) or turned(yaws, 1) or turned(yaws, -1):
+        return True, ""
     return False, f"No vi el movimiento pedido ({ACTION_ES[action].lower()})."
 
 
@@ -473,9 +481,22 @@ def unlock(
     ok = False
     score = 0.0
     if ok_live and not attentive(seen):
-        message = "Mire a la pantalla con los ojos abiertos."
+        ok_live, message = False, "Mire a la pantalla con los ojos abiertos."
     elif ok_live:
         ok, score, message = match_owner(seen, book._gallery(), owner)
+    if not ok_live:
+        # Light, framing or a missed movement is not a wrong face: like the
+        # phone, only a face that does not match spends an attempt.
+        return {
+            "ok": False,
+            "retry": True,
+            "name": "",
+            "message": message,
+            "attempts_left": gate.status()["attempts_left"],
+            "passcode_required": False,
+            "ms": round((time.perf_counter() - t0) * 1000),
+            "score": 0.0,
+        }
     left = gate.record(ok)
     if ok:
         front = max(
@@ -501,6 +522,7 @@ def unlock(
 __all__ = [
     "ACTIONS",
     "ACTION_ES",
+    "ASKED",
     "Challenge",
     "Frame",
     "Gate",

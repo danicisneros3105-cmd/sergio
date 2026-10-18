@@ -125,9 +125,9 @@ def _ensure_identity_prompt(messages: list[Message], app_config) -> list[Message
             (m.text for m in reversed(messages) if m.role == Role.USER and m.text), ""
         )
         try:
-            from openjarvis.prompt_library import guidance_for
+            from openjarvis.connectome.brain import mind_context
 
-            guidance = guidance_for(last_user)
+            guidance = mind_context(last_user)
         except Exception:  # noqa: BLE001
             guidance = ""
         if guidance:
@@ -414,8 +414,12 @@ def _record_completed_exchange(
                 assistant_text,
                 source=source,
             )
-        elif memory_service is not None:
-            memory_service.submit(user_text, assistant_text)
+        else:
+            from openjarvis.connectome.brain import remember_exchange
+
+            remember_exchange(user_text, assistant_text)
+            if memory_service is not None:
+                memory_service.submit(user_text, assistant_text)
     except Exception:  # noqa: BLE001 — memory is best-effort, never fail a reply
         logging.getLogger("openjarvis.server").debug(
             "Memory submit failed",

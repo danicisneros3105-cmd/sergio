@@ -72,6 +72,9 @@ _THINKING_OK = [True]  # the model accepted thinking_budget=0 (else left out)
 # first time a model or key refuses it.
 _PROACTIVE_OK = [True]
 OUT_RATE = 24000
+# Audio held while it is not yet clear the answer is for the owner (guarded
+# calls): ~2 s of 24 kHz 16-bit PCM, then an answer to nobody is dropped.
+HOLD_BYTES = OUT_RATE * 2 * 2
 # Sergio's own tools offered during a call (the rest stay for the agent).
 SERVER_TOOLS = (
     "professional_apps",
@@ -142,7 +145,8 @@ a tres frases naturales, como en una conversación. Habla a un ritmo pausado y \
 humano, nunca apresurado: frases completas, pausas breves entre ideas, \
 entonación de conversación tranquila, sin prisa. Nada de listas, markdown, \
 símbolos ni emojis. Si te interrumpen, calla y escucha. Si algo no se \
-entiende, pregunta. Puedes tomar la iniciativa con algo útil, sin rellenar.
+entiende, pregunta. Nunca hables por iniciativa propia: solo cuando el señor \
+te habla, cuando escribe o cuando vuelve el resultado de una herramienta.
 
 Contexto: {context}
 Cuando recibas imágenes, son de la cámara o de la pantalla del usuario (se \
@@ -184,6 +188,9 @@ una frase y usa colgar.
 - Para cálculos y ecuaciones usa verified_math; comprueba el resultado antes \
 de explicarlo. Para escenas usa scene_reason: las propuestas imaginadas \
 son hipótesis, no objetos observados ni medidas de una foto sin calibración.
+- Lo que suena en videos (YouTube), la tele, música, podcasts, llamadas o \
+reuniones NO es para ti: nunca lo respondas, comentes ni resumas salvo que el \
+señor te lo pida. Si dudas de si te hablaban a ti, calla.
 - No respondas a conversaciones entre personas, aunque hable el dueño. \
 Un nombre de tercero o «no te hablo» significa que debes guardar silencio.
 - Notas de quién habla: te llegarán notas como "(Ahora habla Ana)" o "(Ahora \
@@ -393,10 +400,18 @@ class LiveCall:
         self.closed = False
         from openjarvis.speech.attention import Attention
 
-        self.attention = Attention(str(start.get("name") or "Sergio"))
+        self.attention = Attention(
+            str(start.get("name") or "Sergio"),
+            language=str(start.get("language") or "es"),
+        )
         self.guard_attention = start.get("attention") == "addressed"
         self._heard_text = ""
-        self._answer_allowed = True
+        # True: this answer may be heard. False: drop it. None (guarded calls
+        # only): nothing he heard says it is for him yet, so his audio waits
+        # here; an answer to nothing at all (speaking by himself) is dropped.
+        self._answer_allowed: bool | None = None if self.guard_attention else True
+        self._held: list[bytes] = []
+        self._held_said: list[str] = []
         self._last_image = -1e9
         # The video lane: only the newest frame waits; older ones are dropped.
         self._frame: tuple[bytes, str] | None = None
@@ -697,6 +712,7 @@ class LiveCall:
                 self._last_image = now
             elif kind == "text" and event.get("text"):
                 self._answer_allowed = True  # typed requests explicitly address him
+                await self._release_held()
                 await session.send_realtime_input(text=str(event["text"])[:4000])
             elif kind == "audio_end":
                 # The companion stopped streaming silence: tell Live the
@@ -804,6 +820,15 @@ class LiveCall:
         if update is not None and update.new_handle:
             self._handle = update.new_handle
 
+    async def _release_held(self) -> None:
+        held, said = self._held, self._held_said
+        self._held, self._held_said = [], []
+        for chunk in held:
+            self._response_started = True
+            await self.send_audio(chunk)
+        if said:
+            await self.send_json({"type": "said", "text": "".join(said)})
+
     async def _content(self, content: Any) -> None:
         heard = getattr(content, "input_transcription", None)
         if heard is not None and heard.text:
@@ -811,9 +836,13 @@ class LiveCall:
             if self.guard_attention:
                 was_allowed = self._answer_allowed
                 self._answer_allowed = self.attention.accepts(self._heard_text)
-                if was_allowed and not self._answer_allowed:
+                if was_allowed is not False and not self._answer_allowed:
                     # Discard audio already queued at the companion too.
                     await self.send_json({"type": "interrupted"})
+                if self._answer_allowed:
+                    await self._release_held()
+                else:
+                    self._held, self._held_said = [], []
             await self.send_json({"type": "heard", "text": heard.text})
         if getattr(content, "interrupted", False):
             self._response_started = False
@@ -822,6 +851,13 @@ class LiveCall:
         turn = getattr(content, "model_turn", None)
         for part in (turn.parts if turn is not None else None) or []:
             blob = getattr(part, "inline_data", None)
+            if blob is not None and blob.data and self._answer_allowed is None:
+                self._held.append(bytes(blob.data))
+                if sum(len(b) for b in self._held) > HOLD_BYTES:
+                    # Talking with nobody asking: not for anyone. Drop it.
+                    self._answer_allowed = False
+                    self._held, self._held_said = [], []
+                continue
             if blob is not None and blob.data and self._answer_allowed:
                 self._response_started = True
                 await self.send_audio(bytes(blob.data))
@@ -836,9 +872,25 @@ class LiveCall:
                         }
                     )
         said = getattr(content, "output_transcription", None)
-        if said is not None and said.text and self._answer_allowed:
+        if said is not None and said.text and self._answer_allowed is None:
+            self._held_said.append(said.text)
+        elif said is not None and said.text and self._answer_allowed:
+            self._said_text = (getattr(self, "_said_text", "") + said.text)[-4000:]
             await self.send_json({"type": "said", "text": said.text})
         if getattr(content, "turn_complete", False):
+            heard_all, said_all = self._heard_text, getattr(self, "_said_text", "")
+            self._said_text = ""
+            if heard_all.strip() and said_all.strip() and self._answer_allowed:
+                # The mind keeps a memory of spoken exchanges too.
+                from openjarvis.connectome.brain import remember_exchange
+
+                self._spawn(asyncio.to_thread(remember_exchange, heard_all, said_all))
+            if self.guard_attention:
+                if self._answer_allowed:
+                    self.attention.answered()
+                # The next answer needs new words for him (or typed text).
+                self._answer_allowed = None
+                self._held, self._held_said = [], []
             self._heard_text = ""
             self._response_started = False
             self._audio_ended_at = None
@@ -848,6 +900,12 @@ class LiveCall:
         name = str(fc.name or "")
         args = dict(fc.args or {})
         call_id = str(fc.id or uuid.uuid4().hex)
+        # What he heard can arrive a moment after the tool call: wait for it
+        # briefly before deciding whether the request was for him.
+        for _ in range(30):
+            if not self.guard_attention or self._answer_allowed is not None:
+                break
+            await asyncio.sleep(0.05)
         if self.guard_attention and not self._answer_allowed:
             await (self._session or session).send_tool_response(
                 function_responses=[

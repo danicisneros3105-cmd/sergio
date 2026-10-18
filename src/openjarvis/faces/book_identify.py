@@ -20,11 +20,14 @@ class _IdentifyMixin:
         *,
         consent: bool,
         mesh: dict[str, Any] | None = None,
+        replace: bool = False,
     ) -> dict[str, Any]:
         """A Face ID-style scan: one person turning their head slowly in a
         circle. The sharpest photos of each head angle are kept, so Sergio
         knows the face from the front, the sides, above and below (and the
         3D map of its 478 points, in millimetres, when the companion sends it).
+        ``replace`` starts the person again (a fresh setup), so old, poor
+        samples can never make the new scan fail.
         """
         import numpy as np
 
@@ -56,7 +59,7 @@ class _IdentifyMixin:
             detection = float(rest[0]) if rest else 1.0
             if (
                 min(box[2], box[3]) < _book.MIN_FACE_PX
-                or detection < _book.MIN_DETECTION
+                or detection < _book.SCAN_MIN_DETECTION
             ):
                 continue
             pose = tuple(rest[1]) if len(rest) > 1 else (0.0, 0.0)
@@ -88,6 +91,8 @@ class _IdentifyMixin:
         with self._lock:
             people = self._load(strict=True)
             name = next((k for k in people if k.lower() == name.lower()), name)
+            if replace:
+                people.pop(name, None)
             _book._check_same_person(people, name, centre)
             person = people.setdefault(
                 name, {"embeddings": [], "enrolled_at": _book.time.time()}

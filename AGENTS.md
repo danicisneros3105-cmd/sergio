@@ -92,7 +92,10 @@ termina en la rama `main`, y el dueño actualiza con un único comando.
   Escritorio; con la app cerrada se dice, no se rellena. Los botones «Abrir
   en el PC» no dicen «abierto» si la app no responde (`companion: false`).
   **Face ID** se configura de un toque: se abre la cámara, se mira, y el
-  código de respaldo (dos veces) se pide después y puede esperar. Los
+  código de respaldo (dos veces) se pide después y puede esperar. Basta un
+  ángulo (de frente); «Volver a configurar» empieza de cero; avisa si falta
+  luz; un fallo de cámara o de movimiento no gasta intentos (solo una cara que
+  no coincide). No desbloquea Windows ni macOS (`docs/FACEID-SISTEMA.md`). Los
   **Post-its** se mueven desde toda su cabecera, en la web (puntero, también
   táctil) y en Windows (`organizer_ui.py`), y nunca quedan fuera de alcance.
 - Salud mental (dueño, oct. 2026): **dos encuestas, corta (12 preguntas) y
@@ -123,6 +126,12 @@ termina en la rama `main`, y el dueño actualiza con un único comando.
   conversación y la anterior recibe «replaced» y no se reconecta sola. Mientras
   suena la lectura o el gimnasio, el micrófono en vivo se pausa; para
   interrumpir a Sergio hace falta hablar claramente más fuerte que el eco.
+  **Solo responde lo que es para él** (web y escritorio, `attention:
+  "addressed"`, `speech/attention.py`): su nombre abre la conversación y cada
+  respuesta suya deja 30 s para seguir sin nombrarlo; lo que suena a video,
+  tele, música u otro idioma no se responde; nunca habla por iniciativa propia
+  (lo que diría sin que nadie le hable se descarta) y su audio espera hasta
+  saber que la pregunta era para él.
 - Biblioteca de prompts (dueño, oct. 2026): Sergio usa siempre las
   colecciones públicas de prompts de sistema y de personaje
   (`prompt_library/sources.py`), descargadas **completas** al equipo del dueño
@@ -133,6 +142,16 @@ termina en la rama `main`, y el dueño actualiza con un único comando.
   quitan nombres de otros asistentes, líneas de identidad y jailbreaks; las
   reglas de Sergio mandan. No es un reentrenamiento de pesos y no se vende
   como tal. `SERGIO_PROMPT_LIBRARY=0` la apaga.
+- **El cerebro de la mosca son ZONAS, no atajos** (dueño, oct. 2026): la mente
+  de Sergio (`connectome/brain.py`) tiene zonas (sentidos, memoria, prompts y
+  habilidades, conversación, herramientas, integración) unidas por conexiones
+  que se refuerzan con el uso (Hebb): lo que ayudó se trae directo la próxima
+  vez (ruta rápida), los recuerdos usados juntos se enlazan, una corrección
+  las debilita y lo no usado se olvida. Cada intercambio (chat y voz) deja un
+  engrama, así la memoria llega más allá de la ventana de contexto
+  (`mind_context` entra en cada turno junto a la biblioteca de prompts). Es
+  contexto, no pesos nuevos; local; sin claves ni contraseñas;
+  `SERGIO_CEREBRO=0` lo apaga. Página «Cerebro».
 - Atajos con la estructura del cerebro de la mosca (dueño, oct. 2026;
   FlyWire, Nature 2024): `connectome/` y `lib/connectome.ts`. Cuerno lateral
   = reflejos en el navegador (Ctrl/⌘ K, G + letra); cuerpo fungiforme =

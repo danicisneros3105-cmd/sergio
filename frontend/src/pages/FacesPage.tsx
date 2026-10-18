@@ -22,9 +22,9 @@ interface Status {
 type Mode =
   | { kind: 'home' }
   | { kind: 'passcode'; then: 'after' | 'unlock' }
-  | { kind: 'scan'; who: string; consent: boolean; round: 1 | 2 }
+  | { kind: 'scan'; who: string; consent: boolean; round: 1 | 2; fresh?: boolean }
   | { kind: 'unlock' }
-  | { kind: 'done'; title: string; text: string; ok: boolean };
+  | { kind: 'done'; title: string; text: string; ok: boolean; retry?: 'scan' | 'unlock' };
 
 const TICKS = 60;
 const REASON_ES: Record<string, string> = {
@@ -215,6 +215,22 @@ export function FacesPage() {
       canvas.toBlob((blob) => resolve(blob), 'image/jpeg', 0.85);
     });
 
+  // How lit the face area is (0-255): webcams fail mostly in the dark.
+  const brightness = (): number => {
+    const video = videoRef.current;
+    if (!video || !video.videoWidth) return 255;
+    const c = document.createElement('canvas');
+    c.width = 32;
+    c.height = 24;
+    const g = c.getContext('2d');
+    if (!g) return 255;
+    g.drawImage(video, video.videoWidth * 0.25, video.videoHeight * 0.15, video.videoWidth * 0.5, video.videoHeight * 0.7, 0, 0, 32, 24);
+    const d = g.getImageData(0, 0, 32, 24).data;
+    let sum = 0;
+    for (let i = 0; i < d.length; i += 4) sum += 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+    return sum / (d.length / 4);
+  };
+
   // -- setting up: look at the camera, nothing else ---------------------------
   // The ring fills by itself while good frames arrive; turning the head slowly
   // only adds variety. No code is asked first: it comes after, and can wait.
@@ -242,28 +258,36 @@ export function FacesPage() {
             const progress = Math.round((Math.min(good, WANT) / WANT) * TICKS);
             setLit(Array.from({ length: TICKS }, (_, i) => i < progress));
             setSay(good < 5 ? 'Mire a la cámara' : good < WANT ? 'Gire la cabeza muy despacio' : 'Listo');
-          } else setSay('Coloque la cara dentro del círculo');
+          } else setSay(brightness() < 60 ? 'Necesito más luz en su cara' : 'Coloque la cara dentro del círculo');
         }
-        if (good >= WANT || Date.now() - started > 20000) break;
+        if (good >= WANT || Date.now() - started > 30000) break;
         await new Promise((r) => setTimeout(r, 120));
       }
       if (stop) return;
       if (good < 5) {
         stopCamera();
         shots.current = [];
-        setMode({ kind: 'done', ok: false, title: 'No le vi bien', text: 'Busque más luz, mire de frente a la cámara e inténtelo de nuevo.' });
+        setMode({
+          kind: 'done',
+          ok: false,
+          title: 'No le vi bien',
+          text: brightness() < 60 ? 'Hay poca luz: encienda una lámpara frente a usted e inténtelo de nuevo.' : 'Mire de frente a la cámara, a un brazo de distancia, e inténtelo de nuevo.',
+          retry: 'scan',
+        });
         return;
       }
       const form = new FormData();
       form.append('name', mode.who);
       form.append('consent', String(mode.consent));
+      // Setting up again starts clean: old, poor samples cannot make it fail.
+      if (mode.fresh) form.append('replace', 'true');
       const pick = shots.current.filter((_, i) => i % Math.max(1, Math.ceil(shots.current.length / 40)) === 0).slice(0, 40);
       pick.forEach((b, i) => form.append('images', b, `s${i}.jpg`));
       shots.current = [];
       stopCamera();
       const res = await apiFetch('/v1/faces/scan', { method: 'POST', body: form });
       if (!res.ok) {
-        setMode({ kind: 'done', ok: false, title: 'No se completó', text: await readError(res) });
+        setMode({ kind: 'done', ok: false, title: 'No se completó', text: await readError(res), retry: 'scan' });
         return;
       }
       await load();
@@ -288,7 +312,7 @@ export function FacesPage() {
   }, [mode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // -- unlocking: look, do the gentle movement, done ------------------------
-  const unlock = async () => {
+  const unlock = async (again = false) => {
     setError('');
     const cRes = await apiFetch('/v1/faces/faceid/challenge', { method: 'POST' });
     const challenge = cRes.ok ? await cRes.json() : null;
@@ -301,15 +325,16 @@ export function FacesPage() {
     setLit(Array(TICKS).fill(false));
     if (!(await startCamera())) return;
     setSay(`${challenge.say}…`);
-    await new Promise((r) => setTimeout(r, 450));
+    // Time to read the instruction before the camera starts counting.
+    await new Promise((r) => setTimeout(r, 1100));
     const frames: Blob[] = [];
-    const totalFrames = 14;
+    const totalFrames = 16;
     for (let i = 0; i < totalFrames; i++) {
       const b = await frame();
       if (b) frames.push(b);
       const progress = Math.round(((i + 1) / totalFrames) * TICKS);
       setLit(Array.from({ length: TICKS }, (_, idx) => idx < progress));
-      await new Promise((r) => setTimeout(r, 150));
+      await new Promise((r) => setTimeout(r, 170));
     }
     const form = new FormData();
     form.append('nonce', challenge.nonce);
@@ -319,6 +344,8 @@ export function FacesPage() {
     stopCamera();
     const out = res.ok ? await res.json() : { ok: false, message: await readError(res) };
     await load();
+    // Light or a missed movement is not a wrong face: try once more by itself.
+    if (!out.ok && out.retry && !again) return unlock(true);
     if (out.passcode_required && !out.message) {
       setError('');
       return setMode({ kind: 'passcode', then: 'unlock' });
@@ -330,8 +357,11 @@ export function FacesPage() {
             kind: 'done',
             ok: false,
             title: 'No se pudo',
+            retry: 'unlock',
             text: `${out.message || 'Inténtelo de nuevo.'} ${
-              out.attempts_left === 0
+              out.retry
+                ? 'Este intento no cuenta.'
+                : out.attempts_left === 0
                 ? 'Ahora le pediré su código.'
                 : out.attempts_left === 1
                   ? 'Queda 1 intento antes de pedir el código.'
@@ -372,7 +402,7 @@ export function FacesPage() {
   const setup = () => {
     setError('');
     shots.current = [];
-    setMode({ kind: 'scan', who: status?.owner || 'Señor', consent: true, round: 1 });
+    setMode({ kind: 'scan', who: status?.owner || 'Señor', consent: true, round: 1, fresh: !!status?.owner });
   };
 
   const forget = async (person: string) => {
@@ -418,9 +448,20 @@ export function FacesPage() {
             <span className="faceid-badge">{mode.ok ? <Check size={44} strokeWidth={2.4} /> : <X size={44} strokeWidth={2.4} />}</span>
             <h1>{mode.title}</h1>
             <p>{mode.text}</p>
-            <button type="button" className="paper-button" onClick={() => setMode({ kind: 'home' })}>
-              Listo
-            </button>
+            {mode.retry ? (
+              <div className="faceid-actions">
+                <button type="button" className="paper-button" onClick={() => (mode.retry === 'scan' ? setup() : void unlock())}>
+                  Intentar de nuevo
+                </button>
+                <button type="button" className="paper-button" data-variant="quiet" onClick={() => setMode({ kind: 'home' })}>
+                  Ahora no
+                </button>
+              </div>
+            ) : (
+              <button type="button" className="paper-button" onClick={() => setMode({ kind: 'home' })}>
+                Listo
+              </button>
+            )}
           </div>
         ) : (
           <div className="faceid-home">
@@ -431,7 +472,7 @@ export function FacesPage() {
             <div className="faceid-actions">
               {enrolled ? (
                 <>
-                  <button type="button" className="paper-button" onClick={unlock}>
+                  <button type="button" className="paper-button" onClick={() => void unlock()}>
                     <ScanFace size={16} /> Probar reconocimiento
                   </button>
                   {!status?.passcode_set && (

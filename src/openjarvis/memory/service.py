@@ -316,6 +316,11 @@ def publish_completed_exchange(
     source: str = "",
 ) -> bool:
     """Publish a completed chat exchange for lifecycle subscribers."""
+    if user_text and user_text.strip():
+        # The mind's memory zone keeps its engram and learns from it.
+        from openjarvis.connectome.brain import remember_exchange
+
+        remember_exchange(user_text, assistant_text)
     if bus is None or not user_text or not user_text.strip():
         return False
     bus.publish(

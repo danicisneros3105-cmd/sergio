@@ -23,7 +23,9 @@ logger = logging.getLogger(__name__)
 
 @router.get("/map")
 def connectome_map() -> Dict[str, Any]:
-    return brain_map(get_memory().stats())
+    from openjarvis.connectome.brain import get_brain
+
+    return brain_map(get_memory().stats(), get_brain().stats())
 
 
 @router.get("/learned")

@@ -51,8 +51,8 @@ def test_regions_cover_the_fly_brain():
     keys = [r["key"] for r in REGIONS]
     assert keys == [
         "sentidos",
-        "cuerno_lateral",
         "cuerpo_fungiforme",
+        "cuerno_lateral",
         "complejo_central",
         "descendentes",
         "fibra_gigante",

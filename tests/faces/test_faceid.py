@@ -98,7 +98,7 @@ def test_changing_the_passcode_needs_the_current_one(gate):
 def test_a_challenge_is_random_used_once_and_expires(gate):
     gate.set_passcode("246810")
     actions = {gate.challenge().action for _ in range(60)}
-    assert actions == set(faceid.ACTIONS)
+    assert actions == set(faceid.ASKED)  # only gentle turns are asked
     c = gate.challenge()
     assert gate.take(c.nonce) is c
     assert gate.take(c.nonce) is None  # once
@@ -136,7 +136,11 @@ def test_the_asked_movement_must_happen():
         _frame(yaw=y, seed=i) for i, y in enumerate((0, 1, 4, 9, 15, 18, 19, 20))
     ]
     assert faceid.alive(turning, "izquierda")[0]
-    assert not faceid.alive(turning, "derecha")[0]
+    # A real turn the other way is still a live person (owner, oct. 2026:
+    # setup failed too often); a still face is not.
+    assert faceid.alive(turning, "derecha")[0]
+    still = [_frame(seed=i) for i in range(8)]
+    assert not faceid.alive(still, "derecha")[0]
     up = [_frame(pitch=p, seed=i) for i, p in enumerate((0, 1, 5, 10, 14, 16, 17, 17))]
     assert faceid.alive(up, "arriba")[0]
     blink = [
@@ -222,3 +226,14 @@ def test_face_id_endpoints_refuse_requests_relayed_from_outside(tmp_path, monkey
     assert challenge["action"] in ("izquierda", "derecha", "arriba", "parpadee")
     relayed_challenge = client.post("/v1/faces/faceid/challenge", headers=relayed)
     assert relayed_challenge.status_code == 403
+
+
+def test_a_camera_problem_never_spends_an_attempt(gate, monkeypatch):
+    gate.set_passcode("246810")
+    left = gate.status()["attempts_left"]
+    still = [_frame(seed=i) for i in range(8)]  # no movement at all
+    monkeypatch.setattr(faceid, "read_frames", lambda book, frames: still)
+    c = gate.challenge()
+    out = faceid.unlock(object(), gate, c.nonce, [b"x"] * 8, "Dani")
+    assert not out["ok"] and out["retry"]
+    assert out["attempts_left"] == left == gate.status()["attempts_left"]

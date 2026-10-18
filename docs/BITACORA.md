@@ -2,6 +2,35 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-10-18 · Claude · Face ID más fácil, Sergio ya no responde a videos, cerebro por zonas
+- Petición del dueño: Face ID más fácil (siempre fallaba) y ver si puede
+  desbloquear el PC o el Mac; que Sergio no hable solo ni responda a lo que no es
+  para él (respondió a un video de YouTube); el cerebro de la mosca son zonas
+  (memoria, prompts y habilidades…) que crean conexiones nuevas al aprender, no
+  atajos, y debe alargar la memoria más allá de la ventana de contexto.
+- Face ID: basta un ángulo claro (antes 3), detección menos estricta
+  (`SCAN_MIN_DETECTION`), «Reconfigurar» reemplaza las muestras viejas
+  (`replace`), aviso de poca luz, botón «Intentar de nuevo». Al desbloquear: el
+  reto solo pide girar (el parpadeo fallaba), cualquier giro o parpadeo cuenta
+  como vida y un fallo de cámara o de luz ya no gasta intento (`retry`).
+- Desbloquear el sistema: no se hace. Windows Hello facial exige cámara
+  infrarroja y un credential provider con webcam normal se engaña con una foto;
+  en macOS los plugins de autorización son frágiles. Alternativas seguras en
+  `docs/FACEID-SISTEMA.md`.
+- Voz: nueva puerta de atención también en la web (`attention: 'addressed'`).
+  Ventana de seguimiento de 30 s (antes 90), se renueva cuando Sergio responde.
+  `looks_like_media` descarta lo que suena a video, TV o canción (frases de
+  YouTube, marcas [música], monólogos largos, mucho inglés). El audio de Gemini
+  se retiene hasta saber si le hablaban y se descarta si no. Quité de las
+  instrucciones «tomar la iniciativa».
+- Cerebro: `connectome/brain.py`. Zonas (sentidos, memoria, habilidades,
+  conversación, herramientas, integración) con sinapsis Hebbianas: cada
+  intercambio crea o refuerza conexiones, las usadas a menudo forman ruta rápida,
+  se debilitan con correcciones y decaen con el tiempo. Lo aprendido vuelve en
+  cada turno (`<cerebro_memoria>`), así recuerda más que la ventana de contexto.
+  Nunca guarda secretos; `SERGIO_CEREBRO=0` lo apaga. Página «Cerebro» por zonas.
+- Pruebas: 11774 + 762 (escritorio) + 262 (frontend) pasan; ruff limpio.
+
 ## 2026-10-18 · Claude · Voz siempre masculina, encuesta corta y larga, créditos sin logos, agente de código con marca Sergio, Workspace como Notion
 - Petición del dueño: usar todas sus imágenes en la encuesta de salud mental y
   que no se corten; dejar una encuesta corta y otra larga; que Sergio no

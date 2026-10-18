@@ -23,11 +23,12 @@ _library_mark = "<biblioteca_de_prompts>"
 
 
 def _library_guidance(text: str) -> str:
-    """The prompt library's block for *text*; never breaks a turn."""
+    """What the mind's zones add for *text* (prompt library know-how and the
+    memories that come back, see connectome/brain.py); never breaks a turn."""
     try:
-        from openjarvis.prompt_library import guidance_for
+        from openjarvis.connectome.brain import mind_context
 
-        return guidance_for(text)
+        return mind_context(text)
     except Exception:  # noqa: BLE001
         return ""
 

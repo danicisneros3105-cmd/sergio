@@ -97,6 +97,7 @@ async def scan(
     name: str = Form(...),
     consent: bool = Form(False),
     mesh: str = Form(""),
+    replace: bool = Form(False),
     images: list[UploadFile] = File(...),
 ) -> dict[str, Any]:
     """Face ID-style enrolment: frames of one person turning their head."""
@@ -109,7 +110,12 @@ async def scan(
         mesh_data = None
     try:
         out = await asyncio.to_thread(
-            _get_book().scan, name, frames, consent=consent, mesh=mesh_data
+            _get_book().scan,
+            name,
+            frames,
+            consent=consent,
+            mesh=mesh_data,
+            replace=replace,
         )
     except FaceError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

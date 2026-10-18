@@ -133,7 +133,9 @@ export class VoiceCall {
     ws.binaryType = 'arraybuffer';
     this.ws = ws;
     ws.onopen = () =>
-      ws.send(JSON.stringify({ type: 'start', voice: '', name: 'Sergio', language: this.language, context: '', tools: [] }));
+      // «addressed»: he answers only what is for him (his name, or a reply right
+      // after he spoke), never a video or the TV playing near the microphone.
+      ws.send(JSON.stringify({ type: 'start', voice: '', name: 'Sergio', language: this.language, context: '', tools: [], attention: 'addressed' }));
     ws.onmessage = (e) => this.receive(e.data);
     ws.onerror = () => this.fail('Se cortó la conexión con Sergio.');
     ws.onclose = () => {

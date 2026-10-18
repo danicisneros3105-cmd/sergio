@@ -76,7 +76,10 @@ LEARN_MIN_PX = 80
 # A scan is one continuous head turn by one person: every photo must look
 # like the scan's own front photos, and it must cover a few angles.
 SCAN_CONSISTENT = 0.25
-SCAN_MIN_ANGLES = 3
+# One clear angle is enough to start (the front); unlocks teach the rest.
+SCAN_MIN_ANGLES = 1
+# A setup scan keeps frames a little softer than live naming would.
+SCAN_MIN_DETECTION = 0.7
 SCAN_PER_ANGLE = 2
 # A new photo saved under a name must look like that person's photos: one
 # stranger saved as "Daniel" used to make everyone "Daniel" afterwards.

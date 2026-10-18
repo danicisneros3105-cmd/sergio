@@ -374,13 +374,19 @@ def test_scan_keeps_the_sharpest_photos_of_each_head_angle(tmp_path, monkeypatch
         b.scan("Dani", [b"two", b"C-M-0"], consent=True)
 
 
-def test_scan_needs_consent_and_several_angles(tmp_path, monkeypatch):
+def test_scan_needs_consent_and_one_clear_angle_is_enough(tmp_path, monkeypatch):
     rng = np.random.default_rng(4)
     b, frames = _scan_book(tmp_path, monkeypatch, _unit(rng.normal(size=128)))
     with pytest.raises(FaceError, match="consent"):
         b.scan("Dani", list(frames), consent=False)
-    with pytest.raises(FaceError, match="ángulo"):
-        b.scan("Dani", [b"C-M-0", b"C-M-1", b"C-M-2"], consent=True)
+    with pytest.raises(FaceError, match="claridad"):
+        b.scan("Dani", [b"C-M-0"], consent=True)
+    # Looking straight at the camera is enough to start (unlocks add angles).
+    out = b.scan("Dani", [b"C-M-0", b"C-M-1", b"C-M-2"], consent=True)
+    assert out["angles"] == ["C-M"]
+    # A fresh setup replaces what was saved instead of adding to it.
+    again = b.scan("Dani", [b"C-M-0", b"C-M-1", b"C-M-2"], consent=True, replace=True)
+    assert again["samples"] == again["added"]
 
 
 def test_a_scan_of_someone_already_saved_under_another_name_is_refused(

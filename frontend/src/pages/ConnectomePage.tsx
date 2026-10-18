@@ -1,5 +1,5 @@
-// How the shortcuts work: each region of the fly brain and the part of Sergio
-// that does its job, the keys, and what the mushroom body has learned so far.
+// Sergio's mind in zones like the fly brain: each region and the zone doing its
+// job, the connections learned so far, and the keyboard reflexes.
 
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
@@ -25,12 +25,12 @@ export function ConnectomePage() {
   const keyed = SHORTCUTS.filter((s) => s.keys);
 
   return (
-    <PaperPage title="Atajos" wide>
+    <PaperPage title="Cerebro" wide>
       {problem && <p className="paper-meta">{problem}</p>}
       {map && (
         <>
           <p className="cn-lead">
-            Los atajos de Sergio siguen el mapa del cerebro de la mosca de la fruta: {map.facts.neurons}, {map.facts.synapses} y {map.facts.cell_types}. Cada región hace un solo trabajo y los caminos entre ellas son cortos; por eso es rápido.
+            La mente de Sergio está hecha por zonas, como el cerebro de la mosca de la fruta ({map.facts.neurons}, {map.facts.synapses}): memoria, prompts y habilidades, conversación, herramientas. {map.learning}
           </p>
           <ol className="cn-flow">
             {map.regions.map((r) => (
@@ -48,7 +48,16 @@ export function ConnectomePage() {
           </ol>
 
           <section className="salud-block">
-            <h2 className="paper-label">Teclas</h2>
+            <h2 className="paper-label">Conexiones aprendidas</h2>
+            <p className="cn-learned">
+              {map.mind?.engrams
+                ? `${map.mind.engrams} recuerdos, ${map.mind.synapses ?? 0} conexiones y ${map.mind.associations ?? 0} enlaces entre recuerdos. Ruta rápida en el ${Math.round((map.mind.fast_path ?? 0) * 100)} % de las respuestas.`
+                : 'Todavía nada: cada conversación deja un recuerdo y las conexiones crecen con el uso.'}
+            </p>
+          </section>
+
+          <section className="salud-block">
+            <h2 className="paper-label">Reflejos de teclado</h2>
             <ul className="cn-keys">
               <li>
                 <kbd>Ctrl</kbd> <kbd>K</kbd>
@@ -66,7 +75,7 @@ export function ConnectomePage() {
           </section>
 
           <section className="salud-block">
-            <h2 className="paper-label">Lo aprendido</h2>
+            <h2 className="paper-label">Atajos aprendidos</h2>
             {map.memory.synapses ? (
               <>
                 <p className="cn-learned">
