@@ -11,6 +11,7 @@
 * ``POST /v1/nodes/{id}/approvals/{aid}``      — ``{"approve": true|false}``
 * ``POST /v1/nodes/{id}/hand-back``            — after you took over
 * ``POST /v1/nodes/{id}/stop`` · ``/resume``   — emergency stop and back
+* ``POST /v1/nodes/{id}/cancel``              — drop what it is doing now, stay available
 * ``GET  /v1/nodes/{id}/computer``, ``…/computer/file?path=`` — its disk
 * ``POST /v1/nodes/{id}/connections/{cli|mcp|api}``, ``DELETE …/{kind}/{cid}``,
   ``POST …/mcp/{cid}/tools`` — commands, MCP servers, APIs (Dev plan)
@@ -28,7 +29,7 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
-from openjarvis.nodes import connections, skills
+from openjarvis.nodes import connections, skills, team
 from openjarvis.nodes.store import (
     COLORS,
     MAIN_THREAD,
@@ -49,6 +50,7 @@ def get_worker(request: Request) -> NodeWorker:
         worker = getattr(state, "node_worker", None)
         if worker is None:
             worker = NodeWorker(swarm=_swarm(request), notify=_owner_notify(request))
+            worker.store.ensure_team()  # Rihno, Manchas, Hous y Tennessee: siempre
             worker.start()
             state.node_worker = worker
     return worker
@@ -210,6 +212,8 @@ async def catalog() -> Dict[str, Any]:
         "colors": list(COLORS),
         "shapes": list(SHAPES),
         "tones": [{"key": k, "label": v} for k, v in TONES.items()],
+        "team": team.roster(),
+        "team_pitch": team.TEAM_PITCH,
         "templates": [
             {k: t.get(k) for k in ("id", "name", "title", "description", "avatar")}
             for t in skills.TEMPLATES
@@ -226,23 +230,12 @@ async def list_nodes(request: Request) -> Dict[str, Any]:
 
 @router.post("")
 async def create(body: NewNode, request: Request) -> Dict[str, Any]:
-    worker = get_worker(request)
-    if body.template and skills.template(body.template) is None:
-        raise HTTPException(400, "No existe esa plantilla.")
-    try:
-        node = await asyncio.to_thread(
-            worker.create,
-            body.name,
-            body.instructions,
-            template=body.template,
-            color=body.color,
-            apps=body.apps,
-            rules=body.rules or None,
-            tone=body.tone,
-        )
-    except NodeError as exc:
-        raise _bad(exc) from exc
-    return _full(worker, node.id)
+    """The Nodes are a fixed team of four; no others are made."""
+    raise HTTPException(
+        400,
+        "Los Nodes son un equipo fijo de cuatro: Rihno, Manchas, Hous y Tennessee. "
+        "Encárgueles a ellos lo que necesite.",
+    )
 
 
 @router.get("/{node_id}")
@@ -301,9 +294,14 @@ async def remove_own_rule(
 @router.delete("/{node_id}")
 async def delete(node_id: str, request: Request) -> Dict[str, Any]:
     worker = get_worker(request)
-    _node(worker, node_id)
+    node = _node(worker, node_id)
+    if node.team:
+        raise HTTPException(400, f"{node.name} es del equipo fijo: siempre está.")
     worker.stop(node_id)
-    return {"deleted": worker.store.delete(node_id)}
+    try:
+        return {"deleted": worker.store.delete(node_id)}
+    except NodeError as exc:
+        raise _bad(exc) from exc
 
 
 @router.post("/{node_id}/seen")
@@ -461,6 +459,15 @@ async def stop(node_id: str, request: Request) -> Dict[str, Any]:
     worker = get_worker(request)
     _node(worker, node_id)
     worker.stop(node_id)
+    return _full(worker, node_id)
+
+
+@router.post("/{node_id}/cancel")
+async def cancel(node_id: str, request: Request) -> Dict[str, Any]:
+    """Cancel the action in progress; the Node stays available."""
+    worker = get_worker(request)
+    _node(worker, node_id)
+    worker.cancel(node_id)
     return _full(worker, node_id)
 
 

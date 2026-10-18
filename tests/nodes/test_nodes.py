@@ -168,9 +168,12 @@ def test_routes(tmp_path):
     app.state.node_worker = worker
     c = TestClient(app)
     assert c.get("/v1/nodes/rules").json()["rules"][0]["key"] == "web"
-    node = c.post("/v1/nodes", json={"name": "Ana", "instructions": "x"}).json()
+    # Nodes are a fixed team: no new ones are made, Rihno leads
+    assert c.post("/v1/nodes", json={"name": "Ana"}).status_code == 400
+    worker.store.ensure_team()
+    node = c.get("/v1/nodes").json()["nodes"][0]
     nid = node["id"]
-    assert node["primary"] and node["unread"] >= 0
+    assert node["name"] == "Rihno" and node["primary"] and node["unread"] >= 0
     c.post(f"/v1/nodes/{nid}/messages", json={"text": "hola"})
     worker.wait(nid)
     said = c.get(f"/v1/nodes/{nid}/messages").json()["messages"][-1]["text"]
@@ -214,8 +217,9 @@ def test_routes(tmp_path):
         == "ask"
     )
     assert c.post(f"/v1/nodes/{nid}/stop").json()["status"] == "paused"
-    assert c.delete(f"/v1/nodes/{nid}").json()["deleted"]
-    assert c.get(f"/v1/nodes/{nid}").status_code == 404
+    # the team is always there: Rihno cannot be deleted
+    assert c.delete(f"/v1/nodes/{nid}").status_code == 400
+    assert c.get(f"/v1/nodes/{nid}").json()["name"] == "Rihno"
 
 
 def test_a_node_is_called_node_in_every_language(tmp_path):

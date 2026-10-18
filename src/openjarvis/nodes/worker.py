@@ -29,7 +29,7 @@ import threading
 import time
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
 
-from openjarvis.nodes import connections, skills
+from openjarvis.nodes import connections, skills, team
 from openjarvis.nodes.store import (
     MAIN_THREAD,
     RULES,
@@ -62,6 +62,11 @@ TAG_MCP = re.compile(r"<mcp\s+([^>]*)>(.*?)</mcp>", re.S | re.I)
 TAG_API = re.compile(r"<api\s+([^>]*?)(?:/>|>(.*?)</api>)", re.S | re.I)
 TAG_SWARM = re.compile(r"<enjambre>(.*?)</enjambre>", re.S | re.I)
 TAG_NEXT = re.compile(r"<siguiente>(.*?)</siguiente>", re.S | re.I)
+# The fixed team passes work to each other: <equipo para="Hous">encargo</equipo>
+TAG_TEAM = re.compile(
+    r"<equipo\s+para\s*=\s*\"([^\"]+)\"\s*>(.*?)</equipo>", re.S | re.I
+)
+TEAM_DEPTH = 2  # an answer can bounce back and forth at most this many times
 ATTR = re.compile(r'(\w+)\s*=\s*"([^"]*)"')
 SAVE_VERB = re.compile(
     r"\b(guard|dej|cre|escrib|export|sav|wrote|writ|creat|stor)\w*", re.I
@@ -81,7 +86,7 @@ para el usuario de forma continua, como un asistente de confianza a distancia.
 Tu función: {instructions}
 Tu forma de hablar: {tone}. Te presentas siempre como «Node» (plural «Nodes») \
 en cualquier idioma: nunca «nodo», «nœud» ni otra traducción.
-
+{character}
 Tu computadora es la carpeta {computer} — guarda ahí todo lo que produzcas (informes, \
 tablas, notas), con rutas completas; el usuario la ve en «Computadora».
 Apps del usuario (con knowledge_search y su «source»): {apps}. No uses otras. «escritura» \
@@ -367,6 +372,9 @@ class NodeWorker:
         return self.store.get(node.id) or node
 
     def introduce(self, node: Node) -> str:
+        member = team.member(node.team)
+        if member is not None:
+            return team.greeting(member)
         try:
             data = self.ask(
                 INTRO_PROMPT.format(
@@ -412,6 +420,8 @@ class NodeWorker:
         routine: str = "",
         thread: str = MAIN_THREAD,
         round_: int = 1,
+        reply_to: Optional[Dict[str, str]] = None,
+        depth: int = 0,
     ) -> None:
         job = {
             "request": request,
@@ -420,6 +430,8 @@ class NodeWorker:
             "routine": routine,
             "thread": thread,
             "round": round_,
+            "reply_to": reply_to,
+            "depth": depth,
         }
         with self._lock:
             self._queues.setdefault(node_id, []).append(job)
@@ -467,6 +479,35 @@ class NodeWorker:
         )
         return True
 
+    def cancel(self, node_id: str) -> bool:
+        """Cancel what it is doing now (and what was queued) but keep the Node
+        available: unlike «Detener», it is not paused. A turn already waiting
+        on the model finishes in the background and its result is thrown away;
+        pending approvals of that work are withdrawn."""
+        node = self.store.get(node_id)
+        if node is None:
+            return False
+        with self._lock:
+            had = bool(self._queues.get(node_id)) or self.busy(node_id)
+            self._queues[node_id] = []
+            stop = self._stop.get(node_id)
+        if stop is not None:
+            stop.set()
+        withdrawn = 0
+        for item in self.store.approvals(node_id):
+            if item.get("status") == "pending":
+                self.store.decide(node_id, item["id"], False)
+                withdrawn += 1
+        status = "paused" if node.status == "paused" else "idle"
+        self.store.update(node_id, status=status, doing="", waiting="")
+        note = "Acción cancelada por usted."
+        if withdrawn:
+            note += f" Retiré {withdrawn} permiso(s) pendiente(s)."
+        if not had and not withdrawn:
+            note = "No había ninguna acción en curso."
+        self.store.log(node_id, "cancelled", note)
+        return had or bool(withdrawn)
+
     def resume(self, node_id: str) -> None:
         self.store.update(node_id, status="idle", waiting="")
         self.store.log(node_id, "resumed", "Reanudado.")
@@ -482,6 +523,10 @@ class NodeWorker:
                 stop = self._stop.setdefault(node_id, threading.Event())
             try:
                 self._turn(node_id, job, stop)
+                if stop.is_set():
+                    with self._lock:
+                        if self._stop.get(node_id) is stop:
+                            self._stop[node_id] = threading.Event()
             except Exception as exc:  # noqa: BLE001 - one bad turn never kills the Node
                 logger.exception("node %s turn failed", node_id)
                 self.store.log(
@@ -542,10 +587,24 @@ class NodeWorker:
             f"{a} ({'escritura' if lvl == 'write' else 'lectura'})"
             for a, lvl in node.apps.items()
         )
+        member = team.member(node.team)
+        if member is not None:
+            instructions = member.mission + (
+                f" Además, el señor le pidió: {node.instructions}"
+                if node.instructions
+                else ""
+            )
+            tone = "la tuya propia, descrita abajo"
+            character = "\n" + team.character_block(member) + "\n"
+        else:
+            instructions = node.instructions or "ayudar al usuario en lo que pida"
+            tone = TONES.get(node.tone, TONES["cercano"])
+            character = ""
         return TURN_PROMPT.format(
             name=node.name,
-            instructions=node.instructions or "ayudar al usuario en lo que pida",
-            tone=TONES.get(node.tone, TONES["cercano"]),
+            instructions=instructions,
+            tone=tone,
+            character=character,
             computer=self.store.computer(node.id),
             apps=apps or "ninguna todavía",
             rules=rules,
@@ -592,8 +651,12 @@ class NodeWorker:
             self.store.log(
                 node_id, "discarded", "Resultado descartado: lo detuvo usted."
             )
+            current = self.store.get(node_id)
+            if current is not None and current.status == "working":
+                self.store.update(node_id, status="idle", doing="")
             return
-        parsed = parse_answer(answer or "")
+        handoffs = TAG_TEAM.findall(answer or "")
+        parsed = parse_answer(TAG_TEAM.sub("", answer or ""))
         node = self.store.get(node_id) or node
         if parsed["remember"] and node.rules.get("memory") != "block":
             for fact in self.store.remember(node_id, parsed["remember"]):
@@ -702,6 +765,8 @@ class NodeWorker:
         self.store.update(node_id, status=status, doing="", waiting=waiting)
         if job.get("routine"):
             self.store.routine_result(node_id, job["routine"])
+        self._pass_work(node, job, handoffs, thread)
+        self._answer_back(node, job, say)
         if status in ("waiting_approval", "needs_you"):
             self._tell_owner(node, waiting or "necesita su aprobación")
 
@@ -717,6 +782,55 @@ class NodeWorker:
                 round_=job.get("round", 1) + 1,
                 extra=job.get("extra") or [],
             )
+
+    # -- the team -------------------------------------------------------------------
+    def _pass_work(
+        self, node: Node, job: Dict[str, Any], handoffs: List[Any], thread: str
+    ) -> None:
+        """«<equipo para="Hous">…</equipo>»: the colleague gets the job, and
+        its answer comes back here."""
+        if not handoffs:
+            return
+        if not node.team or job.get("depth", 0) >= TEAM_DEPTH:
+            self.store.log(
+                node.id, "team", "Pidió ayuda al equipo, pero ya no hay más rondas."
+            )
+            return
+        for name, task in handoffs[:3]:
+            m = team.by_name(name)
+            mate = self.store.team_node(m.key) if m else None
+            task = " ".join(str(task).split())[:3000]
+            if mate is None or mate.id == node.id or not task:
+                continue
+            self.store.say(mate.id, "user", task, source=f"Encargo de {node.name}")
+            self.store.log(node.id, "team", f"Le pasó a {mate.name}: {task[:200]}")
+            self.store.log(mate.id, "team", f"{node.name} le encargó: {task[:200]}")
+            self.enqueue(
+                mate.id,
+                task,
+                source=f"Encargo de {node.name}, tu compañero",
+                reply_to={"node": node.id, "thread": thread},
+                depth=job.get("depth", 0) + 1,
+            )
+
+    def _answer_back(self, node: Node, job: Dict[str, Any], say: str) -> None:
+        """A colleague finished: its answer goes to whoever asked, who
+        integrates it in its own voice."""
+        reply = job.get("reply_to") or {}
+        origin = self.store.get(reply.get("node", "")) if reply else None
+        if origin is None or not say:
+            return
+        thread = reply.get("thread") or MAIN_THREAD
+        self.store.say(origin.id, "node", say, thread=thread, source=f"De {node.name}")
+        self.store.log(origin.id, "team", f"{node.name} respondió: {say[:200]}")
+        self.enqueue(
+            origin.id,
+            f"{node.name} terminó lo que le encargaste:\n{say}\n\n"
+            "Intégralo en tu trabajo y preséntaselo al señor a tu manera.",
+            source=f"Respuesta de {node.name}",
+            thread=thread,
+            depth=job.get("depth", 0) + 1,
+        )
 
     def _run_action(self, node: Node, action: Dict[str, Any], thread: str) -> str:
         kind = action["kind"]

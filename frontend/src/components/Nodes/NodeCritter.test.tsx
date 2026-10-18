@@ -32,15 +32,23 @@ describe('the Nodes cast', () => {
 });
 
 describe('<NodeCritter>', () => {
-  it('shows a medallion when small and the whole disc when large', () => {
-    const small = render(<NodeCritter look={{ shape: 'glove' }} size={40} />);
-    expect(small.container.querySelector('[data-disc]')).toBeNull();
-    expect(small.container.querySelectorAll('.critter-frame')).toHaveLength(FRAMES);
-    small.unmount();
-    const big = render(<NodeCritter look={{ shape: 'glove' }} size={132} />);
-    expect(big.container.querySelector('[data-disc]')).not.toBeNull();
-    expect(big.container.querySelectorAll('.critter-frame')).toHaveLength(FRAMES);
-    expect(big.container.querySelector('.critter-ring')).not.toBeNull();
+  it('draws the same 12 inked frames at any size, with no disc or ring', () => {
+    for (const size of [30, 40, 132]) {
+      const { container, unmount } = render(<NodeCritter look={{ shape: 'glove' }} size={size} />);
+      expect(container.querySelectorAll('.critter-frame')).toHaveLength(FRAMES);
+      expect(container.querySelector('[data-disc]')).toBeNull();
+      expect(container.querySelector('.critter-ring')).toBeNull();
+      unmount();
+    }
+  });
+
+  it('gives each member of the team its own colours on the ink', () => {
+    const html = (shape: 'rhino' | 'dalmatian' | 'glove' | 'orb') => render(<NodeCritter look={{ shape }} />).container.innerHTML;
+    const rihno = html('rhino');
+    expect(rihno).toContain('#efe3c4'); // cream horn
+    expect(rihno).toContain('#8ecdf5'); // celeste stripes
+    expect(html('glove')).toContain('#3d82dc'); // Hous, the blue glove
+    expect(html('orb')).toContain('#d9a24a'); // Tennessee's leopard glasses
   });
 
   it('keeps its state on the element and is hidden from readers without a label', () => {
@@ -49,8 +57,8 @@ describe('<NodeCritter>', () => {
     expect(el.getAttribute('data-status')).toBe('working');
     expect(el.hasAttribute('data-talking')).toBe(true);
     expect(el.getAttribute('aria-hidden')).toBe('true');
-    rerender(<NodeCritter look={{ shape: 'orb' }} status="needs_you" label="Mía: necesita su ayuda" />);
-    expect(container.querySelector('[role="img"]')?.getAttribute('aria-label')).toBe('Mía: necesita su ayuda');
+    rerender(<NodeCritter look={{ shape: 'orb' }} status="needs_you" label="Tennessee: necesita su ayuda" />);
+    expect(container.querySelector('[role="img"]')?.getAttribute('aria-label')).toBe('Tennessee: necesita su ayuda');
     expect(container.querySelector('.critter-alert')).not.toBeNull();
   });
 });

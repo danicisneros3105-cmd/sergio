@@ -438,6 +438,7 @@ class Node:
     avatar: Dict[str, str] = field(default_factory=random_avatar)
     tone: str = "cercano"
     template: str = ""
+    team: str = ""  # rihno · manchas · hous · tennessee (nodes/team.py)
     threads: List[Dict[str, Any]] = field(
         default_factory=lambda: [
             {"id": MAIN_THREAD, "title": "Principal", "created": time.time()}
@@ -587,7 +588,14 @@ class NodeStore:
             for p in self.home.iterdir()
             if p.is_dir() and NODE_ID.match(p.name)
         ]
-        return sorted([n for n in nodes if n], key=lambda n: (not n.primary, n.created))
+        from openjarvis.nodes.team import ORDER
+
+        def rank(n: Node) -> tuple:
+            if n.team in ORDER:
+                return (0, ORDER.index(n.team), 0.0)
+            return (1, 0 if n.primary else 1, n.created)
+
+        return sorted([n for n in nodes if n], key=rank)
 
     def update(self, node_id: str, **changes: Any) -> Node:
         with self._lock:
@@ -598,6 +606,10 @@ class NodeStore:
                 name = " ".join(str(changes["name"] or "").split())[:40]
                 if not name:
                     raise NodeError("El nombre no puede quedar vacío.")
+                if node.team and name != node.name:
+                    raise NodeError(
+                        f"{node.name} es del equipo fijo: su nombre no cambia."
+                    )
                 node.name = name
             if "instructions" in changes:
                 node.instructions = " ".join(
@@ -611,8 +623,8 @@ class NodeStore:
                 node.rules = clean_rules(changes["rules"], node.rules)
             if "own_rules" in changes:
                 node.own_rules = clean_own_rules(changes["own_rules"])
-            if "tone" in changes and changes["tone"] in TONES:
-                node.tone = changes["tone"]
+            if "tone" in changes and changes["tone"] in TONES and not node.team:
+                node.tone = changes["tone"]  # the team speaks in its own voice
             for key in ("status", "doing", "waiting", "last_seen"):
                 if key in changes:
                     setattr(node, key, changes[key])
@@ -625,12 +637,56 @@ class NodeStore:
             path = self.dir(node_id)
             if not path.is_dir():
                 return False
+            node = self.get(node_id)
+            if node is not None and node.team:
+                raise NodeError(f"{node.name} es del equipo fijo: siempre está.")
             shutil.rmtree(path, ignore_errors=True)
             rest = self.all()
             if rest and not any(n.primary for n in rest):
                 rest[0].primary = True
                 self.save(rest[0])
             return True
+
+    # -- the fixed team ------------------------------------------------------------
+    def team_node(self, key: str) -> Optional[Node]:
+        return next((n for n in self.all() if n.team == key), None)
+
+    def ensure_team(self) -> List[Node]:
+        """Create whichever of Rihno, Manchas, Hous and Tennessee is missing.
+        Safe to call any number of times; returns the ones it created."""
+        from openjarvis.nodes import team
+
+        made: List[Node] = []
+        with self._lock:
+            have = {n.team for n in self.all() if n.team}
+            for m in team.TEAM:
+                if m.key in have:
+                    continue
+                node_id = f"n_{secrets.token_hex(6)}"
+                node = Node(
+                    id=node_id,
+                    name=m.name,
+                    instructions="",
+                    color=COLORS[0],
+                    rules=clean_rules(m.rules),
+                    primary=m.key == "rihno",
+                    avatar=clean_avatar({"shape": m.shape}),
+                    tone="cercano",
+                    team=m.key,
+                )
+                self.save(node)
+                made.append(node)
+            if any(n.team == "rihno" for n in made):
+                for other in self.all():
+                    if other.primary and other.team != "rihno":
+                        other.primary = False
+                        self.save(other)
+        for node in made:
+            self.computer(node.id)
+            m = team.member(node.team)
+            if m is not None:
+                self.say(node.id, "node", team.greeting(m))
+        return made
 
     # -- threads -------------------------------------------------------------------
     def add_thread(self, node_id: str, title: str = "") -> Dict[str, Any]:

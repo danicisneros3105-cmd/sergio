@@ -49,17 +49,28 @@ termina en la rama `main`, y el dueño actualiza con un único comando.
   Muse de Meta), no inventado: fondo blanco / #212121, barra lateral gris
   claro, letra del sistema, botones negros redondeados, sin degradados ni
   colores de adorno.
-- Nodes (dueño, oct. 2026): elenco fijo de cuatro y **nadie lo personaliza**:
-  rinoceronte de ojos cerrados con camiseta a rayas celeste y blanco,
-  dálmata, guante médico azul inflado con boina y cara de marcador, y orbe
-  invisible con gafas de leopardo y ojos negros. Dibujados en tinta, con el
-  trazo grueso de un dibujo a mano, y animados como un fenaquistoscopio: 12
-  cuadros por vuelta, cada uno entintado de nuevo; grande se ve el disco
-  (anillo de cuadros que gira de a un paso y ventana central), pequeño un
-  medallón de papel (`components/Nodes/NodeCritter.tsx`, solo CSS `steps`).
-  Una plantilla decide el personaje; el servidor ignora color, ropa y ojos
-  que lleguen de fuera (`nodes/store.py: CAST`, `clean_avatar`). El 3D
-  anterior (`dots3d.ts`) ya no existe.
+- Nodes (dueño, oct. 2026): un **equipo fijo de cuatro** que nadie crea,
+  borra, renombra ni personaliza: **Rihno** (orquestador y asistente
+  ejecutivo; rinoceronte de ojos cerrados, cuerno blanco crema, camiseta a
+  rayas celestes), **Manchas** (disruptor: investigación profunda y
+  marketing; dálmata), **Hous** (creativo y diseño; guante médico azul con
+  boina) y **Tennessee** (estratega brutalmente honesto, datos y negocio;
+  orbe invisible con gafas de leopardo). Personalidad completa en
+  `nodes/team.py`: misión, voz, método, entregables, límites, ejemplos y
+  protocolo de equipo (`<equipo para="…">`, profundidad 2) que entra en
+  **cada** turno; inspiraciones descritas por rasgos, nunca imitando a
+  personas reales. El dueño solo añade indicaciones. El servidor los crea
+  siempre (`NodeStore.ensure_team`) y rechaza crear o borrar.
+  Dibujo como las referencias del dueño (tinta gruesa, trama de puntos tipo
+  periódico, zapatos negros) con el color solo en los detalles de cada uno;
+  **sin anillo ni disco**: 12 cuadros entintados de nuevo por vuelta, solo
+  CSS `steps` (`components/Nodes/NodeCritter.tsx`). El color del avatar lo
+  fija el servidor (`nodes/store.py: CAST`, `clean_avatar`).
+  «Cancelar acción» (`POST /v1/nodes/{id}/cancel`) suelta lo que hace y
+  retira sus aprobaciones pendientes, pero el Node sigue disponible;
+  «Detener» es la parada de emergencia y lo deja en pausa.
+  La página: `pages/NodesPage.tsx` (marco) y una pestaña por archivo en
+  `pages/nodes/`.
 - Sin emojis y sin colores en la interfaz (dueño, oct. 2026): negro, blanco y
   grises; iconos de línea. El color solo vive en lo que el dueño crea (sus
   diseños, fotos, 3D) y en los cuatro personajes de los Nodes.

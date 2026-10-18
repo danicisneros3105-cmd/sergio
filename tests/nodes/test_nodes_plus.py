@@ -368,12 +368,19 @@ def test_catalog_and_connections_routes(tmp_path, monkeypatch):
         and cat["templates"][0]["id"] == "vigia"
         and "api_allowed" in cat
     )
-    node = c.post(
+    refused = c.post(
         "/v1/nodes",
         json={"name": "Vigía", "template": "vigia", "avatar": {"shape": "star"}},
-    ).json()
-    # the template decides the character; what the client asks for is ignored
-    assert node["avatar"] == CAST_LOOK["orb"] and node["template"] == "vigia"
+    )
+    assert refused.status_code == 400 and "equipo fijo" in refused.json()["detail"]
+    assert [m["name"] for m in cat["team"]] == ["Rihno", "Manchas", "Hous", "Tennessee"]
+    worker.store.ensure_team()
+    node = next(
+        n for n in c.get("/v1/nodes").json()["nodes"] if n["name"] == "Tennessee"
+    )
+    # its character is fixed: the invisible orb, whatever anyone asks
+    assert node["avatar"] == CAST_LOOK["orb"] and node["team"] == "tennessee"
+    assert c.delete(f"/v1/nodes/{node['id']}").status_code == 400
     nid = node["id"]
     assert (
         c.post(

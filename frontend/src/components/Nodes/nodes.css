@@ -20,21 +20,37 @@
 @keyframes node-liquid-pane-open { 0% { transform: translateX(-36px) scaleX(.05); filter: blur(12px) brightness(.2); } 75% { filter: blur(1px) brightness(.9); } 100% { transform: translateX(0) scaleX(1); filter: none; } }
 @media (prefers-reduced-motion: reduce) { .node-liquid-split, .node-liquid-bubble { animation: none; filter: none; } }
 
-/* -- The Nodes: ink characters played like a phenakistoscope -------------------
-   Twelve frames per turn. Each frame shows during its twelfth (steps), and the
-   ring of slits turns one notch per frame, so it needs no script at all. */
+/* -- The Nodes: ink characters that move like hand-drawn animation ----------------
+   Twelve frames per turn; each frame shows during its twelfth (CSS steps), so
+   it needs no script at all. */
 .critter { --d: 1.5s; position: relative; display: inline-block; flex-shrink: 0; line-height: 0; vertical-align: middle; }
 .critter[data-status='working'], .critter[data-talking] { --d: 0.9s; }
 .critter svg { display: block; overflow: visible; }
 .critter-frame { visibility: hidden; animation: critter-show var(--d) steps(1, end) infinite; animation-delay: calc(var(--d) * var(--n) * -1); }
 .critter-frame:first-child { visibility: visible; }
-.critter-ring { animation: critter-step var(--d) steps(12, end) infinite; }
 @keyframes critter-show { 0% { visibility: visible; } 8.3333% { visibility: hidden; } 100% { visibility: hidden; } }
-@keyframes critter-step { to { transform: rotate(-360deg); } }
 .critter[data-status='paused'] { filter: grayscale(1); opacity: 0.55; }
-.critter[data-status='paused'] .critter-frame, .critter[data-status='paused'] .critter-ring { animation-play-state: paused; }
+.critter[data-status='paused'] .critter-frame { animation-play-state: paused; }
 .critter-alert { position: absolute; top: -2%; right: -4%; background: var(--color-bg, #fff); border-radius: 50%; padding: 1px; animation: critter-alert 1s steps(2, end) infinite; }
 @keyframes critter-alert { 50% { opacity: 0.25; } }
 @media (prefers-reduced-motion: reduce) {
-  .critter-frame, .critter-ring, .critter-alert { animation: none; }
+  .critter-frame, .critter-alert { animation: none; }
 }
+/* On a dark page the black ink would vanish: a thin white edge, like a sticker. */
+.dark .critter svg { filter: drop-shadow(0 0 0.8px #fff) drop-shadow(0 0 0.8px #fff); }
+@media (prefers-color-scheme: dark) { :root:not(.light) .critter svg { filter: drop-shadow(0 0 0.8px #fff) drop-shadow(0 0 0.8px #fff); } }
+
+/* -- the fixed team: card, character sheet, cancel ------------------------------ */
+.critter-card-role { font-size: 12.5px; color: var(--color-text-tertiary); }
+.node-member { display: grid; gap: 14px; }
+.node-member p { margin: 0; font-size: 14px; line-height: 1.55; color: var(--color-text); }
+.node-signature {
+  margin: 0;
+  padding: 2px 0 2px 14px;
+  border-left: 3px solid var(--color-text);
+  font-size: 14px;
+  font-style: italic;
+  line-height: 1.55;
+  color: var(--color-text-secondary);
+}
+.node-msg .node-cancel { align-self: center; margin-left: 4px; display: inline-flex; align-items: center; gap: 5px; }

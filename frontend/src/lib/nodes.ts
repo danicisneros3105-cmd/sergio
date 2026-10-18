@@ -56,6 +56,18 @@ export interface Template {
   avatar: Avatar;
 }
 
+/** One of the fixed team of four (server: nodes/team.py). */
+export interface TeamMember {
+  key: 'rihno' | 'manchas' | 'hous' | 'tennessee';
+  name: string;
+  shape: Avatar['shape'];
+  role: string;
+  archetype: string;
+  mission: string;
+  voice: string;
+  signature: string;
+}
+
 export interface Catalog {
   rules: RuleSpec[];
   colors: string[];
@@ -64,6 +76,8 @@ export interface Catalog {
   templates: Template[];
   plan: string;
   api_allowed: boolean;
+  team?: TeamMember[];
+  team_pitch?: string;
 }
 
 export interface Approval {
@@ -108,6 +122,7 @@ export interface SergioNode {
   avatar: Avatar;
   tone: string;
   template: string;
+  team?: TeamMember['key'] | ''; // set for the fixed team; older Nodes have none
   threads: Thread[];
   connections: { cli: Connection[]; mcp: Connection[]; api: Connection[] };
 }
@@ -200,6 +215,8 @@ export const nodesApi = {
   handBack: (id: string, note = '') => json<SergioNode>(`/v1/nodes/${id}/hand-back`, send('POST', { note })),
   stop: (id: string) => json<SergioNode>(`/v1/nodes/${id}/stop`, send('POST', {})),
   resume: (id: string) => json<SergioNode>(`/v1/nodes/${id}/resume`, send('POST', {})),
+  /** Drop what it is doing now (queue and pending approvals); it stays available. */
+  cancel: (id: string) => json<SergioNode>(`/v1/nodes/${id}/cancel`, send('POST', {})),
   computer: (id: string) =>
     json<{ files: Array<{ path: string; size: number; modified: number }>; path: string; doing: string; recent: ActivityItem[] }>(
       `/v1/nodes/${id}/computer`,
@@ -234,10 +251,10 @@ function host(url: string): string {
 }
 
 export const SHAPE_ES: Record<Avatar['shape'], string> = {
-  rhino: 'Rinoceronte',
-  dalmatian: 'Dálmata',
-  glove: 'Guante',
-  orb: 'Orbe',
+  rhino: 'Rihno',
+  dalmatian: 'Manchas',
+  glove: 'Hous',
+  orb: 'Tennessee',
 };
 
 export function describeRoutine(r: Pick<Routine, 'every_minutes' | 'at' | 'days'> & Partial<Pick<Routine, 'kind' | 'url' | 'app'>>): string {

@@ -2,6 +2,52 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-10-18 · Claude · El equipo fijo de Nodes: Rihno, Manchas, Hous y Tennessee
+- Petición del dueño: botón de cancelar acción, código ordenado, los Nodes se
+  llaman Rihno, Manchas, Hous y Tennessee, sin anillo, dibujados como sus dos
+  referencias (robot en trama de puntos y hombre leyendo el periódico, tinta
+  negra) pero con color en los detalles, y con su personalidad y forma de
+  trabajar completas y siempre presentes.
+- Servidor: `nodes/team.py` (nuevo) define a los cuatro con misión, voz,
+  método paso a paso, entregables, lo que nunca hacen, ejemplos, el resto del
+  equipo y una auto-revisión; `worker._prompt` lo mete en cada turno. Se
+  pasan trabajo con `<equipo para="Nombre">…</equipo>` (como mucho 2 saltos):
+  el compañero lo hace y la respuesta vuelve al origen («De Hous»), que la
+  integra. `NodeStore.ensure_team` los crea al arrancar, Rihno es el
+  principal; crear o borrar Nodes devuelve 400, renombrarlos o cambiar su tono
+  no se puede. Los nombres se entienden mal escritos («Tenessee», «rhino»).
+  Límites que no se tocan: Manchas no hace marketing engañoso ni ilegal, y
+  «web profunda» es investigación pública a fondo; nadie envía ni borra sin
+  aprobación; Tennessee no inventa cifras y su sarcasmo va a las ideas, no a
+  las personas. Las inspiraciones del dueño quedan como rasgos, sin nombrar
+  ni imitar a actores o personajes reales.
+- Cancelar acción: `POST /v1/nodes/{id}/cancel` vacía la cola, corta el turno,
+  retira las aprobaciones pendientes y deja el Node disponible (un resultado
+  que llegue tarde se descarta). «Detener» sigue siendo la parada de
+  emergencia (pausa). En la web: en la cabecera y junto a «Trabajando…».
+- Dibujo: `NodeCritter.tsx` sin disco ni anillo. Tinta gruesa, trama de
+  puntos de periódico, zapatos negros y color solo en lo de cada uno (cuerno
+  crema y rayas celestes de Rihno, Hous azul con boina negra, gafas de
+  leopardo de Tennessee). Siguen los 12 cuadros entintados de nuevo por
+  vuelta, solo CSS. En oscuro llevan un borde blanco de pegatina.
+- Código ordenado: `pages/NodesPage.tsx` pasó de 1332 líneas a ser solo el
+  marco; cada pestaña vive en `pages/nodes/` (Chat, Actividad, Computadora,
+  Memoria, Rutinas, Reglas, Apps, Conexiones, Ajustes y `shared.tsx`). Se
+  quitó la creación de Nodes (galería de plantillas) y su CSS muerto.
+  Ajustes de un miembro: su ficha (rol, misión, cómo habla, frase, el equipo)
+  y un campo de indicaciones suyas; sin nombre editable, sin tono, sin Borrar.
+- La demo usa ahora los datos reales del equipo (generados con el servidor).
+- Pruebas: 72 de Nodes (7 nuevas en `test_team.py`), 240 web; ruff limpio en
+  lo tocado. Los tests que creaban Nodes por la API ahora usan al equipo.
+- Revisé lo mío anterior (619a067): el anillo/disco que pedí por el
+  fenaquistoscopio lo quité porque el dueño ya no lo quiere; el elenco fijo y
+  el «nadie personaliza» se mantienen.
+- Pendiente: los Nodes propios que el dueño creó antes siguen ahí, debajo del
+  equipo (se pueden borrar desde Ajustes). El personaje del compañero de
+  Windows no cambió. Las seis decisiones de la revisión anterior (estáticos
+  sin ignorar, Salud con color, envío a Gemini, Creator, tests viejos y ruff,
+  la rama `feature/code-design-competitor-killer`) siguen esperando al dueño.
+
 ## 2026-10-18 · Claude · Nodes rehechos: elenco fijo en tinta, animados como un fenaquistoscopio
 - Petición del dueño: «rehaz los Nodes: serán como te dije (los cuatro), pero
   no se podrán personalizar, y su animación será esta» (un dibujo en tinta

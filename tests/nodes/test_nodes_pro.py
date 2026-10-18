@@ -36,6 +36,7 @@ def client(tmp_path, monkeypatch):
         runner=lambda *a, **k: ("", 0),
         ask=lambda p, **k: {"presentacion": "Hola."},
     )
+    app.state.node_worker.store.ensure_team()  # the four are always there
     app.state.nodes_records = RecordStore(tmp_path / "nodes.sqlite")
     app.state.agent_manager = AgentManager(str(tmp_path / "agents.sqlite"))
     with TestClient(app) as client:
@@ -270,10 +271,10 @@ def test_goal_workflow_reaches_executor_and_recurring_failures_pause(
     )
 
 
-def node(client, interval_minutes=0, **fields):
-    response = client.post("/v1/nodes", json={"name": "Lumen", **fields})
-    assert response.status_code == 200
-    nid = response.json()["id"]
+def node(client, interval_minutes=0, member="Rihno"):
+    # Nodes are no longer created: the work goes to one of the fixed four.
+    nodes = client.get("/v1/nodes").json()["nodes"]
+    nid = next(n["id"] for n in nodes if n["name"] == member)
     if interval_minutes:
         settings = client.patch(
             f"/v1/nodes/{nid}/goal-settings",
@@ -285,7 +286,7 @@ def node(client, interval_minutes=0, **fields):
 
 def test_profile_memory_forget_goals_and_audit(client):
     n = node(client)
-    other = node(client, name="Bruma")
+    other = node(client, member="Manchas")
     note = client.post(
         f"/v1/nodes/{n}/notes", json={"text": "Trabajo en Python", "source": "perfil"}
     ).json()
