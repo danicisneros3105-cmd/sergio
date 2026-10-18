@@ -222,8 +222,7 @@ def escritorio() -> None:
     help="Descarga también las librerías NVIDIA (~1 GB) para escuchar con "
     "el modelo grande de Whisper en la tarjeta gráfica.",
 )
-def instalar(vision: bool, gpu: bool = False) -> None:
-    """Instala o actualiza Sergio Escritorio en Windows."""
+def _do_instalar(vision: bool, gpu: bool = False) -> None:
     from openjarvis.cli.phone_cmd import read_env, write_env
     from openjarvis.cli.service_cmd import env_file
     from openjarvis.core.paths import get_config_dir
@@ -323,12 +322,30 @@ def instalar(vision: bool, gpu: bool = False) -> None:
     )
 
 
+@escritorio.command("instalar")
+@click.option(
+    "--vision",
+    is_flag=True,
+    help=f"Descarga también el modelo local de visión ({VISION_MODEL}, ~6 GB) "
+    "para describir imágenes en pantalla.",
+)
+@click.option(
+    "--gpu",
+    is_flag=True,
+    help="Descarga también las librerías NVIDIA (~1 GB) para escuchar con "
+    "el modelo grande de Whisper en la tarjeta gráfica.",
+)
+def instalar(vision: bool, gpu: bool = False) -> None:
+    """Instala o actualiza Sergio Escritorio en Windows."""
+    _do_instalar(vision=vision, gpu=gpu)
+
+
 @escritorio.command("actualizar")
 @click.option("--vision", is_flag=True, help="Descarga también el modelo local de visión.")
 @click.option("--gpu", is_flag=True, help="Descarga librerías NVIDIA para Whisper.")
 def actualizar(vision: bool, gpu: bool = False) -> None:
     """Actualiza Sergio Escritorio en Windows."""
-    instalar(vision=vision, gpu=gpu)
+    _do_instalar(vision=vision, gpu=gpu)
 
 
 @escritorio.command("estado")
