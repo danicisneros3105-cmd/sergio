@@ -41,7 +41,7 @@ const MODES: Array<{
 }> = [
   { icon: CalendarCheck, label: 'Mi semana', hint: 'Tareas, horarios y recordatorios', text: 'Ayúdame a organizar mi semana: ' },
   { icon: FileText, label: 'Resumir texto', hint: 'Adjunte un PDF o pegue el texto', text: 'Resume esto en cinco puntos: ' },
-  { icon: Shapes, label: 'Crear algo', hint: 'Imagen, diseño o modelo 3D', to: '/creator' },
+  { icon: Shapes, label: 'Crear algo', hint: 'Imagen, diseño o modelo 3D', text: 'Ayúdame a crear: ' },
   { icon: CircleDot, label: 'Vigilar algo', hint: 'Un Node que avisa cuando cambia', to: '/nodes?nuevo=1' },
   { icon: Network, label: 'Investigar', hint: 'Muchos agentes a la vez', to: '/swarm' },
 ];

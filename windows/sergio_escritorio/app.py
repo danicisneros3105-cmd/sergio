@@ -709,7 +709,7 @@ def run(config: dict[str, Any]) -> None:
     menu.insertAction(talk_action, panel_action)
     menu.addSeparator()
 
-    chat_action = QAction("Abrir el chat en el navegador", menu)
+    chat_action = QAction("Abrir la app de Sergio", menu)
     chat_action.triggered.connect(lambda: open_app_window(config["server_url"]))
     menu.addAction(chat_action)
 

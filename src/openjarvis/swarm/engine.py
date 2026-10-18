@@ -70,6 +70,9 @@ SWARM_TOOLS = (
     "scene_reason",
     "knowledge_search",
     "think",
+    "kronos_forecast",
+    "opendesign",
+    "anatomy_figure",
 )
 DEFAULT_TOOLS = ("web_search", "think")
 FINAL = ("done", "failed", "cancelled")

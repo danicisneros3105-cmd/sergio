@@ -59,11 +59,11 @@ termina en la rama `main`, y el dueño actualiza con un único comando.
   diseños, fotos, 3D) y en los personajes de los Nodes que él eligió.
 - Workspace igual a Notion (en blanco y negro), con lo de Notion 2026:
   Biblioteca, secciones de la barra, Papelera, pestañas, Presentar y Panel.
-- Creator (`/creator` y `/creator/:space`) activo en la barra lateral y en las
-  rutas igual que en la demo (`JV8eDBTHp1aEUaUMwkpNsU`): Diseño igual a Canva
-  (`Creator/DesignStudio.tsx` + `canva.css`); Creator › Prototipos es
-  otra cosa: diseñar conversando, como Claude Design
-  (`Creator/Prototypes.tsx`, `lib/prototypes.ts`). No se mezclan.
+- Creator retirado de la interfaz por petición del dueño (2026-10-16): sin menú
+  ni rutas de editor; enlaces antiguos redirigen al chat. Herramientas internas
+  y programas instalados (`professional_apps`, `opendesign`, `kronos_forecast`,
+  `anatomy_figure`, `blender_create`, `video_edit`) se conservan para uso
+  exclusivo de Sergio y sus agentes (Chat, Live, Nodes, Agent Swarm y Cowork).
 - Windows es una app: chat/Nodes/Swarm en ventana sin barra de direcciones
   (launch.py, Edge --app), nunca fallback de páginas internas a una pestaña.
   Loopback es transporte interno. Notch: ocultar/recuperar en 220 ms, sin

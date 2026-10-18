@@ -76,6 +76,7 @@ SERVER_TOOLS = (
     "professional_apps",
     "opendesign",
     "kronos_forecast",
+    "anatomy_figure",
     "face_approval",
     "verified_math",
     "scene_reason",

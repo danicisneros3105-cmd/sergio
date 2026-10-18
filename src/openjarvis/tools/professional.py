@@ -18,16 +18,59 @@ class ProfessionalAppsTool(BaseTool):
         return ToolSpec(
             name=self.tool_id,
             description=(
-                "Detect professional programs on this server, or explicitly "
-                "open a complete program on the Windows companion. Use ArtCraft "
-                "for creative work, FreeCAD/Bonsai/LibreCAD for architecture "
-                "and VSCodium for code. No automatic installation."
+                "Detect professional programs on this server ('catalog'), explicitly "
+                "open a complete program on the Windows companion ('open'), or run "
+                "Sergio's internal Creator engines: 2D CAD floor plans ('plan_dxf'), "
+                "3D BIM building models ('plan_ifc'), Canva-style design layouts "
+                "('design_layout'), image generation ('image_generate'), generative "
+                "image editing ('image_edit'), and local neural background removal "
+                "('image_cutout'). Use ArtCraft for creative work, "
+                "FreeCAD/Bonsai/LibreCAD for architecture and VSCodium for code. "
+                "No automatic installation."
             ),
             parameters={
                 "type": "object",
                 "properties": {
-                    "action": {"enum": ["catalog", "open"], "type": "string"},
+                    "action": {
+                        "enum": [
+                            "catalog",
+                            "open",
+                            "plan_dxf",
+                            "plan_ifc",
+                            "design_layout",
+                            "image_generate",
+                            "image_edit",
+                            "image_cutout",
+                        ],
+                        "type": "string",
+                    },
                     "id": {"type": "string", "enum": list(BY_ID)},
+                    "walls": {
+                        "type": "array",
+                        "description": (
+                            "Walls in metres for plan_dxf / plan_ifc: "
+                            "[{x1, y1, x2, y2, thickness, height}]."
+                        ),
+                        "items": {"type": "object"},
+                    },
+                    "openings": {
+                        "type": "array",
+                        "description": (
+                            "Doors/windows in metres for plan_dxf / plan_ifc: "
+                            "[{x, y, width, angle, kind: 'puerta'|'ventana'}]."
+                        ),
+                        "items": {"type": "object"},
+                    },
+                    "prompt": {
+                        "type": "string",
+                        "description": "Design/image prompt or edit instruction.",
+                    },
+                    "path": {
+                        "type": "string",
+                        "description": "Local file path to read or save.",
+                    },
+                    "width": {"type": "integer"},
+                    "height": {"type": "integer"},
                 },
                 "required": ["action"],
             },
@@ -37,7 +80,8 @@ class ProfessionalAppsTool(BaseTool):
 
     def execute(self, **params: Any):
         try:
-            if params.get("action") == "catalog":
+            action = params.get("action")
+            if action == "catalog":
                 data = catalog()
                 # Live responses are bounded to 4k characters. Keep the whole
                 # catalogue readable instead of truncating its JSON mid-record.
@@ -49,7 +93,85 @@ class ProfessionalAppsTool(BaseTool):
                     tool_name=self.tool_id,
                     content=json.dumps(data, ensure_ascii=False, separators=(",", ":")),
                 )
-            if params.get("action") != "open":
+            if action in ("plan_dxf", "plan_ifc"):
+                from pathlib import Path
+
+                from openjarvis.creator import bim, programs, studio
+
+                walls = list(params.get("walls") or [])
+                openings = list(params.get("openings") or [])
+                ext = "ifc" if action == "plan_ifc" else "dxf"
+                raw = (
+                    bim.plan_ifc(walls, openings)
+                    if ext == "ifc"
+                    else studio.plan_dxf(walls, openings)
+                )
+                raw_path = str(params.get("path") or "").strip()
+                out_path = (
+                    Path(raw_path).expanduser().resolve()
+                    if raw_path
+                    else studio.projects_root() / "planos" / f"plano-sergio.{ext}"
+                )
+                out_path.parent.mkdir(parents=True, exist_ok=True)
+                out_path.write_bytes(raw)
+                pid = str(params.get("id") or "").strip().lower()
+                msg = f"Plano {ext.upper()} guardado en {out_path} ({len(raw)} bytes)."
+                if pid in programs.OPENS.get(ext, ()):
+                    msg += " " + programs.open_in_windows(pid, out_path.name, raw)
+                return ToolResult(tool_name=self.tool_id, content=msg)
+            if action == "design_layout":
+                from openjarvis.creator import studio
+
+                w = int(params.get("width") or 1080)
+                h = int(params.get("height") or 1080)
+                layout = studio.design_layout(str(params.get("prompt") or ""), w, h)
+                return ToolResult(
+                    tool_name=self.tool_id,
+                    content=json.dumps(layout, ensure_ascii=False),
+                )
+            if action == "image_generate":
+                from pathlib import Path
+
+                from openjarvis.creator import programs, studio
+
+                png = studio.generate_image(str(params.get("prompt") or ""))
+                raw_path = str(params.get("path") or "").strip()
+                out_path = (
+                    Path(raw_path).expanduser().resolve()
+                    if raw_path
+                    else studio.projects_root() / "imagenes" / "imagen-sergio.png"
+                )
+                out_path.parent.mkdir(parents=True, exist_ok=True)
+                out_path.write_bytes(png)
+                msg = f"Imagen generada en {out_path}."
+                if str(params.get("id") or "").lower() == "artcraft":
+                    msg += " " + programs.open_in_windows("artcraft", out_path.name, png)
+                return ToolResult(tool_name=self.tool_id, content=msg)
+            if action in ("image_edit", "image_cutout"):
+                from pathlib import Path
+
+                from openjarvis.creator import studio
+
+                src = Path(str(params.get("path") or "")).expanduser().resolve()
+                if not src.is_file():
+                    raise ValueError("El archivo de imagen indicado no existe.")
+                raw_bytes = src.read_bytes()
+                if action == "image_cutout":
+                    png, method = studio.cutout_detail(raw_bytes)
+                    out_path = src.with_name(f"{src.stem}-recorte.png")
+                    out_path.write_bytes(png)
+                    return ToolResult(
+                        tool_name=self.tool_id,
+                        content=f"Fondo recortado ({method}) guardado en {out_path}.",
+                    )
+                png = studio.edit_image(raw_bytes, str(params.get("prompt") or ""))
+                out_path = src.with_name(f"{src.stem}-editada.png")
+                out_path.write_bytes(png)
+                return ToolResult(
+                    tool_name=self.tool_id,
+                    content=f"Imagen editada guardada en {out_path}.",
+                )
+            if action != "open":
                 raise ValueError("Operación no válida.")
             program = BY_ID.get(params.get("id", ""))
             if not program or not program.opens_window:

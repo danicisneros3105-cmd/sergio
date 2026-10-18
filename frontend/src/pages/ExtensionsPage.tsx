@@ -1,5 +1,5 @@
 // Extensiones: everything Sergio can add to itself, in one minimal list.
-// Programas · Plugins · Skills · Conectores (the last two laid out like Claude's).
+// Conectores · Programas · Plugins · Skills (laid out like Claude's).
 
 import { useCallback, useEffect, useState } from 'react';
 import { NavLink, useParams } from 'react-router';
@@ -13,10 +13,10 @@ import { ExtensionSheet as Sheet } from '../components/Extensions/ExtensionSheet
 import { PluginsPanel } from '../components/Extensions/PluginsPanel';
 
 const TABS = [
+  { id: 'conectores', label: 'Conectores', icon: Plug },
   { id: 'programas', label: 'Programas', icon: AppWindow },
   { id: 'plugins', label: 'Plugins', icon: Puzzle },
   { id: 'skills', label: 'Skills', icon: BookOpen },
-  { id: 'conectores', label: 'Conectores', icon: Plug },
 ] as const;
 type Tab = (typeof TABS)[number]['id'];
 
@@ -218,7 +218,7 @@ function Skills({ skills, reload }: { skills: HubSkill[]; reload: () => void }) 
 
 export function ExtensionsPage() {
   const { tab } = useParams();
-  const current: Tab = (TABS.find((t) => t.id === tab)?.id ?? 'programas') as Tab;
+  const current: Tab = (TABS.find((t) => t.id === tab)?.id ?? 'conectores') as Tab;
   const [hub, setHub] = useState<{ plugins: HubPlugin[]; skills: HubSkill[] }>({ plugins: [], skills: [] });
   const reload = useCallback(() => {
     fetchHub().then(setHub, fail);

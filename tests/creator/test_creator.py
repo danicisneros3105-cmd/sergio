@@ -220,3 +220,32 @@ def test_heavy_example_opens_at_once_from_its_shipped_build(tmp_path, monkeypatc
     (tmp_path / "examples" / "raptor-engine" / "raptor-engine.html").unlink()
     with pytest.raises(AssertionError, match="Node should not run"):
         anatomy_build.build_example("raptor-engine", False, tmp_path)
+
+
+def test_professional_apps_tool_runs_creator_engines(tmp_path, monkeypatch):
+    pytest.importorskip("ezdxf")
+    cv2 = pytest.importorskip("cv2")
+    import numpy as np
+
+    from openjarvis.tools.professional import ProfessionalAppsTool
+
+    monkeypatch.setenv("HOME", str(tmp_path))
+    tool = ProfessionalAppsTool()
+
+    res_dxf = tool.execute(
+        action="plan_dxf",
+        walls=[
+            {"x1": 0, "y1": 0, "x2": 5, "y2": 0},
+            {"x1": 5, "y1": 0, "x2": 5, "y2": 4},
+        ],
+        openings=[{"x": 2.5, "y": 0, "kind": "puerta"}],
+    )
+    assert res_dxf.success and res_dxf.metadata["path"].endswith(".dxf")
+
+    img = np.full((160, 200, 3), 240, np.uint8)
+    cv2.circle(img, (100, 80), 45, (30, 60, 210), -1)
+    src = tmp_path / "sujeto.png"
+    cv2.imwrite(str(src), img)
+    res_cut = tool.execute(action="image_cutout", image_path=str(src), neural=False)
+    assert res_cut.success and res_cut.metadata["method"] == "grabcut"
+

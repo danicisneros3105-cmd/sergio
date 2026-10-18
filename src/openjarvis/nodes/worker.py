@@ -265,6 +265,12 @@ def describe_tool(tool: str, args: Any) -> str:
         "think": "Piensa",
         "screen_read": "Mira su pantalla",
         "desktop_action": "Usa su PC",
+        "professional_apps": "Usa Creator",
+        "opendesign": "Crea un diseño en OpenDesign",
+        "kronos_forecast": "Pronostica en bolsa con Kronos",
+        "anatomy_figure": "Dibuja una lámina técnica",
+        "blender_create": "Modela en 3D con Blender",
+        "video_edit": "Edita un video",
     }
     text = labels.get(tool, tool)
     return f"{text}: {str(what)[:160]}" if what else text
