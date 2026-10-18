@@ -28,8 +28,8 @@ if ($uvCmd) { $uv = $uvCmd.Source } else {
 Say "2/4 Copiando Sergio Escritorio"
 # Cierra la versión anterior si está abierta.
 Get-CimInstance Win32_Process -Filter "Name='pythonw.exe'" |
-    Where-Object { $_.ExecutablePath -like "$dest\venv*" } |
-    ForEach-Object { Stop-Process -Id $_.ProcessId -Force }
+    Where-Object { $_.ExecutablePath -like "$dest\venv*" -or $_.CommandLine -like "*sergio_escritorio*" } |
+    ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
 New-Item -ItemType Directory -Force $app | Out-Null
 robocopy $Fuente $app /MIR /XD __pycache__ .venv /NFL /NDL /NJH /NJS /NP | Out-Null
 if ($LASTEXITCODE -ge 8) { throw "No pude copiar los archivos (robocopy $LASTEXITCODE)." }

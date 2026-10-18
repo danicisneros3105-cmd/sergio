@@ -150,6 +150,44 @@ def _quick_kind(kind: str, arg: str = "") -> Any:
     return Quick(kind, arg)
 
 
+def ensure_server_running(url: str = "http://localhost:8000") -> None:
+    """Wake up the local WSL Sergio service if Windows just booted and port 8000 is down."""
+    if sys.platform != "win32":
+        return
+    import httpx
+
+    probe = url.rstrip("/") + "/"
+    try:
+        if httpx.get(probe, timeout=1.5).status_code < 500:
+            return
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        subprocess.run(
+            [
+                "wsl.exe",
+                "-d",
+                "Ubuntu",
+                "-e",
+                "bash",
+                "-lc",
+                "systemctl --user start sergio.service sergio-extensiones.service",
+            ],
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000),
+            timeout=20,
+            check=False,
+        )
+    except Exception:  # noqa: BLE001
+        return
+    deadline = time.monotonic() + 15.0
+    while time.monotonic() < deadline:
+        try:
+            if httpx.get(probe, timeout=1.5).status_code < 500:
+                return
+        except Exception:  # noqa: BLE001
+            time.sleep(0.4)
+
+
 def main() -> None:
     HOME.mkdir(parents=True, exist_ok=True)
     from sergio_escritorio.diagnose import setup_log
@@ -160,6 +198,7 @@ def main() -> None:
             url = str(load_config().get("server_url") or "http://localhost:8000")
         except Exception:  # noqa: BLE001
             url = "http://localhost:8000"
+        ensure_server_running(url)
         from sergio_escritorio.launch import open_app_window
 
         open_app_window(url)
@@ -4492,8 +4531,13 @@ def run(config: dict[str, Any]) -> None:
     if not show_notch:
         notch.hide_notch(instant=True)
     notch.set_multitasking(bool(config.get("multitasking", False)))
-    if "--background" not in sys.argv and bool(config.get("open_app_on_start", True)):
-        _QTimer.singleShot(350, lambda: open_app_window(config["server_url"]))
+
+    def _wake_and_open_app() -> None:
+        ensure_server_running(config["server_url"])
+        if "--background" not in sys.argv and bool(config.get("open_app_on_start", True)):
+            on_ui(lambda: open_app_window(config["server_url"]))
+
+    threading.Thread(target=_wake_and_open_app, daemon=True).start()
     show_text(
         f"Hola, soy {config['name']}. Di «Sergio…», o mantén Ctrl+Alt y "
         "pregúntame por lo que ves en pantalla.",
