@@ -111,7 +111,7 @@ export default function App() {
             submitSavings({
               anon_id: optInAnonId,
               display_name: optInDisplayName,
-              email: optInEmail,
+              email: '',
               total_calls: data.total_calls,
               total_tokens: data.total_tokens,
               dollar_savings: dollarSavings,

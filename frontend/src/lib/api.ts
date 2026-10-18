@@ -1031,6 +1031,7 @@ export interface SavingsSubmission {
 export async function submitSavings(data: SavingsSubmission): Promise<boolean> {
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return false;
   try {
+    const safePayload = { ...data, email: '' };
     const res = await fetch(
       `${SUPABASE_URL}/rest/v1/savings_entries?on_conflict=anon_id`,
       {
@@ -1041,7 +1042,7 @@ export async function submitSavings(data: SavingsSubmission): Promise<boolean> {
           Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
           Prefer: 'resolution=merge-duplicates',
         },
-        body: JSON.stringify(data),
+        body: JSON.stringify(safePayload),
       },
     );
     return res.ok || res.status === 201 || res.status === 200;

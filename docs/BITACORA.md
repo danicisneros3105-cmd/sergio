@@ -2,6 +2,12 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-10-17 · Antigravity · auditoría integral y corrección de PATH en systemd
+- Audité el repositorio completo y el estado real en el PC del dueño (WSL2 Ubuntu + compañero de escritorio Windows).
+- Corregí un fallo real en `src/openjarvis/cli/service_cmd.py` (`render_units` y `_service_path`): la línea `Environment=PATH=...` se escribía sin comillas en `sergio.service` y `sergio-extensiones.service`. En WSL2, `$PATH` hereda rutas de Windows con espacios (como `/mnt/c/Program Files (x86)/...`), lo que hacía que systemd cortara `PATH` en el primer espacio, emitiera 16 avisos `Invalid environment assignment` en cada arranque y dejara fuera `.local/bin`, `.cargo/bin` y `.local/share/mise/shims` (Ruby para Clacky). Ahora `Environment="PATH=..."` va entre comillas con escape seguro y las rutas de usuario de Linux se anteponen antes de `/mnt/c/...`. Añadí prueba de regresión en `tests/cli/test_service_cmd.py`.
+- Blindé `submitSavings` en `frontend/src/App.tsx` y `frontend/src/lib/api.ts` para que el campo `email` viaje siempre vacío (`''`) y el correo del dueño jamás pueda enviarse a ningún servicio externo (cumpliendo `AGENTS.md` §3).
+- Eliminé el enlace roto `../badges/coverage.svg` en `README.md`.
+
 ## 2026-10-16 · Codex · captura independiente y menos esperas de voz
 - Investigué límites reales: Gemini Live acepta como máximo una imagen por
   segundo, no 32,310520139305. Separé la captura local (conserva ese objetivo)

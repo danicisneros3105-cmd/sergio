@@ -210,9 +210,10 @@ def ensure_server(
 
 def render_units(root: Path, uv: str, port: int, path_env: str) -> dict[str, str]:
     """Return ``{unit name: file content}`` for both services."""
+    escaped_path = path_env.replace("\\", "\\\\").replace('"', '\\"')
     common = (
         f"WorkingDirectory={root}\n"
-        f"Environment=PATH={path_env}\n"
+        f'Environment="PATH={escaped_path}"\n'
         # API keys etc. live here (KEY=value per line); optional.
         f"EnvironmentFile=-{env_file()}\n"
         "Restart=on-failure\n"
@@ -259,19 +260,18 @@ def _service_path() -> str:
         home / ".cargo" / "bin",
         home / ".local" / "share" / "mise" / "shims",
     ]
-    parts = os.environ.get("PATH", "").split(os.pathsep)
-    for path in map(str, extra):
-        if path not in parts:
-            parts.append(path)
+    parts = [p for p in os.environ.get("PATH", "").split(os.pathsep) if p]
+    extra_strs = [str(p) for p in extra]
+    # Keep Linux user tool directories ahead of inherited WSL /mnt/c/... entries.
+    parts = extra_strs + [p for p in parts if p not in extra_strs]
     # The installer's own Node (newest first) wins over an older system one.
     toolchain = sorted(
         (home / ".local" / "share" / "sergio-toolchain").glob("node-*/bin"),
         reverse=True,
     )
-    parts = [str(p) for p in toolchain] + [
-        p for p in parts if p not in map(str, toolchain)
-    ]
-    return os.pathsep.join(p for p in parts if p)
+    toolchain_strs = [str(p) for p in toolchain]
+    parts = toolchain_strs + [p for p in parts if p not in toolchain_strs]
+    return os.pathsep.join(parts)
 
 
 def _systemctl(runner: Runner, *args: str) -> subprocess.CompletedProcess:

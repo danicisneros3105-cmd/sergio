@@ -44,10 +44,27 @@ def test_units_run_server_and_extensions_with_restart():
     server = units["sergio.service"]
     assert "ExecStart=/bin/uv run --project /r sergio serve --host 127.0.0.1" in server
     assert "--port 8000" in server and "Restart=on-failure" in server
+    assert 'Environment="PATH=/bin"' in server
     assert "WantedBy=default.target" in server
     ext = units["sergio-extensiones.service"]
     assert "sergio extensions run" in ext and "After=sergio.service" in ext
     assert "EnvironmentFile=-" in ext
+
+
+def test_units_quote_path_with_windows_spaces_and_prioritize_user_bins(
+    monkeypatch, tmp_path
+):
+    wsl_path = "/usr/bin:/mnt/c/Program Files (x86)/NVIDIA Corporation/PhysX/Common"
+    units = service_cmd.render_units(Path("/r"), "/bin/uv", 8000, wsl_path)
+    assert f'Environment="PATH={wsl_path}"\n' in units["sergio.service"]
+    assert f'Environment="PATH={wsl_path}"\n' in units["sergio-extensiones.service"]
+
+    monkeypatch.setattr(service_cmd.Path, "home", lambda: tmp_path)
+    monkeypatch.setenv("PATH", wsl_path)
+    computed = service_cmd._service_path().split(service_cmd.os.pathsep)
+    mise_shims = str(tmp_path / ".local" / "share" / "mise" / "shims")
+    win_entry = "/mnt/c/Program Files (x86)/NVIDIA Corporation/PhysX/Common"
+    assert computed.index(mise_shims) < computed.index(win_entry)
 
 
 def test_instalar_writes_units_enables_and_lingers(system, tmp_path):
