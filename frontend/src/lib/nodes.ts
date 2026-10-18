@@ -23,11 +23,12 @@ export interface Routine {
   last_check?: number;
 }
 
+/** A Node's character is one of a fixed cast of four; nobody designs it. */
 export interface Avatar {
-  shape: 'rhino' | 'dalmatian' | 'glove' | 'orb' | 'bean' | 'blob' | 'drop' | 'heart' | 'frog' | 'bear' | 'star' | 'ghost' | 'mushroom' | 'cactus' | 'planet';
+  shape: 'rhino' | 'dalmatian' | 'glove' | 'orb';
   color: string;
-  accessory: 'none' | 'headphones' | 'beret' | 'glasses' | 'sunglasses' | 'bow' | 'cap' | 'beanie' | 'crown' | 'scarf';
-  eyes: 'dots' | 'happy' | 'big' | 'sleepy' | 'googly';
+  accessory: string;
+  eyes: string;
 }
 
 export interface Connection {
@@ -59,9 +60,6 @@ export interface Catalog {
   rules: RuleSpec[];
   colors: string[];
   shapes: Avatar['shape'][];
-  felt: string[];
-  accessories: Avatar['accessory'][];
-  eyes: Avatar['eyes'][];
   tones: Array<{ key: string; label: string }>;
   templates: Template[];
   plan: string;
@@ -236,40 +234,10 @@ function host(url: string): string {
 }
 
 export const SHAPE_ES: Record<Avatar['shape'], string> = {
-  rhino: 'Rino',
+  rhino: 'Rinoceronte',
   dalmatian: 'Dálmata',
   glove: 'Guante',
   orb: 'Orbe',
-  bean: 'Guijarro',
-  blob: 'Mochi',
-  drop: 'Gotita',
-  heart: 'Corazón',
-  frog: 'Ranita',
-  bear: 'Osito',
-  star: 'Estrella',
-  ghost: 'Fantasmita',
-  mushroom: 'Setita',
-  cactus: 'Cactus',
-  planet: 'Planeta',
-};
-export const ACCESSORY_ES: Record<Avatar['accessory'], string> = {
-  none: 'Nada',
-  headphones: 'Cascos',
-  beret: 'Boina',
-  glasses: 'Gafas',
-  sunglasses: 'Gafas de sol',
-  bow: 'Lazo',
-  cap: 'Gorra',
-  beanie: 'Gorro',
-  crown: 'Corona',
-  scarf: 'Bufanda',
-};
-export const EYES_ES: Record<Avatar['eyes'], string> = {
-  dots: 'Puntitos',
-  happy: 'Felices',
-  big: 'Grandes',
-  sleepy: 'Dormilones',
-  googly: 'Saltones',
 };
 
 export function describeRoutine(r: Pick<Routine, 'every_minutes' | 'at' | 'days'> & Partial<Pick<Routine, 'kind' | 'url' | 'app'>>): string {

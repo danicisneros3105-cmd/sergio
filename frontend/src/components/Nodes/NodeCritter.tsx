@@ -1,318 +1,391 @@
-import { useEffect, useId, useState } from 'react';
-import { cachedFrames, renderFrames, webglAvailable, type DotsFrames } from './dots3d';
+import { useId, useMemo, type ReactElement } from 'react';
 import type { NodeStatus } from '../../lib/nodes';
+import './nodes.css';
 
-// Sergio's own little characters, made like glossy vinyl toys (the look of
-// OpenAI's Dots: smooth 3D shapes with a soft sheen, simple eyes and things
-// they wear), but our own cast: a pebble, a mochi, a droplet, a heart, a
-// frog, a bear, a star, a ghost, a mushroom, a cactus and a planet. Volume
-// comes from a lit gradient, a blurred highlight and a soft shadow at the
-// base; there is no fur. Pure SVG: no images, no lag.
+// The Nodes: a fixed cast of four, drawn in ink and animated like a
+// phenakistoscope (owner, oct. 2026). Nobody designs them.
+//
+//   rhino      closed eyes, a sky-blue and white striped shirt
+//   dalmatian  white with black spots
+//   glove      an inflated blue medical glove, a beret, a marker-drawn face
+//   orb        an invisible orb: leopard glasses and black eyes
+//
+// Each one is drawn in 12 frames. Every frame is a fresh hand-drawn pass (the
+// outlines wobble a little differently each time, the way ink animation
+// boils) and the frames play in order, 12 to a turn, like the drawings
+// around the edge of a phenakistoscope disc. Large, the disc itself is shown:
+// the ring of frames turns one step at a time while its window plays the
+// result. Small, a round paper medallion plays the same frames. The timing
+// is pure CSS (steps), so a list of Nodes costs no script at all.
 
-export type CritterShape =
-  | 'rhino'
-  | 'dalmatian'
-  | 'glove'
-  | 'orb'
-  | 'bean'
-  | 'blob'
-  | 'drop'
-  | 'heart'
-  | 'frog'
-  | 'bear'
-  | 'star'
-  | 'ghost'
-  | 'mushroom'
-  | 'cactus'
-  | 'planet';
-export type CritterAccessory =
-  | 'none'
-  | 'headphones'
-  | 'beret'
-  | 'glasses'
-  | 'sunglasses'
-  | 'bow'
-  | 'cap'
-  | 'beanie'
-  | 'crown'
-  | 'scarf';
-export type CritterEyes = 'dots' | 'happy' | 'big' | 'sleepy' | 'googly';
+export type CritterShape = 'rhino' | 'dalmatian' | 'glove' | 'orb';
+export const CRITTER_SHAPES: CritterShape[] = ['rhino', 'dalmatian', 'glove', 'orb'];
 
+/** Loose on purpose: Nodes saved before the cast was fixed carry other shapes. */
 export interface CritterLook {
-  shape: CritterShape;
-  color: string;
-  accessory: CritterAccessory;
-  eyes: CritterEyes;
+  shape: string;
+  color?: string;
+  accessory?: string;
+  eyes?: string;
 }
 
-interface ShapeSpec {
-  body: string;
-  top: number; // y of the top of the head
-  eyeY: number;
-  eyeGap: number;
-  mouthY: number;
-  arms?: [number, number, number]; // left x, right x, y
-  feet?: number; // y of the feet
-  extra?: string; // ears, eye bumps, cactus arms (same colour)
-  cap?: string; // the mushroom's cap: the chosen colour, over a cream stem
-  spots?: Array<[number, number, number]>; // light spots on top (x, y, r)
-  ring?: boolean; // the planet's ring
+export const FRAMES = 12;
+const INK = '#17171a';
+const PAPER = '#f2ecdc';
+const PAPER_HUB = '#f8f4ea';
+const SW = 3.9;
+
+/** An older custom shape becomes one of the four, always the same one. */
+export function castOf(shape: string | undefined): CritterShape {
+  if (shape && (CRITTER_SHAPES as string[]).includes(shape)) return shape as CritterShape;
+  let h = 0;
+  for (const ch of shape || '') h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return CRITTER_SHAPES[h % CRITTER_SHAPES.length];
 }
 
-type FlatShape = Exclude<CritterShape, 'rhino' | 'dalmatian' | 'glove' | 'orb'>;
-const FLAT_OF: Record<string, FlatShape> = { rhino: 'bean', dalmatian: 'bear', glove: 'blob', orb: 'ghost' };
-const SHAPES: Record<FlatShape, ShapeSpec> = {
-  // 'bean' is drawn as a smooth pebble (wide and low)
-  bean: {
-    body: 'M60 34 C90 34 104 52 104 72 C104 94 86 104 60 104 C34 104 16 94 16 72 C16 52 30 34 60 34 Z',
-    top: 34,
-    eyeY: 64,
-    eyeGap: 13,
-    mouthY: 76,
-    arms: [18, 102, 80],
-    feet: 102,
-  },
-  // 'blob' is a soft mochi (a rounded square)
-  blob: {
-    body: 'M60 28 C92 28 100 36 100 66 C100 96 92 104 60 104 C28 104 20 96 20 66 C20 36 28 28 60 28 Z',
-    top: 28,
-    eyeY: 62,
-    eyeGap: 13,
-    mouthY: 74,
-    arms: [20, 100, 78],
-    feet: 102,
-  },
-  drop: {
-    body: 'M60 12 C68 28 98 56 98 78 C98 96 82 106 60 106 C38 106 22 96 22 78 C22 56 52 28 60 12 Z',
-    top: 16,
-    eyeY: 72,
-    eyeGap: 12,
-    mouthY: 84,
-    arms: [23, 97, 86],
-    feet: 105,
-  },
-  heart: {
-    body: 'M60 104 C40 92 14 74 14 50 C14 34 26 24 40 24 C50 24 56 30 60 38 C64 30 70 24 80 24 C94 24 106 34 106 50 C106 74 80 92 60 104 Z',
-    top: 26,
-    eyeY: 54,
-    eyeGap: 14,
-    mouthY: 66,
-    arms: [17, 103, 58],
-  },
-  frog: {
-    body: 'M60 36 C86 36 102 52 102 72 C102 94 84 104 60 104 C36 104 18 94 18 72 C18 52 34 36 60 36 Z',
-    extra: 'M30 40 a14 14 0 1 1 28 0 a14 14 0 1 1 -28 0 Z M62 40 a14 14 0 1 1 28 0 a14 14 0 1 1 -28 0 Z',
-    top: 26,
-    eyeY: 39,
-    eyeGap: 16,
-    mouthY: 70,
-    arms: [20, 100, 80],
-    feet: 103,
-  },
-  bear: {
-    body: 'M60 26 C84 26 100 44 100 66 C100 90 84 104 60 104 C36 104 20 90 20 66 C20 44 36 26 60 26 Z',
-    extra: 'M22 34 a12 12 0 1 1 24 0 a12 12 0 1 1 -24 0 Z M74 34 a12 12 0 1 1 24 0 a12 12 0 1 1 -24 0 Z',
-    top: 24,
-    eyeY: 58,
-    eyeGap: 13,
-    mouthY: 70,
-    arms: [21, 99, 76],
-    feet: 103,
-  },
-  star: {
-    body: 'M60 10 C66 10 69 18 73 30 C75 37 78 40 86 40 C100 40 108 42 108 48 C108 54 100 59 92 66 C86 71 85 74 87 81 C91 95 92 104 86 106 C80 108 72 102 66 97 C62 94 58 94 54 97 C48 102 40 108 34 106 C28 104 29 95 33 81 C35 74 34 71 28 66 C20 59 12 54 12 48 C12 42 20 40 34 40 C42 40 45 37 47 30 C51 18 54 10 60 10 Z',
-    top: 14,
-    eyeY: 60,
-    eyeGap: 10,
-    mouthY: 72,
-  },
-  ghost: {
-    body: 'M60 16 C84 16 98 34 98 60 L98 96 C98 104 92 106 88 100 C84 94 80 94 76 100 C72 106 66 106 62 100 C58 94 54 94 50 100 C46 106 40 106 36 100 C32 94 28 94 24 100 C20 106 22 104 22 96 L22 60 C22 34 36 16 60 16 Z',
-    top: 16,
-    eyeY: 52,
-    eyeGap: 12,
-    mouthY: 64,
-    arms: [23, 97, 68],
-  },
-  mushroom: {
-    body: 'M40 62 L80 62 C84 76 85 94 80 101 C76 107 44 107 40 101 C35 94 36 76 40 62 Z',
-    cap: 'M12 60 C12 30 34 12 60 12 C86 12 108 30 108 60 C108 68 102 70 94 70 L26 70 C18 70 12 68 12 60 Z',
-    spots: [[38, 32, 7], [62, 24, 5], [84, 38, 8], [26, 52, 4], [96, 58, 4]],
-    top: 14,
-    eyeY: 82,
-    eyeGap: 9,
-    mouthY: 92,
-    arms: [37, 83, 88],
-    feet: 103,
-  },
-  cactus: {
-    body: 'M60 18 C76 18 82 28 82 42 L82 92 C82 102 74 106 60 106 C46 106 38 102 38 92 L38 42 C38 28 44 18 60 18 Z',
-    extra:
-      'M40 74 C28 74 22 68 22 58 L22 46 C22 38 32 38 32 46 L32 58 C32 63 35 65 40 65 Z M80 64 C92 64 98 58 98 48 L98 38 C98 30 88 30 88 38 L88 48 C88 53 85 55 80 55 Z',
-    spots: [[48, 36, 1.6], [72, 34, 1.6], [46, 90, 1.6], [74, 88, 1.6], [27, 50, 1.4], [93, 42, 1.4]],
-    top: 20,
-    eyeY: 54,
-    eyeGap: 9,
-    mouthY: 65,
-    feet: 105,
-  },
-  planet: {
-    body: 'M60 26 C81 26 98 43 98 64 C98 85 81 102 60 102 C39 102 22 85 22 64 C22 43 39 26 60 26 Z',
-    ring: true,
-    top: 28,
-    eyeY: 58,
-    eyeGap: 12,
-    mouthY: 70,
-  },
-};
+// -- the hand: wobbly ink lines --------------------------------------------------
 
-const OVER_FACE = new Set<CritterAccessory>(['glasses', 'sunglasses', 'headphones']);
+type Pt = [number, number];
+type Rand = () => number;
+const f = (x: number) => Math.round(x * 10) / 10;
 
-function shade(hex: string, amount: number): string {
-  const n = parseInt(hex.slice(1), 16);
-  const r = (n >> 16) & 255;
-  const g = (n >> 8) & 255;
-  const b = n & 255;
-  const mix = (c: number) => Math.round(amount < 0 ? c * (1 + amount) : c + (255 - c) * amount);
-  return `#${[mix(r), mix(g), mix(b)].map((c) => c.toString(16).padStart(2, '0')).join('')}`;
+export function rng(seed: number): Rand {
+  let t = seed >>> 0;
+  return () => {
+    t = (t + 0x6d2b79f5) >>> 0;
+    let r = Math.imul(t ^ (t >>> 15), 1 | t);
+    r ^= r + Math.imul(r ^ (r >>> 7), 61 | r);
+    return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
+  };
 }
 
-function luminance(hex: string): number {
-  const n = parseInt(hex.slice(1), 16);
-  return (0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255;
-}
-
-function Eyes({ kind, spec, ink, status }: { kind: CritterEyes; spec: ShapeSpec; ink: string; status: NodeStatus }) {
-  const y = spec.eyeY;
-  const xs = [60 - spec.eyeGap, 60 + spec.eyeGap];
-  const sleepy = status === 'paused' || kind === 'sleepy';
-  if (sleepy) {
-    return (
-      <g stroke={ink} strokeWidth={2.4} strokeLinecap="round" fill="none">
-        {xs.map((x) => (
-          <path key={x} d={`M${x - 4.5} ${y + 1} Q${x} ${y + 4} ${x + 4.5} ${y + 1}`} />
-        ))}
-      </g>
-    );
+/** A smooth path through the points (Catmull-Rom as cubic curves). */
+export function smooth(pts: Pt[], closed: boolean): string {
+  const n = pts.length;
+  const at = (i: number): Pt => (closed ? pts[(i + n) % n] : pts[Math.min(n - 1, Math.max(0, i))]);
+  let d = `M${f(pts[0][0])} ${f(pts[0][1])}`;
+  const last = closed ? n : n - 1;
+  for (let i = 0; i < last; i++) {
+    const p0 = at(i - 1);
+    const p1 = at(i);
+    const p2 = at(i + 1);
+    const p3 = at(i + 2);
+    d += `C${f(p1[0] + (p2[0] - p0[0]) / 6)} ${f(p1[1] + (p2[1] - p0[1]) / 6)} ${f(p2[0] - (p3[0] - p1[0]) / 6)} ${f(p2[1] - (p3[1] - p1[1]) / 6)} ${f(p2[0])} ${f(p2[1])}`;
   }
-  if (kind === 'happy') {
-    return (
-      <g stroke={ink} strokeWidth={2.6} strokeLinecap="round" fill="none">
-        {xs.map((x) => (
-          <path key={x} d={`M${x - 4.5} ${y + 2} Q${x} ${y - 4} ${x + 4.5} ${y + 2}`} />
-        ))}
-      </g>
-    );
+  return closed ? `${d}Z` : d;
+}
+
+/** An ellipse drawn by hand: every point is a little off. */
+export function blob(cx: number, cy: number, rx: number, ry: number, r: Rand, amt = 1.1, n = Math.max(7, Math.min(12, Math.round((rx + ry) / 3.2)))): string {
+  const pts: Pt[] = [];
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * Math.PI * 2;
+    pts.push([cx + Math.cos(a) * (rx + (r() - 0.5) * 2 * amt), cy + Math.sin(a) * (ry + (r() - 0.5) * 2 * amt)]);
   }
-  if (kind === 'googly') {
-    return (
-      <g className="critter-blink">
-        {xs.map((x) => (
-          <g key={x}>
-            <circle cx={x} cy={y} r={5} fill="#fff" stroke="rgba(0,0,0,0.1)" />
-            <circle className="critter-pupil" cx={x + 1.5} cy={y + 1} r={2.8} fill="#292431" />
-          </g>
-        ))}
-      </g>
-    );
-  }
-  const r = kind === 'big' ? 4.6 : 3.2;
+  return smooth(pts, true);
+}
+
+/** A closed shape through the given points, each a little off. */
+function shape(pts: Pt[], r: Rand, amt = 0.8): string {
+  return smooth(
+    pts.map(([x, y]): Pt => [x + (r() - 0.5) * 2 * amt, y + (r() - 0.5) * 2 * amt]),
+    true,
+  );
+}
+
+/** An open line through the points, each a little off. */
+function line(pts: Pt[], r: Rand, amt = 0.7): string {
+  return smooth(
+    pts.map(([x, y]): Pt => [x + (r() - 0.5) * 2 * amt, y + (r() - 0.5) * 2 * amt]),
+    false,
+  );
+}
+
+// -- the pose of each frame -------------------------------------------------------
+
+export interface Pose {
+  bob: number; // up (+) and down
+  sq: number; // squash and stretch
+  lean: number; // degrees
+  blink: number; // 0 open .. 1 shut
+  mouth: number; // 0 closed .. 1 wide
+  wave: number; // -1..1, an arm or a tail
+  look: number; // -1..1, where the eyes go
+}
+
+const TALK = [0, 0.7, 0.3, 1, 0.2, 0.8, 0, 0.6, 1, 0.3, 0.7, 0.1];
+
+export function poseAt(i: number, talking: boolean): Pose {
+  const t = (i / FRAMES) * Math.PI * 2;
+  return {
+    bob: Math.sin(t) * 2.4,
+    sq: Math.cos(t) * 0.022,
+    lean: Math.sin(t) * 1.7,
+    blink: i === 7 ? 1 : i === 6 || i === 8 ? 0.45 : 0,
+    mouth: talking ? TALK[i % TALK.length] : 0,
+    wave: Math.sin(t * 2),
+    look: [0, 0.3, 0.7, 1, 0.7, 0.3, 0, -0.3, -0.7, -1, -0.7, -0.3][i % FRAMES],
+  };
+}
+
+const lift = (p: Pose, k = 1) =>
+  `translate(0 ${f(-p.bob * k)}) rotate(${f(p.lean)} 60 110) translate(60 112) scale(${f(1 - p.sq)} ${f(1 + p.sq)}) translate(-60 -112)`;
+
+const ink = { stroke: INK, strokeWidth: SW, strokeLinejoin: 'round' as const, strokeLinecap: 'round' as const };
+
+interface Draw {
+  p: Pose;
+  r: Rand;
+}
+
+/** A stripe across a body, as wide as the body is at that height. */
+function band(cx: number, cy: number, rx: number, ry: number, y: number, h: number, r: Rand): string {
+  const half = (yy: number) => rx * Math.sqrt(Math.max(0, 1 - ((yy - cy) / ry) ** 2)) - 1;
+  const w1 = half(y);
+  const w2 = half(y + h);
+  const j = () => (r() - 0.5) * 1.2;
+  return `M${f(cx - w1 + j())} ${f(y + j())}L${f(cx + w1 + j())} ${f(y + j())}L${f(cx + w2 + j())} ${f(y + h + j())}L${f(cx - w2 + j())} ${f(y + h + j())}Z`;
+}
+
+// -- the four ----------------------------------------------------------------------
+
+const GREY = '#a7a9b1';
+const GREY_LIGHT = '#c9cbd1';
+const CELESTE = '#9fd3ff';
+const CREAM = '#efe6cf';
+
+function Rhino({ p, r }: Draw) {
+  const torso = blob(60, 82, 29, 27, r);
+  const mouthOpen = p.mouth > 0.12;
   return (
-    <g className="critter-blink">
-      {xs.map((x) => (
-        <g key={x}>
-          <ellipse cx={x} cy={y} rx={r} ry={r * 1.25} fill={ink} />
-          <circle cx={x + r * 0.35} cy={y - r * 0.45} r={r * 0.32} fill="#fff" opacity={0.85} />
-        </g>
+    <g {...ink} transform={lift(p)}>
+      <path d={blob(46, 105, 8.5, 9, r)} fill={GREY} />
+      <path d={blob(74, 105, 8.5, 9, r)} fill={GREY} />
+      <g transform={`rotate(${f(-6 - p.wave * 3)} 34 70)`}>
+        <path d={blob(30, 84, 7, 13.5, r)} fill={GREY} />
+      </g>
+      <path d={torso} fill="#fff" />
+      {[64, 73, 82, 91, 100].map((y) => (
+        <path key={y} d={band(60, 82, 29, 27, y, 4.6, r)} fill={CELESTE} stroke="none" />
       ))}
+      <path d={torso} fill="none" />
+      <g transform={`rotate(${f(8 - p.wave * 16)} 86 70)`}>
+        <path d={blob(90, 84, 7, 13.5, r)} fill={GREY} />
+      </g>
+      <path d={blob(37, 27, 7.5, 8.5, r)} fill={GREY} />
+      <path d={blob(83, 27, 7.5, 8.5, r)} fill={GREY} />
+      <path d={blob(60, 44, 26, 22, r)} fill={GREY} />
+      <path d={blob(60, 55, 17, 12.5, r)} fill={GREY_LIGHT} />
+      <path
+        d={shape(
+          [
+            [53, 49],
+            [56, 38],
+            [60, 25],
+            [64, 38],
+            [67, 49],
+            [60, 51],
+          ],
+          r,
+          0.5,
+        )}
+        fill={CREAM}
+      />
+      {/* closed eyes */}
+      <path d={line([[40, 40.5], [46, 45.5], [52, 40.5]], r, 0.5)} fill="none" strokeWidth={SW + p.blink * 0.9} />
+      <path d={line([[68, 40.5], [74, 45.5], [80, 40.5]], r, 0.5)} fill="none" strokeWidth={SW + p.blink * 0.9} />
+      <ellipse cx={53.5} cy={58} rx={1.7} ry={2.2} fill={INK} stroke="none" />
+      <ellipse cx={66.5} cy={58} rx={1.7} ry={2.2} fill={INK} stroke="none" />
+      {mouthOpen ? (
+        <ellipse cx={60} cy={65} rx={5.4} ry={1.3 + p.mouth * 3.4} fill={INK} />
+      ) : (
+        <path d={line([[54, 63], [60, 66], [66, 63]], r, 0.3)} fill="none" strokeWidth={2.6} />
+      )}
     </g>
   );
 }
 
-function Accessory({ kind, spec }: { kind: CritterAccessory; spec: ShapeSpec }) {
-  const top = spec.top;
-  const ey = spec.eyeY;
-  const g = spec.eyeGap;
-  switch (kind) {
-    case 'headphones':
-      return (
-        <g>
-          <path d={`M${30} ${ey + 2} C${30} ${top - 8} ${90} ${top - 8} ${90} ${ey + 2}`} fill="none" stroke="#1d1d1d" strokeWidth={5} strokeLinecap="round" />
-          <rect x={20} y={ey - 6} width={14} height={20} rx={6} fill="#1d1d1d" />
-          <rect x={86} y={ey - 6} width={14} height={20} rx={6} fill="#1d1d1d" />
-          <rect x={23} y={ey - 3} width={5} height={14} rx={2.5} fill="#3a3a3a" />
-          <rect x={92} y={ey - 3} width={5} height={14} rx={2.5} fill="#3a3a3a" />
-        </g>
-      );
-    case 'beret':
-      return (
-        <g transform={`rotate(-12 60 ${top})`}>
-          <ellipse cx={58} cy={top + 2} rx={30} ry={11} fill="#1f2a44" />
-          <ellipse cx={58} cy={top - 1} rx={24} ry={6} fill="#2b3a5c" opacity={0.6} />
-          <rect x={56} y={top - 13} width={4} height={6} rx={2} fill="#1f2a44" />
-        </g>
-      );
-    case 'glasses':
-      return (
-        <g fill="none" stroke="#151515" strokeWidth={2.2}>
-          <circle cx={60 - g} cy={ey} r={8.5} />
-          <circle cx={60 + g} cy={ey} r={8.5} />
-          <path d={`M${60 - g + 8.5} ${ey} Q60 ${ey - 3} ${60 + g - 8.5} ${ey}`} />
-        </g>
-      );
-    case 'sunglasses':
-      return (
-        <g>
-          <rect x={60 - g - 10} y={ey - 6} width={20} height={13} rx={6} fill="#111" />
-          <rect x={60 + g - 10} y={ey - 6} width={20} height={13} rx={6} fill="#111" />
-          <path d={`M${60 - g + 10} ${ey - 2} H${60 + g - 10}`} stroke="#111" strokeWidth={2.5} />
-          <rect x={60 - g - 6} y={ey - 3} width={6} height={2.5} rx={1} fill="#fff" opacity={0.5} />
-        </g>
-      );
-    case 'bow':
-      return (
-        <g transform={`translate(${78} ${top + 4})`}>
-          <path d="M0 0 L-12 -8 L-12 8 Z M0 0 L12 -8 L12 8 Z" fill="#ff5c8a" />
-          <circle r={3.5} fill="#e0406f" />
-        </g>
-      );
-    case 'cap':
-      return (
-        <g>
-          <path d={`M34 ${top + 10} C34 ${top - 10} 86 ${top - 10} 86 ${top + 10} Z`} fill="#f5f5f5" stroke="rgba(0,0,0,0.12)" />
-          <path d={`M80 ${top + 9} Q104 ${top + 8} 108 ${top + 14} L82 ${top + 14} Z`} fill="#9fd3ff" />
-          <circle cx={60} cy={top - 4} r={2.5} fill="#9fd3ff" />
-        </g>
-      );
-    case 'beanie':
-      return (
-        <g>
-          <path d={`M30 ${top + 12} C30 ${top - 14} 90 ${top - 14} 90 ${top + 12} Z`} fill="#e94b4b" />
-          <rect x={28} y={top + 6} width={64} height={9} rx={4.5} fill="#c93a3a" />
-          <circle cx={60} cy={top - 10} r={7} fill="#f3f3f3" />
-        </g>
-      );
-    case 'crown':
-      return (
-        <path
-          d={`M42 ${top + 4} L44 ${top - 12} L52 ${top - 3} L60 ${top - 15} L68 ${top - 3} L76 ${top - 12} L78 ${top + 4} Z`}
-          fill="#f6c945"
-          stroke="#d9a520"
-          strokeWidth={1.5}
-          strokeLinejoin="round"
-        />
-      );
-    case 'scarf':
-      return (
-        <g>
-          <path d={`M26 ${spec.mouthY + 10} Q60 ${spec.mouthY + 20} 94 ${spec.mouthY + 10} L94 ${spec.mouthY + 18} Q60 ${spec.mouthY + 28} 26 ${spec.mouthY + 18} Z`} fill="#e94b4b" />
-          <rect x={70} y={spec.mouthY + 16} width={9} height={18} rx={3} fill="#c93a3a" />
-        </g>
-      );
-    default:
-      return null;
-  }
+function Dalmatian({ p, r }: Draw) {
+  const mouthOpen = p.mouth > 0.12;
+  const eye = (cx: number, cy: number) => (
+    <g>
+      <ellipse cx={cx} cy={cy} rx={5.6} ry={Math.max(0.8, 5.8 * (1 - p.blink))} fill="#fff" strokeWidth={2.6} />
+      {p.blink < 0.6 && <circle cx={cx + p.look * 1.7} cy={cy + 0.8} r={2.5} fill={INK} stroke="none" />}
+    </g>
+  );
+  return (
+    <g {...ink} transform={lift(p)}>
+      {/* the tail wags */}
+      <g transform={`rotate(${f(p.wave * 14)} 86 94)`}>
+        <path d={line([[84, 96], [96, 90], [101, 77]], r, 0.5)} fill="none" strokeWidth={7.4} />
+        <path d={line([[84, 96], [96, 90], [101, 77]], r, 0.5)} fill="none" stroke="#fff" strokeWidth={2.2} />
+      </g>
+      <path d={blob(46, 106, 8.5, 8, r)} fill="#fff" />
+      <path d={blob(74, 106, 8.5, 8, r)} fill="#fff" />
+      <path d={blob(33, 85, 6.5, 12.5, r)} fill="#fff" />
+      <path d={blob(60, 82, 26.5, 26, r)} fill="#fff" />
+      <g fill={INK} stroke="none">
+        <path d={blob(48, 76, 5, 4.6, r)} />
+        <path d={blob(70, 90, 6.2, 5.4, r)} />
+        <path d={blob(64, 69, 3.8, 3.4, r)} />
+        <path d={blob(50, 97, 4, 3.6, r)} />
+        <path d={blob(76, 74, 3, 3.4, r)} />
+      </g>
+      <g transform={`rotate(${f(-p.wave * 12)} 86 72)`}>
+        <path d={blob(87, 85, 6.5, 12.5, r)} fill="#fff" />
+      </g>
+      {/* floppy ears */}
+      <g transform="rotate(10 36 44)">
+        <path d={blob(36, 45, 8.2, 15.5, r)} fill={INK} />
+      </g>
+      <g transform="rotate(-10 84 44)">
+        <path d={blob(84, 45, 8.2, 15.5, r)} fill={INK} />
+      </g>
+      <path d={blob(60, 44, 22.5, 20, r)} fill="#fff" />
+      <path d={blob(72, 37.5, 8.4, 8.6, r)} fill={INK} stroke="none" />
+      <path d={blob(46.5, 29, 5, 4.4, r)} fill={INK} stroke="none" />
+      <path d={blob(60, 54, 11.5, 8.8, r)} fill="#fff" />
+      {eye(50, 40)}
+      {eye(70, 40)}
+      <ellipse cx={60} cy={50} rx={4.8} ry={3.4} fill={INK} stroke="none" />
+      {mouthOpen ? (
+        <path d={`M53 58 Q60 ${f(60 + p.mouth * 9)} 67 58 Q60 58.5 53 58Z`} fill={INK} />
+      ) : (
+        <path d={line([[60, 53], [60, 57], [54.5, 58.6]], r, 0.25)} fill="none" strokeWidth={2.4} />
+      )}
+    </g>
+  );
 }
+
+const BLUE = '#4a8fe0';
+const CUFF = '#dfeaf9';
+
+function Glove({ p, r }: Draw) {
+  const fingers: Array<{ x: number; y: number; a: number; len: number; w: number; ph: number }> = [
+    { x: 41, y: 64, a: -20, len: 29, w: 11, ph: 0 },
+    { x: 51.5, y: 58, a: -7, len: 34, w: 11.4, ph: 1.4 },
+    { x: 64, y: 58, a: 6, len: 32, w: 11.2, ph: 2.6 },
+    { x: 75, y: 64, a: 21, len: 25, w: 10, ph: 3.8 },
+    { x: 36, y: 83, a: -72, len: 22, w: 12, ph: 5 },
+  ];
+  const sway = (ph: number) => Math.sin(((p.wave + 1) / 2) * Math.PI * 2 + ph) * 3.2;
+  const tip = (fg: (typeof fingers)[number]): Pt => {
+    const a = ((fg.a + sway(fg.ph) - 90) * Math.PI) / 180;
+    return [fg.x + Math.cos(a) * fg.len, fg.y + Math.sin(a) * fg.len];
+  };
+  const mouthOpen = p.mouth > 0.12;
+  const shut = p.blink > 0.6;
+  return (
+    <g {...ink} transform={lift(p, 1.3)}>
+      {/* fingers: outline first, blue after, so they join the palm */}
+      {fingers.map((fg, i) => (
+        <path key={`o${i}`} d={line([[fg.x, fg.y], tip(fg)], r, 0.6)} fill="none" strokeWidth={fg.w + 6.4} />
+      ))}
+      <path d={blob(60, 81, 28, 26.5, r)} fill={INK} stroke="none" />
+      <path d={blob(60, 107, 19, 8, r)} fill={CUFF} />
+      <path d={line([[44, 104], [60, 108], [76, 104]], r, 0.3)} fill="none" strokeWidth={1.8} />
+      {fingers.map((fg, i) => (
+        <path key={`b${i}`} d={line([[fg.x, fg.y], tip(fg)], r, 0.6)} fill="none" stroke={BLUE} strokeWidth={fg.w} />
+      ))}
+      <path d={blob(60, 81, 25.5, 24, r)} fill={BLUE} stroke="none" />
+      {/* the shine on the balloon */}
+      <path d="M40 78 Q40.5 68 47 63" fill="none" stroke="#fff" strokeWidth={2.8} opacity={0.75} />
+      {/* the beret */}
+      <g transform={`rotate(${f(-9 + p.wave * 2)} 60 62)`}>
+        <path d={blob(60, 62, 20, 8.4, r)} fill="#3a3a42" />
+        <path d={line([[60, 54.5], [62.5, 49.5]], r, 0.2)} fill="none" strokeWidth={3.6} />
+      </g>
+      {/* a face drawn with a marker */}
+      {shut ? (
+        <>
+          <path d={line([[47, 76], [53, 76]], r, 0.4)} fill="none" strokeWidth={2.8} />
+          <path d={line([[67, 76], [73, 76]], r, 0.4)} fill="none" strokeWidth={2.8} />
+        </>
+      ) : (
+        <>
+          <path d={blob(50 + p.look * 1.2, 76, 2.6, 3.2, r, 0.35, 8)} fill={INK} stroke="none" />
+          <path d={blob(70 + p.look * 1.2, 76, 2.6, 3.2, r, 0.35, 8)} fill={INK} stroke="none" />
+        </>
+      )}
+      {mouthOpen ? (
+        <ellipse cx={60} cy={88} rx={5.4} ry={1.5 + p.mouth * 3.6} fill={INK} />
+      ) : (
+        <path d={line([[51, 86], [60, 90.5], [69, 86]], r, 0.35)} fill="none" strokeWidth={2.8} />
+      )}
+    </g>
+  );
+}
+
+const LEOPARD = '#d6a24a';
+
+function Orb({ p, r }: Draw) {
+  const mouthOpen = p.mouth > 0.12;
+  const lens = (cx: number) => {
+    const d = blob(cx, 64, 12.6, 10.8, r, 0.5, 10);
+    return (
+      <g>
+        <path d={d} fill="#fff" fillOpacity={0.55} stroke={INK} strokeWidth={8.2} />
+        <path d={d} fill="none" stroke={LEOPARD} strokeWidth={5.2} />
+        {/* the spots of the leopard print */}
+        <path d={d} fill="none" stroke={INK} strokeWidth={2.4} strokeDasharray="2.2 5.2" />
+      </g>
+    );
+  };
+  const eye = (cx: number) => (
+    <g>
+      <ellipse cx={cx + p.look * 2.4} cy={64.5} rx={3.7} ry={Math.max(0.7, 5.2 * (1 - p.blink))} fill={INK} stroke="none" />
+      {p.blink < 0.6 && <circle cx={cx + p.look * 2.4 + 1.3} cy={62.3} r={1.1} fill="#fff" stroke="none" />}
+    </g>
+  );
+  return (
+    <g {...ink} transform={lift(p, 1.9)}>
+      {/* the orb is invisible: only a dotted outline and a glint */}
+      <path d={blob(60, 66, 37, 37, r, 0.9, 16)} fill="#fff" fillOpacity={0.35} strokeWidth={2.2} strokeDasharray="1.4 5.4" />
+      <path d="M33 56 Q36 44 48 38" fill="none" stroke="#fff" strokeWidth={3} opacity={0.9} />
+      <path d={line([[34, 63], [27, 60.5]], r, 0.3)} fill="none" strokeWidth={7.4} />
+      <path d={line([[86, 63], [93, 60.5]], r, 0.3)} fill="none" strokeWidth={7.4} />
+      <path d={line([[34, 63], [27, 60.5]], r, 0.3)} fill="none" stroke={LEOPARD} strokeWidth={3.6} />
+      <path d={line([[86, 63], [93, 60.5]], r, 0.3)} fill="none" stroke={LEOPARD} strokeWidth={3.6} />
+      <path d={line([[57, 62], [60, 59.5], [63, 62]], r, 0.2)} fill="none" strokeWidth={6.6} />
+      <path d={line([[57, 62], [60, 59.5], [63, 62]], r, 0.2)} fill="none" stroke={LEOPARD} strokeWidth={3} />
+      {lens(46)}
+      {lens(74)}
+      {eye(46)}
+      {eye(74)}
+      {mouthOpen ? (
+        <ellipse cx={60} cy={85} rx={5} ry={1.3 + p.mouth * 3.4} fill={INK} />
+      ) : (
+        <path d={line([[53, 83], [60, 86.5], [67, 83]], r, 0.3)} fill="none" strokeWidth={2.6} />
+      )}
+    </g>
+  );
+}
+
+const DRAW: Record<CritterShape, (d: Draw) => ReactElement> = {
+  rhino: Rhino,
+  dalmatian: Dalmatian,
+  glove: Glove,
+  orb: Orb,
+};
+
+/** The 12 hand-drawn frames of a character (every frame inked afresh). */
+export function critterFrames(shapeName: CritterShape, talking: boolean): ReactElement[] {
+  const base = CRITTER_SHAPES.indexOf(shapeName) * 131;
+  return Array.from({ length: FRAMES }, (_, i) => {
+    const Character = DRAW[shapeName];
+    const r = rng(base + i * 977 + 11);
+    const grounded = shapeName !== 'orb';
+    const shadow = 24 - (grounded ? 0 : Math.max(0, poseAt(i, false).bob) * 1.4);
+    return (
+      <g key={i}>
+        <ellipse cx={60} cy={116} rx={shadow} ry={3.4} fill={INK} opacity={0.14} />
+        <Character p={poseAt(i, talking)} r={r} />
+      </g>
+    );
+  });
+}
+
+// -- the component -----------------------------------------------------------------
 
 interface CritterProps {
   look: CritterLook;
@@ -320,155 +393,102 @@ interface CritterProps {
   size?: number;
   label?: string;
   talking?: boolean;
+  /** Show the whole phenakistoscope disc (by default from 96 px up). */
+  disc?: boolean;
 }
 
-const HAS_WEBGL = webglAvailable();
-
-/** A Node's character: real 3D (flocked, lit, with depth) where the browser
- * has WebGL, the flat drawing otherwise. */
-export function NodeCritter(props: CritterProps) {
-  const { look, size = 48 } = props;
-  const px = Math.round(size * (typeof window !== 'undefined' ? Math.min(window.devicePixelRatio || 1, 2) : 1) * 1.15);
-  const [frames, setFrames] = useState<DotsFrames | null | undefined>(() => (HAS_WEBGL ? cachedFrames(look, px) : null));
-  const key = `${look.shape}|${look.color}|${look.accessory}|${look.eyes}|${px}`;
-  useEffect(() => {
-    if (!HAS_WEBGL) return;
-    let live = true;
-    const hit = cachedFrames(look, px);
-    if (hit) setFrames(hit);
-    else {
-      setFrames(undefined);
-      void renderFrames(look, px).then((f) => live && setFrames(f));
-    }
-    return () => {
-      live = false;
-    };
-  }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
-  if (frames === null) return <CritterSvg {...props} />;
-  return <Critter3D {...props} frames={frames} />;
-}
-
-function Critter3D({ status = 'idle', size = 48, label, talking = false, frames }: CritterProps & { frames?: DotsFrames }) {
+/** Each frame plays during its twelfth of the turn (CSS steps, no script). */
+function Playing({ frames, from }: { frames: ReactElement[]; from?: string }) {
   return (
-    <span
-      className="critter critter3d"
-      data-status={status}
-      data-talking={talking || undefined}
-      data-ready={frames ? true : undefined}
-      role={label ? 'img' : undefined}
-      aria-label={label}
-      aria-hidden={label ? undefined : true}
-      style={{ width: size, height: size }}
-    >
-      {frames && (
-        <span className="critter3d-body">
-          <img src={frames.open} alt="" draggable={false} className="critter3d-open" />
-          <img src={frames.blink} alt="" draggable={false} className="critter3d-blink" />
-          {talking && <img src={frames.talk} alt="" draggable={false} className="critter3d-talk" />}
-        </span>
-      )}
-      {(status === 'needs_you' || status === 'waiting_approval') && <i className="critter3d-alert" />}
-    </span>
+    <>
+      {frames.map((fr, i) => {
+        const style = { ['--n' as string]: (FRAMES - i) / FRAMES };
+        return from ? (
+          <use key={i} href={`#${from}${i}`} className="critter-frame" style={style} />
+        ) : (
+          <g key={i} className="critter-frame" style={style}>
+            {fr}
+          </g>
+        );
+      })}
+    </>
   );
 }
 
-function CritterSvg({ look, status = 'idle', size = 48, label, talking = false }: CritterProps) {
+const slit = (angle: number, r1: number, r2: number, c: number) => (
+  <line
+    key={angle}
+    x1={c}
+    y1={c - r1}
+    x2={c}
+    y2={c - r2}
+    stroke={INK}
+    strokeWidth={4.2}
+    strokeLinecap="round"
+    transform={`rotate(${angle} ${c} ${c})`}
+  />
+);
+
+export function NodeCritter({ look, status = 'idle', size = 48, label, talking = false, disc }: CritterProps) {
+  const shapeName = castOf(look?.shape);
+  const frames = useMemo(() => critterFrames(shapeName, talking), [shapeName, talking]);
+  const showDisc = disc ?? size >= 96;
   const uid = useId().replace(/[^a-zA-Z0-9]/g, '');
-  const spec = SHAPES[(FLAT_OF[look.shape] || look.shape) as FlatShape] || SHAPES.bean;
-  const chosen = /^#[0-9a-f]{6}$/i.test(look.color) ? look.color : '#9fd3ff';
-  // The mushroom wears the chosen colour on its cap; its stem is cream.
-  const color = spec.cap ? '#f6ead8' : chosen;
-  const ink = luminance(color) < 0.32 ? '#f4f4f4' : '#1a1a1a';
-  const [ax1, ax2, ay] = spec.arms || [0, 0, 0];
-  const lit = (c: string, id: string) => (
-    <radialGradient id={id} cx="34%" cy="24%" r="82%">
-      <stop offset="0" stopColor={shade(c, 0.42)} />
-      <stop offset="0.42" stopColor={c} />
-      <stop offset="1" stopColor={shade(c, -0.3)} />
-    </radialGradient>
-  );
-  const sheen = `sheen${uid}`;
-  const soft = `soft${uid}`;
-  const ringFront = 'M14 70 C14 82 106 66 106 54';
-  const ringBack = 'M14 70 C14 58 106 42 106 54';
+  const alert = status === 'needs_you' || status === 'waiting_approval';
   return (
     <span
       className="critter"
       data-status={status}
+      data-shape={shapeName}
       data-talking={talking || undefined}
+      data-disc={showDisc || undefined}
       role={label ? 'img' : undefined}
       aria-label={label}
       aria-hidden={label ? undefined : true}
       style={{ width: size, height: size }}
     >
-      <svg viewBox="0 0 120 124" width={size} height={size}>
-        <defs>
-          {lit(color, `body${uid}`)}
-          {lit(chosen, `cap${uid}`)}
-          {lit(shade(color, -0.06), `limb${uid}`)}
-          <filter id={soft} x="-30%" y="-30%" width="160%" height="160%">
-            <feGaussianBlur stdDeviation="3.2" />
-          </filter>
-          <linearGradient id={`base${uid}`} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0.55" stopColor="#000" stopOpacity="0" />
-            <stop offset="1" stopColor="#000" stopOpacity="0.16" />
-          </linearGradient>
-          <clipPath id={sheen}>
-            <path d={spec.cap || spec.body} />
-          </clipPath>
-        </defs>
-        <ellipse className="critter-shadow" cx="60" cy="114" rx="30" ry="5" fill="#000" opacity="0.18" filter={`url(#${soft})`} />
-        <g className="critter-body">
-          {spec.ring && <path d={ringBack} fill="none" stroke={shade(chosen, 0.55)} strokeWidth={7} strokeLinecap="round" opacity={0.9} />}
-          {spec.arms && (
-            <g fill={`url(#limb${uid})`}>
-              <ellipse className="critter-arm critter-arm-l" cx={ax1} cy={ay} rx={7.5} ry={11} />
-              <ellipse className="critter-arm critter-arm-r" cx={ax2} cy={ay} rx={7.5} ry={11} />
-            </g>
-          )}
-          {spec.feet && (
-            <g fill={`url(#limb${uid})`}>
-              <ellipse cx={47} cy={spec.feet + 3} rx={10} ry={6} />
-              <ellipse cx={73} cy={spec.feet + 3} rx={10} ry={6} />
-            </g>
-          )}
-          <path d={spec.body} fill={`url(#body${uid})`} />
-          {spec.extra && <path d={spec.extra} fill={`url(#body${uid})`} />}
-          <path d={spec.body} fill={`url(#base${uid})`} />
-          {spec.cap && <path d={spec.cap} fill={`url(#cap${uid})`} />}
-          {spec.spots?.map(([x, y, r]) => (
-            <circle key={`${x}-${y}`} cx={x} cy={y} r={r} fill="#fff" opacity={spec.cap ? 0.92 : 0.7} />
-          ))}
-          {/* the vinyl sheen: a soft highlight and a crisp glint, top left */}
-          <g clipPath={`url(#${sheen})`}>
-            <ellipse cx={42} cy={spec.top + 16} rx={20} ry={11} fill="#fff" opacity={0.55} filter={`url(#${soft})`} transform={`rotate(-24 42 ${spec.top + 16})`} />
+      {showDisc ? (
+        <svg viewBox="0 0 240 240" width={size} height={size}>
+          <defs>
+            {frames.map((fr, i) => (
+              <g key={i} id={`${uid}f${i}`}>
+                {fr}
+              </g>
+            ))}
+          </defs>
+          <circle cx={120} cy={120} r={117} fill={PAPER} stroke={INK} strokeWidth={4} />
+          <g className="critter-ring" style={{ transformOrigin: '120px 120px' }}>
+            {Array.from({ length: FRAMES }, (_, i) => slit(i * 30 + 15, 106, 114, 120))}
+            {frames.map((_, i) => (
+              <use
+                key={i}
+                href={`#${uid}f${i}`}
+                transform={`rotate(${i * 30} 120 120) translate(${f(120 - 60 * 0.33)} ${f(120 - 81 - 62 * 0.33)}) scale(0.33)`}
+              />
+            ))}
           </g>
-          <ellipse cx={38} cy={spec.top + 12} rx={5.5} ry={3} fill="#fff" opacity={0.85} transform={`rotate(-30 38 ${spec.top + 12})`} />
-          {spec.ring && <path d={ringFront} fill="none" stroke={shade(chosen, 0.55)} strokeWidth={7} strokeLinecap="round" />}
-          {!OVER_FACE.has(look.accessory) && <Accessory kind={look.accessory} spec={spec} />}
-          <ellipse cx={60 - spec.eyeGap - 7} cy={spec.eyeY + 9} rx={5.5} ry={3.2} fill="#ff6f91" opacity={0.4} filter={`url(#${soft})`} />
-          <ellipse cx={60 + spec.eyeGap + 7} cy={spec.eyeY + 9} rx={5.5} ry={3.2} fill="#ff6f91" opacity={0.4} filter={`url(#${soft})`} />
-          <Eyes kind={look.eyes} spec={spec} ink={ink} status={status} />
-          <path
-            className="critter-mouth"
-            d={`M${55} ${spec.mouthY} Q60 ${spec.mouthY + 4.5} ${65} ${spec.mouthY}`}
-            stroke={ink}
-            strokeWidth={2.2}
-            strokeLinecap="round"
-            fill={talking ? ink : 'none'}
-          />
-          {OVER_FACE.has(look.accessory) && <Accessory kind={look.accessory} spec={spec} />}
-        </g>
-        {(status === 'needs_you' || status === 'waiting_approval') && (
-          <g className="critter-alert">
-            <path d="M96 10 L100 2 M104 14 L112 10 M92 6 L92 -2" stroke="var(--color-text, #1a1a1a)" strokeWidth={3} strokeLinecap="round" />
+          <circle cx={120} cy={120} r={43} fill={PAPER_HUB} stroke={INK} strokeWidth={3.4} />
+          <g transform="translate(120 123) scale(0.5) translate(-60 -62)">
+            <Playing frames={frames} from={`${uid}f`} />
           </g>
-        )}
-      </svg>
+          <path d="M112 3 L128 3 L120 17 Z" fill={INK} />
+        </svg>
+      ) : (
+        <svg viewBox="0 0 120 120" width={size} height={size}>
+          <circle cx={60} cy={60} r={57} fill={PAPER} stroke={INK} strokeWidth={3.4} />
+          <g className="critter-ring" style={{ transformOrigin: '60px 60px' }}>
+            {Array.from({ length: FRAMES }, (_, i) => slit(i * 30 + 15, 47, 53, 60))}
+          </g>
+          <g transform="translate(16 12) scale(0.72)">
+            <Playing frames={frames} />
+          </g>
+        </svg>
+      )}
+      {alert && (
+        <svg className="critter-alert" viewBox="0 0 24 24" width={Math.max(10, size * 0.3)} height={Math.max(10, size * 0.3)} aria-hidden="true">
+          <path d="M12 3 V13 M12 18 V20" stroke={INK} strokeWidth={3.2} strokeLinecap="round" />
+        </svg>
+      )}
     </span>
   );
 }
-
-// The cast offered for new Nodes; the older shapes still draw (as one of these).
-const SHAPE_LIST: CritterShape[] = ['rhino', 'dalmatian', 'glove', 'orb'];
-export const CRITTER_SHAPES = SHAPE_LIST;

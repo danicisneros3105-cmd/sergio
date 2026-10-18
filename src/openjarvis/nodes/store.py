@@ -27,6 +27,7 @@ Sergio server runs: on your PC (when it is on) or on a server you deploy.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import random
@@ -166,56 +167,40 @@ RULES: Dict[str, Dict[str, Any]] = {
 STATUSES = ("idle", "working", "waiting_approval", "needs_you", "paused")
 COLORS = ("#9fd3ff", "#111111", "#ffffff", "#5fb4f0", "#cfe9ff", "#3a3a3a")
 
-# The characters (own design, glossy like vinyl toys): body shapes, colours,
-# things they wear and their eyes. Any combination is a valid character.
-SHAPES = (
-    # the cast (real 3D, flocked like Dots): new Nodes choose among these
-    "rhino",
-    "dalmatian",
-    "glove",
-    "orb",
-    # older shapes still load; the web draws each as one of the cast
-    "bean",
-    "blob",
-    "drop",
-    "heart",
-    "frog",
-    "bear",
-    "star",
-    "ghost",
-    "mushroom",
-    "cactus",
-    "planet",
-)
-FELT = (
-    "#f1e6d6",  # oat
-    "#3f7be8",  # blue
-    "#f6c945",  # yellow
-    "#8fd14f",  # green
-    "#f05aa6",  # pink
-    "#9fd3ff",  # light blue
-    "#ff8a4c",  # orange
-    "#b58cf0",  # lilac
-    "#2b2b2b",  # charcoal
-    "#fafafa",  # snow
-    "#7c5cff",  # violet
-    "#16c79a",  # mint
-    "#ff5e6c",  # coral
-    "#22b8ff",  # sky
-)
-ACCESSORIES = (
-    "none",
-    "headphones",
-    "beret",
-    "glasses",
-    "sunglasses",
-    "bow",
-    "cap",
-    "beanie",
-    "crown",
-    "scarf",
-)
-EYES = ("dots", "happy", "big", "sleepy", "googly")
+# The characters: a fixed cast of four, drawn in ink and animated like a
+# phenakistoscope (owner, oct. 2026). Nobody designs them: a Node is given one
+# of the four and keeps it, with its own colour, clothes and eyes.
+CAST = ("rhino", "dalmatian", "glove", "orb")
+CAST_LOOK: Dict[str, Dict[str, str]] = {
+    # closed eyes, a sky-blue and white striped shirt
+    "rhino": {
+        "shape": "rhino",
+        "color": "#9fd3ff",
+        "accessory": "none",
+        "eyes": "sleepy",
+    },
+    # white with black spots
+    "dalmatian": {
+        "shape": "dalmatian",
+        "color": "#fafafa",
+        "accessory": "none",
+        "eyes": "big",
+    },
+    # an inflated blue medical glove with a beret and a marker-drawn face
+    "glove": {
+        "shape": "glove",
+        "color": "#3f7be8",
+        "accessory": "beret",
+        "eyes": "dots",
+    },
+    # an invisible orb with leopard glasses and black eyes
+    "orb": {"shape": "orb", "color": "#f1e6d6", "accessory": "glasses", "eyes": "dots"},
+}
+# What the older, customisable characters were; kept so old Nodes still load.
+SHAPES = CAST
+FELT = tuple(v["color"] for v in CAST_LOOK.values())
+ACCESSORIES = tuple(sorted({v["accessory"] for v in CAST_LOOK.values()}))
+EYES = tuple(sorted({v["eyes"] for v in CAST_LOOK.values()}))
 TONES = {
     "cercano": "cercano y cálido, como un buen compañero de trabajo",
     "formal": "formal y preciso, de usted, sin coloquialismos",
@@ -294,29 +279,31 @@ def tools_for(rules: Dict[str, str], extra: Iterable[str] = ()) -> List[str]:
     return tools
 
 
+def _cast_for(seed: str) -> str:
+    """The same seed always gives the same member of the cast."""
+    digest = hashlib.sha1((seed or "").encode()).digest()
+    return CAST[digest[0] % len(CAST)]
+
+
 def random_avatar(seed: str = "") -> Dict[str, str]:
-    rng = random.Random(seed or secrets.token_hex(4))
-    return {
-        "shape": rng.choice(SHAPES[:4]),  # the cast
-        "color": rng.choice(FELT[:8]),
-        "accessory": rng.choice(ACCESSORIES),
-        "eyes": rng.choice(EYES[:4]),
-    }
+    shape = (
+        CAST[random.Random(seed).randrange(len(CAST))] if seed else secrets.choice(CAST)
+    )
+    return dict(CAST_LOOK[shape])
 
 
 def clean_avatar(data: Any, base: Optional[Dict[str, str]] = None) -> Dict[str, str]:
-    out = dict(base or random_avatar())
-    if isinstance(data, dict):
-        if data.get("shape") in SHAPES:
-            out["shape"] = data["shape"]
-        color = str(data.get("color") or "")
-        if re.fullmatch(r"#[0-9a-fA-F]{6}", color):
-            out["color"] = color.lower()
-        if data.get("accessory") in ACCESSORIES:
-            out["accessory"] = data["accessory"]
-        if data.get("eyes") in EYES:
-            out["eyes"] = data["eyes"]
-    return out
+    """Only *which* character it is can be chosen (a template does that);
+    colour, clothes and eyes are always the character's own. Anything that is
+    not one of the cast (an older custom shape) becomes one of them."""
+    shape = ""
+    if isinstance(data, dict) and data.get("shape") in CAST:
+        shape = data["shape"]
+    elif isinstance(base, dict) and base.get("shape") in CAST:
+        shape = base["shape"]
+    elif isinstance(base, dict) and base.get("shape"):
+        shape = _cast_for(str(base["shape"]) + str(base.get("color", "")))
+    return dict(CAST_LOOK[shape or _cast_for(secrets.token_hex(4))])
 
 
 def clean_apps(apps: Any) -> Dict[str, str]:
@@ -624,8 +611,6 @@ class NodeStore:
                 node.rules = clean_rules(changes["rules"], node.rules)
             if "own_rules" in changes:
                 node.own_rules = clean_own_rules(changes["own_rules"])
-            if "avatar" in changes:
-                node.avatar = clean_avatar(changes["avatar"], node.avatar)
             if "tone" in changes and changes["tone"] in TONES:
                 node.tone = changes["tone"]
             for key in ("status", "doing", "waiting", "last_seen"):
@@ -1017,6 +1002,8 @@ BLOCKED_PROGRAMS = frozenset(
 
 __all__ = [
     "ACCESSORIES",
+    "CAST",
+    "CAST_LOOK",
     "API_METHODS",
     "BLOCKED_PROGRAMS",
     "COLORS",

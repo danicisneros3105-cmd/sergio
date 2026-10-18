@@ -2,6 +2,36 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-10-18 · Claude · Nodes rehechos: elenco fijo en tinta, animados como un fenaquistoscopio
+- Petición del dueño: «rehaz los Nodes: serán como te dije (los cuatro), pero
+  no se podrán personalizar, y su animación será esta» (un dibujo en tinta
+  gruesa de un hombre leyendo el periódico, y un disco fenaquistoscopio con
+  una rueda de cuadros).
+- Web: `NodeCritter.tsx` reescrito. Cuatro personajes (rinoceronte, dálmata,
+  guante, orbe) dibujados con trazos que «tiemblan» distinto en cada cuadro
+  (así hierve la tinta animada). 12 cuadros por vuelta. Grande (desde 96 px)
+  se ve el disco: anillo de 12 cuadros que gira un paso por cuadro y una
+  ventana central donde corre el resultado; pequeño, un medallón de papel con
+  la misma animación. Todo el tiempo es CSS (`steps`): una lista de Nodes no
+  gasta nada de script. Estados: trabajando y hablando van más rápido, en
+  pausa se congela en gris, necesita-ayuda marca un «!», y «reducir
+  movimiento» deja el primer cuadro quieto.
+- Sin personalizar: se quitó el diseñador (formas, colores, accesorios, ojos)
+  de crear y de Ajustes; Ajustes solo muestra qué personaje es. El servidor
+  (`nodes/store.py`) fija el elenco (`CAST`, `CAST_LOOK`): una plantilla elige
+  el personaje, todo lo demás es del personaje; `PATCH` ya no cambia la
+  apariencia y los Nodes viejos con formas antiguas pasan, siempre igual, a
+  uno de los cuatro. Se borró el 3D (`dots3d.ts`, 1000 líneas, y su CSS).
+- Pruebas: `NodeCritter.test.tsx` (nuevo), `tests/nodes/test_nodes_plus.py`
+  (elenco fijo), y `nodes-api.test.ts` con otro límite de tamaño (un disco ya
+  no es un dibujo plano). 237 pruebas web y 65 de Nodes pasan.
+- Sin tocar: el personaje del compañero de Windows (`character.py`) es el del
+  propio Sergio, no un Node. Si el dueño lo quiere en tinta también, es un
+  trabajo aparte en Qt.
+- Revisé lo de Codex y de «Sergio Audit»: Creator oculto, límite de 1
+  imagen/s a Gemini y la pantalla de Salud con colores quedaron como estaban
+  y se le avisó al dueño; no los toqué aquí.
+
 ## 2026-10-17 · Antigravity · app de escritorio, paridad con la demo de Claude y Creator exclusivo para Sergio y los agentes
 - Confirmé la arquitectura de **app de escritorio** de Sergio (compañero nativo en Windows con Notch, Orbe y Centro de control + ventana de app sin barras de navegador lanzada con `open_app_window` en `windows/sergio_escritorio/launch.py`): renombré la opción de bandeja en `windows/sergio_escritorio/app.py` a `"Abrir la app de Sergio"` y dejé en `frontend/src/pages/SettingsPage.tsx` `"Estado de Sergio"` con `<details><summary>Conexión avanzada</summary>` para ocultar los detalles internos del puente local.
 - Escondí **Creator** de la interfaz de usuario (`frontend/src/components/Shell/Toolbar.tsx`, redirección `/creator/*` -> `/chat` en `frontend/src/App.tsx` y tarjeta «Crear algo» prellenando el compositor en `frontend/src/components/Chat/ChatArea.tsx`) para que sus motores internos y programas instalados sean usados directamente por Sergio y sus agentes para dar resultados muy superiores (`src/openjarvis/skills/design_policy.py` y `AGENTS.md`).

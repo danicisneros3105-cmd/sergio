@@ -30,10 +30,7 @@ from pydantic import BaseModel
 
 from openjarvis.nodes import connections, skills
 from openjarvis.nodes.store import (
-    ACCESSORIES,
     COLORS,
-    EYES,
-    FELT,
     MAIN_THREAD,
     RULES,
     SHAPES,
@@ -85,7 +82,6 @@ class NewNode(BaseModel):
     color: str = ""
     apps: Any = None
     rules: Dict[str, str] = {}
-    avatar: Optional[Dict[str, str]] = None
     tone: str = ""
     template: str = ""
 
@@ -96,7 +92,6 @@ class NodeChanges(BaseModel):
     color: Optional[str] = None
     apps: Any = None
     rules: Optional[Dict[str, str]] = None
-    avatar: Optional[Dict[str, str]] = None
     tone: Optional[str] = None
 
 
@@ -214,9 +209,6 @@ async def catalog() -> Dict[str, Any]:
         ],
         "colors": list(COLORS),
         "shapes": list(SHAPES),
-        "felt": list(FELT),
-        "accessories": list(ACCESSORIES),
-        "eyes": list(EYES),
         "tones": [{"key": k, "label": v} for k, v in TONES.items()],
         "templates": [
             {k: t.get(k) for k in ("id", "name", "title", "description", "avatar")}
@@ -246,7 +238,6 @@ async def create(body: NewNode, request: Request) -> Dict[str, Any]:
             color=body.color,
             apps=body.apps,
             rules=body.rules or None,
-            avatar=body.avatar,
             tone=body.tone,
         )
     except NodeError as exc:

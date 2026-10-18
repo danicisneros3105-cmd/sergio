@@ -30,12 +30,14 @@ it('surfaces Dev denial and malformed errors without false success', async () =>
 });
 
 it('renders three distinct original avatars with bounded static geometry', () => {
+  // Each is now a phenakistoscope disc: 12 inked frames (and the ring that holds
+  // them) instead of one flat drawing, so the bound is per disc, not per drawing.
   const avatars = ['lumen','bruma','nival'].map(species => renderToStaticMarkup(createElement(NodeAvatar, {colour:'#ba8097', species, fur:1})));
   expect(new Set(avatars).size).toBe(3);
   for (const avatar of avatars) {
     expect(avatar).not.toContain('<image');
     expect(avatar).not.toContain('NaN');
-    expect(avatar.length).toBeLessThan(9000);
+    expect(avatar.length).toBeLessThan(150000);
     expect(avatar).toContain('aria-hidden="true"');
   }
 });

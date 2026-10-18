@@ -22,16 +22,14 @@ import {
   X,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { CRITTER_SHAPES, NodeCritter } from '../components/Nodes/NodeCritter';
+import { NodeCritter } from '../components/Nodes/NodeCritter';
 import { NodeGoals, ReviewedIntegrations } from '../components/Nodes/NodeGoals';
 import { apiFetch } from '../lib/api';
 import { listConnectors } from '../lib/connectors-api';
 import { useTtsStore } from '../lib/tts';
 import type { ConnectorInfo } from '../types/connectors';
 import {
-  ACCESSORY_ES,
   describeRoutine,
-  EYES_ES,
   groupByDay,
   nodesApi,
   relative,
@@ -85,7 +83,7 @@ const ACTIVITY_ICON: Record<string, string> = {
   swarm: '*',
   connection: '⌁',
 };
-const FALLBACK_AVATAR: Avatar = { shape: 'bean', color: '#9fd3ff', accessory: 'none', eyes: 'dots' };
+const FALLBACK_AVATAR: Avatar = { shape: 'rhino', color: '#9fd3ff', accessory: 'none', eyes: 'sleepy' };
 
 function look(node?: Pick<SergioNode, 'avatar'> | null): Avatar {
   return node?.avatar || FALLBACK_AVATAR;
@@ -101,58 +99,13 @@ function useConnectors() {
   return apps;
 }
 
-function randomAvatar(c: Catalog | null): Avatar {
-  const pick = <T,>(xs: T[]) => xs[Math.floor(Math.random() * xs.length)];
-  return {
-    shape: pick(c?.shapes || CRITTER_SHAPES),
-    color: pick(c?.felt?.slice(0, 8) || ['#9fd3ff']),
-    accessory: pick(c?.accessories || ['none']),
-    eyes: pick(c?.eyes?.slice(0, 4) || ['dots']),
-  };
-}
+// -- a Node's character: one of the four, never designed ------------------------------
 
-// -- the character designer (Muse: name, face, way of talking) ----------------------
-
-function AvatarDesigner({ value, onChange, catalog }: { value: Avatar; onChange: (a: Avatar) => void; catalog: Catalog | null }) {
-  const set = (patch: Partial<Avatar>) => onChange({ ...value, ...patch });
+function CharacterCard({ avatar }: { avatar: Avatar }) {
   return (
-    <div className="critter-designer">
-      <div className="critter-stage">
-        <NodeCritter look={value} size={132} status="idle" />
-        <button type="button" className="mac-icon-btn" aria-label="Al azar" title="Al azar" onClick={() => onChange(randomAvatar(catalog))}>
-          <Dices size={16} strokeWidth={1.6} />
-        </button>
-      </div>
-      <div className="critter-options">
-        <div className="critter-row" role="radiogroup" aria-label="Forma">
-          {(catalog?.shapes || []).map((shape) => (
-            <button key={shape} type="button" role="radio" aria-checked={value.shape === shape} title={SHAPE_ES[shape]} onClick={() => set({ shape })}>
-              <NodeCritter look={{ ...value, shape, accessory: 'none' }} size={40} />
-            </button>
-          ))}
-        </div>
-        <div className="critter-row critter-colors" role="radiogroup" aria-label="Color">
-          {(catalog?.felt || []).map((color) => (
-            <button key={color} type="button" role="radio" aria-checked={value.color === color} aria-label={color} onClick={() => set({ color })}>
-              <i style={{ background: color }} />
-            </button>
-          ))}
-        </div>
-        <div className="critter-chips">
-          {(catalog?.accessories || []).map((a) => (
-            <button key={a} type="button" className="mac-chip" aria-pressed={value.accessory === a} onClick={() => set({ accessory: a })}>
-              {ACCESSORY_ES[a]}
-            </button>
-          ))}
-        </div>
-        <div className="critter-chips">
-          {(catalog?.eyes || []).map((e) => (
-            <button key={e} type="button" className="mac-chip" aria-pressed={value.eyes === e} onClick={() => set({ eyes: e })}>
-              {EYES_ES[e]}
-            </button>
-          ))}
-        </div>
-      </div>
+    <div className="critter-card">
+      <NodeCritter look={avatar} size={132} status="idle" label={SHAPE_ES[avatar.shape] || 'Node'} />
+      <b>{SHAPE_ES[avatar.shape]}</b>
     </div>
   );
 }
@@ -186,7 +139,7 @@ function CreateNode({
   const [template, setTemplate] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [what, setWhat] = useState('');
-  const [avatar, setAvatar] = useState<Avatar>(() => randomAvatar(catalog));
+  const [avatar, setAvatar] = useState<Avatar | null>(null); // set by the template
   const [tone, setTone] = useState('cercano');
   const [picked, setPicked] = useState<Record<string, 'read' | 'write'>>({});
   const [busy, setBusy] = useState(false);
@@ -214,7 +167,6 @@ function CreateNode({
           instructions: what.trim(),
           apps: Object.keys(picked).length ? picked : undefined,
           template: template && template !== 'blank' ? template : undefined,
-          avatar,
           tone,
         }),
       );
@@ -275,7 +227,7 @@ function CreateNode({
   const spec = catalog?.templates.find((t) => t.id === template);
   return (
     <div className="node-create">
-      <AvatarDesigner value={avatar} onChange={setAvatar} catalog={catalog} />
+      {avatar && <CharacterCard avatar={avatar} />}
       <label className="node-field">
         <span className="paper-label">Nombre</span>
         <input className="paper-input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ej. Ana" maxLength={40} autoFocus />
@@ -1163,11 +1115,10 @@ function ConnectionsTab({ node, catalog, onChanged }: { node: SergioNode; catalo
 function SettingsTab({ node, catalog, onChanged, onDeleted }: { node: SergioNode; catalog: Catalog | null; onChanged: () => void; onDeleted: () => void }) {
   const [name, setName] = useState(node.name);
   const [what, setWhat] = useState(node.instructions);
-  const [avatar, setAvatar] = useState<Avatar>(look(node));
   const [tone, setTone] = useState(node.tone);
   return (
     <div className="node-settings">
-      <AvatarDesigner value={avatar} onChange={setAvatar} catalog={catalog} />
+      <CharacterCard avatar={look(node)} />
       <label className="node-field">
         <span className="paper-label">Nombre</span>
         <input className="paper-input" value={name} onChange={(e) => setName(e.target.value)} maxLength={40} />
@@ -1198,7 +1149,7 @@ function SettingsTab({ node, catalog, onChanged, onDeleted }: { node: SergioNode
           className="paper-button"
           onClick={async () => {
             try {
-              await nodesApi.update(node.id, { name, instructions: what, avatar, tone });
+              await nodesApi.update(node.id, { name, instructions: what, tone });
               toast.success('Guardado.');
               onChanged();
             } catch (e) {

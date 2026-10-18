@@ -11,11 +11,14 @@ import pytest
 
 from openjarvis.nodes import connections, skills
 from openjarvis.nodes.store import (
+    CAST,
+    CAST_LOOK,
     NodeError,
     NodeStore,
     clean_apps,
     clean_avatar,
     clean_routine,
+    random_avatar,
 )
 from openjarvis.nodes.worker import NodeWorker, parse_answer, unverified_files
 
@@ -36,17 +39,25 @@ def _worker(tmp_path, answers, **kw):
     return worker, seen
 
 
-def test_face_tone_and_apps_are_checked():
-    avatar = clean_avatar(
-        {"shape": "frog", "color": "#8FD14F", "accessory": "beret", "eyes": "nope"},
-        {"shape": "bean", "color": "#000000", "accessory": "none", "eyes": "dots"},
+def test_the_cast_is_fixed_and_cannot_be_designed():
+    # only WHICH character it is can be chosen; its colour, clothes and eyes
+    # are always its own
+    glove = clean_avatar(
+        {"shape": "glove", "color": "#ff0000", "accessory": "crown", "eyes": "googly"}
     )
-    assert avatar == {
-        "shape": "frog",
-        "color": "#8fd14f",
-        "accessory": "beret",
-        "eyes": "dots",
-    }
+    assert glove == CAST_LOOK["glove"]
+    # an older custom shape becomes one of the four, the same one every time
+    old = {"shape": "frog", "color": "#8fd14f", "accessory": "beret", "eyes": "happy"}
+    first = clean_avatar(None, old)
+    assert first["shape"] in CAST and first == clean_avatar(None, old)
+    assert first == CAST_LOOK[first["shape"]]
+    # an unknown shape from the outside is ignored, never kept
+    assert clean_avatar({"shape": "star"}, CAST_LOOK["orb"]) == CAST_LOOK["orb"]
+    # a new Node always gets a member of the cast
+    assert all(random_avatar(f"n{i}")["shape"] in CAST for i in range(20))
+
+
+def test_face_tone_and_apps_are_checked():
     assert clean_apps(["gmail", "bad app!"]) == {"gmail": "read"}
     assert clean_apps({"gmail": "write", "slack": "admin"}) == {"gmail": "write"}
     with pytest.raises(NodeError):
@@ -353,7 +364,7 @@ def test_catalog_and_connections_routes(tmp_path, monkeypatch):
     c = TestClient(app)
     cat = c.get("/v1/nodes/catalog").json()
     assert (
-        "frog" in cat["shapes"]
+        cat["shapes"] == list(CAST)
         and cat["templates"][0]["id"] == "vigia"
         and "api_allowed" in cat
     )
@@ -361,7 +372,8 @@ def test_catalog_and_connections_routes(tmp_path, monkeypatch):
         "/v1/nodes",
         json={"name": "Vigía", "template": "vigia", "avatar": {"shape": "star"}},
     ).json()
-    assert node["avatar"]["shape"] == "star" and node["template"] == "vigia"
+    # the template decides the character; what the client asks for is ignored
+    assert node["avatar"] == CAST_LOOK["orb"] and node["template"] == "vigia"
     nid = node["id"]
     assert (
         c.post(

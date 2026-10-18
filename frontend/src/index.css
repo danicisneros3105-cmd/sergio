@@ -2217,23 +2217,10 @@ html, body { background: var(--color-bg); }
 .node-template-blank { border-style: dashed; }
 .node-template-blank svg { width: 56px; flex-shrink: 0; color: var(--color-text-tertiary); }
 
-/* Character designer */
-.critter-designer { width: 100%; display: grid; grid-template-columns: 170px 1fr; gap: 18px; align-items: center; padding: 16px; border-radius: var(--radius-lg); background: color-mix(in srgb, var(--color-accent) 7%, var(--color-bg)); }
-.critter-stage { position: relative; display: grid; place-items: center; min-height: 160px; }
-.critter-stage .mac-icon-btn { position: absolute; right: 0; bottom: 0; }
-.critter-options { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
-.critter-row { display: flex; flex-wrap: wrap; gap: 4px; }
-.critter-row button { display: grid; place-items: center; width: 50px; height: 50px; border-radius: 14px; cursor: pointer; border: 1px solid transparent; }
-.critter-row button:hover { background: color-mix(in srgb, var(--color-text) 5%, transparent); }
-.critter-row button[aria-checked='true'] { border-color: var(--color-accent); background: var(--color-bg); }
-.critter-colors button { width: 30px; height: 30px; border-radius: 50%; }
-.critter-colors i { width: 22px; height: 22px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgb(0 0 0 / .12); }
-.critter-colors button[aria-checked='true'] { border-color: var(--color-text); }
+.critter-card { display: grid; justify-items: center; gap: 6px; padding: 4px 0 8px; }
+.critter-card b { font-size: 13px; font-weight: 600; color: var(--color-text-secondary); }
 .critter-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .critter-chips .mac-chip { font-size: 12.5px; padding: 3px 11px; min-height: 0; }
-@media (max-width: 640px) {
-  .critter-designer { grid-template-columns: 1fr; }
-}
 
 /* Threads, take-over, connections */
 .node-threads { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; padding-bottom: 12px; margin-bottom: 4px; border-bottom: 1px solid var(--color-border-subtle); }
@@ -2363,35 +2350,6 @@ html, body { background: var(--color-bg); }
 /* Marks and code keep their own designed sizes (no x-height scaling). */
 .wordmark, .paper-title, code, pre, kbd, .node-screen-body, .swarm-agent-n { font-size-adjust: none; }
 
-/* -- Plush Nodes (NodeCritter) ------------------------------------------------ */
-.critter { display: inline-grid; place-items: center; flex-shrink: 0; overflow: visible; }
-.critter svg { overflow: visible; }
-.critter-body { transform-origin: 60px 110px; animation: critter-float 4.4s ease-in-out infinite; }
-.critter-arm { transform-box: fill-box; transform-origin: 50% 15%; }
-.critter-arm-l { animation: critter-arm-l 4.4s ease-in-out infinite; }
-.critter-arm-r { animation: critter-arm-r 4.4s ease-in-out infinite; }
-.critter-blink { transform-box: fill-box; transform-origin: 50% 50%; animation: critter-blink 5.2s infinite; }
-.critter[data-status='working'] .critter-body { animation: critter-bounce 0.9s ease-in-out infinite; }
-.critter[data-status='working'] .critter-arm { animation: critter-type 0.35s ease-in-out infinite alternate; }
-.critter[data-status='needs_you'] .critter-arm-r,
-.critter[data-status='waiting_approval'] .critter-arm-r,
-.critter[data-talking] .critter-arm-r { animation: critter-wave 0.7s ease-in-out infinite alternate; }
-.critter[data-talking] .critter-mouth { animation: critter-talk 0.22s steps(2) infinite; transform-box: fill-box; transform-origin: 50% 0; }
-.critter[data-status='paused'] { filter: grayscale(0.85) opacity(0.6); }
-.critter[data-status='paused'] .critter-body, .critter[data-status='paused'] .critter-arm { animation: none; }
-.critter-alert { animation: critter-alert 1s ease-in-out infinite; }
-@keyframes critter-float { 0%, 100% { transform: translateY(0) scale(1, 1); } 50% { transform: translateY(-3px) scale(1.01, 0.99); } }
-@keyframes critter-bounce { 0%, 100% { transform: translateY(0) scale(1.02, 0.97); } 50% { transform: translateY(-6px) scale(0.98, 1.03); } }
-@keyframes critter-arm-l { 0%, 100% { transform: rotate(6deg); } 50% { transform: rotate(-4deg); } }
-@keyframes critter-arm-r { 0%, 100% { transform: rotate(-6deg); } 50% { transform: rotate(4deg); } }
-@keyframes critter-type { from { transform: rotate(-10deg) translateY(0); } to { transform: rotate(8deg) translateY(-2px); } }
-@keyframes critter-wave { from { transform: rotate(-20deg) translateY(-4px); } to { transform: rotate(-60deg) translateY(-8px); } }
-@keyframes critter-blink { 0%, 93%, 100% { transform: scaleY(1); } 96% { transform: scaleY(0.1); } }
-@keyframes critter-talk { 0% { transform: scaleY(1); } 100% { transform: scaleY(1.8); } }
-@keyframes critter-alert { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
-@media (prefers-reduced-motion: reduce) {
-  .critter-body, .critter-arm, .critter-blink, .critter-alert, .critter-mouth { animation: none !important; }
-}
 
 /* ===========================================================================
    Sergio 2026-10: the living orb, live captions.
@@ -3326,39 +3284,6 @@ h1, .chat-hello, .creator-head h1, .ext-title, .paper-title, .studio-heading h1,
 /* Minimal (owner): no explanatory subtexts under titles. Data stays. */
 p.node-hint:not(.node-path), .node-create-sub, .swarm-sub, .swarm-hint, .studio-heading p, .studio-kicker { display: none; }
 
-/* ===========================================================================
-   Nodes in 3D (dots3d.ts): rendered frames shown as images, brought to life
-   with CSS — breathing, a blink every few seconds, talking, typing bounce.
-   =========================================================================== */
-.critter3d { position: relative; display: inline-grid; place-items: center; flex-shrink: 0; }
-.critter3d-body {
-  position: relative; display: block; width: 115%; height: 115%; margin: -7.5%;
-  transform-origin: 50% 88%; animation: dots-breathe 4.6s ease-in-out infinite;
-  opacity: 0; transition: opacity 0.35s ease;
-}
-.critter3d[data-ready] .critter3d-body { opacity: 1; }
-.critter3d-body img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; user-select: none; pointer-events: none; }
-.critter3d-blink { opacity: 0; animation: dots-blink 5.4s infinite; }
-.critter3d-talk { animation: dots-talk 0.26s steps(1) infinite; }
-.critter3d[data-talking] .critter3d-blink { display: none; }
-.critter3d[data-status='working'] .critter3d-body { animation: dots-bounce 0.9s cubic-bezier(.3,0,.3,1) infinite; }
-.critter3d[data-status='needs_you'] .critter3d-body,
-.critter3d[data-status='waiting_approval'] .critter3d-body { animation: dots-wiggle 1.6s ease-in-out infinite; }
-.critter3d[data-status='paused'] { filter: grayscale(0.85) opacity(0.6); }
-.critter3d[data-status='paused'] .critter3d-body { animation: none; }
-.critter3d-alert {
-  position: absolute; top: 4%; right: 4%; width: 22%; height: 22%; min-width: 8px; min-height: 8px;
-  border-radius: 50%; background: #737373; box-shadow: 0 0 0 2px var(--color-bg); animation: dots-pulse 1.4s ease-in-out infinite;
-}
-@keyframes dots-breathe { 0%, 100% { transform: translateY(0) scale(1, 1); } 50% { transform: translateY(-2.5%) scale(1.015, 0.99); } }
-@keyframes dots-blink { 0%, 93%, 100% { opacity: 0; } 94.5%, 97.5% { opacity: 1; } }
-@keyframes dots-talk { 0% { opacity: 1; } 50% { opacity: 0; } }
-@keyframes dots-bounce { 0%, 100% { transform: translateY(0) scale(1, 1); } 30% { transform: translateY(-6%) scale(0.98, 1.03); } 60% { transform: translateY(0) scale(1.04, 0.96); } }
-@keyframes dots-wiggle { 0%, 100% { transform: rotate(0); } 20% { transform: rotate(-5deg); } 40% { transform: rotate(4deg); } 60% { transform: rotate(-2deg); } }
-@keyframes dots-pulse { 50% { transform: scale(1.25); } }
-@media (prefers-reduced-motion: reduce) {
-  .critter3d-body, .critter3d-blink, .critter3d-talk { animation: none; }
-}
 
 /* ===========================================================================
    Workspace beyond Notion — Sergio panel, smart tables, forms, buttons,
