@@ -7,6 +7,7 @@ import contextlib
 import logging
 import os
 import pathlib
+import re
 import threading
 import time
 from typing import Any, AsyncIterator, Awaitable, Callable
@@ -135,9 +136,7 @@ _NO_CACHE_HEADERS = {
 }
 
 
-import re as _re
-
-_HASHED_ASSET_RE = _re.compile(
+_HASHED_ASSET_RE = re.compile(
     r"^(?P<stem>[A-Za-z0-9_.-]+)-[A-Za-z0-9_-]{6,16}\.(?P<ext>js|css)$"
 )
 
