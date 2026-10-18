@@ -323,6 +323,14 @@ def instalar(vision: bool, gpu: bool = False) -> None:
     )
 
 
+@escritorio.command("actualizar")
+@click.option("--vision", is_flag=True, help="Descarga también el modelo local de visión.")
+@click.option("--gpu", is_flag=True, help="Descarga librerías NVIDIA para Whisper.")
+def actualizar(vision: bool, gpu: bool = False) -> None:
+    """Actualiza Sergio Escritorio en Windows."""
+    instalar(vision=vision, gpu=gpu)
+
+
 @escritorio.command("estado")
 def estado() -> None:
     """Comprueba que Sergio pueda comunicarse con Sergio Escritorio."""
@@ -352,6 +360,7 @@ def estado() -> None:
 
 
 __all__ = [
+    "actualizar",
     "BASE_TOOLS",
     "clean_server",
     "CLOUD_PREFIXES",
