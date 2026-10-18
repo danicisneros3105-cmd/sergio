@@ -6,6 +6,7 @@ import { SystemPulse } from './SystemPulse';
 import { Toolbar } from './Shell/Toolbar';
 import { checkHealth } from '../lib/api';
 import { LiveCaptions, LiveStarter } from './Live/LiveOrb';
+import { StickyNotesLayer } from './StickyNotes/StickyNotesLayer';
 
 const HISTORY_KEY = 'sergio-history-open';
 
@@ -49,10 +50,22 @@ export function Layout() {
 
   const navigate = useNavigate();
 
+  useEffect(() => {
+    const onNav = (e: Event) => {
+      const route = (e as CustomEvent<string>).detail;
+      if (typeof route === 'string' && route.startsWith('/')) {
+        navigate(route);
+      }
+    };
+    window.addEventListener('sergio:navigate', onNav);
+    return () => window.removeEventListener('sergio:navigate', onNav);
+  }, [navigate]);
+
   return (
     <div className="app-shell">
       <SystemPulse apiReachable={apiReachable} />
       <LiveStarter />
+      <StickyNotesLayer />
       <Toolbar historyOpen={historyOpen} onToggleHistory={toggleHistory} />
       <div className="app-main">
         {!historyOpen && (

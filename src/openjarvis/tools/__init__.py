@@ -111,6 +111,13 @@ except ImportError as _exc:
     )
 
 try:
+    import openjarvis.tools.app_control  # noqa: F401
+except ImportError as _exc:
+    _logging.getLogger(__name__).debug(
+        "Optional app_control tool unavailable: %s", _exc
+    )
+
+try:
     import openjarvis.tools.skill_guide_tool  # noqa: F401
 except ImportError as _exc:
     _logging.getLogger(__name__).debug(

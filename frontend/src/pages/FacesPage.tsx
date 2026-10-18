@@ -184,16 +184,17 @@ export function FacesPage() {
       canvas.toBlob((blob) => resolve(blob), 'image/jpeg', 0.85);
     });
 
-  // -- setting up: two slow circles with the head ---------------------------
+  // -- setting up: one quick, effortless circle with the head ---------------
   useEffect(() => {
     if (mode.kind !== 'scan') return;
     let stop = false;
     const ring: boolean[] = Array(TICKS).fill(false);
     setLit(ring.slice());
-    setSay('Coloque la cara dentro del círculo');
+    setSay('Mire a la pantalla y mueva ligeramente la cabeza');
     const started = Date.now();
     (async () => {
       if (!(await startCamera())) return;
+      let goodFrames = 0;
       while (!stop) {
         const blob = await frame();
         if (blob) {
@@ -205,32 +206,33 @@ export function FacesPage() {
             if (pose.faces > 1) setSay('Solo una persona frente a la cámara');
             else {
               shots.current.push(blob);
+              goodFrames++;
               const tilt = Math.hypot(pose.yaw, pose.pitch);
-              if (tilt < 8) setSay('Mueva la cabeza despacio para completar el círculo');
-              else {
-                // Shown mirrored: turning to your left lights the left side.
-                const a = (Math.atan2(pose.pitch, -pose.yaw) + Math.PI * 2) % (Math.PI * 2);
-                const k = Math.round((a / (Math.PI * 2)) * TICKS) % TICKS;
-                for (let d = -2; d <= 2; d++) ring[(k + d + TICKS) % TICKS] = true;
-                setLit(ring.slice());
-              }
+              // Light sectors generously even with subtle movement so setup is fast & frustration-free
+              const a = (Math.atan2(pose.pitch, -pose.yaw) + Math.PI * 2) % (Math.PI * 2);
+              const k = Math.round((a / (Math.PI * 2)) * TICKS) % TICKS;
+              const spread = tilt < 4 ? 3 : 5;
+              for (let d = -spread; d <= spread; d++) ring[(k + d + TICKS) % TICKS] = true;
+              // Also progressively fill sectors as good frames accumulate
+              const startIdx = (goodFrames * 5) % TICKS;
+              for (let d = 0; d < 4; d++) ring[(startIdx + d) % TICKS] = true;
+              setLit(ring.slice());
+              const pct = Math.round((ring.filter(Boolean).length / TICKS) * 100);
+              setSay(pct < 60 ? 'Gire suavemente la cabeza…' : '¡Casi listo! Mantenga la mirada…');
             }
           } else setSay('Coloque la cara dentro del círculo');
         }
-        const done = ring.filter(Boolean).length / TICKS >= 0.8 && Date.now() - started > 2500;
-        if (done || Date.now() - started > 30000) break;
-        await new Promise((r) => setTimeout(r, 120));
+        const litRatio = ring.filter(Boolean).length / TICKS;
+        const done = (litRatio >= 0.65 && goodFrames >= 6) || (goodFrames >= 10 && Date.now() - started > 2800);
+        if (done || Date.now() - started > 18000) break;
+        await new Promise((r) => setTimeout(r, 110));
       }
       if (stop) return;
-      if (mode.round === 1) {
-        setMode({ ...mode, round: 2 });
-        return;
-      }
-      // Save: the sharpest shots of each angle, both rounds.
+      // Save immediately after 1 round (no tedious second round).
       const form = new FormData();
       form.append('name', mode.who);
       form.append('consent', String(mode.consent));
-      const pick = shots.current.filter((_, i) => i % Math.max(1, Math.ceil(shots.current.length / 60)) === 0).slice(0, 60);
+      const pick = shots.current.filter((_, i) => i % Math.max(1, Math.ceil(shots.current.length / 40)) === 0).slice(0, 40);
       pick.forEach((b, i) => form.append('images', b, `s${i}.jpg`));
       shots.current = [];
       stopCamera();
@@ -244,7 +246,7 @@ export function FacesPage() {
         kind: 'done',
         ok: true,
         title: mode.who === (status?.owner || mode.who) ? 'Face ID está listo' : `${mode.who} guardado`,
-        text: 'Ahora puede desbloquear mirando a la pantalla.',
+        text: 'Configuración completada. Ahora puede desbloquear mirando a la pantalla.',
       });
     })();
     return () => {
@@ -252,7 +254,7 @@ export function FacesPage() {
     };
   }, [mode]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // -- unlocking: look, do the random movement, done ------------------------
+  // -- unlocking: look, do the gentle movement, done ------------------------
   const unlock = async () => {
     setError('');
     const cRes = await apiFetch('/v1/faces/faceid/challenge', { method: 'POST' });
@@ -263,19 +265,23 @@ export function FacesPage() {
       return setMode({ kind: 'passcode', then: 'unlock' });
     }
     setMode({ kind: 'unlock' });
+    setLit(Array(TICKS).fill(false));
     if (!(await startCamera())) return;
-    setSay(challenge.say);
-    await new Promise((r) => setTimeout(r, 350));
+    setSay(`${challenge.say}…`);
+    await new Promise((r) => setTimeout(r, 450));
     const frames: Blob[] = [];
-    for (let i = 0; i < 12; i++) {
+    const totalFrames = 14;
+    for (let i = 0; i < totalFrames; i++) {
       const b = await frame();
       if (b) frames.push(b);
-      await new Promise((r) => setTimeout(r, 140));
+      const progress = Math.round(((i + 1) / totalFrames) * TICKS);
+      setLit(Array.from({ length: TICKS }, (_, idx) => idx < progress));
+      await new Promise((r) => setTimeout(r, 150));
     }
     const form = new FormData();
     form.append('nonce', challenge.nonce);
     frames.forEach((b, i) => form.append('images', b, `u${i}.jpg`));
-    setSay('Comprobando…');
+    setSay('Verificando identidad…');
     const res = await apiFetch('/v1/faces/faceid/unlock', { method: 'POST', body: form });
     stopCamera();
     const out = res.ok ? await res.json() : { ok: false, message: await readError(res) };
@@ -286,7 +292,7 @@ export function FacesPage() {
     }
     setMode(
       out.ok
-        ? { kind: 'done', ok: true, title: `Hola, ${out.name || 'señor'}`, text: `Desbloqueado en ${out.ms} ms.` }
+        ? { kind: 'done', ok: true, title: `Hola, ${out.name || 'señor'}`, text: `Reconocido en ${out.ms} ms.` }
         : {
             kind: 'done',
             ok: false,
@@ -342,12 +348,10 @@ export function FacesPage() {
           <>
             <div className="faceid-view">
               <video ref={videoRef} muted playsInline />
-              <Ring lit={mode.kind === 'scan' ? lit : Array(TICKS).fill(true)} size={300} />
+              <Ring lit={lit} size={300} />
             </div>
             <p className="faceid-say" aria-live="polite">
-              {mode.kind === 'scan' && mode.round === 2 && lit.filter(Boolean).length === 0
-                ? 'Primera exploración completada. Haga otra vuelta.'
-                : say}
+              {say}
             </p>
             <button type="button" className="paper-button" data-variant="quiet" onClick={() => (stopCamera(), setMode({ kind: 'home' }))}>
               Cancelar

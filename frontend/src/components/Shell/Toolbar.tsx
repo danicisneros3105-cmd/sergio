@@ -185,6 +185,16 @@ export function Toolbar({ historyOpen, onToggleHistory }: { historyOpen: boolean
                 onClick={() => go(item.path)}
               />
             ))}
+            <Item
+              icon={
+                <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} aria-hidden="true">
+                  <path d="M15.5 3H5a2 2 0 0 0-2 2v14c0 1.1.9 2 2 2h14a2 2 0 0 0 2-2V8.5L15.5 3Z" />
+                  <path d="M14 3v4a2 2 0 0 0 2 2h4" />
+                </svg>
+              }
+              label="Notas Post-it"
+              onClick={() => window.dispatchEvent(new CustomEvent('sergio:sticky-notes-toggle'))}
+            />
           </div>
 
           <div className="sb-chats">

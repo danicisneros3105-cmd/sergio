@@ -80,6 +80,14 @@ PROGRAMS: list[dict[str, Any]] = [
         "license": "GPL-3.0",
     },
     {
+        "id": "godot",
+        "name": "Motor 3D · Godot 4",
+        "space": "modelado",
+        "where": "windows",
+        "what": "Motor de videojuegos y mundos 3D/2D en tiempo real (clase Unreal, 100% open source).",
+        "license": "MIT",
+    },
+    {
         "id": "vscodium",
         "name": "Código",
         "space": "codigo",
@@ -105,11 +113,13 @@ WINDOWS_APPS = (
     "bonsai",
     "librecad",
     "blender",
+    "godot",
     "vscodium",
 )
 OPENS = {  # which program opens which kind of file Sergio makes
     "dxf": ("librecad", "freecad"),
     "ifc": ("freecad", "bonsai"),
+    "godot": ("godot",),
 }
 
 _cache: dict[str, Any] = {"at": 0.0, "windows": None}

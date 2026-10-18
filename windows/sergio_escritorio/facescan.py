@@ -22,10 +22,10 @@ from dataclasses import dataclass, field
 from typing import Any, Sequence
 
 SECTORS = 36
-MIN_TILT = 9.0  # degrees off the centre to light a mark
-DONE_FRACTION = 0.72  # this much of the ring lit: done
-MIN_SECONDS = 3.0
-MAX_SECONDS = 16.0
+MIN_TILT = 5.0  # degrees off the centre to light a mark
+DONE_FRACTION = 0.58  # this much of the ring lit: done
+MIN_SECONDS = 2.0
+MAX_SECONDS = 14.0
 IRIS_MM = 11.7  # adult iris diameter (very constant between people)
 # MediaPipe iris points: 468 centre + 469..472 edge (right), 473 + 474..477 (left).
 RIGHT_IRIS = (469, 470, 471, 472)
@@ -61,14 +61,15 @@ class ScanRing:
             return None
         sector = int(((math.degrees(math.atan2(pitch, yaw)) + 360.0) % 360.0) / (360.0 / SECTORS))
         sector %= SECTORS
-        self.lit[sector] = True
+        for adj in (-1, 0, 1):
+            self.lit[(sector + adj) % SECTORS] = True
         if self.last is not None:
             # The head swept from the last mark to this one between two
             # frames: the marks in between were passed too (short arcs only).
             step = (sector - self.last) % SECTORS
             if step > SECTORS // 2:
                 step -= SECTORS
-            if 1 < abs(step) <= 5:
+            if 1 < abs(step) <= 7:
                 direction = 1 if step > 0 else -1
                 for k in range(1, abs(step)):
                     self.lit[(self.last + direction * k) % SECTORS] = True
@@ -265,7 +266,7 @@ class Scanner:
 
 # -- drawing -------------------------------------------------------------------------
 def draw_ring(p: Any, centre: Any, radius: float, ring: ScanRing, now: float, mirror: bool = True) -> None:
-    """The Face ID ring: 36 marks, lit (green) where your face has pointed."""
+    """The Face ID ring: 36 marks, lit (Digital Paper forest/terracotta) where your face has pointed."""
     from PySide6.QtCore import QPointF
     from PySide6.QtGui import QColor, QPen
 
@@ -279,15 +280,15 @@ def draw_ring(p: Any, centre: Any, radius: float, ring: ScanRing, now: float, mi
         length = 13.0 if ring.lit[i] else 8.0
         outer = QPointF(centre.x() + dx * (radius + length), centre.y() + dy * (radius + length))
         if ring.lit[i]:
-            colour = QColor(48, 209, 88, 245)
+            colour = QColor(46, 111, 64, 245)  # Digital Paper forest green (#2E6F40)
         else:
-            colour = QColor(255, 255, 255, int(70 + 60 * pulse))
+            colour = QColor(250, 248, 245, int(110 + 70 * pulse))  # Warm paper (#FAF8F5)
         p.setPen(QPen(colour, 3.2))
         p.drawLine(inner, outer)
 
 
 def draw_head(p: Any, rect: Any, points: Sequence[Sequence[float]], turn: float, edges: Sequence[tuple[int, int]] = ()) -> None:
-    """The 3D map of the face, turning (a point cloud, nearer = brighter)."""
+    """The 3D map of the face, turning (Digital Paper terracotta & ink point cloud)."""
     from PySide6.QtCore import QPointF
     from PySide6.QtGui import QColor, QPen
 
@@ -305,7 +306,7 @@ def draw_head(p: Any, rect: Any, points: Sequence[Sequence[float]], turn: float,
         (QPointF(cx + (x - mid_x) * scale, cy - (y - mid_y) * scale), z) for x, y, z in turned
     ]
     if edges:
-        p.setPen(QPen(QColor(100, 210, 255, 50), 0.8))
+        p.setPen(QPen(QColor(201, 100, 66, 65), 0.8))
         for a, b in edges:
             if a < len(projected) and b < len(projected):
                 p.drawLine(projected[a][0], projected[b][0])
@@ -314,7 +315,7 @@ def draw_head(p: Any, rect: Any, points: Sequence[Sequence[float]], turn: float,
     p.setPen(QPen(QColor(0, 0, 0, 0)))
     for spot, z in projected:
         k = (z - lo) / max(hi - lo, 1e-6)
-        p.setBrush(QColor(int(80 + 120 * k), int(190 + 50 * k), 255, int(90 + 160 * k)))
+        p.setBrush(QColor(int(140 + 61 * k), int(70 + 30 * k), int(48 + 18 * k), int(110 + 145 * k)))
         p.drawEllipse(spot, 1.3 + 0.9 * k, 1.3 + 0.9 * k)
 
 

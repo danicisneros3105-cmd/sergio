@@ -20,6 +20,7 @@ from rich.console import Console
 console = Console()
 
 DESKTOP_TOOLS = (
+    "sergio_app",
     "professional_apps",
     "opendesign",
     "kronos_forecast",
@@ -38,6 +39,8 @@ DESKTOP_TOOLS = (
 )
 # Always on as well, so Sergio is never left with only the server defaults.
 BASE_TOOLS = (
+    "sergio_app",
+    "professional_apps",
     "anatomy_figure",
     "verified_math",
     "scene_reason",

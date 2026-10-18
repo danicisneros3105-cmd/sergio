@@ -131,6 +131,34 @@ async def image_edit(
     return Response(out, media_type="image/png")
 
 
+@router.get("/media/{filename}")
+async def creator_media(filename: str) -> Response:
+    """Serve generated Creator images/assets so chat messages can render them inline."""
+    import re as _re
+
+    safe = _re.sub(r"[^\w.\-]+", "", filename)
+    if not safe or safe != filename:
+        raise HTTPException(status_code=400, detail="Nombre de archivo inválido.")
+    candidates = [
+        studio.projects_root() / "imagenes" / safe,
+        studio.projects_root() / safe,
+    ]
+    for path in candidates:
+        if path.is_file():
+            ext = path.suffix.lower()
+            mime = (
+                "image/jpeg"
+                if ext in (".jpg", ".jpeg")
+                else "image/webp"
+                if ext == ".webp"
+                else "image/svg+xml"
+                if ext == ".svg"
+                else "image/png"
+            )
+            return FileResponse(path, media_type=mime)
+    raise HTTPException(status_code=404, detail="Imagen no encontrada.")
+
+
 # -- plans ---------------------------------------------------------------------------
 
 

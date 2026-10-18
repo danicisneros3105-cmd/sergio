@@ -100,6 +100,17 @@ PROGRAMS: dict[str, Program] = {
         exe=(r"%ProgramFiles%\Blender Foundation\Blender*\blender.exe",),
         opens=(".blend", ".glb", ".gltf", ".obj", ".fbx", ".stl", ".py"),
     ),
+    "godot": Program(
+        "Motor 3D · Godot 4",
+        "motor de videojuegos y simulación 3D/2D",
+        winget="GodotEngine.GodotEngine",
+        exe=(
+            r"%LOCALAPPDATA%\Microsoft\WinGet\Packages\GodotEngine.GodotEngine*\Godot_v*.exe",
+            r"%ProgramFiles%\Godot*\Godot*.exe",
+            r"%LOCALAPPDATA%\Programs\Godot*\Godot*.exe",
+        ),
+        opens=(".godot", ".tscn", ".tres", ".gd", ".glb", ".gltf"),
+    ),
     "bonsai": Program(
         "BIM",
         "el edificio en IFC",

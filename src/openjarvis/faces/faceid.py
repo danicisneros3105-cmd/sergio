@@ -27,16 +27,16 @@ RECENT_FACE_S = 4 * 3600
 CHALLENGE_TTL = 20.0
 ACTIONS = ("izquierda", "derecha", "arriba", "parpadee")
 ACTION_ES = {
-    "izquierda": "Gire la cabeza despacio hacia su izquierda",
-    "derecha": "Gire la cabeza despacio hacia su derecha",
-    "arriba": "Levante un poco la barbilla",
-    "parpadee": "Parpadee una vez, mirando a la pantalla",
+    "izquierda": "Gire la cabeza suavemente hacia su izquierda",
+    "derecha": "Gire la cabeza suavemente hacia su derecha",
+    "arriba": "Incline ligeramente la cabeza hacia arriba",
+    "parpadee": "Parpadee con naturalidad mirando a la pantalla",
 }
-FRONT_DEG = 18.0  # "looking at the screen"
-TURN_DEG = 12.0  # how far a turn must go to count
-OWNER_STRONG = 0.55
-OWNER_FRAME = 0.50
-OWNER_MARGIN = 0.12
+FRONT_DEG = 22.0  # "looking at the screen"
+TURN_DEG = 8.0  # gentle turn threshold (accessible without neck strain)
+OWNER_STRONG = 0.50
+OWNER_FRAME = 0.45
+OWNER_MARGIN = 0.10
 MIN_FRAMES = 4
 MAX_FRAMES = 16
 # Wrong passcodes: after the 5th, wait (seconds) — longer each time (Apple).
@@ -356,13 +356,12 @@ def alive(frames: list[Frame], action: str) -> tuple[bool, str]:
     diffs = [
         float(np.mean(np.abs(a.crop - b.crop))) for a, b in zip(frames, frames[1:])
     ]
-    if max(diffs) < 0.8:
+    if max(diffs, default=0.0) < 0.8:
         return False, "La imagen no se mueve: parece una foto."
     if action in ("izquierda", "derecha", "arriba"):
-        if turned(
-            [f.pitch if action == "arriba" else f.yaw for f in frames],
-            -1 if action == "derecha" else 1,
-        ):
+        angles = [f.pitch if action == "arriba" else f.yaw for f in frames]
+        sign = -1 if action == "derecha" else 1
+        if turned(angles, sign):
             return True, ""
     elif action == "parpadee" and blinked(frames):
         return True, ""
@@ -370,21 +369,26 @@ def alive(frames: list[Frame], action: str) -> tuple[bool, str]:
 
 
 def turned(angles: list[float], sign: int) -> bool:
-    """A real, sustained turn: the end settles ≥ TURN_DEG away from a steady
-    start, and the head never teleports. Pose noise (a shaking hand holding a
-    photo) jumps around; it does not settle somewhere else. Turning a flat
-    photo does not move the nose against the eyes, so it gives no turn."""
+    """A real, sustained turn: the end settles >= TURN_DEG away from a steady
+    start, or reached a peak excursion in that direction, without teleporting."""
     import statistics
 
     if len(angles) < MIN_FRAMES:
         return False
+    if max(abs(b - a) for a, b in zip(angles, angles[1:])) > 14.0:
+        return False
     k = max(2, len(angles) // 4)
     start, end = angles[:k], angles[-k:]
     if statistics.pstdev(start) > 5.0:
-        return False  # it did not start still and facing the screen
-    if max(abs(b - a) for a, b in zip(angles, angles[1:])) > 25.0:
         return False
-    return sign * (statistics.median(end) - statistics.median(start)) >= TURN_DEG
+    if sign * (statistics.median(end) - statistics.median(start)) >= TURN_DEG:
+        return True
+    # User turned smoothly and returned to screen: peak excursion in requested direction
+    base = statistics.median(start)
+    peak = max((sign * (a - base) for a in angles), default=0.0)
+    if peak >= TURN_DEG:
+        return True
+    return False
 
 
 def blinked(frames: list[Frame]) -> bool:

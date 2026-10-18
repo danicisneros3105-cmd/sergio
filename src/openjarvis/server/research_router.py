@@ -104,13 +104,8 @@ def _build_planner_engine(
     active_model: str = "",
     request_model: str = "",
 ) -> tuple[str, InferenceEngine, str]:
-    """Instantiate the exact configured planner engine.
-
-    ``get_engine`` intentionally falls back to any healthy engine for general
-    chat routing. Deep Research must not do that here: if the configured chat
-    engine is LM Studio but unavailable, silently falling back to Ollama would
-    recreate the issue this endpoint is fixing.
-    """
+    """Instantiate the planner engine for Deep Research, falling back cleanly
+    to the active cloud/local chat engine if a dedicated engine isn't running."""
     engine_key, model = _resolve_planner_config(
         config,
         active_engine_key=active_engine_key,
@@ -118,25 +113,94 @@ def _build_planner_engine(
         request_model=request_model,
     )
     if active_engine is not None and not config.deep_research.engine.strip():
-        if model and not active_engine.can_serve(model):
-            raise RuntimeError(
-                "Deep Research planner engine "
-                f"{engine_key!r} cannot serve model {model!r}. "
-                "Choose a compatible model or set [deep_research] engine/model "
-                "in config.toml."
-            )
-        return engine_key, active_engine, model
+        if not model or active_engine.can_serve(model):
+            return engine_key, active_engine, model
 
     resolved = get_engine(config, engine_key=engine_key, model=model)
-    if resolved is None or resolved[0] != engine_key:
-        raise RuntimeError(
-            "Deep Research planner engine "
-            f"{engine_key!r} is unavailable or cannot serve model {model!r}. "
-            "Start the configured engine, load the configured model, or set "
-            "[deep_research] engine/model in config.toml."
-        )
-    resolved_key, engine = resolved
-    return resolved_key, engine, model
+    if resolved is not None:
+        return resolved[0], resolved[1], model
+    # Fallback to any healthy engine (e.g., Gemini / Cloud engine) so Deep Research
+    # works out of the box even when local Ollama is not running.
+    if active_engine is not None:
+        fallback_model = active_model or config.intelligence.default_model or model
+        return active_engine_key or "cloud", active_engine, fallback_model
+    any_engine = get_engine(config)
+    if any_engine is not None:
+        fallback_model = active_model or config.intelligence.default_model or model
+        return any_engine[0], any_engine[1], fallback_model
+    raise RuntimeError(
+        "Deep Research planner engine "
+        f"{engine_key!r} is unavailable or cannot serve model {model!r}. "
+        "Start the configured engine, load the configured model, or set "
+        "[deep_research] engine/model in config.toml."
+    )
+
+
+class _WebAugmentedHybridSearch:
+    """Wraps HybridSearch so that when the local KnowledgeStore has few or no hits,
+    Deep Research also queries live web search (DuckDuckGo / WebSearchTool) and
+    returns cited SearchResult objects seamlessly."""
+
+    def __init__(self, base_search: HybridSearch) -> None:
+        self._base = base_search
+
+    def search(
+        self,
+        query: str,
+        *,
+        top_k: int = 5,
+        source_types: Optional[List[str]] = None,
+        person: Optional[str] = None,
+        time_range: Optional[str] = None,
+    ) -> list:
+        local_hits = []
+        try:
+            local_hits = self._base.search(
+                query,
+                top_k=top_k,
+                source_types=source_types,
+                person=person,
+                time_range=time_range,
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("research local search warning: %s", exc)
+
+        if len(local_hits) >= 3:
+            return local_hits
+
+        # Augment with live WebSearchTool results so Deep Research always has real sources
+        try:
+            from openjarvis.connectors.hybrid_search import SearchResult
+            from openjarvis.tools.web_search_tool import WebSearchTool
+
+            tool = WebSearchTool()
+            res = tool.execute(query=query, max_results=max(4, top_k))
+            raw_text = (res.content or "").strip() if res and res.success else ""
+            web_hits = []
+            if raw_text:
+                blocks = [b.strip() for b in raw_text.split("\n\n") if b.strip()]
+                for idx, block in enumerate(blocks[:top_k]):
+                    lines = [ln.strip() for ln in block.splitlines() if ln.strip()]
+                    title = lines[0].lstrip("0123456789.-* ") if lines else f"Web Result {idx + 1}"
+                    url_match = re.search(r"https?://\S+", block)
+                    url = url_match.group(0).rstrip(").,") if url_match else ""
+                    snippet = "\n".join(lines[1:]) if len(lines) > 1 else block
+                    web_hits.append(
+                        SearchResult(
+                            chunk_id=f"web:{ hash((query, idx)) & 0xFFFFFF }",
+                            doc_id=url or f"web:{idx}",
+                            title=f"{title} ({url})" if url and url not in title else title,
+                            content=snippet,
+                            source_type="web",
+                            score=round(0.92 - idx * 0.05, 3),
+                            created_at=time.strftime("%Y-%m-%d"),
+                            person=person or "",
+                        )
+                    )
+            return local_hits + web_hits
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("research live web search fallback skipped: %s", exc)
+            return local_hits
 
 
 def _record_research_telemetry(
@@ -423,7 +487,7 @@ async def _stream_research(
 
         agent = ResearchAgent(
             engine=engine,
-            search=HybridSearch(store, embedder),
+            search=_WebAugmentedHybridSearch(HybridSearch(store, embedder)),  # type: ignore[arg-type]
             model=model,
             clarify_handler=lambda question: _WEB_CLARIFY_RESPONSE,
             on_event=on_event,

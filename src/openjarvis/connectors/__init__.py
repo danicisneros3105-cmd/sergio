@@ -151,6 +151,13 @@ except ImportError as _exc:
     )
 
 try:
+    import openjarvis.connectors.garmin_connect  # noqa: F401
+except ImportError as _exc:
+    _logging.getLogger(__name__).debug(
+        "Optional import skipped (openjarvis.connectors.garmin_connect): %s", _exc
+    )
+
+try:
     import openjarvis.connectors.strava  # noqa: F401
 except ImportError as _exc:
     _logging.getLogger(__name__).debug(

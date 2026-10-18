@@ -431,6 +431,26 @@ export function InputArea() {
               tc.latency = data.latency;
               tc.result = data.result;
             }
+            const rawRes = typeof data.result === 'string' ? data.result : '';
+            // Execute live UI actions emitted by sergio_app
+            const uiMatch = rawRes.match(/<!--SERGIO_UI:(\{.*?\})-->/);
+            if (uiMatch?.[1]) {
+              try {
+                const uiAction = JSON.parse(uiMatch[1]);
+                if (uiAction.type === 'navigate' && typeof uiAction.route === 'string') {
+                  window.dispatchEvent(new CustomEvent('sergio:navigate', { detail: uiAction.route }));
+                } else if (uiAction.type === 'sticky_notes_refresh') {
+                  window.dispatchEvent(new CustomEvent('sergio:sticky-notes'));
+                } else if (uiAction.type === 'health_refresh') {
+                  window.dispatchEvent(new CustomEvent('sergio:health-refresh'));
+                }
+              } catch {}
+            }
+            // If a tool generated an inline Creator image ![...](/v1/creator/media/...), ensure it shows in chat
+            const imgMatch = rawRes.match(/!\[[^\]]*\]\(\/v1\/creator\/media\/[^)]+\)/);
+            if (imgMatch?.[0] && !accumulatedContent.includes(imgMatch[0])) {
+              accumulatedContent += (accumulatedContent ? '\n\n' : '') + imgMatch[0] + '\n\n';
+            }
             setStreamState({
               phase: 'Escribiendo…',
               activeToolCalls: [...toolCalls],
