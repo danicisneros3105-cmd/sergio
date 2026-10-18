@@ -675,6 +675,14 @@ def create_app(
     from openjarvis.server.health_routes import router as health_data_router
 
     app.include_router(health_data_router)
+    # The prompt library Sergio learns its technique from.
+    from openjarvis.server.prompt_library_routes import router as prompt_library_router
+
+    app.include_router(prompt_library_router)
+    # Shortcuts wired like the fly brain: reflexes, learned paths, escape.
+    from openjarvis.server.connectome_routes import router as connectome_router
+
+    app.include_router(connectome_router)
     # The Workspace: local-first pages, files, search, export, share links.
     from openjarvis.server.workspace_routes import router as workspace_router
 

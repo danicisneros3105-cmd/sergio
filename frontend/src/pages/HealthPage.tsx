@@ -2,16 +2,17 @@
 // highlights, Longevidad by areas, Explorar by category, Compartir) plus what its users ask
 // for: data from any watch, ring or scale, notes and tags per day, what goes with a good
 // night, goals, a doctor summary and a full export. Every number is the owner's own data;
-// tabs live in ./health/.
+// tabs live in ./health/. Salud mental holds the survey and the mental gym.
 
 import { useCallback, useEffect, useState } from 'react';
-import { apiFetch } from '../lib/api';
+import { useLocation } from 'react-router';
 import { salud, type Catalog, type Summary } from '../lib/salud';
 import { PaperPage } from '../components/Paper/PaperPage';
+import portada from '../assets/salud/portada-salud.webp';
 import { BrowseTab, MetricView } from './health/BrowseTab';
 import { DevicesTab } from './health/DevicesTab';
-import { HealthGym } from './health/HealthGym';
 import { LongevityTab } from './health/LongevityTab';
+import { MindTab } from './health/MindTab';
 import { ShareTab } from './health/ShareTab';
 import { SummaryTab } from './health/SummaryTab';
 import './health/health.css';
@@ -23,24 +24,17 @@ const TABS: Array<{ key: Tab; label: string }> = [
   { key: 'explorar', label: 'Explorar' },
   { key: 'compartir', label: 'Compartir' },
   { key: 'dispositivos', label: 'Dispositivos' },
-  { key: 'mente', label: 'Mente' },
+  { key: 'mente', label: 'Salud mental' },
 ];
 
-/** The mental gym still keeps its sessions in the older health hub. */
-function MindTab() {
-  const [hub, setHub] = useState<any>(null); // eslint-disable-line @typescript-eslint/no-explicit-any
-  useEffect(() => {
-    apiFetch('/v1/desktop/health')
-      .then((r) => r.json())
-      .then((d) => setHub(d.hub ?? null))
-      .catch(() => setHub(null));
-  }, []);
-  if (!hub) return <p className="paper-meta">Leyendo…</p>;
-  return <HealthGym hub={hub} setHub={setHub} />;
+function tabFrom(search: string): Tab | null {
+  const asked = new URLSearchParams(search).get('tab');
+  return TABS.some((t) => t.key === asked) ? (asked as Tab) : null;
 }
 
 export function HealthPage() {
-  const [tab, setTab] = useState<Tab>('resumen');
+  const { search } = useLocation();
+  const [tab, setTab] = useState<Tab>(() => tabFrom(search) ?? 'resumen');
   const [catalog, setCatalog] = useState<Catalog | null>(null);
   const [summary, setSummary] = useState<Summary | null>(null);
   const [problem, setProblem] = useState('');
@@ -63,10 +57,20 @@ export function HealthPage() {
     return () => window.removeEventListener('sergio:health-refresh', load);
   }, [load]);
 
+  // A shortcut such as /salud?tab=mente switches tab even when Salud is already open.
+  useEffect(() => {
+    const asked = tabFrom(search);
+    if (asked) {
+      setOpen(null);
+      setTab(asked);
+    }
+  }, [search]);
+
   const show = (key: string) => setOpen(key);
 
   return (
     <PaperPage title="Salud" wide>
+      {tab === 'resumen' && !open && <img className="salud-cover" src={portada} alt="Personas en un parque: caminando, meditando, en bicicleta y leyendo" />}
       <nav className="paper-tabs salud-tabs" role="tablist" aria-label="Secciones de Salud">
         {TABS.map((t) => (
           <button
@@ -84,8 +88,10 @@ export function HealthPage() {
           </button>
         ))}
       </nav>
-      {problem && <p className="paper-meta">{problem}</p>}
-      {!catalog || !summary ? (
+      {problem && tab !== 'mente' && <p className="paper-meta">{problem}</p>}
+      {tab === 'mente' && !open ? (
+        <MindTab />
+      ) : !catalog || !summary ? (
         !problem && <p className="paper-meta">Leyendo…</p>
       ) : open ? (
         <MetricView metricKey={open} onBack={() => setOpen(null)} onChanged={load} />
@@ -96,7 +102,6 @@ export function HealthPage() {
           {tab === 'explorar' && <BrowseTab catalog={catalog} summary={summary} onOpen={show} />}
           {tab === 'compartir' && <ShareTab />}
           {tab === 'dispositivos' && <DevicesTab catalog={catalog} summary={summary} onChanged={load} />}
-          {tab === 'mente' && <MindTab />}
         </>
       )}
     </PaperPage>

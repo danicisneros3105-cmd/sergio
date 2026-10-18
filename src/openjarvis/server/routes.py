@@ -118,6 +118,21 @@ def _ensure_identity_prompt(messages: list[Message], app_config) -> list[Message
                 exc_info=True,
             )
 
+    if prompt:
+        # The prompt library rides along with the identity (agent paths add it
+        # in BaseAgent, so it is only built here for engine-direct requests).
+        last_user = next(
+            (m.text for m in reversed(messages) if m.role == Role.USER and m.text), ""
+        )
+        try:
+            from openjarvis.prompt_library import guidance_for
+
+            guidance = guidance_for(last_user)
+        except Exception:  # noqa: BLE001
+            guidance = ""
+        if guidance:
+            prompt = f"{prompt}\n\n{guidance}"
+
     system_parts = []
     if prompt:
         system_parts.append(prompt)

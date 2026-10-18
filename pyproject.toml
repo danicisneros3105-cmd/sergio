@@ -339,6 +339,11 @@ max-line-length = 120
 "src/openjarvis/tools/blender_pro.py" = ["E501"]
 "src/openjarvis/tools/video_style.py" = ["E501"]
 "src/openjarvis/coach/tasks.py" = ["E501"]
+# Survey items, region descriptions and prompt principles are prose shown or
+# sent verbatim; wrapping them would only split sentences.
+"src/openjarvis/health/mind.py" = ["E501"]
+"src/openjarvis/connectome/regions.py" = ["E501"]
+"src/openjarvis/prompt_library/guidance.py" = ["E501"]
 # Test fixtures that hold real tool output / data rows verbatim.
 "tests/escritorio/test_salud.py" = ["E501"]
 "tests/tools/test_blender_examples.py" = ["E501"]

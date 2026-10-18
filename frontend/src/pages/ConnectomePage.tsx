@@ -1,0 +1,113 @@
+// How the shortcuts work: each region of the fly brain and the part of Sergio
+// that does its job, the keys, and what the mushroom body has learned so far.
+
+import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
+import { PaperPage } from '../components/Paper/PaperPage';
+import { BY_ID, SHORTCUTS, brainMap, forgetLearned, type BrainMap } from '../lib/connectome';
+import '../components/Shortcuts/shortcuts.css';
+
+export function ConnectomePage() {
+  const [map, setMap] = useState<BrainMap | null>(null);
+  const [problem, setProblem] = useState('');
+
+  const load = () =>
+    brainMap()
+      .then((m) => {
+        setMap(m);
+        setProblem('');
+      })
+      .catch(() => setProblem('No pude leer el mapa. Compruebe que Sergio está en marcha.'));
+  useEffect(() => {
+    void load();
+  }, []);
+
+  const keyed = SHORTCUTS.filter((s) => s.keys);
+
+  return (
+    <PaperPage title="Atajos" wide>
+      {problem && <p className="paper-meta">{problem}</p>}
+      {map && (
+        <>
+          <p className="cn-lead">
+            Los atajos de Sergio siguen el mapa del cerebro de la mosca de la fruta: {map.facts.neurons}, {map.facts.synapses} y {map.facts.cell_types}. Cada región hace un solo trabajo y los caminos entre ellas son cortos; por eso es rápido.
+          </p>
+          <ol className="cn-flow">
+            {map.regions.map((r) => (
+              <li key={r.key} className="cn-region" data-key={r.key}>
+                <div className="cn-fly">
+                  <span className="paper-label">{r.fly}</span>
+                  <p>{r.job}</p>
+                </div>
+                <div className="cn-sergio">
+                  <p>{r.sergio}</p>
+                  <kbd>{r.where}</kbd>
+                </div>
+              </li>
+            ))}
+          </ol>
+
+          <section className="salud-block">
+            <h2 className="paper-label">Teclas</h2>
+            <ul className="cn-keys">
+              <li>
+                <kbd>Ctrl</kbd> <kbd>K</kbd>
+                <span>Abrir la paleta de atajos</span>
+              </li>
+              {keyed.map((s) => (
+                <li key={s.id}>
+                  {s.keys!.split(' ').map((k, i) => (
+                    <kbd key={i}>{k.length === 1 ? k.toUpperCase() : k}</kbd>
+                  ))}
+                  <span>{s.title}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
+
+          <section className="salud-block">
+            <h2 className="paper-label">Lo aprendido</h2>
+            {map.memory.synapses ? (
+              <>
+                <p className="cn-learned">
+                  {map.memory.synapses} conexiones entre {map.memory.active_cells} de {map.memory.kenyon_cells} células de Kenyon.
+                  {map.memory.top?.length ? ` Lo que más usa: ${map.memory.top.map(([id]) => BY_ID[id]?.title ?? id).join(', ')}.` : ''}
+                </p>
+                <button
+                  type="button"
+                  className="paper-button"
+                  data-variant="quiet"
+                  onClick={async () => {
+                    if (!window.confirm('¿Olvidar todos los atajos aprendidos?')) return;
+                    await forgetLearned();
+                    toast.success('Atajos aprendidos olvidados.');
+                    void load();
+                  }}
+                >
+                  Olvidar lo aprendido
+                </button>
+              </>
+            ) : (
+              <p className="cn-learned">Todavía nada. Use la paleta (Ctrl K) y Sergio irá aprendiendo qué busca con cada palabra.</p>
+            )}
+          </section>
+
+          <section className="salud-block">
+            <h2 className="paper-label">Fuentes</h2>
+            <ul className="cn-sources">
+              {map.facts.sources.map((s) => (
+                <li key={s.url}>
+                  <a href={s.url} target="_blank" rel="noreferrer">
+                    {s.cite}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </section>
+        </>
+      )}
+    </PaperPage>
+  );
+}
+
+export default ConnectomePage;

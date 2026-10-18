@@ -19,6 +19,17 @@ from openjarvis.core.types import Conversation, Message, Role, ToolResult
 from openjarvis.engine._stubs import InferenceEngine
 
 _ALLOWED_ENGINE_OPTION_KEYS = frozenset({"num_ctx", "num_gpu"})
+_library_mark = "<biblioteca_de_prompts>"
+
+
+def _library_guidance(text: str) -> str:
+    """The prompt library's block for *text*; never breaks a turn."""
+    try:
+        from openjarvis.prompt_library import guidance_for
+
+        return guidance_for(text)
+    except Exception:  # noqa: BLE001
+        return ""
 
 
 @dataclass(slots=True)
@@ -253,6 +264,12 @@ class BaseAgent(ABC):
             for message in context_messages
             if message.role == Role.SYSTEM and message.text
         )
+        # The prompt library (only once installed): principles plus the passages
+        # that match this request.
+        if not any(_library_mark in part for part in system_parts):
+            guidance = _library_guidance(input)
+            if guidance:
+                system_parts.append(guidance)
         context_messages = [
             message for message in context_messages if message.role != Role.SYSTEM
         ]

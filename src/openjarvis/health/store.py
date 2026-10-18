@@ -46,6 +46,17 @@ CREATE TABLE IF NOT EXISTS settings (
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS surveys (
+    id TEXT PRIMARY KEY,
+    kind TEXT NOT NULL,
+    created REAL NOT NULL,
+    ready_at REAL NOT NULL,
+    answers TEXT NOT NULL,
+    scores TEXT NOT NULL,
+    reading TEXT NOT NULL DEFAULT '',
+    reading_by TEXT NOT NULL DEFAULT '',
+    read_at REAL
+);
 """
 
 
@@ -276,6 +287,66 @@ class HealthStore:
     def check_sync_key(self, given: str) -> bool:
         key = self.get("sync_key", "")
         return bool(key) and secrets.compare_digest(key, (given or "").strip())
+
+    # -- surveys (Salud mental) ------------------------------------------------
+    def add_survey(
+        self,
+        kind: str,
+        answers: Dict[str, Any],
+        scores: Dict[str, Any],
+        ready_at: float,
+    ) -> str:
+        sid = secrets.token_hex(8)
+        with self._lock, self._db() as db:
+            db.execute(
+                "INSERT INTO surveys (id, kind, created, ready_at, answers, scores) VALUES (?,?,?,?,?,?)",
+                (
+                    sid,
+                    kind,
+                    time.time(),
+                    ready_at,
+                    json.dumps(answers),
+                    json.dumps(scores),
+                ),
+            )
+        return sid
+
+    def _survey_row(self, row: sqlite3.Row) -> Dict[str, Any]:
+        return {
+            "id": row["id"],
+            "kind": row["kind"],
+            "created": row["created"],
+            "ready_at": row["ready_at"],
+            "answers": json.loads(row["answers"]),
+            "scores": json.loads(row["scores"]),
+            "reading": row["reading"],
+            "reading_by": row["reading_by"],
+            "read_at": row["read_at"],
+        }
+
+    def survey(self, sid: str) -> Optional[Dict[str, Any]]:
+        with self._db() as db:
+            row = db.execute("SELECT * FROM surveys WHERE id = ?", (sid,)).fetchone()
+        return self._survey_row(row) if row else None
+
+    def surveys(self, kind: str, limit: int = 20) -> List[Dict[str, Any]]:
+        with self._db() as db:
+            rows = db.execute(
+                "SELECT * FROM surveys WHERE kind = ? ORDER BY created DESC LIMIT ?",
+                (kind, limit),
+            ).fetchall()
+        return [self._survey_row(r) for r in rows]
+
+    def set_reading(self, sid: str, text: str, by: str) -> None:
+        with self._lock, self._db() as db:
+            db.execute(
+                "UPDATE surveys SET reading = ?, reading_by = ?, read_at = ? WHERE id = ?",
+                (text, by, time.time(), sid),
+            )
+
+    def delete_survey(self, sid: str) -> bool:
+        with self._lock, self._db() as db:
+            return db.execute("DELETE FROM surveys WHERE id = ?", (sid,)).rowcount > 0
 
 
 _STORES: Dict[str, HealthStore] = {}

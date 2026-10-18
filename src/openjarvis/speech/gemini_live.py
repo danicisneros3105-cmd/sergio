@@ -221,6 +221,12 @@ def live_instructions(start: dict[str, Any], owner: str = "") -> str:
     code = str(start.get("language") or "es").split("-")[0].lower()
     from openjarvis.skills.design_policy import ANATOMY_POLICY
 
+    try:  # voice gets only the principles: every extra word costs latency
+        from openjarvis.prompt_library import principles_block
+
+        library = principles_block()
+    except Exception:  # noqa: BLE001
+        library = ""
     return (
         INSTRUCTIONS.format(
             language=LANGUAGE_NAMES.get(code, LANGUAGE_NAMES["es"]),
@@ -230,6 +236,7 @@ def live_instructions(start: dict[str, Any], owner: str = "") -> str:
             personality=f"\nPersonalidad: {personality[:800]}" if personality else "",
         )
         + ANATOMY_POLICY
+        + (f"\n\n{library}" if library else "")
     )
 
 

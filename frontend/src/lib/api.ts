@@ -104,11 +104,77 @@ export const authHeaders = (
   return key ? { ...extra, Authorization: `Bearer ${key}` } : { ...extra };
 };
 
+// How reads to the local server behave (see apiFetch).
+export const API_RETRY_DELAYS_MS = [300, 900];
+const API_HEADERS_TIMEOUT_MS = 45_000;
+const API_HIDDEN_TTL_MS = 30_000;
+// Streams and long-polls are never shared, cached or timed out.
+const API_STREAMING = /\/(events|stream|sse|live|ws)(\/|\?|$)/;
+
+export class ApiTimeoutError extends Error {
+  constructor(path: string) {
+    super(`El servidor no respondió a tiempo (${path}).`);
+    this.name = 'ApiTimeoutError';
+  }
+}
+
+const inflight = new Map<string, { promise: Promise<Response>; waiters: number }>();
+const hiddenCache = new Map<string, { at: number; res: Response }>();
+
+const pageHidden = (): boolean =>
+  typeof document !== 'undefined' && document.visibilityState === 'hidden';
+
+if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
+  // Back on screen: every poll reads fresh data again.
+  document.addEventListener('visibilitychange', () => {
+    if (!pageHidden()) hiddenCache.clear();
+  });
+}
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/** A gateway error page (not the app's own JSON error) while the server restarts. */
+const transient = (res: Response): boolean =>
+  [502, 503, 504].includes(res.status) &&
+  !(res.headers.get('content-type') || '').includes('json');
+
+function headersInTime(request: Promise<Response>, ms: number, path: string): Promise<Response> {
+  if (!ms) return request;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new ApiTimeoutError(path)), ms);
+  });
+  return Promise.race([request, timeout]).finally(() => clearTimeout(timer));
+}
+
+async function fetchWithRetry(path: string, url: string, init: RequestInit, readOnly: boolean): Promise<Response> {
+  for (let attempt = 0; ; attempt++) {
+    const last = !readOnly || attempt >= API_RETRY_DELAYS_MS.length;
+    try {
+      const timeout = readOnly && !init.signal && !API_STREAMING.test(path) ? API_HEADERS_TIMEOUT_MS : 0;
+      const res = await headersInTime(fetch(url, init), timeout, path);
+      if (last || !transient(res)) return res;
+    } catch (err) {
+      const aborted = init.signal?.aborted || (err as Error)?.name === 'AbortError';
+      if (last || aborted || err instanceof ApiTimeoutError) throw err;
+    }
+    // Jitter so several polls do not hit a restarting server in step.
+    await sleep(API_RETRY_DELAYS_MS[attempt] * (0.8 + Math.random() * 0.4));
+  }
+}
+
 // Centralized fetch for the local server: prepends getBase() and injects the
 // Bearer auth header (when a key is set) on every call. Using this everywhere
 // guarantees no /v1 or /api request is sent without auth — the bug in #266 was
 // that direct fetch() calls omitted the header and 401'd. `path` is the
 // server-relative path (e.g. "/v1/savings").
+//
+// Reads (GET/HEAD) also get what a flaky local server needs: identical GETs in
+// flight at the same time share one request; a connection error or a gateway
+// page (502/503/504 while the server restarts) is retried twice with backoff;
+// a server that never answers fails after 45 s instead of hanging; and while
+// the window is hidden, repeated polls of the same URL reuse the last answer
+// for 30 s. Writes are sent exactly once, as before.
 export const apiFetch = (
   path: string,
   init: RequestInit = {},
@@ -116,7 +182,41 @@ export const apiFetch = (
   const headers = authHeaders(
     (init.headers as Record<string, string> | undefined) ?? {},
   );
-  return fetch(`${getBase()}${path}`, { ...init, headers });
+  const url = `${getBase()}${path}`;
+  const method = (init.method || 'GET').toUpperCase();
+  const readOnly = method === 'GET' || method === 'HEAD';
+  const request = { ...init, headers };
+  const shareable =
+    method === 'GET' && !init.body && !init.signal && init.cache !== 'no-store' && !API_STREAMING.test(path);
+  if (!shareable) return fetchWithRetry(path, url, request, readOnly);
+
+  const key = `${url}\n${headers.Authorization ?? ''}`;
+  if (pageHidden()) {
+    const hit = hiddenCache.get(key);
+    if (hit && Date.now() - hit.at < API_HIDDEN_TTL_MS) return Promise.resolve(hit.res.clone());
+  }
+  let entry = inflight.get(key);
+  if (!entry) {
+    // Leaves the map before any caller reads the body, so nobody joins late.
+    const promise = fetchWithRetry(path, url, request, true).then(
+      (res) => {
+        inflight.delete(key);
+        const json = (res.headers.get('content-type') || '').includes('json');
+        if (pageHidden() && res.ok && json) hiddenCache.set(key, { at: Date.now(), res: res.clone() });
+        return res;
+      },
+      (err) => {
+        inflight.delete(key);
+        throw err;
+      },
+    );
+    entry = { promise, waiters: 0 };
+    inflight.set(key, entry);
+  }
+  const first = entry.waiters === 0;
+  entry.waiters += 1;
+  // The first caller gets the response itself, the others a copy, all before anyone reads it.
+  return entry.promise.then((res) => (first ? res : res.clone()));
 };
 
 async function tauriInvoke<T>(command: string, args: Record<string, unknown> = {}): Promise<T> {

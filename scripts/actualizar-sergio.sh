@@ -46,6 +46,9 @@ echo "Respaldo del código: $rollback_ref ($previous)."
 # Use exact locked versions, retaining manually installed optional dependencies.
 uv sync --locked --inexact --extra server --extra desktop
 uv run --no-sync python -c 'from google import genai; from google.genai import types; assert genai.Client and types.LiveConnectConfig; print("SDK Gemini Live: listo")'
+# The prompt library (public system and persona prompts, downloaded whole to
+# ~/.openjarvis/prompt_library); a failed download keeps the previous copy.
+uv run --no-sync sergio prompts sincronizar || echo "Aviso: no pude actualizar la biblioteca de prompts; se reintenta en la próxima actualización." >&2
 (
   cd frontend
   npm ci --no-audit --no-fund

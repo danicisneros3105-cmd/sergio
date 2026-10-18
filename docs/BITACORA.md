@@ -2,6 +2,44 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-10-18 · Claude · Biblioteca de prompts, encuesta de salud mental, atajos tipo cerebro de mosca, API más robusta
+- Petición del dueño: usar siempre «Awesome-System-Prompts» y
+  «LLM-Persona-Prompts» completos como reentrenamiento; encuesta de salud
+  mental con estudios de universidades, imágenes, opción múltiple y abierta,
+  resultado de la IA unos 30 min después; portadas de Salud y Salud mental;
+  mejorar las llamadas a la API; atajos con la estructura del cerebro de la
+  mosca de Google.
+- Biblioteca de prompts (`prompt_library/`): no existe un repo llamado
+  «LLM-Persona-Prompts»; se usan los más cercanos: EliFuzz/awesome-system-prompts
+  (GPL-3.0), langgptai/awesome-system-prompts (Apache-2.0),
+  f/awesome-chatgpt-prompts (CC0, el CSV de roles) y
+  UtopianFuturist/Personality-Prompts-For-LLMs (sin licencia). Se descargan
+  completos al equipo (clon superficial y disperso, 14 s, ~11 500
+  fragmentos) con `sergio prompts sincronizar`, nunca al repo. Índice FTS5
+  con BM25 y glosario español→inglés; filtro de jailbreaks (por fragmento y
+  por archivo) y de nombres de otros asistentes. Entra en cada turno (≈10 ms)
+  por agentes, Nodes y el chat directo; en la voz solo los principios.
+  Honesto: no cambia pesos; es contexto en cada respuesta.
+- Salud mental (`health/mind.py`, pestaña nueva): 3 preguntas con las
+  imágenes del dueño en su orden, PHQ-9, GAD-7, Rosenberg, RRS-brooding,
+  PSWQ-3, Autenticidad (3 subescalas) y UCLA-3, 4 abiertas; 56 preguntas,
+  una por pantalla, teclas 1-7, borrador guardado. Resultado y lectura a los
+  30 min (temporizador en el servidor y cálculo al visitar si se reinició);
+  crisis al instante con ECU 911 y Línea 171. Lectura probada una vez con
+  Gemini (clave de pruebas) y con respaldo escrito en código.
+- Atajos (`connectome/`, `components/Shortcuts/`, página «Atajos»): regiones
+  de la mosca asignadas a partes de Sergio, memoria aprendida en
+  `~/.openjarvis/connectome/memoria.json`, escape con Esc ×3
+  (`/v1/connectome/escape` cancela solo lo que ya existe). Ctrl/⌘ K ahora
+  abre la paleta de atajos (antes, el selector de modelos, que sigue
+  accesible desde ella y desde el chat).
+- API: lecturas compartidas en vuelo, reintentos con espera para caídas y
+  páginas de pasarela, límite de 45 s y caché de 30 s con la ventana oculta.
+  Una prueba antigua (`api.memory.test.ts`) se ajustó a los reintentos.
+- Formato: `ruff format` en los archivos de Salud de la sesión anterior que
+  no lo tenían; E501 permitido en textos largos (`mind.py`, `regions.py`,
+  `guidance.py`).
+
 ## 2026-10-18 · Claude · Salud como la del teléfono (iOS 27.2) + dispositivos
 - Petición del dueño: «investiga Apple Health 2027 y haz Salud idéntico pero
   con funciones que los usuarios desearían; conecta relojes y medidores».

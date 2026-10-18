@@ -140,6 +140,7 @@ if not _DATA_BOUNDARY_BOOTSTRAP:
     from openjarvis.cli.planes_cmd import licencia, planes
     from openjarvis.cli.plugin_cmd import plugin
     from openjarvis.cli.probar_cmd import probar
+    from openjarvis.cli.prompts_cmd import prompts
     from openjarvis.cli.quickstart_cmd import quickstart
     from openjarvis.cli.registry_cmd import registry
     from openjarvis.cli.respaldo_cmd import respaldo
@@ -198,6 +199,7 @@ if not _DATA_BOUNDARY_BOOTSTRAP:
     cli.add_command(revisar, "revisar")
     cli.add_command(probar, "probar")
     cli.add_command(pensar, "pensar")
+    cli.add_command(prompts, "prompts")
     cli.add_command(movil, "movil")
     cli.add_command(cowork, "cowork")
     cli.add_command(plugin, "plugin")

@@ -100,6 +100,70 @@ export interface SyncInfo {
   last_push: { at: number; read: number; added: number } | null;
 }
 
+export interface SurveyOption {
+  value: number;
+  label: string;
+}
+
+export interface SurveyItem {
+  id: string;
+  kind: 'picture' | 'choice' | 'open';
+  text: string;
+  image?: string;
+  alt?: string;
+  options?: SurveyOption[];
+}
+
+export interface SurveySection {
+  key: string;
+  title: string;
+  stem?: string;
+  items: SurveyItem[];
+}
+
+export interface SurveySource {
+  scale: string;
+  cite: string;
+  url: string;
+}
+
+export interface SurveyDefinition {
+  sections: SurveySection[];
+  count: number;
+  delay_minutes: number;
+  sources: SurveySource[];
+}
+
+export interface ScaleScore {
+  key: string;
+  label: string;
+  score: number | null;
+  min: number;
+  max: number;
+  band: string;
+  words: string;
+  answered: number;
+  items: number;
+  higher_is_better: boolean;
+  orientative: boolean;
+  subscales?: Array<{ key: string; label: string; score: number; min: number; max: number; band: string; words: string; higher_is_better: boolean }>;
+}
+
+export interface SurveyResult {
+  id: string;
+  created: number;
+  ready_at: number;
+  status: 'waiting' | 'ready';
+  crisis: boolean;
+  crisis_text?: string;
+  professional: boolean;
+  scores?: { scales: ScaleScore[]; pictures: Array<{ id: string; domain: string; value: number | null; label: string }>; crisis: boolean };
+  reading?: string;
+  reading_by?: 'ia' | 'codigo';
+  answers?: Record<string, string>;
+  sources?: SurveySource[];
+}
+
 async function json<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await apiFetch(path, init);
   const body = await res.json().catch(() => ({}));
@@ -141,7 +205,23 @@ export const salud = {
   report: () => json<{ generated: string; rows: Array<{ label: string; unit: string; avg: number; min: number; max: number; days: number; status: Status; guide: string }>; areas: Area[]; notes: Record<string, { text: string; tags: string[] }> }>(`${B}/report`),
   ask: (message: string) => json<{ reply: string }>(`${B}/ask`, send('POST', { message })),
   exportUrl: `${B}/export.csv`,
+  survey: () => json<SurveyDefinition>(`${B}/mind/survey`),
+  submitSurvey: (answers: Record<string, number | string>) => json<SurveyResult>(`${B}/mind/surveys`, send('POST', { answers })),
+  surveys: () => json<{ surveys: SurveyResult[] }>(`${B}/mind/surveys`).then((r) => r.surveys),
+  surveyResult: (id: string) => json<SurveyResult>(`${B}/mind/surveys/${encodeURIComponent(id)}`),
+  dropSurvey: (id: string) => json<{ ok: boolean }>(`${B}/mind/surveys/${encodeURIComponent(id)}`, send('DELETE')),
 };
+
+/** "15:42" for a unix time in seconds. */
+export function clock(ts: number): string {
+  return new Date(ts * 1000).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' });
+}
+
+/** Whole minutes and seconds left until a unix time: "12:05". */
+export function countdown(ts: number, now = Date.now()): string {
+  const left = Math.max(0, Math.round(ts - now / 1000));
+  return `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`;
+}
 
 /** "8 421 pasos", "7,2 h", "58 lpm". */
 export function fmt(value: number | null | undefined, unit = '', decimals = 0): string {

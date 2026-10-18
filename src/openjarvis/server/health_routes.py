@@ -15,6 +15,9 @@
 * ``DELETE /v1/healthdata/sources/{source}`` — remove everything one source brought
 * ``GET  /v1/healthdata/export.csv`` · ``GET …/report`` — take the data anywhere
 * ``POST /v1/healthdata/ask``                — a question to the coach, with real data only
+* ``GET  /v1/healthdata/mind/survey``        — Salud mental: the survey (pictures, scales, open)
+* ``POST /v1/healthdata/mind/surveys``       — send answers; scored now, read by the AI ~30 min later
+* ``GET  /v1/healthdata/mind/surveys[/{id}]`` · ``DELETE …/{id}`` — past results
 """
 
 from __future__ import annotations
@@ -23,6 +26,7 @@ import asyncio
 import csv
 import io
 import json
+import threading
 import time
 from datetime import datetime
 from typing import Any, Dict, List, Optional
@@ -419,6 +423,118 @@ async def ask(body: Ask) -> Dict[str, Any]:
             f"Lo que sé de usted: {facts}." if facts else "Y aún no tengo datos suyos."
         )
     return {"reply": reply}
+
+
+# -- Salud mental ---------------------------------------------------------------
+
+_reading_now: set[str] = set()
+_reading_lock = threading.Lock()
+
+
+def _read_survey(store: HealthStore, sid: str) -> None:
+    """Write the AI reading once (from the timer or the first late visit)."""
+    from openjarvis.health import mind
+
+    with _reading_lock:
+        if sid in _reading_now:
+            return
+        _reading_now.add(sid)
+    try:
+        row = store.survey(sid)
+        if row is None or row["reading"]:
+            return
+        text, by = mind.write_reading(row["scores"], row["answers"])
+        store.set_reading(sid, text, by)
+    finally:
+        with _reading_lock:
+            _reading_now.discard(sid)
+
+
+def _survey_view(row: Dict[str, Any], *, full: bool) -> Dict[str, Any]:
+    from openjarvis.health import mind
+
+    ready = time.time() >= row["ready_at"] and bool(row["reading"])
+    view: Dict[str, Any] = {
+        "id": row["id"],
+        "created": row["created"],
+        "ready_at": row["ready_at"],
+        "status": "ready" if ready else "waiting",
+        "crisis": bool(row["scores"].get("crisis")),
+        "professional": mind.needs_professional(row["scores"]),
+    }
+    if view["crisis"]:
+        view["crisis_text"] = mind.crisis_text()
+    if ready:
+        # Scores and reading come together, at the time promised; only the
+        # crisis lines above show at once.
+        view.update(
+            scores=row["scores"], reading=row["reading"], reading_by=row["reading_by"]
+        )
+        if full:
+            view["answers"] = {
+                k: v for k, v in row["answers"].items() if k.startswith("open_")
+            }
+            view["sources"] = mind.sources()
+    return view
+
+
+class SurveyAnswers(BaseModel):
+    answers: Dict[str, Any]
+
+
+@router.get("/mind/survey")
+def mind_survey() -> Dict[str, Any]:
+    from openjarvis.health import mind
+
+    return mind.definition()
+
+
+@router.post("/mind/surveys")
+def mind_submit(body: SurveyAnswers) -> Dict[str, Any]:
+    from openjarvis.health import mind
+
+    answers = mind.clean_answers(body.answers)
+    scores = mind.score(answers)
+    if not any(s["score"] is not None for s in scores["scales"]):
+        raise HTTPException(400, "Responda al menos una escala completa.")
+    store = _store()
+    delay = mind.delay_seconds()
+    sid = store.add_survey("salud_mental", answers, scores, time.time() + delay)
+    timer = threading.Timer(delay, _read_survey, args=(store, sid))
+    timer.daemon = True
+    timer.start()
+    return _survey_view(store.survey(sid) or {}, full=False)
+
+
+@router.get("/mind/surveys")
+def mind_list() -> Dict[str, Any]:
+    store = _store()
+    rows = store.surveys("salud_mental")
+    for row in rows:
+        if not row["reading"] and time.time() >= row["ready_at"]:
+            _read_survey(store, row["id"])
+    return {
+        "surveys": [_survey_view(store.survey(r["id"]) or r, full=False) for r in rows]
+    }
+
+
+@router.get("/mind/surveys/{sid}")
+def mind_result(sid: str) -> Dict[str, Any]:
+    store = _store()
+    row = store.survey(sid)
+    if row is None:
+        raise HTTPException(404, "No encuentro esa encuesta.")
+    if not row["reading"] and time.time() >= row["ready_at"]:
+        _read_survey(store, sid)
+        row = store.survey(sid) or row
+    return _survey_view(row, full=True)
+
+
+@router.delete("/mind/surveys/{sid}")
+def mind_delete(sid: str) -> Dict[str, Any]:
+    if not _store().delete_survey(sid):
+        raise HTTPException(404, "No encuentro esa encuesta.")
+    return {"ok": True}
 
 
 __all__ = ["router"]

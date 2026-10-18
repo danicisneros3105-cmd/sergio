@@ -76,7 +76,9 @@ termina en la rama `main`, y el dueño actualiza con un único comando.
   Resumen (preparación, lo destacado, fijadas, anotar, nota y etiquetas del
   día, «qué influye», preguntar), Longevidad (siete áreas contra guías
   públicas), Explorar (por categoría, detalle con gráfica, metas), Compartir
-  (resumen para el médico, CSV completo), Dispositivos y Mente (gimnasio).
+  (resumen para el médico, CSV completo), Dispositivos y Salud mental.
+  Portadas del dueño (`frontend/src/assets/salud/`): la de Salud en Resumen,
+  la del cerebro en Salud mental; sus imágenes conservan su color.
   Datos propios en `health/` (`store.py` SQLite local, `metrics.py`,
   `insights.py`, `importers.py`, `devices.py`) y `server/health_routes.py`
   (`/v1/healthdata`). Dispositivos: anillo por token personal, enlace de
@@ -93,6 +95,38 @@ termina en la rama `main`, y el dueño actualiza con un único comando.
   código de respaldo (dos veces) se pide después y puede esperar. Los
   **Post-its** se mueven desde toda su cabecera, en la web (puntero, también
   táctil) y en Windows (`organizer_ui.py`), y nunca quedan fuera de alcance.
+- Salud mental (dueño, oct. 2026): una **encuesta** con tres preguntas de
+  imagen al inicio, en este orden (no sentirse suficiente, pensar demasiado,
+  querer encajar), y después escalas validadas con su texto publicado:
+  PHQ-9, GAD-7, Rosenberg, rumiación (brooding), PSWQ-3, Autenticidad y
+  soledad UCLA-3, más cuatro preguntas abiertas (`health/mind.py`,
+  `/v1/healthdata/mind/…`). Las puntuaciones son sumas con los cortes
+  publicados (o «orientativas» si la escala no tiene). Resultado y lectura de
+  la IA llegan **a los 30 minutos** (`SERGIO_MIND_DELAY`), pero si el ítem 9
+  del PHQ-9 es mayor que 0 o lo escrito tiene palabras de riesgo, las líneas
+  de crisis salen **al instante**. Nunca es un diagnóstico.
+- Biblioteca de prompts (dueño, oct. 2026): Sergio usa siempre las
+  colecciones públicas de prompts de sistema y de personaje
+  (`prompt_library/sources.py`), descargadas **completas** al equipo del dueño
+  (`sergio prompts sincronizar`, lo llama la actualización) y nunca copiadas
+  al repositorio (hay GPL y repos sin licencia). En cada turno entran los
+  principios destilados y los fragmentos que encajan
+  (`agents/_stubs.py`, `server/routes.py`; en la voz solo los principios). Se
+  quitan nombres de otros asistentes, líneas de identidad y jailbreaks; las
+  reglas de Sergio mandan. No es un reentrenamiento de pesos y no se vende
+  como tal. `SERGIO_PROMPT_LIBRARY=0` la apaga.
+- Atajos con la estructura del cerebro de la mosca (dueño, oct. 2026;
+  FlyWire, Nature 2024): `connectome/` y `lib/connectome.ts`. Cuerno lateral
+  = reflejos en el navegador (Ctrl/⌘ K, G + letra); cuerpo fungiforme =
+  atajos aprendidos con códigos de Kenyon y refuerzo; complejo central =
+  la paleta que ordena y, si nada encaja, pregunta a Sergio; fibra gigante =
+  Esc tres veces detiene Nodes, enjambre, Cowork y la voz. Ctrl/⌘ K abre esta
+  paleta; el selector de modelos se abre desde ella («Cambiar de modelo») y
+  desde el chat. Los atajos nunca envían mensajes, llaman, compran ni borran.
+- Llamadas a la API (`lib/api.ts: apiFetch`): las lecturas iguales en vuelo
+  se comparten, una conexión caída o una página 502/503/504 se reintenta dos
+  veces, sin respuesta en 45 s falla, y con la ventana oculta los sondeos
+  reutilizan la última respuesta 30 s. Las escrituras se envían una sola vez.
 - Sin emojis y sin colores en la interfaz (dueño, oct. 2026): negro, blanco y
   grises; iconos de línea. El color solo vive en lo que el dueño crea (sus
   diseños, fotos, 3D) y en los cuatro personajes de los Nodes.

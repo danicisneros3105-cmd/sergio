@@ -153,6 +153,15 @@ export function StickyNotesLayer() {
     } catch {}
   };
 
+  // The shortcut palette's «Nuevo Post-it».
+  const addRef = useRef(addNote);
+  addRef.current = addNote;
+  useEffect(() => {
+    const onNew = () => void addRef.current();
+    window.addEventListener('sergio:sticky-notes-new', onNew);
+    return () => window.removeEventListener('sergio:sticky-notes-new', onNew);
+  }, []);
+
   const notesRef = useRef(notes);
   notesRef.current = notes;
 

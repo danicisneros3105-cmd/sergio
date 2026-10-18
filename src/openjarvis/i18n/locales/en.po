@@ -454,3 +454,19 @@ msgstr "Serve Sergio's tools over MCP (stdio), for Claude or others.\n\n    In C
 #: help
 msgid "Solo estas herramientas (separadas por comas)."
 msgstr "Only these tools (comma-separated)."
+
+#: help
+msgid "Biblioteca de prompts: colecciones públicas de prompts de sistema y de personaje."
+msgstr "Prompt library: public collections of system and persona prompts."
+
+#: help
+msgid "Descarga completas las colecciones y rehace el índice local."
+msgstr "Downloads the collections in full and rebuilds the local index."
+
+#: help
+msgid "Qué hay instalado y de dónde viene."
+msgstr "What is installed and where it comes from."
+
+#: help
+msgid "Muestra los fragmentos que traería una petición."
+msgstr "Shows the passages a request would bring in."

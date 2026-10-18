@@ -20,9 +20,11 @@ const WorkspacePage = lazy(() => import('./pages/WorkspacePage'));
 const CapturePage = lazy(() => import('./pages/CapturePage'));
 const HomePage = lazy(() => import('./pages/HomePage'));
 const NodesPage = lazy(() => import('./pages/NodesPage'));
+const ConnectomePage = lazy(() => import('./pages/ConnectomePage'));
 const SwarmPage = lazy(() => import('./pages/SwarmPage'));
 const ExtensionsPage = lazy(() => import('./pages/ExtensionsPage'));
 import { CommandPalette } from './components/CommandPalette';
+import { Shortcuts } from './components/Shortcuts/Shortcuts';
 import { SetupScreen } from './components/SetupScreen';
 import { Toaster } from './components/ui/sonner';
 import { useAppStore } from './lib/store';
@@ -50,7 +52,6 @@ export default function App() {
   const setSavings = useAppStore((s) => s.setSavings);
   const settings = useAppStore((s) => s.settings);
   const commandPaletteOpen = useAppStore((s) => s.commandPaletteOpen);
-  const setCommandPaletteOpen = useAppStore((s) => s.setCommandPaletteOpen);
   const optInEnabled = useAppStore((s) => s.optInEnabled);
   const optInDisplayName = useAppStore((s) => s.optInDisplayName);
   const optInEmail = useAppStore((s) => s.optInEmail);
@@ -162,10 +163,8 @@ export default function App() {
   // Global keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault();
-        setCommandPaletteOpen(!commandPaletteOpen);
-      }
+      // Ctrl/⌘ K is the shortcut palette now (components/Shortcuts); the model
+      // picker opens from it («Cambiar de modelo») and from the chat.
       if ((e.metaKey || e.ctrlKey) && e.key === 'i') {
         e.preventDefault();
         toggleSystemPanel();
@@ -173,7 +172,7 @@ export default function App() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [commandPaletteOpen, setCommandPaletteOpen, toggleSystemPanel]);
+  }, [toggleSystemPanel]);
 
 
   if (!setupDone) {
@@ -214,12 +213,14 @@ export default function App() {
           <Route path="cowork" element={<CoworkPage />} />
           <Route path="salud" element={<HealthPage />} />
           <Route path="perfil" element={<ProfilePage />} />
+          <Route path="atajos" element={<ConnectomePage />} />
         </Route>
       </Routes>
       </Suspense>
       </ErrorBoundary>
       <Toaster position="bottom-right" />
       {commandPaletteOpen && <CommandPalette />}
+      <Shortcuts />
     </>
   );
 }
