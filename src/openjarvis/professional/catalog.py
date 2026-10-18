@@ -173,7 +173,10 @@ PROGRAMS = (
         "godot",
         "Godot Engine 4",
         "Videojuegos y 3D",
-        "Motor de videojuegos 3D/2D en tiempo real con Vulkan Forward+, física PBR, iluminación global SDFGI y GDScript (alternativa open-source a Unreal Engine).",
+        (
+            "Motor de videojuegos 3D/2D en tiempo real con Vulkan Forward+, física PBR, iluminación global SDFGI y "
+            "GDScript (alternativa open-source a Unreal Engine)."
+        ),
         "godotengine/godot",
         "MIT",
         ("godot", "godot4"),

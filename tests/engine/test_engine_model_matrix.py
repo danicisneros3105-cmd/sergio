@@ -270,3 +270,12 @@ class TestEngineHealth:
                 side_effect=httpx.ConnectError("refused")
             )
         assert engine.health() is False
+
+
+def test_gpt_oss_is_a_local_model_not_a_cloud_one():
+    from openjarvis.engine._stubs import is_cloud_only_model
+
+    assert not is_cloud_only_model("gpt-oss:120b")
+    assert not is_cloud_only_model("gpt-oss:20b")
+    assert is_cloud_only_model("gpt-5")
+    assert is_cloud_only_model("gemini-3.8-flash")

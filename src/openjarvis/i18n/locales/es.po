@@ -2736,3 +2736,7 @@ msgstr "Describiendo el mundo alternativo"
 #: intelligence step
 msgid "model call"
 msgstr "consulta al modelo"
+
+#: help
+msgid "Connect an installed CLI (not an MCP server), asking before each call."
+msgstr "Conecta un programa de línea de órdenes instalado (no un servidor MCP), preguntando antes de cada llamada."

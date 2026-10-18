@@ -55,9 +55,7 @@ class GarminConnectConnector(BaseConnector):
         self._export_path.mkdir(parents=True, exist_ok=True)
         return True
 
-    def fetch_documents(
-        self, since: Optional[datetime] = None
-    ) -> Iterator[Document]:
+    def fetch_documents(self, since: Optional[datetime] = None) -> Iterator[Document]:
         self._export_path.mkdir(parents=True, exist_ok=True)
         files = sorted(self._export_path.glob("*.json"))
         if not files:
@@ -90,7 +88,11 @@ class GarminConnectConnector(BaseConnector):
                     continue
                 day = str(row.get("calendarDate") or row.get("date") or fpath.stem)
                 hrv = row.get("hrvWeeklyAvg") or row.get("hrv") or 64
-                bb = row.get("bodyBatteryMostRecentValue") or row.get("body_battery") or 82
+                bb = (
+                    row.get("bodyBatteryMostRecentValue")
+                    or row.get("body_battery")
+                    or 82
+                )
                 rhr = row.get("restingHeartRate") or row.get("rhr") or 54
                 vo2 = row.get("vo2Max") or row.get("vo2_max") or 48.5
                 steps = row.get("totalSteps") or row.get("steps") or 9200
@@ -106,7 +108,13 @@ class GarminConnectConnector(BaseConnector):
                     content=text,
                     created_at=now,
                     updated_at=now,
-                    metadata={"date": day, "body_battery": bb, "hrv": hrv, "rhr": rhr, "vo2_max": vo2},
+                    metadata={
+                        "date": day,
+                        "body_battery": bb,
+                        "hrv": hrv,
+                        "rhr": rhr,
+                        "vo2_max": vo2,
+                    },
                 )
 
 

@@ -447,11 +447,7 @@ class GoogleMixin:
                     {
                         **c,
                         "parts": [
-                            {
-                                k: v
-                                for k, v in part.items()
-                                if k != "thought_signature"
-                            }
+                            {k: v for k, v in part.items() if k != "thought_signature"}
                             | (
                                 {"thought_signature": _cloud.SKIP_SIGNATURE}
                                 if "function_call" in part
@@ -507,9 +503,7 @@ class GoogleMixin:
                                 name = getattr(function_call, "name", "")
                                 raw_args = getattr(function_call, "args", {})
                                 args = (
-                                    dict(raw_args)
-                                    if hasattr(raw_args, "items")
-                                    else {}
+                                    dict(raw_args) if hasattr(raw_args, "items") else {}
                                 )
                                 tool_index = tool_call_count
                                 tool_id = f"google_{stream_id}_{tool_index}"

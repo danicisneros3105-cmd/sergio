@@ -240,6 +240,8 @@ DEFAULT_TOOL_CAPABILITIES: Dict[str, List[str]] = {
     "code_interpreter_docker": [Capability.CODE_EXECUTE],
     "db_query": [Capability.CODE_EXECUTE],
     "desktop_action": [Capability.SYSTEM_ADMIN],
+    # Drives the whole app (navigation, notes, health log, swarms, images): admin.
+    "sergio_app": [Capability.SYSTEM_ADMIN],
     "digest_collect": [Capability.MEMORY_READ, Capability.NETWORK_FETCH],
     "docker_shell_exec": [Capability.CODE_EXECUTE],
     "execute_pending_actions": [

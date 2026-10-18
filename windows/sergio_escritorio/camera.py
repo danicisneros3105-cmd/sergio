@@ -11,8 +11,8 @@ from __future__ import annotations
 
 import logging
 import math
-import threading
 import re
+import threading
 import time
 from pathlib import Path
 from typing import Any, Callable

@@ -2,6 +2,64 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-10-18 · Claude · Errores de código, Post-its movibles, Perfil, Face ID fácil, Leo fuera, Salud minimalista
+- Petición del dueño: arregla todos los errores, que los Post-it se muevan,
+  mejora Perfil y que abra bien, Face ID más fácil, elimina a Leo, Salud más
+  minimalista.
+- **Errores de código.** `ruff` limpio en `src/` y `tests/` (había 39: líneas
+  largas, importaciones sin usar, una variable sin usar) y `ruff format`
+  aplicado. De las ~240 pruebas rojas, casi todas venían de una sola causa:
+  la guarda de red de `tests/conftest.py` bloqueaba hosts falsos de prueba
+  («testhost», «api.example.com») que `respx` simula; ahora deja pasar los
+  nombres sin punto y `example.*`. El resto eran pruebas viejas frente a
+  cambios de Codex/Antigravity, que se actualizaron explicando el porqué:
+  `get_engine` con `model=`, la guía interna de diseño que ahora encabeza cada
+  prompt de agente, el planificador de Deep Research que cae al motor activo,
+  la versión de MCP que se negocia con el cliente, `function_responses` como
+  lista, el anillo de Face ID recoloreado, el orden de herramientas de
+  `sergio escritorio`, y la ayuda de los comandos nuevos (`plugin`, `mcp`,
+  `escritorio`) que faltaba en `en.po`/`es.po`. `sergio_app` ya tiene su
+  entrada explícita en el inventario de capacidades (administrador, como antes
+  por defecto). La prueba de PDF mal formado se salta si no hay lector de PDF
+  instalado (devolvía 500 por falta de la librería, no por el código).
+  Quedan fuera de la lista normal las pruebas marcadas `hub`/`live`/`cloud`
+  (descargan de HuggingFace o usan cuentas reales).
+- **Un fallo de verdad que encontré:** la herramienta `sergio_app` →
+  `node_create` escribía un `nodes.json` aparte (un segundo sistema de Nodes,
+  prohibido en AGENTS.md) y le decía al señor «Node creado» sin crear nada.
+  Ahora solo abre Nodes y explica que el equipo es fijo.
+- **Post-its.** En la web solo se podía arrastrar por los huecos de la
+  cabecera: el título ocupaba todo. Ahora se arrastra desde toda la cabecera
+  (puntero, también táctil), un clic sin mover sigue editando el título, no
+  se sale de la pantalla y recuerda dónde quedó. El menú de Post-its es en
+  blanco y negro. En Windows ya se movían; ahora tampoco se pierden fuera de
+  la pantalla (prueba nueva).
+- **Perfil.** «No abría»: si Sergio Escritorio estaba cerrado, el servidor
+  devolvía datos sin `text` y la página se quedaba en «Leyendo…» para siempre
+  — y además inventaba metas («VO2 máx >50», «sueño profundo >1.7 h») que el
+  señor nunca dijo. Ahora dice la verdad (el perfil lo arma el PC) y, con la
+  app abierta, muestra rasgos, intereses, metas, horas habituales, cómo le
+  habla y lo que ha contado. «Mi cara» abre dentro de la web; los botones del
+  PC ya no dicen «abierto» si la app no responde.
+- **Face ID.** Antes: primero un código de 6 a 12 cifras con teclado en
+  pantalla, luego un círculo que exigía mover la cabeza. Ahora: un toque,
+  se abre la cámara, se mira y listo (el anillo se llena solo); el código de
+  respaldo se pide después, dos veces, con el teclado del PC, y se puede
+  dejar para más tarde.
+- **Leo fuera.** Se quitó la plantilla «Investigador/Leo» y el Node Leo que
+  ya existiera (solo si sigue llamándose Leo y salió de esa plantilla) se
+  mueve a `nodes/retirados/`, no se borra. Los datos de ejemplo del demo ya
+  no lo nombran.
+- **Salud minimalista.** La página (1399 líneas, con «Harvard», «Apple Health
+  + Garmin», nivel/XP y cifras de ejemplo como si fueran del señor) pasó a:
+  Hoy, Anotar, Preguntar, Mente. Solo muestra lo que el señor anotó
+  (`hub["entered"]`); el coach ya no recibe cifras inventadas; el gimnasio
+  mental sigue, plegado, en `pages/health/HealthGym.tsx` y en blanco y negro.
+- Pruebas: 72+ de Nodes, desktop routes (7), organizer (17), web 243.
+- Pendiente: la ventana de Salud del PC (Qt) no se tocó; el servidor aún
+  guarda un «hub» con valores de ejemplo (ya nunca se muestran). Las seis
+  decisiones de la revisión anterior siguen esperando al señor.
+
 ## 2026-10-18 · Claude · El equipo fijo de Nodes: Rihno, Manchas, Hous y Tennessee
 - Petición del dueño: botón de cancelar acción, código ordenado, los Nodes se
   llaman Rihno, Manchas, Hous y Tennessee, sin anillo, dibujados como sus dos

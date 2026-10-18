@@ -31,8 +31,11 @@ def _no_external_http(monkeypatch):
         # Reserved test names (RFC 2606) never reach a real account; respx
         # mocks below the transport, so its fake hosts must pass through.
         host = url.host
+        # A name with no dot ("testhost") cannot be a public account either.
         return host in ("localhost", "127.0.0.1", "::1", "testserver") or (
-            host.rsplit(".", 1)[-1] in ("test", "example", "invalid", "localhost")
+            "." not in host
+            or host.rsplit(".", 1)[-1] in ("test", "example", "invalid", "localhost")
+            or "example" in host.split(".")[-2:]  # example.com / api.example.org
         )
 
     real_sync = httpx.HTTPTransport.handle_request

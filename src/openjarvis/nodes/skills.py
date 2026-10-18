@@ -278,20 +278,6 @@ TEMPLATES: List[Dict[str, Any]] = [
         ],
     },
     {
-        "id": "investigador",
-        "name": "Leo",
-        "title": "Investigador",
-        "description": "Investiga a fondo con fuentes y deja un informe en su computadora; para lo enorme lanza un Agent Swarm.",
-        "instructions": "Investigas a fondo y con fuentes citadas. Guardas cada informe en tu computadora en Markdown. Si el trabajo es enorme (decenas de fuentes o documentos), pide lanzar un Agent Swarm.",
-        "avatar": {
-            "shape": "orb",
-            "color": "#d9c8ff",
-            "accessory": "none",
-            "eyes": "dots",
-        },
-        "rules": {"swarm": "ask"},
-    },
-    {
         "id": "noticias",
         "name": "Nora",
         "title": "Noticias de un tema",

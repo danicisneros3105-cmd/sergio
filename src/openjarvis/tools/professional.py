@@ -98,11 +98,22 @@ class ProfessionalAppsTool(BaseTool):
                 import re as _re
                 import time as _time
                 from pathlib import Path
+
                 from openjarvis.creator import programs, studio
 
-                prompt = str(params.get("prompt") or "Exploración 3D en mundo abierto con iluminación global").strip()
-                slug = _re.sub(r"[^a-z0-9]+", "-", prompt.lower()).strip("-")[:32] or "juego-3d"
-                proj_dir = studio.projects_root() / "godot" / f"{slug}-{int(_time.time()) % 10000}"
+                prompt = str(
+                    params.get("prompt")
+                    or "Exploración 3D en mundo abierto con iluminación global"
+                ).strip()
+                slug = (
+                    _re.sub(r"[^a-z0-9]+", "-", prompt.lower()).strip("-")[:32]
+                    or "juego-3d"
+                )
+                proj_dir = (
+                    studio.projects_root()
+                    / "godot"
+                    / f"{slug}-{int(_time.time()) % 10000}"
+                )
                 (proj_dir / "scenes").mkdir(parents=True, exist_ok=True)
                 (proj_dir / "scripts").mkdir(parents=True, exist_ok=True)
                 project_godot = (
@@ -122,26 +133,26 @@ class ProfessionalAppsTool(BaseTool):
                     '[sub_resource type="Sky" id="Sky_1"]\n'
                     'sky_material = SubResource("SkyMat")\n'
                     '[sub_resource type="Environment" id="Env_1"]\n'
-                    'background_mode = 2\n'
+                    "background_mode = 2\n"
                     'sky = SubResource("Sky_1")\n'
-                    'sdfgi_enabled = true\n'
-                    'glow_enabled = true\n\n'
+                    "sdfgi_enabled = true\n"
+                    "glow_enabled = true\n\n"
                     '[sub_resource type="BoxMesh" id="FloorMesh"]\n'
-                    'size = Vector3(60, 0.5, 60)\n\n'
+                    "size = Vector3(60, 0.5, 60)\n\n"
                     '[node name="MainWorld" type="Node3D"]\n\n'
                     '[node name="WorldEnvironment" type="WorldEnvironment" parent="."]\n'
                     'environment = SubResource("Env_1")\n\n'
                     '[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]\n'
-                    'transform = Transform3D(0.866, -0.353, 0.353, 0, 0.707, 0.707, -0.5, -0.612, 0.612, 0, 12, 0)\n'
-                    'shadow_enabled = true\n\n'
+                    "transform = Transform3D(0.866, -0.353, 0.353, 0, 0.707, 0.707, -0.5, -0.612, 0.612, 0, 12, 0)\n"
+                    "shadow_enabled = true\n\n"
                     '[node name="ArenaFloor" type="CSGBox3D" parent="."]\n'
-                    'use_collision = true\n'
-                    'size = Vector3(60, 0.5, 60)\n\n'
+                    "use_collision = true\n"
+                    "size = Vector3(60, 0.5, 60)\n\n"
                     '[node name="Player3D" type="CharacterBody3D" parent="."]\n'
-                    'transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 0)\n'
+                    "transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 0)\n"
                     'script = ExtResource("1_player")\n\n'
                     '[node name="Camera3D" type="Camera3D" parent="Player3D"]\n'
-                    'transform = Transform3D(1, 0, 0, 0, 0.96, 0.28, 0, -0.28, 0.96, 0, 1.7, 3.5)\n'
+                    "transform = Transform3D(1, 0, 0, 0, 0.96, 0.28, 0, -0.28, 0.96, 0, 1.7, 3.5)\n"
                 )
                 player_gd = (
                     "extends CharacterBody3D\n"
@@ -166,15 +177,21 @@ class ProfessionalAppsTool(BaseTool):
                 )
                 proj_file = proj_dir / "project.godot"
                 proj_file.write_text(project_godot, encoding="utf-8")
-                (proj_dir / "scenes" / "main.tscn").write_text(main_tscn, encoding="utf-8")
-                (proj_dir / "scripts" / "player_controller.gd").write_text(player_gd, encoding="utf-8")
+                (proj_dir / "scenes" / "main.tscn").write_text(
+                    main_tscn, encoding="utf-8"
+                )
+                (proj_dir / "scripts" / "player_controller.gd").write_text(
+                    player_gd, encoding="utf-8"
+                )
                 msg = (
                     f"Proyecto 3D de Godot Engine 4 creado en `{proj_dir}` "
                     "(`project.godot`, `scenes/main.tscn` con iluminación global SDFGI y cielo físico, "
                     "`scripts/player_controller.gd`)."
                 )
                 try:
-                    msg += " " + programs.open_in_windows("godot", "project.godot", project_godot.encode("utf-8"))
+                    msg += " " + programs.open_in_windows(
+                        "godot", "project.godot", project_godot.encode("utf-8")
+                    )
                 except Exception:
                     pass
                 return ToolResult(tool_name=self.tool_id, content=msg)
@@ -235,12 +252,11 @@ class ProfessionalAppsTool(BaseTool):
                 else:
                     out_path = media_path
                 url = f"/v1/creator/media/{fname}"
-                msg = (
-                    f"Imagen generada en {out_path}.\n\n"
-                    f"![{prompt_str[:60]}]({url})"
-                )
+                msg = f"Imagen generada en {out_path}.\n\n![{prompt_str[:60]}]({url})"
                 if str(params.get("id") or "").lower() == "artcraft":
-                    msg += "\n" + programs.open_in_windows("artcraft", out_path.name, png)
+                    msg += "\n" + programs.open_in_windows(
+                        "artcraft", out_path.name, png
+                    )
                 return ToolResult(tool_name=self.tool_id, content=msg)
             if action in ("image_edit", "image_cutout"):
                 import time as _time

@@ -345,9 +345,13 @@ def parse_quick(text: str) -> Quick | None:
     if island:
         return island
     # Multitasking: background tasks, several at once, what is running
-    from sergio_escritorio.tareas import CANCEL, WHAT_DOING, parse_background, parse_together
-
     from sergio_escritorio import agentes
+    from sergio_escritorio.tareas import (
+        CANCEL,
+        WHAT_DOING,
+        parse_background,
+        parse_together,
+    )
 
     agent_order = agentes.parse(text, _PRO_AGENTS)
     if agent_order:

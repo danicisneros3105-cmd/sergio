@@ -3,16 +3,46 @@ import { ScanFace, Target, UserRound } from 'lucide-react';
 import { apiFetch } from '../lib/api';
 import { PaperPage, PaperSection } from '../components/Paper/PaperPage';
 import { DesktopSections, type DesktopSection } from '../components/Paper/DesktopSections';
+import './profile.css';
 
+interface Profile {
+  companion: boolean;
+  text: string;
+  updates: number;
+  last?: number;
+  message?: string;
+  traits?: string[];
+  interests?: string[];
+  goals?: string[];
+  adjustments?: string[];
+  hours?: string[];
+  facts?: string[];
+  talk?: { detalle?: string; humor?: string; nota?: string };
+}
+
+// Parts of the profile that live in the PC app's own windows.
 const SECTIONS: DesktopSection[] = [
-  { key: 'profile', label: 'Mi perfil', meta: 'Lo que Sergio sabe de usted', icon: UserRound },
+  { key: 'faces', label: 'Mi cara', meta: 'Face ID de Sergio', icon: ScanFace, to: '/faces' },
   { key: 'goals', label: 'Mis metas', meta: 'Planes y práctica', icon: Target },
-  { key: 'faces', label: 'Mi cara', meta: 'Face ID de Sergio', icon: ScanFace },
+  { key: 'results', label: 'Resultados', meta: 'Lo que ha practicado', icon: UserRound },
 ];
 
+function List({ title, items }: { title: string; items?: string[] }) {
+  if (!items?.length) return null;
+  return (
+    <div className="profile-list">
+      <h3 className="paper-label">{title}</h3>
+      <ul>
+        {items.map((x) => (
+          <li key={x}>{x}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 export function ProfilePage() {
-  const [text, setText] = useState('');
-  const [updates, setUpdates] = useState<number | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
   const [problem, setProblem] = useState('');
 
   useEffect(() => {
@@ -20,12 +50,10 @@ export function ProfilePage() {
     (async () => {
       try {
         const res = await apiFetch('/v1/desktop/profile');
-        const body = await res.json();
+        const body = await res.json().catch(() => ({}));
         if (cancelled) return;
-        if (res.ok) {
-          setText(String(body.text ?? ''));
-          setUpdates(Number(body.updates ?? 0));
-        } else setProblem(String(body.detail ?? `Error ${res.status}`));
+        if (res.ok) setProfile(body as Profile);
+        else setProblem(String(body.detail ?? `Error ${res.status}`));
       } catch {
         if (!cancelled) setProblem('No puedo conectar con Sergio.');
       }
@@ -35,25 +63,54 @@ export function ProfilePage() {
     };
   }, []);
 
+  const when = profile?.last ? new Date(profile.last * 1000).toLocaleDateString('es', { day: 'numeric', month: 'long' }) : '';
+  const talk = profile?.talk;
+  const talkLines = [
+    talk?.detalle ? `Respuestas ${{ breve: 'breves', normal: 'normales', detallado: 'detalladas' }[talk.detalle] ?? talk.detalle}` : '',
+    talk?.humor && talk.humor !== 'normal' ? `Humor: ${talk.humor}` : '',
+    talk?.nota,
+  ].filter(Boolean) as string[];
+
   return (
     <PaperPage title="Perfil" wide>
       <PaperSection
         label="Resumen"
         aside={
-          updates !== null && (
-            <span className="paper-meta text-[11.5px]" style={{ color: 'var(--color-text-tertiary)' }}>
-              {updates} actualizaciones
+          profile && profile.updates > 0 ? (
+            <span className="paper-meta">
+              {profile.updates} {profile.updates === 1 ? 'actualización' : 'actualizaciones'}
+              {when && ` · última el ${when}`}
             </span>
-          )
+          ) : undefined
         }
       >
-        <p className="text-[15px] leading-relaxed max-w-2xl" style={{ color: problem ? 'var(--color-text-secondary)' : 'var(--color-text)' }}>
-          {problem || text || 'Leyendo…'}
+        <p className="profile-summary" data-muted={!profile?.text ? '1' : undefined}>
+          {problem || profile?.message || profile?.text || (profile ? 'Aún no hay perfil: se arma con el uso.' : 'Leyendo…')}
         </p>
       </PaperSection>
-      <PaperSection label="Abrir en el PC">
+
+      {profile?.companion && (
+        <PaperSection label="Lo que sé de usted">
+          <div className="profile-grid">
+            <List title="Rasgos" items={profile.traits} />
+            <List title="Intereses" items={profile.interests} />
+            <List title="Metas" items={profile.goals} />
+            <List title="Horas en que suele estar" items={profile.hours} />
+            <List title="Cómo le hablo" items={talkLines} />
+            <List title="Me lo ha contado" items={profile.facts} />
+            <List title="Lo que he ajustado" items={profile.adjustments} />
+          </div>
+          {!profile.traits?.length && !profile.goals?.length && !profile.hours?.length && !profile.facts?.length && (
+            <p className="paper-meta">Todavía no hay detalles. Aparecerán tras la primera actualización.</p>
+          )}
+        </PaperSection>
+      )}
+
+      <PaperSection label="Abrir">
         <DesktopSections sections={SECTIONS} />
       </PaperSection>
     </PaperPage>
   );
 }
+
+export default ProfilePage;

@@ -3421,18 +3421,6 @@ def run(config: dict[str, Any]) -> None:
             bridge.caption.emit(f"Demasiados intentos: espere {out['wait']} s.")
         return out.get("ok") is True
 
-    PASSCODE_WHY = {
-        "sin_codigo": (
-            "Cree su Face ID en Sergio (sección Rostros) para aprobar con la cara. "
-            "Mientras, escriba el código si ya lo tiene:"
-        ),
-        "reinicio": "Sergio se reinició. Escriba su código:",
-        "intentos": "Cinco intentos fallidos. Escriba su código:",
-        "inactivo": "Más de 48 horas sin desbloquear. Escriba su código:",
-        "codigo_antiguo": "Hace días que no usa su código. Escríbalo:",
-        "bloqueado": "Lo bloqueó usted. Escriba su código:",
-    }
-
     def owner_approves(request: str, seconds: float = 10.0) -> bool:
         """Explicit action consent and Windows Hello; webcam matches are labels."""
         if not request.strip():
@@ -4537,7 +4525,23 @@ def run(config: dict[str, Any]) -> None:
         }
 
     def profile_summary(_args: dict) -> dict:
-        return {"text": profile.summary(), "updates": len(profile.updates)}
+        data = profile.data or {}
+
+        def lines(key: str) -> list[str]:
+            return [str(x) for x in (data.get(key) or []) if str(x).strip()][:10]
+
+        return {
+            "text": profile.summary(),
+            "updates": len(profile.updates),
+            "last": profile.updates[-1] if profile.updates else 0,
+            "traits": lines("rasgos"),
+            "interests": lines("intereses"),
+            "goals": lines("objetivos"),
+            "adjustments": lines("ajustes"),
+            "hours": profile.usage.free_windows(),
+            "facts": [str(f) for f in profile.facts[-10:]],
+            "talk": (data.get("comunicacion") or {}),
+        }
 
     def open_from_web(args: dict) -> str:
         key = str(args.get("section") or "")

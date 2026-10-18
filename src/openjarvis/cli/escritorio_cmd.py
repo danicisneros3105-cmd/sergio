@@ -328,7 +328,9 @@ def instalar(vision: bool, gpu: bool = False) -> None:
 
 
 @escritorio.command("actualizar")
-@click.option("--vision", is_flag=True, help="Descarga también el modelo local de visión.")
+@click.option(
+    "--vision", is_flag=True, help="Descarga también el modelo local de visión."
+)
 @click.option("--gpu", is_flag=True, help="Descarga librerías NVIDIA para Whisper.")
 def actualizar(vision: bool, gpu: bool = False) -> None:
     """Actualiza Sergio Escritorio en Windows."""
@@ -344,7 +346,9 @@ def estado() -> None:
     token = read_env(env_file()).get("SERGIO_DESKTOP_TOKEN", "")
     url = os.environ.get("SERGIO_DESKTOP_URL", "http://127.0.0.1:8765")
     if not token:
-        raise click.ClickException("No instalado: ejecute `sergio escritorio instalar`.")
+        raise click.ClickException(
+            "No instalado: ejecute `sergio escritorio instalar`."
+        )
     try:
         resp = httpx.get(
             f"{url}/health", headers={"Authorization": f"Bearer {token}"}, timeout=5

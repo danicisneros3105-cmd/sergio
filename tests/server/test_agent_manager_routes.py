@@ -722,8 +722,9 @@ class TestLightweightSystemEngineResolution:
     def _capture_get_engine(self, monkeypatch):
         captured = {}
 
-        def fake_get_engine(cfg, key):
-            captured["key"] = key
+        def fake_get_engine(cfg, key=None, model=None):
+            # like the real one: no key given -> the configured default engine
+            captured["key"] = key or cfg.engine.default
             return ("resolved", MagicMock())
 
         monkeypatch.setattr("openjarvis.engine._discovery.get_engine", fake_get_engine)

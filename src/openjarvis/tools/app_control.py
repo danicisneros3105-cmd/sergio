@@ -2,11 +2,14 @@
 
 Gives the active LLM direct programmatic access to every module of the Sergio
 desktop & web application:
-* Navigate or open any section (`navigate`: `/chat`, `/nodes`, `/swarm`, `/salud`, `/workspace`, `/cowork`, `/extensiones`, `/faces`, `/capture`)
+* Navigate or open any section (`navigate`: `/chat`, `/nodes`, `/swarm`, `/salud`,
+  `/workspace`, `/cowork`, `/extensiones`, `/faces`, `/capture`)
 * Create, update or delete realistic Post-it Sticky Notes (`sticky_note_add`, `sticky_note_list`, `sticky_note_delete`)
-* Launch an Agent Swarm (`swarm_launch`) or create/run a persistent Node (`node_create`)
-* Read or log Health Hub biometrics, AI nutrition meals, or Harvard Cognitive Gym sessions (`health_status`, `health_log`, `nutrition_log`)
-* List or sync Connectors (`connectors_list`, `connector_sync`: `apple_health`, `garmin_connect`, `oura`, `strava`, etc.)
+* Launch an Agent Swarm (`swarm_launch`) or open the Nodes team (`node_create` only opens it: the four Nodes are fixed)
+* Read or log Health Hub data, nutrition meals or mental gym sessions
+  (`health_status`, `health_log`, `nutrition_log`)
+* List or sync Connectors (`connectors_list`, `connector_sync`: `apple_health`,
+  `garmin_connect`, `oura`, `strava`, etc.)
 * Generate inline images or Godot 4 3D games (`create_image`, `create_godot_game`)
 
 Every response includes a structured `[SERGIO_UI_ACTION:{...}]` marker when a
@@ -39,13 +42,18 @@ class SergioAppControlTool(BaseTool):
             name=self.tool_id,
             description=(
                 "Controla toda la aplicación de Sergio directamente: "
-                "1) 'navigate': abre cualquier sección (/salud, /swarm, /nodes, /workspace, /cowork, /extensiones, /faces, /capture). "
-                "2) 'sticky_note_add' / 'sticky_note_list' / 'sticky_note_delete': crea, lista o borra notas adhesivas (Post-its) realistas en pantalla. "
+                "1) 'navigate': abre cualquier sección (/salud, /swarm, /nodes, /workspace, /cowork, /extensiones, "
+                "/faces, /capture). "
+                "2) 'sticky_note_add' / 'sticky_note_list' / 'sticky_note_delete': crea, lista o borra notas "
+                "adhesivas (Post-its) realistas en pantalla. "
                 "3) 'swarm_launch': lanza un Agent Swarm con múltiples agentes en paralelo sobre una tarea. "
-                "4) 'node_create': crea un Node (empleado digital autónomo persistente). "
-                "5) 'health_status' / 'health_log' / 'nutrition_log': consulta o registra métricas en Salud (Apple Health + Garmin + IA) y Gimnasio Mental. "
-                "6) 'connectors_list' / 'connector_sync': lista o sincroniza conectores (apple_health, garmin_connect, oura, strava, gmail, notion...). "
-                "7) 'create_image' / 'create_godot_game': genera una imagen mostrada en el chat o un proyecto 3D en Godot Engine 4."
+                "4) 'node_create': abre el equipo de Nodes (Rihno, Manchas, Hous, Tennessee: son fijos). "
+                "5) 'health_status' / 'health_log' / 'nutrition_log': consulta o registra métricas en Salud (Apple "
+                "Health + Garmin + IA) y Gimnasio Mental. "
+                "6) 'connectors_list' / 'connector_sync': lista o sincroniza conectores (apple_health, "
+                "garmin_connect, oura, strava, gmail, notion...). "
+                "7) 'create_image' / 'create_godot_game': genera una imagen mostrada en el chat o un proyecto 3D en"
+                " Godot Engine 4."
             ),
             parameters={
                 "type": "object",
@@ -70,7 +78,10 @@ class SergioAppControlTool(BaseTool):
                     },
                     "route": {
                         "type": "string",
-                        "description": "Ruta para 'navigate', p.ej. '/salud', '/swarm', '/nodes', '/workspace', '/cowork', '/extensiones', '/faces', '/capture'.",
+                        "description": (
+                            "Ruta para 'navigate', p.ej. '/salud', '/swarm', '/nodes', '/workspace', '/cowork', "
+                            "'/extensiones', '/faces', '/capture'."
+                        ),
                     },
                     "title": {
                         "type": "string",
@@ -78,7 +89,10 @@ class SergioAppControlTool(BaseTool):
                     },
                     "content": {
                         "type": "string",
-                        "description": "Contenido de la nota adhesiva, tarea del Swarm/Node, comida o prompt de imagen/juego.",
+                        "description": (
+                            "Contenido de la nota adhesiva, tarea del Swarm/Node, "
+                            "comida o prompt de imagen/juego."
+                        ),
                     },
                     "color": {
                         "type": "string",
@@ -87,11 +101,17 @@ class SergioAppControlTool(BaseTool):
                     },
                     "id": {
                         "type": "string",
-                        "description": "ID de nota adhesiva o conector (apple_health, garmin_connect, oura, strava...).",
+                        "description": (
+                            "ID de nota adhesiva o conector "
+                            "(apple_health, garmin_connect, oura, strava...)."
+                        ),
                     },
                     "category": {
                         "type": "string",
-                        "description": "Categoría de salud para 'health_log': vitals, sleep, activity, mental, sensory, cycle, ehr, water.",
+                        "description": (
+                            "Categoría de salud para 'health_log': vitals, sleep, activity, mental, sensory, cycle, "
+                            "ehr, water."
+                        ),
                     },
                     "payload": {
                         "type": "object",
@@ -121,12 +141,12 @@ class SergioAppControlTool(BaseTool):
                 )
 
             if action == "sticky_note_add":
+                import uuid
+
                 from openjarvis.server.desktop_routes import (
-                    StickyNoteUpsert,
                     load_sticky_notes,
                     save_sticky_notes,
                 )
-                import uuid
 
                 notes = load_sticky_notes()
                 nid = str(params.get("id") or f"note-{uuid.uuid4().hex[:8]}")
@@ -195,36 +215,14 @@ class SergioAppControlTool(BaseTool):
                 )
 
             if action == "node_create":
-                title = str(params.get("title") or " Vigía Autónomo").strip()
-                goal = str(params.get("content") or "Monitorear y reportar hallazgos").strip()
-                try:
-                    from openjarvis.core.paths import get_config_dir
-
-                    nodes_file = get_config_dir() / "nodes.json"
-                    nodes = (
-                        json.loads(nodes_file.read_text(encoding="utf-8"))
-                        if nodes_file.exists()
-                        else []
-                    )
-                    if not isinstance(nodes, list):
-                        nodes = []
-                    new_node = {
-                        "id": f"node-{int(time.time())}",
-                        "name": title,
-                        "role": goal,
-                        "schedule": "Cada hora",
-                        "active": True,
-                        "created_at": time.time(),
-                    }
-                    nodes.append(new_node)
-                    nodes_file.parent.mkdir(parents=True, exist_ok=True)
-                    nodes_file.write_text(json.dumps(nodes, ensure_ascii=False, indent=2), encoding="utf-8")
-                except Exception:  # noqa: BLE001
-                    pass
+                # The Nodes are a fixed team of four (nodes/team.py); there is one Node
+                # system (nodes/store.py) and nothing is created here. Say so, and open it.
+                who = ", ".join(("Rihno", "Manchas", "Hous", "Tennessee"))
                 return ToolResult(
                     tool_name=self.tool_id,
                     content=(
-                        f"Node «{title}» creado con objetivo: «{goal}»."
+                        f"Los Nodes son un equipo fijo ({who}); no se crean otros. "
+                        "Le abro Nodes para que le encargue el trabajo a quien corresponda."
                         + _ui_event({"type": "navigate", "route": "/nodes"})
                     ),
                 )
@@ -237,9 +235,13 @@ class SergioAppControlTool(BaseTool):
                     "readiness": hub["readiness"],
                     "heart": {k: v for k, v in hub["heart"].items() if k != "history"},
                     "sleep": {k: v for k, v in hub["sleep"].items() if k != "nights"},
-                    "activity": {k: v for k, v in hub["activity"].items() if k != "workouts"},
+                    "activity": {
+                        k: v for k, v in hub["activity"].items() if k != "workouts"
+                    },
                     "training_plan_today": hub["training_plan"]["today"],
-                    "nutrition": {k: v for k, v in hub["nutrition"].items() if k != "meals"},
+                    "nutrition": {
+                        k: v for k, v in hub["nutrition"].items() if k != "meals"
+                    },
                     "gym": {
                         "cognitive_index": hub["gym"]["cognitive_index"],
                         "gf_percentile": hub["gym"]["gf_percentile"],
@@ -255,7 +257,11 @@ class SergioAppControlTool(BaseTool):
 
             if action == "health_log":
                 import asyncio
-                from openjarvis.server.desktop_routes import HealthLogRequest, health_log
+
+                from openjarvis.server.desktop_routes import (
+                    HealthLogRequest,
+                    health_log,
+                )
 
                 cat = str(params.get("category") or "vitals")
                 payload = dict(params.get("payload") or {})
@@ -270,7 +276,11 @@ class SergioAppControlTool(BaseTool):
 
             if action == "nutrition_log":
                 import asyncio
-                from openjarvis.server.desktop_routes import NutritionAIRequest, nutrition_ai
+
+                from openjarvis.server.desktop_routes import (
+                    NutritionAIRequest,
+                    nutrition_ai,
+                )
 
                 desc = str(params.get("content") or params.get("title") or "").strip()
                 res = asyncio.run(nutrition_ai(NutritionAIRequest(description=desc)))
@@ -287,7 +297,10 @@ class SergioAppControlTool(BaseTool):
                 )
 
             if action in ("connectors_list", "connector_sync"):
-                from openjarvis.server.desktop_routes import load_health_hub, save_health_hub
+                from openjarvis.server.desktop_routes import (
+                    load_health_hub,
+                    save_health_hub,
+                )
 
                 hub = load_health_hub()
                 if action == "connector_sync":
@@ -306,20 +319,30 @@ class SergioAppControlTool(BaseTool):
                     )
                 return ToolResult(
                     tool_name=self.tool_id,
-                    content=json.dumps({"connectors": hub.get("connectors", [])}, ensure_ascii=False),
+                    content=json.dumps(
+                        {"connectors": hub.get("connectors", [])}, ensure_ascii=False
+                    ),
                 )
 
             if action == "create_image":
                 from openjarvis.tools.professional import ProfessionalAppsTool
 
-                prompt = str(params.get("content") or params.get("title") or "Ilustración").strip()
-                return ProfessionalAppsTool().execute(action="image_generate", prompt=prompt)
+                prompt = str(
+                    params.get("content") or params.get("title") or "Ilustración"
+                ).strip()
+                return ProfessionalAppsTool().execute(
+                    action="image_generate", prompt=prompt
+                )
 
             if action == "create_godot_game":
                 from openjarvis.tools.professional import ProfessionalAppsTool
 
-                prompt = str(params.get("content") or params.get("title") or "Juego 3D").strip()
-                return ProfessionalAppsTool().execute(action="godot_project", prompt=prompt)
+                prompt = str(
+                    params.get("content") or params.get("title") or "Juego 3D"
+                ).strip()
+                return ProfessionalAppsTool().execute(
+                    action="godot_project", prompt=prompt
+                )
 
             raise ValueError(f"Acción no reconocida: {action}")
         except Exception as exc:  # noqa: BLE001

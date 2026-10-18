@@ -142,6 +142,13 @@ class TestEmitTurnEnd:
         agent._emit_turn_end(turns=1)
 
 
+def _body(message) -> str:
+    """A system message without the internal design guide every agent gets first."""
+    from openjarvis.skills.design_policy import ANATOMY_POLICY
+
+    return message.content.removeprefix(ANATOMY_POLICY).strip()
+
+
 class TestBuildMessages:
     def test_default_system_prompt_injected(self):
         engine = MagicMock()
@@ -159,7 +166,7 @@ class TestBuildMessages:
         messages = agent._build_messages("hello", system_prompt="Be helpful.")
         assert len(messages) == 2
         assert messages[0].role == Role.SYSTEM
-        assert messages[0].content == "Be helpful."
+        assert _body(messages[0]) == "Be helpful."
         assert messages[1].role == Role.USER
 
     def test_empty_config_default_no_system_message(self, monkeypatch):
@@ -172,8 +179,9 @@ class TestBuildMessages:
         engine = MagicMock()
         agent = _ConcreteAgent(engine, "m")
         messages = agent._build_messages("hello")
-        assert len(messages) == 1
-        assert messages[0].role == Role.USER
+        # no prompt of its own: only the internal design guide leads
+        assert [m.role for m in messages] == [Role.SYSTEM, Role.USER]
+        assert _body(messages[0]) == ""
 
     def test_with_context(self):
         engine = MagicMock()
@@ -201,7 +209,7 @@ class TestBuildMessages:
         )
         assert len(messages) == 3
         assert messages[0].role == Role.SYSTEM
-        assert messages[0].content == "System."
+        assert _body(messages[0]) == "System."
         assert messages[1].content == "prev"
         assert messages[2].content == "new"
 
@@ -256,7 +264,7 @@ class TestBuildMessages:
             Role.ASSISTANT,
             Role.USER,
         ]
-        assert messages[0].content == "First instruction.\n\nSecond instruction."
+        assert _body(messages[0]) == "First instruction.\n\nSecond instruction."
         assert [message.content for message in messages[1:]] == [
             "previous question",
             "previous answer",
@@ -274,7 +282,7 @@ class TestBuildMessages:
         messages = agent._build_messages("new", AgentContext(conversation=conv))
 
         assert [message.role for message in messages] == [Role.SYSTEM, Role.USER]
-        assert messages[0].content == "Context instruction."
+        assert _body(messages[0]) == "Context instruction."
 
     def test_empty_context_system_message_is_removed(self):
         engine = MagicMock()
@@ -289,7 +297,7 @@ class TestBuildMessages:
         )
 
         assert [message.role for message in messages] == [Role.SYSTEM, Role.USER]
-        assert messages[0].content == "Agent instructions."
+        assert _body(messages[0]) == "Agent instructions."
 
     def test_server_identity_already_merged_with_memory_is_not_duplicated(self):
         engine = MagicMock()
@@ -308,7 +316,7 @@ class TestBuildMessages:
         messages = agent._build_messages("new", AgentContext(conversation=conv))
 
         assert [message.role for message in messages] == [Role.SYSTEM, Role.USER]
-        assert messages[0].content == ("OpenJarvis identity.\n\nRemembered preference.")
+        assert _body(messages[0]) == ("OpenJarvis identity.\n\nRemembered preference.")
         assert messages[0].content.count("OpenJarvis identity.") == 1
 
     def test_only_empty_context_system_messages_emit_no_system_message(self):
@@ -322,8 +330,13 @@ class TestBuildMessages:
 
         messages = agent._build_messages("new", AgentContext(conversation=conv))
 
-        assert [message.role for message in messages] == [Role.USER, Role.USER]
-        assert [message.content for message in messages] == ["previous", "new"]
+        assert [message.role for message in messages] == [
+            Role.SYSTEM,
+            Role.USER,
+            Role.USER,
+        ]
+        assert _body(messages[0]) == ""  # empty context messages added nothing
+        assert [message.content for message in messages[1:]] == ["previous", "new"]
 
 
 class TestGenerate:

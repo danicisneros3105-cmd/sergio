@@ -181,15 +181,21 @@ class _WebAugmentedHybridSearch:
                 blocks = [b.strip() for b in raw_text.split("\n\n") if b.strip()]
                 for idx, block in enumerate(blocks[:top_k]):
                     lines = [ln.strip() for ln in block.splitlines() if ln.strip()]
-                    title = lines[0].lstrip("0123456789.-* ") if lines else f"Web Result {idx + 1}"
+                    title = (
+                        lines[0].lstrip("0123456789.-* ")
+                        if lines
+                        else f"Web Result {idx + 1}"
+                    )
                     url_match = re.search(r"https?://\S+", block)
                     url = url_match.group(0).rstrip(").,") if url_match else ""
                     snippet = "\n".join(lines[1:]) if len(lines) > 1 else block
                     web_hits.append(
                         SearchResult(
-                            chunk_id=f"web:{ hash((query, idx)) & 0xFFFFFF }",
+                            chunk_id=f"web:{hash((query, idx)) & 0xFFFFFF}",
                             doc_id=url or f"web:{idx}",
-                            title=f"{title} ({url})" if url and url not in title else title,
+                            title=f"{title} ({url})"
+                            if url and url not in title
+                            else title,
                             content=snippet,
                             source_type="web",
                             score=round(0.92 - idx * 0.05, 3),

@@ -18,12 +18,36 @@ import time
 from typing import Any, Callable
 
 from PySide6.QtCore import QPointF, QRectF, Qt, QTimer
-from PySide6.QtGui import QColor, QFont, QLinearGradient, QPainter, QPainterPath, QPen, QPolygonF, QRadialGradient
-from PySide6.QtWidgets import QHBoxLayout, QLabel, QLineEdit, QPushButton, QScrollArea, QVBoxLayout, QWidget
+from PySide6.QtGui import (
+    QColor,
+    QFont,
+    QLinearGradient,
+    QPainter,
+    QPainterPath,
+    QPen,
+    QPolygonF,
+    QRadialGradient,
+)
+from PySide6.QtWidgets import (
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QPushButton,
+    QScrollArea,
+    QVBoxLayout,
+    QWidget,
+)
 
 from sergio_escritorio import character
 from sergio_escritorio.coach_ui import in_background
-from sergio_escritorio.psicologo import OPTIONS, PERIOD, QUESTIONNAIRES, Consult, explain_score, score
+from sergio_escritorio.psicologo import (
+    OPTIONS,
+    PERIOD,
+    QUESTIONNAIRES,
+    Consult,
+    explain_score,
+    score,
+)
 
 LEATHER = QColor(244, 240, 232)
 LEATHER_SHADE = QColor(214, 207, 194)

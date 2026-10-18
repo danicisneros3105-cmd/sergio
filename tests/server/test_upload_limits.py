@@ -63,7 +63,18 @@ def test_file_and_batch_limits(client, monkeypatch):
         )
 
 
-def test_malformed_pdf_and_expanded_docx_rejected(client, monkeypatch):
+def _has_pdf_reader() -> bool:
+    for name in ("pdfplumber", "PyPDF2"):
+        try:
+            __import__(name)
+            return True
+        except ImportError:
+            continue
+    return False
+
+
+@pytest.mark.skipif(not _has_pdf_reader(), reason="no PDF reader installed")
+def test_malformed_pdf_rejected(client):
     assert (
         client.post(
             "/v1/connectors/upload/ingest/files",
@@ -71,6 +82,9 @@ def test_malformed_pdf_and_expanded_docx_rejected(client, monkeypatch):
         ).status_code
         == 400
     )
+
+
+def test_expanded_docx_rejected(client, monkeypatch):
     monkeypatch.setattr(uploads, "MAX_BATCH_BYTES", 300)
     archive = io.BytesIO()
     with ZipFile(archive, "w", compression=8) as z:

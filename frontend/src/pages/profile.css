@@ -1,0 +1,7 @@
+.profile-summary { font-size: 16px; line-height: 1.6; max-width: 62ch; margin: 0; }
+.profile-summary[data-muted='1'] { color: var(--color-text-secondary); }
+.profile-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 24px 32px; }
+.profile-list h3 { margin-bottom: 8px; }
+.profile-list ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: 14.5px; line-height: 1.45; }
+.profile-list li { padding-left: 14px; position: relative; }
+.profile-list li::before { content: ''; position: absolute; left: 0; top: 0.62em; width: 5px; height: 5px; border-radius: 50%; background: var(--color-text); }

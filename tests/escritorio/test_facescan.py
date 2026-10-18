@@ -132,13 +132,13 @@ def test_ring_and_head_draw():
         p, QRectF(50, 50, 200, 200), mesh["points"], 0.5, [(0, 1), (1, 2)]
     )
     p.end()
-    lit = sum(
-        1
-        for x in range(300)
-        for y in range(0, 300, 3)
-        if img.pixelColor(x, y).green() > 150
-    )
-    assert lit > 50  # something green (the lit mark) and blue dots were drawn
+
+    def bright(x: int, y: int) -> bool:
+        c = img.pixelColor(x, y)
+        return max(c.red(), c.green(), c.blue()) > 60
+
+    lit = sum(1 for x in range(300) for y in range(0, 300, 3) if bright(x, y))
+    assert lit > 50  # the ring's marks and the point cloud were drawn on the black
 
 
 @pytest.mark.parametrize(

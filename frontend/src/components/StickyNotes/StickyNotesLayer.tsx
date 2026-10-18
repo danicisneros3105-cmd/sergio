@@ -68,7 +68,15 @@ export function StickyNotesLayer() {
       return false;
     }
   });
-  const dragRef = useRef<{ id: string; startX: number; startY: number; origX: number; origY: number } | null>(null);
+  const dragRef = useRef<{
+    id: string;
+    startX: number;
+    startY: number;
+    origX: number;
+    origY: number;
+    moved: boolean;
+    title: HTMLInputElement | null;
+  } | null>(null);
 
   const loadNotes = useCallback(async () => {
     try {
@@ -145,28 +153,60 @@ export function StickyNotesLayer() {
     } catch {}
   };
 
+  const notesRef = useRef(notes);
+  notesRef.current = notes;
+
+  const startDrag = (e: React.PointerEvent, note: StickyNoteItem) => {
+    const el = e.target as HTMLElement;
+    // Buttons and the colour dots keep their own click; everything else on the header moves the note.
+    if (el.closest('button')) return;
+    if (e.button !== 0 && e.pointerType === 'mouse') return;
+    const header = e.currentTarget as HTMLElement;
+    header.setPointerCapture(e.pointerId);
+    const title = el instanceof HTMLInputElement ? el : null;
+    dragRef.current = { id: note.id, startX: e.clientX, startY: e.clientY, origX: note.x, origY: note.y, moved: false, title };
+    e.preventDefault();
+  };
+  const moveDrag = (e: React.PointerEvent) => {
+    const drag = dragRef.current;
+    if (!drag) return;
+    if (!drag.moved && Math.hypot(e.clientX - drag.startX, e.clientY - drag.startY) < 4) return;
+    drag.moved = true;
+    const nx = Math.max(8, Math.min(window.innerWidth - 120, drag.origX + (e.clientX - drag.startX)));
+    const ny = Math.max(8, Math.min(window.innerHeight - 48, drag.origY + (e.clientY - drag.startY)));
+    setNotes((prev) => prev.map((n) => (n.id === drag.id ? { ...n, x: nx, y: ny } : n)));
+  };
+  const endDrag = (e: React.PointerEvent) => {
+    const drag = dragRef.current;
+    if (!drag) return;
+    dragRef.current = null;
+    try {
+      (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+    } catch {
+      // already released
+    }
+    // A click (no movement) on the title still lets you edit it.
+    if (!drag.moved) {
+      drag.title?.focus();
+      return;
+    }
+    const found = notesRef.current.find((n) => n.id === drag.id);
+    if (found) void saveNote(found);
+  };
+
+  // A window resize must not strand a note off screen.
   useEffect(() => {
-    const onMove = (e: MouseEvent) => {
-      if (!dragRef.current) return;
-      const { id, startX, startY, origX, origY } = dragRef.current;
-      const nx = Math.max(12, Math.min(window.innerWidth - 240, origX + (e.clientX - startX)));
-      const ny = Math.max(12, Math.min(window.innerHeight - 120, origY + (e.clientY - startY)));
-      setNotes((prev) => prev.map((n) => (n.id === id ? { ...n, x: nx, y: ny } : n)));
-    };
-    const onUp = () => {
-      if (!dragRef.current) return;
-      const movedId = dragRef.current.id;
-      dragRef.current = null;
-      const found = notes.find((n) => n.id === movedId);
-      if (found) void saveNote(found);
-    };
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
-    return () => {
-      window.removeEventListener('mousemove', onMove);
-      window.removeEventListener('mouseup', onUp);
-    };
-  }, [notes]);
+    const keepInside = () =>
+      setNotes((prev) =>
+        prev.map((n) => ({
+          ...n,
+          x: Math.max(8, Math.min(window.innerWidth - 120, n.x)),
+          y: Math.max(8, Math.min(window.innerHeight - 48, n.y)),
+        })),
+      );
+    window.addEventListener('resize', keepInside);
+    return () => window.removeEventListener('resize', keepInside);
+  }, []);
 
   if (!visible) return null;
 
@@ -192,15 +232,15 @@ export function StickyNotesLayer() {
           gap: 6,
           padding: '5px 10px',
           borderRadius: 999,
-          background: '#FAF8F5',
-          border: '1px solid #E5E0D8',
+          background: 'var(--color-surface, #fff)',
+          border: '1px solid var(--color-border, #e5e5e5)',
           boxShadow: '0 6px 20px rgba(20, 20, 19, 0.08)',
           fontSize: 12,
           fontWeight: 600,
-          color: '#141413',
+          color: 'var(--color-text, #111)',
         }}
       >
-        <StickyIcon size={14} style={{ color: '#C96442' }} />
+        <StickyIcon size={14} />
         <span>Post-its ({notes.length})</span>
         <button
           type="button"
@@ -212,8 +252,8 @@ export function StickyNotesLayer() {
             gap: 3,
             padding: '2px 8px',
             borderRadius: 999,
-            background: '#C96442',
-            color: '#fff',
+            background: 'var(--color-text, #111)',
+            color: 'var(--color-bg, #fff)',
             border: 'none',
             cursor: 'pointer',
             fontSize: 11.5,
@@ -233,7 +273,7 @@ export function StickyNotesLayer() {
           style={{
             background: 'transparent',
             border: 'none',
-            color: '#6E6B64',
+            color: 'var(--color-text-tertiary, #777)',
             cursor: 'pointer',
             padding: 2,
           }}
@@ -269,20 +309,14 @@ export function StickyNotesLayer() {
           >
             {/* Top adhesive strip (draggable) */}
             <header
-              onMouseDown={(e) => {
-                if ((e.target as HTMLElement).tagName === 'BUTTON' || (e.target as HTMLElement).tagName === 'INPUT') {
-                  return;
-                }
-                dragRef.current = {
-                  id: note.id,
-                  startX: e.clientX,
-                  startY: e.clientY,
-                  origX: note.x,
-                  origY: note.y,
-                };
-              }}
+              onPointerDown={(e) => startDrag(e, note)}
+              onPointerMove={moveDrag}
+              onPointerUp={endDrag}
+              onPointerCancel={endDrag}
+              title="Arrastre para mover la nota"
               style={{
                 cursor: 'grab',
+                touchAction: 'none',
                 padding: '7px 10px 6px',
                 background: 'rgba(255, 255, 255, 0.34)',
                 borderBottom: '1px dashed rgba(0,0,0,0.08)',

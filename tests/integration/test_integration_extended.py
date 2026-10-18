@@ -312,7 +312,8 @@ class TestMCPIntegration:
 
         # 1. Initialize
         caps = client.initialize()
-        assert caps["protocolVersion"] == "2025-11-25"
+        # the server answers with the version the client asked for when it supports it
+        assert caps["protocolVersion"] == "2025-03-26"
 
         # 2. Discover tools
         tools = client.list_tools()

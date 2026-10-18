@@ -6,7 +6,7 @@ import threading
 
 import pytest
 
-from openjarvis.nodes import team
+from openjarvis.nodes import skills, team
 from openjarvis.nodes.store import CAST_LOOK, NodeError, NodeStore
 from openjarvis.nodes.worker import NodeWorker
 
@@ -148,3 +148,22 @@ def test_characters_describe_traits_not_real_people():
     text = " ".join(team.character_block(m) for m in team.TEAM).lower()
     for name in ("tom cruise", "brad pitt", "house", "malcolm", "andrea", "sachs"):
         assert name not in text
+
+
+def test_leo_is_retired_but_not_lost(tmp_path):
+    store = NodeStore(tmp_path)
+    store.ensure_team()
+    leo = store.create("Leo", "Investiga.", template="investigador")
+    other = store.create("Mía", "Correo.", template="correo")
+    assert store.retire_leo() == [leo.id]
+    assert store.get(leo.id) is None
+    assert (tmp_path / "retirados" / leo.id / "node.json").exists()  # kept, not erased
+    assert store.get(other.id) is not None
+    assert [n.name for n in store.all()][:4] == [
+        "Rihno",
+        "Manchas",
+        "Hous",
+        "Tennessee",
+    ]
+    assert store.retire_leo() == []
+    assert not any(t["id"] == "investigador" for t in skills.TEMPLATES)

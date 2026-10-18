@@ -146,6 +146,53 @@ def test_widgets_draw(tmp_path):
         w.close()
 
 
+def test_sticky_note_moves_by_its_header_and_stays_reachable(tmp_path):
+    from PySide6.QtCore import QPoint, QPointF, Qt
+    from PySide6.QtGui import QMouseEvent
+    from PySide6.QtWidgets import QApplication
+    from sergio_escritorio.organizer_ui import NotesBoard
+
+    _app = QApplication.instance() or QApplication([])
+    notes = Notes(tmp_path / "n.json")
+    board = NotesBoard(notes)
+    sticky = board.show(notes.add("mover"))
+    sticky.move(200, 200)
+    start = QPointF(40, 12)  # on the header strip, away from its buttons
+
+    def mouse(kind, local: QPointF, globe: QPointF):
+        return QMouseEvent(
+            kind,
+            local,
+            globe,
+            Qt.MouseButton.LeftButton,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+
+    press_at = QPointF(sticky.pos()) + start
+    sticky.mousePressEvent(mouse(QMouseEvent.Type.MouseButtonPress, start, press_at))
+    sticky.mouseMoveEvent(
+        mouse(QMouseEvent.Type.MouseMove, start, press_at + QPointF(90, 60))
+    )
+    sticky.mouseReleaseEvent(
+        mouse(QMouseEvent.Type.MouseButtonRelease, start, press_at + QPointF(90, 60))
+    )
+    assert sticky.pos() == QPoint(290, 260)
+    assert (notes.items[0].x, notes.items[0].y) == (290, 260)  # and it remembers
+    # thrown far away, it stays within reach
+    sticky.mousePressEvent(
+        mouse(QMouseEvent.Type.MouseButtonPress, start, QPointF(sticky.pos()) + start)
+    )
+    sticky.mouseMoveEvent(
+        mouse(QMouseEvent.Type.MouseMove, start, QPointF(-9000, -9000))
+    )
+    sticky.mouseReleaseEvent(
+        mouse(QMouseEvent.Type.MouseButtonRelease, start, QPointF(-9000, -9000))
+    )
+    assert sticky.x() > -sticky.width() and sticky.y() >= 0
+    sticky.close()
+
+
 def test_notepad_is_still_an_app():
     from sergio_escritorio.quick import parse_quick
 

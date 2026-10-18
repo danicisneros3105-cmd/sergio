@@ -21,7 +21,7 @@ interface Status {
 
 type Mode =
   | { kind: 'home' }
-  | { kind: 'passcode'; then: 'setup' | 'unlock' }
+  | { kind: 'passcode'; then: 'after' | 'unlock' }
   | { kind: 'scan'; who: string; consent: boolean; round: 1 | 2 }
   | { kind: 'unlock' }
   | { kind: 'done'; title: string; text: string; ok: boolean };
@@ -84,9 +84,34 @@ function Ring({ lit, size }: { lit: boolean[]; size: number }) {
   );
 }
 
-function PinPad({ title, subtitle, onDone, error }: { title: string; subtitle: string; onDone: (code: string) => void; error: string }) {
+function PinPad({
+  title,
+  subtitle,
+  onDone,
+  error,
+  onSkip,
+}: {
+  title: string;
+  subtitle: string;
+  onDone: (code: string) => void;
+  error: string;
+  onSkip?: () => void;
+}) {
   const [code, setCode] = useState('');
   const press = (d: string) => setCode((c) => (c.length < 12 ? c + d : c));
+  // The number keys of the keyboard work too: no need to click each digit.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (/^\d$/.test(e.key)) setCode((c) => (c.length < 12 ? c + e.key : c));
+      else if (e.key === 'Backspace') setCode((c) => c.slice(0, -1));
+      else if (e.key === 'Enter' && code.length >= 6) {
+        onDone(code);
+        setCode('');
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [code, onDone]);
   return (
     <div className="faceid-pin">
       <Lock size={22} />
@@ -117,6 +142,11 @@ function PinPad({ title, subtitle, onDone, error }: { title: string; subtitle: s
       <button type="button" className="paper-button" disabled={code.length < 6} onClick={() => (onDone(code), setCode(''))}>
         Continuar
       </button>
+      {onSkip && (
+        <button type="button" className="faceid-link" onClick={onSkip}>
+          Ahora no
+        </button>
+      )}
     </div>
   );
 }
@@ -131,6 +161,7 @@ export function FacesPage() {
   const [say, setSay] = useState('');
   const [error, setError] = useState('');
   const [other, setOther] = useState({ name: '', consent: false });
+  const [firstCode, setFirstCode] = useState('');
   const shots = useRef<Blob[]>([]);
 
   const load = useCallback(async () => {
@@ -184,17 +215,19 @@ export function FacesPage() {
       canvas.toBlob((blob) => resolve(blob), 'image/jpeg', 0.85);
     });
 
-  // -- setting up: one quick, effortless circle with the head ---------------
+  // -- setting up: look at the camera, nothing else ---------------------------
+  // The ring fills by itself while good frames arrive; turning the head slowly
+  // only adds variety. No code is asked first: it comes after, and can wait.
   useEffect(() => {
     if (mode.kind !== 'scan') return;
     let stop = false;
-    const ring: boolean[] = Array(TICKS).fill(false);
-    setLit(ring.slice());
-    setSay('Mire a la pantalla y mueva ligeramente la cabeza');
+    setLit(Array(TICKS).fill(false));
+    setSay('Mire a la cámara');
     const started = Date.now();
     (async () => {
       if (!(await startCamera())) return;
-      let goodFrames = 0;
+      let good = 0;
+      const WANT = 14;
       while (!stop) {
         const blob = await frame();
         if (blob) {
@@ -202,33 +235,25 @@ export function FacesPage() {
           form.append('image', blob, 'f.jpg');
           const res = await apiFetch('/v1/faces/pose', { method: 'POST', body: form }).catch(() => null);
           const pose = res && res.ok ? await res.json() : null;
-          if (pose?.face) {
-            if (pose.faces > 1) setSay('Solo una persona frente a la cámara');
-            else {
-              shots.current.push(blob);
-              goodFrames++;
-              const tilt = Math.hypot(pose.yaw, pose.pitch);
-              // Light sectors generously even with subtle movement so setup is fast & frustration-free
-              const a = (Math.atan2(pose.pitch, -pose.yaw) + Math.PI * 2) % (Math.PI * 2);
-              const k = Math.round((a / (Math.PI * 2)) * TICKS) % TICKS;
-              const spread = tilt < 4 ? 3 : 5;
-              for (let d = -spread; d <= spread; d++) ring[(k + d + TICKS) % TICKS] = true;
-              // Also progressively fill sectors as good frames accumulate
-              const startIdx = (goodFrames * 5) % TICKS;
-              for (let d = 0; d < 4; d++) ring[(startIdx + d) % TICKS] = true;
-              setLit(ring.slice());
-              const pct = Math.round((ring.filter(Boolean).length / TICKS) * 100);
-              setSay(pct < 60 ? 'Gire suavemente la cabeza…' : '¡Casi listo! Mantenga la mirada…');
-            }
+          if (pose?.face && pose.faces > 1) setSay('Solo una persona frente a la cámara');
+          else if (pose?.face) {
+            shots.current.push(blob);
+            good++;
+            const progress = Math.round((Math.min(good, WANT) / WANT) * TICKS);
+            setLit(Array.from({ length: TICKS }, (_, i) => i < progress));
+            setSay(good < 5 ? 'Mire a la cámara' : good < WANT ? 'Gire la cabeza muy despacio' : 'Listo');
           } else setSay('Coloque la cara dentro del círculo');
         }
-        const litRatio = ring.filter(Boolean).length / TICKS;
-        const done = (litRatio >= 0.65 && goodFrames >= 6) || (goodFrames >= 10 && Date.now() - started > 2800);
-        if (done || Date.now() - started > 18000) break;
-        await new Promise((r) => setTimeout(r, 110));
+        if (good >= WANT || Date.now() - started > 20000) break;
+        await new Promise((r) => setTimeout(r, 120));
       }
       if (stop) return;
-      // Save immediately after 1 round (no tedious second round).
+      if (good < 5) {
+        stopCamera();
+        shots.current = [];
+        setMode({ kind: 'done', ok: false, title: 'No le vi bien', text: 'Busque más luz, mire de frente a la cámara e inténtelo de nuevo.' });
+        return;
+      }
       const form = new FormData();
       form.append('name', mode.who);
       form.append('consent', String(mode.consent));
@@ -242,11 +267,19 @@ export function FacesPage() {
         return;
       }
       await load();
+      const mine = mode.who === (status?.owner || mode.who);
+      // Face ID can only unlock with a backup code: ask for it now, once.
+      if (mine && !status?.passcode_set) {
+        setError('');
+        setFirstCode('');
+        setMode({ kind: 'passcode', then: 'after' });
+        return;
+      }
       setMode({
         kind: 'done',
         ok: true,
-        title: mode.who === (status?.owner || mode.who) ? 'Face ID está listo' : `${mode.who} guardado`,
-        text: 'Configuración completada. Ahora puede desbloquear mirando a la pantalla.',
+        title: mine ? 'Face ID está listo' : `${mode.who} guardado`,
+        text: mine ? 'Ya puede desbloquear mirando a la pantalla.' : 'Sergio ya le reconoce.',
       });
     })();
     return () => {
@@ -308,28 +341,38 @@ export function FacesPage() {
     );
   };
 
-  const submitPasscode = async (code: string, then: 'setup' | 'unlock') => {
+  const submitPasscode = async (code: string, then: 'after' | 'unlock') => {
     setError('');
     const form = new FormData();
     form.append('code', code);
     if (!status?.passcode_set) {
+      // Creating the code: type it twice so a slip never locks the owner out.
+      if (!firstCode) {
+        setFirstCode(code);
+        return;
+      }
+      if (firstCode !== code) {
+        setFirstCode('');
+        return setError('Los dos códigos no coinciden. Empiece de nuevo.');
+      }
       const res = await apiFetch('/v1/faces/faceid/passcode', { method: 'POST', body: form });
       if (!res.ok) return setError(await readError(res));
+      setFirstCode('');
       await load();
-      return setMode(then === 'setup' ? { kind: 'scan', who: status?.owner || 'Señor', consent: true, round: 1 } : { kind: 'home' });
+      return setMode({ kind: 'done', ok: true, title: 'Face ID está listo', text: 'Ya puede desbloquear mirando a la pantalla.' });
     }
     const res = await apiFetch('/v1/faces/faceid/passcode/check', { method: 'POST', body: form });
     const out = res.ok ? await res.json() : { ok: false };
     if (!out.ok) return setError(out.wait ? `Espere ${out.wait} s antes de volver a intentarlo.` : 'Código incorrecto.');
     await load();
-    setMode(then === 'setup' ? { kind: 'scan', who: status?.owner || 'Señor', consent: true, round: 1 } : { kind: 'done', ok: true, title: 'Desbloqueado', text: 'Face ID vuelve a estar disponible.' });
+    setMode(then === 'after' ? { kind: 'home' } : { kind: 'done', ok: true, title: 'Desbloqueado', text: 'Face ID vuelve a estar disponible.' });
   };
 
+  // One tap: the camera opens and Sergio learns the face. The code comes afterwards.
   const setup = () => {
     setError('');
     shots.current = [];
-    if (!status?.passcode_set) return setMode({ kind: 'passcode', then: 'setup' });
-    setMode({ kind: 'scan', who: status.owner || 'Señor', consent: true, round: 1 });
+    setMode({ kind: 'scan', who: status?.owner || 'Señor', consent: true, round: 1 });
   };
 
   const forget = async (person: string) => {
@@ -359,14 +402,16 @@ export function FacesPage() {
           </>
         ) : mode.kind === 'passcode' ? (
           <PinPad
-            title={status?.passcode_set ? 'Introduzca su código' : 'Cree un código'}
+            key={status?.passcode_set ? 'check' : firstCode ? 'again' : 'new'}
+            title={status?.passcode_set ? 'Introduzca su código' : firstCode ? 'Repita el código' : 'Cree un código de respaldo'}
             subtitle={
               status?.passcode_set
                 ? REASON_ES[status.passcode_reason] || 'Código de Sergio para este reconocimiento.'
-                : 'De 6 a 12 cifras. Se pide tras reiniciar, tras 5 fallos y tras 48 horas.'
+                : 'De 6 a 12 cifras. Lo pedirá tras reiniciar, tras 5 fallos y tras 48 horas.'
             }
             error={error}
             onDone={(c) => submitPasscode(c, mode.then)}
+            onSkip={!status?.passcode_set ? () => (setFirstCode(''), setMode({ kind: 'home' })) : undefined}
           />
         ) : mode.kind === 'done' ? (
           <div className="faceid-done" data-ok={mode.ok ? '1' : '0'} role="status">
@@ -381,9 +426,7 @@ export function FacesPage() {
           <div className="faceid-home">
             <span className="face-presence-mark"><FaceGlyph size={84} /></span>
             <h1>Reconocimiento facial</h1>
-            <p>
-              Sergio aprende sus rasgos y le reconoce para conversar. Un reto de movimiento reduce errores, pero una webcam no reemplaza la cámara de profundidad de Face ID.
-            </p>
+            <p>Un toque, mire a la cámara y listo. Una webcam no reemplaza la cámara de profundidad de un iPhone.</p>
             {error && <p className="faceid-error">{error}</p>}
             <div className="faceid-actions">
               {enrolled ? (
@@ -391,6 +434,11 @@ export function FacesPage() {
                   <button type="button" className="paper-button" onClick={unlock}>
                     <ScanFace size={16} /> Probar reconocimiento
                   </button>
+                  {!status?.passcode_set && (
+                    <button type="button" className="paper-button" onClick={() => (setError(''), setFirstCode(''), setMode({ kind: 'passcode', then: 'after' }))}>
+                      <Lock size={15} /> Crear código de respaldo
+                    </button>
+                  )}
                   <button type="button" className="paper-button" data-variant="quiet" onClick={setup}>
                     Volver a configurar
                   </button>

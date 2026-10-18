@@ -616,7 +616,6 @@ def _is_model_not_found_error(exc: Exception) -> bool:
     )
 
 
-
 def google_schema(schema: Any) -> Dict[str, Any]:
     """A JSON Schema reduced to what Gemini function declarations accept."""
     if not isinstance(schema, dict):

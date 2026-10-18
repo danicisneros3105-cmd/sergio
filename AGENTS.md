@@ -71,6 +71,18 @@ termina en la rama `main`, y el dueño actualiza con un único comando.
   «Detener» es la parada de emergencia y lo deja en pausa.
   La página: `pages/NodesPage.tsx` (marco) y una pestaña por archivo en
   `pages/nodes/`.
+- Salud, Perfil, Face ID y Post-its (dueño, oct. 2026): **Salud minimalista**
+  (`pages/HealthPage.tsx`: Hoy, Anotar, Preguntar, Mente; el gimnasio mental
+  está en `pages/health/HealthGym.tsx`, plegado). Una cifra de salud solo se
+  muestra si el dueño la anotó o la trajo una fuente (`hub["entered"]` en
+  `server/desktop_routes.py`): **nunca se inventan datos suyos**, ni en la
+  pantalla, ni en el coach, ni en el perfil. El **Perfil** lo arma Sergio
+  Escritorio; con la app cerrada se dice, no se rellena. Los botones «Abrir
+  en el PC» no dicen «abierto» si la app no responde (`companion: false`).
+  **Face ID** se configura de un toque: se abre la cámara, se mira, y el
+  código de respaldo (dos veces) se pide después y puede esperar. Los
+  **Post-its** se mueven desde toda su cabecera, en la web (puntero, también
+  táctil) y en Windows (`organizer_ui.py`), y nunca quedan fuera de alcance.
 - Sin emojis y sin colores en la interfaz (dueño, oct. 2026): negro, blanco y
   grises; iconos de línea. El color solo vive en lo que el dueño crea (sus
   diseños, fotos, 3D) y en los cuatro personajes de los Nodes.

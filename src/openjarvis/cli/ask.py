@@ -988,9 +988,7 @@ def ask(
     if resolved is None and not model_name and selection_model:
         fallback_model = config.intelligence.fallback_model or None
         if fallback_model and fallback_model != selection_model:
-            resolved = get_engine(
-                config, effective_engine_key, model=fallback_model
-            )
+            resolved = get_engine(config, effective_engine_key, model=fallback_model)
         if resolved is None:
             resolved = get_engine(config, effective_engine_key)
     if resolved is None:

@@ -165,6 +165,10 @@ def is_cloud_only_model(model: str) -> bool:
         return False
     if base in {"o1", "o3", "o4"}:
         return True
+    # gpt-oss is an open-weights model people run locally (Ollama, llama.cpp…),
+    # not the paid "gpt-" family: it must stay on the local engine.
+    if base.startswith("gpt-oss"):
+        return False
     return base.startswith(_CLOUD_ONLY_PREFIXES)
 
 
@@ -174,4 +178,3 @@ __all__ = [
     "StreamChunk",
     "is_cloud_only_model",
 ]
-

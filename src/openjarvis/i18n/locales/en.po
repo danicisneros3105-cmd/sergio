@@ -306,3 +306,151 @@ msgstr "The private key file."
 
 msgid "Paquete por especialidad (vfx-studio, multicanal, privacidad, power)."
 msgstr "Package for a specialty (vfx-studio, multicanal, privacidad, power)."
+
+#: help
+msgid "Sergio en Windows: compañero junto al cursor, voz y control de pantalla."
+msgstr "Sergio on Windows: a companion next to the cursor, voice and screen control."
+
+#: help
+msgid "Instala o actualiza Sergio Escritorio en Windows."
+msgstr "Install or update Sergio Escritorio on Windows."
+
+#: help
+msgid "Descarga también el modelo local de visión (qwen2.5vl:7b, ~6 GB) para describir imágenes en pantalla."
+msgstr "Also download the local vision model (qwen2.5vl:7b, ~6 GB) to describe images on screen."
+
+#: help
+msgid "Descarga también las librerías NVIDIA (~1 GB) para escuchar con el modelo grande de Whisper en la tarjeta gráfica."
+msgstr "Also download the NVIDIA libraries (~1 GB) to listen with the large Whisper model on the graphics card."
+
+#: help
+msgid "Actualiza Sergio Escritorio en Windows."
+msgstr "Update Sergio Escritorio on Windows."
+
+#: help
+msgid "Descarga también el modelo local de visión."
+msgstr "Also download the local vision model."
+
+#: help
+msgid "Descarga librerías NVIDIA para Whisper."
+msgstr "Download NVIDIA libraries for Whisper."
+
+#: help
+msgid "Comprueba que Sergio pueda comunicarse con Sergio Escritorio."
+msgstr "Check that Sergio can talk to Sergio Escritorio."
+
+#: help
+msgid "Instala un plugin por nombre, desde un .zip, una URL https o\n    «nombre@marketplace» (formato de Claude)."
+msgstr "Install a plugin by name, from a .zip, an https URL or\n    «name@marketplace» (Claude format)."
+
+#: help
+msgid "Los plugins de sus marketplaces (formato de Claude)."
+msgstr "The plugins in your marketplaces (Claude format)."
+
+#: help
+msgid "Solo este marketplace."
+msgstr "Only this marketplace."
+
+#: help
+msgid "Marketplaces de plugins (repositorios con .claude-plugin/marketplace.json)."
+msgstr "Plugin marketplaces (repositories with .claude-plugin/marketplace.json)."
+
+#: help
+msgid "Añade un marketplace: «propietario/repo», URL git o carpeta."
+msgstr "Add a marketplace: «owner/repo», a git URL or a folder."
+
+#: help
+msgid "Los marketplaces añadidos."
+msgstr "The marketplaces you added."
+
+#: help
+msgid "Trae la última versión de un marketplace."
+msgstr "Fetch the latest version of a marketplace."
+
+#: help
+msgid "Quita un marketplace (los plugins instalados se quedan)."
+msgstr "Remove a marketplace (installed plugins stay)."
+
+#: help
+msgid "Conectores MCP (como en Claude): añadir, conectar, permisos, servir."
+msgstr "MCP connectors (as in Claude): add, connect, permissions, serve."
+
+#: help
+msgid "Añade un conector: una URL (remoto), una orden tras «--» (local),\n    o solo el nombre si está en el directorio."
+msgstr "Add a connector: a URL (remote), a command after «--» (local),\n    or just the name if it is in the directory."
+
+#: help
+msgid "KEY=valor para un servidor local."
+msgstr "KEY=value for a local server."
+
+#: help
+msgid "«Nombre: valor» para un servidor remoto."
+msgstr "«Name: value» for a remote server."
+
+#: help
+msgid "Client ID propio (servicios sin registro automático)."
+msgstr "Your own Client ID (services without automatic registration)."
+
+#: help
+msgid "Secreto de ese Client ID, si lo tiene."
+msgstr "Secret of that Client ID, if it has one."
+
+#: help
+msgid "Variable privada KEY=valor."
+msgstr "Private variable KEY=value."
+
+#: help
+msgid "Añade un conector desde su JSON (el mismo formato de .mcp.json)."
+msgstr "Add a connector from its JSON (the same format as .mcp.json)."
+
+#: help
+msgid "Trae los servidores MCP que ya tiene en Claude Desktop."
+msgstr "Bring in the MCP servers you already have in Claude Desktop."
+
+#: help
+msgid "Sus conectores y si responden."
+msgstr "Your connectors and whether they respond."
+
+#: help
+msgid "No comprobar la conexión."
+msgstr "Do not check the connection."
+
+#: help
+msgid "Detalles de un conector."
+msgstr "Details of a connector."
+
+#: help
+msgid "El directorio de conectores listos para añadir."
+msgstr "The directory of connectors ready to add."
+
+#: help
+msgid "Conecta (inicia sesión en el servicio si lo pide)."
+msgstr "Connect (sign in to the service if it asks)."
+
+#: help
+msgid "Cierra la sesión (el conector se queda)."
+msgstr "Sign out (the connector stays)."
+
+#: help
+msgid "Quita un conector y su sesión."
+msgstr "Remove a connector and its session."
+
+#: help
+msgid "Las herramientas de un conector y su permiso."
+msgstr "A connector's tools and their permission."
+
+#: help
+msgid "Usa una herramienta a mano (cuenta como aprobada; «Nunca» la bloquea)."
+msgstr "Use a tool by hand (counts as approved; «Never» blocks it)."
+
+#: help
+msgid "Permiso de una herramienta («*» = todas): allow, ask o block."
+msgstr "Permission of a tool («*» = all): allow, ask or block."
+
+#: help
+msgid "Sirve las herramientas de Sergio por MCP (stdio), para Claude u otros.\n\n    En Claude Desktop: {{\"mcpServers\": {{\"sergio\": {{\"command\": \"sergio\", \"args\": [\"mcp\", \"serve\"]}}}}}}"
+msgstr "Serve Sergio's tools over MCP (stdio), for Claude or others.\n\n    In Claude Desktop: {{\"mcpServers\": {{\"sergio\": {{\"command\": \"sergio\", \"args\": [\"mcp\", \"serve\"]}}}}}}"
+
+#: help
+msgid "Solo estas herramientas (separadas por comas)."
+msgstr "Only these tools (comma-separated)."

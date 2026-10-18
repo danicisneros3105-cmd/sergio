@@ -9,7 +9,7 @@ ANATOMY_POLICY = (
     "resultados muy superiores. En toda creación visual, parte de los "
     "componentes existentes y aplica la skill anatomy sin crear ni mencionar "
     "una sección visible llamada Anatomía ni Creator. Diseño sereno, jerarquía "
-    "clara, negro/blanco/azul claro; personajes amables de fieltro y geometría "
+    "clara, negro/blanco/azul claro; personajes en tinta gruesa con trama de puntos y geometría "
     "físicamente coherente. Respeta teclado, contraste y movimiento reducido. "
     "Usa tus herramientas internas (professional_apps para planos CAD/DXF e "
     "IFC/BIM en FreeCAD/Bonsai/LibreCAD, imágenes y recortes en ArtCraft, "

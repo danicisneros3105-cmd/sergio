@@ -120,9 +120,20 @@ class StickyNote(QWidget):
             return
         self._drag = event.globalPosition().toPoint() - self.pos()
 
+    def _kept_on_screen(self, where: QPoint) -> QPoint:
+        """A note can be dragged anywhere on the desktop, but never so far that
+        its header (the only handle) slips out of reach."""
+        screen = QGuiApplication.screenAt(where + QPoint(self.width() // 2, 14)) or QGuiApplication.primaryScreen()
+        if screen is None:
+            return where
+        geo = screen.availableGeometry()
+        x = max(geo.left() - self.width() + 60, min(where.x(), geo.right() - 60))
+        y = max(geo.top(), min(where.y(), geo.bottom() - 40))
+        return QPoint(x, y)
+
     def mouseMoveEvent(self, event: Any) -> None:  # noqa: N802
         if self._drag is not None:
-            self.move(event.globalPosition().toPoint() - self._drag)
+            self.move(self._kept_on_screen(event.globalPosition().toPoint() - self._drag))
 
     def mouseReleaseEvent(self, _event: Any) -> None:  # noqa: N802
         if self._drag is not None:

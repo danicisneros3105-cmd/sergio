@@ -256,15 +256,15 @@ function seedWorkspace() {
     columns: [
       { id: cName, name: 'Tarea', type: 'text' },
       { id: cState, name: 'Estado', type: 'select', options: ['Por hacer', 'En curso', 'Hecho'] },
-      { id: cOwner, name: 'Responsable', type: 'select', options: ['Señor', 'Leo', 'Mía', 'Ordo'] },
+      { id: cOwner, name: 'Responsable', type: 'select', options: ['Señor', 'Rihno', 'Manchas', 'Hous', 'Tennessee'] },
       { id: cDate, name: 'Fecha', type: 'date' },
       { id: cCost, name: 'Coste', type: 'number' },
     ],
     rows: [
       ['Definir el precio', 'Hecho', 'Señor', 2, 0],
-      ['Investigar a la competencia', 'Hecho', 'Leo', 4, 120],
-      ['Diseñar la web', 'En curso', 'Mía', 9, 900],
-      ['Preparar la campaña', 'En curso', 'Ordo', 12, 450],
+      ['Investigar a la competencia', 'Hecho', 'Tennessee', 4, 120],
+      ['Diseñar la web', 'En curso', 'Hous', 9, 900],
+      ['Preparar la campaña', 'En curso', 'Manchas', 12, 450],
       ['Lanzamiento', 'Por hacer', 'Señor', 20, 300],
     ].map(([n, st, o, d, c], i) => ({
       id: `r_${i}`,
@@ -300,10 +300,10 @@ function seedWorkspace() {
     ], { cover: 'g2' }),
     page('p_demo_reunion', 'Reunión del lunes', 'i:users', [
       b('m1', 'h2', 'Asistentes'),
-      b('m2', 'bullet', 'Señor, Leo y Mía'),
+      b('m2', 'bullet', 'Señor, Tennessee y Hous'),
       b('m3', 'h2', 'Decisiones'),
       b('m4', 'number', 'Lanzar en tres semanas'),
-      b('m5', 'number', 'Mía cierra el diseño el viernes'),
+      b('m5', 'number', 'Hous cierra el diseño el viernes'),
       b('m6', 'h2', 'Tareas'),
       b('m7', 'todo', 'Enviar el resumen a todos', { checked: false }),
       b('m8', 'page', 'Ideas para la campaña', { pageId: 'p_demo_ideas' }),

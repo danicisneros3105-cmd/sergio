@@ -214,9 +214,7 @@ class Jarvis:
         if resolved is None and not self._model_override and selection_model:
             fallback_model = self._config.intelligence.fallback_model or None
             if fallback_model and fallback_model != selection_model:
-                resolved = get_engine(
-                    self._config, engine_key, model=fallback_model
-                )
+                resolved = get_engine(self._config, engine_key, model=fallback_model)
             if resolved is None:
                 resolved = get_engine(self._config, engine_key)
         if resolved is None:

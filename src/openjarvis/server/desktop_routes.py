@@ -1,27 +1,25 @@
-"""Instant Health Hub, Cognitive Gym (Harvard/PNAS), Profile & Sticky Notes API.
+"""Health hub, mental gym, profile and sticky notes API.
 
 Provides instantaneous (<10 ms) local-first persistence in ``~/.openjarvis/``
 while seamlessly syncing with ``Sergio Escritorio`` on Windows when running:
 
-* ``GET  /v1/desktop/health``             — Complete AI-powered Health Hub + Apple Health 8 pillars + 7 AI differentiators + Harvard Cognitive Gym.
-* ``POST /v1/desktop/health/log``         — Log any vital, sleep, workout, mood, PHQ-9/GAD-7, hearing/vision, cycle, EHR, or water entry.
-* ``POST /v1/desktop/health/nutrition-ai``— AI Food & Macro Scanner (text or photo -> kcal, protein, carbs, fat, fiber, micronutrients).
-* ``POST /v1/desktop/health/coach-ai``    — Proactive Conversational AI Health Coach + Dynamic Workout Plan adjuster.
-* ``POST /v1/desktop/health/gym-session`` — Save a Harvard/PNAS Cognitive Gym session (Dual N-Back, Raven Matrices, UFOV, Stroop, DSST) & update Gf/IQ index.
-* ``POST /v1/desktop/health/sync``        — Sync Apple Health, Garmin Connect, Oura, Strava, or Whoop.
+* ``GET  /v1/desktop/health``             — The health hub (only what the owner entered counts).
+* ``POST /v1/desktop/health/log``         — Log a vital, sleep, workout, mood, hearing, cycle, lab or water entry.
+* ``POST /v1/desktop/health/nutrition-ai``— Log a meal (an estimate of kcal and macros).
+* ``POST /v1/desktop/health/coach-ai``    — Ask the health coach a question.
+* ``POST /v1/desktop/health/gym-session`` — Save a mental gym session and update the cognitive index.
+* ``POST /v1/desktop/health/sync``        — Sync Apple Health, Garmin Connect, Oura, Strava or Whoop.
 * ``GET  /v1/desktop/sticky-notes``       — List Post-it sticky notes.
 * ``POST /v1/desktop/sticky-notes``       — Create or update a sticky note.
 * ``DELETE /v1/desktop/sticky-notes/{id}``— Delete a sticky note.
-* ``GET  /v1/desktop/profile``            — Profile summary.
-* ``POST /v1/desktop/open``               — Open a companion window on Windows without blocking if the companion is closed.
+* ``GET  /v1/desktop/profile``            — Profile summary (says so when the PC app is closed).
+* ``POST /v1/desktop/open``               — Open a companion window on Windows; ``companion: false`` if it is closed.
 """
 
 from __future__ import annotations
 
 import asyncio
 import json
-import math
-import re
 import threading
 import time
 import uuid
@@ -105,6 +103,7 @@ def _default_health_hub() -> Dict[str, Any]:
     return {
         "updated_at": time.time(),
         "date": today,
+        "entered": {},
         # 1. Readiness & Recovery Score (What Apple Health DOES NOT DO #1)
         "readiness": {
             "score": 82,
@@ -260,7 +259,11 @@ def _default_health_hub() -> Dict[str, Any]:
             "allergies": ["Ninguna alergia medicamentosa conocida"],
             "vaccines": [
                 {"name": "Influenza estacional", "date": "2026-01", "status": "Al día"},
-                {"name": "Tétanos / Difteria (Tdap)", "date": "2024-06", "status": "Al día"},
+                {
+                    "name": "Tétanos / Difteria (Tdap)",
+                    "date": "2024-06",
+                    "status": "Al día",
+                },
             ],
             "labs": [
                 {
@@ -432,44 +435,98 @@ def _default_health_hub() -> Dict[str, Any]:
                 {
                     "id": "dual_nback",
                     "name": "Dual N-Back Adaptativo (Posición + Audio/Letra)",
-                    "study": "Jaeggi et al. (PNAS, 2008) · Au et al. (Psychonomic Bulletin & Review, 2015) · Meta-análisis de transferencia a inteligencia fluida (Gf)",
-                    "mechanism": "Entrena la actualización simultánea visuoespacial y fonológica en la corteza prefrontal dorsolateral (DLPFC) y parietal posterior.",
+                    "study": (
+                        "Jaeggi et al. (PNAS, 2008) · Au et al. (Psychonomic Bulletin & Review, 2015) · Meta-análisis "
+                        "de transferencia a inteligencia fluida (Gf)"
+                    ),
+                    "mechanism": (
+                        "Entrena la actualización simultánea visuoespacial y fonológica en la corteza prefrontal "
+                        "dorsolateral (DLPFC) y parietal posterior."
+                    ),
                     "best_level": "3-Back",
                 },
                 {
                     "id": "raven_matrices",
                     "name": "Matrices Progresivas Relacionales (Inducción Gf)",
-                    "study": "Raven / Klauer & Phye (Review of Educational Research, 2008) · Razonamiento analógico e integración relacional",
-                    "mechanism": "Activa la red fronto-parietal (P-FIT de Haier & Jung) resolviendo transformaciones simultáneas de cantidad, rotación y progresión lógica.",
+                    "study": (
+                        "Raven / Klauer & Phye (Review of Educational Research, 2008) · Razonamiento analógico e "
+                        "integración relacional"
+                    ),
+                    "mechanism": (
+                        "Activa la red fronto-parietal (P-FIT de Haier & Jung) resolviendo transformaciones simultáneas"
+                        " de cantidad, rotación y progresión lógica."
+                    ),
                     "best_level": "Nivel 4",
                 },
                 {
                     "id": "ufov_speed",
                     "name": "Doble Decisión & Campo Visual Útil (UFOV)",
-                    "study": "Ball et al. / Estudio multicéntrico ACTIVE (JAMA / Harvard Medical School) · Velocidad de procesamiento neuronal",
-                    "mechanism": "Foco foveal + localización periférica simultánea bajo umbral temporal; demostró 29% de protección cognitiva a 10 años.",
+                    "study": (
+                        "Ball et al. / Estudio multicéntrico ACTIVE (JAMA / Harvard Medical School) · Velocidad de "
+                        "procesamiento neuronal"
+                    ),
+                    "mechanism": (
+                        "Foco foveal + localización periférica simultánea bajo umbral temporal; demostró 29% de "
+                        "protección cognitiva a 10 años."
+                    ),
                     "best_level": "92%",
                 },
                 {
                     "id": "stroop_switch",
                     "name": "Alternancia Ejecutiva & Control Inhibitorio",
-                    "study": "Karbach & Kray (Psychological Science, 2009) · Diamond (Annual Review of Psychology, Harvard, 2013)",
-                    "mechanism": "Cambio rápido entre reglas en conflicto (Task-Switching + Stroop) para reducir el coste de conmutación sináptica.",
+                    "study": (
+                        "Karbach & Kray (Psychological Science, 2009) · Diamond (Annual Review of Psychology, Harvard, "
+                        "2013)"
+                    ),
+                    "mechanism": (
+                        "Cambio rápido entre reglas en conflicto (Task-Switching + Stroop) para reducir el coste de "
+                        "conmutación sináptica."
+                    ),
                     "best_level": "95%",
                 },
                 {
                     "id": "dsst_control",
                     "name": "Prueba de Control WAIS Digit-Symbol (DSST)",
-                    "study": "Wechsler Adult Intelligence Scale (WAIS-IV) · Medidor objetivo de transferencia lejana sin sesgo de práctica",
-                    "mechanism": "Evalúa velocidad psicomotora, memoria de trabajo e inteligencia fluida real fuera de los ejercicios entrenados.",
+                    "study": (
+                        "Wechsler Adult Intelligence Scale (WAIS-IV) · Medidor objetivo de transferencia lejana sin "
+                        "sesgo de práctica"
+                    ),
+                    "mechanism": (
+                        "Evalúa velocidad psicomotora, memoria de trabajo e inteligencia fluida real fuera de los "
+                        "ejercicios entrenados."
+                    ),
                     "best_level": "68 símbolos/90s",
                 },
             ],
             "history": [
-                {"date": "Hace 3 días", "exercise": "dual_nback", "score": 84, "level": 2, "iq_est": 120},
-                {"date": "Hace 2 días", "exercise": "raven_matrices", "score": 90, "level": 3, "iq_est": 122},
-                {"date": "Ayer", "exercise": "ufov_speed", "score": 88, "level": 3, "iq_est": 123},
-                {"date": "Hoy", "exercise": "dual_nback", "score": 92, "level": 3, "iq_est": 124},
+                {
+                    "date": "Hace 3 días",
+                    "exercise": "dual_nback",
+                    "score": 84,
+                    "level": 2,
+                    "iq_est": 120,
+                },
+                {
+                    "date": "Hace 2 días",
+                    "exercise": "raven_matrices",
+                    "score": 90,
+                    "level": 3,
+                    "iq_est": 122,
+                },
+                {
+                    "date": "Ayer",
+                    "exercise": "ufov_speed",
+                    "score": 88,
+                    "level": 3,
+                    "iq_est": 123,
+                },
+                {
+                    "date": "Hoy",
+                    "exercise": "dual_nback",
+                    "score": 92,
+                    "level": 3,
+                    "iq_est": 124,
+                },
             ],
         },
         # 14. Active AI Coach conversation
@@ -487,6 +544,33 @@ def _default_health_hub() -> Dict[str, Any]:
             }
         ],
     }
+
+
+def _mark_entered(hub: Dict[str, Any], what: str) -> None:
+    """Remember which parts of the hub hold the owner's own data. The rest are
+    placeholders to keep the structure, and the app never shows them as real."""
+    hub.setdefault("entered", {})[what] = time.time()
+
+
+def _known_facts(hub: Dict[str, Any]) -> str:
+    """Only what the owner entered, as one sentence (empty when nothing)."""
+    seen = hub.get("entered") or {}
+    parts = []
+    if seen.get("vitals") or seen.get("heart"):
+        heart = hub["heart"]
+        parts.append(
+            f"pulso en reposo {heart['resting_hr']} lpm, VFC {heart['hrv_ms']} ms"
+        )
+    if seen.get("sleep"):
+        parts.append(f"sueño {hub['sleep']['total_hours']} h")
+    if seen.get("mental"):
+        parts.append(f"ánimo: {hub['mental']['mood_today']}")
+    if seen.get("nutrition"):
+        nut = hub["nutrition"]
+        parts.append(
+            f"hoy {nut['kcal_consumed']} kcal y {nut['protein_g']} g de proteína (estimación)"
+        )
+    return ("Datos que anotó el señor: " + "; ".join(parts) + ".") if parts else ""
 
 
 def load_health_hub() -> Dict[str, Any]:
@@ -568,23 +652,25 @@ def _recompute_readiness(hub: Dict[str, Any]) -> None:
 
 @router.get("/health")
 async def health() -> Dict[str, Any]:
+    """The health hub. The short strings (older clients) say only what the owner
+    entered; the placeholders in the hub are never presented as measurements."""
     hub = load_health_hub()
-    # Build legacy fields too so older components never break
-    sleep = hub["sleep"]
-    heart = hub["heart"]
-    activity = hub["activity"]
-    gym = hub["gym"]
+    seen = hub.get("entered") or {}
+    sleep, heart, gym = hub["sleep"], hub["heart"], hub["gym"]
     return {
-        "sleep": f"{sleep['total_hours']} h ({sleep['deep_hours']} h profundo · {sleep['rem_hours']} h REM)",
+        "sleep": f"{sleep['total_hours']} h" if seen.get("sleep") else "Sin datos",
         "vitals": (
-            f"Recuperación {hub['readiness']['score']}% · FC reposo {heart['resting_hr']} lpm · "
-            f"VFC {heart['hrv_ms']} ms · PA {heart['bp_systolic']}/{heart['bp_diastolic']} mmHg"
+            f"Pulso en reposo {heart['resting_hr']} lpm · VFC {heart['hrv_ms']} ms"
+            if seen.get("vitals") or seen.get("heart")
+            else "Sin datos"
         ),
         "gym": (
-            f"Índice Cognitivo {gym['cognitive_index']} (Percentil {gym['gf_percentile']}) · "
-            f"{gym['sessions_completed']} sesiones completadas"
+            f"Índice cognitivo {gym['cognitive_index']} · {gym['sessions_completed']} sesiones"
+            if seen.get("gym")
+            else "Sin sesiones"
         ),
-        "plan": hub["training_plan"]["today"]["title"],
+        "plan": hub["training_plan"]["today"]["title"] if seen else "",
+        "entered": seen,
         "hub": hub,
     }
 
@@ -603,7 +689,14 @@ async def health_log(req: HealthLogRequest) -> Dict[str, Any]:
     cat = req.category.strip().lower()
     p = req.payload or {}
     if cat in ("vitals", "heart"):
-        for k in ("resting_hr", "current_hr", "hrv_ms", "bp_systolic", "bp_diastolic", "ecg_last"):
+        for k in (
+            "resting_hr",
+            "current_hr",
+            "hrv_ms",
+            "bp_systolic",
+            "bp_diastolic",
+            "ecg_last",
+        ):
             if k in p and p[k] is not None:
                 hub["heart"][k] = p[k]
         hub["heart"]["history"].append(
@@ -618,7 +711,14 @@ async def health_log(req: HealthLogRequest) -> Dict[str, Any]:
         hub["heart"]["history"] = hub["heart"]["history"][-10:]
         _recompute_readiness(hub)
     elif cat == "sleep":
-        for k in ("total_hours", "rem_hours", "deep_hours", "core_hours", "respiratory_rate_rpm", "spo2_pct"):
+        for k in (
+            "total_hours",
+            "rem_hours",
+            "deep_hours",
+            "core_hours",
+            "respiratory_rate_rpm",
+            "spo2_pct",
+        ):
             if k in p and p[k] is not None:
                 hub["sleep"][k] = float(p[k])
         _recompute_readiness(hub)
@@ -650,9 +750,9 @@ async def health_log(req: HealthLogRequest) -> Dict[str, Any]:
                     "when": "Hoy",
                 },
             )
-            hub["activity"]["active_kcal"] = int(hub["activity"].get("active_kcal", 0)) + int(
-                p.get("kcal") or 310
-            )
+            hub["activity"]["active_kcal"] = int(
+                hub["activity"].get("active_kcal", 0)
+            ) + int(p.get("kcal") or 310)
     elif cat == "mental":
         if "mood" in p:
             hub["mental"]["mood_today"] = str(p["mood"])
@@ -686,7 +786,13 @@ async def health_log(req: HealthLogRequest) -> Dict[str, Any]:
                 },
             )
     elif cat == "sensory":
-        for k in ("ambient_db", "headphone_db", "daylight_minutes", "hearing_test_left_dbhl", "hearing_test_right_dbhl"):
+        for k in (
+            "ambient_db",
+            "headphone_db",
+            "daylight_minutes",
+            "hearing_test_left_dbhl",
+            "hearing_test_right_dbhl",
+        ):
             if k in p and p[k] is not None:
                 hub["sensory"][k] = int(p[k])
         db = int(hub["sensory"]["ambient_db"])
@@ -723,7 +829,9 @@ async def health_log(req: HealthLogRequest) -> Dict[str, Any]:
             )
     elif cat == "water":
         add_ml = int(p.get("add_ml") or 250)
-        hub["nutrition"]["water_ml"] = max(0, int(hub["nutrition"].get("water_ml", 0)) + add_ml)
+        hub["nutrition"]["water_ml"] = max(
+            0, int(hub["nutrition"].get("water_ml", 0)) + add_ml
+        )
     elif cat == "challenge":
         cid = str(p.get("id") or "")
         for ch in hub["gamification"]["challenges"]:
@@ -732,6 +840,7 @@ async def health_log(req: HealthLogRequest) -> Dict[str, Any]:
                 ch["progress_pct"] = min(100, int(ch.get("progress_pct", 80)) + 5)
     hub["gamification"]["xp"] = int(hub["gamification"].get("xp", 3400)) + 25
     hub["gamification"]["level"] = 1 + hub["gamification"]["xp"] // 250
+    _mark_entered(hub, cat)
     save_health_hub(hub)
     return {"ok": True, "hub": hub}
 
@@ -745,26 +854,67 @@ class NutritionAIRequest(BaseModel):
 async def nutrition_ai(req: NutritionAIRequest) -> Dict[str, Any]:
     desc = req.description.strip()
     if not desc:
-        raise HTTPException(status_code=400, detail="Describa la comida o suba una foto.")
+        raise HTTPException(
+            status_code=400, detail="Describa la comida o suba una foto."
+        )
     # Heuristic + LLM estimation so it works instantaneously even offline
     low = desc.lower()
     kcal = 480
     prot = 32
     carbs = 45
     fat = 18
-    insight = "Comida equilibrada con aporte de aminoácidos esenciales y energía sostenida."
-    if any(w in low for w in ("pollo", "pechuga", "pavo", "carne", "res", "filete", "atún", "atun", "salmón", "salmon", " pescado", "huevo")):
+    insight = (
+        "Comida equilibrada con aporte de aminoácidos esenciales y energía sostenida."
+    )
+    proteins = ("pollo", "pechuga", "pavo", "carne", "res", "filete", "atún", "atun")
+    proteins += ("salmón", "salmon", " pescado", "huevo")
+    if any(w in low for w in proteins):
         prot += 22
         kcal += 140
         insight = "Excelente densidad proteica (leucina alta) para síntesis miofibrilar y saciedad."
-    if any(w in low for w in ("arroz", "pasta", "pan", "patata", "papa", "avena", "quinoa", "plátano", "platano")):
+    if any(
+        w in low
+        for w in (
+            "arroz",
+            "pasta",
+            "pan",
+            "patata",
+            "papa",
+            "avena",
+            "quinoa",
+            "plátano",
+            "platano",
+        )
+    ):
         carbs += 35
         kcal += 130
-    if any(w in low for w in ("aguacate", "palta", "aceite", "nueces", "almendras", "queso", "mantequilla")):
+    if any(
+        w in low
+        for w in (
+            "aguacate",
+            "palta",
+            "aceite",
+            "nueces",
+            "almendras",
+            "queso",
+            "mantequilla",
+        )
+    ):
         fat += 14
         kcal += 120
         insight += " Ácidos grasos monoinsaturados y neuroprotectores incluidos."
-    if any(w in low for w in ("ensalada", "brócoli", "brocoli", "espinaca", "verdura", "fruta", "arándanos")):
+    if any(
+        w in low
+        for w in (
+            "ensalada",
+            "brócoli",
+            "brocoli",
+            "espinaca",
+            "verdura",
+            "fruta",
+            "arándanos",
+        )
+    ):
         insight += " Rico en sulforafano, folato y polifenoles que mejoran la función endotelial."
 
     meal = {
@@ -786,6 +936,7 @@ async def nutrition_ai(req: NutritionAIRequest) -> Dict[str, Any]:
     nut["carbs_g"] = int(nut.get("carbs_g", 0)) + carbs
     nut["fat_g"] = int(nut.get("fat_g", 0)) + fat
     hub["gamification"]["xp"] = int(hub["gamification"].get("xp", 3400)) + 30
+    _mark_entered(hub, "nutrition")
     save_health_hub(hub)
     return {"ok": True, "meal": meal, "hub": hub}
 
@@ -798,7 +949,9 @@ class CoachAIRequest(BaseModel):
 async def coach_ai(req: CoachAIRequest) -> Dict[str, Any]:
     question = req.message.strip()
     if not question:
-        raise HTTPException(status_code=400, detail="Escriba su consulta para el Coach.")
+        raise HTTPException(
+            status_code=400, detail="Escriba su consulta para el Coach."
+        )
     hub = load_health_hub()
     hub["coach_messages"].append(
         {"role": "user", "text": question, "at": time.strftime("%H:%M")}
@@ -806,8 +959,22 @@ async def coach_ai(req: CoachAIRequest) -> Dict[str, Any]:
 
     # Check if user mentions fatigue/bad sleep/stress so we dynamically adapt the workout
     q_low = question.lower()
-    if any(w in q_low for w in ("cansado", "dormí mal", "dormi mal", "estrés", "estres", "dolor", "suave", "agotado")):
-        hub["training_plan"]["today"] = dict(hub["training_plan"]["if_tired_alternative"])
+    if any(
+        w in q_low
+        for w in (
+            "cansado",
+            "dormí mal",
+            "dormi mal",
+            "estrés",
+            "estres",
+            "dolor",
+            "suave",
+            "agotado",
+        )
+    ):
+        hub["training_plan"]["today"] = dict(
+            hub["training_plan"]["if_tired_alternative"]
+        )
         hub["training_plan"]["adapted_reason"] = (
             "Adaptado en tiempo real por el Coach IA tras reportar fatiga/estrés."
         )
@@ -822,14 +989,10 @@ async def coach_ai(req: CoachAIRequest) -> Dict[str, Any]:
         if resolved is not None:
             _key, engine = resolved
             sys_prompt = (
-                "Eres el Coach Biomédico y de Rendimiento Cognitivo de Sergio (nivel Harvard Medical School / "
-                "Stanford Performance Lab). Sé cálido, conciso (máximo 4-5 frases), riguroso y directo. "
-                f"Datos actuales del señor: Recuperación {hub['readiness']['score']}%, "
-                f"VFC {hub['heart']['hrv_ms']} ms, FC reposo {hub['heart']['resting_hr']} lpm, "
-                f"Sueño {hub['sleep']['total_hours']} h ({hub['sleep']['deep_hours']} h profundo), "
-                f"VO2 máx {hub['activity']['vo2_max']} mL/kg/min, "
-                f"Nutrición hoy {hub['nutrition']['kcal_consumed']} kcal ({hub['nutrition']['protein_g']}g proteína), "
-                f"Índice Cognitivo Gf {hub['gym']['cognitive_index']}."
+                "Eres el coach de salud y rendimiento de Sergio. Sé cálido, conciso "
+                "(máximo 4-5 frases) y directo. No diagnostique ni invente cifras: use "
+                "solo los datos que siguen, y si no hay ninguno, dígalo y pida el dato "
+                "que más ayudaría. " + _known_facts(hub)
             )
             res = await asyncio.to_thread(
                 engine.generate,
@@ -845,14 +1008,11 @@ async def coach_ai(req: CoachAIRequest) -> Dict[str, Any]:
         reply = ""
 
     if not reply:
-        r_score = hub["readiness"]["score"]
+        known = _known_facts(hub)
         reply = (
-            f"Con su recuperación actual al **{r_score}%** (VFC de {hub['heart']['hrv_ms']} ms y "
-            f"{hub['sleep']['deep_hours']} h de sueño profundo), mi recomendación clínica es: "
-            f"**{hub['training_plan']['today']['title']}**. "
-            f"Lleva {hub['nutrition']['protein_g']} g de proteína hoy (meta {hub['nutrition']['protein_target_g']} g) "
-            f"y {hub['nutrition']['water_ml']} mL de agua; añada 400 mL de agua con electrolitos y "
-            "complete 1 ronda de **Dual N-Back** para consolidar la plasticidad prefrontal."
+            f"{known} Cuénteme cómo durmió y cómo se siente y le doy un consejo concreto."
+            if known
+            else "Todavía no tengo datos suyos. Anote cómo durmió, su pulso o su ánimo y le doy un consejo concreto."
         )
 
     hub["coach_messages"].append(
@@ -879,12 +1039,16 @@ async def gym_session(req: GymSessionRequest) -> Dict[str, Any]:
     hub = load_health_hub()
     gym = hub["gym"]
     gym["sessions_completed"] = int(gym.get("sessions_completed", 0)) + 1
-    gym["minutes_trained"] = int(gym.get("minutes_trained", 0)) + max(1, round(req.duration_sec / 60))
+    gym["minutes_trained"] = int(gym.get("minutes_trained", 0)) + max(
+        1, round(req.duration_sec / 60)
+    )
 
     # Adaptive N-Back progression (Jaeggi et al., PNAS 2008 threshold: >=80% advances N, <50% lowers N)
     if req.exercise == "dual_nback":
         if req.score >= 80:
-            gym["n_back_level"] = min(6, max(int(gym.get("n_back_level", 2)), req.level) + 1)
+            gym["n_back_level"] = min(
+                6, max(int(gym.get("n_back_level", 2)), req.level) + 1
+            )
         elif req.score < 50 and int(gym.get("n_back_level", 2)) > 1:
             gym["n_back_level"] = max(1, int(gym.get("n_back_level", 2)) - 1)
 
@@ -905,8 +1069,11 @@ async def gym_session(req: GymSessionRequest) -> Dict[str, Any]:
         }
     )
     gym["history"] = gym["history"][-25:]
-    hub["gamification"]["xp"] = int(hub["gamification"].get("xp", 3400)) + 60 + req.level * 15
+    hub["gamification"]["xp"] = (
+        int(hub["gamification"].get("xp", 3400)) + 60 + req.level * 15
+    )
     hub["gamification"]["level"] = 1 + hub["gamification"]["xp"] // 250
+    _mark_entered(hub, "gym")
     save_health_hub(hub)
     # Also notify Windows companion brain.py in background if running
     try:
@@ -936,6 +1103,7 @@ async def health_sync(req: SyncConnectorRequest) -> Dict[str, Any]:
             c["connected"] = True
             c["last_sync"] = f"Sincronizado {time.strftime('%H:%M')}"
     hub["gamification"]["xp"] = int(hub["gamification"].get("xp", 3400)) + 20
+    _mark_entered(hub, "sync")
     save_health_hub(hub)
     return {"ok": True, "hub": hub}
 
@@ -979,7 +1147,9 @@ def save_sticky_notes(notes: List[Dict[str, Any]]) -> None:
         path = _notes_path()
         path.parent.mkdir(parents=True, exist_ok=True)
         tmp = path.with_suffix(".tmp")
-        tmp.write_text(json.dumps(notes, ensure_ascii=False, indent=2), encoding="utf-8")
+        tmp.write_text(
+            json.dumps(notes, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
         tmp.replace(path)
 
 
@@ -1048,18 +1218,17 @@ async def delete_sticky_note(note_id: str) -> Dict[str, Any]:
 
 @router.get("/profile")
 async def profile() -> Dict[str, Any]:
+    """The profile Sergio keeps of the owner. It lives in the Windows companion;
+    with the companion closed we say so, we never invent facts about the owner."""
     try:
-        return await asyncio.to_thread(_skill, "profile_summary", timeout_s=1.8)
+        data = await asyncio.to_thread(_skill, "profile_summary", timeout_s=1.8)
+        return {"companion": True, **data}
     except HTTPException:
-        hub = load_health_hub()
         return {
-            "facts": (
-                f"Nivel {hub['gamification']['level']} ({hub['gamification']['title']}) · "
-                f"Recuperación {hub['readiness']['score']}% · Índice Cognitivo {hub['gym']['cognitive_index']}"
-            ),
-            "goals": "Mejorar inteligencia fluida (Gf), optimizar VO2 máx (>50) y mantener sueño profundo >1.7 h.",
-            "faces": "Reconocimiento facial activo y cifrado localmente.",
-            "agents": "Nodes y Agent Swarm disponibles desde el chat y la barra lateral.",
+            "companion": False,
+            "text": "",
+            "updates": 0,
+            "message": "El perfil se arma en el PC con Sergio Escritorio. Ábralo y aquí aparecerá.",
         }
 
 

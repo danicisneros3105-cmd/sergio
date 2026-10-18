@@ -248,5 +248,3 @@ def test_professional_apps_tool_runs_creator_engines(tmp_path):
     cv2.imwrite(str(src), img)
     res_cut = tool.execute(action="image_cutout", path=str(src))
     assert res_cut.success and (tmp_path / "sujeto-recorte.png").exists()
-
-

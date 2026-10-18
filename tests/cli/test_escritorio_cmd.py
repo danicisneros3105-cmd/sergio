@@ -14,15 +14,13 @@ def test_enable_tools_adds_desktop_tools_and_turns(tmp_path):
     )
     escritorio_cmd.enable_tools(cfg)
     text = cfg.read_text()
-    assert (
-        'enabled = ["think", "screen_read", "anatomy_figure", "verified_math", "scene_reason", '
-        '"calculator", "get_weather", '
-        '"globe_view", "live_flights", "flights_overhead", "live_earthquakes", '
-        '"professional_apps", "opendesign", "kronos_forecast", "desktop_action", '
-        '"camera_look", "video_edit", "blender_create", "face_approval", '
-        '"face_enroll", "files_organize", "python_run", "terminal_run", '
-        '"skill_guide", "web_search"]'
-    ) in text
+    expected = ["think", "screen_read"]
+    for name in (*escritorio_cmd.BASE_TOOLS, *escritorio_cmd.DESKTOP_TOOLS):
+        if name not in expected:
+            expected.append(name)  # what is already there stays first, the rest follow
+    assert "enabled = [" + ", ".join(f'"{n}"' for n in expected) + "]" in text
+    for name in ("sergio_app", "face_approval", "desktop_action", "web_search"):
+        assert name in expected
     assert "max_turns = 25" in text
     escritorio_cmd.enable_tools(cfg)  # idempotent
     assert cfg.read_text() == text

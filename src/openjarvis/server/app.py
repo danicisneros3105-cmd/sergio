@@ -183,7 +183,6 @@ class _NoCacheStaticFiles(StaticFiles):
         await super().__call__(scope, receive, _send_with_headers)
 
 
-
 def create_app(
     engine,
     model: str,

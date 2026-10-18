@@ -57,7 +57,7 @@ def test_live_does_not_play_or_act_on_explicit_side_conversation():
         assert not any(e["type"] == "said" for e in ws.json)
         assert (
             "No se ejecutó"
-            in session.sent[0][1]["function_responses"].response["result"]
+            in session.sent[0][1]["function_responses"][0].response["result"]
         )
 
     asyncio.run(run())

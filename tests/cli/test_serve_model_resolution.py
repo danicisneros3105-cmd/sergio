@@ -13,6 +13,9 @@ class _FakeEngine:
     def list_models(self) -> list[str]:
         return self._models
 
+    def can_serve(self, model: str) -> bool:
+        return model in self._models
+
 
 def test_server_model_falls_back_to_reachable_ollama_model() -> None:
     cfg = JarvisConfig()

@@ -686,7 +686,27 @@ class NodeStore:
             m = team.member(node.team)
             if m is not None:
                 self.say(node.id, "node", team.greeting(m))
+        self.retire_leo()
         return made
+
+    def retire_leo(self) -> List[str]:
+        """Leo (the old «Investigador» template) is gone: the owner asked for it.
+        His folder is moved to ``retirados/`` instead of deleted, so nothing is lost
+        for good. Only a Node still named Leo and made from that template moves."""
+        moved: List[str] = []
+        with self._lock:
+            for node in self.all():
+                if node.team or node.name != "Leo" or node.template != "investigador":
+                    continue
+                target = self.home / "retirados" / node.id
+                target.parent.mkdir(parents=True, exist_ok=True)
+                shutil.move(str(self.dir(node.id)), str(target))
+                moved.append(node.id)
+            rest = self.all()
+            if rest and not any(n.primary for n in rest):
+                rest[0].primary = True
+                self.save(rest[0])
+        return moved
 
     # -- threads -------------------------------------------------------------------
     def add_thread(self, node_id: str, title: str = "") -> Dict[str, Any]:

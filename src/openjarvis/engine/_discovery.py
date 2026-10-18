@@ -136,7 +136,6 @@ def _ensure_cloud_env_loaded() -> None:
         pass
 
 
-
 def discover_engines(config: JarvisConfig) -> List[Tuple[str, InferenceEngine]]:
     """Probe registered engines and return ``[(key, instance)]`` for healthy ones.
 

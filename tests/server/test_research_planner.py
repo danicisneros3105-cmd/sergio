@@ -160,16 +160,28 @@ def test_build_planner_engine_uses_active_engine_without_config_fallback(
     assert model == "selected-model"
 
 
-def test_build_planner_engine_rejects_active_engine_that_cannot_serve_model() -> None:
+def test_build_planner_engine_falls_back_to_the_active_engine_when_it_cannot_serve(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Deep Research works out of the box: with no engine of its own, it keeps
+    using the chat engine and the chat model instead of failing."""
     cfg = JarvisConfig()
+    active_engine = _DummyEngine(servable=False)
+    monkeypatch.setattr(research_router, "get_engine", lambda *args, **kwargs: None)
 
-    with pytest.raises(RuntimeError, match="selected-model"):
-        research_router._build_planner_engine(
-            cfg,
-            active_engine=_DummyEngine(servable=False),
-            active_engine_key="cloud",
-            request_model="selected-model",
-        )
+    engine_key, resolved_engine, model = research_router._build_planner_engine(
+        cfg,
+        active_engine=active_engine,
+        active_engine_key="cloud",
+        active_model="server-model",
+        request_model="selected-model",
+    )
+
+    assert (engine_key, resolved_engine, model) == (
+        "cloud",
+        active_engine,
+        "server-model",
+    )
 
 
 def test_build_planner_engine_honors_explicit_deep_research_engine(
@@ -252,24 +264,28 @@ def test_research_route_passes_live_engine_and_selected_model(
     }
 
 
-def test_build_planner_engine_rejects_fallback_engine(
+def test_build_planner_engine_uses_the_engine_the_resolver_found(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     cfg = JarvisConfig()
     cfg.engine.default = "lmstudio"
     cfg.intelligence.default_model = "local-model"
+    found = _DummyEngine()
 
     def fake_get_engine(
         config: JarvisConfig,
         engine_key: str | None = None,
         model: str | None = None,
     ) -> tuple[str, _DummyEngine]:
-        return "ollama", _DummyEngine()
+        return "ollama", found
 
     monkeypatch.setattr(research_router, "get_engine", fake_get_engine)
 
-    with pytest.raises(RuntimeError, match="lmstudio"):
-        research_router._build_planner_engine(cfg)
+    assert research_router._build_planner_engine(cfg) == (
+        "ollama",
+        found,
+        "local-model",
+    )
 
 
 def test_build_planner_engine_rejects_unavailable_engine(

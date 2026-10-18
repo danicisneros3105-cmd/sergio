@@ -390,9 +390,7 @@ class SystemBuilder:
 
         pref = config.intelligence.preferred_engine
         key = self._engine_key or pref or None
-        selection_model = (
-            self._model or config.intelligence.default_model or None
-        )
+        selection_model = self._model or config.intelligence.default_model or None
         resolved = get_engine(config, key, model=selection_model)
         if resolved is None and not self._model and selection_model:
             fallback_model = config.intelligence.fallback_model or None
