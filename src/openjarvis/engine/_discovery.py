@@ -119,11 +119,22 @@ def _maybe_register_mining_sidecar_engine() -> None:
     EngineRegistry.register_value("vllm-pearl-mining", _cls)
 
 
+def _ensure_cloud_env_loaded() -> None:
+    """Load ~/.openjarvis/sergio.env if present so cloud keys are visible."""
+    try:
+        from openjarvis.cli.nube_cmd import load_env_file
+
+        load_env_file()
+    except Exception:
+        pass
+
+
 def discover_engines(config: JarvisConfig) -> List[Tuple[str, InferenceEngine]]:
     """Probe registered engines and return ``[(key, instance)]`` for healthy ones.
 
     Results are sorted with the config default engine first.
     """
+    _ensure_cloud_env_loaded()
     _maybe_register_mining_sidecar_engine()
 
     # Probe engines concurrently: each health() does a blocking network
@@ -194,6 +205,7 @@ def get_engine(
 
     Returns ``(key, engine_instance)`` or ``None`` if no engine is available.
     """
+    _ensure_cloud_env_loaded()
 
     def _usable(engine: InferenceEngine) -> bool:
         return engine.health() and (model is None or engine.can_serve(model))

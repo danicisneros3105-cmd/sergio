@@ -122,12 +122,13 @@ class InferenceEngine(ABC):
     def can_serve(self, model: str) -> bool:
         """Return ``True`` if this engine can serve *model*.
 
-        Defaults to ``True``: local engines accept any model id (whether a
-        specific model is *installed* is a separate concern from engine
-        selection). Engines that multiplex provider-specific clients (e.g.
-        the cloud engine) override this so selection can skip an engine whose
-        client for the model's provider isn't configured (see #532).
+        Defaults to ``True`` for local models, while rejecting proprietary
+        cloud-only model IDs (``gemini-*``, ``gpt-*``, ``claude-*``, ``kimi-*``,
+        etc.) on non-cloud engines so discovery can route them to ``CloudEngine``
+        even when a local engine such as Ollama is running.
         """
+        if not getattr(self, "is_cloud", False) and is_cloud_only_model(model):
+            return False
         return True
 
     def close(self) -> None:
@@ -137,4 +138,40 @@ class InferenceEngine(ABC):
         """Optional warm-up hook called before the first request."""
 
 
-__all__ = ["InferenceEngine", "ResponseFormat", "StreamChunk"]
+_CLOUD_ONLY_PREFIXES = (
+    "gemini-",
+    "claude-",
+    "gpt-",
+    "chatgpt-",
+    "o1-",
+    "o3-",
+    "o4-",
+    "kimi-",
+    "moonshot-",
+    "minimax-",
+    "deepseek-v",
+    "deepseek-chat",
+    "deepseek-reasoner",
+    "openrouter/",
+    "atlascloud/",
+    "codex/",
+)
+
+
+def is_cloud_only_model(model: str) -> bool:
+    """Return ``True`` when *model* is a cloud-only provider model ID."""
+    base = (model or "").strip().partition("@")[0].lower()
+    if not base:
+        return False
+    if base in {"o1", "o3", "o4"}:
+        return True
+    return base.startswith(_CLOUD_ONLY_PREFIXES)
+
+
+__all__ = [
+    "InferenceEngine",
+    "ResponseFormat",
+    "StreamChunk",
+    "is_cloud_only_model",
+]
+

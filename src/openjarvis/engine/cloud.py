@@ -603,6 +603,20 @@ def _is_busy_error(exc: Exception) -> bool:
     )
 
 
+def _is_model_not_found_error(exc: Exception) -> bool:
+    """Model ID is unavailable on this API key/tier (404 NOT_FOUND): try a sibling."""
+    text = str(exc)
+    low = text.lower()
+    return (
+        "404" in text
+        or "NOT_FOUND" in text
+        or "is not found" in low
+        or ("model" in low and "not found" in low)
+        or "does not exist" in low
+    )
+
+
+
 def google_schema(schema: Any) -> Dict[str, Any]:
     """A JSON Schema reduced to what Gemini function declarations accept."""
     if not isinstance(schema, dict):
@@ -1036,6 +1050,7 @@ class CloudEngine(
         ``generate``/``stream`` keep their OpenAI fall-through, so an
         explicitly-requested unknown cloud model still fails loudly at call time.
         """
+        model, _ = split_effort(model)
         if _is_codex_model(model):
             return self._codex_client
         if _is_openrouter_model(model):

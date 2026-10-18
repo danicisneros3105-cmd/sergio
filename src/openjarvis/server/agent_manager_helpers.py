@@ -143,8 +143,11 @@ def _make_lightweight_system(
             cfg = load_config()
 
         pref = cfg.intelligence.preferred_engine
-        key = pref or cfg.engine.default
-        resolved = get_engine(cfg, key)
+        key = pref or None
+        selection_model = model or cfg.intelligence.default_model or None
+        resolved = get_engine(cfg, key, model=selection_model)
+        if resolved is None and selection_model:
+            resolved = get_engine(cfg, key)
 
         if resolved is not None:
             plain_engine = resolved[1]
@@ -153,6 +156,18 @@ def _make_lightweight_system(
 
             host = cfg.engine.ollama.host if cfg else ""
             plain_engine = OllamaEngine(host=host) if host else OllamaEngine()
+
+        if model and not plain_engine.can_serve(model):
+            fb = cfg.intelligence.fallback_model if cfg else ""
+            if fb and plain_engine.can_serve(fb):
+                model = fb
+            else:
+                try:
+                    avail = plain_engine.list_models()
+                    if avail:
+                        model = avail[0]
+                except Exception:
+                    pass
 
         # Wrap with InstrumentedEngine so agent ticks are recorded
         # in telemetry (FLOPs, energy, cost savings).

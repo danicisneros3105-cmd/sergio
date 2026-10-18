@@ -110,7 +110,11 @@ def _resolve_server_model(
     )
 
     for candidate in candidates:
-        if candidate and (not available or candidate in available):
+        if (
+            candidate
+            and engine.can_serve(candidate)
+            and (not available or candidate in available)
+        ):
             return candidate
 
     return available[0] if available else ""
@@ -195,6 +199,12 @@ def serve(
         model_name or config.server.model or config.intelligence.default_model or None
     )
     resolved = get_engine(config, engine_key, model=selection_model)
+    if resolved is None and not model_name and selection_model:
+        fallback_model = config.intelligence.fallback_model or None
+        if fallback_model and fallback_model != selection_model:
+            resolved = get_engine(config, engine_key, model=fallback_model)
+        if resolved is None:
+            resolved = get_engine(config, engine_key)
     if resolved is None:
         console.print(
             "[red bold]No inference engine available.[/red bold]\n\n"
@@ -220,6 +230,11 @@ def serve(
         or os.environ.get("GEMINI_API_KEY")
         or os.environ.get("GOOGLE_API_KEY")
         or os.environ.get("OPENROUTER_API_KEY")
+        or os.environ.get("MOONSHOT_API_KEY")
+        or os.environ.get("KIMI_API_KEY")
+        or os.environ.get("DEEPSEEK_API_KEY")
+        or os.environ.get("MINIMAX_API_KEY")
+        or os.environ.get("ATLASCLOUD_API_KEY")
     )
     if _has_cloud and engine_name != "cloud":
         try:

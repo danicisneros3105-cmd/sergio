@@ -207,7 +207,18 @@ class Jarvis:
 
         pref = self._config.intelligence.preferred_engine
         engine_key = self._engine_key or pref or None
-        resolved = get_engine(self._config, engine_key)
+        selection_model = (
+            self._model_override or self._config.intelligence.default_model or None
+        )
+        resolved = get_engine(self._config, engine_key, model=selection_model)
+        if resolved is None and not self._model_override and selection_model:
+            fallback_model = self._config.intelligence.fallback_model or None
+            if fallback_model and fallback_model != selection_model:
+                resolved = get_engine(
+                    self._config, engine_key, model=fallback_model
+                )
+            if resolved is None:
+                resolved = get_engine(self._config, engine_key)
         if resolved is None:
             raise RuntimeError(
                 "No inference engine available. "
@@ -429,8 +440,16 @@ class Jarvis:
 
     def _resolve_model(self, query: str) -> Optional[str]:
         """Resolve model using config fallback chain."""
-        if self._config.intelligence.default_model:
-            return self._config.intelligence.default_model
+        default_model = self._config.intelligence.default_model
+        if default_model and (
+            self._engine is None or self._engine.can_serve(default_model)
+        ):
+            return default_model
+        fallback_model = self._config.intelligence.fallback_model
+        if fallback_model and (
+            self._engine is None or self._engine.can_serve(fallback_model)
+        ):
+            return fallback_model
         # Try first available from engine
         try:
             models = self._engine.list_models()
@@ -438,7 +457,7 @@ class Jarvis:
                 return models[0]
         except Exception as exc:
             logger.warning("Failed to list models from engine: %s", exc)
-        return self._config.intelligence.fallback_model or None
+        return fallback_model or default_model or None
 
     def _run_agent(
         self,

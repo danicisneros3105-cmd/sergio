@@ -389,8 +389,17 @@ class SystemBuilder:
         from openjarvis.engine._discovery import get_engine
 
         pref = config.intelligence.preferred_engine
-        key = self._engine_key or pref or config.engine.default
-        resolved = get_engine(config, key)
+        key = self._engine_key or pref or None
+        selection_model = (
+            self._model or config.intelligence.default_model or None
+        )
+        resolved = get_engine(config, key, model=selection_model)
+        if resolved is None and not self._model and selection_model:
+            fallback_model = config.intelligence.fallback_model or None
+            if fallback_model and fallback_model != selection_model:
+                resolved = get_engine(config, key, model=fallback_model)
+            if resolved is None:
+                resolved = get_engine(config, key)
         if resolved is None:
             raise RuntimeError(
                 "No inference engine available. "
@@ -414,15 +423,19 @@ class SystemBuilder:
     def _resolve_model(self, config: JarvisConfig, engine: InferenceEngine) -> str:
         if self._model:
             return self._model
-        if config.intelligence.default_model:
-            return config.intelligence.default_model
+        default_model = config.intelligence.default_model
+        if default_model and engine.can_serve(default_model):
+            return default_model
+        fallback_model = config.intelligence.fallback_model
+        if fallback_model and engine.can_serve(fallback_model):
+            return fallback_model
         try:
             models = engine.list_models()
             if models:
                 return models[0]
         except Exception as exc:
             logger.warning("Failed to list models from engine: %s", exc)
-        return config.intelligence.fallback_model or ""
+        return fallback_model or default_model or ""
 
     def _setup_telemetry(self, config, bus):
         try:

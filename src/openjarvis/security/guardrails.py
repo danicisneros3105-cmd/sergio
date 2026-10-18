@@ -314,6 +314,14 @@ class GuardrailsEngine(InferenceEngine):
                         },
                     )
 
+    @property
+    def is_cloud(self) -> bool:
+        return bool(getattr(self._engine, "is_cloud", False))
+
+    def can_serve(self, model: str) -> bool:
+        """Delegate to wrapped engine."""
+        return self._engine.can_serve(model)
+
     def list_models(self) -> List[str]:
         """Delegate to wrapped engine."""
         return self._engine.list_models()

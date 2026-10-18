@@ -8,7 +8,7 @@ from typing import Any, Dict, List
 
 from openjarvis.core.types import Message
 from openjarvis.engine._base import InferenceEngine
-from openjarvis.engine._stubs import StreamChunk
+from openjarvis.engine._stubs import StreamChunk, is_cloud_only_model
 
 logger = logging.getLogger(__name__)
 
@@ -40,21 +40,40 @@ class MultiEngine(InferenceEngine):
             except Exception as exc:
                 logger.debug("Failed to list models for %s: %s", key, exc)
 
-    _CLOUD_PREFIXES = ("gpt-", "o1-", "o3-", "o4-", "claude-", "gemini-", "openrouter/")
+    _CLOUD_PREFIXES = (
+        "gpt-",
+        "chatgpt-",
+        "o1-",
+        "o3-",
+        "o4-",
+        "claude-",
+        "gemini-",
+        "kimi-",
+        "moonshot-",
+        "minimax-",
+        "MiniMax-",
+        "deepseek-",
+        "openrouter/",
+        "atlascloud/",
+        "codex/",
+    )
 
     def _engine_for(self, model: str) -> InferenceEngine:
         """Find the engine that owns a model, refreshing the map once if needed."""
-        engine = self._model_map.get(model)
+        base_model = model.partition("@")[0]
+        engine = self._model_map.get(model) or self._model_map.get(base_model)
         if engine is not None:
             return engine
         # Refresh and retry (a new model may have been pulled)
         self._refresh_map()
-        engine = self._model_map.get(model)
+        engine = self._model_map.get(model) or self._model_map.get(base_model)
         if engine is not None:
             return engine
         # If model looks like a cloud model, route to the cloud engine
         # rather than falling back to the local engine (which would 404).
-        if any(model.startswith(p) for p in self._CLOUD_PREFIXES):
+        if is_cloud_only_model(model) or any(
+            base_model.startswith(p) for p in self._CLOUD_PREFIXES
+        ):
             for key, eng in self._engines:
                 if key == "cloud":
                     logger.info("Routing cloud model %r to cloud engine", model)
@@ -122,11 +141,24 @@ class MultiEngine(InferenceEngine):
 
     def engine_key_for(self, model: str) -> str | None:
         """Return the registry key of the engine advertising *model*."""
-        key = self._model_key_map.get(model)
+        base_model = model.partition("@")[0]
+        key = self._model_key_map.get(model) or self._model_key_map.get(base_model)
         if key is not None:
             return key
         self._refresh_map()
-        return self._model_key_map.get(model)
+        key = self._model_key_map.get(model) or self._model_key_map.get(base_model)
+        if key is not None:
+            return key
+        if is_cloud_only_model(model) or any(
+            base_model.startswith(p) for p in self._CLOUD_PREFIXES
+        ):
+            for ek, _eng in self._engines:
+                if ek == "cloud":
+                    return "cloud"
+        return None
+
+    def can_serve(self, model: str) -> bool:
+        return any(engine.can_serve(model) for _key, engine in self._engines)
 
     def health(self) -> bool:
         return any(engine.health() for _key, engine in self._engines)

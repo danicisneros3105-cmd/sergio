@@ -22,7 +22,7 @@ from openjarvis.engine._http_async import (
     STREAM_TRANSPORT_ERRORS,
     AsyncHTTPEngineMixin,
 )
-from openjarvis.engine._stubs import StreamChunk
+from openjarvis.engine._stubs import StreamChunk, is_cloud_only_model
 
 logger = logging.getLogger(__name__)
 
@@ -137,6 +137,65 @@ class OllamaEngine(AsyncHTTPEngineMixin, InferenceEngine):
         self._client = httpx.Client(base_url=self._host, timeout=timeout)
         # Last stream usage — captured from Ollama's final chunk
         self._last_stream_usage: Dict[str, int] = {}
+        self._cloud_delegate: InferenceEngine | None = None
+
+    def _resolve_or_delegate_cloud_model(
+        self, model: str
+    ) -> tuple[InferenceEngine | None, str]:
+        """Ensure cloud-only model names never hit Ollama ``/api/chat`` directly.
+
+        If a cloud-only model (e.g. ``gemini-3.8-flash``) reaches ``OllamaEngine``,
+        first attempt to delegate to ``CloudEngine`` when its provider client is
+        configured; otherwise substitute an installed local Ollama model so the
+        request succeeds locally instead of failing with HTTP 404.
+        """
+        if not is_cloud_only_model(model):
+            return None, model
+
+        try:
+            from openjarvis.engine._discovery import _ensure_cloud_env_loaded
+            from openjarvis.engine.cloud import CloudEngine
+
+            _ensure_cloud_env_loaded()
+            if self._cloud_delegate is None or not self._cloud_delegate.can_serve(
+                model
+            ):
+                self._cloud_delegate = CloudEngine()
+            if self._cloud_delegate.can_serve(model):
+                logger.info(
+                    "Delegating cloud model %r from OllamaEngine to CloudEngine",
+                    model,
+                )
+                return self._cloud_delegate, model
+        except Exception as exc:
+            logger.debug("Could not delegate %r to CloudEngine: %s", model, exc)
+
+        local_models = [
+            m
+            for m in self.list_models()
+            if not is_cloud_only_model(m) and "embed" not in m.lower()
+        ]
+        fallback_local = ""
+        try:
+            from openjarvis.core.config import load_config
+
+            cfg_fb = load_config().intelligence.fallback_model
+            if cfg_fb and not is_cloud_only_model(cfg_fb):
+                if not local_models or cfg_fb in local_models:
+                    fallback_local = cfg_fb
+        except Exception:
+            pass
+        if not fallback_local and local_models:
+            fallback_local = local_models[0]
+        if fallback_local:
+            logger.warning(
+                "Cloud model %r reached OllamaEngine without a cloud key; "
+                "using local model %r instead",
+                model,
+                fallback_local,
+            )
+            return None, fallback_local
+        return None, model
 
     def generate(
         self,
@@ -147,6 +206,15 @@ class OllamaEngine(AsyncHTTPEngineMixin, InferenceEngine):
         max_tokens: int = 1024,
         **kwargs: Any,
     ) -> Dict[str, Any]:
+        delegate, model = self._resolve_or_delegate_cloud_model(model)
+        if delegate is not None:
+            return delegate.generate(
+                messages,
+                model=model,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                **kwargs,
+            )
         msg_dicts = messages_to_dicts(messages)
         # Ollama expects tool_call arguments as dicts, not JSON strings
         for md in msg_dicts:
@@ -280,6 +348,17 @@ class OllamaEngine(AsyncHTTPEngineMixin, InferenceEngine):
         max_tokens: int = 1024,
         **kwargs: Any,
     ) -> AsyncIterator[str]:
+        delegate, model = self._resolve_or_delegate_cloud_model(model)
+        if delegate is not None:
+            async for token in delegate.stream(
+                messages,
+                model=model,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                **kwargs,
+            ):
+                yield token
+            return
         payload: Dict[str, Any] = {
             "model": model,
             "messages": messages_to_dicts(messages),
@@ -368,6 +447,17 @@ class OllamaEngine(AsyncHTTPEngineMixin, InferenceEngine):
         response. Falls back to a tools-less retry on 400 (mirrors
         ``generate()``'s behaviour for models that don't support tools).
         """
+        delegate, model = self._resolve_or_delegate_cloud_model(model)
+        if delegate is not None:
+            async for chunk in delegate.stream_full(
+                messages,
+                model=model,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                **kwargs,
+            ):
+                yield chunk
+            return
         msg_dicts = messages_to_dicts(messages)
         for md in msg_dicts:
             for tc in md.get("tool_calls", []):

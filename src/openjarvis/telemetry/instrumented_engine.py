@@ -641,6 +641,13 @@ class InstrumentedEngine(InferenceEngine):
             usage=usage,
         )
 
+    @property
+    def is_cloud(self) -> bool:
+        return bool(getattr(self._inner, "is_cloud", False))
+
+    def can_serve(self, model: str) -> bool:
+        return self._inner.can_serve(model)
+
     def list_models(self) -> List[str]:
         return self._inner.list_models()
 

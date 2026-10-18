@@ -985,6 +985,14 @@ def ask(
     # and a model is chosen per-engine below.
     selection_model = model_name or config.intelligence.default_model or None
     resolved = get_engine(config, effective_engine_key, model=selection_model)
+    if resolved is None and not model_name and selection_model:
+        fallback_model = config.intelligence.fallback_model or None
+        if fallback_model and fallback_model != selection_model:
+            resolved = get_engine(
+                config, effective_engine_key, model=fallback_model
+            )
+        if resolved is None:
+            resolved = get_engine(config, effective_engine_key)
     if resolved is None:
         console.print(
             "[red bold]No inference engine available.[/red bold]\n\n"
@@ -1113,14 +1121,18 @@ def ask(
                 )
 
         if model_name is None:
-            model_name = config.intelligence.default_model
+            default_model = config.intelligence.default_model
+            if default_model and engine.can_serve(default_model):
+                model_name = default_model
     if not model_name:
         # Try first available from engine
         engine_models = all_models.get(engine_name, [])
         if engine_models:
             model_name = engine_models[0]
     if not model_name:
-        model_name = config.intelligence.fallback_model
+        fallback_model = config.intelligence.fallback_model
+        if fallback_model and engine.can_serve(fallback_model):
+            model_name = fallback_model
     if not model_name:
         console.print("[red]No model available on engine.[/red]")
         sys.exit(1)
