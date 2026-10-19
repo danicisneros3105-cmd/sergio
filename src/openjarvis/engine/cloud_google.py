@@ -157,8 +157,11 @@ class GoogleMixin:
                 content = ""
 
         um = resp.usage_metadata
-        prompt_tokens = getattr(um, "prompt_token_count", 0) if um else 0
-        completion_tokens = getattr(um, "candidates_token_count", 0) if um else 0
+        # Gemini sometimes sends these as None (blocked or cut-off replies).
+        prompt_tokens = int(getattr(um, "prompt_token_count", 0) or 0) if um else 0
+        completion_tokens = (
+            int(getattr(um, "candidates_token_count", 0) or 0) if um else 0
+        )
 
         result: Dict[str, Any] = {
             "content": content,

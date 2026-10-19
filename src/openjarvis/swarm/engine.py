@@ -43,6 +43,8 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
+from openjarvis.cli.friendly import plain
+
 logger = logging.getLogger(__name__)
 
 MAX_SUBTASKS = 300
@@ -76,6 +78,7 @@ SWARM_TOOLS = (
 )
 DEFAULT_TOOLS = ("web_search", "think")
 FINAL = ("done", "failed", "cancelled")
+AGENT_FAILED = "Could not parse the model's ReAct response"
 NO_BUDGET = "Sin presupuesto: el enjambre llegó a su tope de llamadas a herramientas."
 
 Ask = Callable[..., Any]  # (prompt, **kw) -> parsed JSON
@@ -634,10 +637,16 @@ class SwarmEngine:
                 + (" · el supervisor corrigió el informe" if run.revised else ""),
             )
             run.status = "done"
+            if run.subtasks and not any(s.status == "done" for s in run.subtasks):
+                run.status = "failed"
+                run.error = (
+                    "Ningún sub-agente pudo terminar. "
+                    + next((s.result for s in run.subtasks if s.result), "")[:300]
+                )
         except Exception as exc:  # noqa: BLE001
             logger.exception("swarm %s failed", run.id)
             run.status = "failed"
-            run.error = f"{type(exc).__name__}: {exc}"[:400]
+            run.error = plain(exc)[:400]
         finally:
             run.ended = time.time()
             for s in run.subtasks:
@@ -752,13 +761,18 @@ class SwarmEngine:
                 answer, calls = self._call(prompt, sub.tools, budget, seen)
                 sub.tool_calls += min(int(calls or 0), budget)
                 sub.result = str(answer or "").strip()
+                if sub.result.startswith(AGENT_FAILED):
+                    # The agent lost its thread: that is a failure to retry,
+                    # not a result to put in the report.
+                    raise RuntimeError(sub.result[:200])
                 sub.status = "done" if sub.result else "failed"
                 if not sub.result:
                     sub.result = "No devolvió nada."
             except Exception as exc:  # noqa: BLE001 - one sub-agent failing never sinks the swarm
+                logger.exception("swarm %s: sub-agent %s failed", run.id, sub.id)
                 sub.status, sub.result = (
                     "failed",
-                    f"Falló: {type(exc).__name__}: {exc}"[:400],
+                    f"No pudo terminar. {plain(exc)}"[:400],
                 )
             finally:
                 self._release(run, budget)
