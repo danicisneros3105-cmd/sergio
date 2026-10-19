@@ -2,7 +2,6 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
-<<<<<<< HEAD
 ## 2026-10-18 · Claude · Face ID más fácil, Sergio ya no responde a videos, cerebro por zonas
 - Petición del dueño: Face ID más fácil (siempre fallaba) y ver si puede
   desbloquear el PC o el Mac; que Sergio no hable solo ni responda a lo que no es
@@ -31,7 +30,6 @@ Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
   cada turno (`<cerebro_memoria>`), así recuerda más que la ventana de contexto.
   Nunca guarda secretos; `SERGIO_CEREBRO=0` lo apaga. Página «Cerebro» por zonas.
 - Pruebas: 11774 + 762 (escritorio) + 262 (frontend) pasan; ruff limpio.
-=======
 ## 2026-10-19 · Claude · Barra rápida del notch (mini tareas)
 - Petición del dueño: que el notch quede igual que la app y que desde ahí se
   puedan hacer mini tareas.
@@ -44,7 +42,6 @@ Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
   respeta movimiento reducido. El centro de control sigue a un atajo («Centro»).
 - Pruebas: `tests/escritorio/test_notch_bar.py` (6). Visto en pantalla real.
 - Pendiente: probarlo con el notch en vivo en el PC del dueño.
->>>>>>> claude/notch-barra
 
 ## 2026-10-18 · Claude · Voz siempre masculina, encuesta corta y larga, créditos sin logos, agente de código con marca Sergio, Workspace como Notion
 - Petición del dueño: usar todas sus imágenes en la encuesta de salud mental y
