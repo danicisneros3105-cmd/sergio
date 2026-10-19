@@ -2,6 +2,19 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-10-19 · Claude · Barra rápida del notch (mini tareas)
+- Petición del dueño: que el notch quede igual que la app y que desde ahí se
+  puedan hacer mini tareas.
+- Un clic en el notch ya no abre el centro de control: abre una barra negra
+  (`notch_bar.py`) con una línea para escribir y atajos (Recordar, Buscar,
+  Abrir, Segundo plano, Hablar, Centro). Enter manda el texto por el mismo
+  camino que el chat del centro de control (órdenes directas primero, luego el
+  agente) y la respuesta sale en el notch. Esc, clic fuera o Enter vacío la
+  cierran. Mismos colores, letra y medidas que `estilo.py`; sin emojis;
+  respeta movimiento reducido. El centro de control sigue a un atajo («Centro»).
+- Pruebas: `tests/escritorio/test_notch_bar.py` (6). Visto en pantalla real.
+- Pendiente: probarlo con el notch en vivo en el PC del dueño.
+
 ## 2026-10-18 · Claude · Voz siempre masculina, encuesta corta y larga, créditos sin logos, agente de código con marca Sergio, Workspace como Notion
 - Petición del dueño: usar todas sus imágenes en la encuesta de salud mental y
   que no se corten; dejar una encuesta corta y otra larga; que Sergio no

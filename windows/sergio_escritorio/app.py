@@ -4561,7 +4561,19 @@ def run(config: dict[str, Any]) -> None:
 
     controller.skills["creator_apps"] = creator_apps.skill
 
-    notch.on_click = panel.toggle
+    # A click on the notch opens the quick bar (small tasks); the control
+    # center is one chip away.
+    from sergio_escritorio.notch_bar import NotchBar
+
+    bar = NotchBar(
+        on_submit=lambda text: threading.Thread(
+            target=assistant.on_text, args=(text,), daemon=True
+        ).start(),
+        on_talk=ears.talk,
+        on_panel=panel.toggle,
+        reduced_motion=lambda: notch.reduced_motion or bool(config.get("reduce_motion", False)),
+    )
+    notch.on_click = bar.toggle
     companion.setVisible(bool(config["show_companion"]))
     notch.setVisible(show_notch)
     if not show_notch:
