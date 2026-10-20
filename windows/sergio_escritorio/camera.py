@@ -1038,7 +1038,7 @@ class CameraWindow(QWidget):
             return
         if scan.result is None or now - scan.finished_at > 6.0:
             return
-        # The learnt face, in 3D, turning in a warm Digital Paper card.
+        # The learnt face, in 3D, turning in a dark card.
         size = min(card.width(), card.height()) * 0.62
         panel = QRectF(card.center().x() - size * 0.62, card.center().y() - size * 0.5, size * 1.24, size)
         p.setPen(QPen(LINE, 1.2))

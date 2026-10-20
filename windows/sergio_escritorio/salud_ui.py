@@ -164,7 +164,7 @@ class HealthWindow(QWidget):
             else:
                 field = QLineEdit(str(health.answers.get(q.key, "")))
                 field.setPlaceholderText(q.unit)
-            label = q.text + (" 🔒" if q.private else "")
+            label = q.text + (" (privado)" if q.private else "")
             self.q_form.addRow(QLabel(label), field)
             self.q_fields[q.key] = field
         save_q = QPushButton("Guardar cuestionario")
