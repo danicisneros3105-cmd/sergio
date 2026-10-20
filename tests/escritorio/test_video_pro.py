@@ -117,3 +117,27 @@ def test_the_pipeline_refuses_an_unknown_master_and_an_empty_folder(tmp_path):
         )
     with pytest.raises(RuntimeError, match="No encontré"):
         video_master.pipeline(str(tmp_path), "x", planner=lambda *a: {})
+
+
+def test_video_skills_pro_skill_reports_and_remembers_the_video(monkeypatch, tmp_path):
+    import types
+
+    from sergio_escritorio import video_master
+    from sergio_escritorio.video_skills import VideoSkills
+
+    acts = types.SimpleNamespace(start=lambda *a: 1, update=lambda *a, **k: None, finish=lambda *a: None)
+    seen = {}
+
+    def pipeline(source, request, planner, *, opts, music, log):
+        seen.update(source=source, request=request, opts=opts)
+        log("montaje: x.mp4")
+        return {"path": str(tmp_path / "x.mp4"), "plan": {"aspect": "9:16", "segments": [1, 2, 3], "youtube": {"title": "T"}}}
+
+    monkeypatch.setattr(video_master, "pipeline", pipeline)
+    monkeypatch.setattr("os.startfile", lambda _p: None, raising=False)
+    skills = VideoSkills(client=None, activities=acts, caption=print, tell=print, controller=None, last_result=[])
+    monkeypatch.setattr(skills, "planner", lambda _r: (lambda *a: {}))
+    out = skills.pro_skill({"source": "Viaje", "request": "Reel", "aspect": "9:16", "master": "prores", "denoise": False})
+    assert seen["request"] == "Reel Formato 9:16." and seen["opts"] == {"master": "prores"}
+    assert out["segments"] == 3 and out["title"] == "T" and out["steps"] == ["montaje: x.mp4"]
+    assert skills.last and skills.upload  # «súbelo a YouTube» has a video now

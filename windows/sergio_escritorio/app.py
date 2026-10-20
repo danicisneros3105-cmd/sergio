@@ -2511,133 +2511,19 @@ def run(config: dict[str, Any]) -> None:
         return (f"Tengo la imagen ({where}). La reconstruyo en Blender con todo detalle"
                 + (f" y luego aplico: «{instruction}»" if instruction else "") + ". Le aviso al terminar.")
 
-    last_video: list[dict] = []
+    # Video Pro: learn a style, edit, upload (video_skills.py).
+    from sergio_escritorio.video_skills import VideoSkills
 
-    def video_style_learn(source: str) -> str:
-        """Gemini watches the reference videos and keeps their editing style."""
-        def run() -> None:
-            try:
-                resp = client.http.post(f"{client.base}/v1/vision/video_style/learn",
-                                        json={"source": source}, timeout=1800)
-                if resp.status_code != 200:
-                    try:
-                        why = resp.json().get("detail") or resp.text
-                    except ValueError:
-                        why = resp.text
-                    raise RuntimeError(str(why)[:300])
-                done = resp.json()
-                answer = (f"Aprendí el estilo. {done['summary']} Para usarlo diga: «edita un video con la "
-                          f"carpeta … al estilo {done['style']['name']}».")
-            except Exception as exc:  # noqa: BLE001
-                from sergio_escritorio.voice import explain
-
-                answer = f"No pude aprender ese estilo: {explain(exc)}"
-            tell(answer, to_call=f"[Estilo de video] {answer} Cuéntaselo en una frase.")
-
-        threading.Thread(target=run, daemon=True).start()
-        return f"Estoy viendo los videos de {source[:60]} para copiar su edición; tardo unos minutos."
-
-    def video_styles() -> str:
-        resp = client.http.get(f"{client.base}/v1/vision/video_style", timeout=30)
-        resp.raise_for_status()
-        styles = resp.json().get("styles") or []
-        if not styles:
-            return "Aún no conozco estilos. Dígame: «aprende el estilo de edición de …»."
-        return "Conozco estos estilos: " + " ".join(s["summary"] for s in styles[:5])
-
-    def video_planner(request: str) -> Callable[[str, list, list], dict]:
-        """Gemini watches the contact sheets and plans the cut (in a style)."""
-        import json as _json
-
-        from sergio_escritorio import video_pro
-
-        style = video_pro.style_named(request)
-
-        def planner(req: str, sheets: list, lengths: list) -> dict:
-            resp = client.http.post(
-                f"{client.base}/v1/vision/video_plan",
-                data={"request": req, "lengths": _json.dumps(lengths), "style": style},
-                files=[("sheets", (f"clip{i}.jpg", s, "image/jpeg")) for i, s in enumerate(sheets)],
-                timeout=600,
-            )
-            if resp.status_code != 200:
-                try:
-                    why = resp.json().get("detail") or resp.text
-                except ValueError:
-                    why = resp.text
-                raise RuntimeError(str(why)[:300])
-            return resp.json()
-
-        return planner
-
-    def video_pipeline(request: str, source: str = "", opts: dict | None = None, music: str = "") -> dict:
-        """The professional edit (video_master.pipeline), shown as a Live Activity."""
-        from sergio_escritorio import video_master
-
-        live = activities.start("Video Pro", "video", "mirando los clips")
-        steps: list[str] = []
-
-        def log(line: str) -> None:
-            steps.append(line)
-            activities.update(live, detail=line[:60])
-
-        try:
-            done = video_master.pipeline(
-                source or "Videos", request, video_planner(request), opts=opts, music=music, log=log
-            )
-        except Exception:
-            activities.finish(live, False)
-            raise
-        activities.finish(live, True)
-        done["steps"] = steps
-        return done
-
-    def video_task(request: str, source: str = "") -> str:
-        """Video Pro in the background: Gemini watches, plans, ffmpeg renders,
-        then the finishing the order asks for (60 fps, ProRes, LUT…)."""
-
-        def run() -> None:
-            try:
-                bridge.caption.emit("Video Pro: mirando tus clips…")
-                done = video_pipeline(request, source)
-                last_video[:] = [done]
-                os.startfile(done["path"]) if hasattr(os, "startfile") else None  # noqa: B018
-                title = done["plan"]["youtube"]["title"]
-                last_result[:] = [f"el video «{title}» ({request[:80]})"]
-                answer = (
-                    f"Video listo: «{title}». Lo abrí para que lo veas; está en Videos, Sergio, "
-                    "con el título, la descripción y las etiquetas al lado."
-                    + (f" También dejé el máster ({done['master_label']})." if done.get("master") else "")
-                    + " Si le gusta, diga «súbelo a YouTube»."
-                )
-            except Exception as exc:  # noqa: BLE001
-                from sergio_escritorio.voice import explain
-
-                answer = f"Video Pro falló: {explain(exc)}"
-            tell(answer, to_call=f"[Video terminado] {answer} Cuéntaselo en una frase.")
-
-        threading.Thread(target=run, daemon=True).start()
-        return "Video Pro en marcha: mira tus clips, elige los mejores momentos y lo monta. Le aviso al terminar."
-
-    def upload_video() -> str:
-        """YouTube Studio's upload, ready; publishing stays your click."""
-        if not last_video:
-            return "Primero hagamos un video: «edita un video con la carpeta…»."
-        video = last_video[0]
-        yt = video["plan"]["youtube"]
-        try:
-            import pyperclip
-
-            pyperclip.copy(f"{yt['title']}\n\n{yt['description']}\n\n{', '.join(yt['tags'])}")
-        except Exception:  # noqa: BLE001
-            pass
-        controller.act({"action": "open", "target": "https://studio.youtube.com/channel/UC/videos/upload?d=ud"})
-        subprocess.Popen(["explorer", "/select,", video["path"]])  # noqa: S603,S607
-        return (
-            "Abrí YouTube Studio para subirlo y le marqué el video en la carpeta: "
-            "arrástrelo a la ventana de subida. El título, la descripción y las etiquetas "
-            "están copiados: péguelos con Ctrl+V. Publicar lo decide usted."
-        )
+    videos = VideoSkills(
+        client=client,
+        activities=activities,
+        caption=bridge.caption.emit,
+        tell=tell,
+        controller=controller,
+        last_result=last_result,
+    )
+    video_style_learn, video_styles = videos.learn_style, videos.styles
+    video_task, upload_video = videos.task, videos.upload
 
     def blender_task(request: str) -> str:
         """Start Blender Pro in the background (it takes a few minutes)."""
@@ -4586,31 +4472,7 @@ def run(config: dict[str, Any]) -> None:
 
     controller.skills["creator_apps"] = creator_apps.skill
 
-    def video_pro_skill(args: dict) -> dict:
-        """Agents' professional edit: the same pipeline as «Sergio, Video Pro»."""
-        request = str(args.get("request") or "").strip() or "Edita un video profesional con lo mejor de los clips."
-        if args.get("aspect"):
-            request += f" Formato {args['aspect']}."
-        keys = ("silences", "fps", "slow", "master", "lut", "denoise", "sharpen", "contrast_curve")
-        opts = {k: args[k] for k in keys if args.get(k) not in (None, "", False)}
-        done = video_pipeline(request, str(args.get("source") or ""), opts, str(args.get("music") or ""))
-        last_video[:] = [done]
-        if hasattr(os, "startfile"):
-            os.startfile(done["path"])  # noqa: S606 — the owner reviews it
-        plan = done.get("plan") or {}
-        return {
-            "path": done["path"],
-            "meta": done.get("meta", ""),
-            "master": done.get("master", ""),
-            "master_label": done.get("master_label", ""),
-            "interpolated": done.get("interpolated", ""),
-            "title": (plan.get("youtube") or {}).get("title", ""),
-            "aspect": plan.get("aspect", ""),
-            "segments": len(plan.get("segments") or []),
-            "steps": done.get("steps", []),
-        }
-
-    controller.skills["video_pro"] = video_pro_skill
+    controller.skills["video_pro"] = videos.pro_skill
 
     # A click on the notch opens the quick bar (small tasks); the control
     # center is one chip away.
