@@ -13,6 +13,7 @@ import {
   Library,
   MessageSquare,
   ScanFace,
+  Gauge,
 } from 'lucide-react';
 import { useAppStore } from '../../lib/store';
 import { LiveOrb } from '../Live/LiveOrb';
@@ -57,6 +58,7 @@ export const TOOLBAR_ITEMS = [
   { path: '/faces', icon: ScanFace, label: 'Rostros' },
   { path: '/salud', icon: HeartPulse, label: 'Salud' },
   { path: '/perfil', icon: UserRound, label: 'Perfil' },
+  { path: '/uso', icon: Gauge, label: 'Uso y modelos' },
 ] as const;
 
 export function isActive(path: string, pathname: string): boolean {

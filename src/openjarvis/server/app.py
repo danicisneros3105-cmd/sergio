@@ -672,6 +672,9 @@ def create_app(
     from openjarvis.server.notch_routes import router as notch_router
 
     app.include_router(notch_router)
+    from openjarvis.server.usage_routes import router as usage_router
+
+    app.include_router(usage_router)
     from openjarvis.server.desktop_routes import router as desktop_router
 
     app.include_router(desktop_router)

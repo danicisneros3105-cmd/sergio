@@ -375,3 +375,11 @@ def test_settings_change_language_and_country(qt):
     assert saved[-1]["country"] == "MX"
     panel.language_box.setCurrentIndex(panel.language_box.findData("pt"))
     assert saved[-1]["language"] == "pt"
+
+
+def test_only_five_tabs_show_but_every_page_is_still_reachable(qt):
+    panel, *_ = _panel(qt)
+    shown = [i for i in range(len(panel.TABS)) if not panel.tab_group.button(i).isHidden()]
+    assert shown == [panel.CHAT, panel.NODES, panel.SWARM, panel.HEALTH, panel.SETTINGS_TAB]
+    panel.show_tab(panel.PROFILE)
+    assert panel.pages.currentIndex() == panel.PROFILE

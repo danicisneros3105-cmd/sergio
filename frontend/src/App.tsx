@@ -21,6 +21,7 @@ const CapturePage = lazy(() => import('./pages/CapturePage'));
 const HomePage = lazy(() => import('./pages/HomePage'));
 const NodesPage = lazy(() => import('./pages/NodesPage'));
 const ConnectomePage = lazy(() => import('./pages/ConnectomePage'));
+const UsagePage = lazy(() => import('./pages/UsagePage'));
 const SwarmPage = lazy(() => import('./pages/SwarmPage'));
 const ExtensionsPage = lazy(() => import('./pages/ExtensionsPage'));
 import { CommandPalette } from './components/CommandPalette';
@@ -214,6 +215,7 @@ export default function App() {
           <Route path="salud" element={<HealthPage />} />
           <Route path="perfil" element={<ProfilePage />} />
           <Route path="atajos" element={<ConnectomePage />} />
+          <Route path="uso" element={<UsagePage />} />
         </Route>
       </Routes>
       </Suspense>

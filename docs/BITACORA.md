@@ -2,6 +2,17 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-10-19 · Claude · Uso y modelos, centro de control más simple
+- Página «Uso y modelos» (`/uso`, barra lateral y Ctrl K «g u»): respuestas,
+  tokens y costo por modelo (hoy, 7 o 30 días) y cada proveedor con su estado
+  (conectado, sin clave, sin cuota): Google, Anthropic, OpenAI, OpenRouter,
+  Moonshot, MiniMax, AtlasCloud, DeepSeek y modelos locales (Ollama).
+  `server/usage_routes.py` (`GET /v1/usage`) lee la telemetría que ya existía.
+- Centro de control del escritorio: 5 pestañas visibles (Chat, Nodes, Swarm,
+  Salud, Ajustes); Cowork y Perfil siguen en la app y por voz (`HIDDEN_TABS`).
+- Logos de universidades: sin cambio. No hay excepción legal fiable para usar
+  un logo sin permiso; el camino es pedir permiso (`docs/LEGAL-MARCAS.md`).
+
 ## 2026-10-19 · Claude · Cerebro v2, escritorio 20 s más rápido, Video Pro profesional, Sergio ve y Salud mental
 - Petición del dueño: completar sus 11 puntos, con foco en el cerebro.
 - Cerebro v2 (`connectome/brain.py`): conexiones reales en todas las zonas

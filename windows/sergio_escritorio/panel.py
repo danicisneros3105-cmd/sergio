@@ -713,6 +713,9 @@ class ControlCenter(QWidget):
     TABS = ("tab_chat", "tab_nodes", "tab_swarm", "tab_cowork", "tab_health", "tab_profile", "tab_settings")
     CHAT, NODES, SWARM, COWORK, HEALTH, PROFILE, SETTINGS_TAB = range(7)
     HEALTH_SECTIONS = ("health", "night", "gym", "results", "consult")
+    # Fewer controls: Cowork and Profile live in the app (and answer by voice);
+    # their pages stay so «abre mi perfil» still lands somewhere.
+    HIDDEN_TABS = (COWORK, PROFILE)
     PROFILE_SECTIONS = ("profile", "goals", "results", "faces")
 
     def __init__(self, actions: PanelActions) -> None:
@@ -799,7 +802,7 @@ class ControlCenter(QWidget):
     TAB_ICONS = ("bubble", "dots", "swarm", "briefcase", "heart", "person", "gear")
 
     def _segmented(self) -> QWidget:
-        """The six sections as icons only (their names appear on hover)."""
+        """The sections as icons only (their names appear on hover)."""
         bar = QWidget()
         bar.setStyleSheet(f"border-bottom: 1px solid {LINE};")
         row = QHBoxLayout(bar)
@@ -810,6 +813,9 @@ class ControlCenter(QWidget):
             button = TabIcon(kind, idioma.t(key, self.lang))
             button.on_hover = self._tab_tip
             self.tab_group.addButton(button, i)
+            if i in self.HIDDEN_TABS:
+                button.hide()
+                continue
             if i:
                 row.addStretch(1)  # equal gaps between the icons
             row.addWidget(button)
