@@ -66,6 +66,21 @@ MEDIA_KEYS = {
     "prevtrack",
 }
 TASKS = ("operate", "message", "phone_call", "contact")  # done by the operator
+# One confirmation (Windows Hello) opens a short window for the routine moves
+# of a task (clicking, typing, keys, opening an app) so the owner is not asked
+# for every click. Anything that sends, runs code, closes, deletes or opens a
+# link or file always asks, and pausing the control ends the window.
+ROUTINE = (
+    "click",
+    "click_name",
+    "double_click",
+    "right_click",
+    "type",
+    "key",
+    "focus",
+    "open_app",
+)
+APPROVAL_WINDOW_S = 120.0
 
 
 class Backend(Protocol):
@@ -211,12 +226,23 @@ class Controller:
         # Tasks done like a person (operate, message, phone_call, contact).
         self.on_task: Callable[[str, dict], str] = lambda _k, _a: "operator unavailable"
         self.enabled = True
+        self._approved_until = 0.0
         self.approve = approve
         self.strict_permissions = strict_permissions
         self._elements: dict[int, tuple[int, int]] = {}
         self._lock = threading.Lock()
         self._on_activity = on_activity or (lambda _msg: None)
         self._sleep = sleep
+
+    @property
+    def enabled(self) -> bool:
+        return self._enabled
+
+    @enabled.setter
+    def enabled(self, value: bool) -> None:
+        if not value:
+            self._approved_until = 0.0  # pausing takes the permission back
+        self._enabled = bool(value)
 
     # -- reading -----------------------------------------------------------
     def camera_shot(self) -> dict:
@@ -385,8 +411,19 @@ class Controller:
         }
         if kind == "organize" and not action.get("apply"):
             strict_confirmed = False
+        routine = kind in ROUTINE
+        if (
+            strict_confirmed
+            and routine
+            and time.monotonic() < getattr(self, "_approved_until", 0.0)
+        ):
+            strict_confirmed = False  # approved a moment ago for this kind of move
         if strict_confirmed:
             self._confirm(action)
+        if routine and self.strict_permissions:
+            self._approved_until = (
+                time.monotonic() + APPROVAL_WINDOW_S
+            )  # slides while in use
         b = self.backend
         before = self._front() if kind in self.SETTLE else ""
         if kind in ("click", "double_click", "right_click", "move"):

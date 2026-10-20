@@ -4,6 +4,7 @@ code-run actions (CLI, MCP, API on the Dev plan), swarm delegation, checks."""
 from __future__ import annotations
 
 import json
+import shutil
 import time
 
 import httpx
@@ -21,6 +22,9 @@ from openjarvis.nodes.store import (
     random_avatar,
 )
 from openjarvis.nodes.worker import NodeWorker, parse_answer, unverified_files
+
+# Some machines (WSL, Ubuntu) only have python3.
+PY = "python" if shutil.which("python") else "python3"
 
 
 def _worker(tmp_path, answers, **kw):
@@ -120,10 +124,10 @@ def test_actions_are_parsed_and_tags_never_shown():
 
 
 def test_cli_allow_list_runs_by_code_and_result_goes_back(tmp_path):
-    worker, seen = _worker(tmp_path, ["<cli>python -c print(6*7)</cli>", "Salió 42."])
+    worker, seen = _worker(tmp_path, [f"<cli>{PY} -c print(6*7)</cli>", "Salió 42."])
     node = worker.create("Dev")
     worker.store.update(node.id, rules={"cli": "allow"})
-    worker.store.add_connection(node.id, "cli", {"name": "py", "command": "python"})
+    worker.store.add_connection(node.id, "cli", {"name": "py", "command": PY})
     worker.send(node.id, "calcula")
     worker.wait(node.id)
     assert "Resultados reales" in seen[-1][0] and "42" in seen[-1][0]
@@ -154,13 +158,13 @@ def test_cli_refuses_what_was_not_allowed(tmp_path):
 
 
 def test_cli_asks_first_when_the_rule_says_so_and_runs_exactly_that(tmp_path):
-    worker, seen = _worker(tmp_path, ["<cli>python --version</cli>", "Versión vista."])
+    worker, seen = _worker(tmp_path, [f"<cli>{PY} --version</cli>", "Versión vista."])
     node = worker.create("Dev")  # cli: ask by default
-    worker.store.add_connection(node.id, "cli", {"name": "py", "command": "python"})
+    worker.store.add_connection(node.id, "cli", {"name": "py", "command": PY})
     worker.send(node.id, "¿qué python hay?")
     worker.wait(node.id)
     item = worker.store.approvals(node.id)[0]
-    assert item["action"] == {"kind": "cli", "command": "python --version"}
+    assert item["action"] == {"kind": "cli", "command": f"{PY} --version"}
     assert worker.store.get(node.id).status == "waiting_approval"
     worker.decide(node.id, item["id"], True)
     worker.wait(node.id)

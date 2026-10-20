@@ -282,7 +282,7 @@ class NativeReActAgent(ToolUsingAgent):
             result = self._generate(messages)
             usage = result.get("usage", {})
             for k in total_usage:
-                total_usage[k] += usage.get(k, 0)
+                total_usage[k] += int(usage.get(k) or 0)
 
             content = result.get("content", "")
             parsed = self._parse_response(content)

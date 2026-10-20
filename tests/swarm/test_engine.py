@@ -271,7 +271,7 @@ def test_when_the_supervisor_fails_the_report_is_a_readable_table_not_raw_json()
             "status": "done",
             "result": '{"lenguaje": "Rust", "ventajas": ["seguro"], "sueldo": "90 000 $"}',
         },
-        {"title": "Go", "status": "failed", "result": "Falló: 429"},
+        {"title": "Go", "status": "failed", "result": "No pudo terminar."},
     ]
     md = fallback_report("Lenguajes", "Compara", results)
     table = tables_in(md)[0]
@@ -284,3 +284,39 @@ def test_when_the_supervisor_fails_the_report_is_a_readable_table_not_raw_json()
         summary_line("## Resumen\nEl precio medio es 12 €.")
         == "El precio medio es 12 €."
     )
+
+
+def _plan_ask(prompt: str, **_kw):
+    if "orquestador" in prompt:
+        return {"subtareas": [{"instruccion": f"t{i}"} for i in range(2)]}
+    return {"informe": "# Informe", "contradicciones": [], "huecos": []}
+
+
+def test_an_agent_that_lost_its_thread_is_retried_not_reported_as_done(tmp_path):
+    from openjarvis.swarm.engine import AGENT_FAILED
+
+    calls = {"n": 0}
+
+    def runner(prompt, tools, budget):
+        calls["n"] += 1
+        if calls["n"] % 2:
+            return AGENT_FAILED + ". Expected one JSON object", 0
+        return "Resultado real", 1
+
+    engine = SwarmEngine(
+        ask=_plan_ask, runner=runner, home=tmp_path, retry_delays=(0, 0)
+    )
+    run = engine.start("dos cosas", parallel=1, scout=False, background=False)
+    assert run.counts()["done"] == 2
+    assert all("Resultado real" in s.result for s in run.subtasks)
+
+
+def test_a_swarm_where_every_agent_fails_is_failed_and_says_why(tmp_path):
+    def runner(prompt, tools, budget):
+        raise RuntimeError("429 RESOURCE_EXHAUSTED: gemini-3.5-flash quota")
+
+    engine = SwarmEngine(ask=_plan_ask, runner=runner, home=tmp_path, retry_delays=(0,))
+    run = engine.start("dos cosas", parallel=2, scout=False, background=False)
+    assert run.status == "failed"
+    assert "cuota" in run.error
+    assert "RESOURCE_EXHAUSTED" not in run.error  # a sentence, not a stack message

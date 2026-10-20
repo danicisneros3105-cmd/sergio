@@ -306,6 +306,8 @@ def create_app(
     from fastapi import Request as _Request
     from fastapi.responses import JSONResponse
 
+    from openjarvis.cli.friendly import plain
+
     @app.exception_handler(Exception)
     async def _explain_unexpected_error(request: _Request, exc: Exception):
         # Without this an engine error (e.g. Ollama "model requires more
@@ -313,7 +315,9 @@ def create_app(
         logger.exception("Unhandled error on %s", request.url.path)
         return JSONResponse(
             status_code=500,
-            content={"detail": f"{type(exc).__name__}: {exc}"[:600]},
+            content={
+                "detail": f"{plain(exc)} Detalle: {type(exc).__name__}: {exc}"[:600]
+            },
         )
 
     from fastapi.middleware.cors import CORSMiddleware

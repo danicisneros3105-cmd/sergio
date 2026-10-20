@@ -76,6 +76,13 @@ def _status_and_url(exc: BaseException) -> tuple[Optional[int], str]:
     return code, m.group(0) if m else ""
 
 
+def plain(exc: BaseException) -> str:
+    """One calm sentence for any screen: what happened and what to try."""
+    what, fix = explain(exc)
+    first = (fix.splitlines() or [""])[0].strip()
+    return f"{what} {first}".strip()[:400]
+
+
 def explain(exc: BaseException, server_port: Optional[int] = None) -> tuple[str, str]:
     """(what happened, what to do) for *exc*, in Spanish."""
     text = " ".join(str(exc).split())

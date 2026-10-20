@@ -28,5 +28,6 @@ def test_engine_error_is_explained():
     )
     assert resp.status_code == 500
     detail = resp.json()["detail"]
-    assert detail.startswith("RuntimeError: Ollama returned 500")
+    assert not detail.startswith("RuntimeError")  # a plain sentence comes first
+    assert "Ollama" in detail
     assert "more system memory" in detail

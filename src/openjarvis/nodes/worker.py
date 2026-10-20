@@ -29,6 +29,7 @@ import threading
 import time
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
 
+from openjarvis.cli.friendly import plain
 from openjarvis.nodes import connections, skills, team
 from openjarvis.nodes.store import (
     MAIN_THREAD,
@@ -530,7 +531,7 @@ class NodeWorker:
             except Exception as exc:  # noqa: BLE001 - one bad turn never kills the Node
                 logger.exception("node %s turn failed", node_id)
                 self.store.log(
-                    node_id, "failed", f"Falló: {type(exc).__name__}: {exc}"[:400]
+                    node_id, "failed", f"No pudo terminar el turno. {plain(exc)}"[:400]
                 )
                 self.store.update(node_id, status="idle", doing="")
                 if job.get("routine"):
