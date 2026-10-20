@@ -44,6 +44,7 @@ TOOLS = {
     "file_write": ("fondo", "ubuntu"),
     "files_organize": ("fondo", "windows"),
     "video_edit": ("fondo", "windows"),
+    "video_pro": ("fondo", "windows"),
     "blender_create": ("fondo", "windows"),
     "professional_apps": ("fondo", "windows"),
     "opendesign": ("fondo", "ubuntu"),
