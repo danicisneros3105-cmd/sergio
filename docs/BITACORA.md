@@ -2,6 +2,18 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-10-19 · Claude · Escucha con GPU, voz sin errores al cortar, web y código más ordenados
+- «No escucha bien»: el registro del escritorio mostraba Whisper sin
+  cublas64_12.dll, así que caía al modelo pequeño en la CPU. La actualización
+  nunca pedía las librerías NVIDIA; ahora `sergio escritorio instalar` las
+  instala solo si hay tarjeta NVIDIA (`has_nvidia_gpu`).
+- Voz en streaming: cortar a mitad dejaba «aclose(): asynchronous generator is
+  already running» en el servidor (`voice_routes._close`).
+- Web: Sergio ve sin colores fijos de la paleta vieja ni subtexto, sin
+  degradados morados, «Primeros pasos» al día (sin Creator) y se abre sola la
+  primera vez.
+- Código: Video Pro sale de `app.py` a `video_skills.py` (app.py: 4600 -> 4514).
+
 ## 2026-10-19 · Claude · Uso y modelos, centro de control más simple
 - Página «Uso y modelos» (`/uso`, barra lateral y Ctrl K «g u»): respuestas,
   tokens y costo por modelo (hoy, 7 o 30 días) y cada proveedor con su estado

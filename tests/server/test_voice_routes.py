@@ -376,3 +376,23 @@ def test_spoken_talk_is_remembered_and_comes_back(monkeypatch, tmp_path):
     assert brain.engrams
     ask("¿qué raza es Luna, mi perra?")
     assert "<cerebro_memoria>" in prompts[-1] and "golden" in prompts[-1]
+
+
+def test_closing_a_stream_that_is_still_running_is_quiet():
+    import asyncio
+
+    from openjarvis.server.voice_routes import _close
+
+    async def scenario():
+        async def gen():
+            while True:
+                await asyncio.sleep(0.01)
+                yield b"x"
+
+        g = gen()
+        step = asyncio.ensure_future(g.__anext__())
+        await asyncio.sleep(0)  # the generator is running now
+        await _close(g)  # used to raise RuntimeError
+        step.cancel()
+
+    asyncio.run(scenario())

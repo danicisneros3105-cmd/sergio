@@ -210,6 +210,13 @@ def escritorio() -> None:
     """Sergio en Windows: compañero junto al cursor, voz y control de pantalla."""
 
 
+def has_nvidia_gpu() -> bool:
+    """An NVIDIA card in this PC (WSL shows its driver tools)."""
+    return os.path.exists("/usr/lib/wsl/lib/nvidia-smi") or bool(
+        shutil.which("nvidia-smi.exe") or shutil.which("nvidia-smi")
+    )
+
+
 def _do_instalar(vision: bool, gpu: bool = False) -> None:
     from openjarvis.cli.phone_cmd import read_env, write_env
     from openjarvis.cli.service_cmd import env_file
@@ -220,6 +227,10 @@ def _do_instalar(vision: bool, gpu: bool = False) -> None:
         raise click.ClickException(
             "Ejecute esto en Ubuntu sobre Windows (WSL): Sergio Escritorio es una app de Windows."
         )
+    # With an NVIDIA card Whisper runs the big, accurate model on the GPU;
+    # without its CUDA libraries it fell back to the small one on the CPU
+    # and understood less (the update never passed --gpu).
+    gpu = gpu or has_nvidia_gpu()
     env_path = env_file()
     env = read_env(env_path)
     token = env.get("SERGIO_DESKTOP_TOKEN") or secrets.token_urlsafe(32)

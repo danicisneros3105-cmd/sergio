@@ -103,6 +103,16 @@ async def speak(req: SpeakRequest) -> Response:
     return Response(content=wav, media_type="audio/wav")
 
 
+async def _close(gen: Any) -> None:
+    """Close an audio stream; one still producing (the listener hung up mid
+    chunk) is already being torn down, which used to log «aclose(): asynchronous
+    generator is already running»."""
+    try:
+        await gen.aclose()
+    except RuntimeError:
+        pass
+
+
 @router.post("/stream")
 async def stream(req: SpeakRequest) -> Any:
     """Gemini Live reading the text aloud, streamed as raw PCM (24 kHz, int16)
@@ -134,12 +144,12 @@ async def stream(req: SpeakRequest) -> Any:
         if not first:
             raise RuntimeError("La voz seleccionada no devolvió audio.")
     except StopAsyncIteration:
-        await chunks.aclose()
+        await _close(chunks)
         raise HTTPException(
             status_code=502, detail="La voz seleccionada no devolvió audio."
         ) from None
     except Exception as exc:  # noqa: BLE001
-        await chunks.aclose()
+        await _close(chunks)
         raise HTTPException(502, "La voz seleccionada no está disponible.") from exc
 
     async def body():
@@ -148,7 +158,7 @@ async def stream(req: SpeakRequest) -> Any:
             async for chunk in chunks:
                 yield chunk
         finally:
-            await chunks.aclose()
+            await _close(chunks)
 
     return StreamingResponse(body(), media_type="audio/L16;rate=24000")
 
