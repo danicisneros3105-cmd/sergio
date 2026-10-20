@@ -252,7 +252,7 @@ def run(config: dict[str, Any]) -> None:
     from sergio_escritorio.companion import STATE_COLORS, Companion
     from sergio_escritorio.control import Controller, make_server
     from sergio_escritorio.notch import Notch
-    from sergio_escritorio.voice import Assistant, Ears, SergioClient
+    from sergio_escritorio.voice import Assistant, Ears, SergioClient, api_base
     from sergio_escritorio.windows_backend import (
         WindowsBackend,
         foreground_is_fullscreen,
@@ -796,7 +796,7 @@ def run(config: dict[str, Any]) -> None:
 
             try:
                 resp = httpx.post(
-                    config["server_url"].rstrip("/") + "/v1/sistema/actualizar",
+                    api_base(config["server_url"]) + "/v1/sistema/actualizar",
                     timeout=10,
                 )
                 text = (
@@ -2545,8 +2545,8 @@ def run(config: dict[str, Any]) -> None:
             return "Aún no conozco estilos. Dígame: «aprende el estilo de edición de …»."
         return "Conozco estos estilos: " + " ".join(s["summary"] for s in styles[:5])
 
-    def video_task(request: str, source: str = "") -> str:
-        """Video Pro in the background: Gemini watches, plans, ffmpeg renders."""
+    def video_planner(request: str) -> Callable[[str, list, list], dict]:
+        """Gemini watches the contact sheets and plans the cut (in a style)."""
         import json as _json
 
         from sergio_escritorio import video_pro
@@ -2568,27 +2568,52 @@ def run(config: dict[str, Any]) -> None:
                 raise RuntimeError(str(why)[:300])
             return resp.json()
 
+        return planner
+
+    def video_pipeline(request: str, source: str = "", opts: dict | None = None, music: str = "") -> dict:
+        """The professional edit (video_master.pipeline), shown as a Live Activity."""
+        from sergio_escritorio import video_master
+
+        live = activities.start("Video Pro", "video", "mirando los clips")
+        steps: list[str] = []
+
+        def log(line: str) -> None:
+            steps.append(line)
+            activities.update(live, detail=line[:60])
+
+        try:
+            done = video_master.pipeline(
+                source or "Videos", request, video_planner(request), opts=opts, music=music, log=log
+            )
+        except Exception:
+            activities.finish(live, False)
+            raise
+        activities.finish(live, True)
+        done["steps"] = steps
+        return done
+
+    def video_task(request: str, source: str = "") -> str:
+        """Video Pro in the background: Gemini watches, plans, ffmpeg renders,
+        then the finishing the order asks for (60 fps, ProRes, LUT…)."""
+
         def run() -> None:
-            live = activities.start("Video Pro", "video", "mirando los clips")
-            ok = False
             try:
                 bridge.caption.emit("Video Pro: mirando tus clips…")
-                done = video_pro.edit(source or "Videos", request, planner)
-                ok = True
+                done = video_pipeline(request, source)
                 last_video[:] = [done]
                 os.startfile(done["path"]) if hasattr(os, "startfile") else None  # noqa: B018
                 title = done["plan"]["youtube"]["title"]
                 last_result[:] = [f"el video «{title}» ({request[:80]})"]
                 answer = (
                     f"Video listo: «{title}». Lo abrí para que lo veas; está en Videos, Sergio, "
-                    "con el título, la descripción y las etiquetas al lado. Si le gusta, diga "
-                    "«súbelo a YouTube»."
+                    "con el título, la descripción y las etiquetas al lado."
+                    + (f" También dejé el máster ({done['master_label']})." if done.get("master") else "")
+                    + " Si le gusta, diga «súbelo a YouTube»."
                 )
             except Exception as exc:  # noqa: BLE001
                 from sergio_escritorio.voice import explain
 
                 answer = f"Video Pro falló: {explain(exc)}"
-            activities.finish(live, ok)
             tell(answer, to_call=f"[Video terminado] {answer} Cuéntaselo en una frase.")
 
         threading.Thread(target=run, daemon=True).start()
@@ -4560,6 +4585,32 @@ def run(config: dict[str, Any]) -> None:
     from sergio_escritorio import creator_apps
 
     controller.skills["creator_apps"] = creator_apps.skill
+
+    def video_pro_skill(args: dict) -> dict:
+        """Agents' professional edit: the same pipeline as «Sergio, Video Pro»."""
+        request = str(args.get("request") or "").strip() or "Edita un video profesional con lo mejor de los clips."
+        if args.get("aspect"):
+            request += f" Formato {args['aspect']}."
+        keys = ("silences", "fps", "slow", "master", "lut", "denoise", "sharpen", "contrast_curve")
+        opts = {k: args[k] for k in keys if args.get(k) not in (None, "", False)}
+        done = video_pipeline(request, str(args.get("source") or ""), opts, str(args.get("music") or ""))
+        last_video[:] = [done]
+        if hasattr(os, "startfile"):
+            os.startfile(done["path"])  # noqa: S606 — the owner reviews it
+        plan = done.get("plan") or {}
+        return {
+            "path": done["path"],
+            "meta": done.get("meta", ""),
+            "master": done.get("master", ""),
+            "master_label": done.get("master_label", ""),
+            "interpolated": done.get("interpolated", ""),
+            "title": (plan.get("youtube") or {}).get("title", ""),
+            "aspect": plan.get("aspect", ""),
+            "segments": len(plan.get("segments") or []),
+            "steps": done.get("steps", []),
+        }
+
+    controller.skills["video_pro"] = video_pro_skill
 
     # A click on the notch opens the quick bar (small tasks); the control
     # center is one chip away.

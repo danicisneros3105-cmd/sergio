@@ -297,3 +297,26 @@ def test_a_logo_the_owner_added_is_shown_and_nothing_else_is_served(
     assert client.get(
         "/v1/healthdata/instituciones/..%2F..%2Fetc/logo"
     ).status_code in (404, 422)
+
+
+def test_the_real_reading_goes_through_gemini_not_a_broken_engine_call(monkeypatch):
+    # The default path used to call an engine with chat dicts and no model:
+    # it always failed and every reading was the code template.
+    import openjarvis.coach.brain as brain
+
+    answers = _all(lambda item, s: s.first)
+    scores = mind.score(answers)
+    seen = {}
+
+    def ask(prompt, **kw):
+        seen.update(prompt=prompt, **kw)
+        return kw["check"]({"lectura": "**Lo que veo** " + "y" * 120})
+
+    monkeypatch.setattr(brain, "ask", ask)
+    text, by = mind.write_reading(scores, answers)
+    assert by == "ia" and text.startswith("**Lo que veo**")
+    assert "no eres un clínico" in seen["system"] and '"lectura"' in seen["prompt"]
+    import pytest as _pytest
+
+    with _pytest.raises(ValueError):
+        seen["check"]({"lectura": "corto"})

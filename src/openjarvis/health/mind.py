@@ -714,6 +714,12 @@ Estructura, con estos cuatro títulos en negrita:
 Cierra recordando que esto no es un diagnóstico."""
 
 
+def _reading_ok(data: Any) -> Dict[str, Any]:
+    if not isinstance(data, dict) or len(str(data.get("lectura") or "").strip()) <= 80:
+        raise ValueError("lectura vacía o demasiado corta")
+    return data
+
+
 def write_reading(
     scores: Dict[str, Any], answers: Dict[str, Any], generate: Optional[Any] = None
 ) -> Tuple[str, str]:
@@ -721,13 +727,21 @@ def write_reading(
     prompt = reading_prompt(scores, answers)
     try:
         if generate is None:
-            from openjarvis.core.config import load_config
-            from openjarvis.engine._discovery import get_engine
+            # The coach's path: Gemini with a hedged backup. (It used to call
+            # an engine with chat dicts and no model, which always failed, so
+            # every reading was the template written in code.)
+            from openjarvis.coach.brain import ask
 
-            resolved = get_engine(load_config())
-            if resolved is None:
-                raise RuntimeError("sin motor")
-            generate = resolved[1].generate
+            data = ask(
+                prompt
+                + "\nResponde en JSON: "
+                + '{"lectura": "<el texto con los cuatro títulos>"}',
+                system=READING_SYSTEM,
+                max_tokens=4000,
+                effort="medium",
+                check=_reading_ok,
+            )
+            return str(data["lectura"]).strip(), "ia"
         res = generate(
             messages=[
                 {"role": "system", "content": READING_SYSTEM},

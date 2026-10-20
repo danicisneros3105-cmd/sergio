@@ -256,9 +256,9 @@ class ClientTool:
 
 
 def ws_url(server_url: str) -> str:
-    # "localhost" on Windows can try IPv6 first and hang until the timeout
-    # (WSL forwards IPv4): the call goes straight to 127.0.0.1.
-    base = server_url.rstrip("/").replace("://localhost", "://127.0.0.1")
+    from sergio_escritorio.voice import api_base
+
+    base = api_base(server_url)  # straight to 127.0.0.1 (see voice.api_base)
     if base.startswith("https://"):
         return "wss://" + base[len("https://") :] + "/v1/live"
     if base.startswith("http://"):

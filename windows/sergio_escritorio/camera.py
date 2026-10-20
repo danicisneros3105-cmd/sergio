@@ -32,6 +32,8 @@ from PySide6.QtGui import (
 )
 from PySide6.QtWidgets import QWidget
 
+from sergio_escritorio import estilo
+
 log = logging.getLogger(__name__)
 IDLE_OFF_SECONDS = 20.0  # camera turns off this long after its last use
 WARM_UP_SECONDS = 1.5  # webcams start dark/blurry while exposure settles
@@ -406,12 +408,15 @@ FACE_NETWORK = (
     ("zy_i", "al_i"), ("zy_d", "go_d"), ("zy_i", "go_i"), ("go_d", "gn"), ("go_i", "gn"),
     ("go_d", "ch_d"), ("go_i", "ch_i"), ("p_d", "prn"), ("p_i", "prn"), ("ps_d", "pi_d"),
 )  # fmt: skip
-KIND_COLORS = {
-    "conocido": QColor(46, 111, 64),   # Digital Paper forest green (#2E6F40)
-    "persona": QColor(201, 100, 66),   # Digital Paper terracotta (#C96442)
-    "animal": QColor(180, 118, 38),    # Warm ochre (#B47626)
-    "objeto": QColor(44, 43, 40),      # Warm charcoal ink (#2C2B28)
+# The app's look (estilo.py): black, white and greys, no colour in the interface.
+INK, CARD, LINE, TEXT = (QColor(estilo.INK), QColor(estilo.CARD), QColor(estilo.LINE), QColor(estilo.TEXT))
+KIND_COLORS = {  # lighter = more certain: someone known is pure white
+    "conocido": QColor(255, 255, 255),
+    "persona": QColor(196, 196, 196),
+    "animal": QColor(150, 150, 150),
+    "objeto": QColor(110, 110, 110),
 }
+DARK_TEXT = ("conocido", "persona")  # light tags carry black letters
 # MediaPipe hand skeleton (pairs of landmark indices).
 BONES = (
     (0, 1),
@@ -716,15 +721,15 @@ class CameraWindow(QWidget):
         p.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
         card = self.card()
         t = time.monotonic() - self._t0
-        # Soft warm paper shadow.
+        # Soft shadow.
         for i in range(6):
             p.setPen(Qt.PenStyle.NoPen)
-            p.setBrush(QColor(20, 20, 19, 12))
+            p.setBrush(QColor(0, 0, 0, 14))
             p.drawRoundedRect(card.adjusted(-i, -i + 3, i, i + 3), 24 + i, 24 + i)
         path = QPainterPath()
         path.addRoundedRect(card, 22, 22)
         p.setClipPath(path)
-        p.fillRect(card, QColor(250, 248, 245))  # #FAF8F5 Digital Paper
+        p.fillRect(card, INK)
         if self._image is not None:
             img = self._image.scaled(
                 card.size().toSize(),
@@ -761,7 +766,7 @@ class CameraWindow(QWidget):
             self._draw_holo(p, card)
             self._draw_hands(p)
         else:
-            p.setPen(QColor(20, 20, 19))
+            p.setPen(TEXT)
             p.setFont(_font(10, QFont.Weight.DemiBold))
             p.drawText(
                 card,
@@ -774,17 +779,17 @@ class CameraWindow(QWidget):
             (False, QRectF(card.left(), card.bottom() - 74, card.width(), 74)),
         ):
             grad = QLinearGradient(rect.topLeft(), rect.bottomLeft())
-            grad.setColorAt(0.0 if top else 1.0, QColor(20, 20, 19, 95))
-            grad.setColorAt(1.0 if top else 0.0, QColor(20, 20, 19, 0))
+            grad.setColorAt(0.0 if top else 1.0, QColor(0, 0, 0, 95))
+            grad.setColorAt(1.0 if top else 0.0, QColor(0, 0, 0, 0))
             p.fillRect(rect, grad)
         if time.monotonic() < self._flash_until:
-            p.fillRect(card, QColor(250, 248, 245, 190))
+            p.fillRect(card, QColor(255, 255, 255, 190))  # the photo flash
         self._draw_pill(p, card, t)
         self._draw_close(p)
         if self.overlay:
             self._draw_caption(p, card)
         p.setClipping(False)
-        p.setPen(QPen(QColor(229, 224, 216, 220), 1.5))  # #E5E0D8 warm paper border
+        p.setPen(QPen(LINE, 1.5))
         p.setBrush(Qt.BrushStyle.NoBrush)
         p.drawRoundedRect(card, 22, 22)
         p.end()
@@ -846,7 +851,7 @@ class CameraWindow(QWidget):
             p.setPen(Qt.PenStyle.NoPen)
             p.setBrush(colour)
             p.drawRoundedRect(tag, 8.5, 8.5)
-            p.setPen(QColor(10, 10, 12) if track.kind == "objeto" else QColor(255, 255, 255))
+            p.setPen(INK if track.kind in DARK_TEXT else TEXT)
             p.drawText(
                 tag.adjusted(6, 0, -4, 0),
                 Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft,
@@ -889,7 +894,7 @@ class CameraWindow(QWidget):
         pts = [self._map_point(x, y) for x, y, *_ in pose]
         seen = [len(pt) < 4 or pt[3] > 0.5 for pt in pose]
         slouch = bool(getattr(self.vision, "posture", None) and self.vision.posture.last.get("slouch"))
-        p.setPen(QPen(QColor(255, 159, 10, 150) if slouch else QColor(100, 210, 255, 90), 2))
+        p.setPen(QPen(QColor(255, 255, 255, 170) if slouch else QColor(255, 255, 255, 70), 2))
         for a, b in POSE_BONES:
             if seen[a] and seen[b]:
                 p.drawLine(pts[a], pts[b])
@@ -913,10 +918,10 @@ class CameraWindow(QWidget):
         width = max(p.fontMetrics().horizontalAdvance(r) for r in rows) + 22
         height = 16 * len(rows) + 12
         box = QRectF(card.left() + 12, card.bottom() - height - 46, width, height)
-        p.setPen(QPen(QColor(229, 224, 216, 220), 1))
-        p.setBrush(QColor(250, 248, 245, 236))
+        p.setPen(QPen(LINE, 1))
+        p.setBrush(CARD)
         p.drawRoundedRect(box, 10, 10)
-        p.setPen(QColor(20, 20, 19))
+        p.setPen(TEXT)
         for i, row in enumerate(rows):
             p.drawText(QRectF(box.left() + 11, box.top() + 6 + i * 16, width, 16), Qt.AlignmentFlag.AlignVCenter, row)
 
@@ -973,7 +978,7 @@ class CameraWindow(QWidget):
                 nose.x() + length * math.sin(math.radians(yaw)),
                 nose.y() - length * math.sin(math.radians(face.pitch)),
             )
-            p.setPen(QPen(QColor(201, 100, 66, 190), 1.4))
+            p.setPen(QPen(QColor(255, 255, 255, 150), 1.4))
             p.drawLine(nose, end)
             # Name tag right on the face.
             if owner is not None:
@@ -991,7 +996,7 @@ class CameraWindow(QWidget):
             p.setPen(Qt.PenStyle.NoPen)
             p.setBrush(colour)
             p.drawRoundedRect(tag, 9.5, 9.5)
-            p.setPen(QColor(255, 255, 255))
+            p.setPen(INK)  # light tag, black letters
             p.drawText(tag, Qt.AlignmentFlag.AlignCenter, label)
             if face.expressions:
                 text = " · ".join(face.expressions)
@@ -999,10 +1004,10 @@ class CameraWindow(QWidget):
                 tw = p.fontMetrics().horizontalAdvance(text) + 12
                 below = rect.bottom() + 4 if top < rect.top() else tag.bottom() + 4
                 chip = QRectF(rect.center().x() - tw / 2, below, tw, 16)
-                p.setPen(QPen(QColor(229, 224, 216, 200), 1))
-                p.setBrush(QColor(250, 248, 245, 235))
+                p.setPen(QPen(LINE, 1))
+                p.setBrush(CARD)
                 p.drawRoundedRect(chip, 8, 8)
-                p.setPen(QColor(20, 20, 19))
+                p.setPen(TEXT)
                 p.drawText(chip, Qt.AlignmentFlag.AlignCenter, text)
 
     def _draw_face_scan(self, p: QPainter, card: QRectF) -> None:
@@ -1026,7 +1031,7 @@ class CameraWindow(QWidget):
             shade.addRect(card)
             hole = QPainterPath()
             hole.addEllipse(centre, radius - 4, radius - 4)
-            p.fillPath(shade.subtracted(hole), QColor(20, 20, 19, 105))
+            p.fillPath(shade.subtracted(hole), QColor(0, 0, 0, 105))
             facescan.draw_ring(p, centre, radius, scan.ring, now, self.mirror)
             percent = int(round(scan.ring.fraction / facescan.DONE_FRACTION * 100))
             self._scan_pill(p, card, f"{scan.message}   {min(percent, 100)}%")
@@ -1036,15 +1041,15 @@ class CameraWindow(QWidget):
         # The learnt face, in 3D, turning in a warm Digital Paper card.
         size = min(card.width(), card.height()) * 0.62
         panel = QRectF(card.center().x() - size * 0.62, card.center().y() - size * 0.5, size * 1.24, size)
-        p.setPen(QPen(QColor(229, 224, 216, 240), 1.2))
-        p.setBrush(QColor(250, 248, 245, 242))
+        p.setPen(QPen(LINE, 1.2))
+        p.setBrush(CARD)
         p.drawRoundedRect(panel, 20, 20)
         if self._scan_edges is None:
             self._scan_edges = facescan.mesh_edges()
         head = panel.adjusted(18, 14, -18, -54)
         turn = math.sin((now - scan.finished_at) * 1.3) * 1.1
         facescan.draw_head(p, head, scan.result.get("points") or [], turn, self._scan_edges)
-        p.setPen(QColor(20, 20, 19))
+        p.setPen(TEXT)
         lines = [line for line in (self.scan_text or ["Mapa 3D guardado"])[:2] if line]
         for i, line in enumerate(lines):
             size = 9.0 if i == 0 else 8.0
@@ -1063,10 +1068,10 @@ class CameraWindow(QWidget):
         p.setFont(_font(9, QFont.Weight.DemiBold))
         tw = p.fontMetrics().horizontalAdvance(text) + 28
         pill = QRectF(card.center().x() - tw / 2, card.bottom() - 58, tw, 30)
-        p.setPen(QPen(QColor(229, 224, 216, 230), 1))
-        p.setBrush(QColor(250, 248, 245, 240))
+        p.setPen(QPen(LINE, 1))
+        p.setBrush(CARD)
         p.drawRoundedRect(pill, 15, 15)
-        p.setPen(QColor(20, 20, 19))
+        p.setPen(TEXT)
         p.drawText(pill, Qt.AlignmentFlag.AlignCenter, text)
 
     def _draw_scan(self, p: QPainter, pts: list, rect: QRectF, colour: QColor, now: float) -> None:
@@ -1123,7 +1128,7 @@ class CameraWindow(QWidget):
         p.setPen(Qt.PenStyle.NoPen)
         p.setBrush(KIND_COLORS["conocido" if known else "persona"])
         p.drawRoundedRect(tag, 9.5, 9.5)
-        p.setPen(QColor(255, 255, 255))
+        p.setPen(INK)  # light tag, black letters
         p.drawText(tag, Qt.AlignmentFlag.AlignCenter, label)
 
     def _draw_faces(self, p: QPainter, origin: QPointF, shown_w: int) -> None:
@@ -1167,14 +1172,14 @@ class CameraWindow(QWidget):
             p.setPen(Qt.PenStyle.NoPen)
             p.setBrush(colour)
             p.drawRoundedRect(tag, 10, 10)
-            p.setPen(QColor(255, 255, 255))
+            p.setPen(INK)  # light tag, black letters
             p.drawText(tag, Qt.AlignmentFlag.AlignCenter, label)
 
     def _draw_hands(self, p: QPainter) -> None:
         hands = getattr(self.hands, "hands", None) or []
         if not hands or getattr(self.hands, "mode", "off") == "off" or self._shown is None:
             return
-        cyan = QColor(100, 210, 255)
+        lit = QColor(255, 255, 255)  # what you hold
         seeing = getattr(self.hands, "mode", "off") == "ver"
         for i, hand in enumerate(hands[:2]):
             pts = [self._map_point(x, y) for x, y, *_ in hand.landmarks]
@@ -1217,24 +1222,24 @@ class CameraWindow(QWidget):
                 p.setPen(QColor(255, 255, 255, 230))
                 p.drawText(chip, Qt.AlignmentFlag.AlignCenter, hint)
             p.setBrush(Qt.BrushStyle.NoBrush)
-            p.setPen(QPen(cyan if holding else QColor(255, 255, 255, 150), 2.2 if holding else 1.2))
+            p.setPen(QPen(lit if holding else QColor(255, 255, 255, 150), 2.2 if holding else 1.2))
             r = 7 if holding else 11
             p.drawEllipse(pinch, r, r)
             if holding:
-                glow = QColor(cyan)
+                glow = QColor(lit)
                 glow.setAlpha(60)
                 p.setPen(QPen(glow, 6))
                 p.drawEllipse(pinch, r + 3, r + 3)
 
     HOLO_GUIDE = (
-        ("🤏", "Junta pulgar e índice sobre una figura", "la agarras · brilla cuando está a tu alcance"),
-        ("✋", "Mueve la mano y gira la muñeca", "la mueves y la giras (acerca la mano = más cerca)"),
-        ("🙌", "Agárrala con las dos manos y sepáralas", "más grande / más pequeña"),
-        ("👋", "Abre la mano mientras la mueves", "la lanzas"),
-        ("🗣", "«crea una estrella» · «un corazón rojo» · «un teléfono»", "cualquier figura u objeto"),
-        ("💎", "«estilo cristal» / «estilo holograma»", "vidrio esmerilado o luz azul JARVIS"),
-        ("🧊", "«pásalo a Blender»", "se abre en Blender y lo sigue moviendo tu mano"),
-        ("🖱", "Sin manos: arrastra · clic derecho gira · Ctrl+rueda", "con el ratón"),
+        ("Junta pulgar e índice sobre una figura", "la agarras · brilla cuando está a tu alcance"),
+        ("Mueve la mano y gira la muñeca", "la mueves y la giras (acerca la mano = más cerca)"),
+        ("Agárrala con las dos manos y sepáralas", "más grande / más pequeña"),
+        ("Abre la mano mientras la mueves", "la lanzas"),
+        ("«crea una estrella» · «un corazón rojo» · «un teléfono»", "cualquier figura u objeto"),
+        ("«estilo cristal» / «estilo holograma»", "vidrio esmerilado o luz azul JARVIS"),
+        ("«pásalo a Blender»", "se abre en Blender y lo sigue moviendo tu mano"),
+        ("Sin manos: arrastra · clic derecho gira · Ctrl+rueda", "con el ratón"),
     )
 
     def _draw_holo_guide(self, p: QPainter, card: QRectF) -> None:
@@ -1244,7 +1249,7 @@ class CameraWindow(QWidget):
         if not holo_on or now > self.guide_until:
             if holo_on and not self.holo.objects:
                 p.setFont(_font(9, QFont.Weight.DemiBold))
-                p.setPen(QColor(120, 220, 255))
+                p.setPen(TEXT)
                 p.drawText(QRectF(card.left(), card.top() + 46, card.width(), 20), Qt.AlignmentFlag.AlignCenter,
                            "Di «crea un cubo» · «ayuda hologramas» para ver los gestos")
             return
@@ -1252,23 +1257,23 @@ class CameraWindow(QWidget):
         width, row = min(400.0, card.width() * 0.52), 34.0
         box = QRectF(card.right() - width - 12, card.top() + 48, width, 30 + row * len(self.HOLO_GUIDE))
         p.setOpacity(fade)
-        p.setPen(QPen(QColor(90, 200, 255, 170), 1.2))
-        p.setBrush(QColor(2, 16, 28, 200))
+        p.setPen(QPen(LINE, 1.2))
+        p.setBrush(QColor(33, 33, 33, 235))
         p.drawRoundedRect(box, 12, 12)
         p.setFont(_font(8, QFont.Weight.Bold))
-        p.setPen(QColor(120, 220, 255))
+        p.setPen(TEXT)
         p.drawText(QRectF(box.left() + 12, box.top() + 6, width, 18), Qt.AlignmentFlag.AlignLeft, "HOLOGRAMAS · CÓMO SE USAN")
-        for i, (icon, how, what) in enumerate(self.HOLO_GUIDE):
+        for i, (how, what) in enumerate(self.HOLO_GUIDE):
             y = box.top() + 28 + i * row
-            p.setFont(_font(12))
-            p.setPen(QColor(255, 255, 255))
-            p.drawText(QRectF(box.left() + 8, y, 28, row), Qt.AlignmentFlag.AlignCenter, icon)
+            p.setFont(_font(9, QFont.Weight.DemiBold))
+            p.setPen(QColor(estilo.SECONDARY))
+            p.drawText(QRectF(box.left() + 8, y, 28, row), Qt.AlignmentFlag.AlignCenter, str(i + 1))
             p.setFont(_font(7.5, QFont.Weight.DemiBold))
-            p.setPen(QColor(230, 246, 255))
+            p.setPen(TEXT)
             how = p.fontMetrics().elidedText(how, Qt.TextElideMode.ElideRight, int(width - 48))
             p.drawText(QRectF(box.left() + 40, y + 2, width - 48, 16), Qt.AlignmentFlag.AlignLeft, how)
             p.setFont(_font(7))
-            p.setPen(QColor(120, 200, 240))
+            p.setPen(QColor(estilo.SECONDARY))
             p.drawText(QRectF(box.left() + 40, y + 16, width - 48, 14), Qt.AlignmentFlag.AlignLeft, what)
         p.setOpacity(1.0)
 
@@ -1551,16 +1556,16 @@ class CameraWindow(QWidget):
         p.setFont(_font(8.5, QFont.Weight.DemiBold))
         width = p.fontMetrics().horizontalAdvance(text) + 36
         pill = QRectF(card.left() + 10, card.top() + 10, width, 28)
-        p.setPen(QPen(QColor(229, 224, 216, 230), 1))
-        p.setBrush(QColor(250, 248, 245, 238))  # Digital Paper #FAF8F5
+        p.setPen(QPen(LINE, 1))
+        p.setBrush(CARD)
         p.drawRoundedRect(pill, 14, 14)
         pulse = 0.55 + 0.45 * abs(math.sin(t * 2.2))
-        terra = QColor(201, 100, 66)  # Terracotta #C96442
-        terra.setAlphaF(pulse)
+        dot = QColor(TEXT)
+        dot.setAlphaF(pulse)
         p.setPen(Qt.PenStyle.NoPen)
-        p.setBrush(terra)
+        p.setBrush(dot)
         p.drawEllipse(QPointF(pill.left() + 14, pill.center().y()), 4.2, 4.2)
-        p.setPen(QColor(20, 20, 19))  # Ink #141413
+        p.setPen(TEXT)
         p.drawText(
             QRectF(pill.left() + 24, pill.top(), pill.width() - 28, pill.height()),
             Qt.AlignmentFlag.AlignVCenter,
@@ -1569,10 +1574,10 @@ class CameraWindow(QWidget):
 
     def _draw_close(self, p: QPainter) -> None:
         close = self._close_rect()
-        p.setPen(QPen(QColor(229, 224, 216, 230), 1))
-        p.setBrush(QColor(250, 248, 245, 238))
+        p.setPen(QPen(LINE, 1))
+        p.setBrush(CARD)
         p.drawEllipse(close)
-        p.setPen(QPen(QColor(20, 20, 19), 1.6))
+        p.setPen(QPen(TEXT, 1.6))
         c = close.center()
         p.drawLine(QPointF(c.x() - 4, c.y() - 4), QPointF(c.x() + 4, c.y() + 4))
         p.drawLine(QPointF(c.x() + 4, c.y() - 4), QPointF(c.x() - 4, c.y() + 4))
@@ -1582,10 +1587,10 @@ class CameraWindow(QWidget):
         text = self.overlay[: max(0, shown)]
         p.setFont(_font(9.5, QFont.Weight.DemiBold))
         box = QRectF(card.left() + 12, card.bottom() - 56, card.width() - 24, 44)
-        p.setPen(QPen(QColor(229, 224, 216, 220), 1))
-        p.setBrush(QColor(250, 248, 245, 238))
+        p.setPen(QPen(LINE, 1))
+        p.setBrush(CARD)
         p.drawRoundedRect(box, 12, 12)
-        p.setPen(QColor(20, 20, 19))
+        p.setPen(TEXT)
         p.drawText(
             box.adjusted(12, 4, -12, -4),
             Qt.AlignmentFlag.AlignLeft
@@ -1597,7 +1602,7 @@ class CameraWindow(QWidget):
 
 def _font(size: float, weight: QFont.Weight = QFont.Weight.Normal) -> QFont:
     font = QFont()
-    font.setFamilies(["Segoe UI Variable Text", "SF Pro Text", "Segoe UI"])
+    font.setFamilies(estilo.FALLBACK)  # body text in the system font, like the app
     font.setPointSizeF(size)
     font.setWeight(weight)
     return font
