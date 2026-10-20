@@ -104,3 +104,21 @@ def test_update_build_failure_preserves_rollback_and_does_not_launch_desktop(che
     assert "--locked --inexact" in events
     assert "npm ci --no-audit" in events
     assert "escritorio instalar" not in events
+
+
+def test_a_previous_web_build_does_not_block_the_next_update(checkout):
+    root, env, run, base = checkout
+    static = root / "src/openjarvis/server/static"
+    static.mkdir(parents=True)
+    (static / "index.html").write_text("old build")
+    run("add", ".")
+    run("commit", "-m", "built web")
+    subprocess.run(["git", "push", "-q", env["TEST_REMOTE"], "main"], cwd=root, check=True)
+    (static / "index.html").write_text("rebuilt by the last update")  # tracked, changed
+    (static / "assets").mkdir()
+    (static / "assets/new-chunk.js").write_text("x")  # untracked
+    result = subprocess.run(
+        ["bash", "scripts/actualizar-sergio.sh"], cwd=root, env=env, capture_output=True, text=True
+    )
+    assert "cambios locales" not in result.stderr, result.stderr
+    assert (static / "index.html").read_text() == "old build"
