@@ -2,6 +2,23 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-10-19 · Claude · Swarm y Nodes sin fallos ocultos, errores claros, Windows Hello menos pesado
+- Swarm: los sub-agentes morían con `TypeError: int + NoneType` porque Gemini a
+  veces manda los conteos de tokens como None (`engine/cloud_google.py`). Un
+  agente que «pierde el hilo» (ReAct sin parsear) ya no cuenta como éxito: se
+  reintenta. Si todos fallan, el enjambre queda `failed` con la razón. Cada
+  fallo deja su traceback en el log. Nodes probados en vivo: funcionan.
+- Errores: `cli/friendly.plain` da una frase clara (quién falló y qué hacer) en
+  Swarm, Nodes, Cowork y el manejador global del servidor (con el detalle
+  técnico detrás). Muchos «runtime error» del dueño eran cuota de Gemini
+  agotada (429), no código.
+- Windows Hello: el control de pantalla lo pedía en cada clic. Ahora una
+  confirmación cubre 120 s de acciones rutinarias (clic, escribir, teclas,
+  enfocar, abrir apps); lo sensible pide siempre; pausar quita el permiso
+  (`control.py: ROUTINE`, `APPROVAL_WINDOW_S`).
+- Pruebas nuevas en swarm, engine, escritorio. Fallan en `main` sin relación:
+  `test_creative`, `test_creator_apps` (rutas de Windows).
+
 ## 2026-10-18 · Claude · Face ID más fácil, Sergio ya no responde a videos, cerebro por zonas
 - Petición del dueño: Face ID más fácil (siempre fallaba) y ver si puede
   desbloquear el PC o el Mac; que Sergio no hable solo ni responda a lo que no es
