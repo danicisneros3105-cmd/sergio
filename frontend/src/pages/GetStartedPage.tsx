@@ -1,9 +1,9 @@
 // «Primeros pasos»: what an everyday person does with Sergio, in five
 // minutes, and how to keep him up to date. One product, one name.
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { Check, Copy, MessageSquare, NotebookPen, ScanFace, Shapes } from 'lucide-react';
+import { Check, Command, Copy, MessageSquare, ScanFace, Search, Users } from 'lucide-react';
 
 const UPDATE =
   'wsl -d Ubuntu -- bash -lc "cd ~/sergio && git fetch origin main && git checkout -B main origin/main && bash scripts/actualizar-sergio.sh main"';
@@ -13,33 +13,41 @@ const STEPS: Array<{ icon: typeof Check; color: string; title: string; text: str
     icon: MessageSquare,
     color: 'var(--sec-chat)',
     title: 'Hable con él',
-    text: 'Haga clic en cualquier parte y hable: Sergio le escucha siempre, como una persona. También puede escribir.',
+    text: 'Diga «Sergio» o escriba. Recuerda lo que hablaron antes, por chat o por voz.',
     to: '/chat',
     cta: 'Ir al chat',
+  },
+  {
+    icon: Users,
+    color: 'var(--sec-chat)',
+    title: 'Su equipo',
+    text: 'Rihno, Manchas, Hous y Tennessee trabajan para usted sin parar. Pídales algo en Nodes.',
+    to: '/nodes',
+    cta: 'Abrir Nodes',
+  },
+  {
+    icon: Search,
+    color: 'var(--sec-chat)',
+    title: 'Investigue a lo grande',
+    text: 'Agent Swarm reparte una pregunta grande entre muchos agentes y le entrega un informe.',
+    to: '/swarm',
+    cta: 'Abrir Agent Swarm',
   },
   {
     icon: ScanFace,
     color: 'var(--sec-profile)',
     title: 'Configure su Face ID',
-    text: 'Para aprobar lo importante (borrar, publicar, pagar) con la cara, con un código de respaldo.',
+    text: 'Para aprobar lo importante (borrar, publicar, pagar) con la cara.',
     to: '/faces',
     cta: 'Configurar',
   },
   {
-    icon: NotebookPen,
+    icon: Command,
     color: 'var(--sec-workspace)',
-    title: 'Guarde sus ideas',
-    text: 'El Workspace guarda notas, tareas y tablas en su equipo, también sin internet.',
-    to: '/workspace',
-    cta: 'Abrir Workspace',
-  },
-  {
-    icon: Shapes,
-    color: 'var(--sec-creator)',
-    title: 'Cree algo',
-    text: 'Creator diseña imágenes, láminas técnicas y modelos 3D a partir de lo que usted describa.',
-    to: '/creator',
-    cta: 'Abrir Creator',
+    title: 'Todo con Ctrl K',
+    text: 'Abra la paleta y escriba lo que busca: páginas, acciones, modelos.',
+    to: '/atajos',
+    cta: 'Ver atajos',
   },
 ];
 

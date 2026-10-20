@@ -51,6 +51,17 @@ export function Layout() {
   const navigate = useNavigate();
 
   useEffect(() => {
+    // A new user lands on «Primeros pasos» once (GetStartedPage marks it seen).
+    try {
+      if (!localStorage.getItem('sergio-onboarded') && !window.location.pathname.startsWith('/get-started')) {
+        navigate('/get-started');
+      }
+    } catch {
+      // storage blocked: no first-run guide, nothing else changes
+    }
+  }, [navigate]);
+
+  useEffect(() => {
     const onNav = (e: Event) => {
       const route = (e as CustomEvent<string>).detail;
       if (typeof route === 'string' && route.startsWith('/')) {
