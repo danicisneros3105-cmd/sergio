@@ -2,6 +2,33 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-10-19 · Claude · Cerebro v2, escritorio 20 s más rápido, Video Pro profesional, Sergio ve y Salud mental
+- Petición del dueño: completar sus 11 puntos, con foco en el cerebro.
+- Cerebro v2 (`connectome/brain.py`): conexiones reales en todas las zonas
+  (herramientas que funcionaron o fallaron, fragmentos de prompts, canal, hilo
+  de conversación), rutas aprendidas en el contexto, SQLite incremental (6,5 ms
+  por turno con 4000 recuerdos frente a 18,5 ms) y migración de cerebro.json.
+  Nodes, Swarm, Cowork, Live y la voz del escritorio ahora pasan por él. La
+  página Cerebro muestra las conexiones por zona.
+- Escritorio: `localhost` en Windows esperaba ~21 s por IPv6 antes de llegar al
+  servidor de WSL; ahora `voice.api_base` va a 127.0.0.1. Identificar caras
+  pasó de ~20 s a 20-60 ms; también acelera chat, panel, Nodes y Swarm desde el
+  escritorio. Probablemente era la causa de muchos «se bugea» y de la
+  imprecisión de Sergio ve (etiquetas con 20 s de retraso).
+- Voz del escritorio (`/v1/voice/chat`): no guardaba nada; ahora recuerda y
+  recibe recuerdos (por eso «cada vez era una conversación nueva»).
+- Salud mental: la lectura con IA nunca funcionaba (llamada al motor sin modelo
+  y con dicts); salía siempre la plantilla. Ahora va por Gemini como el coach.
+  Logos de universidades: no, por la regla de marcas (LEGAL-MARCAS.md).
+- Video Pro: `video_master.pipeline` une lo que ya existía y no estaba
+  conectado (silencios, fotos, RIFE, máster ProRes/DNxHR/HEVC con LUT). Nueva
+  herramienta `video_pro` para Sergio y los agentes.
+- Sergio ve, Face ID y organizador: fuera la paleta «Digital Paper» y los
+  emojis; blanco, negro y grises de `estilo.py`.
+- Pendiente: reorganizar `windows/sergio_escritorio/app.py` (4600 líneas en un
+  solo `main()`), probar Video Pro con clips reales en el PC del dueño, y ver
+  «no escucha bien» con audio real (no se pudo reproducir aquí).
+
 ## 2026-10-19 · Claude · Swarm y Nodes sin fallos ocultos, errores claros, Windows Hello menos pesado
 - Swarm: los sub-agentes morían con `TypeError: int + NoneType` porque Gemini a
   veces manda los conteos de tokens como None (`engine/cloud_google.py`). Un

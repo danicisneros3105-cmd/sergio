@@ -152,6 +152,15 @@ termina en la rama `main`, y el dueño actualiza con un único comando.
   (`mind_context` entra en cada turno junto a la biblioteca de prompts). Es
   contexto, no pesos nuevos; local; sin claves ni contraseñas;
   `SERGIO_CEREBRO=0` lo apaga. Página «Cerebro».
+  **Todas las zonas tienen conexiones reales** (v2, oct. 2026): herramientas
+  (`note_tool` desde `ToolExecutor`: lo que funcionó se sugiere en
+  `<cerebro_rutas>`, lo que falla se avisa), habilidades (fragmentos de la
+  biblioteca usados), sentidos (canal: chat, voz, nodes, swarm, cowork) y
+  conversación (cada recuerdo enlazado con el siguiente del hilo). Todo lo que
+  termina en Sergio pasa por `remember_exchange(..., channel=…)`: chat, Gemini
+  Live, voz del escritorio, Nodes, Swarm (solo si salió bien) y Cowork. Se
+  guarda en `cerebro.db` (SQLite, escrituras incrementales). Algo nuevo que
+  converse o use herramientas debe pasar por el cerebro; no cree otra memoria.
 - Atajos con la estructura del cerebro de la mosca (dueño, oct. 2026;
   FlyWire, Nature 2024): `connectome/` y `lib/connectome.ts`. Cuerno lateral
   = reflejos en el navegador (Ctrl/⌘ K, G + letra); cuerpo fungiforme =
@@ -181,6 +190,13 @@ termina en la rama `main`, y el dueño actualiza con un único comando.
   (launch.py, Edge --app), nunca fallback de páginas internas a una pestaña.
   Loopback es transporte interno. Notch: ocultar/recuperar en 220 ms, sin
   partículas ni gotas; respetar movimiento reducido y reposo oculto.
+  Un clic en el notch abre la barra rápida (`notch_bar.py`); el centro de
+  control está a un atajo. Toda petición de Python al servidor usa
+  `voice.api_base` (127.0.0.1): «localhost» en Windows probaba IPv6 primero y
+  cada petición esperaba ~21 s. La ventana de la app sigue en localhost.
+  Video: `video_pro` (brief creativo, máster 10 bits, LUT, RIFE) es la
+  herramienta profesional de Sergio y los agentes; `video_edit` es el montaje
+  rápido. Las dos acaban en `video_master.pipeline` / `media.make_video`.
 - Cowork igual al modo de trabajo de ChatGPT (dueño, oct. 2026): una caja
   central «¿En qué trabajamos?» con «+» (adjuntar, modo plan, autonomía,
   tope) y comandos «/»; la tarea como conversación con la actividad plegable,
