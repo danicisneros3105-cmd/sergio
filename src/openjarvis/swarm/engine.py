@@ -643,6 +643,15 @@ class SwarmEngine:
                     "Ningún sub-agente pudo terminar. "
                     + next((s.result for s in run.subtasks if s.result), "")[:300]
                 )
+            else:
+                from openjarvis.connectome.brain import remember_exchange
+                from openjarvis.swarm.report import summary_line
+
+                remember_exchange(
+                    run.task,
+                    summary_line(run.report) or run.report[:400],
+                    channel="swarm",
+                )
         except Exception as exc:  # noqa: BLE001
             logger.exception("swarm %s failed", run.id)
             run.status = "failed"

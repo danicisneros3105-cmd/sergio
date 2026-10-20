@@ -343,3 +343,36 @@ def test_the_voice_reads_each_sentence_in_its_own_language(monkeypatch):
     monkeypatch.setenv("SERGIO_VOZ_CALIDAD", "alta")
     _, _, body = request("Good evening, sir.", "elevenlabs:")
     assert body["model_id"] == QUALITY_MODEL and "language_code" not in body
+
+
+def test_spoken_talk_is_remembered_and_comes_back(monkeypatch, tmp_path):
+    import time
+
+    from openjarvis.connectome.brain import get_brain
+    from openjarvis.server import voice_routes as vr
+
+    monkeypatch.setenv("OPENJARVIS_HOME", str(tmp_path))
+    prompts = []
+
+    class Engine:
+        def generate(self, messages, *, model, temperature, max_tokens):
+            prompts.append(" ".join(m.content for m in messages))
+            return {"content": "Encantado de conocer a Luna, la golden."}
+
+    app = FastAPI()
+    app.state.engine = Engine()
+    app.include_router(vr.router)
+    client = TestClient(app)
+    ask = lambda text: client.post(  # noqa: E731
+        "/v1/voice/chat",
+        json={"model": "m", "messages": [{"role": "user", "content": text}]},
+    )
+    ask("Mi perra se llama Luna y es una golden retriever")
+    brain = get_brain(tmp_path)
+    for _ in range(100):  # remembered in the background
+        if brain.engrams:
+            break
+        time.sleep(0.02)
+    assert brain.engrams
+    ask("¿qué raza es Luna, mi perra?")
+    assert "<cerebro_memoria>" in prompts[-1] and "golden" in prompts[-1]
