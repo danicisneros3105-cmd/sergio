@@ -13,7 +13,8 @@ import os
 import time
 from typing import Any, Dict, List
 
-from fastapi import APIRouter, Query, Request
+from fastapi import APIRouter, HTTPException, Query, Request
+from pydantic import BaseModel, Field
 
 router = APIRouter(prefix="/v1/usage", tags=["usage"])
 
@@ -159,6 +160,59 @@ async def usage(request: Request, days: int = Query(7, ge=1, le=90)) -> Dict[str
         "providers": providers,
         "out_of_quota": [{"model": m, "minutes": n} for m, n in sorted(tired.items())],
     }
+
+
+def _ollama_host(request: Request) -> str:
+    config = getattr(request.app.state, "config", None)
+    engine_cfg = getattr(config, "engine", None)
+    host = getattr(engine_cfg, "ollama_host", None) or getattr(
+        getattr(engine_cfg, "ollama", None), "host", None
+    )
+    return str(
+        host or os.environ.get("OLLAMA_HOST") or "http://127.0.0.1:11434"
+    ).rstrip("/")
+
+
+@router.get("/local-models")
+async def local_models(request: Request) -> Dict[str, Any]:
+    """The models in Ollama on this computer. The page cannot ask Ollama
+    itself: its security policy only lets it talk to Sergio's server."""
+    import httpx
+
+    try:
+        async with httpx.AsyncClient(timeout=3) as client:
+            data = (await client.get(_ollama_host(request) + "/api/tags")).json()
+    except Exception:  # noqa: BLE001 - Ollama closed: no local models
+        return {"models": [], "running": False}
+    models = [
+        {"name": m.get("name", ""), "size": int(m.get("size") or 0)}
+        for m in data.get("models") or []
+    ]
+    return {"models": models, "running": True}
+
+
+class Preload(BaseModel):
+    model: str = Field(..., min_length=1, max_length=200)
+
+
+@router.post("/preload")
+async def preload(body: Preload, request: Request) -> Dict[str, Any]:
+    """Load a local model into memory (an empty prompt, kept 5 minutes)."""
+    import httpx
+
+    try:
+        async with httpx.AsyncClient(timeout=120) as client:
+            resp = await client.post(
+                _ollama_host(request) + "/api/generate",
+                json={"model": body.model, "prompt": "", "keep_alive": "5m"},
+            )
+    except httpx.TimeoutException as exc:
+        raise HTTPException(504, "El modelo tardó más de 2 minutos en cargar.") from exc
+    except httpx.HTTPError as exc:
+        raise HTTPException(503, "Ollama no está abierto en este equipo.") from exc
+    if resp.status_code != 200:
+        raise HTTPException(502, f"Ollama no pudo cargar {body.model}.")
+    return {"ok": True}
 
 
 __all__ = ["PROVIDERS", "provider_of", "router"]

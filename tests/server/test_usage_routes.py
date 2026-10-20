@@ -69,3 +69,68 @@ def test_usage_groups_models_by_provider_with_their_state(monkeypatch):
     assert by["google"]["state"] == "conectado" and by["google"]["calls"] == 5
     assert by["anthropic"]["state"] == "sin clave"
     assert by["local"]["models"] == ["qwen3:8b"]
+
+
+def test_local_models_and_preload_go_through_the_server(monkeypatch):
+    import httpx
+
+    calls = []
+
+    class Client:
+        def __init__(self, **kw):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *a):
+            return False
+
+        async def get(self, url):
+            calls.append(url)
+            return httpx.Response(
+                200, json={"models": [{"name": "qwen3:8b", "size": 5_000_000_000}]}
+            )
+
+        async def post(self, url, json):
+            calls.append((url, json))
+            return httpx.Response(200, json={})
+
+    monkeypatch.setattr(httpx, "AsyncClient", Client)
+    monkeypatch.setenv("OLLAMA_HOST", "http://10.0.0.5:11434")
+    app = FastAPI()
+    app.include_router(usage_routes.router)
+    client = TestClient(app)
+    assert client.get("/v1/usage/local-models").json()["models"] == [
+        {"name": "qwen3:8b", "size": 5_000_000_000}
+    ]
+    assert client.post("/v1/usage/preload", json={"model": "qwen3:8b"}).json() == {
+        "ok": True
+    }
+    assert calls[0] == "http://10.0.0.5:11434/api/tags"
+    assert calls[1] == (
+        "http://10.0.0.5:11434/api/generate",
+        {"model": "qwen3:8b", "prompt": "", "keep_alive": "5m"},
+    )
+
+
+def test_local_models_when_ollama_is_closed(monkeypatch):
+    import httpx
+
+    class Closed:
+        def __init__(self, **kw):
+            pass
+
+        async def __aenter__(self):
+            raise httpx.ConnectError("refused")
+
+        async def __aexit__(self, *a):
+            return False
+
+    monkeypatch.setattr(httpx, "AsyncClient", Closed)
+    app = FastAPI()
+    app.include_router(usage_routes.router)
+    assert TestClient(app).get("/v1/usage/local-models").json() == {
+        "models": [],
+        "running": False,
+    }

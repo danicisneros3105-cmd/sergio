@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { useAppStore, type ThemeMode } from '../lib/store';
 import {
+  apiFetch,
   checkHealth,
   fetchSpeechHealth,
   fetchTtsHealth,
@@ -45,7 +46,8 @@ const CLOUD_KEY_STATUS_CHANGED = 'openjarvis-cloud-key-status-changed';
 function OllamaModelList() {
   const [models, setModels] = useState<Array<{ name: string; size: number }>>([]);
   useEffect(() => {
-    fetch('http://localhost:11434/api/tags')
+    // Through Sergio's server: the page may only talk to it (security policy).
+    apiFetch('/v1/usage/local-models')
       .then(r => r.json())
       .then(data => setModels((data.models || []).map((m: any) => ({ name: m.name, size: m.size }))))
       .catch(() => setModels([]));
