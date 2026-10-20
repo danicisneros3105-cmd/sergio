@@ -2,29 +2,37 @@
 
 The fly connectome (FlyWire, Nature 2024) is not a list of commands: it is
 regions with one job each, joined by synapses that change with experience.
-Sergio's mind is built the same way. Each zone holds one kind of knowledge:
+Sergio's mind is built the same way, and every zone holds real connections:
 
 * ``sentidos``      (antennal and optic lobes): what comes in, coded as a few
-                    active Kenyon cells (:func:`kenyon_code`);
+                    active Kenyon cells (:func:`kenyon_code`), and the channel
+                    it came through (chat, voz, Nodes, Agent Swarm, Cowork);
 * ``memoria``       (mushroom body): engrams, the gist of every past exchange,
                     so what fell out of the context window can come back;
-* ``habilidades``   (lateral horn, the innate repertoire): the prompt library
-                    and the skills, the know-how he did not have to learn;
-* ``conversacion``  (central complex, the heading): the thread of the talk;
-* ``herramientas``  (descending neurons): the actions;
+* ``habilidades``   (lateral horn, the innate repertoire): the prompt-library
+                    passages that were used, and how much they helped;
+* ``conversacion``  (central complex, the heading): the thread, each engram
+                    linked to the one that followed it;
+* ``herramientas``  (descending neurons): the tools that worked, or failed,
+                    for this kind of request;
 * ``integracion``   (the rich club of hubs): the language model that joins all.
 
-Learning is Hebbian: when a memory helped (the owner went on without
-correcting him), the synapses from the words of the request to that memory get
-stronger, and memories recalled together get linked. Next time the same words
-fire those synapses directly, so the right memory comes back at once without
-searching everything (the fast path), and a linked one comes with it. A
-correction («no, eso no») weakens them; everything unused fades slowly. Zones
-that keep helping get a bigger share of the context budget.
+Learning is Hebbian with a dopamine-like reward. A finished exchange
+strengthens the synapses from the Kenyon cells of the request to everything
+that took part: the memories recalled, the passages used, the tools that
+succeeded (a failed tool is punished). Items that worked together get linked.
+A correction («no, eso no») punishes what fed the previous answer. Everything
+unused fades. Next time the same words fire those synapses directly: the
+right memory comes back without searching everything (the fast path), and the
+tools that worked are suggested before the model has to discover them again
+(learned routes). Zones that keep helping get a bigger share of the context.
 
-It is context engineering, not new model weights, and everything stays in
-``~/.openjarvis/connectome`` on the owner's computer. ``SERGIO_CEREBRO=0``
-switches it off.
+The working set lives in memory (dictionaries, instant to read) and every
+change is written incrementally to SQLite (``cerebro.db``, WAL), so a turn
+costs a few row writes however big the mind grows. The older ``cerebro.json``
+is migrated once. It is context engineering, not new model weights; it stays
+in ``~/.openjarvis/connectome`` on the owner's computer, never keeps secrets,
+and ``SERGIO_CEREBRO=0`` switches it off.
 """
 
 from __future__ import annotations
@@ -32,17 +40,19 @@ from __future__ import annotations
 import json
 import os
 import re
+import sqlite3
 import threading
 import time
+import unicodedata
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 
 from openjarvis.connectome.memory import kenyon_code
 
 ZONES: Dict[str, Dict[str, str]] = {
     "sentidos": {
         "fly": "Lóbulos antenal y óptico",
-        "job": "Codifican lo que entra en pocas células activas.",
+        "job": "Codifican lo que entra en pocas células activas y por qué canal llegó.",
     },
     "memoria": {
         "fly": "Cuerpo fungiforme",
@@ -50,29 +60,35 @@ ZONES: Dict[str, Dict[str, str]] = {
     },
     "habilidades": {
         "fly": "Cuerno lateral",
-        "job": "Prompts y skills: lo que sabe hacer sin aprenderlo.",
+        "job": "Prompts y skills: lo que sabe hacer sin aprenderlo, y cuáles le sirvieron.",
     },
     "conversacion": {
         "fly": "Complejo central",
-        "job": "Mantiene el rumbo de la conversación.",
+        "job": "Mantiene el rumbo: cada recuerdo enlazado con el que vino después.",
     },
     "herramientas": {
         "fly": "Neuronas descendentes",
-        "job": "Convierten la decisión en acciones.",
+        "job": "Convierten la decisión en acciones y aprenden qué herramienta funciona.",
     },
     "integracion": {
         "fly": "Club rico",
         "job": "El modelo de lenguaje une todas las zonas.",
     },
 }
+CHANNELS = ("chat", "voz", "nodes", "swarm", "cowork", "escritorio")
 
 RATE = 0.3  # Hebbian step
-ASSOC_RATE = 0.2  # memories recalled together
+ASSOC_RATE = 0.2  # items that worked together
+SEQ_RATE = 0.35  # one engram followed by the next (the thread)
+THREAD_GAP_S = 30 * 60  # longer silence: a new thread
 DAILY_DECAY = 0.985
 FAST = 0.55  # a synapse this strong answers without searching (fast path)
+ROUTE_MIN = 0.35  # a tool this strongly tied to the words is suggested
+AVOID_MAX = -0.35  # a tool this strongly punished is flagged
 MAX_ENGRAMS = 4000
-MAX_SYNAPSES_PER_CELL = 40
+MAX_SYNAPSES_PER_CELL = 60
 CONTEXT_CHARS = 1400  # the memory zone's base share of the context
+PENDING_TTL_S = 15 * 60
 _CORRECTION = re.compile(
     r"^\s*(no[,.!]|no\s+(es|era|eso|asi|así)|eso no|mal\b|incorrect|te equivoc|"
     r"al rev[eé]s|that'?s wrong|wrong)",
@@ -84,6 +100,11 @@ _SECRET = re.compile(
     r"xox[abp]-[A-Za-z0-9-]{10,}|gh[pousr]_[A-Za-z0-9]{20,}|"
     r"contrase(n|ñ)a\s*[:=]|password\s*[:=]|[A-Za-z0-9+/=_-]{40,})"
 )
+# Tools that only think or look things up about Sergio himself are not routes.
+_NOT_ROUTES = {"think", "memory_search", "memory_store"}
+
+# The turn being answered on this thread: tools note themselves here.
+_turn = threading.local()
 
 
 def enabled() -> bool:
@@ -96,29 +117,99 @@ def _gist(text: str, limit: int) -> str:
     return (first if len(first) >= 20 else text)[:limit]
 
 
+def _key(text: str) -> str:
+    """The same request however it was spaced or accented."""
+    text = unicodedata.normalize("NFKD", (text or "").lower())
+    text = "".join(c for c in text if not unicodedata.combining(c))
+    return re.sub(r"\s+", " ", text).strip()[-800:]
+
+
+def _clean_name(name: str) -> str:
+    return re.sub(r"[^\w.\- ]+", "", str(name or ""))[:80].strip()
+
+
 class Brain:
     def __init__(self, folder: Path, *, clock: Any = time.time) -> None:
         self.folder = Path(folder)
         self.clock = clock
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
         self.syn: Dict[str, Dict[str, float]] = {}  # Kenyon cell -> item -> weight
         self.assoc: Dict[str, Dict[str, float]] = {}  # item -> item -> weight
         self.zone_w: Dict[str, float] = {z: 1.0 for z in ZONES}
         self.engrams: Dict[str, Dict[str, Any]] = {}
-        self.stats_: Dict[str, int] = {"turns": 0, "fast": 0, "corrections": 0}
+        self.stats_: Dict[str, Any] = {"turns": 0, "fast": 0, "corrections": 0}
         self._decayed = clock()
-        self._last: Optional[Dict[str, Any]] = None  # the turn being answered
-        self._index: Dict[int, set] = {}  # cell -> engram ids (built on load)
+        self._pending: Dict[str, Dict[str, Any]] = {}  # request key -> its turn
+        self._index: Dict[int, Set[str]] = {}  # cell -> engram ids
+        self._last_engram: Dict[str, Tuple[str, float]] = {}  # channel -> (id, t)
+        self._dirty_syn: Set[Tuple[str, str]] = set()
+        self._dirty_assoc: Set[Tuple[str, str]] = set()
+        self._dirty_eng: Set[str] = set()
+        self._gone_eng: Set[str] = set()
+        self._full_rewrite = False
+        self._db: Optional[sqlite3.Connection] = None
         self._load()
 
     # -- storage ------------------------------------------------------------
     @property
     def _file(self) -> Path:
+        return self.folder / "cerebro.db"
+
+    @property
+    def _legacy(self) -> Path:
         return self.folder / "cerebro.json"
 
+    def _conn(self) -> sqlite3.Connection:
+        if self._db is None:
+            self.folder.mkdir(parents=True, exist_ok=True)
+            fresh = not self._file.exists()
+            db = sqlite3.connect(str(self._file), check_same_thread=False)
+            db.execute("PRAGMA journal_mode=WAL")
+            db.execute("PRAGMA synchronous=NORMAL")
+            db.executescript(
+                """
+                CREATE TABLE IF NOT EXISTS syn (cell TEXT, item TEXT, w REAL,
+                    PRIMARY KEY (cell, item)) WITHOUT ROWID;
+                CREATE TABLE IF NOT EXISTS assoc (a TEXT, b TEXT, w REAL,
+                    PRIMARY KEY (a, b)) WITHOUT ROWID;
+                CREATE TABLE IF NOT EXISTS engrams (id TEXT PRIMARY KEY, data TEXT);
+                CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT);
+                """
+            )
+            if fresh:
+                try:
+                    os.chmod(self._file, 0o600)
+                except OSError:
+                    pass
+            self._db = db
+        return self._db
+
     def _load(self) -> None:
+        if not self._file.exists() and self._legacy.exists():
+            self._migrate()
+            return
+        if not self._file.exists():
+            return
         try:
-            data = json.loads(self._file.read_text(encoding="utf-8"))
+            db = self._conn()
+            for cell, item, w in db.execute("SELECT cell, item, w FROM syn"):
+                self.syn.setdefault(cell, {})[item] = w
+            for a, b, w in db.execute("SELECT a, b, w FROM assoc"):
+                self.assoc.setdefault(a, {})[b] = w
+            for eid, data in db.execute("SELECT id, data FROM engrams"):
+                self.engrams[eid] = json.loads(data)
+            meta = dict(db.execute("SELECT k, v FROM meta").fetchall())
+        except (sqlite3.Error, ValueError):
+            return
+        self.zone_w.update(json.loads(meta.get("zone_w", "{}")))
+        self.stats_.update(json.loads(meta.get("stats", "{}")))
+        self._decayed = float(meta.get("decayed") or self.clock())
+        self._reindex()
+
+    def _migrate(self) -> None:
+        """The first mind lived in one JSON file: bring it over once."""
+        try:
+            data = json.loads(self._legacy.read_text(encoding="utf-8"))
         except (OSError, ValueError):
             return
         self.syn = data.get("syn") or {}
@@ -127,32 +218,90 @@ class Brain:
         self.engrams = data.get("engrams") or {}
         self.stats_.update(data.get("stats") or {})
         self._decayed = float(data.get("decayed") or self.clock())
+        self._reindex()
+        self._full_rewrite = True
+        self._save()
+        try:
+            self._legacy.replace(self._legacy.with_suffix(".json.migrado"))
+        except OSError:
+            pass
+
+    def _reindex(self) -> None:
+        self._index = {}
         for eid, e in self.engrams.items():
             for c in e.get("cells") or []:
                 self._index.setdefault(int(c), set()).add(eid)
 
     def _save(self) -> None:
-        self.folder.mkdir(parents=True, exist_ok=True)
-        tmp = self._file.with_suffix(".tmp")
-        tmp.write_text(
-            json.dumps(
-                {
-                    "syn": self.syn,
-                    "assoc": self.assoc,
-                    "zone_w": self.zone_w,
-                    "engrams": self.engrams,
-                    "stats": self.stats_,
-                    "decayed": self._decayed,
-                },
-                ensure_ascii=False,
-            ),
-            encoding="utf-8",
-        )
-        try:
-            os.chmod(tmp, 0o600)
-        except OSError:
-            pass
-        tmp.replace(self._file)
+        """Write only what changed since the last save (or all, after decay)."""
+        db = self._conn()
+        with db:
+            if self._full_rewrite:
+                db.execute("DELETE FROM syn")
+                db.execute("DELETE FROM assoc")
+                db.executemany(
+                    "INSERT INTO syn VALUES (?, ?, ?)",
+                    ((c, i, w) for c, row in self.syn.items() for i, w in row.items()),
+                )
+                db.executemany(
+                    "INSERT INTO assoc VALUES (?, ?, ?)",
+                    (
+                        (a, b, w)
+                        for a, row in self.assoc.items()
+                        for b, w in row.items()
+                    ),
+                )
+                db.execute("DELETE FROM engrams")
+                db.executemany(
+                    "INSERT INTO engrams VALUES (?, ?)",
+                    (
+                        (e, json.dumps(d, ensure_ascii=False))
+                        for e, d in self.engrams.items()
+                    ),
+                )
+            else:
+                for cell, item in self._dirty_syn:
+                    w = self.syn.get(cell, {}).get(item)
+                    if w is None:
+                        db.execute(
+                            "DELETE FROM syn WHERE cell=? AND item=?", (cell, item)
+                        )
+                    else:
+                        db.execute(
+                            "INSERT OR REPLACE INTO syn VALUES (?, ?, ?)",
+                            (cell, item, w),
+                        )
+                for a, b in self._dirty_assoc:
+                    w = self.assoc.get(a, {}).get(b)
+                    if w is None:
+                        db.execute("DELETE FROM assoc WHERE a=? AND b=?", (a, b))
+                    else:
+                        db.execute(
+                            "INSERT OR REPLACE INTO assoc VALUES (?, ?, ?)", (a, b, w)
+                        )
+                for eid in self._gone_eng:
+                    db.execute("DELETE FROM engrams WHERE id=?", (eid,))
+                for eid in self._dirty_eng - self._gone_eng:
+                    if eid in self.engrams:
+                        db.execute(
+                            "INSERT OR REPLACE INTO engrams VALUES (?, ?)",
+                            (eid, json.dumps(self.engrams[eid], ensure_ascii=False)),
+                        )
+            stats = {k: v for k, v in self.stats_.items() if not k.startswith("prev_")}
+            prev = {k: v for k, v in self.stats_.items() if k.startswith("prev_")}
+            db.executemany(
+                "INSERT OR REPLACE INTO meta VALUES (?, ?)",
+                [
+                    ("zone_w", json.dumps(self.zone_w)),
+                    ("stats", json.dumps({**stats, **prev})),
+                    ("decayed", str(self._decayed)),
+                ],
+            )
+        self._dirty_syn.clear()
+        self._dirty_assoc.clear()
+        self._dirty_eng.clear()
+        self._gone_eng.clear()
+        self._full_rewrite = False
 
     # -- plasticity -----------------------------------------------------------
     def _decay(self) -> None:
@@ -172,45 +321,68 @@ class Brain:
                 else:
                     del table[key]
         self._decayed = self.clock()
+        self._full_rewrite = True
 
-    def _strengthen(self, cells: List[int], items: List[str], reward: float) -> None:
+    def _set_syn(self, cell: str, item: str, w: float) -> None:
+        self.syn.setdefault(cell, {})[item] = round(w, 4)
+        self._dirty_syn.add((cell, item))
+
+    def _set_assoc(self, a: str, b: str, w: float) -> None:
+        self.assoc.setdefault(a, {})[b] = round(w, 4)
+        self._dirty_assoc.add((a, b))
+
+    def _strengthen(
+        self, cells: Iterable[int], items: List[str], reward: float
+    ) -> None:
         for cell in cells:
-            row = self.syn.setdefault(str(cell), {})
+            key = str(cell)
+            row = self.syn.get(key, {})
             for item in items:
                 w = row.get(item, 0.0)
                 w += RATE * reward * ((1 - w) if reward > 0 else (1 + w))
-                row[item] = round(w, 4)
+                self._set_syn(key, item, w)
+            row = self.syn.get(key, {})
             if len(row) > MAX_SYNAPSES_PER_CELL:
-                keep = sorted(row.items(), key=lambda kv: -abs(kv[1]))[
-                    :MAX_SYNAPSES_PER_CELL
-                ]
-                self.syn[str(cell)] = dict(keep)
+                keep = dict(
+                    sorted(row.items(), key=lambda kv: -abs(kv[1]))[
+                        :MAX_SYNAPSES_PER_CELL
+                    ]
+                )
+                for item in set(row) - set(keep):
+                    self._dirty_syn.add((key, item))
+                self.syn[key] = keep
         if reward > 0 and len(items) > 1:
             for a in items:
                 for b in items:
                     if a != b:
-                        row = self.assoc.setdefault(a, {})
-                        row[b] = round(
-                            row.get(b, 0.0) + ASSOC_RATE * (1 - row.get(b, 0.0)), 4
-                        )
-        for item in items:
-            zone = item.split(":", 1)[0]
+                        w = self.assoc.get(a, {}).get(b, 0.0)
+                        self._set_assoc(a, b, w + ASSOC_RATE * (1 - w))
+        for zone in {item.split(":", 1)[0] for item in items}:
             if zone in self.zone_w:
                 w = self.zone_w[zone] + 0.05 * reward
                 self.zone_w[zone] = round(min(2.0, max(0.5, w)), 3)
 
     # -- recall -----------------------------------------------------------------
+    def _activation(self, cells: List[int], prefix: str) -> Dict[str, float]:
+        scores: Dict[str, float] = {}
+        norm = len(cells) ** 0.5 if cells else 1.0
+        for c in cells:
+            for item, w in self.syn.get(str(c), {}).items():
+                if item.startswith(prefix):
+                    scores[item] = scores.get(item, 0.0) + w / norm
+        return scores
+
     def recall(self, text: str, k: int = 3) -> Tuple[List[str], bool]:
         """The engrams this text brings back, and whether the learned synapses
         alone found them (the fast path, no search)."""
         cells = kenyon_code(text)
         if not cells:
             return [], False
-        scores: Dict[str, float] = {}
-        for c in cells:
-            for item, w in self.syn.get(str(c), {}).items():
-                if item.startswith("memoria:") and item[8:] in self.engrams:
-                    scores[item[8:]] = scores.get(item[8:], 0.0) + w / len(cells) ** 0.5
+        scores = {
+            item[8:]: s
+            for item, s in self._activation(cells, "memoria:").items()
+            if item[8:] in self.engrams
+        }
         top = max(scores.values(), default=0.0)
         fast = top >= FAST
         if not fast:
@@ -225,22 +397,46 @@ class Brain:
                 jaccard = n / (len(mine) + theirs - n)
                 if jaccard >= 0.2:
                     scores[eid] = scores.get(eid, 0.0) + jaccard
-        # Spreading activation: a strong memory brings its linked ones.
+        # Spreading activation: a strong memory brings its linked ones, and
+        # the thread brings what came right after it.
         for eid, s in list(scores.items()):
             for other, w in self.assoc.get(f"memoria:{eid}", {}).items():
-                oid = other.split(":", 1)[1]
-                if oid in self.engrams and w >= 0.3:
+                zone, oid = other.split(":", 1)
+                if (
+                    zone in ("memoria", "conversacion")
+                    and oid in self.engrams
+                    and w >= 0.3
+                ):
                     scores[oid] = max(scores.get(oid, 0.0), s * w * 0.5)
         ranked = sorted(scores.items(), key=lambda kv: -kv[1])
         return [eid for eid, s in ranked if s > 0.15][:k], fast
 
-    def context(self, text: str) -> Tuple[str, List[str]]:
-        """The memory zone's block for this request, within its share."""
+    def routes(
+        self, text: str
+    ) -> Tuple[List[Tuple[str, float]], List[Tuple[str, float]]]:
+        """Tools these words learned to use (and the ones that kept failing)."""
+        cells = kenyon_code(text)
+        if not cells:
+            return [], []
+        acts = self._activation(cells, "herramientas:")
+        good = sorted(
+            ((i[13:], s) for i, s in acts.items() if s >= ROUTE_MIN),
+            key=lambda x: -x[1],
+        )
+        bad = sorted(
+            ((i[13:], s) for i, s in acts.items() if s <= AVOID_MAX), key=lambda x: x[1]
+        )
+        return good[:4], bad[:3]
+
+    def context(self, text: str, channel: str = "chat") -> Tuple[str, List[str]]:
+        """What the zones add for this request, each within its share."""
         if not enabled() or not text.strip():
             return "", []
         with self._lock:
             self._decay()
+            cells = kenyon_code(text)
             ids, fast = self.recall(text)
+            good, bad = self.routes(text)
             self.stats_["turns"] = self.stats_.get("turns", 0) + 1
             if fast:
                 self.stats_["fast"] = self.stats_.get("fast", 0) + 1
@@ -255,30 +451,83 @@ class Brain:
                     break
                 lines.append(line)
                 used.append(f"memoria:{eid}")
-            self._last = {"cells": kenyon_code(text), "items": used, "text": text}
-        if not lines:
-            return "", []
-        block = (
-            "<cerebro_memoria>\nRecuerdos de conversaciones anteriores que "
-            "vienen al caso (úsalos si sirven; no los menciones si no):\n"
-            + "\n".join(lines)
-            + "\n</cerebro_memoria>"
-        )
-        return block, used
+            record = {
+                "cells": cells,
+                "items": used,
+                "tools": [],
+                "skills": [],
+                "channel": channel if channel in CHANNELS else "chat",
+                "t": self.clock(),
+            }
+            self._pending[_key(text)] = record
+            self._expire_pending()
+        _turn.record = record
+        blocks: List[str] = []
+        if lines:
+            blocks.append(
+                "<cerebro_memoria>\nRecuerdos de conversaciones anteriores que "
+                "vienen al caso (úsalos si sirven; no los menciones si no):\n"
+                + "\n".join(lines)
+                + "\n</cerebro_memoria>"
+            )
+        if good or bad:
+            parts = []
+            if good:
+                parts.append(
+                    "Para peticiones así, antes funcionaron: "
+                    + ", ".join(name for name, _ in good)
+                    + "."
+                )
+            if bad:
+                parts.append(
+                    "Fallaron a menudo: " + ", ".join(name for name, _ in bad) + "."
+                )
+            blocks.append("<cerebro_rutas>\n" + " ".join(parts) + "\n</cerebro_rutas>")
+        return "\n\n".join(blocks), used
+
+    def _expire_pending(self) -> None:
+        now = self.clock()
+        for key in [
+            k for k, r in self._pending.items() if now - r["t"] > PENDING_TTL_S
+        ]:
+            del self._pending[key]
+        while len(self._pending) > 200:
+            self._pending.pop(next(iter(self._pending)))
+
+    # -- what happens during a turn ------------------------------------------------
+    def note_tool(self, name: str, ok: bool) -> None:
+        record = getattr(_turn, "record", None)
+        name = _clean_name(name)
+        if record is None or not name or name in _NOT_ROUTES:
+            return
+        with self._lock:
+            record["tools"].append((name, bool(ok)))
+
+    def note_skills(self, titles: Iterable[str]) -> None:
+        record = getattr(_turn, "record", None)
+        if record is None:
+            return
+        with self._lock:
+            for title in titles:
+                title = _clean_name(title)
+                if title and title not in record["skills"]:
+                    record["skills"].append(title)
 
     # -- learning -----------------------------------------------------------------
-    def observe(self, user_text: str, assistant_text: str = "") -> Optional[str]:
-        """One finished exchange: reward what was recalled, keep its engram."""
+    def observe(
+        self, user_text: str, assistant_text: str = "", *, channel: str = ""
+    ) -> Optional[str]:
+        """One finished exchange: reward what took part, keep its engram."""
         if not enabled() or not (user_text or "").strip():
             return None
         with self._lock:
             self._decay()
             cells = kenyon_code(user_text)
-            last = (
-                self._last
-                if self._last and self._last.get("text") == user_text
-                else None
-            )
+            record = self._pending.pop(_key(user_text), None)
+            if getattr(_turn, "record", None) is record:
+                _turn.record = None
+            channel = channel or (record or {}).get("channel") or "chat"
+            channel = channel if channel in CHANNELS else "chat"
             if _CORRECTION.match(user_text) and self.stats_.get("prev_items"):
                 # The previous answer was wrong: what fed it loses strength.
                 self._strengthen(
@@ -292,24 +541,55 @@ class Brain:
                 and not _SECRET.search(assistant_text or "")
             ):
                 eid = f"{int(self.clock() * 1000):x}"
+                while eid in self.engrams:
+                    eid = f"{int(eid, 16) + 1:x}"
                 self.engrams[eid] = {
                     "t": self.clock(),
                     "cells": cells,
                     "user": _gist(user_text, 200),
                     "gist": _gist(assistant_text, 240),
+                    "channel": channel,
                 }
+                self._dirty_eng.add(eid)
                 for c in cells:
                     self._index.setdefault(c, set()).add(eid)
+                self._link_thread(eid, channel)
                 self._trim()
-            used = list(last["items"]) if last else []
-            items = used + ([f"memoria:{eid}"] if eid else [])
-            if cells and items:
+            used = list(record["items"]) if record else []
+            skills = [f"habilidades:{s}" for s in (record or {}).get("skills", [])]
+            tools_ok = sorted(
+                {f"herramientas:{n}" for n, ok in (record or {}).get("tools", []) if ok}
+            )
+            tools_bad = sorted(
+                {
+                    f"herramientas:{n}"
+                    for n, ok in (record or {}).get("tools", [])
+                    if not ok
+                }
+                - set(tools_ok)
+            )
+            items = used + skills + tools_ok + ([f"memoria:{eid}"] if eid else [])
+            items.append(f"sentidos:{channel}")
+            if cells:
                 self._strengthen(cells, items, 0.6 if used else 0.4)
+                if tools_bad:
+                    self._strengthen(cells, tools_bad, -0.6)
             self.stats_["prev_cells"] = cells
-            self.stats_["prev_items"] = items
-            self._last = None
+            self.stats_["prev_items"] = [
+                i for i in items if not i.startswith("sentidos:")
+            ]
             self._save()
             return eid
+
+    def _link_thread(self, eid: str, channel: str) -> None:
+        """The central complex: this engram follows the last one of the thread."""
+        prev = self._last_engram.get(channel)
+        now = self.clock()
+        if prev and prev[0] in self.engrams and now - prev[1] <= THREAD_GAP_S:
+            a, b = f"memoria:{prev[0]}", f"conversacion:{eid}"
+            w = self.assoc.get(a, {}).get(b, 0.0)
+            self._set_assoc(a, b, w + SEQ_RATE * (1 - w))
+        self._last_engram[channel] = (eid, now)
 
     def _trim(self) -> None:
         if len(self.engrams) <= MAX_ENGRAMS:
@@ -327,14 +607,51 @@ class Brain:
             for c in self.engrams[eid].get("cells") or []:
                 self._index.get(int(c), set()).discard(eid)
             del self.engrams[eid]
+            self._gone_eng.add(eid)
+
+    # -- reading the mind ------------------------------------------------------------
+    def _label(self, item: str) -> str:
+        zone, _, name = item.partition(":")
+        if zone in ("memoria", "conversacion"):
+            e = self.engrams.get(name)
+            return f"«{e['user'][:60]}»" if e else "un recuerdo olvidado"
+        return name
 
     def stats(self) -> Dict[str, Any]:
         with self._lock:
+            per_zone: Dict[str, int] = {z: 0 for z in ZONES}
+            strongest: Dict[str, Tuple[float, str]] = {}
+            for row in self.syn.values():
+                for item, w in row.items():
+                    zone = item.split(":", 1)[0]
+                    if zone in per_zone:
+                        per_zone[zone] += 1
+                    if w > strongest.get(item, (0.0, ""))[0]:
+                        strongest[item] = (w, zone)
+            for a, row in self.assoc.items():
+                for b in row:
+                    if b.startswith("conversacion:"):
+                        per_zone["conversacion"] += 1
+            top: Dict[str, List[Dict[str, Any]]] = {}
+            for item, (w, zone) in sorted(strongest.items(), key=lambda kv: -kv[1][0]):
+                if (
+                    zone in ("herramientas", "habilidades", "sentidos")
+                    and len(top.get(zone, [])) < 5
+                ):
+                    top.setdefault(zone, []).append(
+                        {"name": self._label(item), "weight": round(w, 2)}
+                    )
             synapses = sum(len(r) for r in self.syn.values())
             turns = self.stats_.get("turns", 0)
             return {
                 "zones": [
-                    {"key": k, **v, "weight": self.zone_w.get(k, 1.0)}
+                    {
+                        "key": k,
+                        **v,
+                        "weight": self.zone_w.get(k, 1.0),
+                        "connections": per_zone.get(k, 0),
+                        "top": top.get(k, []),
+                    }
                     for k, v in ZONES.items()
                 ],
                 "engrams": len(self.engrams),
@@ -349,7 +666,9 @@ class Brain:
     def forget(self) -> None:
         with self._lock:
             self.syn, self.assoc, self.engrams, self._index = {}, {}, {}, {}
+            self._pending, self._last_engram = {}, {}
             self.zone_w = {z: 1.0 for z in ZONES}
+            self._full_rewrite = True
             self._save()
 
 
@@ -369,39 +688,57 @@ def get_brain(home: Optional[Path] = None) -> Brain:
         return _BRAINS[str(folder)]
 
 
-def mind_context(text: str) -> str:
-    """Everything the zones add to one request: the know-how (prompt library)
-    and the memories that come back. Never breaks a turn."""
+def mind_context(text: str, channel: str = "chat") -> str:
+    """Everything the zones add to one request: the know-how (prompt library),
+    the memories that come back and the learned routes. Never breaks a turn."""
     parts: List[str] = []
+    brain: Optional[Brain] = None
+    try:
+        brain = get_brain()
+        block, _ = brain.context(text, channel)
+    except Exception:  # noqa: BLE001
+        block = ""
     try:
         from openjarvis.prompt_library import guidance_for
 
         guidance = guidance_for(text)
         if guidance:
             parts.append(guidance)
+            if brain is not None:
+                brain.note_skills(re.findall(r"^\[\d+\] (.+)$", guidance, re.M))
     except Exception:  # noqa: BLE001
         pass
-    try:
-        block, _ = get_brain().context(text)
-        if block:
-            parts.append(block)
-    except Exception:  # noqa: BLE001
-        pass
+    if block:
+        parts.append(block)
     return "\n\n".join(parts)
 
 
-def remember_exchange(user_text: str, assistant_text: str = "") -> None:
+def note_tool(name: str, ok: bool) -> None:
+    """A tool finished inside the turn being answered on this thread."""
+    if getattr(_turn, "record", None) is None or not enabled():
+        return
     try:
-        get_brain().observe(user_text, assistant_text)
+        get_brain().note_tool(name, ok)
+    except Exception:  # noqa: BLE001 — learning is a bonus, never a failure
+        pass
+
+
+def remember_exchange(
+    user_text: str, assistant_text: str = "", channel: str = ""
+) -> None:
+    try:
+        get_brain().observe(user_text, assistant_text, channel=channel)
     except Exception:  # noqa: BLE001 — learning is a bonus, never a failure
         pass
 
 
 __all__ = [
     "Brain",
+    "CHANNELS",
     "ZONES",
     "enabled",
     "get_brain",
     "mind_context",
+    "note_tool",
     "remember_exchange",
 ]

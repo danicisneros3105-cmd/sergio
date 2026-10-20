@@ -54,6 +54,19 @@ export function ConnectomePage() {
                 ? `${map.mind.engrams} recuerdos, ${map.mind.synapses ?? 0} conexiones y ${map.mind.associations ?? 0} enlaces entre recuerdos. Ruta rápida en el ${Math.round((map.mind.fast_path ?? 0) * 100)} % de las respuestas.`
                 : 'Todavía nada: cada conversación deja un recuerdo y las conexiones crecen con el uso.'}
             </p>
+            {map.mind?.zones?.some((z) => z.connections) && (
+              <ul className="cn-zones">
+                {map.mind.zones
+                  .filter((z) => z.key !== 'integracion')
+                  .map((z) => (
+                    <li key={z.key}>
+                      <span className="paper-label">{z.fly}</span>
+                      <strong>{z.connections ?? 0}</strong>
+                      <span>{z.top?.length ? z.top.map((t) => t.name).join(' · ') : z.job}</span>
+                    </li>
+                  ))}
+              </ul>
+            )}
           </section>
 
           <section className="salud-block">

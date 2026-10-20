@@ -266,7 +266,7 @@ class Scanner:
 
 # -- drawing -------------------------------------------------------------------------
 def draw_ring(p: Any, centre: Any, radius: float, ring: ScanRing, now: float, mirror: bool = True) -> None:
-    """The Face ID ring: 36 marks, lit (Digital Paper forest/terracotta) where your face has pointed."""
+    """The Face ID ring: 36 marks, lit (white) where your face has pointed."""
     from PySide6.QtCore import QPointF
     from PySide6.QtGui import QColor, QPen
 
@@ -280,15 +280,15 @@ def draw_ring(p: Any, centre: Any, radius: float, ring: ScanRing, now: float, mi
         length = 13.0 if ring.lit[i] else 8.0
         outer = QPointF(centre.x() + dx * (radius + length), centre.y() + dy * (radius + length))
         if ring.lit[i]:
-            colour = QColor(46, 111, 64, 245)  # Digital Paper forest green (#2E6F40)
+            colour = QColor(255, 255, 255, 245)  # done: bright white
         else:
-            colour = QColor(250, 248, 245, int(110 + 70 * pulse))  # Warm paper (#FAF8F5)
+            colour = QColor(120, 120, 120, int(110 + 70 * pulse))  # still to look: grey
         p.setPen(QPen(colour, 3.2))
         p.drawLine(inner, outer)
 
 
 def draw_head(p: Any, rect: Any, points: Sequence[Sequence[float]], turn: float, edges: Sequence[tuple[int, int]] = ()) -> None:
-    """The 3D map of the face, turning (Digital Paper terracotta & ink point cloud)."""
+    """The 3D map of the face, turning (a white point cloud)."""
     from PySide6.QtCore import QPointF
     from PySide6.QtGui import QColor, QPen
 
@@ -306,7 +306,7 @@ def draw_head(p: Any, rect: Any, points: Sequence[Sequence[float]], turn: float,
         (QPointF(cx + (x - mid_x) * scale, cy - (y - mid_y) * scale), z) for x, y, z in turned
     ]
     if edges:
-        p.setPen(QPen(QColor(201, 100, 66, 65), 0.8))
+        p.setPen(QPen(QColor(255, 255, 255, 60), 0.8))
         for a, b in edges:
             if a < len(projected) and b < len(projected):
                 p.drawLine(projected[a][0], projected[b][0])
@@ -315,7 +315,8 @@ def draw_head(p: Any, rect: Any, points: Sequence[Sequence[float]], turn: float,
     p.setPen(QPen(QColor(0, 0, 0, 0)))
     for spot, z in projected:
         k = (z - lo) / max(hi - lo, 1e-6)
-        p.setBrush(QColor(int(140 + 61 * k), int(70 + 30 * k), int(48 + 18 * k), int(110 + 145 * k)))
+        grey = int(140 + 115 * k)  # nearer points are brighter
+        p.setBrush(QColor(grey, grey, grey, int(110 + 145 * k)))
         p.drawEllipse(spot, 1.3 + 0.9 * k, 1.3 + 0.9 * k)
 
 

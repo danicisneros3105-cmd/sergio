@@ -344,6 +344,11 @@ DEFAULT_TOOL_CAPABILITIES: Dict[str, List[str]] = {
         Capability.FILE_READ,
         Capability.FILE_WRITE,
     ],
+    "video_pro": [
+        Capability.CODE_EXECUTE,
+        Capability.FILE_READ,
+        Capability.FILE_WRITE,
+    ],
     "web_search": [Capability.NETWORK_FETCH],
     "workspace": [Capability.MEMORY_READ, Capability.MEMORY_WRITE],
     "whatsapp_send": [Capability.CHANNEL_SEND, Capability.NETWORK_FETCH],

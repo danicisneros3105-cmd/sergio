@@ -30,6 +30,7 @@ import time
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
 
 from openjarvis.cli.friendly import plain
+from openjarvis.connectome.brain import remember_exchange
 from openjarvis.nodes import connections, skills, team
 from openjarvis.nodes.store import (
     MAIN_THREAD,
@@ -277,6 +278,7 @@ def describe_tool(tool: str, args: Any) -> str:
         "anatomy_figure": "Dibuja una lámina técnica",
         "blender_create": "Modela en 3D con Blender",
         "video_edit": "Edita un video",
+        "video_pro": "Edita un video profesional",
     }
     text = labels.get(tool, tool)
     return f"{text}: {str(what)[:160]}" if what else text
@@ -763,6 +765,7 @@ class NodeWorker:
                 suggestions=parsed.get("suggestions") or [],
             )
             self.store.log(node_id, "done", say[:300], tool_calls=calls)
+            remember_exchange(job["request"], say, channel="nodes")
         self.store.update(node_id, status=status, doing="", waiting=waiting)
         if job.get("routine"):
             self.store.routine_result(node_id, job["routine"])

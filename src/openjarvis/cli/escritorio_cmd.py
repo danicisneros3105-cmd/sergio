@@ -28,6 +28,7 @@ DESKTOP_TOOLS = (
     "desktop_action",
     "camera_look",
     "video_edit",
+    "video_pro",
     "blender_create",
     "face_approval",
     "face_enroll",

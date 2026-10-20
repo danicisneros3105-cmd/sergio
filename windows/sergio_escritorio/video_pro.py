@@ -232,9 +232,11 @@ def edit(
     planner: Any,
     *,
     music: str = "",
+    clips: list[Path] | None = None,
 ) -> dict[str, Any]:
-    """Clips in *source* -> an edited video (+ its YouTube metadata file)."""
-    clips = find_clips(source)[:12]
+    """Clips in *source* (or the prepared *clips*) -> an edited video (+ its
+    YouTube metadata file)."""
+    clips = (clips or find_clips(source))[:12]
     exe = ffmpeg()
     probes = [probe(c) for c in clips]
     hdr = [is_hdr(c, exe) for c in clips]

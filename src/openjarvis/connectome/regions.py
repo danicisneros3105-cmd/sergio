@@ -33,7 +33,7 @@ REGIONS: List[Dict[str, Any]] = [
         "key": "sentidos",
         "fly": "Lóbulos óptico y antenal",
         "job": "Preprocesan lo que entra; cada canal por separado.",
-        "sergio": "Zona de entrada: lo que escribe, su voz, la pantalla y la cámara se codifican en pocas células activas.",
+        "sergio": "Zona de entrada: lo que llega por chat, voz, Nodes, Agent Swarm o Cowork se codifica en pocas células activas.",
         "where": "Chat, voz, Sergio ve",
     },
     {
@@ -47,21 +47,21 @@ REGIONS: List[Dict[str, Any]] = [
         "key": "cuerno_lateral",
         "fly": "Cuerno lateral",
         "job": "Lo innato: caminos fijos que no hay que aprender.",
-        "sergio": "Zona de prompts y habilidades: la biblioteca de prompts, las skills y los reflejos de teclado.",
+        "sergio": "Zona de prompts y habilidades: la biblioteca de prompts y las skills; aprende qué fragmentos le sirvieron.",
         "where": "Biblioteca de prompts · skills",
     },
     {
         "key": "complejo_central",
         "fly": "Complejo central",
         "job": "Mantiene el rumbo y elige hacia dónde ir.",
-        "sergio": "Zona de conversación: el hilo de lo que se habla y qué zona aporta más en cada turno.",
+        "sergio": "Zona de conversación: enlaza cada recuerdo con el que vino después, así vuelve el hilo completo.",
         "where": "Cada respuesta",
     },
     {
         "key": "descendentes",
         "fly": "Neuronas descendentes",
         "job": "Convierten la decisión en movimiento.",
-        "sergio": "Zona de herramientas: abrir apps, buscar, el equipo. Nunca mensajes, llamadas, compras ni borrados por su cuenta.",
+        "sergio": "Zona de herramientas: aprende qué herramienta funcionó para cada tipo de pedido y se la sugiere la próxima vez. Nunca mensajes, llamadas, compras ni borrados por su cuenta.",
         "where": "Herramientas",
     },
     {

@@ -135,7 +135,21 @@ export interface BrainMap {
   memory: { kenyon_cells?: number; active_cells?: number; synapses?: number; top?: Array<[string, number]> };
   learning?: string;
   /** The mind's zones and what they learned (connectome/brain.py). */
-  mind?: { engrams?: number; synapses?: number; associations?: number; fast_path?: number; corrections?: number };
+  mind?: {
+    engrams?: number;
+    synapses?: number;
+    associations?: number;
+    fast_path?: number;
+    corrections?: number;
+    zones?: Array<{
+      key: string;
+      fly: string;
+      job: string;
+      weight: number;
+      connections?: number;
+      top?: Array<{ name: string; weight: number }>;
+    }>;
+  };
 }
 
 export async function brainMap(): Promise<BrainMap> {

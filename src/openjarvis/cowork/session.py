@@ -583,6 +583,10 @@ class CoworkEngine:
         audit.record(
             "finished", status=run.status, summary=run.summary, actions=run.actions_used
         )
+        if run.status in ("done", "partial"):
+            from openjarvis.connectome.brain import remember_exchange
+
+            remember_exchange(run.goal, run.summary, channel="cowork")
         self._save(run)
         self._event(run, "finished", text=run.summary, status=run.status)
         self._notify(
