@@ -223,6 +223,24 @@ LANGUAGE_NAMES = {
 }
 
 
+# The language he speaks AND hears in. Left automatic, the transcription
+# guessed the language from each phrase: Spanish with an accent or a
+# word in English came out as other words in another language, and he
+# answered what he never heard (or switched language).
+LANGUAGE_CODES = {
+    "es": "es-US",
+    "en": "en-US",
+    "pt": "pt-BR",
+    "fr": "fr-FR",
+    "de": "de-DE",
+    "it": "it-IT",
+}
+
+
+def language_code(language: str) -> str:
+    return LANGUAGE_CODES.get(str(language or "").split("-")[0].lower(), "")
+
+
 def live_instructions(start: dict[str, Any], owner: str = "") -> str:
     context = str(start.get("context") or "").strip()
     if not context:
@@ -290,6 +308,7 @@ def live_config(
     handle: str | None = None,
     proactive: bool = False,
     model: str = "",
+    language: str = "",
 ) -> Any:
     tools = []
     if decls:
@@ -305,6 +324,14 @@ def live_config(
             )
         )
     )
+    code = language_code(language)
+    heard = types.AudioTranscriptionConfig()
+    if code:
+        try:
+            speech.language_code = code
+            heard = types.AudioTranscriptionConfig(language_codes=[code])
+        except Exception:  # noqa: BLE001 — an older SDK: automatic language
+            heard = types.AudioTranscriptionConfig()
     extra: dict[str, Any] = {}
     if _THINKING_OK[0] and not model.startswith("gemini-3.8"):
         # 3.8 Live rejects thinking configuration. 3.1 uses levels, not budgets.
@@ -335,7 +362,7 @@ def live_config(
         speech_config=speech,
         system_instruction=instructions,
         tools=tools or None,
-        input_audio_transcription=types.AudioTranscriptionConfig(),
+        input_audio_transcription=heard,
         output_audio_transcription=types.AudioTranscriptionConfig(),
         # Quick turn-taking: he answers ~0.6 s after you stop talking. A
         # less eager start of speech (low sensitivity, 300 ms of real voice)
@@ -385,6 +412,7 @@ class LiveCall:
         self.decls = declarations(openai_tools, client_tools)
         self.instructions = live_instructions(start, owner)
         self.voice = str(start.get("voice") or "")
+        self.language = str(start.get("language") or "es")
         self.models = list(start.get("models") or models)
         self._client = client
         self._alpha: Any = None  # the same key on API v1alpha (proactive audio)
@@ -500,6 +528,7 @@ class LiveCall:
                             config=live_config(
                                 types,
                                 voice=self.voice,
+                                language=self.language,
                                 instructions=self.instructions,
                                 decls=self.decls,
                                 search=False,
@@ -530,6 +559,7 @@ class LiveCall:
                 config = live_config(
                     types,
                     voice=self.voice,
+                    language=self.language,
                     instructions=self.instructions,
                     decls=self.decls,
                     search=search,
@@ -550,6 +580,7 @@ class LiveCall:
                                     config=live_config(
                                         types,
                                         voice=self.voice,
+                                        language=self.language,
                                         instructions=self.instructions,
                                         decls=self.decls,
                                         search=search,
@@ -578,6 +609,7 @@ class LiveCall:
                                     config=live_config(
                                         types,
                                         voice=self.voice,
+                                        language=self.language,
                                         instructions=self.instructions,
                                         decls=self.decls,
                                         search=False,

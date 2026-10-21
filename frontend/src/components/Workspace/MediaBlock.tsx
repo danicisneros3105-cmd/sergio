@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Mic, Square, Upload } from 'lucide-react';
 import { mediaUrl, saveMedia } from '../../lib/workspace/store';
 import type { Block } from '../../lib/workspace/model';
+import { mediaProblem } from '../../lib/compat';
 
 // Shows a stored voice note or photo (fetched with the server key, kept in
 // memory) and records or picks a new one.
@@ -32,6 +33,11 @@ export function Recorder({ onSaved }: { onSaved: (media: NonNullable<Block['medi
 
   const start = async () => {
     setError('');
+    const problem = mediaProblem('micrófono');
+    if (problem) {
+      setError(problem);
+      return;
+    }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const chunks: Blob[] = [];

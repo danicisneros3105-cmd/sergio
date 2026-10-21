@@ -164,7 +164,7 @@ function LaunchWizard({
   }
 
   async function handleLaunch() {
-    if (!wizard.name.trim()) { setError('Agent name is required.'); return; }
+    if (!wizard.name.trim()) { setError('Escriba un nombre.'); return; }
     setLaunching(true);
     setError('');
     try {
@@ -182,7 +182,7 @@ function LaunchWizard({
       });
       onLaunched();
     } catch {
-      setError('Failed to create agent. Please try again.');
+      setError('No pude crearlo. Inténtelo de nuevo.');
     } finally {
       setLaunching(false);
     }
@@ -485,7 +485,7 @@ function InteractTab({ apiUrl, agentId }: { apiUrl: string; agentId: string }) {
       setInput('');
       await loadMessages();
     } catch {
-      setError('Failed to send message.');
+      setError('No pude enviar el mensaje.');
     } finally {
       setSending(false);
     }

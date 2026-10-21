@@ -227,6 +227,20 @@ termina en la rama `main`, y el dueño actualiza con un único comando.
 - Las llamadas a Gemini van con respaldo en paralelo (`engine/hedge.py`): si
   un modelo tarda, otro empieza y gana la primera respuesta válida. No lo
   quite: con Google saturado, sin él Sergio tardaba minutos.
+  También al transmitir (`first_stream`: cada flujo en su hilo, nunca bloquea
+  el servidor) y en las dos rutas del chat (`cloud_router` usa el mismo
+  motor). `engine/model_health.py` recuerda cuánto tarda cada modelo
+  (`~/.openjarvis/model_health.json`): los rápidos van primero, el lento o
+  caído espera atrás y se vuelve a probar a los 20 min. Medido (oct. 2026):
+  3.8 y 3.7 Flash tardaban 40–60 s o se colgaban; 3.6 respondía en ~1 s.
+- Idioma de la voz fijo (`gemini_live.language_code`): Gemini Live habla y
+  transcribe en el idioma elegido (es → es-US); en automático confundía el
+  español con otros idiomas.
+- Cualquier dispositivo (`frontend/src/lib/compat.ts`, primer import):
+  ids sin `crypto.randomUUID` (http en el teléfono), `structuredClone` para
+  Safari viejo, almacenamiento en memoria si el navegador lo bloquea, y
+  micrófono/cámara explican cuándo hace falta https. Use `newUuid()` y
+  `mediaProblem()`; nunca `crypto.randomUUID()` directo.
 - Kimi como proveedor y «Digitalsnickers» están descartados.
 - Licencia Apache-2.0 y autoría honesta: no se borran créditos del original.
 

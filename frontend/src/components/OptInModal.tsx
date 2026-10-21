@@ -23,19 +23,19 @@ export function OptInModal({ onClose }: OptInModalProps) {
     const trimmed = name.trim();
     const trimmedEmail = email.trim();
     if (!trimmed) {
-      setError('Please enter a display name');
+      setError('Escriba un nombre.');
       return;
     }
     if (trimmed.length < 2 || trimmed.length > 30) {
-      setError('Name must be 2-30 characters');
+      setError('El nombre debe tener entre 2 y 30 letras.');
       return;
     }
     if (isProfane(trimmed)) {
-      setError('Please choose a different name');
+      setError('Elija otro nombre.');
       return;
     }
     if (!trimmedEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
-      setError('Please enter a valid email address');
+      setError('Escriba un correo válido.');
       return;
     }
     setError('');

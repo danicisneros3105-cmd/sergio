@@ -11,9 +11,11 @@ in the background (their results are ignored).
 
 from __future__ import annotations
 
+import asyncio
+import threading
 import time
 from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
-from typing import Any, Callable, Sequence
+from typing import Any, AsyncIterator, Callable, Iterable, Sequence
 
 
 class HedgeError(RuntimeError):
@@ -86,4 +88,127 @@ def first_valid(
         pool.shutdown(wait=False, cancel_futures=True)
 
 
-__all__ = ["HedgeError", "first_valid"]
+async def first_stream(
+    starts: Sequence[Callable[[], Iterable[Any]]],
+    *,
+    names: Sequence[str] | None = None,
+    hedge_after: float | Callable[[int], float] = 6.0,
+    first_timeout: float = 150.0,
+    retryable: Callable[[int, BaseException], bool] = lambda i, e: True,
+    on_first: Callable[[int, float], None] | None = None,
+    on_error: Callable[[int, BaseException, float], None] | None = None,
+    on_slow: Callable[[int, float], None] | None = None,
+) -> AsyncIterator[tuple[int, Any]]:
+    """Hedged streaming: yields ``(index, item)`` from the first stream that
+    produces an item; the others are dropped.
+
+    Each start runs in its own thread (a blocking SDK stream never freezes
+    the server's event loop). If the running stream has given nothing after
+    ``hedge_after`` seconds the next one starts as well; a failure starts the
+    next one at once, unless ``retryable`` says no sibling can fix it. Once a
+    stream has won, its errors are raised as they are. ``on_slow`` hears of
+    every stream that started before the winner and was overtaken.
+    """
+    if not starts:
+        raise HedgeError(["nada que intentar"])
+    label = list(names or [str(i) for i in range(len(starts))])
+    loop = asyncio.get_running_loop()
+    queue: asyncio.Queue[tuple[int, str, Any, float]] = asyncio.Queue()
+    stop = threading.Event()
+    winner: list[int] = []
+    errors: list[str] = []
+    running: set[int] = set()
+    started_at: dict[int, float] = {}
+    started = 0
+    last_start = 0.0
+
+    def put(item: tuple[int, str, Any, float]) -> None:
+        try:
+            loop.call_soon_threadsafe(queue.put_nowait, item)
+        except RuntimeError:
+            pass  # the loop is gone (the client left)
+
+    def worker(index: int) -> None:
+        t0 = time.monotonic()
+        try:
+            for item in starts[index]():
+                if stop.is_set() or (winner and winner[0] != index):
+                    return
+                put((index, "item", item, time.monotonic() - t0))
+            put((index, "done", None, time.monotonic() - t0))
+        except BaseException as exc:  # noqa: BLE001 — reported to the consumer
+            put((index, "error", exc, time.monotonic() - t0))
+
+    def launch() -> bool:
+        nonlocal started, last_start
+        if started >= len(starts):
+            return False
+        index = started
+        started += 1
+        running.add(index)
+        last_start = started_at[index] = time.monotonic()
+        threading.Thread(
+            target=worker, args=(index,), name=f"hedge-stream-{index}", daemon=True
+        ).start()
+        return True
+
+    def delay(index: int) -> float:
+        return hedge_after(index) if callable(hedge_after) else hedge_after
+
+    begin = time.monotonic()
+    launch()
+    try:
+        while True:
+            timeout = None
+            if not winner:
+                left = first_timeout - (time.monotonic() - begin)
+                if left <= 0:
+                    raise HedgeError(errors, timed_out=True)
+                timeout = left
+                if started < len(starts):
+                    hedge = delay(started - 1) - (time.monotonic() - last_start)
+                    timeout = max(0.01, min(timeout, hedge))
+            try:
+                index, kind, value, seconds = await asyncio.wait_for(
+                    queue.get(), timeout
+                )
+            except asyncio.TimeoutError:
+                if not winner and not launch() and not running:
+                    raise HedgeError(errors, timed_out=True) from None
+                continue
+            if winner and index != winner[0]:
+                continue
+            if kind == "item":
+                if not winner:
+                    winner.append(index)
+                    if on_first is not None:
+                        on_first(index, seconds)
+                    if on_slow is not None:
+                        now = time.monotonic()
+                        for other in sorted(running - {index}):
+                            if started_at[other] < started_at[index]:
+                                on_slow(other, now - started_at[other])
+                yield index, value
+                continue
+            running.discard(index)
+            if kind == "done":
+                if not winner and on_first is not None:
+                    on_first(index, seconds)  # an empty but valid answer
+                return
+            # kind == "error"
+            if winner:
+                raise value
+            if on_error is not None:
+                on_error(index, value, seconds)
+            errors.append(f"{label[index]}: {str(value)[:140]}")
+            if not retryable(index, value):
+                raise value
+            if not launch() and not running:
+                if len(errors) == 1:
+                    raise value
+                raise HedgeError(errors)
+    finally:
+        stop.set()
+
+
+__all__ = ["HedgeError", "first_stream", "first_valid"]

@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { transcribeAudio, fetchSpeechHealth } from '../lib/api';
+import { mediaProblem } from '../lib/compat';
 
 export type SpeechState = 'idle' | 'recording' | 'transcribing';
 
@@ -21,8 +22,9 @@ export function useSpeech() {
   const startRecording = useCallback(async (): Promise<void> => {
     setError(null);
 
-    if (!navigator.mediaDevices?.getUserMedia) {
-      setError('Microphone not supported in this browser');
+    const problem = mediaProblem('micrófono');
+    if (problem) {
+      setError(problem);
       return;
     }
 
@@ -41,7 +43,7 @@ export function useSpeech() {
       mediaRecorderRef.current = recorder;
       setState('recording');
     } catch (err) {
-      setError('Microphone access denied');
+      setError('Necesito permiso para el micrófono.');
       setState('idle');
     }
   }, []);
@@ -70,7 +72,7 @@ export function useSpeech() {
           resolve(result.text);
         } catch (err) {
           setState('idle');
-          const msg = err instanceof Error ? err.message : 'Transcription failed';
+          const msg = err instanceof Error ? err.message : 'No pude transcribir el audio.';
           setError(msg);
           reject(err);
         }

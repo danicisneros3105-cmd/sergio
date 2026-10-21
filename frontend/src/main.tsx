@@ -1,4 +1,6 @@
-// Must run first: in the demo build it answers every server call itself.
+// Must run first: any device (http on the home network, older Safari).
+import './lib/compat';
+// In the demo build it answers every server call itself.
 import 'sergio-demo';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';

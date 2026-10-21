@@ -95,7 +95,7 @@ export function EnergyDashboard() {
         setTelemetry(telRes.value as TelemetryStats);
       }
     } catch {
-      setError('Cannot connect to server');
+      setError('No pude conectar con Sergio.');
     }
   }, []);
 

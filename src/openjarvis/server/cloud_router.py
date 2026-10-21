@@ -143,23 +143,6 @@ def _to_anthropic_msgs(
     return system_text, chat
 
 
-def _to_google_contents(messages: Sequence[Message]) -> list[dict[str, Any]]:
-    """Convert to Google Gemini content format."""
-    contents = []
-    for m in messages:
-        role = m.role.value if hasattr(m.role, "value") else str(m.role)
-        if role == "system":
-            # Gemini doesn't have a system role in the contents array;
-            # prepend as a user message.
-            contents.append({"role": "user", "parts": [{"text": m.content or ""}]})
-            contents.append({"role": "model", "parts": [{"text": "Understood."}]})
-        elif role == "assistant":
-            contents.append({"role": "model", "parts": [{"text": m.content or ""}]})
-        else:
-            contents.append({"role": "user", "parts": [{"text": m.content or ""}]})
-    return contents
-
-
 # ---------------------------------------------------------------------------
 # Streaming generators
 # ---------------------------------------------------------------------------
@@ -260,6 +243,27 @@ async def _stream_anthropic(
                     pass
 
 
+_GOOGLE_STREAMERS: dict[str, Any] = {}
+
+
+def _google_streamer(api_key: str) -> Any:
+    """The engine's Gemini streaming (model siblings, hedging, the key's own
+    service, thinking levels) for this key; kept so the measured model
+    health and the chosen service carry over between messages."""
+    streamer = _GOOGLE_STREAMERS.get(api_key)
+    if streamer is None:
+        from openjarvis.engine.cloud_google import GoogleMixin
+        from openjarvis.engine.google_client import SwitchingClient
+
+        class _Streamer(GoogleMixin):
+            def __init__(self) -> None:
+                self._google_client = SwitchingClient(api_key)
+                self._thought_sigs: dict[str, Any] = {}
+
+        streamer = _GOOGLE_STREAMERS[api_key] = _Streamer()
+    return streamer
+
+
 async def _stream_google(
     model: str,
     messages: Sequence[Message],
@@ -270,41 +274,12 @@ async def _stream_google(
     api_key = keys.get("GEMINI_API_KEY") or keys.get("GOOGLE_API_KEY", "")
     if not api_key:
         raise ValueError("GEMINI_API_KEY not set — add it in the Cloud Models tab")
-
-    contents = _to_google_contents(messages)
-    payload: dict[str, Any] = {
-        "contents": contents,
-        "generationConfig": {
-            "temperature": temperature,
-            "maxOutputTokens": max_tokens,
-        },
-    }
-
-    url = (
-        f"https://generativelanguage.googleapis.com/v1beta/models/"
-        f"{model}:streamGenerateContent?alt=sse&key={api_key}"
-    )
-
-    async with httpx.AsyncClient(timeout=180) as client:
-        async with client.stream("POST", url, json=payload) as resp:
-            resp.raise_for_status()
-            async for line in resp.aiter_lines():
-                if not line.startswith("data: "):
-                    continue
-                data = line[6:].strip()
-                try:
-                    chunk = json.loads(data)
-                    parts = (
-                        chunk.get("candidates", [{}])[0]
-                        .get("content", {})
-                        .get("parts", [])
-                    )
-                    for part in parts:
-                        text = part.get("text", "")
-                        if text:
-                            yield text
-                except Exception:
-                    pass
+    # Before: one raw request to one model with a 180 s wait and no backup,
+    # so a busy model meant minutes of silence or an error in the chat.
+    async for token in _google_streamer(api_key)._stream_google(
+        messages, model=model, temperature=temperature, max_tokens=max_tokens
+    ):
+        yield token
 
 
 # ---------------------------------------------------------------------------

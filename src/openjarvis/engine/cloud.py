@@ -584,12 +584,20 @@ def _is_quota_error(exc: Exception) -> bool:
 BUSY_COOLDOWN = 120.0  # an overloaded model gets a short rest only
 # A model that has not answered after this many seconds gets a sibling
 # started alongside it (first answer wins); the whole try ends at the timeout.
-HEDGE_AFTER = float(os.environ.get("SERGIO_HEDGE_AFTER", "8") or 8)
+HEDGE_AFTER = float(os.environ.get("SERGIO_HEDGE_AFTER", "5") or 5)
 HEDGE_TIMEOUT = float(os.environ.get("SERGIO_HEDGE_TIMEOUT", "150") or 150)
+# Streams (the chat): a sibling joins when no first token came after this
+# (or after about twice what that model usually takes, if less).
+STREAM_HEDGE_AFTER = float(os.environ.get("SERGIO_STREAM_HEDGE_AFTER", "5") or 5)
 
 
 def _is_busy_error(exc: Exception) -> bool:
-    """Google is overloaded right now (503 / high demand): try a sibling."""
+    """Google is overloaded right now (503 / high demand), timed out (504,
+    a read timeout) or the network dropped: try a sibling."""
+    from openjarvis.engine.model_health import transient
+
+    if transient(exc):
+        return True
     text = str(exc)
     return any(
         marker in text

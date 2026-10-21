@@ -5,6 +5,7 @@
 
 import { getBase } from './api';
 import { buildWsProtocols } from './useAgentEvents';
+import { mediaProblem } from './compat';
 
 export const IN_RATE = 16000;
 export const OUT_RATE = 24000;
@@ -115,6 +116,11 @@ export class VoiceCall {
 
   async start(): Promise<void> {
     this.cb.onState('connecting');
+    const problem = mediaProblem('micrófono');
+    if (problem) {
+      this.fail(problem);
+      return;
+    }
     try {
       this.mic = await navigator.mediaDevices.getUserMedia({
         audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 },
@@ -147,9 +153,15 @@ export class VoiceCall {
     if (!this.mic) return;
     const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
     this.input = new Ctx({ latencyHint: 'interactive' });
-    this.output = new Ctx({ sampleRate: OUT_RATE, latencyHint: 'interactive' });
+    try {
+      this.output = new Ctx({ sampleRate: OUT_RATE, latencyHint: 'interactive' });
+    } catch {
+      // Older Safari and Firefox refuse a custom rate: buffers carry their own.
+      this.output = new Ctx({ latencyHint: 'interactive' });
+    }
     const source = this.input.createMediaStreamSource(this.mic);
     const context = this.input;
+    if (!context.audioWorklet) throw new Error('Este navegador no permite el micrófono en tiempo real.');
     // A real file from the same origin: bundlers inline small scripts as
     // data: URLs, which the page's security policy refuses for worklets.
     await context.audioWorklet.addModule(new URL('voice-capture.worklet.js', document.baseURI).toString());

@@ -131,7 +131,7 @@ export function TraceDebugger() {
       setTraces(data.traces || []);
       setError(null);
     } catch {
-      setError('Cannot load traces');
+      setError('No pude cargar el registro.');
     }
   }, []);
 

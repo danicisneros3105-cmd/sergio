@@ -194,6 +194,27 @@ export const useLive = create<LiveStore>((set, get) => {
   };
 });
 
+// Back from the background or from a dropped connection (Wi-Fi changed, the
+// laptop woke up): reconnect now instead of waiting for the next retry.
+if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+  const wake = () => {
+    const live = useLive.getState();
+    if (!live.enabled || live.status === 'replaced' || live.status === 'blocked') return;
+    if (call) {
+      call.resumeAudio();
+      return;
+    }
+    if (retryTimer) clearTimeout(retryTimer);
+    retryTimer = null;
+    attempt = 0;
+    live.ensure();
+  };
+  window.addEventListener('online', wake);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') wake();
+  });
+}
+
 let suspensions = 0;
 
 /** Another voice (a read-aloud reply) is playing: the microphone must not hear it and answer. */

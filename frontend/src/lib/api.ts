@@ -471,7 +471,7 @@ export async function transcribeAudio(audioBlob: Blob, filename = 'recording.web
       });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      throw new Error(msg || 'Transcription failed');
+      throw new Error(msg || 'No pude transcribir el audio.');
     }
   }
   const formData = new FormData();

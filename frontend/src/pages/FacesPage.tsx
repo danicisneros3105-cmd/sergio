@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Check, Lock, ScanFace, Trash2, UserPlus, X } from 'lucide-react';
 import { apiFetch } from '../lib/api';
 import '../components/Studio/studio.css';
+import { mediaProblem } from '../lib/compat';
 
 interface Person {
   name: string;
@@ -189,6 +190,11 @@ export function FacesPage() {
         await videoRef.current.play().catch(() => {});
       }
       return true;
+    }
+    const problem = mediaProblem('cámara');
+    if (problem) {
+      setError(problem);
+      return false;
     }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480, facingMode: 'user' } });

@@ -15,6 +15,7 @@ from typing import Any, Dict, List
 import openjarvis.engine.cloud as _cloud
 from openjarvis.core.types import Message
 from openjarvis.engine._stubs import StreamChunk
+from openjarvis.engine.model_health import health
 
 
 class GoogleMixin:
@@ -193,8 +194,7 @@ class GoogleMixin:
         one runs out (429 RESOURCE_EXHAUSTED) Sergio keeps working with the
         next Gemini of the same family instead of going silent.
         """
-        candidates = [model, *_cloud.quota_fallbacks(model)]
-        fresh = [c for c in candidates if not _cloud._exhausted(c)] or candidates
+        fresh = self._google_stream_candidates(model)
         primary_contents, primary_config = contents, config
 
         def request_for(candidate: str) -> tuple[List[Dict[str, Any]], Any]:
@@ -237,10 +237,13 @@ class GoogleMixin:
         def attempt(index: int, candidate: str) -> Any:
             def run() -> Any:
                 cts, cfg = request_for(candidate)
+                t0 = _cloud.time.monotonic()
                 try:
-                    return self._google_client.models.generate_content(
+                    resp = self._google_client.models.generate_content(
                         model=candidate, contents=cts, config=cfg
                     )
+                    health().ok(candidate, _cloud.time.monotonic() - t0)
+                    return resp
                 except Exception as exc:  # noqa: BLE001
                     if _cloud._is_quota_error(exc) or _cloud._is_model_not_found_error(
                         exc
@@ -248,6 +251,7 @@ class GoogleMixin:
                         cooldown = _cloud.QUOTA_COOLDOWN
                     elif _cloud._is_busy_error(exc):
                         cooldown = _cloud.BUSY_COOLDOWN
+                        health().failed(candidate, _cloud.time.monotonic() - t0)
                     elif index == 0:
                         return _Fatal(exc)  # a bad request: no sibling fixes it
                     else:
@@ -269,11 +273,12 @@ class GoogleMixin:
         # HEDGE_AFTER s the next sibling starts too and the first answer wins.
         from openjarvis.engine.hedge import HedgeError, first_valid
 
+        started = _cloud.time.monotonic()
         try:
             index, resp = first_valid(
                 [attempt(i, c) for i, c in enumerate(fresh)],
                 names=fresh,
-                hedge_after=_cloud.HEDGE_AFTER,
+                hedge_after=health().hedge_after(fresh[0], _cloud.HEDGE_AFTER),
                 timeout=_cloud.HEDGE_TIMEOUT,
             )
         except HedgeError as exc:
@@ -282,11 +287,83 @@ class GoogleMixin:
             ) from exc
         if isinstance(resp, _Fatal):
             raise resp.exc
+        waited = _cloud.time.monotonic() - started
+        for slower in fresh[:index]:  # overtaken while still thinking: slow
+            if not health().resting(slower):
+                health().failed(slower, waited)
         return resp, fresh[index]
 
     def _google_stream_candidates(self, model: str) -> List[str]:
+        """The chosen model and its siblings: out-of-quota ones left out,
+        the ones answering fast lately first (``model_health``)."""
         candidates = [model, *_cloud.quota_fallbacks(model)]
-        return [c for c in candidates if not _cloud._exhausted(c)] or candidates
+        fresh = [c for c in candidates if not _cloud._exhausted(c)] or candidates
+        return health().order(fresh)
+
+    def _hedged_google_stream(
+        self, candidates: List[str], request: Any
+    ) -> AsyncIterator[tuple[str, Any]]:
+        """Stream from the first candidate that starts answering.
+
+        Every SDK stream runs on its own thread (it blocks), so a slow model
+        never freezes the server; when the current one has said nothing after
+        ``STREAM_HEDGE_AFTER`` s (less for a model that is usually quick) the
+        next sibling starts as well and the first to speak wins.
+        """
+        from openjarvis.engine.hedge import HedgeError, first_stream
+
+        def start(candidate: str) -> Any:
+            return lambda: self._google_client.models.generate_content_stream(
+                model=candidate, **request(candidate)
+            )
+
+        def on_error(index: int, exc: BaseException, seconds: float) -> None:
+            candidate = candidates[index]
+            if _cloud._is_quota_error(exc) or _cloud._is_model_not_found_error(exc):
+                _cloud._QUOTA_EXHAUSTED[candidate] = (
+                    _cloud.time.monotonic() + _cloud.QUOTA_COOLDOWN
+                )
+            elif _cloud._is_busy_error(exc):
+                _cloud._QUOTA_EXHAUSTED[candidate] = (
+                    _cloud.time.monotonic() + _cloud.BUSY_COOLDOWN
+                )
+                health().failed(candidate, seconds)
+            _cloud.logger.info(
+                "Gemini stream %s unavailable (%s); trying the next",
+                candidate,
+                str(exc)[:80],
+            )
+
+        def retryable(index: int, exc: BaseException) -> bool:
+            if index > 0:
+                return True
+            return (
+                _cloud._is_quota_error(exc)
+                or _cloud._is_model_not_found_error(exc)
+                or _cloud._is_busy_error(exc)
+            )
+
+        async def run() -> AsyncIterator[tuple[str, Any]]:
+            try:
+                async for index, chunk in first_stream(
+                    [start(c) for c in candidates],
+                    names=candidates,
+                    hedge_after=lambda i: health().hedge_after(
+                        candidates[i], _cloud.STREAM_HEDGE_AFTER
+                    ),
+                    first_timeout=_cloud.HEDGE_TIMEOUT,
+                    retryable=retryable,
+                    on_first=lambda i, sec: health().ok(candidates[i], sec),
+                    on_error=on_error,
+                    on_slow=lambda i, sec: health().failed(candidates[i], sec),
+                ):
+                    yield candidates[index], chunk
+            except HedgeError as exc:
+                raise RuntimeError(
+                    "Gemini no respondió: " + " | ".join(exc.errors[-3:])
+                ) from exc
+
+        return run()
 
     async def _stream_google(
         self,
@@ -312,9 +389,8 @@ class GoogleMixin:
         from google.genai import types as genai_types
 
         model, effort = _cloud.split_effort(model)
-        candidates = self._google_stream_candidates(model)
-        last_exc: Exception | None = None
-        for idx, candidate in enumerate(candidates):
+
+        def request(candidate: str) -> Dict[str, Any]:
             config = genai_types.GenerateContentConfig(
                 **_cloud.google_config_kwargs(
                     candidate, temperature, max_tokens, effort
@@ -322,38 +398,17 @@ class GoogleMixin:
             )
             if system_text:
                 config.system_instruction = system_text
-            yielded = False
+            return {"contents": contents, "config": config}
+
+        async for _candidate, chunk in self._hedged_google_stream(
+            self._google_stream_candidates(model), request
+        ):
             try:
-                for chunk in self._google_client.models.generate_content_stream(
-                    model=candidate,
-                    contents=contents,
-                    config=config,
-                ):
-                    if chunk.text:
-                        yielded = True
-                        yield chunk.text
-                return
-            except Exception as exc:  # noqa: BLE001
-                last_exc = exc
-                if yielded:
-                    raise
-                if _cloud._is_quota_error(exc) or _cloud._is_model_not_found_error(exc):
-                    _cloud._QUOTA_EXHAUSTED[candidate] = (
-                        _cloud.time.monotonic() + _cloud.QUOTA_COOLDOWN
-                    )
-                elif _cloud._is_busy_error(exc):
-                    _cloud._QUOTA_EXHAUSTED[candidate] = (
-                        _cloud.time.monotonic() + _cloud.BUSY_COOLDOWN
-                    )
-                elif idx == 0:
-                    raise
-                _cloud.logger.info(
-                    "Gemini stream %s unavailable (%s); trying next sibling",
-                    candidate,
-                    str(exc)[:80],
-                )
-        if last_exc is not None:
-            raise last_exc
+                text = chunk.text
+            except (AttributeError, ValueError):
+                text = None
+            if text:
+                yield text
 
     async def _stream_full_google(
         self,
@@ -427,9 +482,7 @@ class GoogleMixin:
             else None
         )
 
-        candidates_to_try = self._google_stream_candidates(model)
-        last_exc: Exception | None = None
-        for idx, candidate in enumerate(candidates_to_try):
+        def request(candidate: str) -> Dict[str, Any]:
             config = genai_types.GenerateContentConfig(
                 **_cloud.google_config_kwargs(
                     candidate, temperature, max_tokens, effort
@@ -439,128 +492,96 @@ class GoogleMixin:
                 config.system_instruction = system_text
             if tool_decls:
                 config.tools = tool_decls
-
             if candidate == model:
-                cts = contents
-            else:
-                cts = [
-                    {
-                        **c,
-                        "parts": [
-                            {k: v for k, v in part.items() if k != "thought_signature"}
-                            | (
-                                {"thought_signature": _cloud.SKIP_SIGNATURE}
-                                if "function_call" in part
-                                else {}
-                            )
-                            for part in c["parts"]
-                        ],
-                    }
-                    for c in contents
-                ]
-
-            tool_call_count = 0
-            stream_id = _cloud.uuid.uuid4().hex
-            final_usage: Dict[str, Any] | None = None
-            yielded = False
-            try:
-                for chunk in self._google_client.models.generate_content_stream(
-                    model=candidate,
-                    contents=cts,
-                    config=config,
-                ):
-                    usage_metadata = getattr(chunk, "usage_metadata", None)
-                    if usage_metadata is not None:
-                        prompt_tokens = (
-                            getattr(usage_metadata, "prompt_token_count", 0) or 0
+                return {"contents": contents, "config": config}
+            # Thought signatures belong to the model that wrote them.
+            cts = [
+                {
+                    **c,
+                    "parts": [
+                        {k: v for k, v in part.items() if k != "thought_signature"}
+                        | (
+                            {"thought_signature": _cloud.SKIP_SIGNATURE}
+                            if "function_call" in part
+                            else {}
                         )
-                        completion_tokens = (
-                            getattr(usage_metadata, "candidates_token_count", 0) or 0
-                        )
-                        final_usage = {
-                            "prompt_tokens": prompt_tokens,
-                            "completion_tokens": completion_tokens,
-                            "total_tokens": prompt_tokens + completion_tokens,
-                        }
+                        for part in c["parts"]
+                    ],
+                }
+                for c in contents
+            ]
+            return {"contents": cts, "config": config}
 
-                    candidates = getattr(chunk, "candidates", None)
-                    parts = []
-                    if candidates:
-                        parts = getattr(candidates[0].content, "parts", []) or []
+        tool_call_count = 0
+        stream_id = _cloud.uuid.uuid4().hex
+        final_usage: Dict[str, Any] | None = None
+        async for _candidate, chunk in self._hedged_google_stream(
+            self._google_stream_candidates(model), request
+        ):
+            usage_metadata = getattr(chunk, "usage_metadata", None)
+            if usage_metadata is not None:
+                prompt_tokens = getattr(usage_metadata, "prompt_token_count", 0) or 0
+                completion_tokens = (
+                    getattr(usage_metadata, "candidates_token_count", 0) or 0
+                )
+                final_usage = {
+                    "prompt_tokens": prompt_tokens,
+                    "completion_tokens": completion_tokens,
+                    "total_tokens": prompt_tokens + completion_tokens,
+                }
 
-                    if parts:
-                        text_found = False
-                        calls: List[Dict[str, Any]] = []
-                        for part in parts:
-                            text = getattr(part, "text", None)
-                            if text:
-                                text_found = True
-                                yielded = True
-                                yield _cloud.StreamChunk(content=text)
+            candidates = getattr(chunk, "candidates", None)
+            parts = []
+            if candidates:
+                parts = getattr(candidates[0].content, "parts", []) or []
 
-                            function_call = getattr(part, "function_call", None)
-                            if function_call:
-                                name = getattr(function_call, "name", "")
-                                raw_args = getattr(function_call, "args", {})
-                                args = (
-                                    dict(raw_args) if hasattr(raw_args, "items") else {}
-                                )
-                                tool_index = tool_call_count
-                                tool_id = f"google_{stream_id}_{tool_index}"
-                                tool_call_count += 1
-                                tool_call = {
-                                    "index": tool_index,
-                                    "id": tool_id,
-                                    "type": "function",
-                                    "function": {
-                                        "name": name,
-                                        "arguments": _cloud.json.dumps(args),
-                                    },
-                                }
-                                calls.append(tool_call)
-                                signature = getattr(part, "thought_signature", None)
-                                if signature is not None:
-                                    self._thought_sigs[tool_id] = signature
-                        if calls:
-                            yielded = True
-                            yield _cloud.StreamChunk(tool_calls=calls)
-                        if text_found:
-                            continue
-
-                    try:
-                        text = chunk.text
-                    except (AttributeError, ValueError):
-                        text = None
+            if parts:
+                text_found = False
+                calls: List[Dict[str, Any]] = []
+                for part in parts:
+                    text = getattr(part, "text", None)
                     if text:
-                        yielded = True
+                        text_found = True
                         yield _cloud.StreamChunk(content=text)
 
-                yield _cloud.StreamChunk(
-                    finish_reason="tool_calls" if tool_call_count else "stop",
-                    usage=final_usage,
-                )
-                return
-            except Exception as exc:  # noqa: BLE001
-                last_exc = exc
-                if yielded:
-                    raise
-                if _cloud._is_quota_error(exc) or _cloud._is_model_not_found_error(exc):
-                    _cloud._QUOTA_EXHAUSTED[candidate] = (
-                        _cloud.time.monotonic() + _cloud.QUOTA_COOLDOWN
-                    )
-                elif _cloud._is_busy_error(exc):
-                    _cloud._QUOTA_EXHAUSTED[candidate] = (
-                        _cloud.time.monotonic() + _cloud.BUSY_COOLDOWN
-                    )
-                elif idx == 0:
-                    raise
-                _cloud.logger.info(
-                    "Gemini stream_full %s unavailable (%s); trying next sibling",
-                    candidate,
-                    str(exc)[:80],
-                )
-        if last_exc is not None:
-            raise last_exc
+                    function_call = getattr(part, "function_call", None)
+                    if function_call:
+                        name = getattr(function_call, "name", "")
+                        raw_args = getattr(function_call, "args", {})
+                        args = dict(raw_args) if hasattr(raw_args, "items") else {}
+                        tool_index = tool_call_count
+                        tool_id = f"google_{stream_id}_{tool_index}"
+                        tool_call_count += 1
+                        calls.append(
+                            {
+                                "index": tool_index,
+                                "id": tool_id,
+                                "type": "function",
+                                "function": {
+                                    "name": name,
+                                    "arguments": _cloud.json.dumps(args),
+                                },
+                            }
+                        )
+                        signature = getattr(part, "thought_signature", None)
+                        if signature is not None:
+                            self._thought_sigs[tool_id] = signature
+                if calls:
+                    yield _cloud.StreamChunk(tool_calls=calls)
+                if text_found:
+                    continue
+
+            try:
+                text = chunk.text
+            except (AttributeError, ValueError):
+                text = None
+            if text:
+                yield _cloud.StreamChunk(content=text)
+
+        yield _cloud.StreamChunk(
+            finish_reason="tool_calls" if tool_call_count else "stop",
+            usage=final_usage,
+        )
 
 
 __all__ = ["GoogleMixin"]

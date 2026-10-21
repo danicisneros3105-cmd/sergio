@@ -2,6 +2,36 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-10-21 · Claude · Sin retraso con Gemini, idioma fijo en la voz, Sergio en cualquier dispositivo
+- Petición del dueño: pulir todo; lag, retraso, idiomas, fallas de la API;
+  mejorar la conexión y que no falle en ningún dispositivo.
+- Retraso (medido con la clave de pruebas): «hola» tardaba 59 s porque se
+  probaba siempre primero Gemini 3.8 Flash, que hoy se cuelga o da 504; 3.7
+  igual; 3.6 y 3.5 responden en ~1 s. El chat transmitido no tenía respaldo en
+  paralelo (y bloqueaba el servidor), y la ruta directa (`cloud_router`) iba a
+  un solo modelo con 180 s de espera, sin respaldo y con «Understood.» en
+  inglés como respuesta inventada al sistema.
+- Arreglo: `engine/model_health.py` (latencia y fallos por modelo, guardado
+  en disco), `hedge.first_stream` (flujos en paralelo, en hilos), 504 /
+  tiempo agotado / red caída cuentan como «ocupado» y pasan al siguiente,
+  respaldo a los 5 s (antes 8) o antes si el modelo suele ser rápido, y
+  `cloud_router` usa el mismo motor. Servidor real: 1.er mensaje 11,8 s (antes
+  hasta 60 s), los siguientes 1–1,5 s.
+- Idiomas: Gemini Live con idioma fijo para hablar y transcribir (es-US);
+  mensajes de error que salían en inglés (micrófono, panel, agentes) en
+  español.
+- Dispositivos: `lib/compat.ts` (ids sin `crypto.randomUUID`, que en http
+  dejaba la app en blanco en el teléfono; `structuredClone` para Safari 14-15;
+  almacenamiento bloqueado), micrófono y cámara dicen cuándo hace falta https,
+  audio de salida para Safari/Firefox viejos, y la voz se reconecta al volver
+  la red o al volver a la pestaña.
+- Revisé de mí mismo: `test_upload_transactions` fallaba a veces porque una
+  sincronización de Obsidian de otra prueba publicaba en el mismo bus; ahora
+  cuenta solo sus publicaciones. `test_parallel_ticks…` (agentes) falló una vez
+  con 8 procesos y pasó al repetir: no es de este cambio.
+- Pendiente: el primer mensaje tras instalar aún espera ~10 s mientras Sergio
+  aprende qué modelo va rápido ese día.
+
 ## 2026-10-18 · Claude · Face ID más fácil, Sergio ya no responde a videos, cerebro por zonas
 - Petición del dueño: Face ID más fácil (siempre fallaba) y ver si puede
   desbloquear el PC o el Mac; que Sergio no hable solo ni responda a lo que no es

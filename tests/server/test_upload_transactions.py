@@ -11,6 +11,14 @@ from openjarvis.server import upload_router as uploads
 from openjarvis.server.upload_limits import UploadLimitsMiddleware
 
 
+def _own(bus):
+    """This store's publishes only: a connector sync left running by another
+    test module can publish on the same patched bus."""
+    return [
+        c for c in bus.publish.call_args_list if c.args[1].get("source") != "obsidian"
+    ]
+
+
 def test_sqlite_failure_rolls_back_entire_batch_and_fts(tmp_path, monkeypatch):
     path = tmp_path / "knowledge.db"
     store = KnowledgeStore(path)
@@ -25,7 +33,7 @@ def test_sqlite_failure_rolls_back_entire_batch_and_fts(tmp_path, monkeypatch):
         uploads._store_documents(
             [("new migration", "md", "plan"), ("fail", "txt", "bad")]
         )
-    bus.publish.assert_not_called()
+    assert not _own(bus)
     with KnowledgeStore(path) as reopened:
         assert reopened.retrieve("existing")
         assert not reopened.retrieve("migration")
@@ -44,8 +52,8 @@ def test_successful_transaction_emits_only_after_commit(tmp_path, monkeypatch):
         with store.transaction():
             store.store("design review")
             store.store("release checklist")
-            bus.publish.assert_not_called()
-        assert bus.publish.call_count == 2
+            assert not _own(bus)
+        assert len(_own(bus)) == 2
         assert store.retrieve("checklist")
 
 

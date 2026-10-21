@@ -625,3 +625,11 @@ def written_sidecar(sidecar_path: Path, sample_sidecar_payload: dict) -> Path:
     """A written mining sidecar JSON file; returns the path."""
     sidecar_path.write_text(json.dumps(sample_sidecar_payload))
     return sidecar_path
+
+
+@pytest.fixture(autouse=True)
+def _fresh_model_health() -> None:
+    """Each test starts with no memory of which Gemini models were slow."""
+    from openjarvis.engine import model_health
+
+    model_health.reset_for_tests()

@@ -729,7 +729,7 @@ function LaunchWizard({
   }
 
   async function handleLaunch() {
-    if (!wizard.name.trim()) { toast.error('Name is required'); return; }
+    if (!wizard.name.trim()) { toast.error('Escriba un nombre.'); return; }
     setLaunching(true);
     try {
       const { type: apiScheduleType, value: apiScheduleValue } = normalizeAgentSchedule(
@@ -759,7 +759,7 @@ function LaunchWizard({
         template_id: wizard.templateId || undefined,
         config,
       });
-      toast.success(`Agent "${wizard.name}" created`);
+      toast.success(`«${wizard.name}» creado.`);
       onLaunched();
     } catch (err: any) {
       toast.error(err.message || 'Failed to create agent');
@@ -1451,7 +1451,7 @@ function AgentConfigGrid({ agent, onAgentUpdated }: { agent: ManagedAgent; onAge
       const newConfig = { ...(agent.config || {}), model: newModel };
       await updateManagedAgent(agent.id, { config: newConfig });
       onAgentUpdated();
-      toast.success(`Model changed to ${newModel}`);
+      toast.success(`Modelo cambiado a ${newModel}.`);
     } catch { /* ignore */ }
     setEditingModel(false);
     setChangingModel(false);
@@ -2580,7 +2580,7 @@ function SendBlueWizard({
         setSelectedNumber('');
         setStep('verified');
       } else {
-        setError('Invalid credentials. Check your API key and secret.');
+        setError('Credenciales no válidas. Revise la clave y el secreto.');
         setStep('creds');
       }
     } catch (e) {
@@ -3482,7 +3482,7 @@ export function AgentsPage() {
     try {
       await runManagedAgent(id);
     } catch (err: any) {
-      toast.error('Failed to start agent', {
+      toast.error('No pude iniciarlo.', {
         description: err.message || 'Unknown error',
       });
       await refresh();
@@ -3493,7 +3493,7 @@ export function AgentsPage() {
       try {
         const agent = await fetchManagedAgent(id);
         if (agent.status === 'error') {
-          toast.error(`Agent "${agent.name}" failed`, {
+          toast.error(`«${agent.name}» falló.`, {
             description: agent.summary_memory?.replace(/^ERROR: /, '') || 'Unknown error',
           });
           useAppStore.getState().addLogEntry({
@@ -3510,13 +3510,13 @@ export function AgentsPage() {
     try {
       const result = await recoverManagedAgent(id);
       if (result.checkpoint) {
-        toast.success('Agent recovered from checkpoint');
+        toast.success('Recuperado desde el último punto guardado.');
       } else {
-        toast.success('Agent reset to idle (no checkpoint available)');
+        toast.success('Reiniciado: no había un punto guardado.');
       }
       setDetailTab('overview');
     } catch (err: any) {
-      toast.error('Recovery failed', {
+      toast.error('No pude recuperarlo.', {
         description: err.message || 'Unknown error',
       });
     }
@@ -3531,7 +3531,7 @@ export function AgentsPage() {
         for (const agent of agents) {
           const prev = prevStatuses.current[agent.id];
           if (prev && prev !== 'error' && agent.status === 'error') {
-            toast.error(`Agent "${agent.name}" failed`, {
+            toast.error(`«${agent.name}» falló.`, {
               description: agent.summary_memory?.replace(/^ERROR: /, '') || 'Unknown error',
             });
           }

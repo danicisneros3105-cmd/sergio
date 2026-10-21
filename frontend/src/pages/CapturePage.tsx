@@ -6,6 +6,7 @@ import { apiFetch } from '../lib/api';
 import { useWorkspace } from '../lib/workspace/store';
 import { FilePick, Recorder } from '../components/Workspace/MediaBlock';
 import type { Block } from '../lib/workspace/model';
+import { mediaProblem } from '../lib/compat';
 
 interface DetectedFace {
   name?: string | null;
@@ -44,6 +45,11 @@ export function CapturePage() {
       setCamActive(false);
       setDetected([]);
       setPoseInfo(null);
+      return;
+    }
+    const problem = mediaProblem('cámara');
+    if (problem) {
+      toast.error(problem);
       return;
     }
     try {
