@@ -164,6 +164,10 @@ class Brain:
             self.folder.mkdir(parents=True, exist_ok=True)
             fresh = not self._file.exists()
             db = sqlite3.connect(str(self._file), check_same_thread=False)
+            try:  # memories of conversations: only the owner's account
+                os.chmod(self._file, 0o600)
+            except OSError:
+                pass
             db.execute("PRAGMA journal_mode=WAL")
             db.execute("PRAGMA synchronous=NORMAL")
             db.executescript(

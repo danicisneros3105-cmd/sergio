@@ -21,6 +21,40 @@ function day(ts: number) {
   return new Date(ts * 1000).toLocaleDateString('es', { day: 'numeric', month: 'long', year: 'numeric' });
 }
 
+/** «Solo en este equipo»: health and mental health never reach the AI service. */
+function LocalOnly() {
+  const [local, setLocal] = useState<boolean | null>(null);
+  useEffect(() => {
+    void apiFetch('/v1/healthdata/privacy')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setLocal(d ? Boolean(d.local) : null))
+      .catch(() => setLocal(null));
+  }, []);
+  if (local === null) return null;
+  const change = async (on: boolean) => {
+    try {
+      const r = await apiFetch('/v1/healthdata/privacy', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ local: on }),
+      });
+      if (!r.ok) throw new Error();
+      setLocal(Boolean((await r.json()).local));
+    } catch {
+      toast.error('No pude guardar la preferencia.');
+    }
+  };
+  return (
+    <label className="paper-meta mind-local">
+      <input type="checkbox" checked={local} onChange={(e) => void change(e.target.checked)} />{' '}
+      Solo en este equipo: la lectura la escribe Sergio sin la IA.{' '}
+      {local
+        ? ''
+        : 'Si no, la lee Gemini (Google) sin su nombre ni datos de contacto; con una clave gratuita Google puede revisar lo enviado.'}
+    </label>
+  );
+}
+
 function Crisis({ text }: { text: string }) {
   return (
     <div className="mind-crisis" role="alert">
@@ -241,6 +275,7 @@ export function MindTab() {
             ))}
           </div>
           <p className="paper-meta">El análisis de Sergio llega unos 30 minutos después de enviarla. No es un diagnóstico.</p>
+          <LocalOnly />
         </div>
       </section>
 

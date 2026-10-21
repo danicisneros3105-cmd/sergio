@@ -257,6 +257,13 @@ termina en la rama `main`, y el dueño actualiza con un único comando.
   Safari viejo, almacenamiento en memoria si el navegador lo bloquea, y
   micrófono/cámara explican cuándo hace falta https. Use `newUuid()` y
   `mediaProblem()`; nunca `crypto.randomUUID()` directo.
+- Ley (oct. 2026, `docs/LEGAL.md`): uso personal (LOPDP art. 2, excepción
+  doméstica). Caras de otros solo con consentimiento; desconocidos solo 30 min
+  en memoria. Cada reunión avisa que se graba (COIP art. 178). Toda llamada a
+  terceros empieza diciendo que habla una IA. Salud: `health/privacy.py`
+  (`scrub` antes de la IA; «Solo en este equipo» = sin IA; archivos 0600).
+  Con clave gratuita, Google puede revisar lo enviado: no lo oculte al dueño.
+  Toda pieza de terceros nueva va a NOTICE.
 - Kimi como proveedor y «Digitalsnickers» están descartados.
 - Licencia Apache-2.0 y autoría honesta: no se borran créditos del original.
 

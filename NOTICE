@@ -59,3 +59,18 @@ marca, como el resto de Sergio.
 Salud mental y gimnasio mental citan las investigaciones que usan (autores,
 revista, DOI) y nombran como texto las instituciones donde se hicieron, sin
 logos y sin relación ni aval (ver docs/LEGAL-MARCAS.md).
+
+Otras piezas de terceros que Sergio usa (créditos y licencias):
+- Letras Josefin Sans e Inter (SIL Open Font License 1.1) en la web.
+- Detección y reconocimiento de caras: YuNet (MIT) y SFace (Apache-2.0) del
+  OpenCV Model Zoo; MediaPipe (Apache-2.0, © Google) para manos, cara y cuerpo.
+- Globo 3D (extensions/globe, MIT, © 2026 Bilawal Sidhu).
+- ECC «Everything Claude Code» (MIT, © affaan-m), descargado al instalar, no
+  incluido aquí.
+- Datos de vuelos de The OpenSky Network (https://opensky-network.org), con
+  su licencia para uso no comercial; si se publica algo hecho con ellos, se
+  cita: M. Schäfer et al., «Bringing Up OpenSky», IPSN 2014. Sismos: USGS
+  (dominio público).
+- Los modelos de IA en la nube (Gemini de Google) se usan bajo sus propios
+  términos; Sergio no los incluye ni los redistribuye.
+Detalle legal y decisiones: docs/LEGAL.md.

@@ -724,7 +724,11 @@ def write_reading(
     scores: Dict[str, Any], answers: Dict[str, Any], generate: Optional[Any] = None
 ) -> Tuple[str, str]:
     """(text, who) where who is "ia" or "codigo"."""
-    prompt = reading_prompt(scores, answers)
+    from openjarvis.health.privacy import local_only, scrub
+
+    if local_only():  # the owner keeps his mental health on his computer
+        return fallback_reading(scores, answers), "codigo"
+    prompt = scrub(reading_prompt(scores, answers))
     try:
         if generate is None:
             # The coach's path: Gemini with a hedged backup. (It used to call

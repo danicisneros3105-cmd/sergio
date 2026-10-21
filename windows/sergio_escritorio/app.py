@@ -3468,10 +3468,13 @@ def run(config: dict[str, Any]) -> None:
         else:
             parts.append("con el micrófono y el sonido de la computadora")
         text = " ".join(parts) + "."
-        today = time.strftime("%Y-%m-%d")
-        if reminded_consent[0] != today:  # once a day is enough
-            reminded_consent[0] = today
-            text += " Recuerde avisar a los presentes de que estoy tomando notas."
+        # Every meeting, not once a day: grabar a otros sin su consentimiento
+        # puede ser delito (COIP art. 178 en Ecuador; docs/LEGAL.md).
+        reminded_consent[0] = time.strftime("%Y-%m-%d")
+        text += (
+            " Avise a todos de que estoy grabando y tomando notas, y pare si"
+            " alguien no está de acuerdo."
+        )
         return text
 
     def finish_meeting(rec: Any) -> None:

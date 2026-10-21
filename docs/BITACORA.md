@@ -2,6 +2,22 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-10-21 · Claude · Revisión legal: salud solo en el equipo, aviso en cada reunión, NOTICE completo
+- Petición del dueño: investigar las restricciones legales de un proyecto como
+  Sergio y resolverlas. Resumen y fuentes en `docs/LEGAL.md`.
+- Hecho: `health/privacy.py` (se borran correos, teléfonos, cédulas y enlaces
+  antes de la IA; interruptor «Solo en este equipo» en Salud mental, ruta
+  `/v1/healthdata/privacy`; base de salud, `cerebro.db` y preferencias en
+  0600). Las reuniones avisan en cada grabación (antes una vez al día). NOTICE
+  con letras, modelos de caras, MediaPipe, globo, ECC, OpenSky y USGS.
+- Ya estaba bien: consentimiento para registrar caras, desconocidos solo en
+  memoria, aviso de IA en las llamadas, análisis de uso apagado, sin voces
+  clonadas, sin logos ajenos.
+- Pendiente del dueño: activar la facturación de Gemini (con la clave gratuita
+  Google puede revisar lo enviado), y un abogado antes de vender o publicar
+  Sergio (diseños iguales a ChatGPT y Notion, marca «Sergio», WhatsApp por la
+  vía no oficial).
+
 ## 2026-10-21 · Claude · Sin retraso con Gemini, idioma fijo en la voz, Sergio en cualquier dispositivo
 - Petición del dueño: pulir todo; lag, retraso, idiomas, fallas de la API;
   mejorar la conexión y que no falle en ningún dispositivo.

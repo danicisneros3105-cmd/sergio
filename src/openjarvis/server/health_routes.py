@@ -383,6 +383,26 @@ class Ask(BaseModel):
     message: str
 
 
+class Privacy(BaseModel):
+    local: bool
+
+
+@router.get("/privacy")
+async def get_privacy() -> Dict[str, Any]:
+    from openjarvis.health.privacy import local_only
+
+    return {"local": local_only()}
+
+
+@router.put("/privacy")
+async def put_privacy(body: Privacy) -> Dict[str, Any]:
+    """«Solo en este equipo»: the AI never reads health or mental health."""
+    from openjarvis.health.privacy import local_only, set_local_only
+
+    set_local_only(body.local)
+    return {"local": local_only()}
+
+
 @router.post("/ask")
 async def ask(body: Ask) -> Dict[str, Any]:
     question = body.message.strip()
@@ -390,6 +410,19 @@ async def ask(body: Ask) -> Dict[str, Any]:
         raise HTTPException(400, "Escriba su pregunta.")
     facts = insights.known_facts(_store())
     reply = ""
+    from openjarvis.health.privacy import local_only, scrub
+
+    if local_only():
+        return {
+            "reply": "Sus datos de salud se quedan en este equipo, así que no se "
+            "los paso a la IA. "
+            + (
+                f"Lo que sé de usted: {facts}."
+                if facts
+                else "Aún no tengo datos suyos."
+            )
+        }
+    question = scrub(question)
     try:
         from openjarvis.core.config import load_config
         from openjarvis.engine._discovery import get_engine

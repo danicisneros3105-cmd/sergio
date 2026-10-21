@@ -75,6 +75,9 @@ class HealthStore:
         self._lock = threading.RLock()
         with self._db() as db:
             db.executescript(_SCHEMA)
+        from openjarvis.health.privacy import private
+
+        private(self.path)  # health data: only the owner's account reads it
 
     @contextmanager
     def _db(self) -> Iterator[sqlite3.Connection]:
