@@ -173,7 +173,7 @@ class Notch(QWidget):
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setToolTip("Clic para abrir el centro de control de Sergio")
+        self.setToolTip("Clic para pedirle algo a Sergio")
         self.resize(CANVAS_W, CANVAS_H)
         self.on_click = on_click
         self.reduced_motion = system_reduced_motion() if reduced_motion is None else reduced_motion
@@ -275,7 +275,7 @@ class Notch(QWidget):
     def set_screen_sharing(self, active: bool) -> None:
         self.screen_sharing = bool(active)
         self.setToolTip("Pantalla compartida con Gemini · diga «deja de ver mi pantalla»"
-                        if active else "Clic para abrir el centro de control de Sergio")
+                        if active else "Clic para pedirle algo a Sergio")
 
     def set_reduce_motion(self, enabled: bool) -> None:
         self.reduce_motion = bool(enabled)

@@ -83,6 +83,7 @@ RULES: Dict[str, Dict[str, Any]] = {
             "opendesign",
             "blender_create",
             "video_edit",
+            "video_pro",
             "anatomy_figure",
         ],
         "default": "allow",

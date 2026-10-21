@@ -29,8 +29,77 @@ Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
   sincronización de Obsidian de otra prueba publicaba en el mismo bus; ahora
   cuenta solo sus publicaciones. `test_parallel_ticks…` (agentes) falló una vez
   con 8 procesos y pasó al repetir: no es de este cambio.
+- Revisé lo que subieron las otras sesiones (Cerebro v2, voz con GPU, Video
+  Pro): convive con lo mío; solo formateé cuatro pruebas que no pasaban
+  `ruff` (líneas largas), sin cambiar lo que prueban.
 - Pendiente: el primer mensaje tras instalar aún espera ~10 s mientras Sergio
   aprende qué modelo va rápido ese día.
+## 2026-10-19 · Claude · Escucha con GPU, voz sin errores al cortar, web y código más ordenados
+- «No escucha bien»: el registro del escritorio mostraba Whisper sin
+  cublas64_12.dll, así que caía al modelo pequeño en la CPU. La actualización
+  nunca pedía las librerías NVIDIA; ahora `sergio escritorio instalar` las
+  instala solo si hay tarjeta NVIDIA (`has_nvidia_gpu`).
+- Voz en streaming: cortar a mitad dejaba «aclose(): asynchronous generator is
+  already running» en el servidor (`voice_routes._close`).
+- Web: Sergio ve sin colores fijos de la paleta vieja ni subtexto, sin
+  degradados morados, «Primeros pasos» al día (sin Creator) y se abre sola la
+  primera vez.
+- Código: Video Pro sale de `app.py` a `video_skills.py` (app.py: 4600 -> 4514).
+
+## 2026-10-19 · Claude · Uso y modelos, centro de control más simple
+- Página «Uso y modelos» (`/uso`, barra lateral y Ctrl K «g u»): respuestas,
+  tokens y costo por modelo (hoy, 7 o 30 días) y cada proveedor con su estado
+  (conectado, sin clave, sin cuota): Google, Anthropic, OpenAI, OpenRouter,
+  Moonshot, MiniMax, AtlasCloud, DeepSeek y modelos locales (Ollama).
+  `server/usage_routes.py` (`GET /v1/usage`) lee la telemetría que ya existía.
+- Centro de control del escritorio: 5 pestañas visibles (Chat, Nodes, Swarm,
+  Salud, Ajustes); Cowork y Perfil siguen en la app y por voz (`HIDDEN_TABS`).
+- Logos de universidades: sin cambio. No hay excepción legal fiable para usar
+  un logo sin permiso; el camino es pedir permiso (`docs/LEGAL-MARCAS.md`).
+
+## 2026-10-19 · Claude · Cerebro v2, escritorio 20 s más rápido, Video Pro profesional, Sergio ve y Salud mental
+- Petición del dueño: completar sus 11 puntos, con foco en el cerebro.
+- Cerebro v2 (`connectome/brain.py`): conexiones reales en todas las zonas
+  (herramientas que funcionaron o fallaron, fragmentos de prompts, canal, hilo
+  de conversación), rutas aprendidas en el contexto, SQLite incremental (6,5 ms
+  por turno con 4000 recuerdos frente a 18,5 ms) y migración de cerebro.json.
+  Nodes, Swarm, Cowork, Live y la voz del escritorio ahora pasan por él. La
+  página Cerebro muestra las conexiones por zona.
+- Escritorio: `localhost` en Windows esperaba ~21 s por IPv6 antes de llegar al
+  servidor de WSL; ahora `voice.api_base` va a 127.0.0.1. Identificar caras
+  pasó de ~20 s a 20-60 ms; también acelera chat, panel, Nodes y Swarm desde el
+  escritorio. Probablemente era la causa de muchos «se bugea» y de la
+  imprecisión de Sergio ve (etiquetas con 20 s de retraso).
+- Voz del escritorio (`/v1/voice/chat`): no guardaba nada; ahora recuerda y
+  recibe recuerdos (por eso «cada vez era una conversación nueva»).
+- Salud mental: la lectura con IA nunca funcionaba (llamada al motor sin modelo
+  y con dicts); salía siempre la plantilla. Ahora va por Gemini como el coach.
+  Logos de universidades: no, por la regla de marcas (LEGAL-MARCAS.md).
+- Video Pro: `video_master.pipeline` une lo que ya existía y no estaba
+  conectado (silencios, fotos, RIFE, máster ProRes/DNxHR/HEVC con LUT). Nueva
+  herramienta `video_pro` para Sergio y los agentes.
+- Sergio ve, Face ID y organizador: fuera la paleta «Digital Paper» y los
+  emojis; blanco, negro y grises de `estilo.py`.
+- Pendiente: reorganizar `windows/sergio_escritorio/app.py` (4600 líneas en un
+  solo `main()`), probar Video Pro con clips reales en el PC del dueño, y ver
+  «no escucha bien» con audio real (no se pudo reproducir aquí).
+
+## 2026-10-19 · Claude · Swarm y Nodes sin fallos ocultos, errores claros, Windows Hello menos pesado
+- Swarm: los sub-agentes morían con `TypeError: int + NoneType` porque Gemini a
+  veces manda los conteos de tokens como None (`engine/cloud_google.py`). Un
+  agente que «pierde el hilo» (ReAct sin parsear) ya no cuenta como éxito: se
+  reintenta. Si todos fallan, el enjambre queda `failed` con la razón. Cada
+  fallo deja su traceback en el log. Nodes probados en vivo: funcionan.
+- Errores: `cli/friendly.plain` da una frase clara (quién falló y qué hacer) en
+  Swarm, Nodes, Cowork y el manejador global del servidor (con el detalle
+  técnico detrás). Muchos «runtime error» del dueño eran cuota de Gemini
+  agotada (429), no código.
+- Windows Hello: el control de pantalla lo pedía en cada clic. Ahora una
+  confirmación cubre 120 s de acciones rutinarias (clic, escribir, teclas,
+  enfocar, abrir apps); lo sensible pide siempre; pausar quita el permiso
+  (`control.py: ROUTINE`, `APPROVAL_WINDOW_S`).
+- Pruebas nuevas en swarm, engine, escritorio. Fallan en `main` sin relación:
+  `test_creative`, `test_creator_apps` (rutas de Windows).
 
 ## 2026-10-18 · Claude · Face ID más fácil, Sergio ya no responde a videos, cerebro por zonas
 - Petición del dueño: Face ID más fácil (siempre fallaba) y ver si puede
@@ -60,6 +129,18 @@ Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
   cada turno (`<cerebro_memoria>`), así recuerda más que la ventana de contexto.
   Nunca guarda secretos; `SERGIO_CEREBRO=0` lo apaga. Página «Cerebro» por zonas.
 - Pruebas: 11774 + 762 (escritorio) + 262 (frontend) pasan; ruff limpio.
+## 2026-10-19 · Claude · Barra rápida del notch (mini tareas)
+- Petición del dueño: que el notch quede igual que la app y que desde ahí se
+  puedan hacer mini tareas.
+- Un clic en el notch ya no abre el centro de control: abre una barra negra
+  (`notch_bar.py`) con una línea para escribir y atajos (Recordar, Buscar,
+  Abrir, Segundo plano, Hablar, Centro). Enter manda el texto por el mismo
+  camino que el chat del centro de control (órdenes directas primero, luego el
+  agente) y la respuesta sale en el notch. Esc, clic fuera o Enter vacío la
+  cierran. Mismos colores, letra y medidas que `estilo.py`; sin emojis;
+  respeta movimiento reducido. El centro de control sigue a un atajo («Centro»).
+- Pruebas: `tests/escritorio/test_notch_bar.py` (6). Visto en pantalla real.
+- Pendiente: probarlo con el notch en vivo en el PC del dueño.
 
 ## 2026-10-18 · Claude · Voz siempre masculina, encuesta corta y larga, créditos sin logos, agente de código con marca Sergio, Workspace como Notion
 - Petición del dueño: usar todas sus imágenes en la encuesta de salud mental y

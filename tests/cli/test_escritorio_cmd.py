@@ -149,3 +149,32 @@ def test_sync_server_adds_the_face_mesh_without_removing_anything(
         "tripo",
     ]  # memory, CAD and Tripo come with every update
     assert kw["env"]["UV_PROJECT_ENVIRONMENT"] == str(tmp_path / "venv")
+
+
+def test_instalar_asks_for_the_gpu_libraries_when_there_is_an_nvidia_card(
+    tmp_path, monkeypatch
+):
+    for card in (True, False):
+        calls = []
+
+        def fake_run(cmd, **kw):
+            calls.append(cmd)
+            out = "\\\\wsl.localhost\\Ubuntu" + cmd[-1] if cmd[0] == "wslpath" else ""
+            return subprocess.CompletedProcess(cmd, 0, stdout=out, stderr="")
+
+        monkeypatch.setattr(
+            escritorio_cmd.shutil, "which", lambda _n: "/mnt/c/powershell.exe"
+        )
+        monkeypatch.setattr(escritorio_cmd, "has_nvidia_gpu", lambda c=card: c)
+        monkeypatch.setattr(escritorio_cmd.subprocess, "run", fake_run)
+        monkeypatch.setattr(
+            "openjarvis.cli.service_cmd.env_file", lambda: tmp_path / "sergio.env"
+        )
+        monkeypatch.setattr("openjarvis.core.paths.get_config_dir", lambda: tmp_path)
+        monkeypatch.setattr(
+            "openjarvis.cli.service_cmd.wait_for_server", lambda base, **kw: True
+        )
+        result = CliRunner().invoke(escritorio_cmd.escritorio, ["instalar"])
+        assert result.exit_code == 0, result.output
+        ps = [c for c in calls if c[0] == "powershell.exe"][0]
+        assert ("-Gpu" in ps) is card

@@ -399,6 +399,84 @@ class VideoEditTool(_DesktopTool):
         )
 
 
+@ToolRegistry.register("video_pro")
+class VideoProTool(_DesktopTool):
+    """The professional edit on the owner's laptop (video_master.pipeline)."""
+
+    tool_id = "video_pro"
+
+    @property
+    def spec(self) -> ToolSpec:
+        return ToolSpec(
+            name="video_pro",
+            description=(
+                "Professional video edit on the user's Windows laptop, for anything "
+                "beyond a quick montage. Gemini watches every clip (contact sheets), "
+                "picks the best moments and plans the cut in the requested style; "
+                "then: cross fades, captions, opening title, music under the voices, "
+                "loudness at -14 LUFS, HDR tone-mapped and tagged Rec.709. Optional "
+                "finishing: remove silences from talking clips, photos as Ken Burns "
+                "clips, AI frame interpolation (RIFE) to 60 fps or slow motion, and a "
+                "10-bit master (ProRes 422 HQ, ProRes 4444, DNxHR HQX or HEVC 10-bit) "
+                "with a colour chain (3D LUT .cube, denoise, contrast curve, "
+                "sharpening). 'request' is the creative brief: audience, platform, "
+                "length, pacing, mood, a channel to imitate (research it first with "
+                "web_search). It opens the result for review; never publish without "
+                "face_approval. Takes minutes."
+            ),
+            parameters={
+                "type": "object",
+                "properties": {
+                    "source": {"type": "string", "description": "Folder or file."},
+                    "request": {"type": "string", "description": "Creative brief."},
+                    "aspect": {"type": "string", "enum": ["16:9", "9:16", "1:1"]},
+                    "silences": {"type": "boolean", "description": "Cut dead air."},
+                    "fps": {"type": "integer", "description": "Interpolate to fps."},
+                    "slow": {"type": "number", "description": "Slow motion factor."},
+                    "master": {
+                        "type": "string",
+                        "enum": ["prores", "prores4444", "dnxhr", "hevc10"],
+                    },
+                    "lut": {"type": "string", "description": ".cube LUT path."},
+                    "denoise": {"type": "boolean"},
+                    "sharpen": {"type": "boolean"},
+                    "contrast_curve": {"type": "boolean"},
+                    "music": {"type": "string", "description": "Music file."},
+                },
+                "required": ["source", "request"],
+            },
+            category="desktop",
+            timeout_seconds=3600,
+        )
+
+    def execute(self, **params: Any) -> ToolResult:
+        args = {k: v for k, v in params.items() if v not in (None, "")}
+        try:
+            data = self._call(
+                "POST", "/skill", json={"name": "video_pro", "args": args}, timeout=3600
+            )
+        except RuntimeError as exc:
+            return self._fail(f"No pude editar el video: {exc}")
+        out = data.get("result") or {}
+        lines = [f"Video listo: {out.get('path', '')}"]
+        if out.get("title"):
+            lines.append(
+                f"Título: «{out['title']}» ({out.get('segments', 0)} momentos, "
+                f"{out.get('aspect', '')})."
+            )
+        if out.get("master"):
+            lines.append(f"Máster {out.get('master_label', '')}: {out['master']}")
+        if out.get("interpolated"):
+            lines.append(f"Interpolado: {out['interpolated']}")
+        if out.get("steps"):
+            lines.append("Pasos: " + "; ".join(out["steps"][:12]))
+        lines.append(
+            "Ya lo abrí para que el usuario lo revise; no lo publiques sin su "
+            "aprobación con face_approval."
+        )
+        return self._ok("\n".join(lines), **out)
+
+
 @ToolRegistry.register("blender_create")
 class BlenderCreateTool(_DesktopTool):
     tool_id = "blender_create"

@@ -15,7 +15,7 @@ interface DetectedFace {
   quality?: string;
 }
 
-// "Sergio ve" & Captura — unified Digital Paper aesthetic (#FAF8F5, #141413, #C96442)
+// "Sergio ve" & Captura, in the app's colours (theme variables only).
 export function CapturePage() {
   const navigate = useNavigate();
   const ready = useWorkspace((s) => s.ready);
@@ -171,16 +171,13 @@ export function CapturePage() {
                 borderRadius: 999,
                 background: 'var(--color-surface)',
                 border: '1px solid var(--color-border)',
-                color: '#C96442',
+                color: 'var(--color-text)',
                 marginBottom: 8,
               }}
             >
               <Eye size={13} /> Sergio ve · Visión en vivo & Captura
             </span>
             <h1 className="paper-title">Sergio ve</h1>
-            <p className="paper-sub">
-              Visión en tiempo real con reconocimiento facial cifrado, análisis de objetos y captura directa al Workspace con estética Digital Paper.
-            </p>
           </div>
           <div className="flex items-center gap-2">
             <button type="button" className="paper-button" onClick={toggleCam}>
@@ -193,15 +190,15 @@ export function CapturePage() {
           </div>
         </header>
 
-        {/* Live "Sergio ve" Digital Paper Viewport */}
+        {/* Live "Sergio ve" viewport */}
         <section
           style={{
-            background: '#FAF8F5',
-            border: '1px solid #E5E0D8',
+            background: 'var(--color-surface)',
+            border: '1px solid var(--color-border)',
             borderRadius: 22,
             padding: 16,
             marginBottom: 20,
-            boxShadow: '0 10px 30px rgba(20, 20, 19, 0.05)',
+            boxShadow: 'none',
           }}
         >
           <div
@@ -211,25 +208,25 @@ export function CapturePage() {
               justifyContent: 'space-between',
               marginBottom: 12,
               padding: '6px 12px',
-              background: '#F3F0EA',
+              background: 'var(--color-bg-secondary)',
               borderRadius: 999,
-              border: '1px solid #E5E0D8',
+              border: '1px solid var(--color-border)',
             }}
           >
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 600, color: '#141413' }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 600, color: 'var(--color-text)' }}>
               <span
                 style={{
                   width: 9,
                   height: 9,
                   borderRadius: '50%',
-                  background: camActive ? '#C96442' : '#9B978E',
-                  boxShadow: camActive ? '0 0 0 4px rgba(201,100,66,0.18)' : 'none',
+                  background: camActive ? 'var(--color-text)' : 'var(--color-text-secondary)',
+                  boxShadow: camActive ? '0 0 0 4px color-mix(in srgb, var(--color-text) 15%, transparent)' : 'none',
                 }}
               />
               Sergio ve
               {poseInfo ? ` · ${poseInfo.faces} rostro${poseInfo.faces === 1 ? '' : 's'} en vista` : camActive ? ' · observando' : ' · cámara en reposo'}
             </span>
-            <span style={{ fontSize: 12, color: '#6E6B64' }}>
+            <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
               {detected.length > 0
                 ? detected.map((d) => (d.name ? `${d.name} (${Math.round(d.score * 100)}%)` : 'Invitado')).join(' · ')
                 : poseInfo
@@ -239,7 +236,7 @@ export function CapturePage() {
           </div>
 
           {camActive ? (
-            <div style={{ position: 'relative', borderRadius: 16, overflow: 'hidden', background: '#F3F0EA', aspectRatio: '16/9' }}>
+            <div style={{ position: 'relative', borderRadius: 16, overflow: 'hidden', background: 'var(--color-bg-secondary)', aspectRatio: '16/9' }}>
               <video
                 ref={videoRef}
                 muted
@@ -260,9 +257,9 @@ export function CapturePage() {
               >
                 <span
                   style={{
-                    background: 'rgba(250, 248, 245, 0.94)',
-                    border: '1px solid #E5E0D8',
-                    color: '#141413',
+                    background: 'var(--color-surface)',
+                    border: '1px solid var(--color-border)',
+                    color: 'var(--color-text)',
                     padding: '6px 12px',
                     borderRadius: 999,
                     fontSize: 12.5,
@@ -284,17 +281,17 @@ export function CapturePage() {
             <div
               style={{
                 borderRadius: 16,
-                background: '#F3F0EA',
-                border: '1px dashed #D8D2C7',
+                background: 'var(--color-bg-secondary)',
+                border: '1px dashed var(--color-border)',
                 padding: '36px 24px',
                 textAlign: 'center',
               }}
             >
-              <Eye size={32} style={{ margin: '0 auto 10px', color: '#C96442' }} />
-              <p style={{ fontSize: 14.5, fontWeight: 600, color: '#141413', marginBottom: 4 }}>
+              <Eye size={32} style={{ margin: '0 auto 10px', color: 'var(--color-text)' }} />
+              <p style={{ fontSize: 14.5, fontWeight: 600, color: 'var(--color-text)', marginBottom: 4 }}>
                 Vista unificada de «Sergio ve»
               </p>
-              <p style={{ fontSize: 13, color: '#6E6B64', maxWidth: 460, margin: '0 auto 14px' }}>
+              <p style={{ fontSize: 13, color: 'var(--color-text-secondary)', maxWidth: 460, margin: '0 auto 14px' }}>
                 Encienda la cámara aquí o abra la ventana flotante en su PC para que Sergio reconozca rostros, gestos, objetos y documentos con el mismo diseño cálido de toda la app.
               </p>
               <div className="flex items-center justify-center gap-2">
@@ -312,13 +309,13 @@ export function CapturePage() {
         {/* Quick Workspace Capture */}
         <section
           style={{
-            background: '#FAF8F5',
-            border: '1px solid #E5E0D8',
+            background: 'var(--color-surface)',
+            border: '1px solid var(--color-border)',
             borderRadius: 18,
             padding: 16,
           }}
         >
-          <h2 style={{ fontSize: 14, fontWeight: 600, color: '#141413', marginBottom: 8 }}>
+          <h2 style={{ fontSize: 14, fontWeight: 600, color: 'var(--color-text)', marginBottom: 8 }}>
             Nota rápida o captura multimodal
           </h2>
           <textarea

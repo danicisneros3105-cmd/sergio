@@ -398,12 +398,12 @@ class OrganizerWindow(QWidget):
         if self.reminders is not None:
             for r in self.reminders.pending():
                 when = datetime.fromtimestamp(r.due).strftime("%d/%m %H:%M")
-                self.reminder_list.addItem(f"🔔 {when} · {r.text or 'recordatorio'}")
+                self.reminder_list.addItem(f"{when} · {r.text or 'recordatorio'}")
         if not self.reminder_list.count():
             self.reminder_list.addItem("Sin recordatorios. Di «recuérdame en 20 minutos…».")
         self.homework_list.clear()
         for h in self.homework():
-            self.homework_list.addItem(f"{'📝' if h.get('tipo') == 'tarea' else '📚'} {h.get('fecha') or 'sin fecha'} · {h.get('materia', '')}: {h.get('titulo', '')}")
+            self.homework_list.addItem(f"{(h.get('tipo') or 'pendiente').capitalize()} · {h.get('fecha') or 'sin fecha'} · {h.get('materia', '')}: {h.get('titulo', '')}")
         if not self.homework_list.count():
             self.homework_list.addItem("Di «revisa mi plataforma escolar» y apunto tus tareas y exámenes.")
 

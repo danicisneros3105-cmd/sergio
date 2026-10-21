@@ -64,3 +64,110 @@ def test_the_video_is_tagged_rec709_and_hdr_clips_are_tone_mapped():
     )
     first, second = graph.split("[v0]")[0], graph.split(";")[2]
     assert "tonemap" not in first and "tonemap=hable" in second
+
+
+def test_the_pipeline_runs_sources_cut_and_finishing_in_order(tmp_path, monkeypatch):
+    from sergio_escritorio import video_master, video_pro
+
+    (tmp_path / "a.mp4").write_bytes(b"x")
+    (tmp_path / "b.jpg").write_bytes(b"x")
+    (tmp_path / "notas.txt").write_text("no")
+    seen = {}
+
+    def prepare(folder, clips, *, silences, log):
+        seen["sources"] = [c.name for c in clips]
+        seen["silences"] = silences
+        log("fuentes listas")
+        return [folder / "a.mp4", folder / "b-foto.mp4"]
+
+    def edit(source, request, planner, *, music="", clips=None):
+        seen["clips"] = [c.name for c in clips]
+        return {"path": str(tmp_path / "corte.mp4"), "plan": {"segments": [1, 2]}}
+
+    def finish(video, opts, *, grade, log):
+        seen["opts"] = opts
+        return {"master": str(tmp_path / "corte-master.mov"), "master_label": "DNxHR"}
+
+    monkeypatch.setattr(video_master, "prepare_sources", prepare)
+    monkeypatch.setattr(video_pro, "edit", edit)
+    monkeypatch.setattr(video_master, "finish", finish)
+    steps = []
+    done = video_master.pipeline(
+        str(tmp_path),
+        "quita los silencios y pásalo a 60 fps, máster prores",
+        planner=lambda *a: {},
+        opts={"master": "dnxhr", "lut": ""},
+        log=steps.append,
+    )
+    assert seen["sources"] == ["a.mp4", "b.jpg"] and seen["silences"] is True
+    assert seen["clips"] == ["a.mp4", "b-foto.mp4"]
+    assert (
+        seen["opts"]["fps"] == 60 and seen["opts"]["master"] == "dnxhr"
+    )  # explicit wins
+    assert done["master_label"] == "DNxHR" and steps[0] == "fuentes listas"
+
+
+def test_the_pipeline_refuses_an_unknown_master_and_an_empty_folder(tmp_path):
+    import pytest
+    from sergio_escritorio import video_master
+
+    with pytest.raises(ValueError, match="Máster desconocido"):
+        video_master.pipeline(
+            str(tmp_path), "x", planner=lambda *a: {}, opts={"master": "mpeg1"}
+        )
+    with pytest.raises(RuntimeError, match="No encontré"):
+        video_master.pipeline(str(tmp_path), "x", planner=lambda *a: {})
+
+
+def test_video_skills_pro_skill_reports_and_remembers_the_video(monkeypatch, tmp_path):
+    import types
+
+    from sergio_escritorio import video_master
+    from sergio_escritorio.video_skills import VideoSkills
+
+    acts = types.SimpleNamespace(
+        start=lambda *a: 1, update=lambda *a, **k: None, finish=lambda *a: None
+    )
+    seen = {}
+
+    def pipeline(source, request, planner, *, opts, music, log):
+        seen.update(source=source, request=request, opts=opts)
+        log("montaje: x.mp4")
+        return {
+            "path": str(tmp_path / "x.mp4"),
+            "plan": {
+                "aspect": "9:16",
+                "segments": [1, 2, 3],
+                "youtube": {"title": "T"},
+            },
+        }
+
+    monkeypatch.setattr(video_master, "pipeline", pipeline)
+    monkeypatch.setattr("os.startfile", lambda _p: None, raising=False)
+    skills = VideoSkills(
+        client=None,
+        activities=acts,
+        caption=print,
+        tell=print,
+        controller=None,
+        last_result=[],
+    )
+    monkeypatch.setattr(skills, "planner", lambda _r: lambda *a: {})
+    out = skills.pro_skill(
+        {
+            "source": "Viaje",
+            "request": "Reel",
+            "aspect": "9:16",
+            "master": "prores",
+            "denoise": False,
+        }
+    )
+    assert seen["request"] == "Reel Formato 9:16." and seen["opts"] == {
+        "master": "prores"
+    }
+    assert (
+        out["segments"] == 3
+        and out["title"] == "T"
+        and out["steps"] == ["montaje: x.mp4"]
+    )
+    assert skills.last and skills.upload  # «súbelo a YouTube» has a video now

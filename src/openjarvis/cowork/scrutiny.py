@@ -167,6 +167,7 @@ _TOOL_PRIORS: Dict[str, Dict[str, int]] = {
     "calendar_upcoming": {"privacy": 1},
     "pdf_extract": {"privacy": 1},
     "video_edit": {"destructive": 1},
+    "video_pro": {"destructive": 1},
 }
 # Tools that act through other people: never run in Cowork.
 EXTERNAL_TOOLS = frozenset(
@@ -236,7 +237,7 @@ def score_step(
             scores["irreversible"] = max(scores["irreversible"], 2)
     # A step that only reads or searches cannot destroy or send anything.
     if scores["destructive"] == 1 and not any(
-        t in ("file_write", "files_organize", "video_edit") for t in tools
+        t in ("file_write", "files_organize", "video_edit", "video_pro") for t in tools
     ):
         scores["destructive"] = 0
     # Scope: a step sharing no words with the goal may have drifted from it.

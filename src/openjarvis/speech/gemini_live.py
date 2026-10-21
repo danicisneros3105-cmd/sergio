@@ -96,6 +96,7 @@ SERVER_TOOLS = (
     "flights_overhead",
     "live_earthquakes",
     "video_edit",
+    "video_pro",
     "blender_create",
     "face_enroll",
     "calculator",
@@ -916,7 +917,9 @@ class LiveCall:
                 # The mind keeps a memory of spoken exchanges too.
                 from openjarvis.connectome.brain import remember_exchange
 
-                self._spawn(asyncio.to_thread(remember_exchange, heard_all, said_all))
+                self._spawn(
+                    asyncio.to_thread(remember_exchange, heard_all, said_all, "voz")
+                )
             if self.guard_attention:
                 if self._answer_allowed:
                     self.attention.answered()

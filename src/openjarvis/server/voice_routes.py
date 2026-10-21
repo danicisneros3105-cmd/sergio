@@ -103,6 +103,16 @@ async def speak(req: SpeakRequest) -> Response:
     return Response(content=wav, media_type="audio/wav")
 
 
+async def _close(gen: Any) -> None:
+    """Close an audio stream; one still producing (the listener hung up mid
+    chunk) is already being torn down, which used to log «aclose(): asynchronous
+    generator is already running»."""
+    try:
+        await gen.aclose()
+    except RuntimeError:
+        pass
+
+
 @router.post("/stream")
 async def stream(req: SpeakRequest) -> Any:
     """Gemini Live reading the text aloud, streamed as raw PCM (24 kHz, int16)
@@ -134,12 +144,12 @@ async def stream(req: SpeakRequest) -> Any:
         if not first:
             raise RuntimeError("La voz seleccionada no devolvió audio.")
     except StopAsyncIteration:
-        await chunks.aclose()
+        await _close(chunks)
         raise HTTPException(
             status_code=502, detail="La voz seleccionada no devolvió audio."
         ) from None
     except Exception as exc:  # noqa: BLE001
-        await chunks.aclose()
+        await _close(chunks)
         raise HTTPException(502, "La voz seleccionada no está disponible.") from exc
 
     async def body():
@@ -148,7 +158,7 @@ async def stream(req: SpeakRequest) -> Any:
             async for chunk in chunks:
                 yield chunk
         finally:
-            await chunks.aclose()
+            await _close(chunks)
 
     return StreamingResponse(body(), media_type="audio/L16;rate=24000")
 
@@ -238,6 +248,7 @@ async def chat(req: ChatRequest, request: Request) -> dict[str, Any]:
     The companion uses it for chatting ("¿cómo estás?", "cuéntame algo"),
     which then answers in about a second instead of running the full agent.
     """
+    from openjarvis.connectome.brain import mind_context, remember_exchange
     from openjarvis.core.types import Message, Role
 
     engine = request.app.state.engine
@@ -250,6 +261,19 @@ async def chat(req: ChatRequest, request: Request) -> dict[str, Any]:
         for m in req.messages
         if m.get("content")
     ]
+    # The spoken talk shares the mind with the chat: the memories that come
+    # back ride along, and every answer is remembered (it used to live only in
+    # the desktop app's RAM and was gone after a restart).
+    heard = next((m.content for m in reversed(messages) if m.role == Role.USER), "")
+    recalled = await asyncio.to_thread(mind_context, heard, "voz") if heard else ""
+    if recalled:
+        messages.insert(0, Message(role=Role.SYSTEM, content=recalled))
+
+    def remember(answer: str) -> None:
+        if heard and answer:
+            asyncio.get_running_loop().run_in_executor(
+                None, remember_exchange, heard, answer, "voz"
+            )
 
     async def run(model: str) -> dict[str, Any]:
         return await asyncio.to_thread(
@@ -262,10 +286,12 @@ async def chat(req: ChatRequest, request: Request) -> dict[str, Any]:
 
     if req.grounded:
         try:
-            return await asyncio.wait_for(
+            out = await asyncio.wait_for(
                 asyncio.to_thread(grounded_answer, req.messages, req.max_tokens),
                 timeout=CHAT_SECONDS,
             )
+            remember(str(out.get("content") or ""))
+            return out
         except Exception:  # noqa: BLE001 — never substitute unverified current facts
             return {
                 "content": (
@@ -291,7 +317,9 @@ async def chat(req: ChatRequest, request: Request) -> dict[str, Any]:
         raise HTTPException(
             status_code=502, detail=str(exc)[:400] or "timeout"
         ) from exc
-    return {"content": str(result.get("content") or "").strip()}
+    answer = str(result.get("content") or "").strip()
+    remember(answer)
+    return {"content": answer}
 
 
 @router.post("/transcribe")

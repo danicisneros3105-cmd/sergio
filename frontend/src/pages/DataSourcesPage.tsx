@@ -2034,10 +2034,6 @@ function MemorySection() {
         className="rounded-xl p-5 relative overflow-hidden"
         style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}
       >
-        {/* Subtle gradient accent along top edge */}
-        <div className="absolute top-0 left-0 right-0 h-[2px]" style={{
-          background: 'linear-gradient(90deg, var(--color-accent-purple), var(--color-accent), transparent)',
-        }} />
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{

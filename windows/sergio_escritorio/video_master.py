@@ -13,8 +13,9 @@ silence cutting and Python effects — one orchestrated pipeline.
   in 10 bits so gradients do not band.
 * ``ken_burns``: photos become clips with a slow push (MoviePy when it is
   installed, ffmpeg otherwise), so a folder of photos edits like video.
-* ``pipeline``: silences -> plan and cut (``video_pro``) -> interpolation
-  -> master, every step logged.
+* ``pipeline``: photos and silences -> plan and cut (``video_pro``) ->
+  interpolation -> master, every step logged. Sergio's voice order and the
+  agents' ``video_pro`` tool both run it.
 """
 
 from __future__ import annotations
@@ -28,7 +29,7 @@ import zipfile
 from pathlib import Path
 from typing import Any, Callable
 
-from sergio_escritorio.media import HOME, ffmpeg, probe
+from sergio_escritorio.media import HOME, VIDEO_EXT, ffmpeg, find_clips, probe, resolve
 
 # What each master is, and the ffmpeg settings that make it.
 MASTERS: dict[str, dict[str, Any]] = {
@@ -337,7 +338,44 @@ def finish(video: Path, opts: dict[str, Any], *, grade: str = "", log: Callable[
     return result
 
 
+def gather(source: str) -> tuple[Path, list[Path]]:
+    """The folder and its clips and photos (by name), or the one file."""
+    path = resolve(source)
+    if path.is_dir():
+        items = [p for p in sorted(path.iterdir()) if p.suffix.lower() in (*VIDEO_EXT, *PHOTO)]
+        return path, items[:12]
+    items = find_clips(source)[:12]
+    return (items[0].parent if items else path.parent), items
+
+
+def pipeline(
+    source: str,
+    request: str,
+    planner: Callable[[str, list, list], dict],
+    *,
+    opts: dict[str, Any] | None = None,
+    music: str = "",
+    log: Callable[[str], None] = lambda _m: None,
+) -> dict[str, Any]:
+    """The whole professional edit: what the order says (``options_from``),
+    overridden by explicit *opts*; then sources -> AI cut -> finishing."""
+    from sergio_escritorio import video_pro
+
+    wanted = {**options_from(request), **{k: v for k, v in (opts or {}).items() if v not in (None, "")}}
+    if wanted.get("master") and wanted["master"] not in MASTERS:
+        raise ValueError(f"Máster desconocido: {wanted['master']}. Usa uno de: {', '.join(MASTERS)}.")
+    folder, items = gather(source)
+    if not items:
+        raise RuntimeError(f"No encontré clips ni fotos en «{source}».")
+    clips = prepare_sources(folder, items, silences=bool(wanted.get("silences")), log=log)
+    done = video_pro.edit(source, request, planner, music=music, clips=clips)
+    log(f"montaje: {Path(done['path']).name}")
+    done.update(finish(Path(done["path"]), wanted, grade=str(wanted.get("grade") or ""), log=log))
+    done["options"] = wanted
+    return done
+
+
 __all__ = [
-    "MASTERS", "color_chain", "cut_silences", "finish", "install_rife", "interpolate", "ken_burns",
-    "master_command", "options_from", "prepare_sources",
+    "MASTERS", "color_chain", "cut_silences", "finish", "gather", "install_rife", "interpolate", "ken_burns",
+    "master_command", "options_from", "pipeline", "prepare_sources",
 ]

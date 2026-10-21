@@ -89,10 +89,10 @@ export function OptInModal({ onClose }: OptInModalProps) {
           <div
             className="flex items-center justify-center w-14 h-14 rounded-2xl mb-5 mx-auto"
             style={{
-              background: 'linear-gradient(135deg, var(--color-accent), var(--color-accent-purple))',
+              background: 'var(--color-text)',
             }}
           >
-            <Trophy size={28} color="white" />
+            <Trophy size={28} color="var(--color-bg)" />
           </div>
 
           {/* Heading */}

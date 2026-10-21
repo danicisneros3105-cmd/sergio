@@ -492,6 +492,10 @@ class ToolExecutor:
         latency = time.time() - t0
         result.latency_seconds = latency
         result.metadata["arguments"] = params
+        # The mind's descending neurons learn which tools work for what.
+        from openjarvis.connectome.brain import note_tool
+
+        note_tool(tool_call.name, bool(result.success))
 
         # Auto-detect taints in results and fold them into the running session
         # taint so later calls (e.g. http_request) are gated on what earlier

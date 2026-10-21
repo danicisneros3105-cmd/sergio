@@ -441,11 +441,22 @@ def choose_brain(text: str, effort: str, fast: str, deep: str) -> str:
     return f"{fast}@low"  # quick and natural; Pro is for the hard tasks
 
 
+def api_base(server_url: str) -> str:
+    """The server's address for Python's own requests.
+
+    On Windows «localhost» resolves to IPv6 (::1) first, but the server in
+    WSL is reached over IPv4: every request waited about 21 seconds for ::1
+    to give up before trying 127.0.0.1 (measured: 21 s against 22 ms). The
+    app window keeps «localhost» (the browser falls back at once, and its
+    saved data belongs to that address)."""
+    return re.sub(r"^(https?://)localhost(?=[:/]|$)", r"\g<1>127.0.0.1", server_url.strip().rstrip("/"))
+
+
 class SergioClient:
     """Small client for the Sergio API (transcribe, chat, speak)."""
 
     def __init__(self, base_url: str, http: httpx.Client | None = None, *, api_key: str = "") -> None:
-        self.base = base_url.rstrip("/")
+        self.base = api_base(base_url)
         self.http = http or httpx.Client(timeout=httpx.Timeout(300, connect=5))
         key = api_key or os.environ.get("SERGIO_SERVER_API_KEY", "")
         if key:

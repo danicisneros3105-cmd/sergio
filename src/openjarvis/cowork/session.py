@@ -26,6 +26,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
+from openjarvis.cli.friendly import plain
 from openjarvis.cowork.audit import AuditTrail
 from openjarvis.cowork.scrutiny import AdaptiveScrutiny, TrustStore, normalize_autonomy
 
@@ -352,7 +353,7 @@ class CoworkEngine:
             self._finish(run, audit)
         except Exception as exc:  # noqa: BLE001 - a run never takes the server down
             run.status = "failed"
-            run.summary = f"Falló: {type(exc).__name__}: {exc}"[:500]
+            run.summary = f"No pudo terminar. {plain(exc)}"[:500]
             audit.record("error", error=run.summary)
             self._finish(run, audit)
 
@@ -582,6 +583,10 @@ class CoworkEngine:
         audit.record(
             "finished", status=run.status, summary=run.summary, actions=run.actions_used
         )
+        if run.status in ("done", "partial"):
+            from openjarvis.connectome.brain import remember_exchange
+
+            remember_exchange(run.goal, run.summary, channel="cowork")
         self._save(run)
         self._event(run, "finished", text=run.summary, status=run.status)
         self._notify(

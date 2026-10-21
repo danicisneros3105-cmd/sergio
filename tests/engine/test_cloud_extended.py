@@ -380,6 +380,37 @@ class TestCloudGemini:
         assert result["usage"]["prompt_tokens"] == 15
         assert result["usage"]["completion_tokens"] == 10
 
+    def test_gemini_usage_counts_that_are_none_do_not_crash(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # Blocked or cut-off replies come with None token counts.
+        engine = _make_cloud_engine(monkeypatch)
+        fake_client = mock.MagicMock()
+        fake_client.models.generate_content.return_value = SimpleNamespace(
+            text="Hola",
+            usage_metadata=SimpleNamespace(
+                prompt_token_count=None, candidates_token_count=None
+            ),
+        )
+        engine._google_client = fake_client
+        fake_types = mock.MagicMock()
+        with mock.patch.dict(
+            "sys.modules",
+            {
+                "google": mock.MagicMock(),
+                "google.genai": mock.MagicMock(),
+                "google.genai.types": fake_types,
+            },
+        ):
+            result = engine.generate(
+                [Message(role=Role.USER, content="Hi")], model="gemini-2.5-flash"
+            )
+        assert result["usage"] == {
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "total_tokens": 0,
+        }
+
     def test_gemini_2_5_flash_generate(self, monkeypatch: pytest.MonkeyPatch) -> None:
         engine = _make_cloud_engine(monkeypatch)
         fake_client = mock.MagicMock()

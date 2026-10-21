@@ -71,6 +71,7 @@ from PySide6.QtWidgets import (
 
 from sergio_escritorio import estilo, idioma
 from sergio_escritorio.character import PALETTES, apply_config, draw_character
+from sergio_escritorio.voice import api_base
 
 WIDTH, HEIGHT = 468, 600
 RADIUS = 30.0
@@ -712,6 +713,9 @@ class ControlCenter(QWidget):
     TABS = ("tab_chat", "tab_nodes", "tab_swarm", "tab_cowork", "tab_health", "tab_profile", "tab_settings")
     CHAT, NODES, SWARM, COWORK, HEALTH, PROFILE, SETTINGS_TAB = range(7)
     HEALTH_SECTIONS = ("health", "night", "gym", "results", "consult")
+    # Fewer controls: Cowork and Profile live in the app (and answer by voice);
+    # their pages stay so «abre mi perfil» still lands somewhere.
+    HIDDEN_TABS = (COWORK, PROFILE)
     PROFILE_SECTIONS = ("profile", "goals", "results", "faces")
 
     def __init__(self, actions: PanelActions) -> None:
@@ -798,7 +802,7 @@ class ControlCenter(QWidget):
     TAB_ICONS = ("bubble", "dots", "swarm", "briefcase", "heart", "person", "gear")
 
     def _segmented(self) -> QWidget:
-        """The six sections as icons only (their names appear on hover)."""
+        """The sections as icons only (their names appear on hover)."""
         bar = QWidget()
         bar.setStyleSheet(f"border-bottom: 1px solid {LINE};")
         row = QHBoxLayout(bar)
@@ -809,6 +813,9 @@ class ControlCenter(QWidget):
             button = TabIcon(kind, idioma.t(key, self.lang))
             button.on_hover = self._tab_tip
             self.tab_group.addButton(button, i)
+            if i in self.HIDDEN_TABS:
+                button.hide()
+                continue
             if i:
                 row.addStretch(1)  # equal gaps between the icons
             row.addWidget(button)
@@ -1081,7 +1088,7 @@ class ControlCenter(QWidget):
         if not text or node is None:
             return
         self.node_entry.clear()
-        base = self.actions.server_url
+        base = api_base(self.actions.server_url)
         node_id = node["id"]
 
         def job() -> dict:
@@ -1168,7 +1175,7 @@ class ControlCenter(QWidget):
         if not self.isVisible():
             return
         index = self.pages.currentIndex()
-        base = self.actions.server_url
+        base = api_base(self.actions.server_url)
         if index == self.NODES:
             self._background(lambda: self._http().get(f"{base}/v1/nodes").json(), self.nodes_ready)
         elif index == self.SWARM:
@@ -1185,7 +1192,7 @@ class ControlCenter(QWidget):
             return
         self.goal.clear()
         self.cowork_note.setText(idioma.t("planning", self.lang))
-        base = self.actions.server_url
+        base = api_base(self.actions.server_url)
 
         def job() -> dict:
             resp = self._http().post(f"{base}/v1/cowork", json={"goal": goal})
@@ -1200,7 +1207,7 @@ class ControlCenter(QWidget):
         if self._cowork_loading:
             return
         self._cowork_loading = True
-        base = self.actions.server_url
+        base = api_base(self.actions.server_url)
 
         def job() -> dict:
             response = self._http().get(f"{base}/v1/cowork")
@@ -1266,7 +1273,7 @@ class ControlCenter(QWidget):
             return
 
         def job() -> dict:
-            base = self.actions.server_url
+            base = api_base(self.actions.server_url)
             self._http().post(f"{base}/v1/cowork/{run['id']}/cancel").raise_for_status()
             response = self._http().get(f"{base}/v1/cowork")
             response.raise_for_status()
@@ -1278,7 +1285,7 @@ class ControlCenter(QWidget):
         run = self._current_run()
         if not run or not run.get("waiting"):
             return
-        base, step = self.actions.server_url, run["waiting"][0] + 1
+        base, step = api_base(self.actions.server_url), run["waiting"][0] + 1
 
         def job() -> dict:
             self._http().post(
@@ -1295,7 +1302,7 @@ class ControlCenter(QWidget):
         if not text:
             return
         self.swarm_entry.clear()
-        base = self.actions.server_url
+        base = api_base(self.actions.server_url)
 
         def job() -> dict:
             run = self._http().post(f"{base}/v1/swarm", data={"task": text, "parallel": "8"})
@@ -1343,7 +1350,7 @@ class ControlCenter(QWidget):
         item = self.swarm_list.currentItem()
         task_id = item.data(Qt.ItemDataRole.UserRole) if item else None
         if isinstance(task_id, str) and task_id.startswith("srv:"):
-            base = self.actions.server_url.rstrip("/")
+            base = api_base(self.actions.server_url)
 
             def job() -> dict:
                 self._http().post(f"{base}/v1/swarm/{task_id[4:]}/cancel")

@@ -31,6 +31,7 @@ export const SHORTCUTS: Shortcut[] = [
   { id: 'rostros', title: 'Rostros', words: ['rostros', 'caras', 'face id', 'reconocimiento facial'], keys: 'g r', group: 'Ir a', run: { kind: 'go', to: '/faces' } },
   { id: 'perfil', title: 'Perfil', words: ['perfil', 'yo', 'mis datos', 'quien soy'], keys: 'g p', group: 'Ir a', run: { kind: 'go', to: '/perfil' } },
   { id: 'ajustes', title: 'Configuración', words: ['configuracion', 'ajustes', 'opciones', 'preferencias', 'settings'], keys: 'g a', group: 'Ir a', run: { kind: 'go', to: '/settings' } },
+  { id: 'uso', title: 'Uso y modelos', words: ['uso', 'consumo', 'tokens', 'costo', 'gasto', 'modelos', 'proveedores', 'cuota', 'claude', 'openai', 'gemini'], keys: 'g u', group: 'Ir a', run: { kind: 'go', to: '/uso' } },
   { id: 'pensar', title: 'Pensar a fondo', words: ['pensar', 'razonar', 'analizar a fondo', 'decidir'], group: 'Ir a', run: { kind: 'go', to: '/pensar' } },
   { id: 'atajos', title: 'Cómo funcionan los atajos', words: ['atajos', 'conectoma', 'mosca', 'cerebro', 'teclas', 'ayuda'], keys: '?', group: 'Ir a', run: { kind: 'go', to: '/atajos' } },
   { id: 'salud', title: 'Salud', words: ['salud', 'health', 'resumen', 'pasos', 'sueno', 'pulso', 'peso'], keys: 'g s', group: 'Salud', run: { kind: 'go', to: '/salud' } },
@@ -135,7 +136,21 @@ export interface BrainMap {
   memory: { kenyon_cells?: number; active_cells?: number; synapses?: number; top?: Array<[string, number]> };
   learning?: string;
   /** The mind's zones and what they learned (connectome/brain.py). */
-  mind?: { engrams?: number; synapses?: number; associations?: number; fast_path?: number; corrections?: number };
+  mind?: {
+    engrams?: number;
+    synapses?: number;
+    associations?: number;
+    fast_path?: number;
+    corrections?: number;
+    zones?: Array<{
+      key: string;
+      fly: string;
+      job: string;
+      weight: number;
+      connections?: number;
+      top?: Array<{ name: string; weight: number }>;
+    }>;
+  };
 }
 
 export async function brainMap(): Promise<BrainMap> {
