@@ -43,7 +43,7 @@ export const FILTERS: Array<{ key: FilterKey; label: string }> = [
 // the toolbar (kept here for the notch and older saved marks).
 export const SECTION_ITEMS: LibraryItem[] = [
   { id: 'section:cowork', kind: 'section', title: 'Cowork', meta: 'Trabajos largos, paso a paso', path: '/cowork', icon: 'briefcase' },
-  { id: 'section:agents', kind: 'section', title: 'Agent Swarm', meta: 'Varios agentes a la vez', path: '/agents', icon: 'network' },
+  { id: 'section:agents', kind: 'section', title: 'Agent Swarm', meta: 'Varios agentes a la vez', path: '/swarm', icon: 'network' },
   { id: 'section:salud', kind: 'section', title: 'Salud', meta: 'Cuerpo, sueño y mente', path: '/salud', icon: 'heart' },
   { id: 'section:perfil', kind: 'section', title: 'Perfil', meta: 'Quién es usted para Sergio', path: '/perfil', icon: 'user' },
 ].map((s) => ({ ...s, kind: 'section' as const, updatedAt: 0, createdAt: 0, lines: [] }));

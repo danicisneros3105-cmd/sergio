@@ -8,7 +8,7 @@ export interface ConnectorMeta {
   connector_id: string;
   display_name: string;
   auth_type: 'oauth' | 'local' | 'bridge' | 'filesystem' | 'token';
-  category: 'communication' | 'documents' | 'pim' | 'other';
+  category: 'communication' | 'documentos' | 'pim' | 'other';
   icon: string;
   color: string;
   description: string;
@@ -92,18 +92,18 @@ export type SourceCard = ConnectorMeta;
 export type ConnectorCategory = ConnectorMeta['category'];
 
 export const SOURCE_CATALOG: ConnectorMeta[] = [
-  // ── Upload / Paste ─────────────────────────────────────────────────
+  // ── Subir o pegar ─────────────────────────────────────────────────
   {
     connector_id: 'upload',
-    display_name: 'Upload / Paste',
+    display_name: 'Subir o pegar',
     auth_type: 'filesystem',
     category: 'other',
     icon: 'FileUp',
     color: 'text-blue-400',
-    description: 'Paste text or upload documents',
-    unitLabel: 'documents',
+    description: 'Pegar texto o subir documentos',
+    unitLabel: 'documentos',
     steps: [
-      { label: 'Paste text or upload files (.txt, .md, .pdf, .docx, .csv) to add them to your knowledge base.' },
+      { label: 'Pegue texto o suba archivos (.txt, .md, .pdf, .docx, .csv) para agregarlos a la memoria.' },
     ],
     inputFields: [],
   },
@@ -118,13 +118,13 @@ export const SOURCE_CATALOG: ConnectorMeta[] = [
     category: 'communication',
     icon: 'Mail',
     color: 'text-red-400',
-    description: 'Email messages and threads',
-    unitLabel: 'emails',
+    description: 'Correos y conversaciones',
+    unitLabel: 'correos',
     steps: [
       {
-        label: 'Make sure 2-Step Verification is enabled, then generate a 16-character App Password (Mail / Other / "Sergio"). Paste it below \u2014 spaces are fine, and use the app password, not your regular Gmail password.',
+        label: 'Active la verificación en dos pasos y genere una contraseña de aplicación de 16 caracteres (Correo / Otro / «Sergio»). Péguela abajo \u2014 los espacios no importan \u2014 y use esa contraseña, no la normal de Gmail.',
         url: 'https://myaccount.google.com/apppasswords',
-        urlLabel: 'How to get an app password \u2192',
+        urlLabel: 'Cómo obtener una contraseña de aplicación \u2192',
       },
     ],
     troubleshooting: [
@@ -132,8 +132,8 @@ export const SOURCE_CATALOG: ConnectorMeta[] = [
       "Google Workspace user? Your admin may need to enable App Passwords for your organization.",
     ],
     inputFields: [
-      { name: 'email', placeholder: 'you@gmail.com', type: 'text' },
-      { name: 'password', placeholder: 'App password (xxxx xxxx xxxx xxxx)', type: 'password' },
+      { name: 'email', placeholder: 'usted@gmail.com', type: 'text' },
+      { name: 'password', placeholder: 'Contraseña de aplicación (xxxx xxxx xxxx xxxx)', type: 'password' },
     ],
   },
   {
@@ -143,41 +143,41 @@ export const SOURCE_CATALOG: ConnectorMeta[] = [
     category: 'communication',
     icon: 'Mail',
     color: 'text-amber-400',
-    description: 'Any IMAP mailbox',
-    unitLabel: 'emails',
+    description: 'Cualquier buzón IMAP',
+    unitLabel: 'correos',
     steps: [
       {
-        label: 'Generate an app password with your email provider (IMAP must be enabled), then enter your email address and app password. Known providers are detected automatically; use the optional server settings for other providers.',
+        label: 'Genere una contraseña de aplicación con su proveedor de correo (IMAP debe estar activo), luego escriba su correo y esa contraseña. Los proveedores conocidos se detectan solos; para otros use los datos opcionales del servidor.',
       },
     ],
     troubleshooting: [
-      'Most providers require an app password rather than your normal password.',
-      'Use TLS for implicit TLS (usually port 993), or STARTTLS (usually port 143).',
-      'For security, private, loopback, link-local, and otherwise non-public server addresses are rejected.',
+      'La mayoría de los proveedores piden una contraseña de aplicación, no la normal.',
+      'Use TLS (normalmente puerto 993) o STARTTLS (normalmente puerto 143).',
+      'Por seguridad se rechazan las direcciones de servidor privadas, locales o no públicas.',
     ],
     inputFields: [
-      { name: 'email', placeholder: 'you@example.com', type: 'text' },
-      { name: 'password', placeholder: 'App password', type: 'password' },
+      { name: 'email', placeholder: 'usted@ejemplo.com', type: 'text' },
+      { name: 'password', placeholder: 'Contraseña de aplicación', type: 'password' },
       {
         name: 'host',
-        placeholder: 'IMAP host (optional; auto-detected)',
+        placeholder: 'Servidor IMAP (opcional; se detecta solo)',
         type: 'text',
         required: false,
       },
       {
         name: 'port',
-        placeholder: 'Port (optional; 993 or 143)',
+        placeholder: 'Puerto (opcional; 993 o 143)',
         type: 'number',
         required: false,
       },
       {
         name: 'security',
-        placeholder: 'Connection security',
+        placeholder: 'Seguridad de la conexión',
         type: 'select',
         defaultValue: 'tls',
         options: [
-          { value: 'tls', label: 'TLS (usually port 993)' },
-          { value: 'starttls', label: 'STARTTLS (usually port 143)' },
+          { value: 'tls', label: 'TLS (normalmente puerto 993)' },
+          { value: 'starttls', label: 'STARTTLS (normalmente puerto 143)' },
         ],
       },
     ],
@@ -189,25 +189,25 @@ export const SOURCE_CATALOG: ConnectorMeta[] = [
     category: 'communication',
     icon: 'Hash',
     color: 'text-purple-400',
-    description: 'Read messages from every channel, private channel, DM, and group DM you have access to',
-    unitLabel: 'messages',
+    description: 'Lee los mensajes de todos los canales, canales privados y mensajes directos a los que usted tiene acceso',
+    unitLabel: 'mensajes',
     steps: [
       {
-        label: 'Go to api.slack.com/apps and click "Create New App" → choose "From scratch". Name it "Sergio" and pick your workspace',
+        label: 'Entre a api.slack.com/apps y pulse «Create New App» → elija «From scratch». Llámela «Sergio» y escoja su espacio de trabajo',
         url: 'https://api.slack.com/apps',
-        urlLabel: 'Open Slack Apps',
+        urlLabel: 'Abrir Slack Apps',
       },
       {
-        label: 'In the left sidebar, click "OAuth & Permissions". Scroll down to "User Token Scopes" (NOT "Bot Token Scopes"). Click "Add an OAuth Scope" and add EACH of these scopes one by one:',
+        label: 'En la barra izquierda pulse «OAuth & Permissions». Baje a «User Token Scopes» (NO a «Bot Token Scopes»). Pulse «Add an OAuth Scope» y agregue UNO POR UNO estos permisos:',
       },
       {
         label: 'channels:history • channels:read • groups:history • groups:read • im:history • im:read • mpim:history • mpim:read • users:read',
       },
       {
-        label: 'In the left sidebar, click "Install App" → click "Install to Workspace" → click "Allow". After installing, copy the "User OAuth Token" that appears (starts with xoxp-, NOT xoxb-)',
+        label: 'En la barra izquierda pulse «Install App» → «Install to Workspace» → «Allow». Después copie el «User OAuth Token» que aparece (empieza con xoxp-, NO con xoxb-)',
       },
       {
-        label: 'Paste the user token below. Sync indexes every channel, private channel, DM, and group DM you have access to — no need to invite anything to channels',
+        label: 'Pegue abajo el token de usuario. La sincronización indexa todos los canales, canales privados y mensajes directos a los que tiene acceso; no hace falta invitar a nadie',
       },
     ],
     inputFields: [
@@ -218,25 +218,25 @@ export const SOURCE_CATALOG: ConnectorMeta[] = [
     connector_id: 'notion',
     display_name: 'Notion',
     auth_type: 'oauth',
-    category: 'documents',
+    category: 'documentos',
     icon: 'FileText',
     color: 'text-gray-300',
-    description: 'Pages and databases',
-    unitLabel: 'pages',
+    description: 'Páginas y bases de datos',
+    unitLabel: 'páginas',
     steps: [
       {
-        label: 'Go to notion.so/profile/integrations → click "+ New integration". Name it "Sergio", select your workspace, and click Submit',
+        label: 'Entre a notion.so/profile/integrations → pulse «+ New integration». Llámela «Sergio», elija su espacio de trabajo y pulse Submit',
         url: 'https://www.notion.so/profile/integrations',
-        urlLabel: 'Open Notion Integrations',
+        urlLabel: 'Abrir integraciones de Notion',
       },
       {
-        label: 'Copy the "Internal Integration Secret" (starts with ntn_) and paste it below',
+        label: 'Copie el «Internal Integration Secret» (empieza con ntn_) y péguelo abajo',
       },
       {
-        label: 'To share ALL your pages at once: open any top-level page → click "..." (top right) → "Connections" → "Add connections" → search "Sergio" → click it. This shares the page and all its sub-pages. Repeat for each top-level page, or share your entire workspace by doing this on every root page',
+        label: 'Para compartir TODAS sus páginas: abra una página principal → pulse «...» (arriba a la derecha) → «Connections» → «Add connections» → busque «Sergio» y púlselo. Así se comparte la página y sus subpáginas. Repita con cada página principal',
       },
       {
-        label: 'Tip: if you have a single top-level page that contains everything, sharing just that one page will share all nested sub-pages automatically',
+        label: 'Consejo: si una sola página principal contiene todo, compartir solo esa página comparte automáticamente todas las subpáginas',
       },
     ],
     inputFields: [
@@ -247,14 +247,14 @@ export const SOURCE_CATALOG: ConnectorMeta[] = [
     connector_id: 'granola',
     display_name: 'Granola',
     auth_type: 'oauth',
-    category: 'documents',
+    category: 'documentos',
     icon: 'Mic',
     color: 'text-amber-400',
-    description: 'AI meeting notes',
-    unitLabel: 'meeting notes',
+    description: 'Notas de reuniones con IA',
+    unitLabel: 'notas de reunión',
     steps: [
-      { label: 'Open the Granola desktop app. Click the gear icon (Settings) in the bottom-left corner, then click "API"' },
-      { label: 'Click "Generate API Key" (or copy your existing key). Paste the key below' },
+      { label: 'Abra la aplicación de escritorio de Granola. Pulse el engranaje (Ajustes) abajo a la izquierda y luego «API»' },
+      { label: 'Pulse «Generate API Key» (o copie la que ya tiene). Pegue la clave abajo' },
     ],
     inputFields: [
       { name: 'token', placeholder: 'grn_...', type: 'password' },
@@ -267,17 +267,17 @@ export const SOURCE_CATALOG: ConnectorMeta[] = [
     category: 'communication',
     icon: 'MessageSquare',
     color: 'text-green-400',
-    description: 'macOS Messages history',
-    unitLabel: 'messages',
+    description: 'Historial de Mensajes de macOS',
+    unitLabel: 'mensajes',
     steps: [
       {
-        label: 'Open the Apple menu () → System Settings → Privacy & Security (in the left sidebar) → scroll down and click "Full Disk Access"',
+        label: 'Abra el menú de Apple () → Ajustes del Sistema → Privacidad y seguridad (barra izquierda) → baje y pulse «Acceso total al disco»',
       },
       {
-        label: 'Click the "+" button at the bottom of the list. Navigate to Applications → Utilities → select "Terminal.app" (or iTerm2/Warp if you use those). If you\'re using the desktop app, also add "Sergio.app" from Applications',
+        label: 'Pulse el botón «+» al final de la lista. Vaya a Aplicaciones → Utilidades → elija «Terminal.app» (o iTerm2/Warp si los usa). Si usa la aplicación de escritorio, agregue también «Sergio.app» desde Aplicaciones',
       },
       {
-        label: 'Toggle the switch ON next to each app you added. Close and reopen your terminal (or restart Sergio). iMessage data will be detected automatically — no credentials needed',
+        label: 'Active el interruptor de cada aplicación que agregó. Cierre y vuelva a abrir la terminal (o reinicie Sergio). Los datos de iMessage se detectan solos; no hacen falta credenciales',
       },
     ],
   },
@@ -286,57 +286,57 @@ export const SOURCE_CATALOG: ConnectorMeta[] = [
     connector_id: 'obsidian',
     display_name: 'Obsidian',
     auth_type: 'filesystem',
-    category: 'documents',
+    category: 'documentos',
     icon: 'FolderOpen',
     color: 'text-purple-300',
-    description: 'Markdown vault',
-    unitLabel: 'notes',
+    description: 'Bóveda de Markdown',
+    unitLabel: 'notas',
     steps: [
       {
-        label: 'Find your vault path: open Obsidian → click the vault name in the bottom-left corner → "Manage Vaults" → look at the path shown under your vault name. On macOS this is usually ~/Documents/MyVault or ~/Library/Mobile Documents/iCloud~md~obsidian/Documents/MyVault',
+        label: 'Busque la ruta de su bóveda: abra Obsidian → pulse el nombre de la bóveda abajo a la izquierda → «Manage Vaults» → mire la ruta bajo el nombre. En macOS suele ser ~/Documents/MyVault o ~/Library/Mobile Documents/iCloud~md~obsidian/Documents/MyVault',
       },
       {
-        label: 'Alternatively, open Finder → navigate to your vault folder (it contains a hidden .obsidian directory). Right-click the folder → "Copy as Pathname" to get the full path',
+        label: 'También puede abrir Finder → ir a la carpeta de su bóveda (tiene una carpeta oculta .obsidian) → clic derecho → «Copy as Pathname» para obtener la ruta completa',
       },
       {
-        label: 'Paste the full path below. Sergio will index all .md files in the vault',
+        label: 'Pegue abajo la ruta completa. Sergio indexará todos los archivos .md de la bóveda',
       },
     ],
     inputFields: [
-      { name: 'path', placeholder: '/Users/you/Documents/MyVault', type: 'text' },
+      { name: 'path', placeholder: '/Users/usted/Documents/MyVault', type: 'text' },
     ],
   },
   {
     connector_id: 'gdrive',
     display_name: 'Google Drive',
     auth_type: 'oauth',
-    category: 'documents',
+    category: 'documentos',
     icon: 'FolderOpen',
     color: 'text-blue-400',
-    description: 'Docs, Sheets, and files',
-    unitLabel: 'files',
+    description: 'Documentos, hojas de cálculo y archivos',
+    unitLabel: 'archivos',
     steps: [
       {
-        label: 'Go to Google Cloud Console → create a new project (or select an existing one). Give it any name (e.g. "Sergio")',
+        label: 'Entre a Google Cloud Console → cree un proyecto nuevo (o elija uno existente). Póngale cualquier nombre (por ejemplo «Sergio»)',
         url: 'https://console.cloud.google.com/projectcreate',
-        urlLabel: 'Create Project',
+        urlLabel: 'Crear proyecto',
       },
       {
-        label: 'Enable the Google Drive API: click the link below, make sure your project is selected at the top, then click "Enable"',
+        label: 'Active la API de Google Drive: pulse el enlace de abajo, compruebe que su proyecto está elegido arriba y pulse «Enable»',
         url: 'https://console.cloud.google.com/apis/library/drive.googleapis.com',
-        urlLabel: 'Enable Drive API',
+        urlLabel: 'Activar API de Drive',
       },
       {
-        label: 'Create OAuth credentials: go to Credentials (link below) → click "+ Create Credentials" → choose "OAuth client ID" → Application type: "Web application". Under "Authorized redirect URIs" add this server\'s callback (e.g. http://localhost:1313/v1/connectors/gdrive/oauth/callback — match the host/port your Sergio server is bound to) → click "Create".',
+        label: 'Cree las credenciales OAuth: vaya a Credentials (enlace de abajo) → «+ Create Credentials» → «OAuth client ID» → tipo de aplicación «Web application». En «Authorized redirect URIs» agregue la dirección de retorno de este servidor (por ejemplo http://localhost:1313/v1/connectors/gdrive/oauth/callback; use el mismo equipo y puerto donde corre Sergio) → «Create».',
         url: 'https://console.cloud.google.com/apis/credentials',
-        urlLabel: 'Open Credentials',
+        urlLabel: 'Abrir credenciales',
       },
       {
-        label: 'A dialog will show your Client ID and Client Secret. Copy both and paste them below, then click Connect — a Google sign-in window opens to finish authorization. (If you miss the dialog, click the download icon next to your OAuth client to see them again.)',
+        label: 'Una ventana mostrará su Client ID y su Client Secret. Copie los dos y péguelos abajo, luego pulse Conectar: se abre una ventana de Google para terminar la autorización. (Si cierra la ventana, pulse el icono de descarga junto a su cliente OAuth para verlos otra vez.)',
       },
     ],
     inputFields: [
-      { name: 'email', placeholder: 'Client ID (e.g. 123456-abc.apps.googleusercontent.com)', type: 'text' },
+      { name: 'email', placeholder: 'Client ID (por ejemplo 123456-abc.apps.googleusercontent.com)', type: 'text' },
       { name: 'password', placeholder: 'Client Secret', type: 'password' },
     ],
   },
@@ -348,26 +348,26 @@ export const SOURCE_CATALOG: ConnectorMeta[] = [
     category: 'pim',
     icon: 'Calendar',
     color: 'text-blue-400',
-    description: 'Events and meetings',
-    unitLabel: 'events',
+    description: 'Eventos y reuniones',
+    unitLabel: 'eventos',
     steps: [
       {
-        label: 'Go to Google Cloud Console → use the same project as Google Drive (or create a new one)',
+        label: 'Entre a Google Cloud Console → use el mismo proyecto de Google Drive (o cree uno nuevo)',
         url: 'https://console.cloud.google.com/projectcreate',
-        urlLabel: 'Open Console',
+        urlLabel: 'Abrir la consola',
       },
       {
-        label: 'Enable the Google Calendar API: click the link below, select your project, then click "Enable"',
+        label: 'Active la API de Google Calendar: pulse el enlace de abajo, elija su proyecto y pulse «Enable»',
         url: 'https://console.cloud.google.com/apis/library/calendar-json.googleapis.com',
-        urlLabel: 'Enable Calendar API',
+        urlLabel: 'Activar API de Calendar',
       },
       {
-        label: 'Go to Credentials → "+ Create Credentials" → "OAuth client ID" → Application type: "Desktop app" → "Create". Copy the Client ID and Client Secret',
+        label: 'Vaya a Credentials → «+ Create Credentials» → «OAuth client ID» → tipo «Desktop app» → «Create». Copie el Client ID y el Client Secret',
         url: 'https://console.cloud.google.com/apis/credentials',
-        urlLabel: 'Open Credentials',
+        urlLabel: 'Abrir credenciales',
       },
       {
-        label: 'Paste the Client ID and Client Secret below (you can reuse the same OAuth client as Google Drive if you enabled both APIs in the same project)',
+        label: 'Pegue abajo el Client ID y el Client Secret (puede reutilizar el mismo cliente OAuth de Google Drive si activó las dos API en el mismo proyecto)',
       },
     ],
     inputFields: [
@@ -382,26 +382,26 @@ export const SOURCE_CATALOG: ConnectorMeta[] = [
     category: 'pim',
     icon: 'Users',
     color: 'text-blue-400',
-    description: 'People and contact info',
-    unitLabel: 'contacts',
+    description: 'Personas y datos de contacto',
+    unitLabel: 'contactos',
     steps: [
       {
-        label: 'Go to Google Cloud Console → use the same project as Google Drive (or create a new one)',
+        label: 'Entre a Google Cloud Console → use el mismo proyecto de Google Drive (o cree uno nuevo)',
         url: 'https://console.cloud.google.com/projectcreate',
-        urlLabel: 'Open Console',
+        urlLabel: 'Abrir la consola',
       },
       {
-        label: 'Enable the People API: click the link below, select your project, then click "Enable"',
+        label: 'Active la API de People: pulse el enlace de abajo, elija su proyecto y pulse «Enable»',
         url: 'https://console.cloud.google.com/apis/library/people.googleapis.com',
-        urlLabel: 'Enable People API',
+        urlLabel: 'Activar API de People',
       },
       {
-        label: 'Go to Credentials → "+ Create Credentials" → "OAuth client ID" → Application type: "Desktop app" → "Create". Copy the Client ID and Client Secret',
+        label: 'Vaya a Credentials → «+ Create Credentials» → «OAuth client ID» → tipo «Desktop app» → «Create». Copie el Client ID y el Client Secret',
         url: 'https://console.cloud.google.com/apis/credentials',
-        urlLabel: 'Open Credentials',
+        urlLabel: 'Abrir credenciales',
       },
       {
-        label: 'Paste the Client ID and Client Secret below',
+        label: 'Pegue abajo el Client ID y el Client Secret',
       },
     ],
     inputFields: [
@@ -413,20 +413,20 @@ export const SOURCE_CATALOG: ConnectorMeta[] = [
     connector_id: 'apple_notes',
     display_name: 'Apple Notes',
     auth_type: 'local',
-    category: 'documents',
+    category: 'documentos',
     icon: 'FileText',
     color: 'text-yellow-400',
-    description: 'macOS Notes app',
-    unitLabel: 'notes',
+    description: 'Aplicación Notas de macOS',
+    unitLabel: 'notas',
     steps: [
       {
-        label: 'Open the Apple menu () → System Settings → Privacy & Security (in the left sidebar) → scroll down and click "Full Disk Access"',
+        label: 'Abra el menú de Apple () → Ajustes del Sistema → Privacidad y seguridad (barra izquierda) → baje y pulse «Acceso total al disco»',
       },
       {
-        label: 'Click the "+" button at the bottom of the list. Navigate to Applications → Utilities → select "Terminal.app" (or iTerm2/Warp if you use those). If you\'re using the desktop app, also add "Sergio.app" from Applications',
+        label: 'Pulse el botón «+» al final de la lista. Vaya a Aplicaciones → Utilidades → elija «Terminal.app» (o iTerm2/Warp si los usa). Si usa la aplicación de escritorio, agregue también «Sergio.app» desde Aplicaciones',
       },
       {
-        label: 'Toggle the switch ON next to each app you added. Close and reopen your terminal (or restart Sergio). Apple Notes will be detected automatically — no credentials needed',
+        label: 'Active el interruptor de cada aplicación que agregó. Cierre y vuelva a abrir la terminal (o reinicie Sergio). Notas de Apple se detecta sola; no hacen falta credenciales',
       },
     ],
   },
@@ -437,17 +437,17 @@ export const SOURCE_CATALOG: ConnectorMeta[] = [
     category: 'pim',
     icon: 'Users',
     color: 'text-orange-400',
-    description: 'macOS Contacts app',
-    unitLabel: 'contacts',
+    description: 'Aplicación Contactos de macOS',
+    unitLabel: 'contactos',
     steps: [
       {
-        label: 'Open the Apple menu () → System Settings → Privacy & Security (in the left sidebar) → scroll down and click "Full Disk Access"',
+        label: 'Abra el menú de Apple () → Ajustes del Sistema → Privacidad y seguridad (barra izquierda) → baje y pulse «Acceso total al disco»',
       },
       {
-        label: 'Click the "+" button at the bottom of the list. Navigate to Applications → Utilities → select "Terminal.app" (or iTerm2/Warp if you use those). If you\'re using the desktop app, also add "Sergio.app" from Applications',
+        label: 'Pulse el botón «+» al final de la lista. Vaya a Aplicaciones → Utilidades → elija «Terminal.app» (o iTerm2/Warp si los usa). Si usa la aplicación de escritorio, agregue también «Sergio.app» desde Aplicaciones',
       },
       {
-        label: 'Toggle the switch ON next to each app you added. Close and reopen your terminal (or restart Sergio). Apple Contacts will be detected automatically — no credentials needed',
+        label: 'Active el interruptor de cada aplicación que agregó. Cierre y vuelva a abrir la terminal (o reinicie Sergio). Contactos de Apple se detecta solo; no hacen falta credenciales',
       },
     ],
   },
@@ -458,22 +458,22 @@ export const SOURCE_CATALOG: ConnectorMeta[] = [
     category: 'communication',
     icon: 'Mail',
     color: 'text-blue-400',
-    description: 'Microsoft email and calendar',
-    unitLabel: 'emails',
+    description: 'Correo y calendario de Microsoft',
+    unitLabel: 'correos',
     steps: [
       {
-        label: 'Go to the Azure Portal → App Registrations → click "+ New registration". Name it "Sergio", select "Accounts in this organizational directory only", and click Register',
+        label: 'Entre a Azure Portal → App Registrations → «+ New registration». Llámela «Sergio», elija «Accounts in this organizational directory only» y pulse Register',
         url: 'https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade',
-        urlLabel: 'Open Azure App Registrations',
+        urlLabel: 'Abrir registros de aplicaciones de Azure',
       },
       {
-        label: 'In the left sidebar, click "API Permissions" → "Add a permission" → "Microsoft Graph" → "Delegated permissions" → search and check "Mail.Read" → click "Add permissions"',
+        label: 'En la barra izquierda pulse «API Permissions» → «Add a permission» → «Microsoft Graph» → «Delegated permissions» → busque y marque «Mail.Read» → «Add permissions»',
       },
       {
-        label: 'In the left sidebar, click "Certificates & secrets" → "New client secret" → set a description and expiry → click "Add" → immediately copy the "Value" (you won\'t see it again)',
+        label: 'En la barra izquierda pulse «Certificates & secrets» → «New client secret» → ponga una descripción y una caducidad → «Add» → copie enseguida el «Value» (no volverá a verlo)',
       },
       {
-        label: 'Go to "Overview" in the left sidebar and copy the "Application (client) ID". Paste both the Client ID and the Client Secret below',
+        label: 'Vaya a «Overview» en la barra izquierda y copie el «Application (client) ID». Pegue abajo el Client ID y el Client Secret',
       },
     ],
     inputFields: [
@@ -485,26 +485,26 @@ export const SOURCE_CATALOG: ConnectorMeta[] = [
     connector_id: 'dropbox',
     display_name: 'Dropbox',
     auth_type: 'oauth',
-    category: 'documents',
+    category: 'documentos',
     icon: 'FolderOpen',
     color: 'text-blue-300',
-    description: 'Cloud file storage',
-    unitLabel: 'files',
+    description: 'Almacenamiento de archivos en la nube',
+    unitLabel: 'archivos',
     steps: [
       {
-        label: 'Go to the Dropbox App Console and click "Create app". Choose "Scoped access" → "Full Dropbox" → give it a name (e.g. "Sergio") → click "Create app"',
+        label: 'Entre a Dropbox App Console y pulse «Create app». Elija «Scoped access» → «Full Dropbox» → póngale un nombre (por ejemplo «Sergio») → «Create app»',
         url: 'https://www.dropbox.com/developers/apps/create',
-        urlLabel: 'Open Dropbox App Console',
+        urlLabel: 'Abrir la consola de Dropbox',
       },
       {
-        label: 'Click the "Permissions" tab at the top. Check "files.metadata.read" and "files.content.read" → click "Submit" at the bottom to save',
+        label: 'Pulse la pestaña «Permissions» arriba. Marque «files.metadata.read» y «files.content.read» → pulse «Submit» abajo para guardar',
       },
       {
-        label: 'Go back to the "Settings" tab. Under "OAuth 2", find "Generated access token" and click "Generate". Copy the token and paste it below',
+        label: 'Vuelva a la pestaña «Settings». En «OAuth 2» busque «Generated access token» y pulse «Generate». Copie el token y péguelo abajo',
       },
     ],
     inputFields: [
-      { name: 'token', placeholder: 'Access token (sl.u...)', type: 'password' },
+      { name: 'token', placeholder: 'Token de acceso (sl.u...)', type: 'password' },
     ],
   },
   {
@@ -514,23 +514,23 @@ export const SOURCE_CATALOG: ConnectorMeta[] = [
     category: 'communication',
     icon: 'MessageSquare',
     color: 'text-green-400',
-    description: 'WhatsApp messages (Meta Cloud API)',
-    unitLabel: 'messages',
+    description: 'Mensajes de WhatsApp (API oficial de Meta)',
+    unitLabel: 'mensajes',
     steps: [
       {
-        label: 'Go to Meta for Developers → click "Create App" → choose "Business" type → fill in your app details and click "Create App"',
+        label: 'Entre a Meta for Developers → «Create App» → tipo «Business» → complete los datos y pulse «Create App»',
         url: 'https://developers.facebook.com/apps/',
-        urlLabel: 'Open Meta Developer Portal',
+        urlLabel: 'Abrir el portal de desarrolladores de Meta',
       },
       {
-        label: 'On the app dashboard, find "WhatsApp" and click "Set up". Follow the prompts to add a WhatsApp test number. Go to "API Setup" and copy the temporary access token',
+        label: 'En el panel de la aplicación busque «WhatsApp» y pulse «Set up». Siga los pasos para agregar un número de prueba. Vaya a «API Setup» y copie el token de acceso temporal',
       },
       {
-        label: 'Copy your "Phone Number ID" (shown on the API Setup page) and the access token. Paste them below separated by a colon — e.g. 123456789:EAABx...',
+        label: 'Copie su «Phone Number ID» (aparece en «API Setup») y el token de acceso. Péguelos abajo separados por dos puntos, por ejemplo 123456789:EAABx...',
       },
     ],
     inputFields: [
-      { name: 'token', placeholder: 'Phone Number ID:Access Token', type: 'password' },
+      { name: 'token', placeholder: 'Phone Number ID:token de acceso', type: 'password' },
     ],
   },
 ];

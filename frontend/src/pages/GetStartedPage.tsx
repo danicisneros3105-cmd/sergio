@@ -58,7 +58,6 @@ export function GetStartedPage() {
     <div className="paper-page start-page">
       <h1 className="chat-hello">
         <span className="chat-hello-name">Bienvenido, señor</span>
-        <span className="chat-hello-ask">Así se usa Sergio</span>
       </h1>
       <div className="start-steps">
         {STEPS.map(({ icon: Icon, color, title, text, to, cta }, i) => (

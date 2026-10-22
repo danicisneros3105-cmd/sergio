@@ -4,10 +4,8 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { Layout } from './components/Layout';
 import { ChatPage } from './pages/ChatPage';
 // Everything else loads on demand: the first screen opens in milliseconds.
-const DashboardPage = lazy(() => import('./pages/DashboardPage').then((m) => ({ default: m.DashboardPage })));
 const SettingsPage = lazy(() => import('./pages/SettingsPage').then((m) => ({ default: m.SettingsPage })));
 const GetStartedPage = lazy(() => import('./pages/GetStartedPage').then((m) => ({ default: m.GetStartedPage })));
-const AgentsPage = lazy(() => import('./pages/AgentsPage').then((m) => ({ default: m.AgentsPage })));
 const DataSourcesPage = lazy(() => import('./pages/DataSourcesPage').then((m) => ({ default: m.DataSourcesPage })));
 const LogsPage = lazy(() => import('./pages/LogsPage').then((m) => ({ default: m.LogsPage })));
 const ExtensionPage = lazy(() => import('./pages/ExtensionPage').then((m) => ({ default: m.ExtensionPage })));
@@ -198,11 +196,11 @@ export default function App() {
           <Route path="workspace" element={<WorkspacePage />} />
           <Route path="workspace/:id" element={<WorkspacePage />} />
           <Route path="capturar" element={<CapturePage />} />
-          <Route path="dashboard" element={<DashboardPage />} />
+          <Route path="dashboard" element={<Navigate to="/uso" replace />} />
           <Route path="settings" element={<SettingsPage />} />
           <Route path="get-started" element={<GetStartedPage />} />
           <Route path="data-sources" element={<DataSourcesPage />} />
-          <Route path="agents" element={<AgentsPage />} />
+          <Route path="agents" element={<Navigate to="/nodes" replace />} />
           <Route path="logs" element={<LogsPage />} />
           <Route path="clacky" element={<ExtensionPage name="clacky" />} />
           <Route path="faces" element={<FacesPage />} />

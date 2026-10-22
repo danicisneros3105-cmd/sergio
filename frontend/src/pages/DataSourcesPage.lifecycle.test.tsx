@@ -31,15 +31,15 @@ describe('connector lifecycle status', () => {
   it('renders pending cleanup without a competing sync action', () => {
     const html = renderStatus({ ...baseStatus, state: 'stopping' });
 
-    expect(html).toContain('Disconnect pending');
-    expect(html).toContain('cleaned up before this source disconnects');
+    expect(html).toContain('Desconexión pendiente');
+    expect(html).toContain('se borrarán antes de desconectar esta fuente');
     expect(html).not.toContain('<button');
   });
 
   it('disables sync while another connector lifecycle action is active', () => {
     const html = renderStatus(baseStatus, true);
 
-    expect(html).toContain('Sync Now');
+    expect(html).toContain('Sincronizar ahora');
     expect(html).toMatch(/<button[^>]*disabled/);
   });
 });

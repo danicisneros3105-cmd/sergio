@@ -443,8 +443,8 @@
   }
 
   @keyframes pulse-travel {
-    0% { background-position: -200% center; }
-    100% { background-position: 200% center; }
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(250%); }
   }
 
   /* HUD ambient animations (CSS-only — kept out of JS for zero-cost continuous motion) */
@@ -3372,3 +3372,32 @@ p.node-hint:not(.node-path), .swarm-sub, .swarm-hint, .studio-heading p, .studio
 /* colour pickers: a swatch, not a full-width bar */
 .studio-side label:has(> input[type='color']) { display: flex; flex-direction: row; align-items: center; justify-content: space-between; gap: 8px; }
 .studio-side input[type='color'] { width: 34px; height: 26px; flex: none; padding: 2px; border-radius: 6px; border: 1px solid var(--color-border); background: var(--color-surface); cursor: pointer; }
+
+/* Registro: plain monospace rows, grey only. */
+.paper-log {
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  padding: 14px 16px;
+  font: 12px/1.6 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: var(--color-text);
+  max-height: calc(100dvh - 180px);
+  overflow-y: auto;
+  overflow-wrap: anywhere;
+}
+.paper-log-row.is-error { font-weight: 600; }
+
+/* Small screens: composer buttons wrap instead of running off the edge; the
+   send button keeps a finger-sized target. */
+.swarm-composer-foot { flex-wrap: wrap; row-gap: 8px; }
+@media (max-width: 640px) {
+  .mac-send { min-width: 40px; min-height: 40px; }
+  .paper-tab { min-height: 36px; display: inline-flex; align-items: center; padding-top: 6px; padding-bottom: 6px; }
+  .paper-button, .mac-chip { min-height: 36px; }
+}
+@media (max-width: 640px) {
+  .paper-head-wrap { grid-template-columns: 1fr; justify-items: center; }
+  .paper-head-wrap > :first-child { display: none; }
+  .paper-head-wrap > :last-child { justify-self: center; flex-wrap: wrap; justify-content: center; }
+}
+.face-system-proof a { display: inline-block; padding: 6px 0; }
+.face-other input[type='checkbox'], input[type='checkbox'] { min-width: 16px; min-height: 16px; }

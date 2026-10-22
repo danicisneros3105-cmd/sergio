@@ -10,11 +10,11 @@ const PULSE_CONFIG: Record<Exclude<PulseState, 'hidden'>, { color: string; anima
     animation: 'none',
   },
   inferencing: {
-    color: 'var(--color-accent-text)',
+    color: 'var(--color-text)',
     animation: 'pulse-glow 2s ease-in-out infinite',
   },
   'agent-active': {
-    color: 'var(--color-accent-text)',
+    color: 'var(--color-text)',
     animation: 'pulse-travel 3s linear infinite',
   },
 };
@@ -42,6 +42,7 @@ export function SystemPulse({ apiReachable }: { apiReachable: boolean | null }) 
   if (isStreaming) state = 'inferencing';
   if (hasRunningAgent) state = 'agent-active';
 
+  if (state === 'idle') return null;
   const config = PULSE_CONFIG[state];
   const isTravel = state === 'agent-active';
 
@@ -49,10 +50,9 @@ export function SystemPulse({ apiReachable }: { apiReachable: boolean | null }) 
     <div
       className="fixed top-0 left-0 right-0 h-[2px] z-50 pointer-events-none"
       style={{
-        background: isTravel
-          ? `linear-gradient(90deg, transparent, ${config.color}, transparent)`
-          : `linear-gradient(90deg, transparent 5%, ${config.color} 30%, ${config.color} 70%, transparent 95%)`,
-        backgroundSize: isTravel ? '200% 100%' : '100% 100%',
+        // One flat line in the text colour (no gradient, no accent colour).
+        background: config.color,
+        width: isTravel ? '40%' : undefined,
         animation: config.animation,
       }}
     />

@@ -1,1 +1,0 @@
-import{t as e}from"./api-BHzhePA9.js";async function t(t,n=`GET`,r){let i=await e(`/v1/nodes${t}`,{method:n,headers:{"Content-Type":`application/json`},...r===void 0?{}:{body:JSON.stringify(r)}});if(!i.ok){let e=await i.json().catch(()=>({}));throw Error(typeof e.detail==`string`?e.detail:`Solicitud falló (${i.status})`)}return i.json()}export{t};

@@ -300,7 +300,6 @@ export const MORE_PAGES = [
   { path: '/data-sources', label: 'Fuentes de datos' },
   { path: '/faces', label: 'Face ID' },
   { path: '/clacky', label: 'Agente de código' },
-  { path: '/dashboard', label: 'Panel' },
   { path: '/logs', label: 'Registro' },
   { path: '/get-started', label: 'Primeros pasos' },
 ];
@@ -698,6 +697,9 @@ export function SettingsPage() {
             <MemoryStatusRow status={memoryStatus} onRetry={() => { void refreshMemoryStatus(); }} />
             <SettingRow label="Usar la memoria" description="Sergio recuerda lo relevante en cada conversación">
               <button
+                role="switch"
+                aria-checked={memoryEnabled}
+                aria-label="Usar la memoria"
                 onClick={() => {
                   const next = !memoryEnabled;
                   setMemoryEnabled(next);
@@ -860,6 +862,9 @@ export function SettingsPage() {
             </SettingRow>
             <SettingRow label="Leer respuestas" description="Botón para escuchar cada respuesta escrita">
               <button
+                role="switch"
+                aria-checked={settings.voiceOutputEnabled}
+                aria-label="Leer respuestas"
                 onClick={() => { updateSettings({ voiceOutputEnabled: !settings.voiceOutputEnabled }); showSaved(); }}
                 className="relative w-11 h-6 rounded-full transition-colors cursor-pointer"
                 style={{
@@ -877,6 +882,9 @@ export function SettingsPage() {
             </SettingRow>
             <SettingRow label="Leer respuestas escritas en voz alta" description="Sergio lee en voz alta lo que responde por escrito">
               <button
+                role="switch"
+                aria-checked={Boolean(settings.voiceAutoplay && settings.voiceOutputEnabled)}
+                aria-label="Leer respuestas escritas en voz alta"
                 onClick={() => { updateSettings({ voiceAutoplay: !settings.voiceAutoplay }); showSaved(); }}
                 disabled={!settings.voiceOutputEnabled}
                 className="relative w-11 h-6 rounded-full transition-colors cursor-pointer"
@@ -979,6 +987,9 @@ export function SettingsPage() {
           <Section title="Actualizaciones">
             <SettingRow label="Actualizar solo" description="Busca versiones nuevas de la app cada 30 minutos">
               <button
+                role="switch"
+                aria-checked={autoUpdateEnabled}
+                aria-label="Actualizar solo"
                 onClick={() => handleAutoUpdateToggle(!autoUpdateEnabled)}
                 className="relative inline-flex h-5 w-9 items-center rounded-full transition-colors"
                 style={{ background: autoUpdateEnabled ? 'var(--color-accent)' : 'var(--color-bg-tertiary)', border: '1px solid var(--color-border)' }}

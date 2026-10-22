@@ -2,6 +2,30 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-10-22 · Claude · Frontend: una sola cara, todo en español, sin pantallas viejas
+- Petición del dueño: arreglar las incoherencias de diseño y los fallos del
+  frontend. Se recorrió la web real (servidor + Chromium, 21 rutas, escritorio
+  y móvil, claro y oscuro, todas las pestañas) buscando errores de consola,
+  desbordes, colores fuera de regla, inglés, contraste y botones sin nombre.
+- Quitadas las dos páginas viejas del servidor (`/dashboard` y `/comparison`):
+  eran en inglés, azul y verde, con la marca «OpenJarvis», y tapaban a la de
+  Sergio. `/dashboard` ahora lleva a «Uso y modelos»; `/agents` (la página
+  antigua de 4000 líneas, en inglés) lleva a Nodes. «Agent Swarm» en la
+  Biblioteca apuntaba a `/agents`: ahora va a `/swarm`.
+- Traducido al español Fuentes de datos (todas las instrucciones, mensajes y
+  el catálogo de conectores) y Registro (rehecho con el estilo de Sergio, sin
+  subtexto). Primeros pasos ya no lleva subtexto bajo el título.
+- Arreglos: la barra de actividad de arriba ya no es un degradado (línea lisa
+  en el color del texto, y solo cuando algo ocurre); los interruptores de
+  Configuración tienen nombre para lectores de pantalla; en móvil, los botones
+  de Swarm se parten en líneas en vez de salirse, el Registro se acomoda y
+  los botones y pestañas miden al menos 36 px.
+- Ya estaba bien: sin errores de consola ni de red, contraste correcto en
+  claro y oscuro, el chat responde en móvil y escritorio, la paleta Ctrl K abre.
+- Pendiente: `components/Desktop/*` es código antiguo de la app Tauri, en
+  inglés y sin uso (solo `UpdateChecker` se usa); conviene borrarlo en otra
+  vuelta. Las pruebas de DataSources ahora esperan los textos en español.
+
 ## 2026-10-21 · Claude · Revisión legal: salud solo en el equipo, aviso en cada reunión, NOTICE completo
 - Petición del dueño: investigar las restricciones legales de un proyecto como
   Sergio y resolverlas. Resumen y fuentes en `docs/LEGAL.md`.
