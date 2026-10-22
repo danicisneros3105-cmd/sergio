@@ -70,6 +70,9 @@ async def start(
     scout: Optional[bool] = Form(None),
     files: Optional[List[UploadFile]] = File(None),
 ) -> Dict[str, Any]:
+    from openjarvis.quota import guard
+
+    guard("swarm")
     engine = get_engine(request)
     documents: List[Document] = []
     if files:

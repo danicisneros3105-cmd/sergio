@@ -264,6 +264,19 @@ termina en la rama `main`, y el dueño actualiza con un único comando.
   (`scrub` antes de la IA; «Solo en este equipo» = sin IA; archivos 0600).
   Con clave gratuita, Google puede revisar lo enviado: no lo oculte al dueño.
   Toda pieza de terceros nueva va a NOTICE.
+- Planes (dueño, oct. 2026; `tiers.py`, `pricing.py`, `quota.py`,
+  `server/plans_routes.py`, `pages/PlansPage.tsx`, `pages/HelpPage.tsx`):
+  **Free** (base), **Go** $5 (2x Free), **Work** $21 (5x), **Dev** $50 a $115
+  (10x a 23x, el cliente elige; $5 por cada 1x) y **Founders Edition** $99 a
+  $235 (25x a 60x; todo, proyectos, prioridad). Los topes de Dev y Founders
+  son decisión de Sergio, no del dueño: se cambian solo en `tiers.py`. Precio
+  local: la conversión exacta redondeada hacia arriba, **nunca menos de su
+  equivalente en dólares**; Go en euro, libra y franco suizo es el mismo
+  número (5 €). Sergio nunca pide datos de tarjeta: enlace de pago del
+  procesador (`SERGIO_CHECKOUT_<PLAN>[_<USO>]`) y clave de licencia firmada.
+  Los límites diarios (`quota.BASE_DAILY`) se cuentan siempre y solo bloquean
+  con `SERGIO_PLANES_ACTIVOS=1`. Licencias viejas (`pro`, `teams`,
+  `enterprise`) valen como Work, Founders y Founders.
 - Kimi como proveedor y «Digitalsnickers» están descartados.
 - Licencia Apache-2.0 y autoría honesta: no se borran créditos del original.
 

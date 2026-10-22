@@ -104,6 +104,14 @@ async def live(websocket: WebSocket) -> None:
         await websocket.send_json({"type": "error", "message": "Falta start."})
         await websocket.close(code=1003)
         return
+    from openjarvis import quota
+
+    try:
+        quota.check("voz")
+    except quota.QuotaExceeded as exc:
+        await websocket.send_json({"type": "error", "message": str(exc)})
+        await websocket.close(code=1008)
+        return
     execute, tools = make_executor(getattr(websocket.app.state, "agent", None))
     call = LiveCall(
         websocket, start, execute=execute, openai_tools=tools, owner=_owner()
@@ -121,6 +129,8 @@ async def live(websocket: WebSocket) -> None:
         global _active
         if _active is call:
             _active = None
+        # Counted per spoken exchange in gemini_live (the web keeps the call
+        # open all day: connected time says nothing about use).
     try:
         await websocket.close()
     except Exception:  # noqa: BLE001

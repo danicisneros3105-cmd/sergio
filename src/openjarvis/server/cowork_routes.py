@@ -79,7 +79,9 @@ def _run_or_404(engine: CoworkEngine, run_id: str):
 @router.post("")
 async def start_run(req: StartRequest, request: Request) -> Dict[str, Any]:
     from openjarvis.core.config import load_config
+    from openjarvis.quota import guard
 
+    guard("cowork")
     config = load_config()
     engine = get_engine(request)
     try:

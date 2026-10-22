@@ -338,6 +338,9 @@ async def messages(
 
 @router.post("/{node_id}/messages")
 async def send(node_id: str, body: Message, request: Request) -> Dict[str, Any]:
+    from openjarvis.quota import guard
+
+    guard("nodes")
     worker = get_worker(request)
     _node(worker, node_id)
     try:

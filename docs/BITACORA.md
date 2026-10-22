@@ -2,6 +2,26 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-10-22 · Claude · Planes, facturación, uso, cuenta y ayuda
+- Petición del dueño: revisar que existan billing, usage, account, plan,
+  config, ayuda e idioma, con los planes Free, Go, Work, Dev y Founders Edition.
+- Estaba: Configuración, «Uso y modelos», idioma de Sergio y licencias firmadas
+  (`tiers.py`) con planes viejos (Pro, Dev, Teams, Enterprise) sin pantalla.
+  Faltaban: página de planes, facturación, cuenta, ayuda, precios por país y
+  límites por plan.
+- Hecho: planes nuevos (licencias viejas siguen valiendo), precios en la
+  moneda del país (`pricing.py`, nunca menos del equivalente en dólares; Go
+  5 €), límites diarios por plan (`quota.py`: mensajes, voz, Nodes, Swarm,
+  Cowork) y `/v1/plans`. Páginas «Planes» (planes, uso, facturación, cuenta) y
+  «Ayuda»; el plan aparece bajo el nombre en la barra; Ctrl K: «g b» y «g y».
+  `docs/LEGAL.md`: cobrar (impuestos, desistimiento, factura, procesador).
+- Decisiones mías que el dueño debe confirmar: tope de Dev ($115 a 23x),
+  Founders 25x a 60x, los límites base de Free y que en euros las cantidades
+  grandes sean la conversión exacta (Work 19 €) y solo Go sea 5 €.
+- Pendiente: crear los enlaces de pago en un procesador y ponerlos en
+  `~/.openjarvis/sergio.env`; la interfaz sigue solo en español (el idioma de
+  Sergio sí cambia).
+
 ## 2026-10-22 · Claude · Frontend: una sola cara, todo en español, sin pantallas viejas
 - Petición del dueño: arreglar las incoherencias de diseño y los fallos del
   frontend. Se recorrió la web real (servidor + Chromium, 21 rutas, escritorio

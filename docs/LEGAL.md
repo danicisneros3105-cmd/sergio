@@ -40,6 +40,28 @@ personas, consulte a un abogado en Ecuador.
 | Mensajes de WhatsApp | Términos de WhatsApp | La vía «Baileys» es una conexión no oficial: no es ilegal, pero WhatsApp puede **bloquear el número**. Lo seguro es la API oficial (WhatsApp Cloud API). Los envíos nunca son automáticos. |
 | Videos de YouTube y otros | Derechos de autor y términos de YouTube | Solo use videos suyos o con permiso como referencia de estilo. Sergio no los publica. |
 
+## 2 bis. Cobrar por Sergio (planes de pago)
+
+- Sergio **nunca toca datos de tarjeta**: el pago ocurre en la página del
+  procesador (un enlace de pago, `SERGIO_CHECKOUT_<PLAN>`) y vuelve una clave
+  de licencia firmada que se comprueba sin conexión (`tiers.py`). Así la
+  norma de seguridad de tarjetas (PCI DSS) la cumple el procesador.
+- Precio claro antes de pagar, en la moneda del cliente y **con los impuestos
+  incluidos** (IVA en Ecuador y la UE; en la UE el comprador paga el IVA de su
+  país). Lo más sencillo es un procesador que actúe como **vendedor oficial**
+  (*merchant of record*, por ejemplo Paddle o Lemon Squeezy) o activar el
+  cálculo de impuestos del procesador.
+- Cancelación fácil y sin trabas, y aviso antes de cada renovación. En la UE el
+  cliente puede desistir en 14 días (en servicios digitales, salvo que acepte
+  empezar de inmediato y lo reconozca); en Ecuador rige la Ley Orgánica de
+  Defensa del Consumidor (información veraz, factura, derecho de retracto en
+  compras a distancia). Hacen falta términos de servicio y política de
+  reembolso publicados.
+- Factura electrónica (SRI en Ecuador) cuando el comprador la pida.
+- Los límites de uso solo se aplican en el servicio alojado
+  (`SERGIO_PLANES_ACTIVOS=1`); el código abierto en el equipo del dueño no se
+  bloquea a sí mismo.
+
 ## 3. Lo que no se puede resolver con código (decisión suya)
 
 1. **Facturación de Gemini.** Es la forma de que Google no use ni revise lo

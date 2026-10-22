@@ -23,10 +23,10 @@ def keys(tmp_path, monkeypatch):
 
 
 def test_issue_and_verify_round_trip(keys):
-    token = tiers.issue(keys["private"], "pro", holder="Ana", seats=3, days=30)
+    token = tiers.issue(keys["private"], "work", holder="Ana", seats=3, days=30)
     assert token.startswith("sergio-lic-v1.")
     payload = tiers.verify(token)
-    assert payload["plan"] == "pro" and payload["holder"] == "Ana"
+    assert payload["plan"] == "work" and payload["holder"] == "Ana"
     assert payload["seats"] == 3
     assert payload["expires"] - payload["issued"] == 30 * 86400
 
@@ -37,15 +37,15 @@ def test_expired_forged_and_malformed_tokens_are_refused(keys):
         tiers.verify(old)
 
     other = tiers.generate_keypair()
-    forged = tiers.issue(other["private"], "enterprise", holder="Mallory")
+    forged = tiers.issue(other["private"], "founders", holder="Mallory")
     with pytest.raises(LicenseError, match="auténtica"):
         tiers.verify(forged)
 
     # A payload edited by hand (plan bumped) no longer matches its signature.
-    good = tiers.issue(keys["private"], "pro", holder="Ana")
+    good = tiers.issue(keys["private"], "work", holder="Ana")
     prefix, body, sig = good.split(".")
     data = json.loads(tiers._b64d(body))
-    data["plan"] = "enterprise"
+    data["plan"] = "founders"
     tampered = ".".join(
         [prefix, tiers._b64e(json.dumps(data, sort_keys=True).encode()), sig]
     )
@@ -69,22 +69,24 @@ def test_no_public_key_means_no_paid_plan(tmp_path, monkeypatch):
     monkeypatch.setattr(tiers, "OFFICIAL_PUBLIC_KEY", "")
     pair = tiers.generate_keypair()
     with pytest.raises(LicenseError, match="clave pública"):
-        tiers.verify(tiers.issue(pair["private"], "pro", holder="x"))
+        tiers.verify(tiers.issue(pair["private"], "work", holder="x"))
 
 
 def test_activate_current_and_feature_flags(keys):
     assert tiers.current() == {"plan": "free"}
     assert tiers.has_feature("cowork")  # not a paid feature: always on
     assert not tiers.has_feature("premium_skills")
-    with pytest.raises(PermissionError, match="plan Pro"):
+    with pytest.raises(PermissionError, match="plan Work"):
         tiers.require("hosted_sync")
 
-    tiers.activate(tiers.issue(keys["private"], "teams", holder="Equipo", seats=5))
+    tiers.activate(tiers.issue(keys["private"], "dev", holder="Equipo", seats=5))
     mode = stat.S_IMODE(os.stat(tiers.license_path()).st_mode)
     assert mode == 0o600
-    assert tiers.current()["plan"] == "teams"
-    assert tiers.has_feature("premium_skills") and tiers.has_feature("sso")
-    assert not tiers.has_feature("on_prem")
+    assert tiers.current()["plan"] == "dev"
+    assert tiers.has_feature("premium_skills") and tiers.has_feature("custom_api")
+    assert not tiers.has_feature("sso")
+    tiers.activate(tiers.issue(keys["private"], "founders", holder="Equipo"))
+    assert tiers.has_feature("sso") and tiers.has_feature("on_prem")
     tiers.require("rbac")
 
     tiers.deactivate()
@@ -92,7 +94,7 @@ def test_activate_current_and_feature_flags(keys):
 
 
 def test_a_license_that_stops_verifying_falls_back_to_free(keys, monkeypatch):
-    tiers.activate(tiers.issue(keys["private"], "pro", holder="Ana", days=1))
+    tiers.activate(tiers.issue(keys["private"], "work", holder="Ana", days=1))
     monkeypatch.setattr(tiers.time, "time", lambda: time.time_ns() / 1e9 + 2 * 86400)
     mine = tiers.current()
     assert mine["plan"] == "free" and "venció" in mine["problem"]
@@ -105,10 +107,13 @@ def test_activate_refuses_a_bad_key_and_keeps_free(keys):
 
 
 def test_checkout_url_comes_from_the_environment(monkeypatch):
-    monkeypatch.delenv("SERGIO_CHECKOUT_PRO", raising=False)
-    assert tiers.checkout_url("pro") == ""
-    monkeypatch.setenv("SERGIO_CHECKOUT_PRO", " https://buy.stripe.com/test_x ")
-    assert tiers.checkout_url("pro") == "https://buy.stripe.com/test_x"
+    monkeypatch.delenv("SERGIO_CHECKOUT_WORK", raising=False)
+    assert tiers.checkout_url("work") == ""
+    monkeypatch.setenv("SERGIO_CHECKOUT_WORK", " https://buy.stripe.com/test_x ")
+    assert tiers.checkout_url("work") == "https://buy.stripe.com/test_x"
+    assert tiers.checkout_url("pro") == "https://buy.stripe.com/test_x"  # old name
+    monkeypatch.setenv("SERGIO_CHECKOUT_DEV_15", "https://buy.stripe.com/dev15")
+    assert tiers.checkout_url("dev", 15) == "https://buy.stripe.com/dev15"
 
 
 def test_every_plan_and_feature_is_described():
@@ -137,7 +142,7 @@ def test_cli_seller_and_customer_flow(keys, tmp_path, monkeypatch):
         licencia,
         [
             "emitir",
-            "pro",
+            "work",
             "--titular",
             "Ana",
             "--dias",
@@ -151,16 +156,16 @@ def test_cli_seller_and_customer_flow(keys, tmp_path, monkeypatch):
 
     listing = runner.invoke(planes, [])
     assert listing.exit_code == 0 and "Free ✓" in listing.output
-    assert "Enterprise" in listing.output
+    assert "Founders Edition" in listing.output
 
     bad = runner.invoke(licencia, ["activar", "sergio-lic-v1.x.y"])
     assert bad.exit_code != 0 and "mal formada" in bad.output
     ok = runner.invoke(licencia, ["activar", token])
-    assert ok.exit_code == 0 and "plan Pro" in ok.output, ok.output
+    assert ok.exit_code == 0 and "plan Work" in ok.output, ok.output
     status = runner.invoke(licencia, ["estado"]).output
-    assert "Plan: Pro" in status and "Titular: Ana" in status
+    assert "Plan: Work" in status and "Titular: Ana" in status
     assert "✓ skills y plugins premium" in status and "· soporte con SLA" in status
-    assert "Pro ✓" in runner.invoke(planes, []).output
+    assert "Work ✓" in runner.invoke(planes, []).output
 
     assert "plan Free" in runner.invoke(licencia, ["quitar"]).output
     assert "Plan: Free" in runner.invoke(licencia, ["estado"]).output
@@ -171,16 +176,16 @@ def test_cli_upgrade_needs_a_checkout_link(monkeypatch):
 
     opened = []
     monkeypatch.setattr(planes_cmd.webbrowser, "open", opened.append)
-    monkeypatch.delenv("SERGIO_CHECKOUT_TEAMS", raising=False)
+    monkeypatch.delenv("SERGIO_CHECKOUT_FOUNDERS", raising=False)
     runner = CliRunner()
-    missing = runner.invoke(planes_cmd.planes, ["mejorar", "teams"])
-    assert missing.exit_code != 0 and "SERGIO_CHECKOUT_TEAMS" in missing.output
-    monkeypatch.setenv("SERGIO_CHECKOUT_TEAMS", "https://buy.stripe.com/test_t")
-    done = runner.invoke(planes_cmd.planes, ["mejorar", "teams"])
+    missing = runner.invoke(planes_cmd.planes, ["mejorar", "founders"])
+    assert missing.exit_code != 0 and "SERGIO_CHECKOUT_FOUNDERS" in missing.output
+    monkeypatch.setenv("SERGIO_CHECKOUT_FOUNDERS", "https://buy.stripe.com/test_t")
+    done = runner.invoke(planes_cmd.planes, ["mejorar", "founders"])
     assert done.exit_code == 0 and opened == ["https://buy.stripe.com/test_t"]
 
 
-def test_premium_plugins_need_the_pro_plan(keys, tmp_path, monkeypatch):
+def test_premium_plugins_need_the_work_plan(keys, tmp_path, monkeypatch):
     from openjarvis.cli.plugin_cmd import plugin
     from openjarvis.plugins import loader
     from openjarvis.plugins.index import CATALOG
@@ -209,45 +214,19 @@ def test_premium_plugins_need_the_pro_plan(keys, tmp_path, monkeypatch):
 
     runner = CliRunner()
     blocked = runner.invoke(plugin, ["instalar", "frase-del-dia", "--si"])
-    assert blocked.exit_code != 0 and "plan Pro" in blocked.output, blocked.output
+    assert blocked.exit_code != 0 and "plan Work" in blocked.output, blocked.output
 
     tiers.activate(tiers.issue(keys["private"], "pro", holder="Ana"))
     ok = runner.invoke(plugin, ["instalar", "frase-del-dia", "--si"])
     assert ok.exit_code == 0 and "frase_del_dia" in ok.output, ok.output
 
 
-def test_bundles_ride_on_their_plan(keys):
-    assert {b.plan for b in tiers.BUNDLES.values()} <= set(tiers.PLANS) - {"free"}
-    token = tiers.issue(keys["private"], "pro", holder="Estudio", bundle="vfx-studio")
-    assert tiers.verify(token)["bundle"] == "vfx-studio"
-    with pytest.raises(LicenseError, match="va con el plan"):
-        tiers.issue(keys["private"], "pro", holder="x", bundle="privacidad")
-    with pytest.raises(LicenseError, match="desconocido"):
-        tiers.issue(keys["private"], "pro", holder="x", bundle="nada")
-
-
-def test_cli_issues_and_shows_a_bundle(keys, tmp_path):
-    from openjarvis.cli.planes_cmd import licencia, planes
-
-    key_file = tmp_path / "issuer.key"
-    key_file.write_text(keys["private"])
-    runner = CliRunner()
-    base = ["emitir", "teams", "--titular", "Tienda", "--clave-privada", str(key_file)]
-    wrong = runner.invoke(licencia, [*base, "--paquete", "vfx-studio"])
-    assert wrong.exit_code != 0 and "va con el plan pro" in wrong.output
-    issued = runner.invoke(licencia, [*base, "--paquete", "multicanal"])
-    assert issued.exit_code == 0, issued.output
-    tiers.activate(issued.output.strip().replace("\n", ""))
-    assert "paquete Multi-channel" in runner.invoke(licencia, ["estado"]).output
-    assert "VFX Studio — $19 / mes" in runner.invoke(planes, []).output
-
-
 def test_a_wrapped_key_still_activates_and_a_damaged_file_means_free(keys):
     token = tiers.issue(keys["private"], "pro", holder="Ana")
     wrapped = "\n".join(token[i : i + 60] for i in range(0, len(token), 60))
-    assert tiers.activate("  " + wrapped + "\n")["plan"] == "pro"
+    assert tiers.activate("  " + wrapped + "\n")["plan"] == "work"
     assert stat.S_IMODE(os.stat(tiers.license_path()).st_mode) == 0o600
-    assert tiers.current()["plan"] == "pro"
+    assert tiers.current()["plan"] == "work"
     for junk in ("[1, 2]", '{"token": 7}', "no es json"):
         tiers.license_path().write_text(junk)
         assert tiers.current()["plan"] == "free"
@@ -271,3 +250,21 @@ def test_the_issued_key_prints_on_one_line(keys, tmp_path):
     )
     assert len(out.strip().splitlines()) == 1
     assert tiers.verify(out.strip())["holder"] == "Ana"
+
+
+def test_old_plan_names_still_work(keys):
+    """Licences signed before the plans were renamed keep their meaning."""
+    assert tiers.plan_id("pro") == "work"
+    assert tiers.plan_id("enterprise") == "founders"
+    token = tiers.issue(keys["private"], "pro", holder="Ana")
+    assert tiers.verify(token)["plan"] == "work"
+
+
+def test_dev_and_founders_stretch_between_their_prices():
+    assert [tiers.PLAN_INFO[p].usd for p in tiers.PLANS] == [0, 5, 21, 50, 99]
+    assert tiers.stretch_usd("dev", 10) == 50 and tiers.stretch_usd("dev", 23) == 115
+    assert tiers.stretch_usd("dev", 99) == 115 and tiers.stretch_usd("dev", 1) == 50
+    assert tiers.stretch_usd("founders", 25) == 99
+    assert tiers.stretch_usd("founders", 60) == 235
+    assert 99 < tiers.stretch_usd("founders", 40) < 235
+    assert tiers.stretch_usd("go", 50) == 5

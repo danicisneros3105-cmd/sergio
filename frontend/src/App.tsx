@@ -20,6 +20,8 @@ const HomePage = lazy(() => import('./pages/HomePage'));
 const NodesPage = lazy(() => import('./pages/NodesPage'));
 const ConnectomePage = lazy(() => import('./pages/ConnectomePage'));
 const UsagePage = lazy(() => import('./pages/UsagePage'));
+const PlansPage = lazy(() => import('./pages/PlansPage').then((m) => ({ default: m.PlansPage })));
+const HelpPage = lazy(() => import('./pages/HelpPage').then((m) => ({ default: m.HelpPage })));
 const SwarmPage = lazy(() => import('./pages/SwarmPage'));
 const ExtensionsPage = lazy(() => import('./pages/ExtensionsPage'));
 import { CommandPalette } from './components/CommandPalette';
@@ -201,6 +203,8 @@ export default function App() {
           <Route path="get-started" element={<GetStartedPage />} />
           <Route path="data-sources" element={<DataSourcesPage />} />
           <Route path="agents" element={<Navigate to="/nodes" replace />} />
+          <Route path="planes" element={<PlansPage />} />
+          <Route path="ayuda" element={<HelpPage />} />
           <Route path="logs" element={<LogsPage />} />
           <Route path="clacky" element={<ExtensionPage name="clacky" />} />
           <Route path="faces" element={<FacesPage />} />

@@ -19,6 +19,7 @@ import { useAppStore } from '../../lib/store';
 import { LiveOrb } from '../Live/LiveOrb';
 import { ConversationList } from '../Sidebar/ConversationList';
 import { UpdateButton } from './UpdateButton';
+import { apiFetch } from '../../lib/api';
 
 // Nodes: a few dots, like the persistent agents they are.
 function NodesIcon({ size = 20, strokeWidth = 1.5 }: { size?: number; strokeWidth?: number }) {
@@ -101,6 +102,18 @@ export function Toolbar({ historyOpen, onToggleHistory }: { historyOpen: boolean
   const [query, setQuery] = useState('');
   const [searching, setSearching] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
+  // The plan under the name, so the owner always sees which one is in force.
+  const [planName, setPlanName] = useState('');
+  useEffect(() => {
+    let live = true;
+    apiFetch('/v1/plans/me')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => live && setPlanName(d?.account?.plan_name || ''))
+      .catch(() => live && setPlanName(''));
+    return () => {
+      live = false;
+    };
+  }, []);
   useEffect(() => {
     if (searching && historyOpen) searchRef.current?.focus();
   }, [searching, historyOpen]);
@@ -240,7 +253,7 @@ export function Toolbar({ historyOpen, onToggleHistory }: { historyOpen: boolean
             </span>
             <span className="sb-label">
               <b>Señor</b>
-              <small>Ajustes</small>
+              <small>{planName ? `Plan ${planName}` : 'Ajustes'}</small>
             </span>
             <Settings className="sb-user-gear" size={16} strokeWidth={1.7} />
           </button>

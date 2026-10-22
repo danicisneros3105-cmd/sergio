@@ -300,6 +300,8 @@ export const MORE_PAGES = [
   { path: '/data-sources', label: 'Fuentes de datos' },
   { path: '/faces', label: 'Face ID' },
   { path: '/clacky', label: 'Agente de código' },
+  { path: '/planes', label: 'Planes y facturación' },
+  { path: '/ayuda', label: 'Ayuda' },
   { path: '/logs', label: 'Registro' },
   { path: '/get-started', label: 'Primeros pasos' },
 ];

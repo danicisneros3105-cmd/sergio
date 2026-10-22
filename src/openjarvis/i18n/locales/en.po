@@ -304,8 +304,8 @@ msgstr "Days it is valid."
 msgid "Archivo de la clave privada."
 msgstr "The private key file."
 
-msgid "Paquete por especialidad (vfx-studio, multicanal, privacidad, power)."
-msgstr "Package for a specialty (vfx-studio, multicanal, privacidad, power)."
+msgid "Veces el uso de Free que eligió (Dev 10-23, Founders 25-60)."
+msgstr "Times of Free's use you chose (Dev 10-23, Founders 25-60)."
 
 #: help
 msgid "Sergio en Windows: compañero junto al cursor, voz y control de pantalla."

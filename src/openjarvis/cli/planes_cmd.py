@@ -43,17 +43,12 @@ def planes(ctx: click.Context) -> None:
         name = f"{plan.name} ✓" if plan_id == mine["plan"] else plan.name
         table.add_row(
             name,
-            plan.price,
+            plan.price
+            + f"\n{plan.mult}x Free"
+            + (f" a {plan.mult_max}x" if plan.stretch else ""),
             plan.tagline + "\n" + "\n".join(f"· {x}" for x in plan.includes),
         )
     console.print(table)
-    from openjarvis.tiers import BUNDLES
-
-    console.print(
-        "[bold]Paquetes por especialidad[/bold] (mismas licencias, otro enfoque):"
-    )
-    for bundle in BUNDLES.values():
-        console.print(f"  · {bundle.name} — {bundle.price}: {bundle.for_whom}.")
     if mine.get("problem"):
         console.print(f"[yellow]Su licencia no vale: {mine['problem']}.[/yellow]")
     console.print(
@@ -62,7 +57,10 @@ def planes(ctx: click.Context) -> None:
 
 
 @planes.command("mejorar")
-@click.argument("plan", type=click.Choice(["pro", "teams", "enterprise"]))
+@click.argument(
+    "plan",
+    type=click.Choice(["go", "work", "dev", "founders", "pro", "teams", "enterprise"]),
+)
 def mejorar(plan: str) -> None:
     """Abre la página de pago del plan elegido."""
     from openjarvis.tiers import checkout_url
@@ -103,7 +101,6 @@ def activar(clave: str) -> None:
 def estado() -> None:
     """Qué plan tiene este equipo y hasta cuándo."""
     from openjarvis.tiers import (
-        BUNDLES,
         FEATURES,
         FEATURES_ES,
         PLAN_INFO,
@@ -112,9 +109,7 @@ def estado() -> None:
     )
 
     mine = current()
-    bundle = BUNDLES.get(mine.get("bundle", ""))
-    extra = f" · paquete {bundle.name}" if bundle else ""
-    console.print(f"Plan: {PLAN_INFO[mine['plan']].name}{extra}")
+    console.print(f"Plan: {PLAN_INFO[mine['plan']].name}")
     if mine.get("expires"):
         console.print(
             f"Titular: {mine.get('holder') or '—'} · puestos: {mine.get('seats', 1)} · "
@@ -167,14 +162,18 @@ def generar_claves(salida: Optional[str]) -> None:
 
 
 @licencia.command("emitir")
-@click.argument("plan", type=click.Choice(["pro", "teams", "enterprise"]))
+@click.argument(
+    "plan",
+    type=click.Choice(["go", "work", "dev", "founders", "pro", "teams", "enterprise"]),
+)
 @click.option("--titular", required=True, help="A nombre de quién.")
 @click.option("--puestos", type=int, default=1, help="Usuarios (Teams/Enterprise).")
 @click.option("--dias", type=int, default=31, help="Días de validez.")
 @click.option(
-    "--paquete",
-    default="",
-    help="Paquete por especialidad (vfx-studio, multicanal, privacidad, power).",
+    "--uso",
+    type=int,
+    default=0,
+    help="Veces el uso de Free que eligió (Dev 10-23, Founders 25-60).",
 )
 @click.option(
     "--clave-privada",
@@ -187,7 +186,7 @@ def emitir(
     titular: str,
     puestos: int,
     dias: int,
-    paquete: str,
+    uso: int,
     clave_privada: Optional[str],
 ) -> None:
     """(Vendedor) Firma una licencia para un cliente."""
@@ -207,7 +206,7 @@ def emitir(
             holder=titular,
             seats=puestos,
             days=dias,
-            bundle=paquete,
+            mult=uso,
         )
     except LicenseError as exc:
         raise click.ClickException(str(exc)) from None

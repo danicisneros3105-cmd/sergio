@@ -920,6 +920,12 @@ class LiveCall:
                 self._spawn(
                     asyncio.to_thread(remember_exchange, heard_all, said_all, "voz")
                 )
+                try:  # one spoken exchange is about half a minute of voice
+                    from openjarvis import quota
+
+                    await asyncio.to_thread(quota.count, "voz", 0.5)
+                except Exception:  # noqa: BLE001 — counting never breaks a call
+                    pass
             if self.guard_attention:
                 if self._answer_allowed:
                     self.attention.answered()

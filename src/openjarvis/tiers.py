@@ -1,4 +1,4 @@
-"""Plans (Free, Pro, Dev, Teams, Enterprise), license keys and feature flags.
+"""Plans (Free, Go, Work, Dev, Founders Edition), license keys and feature flags.
 
 Everything that runs on your own computer stays free and open source
 (Apache 2.0) — including sync through your own storage and backups. The
@@ -26,164 +26,160 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-PLANS = ("free", "pro", "dev", "teams", "enterprise")
+PLANS = ("free", "go", "work", "dev", "founders")
+# Names used by licences signed before the plans were renamed: they keep
+# working and mean the plan on the right.
+LEGACY = {"pro": "work", "teams": "founders", "enterprise": "founders"}
 PREFIX = "sergio-lic-v1"
 # Public key of the official license issuer (base64 of the 32 raw bytes).
 # Empty until the owner generates one with `sergio licencia generar-claves`.
 OFFICIAL_PUBLIC_KEY = ""
 
 
+def plan_id(name: str) -> str:
+    """The current plan id for *name* (an old name is translated)."""
+    name = str(name or "").strip().lower()
+    return LEGACY.get(name, name)
+
+
 @dataclass(frozen=True)
 class Plan:
+    """One plan. ``usd`` is the price per month in US dollars; a plan that can
+    be stretched (Dev, Founders) goes from ``usd``/``mult`` up to
+    ``usd_max``/``mult_max``. ``mult`` is how much more use than Free."""
+
     id: str
     name: str
-    price: str
+    usd: int
+    mult: int
     tagline: str
     includes: List[str] = field(default_factory=list)
+    usd_max: int = 0
+    mult_max: int = 0
+
+    @property
+    def stretch(self) -> bool:
+        return self.usd_max > self.usd
+
+    @property
+    def price(self) -> str:
+        """A short price in dollars (the page shows the local currency)."""
+        if self.usd == 0:
+            return "$0 · para siempre"
+        if self.stretch:
+            return f"${self.usd} a ${self.usd_max} / mes"
+        return f"${self.usd} / mes"
 
 
+# Prices in USD, as the owner decided (oct. 2026). Dev costs $5 for every
+# multiple of Free's use (10x = $50 ... 23x = $115); Founders stretches from
+# $99 (25x) to $235 (60x). Those two upper ends are Sergio's own choice: change
+# them here and the pages, the limits and the payments follow.
 PLAN_INFO: Dict[str, Plan] = {
     "free": Plan(
         "free",
         "Free",
-        "$0 · para siempre",
-        "Todo lo que corre en su equipo, código abierto (Apache 2.0).",
+        0,
+        1,
+        "Bueno para tareas casuales; justo para el uso de todos los días.",
         [
-            "Asistente completo, local y privado",
-            "Cowork, plugins, razonamiento a fondo, visión, voz",
-            "Copias cifradas y sincronización con su propio almacenamiento",
-            "Acceso desde el teléfono",
+            "Chat, voz, Nodes, Swarm, Cowork, Salud y Workspace",
+            "Todo lo que corre en su equipo, código abierto",
+            "Uso limitado cada día",
         ],
     ),
-    "pro": Plan(
-        "pro",
-        "Pro",
-        "$12 / mes",
-        "Para quien vive con Sergio todos los días.",
+    "go": Plan(
+        "go",
+        "Go",
+        5,
+        2,
+        "Para empezar a usar Sergio todos los días.",
         [
             "Todo lo de Free",
-            "Sincronización alojada (sin configurar almacenamiento)",
-            "Skills y plugins premium",
-            "Canal de actualizaciones anticipadas",
+        ],
+    ),
+    "work": Plan(
+        "work",
+        "Work",
+        21,
+        5,
+        "Ideal para profesionales.",
+        [
+            "Todo lo de Go",
+            "Sincronización alojada, skills y plugins premium",
+            "Actualizaciones anticipadas",
         ],
     ),
     "dev": Plan(
         "dev",
         "Dev",
-        "$24 / mes",
-        "Para quien conecta Sergio con su propio código.",
+        50,
+        10,
+        "Centrado en desarrolladores. Se estira según lo que necesite.",
         [
-            "Todo lo de Pro",
-            "APIs propias en los Nodes (con su clave, guardada solo en su equipo)",
-            "Agregar claves de API propias de proveedores (Moonshot, Gemini…)",
-            "Acceso a la API de Sergio para sus programas",
+            "Todo lo de Work",
+            "Acceso prioritario",
+            "Modelos y herramientas avanzadas",
+            "Claves de API propias y API de Sergio para sus programas",
         ],
+        usd_max=115,
+        mult_max=23,
     ),
-    "teams": Plan(
-        "teams",
-        "Teams",
-        "$29 / usuario / mes",
-        "Sergio para un equipo de trabajo.",
+    "founders": Plan(
+        "founders",
+        "Founders Edition",
+        99,
+        25,
+        "Centrado en fundadores de startups.",
         [
-            "Todo lo de Pro",
-            "Varios usuarios con roles (RBAC)",
-            "Inicio de sesión único (SSO)",
-            "Exportación de auditoría",
+            "Todo lo de Dev",
+            "Acceso completo a todas las herramientas y funciones",
+            "Organización por proyectos",
+            "Acceso prioritario",
+            "Varios usuarios, roles y exportación de auditoría",
         ],
-    ),
-    "enterprise": Plan(
-        "enterprise",
-        "Enterprise",
-        "$99 / usuario / mes",
-        "Para organizaciones con requisitos de cumplimiento.",
-        [
-            "Todo lo de Teams",
-            "Despliegue en sus servidores (on-prem)",
-            "Soporte dedicado con SLA",
-        ],
+        usd_max=235,
+        mult_max=60,
     ),
 }
 
 
-# Niche packages: the same license levels, priced and described for one
-# kind of user. A license issued with ``bundle`` shows its name.
-@dataclass(frozen=True)
-class Bundle:
-    id: str
-    name: str
-    price: str
-    plan: str
-    for_whom: str
-    highlights: List[str] = field(default_factory=list)
+def stretch_usd(plan: str, mult: int) -> int:
+    """Dollars per month for *plan* at *mult* times Free's use (clamped)."""
+    info = PLAN_INFO[plan_id(plan)]
+    if not info.stretch:
+        return info.usd
+    mult = max(info.mult, min(info.mult_max, int(mult)))
+    span = info.mult_max - info.mult
+    return round(info.usd + (info.usd_max - info.usd) * (mult - info.mult) / span)
 
-
-BUNDLES: Dict[str, Bundle] = {
-    "power": Bundle(
-        "power",
-        "Power users",
-        "$12 / mes",
-        "pro",
-        "Quien automatiza su día y quiere todo a mano",
-        [
-            "Todo lo de Pro",
-            "Plugins premium de productividad",
-            "Actualizaciones anticipadas",
-        ],
-    ),
-    "vfx-studio": Bundle(
-        "vfx-studio",
-        "VFX Studio",
-        "$19 / mes",
-        "pro",
-        "Artistas 3D, motion y video",
-        [
-            "Todo lo de Pro",
-            "Skills premium de Blender, VFX y posproducción",
-            "Presets de estilo de edición y másteres 10 bits",
-        ],
-    ),
-    "multicanal": Bundle(
-        "multicanal",
-        "Multi-channel",
-        "$39 / mes",
-        "teams",
-        "Negocios que atienden por WhatsApp, Telegram, correo y teléfono",
-        [
-            "Todo lo de Teams",
-            "Varios operadores con roles",
-            "Exportación de auditoría de conversaciones",
-        ],
-    ),
-    "privacidad": Bundle(
-        "privacidad",
-        "Privacy Enterprise",
-        "$99 / usuario / mes",
-        "enterprise",
-        "Organizaciones que no pueden sacar datos de su red",
-        ["Todo lo de Enterprise", "Despliegue on-prem sin nube", "Soporte con SLA"],
-    ),
-}
 
 # The lowest plan that includes each paid feature.
 FEATURES: Dict[str, str] = {
+    "hosted_sync": "work",
+    "premium_skills": "work",
+    "early_updates": "work",
     "custom_api": "dev",
-    "hosted_sync": "pro",
-    "premium_skills": "pro",
-    "early_updates": "pro",
     "node_api": "dev",
-    "multi_user": "teams",
-    "sso": "teams",
-    "rbac": "teams",
-    "audit_export": "teams",
-    "on_prem": "enterprise",
-    "sla_support": "enterprise",
+    "priority": "dev",
+    "advanced_models": "dev",
+    "projects": "founders",
+    "multi_user": "founders",
+    "sso": "founders",
+    "rbac": "founders",
+    "audit_export": "founders",
+    "on_prem": "founders",
+    "sla_support": "founders",
 }
 FEATURES_ES = {
-    "custom_api": "agregar claves de API propias",
     "hosted_sync": "sincronización alojada",
     "premium_skills": "skills y plugins premium",
     "early_updates": "actualizaciones anticipadas",
+    "custom_api": "agregar claves de API propias",
     "node_api": "APIs propias en los Nodes",
+    "priority": "acceso prioritario",
+    "advanced_models": "modelos y herramientas avanzadas",
+    "projects": "organización por proyectos",
     "multi_user": "varios usuarios",
     "sso": "inicio de sesión único",
     "rbac": "roles y permisos",
@@ -247,20 +243,17 @@ def issue(
     holder: str,
     seats: int = 1,
     days: int = 365,
-    bundle: str = "",
+    mult: int = 0,
     now: Optional[float] = None,
 ) -> str:
-    """Sign a license (run by the seller, e.g. after a Stripe payment)."""
+    """Sign a license (run by the seller, e.g. after a payment). *mult* is the
+    use the customer chose on a plan that stretches (0: the plan's base)."""
     from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
+    plan = plan_id(plan)
     if plan not in PLANS or plan == "free":
         raise LicenseError(f"plan inválido: {plan}")
-    if bundle and bundle not in BUNDLES:
-        raise LicenseError(f"paquete desconocido: {bundle}")
-    if bundle and BUNDLES[bundle].plan != plan:
-        raise LicenseError(
-            f"el paquete {BUNDLES[bundle].name} va con el plan {BUNDLES[bundle].plan}"
-        )
+    info = PLAN_INFO[plan]
     now = now or time.time()
     payload = {
         "plan": plan,
@@ -269,8 +262,8 @@ def issue(
         "issued": int(now),
         "expires": int(now + days * 86400),
     }
-    if bundle:
-        payload["bundle"] = bundle
+    if info.stretch:
+        payload["mult"] = max(info.mult, min(info.mult_max, int(mult or info.mult)))
     body = json.dumps(payload, separators=(",", ":"), sort_keys=True).encode()
     key = Ed25519PrivateKey.from_private_bytes(base64.b64decode(private_key_b64))
     return f"{PREFIX}.{_b64e(body)}.{_b64e(key.sign(body))}"
@@ -303,7 +296,8 @@ def verify(
         raise LicenseError("la licencia no es auténtica") from None
     except (ValueError, TypeError):
         raise LicenseError("la licencia está mal formada") from None
-    if payload.get("plan") not in PLANS:
+    payload["plan"] = plan_id(payload.get("plan"))
+    if payload["plan"] not in PLANS:
         raise LicenseError("plan desconocido")
     if float(payload.get("expires", 0)) < (now or time.time()):
         raise LicenseError("la licencia venció")
@@ -369,15 +363,20 @@ def require(feature: str) -> None:
         )
 
 
-def checkout_url(plan: str) -> str:
-    """The payment page for a plan (a Stripe Payment Link set by the seller)."""
-    return os.environ.get(f"SERGIO_CHECKOUT_{plan.upper()}", "").strip()
+def checkout_url(plan: str, mult: int = 0) -> str:
+    """The payment page for a plan (a payment link set by the seller). A plan
+    that stretches may have one link per size: ``SERGIO_CHECKOUT_DEV_15``."""
+    plan = plan_id(plan).upper()
+    if mult:
+        url = os.environ.get(f"SERGIO_CHECKOUT_{plan}_{int(mult)}", "").strip()
+        if url:
+            return url
+    return os.environ.get(f"SERGIO_CHECKOUT_{plan}", "").strip()
 
 
 __all__ = [
-    "BUNDLES",
-    "Bundle",
     "FEATURES",
+    "LEGACY",
     "LicenseError",
     "PLANS",
     "PLAN_INFO",
@@ -389,7 +388,9 @@ __all__ = [
     "generate_keypair",
     "has_feature",
     "issue",
+    "plan_id",
     "require",
+    "stretch_usd",
     "verify",
     "write_private",
 ]

@@ -604,6 +604,10 @@ def create_app(
 
     app.include_router(nodes_pro_router)
 
+    from openjarvis.server.plans_routes import router as plans_router
+
+    app.include_router(plans_router)
+
     # Creator: 3D, design, image, anatomy figures, plans and code.
     from openjarvis.creator.routes import router as creator_router
 
