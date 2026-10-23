@@ -97,6 +97,8 @@ SERVER_TOOLS = (
     "live_flights",
     "flights_overhead",
     "live_earthquakes",
+    "image_generate",
+    "video_create",
     "video_edit",
     "video_pro",
     "blender_create",

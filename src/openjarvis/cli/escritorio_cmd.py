@@ -49,6 +49,8 @@ BASE_TOOLS = (
     "scene_reason",
     "think",
     "calculator",
+    "image_generate",
+    "video_create",
     "get_weather",
     "globe_view",
     "live_flights",

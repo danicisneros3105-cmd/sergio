@@ -324,6 +324,7 @@ class CallSession:
         self.model = ""
         self.active = False
         self.error = ""
+        self.busy = False  # the server said an app window has the voice
         self._ws: Any = None
         self._send_lock = threading.Lock()
         self._mic = bytearray()
@@ -391,6 +392,8 @@ class CallSession:
                         "context": self.context(),
                         "tools": [t.declaration() for t in self.tools.values()],
                         "attention": "addressed",
+                        # an open app window has priority (server: live_routes)
+                        "client": "desktop",
                     }
                 )
             )
@@ -415,6 +418,9 @@ class CallSession:
                     break
                 if event.get("type") == "error":
                     raise RuntimeError(event.get("message") or "error")
+                if event.get("type") == "busy":
+                    self.busy = True  # the app window hears the owner already
+                    raise RuntimeError(event.get("message") or "busy")
                 if self.clock() > deadline:
                     raise TimeoutError("Sergio no contestó la llamada")
         except Exception as exc:  # noqa: BLE001 — the caller falls back
@@ -678,8 +684,9 @@ class CallSession:
                 self.server_first_audio_ms = value
         elif kind == "replaced":
             # Another window (the web, the phone) took the conversation: two
-            # open at once would answer each other. Stay down, do not redial.
-            self.hang_up("otra ventana")
+            # open at once would answer each other. An app window: wait and
+            # come back quietly when it closes. Another device: stay down.
+            self.hang_up("ventana" if event.get("by") == "web" else "otra ventana")
         elif kind == "error":
             self.error = str(event.get("message") or "")
             self.on_caption(f"La llamada falló: {self.error[:120]}")

@@ -201,7 +201,10 @@ class TestOptionalCredentials:
     def test_required_keys_unchanged_for_other_tools(self):
         from openjarvis.core.credentials import get_required_credentials
 
-        assert get_required_credentials("image_generate") == ["OPENAI_API_KEY"]
+        # images use the Gemini key now; OpenAI and Hugging Face only add
+        # more services when that key has no image quota
+        assert get_required_credentials("image_generate") == []
+        assert get_required_credentials("get_weather") == ["OPENWEATHERMAP_API_KEY"]
 
     def test_youdotcom_key_can_be_persisted(self, tmp_path, monkeypatch):
         """Unknown keys are rejected by save_credential, so the Settings UI

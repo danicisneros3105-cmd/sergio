@@ -1903,6 +1903,10 @@ class Ears:
         if self._wake is not None:
             self._wake.failed = True
 
+    def wake_elsewhere(self) -> None:
+        """The app window has the voice and heard the same words: drop them."""
+        self._wake = None
+
     def _spot(self, chunk: bytes) -> tuple[bytes, bool, bool] | None:
         """Instant wake word: buffer your words while the call connects."""
         self._ring.append(chunk)

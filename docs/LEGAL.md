@@ -38,6 +38,7 @@ personas, consulte a un abogado en Ecuador.
 | Licencias de software | Apache-2.0, MIT, OFL, GPL | NOTICE completado: letras, modelos de caras, MediaPipe, globo, ECC, OpenSky y USGS. Los repos GPL o sin licencia de la biblioteca de prompts se descargan a su equipo y nunca se copian al repositorio. LidoJS no se usa porque no tiene licencia abierta. |
 | Datos de vuelos | Licencia de OpenSky: solo uso no comercial | Uso personal, permitido. Para un producto comercial habría que contratar a OpenSky. Si publica algo hecho con esos datos, cite a OpenSky (está en NOTICE). |
 | Mensajes de WhatsApp | Términos de WhatsApp | La vía «Baileys» es una conexión no oficial: no es ilegal, pero WhatsApp puede **bloquear el número**. Lo seguro es la API oficial (WhatsApp Cloud API). Los envíos nunca son automáticos. |
+| Imágenes con otros servicios | Términos de cada servicio | Si la clave de Gemini no tiene cuota de imágenes (la gratuita no la tiene), Sergio prueba OpenAI o Hugging Face si hay clave, y si no Pollinations, sin clave. A ese servicio solo viaja la descripción de la imagen, marcada como privada. `SERGIO_IMAGENES_LIBRES=0` lo apaga. No describa a personas reales por su nombre. |
 | Videos de YouTube y otros | Derechos de autor y términos de YouTube | Solo use videos suyos o con permiso como referencia de estilo. Sergio no los publica. |
 
 ## 2 bis. Cobrar por Sergio (planes de pago)

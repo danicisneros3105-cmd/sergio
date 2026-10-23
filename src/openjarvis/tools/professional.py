@@ -232,14 +232,13 @@ class ProfessionalAppsTool(BaseTool):
                     content=json.dumps(layout, ensure_ascii=False),
                 )
             if action == "image_generate":
-                import time as _time
                 from pathlib import Path
 
                 from openjarvis.creator import programs, studio
 
                 prompt_str = str(params.get("prompt") or "Ilustración editorial")
                 png = studio.generate_image(prompt_str)
-                fname = f"imagen-sergio-{int(_time.time() * 1000) % 1000000}.png"
+                fname = studio.media_name("imagen", ".png")
                 media_dir = studio.projects_root() / "imagenes"
                 media_dir.mkdir(parents=True, exist_ok=True)
                 media_path = media_dir / fname
@@ -259,7 +258,6 @@ class ProfessionalAppsTool(BaseTool):
                     )
                 return ToolResult(tool_name=self.tool_id, content=msg)
             if action in ("image_edit", "image_cutout"):
-                import time as _time
                 from pathlib import Path
 
                 from openjarvis.creator import studio
@@ -274,7 +272,7 @@ class ProfessionalAppsTool(BaseTool):
                     png, method = studio.cutout_detail(raw_bytes)
                     out_path = src.with_name(f"{src.stem}-recorte.png")
                     out_path.write_bytes(png)
-                    fname = f"recorte-{int(_time.time() * 1000) % 1000000}.png"
+                    fname = studio.media_name("recorte", ".png")
                     (media_dir / fname).write_bytes(png)
                     return ToolResult(
                         tool_name=self.tool_id,
@@ -286,7 +284,7 @@ class ProfessionalAppsTool(BaseTool):
                 png = studio.edit_image(raw_bytes, str(params.get("prompt") or ""))
                 out_path = src.with_name(f"{src.stem}-editada.png")
                 out_path.write_bytes(png)
-                fname = f"editada-{int(_time.time() * 1000) % 1000000}.png"
+                fname = studio.media_name("editada", ".png")
                 (media_dir / fname).write_bytes(png)
                 return ToolResult(
                     tool_name=self.tool_id,

@@ -73,4 +73,8 @@ Otras piezas de terceros que Sergio usa (créditos y licencias):
   (dominio público).
 - Los modelos de IA en la nube (Gemini de Google) se usan bajo sus propios
   términos; Sergio no los incluye ni los redistribuye.
+- Videos desde una idea: FFmpeg (LGPL/GPL, https://ffmpeg.org), instalado con
+  imageio-ffmpeg (BSD-2-Clause); no se modifica.
+- Imágenes cuando la clave de Gemini no tiene cuota: OpenAI, Hugging Face
+  (FLUX.1-schnell, Apache-2.0) o Pollinations, bajo sus propios términos.
 Detalle legal y decisiones: docs/LEGAL.md.

@@ -141,6 +141,7 @@ async def creator_media(filename: str) -> Response:
         raise HTTPException(status_code=400, detail="Nombre de archivo inválido.")
     candidates = [
         studio.projects_root() / "imagenes" / safe,
+        studio.projects_root() / "videos" / safe,
         studio.projects_root() / safe,
     ]
     for path in candidates:
@@ -153,6 +154,8 @@ async def creator_media(filename: str) -> Response:
                 if ext == ".webp"
                 else "image/svg+xml"
                 if ext == ".svg"
+                else "video/mp4"
+                if ext == ".mp4"
                 else "image/png"
             )
             return FileResponse(path, media_type=mime)

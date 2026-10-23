@@ -97,6 +97,8 @@ server = [
     "uvicorn>=0.30",
     "pydantic>=2.0",
     "python-multipart>=0.0.9",
+    # ffmpeg for «haz un video sobre…» (tools/video_create.py) without apt
+    "imageio-ffmpeg>=0.5",
 ]
 desktop = [
     "google-genai>=2.29,<3",

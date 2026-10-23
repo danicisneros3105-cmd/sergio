@@ -45,6 +45,8 @@ TOOLS = {
     "files_organize": ("fondo", "windows"),
     "photos_duplicates": ("fondo", "windows"),
     "pc_checkup": ("fondo", "windows"),
+    "image_generate": ("fondo", "web"),
+    "video_create": ("fondo", "ubuntu"),
     "video_edit": ("fondo", "windows"),
     "video_pro": ("fondo", "windows"),
     "blender_create": ("fondo", "windows"),

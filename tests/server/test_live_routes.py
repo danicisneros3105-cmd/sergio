@@ -674,8 +674,38 @@ def test_the_newest_conversation_takes_over_and_the_old_one_is_told():
     assert live_routes._active is new
     assert old.closed and old_ws.closed
     assert old_ws.json == [
-        {"type": "replaced", "message": "Otra ventana tomó la conversación."}
+        {
+            "type": "replaced",
+            "by": "web",
+            "message": "Ahora hablamos en otra ventana o en otro equipo.",
+        }
     ]
+    live_routes._active = None
+
+
+def test_the_desktop_never_takes_the_voice_from_an_open_app_window():
+    """The «otra ventana tomó la conversación» loop: the app window and the
+    desktop companion kept kicking each other out."""
+    from openjarvis.server import live_routes
+
+    async def scenario():
+        live_routes._active = None
+        web = _call(FakeWS(), FakeClient([]))
+        desk = _call(FakeWS(), FakeClient([]))
+        assert await live_routes._take_over(web, "web")
+        refused = not await live_routes._take_over(desk, "desktop")
+        web.closed = True  # the window was closed
+        later = _call(FakeWS(), FakeClient([]))
+        took = await live_routes._take_over(later, "desktop")
+        # an app window opened while the desktop talks takes the voice
+        again = _call(FakeWS(), FakeClient([]))
+        await live_routes._take_over(again, "web")
+        return web, refused, took, later
+
+    web, refused, took, later = asyncio.run(scenario())
+    assert refused and web.ws.json == []
+    assert took and later.closed
+    assert later.ws.json[0]["by"] == "web"
     live_routes._active = None
 
 

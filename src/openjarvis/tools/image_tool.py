@@ -1,20 +1,23 @@
-"""Image generation tool — generate images via OpenAI DALL-E."""
+"""Image generation: «haz una imagen de…» from the chat, the voice or a Node.
+
+Sergio's own image path (``creator/studio.generate_image``): Gemini's image
+models with the owner's key, then OpenAI, Hugging Face and a keyless service
+when that key has no image quota. The picture is saved and shown in the chat.
+"""
 
 from __future__ import annotations
 
-import os
+from pathlib import Path
 from typing import Any
 
 from openjarvis.core.registry import ToolRegistry
 from openjarvis.core.types import ToolResult
 from openjarvis.tools._stubs import BaseTool, ToolSpec
 
-_VALID_SIZES = {"256x256", "512x512", "1024x1024"}
-
 
 @ToolRegistry.register("image_generate")
 class ImageGenerateTool(BaseTool):
-    """Generate images from text descriptions via OpenAI DALL-E."""
+    """Make a picture from a description and show it in the chat."""
 
     tool_id = "image_generate"
     is_local = False
@@ -24,29 +27,20 @@ class ImageGenerateTool(BaseTool):
         return ToolSpec(
             name="image_generate",
             description=(
-                "Generate an image from a text description. Returns the image URL."
+                "Make a picture from a description (a photo, drawing, poster, "
+                "logo idea...). Write the description in detail, in any language. "
+                "The image is saved and shown in the chat."
             ),
             parameters={
                 "type": "object",
                 "properties": {
                     "prompt": {
                         "type": "string",
-                        "description": "Text description of the image to generate.",
-                    },
-                    "size": {
-                        "type": "string",
-                        "description": (
-                            "Image size: '256x256', '512x512', or '1024x1024'."
-                            " Default '1024x1024'."
-                        ),
+                        "description": "What the picture shows, in detail.",
                     },
                     "output_path": {
                         "type": "string",
-                        "description": "Optional file path to save the image to.",
-                    },
-                    "provider": {
-                        "type": "string",
-                        "description": "Image generation provider. Default 'openai'.",
+                        "description": "Optional: also save it to this file.",
                     },
                 },
                 "required": ["prompt"],
@@ -56,95 +50,40 @@ class ImageGenerateTool(BaseTool):
         )
 
     def execute(self, **params: Any) -> ToolResult:
-        prompt = params.get("prompt", "")
+        prompt = str(params.get("prompt") or "").strip()
         if not prompt:
             return ToolResult(
                 tool_name="image_generate",
-                content="No prompt provided.",
+                content="Dígame qué imagen quiere.",
                 success=False,
             )
-
-        size = params.get("size", "1024x1024")
-        if size not in _VALID_SIZES:
-            return ToolResult(
-                tool_name="image_generate",
-                content=(
-                    f"Invalid size '{size}'."
-                    f" Must be one of: {', '.join(sorted(_VALID_SIZES))}."
-                ),
-                success=False,
-            )
-
-        provider = params.get("provider", "openai")
-        output_path = params.get("output_path")
-
-        if provider != "openai":
-            return ToolResult(
-                tool_name="image_generate",
-                content=(
-                    f"Unsupported provider '{provider}'. Only 'openai' is supported."
-                ),
-                success=False,
-            )
+        from openjarvis.creator import studio
+        from openjarvis.creator.llm import CreatorError
 
         try:
-            import openai
-        except ImportError:
+            data = studio.generate_image(prompt)
+        except CreatorError as exc:
             return ToolResult(
-                tool_name="image_generate",
-                content=(
-                    "openai package not installed. Install with: pip install openai"
-                ),
-                success=False,
+                tool_name="image_generate", content=str(exc), success=False
             )
-
-        api_key = os.environ.get("OPENAI_API_KEY")
-        if not api_key:
-            return ToolResult(
-                tool_name="image_generate",
-                content="No API key configured. Set OPENAI_API_KEY.",
-                success=False,
-            )
-
-        try:
-            client = openai.OpenAI()
-            response = client.images.generate(
-                model="dall-e-3",
-                prompt=prompt,
-                size=size,
-                n=1,
-            )
-            url = response.data[0].url
-        except Exception as exc:
-            return ToolResult(
-                tool_name="image_generate",
-                content=f"Image generation error: {exc}",
-                success=False,
-            )
-
-        # Optionally save to file
-        if output_path:
-            try:
-                import httpx
-
-                resp = httpx.get(url, follow_redirects=True, timeout=60.0)
-                resp.raise_for_status()
-                from pathlib import Path
-
-                Path(output_path).write_bytes(resp.content)
-            except Exception as exc:
-                return ToolResult(
-                    tool_name="image_generate",
-                    content=(f"Image generated but failed to save: {exc}. URL: {url}"),
-                    success=False,
-                    metadata={"url": url, "size": size, "provider": provider},
-                )
-
+        ext = ".jpg" if data[:3] == b"\xff\xd8\xff" else ".png"
+        name = studio.media_name("imagen", ext)
+        folder = studio.projects_root() / "imagenes"
+        folder.mkdir(parents=True, exist_ok=True)
+        (folder / name).write_bytes(data)
+        saved = folder / name
+        target = str(params.get("output_path") or "").strip()
+        if target:
+            out = Path(target).expanduser()
+            out.parent.mkdir(parents=True, exist_ok=True)
+            out.write_bytes(data)
+            saved = out
+        url = f"/v1/creator/media/{name}"
         return ToolResult(
             tool_name="image_generate",
-            content=url,
+            content=f"Imagen lista ({saved}).\n\n![{prompt[:60]}]({url})",
             success=True,
-            metadata={"url": url, "size": size, "provider": provider},
+            metadata={"url": url, "path": str(saved)},
         )
 
 

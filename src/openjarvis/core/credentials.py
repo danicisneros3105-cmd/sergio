@@ -35,7 +35,7 @@ def _default_path() -> Path:
 TOOL_CREDENTIALS: dict[str, list[str]] = {
     "web_search": ["TAVILY_API_KEY", "YOUDOTCOM_API_KEY", "SERPLY_API_KEY"],
     "get_weather": ["OPENWEATHERMAP_API_KEY"],
-    "image_generate": ["OPENAI_API_KEY"],
+    "image_generate": ["OPENAI_API_KEY", "HF_TOKEN"],
     "slack": ["SLACK_BOT_TOKEN", "SLACK_APP_TOKEN"],
     "telegram": ["TELEGRAM_BOT_TOKEN"],
     "discord": ["DISCORD_BOT_TOKEN"],
@@ -75,6 +75,9 @@ TOOL_CREDENTIALS: dict[str, list[str]] = {
 # result quality.
 OPTIONAL_TOOL_CREDENTIALS: dict[str, frozenset[str]] = {
     "web_search": frozenset({"TAVILY_API_KEY", "YOUDOTCOM_API_KEY", "SERPLY_API_KEY"}),
+    # Sergio makes images with the Gemini key; these only add more services
+    # for when that key has no image quota (creator/studio.py: FALLBACKS).
+    "image_generate": frozenset({"OPENAI_API_KEY", "HF_TOKEN"}),
 }
 
 

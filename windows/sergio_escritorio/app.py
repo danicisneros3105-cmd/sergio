@@ -2879,6 +2879,7 @@ def run(config: dict[str, Any]) -> None:
     call_error = [""]
     call_paused = [False]  # you hung up yourself: no automatic reconnect
     call_backoff = [20.0]
+    call_busy = [False]  # an app window has the voice (server said «busy»)
 
     def jpeg_of(image: Any, width: int) -> bytes:
         import io
@@ -3092,7 +3093,15 @@ def run(config: dict[str, Any]) -> None:
         voices.enabled = False
         bridge.call_on.emit(False)
         if why in ("colgaste", "otra ventana"):
-            call_paused[0] = True  # yours (or another window's): down until you call him
+            call_paused[0] = True  # yours (or another device's): down until you call him
+        if why == "ventana":
+            # The app window has the voice now: it answers. The keeper comes
+            # back by itself a little after that window closes.
+            call_failed_at[0] = time.monotonic()
+            call_backoff[0] = 20.0
+            call_busy[0] = True
+            bridge.state.emit("idle")
+            return
         if config.get("call_always", True) and not call_paused[0]:
             return  # the keeper reconnects in a moment, quietly
         if why == "cancelado":  # "Sergio" was not for him after all
@@ -3102,7 +3111,7 @@ def run(config: dict[str, Any]) -> None:
         elif why == "se cortó":
             bridge.caption.emit("Se cortó la llamada. Di «Sergio» para volver.")
         elif why == "otra ventana":
-            bridge.caption.emit("Otra ventana tomó la conversación. Di «Sergio» para volver.")
+            bridge.caption.emit("Ahora hablamos en otro equipo. Di «Sergio» para volver aquí.")
 
     def new_session(**changes: Any) -> CallSession:
         """A call set up exactly like the real ones (tools, voice, context)."""
@@ -3577,6 +3586,14 @@ def run(config: dict[str, Any]) -> None:
             current_call[0] = None
             ears.call = None
             call_failed_at[0] = time.monotonic()
+            call_busy[0] = bool(getattr(session, "busy", False))
+            if call_busy[0]:
+                # Not a failure: the app window already hears the owner and
+                # answers. Quiet, and try again in a little while.
+                call_backoff[0] = 20.0
+                call_error[0] = ""
+                ears.mark("la ventana de Sergio tiene la voz")
+                return False
             call_error[0] = session.error
             logging.warning("live call unavailable: %s", session.error)
             ears.mark(f"la llamada falló: {session.error[:80]}")
@@ -3585,6 +3602,7 @@ def run(config: dict[str, Any]) -> None:
             return False
         call_error[0] = ""
         call_backoff[0] = 20.0
+        call_busy[0] = False
         ears.mark(f"llamada lista ({session.model})")
         bridge.call_on.emit(True)
         bridge.screen_on.emit(session.share_screen)
@@ -3611,7 +3629,11 @@ def run(config: dict[str, Any]) -> None:
 
             def connect() -> None:
                 if not start_call():
-                    ears.wake_failed()
+                    if call_busy[0]:
+                        ears.wake_elsewhere()  # the window answers it
+                        bridge.state.emit("idle")
+                    else:
+                        ears.wake_failed()
                 elif wake_cancelled[0]:
                     end_call("cancelado")
 
@@ -3656,7 +3678,7 @@ def run(config: dict[str, Any]) -> None:
                     and not call_paused[0]
                 )
                 if wanted and not call_active() and time.monotonic() - call_failed_at[0] > call_backoff[0]:
-                    if not start_call(force=True, quiet=True):
+                    if not start_call(force=True, quiet=True) and not call_busy[0]:
                         call_backoff[0] = min(300.0, call_backoff[0] * 2)
             except Exception:  # noqa: BLE001 — the keeper never dies
                 logging.exception("always-on call keeper")
@@ -3676,6 +3698,9 @@ def run(config: dict[str, Any]) -> None:
 
         def run() -> None:
             if not start_call(force=True):
+                if call_busy[0]:
+                    bridge.caption.emit("Le escucho en la ventana de Sergio.")
+                    return
                 bridge.caption.emit(f"Voz en vivo no disponible: {call_error[0][:240]}")
                 if config.get("allow_turn_fallback", False):
                     bridge.ptt.emit()

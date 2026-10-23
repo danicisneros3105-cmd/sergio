@@ -208,6 +208,27 @@ def test_another_window_taking_the_conversation_hangs_up_without_redialing():
     assert ended == ["otra ventana"] and not call.active
 
 
+def test_an_app_window_taking_the_voice_is_a_quiet_wait_not_a_hang_up():
+    line = FakeLine([json.dumps({"type": "ready", "model": "m"})])
+    ended = []
+    call = _call(line, on_end=ended.append)
+    assert call.start()
+    line.inbox.put(json.dumps({"type": "replaced", "by": "web", "message": "x"}))
+    assert _wait(lambda: ended)
+    assert ended == ["ventana"] and not call.active
+
+
+def test_the_desktop_waits_while_an_app_window_has_the_voice():
+    line = FakeLine(
+        [json.dumps({"type": "busy", "message": "La ventana ya le escucha."})]
+    )
+    call = _call(line)
+    assert not call.start()
+    assert call.busy and not call.active
+    start = json.loads(line.sent[0])
+    assert start["client"] == "desktop"
+
+
 def test_microphone_goes_through_the_echo_canceller_in_10ms_frames():
     seen = []
 

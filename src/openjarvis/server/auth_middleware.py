@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import logging
 import os
+import re
 import secrets
 
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -12,6 +13,13 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 
 logger = logging.getLogger(__name__)
+
+# Pictures and videos Sergio made, shown in the chat with a plain <img> or
+# <video> (no Authorization header). Only names with 24 random hex digits
+# (studio.media_name) pass; anything else under /v1 still needs the key.
+_OPEN_MEDIA = re.compile(
+    r"/v1/creator/media/[\w\-]*-[0-9a-f]{24}\.(png|jpe?g|webp|mp4)"
+)
 
 _WS_AUTH_PROTOCOL = "openjarvis.auth.v1"
 _WS_KEY_PROTOCOL_PREFIX = "openjarvis.key.b64url."
@@ -92,6 +100,8 @@ class AuthMiddleware(BaseHTTPMiddleware):
             return False
         # Phones push health data with Salud's own sync key, checked by the route.
         if path == "/v1/healthdata/ingest":
+            return False
+        if _OPEN_MEDIA.fullmatch(path):
             return False
         return (
             path.startswith("/v1/")

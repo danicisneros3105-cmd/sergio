@@ -20,6 +20,7 @@ from __future__ import annotations
 import io
 import json
 import math
+import os
 import re
 import time
 from pathlib import Path
@@ -237,9 +238,99 @@ def _grabcut_alpha(image: Any, box: tuple[float, float, float, float] | None) ->
 
 IMAGE_MODELS = (
     "gemini-3.1-flash-image",
+    "gemini-3.1-flash-lite-image",
     "gemini-3-pro-image",
     "gemini-2.5-flash-image",
 )
+# A free Gemini key has no quota for any image model (measured oct. 2026:
+# 429 on all of them). Then, so «haz una imagen» still works, the next
+# services are tried in order: OpenAI (OPENAI_API_KEY), Hugging Face
+# (HF_TOKEN, free monthly credits) and Pollinations (no key; only the
+# description travels, marked private). SERGIO_IMAGENES_LIBRES=0 turns the
+# keyless one off.
+HF_IMAGE_MODEL = "black-forest-labs/FLUX.1-schnell"
+
+
+def _quota(errors: list[str]) -> bool:
+    return bool(errors) and all(
+        "429" in e or "RESOURCE_EXHAUSTED" in e or "quota" in e.lower() for e in errors
+    )
+
+
+def _openai_image(prompt: str) -> bytes:
+    key = os.environ.get("OPENAI_API_KEY", "").strip()
+    if not key:
+        raise CreatorError("sin clave")
+    import base64
+
+    import httpx
+
+    resp = httpx.post(
+        "https://api.openai.com/v1/images/generations",
+        headers={"Authorization": f"Bearer {key}"},
+        json={"model": "gpt-image-1", "prompt": prompt, "size": "1024x1024", "n": 1},
+        timeout=120,
+    )
+    resp.raise_for_status()
+    item = resp.json()["data"][0]
+    if item.get("b64_json"):
+        return base64.b64decode(item["b64_json"])
+    return httpx.get(item["url"], timeout=60, follow_redirects=True).content
+
+
+def _hf_image(prompt: str) -> bytes:
+    key = (
+        os.environ.get("HF_TOKEN") or os.environ.get("HUGGINGFACE_API_KEY") or ""
+    ).strip()
+    if not key:
+        raise CreatorError("sin clave")
+    import httpx
+
+    resp = httpx.post(
+        f"https://router.huggingface.co/hf-inference/models/{HF_IMAGE_MODEL}",
+        headers={"Authorization": f"Bearer {key}", "Accept": "image/png"},
+        json={"inputs": prompt},
+        timeout=120,
+    )
+    resp.raise_for_status()
+    return resp.content
+
+
+def _free_image(prompt: str) -> bytes:
+    if os.environ.get("SERGIO_IMAGENES_LIBRES", "1").strip() in {"0", "no", "false"}:
+        raise CreatorError("apagado")
+    import random
+    from urllib.parse import quote
+
+    import httpx
+
+    resp = httpx.get(
+        "https://image.pollinations.ai/prompt/" + quote(prompt[:900]),
+        params={
+            "width": 1024,
+            "height": 1024,
+            "nologo": "true",
+            "private": "true",
+            "seed": random.randint(1, 10**6),
+        },
+        timeout=120,
+        follow_redirects=True,
+    )
+    resp.raise_for_status()
+    return resp.content
+
+
+FALLBACKS = (
+    ("OpenAI", _openai_image),
+    ("Hugging Face", _hf_image),
+    ("libre", _free_image),
+)
+
+
+def _is_image(data: bytes) -> bool:
+    return (
+        data[:4] == b"\x89PNG" or data[:3] == b"\xff\xd8\xff" or data[8:12] == b"WEBP"
+    )
 
 
 def _image_call(parts: list[Any], client: Any = None) -> bytes:
@@ -265,9 +356,7 @@ def _image_call(parts: list[Any], client: Any = None) -> bytes:
             errors.append(f"{model}: sin imagen")
         except Exception as exc:  # noqa: BLE001 — next model
             errors.append(f"{model}: {str(exc)[:120]}")
-    if all(
-        "429" in e or "RESOURCE_EXHAUSTED" in e or "quota" in e.lower() for e in errors
-    ):
+    if _quota(errors):
         raise CreatorError(
             "Su clave de Gemini no tiene cuota para generar imágenes ahora. "
             "Active la facturación en Google AI Studio o inténtelo más tarde."
@@ -275,11 +364,43 @@ def _image_call(parts: list[Any], client: Any = None) -> bytes:
     raise CreatorError("No pude generar la imagen: " + " | ".join(errors))
 
 
+def media_name(prefix: str, ext: str) -> str:
+    """A file name for the chat that nobody can guess: the chat shows it with
+    a plain <img>/<video>, which cannot send the API key, so the server lets
+    exactly these names through (``auth_middleware``)."""
+    import secrets
+
+    return f"{prefix}-{secrets.token_hex(12)}{ext}"
+
+
 def generate_image(prompt: str, client: Any = None) -> bytes:
+    """A picture from a description: Gemini first, then the other services."""
     prompt = " ".join((prompt or "").split())[:1500]
     if len(prompt) < 3:
         raise CreatorError("Describa la imagen.")
-    return _image_call([prompt], client)
+    try:
+        return _image_call([prompt], client)
+    except CreatorError as gemini_error:
+        first = str(gemini_error)
+    tried = []
+    for name, make in FALLBACKS:
+        try:
+            data = make(prompt)
+        except CreatorError:
+            continue  # not set up
+        except Exception as exc:  # noqa: BLE001 — the next service
+            tried.append(f"{name}: {str(exc)[:80]}")
+            continue
+        if _is_image(data):
+            return data
+        tried.append(f"{name}: no devolvió una imagen")
+    raise CreatorError(
+        "No pude crear la imagen. "
+        + first
+        + " Otra opción: ponga una clave gratuita de Hugging Face (HF_TOKEN) en "
+        "~/.openjarvis/sergio.env."
+        + (" Probé también: " + "; ".join(tried) if tried else "")
+    )
 
 
 def edit_image(data: bytes, instruction: str, client: Any = None) -> bytes:

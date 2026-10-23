@@ -7,6 +7,12 @@
 // Browsers only allow audio after a click, so the session starts on your
 // first click or key press, and the microphone needs your permission once.
 // It can be paused from the orb (mute) or switched off in Ajustes.
+//
+// One voice per computer: every Sergio window (chat, Nodes, a second tab)
+// shares one lock (Web Locks). Only the window holding it opens the
+// conversation; the others wait in line and take over by themselves when it
+// closes. A click on the orb of another window moves the voice there. So no
+// window ever kicks another one out of the conversation.
 
 import { create } from 'zustand';
 import { useAppStore } from './store';
@@ -52,6 +58,8 @@ interface LiveStore {
   heard: string;
   said: string;
   error: string;
+  /** Another Sergio window on this computer has the voice right now. */
+  elsewhere: boolean;
   setEnabled: (on: boolean) => void;
   toggleMute: () => void;
   /** Start (or resume) the session; called on the first click/key press. */
@@ -64,6 +72,83 @@ interface LiveStore {
 
 let call: VoiceCall | null = null;
 let attempt = 0;
+
+// -- one voice per computer (Web Locks) ----------------------------------------
+
+const LOCK = 'sergio-voz';
+type Locks = Pick<LockManager, 'request'>;
+let lockManager: Locks | null | undefined;
+let holding = false;
+let heldBy = 0; // which request holds the lock now
+let seq = 0;
+let pending: AbortController | null = null; // a request waiting in line
+let releaseLock: (() => void) | null = null;
+
+function locks(): Locks | null {
+  if (lockManager !== undefined) return lockManager;
+  try {
+    return typeof navigator !== 'undefined' && navigator.locks ? navigator.locks : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Test hook: a fake lock manager (null: none, like an old browser). */
+export function setVoiceLocksForTests(manager: Locks | null | undefined): void {
+  lockManager = manager;
+  holding = false;
+  heldBy = 0;
+  pending = null;
+  releaseLock = null;
+}
+
+/** Ask for the voice. *steal*: the owner chose this window, take it now. */
+function requestVoice(steal: boolean, got: () => void, lost: () => void): void {
+  const manager = locks();
+  if (!manager || holding) {
+    holding = true; // no Web Locks (old browser, plain http): one window anyway
+    got();
+    return;
+  }
+  if (pending && !steal) return; // already in line
+  pending?.abort();
+  pending = null;
+  const id = ++seq;
+  const line = !steal && typeof AbortController !== 'undefined' ? new AbortController() : null;
+  pending = line;
+  const options: LockOptions = steal ? { steal: true } : line ? { signal: line.signal } : {};
+  manager
+    .request(LOCK, options, () =>
+      new Promise<void>((resolve) => {
+        if (pending === line) pending = null;
+        holding = true;
+        heldBy = id;
+        releaseLock = () => {
+          if (heldBy === id) {
+            holding = false;
+            heldBy = 0;
+          }
+          releaseLock = null;
+          resolve();
+        };
+        got();
+      }),
+    )
+    .catch(() => {
+      if (pending === line) pending = null;
+      if (heldBy !== id) return; // left the line (replaced by a newer request)
+      // Another window stole it: the owner moved the voice there.
+      holding = false;
+      heldBy = 0;
+      releaseLock = null;
+      lost();
+    });
+}
+
+function giveUpVoice(): void {
+  releaseLock?.();
+}
+
 let retryTimer: ReturnType<typeof setTimeout> | null = null;
 let level = 0;
 const levelListeners = new Set<(level: number) => void>();
@@ -100,8 +185,33 @@ export const useLive = create<LiveStore>((set, get) => {
     }, wait);
   };
 
+  const gotVoice = () => {
+    set({ elsewhere: false });
+    if (get().enabled && get().status !== 'replaced') connect();
+  };
+
+  const lostVoice = () => {
+    // The owner moved the voice to another window: stop quietly and wait in
+    // line, so it comes back here by itself when that window closes.
+    if (retryTimer) clearTimeout(retryTimer);
+    retryTimer = null;
+    const c = call;
+    call = null;
+    c?.stop(false);
+    set({ elsewhere: true, status: get().enabled ? 'waiting' : 'off', heard: '', said: '' });
+    if (get().enabled) requestVoice(false, gotVoice, lostVoice);
+  };
+
   const connect = () => {
     if (call || !get().enabled) return;
+    if (!holding) {
+      requestVoice(false, gotVoice, lostVoice);
+      // Still waiting a moment later: another window has it.
+      setTimeout(() => {
+        if (!holding && get().enabled) set({ elsewhere: true });
+      }, 300);
+      return;
+    }
     const language = voiceLanguage();
     let blocked = false;
     const c = new VoiceCall(
@@ -157,6 +267,7 @@ export const useLive = create<LiveStore>((set, get) => {
     heard: '',
     said: '',
     error: '',
+    elsewhere: false,
     setEnabled: (on) => {
       writePref(on);
       set({ enabled: on, status: on ? 'waiting' : 'off', error: '' });
@@ -166,6 +277,8 @@ export const useLive = create<LiveStore>((set, get) => {
         const c = call;
         call = null;
         c?.stop(false);
+        giveUpVoice();
+        set({ elsewhere: false });
       } else {
         attempt = 0;
         connect();
@@ -179,10 +292,13 @@ export const useLive = create<LiveStore>((set, get) => {
     takeBack: () => {
       if (!get().enabled || call) return;
       attempt = 0;
-      connect();
+      if (get().status === 'replaced') set({ status: 'waiting' });
+      if (holding) connect();
+      else requestVoice(true, gotVoice, lostVoice);
     },
     ensure: () => {
       if (!get().enabled || get().status === 'replaced') return;
+      if (get().elsewhere && !holding) return; // the other window has it
       if (call) {
         call.resumeAudio();
         return;
@@ -200,6 +316,7 @@ if (typeof window !== 'undefined' && typeof window.addEventListener === 'functio
   const wake = () => {
     const live = useLive.getState();
     if (!live.enabled || live.status === 'replaced' || live.status === 'blocked') return;
+    if (live.elsewhere && !holding) return;
     if (call) {
       call.resumeAudio();
       return;
@@ -236,4 +353,5 @@ export function resetLiveForTests(): void {
   call = null;
   attempt = 0;
   suspensions = 0;
+  setVoiceLocksForTests(undefined);
 }

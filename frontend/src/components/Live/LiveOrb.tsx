@@ -18,7 +18,7 @@ export const LIVE_ES: Record<LiveStatus, string> = {
   ended: 'Reconectando…',
   error: 'Reconectando…',
   blocked: 'Necesito permiso para el micrófono: haga clic para concederlo',
-  replaced: 'Otra ventana tiene la conversación: haga clic para hablar aquí',
+  replaced: 'Ahora hablamos en otro equipo: haga clic para hablar aquí',
 };
 
 export function LiveOrb({ size = 'md' }: { size?: 'sm' | 'md' | 'lg' }) {
@@ -28,6 +28,7 @@ export function LiveOrb({ size = 'md' }: { size?: 'sm' | 'md' | 'lg' }) {
   const toggleMute = useLive((s) => s.toggleMute);
   const ensure = useLive((s) => s.ensure);
   const takeBack = useLive((s) => s.takeBack);
+  const elsewhere = useLive((s) => s.elsewhere);
   const orb = useRef<HTMLButtonElement>(null);
 
   useEffect(
@@ -36,21 +37,25 @@ export function LiveOrb({ size = 'md' }: { size?: 'sm' | 'md' | 'lg' }) {
   );
 
   if (!enabled) return null;
-  const label = muted ? 'Micrófono en silencio: haga clic para hablar' : LIVE_ES[status];
+  const label = muted
+    ? 'Micrófono en silencio: haga clic para hablar'
+    : elsewhere
+      ? 'Sergio le escucha en la otra ventana: haga clic para hablar aquí'
+      : LIVE_ES[status];
   const live = status === 'listening' || status === 'speaking' || status === 'thinking';
   return (
     <button
       ref={orb}
       type="button"
       className={`live-orb live-orb-${size}`}
-      data-state={muted ? 'muted' : status}
+      data-state={muted ? 'muted' : elsewhere ? 'elsewhere' : status}
       aria-pressed={live ? muted : undefined}
       aria-label={label}
       title={label}
       onClick={(e) => {
         e.stopPropagation();
         if (live) toggleMute();
-        else if (status === 'replaced') takeBack();
+        else if (status === 'replaced' || elsewhere) takeBack();
         else ensure();
       }}
     >

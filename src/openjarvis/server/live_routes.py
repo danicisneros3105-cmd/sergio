@@ -22,24 +22,39 @@ router = APIRouter(tags=["live"])
 
 # One voice at a time. Two windows (the app, a browser tab, the phone) with
 # an open conversation would each hear the other's Sergio, answer it and cut
-# each other off. The newest conversation takes over; the older one is told
-# and does not reconnect by itself.
+# each other off. The windows of one computer share a lock in the browser
+# (lib/liveSession.ts), so they never fight here. Between devices the newest
+# conversation takes over and the older one is told. The desktop companion
+# ("client": "desktop") never takes the voice from an open app window: the
+# window already hears the owner, and both answering was the «otra ventana
+# tomó la conversación» loop. It waits and comes back when the window closes.
 _active: Any = None
+_active_client = ""
 
 
-async def _take_over(call: Any) -> None:
-    global _active
-    old, _active = _active, call
-    if old is None or old is call or getattr(old, "closed", True):
-        return
+async def _take_over(call: Any, client: str = "web") -> bool:
+    """Make *call* the conversation; False if the desktop must wait instead."""
+    global _active, _active_client
+    old = _active
+    live = old is not None and old is not call and not getattr(old, "closed", True)
+    if client == "desktop" and live and _active_client != "desktop":
+        return False
+    _active, _active_client = call, client
+    if not live:
+        return True
     old.closed = True
     try:
         await old.send_json(
-            {"type": "replaced", "message": "Otra ventana tomó la conversación."}
+            {
+                "type": "replaced",
+                "by": client,
+                "message": "Ahora hablamos en otra ventana o en otro equipo.",
+            }
         )
         await old.ws.close()
     except Exception:  # noqa: BLE001 — it was already gone
         pass
+    return True
 
 
 def _owner() -> str:
@@ -116,7 +131,13 @@ async def live(websocket: WebSocket) -> None:
     call = LiveCall(
         websocket, start, execute=execute, openai_tools=tools, owner=_owner()
     )
-    await _take_over(call)
+    client = "desktop" if start.get("client") == "desktop" else "web"
+    if not await _take_over(call, client):
+        await websocket.send_json(
+            {"type": "busy", "message": "La ventana de Sergio ya le escucha."}
+        )
+        await websocket.close()
+        return
     try:
         await call.run()
     except Exception as exc:  # noqa: BLE001 — tell the companion, then close

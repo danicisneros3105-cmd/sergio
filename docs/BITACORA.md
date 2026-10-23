@@ -2,6 +2,42 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-10-23 · Claude · Voz sin «otra ventana», imágenes y videos que funcionan
+- Voz («otra ventana tomó esta conversación», no podía hablarle). Había dos
+  causas:
+  1. Cada ventana de la app (chat, Nodes…) abría su propia voz y la más nueva
+     echaba a la otra.
+  2. La voz siempre activa del escritorio y la de la ventana se echaban una a
+     otra al decir «Sergio».
+- Arreglo de la voz:
+  - Ahora las ventanas de un mismo equipo comparten un candado (Web Locks,
+    `lib/liveSession.ts`). Solo una abre la voz. Las demás esperan y la toman
+    solas cuando esa se cierra. Un clic en el círculo trae la voz a esa
+    ventana.
+  - El escritorio manda `client: "desktop"`. El servidor no le deja quitar la
+    voz a una ventana abierta: le responde `busy`. El escritorio espera en
+    silencio y vuelve cuando la ventana se cierra (`live_routes._take_over`,
+    `call.py`, `app.py`).
+- Imágenes. Había dos causas:
+  1. `image_generate` era la herramienta de OpenJarvis, que solo funcionaba
+     con OpenAI.
+  2. La clave gratuita de Gemini no tiene cuota de imágenes: medido, 429 en
+     todos los modelos de imagen.
+- Arreglo de las imágenes:
+  - Ahora `image_generate` usa `studio.generate_image`: primero Gemini, luego
+    OpenAI y Hugging Face si hay clave, y luego Pollinations sin clave
+    (`SERGIO_IMAGENES_LIBRES=0` lo apaga).
+  - Además, el chat no mostraba las imágenes cuando hay clave de acceso: el
+    `<img>` no envía la clave. Ahora los archivos llevan un nombre aleatorio
+    de 24 dígitos (`studio.media_name`) y solo esos se sirven sin clave
+    (`auth_middleware._OPEN_MEDIA`).
+- Videos: nueva `video_create` («haz un video sobre…»):
+  - Gemini escribe el guion, se hace una imagen por escena, se pone la voz de
+    Sergio y ffmpeg lo monta con zoom lento y subtítulos.
+  - Se probó con el ffmpeg real.
+  - `imageio-ffmpeg` entra en el extra `server` (uv.lock regenerado con uv
+    0.13, solo esa línea).
+
 ## 2026-10-23 · Claude · Sergio para el día a día: PC lento y fotos duplicadas
 - Petición del dueño: Sergio debe ser un asistente con control total, y dio 15
   ejemplos de la vida diaria. Mapa honesto de cada uno (listo, parcial, falta)
