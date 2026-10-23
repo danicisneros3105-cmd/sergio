@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState, useCallback } from 'react';
+import { Fragment, useMemo, useRef, useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router';
 import { MessageBubble } from './MessageBubble';
 import { InputArea } from './InputArea';
@@ -7,6 +7,7 @@ import { useAppStore } from '../../lib/store';
 import { shouldAutoplayFinishedReply, useTtsStore } from '../../lib/tts';
 import { liveIsSpeaking } from '../../lib/liveSession';
 import { stripThinkTags } from '../../lib/message-text';
+import { bubbleFlags as flagsFor } from '../../lib/imessage';
 import {
   Brain,
   CalendarCheck,
@@ -128,6 +129,8 @@ export function ChatArea() {
     });
   }, [activeId, messages, streamState.isStreaming, isCurrentChatStreaming, voiceOutputEnabled, voiceAutoplay]);
   const currentStreamContent = isCurrentChatStreaming ? streamState.content : '';
+  // iMessage: groups, tails, centred times and «Entregado» / «Leído».
+  const bubbleFlags = useMemo(() => flagsFor(messages), [messages]);
 
   // Check if any data sources are connected
   const [hasConnectedSources, setHasConnectedSources] = useState<boolean | null>(null);
@@ -177,20 +180,21 @@ export function ChatArea() {
 
   return (
     <div className="flex flex-col h-full">
-      <header className="chat-top">
+      <header className="chat-top imsg-top">
+        <span aria-hidden="true" />
+        {/* Like iMessage: who you are talking to, in the middle. A click
+            changes how he thinks (fast or thorough). */}
         <button
           type="button"
-          className="chat-model"
+          className="imsg-contact"
           onClick={() => setCommandPaletteOpen(true)}
-          title={`Modelo: ${selectedModel || "ninguno"} (cambiar con Ctrl+K)`}
+          title={`${title !== 'Chat' && messages.length ? title + ' · ' : ''}Modo: ${modelLabel} (cambiar con Ctrl+K)`}
         >
-          <span className="chat-model-brand">Sergio</span>
-          <span className="chat-model-name">{modelLabel}</span>
-          <ChevronDown size={16} strokeWidth={2} />
+          <span className="imsg-avatar" aria-hidden="true">S</span>
+          <span className="imsg-name">
+            Sergio <ChevronDown size={11} strokeWidth={2.5} />
+          </span>
         </button>
-        <span className="chat-top-title" title={title}>
-          {messages.length ? title : ''}
-        </span>
         <div className="flex items-center gap-1">
           <button
             onClick={toggleReasoningPanel}
@@ -222,16 +226,21 @@ export function ChatArea() {
             <h1 className="chat-hello">¿En qué trabajamos hoy, señor?</h1>
           </div>
         ) : (
-          <div className="max-w-[var(--chat-max-width)] mx-auto px-4 py-6">
+          <div className="imsg-thread max-w-[var(--chat-max-width)] mx-auto px-4 py-6">
             {messages.map((msg, i) => {
               const isLastAssistant =
                 i === messages.length - 1 && msg.role === 'assistant';
+              const flags = bubbleFlags[i];
               return (
-                <MessageBubble
-                  key={msg.id}
-                  message={msg}
-                  isLive={isLastAssistant && isCurrentChatStreaming}
-                />
+                <Fragment key={msg.id}>
+                  {flags?.stamp && <div className="imsg-stamp">{flags.stamp}</div>}
+                  <MessageBubble
+                    message={msg}
+                    isLive={isLastAssistant && isCurrentChatStreaming}
+                    tail={flags?.tail ?? true}
+                    receipt={flags?.receipt ?? ''}
+                  />
+                </Fragment>
               );
             })}
             {(() => {
@@ -241,8 +250,10 @@ export function ChatArea() {
               const last = messages[messages.length - 1];
               if (last?.role === 'assistant' && last.isResearch) return null;
               return (
-                <div className="flex justify-start mb-4">
-                  <StreamingDots phase={streamState.phase} />
+                <div className="imsg-row them end">
+                  <div className="imsg-bubble them tail imsg-typing" aria-label="Sergio está escribiendo">
+                    <StreamingDots phase={streamState.phase} />
+                  </div>
                 </div>
               );
             })()}

@@ -173,8 +173,14 @@ termina en la rama `main`, y el dueño actualiza con un único comando.
   se comparten, una conexión caída o una página 502/503/504 se reintenta dos
   veces, sin respuesta en 45 s falla, y con la ventana oculta los sondeos
   reutilizan la última respuesta 30 s. Las escrituras se envían una sola vez.
+- **Chat idéntico a iMessage** (dueño, 23 oct. 2026; manda sobre el diseño
+  tipo ChatGPT en el chat): burbujas azules del dueño a la derecha, grises de
+  Sergio a la izquierda, cola solo en la última de cada grupo, hora centrada
+  tras una pausa, «Entregado»/«Leído», campo redondo con la flecha azul
+  (`lib/imessage.ts`, `MessageBubble.tsx`, `.imsg-*` en `index.css`). Las
+  imágenes y videos que hace una herramienta salen siempre en el chat.
 - Sin emojis y sin colores en la interfaz (dueño, oct. 2026): negro, blanco y
-  grises; iconos de línea. El color solo vive en lo que el dueño crea (sus
+  grises; iconos de línea. Única excepción: el azul de iMessage en el chat. El color solo vive en lo que el dueño crea (sus
   diseños, fotos, 3D) y en los cuatro personajes de los Nodes.
 - Workspace igual a Notion (en blanco y negro), con lo de Notion 2026:
   Biblioteca, secciones de la barra, Papelera, pestañas, Presentar y Panel. Al

@@ -670,54 +670,44 @@ export function InputArea() {
           guardada.
         </p>
       )}
-      <div className="mac-composer px-4 pt-3 pb-2.5">
-        <textarea
-          ref={textareaRef}
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder={selectedModel ? 'Pregúntale a Sergio o pídele algo' : 'Elige un modelo primero'}
-          aria-label="Mensaje para Sergio"
-          rows={isWelcome ? 2 : 1}
-          className="w-full bg-transparent outline-none resize-none text-[15px] leading-relaxed"
-          style={{ color: 'var(--color-text)', maxHeight: '200px' }}
-          disabled={streamState.isStreaming || modelLoading}
-        />
-        <div className="flex items-center gap-2 mt-1.5">
-          <div className="composer-tools" ref={menuRef}>
-            <button
-              type="button"
-              className="composer-plus"
-              aria-label="Herramientas"
-              aria-haspopup="menu"
-              aria-expanded={menuOpen}
-              onClick={() => setMenuOpen(!menuOpen)}
-            >
-              <Plus size={18} strokeWidth={1.6} />
-            </button>
-            {menuOpen && (
-              <div className="composer-menu" role="menu">
-                {TOOLS.map(({ icon: Icon, label, hint, run, on }) => (
-                  <button
-                    key={label}
-                    type="button"
-                    role="menuitemcheckbox"
-                    aria-checked={!!on}
-                    onClick={() => {
-                      setMenuOpen(false);
-                      run();
-                    }}
-                  >
-                    <Icon size={16} strokeWidth={1.6} />
-                    <span>
-                      <b>{label}</b>
-                      <em>{hint}</em>
-                    </span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+      {/* iMessage: a round «+» on the left, then the rounded field with the
+          blue send arrow inside it (the voice orb when there is nothing to send). */}
+      <div className="imsg-composer">
+        <div className="composer-tools" ref={menuRef}>
+          <button
+            type="button"
+            className="composer-plus imsg-plus"
+            aria-label="Herramientas"
+            aria-haspopup="menu"
+            aria-expanded={menuOpen}
+            onClick={() => setMenuOpen(!menuOpen)}
+          >
+            <Plus size={18} strokeWidth={2} />
+          </button>
+          {menuOpen && (
+            <div className="composer-menu" role="menu">
+              {TOOLS.map(({ icon: Icon, label, hint, run, on }) => (
+                <button
+                  key={label}
+                  type="button"
+                  role="menuitemcheckbox"
+                  aria-checked={!!on}
+                  onClick={() => {
+                    setMenuOpen(false);
+                    run();
+                  }}
+                >
+                  <Icon size={16} strokeWidth={1.6} />
+                  <span>
+                    <b>{label}</b>
+                    <em>{hint}</em>
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="imsg-field">
           {deepResearch && (
             <button
               type="button"
@@ -732,32 +722,38 @@ export function InputArea() {
               <X size={12} strokeWidth={2} />
             </button>
           )}
-          <div className="flex-1" />
+          <textarea
+            ref={textareaRef}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder={selectedModel ? 'Mensaje' : 'Elige un modelo primero'}
+            aria-label="Mensaje para Sergio"
+            rows={1}
+            className="imsg-input"
+            disabled={streamState.isStreaming || modelLoading}
+          />
           {isCurrentChatStreaming ? (
             <button
               onClick={stopStreaming}
-              className="mac-send"
+              className="imsg-send"
               title="Detener"
               aria-label="Detener la respuesta"
             >
-              <Square size={11} fill="currentColor" strokeWidth={0} />
+              <Square size={10} fill="currentColor" strokeWidth={0} />
+            </button>
+          ) : input.trim() ? (
+            <button
+              onClick={sendMessage}
+              disabled={!canSend}
+              title={selectedModel ? 'Enviar' : 'Elige un modelo primero'}
+              aria-label="Enviar mensaje"
+              className="imsg-send"
+            >
+              <ArrowUp size={17} strokeWidth={2.75} />
             </button>
           ) : (
-            <>
-              {input.trim() ? (
-                <button
-                  onClick={sendMessage}
-                  disabled={!canSend}
-                  title={selectedModel ? 'Enviar' : 'Elige un modelo primero'}
-                  aria-label="Enviar mensaje"
-                  className="mac-send"
-                >
-                  <ArrowUp size={17} strokeWidth={2.25} />
-                </button>
-              ) : (
-                <LiveOrb size="sm" />
-              )}
-            </>
+            <LiveOrb size="sm" />
           )}
         </div>
       </div>
@@ -768,11 +764,6 @@ export function InputArea() {
             {corpusSync.itemsSynced.toLocaleString('es')}
           </span>{' '}
           elementos. La sincronización sigue, así que los resultados irán mejorando.
-        </p>
-      )}
-      {!isWelcome && (
-        <p className="mt-2 text-center text-[11.5px]" style={{ color: 'var(--color-text-tertiary)' }}>
-          Sergio puede equivocarse. Compruebe la información importante.
         </p>
       )}
     </div>

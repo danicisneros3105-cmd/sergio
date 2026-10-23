@@ -16,10 +16,15 @@ import type { ChatMessage } from '../../types';
 import { stripThinkTags } from '../../lib/message-text';
 import { anatomyNames, withoutAnatomyLinks } from '../../lib/anatomy';
 import { AnatomyEmbed } from './AnatomyEmbed';
+import { isVideo, mediaOf } from '../../lib/imessage';
 
 interface Props {
   message: ChatMessage;
   isLive?: boolean;
+  /** Last bubble of a group (iMessage): it gets the tail. */
+  tail?: boolean;
+  /** «Entregado» / «Leído» under the owner's last message. */
+  receipt?: '' | 'Entregado' | 'Leído';
 }
 
 function getTextContent(node: any): string {
@@ -99,12 +104,50 @@ function CopyMessageButton({ content }: { content: string }) {
   );
 }
 
-export function MessageBubble({ message, isLive = false }: Props) {
+// What the tools are called for a person, not a programmer.
+const TOOL_NAMES: Record<string, string> = {
+  image_generate: 'Imagen',
+  video_create: 'Video',
+  video_pro: 'Video',
+  video_edit: 'Video',
+  web_search: 'Internet',
+  screen_read: 'Pantalla',
+  desktop_action: 'Su PC',
+  camera_look: 'Cámara',
+  files_organize: 'Archivos',
+  photos_duplicates: 'Fotos',
+  pc_checkup: 'Su PC',
+  get_weather: 'Clima',
+  calculator: 'Calculadora',
+};
+
+function toolSummary(calls: NonNullable<ChatMessage['toolCalls']>): string {
+  const names = [...new Set(calls.map((c) => TOOL_NAMES[c.tool] || 'Herramienta'))];
+  const running = calls.some((c) => c.status === 'running');
+  const failed = calls.some((c) => c.status === 'error');
+  return `${running ? 'Usando' : failed ? 'No funcionó' : 'Usó'}: ${names.join(', ')}`;
+}
+
+function Media({ src, alt }: { src: string; alt?: string }) {
+  if (isVideo(src)) {
+    return <video className="imsg-media" src={src} controls playsInline preload="metadata" />;
+  }
+  return <img className="imsg-media" src={src} alt={alt || 'Imagen'} loading="lazy" />;
+}
+
+const markdownComponents = {
+  pre: CodeBlockPre,
+  // Pictures and videos as in iMessage: rounded, the width of the bubble.
+  img: ({ src, alt }: { src?: string; alt?: string }) => (src ? <Media src={src} alt={alt} /> : null),
+};
+
+export function MessageBubble({ message, isLive = false, tail = true, receipt = '' }: Props) {
   const isUser = message.role === 'user';
 
   const rawContent = useMemo(() => stripThinkTags(message.content), [message.content]);
   // Figure links become the figures themselves (drawn below), never raw text.
   const cleanContent = useMemo(() => withoutAnatomyLinks(rawContent), [rawContent]);
+  const extraMedia = useMemo(() => mediaOf(message), [message]);
 
   // Build a ref→source lookup once per render. Memoized so the rehype plugin
   // identity stays stable until the source list actually changes.
@@ -124,25 +167,15 @@ export function MessageBubble({ message, isLive = false }: Props) {
 
   if (isUser) {
     return (
-      <div className="flex justify-end mb-4">
-        <div
-          className="max-w-[80%] px-4 py-2.5 text-[15px] leading-relaxed"
-          style={{
-            background: 'var(--color-user-bubble)',
-            color: 'var(--color-user-bubble-text)',
-            borderRadius: 'var(--radius-xl)',
-            whiteSpace: 'pre-wrap',
-            wordBreak: 'break-word',
-          }}
-        >
-          {message.content}
-        </div>
+      <div className={`imsg-row me${tail ? ' end' : ''}`}>
+        <div className={`imsg-bubble me${tail ? ' tail' : ''}`}>{message.content}</div>
+        {receipt && <div className="imsg-receipt">{receipt}</div>}
       </div>
     );
   }
 
   return (
-    <div className="group mb-6">
+    <div className={`group imsg-row them${tail ? ' end' : ''}`}>
       {/* Deep Research timeline (steps + status) */}
       {(message.isResearch || (message.researchTraces && message.researchTraces.length > 0)) && (
         <ResearchTimeline
@@ -152,32 +185,38 @@ export function MessageBubble({ message, isLive = false }: Props) {
         />
       )}
 
-      {/* Tool calls */}
+      {/* What Sergio used, in one small line; the details open on a click. */}
       {message.toolCalls && message.toolCalls.length > 0 && (
-        <div className="mb-3 flex flex-col gap-2">
-          {message.toolCalls.map((tc) => (
-            <ToolCallCard key={tc.id} toolCall={tc} />
-          ))}
-        </div>
+        <details className="imsg-tools">
+          <summary>{toolSummary(message.toolCalls)}</summary>
+          <div className="mt-2 flex flex-col gap-2">
+            {message.toolCalls.map((tc) => (
+              <ToolCallCard key={tc.id} toolCall={tc} />
+            ))}
+          </div>
+        </details>
       )}
 
       {/* Audio player (e.g. morning digest) */}
       {message.audio?.url && <AudioPlayer src={message.audio.url} />}
 
-      {/* Assistant message */}
       {cleanContent && (
-        <div className="prose max-w-none">
+        <div className={`imsg-bubble them prose${tail && !extraMedia.length ? ' tail' : ''}`}>
           <ReactMarkdown
             remarkPlugins={[remarkGfm, remarkMath]}
             rehypePlugins={rehypePlugins}
-            components={{
-              pre: CodeBlockPre,
-            }}
+            components={markdownComponents as any}
           >
             {cleanContent}
           </ReactMarkdown>
         </div>
       )}
+
+      {extraMedia.map((src) => (
+        <div key={src} className="imsg-media-row">
+          <Media src={src} />
+        </div>
+      ))}
 
       {/* Anatomy figures Sergio drew for this answer (the hidden skill) */}
       {!isLive &&
@@ -185,13 +224,13 @@ export function MessageBubble({ message, isLive = false }: Props) {
           <AnatomyEmbed key={name} name={name} />
         ))}
 
-      {/* Footer: copy + read aloud + x-ray */}
-      <div className="flex items-center gap-2 mt-1.5">
-        <CopyMessageButton content={cleanContent} />
-        {!isUser && !isLive && (
+      {/* Copy and read aloud, quietly under the bubble */}
+      {!isLive && cleanContent && (
+        <div className="imsg-actions">
+          <CopyMessageButton content={cleanContent} />
           <SpeakMessageButton messageId={message.id} content={cleanContent} />
-        )}
-      </div>
+        </div>
+      )}
       <XRayFooter
         usage={message.usage}
         telemetry={message.telemetry}
