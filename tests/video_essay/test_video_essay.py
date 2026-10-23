@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import io
 import json
-import shutil
 from pathlib import Path
 
 import numpy as np
@@ -187,9 +186,19 @@ def test_learn_saves_profile_and_shot_list(tmp_path: Path) -> None:
 
 # -- the job ---------------------------------------------------------------------------
 
-SCRIPT = {
+TREATMENT = {
+    "style": "metas-grandes",
     "title": "Metas grandes",
-    "beats": [{"beat": "hook", "text": s} for s in TEXT.split(". ")],
+    "logline": "Por qué las metas grandes ganan.",
+    "narration": "voice",
+    "beats": [
+        {"beat": "hook", "text": s, "seconds": 3, "visual": "a runner at dawn"}
+        for s in TEXT.split(". ")
+    ],
+    "characters": [{"name": "Ana", "look": "30, short black hair, grey hoodie"}],
+    "look": "warm, contrasty",
+    "music": "builds",
+    "sources": ["library", "stock", "image"],
 }
 
 
@@ -211,10 +220,23 @@ def _image(prompt: str) -> bytes:
     return buf.getvalue()
 
 
-def _deps(tmp_path: Path, told: list, calls: dict) -> J.Deps:
-    def ask(prompt: str, **kw):
+def _deps(
+    tmp_path: Path, told: list, calls: dict, treatment: dict = TREATMENT
+) -> J.Deps:
+    def ask(prompt, **kw):
         calls["ask"] = calls.get("ask", 0) + 1
-        return json.dumps(SCRIPT) if "Structure" in prompt else "{}"
+        if "Write the treatment" in str(prompt):
+            return json.dumps(treatment)
+        if "posting package" in str(prompt):
+            return json.dumps(
+                {
+                    "title": "Metas",
+                    "description": "d",
+                    "tags": ["a"],
+                    "thumbnail_text": "METAS",
+                }
+            )
+        return "{}"
 
     def look(parts, **kw):
         calls["review"] = calls.get("review", 0) + 1
@@ -245,6 +267,11 @@ needs_ffmpeg = pytest.mark.skipif(
 )
 
 
+@pytest.fixture(autouse=True)
+def _own_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("OPENJARVIS_HOME", str(tmp_path / "home"))
+
+
 @needs_ffmpeg
 def test_job_makes_the_video_and_tells_hous(tmp_path: Path) -> None:
     told: list = []
@@ -253,7 +280,7 @@ def test_job_makes_the_video_and_tells_hous(tmp_path: Path) -> None:
         {
             "topic": "metas grandes",
             "seconds": 15,
-            "passes": 2,
+            "mode": "basic",
             "draft": True,
             "preset": "ultrafast",
         },
@@ -262,14 +289,68 @@ def test_job_makes_the_video_and_tells_hous(tmp_path: Path) -> None:
     st = J.run(job, _deps(tmp_path, told, calls))
     assert st["status"] == "listo", st.get("error")
     assert st["done"] == list(J.STAGES)
-    assert len(st["passes"]) >= 1 and st["passes"][0]["score"] == 8
+    assert st["mode"] == "basic" and st["style_key"] == "metas-grandes"
+    assert len(st["passes"]) == 1 and st["passes"][0]["score"] == 8  # Basic: one review
     out = Path(st["result"]["path"])
     assert (
         out.is_file() and out.stat().st_size > 10_000 and out.name.startswith("video-")
     )
     assert told and "listo" in J.summary(told[0])
-    assert (job.dir / "revision-1.jpg").is_file()
     assert st["result"]["shots"] >= 6
+    assert st["budget"]["spent"]["llm"] == calls["ask"] + calls["review"]
+
+
+@needs_ffmpeg
+def test_post_quality_finishes_and_packages(tmp_path: Path) -> None:
+    told: list = []
+    calls: dict = {}
+    job = J.create(
+        {
+            "topic": "metas",
+            "seconds": 15,
+            "mode": "post",
+            "draft": True,
+            "preset": "ultrafast",
+        },
+        tmp_path / "jobs",
+    )
+    st = J.run(job, _deps(tmp_path, told, calls))
+    assert st["status"] == "listo", st.get("error")
+    assert st["passes"][-1]["by"] in ("editor", "director")
+    pkg = st["result"]["package"]
+    assert pkg["title"] == "Metas" and pkg["cover_url"].startswith(
+        "/v1/creator/media/portada-"
+    )
+    assert (job.dir / "final-color.mp4").is_file()  # Creator's colour chain
+    assert "Listo para publicar" in J.summary(st)
+
+
+@needs_ffmpeg
+def test_film_without_narration_is_cut_on_its_beats(tmp_path: Path) -> None:
+    film = {
+        **TREATMENT,
+        "style": "anuncio-comida",
+        "narration": "none",
+        "beats": [
+            {"beat": "hook", "text": "", "seconds": 1.2, "visual": f"close-up {i}"}
+            for i in range(8)
+        ],
+    }
+    told: list = []
+    job = J.create(
+        {
+            "prompt": "un anuncio de shawarma",
+            "seconds": 10,
+            "mode": "test",
+            "draft": True,
+        },
+        tmp_path / "jobs",
+    )
+    st = J.run(job, _deps(tmp_path, told, {}, film))
+    assert st["status"] == "listo", st.get("error")
+    assert st["voice"] is False and st["timing"] == "ritmo"
+    plan = job.read("plan.json")
+    assert all(s["text_style"] == "none" for s in plan if s["kind"] != "card")
 
 
 @needs_ffmpeg
@@ -279,10 +360,10 @@ def test_job_resumes_where_it_stopped(tmp_path: Path) -> None:
     deps = _deps(tmp_path, told, calls)
     deps.make_image = lambda p: (_ for _ in ()).throw(RuntimeError("sin cuota"))
     job = J.create(
-        {"topic": "metas", "passes": 0, "draft": True, "preset": "ultrafast"},
+        {"topic": "metas", "mode": "test", "draft": True, "preset": "ultrafast"},
         tmp_path / "jobs",
     )
-    original = shutil.copy2
+    original = J.shutil.copy2
 
     def broken(*a, **k):
         raise OSError("disco lleno")
@@ -294,17 +375,41 @@ def test_job_resumes_where_it_stopped(tmp_path: Path) -> None:
         J.shutil.copy2 = original
     assert (
         st["status"] == "error"
-        and st["stage"] == "render"
+        and st["stage"] == "acabado"
         and "disco lleno" in st["error"]
     )
     asked = calls["ask"]
     st = J.run(job, deps)
     assert st["status"] == "listo"
-    assert calls["ask"] == asked  # the script was not written (or paid) twice
-    plan = job.read("plan.json")
-    assert all(
-        s["kind"] == "card" for s in plan
-    )  # no picture: black cards, not an error
+    assert calls["ask"] == asked  # nothing written (or paid) twice
+    assert st["attempts"] == 2
+    assert all(s["kind"] == "card" for s in job.read("plan.json"))  # no picture: cards
+
+
+@needs_ffmpeg
+def test_budget_stops_paying_and_still_finishes(tmp_path: Path) -> None:
+    told: list = []
+    calls: dict = {}
+    made = []
+    deps = _deps(tmp_path, told, calls)
+    deps.make_image = lambda p: made.append(p) or _image(p)
+    job = J.create(
+        {"topic": "metas", "mode": "test", "draft": True, "preset": "ultrafast"},
+        tmp_path / "jobs",
+    )
+    st = J.run(job, deps)
+    assert st["status"] == "listo"
+    assert len(made) <= 8  # Test mode: at most 8 pictures, the rest are cards
+    assert st["budget"]["spent"]["images"] == len(made)
+
+
+def test_a_mode_without_model_calls_stops_cleanly(tmp_path: Path) -> None:
+    calls: dict = {}
+    job = J.create({"topic": "metas", "mode": "test"}, tmp_path / "jobs")
+    job.update(budget={"limits": {"llm": 0, "minutes": 30}, "spent": {}})
+    st = J.run(job, _deps(tmp_path, [], calls))
+    assert st["status"] == "error" and "no gastar de más" in st["error"]
+    assert "ask" not in calls  # nothing was called once the budget was out
 
 
 def test_cancel_stops_before_the_next_stage(tmp_path: Path) -> None:
@@ -316,11 +421,293 @@ def test_cancel_stops_before_the_next_stage(tmp_path: Path) -> None:
 
 
 def test_summary_reads_like_a_person() -> None:
-    assert "paso 3 de 10" in J.summary(
+    assert f"paso 3 de {len(J.STAGES)}" in J.summary(
         {"title": "T", "status": "en curso", "stage": "voz", "stage_progress": 0.5}
     )
     assert "reintentar" in J.summary(
         {"title": "T", "status": "error", "stage": "voz", "error": "x"}
+    )
+
+
+def test_guards_one_at_a_time_no_repeats_daily_cap(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import threading
+
+    order = {"topic": "metas", "mode": "basic"}
+    assert J.guard(order, tmp_path) == (None, "")
+    first = J.create(order, tmp_path)
+    assert J.guard(order, tmp_path)[1] == "repetido"
+    first.update(status="error")
+    assert J.guard(order, tmp_path) == (None, "")
+    t = threading.Thread(target=lambda: None)
+    J._running[first.id] = t
+    t.start()
+    try:
+        t.join()
+        J._running[first.id] = threading.Thread(
+            target=threading.Event().wait, args=(5,), daemon=True
+        )
+        J._running[first.id].start()
+        assert J.guard({"topic": "otro"}, tmp_path)[1] == "en curso"
+    finally:
+        J._running.pop(first.id, None)
+    monkeypatch.setenv("SERGIO_VIDEO_JOBS_DIA", "1")
+    assert J.guard({"topic": "otro"}, tmp_path)[1] == "tope diario"
+
+
+def test_resume_and_retry_have_a_ceiling(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    job = J.create({"topic": "x"}, tmp_path)
+    job.update(attempts=J.MAX_ATTEMPTS)
+    launched = []
+    monkeypatch.setattr(J, "launch", lambda j, d=None: launched.append(j.id) or True)
+    assert J.resume_unfinished(root=tmp_path) == []
+    assert job.state()["status"] == "error" and not launched
+    J.retry(job.id, root=tmp_path)
+    assert not launched and "no lo repito" in job.state()["error"]
+
+
+# -- modes, sources, AI and 3D ---------------------------------------------------------
+
+
+def test_modes_grow_in_quality_and_budget() -> None:
+    from openjarvis.video_essay import modes
+
+    keys = [modes.MODES[k] for k in modes.ORDER]
+    assert [m.passes for m in keys] == sorted(m.passes for m in keys)
+    assert [m.limits["llm"] for m in keys] == sorted(m.limits["llm"] for m in keys)
+    assert (
+        modes.get("Absolut Cinema").key == "cinema"
+        and modes.get("rápido").key == "test"
+    )
+    assert modes.get("???").key == "basic"
+    b = modes.Budget({"llm": 1, "minutes": 10})
+    b.spend("llm")
+    with pytest.raises(modes.OverBudget):
+        b.spend("llm")
+    assert b.spent["llm"] == 1  # a refused spend is not counted
+
+
+def test_sources_try_in_order_and_web_can_be_off(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from openjarvis.video_essay import sources as S
+
+    seen = []
+
+    def fake(name):
+        return lambda q, n, landscape: (
+            seen.append(name) or [S.Candidate(f"https://x/{name}", name)]
+        )
+
+    table = {k: fake(k) for k in ("stock", "commons", "web")}
+    got = S.find("rocket", 2, order=("stock", "commons", "web"), searches=table)
+    assert [c.source for c in got] == ["stock", "commons"] and seen == [
+        "stock",
+        "commons",
+    ]
+    monkeypatch.setenv("SERGIO_CLIPS_WEB", "0")
+    assert (
+        S.search_web("rocket", 2, runner=lambda a: '{"id": "abc", "duration": 100}')
+        == []
+    )
+    monkeypatch.setenv("SERGIO_CLIPS_WEB", "1")
+    web = S.search_web(
+        "rocket",
+        2,
+        runner=lambda a: (
+            '{"id": "abc", "duration": 100, "channel": "C"}\n{"id": "x", "duration": 2}'
+        ),
+    )
+    assert (
+        len(web) == 1
+        and web[0].start == 35.0
+        and web[0].licence.startswith("Uso con cita")
+    )
+    text = S.credits_text(
+        [c.to_dict() for c in web] + [{"source": "library", "url": "/mio.mp4"}]
+    )
+    assert "youtube.com/watch?v=abc" in text and "mio.mp4" not in text
+
+
+@needs_ffmpeg
+def test_filler_uses_clips_then_ai_then_cards(tmp_path: Path) -> None:
+    from openjarvis.video_essay import modes, render
+    from openjarvis.video_essay import sources as S
+    from openjarvis.video_essay.media import Filler
+
+    words = _words()
+    shots = P.fallback(words, {"median_shot_s": 1.5})
+    for s in shots:
+        s.kind, s.visual = "broll", "a rocket launch"
+    clip = tmp_path / "c.mp4"
+    import subprocess
+
+    subprocess.run(
+        [
+            render.ffmpeg(),
+            "-y",
+            "-v",
+            "error",
+            "-f",
+            "lavfi",
+            "-i",
+            "color=c=blue:s=320x180:d=2",
+            str(clip),
+        ],
+        check=True,
+    )
+
+    def fetch(c, dest, secs, ff):
+        c.path = str(clip)
+        return c.path
+
+    ai_calls = []
+
+    def provider(prompt, out, secs, aspect):
+        ai_calls.append(prompt)
+        raise RuntimeError("sin Veo")
+
+    budget = modes.Budget(
+        {
+            "llm": 5,
+            "images": 0,
+            "downloads": 2,
+            "ai_seconds": 100,
+            "blender": 0,
+            "minutes": 10,
+        }
+    )
+    filler = Filler(
+        tmp_path, modes.MODES["basic"], budget, ffmpeg=render.ffmpeg(), style={"look": "warm"},
+        characters=[{"name": "Ana", "look": "30, black hair"}], preferred=["stock", "ai", "image"],
+        searches={"stock": lambda q, n, landscape: [S.Candidate("https://x/1", "pexels")] * n},
+        fetch=fetch, ai_provider=provider,
+    )  # fmt: skip
+    filler.fill(shots)
+    with_clip = [s for s in shots if s.asset == str(clip)]
+    assert len(with_clip) == 2  # two downloads allowed
+    assert len(ai_calls) == 1  # AI failed once: never asked again in this job
+    assert "Ana: 30, black hair" in ai_calls[0] and "five fingers" in ai_calls[0]
+    assert all(s.kind == "card" for s in shots if s.asset != str(clip))
+
+
+def test_blender_scene_is_checked_and_rendered_with_sergios_settings(
+    tmp_path: Path,
+) -> None:
+    from openjarvis.tools.blender_model import UnsafeScript
+    from openjarvis.video_essay import blender3d
+
+    good = "import bpy\nbpy.ops.wm.read_factory_settings(use_empty=True)\nkit_box('Mesa', size=(1,1,1))\n"
+    assert "kit_box" in blender3d.script_for(
+        "a desk", 2.0, "warm", "", lambda p: "```python\n" + good + "```"
+    )
+    with pytest.raises(UnsafeScript):
+        blender3d.script_for("x", 2.0, "", "", lambda p: "import os\nos.remove('/x')\n")
+    seen = {}
+
+    def runner(args):
+        seen["script"] = Path(args[-1]).read_text()
+        return 1
+
+    with pytest.raises(RuntimeError):
+        blender3d.render_shot(
+            good, tmp_path / "t.mp4", 1.0, (640, 360), "ffmpeg", runner=runner
+        )
+    assert (
+        "render.render(animation=True)" in seen["script"]
+        and "kit_box" in seen["script"]
+    )
+
+
+def test_ai_prompt_directs_like_a_film_crew() -> None:
+    from openjarvis.video_essay import aivideo
+
+    p = aivideo.shot_prompt(
+        "a chef rolls a wrap",
+        {"look": "warm macro"},
+        [{"name": "Chef", "look": "40, beard"}],
+        "100mm macro push-in",
+    )
+    assert p.startswith("Characters (always identical): Chef: 40, beard")
+    assert "100mm macro push-in" in p and "photorealistic" in p
+    anim = aivideo.shot_prompt("a fox in a city", {"production": "animation"}, [], "")
+    assert "animated film" in anim and "photorealistic" not in anim
+
+
+def test_director_picks_a_known_style_and_cleans_the_treatment() -> None:
+    from openjarvis.video_essay import director, style
+
+    profiles = [style.load(k) for k in ("metas-grandes", "corto-3d", "anuncio-comida")]
+    raw = {
+        **TREATMENT,
+        "style": "inventado",
+        "narration": "loud",
+        "sources": ["ai", "pirate"],
+    }
+    t = director.treatment("x", profiles, 30, lambda p, **kw: json.dumps(raw))
+    assert (
+        t["style"] == "metas-grandes"
+        and t["narration"] == "voice"
+        and t["sources"] == ["ai"]
+    )
+    t = director.treatment(
+        "x", profiles, 30, lambda p, **kw: json.dumps(raw), fixed_style="corto-3d"
+    )
+    assert t["style"] == "corto-3d"
+
+
+def test_the_four_new_references_are_styles() -> None:
+    from openjarvis.video_essay import style
+
+    keys = {s["key"] for s in style.available()}
+    assert {
+        "corto-3d",
+        "reto-viral",
+        "anuncio-comida",
+        "animacion",
+        "metas-grandes",
+    } <= keys
+    assert style.load("corto-3d")["production"] == "3d"
+    assert style.load("anuncio-comida")["narration_mode"] == "none"
+    for k in keys:
+        text = json.dumps(style.load(k))
+        assert "Coca-Cola" not in text and "MrBeast" not in text
+
+
+@needs_ffmpeg
+def test_overlay_counts_up_and_none_hides_text() -> None:
+    from openjarvis.video_essay import render
+
+    words = _words()
+    s = P.Shot(
+        first=0,
+        last=3,
+        kind="card",
+        card="black",
+        overlay="$1,000,000",
+        text_style="none",
+        start=0,
+        end=1.5,
+    )
+    assert render.layout_text(s, words, (640, 360)) == []
+    early = render.still_of(s, words, (640, 360), at=0.05)
+    late = render.still_of(s, words, (640, 360), at=0.9)
+    assert np.asarray(early).sum() != np.asarray(late).sum()
+    assert render.size_for("16:9", "2160") == (3840, 2160) and render.size_for(
+        "9:16", "720"
+    ) == (720, 1280)
+
+
+def test_finishing_uses_creators_colour_chain() -> None:
+    from openjarvis.video_essay import finish
+
+    chain = finish.color_chain()
+    assert (
+        chain.startswith("format=yuv444p10le")
+        and "curves=preset=medium_contrast" in chain
     )
 
 
@@ -344,18 +731,25 @@ def test_tool_starts_a_job_and_reports(
     tool = VideoEssayTool()
     res = tool.execute(
         action="start",
-        topic="metas grandes",
-        reference="https://youtu.be/abc",
+        prompt="un corto 3D de un reloj que rebobina",
+        mode="cinema",
         seconds=9999,
-        passes=9,
     )
     assert res.success and res.metadata["job"]
-    assert started["seconds"] == 600 and started["passes"] == 5 and started["reference"]
-    assert "no lo publico" in res.content
+    assert (
+        started["seconds"] == 600 and started["mode"] == "cinema" and started["prompt"]
+    )
+    assert "Absolut Cinema" in res.content and "no lo publico" in res.content
+    again = tool.execute(
+        action="start", prompt="un corto 3D de un reloj que rebobina", mode="cinema"
+    )
+    assert (
+        again.metadata.get("reused") and again.metadata["job"] == res.metadata["job"]
+    )  # no second paid job
     status = tool.execute(action="status")
-    assert "paso 1 de 10" in status.content
+    assert f"paso 1 de {len(J.STAGES)}" in status.content
     assert not tool.execute(action="start", topic="").success
-    assert "metas-grandes" in tool.execute(action="styles").content
+    assert "corto-3d" in tool.execute(action="styles").content
 
 
 def test_tool_is_wired_everywhere() -> None:

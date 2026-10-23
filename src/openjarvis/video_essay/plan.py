@@ -16,14 +16,26 @@ from typing import Any, Callable, Dict, List, Optional
 
 KINDS = ("card", "broll", "archive", "device")
 CARDS = ("cream", "red", "navy", "black")
-TEXT_STYLES = ("pop", "grey_to_white", "big_caps", "italic")
+TEXT_STYLES = ("pop", "grey_to_white", "big_caps", "italic", "none")
 POSITIONS = ("center", "lower", "upper", "left", "right")
 EFFECTS = ("none", "punch", "push", "shake", "glitch")
 GRADES = ("natural", "bw", "warm", "cold")
 FRAMES = ("none", "crt", "film")
 DEVICES = ("none", "computer", "phone")
 TRANSITIONS = ("cut", "flash", "whip", "fade")
-SFX = ("none", "whoosh", "click", "impact", "typewriter", "riser")
+SFX = (
+    "none",
+    "whoosh",
+    "click",
+    "impact",
+    "typewriter",
+    "riser",
+    "pop",
+    "sizzle",
+    "ding",
+)
+# where a shot's picture comes from ("auto": the first that has one)
+SOURCES = ("auto", "library", "stock", "web", "archive", "ai", "3d", "image")
 
 
 @dataclass
@@ -54,6 +66,9 @@ class Shot:
     end: float = 0.0
     asset: str = ""  # file chosen for it (filled by assets.py)
     notes: List[str] = field(default_factory=list)
+    source: str = "auto"
+    overlay: str = ""  # a counter or stamp on top ("DÍA 1", "$1.000.000")
+    camera: str = ""  # camera direction for AI and 3D shots
 
     @property
     def dur(self) -> float:
@@ -143,6 +158,9 @@ def from_model(raw: Any, words: List[Word], **limits: float) -> List[Shot]:
                 device=_pick(item.get("device"), DEVICES, "none"),
                 transition=_pick(item.get("transition"), TRANSITIONS, "cut"),
                 sfx=_pick(item.get("sfx"), SFX, "none"),
+                source=_pick(item.get("source"), SOURCES, "auto"),
+                overlay=str(item.get("overlay") or "")[:24],
+                camera=str(item.get("camera") or "")[:160],
             )
         )
     if not shots:
@@ -230,7 +248,9 @@ def _split(s: Shot, words: List[Word], max_s: float) -> List[Shot]:
     return _split(a, words, max_s) + _split(b, words, max_s)
 
 
-def fallback(words: List[Word], style: Dict[str, Any]) -> List[Shot]:
+def fallback(
+    words: List[Word], style: Dict[str, Any], sources: Optional[List[str]] = None
+) -> List[Shot]:
     """A plan without the model: phrases cut at punctuation and every few
     words, alternating cards and pictures in the style's proportions."""
     target = float(style.get("median_shot_s") or 1.6)
@@ -255,6 +275,15 @@ def fallback(words: List[Word], style: Dict[str, Any]) -> List[Shot]:
                 s.grade, s.frame = "bw", "crt"
             s.effect = "punch" if i % 3 == 0 else "push"
         s.sfx = "whoosh" if s.kind == "card" else "none"
+    film = style.get("production") in ("3d", "ai", "animation")
+    for s in shots:
+        if film and s.kind == "card":  # a film, not an essay: no cards in it
+            s.kind = "broll"
+            s.visual = " ".join(w.text for w in words[s.first : s.last])
+        if s.kind != "card" and sources:
+            s.source = sources[0] if sources[0] in SOURCES else "auto"
+        if style.get("narration_mode") in ("none", "song") and s.kind != "card":
+            s.text_style = "none"
     return normalise(shots, words, **pace(style))
 
 
@@ -278,14 +307,24 @@ Answer ONLY JSON: {{"shots": [{{"from": first word index, "to": index after the 
 "text_style": "pop|grey_to_white|big_caps|italic", "position": "center|lower|upper|left|right",
 "effect": "none|punch|push|shake|glitch", "grade": "natural|bw|warm|cold",
 "frame": "none|crt|film", "device": "none|computer|phone",
-"transition": "cut|flash|whip|fade", "sfx": "none|whoosh|click|impact|typewriter|riser"}}]}}
+"transition": "cut|flash|whip|fade", "sfx": "none|whoosh|click|impact|typewriter|riser|pop|sizzle|ding",
+"source": "where the picture comes from: {sources}",
+"overlay": "optional counter or stamp shown on top, max 3 words (e.g. DAY 1, $1,000,000) or empty",
+"camera": "for ai/3d shots: lens and move (e.g. 35mm slow dolly-in, low angle)"}}]}}
 Rules: cover every word exactly once and in order; cut only between words; \
 short punchy words (1-3) on cards; problems and the past in bw with a crt or \
-film frame; the payoff in natural colour; the last shot a red-on-cream card."""
+film frame; the payoff in natural colour; the last shot a red-on-cream card. \
+Use only the sources listed; text_style "none" when the style shows no text.
+{extra}"""
 
 
 def plan_shots(
-    words: List[Word], style: Dict[str, Any], ask: Optional[Callable[..., str]] = None
+    words: List[Word],
+    style: Dict[str, Any],
+    ask: Optional[Callable[..., str]] = None,
+    *,
+    sources: Optional[List[str]] = None,
+    extra: str = "",
 ) -> List[Shot]:
     """Shots from the model (checked); the fallback plan if it fails."""
     if not words:
@@ -296,11 +335,21 @@ def plan_shots(
         style=json.dumps(
             {
                 k: style.get(k)
-                for k in ("mix", "palette", "effects", "structure", "grade")
+                for k in (
+                    "mix",
+                    "palette",
+                    "effects",
+                    "structure",
+                    "grade",
+                    "look",
+                    "overlays",
+                )
             },
             ensure_ascii=False,
         ),
         words=listing,
+        sources="|".join(sources or ["auto"]),
+        extra=extra,
     )
     if ask is not None:
         try:
@@ -313,7 +362,7 @@ def plan_shots(
                 return shots
         except Exception:  # noqa: BLE001 — the fallback still cuts it well
             pass
-    return fallback(words, style)
+    return fallback(words, style, sources)
 
 
 def to_json(shots: List[Shot]) -> List[Dict[str, Any]]:
@@ -321,11 +370,13 @@ def to_json(shots: List[Shot]) -> List[Dict[str, Any]]:
 
 
 def from_json(items: List[Dict[str, Any]]) -> List[Shot]:
-    return [Shot(**item) for item in items]
+    known = set(Shot.__dataclass_fields__)
+    return [Shot(**{k: v for k, v in item.items() if k in known}) for item in items]
 
 
 __all__ = [
     "PLAN_PROMPT",
+    "SOURCES",
     "Shot",
     "Word",
     "estimate_words",

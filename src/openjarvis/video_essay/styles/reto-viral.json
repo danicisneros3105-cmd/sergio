@@ -1,0 +1,77 @@
+{
+ "key": "reto-viral",
+ "name": "Reto viral de alto presupuesto (contadores en pantalla)",
+ "source": "Referencia del dueño (YouTube plN7JMbadRg), estudiada el 2026-10-23 con Gemini; solo se guarda cómo está hecha.",
+ "shots_measured": 48,
+ "length_s": 246.0,
+ "median_shot_s": 1.8,
+ "min_shot_s": 0.4,
+ "max_shot_s": 5.4,
+ "mix": {
+  "broll": 0.98,
+  "device": 0.02
+ },
+ "text_share": 0.96,
+ "palette_seen": [],
+ "grade": "Vibrant, saturated commercial YouTube grade with bright punchy colors.",
+ "typography": "Bold white impact font with drop shadow for Day indicators and digital calorie graphics.",
+ "narration": "High-energy host narration driving the timeline, rules, stakes and emotional beats.",
+ "music": "Dynamic orchestral score, cinematic bass drops, upbeat YouTube challenge tracks, punchy SFX for counters.",
+ "effects": [
+  "3D store calorie map animation",
+  "Floating digital calorie counter HUD",
+  "Day number text overlay"
+ ],
+ "sfx": {
+  "whoosh": 0.06,
+  "cheering": 0.04,
+  "cheering crowd": 0.04,
+  "cash counter sound": 0.02,
+  "pop": 0.02,
+  "ambient synth": 0.02,
+  "digital beep": 0.02,
+  "wind swoop": 0.02
+ },
+ "structure": [
+  "hook with huge stakes",
+  "the rules",
+  "challenge rounds with counters",
+  "temptation or twist",
+  "struggle",
+  "climax",
+  "payoff and reveal",
+  "cta"
+ ],
+ "pacing": {
+  "median_shot_s": 1.8,
+  "cuts_total": 1400
+ },
+ "production": "edit",
+ "narration_mode": "voice",
+ "sources": [
+  "library",
+  "web",
+  "stock",
+  "ai",
+  "image"
+ ],
+ "look": "Saturated, bright commercial grade; wide tracking shots, handheld POV, low-angle pushes, overhead views; bold white impact text with drop shadow; floating counters (money, days, calories) that tick; 3D map/graphic zooms; whip pans and flash cuts.",
+ "overlays": [
+  "counter",
+  "day_stamp"
+ ],
+ "camera": "Wide store-level tracking shots, handheld POV, low-angle dynamic pushes, overhead surveillance angles.",
+ "humans": "real",
+ "viral": [
+  "Massive $1M stakes with relatable grocery store setting.",
+  "Long-form character development and emotional narrative payoff.",
+  "Gamified graphics tracking calorie counts continuously.",
+  "High-profile guest star appearances (well-known references, college football team)."
+ ],
+ "transitions_seen": [
+  "whip pan",
+  "fast cut",
+  "3D graphic zoom",
+  "flash transition"
+ ]
+}

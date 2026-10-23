@@ -40,18 +40,20 @@ STAGES = (
     "revision",
     "sonido",
     "render",
+    "acabado",
     "listo",
 )
 LABELS = {
     "estudio": "Estudiando la referencia toma por toma",
-    "guion": "Escribiendo el guion",
+    "guion": "El director escribe el tratamiento",
     "voz": "Narrando con la voz de Sergio",
     "tiempos": "Midiendo cuándo se dice cada palabra",
     "plan": "Planeando las tomas",
     "imagenes": "Buscando y creando las imágenes",
-    "revision": "Revisando el montaje como un editor",
+    "revision": "El editor y el director revisan el montaje",
     "sonido": "Mezclando efectos y música",
     "render": "Renderizando el video final",
+    "acabado": "Color, máster y paquete para publicar",
     "listo": "Listo",
 }
 
@@ -150,105 +152,187 @@ class Deps:
     """What a job calls out to (real services by default; fakes in tests)."""
 
     def __init__(self, **over: Any) -> None:
-        self.ask: Optional[Callable[..., str]] = over.get("ask")  # text model
-        self.review: Optional[Callable[..., str]] = over.get("review")  # vision model
+        self.ask: Optional[Callable[..., str]] = over.get("ask")  # the editor (text)
+        self.direct: Optional[Callable[..., str]] = over.get("direct") or over.get(
+            "ask"
+        )  # the director
+        self.review: Optional[Callable[..., str]] = over.get(
+            "review"
+        )  # the editor's eyes
+        self.direct_review: Optional[Callable[..., str]] = over.get(
+            "direct_review"
+        ) or over.get("review")
+        self.choose: Optional[Callable[..., str]] = over.get("choose") or over.get(
+            "review"
+        )
         self.speak: Optional[Callable[[str], bytes]] = over.get("speak")
         self.recognise: Optional[Callable[[bytes, str], list]] = over.get("recognise")
         self.make_image: Optional[Callable[[str], bytes]] = over.get("make_image")
         self.watcher: Optional[Callable[[str], Dict[str, Any]]] = over.get("watcher")
-        self.stock: bool = over.get("stock", True)
+        self.stock: bool = over.get("stock", True)  # False: no internet searches at all
+        self.searches: Optional[Dict[str, Callable[..., list]]] = over.get("searches")
+        self.fetch: Optional[Callable[..., Optional[str]]] = over.get("fetch")
+        self.ai_provider: Optional[Callable[..., str]] = over.get("ai_provider")
+        self.blender: Optional[Callable[..., str]] = over.get("blender")
         self.notify: Optional[Callable[[str, Dict[str, Any]], None]] = over.get(
             "notify"
         )
         self.videos: Optional[Path] = over.get("videos")
         self.styles: Optional[Path] = over.get("styles")
 
-    def plan_ask(self) -> Callable[[str], str]:
-        if self.ask is not None:
-            ask = self.ask
-            return lambda p: ask(p, json_mode=True)
-        from openjarvis.creator.llm import ask as gemini_ask
-        from openjarvis.video_essay.style import models
 
-        return lambda p: gemini_ask(
-            p, json_mode=True, models=models(), effort="high", max_tokens=60000
-        )
+def _counted(
+    fn: Optional[Callable[..., str]], budget: Any, save: Callable[[], None]
+) -> Optional[Callable[..., str]]:
+    """A test or injected model call that still counts against the budget."""
+    if fn is None:
+        return None
+
+    def call(*a: Any, **kw: Any) -> str:
+        budget.spend("llm")
+        save()
+        return fn(*a, **kw)
+
+    return call
 
 
 def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
     """Do (or finish) every stage of *job*; returns its final state."""
     import numpy as np
 
-    from openjarvis.video_essay import assets, audio, render, review, script, style
+    from openjarvis.video_essay import (
+        assets,
+        audio,
+        director,
+        finish,
+        render,
+        review,
+        script,
+        style,
+    )
+    from openjarvis.video_essay import modes as M
     from openjarvis.video_essay import plan as P
+    from openjarvis.video_essay.media import Filler
 
     deps = deps or Deps()
     st = job.state()
     params = st.get("params") or {}
+    mode = M.get(str(params.get("mode") or "basic"))
+    budget = M.Budget.from_dict(st.get("budget") or {}, mode)
     stop = _cancel.setdefault(job.id, threading.Event())
+    job.update(
+        mode=mode.key,
+        budget=budget.to_dict(),
+        attempts=int(st.get("attempts") or 0) + 1,
+    )
+
+    def save() -> None:
+        job.update(budget=budget.to_dict())
+
+    strong = mode.director_strong
+    direct = _counted(deps.direct, budget, save) or director.asker(strong, budget)
+    edit = _counted(deps.ask, budget, save) or director.asker(
+        False, budget, max_tokens=60000
+    )
+    look_edit = _counted(deps.review, budget, save) or director.vision_asker(
+        False, budget
+    )
+    look_direct = _counted(deps.direct_review, budget, save) or director.vision_asker(
+        strong, budget
+    )
+    look_choose = deps.choose or director.vision_asker(
+        False, None
+    )  # the filler counts these itself
 
     def stage(name: str) -> bool:
         if stop.is_set():
             raise Cancelled()
         if job.done(name):
             return False
-        job.update(stage=name, stage_progress=0.0, note="")
+        job.update(stage=name, stage_progress=0.0, note="", budget=budget.to_dict())
         job.log(f"empieza: {name}")
         return True
 
     try:
-        # 1. the reference
+        # 1. the reference (or the style asked for)
         if stage("estudio"):
             ref = str(params.get("reference") or "").strip()
             if ref:
+                budget.spend("llm")
                 profile = style.learn(
                     ref,
                     str(params.get("style_name") or ""),
                     folder=deps.styles,
                     watcher=deps.watcher,
                 )
-                job.update(style_key=profile["key"])
-            else:
+                job.update(style_key=profile["key"], style_fixed=True)
+            elif params.get("style"):
                 job.update(
-                    style_key=style.load(str(params.get("style") or ""), deps.styles)[
-                        "key"
-                    ]
+                    style_key=style.load(str(params["style"]), deps.styles)["key"],
+                    style_fixed=True,
                 )
             job.finish("estudio")
-        profile = style.load(job.state().get("style_key", ""), deps.styles)
 
-        # 2. the script
+        # 2. the director's treatment (or the owner's own script)
         if stage("guion"):
+            fixed = (
+                job.state().get("style_key", "")
+                if job.state().get("style_fixed")
+                else ""
+            )
             if params.get("script"):
                 sc = script.from_text(
                     str(params["script"]), str(params.get("title") or "")
                 )
+                sc.update(
+                    narration="voice",
+                    style=fixed or style.DEFAULT,
+                    characters=[],
+                    sources=[],
+                )
             else:
-                sc = script.write(
-                    str(params.get("topic") or ""),
-                    float(params.get("seconds") or 90),
-                    profile,
+                keys = [s["key"] for s in style.available(deps.styles)]
+                profiles = [style.load(k, deps.styles) for k in dict.fromkeys(keys)]
+                sc = director.treatment(
+                    str(params.get("prompt") or params.get("topic") or ""),
+                    profiles,
+                    float(params.get("seconds") or 60),
+                    direct,
                     language=str(params.get("language") or "Spanish"),
-                    ask=deps.ask,
+                    fixed_style=fixed,
+                    words_per_second=script.WORDS_PER_SECOND,
                 )
             job.write("script.json", sc)
-            job.update(title=sc["title"])
+            job.update(
+                title=sc["title"], style_key=sc.get("style") or fixed or style.DEFAULT
+            )
             job.finish("guion")
         sc = job.read("script.json")
+        profile = style.load(job.state().get("style_key", ""), deps.styles)
+        narration = sc.get("narration") or profile.get("narration_mode") or "voice"
+        profile = {**profile, "narration_mode": narration}
+        if sc.get("look"):
+            profile["look"] = sc["look"]
 
-        # 3. the voice
+        # 3. the voice (none for films carried by pictures or a song)
         wav_path = job.dir / "narracion.wav"
         if stage("voz"):
-            try:
-                wav_path.write_bytes(script.narrate(sc["text"], speak=deps.speak))
-                job.update(voice=True)
-            except Exception as exc:  # noqa: BLE001 — words on screen still carry it
-                silent = len(sc["text"].split()) / script.WORDS_PER_SECOND + 1
-                wav_path.write_bytes(
-                    audio.write_wav(np.zeros(int(silent * audio.SR), dtype=np.float32))
+            voiced = False
+            if narration == "voice" and sc.get("text"):
+                try:
+                    wav_path.write_bytes(script.narrate(sc["text"], speak=deps.speak))
+                    voiced = True
+                except Exception as exc:  # noqa: BLE001 — words on screen still carry it
+                    job.update(voice_error=str(exc)[:200])
+                    job.log(f"sin voz: {exc}")
+            if not voiced:
+                total = _silent_length(
+                    sc, float(params.get("seconds") or 60), script.WORDS_PER_SECOND
                 )
-                job.update(voice=False, voice_error=str(exc)[:200])
-                job.log(f"sin voz: {exc}")
+                wav_path.write_bytes(
+                    audio.write_wav(np.zeros(int(total * audio.SR), dtype=np.float32))
+                )
+            job.update(voice=voiced)
             job.finish("voz")
         wav = wav_path.read_bytes()
 
@@ -258,64 +342,91 @@ def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
                 words, how = script.timings(sc["text"], wav, recogniser=deps.recognise)
             else:
                 total = len(audio.read_wav(wav)) / audio.SR
-                words, how = (
-                    P.estimate_words(sc["text"], [(0.3, total - 0.5)], total),
-                    "ritmo",
-                )
+                words, how = _beat_words(sc, total), "ritmo"
             job.write("words.json", [w.__dict__ for w in words])
             job.update(timing=how)
             job.finish("tiempos")
         words = [P.Word(**w) for w in job.read("words.json")]
 
-        # 5. the plan
+        allowed = _allowed_sources(
+            sc.get("sources") or profile.get("sources") or [], params, mode
+        )
+
+        # 5. the editor's plan
         if stage("plan"):
-            shots = P.plan_shots(words, profile, ask=deps.plan_ask())
+            shots = P.plan_shots(
+                words,
+                profile,
+                ask=lambda p: edit(p, json_mode=True),
+                sources=allowed,
+                extra=_beat_notes(sc),
+            )
+            if narration != "voice":
+                for s in shots:
+                    if all(w.text == "·" for w in words[s.first : s.last]):
+                        s.text_style = "none"
             job.write("plan.json", P.to_json(shots))
             job.finish("plan")
         shots = P.from_json(job.read("plan.json"))
 
         aspect = str(params.get("aspect") or "16:9")
         aspect = aspect if aspect in render.SIZES else "16:9"
-        library = (
-            assets.Library([str(params["clips"])]) if params.get("clips") else None
+        library = assets.Library(_own_folders(params))
+        filler = Filler(
+            job.dir / "imagenes",
+            mode,
+            budget,
+            ffmpeg=render.ffmpeg(),
+            style=profile,
+            characters=sc.get("characters") or [],
+            preferred=allowed,
+            library=library,
+            aspect=aspect,
+            searches=deps.searches if deps.stock else {},
+            fetch=deps.fetch,
+            make_image=deps.make_image,
+            ai_provider=deps.ai_provider,
+            blender=deps.blender or _blender_maker(edit, profile, sc, aspect),
+            choose_ask=look_choose if mode.candidates > 1 else None,
+            allow_web=_web_allowed(params),
+            on_spend=save,
         )
+        filler.credits = list(job.state().get("credits") or [])
 
         def fill(label: str) -> None:
-            assets.fill(
-                shots,
-                job.dir / "imagenes",
-                library=library,
-                stock=deps.stock,
-                make_image=deps.make_image,
-                landscape=aspect != "9:16",
-                progress=lambda f, n: job.progress(label, f, n),
-            )
+            filler.fill(shots, progress=lambda f, n: job.progress(label, f, n))
             job.write("plan.json", P.to_json(shots))
+            job.update(credits=filler.credits, budget=budget.to_dict())
 
         # 6. the pictures
         if stage("imagenes"):
             fill("imagenes")
             job.finish("imagenes")
 
-        # 7. review passes
+        # 7. review passes: the editor first, the director has the last word
         if stage("revision"):
             passes = list(job.state().get("passes") or [])
-            want = max(0, min(5, int(params.get("passes", 2))))
+            want = min(mode.passes, int(params.get("passes", mode.passes)))
             draft = render.DRAFT_SIZES[aspect]
-            while len(passes) < want:
+            while len(passes) < want and budget.can("llm"):
                 if stop.is_set():
                     raise Cancelled()
                 k = len(passes)
+                last = k == want - 1 and mode.director_strong
                 stills = []
                 for i, shot in enumerate(shots):
                     stills.append(render.still_of(shot, words, draft))
                     job.progress(
-                        "revision", (k + i / len(shots) / 2) / want, f"pasada {k + 1}"
+                        "revision",
+                        (k + i / len(shots) / 2) / max(1, want),
+                        f"pasada {k + 1}",
                     )
                 board = review.contact_sheet(stills)
                 board.save(job.dir / f"revision-{k + 1}.jpg", quality=82)
                 try:
-                    notes = review.ask_review(board, shots, profile, ask=deps.review)
+                    notes = review.ask_review(
+                        board, shots, profile, ask=look_direct if last else look_edit
+                    )
                 except Exception as exc:  # noqa: BLE001 — a missed review is not a failed video
                     passes.append(
                         {
@@ -327,20 +438,19 @@ def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
                     job.update(passes=passes)
                     break
                 shots, applied = review.apply(shots, words, notes, profile)
+                score = notes.get("score")
                 passes.append(
-                    {
-                        "score": notes.get("score"),
-                        "verdict": str(notes.get("verdict") or "")[:200],
-                        "applied": applied,
-                    }
-                )
+                    {"score": score, "verdict": str(notes.get("verdict") or "")[:200], "applied": applied,
+                     "by": "director" if last else "editor"}
+                )  # fmt: skip
                 job.update(passes=passes)
                 job.write("plan.json", P.to_json(shots))
-                job.log(f"pasada {k + 1}: nota {notes.get('score')}, {applied} cambios")
+                job.log(f"pasada {k + 1}: nota {score}, {applied} cambios")
                 if applied:
                     fill("revision")
-                if not applied:
-                    break  # nothing left to fix
+                good = isinstance(score, (int, float)) and score >= 9
+                if not applied or good:
+                    break  # nothing left to fix: no more paying for reviews
             job.finish("revision")
 
         # 8. the sound
@@ -348,13 +458,11 @@ def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
         if stage("sonido"):
             voice = audio.read_wav(wav)
             total = max(shots[-1].end if shots else 0, len(voice) / audio.SR)
-            music = (
-                _music(str(params.get("music") or ""), total, job.dir)
-                if params.get("music") != "ninguna"
-                else None
-            )
-            if music is None and params.get("music") != "ninguna":
-                music = audio.music_bed(total)
+            music = None
+            if params.get("music") != "ninguna":
+                music = _music(str(params.get("music") or ""), total, job.dir)
+                if music is None:
+                    music = audio.music_bed(total)
             events = []
             for s in shots:
                 sfx = (
@@ -365,53 +473,229 @@ def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
                 if sfx != "none":
                     events.append((s.start, sfx))
             fx = audio.effects_track(events, total)
-            mix_path.write_bytes(audio.write_wav(audio.mix(voice, music, fx)))
+            level = 0.32 if job.state().get("voice") else 0.8
+            mix_path.write_bytes(
+                audio.write_wav(audio.mix(voice, music, fx, music_level=level))
+            )
             job.finish("sonido")
 
-        # 9. the final render
+        # 9. the render
+        out = job.dir / "final.mp4"
         if stage("render"):
-            out = job.dir / "final.mp4"
-            render.render_video(
-                shots,
-                words,
-                out,
-                size=render.SIZES[aspect]
-                if not params.get("draft")
-                else render.DRAFT_SIZES[aspect],
-                audio=mix_path,
-                preset=str(params.get("preset") or "medium"),
-                progress=lambda f: job.progress("render", f),
+            size = (
+                render.DRAFT_SIZES[aspect]
+                if params.get("draft")
+                else render.size_for(aspect, mode.size)
             )
+            render.render_video(
+                shots, words, out, size=size, audio=mix_path,
+                preset=str(params.get("preset") or mode.preset),
+                progress=lambda f: job.progress("render", f),
+            )  # fmt: skip
+            job.finish("render")
+
+        # 10. finishing with Creator's tools, and the posting package
+        if stage("acabado"):
+            ff = render.ffmpeg()
+            delivered = out
+            extras: Dict[str, Any] = {}
+            if mode.finishing:
+                try:
+                    delivered = finish.grade(
+                        out,
+                        job.dir / "final-color.mp4",
+                        ff,
+                        lut=str(params.get("lut") or ""),
+                    )
+                except Exception as exc:  # noqa: BLE001 — the ungraded cut is still good
+                    job.log(f"sin color: {exc}")
+            if mode.master:
+                m = finish.master(delivered, ff, mode.master)
+                if m:
+                    extras["master"] = str(m)
             from openjarvis.creator import studio
 
             name = studio.media_name("video", ".mp4")
             videos = deps.videos or studio.projects_root() / "videos"
             videos.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(out, videos / name)
-            job.update(
-                result={
-                    "url": f"/v1/creator/media/{name}",
-                    "path": str(videos / name),
-                    "shots": len(shots),
-                }
-            )
-            job.finish("render")
+            shutil.copy2(delivered, videos / name)
+            result = {
+                "url": f"/v1/creator/media/{name}",
+                "path": str(videos / name),
+                "shots": len(shots),
+                **extras,
+            }
+            if mode.package:
+                from openjarvis.video_essay import sources as S
 
-        # 10. tell him
+                chapters = _chapters(sc, shots, words)
+                ask_pkg = edit if budget.can("llm") else None
+                pkg = director.package(
+                    sc.get("title", ""), sc.get("logline", ""), chapters, S.credits_text(filler.credits), ask_pkg,
+                    language=str(params.get("language") or "Spanish"),
+                )  # fmt: skip
+                best = (
+                    max(shots, key=lambda s: s.dur if s.kind != "card" else 0)
+                    if shots
+                    else None
+                )
+                if best is not None:
+                    cover_name = studio.media_name("portada", ".jpg")
+                    finish.cover(
+                        render.still_of(best, words, render.SIZES[aspect]),
+                        pkg["thumbnail_text"],
+                        videos / cover_name,
+                    )
+                    pkg["cover_url"] = f"/v1/creator/media/{cover_name}"
+                job.write("publicar.json", pkg)
+                result["package"] = pkg
+            job.update(result=result)
+            job.finish("acabado")
+
+        # 11. tell him
         if stage("listo"):
-            final = job.update(status="listo", finished=time.time())
+            final = job.update(
+                status="listo", finished=time.time(), budget=budget.to_dict()
+            )
             (deps.notify or _tell_hous)(job.id, final)
             job.finish("listo")
         return job.state()
     except Cancelled:
         job.log("cancelado")
-        return job.update(status="cancelado")
+        return job.update(status="cancelado", budget=budget.to_dict())
+    except M.OverBudget as exc:
+        job.log(f"tope: {exc}")
+        return job.update(
+            status="error",
+            error=f"Me detuve para no gastar de más ({exc}).",
+            budget=budget.to_dict(),
+        )
     except Exception as exc:  # noqa: BLE001 — kept for «reintentar»
         job.log(traceback.format_exc()[-2000:])
-        return job.update(status="error", error=str(exc)[:400])
+        return job.update(status="error", error=str(exc)[:400], budget=budget.to_dict())
     finally:
         with _lock:
             _running.pop(job.id, None)
+
+
+def _own_folders(params: Dict[str, Any]) -> List[str]:
+    from openjarvis.video_essay.sources import own_folders
+
+    return own_folders([str(params.get("clips") or "")])
+
+
+def _web_allowed(params: Dict[str, Any]) -> bool:
+    from openjarvis.video_essay.sources import web_allowed
+
+    return bool(params.get("web_clips", True)) and web_allowed()
+
+
+def _allowed_sources(
+    preferred: List[str], params: Dict[str, Any], mode: Any
+) -> List[str]:
+    """The director's sources, minus what this mode or order does not use."""
+    out = [
+        s
+        for s in preferred
+        if s in ("library", "stock", "web", "archive", "ai", "3d", "image")
+    ]
+    for s in ("library", "stock", "archive", "web", "image"):
+        if s not in out:
+            out.append(s)
+    if not params.get("ai_video") and mode.limits.get("ai_seconds", 0) <= 0:
+        out = [s for s in out if s != "ai"]
+    if mode.limits.get("blender", 0) <= 0:
+        out = [s for s in out if s != "3d"]
+    if not _web_allowed(params):
+        out = [s for s in out if s != "web"]
+    return ["library"] + [s for s in out if s != "library"]
+
+
+def _blender_maker(
+    ask: Callable[..., str], profile: Dict[str, Any], sc: Dict[str, Any], aspect: str
+) -> Optional[Callable[..., str]]:
+    from openjarvis.video_essay import aivideo, blender3d, render
+
+    if blender3d.blender_cmd() is None:
+        return None
+
+    def make(shot: Any, folder: Path) -> str:
+        folder.mkdir(parents=True, exist_ok=True)
+        code = blender3d.script_for(
+            f"{shot.visual or shot.text}. Camera: {shot.camera or 'cinematic, motivated move'}",
+            max(1.0, shot.dur), str(profile.get("look") or ""), aivideo.bible_text(sc.get("characters") or []), ask,
+        )  # fmt: skip
+        out = folder / f"toma-{abs(hash(code)) % 10**10}.mp4"
+        size = render.size_for(aspect, "720")
+        return blender3d.render_shot(
+            code, out, max(1.0, shot.dur), size, render.ffmpeg()
+        )
+
+    return make
+
+
+def _silent_length(sc: Dict[str, Any], seconds: float, wps: float) -> float:
+    beats = sc.get("beats") or []
+    told = sum(float(b.get("seconds") or 0) for b in beats)
+    if told >= 5:
+        return told + 0.8
+    words = len(str(sc.get("text") or "").split())
+    return max(seconds, words / wps) + 0.8
+
+
+def _beat_words(sc: Dict[str, Any], total: float) -> List[Any]:
+    """Words for a film without narration: each beat's words (or a hidden
+    mark) spread over the beat's seconds."""
+    from openjarvis.video_essay.plan import Word
+
+    beats = sc.get("beats") or [{"text": sc.get("text", ""), "seconds": total}]
+    told = [float(b.get("seconds") or 0) for b in beats]
+    if sum(told) < 1:
+        told = [total / len(beats)] * len(beats)
+    scale = (total - 0.8) / sum(told)
+    out, at = [], 0.0
+    for b, secs in zip(beats, told):
+        secs *= scale
+        tokens = str(b.get("text") or "").split() or ["·"]
+        step = secs / len(tokens)
+        for t in tokens:
+            out.append(Word(t, round(at, 3), round(at + step * 0.9, 3)))
+            at += step
+    return out
+
+
+def _beat_notes(sc: Dict[str, Any]) -> str:
+    rows = [
+        f"- {b.get('beat', '')}: {b.get('visual', '')}"
+        for b in sc.get("beats") or []
+        if b.get("visual")
+    ]
+    chars = sc.get("characters") or []
+    text = ""
+    if rows:
+        text += (
+            "DIRECTOR'S VISUALS, beat by beat (use them):\n"
+            + "\n".join(rows[:40])
+            + "\n"
+        )
+    if chars:
+        text += "CHARACTERS (same look in every shot): " + "; ".join(
+            f"{c.get('name')}: {c.get('look')}" for c in chars
+        )
+    return text
+
+
+def _chapters(sc: Dict[str, Any], shots: List[Any], words: List[Any]) -> List[tuple]:
+    """(seconds, beat) at the first word of each beat."""
+    out, i = [], 0
+    for b in sc.get("beats") or []:
+        n = len(str(b.get("text") or "").split()) or 1
+        if i < len(words):
+            out.append(
+                (words[i].start, str(b.get("beat") or "").capitalize() or "Parte")
+            )
+        i += n
+    return out
 
 
 def _music(path: str, total: float, folder: Path) -> Any:
@@ -440,8 +724,21 @@ def summary(st: Dict[str, Any]) -> str:
     if status == "listo":
         res = st.get("result") or {}
         notes = [p for p in st.get("passes") or [] if p.get("score")]
-        score = f" Nota final del editor: {notes[-1]['score']}/10." if notes else ""
-        return f"«{title}» está listo ({res.get('shots', 0)} tomas).{score}\n\n![{title}]({res.get('url', '')})"
+        who = (
+            "del director"
+            if notes and notes[-1].get("by") == "director"
+            else "del editor"
+        )
+        score = f" Nota final {who}: {notes[-1]['score']}/10." if notes else ""
+        pkg = res.get("package") or {}
+        extra = (
+            f"\nListo para publicar: «{pkg.get('title')}» (título, descripción, créditos y portada)."
+            if pkg
+            else ""
+        )
+        if pkg.get("note"):
+            extra += " " + pkg["note"]
+        return f"«{title}» está listo ({res.get('shots', 0)} tomas).{score}{extra}\n\n![{title}]({res.get('url', '')})"
     if status == "error":
         where = LABELS.get(st.get("stage", ""), st.get("stage"))
         return f"«{title}» se detuvo en «{where}»: {st.get('error', '')}. Puedo reintentarlo desde ahí."
@@ -520,12 +817,21 @@ def cancel(job_id: str, root: Optional[Path] = None) -> bool:
     return True
 
 
+MAX_ATTEMPTS = 4  # runs of one job (first + resumes + retries): never an endless loop
+SAME_ORDER_MINUTES = 30
+
+
 def retry(
     job_id: str, deps: Optional[Deps] = None, root: Optional[Path] = None
 ) -> Optional[Job]:
     job = get(job_id, root)
     if job is None:
         return None
+    if int(job.state().get("attempts") or 0) >= MAX_ATTEMPTS:
+        job.update(
+            error=f"Ya lo intenté {MAX_ATTEMPTS} veces; no lo repito para no gastar de más."
+        )
+        return job
     job.update(status="en curso", error="")
     launch(job, deps)
     return job
@@ -534,16 +840,67 @@ def retry(
 def resume_unfinished(
     deps: Optional[Deps] = None, root: Optional[Path] = None
 ) -> List[str]:
-    """Pick up the jobs a restart left half done."""
+    """Pick up the jobs a restart left half done (a few times at most)."""
     picked = []
     for job in all_jobs(root):
-        if job.state().get("status") == "en curso" and job.id not in _running:
-            if launch(job, deps):
-                picked.append(job.id)
+        st = job.state()
+        if st.get("status") != "en curso" or job.id in _running:
+            continue
+        if int(st.get("attempts") or 0) >= MAX_ATTEMPTS:
+            job.update(
+                status="error",
+                error="Se interrumpió demasiadas veces; lo dejé quieto para no gastar de más.",
+            )
+            continue
+        if launch(job, deps):
+            picked.append(job.id)
     return picked
+
+
+def running(root: Optional[Path] = None) -> List[Job]:
+    return [j for j in all_jobs(root) if j.id in _running and _running[j.id].is_alive()]
+
+
+def _same(a: Dict[str, Any], b: Dict[str, Any]) -> bool:
+    keys = ("topic", "prompt", "script", "reference", "style", "mode", "aspect")
+    return all(
+        str(a.get(k) or "").strip().lower() == str(b.get(k) or "").strip().lower()
+        for k in keys
+    )
+
+
+def guard(params: Dict[str, Any], root: Optional[Path] = None) -> tuple:
+    """(job, why) when a new job must NOT start; (None, "") when it can.
+
+    One video at a time; the same order again within half an hour returns the
+    one already made; and at most ``SERGIO_VIDEO_JOBS_DIA`` (6) a day."""
+    import os
+
+    busy = running(root)
+    if busy:
+        return busy[0], "en curso"
+    now = time.time()
+    today = [
+        j for j in all_jobs(root) if now - float(j.state().get("created") or 0) < 86400
+    ]
+    for j in today:
+        st = j.state()
+        if (
+            _same(st.get("params") or {}, params)
+            and now - float(st.get("created") or 0) < SAME_ORDER_MINUTES * 60
+        ):
+            if st.get("status") in ("en curso", "listo"):
+                return j, "repetido"
+    try:
+        cap = int(os.environ.get("SERGIO_VIDEO_JOBS_DIA", "6"))
+    except ValueError:
+        cap = 6
+    if len(today) >= cap:
+        return today[0], "tope diario"
+    return None, ""
 
 
 __all__ = [
     "Deps", "Job", "LABELS", "STAGES", "all_jobs", "cancel", "create", "get",
-    "jobs_dir", "launch", "resume_unfinished", "retry", "run", "start", "summary",
+    "guard", "jobs_dir", "launch", "resume_unfinished", "retry", "run", "running", "start", "summary",
 ]  # fmt: skip

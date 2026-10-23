@@ -1,0 +1,75 @@
+{
+ "key": "animacion",
+ "name": "Animación compleja con mensaje (2D/3D, color selectivo)",
+ "source": "Referencia del dueño (YouTube p7LDk4D3Q3U), estudiada el 2026-10-23 con Gemini; solo se guarda cómo está hecha.",
+ "shots_measured": 95,
+ "length_s": 2.1,
+ "median_shot_s": 2.5,
+ "min_shot_s": 0.4,
+ "max_shot_s": 7.5,
+ "mix": {
+  "broll": 1.0
+ },
+ "text_share": 0.37,
+ "palette_seen": [],
+ "grade": "Predominantly desaturated, grayscale, or monochromatic with selective vibrant color accents (red, pink, green, yellow) to draw attention to specific objects or convey emotion. 'Good' scenes feature full, vibrant color palettes, while 'bad' scenes are dominated by reds, grays, and dark tones.",
+ "typography": "Main title uses a bold, distressed sans-serif font. On-screen text for news headlines, product labels, and protest signs uses various sans-serif fonts. Comments section uses a standard web font.",
+ "narration": "None, but song lyrics provide narrative context.",
+ "music": "Original indie rock/folk song with male vocals. Consistent background music throughout, changing slightly in intensity and instrumentation to match the scene's mood. Rich sound effects (traffic, nature, machinery, water, UI clicks, animal sounds, human screams) are used to enhance realism and emotional impact.",
+ "effects": [
+  "selective color",
+  "VHS/CRT scanline effect (for TV/ads)",
+  "smoke/pollution overlay",
+  "shaky cam (for chaos)",
+  "glitch effect (for ads)"
+ ],
+ "sfx": {
+  "screaming": 0.08,
+  "typing": 0.05,
+  "museum ambient": 0.04,
+  "water flowing": 0.03,
+  "ice cracking": 0.03,
+  "snarling": 0.03,
+  "helicopter blades": 0.03,
+  "waves lapping": 0.03
+ },
+ "structure": [
+  "world intro",
+  "normal life",
+  "the problem grows",
+  "turning point",
+  "consequences",
+  "hopeful last image"
+ ],
+ "pacing": {
+  "median_shot_s": 2.5,
+  "cuts_total": 75
+ },
+ "production": "animation",
+ "narration_mode": "song",
+ "sources": [
+  "ai",
+  "3d",
+  "image"
+ ],
+ "look": "Stylised 2D characters over 3D environments, desaturated world with selective colour accents (red, pink, green), satirical scenes, pans and zooms, VHS/glitch for screens, fades to white/black at chapter turns, an original song carries the story.",
+ "overlays": [],
+ "camera": "Wide shots establish scenes, close-ups emphasize details and emotions. Pans and zooms are frequent. Tracking shots follow characters or objects. Some dynamic, almost 'shaky cam' effects during chaotic scenes (e.g., forest destruction). Implied wide-angle and telephoto lenses used.",
+ "humans": "Stylized, often gaunt and exaggerated, sometimes skeletal or zombie-like, especially when suffering from pollution. In 'good' scenes (mermaids, family in forest), they are more conventionally drawn but still stylized. Not realistic.",
+ "viral": [
+  "Strong environmental message delivered through striking, often disturbing, visuals.",
+  "Anthropomorphic animals engaging in human-like destructive behaviors creates a unique and thought-provoking satire.",
+  "The reversal of roles (animals as dominant, humans as endangered) is a powerful narrative device.",
+  "High-quality 2D animation with selective color use is visually appealing and distinctive.",
+  "Parodies of well-known brands (well-known references, well-known references, social media denial) make it relatable and impactful.",
+  "Emotional resonance through the plight of the stylized humans and the contrast with the animals' indifference."
+ ],
+ "transitions_seen": [
+  "cut",
+  "zoom out",
+  "zoom in",
+  "wipe (implied by scene change)",
+  "fade to white",
+  "fade to black"
+ ]
+}

@@ -5,6 +5,7 @@ import { ArrowUp, Check, CircleSlash, ExternalLink, Mic, Play, Plus, Volume2, Vo
 import { toast } from 'sonner';
 import { NodeCritter } from '../../components/Nodes/NodeCritter';
 import { useTtsStore } from '../../lib/tts';
+import { latestWork, withoutWork, type Work } from '../../lib/nodeCanvas';
 import { nodesApi, type NodeMessage, type SergioNode } from '../../lib/nodes';
 import { look } from './shared';
 
@@ -95,8 +96,15 @@ export function ChatTab({ node, onChanged, onCancel }: { node: SergioNode; onCha
   };
 
   const talking = tts.state === 'speaking' && !!tts.speakingId?.startsWith('node-');
+  const work = latestWork(messages);
+  const busy = node.status === 'working' || node.busy;
   return (
-    <div className="node-chat">
+    <div className={work ? 'nchat has-work' : 'nchat'}>
+      <div className="node-chat nchat-main">
+        <div className="nchat-hero" aria-hidden="true">
+          <NodeCritter look={look(node)} size={58} talking={talking} status={busy ? 'working' : undefined} />
+          <span>{node.name}</span>
+        </div>
       <div className="node-threads" role="tablist" aria-label="Hilos">
         {node.threads.map((t) => (
           <button key={t.id} type="button" role="tab" className="mac-chip" aria-pressed={thread === t.id} onClick={() => setThread(t.id)}>
@@ -130,13 +138,16 @@ export function ChatTab({ node, onChanged, onCancel }: { node: SergioNode; onCha
       </div>
       <div className="node-thread">
         {messages.map((m, i) => (
-          <div key={m.id} className={m.role === 'user' ? 'node-msg mine' : 'node-msg'}>
-            {m.role === 'node' && <NodeCritter look={look(node)} size={30} talking={talking && i === messages.length - 1} />}
-            <div className="node-msg-body">
-              {m.source && m.source !== 'Encargo del usuario' && <span className="node-msg-source">{m.source}</span>}
-              <div className="prose prose-sm">
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.text}</ReactMarkdown>
-              </div>
+          <div key={m.id} className={m.role === 'user' ? 'nchat-row me' : 'nchat-row them'}>
+            {m.source && m.source !== 'Encargo del usuario' && <span className="node-msg-source">{m.source}</span>}
+            <div className={m.role === 'user' ? 'nchat-bubble me' : 'nchat-bubble them'}>
+              {m.role === 'user' ? (
+                m.text
+              ) : (
+                <div className="prose prose-sm">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{withoutWork(m.text, work) || ' '}</ReactMarkdown>
+                </div>
+              )}
               {m.role === 'node' && i === messages.length - 1 && (m.suggestions?.length ?? 0) > 0 && (
                 <div className="node-next" aria-label="Siguientes pasos que propone">
                   {m.suggestions!.map((idea) => (
@@ -166,10 +177,9 @@ export function ChatTab({ node, onChanged, onCancel }: { node: SergioNode; onCha
             </div>
           ))}
         {node.status === 'needs_you' && <TakeOver node={node} onChanged={onChanged} />}
-        {(node.status === 'working' || node.busy) && (
-          <div className="node-msg">
-            <NodeCritter look={look(node)} size={30} status="working" />
-            <div className="node-working">{node.doing || 'Trabajando…'}</div>
+        {busy && (
+          <div className="nchat-row them nchat-working">
+            <div className="nchat-bubble them node-working">{node.doing || 'Trabajando…'}</div>
             <button type="button" className="mac-chip node-cancel" onClick={onCancel}>
               <CircleSlash size={13} /> Cancelar acción
             </button>
@@ -177,7 +187,7 @@ export function ChatTab({ node, onChanged, onCancel }: { node: SergioNode; onCha
         )}
         <div ref={end} />
       </div>
-      <div className="node-composer">
+      <div className="node-composer nchat-composer">
         <textarea
           rows={1}
           value={text}
@@ -200,11 +210,37 @@ export function ChatTab({ node, onChanged, onCancel }: { node: SergioNode; onCha
         >
           <Mic size={17} strokeWidth={1.6} />
         </button>
-        <button type="button" className="mac-send" onClick={() => void send()} disabled={!text.trim()} aria-label="Enviar">
+        <button type="button" className="nchat-send" onClick={() => void send()} disabled={!text.trim()} aria-label="Enviar">
           <ArrowUp size={17} strokeWidth={2.25} />
         </button>
       </div>
+      </div>
+      {work && <WorkPanel work={work} />}
     </div>
+  );
+}
+
+/** Beside the chat: what the Node made last (as in the owner's reference). */
+function WorkPanel({ work }: { work: Work }) {
+  return (
+    <aside className="nchat-work" aria-label="Lo que está haciendo">
+      <header className="nchat-work-head">
+        <span className="nchat-work-title">{work.title}</span>
+        <a className="mac-icon-btn" href={work.url} target="_blank" rel="noreferrer" aria-label="Abrir aparte" title="Abrir aparte">
+          <ExternalLink size={15} />
+        </a>
+      </header>
+      <div className="nchat-work-body">
+        {work.kind === 'video' && <video key={work.url} src={work.url} controls playsInline preload="metadata" />}
+        {work.kind === 'image' && <img src={work.url} alt={work.title} />}
+        {work.kind === 'page' && (
+          <a className="nchat-work-page" href={work.url} target="_blank" rel="noreferrer">
+            {work.title}
+            <span>{work.url}</span>
+          </a>
+        )}
+      </div>
+    </aside>
   );
 }
 

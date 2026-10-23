@@ -92,7 +92,45 @@ def riser(seconds: float = 1.6, seed: int = 5) -> np.ndarray:
     return ((tone + hiss) * t**2).astype(np.float32)
 
 
+def pop(seed: int = 6) -> np.ndarray:
+    n = int(0.12 * SR)
+    t = np.arange(n) / SR
+    freq = 900 * np.exp(-t * 25) + 180
+    return (np.sin(2 * np.pi * np.cumsum(freq) / SR) * np.exp(-t * 40) * 0.7).astype(
+        np.float32
+    )
+
+
+def sizzle(seconds: float = 0.9, seed: int = 8) -> np.ndarray:
+    """Frying: crackling noise (food videos)."""
+    n = int(seconds * SR)
+    rng = np.random.default_rng(seed)
+    hiss = rng.standard_normal(n).astype(np.float32) * 0.18
+    crackle = (rng.random(n) > 0.997).astype(np.float32) * rng.uniform(
+        0.3, 0.9, n
+    ).astype(np.float32)
+    crackle = np.convolve(crackle, np.exp(-np.arange(200) / 25), mode="same").astype(
+        np.float32
+    )
+    body = hiss - np.convolve(hiss, np.ones(8) / 8, mode="same")  # keep the high part
+    return ((body + crackle * 0.6) * _env(n, 0.05, 0.3)).astype(np.float32)
+
+
+def ding(seed: int = 9) -> np.ndarray:
+    """A small bell (an order, a counter reaching its number)."""
+    n = int(1.2 * SR)
+    t = np.arange(n) / SR
+    tone = sum(
+        np.sin(2 * np.pi * f * t) * a
+        for f, a in ((1568, 0.5), (3136, 0.2), (4704, 0.1))
+    )
+    return (tone * np.exp(-t * 4) * 0.6).astype(np.float32)
+
+
 EFFECTS = {
+    "pop": pop,
+    "sizzle": sizzle,
+    "ding": ding,
     "whoosh": whoosh,
     "click": click,
     "impact": impact,

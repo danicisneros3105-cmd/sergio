@@ -2,6 +2,20 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-10-23 · Claude · Video ronda 2: modos, topes, director y editor, clips, IA, 3D; chat de Nodes
+- Cuatro referencias nuevas estudiadas con Gemini y guardadas como estilos (sin
+  material ni marcas): corto 3D, reto viral, anuncio de comida, animación.
+- Modos Test/Basic/Post quality/Absolut Cinema con tope de gasto y sin bucles
+  (un video a la vez, sin repetir pedidos, tope diario, máximo 4 intentos).
+- Director + editor, prompt libre, clips de la web y de películas (decisión
+  nueva del dueño), video IA (Veo/fal), Blender, color de Creator, paquete
+  para publicar (título, descripción, créditos, portada). Publicar sigue
+  pidiendo face_approval.
+- Chat de Nodes como la imagen del dueño, con panel de su trabajo al lado.
+- Probado: 35 pruebas de video, web 273, demo real con la clave de prueba
+  (2 min). No probado aquí: descargas de clips (la red lo bloquea), Veo
+  (clave gratuita) y render 3D real (el entorno lo mató por memoria).
+
 ## 2026-10-23 · Claude · Video ensayo al nivel de la referencia
 - El dueño mandó un video de referencia («If you have Big Goals…», 3 min) y
   pidió ese nivel de edición, aunque tarde horas. Lo estudié con código y con

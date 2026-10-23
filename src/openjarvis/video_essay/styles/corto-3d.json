@@ -1,0 +1,71 @@
+{
+ "key": "corto-3d",
+ "name": "Corto 3D cinematográfico (personajes realistas)",
+ "source": "Referencia del dueño (YouTube 7rd6HWqvaHQ), estudiada el 2026-10-23 con Gemini; solo se guarda cómo está hecha.",
+ "shots_measured": 161,
+ "length_s": 369.0,
+ "median_shot_s": 2.0,
+ "min_shot_s": 0.4,
+ "max_shot_s": 6.0,
+ "mix": {
+  "broll": 1.0
+ },
+ "text_share": 0.02,
+ "palette_seen": [],
+ "grade": "Warm, bright tones for daytime construction, slightly cooler/moodier for the bar and night scenes, with a greenish tint and chromatic aberration for the time-rewind effect. Red hues for moments of danger or intense emotion.",
+ "typography": "Simple, clean white text for 'Zack D. Mart' and 'Zack D. Pop' on products. Dartboard text for scores and rules.",
+ "narration": "Male voice, calm, descriptive, omniscient, guiding the narrative.",
+ "music": "Uplifting, slightly dramatic background music. Realistic foley sounds for all actions (shoveling, touching, breaking glass, pouring drinks, footsteps, car sounds, gunshots, etc.). Distinct 'rewind' sound effect with a high-pitched whirring. Dialogue is minimal, mostly background chatter or brief exclamations.",
+ "effects": [
+  "Time rewind visual distortion (chromatic aberration, blur, speed lines)",
+  "Glowing light from the dial (blue/green)",
+  "Blood disappearing/appearing",
+  "Objects moving backward/forward in time"
+ ],
+ "sfx": {
+  "rewind sound": 0.28,
+  "none": 0.22,
+  "falling sound": 0.04,
+  "wind ambience": 0.04,
+  "dialogue": 0.03,
+  "climbing sounds": 0.03,
+  "footsteps": 0.02,
+  "falling": 0.02
+ },
+ "structure": [
+  "hook: a mysterious discovery",
+  "setup: who the character is",
+  "first use of the power",
+  "escalation: bigger and funnier uses",
+  "complication: it goes wrong",
+  "climax",
+  "twist ending"
+ ],
+ "pacing": {
+  "median_shot_s": 3,
+  "cuts_total": 80
+ },
+ "production": "3d",
+ "narration_mode": "voice",
+ "sources": [
+  "3d",
+  "ai",
+  "image"
+ ],
+ "look": "Cinematic 3D short film: near-photoreal characters, warm day / cool night grade, close-ups on faces and the key object, tracking, dolly and crane moves, whip pans; one signature visual effect that recurs (chromatic aberration, blur, speed lines) with its own sound.",
+ "overlays": [],
+ "camera": "Frequent use of close-ups on faces and objects (especially the dial), dynamic tracking shots, wide establishing shots, low-angle shots, high-angle shots, whip pans, dolly shots, crane shots, mimicking handheld camera work to enhance realism and immersion.",
+ "humans": "Highly realistic, near photorealistic, but still identifiable as 3D animation due to subtle uncanny valley effects in movement and facial expressions.",
+ "viral": [
+  "Relatable 'what if' scenario (time travel/rewind)",
+  "High-quality 3D animation that approaches photorealism",
+  "Humorous and dramatic situations created by the time-rewind power",
+  "Clear narrative progression with escalating stakes",
+  "Satisfying visual and sound effects for the time manipulation",
+  "Engaging character reactions and expressions"
+ ],
+ "transitions_seen": [
+  "Hard cut",
+  "Rewind effect (visual distortion + sound)"
+ ]
+}

@@ -85,4 +85,7 @@ Otras piezas de terceros que Sergio usa (créditos y licencias):
   dueño y bajo sus licencias; el reconocimiento de palabras usa
   faster-whisper (MIT) con los modelos Whisper de OpenAI (MIT). Efectos y
   música de fondo los genera Sergio.
+- Clips de la web: yt-dlp (Unlicense); Wikimedia Commons (cada archivo con
+  su licencia, citada), NASA (dominio público) e Internet Archive (dominio
+  público). Video con IA: Veo (Google) o fal.ai, bajo sus términos.
 Detalle legal y decisiones: docs/LEGAL.md.

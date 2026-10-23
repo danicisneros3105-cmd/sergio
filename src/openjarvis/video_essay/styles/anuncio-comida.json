@@ -1,0 +1,69 @@
+{
+ "key": "anuncio-comida",
+ "name": "Anuncio de comida que da hambre (cortes de 1 s, sonidos ASMR)",
+ "source": "Referencia del dueño (YouTube RCKxHTEJ0o8), estudiada el 2026-10-23 con Gemini; solo se guarda cómo está hecha.",
+ "shots_measured": 32,
+ "length_s": 32.9,
+ "median_shot_s": 1.0,
+ "min_shot_s": 0.4,
+ "max_shot_s": 4.0,
+ "mix": {
+  "broll": 1.0
+ },
+ "text_share": 0.03,
+ "palette_seen": [],
+ "grade": "Warm and inviting, with vibrant colors that highlight the food. The cooked chicken and fries have a rich golden-brown hue. Contrast is well-managed to make the food pop.",
+ "typography": "Minimal, only a handwritten note '1 chicken shawarma' on a small card.",
+ "narration": "None",
+ "music": "Upbeat, energetic background music throughout. Extensive and prominent sound effects (ASMR-like) are used for almost every action, including sizzling, bell ringing, pouring, blending, squishing, slicing, scraping, dropping, and wrapping. These sound effects are crucial to the video's 'satisfying' quality.",
+ "effects": [
+  "speed ramp (time-lapse for cooking)",
+  "focus pull",
+  "quick zoom/pan within shot"
+ ],
+ "sfx": {
+  "slicing": 0.16,
+  "sizzling": 0.12,
+  "squishing": 0.09,
+  "paper rustle": 0.06,
+  "pouring liquid": 0.06,
+  "dropping": 0.06,
+  "wrapping": 0.06,
+  "footsteps": 0.03
+ },
+ "structure": [
+  "order arrives (hook)",
+  "prep",
+  "cook",
+  "assemble",
+  "hero reveal"
+ ],
+ "pacing": {
+  "median_shot_s": 1,
+  "cuts_total": 32
+ },
+ "production": "ai",
+ "narration_mode": "none",
+ "sources": [
+  "ai",
+  "library",
+  "stock",
+  "web",
+  "image"
+ ],
+ "look": "Macro and top-down food shots, shallow depth of field, warm golden grade, speed ramps and quick push-ins, realistic chefs (natural skin, real hands), one action per shot, every action with its own crisp sound (sizzle, pour, slice, bell).",
+ "overlays": [],
+ "camera": "Predominantly close-up and extreme close-up shots to emphasize textures and actions. Frequent use of top-down angles for ingredient assembly. Smooth, often quick, tracking shots (e.g., chef running, chicken stacking). Shallow depth of field is consistently used to keep focus on the food. Implied macro lenses for detailed shots.",
+ "humans": "Realistic, professional chefs.",
+ "viral": [
+  "ASMR-like sound design, creating an 'oddly satisfying' experience.",
+  "Fast-paced, dynamic editing that keeps viewers engaged.",
+  "Extreme close-ups highlighting food textures and details.",
+  "Clear, step-by-step demonstration of making a popular dish.",
+  "Visually appealing and appetizing presentation of food.",
+  "Efficient and precise actions (e.g., perfect slicing, smooth pouring)."
+ ],
+ "transitions_seen": [
+  "hard cut"
+ ]
+}

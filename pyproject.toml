@@ -99,6 +99,7 @@ server = [
     "python-multipart>=0.0.9",
     # ffmpeg for «haz un video sobre…» (tools/video_create.py) without apt
     "imageio-ffmpeg>=0.5",
+    "yt-dlp>=2025.1.1",
 ]
 desktop = [
     "google-genai>=2.29,<3",

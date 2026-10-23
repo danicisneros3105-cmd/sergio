@@ -46,7 +46,7 @@ NEURONS: Dict[str, Neuron] = {
                ("image_generate", "professional_apps", "opendesign")),
         Neuron("video", "Videos", "Hace videos desde una idea o con sus clips.",
                ("video", "clip", "reel", "short", "tiktok", "montaje", "edita el video",
-                "ensayo", "edicion"),
+                "ensayo", "edicion", "anuncio", "animacion", "cortometraje", "cinema"),
                ("video_create", "video_essay", "video_pro", "video_edit")),
         Neuron("pantalla", "Pantalla y apps", "Ve la pantalla y usa ratón y teclado.",
                ("pantalla", "abre", "abrir", "cierra", "ventana", "haz clic", "click",

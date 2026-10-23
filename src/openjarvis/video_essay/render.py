@@ -119,6 +119,8 @@ def _ease_back(p: float) -> float:
 def layout_text(shot: Shot, words: List[Word], size: Tuple[int, int]) -> List[Placed]:
     """Where each on-screen word goes and when it appears."""
     w_px, h_px = size
+    if shot.text_style == "none":
+        return []
     spoken = words[shot.first : shot.last]
     shown = shot.text.split() or [w.text for w in spoken]
     # each shown word appears when it is said (matched in order)
@@ -462,6 +464,35 @@ def glitch(img: Image.Image, seed: int) -> Image.Image:
 # -- the shot, frame by frame --------------------------------------------------------------
 
 
+def draw_overlay(canvas: Image.Image, text: str, t: float) -> None:
+    """A stamp or counter at the top left, like the counters of challenge
+    videos; a number in it counts up during the first half second."""
+    import re
+
+    m = re.search(r"\d[\d.,]*", text)
+    shown = text
+    if m and t < 0.6:
+        digits = re.sub(r"\D", "", m.group(0))
+        if digits:
+            value = int(int(digits) * min(1.0, t / 0.6))
+            sep = "," if "," in m.group(0) else "."
+            num = f"{value:,}".replace(",", sep) if len(digits) > 3 else str(value)
+            shown = text[: m.start()] + num + text[m.end() :]
+    size = max(18, int(canvas.size[1] * 0.075))
+    img = word_image(shown.upper(), "black", size, PALETTE["white"], True)
+    m_px = shadow_margin(size, True)
+    canvas.alpha_composite(
+        img, (int(canvas.size[0] * 0.05) - m_px, int(canvas.size[1] * 0.07) - m_px)
+    )
+
+
+def size_for(aspect: str, height: str = "1080") -> Tuple[int, int]:
+    """The frame size of *aspect* at 720, 1080 or 2160 lines."""
+    base = SIZES.get(aspect, SIZES["16:9"])
+    scale = {"720": 2 / 3, "1080": 1.0, "2160": 2.0}.get(str(height), 1.0)
+    return (int(base[0] * scale) // 2 * 2, int(base[1] * scale) // 2 * 2)
+
+
 def shot_frames(
     shot: Shot, words: List[Word], size: Tuple[int, int], index: int = 0
 ) -> Iterator[Image.Image]:
@@ -494,6 +525,8 @@ def shot_frames(
         if overlay is not None:
             canvas.alpha_composite(overlay)
         draw_text(canvas, placed, t, shot.text_style, shadow)
+        if shot.overlay:
+            draw_overlay(canvas, shot.overlay, t)
         out = canvas.convert("RGB")
         if shot.effect == "glitch" and i < 4:
             out = glitch(out, index * 10 + i)
@@ -599,6 +632,8 @@ def sheet(images: List[Image.Image], cols: int = 4, width: int = 1600) -> Image.
 
 
 __all__ = [
+    "draw_overlay",
+    "size_for",
     "DRAFT_SIZES",
     "FPS",
     "PALETTE",

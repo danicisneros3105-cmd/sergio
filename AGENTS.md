@@ -238,6 +238,24 @@ termina en la rama `main`, y el dueño actualiza con un único comando.
   reinicio (`job.py`, `~/.openjarvis/video_jobs/`); al terminar, Hous lo
   publica en su chat. Nunca se publica fuera. Modelos: `SERGIO_VIDEO_MODELS`
   (lista separada por comas; por defecto los Gemini más fuertes).
+  **Ronda 2 (dueño, 23 oct. 2026)**: cuatro modos (`modes.py`: Test, Basic,
+  Post quality, Absolut Cinema), cada uno con **tope de gasto** (llamadas,
+  imágenes, descargas, segundos de video IA, tomas 3D, minutos); un solo video
+  a la vez, el mismo pedido no se repite en 30 min, `SERGIO_VIDEO_JOBS_DIA`
+  (6) al día, y un trabajo se reanuda o reintenta como mucho 4 veces. Dos
+  IAs: **director** (tratamiento, última revisión) y **editor** (cortes,
+  revisiones), también desde un prompt libre (`director.py`). Cinco estilos:
+  `metas-grandes`, `corto-3d` (Blender), `reto-viral`, `anuncio-comida` (IA
+  realista) y `animacion`. **El dueño cambió su decisión sobre material
+  ajeno**: se pueden usar clips de internet y clips cortos de películas
+  (`sources.py`, yt-dlp, `SERGIO_CLIPS_WEB=0` lo apaga), unos segundos cada
+  uno, con créditos y aviso de reclamos en el paquete para publicar. Video
+  con IA por Veo o fal (`aivideo.py`, biblia de personajes), tomas 3D en
+  Blender (`blender3d.py`, chequeo de seguridad de siempre), color y máster
+  con `video_master` de Creator (`finish.py`).
+- Chat de Nodes como la imagen del dueño (23 oct. 2026): personaje arriba,
+  burbujas grises del Node y azules del dueño, y al lado un panel con lo
+  último que hizo (video, imagen o página) (`lib/nodeCanvas.ts`, `.nchat-*`).
 - Cowork igual al modo de trabajo de ChatGPT (dueño, oct. 2026): una caja
   central «¿En qué trabajamos?» con «+» (adjuntar, modo plan, autonomía,
   tope) y comandos «/»; la tarea como conversación con la actividad plegable,

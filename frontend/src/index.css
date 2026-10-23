@@ -3528,3 +3528,49 @@ p.node-hint:not(.node-path), .swarm-sub, .swarm-hint, .studio-heading p, .studio
 .imsg-field .live-orb-sm { --orb: 29px; }
 .imsg-field .composer-pill { align-self: center; }
 .sb-more-open { transform: rotate(180deg); }
+
+/* -- The Node chat as the owner's reference (23 oct. 2026) --------------------
+   The character on top of the conversation, the Node's messages in soft grey
+   rounded cards, his own in the iMessage blue on the right, a round composer
+   with the blue send button, and beside the chat what the Node is making (the
+   last video, picture or page it produced). */
+.node-body > .nchat.has-work { max-width: 1440px; }
+.nchat { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; min-height: 100%; }
+.nchat.has-work { grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); }
+.nchat-main { min-width: 0; }
+.nchat-hero { display: grid; justify-items: center; gap: 2px; padding: 4px 0 10px; }
+.nchat-hero span { font-size: 12px; font-weight: 600; color: var(--color-text-secondary); }
+.nchat-row { display: flex; flex-direction: column; max-width: 100%; }
+.nchat-row.me { align-items: flex-end; }
+.nchat-row.them { align-items: flex-start; }
+.nchat-bubble {
+  max-width: min(88%, 620px); padding: 10px 14px; border-radius: 18px; font-size: 15px; line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.nchat-bubble.them { background: var(--imsg-them); color: var(--imsg-them-text); border-top-left-radius: 8px; }
+.nchat-bubble.me { background: var(--imsg-me); color: var(--imsg-me-text); white-space: pre-wrap; border-top-right-radius: 8px; }
+.nchat-bubble.them .prose { color: inherit; max-width: none; }
+.nchat-bubble.them .prose :where(p, ul, ol) { margin: 0.35em 0; }
+.nchat-bubble.them .prose :where(img, video) { border-radius: 12px; max-width: 100%; }
+.nchat-working .nchat-bubble { color: var(--imsg-meta); font-style: normal; }
+.nchat-composer { border-radius: 24px; }
+.nchat-send {
+  width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; flex: none;
+  background: var(--imsg-me); color: #fff; border: 0; cursor: pointer;
+}
+.nchat-send:disabled { background: var(--color-disabled-bg); color: var(--color-bg); cursor: default; }
+.nchat-work {
+  position: sticky; top: 0; align-self: start; display: flex; flex-direction: column;
+  max-height: calc(100vh - 210px); border: 1px solid var(--color-border); border-radius: 16px;
+  background: var(--color-bg); overflow: hidden;
+}
+.nchat-work-head { display: flex; align-items: center; gap: 8px; padding: 8px 10px 8px 14px; border-bottom: 1px solid var(--color-border); }
+.nchat-work-title { flex: 1; min-width: 0; font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nchat-work-body { flex: 1; min-height: 0; display: grid; place-items: center; padding: 14px; background: var(--color-bg-secondary, var(--color-hover)); }
+.nchat-work-body :where(img, video) { max-width: 100%; max-height: calc(100vh - 280px); border-radius: 10px; }
+.nchat-work-page { display: grid; gap: 4px; padding: 16px; border-radius: 12px; background: var(--color-bg); color: var(--color-text); text-decoration: none; font-weight: 600; }
+.nchat-work-page span { font-size: 12px; font-weight: 400; color: var(--color-text-tertiary); overflow-wrap: anywhere; }
+@media (max-width: 1100px) {
+  .nchat.has-work { grid-template-columns: minmax(0, 1fr); }
+  .nchat-work { position: static; max-height: none; order: -1; }
+}

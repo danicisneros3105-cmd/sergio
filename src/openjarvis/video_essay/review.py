@@ -30,8 +30,9 @@ FIELDS = {
     "device": P.DEVICES,
     "transition": P.TRANSITIONS,
     "sfx": P.SFX,
+    "source": P.SOURCES,
 }
-FREE = {"visual": 400, "text": 200, "highlight": 40}
+FREE = {"visual": 400, "text": 200, "highlight": 40, "overlay": 24, "camera": 160}
 
 REVIEW_PROMPT = """You are the senior editor reviewing a cut of a video essay before it \
 goes out. The sheet shows one frame of every shot, numbered in order (#0 first). \
@@ -49,7 +50,8 @@ Answer ONLY JSON: {{"score": 1-10, "verdict": "one sentence", \
 "changes": [{{"shot": index, "set": {{"field": "value"}}, "why": "..."}}]}}
 Fields you may set: kind, card, visual (English, one filmable picture), text \
 (a subset of that shot's spoken words), highlight, text_style, position, \
-effect, grade, frame, device, transition, sfx. At most {limit} changes."""
+effect, grade, frame, device, transition, sfx, source (library|stock|web|archive|ai|3d|image), \
+overlay (a counter or stamp) and camera. At most {limit} changes."""
 
 
 def contact_sheet(
@@ -165,7 +167,7 @@ def apply(
             else:
                 continue
             setattr(shot, key, value)
-            if key in ("visual", "kind"):
+            if key in ("visual", "kind", "source"):
                 shot.asset = ""  # a new picture for it
             applied += 1
         if applied and change.get("why"):
