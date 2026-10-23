@@ -14,6 +14,7 @@ import {
   MessageSquare,
   ScanFace,
   Gauge,
+  ChevronDown,
 } from 'lucide-react';
 import { useAppStore } from '../../lib/store';
 import { LiveOrb } from '../Live/LiveOrb';
@@ -49,19 +50,24 @@ function SwarmIcon({ size = 20, strokeWidth = 1.5 }: { size?: number; strokeWidt
 }
 
 // Sergio's parts, listed in the sidebar like ChatGPT lists GPTs and
-// projects: plain monochrome icons and names.
+// projects: plain monochrome icons and names. Simple first (owner, oct.
+// 2026: a child of 5 and a grandmother of 84 must find their way): only the
+// everyday ones are always visible; the rest wait under «Más».
 export const TOOLBAR_ITEMS = [
-  { path: '/chat', icon: MessageSquare, label: 'Chat' },
-  { path: '/nodes', icon: NodesIcon, label: 'Nodes' },
-  { path: '/swarm', icon: SwarmIcon, label: 'Agent Swarm' },
-  { path: '/workspace', icon: NotebookPen, label: 'Workspace' },
-  { path: '/cowork', icon: Briefcase, label: 'Cowork' },
-  { path: '/extensiones', icon: Puzzle, label: 'Extensiones' },
-  { path: '/faces', icon: ScanFace, label: 'Rostros' },
-  { path: '/salud', icon: HeartPulse, label: 'Salud' },
-  { path: '/perfil', icon: UserRound, label: 'Perfil' },
-  { path: '/uso', icon: Gauge, label: 'Uso y modelos' },
+  { path: '/chat', icon: MessageSquare, label: 'Chat', more: false },
+  { path: '/nodes', icon: NodesIcon, label: 'Nodes', more: false },
+  { path: '/salud', icon: HeartPulse, label: 'Salud', more: false },
+  { path: '/uso', icon: Gauge, label: 'Uso', more: false },
+  { path: '/swarm', icon: SwarmIcon, label: 'Agent Swarm', more: true },
+  { path: '/workspace', icon: NotebookPen, label: 'Workspace', more: true },
+  { path: '/cowork', icon: Briefcase, label: 'Cowork', more: true },
+  { path: '/biblioteca', icon: Library, label: 'Biblioteca', more: true },
+  { path: '/extensiones', icon: Puzzle, label: 'Extensiones', more: true },
+  { path: '/faces', icon: ScanFace, label: 'Rostros', more: true },
+  { path: '/perfil', icon: UserRound, label: 'Perfil', more: true },
 ] as const;
+
+const MORE_KEY = 'sergio-sidebar-more';
 
 export function isActive(path: string, pathname: string): boolean {
   if (path === '/chat') return pathname === '/' || pathname === '/chat' || pathname.startsWith('/chat/');
@@ -104,6 +110,25 @@ export function Toolbar({ historyOpen, onToggleHistory }: { historyOpen: boolean
   const [searching, setSearching] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
   // The plan under the name, so the owner always sees which one is in force.
+  // «Más»: the rarely used parts, folded; open by itself on one of them.
+  const [moreChosen, setMoreChosen] = useState(() => {
+    try {
+      return localStorage.getItem(MORE_KEY) === '1';
+    } catch {
+      return false;
+    }
+  });
+  const onMorePage = TOOLBAR_ITEMS.some((i) => i.more && isActive(i.path, pathname));
+  const showMore = moreChosen || onMorePage;
+  const toggleMore = () => {
+    const next = !showMore;
+    setMoreChosen(next);
+    try {
+      localStorage.setItem(MORE_KEY, next ? '1' : '0');
+    } catch {
+      // a convenience only
+    }
+  };
   const [planName, setPlanName] = useState('');
   const [usedToday, setUsedToday] = useState<number | null>(null);
   useEffect(() => {
@@ -188,16 +213,10 @@ export function Toolbar({ historyOpen, onToggleHistory }: { historyOpen: boolean
                 if (searching) setQuery('');
               }}
             />
-            <Item
-              icon={<Library size={18} strokeWidth={1.7} />}
-              label="Biblioteca"
-              active={isActive('/biblioteca', pathname)}
-              onClick={() => go('/biblioteca')}
-            />
           </div>
 
           <div className="sb-group">
-            {TOOLBAR_ITEMS.filter((i) => i.path !== '/chat').map((item) => (
+            {TOOLBAR_ITEMS.filter((i) => i.path !== '/chat' && (!i.more || showMore)).map((item) => (
               <Item
                 key={item.path}
                 icon={<item.icon size={18} strokeWidth={1.7} />}
@@ -215,6 +234,11 @@ export function Toolbar({ historyOpen, onToggleHistory }: { historyOpen: boolean
               }
               label="Notas Post-it"
               onClick={() => window.dispatchEvent(new CustomEvent('sergio:sticky-notes-toggle'))}
+            />
+            <Item
+              icon={<ChevronDown size={18} strokeWidth={1.7} className={showMore ? 'sb-more-open' : ''} />}
+              label={showMore ? 'Menos' : 'Más'}
+              onClick={toggleMore}
             />
           </div>
 

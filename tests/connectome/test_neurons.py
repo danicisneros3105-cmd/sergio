@@ -82,12 +82,14 @@ def test_a_new_tool_grows_a_new_neuron(tmp_path):
 def test_the_agent_only_sees_the_tools_of_the_neurons_that_fired(tmp_path, monkeypatch):
     from openjarvis.tools._stubs import ToolExecutor
     from openjarvis.tools.calculator import CalculatorTool
-    from openjarvis.tools.image_tool import ImageGenerateTool
     from openjarvis.tools.desktop_tools import DesktopActionTool
+    from openjarvis.tools.image_tool import ImageGenerateTool
 
     brain = Brain(tmp_path, clock=Clock())
     monkeypatch.setattr(brain_mod, "get_brain", lambda home=None: brain)
-    executor = ToolExecutor([CalculatorTool(), ImageGenerateTool(), DesktopActionTool()])
+    executor = ToolExecutor(
+        [CalculatorTool(), ImageGenerateTool(), DesktopActionTool()]
+    )
     brain_mod.mind_context("dibuja un faro en la noche")
     names = {f["function"]["name"] for f in executor.get_openai_tools()}
     assert names == {"calculator", "image_generate"}

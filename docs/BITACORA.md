@@ -37,6 +37,49 @@ Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
   - Se probó con el ffmpeg real.
   - `imageio-ffmpeg` entra en el extra `server` (uv.lock regenerado con uv
     0.13, solo esa línea).
+- «No puedo abrir nada»: cada ventana nueva iba a «Primeros pasos» porque
+  nadie marcaba `sergio-onboarded` (vino del commit «Sergio Audit» 9e3390a).
+  Ahora se marca al verlo, y solo se muestra al abrir en «/» la primera vez.
+- Una sola ventana de Sergio:
+  - El notch, la bandeja y la voz piden la página por `/v1/app/open` y la
+    ventana abierta la muestra (`lib/appWindow.ts`, espera larga).
+  - Una ventana cuenta solo si confirma con su siguiente espera.
+  - Sin ventana abierta, se abre una nueva; si el servidor aún arranca, con
+    la pantalla de carga `resources/cargando.html`.
+- Chat idéntico a iMessage: burbujas, cola, horas, «Entregado»/«Leído», campo
+  redondo. Es decisión del dueño y está en AGENTS.md. El azul de iMessage es
+  la única excepción a «sin colores».
+- Nodes únicos (`nodes/specialty.py`):
+  - Cada uno con sus herramientas propias, su esfuerzo y temperatura, y una
+    entrega revisada por código.
+  - Tennessee da veredicto con números, Manchas da fuentes, Hous da el
+    visual, Rihno dice primero qué está listo.
+  - Si falta algo, vuelve una vez.
+- El cerebro es el núcleo (`connectome/neurons.py`):
+  - Catorce neuronas con un solo trabajo cada una; el agente solo ve las
+    herramientas de las neuronas encendidas.
+  - Lo que funciona refuerza las sinapsis: las muy fuertes se vuelven atajos,
+    y una herramienta nueva hace crecer una neurona.
+  - Si nada se enciende, el agente ve todas las herramientas, como antes.
+- Panel de uso: el porcentaje de hoy por tipo, más el cerebro (pedidos que
+  dirigió, ruta rápida, atajos). En la barra aparece «· N % hoy».
+- Más simple: la barra lateral deja a la vista Chat, Nodes, Salud, Uso y
+  Notas; lo demás va bajo «Más», que se abre solo si está en una de esas
+  páginas.
+- OpenJarvis: no se reemplazó entero en esta ronda (es la base del servidor,
+  los agentes y los motores). Se sustituyeron las piezas que fallaban:
+  - imágenes, que solo funcionaban con OpenAI;
+  - la elección de herramientas, que ahora decide el cerebro;
+  - la redirección a «Primeros pasos»;
+  - las ventanas duplicadas.
+- Pendiente, siguiente ronda: una sola puerta a los modelos (hoy hay 12
+  llamadas directas a Gemini), una sola memoria y quitar los módulos de
+  OpenJarvis que no se cargan.
+- No probado aquí:
+  - en Windows real: la ventana única y la pantalla de carga;
+  - Pollinations: el sandbox no llega.
+- «Claude Duet» (lo pidió el dueño para los Nodes): no encontré ese producto.
+  Se interpretó como agentes de primer nivel que colaboran.
 
 ## 2026-10-23 · Claude · Sergio para el día a día: PC lento y fotos duplicadas
 - Petición del dueño: Sergio debe ser un asistente con control total, y dio 15

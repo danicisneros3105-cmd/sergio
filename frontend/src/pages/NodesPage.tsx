@@ -97,7 +97,7 @@ export function NodesPage() {
             <NodeCritter look={look(n)} status={n.status} size={40} />
             <span className="min-w-0 flex-1 text-left">
               <span className="nodes-item-name">{n.name}</span>
-              <span className="nodes-item-status">{n.status === 'idle' ? memberOf(n, catalog)?.role || statusLine(n) : statusLine(n)}</span>
+              <span className="nodes-item-status">{n.status === 'idle' ? memberOf(n, catalog)?.does || memberOf(n, catalog)?.role || statusLine(n) : statusLine(n)}</span>
             </span>
             {n.approvals.length > 0 || n.status === 'needs_you' ? (
               <span className="nodes-badge" aria-label="Le necesita">

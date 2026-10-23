@@ -241,6 +241,10 @@ termina en la rama `main`, y el dueño actualiza con un único comando.
   transporte al dispositivo; nunca presentarla como cero retraso extremo a extremo.
 - Los Nodes se llaman «Nodes» (uno: «Node») en cualquier idioma: nunca
   «nodo», «nœud»… (`nodes/store.py: node_word` lo corrige en todo lo que dicen).
+- **Simple primero** (dueño, 23 oct. 2026: «que lo entienda un niño de 5, un
+  profesional de 22 y una abuela de 84»): la barra lateral deja a la vista
+  solo Chat, Nodes, Salud, Uso y Notas; lo demás va bajo «Más»
+  (`TOOLBAR_ITEMS.more`). Nada nuevo entra a la vista sin quitar otra cosa.
 - Ningún subtexto explicativo bajo los títulos; los títulos y la marca van
   con las letras del logo B&O (Josefin Sans), el resto con la del sistema.
 - No se reinventa lo que ya existe: Creator usa programas reales —

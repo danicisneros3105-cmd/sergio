@@ -2081,7 +2081,7 @@ html, body { background: var(--color-bg); }
 .nodes-item:hover { background: color-mix(in srgb, var(--color-text) 5%, transparent); }
 .nodes-item[aria-current='true'] { background: color-mix(in srgb, var(--color-text) 7%, transparent); }
 .nodes-item-name { display: block; font-size: 14px; font-weight: 600; }
-.nodes-item-status { display: block; font-size: 12px; color: var(--color-text-tertiary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nodes-item-status { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; font-size: 12px; line-height: 1.35; color: var(--color-text-tertiary); overflow: hidden; }
 .nodes-badge {
   min-width: 20px;
   height: 20px;
@@ -3527,3 +3527,4 @@ p.node-hint:not(.node-path), .swarm-sub, .swarm-hint, .studio-heading p, .studio
 .imsg-send:disabled { opacity: 0.4; cursor: default; }
 .imsg-field .live-orb-sm { --orb: 29px; }
 .imsg-field .composer-pill { align-self: center; }
+.sb-more-open { transform: rotate(180deg); }
