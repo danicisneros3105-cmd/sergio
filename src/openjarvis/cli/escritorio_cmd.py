@@ -33,6 +33,8 @@ DESKTOP_TOOLS = (
     "face_approval",
     "face_enroll",
     "files_organize",
+    "photos_duplicates",
+    "pc_checkup",
     "python_run",
     "terminal_run",
     "skill_guide",

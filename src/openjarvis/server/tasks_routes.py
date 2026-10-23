@@ -43,6 +43,8 @@ TOOLS = {
     "file_read": ("fondo", "ubuntu"),
     "file_write": ("fondo", "ubuntu"),
     "files_organize": ("fondo", "windows"),
+    "photos_duplicates": ("fondo", "windows"),
+    "pc_checkup": ("fondo", "windows"),
     "video_edit": ("fondo", "windows"),
     "video_pro": ("fondo", "windows"),
     "blender_create": ("fondo", "windows"),

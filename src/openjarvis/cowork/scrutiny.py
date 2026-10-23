@@ -160,6 +160,8 @@ _TOOL_PRIORS: Dict[str, Dict[str, int]] = {
     "http_request": {"network": 2},
     "file_write": {"destructive": 1},
     "files_organize": {"destructive": 2},
+    "photos_duplicates": {"destructive": 2},
+    "pc_checkup": {"system": 2},
     "python_run": {"system": 1},
     "terminal_run": {"system": 2},
     "code_interpreter": {"system": 1},

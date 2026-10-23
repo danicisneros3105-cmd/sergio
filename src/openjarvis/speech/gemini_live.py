@@ -87,6 +87,8 @@ SERVER_TOOLS = (
     "desktop_action",
     "screen_read",
     "files_organize",
+    "photos_duplicates",
+    "pc_checkup",
     "terminal_run",
     "python_run",
     "web_search",

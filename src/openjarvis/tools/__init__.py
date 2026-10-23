@@ -104,6 +104,13 @@ except ImportError as _exc:
     )
 
 try:
+    import openjarvis.tools.daily_tools  # noqa: F401
+except ImportError as _exc:
+    _logging.getLogger(__name__).debug(
+        "Optional import skipped (openjarvis.tools.daily_tools): %s", _exc
+    )
+
+try:
     import openjarvis.tools.professional  # noqa: F401
 except ImportError as _exc:
     _logging.getLogger(__name__).debug(

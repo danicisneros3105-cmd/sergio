@@ -2,6 +2,30 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-10-23 · Claude · Sergio para el día a día: PC lento y fotos duplicadas
+- Petición del dueño: Sergio debe ser un asistente con control total, y dio 15
+  ejemplos de la vida diaria. Mapa honesto de cada uno (listo, parcial, falta)
+  en `docs/CAPACIDADES.md`, con los límites que no dependen del código:
+  WhatsApp e Instagram sin una vía oficial personal; con el PC apagado solo
+  suena el teléfono; los clips tienen que tener licencia.
+- Nuevo `tools/daily_tools.py`:
+  - `pc_checkup`: diagnóstico sin cambios; con permiso, borra los temporales y
+    quita o devuelve programas del inicio (se guarda una copia).
+  - `photos_duplicates`: huella de imagen más una segunda comparación. Las
+    sobrantes van a «Duplicados (Sergio)» y se pueden devolver.
+  - Las dos van por Sergio Escritorio (`terminal` / `python`), así que Windows
+    confirma.
+  - Las dos están en la voz, el escritorio, las tareas, Cowork y los permisos.
+- Revisé: las reglas «correo: solo borradores» y «nada se envía ni se borra
+  solo» siguen igual. El ejemplo 6 (reenviar a José por correo) queda como
+  borrador hasta que el dueño decida.
+- Pendiente, en este orden (ver CAPACIDADES):
+  1. Resumen guiado de WhatsApp.
+  2. Classroom y Moodle.
+  3. Alarma en el teléfono.
+  4. Buscar a una persona en la galería.
+  5. Clips con licencia libre y subida a YouTube.
+
 ## 2026-10-22 · Claude · Planes, facturación, uso, cuenta y ayuda
 - Petición del dueño: revisar que existan billing, usage, account, plan,
   config, ayuda e idioma, con los planes Free, Go, Work, Dev y Founders Edition.
