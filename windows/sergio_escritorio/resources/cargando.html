@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sergio</title>
+<style>
+  :root { color-scheme: light dark; --bg: #ffffff; --fg: #0d0d0d; --soft: #8e8e8e; --line: #e5e5e5; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #212121; --fg: #ececec; --soft: #9b9b9b; --line: #3a3a3a; } }
+  html, body { height: 100%; margin: 0; background: var(--bg); color: var(--fg);
+    font-family: "Segoe UI Variable", "Segoe UI", system-ui, sans-serif; }
+  main { height: 100%; display: grid; place-items: center; }
+  .box { display: grid; justify-items: center; gap: 22px; }
+  .mark { width: 72px; height: 72px; border-radius: 22px; background: var(--fg); color: var(--bg);
+    display: grid; place-items: center; font-size: 40px; font-weight: 600; letter-spacing: -1px;
+    animation: breathe 2.4s ease-in-out infinite; }
+  h1 { margin: 0; font-size: 22px; font-weight: 600; letter-spacing: 0.5px; }
+  .bar { width: 160px; height: 3px; border-radius: 3px; background: var(--line); overflow: hidden; }
+  .bar i { display: block; width: 40%; height: 100%; border-radius: 3px; background: var(--fg);
+    animation: slide 1.3s ease-in-out infinite; }
+  p { margin: 0; min-height: 1.3em; font-size: 13px; color: var(--soft); }
+  @keyframes breathe { 50% { transform: scale(0.96); opacity: 0.85; } }
+  @keyframes slide { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
+  @media (prefers-reduced-motion: reduce) { .mark, .bar i { animation: none; } }
+</style>
+</head>
+<body>
+<main>
+  <div class="box" role="status" aria-live="polite">
+    <div class="mark" aria-hidden="true">S</div>
+    <h1>Sergio</h1>
+    <div class="bar" aria-hidden="true"><i></i></div>
+    <p id="msg">Preparando todo…</p>
+  </div>
+</main>
+<script>
+  // Shown while Sergio starts (the server can take a few seconds after the
+  // computer turns on). As soon as it answers, the window becomes the app.
+  const params = new URLSearchParams(location.search);
+  let target = params.get('to') || 'http://localhost:8000/';
+  if (!/^http:\/\/(localhost|127\.0\.0\.1):8000(\/|$)/.test(target)) target = 'http://localhost:8000/';
+  const origin = target.replace(/^(http:\/\/[^/]+).*$/, '$1');
+  const msg = document.getElementById('msg');
+  const words = ['Preparando todo…', 'Despertando a Sergio…', 'Casi listo…', 'Un momento más, señor…'];
+  let tries = 0;
+
+  function ready() { location.replace(target); }
+
+  function probe() {
+    tries += 1;
+    if (tries % 8 === 0) msg.textContent = words[Math.min(words.length - 1, tries / 8)];
+    // An image needs no permission from the server (no CORS); it loads only
+    // when Sergio is up.
+    const img = new Image();
+    img.onload = ready;
+    img.onerror = () => setTimeout(probe, 500);
+    img.src = origin + '/favicon.ico?t=' + Date.now();
+  }
+  probe();
+</script>
+</body>
+</html>

@@ -716,6 +716,10 @@ def create_app(
     from openjarvis.server.live_routes import router as live_router
 
     app.include_router(live_router)
+    # One app window: the desktop shows pages in the open window.
+    from openjarvis.server.app_window_routes import router as app_window_router
+
+    app.include_router(app_window_router)
     include_all_routes(app)
 
     # Restore SendBlue channel bindings from database on startup

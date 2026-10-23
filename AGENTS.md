@@ -188,6 +188,14 @@ termina en la rama `main`, y el dueño actualiza con un único comando.
   exclusivo de Sergio y sus agentes (Chat, Live, Nodes, Agent Swarm y Cowork).
 - Windows es una app: chat/Nodes/Swarm en ventana sin barra de direcciones
   (launch.py, Edge --app), nunca fallback de páginas internas a una pestaña.
+  **Una sola ventana** (dueño, oct. 2026): lo que pide el notch, la bandeja o
+  la voz va a la ventana ya abierta (`/v1/app/open` → `lib/appWindow.ts`,
+  espera larga que confirma con su siguiente espera); solo si no hay, se abre
+  una nueva, con pantalla de carga (`resources/cargando.html`) si el servidor
+  aún arranca. «Primeros pasos» solo sale al abrir en «/» la primera vez.
+  **Una sola voz por equipo**: las ventanas comparten un candado (Web Locks,
+  `lib/liveSession.ts`) y el escritorio nunca le quita la voz a una ventana
+  abierta (`busy`).
   Loopback es transporte interno. Notch: ocultar/recuperar en 220 ms, sin
   partículas ni gotas; respetar movimiento reducido y reposo oculto.
   Un clic en el notch abre la barra rápida (`notch_bar.py`); el centro de

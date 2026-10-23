@@ -225,7 +225,7 @@ def main() -> None:
         ensure_server_running(url)
         from sergio_escritorio.launch import open_app_window
 
-        open_app_window(url)
+        open_app_window(url, wait=True)  # this process ends right after
         return
     from sergio_escritorio.windows_backend import set_dpi_aware
 

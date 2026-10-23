@@ -7,6 +7,7 @@ import { Toolbar } from './Shell/Toolbar';
 import { checkHealth } from '../lib/api';
 import { LiveCaptions, LiveStarter } from './Live/LiveOrb';
 import { StickyNotesLayer } from './StickyNotes/StickyNotesLayer';
+import { startAppWindow } from '../lib/appWindow';
 
 const HISTORY_KEY = 'sergio-history-open';
 
@@ -51,15 +52,22 @@ export function Layout() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // A new user lands on «Primeros pasos» once (GetStartedPage marks it seen).
+    // A new user lands on «Primeros pasos» once (GetStartedPage marks it
+    // seen). Only from the start page: a window opened on Nodes, Salud or a
+    // chat stays there. (It never marked itself seen and sent every new
+    // window back here: «no puedo abrir nada».)
     try {
-      if (!localStorage.getItem('sergio-onboarded') && !window.location.pathname.startsWith('/get-started')) {
-        navigate('/get-started');
+      const home = window.location.pathname === '/' || window.location.pathname === '';
+      if (home && !localStorage.getItem('sergio-onboarded')) {
+        navigate('/get-started', { replace: true });
       }
     } catch {
       // storage blocked: no first-run guide, nothing else changes
     }
   }, [navigate]);
+
+  // One window: the desktop shows its pages here instead of opening another.
+  useEffect(() => startAppWindow(), []);
 
   useEffect(() => {
     const onNav = (e: Event) => {

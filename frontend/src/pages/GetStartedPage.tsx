@@ -51,9 +51,19 @@ const STEPS: Array<{ icon: typeof Check; color: string; title: string; text: str
   },
 ];
 
+export const ONBOARDED = 'sergio-onboarded';
+
 export function GetStartedPage() {
   const navigate = useNavigate();
   const [copied, setCopied] = useState(false);
+  // Seen once: from now on Sergio opens where the owner asked (chat, Nodes…).
+  useEffect(() => {
+    try {
+      localStorage.setItem(ONBOARDED, '1');
+    } catch {
+      // storage blocked: Layout never redirects then either
+    }
+  }, []);
   return (
     <div className="paper-page start-page">
       <h1 className="chat-hello">
