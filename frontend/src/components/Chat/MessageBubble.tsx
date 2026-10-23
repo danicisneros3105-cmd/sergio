@@ -108,6 +108,7 @@ function CopyMessageButton({ content }: { content: string }) {
 const TOOL_NAMES: Record<string, string> = {
   image_generate: 'Imagen',
   video_create: 'Video',
+  video_essay: 'Video ensayo',
   video_pro: 'Video',
   video_edit: 'Video',
   web_search: 'Internet',

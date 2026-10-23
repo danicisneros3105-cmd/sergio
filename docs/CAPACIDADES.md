@@ -39,7 +39,7 @@ Estados:
 | 12 | Leer la plataforma, revisar tareas y hacerlas juntos | Parcial | Lee la plataforma en pantalla y trabaja la tarea con el dueño (coach de estudio). Necesita lo del punto 11 para avisar solo. |
 | 13 | Presentación sobre la contaminación y enviarla | Parcial | Sergio hace la presentación con Diseño o como archivo de PowerPoint. Usar Canva necesita conectar su cuenta. El envío necesita el «sí» del dueño. |
 | 14 | «Me siento mal» / Nodes que aconsejen sobre mi startup con mis archivos | **Listo** | Modo psicólogo, con líneas de crisis al instante y sin diagnosticar nunca. Para la startup: los Nodes (Rihno, Manchas, Hous, Tennessee) leen los archivos que el dueño les da. |
-| 15 | Estudiar el estilo de un video de YouTube, hacer uno igual y subirlo al canal | Parcial | El estudio del estilo (`video_style`) y el montaje (`video_pro`) existen. Los clips de internet tienen que tener licencia libre: no se toman videos ajenos. YouTube permite subir con su API. Falta: buscar clips libres y subir al canal tras revisarlo. |
+| 15 | Estudiar el estilo de un video de YouTube, hacer uno igual y subirlo al canal | Casi | `video_essay` estudia la referencia toma por toma y hace un ensayo editado a su nivel (guion, voz, cortes sobre las palabras, revisión y render). Busca clips libres en Pexels y Pixabay (con su clave gratuita); nunca toma videos ajenos. Falta: subir al canal con la API de YouTube, siempre después de que usted lo revise. |
 
 ## Lo que no depende del código
 

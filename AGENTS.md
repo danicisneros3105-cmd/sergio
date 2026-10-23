@@ -222,6 +222,22 @@ termina en la rama `main`, y el dueño actualiza con un único comando.
   Video: `video_pro` (brief creativo, máster 10 bits, LUT, RIFE) es la
   herramienta profesional de Sergio y los agentes; `video_edit` es el montaje
   rápido. Las dos acaban en `video_master.pipeline` / `media.make_video`.
+- **Video ensayo al nivel de la referencia** (dueño, 23 oct. 2026: «no es
+  edición básica… tomará varias horas, pero tiene que ser así»): herramienta
+  `video_essay`, paquete `video_essay/`. La referencia (archivo o YouTube) se
+  estudia toma por toma (`style.py`, perfil medido por código; el primero,
+  `styles/metas-grandes.json`, viene de la referencia del dueño: corte cada
+  ~1,5 s, texto en casi todas las tomas, fichas crema/rojo/azul, archivo en
+  blanco y negro con marco de tele, clips dentro de un ordenador o teléfono).
+  Guion en su estructura y voz de Sergio (`script.py`), tomas cortadas entre
+  palabras (`plan.py`, `pace`), imágenes: **clips del dueño → Pexels/Pixabay
+  → imágenes de Sergio → ficha negra**, nunca películas ni material ajeno
+  (`assets.py`), pasadas de un editor que mira la hoja de fotogramas y
+  corrige (`review.py`), efectos y música generados (`audio.py`) y render
+  con letra Inter (`render.py`). Es un trabajo largo que sobrevive a un
+  reinicio (`job.py`, `~/.openjarvis/video_jobs/`); al terminar, Hous lo
+  publica en su chat. Nunca se publica fuera. Modelos: `SERGIO_VIDEO_MODELS`
+  (lista separada por comas; por defecto los Gemini más fuertes).
 - Cowork igual al modo de trabajo de ChatGPT (dueño, oct. 2026): una caja
   central «¿En qué trabajamos?» con «+» (adjuntar, modo plan, autonomía,
   tope) y comandos «/»; la tarea como conversación con la actividad plegable,

@@ -1,0 +1,611 @@
+"""Frame by frame: the video essay drawn and encoded.
+
+Each shot has a background (a colour card, a still that moves, or a clip),
+a look (black and white, warm, cold), sometimes a frame around it (an old
+CRT or film) or a device holding it (an old computer, a phone), and on top
+the spoken words appearing as they are said: each one pops in on its own
+syllable, one word can stand out in another colour, short lines go big in
+capitals. Cuts can flash, whip or fade, and a few frames can glitch.
+
+Frames are drawn with Pillow and numpy and piped to ffmpeg, so it runs on
+any computer; a 3-minute 1080p essay takes minutes, the passes of review
+around it are what take long.
+"""
+
+from __future__ import annotations
+
+import math
+import subprocess
+from dataclasses import dataclass
+from functools import lru_cache
+from pathlib import Path
+from typing import Callable, Iterator, List, Optional, Sequence, Tuple
+
+import numpy as np
+from PIL import Image, ImageDraw, ImageFilter, ImageFont, ImageOps
+
+from openjarvis.video_essay.plan import Shot, Word
+
+FONTS = Path(__file__).parent / "fonts"
+FPS = 30
+SIZES = {"16:9": (1920, 1080), "9:16": (1080, 1920), "1:1": (1080, 1080)}
+DRAFT_SIZES = {"16:9": (960, 540), "9:16": (540, 960), "1:1": (720, 720)}
+
+PALETTE = {
+    "cream": (233, 235, 207),
+    "red": (232, 38, 42),
+    "navy": (22, 36, 58),
+    "black": (11, 11, 11),
+    "white": (255, 255, 255),
+    "grey": (150, 150, 150),
+    "gold": (242, 181, 58),
+}
+
+
+def ffmpeg() -> str:
+    from openjarvis.tools.video_create import ffmpeg_exe
+
+    exe = ffmpeg_exe()
+    if not exe:
+        raise RuntimeError("falta ffmpeg (se instala con la actualización de Sergio)")
+    return exe
+
+
+# -- type ---------------------------------------------------------------------------
+
+
+@lru_cache(maxsize=64)
+def font(kind: str, size: int) -> ImageFont.FreeTypeFont:
+    name = {
+        "black": "InterDisplay-Black.ttf",
+        "bold": "InterDisplay-Bold.ttf",
+        "medium": "InterDisplay-Medium.ttf",
+        "italic": "InterDisplay-BoldItalic.ttf",
+    }[kind]
+    return ImageFont.truetype(str(FONTS / name), size)
+
+
+@lru_cache(maxsize=4096)
+def word_image(
+    text: str, kind: str, size: int, rgb: Tuple[int, int, int], shadow: bool
+) -> Image.Image:
+    """One word, tightly tracked like the reference, with a soft shadow on
+    footage so it reads on any picture."""
+    f = font(kind, size)
+    track = -0.045 * size  # tight letter spacing
+    widths = [f.getlength(c) for c in text]
+    width = int(sum(widths) + track * max(0, len(text) - 1)) + size
+    height = int(size * 1.35)
+    pad = int(size * 0.35)
+    layer = Image.new("RGBA", (width + 2 * pad, height + 2 * pad), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(layer)
+    x = float(pad)
+    for c, w in zip(text, widths):
+        draw.text((x, pad), c, font=f, fill=rgb + (255,))
+        x += w + track
+    box = layer.getbbox() or (0, 0, 1, 1)
+    if shadow:
+        alpha = layer.split()[3].filter(ImageFilter.GaussianBlur(size * 0.12))
+        shade = Image.new("RGBA", layer.size, (0, 0, 0, 0))
+        shade.putalpha(alpha.point(lambda a: int(a * 0.55)))
+        shade.alpha_composite(layer)
+        layer = shade
+    m = shadow_margin(size, shadow)  # the shadow hangs out; the letters set the width
+    # same top and bottom for every word, so they share a baseline
+    top, bottom = pad, pad + int(size * 1.2)
+    return layer.crop((box[0] - m, top - m, box[2] + m, bottom + m))
+
+
+def shadow_margin(size: int, shadow: bool) -> int:
+    return int(size * 0.3) if shadow else 0
+
+
+@dataclass
+class Placed:
+    text: str
+    start: float  # seconds into the shot
+    x: int
+    y: int
+    kind: str
+    size: int
+    rgb: Tuple[int, int, int]
+
+
+def _ease_back(p: float) -> float:
+    c1, c3 = 1.70158, 2.70158
+    return 1 + c3 * (p - 1) ** 3 + c1 * (p - 1) ** 2
+
+
+def layout_text(shot: Shot, words: List[Word], size: Tuple[int, int]) -> List[Placed]:
+    """Where each on-screen word goes and when it appears."""
+    w_px, h_px = size
+    spoken = words[shot.first : shot.last]
+    shown = shot.text.split() or [w.text for w in spoken]
+    # each shown word appears when it is said (matched in order)
+    times: List[float] = []
+    j = 0
+    for word in shown:
+        key = "".join(ch for ch in word.lower() if ch.isalnum())
+        found = shot.start
+        for k in range(j, len(spoken)):
+            if "".join(ch for ch in spoken[k].text.lower() if ch.isalnum()) == key:
+                found, j = spoken[k].start, k + 1
+                break
+        times.append(max(0.0, found - shot.start))
+    style = shot.text_style
+    on_card = shot.kind == "card"
+    scale = {"pop": 0.072, "big_caps": 0.115, "grey_to_white": 0.05, "italic": 0.062}[
+        style
+    ]
+    if len(shown) <= 2 and style == "pop":
+        scale = 0.095
+    fsize = max(18, int(min(w_px, h_px * 1.6) * scale))
+    kind = {
+        "pop": "black",
+        "big_caps": "black",
+        "grey_to_white": "medium",
+        "italic": "italic",
+    }[style]
+    base = PALETTE["white"]
+    if on_card and shot.card == "cream":
+        base = PALETTE["red"]
+    highlight = "".join(ch for ch in shot.highlight.lower() if ch.isalnum())
+    shadow = not on_card
+    position = shot.position
+    if shot.device != "none" and shot.kind != "card":
+        # under the device, never over it
+        position = "lower"
+        fsize = min(fsize, int(h_px * 0.05))
+    gap = fsize * 0.24
+    max_w = w_px * (0.8 if position in ("center", "lower", "upper") else 0.45)
+    lines: List[List[Tuple[str, int, float, Tuple[int, int, int]]]] = [[]]
+    line_w = 0.0
+    for word, t in zip(shown, times):
+        text = word.upper() if style == "big_caps" else word
+        clean = "".join(ch for ch in word.lower() if ch.isalnum())
+        rgb = base
+        if highlight and clean == highlight:
+            rgb = (
+                PALETTE["gold"]
+                if not on_card
+                else (PALETTE["red"] if shot.card != "red" else PALETTE["white"])
+            )
+            if style != "grey_to_white":
+                text = text.upper()
+        img = word_image(text, kind, fsize, rgb, shadow)
+        width = img.width - 2 * shadow_margin(fsize, shadow)
+        if lines[-1] and line_w + gap + width > max_w:
+            lines.append([])
+            line_w = 0.0
+        line_w += (gap if lines[-1] else 0) + width
+        lines[-1].append((text, width, t, rgb))
+    line_h = fsize * 1.08
+    block_h = line_h * len(lines)
+    if position == "upper":
+        top = h_px * 0.14
+    elif position == "lower":
+        top = h_px * (0.95 if shot.device != "none" else 0.86) - block_h
+    else:
+        top = (h_px - block_h) / 2
+    placed: List[Placed] = []
+    for li, line in enumerate(lines):
+        total = sum(width for _, width, _, _ in line) + gap * (len(line) - 1)
+        if position == "left":
+            x = w_px * 0.08
+        elif position == "right":
+            x = w_px * 0.92 - total
+        else:
+            x = (w_px - total) / 2
+        y = top + li * line_h
+        m = shadow_margin(fsize, shadow)
+        for text, width, t, rgb in line:
+            placed.append(Placed(text, t, int(x) - m, int(y) - m, kind, fsize, rgb))
+            x += width + gap
+    return placed
+
+
+def draw_text(
+    canvas: Image.Image, placed: List[Placed], t: float, style: str, shadow: bool
+) -> None:
+    visible = [p for p in placed if t >= p.start]
+    for i, p in enumerate(visible):
+        rgb = p.rgb
+        if (
+            style == "grey_to_white"
+            and i < len(visible) - 1
+            and rgb == PALETTE["white"]
+        ):
+            rgb = PALETTE["grey"]
+        img = word_image(p.text, p.kind, p.size, rgb, shadow)
+        prog = min(1.0, (t - p.start) / 0.14)
+        if prog < 1.0:
+            s = 0.72 + 0.28 * _ease_back(prog)
+            w, h = max(1, int(img.width * s)), max(1, int(img.height * s))
+            small = img.resize((w, h), Image.BILINEAR)
+            if prog < 0.6:
+                a = small.split()[3].point(lambda v, k=prog / 0.6: int(v * k))
+                small.putalpha(a)
+            canvas.alpha_composite(
+                small, (p.x + (img.width - w) // 2, p.y + (img.height - h) // 2)
+            )
+        else:
+            canvas.alpha_composite(img, (p.x, p.y))
+
+
+# -- backgrounds -----------------------------------------------------------------------
+
+
+def _cover(img: Image.Image, size: Tuple[int, int]) -> Image.Image:
+    return ImageOps.fit(img.convert("RGB"), size, Image.LANCZOS)
+
+
+class Background:
+    def frames(self, n: int) -> Iterator[Image.Image]:  # pragma: no cover - interface
+        raise NotImplementedError
+
+
+class Card(Background):
+    def __init__(self, rgb: Tuple[int, int, int], size: Tuple[int, int]) -> None:
+        self.img = Image.new("RGB", size, rgb)
+
+    def frames(self, n: int) -> Iterator[Image.Image]:
+        for _ in range(n):
+            yield self.img
+
+
+class Still(Background):
+    """A picture that keeps moving: a slow push, or a punch-in that settles."""
+
+    def __init__(self, path: str, size: Tuple[int, int], effect: str) -> None:
+        self.size = size
+        self.big = _cover(Image.open(path), (int(size[0] * 1.2), int(size[1] * 1.2)))
+        self.effect = effect
+
+    def frames(self, n: int) -> Iterator[Image.Image]:
+        W, H = self.big.size
+        for i in range(n):
+            p = i / max(1, n - 1)
+            if self.effect == "punch":
+                z = 1.18 - 0.08 * (1 - (1 - min(1.0, i / 6)) ** 3) - 0.02 * p
+            else:
+                z = 1.0 + 0.1 * p
+            cw, ch = W / z * 0.84, H / z * 0.84
+            cx, cy = W / 2 + (p - 0.5) * W * 0.02, H / 2
+            box = (cx - cw / 2, cy - ch / 2, cx + cw / 2, cy + ch / 2)
+            yield self.big.resize(self.size, Image.BILINEAR, box=box)
+
+
+class Clip(Background):
+    """A video clip, decoded by ffmpeg at the essay's size and rate."""
+
+    def __init__(self, path: str, size: Tuple[int, int], offset: float = 0.0) -> None:
+        self.path, self.size, self.offset = path, size, offset
+
+    def frames(self, n: int) -> Iterator[Image.Image]:
+        w, h = self.size
+        cmd = [
+            ffmpeg(), "-v", "error", "-ss", f"{self.offset:.2f}", "-stream_loop", "-1",
+            "-i", self.path, "-frames:v", str(n),
+            "-vf", f"scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h},fps={FPS}",
+            "-f", "rawvideo", "-pix_fmt", "rgb24", "-",
+        ]  # fmt: skip
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+        frame_bytes = w * h * 3
+        last = Image.new("RGB", self.size, PALETTE["black"])
+        try:
+            for _ in range(n):
+                raw = proc.stdout.read(frame_bytes) if proc.stdout else b""
+                if len(raw) == frame_bytes:
+                    last = Image.frombytes("RGB", self.size, raw)
+                yield last
+        finally:
+            if proc.stdout:
+                proc.stdout.close()
+            proc.kill()
+            proc.wait()
+
+
+def background_for(shot: Shot, size: Tuple[int, int]) -> Background:
+    if shot.kind == "card" or not shot.asset:
+        return Card(PALETTE.get(shot.card, PALETTE["black"]), size)
+    if Path(shot.asset).suffix.lower() in (".mp4", ".mov", ".webm", ".mkv", ".m4v"):
+        return Clip(shot.asset, size)
+    return Still(shot.asset, size, shot.effect)
+
+
+# -- looks, frames and devices -------------------------------------------------------------
+
+
+def grade(img: Image.Image, look: str) -> Image.Image:
+    if look == "bw":
+        g = ImageOps.autocontrast(img.convert("L"), cutoff=1)
+        return Image.merge("RGB", (g, g, g))
+    if look in ("warm", "cold"):
+        a = np.asarray(img).astype(np.float32)
+        mul = (1.08, 1.0, 0.86) if look == "warm" else (0.9, 0.98, 1.1)
+        a *= np.array(mul, dtype=np.float32)
+        return Image.fromarray(np.clip(a, 0, 255).astype(np.uint8))
+    return img
+
+
+@lru_cache(maxsize=8)
+def crt_overlay(size: Tuple[int, int], film: bool) -> Image.Image:
+    """An old TV (rounded glass, dark corners, scan lines) or a film gate."""
+    w, h = size
+    layer = Image.new("RGBA", size, (0, 0, 0, 0))
+    mask = Image.new("L", size, 255)
+    inset = int(min(w, h) * (0.05 if film else 0.035))
+    radius = int(min(w, h) * (0.03 if film else 0.08))
+    ImageDraw.Draw(mask).rounded_rectangle(
+        (inset, inset, w - inset, h - inset), radius, fill=0
+    )
+    layer.putalpha(mask.filter(ImageFilter.GaussianBlur(inset * 0.25)))
+    vignette = (
+        Image.radial_gradient("L")
+        .resize(size)
+        .point(lambda v: int(max(0, v - 120) * 0.9))
+    )
+    dark = Image.new("RGBA", size, (0, 0, 0, 0))
+    dark.putalpha(vignette)
+    layer.alpha_composite(dark)
+    if not film:
+        lines = Image.new("RGBA", size, (0, 0, 0, 0))
+        d = ImageDraw.Draw(lines)
+        for y in range(0, h, 4):
+            d.line((0, y, w, y), fill=(0, 0, 0, 28))
+        layer.alpha_composite(lines)
+    return layer
+
+
+@lru_cache(maxsize=4)
+def grain_tiles(size: Tuple[int, int], count: int = 6) -> List[np.ndarray]:
+    rng = np.random.default_rng(11)
+    w, h = size
+    return [
+        rng.normal(0, 1, (h // 2, w // 2, 1)).astype(np.float32) for _ in range(count)
+    ]
+
+
+def add_grain(img: Image.Image, strength: float, i: int) -> Image.Image:
+    tile = grain_tiles(img.size)[i % 6]
+    g = np.repeat(np.repeat(tile, 2, axis=0), 2, axis=1)[: img.size[1], : img.size[0]]
+    a = np.asarray(img).astype(np.float32) + g * strength
+    return Image.fromarray(np.clip(a, 0, 255).astype(np.uint8))
+
+
+@lru_cache(maxsize=4)
+def device_layer(
+    kind: str, size: Tuple[int, int]
+) -> Tuple[Image.Image, Tuple[int, int, int, int]]:
+    """A device drawn once: an old beige computer or a phone, with the
+    screen box where the clip goes."""
+    w, h = size
+    layer = Image.new("RGBA", size, (0, 0, 0, 0))
+    d = ImageDraw.Draw(layer)
+    if kind == "phone":
+        ph = int(h * 0.86)
+        pw = int(ph * 0.49)
+        x0, y0 = (w - pw) // 2, (h - ph) // 2
+        d.rounded_rectangle(
+            (x0, y0, x0 + pw, y0 + ph), int(pw * 0.14), fill=(18, 18, 18, 255)
+        )
+        b = int(pw * 0.045)
+        screen = (x0 + b, y0 + b, x0 + pw - b, y0 + ph - b)
+        d.rounded_rectangle(screen, int(pw * 0.11), fill=(0, 0, 0, 0))
+        d.rounded_rectangle(
+            (x0 + pw * 0.36, y0 + b * 1.6, x0 + pw * 0.64, y0 + b * 2.6),
+            b,
+            fill=(18, 18, 18, 255),
+        )
+        return layer, screen
+    cw = int(min(w * 0.46, h * 0.62))
+    ch = int(cw * 0.9)
+    x0, y0 = (w - cw) // 2, int(h * 0.1)
+    body = (217, 207, 184, 255)
+    d.rounded_rectangle((x0, y0, x0 + cw, y0 + ch), int(cw * 0.04), fill=body)
+    sx0, sy0 = x0 + int(cw * 0.12), y0 + int(ch * 0.1)
+    screen = (sx0, sy0, x0 + cw - int(cw * 0.12), sy0 + int(ch * 0.62))
+    d.rounded_rectangle(
+        (screen[0] - 10, screen[1] - 10, screen[2] + 10, screen[3] + 10),
+        18,
+        fill=(160, 150, 130, 255),
+    )
+    d.rounded_rectangle(screen, 14, fill=(0, 0, 0, 0))
+    d.rectangle(
+        (x0 + cw * 0.55, y0 + ch * 0.84, x0 + cw * 0.85, y0 + ch * 0.87),
+        fill=(120, 112, 98, 255),
+    )
+    d.rectangle(
+        (x0 + cw * 0.1, y0 + ch, x0 + cw * 0.9, y0 + ch + int(ch * 0.06)),
+        fill=(200, 190, 168, 255),
+    )
+    return layer, screen
+
+
+def in_device(img: Image.Image, kind: str) -> Image.Image:
+    size = img.size
+    back = img.resize((size[0] // 8, size[1] // 8), Image.BILINEAR).resize(
+        size, Image.BILINEAR
+    )
+    back = Image.blend(back, Image.new("RGB", size, (0, 0, 0)), 0.45).convert("RGBA")
+    layer, screen = device_layer(kind, size)
+    sw, sh = screen[2] - screen[0], screen[3] - screen[1]
+    back.paste(_cover(img, (sw, sh)), (screen[0], screen[1]))
+    back.alpha_composite(layer)
+    return back.convert("RGB")
+
+
+def zoom(img: Image.Image, z: float, dx: float = 0.0, dy: float = 0.0) -> Image.Image:
+    if abs(z - 1) < 1e-3 and not dx and not dy:
+        return img
+    w, h = img.size
+    cw, ch = w / z, h / z
+    cx, cy = w / 2 + dx, h / 2 + dy
+    return img.resize(
+        (w, h), Image.BILINEAR, box=(cx - cw / 2, cy - ch / 2, cx + cw / 2, cy + ch / 2)
+    )
+
+
+def glitch(img: Image.Image, seed: int) -> Image.Image:
+    a = np.asarray(img).copy()
+    rng = np.random.default_rng(seed)
+    shift = max(4, a.shape[1] // 120)
+    a[:, :, 0] = np.roll(a[:, :, 0], shift, axis=1)
+    a[:, :, 2] = np.roll(a[:, :, 2], -shift, axis=1)
+    for _ in range(5):
+        y = int(rng.integers(0, a.shape[0] - 20))
+        hgt = int(rng.integers(6, 30))
+        a[y : y + hgt] = np.roll(a[y : y + hgt], int(rng.integers(-40, 40)), axis=1)
+    return Image.fromarray(a)
+
+
+# -- the shot, frame by frame --------------------------------------------------------------
+
+
+def shot_frames(
+    shot: Shot, words: List[Word], size: Tuple[int, int], index: int = 0
+) -> Iterator[Image.Image]:
+    n = max(1, round(shot.dur * FPS))
+    placed = layout_text(shot, words, size)
+    shadow = shot.kind != "card"
+    overlay = crt_overlay(size, shot.frame == "film") if shot.frame != "none" else None
+    rng = np.random.default_rng(index)
+    for i, bg in enumerate(background_for(shot, size).frames(n)):
+        t = i / FPS
+        img = bg
+        if shot.kind != "card":
+            img = grade(img, shot.grade)
+            if isinstance(img, Image.Image) and shot.effect in (
+                "punch",
+                "push",
+                "shake",
+            ):
+                if shot.effect == "punch" and not shot.asset.endswith(
+                    (".png", ".jpg", ".jpeg", ".webp")
+                ):
+                    img = zoom(img, 1.14 - 0.06 * min(1.0, i / 5))
+                elif shot.effect == "shake":
+                    img = zoom(img, 1.06, rng.normal(0, 6), rng.normal(0, 4))
+            if shot.device != "none":
+                img = in_device(img, shot.device)
+            if shot.frame != "none" or shot.grade == "bw":
+                img = add_grain(img, 14 if shot.frame == "film" else 8, i + index)
+        canvas = img.convert("RGBA")
+        if overlay is not None:
+            canvas.alpha_composite(overlay)
+        draw_text(canvas, placed, t, shot.text_style, shadow)
+        out = canvas.convert("RGB")
+        if shot.effect == "glitch" and i < 4:
+            out = glitch(out, index * 10 + i)
+        if shot.transition == "flash" and i < 3:
+            out = Image.blend(
+                out, Image.new("RGB", size, (255, 255, 255)), (0.8, 0.45, 0.15)[i]
+            )
+        elif shot.transition == "fade" and i < 8:
+            out = Image.blend(Image.new("RGB", size, (0, 0, 0)), out, (i + 1) / 9)
+        elif shot.transition == "whip" and i < 4:
+            out = _whip(out, 1 - i / 4)
+        yield out
+
+
+def _whip(img: Image.Image, amount: float) -> Image.Image:
+    a = np.asarray(img).astype(np.float32)
+    shift = int(img.size[0] * 0.04 * amount) or 1
+    acc = np.zeros_like(a)
+    for k in range(6):
+        acc += np.roll(a, k * shift, axis=1)
+    return Image.fromarray((acc / 6).astype(np.uint8))
+
+
+def render_video(
+    shots: Sequence[Shot],
+    words: List[Word],
+    out: Path,
+    *,
+    size: Tuple[int, int],
+    audio: Optional[Path] = None,
+    preset: str = "medium",
+    progress: Optional[Callable[[float], None]] = None,
+) -> Path:
+    """All the shots into one mp4 (with the mixed audio when given)."""
+    out.parent.mkdir(parents=True, exist_ok=True)
+    silent = out.with_suffix(".video.mp4")
+    w, h = size
+    cmd = [
+        ffmpeg(), "-y", "-v", "error", "-f", "rawvideo", "-pix_fmt", "rgb24",
+        "-s", f"{w}x{h}", "-r", str(FPS), "-i", "-",
+        "-c:v", "libx264", "-preset", preset, "-crf", "18", "-pix_fmt", "yuv420p",
+        str(silent),
+    ]  # fmt: skip
+    proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
+    total = sum(max(1, round(s.dur * FPS)) for s in shots) or 1
+    done = 0
+    try:
+        for k, shot in enumerate(shots):
+            for frame in shot_frames(shot, words, size, k):
+                assert proc.stdin is not None
+                proc.stdin.write(frame.tobytes())
+                done += 1
+                if progress and done % 30 == 0:
+                    progress(done / total)
+    finally:
+        if proc.stdin:
+            proc.stdin.close()
+        err = proc.stderr.read().decode("utf-8", "replace") if proc.stderr else ""
+        if proc.wait() != 0:
+            raise RuntimeError(f"ffmpeg no pudo codificar el video: {err[-400:]}")
+    if audio is None:
+        silent.replace(out)
+        return out
+    subprocess.run(
+        [
+            ffmpeg(), "-y", "-v", "error", "-i", str(silent), "-i", str(audio),
+            "-c:v", "copy", "-af", "loudnorm=I=-14:TP=-1.5:LRA=11",
+            "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-shortest", "-movflags", "+faststart", str(out),
+        ],
+        check=True, capture_output=True, timeout=1800,
+    )  # fmt: skip
+    silent.unlink(missing_ok=True)
+    return out
+
+
+def still_of(
+    shot: Shot, words: List[Word], size: Tuple[int, int], at: float = 0.7
+) -> Image.Image:
+    """One frame of a shot (for the review and the preview)."""
+    frames = shot_frames(shot, words, size)
+    wanted = int(max(0, min(shot.dur * at, shot.dur - 0.05)) * FPS)
+    last = None
+    for i, frame in enumerate(frames):
+        last = frame
+        if i >= wanted:
+            break
+    return last if last is not None else Image.new("RGB", size)
+
+
+def sheet(images: List[Image.Image], cols: int = 4, width: int = 1600) -> Image.Image:
+    """Frames side by side, for the reviewer to see the whole edit at once."""
+    if not images:
+        return Image.new("RGB", (width, 10))
+    cw = width // cols
+    ch = int(cw * images[0].size[1] / images[0].size[0])
+    rows = math.ceil(len(images) / cols)
+    out = Image.new("RGB", (cw * cols, ch * rows), (0, 0, 0))
+    for i, img in enumerate(images):
+        out.paste(
+            img.resize((cw, ch), Image.BILINEAR), ((i % cols) * cw, (i // cols) * ch)
+        )
+    return out
+
+
+__all__ = [
+    "DRAFT_SIZES",
+    "FPS",
+    "PALETTE",
+    "SIZES",
+    "layout_text",
+    "render_video",
+    "sheet",
+    "shot_frames",
+    "still_of",
+]

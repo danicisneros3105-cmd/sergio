@@ -258,6 +258,7 @@ DEFAULT_TOOL_CAPABILITIES: Dict[str, List[str]] = {
     "files_organize": [Capability.FILE_READ, Capability.FILE_WRITE],
     "photos_duplicates": [Capability.FILE_READ, Capability.FILE_WRITE],
     "video_create": [Capability.NETWORK_FETCH, Capability.FILE_WRITE],
+    "video_essay": [Capability.NETWORK_FETCH, Capability.FILE_WRITE],
     "pc_checkup": [Capability.FILE_READ, Capability.FILE_WRITE],
     "flights_overhead": [Capability.NETWORK_FETCH],
     "get_pending_actions": [Capability.MEMORY_READ],

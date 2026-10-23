@@ -99,6 +99,7 @@ SERVER_TOOLS = (
     "live_earthquakes",
     "image_generate",
     "video_create",
+    "video_essay",
     "video_edit",
     "video_pro",
     "blender_create",

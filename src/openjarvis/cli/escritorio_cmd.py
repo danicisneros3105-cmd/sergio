@@ -51,6 +51,7 @@ BASE_TOOLS = (
     "calculator",
     "image_generate",
     "video_create",
+    "video_essay",
     "get_weather",
     "globe_view",
     "live_flights",

@@ -77,4 +77,12 @@ Otras piezas de terceros que Sergio usa (créditos y licencias):
   imageio-ffmpeg (BSD-2-Clause); no se modifica.
 - Imágenes cuando la clave de Gemini no tiene cuota: OpenAI, Hugging Face
   (FLUX.1-schnell, Apache-2.0) o Pollinations, bajo sus propios términos.
+- Video ensayo: la letra Inter Display (SIL Open Font License 1.1, © 2016
+  The Inter Project Authors, https://github.com/rsms/inter) va incluida en
+  src/openjarvis/video_essay/fonts/ con su licencia (OFL.txt). El video libre
+  viene de Pexels (https://www.pexels.com/license/) y Pixabay
+  (https://pixabay.com/service/license-summary/), con la clave gratuita del
+  dueño y bajo sus licencias; el reconocimiento de palabras usa
+  faster-whisper (MIT) con los modelos Whisper de OpenAI (MIT). Efectos y
+  música de fondo los genera Sergio.
 Detalle legal y decisiones: docs/LEGAL.md.

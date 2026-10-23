@@ -69,11 +69,12 @@ def _manchas(request: str, answer: str, used: frozenset) -> Optional[str]:
 def _hous(request: str, answer: str, used: frozenset) -> Optional[str]:
     if not _VISUAL.search(request):
         return None
-    if _MEDIA in answer or used & {"image_generate", "video_create"}:
+    if _MEDIA in answer or used & {"image_generate", "video_create", "video_essay"}:
         return None
     return (
         "mostrar el visual de verdad: créalo con image_generate (o video_create "
-        "si es un video) y pon la imagen en tu respuesta, no solo la describas"
+        "si es un video, video_essay si es un ensayo de nivel) y pon la imagen "
+        "en tu respuesta, no solo la describas"
     )
 
 
@@ -114,7 +115,7 @@ SPECIALTIES = {
     "hous": Specialty(
         key="hous",
         does="Diseña: hace imágenes, logos y videos de verdad, no solo ideas.",
-        toolkit=("image_generate", "video_create", "web_search"),
+        toolkit=("image_generate", "video_create", "video_essay", "web_search"),
         effort="medium",
         temperature=1.0,
         check=_hous,

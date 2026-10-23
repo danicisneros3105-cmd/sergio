@@ -1,0 +1,76 @@
+{
+ "key": "metas-grandes",
+ "name": "Metas grandes (video ensayo motivacional)",
+ "source": "Video de referencia del dueño, analizado el 2026-10-23 (97 tomas, 101 cortes medidos con ffmpeg en 180 s).",
+ "length_s": 180,
+ "median_shot_s": 1.5,
+ "min_shot_s": 0.4,
+ "max_shot_s": 9.4,
+ "mix": {
+  "card": 0.21,
+  "archive": 0.18,
+  "device": 0.12,
+  "broll": 0.49
+ },
+ "text_every_shot": true,
+ "words_per_caption": [
+  1,
+  7
+ ],
+ "keyword_caps": true,
+ "palette": {
+  "card_cream": "#E9EBCF",
+  "card_red": "#E8262A",
+  "card_navy": "#16243A",
+  "card_black": "#0B0B0B",
+  "text": "#FFFFFF",
+  "accent": "#E8262A",
+  "muted": "#9A9A9A",
+  "gold": "#F2B53A"
+ },
+ "grade": "problem beats: black and white or desaturated with grain and a CRT/film frame; success beats: rich natural colour; cards: flat cream, red, navy or black",
+ "typography": {
+  "fonts": "Primarily a bold, sans-serif font (similar to Montserrat or Gotham) for main points, with a secondary, slightly softer sans-serif for supporting text. Subtitles (like Ke Huy Quan's quote) use a standard, legible sans-serif.",
+  "animation": "Text often animates in with a quick scale-up or slide-in effect, sometimes combined with a subtle glow or shadow. Key motivational phrases are emphasized with larger, more dynamic animations. Some text is integrated into the scene (e.g., on screens, or as 3D text in landscapes).",
+  "colors": "Main motivational text is typically white, red, or a bright yellow/gold, contrasting against dark backgrounds or desaturated visuals. Problem-oriented text might be white against black or grey. Transition cards use solid red or light yellow-green backgrounds with white/red text.",
+  "placement": "Most on-screen text is centrally aligned and prominent. Shorter phrases might appear left-aligned or strategically placed within the visual composition."
+ },
+ "narration": "Authoritative, motivational, and confident. The narrator's tone is measured but builds intensity with the content, using a clear, deep male voice with excellent enunciation. Occasionally, there's a slightly rhetorical or questioning tone to engage the audience.",
+ "music": "The music is primarily cinematic and orchestral, starting subtly and building in intensity and emotional resonance, especially during motivational segments. It features driving percussion and uplifting string/synth melodies. Sound effects are used sparingly but effectively to punctuate text reveals, transitions, and specific visual actions (e.g., keyboard typing, click sounds, whooshes).",
+ "effects": [
+  "Animated text reveals (scale, slide, glow)",
+  "Vintage film/CRT frame overlay for historical footage",
+  "Picture-in-Picture (PiP) for screen captures or contrasting visuals",
+  "Fast-paced visual montages (quick cuts)",
+  "3D text rendered into environment (mountains, cityscapes)",
+  "word-by-word reveal synced to the voice",
+  "one highlighted word in another colour or caps",
+  "text placed in the scene (curved, on screens, behind a subject)",
+  "grey words with the last word in white",
+  "device mock-ups (old computer, phone) with the clip inside"
+ ],
+ "transitions": {
+  "cut": 0.86,
+  "graphic": 0.06,
+  "flash": 0.04,
+  "fade": 0.04
+ },
+ "sfx": {
+  "none": 0.48,
+  "whoosh": 0.2,
+  "click": 0.06,
+  "typewriter": 0.04,
+  "impact": 0.06,
+  "riser": 0.04
+ },
+ "structure": [
+  "hook: impossible-sounding ideas, word by word on cards",
+  "problem: they sounded absurd",
+  "turn: that is the reality of ambitious goals",
+  "story: real case told in quick archive cuts",
+  "contrast: everyone else plays it safe",
+  "payoff: unrealistic goals are the realistic path",
+  "cta: two-word cards, red on cream"
+ ],
+ "pacing": "The pacing is generally fast and energetic, with rapid cuts, especially during problem introductions and montages. It slows down slightly for impactful statements and visual emphasis, then picks back up to maintain viewer engagement. The overall rhythm builds towards a crescendo of motivation."
+}

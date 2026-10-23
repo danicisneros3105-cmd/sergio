@@ -40,6 +40,7 @@ personas, consulte a un abogado en Ecuador.
 | Mensajes de WhatsApp | Términos de WhatsApp | La vía «Baileys» es una conexión no oficial: no es ilegal, pero WhatsApp puede **bloquear el número**. Lo seguro es la API oficial (WhatsApp Cloud API). Los envíos nunca son automáticos. |
 | Imágenes con otros servicios | Términos de cada servicio | Si la clave de Gemini no tiene cuota de imágenes (la gratuita no la tiene), Sergio prueba OpenAI o Hugging Face si hay clave, y si no Pollinations, sin clave. A ese servicio solo viaja la descripción de la imagen, marcada como privada. `SERGIO_IMAGENES_LIBRES=0` lo apaga. No describa a personas reales por su nombre. |
 | Videos de YouTube y otros | Derechos de autor y términos de YouTube | Solo use videos suyos o con permiso como referencia de estilo. Sergio no los publica. |
+| Video ensayo «como este» | Derechos de autor (películas, noticias, archivo); licencias de Pexels y Pixabay | De la referencia solo se aprende **cómo está editada** (ritmo, tipos de toma, letras, efectos): Sergio nunca descarga ni usa sus imágenes, su música ni sus palabras. Las películas y noticias que salen en esos ensayos son de otros, así que en su lugar van **sus clips**, video libre de Pexels o Pixabay (licencias que permiten cualquier uso, sin atribución obligatoria) o imágenes que hace Sergio. Los efectos de sonido y la música de fondo los genera Sergio. El guion no inventa citas de personas reales ni cifras. El video nunca se publica sin su permiso. |
 
 ## 2 bis. Cobrar por Sergio (planes de pago)
 

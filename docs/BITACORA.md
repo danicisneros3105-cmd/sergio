@@ -2,6 +2,35 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-10-23 · Claude · Video ensayo al nivel de la referencia
+- El dueño mandó un video de referencia («If you have Big Goals…», 3 min) y
+  pidió ese nivel de edición, aunque tarde horas. Lo estudié con código y con
+  Gemini: unos 100 cortes (uno cada ~1,5 s), texto en casi todas las tomas,
+  21 % fichas de color, 18 % archivo en blanco y negro con marco de tele,
+  12 % clips dentro de un ordenador o teléfono, 49 % imágenes; efectos de
+  sonido en los cortes y música que crece. Eso quedó como el estilo
+  `metas-grandes`.
+- Nuevo paquete `video_essay/` y herramienta `video_essay` (acciones start,
+  status, styles, cancel, retry). Pasos: estudiar la referencia, guion en su
+  estructura, voz de Sergio en trozos de 1800 caracteres, cuándo se dice cada
+  palabra (faster-whisper; si no hay, por la energía del audio), plan de
+  tomas, imágenes, pasadas de revisión con una hoja de fotogramas, sonido y
+  render a 1080p. Cada paso guarda lo suyo: si el PC se apaga, sigue donde
+  iba sin volver a pagar lo hecho. Al final Hous lo publica en su chat.
+- Probado: 20 pruebas nuevas (con ffmpeg real) y una vuelta real con la clave
+  de prueba (guion, voz, plan y revisión de Gemini). 30 s de borrador en
+  2 minutos; el render a 1080p va a ~2,4× tiempo real (3 min ≈ 8 min).
+- Cableado como `video_create`: neurona «video», caja de Hous, voz (Gemini
+  Live), escritorio, tareas y permisos.
+- Límites honestos: las películas de la referencia tienen dueño, así que van
+  sus clips, Pexels/Pixabay (claves gratuitas `PEXELS_API_KEY`,
+  `PIXABAY_API_KEY`) o imágenes de Sergio; con la clave gratuita de Gemini no
+  hay cuota de imágenes y, sin claves de video libre, las tomas salen como
+  fichas negras con texto. «Argon 4» y «Astra» no los pude verificar: los
+  modelos se eligen con `SERGIO_VIDEO_MODELS`.
+- Pendiente: probar faster-whisper con el modelo descargado en el PC del
+  dueño (aquí el proxy no deja bajarlo) y una vuelta con imágenes reales.
+
 ## 2026-10-23 · Claude · Voz sin «otra ventana», imágenes y videos que funcionan
 - Voz («otra ventana tomó esta conversación», no podía hablarle). Había dos
   causas:
