@@ -22,6 +22,7 @@ are checked by code too (skills.py); the model only wakes on a real change.
 
 from __future__ import annotations
 
+import contextvars
 import copy
 import logging
 import re
@@ -31,7 +32,7 @@ from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
 
 from openjarvis.cli.friendly import plain
 from openjarvis.connectome.brain import remember_exchange
-from openjarvis.nodes import connections, skills, team
+from openjarvis.nodes import connections, skills, specialty, team
 from openjarvis.nodes.store import (
     MAIN_THREAD,
     RULES,
@@ -131,6 +132,13 @@ puedes hacer por él con tu propia computadora, memoria y apps, y pregúntale co
 Devuelve SOLO JSON: {{"presentacion": "..."}}"""
 
 
+# How the Node of this turn thinks (nodes/specialty.py): effort and
+# temperature for _node_runner, without changing the runner's signature.
+NODE_STYLE: contextvars.ContextVar[Dict[str, Any]] = contextvars.ContextVar(
+    "node_style", default={}
+)
+
+
 def _node_runner(
     prompt: str, tools: List[str], budget: int, on_tool: Callable[[str, Any], None]
 ) -> Tuple[str, int]:
@@ -143,6 +151,15 @@ def _node_runner(
 
     config = copy.deepcopy(load_config())
     config.agent.max_turns = max(1, min(int(config.agent.max_turns or 10) * 3, budget))
+    style = NODE_STYLE.get()
+    if style:
+        from openjarvis.engine.cloud import split_effort
+
+        base, _ = split_effort(config.intelligence.default_model or "")
+        if base.startswith("gemini") and style.get("effort"):
+            config.intelligence.default_model = f"{base}@{style['effort']}"
+        if "temperature" in style:
+            config.intelligence.temperature = float(style["temperature"])
     jarvis = Jarvis(config=config)
     calls = {"n": 0}
 
@@ -638,18 +655,44 @@ class NodeWorker:
             thread=thread,
         )
 
+        used: List[str] = []
+
         def on_tool(tool: str, args: Any) -> None:
+            used.append(tool)
             if not stop.is_set():
                 line = describe_tool(tool, args)
                 self.store.update(node_id, doing=line)
                 self.store.log(node_id, "tool", line, tool=tool)
 
-        tools = tools_for(
-            effective_rules(node.rules, node.own_rules), job.get("extra") or []
+        # Its own instruments and way of thinking (specialty.py), on top of
+        # what the owner's rules allow.
+        tools = specialty.tools_with_toolkit(
+            node.team,
+            tools_for(
+                effective_rules(node.rules, node.own_rules), job.get("extra") or []
+            ),
         )
-        answer, calls = self.runner(
-            self._prompt(node, job), tools, TURN_BUDGET, on_tool
+        own = specialty.specialty(node.team)
+        token = NODE_STYLE.set(
+            {"effort": own.effort, "temperature": own.temperature} if own else {}
         )
+        try:
+            prompt = self._prompt(node, job)
+            answer, calls = self.runner(prompt, tools, TURN_BUDGET, on_tool)
+            # Its deliverable, checked by code: once back with «te faltó…».
+            lack = specialty.missing(node.team, job["request"], answer or "", used)
+            if lack and not stop.is_set():
+                self.store.log(node_id, "review", f"Revisión propia: le faltó {lack}.")
+                again, more = self.runner(
+                    specialty.retry_prompt(prompt, node.name, lack, answer or ""),
+                    tools,
+                    TURN_BUDGET,
+                    on_tool,
+                )
+                if (again or "").strip():
+                    answer, calls = again, calls + more
+        finally:
+            NODE_STYLE.reset(token)
         if stop.is_set():
             self.store.log(
                 node_id, "discarded", "Resultado descartado: lo detuvo usted."

@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import { PaperPage } from '../components/Paper/PaperPage';
 import { apiFetch } from '../lib/api';
 import { useAppStore } from '../lib/store';
+import { UsageMeters } from '../components/UsageMeters';
 import './usage.css';
 
 interface UsageRow {
@@ -68,6 +69,7 @@ export function UsagePage() {
 
   return (
     <PaperPage title="Uso y modelos" wide>
+      <UsageMeters />
       <div className="usage-periods" role="tablist" aria-label="Periodo">
         {PERIODS.map((p) => (
           <button

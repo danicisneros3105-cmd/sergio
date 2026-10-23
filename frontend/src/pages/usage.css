@@ -19,3 +19,17 @@
   .usage-providers li { grid-template-columns: 12px 1fr auto; }
   .usage-providers small { grid-column: 2 / -1; }
 }
+
+/* The usage panel: percentages of today's limits. */
+.usage-meters { margin: 0 0 28px; padding: 18px 20px; border: 1px solid var(--color-border-subtle); border-radius: 16px; }
+.usage-meters-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 14px; }
+.usage-meters-head b { font-size: 34px; font-weight: 600; letter-spacing: -0.02em; color: var(--color-text); }
+.usage-meters-head span { font-size: 14px; color: var(--color-text-secondary); }
+.usage-meters ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.usage-meters li { display: grid; grid-template-columns: minmax(120px, 220px) 1fr 52px; align-items: center; gap: 12px; font-size: 14px; }
+.usage-meters-label { color: var(--color-text); }
+.usage-meters-bar { height: 8px; border-radius: 8px; background: var(--color-bg-tertiary); overflow: hidden; }
+.usage-meters-bar i { display: block; height: 100%; border-radius: 8px; background: var(--color-text); transition: width 400ms ease; }
+.usage-meters-pct { text-align: right; font-variant-numeric: tabular-nums; color: var(--color-text-secondary); }
+.usage-meters-note { margin: 12px 0 0; font-size: 12.5px; color: var(--color-text-tertiary); }
+@media (max-width: 560px) { .usage-meters li { grid-template-columns: 1fr 44px; } .usage-meters-bar { grid-column: 1 / -1; grid-row: 2; } }

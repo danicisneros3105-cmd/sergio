@@ -73,7 +73,9 @@ def test_rihno_hands_work_to_hous_and_gets_the_answer_back(tmp_path):
         tmp_path,
         [
             'Ya lo reparto. <equipo para="Hous">Logo para la tienda, tinta y crudo.</equipo>',
-            "Tres versiones en su carpeta de diseño.",
+            # Hous shows the logo it made (a design request without the
+            # visual goes back to it once: nodes/specialty.py)
+            "Tres versiones en su carpeta de diseño. ![logo](/v1/creator/media/imagen-a.png)",
             "Señor, Hous dejó tres logos listos. ¿Aprobar?",
         ],
         prompts,
@@ -86,7 +88,7 @@ def test_rihno_hands_work_to_hous_and_gets_the_answer_back(tmp_path):
     hous_said = [m for m in store.messages(hous.id) if m["role"] == "user"]
     assert hous_said[-1]["text"].startswith("Logo para la tienda")
     back = [m["text"] for m in store.messages(rihno.id) if m["role"] == "node"]
-    assert "Tres versiones en su carpeta de diseño." in back
+    assert any(t.startswith("Tres versiones en su carpeta de diseño.") for t in back)
     assert back[-1].startswith("Señor, Hous dejó tres logos listos")
     assert "<equipo" not in " ".join(back)  # the tag never reaches the owner
     assert "Hous terminó lo que le encargaste" in prompts[-1]

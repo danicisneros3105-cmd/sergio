@@ -82,3 +82,14 @@ export function saveCountry(code: string): void {
 export function percent(used: number, limit: number): number {
   return limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0;
 }
+
+/** How much of today's limit is used, 0-100 (rounded, never above 100). */
+export function percentUsed(item: { used: number; limit: number }): number {
+  if (!item.limit) return 0;
+  return Math.min(100, Math.round((item.used / item.limit) * 100));
+}
+
+/** The fullest one decides: «12 %» means nothing is closer than that to its limit. */
+export function overallPercent(items: Array<{ used: number; limit: number }>): number {
+  return items.reduce((top, item) => Math.max(top, percentUsed(item)), 0);
+}

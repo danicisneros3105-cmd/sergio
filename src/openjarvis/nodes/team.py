@@ -436,7 +436,11 @@ def greeting(m: Member) -> str:
 
 def public(m: Member) -> Dict[str, str]:
     """What the app shows about each member."""
+    from openjarvis.nodes.specialty import specialty
+
+    own = specialty(m.key)
     return {
+        "does": own.does if own else "",
         "key": m.key,
         "name": m.name,
         "shape": m.shape,

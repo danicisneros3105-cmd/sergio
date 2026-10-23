@@ -54,3 +54,5 @@
   color: var(--color-text-secondary);
 }
 .node-msg .node-cancel { align-self: center; margin-left: 4px; display: inline-flex; align-items: center; gap: 5px; }
+/* What only this Node does, under its role (nodes/specialty.py). */
+.critter-card-does { max-width: 240px; text-align: center; font-size: 12.5px; line-height: 1.35; color: var(--color-text-secondary); }

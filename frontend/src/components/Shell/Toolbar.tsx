@@ -20,6 +20,7 @@ import { LiveOrb } from '../Live/LiveOrb';
 import { ConversationList } from '../Sidebar/ConversationList';
 import { UpdateButton } from './UpdateButton';
 import { apiFetch } from '../../lib/api';
+import { overallPercent } from '../../lib/plans';
 
 // Nodes: a few dots, like the persistent agents they are.
 function NodesIcon({ size = 20, strokeWidth = 1.5 }: { size?: number; strokeWidth?: number }) {
@@ -104,11 +105,16 @@ export function Toolbar({ historyOpen, onToggleHistory }: { historyOpen: boolean
   const searchRef = useRef<HTMLInputElement>(null);
   // The plan under the name, so the owner always sees which one is in force.
   const [planName, setPlanName] = useState('');
+  const [usedToday, setUsedToday] = useState<number | null>(null);
   useEffect(() => {
     let live = true;
     apiFetch('/v1/plans/me')
       .then((r) => (r.ok ? r.json() : null))
-      .then((d) => live && setPlanName(d?.account?.plan_name || ''))
+      .then((d) => {
+        if (!live) return;
+        setPlanName(d?.account?.plan_name || '');
+        setUsedToday(d?.usage?.items ? overallPercent(d.usage.items) : null);
+      })
       .catch(() => live && setPlanName(''));
     return () => {
       live = false;
@@ -253,7 +259,10 @@ export function Toolbar({ historyOpen, onToggleHistory }: { historyOpen: boolean
             </span>
             <span className="sb-label">
               <b>Señor</b>
-              <small>{planName ? `Plan ${planName}` : 'Ajustes'}</small>
+              <small>
+                {planName ? `Plan ${planName}` : 'Ajustes'}
+                {usedToday !== null ? ` · ${usedToday} % hoy` : ''}
+              </small>
             </span>
             <Settings className="sb-user-gear" size={16} strokeWidth={1.7} />
           </button>

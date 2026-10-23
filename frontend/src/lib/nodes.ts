@@ -64,6 +64,8 @@ export interface TeamMember {
   role: string;
   archetype: string;
   mission: string;
+  /** What only this Node does, in one line (nodes/specialty.py). */
+  does?: string;
   voice: string;
   signature: string;
 }

@@ -39,6 +39,7 @@ export function CharacterCard({ avatar, member }: { avatar: Avatar; member?: Tea
       <NodeCritter look={avatar} size={132} status="idle" label={name} />
       <b>{name}</b>
       {member && <span className="critter-card-role">{member.role}</span>}
+      {member?.does && <span className="critter-card-does">{member.does}</span>}
     </div>
   );
 }
