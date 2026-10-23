@@ -61,7 +61,7 @@ REGIONS: List[Dict[str, Any]] = [
         "key": "descendentes",
         "fly": "Neuronas descendentes",
         "job": "Convierten la decisión en movimiento.",
-        "sergio": "Zona de herramientas: aprende qué herramienta funcionó para cada tipo de pedido y se la sugiere la próxima vez. Nunca mensajes, llamadas, compras ni borrados por su cuenta.",
+        "sergio": "El núcleo que decide: cada neurona hace una sola cosa (imágenes, videos, pantalla, archivos, internet…) y solo las que se encienden le dan sus herramientas a Sergio en ese pedido. Lo que funciona crea conexiones nuevas, atajos y hasta neuronas nuevas. Nunca mensajes, llamadas, compras ni borrados por su cuenta.",
         "where": "Herramientas",
     },
     {
@@ -86,7 +86,10 @@ LEARNING = (
     "de la petición y ese recuerdo se refuerzan, y los recuerdos usados juntos "
     "se enlazan. La próxima vez esas conexiones lo traen directo, sin buscar "
     "entre todo (más rápido). Una corrección las debilita y lo que no se usa se "
-    "olvida poco a poco. Es memoria y contexto, no un cambio de los pesos del modelo."
+    "olvida poco a poco. Cada vez que una herramienta funciona, la neurona que la "
+    "maneja queda más conectada a esas palabras; si se repite, se vuelve un atajo, "
+    "y una herramienta nueva hace crecer una neurona nueva. Es memoria y "
+    "decisión, no un cambio de los pesos del modelo."
 )
 
 

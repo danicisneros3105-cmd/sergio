@@ -47,6 +47,7 @@ import unicodedata
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 
+from openjarvis.connectome import neurons as _neurons
 from openjarvis.connectome.memory import kenyon_code
 
 ZONES: Dict[str, Dict[str, str]] = {
@@ -105,6 +106,8 @@ _NOT_ROUTES = {"think", "memory_search", "memory_store"}
 
 # The turn being answered on this thread: tools note themselves here.
 _turn = threading.local()
+SELECT_MAX_CHARS = 1500  # a long prompt (a Node's turn) is not one request
+SELECTION_TTL_S = 20 * 60
 
 
 def enabled() -> bool:
@@ -432,6 +435,20 @@ class Brain:
         )
         return good[:4], bad[:3]
 
+    def select_tools(self, text: str) -> Optional[_neurons.Selection]:
+        """The core decision: which neurons this request fires, and so which
+        tools the agent gets this turn (connectome/neurons.py)."""
+        if not text.strip() or len(text) > SELECT_MAX_CHARS:
+            return None
+        cells = kenyon_code(text)
+        learned = {
+            item[8:]: w
+            for item, w in self._activation(cells, "neurona:").items()
+            if w > 0
+        }
+        good, _bad = self.routes(text)
+        return _neurons.select(text, learned, [name for name, _ in good])
+
     def context(self, text: str, channel: str = "chat") -> Tuple[str, List[str]]:
         """What the zones add for this request, each within its share."""
         if not enabled() or not text.strip():
@@ -441,7 +458,14 @@ class Brain:
             cells = kenyon_code(text)
             ids, fast = self.recall(text)
             good, bad = self.routes(text)
+            selection = self.select_tools(text)
             self.stats_["turns"] = self.stats_.get("turns", 0) + 1
+            if selection is not None:
+                self.stats_["narrowed"] = self.stats_.get("narrowed", 0) + 1
+                if selection.shortcut:
+                    self.stats_["shortcut_turns"] = (
+                        self.stats_.get("shortcut_turns", 0) + 1
+                    )
             if fast:
                 self.stats_["fast"] = self.stats_.get("fast", 0) + 1
             budget = int(CONTEXT_CHARS * self.zone_w.get("memoria", 1.0))
@@ -466,6 +490,7 @@ class Brain:
             self._pending[_key(text)] = record
             self._expire_pending()
         _turn.record = record
+        _turn.selection = (selection, self.clock()) if selection else None
         blocks: List[str] = []
         if lines:
             blocks.append(
@@ -572,7 +597,31 @@ class Brain:
                 }
                 - set(tools_ok)
             )
-            items = used + skills + tools_ok + ([f"memoria:{eid}"] if eid else [])
+            # The neurons of the tools that worked: their synapses from these
+            # words grow (a tool with no neuron grows a new one).
+            neurons_ok = sorted(
+                {
+                    f"neurona:{k}"
+                    for t in tools_ok
+                    for k in _neurons.neurons_for_tool(t[13:])
+                }
+            )
+            neurons_bad = sorted(
+                {
+                    f"neurona:{k}"
+                    for t in tools_bad
+                    for k in _neurons.neurons_for_tool(t[13:])
+                }
+                - set(neurons_ok)
+            )
+            tools_bad = tools_bad + neurons_bad
+            items = (
+                used
+                + skills
+                + tools_ok
+                + neurons_ok
+                + ([f"memoria:{eid}"] if eid else [])
+            )
             items.append(f"sentidos:{channel}")
             if cells:
                 self._strengthen(cells, items, 0.6 if used else 0.4)
@@ -647,6 +696,30 @@ class Brain:
                     )
             synapses = sum(len(r) for r in self.syn.values())
             turns = self.stats_.get("turns", 0)
+            # The core: each neuron, how many learned connections reach it and
+            # whether one is strong enough to be a shortcut.
+            reach: Dict[str, Tuple[int, float]] = {}
+            for row in self.syn.values():
+                for item, w in row.items():
+                    if item.startswith("neurona:") and w > 0:
+                        n, top_w = reach.get(item[8:], (0, 0.0))
+                        reach[item[8:]] = (n + 1, max(top_w, w))
+            keys = list(_neurons.NEURONS) + sorted(
+                k for k in reach if k not in _neurons.NEURONS
+            )
+            neuron_rows = [
+                {
+                    "key": k,
+                    "label": _neurons.label(k),
+                    "job": _neurons.NEURONS[k].job
+                    if k in _neurons.NEURONS
+                    else "La creó el cerebro al aprender una herramienta nueva.",
+                    "connections": reach.get(k, (0, 0.0))[0],
+                    "shortcut": reach.get(k, (0, 0.0))[1] >= _neurons.SHORTCUT,
+                    "learned": k not in _neurons.NEURONS,
+                }
+                for k in keys
+            ]
             return {
                 "zones": [
                     {
@@ -665,6 +738,12 @@ class Brain:
                 if turns
                 else 0.0,
                 "corrections": self.stats_.get("corrections", 0),
+                "neurons": neuron_rows,
+                "shortcuts": sum(1 for r in neuron_rows if r["shortcut"]),
+                "learned_neurons": sum(1 for r in neuron_rows if r["learned"]),
+                "narrowed": round(self.stats_.get("narrowed", 0) / turns, 3)
+                if turns
+                else 0.0,
             }
 
     def forget(self) -> None:
@@ -697,6 +776,7 @@ def mind_context(text: str, channel: str = "chat") -> str:
     the memories that come back and the learned routes. Never breaks a turn."""
     parts: List[str] = []
     brain: Optional[Brain] = None
+    _turn.selection = None  # a new turn: the last one's choice does not carry over
     try:
         brain = get_brain()
         block, _ = brain.context(text, channel)
@@ -715,6 +795,17 @@ def mind_context(text: str, channel: str = "chat") -> str:
     if block:
         parts.append(block)
     return "\n\n".join(parts)
+
+
+def turn_tools() -> Optional[frozenset]:
+    """The tools the brain chose for the turn on this thread (None: all)."""
+    chosen = getattr(_turn, "selection", None)
+    if not chosen or not enabled():
+        return None
+    selection, at = chosen
+    if time.time() - at > SELECTION_TTL_S:
+        return None
+    return selection.tools
 
 
 def note_tool(name: str, ok: bool) -> None:
@@ -738,6 +829,7 @@ def remember_exchange(
 
 __all__ = [
     "Brain",
+    "turn_tools",
     "CHANNELS",
     "ZONES",
     "enabled",

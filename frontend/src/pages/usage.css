@@ -33,3 +33,6 @@
 .usage-meters-pct { text-align: right; font-variant-numeric: tabular-nums; color: var(--color-text-secondary); }
 .usage-meters-note { margin: 12px 0 0; font-size: 12.5px; color: var(--color-text-tertiary); }
 @media (max-width: 560px) { .usage-meters li { grid-template-columns: 1fr 44px; } .usage-meters-bar { grid-column: 1 / -1; grid-row: 2; } }
+.usage-meters-brain { list-style: none; margin: 16px 0 0; padding: 14px 0 0; border-top: 1px solid var(--color-border-subtle); display: grid; gap: 10px; }
+.usage-meters-brain li { display: grid; grid-template-columns: minmax(120px, 220px) 1fr 52px; align-items: center; gap: 12px; font-size: 14px; }
+.usage-meters-brain .usage-meters-facts { display: block; font-size: 12.5px; color: var(--color-text-secondary); }

@@ -69,6 +69,27 @@ export function ConnectomePage() {
             )}
           </section>
 
+          {map.mind?.neurons && (
+            <section className="salud-block">
+              <h2 className="paper-label">Neuronas que deciden</h2>
+              <p className="cn-learned">
+                {`${map.mind.shortcuts ?? 0} atajos internos, ${map.mind.learned_neurons ?? 0} neuronas nuevas. Eligió las herramientas en el ${Math.round((map.mind.narrowed ?? 0) * 100)} % de los pedidos.`}
+              </p>
+              <ul className="cn-zones">
+                {map.mind.neurons.map((n) => (
+                  <li key={n.key}>
+                    <span className="paper-label">
+                      {n.label}
+                      {n.shortcut ? ' · atajo' : ''}
+                    </span>
+                    <strong>{n.connections}</strong>
+                    <span>{n.job}</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
           <section className="salud-block">
             <h2 className="paper-label">Reflejos de teclado</h2>
             <ul className="cn-keys">

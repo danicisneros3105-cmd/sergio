@@ -624,8 +624,23 @@ class ToolExecutor:
         return [t.spec for t in self._tools.values()]
 
     def get_openai_tools(self) -> List[Dict[str, Any]]:
-        """Return tools in OpenAI function-calling format."""
-        return [t.to_openai_function() for t in self._tools.values()]
+        """Return tools in OpenAI function-calling format.
+
+        The brain is the core (connectome/neurons.py): when the request fired
+        some of its neurons, the model only sees their tools (plus a few that
+        always help). When nothing fired with confidence, it sees them all."""
+        tools = list(self._tools.values())
+        try:
+            from openjarvis.connectome.brain import turn_tools
+
+            chosen = turn_tools()
+        except Exception:  # noqa: BLE001 — the brain never blocks a turn
+            chosen = None
+        if chosen:
+            narrowed = [t for t in tools if t.spec.name in chosen]
+            if narrowed:
+                tools = narrowed
+        return [t.to_openai_function() for t in tools]
 
 
 def build_tool_descriptions(

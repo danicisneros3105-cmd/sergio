@@ -144,6 +144,12 @@ export interface BrainMap {
     associations?: number;
     fast_path?: number;
     corrections?: number;
+    /** The core: neurons with one job each (connectome/neurons.py). */
+    neurons?: Array<{ key: string; label: string; job: string; connections: number; shortcut: boolean; learned: boolean }>;
+    shortcuts?: number;
+    learned_neurons?: number;
+    /** Share of requests where the brain chose the tools. */
+    narrowed?: number;
     zones?: Array<{
       key: string;
       fly: string;

@@ -161,6 +161,17 @@ termina en la rama `main`, y el dueño actualiza con un único comando.
   Live, voz del escritorio, Nodes, Swarm (solo si salió bien) y Cowork. Se
   guarda en `cerebro.db` (SQLite, escrituras incrementales). Algo nuevo que
   converse o use herramientas debe pasar por el cerebro; no cree otra memoria.
+- **El cerebro es el núcleo que decide** (dueño, 23 oct. 2026): neuronas con
+  un solo trabajo cada una (`connectome/neurons.py`: imágenes, videos,
+  pantalla, PC, archivos, fotos, cámara, internet, cálculo, clima, agenda, 3D,
+  código, memoria). Las palabras las encienden (innato) o las sinapsis
+  aprendidas (cada herramienta que funcionó refuerza su neurona). Una
+  sinapsis muy fuerte es un **atajo**, y una herramienta que funciona sin
+  neurona hace crecer **una neurona nueva**. El agente recibe solo las
+  herramientas de las neuronas encendidas, más `neurons.CORE`
+  (`ToolExecutor.get_openai_tools` lee `brain.turn_tools()`); si nada se
+  enciende con claridad, recibe todas, como antes. Herramienta nueva: póngala
+  en la neurona que le toca.
 - Atajos con la estructura del cerebro de la mosca (dueño, oct. 2026;
   FlyWire, Nature 2024): `connectome/` y `lib/connectome.ts`. Cuerno lateral
   = reflejos en el navegador (Ctrl/⌘ K, G + letra); cuerpo fungiforme =

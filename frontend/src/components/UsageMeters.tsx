@@ -4,10 +4,12 @@
 import { useEffect, useState } from 'react';
 import { apiFetch } from '../lib/api';
 import { overallPercent, percentUsed, type Me } from '../lib/plans';
+import { brainMap, type BrainMap } from '../lib/connectome';
 
 export function UsageMeters({ compact = false }: { compact?: boolean }) {
   const [usage, setUsage] = useState<Me['usage'] | null>(null);
   const [plan, setPlan] = useState('');
+  const [mind, setMind] = useState<BrainMap['mind'] | null>(null);
 
   useEffect(() => {
     let live = true;
@@ -21,6 +23,11 @@ export function UsageMeters({ compact = false }: { compact?: boolean }) {
         })
         .catch(() => undefined);
     void load();
+    if (!compact) {
+      brainMap()
+        .then((m) => live && setMind(m.mind ?? null))
+        .catch(() => undefined);
+    }
     const timer = window.setInterval(load, 60_000);
     return () => {
       live = false;
@@ -57,6 +64,27 @@ export function UsageMeters({ compact = false }: { compact?: boolean }) {
           );
         })}
       </ul>
+      {!compact && mind && (
+        <ul className="usage-meters-brain">
+          <li>
+            <span className="usage-meters-label">Cerebro: pedidos que dirigió</span>
+            <span className="usage-meters-bar" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round((mind.narrowed ?? 0) * 100)} aria-label="Pedidos que dirigió el cerebro">
+              <i style={{ width: `${Math.round((mind.narrowed ?? 0) * 100)}%` }} />
+            </span>
+            <span className="usage-meters-pct">{Math.round((mind.narrowed ?? 0) * 100)} %</span>
+          </li>
+          <li>
+            <span className="usage-meters-label">Cerebro: respuestas por ruta rápida</span>
+            <span className="usage-meters-bar" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round((mind.fast_path ?? 0) * 100)} aria-label="Ruta rápida">
+              <i style={{ width: `${Math.round((mind.fast_path ?? 0) * 100)}%` }} />
+            </span>
+            <span className="usage-meters-pct">{Math.round((mind.fast_path ?? 0) * 100)} %</span>
+          </li>
+          <li className="usage-meters-facts">
+            {`${mind.shortcuts ?? 0} atajos internos · ${mind.learned_neurons ?? 0} neuronas nuevas · ${mind.engrams ?? 0} recuerdos`}
+          </li>
+        </ul>
+      )}
       {!compact && (
         <p className="usage-meters-note">
           {usage.blocking
