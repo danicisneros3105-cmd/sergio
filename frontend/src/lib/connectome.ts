@@ -170,3 +170,45 @@ export async function brainMap(): Promise<BrainMap> {
 export async function forgetLearned(): Promise<void> {
   await apiFetch('/v1/connectome/memory', { method: 'DELETE' });
 }
+
+/** The core's measured proof (connectome/proof.py on the server). */
+export interface CurvePoint {
+  epoch: number;
+  top1: number;
+  top3: number;
+  chance_top1: number;
+  chance_top3: number;
+  changed: number;
+  grown: number;
+}
+
+export interface CoreProof {
+  wiring: {
+    real: boolean;
+    fuente: string;
+    verificado: boolean;
+    neuronas: { proyeccion: number; kenyon: number; salida: number; dopamina: number };
+    sinapsis_medidas: number;
+  };
+  sentidos: string;
+  live: {
+    rondas: Array<{ ronda: number; acierto: number; cambiadas: number; nuevas: number }>;
+    dormir: { memoria_lenta_antes: number; memoria_lenta_despues: number; pruned: number };
+    azar: number;
+  };
+  specialists: Record<string, { curva: CurvePoint[]; tecnicas: number; ejemplo: { pedido: string; consejo: Array<{ tecnica: string; escuela: string; fuerza: number }> } }>;
+  nodes: { pedido: string; instintos: Record<string, Array<{ movida: string; como: string; fuerza: number }>>; divergencia: Record<string, Record<string, number>> };
+  brains: Array<{ nombre: string; sinapsis: { medidas: number; cambiadas: number; nuevas: number; podadas_total: number }; episodios: number; noches: number }>;
+  hive: { organos: Array<{ nombre: string; mosca: string; trabajo: string; veces: number; fallos: number; ms: number }>; supervisor: { recompensas: number; castigos: number } };
+}
+
+export async function coreProof(fresh = false): Promise<CoreProof> {
+  const res = await apiFetch(`/v1/connectome/proof${fresh ? '?fresh=true' : ''}`);
+  if (!res.ok) throw new Error(`Error ${res.status}`);
+  return (await res.json()) as CoreProof;
+}
+
+export async function sleepNow(): Promise<boolean> {
+  const res = await apiFetch('/v1/connectome/sleep', { method: 'POST' });
+  return res.ok;
+}

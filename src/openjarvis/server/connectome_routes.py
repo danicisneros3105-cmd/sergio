@@ -5,6 +5,8 @@
 * ``POST   /v1/connectome/learn``    — dopamine: the owner chose (or dismissed) a destination
 * ``DELETE /v1/connectome/memory``   — forget every learned shortcut
 * ``POST   /v1/connectome/escape``   — giant fiber: stop what Sergio is doing right now
+* ``GET    /v1/connectome/proof``    — the core's measured proof (connectome/proof.py)
+* ``POST   /v1/connectome/sleep``    — a night now: every brain consolidates
 """
 
 from __future__ import annotations
@@ -26,6 +28,23 @@ def connectome_map() -> Dict[str, Any]:
     from openjarvis.connectome.brain import get_brain
 
     return brain_map(get_memory().stats(), get_brain().stats())
+
+
+@router.get("/proof")
+def proof(fresh: bool = False) -> Dict[str, Any]:
+    from openjarvis.connectome.proof import proof as measure
+
+    return measure(fresh=fresh)
+
+
+@router.post("/sleep")
+def sleep() -> Dict[str, Any]:
+    from openjarvis.connectome.core import get_core
+    from openjarvis.connectome.proof import clear_cache
+
+    report = get_core().sleep()
+    clear_cache()
+    return {"ok": True, "brains": report}
 
 
 @router.get("/learned")

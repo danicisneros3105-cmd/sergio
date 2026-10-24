@@ -392,7 +392,15 @@ export function InputArea() {
       )) {
         const eventName = sseEvent.event;
 
-        if (eventName === 'agent_turn_start') {
+        if (eventName === 'status') {
+          // Terry and the playful lines while he works (server/routes.py).
+          try {
+            const data = JSON.parse(sseEvent.data) as { phase?: string };
+            if (data.phase) setStreamState({ phase: data.phase });
+          } catch {
+            /* a broken status line is not worth stopping the answer */
+          }
+        } else if (eventName === 'agent_turn_start') {
           setStreamState({ phase: 'Pensando…' });
         } else if (eventName === 'inference_start') {
           setStreamState({ phase: 'Escribiendo…' });

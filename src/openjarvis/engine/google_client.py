@@ -180,6 +180,11 @@ class _Models:
             note_quota(model, exc)
             raise
 
+    def embed_content(self, *args: Any, **kwargs: Any) -> Any:
+        return self._owner._call(
+            lambda client: client.models.embed_content(*args, **kwargs)
+        )
+
 
 class SwitchingClient:
     """Drop-in for ``genai.Client`` (only ``.models`` is used by Sergio)."""

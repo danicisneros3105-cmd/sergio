@@ -196,6 +196,46 @@ def _counted(
     return call
 
 
+def _specialist(job: Job, style_key: str, brief: str) -> str:
+    """The film or creator specialist's advice for this video (its own fly
+    brain); remembered so it can learn from how the video turned out."""
+    if not brief.strip():
+        return ""
+    try:
+        from openjarvis.video_essay import specialists
+
+        kind = specialists.which(style_key, brief)
+        advice = specialists.advise(kind, brief)
+    except Exception as exc:  # noqa: BLE001 — a video never fails for its advisers
+        job.log(f"sin especialista: {exc}")
+        return ""
+    job.update(
+        specialist={
+            "kind": kind,
+            "brief": brief[:500],
+            "techniques": [a[0] for a in advice],
+        }
+    )
+    job.log(f"especialista {kind}: {', '.join(a[0] for a in advice)}")
+    return specialists.prompt_block(advice, kind)
+
+
+def _specialist_learns(state: Dict[str, Any]) -> None:
+    """Its dopamine: the final review's score on the techniques it advised."""
+    sp = state.get("specialist") or {}
+    notes = [p for p in state.get("passes") or [] if p.get("score") is not None]
+    if not sp.get("techniques") or not notes:
+        return
+    try:
+        from openjarvis.video_essay import specialists
+
+        specialists.learn_from_video(
+            sp["kind"], sp.get("brief", ""), sp["techniques"], notes[-1]["score"]
+        )
+    except Exception:  # noqa: BLE001 — learning is a bonus, never a failure
+        pass
+
+
 def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
     """Do (or finish) every stage of *job*; returns its final state."""
     import numpy as np
@@ -293,6 +333,7 @@ def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
             else:
                 keys = [s["key"] for s in style.available(deps.styles)]
                 profiles = [style.load(k, deps.styles) for k in dict.fromkeys(keys)]
+                brief = str(params.get("prompt") or params.get("topic") or "")
                 sc = director.treatment(
                     str(params.get("prompt") or params.get("topic") or ""),
                     profiles,
@@ -301,6 +342,7 @@ def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
                     language=str(params.get("language") or "Spanish"),
                     fixed_style=fixed,
                     words_per_second=script.WORDS_PER_SECOND,
+                    advice=_specialist(job, fixed, brief),
                 )
             job.write("script.json", sc)
             job.update(
@@ -359,7 +401,12 @@ def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
                 profile,
                 ask=lambda p: edit(p, json_mode=True),
                 sources=allowed,
-                extra=_beat_notes(sc),
+                extra=_beat_notes(sc)
+                + _specialist(
+                    job,
+                    job.state().get("style_key", ""),
+                    str(params.get("prompt") or params.get("topic") or sc["title"]),
+                ),
             )
             if narration != "voice":
                 for s in shots:
@@ -557,6 +604,7 @@ def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
             final = job.update(
                 status="listo", finished=time.time(), budget=budget.to_dict()
             )
+            _specialist_learns(final)
             (deps.notify or _tell_hous)(job.id, final)
             job.finish("listo")
         return job.state()

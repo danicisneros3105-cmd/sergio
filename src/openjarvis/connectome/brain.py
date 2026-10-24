@@ -107,6 +107,9 @@ _NOT_ROUTES = {"think", "memory_search", "memory_store"}
 # The turn being answered on this thread: tools note themselves here.
 _turn = threading.local()
 SELECT_MAX_CHARS = 1500  # a long prompt (a Node's turn) is not one request
+FLY_GAIN = 3.0  # mushroom-body drive -> neuron activation (about three rewards fire it)
+FLY_ROUTE = 0.06  # a tool this wanted by the mushroom body is suggested
+FLY_AVOID = -0.04  # a tool this punished is flagged
 SELECTION_TTL_S = 20 * 60
 
 
@@ -418,47 +421,80 @@ class Brain:
         ranked = sorted(scores.items(), key=lambda kv: -kv[1])
         return [eid for eid, s in ranked if s > 0.15][:k], fast
 
+    # -- the core: the fly's mushroom body decides -----------------------------------
+    def fly(self) -> Any:
+        """Sergio's main mushroom body (connectome/core.py)."""
+        from openjarvis.connectome.core import core_at
+
+        return core_at(self.folder).brain("sergio")
+
     def routes(
-        self, text: str
+        self, text: str, kc: Any = None
     ) -> Tuple[List[Tuple[str, float]], List[Tuple[str, float]]]:
-        """Tools these words learned to use (and the ones that kept failing)."""
-        cells = kenyon_code(text)
-        if not cells:
+        """Tools the mushroom body learned to use for requests like this one
+        (and the ones it learned to avoid)."""
+        try:
+            mb = self.fly()
+            kc = mb.kenyon(text) if kc is None else kc
+            tools = [a for a in mb.codes if a.startswith("tool:")]
+            acts = mb.scores(kc, tools) if tools and len(kc) else {}
+        except Exception:  # noqa: BLE001 — no brain: no learned routes
             return [], []
-        acts = self._activation(cells, "herramientas:")
         good = sorted(
-            ((i[13:], s) for i, s in acts.items() if s >= ROUTE_MIN),
-            key=lambda x: -x[1],
+            ((a[5:], v) for a, v in acts.items() if v >= FLY_ROUTE), key=lambda x: -x[1]
         )
         bad = sorted(
-            ((i[13:], s) for i, s in acts.items() if s <= AVOID_MAX), key=lambda x: x[1]
+            ((a[5:], v) for a, v in acts.items() if v <= FLY_AVOID), key=lambda x: x[1]
         )
         return good[:4], bad[:3]
 
-    def select_tools(self, text: str) -> Optional[_neurons.Selection]:
-        """The core decision: which neurons this request fires, and so which
-        tools the agent gets this turn (connectome/neurons.py)."""
+    def select_tools(self, text: str, kc: Any = None) -> Optional[_neurons.Selection]:
+        """The core decision: innate (lateral horn: the words) plus learned
+        (mushroom body: dopamine-trained synapses) decide which neurons fire,
+        and so which tools the agent gets this turn."""
         if not text.strip() or len(text) > SELECT_MAX_CHARS:
             return None
-        cells = kenyon_code(text)
-        learned = {
-            item[8:]: w
-            for item, w in self._activation(cells, "neurona:").items()
-            if w > 0
-        }
-        good, _bad = self.routes(text)
+        learned: Dict[str, float] = {}
+        try:
+            mb = self.fly()
+            kc = mb.kenyon(text) if kc is None else kc
+            keys = list(_neurons.NEURONS) + [
+                a[8:]
+                for a in mb.codes
+                if a.startswith("neurona:") and a[8:] not in _neurons.NEURONS
+            ]
+            scores = mb.scores(kc, [f"neurona:{k}" for k in keys]) if len(kc) else {}
+            learned = {a[8:]: v * FLY_GAIN for a, v in scores.items() if v > 0}
+        except Exception:  # noqa: BLE001 — innate alone
+            kc = None
+        good, _bad = self.routes(text, kc)
         return _neurons.select(text, learned, [name for name, _ in good])
 
     def context(self, text: str, channel: str = "chat") -> Tuple[str, List[str]]:
-        """What the zones add for this request, each within its share."""
+        """What the zones add for this request, each within its share (and the
+        turn's record and choice kept on this thread)."""
+        block, used, record, selection = self.context_parts(text, channel)
+        _turn.record = record
+        _turn.selection = (selection, self.clock()) if selection else None
+        return block, used
+
+    def context_parts(
+        self, text: str, channel: str = "chat"
+    ) -> Tuple[str, List[str], Any, Any]:
+        """The memory zone's work for one request, without touching the
+        thread's turn (so it can run as an organ of the hive)."""
         if not enabled() or not text.strip():
-            return "", []
+            return "", [], None, None
         with self._lock:
             self._decay()
             cells = kenyon_code(text)
             ids, fast = self.recall(text)
-            good, bad = self.routes(text)
-            selection = self.select_tools(text)
+            try:
+                kc = self.fly().kenyon(text)
+            except Exception:  # noqa: BLE001
+                kc = None
+            good, bad = self.routes(text, kc)
+            selection = self.select_tools(text, kc)
             self.stats_["turns"] = self.stats_.get("turns", 0) + 1
             if selection is not None:
                 self.stats_["narrowed"] = self.stats_.get("narrowed", 0) + 1
@@ -481,6 +517,7 @@ class Brain:
                 used.append(f"memoria:{eid}")
             record = {
                 "cells": cells,
+                "kc": [int(c) for c in kc] if kc is not None else [],
                 "items": used,
                 "tools": [],
                 "skills": [],
@@ -489,8 +526,6 @@ class Brain:
             }
             self._pending[_key(text)] = record
             self._expire_pending()
-        _turn.record = record
-        _turn.selection = (selection, self.clock()) if selection else None
         blocks: List[str] = []
         if lines:
             blocks.append(
@@ -512,7 +547,7 @@ class Brain:
                     "Fallaron a menudo: " + ", ".join(name for name, _ in bad) + "."
                 )
             blocks.append("<cerebro_rutas>\n" + " ".join(parts) + "\n</cerebro_rutas>")
-        return "\n\n".join(blocks), used
+        return "\n\n".join(blocks), used, record, selection
 
     def _expire_pending(self) -> None:
         now = self.clock()
@@ -632,7 +667,59 @@ class Brain:
                 i for i in items if not i.startswith("sentidos:")
             ]
             self._save()
-            return eid
+        self._teach_fly(user_text, assistant_text, record)
+        return eid
+
+    def _teach_fly(
+        self, user_text: str, answer: str, record: Optional[Dict[str, Any]]
+    ) -> None:
+        """The supervisor's dopamine into the mushroom body: tools that worked
+        are rewarded with their neurons, failures punished, and the owner's
+        next words («gracias», «no, eso no») judge the previous turn."""
+        try:
+            from openjarvis.connectome.colmena import hive
+            from openjarvis.connectome.core import core_at
+
+            sup = hive().supervisor
+            core = core_at(self.folder)
+            mb = core.brain("sergio")
+            kc = (record or {}).get("kc") or mb.kenyon(user_text).tolist()
+            prev = self.stats_.get("prev_fly") or {}
+            verdict = sup.feedback(user_text)
+            if verdict and prev.get("kc") and prev.get("actions"):
+                for action in prev["actions"]:
+                    mb.learn(prev["kc"], action, verdict)
+                if verdict > 0:
+                    sup.rewards += 1
+                else:
+                    sup.punishments += 1
+            tools = [(n, bool(ok)) for n, ok in (record or {}).get("tools", [])]
+            judged = sup.judge(user_text, answer, tools)
+            actions: List[str] = []
+            for name, ok in tools:
+                if name in _NOT_ROUTES:
+                    continue
+                reward = 1.0 if ok else -0.6
+                for action in [f"tool:{name}"] + [
+                    f"neurona:{k}" for k in _neurons.neurons_for_tool(name)
+                ]:
+                    mb.learn(
+                        kc, action, reward if judged.get("respuesta", 0) >= 0 else -0.6
+                    )
+                    if ok:
+                        actions.append(action)
+                if ok:
+                    sup.rewards += 1
+                else:
+                    sup.punishments += 1
+            self.stats_["prev_fly"] = {
+                "kc": list(kc)[:64],
+                "actions": sorted(set(actions)),
+            }
+            core.save()
+            core.maybe_sleep()
+        except Exception:  # noqa: BLE001 — learning is a bonus, never a failure
+            pass
 
     def _link_thread(self, eid: str, channel: str) -> None:
         """The central complex: this engram follows the last one of the thread."""
@@ -771,27 +858,52 @@ def get_brain(home: Optional[Path] = None) -> Brain:
         return _BRAINS[str(folder)]
 
 
+def _organs(brain: "Brain") -> None:
+    """The organs of a turn, each with one job (connectome/colmena.py)."""
+    from openjarvis.connectome.colmena import Organ, hive
+
+    h = hive()
+    if "memoria" in h.organs:
+        return
+
+    def memoria(board: Dict[str, Any]) -> Any:
+        return get_brain().context_parts(board["pedido"], board.get("canal", "chat"))
+
+    def habilidades(board: Dict[str, Any]) -> Any:
+        from openjarvis.prompt_library import guidance_for
+
+        return guidance_for(board["pedido"]) or ""
+
+    h.add(Organ("memoria", "Cáliz del cuerpo fungiforme",
+                "Trae los recuerdos que vienen al caso y decide herramientas.",
+                ("pedido",), "memoria", memoria))  # fmt: skip
+    h.add(Organ("habilidades", "Cuerno lateral", "Aporta el saber innato: prompts y skills.",
+                ("pedido",), "habilidades", habilidades))  # fmt: skip
+
+
 def mind_context(text: str, channel: str = "chat") -> str:
-    """Everything the zones add to one request: the know-how (prompt library),
-    the memories that come back and the learned routes. Never breaks a turn."""
+    """Everything the organs add to one request — memories, learned routes and
+    know-how — gathered by the hive in parallel. Never breaks a turn."""
     parts: List[str] = []
-    brain: Optional[Brain] = None
     _turn.selection = None  # a new turn: the last one's choice does not carry over
     try:
         brain = get_brain()
-        block, _ = brain.context(text, channel)
-    except Exception:  # noqa: BLE001
-        block = ""
-    try:
-        from openjarvis.prompt_library import guidance_for
+        _organs(brain)
+        from openjarvis.connectome.colmena import hive
 
-        guidance = guidance_for(text)
-        if guidance:
-            parts.append(guidance)
-            if brain is not None:
-                brain.note_skills(re.findall(r"^\[\d+\] (.+)$", guidance, re.M))
+        board = hive().run({"pedido": text, "canal": channel})
     except Exception:  # noqa: BLE001
-        pass
+        return ""
+    block = ""
+    got = board.get("memoria")
+    if got:
+        block, _used, record, selection = got
+        _turn.record = record
+        _turn.selection = (selection, brain.clock()) if selection else None
+    guidance = board.get("habilidades") or ""
+    if guidance:
+        parts.append(guidance)
+        brain.note_skills(re.findall(r"^\[\d+\] (.+)$", guidance, re.M))
     if block:
         parts.append(block)
     return "\n\n".join(parts)

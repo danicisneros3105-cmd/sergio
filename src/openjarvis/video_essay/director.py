@@ -163,8 +163,9 @@ def treatment(
     language: str = "Spanish",
     fixed_style: str = "",
     words_per_second: float = 1.9,
+    advice: str = "",
 ) -> Dict[str, Any]:
-    """The director's plan for the whole video."""
+    """The director's plan for the whole video (*advice*: the specialist's)."""
     prompt = TREATMENT_PROMPT.format(
         brief=brief[:3000],
         language=language,
@@ -172,7 +173,7 @@ def treatment(
         words=round(seconds * words_per_second),
         styles=style_menu(profiles),
         fixed=f"; the client asked for «{fixed_style}», use it" if fixed_style else "",
-    )
+    ) + (advice or "")
     data = _check(ask(prompt, json_mode=True, check=_check))
     keys = {p["key"] for p in profiles}
     if fixed_style in keys:

@@ -78,6 +78,10 @@ os.environ["OPENJARVIS_HOME"] = str(_TEST_HOME)
 # at a developer's real file even when OPENJARVIS_HOME is isolated, so remove
 # it before config.py and its import-time constants are initialized.
 os.environ.pop("OPENJARVIS_CONFIG", None)
+# The fly core's meaning channel and Terry would call Gemini with a developer's
+# key; tests that need them pass a fake embedder / ask or turn them on.
+os.environ.setdefault("SERGIO_RECEPTORES", "0")
+os.environ.setdefault("SERGIO_TERRY", "0")
 
 from openjarvis.core.config import GpuInfo, HardwareInfo, load_config  # noqa: E402
 from openjarvis.core.events import EventBus, reset_event_bus  # noqa: E402

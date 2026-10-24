@@ -167,8 +167,88 @@ def _ensure_identity_prompt(messages: list[Message], app_config) -> list[Message
     return [combined_system, *non_system_messages]
 
 
+def _apply_terry(request_body: ChatCompletionRequest, query: str, model: str) -> bool:
+    """Terry's brief rides with the request as an instruction (the owner's own
+    words stay as they are). Returns whether a brief was added."""
+    from openjarvis.agents import terry
+    from openjarvis.server.models import ChatMessage
+
+    try:
+        brief, _analysis = terry.prepare(
+            query, terry.history_text(request_body.messages), model
+        )
+    except Exception:  # noqa: BLE001 — Terry is a bonus: the request goes as it came
+        return False
+    terry.prepared(query)
+    msgs = list(request_body.messages)
+    if msgs and msgs[0].role == "system":
+        msgs[0] = ChatMessage(
+            role="system", content=f"{msgs[0].content or ''}\n\n{brief}"
+        )
+    else:
+        msgs.insert(0, ChatMessage(role="system", content=brief))
+    request_body.messages = msgs
+    return True
+
+
+def _last_user_text(request_body: ChatCompletionRequest) -> str:
+    for m in reversed(request_body.messages):
+        if m.role == "user" and m.content:
+            return m.content if isinstance(m.content, str) else str(m.content)
+    return ""
+
+
 @router.post("/v1/chat/completions")
 async def chat_completions(request_body: ChatCompletionRequest, request: Request):
+    """Handle chat completion requests; medium and complicated ones are first
+    understood by Terry (agents/terry.py), with «Preguntándole a Terry…» and
+    playful status lines streamed while he works."""
+    from openjarvis.agents import terry
+
+    query = _last_user_text(request_body)
+    if query:
+        await asyncio.to_thread(terry.judge_previous, query)
+    if request_body.tools or not query or not terry.wanted(query):
+        return await _chat_completions(request_body, request)
+    if not request_body.stream:
+        await asyncio.to_thread(_apply_terry, request_body, query, request_body.model)
+        return await _chat_completions(request_body, request)
+
+    lang = terry.language(query)
+
+    async def body():
+        import json as _json
+
+        lines = terry.statuses(lang)
+        yield f"event: status\ndata: {_json.dumps({'phase': lines[0]})}\n\n"
+        task = asyncio.ensure_future(
+            asyncio.to_thread(_apply_terry, request_body, query, request_body.model)
+        )
+        i = 1
+        while not task.done():
+            try:
+                await asyncio.wait_for(asyncio.shield(task), timeout=1.8)
+            except asyncio.TimeoutError:
+                yield f"event: status\ndata: {_json.dumps({'phase': lines[i % len(lines)]})}\n\n"
+                i += 1
+        yield f"event: status\ndata: {_json.dumps({'phase': lines[i % len(lines)]})}\n\n"
+        inner = await _chat_completions(request_body, request)
+        iterator = getattr(inner, "body_iterator", None)
+        if iterator is None:
+            raw = getattr(inner, "body", b"")
+            yield raw.decode() if isinstance(raw, bytes) else str(raw)
+            return
+        async for chunk in iterator:
+            yield chunk
+
+    return StreamingResponse(
+        body(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "Connection": "keep-alive"},
+    )
+
+
+async def _chat_completions(request_body: ChatCompletionRequest, request: Request):
     """Handle chat completion requests (streaming and non-streaming)."""
     from openjarvis.quota import guard
 

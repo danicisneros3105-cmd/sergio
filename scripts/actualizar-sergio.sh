@@ -57,6 +57,9 @@ uv run --no-sync python -c 'from google import genai; from google.genai import t
 # The prompt library (public system and persona prompts, downloaded whole to
 # ~/.openjarvis/prompt_library); a failed download keeps the previous copy.
 uv run --no-sync sergio prompts sincronizar || echo "Aviso: no pude actualizar la biblioteca de prompts; se reintenta en la próxima actualización." >&2
+# The fly core: the measured connectome (FlyWire, SHA-256 checked) and the
+# on-device meaning model; without them the stand-in and words keep working.
+uv run --no-sync sergio cerebro descargar || echo "Aviso: no pude descargar el cerebro real; se reintenta en la próxima actualización." >&2
 (
   cd frontend
   npm ci --no-audit --no-fund

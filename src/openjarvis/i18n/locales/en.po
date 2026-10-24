@@ -470,3 +470,23 @@ msgstr "What is installed and where it comes from."
 #: help
 msgid "Muestra los fragmentos que traería una petición."
 msgstr "Shows the passages a request would bring in."
+
+#: help
+msgid "El núcleo: el cerebro de la mosca que aprende."
+msgstr "The core: the fly brain that learns."
+
+#: help
+msgid "Descarga y verifica el conectoma real y el modelo de significado."
+msgstr "Downloads and verifies the real connectome and the meaning model."
+
+#: help
+msgid "Consolida ahora lo aprendido (la noche)."
+msgstr "Consolidates what was learned now (the night)."
+
+#: help
+msgid "La prueba medida de que aprende."
+msgstr "The measured proof that it learns."
+
+#: help
+msgid "Qué cableado y qué sentidos están conectados."
+msgstr "Which wiring and which senses are connected."

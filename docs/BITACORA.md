@@ -2,6 +2,32 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-10-24 · Claude · Núcleo de la mosca medido, Terry, Nodes y especialistas con cerebro propio
+- Núcleo nuevo (`connectome/flywire.py`, `mushroom.py`, `receptors.py`,
+  `core.py`, `colmena.py`, `proof.py`): el cuerpo fungiforme con el cableado
+  real de FlyWire (se descarga al PC del dueño con huellas SHA-256; aquí la
+  red lo bloquea y se usa el sustituto con los números publicados), dopamina
+  que cambia sinapsis de verdad, sinapsis que nacen y se podan, y dormir que
+  pasa lo aprendido a la memoria lenta. Lo usan la elección de herramientas,
+  los Nodes, Terry y los especialistas.
+- Medido aquí (sustituto + significado de Gemini en caché): frases nunca
+  vistas, especialista de cine 72–75 % en su top 3 y creadores 50–53 %
+  (azar 19 %); en vivo, 0 % → 100 % tras una ronda. Solo con palabras baja
+  (34 % / 28 %): por eso la actualización baja el modelo e5 al equipo.
+- Terry (`agents/terry.py`) en el chat con estado «Preguntándole a Terry…» y
+  aprende de la mosca; Nodes con temperamento y cerebro propio
+  (`nodes/temperament.py`); especialistas de cine y creadores en el video
+  (`video_essay/specialists.py`, entran al tratamiento y al plan, aprenden de
+  la nota final). Página Cerebro con las pruebas en gráficas; `sergio
+  cerebro descargar|dormir|prueba|estado`.
+- Arreglé un fallo real: `SwitchingClient` no tenía `embed_content`, así que
+  el significado con Gemini nunca funcionaba. Los receptores ahora descansan
+  un minuto tras un 429 y precalientan en lotes (cuota gratuita: 100/min).
+- Las pruebas apagan por defecto el significado y Terry (`tests/conftest.py`)
+  para no llamar a Gemini con la clave de nadie.
+- Pendiente: probar la descarga real de FlyWire y e5 en el PC del dueño (aquí
+  403); con el cableado real cambian los tamaños y hay que mirar la curva.
+
 ## 2026-10-23 · Claude · Video ronda 2: modos, topes, director y editor, clips, IA, 3D; chat de Nodes
 - Cuatro referencias nuevas estudiadas con Gemini y guardadas como estilos (sin
   material ni marcas): corto 3D, reto viral, anuncio de comida, animación.

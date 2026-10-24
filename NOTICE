@@ -88,4 +88,17 @@ Otras piezas de terceros que Sergio usa (créditos y licencias):
 - Clips de la web: yt-dlp (Unlicense); Wikimedia Commons (cada archivo con
   su licencia, citada), NASA (dominio público) e Internet Archive (dominio
   público). Video con IA: Veo (Google) o fal.ai, bajo sus términos.
+- Núcleo de la mosca: el conectoma FlyWire / MaleCNS v1.0 (CC-BY-4.0, ©
+  FlyEM / HHMI Janelia, Universidad de Cambridge, MRC LMB y Google Research),
+  en la versión «fly-connectome-49k» de Hugging Face
+  (https://huggingface.co/datasets/fernandofernandes/fly-connectome-49k).
+  Se descarga al equipo del dueño (`sergio cerebro descargar`, con sus
+  huellas SHA-256) y no viene en el repositorio. Cita: Dorkenwald et al.,
+  «Neuronal wiring diagram of an adult brain», Nature 634 (2024).
+  Significado en el equipo: multilingual-e5-small (MIT, © Microsoft;
+  conversión ONNX de Xenova, https://huggingface.co/Xenova/multilingual-e5-small),
+  descargado al instalar, no incluido aquí.
+- Especialistas de video: las fichas de técnica nombran a cineastas y
+  creadores solo para decir de dónde viene cada técnica; no hay relación ni
+  aval, y nadie se imita en pantalla.
 Detalle legal y decisiones: docs/LEGAL.md.

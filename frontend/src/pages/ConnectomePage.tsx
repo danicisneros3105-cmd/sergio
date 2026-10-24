@@ -4,6 +4,7 @@
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { PaperPage } from '../components/Paper/PaperPage';
+import { CoreProof } from '../components/Shortcuts/CoreProof';
 import { BY_ID, SHORTCUTS, brainMap, forgetLearned, type BrainMap } from '../lib/connectome';
 import '../components/Shortcuts/shortcuts.css';
 
@@ -46,6 +47,8 @@ export function ConnectomePage() {
               </li>
             ))}
           </ol>
+
+          <CoreProof />
 
           <section className="salud-block">
             <h2 className="paper-label">Conexiones aprendidas</h2>

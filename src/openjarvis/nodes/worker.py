@@ -357,6 +357,9 @@ class NodeWorker:
         self.app_items = app_items or skills.app_items
         self.http = http
         self._queues: Dict[str, List[Dict[str, Any]]] = {}
+        self._last_moves: Dict[
+            str, Any
+        ] = {}  # node -> (request, moves) of its last turn
         self._busy: Dict[str, threading.Thread] = {}
         self._stop: Dict[str, threading.Event] = {}
         self._checking: set[str] = set()
@@ -636,6 +639,53 @@ class NodeWorker:
             request=job["request"],
         )
 
+    # -- its own brain ----------------------------------------------------------
+    def _core(self) -> Any:
+        from openjarvis.connectome.core import core_at
+
+        return core_at(self.store.home.parent / "connectome")
+
+    def _instinct(self, node: Node, job: Dict[str, Any]) -> List[Any]:
+        from openjarvis.connectome.colmena import CORRECTION
+        from openjarvis.nodes import temperament
+
+        if not node.team or node.team not in temperament.TEMPERAMENTS:
+            return []
+        try:
+            core = self._core()
+            last = self._last_moves.get(node.id)
+            if (
+                last
+                and job.get("source") == "Encargo del usuario"
+                and CORRECTION.match(job["request"])
+            ):
+                temperament.learn_from_turn(node.team, last[0], last[1], False, core)
+            return temperament.instinct(node.team, job["request"], core)
+        except Exception:  # noqa: BLE001 — instinct is a bonus, never a failure
+            return []
+
+    def _instinct_block(self, node: Node, moves: List[Any]) -> str:
+        if not moves:
+            return ""
+        lines = "\n".join(f"- {how}" for _m, how, _v in moves)
+        return (
+            "\n\nTu instinto para este encargo (lo que tu propio cerebro aprendió que te funciona):\n"
+            + lines
+            + "\n"
+        )
+
+    def _learn_moves(
+        self, node: Node, request: str, moves: List[Any], ok: bool
+    ) -> None:
+        from openjarvis.nodes import temperament
+
+        names = [m for m, _how, _v in moves]
+        self._last_moves[node.id] = (request, names)
+        try:
+            temperament.learn_from_turn(node.team, request, names, ok, self._core())
+        except Exception:  # noqa: BLE001
+            pass
+
     def _turn(self, node_id: str, job: Dict[str, Any], stop: threading.Event) -> None:
         node = self.store.get(node_id)
         if node is None or (
@@ -676,8 +726,11 @@ class NodeWorker:
         token = NODE_STYLE.set(
             {"effort": own.effort, "temperature": own.temperature} if own else {}
         )
+        # Its own fly brain: the moves it learned for requests like this one
+        # (nodes/temperament.py), and the owner's correction of its last turn.
+        moves = self._instinct(node, job)
         try:
-            prompt = self._prompt(node, job)
+            prompt = self._prompt(node, job) + self._instinct_block(node, moves)
             answer, calls = self.runner(prompt, tools, TURN_BUDGET, on_tool)
             # Its deliverable, checked by code: once back with «te faltó…».
             lack = specialty.missing(node.team, job["request"], answer or "", used)
@@ -693,6 +746,10 @@ class NodeWorker:
                     answer, calls = again, calls + more
         finally:
             NODE_STYLE.reset(token)
+        if moves and not stop.is_set():
+            self._learn_moves(
+                node, job["request"], moves, bool((answer or "").strip()) and not lack
+            )
         if stop.is_set():
             self.store.log(
                 node_id, "discarded", "Resultado descartado: lo detuvo usted."

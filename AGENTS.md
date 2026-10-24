@@ -172,6 +172,39 @@ termina en la rama `main`, y el dueño actualiza con un único comando.
   (`ToolExecutor.get_openai_tools` lee `brain.turn_tools()`); si nada se
   enciende con claridad, recibe todas, como antes. Herramienta nueva: póngala
   en la neurona que le toca.
+- **Núcleo nuevo: el cuerpo fungiforme medido** (dueño, 24 oct. 2026: «usa
+  el cerebro de la mosca en serio y dame pruebas»). `connectome/flywire.py`:
+  el cableado real (FlyWire / MaleCNS, CC-BY-4.0) se descarga al equipo con
+  sus huellas SHA-256 (`sergio cerebro descargar`, lo llama la
+  actualización); sin él, un sustituto con los números publicados.
+  `mushroom.py`: células de Kenyon con sus garras reales, inhibición APL
+  (5 %), salida por población, dopamina de tres factores, sinapsis que nacen
+  (plasticidad estructural) y se podan, memoria rápida y lenta, y dormir =
+  repasar (`consolidate`). `receptors.py`: el significado (e5 en el equipo →
+  Gemini con caché → solo palabras). `core.py`: un cableado y un cerebro por
+  parte (`sergio`, `node:<key>`, `especialista:<tipo>`); `born()` los entrena
+  al nacer y otra vez si cambian los sentidos. `colmena.py`: órganos en
+  paralelo que se pasan lo que necesitan, sin orquestador, con un supervisor
+  siempre presente que da la dopamina. `proof.py`: la prueba medida (página
+  Cerebro, `GET /v1/connectome/proof`, `sergio cerebro prueba`). Son pesos de
+  verdad y locales, pero no se vende como reentrenar un modelo de lenguaje.
+  Algo nuevo que tenga que aprender: un cerebro del núcleo, no otra memoria.
+- **Terry** (dueño, 24 oct. 2026): los pedidos medianos y complejos pasan
+  antes, en segundo plano, por `agents/terry.py`, que entiende qué se quiere
+  y escribe el encargo a la medida del modelo que responde. Nunca aparece:
+  en el chat solo «Preguntándole a Terry…» / «Asking Terry…» y frases como
+  «Caramelizando cebollas…». El texto del dueño no se toca; la mosca aprende
+  si Terry ayudó (lo corrigen después: castigo). `SERGIO_TERRY=0` lo apaga.
+- **Cada Node con cerebro propio** (`nodes/temperament.py`): sus movidas, su
+  temperamento (currículo al nacer y su propia dopamina: a Tennessee le pesan
+  más los errores) y lo que aprende de cada turno; las cuatro mentes se
+  separan con el uso (divergencia medida en la página Cerebro).
+- **Especialistas de video** (`video_essay/specialists.py`): cine (técnicas
+  de Nolan y otros directores) y creadores (MrBeast, Neistat, McKinnon…),
+  como fichas de técnica entrenadas en su propio cerebro y medidas con frases
+  que nunca vieron. Aconsejan al director y al editor y aprenden de la nota
+  final de cada video. Los nombres dicen de dónde viene la técnica: nadie se
+  imita y nadie se nombra en pantalla.
 - Atajos con la estructura del cerebro de la mosca (dueño, oct. 2026;
   FlyWire, Nature 2024): `connectome/` y `lib/connectome.ts`. Cuerno lateral
   = reflejos en el navegador (Ctrl/⌘ K, G + letra); cuerpo fungiforme =
