@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { Camera, Check, Eye, Monitor, Sparkles, VideoOff } from 'lucide-react';
+import { Aperture, Camera, Check, Eye, Monitor, ScanFace, VideoOff } from 'lucide-react';
 import { toast } from 'sonner';
 import { apiFetch } from '../lib/api';
 import { useWorkspace } from '../lib/workspace/store';
 import { FilePick, Recorder } from '../components/Workspace/MediaBlock';
 import type { Block } from '../lib/workspace/model';
 import { mediaProblem } from '../lib/compat';
+import './vista.css';
 
 interface DetectedFace {
   name?: string | null;
@@ -15,7 +16,7 @@ interface DetectedFace {
   quality?: string;
 }
 
-// "Sergio ve" & Captura, in the app's colours (theme variables only).
+// Vista (once «Sergio ve»): the live camera and a quick capture.
 export function CapturePage() {
   const navigate = useNavigate();
   const ready = useWorkspace((s) => s.ready);
@@ -119,8 +120,8 @@ export function CapturePage() {
     const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
     capture({
       kind: 'image',
-      media: { file: dataUrl, name: `sergio-ve-${Date.now()}.jpg`, mime: 'image/jpeg' },
-      text: text.trim() || 'Capturado desde Sergio ve',
+      media: { file: dataUrl, name: `vista-${Date.now()}.jpg`, mime: 'image/jpeg' },
+      text: text.trim() || 'Capturado desde Vista',
     });
     setText('');
     setCount((c) => c + 1);
@@ -133,7 +134,7 @@ export function CapturePage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ section: 'camera' }),
     }).catch(() => {});
-    toast.success('Ventana flotante «Sergio ve» sincronizada.');
+    toast.success('Vista abierta en el PC.');
   };
 
   const saved = () => {
@@ -155,169 +156,47 @@ export function CapturePage() {
     saved();
   };
 
+  const faces = poseInfo?.faces ?? 0;
+  const who = detected.find((d) => d.name)?.name;
+
+  // Minimal, like the rest of the app: a title, the picture and a row of
+  // round icon buttons. Nothing follows the face around (owner, oct. 2026).
   return (
     <div className="paper-page">
-      <div className="paper-page-inner" style={{ maxWidth: 820 }}>
-        <header className="paper-head" style={{ marginBottom: 20 }}>
-          <div>
-            <span
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 6,
-                fontSize: 12,
-                fontWeight: 600,
-                padding: '4px 10px',
-                borderRadius: 999,
-                background: 'var(--color-surface)',
-                border: '1px solid var(--color-border)',
-                color: 'var(--color-text)',
-                marginBottom: 8,
-              }}
-            >
-              <Eye size={13} /> Sergio ve · Visión en vivo & Captura
-            </span>
-            <h1 className="paper-title">Sergio ve</h1>
-          </div>
-          <div className="flex items-center gap-2">
-            <button type="button" className="paper-button" onClick={toggleCam}>
-              {camActive ? <VideoOff size={15} /> : <Camera size={15} />}
-              {camActive ? 'Apagar cámara' : 'Encender «Sergio ve»'}
-            </button>
-            <button type="button" className="paper-button" data-variant="quiet" onClick={openDesktopCamera}>
-              <Monitor size={15} /> Ventana flotante PC
-            </button>
-          </div>
+      <div className="paper-page-inner vista">
+        <header className="vista-head">
+          <h1 className="paper-title">Vista</h1>
+          <span className="vista-state" data-on={camActive || undefined}>
+            <i aria-hidden />
+            {camActive ? (who ? who : faces ? `${faces}` : 'En vivo') : 'En reposo'}
+          </span>
         </header>
 
-        {/* Live "Sergio ve" viewport */}
-        <section
-          style={{
-            background: 'var(--color-surface)',
-            border: '1px solid var(--color-border)',
-            borderRadius: 22,
-            padding: 16,
-            marginBottom: 20,
-            boxShadow: 'none',
-          }}
-        >
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              marginBottom: 12,
-              padding: '6px 12px',
-              background: 'var(--color-bg-secondary)',
-              borderRadius: 999,
-              border: '1px solid var(--color-border)',
-            }}
-          >
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 600, color: 'var(--color-text)' }}>
-              <span
-                style={{
-                  width: 9,
-                  height: 9,
-                  borderRadius: '50%',
-                  background: camActive ? 'var(--color-text)' : 'var(--color-text-secondary)',
-                  boxShadow: camActive ? '0 0 0 4px color-mix(in srgb, var(--color-text) 15%, transparent)' : 'none',
-                }}
-              />
-              Sergio ve
-              {poseInfo ? ` · ${poseInfo.faces} rostro${poseInfo.faces === 1 ? '' : 's'} en vista` : camActive ? ' · observando' : ' · cámara en reposo'}
-            </span>
-            <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
-              {detected.length > 0
-                ? detected.map((d) => (d.name ? `${d.name} (${Math.round(d.score * 100)}%)` : 'Invitado')).join(' · ')
-                : poseInfo
-                  ? `Ángulo ${poseInfo.yaw.toFixed(0)}° / ${poseInfo.pitch.toFixed(0)}°`
-                  : 'Cifrado local activo'}
-            </span>
-          </div>
-
+        <section className="vista-stage" data-on={camActive || undefined}>
           {camActive ? (
-            <div style={{ position: 'relative', borderRadius: 16, overflow: 'hidden', background: 'var(--color-bg-secondary)', aspectRatio: '16/9' }}>
-              <video
-                ref={videoRef}
-                muted
-                playsInline
-                style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)' }}
-              />
-              <div
-                style={{
-                  position: 'absolute',
-                  bottom: 12,
-                  left: 12,
-                  right: 12,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  gap: 8,
-                }}
-              >
-                <span
-                  style={{
-                    background: 'var(--color-surface)',
-                    border: '1px solid var(--color-border)',
-                    color: 'var(--color-text)',
-                    padding: '6px 12px',
-                    borderRadius: 999,
-                    fontSize: 12.5,
-                    fontWeight: 600,
-                  }}
-                >
-                  {detected[0]?.name
-                    ? `Reconocido: ${detected[0].name} · ${Math.round(detected[0].score * 100)}%`
-                    : poseInfo
-                      ? 'Rostro detectado en tiempo real'
-                      : 'Apunte la cámara a una persona, documento u objeto'}
-                </span>
-                <button type="button" className="paper-button" onClick={snapToWorkspace}>
-                  <Camera size={14} /> Capturar al Workspace
-                </button>
-              </div>
-            </div>
+            <video ref={videoRef} muted playsInline />
           ) : (
-            <div
-              style={{
-                borderRadius: 16,
-                background: 'var(--color-bg-secondary)',
-                border: '1px dashed var(--color-border)',
-                padding: '36px 24px',
-                textAlign: 'center',
-              }}
-            >
-              <Eye size={32} style={{ margin: '0 auto 10px', color: 'var(--color-text)' }} />
-              <p style={{ fontSize: 14.5, fontWeight: 600, color: 'var(--color-text)', marginBottom: 4 }}>
-                Vista unificada de «Sergio ve»
-              </p>
-              <p style={{ fontSize: 13, color: 'var(--color-text-secondary)', maxWidth: 460, margin: '0 auto 14px' }}>
-                Encienda la cámara aquí o abra la ventana flotante en su PC para que Sergio reconozca rostros, gestos, objetos y documentos con el mismo diseño cálido de toda la app.
-              </p>
-              <div className="flex items-center justify-center gap-2">
-                <button type="button" className="paper-button" onClick={toggleCam}>
-                  <Camera size={14} /> Activar vista en vivo
-                </button>
-                <button type="button" className="paper-button" data-variant="quiet" onClick={() => navigate('/faces')}>
-                  <Sparkles size={14} /> Configurar Face ID
-                </button>
-              </div>
-            </div>
+            <button type="button" className="vista-wake" onClick={toggleCam} aria-label="Encender la cámara">
+              <Eye size={28} strokeWidth={1.5} />
+            </button>
           )}
+          <div className="vista-bar" role="toolbar" aria-label="Controles de Vista">
+            <button type="button" onClick={toggleCam} aria-label={camActive ? 'Apagar la cámara' : 'Encender la cámara'} title={camActive ? 'Apagar' : 'Encender'}>
+              {camActive ? <VideoOff size={18} strokeWidth={1.7} /> : <Camera size={18} strokeWidth={1.7} />}
+            </button>
+            <button type="button" onClick={snapToWorkspace} disabled={!camActive} aria-label="Guardar este fotograma" title="Guardar fotograma">
+              <Aperture size={18} strokeWidth={1.7} />
+            </button>
+            <button type="button" onClick={openDesktopCamera} aria-label="Abrir en el PC" title="Abrir en el PC">
+              <Monitor size={18} strokeWidth={1.7} />
+            </button>
+            <button type="button" onClick={() => navigate('/faces')} aria-label="Rostros" title="Rostros">
+              <ScanFace size={18} strokeWidth={1.7} />
+            </button>
+          </div>
         </section>
 
-        {/* Quick Workspace Capture */}
-        <section
-          style={{
-            background: 'var(--color-surface)',
-            border: '1px solid var(--color-border)',
-            borderRadius: 18,
-            padding: 16,
-          }}
-        >
-          <h2 style={{ fontSize: 14, fontWeight: 600, color: 'var(--color-text)', marginBottom: 8 }}>
-            Nota rápida o captura multimodal
-          </h2>
+        <section className="vista-note">
           <textarea
             ref={area}
             className="ws-capture"
@@ -326,24 +205,18 @@ export function CapturePage() {
             onKeyDown={(e) => {
               if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) save();
             }}
-            placeholder="Una idea, una observación de cámara, una tarea, lo que sea…"
+            placeholder="Una nota…"
             aria-label="Nota rápida"
           />
-          <div className="flex flex-wrap items-center gap-2 mt-3">
+          <div className="vista-note-row">
             <button type="button" className="paper-button" onClick={save} disabled={!text.trim()}>
-              <Check size={14} /> Guardar en bandeja
+              <Check size={14} /> Guardar
             </button>
             <Recorder onSaved={media('audio')} />
-            <FilePick accept="image/*" capture="environment" label="Subir foto" onSaved={media('image')} />
-            <span className="ml-auto text-[12px]" style={{ color: 'var(--color-text-tertiary)' }}>
-              {count ? `${count} guardadas` : 'Ctrl+Enter guarda'}
-            </span>
+            <FilePick accept="image/*" capture="environment" label="Foto" onSaved={media('image')} />
+            <span className="vista-count">{count ? `${count} guardadas` : ''}</span>
           </div>
         </section>
-
-        <button type="button" className="paper-tab mt-6" onClick={() => navigate('/workspace')}>
-          Ir al Workspace →
-        </button>
       </div>
     </div>
   );

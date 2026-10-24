@@ -175,7 +175,7 @@ async function fetchWithRetry(path: string, url: string, init: RequestInit, read
 // a server that never answers fails after 45 s instead of hanging; and while
 // the window is hidden, repeated polls of the same URL reuse the last answer
 // for 30 s. Writes are sent exactly once, as before.
-export const apiFetch = (
+const rawApiFetch = (
   path: string,
   init: RequestInit = {},
 ): Promise<Response> => {
@@ -218,6 +218,15 @@ export const apiFetch = (
   // The first caller gets the response itself, the others a copy, all before anyone reads it.
   return entry.promise.then((res) => (first ? res : res.clone()));
 };
+
+/** A 401 outside the sign-in routes means this device needs to sign in. */
+export const apiFetch = (path: string, init: RequestInit = {}): Promise<Response> =>
+  rawApiFetch(path, init).then((res) => {
+    if (res.status === 401 && !path.startsWith('/v1/cuentas')) {
+      window.dispatchEvent(new CustomEvent('sergio:needs-login'));
+    }
+    return res;
+  });
 
 async function tauriInvoke<T>(command: string, args: Record<string, unknown> = {}): Promise<T> {
   const { invoke } = await import('@tauri-apps/api/core');

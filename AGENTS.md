@@ -318,6 +318,20 @@ termina en la rama `main`, y el dueño actualiza con un único comando.
   en el chat de texto abierto; un chat vacío se reutiliza en vez de crear otro.
   Quick Chat (Ctrl/⌘ J) responde corto y rápido y no pasa por Terry
   (`[Quick Chat]` en el mensaje de sistema).
+- **Cuentas** (dueño, 24 oct. 2026): inicio de sesión y registro en `/entrar`
+  con correo, teléfono (Twilio Verify) o Google/Microsoft/Apple (OIDC + PKCE,
+  firma comprobada con JWKS) — `accounts/`, `/v1/cuentas/*`, `sergio cuentas`.
+  La **primera cuenta creada en este equipo es la del dueño**; las demás
+  quedan «pendiente» hasta que el dueño las aprueba (un túnel no cuenta como
+  local). Antifraude: correos temporales (lista CC0 + semilla), correo
+  canónico (puntos y +etiquetas), mismo equipo/red/teléfono en varias
+  cuentas → verificar, revisar o bloquear. Contraseñas con scrypt; códigos y
+  tokens guardados con HMAC, nunca en un log. `SERGIO_EMAIL_SOLO_SEGUROS=1`
+  acepta solo proveedores seguros. Los proveedores y el SMS necesitan sus
+  claves en `sergio.env`; sin ellas el botón no sale.
+- **Vista** (antes «Sergio ve», dueño 24 oct. 2026): nombre corto y controles
+  mínimos (una píldora de iconos redondos); sin el recuadro con el nombre que
+  seguía a la cara en la vista limpia. Los recuadros solo salen en «detalle».
 - Cowork igual al modo de trabajo de ChatGPT (dueño, oct. 2026): una caja
   central «¿En qué trabajamos?» con «+» (adjuntar, modo plan, autonomía,
   tope) y comandos «/»; la tarea como conversación con la actividad plegable,

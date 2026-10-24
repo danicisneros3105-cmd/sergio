@@ -490,3 +490,19 @@ msgstr "The measured proof that it learns."
 #: help
 msgid "Qué cableado y qué sentidos están conectados."
 msgstr "Which wiring and which senses are connected."
+
+#: help
+msgid "Cuentas: quién puede entrar a este Sergio."
+msgstr "Accounts: who can sign in to this Sergio."
+
+#: help
+msgid "Descarga la lista completa de dominios de correo temporal."
+msgstr "Downloads the full list of throwaway mail domains."
+
+#: help
+msgid "Quién tiene cuenta y en qué estado."
+msgstr "Who has an account and its state."
+
+#: help
+msgid "Deja entrar a una cuenta."
+msgstr "Lets an account in."

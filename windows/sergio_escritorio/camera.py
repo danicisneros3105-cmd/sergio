@@ -804,6 +804,8 @@ class CameraWindow(QWidget):
         for track in salient(self.vision.tracker.visible(now), clean=clean):
             rect = self._map_box(track.box)
             if track.kind == "persona":
+                if clean:
+                    continue  # nothing follows a person in the clean view
                 colour = KIND_COLORS["conocido" if track.name else "persona"]
                 if self._face_of(track, faces) is not None:
                     # The face reticle carries the name: the body only gets
@@ -940,20 +942,14 @@ class CameraWindow(QWidget):
                 continue
             owner = next((t for t in people if self._face_of(t, [face]) is face), None)
             known = bool(owner and owner.name)
-            settled = bool(owner is not None and owner.settled)
             colour = KIND_COLORS["conocido" if known else "persona"]
             rect = self._map_box(face.box).adjusted(-8, -14, 8, 6)
-            self._brackets(p, rect, colour, 2.2)
             if not self.detail:
-                # Clean view: while it analyses the face, a 3D scan sweeps the
-                # 478 points; once it knows who it is the points are hidden
-                # (it keeps measuring them) and only the name stays.
-                if settled:
-                    self._draw_lock(p, rect, colour, now - (owner.named_at if owner else -9))
-                else:
-                    self._draw_scan(p, pts, rect, colour, now)
-                self._face_tag(p, rect, owner, known, now)
+                # Clean view (owner, 24 Oct. 2026): no box or name follows the
+                # face. Sergio keeps recognising it underneath; the detail
+                # view still draws everything.
                 continue
+            self._brackets(p, rect, colour, 2.2)
             # The characteristic points (eyes, brows, nose, mouth, cheekbones,
             # jaw) and the distances between them that identify a person:
             # what the 175 measurements are made of. No face outline.
@@ -1141,6 +1137,8 @@ class CameraWindow(QWidget):
         ]
         if not faces:
             return
+        if not self.detail:
+            return  # clean view: nothing follows the face (it is still recognised)
         fw = self._frame.shape[1]
         k = shown_w / max(1, fw)
         for face in faces:
@@ -1524,7 +1522,7 @@ class CameraWindow(QWidget):
             p.setOpacity(1.0)
 
     def _draw_pill(self, p: QPainter, card: QRectF, t: float) -> None:
-        text = "Sergio ve"
+        text = "Vista"
         if self.vision is not None:
             from collections import Counter
 

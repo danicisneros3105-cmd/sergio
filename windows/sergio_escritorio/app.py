@@ -872,7 +872,7 @@ def run(config: dict[str, Any]) -> None:
         if mode in REMOVED:
             return (
                 "El control por gestos y el mouse en el aire ya no existen: tus "
-                "manos ahora mueven y modelan hologramas en Sergio ve (modo holo)."
+                "manos ahora mueven y modelan hologramas en Vista (modo holo)."
             )
         mode = ALIASES.get(mode, mode)
         if mode not in MODES:

@@ -1,0 +1,38 @@
+/* Vista: the picture, a row of round icon buttons and a note. Greys only. */
+.vista { max-width: 820px; }
+.vista-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+.vista-state { display: inline-flex; align-items: center; gap: 8px; height: 28px; padding: 0 12px; border-radius: 999px;
+  border: 1px solid var(--color-border); font-size: 12.5px; color: var(--color-text-secondary); }
+.vista-state i { width: 7px; height: 7px; border-radius: 50%; background: var(--color-text-tertiary); }
+.vista-state[data-on] { color: var(--color-text); }
+.vista-state[data-on] i { background: var(--color-text); animation: vista-breathe 2.4s ease-in-out infinite; }
+@keyframes vista-breathe { 50% { opacity: 0.35; } }
+
+.vista-stage { position: relative; aspect-ratio: 16 / 9; border-radius: 22px; overflow: hidden;
+  background: var(--color-bg-secondary); border: 1px solid var(--color-border); display: grid; place-items: center; }
+.vista-stage video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+.vista-wake { width: 72px; height: 72px; border-radius: 50%; border: 1px solid var(--color-border); background: var(--color-surface, #fff);
+  color: var(--color-text); display: grid; place-items: center; cursor: pointer; transition: transform 0.18s ease; }
+.vista-wake:hover { transform: scale(1.04); }
+
+/* the controls: one glass pill, centred, buttons the same size and gap */
+.vista-bar { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); display: flex; gap: 6px; padding: 6px;
+  border-radius: 999px; background: color-mix(in srgb, var(--color-surface, #fff) 78%, transparent);
+  backdrop-filter: blur(14px) saturate(1.2); -webkit-backdrop-filter: blur(14px) saturate(1.2); border: 1px solid var(--color-border); }
+.vista-bar button { width: 40px; height: 40px; border-radius: 50%; border: 0; background: none; color: var(--color-text);
+  display: grid; place-items: center; cursor: pointer; transition: background 0.15s ease; }
+.vista-bar button:hover:not(:disabled) { background: var(--color-hover); }
+.vista-bar button:disabled { opacity: 0.35; cursor: default; }
+.vista-bar button:focus-visible, .vista-wake:focus-visible { outline: 2px solid var(--color-text); outline-offset: 2px; }
+
+.vista-note { margin-top: 20px; }
+.vista-note-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; }
+.vista-count { margin-left: auto; font-size: 12px; color: var(--color-text-tertiary); }
+
+@media (max-width: 560px) {
+  .vista-stage { aspect-ratio: 3 / 4; border-radius: 18px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .vista-state[data-on] i { animation: none; }
+  .vista-wake { transition: none; }
+}

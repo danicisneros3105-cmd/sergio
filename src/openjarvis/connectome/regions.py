@@ -34,7 +34,7 @@ REGIONS: List[Dict[str, Any]] = [
         "fly": "Lóbulos óptico y antenal",
         "job": "Preprocesan lo que entra; cada canal por separado.",
         "sergio": "Zona de entrada: lo que llega por chat, voz, Nodes, Agent Swarm o Cowork se codifica en pocas células activas.",
-        "where": "Chat, voz, Sergio ve",
+        "where": "Chat, voz, Vista",
     },
     {
         "key": "cuerpo_fungiforme",

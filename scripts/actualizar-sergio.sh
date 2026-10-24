@@ -60,6 +60,8 @@ uv run --no-sync sergio prompts sincronizar || echo "Aviso: no pude actualizar l
 # The fly core: the measured connectome (FlyWire, SHA-256 checked) and the
 # on-device meaning model; without them the stand-in and words keep working.
 uv run --no-sync sergio cerebro descargar || echo "Aviso: no pude descargar el cerebro real; se reintenta en la próxima actualización." >&2
+# The full list of throwaway mail domains (CC0) for sign-up.
+uv run --no-sync sergio cuentas listas || echo "Aviso: no pude actualizar la lista de correos temporales." >&2
 (
   cd frontend
   npm ci --no-audit --no-fund

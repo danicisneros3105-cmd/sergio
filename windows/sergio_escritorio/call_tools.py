@@ -336,14 +336,14 @@ def call_tools(ab: Abilities) -> list[ClientTool]:
         ClientTool(
             "manos",
             "Activa (holo) o apaga (off) las manos del usuario sobre los hologramas "
-            "3D de Sergio ve: pellizcar agarra, girar la muñeca gira, dos manos "
+            "3D de Vista: pellizcar agarra, girar la muñeca gira, dos manos "
             "escalan, soltar en movimiento lanza.",
             lambda a: ab.hands(str(a.get("modo") or "holo")),
             _obj(modo=_str("Modo", required=True, enum=["holo", "off"])),
         ),
         ClientTool(
             "hologramas",
-            "Hologramas 3D en Sergio ve, estilo Iron Man: 'crea un cubo rojo', "
+            "Hologramas 3D en Vista, estilo Iron Man: 'crea un cubo rojo', "
             "'crea dos esferas', 'cilindro', 'cono', 'toroide', 'pirámide', "
             "'jarrón', 'diamante', 'más grande', 'gíralo', 'duplícalo', "
             "'bórralo', 'borra todo', 'modo esculpir' (modelar con las manos), "
@@ -399,7 +399,7 @@ def call_tools(ab: Abilities) -> list[ClientTool]:
             "holograma_modelo",
             "Holograma 3D de CUALQUIER objeto real (un teléfono, una silla gamer, "
             "una guitarra, un dron...): se diseña pieza por pieza con medidas "
-            "reales (cuerpo, pantalla, cámaras, botones...) y aparece en Sergio ve, "
+            "reales (cuerpo, pantalla, cámaras, botones...) y aparece en Vista, "
             "listo para moverlo con las manos y pasarlo a Blender. Tarda unos segundos.",
             lambda a: ab.holo_model(str(a.get("objeto") or "")),
             _obj(objeto=_str("El objeto con los detalles que pidió el usuario", required=True)),

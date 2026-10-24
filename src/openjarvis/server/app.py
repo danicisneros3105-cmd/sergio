@@ -723,6 +723,9 @@ def create_app(
     from openjarvis.server.reminder_routes import router as reminder_router
 
     app.include_router(reminder_router)
+    from openjarvis.server.accounts_routes import router as accounts_router
+
+    app.include_router(accounts_router)
     include_all_routes(app)
 
     # Restore SendBlue channel bindings from database on startup

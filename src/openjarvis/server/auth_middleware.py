@@ -64,7 +64,9 @@ class AuthMiddleware(BaseHTTPMiddleware):
             scheme, _, token = auth.partition(" ")
             # Constant-time comparison to avoid leaking the key via timing.
             if scheme.lower() != "bearer" or not (
-                _api_keys_match(token, self._api_key) or _phone_token(token)
+                _api_keys_match(token, self._api_key)
+                or _phone_token(token)
+                or _account_token(token)
             ):
                 return JSONResponse(
                     {"detail": "Invalid API key"},
@@ -101,6 +103,9 @@ class AuthMiddleware(BaseHTTPMiddleware):
         # Phones push health data with Salud's own sync key, checked by the route.
         if path == "/v1/healthdata/ingest":
             return False
+        # Signing in is how one gets a key; each account route checks itself.
+        if path.startswith("/v1/cuentas/"):
+            return False
         if _OPEN_MEDIA.fullmatch(path):
             return False
         return (
@@ -120,6 +125,16 @@ def _phone_token(token: str) -> bool:
         from openjarvis.server.mobile import valid_token
 
         return valid_token(token)
+    except Exception:  # noqa: BLE001 - never widen access on errors
+        return False
+
+
+def _account_token(token: str) -> bool:
+    """A signed-in, approved account's session (``/v1/cuentas``)."""
+    try:
+        from openjarvis.server.accounts_routes import session_allowed
+
+        return session_allowed(token)
     except Exception:  # noqa: BLE001 - never widen access on errors
         return False
 

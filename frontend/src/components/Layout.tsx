@@ -79,6 +79,17 @@ export function Layout() {
     window.addEventListener('sergio:navigate', onNav);
     return () => window.removeEventListener('sergio:navigate', onNav);
   }, [navigate]);
+  // A device without access (another computer, the phone) goes to sign in.
+  useEffect(() => {
+    let sent = false;
+    const onLogin = () => {
+      if (sent || window.location.pathname === '/entrar') return;
+      sent = true;
+      navigate('/entrar');
+    };
+    window.addEventListener('sergio:needs-login', onLogin);
+    return () => window.removeEventListener('sergio:needs-login', onLogin);
+  }, [navigate]);
 
   return (
     <div className="app-shell">

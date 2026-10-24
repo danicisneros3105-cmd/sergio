@@ -19,6 +19,7 @@ const CapturePage = lazy(() => import('./pages/CapturePage'));
 const HomePage = lazy(() => import('./pages/HomePage'));
 const NodesPage = lazy(() => import('./pages/NodesPage'));
 const ConnectomePage = lazy(() => import('./pages/ConnectomePage'));
+const SignInPage = lazy(() => import('./pages/SignInPage'));
 const UsagePage = lazy(() => import('./pages/UsagePage'));
 const PlansPage = lazy(() => import('./pages/PlansPage').then((m) => ({ default: m.PlansPage })));
 const HelpPage = lazy(() => import('./pages/HelpPage').then((m) => ({ default: m.HelpPage })));
@@ -186,6 +187,7 @@ export default function App() {
       <ErrorBoundary>
       <Suspense fallback={<div role="status" aria-live="polite" className="p-6">Cargando espacio de trabajo…</div>}>
       <Routes>
+        <Route path="entrar" element={<SignInPage />} />
         <Route element={<Layout />}>
           <Route index element={<ChatPage />} />
           <Route path="biblioteca" element={<HomePage />} />

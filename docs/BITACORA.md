@@ -2,6 +2,17 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-10-24 · Claude · Cuentas seguras y Vista
+- Inicio de sesión y registro (`/entrar`): correo con código, teléfono por SMS
+  (Twilio Verify) y Google/Microsoft/Apple (OIDC + PKCE). Antifraude de correos
+  temporales y multicuenta (equipo, red /24, teléfono). La primera cuenta local
+  es la del dueño; las otras esperan su aprobación (Configuración → Cuentas o
+  `sergio cuentas aprobar`). Un 401 en la web lleva a `/entrar`.
+- «Sergio ve» ahora se llama **Vista**: sin el recuadro con nombre que seguía
+  a la cara, controles en una píldora de iconos, mismo diseño que la app.
+- Probado aquí sin claves reales de Google, Apple, Microsoft ni Twilio: los
+  tests usan respuestas falsas; en el PC del dueño hay que poner sus claves.
+
 ## 2026-10-24 · Claude · Chats en tres apartados, logos de servicios, Salud simple con medicinas y metas
 - Chats: Texto · Voz · Quick Chat (Ctrl J). La voz va a su propio chat continuo
   y ya no se mezcla con el de texto; no se crean chats vacíos repetidos. Quick

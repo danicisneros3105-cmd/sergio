@@ -39,6 +39,7 @@ import {
   type InferenceSource,
   type MemoryStats,
 } from '../lib/api';
+import { AccountsPanel } from '../components/Accounts/AccountsPanel';
 import { isAutoUpdateDisabled, setAutoUpdateDisabled } from '../components/Desktop/UpdateChecker';
 
 const CLOUD_KEY_STATUS_CHANGED = 'openjarvis-cloud-key-status-changed';
@@ -552,6 +553,10 @@ export function SettingsPage() {
           </Section>
 
           {/* Connection */}
+          <Section title="Cuentas">
+            <AccountsPanel />
+          </Section>
+
           <Section title="Conexión">
             <SettingRow label="Estado de Sergio" description={serverInfo ? `${serverInfo.engine} / ${serverInfo.model}` : 'Sin conexión'}>
               <div className="flex items-center gap-2">
