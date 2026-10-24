@@ -1,0 +1,90 @@
+{
+ "key": "lanzamiento-producto",
+ "name": "Película de lanzamiento de producto (ingeniería, 3D y datos en pantalla)",
+ "source": "Referencia del dueño: el video cinematográfico de lanzamiento de un cepillo con cámara (YouTube tF2piG0N5gg), estudiado el 2026-10-24 con Gemini; solo se guarda cómo está hecho, sin marcas ni material.",
+ "shots_measured": 79,
+ "length_s": 135.0,
+ "median_shot_s": 1.35,
+ "min_shot_s": 1.0,
+ "max_shot_s": 8.0,
+ "mix": {
+  "3d": 0.19,
+  "broll": 0.8,
+  "card": 0.01
+ },
+ "text_share": 0.19,
+ "palette_seen": [
+  "#0E1116",
+  "#9AA4AE",
+  "#E8ECEF",
+  "#38E07B"
+ ],
+ "grade": "The color grade features cool, desaturated tones (blues, greys, blacks) which evoke a scientific and precise atmosphere. Specific elements are highlighted with vibrant colors like green for data lines, red for gum inflammation, and orange for plaque, creating visual emphasis.",
+ "typography": "Clean, modern sans-serif fonts are used for on-screen text, data, and titles, maintaining a professional and technical aesthetic. Text often appears as data overlays or annotations.",
+ "narration": "A calm, authoritative male voice with a British accent guides the viewer through the design and engineering challenges, explaining the iterative process and solutions.",
+ "music": "The music is an evolving electronic score, starting subtle and building in intensity, creating a sense of scientific discovery and progress. It's complemented by a rich sound design that includes mechanical whirs, water sprays, electronic pings, pen scratching, and ambient office sounds, all synchronized to the visuals.",
+ "effects": [
+  "motion blur (for time-lapse/fast action)",
+  "motion tracking (for data overlays, lines, boxes)",
+  "grid backgrounds",
+  "data overlays (numbers, percentages, confidence scores)",
+  "scientific visualization (X-rays, fluid dynamics, internal views)",
+  "grid display (multiple video feeds/images)"
+ ],
+ "sfx": {
+  "electronic hum": 0.15,
+  "pen scratching": 0.08,
+  "office sounds": 0.06,
+  "quiet office sounds": 0.06,
+  "robotic arm movement": 0.05,
+  "electronic pings": 0.05,
+  "mechanical sounds": 0.04,
+  "keyboard clicks": 0.04
+ },
+ "structure": [
+  "mystery hook (the object alone, slow push)",
+  "the origin (sketches, first prototype)",
+  "problem 1 solved on camera (high-speed test)",
+  "problem 2: a new component",
+  "the data (overlays, tracking, AI detection)",
+  "it expands (the whole system)",
+  "final assembly",
+  "hero reveal and name"
+ ],
+ "pacing": {
+  "median_shot_s": 1.35,
+  "cuts_total": 80
+ },
+ "production": "mixed",
+ "narration_mode": "voice",
+ "sources": [
+  "3d",
+  "ai",
+  "library",
+  "stock",
+  "image"
+ ],
+ "look": "Dark clinical lab on a grid, cool desaturated blues and greys with one vivid accent (green data lines), macro and extreme close-ups of parts, slow push-ins, overhead work tables, high-speed slow motion of water or mechanisms, engineering 3D cutaways and X-ray views, data overlays tracked onto footage (measurements, confidence scores), an evolving electronic score with precise mechanical sound.",
+ "overlays": [
+  "0.1 ms",
+  "98 %",
+  "x 4",
+  "FPS 120"
+ ],
+ "camera": "The video employs a dynamic range of camera techniques: static wide shots for establishing scenes, slow zooms for revealing details, fast pans for transitions, overhead shots for showing work environments, and extreme close-ups for intricate components and scientific phenomena. The use of grid backgrounds in many shots reinforces precision and engineering.",
+ "humans": "Engineers' hands and faces at work, natural, never posed.",
+ "viral": [
+  "Behind-the-scenes look at the brand's rigorous engineering and design process.",
+  "Visually stunning scientific visualizations and high-speed footage of fluid dynamics.",
+  "The 'aha!' moments of problem-solving and iterative design.",
+  "The unexpected complexity and advanced technology behind a seemingly simple product like a toothbrush.",
+  "A clear narrative arc of innovation, from problem identification to solution.",
+  "Relatability of the product (oral hygiene) combined with cutting-edge tech.",
+  "the brand's brand reputation for innovative and premium products."
+ ],
+ "transitions_seen": [
+  "cut",
+  "fast pan",
+  "quick dissolve"
+ ]
+}

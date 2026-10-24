@@ -1,6 +1,35 @@
 import { Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router';
-import { useAppStore } from '../../lib/store';
+import { chatKindOf, useAppStore } from '../../lib/store';
+import type { ChatKind } from '../../types';
+
+export const CHAT_SECTIONS: Array<{ kind: ChatKind; label: string }> = [
+  { kind: 'texto', label: 'Texto' },
+  { kind: 'voz', label: 'Voz' },
+  { kind: 'rapido', label: 'Quick Chat' },
+];
+
+/** The three chat sections: written, spoken and quick questions. */
+export function ChatSections() {
+  const kind = useAppStore((s) => s.chatKind);
+  const setKind = useAppStore((s) => s.setChatKind);
+  return (
+    <div className="sb-tabs" role="tablist" aria-label="Chats">
+      {CHAT_SECTIONS.map((t) => (
+        <button
+          key={t.kind}
+          type="button"
+          role="tab"
+          aria-selected={kind === t.kind}
+          className="sb-tab"
+          onClick={() => setKind(t.kind)}
+        >
+          {t.label}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 interface Props {
   searchQuery: string;
@@ -28,17 +57,25 @@ export function ConversationList({ searchQuery }: Props) {
   );
   const selectConversation = useAppStore((s) => s.selectConversation);
   const deleteConversation = useAppStore((s) => s.deleteConversation);
+  const kind = useAppStore((s) => s.chatKind);
 
+  // Searching looks in every section; otherwise only the chosen one.
   const filtered = searchQuery
     ? conversations.filter((c) =>
         c.title.toLowerCase().includes(searchQuery.toLowerCase()),
       )
-    : conversations;
+    : conversations.filter((c) => chatKindOf(c) === kind);
 
   if (filtered.length === 0) {
     return (
       <div className="px-3 py-8 text-center text-xs" style={{ color: 'var(--color-text-tertiary)' }}>
-        {searchQuery ? 'Ninguna conversación coincide' : 'Aquí aparecerán tus conversaciones'}
+        {searchQuery
+          ? 'Ninguna conversación coincide'
+          : kind === 'voz'
+            ? 'Lo que hable con Sergio aparece aquí'
+            : kind === 'rapido'
+              ? 'Preguntas rápidas: Ctrl J'
+              : 'Aquí aparecerán tus conversaciones'}
       </div>
     );
   }

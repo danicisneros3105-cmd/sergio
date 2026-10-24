@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import time
 
 import pytest
@@ -320,3 +321,79 @@ def test_the_real_reading_goes_through_gemini_not_a_broken_engine_call(monkeypat
 
     with _pytest.raises(ValueError):
         seen["check"]({"lectura": "corto"})
+
+
+def test_widgets_are_a_few_validated_questions_each():
+    cards = {w["key"]: w for w in mind.widgets()}
+    assert set(cards) == {
+        "w_animo",
+        "w_nervios",
+        "w_bienestar",
+        "w_soledad",
+        "w_autoestima",
+    }
+    assert all(1 <= w["count"] <= 5 for w in cards.values())
+    animo = mind.definition("w_animo")
+    ids = [i["id"] for sec in animo["sections"] for i in sec["items"]]
+    assert ids == ["phq9_1", "phq9_2", "phq9_9"]  # the safety item stays
+    assert animo["widget"] and not any(s["key"] == "inicio" for s in animo["sections"])
+    assert {v["key"] for v in animo["variants"]} == {"corta", "larga"}
+
+
+def test_who5_uses_its_published_cutoffs():
+    low = mind.score({f"who5_{i}": 1 for i in range(1, 6)}, "w_bienestar")
+    good = mind.score({f"who5_{i}": 4 for i in range(1, 6)}, "w_bienestar")
+    assert low["scales"][0]["score"] == 5 and low["scales"][0]["band"] == "baja"
+    assert mind.needs_professional(low) and not mind.needs_professional(good)
+    assert good["scales"][0]["band"] == "alta"
+
+
+def test_a_widget_travels_through_the_api_without_an_ai_call(client, monkeypatch):
+    monkeypatch.setenv("SERGIO_MIND_DELAY", "0")
+    monkeypatch.setattr(
+        mind, "write_reading", lambda *a: (_ for _ in ()).throw(AssertionError("no IA"))
+    )
+    sent = client.post(
+        "/v1/healthdata/mind/surveys",
+        json={"variant": "w_nervios", "answers": {"gad7_1": 2, "gad7_2": 2}},
+    ).json()
+    done = client.get(f"/v1/healthdata/mind/surveys/{sent['id']}").json()
+    assert done["status"] == "ready" and done["professional"]
+    cards = {
+        w["key"]: w for w in client.get("/v1/healthdata/mind/widgets").json()["widgets"]
+    }
+    assert (
+        cards["w_nervios"]["last"]["id"] == sent["id"]
+        and cards["w_animo"]["last"] is None
+    )
+    crisis = client.post(
+        "/v1/healthdata/mind/surveys",
+        json={"variant": "w_animo", "answers": {"phq9_1": 0, "phq9_2": 0, "phq9_9": 1}},
+    ).json()
+    assert crisis["crisis"] and crisis["crisis_text"]
+
+
+def test_recipes_and_routines_respect_privacy(client, monkeypatch):
+    from openjarvis.creator import llm
+    from openjarvis.health import privacy
+
+    monkeypatch.setattr(privacy, "local_only", lambda: True)
+    assert (
+        client.post("/v1/healthdata/plan", json={"kind": "receta"}).status_code == 409
+    )
+    monkeypatch.setattr(privacy, "local_only", lambda: False)
+    seen = []
+
+    def fake_ask(prompt, **kw):
+        seen.append(prompt)
+        return json.dumps(
+            {"title": "Avena con fruta", "minutes": 10, "items": ["avena 50 g"],
+             "steps": ["Hierva", "Sirva"], "why": "fibra"}
+        )  # fmt: skip
+
+    monkeypatch.setattr(llm, "ask", fake_ask)
+    plan = client.post(
+        "/v1/healthdata/plan", json={"kind": "receta", "ask": "desayuno rápido"}
+    ).json()
+    assert plan["title"] == "Avena con fruta" and plan["steps"] == ["Hierva", "Sirva"]
+    assert "desayuno rápido" in seen[0]

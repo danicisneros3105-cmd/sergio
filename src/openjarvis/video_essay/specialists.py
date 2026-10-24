@@ -184,6 +184,7 @@ BY_STYLE = {
     "corto-3d": "cine",
     "animacion": "cine",
     "anuncio-comida": "cine",
+    "lanzamiento-producto": "cine",
     "metas-grandes": "creadores",
     "reto-viral": "creadores",
 }

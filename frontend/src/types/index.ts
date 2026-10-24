@@ -131,6 +131,9 @@ export interface ChatMessage {
   voice?: boolean;
 }
 
+/** Each chat has its own section: written, spoken, or a quick question. */
+export type ChatKind = 'texto' | 'voz' | 'rapido';
+
 export interface Conversation {
   id: string;
   title: string;
@@ -138,6 +141,8 @@ export interface Conversation {
   updatedAt: number;
   model: string;
   messages: ChatMessage[];
+  /** Missing on chats made before the sections existed: read with chatKindOf(). */
+  kind?: ChatKind;
 }
 
 export interface ConversationStore {

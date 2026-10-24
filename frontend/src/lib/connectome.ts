@@ -38,10 +38,11 @@ export const SHORTCUTS: Shortcut[] = [
   { id: 'atajos', title: 'Cómo funcionan los atajos', words: ['atajos', 'conectoma', 'mosca', 'cerebro', 'teclas', 'ayuda'], keys: '?', group: 'Ir a', run: { kind: 'go', to: '/atajos' } },
   { id: 'salud', title: 'Salud', words: ['salud', 'health', 'resumen', 'pasos', 'sueno', 'pulso', 'peso'], keys: 'g s', group: 'Salud', run: { kind: 'go', to: '/salud' } },
   { id: 'salud:mente', title: 'Salud mental', words: ['salud mental', 'mente', 'animo', 'ansiedad', 'autoestima', 'estres', 'encuesta', 'gimnasio mental'], keys: 'g m', group: 'Salud', run: { kind: 'go', to: '/salud?tab=mente' } },
+  { id: 'salud:medicinas', title: 'Mis medicinas', words: ['medicina', 'medicinas', 'pastilla', 'dosis', 'tratamiento', 'recordatorio'], group: 'Salud', run: { kind: 'go', to: '/salud?tab=medicinas' } },
+  { id: 'salud:plan', title: 'Receta o rutina', words: ['receta', 'cocinar', 'comida', 'rutina', 'ejercicio', 'entrenar'], group: 'Salud', run: { kind: 'go', to: '/salud?tab=plan' } },
   { id: 'salud:explorar', title: 'Explorar mis medidas', words: ['medidas', 'presion', 'tension', 'glucosa', 'frecuencia', 'variabilidad', 'explorar'], group: 'Salud', run: { kind: 'go', to: '/salud?tab=explorar' } },
   { id: 'salud:dispositivos', title: 'Conectar reloj o anillo', words: ['reloj', 'anillo', 'bascula', 'dispositivos', 'sincronizar', 'importar'], group: 'Salud', run: { kind: 'go', to: '/salud?tab=dispositivos' } },
   { id: 'nuevo-chat', title: 'Nueva conversación', words: ['nuevo chat', 'nueva conversacion', 'empezar de cero'], group: 'Hacer', run: { kind: 'event', name: 'sergio:new-chat' } },
-  { id: 'post-it', title: 'Nuevo Post-it', words: ['post-it', 'postit', 'nota rapida', 'apuntar', 'recordar'], group: 'Hacer', run: { kind: 'event', name: 'sergio:sticky-notes-new' } },
   { id: 'modelo', title: 'Cambiar de modelo', words: ['modelo', 'cambiar modelo', 'ia', 'motor'], group: 'Hacer', run: { kind: 'event', name: 'sergio:model-picker' } },
   { id: 'escape', title: 'Detener todo lo que está haciendo Sergio', words: ['detener', 'parar', 'stop', 'cancelar todo', 'escape', 'panico'], keys: 'Esc Esc Esc', group: 'Hacer', run: { kind: 'event', name: 'sergio:escape' } },
 ];

@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import { useAppStore } from '../../lib/store';
 import { LiveOrb } from '../Live/LiveOrb';
-import { ConversationList } from '../Sidebar/ConversationList';
+import { ChatSections, ConversationList } from '../Sidebar/ConversationList';
 import { UpdateButton } from './UpdateButton';
 import { apiFetch } from '../../lib/api';
 import { overallPercent } from '../../lib/plans';
@@ -156,6 +156,13 @@ export function Toolbar({ historyOpen, onToggleHistory }: { historyOpen: boolean
         createConversation(useAppStore.getState().selectedModel);
         navigate('/chat');
       }
+      // Ctrl/⌘ J: Quick Chat, for a quick question (its own section).
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'j') {
+        e.preventDefault();
+        const st = useAppStore.getState();
+        st.selectConversation(st.chatFor('rapido'));
+        navigate('/chat');
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -199,7 +206,10 @@ export function Toolbar({ historyOpen, onToggleHistory }: { historyOpen: boolean
               label="Nuevo chat"
               hint={mac ? '⇧⌘O' : 'Ctrl ⇧ O'}
               onClick={() => {
-                createConversation(selectedModel);
+                // A new chat in the section on screen; the voice chat is one
+                // continuous conversation, so «new» there means written.
+                const kind = useAppStore.getState().chatKind;
+                createConversation(selectedModel, kind === 'voz' ? 'texto' : kind);
                 go('/chat');
               }}
             />
@@ -226,16 +236,6 @@ export function Toolbar({ historyOpen, onToggleHistory }: { historyOpen: boolean
               />
             ))}
             <Item
-              icon={
-                <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} aria-hidden="true">
-                  <path d="M15.5 3H5a2 2 0 0 0-2 2v14c0 1.1.9 2 2 2h14a2 2 0 0 0 2-2V8.5L15.5 3Z" />
-                  <path d="M14 3v4a2 2 0 0 0 2 2h4" />
-                </svg>
-              }
-              label="Notas Post-it"
-              onClick={() => window.dispatchEvent(new CustomEvent('sergio:sticky-notes-toggle'))}
-            />
-            <Item
               icon={<ChevronDown size={18} strokeWidth={1.7} className={showMore ? 'sb-more-open' : ''} />}
               label={showMore ? 'Menos' : 'Más'}
               onClick={toggleMore}
@@ -256,7 +256,7 @@ export function Toolbar({ historyOpen, onToggleHistory }: { historyOpen: boolean
                 />
               </label>
             ) : (
-              <h2 className="sb-section">Chats</h2>
+              <ChatSections />
             )}
             <div className="sb-list" onClick={() => narrow() && historyOpen && onToggleHistory()}>
               <ConversationList searchQuery={query} />

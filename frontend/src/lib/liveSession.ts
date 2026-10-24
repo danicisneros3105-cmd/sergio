@@ -161,9 +161,10 @@ export function onLiveLevel(fn: (level: number) => void): () => void {
 }
 
 function writeTurn(heard: string, said: string): void {
+  // The voice has its own chat (section «Voz»), continued while it is recent:
+  // a spoken turn never lands in the written chat on screen.
   const app = useAppStore.getState();
-  let id = app.activeId;
-  if (!id) id = app.createConversation(app.selectedModel);
+  const id = app.chatFor('voz');
   const now = Date.now();
   if (heard) {
     app.addMessage(id, { id: `v-${now}-u`, role: 'user', content: heard, timestamp: now, voice: true });

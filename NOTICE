@@ -101,4 +101,12 @@ Otras piezas de terceros que Sergio usa (créditos y licencias):
 - Especialistas de video: las fichas de técnica nombran a cineastas y
   creadores solo para decir de dónde viene cada técnica; no hay relación ni
   aval, y nadie se imita en pantalla.
+- Logos de servicios (conectores, plugins, Cowork): Simple Icons
+  (CC0-1.0, https://simpleicons.org), copiados solo para los servicios que se
+  muestran (frontend/src/lib/brands.ts, src/openjarvis/mcp/brands.json). Los
+  logos son marcas de sus dueños y solo nombran el servicio; no hay relación
+  ni aval.
+- Salud mental: WHO-5 (© Organización Mundial de la Salud, de uso libre con
+  cita) y la escala de autoestima de un ítem (Robins et al., 2001), citadas
+  en la app con su DOI.
 Detalle legal y decisiones: docs/LEGAL.md.

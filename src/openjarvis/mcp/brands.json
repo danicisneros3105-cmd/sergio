@@ -1,0 +1,362 @@
+{
+"airtable": {
+"hex": "18BFFF",
+"title": "Airtable"
+},
+"anthropic": {
+"hex": "191919",
+"title": "Anthropic"
+},
+"apple": {
+"hex": "000000",
+"title": "Apple"
+},
+"applemusic": {
+"hex": "FA243C",
+"title": "Apple Music"
+},
+"asana": {
+"hex": "F06A6A",
+"title": "Asana"
+},
+"atlassian": {
+"hex": "0052CC",
+"title": "Atlassian"
+},
+"bitbucket": {
+"hex": "0052CC",
+"title": "Bitbucket"
+},
+"blender": {
+"hex": "E87D0D",
+"title": "Blender"
+},
+"box": {
+"hex": "0061D5",
+"title": "Box"
+},
+"calendly": {
+"hex": "006BFF",
+"title": "Calendly"
+},
+"claude": {
+"hex": "D97757",
+"title": "Claude"
+},
+"clickup": {
+"hex": "7B68EE",
+"title": "ClickUp"
+},
+"cloudflare": {
+"hex": "F38020",
+"title": "Cloudflare"
+},
+"confluence": {
+"hex": "172B4D",
+"title": "Confluence"
+},
+"crunchbase": {
+"hex": "0288D1",
+"title": "Crunchbase"
+},
+"datadog": {
+"hex": "632CA6",
+"title": "Datadog"
+},
+"discord": {
+"hex": "5865F2",
+"title": "Discord"
+},
+"docker": {
+"hex": "2496ED",
+"title": "Docker"
+},
+"dropbox": {
+"hex": "0061FF",
+"title": "Dropbox"
+},
+"egnyte": {
+"hex": "00968F",
+"title": "Egnyte"
+},
+"elevenlabs": {
+"hex": "000000",
+"title": "ElevenLabs"
+},
+"expensify": {
+"hex": "0185FF",
+"title": "Expensify"
+},
+"ffmpeg": {
+"hex": "007808",
+"title": "FFmpeg"
+},
+"figma": {
+"hex": "F24E1E",
+"title": "Figma"
+},
+"firebase": {
+"hex": "DD2C00",
+"title": "Firebase"
+},
+"garmin": {
+"hex": "000000",
+"title": "Garmin"
+},
+"git": {
+"hex": "F03C2E",
+"title": "Git"
+},
+"github": {
+"hex": "181717",
+"title": "GitHub"
+},
+"gitlab": {
+"hex": "FC6D26",
+"title": "GitLab"
+},
+"gmail": {
+"hex": "EA4335",
+"title": "Gmail"
+},
+"google": {
+"hex": "4285F4",
+"title": "Google"
+},
+"googlebigquery": {
+"hex": "669DF6",
+"title": "Google BigQuery"
+},
+"googlecalendar": {
+"hex": "4285F4",
+"title": "Google Calendar"
+},
+"googledrive": {
+"hex": "4285F4",
+"title": "Google Drive"
+},
+"googlegemini": {
+"hex": "8E75B2",
+"title": "Google Gemini"
+},
+"googlemeet": {
+"hex": "00897B",
+"title": "Google Meet"
+},
+"googletasks": {
+"hex": "2684FC",
+"title": "Google Tasks"
+},
+"homebrew": {
+"hex": "FBB040",
+"title": "Homebrew"
+},
+"hubspot": {
+"hex": "FF7A59",
+"title": "HubSpot"
+},
+"huggingface": {
+"hex": "FFD21E",
+"title": "Hugging Face"
+},
+"icloud": {
+"hex": "3693F3",
+"title": "iCloud"
+},
+"imessage": {
+"hex": "34DA50",
+"title": "iMessage"
+},
+"instagram": {
+"hex": "FF0069",
+"title": "Instagram"
+},
+"intercom": {
+"hex": "6AFDEF",
+"title": "Intercom"
+},
+"internetarchive": {
+"hex": "666666",
+"title": "Internet Archive"
+},
+"jira": {
+"hex": "0052CC",
+"title": "Jira"
+},
+"kubernetes": {
+"hex": "326CE5",
+"title": "Kubernetes"
+},
+"linear": {
+"hex": "5E6AD2",
+"title": "Linear"
+},
+"linux": {
+"hex": "FCC624",
+"title": "Linux"
+},
+"miro": {
+"hex": "050038",
+"title": "Miro"
+},
+"mongodb": {
+"hex": "47A248",
+"title": "MongoDB"
+},
+"nasa": {
+"hex": "E03C31",
+"title": "NASA"
+},
+"netlify": {
+"hex": "00C7B7",
+"title": "Netlify"
+},
+"nodedotjs": {
+"hex": "5FA04E",
+"title": "Node.js"
+},
+"notion": {
+"hex": "000000",
+"title": "Notion"
+},
+"npm": {
+"hex": "CB3837",
+"title": "npm"
+},
+"nvidia": {
+"hex": "76B900",
+"title": "NVIDIA"
+},
+"obsidian": {
+"hex": "7C3AED",
+"title": "Obsidian"
+},
+"ollama": {
+"hex": "000000",
+"title": "Ollama"
+},
+"pagerduty": {
+"hex": "06AC38",
+"title": "PagerDuty"
+},
+"paypal": {
+"hex": "002991",
+"title": "PayPal"
+},
+"pexels": {
+"hex": "05A081",
+"title": "Pexels"
+},
+"pixabay": {
+"hex": "191B26",
+"title": "Pixabay"
+},
+"postgresql": {
+"hex": "4169E1",
+"title": "PostgreSQL"
+},
+"pypi": {
+"hex": "3775A9",
+"title": "PyPI"
+},
+"python": {
+"hex": "3776AB",
+"title": "Python"
+},
+"quickbooks": {
+"hex": "2CA01C",
+"title": "QuickBooks"
+},
+"reddit": {
+"hex": "FF4500",
+"title": "Reddit"
+},
+"rss": {
+"hex": "FFA500",
+"title": "RSS"
+},
+"sentry": {
+"hex": "362D59",
+"title": "Sentry"
+},
+"shopify": {
+"hex": "7AB55C",
+"title": "Shopify"
+},
+"similarweb": {
+"hex": "092540",
+"title": "Similarweb"
+},
+"spotify": {
+"hex": "1ED760",
+"title": "Spotify"
+},
+"square": {
+"hex": "3E4348",
+"title": "Square"
+},
+"strava": {
+"hex": "FC4C02",
+"title": "Strava"
+},
+"stripe": {
+"hex": "635BFF",
+"title": "Stripe"
+},
+"supabase": {
+"hex": "3FCF8E",
+"title": "Supabase"
+},
+"telegram": {
+"hex": "26A5E4",
+"title": "Telegram"
+},
+"tiktok": {
+"hex": "000000",
+"title": "TikTok"
+},
+"trello": {
+"hex": "0052CC",
+"title": "Trello"
+},
+"ubuntu": {
+"hex": "E95420",
+"title": "Ubuntu"
+},
+"vercel": {
+"hex": "000000",
+"title": "Vercel"
+},
+"whatsapp": {
+"hex": "25D366",
+"title": "WhatsApp"
+},
+"wikipedia": {
+"hex": "000000",
+"title": "Wikipedia"
+},
+"wix": {
+"hex": "0C6EFC",
+"title": "Wix"
+},
+"x": {
+"hex": "000000",
+"title": "X"
+},
+"xero": {
+"hex": "13B5EA",
+"title": "Xero"
+},
+"youtube": {
+"hex": "FF0000",
+"title": "YouTube"
+},
+"zapier": {
+"hex": "FF4F00",
+"title": "Zapier"
+},
+"zoom": {
+"hex": "0B5CFF",
+"title": "Zoom"
+}
+}

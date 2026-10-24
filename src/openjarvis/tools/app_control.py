@@ -4,7 +4,8 @@ Gives the active LLM direct programmatic access to every module of the Sergio
 desktop & web application:
 * Navigate or open any section (`navigate`: `/chat`, `/nodes`, `/swarm`, `/salud`,
   `/workspace`, `/cowork`, `/extensiones`, `/faces`, `/capture`)
-* Create, update or delete realistic Post-it Sticky Notes (`sticky_note_add`, `sticky_note_list`, `sticky_note_delete`)
+* (Post-its were removed from the app by the owner, Oct. 2026; the old
+  `sticky_note_*` actions still answer for saved notes but are not offered.)
 * Launch an Agent Swarm (`swarm_launch`) or open the Nodes team (`node_create` only opens it: the four Nodes are fixed)
 * Read or log Health Hub data, nutrition meals or mental gym sessions
   (`health_status`, `health_log`, `nutrition_log`)
@@ -44,8 +45,6 @@ class SergioAppControlTool(BaseTool):
                 "Controla toda la aplicación de Sergio directamente: "
                 "1) 'navigate': abre cualquier sección (/salud, /swarm, /nodes, /workspace, /cowork, /extensiones, "
                 "/faces, /capture). "
-                "2) 'sticky_note_add' / 'sticky_note_list' / 'sticky_note_delete': crea, lista o borra notas "
-                "adhesivas (Post-its) realistas en pantalla. "
                 "3) 'swarm_launch': lanza un Agent Swarm con múltiples agentes en paralelo sobre una tarea. "
                 "4) 'node_create': abre el equipo de Nodes (Rihno, Manchas, Hous, Tennessee: son fijos). "
                 "5) 'health_status' / 'health_log' / 'nutrition_log': consulta o registra métricas en Salud (Apple "
@@ -62,9 +61,6 @@ class SergioAppControlTool(BaseTool):
                         "type": "string",
                         "enum": [
                             "navigate",
-                            "sticky_note_add",
-                            "sticky_note_list",
-                            "sticky_note_delete",
                             "swarm_launch",
                             "node_create",
                             "health_status",

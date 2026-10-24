@@ -127,7 +127,18 @@ export interface SurveySource {
   url: string;
 }
 
-export type SurveyVariant = 'corta' | 'larga';
+/** The few-question cards (validated scales, one per card). */
+export type WidgetKey = 'w_animo' | 'w_nervios' | 'w_bienestar' | 'w_soledad' | 'w_autoestima';
+export type SurveyVariant = 'corta' | 'larga' | WidgetKey;
+
+export interface MindWidget {
+  key: WidgetKey;
+  label: string;
+  count: number;
+  scale: string;
+  cite: string;
+  last: SurveyResult | null;
+}
 
 export interface SurveyDefinition {
   variant: SurveyVariant;
@@ -235,6 +246,7 @@ export const salud = {
     return res.blob();
   },
   surveys: () => json<{ surveys: SurveyResult[] }>(`${B}/mind/surveys`).then((r) => r.surveys),
+  widgets: () => json<{ widgets: MindWidget[]; delay_minutes: number }>(`${B}/mind/widgets`),
   surveyResult: (id: string) => json<SurveyResult>(`${B}/mind/surveys/${encodeURIComponent(id)}`),
   dropSurvey: (id: string) => json<{ ok: boolean }>(`${B}/mind/surveys/${encodeURIComponent(id)}`, send('DELETE')),
 };

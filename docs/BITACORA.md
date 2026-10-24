@@ -2,6 +2,29 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-10-24 · Claude · Chats en tres apartados, logos de servicios, Salud simple con medicinas y metas
+- Chats: Texto · Voz · Quick Chat (Ctrl J). La voz va a su propio chat continuo
+  y ya no se mezcla con el de texto; no se crean chats vacíos repetidos. Quick
+  Chat responde corto y no espera a Terry. Colita en el chat de Nodes.
+- Logos y barra de color de cada servicio (Simple Icons, CC0) en Conectores,
+  Plugins, Cowork y `sergio mcp list`. Decisión nueva del dueño, anotada en
+  AGENTS (cambia «Todo es Sergio» solo para esto).
+- Diseño: revisé con código los botones encimados en 16 páginas × 3 tamaños
+  (PC, teléfono, plegable). Arreglé el botón de menú que tapaba a Rihno en el
+  teléfono y las tarjetas de conectores desalineadas. Queda un aviso falso en
+  Configuración (un campo oculto dentro de «Conexión avanzada»).
+- Post-its quitados (web y escritorio). Salud: Hoy · Medicinas · Comida y
+  ejercicio · Mente · Más; medicinas con «Tomada» y la semana en puntos;
+  recetas y rutinas hechas por Sergio; metas que Sergio tiene presentes en
+  cada turno; avisos a la hora (`reminders/`, `/v1/reminders`, herramienta
+  `reminders`). Salud mental con cinco tarjetas validadas (PHQ-2+9, GAD-2,
+  WHO-5, UCLA-3, autoestima) y la encuesta completa como sexta.
+- Video: el video cinematográfico de Dyson CameraJet estudiado con Gemini y
+  guardado como estilo `lanzamiento-producto` (sin marca), asignado al
+  especialista de cine.
+- Revisé el test de voz de la web: esperaba la voz dentro del chat de texto;
+  lo cambié a propósito por la decisión nueva (explicado en el test).
+
 ## 2026-10-24 · Claude · Núcleo de la mosca medido, Terry, Nodes y especialistas con cerebro propio
 - Núcleo nuevo (`connectome/flywire.py`, `mushroom.py`, `receptors.py`,
   `core.py`, `colmena.py`, `proof.py`): el cuerpo fungiforme con el cableado

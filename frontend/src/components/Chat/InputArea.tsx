@@ -2,7 +2,7 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { ArrowUp, CircleDot, MonitorSmartphone, Network, Plus, Search, Square, X } from 'lucide-react';
 import { toast } from 'sonner';
-import { useAppStore, generateId } from '../../lib/store';
+import { chatKindOf, useAppStore, generateId } from '../../lib/store';
 import { streamChat, streamResearch } from '../../lib/sse';
 import { fetchSavings, getBase } from '../../lib/api';
 import { listConnectors, getSyncStatus } from '../../lib/connectors-api';
@@ -89,6 +89,10 @@ function useResearchCorpusSync(enabled: boolean): {
   return state;
 }
 
+/** Quick Chat: a fast, short answer (the server also skips Terry for it). */
+export const QUICK_CHAT_SYSTEM =
+  '[Quick Chat] Pregunta rápida: responde en una a tres frases, directo y natural, sin listas, sin herramientas y sin preguntar de vuelta salvo que sea imprescindible.';
+
 export function InputArea() {
   const [input, setInput] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -96,6 +100,12 @@ export function InputArea() {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const activeId = useAppStore((s) => s.activeId);
+  // Quick Chat answers short and fast; a voice chat continues by writing too.
+  const activeKind = useAppStore((s) => {
+    const c = s.conversations.find((x) => x.id === s.activeId);
+    return c ? chatKindOf(c) : s.chatKind;
+  });
+  const quick = activeKind === 'rapido';
   const selectedModel = useAppStore((s) => s.selectedModel);
   const streamState = useAppStore((s) => s.streamState);
   const messages = useAppStore((s) => s.messages);
@@ -183,7 +193,7 @@ export function InputArea() {
 
     let convId = activeId;
     if (!convId) {
-      convId = createConversation(selectedModel);
+      convId = createConversation(selectedModel, activeKind === 'voz' ? 'texto' : activeKind);
     }
 
     const userMsg: ChatMessage = {
@@ -206,10 +216,11 @@ export function InputArea() {
 
     // Build API messages before adding assistant placeholder
     const currentMessages = useAppStore.getState().messages;
-    const apiMessages = currentMessages.map((m) => ({
+    const apiMessages: Array<{ role: string; content: string }> = currentMessages.map((m) => ({
       role: m.role,
       content: m.content,
     }));
+    if (quick) apiMessages.unshift({ role: 'system', content: QUICK_CHAT_SYSTEM });
 
     const assistantMsg: ChatMessage = {
       id: generateId(),
@@ -735,7 +746,7 @@ export function InputArea() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={selectedModel ? 'Mensaje' : 'Elige un modelo primero'}
+            placeholder={selectedModel ? (quick ? 'Pregunta rápida' : 'Mensaje') : 'Elige un modelo primero'}
             aria-label="Mensaje para Sergio"
             rows={1}
             className="imsg-input"

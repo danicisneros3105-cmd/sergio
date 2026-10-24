@@ -458,6 +458,83 @@ async def ask(body: Ask) -> Dict[str, Any]:
     return {"reply": reply}
 
 
+# -- Recipes and routines --------------------------------------------------------
+
+
+class PlanAsk(BaseModel):
+    kind: str = Field("receta", pattern="^(receta|rutina)$")
+    ask: str = Field("", max_length=600)
+
+
+PLAN_PROMPT = """Eres el coach de cocina y ejercicio de Sergio. Escribe de usted, claro para \
+cualquiera (un niño de 5 o una abuela de 84 deben entenderlo). Pedido: «{ask}».
+{facts}
+Haz {what}. No diagnostiques ni prometas resultados; si hay una condición médica, \
+sugiere consultarlo con su médico. Responde SOLO JSON:
+{{"title": "máx. 6 palabras", "minutes": n, "for": "para quién o cuántas porciones / nivel",
+"items": ["ingredientes con cantidad" o "material"],
+"steps": ["pasos cortos, uno por línea, con tiempos"],
+"why": "una frase: por qué le sirve",
+"tip": "un consejo corto"}}"""
+
+
+def _check_plan(text: str) -> Dict[str, Any]:
+    data = json.loads(text)
+    if not isinstance(data, dict) or not data.get("steps"):
+        raise ValueError("sin pasos")
+    return data
+
+
+@router.post("/plan")
+async def plan(body: PlanAsk) -> Dict[str, Any]:
+    """A recipe or a routine made for the owner (his real data, scrubbed)."""
+    from openjarvis.health.privacy import local_only, scrub
+
+    if local_only():
+        raise HTTPException(
+            409,
+            "Sus datos de salud están en «Solo en este equipo»: no los paso a la IA.",
+        )
+    facts = insights.known_facts(_store())
+    what = (
+        "una receta sana, rica y sencilla"
+        if body.kind == "receta"
+        else "una rutina de ejercicio segura, con calentamiento y vuelta a la calma"
+    )
+    prompt = PLAN_PROMPT.format(
+        ask=scrub(body.ask.strip()) or what,
+        facts=f"Datos reales del señor: {facts}." if facts else "",
+        what=what,
+    )
+    try:
+        from openjarvis.creator.llm import ask as gemini_ask
+
+        raw = await asyncio.to_thread(
+            gemini_ask,
+            prompt,
+            models=("gemini-3.6-flash", "gemini-2.5-flash"),
+            json_mode=True,
+            check=_check_plan,
+            max_tokens=1500,
+            timeout=40.0,
+        )
+        data = _check_plan(raw)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(
+            503, "Ahora no puedo prepararlo; inténtelo en un momento."
+        ) from exc
+    return {
+        "kind": body.kind,
+        "title": str(data.get("title") or "")[:80],
+        "minutes": data.get("minutes"),
+        "for": str(data.get("for") or "")[:120],
+        "items": [str(x)[:160] for x in (data.get("items") or [])][:20],
+        "steps": [str(x)[:300] for x in (data.get("steps") or [])][:20],
+        "why": str(data.get("why") or "")[:300],
+        "tip": str(data.get("tip") or "")[:300],
+    }
+
+
 # -- Salud mental ---------------------------------------------------------------
 
 _reading_now: set[str] = set()
@@ -476,7 +553,12 @@ def _read_survey(store: HealthStore, sid: str) -> None:
         row = store.survey(sid)
         if row is None or row["reading"]:
             return
-        text, by = mind.write_reading(row["scores"], row["answers"])
+        variant = mind.variant_of(row["scores"].get("variant", "larga"))
+        if mind.VARIANTS[variant].get("widget"):
+            # A one-minute card gets the plain reading: no AI call for it.
+            text, by = mind.fallback_reading(row["scores"], row["answers"]), "sergio"
+        else:
+            text, by = mind.write_reading(row["scores"], row["answers"])
         store.set_reading(sid, text, by)
     finally:
         with _reading_lock:
@@ -540,6 +622,24 @@ def mind_submit(body: SurveyAnswers) -> Dict[str, Any]:
     timer.daemon = True
     timer.start()
     return _survey_view(store.survey(sid) or {}, full=False)
+
+
+@router.get("/mind/widgets")
+def mind_widgets() -> Dict[str, Any]:
+    """The short cards (a few validated questions each) and each one's last answer."""
+    from openjarvis.health import mind
+
+    rows = _store().surveys("salud_mental", limit=200)
+    out = []
+    for w in mind.widgets():
+        last = next((r for r in rows if r["scores"].get("variant") == w["key"]), None)
+        out.append(
+            {
+                **w,
+                "last": _survey_view(last, full=False) if last else None,
+            }
+        )
+    return {"widgets": out, "delay_minutes": round(mind.delay_seconds() / 60)}
 
 
 @router.get("/mind/surveys")

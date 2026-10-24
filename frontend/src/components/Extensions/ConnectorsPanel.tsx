@@ -16,7 +16,6 @@ import {
   disconnectConnector,
   fetchConnectors,
   fetchDirectory,
-  monogram,
   refreshConnector,
   removeConnector,
   setConnectorEnabled,
@@ -32,15 +31,13 @@ import type { ConnectorInfo } from '../../types/connectors';
 import { parseArguments, parseEnvironment } from '../../lib/connector-input';
 import { ExtensionSheet as Sheet } from './ExtensionSheet';
 import './extensions.css';
+import { BrandMark, brandStyle } from '../Brand/BrandMark';
 
 const fail = (e: unknown) => toast.error(e instanceof Error ? e.message : String(e));
 
-function Tile({ name, size = 36 }: { name: string; size?: number }) {
-  return (
-    <span className="cx-tile" style={{ width: size, height: size, fontSize: size * 0.36 }} aria-hidden>
-      {monogram(name)}
-    </span>
-  );
+/** The service's own logo and colour (Simple Icons); a monogram otherwise. */
+function Tile({ name, id, size = 36 }: { name: string; id?: string; size?: number }) {
+  return <BrandMark name={name} id={id} size={size} />;
 }
 
 /** Connect: open the service's sign-in page when it asks for one. */
@@ -109,8 +106,8 @@ function Browse({ onClose, onAdded }: { onClose: () => void; onAdded: (c: Connec
           ) : (
             <div className="cx-grid">
               {shown.map((c) => (
-                <button key={c.id} type="button" className="cx-entry" onClick={() => setPicked(c)}>
-                  <Tile name={c.name} size={40} />
+                <button key={c.id} type="button" className="cx-entry" style={brandStyle(c.id, c.name)} onClick={() => setPicked(c)}>
+                  <Tile name={c.name} id={c.id} size={40} />
                   <span className="cx-entry-text">
                     <b>{c.name}</b>
                     <span>{c.description}</span>
@@ -161,8 +158,8 @@ function EntryDetail({ entry, onBack, onAdded }: { entry: DirectoryEntry; onBack
       <button type="button" className="cx-back" onClick={onBack}>
         <ChevronLeft size={16} /> Conectores
       </button>
-      <div className="cx-detail-head">
-        <Tile name={entry.name} size={52} />
+      <div className="cx-detail-head" style={brandStyle(entry.id, entry.name)}>
+        <Tile name={entry.name} id={entry.id} size={52} />
         <div>
           <h2 className="cx-h2">{entry.name}</h2>
           <p className="cx-dim">{entry.kind === 'local' ? 'En su PC' : entry.category}</p>
@@ -313,7 +310,7 @@ function ConnectorPage({ server, onBack, onChange, onRemoved }: { server: Connec
         <ChevronLeft size={16} /> Conectores
       </button>
       <div className="cx-detail-head">
-        <Tile name={server.name} size={52} />
+        <Tile name={server.name} id={server.id} size={52} />
         <div className="cx-grow">
           <h2 className="cx-h2">{server.name}</h2>
           <p className="cx-dim">
@@ -518,8 +515,8 @@ export function ConnectorsPanel() {
         <ul className="cx-list">
           {servers.map((s) => (
             <li key={s.id}>
-              <button type="button" className="cx-row" onClick={() => setOpen(s.id)}>
-                <Tile name={s.name} />
+              <button type="button" className="cx-row" style={brandStyle(s.id, s.name)} onClick={() => setOpen(s.id)}>
+                <Tile name={s.name} id={s.id} />
                 <span className="cx-row-text">
                   <b>{s.name}</b>
                   <span>
@@ -561,8 +558,8 @@ export function ConnectorsPanel() {
               .sort((a, b) => Number(b.connected) - Number(a.connected) || a.display_name.localeCompare(b.display_name, 'es'))
               .map((c) => (
                 <li key={c.connector_id}>
-                  <button type="button" className="cx-row" onClick={() => navigate(`/data-sources?connect=${encodeURIComponent(c.connector_id)}`)}>
-                    <Tile name={c.display_name} />
+                  <button type="button" className="cx-row" style={brandStyle(c.connector_id, c.display_name)} onClick={() => navigate(`/data-sources?connect=${encodeURIComponent(c.connector_id)}`)}>
+                    <Tile name={c.display_name} id={c.connector_id} />
                     <span className="cx-row-text">
                       <b>{c.display_name}</b>
                       <span>{c.connected ? 'Conectado' : 'Sin conectar'}</span>

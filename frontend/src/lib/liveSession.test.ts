@@ -51,19 +51,25 @@ it('speaks Spanish unless the owner chose another language', () => {
   expect(voiceLanguage()).toBe('en');
 });
 
-it('starts once on the first click and writes each spoken exchange into the chat', () => {
+// Since 24 Oct. 2026 (owner: text, voice and Quick Chat apart) spoken turns go
+// to the voice chat, never into the written chat on screen.
+it('starts once on the first click and writes each spoken exchange into the voice chat', () => {
   useLive.getState().ensure();
   useLive.getState().ensure();
   expect(calls).toHaveLength(1);
   expect(calls[0].language).toBe('es');
   calls[0].cb.onState('listening');
   expect(useLive.getState().status).toBe('listening');
+  const written = useAppStore.getState().createConversation('m');
   calls[0].cb.onTurn('¿Cuánto es doce por doce?', 'Ciento cuarenta y cuatro, señor.');
-  const msgs = useAppStore.getState().messages;
-  expect(msgs.slice(-2).map((m) => [m.role, m.content, m.voice])).toEqual([
+  const app = useAppStore.getState();
+  const voice = app.conversations.find((c) => c.kind === 'voz');
+  expect(voice?.messages.slice(-2).map((m) => [m.role, m.content, m.voice])).toEqual([
     ['user', '¿Cuánto es doce por doce?', true],
     ['assistant', 'Ciento cuarenta y cuatro, señor.', true],
   ]);
+  expect(app.activeId).toBe(written);
+  expect(app.messages).toEqual([]);
 });
 
 it('reconnects by itself after a drop, but waits for a click when the microphone is refused', () => {

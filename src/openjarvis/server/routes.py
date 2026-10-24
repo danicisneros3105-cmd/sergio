@@ -208,7 +208,11 @@ async def chat_completions(request_body: ChatCompletionRequest, request: Request
     query = _last_user_text(request_body)
     if query:
         await asyncio.to_thread(terry.judge_previous, query)
-    if request_body.tools or not query or not terry.wanted(query):
+    quick = any(
+        m.role == "system" and str(m.content or "").startswith("[Quick Chat]")
+        for m in request_body.messages
+    )  # Quick Chat: speed first, no Terry
+    if request_body.tools or quick or not query or not terry.wanted(query):
         return await _chat_completions(request_body, request)
     if not request_body.stream:
         await asyncio.to_thread(_apply_terry, request_body, query, request_body.model)

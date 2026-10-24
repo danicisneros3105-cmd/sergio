@@ -280,8 +280,11 @@ def list_cmd(no_check: bool) -> None:
             "needs_auth": "[yellow]![/yellow]",
         }.get(status, "[red]✗[/red]")
         tools = f" · {len(server['tools'])} herramientas" if server["tools"] else ""
+        from openjarvis.mcp.brands import bar
+
         console.print(
-            f"{mark} {server['id']}: {where} — {STATUS_ES.get(status, status)}{tools}"
+            f"{bar(server['id'], server.get('name'))} {mark} {server['id']}: {where} — "
+            f"{STATUS_ES.get(status, status)}{tools}"
         )
 
 

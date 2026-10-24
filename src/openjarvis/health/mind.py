@@ -336,6 +336,65 @@ GAD2 = Scale(
     source="GAD-2. Kroenke et al. (2007), Annals of Internal Medicine. Cribado de dos ítems: un resultado de 3 o más pide hablar con un profesional, no es un diagnóstico.",
     url="https://doi.org/10.7326/0003-4819-146-5-200703060-00004",
 )
+WHO5 = Scale(
+    key="who5",
+    label="Bienestar",
+    stem="Durante las últimas dos semanas…",
+    options=[
+        "En ningún momento",
+        "De vez en cuando",
+        "Menos de la mitad del tiempo",
+        "Más de la mitad del tiempo",
+        "La mayor parte del tiempo",
+        "Todo el tiempo",
+    ],
+    first=0,
+    items=[
+        ("who5_1", "Me he sentido alegre y de buen humor"),
+        ("who5_2", "Me he sentido tranquilo y relajado"),
+        ("who5_3", "Me he sentido activo y enérgico"),
+        ("who5_4", "Me he despertado fresco y descansado"),
+        ("who5_5", "Mi vida diaria ha estado llena de cosas que me interesan"),
+    ],
+    # Raw 0-25 (×4 = %). ≤ 7 (28 %) suggests depression; ≤ 12 (50 %) low wellbeing.
+    bands=[
+        (7, "baja", "bajo: conviene hablar con un profesional"),
+        (12, "media", "por debajo de lo deseable"),
+        (25, "alta", "bueno"),
+    ],
+    higher_is_better=True,
+    source="WHO-5, Índice de Bienestar de la OMS. Topp, Østergaard, Søndergaard y Bech (2015), Psychotherapy and Psychosomatics: 50 % o menos indica bienestar bajo; 28 % o menos, posible depresión. No es un diagnóstico.",
+    url="https://doi.org/10.1159/000376585",
+)
+SISE = Scale(
+    key="sise",
+    label="Autoestima",
+    stem="¿Cuánto se aplica a usted esta frase?",
+    options=["Nada", "Poco", "Algo", "Bastante", "Totalmente"],
+    first=1,
+    items=[("sise_1", "Tengo una alta autoestima")],
+    bands=[(2, "baja", "baja"), (3, "media", "media"), (5, "alta", "alta")],
+    higher_is_better=True,
+    orientative=True,
+    source="Single-Item Self-Esteem Scale. Robins, Hendin y Trzesniewski (2001), Personality and Social Psychology Bulletin: una sola frase que se comporta como la escala de Rosenberg. Sin punto de corte clínico: orientativa.",
+    url="https://doi.org/10.1177/0146167201272002",
+)
+
+# Widgets (owner, 24 Oct. 2026: «pocas preguntas que valgan más que 52»):
+# each one a validated short scale on its own card, answered in seconds.
+WIDGETS: Dict[str, Dict[str, Any]] = {
+    "w_animo": {"label": "Ánimo", "minutes": 1, "scales": [PHQ2],
+                "extra_items": {"phq2": [BY_KEY["phq9"].items[8]]}, "open": [], "widget": True},
+    "w_nervios": {"label": "Nervios", "minutes": 1, "scales": [GAD2], "extra_items": {}, "open": [], "widget": True},
+    "w_bienestar": {"label": "Bienestar", "minutes": 1, "scales": [WHO5], "extra_items": {}, "open": [], "widget": True},
+    "w_soledad": {"label": "Compañía", "minutes": 1, "scales": [BY_KEY["ucla3"]], "extra_items": {}, "open": [],
+                  "widget": True},
+    "w_autoestima": {"label": "Autoestima", "minutes": 1, "scales": [SISE], "extra_items": {}, "open": [],
+                     "widget": True},
+}  # fmt: skip
+
+ITEM_SCALE.update({i: sc for sc in (WHO5, SISE) for i, _ in sc.items})
+
 VARIANTS: Dict[str, Dict[str, Any]] = {
     "corta": {
         "label": "Corta",
@@ -352,6 +411,7 @@ VARIANTS: Dict[str, Dict[str, Any]] = {
         "extra_items": {},
         "open": [k for k, _ in OPEN],
     },
+    **WIDGETS,
 }
 DEFAULT_VARIANT = "larga"
 
@@ -379,9 +439,12 @@ def definition(variant: str = DEFAULT_VARIANT) -> Dict[str, Any]:
         }
         for p in PICTURES
     ]
-    sections: List[Dict[str, Any]] = [
-        {"key": "inicio", "title": "Para empezar", "items": pictures}
-    ]
+    widget = bool(plan.get("widget"))
+    sections: List[Dict[str, Any]] = (
+        []
+        if widget
+        else [{"key": "inicio", "title": "Para empezar", "items": pictures}]
+    )
     for s in plan["scales"]:
         options = [{"value": s.first + i, "label": o} for i, o in enumerate(s.options)]
         items = list(s.items) + list(plan["extra_items"].get(s.key, []))
@@ -396,17 +459,18 @@ def definition(variant: str = DEFAULT_VARIANT) -> Dict[str, Any]:
                 ],
             }
         )
-    sections.append(
-        {
-            "key": "abiertas",
-            "title": "Con sus palabras",
-            "items": [
-                {"id": k, "kind": "open", "text": t}
-                for k, t in OPEN
-                if k in plan["open"]
-            ],
-        }
-    )
+    if plan["open"]:
+        sections.append(
+            {
+                "key": "abiertas",
+                "title": "Con sus palabras",
+                "items": [
+                    {"id": k, "kind": "open", "text": t}
+                    for k, t in OPEN
+                    if k in plan["open"]
+                ],
+            }
+        )
     return {
         "variant": variant,
         "label": plan["label"],
@@ -423,14 +487,25 @@ def definition(variant: str = DEFAULT_VARIANT) -> Dict[str, Any]:
                 "count": definition_count(k),
             }
             for k, v in VARIANTS.items()
+            if not v.get("widget")
         ],
+        "widget": widget,
     }
+
+
+def widgets() -> List[Dict[str, Any]]:
+    """The cards: a few questions each, from validated scales."""
+    return [
+        {"key": k, "label": v["label"], "count": definition_count(k),
+         "scale": v["scales"][0].label, "cite": v["scales"][0].source}
+        for k, v in WIDGETS.items()
+    ]  # fmt: skip
 
 
 def definition_count(variant: str) -> int:
     plan = VARIANTS[variant_of(variant)]
     return (
-        len(PICTURES)
+        (0 if plan.get("widget") else len(PICTURES))
         + sum(
             len(s.items) + len(plan["extra_items"].get(s.key, []))
             for s in plan["scales"]
@@ -599,6 +674,10 @@ def needs_professional(scores: Dict[str, Any]) -> bool:
         or by.get("gad7", 0) >= 10
         or by.get("phq2", 0) >= 3
         or by.get("gad2", 0) >= 3
+        or any(
+            x["key"] == "who5" and x["score"] is not None and x["score"] <= 7
+            for x in scores["scales"]
+        )
     )
 
 
@@ -618,6 +697,10 @@ STEPS = {
 
 
 STEPS["phq2"], STEPS["gad2"] = STEPS["phq9"], STEPS["gad7"]
+STEPS["who5"] = (
+    "Tres cosas pequeñas al día que le recarguen (luz de la mañana, moverse 20 minutos, hablar con alguien) y acostarse a la misma hora; el bienestar sube con la rutina, no con un gran cambio."
+)
+STEPS["sise"] = STEPS["rses"]
 
 
 def _concerns(scores: Dict[str, Any]) -> List[str]:
@@ -769,6 +852,8 @@ def write_reading(
 __all__ = [
     "DEFAULT_VARIANT",
     "VARIANTS",
+    "WIDGETS",
+    "widgets",
     "definition_count",
     "variant_of",
     "DELAY_SECONDS",

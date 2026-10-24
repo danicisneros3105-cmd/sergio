@@ -6,7 +6,7 @@ import { SystemPulse } from './SystemPulse';
 import { Toolbar } from './Shell/Toolbar';
 import { checkHealth } from '../lib/api';
 import { LiveCaptions, LiveStarter } from './Live/LiveOrb';
-import { StickyNotesLayer } from './StickyNotes/StickyNotesLayer';
+import { ReminderWatcher } from './Reminders/ReminderWatcher';
 import { startAppWindow } from '../lib/appWindow';
 
 const HISTORY_KEY = 'sergio-history-open';
@@ -84,7 +84,7 @@ export function Layout() {
     <div className="app-shell">
       <SystemPulse apiReachable={apiReachable} />
       <LiveStarter />
-      <StickyNotesLayer />
+      <ReminderWatcher />
       <Toolbar historyOpen={historyOpen} onToggleHistory={toggleHistory} />
       <div className="app-main">
         {!historyOpen && (

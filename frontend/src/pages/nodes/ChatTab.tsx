@@ -140,7 +140,12 @@ export function ChatTab({ node, onChanged, onCancel }: { node: SergioNode; onCha
         {messages.map((m, i) => (
           <div key={m.id} className={m.role === 'user' ? 'nchat-row me' : 'nchat-row them'}>
             {m.source && m.source !== 'Encargo del usuario' && <span className="node-msg-source">{m.source}</span>}
-            <div className={m.role === 'user' ? 'nchat-bubble me' : 'nchat-bubble them'}>
+            <div
+              className={`${m.role === 'user' ? 'nchat-bubble me' : 'nchat-bubble them'}${
+                // The tail on the last bubble of each run, as in WhatsApp and iMessage.
+                i === messages.length - 1 || messages[i + 1].role !== m.role ? ' tail' : ''
+              }`}
+            >
               {m.role === 'user' ? (
                 m.text
               ) : (
@@ -179,7 +184,7 @@ export function ChatTab({ node, onChanged, onCancel }: { node: SergioNode; onCha
         {node.status === 'needs_you' && <TakeOver node={node} onChanged={onChanged} />}
         {busy && (
           <div className="nchat-row them nchat-working">
-            <div className="nchat-bubble them node-working">{node.doing || 'Trabajando…'}</div>
+            <div className="nchat-bubble them tail node-working">{node.doing || 'Trabajando…'}</div>
             <button type="button" className="mac-chip node-cancel" onClick={onCancel}>
               <CircleSlash size={13} /> Cancelar acción
             </button>

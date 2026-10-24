@@ -95,9 +95,27 @@ termina en la rama `main`, y el dueño actualiza con un único comando.
   código de respaldo (dos veces) se pide después y puede esperar. Basta un
   ángulo (de frente); «Volver a configurar» empieza de cero; avisa si falta
   luz; un fallo de cámara o de movimiento no gasta intentos (solo una cara que
-  no coincide). No desbloquea Windows ni macOS (`docs/FACEID-SISTEMA.md`). Los
-  **Post-its** se mueven desde toda su cabecera, en la web (puntero, también
-  táctil) y en Windows (`organizer_ui.py`), y nunca quedan fuera de alcance.
+  no coincide). No desbloquea Windows ni macOS (`docs/FACEID-SISTEMA.md`).
+  **Post-its quitados** (dueño, 24 oct. 2026: «quita el apartado de post it»):
+  ni en la web ni papeles en el escritorio de Windows; «nota: …» por voz va a
+  la lista del organizador. La herramienta ya no ofrece `sticky_note_*` (las
+  rutas siguen para notas guardadas).
+- **Salud simple** (dueño, 24 oct. 2026: «minimalista, fácil de entender para
+  todos»): a la vista **Hoy** (ahora, después, metas y el resumen) ·
+  **Medicinas** (dosis, horas, «Tomada», la semana en puntos con datos reales)
+  · **Comida y ejercicio** (recetas y rutinas que arma Sergio con sus datos
+  limpiados; con «Solo en este equipo» no se hacen) · **Mente**; Longevidad,
+  Explorar, Compartir y Dispositivos bajo «Más». Metas, medicinas y
+  recordatorios viven en `reminders/` (`/v1/reminders`, herramienta
+  `reminders`, aviso a la hora en la app: `ReminderWatcher`); son avisos para
+  el dueño, nunca mensajes a otros, y nunca consejo médico. Sergio tiene las
+  metas presentes en cada turno (órgano «metas» de la colmena).
+- Salud mental, **tarjetas primero** (dueño, 24 oct. 2026: «widgets de pocas
+  preguntas que valgan más que 52»): «¿Cómo está hoy?» con cinco tarjetas de
+  escalas validadas cortas (PHQ-2 + ítem 9, GAD-2, WHO-5, UCLA-3, autoestima de
+  un ítem; `mind.WIDGETS`) y la encuesta completa como sexta tarjeta. Las
+  tarjetas siguen las reglas de abajo (30 min, crisis al instante) y su
+  lectura la escribe el código, sin gastar IA.
 - Salud mental (dueño, oct. 2026): **dos encuestas, corta (12 preguntas) y
   larga (56)**, con tres preguntas de imagen al inicio, en este orden (no
   sentirse suficiente, pensar demasiado, querer encajar), y después escalas
@@ -224,8 +242,11 @@ termina en la rama `main`, y el dueño actualiza con un único comando.
   (`lib/imessage.ts`, `MessageBubble.tsx`, `.imsg-*` en `index.css`). Las
   imágenes y videos que hace una herramienta salen siempre en el chat.
 - Sin emojis y sin colores en la interfaz (dueño, oct. 2026): negro, blanco y
-  grises; iconos de línea. Única excepción: el azul de iMessage en el chat. El color solo vive en lo que el dueño crea (sus
-  diseños, fotos, 3D) y en los cuatro personajes de los Nodes.
+  grises; iconos de línea. Excepciones: el azul de iMessage en el chat y, desde
+  el 24 oct. 2026, el logo y la barra del color de cada servicio en
+  Conectores, Plugins, Cowork y `sergio mcp list` (ver «Logos de servicios»).
+  El color solo vive en lo que el dueño crea (sus diseños, fotos, 3D) y en los
+  cuatro personajes de los Nodes.
 - Workspace igual a Notion (en blanco y negro), con lo de Notion 2026:
   Biblioteca, secciones de la barra, Papelera, pestañas, Presentar y Panel. Al
   pie de la barra, como Notion, solo Configuración, Plantillas y Papelera; las
@@ -289,6 +310,14 @@ termina en la rama `main`, y el dueño actualiza con un único comando.
 - Chat de Nodes como la imagen del dueño (23 oct. 2026): personaje arriba,
   burbujas grises del Node y azules del dueño, y al lado un panel con lo
   último que hizo (video, imagen o página) (`lib/nodeCanvas.ts`, `.nchat-*`).
+  Con **colita** como WhatsApp e iMessage en la última burbuja de cada turno
+  (24 oct. 2026; máscara SVG del color de la burbuja, sirve en cualquier fondo).
+- **Chats en tres apartados** (dueño, 24 oct. 2026): Texto · Voz · Quick Chat
+  en la barra lateral (`ChatSections`, `Conversation.kind`). La voz va a su
+  propio chat, que sigue mientras es reciente (6 h, `chatFor`), sin escribirse
+  en el chat de texto abierto; un chat vacío se reutiliza en vez de crear otro.
+  Quick Chat (Ctrl/⌘ J) responde corto y rápido y no pasa por Terry
+  (`[Quick Chat]` en el mensaje de sistema).
 - Cowork igual al modo de trabajo de ChatGPT (dueño, oct. 2026): una caja
   central «¿En qué trabajamos?» con «+» (adjuntar, modo plan, autonomía,
   tope) y comandos «/»; la tarea como conversación con la actividad plegable,
@@ -310,7 +339,8 @@ termina en la rama `main`, y el dueño actualiza con un único comando.
   «nodo», «nœud»… (`nodes/store.py: node_word` lo corrige en todo lo que dicen).
 - **Simple primero** (dueño, 23 oct. 2026: «que lo entienda un niño de 5, un
   profesional de 22 y una abuela de 84»): la barra lateral deja a la vista
-  solo Chat, Nodes, Salud, Uso y Notas; lo demás va bajo «Más»
+  solo Chat, Nodes, Salud y Uso (Notas Post-it se quitó el 24 oct. 2026), y
+  debajo los tres apartados de chats; lo demás va bajo «Más»
   (`TOOLBAR_ITEMS.more`). Nada nuevo entra a la vista sin quitar otra cosa.
 - Ningún subtexto explicativo bajo los títulos; los títulos y la marca van
   con las letras del logo B&O (Josefin Sans), el resto con la del sistema.
@@ -327,8 +357,15 @@ termina en la rama `main`, y el dueño actualiza con un único comando.
 - «Anatomy» es una skill oculta que Sergio usa siempre (herramienta
   `anatomy_figure`, siempre activa): la lámina aparece dentro del chat; no
   es un apartado de la app.
+- **Logos de servicios** (dueño, 24 oct. 2026, cambia la regla siguiente solo
+  para esto): cada conector, plugin o app que usa Cowork se ve con su logo y
+  una barra de su color (`lib/brands.ts`, `components/Brand/BrandMark.tsx`;
+  `sergio mcp list` con la barra en el terminal, `mcp/brands.py`). Salen de
+  Simple Icons (CC0) y solo nombran el servicio que el dueño conecta; no se
+  dibujan a mano: se regeneran del paquete. Sin logo conocido, monograma.
 - Todo es Sergio: ningún logo ni nombre de empresa externa a la vista
-  (los créditos de licencias van en NOTICE, LICENSE y «Acerca de»). El agente
+  (los créditos de licencias van en NOTICE, LICENSE y «Acerca de»), salvo
+  los logos de servicios de arriba. El agente
   de código (OpenClacky en `extensions/clacky`) se ve como «Agente de código»:
   nombre, logo, colores grises, español y sin la pasarela de pago ni las
   actualizaciones del proveedor, con el parche `scripts/marca_agente.py`

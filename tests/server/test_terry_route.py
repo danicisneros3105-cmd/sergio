@@ -83,3 +83,18 @@ def test_small_talk_never_waits_for_terry(setup):
         json={"model": "test-model", "messages": [{"role": "user", "content": "hola"}]},
     )
     assert resp.status_code == 200 and calls == []
+
+
+def test_quick_chat_never_waits_for_terry(setup):
+    client, _engine, calls = setup
+    resp = client.post(
+        "/v1/chat/completions",
+        json={
+            "model": "test-model",
+            "messages": [
+                {"role": "system", "content": "[Quick Chat] responde corto"},
+                {"role": "user", "content": BIG},
+            ],
+        },
+    )
+    assert resp.status_code == 200 and calls == []

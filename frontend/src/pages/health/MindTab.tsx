@@ -5,7 +5,7 @@ import ReactMarkdown from 'react-markdown';
 import { Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { apiFetch } from '../../lib/api';
-import { clock, countdown, salud, type ScaleScore, type SurveyResult, type SurveyVariant } from '../../lib/salud';
+import { clock, countdown, salud, type MindWidget, type ScaleScore, type SurveyResult, type SurveyVariant } from '../../lib/salud';
 import portada from '../../assets/salud/portada-salud-mental.webp';
 import { HealthGym } from './HealthGym';
 import { Credits } from './Credits';
@@ -134,7 +134,7 @@ function Result({ result, onBack }: { result: SurveyResult; onBack: () => void }
       </button>
       <h2 className="mind-result-title">
         Resultado del {day(result.created)}
-        <small>{result.variant === 'corta' ? 'Encuesta corta' : 'Encuesta larga'}</small>
+        <small>{result.variant === 'corta' ? 'Encuesta corta' : result.variant === 'larga' ? 'Encuesta larga' : 'Tarjeta rápida'}</small>
       </h2>
       {result.crisis && result.crisis_text && <Crisis text={result.crisis_text} />}
       {result.reading && (
@@ -187,6 +187,60 @@ function Gym() {
   }, []);
   if (!hub) return null;
   return <HealthGym hub={hub} setHub={setHub} />;
+}
+
+/** How the last answer of a card reads, in one word. */
+function widgetState(w: MindWidget): string {
+  if (!w.last) return 'Sin responder';
+  if (w.last.status !== 'ready') return `Listo a las ${clock(w.last.ready_at)}`;
+  const s = w.last.scores?.scales[0];
+  return s?.words ? s.words.charAt(0).toUpperCase() + s.words.slice(1) : 'Listo';
+}
+
+/** «¿Cómo está hoy?»: five cards of one to five validated questions each. */
+function Widgets({ onPick, onOpen }: { onPick: (v: SurveyVariant) => void; onOpen: (id: string) => void }) {
+  // Five cards and the complete survey as the sixth: two even rows of three.
+  const [cards, setCards] = useState<MindWidget[] | null>(null);
+  useEffect(() => {
+    salud.widgets().then((r) => setCards(r.widgets)).catch(() => setCards([]));
+  }, []);
+  if (!cards || cards.length === 0) return null;
+  return (
+    <div className="mind-widgets">
+      {cards.map((w) => (
+        <div key={w.key} className="mind-widget">
+          <b>{w.label}</b>
+          <span>
+            {w.count} {w.count === 1 ? 'pregunta' : 'preguntas'}
+          </span>
+          <em data-ready={w.last?.status === 'ready'}>{widgetState(w)}</em>
+          <div className="mind-widget-actions">
+            <button type="button" className="mind-widget-go" onClick={() => onPick(w.key)}>
+              {w.last ? 'Otra vez' : 'Responder'}
+            </button>
+            {w.last && (
+              <button type="button" className="mind-widget-see" onClick={() => onOpen(w.last!.id)}>
+                Ver
+              </button>
+            )}
+          </div>
+        </div>
+      ))}
+      <div className="mind-widget mind-widget-full">
+        <b>Encuesta completa</b>
+        <span>12 o 56 preguntas</span>
+        <em>{hasDraft('corta') || hasDraft('larga') ? 'Tiene una a medias' : 'Con las tres imágenes'}</em>
+        <div className="mind-widget-actions">
+          <button type="button" className="mind-widget-go" onClick={() => onPick('corta')}>
+            Corta
+          </button>
+          <button type="button" className="mind-widget-see" onClick={() => onPick('larga')}>
+            Larga
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export function MindTab() {
@@ -247,34 +301,15 @@ export function MindTab() {
       <section className="mind-cover">
         <img className="mind-cover-art" src={portada} width={754} height={1000} alt="Un cerebro flotando sobre un traje con corbata, sobre fondo rojo" />
         <div className="mind-cover-body">
-          <h2>Encuesta de salud mental</h2>
-          <ul className="mind-covers">
-            <li>No sentirse suficiente</li>
-            <li>Pensar demasiado y problemas acumulados</li>
-            <li>Querer encajar siendo otra persona</li>
-          </ul>
-          <div className="mind-choose">
-            {(
-              [
-                ['corta', 'Corta', '12 preguntas · unos 3 minutos'],
-                ['larga', 'Larga', '56 preguntas · unos 12 minutos'],
-              ] as const
-            ).map(([key, label, meta]) => (
-              <button
-                key={key}
-                type="button"
-                className="mind-variant"
-                onClick={() => {
-                  setVariant(key);
-                  setMode('survey');
-                }}
-              >
-                <b>{hasDraft(key) ? `Continuar la ${label.toLowerCase()}` : label}</b>
-                <span>{meta}</span>
-              </button>
-            ))}
-          </div>
-          <p className="paper-meta">El análisis de Sergio llega unos 30 minutos después de enviarla. No es un diagnóstico.</p>
+          <h2>¿Cómo está hoy?</h2>
+          <Widgets
+            onPick={(v) => {
+              setVariant(v);
+              setMode('survey');
+            }}
+            onOpen={(id) => void open(id)}
+          />
+          <p className="paper-meta">El resultado llega unos 30 minutos después. No es un diagnóstico.</p>
           <LocalOnly />
         </div>
       </section>

@@ -2,7 +2,9 @@
 // highlights, Longevidad by areas, Explorar by category, Compartir) plus what its users ask
 // for: data from any watch, ring or scale, notes and tags per day, what goes with a good
 // night, goals, a doctor summary and a full export. Every number is the owner's own data;
-// tabs live in ./health/. Salud mental holds the survey and the mental gym.
+// tabs live in ./health/. Simple first: Hoy (reminders, goals and the summary),
+// Medicinas, Comida y ejercicio and Mente in sight; Longevidad, Explorar,
+// Compartir and Dispositivos under «Más».
 
 import { useCallback, useEffect, useState } from 'react';
 import { useLocation } from 'react-router';
@@ -14,22 +16,30 @@ import { DevicesTab } from './health/DevicesTab';
 import { LongevityTab } from './health/LongevityTab';
 import { MindTab } from './health/MindTab';
 import { ShareTab } from './health/ShareTab';
+import { MedsTab } from './health/MedsTab';
+import { PlanTab } from './health/PlanTab';
 import { SummaryTab } from './health/SummaryTab';
+import { TodayBlock } from './health/TodayBlock';
 import './health/health.css';
 
-type Tab = 'resumen' | 'longevidad' | 'explorar' | 'compartir' | 'dispositivos' | 'mente';
+type Tab = 'resumen' | 'medicinas' | 'plan' | 'mente' | 'longevidad' | 'explorar' | 'compartir' | 'dispositivos';
+// Simple first (owner, 24 Oct. 2026): four sections in sight, the rest under «Más».
 const TABS: Array<{ key: Tab; label: string }> = [
-  { key: 'resumen', label: 'Resumen' },
+  { key: 'resumen', label: 'Hoy' },
+  { key: 'medicinas', label: 'Medicinas' },
+  { key: 'plan', label: 'Comida y ejercicio' },
+  { key: 'mente', label: 'Mente' },
+];
+const MORE: Array<{ key: Tab; label: string }> = [
   { key: 'longevidad', label: 'Longevidad' },
   { key: 'explorar', label: 'Explorar' },
   { key: 'compartir', label: 'Compartir' },
   { key: 'dispositivos', label: 'Dispositivos' },
-  { key: 'mente', label: 'Salud mental' },
 ];
 
 function tabFrom(search: string): Tab | null {
   const asked = new URLSearchParams(search).get('tab');
-  return TABS.some((t) => t.key === asked) ? (asked as Tab) : null;
+  return [...TABS, ...MORE].some((t) => t.key === asked) ? (asked as Tab) : null;
 }
 
 export function HealthPage() {
@@ -87,16 +97,42 @@ export function HealthPage() {
             {t.label}
           </button>
         ))}
+        <button
+          type="button"
+          role="tab"
+          className="paper-tab"
+          aria-selected={MORE.some((m) => m.key === tab) && !open}
+          onClick={() => {
+            setOpen(null);
+            if (!MORE.some((m) => m.key === tab)) setTab('longevidad');
+          }}
+        >
+          Más
+        </button>
       </nav>
-      {problem && tab !== 'mente' && <p className="paper-meta">{problem}</p>}
+      {MORE.some((m) => m.key === tab) && !open && (
+        <div className="salud-more" role="tablist" aria-label="Más de Salud">
+          {MORE.map((m) => (
+            <button key={m.key} type="button" role="tab" className="mac-chip" aria-selected={tab === m.key} onClick={() => setTab(m.key)}>
+              {m.label}
+            </button>
+          ))}
+        </div>
+      )}
+      {problem && !['mente', 'medicinas', 'plan'].includes(tab) && <p className="paper-meta">{problem}</p>}
       {tab === 'mente' && !open ? (
         <MindTab />
+      ) : tab === 'medicinas' && !open ? (
+        <MedsTab />
+      ) : tab === 'plan' && !open ? (
+        <PlanTab />
       ) : !catalog || !summary ? (
         !problem && <p className="paper-meta">Leyendo…</p>
       ) : open ? (
         <MetricView metricKey={open} onBack={() => setOpen(null)} onChanged={load} />
       ) : (
         <>
+          {tab === 'resumen' && <TodayBlock />}
           {tab === 'resumen' && <SummaryTab summary={summary} catalog={catalog} onOpen={show} onChanged={load} onConnect={() => setTab('dispositivos')} />}
           {tab === 'longevidad' && <LongevityTab onOpen={show} />}
           {tab === 'explorar' && <BrowseTab catalog={catalog} summary={summary} onOpen={show} />}

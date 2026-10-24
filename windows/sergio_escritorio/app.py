@@ -2034,16 +2034,21 @@ def run(config: dict[str, Any]) -> None:
             parsed = parse_note(q.arg)
             if parsed is None:
                 return "¿Qué escribo en la nota?"
+            # No Post-its on the desktop any more (owner, Oct. 2026): the note
+            # goes to the organizer's list.
             text, colour = parsed
-            note = notes.add(text, colour)
-            on_ui(lambda: board().show(note))
-            return "Nota pegada en el escritorio."
+            notes.add(text, colour)
+            if organizer_windows:
+                on_ui(organizer_windows[0].refresh)
+            return "Anotado, señor."
         if q.kind == "notes_show":
-            count = on_ui(lambda: board().show_all())
-            return f"Aquí están sus {count} notas." if count else "No tiene notas. Diga «nota: …» para crear una."
+            if not notes.items:
+                return "No tiene notas. Diga «nota: …» para crear una."
+            return open_organizer(1)
         if q.kind == "notes_hide":
-            on_ui(lambda: board().hide_all())
-            return "Notas guardadas."
+            if note_board:
+                on_ui(lambda: board().hide_all())
+            return "Listo."
         if q.kind == "note_remove":
             found = notes.find(q.arg)
             for n in found:
@@ -2053,8 +2058,6 @@ def run(config: dict[str, Any]) -> None:
             return open_organizer({"alarmas": 0, "notas": 1, "recordatorios": 2, "tareas": 3}.get(q.arg, 0))
         return None
 
-    if notes.items and config.get("notas_al_iniciar", True):
-        _QTimer.singleShot(2500, lambda: board().show_all())
     protocols = dict(PROTOCOLS)
     protocols.update(config.get("protocolos") or {})
 

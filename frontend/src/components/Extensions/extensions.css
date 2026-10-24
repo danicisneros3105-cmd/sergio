@@ -1,5 +1,6 @@
 /* Extensiones › Conectores and Plugins, laid out like Claude's settings.
-   Black, white and greys; services shown by name with a plain monogram. */
+   Black, white and greys; each service with its own logo and a bar of its
+   colour (the owner's decision, Oct. 2026; components/Brand/BrandMark.tsx). */
 
 .cx { display: flex; flex-direction: column; gap: 14px; }
 .cx button { font: inherit; }
@@ -105,3 +106,11 @@
 @media (max-width: 640px) { .cx-bar { flex-wrap: wrap; } .cx-bar .ext-btn { min-height: 40px; } .cx-tools header { flex-wrap: wrap; } }
 
 .cx-card:focus { outline: none; }
+
+/* Brand bar: the service's colour along the top of its card, and down the
+   left of its row; the same 3 px everywhere so cards line up exactly. */
+.cx-entry { overflow: hidden; padding-top: 17px; } /* the same with or without a bar */
+.cx-entry[style*='--brand']::before { content: ''; position: absolute; inset: 0 0 auto; height: 3px; background: var(--brand); }
+.cx-row[style*='--brand'] { position: relative; padding-left: 12px; }
+.cx-row[style*='--brand']::before { content: ''; position: absolute; left: 0; top: 10px; bottom: 10px; width: 3px; border-radius: 3px; background: var(--brand); }
+.cx-detail-head[style*='--brand'] { padding-top: 14px; border-top: 3px solid var(--brand); }

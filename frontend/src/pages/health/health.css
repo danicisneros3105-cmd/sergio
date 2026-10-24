@@ -218,3 +218,79 @@
 .gym-history span { color: var(--color-text-tertiary); }
 .gym-history em { font-style: normal; font-weight: 600; }
 .credits p.credits-notice { font-size: 11.5px; line-height: 1.5; color: var(--color-text-tertiary); margin: 10px 0 0; max-width: 88ch; }
+
+/* «¿Cómo está hoy?»: equal cards on one grid, the same height and padding. */
+.mind-widgets { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; width: 100%; }
+@media (max-width: 560px) { .mind-widgets { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.mind-widget { display: grid; grid-template-rows: auto auto 1fr auto; gap: 4px; padding: 14px; min-height: 132px; border-radius: 14px; border: 1px solid var(--color-border); background: var(--color-bg); }
+.mind-widget b { font-size: 15px; font-weight: 600; }
+.mind-widget span { font-size: 12.5px; color: var(--color-text-secondary); }
+.mind-widget em { font-style: normal; font-size: 13px; color: var(--color-text-tertiary); }
+.mind-widget em[data-ready='true'] { color: var(--color-text); }
+.mind-widget-actions { display: flex; gap: 6px; }
+.mind-widget-go, .mind-widget-see { height: 32px; padding: 0 12px; border-radius: 999px; font: inherit; font-size: 13px; cursor: pointer; }
+.mind-widget-go { flex: 1; border: 0; background: var(--color-text); color: var(--color-bg); }
+.mind-widget-see { border: 1px solid var(--color-border); background: none; color: var(--color-text); }
+.mind-full { margin: 14px 0 6px; }
+
+/* Salud, simple: one row of tabs (scrolls on a phone, never wraps), «Más» chips. */
+.salud-tabs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+.salud-tabs::-webkit-scrollbar { display: none; }
+.salud-tabs .paper-tab { flex: none; }
+.salud-more { display: flex; gap: 6px; flex-wrap: wrap; margin: -6px 0 18px; }
+.salud-more .mac-chip[aria-selected='true'] { background: var(--color-text); color: var(--color-bg); }
+
+/* Hoy */
+.today { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin-bottom: 22px; }
+.today-col { padding: 16px 18px; border: 1px solid var(--color-border); border-radius: 16px; display: grid; gap: 6px; align-content: start; }
+.today-col .paper-label + * { margin-top: 0; }
+.today-list { list-style: none; margin: 0 0 8px; padding: 0; display: grid; gap: 2px; }
+.today-list li { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 36px; font-size: 14.5px; }
+.today-list li span b { font-weight: 600; margin-right: 6px; }
+.today-empty { margin: 0 0 8px; font-size: 14px; color: var(--color-text-tertiary); }
+.today-add { display: flex; gap: 6px; }
+.today-add input, .plan-ask input, .med-new input:not([type='time']) {
+  flex: 1; min-width: 0; height: 38px; padding: 0 12px; border-radius: 12px; border: 1px solid var(--color-border);
+  background: var(--color-bg); color: var(--color-text); font: inherit; font-size: 14.5px;
+}
+
+/* Medicinas */
+.med { display: grid; gap: 16px; }
+.med-due { display: grid; gap: 8px; padding: 14px 16px; border-radius: 16px; background: var(--color-bg-secondary); }
+.med-due-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.med-due-row span { flex: 1; min-width: 160px; font-size: 15px; }
+.med-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; border-top: 1px solid var(--color-border-subtle, var(--color-border)); }
+.med-list li { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 14px; padding: 12px 0; border-bottom: 1px solid var(--color-border-subtle, var(--color-border)); }
+.med-list li[data-paused='true'] { opacity: 0.5; }
+.med-main { display: grid; gap: 2px; min-width: 0; }
+.med-main b { font-size: 15.5px; font-weight: 600; }
+.med-main span { font-size: 13px; color: var(--color-text-secondary); overflow-wrap: anywhere; }
+.med-week { display: inline-flex; align-items: center; gap: 3px; }
+.med-week i { width: 8px; height: 8px; border-radius: 50%; background: var(--color-border); }
+.med-week i[data-on='true'] { background: var(--color-text); }
+.med-week b { margin-left: 6px; font-size: 13px; font-variant-numeric: tabular-nums; }
+.med-week-empty { font-size: 12.5px; color: var(--color-text-tertiary); }
+.med-actions { display: flex; gap: 2px; }
+.med-new { display: grid; gap: 10px; padding: 16px; border: 1px dashed var(--color-border); border-radius: 16px; }
+.med-times, .med-days { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.med-time { display: inline-flex; align-items: center; gap: 2px; }
+.med-time input { height: 34px; padding: 0 8px; border-radius: 10px; border: 1px solid var(--color-border); background: var(--color-bg); color: var(--color-text); font: inherit; }
+.med-time button, .med-add-time { height: 34px; padding: 0 10px; border-radius: 10px; border: 1px solid var(--color-border); background: none; color: var(--color-text); cursor: pointer; display: inline-flex; align-items: center; gap: 4px; font: inherit; font-size: 13px; }
+.med-days button { width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--color-border); background: none; color: var(--color-text); cursor: pointer; font: inherit; font-size: 13px; }
+.med-days button[aria-pressed='true'] { background: var(--color-text); color: var(--color-bg); border-color: transparent; }
+.med-note { margin: 0; }
+@media (max-width: 640px) { .med-list li { grid-template-columns: minmax(0, 1fr) auto; } .med-week { grid-column: 1 / -1; } }
+
+/* Comida y ejercicio */
+.plan { display: grid; gap: 14px; }
+.plan-kind { display: inline-grid; grid-template-columns: 1fr 1fr; width: max-content; padding: 3px; gap: 3px; border-radius: 12px; background: var(--color-bg-tertiary); }
+.plan-kind button { height: 32px; padding: 0 18px; border: 0; border-radius: 9px; background: none; color: var(--color-text-secondary); font: inherit; font-size: 14px; cursor: pointer; }
+.plan-kind button[aria-selected='true'] { background: var(--color-surface); color: var(--color-text); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08); }
+.plan-ask { display: flex; gap: 8px; }
+.plan-ideas { display: flex; gap: 6px; flex-wrap: wrap; }
+.plan-card { display: grid; gap: 12px; padding: 18px 20px; border: 1px solid var(--color-border); border-radius: 18px; }
+.plan-card header h3 { margin: 0; font-size: 19px; }
+.plan-card header span { font-size: 13px; color: var(--color-text-secondary); }
+.plan-items { margin: 0; padding-left: 18px; columns: 2 200px; font-size: 14.5px; }
+.plan-steps { margin: 0; padding-left: 20px; display: grid; gap: 6px; font-size: 15px; line-height: 1.5; }
+.plan-why { margin: 0; font-size: 14.5px; }

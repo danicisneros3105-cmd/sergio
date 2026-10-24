@@ -880,6 +880,14 @@ def _organs(brain: "Brain") -> None:
     h.add(Organ("habilidades", "Cuerno lateral", "Aporta el saber innato: prompts y skills.",
                 ("pedido",), "habilidades", habilidades))  # fmt: skip
 
+    def metas(board: Dict[str, Any]) -> Any:
+        from openjarvis.reminders import goals_block
+
+        return goals_block() or ""
+
+    h.add(Organ("metas", "Complejo central", "Tiene presentes las metas y medicinas del señor.",
+                ("pedido",), "metas", metas))  # fmt: skip
+
 
 def mind_context(text: str, channel: str = "chat") -> str:
     """Everything the organs add to one request — memories, learned routes and
@@ -906,6 +914,8 @@ def mind_context(text: str, channel: str = "chat") -> str:
         brain.note_skills(re.findall(r"^\[\d+\] (.+)$", guidance, re.M))
     if block:
         parts.append(block)
+    if board.get("metas"):
+        parts.append(board["metas"])
     return "\n\n".join(parts)
 
 

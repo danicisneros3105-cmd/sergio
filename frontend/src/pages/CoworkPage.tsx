@@ -37,6 +37,8 @@ import {
   type Autonomy,
   type ComposerOptions,
 } from '../lib/cowork';
+import { BrandMark } from '../components/Brand/BrandMark';
+import { brandsIn } from '../lib/brands';
 import '../components/Cowork/cowork.css';
 
 // Shapes of /v1/cowork (see server/cowork_routes.py and cowork/session.py).
@@ -653,6 +655,14 @@ export function CoworkPage() {
                         <p>{step.text}</p>
                         {step.result && step.status !== 'pending' && <small>{step.result}</small>}
                       </div>
+                      {brandsIn(`${step.text} ${step.result ?? ''}`).length > 0 && (
+                        // The apps this step uses, with their own logos.
+                        <span className="cw-brands">
+                          {brandsIn(`${step.text} ${step.result ?? ''}`).map((b) => (
+                            <BrandMark key={b.title} name={b.title} brand={b} size={22} />
+                          ))}
+                        </span>
+                      )}
                     </li>
                   ))}
                 </ol>

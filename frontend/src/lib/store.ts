@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type {
+  ChatKind,
   Conversation,
   ChatMessage,
   LiveEnergyMetrics,
@@ -47,6 +48,15 @@ interface ConversationStore {
   version: 1;
   conversations: Record<string, Conversation>;
   activeId: string | null;
+}
+
+/** A voice chat or a quick chat keeps going while it is this recent. */
+export const CONTINUE_MS = 6 * 60 * 60 * 1000;
+
+/** The section of a chat; old chats made only of voice turns count as voice. */
+export function chatKindOf(c: Pick<Conversation, 'kind' | 'messages'>): ChatKind {
+  if (c.kind) return c.kind;
+  return c.messages.length > 0 && c.messages.every((m) => m.voice) ? 'voz' : 'texto';
 }
 
 function generateId(): string {
@@ -188,7 +198,14 @@ interface AppState {
   // Actions: conversations
   loadConversations: () => void;
   importOverlayConversation: () => Promise<void>;
-  createConversation: (model?: string) => string;
+  createConversation: (model?: string, kind?: ChatKind) => string;
+  /** The chat a voice turn or a quick question goes to: the recent one of
+   * that kind, so not every exchange starts a new chat (never switches the
+   * chat on screen). */
+  chatFor: (kind: ChatKind) => string;
+  /** Which section the chat list shows. */
+  chatKind: ChatKind;
+  setChatKind: (kind: ChatKind) => void;
   selectConversation: (id: string) => void;
   deleteConversation: (id: string) => void;
   loadMessages: (conversationId: string | null) => void;
@@ -354,15 +371,22 @@ export const useAppStore = create<AppState>((set, get) => {
       }
     },
 
-    createConversation: (model?: string) => {
+    createConversation: (model?: string, kind: ChatKind = 'texto') => {
       const store = loadConversations();
+      const open = store.activeId ? store.conversations[store.activeId] : undefined;
+      if (open && open.messages.length === 0 && chatKindOf(open) === kind) {
+        // An empty chat is already open: use it instead of piling up new ones.
+        set({ activeId: open.id, messages: [], chatKind: kind });
+        return open.id;
+      }
       const conv: Conversation = {
         id: generateId(),
-        title: 'Chat nuevo',
+        title: kind === 'voz' ? 'Conversación de voz' : kind === 'rapido' ? 'Quick Chat' : 'Chat nuevo',
         createdAt: Date.now(),
         updatedAt: Date.now(),
         model: model || get().selectedModel || 'default',
         messages: [],
+        kind,
       };
       store.conversations[conv.id] = conv;
       store.activeId = conv.id;
@@ -373,9 +397,36 @@ export const useAppStore = create<AppState>((set, get) => {
         ),
         activeId: conv.id,
         messages: [],
+        chatKind: kind,
       });
       return conv.id;
     },
+
+    chatFor: (kind: ChatKind) => {
+      const store = loadConversations();
+      const recent = Object.values(store.conversations)
+        .filter((c) => chatKindOf(c) === kind)
+        .sort((a, b) => b.updatedAt - a.updatedAt)[0];
+      if (recent && Date.now() - recent.updatedAt < CONTINUE_MS) return recent.id;
+      const conv: Conversation = {
+        id: generateId(),
+        title: kind === 'voz' ? 'Conversación de voz' : kind === 'rapido' ? 'Quick Chat' : 'Chat nuevo',
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        model: get().selectedModel || 'default',
+        messages: [],
+        kind,
+      };
+      store.conversations[conv.id] = conv;
+      saveConversations(store);
+      set({
+        conversations: Object.values(store.conversations).sort((a, b) => b.updatedAt - a.updatedAt),
+      });
+      return conv.id;
+    },
+
+    chatKind: 'texto',
+    setChatKind: (kind: ChatKind) => set({ chatKind: kind }),
 
     selectConversation: (id: string) => {
       const store = loadConversations();
@@ -385,6 +436,7 @@ export const useAppStore = create<AppState>((set, get) => {
       set({
         activeId: id,
         messages: conv ? conv.messages : [],
+        ...(conv ? { chatKind: chatKindOf(conv) } : {}),
       });
     },
 

@@ -100,6 +100,7 @@ SERVER_TOOLS = (
     "image_generate",
     "video_create",
     "video_essay",
+    "reminders",
     "video_edit",
     "video_pro",
     "blender_create",

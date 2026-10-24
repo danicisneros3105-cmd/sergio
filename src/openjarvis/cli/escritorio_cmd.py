@@ -52,6 +52,7 @@ BASE_TOOLS = (
     "image_generate",
     "video_create",
     "video_essay",
+    "reminders",
     "get_weather",
     "globe_view",
     "live_flights",

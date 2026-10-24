@@ -183,7 +183,7 @@ export function signInWindow(url: string, reserved?: Window | null, verify?: () 
   });
 }
 
-/** Two letters for the plain monogram tile (no logos, by the owner's rule). */
+/** Two letters for a service without a logo in lib/brands.ts. */
 export function monogram(name: string): string {
   const words = name.replace(/[^\p{L}\p{N} ]/gu, ' ').trim().split(/\s+/);
   return ((words[0]?.[0] || '') + (words[1]?.[0] || words[0]?.[1] || '')).toUpperCase();

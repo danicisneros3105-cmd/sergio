@@ -669,7 +669,11 @@ def test_the_four_new_references_are_styles() -> None:
         "anuncio-comida",
         "animacion",
         "metas-grandes",
+        "lanzamiento-producto",
     } <= keys
+    launch = style.load("lanzamiento-producto")
+    assert launch["narration_mode"] == "voice" and "3d" in launch["sources"]
+    assert "Dyson" not in json.dumps(launch)
     assert style.load("corto-3d")["production"] == "3d"
     assert style.load("anuncio-comida")["narration_mode"] == "none"
     for k in keys:

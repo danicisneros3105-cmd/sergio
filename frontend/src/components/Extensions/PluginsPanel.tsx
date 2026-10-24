@@ -10,7 +10,6 @@ import {
   fetchClaudePlugins,
   fetchMarketplaces,
   installClaudePlugin,
-  monogram,
   removeClaudePlugin,
   setClaudePluginEnabled,
   type ClaudePlugin,
@@ -18,6 +17,7 @@ import {
   type Marketplace,
 } from '../../lib/mcp';
 import { ExtensionSheet as Sheet } from './ExtensionSheet';
+import { BrandMark, brandStyle } from '../Brand/BrandMark';
 import './extensions.css';
 
 const fail = (e: unknown) => toast.error(e instanceof Error ? e.message : String(e));
@@ -48,9 +48,7 @@ function Detail({ plugin, installed, onClose, onChanged }: { plugin: ClaudePlugi
   return (
     <Sheet label={plugin.display_name} onClose={onClose}>
         <div className="cx-detail-head">
-          <span className="cx-tile" style={{ width: 52, height: 52, fontSize: 18 }} aria-hidden>
-            {monogram(plugin.display_name)}
-          </span>
+          <BrandMark name={plugin.display_name} id={plugin.name} size={52} />
           <div>
             <h2 className="cx-h2">{plugin.display_name}</h2>
             <p className="cx-dim">
@@ -177,9 +175,7 @@ export function PluginsPanel({ legacy }: { legacy?: React.ReactNode }) {
                     setPicked({ id: p.id, name: p.name, display_name: p.display_name, description: p.description, category: '', marketplace: p.marketplace, installed: true, enabled: p.enabled })
                   }
                 >
-                  <span className="cx-tile" aria-hidden>
-                    {monogram(p.display_name)}
-                  </span>
+                  <BrandMark name={p.display_name} id={p.name} />
                   <span className="cx-row-text">
                     <b>{p.display_name}</b>
                     <span>{counts(p)}</span>
@@ -208,10 +204,8 @@ export function PluginsPanel({ legacy }: { legacy?: React.ReactNode }) {
         ) : (
           <div className="cx-grid">
             {data.available.slice(0, 240).map((p) => (
-              <button key={p.id} type="button" className="cx-entry" onClick={() => setPicked(p)}>
-                <span className="cx-tile" style={{ width: 40, height: 40, fontSize: 14 }} aria-hidden>
-                  {monogram(p.display_name)}
-                </span>
+              <button key={p.id} type="button" className="cx-entry" style={brandStyle(p.name, p.display_name)} onClick={() => setPicked(p)}>
+                <BrandMark name={p.display_name} id={p.name} size={40} />
                 <span className="cx-entry-text">
                   <b>{p.display_name}</b>
                   <span>{p.description}</span>
