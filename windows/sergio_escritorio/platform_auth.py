@@ -16,6 +16,21 @@ from dataclasses import dataclass
 from typing import Callable
 
 
+# Windows.Security.Credentials.UI.UserConsentVerificationResult, in plain words.
+RESULTS = {
+    1: "No hay cámara, lector de huella ni PIN de Windows Hello en este equipo.",
+    2: "Windows Hello no está configurado: Configuración → Cuentas → Opciones de inicio de sesión.",
+    3: "La empresa o una directiva de Windows tiene Windows Hello desactivado.",
+    4: "Windows Hello está ocupado con otra ventana. Inténtelo en unos segundos.",
+    5: "Demasiados intentos. Use su PIN de Windows.",
+    6: "Cancelado.",
+}
+
+
+def result_text(code: int) -> str:
+    return "verificado" if code == 0 else RESULTS.get(code, f"Windows no lo verificó (código {code}).")
+
+
 @dataclass(frozen=True)
 class Consent:
     verified: bool
@@ -171,12 +186,7 @@ def _windows_verify(
                 method(
                     operation, 8, [ctypes.POINTER(ctypes.c_int32)], ctypes.byref(result)
                 )
-                return Consent(
-                    result.value == 0,
-                    "verificado"
-                    if result.value == 0
-                    else f"Windows rechazó la verificación ({result.value}).",
-                )
+                return Consent(result.value == 0, result_text(result.value))
             if status.value in (2, 3):
                 return Consent(False, "cancelado o no disponible")
             cancel.wait(0.075)
@@ -193,4 +203,4 @@ def _windows_verify(
             dll.RoUninitialize()
 
 
-__all__ = ["Consent", "verify", "operation_iid"]
+__all__ = ["RESULTS", "Consent", "operation_iid", "result_text", "verify"]

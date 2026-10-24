@@ -37,6 +37,10 @@ CREATE TABLE IF NOT EXISTS signups (
   id INTEGER PRIMARY KEY AUTOINCREMENT, user TEXT, device TEXT, network TEXT, at REAL
 );
 CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT);
+CREATE TABLE IF NOT EXISTS passkeys (
+  id TEXT PRIMARY KEY, user TEXT NOT NULL, public TEXT NOT NULL, alg INTEGER, count INTEGER DEFAULT 0,
+  name TEXT DEFAULT '', created REAL, used REAL DEFAULT 0
+);
 """
 
 
@@ -158,6 +162,7 @@ class AccountStore:
         with self._db() as db:
             gone = db.execute("DELETE FROM users WHERE id = ?", (uid,)).rowcount
             db.execute("DELETE FROM sessions WHERE user = ?", (uid,))
+            db.execute("DELETE FROM passkeys WHERE user = ?", (uid,))
         return bool(gone)
 
     # -- sign-in failures -----------------------------------------------------------------
@@ -211,6 +216,49 @@ class AccountStore:
                 "DELETE FROM sessions WHERE token = ?",
                 (security.digest(raw, self.pepper),),
             )
+
+    # -- passkeys (the device's face, finger or PIN) ------------------------------------
+    def add_passkey(self, uid: str, key: Dict[str, Any], name: str = "") -> None:
+        with self._db() as db:
+            db.execute(
+                "INSERT INTO passkeys (id, user, public, alg, count, name, created) VALUES (?,?,?,?,?,?,?)",
+                (
+                    key["id"],
+                    uid,
+                    key["public"],
+                    int(key["alg"]),
+                    int(key["count"]),
+                    name[:60],
+                    time.time(),
+                ),
+            )
+
+    def passkey(self, key_id: str) -> Optional[Dict[str, Any]]:
+        with self._db() as db:
+            r = db.execute("SELECT * FROM passkeys WHERE id = ?", (key_id,)).fetchone()
+        return self._row(r) if r else None
+
+    def passkeys_of(self, uid: str) -> List[Dict[str, Any]]:
+        with self._db() as db:
+            rows = db.execute(
+                "SELECT id, name, created, used FROM passkeys WHERE user = ? ORDER BY created",
+                (uid,),
+            ).fetchall()
+        return [self._row(r) for r in rows]
+
+    def used_passkey(self, key_id: str, count: int) -> None:
+        with self._db() as db:
+            db.execute(
+                "UPDATE passkeys SET count = ?, used = ? WHERE id = ?",
+                (int(count), time.time(), key_id),
+            )
+
+    def delete_passkey(self, uid: str, key_id: str) -> bool:
+        with self._db() as db:
+            cur = db.execute(
+                "DELETE FROM passkeys WHERE id = ? AND user = ?", (key_id, uid)
+            )
+            return cur.rowcount > 0
 
     # -- one-time codes -------------------------------------------------------------------
     def put_code(self, target: str, purpose: str) -> str:

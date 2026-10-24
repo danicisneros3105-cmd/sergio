@@ -2,6 +2,20 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-10-24 · Claude · Pantalla dividida tipo Duo, plegables, entrar con la cara, notch limpio, más rápido
+- Pantalla dividida (Ctrl \, paleta, «activa multitasking»): segunda pantalla
+  con su propia página; se abre con el pliegue del iPhone Duo; en plegables con
+  dos pantallas se acomoda a la bisagra; en el teléfono va arriba/abajo.
+  Arreglé por qué salía en blanco: el servidor prohibía cualquier marco (DENY);
+  ahora solo el mismo origen.
+- Entrar con la cara: llaves de acceso con el Face ID/huella/Windows Hello del
+  dispositivo; probado con una llave P-256 real que hace de teléfono (registro,
+  entrar, página falsa rechazada, repetición y copia rechazadas).
+- Windows Hello: sin clic extra, al frente y con mensajes claros.
+- Notch: en reposo solo el orbe; sin puntos ni título encima.
+- Rendimiento: gzip (app ~800 KB → ~230 KB), caché de archivos con huella y
+  modo liviano automático en equipos lentos.
+
 ## 2026-10-24 · Claude · Cuentas seguras y Vista
 - Inicio de sesión y registro (`/entrar`): correo con código, teléfono por SMS
   (Twilio Verify) y Google/Microsoft/Apple (OIDC + PKCE). Antifraude de correos

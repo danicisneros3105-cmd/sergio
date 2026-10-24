@@ -3641,3 +3641,24 @@ p.node-hint:not(.node-path), .swarm-sub, .swarm-hint, .studio-heading p, .studio
 .acc-who b { font-weight: 500; font-size: 14.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .acc-who small { font-size: 12.5px; color: var(--color-text-secondary); }
 .acc-actions { display: flex; gap: 2px; }
+
+/* Entrar con la cara (the device's Face ID, Touch ID or Windows Hello) */
+.signin-face { display: grid; justify-items: center; gap: 10px; padding: 18px 16px 16px; border: 1px solid var(--color-border); border-radius: 18px;
+  background: var(--color-bg); color: var(--color-text); font: inherit; font-size: 15.5px; cursor: pointer; transition: background 0.15s ease; }
+.signin-face:hover:not(:disabled) { background: var(--color-hover); }
+.signin-face:disabled { cursor: default; }
+.signin-face .faceid-glyph { stroke: var(--color-text); }
+.signin-face[data-state='scan'] .faceid-glyph { animation: face-look 1.4s ease-in-out infinite; }
+.signin-face[data-state='ok'] .faceid-glyph { stroke: var(--color-success); }
+.signin-face[data-state='fail'] .faceid-glyph { animation: face-no 420ms ease-in-out; }
+@keyframes face-look { 0%, 100% { transform: translateX(0); } 30% { transform: translateX(-3px); } 70% { transform: translateX(3px); } }
+@keyframes face-no { 20%, 60% { transform: translateX(-6px); } 40%, 80% { transform: translateX(6px); } }
+.acc-faces { display: grid; gap: 12px; margin-top: 16px; }
+@media (prefers-reduced-motion: reduce) { .signin-face .faceid-glyph { animation: none !important; } }
+
+/* Light mode (lib/perf.ts): a slow device keeps the looks, without the costly effects. */
+html[data-ligero] *, html[data-ligero] *::before, html[data-ligero] *::after {
+  backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+  animation-duration: 1ms !important; animation-iteration-count: 1 !important; transition-duration: 1ms !important;
+}
+html[data-ligero] .split-b, html[data-ligero] .split-a { filter: none !important; }

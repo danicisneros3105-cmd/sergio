@@ -132,6 +132,8 @@ _NO_CACHE_HEADERS = {
     "Pragma": "no-cache",
     "Expires": "0",
 }
+# A file whose name carries its content hash never changes: the browser keeps it.
+_IMMUTABLE_HEADERS = {"Cache-Control": "public, max-age=31536000, immutable"}
 
 
 _HASHED_ASSET_RE = re.compile(
@@ -140,7 +142,9 @@ _HASHED_ASSET_RE = re.compile(
 
 
 class _NoCacheStaticFiles(StaticFiles):
-    """StaticFiles subclass that adds no-cache headers and resolves updated chunk hashes."""
+    """StaticFiles subclass that resolves updated chunk hashes: the exact hashed
+    file is cached for good (its name changes with its content); anything else,
+    an older name resolved to the new file included, is never cached."""
 
     def lookup_path(self, path: str) -> tuple[str, os.stat_result | None]:
         full_path, stat_result = super().lookup_path(path)
@@ -165,10 +169,19 @@ class _NoCacheStaticFiles(StaticFiles):
                         continue
         return full_path, stat_result
 
+    def _exact_hashed(self, scope) -> bool:
+        """The very file asked for, named by its hash (not an older name resolved)."""
+        name = pathlib.Path(scope.get("path", "")).name
+        if not _HASHED_ASSET_RE.match(name) or not self.directory:
+            return False
+        return (pathlib.Path(str(self.directory)) / name).is_file()
+
     async def __call__(self, scope, receive, send):
+        headers = _IMMUTABLE_HEADERS if self._exact_hashed(scope) else _NO_CACHE_HEADERS
+
         async def _send_with_headers(message):
             if message["type"] == "http.response.start":
-                extra = [(k.encode(), v.encode()) for k, v in _NO_CACHE_HEADERS.items()]
+                extra = [(k.encode(), v.encode()) for k, v in headers.items()]
                 # Remove etag and last-modified
                 existing = [
                     (k, v)
@@ -734,6 +747,12 @@ def create_app(
     from openjarvis.server.upload_limits import UploadLimitsMiddleware
 
     app.add_middleware(UploadLimitsMiddleware)
+    # Answers travel compressed (the app's code is ~800 KB, ~230 KB gzipped):
+    # the phone and the tunnel load it 3x faster. Live streams (SSE, audio)
+    # and images are left alone by Starlette.
+    from starlette.middleware.gzip import GZipMiddleware
+
+    app.add_middleware(GZipMiddleware, minimum_size=1024, compresslevel=6)
 
     # Add security headers middleware
     try:

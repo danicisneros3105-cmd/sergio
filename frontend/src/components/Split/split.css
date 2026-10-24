@@ -1,0 +1,90 @@
+/* Split screen. One grid: first pane · hinge · second pane. Greys only; the
+   fold borrows the iPhone Duo's cues: stretch, blur while moving (depth of
+   field), a shade along the crease, and a soft spring at the end. */
+.split { position: relative; display: grid; height: 100%; min-height: 0; grid-template-columns: minmax(0, 1fr); }
+.split-a { position: relative; min-width: 0; min-height: 0; overflow: auto; height: 100%; }
+.split[data-open] { grid-template-columns: minmax(0, var(--split-a, 50%)) 12px minmax(0, 1fr); }
+.split[data-open][data-stacked] { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, var(--split-a, 50%)) 12px minmax(0, 1fr); }
+
+/* A real hinge: each part on its own screen, the gap exactly the hinge. */
+.split[data-fold='side'] {
+  grid-template-columns:
+    max(0px, calc(env(viewport-segment-right 0 0, 50vw) - var(--split-left, 0px)))
+    max(0px, calc(env(viewport-segment-left 1 0, 50vw) - env(viewport-segment-right 0 0, 50vw)))
+    minmax(0, 1fr);
+}
+.split[data-fold='stacked'] {
+  grid-template-rows:
+    env(viewport-segment-bottom 0 0, 50vh)
+    max(0px, calc(env(viewport-segment-top 0 1, 50vh) - env(viewport-segment-bottom 0 0, 50vh)))
+    minmax(0, 1fr);
+}
+
+.split-hinge { position: relative; display: grid; place-items: center; cursor: col-resize; touch-action: none; background: var(--color-bg); }
+.split-hinge i { width: 4px; height: 36px; border-radius: 4px; background: var(--color-border); transition: background 0.15s ease, height 0.2s ease; }
+.split-hinge:hover i, .split-hinge:focus-visible i, .split[data-dragging] .split-hinge i { background: var(--color-text-tertiary); height: 52px; }
+.split-hinge:focus-visible { outline: none; }
+.split[data-stacked] .split-hinge { cursor: row-resize; }
+.split[data-stacked] .split-hinge i { width: 36px; height: 4px; }
+.split[data-stacked] .split-hinge:hover i, .split[data-stacked][data-dragging] .split-hinge i { width: 52px; height: 4px; }
+.split[data-fold] .split-hinge { cursor: default; }
+.split[data-fold] .split-hinge i { display: none; }
+/* the shade along the crease (strong while folding, a hint at rest) */
+.split-hinge::before { content: ''; position: absolute; inset: 0 -28px; pointer-events: none; opacity: 0.35;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--color-text) 7%, transparent) 50%, transparent); }
+.split[data-stacked] .split-hinge::before { inset: -28px 0;
+  background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--color-text) 7%, transparent) 50%, transparent); }
+
+.split-b { position: relative; min-width: 0; min-height: 0; display: flex; flex-direction: column; background: var(--color-bg);
+  border-left: 1px solid var(--color-border); transform-origin: left center; }
+.split[data-stacked] .split-b { border-left: 0; border-top: 1px solid var(--color-border); transform-origin: center top; }
+.split-b iframe { flex: 1; width: 100%; min-height: 0; border: 0; background: var(--color-bg); }
+.split[data-dragging] iframe { pointer-events: none; }
+
+/* the bar: the pages as one segmented row and a close button, same height */
+.split-bar { display: flex; align-items: center; gap: 8px; height: 48px; padding: 0 8px 0 12px; border-bottom: 1px solid var(--color-border); }
+.split-pages { display: flex; gap: 2px; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+.split-pages::-webkit-scrollbar { display: none; }
+.split-pages button, .split-close { height: 32px; border: 0; border-radius: 999px; background: none; color: var(--color-text-secondary);
+  font-size: 13px; cursor: pointer; transition: background 0.15s ease, color 0.15s ease; }
+.split-pages button { padding: 0 12px; white-space: nowrap; }
+.split-pages button:hover, .split-close:hover { background: var(--color-hover); color: var(--color-text); }
+.split-pages button[aria-pressed='true'] { background: var(--color-text); color: var(--color-bg); }
+.split-close { width: 32px; flex-shrink: 0; margin-left: auto; display: grid; place-items: center; }
+
+/* -- the fold ------------------------------------------------------------- */
+.split { --duo-ease: cubic-bezier(0.2, 0.9, 0.25, 1.05); --duo-in: 620ms; --duo-out: 420ms; }
+.split[data-phase='opening'] .split-a { animation: duo-stretch var(--duo-in) var(--duo-ease) both; transform-origin: left center; }
+.split[data-phase='opening'] .split-b { animation: duo-unfold var(--duo-in) var(--duo-ease) both; }
+.split[data-phase='opening'] .split-hinge::before { animation: duo-crease var(--duo-in) ease-out both; }
+.split[data-phase='closing'] .split-b { animation: duo-fold var(--duo-out) cubic-bezier(0.4, 0, 0.7, 0.2) both; }
+.split[data-phase='closing'] .split-a { animation: duo-settle var(--duo-out) ease-out both; transform-origin: left center; }
+.split[data-stacked][data-phase='opening'] .split-a { animation-name: duo-stretch-y; transform-origin: center top; }
+.split[data-stacked][data-phase='opening'] .split-b { animation-name: duo-unfold-y; }
+.split[data-stacked][data-phase='closing'] .split-b { animation-name: duo-fold-y; }
+
+@keyframes duo-stretch { from { transform: scaleX(1.06); filter: blur(4px); } 60% { filter: blur(0); } to { transform: none; filter: none; } }
+@keyframes duo-stretch-y { from { transform: scaleY(1.06); filter: blur(4px); } 60% { filter: blur(0); } to { transform: none; filter: none; } }
+@keyframes duo-unfold {
+  from { transform: perspective(1600px) rotateY(-82deg); opacity: 0.15; filter: blur(14px) brightness(0.92); }
+  55% { opacity: 1; filter: blur(3px); }
+  to { transform: none; opacity: 1; filter: none; }
+}
+@keyframes duo-unfold-y {
+  from { transform: perspective(1600px) rotateX(82deg); opacity: 0.15; filter: blur(14px) brightness(0.92); }
+  55% { opacity: 1; filter: blur(3px); }
+  to { transform: none; opacity: 1; filter: none; }
+}
+@keyframes duo-fold { to { transform: perspective(1600px) rotateY(-82deg); opacity: 0; filter: blur(12px) brightness(0.92); } }
+@keyframes duo-fold-y { to { transform: perspective(1600px) rotateX(82deg); opacity: 0; filter: blur(12px) brightness(0.92); } }
+@keyframes duo-crease { from { opacity: 1; transform: scaleX(2.2); } to { opacity: 0.35; transform: none; } }
+@keyframes duo-settle { 60% { transform: scaleX(1.015); } to { transform: none; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .split .split-a, .split .split-b, .split .split-hinge::before { animation: none !important; }
+  .split-hinge i { transition: none; }
+}
+
+/* The pane itself: no sidebar, no menu button, just the page. */
+.pane-shell .sb-open-mobile { display: none; }
+.pane-shell .nodes-list { padding-left: 8px; }

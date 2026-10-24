@@ -8,6 +8,10 @@
 * ``POST /v1/cuentas/telefono/entrar``        — sign in (or up) with the SMS code
 * ``GET  /v1/cuentas/oauth/{p}/inicio``       — Google / Microsoft / Apple
 * ``GET|POST /v1/cuentas/oauth/{p}/vuelta``   — the provider sends the person back
+* ``POST /v1/cuentas/llave/opciones-registro``, ``/llave/registrar`` — add this
+  device's face, finger or PIN (a passkey) to the signed-in account
+* ``POST /v1/cuentas/llave/opciones``, ``/llave/entrar`` — sign in with it
+* ``GET /v1/cuentas/llave/lista``, ``DELETE /v1/cuentas/llave/{id}`` — the account's passkeys
 * ``POST /v1/cuentas/salir``                  — close this session
 * ``GET  /v1/cuentas/lista``, ``POST /v1/cuentas/{id}/rol``, ``DELETE /v1/cuentas/{id}``
   — the owner's view: approve, block or remove accounts
@@ -372,6 +376,156 @@ async def oauth_vuelta_get(key: str, request: Request) -> RedirectResponse:
 @router.post("/oauth/{key}/vuelta")
 async def oauth_vuelta_post(key: str, request: Request) -> RedirectResponse:
     return await _oauth_back(key, request)
+
+
+# -- passkeys: the device's own Face ID, Touch ID or Windows Hello ------------------
+class KeyRegister(BaseModel):
+    clientDataJSON: str = Field(..., max_length=4096)
+    attestationObject: str = Field(..., max_length=16384)
+    name: str = Field("", max_length=60)
+
+
+class KeyLogin(BaseModel):
+    id: str = Field(..., max_length=1024)
+    clientDataJSON: str = Field(..., max_length=4096)
+    authenticatorData: str = Field(..., max_length=4096)
+    signature: str = Field(..., max_length=2048)
+    device: str = Field("", max_length=64)
+
+
+def _site(request: Request) -> tuple[str, str]:
+    """(origin, rp id) of this request, only for this server's own address."""
+    from openjarvis.accounts.passkeys import rp_from_origin
+
+    origin = request.headers.get("origin", "")
+    rp = rp_from_origin(origin, request.headers.get("host", ""))
+    if not rp:
+        raise HTTPException(
+            400,
+            "La cara del dispositivo funciona en https o en este equipo (localhost).",
+        )
+    return origin, rp
+
+
+def _account_for_keys(request: Request) -> Dict[str, Any]:
+    me = _me(request)
+    if me and me["role"] in ROLES_IN:
+        return me
+    if is_local(request):  # the owner on the computer itself, with the API key
+        owner = next((u for u in _store().users() if u["role"] == "dueño"), None)
+        if owner:
+            return owner
+    raise HTTPException(401, "Entre primero en su cuenta.")
+
+
+@router.post("/llave/opciones-registro")
+def llave_opciones_registro(request: Request) -> Dict[str, Any]:
+    from openjarvis.accounts import passkeys
+
+    _limit(request)
+    _, rp = _site(request)
+    user = _account_for_keys(request)
+    return {
+        "challenge": passkeys.new_challenge("registro", user["id"]),
+        "rp": {"id": rp, "name": "Sergio"},
+        "user": {
+            "id": passkeys.b64u(user["id"].encode()),
+            "name": user.get("email") or user.get("phone") or user["id"],
+            "displayName": user.get("name") or user.get("email") or "Sergio",
+        },
+        "pubKeyCredParams": [{"type": "public-key", "alg": a} for a in passkeys.ALGS],
+        "authenticatorSelection": {
+            "authenticatorAttachment": "platform",
+            "residentKey": "required",
+            "userVerification": "required",
+        },
+        "excludeCredentials": [
+            {"type": "public-key", "id": k["id"]}
+            for k in _store().passkeys_of(user["id"])
+        ],
+        "attestation": "none",
+        "timeout": 60000,
+    }
+
+
+@router.post("/llave/registrar")
+def llave_registrar(body: KeyRegister, request: Request) -> Dict[str, Any]:
+    from openjarvis.accounts import passkeys
+
+    _limit(request)
+    origin, rp = _site(request)
+    user = _account_for_keys(request)
+    try:
+        key = passkeys.verify_registration(
+            client_data=body.clientDataJSON,
+            attestation=body.attestationObject,
+            origin=origin,
+            rp_id=rp,
+        )
+    except passkeys.PasskeyError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    if key["user"] != user["id"]:
+        raise HTTPException(400, "La solicitud era para otra cuenta.")
+    if _store().passkey(key["id"]):
+        raise HTTPException(409, "Este dispositivo ya está guardado.")
+    _store().add_passkey(user["id"], key, body.name or "Este dispositivo")
+    return {"status": "guardada", "llaves": _store().passkeys_of(user["id"])}
+
+
+@router.post("/llave/opciones")
+def llave_opciones(request: Request) -> Dict[str, Any]:
+    from openjarvis.accounts import passkeys
+
+    _limit(request)
+    _, rp = _site(request)
+    return {
+        "challenge": passkeys.new_challenge("entrar"),
+        "rpId": rp,
+        "userVerification": "required",
+        "allowCredentials": [],  # the device offers the passkeys it has for this site
+        "timeout": 60000,
+    }
+
+
+@router.post("/llave/entrar")
+def llave_entrar(body: KeyLogin, request: Request) -> Dict[str, Any]:
+    from openjarvis.accounts import passkeys
+
+    _limit(request)
+    origin, rp = _site(request)
+    stored = _store().passkey(body.id)
+    if not stored:
+        raise HTTPException(401, "Este dispositivo no está guardado en ninguna cuenta.")
+    try:
+        count = passkeys.verify_assertion(
+            stored=stored,
+            client_data=body.clientDataJSON,
+            authenticator_data=body.authenticatorData,
+            signature=body.signature,
+            origin=origin,
+            rp_id=rp,
+        )
+    except passkeys.PasskeyError as exc:
+        raise HTTPException(401, str(exc)) from exc
+    _store().used_passkey(stored["id"], count)
+    user = _store().get(stored["user"])
+    if not user:
+        raise HTTPException(401, "La cuenta ya no existe.")
+    return _signed_in(user, body.device)
+
+
+@router.get("/llave/lista")
+def llave_lista(request: Request) -> Dict[str, Any]:
+    user = _account_for_keys(request)
+    return {"llaves": _store().passkeys_of(user["id"])}
+
+
+@router.delete("/llave/{key_id}")
+def llave_borrar(key_id: str, request: Request) -> Dict[str, Any]:
+    user = _account_for_keys(request)
+    if not _store().delete_passkey(user["id"], key_id):
+        raise HTTPException(404, "No encontré esa llave.")
+    return {"llaves": _store().passkeys_of(user["id"])}
 
 
 @router.post("/salir")

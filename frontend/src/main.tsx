@@ -11,6 +11,7 @@ import { initApiBase } from './lib/api';
 import { initAnalytics } from './lib/analytics';
 import { consumePairFragment } from './lib/pairing';
 import { watchFreshness } from './lib/freshness';
+import { startPerf } from './lib/perf';
 import '@fontsource-variable/josefin-sans';
 import '@fontsource-variable/inter';
 import './index.css';
@@ -35,6 +36,8 @@ function applyTheme() {
 consumePairFragment();
 applyTheme();
 if (!import.meta.env.VITE_DEMO) watchFreshness();
+// A slow device goes light (no blur or long animations) so it stays smooth.
+startPerf();
 
 // Fetch the API base URL from the Tauri backend before rendering.
 // This ensures JARVIS_PORT is defined in one place (the Rust backend).

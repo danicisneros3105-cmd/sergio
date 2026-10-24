@@ -20,6 +20,16 @@ const pause = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /** Go to *path* in this window, like a click in the sidebar. */
 export function showPage(path: string): void {
+  // «?dividir=1» / «?dividir=0»: split or join this window (voice: «activa
+  // multitasking»), staying on the page when no other is named.
+  const asked = new URL(path, window.location.origin);
+  const split = asked.searchParams.get('dividir');
+  if (split !== null) {
+    window.dispatchEvent(new CustomEvent('sergio:split', { detail: split === '0' ? 'off' : 'on' }));
+    asked.searchParams.delete('dividir');
+    if (asked.pathname === '/' && !asked.search) return;
+    path = asked.pathname + asked.search + asked.hash;
+  }
   window.dispatchEvent(new CustomEvent('sergio:navigate', { detail: path }));
   try {
     window.focus();

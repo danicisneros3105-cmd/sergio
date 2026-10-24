@@ -8,6 +8,12 @@ import { checkHealth } from '../lib/api';
 import { LiveCaptions, LiveStarter } from './Live/LiveOrb';
 import { ReminderWatcher } from './Reminders/ReminderWatcher';
 import { startAppWindow } from '../lib/appWindow';
+import { inPane } from '../lib/split';
+import { SplitView } from './Split/SplitView';
+
+// Read once: inside the second pane of a split screen (the app in «pane»
+// mode), navigation later drops the ?pane=1 but the window stays a pane.
+const PANE = inPane() || (typeof window !== 'undefined' && window.name === 'sergio-pane');
 
 const HISTORY_KEY = 'sergio-history-open';
 
@@ -67,7 +73,33 @@ export function Layout() {
   }, [navigate]);
 
   // One window: the desktop shows its pages here instead of opening another.
-  useEffect(() => startAppWindow(), []);
+  useEffect(() => {
+    if (!PANE) startAppWindow();
+  }, []);
+
+  // In the pane: the window around it says what to show; Ctrl \ closes it.
+  useEffect(() => {
+    if (!PANE) return;
+    const onMessage = (e: MessageEvent) => {
+      if (e.origin !== window.location.origin || e.source !== window.parent) return;
+      const data = e.data as { type?: string; path?: string } | null;
+      if (data?.type === 'sergio:navigate' && typeof data.path === 'string' && data.path.startsWith('/')) {
+        navigate(data.path);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === '\\') {
+        e.preventDefault();
+        window.parent.postMessage({ type: 'sergio:split-close' }, window.location.origin);
+      }
+    };
+    window.addEventListener('message', onMessage);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('message', onMessage);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [navigate]);
 
   useEffect(() => {
     const onNav = (e: Event) => {
@@ -91,6 +123,21 @@ export function Layout() {
     return () => window.removeEventListener('sergio:needs-login', onLogin);
   }, [navigate]);
 
+  if (PANE) {
+    // The second screen of a split: the page alone, no sidebar, no voice.
+    return (
+      <div className="app-shell pane-shell">
+        <div className="app-main">
+          <main className="flex-1 min-h-0 relative">
+            <Suspense fallback={<div className="paper-page" aria-busy="true" />}>
+              <Outlet />
+            </Suspense>
+          </main>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="app-shell">
       <SystemPulse apiReachable={apiReachable} />
@@ -113,9 +160,11 @@ export function Layout() {
           </div>
         )}
         <main className="flex-1 min-h-0 relative">
-          <Suspense fallback={<div className="paper-page" aria-busy="true" />}>
-            <Outlet />
-          </Suspense>
+          <SplitView>
+            <Suspense fallback={<div className="paper-page" aria-busy="true" />}>
+              <Outlet />
+            </Suspense>
+          </SplitView>
           <LiveCaptions />
         </main>
       </div>

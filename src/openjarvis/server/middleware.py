@@ -22,6 +22,8 @@ def content_security_policy(embed_ports: tuple[int, ...] = _DEFAULT_EMBED_PORTS)
     * media-src blob: plays synthesized speech (arrives as a blob URL).
     * img-src/font-src data: — the built UI inlines small fonts and images.
     * frame-src lists only the local extension servers the UI embeds.
+    * frame-ancestors 'self': only Sergio's own split screen may show its
+      pages in a frame; any other site is still refused (clickjacking).
     """
     frames = " ".join(
         f"http://{host}:{port}"
@@ -33,7 +35,8 @@ def content_security_policy(embed_ports: tuple[int, ...] = _DEFAULT_EMBED_PORTS)
         "media-src 'self' blob:; "
         "img-src 'self' data: blob:; "
         "font-src 'self' data:; "
-        f"frame-src 'self' {frames}"
+        f"frame-src 'self' {frames}; "
+        "frame-ancestors 'self'"
     )
 
 
@@ -54,7 +57,7 @@ def create_security_middleware() -> Any:
 
     Headers added:
     - X-Content-Type-Options: nosniff
-    - X-Frame-Options: DENY
+    - X-Frame-Options: SAMEORIGIN (the split screen frames its own pages)
     - X-XSS-Protection: 1; mode=block
     - Strict-Transport-Security: max-age=31536000; includeSubDomains
     - Referrer-Policy: strict-origin-when-cross-origin
@@ -81,7 +84,7 @@ def create_security_middleware() -> Any:
 
             response = await call_next(request)
             response.headers["X-Content-Type-Options"] = "nosniff"
-            response.headers["X-Frame-Options"] = "DENY"
+            response.headers["X-Frame-Options"] = "SAMEORIGIN"
             response.headers["X-XSS-Protection"] = "1; mode=block"
             response.headers["Strict-Transport-Security"] = (
                 "max-age=31536000; includeSubDomains"
@@ -101,7 +104,7 @@ def create_security_middleware() -> Any:
 # Also export the header values as constants for testing
 SECURITY_HEADERS = {
     "X-Content-Type-Options": "nosniff",
-    "X-Frame-Options": "DENY",
+    "X-Frame-Options": "SAMEORIGIN",
     "X-XSS-Protection": "1; mode=block",
     "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
     "Referrer-Policy": "strict-origin-when-cross-origin",

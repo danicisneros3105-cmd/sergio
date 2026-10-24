@@ -67,6 +67,27 @@ def test_the_server_is_asked_for_the_page_path(monkeypatch):
     assert not launch.show_in_open_window("http://localhost:4173/#globe", post=post)
 
 
+def test_multitasking_splits_the_open_window(monkeypatch):
+    sent = []
+
+    class Resp:
+        status_code = 200
+
+        def json(self):
+            return {"shown": True}
+
+    def post(url, json, headers, timeout):
+        sent.append(json["path"])
+        return Resp()
+
+    monkeypatch.undo()  # the real show_in_open_window
+    monkeypatch.setattr(launch, "_api_key", lambda: "")
+    monkeypatch.setattr(launch, "bring_to_front", lambda title: True)
+    assert launch.split_window(True, post=post)
+    assert launch.split_window(False, post=post)
+    assert sent == ["/?dividir=1", "/?dividir=0"]
+
+
 def test_while_sergio_starts_the_window_shows_the_loading_screen(monkeypatch):
     monkeypatch.setattr(launch, "server_up", lambda timeout=0.8: False)
     url = launch.window_url("http://localhost:8000/chat")

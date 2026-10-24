@@ -83,6 +83,17 @@ class ConsentDialog(QDialog):
         self.timer.timeout.connect(self.update)
         # Face ID's animation (scan → wink and check, or the shake).
         self.glyph = FaceIDGlyph()
+        self._auto = True  # ask Windows at once: no extra click before the prompt
+
+    def showEvent(self, event):  # noqa: N802 (Qt API)
+        super().showEvent(event)
+        if self._auto:
+            self._auto = False
+            # In front first, or the Windows Hello prompt opens behind
+            # Sergio and looks like a freeze.
+            self.raise_()
+            self.activateWindow()
+            QTimer.singleShot(120, self._start)
 
     def _start(self):
         if self.checking:

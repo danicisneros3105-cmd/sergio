@@ -332,6 +332,30 @@ termina en la rama `main`, y el dueño actualiza con un único comando.
 - **Vista** (antes «Sergio ve», dueño 24 oct. 2026): nombre corto y controles
   mínimos (una píldora de iconos redondos); sin el recuadro con el nombre que
   seguía a la cara en la vista limpia. Los recuadros solo salen en «detalle».
+- **Pantalla dividida** (dueño, 24 oct. 2026): Ctrl/⌘ \, «Dividir pantalla» en
+  la paleta o «activa multitasking» por voz (también divide la ventana abierta,
+  `launch.split_window`). La segunda pantalla es la misma app en modo panel
+  (`?pane=1`, sin barra lateral ni voz) dentro de un iframe; por eso el servidor
+  manda `X-Frame-Options: SAMEORIGIN` y `frame-ancestors 'self'` (otros sitios
+  siguen sin poder enmarcarla). Se abre con el pliegue del iPhone Duo (estira,
+  desenfoca al moverse, sombra en el pliegue). En un plegable con dos pantallas
+  (Viewport Segments) se divide sola sobre la bisagra real (`lib/split.ts`).
+- **Entrar con la cara** (dueño, 24 oct. 2026): llaves de acceso (WebAuthn) con
+  el Face ID, Touch ID, Windows Hello o la huella **del propio dispositivo**
+  (`accounts/passkeys.py`, `/v1/cuentas/llave/*`). Es la seguridad del
+  dispositivo más la firma atada a la dirección (una página falsa no sirve) y
+  el contador contra copias. Solo en https o localhost. No desbloquea el
+  sistema operativo del PC, Mac o teléfono: eso no lo permite ningún sistema a
+  una app (`docs/FACEID-SISTEMA.md`); no lo prometa.
+- Windows Hello: la verificación arranca sola al abrir la hoja, al frente (antes
+  se abría detrás y parecía colgada), y cada respuesta de Windows sale en
+  palabras (`platform_auth.result_text`).
+- Notch menos cargado (24 oct. 2026): en reposo solo el orbe, centrado; la onda
+  solo cuando hay voz; sin el título «Sergio» encima de la respuesta.
+- Rendimiento: el servidor comprime las respuestas (gzip, nunca SSE ni audio) y
+  los archivos con huella en el nombre se guardan en el navegador para siempre
+  (`immutable`); un nombre viejo resuelto al nuevo nunca. Un equipo lento pasa
+  solo a modo liviano (`lib/perf.ts`: sin desenfoques ni animaciones largas).
 - Cowork igual al modo de trabajo de ChatGPT (dueño, oct. 2026): una caja
   central «¿En qué trabajamos?» con «+» (adjuntar, modo plan, autonomía,
   tope) y comandos «/»; la tarea como conversación con la actividad plegable,

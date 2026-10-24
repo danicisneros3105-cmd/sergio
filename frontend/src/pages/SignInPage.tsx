@@ -1,5 +1,6 @@
-// Entrar / Crear cuenta: Google, Microsoft or Apple first; email with a code,
-// or the phone with an SMS. The token Sergio gives back works like the key.
+// Entrar / Crear cuenta: the device's own face first (a passkey), then Google,
+// Microsoft or Apple; email with a code, or the phone with an SMS. The token
+// Sergio gives back works like the key.
 
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
@@ -9,6 +10,8 @@ import { newUuid } from '../lib/compat';
 import { useAppStore } from '../lib/store';
 import { BrandMark } from '../components/Brand/BrandMark';
 import { BRANDS } from '../lib/brands';
+import { passkeyProblem, passkeyReady, signInWithFace } from '../lib/passkey';
+import { FaceGlyph } from '../components/Accounts/FaceGlyph';
 
 interface State {
   accounts: number;
@@ -65,6 +68,12 @@ export function SignInPage() {
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState('');
   const dev = useMemo(device, []);
+  // The device's face: only offered where the device can check the person.
+  const [faceOk, setFaceOk] = useState(false);
+  const [face, setFace] = useState<'idle' | 'scan' | 'ok' | 'fail'>('idle');
+  useEffect(() => {
+    void passkeyReady().then(setFaceOk);
+  }, []);
 
   const done = (a: Answer) => {
     if (a.status === 'dentro' && a.token) {
@@ -110,10 +119,35 @@ export function SignInPage() {
 
   const providers = Object.entries(info?.providers ?? {}).filter(([, ok]) => ok);
 
+  const withFace = async () => {
+    setFace('scan');
+    setNote('Mirándole, señor…');
+    try {
+      const a = await signInWithFace(dev);
+      if (a.status === 'dentro') {
+        setFace('ok');
+        setNote('Es usted. Adelante.');
+        window.setTimeout(() => done(a), 650);
+      } else {
+        setFace('fail');
+        done(a);
+      }
+    } catch (e) {
+      setFace('fail');
+      setNote(passkeyProblem(e));
+    }
+  };
+
   return (
     <div className="signin">
       <div className="signin-card">
         <h1 className="signin-title">Sergio</h1>
+        {faceOk && info && info.accounts > 0 && (
+          <button type="button" className="signin-face" data-state={face} disabled={face === 'scan'} onClick={() => void withFace()}>
+            <FaceGlyph size={44} state={face} />
+            <span>Entrar con la cara</span>
+          </button>
+        )}
         {providers.length > 0 && (
           <div className="signin-providers">
             {providers.map(([key]) => (

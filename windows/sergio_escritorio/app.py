@@ -941,6 +941,10 @@ def run(config: dict[str, Any]) -> None:
             on = q.kind == "multitask_on"
             on_ui(lambda: notch.set_multitasking(on))
             remember("multitasking", on)
+            # The open Sergio window splits (or joins) too, with the Duo fold.
+            from sergio_escritorio.launch import split_window
+
+            threading.Thread(target=split_window, args=(on,), daemon=True).start()
             return q.say
         if q.kind in ("notch_hide", "notch_show"):
             on_ui(lambda: set_notch(q.kind == "notch_show"))

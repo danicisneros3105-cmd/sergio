@@ -150,3 +150,25 @@ def test_csp_allows_only_local_extension_frames_and_inline_assets():
     assert "http://127.0.0.1:4173" in csp and "https://" not in csp
     assert "font-src 'self' data:" in csp and "img-src 'self' data: blob:" in csp
     assert "media-src 'self' blob:" in csp
+
+
+def test_answers_travel_compressed_and_hashed_files_are_kept(tmp_path, monkeypatch):
+    """The app's code goes gzipped; a file named by its hash is cached for good,
+    an older name resolved to the new file never is."""
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+    from starlette.middleware.gzip import GZipMiddleware
+
+    from openjarvis.server.app import _NoCacheStaticFiles
+
+    (tmp_path / "index-abc12345.js").write_text("console.log('sergio');" * 400)
+    app = FastAPI()
+    app.add_middleware(GZipMiddleware, minimum_size=1024)
+    app.mount("/assets", _NoCacheStaticFiles(directory=tmp_path), name="a")
+    client = TestClient(app)
+    fresh = client.get("/assets/index-abc12345.js", headers={"Accept-Encoding": "gzip"})
+    assert fresh.status_code == 200
+    assert fresh.headers["content-encoding"] == "gzip"
+    assert "immutable" in fresh.headers["cache-control"]
+    stale = client.get("/assets/index-old99999.js")
+    assert stale.status_code == 200 and "no-store" in stale.headers["cache-control"]

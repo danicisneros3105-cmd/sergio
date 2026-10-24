@@ -105,3 +105,38 @@ def test_long_action_is_reviewable_in_plain_text_without_truncation():
     )
     dialog.reject()
     app.processEvents()
+
+
+def test_windows_answers_are_explained_in_plain_words():
+    from sergio_escritorio.platform_auth import result_text
+
+    assert result_text(0) == "verificado"
+    assert "no está configurado" in result_text(2)
+    assert "ocupado" in result_text(4)
+    assert "PIN" in result_text(5)
+    assert "código 42" in result_text(42)
+
+
+def test_the_dialog_asks_windows_at_once_when_shown():
+    import threading
+    import time
+
+    from PySide6.QtWidgets import QApplication
+    from sergio_escritorio.facegate import ConsentDialog
+
+    app = QApplication.instance() or QApplication([])
+    asked = threading.Event()
+
+    def verifier(hwnd, message, cancel):
+        asked.set()
+        return Consent(False, "Cancelado.")
+
+    dialog = ConsentDialog("Borrar un archivo", verifier=verifier, reduce_motion=True)
+    dialog.show()
+    end = time.monotonic() + 2
+    while not asked.is_set() and time.monotonic() < end:
+        app.processEvents()
+        time.sleep(0.01)
+    assert asked.is_set()  # no click needed before the Windows prompt
+    dialog.reject()
+    app.processEvents()

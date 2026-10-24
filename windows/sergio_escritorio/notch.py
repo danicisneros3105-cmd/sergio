@@ -1,8 +1,8 @@
 """The notch: a Dynamic-Island-style pill at the top centre of the screen.
 
 Pure black, flush with the top edge, home of Sergio's orb. Compact when idle
-(orb + a quiet waveform); while listening the waveform follows your real
-voice; while thinking the label shimmers; answers type themselves in. Click
+(only the orb); while listening a small waveform follows your real voice;
+while thinking the label shimmers; answers type themselves in, untitled. Click
 it to open the control center (panel.py). Only the pill takes clicks.
 
 Live Activities (activities.py): a running job rides in the pill with its
@@ -59,7 +59,7 @@ LABELS = {
 FONTS = estilo.families()  # the house typeface (Josefin Sans), then system fallbacks
 
 CANVAS_W, CANVAS_H = 620, 160
-COMPACT = (132.0, 36.0)
+COMPACT = (112.0, 34.0)
 LIVE = (236.0, 36.0)  # compact with a Live Activity in it
 BUBBLE = 36.0  # the second island of the «dúo»
 GAP = 9.0
@@ -389,7 +389,7 @@ class Notch(QWidget):
         if not self.caption:
             return []
         metrics = QFontMetricsF(self._body)
-        width = EXPANDED_W - 2 * PAD - 58
+        width = EXPANDED_W - 2 * PAD - 48
         out: list[str] = []
         current = ""
         for word in self.caption.split():
@@ -418,7 +418,22 @@ class Notch(QWidget):
         if not lines:
             return MEDIUM  # just the state, e.g. "Te escucho" + live waveform
         metrics = QFontMetricsF(self._body)
-        return EXPANDED_W, max(62.0, 34.0 + len(lines) * metrics.lineSpacing() + PAD)
+        top = 34.0 if self._titled() else 18.0
+        return EXPANDED_W, max(52.0, top + len(lines) * metrics.lineSpacing() + PAD)
+
+    def _label(self) -> str:
+        label = LABELS.get(self.state, self.name)
+        if label == "Sergio":
+            label = self.name
+        if self.call_since is not None and self.state in ("idle", "listening"):
+            label = f"En llamada · {self.call_time()}"
+            if self.screen_sharing:
+                label = "Pantalla en vivo"
+        return label
+
+    def _titled(self) -> bool:
+        """A title over the answer only when it says something the orb doesn't."""
+        return not self.lines() or self._label() not in (self.name, "Sergio")
 
     def pill(self) -> QRectF:
         squeeze = self._press.value if hasattr(self, "_press") else 1.0
@@ -741,8 +756,9 @@ class Notch(QWidget):
 
         compact = rect.height() < 42
         size = 10.5 if compact else 15.0
+        alone = compact and self.call_since is None and not self._live
         centre = QPointF(
-            rect.left() + PAD + size,
+            rect.center().x() if alone else rect.left() + PAD + size,
             rect.top()
             + (rect.height() / 2 if compact else min(31.0, rect.height() / 2)),
         )
@@ -766,39 +782,33 @@ class Notch(QWidget):
                 self._draw_call(p, rect)
             elif self._live:
                 self._draw_live(p, rect, self._live[0], t)
-            else:
-                self._draw_wave(
-                    p,
-                    QRectF(
-                        rect.right() - PAD - 44, rect.top() + 9, 44, rect.height() - 18
-                    ),
-                    9,
-                )
+            # Idle: only the orb, like Apple's island at rest (owner, 24 oct.
+            # 2026: «menos sobrecargado»); no idle dots beside it.
             return
 
         text_x = centre.x() + size + 14
-        label = LABELS.get(self.state, self.name)
-        if label == "Sergio":
-            label = self.name
-        if self.call_since is not None and self.state in ("idle", "listening"):
-            label = f"En llamada · {self.call_time()}"
-            if self.screen_sharing:
-                label = "Pantalla en vivo"
+        label = self._label()
         has_text = bool(self.lines())
+        # With an answer on screen the orb already says who speaks: no
+        # «Sergio» title over it, only the words (and the call, if any).
+        titled = self._titled()
         title_y = rect.top() + (24 if has_text else rect.height() / 2 + 4.5)
         p.setFont(self._title)
-        if self.state == "thinking":
+        if not titled:
+            pass  # the words alone
+        elif self.state == "thinking":
             self._shimmer(p, QPointF(text_x, title_y), label + "…", t)
         else:
             colour = QColor(PALETTES.get(self.state, PALETTES["idle"])[2])
             p.setPen(colour if self.state != "idle" else QColor(150, 150, 158))
             p.drawText(QPointF(text_x, title_y), label)
-        if self.state in ("listening", "speaking") or not has_text:
-            wave_w = 64.0
+        # The wave only when there is a voice to follow and no words in its way.
+        if self.state in ("listening", "speaking") and not has_text:
+            wave_w = 48.0
             self._draw_wave(
                 p,
-                QRectF(rect.right() - PAD - wave_w, rect.top() + 12, wave_w, 22),
-                14,
+                QRectF(rect.right() - PAD - wave_w, rect.top() + 13, wave_w, 20),
+                10,
             )
         if not has_text:
             return
@@ -806,7 +816,7 @@ class Notch(QWidget):
         p.setPen(QColor(244, 244, 246))
         metrics = QFontMetricsF(self._body)
         shown = int((time.monotonic() - self._caption_at) * TYPE_SPEED)
-        y = rect.top() + 30
+        y = rect.top() + (30 if titled else 14)
         for line in self.lines():
             if shown <= 0:
                 break

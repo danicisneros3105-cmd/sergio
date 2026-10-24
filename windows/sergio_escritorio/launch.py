@@ -81,6 +81,13 @@ def show_in_open_window(url: str, post=None) -> bool:
     return shown
 
 
+def split_window(on: bool, post=None) -> bool:
+    """Split (or join) the open Sergio window, with the Duo fold. False if none is open."""
+    return show_in_open_window(
+        f"http://127.0.0.1:{SERGIO_PORT}/?dividir={'1' if on else '0'}", post=post
+    )
+
+
 def bring_to_front(title: str) -> bool:
     """Restore and raise the window whose title starts with *title*."""
     if sys.platform != "win32":
@@ -186,5 +193,6 @@ __all__ = [
     "open_app_window",
     "server_up",
     "show_in_open_window",
+    "split_window",
     "window_url",
 ]
