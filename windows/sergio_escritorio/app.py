@@ -3118,7 +3118,7 @@ def run(config: dict[str, Any]) -> None:
         elif why == "se cortó":
             bridge.caption.emit("Se cortó la llamada. Di «Sergio» para volver.")
         elif why == "otra ventana":
-            bridge.caption.emit("Ahora hablamos en otro equipo. Di «Sergio» para volver aquí.")
+            bridge.caption.emit("Ahora le escucho en otra ventana. Diga «Sergio» y vuelvo aquí.")
 
     def new_session(**changes: Any) -> CallSession:
         """A call set up exactly like the real ones (tools, voice, context)."""
@@ -3568,6 +3568,16 @@ def run(config: dict[str, Any]) -> None:
 
     call_start_lock = threading.Lock()
 
+    def sergio_window_in_front() -> bool:
+        """The Sergio app window is the one in front: it hears the owner, so
+        the desktop does not take the voice from it."""
+        if sys.platform != "win32":
+            return False
+        from sergio_escritorio.windows_backend import foreground_title
+
+        title = foreground_title()
+        return title == "Sergio" or title.startswith("Sergio ")
+
     def start_call(prefill: bytes = b"", force: bool = False, quiet: bool = False) -> bool:
         with call_start_lock:
             return _start_call(prefill, force, quiet)
@@ -3587,6 +3597,9 @@ def run(config: dict[str, Any]) -> None:
         from sergio_escritorio.voice import wav_pcm
 
         session = new_session()
+        # Called on purpose (wake word, shortcut): the voice comes back here
+        # even if an app window had it. The quiet keeper never takes it.
+        session.force = not quiet and not sergio_window_in_front()
         current_call[0] = session
         ears.call = session
         if not session.start(wav_pcm(prefill) if prefill else b""):

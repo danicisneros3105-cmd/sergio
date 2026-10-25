@@ -110,3 +110,7 @@ Otras piezas de terceros que Sergio usa (créditos y licencias):
   cita) y la escala de autoestima de un ítem (Robins et al., 2001), citadas
   en la app con su DOI.
 Detalle legal y decisiones: docs/LEGAL.md.
+
+Lucide icons (https://lucide.dev) — ISC License, Copyright (c) Lucide Contributors.
+Used in the web app (lucide-react) and, as SVG paths, in the Windows app
+(windows/sergio_escritorio/iconos.py).

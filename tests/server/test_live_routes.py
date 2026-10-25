@@ -722,3 +722,35 @@ def test_a_call_that_is_already_over_is_not_notified_again():
     gone = asyncio.run(scenario())
     assert gone.ws.json == []
     live_routes._active = None
+
+
+def test_calling_him_on_purpose_takes_the_voice_back_from_a_window():
+    """«Di Sergio para volver aquí» must work even with a window holding the voice."""
+    import asyncio
+
+    from openjarvis.server import live_routes
+
+    class Call:
+        def __init__(self):
+            self.closed = False
+            self.sent = []
+            self.ws = self
+
+        async def send_json(self, data):
+            self.sent.append(data)
+
+        async def close(self):
+            self.closed = True
+
+    async def run():
+        live_routes._active = None
+        web, keeper, called = Call(), Call(), Call()
+        assert await live_routes._take_over(web, "web")
+        assert not await live_routes._take_over(
+            keeper, "desktop"
+        )  # the quiet keeper waits
+        assert await live_routes._take_over(called, "desktop", force=True)  # «Sergio»
+        assert web.closed and web.sent[-1]["type"] == "replaced"
+        live_routes._active = None
+
+    asyncio.run(run())

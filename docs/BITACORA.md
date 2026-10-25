@@ -2,6 +2,18 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-10-25 · Claude · «Di Sergio para volver aquí» de verdad, barra del notch y centro de control rehechos, iconos
+- Causa del bucle «Ahora hablamos en otro equipo»: el servidor negaba siempre
+  la voz al escritorio si una ventana web (aunque estuviera en segundo plano)
+  la tenía. Ahora, si el dueño dice «Sergio» o pulsa Ctrl+Espacio, el
+  escritorio la recupera (`force`); el que reconecta solo sigue sin quitársela,
+  y tampoco se la quita a la ventana de Sergio si está al frente.
+- Botones cuadrados: Qt ignora el radio cuando es mayor que media altura. Barra
+  del notch con campo redondo, botón circular de enviar y chips con iconos;
+  centro de control con botones de icono redondos y micrófono circular.
+- Iconos de línea (Lucide) en el escritorio (`iconos.py`) y en la web: chats,
+  Salud, pantalla dividida y Reunión.
+
 ## 2026-10-25 · Claude · Investigación profunda real, reuniones por persona, estilo del dueño, Workspace pro
 - Investigación profunda: plan, muchas fuentes, lectura de páginas, citas
   comprobadas por código, contraste entre sitios, segunda ronda y informe con

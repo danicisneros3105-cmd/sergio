@@ -352,6 +352,12 @@ termina en la rama `main`, y el dueño actualiza con un único comando.
   palabras (`platform_auth.result_text`).
 - Notch menos cargado (24 oct. 2026): en reposo solo el orbe, centrado; la onda
   solo cuando hay voz; sin el título «Sergio» encima de la respuesta.
+- Voz entre escritorio y ventanas: la ventana tiene prioridad, pero si el
+  dueño llama a Sergio a propósito (palabra «Sergio», Ctrl+Espacio) el
+  escritorio recupera la voz (`start.force`, `live_routes._take_over`), salvo
+  que la ventana de Sergio esté al frente. El reconectador silencioso nunca fuerza.
+- Botones redondos en Qt: radio = media altura exacta (con min/max-height), o
+  Qt los dibuja cuadrados. Iconos del escritorio en `iconos.py` (Lucide).
 - **Investigación profunda de verdad** (dueño, 25 oct. 2026): `research/deep.py`
   (herramienta `investigacion_profunda`, `POST /v1/investigar` en vivo,
   `sergio investigar`). Plan → búsqueda amplia (máx. 2 páginas por sitio) →

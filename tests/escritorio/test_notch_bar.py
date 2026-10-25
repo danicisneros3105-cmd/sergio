@@ -64,10 +64,13 @@ def test_talk_and_panel_chips_close_first(qt):
     bar, _ = make(
         qt, on_talk=lambda: calls.append("talk"), on_panel=lambda: calls.append("panel")
     )
-    for name, expected in (("Hablar", "talk"), ("Centro", "panel")):
+    # icon-only round buttons now (24 oct.): found by their accessible name
+    for name, expected in (("Hablar", "talk"), ("Centro de control", "panel")):
         bar.open_bar()
         next(
-            b for b in bar.findChildren(type(bar.chips[0])) if b.text() == name
+            b
+            for b in bar.findChildren(type(bar.chips[0]))
+            if b.accessibleName() == name
         ).click()
         assert calls[-1] == expected and not bar.isVisible()
 

@@ -325,6 +325,7 @@ class CallSession:
         self.active = False
         self.error = ""
         self.busy = False  # the server said an app window has the voice
+        self.force = False  # the owner called him here: take the voice back
         self._ws: Any = None
         self._send_lock = threading.Lock()
         self._mic = bytearray()
@@ -392,8 +393,10 @@ class CallSession:
                         "context": self.context(),
                         "tools": [t.declaration() for t in self.tools.values()],
                         "attention": "addressed",
-                        # an open app window has priority (server: live_routes)
+                        # an open app window has priority (server: live_routes),
+                        # unless the owner called him here on purpose
                         "client": "desktop",
+                        "force": bool(self.force),
                     }
                 )
             )

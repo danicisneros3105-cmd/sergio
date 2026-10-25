@@ -1,7 +1,7 @@
 /* Reunión: one round button, the clock, the minutes. Greys only. */
 .meet { max-width: 760px; }
 .meet-kinds { display: inline-grid; grid-auto-flow: column; gap: 3px; padding: 3px; margin: 16px 0 0; border-radius: 12px; background: var(--color-bg-tertiary, var(--color-hover)); }
-.meet-kinds button { height: 32px; padding: 0 14px; border: 0; border-radius: 9px; background: none; color: var(--color-text-secondary); font: inherit; font-size: 14px; cursor: pointer; }
+.meet-kinds button { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 14px; border: 0; border-radius: 9px; background: none; color: var(--color-text-secondary); font: inherit; font-size: 14px; cursor: pointer; }
 .meet-kinds button[aria-checked='true'] { background: var(--color-surface, var(--color-bg)); color: var(--color-text); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08); }
 
 .meet-stage { display: grid; justify-items: center; gap: 12px; padding: 40px 16px 28px; margin-top: 20px; border: 1px solid var(--color-border); border-radius: 22px; }

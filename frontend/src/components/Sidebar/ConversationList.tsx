@@ -1,12 +1,12 @@
-import { Trash2 } from 'lucide-react';
+import { AudioLines, MessageSquareText, Trash2, Zap, type LucideIcon } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import { chatKindOf, useAppStore } from '../../lib/store';
 import type { ChatKind } from '../../types';
 
-export const CHAT_SECTIONS: Array<{ kind: ChatKind; label: string }> = [
-  { kind: 'texto', label: 'Texto' },
-  { kind: 'voz', label: 'Voz' },
-  { kind: 'rapido', label: 'Quick Chat' },
+export const CHAT_SECTIONS: Array<{ kind: ChatKind; label: string; icon: LucideIcon }> = [
+  { kind: 'texto', label: 'Texto', icon: MessageSquareText },
+  { kind: 'voz', label: 'Voz', icon: AudioLines },
+  { kind: 'rapido', label: 'Quick', icon: Zap },
 ];
 
 /** The three chat sections: written, spoken and quick questions. */
@@ -23,7 +23,9 @@ export function ChatSections() {
           aria-selected={kind === t.kind}
           className="sb-tab"
           onClick={() => setKind(t.kind)}
+          title={t.kind === 'rapido' ? 'Quick Chat (Ctrl J)' : t.label}
         >
+          <t.icon size={13} strokeWidth={1.8} aria-hidden />
           {t.label}
         </button>
       ))}

@@ -32,12 +32,17 @@ _active: Any = None
 _active_client = ""
 
 
-async def _take_over(call: Any, client: str = "web") -> bool:
-    """Make *call* the conversation; False if the desktop must wait instead."""
+async def _take_over(call: Any, client: str = "web", force: bool = False) -> bool:
+    """Make *call* the conversation; False if the desktop must wait instead.
+
+    *force*: the owner called him on purpose (said «Sergio», pressed the
+    shortcut). Then the desktop takes the voice even from an app window —
+    otherwise «di Sergio para volver aquí» could never work while any window
+    (a background tab, the phone) kept the conversation open."""
     global _active, _active_client
     old = _active
     live = old is not None and old is not call and not getattr(old, "closed", True)
-    if client == "desktop" and live and _active_client != "desktop":
+    if client == "desktop" and live and _active_client != "desktop" and not force:
         return False
     _active, _active_client = call, client
     if not live:
@@ -132,7 +137,7 @@ async def live(websocket: WebSocket) -> None:
         websocket, start, execute=execute, openai_tools=tools, owner=_owner()
     )
     client = "desktop" if start.get("client") == "desktop" else "web"
-    if not await _take_over(call, client):
+    if not await _take_over(call, client, force=start.get("force") is True):
         await websocket.send_json(
             {"type": "busy", "message": "La ventana de Sergio ya le escucha."}
         )

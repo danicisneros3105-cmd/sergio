@@ -2903,7 +2903,7 @@ body { font-size: 15px; letter-spacing: 0; -webkit-font-smoothing: antialiased; 
 .sb-section { padding: 6px 8px; font-size: 14px; font-weight: 400; color: var(--color-text-tertiary); }
 /* The three chat sections (Texto · Voz · Quick Chat): equal thirds, one row. */
 .sb-tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; margin: 2px 4px 6px; padding: 2px; border-radius: 10px; background: var(--color-bg-tertiary); }
-.sb-tab { height: 28px; border: 0; border-radius: 8px; background: transparent; color: var(--color-text-tertiary); font-size: 12.5px; line-height: 28px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; transition: background 0.15s, color 0.15s; }
+.sb-tab { display: inline-flex; align-items: center; justify-content: center; gap: 5px; height: 28px; border: 0; border-radius: 8px; background: transparent; color: var(--color-text-tertiary); font-size: 12.5px; line-height: 28px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; transition: background 0.15s, color 0.15s; }
 .sb-tab:hover { color: var(--color-text); }
 .sb-tab[aria-selected='true'] { background: var(--color-surface); color: var(--color-text); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08); }
 .sb-search {
@@ -3665,3 +3665,6 @@ html[data-ligero] *, html[data-ligero] *::before, html[data-ligero] *::after {
   animation-duration: 1ms !important; animation-iteration-count: 1 !important; transition-duration: 1ms !important;
 }
 html[data-ligero] .split-b, html[data-ligero] .split-a { filter: none !important; }
+
+/* Tabs with a small line icon before the word. */
+.paper-tab svg { vertical-align: -2px; margin-right: 6px; }

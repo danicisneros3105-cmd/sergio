@@ -22,29 +22,37 @@ from sergio_escritorio import estilo
 from sergio_escritorio.character import draw_character
 from sergio_escritorio.notch import notch_path
 
-BAR_W, BAR_H = 540.0, 116.0
+BAR_W, BAR_H = 560.0, 132.0
 START_W, START_H = 132.0, 36.0  # the compact pill it grows from
 MARGIN = 20  # transparent room round the shape, for the ears
 GRACE_S = 0.4  # ignore the deactivation that comes with opening
 
-# (label, what it starts the line with)
-CHIPS: list[tuple[str, str]] = [
-    ("Recordar", "Recuérdame "),
-    ("Buscar", "Busca "),
-    ("Abrir", "Abre "),
-    ("Segundo plano", "En segundo plano, "),
+# (icon, label, what it starts the line with)
+CHIPS: list[tuple[str, str, str]] = [
+    ("bell", "Recordar", "Recuérdame "),
+    ("search", "Buscar", "Busca "),
+    ("app-window", "Abrir", "Abre "),
+    ("layers", "Tarea larga", "En segundo plano, "),
 ]
+FIELD_H = 44  # the line and the round send button
+CHIP_H = 30
 
+# Every round thing has radius = half its height: Qt draws a square corner
+# when the radius is larger (why the old buttons looked like boxes).
 STYLE = f"""
 QLineEdit {{ background: {estilo.CARD}; color: {estilo.TEXT}; border: 1px solid {estilo.LINE};
-  border-radius: {estilo.RADIUS_M}px; padding: 8px 12px; font-family: {estilo.css_family()}; font-size: 13px;
-  selection-background-color: {estilo.LINE_HOT}; }}
-QLineEdit:focus {{ border: 1px solid {estilo.BLUE}; }}
-QPushButton {{ background: transparent; color: {estilo.SECONDARY}; border: 1px solid {estilo.LINE};
-  border-radius: {estilo.RADIUS_S + 4}px; padding: 3px 8px; font-family: {estilo.css_family()}; font-size: 11px; }}
-QPushButton:hover {{ background: {estilo.CARD_HOT}; color: {estilo.TEXT}; border-color: {estilo.LINE_HOT}; }}
-QPushButton#send {{ background: {estilo.BLUE}; color: {estilo.INK}; border: none; font-weight: 600; }}
+  border-radius: {FIELD_H // 2}px; padding: 0 18px; min-height: {FIELD_H - 2}px; max-height: {FIELD_H - 2}px;
+  font-family: {estilo.css_family()}; font-size: 14px; selection-background-color: {estilo.LINE_HOT}; }}
+QLineEdit:focus {{ border: 1px solid {estilo.LINE_HOT}; }}
+QPushButton#chip {{ background: {estilo.GLASS}; color: {estilo.SECONDARY}; border: 1px solid {estilo.LINE};
+  border-radius: {CHIP_H // 2}px; padding: 0 12px 0 10px; min-height: {CHIP_H - 2}px; max-height: {CHIP_H - 2}px;
+  font-family: {estilo.css_family()}; font-size: 12px; text-align: left; }}
+QPushButton#chip:hover {{ background: {estilo.CARD_HOT}; color: {estilo.TEXT}; }}
+QPushButton#round {{ background: {estilo.GLASS}; border: 1px solid {estilo.LINE}; border-radius: {CHIP_H // 2}px; }}
+QPushButton#round:hover {{ background: {estilo.CARD_HOT}; }}
+QPushButton#send {{ background: {estilo.BLUE}; border: none; border-radius: {FIELD_H // 2}px; }}
 QPushButton#send:hover {{ background: {estilo.BLUE_HOT}; }}
+QToolTip {{ background: {estilo.CARD}; color: {estilo.TEXT}; border: 1px solid {estilo.LINE}; padding: 4px 8px; }}
 """
 
 
@@ -80,8 +88,17 @@ class NotchBar(QWidget):
         self.entry = QLineEdit()
         self.entry.setPlaceholderText("Pídele algo a Sergio…")
         self.entry.returnPressed.connect(self.submit)
-        send = QPushButton("Enviar")
+        from PySide6.QtCore import QSize
+
+        from sergio_escritorio.iconos import icon
+
+        send = QPushButton()
         send.setObjectName("send")
+        send.setIcon(icon("arrow-up", estilo.INK, 20))
+        send.setIconSize(QSize(20, 20))
+        send.setFixedSize(FIELD_H, FIELD_H)
+        send.setToolTip("Enviar")
+        send.setAccessibleName("Enviar")
         send.setCursor(Qt.CursorShape.PointingHandCursor)
         send.clicked.connect(self.submit)
 
@@ -95,15 +112,24 @@ class NotchBar(QWidget):
         chips.setSpacing(estilo.GAP)
         chips.addSpacing(34)
         self.chips: list[QPushButton] = []
-        for label, prefix in CHIPS:
+        for name, label, prefix in CHIPS:
             chip = QPushButton(label)
+            chip.setObjectName("chip")
+            chip.setIcon(icon(name, estilo.SECONDARY, 14))
+            chip.setIconSize(QSize(14, 14))
             chip.setCursor(Qt.CursorShape.PointingHandCursor)
             chip.clicked.connect(lambda _=False, p=prefix: self.start_with(p))
             chips.addWidget(chip)
             self.chips.append(chip)
         chips.addStretch(1)
-        for label, action in (("Hablar", self._talk), ("Centro", self._panel)):
-            button = QPushButton(label)
+        for name, tip, action in (("mic", "Hablar", self._talk), ("sliders", "Centro de control", self._panel)):
+            button = QPushButton()
+            button.setObjectName("round")
+            button.setIcon(icon(name, estilo.TEXT, 15))
+            button.setIconSize(QSize(15, 15))
+            button.setFixedSize(CHIP_H, CHIP_H)
+            button.setToolTip(tip)
+            button.setAccessibleName(tip)
             button.setCursor(Qt.CursorShape.PointingHandCursor)
             button.clicked.connect(action)
             chips.addWidget(button)
@@ -111,7 +137,7 @@ class NotchBar(QWidget):
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(
-            MARGIN + estilo.PAD, 34, MARGIN + estilo.PAD, estilo.PAD
+            MARGIN + estilo.PAD + 4, 36, MARGIN + estilo.PAD + 4, estilo.PAD + 2
         )
         layout.setSpacing(estilo.GAP + 4)
         layout.addLayout(row)
@@ -233,7 +259,7 @@ class NotchBar(QWidget):
             p.setOpacity(min(1.0, (k - 0.5) * 2))
             draw_character(
                 p,
-                QPointF(rect.left() + estilo.PAD + 11, rect.top() + 53),
+                QPointF(rect.left() + estilo.PAD + 15, rect.top() + 36 + FIELD_H / 2),
                 11.0,
                 "idle",
                 time.monotonic(),

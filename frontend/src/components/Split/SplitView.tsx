@@ -5,7 +5,16 @@
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useLocation } from 'react-router';
-import { X } from 'lucide-react';
+import { Briefcase, Gauge, HeartPulse, MessageSquare, NotebookPen, Users, X, type LucideIcon } from 'lucide-react';
+
+const PAGE_ICON: Record<string, LucideIcon> = {
+  '/chat': MessageSquare,
+  '/nodes': Users,
+  '/salud': HeartPulse,
+  '/workspace': NotebookPen,
+  '/cowork': Briefcase,
+  '/uso': Gauge,
+};
 import { SPLIT_PAGES, foldOf, paneUrl, useSplit, type Fold } from '../../lib/split';
 import './split.css';
 
@@ -175,6 +184,10 @@ export function SplitView({ children }: { children: ReactNode }) {
                     aria-pressed={path === p.path || path.startsWith(`${p.path}/`)}
                     onClick={() => setPath(p.path)}
                   >
+                    {(() => {
+                      const Icon = PAGE_ICON[p.path];
+                      return Icon ? <Icon size={14} strokeWidth={1.8} aria-hidden /> : null;
+                    })()}
                     {p.label}
                   </button>
                 ))}

@@ -8,6 +8,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useLocation } from 'react-router';
+import { Brain, CalendarCheck, Ellipsis, Pill, Salad, type LucideIcon } from 'lucide-react';
 import { salud, type Catalog, type Summary } from '../lib/salud';
 import { PaperPage } from '../components/Paper/PaperPage';
 import portada from '../assets/salud/portada-salud.webp';
@@ -24,11 +25,11 @@ import './health/health.css';
 
 type Tab = 'resumen' | 'medicinas' | 'plan' | 'mente' | 'longevidad' | 'explorar' | 'compartir' | 'dispositivos';
 // Simple first (owner, 24 Oct. 2026): four sections in sight, the rest under «Más».
-const TABS: Array<{ key: Tab; label: string }> = [
-  { key: 'resumen', label: 'Hoy' },
-  { key: 'medicinas', label: 'Medicinas' },
-  { key: 'plan', label: 'Comida y ejercicio' },
-  { key: 'mente', label: 'Mente' },
+const TABS: Array<{ key: Tab; label: string; icon: LucideIcon }> = [
+  { key: 'resumen', label: 'Hoy', icon: CalendarCheck },
+  { key: 'medicinas', label: 'Medicinas', icon: Pill },
+  { key: 'plan', label: 'Comida y ejercicio', icon: Salad },
+  { key: 'mente', label: 'Mente', icon: Brain },
 ];
 const MORE: Array<{ key: Tab; label: string }> = [
   { key: 'longevidad', label: 'Longevidad' },
@@ -94,6 +95,7 @@ export function HealthPage() {
               setTab(t.key);
             }}
           >
+            <t.icon size={14} strokeWidth={1.8} aria-hidden />
             {t.label}
           </button>
         ))}
@@ -107,6 +109,7 @@ export function HealthPage() {
             if (!MORE.some((m) => m.key === tab)) setTab('longevidad');
           }}
         >
+          <Ellipsis size={14} strokeWidth={1.8} aria-hidden />
           Más
         </button>
       </nav>

@@ -4,7 +4,7 @@
 // table and go on recording (a phone switched off cannot record: nothing can).
 
 import { useEffect, useRef, useState } from 'react';
-import { Copy, Download, Mic, Moon, Square } from 'lucide-react';
+import { Copy, Download, Mic, Moon, Phone, Square, Users, MessagesSquare } from 'lucide-react';
 import { toast } from 'sonner';
 import { apiFetch } from '../lib/api';
 import { mediaProblem } from '../lib/compat';
@@ -29,6 +29,7 @@ interface Minutes {
 
 type Kind = 'reunión' | 'llamada' | 'conversación';
 const KINDS: Kind[] = ['reunión', 'llamada', 'conversación'];
+const KIND_ICON = { reunión: Users, llamada: Phone, conversación: MessagesSquare };
 
 const clock = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 
@@ -163,6 +164,10 @@ export function MeetingPage() {
         <div className="meet-kinds" role="radiogroup" aria-label="Qué se graba">
           {KINDS.map((k) => (
             <button key={k} type="button" role="radio" aria-checked={kind === k} disabled={state !== 'listo'} onClick={() => setKind(k)}>
+              {(() => {
+                const Icon = KIND_ICON[k];
+                return <Icon size={14} strokeWidth={1.8} aria-hidden />;
+              })()}
               {k[0].toUpperCase() + k.slice(1)}
             </button>
           ))}

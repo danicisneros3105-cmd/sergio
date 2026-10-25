@@ -105,21 +105,30 @@ QLabel#mine {{ background: #26251f; border: 1px solid #3a3833; border-radius: 12
               padding: 8px 12px; font-size: 14px; }}
 QLabel#row {{ background: {CARD}; border: 1px solid {LINE}; border-radius: 8px;
              padding: 8px 12px; }}
-QLineEdit, QPlainTextEdit {{ background: {CARD}; border: 1px solid {LINE}; border-radius: 8px;
-             padding: 8px 12px; font-size: 14px;
+QLineEdit {{ border-radius: 20px; min-height: 38px; max-height: 38px; padding: 0 16px; }}
+QPlainTextEdit {{ border-radius: 12px; padding: 8px 12px; }}
+QLineEdit, QPlainTextEdit {{ background: {CARD}; border: 1px solid {LINE};
+             font-size: 14px;
              selection-background-color: #3a3833; }}
 QLineEdit:focus {{ border: 1px solid {ALUMINIUM}; }}
-QPushButton {{ background: transparent; border: 1px solid {LINE}; border-radius: 8px;
-               padding: 8px 16px; font-weight: 500; letter-spacing: 0.3px; }}
+QPushButton {{ background: transparent; border: 1px solid {LINE}; border-radius: 18px;
+               min-height: 34px; max-height: 34px; padding: 0 16px; font-weight: 500; letter-spacing: 0.3px; }}
 QPushButton:hover {{ border: 1px solid #4a4843; background: #161616; }}
 QPushButton#primary {{ background: {ALUMINIUM}; color: #000000; border: none; border-radius: 18px;
-                       font-weight: 600; }}
+                       min-height: 36px; max-height: 36px; font-weight: 600; }}
+QPushButton#icon {{ background: {CARD}; border: 1px solid {LINE}; border-radius: 16px; padding: 0;
+                    min-height: 32px; max-height: 32px; min-width: 32px; max-width: 32px; }}
+QPushButton#icon:hover {{ background: #2f2f2f; }}
+QPushButton#mic {{ background: {ALUMINIUM}; border: none; border-radius: 20px; padding: 0;
+                   min-height: 40px; max-height: 40px; min-width: 40px; max-width: 40px; }}
+QPushButton#mic:hover {{ background: {estilo.BLUE_HOT}; }}
 QPushButton#primary:hover {{ background: {estilo.BLUE_HOT}; }}
 QPushButton#seg {{ background: transparent; color: {SECONDARY}; border: none;
                    border-radius: 0; padding: 8px 0 7px 0; font-weight: 500;
                    font-size: 13px; letter-spacing: 0.2px;
                    border-bottom: 1px solid transparent; }}
 QPushButton#seg:checked {{ color: {TEXT}; border-bottom: 1px solid {ALUMINIUM}; }}
+QPushButton#seg {{ min-height: 0; max-height: 9999px; }}
 QWidget#segbar {{ background: {CARD}; border-radius: 12px; }}
 QWidget#segbar QPushButton#seg {{ padding: 4px 8px; border-radius: 8px; font-size: 11px; }}
 QComboBox {{ background: {CARD}; border: 1px solid {LINE}; border-radius: 8px;
@@ -780,20 +789,27 @@ class ControlCenter(QWidget):
         self.subtitle.setVisible(False)  # only when there is something to say
         texts.addWidget(self.subtitle)
         row.addLayout(texts, 1)
-        self.open_app_button = QPushButton(idioma.t("open_app", self.lang))
-        self.open_app_button.setObjectName("primary")
+        from PySide6.QtCore import QSize
+
+        from sergio_escritorio.iconos import icon
+
+        self.open_app_button = QPushButton()
+        self.open_app_button.setObjectName("icon")
+        self.open_app_button.setIcon(icon("external", TEXT, 15))
+        self.open_app_button.setIconSize(QSize(15, 15))
+        self.open_app_button.setToolTip(idioma.t("open_app", self.lang))
+        self.open_app_button.setAccessibleName(idioma.t("open_app", self.lang))
         self.open_app_button.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.open_app_button.setStyleSheet(
-            "padding: 5px 12px; border-radius: 14px; font-size: 12px; font-weight: 600;"
-        )
         self.open_app_button.clicked.connect(
             lambda: (self.hide(), self.actions.open_url(self.actions.server_url))
         )
         row.addWidget(self.open_app_button, 0, Qt.AlignmentFlag.AlignVCenter)
-        close = QPushButton("×")
-        close.setFixedSize(28, 28)
+        close = QPushButton()
+        close.setObjectName("icon")
+        close.setIcon(icon("x", TEXT, 15))
+        close.setIconSize(QSize(15, 15))
         close.setAccessibleName("Cerrar")
-        close.setStyleSheet("border-radius: 14px; padding: 0 0 2px 0; font-size: 14px;")
+        close.setToolTip("Cerrar")
         close.setCursor(Qt.CursorShape.PointingHandCursor)
         close.clicked.connect(self.hide)
         row.addWidget(close, 0, Qt.AlignmentFlag.AlignVCenter)
@@ -871,8 +887,16 @@ class ControlCenter(QWidget):
         self.entry.setPlaceholderText(idioma.t("type_here", self.lang))
         self.entry.returnPressed.connect(self._send)
         ask.addWidget(self.entry, 1)
-        talk = QPushButton(idioma.t("talk", self.lang))
-        talk.setObjectName("primary")
+        from PySide6.QtCore import QSize
+
+        from sergio_escritorio.iconos import icon
+
+        talk = QPushButton()
+        talk.setObjectName("mic")
+        talk.setIcon(icon("mic", "#000000", 18))
+        talk.setIconSize(QSize(18, 18))
+        talk.setToolTip(idioma.t("talk", self.lang))
+        talk.setAccessibleName(idioma.t("talk", self.lang))
         talk.setCursor(Qt.CursorShape.PointingHandCursor)
         talk.clicked.connect(self._talk)
         ask.addWidget(talk)

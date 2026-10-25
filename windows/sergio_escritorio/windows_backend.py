@@ -84,6 +84,19 @@ def set_dpi_aware() -> None:
             pass
 
 
+def foreground_title() -> str:
+    """Title of the window in front ('' off Windows or on error)."""
+    try:
+        user32 = ctypes.windll.user32  # type: ignore[attr-defined]
+        hwnd = user32.GetForegroundWindow()
+        length = user32.GetWindowTextLengthW(hwnd)
+        buf = ctypes.create_unicode_buffer(length + 1)
+        user32.GetWindowTextW(hwnd, buf, length + 1)
+        return buf.value.strip()
+    except Exception:  # noqa: BLE001
+        return ""
+
+
 def foreground_is_fullscreen() -> bool:
     """True when the active window covers its whole monitor (video, game)."""
     from ctypes import wintypes
