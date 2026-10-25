@@ -110,7 +110,7 @@ Write-Host "   Limpiando versiones viejas (caché, Pythons reemplazados, restos 
 if ($LASTEXITCODE -ne 0) { throw "El escritorio no pasó la prueba de módulos nativos. No se modificaron los accesos directos." }
 Say "4/4 Arranque con Windows"
 $ico = Join-Path $dest "sergio.ico"
-& (Join-Path $venv "Scripts\python.exe") -c "from sergio_escritorio.app import make_icon; make_icon('idle').save(r'$ico', sizes=[(16,16),(32,32),(48,48),(64,64)])"
+& (Join-Path $venv "Scripts\python.exe") -c "from sergio_escritorio.app import make_icon; make_icon('idle').save(r'$ico', sizes=[(16,16),(24,24),(32,32),(48,48),(64,64),(128,128),(256,256)])"
 $shell = New-Object -ComObject WScript.Shell
 $places = @(
     [Environment]::GetFolderPath("Desktop"),

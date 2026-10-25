@@ -185,7 +185,7 @@ export function Toolbar({ historyOpen, onToggleHistory }: { historyOpen: boolean
             title={historyOpen ? 'Inicio' : 'Abrir la barra lateral'}
             onClick={() => (historyOpen ? go('/') : onToggleHistory())}
           >
-            <span className="sb-mark-s">S</span>
+            <img className="sb-mark-s" src="/sergio.svg" alt="" width={26} height={26} />
             <PanelLeft className="sb-mark-panel" size={20} strokeWidth={1.6} />
           </button>
           <button

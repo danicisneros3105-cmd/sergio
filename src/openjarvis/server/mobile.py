@@ -42,6 +42,7 @@ _PUBLIC_EXACT = {
     "/apple-touch-icon.png",
     "/pwa-192x192.png",
     "/pwa-512x512.png",
+    "/sergio.svg",  # the fly, shown on the sign-in page too
 }
 _PUBLIC_PREFIXES = ("/assets/", "/workbox-")
 _PROTECTED_PREFIXES = (

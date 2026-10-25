@@ -431,6 +431,12 @@ termina en la rama `main`, y el dueño actualiza con un único comando.
   actualizaciones del proveedor, con el parche `scripts/marca_agente.py`
   (`--check` en las pruebas). Si se actualiza el código del agente, vuelva a
   correr ese guion; no edite a mano lo que el guion ya cambia.
+- **Logo de Sergio: la mosca** (dueño, 25 oct. 2026). Un solo dibujo,
+  `assets/marca/sergio.svg`; `scripts/marca_sergio.py` saca de él favicon,
+  PWA, iPhone, instalador, accesos directos, bandeja, ventanas del escritorio,
+  Tauri (.ico/.icns) y el agente de código (`--check` en las pruebas). Cambie
+  el SVG y corra el guion; nunca edite un PNG a mano. El reactor de OpenJarvis
+  solo queda en el README como crédito al proyecto original.
 - La conversación de voz está siempre activa en la web (sin botón de
   llamada); en el escritorio se abre al decir «Sergio» y sigue abierta.
 - Las llamadas a Gemini van con respaldo en paralelo (`engine/hedge.py`): si

@@ -2,6 +2,18 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-10-25 · Claude · Logo de Sergio: la mosca en vez del reactor de OpenJarvis
+- El núcleo ya era el cerebro de la mosca (desde el cuerpo fungiforme); lo que
+  el dueño seguía viendo era el icono heredado de OpenJarvis (el reactor azul)
+  en el favicon, la PWA, el iPhone, el instalador, Tauri y el agente de código.
+- Logo propio, una mosca vista desde arriba en blanco sobre negro:
+  `assets/marca/sergio.svg` → `scripts/marca_sergio.py` regenera todos los
+  iconos (también .icns para Mac). La barra lateral, la pantalla de entrar, la
+  de carga del escritorio, la bandeja, las ventanas y los accesos directos
+  muestran la mosca. Prueba `tests/escritorio/test_marca.py`.
+- Windows puede guardar el icono viejo de los accesos directos un rato; la
+  actualización los reescribe.
+
 ## 2026-10-25 · Claude · «Di Sergio para volver aquí» de verdad, barra del notch y centro de control rehechos, iconos
 - Causa del bucle «Ahora hablamos en otro equipo»: el servidor negaba siempre
   la voz al escritorio si una ventana web (aunque estuviera en segundo plano)

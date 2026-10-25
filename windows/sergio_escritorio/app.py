@@ -98,15 +98,18 @@ def activity_caption(result: str) -> str:
     return ACTIVITY.get(head, "")
 
 
-def make_icon(state: str = "idle") -> object:
-    """Sergio's mark as a Pillow image (used for the .ico of the shortcuts)."""
-    from PIL import Image, ImageDraw
+MARK = Path(__file__).with_name("resources") / "sergio.png"  # scripts/marca_sergio.py
 
-    colours = {"idle": (10, 108, 255), "paused": (142, 142, 147)}
-    image = Image.new("RGBA", (256, 256), (0, 0, 0, 0))
-    draw = ImageDraw.Draw(image)
-    draw.ellipse((8, 8, 248, 248), fill=colours.get(state, colours["idle"]))
-    draw.ellipse((80, 80, 176, 176), outline=(255, 255, 255), width=26)
+
+def make_icon(state: str = "idle") -> object:
+    """Sergio's mark (the fly) as a Pillow image, for the shortcuts' .ico.
+    Paused, it is shown in grey."""
+    from PIL import Image, ImageOps
+
+    image = Image.open(MARK).convert("RGBA").resize((256, 256))
+    if state == "paused":
+        grey = ImageOps.grayscale(image).point(lambda v: 90 + v * 0.45)
+        image = Image.merge("RGBA", (grey, grey, grey, image.getchannel("A")))
     return image
 
 
@@ -121,20 +124,19 @@ def single_instance() -> bool:
 
 
 def tray_icon(colour: Any) -> Any:
-    """The Sergio mark (filled circle + white ring) as a tray icon."""
-    from PySide6.QtCore import QPointF, Qt
-    from PySide6.QtGui import QIcon, QPainter, QPen, QPixmap
+    """Sergio's mark (the fly) for the tray; faded when Sergio is paused."""
+    from PySide6.QtCore import Qt
+    from PySide6.QtGui import QColor, QIcon, QPainter, QPixmap
+
+    from sergio_escritorio.companion import STATE_COLORS
 
     pix = QPixmap(64, 64)
     pix.fill(Qt.GlobalColor.transparent)
     p = QPainter(pix)
-    p.setRenderHint(QPainter.RenderHint.Antialiasing)
-    p.setPen(Qt.PenStyle.NoPen)
-    p.setBrush(colour)
-    p.drawEllipse(QPointF(32, 32), 29, 29)
-    p.setBrush(Qt.BrushStyle.NoBrush)
-    p.setPen(QPen(Qt.GlobalColor.white, 7))
-    p.drawEllipse(QPointF(32, 32), 12, 12)
+    p.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
+    paused = QColor(colour) == QColor(STATE_COLORS.get("paused", "#8e8e93"))
+    p.setOpacity(0.45 if paused else 1.0)
+    p.drawPixmap(0, 0, 64, 64, QPixmap(str(MARK)))
     p.end()
     return QIcon(pix)
 
@@ -259,6 +261,9 @@ def run(config: dict[str, Any]) -> None:
     )
 
     app = QApplication(sys.argv)
+    from PySide6.QtGui import QIcon
+
+    app.setWindowIcon(QIcon(str(MARK)))  # the fly on every window and the taskbar
     from sergio_escritorio import estilo as _estilo
 
     _estilo.load_fonts()  # the house typeface for every window

@@ -11,9 +11,7 @@
     font-family: "Segoe UI Variable", "Segoe UI", system-ui, sans-serif; }
   main { height: 100%; display: grid; place-items: center; }
   .box { display: grid; justify-items: center; gap: 22px; }
-  .mark { width: 72px; height: 72px; border-radius: 22px; background: var(--fg); color: var(--bg);
-    display: grid; place-items: center; font-size: 40px; font-weight: 600; letter-spacing: -1px;
-    animation: breathe 2.4s ease-in-out infinite; }
+  .mark { width: 84px; height: 84px; animation: breathe 2.4s ease-in-out infinite; }
   h1 { margin: 0; font-size: 22px; font-weight: 600; letter-spacing: 0.5px; }
   .bar { width: 160px; height: 3px; border-radius: 3px; background: var(--line); overflow: hidden; }
   .bar i { display: block; width: 40%; height: 100%; border-radius: 3px; background: var(--fg);
@@ -27,7 +25,7 @@
 <body>
 <main>
   <div class="box" role="status" aria-live="polite">
-    <div class="mark" aria-hidden="true">S</div>
+    <svg class="mark" viewBox="0 0 100 100" aria-hidden="true"> <rect width="100" height="100" rx="23" fill="#0d0d0d"/> <g transform="translate(0 2)"> <ellipse cx="38.5" cy="59" rx="11" ry="25" transform="rotate(24 38.5 59)" fill="#ffffff" fill-opacity="0.30" stroke="#ffffff" stroke-width="2.6"/> <ellipse cx="61.5" cy="59" rx="11" ry="25" transform="rotate(-24 61.5 59)" fill="#ffffff" fill-opacity="0.30" stroke="#ffffff" stroke-width="2.6"/> <ellipse cx="50" cy="61" rx="8.5" ry="16" fill="#ffffff"/> <ellipse cx="50" cy="40" rx="9.5" ry="8.5" fill="#ffffff"/> <ellipse cx="50" cy="26" rx="9.5" ry="7" fill="#ffffff"/> <ellipse cx="43.6" cy="25" rx="3.6" ry="4.6" fill="#0d0d0d"/> <ellipse cx="56.4" cy="25" rx="3.6" ry="4.6" fill="#0d0d0d"/> </g> </svg>
     <h1>Sergio</h1>
     <div class="bar" aria-hidden="true"><i></i></div>
     <p id="msg">Preparando todo…</p>

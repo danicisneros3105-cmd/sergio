@@ -141,6 +141,7 @@ export function SignInPage() {
   return (
     <div className="signin">
       <div className="signin-card">
+        <img className="signin-mark" src="/sergio.svg" alt="" width={56} height={56} />
         <h1 className="signin-title">Sergio</h1>
         {faceOk && info && info.accounts > 0 && (
           <button type="button" className="signin-face" data-state={face} disabled={face === 'scan'} onClick={() => void withFace()}>
