@@ -128,6 +128,7 @@ if not _DATA_BOUNDARY_BOOTSTRAP:
     from openjarvis.cli.gui_cmd import gui
     from openjarvis.cli.host_cmd import host
     from openjarvis.cli.init_cmd import init
+    from openjarvis.cli.investigar_cmd import investigar
     from openjarvis.cli.mcp_cmd import mcp
     from openjarvis.cli.memory_cmd import memory
     from openjarvis.cli.mine_cmd import mine
@@ -204,6 +205,7 @@ if not _DATA_BOUNDARY_BOOTSTRAP:
     cli.add_command(prompts, "prompts")
     cli.add_command(cerebro, "cerebro")
     cli.add_command(cuentas, "cuentas")
+    cli.add_command(investigar, "investigar")
     cli.add_command(movil, "movil")
     cli.add_command(cowork, "cowork")
     cli.add_command(plugin, "plugin")

@@ -20,6 +20,7 @@ const HomePage = lazy(() => import('./pages/HomePage'));
 const NodesPage = lazy(() => import('./pages/NodesPage'));
 const ConnectomePage = lazy(() => import('./pages/ConnectomePage'));
 const SignInPage = lazy(() => import('./pages/SignInPage'));
+const MeetingPage = lazy(() => import('./pages/MeetingPage'));
 const UsagePage = lazy(() => import('./pages/UsagePage'));
 const PlansPage = lazy(() => import('./pages/PlansPage').then((m) => ({ default: m.PlansPage })));
 const HelpPage = lazy(() => import('./pages/HelpPage').then((m) => ({ default: m.HelpPage })));
@@ -200,6 +201,7 @@ export default function App() {
           <Route path="workspace" element={<WorkspacePage />} />
           <Route path="workspace/:id" element={<WorkspacePage />} />
           <Route path="capturar" element={<CapturePage />} />
+          <Route path="reunion" element={<MeetingPage />} />
           <Route path="dashboard" element={<Navigate to="/uso" replace />} />
           <Route path="settings" element={<SettingsPage />} />
           <Route path="get-started" element={<GetStartedPage />} />

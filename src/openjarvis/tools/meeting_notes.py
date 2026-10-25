@@ -45,6 +45,7 @@ Escucha el audio completo y devuelve SOLO un JSON con esta forma:
  "decisiones": ["..."],
  "tareas": [{{"quien": "nombre", "que": "qué debe hacer", "cuando": "plazo o ''"}}],
  "preguntas_abiertas": ["..."],
+ "por_persona": [{{"quien": "nombre", "ideas": ["lo principal que dijo o propuso, en una frase"]}}],
  "transcripcion": [{{"t": "mm:ss", "quien": "nombre", "texto": "lo que dijo, literal"}}]}}
 Reglas: en "quien" usa los nombres de la línea de tiempo (no inventes otros; \
 si alguien se presenta con su nombre dentro de la conversación, puedes \
@@ -83,6 +84,48 @@ def parse_minutes(text: str) -> dict[str, Any]:
             data[key] = []
     data["titulo"] = str(data.get("titulo") or "Reunión").strip()[:120]
     return data
+
+
+def by_person(data: dict[str, Any]) -> list[dict[str, Any]]:
+    """Each speaker: how often they spoke, their main points and their tasks.
+
+    The model's own «por_persona» when it gave one; otherwise the first things
+    each person said, from the transcript. Most talkative first; a tie, whoever
+    spoke first."""
+    turns: dict[str, int] = {}
+    said: dict[str, list[str]] = {}
+    for row in data.get("transcripcion") or []:
+        if isinstance(row, dict) and str(row.get("quien") or "").strip():
+            who = str(row["quien"]).strip()
+            turns[who] = turns.get(who, 0) + 1
+            text = str(row.get("texto") or "").strip()
+            if text and text != "[inaudible]" and len(said.setdefault(who, [])) < 3:
+                said[who].append(text if len(text) <= 160 else text[:157] + "…")
+    ideas: dict[str, list[str]] = {}
+    for p in data.get("por_persona") or []:
+        if isinstance(p, dict) and str(p.get("quien") or "").strip():
+            ideas[str(p["quien"]).strip()] = [
+                str(i).strip() for i in p.get("ideas") or [] if str(i).strip()
+            ][:5]
+    tasks: dict[str, list[str]] = {}
+    for t in data.get("tareas") or []:
+        if isinstance(t, dict) and str(t.get("quien") or "").strip():
+            what = str(t.get("que") or "").strip()
+            when = str(t.get("cuando") or "").strip()
+            tasks.setdefault(str(t["quien"]).strip(), []).append(
+                what + (f" ({when})" if when else "")
+            )
+    first = list(dict.fromkeys([*turns, *ideas, *tasks]))  # order of appearance
+    names = sorted(first, key=lambda n: (-turns.get(n, 0), first.index(n)))
+    return [
+        {
+            "quien": n,
+            "turnos": turns.get(n, 0),
+            "ideas": ideas.get(n) or said.get(n, []),
+            "tareas": tasks.get(n, []),
+        }
+        for n in names
+    ]
 
 
 def to_markdown(
@@ -125,6 +168,14 @@ def to_markdown(
                 lines.append("| " + " | ".join(cells) + " |")
         lines.append("")
     section("Preguntas abiertas", data.get("preguntas_abiertas") or [])
+    people = by_person(data)
+    if people:
+        lines += ["## Quién dijo qué", ""]
+        for p in people:
+            lines.append(f"**{p['quien']}** · {p['turnos']} intervenciones")
+            lines += [f"- {i}" for i in p["ideas"]]
+            lines += [f"- Tarea: {t}" for t in p["tareas"]]
+            lines.append("")
     transcript = data.get("transcripcion") or []
     if transcript:
         lines += ["## Transcripción", ""]
@@ -210,4 +261,4 @@ def summarize(
     raise RuntimeError("No pude escribir el acta: " + " | ".join(errors[-3:]))
 
 
-__all__ = ["MODELS", "PROMPT", "parse_minutes", "summarize", "to_markdown"]
+__all__ = ["MODELS", "PROMPT", "by_person", "parse_minutes", "summarize", "to_markdown"]

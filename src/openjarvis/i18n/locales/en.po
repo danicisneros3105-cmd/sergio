@@ -506,3 +506,11 @@ msgstr "Who has an account and its state."
 #: help
 msgid "Deja entrar a una cuenta."
 msgstr "Lets an account in."
+
+#: help
+msgid "Investigación profunda en la web: muchas fuentes, contrastadas y citadas."
+msgstr "Deep research on the web: many sources, cross-checked and cited."
+
+#: help
+msgid "Rondas de búsqueda."
+msgstr "Search rounds."

@@ -115,3 +115,32 @@ def test_route_returns_the_minutes_and_markdown(monkeypatch):
         ).status_code
         == 413
     )
+
+
+def test_who_said_what_groups_each_person():
+    from openjarvis.tools.meeting_notes import by_person, to_markdown
+
+    data = {
+        "titulo": "Plan de ventas",
+        "resumen": "Se habló del plan.",
+        "tareas": [
+            {"quien": "Ana", "que": "enviar el presupuesto", "cuando": "viernes"}
+        ],
+        "transcripcion": [
+            {"t": "00:01", "quien": "Ana", "texto": "Propongo subir el precio un 5 %."},
+            {"t": "00:05", "quien": "Persona 1", "texto": "Mejor esperar a enero."},
+            {"t": "00:09", "quien": "Ana", "texto": "Entonces lo vemos en enero."},
+            {"t": "00:12", "quien": "Persona 1", "texto": "[inaudible]"},
+        ],
+    }
+    people = by_person(data)
+    assert [p["quien"] for p in people] == ["Ana", "Persona 1"]
+    assert people[0]["turnos"] == 2 and people[0]["tareas"] == [
+        "enviar el presupuesto (viernes)"
+    ]
+    assert "[inaudible]" not in people[1]["ideas"]
+    # the model's own summary per person wins over the raw lines
+    data["por_persona"] = [{"quien": "Ana", "ideas": ["Quiere subir el precio"]}]
+    assert by_person(data)[0]["ideas"] == ["Quiere subir el precio"]
+    md = to_markdown(data)
+    assert "## Quién dijo qué" in md and "**Ana** · 2 intervenciones" in md

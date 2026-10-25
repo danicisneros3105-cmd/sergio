@@ -101,6 +101,7 @@ SERVER_TOOLS = (
     "video_create",
     "video_essay",
     "reminders",
+    "investigacion_profunda",
     "video_edit",
     "video_pro",
     "blender_create",

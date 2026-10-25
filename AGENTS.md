@@ -352,6 +352,22 @@ termina en la rama `main`, y el dueño actualiza con un único comando.
   palabras (`platform_auth.result_text`).
 - Notch menos cargado (24 oct. 2026): en reposo solo el orbe, centrado; la onda
   solo cuando hay voz; sin el título «Sergio» encima de la respuesta.
+- **Investigación profunda de verdad** (dueño, 25 oct. 2026): `research/deep.py`
+  (herramienta `investigacion_profunda`, `POST /v1/investigar` en vivo,
+  `sergio investigar`). Plan → búsqueda amplia (máx. 2 páginas por sitio) →
+  leer las páginas → cada dato con cita literal que el código busca en la
+  página (si no está, se descarta) → contraste por sitios distintos
+  (confirmado / una fuente / en disputa) → segunda ronda por lo que falta →
+  informe que solo cita fuentes reales. Buscadores: los de `web_search` y, si no
+  dan nada, Google Search por Gemini. No lo reemplace por una sola búsqueda.
+- Reuniones y llamadas en la web (`/reunion`, paleta «Grabar reunión»): graba,
+  «boca abajo» deja la pantalla negra y despierta para seguir grabando, y el
+  acta trae «Quién dijo qué» (`meeting_notes.by_person`). Con el aparato
+  apagado no se puede grabar: no lo prometa. Siempre recuerda avisar que se graba.
+- Estilo del dueño (`connectome/estilo.py`, órgano «estilo»): mide en este
+  equipo cómo escribe (largo, usted/tú, idioma, emojis, horas, temas, si pide
+  más corto o más largo) y ajusta cada respuesta; reglas de escritura humana
+  siempre (`skills/bundled/escritura-humana`, `gusto-diseno`).
 - Rendimiento: el servidor comprime las respuestas (gzip, nunca SSE ni audio) y
   los archivos con huella en el nombre se guardan en el navegador para siempre
   (`immutable`); un nombre viejo resuelto al nuevo nunca. Un equipo lento pasa

@@ -209,6 +209,25 @@ export function newPage(title = '', parent: string | null = null, blocks?: Block
   };
 }
 
+// A table with its own columns (the first is the name), a table view and, when
+// there is a select column, a board grouped by it; rows start empty.
+function tableOf(
+  columns: Array<{ name: string; type: ColumnType; options?: string[] }>,
+  rows = 1,
+  extra: Array<TableView['kind']> = [],
+): Block {
+  const cols: Column[] = columns.map((c) => ({ id: newId('c'), ...c }));
+  const first = cols.find((c) => c.type === 'select');
+  const views: TableView[] = [{ id: newId('v'), name: 'Tabla', kind: 'table' }];
+  if (first) views.push({ id: newId('v'), name: 'Tablero', kind: 'board', groupBy: first.id });
+  for (const kind of extra) views.push({ id: newId('v'), name: kind === 'calendar' ? 'Calendario' : kind === 'timeline' ? 'Cronograma' : 'Vista', kind });
+  const empty = () => ({
+    id: newId('r'),
+    cells: Object.fromEntries(cols.map((c) => [c.id, c.type === 'select' ? c.options?.[0] ?? '' : ''])),
+  });
+  return block('table', '', { table: { columns: cols, rows: Array.from({ length: rows }, empty), views, view: views[0].id } });
+}
+
 // -- templates: a good first page instead of a blank one ----------------------
 export interface Template {
   key: string;
@@ -261,6 +280,164 @@ export const TEMPLATES: Template[] = [
         blocks: [block('h2', 'Objetivo'), block('text', ''), block('h2', 'Tareas'), table, chart],
       };
     },
+  },
+  {
+    key: 'okr',
+    name: 'Objetivos y resultados',
+    description: 'Un objetivo, sus resultados medibles y el avance.',
+    icon: 'target',
+    make: () => ({
+      title: `Objetivos — ${new Date().toLocaleDateString('es', { month: 'long', year: 'numeric' })}`,
+      blocks: [
+        block('h2', 'Objetivo'),
+        block('text', ''),
+        block('h2', 'Resultados clave'),
+        tableOf([
+          { name: 'Resultado', type: 'text' },
+          { name: 'Estado', type: 'select', options: ['En riesgo', 'En camino', 'Logrado'] },
+          { name: 'Inicio', type: 'number' },
+          { name: 'Meta', type: 'number' },
+          { name: 'Actual', type: 'number' },
+          { name: 'Responsable', type: 'text' },
+        ], 3),
+        block('h2', 'Qué no vamos a hacer'),
+        block('bullet', ''),
+      ],
+    }),
+  },
+  {
+    key: 'crm',
+    name: 'Clientes',
+    description: 'Contactos, etapa de la venta y próximo paso.',
+    icon: 'briefcase',
+    make: () => ({
+      title: 'Clientes',
+      blocks: [
+        tableOf([
+          { name: 'Cliente', type: 'text' },
+          { name: 'Etapa', type: 'select', options: ['Contacto', 'Reunión', 'Propuesta', 'Negociación', 'Ganado', 'Perdido'] },
+          { name: 'Valor', type: 'number' },
+          { name: 'Próximo paso', type: 'text' },
+          { name: 'Fecha', type: 'date' },
+          { name: 'Correo', type: 'email' },
+          { name: 'Teléfono', type: 'phone' },
+        ], 3, ['calendar']),
+      ],
+    }),
+  },
+  {
+    key: 'one-on-one',
+    name: 'Reunión 1:1',
+    description: 'Lo de la persona primero, luego lo suyo y los acuerdos.',
+    icon: 'chat',
+    make: () => ({
+      title: `1:1 — ${new Date().toLocaleDateString('es')}`,
+      blocks: [
+        block('h3', 'Lo que la otra persona trae'),
+        block('bullet', ''),
+        block('h3', 'Lo que usted trae'),
+        block('bullet', ''),
+        block('h3', 'Cómo va (de 1 a 5) y por qué'),
+        block('text', ''),
+        block('h3', 'Acuerdos'),
+        block('todo', ''),
+      ],
+    }),
+  },
+  {
+    key: 'weekly',
+    name: 'Informe semanal',
+    description: 'Logros, números, problemas y el plan de la semana.',
+    icon: 'chart',
+    make: () => ({
+      title: `Semana del ${new Date().toLocaleDateString('es', { day: 'numeric', month: 'long' })}`,
+      blocks: [
+        block('callout', 'En una frase: cómo fue la semana.'),
+        block('h2', 'Logros'),
+        block('bullet', ''),
+        block('h2', 'Números'),
+        tableOf([
+          { name: 'Indicador', type: 'text' },
+          { name: 'Esta semana', type: 'number' },
+          { name: 'La anterior', type: 'number' },
+          { name: 'Meta', type: 'number' },
+        ], 3),
+        block('h2', 'Problemas y ayuda que necesito'),
+        block('bullet', ''),
+        block('h2', 'Plan de la próxima semana'),
+        block('todo', ''),
+      ],
+    }),
+  },
+  {
+    key: 'prd',
+    name: 'Documento de producto',
+    description: 'Problema, para quién, qué se hace, cómo se mide.',
+    icon: 'rocket',
+    make: () => ({
+      title: 'Producto: ',
+      blocks: [
+        block('h2', 'Problema'),
+        block('text', ''),
+        block('h2', 'Para quién'),
+        block('text', ''),
+        block('h2', 'Qué haremos (y qué no)'),
+        block('bullet', ''),
+        block('h2', 'Cómo sabremos que funcionó'),
+        block('bullet', ''),
+        block('h2', 'Riesgos y preguntas abiertas'),
+        block('bullet', ''),
+        block('h2', 'Hitos'),
+        tableOf([
+          { name: 'Hito', type: 'text' },
+          { name: 'Estado', type: 'select', options: ['Por hacer', 'En curso', 'Hecho'] },
+          { name: 'Fecha', type: 'date' },
+          { name: 'Responsable', type: 'text' },
+        ], 3, ['timeline']),
+      ],
+    }),
+  },
+  {
+    key: 'decision',
+    name: 'Decisión',
+    description: 'Contexto, opciones con pros y contras, y lo decidido.',
+    icon: 'flag',
+    make: () => ({
+      title: 'Decisión: ',
+      blocks: [
+        block('h3', 'Contexto'),
+        block('text', ''),
+        block('h3', 'Opciones'),
+        tableOf([
+          { name: 'Opción', type: 'text' },
+          { name: 'A favor', type: 'text' },
+          { name: 'En contra', type: 'text' },
+          { name: 'Costo', type: 'number' },
+        ], 2),
+        block('h3', 'Decisión y por qué'),
+        block('text', ''),
+        block('h3', 'Cuándo la revisamos'),
+        block('text', ''),
+      ],
+    }),
+  },
+  {
+    key: 'content',
+    name: 'Calendario de contenido',
+    description: 'Ideas, formato, canal y fecha de publicación.',
+    icon: 'calendar',
+    make: () => ({
+      title: 'Calendario de contenido',
+      blocks: [
+        tableOf([
+          { name: 'Pieza', type: 'text' },
+          { name: 'Estado', type: 'select', options: ['Idea', 'Guion', 'Grabación', 'Edición', 'Publicado'] },
+          { name: 'Formato', type: 'select', options: ['Video corto', 'Video largo', 'Carrusel', 'Artículo'] },
+          { name: 'Canal', type: 'text' },
+          { name: 'Fecha', type: 'date' },
+        ], 3, ['calendar']),
+      ],
+    }),
   },
   {
     key: 'journal',

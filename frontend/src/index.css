@@ -2953,6 +2953,9 @@ body { font-size: 15px; letter-spacing: 0; -webkit-font-smoothing: antialiased; 
     width: 36px; height: 36px; border-radius: 10px; color: var(--color-text); cursor: pointer;
   }
   .sb-open-mobile:hover { background: var(--color-hover); }
+  /* Page titles start below the menu button, never under it. */
+  .paper-page { padding-top: 58px; }
+  .pane-shell .paper-page { padding-top: 24px; }
 }
 @media (prefers-reduced-motion: reduce) { .sb { transition: none; } }
 

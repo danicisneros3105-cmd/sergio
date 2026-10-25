@@ -2,6 +2,22 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-10-25 · Claude · Investigación profunda real, reuniones por persona, estilo del dueño, Workspace pro
+- Investigación profunda: plan, muchas fuentes, lectura de páginas, citas
+  comprobadas por código, contraste entre sitios, segunda ronda y informe con
+  citas reales (`research/deep.py`, herramienta, `/v1/investigar`,
+  `sergio investigar`). Probada con una web de prueba (una cita inventada se
+  descarta, una contradicción queda «en disputa»). Aquí no pude probarla en
+  vivo: este entorno bloquea los buscadores y la cuota de Google Search de la
+  clave gratuita estaba agotada. En el PC del dueño usa sus buscadores.
+- Reuniones en la web/teléfono con modo «boca abajo» y acta «Quién dijo qué».
+- Sergio mide cómo escribe el dueño (en el equipo, sin IA) y se adapta; reglas
+  de escritura humana y gusto de diseño como habilidades internas.
+- Workspace: plantillas profesionales (OKR, clientes, 1:1, informe semanal,
+  documento de producto, decisión, calendario de contenido).
+- Arreglé un orden aleatorio en «quién dijo qué» cuando dos personas hablan lo
+  mismo (ahora gana quien habló primero).
+
 ## 2026-10-24 · Claude · Pantalla dividida tipo Duo, plegables, entrar con la cara, notch limpio, más rápido
 - Pantalla dividida (Ctrl \, paleta, «activa multitasking»): segunda pantalla
   con su propia página; se abre con el pliegue del iPhone Duo; en plegables con

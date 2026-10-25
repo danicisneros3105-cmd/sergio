@@ -266,6 +266,13 @@ except ImportError as _exc:
     )
 
 try:
+    import openjarvis.tools.deep_research_web  # noqa: F401
+except ImportError as _exc:
+    _logging.getLogger(__name__).debug(
+        "Optional import skipped (openjarvis.tools.deep_research_web): %s", _exc
+    )
+
+try:
     import openjarvis.tools.video_essay_tool  # noqa: F401
 except ImportError as _exc:
     _logging.getLogger(__name__).debug(

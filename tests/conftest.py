@@ -82,6 +82,8 @@ os.environ.pop("OPENJARVIS_CONFIG", None)
 # key; tests that need them pass a fake embedder / ask or turn them on.
 os.environ.setdefault("SERGIO_RECEPTORES", "0")
 os.environ.setdefault("SERGIO_TERRY", "0")
+# The owner-style organ learns from real chats only.
+os.environ.setdefault("SERGIO_ESTILO", "0")
 
 from openjarvis.core.config import GpuInfo, HardwareInfo, load_config  # noqa: E402
 from openjarvis.core.events import EventBus, reset_event_bus  # noqa: E402

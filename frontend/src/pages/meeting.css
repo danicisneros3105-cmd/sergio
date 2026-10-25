@@ -1,0 +1,36 @@
+/* Reunión: one round button, the clock, the minutes. Greys only. */
+.meet { max-width: 760px; }
+.meet-kinds { display: inline-grid; grid-auto-flow: column; gap: 3px; padding: 3px; margin: 16px 0 0; border-radius: 12px; background: var(--color-bg-tertiary, var(--color-hover)); }
+.meet-kinds button { height: 32px; padding: 0 14px; border: 0; border-radius: 9px; background: none; color: var(--color-text-secondary); font: inherit; font-size: 14px; cursor: pointer; }
+.meet-kinds button[aria-checked='true'] { background: var(--color-surface, var(--color-bg)); color: var(--color-text); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08); }
+
+.meet-stage { display: grid; justify-items: center; gap: 12px; padding: 40px 16px 28px; margin-top: 20px; border: 1px solid var(--color-border); border-radius: 22px; }
+.meet-rec { --lvl: 0; width: 96px; height: 96px; border-radius: 50%; border: 0; background: var(--color-text); color: var(--color-bg); display: grid; place-items: center; cursor: pointer;
+  box-shadow: 0 0 0 calc(4px + var(--lvl) * 22px) color-mix(in srgb, var(--color-text) 12%, transparent); transition: box-shadow 0.12s ease, transform 0.18s ease; }
+.meet-rec:hover:not(:disabled) { transform: scale(1.03); }
+.meet-rec:disabled { opacity: 0.4; cursor: default; }
+.meet-clock { font-size: 28px; font-weight: 300; letter-spacing: 0.04em; font-variant-numeric: tabular-nums; }
+.meet-consent { font-size: 13px; color: var(--color-text-tertiary); }
+.meet-error { margin: 12px 0 0; color: var(--color-error); font-size: 14px; text-align: center; }
+
+.meet-minutes { margin-top: 28px; display: grid; gap: 16px; }
+.meet-minutes > header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.meet-minutes h2 { margin: 0; font-size: 20px; font-weight: 600; }
+.meet-summary { margin: 0; font-size: 15.5px; line-height: 1.6; }
+.meet-points { margin: 0; padding-left: 20px; display: grid; gap: 6px; font-size: 14.5px; line-height: 1.5; }
+.meet-people { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+.meet-person { border: 1px solid var(--color-border); border-radius: 16px; padding: 14px; }
+.meet-person header { display: grid; grid-template-columns: 28px 1fr auto; align-items: center; gap: 10px; margin-bottom: 8px; }
+.meet-person header i { width: 28px; height: 28px; border-radius: 50%; background: var(--color-text); color: var(--color-bg); display: grid; place-items: center; font-style: normal; font-size: 13px; font-weight: 600; }
+.meet-person header small { font-size: 12px; color: var(--color-text-tertiary); }
+.meet-person ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; font-size: 13.5px; line-height: 1.45; }
+.meet-task { list-style: '→ '; }
+.meet-transcript summary { cursor: pointer; font-size: 14px; color: var(--color-text-secondary); }
+.meet-transcript p { margin: 8px 0 0; font-size: 13.5px; line-height: 1.5; }
+.meet-transcript time { color: var(--color-text-tertiary); font-variant-numeric: tabular-nums; }
+
+/* Face down: an all-black screen (OLED: almost no battery), awake, still recording. */
+.meet-dark { position: fixed; inset: 0; z-index: 1000; border: 0; background: #000; color: #333; display: grid; place-items: end center; padding-bottom: 48px; cursor: pointer; }
+.meet-dark span { font-size: 15px; letter-spacing: 0.08em; font-variant-numeric: tabular-nums; }
+
+@media (prefers-reduced-motion: reduce) { .meet-rec { transition: none; } }

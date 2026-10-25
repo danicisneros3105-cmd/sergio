@@ -888,6 +888,14 @@ def _organs(brain: "Brain") -> None:
     h.add(Organ("metas", "Complejo central", "Tiene presentes las metas y medicinas del señor.",
                 ("pedido",), "metas", metas))  # fmt: skip
 
+    def estilo(board: Dict[str, Any]) -> Any:
+        from openjarvis.connectome import estilo as _estilo
+
+        return _estilo.get_style().block() if _estilo.enabled() else ""
+
+    h.add(Organ("estilo", "Lóbulo óptico", "Mide cómo escribe el señor para hablarle como él habla.",
+                ("pedido",), "estilo", estilo))  # fmt: skip
+
 
 def mind_context(text: str, channel: str = "chat") -> str:
     """Everything the organs add to one request — memories, learned routes and
@@ -916,6 +924,8 @@ def mind_context(text: str, channel: str = "chat") -> str:
         parts.append(block)
     if board.get("metas"):
         parts.append(board["metas"])
+    if board.get("estilo"):
+        parts.append(board["estilo"])
     return "\n\n".join(parts)
 
 
@@ -946,6 +956,13 @@ def remember_exchange(
     try:
         get_brain().observe(user_text, assistant_text, channel=channel)
     except Exception:  # noqa: BLE001 — learning is a bonus, never a failure
+        pass
+    try:
+        from openjarvis.connectome import estilo as _estilo
+
+        if _estilo.enabled():
+            _estilo.get_style().observe(user_text)
+    except Exception:  # noqa: BLE001 — the same
         pass
 
 

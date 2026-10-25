@@ -4,7 +4,10 @@ import { useWorkspace } from '../../lib/workspace/store';
 import { TEMPLATES } from '../../lib/workspace/model';
 import { coverCss, greeting } from '../../lib/workspace/notion';
 
-const TEMPLATE_ICON: Record<string, string> = { blank: 'i:file', meeting: 'i:users', project: 'i:rocket', journal: 'i:book', focus: 'i:clock' };
+const TEMPLATE_ICON: Record<string, string> = {
+  blank: 'i:file', meeting: 'i:users', project: 'i:rocket', okr: 'i:target', crm: 'i:briefcase', 'one-on-one': 'i:chat',
+  weekly: 'i:chart', prd: 'i:rocket', decision: 'i:flag', content: 'i:calendar', journal: 'i:book', focus: 'i:clock',
+};
 
 export function NxHome({ onPick, templatesOnly = false }: { onPick: (id: string) => void; templatesOnly?: boolean }) {
   const pages = useWorkspace((s) => s.pages);

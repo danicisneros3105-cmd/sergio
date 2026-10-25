@@ -28,8 +28,8 @@ async def summarize(
     speakers: str = Form(""),
 ) -> dict[str, Any]:
     from openjarvis.faces.routes import owner_name
+    from openjarvis.tools.meeting_notes import by_person, to_markdown
     from openjarvis.tools.meeting_notes import summarize as write_minutes
-    from openjarvis.tools.meeting_notes import to_markdown
 
     data = await audio.read(MAX_AUDIO + 1)
     if not data or len(data) > MAX_AUDIO:
@@ -49,6 +49,7 @@ async def summarize(
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     return {
         **minutes,
+        "personas": by_person(minutes),
         "markdown": to_markdown(minutes, when=when, seconds=seconds, speakers=names),
     }
 
