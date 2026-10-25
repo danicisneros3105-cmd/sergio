@@ -31,8 +31,11 @@ export function ConnectomePage() {
       {map && (
         <>
           <p className="cn-lead">
-            La mente de Sergio está hecha por zonas, como el cerebro de la mosca de la fruta ({map.facts.neurons}, {map.facts.synapses}): memoria, prompts y habilidades, conversación, herramientas. {map.learning}
+            La base de Sergio es un cerebro: siente lo que usted dice, decide cuánto pensar y aprende de lo que usted responde después, como un cerebro humano. Por dentro, sus neuronas son las de la mosca de la fruta ({map.facts.neurons}, {map.facts.synapses}). {map.learning}
           </p>
+
+          <CoreProof />
+
           <ol className="cn-flow">
             {map.regions.map((r) => (
               <li key={r.key} className="cn-region" data-key={r.key}>
@@ -47,8 +50,6 @@ export function ConnectomePage() {
               </li>
             ))}
           </ol>
-
-          <CoreProof />
 
           <section className="salud-block">
             <h2 className="paper-label">Conexiones aprendidas</h2>

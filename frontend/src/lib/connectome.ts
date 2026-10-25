@@ -185,6 +185,29 @@ export interface CurvePoint {
   grown: number;
 }
 
+/** The human brain that decides every turn (connectome/cortex.py). */
+export interface HumanProof {
+  rondas: Array<{ ronda: number; acierto: number }>;
+  azar: number;
+  dopamina: { recompensas: number; castigos: number; arrepentimientos: number };
+  dormir: { conceptos: number; cambiados: number };
+  conceptos: string[];
+}
+
+export interface HumanNow {
+  regiones: Array<{ region: string; trabajo: string }>;
+  turnos: number;
+  elecciones: Record<string, number>;
+  recompensas: number;
+  castigos: number;
+  arrepentimientos: number;
+  noches: number;
+  neuromoduladores: Record<string, number>;
+  conceptos: Array<{ palabra: string; veces: number; junto: string[] }>;
+  memoria_de_trabajo: string[];
+  sinapsis: number;
+}
+
 export interface CoreProof {
   wiring: {
     real: boolean;
@@ -203,6 +226,8 @@ export interface CoreProof {
   nodes: { pedido: string; instintos: Record<string, Array<{ movida: string; como: string; fuerza: number }>>; divergencia: Record<string, Record<string, number>> };
   brains: Array<{ nombre: string; sinapsis: { medidas: number; cambiadas: number; nuevas: number; podadas_total: number }; episodios: number; noches: number }>;
   hive: { organos: Array<{ nombre: string; mosca: string; trabajo: string; veces: number; fallos: number; ms: number }>; supervisor: { recompensas: number; castigos: number } };
+  humano?: HumanProof;
+  humano_vivo?: Partial<HumanNow>;
 }
 
 export async function coreProof(fresh = false): Promise<CoreProof> {

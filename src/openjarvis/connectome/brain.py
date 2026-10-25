@@ -903,13 +903,23 @@ def mind_context(text: str, channel: str = "chat") -> str:
     parts: List[str] = []
     _turn.selection = None  # a new turn: the last one's choice does not carry over
     try:
+        # The global workspace: what the human brain decided for this turn
+        # (connectome/cortex.py) goes first; empty when a plain answer is right.
+        from openjarvis.connectome.cortex import workspace
+
+        frame = workspace(text, channel)
+    except Exception:  # noqa: BLE001
+        frame = ""
+    if frame:
+        parts.append(frame)
+    try:
         brain = get_brain()
         _organs(brain)
         from openjarvis.connectome.colmena import hive
 
         board = hive().run({"pedido": text, "canal": channel})
     except Exception:  # noqa: BLE001
-        return ""
+        return "\n\n".join(parts)
     block = ""
     got = board.get("memoria")
     if got:
@@ -956,6 +966,12 @@ def remember_exchange(
     try:
         get_brain().observe(user_text, assistant_text, channel=channel)
     except Exception:  # noqa: BLE001 — learning is a bonus, never a failure
+        pass
+    try:
+        from openjarvis.connectome.cortex import outcome
+
+        outcome(user_text, assistant_text, channel or "chat")
+    except Exception:  # noqa: BLE001 — the same
         pass
     try:
         from openjarvis.connectome import estilo as _estilo

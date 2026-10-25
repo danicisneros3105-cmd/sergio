@@ -1,9 +1,10 @@
-// The fly core's proof, drawn: the wiring, a brain learning live, the
-// specialists' curves against chance, the four Node brains and the hive.
+// The core's proof, drawn: the human brain that decides every turn (it
+// learns the owner's taste), then the fly underneath: the wiring, a brain
+// learning live, the specialists' curves, the four Node brains and the hive.
 
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { coreProof, sleepNow, type CoreProof as Proof, type CurvePoint } from '../../lib/connectome';
+import { coreProof, sleepNow, type CoreProof as Proof, type CurvePoint, type HumanNow, type HumanProof } from '../../lib/connectome';
 
 const NODE_NAMES: Record<string, string> = { rihno: 'Rihno', manchas: 'Manchas', hous: 'Hous', tennessee: 'Tennessee' };
 const pct = (v: number) => `${Math.round(v * 100)} %`;
@@ -67,6 +68,82 @@ function Rounds({ proof }: { proof: Proof }) {
   );
 }
 
+const STRATEGY_NAMES: Record<string, string> = { reflejo: 'Reflejo', responder: 'Responder', reflexionar: 'Reflexionar', profundo: 'A fondo' };
+const MOD_NAMES: Record<string, string> = { dopamina: 'Dopamina', noradrenalina: 'Alerta', acetilcolina: 'Novedad', serotonina: 'Calma' };
+
+function Human({ proof, now }: { proof: HumanProof; now: Partial<HumanNow> }) {
+  const choices = Object.entries(now.elecciones ?? {});
+  const most = Math.max(1, ...choices.map(([, v]) => v));
+  const mods = Object.entries(now.neuromoduladores ?? {});
+  return (
+    <>
+      {now.regiones && (
+        <ol className="cp-flow" aria-label="Regiones del cerebro">
+          {now.regiones.map((r) => (
+            <li key={r.region} title={r.trabajo}>
+              {r.region}
+            </li>
+          ))}
+        </ol>
+      )}
+      <div className="cp-grid2">
+        <figure className="cp-card">
+          <figcaption>Aprende el gusto del señor</figcaption>
+          <div className="cp-rounds">
+            {proof.rondas.map((r) => (
+              <div key={r.ronda} className="cp-round">
+                <div className="cp-bar">
+                  <span style={{ height: `${Math.max(2, r.acierto * 100)}%` }} />
+                </div>
+                <strong>{pct(r.acierto)}</strong>
+                <span>{r.ronda === 0 ? 'nace' : `+${r.ronda}`}</span>
+              </div>
+            ))}
+          </div>
+          <p className="cp-foot">
+            +{num(proof.dopamina.recompensas)} / −{num(proof.dopamina.castigos)} dopamina · {num(proof.dopamina.arrepentimientos)} arrepentimientos
+          </p>
+        </figure>
+        <figure className="cp-card">
+          <figcaption>Cómo decide · {num(now.turnos ?? 0)} turnos</figcaption>
+          <ul className="cp-hbars">
+            {choices.map(([k, v]) => (
+              <li key={k}>
+                <span>{STRATEGY_NAMES[k] ?? k}</span>
+                <i>
+                  <b style={{ width: `${(v / most) * 100}%` }} />
+                </i>
+                <strong>{num(v)}</strong>
+              </li>
+            ))}
+          </ul>
+          {mods.length > 0 && (
+            <ul className="cp-hbars cp-mods">
+              {mods.map(([k, v]) => (
+                <li key={k}>
+                  <span>{MOD_NAMES[k] ?? k}</span>
+                  <i>
+                    <b style={{ width: `${Math.max(0, Math.min(1, Math.abs(v))) * 100}%` }} />
+                  </i>
+                </li>
+              ))}
+            </ul>
+          )}
+        </figure>
+      </div>
+      {(now.conceptos?.length ?? 0) > 0 && (
+        <ul className="cp-flow cp-concepts" aria-label="Lo que sabe del señor">
+          {now.conceptos!.map((c) => (
+            <li key={c.palabra} title={c.junto.join(', ')}>
+              {c.palabra} <strong>{num(c.veces)}</strong>
+            </li>
+          ))}
+        </ul>
+      )}
+    </>
+  );
+}
+
 export function CoreProof() {
   const [proof, setProof] = useState<Proof | null>(null);
   const [busy, setBusy] = useState(false);
@@ -88,6 +165,8 @@ export function CoreProof() {
   return (
     <section className="salud-block cp">
       <h2 className="paper-label">El núcleo</h2>
+
+      {proof.humano && <Human proof={proof.humano} now={proof.humano_vivo ?? {}} />}
 
       <div className="cp-wiring" data-real={proof.wiring.real}>
         <div>

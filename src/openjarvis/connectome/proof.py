@@ -18,7 +18,10 @@
   fast and slow memory, nights slept and each night's accuracy before and
   after;
 * **hive** — the organs, how often each worked and the supervisor's
-  rewards and punishments.
+  rewards and punishments;
+* **humano** — the human brain that decides every turn (connectome/cortex.py):
+  a newborn one learns an owner's taste from what he says next and is tested
+  on requests it never saw; **humano_vivo** is the owner's own, as it is now.
 
 Curves and the live run cost about a second; they are cached for ten minutes.
 """
@@ -165,7 +168,7 @@ def proof(core: Any = None, *, fresh: bool = False) -> Dict[str, Any]:
         if hit and not fresh and time.time() - hit["t"] < CACHE_S:
             heavy = hit["heavy"]
         else:
-            heavy = {"live": live(c), "specialists": specialists(c)}
+            heavy = {"live": live(c), "specialists": specialists(c), "humano": human()}
             _cache[key] = {"t": time.time(), "heavy": heavy}
     info = c.info()
     w = c.wiring
@@ -193,7 +196,25 @@ def proof(core: Any = None, *, fresh: bool = False) -> Dict[str, Any]:
         "nodes": nodes(c),
         "brains": brains(c),
         "hive": hive_status(),
+        "humano_vivo": human_now(),
     }
+
+
+def human() -> Dict[str, Any]:
+    """A newborn human brain learns one owner's taste (connectome/cortex.py)."""
+    from openjarvis.connectome.cortex import prove
+
+    return prove()
+
+
+def human_now() -> Dict[str, Any]:
+    """The owner's human brain as it is now: choices, dopamine, concepts."""
+    try:
+        from openjarvis.connectome import cortex
+
+        return cortex.get_human().stats() if cortex.enabled() else {}
+    except Exception:  # noqa: BLE001
+        return {}
 
 
 def clear_cache() -> None:
@@ -225,4 +246,14 @@ def download(progress: Optional[Any] = None) -> Dict[str, Any]:
     return out
 
 
-__all__ = ["brains", "clear_cache", "download", "live", "nodes", "proof", "specialists"]
+__all__ = [
+    "brains",
+    "clear_cache",
+    "download",
+    "human",
+    "human_now",
+    "live",
+    "nodes",
+    "proof",
+    "specialists",
+]

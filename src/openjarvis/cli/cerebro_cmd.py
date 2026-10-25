@@ -48,9 +48,15 @@ def dormir() -> None:
     """Consolida ahora lo aprendido (la noche)."""
     from openjarvis.connectome.core import get_core
 
-    report = get_core().sleep()
+    core = get_core()
+    report = core.sleep()
     if not report:
         console.print("Nada que consolidar todavía.")
+    if core.human_night:
+        console.print(
+            f"Cerebro humano: {core.human_night['conceptos']} conceptos "
+            f"({core.human_night['cambiados']} nuevos o cambiados), sinapsis podadas."
+        )
     for name, r in report.items():
         console.print(
             f"{escape(name)}: {r['episodes']} episodios, acierto {r['accuracy_before']:.0%} → "
@@ -82,6 +88,13 @@ def prueba() -> None:
         console.print(
             f"Especialista {kind}: acierta {last['top3']:.0%} en su top 3 (azar {last['chance_top3']:.0%})"
         )
+    h = p["humano"]
+    console.print(
+        "Cerebro humano, pedidos nunca vistos: "
+        + " → ".join(f"{r['acierto']:.0%}" for r in h["rondas"])
+        + f" (azar {h['azar']:.0%}); dopamina +{h['dopamina']['recompensas']} "
+        f"/ −{h['dopamina']['castigos']}; conceptos al dormir: {', '.join(h['conceptos']) or '—'}"
+    )
     for key, moves in p["nodes"]["instintos"].items():
         console.print(
             f"{key}: «{escape(p['nodes']['pedido'])}» → {', '.join(m['movida'] for m in moves)}"

@@ -204,6 +204,7 @@ async def chat_completions(request_body: ChatCompletionRequest, request: Request
     understood by Terry (agents/terry.py), with «Preguntándole a Terry…» and
     playful status lines streamed while he works."""
     from openjarvis.agents import terry
+    from openjarvis.connectome import cortex
 
     query = _last_user_text(request_body)
     if query:
@@ -212,7 +213,17 @@ async def chat_completions(request_body: ChatCompletionRequest, request: Request
         m.role == "system" and str(m.content or "").startswith("[Quick Chat]")
         for m in request_body.messages
     )  # Quick Chat: speed first, no Terry
-    if request_body.tools or quick or not query or not terry.wanted(query):
+    # The brain decides first (connectome/cortex.py): how much to think, and
+    # whether Terry writes the brief. Without the brain, Terry's own rule.
+    thought = (
+        await asyncio.to_thread(cortex.think, query, "chat")
+        if query and not request_body.tools
+        else None
+    )
+    wants_terry = (
+        thought.terry if thought is not None else bool(query) and terry.wanted(query)
+    )
+    if request_body.tools or quick or not query or not wants_terry:
         return await _chat_completions(request_body, request)
     if not request_body.stream:
         await asyncio.to_thread(_apply_terry, request_body, query, request_body.model)
@@ -340,14 +351,34 @@ async def _chat_completions(request_body: ChatCompletionRequest, request: Reques
                 exc_info=True,
             )
 
-    # Run complexity analysis on the last user message
+    # How much to think: the brain's basal ganglia choose (connectome/cortex.py)
+    # from what they learned; the inherited complexity score is only the
+    # fallback when the brain is switched off.
     complexity_info = None
     query_text_for_complexity = ""
     for m in reversed(request_body.messages):
         if m.role == "user" and m.content:
             query_text_for_complexity = m.content
             break
-    if query_text_for_complexity:
+    thought = None
+    if query_text_for_complexity and not request_body.tools:
+        from openjarvis.connectome import cortex
+
+        thought = cortex.think(str(query_text_for_complexity), "chat")
+    if thought is not None:
+        try:
+            from openjarvis.learning.routing.complexity import adjust_tokens_for_model
+
+            suggested = adjust_tokens_for_model(thought.max_tokens, model)
+        except Exception:  # noqa: BLE001
+            suggested = thought.max_tokens
+        complexity_info = ComplexityInfo(
+            score=thought.score, tier=thought.tier, suggested_max_tokens=suggested
+        )
+        if suggested > request_body.max_tokens:
+            request_body.max_tokens = suggested
+        model = _effort_for(model, thought.tier)
+    elif query_text_for_complexity:
         try:
             from openjarvis.learning.routing.complexity import (
                 adjust_tokens_for_model,

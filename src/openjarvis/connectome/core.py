@@ -51,6 +51,7 @@ class Core:
         self._lock = threading.RLock()
         self._saved = 0.0
         self._sleeping = False
+        self.human_night: Dict[str, Any] = {}
 
     def brain(self, name: str = "sergio") -> MushroomBody:
         with self._lock:
@@ -127,7 +128,22 @@ class Core:
         meta.parent.mkdir(parents=True, exist_ok=True)
         meta.write_text(str(time.time()), "utf-8")
         self.save(force=True)
+        self.human_night = self._human_sleep()
         return report
+
+    def _human_sleep(self) -> Dict[str, Any]:
+        """The same night for the human brain (connectome/cortex.py): replay
+        into concepts and synaptic homeostasis."""
+        if self.folder.name != "connectome":
+            return {}
+        try:
+            from openjarvis.connectome import cortex
+
+            if not cortex.enabled():
+                return {}
+            return cortex.get_human(self.folder.parent).sleep()
+        except Exception:  # noqa: BLE001 — a bad night never breaks the day
+            return {}
 
     def _saved_names(self) -> List[str]:
         return [

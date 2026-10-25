@@ -303,4 +303,7 @@ def test_the_proof_route_measures_learning_and_sleep_works(monkeypatch, tmp_path
     assert set(p["specialists"]) == {"cine", "creadores"}
     assert set(p["nodes"]["instintos"]) == {"rihno", "manchas", "hous", "tennessee"}
     assert not p["wiring"]["real"] and p["wiring"]["neuronas"]["kenyon"] == 2000
+    human = p["humano"]["rondas"]  # the human brain at the base (cortex.py)
+    assert human[-1]["acierto"] > human[0]["acierto"]
+    assert len(p["humano_vivo"]["regiones"]) == 10
     assert client.post("/v1/connectome/sleep").json()["ok"]

@@ -2,6 +2,20 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-10-25 · Claude · La base de Sergio es un cerebro humano (no solo el logo)
+- Lo que OpenJarvis seguía decidiendo en cada mensaje (cuánto pensar por una
+  puntuación fija de complejidad, y no aprender de cómo salió) ahora lo
+  decide `connectome/cortex.py`, organizado como un cerebro humano: tálamo,
+  amígdala, hipocampo, neocorteza, prefrontal, cingulada, ganglios basales,
+  cerebelo, neuromoduladores y sueño, sobre las neuronas de la mosca.
+- Aprende del dueño: «gracias» premia, «no, eso no» castiga y deja cautela en
+  ese tema, «explícame mejor» o «más corto» hacen que responda otra vez al
+  mismo tema como él lo quiere y mueven la elección para la próxima vez.
+- Prueba medida: un cerebro recién nacido con un dueño de gustos propios pasa
+  de 43 % a 100 % en pedidos que nunca vio; por la ruta del chat, después de
+  cuatro «explícame mejor», una explicación nueva ya piensa más (`@medium`).
+- Todo local, 0,1 ms por turno. La página Cerebro lo muestra primero.
+
 ## 2026-10-25 · Claude · Logo de Sergio: la mosca en vez del reactor de OpenJarvis
 - El núcleo ya era el cerebro de la mosca (desde el cuerpo fungiforme); lo que
   el dueño seguía viendo era el icono heredado de OpenJarvis (el reactor azul)

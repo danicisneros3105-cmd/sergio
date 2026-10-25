@@ -207,6 +207,27 @@ termina en la rama `main`, y el dueño actualiza con un único comando.
   Cerebro, `GET /v1/connectome/proof`, `sergio cerebro prueba`). Son pesos de
   verdad y locales, pero no se vende como reentrenar un modelo de lenguaje.
   Algo nuevo que tenga que aprender: un cerebro del núcleo, no otra memoria.
+- **La base es un cerebro humano** (dueño, 25 oct. 2026: «no solo el logo:
+  la base, lo que antes hacía OpenJarvis, simular cómo aprende y funciona un
+  cerebro humano»). `connectome/cortex.py` decide cada turno antes de llamar
+  al modelo: tálamo (código ralo y novedad), amígdala (prisa, peligro, ánimo
+  y cautela aprendida), hipocampo (los engramas de `brain.py`), neocorteza
+  (conceptos que se forman al dormir), prefrontal (memoria de trabajo de 4
+  ideas, tema en curso), cingulada (si duda, el camino cuidadoso), ganglios
+  basales (reflejo / responder / reflexionar / a fondo, actor-crítico Go-NoGo
+  con dopamina), cerebelo (predice cuánto tarda), neuromoduladores y sueño
+  (homeostasis sináptica). Lo que dice el dueño después es la recompensa;
+  «explícame mejor» / «más corto» responden otra vez al mismo tema como lo
+  quiere y enseñan la dirección. Reemplaza en el chat a la puntuación de
+  complejidad heredada (`learning/routing/complexity.py` solo queda si el
+  cerebro está apagado): nivel de esfuerzo, tokens y Terry salen de aquí. El
+  bloque `<mente>` va primero en `mind_context` y está vacío cuando una
+  respuesta normal basta. Se aprende en el equipo (`connectome/humano/`), en
+  0,1 ms por turno, sin red. Prueba medida en la página Cerebro, en
+  `/v1/connectome/proof` (`humano`) y en `sergio cerebro prueba`. No es una
+  simulación de 86 mil millones de neuronas y no se vende como tal. Cada
+  prueba nace con un cerebro nuevo (`tests/conftest.py`). Algo nuevo que
+  converse: pasa por `mind_context` y `remember_exchange`, nunca a su lado.
 - **Terry** (dueño, 24 oct. 2026): los pedidos medianos y complejos pasan
   antes, en segundo plano, por `agents/terry.py`, que entiende qué se quiere
   y escribe el encargo a la medida del modelo que responde. Nunca aparece:

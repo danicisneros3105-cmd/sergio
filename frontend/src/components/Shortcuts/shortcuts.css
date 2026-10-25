@@ -16,7 +16,7 @@
 
 /* the map */
 .cn-lead { font-size: 15.5px; line-height: 1.6; max-width: 72ch; margin: 0 0 22px; }
-.cn-flow { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; counter-reset: region; }
+.cn-flow { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; }
 .cn-region { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; padding: 16px 0 16px 34px; border-top: 1px solid var(--color-border); position: relative; counter-increment: region; }
 .cn-region::before { content: counter(region); position: absolute; left: 0; top: 16px; width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--color-text); display: grid; place-items: center; font-size: 11.5px; }
 .cn-region:not(:last-child)::after { content: ''; position: absolute; left: 11px; top: 40px; bottom: -16px; width: 1px; background: var(--color-border); }
@@ -79,4 +79,16 @@
 .cp-hive li { display: flex; justify-content: space-between; gap: 8px; font-size: 13.5px; border-top: 1px solid var(--color-border); padding-top: 8px; }
 .cp-hive strong { font-variant-numeric: tabular-nums; font-weight: 600; }
 .cp-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+/* The human brain (connectome/cortex.py): its regions in order, how it decides. */
+.cp-flow { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.cp-flow li { padding: 5px 11px; border: 1px solid var(--color-border); border-radius: 999px; font-size: 12.5px; cursor: default; }
+.cp-concepts li strong { font-weight: 600; font-variant-numeric: tabular-nums; margin-left: 4px; }
+.cp-hbars { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.cp-hbars li { display: grid; grid-template-columns: 86px 1fr 34px; align-items: center; gap: 10px; font-size: 13px; }
+.cp-hbars i { height: 8px; border-radius: 4px; background: var(--color-border); overflow: hidden; }
+.cp-hbars b { display: block; height: 100%; border-radius: 4px; background: var(--color-text); transition: width 0.6s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.cp-hbars strong { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+.cp-mods { padding-top: 10px; border-top: 1px solid var(--color-border); }
+.cp-mods li { grid-template-columns: 86px 1fr; }
+.cp-mods b { background: var(--color-text-secondary); }
 .cp { margin-bottom: 28px; }

@@ -17,6 +17,16 @@ import pytest
 
 
 @pytest.fixture(autouse=True)
+def _newborn_human_brain():
+    """Each test meets a newborn human brain (connectome/cortex.py): what one
+    test taught it must not change what another sees."""
+    cortex = sys.modules.get("openjarvis.connectome.cortex")
+    if cortex is not None:
+        cortex.forget()
+    yield
+
+
+@pytest.fixture(autouse=True)
 def _no_external_http(monkeypatch):
     """Unit tests may use loopback or injected transports, never live accounts.
 
