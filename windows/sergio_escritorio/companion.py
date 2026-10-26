@@ -116,7 +116,7 @@ class Companion(QWidget):
             self._happy_until = time.monotonic() + HAPPY_FOR  # answered: smile
         if state != "idle":
             self._wake()
-            self._timer.setInterval(16)
+            self._timer.setInterval(33)
         self.state = state
         self.update()
 
@@ -196,7 +196,7 @@ class Companion(QWidget):
             self._flip = False
             anchor = self._target - QPointF(POINT_PAD, POINT_PAD)
             self._pos += (anchor - self._pos) * 0.14  # a visible glide over
-            self.move(self._pos.toPoint())
+            self._move_to(self._pos)
         elif self.follow:
             cursor = QPointF(QCursor.pos())
             screen = QGuiApplication.screenAt(cursor.toPoint())
@@ -216,24 +216,33 @@ class Companion(QWidget):
             )
             # Critically damped follow: smooth, never overshoots.
             self._pos += (anchor - self._pos) * 0.32
-            self.move(self._pos.toPoint())
+            self._move_to(self._pos)
         if self.caption and time.monotonic() > self._caption_until:
             self.caption = ""
         self.update()
         # 60 Hz only while something moves; a still cursor and a quiet orb
         # need 10 (a top-level window moved and redrawn 60 times a second
         # costs the whole desktop, even on a fast laptop).
+        # Listening or speaking with a still cursor only needs the orb to
+        # breathe: 30 Hz (it was 60 all the time, and the conversation is
+        # always on, owner 26 Oct 2026: «se laguea demasiado»).
         busy = (
             abs(moved.x()) + abs(moved.y()) > 0.5
             or self._target is not None
-            or self.state != "idle"
             or now - self._bounce_at < 1.0
-            or now < self._happy_until
             or now - self._last_move < 0.6
         )
-        interval = 16 if busy else 100
+        alive = self.state != "idle" or now < self._happy_until
+        interval = 16 if busy else 33 if alive else 100
         if self._timer.interval() != interval:
             self._timer.setInterval(interval)
+
+    def _move_to(self, pos: QPointF) -> None:
+        # Only when the window really lands on another pixel: moving a
+        # top-level window costs the whole desktop a recomposition.
+        point = pos.toPoint()
+        if point != self.pos():
+            self.move(point)
 
     # -- drawing ------------------------------------------------------------
     def orb_centre(self) -> QPointF:

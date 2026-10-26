@@ -1,4 +1,5 @@
-// Recognition is approximate. Sensitive actions use Windows Hello in the companion.
+// Sergio's own Face ID: it also approves sensitive actions in the desktop app
+// (owner, 26 Oct 2026), with the backup code after five misses.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Check, Lock, ScanFace, Trash2, UserPlus, X } from 'lucide-react';
@@ -510,7 +511,7 @@ export function FacesPage() {
         )}
       </div>
 
-      <aside className="face-system-proof"><Lock size={20} /><div><strong>Usted confirma. El sistema verifica.</strong><p>Las acciones sensibles requieren consentimiento y Windows Hello: rostro con cámara compatible, huella o PIN. Las muestras de la webcam no autorizan acciones.</p><a href="ms-settings:signinoptions">Configurar Windows Hello ↗</a></div></aside>
+      <aside className="face-system-proof"><Lock size={20} /><div><strong>Usted confirma con su cara.</strong><p>Las acciones importantes (enviar, comprar, borrar, publicar) se aprueban con este Face ID: mire a la pantalla y gire un poco la cabeza. Tras 5 fallos, o si pasa mucho tiempo, Sergio pide su código.</p></div></aside>
 
       {mode.kind === 'home' && (
         <section className="faceid-people">

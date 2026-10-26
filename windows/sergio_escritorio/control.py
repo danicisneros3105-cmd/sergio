@@ -66,7 +66,7 @@ MEDIA_KEYS = {
     "prevtrack",
 }
 TASKS = ("operate", "message", "phone_call", "contact")  # done by the operator
-# One confirmation (Windows Hello) opens a short window for the routine moves
+# One confirmation (Face ID) opens a short window for the routine moves
 # of a task (clicking, typing, keys, opening an app) so the owner is not asked
 # for every click. Anything that sends, runs code, closes, deletes or opens a
 # link or file always asks, and pausing the control ends the window.

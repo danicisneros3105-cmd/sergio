@@ -550,7 +550,7 @@ class FaceApprovalTool(_DesktopTool):
         return ToolSpec(
             name="face_approval",
             description=(
-                "Confirm with Windows Hello that the OWNER "
+                "Confirm with Sergio's own Face ID that the OWNER "
                 "approves something. REQUIRED before publishing/uploading, "
                 "sending, buying, paying or deleting. Display the exact action "
                 "and request system verification; only proceed on APROBADO."
@@ -576,7 +576,7 @@ class FaceApprovalTool(_DesktopTool):
                 timeout=100,
             )
         except RuntimeError as exc:
-            return self._fail(f"NO APROBADO: Windows Hello no disponible ({exc}).")
+            return self._fail(f"NO APROBADO: Face ID no disponible ({exc}).")
         except Exception as exc:  # noqa: BLE001 — models missing, etc.
             return self._fail(
                 f"NO APROBADO: verificación del sistema no disponible ({exc})."
@@ -586,7 +586,7 @@ class FaceApprovalTool(_DesktopTool):
             isinstance(decision, dict)
             and decision.get("approved") is True
             and decision.get("what") == what
-            and decision.get("method") == "windows_hello"
+            and decision.get("method") in ("faceid", "windows_hello")
         ):
             return self._ok(
                 f"APROBADO: el dueño confirmó {what} y su identidad.", approved=True

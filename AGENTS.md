@@ -386,9 +386,17 @@ termina en la rama `main`, y el dueño actualiza con un único comando.
   el contador contra copias. Solo en https o localhost. No desbloquea el
   sistema operativo del PC, Mac o teléfono: eso no lo permite ningún sistema a
   una app (`docs/FACEID-SISTEMA.md`); no lo prometa.
-- Windows Hello: la verificación arranca sola al abrir la hoja, al frente (antes
-  se abría detrás y parecía colgada), y cada respuesta de Windows sale en
-  palabras (`platform_auth.result_text`).
+- **Todo se aprueba con el Face ID propio de Sergio, no con Windows Hello**
+  (dueño, 26 oct. 2026: «recuerda que todo se verifica vía nuestro propio
+  ultra Face ID»). La hoja de confirmación del escritorio (`facegate.py`)
+  usa `faceid_verify.py`: reto de movimiento de un solo uso, ráfaga de la
+  webcam y `/v1/faces/faceid/unlock` (cara viva, mirando, el dueño y nadie
+  más). Luz o un movimiento fallido no gastan intento; tras 5 caras que no
+  coinciden, o si pasó mucho tiempo, pide el código de Sergio en la misma
+  hoja. Sin cámara, sin servidor o sin Face ID configurado: «no». Límite
+  honesto: una webcam no tiene cámara de profundidad como un iPhone.
+  `platform_auth.py` (Windows Hello) queda en el código pero ya no se usa
+  para aprobar.
 - Notch menos cargado (24 oct. 2026): en reposo solo el orbe, centrado; la onda
   solo cuando hay voz; sin el título «Sergio» encima de la respuesta.
 - Voz entre escritorio y ventanas: la ventana tiene prioridad, pero si el
@@ -575,6 +583,20 @@ termina en la rama `main`, y el dueño actualiza con un único comando.
   de un video y solo cuentan lo que dice; un trabajo parado más de 30 min se
   dice «detenido». El bucle de cada minuto retoma los videos a medias
   (`resume_unfinished`, 4 intentos como máximo).
+- **Sin lag** (dueño, 26 oct. 2026: «se laguea demasiado… realentiza el
+  cursor… tarda mucho pensando»): nada de ganchos globales de ratón (el
+  salto del compañero al hacer clic lee el botón 20 veces por segundo); un
+  solo gancho de teclado para todos los atajos; notch y compañero a 30 Hz
+  mientras escuchan/hablan y 60 Hz solo cuando algo se mueve; la ventana del
+  compañero se mueve solo si cambia de píxel; cámara en MJPG y sin pausas
+  extra (manos a 30/s contando la detección). En el servidor: la respuesta
+  del chat se escribe en vivo (`agents/_stubs.stream_tokens`), cada pedido
+  corre en su propia copia del agente (antes una voz esperaba a un chat) y
+  el chat no tiene la herramienta «think» (costaba una llamada extra al
+  modelo antes de casi cada respuesta; `SERGIO_THINK_TOOL=1` la devuelve).
+- **Una sola ventana de Sergio**: al hacer clic en Sergio con la ventana ya
+  abierta (aunque esté minimizada y dormida) se trae al frente esa misma
+  (`launch.focus_open_window`); antes se abría otra igual.
 - Kimi como proveedor y «Digitalsnickers» están descartados.
 - Licencia Apache-2.0 y autoría honesta: no se borran créditos del original.
 

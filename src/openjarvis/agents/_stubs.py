@@ -8,8 +8,12 @@ base for agents that accept tools.
 
 from __future__ import annotations
 
+import asyncio
+import logging
 import re
+import threading
 from abc import ABC, abstractmethod
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
@@ -19,6 +23,39 @@ from openjarvis.core.types import Conversation, Message, Role, ToolResult
 from openjarvis.engine._stubs import InferenceEngine
 
 _ALLOWED_ENGINE_OPTION_KEYS = frozenset({"num_ctx", "num_gpu"})
+_live = threading.local()
+
+
+@contextmanager
+def stream_tokens(sink: Any, agent: Any):
+    """While inside, *agent*'s model calls on this thread send their text to
+    *sink* as it is written (``sink(text)``), so the chat shows the answer
+    live instead of all at once at the end (owner, 26 Oct 2026). Only that
+    agent: a helper agent a tool runs on the same thread stays quiet."""
+    previous = getattr(_live, "sink", None), getattr(_live, "agent", None)
+    _live.sink, _live.agent = sink, agent
+    try:
+        yield
+    finally:
+        _live.sink, _live.agent = previous
+
+
+def _merge_tool_calls(calls: Dict[int, Dict[str, Any]], deltas: List[Any]) -> None:
+    """Fold OpenAI-style streamed tool-call fragments into whole calls."""
+    for i, delta in enumerate(deltas):
+        if not isinstance(delta, dict):
+            continue
+        index = delta.get("index", len(calls) if delta.get("id") else i)
+        call = calls.setdefault(index, {"id": "", "name": "", "arguments": ""})
+        if delta.get("id"):
+            call["id"] = delta["id"]
+        function = delta.get("function") or {}
+        if function.get("name"):
+            call["name"] = function["name"]
+        if function.get("arguments"):
+            call["arguments"] += function["arguments"]
+
+
 _library_mark = "<biblioteca_de_prompts>"
 
 
@@ -308,13 +345,22 @@ class BaseAgent(ABC):
             if key in _ALLOWED_ENGINE_OPTION_KEYS
         }
         gen_kwargs.update(extra_kwargs)
-        result = self._engine.generate(
-            messages,
-            model=self._model,
-            temperature=self._temperature,
-            max_tokens=self._max_tokens,
-            **gen_kwargs,
+        sink = (
+            getattr(_live, "sink", None)
+            if getattr(_live, "agent", None) is self
+            else None
         )
+        result = None
+        if sink is not None and hasattr(self._engine, "stream_full"):
+            result = self._generate_live(messages, sink, gen_kwargs)
+        if result is None:
+            result = self._engine.generate(
+                messages,
+                model=self._model,
+                temperature=self._temperature,
+                max_tokens=self._max_tokens,
+                **gen_kwargs,
+            )
 
         if self._bus and not getattr(self._engine, "_publishes_events", False):
             usage = result.get("usage", {})
@@ -330,6 +376,61 @@ class BaseAgent(ABC):
             )
 
         return result
+
+    def _generate_live(
+        self, messages: list[Message], sink: Any, gen_kwargs: Dict[str, Any]
+    ) -> Optional[dict]:
+        """Like ``engine.generate`` but streamed: text goes to *sink* as it
+        comes; tool calls are put back together. None (and nothing sent) if
+        the engine cannot stream, so the normal call runs instead."""
+        sent = [False]
+
+        async def collect() -> dict:
+            text: list[str] = []
+            calls: Dict[int, Dict[str, Any]] = {}
+            usage: Dict[str, Any] = {}
+            finish = ""
+            async for chunk in self._engine.stream_full(
+                messages,
+                model=self._model,
+                temperature=self._temperature,
+                max_tokens=self._max_tokens,
+                **gen_kwargs,
+            ):
+                if chunk.content:
+                    text.append(chunk.content)
+                    sent[0] = True
+                    try:
+                        sink(chunk.content)
+                    except Exception:  # noqa: BLE001 — the reader left
+                        pass
+                if chunk.tool_calls:
+                    _merge_tool_calls(calls, chunk.tool_calls)
+                if chunk.usage:
+                    usage = dict(chunk.usage)
+                if chunk.finish_reason:
+                    finish = chunk.finish_reason
+            if not text and not calls:
+                # Nothing came back: ask the normal way rather than answer empty.
+                raise RuntimeError("empty stream")
+            out: Dict[str, Any] = {
+                "content": "".join(text),
+                "usage": usage,
+                "finish_reason": finish or ("tool_calls" if calls else "stop"),
+            }
+            if calls:
+                out["tool_calls"] = [calls[k] for k in sorted(calls)]
+            return out
+
+        try:
+            return asyncio.run(collect())
+        except Exception:
+            if sent[0]:
+                raise  # half an answer is on screen: do not write it twice
+            logging.getLogger(__name__).warning(
+                "live answer unavailable, answering at once", exc_info=True
+            )
+            return None
 
     def _max_turns_result(
         self,
@@ -528,4 +629,10 @@ class ToolUsingAgent(BaseAgent):
             )
 
 
-__all__ = ["AgentContext", "AgentResult", "BaseAgent", "ToolUsingAgent"]
+__all__ = [
+    "AgentContext",
+    "AgentResult",
+    "BaseAgent",
+    "ToolUsingAgent",
+    "stream_tokens",
+]

@@ -389,8 +389,27 @@ async def _handle_agent_stream(
         )
         yield f"data: {first_chunk.model_dump_json()}\n\n"
 
-        try:
-            response = await _routes.asyncio.to_thread(
+        # The answer as it is written (agents/_stubs.stream_tokens): before,
+        # the whole reply arrived at once when the agent had finished.
+        loop = _routes.asyncio.get_running_loop()
+        live: _routes.asyncio.Queue = _routes.asyncio.Queue()
+        streamed = [False]
+
+        def sink(text: str) -> None:
+            loop.call_soon_threadsafe(live.put_nowait, text)
+
+        def piece(text: str) -> str:
+            chunk = _routes.ChatCompletionChunk(
+                id=chunk_id,
+                model=model,
+                choices=[
+                    _routes.StreamChoice(delta=_routes.DeltaMessage(content=text))
+                ],
+            )
+            return f"data: {chunk.model_dump_json()}\n\n"
+
+        task = _routes.asyncio.ensure_future(
+            _routes.asyncio.to_thread(
                 _routes._handle_agent,
                 agent,
                 model,
@@ -398,7 +417,19 @@ async def _handle_agent_stream(
                 complexity_info,
                 trace_store=trace_store,
                 bus=bus,
+                sink=sink,
             )
+        )
+        try:
+            while not task.done() or not live.empty():
+                try:
+                    text = await _routes.asyncio.wait_for(live.get(), timeout=0.25)
+                except _routes.asyncio.TimeoutError:
+                    continue
+                if text:
+                    streamed[0] = True
+                    yield piece(text)
+            response = task.result()
         except Exception as exc:
             _routes.logging.getLogger("openjarvis.server").error(
                 "Agent stream error: %s",
@@ -422,15 +453,8 @@ async def _handle_agent_stream(
             return
 
         content = _routes._response_content(response)
-        if content:
-            content_chunk = _routes.ChatCompletionChunk(
-                id=chunk_id,
-                model=model,
-                choices=[
-                    _routes.StreamChoice(delta=_routes.DeltaMessage(content=content))
-                ],
-            )
-            yield f"data: {content_chunk.model_dump_json()}\n\n"
+        if content and not streamed[0]:
+            yield piece(content)
 
         import json as _json
 

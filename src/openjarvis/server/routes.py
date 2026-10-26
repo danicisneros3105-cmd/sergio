@@ -748,6 +748,27 @@ def _get_agent_model_lock(agent: Any) -> threading.Lock:
         return lock
 
 
+def _request_agent(agent: Any, model: str) -> Any:
+    """A per-request copy of *agent* using *model*, or None if it cannot be copied."""
+    import copy
+
+    try:
+        own = copy.copy(agent)
+        if model:
+            own._model = model
+    except Exception:  # noqa: BLE001 — fall back to the serialized override
+        return None
+    guard = getattr(agent, "_loop_guard", None)
+    if guard is not None:
+        try:
+            from openjarvis.agents.loop_guard import LoopGuard
+
+            own._loop_guard = LoopGuard(guard._config, bus=getattr(guard, "_bus", None))
+        except Exception:  # noqa: BLE001 — keep the shared guard
+            pass
+    return own
+
+
 def _handle_agent(
     agent,
     model: str,
@@ -756,8 +777,9 @@ def _handle_agent(
     *,
     trace_store=None,
     bus=None,
+    sink=None,
 ) -> ChatCompletionResponse:
-    """Run through agent.
+    """Run through agent; with *sink*, its text goes there as it is written.
 
     When *trace_store* is set, the agent run is wrapped in a
     ``TraceCollector`` (mirroring ``system/orchestrator.py``) so every
@@ -778,24 +800,39 @@ def _handle_agent(
     # Last message is the input
     input_text = req.messages[-1].content if req.messages else ""
 
-    # Override agent model for this request if the caller specified one.
-    # Locked for the full override-run-restore cycle (#759): only the
-    # override/restore lines racing wouldn't be enough, since agent.run()
-    # itself reads self._model throughout the call.
-    with _get_agent_model_lock(agent):
-        original_model = agent._model
-        if model:
-            agent._model = model
-        try:
-            if trace_store is not None:
-                from openjarvis.traces.collector import TraceCollector
+    def run(target) -> Any:
+        if sink is not None:
+            from openjarvis.agents._stubs import stream_tokens
 
-                collector = TraceCollector(agent, store=trace_store, bus=bus)
-                result = collector.run(input_text, context=ctx)
-            else:
-                result = agent.run(input_text, context=ctx)
-        finally:
-            agent._model = original_model
+            with stream_tokens(sink, target):
+                return _run(target)
+        return _run(target)
+
+    def _run(target) -> Any:
+        if trace_store is not None:
+            from openjarvis.traces.collector import TraceCollector
+
+            collector = TraceCollector(target, store=trace_store, bus=bus)
+            return collector.run(input_text, context=ctx)
+        return target.run(input_text, context=ctx)
+
+    # Each request runs on its own shallow copy of the agent with its model
+    # (#759) and a fresh loop guard. It used to hold one lock for the whole
+    # run, so a voice turn waited for a chat turn (and a Node) to finish
+    # (owner, 26 Oct 2026: «lag en mensajes y voz»), and the loop guard's
+    # counts never reset between requests.
+    own = _request_agent(agent, model)
+    if own is not None:
+        result = run(own)
+    else:  # an agent that cannot be copied: the old serialized override
+        with _get_agent_model_lock(agent):
+            original_model = agent._model
+            if model:
+                agent._model = model
+            try:
+                result = run(agent)
+            finally:
+                agent._model = original_model
 
     usage = UsageInfo(
         prompt_tokens=result.metadata.get("prompt_tokens", 0),

@@ -553,7 +553,9 @@ class Notch(QWidget):
                        and self._press.settled())
                   or self._duo.angle != self._duo.target or self._vanish.active
                   or self._faceid is not None)
-        self._timer.setInterval(16 if moving or self.state != "idle" else 100)
+        # Listening or speaking without a change of shape: 30 Hz is plenty
+        # for the wave (it was 60 all the time with the conversation on).
+        self._timer.setInterval(16 if moving else 33 if self.state != "idle" else 100)
 
     def _respect_fullscreen(self) -> None:
         now = time.monotonic()

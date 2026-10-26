@@ -1,10 +1,10 @@
-"""Webcam recognition with attention and movement checks, not Face ID security.
+"""Sergio's own Face ID: webcam recognition with attention and movement checks.
 
-These checks reduce simple replay errors, but RGB images do not provide trusted
-depth capture, hardware-backed keys or Apple's anti-spoofing guarantees. This
-module never grants sensitive desktop action approval: the companion delegates
-that to explicit consent and Windows Hello. The backup code belongs to Sergio's
-recognition state, not to Windows authentication.
+The owner (26 Oct 2026): «todo se verifica vía nuestro propio ultra Face ID»,
+so the desktop app approves sensitive actions with this (``faceid_verify``)
+instead of Windows Hello. Honest limit: RGB images have no depth camera or
+hardware keys like an iPhone; the one-time movement challenge, the attention
+check, the five-try limit and the backup code are what stand in for them.
 """
 
 from __future__ import annotations

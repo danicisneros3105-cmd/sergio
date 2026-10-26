@@ -1,26 +1,48 @@
-"""A calm native confirmation sheet. Only the OS verdict grants consent."""
+"""A calm native confirmation sheet. Only Sergio's Face ID (or its backup
+code) grants consent; the owner (26 Oct 2026) wants no Windows Hello here."""
 
 from __future__ import annotations
 
+import inspect
 import math
 import threading
 import time
 
 from PySide6.QtCore import QRectF, Qt, QTimer, Signal
 from PySide6.QtGui import QColor, QPainter, QPen
-from PySide6.QtWidgets import QDialog, QLabel, QPlainTextEdit, QPushButton, QVBoxLayout
+from PySide6.QtWidgets import (
+    QDialog,
+    QLabel,
+    QLineEdit,
+    QPlainTextEdit,
+    QPushButton,
+    QVBoxLayout,
+)
 
 from sergio_escritorio import estilo
 from sergio_escritorio.faceid_anim import FaceIDGlyph
-from sergio_escritorio.platform_auth import Consent, verify
+from sergio_escritorio.platform_auth import Consent
+
+
+def _no_verifier(_hwnd, _request, cancel):  # noqa: ANN001
+    return Consent(False, "Face ID no está listo en este equipo.", "faceid")
 
 
 class ConsentDialog(QDialog):
     completed = Signal(object)
+    progress = Signal(str)
 
-    def __init__(self, request: str, *, verifier=verify, reduce_motion: bool = False):
+    def __init__(
+        self,
+        request: str,
+        *,
+        verifier=_no_verifier,
+        check_code=None,
+        reduce_motion: bool = False,
+    ):
         super().__init__()
         self.verifier = verifier
+        self.check_code = check_code  # Sergio's backup code, when Face ID asks for it
         self.reduce_motion = reduce_motion
         self.cancelled = threading.Event()
         self.verified = False
@@ -28,7 +50,7 @@ class ConsentDialog(QDialog):
         self.started = time.monotonic()
         self.request = request
         long_request = len(self.request) > 240 or "\n" in self.request
-        self.setWindowTitle("Confirmar con Windows Hello")
+        self.setWindowTitle("Confirmar con Face ID")
         QTimer.singleShot(60_000, self.reject)
         self.setWindowFlag(Qt.WindowType.FramelessWindowHint)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
@@ -56,7 +78,7 @@ class ConsentDialog(QDialog):
             details.setStyleSheet("color:#eef1f7;background:#18212d;border:1px solid #323c4a;border-radius:8px")
             layout.addWidget(details)
         self.detail = QLabel(
-            "Windows Hello · rostro, huella o PIN\nLa cámara de Sergio no autoriza esta acción."
+            "Face ID de Sergio · mire a la pantalla"
         )
         self.detail.setWordWrap(True)
         self.detail.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -64,7 +86,18 @@ class ConsentDialog(QDialog):
         self.detail.setStyleSheet("color:#9ba5b4")
         layout.addWidget(self.detail)
         layout.addStretch()
-        self.button = QPushButton("Verificar con Windows Hello")
+        self.code = QLineEdit()
+        self.code.setEchoMode(QLineEdit.EchoMode.Password)
+        self.code.setPlaceholderText("Código de Sergio")
+        self.code.setMinimumHeight(40)
+        self.code.setStyleSheet(
+            "color:#eef1f7;background:#18212d;border:1px solid #323c4a;"
+            "border-radius:12px;padding:0 12px"
+        )
+        self.code.returnPressed.connect(self._use_code)
+        self.code.hide()
+        layout.addWidget(self.code)
+        self.button = QPushButton("Verificar con Face ID")
         self.button.setMinimumHeight(44)
         self.button.clicked.connect(self._start)
         layout.addWidget(self.button)
@@ -79,18 +112,18 @@ class ConsentDialog(QDialog):
             "QPushButton:disabled{color:#7c8797}"
         )
         self.completed.connect(self._finish)
+        self.progress.connect(self.detail.setText)
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.update)
         # Face ID's animation (scan → wink and check, or the shake).
         self.glyph = FaceIDGlyph()
-        self._auto = True  # ask Windows at once: no extra click before the prompt
+        self._auto = True  # look at once: no extra click before the camera
 
     def showEvent(self, event):  # noqa: N802 (Qt API)
         super().showEvent(event)
         if self._auto:
             self._auto = False
-            # In front first, or the Windows Hello prompt opens behind
-            # Sergio and looks like a freeze.
+            # In front first, so the instruction is seen while the camera looks.
             self.raise_()
             self.activateWindow()
             QTimer.singleShot(120, self._start)
@@ -103,17 +136,22 @@ class ConsentDialog(QDialog):
         if not self.reduce_motion:
             self.timer.start(16)
         self.button.setEnabled(False)
-        self.detail.setText("Complete la verificación en la ventana de Windows.")
+        self.detail.setText("Mire a la pantalla…")
         hwnd = int(self.winId())
+        try:
+            takes_say = "say" in inspect.signature(self.verifier).parameters
+        except (TypeError, ValueError):
+            takes_say = False
+        extra = {"say": self.progress.emit} if takes_say else {}
 
         def work():
             try:
-                result = self.verifier(hwnd, self.request, cancel=self.cancelled)
+                result = self.verifier(hwnd, self.request, cancel=self.cancelled, **extra)
             except Exception:  # noqa: BLE001 — no successful animation on error
                 result = Consent(False, "La verificación no está disponible.")
             self.completed.emit(result)
 
-        threading.Thread(target=work, daemon=True, name="windows-hello-consent").start()
+        threading.Thread(target=work, daemon=True, name="faceid-consent").start()
 
     def _finish(self, result):
         if self.cancelled.is_set():
@@ -127,10 +165,25 @@ class ConsentDialog(QDialog):
         self.detail.setText(
             result.reason if isinstance(result, Consent) else "No verificado"
         )
+        if not self.verified and getattr(result, "method", "") == "codigo" and self.check_code:
+            # Face ID needs the backup code now (too many tries or a long pause).
+            self.code.show()
+            self.code.setFocus()
+            self.button.setText("Confirmar con el código")
+            self.button.clicked.disconnect()
+            self.button.clicked.connect(self._use_code)
         if self.verified:
             # let the wink and the check play before closing
             QTimer.singleShot(1100 if not self.reduce_motion else 0, self.accept)
         self.update()
+
+    def _use_code(self):
+        code = self.code.text().strip()
+        if not code or self.check_code is None:
+            return
+        self.code.clear()
+        ok = bool(self.check_code(code))
+        self._finish(Consent(ok, "Código correcto." if ok else "Código incorrecto.", "codigo"))
 
     def reject(self):
         self.timer.stop()

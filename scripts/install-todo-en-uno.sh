@@ -119,7 +119,7 @@ add_section intelligence "default_model = \"$MODEL\""
 add_section memory "enabled = true"
 # Herramientas que Sergio puede usar en el chat (Clacky y los datos del planeta:
 # lugares y clima, vuelos, sismos y lanzamientos; el globo no se muestra).
-add_section tools 'enabled = ["think", "calculator", "web_search", "file_read", "user_profile_manage", "clacky_task", "globe_view", "live_flights", "flights_overhead", "live_earthquakes", "upcoming_launches", "phone_call", "phone_call_status", "whatsapp_send", "face_identify", "face_list", "skill_guide"]'
+add_section tools 'enabled = ["calculator", "web_search", "file_read", "user_profile_manage", "clacky_task", "globe_view", "live_flights", "flights_overhead", "live_earthquakes", "upcoming_launches", "phone_call", "phone_call_status", "whatsapp_send", "face_identify", "face_list", "skill_guide"]'
 if $TOKEN_SAVER; then add_section compression "tool_output = true"; fi
 if $WITH_GLOBE; then add_section extensions.globe "enabled = true"; fi
 # Voz en español, local: escucha con Whisper y habla con Kokoro.

@@ -75,8 +75,13 @@ class CameraFeed:
             if hasattr(cv2, "CAP_DSHOW")
             else cv2.VideoCapture(self.index)
         )
+        # MJPG first: many webcams give 720p uncompressed at only 5-10 FPS
+        # through DirectShow, which made Sergio ve and the hands lag.
+        cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
         cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)  # detail for objects in hand
         cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+        cap.set(cv2.CAP_PROP_FPS, 30)
+        cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)  # the newest frame, not an old one
         if not cap.isOpened():
             self.error = "No encuentro la cámara (¿la usa otra app?)"
             self._running = False
@@ -93,7 +98,10 @@ class CameraFeed:
                 idle = time.monotonic() - self._last_use > IDLE_OFF_SECONDS
                 if idle and not self.keep_on:
                     break
-                time.sleep(0.03)
+                if not ok:
+                    time.sleep(0.03)
+                # read() already waits for the next frame: an extra sleep
+                # here halved the frame rate and added delay.
         finally:
             cap.release()
             self._running = False

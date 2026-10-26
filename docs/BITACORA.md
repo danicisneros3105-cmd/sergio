@@ -2,6 +2,27 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-10-26 · Claude · Sin lag, Face ID propio y una sola ventana
+- Cursor lento: un gancho global de ratón (solo para que el compañero salte
+  al hacer clic) hacía que cada movimiento esperara a Python. Quitado: ahora
+  se lee el botón 20 veces por segundo. Los tres atajos y Ctrl+Alt usan un
+  solo gancho de teclado.
+- Notch y compañero: a 30 Hz mientras escuchan o hablan (la conversación
+  siempre está activa y pintaban a 60 Hz sin parar); el compañero solo mueve
+  su ventana si cambia de píxel.
+- Sergio ve y manos: cámara en MJPG (muchas webcams daban 5-10 FPS a 720p),
+  búfer de 1 cuadro y sin la pausa de 30 ms; las manos esperaban 33 ms
+  después de cada detección (mitad de velocidad).
+- Respuestas: medido en el servidor, la respuesta llegaba entera al final y
+  antes el modelo llamaba a «think» (una vuelta extra). Ahora se escribe en
+  vivo, «think» fuera del chat y cada pedido en su propia copia del agente
+  (antes un candado ponía en fila voz, chat y Nodes; además el guardián de
+  bucles nunca se reiniciaba). Aquí, Sergio añade ~0,5 s sobre Gemini.
+- Aprobar acciones con el Face ID propio (no Windows Hello), con el código
+  de respaldo en la misma hoja.
+- Clic en Sergio con la ventana minimizada ya no abre otra igual.
+- Pruebas: `tests/agents/test_live_answer.py`, `tests/escritorio/test_faceid_verify.py`.
+
 ## 2026-10-26 · Claude · Los Nodes ya no inventan avances de video
 - Queja del dueño: pidió un video hace un día y un Node le contó que «el motor
   arrancó en modo Post». No había nada en marcha: el trabajo se quedó a medias

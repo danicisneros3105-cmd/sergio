@@ -394,8 +394,18 @@ def serve(
                     except Exception as exc:  # noqa: BLE001
                         logger.warning("Connectors not loaded: %s", exc)
 
-                    if tools:
-                        agent_kwargs["tools"] = tools
+                    # The chat answers without the «think» scratchpad: the
+                    # model reasons by itself, and that tool cost a whole extra
+                    # model call before nearly every answer (measured, owner
+                    # 26 Oct 2026: «tarda mucho tiempo pensando»).
+                    chat_tools = [
+                        t
+                        for t in tools
+                        if t.spec.name != "think"
+                        or os.environ.get("SERGIO_THINK_TOOL") == "1"
+                    ]
+                    if chat_tools:
+                        agent_kwargs["tools"] = chat_tools
                     # Reuse these for the scheduler's ToolExecutor (#263).
                     resolved_tools = tools
 

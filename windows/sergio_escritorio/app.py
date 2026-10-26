@@ -246,6 +246,30 @@ def main() -> None:
         raise
 
 
+def start_click_watch(on_click: Callable[[], None], every: float = 0.05) -> None:
+    """Call *on_click* when the left mouse button goes down, by polling
+    (Windows only; no hook, so the cursor never waits for Python)."""
+    if sys.platform != "win32":
+        return
+    import ctypes
+
+    state = ctypes.windll.user32.GetAsyncKeyState
+
+    def loop() -> None:
+        was = False
+        while True:
+            down = bool(state(0x01) & 0x8000)  # VK_LBUTTON
+            if down and not was:
+                try:
+                    on_click()
+                except Exception:  # noqa: BLE001 — a hop is never worth a crash
+                    pass
+            was = down
+            time.sleep(every)
+
+    threading.Thread(target=loop, name="click-watch", daemon=True).start()
+
+
 def run(config: dict[str, Any]) -> None:
     from pynput import keyboard
     from PySide6.QtCore import QObject, Signal
@@ -419,7 +443,7 @@ def run(config: dict[str, Any]) -> None:
         backend,
         on_activity=on_activity,
         camera=camera_shot,
-        approve=lambda _request: False,  # fail closed until Windows Hello is wired
+        approve=lambda _request: False,  # fail closed until Face ID is wired
         strict_permissions=config.get("strict_permissions", True) is not False,
         live=live,
     )
@@ -3375,6 +3399,9 @@ def run(config: dict[str, Any]) -> None:
         ) or ("", False)
         if not ok or not code.strip():
             return False
+        return code_ok(code)
+
+    def code_ok(code: str) -> bool:
         try:
             out = client.http.post(
                 f"{client.base}/v1/faces/faceid/passcode/check",
@@ -3388,10 +3415,15 @@ def run(config: dict[str, Any]) -> None:
         return out.get("ok") is True
 
     def owner_approves(request: str, seconds: float = 10.0) -> bool:
-        """Explicit action consent and Windows Hello; webcam matches are labels."""
+        """Explicit action consent with Sergio's own Face ID (owner, 26 Oct
+        2026: no Windows Hello); its backup code when Face ID asks for it."""
         if not request.strip():
             return False
+        from sergio_escritorio import faceid_verify
         from sergio_escritorio.facegate import ConsentDialog
+
+        def look(_hwnd, _request, cancel, say=lambda _t: None):  # noqa: ANN001
+            return faceid_verify.verify(client.http, client.base, feed, cancel=cancel, say=say)
 
         def ask() -> bool:
             # The island shows Face ID too, as on the iPhone.
@@ -3399,7 +3431,7 @@ def run(config: dict[str, Any]) -> None:
                 notch.faceid("scan")
             except Exception:  # noqa: BLE001 — the notch is a bonus
                 pass
-            dialog = ConsentDialog(request)
+            dialog = ConsentDialog(request, verifier=look, check_code=code_ok)
             dialog.exec()
             ok = dialog.verified and not dialog.cancelled.is_set()
             try:
@@ -3411,8 +3443,8 @@ def run(config: dict[str, Any]) -> None:
         try:
             return on_ui(ask, timeout=70.0) is True
         except Exception:  # noqa: BLE001 — fail closed if the OS is unavailable
-            logging.exception("Windows Hello verification unavailable")
-            bridge.caption.emit("No aprobado: confirme con Windows Hello en este equipo.")
+            logging.exception("Face ID verification unavailable")
+            bridge.caption.emit("No aprobado: confirme con Face ID en este equipo.")
             return False
 
     assistant.approve = owner_approves
@@ -3423,7 +3455,7 @@ def run(config: dict[str, Any]) -> None:
     def owner_approval(args: dict) -> dict:
         what = str(args.get("what") or "").strip()
         return {"what": what, "approved": bool(what) and owner_approves(what),
-                "method": "windows_hello"}
+                "method": "faceid"}
 
     controller.skills["owner_approval"] = owner_approval
     controller.skills["voice_enroll"] = lambda args: voice_enroll(str(args.get("name") or ""))
@@ -4139,19 +4171,19 @@ def run(config: dict[str, Any]) -> None:
             end_call()
 
     bridge.toggle.connect(lambda: set_control(not controller.enabled))
-    hotkeys = keyboard.GlobalHotKeys(
-        {
-            HOTKEY_TALK: bridge.talk.emit,
-            HOTKEY_STOP: bridge.toggle.emit,
-            HOTKEY_CAMERA: bridge.camera.emit,
-        }
-    )
-    hotkeys.start()
+    # One keyboard hook for the shortcuts and Ctrl+Alt (each pynput listener
+    # is a system-wide hook that every key press waits on).
+    hotkeys = [
+        keyboard.HotKey(keyboard.HotKey.parse(combo), action)
+        for combo, action in (
+            (HOTKEY_TALK, bridge.talk.emit),
+            (HOTKEY_STOP, bridge.toggle.emit),
+            (HOTKEY_CAMERA, bridge.camera.emit),
+        )
+    ]
 
     # Clicky: hold Ctrl+Alt, talk while holding, release to send. Sergio looks
     # at your screen with the question and points at what you need.
-    from pynput import mouse
-
     from sergio_escritorio.hold import HoldDetector
 
     def hold_start() -> None:
@@ -4162,10 +4194,24 @@ def run(config: dict[str, Any]) -> None:
             ears.hold_start()
 
     detector = HoldDetector(hold_start, ears.hold_end, ears.hold_cancel)
-    keyboard.Listener(on_press=detector.press, on_release=detector.release).start()
-    mouse.Listener(
-        on_click=lambda _x, _y, _b, pressed: bridge.clicked.emit() if pressed else None
-    ).start()
+    keys: Any = None
+
+    def key_down(key: Any) -> None:
+        detector.press(key)
+        for hotkey in hotkeys:
+            hotkey.press(keys.canonical(key))
+
+    def key_up(key: Any) -> None:
+        detector.release(key)
+        for hotkey in hotkeys:
+            hotkey.release(keys.canonical(key))
+
+    keys = keyboard.Listener(on_press=key_down, on_release=key_up)
+    keys.start()
+    # The companion's hop on a click: the button state is read 20 times a
+    # second instead of a system-wide mouse hook, which made the cursor
+    # stutter whenever Python was busy (owner, 26 Oct 2026: «realentiza el cursor»).
+    start_click_watch(bridge.clicked.emit)
 
     # -- extra windows (blocking, agents) and the language ---------------------
     from sergio_escritorio import bloqueo

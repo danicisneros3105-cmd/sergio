@@ -294,6 +294,7 @@ class HandControl:
             self.mode = "off"
             return
         while self.mode != "off":
+            started = time.monotonic()
             frame = self.frames()
             if frame is None:
                 time.sleep(0.1)
@@ -304,7 +305,9 @@ class HandControl:
                 log.exception("hand detection failed")
                 hands = []
             self.process(hands, time.monotonic())
-            time.sleep(1 / 30)
+            # 30 a second counting the detection itself (a fixed 33 ms pause
+            # after it made the hands half as fast and a frame late).
+            time.sleep(max(0.0, 1 / 30 - (time.monotonic() - started)))
         self.hands = []
 
 

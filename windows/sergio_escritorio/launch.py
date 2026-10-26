@@ -109,6 +109,54 @@ def bring_to_front(title: str) -> bool:
     return False
 
 
+def _exe_of(hwnd: int) -> str:
+    """The program file name behind a window (``msedge.exe``), or ''."""
+    import ctypes
+    from ctypes import wintypes
+
+    user32, kernel32 = ctypes.windll.user32, ctypes.windll.kernel32  # type: ignore[attr-defined]
+    pid = wintypes.DWORD()
+    user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+    handle = kernel32.OpenProcess(0x1000, False, pid.value)  # QUERY_LIMITED_INFORMATION
+    if not handle:
+        return ""
+    try:
+        buf = ctypes.create_unicode_buffer(520)
+        size = wintypes.DWORD(len(buf))
+        if not kernel32.QueryFullProcessImageNameW(handle, 0, buf, ctypes.byref(size)):
+            return ""
+        return os.path.basename(buf.value).lower()
+    finally:
+        kernel32.CloseHandle(handle)
+
+
+def is_sergio_window(title: str, exe: str) -> bool:
+    """Sergio's own app window: an Edge window whose page is called Sergio."""
+    return exe == "msedge.exe" and (title == "Sergio" or title.startswith("Sergio "))
+
+
+def focus_open_window() -> bool:
+    """Bring the Sergio window already open to the front, even if it is
+    minimized and asleep (then it does not answer ``/v1/app/wait``, and a
+    click on Sergio used to open a second, identical window)."""
+    if sys.platform != "win32":
+        return False
+    try:
+        import ctypes
+
+        from sergio_escritorio.windows_backend import _visible_windows
+
+        user32 = ctypes.windll.user32  # type: ignore[attr-defined]
+        for hwnd, name in _visible_windows(minimized=True):
+            if is_sergio_window(name, _exe_of(hwnd)):
+                user32.ShowWindow(hwnd, 9)  # SW_RESTORE
+                user32.SetForegroundWindow(hwnd)
+                return True
+    except Exception:  # noqa: BLE001 — then a new window opens, as before
+        pass
+    return False
+
+
 def _edge() -> str | None:
     return shutil.which("msedge") or next(
         (
@@ -167,6 +215,15 @@ def _claim_when_shown(seconds: float = 8.0) -> None:
 def _launch(edge: str, url: str) -> None:
     if show_in_open_window(url):
         return
+    if focus_open_window():
+        # Woken up, the window asks the server again: give it the page.
+        import time
+
+        for _ in range(6):
+            time.sleep(0.5)
+            if show_in_open_window(url):
+                break
+        return
     try:
         subprocess.Popen([edge, f"--app={window_url(url)}", "--window-size=1280,800"])
         threading.Thread(target=_claim_when_shown, daemon=True).start()
@@ -205,6 +262,8 @@ def open_app_window(url: str, wait: bool = False) -> None:
 
 __all__ = [
     "bring_to_front",
+    "focus_open_window",
+    "is_sergio_window",
     "is_app_page",
     "open_app_window",
     "server_up",
