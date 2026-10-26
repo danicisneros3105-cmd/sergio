@@ -85,6 +85,39 @@ LABEL = {
     "block": "nunca lo haces",
 }
 
+_VIDEO_WORDS = (
+    "video",
+    "vídeo",
+    "clip",
+    "render",
+    "montaje",
+    "edicion",
+    "edición",
+    "donde esta",
+    "dónde está",
+    "ya esta",
+    "ya está",
+    "listo",
+    "como va",
+    "cómo va",
+    "avance",
+)
+
+
+def _with_truth(request: str, prompt: str) -> str:
+    """The real state of the videos when the turn may be about one, so a Node
+    never invents progress (video_essay/job.truth)."""
+    text = (request or "").lower()
+    if not any(w in text for w in _VIDEO_WORDS):
+        return prompt
+    try:
+        from openjarvis.video_essay.job import truth
+
+        return f"{prompt}\n\n{truth()}"
+    except Exception:  # noqa: BLE001 — never block a turn
+        return prompt
+
+
 TURN_PROMPT = """Eres «{name}», un Node de Sergio: un empleado digital persistente que trabaja \
 para el usuario de forma continua, como un asistente de confianza a distancia.
 Tu función: {instructions}
@@ -111,6 +144,9 @@ añade cada uno como <siguiente>orden corta en imperativo</siguiente> (él los p
 pedírtelos).
 {connections}
 Nunca inventes resultados: si no lo comprobaste con una herramienta, dilo.
+Nunca digas que un video, render o encargo arrancó, avanza o está casi listo si \
+una herramienta no lo confirmó en este turno o <videos_reales> no lo dice: si no hay nada \
+en marcha, dilo claro y ofrece empezarlo.
 
 Lo que recuerdas:
 {memory}
@@ -625,20 +661,24 @@ class NodeWorker:
             instructions = node.instructions or "ayudar al usuario en lo que pida"
             tone = TONES.get(node.tone, TONES["cercano"])
             character = ""
-        return TURN_PROMPT.format(
-            name=node.name,
-            instructions=instructions,
-            tone=tone,
-            character=character,
-            computer=self.store.computer(node.id),
-            apps=apps or "ninguna todavía",
-            rules=rules,
-            keys=", ".join(k for k, v in effective.items() if v == "ask") or "ninguna",
-            connections=self._connections_help(node),
-            memory=self.store.memory(node.id)[-6000:] or "(nada todavía)",
-            recent="\n".join(lines) or "(nada)",
-            source=job["source"],
-            request=job["request"],
+        return _with_truth(
+            job["request"],
+            TURN_PROMPT.format(
+                name=node.name,
+                instructions=instructions,
+                tone=tone,
+                character=character,
+                computer=self.store.computer(node.id),
+                apps=apps or "ninguna todavía",
+                rules=rules,
+                keys=", ".join(k for k, v in effective.items() if v == "ask")
+                or "ninguna",
+                connections=self._connections_help(node),
+                memory=self.store.memory(node.id)[-6000:] or "(nada todavía)",
+                recent="\n".join(lines) or "(nada)",
+                source=job["source"],
+                request=job["request"],
+            ),
         )
 
     # -- its own brain ----------------------------------------------------------

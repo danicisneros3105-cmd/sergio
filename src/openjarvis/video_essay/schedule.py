@@ -225,6 +225,11 @@ def start_loop(interval: float = 60.0) -> None:
             try:
                 if load():
                     tick()
+                # A video left half done by a restart or a crash picks up again
+                # (four tries at most, job.MAX_ATTEMPTS) instead of waiting forever.
+                from openjarvis.video_essay import job as jobs
+
+                jobs.resume_unfinished()
             except Exception:  # noqa: BLE001 — the loop never dies
                 log.exception("scheduled videos")
 

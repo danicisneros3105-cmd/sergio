@@ -800,6 +800,59 @@ def summary(st: Dict[str, Any]) -> str:
     )
 
 
+STALLED_MINUTES = 30  # «en curso» without a single update this long: stopped
+
+
+def truth(
+    now: Optional[float] = None, root: Optional[Path] = None, hours: float = 72
+) -> str:
+    """What is REALLY happening with the videos, for every turn of the chat and
+    the Nodes (owner, 27 Oct 2026: a Node said «el motor ha arrancado en modo
+    Post» a day after the request, with no video at all). Models only tell
+    what this says; with no job, there is no video in the works."""
+    now = time.time() if now is None else now
+    lines = []
+    for job in all_jobs(root):
+        st = job.state()
+        created = float(st.get("created") or 0)
+        if now - created > hours * 3600:
+            continue
+        ago = max(0, int((now - created) / 60))
+        when = (
+            f"pedido hace {ago // 60} h {ago % 60} min"
+            if ago >= 60
+            else f"pedido hace {ago} min"
+        )
+        status = st.get("status")
+        quiet = (now - float(st.get("updated") or created)) / 60
+        if status == "en curso" and (
+            job.id not in _running or not _running[job.id].is_alive()
+        ):
+            if quiet > STALLED_MINUTES:
+                text = (
+                    f"«{st.get('title') or (st.get('params') or {}).get('prompt', '')[:60] or 'Video'}» está "
+                    f"DETENIDO (sin avance desde hace {int(quiet // 60)} h {int(quiet % 60)} min, paso "
+                    f"«{LABELS.get(st.get('stage', ''), st.get('stage', ''))}»). Se puede reintentar."
+                )
+            else:
+                text = summary(st)
+        else:
+            text = summary(st).split("\n")[0]
+        lines.append(f"- [{job.id}] {text} ({when})")
+    if not lines:
+        return (
+            "<videos_reales>Ningún video pedido en los últimos 3 días: no hay nada en marcha. "
+            "Si el usuario espera uno, díselo con claridad y ofrece empezarlo ahora con la "
+            "herramienta de video.</videos_reales>"
+        )
+    return (
+        "<videos_reales>Estado REAL de los videos (lo dice el código, no tú):\n"
+        + "\n".join(lines[:6])
+        + "\nNunca digas que un video avanza, arrancó o está casi listo si aquí no aparece así. "
+        "Si está detenido o falló, dilo tal cual, sin adornos, y ofrece reintentarlo.</videos_reales>"
+    )
+
+
 def _tell_hous(job_id: str, st: Dict[str, Any]) -> None:
     try:
         from openjarvis.nodes.store import NodeStore
@@ -950,5 +1003,5 @@ def guard(params: Dict[str, Any], root: Optional[Path] = None) -> tuple:
 
 __all__ = [
     "Deps", "Job", "LABELS", "STAGES", "all_jobs", "cancel", "create", "get",
-    "guard", "jobs_dir", "launch", "resume_unfinished", "retry", "run", "running", "start", "summary",
+    "guard", "jobs_dir", "launch", "resume_unfinished", "retry", "run", "running", "start", "summary", "truth",
 ]  # fmt: skip

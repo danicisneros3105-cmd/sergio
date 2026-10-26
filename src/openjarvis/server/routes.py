@@ -132,6 +132,12 @@ def _ensure_identity_prompt(messages: list[Message], app_config) -> list[Message
             guidance = ""
         if guidance:
             prompt = f"{prompt}\n\n{guidance}"
+        try:  # never invent progress on a video (video_essay/job.truth)
+            from openjarvis.nodes.worker import _with_truth
+
+            prompt = _with_truth(last_user, prompt)
+        except Exception:  # noqa: BLE001
+            pass
 
     system_parts = []
     if prompt:

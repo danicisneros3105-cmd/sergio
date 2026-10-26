@@ -569,6 +569,12 @@ termina en la rama `main`, y el dueño actualiza con un único comando.
   dueño se le sigue llamando «señor». Una habilidad apagada no llega al
   modelo (`ToolExecutor`). «Deshacer» revierte lo último que Sergio hizo en
   el PC (`deshacer.py`, solo lo reversible y de los últimos 30 min).
+- **Nadie inventa avances de video** (dueño, 26 oct. 2026: un Node dijo «el
+  motor ha arrancado en modo Post» un día después, sin video): el chat y los
+  Nodes reciben `<videos_reales>` (`video_essay/job.truth`) cuando se habla
+  de un video y solo cuentan lo que dice; un trabajo parado más de 30 min se
+  dice «detenido». El bucle de cada minuto retoma los videos a medias
+  (`resume_unfinished`, 4 intentos como máximo).
 - Kimi como proveedor y «Digitalsnickers» están descartados.
 - Licencia Apache-2.0 y autoría honesta: no se borran créditos del original.
 

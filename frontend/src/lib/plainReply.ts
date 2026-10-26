@@ -41,6 +41,7 @@ export function categoryLabel(category: string): string {
 // Tags that are only for the code: removed with what they hold.
 const HIDDEN_BLOCKS = [
   'recordar',
+  'videos_reales',
   'cli',
   'mcp',
   'api',

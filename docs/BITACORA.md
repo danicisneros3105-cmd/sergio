@@ -2,6 +2,18 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-10-26 · Claude · Los Nodes ya no inventan avances de video
+- Queja del dueño: pidió un video hace un día y un Node le contó que «el motor
+  arrancó en modo Post». No había nada en marcha: el trabajo se quedó a medias
+  tras un reinicio y nadie lo retomaba; el Node no sabía el estado real.
+- `job.truth()`: estado real de los videos de los últimos 3 días (listo, en
+  curso, detenido, falló). Se añade al turno del chat y de los Nodes cuando se
+  habla de video; la etiqueta `<videos_reales>` no se ve en pantalla.
+- Regla en el prompt de los Nodes: no decir que algo arrancó o avanza sin que
+  una herramienta o `<videos_reales>` lo confirme.
+- El bucle de cada minuto retoma los videos a medias (`resume_unfinished`).
+- Pruebas: `tests/test_video_truth.py`.
+
 ## 2026-10-26 · Claude · Centro de control, personalización, 3D por piezas, videos y rendimiento
 - Centro de control del notch: una sola página con «En marcha» (con Detener),
   interruptores redondos y seis mosaicos (Multitarea, Deshacer, Uso, Modelo y
