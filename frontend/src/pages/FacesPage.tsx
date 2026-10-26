@@ -6,6 +6,7 @@ import { apiFetch } from '../lib/api';
 import { FaceGlyph } from '../components/Accounts/FaceGlyph';
 import '../components/Studio/studio.css';
 import { mediaProblem } from '../lib/compat';
+import { addressWord } from '../lib/personal';
 
 interface Person {
   name: string;
@@ -345,7 +346,7 @@ export function FacesPage() {
     }
     setMode(
       out.ok
-        ? { kind: 'done', ok: true, title: `Hola, ${out.name || 'señor'}`, text: `Reconocido en ${out.ms} ms.` }
+        ? { kind: 'done', ok: true, title: `Hola${out.name || addressWord() ? `, ${out.name || addressWord()}` : ''}`, text: `Reconocido en ${out.ms} ms.` }
         : {
             kind: 'done',
             ok: false,

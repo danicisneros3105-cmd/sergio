@@ -273,6 +273,23 @@ def live_instructions(start: dict[str, Any], owner: str = "") -> str:
         )
         + ANATOMY_POLICY
         + (f"\n\n{library}" if library else "")
+        + _address()
+    )
+
+
+def _address() -> str:
+    """How this person wants to be addressed, if not «señor» (personal.py)."""
+    try:
+        from openjarvis.personal import address_line
+
+        how = address_line()
+    except Exception:  # noqa: BLE001 — no profile: the persona's default
+        return ""
+    if not how:
+        return ""
+    return (
+        "\n\nDonde estas instrucciones dicen «el señor», se refieren a la persona "
+        f"dueña de esta cuenta. {how}"
     )
 
 

@@ -70,3 +70,26 @@ def test_routes(client):
     assert models["modelos"][0]["id"].startswith("gemini-")
     assert [e["id"] for e in models["esfuerzos"]] == ["auto", "low", "medium", "high"]
     assert client.get("/v1/personal/en-marcha").json() == {"en_marcha": []}
+
+
+def test_nodes_and_voice_follow_how_the_person_is_addressed(tmp_path, monkeypatch):
+    monkeypatch.setenv("OPENJARVIS_HOME", str(tmp_path))
+    from openjarvis.nodes import team
+    from openjarvis.speech import gemini_live
+
+    rihno = team.member("rihno")
+    # The owner (no profile): «señor», de usted, nothing added to the prompts.
+    assert team.greeting(rihno).startswith("Buenos días, señor.")
+    assert gemini_live._address() == "" and "Donde dice" not in team.character_block(
+        rihno
+    )
+    personal.save({"trato": "tu", "nombre": "Sam"}, tmp_path)
+    hello = team.greeting(rihno)
+    assert hello.startswith("Buenos días, Sam.") and "Tú me dices" in hello
+    assert "señor" not in hello.lower()
+    assert "tuteas" in gemini_live._address() and "tuteas" in team.character_block(
+        rihno
+    )
+    personal.save({"trato": "neutro", "nombre": ""}, tmp_path)
+    for m in team.TEAM:
+        assert "señor" not in team.greeting(m).lower()

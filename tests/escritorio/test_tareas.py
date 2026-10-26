@@ -99,7 +99,11 @@ def test_island_voice_orders():
 def test_undo_by_voice():
     from sergio_escritorio.quick import parse_quick
 
-    for said in ("Sergio, deshaz eso", "deshaz lo último por favor", "revierte la última acción"):
+    for said in (
+        "Sergio, deshaz eso",
+        "deshaz lo último por favor",
+        "revierte la última acción",
+    ):
         quick = parse_quick(said)
         assert quick is not None and quick.kind == "undo", said
     # Not a bare «deshacer» order: these go to the model as usual.

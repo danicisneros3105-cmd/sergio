@@ -22,6 +22,8 @@ import {
   Search,
 } from 'lucide-react';
 import { listConnectors } from '../../lib/connectors-api';
+import { usePersonal } from '../../lib/personal';
+import { greetingLine } from '../../lib/greetings';
 
 /** What a person needs to know about the model: fast, thorough or on this PC. */
 export function friendlyModel(id: string): string {
@@ -63,6 +65,12 @@ export function ChatArea() {
   const navigate = useNavigate();
   const conversations = useAppStore((s) => s.conversations);
   const selectedModel = useAppStore((s) => s.selectedModel);
+  const chatKind = useAppStore((s) => s.chatKind);
+  const personal = usePersonal();
+  const hello = useMemo(
+    () => greetingLine(personal, { kind: chatKind === 'voz' ? 'voice' : 'chat' }),
+    [personal, chatKind],
+  );
   const title = conversations.find((c) => c.id === activeId)?.title || 'Chat';
   const listRef = useRef<HTMLDivElement>(null);
   const shouldAutoScroll = useRef(true);
@@ -223,7 +231,7 @@ export function ChatArea() {
       >
         {isEmpty ? (
           <div className="mac-rise text-center" style={{ ['--i' as string]: 0 }}>
-            <h1 className="chat-hello">¿En qué trabajamos hoy, señor?</h1>
+            <h1 className="chat-hello">{hello}</h1>
           </div>
         ) : (
           <div className="imsg-thread max-w-[var(--chat-max-width)] mx-auto px-4 py-6">

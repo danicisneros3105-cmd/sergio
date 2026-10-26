@@ -40,6 +40,7 @@ import {
   type MemoryStats,
 } from '../lib/api';
 import { AccountsPanel } from '../components/Accounts/AccountsPanel';
+import { PersonalPanel, SkillsPanel } from '../components/Settings/PersonalPanel';
 import { isAutoUpdateDisabled, setAutoUpdateDisabled } from '../components/Desktop/UpdateChecker';
 
 const CLOUD_KEY_STATUS_CHANGED = 'openjarvis-cloud-key-status-changed';
@@ -510,6 +511,14 @@ export function SettingsPage() {
         </nav>
 
         <div className="flex flex-col gap-4">
+          <Section title="Tú">
+            <PersonalPanel />
+          </Section>
+
+          <Section title="Habilidades">
+            <SkillsPanel />
+          </Section>
+
           {/* Appearance */}
           <Section title="Apariencia">
             <SettingRow label="Tema" description="Cómo se ve Sergio">

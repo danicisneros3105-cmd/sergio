@@ -3,6 +3,7 @@
 // page paths. Pure functions and data only (no React), so they are tested.
 
 import type { Block, BlockType, Page } from './model';
+import { getPersonal, withAddress } from '../personal';
 
 // -- covers: the gallery's colours and gradients, or an uploaded image --------
 export const COVERS: Array<{ key: string; name: string; css: string }> = [
@@ -181,12 +182,12 @@ export function editedAgo(ms: number, now = Date.now()): string {
   return `Editado el ${new Date(ms).toLocaleDateString('es', { day: 'numeric', month: 'short', year: 'numeric' })}`;
 }
 
-export function greeting(now = new Date()): string {
+export function greeting(now = new Date(), who = withAddress(getPersonal(), 'es')): string {
   const h = now.getHours();
-  if (h < 6) return 'Buenas noches, señor';
-  if (h < 13) return 'Buenos días, señor';
-  if (h < 20) return 'Buenas tardes, señor';
-  return 'Buenas noches, señor';
+  if (h < 6) return `Buenas noches${who}`;
+  if (h < 13) return `Buenos días${who}`;
+  if (h < 20) return `Buenas tardes${who}`;
+  return `Buenas noches${who}`;
 }
 
 /** Every «/» entry belongs to exactly one group (the menu shows them all). */

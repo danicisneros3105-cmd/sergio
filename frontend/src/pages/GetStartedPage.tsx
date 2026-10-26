@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
+import { usePersonal, welcome } from '../lib/personal';
 import { Check, Command, Copy, MessageSquare, ScanFace, Search, Users } from 'lucide-react';
 
 const UPDATE =
@@ -54,6 +55,7 @@ const STEPS: Array<{ icon: typeof Check; color: string; title: string; text: str
 export const ONBOARDED = 'sergio-onboarded';
 
 export function GetStartedPage() {
+  const personal = usePersonal();
   const navigate = useNavigate();
   const [copied, setCopied] = useState(false);
   // Seen once: from now on Sergio opens where the owner asked (chat, Nodes…).
@@ -67,7 +69,7 @@ export function GetStartedPage() {
   return (
     <div className="paper-page start-page">
       <h1 className="chat-hello">
-        <span className="chat-hello-name">Bienvenido, señor</span>
+        <span className="chat-hello-name">{welcome(personal)}</span>
       </h1>
       <div className="start-steps">
         {STEPS.map(({ icon: Icon, color, title, text, to, cta }, i) => (

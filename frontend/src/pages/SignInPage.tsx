@@ -12,6 +12,7 @@ import { BrandMark } from '../components/Brand/BrandMark';
 import { BRANDS } from '../lib/brands';
 import { passkeyProblem, passkeyReady, signInWithFace } from '../lib/passkey';
 import { FaceGlyph } from '../components/Accounts/FaceGlyph';
+import { getPersonal, welcome, withAddress } from '../lib/personal';
 
 interface State {
   accounts: number;
@@ -78,7 +79,7 @@ export function SignInPage() {
   const done = (a: Answer) => {
     if (a.status === 'dentro' && a.token) {
       updateSettings({ apiKey: a.token });
-      toast.success('Bienvenido, señor.');
+      toast.success(`${welcome()}.`);
       navigate('/');
       return;
     }
@@ -121,7 +122,7 @@ export function SignInPage() {
 
   const withFace = async () => {
     setFace('scan');
-    setNote('Mirándole, señor…');
+    setNote(`${getPersonal().trato === 'tu' ? 'Mirándote' : 'Mirándole'}${withAddress()}…`);
     try {
       const a = await signInWithFace(dev);
       if (a.status === 'dentro') {

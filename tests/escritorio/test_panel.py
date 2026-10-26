@@ -188,12 +188,19 @@ def test_home_shows_only_quick_buttons_and_whats_running(qt):
     panel._show_home(
         {
             "running": [
-                {"quien": "Rihno", "que": "Investiga precios", "detener": "/v1/nodes/n1/cancel"},
+                {
+                    "quien": "Rihno",
+                    "que": "Investiga precios",
+                    "detener": "/v1/nodes/n1/cancel",
+                },
             ]
         }
     )
     texts = [
-        panel.running_box.itemAt(i).widget().findChildren(type(panel.title))[-1].toolTip()
+        panel.running_box.itemAt(i)
+        .widget()
+        .findChildren(type(panel.title))[-1]
+        .toolTip()
         for i in range(panel.running_box.count())
     ]
     assert texts[0] == "Rihno · Investiga precios"
@@ -212,8 +219,18 @@ def test_sheets_model_skills_display_and_back(qt):
                 200,
                 json={
                     "modelos": [
-                        {"id": "gemini-3.6-flash", "nombre": "Gemini 3.6 Flash", "para": "Rápido", "disponible": True},
-                        {"id": "gemini-2.5-pro", "nombre": "Gemini 2.5 Pro", "para": "", "disponible": False},
+                        {
+                            "id": "gemini-3.6-flash",
+                            "nombre": "Gemini 3.6 Flash",
+                            "para": "Rápido",
+                            "disponible": True,
+                        },
+                        {
+                            "id": "gemini-2.5-pro",
+                            "nombre": "Gemini 2.5 Pro",
+                            "para": "",
+                            "disponible": False,
+                        },
                     ]
                 },
             )
@@ -221,11 +238,20 @@ def test_sheets_model_skills_display_and_back(qt):
             on = b"true" in (request.content or b"true")
             return httpx.Response(
                 200,
-                json={"habilidades": [{"clave": "imagenes", "nombre": "Imágenes", "hace": "", "activa": on}]},
+                json={
+                    "habilidades": [
+                        {
+                            "clave": "imagenes",
+                            "nombre": "Imágenes",
+                            "hace": "",
+                            "activa": on,
+                        }
+                    ]
+                },
             )
         return httpx.Response(404)
 
-    panel, *_ , saved, _ = _panel(qt)
+    panel, *_, saved, _ = _panel(qt)
     panel.actions.http = httpx.Client(transport=httpx.MockTransport(server))
     panel.model_tile.click()
     assert panel.pages.currentIndex() == panel.MODEL_SHEET
@@ -254,7 +280,9 @@ def test_page_titles_in_the_users_language(qt):
     from sergio_escritorio.panel import ControlCenter, PanelActions
 
     panel = ControlCenter(PanelActions(config={"language": "en"}))
-    names = [panel.page_name(i) for i in range(panel.DISPLAY_SHEET + 1) if i != panel.HOME]
+    names = [
+        panel.page_name(i) for i in range(panel.DISPLAY_SHEET + 1) if i != panel.HOME
+    ]
     assert names == [
         "Chat", "Nodes", "Agent Swarm", "Cowork", "Health", "Profile", "Settings",
         "Model", "Skills", "Display",

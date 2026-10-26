@@ -6,11 +6,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { CornerDownLeft, MessageSquare, Search } from 'lucide-react';
 import { learnedFor, rank, reinforce, type Ranked, type Shortcut } from '../../lib/connectome';
+import { usePersonal, withAddress } from '../../lib/personal';
 import './shortcuts.css';
 
 const WHY: Record<Ranked['why'], string> = { reflejo: '', aprendido: 'aprendido', ambos: 'aprendido' };
 
 export function ShortcutPalette({ onRun, onAsk, onClose }: { onRun: (s: Shortcut) => void; onAsk: (text: string) => void; onClose: () => void }) {
+  const personal = usePersonal();
   const [query, setQuery] = useState('');
   const [learned, setLearned] = useState<Array<{ action: string; score: number }>>([]);
   const [at, setAt] = useState(0);
@@ -78,7 +80,7 @@ export function ShortcutPalette({ onRun, onAsk, onClose }: { onRun: (s: Shortcut
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={onKey}
-            placeholder="Adónde vamos, señor"
+            placeholder={`Adónde vamos${withAddress(personal, 'es')}`}
             aria-label="Buscar un atajo"
             aria-activedescendant={`sc-${at}`}
             role="combobox"

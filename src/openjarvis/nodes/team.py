@@ -404,34 +404,84 @@ con el contexto que necesita</equipo>; su respuesta te llegará para que la inte
 No le pases algo que puedes hacer tú bien.
 
 ANTES DE RESPONDER, COMPRUEBA: ¿suena a {m.name} y no a un asistente genérico? \
-¿seguiste tu método? ¿entregas lo que siempre entregas? ¿nada inventado?"""
+¿seguiste tu método? ¿entregas lo que siempre entregas? ¿nada inventado?{_address()}"""
+
+
+def _address() -> str:
+    """«el señor» above is the account's owner; how they want to be addressed."""
+    try:
+        from openjarvis.personal import address_line
+
+        how = address_line()
+    except Exception:  # noqa: BLE001
+        return ""
+    return (
+        f"\n\nDonde dice «el señor», es la persona dueña de esta cuenta. {how}"
+        if how
+        else ""
+    )
+
+
+# First words, in each member's voice; {w} is «, señor», «, Ana» or nothing
+# (personal.py: how the person wants to be addressed).
+_GREETINGS_USTED = {
+    "rihno": (
+        "Buenos días{w}. Soy Rihno. Llevo el orden de sus cosas y coordino al "
+        "equipo: Tennessee hace la estrategia, Hous el diseño y Manchas la "
+        "difusión. Usted me dice qué quiere conseguir y yo se lo presento listo "
+        "para «Aprobar». ¿Por dónde empezamos?"
+    ),
+    "manchas": (
+        "¡Hola{w}! Manchas al habla. Yo hago que el mundo entero hable de lo suyo: "
+        "investigo a fondo qué mueve a la gente y lo convierto en ideas que nadie "
+        "se atreve a hacer. Deme un producto y un objetivo, y prepárese."
+    ),
+    "hous": (
+        "Hola{w}. Hous. Diseño cosas que la gente se queda mirando: marca, "
+        "pantallas, imágenes. Sin plástico, sin prisa. Cuénteme qué tiene que "
+        "sentir quien lo vea."
+    ),
+    "tennessee": (
+        "Tennessee. Analizo números y estrategia, y le digo la verdad aunque no le "
+        "guste: por qué pierde dinero y cómo dejar de hacerlo. Tráigame datos; si "
+        "no los tiene, le digo cuáles buscar."
+    ),
+}
+_GREETINGS_TU = {
+    "rihno": (
+        "Buenos días{w}. Soy Rihno. Llevo el orden de tus cosas y coordino al "
+        "equipo: Tennessee hace la estrategia, Hous el diseño y Manchas la "
+        "difusión. Tú me dices qué quieres conseguir y yo te lo presento listo "
+        "para «Aprobar». ¿Por dónde empezamos?"
+    ),
+    "manchas": (
+        "¡Hola{w}! Manchas al habla. Yo hago que el mundo entero hable de lo tuyo: "
+        "investigo a fondo qué mueve a la gente y lo convierto en ideas que nadie "
+        "se atreve a hacer. Dame un producto y un objetivo, y prepárate."
+    ),
+    "hous": (
+        "Hola{w}. Hous. Diseño cosas que la gente se queda mirando: marca, "
+        "pantallas, imágenes. Sin plástico, sin prisa. Cuéntame qué tiene que "
+        "sentir quien lo vea."
+    ),
+    "tennessee": (
+        "Tennessee. Analizo números y estrategia, y te digo la verdad aunque no te "
+        "guste: por qué pierdes dinero y cómo dejar de hacerlo. Tráeme datos; si "
+        "no los tienes, te digo cuáles buscar."
+    ),
+}
 
 
 def greeting(m: Member) -> str:
     """Its first words, in its own voice (no model call needed)."""
-    return {
-        "rihno": (
-            "Buenos días, señor. Soy Rihno. Llevo el orden de sus cosas y coordino al "
-            "equipo: Tennessee hace la estrategia, Hous el diseño y Manchas la "
-            "difusión. Usted me dice qué quiere conseguir y yo se lo presento listo "
-            "para «Aprobar». ¿Por dónde empezamos?"
-        ),
-        "manchas": (
-            "¡Señor! Manchas al habla. Yo hago que el mundo entero hable de lo suyo: "
-            "investigo a fondo qué mueve a la gente y lo convierto en ideas que nadie "
-            "se atreve a hacer. Deme un producto y un objetivo, y prepárese."
-        ),
-        "hous": (
-            "Hola, señor. Hous. Diseño cosas que la gente se queda mirando: marca, "
-            "pantallas, imágenes. Sin plástico, sin prisa. Cuénteme qué tiene que "
-            "sentir quien lo vea."
-        ),
-        "tennessee": (
-            "Tennessee. Analizo números y estrategia, y le digo la verdad aunque no le "
-            "guste: por qué pierde dinero y cómo dejar de hacerlo. Tráigame datos; si "
-            "no los tiene, le digo cuáles buscar."
-        ),
-    }[m.key]
+    from openjarvis import personal
+
+    p = personal.load()
+    how = p.get("trato", "señor")
+    name = str(p.get("nombre") or "").strip()
+    word = {"señor": "señor", "señora": "señora"}.get(how, name)
+    table = _GREETINGS_TU if how == "tu" else _GREETINGS_USTED
+    return table[m.key].format(w=f", {word}" if word else "")
 
 
 def public(m: Member) -> Dict[str, str]:
