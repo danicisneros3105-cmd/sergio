@@ -3847,3 +3847,29 @@ li.msheet-for { padding: 10px 14px; }
 .msheet-problem { margin: 0; font-size: 12.5px; color: var(--color-error); }
 .msheet-advanced { justify-self: center; font-size: 12.5px; color: var(--color-text-secondary); background: none; cursor: pointer; }
 .msheet-advanced:hover { color: var(--color-accent-text); }
+
+/* A model to take apart, inside the chat (components/Chat/PartsViewer.tsx). */
+.parts-viewer { position: relative; display: grid; gap: 8px; margin: 6px 0 4px; max-width: 640px; padding: 8px; border-radius: 18px; background: var(--color-surface); border: 1px solid var(--color-border); box-shadow: var(--shadow-card, none); }
+.parts-viewer:fullscreen { max-width: none; border-radius: 0; grid-template-rows: 1fr auto auto auto; }
+.parts-stage { position: relative; height: clamp(260px, 52vw, 400px); border-radius: 12px; overflow: hidden; background: var(--color-bg-secondary); touch-action: none; }
+.parts-viewer:fullscreen .parts-stage { height: auto; }
+.parts-stage canvas { display: block; width: 100% !important; height: 100% !important; }
+.parts-stage .anatomy-embed-wait { position: absolute; inset: 0; display: grid; place-items: center; }
+.parts-tools { position: absolute; top: 8px; right: 8px; display: flex; gap: 6px; }
+.parts-tools .mac-icon-btn { background: var(--color-surface); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12); }
+.parts-bar { display: flex; align-items: center; gap: 12px; padding: 0 4px; }
+.parts-slider { flex: 1; display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--color-text-secondary); }
+.parts-slider input { flex: 1; accent-color: var(--color-accent); }
+.parts-count { font-size: 12.5px; color: var(--color-text-tertiary); }
+.parts-card { display: grid; gap: 4px; padding: 10px 12px; border-radius: 12px; background: var(--color-accent-subtle); font-size: 13.5px; color: var(--color-text); }
+.parts-card b { font-weight: 600; }
+.parts-card-actions { display: flex; gap: 8px; margin-top: 2px; }
+.parts-card-actions button { padding: 4px 10px; border-radius: 999px; font-size: 12.5px; background: var(--color-surface); color: var(--color-accent-text); cursor: pointer; }
+.parts-list { font-size: 13px; padding: 0 4px; }
+.parts-list summary { cursor: pointer; color: var(--color-text-secondary); }
+.parts-group { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; margin-top: 6px; }
+.parts-group-name { width: 100%; font-size: 11.5px; text-transform: capitalize; color: var(--color-text-tertiary); }
+.parts-group button { padding: 3px 9px; border-radius: 999px; font-size: 12px; background: var(--color-bg-secondary); color: var(--color-text); cursor: pointer; }
+.parts-group button[aria-pressed='true'] { background: var(--color-accent); color: #fff; }
+.parts-credit { padding: 0 4px; font-size: 11.5px; color: var(--color-text-tertiary); }
+.parts-list-body { max-height: 200px; overflow: auto; padding-right: 4px; }

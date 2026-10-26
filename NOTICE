@@ -123,3 +123,8 @@ Detalle legal y decisiones: docs/LEGAL.md.
 Lucide icons (https://lucide.dev) — ISC License, Copyright (c) Lucide Contributors.
 Used in the web app (lucide-react) and, as SVG paths, in the Windows app
 (windows/sergio_escritorio/iconos.py).
+
+Poly Haven (https://polyhaven.com) — 3D models downloaded on demand by
+«modelo_por_piezas» are CC0 (public domain). Nothing from Poly Haven ships
+with Sergio; each downloaded model keeps its source and authors in its
+meta.json and on screen.

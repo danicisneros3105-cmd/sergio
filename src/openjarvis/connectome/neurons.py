@@ -90,7 +90,7 @@ NEURONS: Dict[str, Neuron] = {
                ("calendar_upcoming", "calendar_search", "queue_action", "reminders")),
         Neuron("tresd", "3D y planos", "Modelos 3D, CAD y planos.",
                ("3d", "cad", "blender", "modelo 3", "plano", "pieza", "maqueta"),
-               ("blender_create", "professional_apps")),
+               ("blender_create", "professional_apps", "modelo_por_piezas")),
         Neuron("codigo", "Código", "Escribe, ejecuta y arregla programas.",
                ("codigo", "programa en", "script", "python", "javascript", "error en",
                 "bug", "funcion"),

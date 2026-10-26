@@ -90,6 +90,57 @@ async def anatomy_view(name: str, light: bool = False) -> FileResponse:
     )
 
 
+# -- models to take apart in the chat (despiece.py) ------------------------------
+
+
+@router.get("/despiece")
+async def despiece_list() -> dict[str, Any]:
+    from openjarvis.creator import despiece
+
+    return {"modelos": await asyncio.to_thread(despiece.models)}
+
+
+@router.get("/despiece/view/{name}")
+async def despiece_view(name: str) -> dict[str, Any]:
+    from openjarvis.creator import despiece
+
+    try:
+        meta = despiece.meta(name)
+    except CreatorError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return {**meta, "url": f"/v1/creator/despiece/file/{name}/{meta['archivo']}"}
+
+
+@router.get("/despiece/file/{name}/{rel:path}")
+async def despiece_file(name: str, rel: str) -> FileResponse:
+    from openjarvis.creator import despiece
+
+    try:
+        path = despiece.file_path(name, rel)
+    except CreatorError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    kinds = {
+        ".glb": "model/gltf-binary",
+        ".gltf": "model/gltf+json",
+        ".json": "application/json",
+    }
+    return FileResponse(path, media_type=kinds.get(path.suffix.lower()))
+
+
+class DespieceRequest(BaseModel):
+    request: str
+
+
+@router.post("/despiece/create")
+async def despiece_create(body: DespieceRequest) -> dict[str, Any]:
+    from openjarvis.creator import despiece
+
+    try:
+        return await asyncio.to_thread(despiece.create, body.request)
+    except Exception as exc:  # noqa: BLE001
+        raise _fail(exc) from exc
+
+
 # -- design and images -------------------------------------------------------------
 
 

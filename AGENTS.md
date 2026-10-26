@@ -536,6 +536,15 @@ termina en la rama `main`, y el dueño actualiza con un único comando.
   esconder el notch) y Habilidades. Sin barra de pestañas: Chat, Nodes,
   Swarm, Salud y Ajustes quedan a un paso con «Volver». Nada nuevo entra a la
   página de inicio sin quitar otra cosa.
+- **Modelos 3D por piezas dentro del chat** (dueño, 26 oct. 2026: «un auto
+  ultra detallado… verlo pieza por pieza con la skill anatomy»): herramienta
+  `modelo_por_piezas` (`creator/despiece.py`, `/v1/creator/despiece/*`,
+  visor `components/Chat/PartsViewer.tsx`). Sergio lo dibuja con medidas
+  reales (un auto de prueba: 181 piezas en ~2 min), o abre un .glb/.gltf del
+  equipo, o baja un modelo **solo CC0** de Poly Haven con su crédito. **Mods
+  y modelos sacados de videojuegos no se usan**: son de sus estudios. El
+  visor dibuja solo cuando algo cambia (nunca un bucle a 60 fps) y se carga
+  solo cuando hay un modelo en el chat.
 - **Aprobaciones en palabras simples** (dueño, 26 oct. 2026: «salen mensajes
   raros… debemos ser simples pero profesionales»): ninguna etiqueta interna
   (`<aprobacion>`, `<cli>`, `<mente>`…) llega a la pantalla; una aprobación

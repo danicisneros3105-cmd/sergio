@@ -86,4 +86,92 @@ class AnatomyFigureTool(BaseTool):
         return ToolResult(tool_name=self.tool_id, content=text, success=True)
 
 
-__all__ = ["AnatomyFigureTool", "view"]
+@ToolRegistry.register("modelo_por_piezas")
+class TakeApartModelTool(BaseTool):
+    """3D models that take apart inside the chat (creator/despiece.py)."""
+
+    tool_id = "modelo_por_piezas"
+
+    @property
+    def spec(self) -> ToolSpec:
+        return ToolSpec(
+            name="modelo_por_piezas",
+            description=(
+                "A detailed 3D model the person can turn, take apart and see piece "
+                "by piece INSIDE the chat (each part named, with what it does). "
+                "Use it when someone asks for a 3D model, a car, an engine, a "
+                "machine, a building or anything to see «por piezas». "
+                "action='crear' draws it from 'request' with real measurements "
+                "(1-3 minutes; very detailed); 'buscar' finds free CC0 models on "
+                "the internet (never game mods or ripped assets) and 'descargar' "
+                "gets one by 'id'; 'abrir' shows a .glb/.gltf on this computer "
+                "('path'). Put the returned link in the answer as is."
+            ),
+            parameters={
+                "type": "object",
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": ["crear", "buscar", "descargar", "abrir"],
+                    },
+                    "request": {
+                        "type": "string",
+                        "description": "what to model (crear) or search (buscar)",
+                    },
+                    "id": {
+                        "type": "string",
+                        "description": "model id from buscar (descargar)",
+                    },
+                    "path": {
+                        "type": "string",
+                        "description": ".glb/.gltf file (abrir)",
+                    },
+                },
+                "required": ["action"],
+            },
+            category="creative",
+            timeout_seconds=600,
+        )
+
+    def execute(self, **params: Any) -> ToolResult:
+        from openjarvis.creator import despiece
+        from openjarvis.creator.llm import CreatorError
+
+        action = str(params.get("action") or "crear")
+        try:
+            if action == "buscar":
+                hits = despiece.search_cc0(str(params.get("request") or ""))
+                if not hits:
+                    return self._ok(
+                        "No encontré modelos libres (CC0) con eso. Puedo dibujarlo yo: action='crear'."
+                    )
+                lines = [f"- {h['id']}: {h['nombre']} (CC0)" for h in hits]
+                return self._ok("Modelos libres encontrados:\n" + "\n".join(lines))
+            if action == "descargar":
+                meta = despiece.download(str(params.get("id") or ""))
+            elif action == "abrir":
+                meta = despiece.register_file(str(params.get("path") or ""))
+            else:
+                meta = despiece.create(str(params.get("request") or ""))
+        except CreatorError as exc:
+            return ToolResult(tool_name=self.tool_id, content=str(exc), success=False)
+        except Exception as exc:  # noqa: BLE001 — the internet, a broken file
+            return ToolResult(
+                tool_name=self.tool_id,
+                content=f"No pude preparar el modelo: {exc}",
+                success=False,
+            )
+        parts = f" con {meta['piezas']} piezas" if meta.get("piezas") else ""
+        credit = f" Fuente: {meta['fuente']}" + (
+            f", licencia {meta['licencia']}." if meta.get("licencia") else "."
+        )
+        return self._ok(
+            f"Modelo «{meta['titulo']}» listo{parts}; aparece en el chat con este enlace: "
+            f"{despiece.view(meta['name'])}.{credit}"
+        )
+
+    def _ok(self, text: str) -> ToolResult:
+        return ToolResult(tool_name=self.tool_id, content=text, success=True)
+
+
+__all__ = ["AnatomyFigureTool", "TakeApartModelTool", "view"]

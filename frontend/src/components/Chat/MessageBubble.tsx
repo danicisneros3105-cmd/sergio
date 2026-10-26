@@ -1,6 +1,6 @@
 import { ApprovalCard } from './ApprovalCard';
 import { plainReply } from '../../lib/plainReply';
-import { useState, useMemo } from 'react';
+import { Suspense, lazy, useState, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import rehypeHighlight from 'rehype-highlight';
 import rehypeKatex from 'rehype-katex';
@@ -17,7 +17,10 @@ import { SpeakMessageButton } from './SpeakMessageButton';
 import type { ChatMessage } from '../../types';
 import { stripThinkTags } from '../../lib/message-text';
 import { anatomyNames, withoutAnatomyLinks } from '../../lib/anatomy';
+import { despieceNames, withoutDespieceLinks } from '../../lib/despiece';
 import { AnatomyEmbed } from './AnatomyEmbed';
+
+const PartsViewer = lazy(() => import('./PartsViewer'));
 import { isVideo, mediaOf } from '../../lib/imessage';
 
 interface Props {
@@ -151,7 +154,7 @@ export function MessageBubble({ message, isLive = false, tail = true, receipt = 
   // Internal tags never reach the screen; a permission request becomes a card.
   const plain = useMemo(() => plainReply(rawContent), [rawContent]);
   // Figure links become the figures themselves (drawn below), never raw text.
-  const cleanContent = useMemo(() => withoutAnatomyLinks(plain.text), [plain.text]);
+  const cleanContent = useMemo(() => withoutDespieceLinks(withoutAnatomyLinks(plain.text)), [plain.text]);
   const extraMedia = useMemo(() => mediaOf(message), [message]);
 
   // Build a ref→source lookup once per render. Memoized so the rehype plugin
@@ -239,6 +242,14 @@ export function MessageBubble({ message, isLive = false, tail = true, receipt = 
       {!isLive &&
         anatomyNames(rawContent, ...(message.toolCalls ?? []).map((tc) => tc.result)).map((name) => (
           <AnatomyEmbed key={name} name={name} />
+        ))}
+
+      {/* 3D models to take apart, piece by piece (three.js loads only when one is shown) */}
+      {!isLive &&
+        despieceNames(rawContent, ...(message.toolCalls ?? []).map((tc) => tc.result)).map((name) => (
+          <Suspense key={name} fallback={<div className="anatomy-embed-wait">Armando el modelo…</div>}>
+            <PartsViewer name={name} />
+          </Suspense>
         ))}
 
       {/* Copy and read aloud, quietly under the bubble */}
