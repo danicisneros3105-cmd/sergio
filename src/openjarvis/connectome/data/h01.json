@@ -1,0 +1,16 @@
+{
+  "fuente": "H01 — Google Research y laboratorio Lichtman (Harvard), Science 2024",
+  "url": "gs://h01-release/data/20210601/c3",
+  "licencia": "CC BY 4.0",
+  "region": "corteza temporal humana, 1 mm³",
+  "partes_leidas": 2,
+  "partes_totales": 332,
+  "neuronas": 2336,
+  "conexiones": 1418,
+  "sinapsis": 1448,
+  "sha256": {
+    "h01_neuronas.csv.gz": "52c5e848b349e4407f5aa7c56e440d73e6efd933eb1e5a3e619543723f2861ca",
+    "h01_sinapsis.csv.gz": "e2363c93c1245bf7155029a8d303ae41d87612cc7b5131518d744de08c8c63c7"
+  },
+  "fecha": "2026-10-26"
+}

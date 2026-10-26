@@ -187,7 +187,17 @@ def test_switched_off_with_the_rest_of_the_mind(monkeypatch):
     assert cortex.workspace("hola") == ""
 
 
-def test_the_chat_route_takes_the_brains_decision(monkeypatch):
+@pytest.fixture
+def clean_memory():
+    """The route test writes engrams into the shared memory zone: wipe them
+    afterwards so other tests' recalls are not changed."""
+    from openjarvis.connectome.brain import get_brain
+
+    yield
+    get_brain().forget()
+
+
+def test_the_chat_route_takes_the_brains_decision(monkeypatch, clean_memory):
     fastapi = pytest.importorskip("fastapi")  # noqa: F841
     from unittest.mock import MagicMock
 

@@ -48,7 +48,15 @@ termina en la rama `main`, y el dueño actualiza con un único comando.
 - Diseño (decisión del dueño, oct. 2026): **idéntico al de ChatGPT** (o al de
   Muse de Meta), no inventado: fondo blanco / #212121, barra lateral gris
   claro, letra del sistema, botones negros redondeados, sin degradados ni
-  colores de adorno.
+  colores de adorno. **Cambiado el 26 oct. 2026** («que no se vea triste
+  pero tampoco maximalista, usa Apple de referencia»): la contención de
+  Apple — lienzo gris claro (#f5f5f7) y tarjetas blancas (de noche negro y
+  #1c1c1e), texto casi negro, **un solo acento: el azul del sistema**
+  (#007aff / #0a84ff) en lo que se pulsa o está elegido (botones, iconos de
+  la barra lateral como en un Mac, fila elegida, pestaña activa), y verde,
+  naranja y rojo del sistema solo para decir cómo salió algo. Nada de
+  degradados ni fondos de color. Es la última capa de `index.css`
+  («Apple look»); los tokens nuevos van ahí.
 - Nodes (dueño, oct. 2026): un **equipo fijo de cuatro** que nadie crea,
   borra, renombra ni personaliza: **Rihno** (orquestador y asistente
   ejecutivo; rinoceronte de ojos cerrados, cuerno blanco crema, camiseta a
@@ -223,7 +231,16 @@ termina en la rama `main`, y el dueño actualiza con un único comando.
   cerebro está apagado): nivel de esfuerzo, tokens y Terry salen de aquí. El
   bloque `<mente>` va primero en `mind_context` y está vacío cuando una
   respuesta normal basta. Se aprende en el equipo (`connectome/humano/`), en
-  0,1 ms por turno, sin red. Prueba medida en la página Cerebro, en
+  0,1 ms por turno, sin red. **Su capa de corteza es humana y real**
+  (dueño, 26 oct. 2026: «si usaste el conectoma de Google, agrégalo»):
+  `connectome/h01.py` con el conectoma H01 de Google (1 mm³ de corteza
+  temporal humana, CC BY 4.0): las neuronas con soma, su tipo y capa, y las
+  sinapsis medidas entre ellas, extraídas de las 332 partes del volcado por
+  `scripts/h01_corteza.py` y guardadas en `connectome/data/` con su SHA-256
+  (si no coincide, no se usa). Lo que deja pasar el tálamo entra por la capa
+  4 y recorre las sinapsis reales (piramidales excitan, interneuronas
+  inhiben, solo queda encendido el 3 %); los ganglios basales leen esa
+  respuesta. `SERGIO_H01=0` la apaga. Prueba medida en la página Cerebro, en
   `/v1/connectome/proof` (`humano`) y en `sergio cerebro prueba`. No es una
   simulación de 86 mil millones de neuronas y no se vende como tal. Cada
   prueba nace con un cerebro nuevo (`tests/conftest.py`). Algo nuevo que
@@ -262,8 +279,8 @@ termina en la rama `main`, y el dueño actualiza con un único comando.
   tras una pausa, «Entregado»/«Leído», campo redondo con la flecha azul
   (`lib/imessage.ts`, `MessageBubble.tsx`, `.imsg-*` en `index.css`). Las
   imágenes y videos que hace una herramienta salen siempre en el chat.
-- Sin emojis y sin colores en la interfaz (dueño, oct. 2026): negro, blanco y
-  grises; iconos de línea. Excepciones: el azul de iMessage en el chat y, desde
+- Sin emojis (dueño, oct. 2026); iconos de línea. Colores: solo los del
+  diseño Apple de arriba (26 oct. 2026), antes negro, blanco y grises. Excepciones: el azul de iMessage en el chat y, desde
   el 24 oct. 2026, el logo y la barra del color de cada servicio en
   Conectores, Plugins, Cowork y `sergio mcp list` (ver «Logos de servicios»).
   El color solo vive en lo que el dueño crea (sus diseños, fotos, 3D) y en los

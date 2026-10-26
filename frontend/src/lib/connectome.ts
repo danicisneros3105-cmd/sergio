@@ -192,6 +192,19 @@ export interface HumanProof {
   dopamina: { recompensas: number; castigos: number; arrepentimientos: number };
   dormir: { conceptos: number; cambiados: number };
   conceptos: string[];
+  columna?: { parecidos: number; distintos: number; capas_encendidas: Record<string, number> };
+}
+
+/** Google's human cortex (H01) wired into the brain (connectome/h01.py). */
+export interface HumanColumn {
+  verificado: boolean;
+  fuente?: string;
+  licencia?: string;
+  region?: string;
+  neuronas?: number;
+  conexiones?: number;
+  sinapsis?: number;
+  capas?: Record<string, number>;
 }
 
 export interface HumanNow {
@@ -206,6 +219,8 @@ export interface HumanNow {
   conceptos: Array<{ palabra: string; veces: number; junto: string[] }>;
   memoria_de_trabajo: string[];
   sinapsis: number;
+  corteza: HumanColumn;
+  ultima_columna: Record<string, number>;
 }
 
 export interface CoreProof {

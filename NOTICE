@@ -95,6 +95,15 @@ Otras piezas de terceros que Sergio usa (créditos y licencias):
   Se descarga al equipo del dueño (`sergio cerebro descargar`, con sus
   huellas SHA-256) y no viene en el repositorio. Cita: Dorkenwald et al.,
   «Neuronal wiring diagram of an adult brain», Nature 634 (2024).
+- Corteza humana: el conectoma H01 de Google Research y el laboratorio
+  Lichtman (Universidad de Harvard), CC BY 4.0
+  (https://h01-release.storage.googleapis.com/landing.html,
+  gs://h01-release). Cita: Shapson-Coe, Januszewski, Berger et al., «A
+  petavoxel fragment of human cerebral cortex reconstructed at nanoscale
+  resolution», Science 384 (2024). Sergio incluye un derivado: las neuronas
+  con soma (tipo y capa) y las sinapsis medidas entre ellas
+  (`src/openjarvis/connectome/data/`, `scripts/h01_corteza.py`). Cambios:
+  solo se filtra y se cuenta; no se añaden datos.
   Significado en el equipo: multilingual-e5-small (MIT, © Microsoft;
   conversión ONNX de Xenova, https://huggingface.co/Xenova/multilingual-e5-small),
   descargado al instalar, no incluido aquí.

@@ -54,6 +54,7 @@ from __future__ import annotations
 
 import json
 import math
+import os
 import re
 import threading
 import time
@@ -81,7 +82,10 @@ LONG_PROMPT = 1500  # a Node's or the swarm's long prompt is not the owner talki
 
 N_DENSE = 13
 DENSE_SCALE = 0.3  # context features count, but less than the words
-N_FEATURES = KENYON_CELLS + N_DENSE
+CORTEX_SCALE = 0.8  # the human column's response (H01), next to the words
+N_CORTEX = 4096  # = h01.OUT_SLOTS
+DENSE_AT = KENYON_CELLS + N_CORTEX
+N_FEATURES = DENSE_AT + N_DENSE
 
 PRIOR_SLOPE = 0.5  # innate preference lost per strategy away from the difficulty
 CONFLICT = 0.08  # two strategies this close: the cingulate asks for care
@@ -212,6 +216,8 @@ class Percept:
     code: bool
     words: int
     owner: bool  # the owner's own words (not a long internal prompt)
+    cortex: List[int] = field(default_factory=list)  # H01 column slots
+    column: Dict[str, int] = field(default_factory=dict)  # active neurons per layer
 
 
 @dataclass
@@ -353,7 +359,10 @@ class Thalamus:
         owner = channel in CHANNELS and len(text or "") <= LONG_PROMPT
         if owner and mine:
             self.recent.append(mine)
+        slots, layers = _column(cells)
         return Percept(
+            cortex=slots,
+            column=layers,
             text=text,
             channel=channel,
             cells=cells,
@@ -366,12 +375,42 @@ class Thalamus:
         )
 
 
+def _column(cells: List[int]) -> Tuple[List[int], Dict[str, int]]:
+    """The thalamic code through Google's human cortex wiring (H01): the
+    slots the striatum reads and how many neurons fired in each layer."""
+    if not cells or not _h01_on():
+        return [], {}
+    try:
+        from openjarvis.connectome import h01
+
+        col = h01.column()
+        if col is None:
+            return [], {}
+        run = col.run(cells)
+        active = run["activas"]
+        layers: Dict[str, int] = {}
+        for i in active:
+            name = h01.LAYERS[col.layer[i]] if col.layer[i] >= 0 else "?"
+            layers[name] = layers.get(name, 0) + 1
+        return sorted({int(i) % N_CORTEX for i in active}), layers
+    except Exception:  # noqa: BLE001 — without the column the words still decide
+        return [], {}
+
+
+def _h01_on() -> bool:
+    return os.environ.get("SERGIO_H01", "1").strip() not in ("0", "no", "off", "false")
+
+
 def features(p: Percept, arousal: float) -> Tuple[np.ndarray, np.ndarray]:
     """The cortical input to the striatum, cerebellum and amygdala: the sparse
     cells plus a few context features."""
     idx = list(p.cells)
     n = max(1, len(idx))
     val = [1.0 / math.sqrt(n)] * len(idx)
+    if p.cortex:
+        share = CORTEX_SCALE / math.sqrt(len(p.cortex))
+        idx += [KENYON_CELLS + s for s in p.cortex]
+        val += [share] * len(p.cortex)
     ch = {"chat": 0, "voz": 1, "escritorio": 2, "cowork": 3}.get(p.channel, 4)
     dense = [
         1.0,
@@ -391,7 +430,7 @@ def features(p: Percept, arousal: float) -> Tuple[np.ndarray, np.ndarray]:
     dense[7 + ch] = 1.0
     for i, v in enumerate(dense):
         if v:
-            idx.append(KENYON_CELLS + i)
+            idx.append(DENSE_AT + i)
             val.append(DENSE_SCALE * v)
     return np.asarray(idx, dtype=np.int32), np.asarray(val, dtype=np.float32)
 
@@ -627,6 +666,7 @@ class HumanBrain:
             "aciertos": [],  # per judged turn: 1 if no complaint
         }
         self._thoughts: Dict[Tuple[str, str], Thought] = {}
+        self.last_column: Dict[str, int] = {}
         self._last: Optional[Dict[str, Any]] = None  # the turn the next words judge
         self._saved = 0.0
         self._sleeping = False
@@ -757,6 +797,7 @@ class HumanBrain:
             )
             thought.terry = self._terry(thought)
             if p.owner:
+                self.last_column = dict(p.column)
                 self.stats_["turnos"] += 1
                 self.stats_["elecciones"][thought.strategy] += 1
                 self.stats_["conflictos"] += int(conflict)
@@ -992,6 +1033,8 @@ class HumanBrain:
                     + np.count_nonzero(self.cerebellum.w)
                     + np.count_nonzero(self.amygdala.caution)
                 ),
+                "corteza": _column_info(),
+                "ultima_columna": dict(self.last_column),
                 "cerebelo_ensayos": {
                     s: int(self.cerebellum.trials[i]) for i, s in enumerate(STRATEGIES)
                 },
@@ -1031,6 +1074,52 @@ REGIONS: List[Dict[str, str]] = [
     {"region": "Dopamina", "trabajo": "Lo que el señor dice después premia o castiga."},
     {"region": "Sueño", "trabajo": "Repasa, forma conceptos y poda lo que no sirve."},
 ]
+
+
+def _column_info() -> Dict[str, Any]:
+    if not _h01_on():
+        return {"verificado": False}
+    try:
+        from openjarvis.connectome import h01
+
+        return h01.describe()
+    except Exception:  # noqa: BLE001
+        return {"verificado": False}
+
+
+def column_proof() -> Dict[str, Any]:
+    """Does the human column keep like with like? Requests that mean the same
+    should light up overlapping neurons, unrelated ones should not."""
+    pairs_same = [
+        (
+            "explícame cómo funciona la inflación",
+            "explícame cómo funciona la inflación en Ecuador",
+        ),
+        ("pon música para dormir", "pon música tranquila para dormir"),
+        ("qué tiempo hará mañana en Cuenca", "qué tiempo hará el sábado en Cuenca"),
+    ]
+    pairs_other = [
+        ("explícame cómo funciona la inflación", "pon música para dormir"),
+        ("qué tiempo hará mañana en Cuenca", "diseña la arquitectura de mi app"),
+        ("pon música para dormir", "revisa este código de Python"),
+    ]
+
+    def overlap(a: str, b: str) -> float:
+        ca, _ = _column(kenyon_code(a))
+        cb, _ = _column(kenyon_code(b))
+        if not ca or not cb:
+            return 0.0
+        sa, sb = set(ca), set(cb)
+        return len(sa & sb) / len(sa | sb)
+
+    same = [overlap(a, b) for a, b in pairs_same]
+    other = [overlap(a, b) for a, b in pairs_other]
+    _slots, layers = _column(kenyon_code(pairs_same[0][0]))
+    return {
+        "parecidos": round(sum(same) / len(same), 3),
+        "distintos": round(sum(other) / len(other), 3),
+        "capas_encendidas": layers,
+    }
 
 
 def _episodes(now: float) -> List[Dict[str, Any]]:
@@ -1174,6 +1263,7 @@ def prove(rounds: int = 4) -> Dict[str, Any]:
         },
         "dormir": night,
         "conceptos": [c["palabra"] for c in brain.stats()["conceptos"]],
+        "columna": column_proof(),
     }
 
 
@@ -1195,6 +1285,7 @@ __all__ = [
     "HumanBrain",
     "Percept",
     "Thought",
+    "column_proof",
     "forget",
     "get_human",
     "outcome",

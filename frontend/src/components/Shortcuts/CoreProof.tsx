@@ -4,7 +4,7 @@
 
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { coreProof, sleepNow, type CoreProof as Proof, type CurvePoint, type HumanNow, type HumanProof } from '../../lib/connectome';
+import { coreProof, sleepNow, type CoreProof as Proof, type CurvePoint, type HumanColumn, type HumanNow, type HumanProof } from '../../lib/connectome';
 
 const NODE_NAMES: Record<string, string> = { rihno: 'Rihno', manchas: 'Manchas', hous: 'Hous', tennessee: 'Tennessee' };
 const pct = (v: number) => `${Math.round(v * 100)} %`;
@@ -71,6 +71,57 @@ function Rounds({ proof }: { proof: Proof }) {
 const STRATEGY_NAMES: Record<string, string> = { reflejo: 'Reflejo', responder: 'Responder', reflexionar: 'Reflexionar', profundo: 'A fondo' };
 const MOD_NAMES: Record<string, string> = { dopamina: 'Dopamina', noradrenalina: 'Alerta', acetilcolina: 'Novedad', serotonina: 'Calma' };
 
+const LAYER_NAMES: Array<[string, string]> = [
+  ['Layer 1', 'Capa 1'],
+  ['Layer 2', 'Capa 2'],
+  ['Layer 3', 'Capa 3'],
+  ['Layer 4', 'Capa 4'],
+  ['Layer 5', 'Capa 5'],
+  ['Layer 6', 'Capa 6'],
+];
+
+// A real millimetre of human cortex (Google's H01): its layers, how many
+// neurons each has, and which of them one request lit up.
+function Column({ info, lit, proof }: { info: HumanColumn; lit: Record<string, number>; proof?: HumanProof['columna'] }) {
+  const most = Math.max(1, ...LAYER_NAMES.map(([k]) => info.capas?.[k] ?? 0));
+  return (
+    <figure className="cp-card">
+      <figcaption>Corteza humana real · Google H01</figcaption>
+      <div className="cp-col-head">
+        <div>
+          <strong>{num(info.neuronas ?? 0)}</strong>
+          <span>neuronas</span>
+        </div>
+        <div>
+          <strong>{num(info.sinapsis ?? 0)}</strong>
+          <span>sinapsis medidas</span>
+        </div>
+        {proof && (
+          <div>
+            <strong>
+              {pct(proof.parecidos)} · {pct(proof.distintos)}
+            </strong>
+            <span>parecido · distinto</span>
+          </div>
+        )}
+      </div>
+      <ul className="cp-layers" aria-label="Capas">
+        {LAYER_NAMES.map(([k, name]) => (
+          <li key={k}>
+            <span>{name}</span>
+            <i>
+              <b style={{ width: `${((info.capas?.[k] ?? 0) / most) * 100}%` }} />
+              {(lit[k] ?? 0) > 0 && <em style={{ width: `${Math.min(100, ((lit[k] ?? 0) / Math.max(1, info.capas?.[k] ?? 1)) * 100 * 8)}%` }} />}
+            </i>
+            <strong>{lit[k] ? num(lit[k]) : ''}</strong>
+          </li>
+        ))}
+      </ul>
+      <p className="cp-foot">{info.licencia} · {info.region}</p>
+    </figure>
+  );
+}
+
 function Human({ proof, now }: { proof: HumanProof; now: Partial<HumanNow> }) {
   const choices = Object.entries(now.elecciones ?? {});
   const most = Math.max(1, ...choices.map(([, v]) => v));
@@ -131,6 +182,7 @@ function Human({ proof, now }: { proof: HumanProof; now: Partial<HumanNow> }) {
           )}
         </figure>
       </div>
+      {now.corteza?.verificado && <Column info={now.corteza} lit={proof.columna?.capas_encendidas ?? now.ultima_columna ?? {}} proof={proof.columna} />}
       {(now.conceptos?.length ?? 0) > 0 && (
         <ul className="cp-flow cp-concepts" aria-label="Lo que sabe del señor">
           {now.conceptos!.map((c) => (
