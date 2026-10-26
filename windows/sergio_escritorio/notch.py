@@ -426,9 +426,8 @@ class Notch(QWidget):
         if label == "Sergio":
             label = self.name
         if self.call_since is not None and self.state in ("idle", "listening"):
-            label = f"En llamada · {self.call_time()}"
-            if self.screen_sharing:
-                label = "Pantalla en vivo"
+            # A conversation, not a «call»: no clock, no jargon (owner, 26 oct.).
+            label = "Viendo tu pantalla" if self.screen_sharing else "Te escucho"
         return label
 
     def _titled(self) -> bool:

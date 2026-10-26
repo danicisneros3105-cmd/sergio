@@ -762,7 +762,7 @@ def run(config: dict[str, Any]) -> None:
                     show_action.setChecked,
                 ),
                 Toggle(
-                    "Llamada",
+                    "Conversación",
                     "phone",
                     call_active,
                     lambda on: set_call_tile(on),
@@ -3121,12 +3121,12 @@ def run(config: dict[str, Any]) -> None:
             return  # the keeper reconnects in a moment, quietly
         if why == "cancelado":  # "Sergio" was not for him after all
             bridge.state.emit("idle")
-        elif why == "silencio":
-            bridge.caption.emit("Quedo atento. Di «Sergio» cuando me necesites.")
-        elif why == "se cortó":
-            bridge.caption.emit("Se cortó la llamada. Di «Sergio» para volver.")
+        elif why in ("silencio", "se cortó"):
+            # A pause in the conversation, not an event to announce: the orb
+            # simply waits (and reconnects by itself when the line drops).
+            bridge.state.emit("idle")
         elif why == "otra ventana":
-            bridge.caption.emit("Ahora le escucho en otra ventana. Diga «Sergio» y vuelvo aquí.")
+            bridge.caption.emit("Sigo contigo en la otra ventana.")
 
     def new_session(**changes: Any) -> CallSession:
         """A call set up exactly like the real ones (tools, voice, context)."""

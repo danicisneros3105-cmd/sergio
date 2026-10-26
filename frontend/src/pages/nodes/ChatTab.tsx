@@ -8,6 +8,8 @@ import { useTtsStore } from '../../lib/tts';
 import { latestWork, withoutWork, type Work } from '../../lib/nodeCanvas';
 import { nodesApi, type NodeMessage, type SergioNode } from '../../lib/nodes';
 import { look } from './shared';
+import { ApprovalCard } from '../../components/Chat/ApprovalCard';
+import { plainReply, summarize } from '../../lib/plainReply';
 
 type SpeechRec = { lang: string; interimResults: boolean; onresult: (e: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void; onend: () => void; start: () => void; stop: () => void };
 
@@ -150,7 +152,7 @@ export function ChatTab({ node, onChanged, onCancel }: { node: SergioNode; onCha
                 m.text
               ) : (
                 <div className="prose prose-sm">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{withoutWork(m.text, work) || ' '}</ReactMarkdown>
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{plainReply(withoutWork(m.text, work)).text || ' '}</ReactMarkdown>
                 </div>
               )}
               {m.role === 'node' && i === messages.length - 1 && (m.suggestions?.length ?? 0) > 0 && (
@@ -169,8 +171,7 @@ export function ChatTab({ node, onChanged, onCancel }: { node: SergioNode; onCha
           .filter((a) => (a.thread || 'main') === thread)
           .map((a) => (
             <div key={a.id} className="node-approval" role="group" aria-label="Aprobación pendiente">
-              <span className="paper-label">Necesita su aprobación</span>
-              <p>{a.what}</p>
+              <ApprovalCard approval={{ category: a.category, ...summarize(a.what) }} />
               <div className="node-approval-actions">
                 <button type="button" className="paper-button" data-variant="quiet" onClick={() => decide(a.id, false)}>
                   <X size={14} /> No

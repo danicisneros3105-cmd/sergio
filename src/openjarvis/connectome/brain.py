@@ -912,6 +912,14 @@ def mind_context(text: str, channel: str = "chat") -> str:
         frame = ""
     if frame:
         parts.append(frame)
+    try:  # how this person wants to be addressed (personal.py)
+        from openjarvis.personal import address_line
+
+        how = address_line()
+    except Exception:  # noqa: BLE001
+        how = ""
+    if how:
+        parts.append(how)
     try:
         brain = get_brain()
         _organs(brain)

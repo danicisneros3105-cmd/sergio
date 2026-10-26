@@ -742,6 +742,10 @@ def create_app(
     from openjarvis.server.deep_research_routes import router as deep_research_router
 
     app.include_router(deep_research_router)
+    # The person and their Sergio: profile, skills, model, what is running.
+    from openjarvis.server.personal_routes import router as personal_router
+
+    app.include_router(personal_router)
     include_all_routes(app)
 
     # Restore SendBlue channel bindings from database on startup

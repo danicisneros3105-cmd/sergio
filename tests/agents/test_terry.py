@@ -95,9 +95,12 @@ def test_prepare_asks_once_and_checks_the_answer():
 def test_status_lines_start_with_terry_and_follow_the_language():
     es = terry.statuses("es", seed=1)
     en = terry.statuses("en", seed=1)
-    assert es[0] == "Preguntándole a Terry…" and en[0] == "Asking Terry…"
-    assert "Caramelizando cebollas…" in terry.FUN["es"]
-    assert "We're cooking…" in terry.FUN["en"]
+    assert (
+        es[0] == "Entendiendo lo que necesitas…"
+        and en[0] == "Understanding what you need…"
+    )
+    assert "Revisando los detalles…" in terry.FUN["es"]  # real steps, never jokes
+    assert "Checking the details…" in terry.FUN["en"]
     assert terry.language("please write the plan for this launch") == "en"
     assert terry.language("hazme el plan para la tienda") == "es"
 

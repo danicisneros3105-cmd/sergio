@@ -155,6 +155,19 @@ export function InputArea() {
     return () => window.removeEventListener('sergio:prefill', onPrefill);
   }, []);
 
+  // A one-tap answer (an approval card's «Sí» / «No»): written and sent.
+  const [sendSoon, setSendSoon] = useState(false);
+  useEffect(() => {
+    const onSend = (e: Event) => {
+      const text = (e as CustomEvent<string>).detail;
+      if (typeof text !== 'string' || !text.trim()) return;
+      setInput(text);
+      setSendSoon(true);
+    };
+    window.addEventListener('sergio:send', onSend);
+    return () => window.removeEventListener('sergio:send', onSend);
+  }, []);
+
   useEffect(() => {
     const el = textareaRef.current;
     if (!el) return;
@@ -623,6 +636,12 @@ export function InputArea() {
     temperature,
     maxTokens,
   ]);
+
+  useEffect(() => {
+    if (!sendSoon || !input.trim()) return;
+    setSendSoon(false);
+    void sendMessage();
+  }, [sendSoon, input, sendMessage]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {

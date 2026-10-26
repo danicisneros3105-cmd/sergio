@@ -247,9 +247,10 @@ termina en la rama `main`, y el dueño actualiza con un único comando.
   converse: pasa por `mind_context` y `remember_exchange`, nunca a su lado.
 - **Terry** (dueño, 24 oct. 2026): los pedidos medianos y complejos pasan
   antes, en segundo plano, por `agents/terry.py`, que entiende qué se quiere
-  y escribe el encargo a la medida del modelo que responde. Nunca aparece:
-  en el chat solo «Preguntándole a Terry…» / «Asking Terry…» y frases como
-  «Caramelizando cebollas…». El texto del dueño no se toca; la mosca aprende
+  y escribe el encargo a la medida del modelo que responde. Nunca aparece
+  (26 oct. 2026: el nombre «Terry» no le decía nada a la gente): en el chat
+  «Entendiendo lo que necesitas…» y frases de lo que de verdad pasa
+  («Revisando los detalles…»), nunca bromas sin sentido. El texto del dueño no se toca; la mosca aprende
   si Terry ayudó (lo corrigen después: castigo). `SERGIO_TERRY=0` lo apaga.
 - **Cada Node con cerebro propio** (`nodes/temperament.py`): sus movidas, su
   temperamento (currículo al nacer y su propia dopamina: a Tennessee le pesan
@@ -518,6 +519,19 @@ termina en la rama `main`, y el dueño actualiza con un único comando.
   Los límites diarios (`quota.BASE_DAILY`) se cuentan siempre y solo bloquean
   con `SERGIO_PLANES_ACTIVOS=1`. Licencias viejas (`pro`, `teams`,
   `enterprise`) valen como Work, Founders y Founders.
+- **Aprobaciones en palabras simples** (dueño, 26 oct. 2026: «salen mensajes
+  raros… debemos ser simples pero profesionales»): ninguna etiqueta interna
+  (`<aprobacion>`, `<cli>`, `<mente>`…) llega a la pantalla; una aprobación
+  es una tarjeta con una frase que entiende cualquiera y los comandos
+  plegados (`lib/plainReply.ts`, `ApprovalCard.tsx`). Todo texto de un modelo
+  que se muestre pasa por `plainReply`.
+- **Cada persona elige cómo la llaman** (dueño, 26 oct. 2026: «usable con
+  todos los géneros, en todos los países»): `personal.py` y
+  `/v1/personal/*` (trato «señor», «señora», nombre, neutro o «tú»; idioma,
+  país, saludos, habilidades apagadas). Sin perfil, «señor» como siempre: al
+  dueño se le sigue llamando «señor». Una habilidad apagada no llega al
+  modelo (`ToolExecutor`). «Deshacer» revierte lo último que Sergio hizo en
+  el PC (`deshacer.py`, solo lo reversible y de los últimos 30 min).
 - Kimi como proveedor y «Digitalsnickers» están descartados.
 - Licencia Apache-2.0 y autoría honesta: no se borran créditos del original.
 

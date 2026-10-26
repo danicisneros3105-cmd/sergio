@@ -2,6 +2,26 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-10-26 · Claude · Aprobaciones en palabras simples, deshacer y perfil de cada persona
+- Los mensajes raros (`<aprobacion categoria="cli"> ¿Desea que ejecute…
+  ```powershell…`) ya no llegan a la pantalla: `lib/plainReply.ts` quita las
+  etiquetas internas que se escapan y convierte cada aprobación en una
+  tarjeta («Usar tu computadora · Desinstalar las aplicaciones: News,
+  Weather, Disney») con los comandos plegados en «Ver detalles» y «Sí, hazlo»
+  / «No» de un toque. Los Nodes cierran siempre la etiqueta y explican en una
+  frase (`nodes/worker.py`); una etiqueta sin cerrar ya no se pierde.
+- Frases mientras Sergio trabaja: «Entendiendo lo que necesitas…» y pasos de
+  verdad («Revisando los detalles…»), nunca bromas sin sentido.
+- Notch: la conversación es continua; ya no dice «Llamada · di Sergio», dice
+  «Te escucho» (o «Viendo tu pantalla»), y un silencio no corta la charla.
+- Deshacer lo último que hizo Sergio en el PC (`deshacer.py`, 30 min).
+- Perfil de cada persona (`personal.py`, `/v1/personal/*`): cómo llamarla
+  («señor», «señora», por su nombre, neutro o «tú»), idioma, país, saludos y
+  qué habilidades puede usar Sergio (las apagadas no llegan al modelo). Sin
+  perfil, todo sigue como el dueño lo quiere («señor»).
+- Pendiente: el centro de control del notch nuevo, la pantalla de perfil en
+  la web y las animaciones con sonido.
+
 ## 2026-10-26 · Claude · Corteza humana real de Google (H01) y aspecto Apple
 - El cerebro humano no usaba datos reales (la mosca sí: FlyWire/MaleCNS, de
   Janelia con Google). Ahora su corteza es la de H01 (Google + Harvard, 1 mm³

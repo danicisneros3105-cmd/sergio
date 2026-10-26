@@ -59,7 +59,7 @@ def test_a_streamed_request_shows_asking_terry_then_the_answer(setup):
         for line in body.splitlines()
         if line.startswith('data: {"phase"')
     ]
-    assert phases[0] == "Preguntándole a Terry…" and len(phases) >= 2
+    assert phases[0] == "Entendiendo lo que necesitas…" and len(phases) >= 2
 
 
 def test_the_brief_rides_as_an_instruction_and_the_owners_words_stay(setup):

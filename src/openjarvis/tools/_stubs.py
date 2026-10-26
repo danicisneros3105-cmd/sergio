@@ -640,6 +640,14 @@ class ToolExecutor:
             narrowed = [t for t in tools if t.spec.name in chosen]
             if narrowed:
                 tools = narrowed
+        try:  # skills the person switched off never reach the model
+            from openjarvis.personal import blocked_tools
+
+            off = blocked_tools()
+        except Exception:  # noqa: BLE001
+            off = frozenset()
+        if off:
+            tools = [t for t in tools if t.spec.name not in off]
         return [t.to_openai_function() for t in tools]
 
 

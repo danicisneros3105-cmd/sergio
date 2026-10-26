@@ -31,17 +31,33 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 
 TERRY_MODELS = ("gemini-3.6-flash", "gemini-3.1-flash-lite", "gemini-2.5-flash")
 
-STATUS = {"es": "Preguntándole a Terry…", "en": "Asking Terry…"}
+# What the person sees while Terry works (owner, 26 oct. 2026: «revisa las
+# frases»): what is really happening, in plain words; Terry himself never
+# appears (a stranger's name meant nothing to people).
+STATUS = {
+    "es": "Entendiendo lo que necesitas…",
+    "en": "Understanding what you need…",
+    "pt": "Entendendo o que você precisa…",
+    "fr": "Je comprends ce qu'il vous faut…",
+}
 FUN = {
     "es": (
-        "Cocinando…", "Caramelizando cebollas…", "Afinando la orquesta…", "Conectando neuronas…",
-        "Puliendo los detalles…", "Calentando motores…", "Batiendo las ideas…", "Leyendo entre líneas…",
-        "Dejando reposar la masa…", "Ajustando el encuadre…", "Sacando punta al lápiz…",
+        "Ordenando las ideas…", "Buscando el mejor enfoque…", "Revisando los detalles…",
+        "Pensando en lo que te sirve…", "Preparando la respuesta…", "Comprobando que tenga sentido…",
+        "Afinando el resultado…", "Casi listo…",
     ),
     "en": (
-        "We're cooking…", "Caramelizing onions…", "Tuning the orchestra…", "Connecting neurons…",
-        "Polishing the details…", "Warming up the engines…", "Whisking the ideas…", "Reading between the lines…",
-        "Letting the dough rest…", "Framing the shot…", "Sharpening the pencil…",
+        "Sorting the ideas…", "Finding the best approach…", "Checking the details…",
+        "Thinking about what helps you…", "Preparing the answer…", "Making sure it makes sense…",
+        "Polishing the result…", "Almost there…",
+    ),
+    "pt": (
+        "Organizando as ideias…", "Buscando a melhor abordagem…", "Revisando os detalhes…",
+        "Preparando a resposta…", "Conferindo se faz sentido…", "Quase pronto…",
+    ),
+    "fr": (
+        "J'organise les idées…", "Je cherche la meilleure approche…", "Je vérifie les détails…",
+        "Je prépare la réponse…", "Je vérifie que tout tient…", "Presque prêt…",
     ),
 }  # fmt: skip
 

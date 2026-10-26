@@ -54,8 +54,9 @@ TICK_SECONDS = 30
 Runner = Callable[[str, List[str], int, Callable[[str, Any], None]], Tuple[str, int]]
 Ask = Callable[..., Any]
 
+# An approval the model forgot to close still counts (it runs to the end).
 TAG_APPROVAL = re.compile(
-    r"<aprobaci[oó]n(?:\s+categor[ií]a=\"?([\w]+)\"?)?\s*>(.*?)</aprobaci[oó]n>",
+    r"<aprobaci[oó]n(?:\s+categor[ií]a\s*=\s*[\"']?([\w]+)[\"']?)?\s*>(.*?)(?:</aprobaci[oó]n>|\Z)",
     re.S | re.I,
 )
 TAG_USER = re.compile(r"<usuario>(.*?)</usuario>", re.S | re.I)
@@ -98,8 +99,9 @@ significa que puedes preparar cambios en ella, siempre con aprobación.
 Tus reglas:
 {rules}
 Si para cumplir necesitas algo marcado «pides permiso antes», NO lo hagas: prepáralo \
-(p. ej. el borrador exacto del correo) y escribe <aprobacion categoria="CLAVE">qué harás \
-exactamente</aprobacion>, con CLAVE una de: {keys}. Luego termina.
+(p. ej. el borrador exacto del correo) y escribe <aprobacion categoria="CLAVE">qué harás, \
+en una frase simple que entienda cualquiera (los comandos exactos, si hay, después en un \
+bloque de código)</aprobacion>, con CLAVE una de: {keys}. Ciérrala siempre. Luego termina.
 Nunca envías mensajes ni correos tú mismo: los dejas como borrador para que el usuario los envíe.
 Si necesitas que el usuario inicie sesión en una web o decida algo, escribe \
 <usuario>qué necesitas, con la URL</usuario> y termina.
@@ -197,7 +199,7 @@ def parse_answer(text: str) -> Dict[str, Any]:
     """Split an answer into what it says and what it asks for."""
     text = text or ""
     approvals = [
-        ((m.group(1) or "messages").lower(), " ".join(m.group(2).split()))
+        ((m.group(1) or "messages").lower(), m.group(2).strip())
         for m in TAG_APPROVAL.finditer(text)
     ]
     user = [" ".join(m.group(1).split()) for m in TAG_USER.finditer(text)]

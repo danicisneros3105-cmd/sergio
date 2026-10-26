@@ -1,3 +1,5 @@
+import { ApprovalCard } from './ApprovalCard';
+import { plainReply } from '../../lib/plainReply';
 import { useState, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import rehypeHighlight from 'rehype-highlight';
@@ -146,8 +148,10 @@ export function MessageBubble({ message, isLive = false, tail = true, receipt = 
   const isUser = message.role === 'user';
 
   const rawContent = useMemo(() => stripThinkTags(message.content), [message.content]);
+  // Internal tags never reach the screen; a permission request becomes a card.
+  const plain = useMemo(() => plainReply(rawContent), [rawContent]);
   // Figure links become the figures themselves (drawn below), never raw text.
-  const cleanContent = useMemo(() => withoutAnatomyLinks(rawContent), [rawContent]);
+  const cleanContent = useMemo(() => withoutAnatomyLinks(plain.text), [plain.text]);
   const extraMedia = useMemo(() => mediaOf(message), [message]);
 
   // Build a ref→source lookup once per render. Memoized so the rehype plugin
@@ -212,6 +216,18 @@ export function MessageBubble({ message, isLive = false, tail = true, receipt = 
           </ReactMarkdown>
         </div>
       )}
+
+      {plain.approvals.map((a, i) => (
+        <ApprovalCard
+          key={i}
+          approval={a}
+          onAnswer={
+            isLive
+              ? undefined
+              : (yes) => window.dispatchEvent(new CustomEvent('sergio:send', { detail: yes ? 'Sí, hazlo.' : 'No, no lo hagas.' }))
+          }
+        />
+      ))}
 
       {extraMedia.map((src) => (
         <div key={src} className="imsg-media-row">

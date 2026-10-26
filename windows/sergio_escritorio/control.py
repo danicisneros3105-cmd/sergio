@@ -584,9 +584,29 @@ class Controller:
             self._sleep(seconds)
             result = f"waited {seconds:g}s"
         self._on_activity(result)
+        self._remember_undo(kind, action, result)
         if kind == "key" and set(result.split()[1].split("+")) <= MEDIA_KEYS:
             return result  # the window in front does not change
         return result + self._verify(kind, before)
+
+    def _remember_undo(self, kind: str, action: dict, result: str) -> None:
+        """What can be taken back goes to the journal (deshacer.py)."""
+        from sergio_escritorio.deshacer import journal
+
+        b = self.backend
+        target = str(action.get("target") or "").strip()
+        if kind == "open_app" and target:
+            journal().add(f"Abrí {target}", lambda: b.close_app(target), f"Cerré {target}.")
+        elif kind == "type":
+            journal().add(
+                "Escribí un texto", lambda: b.hotkey(["ctrl", "z"]), "Borré lo que escribí."
+            )
+        elif kind == "organize" and action.get("apply") and result.startswith("moved"):
+            journal().add(
+                "Ordené una carpeta",
+                b.undo_organize,
+                "Devolví los archivos a donde estaban.",
+            )
 
     VERIFY = {
         "click",
