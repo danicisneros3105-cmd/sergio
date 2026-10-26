@@ -10,7 +10,13 @@ import { PaperPage } from '../components/Paper/PaperPage';
 import { apiFetch } from '../lib/api';
 import { detectCountry, percent, saveCountry, type Account, type Catalog, type Me, type Plan } from '../lib/plans';
 import { voiceLanguage } from '../lib/liveSession';
+import { celebrate } from '../lib/celebrate';
+import { CreditsPanel } from './plans/CreditsPanel';
+import { agree, getPersonal } from '../lib/personal';
 import './plans.css';
+
+/** «Bienvenido a» / «Bienvenida a» / «Ya tiene» (personal.ts). */
+const welcomeWord = () => agree(getPersonal(), 'Bienvenido a', 'Bienvenida a', 'Ya tiene');
 
 type Tab = 'planes' | 'uso' | 'facturacion' | 'cuenta';
 const TABS: Array<{ id: Tab; label: string }> = [
@@ -148,13 +154,14 @@ export function PlansPage() {
     if (!key.trim()) return;
     setBusy(true);
     try {
-      await json('/v1/plans/license', {
+      const out = await json<{ account?: { plan?: string; plan_name?: string } }>('/v1/plans/license', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ key }),
       });
       setKey('');
-      toast.success('Listo: su plan quedó activado.');
+      const name = out.account?.plan_name || 'su plan nuevo';
+      celebrate({ kind: 'plan', title: `${welcomeWord()} ${name}`, detail: 'Su plan quedó activado.' });
       loadMe();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'No pude activar la clave.');
@@ -324,6 +331,7 @@ export function PlansPage() {
               Activar
             </button>
           </div>
+          <CreditsPanel country={country} />
         </section>
       )}
 

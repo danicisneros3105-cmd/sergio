@@ -149,6 +149,49 @@ class Checkout(BaseModel):
     mult: int = 0
 
 
+class CreditPack(BaseModel):
+    pack: str
+
+
+@router.get("/creditos")
+async def credits(country: str = "") -> Dict[str, Any]:
+    from openjarvis import creditos
+
+    country = (country or "").strip().upper()[:2] or "EC"
+    return {
+        "saldo": creditos.balance(),
+        "packs": creditos.packs(country, pricing.rates()["rates"]),
+        "costos": {quota.LABELS[k]: v for k, v in creditos.COST.items()},
+    }
+
+
+@router.post("/creditos/checkout")
+async def credits_checkout(body: CreditPack) -> Dict[str, Any]:
+    from openjarvis import creditos
+
+    if creditos.pack(body.pack) is None:
+        raise HTTPException(404, "Ese paquete no existe.")
+    url = creditos.checkout_url(body.pack)
+    if not url:
+        raise HTTPException(
+            409,
+            "Los pagos todavía no están activados en este equipo. Si ya pagó, "
+            "pegue su código de créditos más abajo.",
+        )
+    return {"url": url}
+
+
+@router.post("/creditos")
+async def credits_redeem(body: Key) -> Dict[str, Any]:
+    from openjarvis import creditos
+
+    try:
+        saldo = creditos.redeem(body.key)
+    except tiers.LicenseError as exc:
+        raise HTTPException(400, str(exc).capitalize() + ".") from exc
+    return {"saldo": saldo}
+
+
 @router.post("/checkout")
 async def checkout(body: Checkout) -> Dict[str, Any]:
     plan = tiers.plan_id(body.plan)

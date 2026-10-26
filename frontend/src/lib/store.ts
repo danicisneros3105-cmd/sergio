@@ -119,6 +119,10 @@ interface Settings {
   speechEnabled: boolean;
   voiceOutputEnabled: boolean;
   voiceAutoplay: boolean;
+  /** How hard Sergio thinks: 'auto' lets the brain decide (model@effort otherwise). */
+  effort: 'auto' | 'low' | 'medium' | 'high';
+  /** The short sounds of a model change, a new plan or a new connector. */
+  soundEffects: boolean;
 }
 
 function loadSettings(): Settings {
@@ -135,6 +139,8 @@ function loadSettings(): Settings {
     speechEnabled: true,
     voiceOutputEnabled: true,
     voiceAutoplay: true,
+    effort: 'auto',
+    soundEffects: true,
   };
   try {
     const raw = localStorage.getItem(SETTINGS_KEY);

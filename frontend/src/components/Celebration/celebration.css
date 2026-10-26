@@ -1,0 +1,38 @@
+/* A plan, a model, a connector (CelebrationLayer.tsx): Apple-calm, one card,
+   springy but short. */
+.cel-layer { position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; pointer-events: auto; background: color-mix(in srgb, var(--color-bg) 30%, transparent); animation: cel-fade 1.9s ease both; }
+.cel-card { display: grid; justify-items: center; gap: 6px; min-width: 240px; max-width: min(360px, calc(100vw - 32px)); padding: 26px 28px 22px; border-radius: 24px; background: var(--color-surface); border: 1px solid var(--color-border); box-shadow: 0 24px 60px rgba(0, 0, 0, 0.18); animation: cel-pop 0.55s cubic-bezier(0.2, 1.4, 0.4, 1) both; }
+.cel-stage { position: relative; width: 84px; height: 84px; display: grid; place-items: center; margin-bottom: 6px; }
+.cel-disc { width: 72px; height: 72px; position: relative; z-index: 1; }
+.cel-ring { transform-origin: 50px 50px; }
+.cel-title { margin: 0; font-family: var(--font-title, inherit); font-size: 19px; font-weight: 600; color: var(--color-text); text-align: center; }
+.cel-detail { margin: 0; font-size: 13.5px; color: var(--color-text-secondary); text-align: center; }
+
+/* Model: the white ring turns once and settles — «shifted up». */
+.cel-card[data-kind='model'] .cel-ring { animation: cel-shift 0.9s cubic-bezier(0.3, 1.3, 0.5, 1) 0.15s both; }
+
+/* Plan: three rings spread from the disc. */
+.cel-waves, .cel-waves i { position: absolute; inset: 0; }
+.cel-waves i { border-radius: 50%; border: 2px solid var(--color-accent); opacity: 0; animation: cel-wave 1.2s ease-out both; }
+.cel-waves i:nth-child(2) { animation-delay: 0.18s; }
+.cel-waves i:nth-child(3) { animation-delay: 0.36s; }
+.cel-card[data-kind='plan'] .cel-disc { animation: cel-beat 0.7s ease 0.1s both; }
+
+/* Connector: its logo flies in from the left and clicks onto the disc. */
+.cel-brand { position: absolute; z-index: 2; left: -6px; top: 50%; translate: 0 -50%; animation: cel-dock 0.8s cubic-bezier(0.25, 1.3, 0.45, 1) both; }
+.cel-card[data-kind='connector'] .cel-disc { animation: cel-beat 0.5s ease 0.55s both; }
+
+@keyframes cel-fade { 0% { opacity: 0; } 8% { opacity: 1; } 85% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes cel-pop { from { opacity: 0; transform: scale(0.86) translateY(10px); } to { opacity: 1; transform: none; } }
+@keyframes cel-shift { 0% { transform: rotate(0) scale(1); } 60% { transform: rotate(300deg) scale(1.25); } 100% { transform: rotate(360deg) scale(1); } }
+@keyframes cel-wave { 0% { opacity: 0.7; transform: scale(0.85); } 100% { opacity: 0; transform: scale(1.7); } }
+@keyframes cel-beat { 0% { transform: scale(1); } 40% { transform: scale(1.12); } 100% { transform: scale(1); } }
+@keyframes cel-dock { 0% { opacity: 0; transform: translateX(-70px) scale(0.6); } 70% { opacity: 1; transform: translateX(-34px) scale(1.05); } 100% { opacity: 1; transform: translateX(-30px) scale(1); } }
+
+/* Reduced motion or a slow device: the card just fades in and out. */
+@media (prefers-reduced-motion: reduce) {
+  .cel-card, .cel-card *, .cel-waves i { animation: none !important; }
+  .cel-brand { transform: translateX(-30px); }
+}
+:root[data-ligero] .cel-card, :root[data-ligero] .cel-card *, :root[data-ligero] .cel-waves i { animation: none !important; }
+:root[data-ligero] .cel-brand { transform: translateX(-30px); }

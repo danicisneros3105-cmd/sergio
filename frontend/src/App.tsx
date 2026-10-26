@@ -26,7 +26,8 @@ const PlansPage = lazy(() => import('./pages/PlansPage').then((m) => ({ default:
 const HelpPage = lazy(() => import('./pages/HelpPage').then((m) => ({ default: m.HelpPage })));
 const SwarmPage = lazy(() => import('./pages/SwarmPage'));
 const ExtensionsPage = lazy(() => import('./pages/ExtensionsPage'));
-import { CommandPalette } from './components/CommandPalette';
+import { ModelSheet } from './components/ModelSheet';
+import { CelebrationLayer } from './components/Celebration/CelebrationLayer';
 import { Shortcuts } from './components/Shortcuts/Shortcuts';
 import { SetupScreen } from './components/SetupScreen';
 import { Toaster } from './components/ui/sonner';
@@ -227,7 +228,8 @@ export default function App() {
       </Suspense>
       </ErrorBoundary>
       <Toaster position="bottom-right" />
-      {commandPaletteOpen && <CommandPalette />}
+      {commandPaletteOpen && <ModelSheet />}
+      <CelebrationLayer />
       <Shortcuts />
     </>
   );

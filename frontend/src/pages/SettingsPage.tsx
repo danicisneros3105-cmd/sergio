@@ -543,6 +543,16 @@ export function SettingsPage() {
                 })}
               </div>
             </SettingRow>
+            <SettingRow label="Sonidos" description="Al cambiar de modelo, de plan o al conectar un servicio">
+              <button
+                type="button"
+                role="switch"
+                aria-checked={settings.soundEffects}
+                aria-label="Sonidos"
+                className="ext-switch"
+                onClick={() => { updateSettings({ soundEffects: !settings.soundEffects }); showSaved(); }}
+              />
+            </SettingRow>
             <SettingRow label="Tamaño de letra">
               <select
                 value={settings.fontSize}

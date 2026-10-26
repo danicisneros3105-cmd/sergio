@@ -43,7 +43,7 @@ class QuotaExceeded(Exception):
         self.kind, self.limit, self.plan = kind, limit, plan
         super().__init__(
             f"Se acabó su límite de hoy ({LABELS.get(kind, kind).lower()}: {limit}) "
-            f"en el plan {plan}. Mañana vuelve a empezar; o suba de plan en Planes."
+            f"en el plan {plan}. Mañana vuelve a empezar; o compre créditos o suba de plan en Planes."
         )
 
 
@@ -126,8 +126,16 @@ def check(kind: str) -> None:
 
 
 def take(kind: str, n: float = 1) -> None:
-    """Check, then count: the one call the routes make before doing the work."""
-    check(kind)
+    """Check, then count: the one call the routes make before doing the work.
+
+    Past today's limit, bought credits pay for the use (creditos.py)."""
+    try:
+        check(kind)
+    except QuotaExceeded:
+        from openjarvis import creditos
+
+        if not creditos.spend(kind):
+            raise
     count(kind, n)
 
 

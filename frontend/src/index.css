@@ -3817,3 +3817,33 @@ a.paper-link, .paper-page a:not([class]) { color: var(--color-accent-text); }
 
 /* «Tú» in Configuración: the line above the chat, as it will look. */
 .personal-preview { margin: 0 0 6px; padding: 14px 16px; border-radius: 14px; background: var(--color-bg-secondary); font-family: var(--font-title, inherit); font-size: 19px; text-align: center; color: var(--color-text); }
+
+/* «Modelo» (components/ModelSheet.tsx): a sheet like iOS — effort as a
+   segmented control, the Gemini models as a list with a check. */
+.msheet-layer { position: fixed; inset: 0; z-index: 60; display: grid; place-items: start center; padding-top: 12vh; background: rgba(0, 0, 0, 0.32); }
+.msheet { width: min(440px, calc(100vw - 32px)); max-height: 76vh; overflow: auto; display: grid; gap: 12px; padding: 16px; border-radius: 20px; background: var(--color-surface); border: 1px solid var(--color-border); box-shadow: 0 24px 60px rgba(0, 0, 0, 0.2); }
+.msheet-head { display: flex; align-items: center; justify-content: space-between; }
+.msheet-head h2 { margin: 0; font-family: var(--font-title, inherit); font-size: 18px; font-weight: 600; color: var(--color-text); }
+.msheet-effort { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px; padding: 2px; border-radius: 10px; background: var(--color-bg-secondary); }
+.msheet-effort button { padding: 7px 4px; border-radius: 8px; font-size: 13px; color: var(--color-text-secondary); background: transparent; cursor: pointer; }
+.msheet-effort button[aria-checked='true'] { background: var(--color-surface); color: var(--color-text); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12); font-weight: 600; }
+.msheet-list { list-style: none; margin: 0; padding: 0; border-radius: 14px; overflow: hidden; background: var(--color-bg-secondary); }
+.msheet-list li + li { border-top: 1px solid var(--color-border-subtle); }
+.msheet-list button { position: relative; display: grid; gap: 2px; width: 100%; text-align: left; padding: 10px 40px 10px 14px; background: transparent; cursor: pointer; color: var(--color-text); }
+.msheet-list button:hover:not(:disabled) { background: var(--color-accent-subtle); }
+.msheet-list button:disabled { cursor: default; opacity: 0.5; }
+.msheet-name { font-size: 14.5px; font-weight: 500; }
+.msheet-for { font-size: 12.5px; color: var(--color-text-secondary); }
+li.msheet-for { padding: 10px 14px; }
+.msheet-check { position: absolute; right: 14px; top: 50%; translate: 0 -50%; color: var(--color-accent); }
+.msheet-connect { display: grid; gap: 6px; padding: 12px 14px; border-radius: 14px; background: var(--color-accent-subtle); font-size: 13.5px; color: var(--color-text); }
+.msheet-connect p, .msheet-connect ol { margin: 0; }
+.msheet-connect ol { padding-left: 18px; }
+.msheet-connect a { color: var(--color-accent-text); display: inline-flex; align-items: center; gap: 3px; }
+.msheet-keyrow { display: flex; gap: 8px; }
+.msheet-keyrow input { flex: 1; min-width: 0; padding: 7px 10px; border-radius: 10px; border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-text); font-size: 13.5px; }
+.msheet-primary { padding: 7px 14px; border-radius: 999px; background: var(--color-accent); color: #fff; font-weight: 600; font-size: 13.5px; cursor: pointer; }
+.msheet-primary:disabled { opacity: 0.45; cursor: default; }
+.msheet-problem { margin: 0; font-size: 12.5px; color: var(--color-error); }
+.msheet-advanced { justify-self: center; font-size: 12.5px; color: var(--color-text-secondary); background: none; cursor: pointer; }
+.msheet-advanced:hover { color: var(--color-accent-text); }

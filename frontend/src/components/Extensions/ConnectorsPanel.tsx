@@ -32,6 +32,7 @@ import { parseArguments, parseEnvironment } from '../../lib/connector-input';
 import { ExtensionSheet as Sheet } from './ExtensionSheet';
 import './extensions.css';
 import { BrandMark, brandStyle } from '../Brand/BrandMark';
+import { celebrate } from '../../lib/celebrate';
 
 const fail = (e: unknown) => toast.error(e instanceof Error ? e.message : String(e));
 
@@ -480,7 +481,7 @@ export function ConnectorsPanel() {
     setCustom(false);
     reload();
     setOpen(c.id);
-    if (c.status === 'connected') toast.success(`${c.name} conectado.`);
+    if (c.status === 'connected') celebrate({ kind: 'connector', title: `${c.name} conectado`, detail: 'Sergio ya puede usarlo.', brand: { name: c.name, id: c.id } });
   };
   const current = servers?.find((s) => s.id === open);
   if (current) {

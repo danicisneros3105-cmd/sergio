@@ -22,6 +22,7 @@ import {
 import { LiveOrb } from '../Live/LiveOrb';
 import { useLive } from '../../lib/liveSession';
 import { useOnline } from '../../hooks/useOnline';
+import { withEffort } from '../../lib/modelChoice';
 import type {
   ChatMessage,
   MessageTelemetry,
@@ -411,7 +412,7 @@ export function InputArea() {
         }
       } else {
       for await (const sseEvent of streamChat(
-        { model: selectedModel, messages: apiMessages, stream: true, temperature, max_tokens: maxTokens },
+        { model: withEffort(selectedModel, useAppStore.getState().settings.effort), messages: apiMessages, stream: true, temperature, max_tokens: maxTokens },
         controller.signal,
       )) {
         const eventName = sseEvent.event;
