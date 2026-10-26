@@ -117,12 +117,34 @@ def render(
     voice: bytes = b"",
     ffmpeg: str = "",
 ) -> Path:
-    """Stills + captions (+ voice) -> an mp4 with a slow zoom on each picture."""
+    """Stills + captions (+ voice) -> an mp4 with a slow zoom on each picture.
+
+    Captions move (video_essay/captions.py: a few words at a time, the word
+    being said lit up); an ffmpeg without libass gets the old boxed lines."""
+    try:
+        return _render(pictures, sentences, durations, out, aspect=aspect, voice=voice,
+                       ffmpeg=ffmpeg, animated=True)  # fmt: skip
+    except subprocess.CalledProcessError:
+        return _render(pictures, sentences, durations, out, aspect=aspect, voice=voice,
+                       ffmpeg=ffmpeg, animated=False)  # fmt: skip
+
+
+def _render(
+    pictures: list[bytes],
+    sentences: list[str],
+    durations: list[float],
+    out: Path,
+    *,
+    aspect: str,
+    voice: bytes,
+    ffmpeg: str,
+    animated: bool,
+) -> Path:
     exe = ffmpeg or ffmpeg_exe()
     if not exe:
         raise RuntimeError("falta ffmpeg (se instala con la actualización de Sergio)")
     width, height = SIZES.get(aspect, SIZES["16:9"])
-    font = _font()
+    font = "" if animated else _font()
     with tempfile.TemporaryDirectory(prefix="sergio-video-") as tmp:
         work = Path(tmp)
         parts = []
@@ -162,7 +184,18 @@ def render(
             narration = work / "voz.wav"
             narration.write_bytes(voice)
             cmd += ["-i", str(narration), "-c:a", "aac", "-b:a", "160k", "-shortest"]
-        cmd += ["-c:v", "copy", "-movflags", "+faststart", str(out)]
+        if animated and any(sentences):
+            from openjarvis.video_essay.captions import ass_document, filter_for
+
+            subs = work / "subtitulos.ass"
+            subs.write_text(
+                ass_document(sentences, durations, width, height), encoding="utf-8"
+            )
+            cmd += ["-vf", filter_for(subs), "-c:v", "libx264", "-preset", "veryfast",
+                    "-crf", "20", "-pix_fmt", "yuv420p"]  # fmt: skip
+        else:
+            cmd += ["-c:v", "copy"]
+        cmd += ["-movflags", "+faststart", str(out)]
         subprocess.run(cmd, check=True, capture_output=True, timeout=600)
     return out
 

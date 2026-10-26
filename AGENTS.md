@@ -536,6 +536,17 @@ termina en la rama `main`, y el dueño actualiza con un único comando.
   esconder el notch) y Habilidades. Sin barra de pestañas: Chat, Nodes,
   Swarm, Salud y Ajustes quedan a un paso con «Volver». Nada nuevo entra a la
   página de inicio sin quitar otra cosa.
+- **Videos: subtítulos que se mueven y videos programados** (dueño, 26 oct.
+  2026: «subtítulos cool y no simplones en una línea… cree videos cada 3
+  horas… y lo postee»). El video rápido (`video_create`) ya no pone la frase
+  en una caja negra: 2–3 palabras grandes con borde, la que suena en amarillo,
+  entrando con un pequeño salto (`video_essay/captions.py`, ASS con libass; si
+  el ffmpeg no lo tiene, las líneas de antes). En el chat, «+ → Video»: idea,
+  formato, **barra de esfuerzo** (Prueba, Básico, Para publicar, Absolut
+  Cinema) y «repetir cada…» (`video_essay/schedule.py`, `/v1/personal/videos`).
+  Lo programado respeta un video a la vez y el tope diario. **Nunca se publica
+  solo**: cada video espera en «Listos para publicar» y «Publicar» (el toque
+  del dueño) solo entrega archivo, título y descripción para subirlo.
 - **Modelos 3D por piezas dentro del chat** (dueño, 26 oct. 2026: «un auto
   ultra detallado… verlo pieza por pieza con la skill anatomy»): herramienta
   `modelo_por_piezas` (`creator/despiece.py`, `/v1/creator/despiece/*`,

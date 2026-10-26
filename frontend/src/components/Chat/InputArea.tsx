@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router';
-import { ArrowUp, CircleDot, MonitorSmartphone, Network, Plus, Search, Square, X } from 'lucide-react';
+import { ArrowUp, CircleDot, Clapperboard, MonitorSmartphone, Network, Plus, Search, Square, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { chatKindOf, useAppStore, generateId } from '../../lib/store';
 import { streamChat, streamResearch } from '../../lib/sse';
@@ -23,6 +23,7 @@ import { LiveOrb } from '../Live/LiveOrb';
 import { useLive } from '../../lib/liveSession';
 import { useOnline } from '../../hooks/useOnline';
 import { withEffort } from '../../lib/modelChoice';
+import { VideoSheet } from './VideoSheet';
 import type {
   ChatMessage,
   MessageTelemetry,
@@ -654,6 +655,7 @@ export function InputArea() {
   const isWelcome = messages.length === 0 && !isCurrentChatStreaming;
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [videoOpen, setVideoOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!menuOpen) return;
@@ -688,6 +690,12 @@ export function InputArea() {
       run: () => navigate('/nodes?nuevo=1'),
     },
     {
+      icon: Clapperboard,
+      label: 'Video',
+      hint: 'Guion, clips, cortes y subtítulos; también cada X horas',
+      run: () => setVideoOpen(true),
+    },
+    {
       icon: MonitorSmartphone,
       label: 'Usar mi pantalla',
       hint: 'Lo hace en su PC, a la vista',
@@ -711,6 +719,12 @@ export function InputArea() {
       )}
       {/* iMessage: a round «+» on the left, then the rounded field with the
           blue send arrow inside it (the voice orb when there is nothing to send). */}
+      {videoOpen && (
+        <VideoSheet
+          onClose={() => setVideoOpen(false)}
+          onAsk={(text) => window.dispatchEvent(new CustomEvent('sergio:send', { detail: text }))}
+        />
+      )}
       <div className="imsg-composer">
         <div className="composer-tools" ref={menuRef}>
           <button

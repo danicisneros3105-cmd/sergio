@@ -746,6 +746,12 @@ def create_app(
     from openjarvis.server.personal_routes import router as personal_router
 
     app.include_router(personal_router)
+    try:  # videos made on a schedule (never posted without the owner)
+        from openjarvis.video_essay import schedule as video_schedule
+
+        video_schedule.start_loop()
+    except Exception:  # noqa: BLE001
+        logger.debug("video schedule not started", exc_info=True)
     include_all_routes(app)
 
     # Restore SendBlue channel bindings from database on startup

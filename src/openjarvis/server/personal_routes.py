@@ -130,6 +130,97 @@ def models(request: Request) -> Dict[str, Any]:
     }
 
 
+class VideoSchedule(BaseModel):
+    idea: str
+    cada_horas: int = 24
+    modo: str = "basic"
+    formato: str = "9:16"
+    segundos: int = 60
+
+
+class Active(BaseModel):
+    activo: bool
+
+
+def _videos() -> Dict[str, Any]:
+    from openjarvis.video_essay import modes, schedule
+
+    return {
+        "programados": schedule.load(),
+        "listos": schedule.ready_to_post(),
+        "cada": list(schedule.EVERY_HOURS),
+        "modos": [{"id": k, "nombre": modes.NAMES[k]} for k in modes.ORDER],
+    }
+
+
+@router.get("/videos")
+def videos() -> Dict[str, Any]:
+    """Scheduled videos and the finished ones waiting for the owner's OK."""
+    return _videos()
+
+
+@router.post("/videos")
+def add_video_schedule(body: VideoSchedule) -> Dict[str, Any]:
+    from openjarvis.video_essay import schedule
+
+    try:
+        schedule.add(
+            body.idea,
+            every_hours=body.cada_horas,
+            mode=body.modo,
+            aspect=body.formato,
+            seconds=body.segundos,
+        )
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    return _videos()
+
+
+@router.put("/videos/{item_id}")
+def switch_video_schedule(item_id: str, body: Active) -> Dict[str, Any]:
+    from openjarvis.video_essay import schedule
+
+    if schedule.set_active(item_id, body.activo) is None:
+        raise HTTPException(404, "Esa programación no existe.")
+    return _videos()
+
+
+@router.delete("/videos/{item_id}")
+def remove_video_schedule(item_id: str) -> Dict[str, Any]:
+    from openjarvis.video_essay import schedule
+
+    if not schedule.remove(item_id):
+        raise HTTPException(404, "Esa programación no existe.")
+    return _videos()
+
+
+@router.post("/videos/listos/{job_id}/publicar")
+def approve_post(job_id: str) -> Dict[str, Any]:
+    """The owner's OK for one video: Sergio hands over everything to post it
+    (the file, title and description) and marks it as posted. Nothing is
+    uploaded by itself."""
+    from openjarvis.video_essay import job as jobs
+
+    job = jobs.get(job_id)
+    if job is None or job.state().get("status") != "listo":
+        raise HTTPException(404, "Ese video no está listo.")
+    job.update(publicado=True)
+    res = job.state().get("result") or {}
+    pkg = res.get("package") or {}
+    return {
+        "video": res.get("url", ""),
+        "titulo": pkg.get("title", ""),
+        "descripcion": pkg.get("description", ""),
+    }
+
+
+@router.post("/videos/trabajos/{job_id}/cancel")
+def cancel_video(job_id: str) -> Dict[str, Any]:
+    from openjarvis.video_essay import job as jobs
+
+    return {"ok": jobs.cancel(job_id)}
+
+
 @router.get("/en-marcha")
 def running(request: Request) -> Dict[str, Any]:
     """What Sergio, the Nodes, the swarms and Cowork are doing now."""
@@ -172,6 +263,18 @@ def running(request: Request) -> Dict[str, Any]:
                     })  # fmt: skip
         except Exception:  # noqa: BLE001
             logger.debug("%s unavailable", name, exc_info=True)
+    try:  # the video being made (one at a time)
+        from openjarvis.video_essay import job as jobs
+
+        for job in jobs.running():
+            st = job.state()
+            rows.append({
+                "tipo": "video", "id": job.id, "quien": "Video",
+                "que": ((st.get("params") or {}).get("prompt") or (st.get("params") or {}).get("topic") or "")[:90],
+                "detener": f"/v1/personal/videos/trabajos/{job.id}/cancel",
+            })  # fmt: skip
+    except Exception:  # noqa: BLE001
+        logger.debug("video jobs unavailable", exc_info=True)
     return {"en_marcha": rows}
 
 
