@@ -1,25 +1,16 @@
-"""Sergio's control center: what drops out of the notch when you click it.
+"""Sergio's control center: what drops out of the notch.
 
-Seven sections, as icons only, in the user's language (idioma.py):
+It opens on one page with quick buttons only (owner, 26 Oct 2026; built in
+``panel_inicio.py``): what is running now with a stop button each, the
+switches as round buttons, and six tiles — Multitarea, Deshacer, Uso,
+Modelo y esfuerzo, Pantalla and Habilidades. Every other page (Chat, Nodes,
+Agent Swarm, Cowork, Health, Profile, Settings) is one step away and comes
+back with «Volver»; there is no tab bar.
 
-* Chat: talk or type to Sergio, the brain, the microphone, the last answer.
-* Nodes: your 24/7 digital employees (like OpenAI's Dots): who is working
-  on what, who needs you; a quick errand; a new Node.
-* Agent Swarm: a huge task split across many agents at once (like Kimi's),
-  live progress, and the report.
-* Cowork: describe an outcome; Sergio plans and works, and asks here before
-  anything delicate (approve or deny each waiting step).
-* Health: health, sleep (Night Shift), the mental gym and its results, the
-  counselling chair.
-* Profile: who you are to Sergio (profile, goals, your face) and how Sergio
-  looks and sounds.
-* Configuration: the switches (wake word, screen control, camera…),
-  multitasking, hiding the notch, language and country.
-
-The look is black and white with one light blue for what you press; one
-typeface (estilo.py: Josefin Sans, measured as the closest free match to
-the B&O logo), titles in spaced capitals; every measure on a 4 px grid. Native Qt; data comes from
-the local Sergio server.
+The look is Apple's (estilo.py): black, dark cards, one blue for what is on
+or pressed; one typeface (Josefin Sans, the closest free match to the B&O
+logo) for titles; every measure on a 4 px grid. Native Qt; data comes from
+the local Sergio server, in the user's language (idioma.py).
 """
 
 from __future__ import annotations
@@ -32,14 +23,12 @@ from typing import Any, Callable
 
 import httpx
 from PySide6.QtCore import (
-    QEasingCurve,
     QEvent,
     QPointF,
     QRectF,
     QSize,
     Qt,
     QTimer,
-    QVariantAnimation,
     Signal,
 )
 from PySide6.QtGui import (
@@ -55,7 +44,6 @@ from PySide6.QtWidgets import (
     QAbstractButton,
     QButtonGroup,
     QComboBox,
-    QGridLayout,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -71,6 +59,7 @@ from PySide6.QtWidgets import (
 
 from sergio_escritorio import estilo, idioma
 from sergio_escritorio.character import PALETTES, apply_config, draw_character
+from sergio_escritorio.panel_inicio import HomeMixin
 from sergio_escritorio.voice import api_base
 
 WIDTH, HEIGHT = 468, 600
@@ -189,6 +178,13 @@ class PanelActions:
     multitasking: Callable[[], bool] = lambda: False
     set_multitasking: Callable[[bool], None] = lambda _on: None
     hide_notch: Callable[[], None] = lambda: None
+    # Split the open app window too (launch.split_window); False if none is open.
+    split_screen: Callable[[bool], bool] = lambda _on: False
+    # «Deshacer»: undo the newest reversible step, and what that step was.
+    undo: Callable[[], str] = lambda: "No hay nada reciente que deshacer."
+    undo_label: Callable[[], str] = lambda: ""
+    # The «Pantalla» sheet's switches (Night Shift, next to the cursor…).
+    display: list[Toggle] = field(default_factory=list)
 
 
 # -- small Apple-style controls ------------------------------------------------
@@ -407,47 +403,6 @@ def draw_icon(p: QPainter, kind: str, centre: QPointF, colour: QColor) -> None:
         p.drawLine(QPointF(x + 6, y - 1), QPointF(x, y - 7))
 
 
-class Tile(QAbstractButton):
-    """Control Center tile: dark when off, bright when on."""
-
-    def __init__(self, toggle: Toggle) -> None:
-        super().__init__()
-        self.toggle = toggle
-        self.setCheckable(True)
-        self.setChecked(bool(toggle.get()))
-        self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setFixedHeight(64)
-        self.toggled.connect(lambda on: self.toggle.set(on))
-
-    def sync(self) -> None:
-        self.blockSignals(True)
-        self.setChecked(bool(self.toggle.get()))
-        self.blockSignals(False)
-        self.update()
-
-    def paintEvent(self, _event: Any) -> None:  # noqa: N802
-        p = QPainter(self)
-        p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        on = self.isChecked()
-        rect = QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5)
-        # On: an aluminium hairline and a lit ring; off: just graphite.
-        p.setPen(QPen(QColor(ALUMINIUM if on else LINE), 1.0))
-        p.setBrush(QColor("#151515" if on else CARD))
-        p.drawRoundedRect(rect, 12, 12)
-        bubble = QPointF(30, rect.center().y())
-        p.setPen(QPen(QColor(ALUMINIUM if on else "#4a4843"), 1.0))
-        p.setBrush(QColor(ALUMINIUM) if on else Qt.BrushStyle.NoBrush)
-        p.drawEllipse(bubble, 16, 16)
-        draw_icon(p, self.toggle.icon, bubble, QColor(TEXT if on else SECONDARY))
-        p.setPen(QColor(TEXT))
-        p.setFont(_font(9.5, QFont.Weight.DemiBold))
-        p.drawText(QPointF(56, rect.center().y() - 2), self.toggle.label)
-        p.setPen(QColor(SECONDARY))
-        p.setFont(_font(8.5))
-        p.drawText(QPointF(56, rect.center().y() + 14), "Activado" if on else "Apagado")
-        p.end()
-
-
 SECTION_ICONS = {  # the «Todo» tab, in order: (icon, bubble colour)
     "agents": ("person", "#0a84ff"),
     "organizer": ("note", "#ff9f0a"),
@@ -483,70 +438,6 @@ def all_territories() -> list[tuple[str, str]]:
         if len(code) == 2 and code.isalpha() and code not in ("ZZ",):
             found[code] = QLocale.territoryToString(value)
     return sorted(found.items(), key=lambda kv: kv[1])
-
-
-class TabIcon(QAbstractButton):
-    """A section of the panel shown only as an icon. Under the cursor it
-    rises with a little spring and the panel shows its name underneath, in
-    spaced capitals (B&O); the open one keeps a light blue dot."""
-
-    SIZE = QSize(56, 52)
-
-    def __init__(self, kind: str, label: str) -> None:
-        super().__init__()
-        self.kind, self.label = kind, label
-        self.hover = 0.0
-        self.setCheckable(True)
-        self.setFixedSize(self.SIZE)
-        self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setText(label)  # painted by hand; kept for screen readers and tests
-        self.setAccessibleName(label)
-        self._anim = QVariantAnimation(self)
-        self._anim.setDuration(240)
-        self._anim.valueChanged.connect(self._step)
-        self.on_hover: Callable[["TabIcon", bool], None] | None = None
-
-    def _step(self, value: Any) -> None:
-        self.hover = float(value)
-        self.update()
-
-    def _go(self, target: float) -> None:
-        self._anim.stop()
-        self._anim.setEasingCurve(
-            QEasingCurve.Type.OutBack if target else QEasingCurve.Type.OutCubic
-        )
-        self._anim.setStartValue(self.hover)
-        self._anim.setEndValue(target)
-        self._anim.start()
-
-    def enterEvent(self, _event: Any) -> None:  # noqa: N802
-        self._go(1.0)
-        if self.on_hover:
-            self.on_hover(self, True)
-
-    def leaveEvent(self, _event: Any) -> None:  # noqa: N802
-        self._go(0.0)
-        if self.on_hover:
-            self.on_hover(self, False)
-
-    def paintEvent(self, _event: Any) -> None:  # noqa: N802
-        p = QPainter(self)
-        p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        h = self.hover
-        on = self.isChecked()
-        colour = QColor(TEXT if (on or h > 0.5) else SECONDARY)
-        centre = QPointF(self.width() / 2, 20 - 4 * h)
-        p.save()
-        p.translate(centre)
-        scale = 1.0 + 0.12 * h
-        p.scale(scale, scale)
-        draw_icon(p, self.kind, QPointF(0, 0), colour)
-        p.restore()
-        if on:
-            p.setPen(Qt.PenStyle.NoPen)
-            p.setBrush(QColor(ALUMINIUM))
-            p.drawEllipse(QPointF(self.width() / 2, 40), 2.5, 2.5)
-        p.end()
 
 
 class SectionTile(QAbstractButton):
@@ -714,17 +605,21 @@ def _label(text: str, name: str = "", wrap: bool = False) -> QLabel:
 
 
 # -- the panel -----------------------------------------------------------------
-class ControlCenter(QWidget):
+class ControlCenter(HomeMixin, QWidget):
     cowork_ready = Signal(dict)
     nodes_ready = Signal(dict)
     swarms_ready = Signal(dict)
+    home_ready = Signal(dict)
+    models_ready = Signal(dict)
+    skills_ready = Signal(dict)
+    profile_ready = Signal(dict)
+    undone = Signal(dict)
 
+    # The pages, in the order they are stacked; HOME is the one that opens.
     TABS = ("tab_chat", "tab_nodes", "tab_swarm", "tab_cowork", "tab_health", "tab_profile", "tab_settings")
     CHAT, NODES, SWARM, COWORK, HEALTH, PROFILE, SETTINGS_TAB = range(7)
+    HOME, MODEL_SHEET, SKILLS_SHEET, DISPLAY_SHEET = range(7, 11)
     HEALTH_SECTIONS = ("health", "night", "gym", "results", "consult")
-    # Fewer controls: Cowork and Profile live in the app (and answer by voice);
-    # their pages stay so «abre mi perfil» still lands somewhere.
-    HIDDEN_TABS = (COWORK, PROFILE)
     PROFILE_SECTIONS = ("profile", "goals", "results", "faces")
 
     def __init__(self, actions: PanelActions) -> None:
@@ -749,14 +644,20 @@ class ControlCenter(QWidget):
         self.cowork_ready.connect(self._show_cowork)
         self.nodes_ready.connect(self._show_nodes)
         self.swarms_ready.connect(self._show_swarms)
+        self.home_ready.connect(self._show_home)
+        self.models_ready.connect(self._show_models)
+        self.skills_ready.connect(self._show_skills)
+        self.profile_ready.connect(self._show_profile)
+        self.undone.connect(self._show_undone)
         self._nodes: list[dict] = []
         self._swarm_lines: list[str] = []
+        self._model_names: dict[str, str] = {}
 
         root = QVBoxLayout(self)
         root.setContentsMargins(24, 16, 24, 20)
-        root.setSpacing(16)
+        root.setSpacing(12)
         root.addLayout(self._header())
-        root.addWidget(self._segmented())
+        root.addWidget(self._back_row())
         self.pages = QStackedWidget()
         apply_config(self.actions.config)
         self.pages.addWidget(self._chat())
@@ -766,6 +667,11 @@ class ControlCenter(QWidget):
         self.pages.addWidget(self._sections_page(self.HEALTH_SECTIONS, "health_hint"))
         self.pages.addWidget(self._profile())
         self.pages.addWidget(self._settings())
+        self.pages.addWidget(self._home())
+        self.pages.addWidget(self._model_sheet())
+        self.pages.addWidget(self._skills_sheet())
+        self.pages.addWidget(self._display_sheet())
+        self.pages.setCurrentIndex(self.HOME)
         root.addWidget(self.pages, 1)
         self._swarm_timer = QTimer(self)
         self._swarm_timer.timeout.connect(self._refresh_swarm)
@@ -793,6 +699,15 @@ class ControlCenter(QWidget):
 
         from sergio_escritorio.iconos import icon
 
+        self.settings_button = QPushButton()
+        self.settings_button.setObjectName("icon")
+        self.settings_button.setIcon(icon("settings", TEXT, 15))
+        self.settings_button.setIconSize(QSize(15, 15))
+        self.settings_button.setToolTip(idioma.t("q_settings", self.lang))
+        self.settings_button.setAccessibleName(idioma.t("q_settings", self.lang))
+        self.settings_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.settings_button.clicked.connect(lambda: self.show_tab(self.SETTINGS_TAB))
+        row.addWidget(self.settings_button, 0, Qt.AlignmentFlag.AlignVCenter)
         self.open_app_button = QPushButton()
         self.open_app_button.setObjectName("icon")
         self.open_app_button.setIcon(icon("external", TEXT, 15))
@@ -815,59 +730,14 @@ class ControlCenter(QWidget):
         row.addWidget(close, 0, Qt.AlignmentFlag.AlignVCenter)
         return row
 
-    TAB_ICONS = ("bubble", "dots", "swarm", "briefcase", "heart", "person", "gear")
-
-    def _segmented(self) -> QWidget:
-        """The sections as icons only (their names appear on hover)."""
-        bar = QWidget()
-        bar.setStyleSheet(f"border-bottom: 1px solid {LINE};")
-        row = QHBoxLayout(bar)
-        row.setContentsMargins(0, 0, 0, 0)
-        row.setSpacing(0)
-        self.tab_group = QButtonGroup(self)
-        for i, (key, kind) in enumerate(zip(self.TABS, self.TAB_ICONS)):
-            button = TabIcon(kind, idioma.t(key, self.lang))
-            button.on_hover = self._tab_tip
-            self.tab_group.addButton(button, i)
-            if i in self.HIDDEN_TABS:
-                button.hide()
-                continue
-            if i:
-                row.addStretch(1)  # equal gaps between the icons
-            row.addWidget(button)
-        self.tab_group.button(0).setChecked(True)
-        self.tab_group.idClicked.connect(self.show_tab)
-        self.tab_tip = QLabel(self)  # the hovered icon's name, never clipped
-        self.tab_tip.setObjectName("tabtip")
-        self.tab_tip.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
-        self.tab_tip.hide()
-        return bar
-
-    def _tab_tip(self, tab: "TabIcon", show: bool) -> None:
-        if not show:
-            self.tab_tip.hide()
-            return
-        self.tab_tip.setText(tab.label.upper())
-        self.tab_tip.adjustSize()
-        centre = tab.mapTo(self, QPointF(tab.width() / 2, tab.height()).toPoint())
-        x = max(8, min(self.width() - self.tab_tip.width() - 8, centre.x() - self.tab_tip.width() // 2))
-        self.tab_tip.move(x, centre.y() + 2)
-        self.tab_tip.raise_()
-        self.tab_tip.show()
-
     def _chat(self) -> QWidget:
-        """A conversation, like a messenger: the brain on top, what was said
-        in the middle (newest at the bottom), the composer at the foot."""
+        """A conversation, like a messenger: what was said (newest at the
+        bottom) and the composer at the foot. The effort is chosen in the
+        «Modelo» sheet."""
         page = QWidget()
         col = QVBoxLayout(page)
         col.setContentsMargins(0, 0, 0, 0)
         col.setSpacing(12)
-        self.brain = Segmented(
-            BRAINS,
-            str(self.actions.config.get("effort", "auto")),
-            lambda k: self._save(effort=k),
-        )
-        col.addLayout(_row(idioma.t("brain", self.lang), self.brain))
         self.thread = QWidget()
         self.thread_col = QVBoxLayout(self.thread)
         self.thread_col.setContentsMargins(0, 0, 4, 0)
@@ -1200,7 +1070,9 @@ class ControlCenter(QWidget):
             return
         index = self.pages.currentIndex()
         base = api_base(self.actions.server_url)
-        if index == self.NODES:
+        if index == self.HOME:
+            self._refresh_home()
+        elif index == self.NODES:
             self._background(lambda: self._http().get(f"{base}/v1/nodes").json(), self.nodes_ready)
         elif index == self.SWARM:
             self._background(lambda: self._http().get(f"{base}/v1/swarm").json(), self.swarms_ready)
@@ -1387,27 +1259,13 @@ class ControlCenter(QWidget):
             self.actions.send("cancela la tarea")
 
     def _settings(self) -> QWidget:
-        """The switches, the notch, language and country."""
+        """How Sergio calls you, language, country and voice."""
         cfg = self.actions.config
         page = QWidget()
         col = QVBoxLayout(page)
         col.setContentsMargins(0, 0, 14, 0)
         col.setSpacing(12)
-        grid = QGridLayout()
-        grid.setSpacing(10)
-        self.tiles = [Tile(t) for t in self.actions.toggles]
-        for i, tile in enumerate(self.tiles):
-            grid.addWidget(tile, i // 2, i % 2)
-        col.addLayout(grid)
-        col.addWidget(_label("NOTCH", "section"))
-        self.multi_switch = Switch(self.actions.multitasking())
-        self.multi_switch.toggled.connect(self.actions.set_multitasking)
-        col.addLayout(_row(idioma.t("multitasking", self.lang), self.multi_switch))
-        hide = QPushButton(idioma.t("hide_notch", self.lang))
-        hide.setCursor(Qt.CursorShape.PointingHandCursor)
-        hide.clicked.connect(lambda: (self.hide(), self.actions.hide_notch()))
-        col.addWidget(hide)
-        col.addWidget(_label(idioma.t("settings_hint", self.lang), "hint", True))
+        self._address_rows(col)
         self.language_box = QComboBox()
         for code, name in idioma.LANGUAGES.items():
             self.language_box.addItem(name, code)
@@ -1466,30 +1324,37 @@ class ControlCenter(QWidget):
 
     def show_tab(self, index: int) -> None:
         self.pages.setCurrentIndex(index)
-        self.tab_group.button(index).setChecked(True)
+        self.back_bar.setVisible(index != self.HOME)
+        self.page_title.setText(self.page_name(index))
         if index == self.COWORK:
             self._load_cowork()
         elif index in (self.NODES, self.SWARM):
             if index == self.SWARM:
                 self._show_swarms(None)  # this PC's tasks at once; the server's follow
             self._refresh_remote()
+        elif index == self.MODEL_SHEET:
+            self._load_models()
+        elif index == self.SKILLS_SHEET:
+            self._load_skills()
+        elif index == self.SETTINGS_TAB and not self._profile_loaded:
+            self._load_profile()
+        elif index == self.HOME:
+            self._sync_quick()
 
     def open(self) -> None:
         screen = QGuiApplication.primaryScreen()
         if screen is not None:
             geo = screen.geometry()
             self.move(geo.x() + (geo.width() - WIDTH) // 2, geo.y())
-        for tile in self.tiles:
-            tile.sync()
-        self.multi_switch.setChecked(self.actions.multitasking())
         status = self.actions.status()
         self.subtitle.setText(status)
         self.subtitle.setVisible(bool(status))
         self._opened_at = time.monotonic()
+        self.show_tab(self.HOME)
+        self._refresh_home(full=True)
         self.show()
         self.raise_()
         self.activateWindow()
-        self.entry.setFocus()
 
     def toggle(self) -> None:
         if self.isVisible():
@@ -1609,4 +1474,4 @@ class ControlCenter(QWidget):
         p.end()
 
 
-__all__ = ["ControlCenter", "PanelActions", "SectionTile", "Switch", "Tile", "Toggle"]
+__all__ = ["ControlCenter", "PanelActions", "SectionTile", "Switch", "Toggle"]

@@ -96,6 +96,18 @@ def test_island_voice_orders():
     assert parse_quick("vuelve a poner el notch").kind == "notch_show"
 
 
+def test_undo_by_voice():
+    from sergio_escritorio.quick import parse_quick
+
+    for said in ("Sergio, deshaz eso", "deshaz lo último por favor", "revierte la última acción"):
+        quick = parse_quick(said)
+        assert quick is not None and quick.kind == "undo", said
+    # Not a bare «deshacer» order: these go to the model as usual.
+    for said in ("deshaz la maleta y guarda la ropa", "cómo deshacer un commit en git"):
+        quick = parse_quick(said)
+        assert quick is None or quick.kind != "undo", said
+
+
 def test_the_notch_visibility_progress_hides_and_recalls():
     import os
 

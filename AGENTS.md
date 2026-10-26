@@ -519,6 +519,17 @@ termina en la rama `main`, y el dueño actualiza con un único comando.
   Los límites diarios (`quota.BASE_DAILY`) se cuentan siempre y solo bloquean
   con `SERGIO_PLANES_ACTIVOS=1`. Licencias viejas (`pro`, `teams`,
   `enterprise`) valen como Work, Founders y Founders.
+- **Centro de control del notch = botones rápidos** (dueño, 26 oct. 2026:
+  «solo se podrá ver botón para Multitasking y Split Screen, Retroceder
+  última acción de Sergio, Usage, Change Model / Effort, Display… y las
+  acciones que están corriendo»): abre en una sola página
+  (`panel_inicio.py`): «En marcha» (`/v1/personal/en-marcha` y las tareas del
+  PC, cada una con su botón para detener), los interruptores como botones
+  redondos y seis mosaicos — Multitarea (isla y ventana divididas a la vez),
+  Deshacer, Uso, Modelo y esfuerzo, Pantalla (Night Shift, junto al cursor,
+  esconder el notch) y Habilidades. Sin barra de pestañas: Chat, Nodes,
+  Swarm, Salud y Ajustes quedan a un paso con «Volver». Nada nuevo entra a la
+  página de inicio sin quitar otra cosa.
 - **Aprobaciones en palabras simples** (dueño, 26 oct. 2026: «salen mensajes
   raros… debemos ser simples pero profesionales»): ninguna etiqueta interna
   (`<aprobacion>`, `<cli>`, `<mente>`…) llega a la pantalla; una aprobación

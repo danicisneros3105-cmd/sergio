@@ -338,12 +338,22 @@ def parse_island(t: str) -> Quick | None:
     return None
 
 
+# «Sergio, deshaz eso» / «deshaz lo último»: the newest reversible step back
+# (deshacer.py; the control center's «Deshacer» does the same).
+_UNDO = re.compile(
+    r"^(?:deshaz|deshace|deshacer|revierte|revertir|anula|undo)"
+    r"(?: (?:eso|esto|lo ultimo|lo que hiciste|la ultima accion|el ultimo cambio|lo anterior))?$"
+)
+
+
 def parse_quick(text: str) -> Quick | None:
     """A Quick action for clear one-step orders, else None."""
     t = polite(_plain(text).rstrip(".?!"))
     island = parse_island(t)
     if island:
         return island
+    if _UNDO.match(t):
+        return Quick("undo")
     # Multitasking: background tasks, several at once, what is running
     from sergio_escritorio import agentes
     from sergio_escritorio.tareas import (

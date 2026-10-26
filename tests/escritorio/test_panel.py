@@ -1,4 +1,4 @@
-"""The notch's control center (Qt offscreen): its seven sections."""
+"""The notch's control center (Qt offscreen): quick buttons first, every page one step away."""
 
 import os
 
@@ -161,63 +161,109 @@ def test_sergio_is_not_personalised_only_agents_are(qt):
     assert opened == [f"{panel.actions.server_url.rstrip('/')}/nodes?nuevo=1"]
 
 
-def test_tabs_are_icons_that_answer_the_cursor(qt):
-    from sergio_escritorio.panel import TabIcon
-
-    panel, *_ = _panel(qt)
-    icons = [panel.tab_group.button(i) for i in range(len(panel.TABS))]
-    assert all(isinstance(b, TabIcon) for b in icons)
-    assert [b.kind for b in icons] == [
-        "bubble",
-        "dots",
-        "swarm",
-        "briefcase",
-        "heart",
-        "person",
-        "gear",
-    ]
-    tab = icons[2]
-    tab._go(1.0)
-    tab._anim.setCurrentTime(tab._anim.duration())
-    assert tab.hover == 1.0  # risen, with its name showing
-    tab.grab()  # paints without errors, hovered
-    panel._tab_tip(tab, True)
-    assert (
-        panel.tab_tip.isVisibleTo(panel) and panel.tab_tip.text() == tab.label.upper()
+def test_home_shows_only_quick_buttons_and_whats_running(qt):
+    # Owner, 26 Oct 2026: only Multitasking / Split Screen, undo Sergio's last
+    # action, Usage, Model / Effort, Display (and skills), plus what is running.
+    panel, state, *_ = _panel(qt)
+    undone = []
+    panel.actions.undo_label = lambda: "Abrí Spotify"
+    panel.actions.undo = lambda: undone.append(1) or "Cerré Spotify"
+    split = []
+    panel.actions.split_screen = lambda on: split.append(on) or True
+    panel.open()
+    assert panel.pages.currentIndex() == panel.HOME
+    assert not panel.back_bar.isVisibleTo(panel)
+    assert [t.kind for t in panel.quick_tiles] == [
+        "split", "undo", "gauge", "sparkles", "monitor", "puzzle",
+    ]  # fmt: skip
+    assert panel.undo_tile.sub == "Abrí Spotify" and panel.undo_tile.isEnabled()
+    panel.undo_tile.click()
+    _wait(qt, lambda: undone == [1] and panel.undo_tile.sub == "Cerré Spotify")
+    panel.multi_tile.click()  # the island and the open window split together
+    _wait(qt, lambda: split == [True])
+    assert state["multi"] is True
+    for tile in panel.quick_tiles:
+        tile.grab()  # paints without errors
+    # What is running: the server's rows and this PC's tasks, each with a stop.
+    panel._show_home(
+        {
+            "running": [
+                {"quien": "Rihno", "que": "Investiga precios", "detener": "/v1/nodes/n1/cancel"},
+            ]
+        }
     )
-    panel._tab_tip(tab, False)
-    tab._go(0.0)
-    tab._anim.setCurrentTime(tab._anim.duration())
-    assert tab.hover == 0.0
-    tab.click()
-    assert panel.pages.currentIndex() == 2
+    texts = [
+        panel.running_box.itemAt(i).widget().findChildren(type(panel.title))[-1].toolTip()
+        for i in range(panel.running_box.count())
+    ]
+    assert texts[0] == "Rihno · Investiga precios"
+    assert any("Buscar precios" in t for t in texts)  # this PC's task line
 
 
-def test_only_the_six_sections_in_the_users_language(qt):
+def test_sheets_model_skills_display_and_back(qt):
+    import json
+
+    calls = []
+
+    def server(request):
+        calls.append((request.method, request.url.path, request.content))
+        if request.url.path == "/v1/personal/modelos":
+            return httpx.Response(
+                200,
+                json={
+                    "modelos": [
+                        {"id": "gemini-3.6-flash", "nombre": "Gemini 3.6 Flash", "para": "Rápido", "disponible": True},
+                        {"id": "gemini-2.5-pro", "nombre": "Gemini 2.5 Pro", "para": "", "disponible": False},
+                    ]
+                },
+            )
+        if request.url.path.startswith("/v1/personal/habilidades"):
+            on = b"true" in (request.content or b"true")
+            return httpx.Response(
+                200,
+                json={"habilidades": [{"clave": "imagenes", "nombre": "Imágenes", "hace": "", "activa": on}]},
+            )
+        return httpx.Response(404)
+
+    panel, *_ , saved, _ = _panel(qt)
+    panel.actions.http = httpx.Client(transport=httpx.MockTransport(server))
+    panel.model_tile.click()
+    assert panel.pages.currentIndex() == panel.MODEL_SHEET
+    assert panel.back_bar.isVisibleTo(panel)
+    _wait(qt, lambda: panel.model_list.count() == 3)
+    unavailable = panel.model_list.item(2)
+    from PySide6.QtCore import Qt
+
+    assert not unavailable.flags() & Qt.ItemFlag.ItemIsEnabled
+    panel._pick_model(panel.model_list.item(1))
+    assert saved[-1]["model"] == "gemini-3.6-flash"
+    assert panel.model_tile.sub.startswith("Gemini 3.6 Flash")
+    panel.show_tab(panel.SKILLS_SHEET)
+    _wait(qt, lambda: panel.skills_box.count() == 1)
+    panel._switch_skill("imagenes", False)
+    _wait(qt, lambda: any(m == "PUT" for m, *_ in calls))
+    put = next(c for m, path, c in calls if m == "PUT")
+    assert json.loads(put) == {"activa": False}
+    panel.display_tile.click()
+    assert panel.pages.currentIndex() == panel.DISPLAY_SHEET
+    panel.back_bar.findChildren(type(panel.open_app_button))[0].click()
+    assert panel.pages.currentIndex() == panel.HOME
+
+
+def test_page_titles_in_the_users_language(qt):
     from sergio_escritorio.panel import ControlCenter, PanelActions
 
     panel = ControlCenter(PanelActions(config={"language": "en"}))
-    labels = [panel.tab_group.button(i).text() for i in range(len(panel.TABS))]
-    assert labels == [
-        "Chat",
-        "Nodes",
-        "Agent Swarm",
-        "Cowork",
-        "Health",
-        "Profile",
-        "Settings",
-    ]
+    names = [panel.page_name(i) for i in range(panel.DISPLAY_SHEET + 1) if i != panel.HOME]
+    assert names == [
+        "Chat", "Nodes", "Agent Swarm", "Cowork", "Health", "Profile", "Settings",
+        "Model", "Skills", "Display",
+    ]  # fmt: skip
     es = ControlCenter(PanelActions(config={"language": "es"}))
-    labels = [es.tab_group.button(i).text() for i in range(len(es.TABS))]
-    assert labels == [
-        "Chat",
-        "Nodes",
-        "Agent Swarm",
-        "Cowork",
-        "Salud",
-        "Perfil",
-        "Configuración",
-    ]
+    es.show_tab(es.HEALTH)
+    assert es.page_title.text() == "Salud"
+    assert es.multi_tile.title == "Multitarea" and es.undo_tile.title == "Deshacer"
+    assert not hasattr(es, "tab_group")  # no tab bar any more
     assert not hasattr(es, "world_list") and not hasattr(es, "guide_list")  # gone
 
 
@@ -350,7 +396,8 @@ def test_swarm_health_profile_and_notch(qt):
     assert [t.key for t in tiles] == list(panel.HEALTH_SECTIONS)
     tiles[0].click()
     assert opened[-1] == ("section", "health") and not panel.isVisible()
-    panel.multi_switch.click()
+    panel.show_tab(panel.HOME)
+    panel.multi_tile.click()
     assert state["multi"] is True
     from PySide6.QtWidgets import QPushButton
     from sergio_escritorio import idioma
@@ -377,17 +424,12 @@ def test_settings_change_language_and_country(qt):
     assert saved[-1]["language"] == "pt"
 
 
-def test_only_five_tabs_show_but_every_page_is_still_reachable(qt):
+def test_every_page_is_reachable_and_settings_has_how_to_address_you(qt):
     panel, *_ = _panel(qt)
-    shown = [
-        i for i in range(len(panel.TABS)) if not panel.tab_group.button(i).isHidden()
-    ]
-    assert shown == [
-        panel.CHAT,
-        panel.NODES,
-        panel.SWARM,
-        panel.HEALTH,
-        panel.SETTINGS_TAB,
-    ]
-    panel.show_tab(panel.PROFILE)
-    assert panel.pages.currentIndex() == panel.PROFILE
+    for index in range(panel.DISPLAY_SHEET + 1):
+        panel.show_tab(index)
+        assert panel.pages.currentIndex() == index
+    panel.settings_button.click()
+    assert panel.pages.currentIndex() == panel.SETTINGS_TAB
+    keys = [panel.address_box.itemData(i) for i in range(panel.address_box.count())]
+    assert keys == ["señor", "señora", "nombre", "neutro", "tu"]

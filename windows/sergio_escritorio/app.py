@@ -68,6 +68,7 @@ def load_config() -> dict[str, Any]:
     if data.get("voice_rate") in (None, "+5%"):  # the old default sounded rushed
         data["voice_rate"] = "+0%"
     data.setdefault("effort", "auto")
+    data.setdefault("model", "")  # «Modelo» in the control center; empty = automatic
     # Talk like a phone call (Gemini Live); "turnos" = one question at a time.
     data.setdefault("conversation", "llamada")
     # Always on: the call stays open (reconnects by itself, never hangs up on
@@ -453,6 +454,13 @@ def run(config: dict[str, Any]) -> None:
         client.voice_rate = cfg["voice_rate"]
         client.allow_voice_fallback = bool(cfg.get("allow_voice_fallback", False))
         client.effort = cfg["effort"]
+        # A model chosen in the control center («Modelo»): used for both
+        # quick and deep answers; empty = Sergio picks Flash or Pro.
+        from sergio_escritorio.voice import DEEP_MODEL, FAST_MODEL
+
+        chosen = str(cfg.get("model") or "")
+        client.fast_model = chosen or FAST_MODEL
+        client.deep_model = chosen or DEEP_MODEL
         name = cfg["name"]
         persona = PERSONALITIES.get(cfg["personality"], "")
         client.personality = (
@@ -735,6 +743,19 @@ def run(config: dict[str, Any]) -> None:
     def set_camera(on: bool) -> None:
         camera_window.open() if on else camera_window.close_camera()
 
+    from sergio_escritorio.deshacer import journal as undo_journal
+
+    def night_warm() -> bool:
+        try:
+            return bool(night_settings().warmth)
+        except NameError:  # Night Shift starts later in start-up; asked again on opening
+            return False
+
+    def split_app_window(on: bool) -> bool:
+        from sergio_escritorio.launch import split_window
+
+        return split_window(on)
+
     panel = ControlCenter(
         PanelActions(
             talk=ears.talk,
@@ -743,24 +764,18 @@ def run(config: dict[str, Any]) -> None:
             ).start(),
             toggles=[
                 Toggle(
-                    "Escuchar «Sergio»",
+                    "Escuchar",
                     "wave",
                     lambda: ears.wake_word,
                     wake_action.setChecked,
                 ),
                 Toggle(
-                    "Control de pantalla",
+                    "Usar el PC",
                     "hand",
                     lambda: controller.enabled,
                     control_action.setChecked,
                 ),
                 Toggle("Cámara", "camera", camera_window.isVisible, set_camera),
-                Toggle(
-                    "Junto al cursor",
-                    "pointer",
-                    companion.isVisible,
-                    show_action.setChecked,
-                ),
                 Toggle(
                     "Conversación",
                     "phone",
@@ -768,7 +783,7 @@ def run(config: dict[str, Any]) -> None:
                     lambda on: set_call_tile(on),
                 ),
                 Toggle(
-                    "Gimnasio mental",
+                    "Gimnasio",
                     "brain",
                     lambda: bool(config.get("gym", True)),
                     lambda on: set_gym(on),
@@ -784,6 +799,14 @@ def run(config: dict[str, Any]) -> None:
             multitasking=lambda: notch.multitasking,
             set_multitasking=lambda on: (notch.set_multitasking(on), remember("multitasking", on)),
             hide_notch=lambda: set_notch(False),
+            split_screen=split_app_window,
+            undo=lambda: undo_journal().undo_last(),
+            undo_label=lambda: (step.what if (step := undo_journal().last()) else ""),
+            display=[
+                # Night Shift's own settings come later in start-up: looked up when tapped.
+                Toggle("Night Shift", "moon", night_warm, lambda on: set_night_warmth(on)),
+                Toggle("Junto al cursor", "pointer", companion.isVisible, show_action.setChecked),
+            ],
         )
     )
     panels.append(panel)
@@ -954,6 +977,10 @@ def run(config: dict[str, Any]) -> None:
 
             threading.Thread(target=split_window, args=(on,), daemon=True).start()
             return q.say
+        if q.kind == "undo":
+            from sergio_escritorio.deshacer import journal
+
+            return journal().undo_last()
         if q.kind in ("notch_hide", "notch_show"):
             on_ui(lambda: set_notch(q.kind == "notch_show"))
             return "" if q.kind == "notch_hide" else "Aquí estoy."
@@ -3959,6 +3986,12 @@ def run(config: dict[str, Any]) -> None:
         save_config(config)
         night_state["preview_until"] = 0.0
         night_engine.go(*night_look(s), fade_s=fade_s)  # changes are seen right away, faded
+
+    def set_night_warmth(on: bool) -> None:
+        """The control center's «Pantalla» switch: Night Shift on or off."""
+        import dataclasses
+
+        save_night(dataclasses.replace(night_settings(), warmth=bool(on)))
 
     def night_preview(kelvin: float, brightness: float) -> None:
         night_state["preview_until"] = time.monotonic() + 4
