@@ -116,6 +116,7 @@ class Companion(QWidget):
             self._happy_until = time.monotonic() + HAPPY_FOR  # answered: smile
         if state != "idle":
             self._wake()
+            self._timer.setInterval(16)
         self.state = state
         self.update()
 
@@ -219,6 +220,20 @@ class Companion(QWidget):
         if self.caption and time.monotonic() > self._caption_until:
             self.caption = ""
         self.update()
+        # 60 Hz only while something moves; a still cursor and a quiet orb
+        # need 10 (a top-level window moved and redrawn 60 times a second
+        # costs the whole desktop, even on a fast laptop).
+        busy = (
+            abs(moved.x()) + abs(moved.y()) > 0.5
+            or self._target is not None
+            or self.state != "idle"
+            or now - self._bounce_at < 1.0
+            or now < self._happy_until
+            or now - self._last_move < 0.6
+        )
+        interval = 16 if busy else 100
+        if self._timer.interval() != interval:
+            self._timer.setInterval(interval)
 
     # -- drawing ------------------------------------------------------------
     def orb_centre(self) -> QPointF:

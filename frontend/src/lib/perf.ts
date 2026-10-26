@@ -15,8 +15,10 @@ interface Device {
 /** True for a device that should start light. */
 export function weakDevice(nav: Device = typeof navigator !== 'undefined' ? (navigator as Device) : {}): boolean {
   if (nav.connection?.saveData) return true;
-  if (typeof nav.deviceMemory === 'number' && nav.deviceMemory <= 2) return true;
-  if (typeof nav.hardwareConcurrency === 'number' && nav.hardwareConcurrency <= 2) return true;
+  // School laptops, Chromebooks and most phones (owner, 26 Oct 2026: «no me
+  // imagino en una school computer o un teléfono»): 4 GB or 4 cores or less.
+  if (typeof nav.deviceMemory === 'number' && nav.deviceMemory <= 4) return true;
+  if (typeof nav.hardwareConcurrency === 'number' && nav.hardwareConcurrency <= 4) return true;
   return false;
 }
 

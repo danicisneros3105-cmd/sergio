@@ -4,9 +4,14 @@ Before, every look took a fresh screenshot (new capture context, resize, PNG)
 and read the accessibility tree on the spot: 150–600 ms before Sergio could
 even start thinking, and actions were checked with fixed waits.
 
-Now one background thread watches the screen continuously at the configured
-frame rate while something moves or screen sharing is active (4 when it is
-still and nobody watches), with a persistent capture context, and keeps:
+Now one background thread watches the screen with a persistent capture
+context. It runs at the configured frame rate only while someone is looking —
+Sergio looking or acting (for :data:`LOOK_FOR` seconds after each look) — 8 a
+second while a call watches the screen (it receives at most one image a
+second), 4 when the screen is still, and just one glance a second when nobody
+is looking (owner, 26 Oct 2026: «realentiza mi
+laptop»: 32 full-screen captures a second during any video were the cost).
+A look wakes it at once. It keeps:
 
 * the latest frame, its id and *what* changed (the changed box),
 * the frame already encoded (JPEG and PNG) — encoded once per frame, so
@@ -41,6 +46,9 @@ except ValueError:
     FAST_FPS = 32.310520139305
 IDLE_FPS = 4.0
 IDLE_AFTER = 3.0  # seconds without changes before slowing down
+SHARE_FPS = 8.0  # a call watching the screen (it receives at most 1 image/s)
+CALM_FPS = 1.0  # nobody looking: one glance a second keeps changes noted
+LOOK_FOR = 8.0  # after a look or an action, full speed this long
 
 
 @dataclass
@@ -261,6 +269,18 @@ class LiveScreen:
         self.cache_hits = 0  # identical images reuse the frame and encodings
         self._capture_times: deque[float] = deque(maxlen=256)
         self.on_change: Callable[[Frame], None] = lambda _f: None
+        self._watch_until = -math.inf
+        self._kick = threading.Event()
+
+    def need(self, seconds: float = LOOK_FOR) -> None:
+        """Someone is looking: full speed for *seconds*, starting now."""
+        self._watch_until = max(self._watch_until, self._clock() + seconds)
+        self._kick.set()
+
+    @property
+    def watched(self) -> bool:
+        """Full speed now (a call shares the screen, or Sergio looks or acts)."""
+        return self.streaming or self._clock() < self._watch_until
 
     # -- the eye --------------------------------------------------------------
     def capture(self) -> Frame:
@@ -316,13 +336,32 @@ class LiveScreen:
                     due = self._clock()
                     continue
                 self.capture_ms = (self._clock() - started) * 1000
-            idle = not self.streaming and started - self._last_change > IDLE_AFTER
-            period = 1.0 / (IDLE_FPS if idle else FAST_FPS)
+            acting = started < self._watch_until
+            watched = acting or self.streaming
+            idle = started - self._last_change > IDLE_AFTER
+            if acting:  # Sergio looks or acts: every change, at once
+                fps = IDLE_FPS if idle and not self.streaming else FAST_FPS
+            elif self.streaming:  # a call watches: enough for its 1 image/s
+                fps = IDLE_FPS if idle else SHARE_FPS
+            else:
+                fps = CALM_FPS
+            period = 1.0 / fps
             due += period
             now = self._clock()
             if now - due > period:  # fell behind (a slow grab): start a new beat
                 due = now
-            self._sleep(max(0.0, due - now))
+            if watched:
+                self._sleep(max(0.0, due - now))
+                continue
+            # Calm: sleep in short steps so a look starts full speed at once.
+            self._kick.clear()
+            while self._running and not self._kick.is_set():
+                left = due - self._clock()
+                if left <= 0:
+                    break
+                self._sleep(min(0.05, left))
+            if self._kick.is_set():
+                due = self._clock()
 
     def start(self) -> "LiveScreen":
         if self._thread is None or not self._thread.is_alive():
@@ -341,8 +380,13 @@ class LiveScreen:
         return bool(self._running and self._thread and self._thread.is_alive())
 
     # -- looking -----------------------------------------------------------------
-    def latest(self, max_age: float = 0.25) -> Frame:
-        """The current frame; captured now only if the eye is not watching."""
+    def latest(self, max_age: float = 0.25, look: bool = True) -> Frame:
+        """The current frame; captured now only if the eye is not watching.
+
+        A look (*look*) keeps the eye at full speed for a while; the call's
+        own sampling and geometry queries pass ``look=False``."""
+        if look:
+            self.need()
         with self._cond:
             frame = self._frame
         if frame is None or (not self.running and self._clock() - frame.at > max_age):
@@ -351,6 +395,7 @@ class LiveScreen:
 
     def wait_change(self, after: int, timeout: float) -> Optional[Frame]:
         """The first frame newer than *after*, or None if nothing changed."""
+        self.need(timeout + LOOK_FOR)
         end = self._clock() + timeout
         with self._cond:
             while True:

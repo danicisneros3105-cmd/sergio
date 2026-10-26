@@ -428,7 +428,13 @@ termina en la rama `main`, y el dueño actualiza con un único comando.
   (`mcp/hub.py`, `plugins/claude_format.py`, `sergio mcp`). Los tokens solo en
   `~/.openjarvis/connectors/secrets.json`; los hooks de plugins no se ejecutan.
 - Captura local: objetivo 32.310520139305 FPS (`SERGIO_LIVE_FPS`), independiente
-  de la voz. Gemini Live recibe como máximo 1 imagen/s: escritorio y servidor
+  de la voz, **mientras Sergio mira o actúa** (8 s tras cada mirada o acción).
+  Cambiado el 26 oct. 2026 («realentiza mi laptop»): con una llamada que
+  comparte la pantalla, 8 por segundo (recibe 1); sin nadie mirando, una
+  mirada por segundo, aunque haya un video; una mirada la acelera al
+  instante (`live_screen.py`). El árbol de accesibilidad solo se relee
+  mientras mira. Notch y compañero del cursor redibujan a 60 Hz solo cuando
+  algo se mueve (en reposo 10 Hz). Gemini Live recibe como máximo 1 imagen/s: escritorio y servidor
   muestrean el fotograma más reciente, sin acumular los anteriores. Esta
   separación se comunicó al dueño al corregir la latencia. No confunda captura,
   envío SDK e interpretación del modelo: no hay acuse por imagen ni garantía

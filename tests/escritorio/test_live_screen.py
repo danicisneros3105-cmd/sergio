@@ -73,6 +73,7 @@ def test_capture_deadlines_keep_fractional_target_and_report_observed_fps():
 
     eye = LiveScreen(grab, clock=lambda: now[0], sleep=sleep)
     eye.streaming = eye._running = True
+    eye.need(1e9)  # Sergio is acting on the screen: full speed
     eye._loop()
     assert abs((frames[-1] - frames[0]) - 199 / FAST_FPS) < 1e-9
     assert abs(eye.capture_fps - FAST_FPS) < 1e-9
@@ -168,3 +169,47 @@ def test_the_glow_breathes_and_rises_with_his_voice():
     assert 0.35 < min(quiet) < max(quiet) < 0.75
     assert intensity(0.0, 0.8, True) > intensity(0.0, 0.8, False)
     assert intensity(0.0, 1.0, True) <= 1.0
+
+
+def test_the_eye_is_calm_unless_someone_looks():
+    # Owner, 26 Oct 2026: «realentiza mi laptop». Nobody looking: one glance a
+    # second, even while a video plays; a call sharing the screen: 8; Sergio
+    # looking or acting: the full rate, at once.
+    from sergio_escritorio.live_screen import CALM_FPS, FAST_FPS, SHARE_FPS
+
+    now = [0.0]
+    frames: list[float] = []
+    n = [0]
+
+    def grab():
+        frames.append(now[0])
+        n[0] += 1
+        return picture(size=(64, 36), box=(0, 0, 8 + n[0] % 50, 8))  # always moving
+
+    def rate(setup) -> float:
+        frames.clear()
+        eye = LiveScreen(grab, clock=lambda: now[0], sleep=sleep)
+        eye._running = True
+        setup(eye)
+
+        def stop_after_forty():
+            if len(frames) >= 40:
+                eye._running = False
+
+        sleep.after = stop_after_forty
+        eye._loop()
+        return (len(frames) - 1) / (frames[-1] - frames[0])
+
+    def sleep(delay):
+        now[0] += delay
+        sleep.after()
+
+    assert abs(rate(lambda e: None) - CALM_FPS) < 0.05
+    assert abs(rate(lambda e: setattr(e, "streaming", True)) - SHARE_FPS) < 0.2
+    assert abs(rate(lambda e: e.need(1e9)) - FAST_FPS) < 0.5
+    eye = LiveScreen(grab, clock=lambda: now[0], sleep=sleep)
+    assert not eye.watched
+    eye.latest(look=False)
+    assert not eye.watched  # the call's own sampling is not a look
+    eye.latest()
+    assert eye.watched

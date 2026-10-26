@@ -434,7 +434,9 @@ def run(config: dict[str, Any]) -> None:
             _ui_warm.clear()
             controller.warm_ui()
 
-    live.on_change = lambda _frame: _ui_warm.set()
+    # Re-read the accessibility tree only while Sergio is looking or acting:
+    # during a video it was read several times a second for nothing.
+    live.on_change = lambda _frame: _ui_warm.set() if live.watched else None
     threading.Thread(target=_warm_loop, name="ui-warm", daemon=True).start()
     if config.get("live_eye", True) is not False:
         live.start()
@@ -2963,7 +2965,7 @@ def run(config: dict[str, Any]) -> None:
 
         session = current_call[0]
         live.streaming = bool(session is not None and session.active and session.share_screen)
-        frame = live.latest()
+        frame = live.latest(look=False)
         now = time.monotonic()
         if session is not None:
             if session.video_slow:
@@ -3091,7 +3093,7 @@ def run(config: dict[str, Any]) -> None:
         act=controller.act,
         snapshot=controller.snapshot,
         screen_help=client.screen_help,
-        screen_box=lambda: (*live.latest().origin, *live.latest().size),
+        screen_box=lambda: (*live.latest(look=False).origin, *live.latest(look=False).size),
         point=lambda x, y, label: bridge.point.emit(x, y, label),
         camera=camera_tool,
         hands=hands_tool,
@@ -3191,7 +3193,7 @@ def run(config: dict[str, Any]) -> None:
         options.update(changes)
         session = CallSession(config["server_url"], **options)
         session.share_screen = bool(config.get("live_screen", True))
-        session.video_fresh = lambda: live.latest().id != sent_frame[0]
+        session.video_fresh = lambda: live.latest(look=False).id != sent_frame[0]
         return session
 
     def selftest(kind: str) -> dict:
@@ -3793,7 +3795,7 @@ def run(config: dict[str, Any]) -> None:
 
             from sergio_escritorio.companion import to_logical
 
-            origin = to_logical(*live.latest().origin).toPoint()
+            origin = to_logical(*live.latest(look=False).origin).toPoint()
             screen = QGuiApplication.screenAt(origin + QPoint(4, 4))
             if screen is None:
                 return None

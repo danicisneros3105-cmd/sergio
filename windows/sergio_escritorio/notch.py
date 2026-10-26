@@ -547,12 +547,13 @@ class Notch(QWidget):
         if self._hidden_for_fullscreen:
             return
         self.update()
-        # Keep smooth transitions at 60 Hz; quiet, settled pills use 20 Hz.
+        # Keep smooth transitions at 60 Hz; a quiet, settled pill only breathes:
+        # 10 Hz is enough for that (it was 20, always, on every computer).
         moving = (not (self._sw.settled() and self._sh.settled() and self._content.settled()
                        and self._press.settled())
                   or self._duo.angle != self._duo.target or self._vanish.active
                   or self._faceid is not None)
-        self._timer.setInterval(16 if moving or self.state != "idle" else 50)
+        self._timer.setInterval(16 if moving or self.state != "idle" else 100)
 
     def _respect_fullscreen(self) -> None:
         now = time.monotonic()

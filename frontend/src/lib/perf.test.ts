@@ -6,6 +6,8 @@ describe('light mode for slow devices', () => {
     expect(weakDevice({ deviceMemory: 2 })).toBe(true);
     expect(weakDevice({ hardwareConcurrency: 2 })).toBe(true);
     expect(weakDevice({ connection: { saveData: true } })).toBe(true);
+    expect(weakDevice({ deviceMemory: 4, hardwareConcurrency: 8 })).toBe(true);
+    expect(weakDevice({ hardwareConcurrency: 4 })).toBe(true);
     expect(weakDevice({ deviceMemory: 8, hardwareConcurrency: 8 })).toBe(false);
     expect(weakDevice({})).toBe(false);
   });

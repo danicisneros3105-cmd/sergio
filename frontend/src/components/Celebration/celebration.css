@@ -36,3 +36,5 @@
 }
 :root[data-ligero] .cel-card, :root[data-ligero] .cel-card *, :root[data-ligero] .cel-waves i { animation: none !important; }
 :root[data-ligero] .cel-brand { transform: translateX(-30px); }
+/* Light mode shortens every animation to 1 ms: the layer must not fade out at once. */
+:root[data-ligero] .cel-layer { animation: none !important; }
