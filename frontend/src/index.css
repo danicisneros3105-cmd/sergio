@@ -2880,7 +2880,7 @@ body { font-size: 15px; letter-spacing: 0; -webkit-font-smoothing: antialiased; 
   color: var(--color-text-secondary); cursor: pointer; flex-shrink: 0;
 }
 .sb-mark:hover, .sb-toggle:hover { background: var(--color-hover); color: var(--color-text); }
-.sb-mark-s { display: block; width: 26px; height: 26px; border-radius: 7px; }
+.sb-mark-s { display: block; width: 26px; height: 26px; border-radius: 50%; }
 .sb-mark-panel { display: none; }
 .sb:not([data-open]) .sb-toggle { display: none; }
 .sb:not([data-open]) .sb-mark:hover .sb-mark-s { display: none; }
@@ -3615,7 +3615,7 @@ p.node-hint:not(.node-path), .swarm-sub, .swarm-hint, .studio-heading p, .studio
    control the same width and height, 12 px apart. */
 .signin { min-height: 100dvh; display: grid; place-items: center; padding: 24px 16px; background: var(--color-bg); }
 .signin-card { width: min(100%, 380px); display: grid; gap: 12px; }
-.signin-mark { justify-self: center; width: 56px; height: 56px; border-radius: 14px; }
+.signin-mark { justify-self: center; width: 56px; height: 56px; border-radius: 50%; }
 .signin-title { margin: 0 0 12px; text-align: center; font-family: 'Josefin Sans', var(--font-sans, system-ui); font-size: 34px; font-weight: 600; letter-spacing: 0.02em; }
 .signin-providers { display: grid; gap: 12px; }
 .signin-provider, .signin-go, .signin-form input {

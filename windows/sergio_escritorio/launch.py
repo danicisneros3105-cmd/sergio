@@ -15,6 +15,7 @@ import os
 import shutil
 import subprocess
 import sys
+import threading
 import webbrowser
 from pathlib import Path
 from urllib.parse import quote, urlparse
@@ -149,11 +150,26 @@ def window_url(url: str, up: bool | None = None) -> str:
     return f"{LOADING.as_uri()}?to={quote(url, safe='')}"
 
 
+def _claim_when_shown(seconds: float = 8.0) -> None:
+    """The new window gets Sergio's own taskbar button (taskbar.py) as soon
+    as it appears, so pinning it pins Sergio, not Edge."""
+    import time
+
+    from sergio_escritorio import taskbar
+
+    end = time.monotonic() + seconds
+    while time.monotonic() < end:
+        if taskbar.claim_sergio_windows():
+            return
+        time.sleep(0.4)
+
+
 def _launch(edge: str, url: str) -> None:
     if show_in_open_window(url):
         return
     try:
         subprocess.Popen([edge, f"--app={window_url(url)}", "--window-size=1280,800"])
+        threading.Thread(target=_claim_when_shown, daemon=True).start()
     except OSError:
         import logging
 

@@ -102,7 +102,7 @@ MARK = Path(__file__).with_name("resources") / "sergio.png"  # scripts/marca_ser
 
 
 def make_icon(state: str = "idle") -> object:
-    """Sergio's mark (the fly) as a Pillow image, for the shortcuts' .ico.
+    """Sergio's mark (blue disc, white ring) as a Pillow image, for the shortcuts' .ico.
     Paused, it is shown in grey."""
     from PIL import Image, ImageOps
 
@@ -124,7 +124,7 @@ def single_instance() -> bool:
 
 
 def tray_icon(colour: Any) -> Any:
-    """Sergio's mark (the fly) for the tray; faded when Sergio is paused."""
+    """Sergio's mark for the tray; faded when Sergio is paused."""
     from PySide6.QtCore import Qt
     from PySide6.QtGui import QColor, QIcon, QPainter, QPixmap
 
@@ -260,10 +260,13 @@ def run(config: dict[str, Any]) -> None:
         foreground_is_fullscreen,
     )
 
+    from sergio_escritorio import taskbar
+
+    taskbar.claim_process()  # one taskbar identity: Sergio, not Python
     app = QApplication(sys.argv)
     from PySide6.QtGui import QIcon
 
-    app.setWindowIcon(QIcon(str(MARK)))  # the fly on every window and the taskbar
+    app.setWindowIcon(QIcon(str(MARK)))  # the mark on every window and the taskbar
     from sergio_escritorio import estilo as _estilo
 
     _estilo.load_fonts()  # the house typeface for every window

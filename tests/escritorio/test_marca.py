@@ -1,4 +1,4 @@
-"""Sergio's mark (the fly) is the only logo: every icon comes from assets/marca/sergio.svg."""
+"""Sergio's mark (the blue disc with the white ring) is the only logo: every icon comes from assets/marca/sergio.svg."""
 
 import os
 import sys
@@ -40,22 +40,26 @@ def test_the_loading_screen_draws_the_same_fly(marca):
     page = (ROOT / "windows/sergio_escritorio/resources/cargando.html").read_text(
         encoding="utf-8"
     )
-    shapes = re.findall(r"<ellipse [^>]*/>", marca.SOURCE.read_text(encoding="utf-8"))
+    shapes = re.findall(r"<circle [^>]*/>", marca.SOURCE.read_text(encoding="utf-8"))
     assert shapes and all(shape in page for shape in shapes)
 
 
 @pytest.mark.parametrize(
     "rel", ["frontend/public/pwa-512x512.png", "installer/sergio.ico"]
 )
-def test_icons_are_the_fly_not_the_old_logo(rel):
-    # A dark rounded tile (transparent corners) with the white fly in the middle.
+def test_icons_are_the_blue_disc_with_the_white_ring(rel):
+    # A blue disc (transparent corners) with a white ring around a blue centre.
     from PIL import Image
 
     image = Image.open(ROOT / rel).convert("RGBA")
     w, h = image.size
     assert image.getpixel((1, 1))[3] == 0
-    assert max(image.getpixel((w // 2, int(h * 0.65)))[:3]) > 230  # the body
-    assert max(image.getpixel((int(w * 0.1), int(h * 0.5)))[:3]) < 30  # the tile
+    r, g, b, _ = image.getpixel((w // 2, int(h * 0.64)))
+    assert min(r, g, b) > 230  # the ring
+    r, g, b, _ = image.getpixel((int(w * 0.15), h // 2))
+    assert b > 230 and r < 40  # the disc
+    r, g, b, _ = image.getpixel((w // 2, h // 2))
+    assert b > 230 and r < 40  # the centre
 
 
 def test_shortcut_icon_is_the_fly_and_grey_when_paused():
