@@ -6,7 +6,7 @@ cortex mapped at nanometre resolution: about 57 000 cells and 150 million
 synapses. It is public under CC BY 4.0 (gs://h01-release).
 
 This script reads the real cell table (type and cortical layer of every
-cell with a soma) and walks all 332 shards of the exported synapse table,
+cell with a soma) and walks all 166 shards of the exported synapse table (Avro),
 keeping every synapse whose two sides are neurons with a soma in the volume:
 the neuron-to-neuron wiring of a piece of a human brain. It writes:
 
@@ -14,7 +14,7 @@ the neuron-to-neuron wiring of a piece of a human brain. It writes:
     src/openjarvis/connectome/data/h01_sinapsis.csv.gz   (pre, post, synapses by type)
     src/openjarvis/connectome/data/h01.json              (source, licence, counts, SHA-256)
 
-    python scripts/h01_corteza.py            # all shards (about an hour on 4 cores)
+    python scripts/h01_corteza.py            # all shards (about two hours on 4 cores)
     python scripts/h01_corteza.py --shards 8 # a quick sample
 
 Needs ``fastavro`` (only for this script). Partial results are cached per
@@ -78,7 +78,12 @@ def shard_names() -> list[str]:
             url += f"&pageToken={token}"
         with urllib.request.urlopen(url, timeout=60) as r:
             page = json.load(r)
-        names += [i["name"] for i in page.get("items", [])]
+        # Only the Avro shards directly in the folder (a json/ copy sits below it).
+        names += [
+            i["name"]
+            for i in page.get("items", [])
+            if "/" not in i["name"][len(SYNAPSES) :]
+        ]
         token = page.get("nextPageToken", "")
         if not token:
             return sorted(names)

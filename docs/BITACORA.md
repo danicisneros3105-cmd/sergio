@@ -2,6 +2,25 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-10-26 · Claude · Corteza humana real de Google (H01) y aspecto Apple
+- El cerebro humano no usaba datos reales (la mosca sí: FlyWire/MaleCNS, de
+  Janelia con Google). Ahora su corteza es la de H01 (Google + Harvard, 1 mm³
+  de corteza temporal humana, CC BY 4.0): `scripts/h01_corteza.py` leyó las
+  166 partes Avro del volcado (las «332» del listado incluían una copia en
+  JSON) y guardó las 13 813 neuronas con soma y las 118 714 sinapsis medidas
+  entre ellas en `connectome/data/` (480 KB, con SHA-256). `connectome/h01.py`
+  hace entrar cada pedido por la capa 4 y lo propaga por esas sinapsis
+  (56 → 272 → 414 neuronas, 2 ms); los ganglios basales leen la respuesta.
+  Medido: pedidos parecidos comparten 62 % de neuronas, distintos 12 %; el
+  aprendizaje del gusto del dueño llega al 86 % en la primera ronda (antes 43 %).
+- Diseño: el dueño cambió «negro, blanco y grises» por Apple de referencia
+  («que no se vea triste pero tampoco maximalista»): una capa final en
+  `index.css` (lienzo #f5f5f7, tarjetas blancas, un solo acento azul del
+  sistema, verde/naranja/rojo solo para estados) y la misma paleta en el
+  escritorio (`estilo.py`). AGENTS actualizado con la decisión nueva.
+- Arreglé una prueba mía de ayer: la del chat dejaba recuerdos que cambiaban
+  la prueba de voz según el orden.
+
 ## 2026-10-25 · Claude · La base de Sergio es un cerebro humano (no solo el logo)
 - Lo que OpenJarvis seguía decidiendo en cada mensaje (cuánto pensar por una
   puntuación fija de complejidad, y no aprender de cómo salió) ahora lo

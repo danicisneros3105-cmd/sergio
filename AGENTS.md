@@ -235,7 +235,7 @@ termina en la rama `main`, y el dueño actualiza con un único comando.
   (dueño, 26 oct. 2026: «si usaste el conectoma de Google, agrégalo»):
   `connectome/h01.py` con el conectoma H01 de Google (1 mm³ de corteza
   temporal humana, CC BY 4.0): las neuronas con soma, su tipo y capa, y las
-  sinapsis medidas entre ellas, extraídas de las 332 partes del volcado por
+  sinapsis medidas entre ellas (13 813 neuronas, 118 714 sinapsis), extraídas de las 166 partes del volcado por
   `scripts/h01_corteza.py` y guardadas en `connectome/data/` con su SHA-256
   (si no coincide, no se usa). Lo que deja pasar el tálamo entra por la capa
   4 y recorre las sinapsis reales (piramidales excitan, interneuronas
