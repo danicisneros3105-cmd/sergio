@@ -94,7 +94,7 @@ class NotchBar(QWidget):
 
         send = QPushButton()
         send.setObjectName("send")
-        send.setIcon(icon("arrow-up", estilo.INK, 20))
+        send.setIcon(icon("arrow-up", estilo.TEXT, 20))
         send.setIconSize(QSize(20, 20))
         send.setFixedSize(FIELD_H, FIELD_H)
         send.setToolTip("Enviar")

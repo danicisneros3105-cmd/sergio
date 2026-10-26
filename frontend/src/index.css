@@ -3669,3 +3669,137 @@ html[data-ligero] .split-b, html[data-ligero] .split-a { filter: none !important
 
 /* Tabs with a small line icon before the word. */
 .paper-tab svg { vertical-align: -2px; margin-right: 6px; }
+
+/* -- Apple look (owner, 26 oct. 2026: «que no se vea triste pero tampoco
+   maximalista, usa Apple de referencia») -----------------------------------
+   Apple's restraint: a soft grey canvas and white cards, near-black text,
+   ONE accent — the system blue — on what you can press or what is chosen,
+   and the system green / orange / red only to say how something went. The
+   sidebar icons are tinted like a Mac sidebar; nothing else gets colour. */
+:root,
+:root.light {
+  --color-bg: #ffffff;
+  --color-bg-secondary: #f5f5f7;
+  --color-bg-tertiary: #e8e8ed;
+  --color-surface: #ffffff;
+  --color-sidebar: #f5f5f7;
+  --color-tile: #f5f5f7;
+  --color-border: rgba(0, 0, 0, 0.09);
+  --color-border-subtle: rgba(0, 0, 0, 0.05);
+  --color-text: #1d1d1f;
+  --color-text-secondary: #6e6e73;
+  --color-text-tertiary: #86868b;
+  --color-accent: #007aff;
+  --color-accent-hover: #0066d6;
+  --color-accent-text: #0066cc;
+  --color-accent-subtle: rgba(0, 122, 255, 0.1);
+  --color-accent-glow: rgba(0, 122, 255, 0.22);
+  --color-accent-blue-subtle: rgba(0, 122, 255, 0.1);
+  --color-ink: #007aff;
+  --color-on-ink: #ffffff;
+  --color-success: #34c759;
+  --color-warning: #ff9500;
+  --color-error: #ff3b30;
+  --color-hover: rgba(0, 0, 0, 0.045);
+  --color-selected: rgba(0, 122, 255, 0.12);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.07);
+  --shadow-card: 0 0.5px 1px rgba(0, 0, 0, 0.06), 0 2px 10px rgba(0, 0, 0, 0.04);
+  --sec-chat: #007aff;
+  --sec-nodes: #5856d6;
+  --sec-swarm: #30b0c7;
+  --sec-workspace: #ff9500;
+  --sec-creator: #ff2d55;
+  --sec-cowork: #34c759;
+  --sec-health: #ff3b30;
+  --sec-profile: #8e8e93;
+  accent-color: #007aff;
+}
+:root.dark {
+  --color-bg: #000000;
+  --color-bg-secondary: #1c1c1e;
+  --color-bg-tertiary: #2c2c2e;
+  --color-surface: #1c1c1e;
+  --color-sidebar: #1c1c1e;
+  --color-tile: #2c2c2e;
+  --color-sheet: #2c2c2e;
+  --color-border: rgba(255, 255, 255, 0.1);
+  --color-border-subtle: rgba(255, 255, 255, 0.06);
+  --color-text: #f5f5f7;
+  --color-text-secondary: #a1a1a6;
+  --color-text-tertiary: #8e8e93;
+  --color-accent: #0a84ff;
+  --color-accent-hover: #409cff;
+  --color-accent-text: #4da3ff;
+  --color-accent-subtle: rgba(10, 132, 255, 0.16);
+  --color-accent-glow: rgba(10, 132, 255, 0.3);
+  --color-accent-blue-subtle: rgba(10, 132, 255, 0.16);
+  --color-ink: #0a84ff;
+  --color-on-ink: #ffffff;
+  --color-success: #30d158;
+  --color-warning: #ff9f0a;
+  --color-error: #ff453a;
+  --color-hover: rgba(255, 255, 255, 0.06);
+  --color-selected: rgba(10, 132, 255, 0.2);
+  --shadow-card: 0 0 0 0.5px rgba(255, 255, 255, 0.06);
+  --sec-chat: #0a84ff;
+  --sec-nodes: #5e5ce6;
+  --sec-swarm: #40c8e0;
+  --sec-workspace: #ff9f0a;
+  --sec-creator: #ff375f;
+  --sec-cowork: #30d158;
+  --sec-health: #ff453a;
+  --sec-profile: #98989d;
+  accent-color: #0a84ff;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) {
+    --color-bg: #000000;
+    --color-bg-secondary: #1c1c1e;
+    --color-bg-tertiary: #2c2c2e;
+    --color-surface: #1c1c1e;
+    --color-sidebar: #1c1c1e;
+    --color-tile: #2c2c2e;
+    --color-sheet: #2c2c2e;
+    --color-border: rgba(255, 255, 255, 0.1);
+    --color-border-subtle: rgba(255, 255, 255, 0.06);
+    --color-text: #f5f5f7;
+    --color-text-secondary: #a1a1a6;
+    --color-text-tertiary: #8e8e93;
+    --color-accent: #0a84ff;
+    --color-accent-hover: #409cff;
+    --color-accent-text: #4da3ff;
+    --color-accent-subtle: rgba(10, 132, 255, 0.16);
+    --color-ink: #0a84ff;
+    --color-on-ink: #ffffff;
+    --color-success: #30d158;
+    --color-warning: #ff9f0a;
+    --color-error: #ff453a;
+    --color-hover: rgba(255, 255, 255, 0.06);
+    --color-selected: rgba(10, 132, 255, 0.2);
+    --shadow-card: 0 0 0 0.5px rgba(255, 255, 255, 0.06);
+    accent-color: #0a84ff;
+  }
+}
+
+/* A Mac sidebar: the icons in the accent, the chosen row a soft blue. */
+.sb-ico { color: var(--color-accent); }
+.sb-item[aria-current='page'] { background: var(--color-selected); }
+.sb-item[aria-current='page'] .sb-label { font-weight: 500; }
+.sb-list .mac-row[data-active='true'] { background: var(--color-selected); }
+.sb-tab[aria-selected='true'] { color: var(--color-accent); }
+.sb-section { font-size: 12px; font-weight: 600; letter-spacing: 0.01em; }
+.paper-tool[aria-current='page'] { color: var(--color-accent); }
+.ext-tab[aria-current='page'] { background: var(--color-accent); color: #fff; }
+/* Cards rest on the grey canvas, lifted a hair. */
+.cp-card, .cp-wiring, .meet-stage { box-shadow: var(--shadow-card); }
+.cp-bar span, .cp-hbars b, .cp-line polyline { background: var(--color-accent); stroke: var(--color-accent); }
+.cp-line circle { fill: var(--color-accent); }
+.cp-mods b { background: color-mix(in srgb, var(--color-accent) 45%, transparent); }
+.meet-rec { background: var(--color-error); color: #fff; }
+.signin-face[data-state='ok'] .faceid-glyph { stroke: var(--color-success); }
+a { color: inherit; }
+a.paper-link, .paper-page a:not([class]) { color: var(--color-accent-text); }
+.paper-tab { display: inline-flex; align-items: center; gap: 6px; }
+.paper-tab svg { margin-right: 0; vertical-align: 0; }
+.paper-tab[aria-selected='true'], .node-page .paper-tab[aria-selected='true'] { color: var(--color-accent); border-bottom-color: var(--color-accent); }

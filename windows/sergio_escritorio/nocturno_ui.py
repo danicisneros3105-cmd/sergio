@@ -312,7 +312,7 @@ class NightSheet(QWidget):
             f"QPushButton {{ background: transparent; color: {estilo.TEXT}; border: 1px solid {estilo.LINE};"
             f" border-radius: {estilo.RADIUS_S}px; padding: 8px 12px; font-family: {estilo.css_family()}; }}"
             f"QPushButton:hover {{ border-color: {estilo.LINE_HOT}; background: {estilo.CARD_HOT}; }}"
-            f"QPushButton#primary {{ background: {estilo.ALUMINIUM}; color: {estilo.INK}; border: none; }}"
+            f"QPushButton#primary {{ background: {estilo.ALUMINIUM}; color: {estilo.TEXT}; border: none; }}"
             f"QPushButton#primary:hover {{ background: {estilo.ALUMINIUM_HOT}; }}")
         self.refresh()
 

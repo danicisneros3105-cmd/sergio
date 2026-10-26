@@ -22,15 +22,17 @@ FONT_DIR = Path(__file__).with_name("fonts")
 FAMILY = "Josefin Sans"
 FALLBACK = ["Segoe UI Variable Text", "Segoe UI", "SF Pro Text", "Helvetica Neue", "Arial"]
 
-# Colours: black, white (and white at lower strength), one light blue.
+# Colours (owner, 26 oct. 2026: Apple as the reference): Apple's dark
+# surfaces, white text, and one accent — the system blue — on what you press
+# or what is on.
 INK = "#000000"
-GLASS = "#171717"
-CARD = "#212121"
-CARD_HOT = "#2f2f2f"
-LINE = "#303030"
-LINE_HOT = "#424242"
-BLUE = "#ececec"  # the one accent (ChatGPT dark): white pill buttons, selection, focus
-BLUE_HOT = "#ffffff"
+GLASS = "#1c1c1e"
+CARD = "#1c1c1e"
+CARD_HOT = "#2c2c2e"
+LINE = "#38383a"
+LINE_HOT = "#48484a"
+BLUE = "#0a84ff"  # the one accent: buttons, switches that are on, selection, focus
+BLUE_HOT = "#409cff"
 ALUMINIUM = BLUE  # older names, same accent
 ALUMINIUM_HOT = BLUE_HOT
 TEXT = "#ffffff"

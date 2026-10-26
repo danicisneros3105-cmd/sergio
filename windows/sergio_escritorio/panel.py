@@ -114,7 +114,7 @@ QLineEdit:focus {{ border: 1px solid {ALUMINIUM}; }}
 QPushButton {{ background: transparent; border: 1px solid {LINE}; border-radius: 18px;
                min-height: 34px; max-height: 34px; padding: 0 16px; font-weight: 500; letter-spacing: 0.3px; }}
 QPushButton:hover {{ border: 1px solid #4a4843; background: #161616; }}
-QPushButton#primary {{ background: {ALUMINIUM}; color: #000000; border: none; border-radius: 18px;
+QPushButton#primary {{ background: {ALUMINIUM}; color: #ffffff; border: none; border-radius: 18px;
                        min-height: 36px; max-height: 36px; font-weight: 600; }}
 QPushButton#icon {{ background: {CARD}; border: 1px solid {LINE}; border-radius: 16px; padding: 0;
                     min-height: 32px; max-height: 32px; min-width: 32px; max-width: 32px; }}
@@ -215,7 +215,7 @@ class Switch(QAbstractButton):
         x = 20 if self.isChecked() else 2
         p.setBrush(QColor(0, 0, 0, 40))
         p.drawEllipse(QRectF(x, 3, 24, 24))
-        p.setBrush(QColor("#0b0b0b") if self.isChecked() else QColor(TEXT))
+        p.setBrush(QColor(TEXT))  # the knob stays white, like iOS
         p.drawEllipse(QRectF(x, 2, 24, 24))
         p.end()
 
@@ -438,7 +438,7 @@ class Tile(QAbstractButton):
         p.setPen(QPen(QColor(ALUMINIUM if on else "#4a4843"), 1.0))
         p.setBrush(QColor(ALUMINIUM) if on else Qt.BrushStyle.NoBrush)
         p.drawEllipse(bubble, 16, 16)
-        draw_icon(p, self.toggle.icon, bubble, QColor("#0b0b0b" if on else SECONDARY))
+        draw_icon(p, self.toggle.icon, bubble, QColor(TEXT if on else SECONDARY))
         p.setPen(QColor(TEXT))
         p.setFont(_font(9.5, QFont.Weight.DemiBold))
         p.drawText(QPointF(56, rect.center().y() - 2), self.toggle.label)
@@ -893,7 +893,7 @@ class ControlCenter(QWidget):
 
         talk = QPushButton()
         talk.setObjectName("mic")
-        talk.setIcon(icon("mic", "#000000", 18))
+        talk.setIcon(icon("mic", "#ffffff", 18))
         talk.setIconSize(QSize(18, 18))
         talk.setToolTip(idioma.t("talk", self.lang))
         talk.setAccessibleName(idioma.t("talk", self.lang))
