@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router';
 import ReactMarkdown from 'react-markdown';
+import { plainReply } from '../lib/plainReply';
 import remarkGfm from 'remark-gfm';
 import { ArrowLeft, ArrowUp, Check, Compass, Copy, Download, FileSpreadsheet, NotebookPen, Paperclip, ShieldCheck, Square, X } from 'lucide-react';
 import { toast } from 'sonner';
@@ -59,7 +60,7 @@ function AgentCard({ agent, open, onToggle }: { agent: SwarmAgent; open: boolean
       </span>
       {open && agent.result && (
         <span className="swarm-agent-result">
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>{agent.result}</ReactMarkdown>
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>{plainReply(agent.result ?? '').text}</ReactMarkdown>
         </span>
       )}
     </button>
@@ -281,7 +282,7 @@ function RunView({ id }: { id: string }) {
           </div>
           <Checks run={run} />
           <div className="prose max-w-none">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{run.report}</ReactMarkdown>
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{plainReply(run.report ?? '').text}</ReactMarkdown>
           </div>
           {run.contradictions.length > 0 && (
             <div className="swarm-notes">
@@ -308,7 +309,7 @@ function RunView({ id }: { id: string }) {
             {run.scout_calls ? ` · ${run.scout_calls} búsquedas` : ''}
           </summary>
           <div className="prose prose-sm max-w-none">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{run.scout}</ReactMarkdown>
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{plainReply(run.scout ?? '').text}</ReactMarkdown>
           </div>
         </details>
       )}

@@ -307,7 +307,11 @@ DEFAULT_TOOL_CAPABILITIES: Dict[str, List[str]] = {
     "anatomy_figure": [Capability.FILE_WRITE],
     # Models to take apart in the chat: the model draws them or a CC0 model is
     # downloaded (network); they are saved in Sergio's own Creator folder.
-    "modelo_por_piezas": [Capability.NETWORK_FETCH, Capability.FILE_READ, Capability.FILE_WRITE],
+    "modelo_por_piezas": [
+        Capability.NETWORK_FETCH,
+        Capability.FILE_READ,
+        Capability.FILE_WRITE,
+    ],
     "skill_manage": [Capability.FILE_READ, Capability.FILE_WRITE],
     "terminal_run": [Capability.CODE_EXECUTE],
     "text_to_speech": [Capability.NETWORK_FETCH, Capability.FILE_WRITE],

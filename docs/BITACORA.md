@@ -2,6 +2,36 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-10-26 · Claude · Centro de control, personalización, 3D por piezas, videos y rendimiento
+- Centro de control del notch: una sola página con «En marcha» (con Detener),
+  interruptores redondos y seis mosaicos (Multitarea, Deshacer, Uso, Modelo y
+  esfuerzo, Pantalla, Habilidades); sin barra de pestañas. «Sergio, deshaz eso».
+- Cada persona elige cómo la llaman (señor, señora, nombre, sin género, tú):
+  frase del chat («¡Ana ha vuelto!», «El micrófono es tuyo, Ana»), voz y Nodes.
+  Configuración tiene «Tú» y «Habilidades». Al dueño, «señor» como siempre.
+- Modelo: hoja simple con todos los Gemini y el esfuerzo; animaciones con
+  sonido al cambiar de modelo, de plan y al añadir un conector (con su logo).
+  Créditos con precio local y código firmado. La «gestión» que crea cuentas y
+  claves a escondidas no se hizo (rompe las reglas de los proveedores y engaña
+  al usuario): en su lugar, conectar la cuenta propia en tres pasos.
+- Rendimiento: el ojo de pantalla ya no captura 32 veces por segundo cuando
+  nadie mira (1/s; 8/s con llamada; 32/s solo cuando Sergio mira o actúa);
+  el árbol de accesibilidad solo se relee mientras mira; notch y compañero a
+  10 Hz en reposo. Servidor en reposo medido: 0,3 % de CPU. Web liviana con
+  4 GB / 4 núcleos o menos.
+- Modelos 3D por piezas en el chat (`modelo_por_piezas`): probado con Gemini,
+  un superdeportivo de 181 piezas en ~2 min; CC0 de Poly Haven o archivos
+  propios. Nada de mods de juegos.
+- Video: subtítulos animados (palabra que suena en amarillo), barra de
+  esfuerzo y videos programados cada X horas; nunca se publican solos.
+- Mensajes raros: ninguna etiqueta interna llega a la pantalla (chat, Nodes,
+  Swarm, Pensar a fondo); las aprobaciones son una tarjeta en palabras simples.
+- Revisé lo mío del commit anterior: la prueba de inventario de permisos
+  fallaba por la herramienta nueva; arreglado.
+- Pendiente: la fuente exacta de B&O no es posible (es de pago y propietaria);
+  sigue Josefin Sans, la más parecida libre. Publicar a redes con su API
+  necesitaría conectar cada cuenta (YouTube/TikTok) y aun así con aprobación.
+
 ## 2026-10-26 · Claude · Aprobaciones en palabras simples, deshacer y perfil de cada persona
 - Los mensajes raros (`<aprobacion categoria="cli"> ¿Desea que ejecute…
   ```powershell…`) ya no llegan a la pantalla: `lib/plainReply.ts` quita las

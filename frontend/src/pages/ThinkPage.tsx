@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { plainReply } from '../lib/plainReply';
 import ReactMarkdown from 'react-markdown';
 import { Brain, CheckCircle2, Loader2, RotateCcw, ShieldCheck, Square, TriangleAlert } from 'lucide-react';
 import { apiFetch } from '../lib/api';
@@ -194,7 +195,7 @@ export function ThinkPage() {
         {answer && (
           <section className="rounded-xl p-4 space-y-3" style={{ background: 'var(--color-bg-secondary)' }}>
             <div className="prose prose-sm max-w-none" style={{ color: 'var(--color-text)' }}>
-              <ReactMarkdown>{String(answer.answer ?? '')}</ReactMarkdown>
+              <ReactMarkdown>{plainReply(String(answer.answer ?? '')).text}</ReactMarkdown>
             </div>
             {confidence !== null && (
               <div className="space-y-1">
