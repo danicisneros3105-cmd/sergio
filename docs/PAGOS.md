@@ -75,6 +75,24 @@ pública, por ejemplo el túnel) y `OPENROUTER_MANAGEMENT_KEY` para las
 subclaves. `SERGIO_COMISION_STRIPE=0.029+0.30` corrige la comisión estimada
 del libro. `SERGIO_MARGEN` (0.40) es su ganancia sobre cada plan.
 
+## Cómo probarlo sin su tarjeta (recomendado antes de cobrar)
+
+Su tarjeta real no hace falta para probar, y nunca debe escribirse en un chat.
+Los procesadores tienen un modo de prueba con tarjetas falsas públicas:
+
+1. En Stripe, use el **modo de prueba** y ponga las claves `sk_test_...` y
+   `whsec_...` en `sergio.env`.
+2. Entre a Sergio con una cuenta de cliente aprobada, elija un plan y pague
+   con la tarjeta de prueba de Stripe **4242 4242 4242 4242**, cualquier fecha
+   futura y cualquier CVC.
+3. En segundos, la página dice «Listo», el plan queda activo y «Cobros» lo
+   anota. No se mueve dinero real.
+4. Para PayPal, ponga `PAYPAL_MODO=sandbox` y pague con una cuenta de prueba
+   del panel de desarrollador de PayPal.
+
+Cuando todo salga bien, cambie a las claves `sk_live_...` y quite
+`PAYPAL_MODO`.
+
 ## Límites honestos
 
 - Las comisiones del libro son estimadas. La cifra exacta está en el panel

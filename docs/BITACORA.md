@@ -14,6 +14,13 @@ Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 - Probado: pruebas nuevas (firmas falsas, avisos viejos, importe corto, avisos
   repetidos, PayPal, Hyperswitch, vencimiento) y servidor de prueba con
   `/pagar`. Sin cobros reales: falta que el dueño ponga sus claves.
+- Comprobación extra: los campos que envía y lee Sergio coinciden con las
+  especificaciones oficiales de Stripe (OpenAPI 2026-09-30) y PayPal (Orders
+  v2 y verify-webhook-signature). La prueba `test_pagos_recorrido.py` recorre
+  las rutas reales: pago, aviso falso rechazado, aviso real, plan y subclave
+  activados, aviso repetido sin efecto y libro del dueño. El dueño ofreció su
+  tarjeta: no se acepta. Se prueba con la tarjeta pública de prueba de Stripe
+  (`docs/PAGOS.md`).
 
 ## 2026-10-27 · Claude · Clientes con subclave propia y modelos al día
 - `accounts/provision.py`: subclave de OpenRouter por cliente dentro de la
