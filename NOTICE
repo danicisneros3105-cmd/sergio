@@ -131,3 +131,8 @@ Poly Haven (https://polyhaven.com) — 3D models downloaded on demand by
 «modelo_por_piezas» are CC0 (public domain). Nothing from Poly Haven ships
 with Sergio; each downloaded model keeps its source and authors in its
 meta.json and on screen.
+
+- Sergio Pagos se conecta por API (sin copiar su código) con Stripe, PayPal y
+  Hyperswitch (juspay/hyperswitch, Apache-2.0), el orquestador de pagos de
+  código abierto que el dueño puede alojar. Son marcas de sus dueños y no
+  avalan a Sergio.

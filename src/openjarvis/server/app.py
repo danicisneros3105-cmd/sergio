@@ -739,6 +739,13 @@ def create_app(
     from openjarvis.server.accounts_routes import router as accounts_router
 
     app.include_router(accounts_router)
+    from openjarvis.server.pagos_routes import router as pagos_router
+
+    app.include_router(pagos_router)
+    if not os.environ.get("PYTEST_CURRENT_TEST"):
+        from openjarvis.pagos import service as pagos_service
+
+        pagos_service.start_expiry_loop()
     from openjarvis.server.deep_research_routes import router as deep_research_router
 
     app.include_router(deep_research_router)

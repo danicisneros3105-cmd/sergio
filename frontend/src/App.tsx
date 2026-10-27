@@ -23,6 +23,7 @@ const SignInPage = lazy(() => import('./pages/SignInPage'));
 const MeetingPage = lazy(() => import('./pages/MeetingPage'));
 const UsagePage = lazy(() => import('./pages/UsagePage'));
 const PlansPage = lazy(() => import('./pages/PlansPage').then((m) => ({ default: m.PlansPage })));
+const PayPage = lazy(() => import('./pages/PayPage'));
 const HelpPage = lazy(() => import('./pages/HelpPage').then((m) => ({ default: m.HelpPage })));
 const SwarmPage = lazy(() => import('./pages/SwarmPage'));
 const ExtensionsPage = lazy(() => import('./pages/ExtensionsPage'));
@@ -209,6 +210,8 @@ export default function App() {
           <Route path="data-sources" element={<DataSourcesPage />} />
           <Route path="agents" element={<Navigate to="/nodes" replace />} />
           <Route path="planes" element={<PlansPage />} />
+          <Route path="pagar" element={<PayPage />} />
+          <Route path="pagar/:estado" element={<PayPage />} />
           <Route path="ayuda" element={<HelpPage />} />
           <Route path="logs" element={<LogsPage />} />
           <Route path="clacky" element={<ExtensionPage name="clacky" />} />

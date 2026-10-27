@@ -623,6 +623,23 @@ termina en la rama `main`, y el dueño actualiza con un único comando.
   **Modelos al día** (27 oct. 2026): Gemini 4 Argon, GPT-5.6 Sol/Terra/Luna,
   Claude Opus/Sonnet/Haiku 5.5, DeepSeek V4. Los nuevos aparecen solos: con
   la clave de cada empresa se lee su lista de modelos (`_discover`, cada 6 h).
+- **Sergio Pagos** (dueño, 27 oct. 2026: «crea una tipo Stripe, Paddle o
+  PayPal propia exclusivamente para Sergio… para automatizar todo»): paquete
+  `pagos/` (`ledger.py` SQLite 0600, `gateways.py`, `service.py`),
+  `server/pagos_routes.py` (`/v1/pagos/*`), páginas `/pagar` y
+  `/pagar/listo` (`PayPage.tsx`) y «Cobros» del dueño en Planes →
+  Facturación (`plans/PagosPanel.tsx`). Es la caja y el libro de Sergio. Debajo
+  siempre va un procesador con licencia: Stripe (suscripción mensual), PayPal
+  (un mes por pago) o Hyperswitch (Apache-2.0, alojado por el dueño, para
+  pasarelas locales). Un pago confirmado (aviso firmado: HMAC de Stripe y de
+  Hyperswitch, verificación de PayPal; importe comprobado; cada evento cuenta
+  una vez) activa el plan y la subclave de IA solo, y anota ingreso,
+  comisión, tope de IA y margen. Un mes sin renovar vuelve a Free. Solo
+  `/v1/pagos/aviso/` y `/v1/pagos/vuelta/` quedan abiertos, y cada uno
+  comprueba la firma o el pedido. **Sergio nunca ve una tarjeta, y los datos
+  bancarios del dueño van solo en el panel del procesador**, nunca en Sergio
+  ni en un chat (`docs/PAGOS.md`). Sergio no se presenta como procesador de
+  pagos: eso exige licencias.
 - Kimi como proveedor y «Digitalsnickers» están descartados.
 - Licencia Apache-2.0 y autoría honesta: no se borran créditos del original.
 

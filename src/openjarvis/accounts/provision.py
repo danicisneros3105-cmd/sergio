@@ -143,7 +143,12 @@ def status(uid: str, home: Optional[Path] = None) -> Dict[str, Any]:
 
 
 def ensure(
-    uid: str, plan: str = "free", *, http: Any = None, home: Optional[Path] = None
+    uid: str,
+    plan: str = "free",
+    *,
+    usd: Optional[float] = None,
+    http: Any = None,
+    home: Optional[Path] = None,
 ) -> bool:
     """Create the customer's sub-key if there is none yet. False if provisioning
     is not set up (no management key) or OpenRouter refused."""
@@ -153,7 +158,7 @@ def ensure(
         data = _load(home)
         if data.get(uid, {}).get("key"):
             return True
-        limit = budget(plan)
+        limit = budget(plan, usd)
         try:
             out = _call(
                 "POST",
@@ -179,15 +184,21 @@ def ensure(
 
 
 def set_plan(
-    uid: str, plan: str, *, http: Any = None, home: Optional[Path] = None
+    uid: str,
+    plan: str,
+    *,
+    usd: Optional[float] = None,
+    http: Any = None,
+    home: Optional[Path] = None,
 ) -> bool:
-    """The customer changed plan: their monthly limit follows."""
+    """The customer changed plan (``usd``: what they pay, for plans that
+    stretch): their monthly limit follows."""
     with _LOCK:
         data = _load(home)
         entry = data.get(uid)
         if not entry or not entry.get("hash") or not enabled():
             return False
-        limit = budget(plan)
+        limit = budget(plan, usd)
         try:
             _call("PATCH", f"{API}/{entry['hash']}", {"limit": limit}, http)
         except Exception as exc:  # noqa: BLE001

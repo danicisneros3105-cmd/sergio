@@ -12,6 +12,7 @@ import { detectCountry, percent, saveCountry, type Account, type Catalog, type M
 import { voiceLanguage } from '../lib/liveSession';
 import { celebrate } from '../lib/celebrate';
 import { CreditsPanel } from './plans/CreditsPanel';
+import { PagosPanel } from './plans/PagosPanel';
 import { agree, getPersonal } from '../lib/personal';
 import './plans.css';
 
@@ -136,6 +137,14 @@ export function PlansPage() {
   const currentId = account?.plan ?? 'free';
 
   const choose = async (plan: Plan) => {
+    // Sergio Pagos switched on: Sergio's own checkout, the plan turns on by itself.
+    const own = await apiFetch('/v1/pagos/metodos')
+      .then((r) => (r.ok ? r.json() : { metodos: [] }))
+      .catch(() => ({ metodos: [] }));
+    if ((own as { metodos?: unknown[] }).metodos?.length) {
+      navigate(`/pagar?plan=${plan.id}&mult=${plan.mult}`);
+      return;
+    }
     try {
       const { url } = await json<{ url: string }>('/v1/plans/checkout', {
         method: 'POST',
@@ -332,6 +341,7 @@ export function PlansPage() {
             </button>
           </div>
           <CreditsPanel country={country} />
+          <PagosPanel />
         </section>
       )}
 

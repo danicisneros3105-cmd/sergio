@@ -2,6 +2,19 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-10-27 · Claude · Sergio Pagos
+- Caja de cobro propia: página «Pagar» con el diseño de Sergio, pedidos, avisos
+  firmados de Stripe, PayPal y Hyperswitch (código abierto), libro con
+  ingreso, comisión, tope de IA y ganancia, plan y subclave activados solos, y
+  vuelta a Free si no se renueva. Guía en `docs/PAGOS.md`.
+- `provision.ensure`/`set_plan` aceptan `usd` (Dev y Founders se estiran, el
+  tope sigue a lo pagado).
+- Payphone no se integró directo: su documentación no respondió y no se
+  inventa una API. Va por Hyperswitch.
+- Probado: pruebas nuevas (firmas falsas, avisos viejos, importe corto, avisos
+  repetidos, PayPal, Hyperswitch, vencimiento) y servidor de prueba con
+  `/pagar`. Sin cobros reales: falta que el dueño ponga sus claves.
+
 ## 2026-10-27 · Claude · Clientes con subclave propia y modelos al día
 - `accounts/provision.py`: subclave de OpenRouter por cliente dentro de la
   cuenta del dueño, con tope = plan − margen; se crea al entrar o aprobar, se

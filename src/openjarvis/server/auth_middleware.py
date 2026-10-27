@@ -103,6 +103,10 @@ class AuthMiddleware(BaseHTTPMiddleware):
         # Phones push health data with Salud's own sync key, checked by the route.
         if path == "/v1/healthdata/ingest":
             return False
+        # Payment processors call back and send signed notices; each Sergio
+        # Pagos route checks the order or the processor's signature itself.
+        if path.startswith(("/v1/pagos/aviso/", "/v1/pagos/vuelta/")):
+            return False
         # Signing in is how one gets a key; each account route checks itself.
         if path.startswith("/v1/cuentas/"):
             return False
