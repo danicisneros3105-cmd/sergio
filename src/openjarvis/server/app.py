@@ -776,28 +776,48 @@ def create_app(
 
     @app.middleware("http")
     async def _customer_key(request, call_next):  # noqa: ANN001, ANN202
-        """A signed-in customer's requests use their own sub-key (provision.py)."""
+        """A signed-in customer (any approved account that is not the owner)
+        is fenced in: only the customer routes answer (`customer_gate`), their
+        plan and limits are their own, and their chats use their sub-key."""
         from openjarvis.accounts import provision
+        from openjarvis.server.customer_gate import allowed, plan_of
 
         token = ""
         scheme, _, raw = request.headers.get("Authorization", "").partition(" ")
         if scheme.lower() == "bearer":
             token = raw
-        key = ""
-        if token and provision.enabled():
+        user = None
+        if token.startswith("sg_"):
             try:
                 from openjarvis.server.accounts_routes import _store
 
                 user = _store().session_user(token)
-                if user and user.get("role") != "dueño":
-                    key = provision.key_for(user["id"])
-            except Exception:  # noqa: BLE001 — never block a request
-                key = ""
-        mark = provision.CUSTOMER_KEY.set(key)
+            except Exception:  # noqa: BLE001
+                user = None
+        if not user or user.get("role") == "dueño":
+            return await call_next(request)
+        if not allowed(request.method, request.url.path):
+            from fastapi.responses import JSONResponse
+
+            return JSONResponse(
+                status_code=403, content={"detail": "Esta parte es solo del dueño."}
+            )
+        marks = [
+            (provision.CUSTOMER, provision.CUSTOMER.set(user["id"])),
+            (
+                provision.CUSTOMER_PLAN,
+                provision.CUSTOMER_PLAN.set(plan_of(user["id"])),
+            ),
+            (
+                provision.CUSTOMER_KEY,
+                provision.CUSTOMER_KEY.set(provision.key_for(user["id"])),
+            ),
+        ]
         try:
             return await call_next(request)
         finally:
-            provision.CUSTOMER_KEY.reset(mark)
+            for var, mark in reversed(marks):
+                var.reset(mark)
 
     app.add_middleware(UploadLimitsMiddleware)
     # Answers travel compressed (the app's code is ~800 KB, ~230 KB gzipped):

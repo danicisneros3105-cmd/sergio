@@ -15,6 +15,7 @@ says so and leaves them for Sergio Escritorio.
 
 from __future__ import annotations
 
+import contextvars
 import json
 import os
 import queue
@@ -239,7 +240,9 @@ class CoworkEngine:
             "started", goal=run.goal, autonomy=run.autonomy, max_actions=run.max_actions
         )
         self._save(run)
-        thread = threading.Thread(target=self._work, args=(run,), daemon=True)
+        # The task keeps who asked (a customer's own AI key and plan).
+        ctx = contextvars.copy_context()
+        thread = threading.Thread(target=ctx.run, args=(self._work, run), daemon=True)
         thread.start()
         if wait:
             thread.join()

@@ -157,17 +157,27 @@ def settle(paid: Paid, method: str, *, home: Any = None) -> Dict[str, Any]:
     order = ledger.get(paid.order, home) if paid.order else None
     if order is None or order["method"] != method:
         return {"ok": False, "motivo": "pedido desconocido"}
-    if not ledger.first_time(method, paid.event, home):
-        return {"ok": True, "repetido": True, "pedido": order["id"]}
     if paid.currency and paid.currency.upper() != "USD":
         ledger.mark(order["id"], "moneda_incorrecta", home)
         log.warning("order %s paid in %s", order["id"], paid.currency)
         return {"ok": False, "motivo": "moneda incorrecta"}
+    if paid.kind in ("baja", "reembolso") and not ledger.first_time(
+        method, paid.event, home
+    ):
+        return {"ok": True, "repetido": True, "pedido": order["id"]}
     if paid.kind == "baja":
         ledger.end_now(order["uid"], home)
         return {"ok": True, "baja": True, "pedido": order["id"]}
     if paid.kind == "reembolso":
         return _give_back(order, paid.usd, home)
+    done = ledger.event_order(method, paid.event, home)
+    if done is not None:
+        # Already recorded. Switch the plan on again (it is idempotent): a
+        # crash right after recording must not leave the customer without it.
+        first = ledger.get(done, home) if done else None
+        if first and first["status"] == "pagado" and first["plan"] != "prueba":
+            _activate(first["uid"], first["plan"], float(first["usd"]))
+        return {"ok": True, "repetido": True, "pedido": done or order["id"]}
     if paid.usd + 0.01 < float(order["usd"]):
         ledger.mark(order["id"], "importe_incorrecto", home)
         log.warning(
@@ -185,7 +195,9 @@ def settle(paid: Paid, method: str, *, home: Any = None) -> Dict[str, Any]:
     test = order["plan"] == "prueba"
     ai = 0.0 if test else provision.budget(order["plan"], usd)
     start = max(time.time(), 0 if test else ledger.paid_until(order["uid"], home))
-    receipt = ledger.mark_paid(
+    receipt = ledger.settle_paid(
+        method,
+        paid.event,
         order["id"],
         time.time() if test else start + MONTH * (gw.months_per_payment if gw else 1),
         {
@@ -196,6 +208,8 @@ def settle(paid: Paid, method: str, *, home: Any = None) -> Dict[str, Any]:
         },
         home,
     )
+    if receipt is None:  # the same event, recorded meanwhile by another thread
+        return {"ok": True, "repetido": True, "pedido": order["id"]}
     active = False if test else _activate(order["uid"], order["plan"], usd)
     return {"ok": True, "pedido": order["id"], "recibo": receipt, "clave_ia": active}
 

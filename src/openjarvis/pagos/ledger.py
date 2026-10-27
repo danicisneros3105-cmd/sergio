@@ -36,13 +36,14 @@ CREATE TABLE IF NOT EXISTS events (
   method TEXT NOT NULL, event TEXT NOT NULL, at REAL NOT NULL,
   PRIMARY KEY (method, event)
 );
+CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS entries (
   order_id TEXT NOT NULL, kind TEXT NOT NULL, usd REAL NOT NULL, at REAL NOT NULL,
   prev TEXT DEFAULT '', sig TEXT DEFAULT ''
 );
 """
 _ADDED = (("orders", "recibo", "TEXT DEFAULT ''"), ("entries", "prev", "TEXT DEFAULT ''"),
-          ("entries", "sig", "TEXT DEFAULT ''"))  # fmt: skip
+          ("entries", "sig", "TEXT DEFAULT ''"), ("events", "order_id", "TEXT DEFAULT ''"))  # fmt: skip
 
 
 def _path(home: Optional[Path] = None) -> Path:
@@ -115,7 +116,8 @@ def first_time(method: str, event: str, home: Any = None) -> bool:
         return True
     with _LOCK, _db(home) as db:
         cur = db.execute(
-            "INSERT OR IGNORE INTO events VALUES (?,?,?)", (method, event, time.time())
+            "INSERT OR IGNORE INTO events (method, event, at) VALUES (?,?,?)",
+            (method, event, time.time()),
         )
         return cur.rowcount == 1
 
@@ -139,6 +141,21 @@ def _write_lines(
             (oid, kind, usd, now, prev, sig),
         )
         prev = sig
+    _checkpoint(db, home)
+
+
+def _checkpoint(db: sqlite3.Connection, home: Any) -> None:
+    """How many lines there are and the last one's seal, sealed too: removing
+    the newest lines (which the chain alone cannot see) breaks it."""
+    from openjarvis.pagos import cifrado
+
+    n = db.execute("SELECT COUNT(*) FROM entries").fetchone()[0]
+    last = db.execute("SELECT sig FROM entries ORDER BY rowid DESC LIMIT 1").fetchone()
+    value = f"{n}|{last['sig'] if last else ''}"
+    sig = cifrado.sign("checkpoint|" + value, _home_of(home))
+    db.execute(
+        "INSERT OR REPLACE INTO meta VALUES ('checkpoint', ?)", (f"{value}|{sig}",)
+    )
 
 
 def _home_of(home: Any) -> Any:
@@ -150,6 +167,57 @@ def mark_paid(oid: str, until: float, lines: Dict[str, float], home: Any = None)
     now = time.time()
     year = time.strftime("%Y", time.localtime(now))
     with _LOCK, _db(home) as db:
+        n = db.execute(
+            "SELECT COUNT(*) FROM orders WHERE recibo LIKE ?", (f"SG-{year}-%",)
+        ).fetchone()[0]
+        receipt = f"SG-{year}-{n + 1:06d}"
+        db.execute(
+            "UPDATE orders SET status = 'pagado', paid = ?, until = ?, recibo = ? "
+            "WHERE id = ?",
+            (now, until, receipt, oid),
+        )
+        _write_lines(db, oid, lines, now, home)
+    return receipt
+
+
+def event_order(method: str, event: str, home: Any = None) -> Optional[str]:
+    """The order a processor's event was already recorded for (None: new)."""
+    if not event:
+        return None
+    with _db(home) as db:
+        r = db.execute(
+            "SELECT order_id FROM events WHERE method = ? AND event = ?",
+            (method, event),
+        ).fetchone()
+    return (r["order_id"] or "") if r else None
+
+
+def settle_paid(
+    method: str,
+    event: str,
+    oid: str,
+    until: float,
+    lines: Dict[str, float],
+    home: Any = None,
+) -> Optional[str]:
+    """Record a confirmed payment all at once: the processor's event, the
+    order paid with its receipt and its ledger lines. A crash leaves either
+    all of it or none of it. None if that event was already recorded."""
+    now = time.time()
+    year = time.strftime("%Y", time.localtime(now))
+    with _LOCK, _db(home) as db:
+        db.execute("BEGIN IMMEDIATE")
+        if event:
+            seen = db.execute(
+                "SELECT 1 FROM events WHERE method = ? AND event = ?", (method, event)
+            ).fetchone()
+            if seen:
+                db.execute("ROLLBACK")
+                return None
+            db.execute(
+                "INSERT INTO events (method, event, at, order_id) VALUES (?,?,?,?)",
+                (method, event, now, oid),
+            )
         n = db.execute(
             "SELECT COUNT(*) FROM orders WHERE recibo LIKE ?", (f"SG-{year}-%",)
         ).fetchone()[0]
@@ -184,6 +252,21 @@ def verify(home: Any = None) -> Dict[str, Any]:
         if r["prev"] != prev or not cifrado.same(want, r["sig"]):
             return {"integro": False, "lineas": len(rows), "rota_en": i + 1}
         prev = r["sig"]
+    with _db(home) as db:
+        row = db.execute("SELECT v FROM meta WHERE k = 'checkpoint'").fetchone()
+    if not rows and row is None:
+        return {"integro": True, "lineas": 0, "rota_en": None}
+    try:
+        n, last, sig = (row["v"] if row else "").split("|")
+    except ValueError:
+        return {"integro": False, "lineas": len(rows), "rota_en": len(rows)}
+    ok = cifrado.same(cifrado.sign(f"checkpoint|{n}|{last}", _home_of(home)), sig)
+    if not ok or int(n) != len(rows) or last != prev:
+        return {
+            "integro": False,
+            "lineas": len(rows),
+            "rota_en": min(int(n or 0), len(rows)) + 1 if ok else len(rows),
+        }
     return {"integro": True, "lineas": len(rows), "rota_en": None}
 
 
@@ -231,6 +314,17 @@ def end_now(uid: str, home: Any = None) -> None:
         )
 
 
+def active_plan(uid: str, home: Any = None) -> str:
+    """The plan of the customer's paid month still in force ("" if none)."""
+    with _db(home) as db:
+        r = db.execute(
+            "SELECT plan FROM orders WHERE uid = ? AND status = 'pagado' "
+            "AND plan != 'prueba' AND until > ? ORDER BY until DESC LIMIT 1",
+            (uid, time.time()),
+        ).fetchone()
+    return r["plan"] if r else ""
+
+
 def totals(since: float = 0.0, home: Any = None) -> Dict[str, float]:
     with _db(home) as db:
         rows = db.execute(
@@ -251,6 +345,7 @@ def recent(limit: int = 20, home: Any = None) -> List[Dict[str, Any]]:
 
 
 __all__ = [
+    "active_plan",
     "add_lines",
     "by_ext",
     "end_now",
@@ -264,6 +359,7 @@ __all__ = [
     "paid_until",
     "recent",
     "set_ext",
+    "settle_paid",
     "totals",
     "verify",
 ]

@@ -105,6 +105,71 @@ async def live_status() -> dict[str, Any]:
     }
 
 
+def _customer_of(websocket: WebSocket) -> dict:
+    """The customer (approved account that is not the owner) on this call."""
+    from openjarvis.server.auth_middleware import websocket_session_token
+
+    token = websocket_session_token(websocket)
+    if not token:
+        return {}
+    try:
+        from openjarvis.server.accounts_routes import _store
+
+        user = _store().session_user(token) or {}
+    except Exception:  # noqa: BLE001
+        return {}
+    return user if user and user.get("role") != "dueño" else {}
+
+
+async def _customer_call(websocket: WebSocket, user: dict) -> None:
+    """A customer's voice: their own plan and limits, no tools (never the
+    owner's PC, files or connectors) and never the owner's voice slot."""
+    from openjarvis import quota
+    from openjarvis.accounts import provision
+    from openjarvis.speech.gemini_live import LiveCall
+
+    marks = [
+        (provision.CUSTOMER, provision.CUSTOMER.set(user["id"])),
+        (
+            provision.CUSTOMER_PLAN,
+            provision.CUSTOMER_PLAN.set(_customer_plan(user["id"])),
+        ),
+    ]
+    try:
+        try:
+            start = json.loads(await websocket.receive_text())
+        except Exception:  # noqa: BLE001
+            await websocket.close(code=1003)
+            return
+        if not isinstance(start, dict) or start.get("type") != "start":
+            await websocket.close(code=1003)
+            return
+        try:
+            quota.check("voz")
+        except quota.QuotaExceeded as exc:
+            await websocket.send_json({"type": "error", "message": str(exc)})
+            await websocket.close(code=1008)
+            return
+        call = LiveCall(websocket, start, execute=None, openai_tools=[], owner="")
+        try:
+            await call.run()
+        except Exception as exc:  # noqa: BLE001
+            log.warning("customer live call ended with an error: %s", exc)
+    finally:
+        for var, mark in reversed(marks):
+            var.reset(mark)
+        try:
+            await websocket.close()
+        except Exception:  # noqa: BLE001
+            pass
+
+
+def _customer_plan(uid: str) -> str:
+    from openjarvis.server.customer_gate import plan_of
+
+    return plan_of(uid)
+
+
 @router.websocket("/v1/live")
 async def live(websocket: WebSocket) -> None:
     from openjarvis.speech.gemini_live import LiveCall, make_executor
@@ -114,7 +179,11 @@ async def live(websocket: WebSocket) -> None:
     if not allowed:
         await websocket.close(code=1008)
         return
+    customer = _customer_of(websocket)
     await websocket.accept(subprotocol=subprotocol)
+    if customer:
+        await _customer_call(websocket, customer)
+        return
     try:
         start = json.loads(await websocket.receive_text())
     except Exception:  # noqa: BLE001 — not our client

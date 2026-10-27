@@ -115,7 +115,8 @@ def test_a_signed_payment_switches_the_plan_on_and_fills_the_ledger(
     assert done[0]["ok"] and activations == [("u1", "go", 5.0)]
     # The same notice twice counts once.
     again = service.notice("stripe", _signed(body), body, home=tmp_path)
-    assert again[0].get("repetido") and len(activations) == 1
+    # A repeat records nothing twice; it only switches the same plan on again.
+    assert again[0].get("repetido") and set(activations) == {("u1", "go", 5.0)}
     t = ledger.totals(home=tmp_path)
     assert t["ingreso"] == 5.0 and t["proveedor"] == 3.0
     assert t["comision"] == round(5 * 0.029 + 0.30, 2)

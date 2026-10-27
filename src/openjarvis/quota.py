@@ -48,6 +48,10 @@ class QuotaExceeded(Exception):
 
 
 def enforcing() -> bool:
+    from openjarvis.accounts.provision import CUSTOMER
+
+    if CUSTOMER.get():  # a customer's limits always hold
+        return True
     return os.environ.get("SERGIO_PLANES_ACTIVOS", "").strip().lower() in {
         "1",
         "true",
@@ -73,7 +77,12 @@ def _db() -> sqlite3.Connection:
 
 
 def today(now: Optional[float] = None) -> str:
-    return time.strftime("%Y-%m-%d", time.localtime(now or time.time()))
+    """Today's key; a customer's use is counted apart from the owner's."""
+    day = time.strftime("%Y-%m-%d", time.localtime(now or time.time()))
+    from openjarvis.accounts.provision import CUSTOMER
+
+    who = CUSTOMER.get()
+    return f"{day}|{who}" if who else day
 
 
 def multiplier() -> int:
@@ -110,7 +119,12 @@ def count(kind: str, n: float = 1, now: Optional[float] = None) -> None:
             (today(now), kind, n),
         )
         db.execute(
-            "DELETE FROM use WHERE day < ?", (today((now or time.time()) - 40 * 86400),)
+            "DELETE FROM use WHERE substr(day, 1, 10) < ?",
+            (
+                time.strftime(
+                    "%Y-%m-%d", time.localtime((now or time.time()) - 40 * 86400)
+                ),
+            ),
         )
 
 

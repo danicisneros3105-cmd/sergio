@@ -938,12 +938,15 @@ class LiveCall:
             heard_all, said_all = self._heard_text, getattr(self, "_said_text", "")
             self._said_text = ""
             if heard_all.strip() and said_all.strip() and self._answer_allowed:
-                # The mind keeps a memory of spoken exchanges too.
+                # The mind keeps a memory of spoken exchanges too (the
+                # owner's only: a customer's call is not his memory).
+                from openjarvis.accounts.provision import CUSTOMER
                 from openjarvis.connectome.brain import remember_exchange
 
-                self._spawn(
-                    asyncio.to_thread(remember_exchange, heard_all, said_all, "voz")
-                )
+                if not CUSTOMER.get():
+                    self._spawn(
+                        asyncio.to_thread(remember_exchange, heard_all, said_all, "voz")
+                    )
                 try:  # one spoken exchange is about half a minute of voice
                     from openjarvis import quota
 

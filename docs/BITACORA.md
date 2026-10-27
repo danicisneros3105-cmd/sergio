@@ -2,6 +2,29 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-10-27 · Claude · Auditoría: cuentas aisladas y pagos a prueba de caídas
+- Cuentas aisladas: una sesión de cliente solo llega a las rutas de cliente
+  (chat, modelos, su cuenta y pagar; `server/customer_gate.py`, deniega por
+  defecto). En el chat y la voz, el cliente no recibe el agente ni las
+  herramientas del dueño, ni su memoria; lo que dice tampoco entra en la
+  memoria del dueño.
+- Plan pagado de verdad: `tiers.current()` y las cuotas leen el plan y el día
+  del cliente (`provision.CUSTOMER`, `CUSTOMER_PLAN`; el plan sale del mes
+  pagado en el libro). Las cuotas del cliente siempre bloquean.
+- Pagos a prueba de caídas: evento, pedido pagado, recibo y líneas se anotan
+  en una sola transacción (`ledger.settle_paid`). Un reintento tras la caída
+  vuelve a activar el plan (idempotente). Un cambio de plan igual no llama a
+  OpenRouter.
+- Voz: la sesión de cliente abre `/v1/live` sin herramientas y sin quitarle
+  la voz al dueño. Ojo: usa la clave de Gemini del dueño, con el tope de voz
+  del plan del cliente.
+- `openrouter/auto` ya no se envía como `auto`. Cowork conserva la subclave
+  del cliente en su hilo (`contextvars.copy_context`).
+- El libro guarda un punto de control sellado (cuántas líneas y la última):
+  borrar la línea más nueva ya se detecta.
+- Pruebas: `tests/pagos/test_auditoria.py`. En `test_pagos.py`, un aviso
+  repetido ahora vuelve a activar el mismo plan: es lo que recupera la caída.
+
 ## 2026-10-27 · Claude · Barrera de seguridad y revisión del cerebro
 - Auditoría:
   - Historial del repositorio sin claves reales.

@@ -335,7 +335,13 @@ def deactivate() -> None:
 
 
 def current() -> Dict[str, Any]:
-    """The plan in force: ``{"plan", "holder", "expires", "seats", "problem"}``."""
+    """The plan in force: ``{"plan", "holder", "expires", "seats", "problem"}``.
+    For a customer's request, their own paid plan (never the owner's licence)."""
+    from openjarvis.accounts.provision import CUSTOMER, CUSTOMER_PLAN
+
+    if CUSTOMER.get():
+        plan = CUSTOMER_PLAN.get()
+        return {"plan": plan if plan in PLAN_INFO else "free", "holder": CUSTOMER.get()}
     try:
         saved = json.loads(license_path().read_text("utf-8"))
     except (OSError, ValueError):

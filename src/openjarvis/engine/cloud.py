@@ -230,6 +230,13 @@ def _is_openrouter_model(model: str) -> bool:
     return model.startswith("openrouter/")
 
 
+def _openrouter_id(model: str) -> str:
+    """The id OpenRouter expects: ``openrouter/vendor/model`` → ``vendor/model``,
+    but OpenRouter's own routers keep their name (``openrouter/auto``)."""
+    rest = model.removeprefix("openrouter/")
+    return rest if "/" in rest else model
+
+
 def _is_atlascloud_model(model: str) -> bool:
     return model.startswith("atlascloud/")
 
@@ -935,7 +942,7 @@ class CloudEngine(
             client = self._openrouter_client
             if client is None:
                 raise EngineConnectionError("OpenRouter client not available")
-            actual_model = model.removeprefix("openrouter/")
+            actual_model = _openrouter_id(model)
             create_kwargs: Dict[str, Any] = {
                 "model": actual_model,
                 "messages": messages_to_dicts(messages),

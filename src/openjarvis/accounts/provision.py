@@ -50,6 +50,15 @@ _LOCK = threading.Lock()
 CUSTOMER_KEY: contextvars.ContextVar[str] = contextvars.ContextVar(
     "sergio_customer_key", default=""
 )
+# Who is asking, when it is a customer (not the owner): their id and the plan
+# they paid for. Empty for the owner. tiers.current() and quota read them so
+# features and daily limits follow the customer, never the owner's licence.
+CUSTOMER: contextvars.ContextVar[str] = contextvars.ContextVar(
+    "sergio_customer", default=""
+)
+CUSTOMER_PLAN: contextvars.ContextVar[str] = contextvars.ContextVar(
+    "sergio_customer_plan", default="free"
+)
 
 
 def management_key() -> str:
@@ -226,6 +235,8 @@ def set_plan(
         if not entry or not entry.get("hash") or not enabled():
             return False
         limit = budget(plan, usd)
+        if entry.get("plan") == plan and entry.get("limit") == limit:
+            return True  # already so: nothing to send
         try:
             _call("PATCH", f"{API}/{entry['hash']}", {"limit": limit}, http)
         except Exception as exc:  # noqa: BLE001

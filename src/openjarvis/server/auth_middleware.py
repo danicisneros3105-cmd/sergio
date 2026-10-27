@@ -237,7 +237,29 @@ def authenticate_websocket(
         bool(credential_protocol)
         and _phone_token(_decode_key_protocol(credential_protocol))
     )
-    return header_valid or protocol_valid or phone_valid, selected_protocol
+    # An approved account's session works here as it does over HTTP.
+    account_valid = (scheme.lower() == "bearer" and _account_token(header_token)) or (
+        bool(credential_protocol)
+        and _account_token(_decode_key_protocol(credential_protocol))
+    )
+    return (
+        header_valid or protocol_valid or phone_valid or account_valid,
+        selected_protocol,
+    )
+
+
+def websocket_session_token(websocket) -> str:  # noqa: ANN001
+    """The account session (``sg_…``) a WebSocket came with, if any."""
+    auth = websocket.headers.get("authorization", "")
+    scheme, _, token = auth.partition(" ")
+    if scheme.lower() == "bearer" and token.startswith("sg_"):
+        return token
+    credential_protocol, _ = _offered_websocket_auth(websocket)
+    if credential_protocol:
+        decoded = _decode_key_protocol(credential_protocol)
+        if decoded.startswith("sg_"):
+            return decoded
+    return ""
 
 
 def _decode_key_protocol(protocol: str) -> str:

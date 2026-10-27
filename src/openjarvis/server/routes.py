@@ -125,9 +125,11 @@ def _ensure_identity_prompt(messages: list[Message], app_config) -> list[Message
             (m.text for m in reversed(messages) if m.role == Role.USER and m.text), ""
         )
         try:
+            from openjarvis.accounts.provision import CUSTOMER
             from openjarvis.connectome.brain import mind_context
 
-            guidance = mind_context(last_user)
+            # The owner's mind (memories, routes) never reaches a customer.
+            guidance = "" if CUSTOMER.get() else mind_context(last_user)
         except Exception:  # noqa: BLE001
             guidance = ""
         if guidance:
@@ -353,12 +355,17 @@ async def _chat_completions(request_body: ChatCompletionRequest, request: Reques
     from openjarvis.quota import guard, model_weight
 
     guard("mensajes", model_weight(request_body.model))  # a big model counts more
-    from openjarvis.accounts.provision import CUSTOMER_KEY, customer_model
+    from openjarvis.accounts.provision import CUSTOMER, CUSTOMER_KEY, customer_model
 
     if CUSTOMER_KEY.get():  # a customer: through their own key at OpenRouter
         request_body.model = customer_model(request_body.model)
     engine = request.app.state.engine
     agent = getattr(request.app.state, "agent", None)
+    if CUSTOMER.get():
+        # A customer talks to the model only: never the owner's agent, its
+        # tools (PC, files, connectors) or his memory.
+        agent = None
+        request_body.tools = None
     model = request_body.model
     use_server_agent = (
         agent is not None
@@ -371,14 +378,15 @@ async def _chat_completions(request_body: ChatCompletionRequest, request: Reques
     # voice turn arriving at the same time).
     config = getattr(request.app.state, "config", None)
     memory_backend = getattr(request.app.state, "memory_backend", None)
-    await asyncio.to_thread(
-        _inject_memory,
-        request_body,
-        config,
-        memory_backend,
-        getattr(request.app.state, "memory_service", None),
-        use_server_agent,
-    )
+    if not CUSTOMER.get():  # the owner's memory never goes to a customer
+        await asyncio.to_thread(
+            _inject_memory,
+            request_body,
+            config,
+            memory_backend,
+            getattr(request.app.state, "memory_service", None),
+            use_server_agent,
+        )
 
     # How much to think: the brain's basal ganglia choose (connectome/decision.py)
     # from what they learned; the inherited complexity score is only the
@@ -551,7 +559,9 @@ def _record_completed_exchange(
     source: str = "server.chat",
 ) -> None:
     """Publish or submit a completed exchange without blocking a reply."""
-    if not user_text:
+    from openjarvis.accounts.provision import CUSTOMER
+
+    if not user_text or CUSTOMER.get():  # a customer's chat is not the owner's memory
         return
     try:
         if bus is not None:
