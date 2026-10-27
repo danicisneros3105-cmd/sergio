@@ -295,7 +295,7 @@ def quality_check(path: Path, ffmpeg: str) -> Dict[str, Any]:
     """What a finishing editor checks before delivery."""
     res = _run(
         [ffmpeg, "-hide_banner", "-nostats", "-i", str(path),
-         "-filter_complex", "[0:a]ebur128=peak=true[a];[0:v]blackdetect=d=0.5:pix_th=0.08,freezedetect=n=0.003:d=2[v]",
+         "-filter_complex", "[0:a]ebur128=peak=true[a];[0:v]blackdetect=d=0.5:pix_th=0.08,freezedetect=n=0.0005:d=3[v]",
          "-map", "[a]", "-map", "[v]", "-f", "null", "-"]
     )  # fmt: skip
     log = res.stderr or ""

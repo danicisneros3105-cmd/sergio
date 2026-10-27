@@ -666,6 +666,23 @@ termina en la rama `main`, y el dueño actualiza con un único comando.
   - Si se añade una dependencia, se audita.
   El repositorio es público: hacerlo privado lo decide el dueño (antes, su PC
   necesita `gh auth login` para seguir actualizando).
+- **Voz propia de Sergio, siempre** (dueño, 27 oct. 2026: «voz propia… transcripción ultrarrápida al mismo tiempo que se escribe la respuesta, menos de 0,5 s», y eligió usarla siempre, con Gemini Live solo de respaldo):
+  - Dónde está: `speech/voz_propia.py`, con el mismo protocolo que `/v1/live`, así que la web y el escritorio no cambian.
+  - Escuchar: faster-whisper transcribe mientras se habla.
+  - Hablar: Kokoro `em_alex`, voz masculina hecha para síntesis; no se clona a nadie ni se imita la voz de Gemini. Responde frase por frase mientras se escribe la respuesta; la primera frase sale a las 3 palabras.
+  - Acuse: si la primera frase no está lista a los 0,35 s, suena un «Claro,» ya sintetizado.
+  - Se le interrumpe hablando por encima.
+  - `latency` separa el tiempo de Sergio del tiempo del modelo.
+  - El dueño va con su agente y sus herramientas; el cliente, con su subclave, sin herramientas ni memoria del dueño.
+  - Si los modelos no cargan (`ready()`), o con `SERGIO_VOZ=gemini`, se usa Gemini Live. La actualización baja los modelos.
+  - Al arrancar, el servidor precalienta el cerebro, la memoria y la voz (`app._warm_up`): la primera respuesta bajó de ~12 s a ~3 s.
+- **Edición de video profesional** (dueño, 27 oct. 2026), en `video_essay/pro.py`:
+  - Voz de locutor: paso alto, reducción de ruido, de-esser, ecualización, compresor, puerta suave y limitador.
+  - Cortes al ritmo de la música, sin partir palabras.
+  - Formatos 9:16, 1:1 y 16:9 que siguen caras o movimiento.
+  - SRT y capítulos.
+  - Control de calidad: −14 LUFS, picos, negros y congelados de 3 s o más.
+  `job.py` lo usa en sonido y acabado.
 - Kimi como proveedor y «Digitalsnickers» están descartados.
 - Licencia Apache-2.0 y autoría honesta: no se borran créditos del original.
 

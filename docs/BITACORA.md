@@ -2,6 +2,16 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-10-27 · Claude · Voz propia, video profesional, demos
+- Voz propia de Sergio como predeterminada, con Gemini Live de respaldo (ver AGENTS.md):
+  - Medido aquí, en 4 núcleos y sin contar la transcripción: primer sonido a los 0,35 s (el acuse) y primera frase completa a ~0,65 s.
+  - La transcripción no se pudo medir en este sandbox porque Hugging Face está bloqueado; en el PC del dueño la actualización baja el modelo.
+- Arranque en frío: la primera respuesta tardaba 12,5 s; con el precalentamiento al arrancar, 3,2 s. Las siguientes, 1,2–2 s.
+- Video: `video_essay/pro.py` (voz de locutor, cortes al ritmo, reencuadre, SRT, capítulos, control de calidad) integrado en `job.py`.
+- Diseño: se quitó de Uso el bloque técnico del cerebro y se acortó la introducción de Cerebro.
+- Demo: capturas de las 18 pantallas y un video de 46 s, narrado con la voz propia y hecho con la cadena nueva. Control: −14,9 LUFS, −1,2 dBTP, sin negros ni congelados.
+- `test_live_routes`: la prueba de Gemini fija `SERGIO_VOZ=gemini`.
+
 ## 2026-10-27 · Claude · Auditoría: cuentas aisladas y pagos a prueba de caídas
 - Cuentas aisladas: una sesión de cliente solo llega a las rutas de cliente
   (chat, modelos, su cuenta y pagar; `server/customer_gate.py`, deniega por

@@ -31,7 +31,8 @@ export function ConnectomePage() {
       {map && (
         <>
           <p className="cn-lead">
-            La base de Sergio es un cerebro real: el de una mosca de la fruta, mapeado neurona a neurona por Google y Princeton (FlyWire). Lo que usted dice cruza sus conexiones medidas; así decide cuánto pensar y aprende de lo que usted responde después ({map.facts.neurons}, {map.facts.synapses}). {map.learning}
+            El cerebro real de una mosca, mapeado por Google y Princeton: lo que usted dice cruza sus{' '}
+            {map.facts.neurons} y aprende de lo que responde después.
           </p>
 
           <CoreProof />

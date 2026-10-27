@@ -194,6 +194,41 @@ class _NoCacheStaticFiles(StaticFiles):
         await super().__call__(scope, receive, _send_with_headers)
 
 
+def _warm_up() -> None:
+    """Load at start what the first question would otherwise wait for (the
+    fly brain, the prompt library, the memory, the own voice): before this,
+    the first answer after starting took ~12 s instead of ~2 s."""
+    import time as _time
+
+    started = _time.monotonic()
+    steps = (
+        (
+            "cerebro",
+            lambda: __import__(
+                "openjarvis.connectome.decision", fromlist=["think"]
+            ).think("hola", "chat"),
+        ),
+        (
+            "memoria",
+            lambda: __import__(
+                "openjarvis.connectome.brain", fromlist=["mind_context"]
+            ).mind_context("hola"),
+        ),
+        (
+            "voz propia",
+            lambda: __import__(
+                "openjarvis.speech.voz_propia", fromlist=["ready"]
+            ).ready(),
+        ),
+    )
+    for name, step in steps:
+        try:
+            step()
+        except Exception as exc:  # noqa: BLE001 — warming never blocks anything
+            logger.debug("warm-up %s skipped: %s", name, exc)
+    logger.info("Sergio warmed up in %.1f s", _time.monotonic() - started)
+
+
 def create_app(
     engine,
     model: str,
@@ -748,6 +783,9 @@ def create_app(
         from openjarvis.pagos import service as pagos_service
 
         pagos_service.start_expiry_loop()
+        import threading as _threading
+
+        _threading.Thread(target=_warm_up, name="sergio-warm", daemon=True).start()
         try:  # secret files back to owner-only if something opened them
             from openjarvis.security.permisos import tighten
 
