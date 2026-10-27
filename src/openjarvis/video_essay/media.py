@@ -126,7 +126,7 @@ class Filler:
         prompt = aivideo.shot_prompt(
             shot.visual or shot.text, self.style, self.characters, shot.camera
         )
-        tag = hashlib.sha1(prompt.encode()).hexdigest()[:12]
+        tag = hashlib.sha1(prompt.encode(), usedforsecurity=False).hexdigest()[:12]
         try:
             return aivideo.generate(
                 prompt,
@@ -157,7 +157,7 @@ class Filler:
         if "image" in self.broken or not self._spend("images"):
             return None
         query = shot.visual or shot.text
-        tag = hashlib.sha1(query.encode()).hexdigest()[:10]
+        tag = hashlib.sha1(query.encode(), usedforsecurity=False).hexdigest()[:10]
         made = generated(
             f"{query}. {self.style.get('look', '')[:200]}",
             self.folder / f"{tag}-img",

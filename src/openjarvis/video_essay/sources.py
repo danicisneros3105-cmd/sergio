@@ -318,7 +318,9 @@ def fetch(c: Candidate, dest: Path, seconds: float, ffmpeg: str) -> Optional[str
     """The *seconds* the shot needs, cut and saved as a small mp4."""
     if c.path and Path(c.path).exists():
         return c.path
-    tag = hashlib.sha1(f"{c.url}|{c.start}|{seconds:.1f}".encode()).hexdigest()[:12]
+    tag = hashlib.sha1(
+        f"{c.url}|{c.start}|{seconds:.1f}".encode(), usedforsecurity=False
+    ).hexdigest()[:12]
     out = dest / f"{c.source}-{tag}.mp4"
     if out.exists() and out.stat().st_size > 5000:
         c.path = str(out)

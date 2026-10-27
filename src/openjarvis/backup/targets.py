@@ -25,10 +25,11 @@ import re
 import shutil
 import subprocess
 import tempfile
-import xml.etree.ElementTree as ET
 from pathlib import Path, PurePosixPath
 from typing import Dict, List, Optional, Tuple
 from urllib.parse import parse_qs, quote, urlparse
+
+from openjarvis.security import safe_xml
 
 _SAFE_NAME = re.compile(r"^[A-Za-z0-9._/-]{1,512}$")
 
@@ -273,7 +274,7 @@ class S3Target(Target):
             status, body = self._request("GET", query=query)
             if status >= 300:
                 raise TargetError(f"S3 no deja listar ({status})")
-            root = ET.fromstring(body)
+            root = safe_xml.fromstring(body)
             ns = root.tag.split("}")[0] + "}" if root.tag.startswith("{") else ""
             for item in root.iter(f"{ns}Contents"):
                 key = item.findtext(f"{ns}Key") or ""

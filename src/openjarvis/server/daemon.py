@@ -31,7 +31,9 @@ class DaemonServer(uvicorn.Server):
 
 def run_server(app: Any, *, host: str, port: int, log_level: str = "info") -> None:
     server = DaemonServer(
-        uvicorn.Config(app, host=host, port=port, log_level=log_level)
+        uvicorn.Config(
+            app, host=host, port=port, log_level=log_level, server_header=False
+        )
     )
     try:
         server.run()

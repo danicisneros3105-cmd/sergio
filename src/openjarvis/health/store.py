@@ -122,7 +122,8 @@ class HealthStore:
                 continue
             if not uid:
                 uid = hashlib.sha1(
-                    f"{metric}|{at:.0f}|{value}|{source}".encode()
+                    f"{metric}|{at:.0f}|{value}|{source}".encode(),
+                    usedforsecurity=False,
                 ).hexdigest()
             clean.append((uid, metric, at, value, source[:60] or "manual"))
         if not clean:

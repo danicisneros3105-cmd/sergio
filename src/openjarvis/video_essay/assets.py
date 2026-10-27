@@ -176,7 +176,7 @@ def fill(
         if shot.asset and Path(shot.asset).exists():
             continue  # resumed job: already found
         query = shot.visual or shot.text
-        tag = hashlib.sha1(query.encode()).hexdigest()[:10]
+        tag = hashlib.sha1(query.encode(), usedforsecurity=False).hexdigest()[:10]
         found = library.pick(shot) if library else None
         source = "su biblioteca" if found else ""
         if not found and stock:

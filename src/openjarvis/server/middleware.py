@@ -24,6 +24,8 @@ def content_security_policy(embed_ports: tuple[int, ...] = _DEFAULT_EMBED_PORTS)
     * frame-src lists only the local extension servers the UI embeds.
     * frame-ancestors 'self': only Sergio's own split screen may show its
       pages in a frame; any other site is still refused (clickjacking).
+    * object-src 'none' and base-uri 'self': no plugins, and an injected
+      <base> tag cannot send the page's links and scripts elsewhere.
     """
     frames = " ".join(
         f"http://{host}:{port}"
@@ -36,7 +38,9 @@ def content_security_policy(embed_ports: tuple[int, ...] = _DEFAULT_EMBED_PORTS)
         "img-src 'self' data: blob:; "
         "font-src 'self' data:; "
         f"frame-src 'self' {frames}; "
-        "frame-ancestors 'self'"
+        "frame-ancestors 'self'; "
+        "object-src 'none'; "
+        "base-uri 'self'"
     )
 
 

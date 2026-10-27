@@ -652,6 +652,20 @@ termina en la rama `main`, y el dueño actualiza con un único comando.
   con mi tarjeta ($1)», escribiéndola solo en la página del procesador.
   **Nunca se aceptan números de tarjeta ni datos bancarios en un chat**, ni
   se guardan en Sergio.
+- **Seguridad** (dueño, 27 oct. 2026: «que todo Sergio sea in-hackeable y que
+  nadie pueda copiarnos»): nada es imposible de hackear y no se promete. Lo
+  que sí hay está en `docs/SEGURIDAD.md`:
+  - Desde fuera, todo es 403 salvo cuentas y avisos firmados.
+  - Los archivos secretos vuelven a 0600 al arrancar (`security/permisos.py`).
+  - CSP con `object-src 'none'` y `base-uri 'self'`, y el servidor no dice
+    qué programa es.
+  - Desde fuera, los errores no muestran el detalle técnico.
+  - El XML de fuera no puede traer DOCTYPE ni entidades (`security/safe_xml.py`).
+  - Las dependencias se revisan con pip-audit y npm audit. Los `overrides` de
+    `frontend/package.json` fuerzan dompurify y katex sin fallos conocidos.
+  - Si se añade una dependencia, se audita.
+  El repositorio es público: hacerlo privado lo decide el dueño (antes, su PC
+  necesita `gh auth login` para seguir actualizando).
 - Kimi como proveedor y «Digitalsnickers» están descartados.
 - Licencia Apache-2.0 y autoría honesta: no se borran créditos del original.
 

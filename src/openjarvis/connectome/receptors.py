@@ -112,7 +112,9 @@ class _Gemini:
             db.execute("CREATE TABLE IF NOT EXISTS emb (h TEXT PRIMARY KEY, v BLOB)")
 
     def __call__(self, texts: List[str]) -> np.ndarray:
-        keys = [hashlib.sha1(t.encode()).hexdigest() for t in texts]
+        keys = [
+            hashlib.sha1(t.encode(), usedforsecurity=False).hexdigest() for t in texts
+        ]
         out: List[Optional[np.ndarray]] = [None] * len(texts)
         with sqlite3.connect(self.cache) as db:
             for i, k in enumerate(keys):

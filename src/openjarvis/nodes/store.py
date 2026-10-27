@@ -282,7 +282,7 @@ def tools_for(rules: Dict[str, str], extra: Iterable[str] = ()) -> List[str]:
 
 def _cast_for(seed: str) -> str:
     """The same seed always gives the same member of the cast."""
-    digest = hashlib.sha1((seed or "").encode()).digest()
+    digest = hashlib.sha1((seed or "").encode(), usedforsecurity=False).digest()
     return CAST[digest[0] % len(CAST)]
 
 

@@ -2,6 +2,34 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-10-27 · Claude · Barrera de seguridad y revisión del cerebro
+- Auditoría:
+  - Historial del repositorio sin claves reales.
+  - bandit sin hallazgos graves (los SHA1 de caché quedan marcados como no
+    criptográficos).
+  - pip-audit: 17 paquetes actualizados en `uv.lock`. Queda setuptools, que
+    fija torch y solo afecta al instalar.
+  - npm audit: de 19 fallos (2 críticos) a 0, con `npm audit fix` y
+    `overrides` de dompurify y katex.
+- Ataque desde fuera contra el servidor real: 403 en todas las rutas
+  sensibles, sin salir de la carpeta del servidor y sin CORS ajeno.
+- Arreglado:
+  - Los errores mostraban el detalle técnico a cualquiera; ahora solo en el
+    PC del dueño.
+  - El mensaje de clave de Gemini cortaba el comando.
+  - XML de fuera sin DOCTYPE ni entidades.
+  - CSP más estricta y servidor sin cabecera de programa.
+  - Los archivos secretos vuelven a 0600 al arrancar.
+- Cerebro de la mosca revisado en vivo:
+  - FlyWire verificado (49 434 neuronas, SHA-256 bien).
+  - 7 de 7 decisiones correctas en la prueba (el azar acierta 25 %).
+  - Tres chats reales pasaron por el cerebro y respondieron en 2–8 s.
+  - En el sandbox, el cableado del cuerpo fungiforme (`flywire.py`) usa el
+    sustituto porque no se descarga; en el PC del dueño lo baja la
+    actualización.
+- Pendiente del dueño: decidir si el repositorio pasa a privado
+  (`docs/SEGURIDAD.md`).
+
 ## 2026-10-27 · Claude · Sergio Pagos endurecido
 - Cifrado: las subclaves de IA de los clientes se guardan con AES-256-GCM,
   atadas a cada cliente. Los archivos viejos se cifran solos al leerlos.

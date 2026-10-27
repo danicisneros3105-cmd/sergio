@@ -324,12 +324,14 @@ def create_app(
         # Without this an engine error (e.g. Ollama "model requires more
         # memory") reaches the user as a bare "500 Internal Server Error".
         logger.exception("Unhandled error on %s", request.url.path)
-        return JSONResponse(
-            status_code=500,
-            content={
-                "detail": f"{plain(exc)} Detalle: {type(exc).__name__}: {exc}"[:600]
-            },
-        )
+        from openjarvis.server.accounts_routes import is_local
+
+        detail = plain(exc)
+        # The technical detail (paths, hosts, library messages) only on the
+        # owner's own computer; from outside, the calm sentence alone.
+        if is_local(request):
+            detail = f"{detail} Detalle: {type(exc).__name__}: {exc}"
+        return JSONResponse(status_code=500, content={"detail": detail[:600]})
 
     from fastapi.middleware.cors import CORSMiddleware
 
@@ -746,6 +748,12 @@ def create_app(
         from openjarvis.pagos import service as pagos_service
 
         pagos_service.start_expiry_loop()
+        try:  # secret files back to owner-only if something opened them
+            from openjarvis.security.permisos import tighten
+
+            tighten()
+        except Exception:  # noqa: BLE001 — never block the start
+            pass
     from openjarvis.server.deep_research_routes import router as deep_research_router
 
     app.include_router(deep_research_router)

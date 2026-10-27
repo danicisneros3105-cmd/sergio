@@ -73,5 +73,9 @@
     "core-js": false,
     "fsevents": false,
     "canvas": false
+  },
+  "overrides": {
+    "dompurify": "^3.4.17",
+    "katex": "$katex"
   }
 }

@@ -11,7 +11,6 @@ import http.client
 import ipaddress
 import json
 import socket
-import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from datetime import datetime
 from email.utils import parsedate_to_datetime
@@ -24,6 +23,7 @@ import httpx
 from openjarvis.connectors._stubs import BaseConnector, Document, SyncStatus
 from openjarvis.core.config import DEFAULT_CONFIG_DIR
 from openjarvis.core.registry import ConnectorRegistry
+from openjarvis.security import safe_xml
 
 _DEFAULT_CONFIG_PATH = str(DEFAULT_CONFIG_DIR / "connectors" / "news_rss.json")
 _MAX_REDIRECTS = 5
@@ -232,7 +232,7 @@ def _fetch_feed(url: str) -> str:
 
 def _parse_rss_items(xml_text: str, max_items: int = 5) -> List[Dict[str, str]]:
     """Parse RSS or Atom XML and return up to *max_items* entries."""
-    root = ET.fromstring(xml_text)
+    root = safe_xml.fromstring(xml_text)
     items: List[Dict[str, str]] = []
 
     # RSS 2.0: <rss><channel><item>
