@@ -503,13 +503,29 @@ def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
         # 8. the sound
         mix_path = job.dir / "mezcla.wav"
         if stage("sonido"):
+            from openjarvis.video_essay import pro
+
             voice = audio.read_wav(wav)
+            if job.state().get("voice"):  # the narration as a broadcast voice
+                voice = pro.voice_chain(voice, render.ffmpeg(), audio.SR)
             total = max(shots[-1].end if shots else 0, len(voice) / audio.SR)
             music = None
+            beats: List[float] = []
             if params.get("music") != "ninguna":
                 music = _music(str(params.get("music") or ""), total, job.dir)
                 if music is None:
                     music = audio.music_bed(total)
+                    beats = pro.bed_beats(total, 84.0)
+                else:
+                    beats = pro.beat_times(music, audio.SR)
+            if beats and len(shots) > 1:  # the cuts land on the beat
+                cuts = pro.snap_cuts(
+                    [s.start for s in shots[1:]],
+                    beats,
+                    [(w.start, w.end) for w in words],
+                )
+                for prev, shot, cut in zip(shots, shots[1:], cuts):
+                    prev.end = shot.start = cut
             events = []
             for s in shots:
                 sfx = (
@@ -560,12 +576,38 @@ def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
                 m = finish.master(delivered, ff, mode.master)
                 if m:
                     extras["master"] = str(m)
+            from openjarvis.video_essay import pro
+
+            try:  # what a finishing editor checks before delivery
+                extras["control"] = pro.quality_check(delivered, ff)
+                if not extras["control"]["ok"]:
+                    job.log("control: " + "; ".join(extras["control"]["problemas"]))
+            except Exception as exc:  # noqa: BLE001
+                job.log(f"sin control de calidad: {exc}")
             from openjarvis.creator import studio
 
             name = studio.media_name("video", ".mp4")
             videos = deps.videos or studio.projects_root() / "videos"
             videos.mkdir(parents=True, exist_ok=True)
             shutil.copy2(delivered, videos / name)
+            subs = videos / (Path(name).stem + ".srt")
+            subs.write_text(pro.srt(words), encoding="utf-8")
+            extras["subtitulos"] = f"/v1/creator/media/{subs.name}"
+            if mode.package:  # the same video for the other screens
+                others = [a for a in ("9:16", "1:1", "16:9") if a != aspect]
+                formats = {}
+                for other in others[:2]:
+                    try:
+                        cut = pro.reframe(
+                            videos / name, other, ff, ff.replace("ffmpeg", "ffprobe")
+                        )
+                    except Exception as exc:  # noqa: BLE001
+                        job.log(f"sin formato {other}: {exc}")
+                        cut = None
+                    if cut:
+                        formats[other] = f"/v1/creator/media/{cut.name}"
+                if formats:
+                    extras["formatos"] = formats
             result = {
                 "url": f"/v1/creator/media/{name}",
                 "path": str(videos / name),
@@ -594,6 +636,7 @@ def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
                         videos / cover_name,
                     )
                     pkg["cover_url"] = f"/v1/creator/media/{cover_name}"
+                pkg["capitulos"] = pro.chapters_text(chapters)
                 job.write("publicar.json", pkg)
                 result["package"] = pkg
             job.update(result=result)
