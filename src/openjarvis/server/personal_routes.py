@@ -3,7 +3,7 @@
 * ``GET/PUT /v1/personal/perfil``           — name, how to be addressed, language, country, greetings
 * ``GET     /v1/personal/habilidades``      — Sergio's skills and which are on
 * ``PUT     /v1/personal/habilidades/{key}`` — switch one on or off
-* ``GET     /v1/personal/modelos``          — the Gemini models to choose from
+* ``GET     /v1/personal/modelos``          — every chat model to choose from, by company
 * ``GET     /v1/personal/en-marcha``        — everything running right now (Nodes, swarms, Cowork)
 """
 
@@ -37,6 +37,32 @@ GEMINI_CHAT = (
     ("gemini-2.5-pro", "Gemini 2.5 Pro", "Pro de la generación anterior."),
     ("gemini-2.5-flash", "Gemini 2.5 Flash", "Flash de la generación anterior."),
 )
+# Other companies (owner, 27 Oct 2026: «que Sergio no solo sea Gemini, sino
+# cualquier modelo del mundo»). Each company is one key; OpenRouter is one key
+# for hundreds of models from every lab, so «Otro modelo» takes any of its ids.
+PROVIDERS = (
+    ("google", "Google", "GEMINI_API_KEY", "https://aistudio.google.com/apikey"),
+    ("openai", "OpenAI", "OPENAI_API_KEY", "https://platform.openai.com/api-keys"),
+    ("anthropic", "Anthropic", "ANTHROPIC_API_KEY", "https://console.anthropic.com/settings/keys"),
+    ("deepseek", "DeepSeek", "DEEPSEEK_API_KEY", "https://platform.deepseek.com/api_keys"),
+    ("openrouter", "Todos los demás (OpenRouter)", "OPENROUTER_API_KEY", "https://openrouter.ai/keys"),
+)  # fmt: skip
+OTHER_CHAT = (
+    ("openai", "gpt-5", "GPT-5", "El más capaz de OpenAI."),
+    ("openai", "gpt-5-mini", "GPT-5 mini", "Rápido y barato."),
+    ("openai", "gpt-4o", "GPT-4o", "Rápido, generación anterior."),
+    ("anthropic", "claude-opus-4-6", "Claude Opus 4.6", "El que más piensa de Anthropic."),
+    ("anthropic", "claude-sonnet-4-6", "Claude Sonnet 4.6", "Muy bueno para escribir y programar."),
+    ("anthropic", "claude-haiku-4-5", "Claude Haiku 4.5", "Rápido y barato."),
+    ("deepseek", "deepseek-v4-pro", "DeepSeek V4 Pro", "Razona a fondo, barato."),
+    ("deepseek", "deepseek-v4-flash", "DeepSeek V4 Flash", "Rápido y muy barato."),
+    ("openrouter", "openrouter/auto", "Automático (el mejor para cada pedido)", "OpenRouter elige el modelo."),
+    ("openrouter", "openrouter/x-ai/grok-4", "Grok 4 (xAI)", ""),
+    ("openrouter", "openrouter/meta-llama/llama-3.3-70b-instruct", "Llama 3.3 70B (Meta)", "Abierto."),
+    ("openrouter", "openrouter/mistralai/mistral-large", "Mistral Large", "Europeo."),
+    ("openrouter", "openrouter/qwen/qwen3-235b-a22b", "Qwen 3 235B (Alibaba)", "Abierto."),
+    ("openrouter", "openrouter/deepseek/deepseek-r1", "DeepSeek R1", "Razonamiento abierto."),
+)  # fmt: skip
 EFFORTS = (
     ("auto", "Automático", "Sergio decide cuánto pensar."),
     ("low", "Rápido", "Responde enseguida."),
@@ -109,10 +135,19 @@ def models(request: Request) -> Dict[str, Any]:
         for mid, name, what in GEMINI_CHAT
     ]
     # Gemini chat models the key offers that are not in the list yet (newer ones).
+    # Only Gemini models newer than the list (old and «preview» copies made
+    # the sheet too long to read, owner 27 Oct 2026: «más fácil de usar»).
+    def _version(mid: str) -> float:
+        found = re.match(r"gemini-(\d+(?:\.\d+)?)", mid)
+        return float(found.group(1)) if found else 0.0
+
+    newest = max(_version(mid) for mid, _n, _w in GEMINI_CHAT)
     for mid in sorted(have):
         if (
             mid.startswith("gemini-")
             and not _NOT_CHAT.search(mid)
+            and "preview" not in mid
+            and _version(mid) > newest
             and mid not in {m["id"] for m in out}
         ):
             out.append(
@@ -123,11 +158,53 @@ def models(request: Request) -> Dict[str, Any]:
                     "disponible": True,
                 }
             )
+    for m in out:
+        m["empresa"] = "google"
+    try:
+        from openjarvis.server.cloud_router import _load_keys
+
+        keys = _load_keys()
+    except Exception:  # noqa: BLE001
+        keys = {}
+    connected = {p: bool(keys.get(var)) for p, _n, var, _u in PROVIDERS}
+    if not connected["google"] and have:
+        connected["google"] = True  # a key from the environment
+    for provider, mid, name, what in OTHER_CHAT:
+        out.append(
+            {
+                "id": mid,
+                "nombre": name,
+                "para": what,
+                "empresa": provider,
+                "disponible": connected.get(provider, False) or _serves(engine, mid),
+            }
+        )
+    from openjarvis.quota import model_weight
+
+    for m in out:
+        m["cuenta"] = model_weight(m["id"])  # messages one answer counts
     return {
         "modelos": out,
+        "empresas": [
+            {
+                "id": p,
+                "nombre": n,
+                "clave": var,
+                "donde": url,
+                "conectada": connected[p],
+            }
+            for p, n, var, url in PROVIDERS
+        ],
         "esfuerzos": [{"id": e, "nombre": n, "para": w} for e, n, w in EFFORTS],
         "actual": getattr(request.app.state, "model", "") or "",
     }
+
+
+def _serves(engine: Any, model: str) -> bool:
+    try:
+        return bool(engine is not None and engine.can_serve(model))
+    except Exception:  # noqa: BLE001
+        return False
 
 
 class VideoSchedule(BaseModel):

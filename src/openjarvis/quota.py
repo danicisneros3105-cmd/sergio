@@ -139,6 +139,37 @@ def take(kind: str, n: float = 1) -> None:
     count(kind, n)
 
 
+# How many messages one answer counts, by how much the model costs Sergio
+# (owner, 27 Oct 2026: Sergio is the intermediary and keeps a margin; the
+# plans and credits pay for it). Cheap fast models count 1; a big one more.
+MODEL_WEIGHTS = (
+    ("opus", 8),
+    ("gpt-5-pro", 8),
+    ("o3", 4),
+    ("grok-4", 4),
+    ("-pro", 3),
+    ("sonnet", 3),
+    ("gpt-5", 3),
+    ("gpt-4o", 2),
+    ("large", 2),
+    ("235b", 2),
+    ("r1", 2),
+)
+
+
+def model_weight(model: str) -> int:
+    """Messages one answer of *model* counts (1 for fast, cheap models)."""
+    import re
+
+    name = (model or "").lower().split("@")[0]
+    if re.search(r"(^|[-/.])(mini|flash|haiku|lite|small)\b", name):
+        return 1
+    for part, weight in MODEL_WEIGHTS:
+        if part in name:
+            return weight
+    return 1
+
+
 def guard(kind: str, n: float = 1) -> None:
     """:func:`take` for HTTP routes: a used-up limit answers 402 (payment needed)."""
     try:
@@ -168,7 +199,9 @@ def status() -> Dict[str, Any]:
 
 
 __all__ = [
+    "MODEL_WEIGHTS",
     "QuotaExceeded",
+    "model_weight",
     "check",
     "count",
     "guard",

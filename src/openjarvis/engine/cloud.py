@@ -264,6 +264,12 @@ def split_effort(model: str) -> tuple[str, str]:
     return model, ""
 
 
+def _plain(model: str) -> str:
+    """Only Gemini understands «@effort»; every other company gets the bare id."""
+    name, effort = split_effort(model)
+    return model if not effort or _is_google_model(name) else name
+
+
 def _gemini_generation(model: str) -> float:
     found = re.match(r"gemini-(\d+(?:\.\d+)?)", model)
     return float(found.group(1)) if found else 0.0
@@ -800,6 +806,7 @@ class CloudEngine(
         max_tokens: int = 1024,
         **kwargs: Any,
     ) -> Dict[str, Any]:
+        model = _plain(model)
         kw = dict(
             model=model,
             temperature=temperature,
@@ -833,6 +840,7 @@ class CloudEngine(
         max_tokens: int = 1024,
         **kwargs: Any,
     ) -> AsyncIterator[str]:
+        model = _plain(model)
         kw = dict(
             model=model,
             temperature=temperature,
@@ -1009,6 +1017,7 @@ class CloudEngine(
         **kwargs: Any,
     ) -> AsyncIterator[StreamChunk]:
         """Yield StreamChunks with content, tool_calls, and finish_reason."""
+        model = _plain(model)
         kw = dict(
             model=model,
             temperature=temperature,

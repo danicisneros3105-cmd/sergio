@@ -2,6 +2,18 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-10-27 · Claude · Cualquier modelo del mundo y cobro por modelo
+- Selector por empresa (Google, OpenAI, Anthropic, DeepSeek, OpenRouter) con
+  «Conectar» y «Otro modelo»; lista de Google sin repetidos viejos.
+- Arreglo: el esfuerzo «@low» se pegaba a cualquier modelo y OpenAI/Anthropic
+  lo habrían rechazado; ahora solo va a Gemini (web y servidor).
+- `quota.model_weight`: un modelo caro cuenta más mensajes («gemini» contenía
+  «mini»: corregido con límites de palabra). Pruebas: `tests/test_model_choice.py`.
+- Registro e inicio de sesión comprobados (`tests/accounts`). Sin servidor de
+  correo, las cuentas nuevas quedan «pendiente» hasta que el dueño las aprueba.
+- No se hizo: crear cuentas y claves en los proveedores a nombre de usuarios
+  (ver AGENTS.md).
+
 ## 2026-10-27 · Claude · El cerebro de la mosca (FlyWire) como base y menos lag
 - Dueño: «el cerebro no es uno humano, es un cerebro real mapeado por Google
   (el de una mosca)». Quitados la imitación humana y H01. `decision.py`

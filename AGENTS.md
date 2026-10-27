@@ -597,6 +597,20 @@ termina en la rama `main`, y el dueño actualiza con un único comando.
 - **Una sola ventana de Sergio**: al hacer clic en Sergio con la ventana ya
   abierta (aunque esté minimizada y dormida) se trae al frente esa misma
   (`launch.focus_open_window`); antes se abría otra igual.
+- **Cualquier modelo, no solo Gemini** (dueño, 27 oct. 2026): el selector
+  (`ModelSheet.tsx`, `/v1/personal/modelos`) agrupa por empresa — Google,
+  OpenAI, Anthropic, DeepSeek y «todos los demás» por OpenRouter (una clave,
+  cientos de modelos) — con «Conectar» por empresa y «Otro modelo» para
+  escribir cualquier id (`vendor/modelo` = OpenRouter). El esfuerzo
+  (`@low`…) solo va a Gemini (`cloud._plain`, `withEffort`). Cada respuesta
+  cuenta según lo que cuesta el modelo (`quota.model_weight`: Flash/mini 1,
+  Sonnet/GPT-5/Pro 3, Opus 8): así los planes y créditos dejan margen.
+  **Sergio NO crea cuentas ni claves en los proveedores a nombre de los
+  usuarios** (pedido otra vez el 27 oct. 2026; rechazado como el 26): lo
+  prohíben sus términos, exige pasar sus verificaciones con datos ajenos y
+  revender claves personales. El modelo de intermediario legítimo es el que
+  ya existe: claves de empresa de Sergio en el servidor (una de OpenRouter
+  basta para casi todo), y el usuario paga plan o créditos con margen.
 - Kimi como proveedor y «Digitalsnickers» están descartados.
 - Licencia Apache-2.0 y autoría honesta: no se borran créditos del original.
 

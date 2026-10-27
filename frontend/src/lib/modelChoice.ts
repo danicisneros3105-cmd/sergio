@@ -1,5 +1,6 @@
-// Choosing Sergio's model and how hard it thinks, simply: every Gemini chat
-// model the key can use (`/v1/personal/modelos`) and four levels of effort.
+// Choosing Sergio's model and how hard it thinks, simply: the chat models of
+// every company Sergio can use (`/v1/personal/modelos`: Google, OpenAI,
+// Anthropic, DeepSeek and, through OpenRouter, any other) and four levels of effort.
 // «Automático» leaves both to Sergio's brain (cortex.py picks the effort).
 
 import { apiFetch } from './api';
@@ -11,6 +12,16 @@ export interface ModelOption {
   nombre: string;
   para: string;
   disponible: boolean;
+  empresa?: string;
+  cuenta?: number;
+}
+
+export interface Company {
+  id: string;
+  nombre: string;
+  clave: string;
+  donde: string;
+  conectada: boolean;
 }
 
 export const EFFORTS: { id: Effort; nombre: string; para: string }[] = [
@@ -22,7 +33,8 @@ export const EFFORTS: { id: Effort; nombre: string; para: string }[] = [
 
 /** «gemini-3.6-flash» + «high» → «gemini-3.6-flash@high»; automatic adds nothing. */
 export function withEffort(model: string, effort: Effort | undefined): string {
-  if (!model || !effort || effort === 'auto' || model.includes('@')) return model;
+  // Only Gemini understands «@effort»; other companies get the bare id.
+  if (!model || !effort || effort === 'auto' || model.includes('@') || !model.startsWith('gemini')) return model;
   return `${model}@${effort}`;
 }
 
@@ -37,7 +49,7 @@ export function modelName(id: string, known: ModelOption[] = []): string {
     .join(' ');
 }
 
-export async function fetchModelOptions(): Promise<{ modelos: ModelOption[]; actual: string }> {
+export async function fetchModelOptions(): Promise<{ modelos: ModelOption[]; empresas?: Company[]; actual: string }> {
   const res = await apiFetch('/v1/personal/modelos');
   if (!res.ok) throw new Error(`Error ${res.status}`);
   return res.json();

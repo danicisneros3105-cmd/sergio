@@ -350,9 +350,9 @@ def _inject_memory(
 
 async def _chat_completions(request_body: ChatCompletionRequest, request: Request):
     """Handle chat completion requests (streaming and non-streaming)."""
-    from openjarvis.quota import guard
+    from openjarvis.quota import guard, model_weight
 
-    guard("mensajes")
+    guard("mensajes", model_weight(request_body.model))  # a big model counts more
     engine = request.app.state.engine
     agent = getattr(request.app.state, "agent", None)
     model = request_body.model

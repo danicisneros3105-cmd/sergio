@@ -3890,3 +3890,8 @@ li.msheet-for { padding: 10px 14px; }
 .vsheet-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 13.5px; color: var(--color-text); }
 .vsheet-row span { display: grid; min-width: 0; }
 .vsheet-row em { font-style: normal; font-size: 12px; color: var(--color-text-tertiary); }
+
+/* Model sheet grouped by company (27 Oct 2026: any model in the world). */
+.msheet-scroll { max-height: min(58vh, 520px); overflow-y: auto; display: grid; gap: 14px; }
+.msheet-group h3 { display: flex; align-items: center; justify-content: space-between; margin: 0 0 6px; font-size: 12px; font-weight: 600; color: var(--text-secondary, #6e6e73); text-transform: none; }
+.msheet-group h3 .msheet-advanced { margin: 0; }
