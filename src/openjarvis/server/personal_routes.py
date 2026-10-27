@@ -134,6 +134,7 @@ def models(request: Request) -> Dict[str, Any]:
         }
         for mid, name, what in GEMINI_CHAT
     ]
+
     # Gemini chat models the key offers that are not in the list yet (newer ones).
     # Only Gemini models newer than the list (old and «preview» copies made
     # the sheet too long to read, owner 27 Oct 2026: «más fácil de usar»).
