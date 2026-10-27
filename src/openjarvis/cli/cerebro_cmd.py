@@ -54,7 +54,7 @@ def dormir() -> None:
         console.print("Nada que consolidar todavía.")
     if core.human_night:
         console.print(
-            f"Cerebro humano: {core.human_night['conceptos']} conceptos "
+            f"Decisiones (mosca): {core.human_night['conceptos']} conceptos "
             f"({core.human_night['cambiados']} nuevos o cambiados), sinapsis podadas."
         )
     for name, r in report.items():
@@ -88,9 +88,9 @@ def prueba() -> None:
         console.print(
             f"Especialista {kind}: acierta {last['top3']:.0%} en su top 3 (azar {last['chance_top3']:.0%})"
         )
-    h = p["humano"]
+    h = p["mosca"]
     console.print(
-        "Cerebro humano, pedidos nunca vistos: "
+        "Cerebro de la mosca, pedidos nunca vistos: "
         + " → ".join(f"{r['acierto']:.0%}" for r in h["rondas"])
         + f" (azar {h['azar']:.0%}); dopamina +{h['dopamina']['recompensas']} "
         f"/ −{h['dopamina']['castigos']}; conceptos al dormir: {', '.join(h['conceptos']) or '—'}"

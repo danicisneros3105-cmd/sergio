@@ -903,9 +903,9 @@ def mind_context(text: str, channel: str = "chat") -> str:
     parts: List[str] = []
     _turn.selection = None  # a new turn: the last one's choice does not carry over
     try:
-        # The global workspace: what the human brain decided for this turn
-        # (connectome/cortex.py) goes first; empty when a plain answer is right.
-        from openjarvis.connectome.cortex import workspace
+        # The global workspace: what the fly brain decided for this turn
+        # (connectome/decision.py) goes first; empty when a plain answer is right.
+        from openjarvis.connectome.decision import workspace
 
         frame = workspace(text, channel)
     except Exception:  # noqa: BLE001
@@ -976,7 +976,7 @@ def remember_exchange(
     except Exception:  # noqa: BLE001 — learning is a bonus, never a failure
         pass
     try:
-        from openjarvis.connectome.cortex import outcome
+        from openjarvis.connectome.decision import outcome
 
         outcome(user_text, assistant_text, channel or "chat")
     except Exception:  # noqa: BLE001 — the same

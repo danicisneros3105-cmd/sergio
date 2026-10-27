@@ -17,10 +17,10 @@ import pytest
 
 
 @pytest.fixture(autouse=True)
-def _newborn_human_brain():
-    """Each test meets a newborn human brain (connectome/cortex.py): what one
+def _newborn_fly_brain():
+    """Each test meets a newborn fly brain (connectome/decision.py): what one
     test taught it must not change what another sees."""
-    cortex = sys.modules.get("openjarvis.connectome.cortex")
+    cortex = sys.modules.get("openjarvis.connectome.decision")
     if cortex is not None:
         cortex.forget()
     yield

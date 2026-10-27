@@ -1,0 +1,16 @@
+{
+ "fuente": "FlyWire (Google y Princeton), Nature 2024 — cerebro completo de Drosophila melanogaster, versión 783",
+ "url": "https://storage.googleapis.com/flywire-data/codex/data/fafb/783/",
+ "licencia": "CC BY 4.0",
+ "region": "cerebro de la mosca sin los lóbulos ópticos (cerebro central, sentidos, neuronas ascendentes y descendentes)",
+ "neuronas_cerebro_completo": 139255,
+ "neuronas": 49434,
+ "conexiones": 573006,
+ "sinapsis": 14143066,
+ "minimo_sinapsis": 10,
+ "sha256": {
+  "mosca_neuronas.csv.gz": "0691317303ddc75e3c2ce3e251f6effc9865b5c824687d68faae7af53230fd90",
+  "mosca_sinapsis.npz": "c5e5222efc76934b2fe341c941f1de08638ac0123b03f1988a1bcae022e84ada"
+ },
+ "fecha": "2026-10-26"
+}

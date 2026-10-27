@@ -185,18 +185,18 @@ export interface CurvePoint {
   grown: number;
 }
 
-/** The human brain that decides every turn (connectome/cortex.py). */
-export interface HumanProof {
+/** The fly brain that decides every turn (connectome/decision.py). */
+export interface FlyProof {
   rondas: Array<{ ronda: number; acierto: number }>;
   azar: number;
   dopamina: { recompensas: number; castigos: number; arrepentimientos: number };
   dormir: { conceptos: number; cambiados: number };
   conceptos: string[];
-  columna?: { parecidos: number; distintos: number; capas_encendidas: Record<string, number> };
+  columna?: { parecidos: number; distintos: number; zonas_encendidas: Record<string, number> };
 }
 
-/** Google's human cortex (H01) wired into the brain (connectome/h01.py). */
-export interface HumanColumn {
+/** The fly's real wiring, FlyWire (connectome/mosca.py). */
+export interface FlyWiring {
   verificado: boolean;
   fuente?: string;
   licencia?: string;
@@ -204,10 +204,12 @@ export interface HumanColumn {
   neuronas?: number;
   conexiones?: number;
   sinapsis?: number;
-  capas?: Record<string, number>;
+  neuronas_cerebro_completo?: number;
+  zonas?: Record<string, number>;
+  etapas?: Record<string, number>;
 }
 
-export interface HumanNow {
+export interface FlyNow {
   regiones: Array<{ region: string; trabajo: string }>;
   turnos: number;
   elecciones: Record<string, number>;
@@ -219,8 +221,8 @@ export interface HumanNow {
   conceptos: Array<{ palabra: string; veces: number; junto: string[] }>;
   memoria_de_trabajo: string[];
   sinapsis: number;
-  corteza: HumanColumn;
-  ultima_columna: Record<string, number>;
+  conectoma: FlyWiring;
+  ultimo_camino: Record<string, number>;
 }
 
 export interface CoreProof {
@@ -241,8 +243,8 @@ export interface CoreProof {
   nodes: { pedido: string; instintos: Record<string, Array<{ movida: string; como: string; fuerza: number }>>; divergencia: Record<string, Record<string, number>> };
   brains: Array<{ nombre: string; sinapsis: { medidas: number; cambiadas: number; nuevas: number; podadas_total: number }; episodios: number; noches: number }>;
   hive: { organos: Array<{ nombre: string; mosca: string; trabajo: string; veces: number; fallos: number; ms: number }>; supervisor: { recompensas: number; castigos: number } };
-  humano?: HumanProof;
-  humano_vivo?: Partial<HumanNow>;
+  mosca?: FlyProof;
+  mosca_viva?: Partial<FlyNow>;
 }
 
 export async function coreProof(fresh = false): Promise<CoreProof> {

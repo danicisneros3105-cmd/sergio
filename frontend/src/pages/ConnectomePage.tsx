@@ -31,7 +31,7 @@ export function ConnectomePage() {
       {map && (
         <>
           <p className="cn-lead">
-            La base de Sergio es un cerebro: siente lo que usted dice, decide cuánto pensar y aprende de lo que usted responde después, como un cerebro humano. Por dentro, sus neuronas son las de la mosca de la fruta ({map.facts.neurons}, {map.facts.synapses}). {map.learning}
+            La base de Sergio es un cerebro real: el de una mosca de la fruta, mapeado neurona a neurona por Google y Princeton (FlyWire). Lo que usted dice cruza sus conexiones medidas; así decide cuánto pensar y aprende de lo que usted responde después ({map.facts.neurons}, {map.facts.synapses}). {map.learning}
           </p>
 
           <CoreProof />

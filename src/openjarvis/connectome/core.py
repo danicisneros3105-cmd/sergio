@@ -132,16 +132,16 @@ class Core:
         return report
 
     def _human_sleep(self) -> Dict[str, Any]:
-        """The same night for the human brain (connectome/cortex.py): replay
+        """The same night for the fly brain's decisions (connectome/decision.py): replay
         into concepts and synaptic homeostasis."""
         if self.folder.name != "connectome":
             return {}
         try:
-            from openjarvis.connectome import cortex
+            from openjarvis.connectome import decision as cortex
 
             if not cortex.enabled():
                 return {}
-            return cortex.get_human(self.folder.parent).sleep()
+            return cortex.get_brain(self.folder.parent).sleep()
         except Exception:  # noqa: BLE001 — a bad night never breaks the day
             return {}
 

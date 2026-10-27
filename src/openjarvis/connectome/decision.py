@@ -1,53 +1,55 @@
-"""Sergio's base: how a human brain perceives, decides and learns.
+"""Sergio's base: how a real fly brain — mapped by Google — perceives, decides and learns.
 
-Every turn (chat, voice, the desktop, Cowork) goes through this before the
-language model is asked anything, and every answer comes back here to be
-learned from. The language model is the voice and the hands; deciding how
-to answer, remembering and learning happen here, region by region, the way
-cognitive neuroscience describes them:
+The owner (26 Oct 2026): «sobre el cerebro no es uno humano, es un cerebro
+real mapeado por Google (el cerebro de una mosca)». Every turn (chat, voice,
+the desktop, Cowork) goes through this before the language model is asked
+anything, and every answer comes back here to be learned from. The language
+model is the voice and the hands; deciding how to answer, remembering and
+learning happen here, in the parts of the fruit fly's brain that do that job:
 
-* **Tálamo** (thalamus) — the gate: codes what came in as a few active cells
-  (the same sparse code as the fly's Kenyon cells, :func:`kenyon_code`) and
-  measures how new it is; what keeps coming back is habituated.
-* **Amígdala** — salience: urgency, danger and the owner's mood (arousal and
-  valence), plus learned caution — fear conditioning: topics where Sergio
-  was corrected make it careful next time; praise extinguishes it.
-* **Hipocampo** — episodic memory: every exchange is an engram that comes
-  back by association (:mod:`.brain`, the fly's memory zone).
-* **Neocorteza** — semantic memory: what recurs across many episodes is
-  abstracted, during sleep, into lasting concepts (complementary learning
-  systems: McClelland, McNaughton and O'Reilly 1995).
-* **Corteza prefrontal** — working memory, at most four chunks (Cowan 2001):
-  the topic in hand survives the next short message («¿y eso?»). With the
-  **cingulada anterior** it watches for conflict: when two ways of answering
-  are nearly tied, it takes the more careful one (Botvinick et al. 2001).
-* **Ganglios basales** — action selection: reflex, answer, reflect or go deep
-  (Kahneman's two systems, as four strategies). Actor-critic with separate
-  Go (D1) and NoGo (D2) pathways (Frank 2005): dopamine's reward prediction
-  error (Schultz, Dayan and Montague 1997) strengthens Go when an answer
-  went better than expected and NoGo when worse.
-* **Cerebelo** — a forward model: predicts how long each strategy takes for
-  this kind of request and corrects itself from the error (the climbing
-  fibre's delta rule). In a hurry, slow strategies lose.
-* **Neuromoduladores** — dopamine (reward), noradrenaline (arousal, from the
-  amygdala), acetylcholine (novelty: what is new is learned faster) and
-  serotonin (patience: an owner who writes calmly gets more depth).
-* **Espacio de trabajo global** — what wins is broadcast to the model as one
-  short block (Baars 1988; Dehaene 2011).
-* **Sueño** — replay moves episodes into concepts, synapses are scaled down
-  (synaptic homeostasis: Tononi and Cirelli 2006) and the fly's mushroom
-  bodies consolidate too.
+* **Lóbulo antenal** — the gate: what came in becomes a few active cells
+  (the sparse code of the fly's Kenyon cells, :func:`kenyon_code`), and what
+  keeps coming back is habituated (local neurons adapt to a repeated smell).
+  That code then crosses the **real wiring** of the fly's brain
+  (:mod:`.mosca`: FlyWire, 49 434 neurons and their measured synapses).
+* **Cuerno lateral** — innate valence: urgency, danger and the owner's mood,
+  plus learned caution (aversive memory taught by PPL1 dopamine neurons:
+  topics where Sergio was corrected make it careful next time; praise
+  extinguishes it).
+* **Cuerpo fungiforme** — memory: every exchange is an engram that comes back
+  by association (:mod:`.brain`); its α/β lobes keep, during sleep, what
+  recurs across many episodes as lasting concepts (the fly's long-term
+  memory consolidates in sleep).
+* **Complejo central** — the topic in hand, held like the fly's heading in
+  its ring attractor (at most four chunks): it survives the next short
+  message («¿y eso?»). When two ways of answering are nearly tied, the
+  fan-shaped body takes the more careful one. It also integrates the path:
+  it predicts how long each strategy takes for this kind of request and
+  corrects itself from the error; in a hurry, slow strategies lose.
+* **Neuronas de salida y dopamina** (MBON, PAM/PPL1) — action selection:
+  reflex, answer, reflect or go deep. Approach and avoid weights per output
+  neuron; reward dopamine (PAM) strengthens the strategy that went better
+  than expected, punishment dopamine (PPL1) the avoidance of one that went
+  worse (reward prediction error, actor-critic).
+* **Neuromoduladores** — dopamine (reward), octopamine (the fly's arousal),
+  acetylcholine (novelty: what is new is learned faster) and serotonin
+  (patience: an owner who writes calmly gets more depth).
+* **Neuronas descendentes** — what wins is sent to the model as one short
+  block, the way the fly's brain sends one command to its body.
+* **Sueño** — the dorsal fan-shaped body puts the fly to sleep: replay moves
+  episodes into concepts, synapses are scaled down (homeostasis) and the
+  mushroom bodies consolidate.
 
 The owner's next words are the reward: «gracias» rewards, «no, eso no»
 punishes, «más corto» or «explícame mejor» say which way to move — and the
 strategy he would have wanted is strengthened too (regret, a counterfactual).
 
 Everything is weights and counters on this computer
-(``~/.openjarvis/connectome/humano``), cheap enough to run on every turn
-(no network). It is not a simulation of 86 billion neurons and is never sold
-as one: it is the human brain's organisation and learning rules, measured
+(``~/.openjarvis/connectome/mosca``), cheap enough to run on every turn (no
+network). It is not a simulation of the whole fly and is never sold as one:
+it is the fly brain's measured wiring and learning rules, measured
 (:func:`prove`). ``SERGIO_CEREBRO=0`` switches it off with the rest of the
-mind.
+mind; ``SERGIO_MOSCA=0`` leaves out only the FlyWire wiring.
 """
 
 from __future__ import annotations
@@ -82,13 +84,13 @@ LONG_PROMPT = 1500  # a Node's or the swarm's long prompt is not the owner talki
 
 N_DENSE = 13
 DENSE_SCALE = 0.3  # context features count, but less than the words
-CORTEX_SCALE = 0.8  # the human column's response (H01), next to the words
-N_CORTEX = 4096  # = h01.OUT_SLOTS
+CORTEX_SCALE = 0.8  # the fly brain's response (FlyWire), next to the words
+N_CORTEX = 4096  # = mosca.OUT_SLOTS
 DENSE_AT = KENYON_CELLS + N_CORTEX
 N_FEATURES = DENSE_AT + N_DENSE
 
 PRIOR_SLOPE = 0.5  # innate preference lost per strategy away from the difficulty
-CONFLICT = 0.08  # two strategies this close: the cingulate asks for care
+CONFLICT = 0.08  # two strategies this close: the fan-shaped body asks for care
 LR_GO = 0.5
 LR_NOGO = 0.5
 LR_CRITIC = 0.3
@@ -102,7 +104,7 @@ NO_COMPLAINT = 0.3  # he went on without a complaint: a small reward
 JUDGE_WITHIN_S = 30 * 60
 WM_CAPACITY = 4
 WM_TTL_S = 20 * 60
-RECENT = 40  # percepts kept by the thalamus to measure novelty
+RECENT = 40  # percepts kept by the antennal lobe to measure novelty
 DOWNSCALE = 0.97  # synaptic homeostasis per night
 SLEEP_EVERY_S = 12 * 3600
 SAVE_EVERY_S = 10.0
@@ -205,7 +207,7 @@ def content_words(text: str) -> List[str]:
 # -- what one turn is made of ---------------------------------------------------------
 @dataclass
 class Percept:
-    """What the thalamus lets through."""
+    """What the antennal lobe lets through."""
 
     text: str
     channel: str
@@ -216,13 +218,15 @@ class Percept:
     code: bool
     words: int
     owner: bool  # the owner's own words (not a long internal prompt)
-    cortex: List[int] = field(default_factory=list)  # H01 column slots
-    column: Dict[str, int] = field(default_factory=dict)  # active neurons per layer
+    cortex: List[int] = field(default_factory=list)  # FlyWire response slots
+    column: Dict[str, int] = field(
+        default_factory=dict
+    )  # active neurons per brain part
 
 
 @dataclass
 class Affect:
-    """The amygdala's reading."""
+    """The lateral horn's reading."""
 
     arousal: float
     valence: float
@@ -320,7 +324,7 @@ class Thought:
 
 
 # -- the regions ------------------------------------------------------------------------
-class Thalamus:
+class AntennalLobe:
     """The gate: a sparse code for what came in and how new it is."""
 
     def __init__(self) -> None:
@@ -376,33 +380,39 @@ class Thalamus:
 
 
 def _column(cells: List[int]) -> Tuple[List[int], Dict[str, int]]:
-    """The thalamic code through Google's human cortex wiring (H01): the
-    slots the striatum reads and how many neurons fired in each layer."""
-    if not cells or not _h01_on():
+    """The code through the fly's real wiring (FlyWire, :mod:`.mosca`): the
+    slots the output neurons read and how many neurons fired in each part."""
+    if not cells or not _fly_on():
         return [], {}
     try:
-        from openjarvis.connectome import h01
+        from openjarvis.connectome import mosca
 
-        col = h01.column()
-        if col is None:
+        fly = mosca.fly()
+        if fly is None:
             return [], {}
-        run = col.run(cells)
-        active = run["activas"]
-        layers: Dict[str, int] = {}
+        active = fly.run(cells)["activas"]
+        parts: Dict[str, int] = {}
         for i in active:
-            name = h01.LAYERS[col.layer[i]] if col.layer[i] >= 0 else "?"
-            layers[name] = layers.get(name, 0) + 1
-        return sorted({int(i) % N_CORTEX for i in active}), layers
-    except Exception:  # noqa: BLE001 — without the column the words still decide
+            name = mosca.CLASS_ES.get(fly.cls[i]) or mosca.STAGE.get(
+                fly.super_class[i], "otras"
+            )
+            parts[name] = parts.get(name, 0) + 1
+        return sorted({int(i) % N_CORTEX for i in active}), parts
+    except Exception:  # noqa: BLE001 — without the wiring the words still decide
         return [], {}
 
 
-def _h01_on() -> bool:
-    return os.environ.get("SERGIO_H01", "1").strip() not in ("0", "no", "off", "false")
+def _fly_on() -> bool:
+    return os.environ.get("SERGIO_MOSCA", "1").strip() not in (
+        "0",
+        "no",
+        "off",
+        "false",
+    )
 
 
 def features(p: Percept, arousal: float) -> Tuple[np.ndarray, np.ndarray]:
-    """The cortical input to the striatum, cerebellum and amygdala: the sparse
+    """The input to the output neurons, the path integrator and the lateral horn: the sparse
     cells plus a few context features."""
     idx = list(p.cells)
     n = max(1, len(idx))
@@ -435,7 +445,7 @@ def features(p: Percept, arousal: float) -> Tuple[np.ndarray, np.ndarray]:
     return np.asarray(idx, dtype=np.int32), np.asarray(val, dtype=np.float32)
 
 
-class Amygdala:
+class LateralHorn:
     """Salience and learned caution (fear conditioning and its extinction)."""
 
     def __init__(self) -> None:
@@ -471,8 +481,9 @@ class Amygdala:
             )
 
 
-class BasalGanglia:
-    """Action selection: Go (D1) and NoGo (D2) pathways and a critic."""
+class MushroomOutput:
+    """Action selection: approach (PAM-taught) and avoid (PPL1-taught) output
+    neurons, and a critic."""
 
     def __init__(self) -> None:
         a = len(STRATEGIES)
@@ -520,7 +531,7 @@ class BasalGanglia:
         np.clip(self.nogo, -3.0, 3.0, out=self.nogo)
 
 
-class Cerebellum:
+class PathIntegrator:
     """A forward model of how long each strategy takes, corrected by its error."""
 
     def __init__(self) -> None:
@@ -544,8 +555,8 @@ class Cerebellum:
         return error
 
 
-class WorkingMemory:
-    """Prefrontal cortex: a few chunks, the topic in hand first."""
+class CentralComplex:
+    """The central complex's ring: a few chunks, the topic in hand first."""
 
     def __init__(self) -> None:
         self.chunks: List[Dict[str, Any]] = []
@@ -576,7 +587,7 @@ class WorkingMemory:
         return continuing, topic
 
 
-class Neocortex:
+class MemoryLobes:
     """Semantic memory: concepts abstracted from many episodes while asleep."""
 
     def __init__(self) -> None:
@@ -633,7 +644,7 @@ class Neocortex:
 
 
 # -- the brain ------------------------------------------------------------------------------
-class HumanBrain:
+class FlyBrain:
     def __init__(
         self, folder: Optional[Path], *, clock: Any = time.time, terry: bool = True
     ) -> None:
@@ -641,15 +652,15 @@ class HumanBrain:
         self.clock = clock
         self.consult_terry = terry
         self._lock = threading.RLock()
-        self.thalamus = Thalamus()
-        self.amygdala = Amygdala()
-        self.ganglia = BasalGanglia()
-        self.cerebellum = Cerebellum()
-        self.wm = WorkingMemory()
-        self.cortex = Neocortex()
+        self.antennal = AntennalLobe()
+        self.horn = LateralHorn()
+        self.mbon = MushroomOutput()
+        self.integrator = PathIntegrator()
+        self.ring = CentralComplex()
+        self.lobes = MemoryLobes()
         self.mods = {
             "dopamina": 0.0,
-            "noradrenalina": 0.15,
+            "octopamina": 0.15,
             "acetilcolina": 0.5,
             "serotonina": 0.5,
         }
@@ -684,37 +695,55 @@ class HumanBrain:
             if weights and weights.is_file():
                 data = np.load(weights, allow_pickle=False)
                 for name, arr, shape in (
-                    ("go", "go", self.ganglia.go.shape),
-                    ("nogo", "nogo", self.ganglia.nogo.shape),
-                    ("critic", "critic", self.ganglia.critic.shape),
-                    ("cerebelo", "w", self.cerebellum.w.shape),
-                    ("cautela", "caution", self.amygdala.caution.shape),
+                    ("go", "go", self.mbon.go.shape),
+                    ("nogo", "nogo", self.mbon.nogo.shape),
+                    ("critic", "critic", self.mbon.critic.shape),
+                    ("cerebelo", "w", self.integrator.w.shape),
+                    ("cautela", "caution", self.horn.caution.shape),
                 ):
                     if name in data and data[name].shape == shape:
                         target = {
-                            "go": self.ganglia,
-                            "nogo": self.ganglia,
-                            "critic": self.ganglia,
-                            "cerebelo": self.cerebellum,
-                            "cautela": self.amygdala,
+                            "go": self.mbon,
+                            "nogo": self.mbon,
+                            "critic": self.mbon,
+                            "cerebelo": self.integrator,
+                            "cautela": self.horn,
                         }[name]
                         setattr(target, arr, data[name].astype(np.float32))
                 if (
                     "ensayos" in data
-                    and data["ensayos"].shape == self.cerebellum.trials.shape
+                    and data["ensayos"].shape == self.integrator.trials.shape
                 ):
-                    self.cerebellum.trials = data["ensayos"].astype(np.int64)
+                    self.integrator.trials = data["ensayos"].astype(np.int64)
             if state and state.is_file():
                 raw = json.loads(state.read_text(encoding="utf-8"))
                 self.stats_.update(raw.get("stats", {}))
-                self.mods.update(raw.get("mods", {}))
-                self.cortex.concepts = raw.get("conceptos", {})
-                self.wm.chunks = raw.get("memoria_de_trabajo", [])
+                mods = raw.get("mods", {})
+                if "noradrenalina" in mods:  # the old name, before the fly
+                    mods["octopamina"] = mods.pop("noradrenalina")
+                self.mods.update({k: v for k, v in mods.items() if k in self.mods})
+                self.lobes.concepts = raw.get("conceptos", {})
+                self.ring.chunks = raw.get("memoria_de_trabajo", [])
                 self._last = raw.get("ultimo") or None
                 for cells in raw.get("recientes", []):
-                    self.thalamus.recent.append(set(cells))
+                    self.antennal.recent.append(set(cells))
         except (OSError, ValueError, KeyError):
             pass  # a damaged file: start again rather than break a turn
+
+    def rewire(self) -> None:
+        """Forget what was learned on the old wiring's slots (they meant other
+        neurons); keep what was learned on the words and the context."""
+        with self._lock:
+            for arr in (
+                self.mbon.go,
+                self.mbon.nogo,
+                self.mbon.critic,
+                self.integrator.w,
+                self.horn.caution,
+            ):
+                if arr.shape[-1] == N_FEATURES:
+                    arr[..., KENYON_CELLS:DENSE_AT] = 0.0
+            self.save(force=True)
 
     def save(self, force: bool = False) -> None:
         weights, state = self._paths()
@@ -729,21 +758,21 @@ class HumanBrain:
             tmp = weights.with_suffix(".tmp.npz")
             np.savez_compressed(
                 tmp,
-                go=self.ganglia.go,
-                nogo=self.ganglia.nogo,
-                critic=self.ganglia.critic,
-                cerebelo=self.cerebellum.w,
-                ensayos=self.cerebellum.trials,
-                cautela=self.amygdala.caution,
+                go=self.mbon.go,
+                nogo=self.mbon.nogo,
+                critic=self.mbon.critic,
+                cerebelo=self.integrator.w,
+                ensayos=self.integrator.trials,
+                cautela=self.horn.caution,
             )
             tmp.replace(weights)
             body = {
                 "stats": {**self.stats_, "aciertos": self.stats_["aciertos"][-200:]},
                 "mods": self.mods,
-                "conceptos": self.cortex.concepts,
-                "memoria_de_trabajo": self.wm.chunks,
+                "conceptos": self.lobes.concepts,
+                "memoria_de_trabajo": self.ring.chunks,
                 "ultimo": self._last,
-                "recientes": [sorted(c) for c in self.thalamus.recent],
+                "recientes": [sorted(c) for c in self.antennal.recent],
             }
             tmp_s = state.with_suffix(".tmp")
             tmp_s.write_text(json.dumps(body, ensure_ascii=False), encoding="utf-8")
@@ -757,25 +786,25 @@ class HumanBrain:
             known = self._thoughts.get(key)
             if known is not None and now - known.started < THOUGHT_TTL_S:
                 return known
-            p = self.thalamus.sense(text, channel)
+            p = self.antennal.sense(text, channel)
             redo = self._judge_previous(p, now) if p.owner else None
-            # Novelty releases acetylcholine; the amygdala's arousal is noradrenaline.
+            # Novelty releases acetylcholine; the lateral horn's arousal is octopamine.
             idx0, val0 = features(p, 0.0)
-            affect = self.amygdala.appraise(p, idx0, val0)
+            affect = self.horn.appraise(p, idx0, val0)
             idx, val = features(p, affect.arousal)
             self._modulate(p, affect)
-            continuing, topic = self.wm.attend(p, now, follow=redo is not None)
-            concepts = self.cortex.recall(text)
+            continuing, topic = self.ring.attend(p, now, follow=redo is not None)
+            concepts = self.lobes.recall(text)
             if redo is not None:
                 # «Explícame mejor» / «más corto»: answer the same request again,
                 # the way he wants it, and let that answer be judged on its topic.
                 choice, idx, val = redo
                 scores = {
                     s: round(float(v), 3)
-                    for s, v in zip(STRATEGIES, self.ganglia.values(idx, val))
+                    for s, v in zip(STRATEGIES, self.mbon.values(idx, val))
                 }
                 conflict, learned = False, True
-                predicted = self.cerebellum.predict(idx, val, choice)
+                predicted = self.integrator.predict(idx, val, choice)
             else:
                 choice, scores, conflict, predicted, learned = self._select(
                     p, affect, idx, val
@@ -812,7 +841,7 @@ class HumanBrain:
 
     def _modulate(self, p: Percept, a: Affect) -> None:
         m = self.mods
-        m["noradrenalina"] = round(0.7 * m["noradrenalina"] + 0.3 * a.arousal, 3)
+        m["octopamina"] = round(0.7 * m["octopamina"] + 0.3 * a.arousal, 3)
         m["acetilcolina"] = round(0.5 * m["acetilcolina"] + 0.5 * p.novelty, 3)
         if p.owner:
             calm = 0.0 if a.urgent else min(1.0, p.words / 40)
@@ -821,8 +850,8 @@ class HumanBrain:
     def _select(
         self, p: Percept, a: Affect, idx: np.ndarray, val: np.ndarray
     ) -> Tuple[int, Dict[str, float], bool, float, bool]:
-        """Basal ganglia over the cortex's innate preference, with the
-        amygdala, serotonin, the cerebellum and the cingulate weighing in."""
+        """The output neurons over the innate preference, with the lateral
+        horn, serotonin, the path integrator and the fan-shaped body weighing in."""
         target = p.difficulty * 3
         if a.urgent:
             target -= 0.8
@@ -834,10 +863,10 @@ class HumanBrain:
             [-PRIOR_SLOPE * abs(i - target) for i in range(len(STRATEGIES))],
             dtype=np.float32,
         )
-        learned = self.ganglia.values(idx, val)
+        learned = self.mbon.values(idx, val)
         total = prior + learned
         predicted = [
-            self.cerebellum.predict(idx, val, i) for i in range(len(STRATEGIES))
+            self.integrator.predict(idx, val, i) for i in range(len(STRATEGIES))
         ]
         if a.urgent:
             total -= np.array(
@@ -847,7 +876,7 @@ class HumanBrain:
         best, second = int(order[0]), int(order[1])
         conflict = bool(total[best] - total[second] < CONFLICT)
         if conflict and second > best and not a.urgent:
-            best = second  # the cingulate: when unsure, the careful way
+            best = second  # the fan-shaped body: when unsure, the careful way
         scores = {s: round(float(total[i]), 3) for i, s in enumerate(STRATEGIES)}
         moved = best != int(np.argmax(prior))
         return best, scores, conflict, predicted[best], moved
@@ -904,11 +933,11 @@ class HumanBrain:
         # A style complaint is not fear: the content was fine, the depth was not.
         self.teach(idx, val, a, reward, rate, fear=wanted is None)
         if wanted is not None and wanted != a:
-            self.ganglia.regret(idx, val, wanted, REGRET, rate)
+            self.mbon.regret(idx, val, wanted, REGRET, rate)
             # ...and the other direction is even less wanted.
             away = range(a) if wanted > a else range(a + 1, len(STRATEGIES))
             for b in away:
-                self.ganglia.avoid(idx, val, b, 0.5 * REGRET, rate)
+                self.mbon.avoid(idx, val, b, 0.5 * REGRET, rate)
             self.stats_["arrepentimientos"] += 1
         self.stats_["aciertos"] = (self.stats_["aciertos"] + [int(reward > 0)])[-200:]
         return (wanted, idx, val) if wanted is not None else None
@@ -924,9 +953,9 @@ class HumanBrain:
         fear: bool = True,
     ) -> float:
         with self._lock:
-            delta = self.ganglia.learn(idx, val, action, reward, rate)
+            delta = self.mbon.learn(idx, val, action, reward, rate)
             if fear or reward > 0:
-                self.amygdala.condition(idx, val, reward)
+                self.horn.condition(idx, val, reward)
             self.mods["dopamina"] = round(0.8 * self.mods["dopamina"] + 0.2 * delta, 3)
             key = "recompensas" if reward > 0 else "castigos"
             self.stats_[key] += 1
@@ -935,7 +964,7 @@ class HumanBrain:
         return delta
 
     def outcome(self, text: str, answer: str, channel: str = "chat") -> None:
-        """The answer went out: the cerebellum learns how long it took, a
+        """The answer went out: the path integrator learns how long it took, a
         broken answer is punished now, the rest waits for the owner's words."""
         now = self.clock()
         with self._lock:
@@ -945,7 +974,7 @@ class HumanBrain:
             if t is None or not t.percept.owner:
                 return
             a = STRATEGIES.index(t.strategy)
-            self.cerebellum.learn(t.x_idx, t.x_val, a, now - t.started)
+            self.integrator.learn(t.x_idx, t.x_val, a, now - t.started)
             broken = not (answer or "").strip() or bool(
                 re.match(
                     r"^\s*(error|lo siento, (hubo|ocurri[oó]) un error)",
@@ -993,19 +1022,19 @@ class HumanBrain:
         if episodes is None:
             episodes = _episodes(now)
         with self._lock:
-            changed = self.cortex.consolidate(list(episodes), now)
+            changed = self.lobes.consolidate(list(episodes), now)
             for arr in (
-                self.ganglia.go,
-                self.ganglia.nogo,
-                self.ganglia.critic,
-                self.amygdala.caution,
+                self.mbon.go,
+                self.mbon.nogo,
+                self.mbon.critic,
+                self.horn.caution,
             ):
                 arr *= DOWNSCALE
                 arr[np.abs(arr) < 1e-3] = 0.0
             self.stats_["noches"] += 1
             self.stats_["ultima_noche"] = now
         self.save(force=True)
-        return {"conceptos": len(self.cortex.concepts), "cambiados": changed}
+        return {"conceptos": len(self.lobes.concepts), "cambiados": changed}
 
     # -- what the Cerebro page shows ----------------------------------------------------------
     def stats(self) -> Dict[str, Any]:
@@ -1023,72 +1052,78 @@ class HumanBrain:
                 "ultima_noche": self.stats_["ultima_noche"],
                 "neuromoduladores": dict(self.mods),
                 "conceptos": sorted(
-                    self.cortex.concepts.values(), key=lambda c: -c["veces"]
+                    self.lobes.concepts.values(), key=lambda c: -c["veces"]
                 )[:8],
-                "memoria_de_trabajo": [c["tema"] for c in self.wm.chunks],
+                "memoria_de_trabajo": [c["tema"] for c in self.ring.chunks],
                 "acierto_reciente": round(sum(hits) / len(hits), 3) if hits else None,
                 "sinapsis": int(
-                    np.count_nonzero(self.ganglia.go)
-                    + np.count_nonzero(self.ganglia.nogo)
-                    + np.count_nonzero(self.cerebellum.w)
-                    + np.count_nonzero(self.amygdala.caution)
+                    np.count_nonzero(self.mbon.go)
+                    + np.count_nonzero(self.mbon.nogo)
+                    + np.count_nonzero(self.integrator.w)
+                    + np.count_nonzero(self.horn.caution)
                 ),
-                "corteza": _column_info(),
-                "ultima_columna": dict(self.last_column),
-                "cerebelo_ensayos": {
-                    s: int(self.cerebellum.trials[i]) for i, s in enumerate(STRATEGIES)
+                "conectoma": _column_info(),
+                "ultimo_camino": dict(self.last_column),
+                "integrador_ensayos": {
+                    s: int(self.integrator.trials[i]) for i, s in enumerate(STRATEGIES)
                 },
             }
 
 
 REGIONS: List[Dict[str, str]] = [
-    {"region": "Tálamo", "trabajo": "Deja pasar lo que llega y mide si es nuevo."},
     {
-        "region": "Amígdala",
+        "region": "Lóbulo antenal",
+        "trabajo": "Deja pasar lo que llega y mide si es nuevo.",
+    },
+    {
+        "region": "Cableado real (FlyWire)",
+        "trabajo": "Lo que llega cruza las sinapsis medidas de una mosca.",
+    },
+    {
+        "region": "Cuerno lateral",
         "trabajo": "Siente la prisa, el peligro y el ánimo; aprende cautela.",
     },
     {
-        "region": "Hipocampo",
+        "region": "Cuerpo fungiforme",
         "trabajo": "Guarda cada conversación y la trae cuando hace falta.",
     },
     {
-        "region": "Neocorteza",
-        "trabajo": "Convierte lo que se repite en conceptos que duran.",
+        "region": "Lóbulos α/β",
+        "trabajo": "Convierte lo que se repite en recuerdos que duran.",
     },
     {
-        "region": "Prefrontal",
-        "trabajo": "Sostiene el tema en curso (cuatro ideas a la vez).",
+        "region": "Complejo central",
+        "trabajo": "Sostiene el tema en curso y, si duda, toma el camino cuidadoso.",
     },
     {
-        "region": "Cingulada",
-        "trabajo": "Si duda entre dos caminos, toma el más cuidadoso.",
+        "region": "Neuronas de salida",
+        "trabajo": "Eligen: reflejo, responder, reflexionar o a fondo.",
     },
     {
-        "region": "Ganglios basales",
-        "trabajo": "Elige: reflejo, responder, reflexionar o a fondo.",
-    },
-    {
-        "region": "Cerebelo",
+        "region": "Integrador de camino",
         "trabajo": "Predice cuánto tardará y se corrige con el error.",
     },
-    {"region": "Dopamina", "trabajo": "Lo que el señor dice después premia o castiga."},
-    {"region": "Sueño", "trabajo": "Repasa, forma conceptos y poda lo que no sirve."},
+    {"region": "Dopamina", "trabajo": "Lo que usted dice después premia o castiga."},
+    {
+        "region": "Sueño",
+        "trabajo": "Repasa, guarda lo importante y poda lo que no sirve.",
+    },
 ]
 
 
 def _column_info() -> Dict[str, Any]:
-    if not _h01_on():
+    if not _fly_on():
         return {"verificado": False}
     try:
-        from openjarvis.connectome import h01
+        from openjarvis.connectome import mosca
 
-        return h01.describe()
+        return mosca.describe()
     except Exception:  # noqa: BLE001
         return {"verificado": False}
 
 
 def column_proof() -> Dict[str, Any]:
-    """Does the human column keep like with like? Requests that mean the same
+    """Does the fly's wiring keep like with like? Requests that mean the same
     should light up overlapping neurons, unrelated ones should not."""
     pairs_same = [
         (
@@ -1118,12 +1153,12 @@ def column_proof() -> Dict[str, Any]:
     return {
         "parecidos": round(sum(same) / len(same), 3),
         "distintos": round(sum(other) / len(other), 3),
-        "capas_encendidas": layers,
+        "zonas_encendidas": layers,
     }
 
 
 def _episodes(now: float) -> List[Dict[str, Any]]:
-    """The hippocampus's recent engrams (the fly's memory zone)."""
+    """The mushroom body's recent engrams (the fly's memory zone)."""
     try:
         from openjarvis.connectome.brain import get_brain
 
@@ -1139,31 +1174,52 @@ def _episodes(now: float) -> List[Dict[str, Any]]:
 
 
 # -- one brain per home ------------------------------------------------------------------------
-_HUMANS: Dict[str, HumanBrain] = {}
-_HUMANS_LOCK = threading.Lock()
+_BRAINS: Dict[str, FlyBrain] = {}
+_BRAINS_LOCK = threading.Lock()
 
 
-def get_human(home: Optional[Path] = None) -> HumanBrain:
+def get_brain(home: Optional[Path] = None) -> FlyBrain:
     if home is None:
         from openjarvis.core.paths import get_config_dir
 
         home = get_config_dir()
-    folder = Path(home) / "connectome" / "humano"
-    with _HUMANS_LOCK:
-        if str(folder) not in _HUMANS:
-            _HUMANS[str(folder)] = HumanBrain(folder)
-        return _HUMANS[str(folder)]
+    folder = Path(home) / "connectome" / "mosca"
+    with _BRAINS_LOCK:
+        if str(folder) not in _BRAINS:
+            moved = _move_old(Path(home) / "connectome" / "humano", folder)
+            brain = FlyBrain(folder)
+            if moved:
+                brain.rewire()
+            _BRAINS[str(folder)] = brain
+        return _BRAINS[str(folder)]
+
+
+def _move_old(old: Path, new: Path) -> bool:
+    """What the owner taught before the fly (the old «humano» folder) moves
+    over: his taste in words and context stays, the old wiring's part goes."""
+    if new.exists() or not old.is_dir():
+        return False
+    import shutil
+
+    try:
+        new.mkdir(parents=True, exist_ok=True)
+        for name in ("sinapsis.npz", "estado.json"):
+            if (old / name).is_file():
+                shutil.copy2(old / name, new / name)
+        return True
+    except OSError:
+        return False
 
 
 def forget(home: Optional[Path] = None) -> None:
-    """Back to a newborn human brain: everything it learned is erased."""
+    """Back to a newborn fly brain: everything it learned is erased."""
     if home is None:
         from openjarvis.core.paths import get_config_dir
 
         home = get_config_dir()
-    folder = Path(home) / "connectome" / "humano"
-    with _HUMANS_LOCK:
-        _HUMANS.pop(str(folder), None)
+    folder = Path(home) / "connectome" / "mosca"
+    with _BRAINS_LOCK:
+        _BRAINS.pop(str(folder), None)
     for name in ("sinapsis.npz", "estado.json"):
         try:
             (folder / name).unlink()
@@ -1176,7 +1232,7 @@ def think(text: str, channel: str = "chat") -> Optional[Thought]:
     if not enabled() or not (text or "").strip():
         return None
     try:
-        return get_human().think(text, channel)
+        return get_brain().think(text, channel)
     except Exception:  # noqa: BLE001 — a turn never breaks for the brain
         return None
 
@@ -1190,7 +1246,7 @@ def outcome(text: str, answer: str, channel: str = "chat") -> None:
     if not enabled() or not (text or "").strip():
         return
     try:
-        get_human().outcome(text, answer, channel or "chat")
+        get_brain().outcome(text, answer, channel or "chat")
     except Exception:  # noqa: BLE001
         pass
 
@@ -1220,10 +1276,10 @@ def _owner_says(chosen: str, wanted: str) -> str:
 
 
 def prove(rounds: int = 4) -> Dict[str, Any]:
-    """A newborn human brain meets an owner with his own taste: it starts from
+    """A newborn fly brain meets an owner with his own taste: it starts from
     the innate guess, is judged by what he says next, and is tested every
     round on requests it never saw. Then it sleeps and forms concepts."""
-    brain = HumanBrain(None, clock=_Clock(), terry=False)
+    brain = FlyBrain(None, clock=_Clock(), terry=False)
 
     def test() -> Dict[str, Any]:
         rows = []
@@ -1282,12 +1338,12 @@ __all__ = [
     "REGIONS",
     "STRATEGIES",
     "Affect",
-    "HumanBrain",
+    "FlyBrain",
     "Percept",
     "Thought",
     "column_proof",
     "forget",
-    "get_human",
+    "get_brain",
     "outcome",
     "prove",
     "think",

@@ -19,9 +19,9 @@
   after;
 * **hive** — the organs, how often each worked and the supervisor's
   rewards and punishments;
-* **humano** — the human brain that decides every turn (connectome/cortex.py):
+* **mosca** — the fly brain (FlyWire wiring) that decides every turn (connectome/decision.py):
   a newborn one learns an owner's taste from what he says next and is tested
-  on requests it never saw; **humano_vivo** is the owner's own, as it is now.
+  on requests it never saw; **mosca_viva** is the owner's own, as it is now.
 
 Curves and the live run cost about a second; they are cached for ten minutes.
 """
@@ -168,7 +168,7 @@ def proof(core: Any = None, *, fresh: bool = False) -> Dict[str, Any]:
         if hit and not fresh and time.time() - hit["t"] < CACHE_S:
             heavy = hit["heavy"]
         else:
-            heavy = {"live": live(c), "specialists": specialists(c), "humano": human()}
+            heavy = {"live": live(c), "specialists": specialists(c), "mosca": human()}
             _cache[key] = {"t": time.time(), "heavy": heavy}
     info = c.info()
     w = c.wiring
@@ -196,23 +196,23 @@ def proof(core: Any = None, *, fresh: bool = False) -> Dict[str, Any]:
         "nodes": nodes(c),
         "brains": brains(c),
         "hive": hive_status(),
-        "humano_vivo": human_now(),
+        "mosca_viva": human_now(),
     }
 
 
 def human() -> Dict[str, Any]:
-    """A newborn human brain learns one owner's taste (connectome/cortex.py)."""
-    from openjarvis.connectome.cortex import prove
+    """A newborn fly brain learns one owner's taste (connectome/decision.py)."""
+    from openjarvis.connectome.decision import prove
 
     return prove()
 
 
 def human_now() -> Dict[str, Any]:
-    """The owner's human brain as it is now: choices, dopamine, concepts."""
+    """The owner's fly brain as it is now: choices, dopamine, concepts."""
     try:
-        from openjarvis.connectome import cortex
+        from openjarvis.connectome import decision as cortex
 
-        return cortex.get_human().stats() if cortex.enabled() else {}
+        return cortex.get_brain().stats() if cortex.enabled() else {}
     except Exception:  # noqa: BLE001
         return {}
 

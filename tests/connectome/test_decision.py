@@ -1,4 +1,4 @@
-"""The human brain at Sergio's base (connectome/cortex.py): it perceives,
+"""The fly brain at Sergio's base (connectome/decision.py): it perceives,
 decides how to answer, and learns from what the owner says next."""
 
 from __future__ import annotations
@@ -6,8 +6,8 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from openjarvis.connectome import cortex
-from openjarvis.connectome.cortex import STRATEGIES, HumanBrain
+from openjarvis.connectome import decision as cortex
+from openjarvis.connectome.decision import STRATEGIES, FlyBrain
 
 
 class Clock:
@@ -23,10 +23,10 @@ class Clock:
 
 @pytest.fixture
 def brain(tmp_path):
-    return HumanBrain(tmp_path / "humano", clock=Clock(), terry=False)
+    return FlyBrain(tmp_path / "mosca", clock=Clock(), terry=False)
 
 
-def turn(b: HumanBrain, text: str, answer: str = "respuesta", channel: str = "chat"):
+def turn(b: FlyBrain, text: str, answer: str = "respuesta", channel: str = "chat"):
     t = b.think(text, channel)
     b.clock.tick(3)
     b.outcome(text, answer, channel)
@@ -117,7 +117,7 @@ def test_working_memory_keeps_the_topic_for_a_follow_up(brain):
     assert "cafetería" in follow.broadcast()
 
 
-def test_the_cerebellum_learns_how_long_it_takes(brain):
+def test_the_path_integrator_learns_how_long_it_takes(brain):
     text = "resume este artículo largo sobre economía"
     first = brain.think(text, "chat")
     a = STRATEGIES.index(first.strategy)
@@ -126,7 +126,7 @@ def test_the_cerebellum_learns_how_long_it_takes(brain):
         brain.clock.tick(15)
         brain.outcome(text, "ok", "chat")
         brain.clock.tick(60)
-    predicted = brain.cerebellum.predict(t.x_idx, t.x_val, a)
+    predicted = brain.integrator.predict(t.x_idx, t.x_val, a)
     assert abs(predicted - 15) < abs(cortex.TYPICAL_S[first.strategy] - 15)
 
 
@@ -140,7 +140,7 @@ def test_long_internal_prompts_are_not_the_owner(brain):
 def test_sleep_turns_repeated_episodes_into_concepts_and_downscales(brain):
     turn(brain, "explícame cómo funciona la inflación")
     brain.think("explícame mejor", "chat")
-    go_before = float(np.abs(brain.ganglia.go).sum())
+    go_before = float(np.abs(brain.mbon.go).sum())
     episodes = [
         {"t": brain.clock(), "user": u, "channel": "chat"}
         for u in (
@@ -151,22 +151,22 @@ def test_sleep_turns_repeated_episodes_into_concepts_and_downscales(brain):
     ]
     night = brain.sleep(episodes)
     assert night["conceptos"] >= 1
-    assert "cafe" in brain.cortex.concepts
-    assert "marca" in brain.cortex.concepts["cafe"]["junto"]
-    assert float(np.abs(brain.ganglia.go).sum()) < go_before
+    assert "cafe" in brain.lobes.concepts
+    assert "marca" in brain.lobes.concepts["cafe"]["junto"]
+    assert float(np.abs(brain.mbon.go).sum()) < go_before
     later = brain.think("quiero una nueva marca de café", "chat")
     assert "café" in later.broadcast() or "cafe" in later.broadcast()
 
 
 def test_what_it_learned_survives_a_restart(tmp_path):
     clock = Clock()
-    b = HumanBrain(tmp_path / "h", clock=clock, terry=False)
+    b = FlyBrain(tmp_path / "h", clock=clock, terry=False)
     turn(b, "explícame cómo funciona la inflación")
     b.think("explícame mejor, más a fondo", "chat")
     b.save(force=True)
-    again = HumanBrain(tmp_path / "h", clock=clock, terry=False)
+    again = FlyBrain(tmp_path / "h", clock=clock, terry=False)
     assert again.stats_["arrepentimientos"] == 1
-    assert np.array_equal(again.ganglia.go, b.ganglia.go)
+    assert np.array_equal(again.mbon.go, b.mbon.go)
     clock.tick(60)
     t = again.think("explícame cómo funciona la bolsa", "chat")
     assert t.strategy != "reflejo"
@@ -247,4 +247,4 @@ def test_the_chat_route_takes_the_brains_decision(monkeypatch, clean_memory):
         ask("explícame mejor, más a fondo")
     # ...this owner wants them thought through: a new one now thinks more.
     assert ask("explícame cómo funciona el euro") == "gemini-3.8-flash@medium"
-    assert cortex.get_human().stats()["arrepentimientos"] >= 4
+    assert cortex.get_brain().stats()["arrepentimientos"] >= 4

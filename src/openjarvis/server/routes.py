@@ -210,7 +210,7 @@ async def chat_completions(request_body: ChatCompletionRequest, request: Request
     understood by Terry (agents/terry.py), with «Preguntándole a Terry…» and
     playful status lines streamed while he works."""
     from openjarvis.agents import terry
-    from openjarvis.connectome import cortex
+    from openjarvis.connectome import decision as cortex
 
     query = _last_user_text(request_body)
     if query:
@@ -219,7 +219,7 @@ async def chat_completions(request_body: ChatCompletionRequest, request: Request
         m.role == "system" and str(m.content or "").startswith("[Quick Chat]")
         for m in request_body.messages
     )  # Quick Chat: speed first, no Terry
-    # The brain decides first (connectome/cortex.py): how much to think, and
+    # The brain decides first (connectome/decision.py): how much to think, and
     # whether Terry writes the brief. Without the brain, Terry's own rule.
     thought = (
         await asyncio.to_thread(cortex.think, query, "chat")
@@ -357,7 +357,7 @@ async def _chat_completions(request_body: ChatCompletionRequest, request: Reques
                 exc_info=True,
             )
 
-    # How much to think: the brain's basal ganglia choose (connectome/cortex.py)
+    # How much to think: the brain's basal ganglia choose (connectome/decision.py)
     # from what they learned; the inherited complexity score is only the
     # fallback when the brain is switched off.
     complexity_info = None
@@ -368,7 +368,7 @@ async def _chat_completions(request_body: ChatCompletionRequest, request: Reques
             break
     thought = None
     if query_text_for_complexity and not request_body.tools:
-        from openjarvis.connectome import cortex
+        from openjarvis.connectome import decision as cortex
 
         thought = cortex.think(str(query_text_for_complexity), "chat")
     if thought is not None:

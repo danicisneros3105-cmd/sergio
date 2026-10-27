@@ -1,10 +1,11 @@
-// The core's proof, drawn: the human brain that decides every turn (it
-// learns the owner's taste), then the fly underneath: the wiring, a brain
-// learning live, the specialists' curves, the four Node brains and the hive.
+// The core's proof, drawn: the fly brain that decides every turn (it learns
+// the owner's taste over FlyWire's real wiring, mapped by Google), then its
+// learning centre: the wiring, a brain learning live, the specialists'
+// curves, the four Node brains and the hive.
 
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { coreProof, sleepNow, type CoreProof as Proof, type CurvePoint, type HumanColumn, type HumanNow, type HumanProof } from '../../lib/connectome';
+import { coreProof, sleepNow, type CoreProof as Proof, type CurvePoint, type FlyWiring, type FlyNow, type FlyProof } from '../../lib/connectome';
 
 const NODE_NAMES: Record<string, string> = { rihno: 'Rihno', manchas: 'Manchas', hous: 'Hous', tennessee: 'Tennessee' };
 const pct = (v: number) => `${Math.round(v * 100)} %`;
@@ -69,24 +70,16 @@ function Rounds({ proof }: { proof: Proof }) {
 }
 
 const STRATEGY_NAMES: Record<string, string> = { reflejo: 'Reflejo', responder: 'Responder', reflexionar: 'Reflexionar', profundo: 'A fondo' };
-const MOD_NAMES: Record<string, string> = { dopamina: 'Dopamina', noradrenalina: 'Alerta', acetilcolina: 'Novedad', serotonina: 'Calma' };
+const MOD_NAMES: Record<string, string> = { dopamina: 'Dopamina', octopamina: 'Alerta', acetilcolina: 'Novedad', serotonina: 'Calma' };
 
-const LAYER_NAMES: Array<[string, string]> = [
-  ['Layer 1', 'Capa 1'],
-  ['Layer 2', 'Capa 2'],
-  ['Layer 3', 'Capa 3'],
-  ['Layer 4', 'Capa 4'],
-  ['Layer 5', 'Capa 5'],
-  ['Layer 6', 'Capa 6'],
-];
-
-// A real millimetre of human cortex (Google's H01): its layers, how many
+// The fly's real brain (FlyWire, Google and Princeton): its parts, how many
 // neurons each has, and which of them one request lit up.
-function Column({ info, lit, proof }: { info: HumanColumn; lit: Record<string, number>; proof?: HumanProof['columna'] }) {
-  const most = Math.max(1, ...LAYER_NAMES.map(([k]) => info.capas?.[k] ?? 0));
+function Wiring({ info, lit, proof }: { info: FlyWiring; lit: Record<string, number>; proof?: FlyProof['columna'] }) {
+  const parts = Object.entries(info.zonas ?? {}).slice(0, 8);
+  const most = Math.max(1, ...parts.map(([, v]) => v));
   return (
     <figure className="cp-card">
-      <figcaption>Corteza humana real · Google H01</figcaption>
+      <figcaption>Cerebro real de una mosca · FlyWire (Google y Princeton)</figcaption>
       <div className="cp-col-head">
         <div>
           <strong>{num(info.neuronas ?? 0)}</strong>
@@ -105,13 +98,13 @@ function Column({ info, lit, proof }: { info: HumanColumn; lit: Record<string, n
           </div>
         )}
       </div>
-      <ul className="cp-layers" aria-label="Capas">
-        {LAYER_NAMES.map(([k, name]) => (
+      <ul className="cp-layers" aria-label="Partes del cerebro">
+        {parts.map(([k, total]) => (
           <li key={k}>
-            <span>{name}</span>
+            <span>{k}</span>
             <i>
-              <b style={{ width: `${((info.capas?.[k] ?? 0) / most) * 100}%` }} />
-              {(lit[k] ?? 0) > 0 && <em style={{ width: `${Math.min(100, ((lit[k] ?? 0) / Math.max(1, info.capas?.[k] ?? 1)) * 100 * 8)}%` }} />}
+              <b style={{ width: `${(total / most) * 100}%` }} />
+              {(lit[k] ?? 0) > 0 && <em style={{ width: `${Math.min(100, ((lit[k] ?? 0) / Math.max(1, total)) * 100 * 4)}%` }} />}
             </i>
             <strong>{lit[k] ? num(lit[k]) : ''}</strong>
           </li>
@@ -122,7 +115,7 @@ function Column({ info, lit, proof }: { info: HumanColumn; lit: Record<string, n
   );
 }
 
-function Human({ proof, now }: { proof: HumanProof; now: Partial<HumanNow> }) {
+function Fly({ proof, now }: { proof: FlyProof; now: Partial<FlyNow> }) {
   const choices = Object.entries(now.elecciones ?? {});
   const most = Math.max(1, ...choices.map(([, v]) => v));
   const mods = Object.entries(now.neuromoduladores ?? {});
@@ -139,7 +132,7 @@ function Human({ proof, now }: { proof: HumanProof; now: Partial<HumanNow> }) {
       )}
       <div className="cp-grid2">
         <figure className="cp-card">
-          <figcaption>Aprende el gusto del señor</figcaption>
+          <figcaption>Aprende su gusto</figcaption>
           <div className="cp-rounds">
             {proof.rondas.map((r) => (
               <div key={r.ronda} className="cp-round">
@@ -182,7 +175,7 @@ function Human({ proof, now }: { proof: HumanProof; now: Partial<HumanNow> }) {
           )}
         </figure>
       </div>
-      {now.corteza?.verificado && <Column info={now.corteza} lit={proof.columna?.capas_encendidas ?? now.ultima_columna ?? {}} proof={proof.columna} />}
+      {now.conectoma?.verificado && <Wiring info={now.conectoma} lit={proof.columna?.zonas_encendidas ?? now.ultimo_camino ?? {}} proof={proof.columna} />}
       {(now.conceptos?.length ?? 0) > 0 && (
         <ul className="cp-flow cp-concepts" aria-label="Lo que sabe del señor">
           {now.conceptos!.map((c) => (
@@ -218,7 +211,7 @@ export function CoreProof() {
     <section className="salud-block cp">
       <h2 className="paper-label">El núcleo</h2>
 
-      {proof.humano && <Human proof={proof.humano} now={proof.humano_vivo ?? {}} />}
+      {proof.mosca && <Fly proof={proof.mosca} now={proof.mosca_viva ?? {}} />}
 
       <div className="cp-wiring" data-real={proof.wiring.real}>
         <div>
