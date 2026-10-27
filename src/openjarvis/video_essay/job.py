@@ -266,7 +266,9 @@ def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
     st = job.state()
     params = st.get("params") or {}
     mode = M.get(str(params.get("mode") or "basic"))
-    budget = M.Budget.from_dict(st.get("budget") or {}, mode)
+    budget = M.Budget.from_dict(
+        st.get("budget") or {}, mode, float(params.get("seconds") or 60)
+    )
     stop = _cancel.setdefault(job.id, threading.Event())
     job.update(
         mode=mode.key,
@@ -464,7 +466,11 @@ def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
             def still(shot: Any) -> Any:
                 return next(iter(render.background_for(shot, small).frames(1)), None)
 
-            if typo.dress(shots, words, still, profile):
+            from openjarvis.video_essay import color
+
+            touched = typo.dress(shots, words, still, profile)
+            touched += color.unify(shots, still)  # one colour across the shots
+            if touched:
                 job.write("plan.json", P.to_json(shots))
 
         # 6. the pictures
@@ -790,10 +796,17 @@ def _beat_notes(sc: Dict[str, Any]) -> str:
     ]
     chars = sc.get("characters") or []
     text = ""
+    if sc.get("title") or sc.get("logline"):
+        text += (
+            f"THE VIDEO: «{sc.get('title', '')}» — {sc.get('logline', '')}. Every shot "
+            "serves this story; the visual of each shot shows what is being said NOW.\n"
+        )
+    if sc.get("look"):
+        text += f"ONE LOOK FOR THE WHOLE VIDEO: {str(sc['look'])[:400]}\n"
     if rows:
         text += (
             "DIRECTOR'S VISUALS, beat by beat (use them):\n"
-            + "\n".join(rows[:40])
+            + "\n".join(rows[:80])
             + "\n"
         )
     if chars:

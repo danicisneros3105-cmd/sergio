@@ -741,7 +741,7 @@ def test_tool_starts_a_job_and_reports(
     )
     assert res.success and res.metadata["job"]
     assert (
-        started["seconds"] == 600 and started["mode"] == "cinema" and started["prompt"]
+        started["seconds"] == 1800 and started["mode"] == "cinema" and started["prompt"]
     )
     assert "Absolut Cinema" in res.content and "no lo publico" in res.content
     again = tool.execute(

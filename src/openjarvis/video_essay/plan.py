@@ -9,10 +9,13 @@ style's rhythm (no shot shorter or longer than the reference allows).
 from __future__ import annotations
 
 import json
+import logging
 import math
 import re
 from dataclasses import asdict, dataclass, field
 from typing import Any, Callable, Dict, List, Optional
+
+log = logging.getLogger(__name__)
 
 KINDS = ("card", "broll", "archive", "device")
 CARDS = ("cream", "red", "navy", "black")
@@ -87,6 +90,9 @@ class Shot:
     # reference's «white on red»), "all" (every word: picture too busy or
     # too bright for white), "" none
     box: str = ""
+    # colour match to the rest of the video: per channel (gain, offset) for
+    # red, green and blue (color.unify); empty = as shot
+    tone: List[float] = field(default_factory=list)
 
     @property
     def dur(self) -> float:
@@ -358,6 +364,27 @@ typeface by what the words are, as a motion designer would.
 {extra}"""
 
 
+SEGMENT_WORDS = 220  # a long narration is planned in stretches this size
+
+
+def segments(words: List[Word], size: int = SEGMENT_WORDS) -> List[tuple]:
+    """(start, end) word ranges of about *size* words, cut after a sentence."""
+    out: List[tuple] = []
+    start, n = 0, len(words)
+    while start < n:
+        end = min(n, start + size)
+        if end < n:
+            for k in range(end, start + int(size * 0.6), -1):
+                if re.search(r"[.!?…]$", words[k - 1].text):
+                    end = k
+                    break
+            if n - end < size * 0.3:  # no tiny last stretch
+                end = n
+        out.append((start, end))
+        start = end
+    return out
+
+
 def plan_shots(
     words: List[Word],
     style: Dict[str, Any],
@@ -366,43 +393,82 @@ def plan_shots(
     sources: Optional[List[str]] = None,
     extra: str = "",
 ) -> List[Shot]:
-    """Shots from the model (checked); the fallback plan if it fails."""
+    """Shots from the model (checked); the fallback plan where it fails.
+
+    A long narration goes to the editor in stretches of ~220 words (a model
+    asked for 300 shots at once gets lazy and repetitive); each stretch sees
+    how the one before ended, so places, characters and motif carry on."""
     if not words:
         return []
-    listing = " ".join(f"{i}:{w.text}" for i, w in enumerate(words))
-    prompt = PLAN_PROMPT.format(
-        median=style.get("median_shot_s", 1.6),
-        style=json.dumps(
-            {
-                k: style.get(k)
-                for k in (
-                    "mix",
-                    "palette",
-                    "effects",
-                    "structure",
-                    "grade",
-                    "look",
-                    "overlays",
-                )
-            },
-            ensure_ascii=False,
-        ),
-        words=listing,
-        sources="|".join(sources or ["auto"]),
-        extra=extra,
+    if ask is None:
+        return fallback(words, style, sources)
+    style_json = json.dumps(
+        {
+            k: style.get(k)
+            for k in (
+                "mix",
+                "palette",
+                "effects",
+                "structure",
+                "grade",
+                "look",
+                "overlays",
+            )
+        },
+        ensure_ascii=False,
     )
-    if ask is not None:
+    median = float(style.get("median_shot_s") or 1.6)
+    items: List[Dict[str, Any]] = []
+    context = ""
+    for a, b in segments(words):
+        seg = words[a:b]
+        prompt = PLAN_PROMPT.format(
+            median=style.get("median_shot_s", 1.6),
+            style=style_json,
+            words=" ".join(f"{i}:{w.text}" for i, w in enumerate(seg, a)),
+            sources="|".join(sources or ["auto"]),
+            extra=extra + context,
+        )
+        span = seg[-1].end - seg[0].start
+        # models plan lazily (one shot every 5-6 s) unless told the count
+        prompt += (
+            f"\nThis stretch lasts {span:.0f} seconds: plan about {max(2, round(span / median))} shots "
+            f"(one every ~{median:g} s, as the style cuts), each with its own picture."
+        )
+        got: List[Dict[str, Any]] = []
         try:
-            raw = ask(prompt)
-            shots = from_model(raw, words, **pace(style))
+            for item in _items(ask(prompt)):
+                try:
+                    first, last = int(item["from"]), int(item["to"])
+                except (KeyError, TypeError, ValueError):
+                    continue
+                if a <= first < last <= b:
+                    got.append(item)
             # a plan far slower than the style is not the style (counted
-            # before long shots are split, which would hide it)
-            median = float(style.get("median_shot_s") or 1.6)
-            if len(_items(raw)) >= max(2, math.ceil(words[-1].end / (median * 2))):
-                return shots
-        except Exception:  # noqa: BLE001 — the fallback still cuts it well
-            pass
-    return fallback(words, style, sources)
+            # before long shots are split, which would hide it); a bit slow
+            # is kept: its pictures are worth far more than the fallback's
+            wanted = max(2, math.ceil(span / (median * 2)))
+            if len(got) < wanted * 0.5:
+                log.warning(
+                    "plan stretch %d-%d: %d shots, %d wanted", a, b, len(got), wanted
+                )
+                got = []
+        except Exception as exc:  # noqa: BLE001 — the fallback still cuts it well
+            log.warning("plan stretch %d-%d failed: %s", a, b, exc)
+            got = []
+        if not got:
+            for s in fallback(seg, style, sources):
+                got.append({**asdict(s), "from": s.first + a, "to": s.last + a})
+        items += got
+        last_visuals = [str(i.get("visual") or "") for i in got[-3:] if i.get("visual")]
+        context = (
+            "\nThe stretch before ended with these shots; keep the same world "
+            "(places, characters, motif) and do not repeat a picture: "
+            + "; ".join(last_visuals)
+            if last_visuals
+            else ""
+        )
+    return from_model({"shots": items}, words, **pace(style))
 
 
 def to_json(shots: List[Shot]) -> List[Dict[str, Any]]:
@@ -426,5 +492,6 @@ __all__ = [
     "normalise",
     "pace",
     "plan_shots",
+    "segments",
     "to_json",
 ]

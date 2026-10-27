@@ -26,7 +26,7 @@ Everything is numpy and Pillow; nothing here calls out.
 from __future__ import annotations
 
 import colorsys
-from typing import Dict, Iterable, List, Optional, Sequence, Tuple
+from typing import Callable, Dict, Iterable, List, Optional, Sequence, Tuple
 
 import numpy as np
 from PIL import Image
@@ -327,6 +327,71 @@ def composition(img: Image.Image) -> Dict[str, object]:
     }
 
 
+def _stats(img: Image.Image) -> np.ndarray:
+    a = np.asarray(img.convert("RGB").resize((96, 54)), dtype=np.float32).reshape(-1, 3)
+    return np.stack([a.mean(axis=0), a.std(axis=0) + 1.0])
+
+
+def tone_for(
+    img: Image.Image, target: np.ndarray, strength: float = 0.55
+) -> List[float]:
+    """Per channel (gain, offset) that moves *img* part of the way toward
+    the video's colour (*target*: mean and spread of every shot together),
+    as a colourist matches shots from different cameras (Reinhard et al.,
+    2001, here per RGB channel and only half way, so each shot keeps its own
+    light). Gains stay within 0.8-1.25 and offsets within ±32."""
+    src = _stats(img)
+    out: List[float] = []
+    for c in range(3):
+        gain = 1 + strength * (target[1][c] / src[1][c] - 1)
+        gain = float(min(1.25, max(0.8, gain)))
+        offset = src[0][c] * (1 - gain) + strength * (target[0][c] - src[0][c])
+        out += [round(gain, 4), round(float(min(32.0, max(-32.0, offset))), 2)]
+    return out
+
+
+def apply_tone(img: Image.Image, tone: Sequence[float]) -> Image.Image:
+    """*img* with a :func:`tone_for` match (a lookup table: cheap per frame)."""
+    if len(tone) != 6:
+        return img
+    lut: List[int] = []
+    for c in range(3):
+        gain, offset = tone[2 * c], tone[2 * c + 1]
+        lut += [int(min(255, max(0, round(v * gain + offset)))) for v in range(256)]
+    return img.convert("RGB").point(lut)
+
+
+def unify(shots: Sequence[object], still: Callable[[object], object]) -> int:
+    """One colour for the whole video: every picture shot moves half way
+    toward the average look of all of them (not cards, not black and white
+    or graded ones, which have their own look on purpose). Safe to run again."""
+    todo = [
+        s
+        for s in shots
+        if getattr(s, "kind", "") != "card" and not getattr(s, "tone", None)
+    ]
+    if len(todo) < 2:
+        return 0
+    seen = []
+    for s in todo:
+        try:
+            img = still(s)
+        except Exception:  # noqa: BLE001
+            img = None
+        if img is not None:
+            seen.append((s, img))
+    if len(seen) < 2:
+        return 0
+    target = np.mean([_stats(img) for _, img in seen], axis=0)
+    for s, img in seen:
+        s.tone = (
+            tone_for(img, target)
+            if getattr(s, "grade", "natural") == "natural"
+            else [1, 0, 1, 0, 1, 0]
+        )
+    return len(seen)
+
+
 def look_of(frames: Iterable[Image.Image]) -> Dict[str, float]:
     """The colour temperature and strength of a run of shots, so a video
     can keep one colour script: warm >0, cold <0; saturation 0..1."""
@@ -346,6 +411,9 @@ __all__ = [
     "SCHEMES",
     "ZONES",
     "accent_for",
+    "apply_tone",
+    "tone_for",
+    "unify",
     "best_zone",
     "busy",
     "composition",

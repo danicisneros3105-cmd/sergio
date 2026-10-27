@@ -11,7 +11,7 @@ from __future__ import annotations
 import io
 import os
 import wave
-from typing import Any
+from typing import Any, Optional, Sequence
 
 TTS_MODELS = (
     "gemini-3.1-flash-tts-preview",
@@ -106,8 +106,14 @@ def _rate(mime: str) -> int:
     return 24000
 
 
-def speak(text: str, voice: str = DEFAULT_VOICE, style: str = STYLE) -> bytes:
-    """WAV of *text* in Sergio's voice."""
+def speak(
+    text: str,
+    voice: str = DEFAULT_VOICE,
+    style: str = STYLE,
+    models: Optional[Sequence[str]] = None,
+) -> bytes:
+    """WAV of *text* in Sergio's voice (*models*: in this order, else
+    :data:`TTS_MODELS`)."""
     from google.genai import types
 
     text = " ".join(text.split())[:2500]
@@ -130,7 +136,7 @@ def speak(text: str, voice: str = DEFAULT_VOICE, style: str = STYLE) -> bytes:
         ),
     )
     last: Exception | None = None
-    for model in TTS_MODELS:
+    for model in models or TTS_MODELS:
         try:
             prompt = text if model in PLAIN_TEXT_TTS else f"{style}\n{text}"
             resp = _client().models.generate_content(

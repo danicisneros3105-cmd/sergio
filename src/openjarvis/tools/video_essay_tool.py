@@ -49,7 +49,8 @@ class VideoEssayTool(BaseTool):
                 "or YouTube link; only its editing is learned); 'style' (corto-3d, "
                 "reto-viral, anuncio-comida, animacion, lanzamiento-producto, metas-grandes or a "
                 "learned one); "
-                "'seconds' 15-600; 'aspect' 16:9 / 9:16 / 1:1; 'clips' (folder of the "
+                "'seconds' 15-1800 (long videos are fine, in chapters; 120 when not "
+                "said); 'aspect' 16:9 / 9:16 / 1:1; 'clips' (folder of the "
                 "user's clips, used first); 'music' (a song file or 'ninguna'); "
                 "'ai_video' (allow AI video shots in test/basic); 'web_clips' (false to "
                 "avoid clips from the web). Action 'start' returns at once (ONE video at "
@@ -153,7 +154,7 @@ class VideoEssayTool(BaseTool):
             "script": own,
             "reference": str(params.get("reference") or "").strip(),
             "style": str(params.get("style") or "").strip(),
-            "seconds": min(600.0, max(15.0, float(params.get("seconds") or 60))),
+            "seconds": min(1800.0, max(15.0, float(params.get("seconds") or 120))),
             "aspect": aspect if aspect in ("16:9", "9:16", "1:1") else "16:9",
             "clips": str(params.get("clips") or "").strip(),
             "music": str(params.get("music") or "").strip(),

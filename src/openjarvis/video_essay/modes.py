@@ -70,6 +70,20 @@ def get(name: str) -> Mode:
     return MODES[key or "basic"]
 
 
+def limits_for(mode: Mode, seconds: float = 0) -> Dict[str, float]:
+    """The mode's limits for a video of *seconds*: they were set for about a
+    minute and a half, so a longer video gets more pictures, downloads, model
+    calls and time in proportion (never more of the costly AI video or 3D)."""
+    limits = dict(mode.limits)
+    scale = max(1.0, float(seconds or 0) / 90)
+    if scale > 1:
+        for kind in ("images", "downloads", "minutes"):
+            limits[kind] = round(limits.get(kind, 0) * scale)
+        # one more editor call per ~2.5 minutes (the plan goes in stretches)
+        limits["llm"] = limits.get("llm", 0) + round(seconds / 150)
+    return limits
+
+
 class OverBudget(RuntimeError):
     """A limit of the job was reached: stop that part, finish the video."""
 
@@ -103,9 +117,11 @@ class Budget:
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any], mode: Mode) -> "Budget":
+    def from_dict(
+        cls, data: Dict[str, Any], mode: Mode, seconds: float = 0
+    ) -> "Budget":
         if not data:
-            return cls(dict(mode.limits))
+            return cls(limits_for(mode, seconds))
         return cls(
             dict(data.get("limits") or mode.limits),
             dict(data.get("spent") or {}),
@@ -113,4 +129,14 @@ class Budget:
         )
 
 
-__all__ = ["ALIASES", "MODES", "NAMES", "ORDER", "Budget", "Mode", "OverBudget", "get"]
+__all__ = [
+    "ALIASES",
+    "MODES",
+    "NAMES",
+    "ORDER",
+    "Budget",
+    "Mode",
+    "OverBudget",
+    "get",
+    "limits_for",
+]

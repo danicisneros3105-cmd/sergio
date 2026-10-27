@@ -172,7 +172,12 @@ def voice_of(name: str) -> str:
 
 
 def request(
-    text: str, voice: str, language: str = "", previous: str = "", hint: str = ""
+    text: str,
+    voice: str,
+    language: str = "",
+    previous: str = "",
+    hint: str = "",
+    model_id: str = "",
 ) -> tuple[str, dict, dict]:
     """*language*: ISO 639-1, or "" to work it out from the text — and, when
     the sentence is too short to tell («OK»), from *previous* (the sentence
@@ -181,7 +186,7 @@ def request(
     lang = (language or detect_language(text, fallback)).lower()[:2]
     url = f"{API}/text-to-speech/{voice_of(voice)}/stream"
     params = {"output_format": f"pcm_{RATE}", "optimize_streaming_latency": "3"}
-    model_id = model()
+    model_id = model_id or model()
     body = {
         "text": speakable(text, lang)[:2500] or text[:2500],
         "model_id": model_id,
@@ -213,28 +218,43 @@ async def stream_pcm(
                     yield chunk
 
 
-def speak_wav(
-    text: str, voice: str = "", language: str = "", previous: str = "", hint: str = ""
+def pcm(
+    text: str,
+    voice: str = "",
+    language: str = "",
+    previous: str = "",
+    hint: str = "",
+    model_id: str = "",
+    timeout: float = 30,
 ) -> bytes:
-    """The whole sentence as a WAV (for the non-streamed path)."""
+    """The whole sentence as raw PCM 24 kHz int16 (Sergio's own voice speaks
+    phrase by phrase with it; the video narrator uses Multilingual v2)."""
     import httpx
 
-    url, params, body = request(text, voice, language, previous, hint)
+    url, params, body = request(text, voice, language, previous, hint, model_id)
     resp = httpx.post(
         url,
         params=params,
         json=body,
         headers={"xi-api-key": key()},
-        timeout=httpx.Timeout(30, connect=5),
+        timeout=httpx.Timeout(timeout, connect=5),
     )
     if resp.status_code != 200:
         raise RuntimeError(f"ElevenLabs {resp.status_code}: {resp.text[:300]}")
+    return resp.content
+
+
+def speak_wav(
+    text: str, voice: str = "", language: str = "", previous: str = "", hint: str = ""
+) -> bytes:
+    """The whole sentence as a WAV (for the non-streamed path)."""
+    raw = pcm(text, voice, language, previous, hint)
     buf = io.BytesIO()
     with wave.open(buf, "wb") as out:
         out.setnchannels(1)
         out.setsampwidth(2)
         out.setframerate(RATE)
-        out.writeframes(resp.content)
+        out.writeframes(raw)
     return buf.getvalue()
 
 
@@ -242,6 +262,7 @@ __all__ = [
     "VOICE_ID",
     "VOICE_NAME",
     "detect_language",
+    "pcm",
     "speak_wav",
     "speakable",
     "stream_pcm",

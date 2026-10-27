@@ -31,6 +31,46 @@ SEARCH_ORDER = {
 }
 
 
+_STOP = {
+    "a", "an", "the", "of", "in", "on", "at", "with", "and", "or", "to", "for", "from", "by",
+    "is", "are", "his", "her", "its", "their", "into", "over", "under", "shot", "close", "up",
+    "wide", "slow", "camera", "light", "lighting", "cinematic", "view", "scene", "while",
+}  # fmt: skip
+
+
+def _words(text: str) -> set:
+    return {
+        w
+        for w in "".join(c if c.isalnum() else " " for c in text.lower()).split()
+        if w not in _STOP
+    }
+
+
+def queries(shot: Shot) -> List[str]:
+    """What to search for a shot: the editor's full picture, then its core
+    (the first nouns and verbs), then the two strongest words — a long,
+    precise description often finds nothing where a short one finds plenty."""
+    full = (shot.visual or shot.text)[:120].strip()
+    core = [
+        w
+        for w in "".join(c if c.isalnum() else " " for c in full).split()
+        if w.lower() not in _STOP
+    ]
+    out = [full, " ".join(core[:5]), " ".join(core[:2])]
+    seen: List[str] = []
+    for q in out:
+        if q and q not in seen:
+            seen.append(q)
+    return seen
+
+
+def _url_of(filler: "Filler", path: str) -> str:
+    for c in reversed(filler.pool):
+        if c.path == path:
+            return c.url
+    return path
+
+
 def order_for(shot: Shot, preferred: List[str]) -> List[str]:
     out: List[str] = []
     for s in ([shot.source] if shot.source not in ("", "auto") else []) + list(
@@ -88,6 +128,11 @@ class Filler:
         self.on_spend = on_spend or (lambda: None)
         self.broken: set = set()  # sources that cannot work in this job
         self.credits: List[Dict[str, Any]] = []
+        # every clip fetched, to cut a new piece of one for a shot that found
+        # nothing (better than a still or a black card), and how often each
+        # source was used (the same piece never twice)
+        self.pool: List[S.Candidate] = []
+        self.used: Dict[str, int] = {}
 
     # -- one source -------------------------------------------------------------------
     def _spend(self, kind: str, amount: float = 1) -> bool:
@@ -99,21 +144,51 @@ class Filler:
         return True
 
     def _clips(self, shot: Shot, src: str, want: int) -> List[S.Candidate]:
-        query = (shot.visual or shot.text)[:120]
-        found = S.find(
-            query,
-            want * 2,
-            order=SEARCH_ORDER[src],
-            landscape=self.aspect != "9:16",
-            searches=self.searches,
-        )
+        found: List[S.Candidate] = []
+        for query in queries(shot):  # the full picture, then its core words
+            found = S.find(
+                query,
+                want * 2,
+                order=SEARCH_ORDER[src],
+                landscape=self.aspect != "9:16",
+                searches=self.searches,
+            )
+            if found:
+                break
         got: List[S.Candidate] = []
         for c in found:
             if len(got) >= want or not self._spend("downloads"):
                 break
+            seen = self.used.get(c.url, 0)
+            if seen:  # already in the video: a later piece of it, not the same
+                c.start = round(c.start + 6.0 * seen, 1)
             if self.fetch(c, self.folder / "clips", shot.dur, self.ffmpeg):
+                self.used[c.url] = seen + 1
+                self.pool.append(c)
                 got.append(c)
         return got
+
+    def _reuse(self, shot: Shot, recent: List[str]) -> Optional[S.Candidate]:
+        """A new piece of a clip already found, for a shot that found nothing:
+        the one that shares most words with the shot, the last two shots'
+        clips only when there is no other."""
+        if not self.pool or not self._spend("downloads"):
+            return None
+        want = _words(shot.visual or shot.text)
+        # the closest in meaning first; the last shots' clips only as a last
+        # resort (a later moment of the same clip beats a black card)
+        options = sorted(
+            self.pool, key=lambda c: (c.url in recent, -len(want & _words(c.query)))
+        )
+        for c in options[:3]:
+            seen = self.used.get(c.url, 0)
+            step = 2.5 if c.source == "library" else 6.0  # his clips can be short
+            piece = S.Candidate(c.url, c.source, c.credit, c.licence, round(c.start + step * seen, 1),
+                                query=c.query)  # fmt: skip
+            if self.fetch(piece, self.folder / "clips", shot.dur, self.ffmpeg):
+                self.used[c.url] = seen + 1
+                return piece
+        return None
 
     def _ai(self, shot: Shot) -> Optional[str]:
         from openjarvis.video_essay import aivideo
@@ -180,6 +255,7 @@ class Filler:
             if s.kind != "card" and not (s.asset and Path(s.asset).exists())
         ]
         waiting: List[tuple] = []  # (shot, candidates) to choose by eye
+        recent: List[str] = []  # the sources of the last shots (no repeats)
         for k, shot in enumerate(todo):
             left = max(1, len(todo) - k)
             want = max(
@@ -200,6 +276,11 @@ class Filler:
                     if found:
                         shot.asset, used = found, "su biblioteca"
                         self.credits.append({"source": "library", "url": found})
+                        if found.lower().endswith(S.VIDEO_EXT):  # reusable too
+                            self.used[found] = self.used.get(found, 0) + 1
+                            if all(c.url != found for c in self.pool):
+                                self.pool.append(S.Candidate(found, "library", path=found,
+                                                             query=shot.visual or shot.text))  # fmt: skip
                 elif src in SEARCH_ORDER:
                     got = self._clips(shot, src, want)
                     if got:
@@ -217,11 +298,17 @@ class Filler:
                     if found:
                         shot.asset, used = found, "toma 3D"
                 elif src == "image":
+                    piece = self._reuse(shot, recent)
+                    if piece is not None:
+                        shot.asset, used = piece.path, f"otro trozo de {piece.source}"
+                        self.credits.append(piece.to_dict())
+                        break
                     found = self._image(shot)
                     if found:
                         shot.asset, used = found, "imagen de Sergio"
                 if used:
                     break
+            recent = (recent + [_url_of(self, shot.asset) if used else ""])[-2:]
             if used:
                 shot.notes.append(f"imagen: {used}")
             else:

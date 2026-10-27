@@ -45,6 +45,7 @@ class Candidate:
     licence: str = ""
     start: float = 0.0  # where the useful part starts, seconds
     path: str = ""  # the local cut, once fetched
+    query: str = ""  # what it was found for
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
@@ -416,6 +417,8 @@ def find(
             out += table[name](query, n - len(out), landscape)
         except Exception:  # noqa: BLE001
             continue
+    for c in out:
+        c.query = c.query or query
     return out[:n]
 
 

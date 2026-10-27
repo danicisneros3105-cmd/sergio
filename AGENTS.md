@@ -669,7 +669,7 @@ termina en la rama `main`, y el dueño actualiza con un único comando.
 - **Voz propia de Sergio, siempre** (dueño, 27 oct. 2026: «voz propia… transcripción ultrarrápida al mismo tiempo que se escribe la respuesta, menos de 0,5 s», y eligió usarla siempre, con Gemini Live solo de respaldo):
   - Dónde está: `speech/voz_propia.py`, con el mismo protocolo que `/v1/live`, así que la web y el escritorio no cambian.
   - Escuchar: faster-whisper transcribe mientras se habla.
-  - Hablar: Kokoro `em_alex`, voz masculina hecha para síntesis; no se clona a nadie ni se imita la voz de Gemini. Responde frase por frase mientras se escribe la respuesta; la primera frase sale a las 3 palabras.
+  - Hablar (cambiado el 27 oct. 2026, el dueño: «la voz es una mierda»): Kokoro `em_alex` no da la talla en español y ya no habla por defecto. La voz propia habla con ElevenLabs Flash (la voz de Sergio en ElevenLabs, original, nadie clonado) cuando hay `ELEVENLABS_API_KEY`; sin esa clave la llamada va con Gemini Live (Algenib). `SERGIO_VOZ=propia` fuerza la voz propia (con Kokoro si no hay clave); `SERGIO_VOZ=gemini`, siempre Gemini. Responde frase por frase mientras se escribe la respuesta; la primera frase sale a las 3 palabras.
   - Acuse: si la primera frase no está lista a los 0,35 s, suena un «Claro,» ya sintetizado.
   - Se le interrumpe hablando por encima.
   - `latency` separa el tiempo de Sergio del tiempo del modelo.
@@ -690,6 +690,12 @@ termina en la rama `main`, y el dueño actualiza con un único comando.
   - Escenas de películas y series: fuente `film` (yt-dlp, unos segundos, citadas como «no libre»); si no hay, películas de dominio público del Internet Archive.
   - Música: `video_essay/music.py`. Busca por el ánimo del estilo en Openverse, ccMixter e Internet Archive, solo licencias para ganar dinero (CC0, BY, BY-SA; `monetize: false` abre las NC). La pista se repite hasta el largo del video, se desvanece y va a los créditos. Una canción con derechos solo si el dueño la nombra (`music: "canción: …"`), nunca otra en su lugar, y el paquete avisa que pueden reclamarla. Sin internet o sin resultados: la música propia de Sergio.
   - No se piratea: nada de torrents ni sitios de copias; las películas y series salen de clips públicos (como ya decidió el dueño) o de dominio público.
+- **Edición más larga, con más clips y más coherente** (dueño, 27 oct. 2026: «mejora la edición mucho más, videos más largos, más clips, mejores subtítulos, más coherencia; y la voz es una mierda»):
+  - Voz del video: narrador dirigido (`script.NARRATOR`), con ElevenLabs Multilingual v2 si hay clave y, si no, las voces de estudio de Gemini (Pro primero). Se narra por partes, tres a la vez, y cada parte conoce la anterior.
+  - Largo: hasta 30 min (120 s si no se dice). Desde 3 min el guion va por capítulos con mini-ganchos y lazos abiertos; si el modelo lo acorta, se le pide otra vez el largo. El presupuesto crece con la duración (`modes.limits_for`), pero no el video IA ni el 3D. El plan va por tramos de ~220 palabras (`plan.segments`), y cada tramo ve cómo terminó el anterior.
+  - Clips: si la descripción larga no encuentra nada, busca su núcleo y luego dos palabras (`media.queries`). Un clip repetido da otro trozo, nunca el mismo. Antes que una imagen o una ficha negra, se corta un trozo nuevo de un clip ya encontrado que no salió en las dos tomas anteriores (`Filler._reuse`).
+  - Subtítulos: en tomas largas salen de 2 a 5 palabras a la vez que se reemplazan en el mismo sitio, y la palabra que se dice se enciende en el color de acento (`render.chunks_of`, `Placed.until`, `lit_rgb`). Las fichas siguen enteras.
+  - Coherencia: el editor recibe el título, la idea y el «look» del video. El tratamiento pide un hilo (porque, pero, así que) y un mundo visual que vuelve. Todas las tomas se acercan a medias a un mismo color (`color.unify`, `Shot.tone`), salvo fichas y tomas con su propio look.
 - Kimi como proveedor y «Digitalsnickers» están descartados.
 - Licencia Apache-2.0 y autoría honesta: no se borran créditos del original.
 

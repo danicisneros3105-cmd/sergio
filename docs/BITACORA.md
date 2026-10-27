@@ -2,6 +2,22 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-10-27 · Claude · Edición más larga, más clips, subtítulos que ruedan, un solo color, voz nueva
+- Voz: Kokoro deja de hablar por defecto (el dueño: «la voz es una mierda»).
+  - La conversación va con ElevenLabs Flash si hay clave y, si no, con Gemini Live.
+  - El video lo narra un narrador dirigido: ElevenLabs Multilingual v2 o Gemini Pro TTS con `script.NARRATOR`, por partes en paralelo.
+- Largo: hasta 30 min. Guion por capítulos desde 3 min, presupuesto según la duración y plan por tramos de ~220 palabras con continuidad.
+- Clips:
+  - Búsquedas de respaldo (descripción completa → núcleo → dos palabras).
+  - Un clip repetido da un trozo distinto.
+  - Una toma sin nada recibe un trozo nuevo de un clip ya encontrado antes que una imagen o una ficha negra.
+- Subtítulos: en tomas largas, frases de 2 a 5 palabras que se reemplazan, con la palabra que suena encendida.
+- Coherencia: el plan recibe título, idea y look. Las tomas se acercan a un mismo color (`color.unify`).
+- Pruebas cambiadas, y por qué:
+  - `test_voz_propia`: los falsos `speak_pcm` aceptan `previous`.
+  - `test_tool_starts_a_job_and_reports`: el tope ahora es 1800 s.
+- Probado de punta a punta con Gemini (guion, voz, plan y revisión), con una biblioteca de clips hecha con fotos de muestra COCO, porque aquí YouTube, los bancos de video y ElevenLabs están bloqueados.
+
 ## 2026-10-27 · Claude · Tipografías, color y composición, música y escenas de internet
 - `video_essay/typo.py`: seis letras libres con un papel cada una (Inter, Anton, Archivo Black, DM Serif Display, Space Mono, Permanent Marker), con su licencia en `fonts/`. `typo.dress` da a cada toma su letra, su lugar, el acento y los bloques; se ejecuta tras buscar las imágenes y tras cada revisión.
 - `video_essay/color.py`: paleta, armonías, contraste WCAG, saliencia por residuo espectral y caras (OpenCV). La luminosidad de la cuarta parte más clara decide si el blanco se lee.

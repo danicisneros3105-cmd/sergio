@@ -41,7 +41,17 @@ Answer ONLY JSON: {{"style": "style key", "title": "max 7 words", "logline": "on
 "characters": [{{"name": "...", "look": "fixed description: age, face, hair, skin, clothes, build"}}],
 "look": "the visual language in one paragraph (light, lenses, grade, textures)",
 "music": "mood and build of the music",
-"sources": ["the picture sources in order of preference, from: library, stock, web, archive, ai, 3d, image"]}}"""
+"sources": ["the picture sources in order of preference, from: library, stock, web, film, archive, ai, 3d, image"]}}
+Coherence: one clear through-line from the hook to the payoff; every beat follows from the \
+one before (because / but / so), never a list of loose facts. The visuals live in one world: \
+the same places, characters and objects come back, and a visual motif ties the video together.{long}"""
+
+LONG_FORM = """
+This is a LONG video ({minutes} minutes): plan it in chapters of 45-90 seconds (about \
+{chapters} chapters). Each chapter opens with a mini-hook, builds, and ends with an open loop \
+that pulls into the next; the hook's question is answered only near the end, with a \
+callback to the opening image. Keep the narration dense and concrete for the whole length: \
+write the full {words} words, not a summary."""
 
 
 def _models(env: str, default: tuple) -> tuple:
@@ -166,15 +176,43 @@ def treatment(
     advice: str = "",
 ) -> Dict[str, Any]:
     """The director's plan for the whole video (*advice*: the specialist's)."""
+    words = round(seconds * words_per_second)
+    long = (
+        LONG_FORM.format(
+            minutes=round(seconds / 60, 1),
+            chapters=max(3, round(seconds / 70)),
+            words=words,
+        )
+        if seconds >= 180
+        else ""
+    )
     prompt = TREATMENT_PROMPT.format(
         brief=brief[:3000],
         language=language,
         seconds=round(seconds),
-        words=round(seconds * words_per_second),
+        words=words,
         styles=style_menu(profiles),
         fixed=f"; the client asked for «{fixed_style}», use it" if fixed_style else "",
+        long=long,
     ) + (advice or "")
     data = _check(ask(prompt, json_mode=True, check=_check))
+    said = sum(len(b["text"].split()) for b in data["beats"])
+    if (
+        data.get("narration", "voice") == "voice"
+        and seconds >= 120
+        and said < words * 0.7
+    ):
+        # models shorten long scripts: once more, asking for the full length
+        again = (
+            f"{prompt}\n\nYour last draft had only {said} words. Write the whole "
+            f"treatment again with about {words} words of narration."
+        )
+        try:
+            longer = _check(ask(again, json_mode=True, check=_check))
+            if sum(len(b["text"].split()) for b in longer["beats"]) > said:
+                data = longer
+        except Exception:  # noqa: BLE001 — the shorter draft still makes a video
+            pass
     keys = {p["key"] for p in profiles}
     if fixed_style in keys:
         data["style"] = fixed_style

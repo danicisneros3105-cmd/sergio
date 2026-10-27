@@ -4,9 +4,14 @@ word is said.
 * :func:`write` — the strongest model writes the narration in the
   reference's structure (hook, problem, turn, story, contrast, payoff, call),
   at the pace Sergio's voice reads (about 1.9 words a second).
-* :func:`narrate` — Sergio reads it in his own (male) voice. The voice
-  takes at most 2500 characters at a time, so the text goes in pieces cut at
-  the end of sentences, joined with a short breath.
+* :func:`narrate` — Sergio reads it as a narrator (male voice). The owner,
+  27 Oct 2026: «la voz es una mierda». The narration is directed now, not
+  read: ElevenLabs Multilingual v2 with Sergio's ElevenLabs voice when
+  ``ELEVENLABS_API_KEY`` is set, else Gemini's studio voices (Pro first)
+  with a narrator's direction (:data:`NARRATOR`). Each voice call takes at
+  most 2500 characters, so the text goes in pieces cut at the end of
+  sentences, made three at a time and joined with a short breath; each piece
+  knows the one before so the intonation runs on.
 * :func:`timings` — when each word is said: a local recogniser
   (faster-whisper, ``SERGIO_WHISPER_MODEL``, "base" by default) gives the
   times and the script keeps its own spelling (:func:`align`); without it,
@@ -30,6 +35,20 @@ from openjarvis.video_essay.plan import Word, estimate_words
 
 WORDS_PER_SECOND = 1.9  # Sergio's narration, measured (Gemini voice, oct. 2026)
 CHUNK = 1800  # characters per voice call, well under its 2500 limit
+NARRATOR = (
+    "Narra esto como el narrador de un gran video ensayo de YouTube: voz "
+    "masculina grave, segura y cercana, con energía contenida y ritmo vivo; "
+    "subraya las palabras clave, haz una pausa breve antes de cada giro y "
+    "deja que las frases cortas peguen. Natural y humano, con intención en "
+    "cada frase: nunca monótono, robótico ni de locutor de radio. No leas "
+    "estas instrucciones. Di exactamente esto:"
+)
+# Gemini's studio voices for narration: the Pro voice first (richest)
+NARRATION_MODELS = (
+    "gemini-2.5-pro-preview-tts",
+    "gemini-3.1-flash-tts-preview",
+    "gemini-2.5-flash-preview-tts",
+)
 
 SCRIPT_PROMPT = """You write narration for top motivational / explainer video essays \
 (the kind with a cut every 1-2 seconds and kinetic text). Write the narration in \
@@ -129,24 +148,60 @@ def chunks(text: str, limit: int = CHUNK) -> List[str]:
     return [c for c in out if c]
 
 
+def narrator() -> Callable[[str, str], bytes]:
+    """The narrator's voice: (text, the piece before) -> WAV."""
+    if os.environ.get("ELEVENLABS_API_KEY", "").strip():
+        from openjarvis.speech import elevenlabs_voice as eleven
+        from openjarvis.speech.gemini_voice import pcm_to_wav
+
+        def speak(part: str, previous: str) -> bytes:
+            try:
+                raw = eleven.pcm(
+                    part, previous=previous, model_id=eleven.QUALITY_MODEL, timeout=180
+                )
+                return pcm_to_wav(raw, eleven.RATE)
+            except Exception:  # noqa: BLE001 — out of credit: Gemini's voice
+                return _gemini_narrator(part)
+
+        return speak
+    return lambda part, previous: _gemini_narrator(part)
+
+
+def _gemini_narrator(part: str) -> bytes:
+    from openjarvis.speech import gemini_voice
+
+    return gemini_voice.speak(
+        part, gemini_voice.sergio_voice(""), style=NARRATOR, models=NARRATION_MODELS
+    )
+
+
 def narrate(
     text: str, *, speak: Optional[Callable[[str], bytes]] = None, breath: float = 0.28
 ) -> bytes:
     """WAV (48 kHz mono) of the whole narration in Sergio's voice."""
+    from concurrent.futures import ThreadPoolExecutor
+
+    parts = chunks(text)
+    if not parts:
+        raise ValueError("Nada que narrar.")
     if speak is None:
-        from openjarvis.speech import gemini_voice
+        voice = narrator()
 
-        def speak(part: str) -> bytes:
-            return gemini_voice.speak(part, gemini_voice.sergio_voice(""))
+        def say(i: int) -> bytes:
+            return voice(parts[i], parts[i - 1][-600:] if i else "")
+    else:
 
+        def say(i: int) -> bytes:
+            return speak(parts[i])
+
+    with ThreadPoolExecutor(max_workers=min(3, len(parts))) as pool:
+        made = list(pool.map(say, range(len(parts))))  # in order
     pieces: List[np.ndarray] = []
     gap = np.zeros(int(breath * audio.SR), dtype=np.float32)
-    for part in chunks(text):
+    for wav in made:
         if pieces:
             pieces.append(gap)
-        pieces.append(audio.read_wav(speak(part)))
-    if not pieces:
-        raise ValueError("Nada que narrar.")
+        pieces.append(audio.read_wav(wav))
     lead = np.zeros(int(0.15 * audio.SR), dtype=np.float32)
     return audio.write_wav(np.concatenate([lead, *pieces, gap]))
 

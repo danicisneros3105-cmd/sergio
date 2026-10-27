@@ -16,9 +16,16 @@ web and the desktop need no change:
   live (``agents/_stubs.stream_tokens``); a customer's goes straight to the
   model through their own key, without tools or the owner's memory.
 * **Speaking** — the answer is cut into phrases as it is written (the first
-  one early, at the first comma) and each phrase is spoken by Kokoro
-  (``em_alex``, a male voice made for synthesis; nobody's voice is cloned)
-  while the next is still being written. Talking over Sergio stops him.
+  one early, at the first comma) and each phrase is spoken while the next is
+  still being written. Talking over Sergio stops him.
+
+Which voice speaks (the owner, 27 Oct 2026: «la voz es una mierda» — the
+local Kokoro ``em_alex`` was not good enough in Spanish): ElevenLabs Flash
+with Sergio's ElevenLabs voice (an original library voice, nobody cloned)
+when ``ELEVENLABS_API_KEY`` is set. Without that key the own voice is off
+and the call goes to Gemini Live (Algenib), which sounds far better than
+Kokoro. ``SERGIO_VOZ=propia`` still forces the own voice (Kokoro without
+the key); ``SERGIO_VOZ=gemini`` always uses Gemini Live.
 
 ``latency`` reports what Sergio's own processing took (hearing the end,
 cutting, first audio) apart from what the AI model took to start writing:
@@ -112,13 +119,32 @@ _stt: Any = None
 _tts: Any = None
 
 
+def _choice() -> str:
+    return os.environ.get("SERGIO_VOZ", "").strip().lower()
+
+
+def engine() -> str:
+    """The voice that speaks: "elevenlabs", "kokoro" (only when forced) or
+    "" (no own voice: Gemini Live speaks)."""
+    if _choice() == "gemini":
+        return ""
+    if os.environ.get("ELEVENLABS_API_KEY", "").strip():
+        return "elevenlabs"
+    if _choice() == "propia":
+        try:
+            import kokoro_onnx  # noqa: F401
+        except ImportError:
+            return ""
+        return "kokoro"
+    return ""
+
+
 def available() -> bool:
     try:
         import faster_whisper  # noqa: F401
-        import kokoro_onnx  # noqa: F401
     except ImportError:
         return False
-    return os.environ.get("SERGIO_VOZ", "propia").strip().lower() != "gemini"
+    return bool(engine())
 
 
 def stt() -> Any:
@@ -164,7 +190,7 @@ def warm() -> None:
     """Load both engines and run them once, so the first turn is fast; the
     short acknowledgements are synthesized now, ready to sound at once."""
     transcribe(np.zeros(IN_RATE // 2, dtype=np.float32))
-    if not _ACK_PCM:
+    if not _ACK_PCM and engine():
         _ACK_PCM.extend(speak_pcm(word) for word in ACKS)
 
 
@@ -198,8 +224,20 @@ def transcribe(audio: np.ndarray, language: str = "es") -> str:
     return " ".join(s.text.strip() for s in segments).strip()
 
 
-def speak_pcm(text: str, speed: float = 1.05) -> bytes:
-    """One phrase in Sergio's voice: 16-bit PCM at 24 kHz."""
+def speak_pcm(text: str, speed: float = 1.05, previous: str = "") -> bytes:
+    """One phrase in Sergio's voice: 16-bit PCM at 24 kHz. *previous*: the
+    phrase said just before, so the intonation runs on (ElevenLabs)."""
+    if engine() == "elevenlabs":
+        from openjarvis.speech import elevenlabs_voice
+
+        try:
+            return elevenlabs_voice.pcm(text, previous=previous, timeout=12)
+        except Exception as exc:  # noqa: BLE001 — out of credit or offline
+            log.warning("ElevenLabs failed, local voice for this phrase: %s", exc)
+    return _kokoro_pcm(text, speed)
+
+
+def _kokoro_pcm(text: str, speed: float) -> bytes:
     engine = tts()
     kokoro = engine._ensure()
     voice = VOICE if VOICE in kokoro.voices else "em_alex"
@@ -451,7 +489,10 @@ class OwnVoiceCall:
         if not spoken:
             return first
         t0 = time.monotonic()
-        pcm = await asyncio.get_running_loop().run_in_executor(None, speak_pcm, spoken)
+        previous = said[-1] if said else ""
+        pcm = await asyncio.get_running_loop().run_in_executor(
+            None, lambda: speak_pcm(spoken, previous=previous)
+        )
         tts_ms = (time.monotonic() - t0) * 1000
         said.append(spoken)
         self._sounded = True
@@ -486,6 +527,7 @@ __all__ = [
     "Ear",
     "OwnVoiceCall",
     "available",
+    "engine",
     "clean_for_voice",
     "phrases",
     "ready",

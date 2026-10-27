@@ -62,7 +62,9 @@ class _WS:
 def test_a_spoken_turn_end_to_end(monkeypatch):
     monkeypatch.setattr(V, "warm", lambda: None)
     monkeypatch.setattr(V, "transcribe", lambda audio, language="es": "¿qué hora es?")
-    monkeypatch.setattr(V, "speak_pcm", lambda text, speed=1.05: b"\0\0" * len(text))
+    monkeypatch.setattr(
+        V, "speak_pcm", lambda text, speed=1.05, **kw: b"\0\0" * len(text)
+    )
     remembered = []
 
     def think(text, history, sink):
@@ -99,7 +101,7 @@ def test_a_spoken_turn_end_to_end(monkeypatch):
 
 def test_typed_text_is_answered_too(monkeypatch):
     monkeypatch.setattr(V, "warm", lambda: None)
-    monkeypatch.setattr(V, "speak_pcm", lambda text, speed=1.05: b"\0\0")
+    monkeypatch.setattr(V, "speak_pcm", lambda text, speed=1.05, **kw: b"\0\0")
     ws = _WS(
         [
             {

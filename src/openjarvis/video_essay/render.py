@@ -137,6 +137,26 @@ class Placed:
     size: int
     rgb: Tuple[int, int, int]
     bg: Optional[Tuple[int, int, int]] = None
+    until: float = math.inf  # gone when the next phrase comes in
+    lit_rgb: Optional[Tuple[int, int, int]] = None  # its colour while it is said
+
+
+CHUNK_WORDS = 4  # words on screen at once in a long shot (captions roll)
+
+
+def chunks_of(texts: List[str], size: int = CHUNK_WORDS) -> List[List[int]]:
+    """Word indexes in phrases of at most *size*, cut after punctuation; a
+    last phrase of one word joins the one before."""
+    out: List[List[int]] = [[]]
+    for i, word in enumerate(texts):
+        out[-1].append(i)
+        if len(out[-1]) >= size or word[-1:] in ",.;:!?…":
+            out.append([])
+    out = [c for c in out if c]
+    if len(out) > 1 and len(out[-1]) == 1 and len(out[-2]) < size + 2:
+        tail = out.pop()
+        out[-1] += tail
+    return out
 
 
 def _ease_back(p: float) -> float:
@@ -145,7 +165,11 @@ def _ease_back(p: float) -> float:
 
 
 def layout_text(shot: Shot, words: List[Word], size: Tuple[int, int]) -> List[Placed]:
-    """Where each on-screen word goes and when it appears."""
+    """Where each on-screen word goes and when it appears.
+
+    Short lines show whole; a long shot's words roll in phrases of a few
+    words, each replacing the last in the same place, with the word being
+    said lit in the accent colour (karaoke), as the best captions do."""
     w_px, h_px = size
     if shot.text_style == "none":
         return []
@@ -164,11 +188,20 @@ def layout_text(shot: Shot, words: List[Word], size: Tuple[int, int]) -> List[Pl
         times.append(max(0.0, found - shot.start))
     style = shot.text_style
     on_card = shot.kind == "card"
+    rolling = (
+        not on_card
+        and style in ("pop", "italic", "big_caps")
+        and len(shown) > CHUNK_WORDS + 1
+    )
+    groups = chunks_of(shown) if rolling else [list(range(len(shown)))]
+    longest = max(len(g) for g in groups)
     scale = {"pop": 0.072, "big_caps": 0.115, "grey_to_white": 0.05, "italic": 0.062}[
         style
     ]
-    if len(shown) <= 2 and style == "pop":
+    if longest <= 2 and style == "pop":
         scale = 0.095
+    elif rolling and style == "pop":
+        scale = 0.082  # a few words at a time can be bigger
     from openjarvis.video_essay import color, typo
 
     face = typo.FACES.get(shot.font)
@@ -199,8 +232,8 @@ def layout_text(shot: Shot, words: List[Word], size: Tuple[int, int]) -> List[Pl
     gap = fsize * (0.16 if shot.box else 0.24)
     corner = position in ("upper_left", "upper_right", "lower_left", "lower_right")
     max_w = w_px * (0.8 if position in ("center", "lower", "upper") else 0.45)
-    lines: List[List[Tuple[str, int, float, Tuple[int, int, int]]]] = [[]]
-    line_w = 0.0
+    sung = accent or PALETTE["gold"]  # the colour of the word being said
+    entries = []
     for word, t in zip(shown, times):
         text = word.upper() if style == "big_caps" or (face and face.caps) else word
         clean = "".join(ch for ch in word.lower() if ch.isalnum())
@@ -229,44 +262,68 @@ def layout_text(shot: Shot, words: List[Word], size: Tuple[int, int]) -> List[Pl
         elif shot.box == "all":
             bg = INK  # the other words on near-black, the highlight stays lit
             rgb = PALETTE["white"]
+        karaoke = (
+            sung if rolling and not lit and bg in (None, INK) and sung != rgb else None
+        )
         img = word_image(text, kind, fsize, rgb, shadow and bg is None, bg)
         width = img.width - 2 * shadow_margin(fsize, shadow and bg is None)
-        if lines[-1] and line_w + gap + width > max_w:
-            lines.append([])
-            line_w = 0.0
-        line_w += (gap if lines[-1] else 0) + width
-        lines[-1].append((text, width, t, rgb, bg))
+        entries.append((text, width, t, rgb, bg, karaoke))
     line_h = fsize * (1.22 if shot.box else 1.08)
-    block_h = line_h * len(lines)
-    if position in ("upper", "upper_left", "upper_right"):
-        top = h_px * (0.14 if position == "upper" else 0.08)
-    elif position in ("lower_left", "lower_right"):
-        top = h_px * 0.9 - block_h
-    elif position == "lower":
-        top = h_px * (0.95 if shot.device != "none" else 0.86) - block_h
-    else:
-        top = (h_px - block_h) / 2
     placed: List[Placed] = []
-    for li, line in enumerate(lines):
-        total = sum(width for _, width, _, _, _ in line) + gap * (len(line) - 1)
-        if position in ("left", "upper_left", "lower_left"):
-            x = w_px * (0.08 if not corner else 0.07)
-        elif position in ("right", "upper_right", "lower_right"):
-            x = w_px * (0.92 if not corner else 0.93) - total
+    for gi, group in enumerate(groups):
+        until = times[groups[gi + 1][0]] if gi + 1 < len(groups) else math.inf
+        lines: List[list] = [[]]
+        line_w = 0.0
+        for i in group:
+            width = entries[i][1]
+            if lines[-1] and line_w + gap + width > max_w:
+                lines.append([])
+                line_w = 0.0
+            line_w += (gap if lines[-1] else 0) + width
+            lines[-1].append(entries[i])
+        block_h = line_h * len(lines)
+        if position in ("upper", "upper_left", "upper_right"):
+            top = h_px * (0.14 if position == "upper" else 0.08)
+        elif position in ("lower_left", "lower_right"):
+            top = h_px * 0.9 - block_h
+        elif position == "lower":
+            top = h_px * (0.95 if shot.device != "none" else 0.86) - block_h
         else:
-            x = (w_px - total) / 2
-        y = top + li * line_h
-        for text, width, t, rgb, bg in line:
-            m = shadow_margin(fsize, shadow and bg is None)
-            placed.append(Placed(text, t, int(x) - m, int(y) - m, kind, fsize, rgb, bg))
-            x += width + gap
+            top = (h_px - block_h) / 2
+        for li, line in enumerate(lines):
+            total = sum(e[1] for e in line) + gap * (len(line) - 1)
+            if position in ("left", "upper_left", "lower_left"):
+                x = w_px * (0.08 if not corner else 0.07)
+            elif position in ("right", "upper_right", "lower_right"):
+                x = w_px * (0.92 if not corner else 0.93) - total
+            else:
+                x = (w_px - total) / 2
+            y = top + li * line_h
+            for text, width, t, rgb, bg, karaoke in line:
+                m = shadow_margin(fsize, shadow and bg is None)
+                placed.append(
+                    Placed(
+                        text,
+                        t,
+                        int(x) - m,
+                        int(y) - m,
+                        kind,
+                        fsize,
+                        rgb,
+                        bg,
+                        until,
+                        karaoke,
+                    )
+                )
+                x += width + gap
     return placed
 
 
 def draw_text(
     canvas: Image.Image, placed: List[Placed], t: float, style: str, shadow: bool
 ) -> None:
-    visible = [p for p in placed if t >= p.start]
+    visible = [p for p in placed if p.start <= t < p.until]
+    said = max((p.start for p in visible), default=-1.0)  # the word being said
     for i, p in enumerate(visible):
         rgb = p.rgb
         if (
@@ -275,6 +332,8 @@ def draw_text(
             and rgb == PALETTE["white"]
         ):
             rgb = PALETTE["grey"]
+        if p.lit_rgb is not None and p.start == said:
+            rgb = p.lit_rgb
         img = word_image(p.text, p.kind, p.size, rgb, shadow and p.bg is None, p.bg)
         prog = min(1.0, (t - p.start) / 0.14)
         if prog < 1.0:
@@ -562,6 +621,10 @@ def shot_frames(
         t = i / FPS
         img = bg
         if shot.kind != "card":
+            if shot.tone:
+                from openjarvis.video_essay.color import apply_tone
+
+                img = apply_tone(img, shot.tone)
             img = grade(img, shot.grade)
             if isinstance(img, Image.Image) and shot.effect in (
                 "punch",
