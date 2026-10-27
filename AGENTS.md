@@ -605,12 +605,24 @@ termina en la rama `main`, y el dueño actualiza con un único comando.
   (`@low`…) solo va a Gemini (`cloud._plain`, `withEffort`). Cada respuesta
   cuenta según lo que cuesta el modelo (`quota.model_weight`: Flash/mini 1,
   Sonnet/GPT-5/Pro 3, Opus 8): así los planes y créditos dejan margen.
-  **Sergio NO crea cuentas ni claves en los proveedores a nombre de los
-  usuarios** (pedido otra vez el 27 oct. 2026; rechazado como el 26): lo
-  prohíben sus términos, exige pasar sus verificaciones con datos ajenos y
-  revender claves personales. El modelo de intermediario legítimo es el que
-  ya existe: claves de empresa de Sergio en el servidor (una de OpenRouter
-  basta para casi todo), y el usuario paga plan o créditos con margen.
+  **Intermediario con ganancia** (dueño, 27 oct. 2026: «el cliente paga un
+  plan → el dinero llega a mi cuenta → un software paga al proveedor → nos
+  quedamos el resto; las claves se crean por ellos en segundo plano»):
+  `accounts/provision.py`. El dueño tiene UNA cuenta de empresa en
+  OpenRouter con recarga automática desde su tarjeta y una clave de gestión
+  (`OPENROUTER_MANAGEMENT_KEY` en `sergio.env`). Al aprobar o entrar un
+  cliente, Sergio crea en segundo plano una **subclave dentro de la cuenta
+  del dueño** con tope mensual = precio del plan − margen (`SERGIO_MARGEN`,
+  0,40); el cliente no ve nada. Sus chats usan esa subclave
+  (`provision.CUSTOMER_KEY`, middleware del servidor, `cloud_router` y
+  `CloudEngine._openrouter_client`) por OpenRouter (`openrouter/auto` si
+  eligió otro modelo). Bloquear o borrar la cuenta apaga la clave; el dueño
+  cambia el plan con `POST /v1/cuentas/{id}/plan`. **Nunca** se abren
+  cuentas en OpenAI, Google, Anthropic u otros a nombre de los clientes ni se
+  sacan claves de sus cuentas (sus términos lo prohíben).
+  **Modelos al día** (27 oct. 2026): Gemini 4 Argon, GPT-5.6 Sol/Terra/Luna,
+  Claude Opus/Sonnet/Haiku 5.5, DeepSeek V4. Los nuevos aparecen solos: con
+  la clave de cada empresa se lee su lista de modelos (`_discover`, cada 6 h).
 - Kimi como proveedor y «Digitalsnickers» están descartados.
 - Licencia Apache-2.0 y autoría honesta: no se borran créditos del original.
 

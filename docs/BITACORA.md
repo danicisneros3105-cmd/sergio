@@ -2,6 +2,17 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-10-27 · Claude · Clientes con subclave propia y modelos al día
+- `accounts/provision.py`: subclave de OpenRouter por cliente dentro de la
+  cuenta del dueño, con tope = plan − margen; se crea al entrar o aprobar, se
+  ajusta al cambiar de plan y se apaga al bloquear o borrar. Los chats del
+  cliente van por ella (middleware + `cloud_router` + `CloudEngine`).
+- Modelos de hoy en la lista (Gemini 4 Argon, GPT-5.6, Claude 5.5, DeepSeek
+  V4) y descubrimiento automático por empresa. Pesos de cobro al día.
+- Investigado en fuentes públicas (no oficiales en su mayoría): los nombres
+  exactos se confirman al conectar cada clave, porque se leen de la propia
+  lista de la empresa. Pruebas: `tests/accounts/test_provision.py`.
+
 ## 2026-10-27 · Claude · Cualquier modelo del mundo y cobro por modelo
 - Selector por empresa (Google, OpenAI, Anthropic, DeepSeek, OpenRouter) con
   «Conectar» y «Otro modelo»; lista de Google sin repetidos viejos.

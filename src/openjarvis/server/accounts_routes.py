@@ -102,6 +102,12 @@ def _signed_in(user: Dict[str, Any], device: str) -> Dict[str, Any]:
             if user["role"] == "pendiente"
             else "Esta cuenta está bloqueada.",
         }
+    if user["role"] != "dueño":
+        # The customer's AI key, inside the owner's account (provision.py).
+        from openjarvis.accounts import provision
+
+        if provision.enabled() and not provision.key_for(user["id"]):
+            provision.in_background(provision.ensure, user["id"])
     return {
         "status": "dentro",
         "token": _store().open_session(user["id"], device),
@@ -553,7 +559,48 @@ def rol(uid: str, body: Role, request: Request) -> Dict[str, Any]:
     if user["role"] == "dueño":
         raise HTTPException(400, "La cuenta del dueño no cambia.")
     _store().set(uid, role=body.role)
+    from openjarvis.accounts import provision
+
+    if body.role == "bloqueado":
+        provision.in_background(provision.disable, uid)
+    elif provision.enabled():
+        provision.in_background(provision.ensure, uid)
     return {"ok": True}
+
+
+class PlanBody(BaseModel):
+    plan: str
+
+
+@router.post("/{uid}/plan")
+def plan(uid: str, body: PlanBody, request: Request) -> Dict[str, Any]:
+    """The owner sets a customer's plan: their monthly AI budget follows."""
+    from openjarvis import tiers
+    from openjarvis.accounts import provision
+
+    _owner(request)
+    if body.plan not in tiers.PLANS:
+        raise HTTPException(400, "Ese plan no existe.")
+    if not _store().get(uid):
+        raise HTTPException(404, "No encuentro esa cuenta.")
+    if not provision.key_for(uid):
+        provision.ensure(uid, body.plan)
+    else:
+        provision.set_plan(uid, body.plan)
+    return {
+        "ok": True,
+        **provision.status(uid),
+        "presupuesto_usd": provision.budget(body.plan),
+    }
+
+
+@router.get("/{uid}/clave-ia")
+def clave_ia(uid: str, request: Request) -> Dict[str, Any]:
+    """Whether the customer's AI key exists (never the key itself)."""
+    from openjarvis.accounts import provision
+
+    _owner(request)
+    return {"configurado": provision.enabled(), **provision.status(uid)}
 
 
 @router.delete("/{uid}")
@@ -563,6 +610,9 @@ def borrar(uid: str, request: Request) -> Dict[str, Any]:
     if not user or user["role"] == "dueño":
         raise HTTPException(400, "No se puede borrar esa cuenta.")
     _store().delete(uid)
+    from openjarvis.accounts import provision
+
+    provision.in_background(provision.disable, uid)
     return {"ok": True}
 
 

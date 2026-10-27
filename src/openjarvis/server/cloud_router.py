@@ -42,7 +42,17 @@ _LOCAL_HF_ORGS = (
 
 
 def _load_keys() -> dict[str, str]:
-    """Read available cloud keys every call so live updates are picked up."""
+    """Read available cloud keys every call so live updates are picked up.
+    A customer's request uses the customer's OpenRouter sub-key."""
+    keys = _owner_keys()
+    from openjarvis.accounts.provision import CUSTOMER_KEY
+
+    if CUSTOMER_KEY.get():
+        keys["OPENROUTER_API_KEY"] = CUSTOMER_KEY.get()
+    return keys
+
+
+def _owner_keys() -> dict[str, str]:
     keys: dict[str, str] = {}
     # File first, then fall back to process environment
     if _CLOUD_ENV_FILE.exists():

@@ -759,6 +759,31 @@ def create_app(
 
     from openjarvis.server.upload_limits import UploadLimitsMiddleware
 
+    @app.middleware("http")
+    async def _customer_key(request, call_next):  # noqa: ANN001, ANN202
+        """A signed-in customer's requests use their own sub-key (provision.py)."""
+        from openjarvis.accounts import provision
+
+        token = ""
+        scheme, _, raw = request.headers.get("Authorization", "").partition(" ")
+        if scheme.lower() == "bearer":
+            token = raw
+        key = ""
+        if token and provision.enabled():
+            try:
+                from openjarvis.server.accounts_routes import _store
+
+                user = _store().session_user(token)
+                if user and user.get("role") != "dueño":
+                    key = provision.key_for(user["id"])
+            except Exception:  # noqa: BLE001 — never block a request
+                key = ""
+        mark = provision.CUSTOMER_KEY.set(key)
+        try:
+            return await call_next(request)
+        finally:
+            provision.CUSTOMER_KEY.reset(mark)
+
     app.add_middleware(UploadLimitsMiddleware)
     # Answers travel compressed (the app's code is ~800 KB, ~230 KB gzipped):
     # the phone and the tunnel load it 3x faster. Live streams (SSE, audio)

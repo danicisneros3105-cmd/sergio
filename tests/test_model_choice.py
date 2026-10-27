@@ -44,6 +44,6 @@ def test_catalog_has_every_company(monkeypatch):
     assert {"google", "openai", "anthropic", "deepseek", "openrouter"} <= set(companies)
     assert companies["anthropic"]["conectada"] and not companies["openai"]["conectada"]
     by_id = {m["id"]: m for m in data["modelos"]}
-    assert by_id["claude-sonnet-4-6"]["disponible"]
-    assert not by_id["gpt-5"]["disponible"]
-    assert by_id["claude-opus-4-6"]["cuenta"] == 8
+    assert by_id["claude-sonnet-5-5"]["disponible"]
+    assert not by_id["gpt-5.6-sol"]["disponible"]
+    assert by_id["claude-opus-5-5"]["cuenta"] == 8

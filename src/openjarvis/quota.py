@@ -144,6 +144,8 @@ def take(kind: str, n: float = 1) -> None:
 # plans and credits pay for it). Cheap fast models count 1; a big one more.
 MODEL_WEIGHTS = (
     ("opus", 8),
+    ("terra", 2),
+    ("argon", 3),
     ("gpt-5-pro", 8),
     ("o3", 4),
     ("grok-4", 4),
@@ -162,7 +164,7 @@ def model_weight(model: str) -> int:
     import re
 
     name = (model or "").lower().split("@")[0]
-    if re.search(r"(^|[-/.])(mini|flash|haiku|lite|small)\b", name):
+    if re.search(r"(^|[-/.])(mini|flash|haiku|lite|small|luna)\b", name):
         return 1
     for part, weight in MODEL_WEIGHTS:
         if part in name:

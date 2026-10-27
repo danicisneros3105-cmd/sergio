@@ -353,6 +353,10 @@ async def _chat_completions(request_body: ChatCompletionRequest, request: Reques
     from openjarvis.quota import guard, model_weight
 
     guard("mensajes", model_weight(request_body.model))  # a big model counts more
+    from openjarvis.accounts.provision import CUSTOMER_KEY, customer_model
+
+    if CUSTOMER_KEY.get():  # a customer: through their own key at OpenRouter
+        request_body.model = customer_model(request_body.model)
     engine = request.app.state.engine
     agent = getattr(request.app.state, "agent", None)
     model = request_body.model

@@ -24,18 +24,15 @@ logger = logging.getLogger(__name__)
 # Chat models people choose between (newest first); the engine's own list
 # decides which of them this key can really use.
 GEMINI_CHAT = (
+    ("gemini-4-argon", "Gemini 4 Argon", "El más nuevo y capaz de Google (oct. 2026)."),
     ("gemini-3.8-flash", "Gemini 3.8 Flash", "Rápido y capaz: lo de todos los días."),
-    ("gemini-3.7-flash", "Gemini 3.7 Flash", "Rápido."),
     ("gemini-3.6-flash", "Gemini 3.6 Flash", "Rápido y estable."),
-    ("gemini-3.5-flash", "Gemini 3.5 Flash", "Rápido."),
     (
         "gemini-3.1-pro-preview",
         "Gemini 3.1 Pro",
-        "El que más piensa: trabajos difíciles.",
+        "Piensa mucho: trabajos difíciles.",
     ),
     ("gemini-3.1-flash-lite", "Gemini 3.1 Flash-Lite", "El más ligero y barato."),
-    ("gemini-2.5-pro", "Gemini 2.5 Pro", "Pro de la generación anterior."),
-    ("gemini-2.5-flash", "Gemini 2.5 Flash", "Flash de la generación anterior."),
 )
 # Other companies (owner, 27 Oct 2026: «que Sergio no solo sea Gemini, sino
 # cualquier modelo del mundo»). Each company is one key; OpenRouter is one key
@@ -48,12 +45,12 @@ PROVIDERS = (
     ("openrouter", "Todos los demás (OpenRouter)", "OPENROUTER_API_KEY", "https://openrouter.ai/keys"),
 )  # fmt: skip
 OTHER_CHAT = (
-    ("openai", "gpt-5", "GPT-5", "El más capaz de OpenAI."),
-    ("openai", "gpt-5-mini", "GPT-5 mini", "Rápido y barato."),
-    ("openai", "gpt-4o", "GPT-4o", "Rápido, generación anterior."),
-    ("anthropic", "claude-opus-4-6", "Claude Opus 4.6", "El que más piensa de Anthropic."),
-    ("anthropic", "claude-sonnet-4-6", "Claude Sonnet 4.6", "Muy bueno para escribir y programar."),
-    ("anthropic", "claude-haiku-4-5", "Claude Haiku 4.5", "Rápido y barato."),
+    ("openai", "gpt-5.6-sol", "GPT-5.6 Sol", "El más capaz de OpenAI."),
+    ("openai", "gpt-5.6-terra", "GPT-5.6 Terra", "Equilibrado, para todos los días."),
+    ("openai", "gpt-5.6-luna", "GPT-5.6 Luna", "El más rápido y barato de OpenAI."),
+    ("anthropic", "claude-opus-5-5", "Claude Opus 5.5", "El que más piensa de Anthropic."),
+    ("anthropic", "claude-sonnet-5-5", "Claude Sonnet 5.5", "Muy bueno para escribir y programar."),
+    ("anthropic", "claude-haiku-5-5", "Claude Haiku 5.5", "Rápido y barato."),
     ("deepseek", "deepseek-v4-pro", "DeepSeek V4 Pro", "Razona a fondo, barato."),
     ("deepseek", "deepseek-v4-flash", "DeepSeek V4 Flash", "Rápido y muy barato."),
     ("openrouter", "openrouter/auto", "Automático (el mejor para cada pedido)", "OpenRouter elige el modelo."),
@@ -61,8 +58,9 @@ OTHER_CHAT = (
     ("openrouter", "openrouter/meta-llama/llama-3.3-70b-instruct", "Llama 3.3 70B (Meta)", "Abierto."),
     ("openrouter", "openrouter/mistralai/mistral-large", "Mistral Large", "Europeo."),
     ("openrouter", "openrouter/qwen/qwen3-235b-a22b", "Qwen 3 235B (Alibaba)", "Abierto."),
-    ("openrouter", "openrouter/deepseek/deepseek-r1", "DeepSeek R1", "Razonamiento abierto."),
 )  # fmt: skip
+# Checked against public reports on 27 Oct 2026; new models still appear by
+# themselves: each connected company's own model list is read (:func:`_discover`).
 EFFORTS = (
     ("auto", "Automático", "Sergio decide cuánto pensar."),
     ("low", "Rápido", "Responde enseguida."),
@@ -170,7 +168,15 @@ def models(request: Request) -> Dict[str, Any]:
     connected = {p: bool(keys.get(var)) for p, _n, var, _u in PROVIDERS}
     if not connected["google"] and have:
         connected["google"] = True  # a key from the environment
-    for provider, mid, name, what in OTHER_CHAT:
+    known = {m["id"] for m in out} | {mid for _p, mid, _n, _w in OTHER_CHAT}
+    extra = [
+        (provider, mid, mid, "Nuevo")
+        for provider, _n, var, _u in PROVIDERS
+        if provider in ("openai", "anthropic", "deepseek") and keys.get(var)
+        for mid in _discover(provider, keys[var])
+        if mid not in known
+    ]
+    for provider, mid, name, what in (*OTHER_CHAT, *extra[:12]):
         out.append(
             {
                 "id": mid,
@@ -199,6 +205,57 @@ def models(request: Request) -> Dict[str, Any]:
         "esfuerzos": [{"id": e, "nombre": n, "para": w} for e, n, w in EFFORTS],
         "actual": getattr(request.app.state, "model", "") or "",
     }
+
+
+_FOUND: Dict[str, tuple] = {}
+_CHAT_ID = re.compile(r"^(gpt-\d|o\d|claude-|deepseek-)", re.I)
+_NOT_NEW = re.compile(
+    r"(audio|realtime|tts|transcribe|image|embed|search|moderation|instruct-"
+    r"|\d{4}-\d{2}-\d{2}|\d{8})",
+    re.I,
+)
+
+
+def _discover(provider: str, key: str) -> List[str]:
+    """The chat models a company lists today (cached 6 h; none if offline)."""
+    import time
+
+    cached = _FOUND.get(provider)
+    if cached and time.time() - cached[0] < 6 * 3600:
+        return cached[1]
+    urls = {
+        "openai": (
+            "https://api.openai.com/v1/models",
+            {"Authorization": f"Bearer {key}"},
+        ),
+        "anthropic": (
+            "https://api.anthropic.com/v1/models",
+            {"x-api-key": key, "anthropic-version": "2023-06-01"},
+        ),
+        "deepseek": (
+            "https://api.deepseek.com/models",
+            {"Authorization": f"Bearer {key}"},
+        ),
+    }
+    found: List[str] = []
+    try:
+        import httpx
+
+        url, headers = urls[provider]
+        data = httpx.get(url, headers=headers, timeout=4).json().get("data") or []
+        found = sorted(
+            {
+                str(m.get("id"))
+                for m in data
+                if _CHAT_ID.match(str(m.get("id")))
+                and not _NOT_NEW.search(str(m.get("id")))
+            },
+            reverse=True,
+        )
+    except Exception:  # noqa: BLE001 — offline or a bad key: the list above
+        found = []
+    _FOUND[provider] = (time.time(), found)
+    return found
 
 
 def _serves(engine: Any, model: str) -> bool:

@@ -79,6 +79,9 @@ _MINIMAX_M3_LONG_CONTEXT_PRICING = (0.60, 2.40)
 
 # Well-known model IDs per provider
 _OPENAI_MODELS = [
+    "gpt-5.6-sol",
+    "gpt-5.6-terra",
+    "gpt-5.6-luna",
     "gpt-4o",
     "gpt-4o-mini",
     "gpt-5",
@@ -87,6 +90,9 @@ _OPENAI_MODELS = [
     "o3-mini",
 ]
 _ANTHROPIC_MODELS = [
+    "claude-opus-5-5",
+    "claude-sonnet-5-5",
+    "claude-haiku-5-5",
     "claude-sonnet-4-20250514",
     "claude-opus-4-20250514",
     "claude-haiku-3-5-20241022",
@@ -96,6 +102,7 @@ _ANTHROPIC_MODELS = [
     "claude-haiku-4-5-20251001",
 ]
 _GOOGLE_MODELS = [
+    "gemini-4-argon",
     "gemini-3.8-flash",
     "gemini-3.5-flash",
     "gemini-3.1-pro-preview",
@@ -679,6 +686,29 @@ class CloudEngine(
     Atlas Cloud SDKs."""
 
     engine_id = "cloud"
+
+    # A customer's request (accounts/provision.py) goes through the customer's
+    # own OpenRouter sub-key, never the owner's.
+    @property
+    def _openrouter_client(self) -> Any:
+        from openjarvis.accounts.provision import CUSTOMER_KEY
+
+        key = CUSTOMER_KEY.get()
+        if key:
+            clients = self.__dict__.setdefault("_customer_clients", {})
+            if key not in clients:
+                import openai
+
+                clients[key] = openai.OpenAI(
+                    base_url="https://openrouter.ai/api/v1", api_key=key
+                )
+            return clients[key]
+        return self.__dict__.get("_owner_openrouter")
+
+    @_openrouter_client.setter
+    def _openrouter_client(self, client: Any) -> None:
+        self.__dict__["_owner_openrouter"] = client
+
     is_cloud = True
 
     def __init__(self) -> None:
