@@ -1,0 +1,76 @@
+/* The tour: Apple restraint — white card, one blue accent, small live widgets. */
+.tour-backdrop {
+  position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; padding: 16px;
+  background: color-mix(in srgb, #000 38%, transparent);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  animation: tour-in 220ms ease-out;
+}
+.tour-card {
+  position: relative; width: min(440px, 100%); padding: 22px 22px 18px; border-radius: 24px;
+  background: var(--color-surface, #fff); color: var(--color-text);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.22); display: flex; flex-direction: column; gap: 10px;
+  animation: tour-card 260ms cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+.tour-card h2 { font-size: 20px; font-weight: 700; letter-spacing: -0.01em; }
+.tour-card p { font-size: 14.5px; color: var(--color-text-secondary); line-height: 1.45; }
+.tour-close {
+  position: absolute; top: 12px; right: 12px; width: 30px; height: 30px; border-radius: 999px;
+  display: grid; place-items: center; background: var(--color-bg-secondary); color: var(--color-text-secondary);
+}
+.tour-widget {
+  height: 170px; border-radius: 18px; background: var(--color-bg-secondary);
+  display: grid; place-items: center; overflow: hidden; padding: 14px;
+}
+.tour-dots { display: flex; gap: 6px; justify-content: center; margin-top: 4px; }
+.tour-dots button { width: 7px; height: 7px; border-radius: 999px; background: var(--color-border); padding: 0; }
+.tour-dots button.on { width: 20px; background: var(--color-accent, #007aff); }
+.tour-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; margin-top: 6px; }
+@keyframes tour-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes tour-card { from { opacity: 0; transform: translateY(10px) scale(0.98); } to { opacity: 1; transform: none; } }
+
+/* widgets */
+.tw-chat { display: flex; flex-direction: column; gap: 6px; width: 100%; max-width: 300px; }
+.tw-bubble { align-self: flex-start; padding: 7px 11px; border-radius: 16px; font-size: 12.5px; background: #e9e9eb; color: #111; animation: tw-pop 400ms both; }
+.tw-bubble.me { align-self: flex-end; background: var(--color-accent, #007aff); color: #fff; }
+.tw-bubble:nth-child(2) { animation-delay: 0.35s; } .tw-bubble:nth-child(3) { animation-delay: 0.7s; }
+.tw-voice { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.tw-orb { display: block; width: 54px; height: 54px; border-radius: 999px; background: radial-gradient(circle at 35% 35%, #fff 0 8%, var(--color-accent, #007aff) 9% 100%); animation: tw-breathe 2.4s ease-in-out infinite; }
+.tw-wave { display: flex; gap: 3px; height: 22px; align-items: center; }
+.tw-wave i { width: 4px; height: 100%; border-radius: 4px; background: var(--color-accent, #007aff); animation: tw-wave 0.9s ease-in-out infinite; }
+.tw-voice small, .tw-video small, .tw-ring small, .tw-meter small, .tw-keys small { font-size: 12px; color: var(--color-text-secondary); }
+.tw-chips { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; max-width: 320px; }
+.tw-chip { padding: 6px 11px; border-radius: 999px; background: var(--color-surface, #fff); border: 1px solid var(--color-border-subtle); font-size: 12.5px; font-weight: 600; animation: tw-pop 400ms both; }
+.tw-chip:nth-child(2n) { animation-delay: 0.1s; } .tw-chip:nth-child(3n) { animation-delay: 0.2s; }
+.tw-nodes { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; width: 100%; max-width: 300px; }
+.tw-node { padding: 10px; border-radius: 14px; background: var(--color-surface, #fff); display: flex; flex-direction: column; animation: tw-pop 400ms both; }
+.tw-node b { font-size: 13px; } .tw-node small { font-size: 11.5px; color: var(--color-text-secondary); }
+.tw-video { display: flex; flex-direction: column; gap: 8px; width: 100%; max-width: 300px; align-items: center; }
+.tw-frame { width: 100%; height: 92px; border-radius: 12px; background: linear-gradient(135deg, #2b3a2f, #1d2433); display: grid; place-items: end start; padding: 10px; }
+.tw-cap { font-weight: 900; font-size: 15px; color: #fff; letter-spacing: -0.01em; text-shadow: 0 2px 6px rgba(0,0,0,.5); }
+.tw-cap em { font-style: normal; background: #ff3b30; padding: 0 4px; border-radius: 4px; }
+.tw-track { display: flex; gap: 3px; width: 100%; height: 12px; }
+.tw-track i { border-radius: 3px; background: color-mix(in srgb, var(--color-accent, #007aff) 55%, transparent); }
+.tw-rows { display: flex; flex-direction: column; gap: 7px; width: 100%; max-width: 310px; }
+.tw-rows span { padding: 9px 12px; border-radius: 12px; background: var(--color-surface, #fff); font-size: 12.5px; display: flex; gap: 8px; align-items: center; animation: tw-pop 400ms both; }
+.tw-rows span:nth-child(2) { animation-delay: 0.15s; } .tw-rows span:nth-child(3) { animation-delay: 0.3s; }
+.tw-rows em { margin-left: auto; font-style: normal; font-size: 11px; color: #fff; background: #34c759; border-radius: 999px; padding: 1px 7px; }
+.tw-ring { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.tw-ring svg { width: 84px; height: 84px; transform: rotate(-90deg); }
+.tw-ring circle { fill: none; stroke: var(--color-border); stroke-width: 8; }
+.tw-ring .tw-ring-on { stroke: #ff2d55; stroke-linecap: round; stroke-dasharray: 163; stroke-dashoffset: 163; animation: tw-ring 1.4s ease-out forwards; }
+.tw-meter { width: 100%; max-width: 260px; display: flex; flex-direction: column; gap: 8px; }
+.tw-meter span { height: 10px; border-radius: 999px; background: var(--color-border); overflow: hidden; }
+.tw-meter i { display: block; height: 100%; background: var(--color-accent, #007aff); animation: tw-grow 1.2s ease-out both; }
+.tw-keys { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: center; }
+.tw-keys kbd { min-width: 46px; padding: 9px 12px; border-radius: 10px; background: var(--color-surface, #fff); border: 1px solid var(--color-border); box-shadow: 0 2px 0 var(--color-border); font-weight: 700; text-align: center; }
+.tw-keys small { width: 100%; text-align: center; }
+.tw-logo { display: block; width: 74px; height: 74px; border-radius: 999px; background: var(--color-accent, #007aff); box-shadow: inset 0 0 0 9px var(--color-accent, #007aff), inset 0 0 0 15px #fff; animation: tw-breathe 2.4s ease-in-out infinite; }
+@keyframes tw-pop { from { opacity: 0; transform: translateY(6px) scale(0.96); } to { opacity: 1; transform: none; } }
+@keyframes tw-breathe { 50% { transform: scale(1.06); } }
+@keyframes tw-wave { 50% { transform: scaleY(0.35); } }
+@keyframes tw-ring { to { stroke-dashoffset: 46; } }
+@keyframes tw-grow { from { width: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .tour-backdrop, .tour-card, .tw-bubble, .tw-chip, .tw-node, .tw-rows span, .tw-orb, .tw-wave i, .tw-logo, .tw-meter i { animation: none !important; }
+  .tw-ring .tw-ring-on { animation: none; stroke-dashoffset: 46; }
+}

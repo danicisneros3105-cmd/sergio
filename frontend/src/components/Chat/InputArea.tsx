@@ -656,6 +656,12 @@ export function InputArea() {
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
   const [videoOpen, setVideoOpen] = useState(false);
+  // The tour's «Hacer un video» opens the same sheet as «+ → Video».
+  useEffect(() => {
+    const open = () => setVideoOpen(true);
+    window.addEventListener('sergio:video', open);
+    return () => window.removeEventListener('sergio:video', open);
+  }, []);
   const menuRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!menuOpen) return;

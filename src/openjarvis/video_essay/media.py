@@ -71,13 +71,24 @@ def _url_of(filler: "Filler", path: str) -> str:
     return path
 
 
+REAL = ("library", "stock", "web", "film", "archive")
+
+
 def order_for(shot: Shot, preferred: List[str]) -> List[str]:
+    """Where to look for a shot's picture, in order. Real footage always
+    comes before anything made by a model (owner, 27 Oct 2026: «no solo
+    imágenes, sino videos y clips de películas o de internet; casi nunca
+    generadas por el modelo»): a shot the editor marked for an AI picture
+    first tries the real sources, and a generated one is the last resort."""
+    own = [shot.source] if shot.source not in ("", "auto") else []
+    if own and own[0] in ("ai", "image"):
+        own = [s for s in (preferred or DEFAULT_ORDER) if s in REAL] + own
     out: List[str] = []
-    for s in ([shot.source] if shot.source not in ("", "auto") else []) + list(
-        preferred or DEFAULT_ORDER
-    ):
+    for s in own + list(preferred or DEFAULT_ORDER):
         if s not in out:
             out.append(s)
+    made = [s for s in out if s in ("ai", "image")]
+    out = [s for s in out if s not in ("ai", "image")] + made
     if "image" not in out:
         out.append("image")
     return out

@@ -13,6 +13,7 @@ import { BRANDS } from '../lib/brands';
 import { passkeyProblem, passkeyReady, signInWithFace } from '../lib/passkey';
 import { FaceGlyph } from '../components/Accounts/FaceGlyph';
 import { getPersonal, welcome, withAddress } from '../lib/personal';
+import { NO_ACCOUNT, setFlag, tourSeen } from '../lib/session';
 
 interface State {
   accounts: number;
@@ -60,7 +61,9 @@ export function SignInPage() {
   const updateSettings = useAppStore((s) => s.updateSettings);
   const [info, setInfo] = useState<State | null>(null);
   const [way, setWay] = useState<'correo' | 'telefono'>('correo');
-  const [mode, setMode] = useState<'entrar' | 'crear'>('entrar');
+  const [mode, setMode] = useState<'entrar' | 'crear'>(() =>
+    new URLSearchParams(window.location.search).get('crear') === '1' ? 'crear' : 'entrar',
+  );
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [phone, setPhone] = useState('');
@@ -80,7 +83,9 @@ export function SignInPage() {
     if (a.status === 'dentro' && a.token) {
       updateSettings({ apiKey: a.token });
       toast.success(`${welcome()}.`);
-      navigate('/');
+      setFlag(NO_ACCOUNT, false);
+      // The first time in: the tour shows how the app works.
+      navigate(tourSeen() ? '/' : '/?tour=1');
       return;
     }
     if (a.status === 'codigo') setStep('codigo');
@@ -250,6 +255,19 @@ export function SignInPage() {
               Confirmar
             </button>
           </form>
+        )}
+
+        {info?.local && (
+          <button
+            type="button"
+            className="signin-switch"
+            onClick={() => {
+              setFlag(NO_ACCOUNT);
+              navigate(tourSeen() ? '/' : '/?tour=1');
+            }}
+          >
+            Seguir sin cuenta en este equipo
+          </button>
         )}
 
         {note && (

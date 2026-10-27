@@ -216,8 +216,9 @@ def render_units(root: Path, uv: str, port: int, path_env: str) -> dict[str, str
         f'Environment="PATH={escaped_path}"\n'
         # API keys etc. live here (KEY=value per line); optional.
         f"EnvironmentFile=-{env_file()}\n"
-        "Restart=on-failure\n"
-        "RestartSec=5\n"
+        # always: also after the vigía (estabilidad.py) exits a stuck server
+        "Restart=always\n"
+        "RestartSec=3\n"
     )
     server = (
         "[Unit]\n"

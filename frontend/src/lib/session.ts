@@ -1,0 +1,55 @@
+// Sign-in before the app (owner, 27 Oct 2026: «dame la nueva actualización con
+// inicio de sesión»). The app asks the server who is here: nobody signed in →
+// «/entrar» (or «Crear cuenta» the very first time). It fails open: if the
+// server cannot answer, nothing is blocked (a bug must never lock the owner
+// out); on the owner's own computer «Seguir sin cuenta» is always there.
+
+import { apiFetch } from './api';
+
+export const NO_ACCOUNT = 'sergio-sin-cuenta';
+export const TOUR_SEEN = 'sergio-tour-v1';
+
+export type SessionNeed = 'ok' | 'entrar' | 'crear';
+
+interface Estado {
+  accounts: number;
+  local: boolean;
+  me: unknown;
+}
+
+function flag(key: string): boolean {
+  try {
+    return localStorage.getItem(key) === '1';
+  } catch {
+    return false;
+  }
+}
+
+export function setFlag(key: string, on = true): void {
+  try {
+    if (on) localStorage.setItem(key, '1');
+    else localStorage.removeItem(key);
+  } catch {
+    // storage blocked: the choice lasts this visit only
+  }
+}
+
+export function needFrom(estado: Estado | null, skipped: boolean): SessionNeed {
+  if (!estado || estado.me) return 'ok';
+  if (skipped && estado.local) return 'ok';
+  return estado.accounts === 0 ? 'crear' : 'entrar';
+}
+
+export async function sessionNeed(): Promise<SessionNeed> {
+  try {
+    const res = await apiFetch('/v1/cuentas/estado');
+    if (!res.ok) return 'ok';
+    return needFrom((await res.json()) as Estado, flag(NO_ACCOUNT));
+  } catch {
+    return 'ok';
+  }
+}
+
+export function tourSeen(): boolean {
+  return flag(TOUR_SEEN);
+}

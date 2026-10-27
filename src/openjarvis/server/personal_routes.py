@@ -271,6 +271,8 @@ class VideoSchedule(BaseModel):
     modo: str = "basic"
     formato: str = "9:16"
     segundos: int = 60
+    publicar_en: List[str] = []
+    auto: bool = False
 
 
 class Active(BaseModel):
@@ -305,6 +307,8 @@ def add_video_schedule(body: VideoSchedule) -> Dict[str, Any]:
             mode=body.modo,
             aspect=body.formato,
             seconds=body.segundos,
+            publish_to=body.publicar_en,
+            auto=body.auto,
         )
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc

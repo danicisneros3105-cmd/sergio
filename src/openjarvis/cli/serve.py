@@ -825,6 +825,11 @@ def serve(
 
     from openjarvis.server.daemon import run_server
 
+    if os.environ.get("SERGIO_VIGIA", "1") != "0":
+        # Vigía: a stuck server exits and the service starts it again clean.
+        from openjarvis.estabilidad import start_watchdog
+
+        start_watchdog(f"http://127.0.0.1:{bind_port}/health")
     run_server(app, host=bind_host, port=bind_port, log_level="info")
 
 

@@ -2,6 +2,25 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-10-27 · Claude · Skills de GitHub, todos los modelos, Automatizar, estabilidad, inicio de sesión y tour
+- Skills: 75 repositorios de GitHub verificados (37 de guion, 38 de motion) en `skills_catalog.json`; `skillbook.py` los baja al equipo y mete los que encajan en el guion y en el plan. Se revisaron 12 al azar: todos responden.
+- Guion con entrega: tono y pausa por beat (`director._delivery`), narración por grupos de tono con silencio real (`script.narrate_beats`) y narrador con tres voces de respaldo (ElevenLabs, Gemini, OpenAI).
+- Todos los modelos: `creator.llm.ask` cae a Claude, GPT, DeepSeek u OpenRouter, o empieza por el que elija el dueño.
+- Material real primero (`media.order_for`); la imagen de IA es el último recurso.
+- Automatizar: canales que publican solos (YouTube e Instagram por API oficial, tope diario), respuestas que salen solo aprobadas, clientes y empleos con borradores, trading en papel con límites. Página `/automatizar`, herramienta `automatizar` y neurona nueva.
+- Estabilidad: vigía de `/health`, chequeo y reparación diaria. El servicio pasa a `Restart=always`.
+- Web: inicio de sesión antes de la app, «Seguir sin cuenta en este equipo», tour de diez pasos con widgets y «Ver el tour» en Ayuda y la paleta.
+- Errores encontrados al probar y arreglados:
+  - `post_ready` volvía a subir a YouTube si Instagram fallaba; ahora recuerda cada canal.
+  - `send_replies` borraba una respuesta aunque YouTube la rechazara.
+  - Los borradores de oportunidades fallaban en silencio si faltaba `lugar` o `texto`.
+  - La página mandaba «empleo» y el servidor esperaba «trabajo».
+  - En el video: palabras pegadas («PORCIENTO») cuando la toma tenía caja sin bloques (`render.gap_of`), y el volumen se normaliza a −14 LUFS (`job._loudness`).
+- Pruebas cambiadas, y por qué: `tests/cli/test_service_cmd.py` espera `Restart=always`, porque el vigía sale del proceso y el servicio debe levantarlo aunque la salida sea «limpia».
+- No probado aquí, porque el sandbox lo bloquea: YouTube, Instagram, Alpaca y ElevenLabs. Se probaron con respuestas simuladas.
+- Video real re-renderizado: 157 s, 75 tomas, nota del editor 8/10, QC bien (−15 LUFS, pico −0,7 dBTP).
+- Para el otro: si añade una herramienta, póngala también en `security/capabilities.py` (la prueba lo exige).
+
 ## 2026-10-27 · Claude · Edición más larga, más clips, subtítulos que ruedan, un solo color, voz nueva
 - Voz: Kokoro deja de hablar por defecto (el dueño: «la voz es una mierda»).
   - La conversación va con ElevenLabs Flash si hay clave y, si no, con Gemini Live.

@@ -360,7 +360,10 @@ short punchy words (1-3) on cards; problems and the past in bw with a crt or \
 film frame; the payoff in natural colour; the last shot a red-on-cream card. \
 Use only the sources listed; text_style "none" when the style shows no text. \
 Move the words around the frame (thirds, never over a face) and vary the \
-typeface by what the words are, as a motion designer would.
+typeface by what the words are, as a motion designer would. Pictures are REAL \
+footage: clips from the web, scenes of films and series, stock and archive \
+(source web|film|stock|archive); an AI-made picture only when nothing real \
+could ever show it.
 {extra}"""
 
 

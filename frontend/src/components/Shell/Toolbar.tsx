@@ -15,6 +15,7 @@ import {
   ScanFace,
   Gauge,
   ChevronDown,
+  Zap,
 } from 'lucide-react';
 import { useAppStore } from '../../lib/store';
 import { LiveOrb } from '../Live/LiveOrb';
@@ -61,6 +62,7 @@ export const TOOLBAR_ITEMS = [
   { path: '/swarm', icon: SwarmIcon, label: 'Agent Swarm', more: true },
   { path: '/workspace', icon: NotebookPen, label: 'Workspace', more: true },
   { path: '/cowork', icon: Briefcase, label: 'Cowork', more: true },
+  { path: '/automatizar', icon: Zap, label: 'Automatizar', more: true },
   { path: '/biblioteca', icon: Library, label: 'Biblioteca', more: true },
   { path: '/extensiones', icon: Puzzle, label: 'Extensiones', more: true },
   { path: '/faces', icon: ScanFace, label: 'Rostros', more: true },

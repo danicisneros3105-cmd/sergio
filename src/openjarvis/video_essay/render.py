@@ -229,7 +229,14 @@ def layout_text(shot: Shot, words: List[Word], size: Tuple[int, int]) -> List[Pl
         # under the device, never over it
         position = "lower"
         fsize = min(fsize, int(h_px * 0.05))
-    gap = fsize * (0.16 if shot.box else 0.24)
+
+    def gap_of(a: Optional[tuple], b: tuple) -> float:
+        """Space between two words: tight between blocks, a real space
+        otherwise (the shadow eats some of it)."""
+        if a is None:
+            return 0.0
+        return fsize * (0.16 if a[4] is not None and b[4] is not None else 0.27)
+
     corner = position in ("upper_left", "upper_right", "lower_left", "lower_right")
     max_w = w_px * (0.8 if position in ("center", "lower", "upper") else 0.45)
     sung = accent or PALETTE["gold"]  # the colour of the word being said
@@ -276,10 +283,11 @@ def layout_text(shot: Shot, words: List[Word], size: Tuple[int, int]) -> List[Pl
         line_w = 0.0
         for i in group:
             width = entries[i][1]
+            gap = gap_of(lines[-1][-1] if lines[-1] else None, entries[i])
             if lines[-1] and line_w + gap + width > max_w:
                 lines.append([])
-                line_w = 0.0
-            line_w += (gap if lines[-1] else 0) + width
+                line_w, gap = 0.0, 0.0
+            line_w += gap + width
             lines[-1].append(entries[i])
         block_h = line_h * len(lines)
         if position in ("upper", "upper_left", "upper_right"):
@@ -291,7 +299,9 @@ def layout_text(shot: Shot, words: List[Word], size: Tuple[int, int]) -> List[Pl
         else:
             top = (h_px - block_h) / 2
         for li, line in enumerate(lines):
-            total = sum(e[1] for e in line) + gap * (len(line) - 1)
+            total = sum(e[1] for e in line) + sum(
+                gap_of(a, b) for a, b in zip(line, line[1:])
+            )
             if position in ("left", "upper_left", "lower_left"):
                 x = w_px * (0.08 if not corner else 0.07)
             elif position in ("right", "upper_right", "lower_right"):
@@ -299,7 +309,7 @@ def layout_text(shot: Shot, words: List[Word], size: Tuple[int, int]) -> List[Pl
             else:
                 x = (w_px - total) / 2
             y = top + li * line_h
-            for text, width, t, rgb, bg, karaoke in line:
+            for k, (text, width, t, rgb, bg, karaoke) in enumerate(line):
                 m = shadow_margin(fsize, shadow and bg is None)
                 placed.append(
                     Placed(
@@ -315,7 +325,7 @@ def layout_text(shot: Shot, words: List[Word], size: Tuple[int, int]) -> List[Pl
                         karaoke,
                     )
                 )
-                x += width + gap
+                x += width + (gap_of(line[k], line[k + 1]) if k + 1 < len(line) else 0)
     return placed
 
 

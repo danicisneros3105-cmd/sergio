@@ -43,7 +43,7 @@ def test_units_run_server_and_extensions_with_restart():
     units = service_cmd.render_units(Path("/r"), "/bin/uv", 8000, "/bin")
     server = units["sergio.service"]
     assert "ExecStart=/bin/uv run --project /r sergio serve --host 127.0.0.1" in server
-    assert "--port 8000" in server and "Restart=on-failure" in server
+    assert "--port 8000" in server and "Restart=always" in server
     assert 'Environment="PATH=/bin"' in server
     assert "WantedBy=default.target" in server
     ext = units["sergio-extensiones.service"]

@@ -352,7 +352,7 @@ def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
                     language=str(params.get("language") or "Spanish"),
                     fixed_style=fixed,
                     words_per_second=script.WORDS_PER_SECOND,
-                    advice=_specialist(job, fixed, brief),
+                    advice=_specialist(job, fixed, brief) + _skills("guion", brief),
                 )
             job.write("script.json", sc)
             job.update(
@@ -372,7 +372,13 @@ def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
             voiced = False
             if narration == "voice" and sc.get("text"):
                 try:
-                    wav_path.write_bytes(script.narrate(sc["text"], speak=deps.speak))
+                    beats = sc.get("beats") or []
+                    if any((b.get("delivery") or {}).get("tone") for b in beats):
+                        # performed: each part in its tone, real pauses
+                        wav = script.narrate_beats(beats, speak=deps.speak)
+                    else:
+                        wav = script.narrate(sc["text"], speak=deps.speak)
+                    wav_path.write_bytes(wav)
                     voiced = True
                 except Exception as exc:  # noqa: BLE001 — words on screen still carry it
                     job.update(voice_error=str(exc)[:200])
@@ -412,6 +418,10 @@ def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
                 ask=lambda p: edit(p, json_mode=True),
                 sources=allowed,
                 extra=_beat_notes(sc)
+                + _skills(
+                    "motion",
+                    f"{sc.get('title', '')} {sc.get('look', '')} {profile.get('name', '')}",
+                )
                 + _specialist(
                     job,
                     job.state().get("style_key", ""),
@@ -572,6 +582,7 @@ def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
             mix_path.write_bytes(
                 audio.write_wav(audio.mix(voice, music, fx, music_level=level))
             )
+            _loudness(mix_path)
             job.finish("sonido")
 
         # 9. the render
@@ -723,7 +734,7 @@ def _allowed_sources(
         for s in preferred
         if s in ("library", "stock", "web", "film", "archive", "ai", "3d", "image")
     ]
-    for s in ("library", "stock", "archive", "web", "film", "image"):
+    for s in ("library", "stock", "web", "film", "archive", "image"):
         if s not in out:
             out.append(s)
     if not params.get("ai_video") and mode.limits.get("ai_seconds", 0) <= 0:
@@ -786,6 +797,33 @@ def _beat_words(sc: Dict[str, Any], total: float) -> List[Any]:
             out.append(Word(t, round(at, 3), round(at + step * 0.9, 3)))
             at += step
     return out
+
+
+def _loudness(path: Path) -> None:
+    """The mix at the platforms' loudness (−14 LUFS, peaks under −1.5 dBTP):
+    a quiet video sounds weak next to the others in the feed."""
+    from openjarvis.video_essay import audio, render
+
+    out = path.with_suffix(".norm.wav")
+    try:
+        subprocess.run(
+            [render.ffmpeg(), "-y", "-v", "error", "-i", str(path), "-af",
+             "loudnorm=I=-14:TP=-1.5:LRA=11", "-ar", str(audio.SR), "-ac", "1", str(out)],
+            check=True, capture_output=True, timeout=600,
+        )  # fmt: skip
+        out.replace(path)
+    except Exception:  # noqa: BLE001 — the mix as it was
+        out.unlink(missing_ok=True)
+
+
+def _skills(kind: str, about: str) -> str:
+    """The GitHub skills that fit (script or motion), never in the way."""
+    try:
+        from openjarvis.video_essay import skillbook
+
+        return "\n" + skillbook.guidance(kind, about) + "\n"
+    except Exception:  # noqa: BLE001
+        return ""
 
 
 def _beat_notes(sc: Dict[str, Any]) -> str:

@@ -37,7 +37,9 @@ invented quotes or statistics, no brand names.
 Answer ONLY JSON: {{"style": "style key", "title": "max 7 words", "logline": "one sentence",
 "narration": "voice|none|song",
 "beats": [{{"beat": "hook|setup|problem|turn|story|contrast|escalation|climax|payoff|reveal|cta",
-            "text": "what is said (or shown)", "seconds": n, "visual": "what we see, concrete, in English"}}],
+            "text": "what is said (or shown)", "seconds": n, "visual": "what we see, concrete, in English",
+            "delivery": {{"tone": "calm|warm|curious|urgent|excited|serious|whisper|ironic|triumphant",
+                          "pause": seconds}}}}],
 "characters": [{{"name": "...", "look": "fixed description: age, face, hair, skin, clothes, build"}}],
 "look": "the visual language in one paragraph (light, lenses, grade, textures)",
 "music": "mood and build of the music",
@@ -130,6 +132,33 @@ def style_menu(profiles: List[Dict[str, Any]]) -> str:
     return "\n".join(rows)
 
 
+TONES = (
+    "calm",
+    "warm",
+    "curious",
+    "urgent",
+    "excited",
+    "serious",
+    "whisper",
+    "ironic",
+    "triumphant",
+)
+
+
+def _delivery(raw: Any) -> Dict[str, Any]:
+    """How a beat is said: a tone and the silence after it (seconds)."""
+    raw = raw if isinstance(raw, dict) else {}
+    tone = str(raw.get("tone") or "").strip().lower()
+    try:
+        pause = float(raw.get("pause") or 0)
+    except (TypeError, ValueError):
+        pause = 0.0
+    return {
+        "tone": tone if tone in TONES else "",
+        "pause": round(min(1.6, max(0.0, pause)), 2),
+    }
+
+
 def _check(text: str) -> Dict[str, Any]:
     data = json.loads(text)
     beats = [b for b in data.get("beats") or [] if isinstance(b, dict)]
@@ -143,6 +172,7 @@ def _check(text: str) -> Dict[str, Any]:
             if str(b.get("seconds") or "").replace(".", "", 1).isdigit()
             else 0.0,
             "visual": str(b.get("visual") or "")[:400],
+            "delivery": _delivery(b.get("delivery")),
         }
         for b in beats
     ]
@@ -159,7 +189,7 @@ def _check(text: str) -> Dict[str, Any]:
     data["sources"] = [
         str(s)
         for s in data.get("sources") or []
-        if str(s) in ("library", "stock", "web", "archive", "ai", "3d", "image")
+        if str(s) in ("library", "stock", "web", "film", "archive", "ai", "3d", "image")
     ]
     return data
 

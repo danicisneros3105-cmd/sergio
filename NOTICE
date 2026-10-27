@@ -150,3 +150,20 @@ meta.json and on screen.
   Hyperswitch (juspay/hyperswitch, Apache-2.0), el orquestador de pagos de
   código abierto que el dueño puede alojar. Son marcas de sus dueños y no
   avalan a Sergio.
+
+- Skills de guion y de motion graphics (video_essay/skills_catalog.json): 75
+  repositorios públicos de GitHub, con su autor y su licencia en el catálogo.
+  Solo se guarda la lista; los archivos se descargan al equipo del dueño
+  (`~/.openjarvis/video_skills/`, lo hace la actualización) y nunca se copian
+  a este repositorio, igual que la biblioteca de prompts. Entre ellos hay
+  licencias que no son abiertas del todo: Jamailar/Beav (Source-Available,
+  solo no comercial) está marcado como no usable y no se usa; OpenMontage
+  (calesthio/OpenMontage) es AGPL-3.0; Remotion (remotion-dev/remotion) tiene
+  su propia licencia (las empresas grandes pagan); @theatre/studio es
+  AGPL-3.0; y nueve repositorios no declaran licencia. De ellos Sergio solo
+  lee texto como guía para el modelo; no ejecuta ni distribuye su código.
+- Automatizar se conecta por API oficial, sin copiar código, con YouTube Data
+  API v3 (Google), Instagram Graph API (Meta), Alpaca Trading API (paper y
+  real) y las bolsas de empleo RemoteOK, Himalayas, Arbeitnow y We Work
+  Remotely (sus avisos enlazan a la oferta original). Son marcas de sus
+  dueños y no avalan a Sergio.

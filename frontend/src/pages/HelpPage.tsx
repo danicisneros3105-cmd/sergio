@@ -76,6 +76,9 @@ export function HelpPage() {
         ))}
       </div>
       <p>
+        <button type="button" className="paper-button" onClick={() => window.dispatchEvent(new CustomEvent('sergio:tour'))}>
+          Ver el tour
+        </button>{' '}
         <button type="button" className="paper-button" data-variant="quiet" onClick={() => navigate('/get-started')}>
           Primeros pasos
         </button>{' '}

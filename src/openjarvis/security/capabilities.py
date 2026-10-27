@@ -259,6 +259,13 @@ DEFAULT_TOOL_CAPABILITIES: Dict[str, List[str]] = {
     "photos_duplicates": [Capability.FILE_READ, Capability.FILE_WRITE],
     "video_create": [Capability.NETWORK_FETCH, Capability.FILE_WRITE],
     "video_essay": [Capability.NETWORK_FETCH, Capability.FILE_WRITE],
+    # Drafts replies and proposals, sets schedules and paper trading; it
+    # never sends a reply or a proposal itself (the owner approves in the app).
+    "automatizar": [
+        Capability.NETWORK_FETCH,
+        Capability.FILE_WRITE,
+        Capability.SCHEDULE_CREATE,
+    ],
     "reminders": [Capability.MEMORY_WRITE],
     "investigacion_profunda": [Capability.NETWORK_FETCH],
     "pc_checkup": [Capability.FILE_READ, Capability.FILE_WRITE],

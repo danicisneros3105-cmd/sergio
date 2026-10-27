@@ -60,6 +60,8 @@ uv run --no-sync sergio prompts sincronizar || echo "Aviso: no pude actualizar l
 # The fly core: the measured connectome (FlyWire, SHA-256 checked) and the
 # on-device meaning model; without them the stand-in and words keep working.
 uv run --no-sync sergio cerebro descargar || echo "Aviso: no pude descargar el cerebro real; se reintenta en la próxima actualización." >&2
+# Skills de guion y motion graphics de GitHub: se bajan aquí, nunca al repositorio.
+uv run --no-sync python -c "from openjarvis.video_essay import skillbook as s; print(s.sync())" || echo "Aviso: no pude bajar las skills de video; se reintenta en la próxima actualización." >&2
 # La voz propia de Sergio (transcripción y voz en este equipo): se bajan ahora
 # para que la primera conversación no espere la descarga.
 uv run --no-sync python -c "from openjarvis.speech import voz_propia as v; v.warm()" || echo "Aviso: no pude preparar la voz propia; se usará la voz de Gemini hasta la próxima actualización." >&2

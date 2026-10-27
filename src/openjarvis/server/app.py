@@ -779,10 +779,15 @@ def create_app(
     from openjarvis.server.pagos_routes import router as pagos_router
 
     app.include_router(pagos_router)
+    from openjarvis.server.automatiza_routes import router as automatiza_router
+    from openjarvis.server.automatiza_routes import start_loop as automatiza_loop
+
+    app.include_router(automatiza_router)
     if not os.environ.get("PYTEST_CURRENT_TEST"):
         from openjarvis.pagos import service as pagos_service
 
         pagos_service.start_expiry_loop()
+        automatiza_loop()
         import threading as _threading
 
         _threading.Thread(target=_warm_up, name="sergio-warm", daemon=True).start()

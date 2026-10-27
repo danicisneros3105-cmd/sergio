@@ -148,31 +148,156 @@ def chunks(text: str, limit: int = CHUNK) -> List[str]:
     return [c for c in out if c]
 
 
-def narrator() -> Callable[[str, str], bytes]:
-    """The narrator's voice: (text, the piece before) -> WAV."""
+TONE_NOTES = {
+    "calm": "tranquilo y seguro, sin prisa",
+    "warm": "cálido y cercano, con una sonrisa",
+    "curious": "intrigado, como quien comparte un secreto",
+    "urgent": "con urgencia contenida, más rápido",
+    "excited": "con energía y emoción, que contagie",
+    "serious": "serio y grave, más lento",
+    "whisper": "casi en susurro, íntimo",
+    "ironic": "con ironía amable",
+    "triumphant": "triunfal, firme, más lento al final",
+}
+
+
+def groups(beats: List[Dict[str, Any]], limit: int = CHUNK) -> List[Dict[str, Any]]:
+    """Beats joined while they share a tone (fewer voice calls), each group
+    with its tone and the silence after it."""
+    out: List[Dict[str, Any]] = []
+    for b in beats:
+        text = " ".join(str(b.get("text") or "").split())
+        if not text:
+            continue
+        d = b.get("delivery") or {}
+        tone, pause = str(d.get("tone") or ""), float(d.get("pause") or 0)
+        last = out[-1] if out else None
+        if (
+            last
+            and last["tone"] == tone
+            and last["pause"] < 0.25
+            and len(last["text"]) + len(text) < limit
+        ):
+            last["text"] += " " + text
+            last["pause"] = pause
+        else:
+            out.append({"text": text, "tone": tone, "pause": pause})
+    return out
+
+
+def narrate_beats(
+    beats: List[Dict[str, Any]],
+    *,
+    speak: Optional[Callable[[str], bytes]] = None,
+    breath: float = 0.22,
+) -> bytes:
+    """The narration performed: each part in its tone, with its pause after
+    (real silence), three parts made at a time."""
+    from concurrent.futures import ThreadPoolExecutor
+
+    parts: List[Dict[str, Any]] = []
+    for g in groups(beats):
+        pieces = chunks(g["text"])
+        for i, piece in enumerate(pieces):
+            last = i == len(pieces) - 1
+            parts.append(
+                {"text": piece, "tone": g["tone"], "pause": g["pause"] if last else 0.0}
+            )
+    if not parts:
+        raise ValueError("Nada que narrar.")
+    voice = narrator() if speak is None else None
+
+    def say(i: int) -> bytes:
+        if speak is not None:
+            return speak(parts[i]["text"])
+        return voice(
+            parts[i]["text"], parts[i - 1]["text"][-600:] if i else "", parts[i]["tone"]
+        )
+
+    with ThreadPoolExecutor(max_workers=min(3, len(parts))) as pool:
+        made = list(pool.map(say, range(len(parts))))
+    pieces_out: List[np.ndarray] = [np.zeros(int(0.15 * audio.SR), dtype=np.float32)]
+    for part, wav in zip(parts, made):
+        pieces_out.append(audio.read_wav(wav))
+        gap = max(breath, part["pause"])
+        pieces_out.append(np.zeros(int(gap * audio.SR), dtype=np.float32))
+    return audio.write_wav(np.concatenate(pieces_out))
+
+
+def narrator() -> Callable[..., bytes]:
+    """The narrator's voice: (text, the piece before) -> WAV. Every voice
+    there is a key for, best first; when one fails (no credit, no quota)
+    the next reads the piece: ElevenLabs, Gemini, OpenAI."""
+    voices: List[Callable[..., bytes]] = []
     if os.environ.get("ELEVENLABS_API_KEY", "").strip():
-        from openjarvis.speech import elevenlabs_voice as eleven
-        from openjarvis.speech.gemini_voice import pcm_to_wav
+        voices.append(_eleven_narrator)
+    if os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY"):
+        voices.append(lambda part, previous, tone="": _gemini_narrator(part, tone))
+    if os.environ.get("OPENAI_API_KEY", "").strip():
+        voices.append(lambda part, previous, tone="": _openai_narrator(part, tone))
+    if not voices:  # no key at all: Gemini's error says what is missing
+        voices.append(lambda part, previous, tone="": _gemini_narrator(part, tone))
 
-        def speak(part: str, previous: str) -> bytes:
+    def speak(part: str, previous: str, tone: str = "") -> bytes:
+        last: Optional[Exception] = None
+        for voice in voices:
             try:
-                raw = eleven.pcm(
-                    part, previous=previous, model_id=eleven.QUALITY_MODEL, timeout=180
-                )
-                return pcm_to_wav(raw, eleven.RATE)
-            except Exception:  # noqa: BLE001 — out of credit: Gemini's voice
-                return _gemini_narrator(part)
+                return voice(part, previous, tone)
+            except Exception as exc:  # noqa: BLE001 — the next voice
+                last = exc
+        raise RuntimeError(f"Ninguna voz pudo narrar: {last}")
 
-        return speak
-    return lambda part, previous: _gemini_narrator(part)
+    return speak
 
 
-def _gemini_narrator(part: str) -> bytes:
+def _direction(tone: str) -> str:
+    note = TONE_NOTES.get(tone, "")
+    return (
+        NARRATOR.replace(
+            "Di exactamente esto:", f"En esta parte, {note}. Di exactamente esto:"
+        )
+        if note
+        else NARRATOR
+    )
+
+
+def _eleven_narrator(part: str, previous: str, tone: str = "") -> bytes:
+    from openjarvis.speech import elevenlabs_voice as eleven
+    from openjarvis.speech.gemini_voice import pcm_to_wav
+
+    raw = eleven.pcm(
+        part, previous=previous, model_id=eleven.QUALITY_MODEL, timeout=180
+    )
+    return pcm_to_wav(raw, eleven.RATE)
+
+
+def _gemini_narrator(part: str, tone: str = "") -> bytes:
     from openjarvis.speech import gemini_voice
 
     return gemini_voice.speak(
-        part, gemini_voice.sergio_voice(""), style=NARRATOR, models=NARRATION_MODELS
+        part,
+        gemini_voice.sergio_voice(""),
+        style=_direction(tone),
+        models=NARRATION_MODELS,
     )
+
+
+OPENAI_TTS = ("gpt-4o-mini-tts", "onyx")  # a male voice made for synthesis
+
+
+def _openai_narrator(part: str, tone: str = "") -> bytes:
+    import httpx
+
+    resp = httpx.post(
+        "https://api.openai.com/v1/audio/speech",
+        headers={"Authorization": f"Bearer {os.environ['OPENAI_API_KEY'].strip()}"},
+        json={"model": OPENAI_TTS[0], "voice": OPENAI_TTS[1], "input": part,
+              "instructions": _direction(tone), "response_format": "wav"},
+        timeout=180,
+    )  # fmt: skip
+    if resp.status_code != 200:
+        raise RuntimeError(f"OpenAI TTS {resp.status_code}: {resp.text[:200]}")
+    return resp.content
 
 
 def narrate(

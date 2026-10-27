@@ -105,7 +105,14 @@ class AuthMiddleware(BaseHTTPMiddleware):
             return False
         # Payment processors call back and send signed notices; each Sergio
         # Pagos route checks the order or the processor's signature itself.
-        if path.startswith(("/v1/pagos/aviso/", "/v1/pagos/vuelta/")):
+        if path.startswith(
+            (
+                "/v1/pagos/aviso/",
+                "/v1/pagos/vuelta/",
+                "/v1/automatiza/archivo/",
+                "/v1/automatiza/youtube/vuelta",
+            )
+        ):
             return False
         # Signing in is how one gets a key; each account route checks itself.
         if path.startswith("/v1/cuentas/"):

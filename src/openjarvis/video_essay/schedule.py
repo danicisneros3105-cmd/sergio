@@ -11,10 +11,13 @@ video: one at a time, the same order not twice in half an hour, and the daily
 cap (``SERGIO_VIDEO_JOBS_DIA``). A schedule never makes more than that, and a
 failure makes the next turn wait instead of retrying in a loop.
 
-**Posting is never automatic** (owner's rule: no message, purchase or post
-without him). A finished video waits in «Listos para publicar» with its title,
-description and credits; publishing is one tap from the person, and even then
-Sergio only opens the upload page with everything ready.
+**Posting is automatic only where he turns it on.** Until 27 Oct 2026 a
+finished video always waited in «Listos para publicar» for his tap. That is
+still the default; a schedule with ``auto`` and ``publicar_en`` (YouTube,
+Instagram) now goes up by itself through the official APIs
+(:mod:`openjarvis.automatiza.canales`, at most ``SERGIO_PUBLICAR_DIA`` a day
+per channel) — the owner asked for it: «que suban 3 diarios de forma
+automática».
 """
 
 from __future__ import annotations
@@ -63,6 +66,8 @@ def add(
     mode: str = "basic",
     aspect: str = "9:16",
     seconds: int = 60,
+    publish_to: Optional[List[str]] = None,
+    auto: bool = False,
     home: Optional[Path] = None,
     now: Optional[float] = None,
 ) -> Dict[str, Any]:
@@ -79,7 +84,9 @@ def add(
         "cada_horas": every_hours,
         "modo": modes.get(mode).key,
         "formato": aspect if aspect in ("16:9", "9:16", "1:1") else "9:16",
-        "segundos": max(15, min(600, int(seconds))),
+        "segundos": max(15, min(1800, int(seconds))),
+        "publicar_en": [c for c in (publish_to or []) if c in ("youtube", "instagram")],
+        "auto": bool(auto and publish_to),
         "activo": True,
         "proximo": (time.time() if now is None else now)
         + 60,  # the first one in a minute
@@ -223,8 +230,13 @@ def start_loop(interval: float = 60.0) -> None:
         while True:
             time.sleep(interval)
             try:
-                if load():
+                items = load()
+                if items:
                     tick()
+                if any(s.get("auto") for s in items):
+                    from openjarvis.automatiza import canales
+
+                    canales.post_ready()
                 # A video left half done by a restart or a crash picks up again
                 # (four tries at most, job.MAX_ATTEMPTS) instead of waiting forever.
                 from openjarvis.video_essay import job as jobs

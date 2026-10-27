@@ -45,7 +45,14 @@ _PUBLIC_EXACT = {
     "/sergio.svg",  # the fly, shown on the sign-in page too
 }
 # Payment notices and returns: Sergio Pagos checks signatures and orders.
-_PUBLIC_PREFIXES = ("/assets/", "/workbox-", "/v1/pagos/aviso/", "/v1/pagos/vuelta/")
+_PUBLIC_PREFIXES = (
+    "/assets/",
+    "/workbox-",
+    "/v1/pagos/aviso/",
+    "/v1/pagos/vuelta/",
+    "/v1/automatiza/archivo/",
+    "/v1/automatiza/youtube/vuelta",
+)
 _PROTECTED_PREFIXES = (
     "/v1",
     "/api",

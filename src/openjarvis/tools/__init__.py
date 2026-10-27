@@ -278,6 +278,12 @@ except ImportError as _exc:
     _logging.getLogger(__name__).debug(
         "Optional import skipped (openjarvis.tools.video_essay_tool): %s", _exc
     )
+try:
+    import openjarvis.tools.automatizar_tool  # noqa: F401
+except ImportError as _exc:
+    _logging.getLogger(__name__).debug(
+        "Optional import skipped (openjarvis.tools.automatizar_tool): %s", _exc
+    )
 
 try:
     import openjarvis.tools.audio_tool  # noqa: F401

@@ -1,5 +1,7 @@
 import { Suspense, useEffect, useState } from 'react';
 import { Outlet, useNavigate } from 'react-router';
+import { Tour } from './Tour/Tour';
+import { sessionNeed, tourSeen } from '../lib/session';
 import { Menu } from 'lucide-react';
 import { ApprovalBell } from './ApprovalBell';
 import { SystemPulse } from './SystemPulse';
@@ -57,19 +59,30 @@ export function Layout() {
 
   const navigate = useNavigate();
 
+  // Sign in first (owner, 27 Oct 2026): nobody signed in → «/entrar» (or
+  // «Crear cuenta» the first time); payment pages stay open. Then the tour,
+  // once, instead of the old «Primeros pasos» redirect (still at
+  // /get-started). «?tour=1» or «sergio:tour» opens it again.
+  const [tour, setTour] = useState(false);
   useEffect(() => {
-    // A new user lands on «Primeros pasos» once (GetStartedPage marks it
-    // seen). Only from the start page: a window opened on Nodes, Salud or a
-    // chat stays there. (It never marked itself seen and sent every new
-    // window back here: «no puedo abrir nada».)
-    try {
-      const home = window.location.pathname === '/' || window.location.pathname === '';
-      if (home && !localStorage.getItem('sergio-onboarded')) {
-        navigate('/get-started', { replace: true });
+    if (PANE) return;
+    let alive = true;
+    const path = window.location.pathname;
+    void sessionNeed().then((need) => {
+      if (!alive) return;
+      if (need !== 'ok' && !path.startsWith('/pagar')) {
+        navigate(need === 'crear' ? '/entrar?crear=1' : '/entrar', { replace: true });
+        return;
       }
-    } catch {
-      // storage blocked: no first-run guide, nothing else changes
-    }
+      const asked = new URLSearchParams(window.location.search).get('tour') === '1';
+      if (asked || ((path === '/' || path === '') && !tourSeen())) setTour(true);
+    });
+    const onTour = () => setTour(true);
+    window.addEventListener('sergio:tour', onTour);
+    return () => {
+      alive = false;
+      window.removeEventListener('sergio:tour', onTour);
+    };
   }, [navigate]);
 
   // One window: the desktop shows its pages here instead of opening another.
@@ -168,6 +181,7 @@ export function Layout() {
           <LiveCaptions />
         </main>
       </div>
+      {tour && <Tour onClose={() => setTour(false)} />}
     </div>
   );
 }

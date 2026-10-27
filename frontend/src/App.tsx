@@ -25,6 +25,7 @@ const UsagePage = lazy(() => import('./pages/UsagePage'));
 const PlansPage = lazy(() => import('./pages/PlansPage').then((m) => ({ default: m.PlansPage })));
 const PayPage = lazy(() => import('./pages/PayPage'));
 const HelpPage = lazy(() => import('./pages/HelpPage').then((m) => ({ default: m.HelpPage })));
+const AutomatizarPage = lazy(() => import('./pages/AutomatizarPage'));
 const SwarmPage = lazy(() => import('./pages/SwarmPage'));
 const ExtensionsPage = lazy(() => import('./pages/ExtensionsPage'));
 import { ModelSheet } from './components/ModelSheet';
@@ -222,6 +223,7 @@ export default function App() {
           <Route path="developer" element={<Navigate to="/extensiones" replace />} />
           <Route path="pensar" element={<ThinkPage />} />
           <Route path="cowork" element={<CoworkPage />} />
+          <Route path="automatizar" element={<AutomatizarPage />} />
           <Route path="salud" element={<HealthPage />} />
           <Route path="perfil" element={<ProfilePage />} />
           <Route path="atajos" element={<ConnectomePage />} />

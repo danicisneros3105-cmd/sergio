@@ -1,0 +1,756 @@
+{
+ "guion": [
+  {
+   "name": "YouTube hook writing",
+   "repo": "TheCraigHewitt/skills",
+   "branch": "main",
+   "path": "youtube/hook-writing/SKILL.md",
+   "licence": "MIT",
+   "what": "Escribir los primeros 30 s de un video de YouTube: hooks de retención y aperturas que reducen el abandono temprano.",
+   "kind": "skill",
+   "usable": true
+  },
+  {
+   "name": "YouTube script structure",
+   "repo": "TheCraigHewitt/skills",
+   "branch": "main",
+   "path": "youtube/script-structure/SKILL.md",
+   "licence": "MIT",
+   "what": "Estructurar guiones de YouTube con ritmo (pacing) y beats de retención a lo largo del video.",
+   "kind": "skill",
+   "usable": true
+  },
+  {
+   "name": "YouTube retention editing",
+   "repo": "TheCraigHewitt/skills",
+   "branch": "main",
+   "path": "youtube/retention-editing/SKILL.md",
+   "licence": "MIT",
+   "what": "Dirección de edición para retención: pattern interrupts, ritmo y técnicas de re-enganche.",
+   "kind": "skill",
+   "usable": true
+  },
+  {
+   "name": "claude-youtube",
+   "repo": "AgriciDaniel/claude-youtube",
+   "branch": "main",
+   "path": "skills/claude-youtube/SKILL.md",
+   "licence": "MIT",
+   "what": "Suite de estrategia YouTube para Claude: guiones, hooks, títulos, SEO y retención.",
+   "kind": "skill",
+   "usable": true
+  },
+  {
+   "name": "yt-hook-scripter",
+   "repo": "sergebulaev/youtube-skills",
+   "branch": "main",
+   "path": "skills/yt-hook-scripter/SKILL.md",
+   "licence": "MIT",
+   "what": "Guionizar la apertura hablada (30 s long-form / 3 s Shorts) con patrones de hook 2026.",
+   "kind": "skill",
+   "usable": true
+  },
+  {
+   "name": "youtube-scriptwriting",
+   "repo": "exiao/skills",
+   "branch": "main",
+   "path": "video/youtube-scriptwriting/SKILL.md",
+   "licence": "none",
+   "what": "Guiones long-form optimizados para retención mediante flujo por checkpoints (investigación, hook, estructura, cuerpo, edición).",
+   "kind": "skill",
+   "usable": true
+  },
+  {
+   "name": "youtube-long-form",
+   "repo": "social-media-skills/skills",
+   "branch": "main",
+   "path": "skills/youtube-long-form/SKILL.md",
+   "licence": "MIT",
+   "what": "Guiones y estructura para videos largos de YouTube.",
+   "kind": "skill",
+   "usable": true
+  },
+  {
+   "name": "youtube-shorts",
+   "repo": "social-media-skills/skills",
+   "branch": "main",
+   "path": "skills/youtube-shorts/SKILL.md",
+   "licence": "MIT",
+   "what": "Guiones para YouTube Shorts: hook inmediato, loop y ritmo vertical.",
+   "kind": "skill",
+   "usable": true
+  },
+  {
+   "name": "short-form-video-script",
+   "repo": "social-media-skills/skills",
+   "branch": "main",
+   "path": "skills/short-form-video-script/SKILL.md",
+   "licence": "MIT",
+   "what": "Guiones de video corto (TikTok/Reels/Shorts) con hook, cuerpo y CTA.",
+   "kind": "skill",
+   "usable": true
+  },
+  {
+   "name": "viral-youtube-hook (MrBeast)",
+   "repo": "soasme/mrbeast-skills",
+   "branch": "main",
+   "path": "skills/viral-youtube-hook/SKILL.md",
+   "licence": "MIT",
+   "what": "Escribir/criticar el primer minuto de un video al estilo MrBeast para maximizar retención.",
+   "kind": "skill",
+   "usable": true
+  },
+  {
+   "name": "retention-audit",
+   "repo": "yaxeen/storytelling-skills",
+   "branch": "main",
+   "path": "skills/retention-audit/SKILL.md",
+   "licence": "MIT",
+   "what": "Diagnosticar la curva de retención y mapear caídas de audiencia a beats del guion.",
+   "kind": "skill",
+   "usable": true
+  },
+  {
+   "name": "script-writer",
+   "repo": "ailabs-393/ai-labs-claude-skills",
+   "branch": "main",
+   "path": "packages/skills/script-writer/SKILL.md",
+   "licence": "MIT",
+   "what": "Guionista de YouTube que recoge preferencias (tono, audiencia, hook, humor, duración) y escribe el guion.",
+   "kind": "skill",
+   "usable": true
+  },
+  {
+   "name": "video-script",
+   "repo": "indranilbanerjee/digital-marketing-pro",
+   "branch": "main",
+   "path": "skills/video-script/SKILL.md",
+   "licence": "MIT",
+   "what": "Guion de video con hooks, diálogo con timestamps y cues visuales.",
+   "kind": "skill",
+   "usable": true
+  },
+  {
+   "name": "short-video-scripter",
+   "repo": "aaron-he-zhu/aaron-marketing-skills",
+   "branch": "main",
+   "path": "social/craft/short-video-scripter/SKILL.md",
+   "licence": "Apache-2.0",
+   "what": "Guiones para TikTok/Reels/Shorts/Douyin con timestamps y arreglo de hooks que pierden audiencia.",
+   "kind": "skill",
+   "usable": true
+  },
+  {
+   "name": "copywriting",
+   "repo": "coreyhaines31/marketingskills",
+   "branch": "main",
+   "path": "skills/copywriting/SKILL.md",
+   "licence": "MIT",
+   "what": "Copywriting de marketing (titulares, propuesta de valor, CTA) con principios de claridad y conversión.",
+   "kind": "skill",
+   "usable": true
+  },
+  {
+   "name": "video (marketing)",
+   "repo": "coreyhaines31/marketingskills",
+   "branch": "main",
+   "path": "skills/video/SKILL.md",
+   "licence": "MIT",
+   "what": "Planificar/producir video de marketing con IA o frameworks programáticos (Remotion, HyperFrames, HeyGen).",
+   "kind": "skill",
+   "usable": true
+  },
+  {
+   "name": "copywriting-frameworks",
+   "repo": "thatrebeccarae/claude-marketing",
+   "branch": "main",
+   "path": "skills/copywriting-frameworks/SKILL.md",
+   "licence": "MIT",
+   "what": "Frameworks de copy: AIDA, PAS, BAB, 4Ps, StoryBrand, QUEST, FAB para hooks, CTAs y anuncios.",
+   "kind": "skill",
+   "usable": true
+  },
+  {
+   "name": "screenplay-fountain-format",
+   "repo": "nolanx-ai/nolanx.ai",
+   "branch": "main",
+   "path": "skills/screenplay-fountain-format/SKILL.md",
+   "licence": "MIT",
+   "what": "Escribir escenas, diálogos y beat outlines en sintaxis Fountain.",
+   "kind": "skill",
+   "usable": true
+  },
+  {
+   "name": "write-screenplay",
+   "repo": "badgids/Story-Film-Skills",
+   "branch": "main",
+   "path": "skills/write-screenplay/SKILL.md",
+   "licence": "Apache-2.0",
+   "what": "Escribir un guion Fountain completo con manifiesto de escenas y líneas a partir de un plan de escenas.",
+   "kind": "skill",
+   "usable": true
+  },
+  {
+   "name": "fountain-syntax",
+   "repo": "bybren-llc/story-systems-template",
+   "branch": "main",
+   "path": ".claude/skills/fountain-syntax/SKILL.md",
+   "licence": "MIT",
+   "what": "Referencia de sintaxis Fountain para formato de guion profesional.",
+   "kind": "skill",
+   "usable": true
+  },
+  {
+   "name": "ozu-screenplay-style",
+   "repo": "jtydhr88/screenwriting-skills",
+   "branch": "main",
+   "path": "plugins/screenwriting/skills/ozu-screenplay-style/SKILL.md",
+   "licence": "MIT",
+   "what": "Escribir guiones al estilo Ozu/Noda: ritmo pausado, diálogo contenido, elipsis.",
+   "kind": "skill",
+   "usable": true
+  },
+  {
+   "name": "story adaptation",
+   "repo": "danjdewhurst/story-skills",
+   "branch": "main",
+   "path": "skills/adaptation/SKILL.md",
+   "licence": "MIT",
+   "what": "Adaptar historias a guion de narración/audiolibro o a screenplay Fountain, con guía de pronunciación.",
+   "kind": "skill",
+   "usable": true
+  },
+  {
+   "name": "elevenlabs text-to-speech",
+   "repo": "elevenlabs/skills",
+   "branch": "main",
+   "path": "text-to-speech/SKILL.md",
+   "licence": "MIT",
+   "what": "Generar locución/voiceover con ElevenLabs (voces, modelos, 90+ idiomas).",
+   "kind": "skill",
+   "usable": true
+  },
+  {
+   "name": "tts-director",
+   "repo": "Jamailar/Beav",
+   "branch": "main",
+   "path": "desktop/builtin-skills/tts-director/SKILL.md",
+   "licence": "Beav Source-Available (solo no comercial)",
+   "what": "Dirigir TTS expresivo: tono, velocidad, tono de voz, pausas y emoción para voiceover de video corto.",
+   "kind": "skill",
+   "usable": false
+  },
+  {
+   "name": "voice-performance-director",
+   "repo": "calesthio/OpenMontage",
+   "branch": "main",
+   "path": "skills/meta/voice-performance-director.md",
+   "licence": "AGPL-3.0",
+   "what": "Dirección de actuación de voz para narración TTS: énfasis, pausas, cambios de tono.",
+   "kind": "prompt",
+   "usable": true
+  },
+  {
+   "name": "storytelling (OpenMontage)",
+   "repo": "calesthio/OpenMontage",
+   "branch": "main",
+   "path": "skills/creative/storytelling.md",
+   "licence": "AGPL-3.0",
+   "what": "Principios de storytelling para video (Creator Academy, Veritasium, Kurzgesagt).",
+   "kind": "prompt",
+   "usable": true
+  },
+  {
+   "name": "explainer script-director",
+   "repo": "calesthio/OpenMontage",
+   "branch": "main",
+   "path": "skills/pipelines/explainer/script-director.md",
+   "licence": "AGPL-3.0",
+   "what": "Prompt de guionista para videos explainer generados: narración desde cero a partir de un brief.",
+   "kind": "prompt",
+   "usable": true
+  },
+  {
+   "name": "kallaway-storytelling",
+   "repo": "anthonysurfermx/creator-knowledge-engine",
+   "branch": "main",
+   "path": "skills/kallaway-storytelling/SKILL.md",
+   "licence": "none",
+   "what": "Frameworks de Kallaway: arcos narrativos, dopamine loops, rehooks, pacing y edutainment.",
+   "kind": "skill",
+   "usable": true
+  },
+  {
+   "name": "storytelling-video",
+   "repo": "unknownking07/motion-graphics-skill",
+   "branch": "main",
+   "path": "skills/storytelling-video/SKILL.md",
+   "licence": "MIT",
+   "what": "Películas narrativas con stock/gráficos, tipografía expresiva, narración, música y diseño sonoro.",
+   "kind": "skill",
+   "usable": true
+  },
+  {
+   "name": "screenwriting-video",
+   "repo": "LeoYeAI/openclaw-master-skills",
+   "branch": "main",
+   "path": "skills/screenwriting-video/SKILL.md",
+   "licence": "MIT",
+   "what": "Guionismo para video: escenas, diálogos y estructura narrativa.",
+   "kind": "skill",
+   "usable": true
+  },
+  {
+   "name": "youtube-retention-hooks",
+   "repo": "Botang-Liao/story-teller",
+   "branch": "main",
+   "path": "skills/system/youtube-retention-hooks/SKILL.md",
+   "licence": "none",
+   "what": "Guiones, títulos, hooks y ritmo de escenas orientados a retención (en chino).",
+   "kind": "skill",
+   "usable": true
+  },
+  {
+   "name": "faceless-yt-retention-script",
+   "repo": "Noesis-Boss/jaknyfe-skills",
+   "branch": "master",
+   "path": "Skills/faceless-yt-retention-script/SKILL.md",
+   "licence": "none",
+   "what": "Framework de retención para canales faceless: hooks, transiciones, open loops y beats con tiempos.",
+   "kind": "skill",
+   "usable": true
+  },
+  {
+   "name": "video_script_review",
+   "repo": "inclusionAI/AWorld",
+   "branch": "main",
+   "path": "aworld-skills/video_script_review/SKILL.md",
+   "licence": "MIT",
+   "what": "Revisión/crítica de guiones de video.",
+   "kind": "skill",
+   "usable": true
+  },
+  {
+   "name": "educational-video-creator",
+   "repo": "skindhu/skind-skills",
+   "branch": "main",
+   "path": "skills/educational-video-creator/SKILL.md",
+   "licence": "MIT",
+   "what": "Videos educativos estilo Kurzgesagt con Remotion: storyboard, guion y animación.",
+   "kind": "skill",
+   "usable": true
+  },
+  {
+   "name": "yt-script",
+   "repo": "Jakeschincariol/chatgpt-youtube-agent-skill",
+   "branch": "main",
+   "path": "skills/yt-script/SKILL.md",
+   "licence": "MIT",
+   "what": "Agente para escribir guiones de YouTube.",
+   "kind": "skill",
+   "usable": true
+  },
+  {
+   "name": "screenplain",
+   "repo": "vilcans/screenplain",
+   "branch": "master",
+   "path": "README.md",
+   "licence": "MIT",
+   "what": "Convertir guiones Fountain a PDF/HTML/FDX (Final Draft).",
+   "kind": "tool",
+   "usable": true
+  },
+  {
+   "name": "afterwriting",
+   "repo": "ifrost/afterwriting-labs",
+   "branch": "master",
+   "path": "README.md",
+   "licence": "none",
+   "what": "Post-procesado de guiones Fountain: PDF, estadísticas, ritmo y duración estimada.",
+   "kind": "tool",
+   "usable": true
+  }
+ ],
+ "motion": [
+  {
+   "name": "remotion-best-practices",
+   "repo": "remotion-dev/skills",
+   "branch": "main",
+   "path": "skills/remotion-best-practices/SKILL.md",
+   "licence": "none",
+   "what": "Skill oficial Remotion: router de buenas prácticas (animación, timing, secuencias, render).",
+   "kind": "skill",
+   "usable": true
+  },
+  {
+   "name": "remotion-captions",
+   "repo": "remotion-dev/skills",
+   "branch": "main",
+   "path": "skills/remotion-captions/SKILL.md",
+   "licence": "none",
+   "what": "Skill oficial Remotion: transcribir, mostrar y animar subtítulos (estilo word-pop).",
+   "kind": "skill",
+   "usable": true
+  },
+  {
+   "name": "remotion-create",
+   "repo": "remotion-dev/skills",
+   "branch": "main",
+   "path": "skills/remotion-create/SKILL.md",
+   "licence": "none",
+   "what": "Skill oficial Remotion: crear un nuevo proyecto de video.",
+   "kind": "skill",
+   "usable": true
+  },
+  {
+   "name": "hyperframes",
+   "repo": "heygen-com/hyperframes",
+   "branch": "main",
+   "path": "skills/hyperframes/SKILL.md",
+   "licence": "Apache-2.0",
+   "what": "HeyGen HyperFrames: hacer/animar/renderizar video desde HTML (explainers, títulos, captions, overlays).",
+   "kind": "skill",
+   "usable": true
+  },
+  {
+   "name": "motion-doctrine",
+   "repo": "heygen-com/hyperframes",
+   "branch": "main",
+   "path": ".claude/skills/motion-doctrine/SKILL.md",
+   "licence": "Apache-2.0",
+   "what": "Ley de movimiento multi-escena: que el video se sienta un único movimiento de cámara continuo.",
+   "kind": "skill",
+   "usable": true
+  },
+  {
+   "name": "captions-overlay",
+   "repo": "heygen-com/hyperframes",
+   "branch": "main",
+   "path": ".claude/skills/captions-overlay/SKILL.md",
+   "licence": "Apache-2.0",
+   "what": "Doctrina de subtítulos como overlay compuesto (drop/rail/embed).",
+   "kind": "skill",
+   "usable": true
+  },
+  {
+   "name": "gsap-timeline",
+   "repo": "greensock/gsap-skills",
+   "branch": "main",
+   "path": "skills/gsap-timeline/SKILL.md",
+   "licence": "MIT",
+   "what": "Skill oficial GSAP: timelines, position parameter, anidado y coreografía de keyframes.",
+   "kind": "skill",
+   "usable": true
+  },
+  {
+   "name": "gsap-core",
+   "repo": "greensock/gsap-skills",
+   "branch": "main",
+   "path": "skills/gsap-core/SKILL.md",
+   "licence": "MIT",
+   "what": "Skill oficial GSAP: to/from/fromTo, easing, stagger, defaults.",
+   "kind": "skill",
+   "usable": true
+  },
+  {
+   "name": "video-toolkit remotion",
+   "repo": "digitalsamba/claude-code-video-toolkit",
+   "branch": "main",
+   "path": ".claude/skills/remotion/SKILL.md",
+   "licence": "MIT",
+   "what": "Patrones Remotion: transiciones personalizadas, componentes compartidos.",
+   "kind": "skill",
+   "usable": true
+  },
+  {
+   "name": "video-toolkit moviepy",
+   "repo": "digitalsamba/claude-code-video-toolkit",
+   "branch": "main",
+   "path": ".claude/skills/moviepy/SKILL.md",
+   "licence": "MIT",
+   "what": "Composición en Python con MoviePy 2.x: texto, lower-thirds, overlays sobre video IA.",
+   "kind": "skill",
+   "usable": true
+  },
+  {
+   "name": "manim-composer",
+   "repo": "calesthio/OpenMontage",
+   "branch": "main",
+   "path": ".claude/skills/manim-composer/SKILL.md",
+   "licence": "AGPL-3.0",
+   "what": "Componer escenas Manim para explainers.",
+   "kind": "skill",
+   "usable": true
+  },
+  {
+   "name": "framer-motion (12 principios)",
+   "repo": "calesthio/OpenMontage",
+   "branch": "main",
+   "path": ".claude/skills/framer-motion/SKILL.md",
+   "licence": "AGPL-3.0",
+   "what": "Aplicar los 12 principios de animación Disney con Framer Motion.",
+   "kind": "skill",
+   "usable": true
+  },
+  {
+   "name": "remotion-3d-ticker",
+   "repo": "vibe-motion/skills",
+   "branch": "main",
+   "path": "remotion-3d-ticker/SKILL.md",
+   "licence": "none",
+   "what": "Ticker/galería 3D con parallax y scroll infinito en Remotion.",
+   "kind": "skill",
+   "usable": true
+  },
+  {
+   "name": "motion-design",
+   "repo": "nexu-io/open-design",
+   "branch": "main",
+   "path": "skills/motion-design/SKILL.md",
+   "licence": "Apache-2.0",
+   "what": "Oficio de motion: brief, beat map, continuidad visual, tipografía, pacing y timeline.",
+   "kind": "skill",
+   "usable": true
+  },
+  {
+   "name": "motion-anything gsap-core",
+   "repo": "nexu-io/motion-anything",
+   "branch": "main",
+   "path": "skills/gsap/gsap-core/SKILL.md",
+   "licence": "Apache-2.0",
+   "what": "Colección motion-anything: GSAP core (más recetas Lottie en el repo).",
+   "kind": "skill",
+   "usable": true
+  },
+  {
+   "name": "manim-video",
+   "repo": "vumichien/manim-skill",
+   "branch": "main",
+   "path": "skills/manim-video/SKILL.md",
+   "licence": "Apache-2.0",
+   "what": "Generar animaciones Manim desde ideas o papers con pipeline de 4 roles.",
+   "kind": "skill",
+   "usable": true
+  },
+  {
+   "name": "manim motion-graphics",
+   "repo": "rohitg00/manim-video-generator",
+   "branch": "main",
+   "path": "skills/motion-graphics/SKILL.md",
+   "licence": "MIT",
+   "what": "Motion graphics con Manim para videos explicativos.",
+   "kind": "skill",
+   "usable": true
+  },
+  {
+   "name": "kinetic-cut-video",
+   "repo": "wmzspace/claude-motion-skills",
+   "branch": "main",
+   "path": "skills/kinetic-cut-video/SKILL.md",
+   "licence": "MIT",
+   "what": "Videos de \"corte al beat\": un plano a pantalla completa por segundo, sincronizado con música.",
+   "kind": "skill",
+   "usable": true
+  },
+  {
+   "name": "remotion-motion-graphics",
+   "repo": "shadcn-labs/snapcn",
+   "branch": "main",
+   "path": "skills/remotion-motion-graphics/SKILL.md",
+   "licence": "MIT",
+   "what": "Motion graphics en Remotion (texto cinético, transiciones).",
+   "kind": "skill",
+   "usable": true
+  },
+  {
+   "name": "blender-animation",
+   "repo": "EL4CTEO/blender-skills",
+   "branch": "main",
+   "path": "skills/blender-animation/SKILL.md",
+   "licence": "MIT",
+   "what": "Animación en Blender 5.x por Python: keyframes, F-curves, NLA, acciones por capas.",
+   "kind": "skill",
+   "usable": true
+  },
+  {
+   "name": "cli-anything-blender",
+   "repo": "HKUDS/CLI-Anything",
+   "branch": "main",
+   "path": "skills/cli-anything-blender/SKILL.md",
+   "licence": "Apache-2.0",
+   "what": "Controlar Blender desde CLI para agentes (escenas, render).",
+   "kind": "skill",
+   "usable": true
+  },
+  {
+   "name": "video-typography",
+   "repo": "aicodedecode/awesome-muse-skills",
+   "branch": "main",
+   "path": "skills-imported/video-typography/SKILL.md",
+   "licence": "MIT",
+   "what": "Tipografía para video: tamaños, velocidad de lectura, safe areas, contraste.",
+   "kind": "skill",
+   "usable": true
+  },
+  {
+   "name": "motion-graphics (antigravity)",
+   "repo": "omer-metin/skills-for-antigravity",
+   "branch": "main",
+   "path": "skills/motion-graphics/SKILL.md",
+   "licence": "Apache-2.0",
+   "what": "Experto en motion graphics: principios Disney, tipografía cinética MK12, estilo Buck.",
+   "kind": "skill",
+   "usable": true
+  },
+  {
+   "name": "blender-mcp",
+   "repo": "ahujasid/blender-mcp",
+   "branch": "main",
+   "path": "README.md",
+   "licence": "MIT",
+   "what": "Conectar Blender a un LLM vía MCP para crear escenas 3D tipo Zack D. Films.",
+   "kind": "tool",
+   "usable": true
+  },
+  {
+   "name": "Manim Community",
+   "repo": "ManimCommunity/manim",
+   "branch": "main",
+   "path": "README.md",
+   "licence": "MIT",
+   "what": "Motor de animación matemática/explicativa en Python.",
+   "kind": "tool",
+   "usable": true
+  },
+  {
+   "name": "manim (3b1b)",
+   "repo": "3b1b/manim",
+   "branch": "master",
+   "path": "README.md",
+   "licence": "MIT",
+   "what": "Motor original de 3Blue1Brown para animaciones explicativas.",
+   "kind": "tool",
+   "usable": true
+  },
+  {
+   "name": "Motion Canvas",
+   "repo": "motion-canvas/motion-canvas",
+   "branch": "main",
+   "path": "README.md",
+   "licence": "MIT",
+   "what": "Animaciones vectoriales programáticas en TypeScript con editor en tiempo real.",
+   "kind": "tool",
+   "usable": true
+  },
+  {
+   "name": "Revideo",
+   "repo": "redotvideo/revideo",
+   "branch": "main",
+   "path": "README.md",
+   "licence": "MIT",
+   "what": "Fork de Motion Canvas para renderizar video programático vía API.",
+   "kind": "tool",
+   "usable": true
+  },
+  {
+   "name": "Theatre.js",
+   "repo": "theatre-js/theatre",
+   "branch": "main",
+   "path": "README.md",
+   "licence": "Apache-2.0 (core; @theatre/studio es AGPL-3.0)",
+   "what": "Editor de timeline/keyframes para animación web y 3D (three.js).",
+   "kind": "tool",
+   "usable": true
+  },
+  {
+   "name": "lottie-web",
+   "repo": "airbnb/lottie-web",
+   "branch": "master",
+   "path": "README.md",
+   "licence": "MIT",
+   "what": "Reproducir animaciones de After Effects exportadas a JSON (Bodymovin).",
+   "kind": "tool",
+   "usable": true
+  },
+  {
+   "name": "FFCreator",
+   "repo": "tnfe/FFCreator",
+   "branch": "master",
+   "path": "README.md",
+   "licence": "MIT",
+   "what": "Generación rápida de video en Node.js con animaciones y transiciones.",
+   "kind": "tool",
+   "usable": true
+  },
+  {
+   "name": "editly",
+   "repo": "mifi/editly",
+   "branch": "master",
+   "path": "README.md",
+   "licence": "MIT",
+   "what": "Edición de video declarativa (JSON) con Node.js y ffmpeg, incluye gl-transitions.",
+   "kind": "tool",
+   "usable": true
+  },
+  {
+   "name": "MoviePy",
+   "repo": "Zulko/moviepy",
+   "branch": "master",
+   "path": "README.md",
+   "licence": "MIT",
+   "what": "Edición y composición de video en Python (cortes, texto, efectos).",
+   "kind": "tool",
+   "usable": true
+  },
+  {
+   "name": "gl-transitions",
+   "repo": "gl-transitions/gl-transitions",
+   "branch": "master",
+   "path": "README.md",
+   "licence": "MIT",
+   "what": "Colección de 100+ transiciones GLSL entre clips.",
+   "kind": "tool",
+   "usable": true
+  },
+  {
+   "name": "Animation Nodes",
+   "repo": "JacquesLucke/animation_nodes",
+   "branch": "master",
+   "path": "README.md",
+   "licence": "other (sin SPDX; add-on Blender)",
+   "what": "Scripting visual por nodos para motion graphics en Blender.",
+   "kind": "tool",
+   "usable": true
+  },
+  {
+   "name": "Remotion",
+   "repo": "remotion-dev/remotion",
+   "branch": "main",
+   "path": "README.md",
+   "licence": "Remotion License (custom, source-available; empresas grandes pagan)",
+   "what": "Crear videos programáticamente con React.",
+   "kind": "tool",
+   "usable": true
+  },
+  {
+   "name": "three.js",
+   "repo": "mrdoob/three.js",
+   "branch": "master",
+   "path": "README.md",
+   "licence": "MIT",
+   "what": "Librería 3D WebGL/WebGPU para escenas 3D explicativas.",
+   "kind": "tool",
+   "usable": true
+  },
+  {
+   "name": "dotlottie-web",
+   "repo": "LottieFiles/dotlottie-web",
+   "branch": "main",
+   "path": "README.md",
+   "licence": "MIT",
+   "what": "Reproductor web de Lottie/dotLottie (renderer ThorVG).",
+   "kind": "tool",
+   "usable": true
+  }
+ ]
+}
