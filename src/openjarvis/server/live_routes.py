@@ -8,6 +8,7 @@ for the message protocol.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
@@ -105,6 +106,70 @@ async def live_status() -> dict[str, Any]:
     }
 
 
+VOICE_NOTE = (
+    "Estás hablando en voz alta, en una conversación: responde corto y natural, "
+    "en frases habladas, sin listas, tablas, markdown ni enlaces."
+)
+
+
+def _owner_think(app: Any):
+    """The owner's spoken turn goes to his agent, with its tools, live."""
+
+    def think(text: str, history: list, sink) -> str:  # noqa: ANN001
+        from openjarvis.server import routes as R
+        from openjarvis.server.models import ChatCompletionRequest, ChatMessage
+
+        model = getattr(app.state, "model", "") or ""
+        messages = [ChatMessage(role="system", content=VOICE_NOTE)]
+        messages += [ChatMessage(role=h["role"], content=h["content"]) for h in history]
+        messages.append(ChatMessage(role="user", content=text))
+        req = ChatCompletionRequest(model=model, messages=messages, max_tokens=500)
+        agent = getattr(app.state, "agent", None)
+        if agent is None:
+            return _engine_think(app, model, messages, sink)
+        own = R._request_agent(agent, model) or agent
+        return R._response_content(R._handle_agent(own, model, req, None, sink=sink))
+
+    return think
+
+
+def _engine_think(app: Any, model: str, messages: list, sink) -> str:  # noqa: ANN001
+    """Straight to the model, written live (no agent, no tools)."""
+    from openjarvis.core.types import Message, Role
+
+    engine = app.state.engine
+    msgs = [Message(role=Role(m.role), content=m.content) for m in messages]
+
+    async def run() -> str:
+        out = []
+        async for piece in engine.stream(msgs, model=model, max_tokens=400):
+            if piece:
+                out.append(piece)
+                sink(piece)
+        return "".join(out)
+
+    return asyncio.run(run())
+
+
+def _customer_think(app: Any):
+    def think(text: str, history: list, sink) -> str:  # noqa: ANN001
+        from openjarvis.accounts.provision import customer_model
+        from openjarvis.server.models import ChatMessage
+
+        messages = [
+            ChatMessage(
+                role="system",
+                content="Eres Sergio, un asistente amable y preciso. " + VOICE_NOTE,
+            )
+        ]
+        messages += [ChatMessage(role=h["role"], content=h["content"]) for h in history]
+        messages.append(ChatMessage(role="user", content=text))
+        model = customer_model(getattr(app.state, "model", "") or "")
+        return _engine_think(app, model, messages, sink)
+
+    return think
+
+
 def _customer_of(websocket: WebSocket) -> dict:
     """The customer (approved account that is not the owner) on this call."""
     from openjarvis.server.auth_middleware import websocket_session_token
@@ -150,7 +215,16 @@ async def _customer_call(websocket: WebSocket, user: dict) -> None:
             await websocket.send_json({"type": "error", "message": str(exc)})
             await websocket.close(code=1008)
             return
-        call = LiveCall(websocket, start, execute=None, openai_tools=[], owner="")
+        from openjarvis.speech import voz_propia
+
+        if voz_propia.available() and await asyncio.get_running_loop().run_in_executor(
+            None, voz_propia.ready
+        ):  # their own sub-key, no Gemini cost
+            call = voz_propia.OwnVoiceCall(
+                websocket, start, think=_customer_think(websocket.app)
+            )
+        else:
+            call = LiveCall(websocket, start, execute=None, openai_tools=[], owner="")
         try:
             await call.run()
         except Exception as exc:  # noqa: BLE001
@@ -201,10 +275,28 @@ async def live(websocket: WebSocket) -> None:
         await websocket.send_json({"type": "error", "message": str(exc)})
         await websocket.close(code=1008)
         return
-    execute, tools = make_executor(getattr(websocket.app.state, "agent", None))
-    call = LiveCall(
-        websocket, start, execute=execute, openai_tools=tools, owner=_owner()
+    from openjarvis.speech import voz_propia
+
+    own_voice = (
+        voz_propia.available()
+        and start.get("voz") != "gemini"
+        and await asyncio.get_running_loop().run_in_executor(None, voz_propia.ready)
     )
+    if own_voice:
+        # Sergio's own voice (owner, 27 Oct 2026); Gemini Live is the backup.
+        from openjarvis.connectome.brain import remember_exchange
+
+        call = voz_propia.OwnVoiceCall(
+            websocket,
+            start,
+            think=_owner_think(websocket.app),
+            remember=lambda heard, said: remember_exchange(heard, said, "voz"),
+        )
+    else:
+        execute, tools = make_executor(getattr(websocket.app.state, "agent", None))
+        call = LiveCall(
+            websocket, start, execute=execute, openai_tools=tools, owner=_owner()
+        )
     client = "desktop" if start.get("client") == "desktop" else "web"
     if not await _take_over(call, client, force=start.get("force") is True):
         await websocket.send_json(

@@ -346,6 +346,9 @@ def test_no_model_answers_is_an_error():
 def test_route_needs_start_and_reports_errors(monkeypatch):
     from fastapi.testclient import TestClient
 
+    # Sergio's own voice is the default now; this checks the Gemini backup.
+    monkeypatch.setenv("SERGIO_VOZ", "gemini")
+
     from openjarvis.server.app import create_app
 
     class Engine:
