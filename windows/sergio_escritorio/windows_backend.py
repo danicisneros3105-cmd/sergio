@@ -68,6 +68,22 @@ def _visible_windows(minimized: bool = False) -> list[tuple[int, str]]:
     return found
 
 
+def no_captureblt() -> None:
+    """Grab the screen without CAPTUREBLT: with it every grab makes Windows
+    recompose the layered windows and the mouse cursor flickers and drags
+    (owner, 26 Oct 2026: «realentiza el cursor»). Sergio's own notch and
+    companion are left out of the picture, which is right."""
+    import importlib
+
+    for name in ("mss.windows.gdi", "mss.windows"):  # mss 10 and mss 9
+        try:
+            module = importlib.import_module(name)
+        except Exception:  # noqa: BLE001 — not Windows, or another layout
+            continue
+        if hasattr(module, "CAPTUREBLT"):
+            module.CAPTUREBLT = 0
+
+
 def set_dpi_aware() -> None:
     """Use real pixels everywhere.
 
@@ -164,6 +180,7 @@ class WindowsBackend:
         if local is None:
             local = self._mss_local = threading.local()
         if getattr(local, "shot", None) is None:
+            no_captureblt()
             local.shot = mss.mss()
         shot = local.shot
         if True:

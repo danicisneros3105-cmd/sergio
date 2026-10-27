@@ -2,6 +2,22 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-10-27 · Claude · El cerebro de la mosca (FlyWire) como base y menos lag
+- Dueño: «el cerebro no es uno humano, es un cerebro real mapeado por Google
+  (el de una mosca)». Quitados la imitación humana y H01. `decision.py`
+  (antes `cortex.py`) decide con las partes de la mosca y cada pedido cruza
+  el cableado real de FlyWire (`mosca.py`: 49 434 neuronas, 573 006
+  conexiones, 14,1 millones de sinapsis; datos con SHA-256 desde el bucket
+  público de FlyWire). Parecido 66 % / distinto 27 % medido. Página Cerebro,
+  CLI y prueba al día; lo aprendido se muda de `humano` a `mosca`.
+- Lag: la captura de pantalla usaba CAPTUREBLT (hace parpadear y frenar el
+  cursor) y con la conversación siempre activa se capturaba 8/s → sin
+  CAPTUREBLT y 4/s. Intérprete del escritorio cede cada 2 ms (audio y notch
+  antes). Servidor: memoria y decisión fuera del bucle principal.
+- Web: medida en reposo a 60 FPS sin tareas largas en Inicio, Chat, Nodes,
+  Workspace, Salud, Swarm y Cerebro. «/cerebro» daba página en blanco (no
+  existía la ruta) y cualquier dirección rara también: ahora va a Inicio.
+
 ## 2026-10-26 · Claude · Sin lag, Face ID propio y una sola ventana
 - Cursor lento: un gancho global de ratón (solo para que el compañero salte
   al hacer clic) hacía que cada movimiento esperara a Python. Quitado: ahora

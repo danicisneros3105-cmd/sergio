@@ -223,6 +223,9 @@ export default function App() {
           <Route path="perfil" element={<ProfilePage />} />
           <Route path="atajos" element={<ConnectomePage />} />
           <Route path="uso" element={<UsagePage />} />
+          <Route path="cerebro" element={<ConnectomePage />} />
+          {/* An address that does not exist goes home, never to a blank page. */}
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>
       </Suspense>

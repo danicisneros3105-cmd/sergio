@@ -60,11 +60,11 @@ STAGE = {
     "endocrine": "hormonas",
 }
 CLASS_ES = {
-    "Kenyon_Cell": "cuerpo fungiforme (células de Kenyon)",
-    "MBON": "cuerpo fungiforme (salidas)",
+    "Kenyon_Cell": "células de Kenyon",
+    "MBON": "salidas (MBON)",
     "DAN": "dopamina",
-    "ALPN": "lóbulo antenal (proyección)",
-    "ALLN": "lóbulo antenal (locales)",
+    "ALPN": "lóbulo antenal",
+    "ALLN": "lóbulo antenal",
     "LHLN": "cuerno lateral",
     "LHCENT": "cuerno lateral",
     "CX": "complejo central",

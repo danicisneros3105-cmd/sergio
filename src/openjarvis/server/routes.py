@@ -269,23 +269,14 @@ async def chat_completions(request_body: ChatCompletionRequest, request: Request
     )
 
 
-async def _chat_completions(request_body: ChatCompletionRequest, request: Request):
-    """Handle chat completion requests (streaming and non-streaming)."""
-    from openjarvis.quota import guard
-
-    guard("mensajes")
-    engine = request.app.state.engine
-    agent = getattr(request.app.state, "agent", None)
-    model = request_body.model
-    use_server_agent = (
-        agent is not None
-        and not request_body.tools
-        and (not request_body.stream or bool(getattr(agent, "_tools", None)))
-    )
-
-    # Inject memory context into messages before dispatching
-    config = getattr(request.app.state, "config", None)
-    memory_backend = getattr(request.app.state, "memory_backend", None)
+def _inject_memory(
+    request_body: ChatCompletionRequest,
+    config: Any,
+    memory_backend: Any,
+    memory_service: Any,
+    use_server_agent: bool,
+) -> None:
+    """Fold the memories that fit the request into its messages."""
     if (
         config is not None
         and config.agent.context_from_memory
@@ -294,7 +285,6 @@ async def _chat_completions(request_body: ChatCompletionRequest, request: Reques
         try:
             from openjarvis.tools.storage.context import ContextConfig, inject_context
 
-            memory_service = getattr(request.app.state, "memory_service", None)
             facts = memory_service.list_facts() if memory_service is not None else []
 
             # Extract query from the last user message
@@ -357,6 +347,35 @@ async def _chat_completions(request_body: ChatCompletionRequest, request: Reques
                 exc_info=True,
             )
 
+
+async def _chat_completions(request_body: ChatCompletionRequest, request: Request):
+    """Handle chat completion requests (streaming and non-streaming)."""
+    from openjarvis.quota import guard
+
+    guard("mensajes")
+    engine = request.app.state.engine
+    agent = getattr(request.app.state, "agent", None)
+    model = request_body.model
+    use_server_agent = (
+        agent is not None
+        and not request_body.tools
+        and (not request_body.stream or bool(getattr(agent, "_tools", None)))
+    )
+
+    # Inject memory context into messages before dispatching (in a worker
+    # thread: a memory search must never hold up the other requests, like a
+    # voice turn arriving at the same time).
+    config = getattr(request.app.state, "config", None)
+    memory_backend = getattr(request.app.state, "memory_backend", None)
+    await asyncio.to_thread(
+        _inject_memory,
+        request_body,
+        config,
+        memory_backend,
+        getattr(request.app.state, "memory_service", None),
+        use_server_agent,
+    )
+
     # How much to think: the brain's basal ganglia choose (connectome/decision.py)
     # from what they learned; the inherited complexity score is only the
     # fallback when the brain is switched off.
@@ -370,7 +389,9 @@ async def _chat_completions(request_body: ChatCompletionRequest, request: Reques
     if query_text_for_complexity and not request_body.tools:
         from openjarvis.connectome import decision as cortex
 
-        thought = cortex.think(str(query_text_for_complexity), "chat")
+        thought = await asyncio.to_thread(
+            cortex.think, str(query_text_for_complexity), "chat"
+        )
     if thought is not None:
         try:
             from openjarvis.learning.routing.complexity import adjust_tokens_for_model

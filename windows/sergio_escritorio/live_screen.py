@@ -46,7 +46,7 @@ except ValueError:
     FAST_FPS = 32.310520139305
 IDLE_FPS = 4.0
 IDLE_AFTER = 3.0  # seconds without changes before slowing down
-SHARE_FPS = 8.0  # a call watching the screen (it receives at most 1 image/s)
+SHARE_FPS = 4.0  # a call watching the screen (it receives at most 1 image/s)
 CALM_FPS = 1.0  # nobody looking: one glance a second keeps changes noted
 LOOK_FOR = 8.0  # after a look or an action, full speed this long
 

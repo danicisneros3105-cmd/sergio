@@ -15,7 +15,7 @@ def test_the_real_wiring_is_there_and_verified():
     assert d["verificado"] and d["neuronas"] == 49434
     assert d["conexiones"] > 500_000 and d["sinapsis"] > 10_000_000
     assert d["neuronas_cerebro_completo"] == 139255
-    assert d["zonas"]["cuerpo fungiforme (células de Kenyon)"] > 5000
+    assert d["zonas"]["células de Kenyon"] > 5000
     assert "FlyWire" in d["fuente"] and "Google" in d["fuente"]
 
 
@@ -31,7 +31,7 @@ def test_activity_goes_from_the_senses_inward():
     first = path[0]["zonas"]
     assert set(first) <= {"olfato", "tacto", "gusto", "temperatura", "humedad"}
     later = {z for p in path[1:] for z in p["zonas"]}
-    assert "cuerpo fungiforme (células de Kenyon)" in later
+    assert "células de Kenyon" in later
 
 
 def test_like_with_like():

@@ -215,36 +215,32 @@ termina en la rama `main`, y el dueño actualiza con un único comando.
   Cerebro, `GET /v1/connectome/proof`, `sergio cerebro prueba`). Son pesos de
   verdad y locales, pero no se vende como reentrenar un modelo de lenguaje.
   Algo nuevo que tenga que aprender: un cerebro del núcleo, no otra memoria.
-- **La base es un cerebro humano** (dueño, 25 oct. 2026: «no solo el logo:
-  la base, lo que antes hacía OpenJarvis, simular cómo aprende y funciona un
-  cerebro humano»). `connectome/cortex.py` decide cada turno antes de llamar
-  al modelo: tálamo (código ralo y novedad), amígdala (prisa, peligro, ánimo
-  y cautela aprendida), hipocampo (los engramas de `brain.py`), neocorteza
-  (conceptos que se forman al dormir), prefrontal (memoria de trabajo de 4
-  ideas, tema en curso), cingulada (si duda, el camino cuidadoso), ganglios
-  basales (reflejo / responder / reflexionar / a fondo, actor-crítico Go-NoGo
-  con dopamina), cerebelo (predice cuánto tarda), neuromoduladores y sueño
-  (homeostasis sináptica). Lo que dice el dueño después es la recompensa;
-  «explícame mejor» / «más corto» responden otra vez al mismo tema como lo
-  quiere y enseñan la dirección. Reemplaza en el chat a la puntuación de
-  complejidad heredada (`learning/routing/complexity.py` solo queda si el
-  cerebro está apagado): nivel de esfuerzo, tokens y Terry salen de aquí. El
-  bloque `<mente>` va primero en `mind_context` y está vacío cuando una
-  respuesta normal basta. Se aprende en el equipo (`connectome/humano/`), en
-  0,1 ms por turno, sin red. **Su capa de corteza es humana y real**
-  (dueño, 26 oct. 2026: «si usaste el conectoma de Google, agrégalo»):
-  `connectome/h01.py` con el conectoma H01 de Google (1 mm³ de corteza
-  temporal humana, CC BY 4.0): las neuronas con soma, su tipo y capa, y las
-  sinapsis medidas entre ellas (13 813 neuronas, 118 714 sinapsis), extraídas de las 166 partes del volcado por
-  `scripts/h01_corteza.py` y guardadas en `connectome/data/` con su SHA-256
-  (si no coincide, no se usa). Lo que deja pasar el tálamo entra por la capa
-  4 y recorre las sinapsis reales (piramidales excitan, interneuronas
-  inhiben, solo queda encendido el 3 %); los ganglios basales leen esa
-  respuesta. `SERGIO_H01=0` la apaga. Prueba medida en la página Cerebro, en
-  `/v1/connectome/proof` (`humano`) y en `sergio cerebro prueba`. No es una
-  simulación de 86 mil millones de neuronas y no se vende como tal. Cada
-  prueba nace con un cerebro nuevo (`tests/conftest.py`). Algo nuevo que
-  converse: pasa por `mind_context` y `remember_exchange`, nunca a su lado.
+- **La base es el cerebro real de una mosca, no uno humano** (dueño, 26 oct.
+  2026: «sobre el cerebro no es uno humano, es un cerebro real mapeado por
+  Google (el cerebro de una mosca)»; reemplaza la decisión del 25 oct. de
+  imitar un cerebro humano y la capa H01, que se quitaron).
+  `connectome/decision.py` decide cada turno antes de llamar al modelo, con
+  las partes de la mosca que hacen ese trabajo: lóbulo antenal (código ralo y
+  novedad), cuerno lateral (prisa, peligro, ánimo y cautela aprendida),
+  cuerpo fungiforme (los engramas de `brain.py`) y sus lóbulos α/β
+  (conceptos que se forman al dormir), complejo central (el tema en curso,
+  la duda → camino cuidadoso, y el integrador que predice cuánto tarda),
+  neuronas de salida con dopamina PAM/PPL1 (reflejo / responder /
+  reflexionar / a fondo), octopamina, acetilcolina, serotonina y sueño. Lo
+  que llega cruza el **cableado real** de `connectome/mosca.py`: FlyWire
+  versión 783 (reconstrucción de Google, corrección de Princeton y el
+  consorcio, CC BY 4.0), 49 434 neuronas fuera de los lóbulos ópticos y sus
+  573 006 conexiones de 10 o más sinapsis, en `connectome/data/mosca_*` con
+  SHA-256 (`scripts/mosca_cerebro.py` las rehace desde el bucket público). El
+  signo sigue al transmisor (acetilcolina excita; GABA y glutamato inhiben)
+  y queda encendido ~2 %. Lo aprendido se guarda en
+  `~/.openjarvis/connectome/mosca` (lo del antiguo `humano` se muda solo).
+  `SERGIO_MOSCA=0` quita solo el cableado; `SERGIO_CEREBRO=0` todo. Prueba en
+  la página Cerebro, `/v1/connectome/proof` (`mosca`, `mosca_viva`) y
+  `sergio cerebro prueba`. No es una simulación del comportamiento de la
+  mosca ni un cerebro humano, y no se vende como tal. Cada prueba nace con un
+  cerebro nuevo (`tests/conftest.py`). Algo nuevo que converse: pasa por
+  `mind_context` y `remember_exchange`, nunca a su lado.
 - **Terry** (dueño, 24 oct. 2026): los pedidos medianos y complejos pasan
   antes, en segundo plano, por `agents/terry.py`, que entiende qué se quiere
   y escribe el encargo a la medida del modelo que responde. Nunca aparece
@@ -594,6 +590,10 @@ termina en la rama `main`, y el dueño actualiza con un único comando.
   corre en su propia copia del agente (antes una voz esperaba a un chat) y
   el chat no tiene la herramienta «think» (costaba una llamada extra al
   modelo antes de casi cada respuesta; `SERGIO_THINK_TOOL=1` la devuelve).
+  Capturas de pantalla sin CAPTUREBLT (`windows_backend.no_captureblt`: con
+  él el cursor parpadeaba y se frenaba en cada captura); la pantalla
+  compartida se mira 4 veces por segundo (Gemini recibe 1); la memoria y la
+  decisión del cerebro corren fuera del bucle del servidor.
 - **Una sola ventana de Sergio**: al hacer clic en Sergio con la ventana ya
   abierta (aunque esté minimizada y dormida) se trae al frente esa misma
   (`launch.focus_open_window`); antes se abría otra igual.

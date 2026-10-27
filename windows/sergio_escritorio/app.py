@@ -271,6 +271,10 @@ def start_click_watch(on_click: Callable[[], None], every: float = 0.05) -> None
 
 
 def run(config: dict[str, Any]) -> None:
+    # Hand the interpreter over every 2 ms instead of 5: the audio callbacks,
+    # the notch and the control server get their turn sooner while the eyes
+    # or a capture are busy (voice and cursor without stutter).
+    sys.setswitchinterval(0.002)
     from pynput import keyboard
     from PySide6.QtCore import QObject, Signal
     from PySide6.QtGui import QAction
