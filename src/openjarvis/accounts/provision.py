@@ -24,7 +24,9 @@ customers' names, or keys taken from their accounts (against the providers'
 terms and the customers' own security).
 
 The plaintext key only exists in the create answer; it is kept in
-``~/.openjarvis/cuentas_claves.json`` (0600) and never logged.
+``~/.openjarvis/cuentas_claves.json`` (0600) sealed with AES-256-GCM under
+Sergio's master key and tied to the customer (:mod:`openjarvis.pagos.cifrado`),
+and never logged. Files from before the sealing are sealed on first read.
 """
 
 from __future__ import annotations
@@ -90,9 +92,32 @@ def _path(home: Optional[Path] = None) -> Path:
 def _load(home: Optional[Path] = None) -> Dict[str, Dict[str, Any]]:
     try:
         data = json.loads(_path(home).read_text("utf-8"))
-        return data if isinstance(data, dict) else {}
     except (OSError, ValueError):
         return {}
+    if not isinstance(data, dict):
+        return {}
+    plain = [uid for uid, e in data.items() if isinstance(e, dict) and e.get("key")]
+    if plain:  # written before keys were sealed: seal them now
+        for uid in plain:
+            data[uid]["sealed"] = _seal(uid, data[uid].pop("key"), home)
+        _save(data, home)
+    return data
+
+
+def _seal(uid: str, key: str, home: Optional[Path] = None) -> str:
+    from openjarvis.pagos import cifrado
+
+    return cifrado.seal(key, aad=f"subclave:{uid}", home=_path(home).parent)
+
+
+def _open(uid: str, sealed: str, home: Optional[Path] = None) -> str:
+    from openjarvis.pagos import cifrado
+
+    try:
+        return cifrado.unseal(sealed, aad=f"subclave:{uid}", home=_path(home).parent)
+    except (cifrado.SealError, ValueError):
+        log.warning("customer key cannot be opened (master key changed?)")
+        return ""
 
 
 def _save(data: Dict[str, Dict[str, Any]], home: Optional[Path] = None) -> None:
@@ -130,13 +155,15 @@ def _call(
 
 def key_for(uid: str, home: Optional[Path] = None) -> str:
     entry = _load(home).get(uid) or {}
-    return "" if entry.get("off") else str(entry.get("key") or "")
+    if entry.get("off") or not entry.get("sealed"):
+        return ""
+    return _open(uid, entry["sealed"], home)
 
 
 def status(uid: str, home: Optional[Path] = None) -> Dict[str, Any]:
     entry = _load(home).get(uid) or {}
     return {
-        "activa": bool(entry.get("key")) and not entry.get("off"),
+        "activa": bool(entry.get("sealed")) and not entry.get("off"),
         "plan": entry.get("plan", "free"),
         "tope_usd": entry.get("limit"),
     }
@@ -156,7 +183,7 @@ def ensure(
         return False
     with _LOCK:
         data = _load(home)
-        if data.get(uid, {}).get("key"):
+        if data.get(uid, {}).get("sealed"):
             return True
         limit = budget(plan, usd)
         try:
@@ -174,7 +201,7 @@ def ensure(
         if not key:
             return False
         data[uid] = {
-            "key": key,
+            "sealed": _seal(uid, key, home),
             "hash": info.get("hash", ""),
             "limit": limit,
             "plan": plan,

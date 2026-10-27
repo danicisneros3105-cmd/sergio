@@ -9,6 +9,8 @@
   notice's signature is checked before anything happens)
 * ``GET  /v1/pagos/pedido/{id}``        — how an order is doing
 * ``GET  /v1/pagos/resumen``            — the owner's ledger
+* ``GET  /v1/pagos/estado``             — the owner's setup checklist
+* ``POST /v1/pagos/pedido/{id}/devolver`` — the owner records a refund
 """
 
 from __future__ import annotations
@@ -24,6 +26,7 @@ from openjarvis.pagos import service
 from openjarvis.pagos.gateways import GatewayError
 
 router = APIRouter(prefix="/v1/pagos", tags=["pagos"])
+MAX_NOTICE = 256 * 1024  # a processor's notice is a few KB
 
 
 def _base(request: Request) -> str:
@@ -32,17 +35,20 @@ def _base(request: Request) -> str:
     ).rstrip("/")
 
 
-def _customer(request: Request) -> Dict[str, Any]:
-    from openjarvis.server.accounts_routes import _me
+def _payer(request: Request) -> Dict[str, Any]:
+    """Who pays: an approved customer, or the owner (only the test charge)."""
+    from openjarvis.server.accounts_routes import _me, is_local
 
     me = _me(request)
+    if me and me.get("role") == "dueño":
+        return {"id": me["id"], "owner": True}
+    if not me and is_local(request):
+        return {"id": "dueño", "owner": True}
     if not me:
         raise HTTPException(401, "Entre con su cuenta para pagar.")
-    if me.get("role") == "dueño":
-        raise HTTPException(400, "La cuenta del dueño no paga planes.")
     if me.get("role") != "aprobado":
         raise HTTPException(403, "Su cuenta todavía no está aprobada.")
-    return me
+    return {"id": me["id"], "owner": False}
 
 
 @router.get("/metodos")
@@ -66,10 +72,15 @@ class CheckoutBody(BaseModel):
 
 @router.post("/checkout")
 def checkout(body: CheckoutBody, request: Request) -> Dict[str, Any]:
-    me = _customer(request)
+    me = _payer(request)
     try:
         return service.checkout(
-            me["id"], body.plan, body.mult, body.metodo, _base(request)
+            me["id"],
+            body.plan,
+            body.mult,
+            body.metodo,
+            _base(request),
+            owner=me["owner"],
         )
     except service.PaymentError as exc:
         raise HTTPException(400, str(exc)) from exc
@@ -84,7 +95,11 @@ def vuelta(metodo: str, pedido: str, request: Request) -> RedirectResponse:
 
 @router.post("/aviso/{metodo}")
 async def aviso(metodo: str, request: Request) -> Dict[str, Any]:
+    if int(request.headers.get("content-length") or 0) > MAX_NOTICE:
+        raise HTTPException(413, "Aviso demasiado grande.")
     body = await request.body()
+    if len(body) > MAX_NOTICE:
+        raise HTTPException(413, "Aviso demasiado grande.")
     try:
         done = service.notice(metodo, dict(request.headers), body)
     except service.PaymentError as exc:
@@ -112,6 +127,28 @@ def resumen(request: Request) -> Dict[str, Any]:
 
     _owner(request)
     return service.summary()
+
+
+@router.get("/estado")
+def estado(request: Request, revisar: bool = False) -> Dict[str, Any]:
+    """What is ready to charge and what is missing (``revisar`` asks each
+    processor whether its keys work)."""
+    from openjarvis.server.accounts_routes import _owner
+
+    _owner(request)
+    return service.readiness(_base(request), online=revisar)
+
+
+@router.post("/pedido/{pedido}/devolver")
+def devolver(pedido: str, request: Request) -> Dict[str, Any]:
+    """After refunding in the processor's dashboard, the owner records it."""
+    from openjarvis.server.accounts_routes import _owner
+
+    _owner(request)
+    try:
+        return service.revoke(pedido)
+    except service.PaymentError as exc:
+        raise HTTPException(400, str(exc)) from exc
 
 
 __all__ = ["router"]

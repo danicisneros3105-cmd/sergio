@@ -75,6 +75,46 @@ pública, por ejemplo el túnel) y `OPENROUTER_MANAGEMENT_KEY` para las
 subclaves. `SERGIO_COMISION_STRIPE=0.029+0.30` corrige la comisión estimada
 del libro. `SERGIO_MARGEN` (0.40) es su ganancia sobre cada plan.
 
+## Seguridad
+
+- **Claves de IA de los clientes cifradas** con AES-256-GCM, atadas a cada
+  cliente: una clave copiada a otro cliente no abre. La clave maestra está en
+  `~/.openjarvis/clave_maestra` (0600) o en `SERGIO_CLAVE_MAESTRA`. Guarde
+  una copia fuera del PC; nunca la suba ni la comparta.
+- **Libro sellado**: cada línea lleva un HMAC de su contenido y de la línea
+  anterior. Si alguien edita, borra o mete una línea a mano, «Cobros» dice
+  «Alterado en la línea N». Una devolución es una línea nueva en negativo,
+  nunca un borrado.
+- **Avisos**: firma comprobada (Stripe y Hyperswitch con HMAC; PayPal lo
+  verifica con PayPal), avisos de más de 5 minutos rechazados, tope de
+  256 KB, cada evento cuenta una sola vez, importe y moneda (USD)
+  comprobados.
+- **Pagos repetidos**: cada pedido va con su clave de idempotencia
+  (`Idempotency-Key` en Stripe, `PayPal-Request-Id` en PayPal). Un doble
+  clic no cobra dos veces.
+- **Dinero real solo con https**: con claves reales (`sk_live_`), Sergio no
+  abre un cobro si `SERGIO_PUBLIC_URL` no empieza con `https://`.
+- **Freno**: como mucho 5 intentos de pago por cuenta cada 10 minutos.
+- **Devoluciones y contracargos**: los de PayPal llegan solos. Los de Stripe
+  se hacen en su panel y se marcan con «Devolver» en Cobros. En los dos casos
+  el plan del cliente termina y su clave de IA vuelve a Free.
+
+## Comprobar con su propia tarjeta ($1)
+
+Cuando ya tenga claves reales, en Planes → Facturación → Cobros pulse
+**«Probar con mi tarjeta ($1)»**:
+
+1. Se abre la página segura de Stripe o PayPal. Escriba ahí su tarjeta, y
+   solo ahí: nunca en Sergio ni en un chat.
+2. Al pagar, verá «Listo» con su número de recibo (`SG-AAAA-000001`).
+3. En Cobros aparece el dólar, la comisión y el libro intacto.
+4. Devuelva el dólar desde el panel del procesador y pulse «Devolver» en
+   el pedido.
+
+Así comprueba el camino entero con dinero real sin dar su tarjeta a nadie.
+«Revisar claves con los procesadores» le pregunta a Stripe o PayPal si sus
+claves funcionan.
+
 ## Cómo probarlo sin su tarjeta (recomendado antes de cobrar)
 
 Su tarjeta real no hace falta para probar, y nunca debe escribirse en un chat.

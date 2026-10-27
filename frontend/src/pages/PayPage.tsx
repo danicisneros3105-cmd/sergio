@@ -11,8 +11,16 @@ import { celebrate } from '../lib/celebrate';
 import './plans.css';
 
 type Price = { plan: string; nombre: string; mult: number; usd: number; incluye: string[] };
-type Method = { id: string; nombre: string; detalle: string };
-type Order = { pedido: string; plan: string; usd: number; estado: string; hasta: number | null };
+type Method = { id: string; nombre: string; detalle: string; real: boolean };
+type Order = {
+  pedido: string;
+  plan: string;
+  usd: number;
+  estado: string;
+  hasta: number | null;
+  recibo: string;
+  pagado: number | null;
+};
 
 async function call<T>(path: string, init?: RequestInit): Promise<T> {
   const r = await apiFetch(path, init);
@@ -27,6 +35,7 @@ function Checkout() {
   const [params] = useSearchParams();
   const plan = params.get('plan') || 'go';
   const mult = Number(params.get('mult') || 0);
+  const once = plan === 'prueba';
   const [price, setPrice] = useState<Price | null>(null);
   const [methods, setMethods] = useState<Method[] | null>(null);
   const [busy, setBusy] = useState('');
@@ -61,10 +70,10 @@ function Checkout() {
     <section className="pay-box">
       {price && (
         <div className="pay-summary">
-          <h2>Sergio {price.nombre}</h2>
+          <h2>{once ? price.nombre : `Sergio ${price.nombre}`}</h2>
           <div className="plan-price">
             {money(price.usd)}
-            <small> / mes</small>
+            <small>{once ? ' una vez' : ' / mes'}</small>
           </div>
           <ul>
             {price.incluye.map((x) => (
@@ -77,6 +86,9 @@ function Checkout() {
         <p className="pay-problem" role="alert">
           {problem}
         </p>
+      )}
+      {methods && methods.length > 0 && methods.every((m) => !m.real) && (
+        <p className="pay-mode">Modo de prueba: no se cobra dinero real.</p>
       )}
       {methods && methods.length === 0 && (
         <p className="plans-note">Los pagos todavía no están activados en este Sergio.</p>
@@ -91,13 +103,14 @@ function Checkout() {
             onClick={() => void pay(m)}
           >
             <strong>{busy === m.id ? 'Abriendo…' : m.nombre}</strong>
-            <span>{m.detalle}</span>
+            <span>{once ? 'Pago único, sin renovación.' : m.detalle}</span>
           </button>
         ))}
       </div>
       <p className="plans-note">
-        La tarjeta se escribe en la página segura del procesador de pagos: Sergio nunca la ve ni la guarda. Al pagar, su
-        plan se activa solo.
+        {once
+          ? 'Escriba su tarjeta solo en la página segura del procesador. Después, devuelva el dólar desde su panel.'
+          : 'La tarjeta se escribe en la página segura del procesador de pagos: Sergio nunca la ve ni la guarda. Al pagar, su plan se activa solo.'}
       </p>
     </section>
   );
@@ -118,7 +131,11 @@ function Back({ problem }: { problem: boolean }) {
         if (!live) return;
         setOrder(o);
         if (o.estado === 'pagado') {
-          celebrate({ kind: 'plan', title: 'Pago recibido', detail: 'Su plan quedó activado.' });
+          celebrate({
+            kind: 'plan',
+            title: 'Pago recibido',
+            detail: o.plan === 'prueba' ? 'La prueba de cobro funcionó.' : 'Su plan quedó activado.',
+          });
         } else if (tries < 20) {
           window.setTimeout(() => live && setTries((t) => t + 1), 3000);
         }
@@ -133,8 +150,26 @@ function Back({ problem }: { problem: boolean }) {
   return (
     <section className="pay-box">
       <h2>{paid ? 'Listo' : problem ? 'No se completó el pago' : 'Confirmando el pago…'}</h2>
+      {paid && order && (
+        <div className="plans-rows pay-receipt">
+          <div>
+            <span>Recibo</span>
+            <span>{order.recibo}</span>
+          </div>
+          <div>
+            <span>Importe</span>
+            <span>{money(order.usd)}</span>
+          </div>
+          <div>
+            <span>Fecha</span>
+            <span>{order.pagado ? new Date(order.pagado * 1000).toLocaleString() : ''}</span>
+          </div>
+        </div>
+      )}
       <p className="plans-note">
-        {paid
+        {paid && order?.plan === 'prueba'
+          ? 'Todo el camino funcionó con su tarjeta. Devuelva el dólar desde el panel del procesador y márquelo en Cobros.'
+          : paid
           ? `Su plan ${order?.plan} está activo${order?.hasta ? ` hasta el ${new Date(order.hasta * 1000).toLocaleDateString()}` : ''}.`
           : problem
             ? 'No se cobró nada. Puede intentarlo otra vez.'

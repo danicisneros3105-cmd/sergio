@@ -90,10 +90,13 @@ def test_a_customer_pays_and_everything_switches_on_by_itself(road):
     client, world, ana, token = road
     me = {"Authorization": f"Bearer {token}"}
 
-    # 1. Without an account nobody pays; with hers, the processor's page opens.
+    # 1. Without an account nobody pays (from outside, through the tunnel);
+    # with hers, the processor's page opens.
     assert (
         client.post(
-            "/v1/pagos/checkout", json={"plan": "work", "metodo": "stripe"}
+            "/v1/pagos/checkout",
+            json={"plan": "work", "metodo": "stripe"},
+            headers={"X-Forwarded-For": "1.2.3.4"},
         ).status_code
         == 401
     )

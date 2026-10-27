@@ -40,7 +40,8 @@ class Paid:
     usd: float
     event: str = ""
     ext: str = ""
-    kind: str = "pago"  # "pago", "renovacion" or "baja"
+    kind: str = "pago"  # "pago", "renovacion", "baja" or "reembolso"
+    currency: str = "USD"
 
 
 class GatewayError(RuntimeError):
@@ -75,6 +76,14 @@ class Gateway:
         return self._http_client
 
     def ready(self) -> bool:
+        raise NotImplementedError
+
+    def live(self) -> bool:
+        """True with real money; False in the processor's test mode."""
+        raise NotImplementedError
+
+    def check(self) -> str:
+        """Ask the processor whether the keys work: "" or what is wrong."""
         raise NotImplementedError
 
     def start(
@@ -119,25 +128,42 @@ class Stripe(Gateway):
     def ready(self) -> bool:
         return bool(_env("STRIPE_SECRET_KEY") and _env("STRIPE_WEBHOOK_SECRET"))
 
+    def live(self) -> bool:
+        return _env("STRIPE_SECRET_KEY").startswith(("sk_live_", "rk_live_"))
+
+    def _auth(self) -> Dict[str, str]:
+        return {"Authorization": f"Bearer {_env('STRIPE_SECRET_KEY')}"}
+
+    def check(self) -> str:
+        try:
+            resp = self.http.get(f"{self.API}/balance", headers=self._auth())
+        except Exception:  # noqa: BLE001
+            return "Stripe no responde."
+        return "" if resp.status_code < 400 else "Stripe no acepta la clave."
+
     def start(self, order, title, back, cancel):  # noqa: ANN001, ANN201
         cents = int(round(float(order["usd"]) * 100))
+        once = order.get("plan") == "prueba"  # the owner's one-off real test
         form = {
-            "mode": "subscription",
+            "mode": "payment" if once else "subscription",
             "client_reference_id": order["id"],
             "success_url": back,
             "cancel_url": cancel,
             "line_items[0][quantity]": "1",
             "line_items[0][price_data][currency]": "usd",
             "line_items[0][price_data][unit_amount]": str(cents),
-            "line_items[0][price_data][recurring][interval]": "month",
             "line_items[0][price_data][product_data][name]": title,
             "metadata[pedido]": order["id"],
-            "subscription_data[metadata][pedido]": order["id"],
         }
+        if once:
+            form["payment_intent_data[metadata][pedido]"] = order["id"]
+        else:
+            form["line_items[0][price_data][recurring][interval]"] = "month"
+            form["subscription_data[metadata][pedido]"] = order["id"]
         resp = self.http.post(
             f"{self.API}/checkout/sessions",
             data=form,
-            headers={"Authorization": f"Bearer {_env('STRIPE_SECRET_KEY')}"},
+            headers={**self._auth(), "Idempotency-Key": f"sergio-{order['id']}"},
         )
         if resp.status_code >= 400:
             raise GatewayError(f"Stripe respondió {resp.status_code}")
@@ -171,6 +197,7 @@ class Stripe(Gateway):
                     usd=(obj.get("amount_total") or 0) / 100,
                     event=eid,
                     ext=obj.get("subscription") or obj.get("id", ""),
+                    currency=str(obj.get("currency") or "").upper(),
                 )
             ]
         if kind == "invoice.paid" and obj.get("billing_reason") == "subscription_cycle":
@@ -187,6 +214,7 @@ class Stripe(Gateway):
                     usd=(obj.get("amount_paid") or 0) / 100,
                     event=eid,
                     kind="renovacion",
+                    currency=str(obj.get("currency") or "").upper(),
                 )
             ]
         if kind == "customer.subscription.deleted":
@@ -219,6 +247,16 @@ class PayPal(Gateway):
             _env(n) for n in ("PAYPAL_CLIENT_ID", "PAYPAL_SECRET", "PAYPAL_WEBHOOK_ID")
         )
 
+    def live(self) -> bool:
+        return _env("PAYPAL_MODO").lower() != "sandbox"
+
+    def check(self) -> str:
+        try:
+            self._token()
+        except Exception:  # noqa: BLE001
+            return "PayPal no acepta el Client ID y el secreto."
+        return ""
+
     def _token(self) -> str:
         resp = self.http.post(
             f"{self.api}/v1/oauth2/token",
@@ -229,15 +267,14 @@ class PayPal(Gateway):
             raise GatewayError(f"PayPal respondió {resp.status_code}")
         return resp.json()["access_token"]
 
-    def _call(self, path: str, body: Dict[str, Any]) -> Dict[str, Any]:
-        resp = self.http.post(
-            f"{self.api}{path}",
-            json=body,
-            headers={
-                "Authorization": f"Bearer {self._token()}",
-                "Content-Type": "application/json",
-            },
-        )
+    def _call(self, path: str, body: Dict[str, Any], once: str = "") -> Dict[str, Any]:
+        headers = {
+            "Authorization": f"Bearer {self._token()}",
+            "Content-Type": "application/json",
+        }
+        if once:  # the same request twice creates or captures only once
+            headers["PayPal-Request-Id"] = once
+        resp = self.http.post(f"{self.api}{path}", json=body, headers=headers)
         if resp.status_code >= 400:
             raise GatewayError(f"PayPal respondió {resp.status_code}")
         return resp.json()
@@ -269,6 +306,7 @@ class PayPal(Gateway):
                     }
                 },
             },
+            once=f"sergio-{order['id']}",
         )
         link = next(
             (
@@ -294,6 +332,7 @@ class PayPal(Gateway):
                             usd=float((cap.get("amount") or {}).get("value") or 0),
                             event=event or cap.get("id", ""),
                             ext=out.get("id", ""),
+                            currency=(cap.get("amount") or {}).get("currency_code", ""),
                         )
                     )
         return paid
@@ -302,7 +341,9 @@ class PayPal(Gateway):
         ext = query.get("token") or order.get("ext", "")
         if not ext or ext != order.get("ext"):
             return None
-        out = self._call(f"/v2/checkout/orders/{ext}/capture", {})
+        out = self._call(
+            f"/v2/checkout/orders/{ext}/capture", {}, once=f"sergio-cap-{order['id']}"
+        )
         paid = self._captured(out)
         return paid[0] if paid else None
 
@@ -323,17 +364,31 @@ class PayPal(Gateway):
         )
         if check.get("verification_status") != "SUCCESS":
             raise GatewayError("PayPal no reconoce ese aviso")
-        if event.get("event_type") != "PAYMENT.CAPTURE.COMPLETED":
-            return []
+        kind = event.get("event_type")
         res = event.get("resource") or {}
-        return [
-            Paid(
-                order=res.get("custom_id", ""),
-                usd=float((res.get("amount") or {}).get("value") or 0),
-                # The capture id, so the return and the notice count once.
-                event=res.get("id", "") or event.get("id", ""),
-            )
-        ]
+        amount = res.get("amount") or {}
+        if kind == "PAYMENT.CAPTURE.COMPLETED":
+            return [
+                Paid(
+                    order=res.get("custom_id", ""),
+                    usd=float(amount.get("value") or 0),
+                    # The capture id, so the return and the notice count once.
+                    event=res.get("id", "") or event.get("id", ""),
+                    currency=amount.get("currency_code", ""),
+                )
+            ]
+        # Money given back (a refund) or taken back by the bank (a chargeback).
+        if kind in ("PAYMENT.CAPTURE.REFUNDED", "PAYMENT.CAPTURE.REVERSED"):
+            return [
+                Paid(
+                    order=res.get("custom_id", ""),
+                    usd=float(amount.get("value") or 0),
+                    event=event.get("id", "") or res.get("id", ""),
+                    kind="reembolso",
+                    currency=amount.get("currency_code", ""),
+                )
+            ]
+        return []
 
 
 # -- Hyperswitch (open source, self-hosted) -----------------------------------
@@ -348,6 +403,17 @@ class Hyperswitch(Gateway):
             _env(n)
             for n in ("HYPERSWITCH_URL", "HYPERSWITCH_API_KEY", "HYPERSWITCH_HASH_KEY")
         )
+
+    def live(self) -> bool:
+        # Hyperswitch's sandbox keys start with "snd_" (its live ones with "prd_").
+        return not _env("HYPERSWITCH_API_KEY").startswith("snd_")
+
+    def check(self) -> str:
+        try:
+            resp = self.http.get(f"{_env('HYPERSWITCH_URL').rstrip('/')}/health")
+        except Exception:  # noqa: BLE001
+            return "Su Hyperswitch no responde."
+        return "" if resp.status_code < 400 else "Su Hyperswitch no está sano."
 
     def start(self, order, title, back, cancel):  # noqa: ANN001, ANN201
         resp = self.http.post(
@@ -390,6 +456,7 @@ class Hyperswitch(Gateway):
                 usd=(obj.get("amount_received") or obj.get("amount") or 0) / 100,
                 event=event.get("event_id", "") or obj.get("payment_id", ""),
                 ext=obj.get("payment_id", ""),
+                currency=str(obj.get("currency") or "").upper(),
             )
         ]
 

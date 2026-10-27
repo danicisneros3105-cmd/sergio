@@ -5,6 +5,12 @@ Every paid order leaves four lines: ``ingreso`` (what the customer paid),
 customer's AI may cost this month: their sub-key's limit) and ``margen`` (what
 stays with the owner). A notice that arrives twice is recorded once
 (``events`` is keyed by the processor's own event id).
+
+The ledger is append-only and **sealed**: each line carries an HMAC (under
+Sergio's master key, :mod:`.cifrado`) of its content and of the line before
+it, so a line edited, removed or slipped in by hand breaks the chain and
+:func:`verify` says where. A refund is a new line with a negative amount,
+never an edit. Each paid order gets a receipt number (``SG-AAAA-000001``).
 """
 
 from __future__ import annotations
@@ -31,9 +37,12 @@ CREATE TABLE IF NOT EXISTS events (
   PRIMARY KEY (method, event)
 );
 CREATE TABLE IF NOT EXISTS entries (
-  order_id TEXT NOT NULL, kind TEXT NOT NULL, usd REAL NOT NULL, at REAL NOT NULL
+  order_id TEXT NOT NULL, kind TEXT NOT NULL, usd REAL NOT NULL, at REAL NOT NULL,
+  prev TEXT DEFAULT '', sig TEXT DEFAULT ''
 );
 """
+_ADDED = (("orders", "recibo", "TEXT DEFAULT ''"), ("entries", "prev", "TEXT DEFAULT ''"),
+          ("entries", "sig", "TEXT DEFAULT ''"))  # fmt: skip
 
 
 def _path(home: Optional[Path] = None) -> Path:
@@ -58,6 +67,10 @@ def _db(home: Optional[Path] = None) -> Iterator[sqlite3.Connection]:
             except OSError:
                 pass
         con.executescript(_SCHEMA)
+        for table, col, kind in _ADDED:
+            cols = {r[1] for r in con.execute(f"PRAGMA table_info({table})")}
+            if col not in cols:
+                con.execute(f"ALTER TABLE {table} ADD COLUMN {col} {kind}")
         yield con
         con.commit()
     finally:
@@ -107,19 +120,78 @@ def first_time(method: str, event: str, home: Any = None) -> bool:
         return cur.rowcount == 1
 
 
-def mark_paid(
-    oid: str, until: float, lines: Dict[str, float], home: Any = None
+def _line_text(oid: str, kind: str, usd: float, at: float, prev: str) -> str:
+    return f"{oid}|{kind}|{usd:.2f}|{at:.6f}|{prev}"
+
+
+def _write_lines(
+    db: sqlite3.Connection, oid: str, lines: Dict[str, float], now: float, home: Any
 ) -> None:
-    now = time.time()
-    with _LOCK, _db(home) as db:
+    from openjarvis.pagos import cifrado
+
+    last = db.execute("SELECT sig FROM entries ORDER BY rowid DESC LIMIT 1").fetchone()
+    prev = last["sig"] if last else ""
+    for kind, usd in lines.items():
+        usd = round(usd, 2)
+        sig = cifrado.sign(_line_text(oid, kind, usd, now, prev), _home_of(home))
         db.execute(
-            "UPDATE orders SET status = 'pagado', paid = ?, until = ? WHERE id = ?",
-            (now, until, oid),
+            "INSERT INTO entries (order_id, kind, usd, at, prev, sig) VALUES (?,?,?,?,?,?)",
+            (oid, kind, usd, now, prev, sig),
         )
-        db.executemany(
-            "INSERT INTO entries VALUES (?,?,?,?)",
-            [(oid, k, round(v, 2), now) for k, v in lines.items()],
+        prev = sig
+
+
+def _home_of(home: Any) -> Any:
+    return _path(home).parent
+
+
+def mark_paid(oid: str, until: float, lines: Dict[str, float], home: Any = None) -> str:
+    """Paid: the order's month, its receipt number and its ledger lines."""
+    now = time.time()
+    year = time.strftime("%Y", time.localtime(now))
+    with _LOCK, _db(home) as db:
+        n = db.execute(
+            "SELECT COUNT(*) FROM orders WHERE recibo LIKE ?", (f"SG-{year}-%",)
+        ).fetchone()[0]
+        receipt = f"SG-{year}-{n + 1:06d}"
+        db.execute(
+            "UPDATE orders SET status = 'pagado', paid = ?, until = ?, recibo = ? "
+            "WHERE id = ?",
+            (now, until, receipt, oid),
         )
+        _write_lines(db, oid, lines, now, home)
+    return receipt
+
+
+def add_lines(oid: str, lines: Dict[str, float], home: Any = None) -> None:
+    """More ledger lines for an order (a refund: negative amounts)."""
+    with _LOCK, _db(home) as db:
+        _write_lines(db, oid, lines, time.time(), home)
+
+
+def verify(home: Any = None) -> Dict[str, Any]:
+    """Walk the sealed chain. ``integro`` False names the first broken line."""
+    from openjarvis.pagos import cifrado
+
+    with _db(home) as db:
+        rows = db.execute("SELECT rowid, * FROM entries ORDER BY rowid").fetchall()
+    prev = ""
+    for i, r in enumerate(rows):
+        want = cifrado.sign(
+            _line_text(r["order_id"], r["kind"], r["usd"], r["at"], prev),
+            _home_of(home),
+        )
+        if r["prev"] != prev or not cifrado.same(want, r["sig"]):
+            return {"integro": False, "lineas": len(rows), "rota_en": i + 1}
+        prev = r["sig"]
+    return {"integro": True, "lineas": len(rows), "rota_en": None}
+
+
+def opened_since(uid: str, since: float, home: Any = None) -> int:
+    with _db(home) as db:
+        return db.execute(
+            "SELECT COUNT(*) FROM orders WHERE uid = ? AND created >= ?", (uid, since)
+        ).fetchone()[0]
 
 
 def mark(oid: str, status: str, home: Any = None) -> None:
@@ -128,12 +200,12 @@ def mark(oid: str, status: str, home: Any = None) -> None:
 
 
 def latest_paid(home: Any = None) -> List[Dict[str, Any]]:
-    """Each customer's most recent paid order."""
+    """Each customer's most recent paid plan (the owner's test charges aside)."""
     with _db(home) as db:
         rows = db.execute(
-            "SELECT * FROM orders WHERE status = 'pagado' AND paid = "
-            "(SELECT MAX(paid) FROM orders o WHERE o.uid = orders.uid "
-            "AND o.status = 'pagado')"
+            "SELECT * FROM orders WHERE status = 'pagado' AND plan != 'prueba' "
+            "AND paid = (SELECT MAX(paid) FROM orders o WHERE o.uid = orders.uid "
+            "AND o.status = 'pagado' AND o.plan != 'prueba')"
         ).fetchall()
     return [dict(r) for r in rows]
 
@@ -179,6 +251,7 @@ def recent(limit: int = 20, home: Any = None) -> List[Dict[str, Any]]:
 
 
 __all__ = [
+    "add_lines",
     "by_ext",
     "end_now",
     "first_time",
@@ -187,8 +260,10 @@ __all__ = [
     "mark",
     "mark_paid",
     "new_order",
+    "opened_since",
     "paid_until",
     "recent",
     "set_ext",
     "totals",
+    "verify",
 ]

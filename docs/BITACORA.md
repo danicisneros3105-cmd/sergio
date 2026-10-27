@@ -2,6 +2,20 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-10-27 · Claude · Sergio Pagos endurecido
+- Cifrado: las subclaves de IA de los clientes se guardan con AES-256-GCM,
+  atadas a cada cliente. Los archivos viejos se cifran solos al leerlos.
+- Libro sellado con HMAC encadenado (detecta líneas cambiadas, borradas o
+  metidas a mano), recibos numerados y devoluciones como líneas en negativo.
+- Seguridad: idempotencia, moneda, https obligatorio con dinero real, freno
+  de intentos y tope de tamaño de los avisos. Reembolsos y contracargos de
+  PayPal automáticos; «Devolver» para Stripe.
+- Profesional: lista de pasos con revisión en línea de las claves, dirección
+  de avisos lista para copiar, modo prueba o real a la vista, recibo en
+  «Listo» y «Probar con mi tarjeta ($1)» para el dueño.
+- El dueño volvió a ofrecer su número de tarjeta: no se acepta. La prueba
+  real se hace en la página del procesador.
+
 ## 2026-10-27 · Claude · Sergio Pagos
 - Caja de cobro propia: página «Pagar» con el diseño de Sergio, pedidos, avisos
   firmados de Stripe, PayPal y Hyperswitch (código abierto), libro con

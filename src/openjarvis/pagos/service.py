@@ -22,6 +22,9 @@ from openjarvis.pagos.gateways import GATEWAYS, Gateway, GatewayError, Paid, get
 
 MONTH = 31 * 86400
 EXPIRY_EVERY = 3600
+TEST_USD = 1.00  # the owner's real test charge, to refund afterwards
+MAX_OPEN = 5  # orders one account may open in WINDOW seconds
+WINDOW = 600
 log = logging.getLogger(__name__)
 
 
@@ -29,13 +32,24 @@ class PaymentError(ValueError):
     pass
 
 
-def methods(http: Any = None) -> List[Dict[str, str]]:
+def _https(base: str) -> bool:
+    return base.startswith("https://")
+
+
+def methods(http: Any = None) -> List[Dict[str, Any]]:
     """The ways to pay that are switched on (their keys are in sergio.env)."""
     out = []
     for key in GATEWAYS:
         gw = get(key, http)
         if gw is not None and gw.ready():
-            out.append({"id": gw.key, "nombre": gw.label, "detalle": gw.detail})
+            out.append(
+                {
+                    "id": gw.key,
+                    "nombre": gw.label,
+                    "detalle": gw.detail,
+                    "real": gw.live(),
+                }
+            )
     return out
 
 
@@ -49,6 +63,18 @@ def _gateway(method: str, http: Any = None) -> Gateway:
 def price(plan: str, mult: int = 0) -> Dict[str, Any]:
     from openjarvis import tiers
 
+    if plan == "prueba":
+        return {
+            "plan": "prueba",
+            "nombre": "Prueba de cobro",
+            "mult": 0,
+            "usd": TEST_USD,
+            "incluye": [
+                "Un cobro real de $1 con su propia tarjeta",
+                "Recorre todo: página segura, aviso firmado, recibo y libro",
+                "Devuélvalo después desde el panel del procesador",
+            ],
+        }
     plan = tiers.plan_id(plan)
     if plan not in tiers.PLANS or plan == "free":
         raise PaymentError("Ese plan no se paga.")
@@ -70,20 +96,40 @@ def checkout(
     method: str,
     base: str,
     *,
+    owner: bool = False,
     http: Any = None,
     home: Any = None,
 ) -> Dict[str, str]:
-    """Open an order and the processor's page. Returns ``{url, pedido}``."""
+    """Open an order and the processor's page. Returns ``{url, pedido}``.
+    The owner may only open the real test charge (``plan="prueba"``)."""
     if not uid:
         raise PaymentError("Entre con su cuenta para pagar.")
+    if owner != (plan == "prueba"):
+        raise PaymentError(
+            "La prueba de cobro es solo para el dueño."
+            if plan == "prueba"
+            else "La cuenta del dueño no paga planes."
+        )
     p = price(plan, mult)
     gw = _gateway(method, http)
+    if gw.live() and not _https(base):
+        raise PaymentError(
+            "Para cobrar dinero real Sergio necesita una dirección https "
+            "(SERGIO_PUBLIC_URL)."
+        )
+    if ledger.opened_since(uid, time.time() - WINDOW, home) >= MAX_OPEN:
+        raise PaymentError("Demasiados intentos de pago. Espere unos minutos.")
     order = ledger.new_order(uid, p["plan"], p["mult"], p["usd"], gw.key, home)
     base = base.rstrip("/")
     back = f"{base}/v1/pagos/vuelta/{gw.key}?pedido={order['id']}"
     cancel = f"{base}/pagar?plan={p['plan']}&mult={p['mult']}&cancelado=1"
     try:
-        page = gw.start(order, f"Sergio {p['nombre']} (1 mes)", back, cancel)
+        title = (
+            "Sergio · prueba de cobro"
+            if p["plan"] == "prueba"
+            else f"Sergio {p['nombre']} (1 mes)"
+        )
+        page = gw.start(order, title, back, cancel)
     except (GatewayError, KeyError, ValueError) as exc:
         ledger.mark(order["id"], "fallido", home)
         log.warning("checkout not opened: %s", exc)
@@ -113,9 +159,15 @@ def settle(paid: Paid, method: str, *, home: Any = None) -> Dict[str, Any]:
         return {"ok": False, "motivo": "pedido desconocido"}
     if not ledger.first_time(method, paid.event, home):
         return {"ok": True, "repetido": True, "pedido": order["id"]}
+    if paid.currency and paid.currency.upper() != "USD":
+        ledger.mark(order["id"], "moneda_incorrecta", home)
+        log.warning("order %s paid in %s", order["id"], paid.currency)
+        return {"ok": False, "motivo": "moneda incorrecta"}
     if paid.kind == "baja":
         ledger.end_now(order["uid"], home)
         return {"ok": True, "baja": True, "pedido": order["id"]}
+    if paid.kind == "reembolso":
+        return _give_back(order, paid.usd, home)
     if paid.usd + 0.01 < float(order["usd"]):
         ledger.mark(order["id"], "importe_incorrecto", home)
         log.warning(
@@ -130,11 +182,12 @@ def settle(paid: Paid, method: str, *, home: Any = None) -> Dict[str, Any]:
     gw = get(method)
     usd = float(order["usd"])
     fee = gw.fee(usd) if gw else 0.0
-    ai = provision.budget(order["plan"], usd)
-    start = max(time.time(), ledger.paid_until(order["uid"], home))
-    ledger.mark_paid(
+    test = order["plan"] == "prueba"
+    ai = 0.0 if test else provision.budget(order["plan"], usd)
+    start = max(time.time(), 0 if test else ledger.paid_until(order["uid"], home))
+    receipt = ledger.mark_paid(
         order["id"],
-        start + MONTH * (gw.months_per_payment if gw else 1),
+        time.time() if test else start + MONTH * (gw.months_per_payment if gw else 1),
         {
             "ingreso": usd,
             "comision": fee,
@@ -143,8 +196,31 @@ def settle(paid: Paid, method: str, *, home: Any = None) -> Dict[str, Any]:
         },
         home,
     )
-    active = _activate(order["uid"], order["plan"], usd)
-    return {"ok": True, "pedido": order["id"], "clave_ia": active}
+    active = False if test else _activate(order["uid"], order["plan"], usd)
+    return {"ok": True, "pedido": order["id"], "recibo": receipt, "clave_ia": active}
+
+
+def _give_back(order: Dict[str, Any], usd: float, home: Any) -> Dict[str, Any]:
+    """Money returned (refund or chargeback): the books say so with new lines
+    and the customer's paid time ends now."""
+    from openjarvis.accounts import provision
+
+    usd = min(abs(usd) or float(order["usd"]), float(order["usd"]))
+    ledger.add_lines(order["id"], {"ingreso": -usd, "margen": -usd}, home)
+    ledger.mark(order["id"], "reembolsado", home)
+    if order["plan"] != "prueba":
+        ledger.end_now(order["uid"], home)
+        if provision.key_for(order["uid"]):
+            provision.set_plan(order["uid"], "free")
+    return {"ok": True, "reembolso": usd, "pedido": order["id"]}
+
+
+def revoke(order_id: str, *, home: Any = None) -> Dict[str, Any]:
+    """The owner refunded in the processor's dashboard: record it here."""
+    o = ledger.get(order_id, home)
+    if o is None or o["status"] != "pagado":
+        raise PaymentError("Solo se devuelve un pedido pagado.")
+    return _give_back(o, float(o["usd"]), home)
 
 
 def notice(
@@ -190,6 +266,60 @@ def order(
         "usd": o["usd"],
         "estado": o["status"],
         "hasta": o["until"],
+        "recibo": o.get("recibo") or "",
+        "metodo": o["method"],
+        "pagado": o["paid"],
+    }
+
+
+def readiness(base: str, *, online: bool = False, http: Any = None) -> Dict[str, Any]:
+    """What is set up and what is missing, in the owner's words."""
+    from openjarvis.accounts import provision
+
+    steps: List[Dict[str, Any]] = []
+    on = []
+    for key in GATEWAYS:
+        gw = get(key, http)
+        if gw is None or not gw.ready():
+            continue
+        problem = gw.check() if online else ""
+        on.append(gw)
+        steps.append(
+            {
+                "paso": f"{gw.label}: claves puestas",
+                "ok": not problem,
+                "detalle": problem
+                or ("Cobra dinero real." if gw.live() else "Modo de prueba."),
+            }
+        )
+    if not on:
+        steps.append(
+            {
+                "paso": "Una forma de pago",
+                "ok": False,
+                "detalle": "Ponga las claves de Stripe o PayPal en sergio.env.",
+            }
+        )
+    steps.append(
+        {
+            "paso": "Dirección pública https",
+            "ok": _https(base),
+            "detalle": base if _https(base) else "Falta SERGIO_PUBLIC_URL con https.",
+        }
+    )
+    steps.append(
+        {
+            "paso": "Claves de IA por cliente (OpenRouter)",
+            "ok": provision.enabled(),
+            "detalle": "Lista."
+            if provision.enabled()
+            else "Falta OPENROUTER_MANAGEMENT_KEY.",
+        }
+    )
+    return {
+        "listo": all(x["ok"] for x in steps),
+        "pasos": steps,
+        "avisos": {gw.key: f"{base.rstrip('/')}/v1/pagos/aviso/{gw.key}" for gw in on},
     }
 
 
@@ -244,8 +374,12 @@ def summary(*, http: Any = None, home: Any = None) -> Dict[str, Any]:
         "saldo_openrouter_usd": balance,
         "falta_saldo": balance is not None and balance < owed,
         "claves_ia": provision.enabled(),
+        "libro": ledger.verify(home),
         "ultimos": [
-            {k: o[k] for k in ("id", "plan", "usd", "method", "status", "created")}
+            {
+                k: o.get(k)
+                for k in ("id", "plan", "usd", "method", "status", "created", "recibo")
+            }
             for o in ledger.recent(10, home)
         ],
     }
@@ -280,6 +414,8 @@ __all__ = [
     "notice",
     "order",
     "price",
+    "readiness",
+    "revoke",
     "settle",
     "start_expiry_loop",
     "summary",

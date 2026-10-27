@@ -55,3 +55,14 @@
 .pay-method:disabled { opacity: 0.55; cursor: default; }
 .pay-problem { margin: 0; font-size: 14px; color: var(--color-text); }
 .pagos-panel { margin-top: 24px; display: grid; gap: 8px; }
+.pay-mode { margin: 0; font-size: 13px; color: var(--color-text-secondary); text-align: center; }
+.pay-receipt { margin-top: 4px; }
+.pagos-steps { display: grid; gap: 8px; padding: 14px 16px; border-radius: 16px; background: var(--color-surface); border: 1px solid var(--color-border); }
+.pagos-step { display: grid; grid-template-columns: 22px 1fr; gap: 8px; align-items: start; font-size: 14px; }
+.pagos-step > span { display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; font-size: 12px; font-weight: 700; color: #fff; background: #34c759; }
+.pagos-step[data-ok='false'] > span { background: #ff9500; }
+.pagos-step strong { display: block; font-weight: 500; }
+.pagos-step small { color: var(--color-text-secondary); overflow-wrap: anywhere; }
+.pagos-step code { font-size: 12px; }
+.pagos-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+.pagos-link { margin-left: 10px; background: none; border: 0; padding: 0; color: var(--color-accent); cursor: pointer; font: inherit; }

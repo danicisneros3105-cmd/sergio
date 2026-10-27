@@ -640,6 +640,18 @@ termina en la rama `main`, y el dueño actualiza con un único comando.
   bancarios del dueño van solo en el panel del procesador**, nunca en Sergio
   ni en un chat (`docs/PAGOS.md`). Sergio no se presenta como procesador de
   pagos: eso exige licencias.
+  **Endurecido** (dueño, 27 oct. 2026: «mejorar cifrado, profesionalismo y
+  seguridad»): subclaves de IA cifradas con AES-256-GCM y atadas al cliente
+  (`pagos/cifrado.py`, clave maestra local 0600 o `SERGIO_CLAVE_MAESTRA`);
+  libro sellado con HMAC encadenado (`ledger.verify`) y devoluciones como
+  líneas negativas; recibos `SG-AAAA-NNNNNN`; idempotencia en Stripe y
+  PayPal; moneda USD comprobada; dinero real solo con https; 5 intentos cada
+  10 min; aviso de 256 KB como máximo; reembolsos y contracargos de PayPal
+  automáticos, los de Stripe con «Devolver»; lista de pasos
+  (`/v1/pagos/estado`). El dueño comprueba con su tarjeta mediante «Probar
+  con mi tarjeta ($1)», escribiéndola solo en la página del procesador.
+  **Nunca se aceptan números de tarjeta ni datos bancarios en un chat**, ni
+  se guardan en Sergio.
 - Kimi como proveedor y «Digitalsnickers» están descartados.
 - Licencia Apache-2.0 y autoría honesta: no se borran créditos del original.
 
