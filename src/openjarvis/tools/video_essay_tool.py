@@ -76,7 +76,18 @@ class VideoEssayTool(BaseTool):
                     "seconds": {"type": "number"},
                     "aspect": {"type": "string", "enum": ["16:9", "9:16", "1:1"]},
                     "clips": {"type": "string"},
-                    "music": {"type": "string"},
+                    "music": {
+                        "type": "string",
+                        "description": "Empty: free music from the internet for the mood "
+                        "(credited), or Sergio's own bed. A file path: the owner's song. "
+                        "'canción: <name>': that song by name (not free; may be claimed). "
+                        "Words ('piano triste'): free music for them. 'ninguna': none.",
+                    },
+                    "monetize": {
+                        "type": "boolean",
+                        "description": "False when the video will not earn money "
+                        "(non-commercial CC music allowed then).",
+                    },
                     "ai_video": {"type": "boolean"},
                     "web_clips": {"type": "boolean"},
                     "job": {"type": "string"},
@@ -148,6 +159,7 @@ class VideoEssayTool(BaseTool):
             "music": str(params.get("music") or "").strip(),
             "ai_video": bool(params.get("ai_video", False)),
             "web_clips": bool(params.get("web_clips", True)),
+            "monetize": params.get("monetize", True) is not False,
         }
         existing, why = jobs.guard(order)
         if existing is not None:

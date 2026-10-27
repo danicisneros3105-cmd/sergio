@@ -224,7 +224,7 @@ def package(
     if len(lines) >= 3:
         description += "\n\n" + "\n".join(lines)
     if credits:
-        description += "\n\nCréditos de imágenes y clips:\n" + credits
+        description += "\n\nCréditos de imágenes, clips y música:\n" + credits
     return {
         "title": str(data.get("title") or title)[:100],
         "description": description[:4900],
@@ -232,7 +232,7 @@ def package(
         "hashtags": [str(t) for t in data.get("hashtags") or []][:5],
         "thumbnail_text": str(data.get("thumbnail_text") or title)[:40],
         "note": (
-            "Lleva clips de terceros: las plataformas pueden reclamarlos o quitarles la monetización."
+            "Lleva clips o música de terceros: las plataformas pueden reclamarlos o quitarles la monetización."
             if credits and "no libre" in credits
             else ""
         ),

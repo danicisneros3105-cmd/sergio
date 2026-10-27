@@ -311,6 +311,30 @@ def search_web(
     return out
 
 
+SCENE_WORDS = ("movie scene", "film clip", "series scene")
+
+
+def search_scenes(
+    query: str, n: int, runner: Optional[Callable[[List[str]], str]] = None
+) -> List[Candidate]:
+    """A scene of a film or a series that shows the idea (official clip
+    channels and trailers on YouTube, found with yt-dlp). Same rule as web
+    clips: a few seconds, credited, and the posting package warns that the
+    owner of the film can claim it."""
+    out: List[Candidate] = []
+    for words in SCENE_WORDS[:2]:
+        if len(out) >= n:
+            break
+        for c in search_web(f"{query[:70]} {words}", n - len(out), runner):
+            if all(c.url != o.url for o in out):
+                c.source, c.licence = (
+                    "web",
+                    "Escena de película o serie: uso con cita (no libre)",
+                )
+                out.append(c)
+    return out[:n]
+
+
 # -- fetching ------------------------------------------------------------------------------
 
 
@@ -370,6 +394,7 @@ SEARCHES = {
     "nasa": lambda q, n, landscape: search_nasa(q, n),
     "archive": lambda q, n, landscape: search_archive(q, n),
     "web": lambda q, n, landscape: search_web(q, n),
+    "film": lambda q, n, landscape: search_scenes(q, n),
 }
 
 
@@ -479,12 +504,14 @@ def credits_text(items: Iterable[Dict[str, Any]]) -> str:
             continue
         seen.add(key)
         who = f"{c.get('credit')} — " if c.get("credit") else ""
+        if c.get("kind") == "música":
+            who = "Música: " + who
         lines.append(f"{who}{c.get('licence', '')}: {c.get('url', '')}")
     return "\n".join(lines)
 
 
 __all__ = [
     "Candidate", "SEARCHES", "choose", "credits_text", "fetch", "find", "frame_of", "own_folders",
-    "search_archive", "search_commons", "search_nasa", "search_pexels", "search_pixabay", "search_web",
+    "search_archive", "search_commons", "search_nasa", "search_pexels", "search_pixabay", "search_scenes", "search_web",
     "web_allowed", "ytdlp",
 ]  # fmt: skip

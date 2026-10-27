@@ -9,6 +9,13 @@ colour (the «karaoke» look of the best short videos).
 There are no word timestamps here, so the time of each word comes from its
 length inside its sentence (long words take longer to say). ffmpeg draws it
 with libass (``ass=`` filter); :func:`ass_document` is pure, for the tests.
+
+27 Oct 2026, «diferentes tipografías en diferentes partes, como NextCore»:
+with ``varied`` (the default) each chunk takes the face its words ask for
+(:func:`openjarvis.video_essay.typo.face_for`): one or two punch words in
+tall condensed capitals in the middle of the frame, numbers in the
+technical face at the top, a quote or a feeling in the serif italic, the
+rest in the house face at the bottom.
 """
 
 from __future__ import annotations
@@ -75,6 +82,7 @@ def ass_document(
     height: int,
     *,
     upper: bool = True,
+    varied: bool = True,
 ) -> str:
     """The whole video's captions, as an ASS script."""
     vertical = height > width
@@ -87,27 +95,60 @@ def ass_document(
         "Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding"
     )
     side = int(width * 0.08)
-    style = ",".join(
-        str(v)
-        for v in ("Pop", FAMILY, size, WHITE, ACCENT, OUTLINE, SHADOW, -1, 0, 0, 0, 100, 100, -1, 0, 1,
-                  max(3, size // 11), max(2, size // 18), 2, side, side, margin_v, 1)
-    )  # fmt: skip
+    from openjarvis.video_essay import typo
+
+    def style_line(name: str, family: str, fsize: int, italic: int) -> str:
+        return ",".join(
+            str(v)
+            for v in (name, family, fsize, WHITE, ACCENT, OUTLINE, SHADOW, 0 if italic else -1, italic,
+                      0, 0, 100, 100, -1, 0, 1, max(3, fsize // 11), max(2, fsize // 18), 2, side, side, margin_v, 1)
+        )  # fmt: skip
+
+    styles = [style_line("Pop", FAMILY, size, 0)]
+    names = {"base": "Pop"}
+    if varied:
+        for face in ("impacto", "elegante", "tecnica"):
+            f = typo.FACES[face]
+            names[face] = face.capitalize()
+            styles.append(
+                style_line(
+                    names[face],
+                    f.family,
+                    int(size * f.scale),
+                    -1 if face == "elegante" else 0,
+                )
+            )
     head = (
         "[Script Info]\nScriptType: v4.00+\n"
         f"PlayResX: {width}\nPlayResY: {height}\nWrapStyle: 0\nScaledBorderAndShadow: yes\n\n"
-        f"[V4+ Styles]\nFormat: {fields}\nStyle: {style}\n\n"
+        f"[V4+ Styles]\nFormat: {fields}\n"
+        + "".join(f"Style: {st}\n" for st in styles)
+        + "\n"
         "[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n"
     )
     lines: List[str] = []
     t = 0.0
+    prev = ""
     for sentence, duration in zip(sentences, durations):
         for chunk in chunks(word_times(sentence, t, duration)):
             start, end = chunk[0][1], chunk[-1][2]
+            face = "base"
+            if varied:
+                face = typo.face_for(
+                    " ".join(w for w, _s, _e in chunk), tuple(names), prev
+                )
+                if face == "impacto" and len(chunk) > 2:
+                    face = "base"
+            prev = face
+            style = names.get(face, "Pop")
+            # where it sits: punch words in the middle, numbers up top
+            place = {"impacto": "{\\an5}", "tecnica": "{\\an8}"}.get(face, "")
+            caps = (upper and face != "elegante") or face in ("impacto", "tecnica")
             # Every word is its own event slice so the lit word moves along.
             for i, (_w, w_start, w_end) in enumerate(chunk):
                 parts = []
                 for j, (word, _s, _e) in enumerate(chunk):
-                    text = _escape(word.upper() if upper else word)
+                    text = _escape(word.upper() if caps else word)
                     parts.append(
                         f"{{\\c{ACCENT}}}{text}{{\\c{WHITE}}}" if j == i else text
                     )
@@ -115,8 +156,9 @@ def ass_document(
                     "{\\fscx112\\fscy112\\t(0,90,\\fscx100\\fscy100)}" if i == 0 else ""
                 )
                 slice_end = end if i == len(chunk) - 1 else w_end
+                when = f"{_ts(w_start if i else start)},{_ts(slice_end)}"
                 lines.append(
-                    f"Dialogue: 0,{_ts(w_start if i else start)},{_ts(slice_end)},Pop,,0,0,0,,{pop}{' '.join(parts)}"
+                    f"Dialogue: 0,{when},{style},,0,0,0,,{place}{pop}{' '.join(parts)}"
                 )
         t += duration
     return head + "\n".join(lines) + "\n"

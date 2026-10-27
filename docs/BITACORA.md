@@ -2,6 +2,17 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-10-27 · Claude · Tipografías, color y composición, música y escenas de internet
+- `video_essay/typo.py`: seis letras libres con un papel cada una (Inter, Anton, Archivo Black, DM Serif Display, Space Mono, Permanent Marker), con su licencia en `fonts/`. `typo.dress` da a cada toma su letra, su lugar, el acento y los bloques; se ejecuta tras buscar las imágenes y tras cada revisión.
+- `video_essay/color.py`: paleta, armonías, contraste WCAG, saliencia por residuo espectral y caras (OpenCV). La luminosidad de la cuarta parte más clara decide si el blanco se lee.
+- `captions.py`: los subtítulos rápidos cambian de letra (impacto al centro, números arriba, citas en itálica).
+- `plan.Shot`: `font`, `accent`, `box` ("word"/"all"), cuatro esquinas en `position`, y la fuente `film` (escenas de películas y series).
+- `video_essay/music.py`: Openverse, ccMixter, Internet Archive y una canción nombrada (yt-dlp). Se acreditan; el paquete avisa si algo no es libre.
+- QC: un negro dentro de una ficha planeada ya no cuenta como problema (`pro.quality_check(..., cards)`).
+- Probado: 25 pruebas nuevas.
+- Demo de 22 s con fotos COCO, voz propia y estilo NextCore: tipografías, lugares, rojo de marca y bloques donde el fondo era claro.
+- No se pudo probar aquí, porque el sandbox bloquea esos dominios: Openverse, ccMixter y archive.org. Se probaron con respuestas simuladas. La imagen con Gemini se quedó sin cuota (429).
+
 ## 2026-10-27 · Claude · Voz propia, video profesional, demos
 - Voz propia de Sergio como predeterminada, con Gemini Live de respaldo (ver AGENTS.md):
   - Medido aquí, en 4 núcleos y sin contar la transcripción: primer sonido a los 0,35 s (el acuse) y primera frase completa a ~0,65 s.

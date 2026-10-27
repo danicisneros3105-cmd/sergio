@@ -3,7 +3,7 @@ inside the job's budget.
 
 For each shot that still needs a picture, the sources go in order (the
 shot's own ``source`` first, then the treatment's list): the owner's clips,
-free stock and public archives, web and film clips, AI video, a 3D shot in
+free stock and public archives, web clips, film and series scenes, AI video, a 3D shot in
 Blender, a picture Sergio makes. Clips are fetched as several candidates
 when the mode asks for it and an editor keeps the best (one look per
 eight shots, not one per shot). A source that fails for the whole job (no
@@ -26,6 +26,8 @@ SEARCH_ORDER = {
     "stock": ("stock", "commons", "nasa"),
     "archive": ("archive", "commons", "nasa"),
     "web": ("web",),
+    # a scene of a film or a series (yt-dlp), else a public-domain film
+    "film": ("film", "archive"),
 }
 
 
@@ -189,7 +191,9 @@ class Filler:
             )
             used = ""
             for src in order_for(shot, self.preferred):
-                if src in self.broken or (src == "web" and not self.allow_web):
+                if src in self.broken or (
+                    src in ("web", "film") and not self.allow_web
+                ):
                     continue
                 if src == "library":
                     found = self.library.pick(shot) if self.library else None

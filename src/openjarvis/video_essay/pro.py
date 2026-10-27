@@ -291,8 +291,11 @@ def chapters_text(chapters: Iterable[Tuple[float, str]]) -> str:
 
 
 # -- quality control -----------------------------------------------------------
-def quality_check(path: Path, ffmpeg: str) -> Dict[str, Any]:
-    """What a finishing editor checks before delivery."""
+def quality_check(
+    path: Path, ffmpeg: str, cards: Iterable[Tuple[float, float]] = ()
+) -> Dict[str, Any]:
+    """What a finishing editor checks before delivery. *cards*: the spans
+    the plan puts on a dark card on purpose (not a black hole in the cut)."""
     res = _run(
         [ffmpeg, "-hide_banner", "-nostats", "-i", str(path),
          "-filter_complex", "[0:a]ebur128=peak=true[a];[0:v]blackdetect=d=0.5:pix_th=0.08,freezedetect=n=0.0005:d=3[v]",
@@ -314,7 +317,12 @@ def quality_check(path: Path, ffmpeg: str) -> Dict[str, Any]:
         problems.append(f"volumen {report['lufs']} LUFS (se pide {TARGET_LUFS})")
     if report["pico_dbtp"] is not None and report["pico_dbtp"] > MAX_TRUE_PEAK + 0.5:
         problems.append(f"picos de {report['pico_dbtp']} dBTP (máx. {MAX_TRUE_PEAK})")
-    inner_blacks = [b for b in report["negros"] if b[0] > 0.3]
+    planned = [(a - 0.2, b + 0.2) for a, b in cards]
+    inner_blacks = [
+        b
+        for b in report["negros"]
+        if b[0] > 0.3 and not any(a <= b[0] and b[1] <= z for a, z in planned)
+    ]
     if inner_blacks:
         problems.append(f"{len(inner_blacks)} tramo(s) en negro")
     if report["congelados"]:

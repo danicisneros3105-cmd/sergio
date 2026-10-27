@@ -85,6 +85,20 @@ Otras piezas de terceros que Sergio usa (créditos y licencias):
   dueño y bajo sus licencias; el reconocimiento de palabras usa
   faster-whisper (MIT) con los modelos Whisper de OpenAI (MIT). Efectos y
   música de fondo los genera Sergio.
+- Tipografías del video (en src/openjarvis/video_essay/fonts/, cada una con
+  su licencia al lado): Anton (© 2020 The Anton Project Authors), Archivo
+  Black (© 2017 The Archivo Black Project Authors), DM Serif Display
+  (© 2014-2018 Adobe, © 2019 Google LLC) y Space Mono (© 2016 The Space Mono
+  Project Authors), bajo SIL Open Font License 1.1; Permanent Marker (Font
+  Diner), bajo Apache License 2.0. Bajadas de github.com/google/fonts.
+- Música libre de internet, cada pista con su autor y licencia en los
+  créditos del video: Openverse (https://openverse.org; agrupa Jamendo,
+  Freesound, ccMixter y otros), ccMixter (https://ccmixter.org) e Internet
+  Archive (https://archive.org). Solo licencias que permiten ganar dinero
+  con el video (CC0, CC BY, CC BY-SA), salvo que el dueño diga que no es
+  para eso. Una canción con derechos solo si el dueño la pide por nombre.
+- Saliencia por residuo espectral (Hou y Zhang, CVPR 2007) y contraste WCAG
+  2.x (W3C) en `video_essay/color.py`, escritos aquí.
 - Clips de la web: yt-dlp (Unlicense); Wikimedia Commons (cada archivo con
   su licencia, citada), NASA (dominio público) e Internet Archive (dominio
   público). Video con IA: Veo (Google) o fal.ai, bajo sus términos.

@@ -683,6 +683,13 @@ termina en la rama `main`, y el dueño actualiza con un único comando.
   - SRT y capítulos.
   - Control de calidad: −14 LUFS, picos, negros y congelados de 3 s o más.
   `job.py` lo usa en sonido y acabado.
+- **Tipografías, color y composición; clips y música de internet** (dueño, 27 oct. 2026: «subtítulos en diferentes partes con diferentes tipografías, como NextCore; teoría del color y composición; clips de internet, música, películas y series»):
+  - `video_essay/typo.py`: seis letras con un papel cada una (base, impacto, pesada, elegante, técnica, mano); cuatro como mucho por video. Cada línea toma la que pide (números en técnica, 1–3 palabras en impacto, citas en elegante) y no repite la de la toma anterior sin motivo. Los subtítulos rápidos (`captions.py`) también cambian de letra y de lugar.
+  - `video_essay/color.py`: paleta, armonías (complementario, análogo, triádico, complementario dividido), contraste WCAG, saliencia y caras. Las palabras van al tercio libre, dentro del área segura, nunca sobre una cara, y no dos veces seguidas en el mismo sitio. Un solo acento por video (el del estilo, o el complemento del color de las tomas). Si el blanco no se lee, las palabras van sobre bloques.
+  - Lo que el editor (el modelo) elige en el plan (`font`, `position`, `accent`, `box`) se respeta; `typo.dress` solo rellena lo que quedó libre.
+  - Escenas de películas y series: fuente `film` (yt-dlp, unos segundos, citadas como «no libre»); si no hay, películas de dominio público del Internet Archive.
+  - Música: `video_essay/music.py`. Busca por el ánimo del estilo en Openverse, ccMixter e Internet Archive, solo licencias para ganar dinero (CC0, BY, BY-SA; `monetize: false` abre las NC). La pista se repite hasta el largo del video, se desvanece y va a los créditos. Una canción con derechos solo si el dueño la nombra (`music: "canción: …"`), nunca otra en su lugar, y el paquete avisa que pueden reclamarla. Sin internet o sin resultados: la música propia de Sergio.
+  - No se piratea: nada de torrents ni sitios de copias; las películas y series salen de clips públicos (como ya decidió el dueño) o de dominio público.
 - Kimi como proveedor y «Digitalsnickers» están descartados.
 - Licencia Apache-2.0 y autoría honesta: no se borran créditos del original.
 

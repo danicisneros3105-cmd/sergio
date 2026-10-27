@@ -42,6 +42,9 @@ PALETTE = {
 }
 
 
+INK = (16, 16, 18)
+
+
 def ffmpeg() -> str:
     from openjarvis.tools.video_create import ffmpeg_exe
 
@@ -56,6 +59,10 @@ def ffmpeg() -> str:
 
 @lru_cache(maxsize=64)
 def font(kind: str, size: int) -> ImageFont.FreeTypeFont:
+    from openjarvis.video_essay import typo
+
+    if kind in typo.FACES:
+        return typo.font(kind, size)
     name = {
         "black": "InterDisplay-Black.ttf",
         "bold": "InterDisplay-Bold.ttf",
@@ -67,12 +74,20 @@ def font(kind: str, size: int) -> ImageFont.FreeTypeFont:
 
 @lru_cache(maxsize=4096)
 def word_image(
-    text: str, kind: str, size: int, rgb: Tuple[int, int, int], shadow: bool
+    text: str,
+    kind: str,
+    size: int,
+    rgb: Tuple[int, int, int],
+    shadow: bool,
+    bg: Optional[Tuple[int, int, int]] = None,
 ) -> Image.Image:
     """One word, tightly tracked like the reference, with a soft shadow on
-    footage so it reads on any picture."""
+    footage so it reads on any picture (or on a block of colour, *bg*)."""
+    from openjarvis.video_essay import typo
+
     f = font(kind, size)
-    track = -0.045 * size  # tight letter spacing
+    face = typo.FACES.get(kind)
+    track = (face.track if face else -0.045) * size  # tight letter spacing
     widths = [f.getlength(c) for c in text]
     width = int(sum(widths) + track * max(0, len(text) - 1)) + size
     height = int(size * 1.35)
@@ -93,7 +108,19 @@ def word_image(
     m = shadow_margin(size, shadow)  # the shadow hangs out; the letters set the width
     # same top and bottom for every word, so they share a baseline
     top, bottom = pad, pad + int(size * 1.2)
-    return layer.crop((box[0] - m, top - m, box[2] + m, bottom + m))
+    word = layer.crop((box[0] - m, top - m, box[2] + m, bottom + m))
+    if bg is None:
+        return word
+    # a block of colour behind the word (the "white on red" of the reference)
+    px, py = int(size * 0.16), int(size * 0.02)
+    tile = Image.new("RGBA", (word.width + 2 * px, word.height + 2 * py), (0, 0, 0, 0))
+    ImageDraw.Draw(tile).rounded_rectangle(
+        (0, int(size * 0.12), tile.width - 1, tile.height - 1 - int(size * 0.06)),
+        radius=max(2, int(size * 0.08)),
+        fill=bg + (255,),
+    )
+    tile.alpha_composite(word, (px, py))
+    return tile
 
 
 def shadow_margin(size: int, shadow: bool) -> int:
@@ -109,6 +136,7 @@ class Placed:
     kind: str
     size: int
     rgb: Tuple[int, int, int]
+    bg: Optional[Tuple[int, int, int]] = None
 
 
 def _ease_back(p: float) -> float:
@@ -141,16 +169,26 @@ def layout_text(shot: Shot, words: List[Word], size: Tuple[int, int]) -> List[Pl
     ]
     if len(shown) <= 2 and style == "pop":
         scale = 0.095
+    from openjarvis.video_essay import color, typo
+
+    face = typo.FACES.get(shot.font)
+    if face is not None:
+        scale *= face.scale
     fsize = max(18, int(min(w_px, h_px * 1.6) * scale))
-    kind = {
-        "pop": "black",
-        "big_caps": "black",
-        "grey_to_white": "medium",
-        "italic": "italic",
-    }[style]
+    kind = (
+        shot.font
+        if face is not None
+        else {
+            "pop": "black",
+            "big_caps": "black",
+            "grey_to_white": "medium",
+            "italic": "italic",
+        }[style]
+    )
     base = PALETTE["white"]
     if on_card and shot.card == "cream":
         base = PALETTE["red"]
+    accent = color.rgb_of(shot.accent)
     highlight = "".join(ch for ch in shot.highlight.lower() if ch.isalnum())
     shadow = not on_card
     position = shot.position
@@ -158,50 +196,69 @@ def layout_text(shot: Shot, words: List[Word], size: Tuple[int, int]) -> List[Pl
         # under the device, never over it
         position = "lower"
         fsize = min(fsize, int(h_px * 0.05))
-    gap = fsize * 0.24
+    gap = fsize * (0.16 if shot.box else 0.24)
+    corner = position in ("upper_left", "upper_right", "lower_left", "lower_right")
     max_w = w_px * (0.8 if position in ("center", "lower", "upper") else 0.45)
     lines: List[List[Tuple[str, int, float, Tuple[int, int, int]]]] = [[]]
     line_w = 0.0
     for word, t in zip(shown, times):
-        text = word.upper() if style == "big_caps" else word
+        text = word.upper() if style == "big_caps" or (face and face.caps) else word
         clean = "".join(ch for ch in word.lower() if ch.isalnum())
         rgb = base
-        if highlight and clean == highlight:
+        bg = None
+        lit = bool(highlight and clean == highlight)
+        if lit:
             rgb = (
-                PALETTE["gold"]
+                (accent or PALETTE["gold"])
                 if not on_card
-                else (PALETTE["red"] if shot.card != "red" else PALETTE["white"])
+                else (
+                    accent
+                    or (PALETTE["red"] if shot.card != "red" else PALETTE["white"])
+                )
             )
+            if (
+                on_card
+                and color.contrast(rgb, PALETTE.get(shot.card, PALETTE["black"])) < 3
+            ):
+                rgb = base  # an accent the card would swallow
             if style != "grey_to_white":
                 text = text.upper()
-        img = word_image(text, kind, fsize, rgb, shadow)
-        width = img.width - 2 * shadow_margin(fsize, shadow)
+        if shot.box and (lit or not highlight):
+            bg = accent or PALETTE["red"]
+            rgb = color.text_on_block(bg)
+        elif shot.box == "all":
+            bg = INK  # the other words on near-black, the highlight stays lit
+            rgb = PALETTE["white"]
+        img = word_image(text, kind, fsize, rgb, shadow and bg is None, bg)
+        width = img.width - 2 * shadow_margin(fsize, shadow and bg is None)
         if lines[-1] and line_w + gap + width > max_w:
             lines.append([])
             line_w = 0.0
         line_w += (gap if lines[-1] else 0) + width
-        lines[-1].append((text, width, t, rgb))
-    line_h = fsize * 1.08
+        lines[-1].append((text, width, t, rgb, bg))
+    line_h = fsize * (1.22 if shot.box else 1.08)
     block_h = line_h * len(lines)
-    if position == "upper":
-        top = h_px * 0.14
+    if position in ("upper", "upper_left", "upper_right"):
+        top = h_px * (0.14 if position == "upper" else 0.08)
+    elif position in ("lower_left", "lower_right"):
+        top = h_px * 0.9 - block_h
     elif position == "lower":
         top = h_px * (0.95 if shot.device != "none" else 0.86) - block_h
     else:
         top = (h_px - block_h) / 2
     placed: List[Placed] = []
     for li, line in enumerate(lines):
-        total = sum(width for _, width, _, _ in line) + gap * (len(line) - 1)
-        if position == "left":
-            x = w_px * 0.08
-        elif position == "right":
-            x = w_px * 0.92 - total
+        total = sum(width for _, width, _, _, _ in line) + gap * (len(line) - 1)
+        if position in ("left", "upper_left", "lower_left"):
+            x = w_px * (0.08 if not corner else 0.07)
+        elif position in ("right", "upper_right", "lower_right"):
+            x = w_px * (0.92 if not corner else 0.93) - total
         else:
             x = (w_px - total) / 2
         y = top + li * line_h
-        m = shadow_margin(fsize, shadow)
-        for text, width, t, rgb in line:
-            placed.append(Placed(text, t, int(x) - m, int(y) - m, kind, fsize, rgb))
+        for text, width, t, rgb, bg in line:
+            m = shadow_margin(fsize, shadow and bg is None)
+            placed.append(Placed(text, t, int(x) - m, int(y) - m, kind, fsize, rgb, bg))
             x += width + gap
     return placed
 
@@ -218,7 +275,7 @@ def draw_text(
             and rgb == PALETTE["white"]
         ):
             rgb = PALETTE["grey"]
-        img = word_image(p.text, p.kind, p.size, rgb, shadow)
+        img = word_image(p.text, p.kind, p.size, rgb, shadow and p.bg is None, p.bg)
         prog = min(1.0, (t - p.start) / 0.14)
         if prog < 1.0:
             s = 0.72 + 0.28 * _ease_back(prog)

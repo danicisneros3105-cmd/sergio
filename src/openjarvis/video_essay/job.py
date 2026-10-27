@@ -177,6 +177,14 @@ class Deps:
         self.notify: Optional[Callable[[str, Dict[str, Any]], None]] = over.get(
             "notify"
         )
+        # music from the internet (music.py): searches, a named song, the download
+        self.music_searches: Optional[Dict[str, Callable[..., list]]] = over.get(
+            "music_searches"
+        )
+        self.song: Optional[Callable[..., list]] = over.get("song")
+        self.music_fetch: Optional[Callable[..., Optional[str]]] = over.get(
+            "music_fetch"
+        )
         self.videos: Optional[Path] = over.get("videos")
         self.styles: Optional[Path] = over.get("styles")
 
@@ -445,9 +453,24 @@ def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
             job.write("plan.json", P.to_json(shots))
             job.update(credits=filler.credits, budget=budget.to_dict())
 
+        def dress() -> None:
+            """Typefaces, places, accents (typo.py, color.py) once the
+            pictures are known; kept in the plan, safe to run again."""
+            from openjarvis.video_essay import typo
+
+            small = render.DRAFT_SIZES[aspect]
+            small = (small[0] // 3, small[1] // 3)
+
+            def still(shot: Any) -> Any:
+                return next(iter(render.background_for(shot, small).frames(1)), None)
+
+            if typo.dress(shots, words, still, profile):
+                job.write("plan.json", P.to_json(shots))
+
         # 6. the pictures
         if stage("imagenes"):
             fill("imagenes")
+            dress()
             job.finish("imagenes")
 
         # 7. review passes: the editor first, the director has the last word
@@ -495,6 +518,7 @@ def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
                 job.log(f"pasada {k + 1}: nota {score}, {applied} cambios")
                 if applied:
                     fill("revision")
+                    dress()
                 good = isinstance(score, (int, float)) and score >= 9
                 if not applied or good:
                     break  # nothing left to fix: no more paying for reviews
@@ -513,6 +537,8 @@ def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
             beats: List[float] = []
             if params.get("music") != "ninguna":
                 music = _music(str(params.get("music") or ""), total, job.dir)
+                if music is None and deps.stock:
+                    music = _music_online(job, deps, params, profile, total, filler)
                 if music is None:
                     music = audio.music_bed(total)
                     beats = pro.bed_beats(total, 84.0)
@@ -579,7 +605,8 @@ def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
             from openjarvis.video_essay import pro
 
             try:  # what a finishing editor checks before delivery
-                extras["control"] = pro.quality_check(delivered, ff)
+                cards = [(s.start, s.end) for s in shots if s.kind == "card"]
+                extras["control"] = pro.quality_check(delivered, ff, cards)
                 if not extras["control"]["ok"]:
                     job.log("control: " + "; ".join(extras["control"]["problemas"]))
             except Exception as exc:  # noqa: BLE001
@@ -688,9 +715,9 @@ def _allowed_sources(
     out = [
         s
         for s in preferred
-        if s in ("library", "stock", "web", "archive", "ai", "3d", "image")
+        if s in ("library", "stock", "web", "film", "archive", "ai", "3d", "image")
     ]
-    for s in ("library", "stock", "archive", "web", "image"):
+    for s in ("library", "stock", "archive", "web", "film", "image"):
         if s not in out:
             out.append(s)
     if not params.get("ai_video") and mode.limits.get("ai_seconds", 0) <= 0:
@@ -698,7 +725,7 @@ def _allowed_sources(
     if mode.limits.get("blender", 0) <= 0:
         out = [s for s in out if s != "3d"]
     if not _web_allowed(params):
-        out = [s for s in out if s != "web"]
+        out = [s for s in out if s not in ("web", "film")]
     return ["library"] + [s for s in out if s != "library"]
 
 
@@ -806,6 +833,37 @@ def _music(path: str, total: float, folder: Path) -> Any:
         return audio.read_wav(out.read_bytes())
     except Exception:  # noqa: BLE001 — Sergio's own bed instead
         return None
+
+
+def _music_online(
+    job: Any,
+    deps: Deps,
+    params: Dict[str, Any],
+    profile: Dict[str, Any],
+    total: float,
+    filler: Any,
+) -> Any:
+    """Free music for the mood (or the song he named) from the internet,
+    credited; None when none could be had (Sergio's own bed then)."""
+    from openjarvis.video_essay import audio, music, render
+
+    wish = str(params.get("music") or "")
+    try:
+        track = music.pick(
+            wish, profile, job.dir / "musica", total, render.ffmpeg(),
+            for_money=params.get("monetize", True) is not False,
+            searches=deps.music_searches, song=deps.song, fetcher=deps.music_fetch,
+        )  # fmt: skip
+        if track is None or not track.path:
+            return None
+        samples = audio.read_wav(Path(track.path).read_bytes())
+    except Exception as exc:  # noqa: BLE001 — Sergio's own bed instead
+        job.log(f"música de internet: {str(exc)[:120]}")
+        return None
+    filler.credits.append(track.credit())
+    job.update(music=track.to_dict(), credits=filler.credits)
+    job.log(f"música: {track.title or track.url} ({track.licence})")
+    return samples
 
 
 def summary(st: Dict[str, Any]) -> str:

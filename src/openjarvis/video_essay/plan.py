@@ -17,7 +17,19 @@ from typing import Any, Callable, Dict, List, Optional
 KINDS = ("card", "broll", "archive", "device")
 CARDS = ("cream", "red", "navy", "black")
 TEXT_STYLES = ("pop", "grey_to_white", "big_caps", "italic", "none")
-POSITIONS = ("center", "lower", "upper", "left", "right")
+POSITIONS = (
+    "center",
+    "lower",
+    "upper",
+    "left",
+    "right",
+    "upper_left",
+    "upper_right",
+    "lower_left",
+    "lower_right",
+)
+# the typefaces of typo.FACES ("" lets the text style choose, as before)
+FONTS = ("", "base", "impacto", "pesada", "elegante", "tecnica", "mano")
 EFFECTS = ("none", "punch", "push", "shake", "glitch")
 GRADES = ("natural", "bw", "warm", "cold")
 FRAMES = ("none", "crt", "film")
@@ -35,7 +47,7 @@ SFX = (
     "ding",
 )
 # where a shot's picture comes from ("auto": the first that has one)
-SOURCES = ("auto", "library", "stock", "web", "archive", "ai", "3d", "image")
+SOURCES = ("auto", "library", "stock", "web", "film", "archive", "ai", "3d", "image")
 
 
 @dataclass
@@ -69,6 +81,12 @@ class Shot:
     source: str = "auto"
     overlay: str = ""  # a counter or stamp on top ("DÍA 1", "$1.000.000")
     camera: str = ""  # camera direction for AI and 3D shots
+    font: str = ""  # a face of typo.FACES ("" = by text_style)
+    accent: str = ""  # highlight colour, "#RRGGBB" (colour theory, color.py)
+    # words on blocks of colour: "word" (the highlight on the accent, the
+    # reference's «white on red»), "all" (every word: picture too busy or
+    # too bright for white), "" none
+    box: str = ""
 
     @property
     def dur(self) -> float:
@@ -78,6 +96,18 @@ class Shot:
 def _pick(value: Any, allowed: tuple, default: str) -> str:
     value = str(value or "").strip().lower()
     return value if value in allowed else default
+
+
+def _box(value: Any) -> str:
+    if value is True:
+        return "word"
+    value = str(value or "").strip().lower()
+    return value if value in ("word", "all") else ""
+
+
+def _hex(value: Any) -> str:
+    text = str(value or "").strip()
+    return text.upper() if re.fullmatch(r"#[0-9A-Fa-f]{6}", text) else ""
 
 
 # -- word timings ------------------------------------------------------------------
@@ -161,6 +191,9 @@ def from_model(raw: Any, words: List[Word], **limits: float) -> List[Shot]:
                 source=_pick(item.get("source"), SOURCES, "auto"),
                 overlay=str(item.get("overlay") or "")[:24],
                 camera=str(item.get("camera") or "")[:160],
+                font=_pick(item.get("font"), FONTS, ""),
+                accent=_hex(item.get("accent")),
+                box=_box(item.get("box")),
             )
         )
     if not shots:
@@ -304,17 +337,24 @@ Answer ONLY JSON: {{"shots": [{{"from": first word index, "to": index after the 
 "visual": "for non-cards: one concrete, filmable picture in English (subject, place, light, camera)",
 "text": "the words to show (a subset of the spoken ones, in order)",
 "highlight": "one word to emphasise or empty",
-"text_style": "pop|grey_to_white|big_caps|italic", "position": "center|lower|upper|left|right",
+"text_style": "pop|grey_to_white|big_caps|italic",
+"position": "center|lower|upper|left|right|upper_left|upper_right|lower_left|lower_right",
+"font": "impacto (1-3 punch words)|base|pesada (short label)|elegante (quote, feeling)|
+tecnica (numbers, data)|mano (an aside) or empty",
+"accent": "#RRGGBB highlight colour that goes with the picture, or empty",
+"box": "word" (the highlight on a block of the accent colour) | "all" (every word on blocks) | "",
 "effect": "none|punch|push|shake|glitch", "grade": "natural|bw|warm|cold",
 "frame": "none|crt|film", "device": "none|computer|phone",
 "transition": "cut|flash|whip|fade", "sfx": "none|whoosh|click|impact|typewriter|riser|pop|sizzle|ding",
-"source": "where the picture comes from: {sources}",
+"source": "where the picture comes from: {sources} (film: a scene of a movie or series that shows the idea)",
 "overlay": "optional counter or stamp shown on top, max 3 words (e.g. DAY 1, $1,000,000) or empty",
 "camera": "for ai/3d shots: lens and move (e.g. 35mm slow dolly-in, low angle)"}}]}}
 Rules: cover every word exactly once and in order; cut only between words; \
 short punchy words (1-3) on cards; problems and the past in bw with a crt or \
 film frame; the payoff in natural colour; the last shot a red-on-cream card. \
-Use only the sources listed; text_style "none" when the style shows no text.
+Use only the sources listed; text_style "none" when the style shows no text. \
+Move the words around the frame (thirds, never over a face) and vary the \
+typeface by what the words are, as a motion designer would.
 {extra}"""
 
 
