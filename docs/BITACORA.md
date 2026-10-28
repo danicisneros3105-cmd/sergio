@@ -2,6 +2,9 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-10-28 · Claude · La narración ya no sale muda por un «429»
+- Al hacer el video largo de demostración la voz salió vacía: la voz gratuita de Gemini acepta pocas partes por minuto, Sergio pedía tres a la vez y al primer «429 RESOURCE_EXHAUSTED» se rendía. Ahora `script.narrator` espera lo que pide el servidor (o 25 s) y reintenta hasta 5 veces; si es el tope del día o falta la clave, no espera. Con solo Gemini narra las partes una por una (`_parallel`); con ElevenLabs u OpenAI, tres a la vez como antes.
+
 ## 2026-10-28 · Claude · Logo viejo fuera, guía en pantalla, edición nivel explicativos 3D y retención, Blender, tendencias y Automatizar como chat
 - Logo de OpenJarvis al abrir: la copia de la web guardada en git (`src/openjarvis/server/static`) aún tenía los iconos del reactor original, y la actualización la restaura antes de compilar. Ahora `scripts/marca_sergio.py` también escribe y comprueba esos iconos, y las direcciones de los iconos llevan `?v=marca2` para que Edge y la app instalada olviden el viejo.
 - Guía en pantalla (`windows/sergio_escritorio/guia.py`): una capa transparente que no roba clics dibuja flechas 3D, círculos a mano, recuadros con el resto oscurecido, subrayados y líneas, con un cursor azul que hace el recorrido. Se borra al primer clic, con Esc, con «entendido» o a los 25 s. Llega por `desktop_action` (`action: guide`, `marks`), por la ayuda de pantalla (el modelo devuelve `marks`) y en llamada (`senalar` con `forma`, `guiar` con pasos). Los elementos ya llevan su tamaño (`w`, `h`) para que el círculo los rodee.

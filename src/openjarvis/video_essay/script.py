@@ -238,7 +238,7 @@ def narrate_beats(
             parts[i]["text"], parts[i - 1]["text"][-600:] if i else "", parts[i]["tone"]
         )
 
-    with ThreadPoolExecutor(max_workers=min(3, len(parts))) as pool:
+    with ThreadPoolExecutor(max_workers=min(_parallel(speak), len(parts))) as pool:
         made = list(pool.map(say, range(len(parts))))
     pieces_out: List[np.ndarray] = [np.zeros(int(0.15 * audio.SR), dtype=np.float32)]
     for part, wav in zip(parts, made):
@@ -246,6 +246,18 @@ def narrate_beats(
         gap = max(breath, part["pause"])
         pieces_out.append(np.zeros(int(gap * audio.SR), dtype=np.float32))
     return audio.write_wav(np.concatenate(pieces_out))
+
+
+def _parallel(speak: Optional[Callable[..., bytes]]) -> int:
+    """Pieces narrated at once: three with a paid voice (ElevenLabs,
+    OpenAI); one by one when only Gemini's voice is there."""
+    if speak is not None:
+        return 3
+    paid = (
+        os.environ.get("ELEVENLABS_API_KEY", "").strip()
+        or os.environ.get("OPENAI_API_KEY", "").strip()
+    )
+    return 3 if paid else 1
 
 
 def narrator() -> Callable[..., bytes]:
@@ -264,14 +276,50 @@ def narrator() -> Callable[..., bytes]:
 
     def speak(part: str, previous: str, tone: str = "") -> bytes:
         last: Optional[Exception] = None
-        for voice in voices:
-            try:
-                return voice(part, previous, tone)
-            except Exception as exc:  # noqa: BLE001 — the next voice
-                last = exc
+        # «Too many requests» is a wait, not a no: the free voice allows a
+        # few pieces a minute, and a video of minutes asked for them all at
+        # once and gave up on the first 429 (a demo of 28 Oct 2026 came out
+        # silent). Wait what the server asks (or a moment) and try again.
+        for attempt in range(RATE_RETRIES + 1):
+            for voice in voices:
+                try:
+                    return voice(part, previous, tone)
+                except Exception as exc:  # noqa: BLE001 — the next voice
+                    last = exc
+            wait = _rate_wait(last)
+            if wait is None or attempt == RATE_RETRIES:
+                break
+            sleep(wait)
         raise RuntimeError(f"Ninguna voz pudo narrar: {last}")
 
     return speak
+
+
+RATE_RETRIES = 5
+
+
+def _rate_wait(exc: Optional[Exception]) -> Optional[float]:
+    """Seconds to wait when *exc* is a rate limit (429 / quota per minute);
+    None when it is anything else (no key, a real daily cap reached...)."""
+    text = str(exc or "")
+    if (
+        "429" not in text
+        and "RESOURCE_EXHAUSTED" not in text
+        and "rate" not in text.lower()
+    ):
+        return None
+    if "PerDay" in text or "per day" in text.lower():
+        return None  # the day's quota is spent: waiting a minute will not help
+    import re
+
+    found = re.search(r"retry(?:Delay|_delay)?['\": ]+(\d+(?:\.\d+)?)s", text, re.I)
+    return min(90.0, float(found.group(1)) + 1.0) if found else 25.0
+
+
+def sleep(seconds: float) -> None:  # a seam for the tests
+    import time
+
+    time.sleep(seconds)
 
 
 def _direction(tone: str) -> str:
@@ -343,7 +391,7 @@ def narrate(
         def say(i: int) -> bytes:
             return speak(parts[i])
 
-    with ThreadPoolExecutor(max_workers=min(3, len(parts))) as pool:
+    with ThreadPoolExecutor(max_workers=min(_parallel(speak), len(parts))) as pool:
         made = list(pool.map(say, range(len(parts))))  # in order
     pieces: List[np.ndarray] = []
     gap = np.zeros(int(breath * audio.SR), dtype=np.float32)

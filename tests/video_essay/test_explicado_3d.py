@@ -109,3 +109,33 @@ def test_the_3d_arrow_has_a_side_face_and_a_shadow():
 def test_explicado_style_file_is_clean_json():
     data = json.loads((style.BUILT_IN / "explicado-3d.json").read_text("utf-8"))
     assert data["key"] == "explicado-3d" and "Zack" not in json.dumps(data)
+
+
+def test_the_narrator_waits_out_a_rate_limit_instead_of_going_silent(monkeypatch):
+    from openjarvis.video_essay import script
+
+    calls, waits = [], []
+
+    def busy_then_ok(part, tone=""):
+        calls.append(part)
+        if len(calls) < 3:
+            raise RuntimeError("429 RESOURCE_EXHAUSTED. 'retryDelay': '7s'")
+        return b"RIFFok"
+
+    monkeypatch.setenv("GEMINI_API_KEY", "x")
+    monkeypatch.delenv("ELEVENLABS_API_KEY", raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.setattr(script, "_gemini_narrator", busy_then_ok)
+    monkeypatch.setattr(script, "sleep", waits.append)
+    assert script.narrator()("Hola", "") == b"RIFFok"
+    assert waits == [8.0, 8.0] and script._parallel(None) == 1
+
+
+def test_a_spent_daily_quota_or_a_missing_key_is_not_waited_for():
+    from openjarvis.video_essay import script
+
+    assert (
+        script._rate_wait(RuntimeError("429 GenerateRequestsPerDay exceeded")) is None
+    )
+    assert script._rate_wait(RuntimeError("401 API key not valid")) is None
+    assert script._rate_wait(RuntimeError("429 RESOURCE_EXHAUSTED")) == 25.0
