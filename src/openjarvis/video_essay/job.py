@@ -617,7 +617,11 @@ def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
                 )
                 if sfx != "none":
                     events.append((s.start, sfx))
-            fx = audio.effects_track(events, total)
+            heavy = genre in ("pesada",)
+            events = audio.thin(
+                events, total, gap=0.9 if heavy else 1.8, per_minute=28 if heavy else 14
+            )
+            fx = audio.effects_track(events, total, _home())
             level = 0.32 if job.state().get("voice") else 0.8
             mix_path.write_bytes(
                 audio.write_wav(audio.mix(voice, music, fx, music_level=level))
@@ -856,6 +860,16 @@ def _loudness(path: Path) -> None:
         out.unlink(missing_ok=True)
 
 
+def _home() -> Optional[Path]:
+    """Sergio's folder (for the owner's own sound effects)."""
+    try:
+        from openjarvis.core.config import get_config_dir
+
+        return Path(get_config_dir())
+    except Exception:  # noqa: BLE001
+        return None
+
+
 def _skills(kind: str, about: str, genre: str = "") -> str:
     """The GitHub skills that fit (script or motion), never in the way: the
     genre's own three when it has them."""
@@ -945,6 +959,7 @@ def _music_online(
             wish, profile, job.dir / "musica", total, render.ffmpeg(),
             for_money=params.get("monetize", True) is not False,
             searches=deps.music_searches, song=deps.song, fetcher=deps.music_fetch,
+            genre=str(job.state().get("genre") or ""),
         )  # fmt: skip
         if track is None or not track.path:
             return None

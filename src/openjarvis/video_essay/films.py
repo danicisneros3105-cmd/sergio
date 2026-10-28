@@ -19,7 +19,8 @@ from __future__ import annotations
 import json
 import logging
 import re
-from typing import Any, Callable, Dict, List, Sequence
+import time
+from typing import Any, Callable, Dict, List, Sequence, Tuple
 
 log = logging.getLogger(__name__)
 
@@ -38,6 +39,73 @@ Answer ONLY JSON: {{"scenes": [{{"shot": index, "film": "Title", "year": 1976,
 "scene": "short description of the scene in English"}}]}}"""
 
 _YEAR = re.compile(r"^(18[89]\d|19\d\d|20[0-3]\d)$")
+
+RETRY_WAITS = (15.0, 45.0)  # a busy model (503/429) usually answers on a retry
+sleep = time.sleep  # a seam for the tests
+
+# When no model can answer at all, famous scenes of real films that show
+# the most common ideas of these videos, so the film shots still get one.
+# (words of the line, film, year, scene) — all real, all easy to find.
+KNOWN_SCENES: Tuple[Tuple[str, str, int, str], ...] = (
+    ("rendir rindas rendirse abandonar persist levant again otra vez", "Rocky", 1976,
+     "running up the museum steps"),
+    ("golpe golpea hit caer caída caídas suelo fuerte", "Rocky Balboa", 2006,
+     "it ain't about how hard you hit speech"),
+    ("caemos caer caig caída fall levantarse aprender", "Batman Begins", 2005,
+     "why do we fall scene"),
+    ("trabajo puerta rechaz entrevista oportunidad sueño no", "The Pursuit of Happyness", 2006,
+     "getting the job scene"),
+    ("solo sola soledad isla sobrevivir fuego aislado", "Cast Away", 2000,
+     "making fire on the island"),
+    ("esperanza escapar libertad prisión lluvia paciencia", "The Shawshank Redemption", 1994,
+     "escape in the rain"),
+    ("disciplina práctica entrenar ensayar repetir perfección", "Whiplash", 2014,
+     "final drum solo"),
+    ("lección enseñ maestro repetición paciencia", "The Karate Kid", 1984,
+     "wax on wax off"),
+    ("entrena entrenamiento esfuerzo correr sudor", "Creed", 2015,
+     "training run through the streets"),
+    ("decidir decisión elegir camino tiempo", "The Lord of the Rings: The Fellowship of the Ring", 2001,
+     "all we have to decide is what to do with the time"),
+    ("elegir elección verdad realidad despertar", "The Matrix", 1999,
+     "red pill or blue pill"),
+    ("imposible fallo fracaso opción problema solución", "Apollo 13", 1995,
+     "failure is not an option"),
+    ("ciencia problema resolver sobrevivir marte", "The Martian", 2015,
+     "science the problem scene"),
+    ("imposible tiempo arriesgar riesgo", "Interstellar", 2014,
+     "docking scene"),
+    ("cada día rutina repetir mismo día cambiar", "Groundhog Day", 1993,
+     "waking up to the same day"),
+    ("inventor invento idea crear código empresa", "The Social Network", 2010,
+     "writing the code all night"),
+    ("multitud público victoria ganar entretenidos", "Gladiator", 2000,
+     "are you not entertained"),
+    ("aprender torpe principiante creer", "Kung Fu Panda", 2008,
+     "training with the dumplings"),
+)  # fmt: skip
+
+
+def known_scenes(shots: Sequence[Any], words: Sequence[Any], film: List[int]) -> list:
+    """Scenes for the film shots from :data:`KNOWN_SCENES`, by the words
+    said in each shot (only when a line clearly matches)."""
+    from openjarvis.video_essay.sources import _tokens
+
+    out = []
+    for i in film:
+        s = shots[i]
+        said = (
+            " ".join(w.text for w in words[s.first : s.last]) + " " + (s.visual or "")
+        )
+        have = _tokens(said)
+        best, score = None, 0
+        for keys, name, year, scene in KNOWN_SCENES:
+            hits = sum(any(h.startswith(k[:5]) for h in have) for k in _tokens(keys))
+            if hits > score:
+                best, score = (name, year, scene), hits
+        if best and score >= 1:
+            out.append({"shot": i, "film": best[0], "year": best[1], "scene": best[2]})
+    return out
 
 
 def plan_scenes(
@@ -59,20 +127,25 @@ def plan_scenes(
         s = shots[i]
         said = " ".join(w.text for w in words[s.first : s.last])[:160]
         rows.append(f"{i}: {said} | {(s.visual or '')[:120]}")
-    try:
-        data = json.loads(
-            ask(
-                SCENES_PROMPT.format(
-                    title=title[:120], logline=logline[:400], shots="\n".join(rows)
-                )
-            )
-        )
-    except Exception as exc:  # noqa: BLE001 — the shots keep their own search
-        log.warning("no film scenes chosen: %s", exc)
-        return 0
-    return apply(
-        shots, data.get("scenes") if isinstance(data, dict) else None, set(film)
+    prompt = SCENES_PROMPT.format(
+        title=title[:120], logline=logline[:400], shots="\n".join(rows)
     )
+    scenes = None
+    for wait in (0.0, *RETRY_WAITS):  # Google busy: wait and ask again
+        if wait:
+            sleep(wait)
+        try:
+            data = json.loads(ask(prompt))
+        except Exception as exc:  # noqa: BLE001
+            log.warning("film scenes not chosen yet: %s", exc)
+            continue
+        scenes = data.get("scenes") if isinstance(data, dict) else None
+        if scenes:
+            break
+    done = apply(shots, scenes, set(film))
+    if done == 0:  # no model answered: famous real scenes that fit the words
+        done = apply(shots, known_scenes(shots, words, film), set(film))
+    return done
 
 
 def apply(shots: Sequence[Any], scenes: Any, allowed: set) -> int:
@@ -113,4 +186,11 @@ def films_in(shots: Sequence[Any]) -> List[str]:
     return out
 
 
-__all__ = ["SCENES_PROMPT", "apply", "films_in", "plan_scenes"]
+__all__ = [
+    "KNOWN_SCENES",
+    "SCENES_PROMPT",
+    "apply",
+    "films_in",
+    "known_scenes",
+    "plan_scenes",
+]

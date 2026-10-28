@@ -45,10 +45,12 @@ def _plan(n):
     return [Shot(i, i + 1, kind="broll") for i in range(n)], words
 
 
-def test_heavy_edit_puts_a_cut_sound_and_motion_graphics_everywhere():
+def test_heavy_edit_puts_sounds_on_moments_and_motion_graphics_everywhere():
     shots, words = _plan(32)
     assert genres.finish(shots, words, "pesada") == 32
-    assert all(s.sfx != "none" and s.effect != "none" for s in shots)
+    assert all(s.effect != "none" for s in shots)
+    with_sound = sum(s.sfx != "none" for s in shots)
+    assert 12 <= with_sound < 32  # the moments, not every cut
     assert shots[3].overlay == "1000000"  # the number gets a counter
     assert any(s.overlay.startswith("arrow") for s in shots)
     assert any(s.overlay.startswith("bar:") for s in shots)

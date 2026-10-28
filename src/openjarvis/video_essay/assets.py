@@ -53,15 +53,22 @@ class Library:
     def pick(self, shot: Shot) -> Optional[str]:
         if not self.files:
             return None
-        want = _words(shot.visual + " " + shot.text)
+        from openjarvis.video_essay.sources import meaning
+
+        want = meaning(shot.visual + " " + shot.text)
+        need = 1 if len(want) <= 2 else 2  # one shared word («man») is chance
         scored = []
         for p in self.files:
-            name = _words(p.stem.replace("_", " ").replace("-", " "))
-            score = len(want & name) * 3 - self.used.get(str(p), 0)
-            scored.append((score, str(p)))
+            name = meaning(p.stem.replace("_", " ").replace("-", " "))
+            shared = len(want & name)
+            if shared < need:
+                continue
+            scored.append((shared * 3 - self.used.get(str(p), 0), str(p)))
+        if not scored:
+            return None  # nothing of his fits: better a matching stock clip
         score, best = max(scored)
         if score <= 0:
-            return None  # nothing of his fits: better a matching stock clip
+            return None
         self.used[best] = self.used.get(best, 0) + 1
         return best
 

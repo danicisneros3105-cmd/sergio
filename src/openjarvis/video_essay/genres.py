@@ -38,7 +38,7 @@ GENRES: Dict[str, Genre] = {
         "inspiracional", "Inspiracional / ensayo", "metas-grandes",
         ("motivacion", "motivacional", "inspiracion", "inspiracional", "habitos", "disciplina",
          "exito", "superacion", "mentalidad", "ensayo", "reflexion"),
-        "", 0.4,
+        "", 0.45,
         notes="Video essay: a thread of ideas, cards for the key phrases, archive in black and white for the past.",
         skills={
             "guion": ("YouTube hook writing", "kallaway-storytelling", "tts-director"),
@@ -76,7 +76,7 @@ GENRES: Dict[str, Genre] = {
         "pesada", "Edición pesada (retención máxima)", "edicion-pesada",
         ("mrbeast", "reto", "challenge", "viral", "edicion pesada", "retencion", "youtuber",
          "sobrevivir", "ganar", "dolares", "millon", "24 horas", "100 dias", "vs"),
-        "dramatic close-up reaction, action, bright saturated", 0.35,
+        "dramatic close-up reaction, action, bright saturated", 0.4,
         sources=("library", "web", "film", "stock", "archive", "ai", "image"),
         notes=("HEAVY EDIT for maximum retention (the method the biggest challenge channels wrote down "
                "for their own teams, in our words): 1) MATCH THE CLICK: the first 5 s show exactly what "
@@ -87,8 +87,8 @@ GENRES: Dict[str, Genre] = {
                "~3:00 and ~6:00 with a new twist, a reveal or a raised stake; never two calm minutes. "
                "5) One WOW moment per section that people would describe to a friend. 6) Cut every "
                "~1 s, a new visual every sentence, zoom punches on key words, arrows, circles and "
-               "callouts on what matters, a sound on every cut, captions word by word. 7) After the "
-               "payoff, end within seconds."),
+               "callouts on what matters, a designed sound on the moments that matter (not on "
+               "every cut), captions word by word. 7) After the payoff, end within seconds."),
         skills={
             "guion": ("viral-youtube-hook (MrBeast)", "kallaway-storytelling", "YouTube retention editing"),
             "motion": ("kinetic-cut-video", "motion-design", "video-typography"),
@@ -136,7 +136,7 @@ GENRES: Dict[str, Genre] = {
         "documental", "Documental / explicativo", "metas-grandes",
         ("documental", "explica", "explicacion", "como funciona", "historia de", "por que", "ciencia",
          "datos", "investigacion", "misterio", "caso"),
-        "documentary footage, archival, real", 0.3,
+        "documentary footage, archival, real", 0.4,
         sources=("archive", "stock", "web", "film", "library", "image", "ai"),
         notes="Documentary: real footage and archive, dates and places on screen, maps and numbers as motion graphics.",
         skills={
@@ -205,8 +205,11 @@ def finish(shots: Sequence, words: Sequence, genre: str) -> int:
                 s.transition = ("whip", "flash", "cut")[i % 3]
             if s.effect == "none":
                 s.effect = "punch" if s.highlight or i % 2 == 0 else "shake"
-            if s.sfx == "none":
-                s.sfx = ("whoosh", "pop", "impact")[i % 3]
+            if s.sfx == "none" and (s.highlight or i % 2 == 0):
+                # the sound marks the moment; audio.thin spaces them out
+                s.sfx = (
+                    "impact" if s.highlight and i % 4 == 0 else ("whoosh", "pop")[i % 2]
+                )
             if not s.overlay:
                 m = _NUM.search(spoken)
                 if m and any(c.isdigit() for c in m.group(0)):

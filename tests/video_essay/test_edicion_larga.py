@@ -228,15 +228,20 @@ def test_a_shot_that_finds_nothing_gets_a_new_piece_of_a_found_clip(tmp_path):
         P.Shot(first=1, last=2, start=2, end=4, visual="a calm dog sleeping"),
         P.Shot(first=2, last=3, start=4, end=6, visual="a cat on a sofa"),
         P.Shot(first=3, last=4, start=6, end=8, visual="a bird on a wire"),
-        P.Shot(first=4, last=5, start=8, end=10, visual="an empty spaceship corridor"),
+        P.Shot(
+            first=4, last=5, start=8, end=10, visual="a puppy running across a park"
+        ),
+        P.Shot(first=5, last=6, start=10, end=12, visual="an empty spaceship corridor"),
     ]
     filler.fill(shots)
     assert cut[0] == ("https://x/dog.mp4", 2.0)
     assert cut[1] == ("https://x/dog.mp4", 8.0)  # the same clip again: a later piece
-    last = shots[-1]
-    assert last.kind == "broll" and "otro trozo" in last.notes[-1]
-    assert cut[-1][0] == "https://x/dog.mp4"  # not the clips of the last two shots
+    dog = shots[-2]
+    assert dog.kind == "broll" and "otro trozo" in dog.notes[-1]
+    assert cut[-1][0] == "https://x/dog.mp4"  # a related clip, not the last two shots'
     assert len(set(cut)) == len(cut)  # never the same piece twice
+    # nothing found shows a spaceship: a card, never a dog (owner, 28 Oct 2026)
+    assert shots[-1].kind == "card"
 
 
 # -- captions ------------------------------------------------------------------------
@@ -340,12 +345,14 @@ def test_his_library_clips_are_cut_again_instead_of_a_black_card(tmp_path):
                           preferred=["library", "image"], library=Lib(), searches={}, fetch=fetch)  # fmt: skip
     shots = [
         P.Shot(first=0, last=1, start=0, end=2, visual="a man running at dawn"),
-        P.Shot(first=1, last=2, start=2, end=4, visual="a clock on a wall"),
-        P.Shot(first=2, last=3, start=4, end=6, visual="a door closing"),
-        P.Shot(first=3, last=4, start=6, end=8, visual="sunrise over the city"),
+        P.Shot(first=1, last=2, start=2, end=4, visual="a runner tired at dawn"),
+        P.Shot(first=2, last=3, start=4, end=6, visual="a runner reaching the street"),
+        P.Shot(first=3, last=4, start=6, end=8, visual="a clock on a wall"),
     ]
     filler.fill(shots)
     assert shots[0].asset == "/clips/hombre-corriendo-calle.mp4"
-    # no black cards: later moments of the one clip there is
-    assert all(s.kind == "broll" for s in shots)
-    assert [c[1] for c in cut] == [2.5, 5.0, 7.5]
+    # later moments of his clip where they show the same thing…
+    assert all(s.kind == "broll" for s in shots[:3])
+    assert [c[1] for c in cut] == [2.5, 5.0]
+    # …but a runner never stands in for a clock (owner, 28 Oct 2026)
+    assert shots[3].kind == "card"

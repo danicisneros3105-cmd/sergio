@@ -38,14 +38,6 @@ _STOP = {
 }  # fmt: skip
 
 
-def _words(text: str) -> set:
-    return {
-        w
-        for w in "".join(c if c.isalnum() else " " for c in text.lower()).split()
-        if w not in _STOP
-    }
-
-
 def queries(shot: Shot, look: str = "") -> List[str]:
     """What to search for a shot: the editor's full picture, then its core
     (the first nouns and verbs), then the two strongest words — a long,
@@ -190,14 +182,18 @@ class Filler:
         """A new piece of a clip already found, for a shot that found nothing:
         the one that shares most words with the shot, the last two shots'
         clips only when there is no other."""
-        if not self.pool or not self._spend("downloads"):
+        if not self.pool:
             return None
-        want = _words(shot.visual or shot.text)
-        # the closest in meaning first; the last shots' clips only as a last
-        # resort (a later moment of the same clip beats a black card)
+        want = shot.visual or shot.text
+        # only a clip that shows the same thing (owner, 28 Oct 2026: «las
+        # fotos no tienen sentido»): a hot dog never stands in for a runner.
+        # The closest in meaning first; the last shots' clips last.
         options = sorted(
-            self.pool, key=lambda c: (c.url in recent, -len(want & _words(c.query)))
+            (c for c in self.pool if S.related(want, c.query) >= 1),
+            key=lambda c: (c.url in recent, -S.related(want, c.query)),
         )
+        if not options or not self._spend("downloads"):
+            return None
         for c in options[:3]:
             seen = self.used.get(c.url, 0)
             step = 2.5 if c.source == "library" else 6.0  # his clips can be short
@@ -303,8 +299,8 @@ class Filler:
                     got = self._clips(shot, src, want)
                     if got:
                         shot.asset, used = got[0].path, got[0].source
-                        if len(got) > 1:
-                            waiting.append((shot, got))
+                        if len(got) > 1 or self.choose_ask is not None:
+                            waiting.append((shot, got))  # checked by eye
                         else:
                             self.credits.append(got[0].to_dict())
                 elif src == "ai":
@@ -354,9 +350,35 @@ class Filler:
                 except Exception:  # noqa: BLE001 — the first candidate stays
                     picks = {}
             for row, (shot, cands) in enumerate(group):
-                best = cands[picks.get(row, 0)]
+                k = picks.get(row, 0)
+                if k < 0:  # none of them shows what is said
+                    self._replace(shot, cands)
+                    continue
+                best = cands[k]
                 shot.asset = best.path
                 self.credits.append(best.to_dict())
+
+    def _replace(self, shot: Shot, rejected: List[S.Candidate]) -> None:
+        """A shot whose footage the editor rejected (it shows something else):
+        a picture made for it, a related clip, or a card with its words —
+        never footage that makes no sense."""
+        bad = {c.url for c in rejected}
+        self.pool = [c for c in self.pool if c.url not in bad]
+        made = self._image(shot)
+        if made:
+            shot.asset = made
+            shot.notes.append("imagen: imagen de Sergio (la toma no encajaba)")
+            return
+        piece = self._reuse(shot, [])
+        if piece is not None:
+            shot.asset = piece.path
+            self.credits.append(piece.to_dict())
+            shot.notes.append(
+                f"imagen: otro trozo de {piece.source} (la toma no encajaba)"
+            )
+            return
+        shot.asset, shot.kind, shot.card = "", "card", "black"
+        shot.notes.append("sin imagen que encaje: ficha")
 
 
 __all__ = ["DEFAULT_ORDER", "Filler", "order_for"]

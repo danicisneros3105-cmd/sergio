@@ -55,10 +55,20 @@ def test_no_more_than_two_shots_from_one_film():
     assert films.apply(shots, scenes, {0, 1, 2, 3}) == 2
 
 
-def test_a_model_failure_leaves_the_shots_alone():
+def test_a_model_failure_never_invents_a_film(monkeypatch):
+    # Since 28 Oct 2026 a busy model is asked again, and when it never
+    # answers the film shots may get a famous REAL scene from
+    # films.KNOWN_SCENES (owner: «faltan clips de películas»); never anything
+    # else, and the shots that are not film shots stay alone.
+    monkeypatch.setattr(films, "sleep", lambda s: None)
     shots, words = _shots()
-    assert films.plan_scenes(shots, words, "t", "l", lambda p: "no es json") == 0
-    assert all(s.search == "" for s in shots)
+    films.plan_scenes(shots, words, "t", "l", lambda p: "no es json")
+    known = {f"{name} ({year})" for _, name, year, _ in films.KNOWN_SCENES}
+    for s in shots:
+        if s.source != "film":
+            assert s.search == ""
+        elif s.search:
+            assert any(s.search.startswith(k) for k in known)
 
 
 def test_a_named_scene_is_searched_first():

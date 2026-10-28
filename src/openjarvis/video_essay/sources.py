@@ -336,6 +336,36 @@ def _tokens(text: str) -> set:
     return {w for w in re.findall(r"[a-z0-9]{3,}", t) if w not in _STOPWORDS}
 
 
+_GENERIC = set(
+    "man woman person people young old big small new good bad thing things way day time "
+    "life world hand hands face looking look looks standing sitting walking background "
+    "shot close wide slow camera light lighting cinematic view while into over under "
+    "very more most some other this that these those them they his her its their "
+    "hombre mujer persona gente cosa vida mundo".split()
+)
+
+
+def _stem(w: str) -> str:
+    """A light stem so «runner», «running» and «runs» meet at «run»."""
+    for end in ("ings", "ing", "ers", "er", "ed", "es", "s"):
+        if w.endswith(end) and len(w) - len(end) >= 3:
+            w = w[: -len(end)]
+            break
+    if len(w) > 3 and w[-1] == w[-2] and w[-1] not in "aeiou":
+        w = w[:-1]  # runn → run
+    return w
+
+
+def meaning(text: str) -> set:
+    """The words that say what a picture is about (no generic ones)."""
+    return {_stem(w) for w in _tokens(text) if w not in _GENERIC}
+
+
+def related(a: str, b: str) -> int:
+    """How many words that matter two descriptions share."""
+    return len(meaning(a) & meaning(b))
+
+
 def fits(c: Candidate, query: str, need: int = 1) -> bool:
     """Does the clip's own title share at least *need* real words with what
     was asked? (A clip with no title is let through: the editor's eyes and
@@ -464,7 +494,9 @@ def find(
 CHOOSE_PROMPT = """You are the film editor choosing footage. For each numbered row of the \
 sheet (one row per shot) pick the candidate (A, B, C…, left to right) that shows the \
 shot's idea best, looks most cinematic, has no watermark, logo or burned-in text, and \
-fits the style. Shots:
+fits the style. If NO candidate of a row shows what that shot is about (another subject, \
+an unrelated scene, something a viewer would find senseless), answer "-" for that row: a \
+picture made for it is better than footage that makes no sense. Shots:
 {shots}
 Answer ONLY JSON: {{"picks": {{"row number": "letter"}}}}"""
 
@@ -472,7 +504,8 @@ Answer ONLY JSON: {{"picks": {{"row number": "letter"}}}}"""
 def choose(
     rows: List[Dict[str, Any]], ask: Callable[[List[Any], str], str]
 ) -> Dict[int, int]:
-    """{row: candidate index} chosen by an editor from a sheet of frames.
+    """{row: candidate index} chosen by an editor from a sheet of frames
+    (-1: the editor rejected every candidate of that row).
 
     *rows*: [{"shot": text, "frames": [PIL images]}]."""
     from PIL import Image, ImageDraw
@@ -506,7 +539,12 @@ def choose(
     out = {}
     for row, letter in picks.items():
         try:
-            i, k = int(row), "ABCDEFGH".index(str(letter).strip().upper()[:1])
+            i = int(row)
+            if str(letter).strip() in ("-", "", "none", "NONE"):
+                if 0 <= i < len(rows):
+                    out[i] = -1  # rejected: none fits
+                continue
+            k = "ABCDEFGH".index(str(letter).strip().upper()[:1])
         except (ValueError, TypeError):
             continue
         if 0 <= i < len(rows) and k < len(rows[i]["frames"]):
