@@ -13,7 +13,7 @@ import logging
 import math
 import re
 from dataclasses import asdict, dataclass, field
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Sequence
 
 log = logging.getLogger(__name__)
 
@@ -324,6 +324,36 @@ def fallback(
         if style.get("narration_mode") in ("none", "song") and s.kind != "card":
             s.text_style = "none"
     return normalise(shots, words, **pace(style))
+
+
+FILM_SHARE = 0.3  # of the pictures, scenes of films and series (owner, 28 Oct 2026)
+
+
+def add_film(
+    shots: List[Shot], share: float = FILM_SHARE, allowed: Sequence[str] = ()
+) -> int:
+    """Turn about *share* of the picture shots into scenes of films and series,
+    spread evenly (never two in a row), when the editor left them to chance.
+    A shot the editor chose a source for (library, stock, 3d, ai…) stays.
+    Returns how many it changed."""
+    if allowed and "film" not in allowed:
+        return 0
+    free = [
+        s
+        for s in shots
+        if s.kind in ("broll", "archive") and s.source in ("", "auto", "web", "stock")
+    ]
+    want = round(len([s for s in shots if s.kind != "card"]) * share)
+    have = sum(1 for s in shots if s.source == "film")
+    if want <= have or not free:
+        return 0
+    step = max(2, round(len(free) / max(1, want - have)))
+    done = 0
+    for i, s in enumerate(free):
+        if i % step == step - 1 and done < want - have:
+            s.source, s.grade = "film", (s.grade if s.grade != "bw" else "natural")
+            done += 1
+    return done
 
 
 PLAN_PROMPT = """You are a top video essay editor. Plan the edit of this narration \

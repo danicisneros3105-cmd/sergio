@@ -710,6 +710,13 @@ termina en la rama `main`, y el dueño actualiza con un único comando.
   - Estabilidad (`estabilidad.py`): vigía que reinicia el servidor si su `/health` no responde 3 veces (el servicio tiene `Restart=always`; `SERGIO_VIGIA=0` lo apaga), chequeo en palabras simples y reparación diaria (04:00) que nunca toca un video en curso ni los videos terminados.
   - Inicio de sesión primero (`lib/session.ts`): sin sesión, la app va a «/entrar» (o «Crear cuenta» la primera vez); si el servidor no responde, no bloquea. En el propio equipo hay «Seguir sin cuenta en este equipo». Las páginas de pago siguen abiertas.
   - Tour (`components/Tour`): diez pasos con widgets vivos, sale una vez al entrar y vuelve desde Ayuda o la paleta («Ver el tour»). Sustituye la redirección a «Primeros pasos», que sigue en `/get-started`.
+- **Dividir pantalla a la vista, bienvenida, «En marcha» y más cine** (dueño, 28 oct. 2026: «no encuentro cómo hacer split screen… más clips de películas y series… mejor tono… más coherencia entre lo que se muestra y se dice… app más simple… mejora la bienvenida y el inicio de sesión… control y acciones en segundo plano»):
+  - El botón de dividir (`SplitButton`) vive en el encabezado del chat; Ctrl/⌘ \\ y la paleta siguen. Nunca vuelva a esconder una función solo tras un atajo.
+  - Bienvenida de cuatro mosaicos; inicio de sesión con etiquetas visibles.
+  - Escenas de películas y series: alrededor del 30 % de las tomas con imagen (`plan.add_film`, `FILM_SHARE`), nunca dos seguidas.
+  - La revisión del editor exige «SAY = SHOW» (la imagen muestra lo que se dice).
+  - El tono de cada parte mueve la voz de ElevenLabs (`TONE_SETTINGS`).
+  - «En marcha» (`RunningPill` y `/v1/personal/en-marcha`): todo lo que corre en segundo plano, con su botón de parar. Algo nuevo que corra solo debe aparecer ahí.
 - Kimi como proveedor y «Digitalsnickers» están descartados.
 - Licencia Apache-2.0 y autoría honesta: no se borran créditos del original.
 

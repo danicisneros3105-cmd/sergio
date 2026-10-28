@@ -3,6 +3,8 @@ two locks, and every limit enforced in a pass."""
 
 from __future__ import annotations
 
+import time
+
 import numpy as np
 import pytest
 
@@ -87,10 +89,10 @@ def test_a_pass_respects_the_order_size_and_the_daily_count(tmp_path):
     T.save_settings({"activo": True, "simbolos": ["SPY", "QQQ", "IWM"],
                      "limites": {"max_orden_usd": 300, "max_ordenes_dia": 2}}, tmp_path)  # fmt: skip
     b = FakeBroker()
-    out = T.run_once(tmp_path, b, today="2026-10-27")
+    out = T.run_once(tmp_path, b, today=time.strftime("%Y-%m-%d"))
     assert len(b.orders) == 2 and all(n <= 300 for _, n, _ in b.orders)
     assert all(e["real"] is False for e in out["hecho"])
-    T.run_once(tmp_path, b, today="2026-10-27")
+    T.run_once(tmp_path, b, today=time.strftime("%Y-%m-%d"))
     assert len(b.orders) == 2  # the day's count is spent
     assert [j["simbolo"] for j in T.journal(tmp_path) if j["tipo"] == "orden"] == [
         "SPY",

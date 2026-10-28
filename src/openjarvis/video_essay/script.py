@@ -266,7 +266,7 @@ def _eleven_narrator(part: str, previous: str, tone: str = "") -> bytes:
     from openjarvis.speech.gemini_voice import pcm_to_wav
 
     raw = eleven.pcm(
-        part, previous=previous, model_id=eleven.QUALITY_MODEL, timeout=180
+        part, previous=previous, model_id=eleven.QUALITY_MODEL, timeout=180, tone=tone
     )
     return pcm_to_wav(raw, eleven.RATE)
 

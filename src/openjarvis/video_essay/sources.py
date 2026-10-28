@@ -312,7 +312,13 @@ def search_web(
     return out
 
 
-SCENE_WORDS = ("movie scene", "film clip", "series scene")
+SCENE_WORDS = (
+    "movie scene",
+    "film clip",
+    "series scene",
+    "cinematic scene",
+    "tv show scene",
+)
 
 
 def search_scenes(
@@ -323,7 +329,7 @@ def search_scenes(
     clips: a few seconds, credited, and the posting package warns that the
     owner of the film can claim it."""
     out: List[Candidate] = []
-    for words in SCENE_WORDS[:2]:
+    for words in SCENE_WORDS[:4]:
         if len(out) >= n:
             break
         for c in search_web(f"{query[:70]} {words}", n - len(out), runner):

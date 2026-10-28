@@ -428,6 +428,12 @@ def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
                     str(params.get("prompt") or params.get("topic") or sc["title"]),
                 ),
             )
+            if params.get("film", True) and profile.get("production") not in (
+                "3d",
+                "ai",
+                "animation",
+            ):
+                P.add_film(shots, allowed=allowed)
             if narration != "voice":
                 for s in shots:
                     if all(w.text == "·" for w in words[s.first : s.last]):

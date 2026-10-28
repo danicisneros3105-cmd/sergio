@@ -64,6 +64,14 @@
 .tw-keys { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: center; }
 .tw-keys kbd { min-width: 46px; padding: 9px 12px; border-radius: 10px; background: var(--color-surface, #fff); border: 1px solid var(--color-border); box-shadow: 0 2px 0 var(--color-border); font-weight: 700; text-align: center; }
 .tw-keys small { width: 100%; text-align: center; }
+.tw-split { display: flex; align-items: stretch; width: 100%; max-width: 300px; height: 112px; gap: 0; }
+.tw-pane { flex: 1; display: flex; flex-direction: column; gap: 7px; padding: 12px; background: var(--color-surface, #fff); border-radius: 12px; animation: tw-pop 400ms both; }
+.tw-pane-a { border-radius: 12px 0 0 12px; }
+.tw-pane-b { border-radius: 0 12px 12px 0; animation: tw-open 900ms 0.3s cubic-bezier(0.2, 0.9, 0.3, 1.1) both; transform-origin: left center; }
+.tw-pane i { display: block; height: 9px; border-radius: 5px; background: var(--color-border); }
+.tw-pane-a i:first-child, .tw-pane-b i:first-child { width: 60%; background: var(--color-accent, #007aff); }
+.tw-fold { width: 6px; background: linear-gradient(90deg, rgba(0,0,0,0.12), rgba(0,0,0,0.02) 50%, rgba(0,0,0,0.12)); }
+@keyframes tw-open { from { opacity: 0; transform: perspective(500px) rotateY(-70deg); } to { opacity: 1; transform: none; } }
 .tw-logo { display: block; width: 74px; height: 74px; border-radius: 999px; background: var(--color-accent, #007aff); box-shadow: inset 0 0 0 9px var(--color-accent, #007aff), inset 0 0 0 15px #fff; animation: tw-breathe 2.4s ease-in-out infinite; }
 @keyframes tw-pop { from { opacity: 0; transform: translateY(6px) scale(0.96); } to { opacity: 1; transform: none; } }
 @keyframes tw-breathe { 50% { transform: scale(1.06); } }
@@ -71,6 +79,6 @@
 @keyframes tw-ring { to { stroke-dashoffset: 46; } }
 @keyframes tw-grow { from { width: 0; } }
 @media (prefers-reduced-motion: reduce) {
-  .tour-backdrop, .tour-card, .tw-bubble, .tw-chip, .tw-node, .tw-rows span, .tw-orb, .tw-wave i, .tw-logo, .tw-meter i { animation: none !important; }
+  .tw-pane, .tour-backdrop, .tour-card, .tw-bubble, .tw-chip, .tw-node, .tw-rows span, .tw-orb, .tw-wave i, .tw-logo, .tw-meter i { animation: none !important; }
   .tw-ring .tw-ring-on { animation: none; stroke-dashoffset: 46; }
 }

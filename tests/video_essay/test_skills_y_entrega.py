@@ -151,3 +151,50 @@ def test_pictures_still_go_to_gemini(monkeypatch):
     monkeypatch.setenv("GEMINI_API_KEY", "x")
     monkeypatch.setattr(llm, "_ask_gemini", lambda *a, **k: "visto")
     assert llm.ask(["mira", b"img"]) == "visto"
+
+
+def _shots(n):
+    from openjarvis.video_essay.plan import Shot
+
+    return [
+        Shot(i, i + 1, kind="card" if i % 5 == 0 else "broll", source="auto")
+        for i in range(n)
+    ]
+
+
+def test_about_a_third_of_the_pictures_become_film_scenes_never_in_a_row():
+    from openjarvis.video_essay import plan
+
+    shots = _shots(60)
+    changed = plan.add_film(shots, 0.3)
+    film = [i for i, s in enumerate(shots) if s.source == "film"]
+    assert changed == len(film) and 12 <= len(film) <= 18
+    assert all(b - a >= 2 for a, b in zip(film, film[1:]))
+    assert all(shots[i].kind != "card" for i in film)
+
+
+def test_the_editors_own_sources_and_a_closed_film_door_are_respected():
+    from openjarvis.video_essay import plan
+
+    shots = _shots(20)
+    for s in shots:
+        s.source = "library" if s.kind == "broll" else "auto"
+    assert plan.add_film(shots, 0.3) == 0
+    assert plan.add_film(_shots(20), 0.3, allowed=("stock", "image")) == 0
+
+
+def test_the_tone_changes_the_elevenlabs_voice_settings():
+    from openjarvis.speech import elevenlabs_voice as eleven
+
+    _, _, calm = eleven.request("Hola", "", "es", tone="calm")
+    _, _, hot = eleven.request("Hola", "", "es", tone="excited")
+    _, _, plain = eleven.request("Hola", "", "es")
+    assert calm["voice_settings"]["stability"] > hot["voice_settings"]["stability"]
+    assert hot["voice_settings"]["speed"] > calm["voice_settings"]["speed"]
+    assert plain["voice_settings"] == eleven.SETTINGS
+
+
+def test_the_review_asks_for_say_equals_show():
+    from openjarvis.video_essay import review
+
+    assert "SAY = SHOW" in review.REVIEW_PROMPT and "film" in review.REVIEW_PROMPT

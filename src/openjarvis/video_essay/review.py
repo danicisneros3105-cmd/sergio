@@ -43,6 +43,12 @@ strong literal visuals, readable text, rhythm that builds to the payoff.
 REFERENCE STYLE: {style}
 PLAN (index, kind, words, visual, look): {plan}
 
+SAY = SHOW: the picture of a shot must show what is said at that very moment. \
+When the words name a thing, a place or an action, the picture IS that thing; \
+when they speak of a feeling or a human situation, prefer a scene of a film or \
+series (source film) over a stock clip. A generic picture over a precise phrase \
+is the worst fault: fix those first.
+
 Find what most hurts the edit: unreadable or crowded text, a picture that does \
 not match its words, too many similar shots in a row, wrong mix, weak payoff, \
 no contrast between past (bw) and future (colour), missing sound on key cuts.
@@ -50,7 +56,7 @@ Answer ONLY JSON: {{"score": 1-10, "verdict": "one sentence", \
 "changes": [{{"shot": index, "set": {{"field": "value"}}, "why": "..."}}]}}
 Fields you may set: kind, card, visual (English, one filmable picture), text \
 (a subset of that shot's spoken words), highlight, text_style, position, \
-effect, grade, frame, device, transition, sfx, source (library|stock|web|archive|ai|3d|image), \
+effect, grade, frame, device, transition, sfx, source (library|stock|web|film|archive|ai|3d|image), \
 overlay (a counter or stamp) and camera. At most {limit} changes."""
 
 

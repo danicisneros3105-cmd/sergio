@@ -70,6 +70,7 @@ export function SignInPage() {
   const [code, setCode] = useState('');
   const [step, setStep] = useState<'datos' | 'codigo'>('datos');
   const [busy, setBusy] = useState(false);
+  const [peek, setPeek] = useState(false);
   const [note, setNote] = useState('');
   const dev = useMemo(device, []);
   // The device's face: only offered where the device can check the person.
@@ -149,6 +150,9 @@ export function SignInPage() {
       <div className="signin-card">
         <img className="signin-mark" src="/sergio.svg" alt="" width={56} height={56} />
         <h1 className="signin-title">Sergio</h1>
+        <p className="signin-lead">
+          {mode === 'crear' ? 'Cree su cuenta en un minuto.' : 'Bienvenido de nuevo.'}
+        </p>
         {faceOk && info && info.accounts > 0 && (
           <button type="button" className="signin-face" data-state={face} disabled={face === 'scan'} onClick={() => void withFace()}>
             <FaceGlyph size={44} state={face} />
@@ -196,15 +200,27 @@ export function SignInPage() {
               void run(() => post(mode === 'crear' ? 'registro' : 'entrar', { email, password, device: dev }));
             }}
           >
-            <input type="email" autoComplete="email" placeholder="Correo" value={email} onChange={(e) => setEmail(e.target.value)} required />
-            <input
-              type="password"
-              autoComplete={mode === 'crear' ? 'new-password' : 'current-password'}
-              placeholder={mode === 'crear' ? 'Contraseña (10 o más caracteres)' : 'Contraseña'}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
+            <label className="signin-field">
+              <span>Correo</span>
+              <input type="email" autoComplete="email" autoFocus value={email} onChange={(e) => setEmail(e.target.value)} required />
+            </label>
+            <label className="signin-field">
+              <span>
+                Contraseña
+                <button type="button" className="signin-peek" onClick={() => setPeek(!peek)}>
+                  {peek ? 'Ocultar' : 'Mostrar'}
+                </button>
+              </span>
+              <input
+                type={peek ? 'text' : 'password'}
+                autoComplete={mode === 'crear' ? 'new-password' : 'current-password'}
+                minLength={mode === 'crear' ? 10 : undefined}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+              {mode === 'crear' && <small>10 caracteres o más.</small>}
+            </label>
             <button type="submit" className="signin-go" disabled={busy}>
               {mode === 'crear' ? 'Crear cuenta' : 'Entrar'}
             </button>
@@ -222,7 +238,10 @@ export function SignInPage() {
               void run(() => post('telefono/codigo', { phone, device: dev }));
             }}
           >
-            <input type="tel" autoComplete="tel" placeholder="+593 99 123 4567" value={phone} onChange={(e) => setPhone(e.target.value)} required />
+            <label className="signin-field">
+              <span>Teléfono, con el código del país</span>
+              <input type="tel" autoComplete="tel" placeholder="+593 99 123 4567" value={phone} onChange={(e) => setPhone(e.target.value)} required />
+            </label>
             <button type="submit" className="signin-go" disabled={busy || info?.sms === false}>
               Enviar código
             </button>
@@ -242,15 +261,18 @@ export function SignInPage() {
               );
             }}
           >
-            <input
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              placeholder="Código de 6 cifras"
-              value={code}
-              maxLength={6}
-              onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
-              required
-            />
+            <label className="signin-field">
+              <span>Código de 6 cifras que le llegó</span>
+              <input
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                autoFocus
+                value={code}
+                maxLength={6}
+                onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
+                required
+              />
+            </label>
             <button type="submit" className="signin-go" disabled={busy || code.length !== 6}>
               Confirmar
             </button>

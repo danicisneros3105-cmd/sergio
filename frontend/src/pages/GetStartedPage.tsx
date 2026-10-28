@@ -4,52 +4,19 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { usePersonal, welcome } from '../lib/personal';
-import { Check, Command, Copy, MessageSquare, ScanFace, Search, Users } from 'lucide-react';
+import { Check, Clapperboard, Columns2, Copy, MessageSquare, Zap } from 'lucide-react';
 
 const UPDATE =
   'wsl -d Ubuntu -- bash -lc "cd ~/sergio && git fetch origin main && git checkout -B main origin/main && bash scripts/actualizar-sergio.sh main"';
 
-const STEPS: Array<{ icon: typeof Check; color: string; title: string; text: string; to: string; cta: string }> = [
-  {
-    icon: MessageSquare,
-    color: 'var(--sec-chat)',
-    title: 'Hable con él',
-    text: 'Diga «Sergio» o escriba. Recuerda lo que hablaron antes, por chat o por voz.',
-    to: '/chat',
-    cta: 'Ir al chat',
-  },
-  {
-    icon: Users,
-    color: 'var(--sec-chat)',
-    title: 'Su equipo',
-    text: 'Rihno, Manchas, Hous y Tennessee trabajan para usted sin parar. Pídales algo en Nodes.',
-    to: '/nodes',
-    cta: 'Abrir Nodes',
-  },
-  {
-    icon: Search,
-    color: 'var(--sec-chat)',
-    title: 'Investigue a lo grande',
-    text: 'Agent Swarm reparte una pregunta grande entre muchos agentes y le entrega un informe.',
-    to: '/swarm',
-    cta: 'Abrir Agent Swarm',
-  },
-  {
-    icon: ScanFace,
-    color: 'var(--sec-profile)',
-    title: 'Configure su Face ID',
-    text: 'Para aprobar lo importante (borrar, publicar, pagar) con la cara.',
-    to: '/faces',
-    cta: 'Configurar',
-  },
-  {
-    icon: Command,
-    color: 'var(--sec-workspace)',
-    title: 'Todo con Ctrl K',
-    text: 'Abra la paleta y escriba lo que busca: páginas, acciones, modelos.',
-    to: '/atajos',
-    cta: 'Ver atajos',
-  },
+// Four things to do first, in plain words (owner, 28 Oct 2026: «mejora la
+// bienvenida… que sea usable por cualquiera»). The update command waits
+// folded below: a person who never opens a terminal never needs to see it.
+const TILES: Array<{ icon: typeof Check; title: string; text: string; run: 'chat' | 'video' | 'split' | 'tour' | 'auto' }> = [
+  { icon: MessageSquare, title: 'Pregúntele algo', text: 'Escriba o diga «Sergio». Recuerda lo que hablaron.', run: 'chat' },
+  { icon: Clapperboard, title: 'Pídale un video', text: 'Del tema al video terminado, con clips reales.', run: 'video' },
+  { icon: Columns2, title: 'Dos cosas a la vez', text: 'Divida la pantalla, como un iPhone plegable.', run: 'split' },
+  { icon: Zap, title: 'Que trabaje solo', text: 'Canales, clientes y empleos en segundo plano.', run: 'auto' },
 ];
 
 export const ONBOARDED = 'sergio-onboarded';
@@ -71,26 +38,36 @@ export function GetStartedPage() {
       <h1 className="chat-hello">
         <span className="chat-hello-name">{welcome(personal)}</span>
       </h1>
-      <div className="start-steps">
-        {STEPS.map(({ icon: Icon, color, title, text, to, cta }, i) => (
-          <section key={title} className="start-step" style={{ '--sec': color } as React.CSSProperties}>
-            <span className="starter-icon" aria-hidden="true">
-              <Icon size={18} strokeWidth={1.8} />
+      <div className="start-tiles">
+        {TILES.map(({ icon: Icon, title, text, run }) => (
+          <button
+            key={title}
+            type="button"
+            className="start-tile"
+            onClick={() => {
+              if (run === 'auto') return navigate('/automatizar');
+              navigate('/chat');
+              window.setTimeout(() => {
+                if (run === 'video') window.dispatchEvent(new CustomEvent('sergio:video'));
+                if (run === 'split') window.dispatchEvent(new CustomEvent('sergio:split', { detail: 'on' }));
+              }, 250);
+            }}
+          >
+            <span className="start-tile-icon" aria-hidden="true">
+              <Icon size={20} strokeWidth={1.8} />
             </span>
-            <div>
-              <h2>
-                <small>{i + 1}</small> {title}
-              </h2>
-              <p>{text}</p>
-            </div>
-            <button type="button" className="paper-button" data-variant="quiet" onClick={() => navigate(to)}>
-              {cta}
-            </button>
-          </section>
+            <b>{title}</b>
+            <small>{text}</small>
+          </button>
         ))}
       </div>
-      <section className="start-update">
-        <h2>Actualizar</h2>
+      <p className="start-tour">
+        <button type="button" className="paper-button" onClick={() => window.dispatchEvent(new CustomEvent('sergio:tour'))}>
+          Ver el tour de un minuto
+        </button>
+      </p>
+      <details className="start-update">
+        <summary>Actualizar Sergio</summary>
         <p>En PowerShell de Windows, siempre el mismo comando:</p>
         <pre>{UPDATE}</pre>
         <button
@@ -102,7 +79,7 @@ export function GetStartedPage() {
         >
           {copied ? <Check size={15} /> : <Copy size={15} />} {copied ? 'Copiado' : 'Copiar comando'}
         </button>
-      </section>
+      </details>
     </div>
   );
 }

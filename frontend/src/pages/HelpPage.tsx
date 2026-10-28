@@ -12,6 +12,13 @@ const TOPICS: Array<{ q: string; a: string[] }> = [
     a: ['Escríbale en el chat o dígale «Sergio» en voz alta. Recuerda lo que hablaron antes, por chat o por voz.'],
   },
   {
+    q: 'Dividir la pantalla (dos cosas a la vez)',
+    a: [
+      'Toque el botón de dos columnas, arriba a la derecha del chat, o pulse Ctrl \\ (⌘ \\ en Mac). La segunda pantalla se abre desde el centro, como un iPhone plegable.',
+      'Arriba de la segunda pantalla elige qué ver al lado: chat, Nodes, Salud… Arrastre el centro para repartir el espacio. El mismo botón la cierra. En un teléfono se apila una sobre otra.',
+    ],
+  },
+  {
     q: 'Atajos',
     a: [
       'Ctrl K (⌘ K en Mac) abre la paleta: páginas, acciones y modelos.',

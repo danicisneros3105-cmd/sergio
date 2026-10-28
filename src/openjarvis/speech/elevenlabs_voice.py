@@ -42,6 +42,21 @@ SETTINGS = {
 }
 
 
+# How each delivery tone changes the voice: lower stability = more movement,
+# higher style = more drama, speed = the pace (video narrator, 28 Oct 2026).
+TONE_SETTINGS = {
+    "calm": {"stability": 0.6, "style": 0.08, "speed": 0.92},
+    "warm": {"stability": 0.5, "style": 0.2, "speed": 0.96},
+    "curious": {"stability": 0.38, "style": 0.3, "speed": 0.98},
+    "urgent": {"stability": 0.3, "style": 0.35, "speed": 1.08},
+    "excited": {"stability": 0.25, "style": 0.5, "speed": 1.06},
+    "serious": {"stability": 0.65, "style": 0.15, "speed": 0.9},
+    "whisper": {"stability": 0.7, "style": 0.05, "speed": 0.88},
+    "ironic": {"stability": 0.35, "style": 0.4, "speed": 0.97},
+    "triumphant": {"stability": 0.4, "style": 0.5, "speed": 0.95},
+}
+
+
 def key() -> str:
     found = os.environ.get("ELEVENLABS_API_KEY", "").strip()
     if not found:
@@ -178,6 +193,7 @@ def request(
     previous: str = "",
     hint: str = "",
     model_id: str = "",
+    tone: str = "",
 ) -> tuple[str, dict, dict]:
     """*language*: ISO 639-1, or "" to work it out from the text — and, when
     the sentence is too short to tell («OK»), from *previous* (the sentence
@@ -190,7 +206,7 @@ def request(
     body = {
         "text": speakable(text, lang)[:2500] or text[:2500],
         "model_id": model_id,
-        "voice_settings": SETTINGS,
+        "voice_settings": {**SETTINGS, **TONE_SETTINGS.get(tone, {})},
     }
     if model_id == MODEL:  # only Flash/Turbo take a language to enforce
         body["language_code"] = lang
@@ -226,12 +242,13 @@ def pcm(
     hint: str = "",
     model_id: str = "",
     timeout: float = 30,
+    tone: str = "",
 ) -> bytes:
     """The whole sentence as raw PCM 24 kHz int16 (Sergio's own voice speaks
     phrase by phrase with it; the video narrator uses Multilingual v2)."""
     import httpx
 
-    url, params, body = request(text, voice, language, previous, hint, model_id)
+    url, params, body = request(text, voice, language, previous, hint, model_id, tone)
     resp = httpx.post(
         url,
         params=params,

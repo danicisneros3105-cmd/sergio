@@ -324,6 +324,16 @@ def switch_video_schedule(item_id: str, body: Active) -> Dict[str, Any]:
     return _videos()
 
 
+@router.post("/videos/{item_id}/pausar")
+def pause_video_schedule(item_id: str) -> Dict[str, Any]:
+    """A plain POST so «En marcha» can stop a channel with one tap."""
+    from openjarvis.video_essay import schedule
+
+    if schedule.set_active(item_id, False) is None:
+        raise HTTPException(404, "Esa programación no existe.")
+    return _videos()
+
+
 @router.delete("/videos/{item_id}")
 def remove_video_schedule(item_id: str) -> Dict[str, Any]:
     from openjarvis.video_essay import schedule
@@ -410,10 +420,31 @@ def running(request: Request) -> Dict[str, Any]:
             rows.append({
                 "tipo": "video", "id": job.id, "quien": "Video",
                 "que": ((st.get("params") or {}).get("prompt") or (st.get("params") or {}).get("topic") or "")[:90],
+                "etapa": st.get("stage", ""), "avance": st.get("stage_progress", 0),
                 "detener": f"/v1/personal/videos/trabajos/{job.id}/cancel",
             })  # fmt: skip
     except Exception:  # noqa: BLE001
         logger.debug("video jobs unavailable", exc_info=True)
+    try:  # channels that post by themselves, and the trading robot
+        from openjarvis.automatiza import trading
+        from openjarvis.video_essay import schedule
+
+        for item in schedule.load():
+            if item.get("activo") and item.get("auto"):
+                rows.append({
+                    "tipo": "canal", "id": item["id"], "quien": "Canal",
+                    "que": f"{str(item.get('idea', ''))[:70]} (cada {item.get('cada_horas')} h)",
+                    "detener": f"/v1/personal/videos/{item['id']}/pausar",
+                })  # fmt: skip
+        ts = trading.settings()
+        if ts.activo and not trading.stopped():
+            rows.append({
+                "tipo": "trading", "id": "trading", "quien": "Trading",
+                "que": "Dinero real" if trading.real_money(ts) else "En papel (sin dinero real)",
+                "detener": "/v1/automatiza/trading/detener",
+            })  # fmt: skip
+    except Exception:  # noqa: BLE001
+        logger.debug("automation unavailable", exc_info=True)
     return {"en_marcha": rows}
 
 

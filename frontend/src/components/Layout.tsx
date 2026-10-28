@@ -1,6 +1,7 @@
 import { Suspense, useEffect, useState } from 'react';
 import { Outlet, useNavigate } from 'react-router';
 import { Tour } from './Tour/Tour';
+import { RunningPill } from './Shell/RunningPill';
 import { sessionNeed, tourSeen } from '../lib/session';
 import { Menu } from 'lucide-react';
 import { ApprovalBell } from './ApprovalBell';
@@ -181,6 +182,7 @@ export function Layout() {
           <LiveCaptions />
         </main>
       </div>
+      <RunningPill />
       {tour && <Tour onClose={() => setTour(false)} />}
     </div>
   );

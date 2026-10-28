@@ -18,6 +18,8 @@ interface Step {
   cta?: string;
   /** What opens once there: the model sheet or the video sheet. */
   then?: 'modelo' | 'video';
+  /** Opens the second screen instead of going to a page. */
+  split?: boolean;
   widget: () => React.ReactNode;
 }
 
@@ -89,6 +91,13 @@ const Palette = () => (
     <small>Todo, en un atajo</small>
   </div>
 )
+const Split = () => (
+  <div className="tw-split" aria-hidden="true">
+    <span className="tw-pane tw-pane-a"><i /><i /><i /></span>
+    <span className="tw-fold" />
+    <span className="tw-pane tw-pane-b"><i /><i /></span>
+  </div>
+)
 const Hello = () => (
   <div className="tw-hello" aria-hidden="true">
     <span className="tw-logo" />
@@ -105,6 +114,7 @@ const STEPS: Step[] = [
   { key: 'auto', title: 'Automatice', text: 'Canales que publican solos, clientes y empleos que llegan, trading con límites.', to: '/automatizar', cta: 'Ver Automatizar', widget: Auto },
   { key: 'salud', title: 'Salud simple', text: 'Medicinas a su hora, metas y cómo se siente. Sin inventar datos.', to: '/salud', cta: 'Abrir Salud', widget: Health },
   { key: 'uso', title: 'Uso y plan', text: 'Cuánto lleva usado hoy y qué plan tiene, en una mirada.', to: '/uso', cta: 'Ver el uso', widget: Usage },
+  { key: 'dividir', title: 'Dos cosas a la vez', text: 'El botón de dos columnas (arriba a la derecha del chat) abre una segunda pantalla al lado, como un iPhone plegable. Vuelva a tocarlo para unirlas.', cta: 'Probarlo ahora', split: true, widget: Split },
   { key: 'atajos', title: 'Un atajo para todo', text: 'Ctrl K (⌘ K en Mac) busca páginas, acciones y modelos. Este tour vuelve desde Ayuda.', to: '/atajos', cta: 'Ver atajos', widget: Palette },
 ]
 
@@ -164,13 +174,18 @@ export function Tour({ onClose }: { onClose: () => void }) {
               Saltar
             </button>
           )}
-          {step.to && (
+          {(step.to || step.split) && (
             <button
               type="button"
               className="paper-button"
               data-variant="quiet"
               onClick={() => {
                 close();
+                if (step.split) {
+                  navigate('/chat');
+                  window.setTimeout(() => window.dispatchEvent(new CustomEvent('sergio:split', { detail: 'on' })), 250);
+                  return;
+                }
                 navigate(step.to!);
                 if (step.then === 'modelo') useAppStore.getState().setCommandPaletteOpen(true);
                 if (step.then === 'video') window.setTimeout(() => window.dispatchEvent(new CustomEvent('sergio:video')), 150);

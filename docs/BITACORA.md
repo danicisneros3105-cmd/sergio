@@ -2,6 +2,19 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-10-28 · Claude · Dividir pantalla a la vista, bienvenida e inicio de sesión nuevos, más escenas de cine, «En marcha»
+- Dividir pantalla: botón de dos columnas arriba a la derecha del chat (`Split/SplitButton.tsx`), paso nuevo en el tour (ahora 11) y tema en Ayuda. Antes solo se abría con Ctrl \\ o la paleta y por eso no se encontraba.
+- Bienvenida (`GetStartedPage`): cuatro mosaicos grandes (preguntar, video, dos cosas a la vez, que trabaje solo), «Ver el tour» y el comando de actualizar plegado.
+- Inicio de sesión: frase de bienvenida según el modo, etiquetas sobre cada campo (antes eran solo texto de ejemplo), «Mostrar» la contraseña, botón azul y foco al abrir. Hecho con la skill de diseño: un solo acento, sin adornos.
+- Video:
+  - Entre el 25 % y el 30 % de las tomas con imagen pasan a ser escenas de películas y series (`plan.add_film`), nunca dos seguidas y sin tocar lo que el editor eligió. Búsqueda de escenas con cinco formas de pedirla.
+  - La revisión tiene la regla «SAY = SHOW»: la imagen muestra lo que se dice en ese momento; si hablan de una emoción o una situación humana, mejor una escena.
+  - El tono de cada parte llega por fin a ElevenLabs (estabilidad, estilo y ritmo por tono). Antes solo llegaba a Gemini y OpenAI.
+- «En marcha» (`Shell/RunningPill.tsx`): una píldora abajo a la derecha, solo cuando algo corre, con botón de parar para videos (con etapa y avance), Nodes, enjambres, Cowork, canales automáticos y trading.
+- Error mío arreglado: `tests/automatiza/test_trading.py` fijaba la fecha «2026-10-27» y falló al cambiar el día; ahora usa la de hoy.
+- No hecho, y por qué: el control del PC (tareas de escritorio, `tareas.py`) vive en la app de Windows y la web no lo ve; «En marcha» muestra lo del servidor. Unir ambos pide un puente nuevo.
+- No probado aquí: clips de películas y ElevenLabs (bloqueados en el sandbox); se probó con pruebas y respuestas simuladas.
+
 ## 2026-10-27 · Claude · Skills de GitHub, todos los modelos, Automatizar, estabilidad, inicio de sesión y tour
 - Skills: 75 repositorios de GitHub verificados (37 de guion, 38 de motion) en `skills_catalog.json`; `skillbook.py` los baja al equipo y mete los que encajan en el guion y en el plan. Se revisaron 12 al azar: todos responden.
 - Guion con entrega: tono y pausa por beat (`director._delivery`), narración por grupos de tono con silencio real (`script.narrate_beats`) y narrador con tres voces de respaldo (ElevenLabs, Gemini, OpenAI).

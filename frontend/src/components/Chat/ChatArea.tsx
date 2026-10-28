@@ -1,6 +1,7 @@
 import { Fragment, useMemo, useRef, useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router';
 import { MessageBubble } from './MessageBubble';
+import { SplitButton } from '../Split/SplitButton';
 import { InputArea } from './InputArea';
 import { StreamingDots } from './StreamingDots';
 import { useAppStore } from '../../lib/store';
@@ -204,6 +205,7 @@ export function ChatArea() {
           </span>
         </button>
         <div className="flex items-center gap-1">
+          <SplitButton />
           <button
             onClick={toggleReasoningPanel}
             className="mac-icon-btn"
