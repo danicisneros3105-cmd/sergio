@@ -271,6 +271,10 @@ export class VoiceCall {
       case 'tool':
         if (event.status === 'running') this.cb.onState('thinking');
         break;
+      case 'turn_error': // one answer failed: the call goes on
+        this.said = '';
+        this.cb.onState('listening');
+        break;
       case 'error':
         this.fail(event.message || 'La llamada falló.');
         break;

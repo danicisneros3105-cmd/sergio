@@ -60,6 +60,7 @@ FIRST_CUT_WORDS = 3  # the first phrase is cut early to start speaking soon
 # word that is already synthesized ("Claro,") is said first, as people do.
 ACK_AFTER = float(os.environ.get("SERGIO_VOZ_ACUSE", "0.35"))
 ACKS = ("Claro,", "A ver,", "Vale,", "Bien,")
+SORRY = "Perdón, se me cortó esa respuesta. ¿Me lo repite?"
 # While Sergio works on something long (a tool, a search) and nothing has been
 # heard for this many seconds, he says so, like a person would, instead of
 # leaving a silence that feels like a crash (owner, 28 Oct 2026: «más
@@ -140,7 +141,13 @@ def engine() -> str:
         return ""
     if os.environ.get("ELEVENLABS_API_KEY", "").strip():
         return "elevenlabs"
-    if _choice() == "propia":
+    # Without a Gemini key, Gemini Live cannot speak at all: the own voice
+    # (Kokoro, on this computer) answers instead, with the brain of any model
+    # OpenRouter serves (owner, 28 Oct 2026: «el núcleo no es Gemini»).
+    no_gemini = not (
+        os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
+    )
+    if _choice() == "propia" or no_gemini:
         try:
             import kokoro_onnx  # noqa: F401
         except ImportError:
@@ -464,9 +471,17 @@ class OwnVoiceCall:
             still.cancel()
             raise
         except Exception as exc:  # noqa: BLE001
+            # One answer that fails (the model or the voice service hiccups)
+            # never ends the call: Sergio says so and keeps listening. Before,
+            # an «error» here hung up the call («la llamada falló»).
             still.cancel()
             log.warning("own voice turn failed: %s", exc)
-            await self.send_json({"type": "error", "message": str(exc)[:300]})
+            await self.send_json({"type": "turn_error", "message": str(exc)[:200]})
+            if not said:
+                with contextlib.suppress(Exception):
+                    sorry = await loop.run_in_executor(None, lambda: speak_pcm(SORRY))
+                    await self.ws.send_bytes(sorry)
+            await self.send_json({"type": "turn_complete"})
             return
         still.cancel()
         answer = " ".join(said)

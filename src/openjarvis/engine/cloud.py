@@ -279,9 +279,55 @@ def split_effort(model: str) -> tuple[str, str]:
 
 
 def _plain(model: str) -> str:
-    """Only Gemini understands «@effort»; every other company gets the bare id."""
+    """Only Gemini understands «@effort»; every other company gets the bare id.
+    A model whose company has no key here goes through OpenRouter when that
+    key exists (``through_openrouter``)."""
     name, effort = split_effort(model)
-    return model if not effort or _is_google_model(name) else name
+    plain = model if not effort or _is_google_model(name) else name
+    return through_openrouter(plain)
+
+
+# OpenRouter serves every big lab's models under «vendor/model». With its key
+# (or a customer's sub-key) and no key of the lab itself, Sergio still talks
+# to Gemini, Claude, GPT or DeepSeek through it (owner, 28 Oct 2026: «el
+# núcleo de Sergio no es Gemini; con la key de OpenRouter se autoconfiguran
+# todas las IAs»).
+_VENDOR_KEYS = (
+    ("gemini", "google", ("GEMINI_API_KEY", "GOOGLE_API_KEY")),
+    ("claude", "anthropic", ("ANTHROPIC_API_KEY",)),
+    ("gpt", "openai", ("OPENAI_API_KEY",)),
+    ("o3", "openai", ("OPENAI_API_KEY",)),
+    ("o4", "openai", ("OPENAI_API_KEY",)),
+    ("deepseek", "deepseek", ("DEEPSEEK_API_KEY",)),
+)
+
+
+def through_openrouter(model: str) -> str:
+    """*model* as an OpenRouter id when its own company has no key here and
+    OpenRouter does; otherwise *model* unchanged."""
+    if (
+        not model
+        or "/" in model
+        or not (os.environ.get("OPENROUTER_API_KEY") or _customer_key())
+    ):
+        return model
+    name = split_effort(model)[0]
+    low = name.lower()
+    for prefix, vendor, envs in _VENDOR_KEYS:
+        if low.startswith(prefix):
+            if any(os.environ.get(e, "").strip() for e in envs):
+                return model
+            return f"openrouter/{vendor}/{name}"
+    return model
+
+
+def _customer_key() -> str:
+    try:
+        from openjarvis.accounts.provision import CUSTOMER_KEY
+
+        return CUSTOMER_KEY.get() or ""
+    except Exception:  # noqa: BLE001
+        return ""
 
 
 def _gemini_generation(model: str) -> float:
@@ -710,7 +756,19 @@ class CloudEngine(
                     base_url="https://openrouter.ai/api/v1", api_key=key
                 )
             return clients[key]
-        return self.__dict__.get("_owner_openrouter")
+        owner = self.__dict__.get("_owner_openrouter")
+        env = os.environ.get("OPENROUTER_API_KEY", "").strip()
+        if owner is None and env:  # the key arrived after start-up (autoconfig)
+            try:
+                import openai
+
+                owner = openai.OpenAI(
+                    base_url="https://openrouter.ai/api/v1", api_key=env
+                )
+                self.__dict__["_owner_openrouter"] = owner
+            except ImportError:
+                return None
+        return owner
 
     @_openrouter_client.setter
     def _openrouter_client(self, client: Any) -> None:
@@ -1106,7 +1164,7 @@ class CloudEngine(
         ``generate``/``stream`` keep their OpenAI fall-through, so an
         explicitly-requested unknown cloud model still fails loudly at call time.
         """
-        model, _ = split_effort(model)
+        model, _ = split_effort(through_openrouter(model))
         if _is_codex_model(model):
             return self._codex_client
         if _is_openrouter_model(model):

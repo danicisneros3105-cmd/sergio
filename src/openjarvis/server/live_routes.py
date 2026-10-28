@@ -118,6 +118,29 @@ VOICE_NOTE = (
 )
 
 
+def _retry_once(think):  # noqa: ANN001, ANN202
+    """A spoken answer whose model call fails before saying anything is
+    tried once more (a dropped connection, a busy model) before the call
+    hears «se me cortó»."""
+
+    def run(text: str, history: list, sink) -> str:  # noqa: ANN001
+        said: list = []
+
+        def tap(piece: str) -> None:
+            said.append(piece)
+            sink(piece)
+
+        try:
+            return think(text, history, tap)
+        except Exception:  # noqa: BLE001
+            if said:
+                raise
+            log.warning("voice answer failed; trying once more", exc_info=True)
+            return think(text, history, sink)
+
+    return run
+
+
 def _owner_think(app: Any):
     """The owner's spoken turn goes to his agent, with its tools, live."""
 
@@ -227,7 +250,7 @@ async def _customer_call(websocket: WebSocket, user: dict) -> None:
             None, voz_propia.ready
         ):  # their own sub-key, no Gemini cost
             call = voz_propia.OwnVoiceCall(
-                websocket, start, think=_customer_think(websocket.app)
+                websocket, start, think=_retry_once(_customer_think(websocket.app))
             )
         else:
             call = LiveCall(websocket, start, execute=None, openai_tools=[], owner="")
@@ -295,7 +318,7 @@ async def live(websocket: WebSocket) -> None:
         call = voz_propia.OwnVoiceCall(
             websocket,
             start,
-            think=_owner_think(websocket.app),
+            think=_retry_once(_owner_think(websocket.app)),
             remember=lambda heard, said: remember_exchange(heard, said, "voz"),
         )
     else:

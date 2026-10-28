@@ -102,12 +102,12 @@ def _signed_in(user: Dict[str, Any], device: str) -> Dict[str, Any]:
             if user["role"] == "pendiente"
             else "Esta cuenta está bloqueada.",
         }
-    if user["role"] != "dueño":
-        # The customer's AI key, inside the owner's account (provision.py).
-        from openjarvis.accounts import provision
+    # Every AI configured by itself (accounts/autoconfig.py): the owner's own
+    # OpenRouter key from the management key, a customer's sub-key, and the
+    # list of models; all in the background, never blocking the sign-in.
+    from openjarvis.accounts import autoconfig
 
-        if provision.enabled() and not provision.key_for(user["id"]):
-            provision.in_background(provision.ensure, user["id"])
+    autoconfig.in_background(user)
     return {
         "status": "dentro",
         "token": _store().open_session(user["id"], device),
@@ -171,8 +171,8 @@ class Role(BaseModel):
 
 @router.get("/estado")
 def estado(request: Request) -> Dict[str, Any]:
+    from openjarvis.accounts import autoconfig, oauth, senders
     from openjarvis.accounts import email as mail
-    from openjarvis.accounts import oauth, senders
     from openjarvis.accounts.store import public
 
     me = _me(request)
@@ -184,6 +184,7 @@ def estado(request: Request) -> Dict[str, Any]:
         "secure_only": mail.secure_only(),
         "local": is_local(request),
         "me": public(me) if me else None,
+        "ia": autoconfig.ready(),
     }
 
 

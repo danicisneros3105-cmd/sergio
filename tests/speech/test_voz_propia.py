@@ -175,3 +175,44 @@ def test_a_quick_answer_never_says_it_is_working(monkeypatch):
         V.OwnVoiceCall(ws, {"type": "start"}, think=lambda t, h, s: "Hola.").run()
     )
     assert not any(p in spoken for p in V.STILL)
+
+
+def test_a_failed_answer_apologises_and_keeps_the_call(monkeypatch):
+    monkeypatch.setattr(V, "warm", lambda: None)
+    monkeypatch.setattr(V, "_ACK_PCM", [])
+    spoken = []
+    monkeypatch.setattr(
+        V, "speak_pcm", lambda text, speed=1.05, **kw: spoken.append(text) or b"\0\0"
+    )
+
+    def broken(text, history, sink):
+        raise RuntimeError("modelo caído")
+
+    ws = _WS(
+        [
+            {
+                "type": "websocket.receive",
+                "text": json.dumps({"type": "text", "text": "hola"}),
+            }
+        ]
+    )
+    asyncio.run(V.OwnVoiceCall(ws, {"type": "start"}, think=broken).run())
+    kinds = [m["type"] for m in ws.out]
+    assert "turn_error" in kinds and "error" not in kinds and "turn_complete" in kinds
+    assert spoken == [V.SORRY]
+
+
+def test_the_model_is_asked_twice_before_giving_up():
+    from openjarvis.server.live_routes import _retry_once
+
+    tries = []
+
+    def flaky(text, history, sink):
+        tries.append(1)
+        if len(tries) == 1:
+            raise RuntimeError("conexión cortada")
+        sink("Listo.")
+        return "Listo."
+
+    out = []
+    assert _retry_once(flaky)("hola", [], out.append) == "Listo." and len(tries) == 2

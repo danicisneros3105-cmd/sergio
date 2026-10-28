@@ -25,7 +25,12 @@ def test_the_own_voice_never_falls_back_to_kokoro_unless_asked(monkeypatch):
 
     monkeypatch.delenv("ELEVENLABS_API_KEY", raising=False)
     monkeypatch.delenv("SERGIO_VOZ", raising=False)
+    monkeypatch.setenv("GEMINI_API_KEY", "g")
     assert V.engine() == ""  # Gemini Live speaks
+    monkeypatch.delenv("GEMINI_API_KEY")
+    monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
+    assert V.engine() in ("kokoro", "")  # no Gemini: the own voice, if installed
+    monkeypatch.setenv("GEMINI_API_KEY", "g")
     monkeypatch.setenv("ELEVENLABS_API_KEY", "k")
     assert V.engine() == "elevenlabs"
     monkeypatch.setenv("SERGIO_VOZ", "gemini")

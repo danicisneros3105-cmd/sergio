@@ -2,6 +2,19 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-10-28 · Claude · «La llamada falló» arreglado, OpenRouter como núcleo que se configura solo
+- «La llamada falló»: una respuesta que fallaba en la voz propia mandaba «error» y el escritorio colgaba y lo anunciaba. Ahora:
+  - la respuesta fallida manda `turn_error`, Sergio dice «Perdón, se me cortó esa respuesta. ¿Me lo repite?» y la llamada sigue;
+  - antes de rendirse, la pregunta al modelo se repite una vez (`live_routes._retry_once`);
+  - cuando la línea sí se corta, el escritorio dice «Reconectando la voz…» y el guardián reconecta solo (`call.py`); la web y el escritorio entienden `turn_error`.
+- OpenRouter como núcleo (dueño: «el núcleo de Sergio no es Gemini; con la key de OpenRouter se autoconfiguran todas las IAs»):
+  - `engine.cloud.through_openrouter`: un modelo cuya empresa no tiene clave aquí (Gemini, Claude, GPT, DeepSeek) va por OpenRouter solo; la clave propia de la empresa gana si existe.
+  - `accounts/autoconfig.py`: al crear cuenta o entrar, el dueño recibe su clave de OpenRouter creada con la de gestión (una sola vez, guardada en el archivo de claves 0600), el cliente su subclave y se lee la lista de modelos de OpenRouter. Todo en segundo plano; nunca frena la entrada. `/v1/cuentas/estado` dice qué está listo (`ia`).
+  - Sin clave de Gemini, la llamada en vivo usa la voz propia (Kokoro) con el cerebro del modelo que sea, en vez de intentar Gemini Live y fallar.
+- Prueba cambiada: `test_the_own_voice_never_falls_back_to_kokoro_unless_asked` fija la clave de Gemini para su primer caso y comprueba el caso nuevo sin Gemini.
+- Error mío al probar: formateé sin querer toda la carpeta de Windows; lo deshice antes de subir (solo cambia `call.py`).
+- No probado aquí: OpenRouter real (sin clave en el sandbox); se probó con respuestas simuladas.
+
 ## 2026-10-28 · Claude · Escenas de películas por tema, clips que encajan, subtítulos y narración más pulidos
 - `video_essay/films.py`: una vez por video, el editor nombra para cada toma de cine una película o serie REAL (título y año) y la escena que muestra lo que se dice. La búsqueda pide esa escena por nombre (`Shot.search`, primero en `media.queries`). Máximo dos tomas por película; sin año real o en una toma que no es de cine, se descarta.
 - `sources.fits`: un clip cuyo título no comparte ninguna palabra con lo buscado se descarta (web y escenas). Con una película nombrada, solo quedan clips cuyo título la nombra. `Candidate.title` guarda el título del clip.

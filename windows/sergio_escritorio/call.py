@@ -690,10 +690,19 @@ class CallSession:
             # open at once would answer each other. An app window: wait and
             # come back quietly when it closes. Another device: stay down.
             self.hang_up("ventana" if event.get("by") == "web" else "otra ventana")
-        elif kind == "error":
+        elif kind == "turn_error":
+            # One answer failed; the call goes on (the server already
+            # apologised out loud).
             self.error = str(event.get("message") or "")
-            self.on_caption(f"La llamada falló: {self.error[:120]}")
-            self.hang_up("error")
+            self._said = []
+            self._set_state("listening")
+        elif kind == "error":
+            # The line dropped: no alarming caption, the keeper reconnects
+            # by itself in a moment (the reason stays in the log).
+            self.error = str(event.get("message") or "")
+            log.warning("live call error: %s", self.error[:300])
+            self.on_caption("Reconectando la voz…")
+            self.hang_up("se cortó")
 
     def _run_tool(self, event: dict[str, Any]) -> None:
         name = str(event.get("name") or "")
