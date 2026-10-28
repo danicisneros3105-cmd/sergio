@@ -1,0 +1,68 @@
+{
+ "key": "corto-cine",
+ "name": "Corto cinematográfico (escenas, poca letra, letterbox)",
+ "source": "Estilo de Sergio, 28 oct. 2026: gramática de cortometraje (planos que respiran, silencio, imagen final).",
+ "shots_measured": 48,
+ "length_s": 246.0,
+ "median_shot_s": 3.2,
+ "min_shot_s": 1.2,
+ "max_shot_s": 7.0,
+ "mix": {
+  "broll": 0.9,
+  "archive": 0.1
+ },
+ "text_share": 0.25,
+ "palette_seen": [],
+ "grade": "Cinematic teal and orange or cold desaturated; deep blacks, soft highlights, grain.",
+ "typography": "Thin elegant title, small lower-third lines; no captions on most shots.",
+ "narration": "High-energy host narration driving the timeline, rules, stakes and emotional beats.",
+ "music": "Dynamic orchestral score, cinematic bass drops, upbeat YouTube challenge tracks, punchy SFX for counters.",
+ "effects": [
+  "slow push-in",
+  "letterbox 2.39:1",
+  "rack focus",
+  "match cut"
+ ],
+ "sfx": {
+  "riser": 0.1,
+  "impact": 0.05,
+  "whoosh": 0.03
+ },
+ "structure": [
+  "cold open image",
+  "world and character",
+  "desire",
+  "obstacle",
+  "turn",
+  "climax",
+  "ending image"
+ ],
+ "pacing": {
+  "median_shot_s": 3.2
+ },
+ "production": "edit",
+ "narration_mode": "voice",
+ "sources": [
+  "film",
+  "library",
+  "stock",
+  "archive",
+  "web",
+  "ai",
+  "image"
+ ],
+ "look": "Letterboxed 2.39:1, cinematic real footage and film scenes, shallow depth of field, motivated light, slow camera moves, a recurring image that returns at the end.",
+ "overlays": [],
+ "camera": "Slow dolly and push-ins, wide establishing shots, intimate close-ups, still frames held.",
+ "humans": "real",
+ "viral": [
+  "An image in the first second that asks a question.",
+  "A turn in the middle.",
+  "An ending image that answers the first."
+ ],
+ "transitions_seen": [
+  "cut",
+  "match cut",
+  "fade to black"
+ ]
+}

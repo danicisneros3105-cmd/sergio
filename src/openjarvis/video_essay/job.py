@@ -253,6 +253,7 @@ def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
         audio,
         director,
         finish,
+        genres,
         render,
         review,
         script,
@@ -341,6 +342,15 @@ def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
                     sources=[],
                 )
             else:
+                # The genre the brief asks for (a short film, animation, a
+                # heavy retention edit…) picks the style unless one is fixed.
+                brief0 = str(params.get("prompt") or params.get("topic") or "")
+                genre = genres.for_style(fixed) if fixed else genres.detect(brief0)
+                if genre and not fixed:
+                    wanted = genres.GENRES[genre].style
+                    if any(s["key"] == wanted for s in style.available(deps.styles)):
+                        fixed = wanted
+                job.update(genre=genre)
                 keys = [s["key"] for s in style.available(deps.styles)]
                 profiles = [style.load(k, deps.styles) for k in dict.fromkeys(keys)]
                 brief = str(params.get("prompt") or params.get("topic") or "")
@@ -352,7 +362,9 @@ def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
                     language=str(params.get("language") or "Spanish"),
                     fixed_style=fixed,
                     words_per_second=script.WORDS_PER_SECOND,
-                    advice=_specialist(job, fixed, brief) + _skills("guion", brief),
+                    advice=_specialist(job, fixed, brief)
+                    + _skills("guion", brief)
+                    + genres.notes(job.state().get("genre", "")),
                 )
             job.write("script.json", sc)
             job.update(
@@ -406,9 +418,16 @@ def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
             job.finish("tiempos")
         words = [P.Word(**w) for w in job.read("words.json")]
 
-        allowed = _allowed_sources(
-            sc.get("sources") or profile.get("sources") or [], params, mode
+        genre = job.state().get("genre") or genres.for_style(
+            job.state().get("style_key", "")
         )
+        allowed = genres.sources(
+            genre,
+            _allowed_sources(
+                sc.get("sources") or profile.get("sources") or [], params, mode
+            ),
+        )
+        profile = {**profile, "search_words": genres.search_words(genre)}
 
         # 5. the editor's plan
         if stage("plan"):
@@ -418,6 +437,7 @@ def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
                 ask=lambda p: edit(p, json_mode=True),
                 sources=allowed,
                 extra=_beat_notes(sc)
+                + genres.notes(genre)
                 + _skills(
                     "motion",
                     f"{sc.get('title', '')} {sc.get('look', '')} {profile.get('name', '')}",
@@ -433,7 +453,9 @@ def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
                 "ai",
                 "animation",
             ):
-                P.add_film(shots, allowed=allowed)
+                share = genres.GENRES[genre].film_share if genre else P.FILM_SHARE
+                P.add_film(shots, share, allowed=allowed)
+            genres.finish(shots, words, genre)
             if narration != "voice":
                 for s in shots:
                     if all(w.text == "·" for w in words[s.first : s.last]):

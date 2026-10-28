@@ -2,6 +2,15 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-10-28 · Claude · Video por género: corto de cine, animación, edición pesada y documental
+- `video_essay/genres.py`: el pedido elige el género (`detect`) y el género elige el estilo, cuánto cine lleva, el orden de las fuentes, las palabras que se añaden a cada búsqueda de clips y una pasada de gráficos animados (`finish`). Un estilo pedido por nombre manda siempre.
+- Estilos nuevos: `corto-cine` (planos de 2-5 s, poca letra, formato 2.39, escenas de cine primero) y `edicion-pesada` (corte cada ~1 s, sonido en cada corte, zoom en palabras clave, contadores, barras, flechas y círculos, re-ganchos).
+- Gráficos animados en `render.draw_motion`: «circle» (un círculo que se dibuja solo), «arrow:TEXTO» (una flecha que entra con su etiqueta) y «bar:N» (una barra que se llena). `render.letterbox` pone las barras de cine (solo en horizontal). `plan.FRAMES` admite «letterbox».
+- Búsqueda: `media.queries(shot, look)` prueba primero el núcleo de la toma con el «look» del género («cinematic film still…», «animation cartoon…») y luego lo de siempre.
+- Error encontrado al probar y arreglado: el patrón de números marcaba palabras con dígitos dentro («covid19»); ahora usa límites de palabra.
+- Pruebas: `tests/video_essay/test_generos.py` (9). Suite completa: 11 510 bien.
+- No probado aquí: una pieza completa con clips de cine y animación reales (YouTube, archive.org y la IA de imagen bloqueados o sin cuota en el sandbox). La hoja `generos-motion-graphics.jpg` muestra los gráficos sobre clips de muestra.
+
 ## 2026-10-28 · Claude · Conversación en vivo más presente y más útil
 - «Sigo con eso» (`voz_propia._still_working`): si un trabajo largo (una herramienta, una búsqueda) deja la línea en silencio 4 s, Sergio lo dice en voz alta («Ya casi lo tengo») hasta dos veces por respuesta, y avisa `working`. Solo en español. Antes quedaba mudo y parecía que se había colgado.
 - El cliente por fin usa los eventos que el servidor ya mandaba y ignoraba: `hearing` (lo que va entendiendo mientras usted habla) y ahora `thinking`/`working` (el orbe pasa a «pensando»).

@@ -590,10 +590,89 @@ def glitch(img: Image.Image, seed: int) -> Image.Image:
 # -- the shot, frame by frame --------------------------------------------------------------
 
 
+def letterbox(canvas: Image.Image, ratio: float = 2.39) -> None:
+    """Black bars to a cinema frame (only on a frame wider than tall)."""
+    w, h = canvas.size
+    if w <= h:
+        return
+    bar = max(0, int((h - w / ratio) / 2))
+    if bar:
+        d = ImageDraw.Draw(canvas)
+        d.rectangle((0, 0, w, bar), fill=(0, 0, 0, 255))
+        d.rectangle((0, h - bar, w, h), fill=(0, 0, 0, 255))
+
+
+def _ease(t: float, length: float = 0.35) -> float:
+    x = min(1.0, max(0.0, t / length))
+    return 1 - (1 - x) ** 3
+
+
+def draw_motion(canvas: Image.Image, kind: str, t: float, accent=(255, 59, 48)) -> bool:
+    """Motion graphics of a heavy edit, drawn on the frame: «circle» (a ring
+    that draws itself round the centre of attention), «arrow:LABEL» (an
+    arrow that flies in towards it, with its label) and «bar:N» (a progress
+    bar that fills to N %). Returns False when *kind* is not one of them."""
+    w, h = canvas.size
+    layer = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
+    d = ImageDraw.Draw(layer)
+    k = _ease(t)
+    stroke = max(4, int(h * 0.009))
+    if kind == "circle":
+        cx, cy, r = w * 0.5, h * 0.45, h * 0.2
+        d.arc(
+            (cx - r, cy - r * 0.8, cx + r, cy + r * 0.8),
+            -90,
+            -90 + 360 * k,
+            fill=accent + (255,),
+            width=stroke,
+        )
+    elif kind.startswith("arrow"):
+        label = kind.partition(":")[2]
+        x1, y1 = w * 0.62, h * 0.62
+        x0, y0 = w * 0.86, h * 0.84
+        x0, y0 = x0 + (1 - k) * w * 0.2, y0 + (1 - k) * h * 0.2
+        d.line((x0, y0, x1, y1), fill=accent + (255,), width=stroke * 2)
+        a = math.atan2(y1 - y0, x1 - x0)
+        head = stroke * 6
+        pts = [(x1, y1)] + [
+            (x1 - head * math.cos(a + s), y1 - head * math.sin(a + s))
+            for s in (0.45, -0.45)
+        ]
+        d.polygon(pts, fill=accent + (255,))
+        if label and k > 0.6:
+            size = max(18, int(h * 0.05))
+            img = word_image(label, "black", size, PALETTE["white"], True)
+            layer.alpha_composite(
+                img,
+                (
+                    int(min(w - img.size[0], x0 - img.size[0] * 0.5)),
+                    int(min(h - img.size[1], y0 + stroke)),
+                ),
+            )
+    elif kind.startswith("bar:"):
+        try:
+            goal = max(0.0, min(100.0, float(kind[4:]))) / 100
+        except ValueError:
+            return False
+        x, y, bw, bh = w * 0.25, h * 0.08, w * 0.5, max(14, int(h * 0.028))
+        d.rounded_rectangle((x, y, x + bw, y + bh), bh // 2, fill=(255, 255, 255, 200))
+        d.rounded_rectangle(
+            (x, y, x + max(bh, bw * goal * k), y + bh), bh // 2, fill=accent + (255,)
+        )
+    else:
+        return False
+    canvas.alpha_composite(layer)
+    return True
+
+
 def draw_overlay(canvas: Image.Image, text: str, t: float) -> None:
     """A stamp or counter at the top left, like the counters of challenge
-    videos; a number in it counts up during the first half second."""
+    videos; a number in it counts up during the first half second. Motion
+    graphics («circle», «arrow:…», «bar:N») draw themselves instead."""
     import re
+
+    if draw_motion(canvas, text, t):
+        return
 
     m = re.search(r"\d[\d.,]*", text)
     shown = text
@@ -625,7 +704,11 @@ def shot_frames(
     n = max(1, round(shot.dur * FPS))
     placed = layout_text(shot, words, size)
     shadow = shot.kind != "card"
-    overlay = crt_overlay(size, shot.frame == "film") if shot.frame != "none" else None
+    overlay = (
+        crt_overlay(size, shot.frame == "film")
+        if shot.frame in ("crt", "film")
+        else None
+    )
     rng = np.random.default_rng(index)
     for i, bg in enumerate(background_for(shot, size).frames(n)):
         t = i / FPS
@@ -657,6 +740,8 @@ def shot_frames(
         draw_text(canvas, placed, t, shot.text_style, shadow)
         if shot.overlay:
             draw_overlay(canvas, shot.overlay, t)
+        if shot.frame == "letterbox":
+            letterbox(canvas)
         out = canvas.convert("RGB")
         if shot.effect == "glitch" and i < 4:
             out = glitch(out, index * 10 + i)

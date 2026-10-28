@@ -65,7 +65,11 @@ ACKS = ("Claro,", "A ver,", "Vale,", "Bien,")
 # leaving a silence that feels like a crash (owner, 28 Oct 2026: «más
 # presente y más productiva»). At most twice per answer.
 STILL_AFTER = float(os.environ.get("SERGIO_VOZ_SIGO", "4.0"))
-STILL = ("Sigo con eso, un momento más.", "Ya casi lo tengo.", "Un segundo más, lo estoy terminando.")
+STILL = (
+    "Sigo con eso, un momento más.",
+    "Ya casi lo tengo.",
+    "Un segundo más, lo estoy terminando.",
+)
 _END = re.compile(r"[.!?…:;]\s|[.!?…]$|\n")
 _SOFT = re.compile(r"[,—]\s")
 

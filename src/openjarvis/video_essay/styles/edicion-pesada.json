@@ -1,0 +1,81 @@
+{
+ "key": "edicion-pesada",
+ "name": "Edición pesada de retención (cortes de 1 s, contadores, flechas)",
+ "source": "Estilo de Sergio, 28 oct. 2026: técnicas de retención de los canales grandes, sin imitar a nadie.",
+ "shots_measured": 48,
+ "length_s": 246.0,
+ "median_shot_s": 1.0,
+ "min_shot_s": 0.4,
+ "max_shot_s": 2.5,
+ "mix": {
+  "broll": 0.85,
+  "card": 0.1,
+  "device": 0.05
+ },
+ "text_share": 0.9,
+ "palette_seen": [],
+ "grade": "Vibrant, saturated commercial YouTube grade with bright punchy colors.",
+ "typography": "Bold white impact font with drop shadow for Day indicators and digital calorie graphics.",
+ "narration": "High-energy host narration driving the timeline, rules, stakes and emotional beats.",
+ "music": "Dynamic orchestral score, cinematic bass drops, upbeat YouTube challenge tracks, punchy SFX for counters.",
+ "effects": [
+  "zoom punch on key words",
+  "camera shake",
+  "flash cuts",
+  "counters",
+  "progress bars",
+  "arrows and circles"
+ ],
+ "sfx": {
+  "whoosh": 0.3,
+  "pop": 0.25,
+  "impact": 0.2,
+  "ding": 0.1,
+  "riser": 0.05
+ },
+ "structure": [
+  "stakes in 3 seconds",
+  "the rules",
+  "escalation with counters",
+  "re-hook every 20-30 s",
+  "twist",
+  "climax",
+  "payoff",
+  "next video tease"
+ ],
+ "pacing": {
+  "median_shot_s": 1.0
+ },
+ "production": "edit",
+ "narration_mode": "voice",
+ "sources": [
+  "library",
+  "web",
+  "film",
+  "stock",
+  "archive",
+  "ai",
+  "image"
+ ],
+ "look": "Bright saturated grade, faces close, big bold captions word by word, counters for every number, arrows and circles on what matters, a sound on every cut, never a still moment.",
+ "overlays": [
+  "counter",
+  "bar",
+  "arrow",
+  "circle"
+ ],
+ "camera": "Wide store-level tracking shots, handheld POV, low-angle dynamic pushes, overhead surveillance angles.",
+ "humans": "real",
+ "viral": [
+  "Massive $1M stakes with relatable grocery store setting.",
+  "Long-form character development and emotional narrative payoff.",
+  "Gamified graphics tracking calorie counts continuously.",
+  "High-profile guest star appearances (well-known references, college football team)."
+ ],
+ "transitions_seen": [
+  "whip pan",
+  "flash cut",
+  "zoom transition",
+  "jump cut"
+ ]
+}

@@ -46,17 +46,20 @@ def _words(text: str) -> set:
     }
 
 
-def queries(shot: Shot) -> List[str]:
+def queries(shot: Shot, look: str = "") -> List[str]:
     """What to search for a shot: the editor's full picture, then its core
     (the first nouns and verbs), then the two strongest words — a long,
-    precise description often finds nothing where a short one finds plenty."""
+    precise description often finds nothing where a short one finds plenty.
+    *look* (the genre's words: «cinematic film still…», «animation
+    cartoon…») first goes with the core, so the footage has the genre's look."""
     full = (shot.visual or shot.text)[:120].strip()
     core = [
         w
         for w in "".join(c if c.isalnum() else " " for c in full).split()
         if w.lower() not in _STOP
     ]
-    out = [full, " ".join(core[:5]), " ".join(core[:2])]
+    styled = f"{' '.join(core[:4])} {look}".strip() if look and core else ""
+    out = [styled, full, " ".join(core[:5]), " ".join(core[:2])]
     seen: List[str] = []
     for q in out:
         if q and q not in seen:
@@ -156,7 +159,10 @@ class Filler:
 
     def _clips(self, shot: Shot, src: str, want: int) -> List[S.Candidate]:
         found: List[S.Candidate] = []
-        for query in queries(shot):  # the full picture, then its core words
+        look = str(self.style.get("search_words") or "")
+        for query in queries(
+            shot, look
+        ):  # the genre's look, the full picture, then its core
             found = S.find(
                 query,
                 want * 2,
