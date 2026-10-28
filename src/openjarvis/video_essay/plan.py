@@ -93,6 +93,9 @@ class Shot:
     # colour match to the rest of the video: per channel (gain, offset) for
     # red, green and blue (color.unify); empty = as shot
     tone: List[float] = field(default_factory=list)
+    # an exact search for its picture («Rocky 1976 training montage scene»):
+    # a scene of a named film or series chosen for this moment (films.py)
+    search: str = ""
 
     @property
     def dur(self) -> float:
@@ -326,7 +329,7 @@ def fallback(
     return normalise(shots, words, **pace(style))
 
 
-FILM_SHARE = 0.3  # of the pictures, scenes of films and series (owner, 28 Oct 2026)
+FILM_SHARE = 0.4  # of the pictures, scenes of films and series (owner, 28 Oct 2026)
 
 
 def add_film(

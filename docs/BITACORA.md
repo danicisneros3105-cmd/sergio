@@ -2,6 +2,15 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-10-28 · Claude · Escenas de películas por tema, clips que encajan, subtítulos y narración más pulidos
+- `video_essay/films.py`: una vez por video, el editor nombra para cada toma de cine una película o serie REAL (título y año) y la escena que muestra lo que se dice. La búsqueda pide esa escena por nombre (`Shot.search`, primero en `media.queries`). Máximo dos tomas por película; sin año real o en una toma que no es de cine, se descarta.
+- `sources.fits`: un clip cuyo título no comparte ninguna palabra con lo buscado se descarta (web y escenas). Con una película nombrada, solo quedan clips cuyo título la nombra. `Candidate.title` guarda el título del clip.
+- Más cine: inspiracional 40 %, pesada 35 %, documental 30 % de las tomas con imagen (`FILM_SHARE` 0,4 por defecto).
+- Subtítulos: una frase nunca termina en «de», «la», «que», «y»… (`render.WEAK`); esas palabras abren la frase siguiente, como cortan los subtituladores.
+- Narración: cada parte sale al mismo volumen y con 12 ms de fundido en las uniones (`script.even`); antes saltaba el volumen entre partes y podía chasquear.
+- Probado con Gemini (2.5 Flash) sobre seis frases de superación: The Shawshank Redemption, Rocky (dos), The Dark Knight Rises, Gladiator y Cast Away, cada una con la escena exacta que encaja.
+- No probado aquí: la descarga real de esas escenas (YouTube bloqueado en el sandbox).
+
 ## 2026-10-28 · Claude · Video por género: corto de cine, animación, edición pesada y documental
 - `video_essay/genres.py`: el pedido elige el género (`detect`) y el género elige el estilo, cuánto cine lleva, el orden de las fuentes, las palabras que se añaden a cada búsqueda de clips y una pasada de gráficos animados (`finish`). Un estilo pedido por nombre manda siempre.
 - Estilos nuevos: `corto-cine` (planos de 2-5 s, poca letra, formato 2.39, escenas de cine primero) y `edicion-pesada` (corte cada ~1 s, sonido en cada corte, zoom en palabras clave, contadores, barras, flechas y círculos, re-ganchos).

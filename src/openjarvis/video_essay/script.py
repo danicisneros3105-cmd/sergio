@@ -185,6 +185,30 @@ def groups(beats: List[Dict[str, Any]], limit: int = CHUNK) -> List[Dict[str, An
     return out
 
 
+def even(
+    piece: np.ndarray, target_rms: float = 0.08, fade_s: float = 0.012
+) -> np.ndarray:
+    """One narrated part at the same loudness as the others, with a few ms
+    of fade at each end. Parts come from separate voice calls and differ in
+    level; joined raw they jump in volume and click at the seams."""
+    a = np.asarray(piece, dtype=np.float32).copy()
+    if not a.size:
+        return a
+    voiced = a[np.abs(a) > 0.01]
+    rms = float(np.sqrt(np.mean(voiced**2))) if voiced.size else 0.0
+    if rms > 1e-4:
+        a *= float(np.clip(target_rms / rms, 0.5, 2.5))
+    peak = float(np.max(np.abs(a)))
+    if peak > 0.98:
+        a *= 0.98 / peak
+    n = min(len(a) // 2, int(fade_s * audio.SR))
+    if n:
+        ramp = np.linspace(0.0, 1.0, n, dtype=np.float32)
+        a[:n] *= ramp
+        a[-n:] *= ramp[::-1]
+    return a
+
+
 def narrate_beats(
     beats: List[Dict[str, Any]],
     *,
@@ -218,7 +242,7 @@ def narrate_beats(
         made = list(pool.map(say, range(len(parts))))
     pieces_out: List[np.ndarray] = [np.zeros(int(0.15 * audio.SR), dtype=np.float32)]
     for part, wav in zip(parts, made):
-        pieces_out.append(audio.read_wav(wav))
+        pieces_out.append(even(audio.read_wav(wav)))
         gap = max(breath, part["pause"])
         pieces_out.append(np.zeros(int(gap * audio.SR), dtype=np.float32))
     return audio.write_wav(np.concatenate(pieces_out))
@@ -326,7 +350,7 @@ def narrate(
     for wav in made:
         if pieces:
             pieces.append(gap)
-        pieces.append(audio.read_wav(wav))
+        pieces.append(even(audio.read_wav(wav)))
     lead = np.zeros(int(0.15 * audio.SR), dtype=np.float32)
     return audio.write_wav(np.concatenate([lead, *pieces, gap]))
 

@@ -59,7 +59,8 @@ def queries(shot: Shot, look: str = "") -> List[str]:
         if w.lower() not in _STOP
     ]
     styled = f"{' '.join(core[:4])} {look}".strip() if look and core else ""
-    out = [styled, full, " ".join(core[:5]), " ".join(core[:2])]
+    # a named scene chosen for this moment goes first (films.py)
+    out = [shot.search.strip(), styled, full, " ".join(core[:5]), " ".join(core[:2])]
     seen: List[str] = []
     for q in out:
         if q and q not in seen:

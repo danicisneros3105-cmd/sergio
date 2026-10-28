@@ -46,6 +46,7 @@ class Candidate:
     start: float = 0.0  # where the useful part starts, seconds
     path: str = ""  # the local cut, once fetched
     query: str = ""  # what it was found for
+    title: str = ""  # the clip's own title, to check it fits what was asked
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
@@ -305,6 +306,7 @@ def search_web(
                 str(item.get("channel") or item.get("uploader") or "")[:80],
                 "Uso con cita (no libre)",
                 start,
+                title=str(item.get("title") or "")[:200],
             )
         )
         if len(out) >= n:
@@ -321,18 +323,49 @@ SCENE_WORDS = (
 )
 
 
+_STOPWORDS = set(
+    "the a an of and or to in on at for with from by is are scene scenes clip clips movie film "
+    "series tv show official trailer hd 4k full el la los las de del y o en un una con por para".split()
+)
+
+
+def _tokens(text: str) -> set:
+    import unicodedata
+
+    t = unicodedata.normalize("NFKD", text.lower()).encode("ascii", "ignore").decode()
+    return {w for w in re.findall(r"[a-z0-9]{3,}", t) if w not in _STOPWORDS}
+
+
+def fits(c: Candidate, query: str, need: int = 1) -> bool:
+    """Does the clip's own title share at least *need* real words with what
+    was asked? (A clip with no title is let through: the editor's eyes and
+    the sheet check it later.) Keeps «Rocky training scene» from bringing a
+    cooking video, and a topic from bringing an unrelated vlog."""
+    if not c.title:
+        return True
+    return len(_tokens(c.title) & _tokens(query)) >= need
+
+
 def search_scenes(
     query: str, n: int, runner: Optional[Callable[[List[str]], str]] = None
 ) -> List[Candidate]:
     """A scene of a film or a series that shows the idea (official clip
     channels and trailers on YouTube, found with yt-dlp). Same rule as web
     clips: a few seconds, credited, and the posting package warns that the
-    owner of the film can claim it."""
+    owner of the film can claim it. When the query names a film
+    («Rocky (1976) training montage»), only clips whose title names it too
+    are kept, so the scene really is from that film."""
+    named = re.match(r"\s*([^()]+?)\s*\((\d{4})\)", query)
+    must = named.group(1) if named else ""
     out: List[Candidate] = []
-    for words in SCENE_WORDS[:4]:
+    for words in SCENE_WORDS[: (2 if must else 4)]:
         if len(out) >= n:
             break
-        for c in search_web(f"{query[:70]} {words}", n - len(out), runner):
+        for c in search_web(f"{query[:80]} {words}", (n - len(out)) * 2, runner):
+            if must and not fits(c, must, need=min(2, len(_tokens(must)) or 1)):
+                continue
+            if not must and not fits(c, query):
+                continue
             if all(c.url != o.url for o in out):
                 c.source, c.licence = (
                     "web",
@@ -400,7 +433,7 @@ SEARCHES = {
     "commons": lambda q, n, landscape: search_commons(q, n),
     "nasa": lambda q, n, landscape: search_nasa(q, n),
     "archive": lambda q, n, landscape: search_archive(q, n),
-    "web": lambda q, n, landscape: search_web(q, n),
+    "web": lambda q, n, landscape: [c for c in search_web(q, n * 2) if fits(c, q)][:n],
     "film": lambda q, n, landscape: search_scenes(q, n),
 }
 

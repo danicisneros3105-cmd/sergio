@@ -252,6 +252,7 @@ def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
         assets,
         audio,
         director,
+        films,
         finish,
         genres,
         render,
@@ -456,6 +457,16 @@ def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
                 share = genres.GENRES[genre].film_share if genre else P.FILM_SHARE
                 P.add_film(shots, share, allowed=allowed)
             genres.finish(shots, words, genre)
+            try:  # a named scene of a real film for every film shot
+                films.plan_scenes(
+                    shots,
+                    words,
+                    sc.get("title", ""),
+                    str(sc.get("logline") or params.get("prompt") or ""),
+                    lambda p: edit(p, json_mode=True),
+                )
+            except Exception:  # noqa: BLE001 — they keep their own search
+                job.log("escenas de cine: no se pudieron elegir")
             if narration != "voice":
                 for s in shots:
                     if all(w.text == "·" for w in words[s.first : s.last]):

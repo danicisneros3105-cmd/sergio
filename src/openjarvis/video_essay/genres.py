@@ -35,7 +35,7 @@ GENRES: Dict[str, Genre] = {
         "inspiracional", "Inspiracional / ensayo", "metas-grandes",
         ("motivacion", "motivacional", "inspiracion", "inspiracional", "habitos", "disciplina",
          "exito", "superacion", "mentalidad", "ensayo", "reflexion"),
-        "", 0.3,
+        "", 0.4,
         notes="Video essay: a thread of ideas, cards for the key phrases, archive in black and white for the past.",
     ),
     "cine": Genre(
@@ -61,7 +61,7 @@ GENRES: Dict[str, Genre] = {
         "pesada", "Edición pesada (retención máxima)", "edicion-pesada",
         ("mrbeast", "reto", "challenge", "viral", "edicion pesada", "retencion", "youtuber",
          "sobrevivir", "ganar", "dolares", "millon", "24 horas", "100 dias", "vs"),
-        "dramatic close-up reaction, action, bright saturated", 0.25,
+        "dramatic close-up reaction, action, bright saturated", 0.35,
         sources=("library", "web", "film", "stock", "archive", "ai", "image"),
         notes=("HEAVY EDIT for maximum retention: the stakes in the first 3 s, a cut every ~1 s, a new "
                "visual every sentence, zoom punches on key words, counters and progress bars for every "
@@ -72,7 +72,7 @@ GENRES: Dict[str, Genre] = {
         "documental", "Documental / explicativo", "metas-grandes",
         ("documental", "explica", "explicacion", "como funciona", "historia de", "por que", "ciencia",
          "datos", "investigacion", "misterio", "caso"),
-        "documentary footage, archival, real", 0.2,
+        "documentary footage, archival, real", 0.3,
         sources=("archive", "stock", "web", "film", "library", "image", "ai"),
         notes="Documentary: real footage and archive, dates and places on screen, maps and numbers as motion graphics.",
     ),

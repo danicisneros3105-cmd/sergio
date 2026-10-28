@@ -144,14 +144,34 @@ class Placed:
 CHUNK_WORDS = 4  # words on screen at once in a long shot (captions roll)
 
 
+# A caption never ends on these: «de», «la», «que»… belong with what follows
+# («la casa», not «la» / «casa»), as subtitlers cut.
+WEAK = set(
+    "a al de del el la las lo los le les un una unos unas y e o u ni que en con por para sin "
+    "sobre entre mi mis tu tus su sus se no muy mas más pero como cuando donde si "
+    "the a an of to and or in on at for with by from is my your his her their our that".split()
+)
+
+
+def _bare(word: str) -> str:
+    return "".join(ch for ch in word.lower() if ch.isalnum())
+
+
 def chunks_of(texts: List[str], size: int = CHUNK_WORDS) -> List[List[int]]:
     """Word indexes in phrases of at most *size*, cut after punctuation; a
-    last phrase of one word joins the one before."""
+    phrase never ends on a little word that belongs to the next («de»,
+    «la», «que»); a last phrase of one word joins the one before."""
     out: List[List[int]] = [[]]
     for i, word in enumerate(texts):
         out[-1].append(i)
-        if len(out[-1]) >= size or word[-1:] in ",.;:!?…":
+        if word[-1:] in ",.;:!?…":
             out.append([])
+        elif len(out[-1]) >= size:
+            # little words at the end open the next phrase instead
+            carry: List[int] = []
+            while len(out[-1]) > 1 and _bare(texts[out[-1][-1]]) in WEAK:
+                carry.insert(0, out[-1].pop())
+            out.append(carry)
     out = [c for c in out if c]
     if len(out) > 1 and len(out[-1]) == 1 and len(out[-2]) < size + 2:
         tail = out.pop()
