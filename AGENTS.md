@@ -717,6 +717,7 @@ termina en la rama `main`, y el dueño actualiza con un único comando.
   - La revisión del editor exige «SAY = SHOW» (la imagen muestra lo que se dice).
   - El tono de cada parte mueve la voz de ElevenLabs (`TONE_SETTINGS`).
   - «En marcha» (`RunningPill` y `/v1/personal/en-marcha`): todo lo que corre en segundo plano, con su botón de parar. Algo nuevo que corra solo debe aparecer ahí.
+- **Conversación en vivo presente y productiva** (dueño, 28 oct. 2026): ante un trabajo largo Sergio dice «sigo con eso» en vez de callar (`STILL_AFTER`, `SERGIO_VOZ_SIGO`), el cliente muestra `hearing`, `thinking` y `working`, y `VOICE_NOTE` pide respuesta primero, resultado concreto y un solo siguiente paso útil. Un silencio largo sin explicación es un fallo.
 - Kimi como proveedor y «Digitalsnickers» están descartados.
 - Licencia Apache-2.0 y autoría honesta: no se borran créditos del original.
 

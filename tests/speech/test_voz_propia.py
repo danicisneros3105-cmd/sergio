@@ -116,3 +116,62 @@ def test_typed_text_is_answered_too(monkeypatch):
         ).run()
     )
     assert any(m["type"] == "said" and m["text"] == "Hola, señor." for m in ws.out)
+
+
+def test_a_long_job_gets_a_spoken_still_working_cue(monkeypatch):
+    import time
+
+    monkeypatch.setattr(V, "warm", lambda: None)
+    monkeypatch.setattr(V, "STILL_AFTER", 0.2)
+    monkeypatch.setattr(V, "_ACK_PCM", [])  # no short «Claro,» in this test
+    spoken = []
+    monkeypatch.setattr(
+        V, "speak_pcm", lambda text, speed=1.05, **kw: spoken.append(text) or b"\0\0"
+    )
+
+    def slow(text, history, sink):
+        time.sleep(1.0)  # a search that takes a while
+        return "Listo, señor."
+
+    class Patient(_WS):  # stays connected while the slow job runs
+        async def receive(self):
+            if self.inbox:
+                return self.inbox.pop(0)
+            await asyncio.sleep(2.5)
+            return {"type": "websocket.disconnect"}
+
+    ws = Patient(
+        [
+            {
+                "type": "websocket.receive",
+                "text": json.dumps({"type": "text", "text": "busca"}),
+            }
+        ]
+    )
+    asyncio.run(
+        V.OwnVoiceCall(ws, {"type": "start", "language": "es"}, think=slow).run()
+    )
+    assert any(p in spoken for p in V.STILL)  # said while it worked
+    assert any(m["type"] == "working" for m in ws.out)
+    assert spoken[-1] == "Listo, señor."  # then the answer
+
+
+def test_a_quick_answer_never_says_it_is_working(monkeypatch):
+    monkeypatch.setattr(V, "warm", lambda: None)
+    monkeypatch.setattr(V, "_ACK_PCM", [])
+    spoken = []
+    monkeypatch.setattr(
+        V, "speak_pcm", lambda text, speed=1.05, **kw: spoken.append(text) or b"\0\0"
+    )
+    ws = _WS(
+        [
+            {
+                "type": "websocket.receive",
+                "text": json.dumps({"type": "text", "text": "hola"}),
+            }
+        ]
+    )
+    asyncio.run(
+        V.OwnVoiceCall(ws, {"type": "start"}, think=lambda t, h, s: "Hola.").run()
+    )
+    assert not any(p in spoken for p in V.STILL)

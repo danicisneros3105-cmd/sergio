@@ -238,6 +238,13 @@ export class VoiceCall {
           if (!this.stopped) this.cb.onState('listening');
         }).catch(() => this.fail('No pude iniciar el audio en tiempo real.'));
         break;
+      case 'hearing': // what is being understood right now, while the person still talks
+        this.cb.onHeard(`${this.heard}${event.text || ''}`.trim());
+        break;
+      case 'thinking':
+      case 'working': // a long job: the orb shows he is on it
+        this.cb.onState('thinking');
+        break;
       case 'heard':
         this.heard += event.text || '';
         this.said = '';

@@ -2,6 +2,13 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-10-28 · Claude · Conversación en vivo más presente y más útil
+- «Sigo con eso» (`voz_propia._still_working`): si un trabajo largo (una herramienta, una búsqueda) deja la línea en silencio 4 s, Sergio lo dice en voz alta («Ya casi lo tengo») hasta dos veces por respuesta, y avisa `working`. Solo en español. Antes quedaba mudo y parecía que se había colgado.
+- El cliente por fin usa los eventos que el servidor ya mandaba y ignoraba: `hearing` (lo que va entendiendo mientras usted habla) y ahora `thinking`/`working` (el orbe pasa a «pensando»).
+- `VOICE_NOTE` más productivo: empezar por la respuesta o la acción, decir antes de usar una herramienta qué va a hacer y después el resultado concreto, una sola pregunta si falta un dato, ofrecer el siguiente paso solo si es útil, y responder a lo que acaba de decir la persona.
+- Pruebas: 2 nuevas en `tests/speech/test_voz_propia.py` (con y sin trabajo largo).
+- No probado aquí: el sonido real (ElevenLabs y el micrófono no están disponibles en el sandbox).
+
 ## 2026-10-28 · Claude · Dividir pantalla a la vista, bienvenida e inicio de sesión nuevos, más escenas de cine, «En marcha»
 - Dividir pantalla: botón de dos columnas arriba a la derecha del chat (`Split/SplitButton.tsx`), paso nuevo en el tour (ahora 11) y tema en Ayuda. Antes solo se abría con Ctrl \\ o la paleta y por eso no se encontraba.
 - Bienvenida (`GetStartedPage`): cuatro mosaicos grandes (preguntar, video, dos cosas a la vez, que trabaje solo), «Ver el tour» y el comando de actualizar plegado.

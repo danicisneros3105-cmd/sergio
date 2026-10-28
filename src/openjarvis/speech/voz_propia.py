@@ -60,6 +60,12 @@ FIRST_CUT_WORDS = 3  # the first phrase is cut early to start speaking soon
 # word that is already synthesized ("Claro,") is said first, as people do.
 ACK_AFTER = float(os.environ.get("SERGIO_VOZ_ACUSE", "0.35"))
 ACKS = ("Claro,", "A ver,", "Vale,", "Bien,")
+# While Sergio works on something long (a tool, a search) and nothing has been
+# heard for this many seconds, he says so, like a person would, instead of
+# leaving a silence that feels like a crash (owner, 28 Oct 2026: «más
+# presente y más productiva»). At most twice per answer.
+STILL_AFTER = float(os.environ.get("SERGIO_VOZ_SIGO", "4.0"))
+STILL = ("Sigo con eso, un momento más.", "Ya casi lo tengo.", "Un segundo más, lo estoy terminando.")
 _END = re.compile(r"[.!?…:;]\s|[.!?…]$|\n")
 _SOFT = re.compile(r"[,—]\s")
 
@@ -331,6 +337,7 @@ class OwnVoiceCall:
         self.partial_task: Optional[asyncio.Task] = None
         self.last_partial = ""
         self._sounded = False
+        self._last_sound = time.monotonic()
 
     async def send_json(self, data: dict) -> None:
         with contextlib.suppress(Exception):
@@ -401,6 +408,7 @@ class OwnVoiceCall:
         if not text:
             return
         await self.send_json({"type": "heard", "text": text})
+        await self.send_json({"type": "thinking"})
         await self._speak_answer(text, ended, stt_ms)
 
     def _answer(self, text: str, ended: float, stt_ms: float) -> None:
@@ -423,6 +431,8 @@ class OwnVoiceCall:
         said: List[str] = []
         self._sounded = False
         ack = asyncio.ensure_future(self._acknowledge(ended, marks))
+        still = asyncio.ensure_future(self._still_working(worker))
+        self._last_sound = time.monotonic()
 
         async def stream() -> Any:
             while True:
@@ -447,11 +457,14 @@ class OwnVoiceCall:
                 first = await self._say(phrase, said, marks, ended, stt_ms, first)
         except asyncio.CancelledError:
             ack.cancel()
+            still.cancel()
             raise
         except Exception as exc:  # noqa: BLE001
+            still.cancel()
             log.warning("own voice turn failed: %s", exc)
             await self.send_json({"type": "error", "message": str(exc)[:300]})
             return
+        still.cancel()
         answer = " ".join(said)
         self.history += [
             {"role": "user", "content": text},
@@ -462,6 +475,26 @@ class OwnVoiceCall:
         if self.remember and answer:
             loop.run_in_executor(None, self.remember, text, answer)
 
+    async def _still_working(self, worker: Any) -> None:
+        """«Sigo con eso»: said when a long job leaves the line silent."""
+        if self.language != "es":
+            return
+        spoken = 0
+        while spoken < 2 and not worker.done():
+            await asyncio.sleep(0.5)
+            if time.monotonic() - self._last_sound < STILL_AFTER or worker.done():
+                continue
+            phrase = STILL[(len(self.history) // 2 + spoken) % len(STILL)]
+            await self.send_json({"type": "working", "text": phrase})
+            pcm = await asyncio.get_running_loop().run_in_executor(
+                None, lambda: speak_pcm(phrase)
+            )
+            if worker.done():
+                return
+            self._last_sound = time.monotonic()
+            await self.ws.send_bytes(pcm)
+            spoken += 1
+
     async def _acknowledge(self, ended: float, marks: dict) -> None:
         wait = ACK_AFTER - (time.monotonic() - ended)
         if wait > 0:
@@ -469,6 +502,7 @@ class OwnVoiceCall:
         if not self._sounded and _ACK_PCM:
             self._sounded = True
             marks["ack"] = time.monotonic()
+            self._last_sound = marks["ack"]
             await self.ws.send_bytes(_ACK_PCM[len(self.history) % len(_ACK_PCM)])
 
     def _think(
@@ -496,6 +530,7 @@ class OwnVoiceCall:
         tts_ms = (time.monotonic() - t0) * 1000
         said.append(spoken)
         self._sounded = True
+        self._last_sound = time.monotonic()
         await self.ws.send_bytes(pcm)
         if first:
             now = time.monotonic()
