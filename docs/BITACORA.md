@@ -2,6 +2,18 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-10-28 · Claude · Logo viejo fuera, guía en pantalla, edición nivel explicativos 3D y retención, Blender, tendencias y Automatizar como chat
+- Logo de OpenJarvis al abrir: la copia de la web guardada en git (`src/openjarvis/server/static`) aún tenía los iconos del reactor original, y la actualización la restaura antes de compilar. Ahora `scripts/marca_sergio.py` también escribe y comprueba esos iconos, y las direcciones de los iconos llevan `?v=marca2` para que Edge y la app instalada olviden el viejo.
+- Guía en pantalla (`windows/sergio_escritorio/guia.py`): una capa transparente que no roba clics dibuja flechas 3D, círculos a mano, recuadros con el resto oscurecido, subrayados y líneas, con un cursor azul que hace el recorrido. Se borra al primer clic, con Esc, con «entendido» o a los 25 s. Llega por `desktop_action` (`action: guide`, `marks`), por la ayuda de pantalla (el modelo devuelve `marks`) y en llamada (`senalar` con `forma`, `guiar` con pasos). Los elementos ya llevan su tamaño (`w`, `h`) para que el círculo los rodee.
+- Edición: géneros nuevos `explicado3d` (dato sorprendente en 3D, por dentro, con rayos X y etiquetas de partes; estilo `explicado-3d`) y `corto3d`. La edición pesada sigue el método de retención que publican los grandes canales de retos, en palabras nuestras (cumplir la promesa del título en 5 s, el primer minuto decide, re-enganche en ~1, ~3 y ~6 min, un momento «wow» por sección). Cada género trae solo sus 3 skills de GitHub por etapa (`Genre.skills`, `skillbook.guidance(genre=…)`) y ya no se manda la lista del resto.
+- Gráficos animados (`render.draw_motion`): apuntan al sujeto de la toma (saliencia más color distinto, `_subject_of`), círculo a mano con halo, flecha 3D con cara lateral y sombra que asiente, y nuevos `callout:PARTE`, `spot` y `xray`.
+- Blender (`tools/blender_kit.py`): `kit_studio` (luz de estudio, fondo sin costura, curva AgX), `kit_camera_push` (la cámara que se acerca y gira mirando al sujeto), `kit_cutaway` y `kit_xray` (sombreado con borde brillante). Probado con Blender real (`bpy` 4.2) renderizando una toma.
+- Tendencias (`automatiza/tendencias.py`): Google Trends, Wikipedia, Reddit y YouTube (si está conectado), con peso por tamaño y por aparecer en varias fuentes; las ideas que no citan una señal real se descartan. Ruta `/v1/automatiza/tendencias`, acción `tendencias` de la herramienta `automatizar`.
+- Automatizar como conversación (`automatiza/charla.py`, `POST /v1/automatiza/charla`, `pages/AutomatizarPage.tsx`): entiende lo que se pide (palabras primero, el modelo solo si no está claro) y propone tarjetas con botón; nada cambia sin ese toque. TikTok, Facebook, LinkedIn y X: el video queda listo para subir (sin API abierta para una app personal). Diseño con las reglas del dueño: tres colores, secciones claras y oscuras, apertura asimétrica, Instrument Serif + IBM Plex Sans, bordes de 1 px. El panel completo de antes sigue abajo, plegado.
+- Revisé lo de Codex: nada nuevo suyo en estos archivos.
+- No probado aquí: la guía en un Windows real, las fuentes de tendencias reales (bloqueadas en el sandbox; probadas con respuestas simuladas) y la publicación real.
+- Pendiente: el dueño pidió que se le pregunte qué sección rediseñar después con las mismas reglas; el resto de la app sigue con el diseño Apple.
+
 ## 2026-10-28 · Claude · «La llamada falló» arreglado, OpenRouter como núcleo que se configura solo
 - «La llamada falló»: una respuesta que fallaba en la voz propia mandaba «error» y el escritorio colgaba y lo anunciaba. Ahora:
   - la respuesta fallida manda `turn_error`, Sergio dice «Perdón, se me cortó esa respuesta. ¿Me lo repite?» y la llamada sigue;

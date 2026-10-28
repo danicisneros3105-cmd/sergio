@@ -448,6 +448,129 @@ def kit_cut(obj, cutter):
     cutter.display_type = "WIRE"
     cutter["sergio_cutter"] = True
     return obj
+
+
+def kit_cutaway(obj, axis="y", offset=0.0, keep="back"):
+    """A cross-section: half of *obj* removed along *axis* through its
+    centre (+ offset), to show the inside like an explainer cutaway."""
+    obj_loc = obj.matrix_world.translation
+    size = max(obj.dimensions) * 4 + 1.0
+    i = "xyz".index(axis)
+    loc = list(obj_loc)
+    loc[i] += offset + (-size / 2 if keep == "back" else size / 2)
+    bm = _kbm.new()
+    _kbm.ops.create_cube(bm, size=size)
+    cutter = _k_object(obj.name + "_corte", bm, tuple(loc))
+    return kit_cut(obj, cutter)
+
+
+def kit_xray(obj, color=(0.2, 0.7, 1.0), strength=3.0):
+    """See-through x-ray look: clear in the middle, a glowing rim at the
+    edges (like a scan), so the inner parts with solid materials show."""
+    mat = _kb.data.materials.new(obj.name + "_rayosx")
+    mat.diffuse_color = (*tuple(color)[:3], 0.2)
+    try:
+        mat.use_nodes = True
+        nodes, links = mat.node_tree.nodes, mat.node_tree.links
+        nodes.clear()
+        out = nodes.new("ShaderNodeOutputMaterial")
+        mix = nodes.new("ShaderNodeMixShader")
+        clear = nodes.new("ShaderNodeBsdfTransparent")
+        glow = nodes.new("ShaderNodeEmission")
+        rim = nodes.new("ShaderNodeLayerWeight")
+        _k_set(glow, ["Color"], (*tuple(color)[:3], 1.0))
+        _k_set(glow, ["Strength"], float(strength))
+        _k_set(rim, ["Blend"], 0.35)
+        links.new(rim.outputs["Facing"], mix.inputs[0])
+        links.new(clear.outputs[0], mix.inputs[1])
+        links.new(glow.outputs[0], mix.inputs[2])
+        links.new(mix.outputs[0], out.inputs["Surface"])
+    except Exception as exc:
+        print("SERGIO_KIT xray %s: %s" % (obj.name, exc))
+    for attr, value in (("blend_method", "BLEND"), ("surface_render_method", "BLENDED"),
+                        ("show_transparent_back", False)):
+        try:
+            setattr(mat, attr, value)
+        except Exception:
+            pass
+    obj.data.materials.clear()
+    obj.data.materials.append(mat)
+    return obj
+
+
+def kit_studio(color=(0.92, 0.92, 0.94), floor=True, warmth=0.0):
+    """Soft studio: key, fill and rim area lights, a world colour and a
+    seamless floor (a curved backdrop), the clean look of 3D explainers."""
+    scene = _kb.context.scene
+    world = scene.world or _kb.data.worlds.new("Mundo")
+    scene.world = world
+    try:
+        world.use_nodes = True
+        bg = world.node_tree.nodes.get("Background")
+        _k_set(bg, ["Color"], (*tuple(color)[:3], 1.0))
+        _k_set(bg, ["Strength"], 0.35)
+    except Exception:
+        world.color = tuple(color)[:3]
+    lights = []
+    for name, loc, energy, size, tint in (
+        ("Luz clave", (3.0, -3.0, 4.0), 320.0, 3.0, (1.0, 0.96 - warmth * 0.1, 0.9 - warmth * 0.2)),
+        ("Luz relleno", (-3.5, -2.0, 2.0), 70.0, 4.0, (0.9, 0.95, 1.0)),
+        ("Luz contra", (0.0, 3.5, 3.0), 220.0, 2.0, (1.0, 1.0, 1.0)),
+    ):
+        data = _kb.data.lights.new(name, "AREA")
+        data.energy, data.size, data.color = energy, size, tint
+        light = _k_link(_kb.data.objects.new(name, data))
+        light.location = loc
+        direction = _KVec((0, 0, 0.6)) - _KVec(loc)
+        light.rotation_euler = direction.to_track_quat("-Z", "Y").to_euler()
+        lights.append(light)
+    try:  # a filmic tone curve: highlights roll off instead of burning
+        scene.view_settings.view_transform = "AgX"
+        scene.view_settings.look = "AgX - Medium High Contrast"
+    except Exception:
+        try:
+            scene.view_settings.view_transform = "Filmic"
+        except Exception:
+            pass
+    if floor:
+        bm = _kbm.new()
+        pts = [(-6.0, y, 0.0) for y in (-6.0, 2.0)] + [
+            (-6.0, 2.0 + 1.5 * _km.sin(a / 8 * _km.pi / 2), 1.5 - 1.5 * _km.cos(a / 8 * _km.pi / 2))
+            for a in range(1, 9)
+        ] + [(-6.0, 3.5, 6.0)]
+        left = [bm.verts.new(p) for p in pts]
+        right = [bm.verts.new((6.0, p[1], p[2])) for p in pts]
+        for i in range(len(pts) - 1):
+            bm.faces.new((left[i], right[i], right[i + 1], left[i + 1]))
+        kit_smooth(_k_object("Fondo", bm, mat=kit_material("Fondo", color=color, roughness=0.8)))
+    return lights
+
+
+def kit_camera_push(target=(0, 0, 0.5), start=4.0, end=2.2, frames=60, height=1.2, angle=-30.0, orbit=0.0):
+    """The camera that creeps in on *target* (and turns *orbit* degrees
+    around it) from frame 1 to *frames*, always looking at it: the slow
+    push-in of every explainer shot. Returns the camera."""
+    scene = _kb.context.scene
+    cam = _k_link(_kb.data.objects.new("Camera", _kb.data.cameras.new("Camera")))
+    cam.data.lens = 50
+    scene.camera = cam
+    aim = _k_link(_kb.data.objects.new("Mira", None))
+    aim.location = target
+    track = cam.constraints.new("TRACK_TO")
+    track.target = aim
+    track.track_axis, track.up_axis = "TRACK_NEGATIVE_Z", "UP_Y"
+    for frame, dist, turn in ((1, start, 0.0), (frames, end, orbit)):
+        a = _km.radians(angle + turn)
+        cam.location = (target[0] + dist * _km.sin(a), target[1] - dist * _km.cos(a), target[2] + height * dist / start)
+        cam.keyframe_insert("location", frame=frame)
+    try:
+        for fc in cam.animation_data.action.fcurves:
+            for kp in fc.keyframe_points:
+                kp.interpolation = "BEZIER"
+                kp.easing = "EASE_IN_OUT"
+    except Exception:
+        pass
+    return cam
 '''
 
 KIT_DOC = """SERGIO'S MODELLING KIT (already defined: call these, do not import them). \
@@ -476,7 +599,12 @@ parts, ALWAYS with a bevel.
 - kit_copy(obj, loc, rot, name) linked duplicate; kit_mirror_x(obj) left/right twin; \
 kit_array_circle(obj, count, radius) copies around a circle; kit_cut(obj, cutter) \
 boolean hole; kit_bevel(obj, width); kit_subsurf(obj, levels); kit_smooth(obj)
-- kit_parent(model_name, [objects]) -> the empty that holds every part (call last).
+- kit_parent(model_name, [objects]) -> the empty that holds every part (call last). \
+FOR VIDEO SHOTS: kit_studio(color, floor=True) -> soft key/fill/rim lights, world and a \
+seamless backdrop; kit_camera_push(target, start, end, frames, height, angle, orbit) -> \
+the camera that slowly pushes in (and orbits) while looking at target; \
+kit_cutaway(obj, axis="y") -> a cross-section that reveals the inside; kit_xray(obj) -> \
+a faint glowing see-through shell so the inner parts (with solid materials) show.
 Every kit function returns the object; its origin is the given loc."""
 
 __all__ = ["KIT", "KIT_DOC"]

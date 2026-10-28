@@ -1,0 +1,67 @@
+{
+ "key": "explicado-3d",
+ "name": "Explicado en 3D (un dato sorprendente, por dentro)",
+ "source": "Estilo de Sergio, 28 oct. 2026: el formato de los cortos explicativos en 3D (dato, mecanismo, consecuencia), sin imitar a nadie.",
+ "shots_measured": 0,
+ "length_s": 45.0,
+ "median_shot_s": 2.2,
+ "min_shot_s": 0.8,
+ "max_shot_s": 4.5,
+ "mix": {
+  "broll": 1.0
+ },
+ "text_share": 0.85,
+ "palette_seen": [],
+ "grade": "Clean, slightly warm studio light on stylized-realistic 3D; cool cyan for x-ray and cutaway views; red only for danger.",
+ "typography": "Big white captions word by word with a dark outline; part names as small callout labels with a leader line.",
+ "narration": "Calm, clear, curious male narrator; short sentences; one idea per sentence.",
+ "music": "Light, curious underscore that never covers the voice; a precise sound effect for every action (crack, squish, click, whoosh).",
+ "effects": [
+  "slow push-in on every shot",
+  "cross-section and x-ray views",
+  "callout labels on parts",
+  "slow motion at the key moment"
+ ],
+ "sfx": {
+  "click": 0.25,
+  "impact": 0.2,
+  "pop": 0.15,
+  "whoosh": 0.15,
+  "none": 0.25
+ },
+ "structure": [
+  "hook: the surprising claim, shown in the first second",
+  "the mechanism, step by step, inside",
+  "the consequence",
+  "a last surprising line that loops to the start"
+ ],
+ "pacing": {
+  "median_shot_s": 2.2
+ },
+ "production": "3d",
+ "narration_mode": "voice",
+ "sources": [
+  "3d",
+  "ai",
+  "image",
+  "stock"
+ ],
+ "look": "Stylized-realistic 3D on a neutral background: one character or object, soft studio light, slow push-ins, cutaways and x-ray views of the inside with labelled parts, slow motion at the key moment, captions word by word.",
+ "overlays": [
+  "callout labels",
+  "x-ray scan"
+ ],
+ "camera": "Slow push-ins, orbit around the object, cut to a cutaway or x-ray close-up when the narration goes inside; first-person POV for «this is what you would feel».",
+ "humans": "Stylized realistic 3D people, simple materials, no real person's likeness.",
+ "viral": [
+  "One surprising fact, shown not told",
+  "Under a minute",
+  "The inside of the body or the machine, which nobody sees",
+  "An ending line that makes people replay it"
+ ],
+ "transitions_seen": [
+  "cut",
+  "match cut into the cutaway",
+  "whip"
+ ]
+}

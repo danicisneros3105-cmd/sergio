@@ -1,13 +1,20 @@
-// Automatizar (owner, 27 Oct 2026): channels that make and post their own
-// videos, replies he approves, clients and jobs found for him, trading with
-// limits, and how healthy Sergio is — five cards, each with one clear action.
-// Nothing here sends a message or a proposal on its own: replies go out only
-// with «Enviar las aprobadas», proposals stay drafts, trading starts on paper.
+// Automatizar (owner, 28 Oct 2026: «tipo chat, pero mejor, y sin caer en solo
+// Instagram y YouTube»): he says what should happen without him; Sergio answers
+// with what it understood and a card with a button for anything that changes
+// something (POST /v1/automatiza/charla). Nothing runs without that tap.
+// Design by the owner's editorial rules: no gradients, glows or floating
+// grids; three colours (paper, ink, one deep blue); light and dark sections
+// in turn; an asymmetric opening; a display serif for titles and an
+// industrial sans for text; 1px rules and mechanical hovers.
+// The full panel (channels, replies, clients, trading, stability) stays below.
 
-import { useCallback, useEffect, useState } from 'react';
+import '@fontsource/instrument-serif/400.css';
+import '@fontsource/ibm-plex-sans/400.css';
+import '@fontsource/ibm-plex-sans/500.css';
+import '@fontsource/ibm-plex-sans/600.css';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { Activity, Briefcase, Clapperboard, LineChart, MessageCircle } from 'lucide-react';
-import { PaperPage } from '../components/Paper/PaperPage';
+import { Activity, ArrowUp, Briefcase, Clapperboard, LineChart, MessageCircle } from 'lucide-react';
 import { apiFetch } from '../lib/api';
 import './automatizar.css';
 
@@ -79,6 +86,66 @@ async function call<T>(path: string, method = 'GET', body?: unknown): Promise<T>
 
 const pct = (n: unknown) => `${(Number(n) * 100).toFixed(1)} %`;
 
+interface Boton {
+  etiqueta: string;
+  metodo: string;
+  ruta: string;
+  cuerpo?: unknown;
+}
+
+interface Tarjeta {
+  tipo: 'accion' | 'idea' | 'lista';
+  titulo: string;
+  detalle?: string;
+  boton?: Boton | null;
+}
+
+interface Mensaje {
+  id: string;
+  quien: 'usted' | 'sergio';
+  texto: string;
+  tarjetas?: Tarjeta[];
+  hecho?: string[]; // buttons already pressed in this message
+}
+
+const PROMPTS = [
+  '¿De qué hago videos esta semana?',
+  '2 shorts al día de datos curiosos para TikTok y YouTube',
+  'Búscame clientes para diseño web',
+  '¿Cómo va todo?',
+];
+
+const PLATFORMS: Array<{ key: string; name: string; how: string; auto: boolean }> = [
+  { key: 'youtube', name: 'YouTube', how: 'Publica solo, con la API oficial', auto: true },
+  { key: 'instagram', name: 'Instagram', how: 'Publica solo (Reels), con la API oficial', auto: true },
+  { key: 'tiktok', name: 'TikTok', how: 'Video, título y etiquetas listos; usted lo sube', auto: false },
+  { key: 'facebook', name: 'Facebook', how: 'Paquete listo para subir', auto: false },
+  { key: 'linkedin', name: 'LinkedIn', how: 'Paquete listo para subir', auto: false },
+  { key: 'x', name: 'X', how: 'Paquete listo para subir', auto: false },
+];
+
+const STORE = 'sergio.automatizar.charla';
+
+function loadThread(): Mensaje[] {
+  try {
+    const raw = localStorage.getItem(STORE);
+    return raw ? (JSON.parse(raw) as Mensaje[]).slice(-30) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveThread(list: Mensaje[]) {
+  try {
+    localStorage.setItem(STORE, JSON.stringify(list.slice(-30)));
+  } catch {
+    /* private window: the thread lives only in memory */
+  }
+}
+
+let seq = 0;
+const nextId = () => `${Date.now().toString(36)}-${(seq += 1)}`;
+
 export function AutomatizarPage() {
   const [st, setSt] = useState<Estado | null>(null);
   const [err, setErr] = useState('');
@@ -103,17 +170,177 @@ export function AutomatizarPage() {
     }
   };
 
+  const [thread, setThread] = useState<Mensaje[]>(loadThread);
+  const [text, setText] = useState('');
+  const [thinking, setThinking] = useState(false);
+  const end = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    saveThread(thread);
+    end.current?.scrollIntoView?.({ block: 'nearest' });
+  }, [thread]);
+
+  const send = async (said: string) => {
+    const clean = said.trim();
+    if (!clean || thinking) return;
+    setText('');
+    setThread((t) => [...t, { id: nextId(), quien: 'usted', texto: clean }]);
+    setThinking(true);
+    try {
+      const r = await call<{ texto: string; tarjetas: Tarjeta[] }>('/charla', 'POST', { texto: clean });
+      setThread((t) => [...t, { id: nextId(), quien: 'sergio', texto: r.texto, tarjetas: r.tarjetas }]);
+    } catch (e) {
+      setThread((t) => [...t, { id: nextId(), quien: 'sergio', texto: e instanceof Error ? e.message : 'No pude responder ahora.' }]);
+    } finally {
+      setThinking(false);
+    }
+  };
+
+  const press = (m: Mensaje, card: Tarjeta) =>
+    act(`card-${m.id}-${card.titulo}`, async () => {
+      const b = card.boton;
+      if (!b) return;
+      await call(b.ruta, b.metodo, b.cuerpo);
+      setThread((t) => t.map((x) => (x.id === m.id ? { ...x, hecho: [...(x.hecho || []), card.titulo] } : x)));
+    }, 'Hecho.');
+
+  const live = [
+    { n: st?.programados.length ?? 0, label: 'canales programados' },
+    { n: st?.canales.por_dia ?? 3, label: 'publicaciones al día, como mucho' },
+    { n: st?.oportunidades.total ?? 0, label: 'clientes y empleos guardados' },
+    { n: st?.canales.respuestas_pendientes ?? 0, label: 'respuestas esperando su visto bueno' },
+  ];
+  const connected = (key: string) =>
+    key === 'youtube' ? !!st?.canales.youtube.conectado : key === 'instagram' ? !!st?.canales.instagram.conectado : false;
+
   return (
-    <PaperPage title="Automatizar" wide>
-      {err && <p className="auto-note">{err}</p>}
-      <div className="auto-grid">
-        <Channels st={st} busy={busy} act={act} />
-        <Replies busy={busy} act={act} pending={st?.canales.respuestas_pendientes ?? 0} />
-        <Opportunities st={st} busy={busy} act={act} />
-        <Trading st={st} busy={busy} act={act} />
-        <Health />
-      </div>
-    </PaperPage>
+    <div className="ax">
+      <section className="ax-open">
+        <div className="ax-lead">
+          <p className="ax-kicker">Automatizar</p>
+          <h1 className="ax-title">Lo que Sergio hace mientras usted no está.</h1>
+          <form
+            className="ax-compose"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void send(text);
+            }}
+          >
+            <label className="ax-sr" htmlFor="ax-text">
+              Qué quiere que pase sin usted
+            </label>
+            <textarea
+              id="ax-text"
+              rows={2}
+              value={text}
+              placeholder="Escriba lo que quiere que pase solo…"
+              onChange={(e) => setText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  void send(text);
+                }
+              }}
+            />
+            <button className="ax-send" type="submit" disabled={!text.trim() || thinking} aria-label="Enviar">
+              <ArrowUp size={18} strokeWidth={2.5} />
+            </button>
+          </form>
+          <ul className="ax-prompts">
+            {PROMPTS.map((p) => (
+              <li key={p}>
+                <button type="button" onClick={() => void send(p)} disabled={thinking}>
+                  {p}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+        <aside className="ax-live" aria-label="En marcha">
+          <p className="ax-kicker">En marcha</p>
+          <dl>
+            {live.map((x) => (
+              <div key={x.label}>
+                <dt>{x.n}</dt>
+                <dd>{x.label}</dd>
+              </div>
+            ))}
+          </dl>
+          <p className="ax-live-foot">
+            Trading {st ? (st.trading.detenido ? 'detenido' : st.trading.activo ? (st.trading.dinero_real ? 'con dinero real' : 'en papel') : 'apagado') : '…'}
+          </p>
+        </aside>
+      </section>
+
+      {(thread.length > 0 || thinking) && (
+        <section className="ax-thread" aria-live="polite">
+          {thread.map((m) => (
+            <article key={m.id} className="ax-msg" data-who={m.quien}>
+              <h2>{m.quien === 'usted' ? 'Usted' : 'Sergio'}</h2>
+              <p>{m.texto}</p>
+              {!!m.tarjetas?.length && (
+                <div className="ax-cards">
+                  {m.tarjetas.map((c) => {
+                    const done = m.hecho?.includes(c.titulo);
+                    return (
+                      <div key={c.titulo} className="ax-card" data-kind={c.tipo}>
+                        <h3>{c.titulo}</h3>
+                        {c.detalle && <p>{c.detalle}</p>}
+                        {c.boton && (
+                          <button type="button" className="ax-btn" disabled={!!busy || done} onClick={() => void press(m, c)}>
+                            {done ? 'Hecho' : c.boton.etiqueta}
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </article>
+          ))}
+          {thinking && (
+            <article className="ax-msg" data-who="sergio">
+              <h2>Sergio</h2>
+              <p className="ax-wait">Entendiendo lo que necesita…</p>
+            </article>
+          )}
+          <div ref={end} />
+          <button type="button" className="ax-clear" onClick={() => setThread([])}>
+            Empezar de nuevo
+          </button>
+        </section>
+      )}
+
+      <section className="ax-where">
+        <div className="ax-where-head">
+          <p className="ax-kicker">Dónde publica</p>
+          <h2 className="ax-title ax-title-s">No solo YouTube e Instagram.</h2>
+          <p>Donde hay una puerta oficial, Sergio publica solo y con un tope diario. Donde no la hay, le deja el video listo para subir: nunca entra a una red por usted.</p>
+        </div>
+        <ul className="ax-platforms">
+          {PLATFORMS.map((p) => (
+            <li key={p.key}>
+              <b>{p.name}</b>
+              <span>{p.how}</span>
+              <i data-on={p.auto ? String(connected(p.key)) : 'manual'}>{p.auto ? (connected(p.key) ? 'Conectado' : 'Sin conectar') : 'Usted sube'}</i>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <section className="ax-panel">
+        <details>
+          <summary>Panel completo: cuentas, respuestas, clientes, trading y estabilidad</summary>
+          {err && <p className="auto-note">{err}</p>}
+          <div className="auto-grid">
+            <Channels st={st} busy={busy} act={act} />
+            <Replies busy={busy} act={act} pending={st?.canales.respuestas_pendientes ?? 0} />
+            <Opportunities st={st} busy={busy} act={act} />
+            <Trading st={st} busy={busy} act={act} />
+            <Health />
+          </div>
+        </details>
+      </section>
+    </div>
   );
 }
 
@@ -476,7 +703,7 @@ function Health() {
     <Card icon={Activity} title="Estabilidad">
       <p>{d?.resumen ?? '…'}</p>
       <ul className="auto-list">
-        {d?.chequeos.map((c) => (
+        {d?.chequeos?.map((c) => (
           <li key={c.nombre} data-state={c.estado}>
             <span>
               <i className="auto-dot" aria-hidden="true" /> {c.nombre}

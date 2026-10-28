@@ -299,6 +299,80 @@ def trading_reanudar(request: Request) -> Dict[str, Any]:
     return trading.estado()
 
 
+# -- the conversation and the trends ----------------------------------------------------------
+
+
+class Charla(BaseModel):
+    texto: str
+    pais: str = "EC"
+
+
+@router.post("/charla")
+def charla(request: Request, body: Charla) -> Dict[str, Any]:
+    """What the owner asked, understood: a reply and cards with a button for
+    anything that changes something (nothing runs without that tap)."""
+    _owner(request)
+    from openjarvis import estabilidad
+    from openjarvis.automatiza import canales, oportunidades, trading
+    from openjarvis.automatiza import charla as talk
+
+    def ask(prompt: str, **_: Any) -> str:
+        from openjarvis.creator import llm
+
+        return llm.ask(prompt)
+
+    return talk.answer(
+        body.texto,
+        ask=ask,
+        pais=body.pais,
+        readers={
+            "estado": lambda: estado(request),
+            "tope": canales.per_day,
+            "oportunidades": oportunidades.items,
+            "respuestas": lambda: len(canales.pending_replies()),
+            "trading": trading.estado,
+            "estabilidad": estabilidad.checks,
+        },
+    )
+
+
+@router.get("/tendencias")
+def tendencias_leer(
+    request: Request, pais: str = "EC", nicho: str = ""
+) -> Dict[str, Any]:
+    _owner(request)
+    from openjarvis.automatiza import tendencias
+
+    return tendencias.read(pais, nicho)
+
+
+class Idea(BaseModel):
+    titulo: str
+    gancho: str = ""
+    genero: str = ""
+    formato: str = "short"
+    por_que: str = ""
+    senal: Dict[str, Any] = {}
+
+
+@router.post("/tendencias/video")
+def tendencias_video(request: Request, body: Idea) -> Dict[str, Any]:
+    """«Hacer este video»: the idea goes to the video studio, with the same
+    limits as any other video (one at a time, the daily cap)."""
+    _owner(request)
+    from openjarvis.automatiza import charla as talk
+    from openjarvis.video_essay import job as jobs
+
+    order = talk.order(body.model_dump())
+    busy, why = jobs.guard(order)
+    if busy is not None:
+        raise HTTPException(409, {"en curso": "Ya hay un video en camino; este espera su turno.",
+                                  "tope diario": "Hoy ya se hizo el máximo de videos.",
+                                  "repetido": "Ese video ya está hecho."}.get(why, why))  # fmt: skip
+    made = jobs.start(order)
+    return {"ok": True, "trabajo": made.id, "titulo": body.titulo}
+
+
 # -- stability ----------------------------------------------------------------------------------
 
 

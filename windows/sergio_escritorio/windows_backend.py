@@ -276,6 +276,8 @@ class WindowsBackend:
                         "type": info.control_type,
                         "x": (rect.left + rect.right) // 2,
                         "y": (rect.top + rect.bottom) // 2,
+                        "w": rect.width(),
+                        "h": rect.height(),
                     }
                 )
                 if _plain(name) == want and info.control_type in INTERACTIVE:

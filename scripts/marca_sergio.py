@@ -29,9 +29,15 @@ PNGS = {
     "frontend/src-tauri/icons/icon.png": 512,
     "extensions/clacky/lib/clacky/web/sergio/icon.png": 256,
     "windows/sergio_escritorio/resources/sergio.png": 256,
+    # The web copy kept in git: an update restores it before it builds, so an
+    # old one showed the original project's reactor when the app opened.
+    "src/openjarvis/server/static/pwa-192x192.png": 192,
+    "src/openjarvis/server/static/pwa-512x512.png": 512,
+    "src/openjarvis/server/static/apple-touch-icon.png": 180,
 }
 ICOS = {
     "frontend/public/favicon.ico": (16, 32, 48),
+    "src/openjarvis/server/static/favicon.ico": (16, 32, 48),
     "installer/sergio.ico": (16, 24, 32, 48, 64, 128, 256),
     "frontend/src-tauri/icons/icon.ico": (16, 32, 48, 256),
 }

@@ -1412,6 +1412,37 @@ def target_point(
     return None
 
 
+def guide_marks(reply: dict, elements: list[dict], scale: float) -> list[dict]:
+    """The model's drawings (arrows, circles…) in screen pixels, each at its
+    element (with its size) or at its x,y on the screenshot."""
+    ox, oy = getattr(scale, "origin", (0, 0))
+    by_id = {el.get("id"): el for el in elements}
+    out: list[dict] = []
+    for mark in reply.get("marks") or []:
+        if not isinstance(mark, dict):
+            continue
+        el = by_id.get(mark.get("element")) if mark.get("element") is not None else None
+        if el is not None:
+            x, y = el["x"], el["y"]
+            w, h = el.get("w") or 0, el.get("h") or 0
+        elif mark.get("x") is not None and mark.get("y") is not None:
+            x, y, w, h = mark["x"], mark["y"], mark.get("w") or 0, mark.get("h") or 0
+        else:
+            continue
+        out.append(
+            {
+                "x": round(x * scale) + ox,
+                "y": round(y * scale) + oy,
+                "w": round(w * scale),
+                "h": round(h * scale),
+                "shape": mark.get("shape") or "arrow",
+                "text": str(mark.get("text") or "")[:48],
+                "depth": mark.get("depth", True),
+            }
+        )
+    return out
+
+
 def split_sentences(text: str) -> list[str]:
     """Speakable chunks: the first short (starts fast), the rest grouped."""
     pieces = [p for p in re.split(r"(?<=[.!?¿¡;:])\s+", text.strip()) if p]
@@ -1460,6 +1491,11 @@ class Assistant:
         self.on_seen = on_seen  # show what Sergio saw (camera window)
         self.screen = screen  # screenshot + elements, for screen help
         self.point = point  # fly the orb to a spot on screen
+        # Arrows, circles and a ghost cursor over the screen (guia.py), and
+        # what ends them when the user says «entendido».
+        self.guide: Callable[[list[dict], str], None] | None = None
+        self.guide_showing: Callable[[], bool] = lambda: False
+        self.guide_dismiss: Callable[[], None] = lambda: None
         self._clicky = False
         self._interrupted = False
         self.quick: Callable[[Any], str] | None = None  # instant commands
@@ -1670,6 +1706,11 @@ class Assistant:
             self.ui.state("idle")
 
     def _respond(self, text: str) -> None:
+        from sergio_escritorio.guia import understood
+
+        if self.guide_showing() and understood(text):
+            self.guide_dismiss()  # «entendido»: the drawings go, nothing to answer
+            return
         self.ui.state("thinking")
         self.ui.say(f"«{text}»")
         if self.on_request is not None:
@@ -1744,8 +1785,11 @@ class Assistant:
                 png, elements, scale = self.screen()
                 reply = self.client.screen_help(png, text, elements)
                 answer = str(reply.get("answer") or "")
+                marks = guide_marks(reply, elements, scale)
                 spot = target_point(reply, elements, scale)
-                if spot is not None:
+                if marks and self.guide is not None:
+                    self.guide(marks, "")
+                elif spot is not None:
                     self.point(spot[0], spot[1], str(reply.get("label") or ""))
             except Exception as exc:  # noqa: BLE001 — fall back to the agent
                 log.exception("screen help failed")

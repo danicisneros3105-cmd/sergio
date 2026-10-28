@@ -353,6 +353,7 @@ def run(config: dict[str, Any]) -> None:
         camera = Signal()
         peek = Signal()  # open the camera window (Sergio is looking)
         point = Signal(int, int, str)  # fly the orb to a spot (screen help)
+        guide = Signal(object, str)  # arrows, circles and a ghost cursor (guia.py)
         pressed = Signal()  # the companion presses (a click is happening)
         clicked = Signal()  # a mouse click anywhere: he hops
         camera_off = Signal()
@@ -396,6 +397,20 @@ def run(config: dict[str, Any]) -> None:
     bridge.level.connect(companion.set_level)
     bridge.clicked.connect(companion.bounce)
     bridge.caption.connect(lambda text: show_text(text))
+
+    # Drawings over the real screen that show the way and vanish on the next
+    # click (owner, 28 Oct 2026). The click watcher already runs for the hop.
+    from sergio_escritorio.guia import make_overlay, marks_from
+
+    guide_overlay = make_overlay()
+
+    def show_guide(marks: Any, caption: str) -> None:
+        cleaned = marks_from(marks)
+        if cleaned:
+            guide_overlay.show_marks(cleaned, caption)
+
+    bridge.guide.connect(show_guide)
+    bridge.clicked.connect(guide_overlay.clicked)
 
     class UIAdapter:
         def state(self, name: str) -> None:
@@ -525,6 +540,9 @@ def run(config: dict[str, Any]) -> None:
         screen=screen,
         point=lambda x, y, label: bridge.point.emit(x, y, label),
     )
+    assistant.guide = lambda marks, caption: bridge.guide.emit(marks, caption)
+    assistant.guide_showing = lambda: guide_overlay.showing
+    assistant.guide_dismiss = lambda: bridge.run.emit(guide_overlay.dismiss)
     ears = Ears(
         assistant, wake_word=bool(config["wake_word"]), on_level=bridge.level.emit
     )
@@ -902,6 +920,7 @@ def run(config: dict[str, Any]) -> None:
 
     bridge.point.connect(point_at)
     controller.on_point = lambda x, y, label: bridge.point.emit(x, y, label)
+    controller.on_guide = lambda marks, caption: bridge.guide.emit(marks, caption)
 
     def arrival_delay(x: int, y: int) -> float:
         from PySide6.QtGui import QCursor
@@ -3123,6 +3142,7 @@ def run(config: dict[str, Any]) -> None:
         screen_help=client.screen_help,
         screen_box=lambda: (*live.latest(look=False).origin, *live.latest(look=False).size),
         point=lambda x, y, label: bridge.point.emit(x, y, label),
+        guide=lambda marks, caption: bridge.guide.emit(marks, caption),
         camera=camera_tool,
         hands=hands_tool,
         holo=run_holo,
@@ -4201,6 +4221,8 @@ def run(config: dict[str, Any]) -> None:
     keys: Any = None
 
     def key_down(key: Any) -> None:
+        if key == keyboard.Key.esc and guide_overlay.showing:
+            bridge.run.emit(guide_overlay.dismiss)  # Esc: the drawings go
         detector.press(key)
         for hotkey in hotkeys:
             hotkey.press(keys.canonical(key))

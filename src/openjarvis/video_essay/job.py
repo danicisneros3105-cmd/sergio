@@ -364,7 +364,7 @@ def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
                     fixed_style=fixed,
                     words_per_second=script.WORDS_PER_SECOND,
                     advice=_specialist(job, fixed, brief)
-                    + _skills("guion", brief)
+                    + _skills("guion", brief, job.state().get("genre", ""))
                     + genres.notes(job.state().get("genre", "")),
                 )
             job.write("script.json", sc)
@@ -442,6 +442,7 @@ def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
                 + _skills(
                     "motion",
                     f"{sc.get('title', '')} {sc.get('look', '')} {profile.get('name', '')}",
+                    genre,
                 )
                 + _specialist(
                     job,
@@ -855,12 +856,13 @@ def _loudness(path: Path) -> None:
         out.unlink(missing_ok=True)
 
 
-def _skills(kind: str, about: str) -> str:
-    """The GitHub skills that fit (script or motion), never in the way."""
+def _skills(kind: str, about: str, genre: str = "") -> str:
+    """The GitHub skills that fit (script or motion), never in the way: the
+    genre's own three when it has them."""
     try:
         from openjarvis.video_essay import skillbook
 
-        return "\n" + skillbook.guidance(kind, about) + "\n"
+        return "\n" + skillbook.guidance(kind, about, genre=genre) + "\n"
     except Exception:  # noqa: BLE001
         return ""
 

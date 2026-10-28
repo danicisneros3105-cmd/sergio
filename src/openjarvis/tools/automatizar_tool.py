@@ -37,7 +37,10 @@ class AutomatizarTool(BaseTool):
                 "and draft proposals; nothing is sent); 'trading_prueba' (backtest 'estrategia' "
                 "cruce_medias|momentum|reversion on 'simbolo' with real prices); 'trading_ajustes' "
                 "('activo', 'estrategia', 'simbolos', 'limites'; real money needs the user's own "
-                "SERGIO_TRADING_REAL=1 AND 'real' true); 'trading_detener'. Never promise profits."
+                "SERGIO_TRADING_REAL=1 AND 'real' true); 'trading_detener'; 'tendencias' (video ideas "
+                "from what people search, read and watch NOW in 'pais' (ISO code, default EC) for "
+                "the 'idea' niche: each idea cites its real signal; nothing invented). Never promise "
+                "profits."
             ),
             parameters={
                 "type": "object",
@@ -53,6 +56,7 @@ class AutomatizarTool(BaseTool):
                             "trading_prueba",
                             "trading_ajustes",
                             "trading_detener",
+                            "tendencias",
                         ],
                     },
                     "idea": {"type": "string"},
@@ -73,6 +77,7 @@ class AutomatizarTool(BaseTool):
                     "activo": {"type": "boolean"},
                     "simbolos": {"type": "array", "items": {"type": "string"}},
                     "limites": {"type": "object"},
+                    "pais": {"type": "string"},
                 },
                 "required": ["action"],
             },  # fmt: skip
@@ -156,6 +161,27 @@ class AutomatizarTool(BaseTool):
                     }
                 )
                 return self._ok(json.dumps(trading.estado(), ensure_ascii=False)[:3000])
+            if action == "tendencias":
+                from openjarvis.automatiza import tendencias
+
+                got = tendencias.ideas(
+                    str(p.get("pais") or "EC"), str(p.get("idea") or "")
+                )
+                if not got.get("ideas"):
+                    return self._ok(
+                        got.get("aviso") or "Hoy no encontré tendencias que encajen."
+                    )
+                lines = [
+                    f"- {i['titulo']} ({i['formato']}): «{i['gancho']}» — {i['por_que']}"
+                    for i in got["ideas"]
+                ]
+                return self._ok(
+                    "Ideas con lo que la gente busca hoy ("
+                    + ", ".join(got.get("fuentes") or [])
+                    + "):\n"
+                    + "\n".join(lines),
+                    ideas=got["ideas"],
+                )
             if action == "trading_detener":
                 trading.stop(True)
                 return self._ok("Trading detenido.")

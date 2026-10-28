@@ -137,13 +137,25 @@ def guidance(
     *,
     home: Optional[Path] = None,
     budget: int = 4500,
-    top: int = 4,
+    top: int = 3,
+    genre: str = "",
 ) -> str:
     """The parts of the best-fitting skills of *kind* ("guion" or "motion")
-    for a video *about* this, within *budget* characters."""
+    for a video *about* this, within *budget* characters.
+
+    Few on purpose (owner, 28 Oct 2026: «usa más skills pero no amontones
+    todas para confundir al modelo»): the genre's own picks when it has
+    them, else the *top* that fit best; never a list of the rest."""
     entries = [e for e in catalog().get(kind, []) if e.get("usable", True)]
     if not entries:
         return ""
+    if genre:
+        from openjarvis.video_essay import genres
+
+        picks = genres.skill_names(genre, kind)
+        chosen = [e for name in picks for e in entries if e["name"] == name]
+        if chosen:
+            entries = chosen
     want = _words(about)
     base = folder(home) / kind
     scored = []
@@ -164,8 +176,7 @@ def guidance(
         share = max(400, left // max(1, top))
         piece = _body(text)[:share] if text else e["what"]
         parts.append(f"- {e['name']} ({e['repo']}): {piece}")
-    names = ", ".join(e["name"] for _, e, _ in scored[top : top + 12])
-    out = head + "\n".join(parts) + (f"\nAlso known: {names}." if names else "")
+    out = head + "\n".join(parts)
     if kind == "guion":
         out += "\n" + DELIVERY
     return out[:budget]

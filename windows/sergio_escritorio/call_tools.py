@@ -32,6 +32,8 @@ class Abilities:
     screen_box: Callable[[], tuple[int, int, int, int]] | None = None
     screen_help: Callable[[bytes, str, list], dict] | None = None
     point: Callable[[int, int, str], None] = lambda _x, _y, _l: None
+    # Arrows, circles and a ghost cursor drawn over the screen (guia.py).
+    guide: Callable[[list[dict], str], None] | None = None
     camera: Callable[[bool], str] = _nothing
     hands: Callable[[str], str] = _nothing
     holo: Callable[[str], str] = _nothing
@@ -150,6 +152,10 @@ def call_tools(ab: Abilities) -> list[ClientTool]:
     def senalar(args: dict) -> str:
         what = str(args.get("que") or "").strip()
         spot = live_spot(args)
+        shape = str(args.get("forma") or "").strip()
+        if spot is not None and shape and ab.guide is not None:
+            ab.guide([{"x": spot[0], "y": spot[1], "shape": shape, "text": what[:48]}], "")
+            return "Lo marqué en la pantalla; se borra cuando haga clic."
         if spot is not None:
             # He sees the screen live: point where he looks, no extra look.
             ab.point(spot[0], spot[1], what or "aquí")
@@ -165,6 +171,30 @@ def call_tools(ab: Abilities) -> list[ClientTool]:
             return str(reply.get("answer") or f"No encuentro «{what}» en la pantalla.")
         ab.point(spot[0], spot[1], str(reply.get("label") or what))
         return f"Lo señalé en la pantalla. {reply.get('answer') or ''}".strip()
+
+    def guiar(args: dict) -> str:
+        """Several steps drawn at once, in order, with the ghost cursor."""
+        if ab.guide is None:
+            return "No puedo dibujar en la pantalla ahora."
+        marks = []
+        for step in list(args.get("pasos") or [])[:6]:
+            if not isinstance(step, dict):
+                continue
+            spot = live_spot(step)
+            if spot is None:
+                continue
+            marks.append(
+                {
+                    "x": spot[0],
+                    "y": spot[1],
+                    "shape": str(step.get("forma") or "arrow"),
+                    "text": str(step.get("que") or "")[:48],
+                }
+            )
+        if not marks:
+            return "Necesito dónde está cada paso (x e y de 0 a 1000 en el video)."
+        ab.guide(marks, str(args.get("titulo") or "")[:90])
+        return f"Dibujé {len(marks)} pasos en la pantalla; se borran cuando haga clic."
 
     def live_spot(args: dict) -> tuple[int, int] | None:
         """x, y in Gemini's 0–1000 coordinates of the live video → pixels."""
@@ -237,6 +267,40 @@ def call_tools(ab: Abilities) -> list[ClientTool]:
                 que=_str("Qué señalar, p. ej. 'el botón Exportar'", required=True),
                 x={"type": "number", "description": "Horizontal en el video, 0–1000"},
                 y={"type": "number", "description": "Vertical en el video, 0–1000"},
+                forma={
+                    "type": "string",
+                    "enum": ["arrow", "circle", "box", "underline"],
+                    "description": "Dibujarlo en la pantalla: flecha 3D, círculo, recuadro o subrayado",
+                },
+            ),
+        ),
+        ClientTool(
+            "guiar",
+            "Dibuja sobre la pantalla real del usuario los pasos de algo, en orden: "
+            "flechas 3D, círculos, recuadros, subrayados o una línea hasta el paso "
+            "siguiente, y un cursor animado que hace el recorrido. Se borran solos "
+            "cuando hace clic o dice «entendido». Úsalo para ENSEÑAR dónde está "
+            "algo en vez de describirlo. Necesita ver la pantalla en vivo.",
+            guiar,
+            _obj(
+                pasos={
+                    "type": "array",
+                    "description": "De 1 a 6 pasos, en orden",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "que": {"type": "string", "description": "1 a 4 palabras"},
+                            "x": {"type": "number", "description": "Horizontal en el video, 0–1000"},
+                            "y": {"type": "number", "description": "Vertical en el video, 0–1000"},
+                            "forma": {
+                                "type": "string",
+                                "enum": ["arrow", "circle", "box", "underline", "line"],
+                            },
+                        },
+                        "required": ["x", "y"],
+                    },
+                },
+                titulo=_str("Una frase corta abajo de la pantalla (opcional)"),
             ),
         ),
         ClientTool(

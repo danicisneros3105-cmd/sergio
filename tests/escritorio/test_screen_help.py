@@ -53,9 +53,31 @@ def test_parse_reply_tolerates_fences_and_plain_text():
         "x": None,
         "y": None,
         "label": "Exportar",
+        "marks": [],  # no drawings asked for
     }
     plain = vision_routes.parse_reply("Es una hoja de cálculo.")
     assert plain["answer"] == "Es una hoja de cálculo." and plain["element"] is None
+
+
+def test_parse_reply_keeps_only_drawable_marks():
+    reply = vision_routes.parse_reply(
+        '{"answer": "Así.", "marks": [{"element": 3, "shape": "circle", "text": "Paso 1"},'
+        ' {"x": 10, "y": 20, "shape": "star"}, {"shape": "box"}]}'
+    )
+    assert reply["marks"] == [
+        {"element": 3, "x": None, "y": None, "shape": "circle", "text": "Paso 1"},
+        {"element": None, "x": 10, "y": 20, "shape": "arrow", "text": ""},
+    ]
+
+
+def test_guide_marks_scale_back_with_the_element_size():
+    from sergio_escritorio.voice import guide_marks
+
+    elements = [{"id": 3, "x": 100, "y": 50, "w": 40, "h": 20}]
+    marks = guide_marks({"marks": [{"element": 3, "shape": "circle"}]}, elements, 2.0)
+    assert (
+        marks[0]["x"] == 200 and marks[0]["w"] == 80 and marks[0]["shape"] == "circle"
+    )
 
 
 def test_target_point_prefers_the_element_and_scales_back():

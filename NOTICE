@@ -167,3 +167,11 @@ meta.json and on screen.
   real) y las bolsas de empleo RemoteOK, Himalayas, Arbeitnow y We Work
   Remotely (sus avisos enlazan a la oferta original). Son marcas de sus
   dueños y no avalan a Sergio.
+- La página Automatizar usa las letras Instrument Serif (SIL Open Font License
+  1.1, © 2022 The Instrument Serif Project Authors) e IBM Plex Sans (SIL Open
+  Font License 1.1, © 2017 IBM Corp.), empaquetadas con @fontsource.
+- Tendencias (Automatizar → «¿De qué hago videos?») lee datos públicos sin
+  copiar código: el RSS de búsquedas en aumento de Google Trends, la API de
+  lo más leído de Wikipedia (Wikimedia REST, CC BY-SA), los más votados del
+  día de Reddit y, con la conexión del dueño, YouTube Data API v3. Son marcas
+  de sus dueños y no avalan a Sergio.

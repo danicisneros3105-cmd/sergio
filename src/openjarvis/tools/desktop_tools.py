@@ -191,7 +191,12 @@ class DesktopActionTool(_DesktopTool):
                 "app name, via the Start menu); close_app (target = app or window "
                 "name; closes it like its X button, so it can ask to save); point "
                 "(element or x,y, text = short label: the companion flies there to "
-                "SHOW the user something, without clicking); hands (target = "
+                "SHOW the user something, without clicking); guide (marks = up to "
+                "6 drawings over the real screen, in order: each {element | target "
+                "= visible name | x,y, shape = arrow | circle | box | underline | "
+                "line, text = 1-4 words}; 3D arrows, hand-drawn circles and a ghost "
+                "cursor that walks the route; they vanish on the user's next click: "
+                "use it to TEACH where things are instead of describing them); hands (target = "
                 "holo | off: the user's hands grab, turn, scale, sculpt and draw 3D "
                 "holograms in the camera window, which can then go to Blender); open "
                 "(target = web address, file or folder); focus (target = part of a "
@@ -225,6 +230,7 @@ class DesktopActionTool(_DesktopTool):
                             "open_app",
                             "close_app",
                             "point",
+                            "guide",
                             "hands",
                             "open",
                             "focus",
@@ -242,6 +248,30 @@ class DesktopActionTool(_DesktopTool):
                     "x": {"type": "integer"},
                     "y": {"type": "integer"},
                     "text": {"type": "string"},
+                    "marks": {
+                        "type": "array",
+                        "description": "guide: the drawings, in order",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "element": {"type": "integer"},
+                                "target": {"type": "string"},
+                                "x": {"type": "integer"},
+                                "y": {"type": "integer"},
+                                "shape": {
+                                    "type": "string",
+                                    "enum": [
+                                        "arrow",
+                                        "circle",
+                                        "box",
+                                        "underline",
+                                        "line",
+                                    ],
+                                },
+                                "text": {"type": "string"},
+                            },
+                        },
+                    },
                     "keys": {"type": "string"},
                     "button": {"type": "string", "enum": ["left", "right", "double"]},
                     "amount": {"type": "integer"},

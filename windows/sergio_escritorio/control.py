@@ -51,6 +51,7 @@ ACTIONS = (
     "close_app",
     "terminal",
     "point",
+    "guide",
     "hands",
     "operate",
     "message",
@@ -213,6 +214,9 @@ class Controller:
         self.diag = diag or (lambda: {})  # what the ear is doing (revisar)
         # The companion flies to a spot to show the user something.
         self.on_point: Callable[[int, int, str], None] = lambda _x, _y, _l: None
+        # Arrows, circles and a ghost cursor drawn over the screen (guia.py):
+        # (marks as dicts in screen pixels, caption).
+        self.on_guide: Callable[[list[dict], str], None] = lambda _m, _c: None
         # The companion goes to the spot and presses it, like a hand (before
         # every click, so the user always sees who clicks where).
         self.on_click: Callable[[int, int, str], None] = lambda _x, _y, _k: None
@@ -230,6 +234,7 @@ class Controller:
         self.approve = approve
         self.strict_permissions = strict_permissions
         self._elements: dict[int, tuple[int, int]] = {}
+        self._sizes: dict[int, tuple[int, int]] = {}  # element id -> (w, h)
         self._lock = threading.Lock()
         self._on_activity = on_activity or (lambda _msg: None)
         self._sleep = sleep
@@ -303,14 +308,19 @@ class Controller:
         if frame_id and cached and cached[0] == frame_id:
             with self._lock:
                 self._elements = cached[1]["_mapping"]
-            return {k: v for k, v in cached[1].items() if k != "_mapping"}
+                self._sizes = cached[1]["_sizes"]
+            return {
+                k: v for k, v in cached[1].items() if k not in ("_mapping", "_sizes")
+            }
         info = self.backend.ui()
         elements = []
         mapping: dict[int, tuple[int, int]] = {}
+        sizes: dict[int, tuple[int, int]] = {}
         for number, el in enumerate(info.get("elements", []), start=1):
             left, top, right, bottom = el["rect"]
             centre = ((left + right) // 2, (top + bottom) // 2)
             mapping[number] = centre
+            sizes[number] = (max(0, right - left), max(0, bottom - top))
             elements.append(
                 {
                     "id": number,
@@ -318,17 +328,20 @@ class Controller:
                     "type": el.get("type", ""),
                     "x": centre[0],
                     "y": centre[1],
+                    "w": sizes[number][0],
+                    "h": sizes[number][1],
                 }
             )
         with self._lock:
             self._elements = mapping
+            self._sizes = sizes
         out = {
             "window": info.get("window", ""),
             "windows": info.get("windows", []),
             "elements": elements,
         }
         if frame_id:
-            self._ui_cache = (frame_id, {**out, "_mapping": mapping})
+            self._ui_cache = (frame_id, {**out, "_mapping": mapping, "_sizes": sizes})
         return out
 
     def warm_ui(self, frame: Any = None) -> None:
@@ -356,7 +369,10 @@ class Controller:
         for el in elements:
             x, y = (el["x"] - left) / scale, (el["y"] - top) / scale
             if 0 <= x <= shot["width"] / scale and 0 <= y <= shot["height"] / scale:
-                in_shot.append({**el, "x": round(x), "y": round(y)})
+                item = {**el, "x": round(x), "y": round(y)}
+                if el.get("w"):
+                    item["w"], item["h"] = round(el["w"] / scale), round(el["h"] / scale)
+                in_shot.append(item)
         data = shot.get("image_jpeg_b64") or shot["image_png_b64"]
         return base64.b64decode(data), in_shot, scale
 
@@ -380,6 +396,52 @@ class Controller:
             return int(action["x"]), int(action["y"])
         except (KeyError, TypeError, ValueError) as exc:
             raise ActionError("Give 'element' or both 'x' and 'y'.") from exc
+
+    def _marks(self, wanted: Any) -> list[dict]:
+        """Each mark at its element (id from screen_read, or a visible name)
+        or at x,y, with the element's size so a circle fits around it."""
+        from sergio_escritorio.guia import MAX_MARKS, SHAPES
+
+        if not isinstance(wanted, list) or not wanted:
+            raise ActionError(
+                "'marks' is a list: [{element | target | x,y, shape, text}]."
+            )
+        marks: list[dict] = []
+        for item in wanted[:MAX_MARKS]:
+            if not isinstance(item, dict):
+                continue
+            w = h = 0
+            if item.get("element") not in (None, ""):
+                x, y = self._point(item)
+                with self._lock:
+                    w, h = self._sizes.get(int(item["element"]), (0, 0))
+            elif str(item.get("target") or "").strip() and item.get("x") is None:
+                query = str(item["target"]).strip()
+                finder = getattr(self.backend, "find_elements", None)
+                found = best_element(
+                    query, finder(query) if finder else self.ui()["elements"]
+                )
+                if found is None:
+                    raise ActionError(f"No veo «{query}» en la ventana de enfrente.")
+                x, y = int(found["x"]), int(found["y"])
+                w, h = int(found.get("w") or 0), int(found.get("h") or 0)
+            else:
+                x, y = self._point(item)
+            shape = str(item.get("shape") or "arrow")
+            marks.append(
+                {
+                    "x": x,
+                    "y": y,
+                    "w": w,
+                    "h": h,
+                    "shape": shape if shape in SHAPES else "arrow",
+                    "text": str(item.get("text") or item.get("target") or "")[:48],
+                    "depth": item.get("depth", True),
+                }
+            )
+        if not marks:
+            raise ActionError("No mark could be placed.")
+        return marks
 
     def _confirm(self, action: dict) -> None:
         prompt = json.dumps(action, ensure_ascii=False, sort_keys=True)
@@ -408,6 +470,7 @@ class Controller:
             "move",
             "scroll",
             "point",
+            "guide",
         }
         if kind == "organize" and not action.get("apply"):
             strict_confirmed = False
@@ -559,6 +622,11 @@ class Controller:
             label = str(action.get("text") or action.get("target") or "")[:40]
             self.on_point(x, y, label)
             result = f"pointed at ({x}, {y})"
+        elif kind == "guide":
+            marks = self._marks(action.get("marks"))
+            self.on_guide(marks, str(action.get("text") or "")[:90])
+            shapes = ", ".join(m["shape"] for m in marks)
+            result = f"drew {len(marks)} marks on the screen ({shapes}); they vanish on the next click"
         elif kind == "close_app":
             name = str(action.get("target") or "").strip()
             if len(name) < 2:

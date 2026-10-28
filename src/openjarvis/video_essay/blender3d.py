@@ -34,7 +34,12 @@ the subjects with the kit (real shapes, materials, believable scale in metres); 
 your own lights (key, fill, rim) and a world colour; create ONE camera named "Camera", \
 set it as scene.camera and ANIMATE it with keyframes from frame 1 to frame {frames} \
 (dolly, orbit, push-in or crane, as the shot asks); animate the subjects too if the \
-shot has action. No file paths, no rendering, no saving: Sergio renders it.
+shot has action. Clean explainer shots: kit_studio() for the light and backdrop and \
+kit_camera_push(...) for the slow push-in; when the narration goes INSIDE something \
+(the body, an engine, a device), show it with kit_cutaway (cross-section) or kit_xray \
+on the outer shell with solid, labelled-looking inner parts; slow motion = fewer \
+changes per frame at the key moment. No file paths, no rendering, no saving: Sergio \
+renders it.
 Answer ONLY the Python script."""
 
 RENDER_SUFFIX = """

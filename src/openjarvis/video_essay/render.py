@@ -19,7 +19,7 @@ import subprocess
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
-from typing import Callable, Iterator, List, Optional, Sequence, Tuple
+from typing import Any, Callable, Iterator, List, Optional, Sequence, Tuple
 
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter, ImageFont, ImageOps
@@ -627,46 +627,104 @@ def _ease(t: float, length: float = 0.35) -> float:
     return 1 - (1 - x) ** 3
 
 
-def draw_motion(canvas: Image.Image, kind: str, t: float, accent=(255, 59, 48)) -> bool:
-    """Motion graphics of a heavy edit, drawn on the frame: «circle» (a ring
-    that draws itself round the centre of attention), «arrow:LABEL» (an
-    arrow that flies in towards it, with its label) and «bar:N» (a progress
-    bar that fills to N %). Returns False when *kind* is not one of them."""
+def _hand_ring(
+    cx: float, cy: float, rx: float, ry: float, k: float
+) -> List[Tuple[float, float]]:
+    """A ring drawn by hand: it starts up-left, overshoots its start a little
+    and wobbles, so it reads as a marker stroke, not a vector ellipse."""
+    pts = []
+    steps = 72
+    span = 2 * math.pi * 1.08 * k
+    for i in range(steps + 1):
+        a = -2.3 + span * i / steps
+        wob = 1.0 + 0.04 * math.sin(a * 3.0 + 0.7)
+        pts.append((cx + math.cos(a) * rx * wob, cy + math.sin(a) * ry * wob))
+    return pts
+
+
+def _arrow_body(
+    tip: Tuple[float, float], tail: Tuple[float, float], shaft: float, head: float
+) -> List[Tuple[float, float]]:
+    (x1, y1), (x0, y0) = tip, tail
+    length = math.hypot(x1 - x0, y1 - y0) or 1.0
+    ux, uy = (x1 - x0) / length, (y1 - y0) / length
+    nx, ny = -uy, ux
+    neck = (x1 - ux * head * 1.5, y1 - uy * head * 1.5)
+    return [
+        (x0 + nx * shaft, y0 + ny * shaft),
+        (neck[0] + nx * shaft, neck[1] + ny * shaft),
+        (neck[0] + nx * head, neck[1] + ny * head),
+        (x1, y1),
+        (neck[0] - nx * head, neck[1] - ny * head),
+        (neck[0] - nx * shaft, neck[1] - ny * shaft),
+        (x0 - nx * shaft, y0 - ny * shaft),
+    ]
+
+
+def draw_motion(
+    canvas: Image.Image,
+    kind: str,
+    t: float,
+    accent=(255, 59, 48),
+    at: Optional[Tuple[float, float]] = None,
+) -> bool:
+    """Motion graphics drawn on the frame, aimed at the subject *at* (fractions
+    of the frame; the centre of attention if not given):
+
+    * «circle»: a hand-drawn ring that draws itself round the subject;
+    * «arrow:LABEL»: a 3D arrow (side face and shadow) that flies in, lands on
+      the subject and keeps nodding at it, with its label;
+    * «bar:N»: a progress bar that fills to N %;
+    * «callout:LABEL»: a dot on the subject, a leader line and a label, like
+      the part names of a 3D explainer;
+    * «spot»: everything but the subject dims (a spotlight);
+    * «xray»: the frame turns into a cool see-through scan with a sweeping
+      line, for «what happens inside».
+
+    Every stroke has a dark under-stroke so it reads on any picture. Returns
+    False when *kind* is not one of them."""
     w, h = canvas.size
+    sx, sy = at if at else (0.5, 0.45)
+    sx, sy = min(0.85, max(0.15, sx)) * w, min(0.8, max(0.2, sy)) * h
     layer = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
     d = ImageDraw.Draw(layer)
     k = _ease(t)
     stroke = max(4, int(h * 0.009))
+    halo = (0, 0, 0, 110)
     if kind == "circle":
-        cx, cy, r = w * 0.5, h * 0.45, h * 0.2
-        d.arc(
-            (cx - r, cy - r * 0.8, cx + r, cy + r * 0.8),
-            -90,
-            -90 + 360 * k,
-            fill=accent + (255,),
-            width=stroke,
-        )
+        r = h * 0.17
+        pts = _hand_ring(sx, sy, r * 1.25, r, _ease(t, 0.45))
+        if len(pts) > 1:
+            d.line(pts, fill=halo, width=stroke + 4, joint="curve")
+            d.line(pts, fill=accent + (255,), width=stroke, joint="curve")
     elif kind.startswith("arrow"):
         label = kind.partition(":")[2]
-        x1, y1 = w * 0.62, h * 0.62
-        x0, y0 = w * 0.86, h * 0.84
-        x0, y0 = x0 + (1 - k) * w * 0.2, y0 + (1 - k) * h * 0.2
-        d.line((x0, y0, x1, y1), fill=accent + (255,), width=stroke * 2)
-        a = math.atan2(y1 - y0, x1 - x0)
-        head = stroke * 6
-        pts = [(x1, y1)] + [
-            (x1 - head * math.cos(a + s), y1 - head * math.sin(a + s))
-            for s in (0.45, -0.45)
-        ]
-        d.polygon(pts, fill=accent + (255,))
+        side = -1 if sx > w * 0.6 else 1
+        reach = h * 0.28
+        bob = math.sin(t * 6.0) * h * 0.008 if k >= 1 else 0.0
+        tip = (sx - side * h * 0.09 + side * bob, sy + h * 0.07 + bob)
+        tail = (tip[0] - side * reach * k * 1.1, tip[1] + reach * k * 0.8)
+        if k < 1:  # it flies in from beyond its tail
+            off = (1 - k) * h * 0.25
+            tip = (tip[0] - side * off, tip[1] + off)
+            tail = (tail[0] - side * off, tail[1] + off)
+        body = _arrow_body(tip, tail, stroke * 1.1, stroke * 3.2)
+        depth = max(3, int(h * 0.006))
+        d.polygon(
+            [(x + depth * 1.6, y + depth * 2) for x, y in body], fill=(0, 0, 0, 90)
+        )
+        side_face = tuple(int(c * 0.55) for c in accent) + (255,)
+        for j in range(depth, 0, -1):
+            d.polygon([(x + j, y + j) for x, y in body], fill=side_face)
+        d.polygon(body, fill=accent + (255,), outline=(255, 255, 255, 230))
         if label and k > 0.6:
             size = max(18, int(h * 0.05))
             img = word_image(label, "black", size, PALETTE["white"], True)
             layer.alpha_composite(
                 img,
                 (
-                    int(min(w - img.size[0], x0 - img.size[0] * 0.5)),
-                    int(min(h - img.size[1], y0 + stroke)),
+                    int(min(w - img.size[0], max(0, tail[0] - img.size[0] * 0.5))),
+                    int(min(h - img.size[1], tail[1] + stroke)),
                 ),
             )
     elif kind.startswith("bar:"):
@@ -675,23 +733,83 @@ def draw_motion(canvas: Image.Image, kind: str, t: float, accent=(255, 59, 48)) 
         except ValueError:
             return False
         x, y, bw, bh = w * 0.25, h * 0.08, w * 0.5, max(14, int(h * 0.028))
+        d.rounded_rectangle((x - 2, y - 2, x + bw + 2, y + bh + 2), bh // 2, fill=halo)
         d.rounded_rectangle((x, y, x + bw, y + bh), bh // 2, fill=(255, 255, 255, 200))
         d.rounded_rectangle(
             (x, y, x + max(bh, bw * goal * k), y + bh), bh // 2, fill=accent + (255,)
         )
+    elif kind.startswith("callout:"):
+        label = kind.partition(":")[2][:22]
+        dot = max(5, int(h * 0.012))
+        side = -1 if sx > w * 0.55 else 1
+        elbow = (sx + side * w * 0.08 * k, sy - h * 0.12 * k)
+        end = (elbow[0] + side * w * 0.12 * k, elbow[1])
+        d.ellipse((sx - dot - 3, sy - dot - 3, sx + dot + 3, sy + dot + 3), fill=halo)
+        d.ellipse((sx - dot, sy - dot, sx + dot, sy + dot), fill=(255, 255, 255, 255))
+        d.line([(sx, sy), elbow, end], fill=halo, width=stroke // 2 + 4, joint="curve")
+        d.line(
+            [(sx, sy), elbow, end],
+            fill=(255, 255, 255, 255),
+            width=stroke // 2 + 1,
+            joint="curve",
+        )
+        if label and k > 0.7:
+            size = max(16, int(h * 0.04))
+            img = word_image(label.upper(), "black", size, PALETTE["white"], True)
+            x = end[0] if side > 0 else end[0] - img.size[0]
+            layer.alpha_composite(
+                img,
+                (
+                    int(min(w - img.size[0], max(0, x))),
+                    int(min(h - img.size[1], max(0, end[1] - img.size[1] * 0.6))),
+                ),
+            )
+    elif kind == "spot":
+        ys, xs = np.ogrid[0:h, 0:w]
+        r = h * (0.55 - 0.25 * k)
+        dist = np.sqrt((xs - sx) ** 2 + (ys - sy) ** 2)
+        alpha = np.clip((dist - r) / (h * 0.25), 0, 1) * 150 * k
+        shade = np.zeros((h, w, 4), dtype=np.uint8)
+        shade[..., 3] = alpha.astype(np.uint8)
+        layer = Image.fromarray(shade)
+    elif kind == "xray":
+        # A see-through scan: deep navy, the subject glowing cyan with its
+        # outlines traced, and a bright line sweeping down.
+        rgb = np.asarray(canvas.convert("L"), dtype=np.float32) / 255.0
+        lo, hi = np.percentile(rgb, (2, 98))
+        glow = np.clip((rgb - lo) / max(1e-3, hi - lo), 0, 1) ** 1.4
+        gy, gx = np.gradient(rgb)
+        edge = np.clip(np.hypot(gx, gy) * 8, 0, 1)  # outlines, like a scan
+        lit = np.clip(glow * 0.7 + edge, 0, 1)
+        tint = np.stack([lit * 120 + 6, lit * 220 + 14, lit * 235 + 30], axis=-1)
+        scan = np.zeros((h, w, 4), dtype=np.uint8)
+        scan[..., :3] = np.clip(tint, 0, 255).astype(np.uint8)
+        scan[..., 3] = int(200 * k)
+        line_y = int((t * 0.6 % 1.0) * h)
+        band = slice(max(0, line_y - 3), min(h, line_y + 3))
+        scan[band, :, :3] = (180, 240, 255)
+        scan[band, :, 3] = 230
+        layer = Image.fromarray(scan)
     else:
         return False
     canvas.alpha_composite(layer)
     return True
 
 
-def draw_overlay(canvas: Image.Image, text: str, t: float) -> None:
+def draw_overlay(
+    canvas: Image.Image,
+    text: str,
+    t: float,
+    at: Optional[Tuple[float, float]] = None,
+    accent=(255, 59, 48),
+) -> None:
     """A stamp or counter at the top left, like the counters of challenge
     videos; a number in it counts up during the first half second. Motion
-    graphics («circle», «arrow:…», «bar:N») draw themselves instead."""
+    graphics (see :func:`draw_motion`) draw themselves instead, aimed at the
+    shot's subject *at*."""
     import re
 
-    if draw_motion(canvas, text, t):
+    if draw_motion(canvas, text, t, accent, at):
         return
 
     m = re.search(r"\d[\d.,]*", text)
@@ -730,6 +848,7 @@ def shot_frames(
         else None
     )
     rng = np.random.default_rng(index)
+    subject_at: Optional[Tuple[float, float]] = None  # where the graphics aim
     for i, bg in enumerate(background_for(shot, size).frames(n)):
         t = i / FPS
         img = bg
@@ -759,7 +878,9 @@ def shot_frames(
             canvas.alpha_composite(overlay)
         draw_text(canvas, placed, t, shot.text_style, shadow)
         if shot.overlay:
-            draw_overlay(canvas, shot.overlay, t)
+            if i == 0 and subject_at is None:
+                subject_at = _subject_of(bg)
+            draw_overlay(canvas, shot.overlay, t, subject_at, _accent_of(shot))
         if shot.frame == "letterbox":
             letterbox(canvas)
         out = canvas.convert("RGB")
@@ -774,6 +895,45 @@ def shot_frames(
         elif shot.transition == "whip" and i < 4:
             out = _whip(out, 1 - i / 4)
         yield out
+
+
+def _subject_of(frame: Any) -> Optional[Tuple[float, float]]:
+    """The centre of attention of the shot's first frame (circles, arrows and
+    labels point at it, not at the middle of the screen)."""
+    if not isinstance(frame, Image.Image):
+        return None
+    try:
+        from openjarvis.video_essay.color import saliency
+
+        rgb = frame.convert("RGB")
+        sal = saliency(rgb)
+        h, w = sal.shape
+        # What stands out in colour from the rest of the frame (the subject
+        # is rarely the colour of the background): spectral saliency alone
+        # loves edges and lands on the rim of things.
+        small = np.asarray(rgb.resize((w, h)), dtype=np.float32)
+        distinct = np.linalg.norm(small - np.median(small.reshape(-1, 3), 0), axis=2)
+        distinct /= distinct.max() or 1.0
+        sal = sal * 0.5 + distinct
+        # Only the most salient tenth counts: a busy background (texture,
+        # banding, noise) must not drag the aim off the subject.
+        top = sal >= np.percentile(sal, 90)
+        ys, xs = np.nonzero(top)
+        if len(xs) == 0:
+            return None
+        weight = sal[ys, xs] ** 2
+        return (
+            float((xs * weight).sum() / weight.sum() / w),
+            float((ys * weight).sum() / weight.sum() / h),
+        )
+    except Exception:  # noqa: BLE001 — the middle, as before
+        return None
+
+
+def _accent_of(shot: Shot) -> Tuple[int, int, int]:
+    from openjarvis.video_essay.color import rgb_of
+
+    return tuple(rgb_of(shot.accent) or (255, 59, 48))  # type: ignore[return-value]
 
 
 def _whip(img: Image.Image, amount: float) -> Image.Image:

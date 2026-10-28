@@ -35,6 +35,8 @@ def test_ui_numbers_elements_and_click_by_number(control_server, desktop):
         "type": "Button",
         "x": 930,
         "y": 1020,
+        "w": 60,  # its size, so the on-screen guide can circle it
+        "h": 40,
     }
     r = httpx.post(f"{url}/act", headers=AUTH, json={"action": "click", "element": 2})
     assert r.json() == {"ok": True, "result": "click at (930, 1020)"}

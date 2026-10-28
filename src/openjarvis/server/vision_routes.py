@@ -22,6 +22,8 @@ router = APIRouter(prefix="/v1/vision", tags=["vision"])
 
 MAX_IMAGE_BYTES = 12 * 1024 * 1024
 MAX_ELEMENTS = 150
+MARK_SHAPES = ("arrow", "circle", "box", "underline", "line")
+MAX_MARKS = 6
 
 SCREEN_PROMPT = """Eres Sergio, un compañero que vive junto al cursor del usuario \
 y le enseña a usar lo que tiene en pantalla, como un amigo paciente que mira por \
@@ -32,8 +34,17 @@ sin listas, sin markdown, sin emojis, sin leer rutas ni URLs largas. Si le está
 enseñando algo, di el siguiente paso concreto ("pulsa Exportar, aquí arriba"). \
 Cuando ayude, señala el lugar exacto: él verá volar el cursor hasta ahí.
 
-Elementos de la pantalla que puedes señalar (id. tipo 'nombre' @x,y en píxeles de \
-la captura):
+Para que no busque con la mirada, puedes DIBUJAR sobre su pantalla: una flecha \
+3D que aterriza en el botón ("arrow"), un círculo a mano alrededor ("circle"), un \
+recuadro que oscurece el resto ("box"), un subrayado ("underline") o una línea \
+hasta la marca siguiente ("line", para arrastrar o unir). Un cursor animado hace \
+el recorrido en orden y todo desaparece cuando él hace clic. Si son varios pasos, \
+una marca por paso (máximo 4), en orden, con un texto de 1 a 4 palabras. Si basta \
+con señalar una cosa, usa una sola marca. Nunca marques algo que no está en la \
+captura.
+
+Elementos de la pantalla que puedes señalar (id. tipo 'nombre' @x,y [ancho x alto] \
+en píxeles de la captura):
 {elements}
 
 Lo que dijo: {question}
@@ -43,15 +54,18 @@ Responde SOLO con JSON, sin texto alrededor:
   "element": id del elemento a señalar o null,
   "x": píxel x en la captura si no hay elemento adecuado (o null),
   "y": píxel y en la captura (o null),
-  "label": "nombre corto de lo que señalas (o vacío)"}}"""
+  "label": "nombre corto de lo que señalas (o vacío)",
+  "marks": [{{"element": id o null, "x": px o null, "y": px o null,
+              "shape": "arrow|circle|box|underline|line", "text": "Paso corto"}}]}}"""
 
 
 def format_elements(elements: list[dict[str, Any]]) -> str:
     lines = []
     for el in elements[:MAX_ELEMENTS]:
         name = str(el.get("name") or "(sin nombre)")[:60]
+        size = f" [{el.get('w')}x{el.get('h')}]" if el.get("w") else ""
         lines.append(
-            f"{el.get('id')}. {el.get('type')} '{name}' @{el.get('x')},{el.get('y')}"
+            f"{el.get('id')}. {el.get('type')} '{name}' @{el.get('x')},{el.get('y')}{size}"
         )
     return "\n".join(lines) or "(no se encontraron elementos; usa x,y)"
 
@@ -72,6 +86,7 @@ def parse_reply(text: str) -> dict[str, Any]:
             "x": None,
             "y": None,
             "label": "",
+            "marks": [],
         }
 
     def _int(value: Any) -> int | None:
@@ -80,12 +95,30 @@ def parse_reply(text: str) -> dict[str, Any]:
         except (TypeError, ValueError):
             return None
 
+    marks = []
+    for mark in data.get("marks") or []:
+        if not isinstance(mark, dict):
+            continue
+        shape = str(mark.get("shape") or "arrow").lower()
+        item = {
+            "element": _int(mark.get("element")),
+            "x": _int(mark.get("x")),
+            "y": _int(mark.get("y")),
+            "shape": shape if shape in MARK_SHAPES else "arrow",
+            "text": " ".join(str(mark.get("text") or "").split())[:48],
+        }
+        if item["element"] is None and (item["x"] is None or item["y"] is None):
+            continue  # nowhere to draw it
+        marks.append(item)
+        if len(marks) >= MAX_MARKS:
+            break
     return {
         "answer": str(data["answer"]).strip(),
         "element": _int(data.get("element")),
         "x": _int(data.get("x")),
         "y": _int(data.get("y")),
         "label": str(data.get("label") or "")[:40],
+        "marks": marks,
     }
 
 

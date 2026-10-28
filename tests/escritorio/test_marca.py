@@ -26,7 +26,7 @@ def test_every_icon_is_drawn_from_the_current_svg(marca):
 
 def test_the_web_shows_the_fly(marca):
     page = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
-    assert 'href="/sergio.svg"' in page
+    assert 'href="/sergio.svg?v=' in page  # versioned: browsers drop the old icon
     assert (ROOT / marca.SVG_COPY).read_bytes() == marca.SOURCE.read_bytes()
     toolbar = (ROOT / "frontend/src/components/Shell/Toolbar.tsx").read_text(
         encoding="utf-8"
