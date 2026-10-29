@@ -75,6 +75,46 @@ def redirect_uri(request: Request) -> str:
     return f"{base}/v1/mcp/oauth/callback"
 
 
+def _logos():
+    from pathlib import Path
+
+    from openjarvis.core.config import get_config_dir
+
+    return Path(get_config_dir()) / "connectors" / "logos"
+
+
+@router.get("/marca")
+async def marca(url: str) -> Dict[str, Any]:
+    """The logo and colour of a service with no Simple Icons logo, from its
+    own site (mcp/favicon.py); empty when there is none."""
+    from openjarvis.mcp import favicon
+
+    info = await asyncio.to_thread(favicon.logo, url, _logos())
+    if not info:
+        return {}
+    return {
+        "hex": info["hex"],
+        "icon": f"/v1/mcp/marca/{info['file']}",
+        "site": info["site"],
+    }
+
+
+@router.get("/marca/{name}")
+async def marca_png(name: str) -> Any:
+    import re
+
+    from fastapi.responses import FileResponse
+
+    if not re.fullmatch(r"[a-z0-9.-]{3,120}\.png", name):
+        raise HTTPException(404, "No existe.")
+    path = _logos() / name
+    if not path.is_file():
+        raise HTTPException(404, "No existe.")
+    return FileResponse(
+        path, media_type="image/png", headers={"Cache-Control": "max-age=604800"}
+    )
+
+
 @router.get("/directory")
 async def directory() -> Dict[str, Any]:
     from openjarvis.mcp.directory import CATEGORIES

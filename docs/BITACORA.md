@@ -2,6 +2,15 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-10-29 · Claude · Menos permisos, app que siempre abre, Vista escondida, proyectos, 3D en la nube y superhabilidad
+- La app no abría: un `config.json` ausente o roto cerraba el escritorio sin aviso (corre con pythonw). Ahora arranca con valores por defecto y, si algo falla al iniciar, abre la ventana de Sergio y explica el fallo. Además la web se compila en `static_local` (ignorado por git): la actualización ya no se detiene por «cambios locales» en `server/static`.
+- Permisos: el control del PC pedía Face ID en casi todo (y cada habilidad). `control.risky` deja pasar clics, escribir, teclas y abrir cosas; pide Face ID solo para lo que no se deshace o llega a otros. Tests de permisos cambiados por eso (explicado en el commit).
+- Windows Hello con PIN y símbolos raros venía de «Entrar con la cara» (passkey). En este equipo ahora usa la cámara y el Face ID propio (`/v1/cuentas/cara/*`).
+- Sin consolas negras (`sin_consola.py`), Vista mira sin ventana y pide la cámara una vez, centro de control con 4 mosaicos, gimnasio que espera llamadas/reuniones/pantalla completa y «Ahora no», guía paso a paso.
+- Nuevo: Proyectos (servidor, página y barra lateral), 3D en la nube (Meshy/Tripo/fal.ai), logos de cualquier conector desde su web y la superhabilidad (~15 800 → ~3 000 tokens cuando no hay neurona clara).
+- Probado aquí: 11 600 pruebas de Python, 854 del escritorio y 313 de la web; el escritorio arrancado en una pantalla virtual llegó hasta el control (aquí falta tkinter para pyautogui). No probado: Windows real, las claves de Meshy/Tripo/fal y el Face ID con cámara real.
+- Pendiente: app de escritorio para macOS (hoy solo Windows), y una revisión real en el PC del dueño de qué más pide permiso.
+
 ## 2026-10-28 · Claude · Efectos de sonido, música en tendencia, imágenes con sentido y más escenas de cine
 - El dueño vio el video largo: «los efectos de sonido están meh, la música debe ser trending pero acorde al video, las fotos no tienen sentido, FALTAN CLIPS DE PELÍCULAS».
 - Sonido (`audio.py`): los efectos se rehicieron por capas (golpe con grave que cae y cola de sala, «whoosh» que sube y se aleja, clic de botón real, campana con parciales de metal, subida con dos tonos que se corta en seco). Cada uso suena un poco distinto (`VARIANTS`). `audio.thin` los espacia (1,8 s; 0,9 s en edición pesada) con un tope por minuto y los golpes grandes como mucho un tercio. Bajan un poco cuando habla la voz. Si el dueño pone sus propios sonidos en `~/.openjarvis/sonidos/` (`impact-01.wav`, `whoosh-…`), se usan esos. La edición pesada ya no pone un sonido en cada corte.

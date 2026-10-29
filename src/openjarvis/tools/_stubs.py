@@ -180,6 +180,41 @@ class BaseTool(ABC):
 # ---------------------------------------------------------------------------
 
 
+SUPERSKILL = "habilidad"
+SUPER_FROM = 24  # more tools than this with no clear neuron: the superskill
+
+
+def _super_on() -> bool:
+    return os.environ.get("SERGIO_SUPERHABILIDAD", "1") != "0"
+
+
+def superskill_function(tools: List["BaseTool"]) -> Dict[str, Any]:
+    """One tool that stands for many: a line per skill, the full schema on demand."""
+    lines = []
+    for t in sorted(tools, key=lambda x: x.spec.name):
+        first = (t.spec.description or "").strip().split(". ")[0].replace("\n", " ")
+        lines.append(f"- {t.spec.name}: {first[:110]}")
+    return {
+        "type": "function",
+        "function": {
+            "name": SUPERSKILL,
+            "description": (
+                "Every other skill of Sergio, by name. Call it with 'nombre' (and "
+                "'argumentos' when you know them); without arguments it returns that "
+                "skill's exact parameters. Skills:\n" + "\n".join(lines)
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "nombre": {"type": "string", "description": "the skill's name"},
+                    "argumentos": {"type": "object", "description": "its arguments"},
+                },
+                "required": ["nombre"],
+            },
+        },
+    }
+
+
 class ToolExecutor:
     """Dispatch tool calls to registered tools with event bus integration.
 
@@ -251,6 +286,8 @@ class ToolExecutor:
 
     def execute(self, tool_call: ToolCall) -> ToolResult:
         """Parse arguments, dispatch to tool, measure latency, emit events."""
+        if tool_call.name == SUPERSKILL:
+            return self._superskill(tool_call)
         tool = self._tools.get(tool_call.name)
         if tool is None:
             return ToolResult(
@@ -623,6 +660,46 @@ class ToolExecutor:
         """Return specs for all available tools."""
         return [t.spec for t in self._tools.values()]
 
+    def _superskill(self, tool_call: ToolCall) -> ToolResult:
+        """``habilidad(nombre, argumentos)``: the real tool, by name. Without
+        arguments (or wrong ones) it answers with that tool's full schema,
+        so the model asks again properly; it costs one short turn only when
+        that tool is really needed."""
+        try:
+            args = json.loads(tool_call.arguments or "{}")
+        except (TypeError, ValueError):
+            args = {}
+        name = str(args.get("nombre") or "").strip()
+        target = self._tools.get(name)
+        if target is None:
+            known = ", ".join(
+                sorted(getattr(self, "_super_catalog", {}) or self._tools)
+            )
+            return ToolResult(
+                tool_name=SUPERSKILL,
+                content=f"No existe la habilidad «{name}». Las que hay: {known}",
+                success=False,
+            )
+        given = args.get("argumentos")
+        required = (target.spec.parameters or {}).get("required") or []
+        if not isinstance(given, dict) or any(k not in given for k in required):
+            schema = json.dumps(target.spec.parameters or {}, ensure_ascii=False)
+            return ToolResult(
+                tool_name=SUPERSKILL,
+                content=(
+                    f"{name}: {target.spec.description}\nArgumentos (JSON Schema): {schema}\n"
+                    f"Llame otra vez a {SUPERSKILL} con nombre='{name}' y 'argumentos' completos."
+                ),
+                success=True,
+            )
+        return self.execute(
+            ToolCall(
+                id=tool_call.id,
+                name=name,
+                arguments=json.dumps(given, ensure_ascii=False),
+            )
+        )
+
     def get_openai_tools(self) -> List[Dict[str, Any]]:
         """Return tools in OpenAI function-calling format.
 
@@ -648,6 +725,18 @@ class ToolExecutor:
             off = frozenset()
         if off:
             tools = [t for t in tools if t.spec.name not in off]
+        if not chosen and len(tools) > SUPER_FROM and _super_on():
+            # Nothing lit clearly: instead of every full schema (~14 000
+            # tokens), the core tools plus one superskill that lists the rest
+            # in a line each (owner, 29 Oct 2026: «junta todas en superskills
+            # para evitar gasto de tokens»).
+            from openjarvis.connectome.neurons import CORE
+
+            keep = [t for t in tools if t.spec.name in CORE]
+            rest = [t for t in tools if t.spec.name not in CORE]
+            self._super_catalog = {t.spec.name: t for t in rest}
+            return [t.to_openai_function() for t in keep] + [superskill_function(rest)]
+        self._super_catalog = {}
         return [t.to_openai_function() for t in tools]
 
 

@@ -299,10 +299,18 @@ def _ui_outdated(frontend: Path, static: Path) -> bool:
 
 
 def _build_ui(root: Path, runner: Runner) -> None:
-    static = root / "src" / "openjarvis" / "server" / "static" / "index.html"
+    server = root / "src" / "openjarvis" / "server"
+    static = server / "static_local" / "index.html"
+    if not static.exists():
+        static = server / "static" / "index.html"
     if static.exists() and not _ui_outdated(root / "frontend", static):
         return
     frontend = root / "frontend"
+    import os
+
+    # into the folder git ignores, so the next update never stops on it
+    os.environ["SERGIO_WEB_OUT"] = str(server / "static_local")
+    static = server / "static_local" / "index.html"
     console.print("Building the web interface (one time)…")
     if not (frontend / "node_modules").is_dir():
         runner(["npx", "-y", "npm@11", "ci", "--prefix", str(frontend)])

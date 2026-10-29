@@ -173,9 +173,14 @@ def test_home_shows_only_quick_buttons_and_whats_running(qt):
     panel.open()
     assert panel.pages.currentIndex() == panel.HOME
     assert not panel.back_bar.isVisibleTo(panel)
+    # Owner, 29 Oct 2026: «más simple y con menos cosas»: four tiles; Usage
+    # and Skills one step inside «Pantalla».
     assert [t.kind for t in panel.quick_tiles] == [
-        "split", "undo", "gauge", "sparkles", "monitor", "puzzle",
-    ]  # fmt: skip
+        "split",
+        "undo",
+        "sparkles",
+        "monitor",
+    ]
     assert panel.undo_tile.sub == "Abrí Spotify" and panel.undo_tile.isEnabled()
     panel.undo_tile.click()
     _wait(qt, lambda: undone == [1] and panel.undo_tile.sub == "Cerré Spotify")

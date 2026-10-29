@@ -143,6 +143,8 @@ export interface Conversation {
   messages: ChatMessage[];
   /** Missing on chats made before the sections existed: read with chatKindOf(). */
   kind?: ChatKind;
+  /** A chat inside a project starts with its instructions and files. */
+  projectId?: string;
 }
 
 export interface ConversationStore {

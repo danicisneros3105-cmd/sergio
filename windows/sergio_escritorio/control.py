@@ -67,10 +67,7 @@ MEDIA_KEYS = {
     "prevtrack",
 }
 TASKS = ("operate", "message", "phone_call", "contact")  # done by the operator
-# One confirmation (Face ID) opens a short window for the routine moves
-# of a task (clicking, typing, keys, opening an app) so the owner is not asked
-# for every click. Anything that sends, runs code, closes, deletes or opens a
-# link or file always asks, and pausing the control ends the window.
+# Ordinary moves of a task: they never ask (see RISKY below).
 ROUTINE = (
     "click",
     "click_name",
@@ -81,7 +78,39 @@ ROUTINE = (
     "focus",
     "open_app",
 )
-APPROVAL_WINDOW_S = 120.0
+APPROVAL_WINDOW_S = 600.0
+# Owner (29 Oct 2026): «Sergio pide demasiados permisos para hacer cualquier
+# cosa y se vuelve tedioso». Ordinary moves (click, type, keys, open an app,
+# a web page or a document) run at once, as when he does them himself. Only
+# what cannot be taken back or reaches other people asks, and then Sergio's
+# own Face ID confirms by itself through the camera (no button, no PIN).
+RISKY = ("python", "terminal", "close_app", "message", "phone_call", "contact")
+RISKY_KEYS = ("shift+delete", "shift+del", "ctrl+shift+delete", "alt+f4")
+RUNS_CODE = (".exe", ".msi", ".bat", ".cmd", ".ps1", ".vbs", ".js", ".jar", ".scr",
+             ".com", ".lnk", ".reg", ".sh", ".app", ".pkg", ".dmg")  # fmt: skip
+# Skills that record or learn someone (consent first); the rest just run.
+RISKY_SKILLS = ("face_scan", "voice_enroll", "meeting_start")
+
+
+def risky(action: dict) -> bool:
+    """Does this action need the owner's Face ID before it runs?"""
+    kind = str(action.get("action") or "")
+    if kind in RISKY:
+        return True
+    if kind == "organize":
+        return bool(action.get("apply"))  # a preview never asks
+    if kind == "key":
+        keys = str(action.get("keys") or action.get("key") or "").lower().replace(" ", "")
+        return any(k in keys for k in RISKY_KEYS)
+    if kind == "open":
+        target = str(action.get("target") or action.get("path") or "").lower().strip()
+        return not target.startswith(("http://", "https://")) and target.endswith(RUNS_CODE)
+    if kind == "skill":
+        name = str(action.get("name") or "")
+        if name == "creator_apps":
+            return str((action.get("args") or {}).get("action") or "") in ("install", "instalar")
+        return name in RISKY_SKILLS
+    return False
 
 
 class Backend(Protocol):
@@ -230,7 +259,7 @@ class Controller:
         # Tasks done like a person (operate, message, phone_call, contact).
         self.on_task: Callable[[str, dict], str] = lambda _k, _a: "operator unavailable"
         self.enabled = True
-        self._approved_until = 0.0
+        self._approved_kinds: dict[str, float] = {}
         self.approve = approve
         self.strict_permissions = strict_permissions
         self._elements: dict[int, tuple[int, int]] = {}
@@ -246,7 +275,7 @@ class Controller:
     @enabled.setter
     def enabled(self, value: bool) -> None:
         if not value:
-            self._approved_until = 0.0  # pausing takes the permission back
+            self._approved_kinds = {}  # pausing takes the permission back
         self._enabled = bool(value)
 
     # -- reading -----------------------------------------------------------
@@ -463,30 +492,16 @@ class Controller:
             raise ActionError(
                 f"Unknown action {kind!r}. Use one of: {', '.join(ACTIONS)}"
             )
-        # In professional mode every mutation is approved at this boundary.
-        # Preview and pointing do not change user data; lookups use GET routes.
-        strict_confirmed = self.strict_permissions and kind not in {
-            "wait",
-            "move",
-            "scroll",
-            "point",
-            "guide",
-        }
-        if kind == "organize" and not action.get("apply"):
+        # Only what cannot be undone or reaches other people asks (risky);
+        # a sensitive action approved a moment ago does not ask again for
+        # the same kind of thing while the task goes on.
+        strict_confirmed = self.strict_permissions and risky(action)
+        recent = getattr(self, "_approved_kinds", {})
+        if strict_confirmed and kind in ("close_app", "organize") and time.monotonic() < recent.get(kind, 0.0):
             strict_confirmed = False
-        routine = kind in ROUTINE
-        if (
-            strict_confirmed
-            and routine
-            and time.monotonic() < getattr(self, "_approved_until", 0.0)
-        ):
-            strict_confirmed = False  # approved a moment ago for this kind of move
         if strict_confirmed:
             self._confirm(action)
-        if routine and self.strict_permissions:
-            self._approved_until = (
-                time.monotonic() + APPROVAL_WINDOW_S
-            )  # slides while in use
+            self._approved_kinds = {**recent, kind: time.monotonic() + APPROVAL_WINDOW_S}
         b = self.backend
         before = self._front() if kind in self.SETTLE else ""
         if kind in ("click", "double_click", "right_click", "move"):
@@ -624,9 +639,16 @@ class Controller:
             result = f"pointed at ({x}, {y})"
         elif kind == "guide":
             marks = self._marks(action.get("marks"))
+            steps = bool(action.get("steps")) and len(marks) > 1
+            if steps:  # one at a time: each click shows the next
+                marks = [{**m, "step": True} for m in marks]
             self.on_guide(marks, str(action.get("text") or "")[:90])
             shapes = ", ".join(m["shape"] for m in marks)
-            result = f"drew {len(marks)} marks on the screen ({shapes}); they vanish on the next click"
+            result = (
+                f"guide of {len(marks)} steps on the screen ({shapes}); each click shows the next"
+                if steps
+                else f"drew {len(marks)} marks on the screen ({shapes}); they vanish on the next click"
+            )
         elif kind == "close_app":
             name = str(action.get("target") or "").strip()
             if len(name) < 2:
@@ -877,9 +899,8 @@ def make_server(
                             if isinstance(body.get("args"), dict)
                             else {}
                         )
-                        if (
-                            controller.strict_permissions
-                            and body.get("name") != "owner_approval"
+                        if controller.strict_permissions and risky(
+                            {"action": "skill", "name": body.get("name"), "args": args}
                         ):
                             controller._confirm(
                                 {

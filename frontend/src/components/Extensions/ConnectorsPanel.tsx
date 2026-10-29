@@ -37,8 +37,8 @@ import { celebrate } from '../../lib/celebrate';
 const fail = (e: unknown) => toast.error(e instanceof Error ? e.message : String(e));
 
 /** The service's own logo and colour (Simple Icons); a monogram otherwise. */
-function Tile({ name, id, size = 36 }: { name: string; id?: string; size?: number }) {
-  return <BrandMark name={name} id={id} size={size} />;
+function Tile({ name, id, size = 36, url }: { name: string; id?: string; size?: number; url?: string }) {
+  return <BrandMark name={name} id={id} size={size} url={url} />;
 }
 
 /** Connect: open the service's sign-in page when it asks for one. */
@@ -108,7 +108,7 @@ function Browse({ onClose, onAdded }: { onClose: () => void; onAdded: (c: Connec
             <div className="cx-grid">
               {shown.map((c) => (
                 <button key={c.id} type="button" className="cx-entry" style={brandStyle(c.id, c.name)} onClick={() => setPicked(c)}>
-                  <Tile name={c.name} id={c.id} size={40} />
+                  <Tile name={c.name} id={c.id} size={40} url={c.url} />
                   <span className="cx-entry-text">
                     <b>{c.name}</b>
                     <span>{c.description}</span>
@@ -160,7 +160,7 @@ function EntryDetail({ entry, onBack, onAdded }: { entry: DirectoryEntry; onBack
         <ChevronLeft size={16} /> Conectores
       </button>
       <div className="cx-detail-head" style={brandStyle(entry.id, entry.name)}>
-        <Tile name={entry.name} id={entry.id} size={52} />
+        <Tile name={entry.name} id={entry.id} size={52} url={entry.url} />
         <div>
           <h2 className="cx-h2">{entry.name}</h2>
           <p className="cx-dim">{entry.kind === 'local' ? 'En su PC' : entry.category}</p>
@@ -311,7 +311,7 @@ function ConnectorPage({ server, onBack, onChange, onRemoved }: { server: Connec
         <ChevronLeft size={16} /> Conectores
       </button>
       <div className="cx-detail-head">
-        <Tile name={server.name} id={server.id} size={52} />
+        <Tile name={server.name} id={server.id} size={52} url={server.url} />
         <div className="cx-grow">
           <h2 className="cx-h2">{server.name}</h2>
           <p className="cx-dim">
@@ -517,7 +517,7 @@ export function ConnectorsPanel() {
           {servers.map((s) => (
             <li key={s.id}>
               <button type="button" className="cx-row" style={brandStyle(s.id, s.name)} onClick={() => setOpen(s.id)}>
-                <Tile name={s.name} id={s.id} />
+                <Tile name={s.name} id={s.id} url={s.url} />
                 <span className="cx-row-text">
                   <b>{s.name}</b>
                   <span>

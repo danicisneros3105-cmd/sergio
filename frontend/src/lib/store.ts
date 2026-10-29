@@ -204,7 +204,7 @@ interface AppState {
   // Actions: conversations
   loadConversations: () => void;
   importOverlayConversation: () => Promise<void>;
-  createConversation: (model?: string, kind?: ChatKind) => string;
+  createConversation: (model?: string, kind?: ChatKind, projectId?: string) => string;
   /** The chat a voice turn or a quick question goes to: the recent one of
    * that kind, so not every exchange starts a new chat (never switches the
    * chat on screen). */
@@ -377,10 +377,10 @@ export const useAppStore = create<AppState>((set, get) => {
       }
     },
 
-    createConversation: (model?: string, kind: ChatKind = 'texto') => {
+    createConversation: (model?: string, kind: ChatKind = 'texto', projectId?: string) => {
       const store = loadConversations();
       const open = store.activeId ? store.conversations[store.activeId] : undefined;
-      if (open && open.messages.length === 0 && chatKindOf(open) === kind) {
+      if (open && open.messages.length === 0 && chatKindOf(open) === kind && open.projectId === projectId) {
         // An empty chat is already open: use it instead of piling up new ones.
         set({ activeId: open.id, messages: [], chatKind: kind });
         return open.id;
@@ -393,6 +393,7 @@ export const useAppStore = create<AppState>((set, get) => {
         model: model || get().selectedModel || 'default',
         messages: [],
         kind,
+        ...(projectId ? { projectId } : {}),
       };
       store.conversations[conv.id] = conv;
       store.activeId = conv.id;

@@ -3610,6 +3610,8 @@ p.node-hint:not(.node-path), .swarm-sub, .swarm-hint, .studio-heading p, .studio
 .brand-mark[data-dark='true'] { background: #1f1f1f; border-color: transparent; }
 .brand-mark[data-plain] { background: var(--color-bg-secondary); }
 .brand-mark svg { display: block; }
+.brand-mark[data-site] { border-color: var(--brand); }
+.brand-mark img { display: block; object-fit: contain; border-radius: 4px; }
 
 /* Entrar / Crear cuenta (pages/SignInPage.tsx): one centred column, every
    control the same width and height, 12 px apart. */

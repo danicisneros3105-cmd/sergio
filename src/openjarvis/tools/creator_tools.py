@@ -105,14 +105,18 @@ class TakeApartModelTool(BaseTool):
                 "(1-3 minutes; very detailed); 'buscar' finds free CC0 models on "
                 "the internet (never game mods or ripped assets) and 'descargar' "
                 "gets one by 'id'; 'abrir' shows a .glb/.gltf on this computer "
-                "('path'). Put the returned link in the answer as is."
+                "('path'); 'nube' makes a professional, very detailed model from "
+                "'request' (a description) or 'image' (a photo on this computer) "
+                "with the cloud 3D services the professionals use (Meshy, Tripo, "
+                "fal.ai Hunyuan3D/TRELLIS), 2-10 minutes. Put the returned link in "
+                "the answer as is."
             ),
             parameters={
                 "type": "object",
                 "properties": {
                     "action": {
                         "type": "string",
-                        "enum": ["crear", "buscar", "descargar", "abrir"],
+                        "enum": ["crear", "nube", "buscar", "descargar", "abrir"],
                     },
                     "request": {
                         "type": "string",
@@ -125,6 +129,10 @@ class TakeApartModelTool(BaseTool):
                     "path": {
                         "type": "string",
                         "description": ".glb/.gltf file (abrir)",
+                    },
+                    "image": {
+                        "type": "string",
+                        "description": "a photo on this computer to turn into 3D (nube)",
                     },
                 },
                 "required": ["action"],
@@ -151,6 +159,19 @@ class TakeApartModelTool(BaseTool):
                 meta = despiece.download(str(params.get("id") or ""))
             elif action == "abrir":
                 meta = despiece.register_file(str(params.get("path") or ""))
+            elif action == "nube":
+                from pathlib import Path
+
+                from openjarvis.creator import nube3d
+
+                photo = str(params.get("image") or "").strip()
+                picture = Path(photo).expanduser().read_bytes() if photo else b""
+                try:
+                    meta = nube3d.generate(str(params.get("request") or ""), picture)
+                except nube3d.Nube3DError as exc:
+                    return ToolResult(
+                        tool_name=self.tool_id, content=str(exc), success=False
+                    )
             else:
                 meta = despiece.create(str(params.get("request") or ""))
         except CreatorError as exc:

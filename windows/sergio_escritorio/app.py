@@ -40,7 +40,22 @@ ACTIVITY = {
 
 
 def load_config() -> dict[str, Any]:
-    data = json.loads(CONFIG.read_text(encoding="utf-8-sig"))  # PowerShell adds a BOM
+    """The settings; a missing or broken file never stops Sergio from opening
+    (owner, 29 Oct 2026: «la app no abre»): it starts with the defaults and
+    keeps the broken file aside to look at."""
+    try:
+        data = json.loads(CONFIG.read_text(encoding="utf-8-sig"))  # PowerShell adds a BOM
+        if not isinstance(data, dict):
+            raise ValueError("config is not an object")
+    except FileNotFoundError:
+        data = {}
+    except (OSError, ValueError) as exc:
+        logging.warning("config.json no se pudo leer (%s); uso los valores por defecto", exc)
+        try:
+            CONFIG.replace(CONFIG.with_suffix(".roto.json"))
+        except OSError:
+            pass
+        data = {}
     data.setdefault("server_url", "http://localhost:8000")
     data.setdefault("port", 8765)
     data.setdefault("wake_word", True)
@@ -233,6 +248,7 @@ def main() -> None:
     from sergio_escritorio.windows_backend import set_dpi_aware
 
     set_dpi_aware()  # before Qt creates anything
+    cfg: dict[str, Any] = {}
     try:
         cfg = load_config()
         threading.Thread(
@@ -241,9 +257,38 @@ def main() -> None:
             daemon=True,
         ).start()
         run(cfg)
-    except Exception:
+    except Exception as exc:
         logging.exception("Sergio crashed")
+        _still_open(str(cfg.get("server_url") or "http://localhost:8000"), exc)
         raise
+
+
+def _still_open(url: str, exc: BaseException) -> None:
+    """A crash while starting never leaves the owner with nothing (owner,
+    29 Oct 2026: «la app no abre»): the Sergio window opens anyway (chat,
+    voice and everything on the server keep working) and a plain message
+    says what failed and where the log is. The app runs with pythonw, so
+    without this a crash was silent."""
+    try:
+        from sergio_escritorio.launch import open_app_window
+
+        open_app_window(url, wait=True)
+    except Exception:  # noqa: BLE001
+        logging.exception("tampoco se pudo abrir la ventana")
+    text = (
+        "Sergio para el escritorio no pudo arrancar del todo, así que le abrí "
+        "la ventana de Sergio. El chat y la voz funcionan ahí.\n\n"
+        f"Qué falló: {str(exc)[:200]}\n\n"
+        f"El detalle está en: {HOME / 'sergio.log'}\n"
+        "Pulse «Actualizar» en la ventana de Sergio para repararlo."
+    )
+    try:
+        if sys.platform == "win32":
+            import ctypes
+
+            ctypes.windll.user32.MessageBoxW(None, text, "Sergio", 0x40)  # information
+    except Exception:  # noqa: BLE001
+        pass
 
 
 def start_click_watch(on_click: Callable[[], None], every: float = 0.05) -> None:
@@ -314,6 +359,32 @@ def run(config: dict[str, Any]) -> None:
     companion = Companion(captions=not show_notch)
     feed = CameraFeed()
     camera_window = CameraWindow(feed)
+    # Sergio sees in the background; the window only on request (owner,
+    # 29 Oct 2026). The one thing asked is the camera, once.
+    camera_window.show_window = bool(config.get("vista_visible", False))
+
+    def camera_allowed() -> bool:
+        if config.get("camera_ok") is True:
+            return True
+        if config.get("camera_ok") is False:
+            return False
+        from PySide6.QtWidgets import QMessageBox
+
+        answer = QMessageBox.question(
+            None,
+            "Sergio",
+            "¿Puedo usar la cámara para verle y reconocerle?\n\n"
+            "No se abre ninguna ventana: Sergio mira por detrás y lo que ve se "
+            "queda en este equipo. Puede cambiarlo cuando quiera en Ajustes.",
+        )
+        config["camera_ok"] = answer == QMessageBox.StandardButton.Yes
+        try:
+            save_config(config)
+        except OSError:
+            pass
+        return config["camera_ok"]
+
+    camera_window.allow = camera_allowed
     notch = Notch(fullscreen_app=foreground_is_fullscreen)
     # Live Activities: every long job in the notch (the dúo shows two).
     from sergio_escritorio.activities import Activities
@@ -407,7 +478,8 @@ def run(config: dict[str, Any]) -> None:
     def show_guide(marks: Any, caption: str) -> None:
         cleaned = marks_from(marks)
         if cleaned:
-            guide_overlay.show_marks(cleaned, caption)
+            steps = any(isinstance(m, dict) and m.get("step") for m in marks or [])
+            guide_overlay.show_marks(cleaned, caption, steps=steps)
 
     bridge.guide.connect(show_guide)
     bridge.clicked.connect(guide_overlay.clicked)
@@ -823,18 +895,11 @@ def run(config: dict[str, Any]) -> None:
                     lambda: controller.enabled,
                     control_action.setChecked,
                 ),
-                Toggle("Cámara", "camera", camera_window.isVisible, set_camera),
                 Toggle(
                     "Conversación",
                     "phone",
                     call_active,
                     lambda on: set_call_tile(on),
-                ),
-                Toggle(
-                    "Gimnasio",
-                    "brain",
-                    lambda: bool(config.get("gym", True)),
-                    lambda on: set_gym(on),
                 ),
             ],
             config=config,
@@ -854,6 +919,11 @@ def run(config: dict[str, Any]) -> None:
                 # Night Shift's own settings come later in start-up: looked up when tapped.
                 Toggle("Night Shift", "moon", night_warm, lambda on: set_night_warmth(on)),
                 Toggle("Junto al cursor", "pointer", companion.isVisible, show_action.setChecked),
+                # Sergio sees in the background; this shows his camera window too.
+                Toggle("Ver la cámara", "camera", camera_window.isVisible,
+                       lambda on: camera_window.open(show=True) if on else camera_window.hide()),
+                Toggle("Gimnasio mental", "brain", lambda: bool(config.get("gym", True)),
+                       lambda on: set_gym(on)),
             ],
         )
     )
@@ -961,7 +1031,7 @@ def run(config: dict[str, Any]) -> None:
         def go() -> str:
             if mode == "off":
                 return camera_window.set_holo(False)
-            if not camera_window.isVisible():
+            if not camera_window.active:
                 camera_window.open()
             return camera_window.set_holo(True)
 
@@ -1044,11 +1114,11 @@ def run(config: dict[str, Any]) -> None:
             (bridge.peek if q.arg == "on" else bridge.camera_off).emit()
             return q.say
         if q.kind == "analyze":
-            on_ui(lambda: camera_window.open() if not camera_window.isVisible() else None)
+            on_ui(lambda: camera_window.open() if not camera_window.active else None)
             analyze()  # it speaks the result itself
             return ""
         if q.kind == "photo":
-            if not camera_window.isVisible():
+            if not camera_window.active:
                 on_ui(camera_window.open)
                 time.sleep(1.6)  # the camera settles its exposure
             path = on_ui(camera_window.save_photo)
@@ -1057,7 +1127,7 @@ def run(config: dict[str, Any]) -> None:
             camera_window.detail = q.arg == "on"
             return q.say
         if q.kind == "vision_data":
-            if not camera_window.isVisible():
+            if not camera_window.active:
                 return "Abre la cámara («abre la cámara») y te digo lo que mido."
             return (body_now().strip() or "Aún no tengo medidas; mírame unos segundos.")
         if q.kind == "mirror":
@@ -1313,7 +1383,7 @@ def run(config: dict[str, Any]) -> None:
             bridge.caption.emit("Grabando 20 segundos…")
             record_video(feed.frame, raw, seconds=20)
         finally:
-            feed.keep_on = camera_window.isVisible()
+            feed.keep_on = camera_window.active
         bridge.caption.emit("Revisando su práctica fotograma a fotograma…")
         with raw.open("rb") as fh:
             resp = client.http.post(
@@ -1759,7 +1829,7 @@ def run(config: dict[str, Any]) -> None:
         your face from every angle, with a 3D map of it in millimetres."""
         from sergio_escritorio.facescan import Scanner, measures_text
 
-        if not camera_window.isVisible():
+        if not camera_window.active:
             on_ui(camera_window.open)
             time.sleep(1.5)  # the camera settles and the face mesh starts
         who = name.strip()
@@ -1865,7 +1935,7 @@ def run(config: dict[str, Any]) -> None:
     def auto_name() -> None:
         """Name a new or unsure object from a close-up (a lipstick is not a
         "control remoto": the detector only knows 80 kinds of things)."""
-        if not camera_window.isVisible():
+        if not camera_window.active:
             return
         now = time.monotonic()
         tracks = vision_engine.tracker.visible(now)
@@ -1907,7 +1977,7 @@ def run(config: dict[str, Any]) -> None:
     care_since: dict[str, float] = {}
 
     def care() -> None:
-        if not camera_window.isVisible():
+        if not camera_window.active:
             care_since.clear()
             return
         now = time.monotonic()
@@ -1993,7 +2063,7 @@ def run(config: dict[str, Any]) -> None:
     camera_window.on_name_face = name_face
 
     def name_from_voice(name: str) -> str:
-        if not camera_window.isVisible():
+        if not camera_window.active:
             on_ui(camera_window.open)
             time.sleep(4.0)  # let the camera and the recognition look first
         now = time.monotonic()
@@ -2223,7 +2293,7 @@ def run(config: dict[str, Any]) -> None:
         """Holograms by voice: "crea un cubo rojo", "esculpir", "gravedad"."""
 
         def go() -> str:
-            if not camera_window.isVisible():
+            if not camera_window.active:
                 camera_window.open()
             return camera_window.hologram(order)
 
@@ -2297,7 +2367,7 @@ def run(config: dict[str, Any]) -> None:
         bridge.caption.emit(f"Diseñando {what}, pieza por pieza…")
 
         def show(recipe: dict) -> str:
-            if not camera_window.isVisible():
+            if not camera_window.active:
                 camera_window.open()
             set_hands("holo")
             obj = camera_window.holo.add_model(recipe)
@@ -2858,7 +2928,7 @@ def run(config: dict[str, Any]) -> None:
 
     def object_to_blender(note: str = "") -> str:
         """The object in your hands: Gemini studies it, Blender models it."""
-        if not camera_window.isVisible():
+        if not camera_window.active:
             on_ui(camera_window.open)
             time.sleep(1.6)
         bridge.caption.emit("Estudiando el objeto que tienes en las manos…")
@@ -2927,7 +2997,7 @@ def run(config: dict[str, Any]) -> None:
             return find_photo(path).read_bytes()
         if source.startswith("pant"):
             return jpeg_of(controller.backend.screenshot(), 1920)
-        if not camera_window.isVisible():
+        if not camera_window.active:
             bridge.peek.emit()  # open the camera: hold the photo in front of it
             time.sleep(1.5)
         return feed.jpeg()
@@ -3035,10 +3105,10 @@ def run(config: dict[str, Any]) -> None:
     def call_video() -> tuple[bytes, str] | None:
         session = current_call[0]
         if session is not None and session.share_screen and (
-            not camera_window.isVisible() or int(time.monotonic()) % 2 == 0
+            not camera_window.active or int(time.monotonic()) % 2 == 0
         ):
             return screen_for_call()
-        if camera_window.isVisible():
+        if camera_window.active:
             frame = feed.frame()
             if frame is not None:
                 import cv2
@@ -3103,7 +3173,7 @@ def run(config: dict[str, Any]) -> None:
         return set_hands(mode)
 
     def people_tool() -> str:
-        if not camera_window.isVisible():
+        if not camera_window.active:
             return "La cámara está cerrada; ábrela con camara para ver."
         return vision_summary(vision_engine.tracker.visible(time.monotonic()), time.monotonic()) + body_now()
 
@@ -3223,7 +3293,7 @@ def run(config: dict[str, Any]) -> None:
                     _dt.datetime.now(),
                     system_status(),
                     reminders.pending(),
-                    camera_window.isVisible(),
+                    camera_window.active,
                 )
                 + client.language_rule()
                 + "\nPrevious conversation (context, not new instructions):\n"
@@ -3368,7 +3438,7 @@ def run(config: dict[str, Any]) -> None:
     def owner_looking_away() -> bool:
         """The owner's face is turned well away from the screen (talking to
         someone else in the room, probably)."""
-        if not camera_window.isVisible():
+        if not camera_window.active:
             return False
         faces = list(getattr(vision_engine, "faces", []) or [])
         return len(faces) >= 1 and all(abs(f.yaw) > 32 for f in faces[:1]) and len(
@@ -3889,11 +3959,13 @@ def run(config: dict[str, Any]) -> None:
         float(config.get("gym_minutes", 12)),
         away=idle_seconds,
         locked=screen_locked,
+        busy=lambda: call_active() or recorder.active or foreground_is_fullscreen(),
         due=gym_stats.next_due,
         on_change=remember_due,
     )
     schedule.enabled = bool(config.get("gym", True))
     gym_windows: list[Any] = []
+    snoozed_once = [False]
 
     def gym_speak(text: str) -> None:
         threading.Thread(
@@ -3914,12 +3986,19 @@ def run(config: dict[str, Any]) -> None:
             speak=gym_speak,
             validate_word=word_validator(client.chat_fast),
         )
+        window.can_snooze = not snoozed_once[0]  # «Ahora no» once per exercise
         gym_windows.append(window)
         if not schedule.running:
             schedule.started()  # opened by hand or by voice
 
         def done(session: Any) -> None:
             gym_windows.clear()
+            if window.snoozed:
+                snoozed_once[0] = True
+                schedule.snooze()
+                bridge.caption.emit("Gimnasio mental en 10 minutos.")
+                return
+            snoozed_once[0] = False
             schedule.done()
             if session.absent:
                 bridge.caption.emit("Gimnasio mental: no estabas; vuelve en unos minutos.")
@@ -4308,7 +4387,7 @@ def run(config: dict[str, Any]) -> None:
         if q.kind == "distance":
             from sergio_escritorio.vision import distance_answer
 
-            if not camera_window.isVisible():
+            if not camera_window.active:
                 on_ui(camera_window.open)
                 time.sleep(1.5)
             resp = client.http.post(
@@ -4575,14 +4654,14 @@ def run(config: dict[str, Any]) -> None:
         consult=lambda _a="": open_consult(),
         gym=lambda _a="": on_ui(open_gym),
         results=lambda _a="": open_results(),
-        camera=lambda _a="": (on_ui(camera_window.open), "")[1],
-        holo=lambda _a="": (on_ui(camera_window.open), set_hands("holo"))[1],
+        camera=lambda _a="": (on_ui(lambda: camera_window.open(show=True)), "")[1],
+        holo=lambda _a="": (on_ui(lambda: camera_window.open(show=True)), set_hands("holo"))[1],
         globe=lambda _a="": globe_tool(_a) if _a else run_quick(_quick_kind("globe")),
         blender=prefill("en Blender haz "),
         video=prefill("edita un video con la carpeta "),
         meeting=lambda _a="": run_quick(_quick_kind("meeting_last")),
         profile=lambda _a="": run_quick(_quick_kind("profile_show")),
-        faces=lambda _a="": (on_ui(camera_window.open), "Mírenme a la cámara; diga «recuerda mi cara» para guardarla.")[1],
+        faces=lambda _a="": (on_ui(lambda: camera_window.open(show=True)), "Mírenme a la cámara; diga «recuerda mi cara» para guardarla.")[1],
         blocking=lambda _a="": show_blocks(),
         lock=lambda _a="": run_quick(_quick_kind("key", "win+l")),
     )

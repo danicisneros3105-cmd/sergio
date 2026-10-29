@@ -14,6 +14,7 @@ import {
   MessageSquare,
   ScanFace,
   Gauge,
+  FolderKanban,
   ChevronDown,
   Zap,
 } from 'lucide-react';
@@ -58,7 +59,10 @@ export const TOOLBAR_ITEMS = [
   { path: '/chat', icon: MessageSquare, label: 'Chat', more: false },
   { path: '/nodes', icon: NodesIcon, label: 'Nodes', more: false },
   { path: '/salud', icon: HeartPulse, label: 'Salud', more: false },
-  { path: '/uso', icon: Gauge, label: 'Uso', more: false },
+  // Owner, 29 Oct 2026: «no veo dónde creas proyectos»: Proyectos in view;
+  // Uso moves under «Más» (and stays on the notch).
+  { path: '/proyectos', icon: FolderKanban, label: 'Proyectos', more: false },
+  { path: '/uso', icon: Gauge, label: 'Uso', more: true },
   { path: '/swarm', icon: SwarmIcon, label: 'Agent Swarm', more: true },
   { path: '/workspace', icon: NotebookPen, label: 'Workspace', more: true },
   { path: '/cowork', icon: Briefcase, label: 'Cowork', more: true },

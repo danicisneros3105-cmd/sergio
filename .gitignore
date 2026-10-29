@@ -143,3 +143,5 @@ mobileclip*
 yolo*.pt
 !windows/sergio_escritorio/models/*-vocab.pt
 frontend/dist-demo/
+# the web built by the update (static/ is the tracked fallback)
+src/openjarvis/server/static_local/

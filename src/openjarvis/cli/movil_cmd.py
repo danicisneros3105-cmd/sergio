@@ -93,9 +93,9 @@ def render_qr(text: str) -> str:
 
 
 def ui_ready() -> bool:
-    return (
-        Path(__file__).resolve().parents[1] / "server" / "static" / "index.html"
-    ).is_file()
+    from openjarvis.server.webroot import web_dir
+
+    return (web_dir() / "index.html").is_file()
 
 
 def build_ui() -> bool:
@@ -108,8 +108,16 @@ def build_ui() -> bool:
         return False
     console.print("[dim]Preparando la app web (solo la primera vez, 1–3 min)…[/dim]")
     steps = [[npm, "ci", "--no-audit", "--no-fund"], [npm, "run", "build"]]
+    import os
+
+    from openjarvis.server.webroot import local_dir
+
+    env = {**os.environ, "SERGIO_WEB_OUT": str(local_dir())}  # never the tracked copy
     for cmd in steps:
-        if subprocess.run(cmd, cwd=frontend, capture_output=True).returncode != 0:
+        if (
+            subprocess.run(cmd, cwd=frontend, capture_output=True, env=env).returncode
+            != 0
+        ):
             return False
     return ui_ready()
 

@@ -11,6 +11,8 @@
 * ``POST /v1/cuentas/llave/opciones-registro``, ``/llave/registrar`` — add this
   device's face, finger or PIN (a passkey) to the signed-in account
 * ``POST /v1/cuentas/llave/opciones``, ``/llave/entrar`` — sign in with it
+* ``POST /v1/cuentas/cara/reto``, ``/cara/entrar`` — sign in with Sergio's own
+  Face ID on this computer (camera + one-time movement; no Windows Hello)
 * ``GET /v1/cuentas/llave/lista``, ``DELETE /v1/cuentas/llave/{id}`` — the account's passkeys
 * ``POST /v1/cuentas/salir``                  — close this session
 * ``GET  /v1/cuentas/lista``, ``POST /v1/cuentas/{id}/rol``, ``DELETE /v1/cuentas/{id}``
@@ -519,6 +521,58 @@ def llave_entrar(body: KeyLogin, request: Request) -> Dict[str, Any]:
     if not user:
         raise HTTPException(401, "La cuenta ya no existe.")
     return _signed_in(user, body.device)
+
+
+@router.post("/cara/reto")
+def cara_reto(request: Request) -> Dict[str, Any]:
+    """The one-time movement for signing in with Sergio's Face ID."""
+    from openjarvis.faces import routes as faces
+
+    _limit(request)
+    faces._local_only(request)
+    gate = faces._get_gate()
+    reason = gate.passcode_reason()
+    if reason:
+        return {"passcode_required": True, "reason": reason}
+    if not faces._owner_key():
+        return {"ready": False, "reason": "Primero configure el Face ID de Sergio."}
+    return {"ready": True, **gate.challenge().to_dict()}
+
+
+@router.post("/cara/entrar")
+async def cara_entrar(request: Request) -> Dict[str, Any]:
+    """Sign in with Sergio's own Face ID, on this computer (owner, 29 Oct
+    2026: «en Windows Hello aparecen símbolos raros y pide PIN siempre»).
+    The page sends the one-time challenge and a short burst from the camera;
+    ``faces.faceid.unlock`` decides (live face, looking, the owner and nobody
+    else) and only then the owner's account opens. Never through a tunnel."""
+    from openjarvis.faces import routes as faces
+
+    _limit(request)
+    faces._local_only(request)
+    form = await request.form()
+    nonce = str(form.get("nonce") or "")
+    images = [f for f in form.getlist("images") if hasattr(f, "read")][:16]
+    owner = faces._owner_key()
+    if not owner:
+        raise HTTPException(409, "Primero configure el Face ID de Sergio.")
+    frames = [await img.read() for img in images]
+    import asyncio
+
+    from openjarvis.faces.faceid import unlock
+
+    try:
+        out = await asyncio.to_thread(
+            unlock, faces._get_book(), faces._get_gate(), nonce, frames, owner
+        )
+    except ImportError as exc:
+        raise HTTPException(503, "Falta la visión de Sergio en este equipo.") from exc
+    if not out.get("ok"):
+        return {"status": "no", **{k: v for k, v in out.items() if k != "ok"}}
+    boss = next((u for u in _store().users() if u.get("role") == "dueño"), None)
+    if boss is None:
+        raise HTTPException(409, "Todavía no hay cuenta del dueño: créela primero.")
+    return _signed_in(boss, str(form.get("device") or "Este equipo")[:60])
 
 
 @router.get("/llave/lista")

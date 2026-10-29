@@ -15,3 +15,8 @@ __version__ = "0.2.0"
 
 __author__ = "Pablo Daniel Cisneros Terreros"
 __copyright__ = "Copyright 2026 Pablo Daniel Cisneros Terreros (Apache-2.0)"
+
+# Every helper program starts hidden: no black windows flashing up.
+from sergio_escritorio import sin_consola as _sin_consola  # noqa: E402
+
+_sin_consola.install()

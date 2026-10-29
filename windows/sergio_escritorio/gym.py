@@ -39,7 +39,7 @@ from PySide6.QtGui import (
     QPen,
     QPolygonF,
 )
-from PySide6.QtWidgets import QLineEdit, QWidget
+from PySide6.QtWidgets import QLineEdit, QPushButton, QWidget
 
 from sergio_escritorio import brain
 
@@ -52,6 +52,8 @@ INTRO_SECONDS = 15.0  # time to read how it works and watch the example
 RESULT_SECONDS = 6.0
 SLEEP_GAP = 5.0
 ABSENT_RETRY = 60.0  # the camera saw nobody: look again this much later
+BUSY_RETRY = 300.0  # in a call, a meeting or a full-screen app: ask again in 5 min
+SNOOZE = 600.0  # «Ahora no»: ten minutes
 WAKE_GAP = 90.0  # the 10 s schedule check missed this long: it slept  # seconds without a tick: the laptop slept or froze
 BG = QColor(0, 0, 0, 215)
 CARD = QColor(28, 28, 30)
@@ -188,6 +190,7 @@ class GymSchedule:
         *,
         away: Callable[[], float] = lambda: 0.0,
         locked: Callable[[], bool] = lambda: False,
+        busy: Callable[[], bool] = lambda: False,
         clock: Callable[[], float] = time.time,
         due: float = 0.0,
         on_change: Callable[[float], None] = lambda _due: None,
@@ -196,6 +199,11 @@ class GymSchedule:
         self.interval = interval_minutes * 60
         self.away = away
         self.locked = locked
+        # A call, a meeting, a presentation, a game or a film in full screen:
+        # the exercise waits instead of interrupting (owner, 29 Oct 2026:
+        # «mejora el gimnasio mental»; an interruption at the wrong time
+        # is what makes it tedious).
+        self.busy = busy
         self.clock = clock
         self.on_change = on_change  # remember the next time (restarts)
         self.enabled = True
@@ -232,6 +240,13 @@ class GymSchedule:
             return False
         if self.away() > AWAY_SECONDS or self.locked():
             return False  # waits for you to come back
+        try:
+            occupied = bool(self.busy())
+        except Exception:  # noqa: BLE001 — never block the gym on a probe
+            occupied = False
+        if occupied:
+            self._set(now + BUSY_RETRY)
+            return False
         self.running = True
         self._set(now + self.interval)  # every 12 minutes, start to start
         return True
@@ -244,6 +259,11 @@ class GymSchedule:
     def done(self) -> None:
         self.running = False
         self._set(max(self.due, self.clock() + MIN_GAP))
+
+    def snooze(self) -> None:
+        """«Ahora no»: the exercise comes back in ten minutes, once."""
+        self.running = False
+        self._set(self.clock() + SNOOZE)
 
     def not_here(self) -> None:
         """The camera saw nobody: look again in a minute (no exercise yet)."""
@@ -1425,6 +1445,19 @@ class GymWindow(QWidget):
         self._timer.timeout.connect(self._tick)
         self._guard = QTimer(self)
         self._guard.timeout.connect(lambda: force_front(self))
+        # «Ahora no»: while the how-to is on screen, once per exercise, ten
+        # minutes later (the exercise itself still cannot be skipped).
+        self.snoozed = False
+        self.can_snooze = False
+        self.snooze_button = QPushButton("Ahora no · 10 min", self)
+        self.snooze_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.snooze_button.setStyleSheet(
+            "QPushButton { background: #2c2c2e; color: #f5f5f7; border: 1px solid #3a3a3c;"
+            " border-radius: 18px; padding: 6px 16px; font-size: 14px; }"
+            "QPushButton:hover { background: #3a3a3c; }"
+        )
+        self.snooze_button.clicked.connect(self._snooze)
+        self.snooze_button.hide()
 
     # -- geometry -----------------------------------------------------------------------
     def cover_screens(self) -> None:
@@ -1448,8 +1481,20 @@ class GymWindow(QWidget):
         return card.adjusted(36, 120, -36, -60)
 
     # -- life cycle -------------------------------------------------------------------------
+    def _snooze(self) -> None:
+        if self.phase != "intro" or not self.can_snooze:
+            return
+        self.snoozed = True
+        self.session.absent = True  # nothing was played: no score, no history
+        self._close()
+
     def start(self) -> None:
         self.cover_screens()
+        if self.can_snooze:
+            card = self.card_rect()
+            self.snooze_button.adjustSize()
+            self.snooze_button.move(int(card.left() + 36), int(card.bottom() - 56))
+            self.snooze_button.show()
         self.show()
         force_front(self)
         self._timer.start(33)
@@ -1469,6 +1514,7 @@ class GymWindow(QWidget):
             self.entry.clear()
 
     def _begin_play(self) -> None:
+        self.snooze_button.hide()
         self.phase = "play"
         self.play_started = self.clock()
         self.runner.begin()

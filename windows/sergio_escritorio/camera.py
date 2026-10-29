@@ -515,7 +515,18 @@ class CameraWindow(QWidget):
         self._timer.timeout.connect(self._tick)
 
     # -- API ------------------------------------------------------------------
-    def open(self) -> None:
+    # Owner (29 Oct 2026): «esconde Sergio ve: Sergio te verá siempre, pero
+    # no saldrá la pantalla de Sergio ve; solo pedirá permiso para la cámara».
+    # The eyes work in the background (faces, objects, what you hold); the
+    # window shows only when asked («muéstrame la cámara») or for holograms.
+    show_window = False
+    active = False
+    allow: Callable[[], bool] = staticmethod(lambda: True)  # the camera permission
+
+    def open(self, show: bool | None = None) -> None:
+        if not self.allow():
+            return
+        self.active = True
         self.feed.keep_on = True
         self.feed.start()
         if self.watcher is not None:
@@ -524,6 +535,8 @@ class CameraWindow(QWidget):
             self.vision.start()
         if self.hands is not None and getattr(self.hands, "mode", "off") == "off":
             self.hands.set_mode("ver")  # your hands: never mistaken for things
+        if not (self.show_window if show is None else show):
+            return  # seeing without the window
         if not self.isVisible():
             screen = self.screen().availableGeometry()
             self.move(
@@ -540,14 +553,16 @@ class CameraWindow(QWidget):
         if getattr(self.hands, "mode", "off") != "off":
             self.hands.set_mode("off")
         self.feed.keep_on = False
+        self.active = False
         self._timer.stop()
         self.hide()
 
     def toggle(self) -> None:
+        """The camera hotkey shows or hides the window (the owner asked)."""
         if self.isVisible():
             self.close_camera()
         else:
-            self.open()
+            self.open(show=True)
 
     def show_overlay(self, text: str, seconds: float = 0.0) -> None:
         self.overlay = " ".join(text.split())

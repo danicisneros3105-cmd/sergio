@@ -11,6 +11,7 @@ import { useAppStore } from '../lib/store';
 import { BrandMark } from '../components/Brand/BrandMark';
 import { BRANDS } from '../lib/brands';
 import { passkeyProblem, passkeyReady, signInWithFace } from '../lib/passkey';
+import { cameraReady, signInWithSergioFace } from '../lib/faceLogin';
 import { FaceGlyph } from '../components/Accounts/FaceGlyph';
 import { getPersonal, welcome, withAddress } from '../lib/personal';
 import { NO_ACCOUNT, setFlag, tourSeen } from '../lib/session';
@@ -56,7 +57,13 @@ async function post(path: string, body: unknown): Promise<Answer> {
 
 const LABEL: Record<string, string> = { google: 'Google', microsoft: 'Microsoft', apple: 'Apple' };
 
-export function SignInPage() {
+export /** The page is open on the computer where Sergio runs (Face ID only there). */
+function isThisComputer(): boolean {
+  const h = window.location.hostname;
+  return h === 'localhost' || h === '127.0.0.1' || h === '[::1]';
+}
+
+function SignInPage() {
   const navigate = useNavigate();
   const updateSettings = useAppStore((s) => s.updateSettings);
   const [info, setInfo] = useState<State | null>(null);
@@ -77,7 +84,10 @@ export function SignInPage() {
   const [faceOk, setFaceOk] = useState(false);
   const [face, setFace] = useState<'idle' | 'scan' | 'ok' | 'fail'>('idle');
   useEffect(() => {
-    void passkeyReady().then(setFaceOk);
+    // Sergio's own Face ID on this computer (camera); the device's passkey
+    // (iPhone Face ID, Touch ID) only where Sergio's camera check cannot run.
+    if (cameraReady() && isThisComputer()) setFaceOk(true);
+    else void passkeyReady().then(setFaceOk);
   }, []);
 
   const done = (a: Answer) => {
@@ -130,7 +140,16 @@ export function SignInPage() {
     setFace('scan');
     setNote(`${getPersonal().trato === 'tu' ? 'Mirándote' : 'Mirándole'}${withAddress()}…`);
     try {
-      const a = await signInWithFace(dev);
+      const got =
+        cameraReady() && isThisComputer()
+          ? await signInWithSergioFace(dev, setNote)
+          : await signInWithFace(dev);
+      if (got.status === 'codigo' || got.status === 'no') {
+        setFace('fail');
+        setNote(got.message || ('reason' in got ? got.reason : '') || 'No le reconocí. Pruebe otra vez con más luz.');
+        return;
+      }
+      const a = { ...got, status: got.status } as Answer;
       if (a.status === 'dentro') {
         setFace('ok');
         setNote('Es usted. Adelante.');

@@ -171,21 +171,41 @@ def arrow_tail(mark: Mark, screen_w: float, screen_h: float) -> tuple[float, flo
 class Clock:
     """What the guide is doing at a moment: drawn, fading, gone."""
 
-    def __init__(self, now: float, seconds: float = SHOW_SECONDS) -> None:
+    def __init__(self, now: float, seconds: float = SHOW_SECONDS, steps: int = 0) -> None:
         self.start = now
+        self.seconds = seconds
         self.until = now + seconds
         self.ending: float | None = None
+        # Step by step (owner, 29 Oct 2026: «mejora la guía en pantalla»):
+        # one mark at a time; each click moves to the next, the last ends it.
+        self.steps = steps if steps > 1 else 0
+        self.current = 0
+        self.step_at = now
 
     def dismiss(self, now: float) -> None:
         if self.ending is None:
             self.ending = now
 
     def click(self, now: float) -> bool:
-        """A click: ends it, except the very click that brought it."""
-        if now - self.start < CLICK_GRACE:
+        """A click: the next step, or the end; never the very click that
+        brought it."""
+        since = self.step_at if self.current else self.start
+        if now - since < CLICK_GRACE:
             return False
+        if self.steps and self.current < self.steps - 1:
+            self.current += 1
+            self.step_at = now
+            self.until = now + self.seconds  # each step has its own time
+            return True
         self.dismiss(now)
         return True
+
+    def back(self, now: float) -> None:
+        """The previous step (a key the owner presses)."""
+        if self.steps and self.current > 0:
+            self.current -= 1
+            self.step_at = now
+            self.until = now + self.seconds
 
     def alpha(self, now: float) -> float:
         if self.ending is None and now >= self.until:
@@ -245,7 +265,7 @@ def make_overlay() -> Any:
             self._timer.timeout.connect(self._tick)
 
         # -- API (Qt thread) ----------------------------------------------------
-        def show_marks(self, marks: list[Mark], caption: str = "") -> None:
+        def show_marks(self, marks: list[Mark], caption: str = "", steps: bool = False) -> None:
             if not marks:
                 return
             first = to_logical(marks[0].x, marks[0].y)
@@ -258,7 +278,7 @@ def make_overlay() -> Any:
             self.sizes = [(m.w / dpr, m.h / dpr) for m in marks]
             self.caption = caption[:90]
             self._from = QPointF(QCursor.pos()) - QPointF(geo.topLeft())
-            self.clock = Clock(time.monotonic())
+            self.clock = Clock(time.monotonic(), steps=len(marks) if steps else 0)
             self.show()
             self.raise_()
             self._timer.start(16)
@@ -302,8 +322,15 @@ def make_overlay() -> Any:
             boxes = [i for i, m in enumerate(self.marks) if m.shape == "box"]
             if boxes:
                 self._dim(p, boxes, min(1.0, t / DRAW_IN))
+            stepping = self.clock.steps > 0
             for i, mark in enumerate(self.marks):
-                local = t - i * STEP * 0.6  # each mark a little after the last
+                if stepping:
+                    if i > self.clock.current:
+                        continue  # the next steps wait for their click
+                    p.setOpacity(self.clock.alpha(now) * (1.0 if i == self.clock.current else 0.3))
+                    local = now - self.clock.step_at if i == self.clock.current else 9.0
+                else:
+                    local = t - i * STEP * 0.6  # each mark a little after the last
                 if local <= 0:
                     continue
                 grow = ease(min(1.0, local / DRAW_IN))
@@ -320,9 +347,21 @@ def make_overlay() -> Any:
                     self._arrow(p, mark, spot, w, h, grow, t, mark.depth)
                 if mark.text and grow > 0.6:
                     self._label(p, spot, w, h, f"{i + 1}  {mark.text}" if len(self.marks) > 1 else mark.text)
-            x, y, press = cursor_at([(q.x(), q.y()) for q in self.points], (self._from.x(), self._from.y()), t)
+            p.setOpacity(self.clock.alpha(now))
+            if stepping:  # the cursor flies from the last step to this one
+                k = self.clock.current
+                start = self.points[k - 1] if k else self._from
+                x, y, press = cursor_at([(self.points[k].x(), self.points[k].y())], (start.x(), start.y()),
+                                        now - self.clock.step_at)
+            else:
+                x, y, press = cursor_at([(q.x(), q.y()) for q in self.points], (self._from.x(), self._from.y()), t)
             self._ghost(p, QPointF(x, y), press)
-            if self.caption:
+            if stepping:
+                n, k = self.clock.steps, self.clock.current
+                head = f"Paso {k + 1} de {n}"
+                tail = self.marks[k].text or self.caption
+                self._caption(p, f"{head}  ·  {tail}" if tail else head)
+            elif self.caption:
                 self._caption(p)
             p.end()
 
@@ -497,12 +536,12 @@ def make_overlay() -> Any:
                 p.setBrush(Qt.BrushStyle.NoBrush)
                 p.drawEllipse(at, 10 + 14 * (1 - press), 10 + 14 * (1 - press))
 
-        def _caption(self, p: QPainter) -> None:
+        def _caption(self, p: QPainter, words: str = "") -> None:
             font = QFont()
             font.setFamilies(["Segoe UI Variable Text", "SF Pro Text", "Segoe UI"])
             font.setPointSizeF(12)
             metrics = QFontMetricsF(font)
-            text = metrics.elidedText(self.caption, Qt.TextElideMode.ElideRight, self.width() * 0.6)
+            text = metrics.elidedText(words or self.caption, Qt.TextElideMode.ElideRight, self.width() * 0.6)
             tw, th = metrics.horizontalAdvance(text) + 32, metrics.height() + 18
             # At the bottom, unless a mark is there: then at the top.
             low = any(q.y() > self.height() * 0.7 for q in self.points)

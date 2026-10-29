@@ -196,7 +196,10 @@ class DesktopActionTool(_DesktopTool):
                 "= visible name | x,y, shape = arrow | circle | box | underline | "
                 "line, text = 1-4 words}; 3D arrows, hand-drawn circles and a ghost "
                 "cursor that walks the route; they vanish on the user's next click: "
-                "use it to TEACH where things are instead of describing them); hands (target = "
+                "use it to TEACH where things are instead of describing them; with "
+                "steps = true it is a step-by-step tour: one mark at a time, «Paso 2 "
+                "de 4», each click shows the next; use it for anything that takes "
+                "several clicks); hands (target = "
                 "holo | off: the user's hands grab, turn, scale, sculpt and draw 3D "
                 "holograms in the camera window, which can then go to Blender); open "
                 "(target = web address, file or folder); focus (target = part of a "
@@ -248,6 +251,10 @@ class DesktopActionTool(_DesktopTool):
                     "x": {"type": "integer"},
                     "y": {"type": "integer"},
                     "text": {"type": "string"},
+                    "steps": {
+                        "type": "boolean",
+                        "description": "guide: one mark at a time, each click the next",
+                    },
                     "marks": {
                         "type": "array",
                         "description": "guide: the drawings, in order",

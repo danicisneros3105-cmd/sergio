@@ -198,7 +198,8 @@ class HomeMixin:
         col = QVBoxLayout(page)
         col.setContentsMargins(0, 0, 0, 0)
         col.setSpacing(12)
-        col.addWidget(QLabel(t("running_now").upper(), objectName="section"))
+        self.running_title = QLabel(t("running_now").upper(), objectName="section")
+        col.addWidget(self.running_title)
         self.running_box = QVBoxLayout()
         self.running_box.setSpacing(6)
         col.addLayout(self.running_box)
@@ -228,13 +229,14 @@ class HomeMixin:
         self.display_tile.clicked.connect(lambda: self.show_tab(self.DISPLAY_SHEET))
         self.skills_tile = QuickTile("puzzle", t("q_skills"))
         self.skills_tile.clicked.connect(lambda: self.show_tab(self.SKILLS_SHEET))
+        # Owner, 29 Oct 2026: «el centro de control hazlo más simple y con
+        # menos cosas»: four tiles; Usage and Skills live one step inside
+        # «Pantalla y más».
         self.quick_tiles = [
             self.multi_tile,
             self.undo_tile,
-            self.usage_tile,
             self.model_tile,
             self.display_tile,
-            self.skills_tile,
         ]
         for i, tile in enumerate(self.quick_tiles):
             grid.addWidget(tile, i // 2, i % 2)
@@ -296,6 +298,14 @@ class HomeMixin:
         night.setCursor(Qt.CursorShape.PointingHandCursor)
         night.clicked.connect(lambda: self._open_section("night"))
         col.addWidget(night)
+        for key, open_it in (
+            ("q_usage", lambda: self._web("/uso")),
+            ("q_skills", lambda: self.show_tab(self.SKILLS_SHEET)),
+        ):
+            more = QPushButton(t(key))
+            more.setCursor(Qt.CursorShape.PointingHandCursor)
+            more.clicked.connect(open_it)
+            col.addWidget(more)
         hide = QPushButton(t("hide_notch"))
         hide.setCursor(Qt.CursorShape.PointingHandCursor)
         hide.clicked.connect(lambda: (self.hide(), self.actions.hide_notch()))
@@ -429,8 +439,8 @@ class HomeMixin:
             old = self.running_box.takeAt(0).widget()
             if old is not None:
                 old.deleteLater()
+        self.running_title.setVisible(bool(rows))  # nothing running: nothing shown
         if not rows:
-            self.running_box.addWidget(QLabel(idioma.t("nothing_running", self.lang), objectName="hint"))
             return
         for text, stop in rows[:MAX_RUNNING]:
             self.running_box.addWidget(self._running_row(text, stop))

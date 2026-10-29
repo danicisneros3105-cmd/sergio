@@ -773,6 +773,9 @@ def create_app(
     from openjarvis.server.reminder_routes import router as reminder_router
 
     app.include_router(reminder_router)
+    from openjarvis.server.proyectos_routes import router as proyectos_router
+
+    app.include_router(proyectos_router)
     from openjarvis.server.accounts_routes import router as accounts_router
 
     app.include_router(accounts_router)
@@ -937,7 +940,9 @@ def create_app(
             logger.debug("Webhook routes init skipped: %s", exc)
 
     # Serve static frontend assets if the static/ directory exists
-    static_dir = pathlib.Path(__file__).parent / "static"
+    from openjarvis.server.webroot import web_dir
+
+    static_dir = web_dir()
     if static_dir.is_dir():
         assets_dir = static_dir / "assets"
         if assets_dir.is_dir():

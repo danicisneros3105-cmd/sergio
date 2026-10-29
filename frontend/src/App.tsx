@@ -22,6 +22,7 @@ const ConnectomePage = lazy(() => import('./pages/ConnectomePage'));
 const SignInPage = lazy(() => import('./pages/SignInPage'));
 const MeetingPage = lazy(() => import('./pages/MeetingPage'));
 const UsagePage = lazy(() => import('./pages/UsagePage'));
+const ProjectsPage = lazy(() => import('./pages/ProjectsPage'));
 const PlansPage = lazy(() => import('./pages/PlansPage').then((m) => ({ default: m.PlansPage })));
 const PayPage = lazy(() => import('./pages/PayPage'));
 const HelpPage = lazy(() => import('./pages/HelpPage').then((m) => ({ default: m.HelpPage })));
@@ -228,6 +229,7 @@ export default function App() {
           <Route path="perfil" element={<ProfilePage />} />
           <Route path="atajos" element={<ConnectomePage />} />
           <Route path="uso" element={<UsagePage />} />
+          <Route path="proyectos" element={<ProjectsPage />} />
           <Route path="cerebro" element={<ConnectomePage />} />
           {/* An address that does not exist goes home, never to a blank page. */}
           <Route path="*" element={<Navigate to="/" replace />} />

@@ -184,6 +184,8 @@ def run_python(code: str, timeout: float = 120, workdir: str = "") -> dict:
         "w", suffix=".py", delete=False, encoding="utf-8", dir=folder, prefix="sergio-"
     ) as script:
         script.write(code)
+    # python.exe so the output can be read; it starts hidden (sin_consola),
+    # so no black window pops up while Sergio runs the script.
     python = Path(sys.executable)
     if python.name.lower() == "pythonw.exe":
         python = python.with_name("python.exe")

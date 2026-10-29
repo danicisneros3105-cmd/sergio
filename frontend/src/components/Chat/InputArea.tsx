@@ -24,6 +24,7 @@ import { useLive } from '../../lib/liveSession';
 import { useOnline } from '../../hooks/useOnline';
 import { withEffort } from '../../lib/modelChoice';
 import { VideoSheet } from './VideoSheet';
+import { projectContext } from '../../lib/projects';
 import type {
   ChatMessage,
   MessageTelemetry,
@@ -108,6 +109,7 @@ export function InputArea() {
     return c ? chatKindOf(c) : s.chatKind;
   });
   const quick = activeKind === 'rapido';
+  const projectId = useAppStore((s) => s.conversations.find((x) => x.id === s.activeId)?.projectId);
   const selectedModel = useAppStore((s) => s.selectedModel);
   const streamState = useAppStore((s) => s.streamState);
   const messages = useAppStore((s) => s.messages);
@@ -236,6 +238,11 @@ export function InputArea() {
       content: m.content,
     }));
     if (quick) apiMessages.unshift({ role: 'system', content: QUICK_CHAT_SYSTEM });
+    if (projectId) {
+      // A project's chat starts with its instructions and files (lib/projects.ts).
+      const context = await projectContext(projectId);
+      if (context) apiMessages.unshift({ role: 'system', content: context });
+    }
 
     const assistantMsg: ChatMessage = {
       id: generateId(),
@@ -637,6 +644,7 @@ export function InputArea() {
     deepResearch,
     temperature,
     maxTokens,
+    projectId,
   ]);
 
   useEffect(() => {

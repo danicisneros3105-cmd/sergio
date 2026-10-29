@@ -70,8 +70,11 @@ uv run --no-sync sergio cuentas listas || echo "Aviso: no pude actualizar la lis
 (
   cd frontend
   npm ci --no-audit --no-fund
-  npm run build
+  # Into a folder git ignores: a build never leaves tracked files changed, so
+  # the next update never stops on «local changes».
+  SERGIO_WEB_OUT=../src/openjarvis/server/static_local npm run build
 )
+git checkout -- src/openjarvis/server/static 2>/dev/null || true
 # Creator's programs inside Ubuntu (OpenDesign, VSCodium web, Kronos): never
 # blocks the update; whatever fails is retried next time.
 bash scripts/instalar-programas.sh || echo "Aviso: algún programa de Creator no se instaló; se reintenta en la próxima actualización." >&2
