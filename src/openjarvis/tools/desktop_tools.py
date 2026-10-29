@@ -203,7 +203,9 @@ class DesktopActionTool(_DesktopTool):
                 "holo | off: the user's hands grab, turn, scale, sculpt and draw 3D "
                 "holograms in the camera window, which can then go to Blender); open "
                 "(target = web address, file or folder); focus (target = part of a "
-                "window title); wait (seconds); operate (target = a whole task on "
+                "window title); split (target = two programs, 'Chrome | Word': "
+                "side by side, each on half of the screen, opened if needed); "
+                "wait (seconds); operate (target = a whole task on "
                 "screen, done step by step like a person with mouse and keyboard); "
                 "message (target = whatsapp | instagram | messenger | telegram | "
                 "gmail | outlook | sms | x..., to = contact/@user/number/email, text, "
@@ -237,6 +239,7 @@ class DesktopActionTool(_DesktopTool):
                             "hands",
                             "open",
                             "focus",
+                            "split",
                             "wait",
                             "operate",
                             "message",

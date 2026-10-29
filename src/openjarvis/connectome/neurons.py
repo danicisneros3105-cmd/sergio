@@ -51,7 +51,16 @@ NEURONS: Dict[str, Neuron] = {
         Neuron("pantalla", "Pantalla y apps", "Ve la pantalla y usa ratón y teclado.",
                ("pantalla", "abre", "abrir", "cierra", "ventana", "haz clic", "click",
                 "instagram", "facebook", "whatsapp", "spotify", "chrome", "navegador",
-                "publica", "sube", "historia", "youtube"),
+                "publica", "sube", "historia", "youtube",
+                # a task done on a website, like a person (owner, 29 Oct 2026:
+                # «entra a Amazon, inicia sesión y busca unos productos»)
+                "entra", "ingresa", "inicia sesion", "iniciar sesion", "login", "registrate",
+                "rellena", "llena el formulario", "formulario", "carrito", "agrega al carrito",
+                "amazon", "mercado libre", "ebay", "aliexpress", "temu", "shein", "netflix",
+                "gmail", "outlook", "linkedin", "tiktok", "twitter", "pagina web", "sitio web",
+                "en la pagina", "en la web de", "descarga", "reserva", "configura", "usa mi pc",
+                "lado a lado", "pantalla dividida", "divide la pantalla", "split",
+                "usa la computadora", "hazlo por mi", "en mi navegador"),
                ("screen_read", "desktop_action", "browser_navigate", "browser_click",
                 "browser_type", "browser_extract")),
         Neuron("pc", "Su PC", "Revisa por qué va lenta y la deja ligera.",

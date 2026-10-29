@@ -40,6 +40,23 @@ FRAME_BYTES = 320  # 10 ms at 16 kHz, int16 (what the echo canceller takes)
 SEND_BYTES = 1_280  # 40 ms: small packets without per-10-ms socket overhead
 IDLE_HANG_UP = 60.0  # seconds with nobody talking: the call ends by itself
 ALWAYS_ON = float("inf")  # an always-on call never hangs up on silence
+# ...but ten minutes without one real exchange ends it (owner, 29 Oct 2026:
+# «la conversación por voz a veces no se termina»): noise in the room kept
+# it open for ever. Saying «Sergio» opens it again.
+QUIET_TURNS = 600.0
+_BYE = re.compile(
+    r"\b(adi[oó]s|chao|chau|bye|hasta (luego|ma[nñ]ana|pronto|la vista)|nos vemos|"
+    r"buenas noches|cuelga|colgar|cu[eé]lgale|corta( la llamada)?|termina( la llamada| la conversaci[oó]n)?|"
+    r"eso es todo|ya est[aá],? gracias|no necesito (nada )?m[aá]s|ya no te necesito)\b",
+    re.I,
+)
+
+
+def is_goodbye(text: str) -> bool:
+    """A short goodbye from him («gracias, adiós», «cuelga»), not a sentence
+    that merely contains the word («busca la canción Adiós»)."""
+    words = re.findall(r"\w+", text or "")
+    return 0 < len(words) <= 8 and bool(_BYE.search(text))
 GATE_AFTER = 2.0  # seconds of silence before the microphone stops streaming
 PREROLL_FRAMES = 40  # 400 ms kept while gated: the first syllable is never lost
 VIDEO_EVERY = 1.0  # the camera when nothing moves: one frame a second
@@ -333,6 +350,8 @@ class CallSession:
         self._said: list[str] = []
         self._heard: list[str] = []
         self._last_activity = 0.0
+        self._last_turn = 0.0  # the last real exchange (QUIET_TURNS)
+        self._started_at = self.clock()
         self._noise = 120.0
         self._hang_up_after_turn = False
         self._state = ""
@@ -437,6 +456,8 @@ class CallSession:
         ).start()
         self._hang_up_after_turn = False
         self._last_activity = self.clock()
+        self._started_at = self.clock()
+        self._last_turn = 0.0
         try:
             self.speaker.start()
         except Exception as exc:  # noqa: BLE001 — no speakers: captions only
@@ -669,6 +690,10 @@ class CallSession:
             heard, said = "".join(self._heard).strip(), "".join(self._said).strip()
             if heard and said:
                 self.on_turn(heard, said)
+            if heard:
+                self._last_turn = self.clock()
+            if heard and is_goodbye(heard):
+                self._hang_up_after_turn = True  # whatever the model decided
             self._heard = []
             self._said = []
             if self._hang_up_after_turn:
@@ -822,6 +847,9 @@ class CallSession:
                     self._set_state("listening")
                 if now - self._last_activity > self.idle_hang_up:
                     self.hang_up("silencio")
+                    return
+                if now - max(self._last_turn, self._started_at) > QUIET_TURNS:
+                    self.hang_up("sin conversación")
                     return
             time.sleep(0.1)
 

@@ -23,6 +23,7 @@ import base64
 import hmac
 import io
 import json
+import re
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -42,6 +43,7 @@ ACTIONS = (
     "open_app",
     "open",
     "focus",
+    "split",
     "wait",
     "make_video",
     "blender",
@@ -76,6 +78,7 @@ ROUTINE = (
     "type",
     "key",
     "focus",
+    "split",
     "open_app",
 )
 APPROVAL_WINDOW_S = 600.0
@@ -113,6 +116,25 @@ def risky(action: dict) -> bool:
     return False
 
 
+_SPLIT_SEP = re.compile(r"\s*(?:\||,|;|/|\by\b|\band\b|\bcon\b|\bjunto a\b)\s*", re.I)
+
+
+def split_targets(target: str) -> tuple[str, str]:
+    """«Chrome | Word», «chrome y word» → ('Chrome', 'Word'); one name → (name, '')
+    (that window takes the left half and the one behind it the right)."""
+    parts = [p.strip() for p in _SPLIT_SEP.split(target or "") if p and p.strip()]
+    if not parts:
+        return "", ""
+    return parts[0], (parts[1] if len(parts) > 1 else "")
+
+
+def halves(area: tuple[int, int, int, int]) -> tuple[tuple[int, int, int, int], ...]:
+    """The left and right halves (x, y, w, h) of a screen's work area."""
+    left, top, right, bottom = area
+    width = (right - left) // 2
+    return (left, top, width, bottom - top), (left + width, top, right - left - width, bottom - top)
+
+
 class Backend(Protocol):
     def screenshot(self) -> Any: ...  # PIL.Image of the whole screen
 
@@ -133,6 +155,8 @@ class Backend(Protocol):
     def open_target(self, target: str) -> None: ...
 
     def focus(self, title: str) -> bool: ...
+
+    def side_by_side(self, left: str, right: str) -> list[str]: ...  # titles placed
 
     def make_video(self, options: dict) -> str: ...  # path of the new video
 
@@ -573,6 +597,17 @@ class Controller:
             if not title or not b.focus(title):
                 raise ActionError(f"No open window matches {title!r}.")
             result = f"focused {title}"
+        elif kind == "split":
+            left, right = split_targets(str(action.get("target") or ""))
+            if not left:
+                raise ActionError(
+                    "'target' is the two windows, e.g. 'Chrome | Word' "
+                    "(open them first with open_app)."
+                )
+            placed = b.side_by_side(left, right)
+            if not placed:
+                raise ActionError(f"No open window matches {left!r}.")
+            result = "split screen: " + " | ".join(placed)
         elif kind == "make_video":
             source = str(action.get("source") or "").strip()
             if not source:
@@ -709,10 +744,11 @@ class Controller:
         "open",
         "close_app",
         "focus",
+        "split",
     }
 
     # How long a new window may take to come to the front (watched, not slept).
-    SETTLE = {"open_app": 1.5, "open": 1.5, "close_app": 0.8, "focus": 0.3}
+    SETTLE = {"open_app": 1.5, "open": 1.5, "close_app": 0.8, "focus": 0.3, "split": 0.3}
 
     def _verify(self, kind: str, before: str = "") -> str:
         """What is in front after the action, so Sergio can check it worked.

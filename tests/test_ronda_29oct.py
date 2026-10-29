@@ -336,3 +336,28 @@ def test_sergios_face_id_opens_the_owners_account_on_this_computer(monkeypatch):
         ]
         == "no"
     )
+
+
+# -- «entra a Amazon, inicia sesión y busca productos»: control of the real PC ----
+
+
+def test_a_website_task_reaches_the_real_screen_tools():
+    from openjarvis.connectome import neurons
+
+    for ask in (
+        "entra a amazon, inicia sesión y busca unos audífonos",
+        "agrega al carrito unas zapatillas en mercado libre",
+        "pon chrome y word lado a lado",
+    ):
+        sel = neurons.select(neurons.normalise(ask), {})
+        assert sel is not None and "pantalla" in sel.neurons, ask
+        assert "desktop_action" in sel.tools and "screen_read" in sel.tools
+
+
+def test_sergio_never_says_he_is_only_a_language_model():
+    from openjarvis import persona
+    from openjarvis.speech import gemini_live
+
+    text = " ".join(str(v) for v in vars(persona).values() if isinstance(v, str))
+    assert "modelo de lenguaje" in text and "operate" in text
+    assert "Controlas la computadora" in gemini_live.INSTRUCTIONS

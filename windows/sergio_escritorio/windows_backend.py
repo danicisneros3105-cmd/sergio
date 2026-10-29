@@ -359,6 +359,70 @@ class WindowsBackend:
                 return True
         return False
 
+    def side_by_side(self, left: str, right: str) -> list[str]:
+        """Two windows side by side on the screen of the first one (like
+        Windows Snap): *left* takes the left half; *right* the right half, or
+        the window just behind *left* when no second name is given."""
+        from ctypes import wintypes
+
+        from sergio_escritorio.control import halves
+
+        user32 = ctypes.windll.user32  # type: ignore[attr-defined]
+
+        def find(name: str, skip: int = 0) -> tuple[int, str] | None:
+            # by program first (Spotify's title is the song), then by title;
+            # an app that is not open yet is opened first
+            for attempt in (0, 1):
+                found = self.launcher.window(name, skip=skip)
+                if found is not None:
+                    return found.hwnd, found.title
+                needle = name.lower().strip()
+                for hwnd, title in _visible_windows(minimized=True):
+                    if hwnd != skip and needle and needle in title.lower():
+                        return hwnd, title
+                if attempt == 0:
+                    try:
+                        self.launcher.open(name, wait=4.0)
+                    except LookupError:
+                        return None
+            return None
+
+        first = find(left)
+        if first is None:
+            return []
+        second = find(right, skip=first[0]) if right else None
+        if second is None and not right:
+            second = next(
+                (
+                    (h, t)
+                    for h, t in _visible_windows()
+                    if h != first[0] and not t.startswith("Sergio")
+                ),
+                None,
+            )
+
+        class MONITORINFO(ctypes.Structure):
+            _fields_ = [("cbSize", wintypes.DWORD), ("rcMonitor", wintypes.RECT),
+                        ("rcWork", wintypes.RECT), ("dwFlags", wintypes.DWORD)]  # fmt: skip
+
+        info = MONITORINFO()
+        info.cbSize = ctypes.sizeof(MONITORINFO)
+        monitor = user32.MonitorFromWindow(first[0], 2)  # MONITOR_DEFAULTTONEAREST
+        user32.GetMonitorInfoW(monitor, ctypes.byref(info))
+        work = info.rcWork
+        placed = []
+        pair = [first, second] if second is not None else [first]
+        for (hwnd, title), (x, y, w, h) in zip(
+            pair, halves((work.left, work.top, work.right, work.bottom))
+        ):
+            user32.ShowWindow(hwnd, 9)  # SW_RESTORE (a maximised window cannot move)
+            user32.SetWindowPos(hwnd, 0, x, y, w, h, 0x0040)  # SWP_SHOWWINDOW
+            placed.append(title)
+        if second is not None:
+            user32.SetForegroundWindow(second[0])
+        user32.SetForegroundWindow(first[0])
+        return placed
+
     def active_window(self) -> str:
         """Title of the window in front (to verify what an action did)."""
         user32 = ctypes.windll.user32  # type: ignore[attr-defined]

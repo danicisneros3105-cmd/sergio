@@ -82,11 +82,17 @@ def show_in_open_window(url: str, post=None) -> bool:
     return shown
 
 
-def split_window(on: bool, post=None) -> bool:
-    """Split (or join) the open Sergio window, with the Duo fold. False if none is open."""
-    return show_in_open_window(
-        f"http://127.0.0.1:{SERGIO_PORT}/?dividir={'1' if on else '0'}", post=post
-    )
+def split_window(on: bool, post=None, opener=None) -> bool:
+    """Split (or join) the Sergio window, with the Duo fold. When no Sergio
+    window is open, splitting opens one already split (owner, 29 Oct 2026:
+    «no puede hacer split screen» — the order used to do nothing then)."""
+    url = f"http://127.0.0.1:{SERGIO_PORT}/?dividir={'1' if on else '0'}"
+    if show_in_open_window(url, post=post):
+        return True
+    if not on:
+        return False
+    (opener or open_app_window)(url)
+    return True
 
 
 def bring_to_front(title: str) -> bool:

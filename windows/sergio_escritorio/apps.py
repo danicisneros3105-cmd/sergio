@@ -652,6 +652,16 @@ class Launcher:
             except Exception:  # noqa: BLE001
                 pass
 
+    def window(self, spoken: str, skip: int = 0) -> Window | None:
+        """The open window of *spoken* (by program first, then by title), for
+        «pon Chrome y Word lado a lado»; None when it is not open."""
+        names = self._names(spoken, self.index.find(spoken))
+        windows = [w for w in self.desktop.windows() if not self._ours(w) and w.hwnd != skip]
+        for window in windows:
+            if exe_matches(window, names):
+                return window
+        return next((w for w in windows if title_matches(w, names)), None)
+
     def close(self, spoken: str) -> list[str]:
         app = self.index.find(spoken)
         names = self._names(spoken, app)

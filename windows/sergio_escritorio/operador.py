@@ -20,7 +20,7 @@ from typing import Any, Callable
 
 log = logging.getLogger(__name__)
 
-MAX_STEPS = 20
+MAX_STEPS = 60  # signing in, searching and comparing take more than 20 steps
 SETTLE = {
     "open": 1.6,
     "click": 0.7,

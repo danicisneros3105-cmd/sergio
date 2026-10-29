@@ -1230,6 +1230,11 @@ def run(config: dict[str, Any]) -> None:
                     return str(exc)
                 if "still starting" in done:
                     return f"Abriendo {q.arg.title()}; tarda un poco en arrancar."
+            elif q.kind == "split_apps":
+                try:
+                    controller.act({"action": "split", "target": q.arg})
+                except ActionError as exc:
+                    return f"No pude ponerlas lado a lado: {exc}"
             elif q.kind == "close_app":
                 try:
                     controller.act({"action": "close_app", "target": q.arg})

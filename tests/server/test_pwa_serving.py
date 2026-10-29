@@ -59,6 +59,9 @@ def client_with_static(tmp_path, monkeypatch):
         # Intercept the "static" lookup in app.py
         if key == "static" and str(self).endswith("server"):
             return static_dir
+        # A web build made on this computer (static_local) must not hide it.
+        if key == "static_local" and str(self).endswith("server"):
+            return tmp_path / "no_local_build"
         return result
 
     monkeypatch.setattr(pathlib.Path, "__truediv__", patched_truediv)

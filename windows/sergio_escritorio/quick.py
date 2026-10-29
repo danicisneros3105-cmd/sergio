@@ -324,11 +324,38 @@ _HIDE = re.compile(r"\b(esconde|escondete|oculta|ocultate|desaparece|quita|guard
 _SHOW = re.compile(r"\b(muestra|muestrame|ensena|saca|aparece|vuelve|show|pon|regresa)\b")
 
 
+# «pon Chrome y Word lado a lado», «divide la pantalla entre Excel y Teams»:
+# two programs side by side on the real screen (Windows Snap).
+_SIDE_AFTER = re.compile(
+    r"^(?:pon|pone|coloca|acomoda|abre|ordena|deja|muestra|muestrame)(?: (?:a|el|la|los))?"
+    r" (?P<a>.+?) (?:y|con|junto a|e) (?:el |la |a )?(?P<b>.+?)"
+    r" (?:lado a lado|al lado|uno al lado del otro|una al lado de la otra|a la par"
+    r"|en pantalla dividida|en split(?: screen)?|divididos?|divididas?|en dos mitades)$"
+)
+_SIDE_BEFORE = re.compile(
+    r"^(?:divide|dividir|parte|split(?: screen)?|pantalla dividida)(?: (?:la|mi) pantalla)?"
+    r" (?:entre|con|para) (?:el |la )?(?P<a>.+?) (?:y|e|con) (?:el |la )?(?P<b>.+?)$"
+)
+
+
+def parse_side_by_side(t: str) -> Quick | None:
+    """Two named programs side by side on the screen."""
+    m = _SIDE_AFTER.match(t) or _SIDE_BEFORE.match(t)
+    if not m:
+        return None
+    a, b = m.group("a").strip(), m.group("b").strip()
+    if not a or not b or a == b:
+        return None
+    return Quick("split_apps", f"{a} | {b}", f"Pongo {_nice(a)} y {_nice(b)} lado a lado.")
+
+
 def parse_island(t: str) -> Quick | None:
     """«Sergio, activa multitasking» and «esconde el notch» (and back)."""
     if _MULTI.search(t):
         if _OFF.search(t):
             return Quick("multitask_off", say="Listo, una sola isla.")
+        if "pantalla" in t:
+            return Quick("multitask_on", say="Listo, pantalla dividida.")
         return Quick("multitask_on", say="Multitasking activado.")
     if _NOTCH.search(t):
         if _HIDE.search(t):
@@ -349,6 +376,9 @@ _UNDO = re.compile(
 def parse_quick(text: str) -> Quick | None:
     """A Quick action for clear one-step orders, else None."""
     t = polite(_plain(text).rstrip(".?!"))
+    side = parse_side_by_side(t)
+    if side:
+        return side
     island = parse_island(t)
     if island:
         return island
