@@ -40,6 +40,24 @@ Answer ONLY JSON: {{"title": "...", "scenes": [{{"say": "...", "picture": "..."}
 SIZES = {"16:9": (1280, 720), "9:16": (720, 1280), "1:1": (1080, 1080)}
 FPS = 25
 
+RESULTA_QUE_SCRIPT_PROMPT = """Write a viral, high-retention short vertical video script (Spanish, 9:16) \
+in the ultra-engaging style of @resultaaquee (curiosities, hidden everyday science and technology, but with 3D schematic dissection).
+Topic: «{topic}».
+{n} scenes. Follow this exact neuro-retention formula:
+1. Scene 1 (Hook, 0-2.5s): Start with a pattern-interrupting paradox or question that breaks the scroll (e.g. "¿Por qué la pantalla de tu móvil nota tu dedo pero un bolígrafo plástico no hace nada?").
+2. Scene 2 (Common Myth): Debunk the intuitive assumption that most people wrongly believe.
+3. Scene 3 (The Reveal): Deliver the core insight starting with or emphasizing "Resulta que..." with an ultra-clear everyday analogy.
+4. Scene 4+ (3D Cutaway / X-Ray Dissection): Explain the invisible physics, engineering, or biological mechanism step-by-step. The "picture" MUST be a stylized 3D render, isometric cutaway cross-section, or X-ray schematic with glowing neon accents on a sleek dark studio background.
+5. Final Scene (Dopamine Wrap-up & Seamless Loop): End with a surprising twist or practical takeaway, and craft the final spoken sentence so it loops seamlessly back into the very first hook sentence when repeated!
+
+For each scene:
+- "say": one punchy sentence in spoken Spanish (8-20 words, confident, crisp, no emojis).
+- "picture": detailed prompt in English for 3D schematic/cross-section image generation with neon callouts on dark background (1:1 visual coherence with "say", no text inside image).
+
+Answer ONLY JSON:
+{{"title": "...", "scenes": [{{"say": "...", "picture": "..."}}]}}"""
+
+
 
 def ffmpeg_exe() -> str:
     found = shutil.which("ffmpeg")
@@ -65,7 +83,7 @@ def _font() -> str:
     return ""
 
 
-def plan(topic: str, scenes: int, ask: Any = None) -> dict[str, Any]:
+def plan(topic: str, scenes: int, ask: Any = None, style: str = "") -> dict[str, Any]:
     """The script: {"title", "scenes": [{"say", "picture"}]}."""
     from openjarvis.creator.llm import ask as gemini_ask
 
@@ -80,8 +98,12 @@ def plan(topic: str, scenes: int, ask: Any = None) -> dict[str, Any]:
             raise ValueError("pocas escenas")
         return {"title": str(data.get("title") or topic)[:60], "scenes": items[:10]}
 
+    is_rq = style in ("resultaaquee", "resulta_que", "resultaque", "resulta que") or any(
+        w in topic.lower() for w in ("resultaaquee", "resulta que", "curiosidad cotidiana", "por que la pantalla", "por que el ", "por que los ")
+    )
+    prompt_tpl = RESULTA_QUE_SCRIPT_PROMPT if is_rq else SCRIPT_PROMPT
     raw = (ask or gemini_ask)(
-        SCRIPT_PROMPT.format(topic=topic, n=scenes), json_mode=True, check=check
+        prompt_tpl.format(topic=topic, n=scenes), json_mode=True, check=check
     )
     return check(raw)
 
@@ -117,6 +139,7 @@ def render(
     aspect: str = "16:9",
     voice: bytes = b"",
     ffmpeg: str = "",
+    accent: str = "",
 ) -> Path:
     """Stills + captions (+ voice) -> an mp4 with a slow zoom on each picture.
 
@@ -124,10 +147,10 @@ def render(
     being said lit up); an ffmpeg without libass gets the old boxed lines."""
     try:
         return _render(pictures, sentences, durations, out, aspect=aspect, voice=voice,
-                       ffmpeg=ffmpeg, animated=True)  # fmt: skip
+                       ffmpeg=ffmpeg, animated=True, accent=accent)  # fmt: skip
     except subprocess.CalledProcessError:
         return _render(pictures, sentences, durations, out, aspect=aspect, voice=voice,
-                       ffmpeg=ffmpeg, animated=False)  # fmt: skip
+                       ffmpeg=ffmpeg, animated=False, accent=accent)  # fmt: skip
 
 
 def _render(
@@ -140,6 +163,7 @@ def _render(
     voice: bytes,
     ffmpeg: str,
     animated: bool,
+    accent: str = "",
 ) -> Path:
     exe = ffmpeg or ffmpeg_exe()
     if not exe:
@@ -189,8 +213,9 @@ def _render(
             from openjarvis.video_essay.captions import ass_document, filter_for
 
             subs = work / "subtitulos.ass"
+            subs_kwargs = {"accent": accent} if accent else {}
             subs.write_text(
-                ass_document(sentences, durations, width, height), encoding="utf-8"
+                ass_document(sentences, durations, width, height, **subs_kwargs), encoding="utf-8"
             )
             cmd += ["-vf", filter_for(subs), "-c:v", "libx264", "-preset", "veryfast",
                     "-crf", "20", "-pix_fmt", "yuv420p"]  # fmt: skip
@@ -227,6 +252,10 @@ class VideoCreateTool(BaseTool):
                     "topic": {"type": "string", "description": "What it is about."},
                     "seconds": {"type": "number"},
                     "aspect": {"type": "string", "enum": ["16:9", "9:16", "1:1"]},
+                    "style": {
+                        "type": "string",
+                        "description": "Editing/narrative style: 'resultaaquee' (or 'resulta_que') for viral curiosity 3D cutaway reels in 9:16, 'standard'.",
+                    },
                     "voice": {
                         "type": "boolean",
                         "description": "Narrate (default yes).",
@@ -246,16 +275,21 @@ class VideoCreateTool(BaseTool):
         topic = " ".join(str(params.get("topic") or "").split())[:400]
         if len(topic) < 3:
             return self._fail("Dígame de qué trata el video.")
-        seconds = min(90.0, max(15.0, float(params.get("seconds") or 30)))
-        aspect = str(params.get("aspect") or "16:9")
+        raw_style = str(params.get("style") or params.get("platform") or "").lower().strip()
+        is_rq = raw_style in ("resultaaquee", "resulta_que", "resultaque", "resulta que") or any(
+            w in topic.lower() for w in ("resultaaquee", "resulta que", "curiosidad cotidiana", "por que la pantalla")
+        )
+        chosen_style = "resultaaquee" if is_rq else raw_style
+        seconds = min(90.0, max(15.0, float(params.get("seconds") or (40 if is_rq else 30))))
+        aspect = str(params.get("aspect") or ("9:16" if is_rq else "16:9"))
         if aspect not in SIZES:
-            aspect = "16:9"
+            aspect = "9:16" if is_rq else "16:9"
         if not ffmpeg_exe():
             return self._fail(
                 "Falta el programa de video (ffmpeg). Actualice Sergio y vuelva a pedirlo."
             )
         try:
-            script = plan(topic, max(3, min(8, round(seconds / 6))))
+            script = plan(topic, max(3, min(8, round(seconds / 6))), style=chosen_style)
         except Exception as exc:  # noqa: BLE001
             return self._fail(f"No pude escribir el guion: {str(exc)[:200]}")
         scenes = script["scenes"]
@@ -293,7 +327,7 @@ class VideoCreateTool(BaseTool):
         name = studio.media_name("video", ".mp4")
         out = studio.projects_root() / "videos" / name
         try:
-            render(pictures, sentences, durations, out, aspect=aspect, voice=voice)
+            render(pictures, sentences, durations, out, aspect=aspect, voice=voice, accent="&H00A3FF00" if is_rq else "")
         except Exception as exc:  # noqa: BLE001
             detail = getattr(exc, "stderr", b"") or b""
             text = (

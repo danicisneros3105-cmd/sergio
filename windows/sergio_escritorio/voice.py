@@ -232,8 +232,10 @@ _HARD_WORDS = {
     "depura",
     "traduce",
     "redacta",
+    "resultaaquee",
+    "curiosidad",
 }
-_HARD_PHRASES = ("paso a paso", "escribe un", "crea un", "explica por que")
+_HARD_PHRASES = ("paso a paso", "escribe un", "crea un", "explica por que", "resulta que", "por que la", "por que el")
 
 
 # Words that mean "do something / look something up": the agent with tools.
@@ -564,6 +566,14 @@ _TOOL_WORDS = {
     "humano",
     "humanos",
     "investigacion",
+    "resultaaquee",
+    "resulta",
+    "curiosidad",
+    "curiosidades",
+    "reels",
+    "reel",
+    "shorts",
+    "short",
 }
 _CONFIRM = {
     "si",

@@ -1309,6 +1309,12 @@ class SergioAppControlTool(BaseTool):
                 prompt = str(params.get("content") or params.get("title") or "Video").strip()
                 raw_style = str(params.get("platform") or params.get("category") or "").strip().lower()
                 genre_map = {
+                    "resultaaquee": "resultaaquee",
+                    "resulta que": "resultaaquee",
+                    "resultaque": "resultaaquee",
+                    "resulta_que": "resultaaquee",
+                    "resulta quee": "resultaaquee",
+                    "curiosidad": "resultaaquee",
                     "zack": "explicado3d",
                     "zack d films": "explicado3d",
                     "zackdfilms": "explicado3d",
@@ -1332,14 +1338,15 @@ class SergioAppControlTool(BaseTool):
                         "prompt": prompt,
                         "genre": genre,
                         "style": style_key,
-                        "aspect": "9:16" if genre in ("explicado3d", "corto3d") else "16:9",
-                        "duration": 45 if genre in ("explicado3d", "corto3d") else 90,
+                        "aspect": "9:16" if genre in ("resultaaquee", "explicado3d", "corto3d") else "16:9",
+                        "duration": 40 if genre == "resultaaquee" else (45 if genre in ("explicado3d", "corto3d") else 90),
                     }
                 )
+                job_id = getattr(state, "id", None) or (state.get("id") if isinstance(state, dict) else str(state))
                 return ToolResult(
                     tool_name=self.tool_id,
                     content=(
-                        f"Producción de video iniciada (`{state.get('id')}`) en género **{genre}** "
+                        f"Producción de video iniciada (`{job_id}`) en género **{genre}** "
                         f"(estilo `{style_key}`, coherencia visual-narración 1:1, subtítulos sincronizados sin retraso "
                         f"y escenas de películas/3D): «{prompt}»."
                         + _ui_event({"type": "navigate", "route": "/proyectos"})

@@ -1,0 +1,89 @@
+{
+ "name": "Resulta Quee",
+ "slug": "resultaaquee",
+ "sources": [
+  "https://www.instagram.com/resultaaquee/reels/",
+  "https://www.instagram.com/resultaaquee/"
+ ],
+ "videos": [
+  "Por qué la pantalla de tu móvil nota tu dedo y un plástico nada",
+  "Por qué el gancho del metro está suelto",
+  "El truco secreto del agujero en la ventana del avión",
+  "Por qué los cables submarinos mueven todo internet"
+ ],
+ "learned": "2026-10-31",
+ "avg_shot_s": 1.75,
+ "pace": "very fast",
+ "hook": "Inicia en menos de 2.5 segundos con un gancho de ruptura de patrón y curiosidad cotidiana irresistible ('¿Por qué la pantalla de tu móvil nota tu dedo pero un bolígrafo plástico no hace nada?'), rompiendo la intuición común antes de revelar la verdad con la frase icónica 'Resulta que...'",
+ "structure": [
+  "0:00 - 0:03 | Hook Disruptivo: Pregunta o contradicción visual de la vida cotidiana que frena el scroll en seco",
+  "0:03 - 0:08 | Mito Intuitivo: Explicación de por qué lo que todos creemos intuitivamente es totalmente falso",
+  "0:08 - 0:15 | La Revelación 'Resulta Que': Giro explicativo que introduce el mecanismo físico/tecnológico real con analogías cotidianas",
+  "0:15 - 0:28 | Disección 3D / Rayos X: Animación procedural en corte transversal mostrando el interior invisible y el flujo de electrones/física",
+  "0:28 - 0:38 | El Detalle Asombroso: Dato secundario de alto impacto sobre cómo se diseñó o por qué previene un problema crítico",
+  "0:38 - 0:45 | Seamless Loop Final: Frase de remate que enlaza gramatical y conceptualmente con el gancho inicial para retención >100%"
+ ],
+ "transitions": {
+  "cut": 0.88,
+  "flash": 0.04,
+  "whip": 0.03,
+  "zoom": 0.05,
+  "fade": 0.0,
+  "glitch": 0.0
+ },
+ "punch_in": 0.35,
+ "speed_ramps": 0.12,
+ "slow_motion": 0.08,
+ "camera": "Movimientos continuos de cámara con empuje frontal (slow push), zooms dinámicos en los puntos de contacto y rotación orbital isométrica para apreciar modelos y cortes transversales 3D.",
+ "text": {
+  "style": "Ultra-bold sans-serif en caja alta o mixta, tipografía cinética palabra a palabra (kinetic karaoke) con salto elástico (pop-scale)",
+  "position": "center",
+  "words_per_caption": 2,
+  "kinetic": true,
+  "color": "#FFFFFF",
+  "accent": "#00FFA3",
+  "frequency": "every shot"
+ },
+ "grade": {
+  "look": "Estudio oscuro hiper-nítido, fondos antracita con acentos de luz neón verde eléctrico (#00FFA3) y cian, alto contraste de materiales y texturas",
+  "contrast": 1.35,
+  "saturation": 1.2,
+  "warmth": -0.1,
+  "brightness": -0.02,
+  "vignette": true,
+  "grain": false,
+  "letterbox": false
+ },
+ "audio": {
+  "music": "Lofi hip-hop / mystery tech ambient con pulso rítmico sutil y ducking automático bajo la voz",
+  "beat_synced_cuts": true,
+  "sfx": [
+   "analog_click",
+   "pop",
+   "whoosh_subtle",
+   "sub_impact_drop",
+   "laser_chime",
+   "paper_tear"
+  ],
+  "voiceover": "narrator"
+ },
+ "aspect": "9:16",
+ "signature": [
+  "Fórmula de neuro-retención 'Resulta Que...': gancho de contradicción cotidiana en menos de 2.5 segundos.",
+  "Cortes dinámicos cada 1.5 - 2.0 segundos alternando entre el objeto exterior y la animación 3D del mecanismo interno.",
+  "Subtítulos cinéticos palabra a palabra ultra sincronizados con resaltado en verde neón (#00FFA3) o amarillo (#FFE500).",
+  "Modelado 3D explicativo en corte transversal (x-ray cutaway) superior al 2D básico de la cuenta original.",
+  "Bucle perfecto (Seamless Loop) en el guion: la última oración conecta gramaticalmente con la primera para repetir el reel automáticamente.",
+  "Diseño sonoro orgánico: clicks analógicos en apariciones de texto y caída de graves (sub-bass) en la revelación principal."
+ ],
+ "aliases": [
+  "resultaaquee",
+  "resulta que",
+  "resulta-que",
+  "resultaque",
+  "resulta quee",
+  "curiosidad viral",
+  "curiosidad cotidiana",
+  "shorts curiosidades"
+ ]
+}

@@ -144,6 +144,26 @@ GENRES: Dict[str, Genre] = {
             "motion": ("manim motion-graphics", "video-typography", "motion-design"),
         },
     ),
+    "resultaaquee": Genre(
+        "resultaaquee", "Resulta Quee (Curiosidad viral & ciencia cotidiana)", "resultaaquee",
+        ("resultaaquee", "resulta que", "resulta quee", "curiosidad cotidiana", "por que la pantalla",
+         "truco oculto", "secreto cotidiano", "como funciona en realidad", "dato impactante",
+         "curiosidad cientifica", "reels explicativo", "tiktok explicativo", "shorts curiosidades", "misterio cotidiano"),
+        "hyper-realistic 3D schematic render, cutaway cross-section, glowing neon highlights, clean dark studio background, high contrast visual explainer", 0.1,
+        sources=("3d", "ai", "image", "stock", "archive", "web"),
+        notes=("RESULTA QUE EXPLAINER (The ultra-viral curiosity format from @resultaaquee, but enhanced with 3D cutaways): "
+               "1) Hook in the first 2 seconds with an everyday paradox or question (e.g. '¿Por qué la pantalla nota tu dedo y el plástico nada?'). "
+               "2) Bust the intuitive myth people wrongly believe. "
+               "3) Introduce 'Resulta que...' with an ultra-clear real-world analogy. "
+               "4) 3D X-Ray cutaway of the mechanism/object with neon glowing lines and callouts. "
+               "5) A surprising high-impact takeaway. "
+               "6) Seamless infinite loop: the final sentence grammatically flows back into the hook for >100% retention. "
+               "7) Kinetic neon subtitles synced word-by-word without delay."),
+        skills={
+            "guion": ("resultaquee-hook-engine", "viral-curiosity-loop", "tts-director"),
+            "motion": ("kinetic-neon-typography", "blender-schematic-3d", "motion-design"),
+        },
+    ),
 }  # fmt: skip
 
 
@@ -159,7 +179,12 @@ def detect(brief: str) -> str:
     words = f" {_plain(brief)} "
     best, score = "", 0
     for g in GENRES.values():
-        hits = sum(2 if " " in w else 1 for w in g.words if f" {w} " in words)
+        hits = 0
+        if f" {g.key} " in words:
+            hits += 15
+        for w in g.words:
+            if f" {w} " in words:
+                hits += len(w.split()) * 3 if " " in w else 2
         if hits > score:
             best, score = g.key, hits
     return best
@@ -240,10 +265,10 @@ def finish(shots: Sequence, words: Sequence, genre: str) -> int:
                 s.grade = "cold" if i % 2 else "warm"
             if (s.frame, s.transition, s.text_style, s.grade) != before:
                 changed += 1
-    elif genre in ("explicado3d", "corto3d"):
+    elif genre in ("resultaaquee", "explicado3d", "corto3d"):
         inside = re.compile(
             r"\b(dentro|interior|por dentro|huesos?|organos?|órganos?|sangre|"
-            r"cerebro|coraz[oó]n|pulm[oó]n|motor|piezas?|capas?|c[eé]lulas?)\b",
+            r"cerebro|coraz[oó]n|pulm[oó]n|motor|piezas?|capas?|c[eé]lulas?|pantalla|sensor|vidrio|cristal|electr[oó]n|electrones|circuito|cable|presi[oó]n|chip|bater[ií]a)",
             re.I,
         )
         for i, s in enumerate(shots):

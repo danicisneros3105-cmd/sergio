@@ -83,6 +83,7 @@ def ass_document(
     *,
     upper: bool = True,
     varied: bool = True,
+    accent: str = ACCENT,
 ) -> str:
     """The whole video's captions, as an ASS script."""
     vertical = height > width
@@ -100,7 +101,7 @@ def ass_document(
     def style_line(name: str, family: str, fsize: int, italic: int) -> str:
         return ",".join(
             str(v)
-            for v in (name, family, fsize, WHITE, ACCENT, OUTLINE, SHADOW, 0 if italic else -1, italic,
+            for v in (name, family, fsize, WHITE, accent, OUTLINE, SHADOW, 0 if italic else -1, italic,
                       0, 0, 100, 100, -1, 0, 1, max(3, fsize // 11), max(2, fsize // 18), 2, side, side, margin_v, 1)
         )  # fmt: skip
 
