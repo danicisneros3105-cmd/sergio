@@ -61,8 +61,8 @@ REGIONS: List[Dict[str, Any]] = [
         "key": "descendentes",
         "fly": "Neuronas descendentes",
         "job": "Convierten la decisión en movimiento.",
-        "sergio": "El núcleo que decide: cada neurona hace una sola cosa (imágenes, videos, pantalla, archivos, internet…) y solo las que se encienden le dan sus herramientas a Sergio en ese pedido. Lo que funciona crea conexiones nuevas, atajos y hasta neuronas nuevas. Nunca mensajes, llamadas, compras ni borrados por su cuenta.",
-        "where": "Herramientas",
+        "sergio": "El núcleo que decide: cada neurona hace una sola cosa (imágenes, videos, pantalla, archivos, internet…) y solo las que se encienden le dan sus herramientas a Sergio en ese pedido. Lo que funciona crea conexiones nuevas, atajos y hasta neuronas nuevas. Al encenderse inyecta una Super-Skill Neuronal que reentrena al modelo en contexto con sus herramientas exactas y control total sobre la computadora.",
+        "where": "Herramientas · Super-Skills",
     },
     {
         "key": "fibra_gigante",

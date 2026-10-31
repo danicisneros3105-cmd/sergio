@@ -83,7 +83,55 @@ KNOWN_SCENES: Tuple[Tuple[str, str, int, str], ...] = (
      "are you not entertained"),
     ("aprender torpe principiante creer", "Kung Fu Panda", 2008,
      "training with the dumplings"),
+    ("dinero bolsa vender comprar mercado riqueza ambición", "The Wolf of Wall Street", 2013,
+     "sell me this pen scene"),
+    ("crisis banco hipoteca burbuja economía finanzas", "The Big Short", 2015,
+     "Jenga tower mortgage explanation scene"),
+    ("sueño mente subconsciente arquitectura doblar ciudad", "Inception", 2010,
+     "Paris folding city scene"),
+    ("inteligencia artificial máquina futuro robot humano", "Ex Machina", 2014,
+     "Turing test interview scene"),
+    ("velocidad carrera motor límite ganar", "Ford v Ferrari", 2019,
+     "7000 RPM Le Mans night drive"),
+    ("concentración ajedrez estrategia mente calcular", "The Queen's Gambit", 2020,
+     "ceiling chess visualization scene"),
+    ("química cocinar laboratorio precisión imperio", "Breaking Bad", 2008,
+     "cooking montage in the lab"),
+    ("física átomo bomba historia ciencia", "Oppenheimer", 2023,
+     "Trinity test countdown scene"),
+    ("correr maratón camino cruzar país sin parar", "Forrest Gump", 1994,
+     "he starts running across America"),
+    ("saltar fe ciudad rascacielos miedo", "Spider-Man: Into the Spider-Verse", 2018,
+     "leap of faith scene"),
 )  # fmt: skip
+
+
+def find_scenes_for_text(text: str, max_results: int = 5) -> List[Dict[str, Any]]:
+    """Return matching real film/series scenes and searched clip candidates for *text*."""
+    from openjarvis.video_essay.sources import _tokens, search_scenes
+
+    have = _tokens(text)
+    scored = []
+    for keys, name, year, scene in KNOWN_SCENES:
+        hits = sum(any(h.startswith(k[:5]) for h in have) for k in _tokens(keys))
+        if hits > 0 or not have:
+            scored.append((hits, name, year, scene))
+    if not scored:
+        scored = [(1, name, year, scene) for _, name, year, scene in KNOWN_SCENES[:max_results]]
+    scored.sort(key=lambda r: -r[0])
+    out: List[Dict[str, Any]] = []
+    for _, name, year, scene in scored[:max_results]:
+        query = f"{name} ({year}) {scene}"
+        clips = []
+        try:
+            clips = [
+                {"title": c.title, "url": c.url, "duration": c.duration}
+                for c in search_scenes(query, 3)
+            ]
+        except Exception:  # noqa: BLE001
+            clips = []
+        out.append({"film": name, "year": year, "scene": scene, "query": query, "clips": clips})
+    return out
 
 
 def known_scenes(shots: Sequence[Any], words: Sequence[Any], film: List[int]) -> list:

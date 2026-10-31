@@ -169,7 +169,7 @@ class Speaker:
                 channels=1,
                 dtype="int16",
                 blocksize=480,  # 20 ms
-                latency=0.08,  # a little margin: no clicks or gaps
+                latency=0.05,  # low latency without clicks or gaps
                 callback=self._callback,
             )
         self._stream.start()
@@ -558,7 +558,7 @@ class CallSession:
                 level = 0.0
             if not talking and level < self._noise * 3:
                 self._noise = 0.98 * self._noise + 0.02 * max(level, 30.0)
-            voiced = level > max(250.0, self._noise * 3)
+            voiced = level > max(180.0, self._noise * 2.4)
             if voiced:
                 self._last_activity = self.clock()
             if self._gate(clean, voiced or talking):
@@ -610,9 +610,9 @@ class CallSession:
     def _echo_like(self, level: float, ref_level: float) -> bool:
         """While he talks, is this frame just his voice coming back?"""
         if self.echo.kind == "webrtc":
-            return level < 200.0  # leftover echo after cancellation is faint
+            return level < 160.0  # leftover echo after cancellation is faint
         # No canceller: only a voice clearly louder than the room interrupts.
-        return level < max(1500.0, self._noise * 8, ref_level * 0.5)
+        return level < max(1200.0, self._noise * 6, ref_level * 0.45)
 
     def send_image(self, jpeg: bytes, source: str = "cámara") -> None:
         if self.active and jpeg:

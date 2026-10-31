@@ -86,9 +86,13 @@ export function ConnectomePage() {
                     <span className="paper-label">
                       {n.label}
                       {n.shortcut ? ' · atajo' : ''}
+                      {n.superskill ? ' · super-skill' : ''}
                     </span>
                     <strong>{n.connections}</strong>
-                    <span>{n.job}</span>
+                    <span>
+                      {n.job}
+                      {n.tools?.length ? ` (${n.tools.join(', ')})` : ''}
+                    </span>
                   </li>
                 ))}
               </ul>

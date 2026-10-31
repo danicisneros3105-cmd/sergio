@@ -22,12 +22,12 @@ log = logging.getLogger(__name__)
 
 MAX_STEPS = 60  # signing in, searching and comparing take more than 20 steps
 SETTLE = {
-    "open": 1.6,
-    "click": 0.7,
-    "double_click": 0.9,
-    "key": 0.6,
-    "type": 0.3,
-    "scroll": 0.4,
+    "open": 0.9,
+    "click": 0.35,
+    "double_click": 0.45,
+    "key": 0.3,
+    "type": 0.15,
+    "scroll": 0.2,
 }
 
 

@@ -88,3 +88,76 @@
 /* The pane itself: no sidebar, no menu button, just the page. */
 .pane-shell .sb-open-mobile { display: none; }
 .pane-shell .nodes-list { padding-left: 8px; }
+.pane-shell .split-global-dock { display: none; }
+
+/* Animated Split Screen button & global top-right dock */
+.split-duo-btn {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: transform 0.2s cubic-bezier(0.2, 0.9, 0.25, 1.05), background 0.18s ease, border-color 0.18s ease, box-shadow 0.2s ease;
+}
+.split-duo-btn.split-pill-btn {
+  height: 32px;
+  padding: 0 11px;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-surface, var(--color-bg)) 92%, transparent);
+  backdrop-filter: blur(10px);
+  color: var(--color-text);
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.split-duo-btn.split-pill-btn:hover {
+  background: var(--color-hover);
+  transform: translateY(-1px);
+}
+.split-duo-btn[data-split-open] {
+  background: var(--color-text);
+  color: var(--color-bg);
+  border-color: var(--color-text);
+}
+.split-duo-svg {
+  overflow: visible;
+  flex-shrink: 0;
+}
+.split-pane-left,
+.split-pane-right,
+.split-pane-hinge {
+  transition: transform 0.36s cubic-bezier(0.2, 0.9, 0.25, 1.15), opacity 0.25s ease;
+  transform-box: fill-box;
+}
+.split-pane-left { transform-origin: right center; }
+.split-pane-right { transform-origin: left center; }
+.split-duo-btn:hover .split-pane-left {
+  transform: translateX(-1.3px) rotateY(-14deg);
+}
+.split-duo-btn:hover .split-pane-right {
+  transform: translateX(1.3px) rotateY(14deg);
+}
+.split-duo-btn[data-split-open] .split-pane-left {
+  transform: translateX(-1px);
+  fill: currentColor;
+  fill-opacity: 0.18;
+}
+.split-duo-btn[data-split-open] .split-pane-right {
+  transform: translateX(1px);
+  fill: currentColor;
+  fill-opacity: 0.18;
+}
+.split-btn-label {
+  line-height: 1;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+.split-global-dock {
+  position: fixed;
+  top: 10px;
+  right: 14px;
+  z-index: 45;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}

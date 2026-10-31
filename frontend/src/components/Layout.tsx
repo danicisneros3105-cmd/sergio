@@ -1,5 +1,5 @@
 import { Suspense, useEffect, useState } from 'react';
-import { Outlet, useNavigate } from 'react-router';
+import { Outlet, useLocation, useNavigate } from 'react-router';
 import { Tour } from './Tour/Tour';
 import { RunningPill } from './Shell/RunningPill';
 import { sessionNeed, tourSeen } from '../lib/session';
@@ -13,6 +13,7 @@ import { ReminderWatcher } from './Reminders/ReminderWatcher';
 import { startAppWindow } from '../lib/appWindow';
 import { inPane } from '../lib/split';
 import { SplitView } from './Split/SplitView';
+import { SplitButton } from './Split/SplitButton';
 
 // Read once: inside the second pane of a split screen (the app in «pane»
 // mode), navigation later drops the ?pane=1 but the window stays a pane.
@@ -59,6 +60,8 @@ export function Layout() {
   };
 
   const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const onChatPage = pathname === '/' || pathname === '' || pathname.startsWith('/chat');
 
   // Sign in first (owner, 27 Oct 2026): nobody signed in → «/entrar» (or
   // «Crear cuenta» the first time); payment pages stay open. Then the tour,
@@ -163,6 +166,11 @@ export function Layout() {
           <button type="button" className="sb-open-mobile" aria-label="Abrir la barra lateral" onClick={toggleHistory}>
             <Menu size={20} strokeWidth={1.8} />
           </button>
+        )}
+        {!onChatPage && (
+          <div className="split-global-dock">
+            <SplitButton className="split-pill-btn" showLabel />
+          </div>
         )}
         <ApprovalBell />
         {apiReachable === false && (

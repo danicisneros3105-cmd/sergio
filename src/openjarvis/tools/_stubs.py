@@ -189,19 +189,29 @@ def _super_on() -> bool:
 
 
 def superskill_function(tools: List["BaseTool"]) -> Dict[str, Any]:
-    """One tool that stands for many: a line per skill, the full schema on demand."""
+    """One tool that stands for many: a line per skill (with its key parameters),
+    so the model can pass `argumentos` on the very first call without an extra roundtrip."""
     lines = []
     for t in sorted(tools, key=lambda x: x.spec.name):
         first = (t.spec.description or "").strip().split(". ")[0].replace("\n", " ")
-        lines.append(f"- {t.spec.name}: {first[:110]}")
+        params = t.spec.parameters or {}
+        props = list((params.get("properties") or {}).keys())[:6]
+        req = set(params.get("required") or [])
+        sig = (
+            " [" + ", ".join(f"{p}*" if p in req else p for p in props) + "]"
+            if props
+            else ""
+        )
+        lines.append(f"- {t.spec.name}: {first[:110]}{sig}")
     return {
         "type": "function",
         "function": {
             "name": SUPERSKILL,
             "description": (
-                "Every other skill of Sergio, by name. Call it with 'nombre' (and "
-                "'argumentos' when you know them); without arguments it returns that "
-                "skill's exact parameters. Skills:\n" + "\n".join(lines)
+                "Every other skill of Sergio, by name. Call it with 'nombre' and "
+                "'argumentos' (required params marked with * in brackets) to execute in 1 step; "
+                "without arguments it returns that skill's full schema. Skills:\n"
+                + "\n".join(lines)
             ),
             "parameters": {
                 "type": "object",
@@ -681,6 +691,15 @@ class ToolExecutor:
                 success=False,
             )
         given = args.get("argumentos")
+        if isinstance(given, str):
+            try:
+                given = json.loads(given)
+            except (TypeError, ValueError):
+                given = None
+        if given is None:
+            top_extra = {k: v for k, v in args.items() if k not in ("nombre", "argumentos")}
+            if top_extra:
+                given = top_extra
         required = (target.spec.parameters or {}).get("required") or []
         if not isinstance(given, dict) or any(k not in given for k in required):
             schema = json.dumps(target.spec.parameters or {}, ensure_ascii=False)

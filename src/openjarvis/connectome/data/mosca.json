@@ -9,8 +9,8 @@
  "sinapsis": 14143066,
  "minimo_sinapsis": 10,
  "sha256": {
-  "mosca_neuronas.csv.gz": "0691317303ddc75e3c2ce3e251f6effc9865b5c824687d68faae7af53230fd90",
+  "mosca_neuronas.csv.gz": "a8cade985210c50917e3f7863f8c8145c46b96044a8165bd1bb2befeec6e5198",
   "mosca_sinapsis.npz": "c5e5222efc76934b2fe341c941f1de08638ac0123b03f1988a1bcae022e84ada"
  },
- "fecha": "2026-10-26"
+ "fecha": "2026-10-30"
 }

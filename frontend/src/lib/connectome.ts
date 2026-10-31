@@ -34,7 +34,9 @@ export const SHORTCUTS: Shortcut[] = [
   { id: 'uso', title: 'Uso y modelos', words: ['uso', 'consumo', 'tokens', 'costo', 'gasto', 'modelos', 'proveedores', 'cuota', 'claude', 'openai', 'gemini'], keys: 'g u', group: 'Ir a', run: { kind: 'go', to: '/uso' } },
   { id: 'planes', title: 'Planes y facturación', words: ['planes', 'plan', 'precio', 'precios', 'pagar', 'pago', 'facturacion', 'factura', 'suscripcion', 'cuenta', 'licencia', 'free', 'go', 'work', 'dev', 'founders', 'billing'], keys: 'g b', group: 'Ir a', run: { kind: 'go', to: '/planes' } },
   { id: 'ayuda', title: 'Ayuda', words: ['ayuda', 'soporte', 'help', 'como', 'dudas', 'manual', 'faq'], keys: 'g y', group: 'Ir a', run: { kind: 'go', to: '/ayuda' } },
-  { id: 'automatizar', title: 'Automatizar', words: ['automatizar', 'canal', 'youtube', 'instagram', 'shorts', 'clientes', 'freelance', 'empleo', 'trabajo nuevo', 'trading', 'bolsa', 'estabilidad'], group: 'Ir a', run: { kind: 'go', to: '/automatizar' } },
+  { id: 'automatizar', title: 'Automatizar', words: ['automatizar', 'canal', 'youtube', 'instagram', 'shorts', 'clientes', 'freelance', 'empleo', 'trabajo nuevo', 'trading', 'bolsa', 'estabilidad', 'nicho', 'trends', 'tendencias'], keys: 'g v', group: 'Ir a', run: { kind: 'go', to: '/automatizar' } },
+  { id: 'creator', title: 'Creator · Video, 3D y Diseño', words: ['creator', 'estudio', 'modelado 3d', 'blender', 'arquitectura', 'diseno', 'video', 'zack', 'mrbeast', 'motion graphics'], keys: 'g o', group: 'Ir a', run: { kind: 'go', to: '/creator' } },
+  { id: 'proyectos', title: 'Proyectos y videos', words: ['proyectos', 'videos', 'render', 'clips', 'peliculas', 'subtitulos'], keys: 'g f', group: 'Ir a', run: { kind: 'go', to: '/proyectos' } },
   { id: 'tour', title: 'Ver el tour', words: ['tour', 'tutorial', 'aprender', 'como se usa', 'guia', 'primeros pasos'], group: 'Ir a', run: { kind: 'event', name: 'sergio:tour' } },
   { id: 'pensar', title: 'Pensar a fondo', words: ['pensar', 'razonar', 'analizar a fondo', 'decidir'], group: 'Ir a', run: { kind: 'go', to: '/pensar' } },
   { id: 'atajos', title: 'Cómo funcionan los atajos', words: ['atajos', 'conectoma', 'mosca', 'cerebro', 'teclas', 'ayuda'], keys: '?', group: 'Ir a', run: { kind: 'go', to: '/atajos' } },
@@ -150,7 +152,7 @@ export interface BrainMap {
     fast_path?: number;
     corrections?: number;
     /** The core: neurons with one job each (connectome/neurons.py). */
-    neurons?: Array<{ key: string; label: string; job: string; connections: number; shortcut: boolean; learned: boolean }>;
+    neurons?: Array<{ key: string; label: string; job: string; connections: number; shortcut: boolean; learned: boolean; superskill?: boolean; tools?: string[] }>;
     shortcuts?: number;
     learned_neurons?: number;
     /** Share of requests where the brain chose the tools. */

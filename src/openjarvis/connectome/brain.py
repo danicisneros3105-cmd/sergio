@@ -107,7 +107,7 @@ _NOT_ROUTES = {"think", "memory_search", "memory_store"}
 # The turn being answered on this thread: tools note themselves here.
 _turn = threading.local()
 SELECT_MAX_CHARS = 1500  # a long prompt (a Node's turn) is not one request
-FLY_GAIN = 3.0  # mushroom-body drive -> neuron activation (about three rewards fire it)
+FLY_GAIN = 3.5  # mushroom-body drive -> neuron activation (faster shortcut learning)
 FLY_ROUTE = 0.06  # a tool this wanted by the mushroom body is suggested
 FLY_AVOID = -0.04  # a tool this punished is flagged
 SELECTION_TTL_S = 20 * 60
@@ -804,6 +804,10 @@ class Brain:
                     "connections": reach.get(k, (0, 0.0))[0],
                     "shortcut": reach.get(k, (0, 0.0))[1] >= _neurons.SHORTCUT,
                     "learned": k not in _neurons.NEURONS,
+                    "superskill": bool(
+                        _neurons.SUPER_SKILLS.get(k) or k.startswith(_neurons.LEARNED_PREFIX)
+                    ),
+                    "tools": list(_neurons.tools_of(k)),
                 }
                 for k in keys
             ]
@@ -929,11 +933,15 @@ def mind_context(text: str, channel: str = "chat") -> str:
     except Exception:  # noqa: BLE001
         return "\n\n".join(parts)
     block = ""
+    selection = None
     got = board.get("memoria")
     if got:
         block, _used, record, selection = got
         _turn.record = record
         _turn.selection = (selection, brain.clock()) if selection else None
+    superskill = _neurons.superskill_for(selection, text)
+    if superskill:
+        parts.append(superskill)
     guidance = board.get("habilidades") or ""
     if guidance:
         parts.append(guidance)

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { Aperture, Camera, Check, Eye, Monitor, ScanFace, VideoOff } from 'lucide-react';
+import { Aperture, Camera, Check, CircleDot, Eye, Monitor, ScanFace, Smartphone, Square, VideoOff } from 'lucide-react';
 import { toast } from 'sonner';
 import { apiFetch } from '../lib/api';
 import { useWorkspace } from '../lib/workspace/store';
@@ -25,11 +25,14 @@ export function CapturePage() {
   const [text, setText] = useState('');
   const [count, setCount] = useState(0);
   const [camActive, setCamActive] = useState(false);
+  const [videoRec, setVideoRec] = useState(false);
   const [detected, setDetected] = useState<DetectedFace[]>([]);
   const [poseInfo, setPoseInfo] = useState<{ yaw: number; pitch: number; faces: number } | null>(null);
   const area = useRef<HTMLTextAreaElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const videoRecorderRef = useRef<MediaRecorder | null>(null);
+  const videoChunksRef = useRef<Blob[]>([]);
 
   useEffect(() => {
     if (!ready) void load();
@@ -128,6 +131,92 @@ export function CapturePage() {
     toast.success('Fotograma guardado en el Workspace.');
   };
 
+  const toggleVideoRecording = async () => {
+    if (videoRec && videoRecorderRef.current) {
+      videoRecorderRef.current.stop();
+      videoRecorderRef.current = null;
+      setVideoRec(false);
+      return;
+    }
+    try {
+      let stream = streamRef.current;
+      if (!stream) {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { width: 1280, height: 720, facingMode: 'environment' },
+          audio: true,
+        });
+        streamRef.current = stream;
+        setCamActive(true);
+        requestAnimationFrame(() => {
+          if (videoRef.current && stream) {
+            videoRef.current.srcObject = stream;
+            void videoRef.current.play();
+          }
+        });
+      }
+      const mime = ['video/webm;codecs=vp9,opus', 'video/webm', 'video/mp4'].find((m) => MediaRecorder.isTypeSupported?.(m)) || '';
+      const recorder = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
+      videoChunksRef.current = [];
+      recorder.ondataavailable = (e) => e.data.size && videoChunksRef.current.push(e.data);
+      recorder.onstop = async () => {
+        const blob = new Blob(videoChunksRef.current, { type: recorder.mimeType || 'video/webm' });
+        const ext = blob.type.includes('mp4') ? 'mp4' : 'webm';
+        const form = new FormData();
+        form.append('file', blob, `video-${Date.now()}.${ext}`);
+        form.append('kind', 'video');
+        form.append('caption', text.trim() || 'Video grabado desde dispositivo');
+        const res = await apiFetch('/v1/devices/upload', { method: 'POST', body: form }).catch(() => null);
+        if (res?.ok) {
+          toast.success('Video guardado y sincronizado con el PC.');
+        } else {
+          toast.success('Video grabado.');
+        }
+        setCount((c) => c + 1);
+      };
+      recorder.start(2000);
+      videoRecorderRef.current = recorder;
+      setVideoRec(true);
+      toast.success('Grabando video en vivo…');
+    } catch {
+      toast.error('No se pudo iniciar la grabación de video.');
+    }
+  };
+
+  const requestPhoneVideo = async () => {
+    try {
+      const res = await apiFetch('/v1/devices/command', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          target_device: 'phone',
+          action: 'record_video',
+          params: { seconds: 30, note: text.trim() },
+        }),
+      });
+      if (res.ok) {
+        toast.success('Orden enviada al teléfono: empezando a grabar video.');
+      }
+    } catch {
+      toast.error('No se pudo enviar la orden al teléfono.');
+    }
+  };
+
+  useEffect(() => {
+    const onRemoteCmd = (ev: Event) => {
+      const detail = (ev as CustomEvent<{ action?: string }>).detail;
+      if (!detail) return;
+      if (detail.action === 'record_video' && !videoRec) {
+        void toggleVideoRecording();
+      } else if (detail.action === 'stop_video' && videoRec) {
+        void toggleVideoRecording();
+      } else if (detail.action === 'take_photo') {
+        snapToWorkspace();
+      }
+    };
+    window.addEventListener('sergio:device-command', onRemoteCmd);
+    return () => window.removeEventListener('sergio:device-command', onRemoteCmd);
+  });
+
   const openDesktopCamera = async () => {
     await apiFetch('/v1/desktop/open', {
       method: 'POST',
@@ -186,6 +275,12 @@ export function CapturePage() {
             </button>
             <button type="button" onClick={snapToWorkspace} disabled={!camActive} aria-label="Guardar este fotograma" title="Guardar fotograma">
               <Aperture size={18} strokeWidth={1.7} />
+            </button>
+            <button type="button" onClick={() => void toggleVideoRecording()} aria-label={videoRec ? 'Detener grabación de video' : 'Grabar video'} title={videoRec ? 'Detener video' : 'Grabar video'}>
+              {videoRec ? <Square size={18} strokeWidth={1.9} /> : <CircleDot size={18} strokeWidth={1.7} />}
+            </button>
+            <button type="button" onClick={() => void requestPhoneVideo()} aria-label="Grabar video desde el teléfono" title="Grabar video desde mi teléfono">
+              <Smartphone size={18} strokeWidth={1.7} />
             </button>
             <button type="button" onClick={openDesktopCamera} aria-label="Abrir en el PC" title="Abrir en el PC">
               <Monitor size={18} strokeWidth={1.7} />

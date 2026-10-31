@@ -17,8 +17,10 @@ import {
   FolderKanban,
   ChevronDown,
   Zap,
+  Columns2,
 } from 'lucide-react';
 import { useAppStore } from '../../lib/store';
+import { useSplit } from '../../lib/split';
 import { LiveOrb } from '../Live/LiveOrb';
 import { ChatSections, ConversationList } from '../Sidebar/ConversationList';
 import { UpdateButton } from './UpdateButton';
@@ -111,6 +113,7 @@ export function Toolbar({ historyOpen, onToggleHistory }: { historyOpen: boolean
   const { pathname } = useLocation();
   const createConversation = useAppStore((s) => s.createConversation);
   const selectedModel = useAppStore((s) => s.selectedModel);
+  const splitOpen = useSplit((s) => s.open);
   const mac = typeof navigator !== 'undefined' && navigator.platform.includes('Mac');
   const [query, setQuery] = useState('');
   const [searching, setSearching] = useState(false);
@@ -228,6 +231,13 @@ export function Toolbar({ historyOpen, onToggleHistory }: { historyOpen: boolean
                 setSearching((on) => (historyOpen ? !on : true));
                 if (searching) setQuery('');
               }}
+            />
+            <Item
+              icon={<Columns2 size={18} strokeWidth={1.7} />}
+              label={splitOpen ? 'Unir pantalla' : 'Dividir pantalla'}
+              hint={mac ? '⌘\\' : 'Ctrl \\'}
+              active={splitOpen}
+              onClick={() => window.dispatchEvent(new CustomEvent('sergio:split'))}
             />
           </div>
 

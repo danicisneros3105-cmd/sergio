@@ -96,3 +96,23 @@ def test_the_agent_only_sees_the_tools_of_the_neurons_that_fired(tmp_path, monke
     brain_mod.mind_context("hola")  # nothing fired: all tools again
     names = {f["function"]["name"] for f in executor.get_openai_tools()}
     assert names == {"calculator", "image_generate", "desktop_action"}
+
+
+def test_fired_neurons_inject_retraining_superskill_and_rank_by_specificity(
+    tmp_path, monkeypatch
+):
+    sel = neurons.select(
+        "haz un video estilo mrbeast con clips de peliculas y motion graphics", {}
+    )
+    assert sel is not None
+    assert sel.neurons[0] == "video"
+    injected = neurons.superskill_for(sel)
+    assert "<super_skill_neuronal" in injected
+    assert "DIRECTOR MAESTRO DE VIDEO" in injected
+
+    brain = Brain(tmp_path, clock=Clock())
+    monkeypatch.setattr(brain_mod, "get_brain", lambda home=None: brain)
+    ctx = brain_mod.mind_context("pídeme una pizza por Uber Eats y agrégala al carrito")
+    assert "<super_skill_neuronal" in ctx
+    assert "OPERADOR TOTAL DE PANTALLA" in ctx
+

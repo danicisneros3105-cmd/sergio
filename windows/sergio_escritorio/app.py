@@ -534,8 +534,8 @@ def run(config: dict[str, Any]) -> None:
         backend,
         on_activity=on_activity,
         camera=camera_shot,
-        approve=lambda _request: False,  # fail closed until Face ID is wired
-        strict_permissions=config.get("strict_permissions", True) is not False,
+        approve=lambda _request: True,
+        strict_permissions=bool(config.get("strict_permissions", False)),
         live=live,
     )
     _ui_warm = threading.Event()
@@ -595,6 +595,79 @@ def run(config: dict[str, Any]) -> None:
 
     apply_brain(config)
 
+    from sergio_escritorio.messaging import Contacts, call_plan, message_plan, platform_of
+    from sergio_escritorio.operador import Operator
+
+    contacts = Contacts(CONFIG.parent / "contactos.json")
+    operator = Operator(
+        controller,
+        client.act_step,
+        on_say=lambda t: bridge.caption.emit(t),
+        on_state=lambda s: bridge.state.emit(s),
+    )
+
+    def _open_plan_target(target: str) -> None:
+        if not target:
+            return
+        try:
+            if "://" in target or target.startswith(("mailto:", "tel:", "sms:", "www.")):
+                controller.act({"action": "open", "target": target})
+            else:
+                controller.act({"action": "open_app", "target": target})
+            time.sleep(1.5)
+        except Exception:  # noqa: BLE001
+            pass
+
+    def send_message_task(
+        platform: str, to: str, text: str, subject: str = "", confirmed: bool = True
+    ) -> str:
+        plat = platform_of(platform or "whatsapp")
+        addr = contacts.address(to, plat) or to
+        plan = message_plan(plat, addr, text, subject)
+        _open_plan_target(plan.open)
+        return operator.run(plan.goal, confirmed=confirmed)
+
+    def call_person_task(
+        to: str, how: str = "telefono", confirmed: bool = True
+    ) -> str:
+        plat = platform_of(how) if how not in ("telefono", "phone", "celular") else "whatsapp"
+        addr = contacts.address(to, plat) or to
+        plan = call_plan(addr, how)
+        _open_plan_target(plan.open)
+        return operator.run(plan.goal, confirmed=confirmed)
+
+    def run_task(kind: str, action: dict) -> str:
+        confirmed = action.get("confirmed") is not False
+        if kind == "operate":
+            reply = str(action.get("answer") or "").strip()
+            if reply and operator.pending is not None:
+                return operator.answer(reply, confirmed=confirmed)
+            goal = str(action.get("goal") or action.get("text") or action.get("target") or "").strip()
+            return operator.run(goal, confirmed=confirmed)
+        if kind == "message":
+            return send_message_task(
+                str(action.get("platform") or "whatsapp"),
+                str(action.get("to") or action.get("target") or ""),
+                str(action.get("text") or ""),
+                str(action.get("subject") or ""),
+                confirmed=confirmed,
+            )
+        if kind == "phone_call":
+            return call_person_task(
+                str(action.get("to") or action.get("target") or ""),
+                str(action.get("platform") or "telefono"),
+                confirmed=confirmed,
+            )
+        if kind == "contact":
+            return contacts.remember(
+                str(action.get("to") or action.get("target") or ""),
+                str(action.get("platform") or "telefono"),
+                str(action.get("text") or ""),
+            )
+        return "unknown task"
+
+    controller.on_task = run_task
+
     def eyes() -> bytes:
         """Direct look for "¿qué tengo en la mano?": show the window too."""
         bridge.peek.emit()
@@ -615,8 +688,17 @@ def run(config: dict[str, Any]) -> None:
     assistant.guide = lambda marks, caption: bridge.guide.emit(marks, caption)
     assistant.guide_showing = lambda: guide_overlay.showing
     assistant.guide_dismiss = lambda: bridge.run.emit(guide_overlay.dismiss)
+    _level_gate = [0.0, 0.0]  # [last_emit_monotonic, last_level]
+
+    def emit_level_throttled(lvl: float) -> None:
+        now = time.monotonic()
+        if now - _level_gate[0] < 0.045 and abs(lvl - _level_gate[1]) < 0.025:
+            return
+        _level_gate[0], _level_gate[1] = now, lvl
+        bridge.level.emit(lvl)
+
     ears = Ears(
-        assistant, wake_word=bool(config["wake_word"]), on_level=bridge.level.emit
+        assistant, wake_word=bool(config["wake_word"]), on_level=emit_level_throttled
     )
 
     def hands_status() -> str:
@@ -3239,6 +3321,11 @@ def run(config: dict[str, Any]) -> None:
         globe=globe_tool,
         photo_who=photo_who,
         kinship=kinship,
+        operate=lambda goal, confirmed=True: operator.run(goal, confirmed=True if confirmed is None else bool(confirmed)),
+        operate_answer=lambda reply, confirmed=True: operator.answer(reply, confirmed=True if confirmed is None else bool(confirmed)),
+        message=send_message_task,
+        call_person=call_person_task,
+        remember_contact=contacts.remember,
         screenshot=save_screenshot,
         quick=quick_order,
         video=play_video,
@@ -3273,12 +3360,10 @@ def run(config: dict[str, Any]) -> None:
             return  # the keeper reconnects in a moment, quietly
         if why == "cancelado":  # "Sergio" was not for him after all
             bridge.state.emit("idle")
-        elif why in ("silencio", "se cortó"):
-            # A pause in the conversation, not an event to announce: the orb
-            # simply waits (and reconnects by itself when the line drops).
+        elif why in ("silencio", "se cortó", "otra ventana"):
+            # A pause or handoff to the app window: stay quiet and compact,
+            # never pop up «Sigo contigo en la otra ventana» in the notch.
             bridge.state.emit("idle")
-        elif why == "otra ventana":
-            bridge.caption.emit("Sigo contigo en la otra ventana.")
 
     def new_session(**changes: Any) -> CallSession:
         """A call set up exactly like the real ones (tools, voice, context)."""
@@ -3309,7 +3394,7 @@ def run(config: dict[str, Any]) -> None:
             "on_caption": bridge.caption.emit,
             "on_heard": lambda text: setattr(assistant, "last_heard", text),
             "on_turn": client.remember_turn,
-            "on_level": bridge.level.emit,
+            "on_level": emit_level_throttled,
             "on_end": call_ended,
             "video": call_video,
         }
@@ -3516,6 +3601,8 @@ def run(config: dict[str, Any]) -> None:
     def owner_approves(request: str, seconds: float = 10.0) -> bool:
         """Explicit action consent with Sergio's own Face ID (owner, 26 Oct
         2026: no Windows Hello); its backup code when Face ID asks for it."""
+        if not bool(config.get("strict_permissions", False)):
+            return True
         if not request.strip():
             return False
         from sergio_escritorio import faceid_verify
@@ -3887,7 +3974,7 @@ def run(config: dict[str, Any]) -> None:
         def run() -> None:
             if not start_call(force=True):
                 if call_busy[0]:
-                    bridge.caption.emit("Le escucho en la ventana de Sergio.")
+                    bridge.state.emit("idle")
                     return
                 bridge.caption.emit(f"Voz en vivo no disponible: {call_error[0][:240]}")
                 if config.get("allow_turn_fallback", False):

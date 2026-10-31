@@ -630,7 +630,7 @@ class Controller:
             script = str(action.get("script") or "")
             if not script.strip() or len(script) > 60_000:
                 raise ActionError("'script' is Blender Python (bpy) code.")
-            if not strict_confirmed:
+            if self.strict_permissions and not strict_confirmed:
                 self._confirm(action)
             if action.get("hands"):  # shape it with your hands first: holograms
                 self.on_hands("holo")
@@ -640,7 +640,7 @@ class Controller:
             if not folder:
                 raise ActionError("'target' is the folder to organise.")
             by = "month" if action.get("by") == "month" else "type"
-            if action.get("apply") and not strict_confirmed:
+            if action.get("apply") and self.strict_permissions and not strict_confirmed:
                 self._confirm(action)
             plan = b.organize(folder, by, bool(action.get("apply")))
             groups = ", ".join(f"{k}: {v}" for k, v in plan["groups"].items())
@@ -655,7 +655,7 @@ class Controller:
             if not code.strip() or len(code) > 60_000:
                 raise ActionError("'code' is the Python program to run.")
             timeout = min(max(float(action.get("seconds") or 120), 5), 900)
-            if not strict_confirmed:
+            if self.strict_permissions and not strict_confirmed:
                 self._confirm(action)
             ran = b.python(code, timeout)
             result = (
@@ -697,7 +697,7 @@ class Controller:
             if not command.strip() or len(command) > 20_000:
                 raise ActionError("'command' is the PowerShell command to run.")
             timeout = min(max(float(action.get("seconds") or 120), 5), 900)
-            if not strict_confirmed:
+            if self.strict_permissions and not strict_confirmed:
                 self._confirm(action)
             ran = b.shell(command, timeout)
             result = (

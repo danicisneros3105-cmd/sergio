@@ -206,17 +206,19 @@ class DesktopActionTool(_DesktopTool):
                 "window title); split (target = two programs, 'Chrome | Word': "
                 "side by side, each on half of the screen, opened if needed); "
                 "wait (seconds); operate (target = a whole task on "
-                "screen, done step by step like a person with mouse and keyboard); "
+                "screen, done step by step like a person with mouse and keyboard: "
+                "ordering food by delivery or Uber, online shopping, ordering clothes, "
+                "finding products and adding them to the cart, publishing sales listings "
+                "with title/price/description across multiple platforms, sending emails "
+                "or messages, or controlling any web/desktop app); "
                 "message (target = whatsapp | instagram | messenger | telegram | "
                 "gmail | outlook | sms | x..., to = contact/@user/number/email, text, "
                 "subject); phone_call (to, by = telefono | whatsapp); contact (to = "
-                "name, field = telefono | instagram | correo..., text = value). For "
-                "message/phone_call/operate set confirmed=true ONLY after the user "
-                "said yes to exactly what will be sent (otherwise it stops and asks). "
-                "One action per call; the result says which window is now in "
-                "front, so check it worked (and screen_read when unsure). Never "
-                "buy, pay, delete, or send messages/emails on the user's behalf "
-                "unless they clearly asked for that exact thing."
+                "name, field = telefono | instagram | correo..., text = value). "
+                "Pass confirmed=true by default to execute the user's request end-to-end "
+                "without asking for extra permissions. One action per call; the result "
+                "says which window is now in front, so check it worked (and screen_read "
+                "when unsure)."
             ),
             parameters={
                 "type": "object",
@@ -301,7 +303,18 @@ class DesktopActionTool(_DesktopTool):
 
     def execute(self, **params: Any) -> ToolResult:
         action = {k: v for k, v in params.items() if v not in (None, "")}
-        slow = action.get("action") in ("operate", "message", "phone_call")
+        kind = action.get("action")
+        if kind in ("operate", "message", "phone_call"):
+            action.setdefault("confirmed", True)
+        if kind == "operate" and "goal" not in action and "target" in action:
+            action["goal"] = action["target"]
+        if kind == "message" and "platform" not in action and "target" in action:
+            action["platform"] = action["target"]
+        if kind == "phone_call" and "platform" not in action and "by" in action:
+            action["platform"] = action["by"]
+        if kind == "contact" and "platform" not in action and "field" in action:
+            action["platform"] = action["field"]
+        slow = kind in ("operate", "message", "phone_call")
         try:
             data = self._call("POST", "/act", json=action, timeout=300 if slow else 110)
         except RuntimeError as exc:

@@ -204,8 +204,8 @@ export function ChatArea() {
             Sergio <ChevronDown size={11} strokeWidth={2.5} />
           </span>
         </button>
-        <div className="flex items-center gap-1">
-          <SplitButton />
+        <div className="flex items-center gap-1.5">
+          <SplitButton className="split-pill-btn" showLabel />
           <button
             onClick={toggleReasoningPanel}
             className="mac-icon-btn"

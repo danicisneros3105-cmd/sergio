@@ -111,12 +111,16 @@ def caption_filter(caption: str, length: float, height: int, text: dict[str, Any
     base = f"fontfile='{FONT}':fontcolor={colour}:fontsize={size}:borderw=6:bordercolor=black@0.75:x=(w-text_w)/2:y={y}"
     if not text.get("kinetic") or len(words) < 2:
         return f",drawtext={base}:text='{_escape(' '.join(words))}'"
-    # Kinetic: the words appear one after another, then the line holds.
-    step = min(0.35, max(length * 0.6, 0.3) / len(words))
+    # Kinetic: words appear synced by syllable/character weight across the spoken span (zero lag).
+    span = max(length * 0.92, 0.3)
+    weights = [max(2, len(re.sub(r"\W", "", w)) + 2) for w in words]
+    total_w = float(sum(weights))
+    cursor = 0.0
     parts = []
-    for i in range(len(words)):
-        start = i * step
-        stop = (i + 1) * step if i < len(words) - 1 else length + 1
+    for i, wt in enumerate(weights):
+        start = cursor
+        cursor += span * (wt / total_w)
+        stop = cursor if i < len(words) - 1 else length + 1
         shown = _escape(" ".join(words[: i + 1]))
         parts.append(f",drawtext={base}:text='{shown}':enable='between(t,{start:.2f},{stop:.2f})'")
     return "".join(parts)

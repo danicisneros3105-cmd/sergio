@@ -157,3 +157,31 @@ def test_edge_recall_uses_short_reversible_transition(notch_app):
     finally:
         n._edge.stop()
         n.close()
+
+
+def test_always_on_call_listening_collapses_after_silence_and_caches_mask(notch_app):
+    import time
+    from sergio_escritorio.notch import Notch
+
+    n = Notch()
+    try:
+        n.show()
+        n.set_call(True)
+        n.set_state("listening")
+        # Initially expanded right when entering listening
+        assert n.expanded()
+        # After 4 seconds of silence during an always-on call, Notch collapses to compact pill
+        # so it never gets stuck saying "Te escucho" forever
+        n._listen_until = time.monotonic() - 0.1
+        assert not n.expanded()
+        # Speaking into the mic wakes it back up immediately
+        n.set_level(0.25)
+        assert n.expanded()
+        # Mask key is cached and avoids redundant Win32 SetWindowRgn calls when geometry is unchanged
+        n._tick()
+        first_key = n._mask_key
+        assert first_key is not None
+    finally:
+        n._edge.stop()
+        n.close()
+

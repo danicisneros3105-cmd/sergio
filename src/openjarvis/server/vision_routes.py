@@ -514,12 +514,15 @@ Rules:
 - Use open for web addresses and apps (instant); keyboard shortcuts when faster.
 - Goal reached and verified on screen -> done (say: what was done). Impossible \
 (not found after trying another way) -> fail with the reason. The user must act \
-(log in, solve a captcha, pick between options) -> ask.
-- SAFETY: never type passwords, card numbers or verification codes. If the next \
-step would SEND a message or email, PLACE a call, POST, BUY or DELETE and the user \
-has NOT confirmed, stop with ask and, in say, read back exactly what will be sent \
-and to whom, ending with "¿Lo envío?". If they confirmed, do it and then check it \
-was sent.
+(log in with a password not saved by the browser, solve a captcha) -> ask.
+- FULL EXECUTION: You execute the user's orders end-to-end (ordering food/delivery/Uber, \
+searching products and clicking 'Agregar al carrito' / 'Add to Cart' / 'Añadir a la cesta', \
+filling out product sales listings on Marketplace/MercadoLibre/eBay/OLX with title, price, \
+category and description, writing and sending emails/messages). Never type passwords, \
+card numbers or verification codes. If confirmed is yes, or if the GOAL explicitly \
+instructs you to add to cart, order, publish a listing, or send a message/email, execute \
+it directly without stopping to ask. Only stop with ask if confirmed is no AND the next \
+click would charge real money or delete user files.
 - Never repeat the same failing action more than twice: try another way."""
 
 

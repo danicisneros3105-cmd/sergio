@@ -18,7 +18,7 @@ export const LIVE_ES: Record<LiveStatus, string> = {
   ended: 'Reconectando…',
   error: 'Reconectando…',
   blocked: 'Necesito permiso para el micrófono: haga clic para concederlo',
-  replaced: 'Ahora hablamos en otro equipo: haga clic para hablar aquí',
+  replaced: 'Le escucho (haga clic para hablar aquí)',
 };
 
 export function LiveOrb({ size = 'md' }: { size?: 'sm' | 'md' | 'lg' }) {
@@ -40,7 +40,7 @@ export function LiveOrb({ size = 'md' }: { size?: 'sm' | 'md' | 'lg' }) {
   const label = muted
     ? 'Micrófono en silencio: haga clic para hablar'
     : elsewhere
-      ? 'Sergio le escucha en la otra ventana: haga clic para hablar aquí'
+      ? 'Le escucho (haga clic para usar esta ventana)'
       : LIVE_ES[status];
   const live = status === 'listening' || status === 'speaking' || status === 'thinking';
   return (
@@ -105,16 +105,62 @@ export function LiveCaptions() {
   );
 }
 
-/** Starts the conversation on the first click or key press (browser rule). */
+/** Starts the conversation on the first click or key press (browser rule) and keeps the multi-device bridge active. */
 export function LiveStarter() {
   const ensure = useLive((s) => s.ensure);
   useEffect(() => {
     const wake = () => ensure();
     window.addEventListener('pointerdown', wake, true);
     window.addEventListener('keydown', wake, true);
+
+    const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '');
+    let devId = 'dev-web';
+    try {
+      devId = localStorage.getItem('sergio.device_id') || `${isMobile ? 'phone' : 'pc'}-${Math.random().toString(36).slice(2, 8)}`;
+      localStorage.setItem('sergio.device_id', devId);
+    } catch {
+      // ignore private mode
+    }
+    const pollDeviceBridge = async () => {
+      try {
+        const res = await fetch('/v1/devices/heartbeat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            device_id: devId,
+            kind: isMobile ? 'phone' : 'pc',
+            name: isMobile ? 'Teléfono móvil (Sergio Web)' : 'Computadora (Sergio Web)',
+          }),
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        const cmds: Array<{ action: string; params?: Record<string, unknown> }> = data.commands || [];
+        for (const cmd of cmds) {
+          if (cmd.action === 'record_video' || cmd.action === 'stop_video' || cmd.action === 'take_photo') {
+            if (!window.location.pathname.startsWith('/capture')) {
+              window.history.pushState({}, '', '/capture');
+              window.dispatchEvent(new PopStateEvent('popstate'));
+            }
+            setTimeout(() => window.dispatchEvent(new CustomEvent('sergio:device-command', { detail: cmd })), 250);
+          } else if (cmd.action === 'record_meeting' || cmd.action === 'stop_meeting') {
+            if (!window.location.pathname.startsWith('/meeting')) {
+              window.history.pushState({}, '', '/meeting');
+              window.dispatchEvent(new PopStateEvent('popstate'));
+            }
+            setTimeout(() => window.dispatchEvent(new CustomEvent('sergio:device-command', { detail: cmd })), 250);
+          } else if (cmd.action === 'open_url' && typeof cmd.params?.url === 'string') {
+            window.open(cmd.params.url, '_blank');
+          }
+        }
+      } catch {
+        // offline or unit test
+      }
+    };
+    const timer = window.setInterval(() => void pollDeviceBridge(), 4000);
     return () => {
       window.removeEventListener('pointerdown', wake, true);
       window.removeEventListener('keydown', wake, true);
+      window.clearInterval(timer);
     };
   }, [ensure]);
   return null;

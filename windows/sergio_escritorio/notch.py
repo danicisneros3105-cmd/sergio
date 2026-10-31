@@ -180,9 +180,11 @@ class Notch(QWidget):
         # Hide while a video or game is fullscreen (unless Sergio is active).
         self.fullscreen_app = fullscreen_app or (lambda: False)
         self._mask_rect = None
+        self._mask_key: tuple[int, ...] | None = None
         self._hidden_for_fullscreen = False
         self._last_fs_check = 0.0
         self.state = "idle"
+        self._listen_until = 0.0
         self.name = "Sergio"  # personalisation can rename him
         self.caption = ""
         self._caption_until = 0.0
@@ -260,11 +262,16 @@ class Notch(QWidget):
 
     def set_state(self, state: str) -> None:
         self.state = state if state in STATE_COLORS else "idle"
+        if self.state == "listening":
+            self._listen_until = time.monotonic() + 3.5
         self._wake()
 
     def set_level(self, level: float) -> None:
         """Live microphone volume 0..1 (called ~30 times a second)."""
         self.level = max(0.0, min(1.0, level))
+        if self.level >= 0.06 and self.state == "listening":
+            self._listen_until = time.monotonic() + 2.5
+            self._wake()
 
     def set_call(self, active: bool) -> None:
         """A green call timer, like the Dynamic Island during a phone call."""
@@ -383,7 +390,15 @@ class Notch(QWidget):
         self.move(geo.x() + (geo.width() - CANVAS_W) // 2, geo.y())
 
     def expanded(self) -> bool:
-        return bool(self.caption) or self.state not in ("idle",)
+        if self.caption:
+            return True
+        if self.state == "idle":
+            return False
+        # During an always-on call, do not keep the notch stuck expanded saying
+        # «Te escucho» in silence; collapse to compact pill until voice is heard.
+        if self.call_since is not None and self.state == "listening":
+            return time.monotonic() < self._listen_until
+        return True
 
     def lines(self) -> list[str]:
         if not self.caption:
@@ -527,24 +542,34 @@ class Notch(QWidget):
             self.update()
             return
         rect = self.pill()
-        region = QRegion(notch_path(rect).toFillPolygon().toPolygon())
         bubble = self.bubble()
-        if bubble is not None:
-            region = region.united(
-                QRegion(bubble.toAlignedRect(), QRegion.RegionType.Ellipse)
-            )
-            bridge = liquid_bridge(rect, bubble, self._duo.angle)
-            if not self.reduced_motion and not bridge.isEmpty():
-                region = region.united(QRegion(bridge.toFillPolygon().toPolygon()))
-        if region != self._mask_rect:
-            self._mask_rect = region
-            self.setMask(region)  # clicks outside the islands go through
+        mask_key = (
+            round(rect.left()),
+            round(rect.top()),
+            round(rect.width()),
+            round(rect.height()),
+            round(bubble.left()) if bubble is not None else -1,
+            round(bubble.width()) if bubble is not None else 0,
+            round(self._duo.angle),
+            1 if self.reduced_motion else 0,
+        )
+        if mask_key != self._mask_key:
+            self._mask_key = mask_key
+            region = QRegion(notch_path(rect).toFillPolygon().toPolygon())
+            if bubble is not None:
+                region = region.united(
+                    QRegion(bubble.toAlignedRect(), QRegion.RegionType.Ellipse)
+                )
+                bridge = liquid_bridge(rect, bubble, self._duo.angle)
+                if not self.reduced_motion and not bridge.isEmpty():
+                    region = region.united(QRegion(bridge.toFillPolygon().toPolygon()))
+            if region != self._mask_rect:
+                self._mask_rect = region
+                self.setMask(region)  # clicks outside the islands go through
         self._respect_fullscreen()
-        moving = not all((self._duo.settled(), self._sw.settled(), self._sh.settled()))
-        interval = 250 if self._hidden_for_fullscreen else (16 if moving and not self.reduced_motion else 33)
-        if self._timer.interval() != interval:
-            self._timer.setInterval(interval)
         if self._hidden_for_fullscreen:
+            if self._timer.interval() != 250:
+                self._timer.setInterval(250)
             return
         self.update()
         # Keep smooth transitions at 60 Hz; a quiet, settled pill only breathes:
@@ -553,9 +578,10 @@ class Notch(QWidget):
                        and self._press.settled())
                   or self._duo.angle != self._duo.target or self._vanish.active
                   or self._faceid is not None)
-        # Listening or speaking without a change of shape: 30 Hz is plenty
-        # for the wave (it was 60 all the time with the conversation on).
-        self._timer.setInterval(16 if moving else 33 if self.state != "idle" else 100)
+        active_wave = self.state not in ("idle", "listening") or self.expanded()
+        target_interval = 16 if (moving and not self.reduced_motion) else 33 if active_wave else 100
+        if self._timer.interval() != target_interval:
+            self._timer.setInterval(target_interval)
 
     def _respect_fullscreen(self) -> None:
         now = time.monotonic()

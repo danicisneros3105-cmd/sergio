@@ -177,6 +177,14 @@ CREADORES: Tuple[Card, ...] = (
          ("un short que se repita solo", "tiktok con audio en tendencia", "reel corto y adictivo",
           "a loopable short", "que lo vean dos veces sin darse cuenta"),
          ("un video de 15 segundos para tiktok", "a loop that never ends")),
+    Card("anatomia_3d", "Zack D. Films", "3D medical/mechanical cross-section camera diving inside the object or human body, translucent layers peeling back to show exact cause-and-effect mechanics",
+         ("explicado en 3d por dentro", "corte transversal 3d de cómo funciona", "estilo zack d films mostrando el interior",
+          "3D cross section inside the body", "qué pasa exactamente por dentro cuando ocurre esto"),
+         ("cómo funciona una cerradura vista por dentro en 3d", "inside the human heart 3D explainer")),
+    Card("motion_kinetic", "Vox / Motion Graphics", "high-contrast kinetic typography, animated data charts, glowing vector callouts and smooth isometric camera pans synchronized to every spoken beat",
+         ("motion graphics con gráficas animadas", "tipografía cinética y datos visuales", "explicación visual con diagramas en movimiento",
+          "kinetic typography and animated charts", "infografía animada con ritmo rápido"),
+         ("estadísticas animadas sobre economía", "kinetic text explainer with charts")),
 )  # fmt: skip
 
 SPECIALISTS: Dict[str, Tuple[Card, ...]] = {"cine": CINE, "creadores": CREADORES}

@@ -32,8 +32,9 @@ from openjarvis.tools._stubs import BaseTool, ToolSpec
 SCRIPT_PROMPT = """Write the script of a short video (Spanish) about: «{topic}».
 {n} scenes. For each: "say", one sentence the narrator says (8-22 words, \
 natural spoken Spanish, no emojis), and "picture", a detailed description in \
-English of a single striking image for that moment (no text in the image, \
-no logos, no real people's faces). Also a short "title" (max 6 words).
+English of a single striking image that literally and coherently shows the exact \
+subject and action spoken in "say" at that moment (1:1 visual-narration coherence, \
+no text in the image, no logos, no real people's faces). Also a short "title" (max 6 words).
 Answer ONLY JSON: {{"title": "...", "scenes": [{{"say": "...", "picture": "..."}}]}}"""
 
 SIZES = {"16:9": (1280, 720), "9:16": (720, 1280), "1:1": (1080, 1080)}
@@ -276,9 +277,17 @@ class VideoCreateTool(BaseTool):
             except Exception:  # noqa: BLE001 — captions alone still tell it
                 voice = b""
         if voice:
-            total = _wav_seconds(voice) + 0.6
-            words = [max(1, len(s.split())) for s in sentences]
-            durations = [total * w / sum(words) for w in words]
+            import re as _re
+
+            total = max(0.5, _wav_seconds(voice))
+            weights = [
+                max(
+                    1,
+                    sum(len(_re.sub(r"\W", "", w)) + 2 for w in s.split()),
+                )
+                for s in sentences
+            ]
+            durations = [total * w / sum(weights) for w in weights]
         else:
             durations = [max(3.0, seconds / len(scenes))] * len(scenes)
         name = studio.media_name("video", ".mp4")

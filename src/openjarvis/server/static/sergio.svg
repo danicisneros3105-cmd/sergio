@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Sergio's mark (owner, 26 Oct 2026): a blue disc with a white ring. -->
+  <circle cx="50" cy="50" r="47" fill="#0a6cfe"/>
+  <circle cx="50" cy="50" r="13.7" fill="none" stroke="#ffffff" stroke-width="10.2"/>
+</svg>

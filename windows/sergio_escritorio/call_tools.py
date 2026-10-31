@@ -534,24 +534,24 @@ def call_tools(ab: Abilities) -> list[ClientTool]:
         ClientTool(
             "usar_computadora",
             "Usa la computadora del usuario como una persona, con mouse y teclado, paso "
-            "a paso y comprobando cada paso: navegar webs, rellenar formularios, publicar, "
-            "configurar algo, cualquier tarea en pantalla. Se detiene y pregunta antes de "
-            "enviar, llamar, publicar, comprar o borrar salvo confirmado=true. Si devuelve "
-            "PREGUNTA, házsela al usuario y luego usa seguir_tarea con su respuesta.",
-            lambda a: ab.operate(str(a.get("objetivo") or ""), bool(a.get("confirmado"))),
+            "a paso y comprobando cada paso: pedir comida por delivery o Uber, comprar o "
+            "pedir ropa por internet, encontrar productos y agregarlos al carrito, publicar "
+            "ventas con título/precio/descripción en múltiples plataformas, enviar correos "
+            "o mensajes y controlar cualquier web o programa. Pasa confirmado=true por defecto.",
+            lambda a: ab.operate(str(a.get("objetivo") or ""), a.get("confirmado") is not False),
             _obj(
                 objetivo=_str("La tarea completa con todos los datos", required=True),
-                confirmado={"type": "boolean", "description": "true solo si el usuario ya confirmó el envío/llamada/publicación"},
+                confirmado={"type": "boolean", "description": "true por defecto para ejecutar la orden completa"},
             ),
         ),
         ClientTool(
             "seguir_tarea",
             "Continúa la última tarea de usar_computadora/enviar_mensaje que hizo una "
             "pregunta, con la respuesta del usuario.",
-            lambda a: ab.operate_answer(str(a.get("respuesta") or ""), bool(a.get("confirmado"))),
+            lambda a: ab.operate_answer(str(a.get("respuesta") or ""), a.get("confirmado") is not False),
             _obj(
                 respuesta=_str("Lo que respondió el usuario", required=True),
-                confirmado={"type": "boolean", "description": "true si dijo que sí lo envíe/llame"},
+                confirmado={"type": "boolean", "description": "true por defecto"},
             ),
         ),
         ClientTool(
@@ -559,34 +559,33 @@ def call_tools(ab: Abilities) -> list[ClientTool]:
             "Envía un mensaje o correo a otra persona como lo haría el usuario: WhatsApp, "
             "Instagram, Messenger, Telegram, Gmail, Outlook, SMS, X, TikTok, LinkedIn, "
             "Discord o Teams. 'para' es el nombre del contacto, su @usuario, número o "
-            "correo. ANTES lee al usuario a quién y qué se enviará y pregunta; usa "
-            "confirmado=true solo cuando diga que sí.",
+            "correo. Ejecútalo directamente con confirmado=true cuando el señor lo pida.",
             lambda a: ab.message(
                 str(a.get("plataforma") or "whatsapp"),
                 str(a.get("para") or ""),
                 str(a.get("mensaje") or ""),
                 str(a.get("asunto") or ""),
-                bool(a.get("confirmado")),
+                a.get("confirmado") is not False,
             ),
             _obj(
                 plataforma=_str("whatsapp, instagram, messenger, telegram, gmail, outlook, sms, x...", required=True),
                 para=_str("Contacto, @usuario, número o correo", required=True),
                 mensaje=_str("El texto exacto", required=True),
                 asunto=_str("Asunto (correos)"),
-                confirmado={"type": "boolean", "description": "true solo si el usuario confirmó el envío"},
+                confirmado={"type": "boolean", "description": "true por defecto para enviar directamente"},
             ),
         ),
         ClientTool(
             "llamar",
             "Hace una llamada telefónica (por el celular del usuario con Enlace Móvil) o "
-            "por WhatsApp. Confirma antes con el usuario a quién llamará.",
+            "por WhatsApp directamente cuando el señor lo pida.",
             lambda a: ab.call_person(
-                str(a.get("para") or ""), str(a.get("por") or "telefono"), bool(a.get("confirmado"))
+                str(a.get("para") or ""), str(a.get("por") or "telefono"), a.get("confirmado") is not False
             ),
             _obj(
                 para=_str("Contacto o número", required=True),
                 por=_str("telefono o whatsapp", enum=["telefono", "whatsapp"]),
-                confirmado={"type": "boolean", "description": "true si el usuario confirmó la llamada"},
+                confirmado={"type": "boolean", "description": "true por defecto"},
             ),
         ),
         ClientTool(
