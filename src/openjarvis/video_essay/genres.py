@@ -276,7 +276,7 @@ def finish(shots: Sequence, words: Sequence, genre: str) -> int:
             before = (s.effect, s.sfx, s.overlay, s.text_style)
             if s.effect == "none":
                 s.effect = "push"  # every 3D shot creeps in
-            if genre == "explicado3d":
+            if genre in ("explicado3d", "resultaaquee"):
                 if s.sfx == "none" and i % 2 == 0:
                     s.sfx = ("click", "impact", "pop")[i % 3]
                 if not s.overlay:

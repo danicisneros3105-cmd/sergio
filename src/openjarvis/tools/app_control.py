@@ -1586,27 +1586,36 @@ class SergioAppControlTool(BaseTool):
                     "documental": "documental",
                     "inspiracional": "inspiracional",
                 }
+                # no clear genre: the general one, not always a 9:16 3D explainer
                 genre = (
-                    genre_map.get(raw_style) or genres.detect(prompt) or "explicado3d"
+                    genre_map.get(raw_style) or genres.detect(prompt) or "inspiracional"
                 )
                 style_key = (
                     genres.GENRES[genre].style
                     if genre in genres.GENRES
                     else "metas-grandes"
                 )
-                state = video_job.start(
-                    {
-                        "prompt": prompt,
-                        "genre": genre,
-                        "style": style_key,
-                        "aspect": "9:16"
-                        if genre in ("resultaaquee", "explicado3d", "corto3d")
-                        else "16:9",
-                        "duration": 40
-                        if genre == "resultaaquee"
-                        else (45 if genre in ("explicado3d", "corto3d") else 90),
-                    }
-                )
+                order = {
+                    "prompt": prompt,
+                    "genre": genre,
+                    "style": style_key,
+                    "aspect": "9:16"
+                    if genre in ("resultaaquee", "explicado3d", "corto3d")
+                    else "16:9",
+                    # the job reads «seconds» (it used to be «duration»: every
+                    # video came out planned as 60 s)
+                    "seconds": 40
+                    if genre == "resultaaquee"
+                    else (45 if genre in ("explicado3d", "corto3d") else 90),
+                }
+                existing, why = video_job.guard(order)  # one at a time, daily cap
+                if why:
+                    return ToolResult(
+                        tool_name=self.tool_id,
+                        content=why,
+                        success=existing is not None,
+                    )
+                state = video_job.start(order)
                 job_id = getattr(state, "id", None) or (
                     state.get("id") if isinstance(state, dict) else str(state)
                 )

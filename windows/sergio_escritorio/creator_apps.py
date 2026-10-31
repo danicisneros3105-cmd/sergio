@@ -111,6 +111,21 @@ PROGRAMS: dict[str, Program] = {
         ),
         opens=(".godot", ".tscn", ".tres", ".gd", ".glb", ".gltf"),
     ),
+    # Owner, 1 Nov 2026: «integra Unreal Engine en Creator para poder también
+    # hacer juegos». The engine is free but comes through the Epic Games
+    # Launcher: Sergio installs the launcher; the owner signs in to his Epic
+    # account once and installs UE 5 there (Epic's licence asks for that).
+    "unreal": Program(
+        "Juegos · Unreal Engine 5",
+        "juegos y mundos 3D en tiempo real",
+        winget="EpicGames.EpicGamesLauncher",
+        exe=(
+            r"%ProgramFiles%\Epic Games\UE_5.*\Engine\Binaries\Win64\UnrealEditor.exe",
+            r"%ProgramFiles%\Epic Games\Launcher\Portal\Binaries\Win64\EpicGamesLauncher.exe",
+            r"%ProgramFiles(x86)%\Epic Games\Launcher\Portal\Binaries\Win64\EpicGamesLauncher.exe",
+        ),
+        opens=(".uproject",),
+    ),
     "bonsai": Program(
         "BIM",
         "el edificio en IFC",
@@ -384,6 +399,39 @@ def open_program(
     return f"Abriendo {PROGRAMS[key].name}{shown}."
 
 
+def unpack_project(zipped: Path) -> Path:
+    """A game Sergio made (``creator/unreal.py``): unpacked next to it; the
+    path of its ``.uproject``."""
+    import zipfile
+
+    target = zipped.with_suffix("")
+    with zipfile.ZipFile(zipped) as z:
+        for member in z.namelist():  # never outside the folder
+            out = (target / member).resolve()
+            if not str(out).startswith(str(target.resolve())):
+                raise ValueError("archivo inválido en el proyecto")
+        z.extractall(target)
+    found = sorted(target.rglob("*.uproject"))
+    if not found:
+        raise ValueError("el proyecto no trae .uproject")
+    return found[0]
+
+
+def open_unreal_project(zipped: Path, starter: Callable[[str], Any] | None = None) -> str:
+    project = unpack_project(zipped)
+    if starter is None and not hasattr(os, "startfile"):
+        return f"Proyecto listo en {project.parent}."
+    try:
+        # .uproject opens with the engine the launcher installed
+        (starter or os.startfile)(str(project))  # type: ignore[attr-defined]
+    except OSError:
+        return (
+            f"Proyecto listo en {project.parent}. Para abrirlo, instale Unreal Engine 5 "
+            "desde el Epic Games Launcher (Biblioteca → Instalar motor) con su cuenta."
+        )
+    return f"Abriendo {project.stem} en Unreal Engine; el primer nivel se arma solo al abrir."
+
+
 def skill(args: dict) -> Any:
     """What the server asks for (``creator_apps``): status, install, open."""
     action = str(args.get("action") or "status")
@@ -398,6 +446,8 @@ def skill(args: dict) -> Any:
         file = ""
         if args.get("data"):
             file = str(save_incoming(str(args.get("name") or ""), str(args["data"])))
+        if key == "unreal" and file.lower().endswith(".zip"):
+            return open_unreal_project(Path(file))
         return open_program(key, file)
     raise LookupError(f"acción desconocida: {action}")
 

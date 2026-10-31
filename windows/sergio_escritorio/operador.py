@@ -65,9 +65,22 @@ class Operator:
         self.sleep = sleep
         self.max_steps = max_steps
         self.pending: Task | None = None  # waiting for the user's answer
+        from sergio_escritorio.pelicula import Film
+
+        self.film = Film()  # pictures of each step, for the chat
 
     def run(self, goal: str, confirmed: bool = False) -> str:
-        return self._work(Task(goal.strip(), confirmed))
+        self.film.start(goal.strip())
+        return self._filmed(self._work(Task(goal.strip(), confirmed)))
+
+    def _filmed(self, outcome: str) -> str:
+        state = (
+            "done" if outcome.startswith("Hecho")
+            else "asking" if outcome.startswith("PREGUNTA") or self.pending is not None
+            else "failed"
+        )
+        self.film.end(state, outcome)
+        return outcome
 
     def answer(self, reply: str, confirmed: bool = False) -> str:
         """Carry on with the task that asked a question ("sí, envíalo")."""
@@ -77,7 +90,8 @@ class Operator:
         self.pending = None
         task.confirmed = task.confirmed or confirmed
         task.history.append(f"the user answered: {reply}")
-        return self._work(task)
+        self.film.end("working", "")
+        return self._filmed(self._work(task))
 
     # -- the loop -------------------------------------------------------------
     def _took_over(self) -> bool:
@@ -110,6 +124,7 @@ class Operator:
             )
             kind = str(step.get("action") or "fail")
             say = str(step.get("say") or "").strip()
+            self.film.frame(png, say or self._describe(kind, step))
             if say and say != said:
                 self.on_say(say)
                 said = say

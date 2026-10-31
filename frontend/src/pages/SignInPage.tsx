@@ -63,6 +63,28 @@ function isThisComputer(): boolean {
   return h === 'localhost' || h === '127.0.0.1' || h === '[::1]';
 }
 
+/** What the background AI set-up did after sign-in (owner, 1 Nov 2026: «no
+ * funciona lo que te registras y en segundo plano se crean todas las APIs»:
+ * a failure only reached the server log). Asks a few times while it runs. */
+export async function reportAiSetup(token: string, tries = 6, wait = 2500): Promise<string> {
+  for (let i = 0; i < tries; i++) {
+    await new Promise((r) => setTimeout(r, wait));
+    try {
+      const r = await apiFetch('/v1/cuentas/estado', { headers: { Authorization: `Bearer ${token}` } });
+      const ia = r.ok ? ((await r.json()) as { ia?: { ultimo?: { motivo?: string } } }).ia : undefined;
+      const said = ia?.ultimo?.motivo || '';
+      if (said) {
+        if (said.startsWith('Listo') || said.startsWith('Su IA')) toast.success(said);
+        else toast.warning(said, { duration: 12000 });
+        return said;
+      }
+    } catch {
+      /* the server is restarting: try again */
+    }
+  }
+  return '';
+}
+
 function SignInPage() {
   const navigate = useNavigate();
   const updateSettings = useAppStore((s) => s.updateSettings);
@@ -95,6 +117,7 @@ function SignInPage() {
       updateSettings({ apiKey: a.token });
       toast.success(`${welcome()}.`);
       setFlag(NO_ACCOUNT, false);
+      void reportAiSetup(a.token);
       // The first time in: the tour shows how the app works.
       navigate(tourSeen() ? '/' : '/?tour=1');
       return;

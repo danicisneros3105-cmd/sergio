@@ -82,6 +82,15 @@ def ask(
     *search*: ground the answer on Google Search (research); *media*: bytes
     with their mime types (video, image, audio) to look at first.
     """
+    if (
+        client is None
+        and not media
+        and not (os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY"))
+    ):
+        # No Gemini key: the same JSON question to any other company's model
+        # (OpenRouter, OpenAI, Claude, DeepSeek). Owner, 1 Nov 2026: «todo lo
+        # que sea solo para Gemini hazlo universal».
+        return _ask_universal(prompt, system=system, check=check, max_tokens=max_tokens)
     from google.genai import types
 
     from openjarvis.engine.cloud import google_config_kwargs
@@ -164,3 +173,31 @@ def _with_sources(data: Any, resp: Any) -> Any:
 
 
 __all__ = ["ask", "knowledge", "parse_json"]
+
+
+def _ask_universal(
+    prompt: str,
+    *,
+    system: str = "",
+    check: Callable[[Any], Any] | None = None,
+    max_tokens: int = 12000,
+) -> Any:
+    from openjarvis.creator.llm import CreatorError, ask_others
+
+    full = f"{system}\n\n{prompt}" if system else prompt
+    parsed: list[Any] = []
+
+    def valid(text: str) -> None:
+        data = parse_json(text)
+        if check is not None:
+            out = check(data)
+            data = data if out is None else out
+        parsed.append(data)
+
+    try:
+        ask_others(full, json_mode=True, max_tokens=max_tokens, check=valid)
+    except CreatorError as exc:
+        raise RuntimeError(
+            "Falta una clave de IA (OpenRouter, OpenAI, Claude, DeepSeek o Gemini) en sergio.env."
+        ) from exc
+    return parsed[-1]

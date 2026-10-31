@@ -320,6 +320,11 @@ DEFAULT_TOOL_CAPABILITIES: Dict[str, List[str]] = {
         Capability.FILE_WRITE,
     ],
     "skill_manage": [Capability.FILE_READ, Capability.FILE_WRITE],
+    # Builds an Unreal project zip and asks the desktop to open it.
+    "juego_unreal": [Capability.FILE_READ, Capability.TOOL_INVOKE],
+    # Sergio's own code: edits in a separate git worktree, runs ruff/tests,
+    # applies one commit only if they pass (never pushes, never key files).
+    "mejorarme": [Capability.FILE_READ, Capability.FILE_WRITE, Capability.CODE_EXECUTE],
     "terminal_run": [Capability.CODE_EXECUTE],
     "text_to_speech": [Capability.NETWORK_FETCH, Capability.FILE_WRITE],
     "think": [],

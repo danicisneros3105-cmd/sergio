@@ -195,4 +195,82 @@ class TakeApartModelTool(BaseTool):
         return ToolResult(tool_name=self.tool_id, content=text, success=True)
 
 
-__all__ = ["AnatomyFigureTool", "TakeApartModelTool", "view"]
+@ToolRegistry.register("juego_unreal")
+class UnrealGameTool(BaseTool):
+    """A game in Unreal Engine 5 from a description (``creator/unreal.py``)."""
+
+    tool_id = "juego_unreal"
+
+    @property
+    def spec(self) -> ToolSpec:
+        return ToolSpec(
+            name="juego_unreal",
+            description=(
+                "Create a video game project in Unreal Engine 5 from 'idea' (and 'nombre', "
+                "'genero': tercera persona | primera persona | plataformas | carreras | puzle | "
+                "mundo abierto). It places the 3D models already made in Creator (names in "
+                "'modelos', from modelo_por_piezas) in the first level and opens the project "
+                "in Unreal on the owner's PC. Make the models first with modelo_por_piezas."
+            ),
+            parameters={
+                "type": "object",
+                "properties": {
+                    "idea": {"type": "string"},
+                    "nombre": {"type": "string"},
+                    "genero": {"type": "string"},
+                    "modelos": {"type": "array", "items": {"type": "string"}},
+                },
+                "required": ["idea"],
+            },
+        )
+
+    def execute(self, **params: Any) -> ToolResult:
+        from openjarvis.creator import despiece, programs, unreal
+        from openjarvis.creator.llm import CreatorError
+
+        placed, files = [], {}
+        for i, name in enumerate(params.get("modelos") or []):
+            try:
+                meta = despiece.meta(str(name))
+                rel = next(
+                    (
+                        f
+                        for f in (meta.get("files") or [meta.get("file", "")])
+                        if str(f).endswith(".glb")
+                    ),
+                    "",
+                )
+                path = despiece.file_path(str(name), rel or "modelo.glb")
+            except CreatorError:
+                continue
+            fname = f"{despiece.slug(str(name))}.glb"
+            files[fname] = path.read_bytes()
+            placed.append({"file": fname, "x": 400 * (i + 1), "y": 0})
+        try:
+            data = unreal.build(
+                str(params.get("nombre") or ""),
+                str(params.get("idea") or ""),
+                genre=str(params.get("genero") or ""),
+                models=placed,
+                model_files=files,
+            )
+        except unreal.UnrealError as exc:
+            return ToolResult(tool_name=self.tool_id, content=str(exc), success=False)
+        key = unreal.slug(str(params.get("nombre") or params.get("idea") or ""))
+        try:
+            said = programs.open_in_windows("unreal", f"{key}.zip", data)
+        except Exception as exc:  # noqa: BLE001 — no desktop: tell him where it is
+            return ToolResult(
+                tool_name=self.tool_id,
+                content=f"Proyecto «{key}» creado, pero no pude abrirlo en su PC: {exc}",
+                success=False,
+            )
+        extra = f" con {len(placed)} modelos en el nivel" if placed else ""
+        return ToolResult(
+            tool_name=self.tool_id,
+            content=f"Juego «{key}» creado{extra}. {said}",
+            success=True,
+        )
+
+
+__all__ = ["AnatomyFigureTool", "TakeApartModelTool", "UnrealGameTool", "view"]

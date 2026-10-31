@@ -151,7 +151,7 @@ def ass_document(
                 for j, (word, _s, _e) in enumerate(chunk):
                     text = _escape(word.upper() if caps else word)
                     parts.append(
-                        f"{{\\c{ACCENT}}}{text}{{\\c{WHITE}}}" if j == i else text
+                        f"{{\\c{accent}}}{text}{{\\c{WHITE}}}" if j == i else text
                     )
                 pop = (
                     "{\\fscx112\\fscy112\\t(0,90,\\fscx100\\fscy100)}" if i == 0 else ""

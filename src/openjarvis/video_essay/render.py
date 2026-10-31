@@ -869,6 +869,10 @@ def shot_frames(
                     img = zoom(img, 1.14 - 0.06 * min(1.0, i / 5))
                 elif shot.effect == "shake":
                     img = zoom(img, 1.06, rng.normal(0, 6), rng.normal(0, 4))
+                elif shot.effect == "push" and not shot.asset.endswith(
+                    (".png", ".jpg", ".jpeg", ".webp")
+                ):  # clips creep in too (stills already do), 3D shots above all
+                    img = zoom(img, 1.0 + 0.08 * i / max(1, n - 1))
             if shot.device != "none":
                 img = in_device(img, shot.device)
             if shot.frame != "none" or shot.grade == "bw":

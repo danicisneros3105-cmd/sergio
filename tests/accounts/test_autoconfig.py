@@ -84,7 +84,8 @@ def test_owner_sign_in_creates_his_key_once_and_reads_the_models(keys, tmp_path)
     keys.setattr(cloud_router, "_CLOUD_ENV_FILE", tmp_path / "cloud-keys.env")
     http = Http()
     out = autoconfig.on_sign_in({"id": "1", "role": "dueño"}, http)
-    assert out == {"dueño": True, "modelos": 2}
+    assert out["dueño"] is True and out["modelos"] == 2
+    assert "Listo" in out["motivo"]  # the sign-in page says what happened
     import os
 
     assert os.environ["OPENROUTER_API_KEY"] == "sk-or-owner"
@@ -96,3 +97,24 @@ def test_owner_sign_in_creates_his_key_once_and_reads_the_models(keys, tmp_path)
 
 def test_nothing_to_configure_without_any_key(keys):
     assert autoconfig.on_sign_in({"id": "1", "role": "dueño"}, Http())["dueño"] is False
+
+
+def test_the_owner_key_written_before_a_restart_is_found_again(keys, tmp_path):
+    from openjarvis.server import cloud_router
+
+    keys.setenv("OPENROUTER_MANAGEMENT_KEY", "mgmt")
+    keys.delenv("OPENROUTER_API_KEY", raising=False)
+    env = tmp_path / "cloud-keys.env"
+    env.write_text("# Sergio Nodes API\nOPENROUTER_API_KEY=sk-or-saved\n")
+    keys.setattr(cloud_router, "_CLOUD_ENV_FILE", env)
+    http = Http()
+    assert autoconfig.on_sign_in({"id": "1", "role": "dueño"}, http)["dueño"] is True
+    assert not any(c[0] == "POST" for c in http.calls)  # no second «sergio-dueño» key
+    autoconfig._save_env("OTRA", "x")
+    assert env.read_text().startswith("# Sergio Nodes API")  # comments survive
+
+
+def test_without_a_management_key_the_page_is_told_why(keys):
+    out = autoconfig.on_sign_in({"id": "1", "role": "dueño"}, Http())
+    assert "OPENROUTER_MANAGEMENT_KEY" in out["motivo"]
+    assert autoconfig.ready()["ultimo"]["motivo"] == out["motivo"]

@@ -84,6 +84,63 @@ def _kimi(
     raise RuntimeError(f"Kimi vision failed: {last}")
 
 
+# Any OpenAI-compatible service with vision (owner, 1 Nov 2026: «todo lo que
+# sea solo para Gemini hazlo universal»): with only an OpenRouter or OpenAI
+# key, the screen help, the operator and the camera still see.
+OPEN_VISION = (
+    ("OPENROUTER_API_KEY", "https://openrouter.ai/api/v1",
+     ("google/gemini-2.5-flash", "openai/gpt-4o-mini", "anthropic/claude-sonnet-4")),
+    ("OPENAI_API_KEY", "https://api.openai.com/v1", ("gpt-4o-mini", "gpt-4o")),
+)  # fmt: skip
+
+
+def _open_vision(
+    jpeg: bytes, prompt: str, http: httpx.Client, mime: str = "image/jpeg"
+) -> str:
+    image = f"data:{mime};base64," + base64.b64encode(jpeg).decode("ascii")
+    last: Exception | None = None
+    tried = False
+    for env, base, models in OPEN_VISION:
+        key = os.environ.get(env, "").strip()
+        if not key:
+            continue
+        wanted = os.environ.get("SERGIO_VISION_MODEL", "")
+        for model in (
+            [wanted] if "/" in wanted and env == "OPENROUTER_API_KEY" else []
+        ) + list(models):
+            tried = True
+            try:
+                resp = http.post(
+                    f"{base}/chat/completions",
+                    headers={"Authorization": f"Bearer {key}"},
+                    json={
+                        "model": model,
+                        "messages": [
+                            {
+                                "role": "user",
+                                "content": [
+                                    {"type": "image_url", "image_url": {"url": image}},
+                                    {"type": "text", "text": prompt},
+                                ],
+                            }
+                        ],
+                        "max_tokens": 700,
+                    },  # fmt: skip
+                    timeout=90,
+                )
+                resp.raise_for_status()
+                answer = str(
+                    resp.json()["choices"][0]["message"]["content"] or ""
+                ).strip()
+                if answer:
+                    return answer
+            except Exception as exc:  # noqa: BLE001 — the next model
+                last = exc
+    if not tried:
+        raise RuntimeError("no OpenRouter/OpenAI key")
+    raise RuntimeError(f"vision failed: {last}")
+
+
 _GEMINI: Any = None  # remembers which Google service the key works with
 
 
@@ -172,6 +229,7 @@ def ask_image(
     for name, call in (
         ("Kimi", lambda: _kimi(image, prompt, http, mime)),
         ("Gemini", lambda: _gemini(image, prompt, mime, models)),
+        ("OpenRouter/OpenAI", lambda: _open_vision(image, prompt, http, mime)),
         ("Ollama", lambda: _ollama(image, prompt, http)),
     ):
         try:

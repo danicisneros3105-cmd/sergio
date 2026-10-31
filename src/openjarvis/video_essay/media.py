@@ -239,7 +239,7 @@ class Filler:
         try:
             return self.blender(shot, self.folder / "3d")
         except Exception:  # noqa: BLE001 — no Blender here: pictures instead
-            self.broken.add("3d")
+            self._failed("3d")
             return None
 
     def _image(self, shot: Shot) -> Optional[str]:
@@ -255,8 +255,19 @@ class Filler:
             self.make_image,
         )
         if made is None:
-            self.broken.add("image")  # no image quota today: stop asking
+            self._failed("image")  # no image quota today: stop asking
+        else:
+            getattr(self, "_fails", {}).pop("image", None)  # «in a row»
         return made
+
+    def _failed(self, source: str, limit: int = 3) -> None:
+        """A source is given up only after a few failures in a row, not after
+        one (one bad shot used to turn every later shot into a black card)."""
+        fails = getattr(self, "_fails", {})
+        fails[source] = fails.get(source, 0) + 1
+        self._fails = fails
+        if fails[source] >= limit:
+            self.broken.add(source)
 
     # -- all shots --------------------------------------------------------------------
     def fill(
@@ -327,6 +338,8 @@ class Filler:
                 shot.notes.append(f"imagen: {used}")
             else:
                 shot.kind, shot.card = "card", "black"
+                if shot.text_style == "none":
+                    shot.text_style = "pop"  # never seconds of plain black
                 shot.notes.append("sin imagen: ficha negra")
             if progress:
                 progress((k + 1) / max(1, len(todo)), used or "ficha")

@@ -74,6 +74,7 @@ GENRE_MUSIC = {
     "explicado3d": "curious electronic",
     "corto3d": "cinematic adventure",
     "documental": "documentary ambient",
+    "resultaaquee": "curious upbeat electronic",
 }
 _SUNG = re.compile(
     r"\b(feat\.?|ft\.|vocal|vocals|lyrics|remix vocal|acapella|a cappella)\b", re.I

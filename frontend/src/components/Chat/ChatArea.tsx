@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router';
 import { MessageBubble } from './MessageBubble';
 import { SplitButton } from '../Split/SplitButton';
 import { InputArea } from './InputArea';
+import { ActivityFilm } from './ActivityFilm';
 import { StreamingDots } from './StreamingDots';
 import { useAppStore } from '../../lib/store';
 import { shouldAutoplayFinishedReply, useTtsStore } from '../../lib/tts';
@@ -271,6 +272,11 @@ export function ChatArea() {
         )}
       </div>
 
+      {!isEmpty && (
+        <div className="activity-film-wrap">
+          <ActivityFilm active={isCurrentChatStreaming} />
+        </div>
+      )}
       <div className={isEmpty ? 'mac-rise' : undefined} style={{ ['--i' as string]: 1 }}>
         <InputArea />
       </div>

@@ -614,6 +614,7 @@ def run(config: dict[str, Any]) -> None:
         on_say=lambda t: bridge.caption.emit(t),
         on_state=lambda s: bridge.state.emit(s),
     )
+    controller.film = operator.film  # the chat shows each step (GET /film)
 
     def _open_plan_target(target: str) -> None:
         if not target:

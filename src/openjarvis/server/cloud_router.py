@@ -363,6 +363,12 @@ async def stream_cloud(
     max_tokens: int = 1024,
 ) -> AsyncIterator[str]:
     """Stream tokens from a cloud provider for the given model."""
+    # A Gemini/Claude/GPT id whose company has no key here goes through
+    # OpenRouter by itself, like the non-streaming path (owner, 1 Nov 2026:
+    # «todo lo que sea solo para Gemini hazlo universal»).
+    from openjarvis.engine.cloud import through_openrouter
+
+    model = through_openrouter(model)
     provider = get_provider(model)
 
     if provider == "openai":

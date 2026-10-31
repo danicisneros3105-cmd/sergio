@@ -891,6 +891,11 @@ def make_server(
                     self._send(200, controller.camera_shot())
                 elif path == "/diag":
                     self._send(200, {"ok": True, **controller.diag()})
+                elif path == "/film":
+                    # What the operator is doing, in pictures (pelicula.py).
+                    film = getattr(controller, "film", None)
+                    since = int(query.get("since", "0") or 0)
+                    self._send(200, film.to_dict(since) if film else {"ok": True, "task": 0, "frames": []})
                 else:
                     self._send(404, {"ok": False, "error": "not found"})
             except Exception as exc:  # noqa: BLE001

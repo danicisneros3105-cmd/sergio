@@ -58,6 +58,22 @@ Answer ONLY JSON:
 {{"title": "...", "scenes": [{{"say": "...", "picture": "..."}}]}}"""
 
 
+RQ_STYLES = ("resultaaquee", "resulta_que", "resultaque", "resulta que")
+RQ_WORDS = ("resultaaquee", "resulta que", "curiosidad cotidiana", "por que la pantalla",
+            "por que el ", "por que los ", "por que las ", "por que la ")  # fmt: skip
+
+
+def is_resulta_que(topic: str, style: str = "") -> bool:
+    """One decision for script, format and captions; accents do not matter
+    («¿Por qué la pantalla…» never matched before)."""
+    from openjarvis.video_essay.genres import _plain
+
+    if str(style or "").lower().strip() in RQ_STYLES:
+        return True
+    plain = f" {_plain(topic)} "
+    return any(w in plain for w in RQ_WORDS)
+
+
 def ffmpeg_exe() -> str:
     found = shutil.which("ffmpeg")
     if found:
@@ -97,22 +113,7 @@ def plan(topic: str, scenes: int, ask: Any = None, style: str = "") -> dict[str,
             raise ValueError("pocas escenas")
         return {"title": str(data.get("title") or topic)[:60], "scenes": items[:10]}
 
-    is_rq = style in (
-        "resultaaquee",
-        "resulta_que",
-        "resultaque",
-        "resulta que",
-    ) or any(
-        w in topic.lower()
-        for w in (
-            "resultaaquee",
-            "resulta que",
-            "curiosidad cotidiana",
-            "por que la pantalla",
-            "por que el ",
-            "por que los ",
-        )
-    )
+    is_rq = is_resulta_que(topic, style)
     prompt_tpl = RESULTA_QUE_SCRIPT_PROMPT if is_rq else SCRIPT_PROMPT
     raw = (ask or gemini_ask)(
         prompt_tpl.format(topic=topic, n=scenes), json_mode=True, check=check
@@ -333,20 +334,7 @@ class VideoCreateTool(BaseTool):
         raw_style = (
             str(params.get("style") or params.get("platform") or "").lower().strip()
         )
-        is_rq = raw_style in (
-            "resultaaquee",
-            "resulta_que",
-            "resultaque",
-            "resulta que",
-        ) or any(
-            w in topic.lower()
-            for w in (
-                "resultaaquee",
-                "resulta que",
-                "curiosidad cotidiana",
-                "por que la pantalla",
-            )
-        )
+        is_rq = is_resulta_que(topic, raw_style)
         chosen_style = "resultaaquee" if is_rq else raw_style
         seconds = min(
             90.0, max(15.0, float(params.get("seconds") or (40 if is_rq else 30)))

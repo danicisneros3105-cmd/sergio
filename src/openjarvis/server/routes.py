@@ -359,6 +359,12 @@ async def _chat_completions(request_body: ChatCompletionRequest, request: Reques
 
     if CUSTOMER_KEY.get():  # a customer: through their own key at OpenRouter
         request_body.model = customer_model(request_body.model)
+    elif CUSTOMER.get():
+        # Never the owner's keys without a cap: the customer's own key first.
+        raise HTTPException(
+            status_code=503,
+            detail="Su cuenta aún no tiene la IA configurada. Se crea al aprobarla; inténtelo en un momento.",
+        )
     engine = request.app.state.engine
     agent = getattr(request.app.state, "agent", None)
     if CUSTOMER.get():

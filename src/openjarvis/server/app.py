@@ -220,6 +220,12 @@ def _warm_up() -> None:
                 "openjarvis.speech.voz_propia", fromlist=["ready"]
             ).ready(),
         ),
+        (
+            "claves de la IA",
+            lambda: __import__(
+                "openjarvis.accounts.autoconfig", fromlist=["at_start"]
+            ).at_start(),
+        ),
     )
     for name, step in steps:
         try:
@@ -776,6 +782,9 @@ def create_app(
     from openjarvis.server.proyectos_routes import router as proyectos_router
 
     app.include_router(proyectos_router)
+    from openjarvis.server.actividad_routes import router as actividad_router
+
+    app.include_router(actividad_router)
     from openjarvis.server.accounts_routes import router as accounts_router
 
     app.include_router(accounts_router)

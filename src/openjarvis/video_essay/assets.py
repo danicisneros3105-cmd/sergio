@@ -156,7 +156,13 @@ def generated(
             from openjarvis.creator import studio
 
             make = studio.generate_image
-        data = make(f"{prompt}. {LOOK}")
+        # the style's own look already came in the prompt: the film look only
+        # when there is none (it fought animation, 3D and neon schematics)
+        data = make(
+            prompt
+            if "look:" in prompt.lower() or len(prompt) > 220
+            else f"{prompt}. {LOOK}"
+        )
     except Exception:  # noqa: BLE001
         return None
     ext = ".jpg" if data[:3] == b"\xff\xd8\xff" else ".png"

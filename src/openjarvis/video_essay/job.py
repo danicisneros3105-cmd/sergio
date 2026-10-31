@@ -346,7 +346,14 @@ def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
                 # The genre the brief asks for (a short film, animation, a
                 # heavy retention edit…) picks the style unless one is fixed.
                 brief0 = str(params.get("prompt") or params.get("topic") or "")
-                genre = genres.for_style(fixed) if fixed else genres.detect(brief0)
+                asked = str(params.get("genre") or "")
+                # a genre named in the order wins (documental used to come back
+                # as inspiracional through its style)
+                genre = (
+                    asked
+                    if asked in genres.GENRES
+                    else (genres.for_style(fixed) if fixed else genres.detect(brief0))
+                )
                 if genre and not fixed:
                     wanted = genres.GENRES[genre].style
                     if any(s["key"] == wanted for s in style.available(deps.styles)):
@@ -608,6 +615,8 @@ def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
                 )
                 for prev, shot, cut in zip(shots, shots[1:], cuts):
                     prev.end = shot.start = cut
+                # kept: a job that resumes renders on the same cuts as its sounds
+                job.write("plan.json", P.to_json(shots))
             events = []
             for s in shots:
                 sfx = (
@@ -686,9 +695,7 @@ def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
                 formats = {}
                 for other in others[:2]:
                     try:
-                        cut = pro.reframe(
-                            videos / name, other, ff, ff.replace("ffmpeg", "ffprobe")
-                        )
+                        cut = pro.reframe(videos / name, other, ff, _ffprobe(ff))
                     except Exception as exc:  # noqa: BLE001
                         job.log(f"sin formato {other}: {exc}")
                         cut = None
@@ -1213,3 +1220,15 @@ __all__ = [
     "Deps", "Job", "LABELS", "STAGES", "all_jobs", "cancel", "create", "get",
     "guard", "jobs_dir", "launch", "resume_unfinished", "retry", "run", "running", "start", "summary", "truth",
 ]  # fmt: skip
+
+
+def _ffprobe(ffmpeg: str) -> str:
+    """ffprobe next to ffmpeg, or on PATH (the bundled imageio ffmpeg has none,
+    and renaming its path broke every extra format)."""
+    import shutil
+
+    found = shutil.which("ffprobe")
+    if found:
+        return found
+    beside = Path(ffmpeg).with_name(Path(ffmpeg).name.replace("ffmpeg", "ffprobe"))
+    return str(beside)

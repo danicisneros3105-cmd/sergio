@@ -127,10 +127,7 @@ def find_scenes_for_text(text: str, max_results: int = 5) -> List[Dict[str, Any]
         query = f"{name} ({year}) {scene}"
         clips = []
         try:
-            clips = [
-                {"title": c.title, "url": c.url, "duration": c.duration}
-                for c in search_scenes(query, 3)
-            ]
+            clips = [{"title": c.title, "url": c.url} for c in search_scenes(query, 3)]
         except Exception:  # noqa: BLE001
             clips = []
         out.append(

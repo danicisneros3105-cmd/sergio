@@ -33,17 +33,38 @@ KEYS_API = "https://openrouter.ai/api/v1/keys"
 MODELS_API = "https://openrouter.ai/api/v1/models"
 _LOCK = threading.Lock()
 _CATALOG: List[str] = []
+# What the last autoconfig did, in plain words, for the sign-in page (owner,
+# 1 Nov 2026: «no funciona lo que te registras y en segundo plano se crean
+# todas las APIs»: failures only reached the server log).
+_LAST: Dict[str, Any] = {}
+
+
+def _key(name: str) -> str:
+    """A key from the environment or from the keys file Sergio writes
+    (``cloud-keys.env``), which a restart did not load back before: the owner
+    key was then created again at every sign-in."""
+    value = os.environ.get(name, "").strip()
+    if value:
+        return value
+    try:
+        from openjarvis.server.cloud_router import _owner_keys
+
+        value = str(_owner_keys().get(name) or "").strip()
+    except Exception:  # noqa: BLE001
+        value = ""
+    if value:
+        os.environ[name] = value  # engine/cloud.py reads the environment
+    return value
 
 
 def ready() -> Dict[str, Any]:
     """What is configured (no secrets): for the sign-in page and «Uso»."""
     return {
-        "openrouter": bool(os.environ.get("OPENROUTER_API_KEY", "").strip()),
-        "gestion": bool(os.environ.get("OPENROUTER_MANAGEMENT_KEY", "").strip()),
-        "gemini": bool(
-            os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
-        ),
+        "openrouter": bool(_key("OPENROUTER_API_KEY")),
+        "gestion": bool(_key("OPENROUTER_MANAGEMENT_KEY")),
+        "gemini": bool(_key("GEMINI_API_KEY") or _key("GOOGLE_API_KEY")),
         "modelos": len(_CATALOG),
+        "ultimo": dict(_LAST),
     }
 
 
@@ -51,29 +72,23 @@ def _save_env(name: str, value: str) -> None:
     from openjarvis import tiers
     from openjarvis.server.cloud_router import _CLOUD_ENV_FILE
 
-    existing: Dict[str, str] = {}
-    if _CLOUD_ENV_FILE.exists():
-        for line in _CLOUD_ENV_FILE.read_text().splitlines():
-            key, sep, val = line.partition("=")
-            if sep and not key.startswith("#"):
-                existing[key] = val
-    existing[name] = value
-    tiers.write_private(
-        _CLOUD_ENV_FILE, "".join(f"{k}={v}\n" for k, v in existing.items())
-    )
+    lines = _CLOUD_ENV_FILE.read_text().splitlines() if _CLOUD_ENV_FILE.exists() else []
+    kept = [ln for ln in lines if ln.partition("=")[0].strip() != name]
+    kept.append(f"{name}={value}")  # comments and other keys stay as they were
+    tiers.write_private(_CLOUD_ENV_FILE, "\n".join(kept) + "\n")
     os.environ[name] = value
 
 
 def owner_key(http: Any = None) -> bool:
     """The owner's own OpenRouter key, created once from the management key."""
-    if os.environ.get("OPENROUTER_API_KEY", "").strip():
+    if _key("OPENROUTER_API_KEY"):
         return True
     from openjarvis.accounts import provision
 
     if not provision.enabled():
         return False
     with _LOCK:
-        if os.environ.get("OPENROUTER_API_KEY", "").strip():
+        if _key("OPENROUTER_API_KEY"):
             return True
         try:
             out = provision._call("POST", KEYS_API, {"name": "sergio-dueño"}, http)
@@ -90,7 +105,7 @@ def owner_key(http: Any = None) -> bool:
 def catalog(http: Any = None) -> List[str]:
     """Every model OpenRouter serves today (ids like «anthropic/claude-…»)."""
     global _CATALOG
-    key = os.environ.get("OPENROUTER_API_KEY", "").strip()
+    key = _key("OPENROUTER_API_KEY")
     if not key:
         return _CATALOG
     try:
@@ -117,9 +132,31 @@ def on_sign_in(user: Dict[str, Any], http: Any = None) -> Dict[str, Any]:
     if user.get("role") == "dueño":
         done["dueño"] = owner_key(http)
     elif provision.enabled() and not provision.key_for(user["id"]):
-        done["cliente"] = provision.ensure(user["id"], http=http)
+        from openjarvis.server.customer_gate import plan_of
+
+        # the customer's own plan, not always Free's $0.50 cap
+        done["cliente"] = provision.ensure(user["id"], plan_of(user["id"]), http=http)
     done["modelos"] = len(catalog(http))
+    done["motivo"] = _why(user, done)
+    _LAST.clear()
+    _LAST.update(done)
     return done
+
+
+def _why(user: Dict[str, Any], done: Dict[str, Any]) -> str:
+    """One sentence for the sign-in page about what was configured."""
+    from openjarvis.accounts import provision
+
+    if done.get("dueño") or done.get("cliente"):
+        return f"Listo: la IA quedó configurada ({done.get('modelos', 0)} modelos disponibles)."
+    if not provision.enabled() and not _key("OPENROUTER_API_KEY"):
+        return (
+            "Falta la clave de gestión de OpenRouter (OPENROUTER_MANAGEMENT_KEY) en "
+            "~/.openjarvis/sergio.env; con ella creo las demás solo. Reinicie Sergio al añadirla."
+        )
+    if user.get("role") != "dueño" and provision.key_for(user["id"]):
+        return "Su IA ya estaba configurada."
+    return "OpenRouter no aceptó crear la clave; revise que la de gestión sea de tipo «provisioning»."
 
 
 def in_background(user: Dict[str, Any]) -> None:
@@ -131,8 +168,16 @@ def in_background(user: Dict[str, Any]) -> None:
 def _safe(user: Dict[str, Any], http: Optional[Any] = None) -> None:
     try:
         on_sign_in(user, http)
-    except Exception:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001
         log.warning("AI autoconfig failed", exc_info=True)
+        _LAST.clear()
+        _LAST.update({"motivo": f"No pude configurar la IA: {str(exc)[:160]}"})
 
 
-__all__ = ["catalog", "in_background", "on_sign_in", "owner_key", "ready"]
+def at_start() -> None:
+    """At server start: the owner's keys too, not only at the next sign-in
+    (a saved session or «seguir sin cuenta» never signed in again)."""
+    in_background({"id": "dueño", "role": "dueño"})
+
+
+__all__ = ["at_start", "catalog", "in_background", "on_sign_in", "owner_key", "ready"]

@@ -88,6 +88,14 @@ PROGRAMS: list[dict[str, Any]] = [
         "license": "MIT",
     },
     {
+        "id": "unreal",
+        "name": "Juegos · Unreal Engine 5",
+        "space": "modelado",
+        "where": "windows",
+        "what": "Juegos y mundos 3D: Sergio crea el proyecto y pone sus modelos en el nivel.",
+        "license": "EULA de Epic (gratis; 5 % de regalías sobre 1 M USD)",
+    },
+    {
         "id": "vscodium",
         "name": "Código",
         "space": "codigo",
@@ -114,12 +122,14 @@ WINDOWS_APPS = (
     "librecad",
     "blender",
     "godot",
+    "unreal",
     "vscodium",
 )
 OPENS = {  # which program opens which kind of file Sergio makes
     "dxf": ("librecad", "freecad"),
     "ifc": ("freecad", "bonsai"),
     "godot": ("godot",),
+    "uproject": ("unreal",),
 }
 
 _cache: dict[str, Any] = {"at": 0.0, "windows": None}

@@ -242,6 +242,12 @@ class HomeMixin:
             grid.addWidget(tile, i // 2, i % 2)
         col.addLayout(grid)
         col.addStretch(1)
+        # In sight, not two steps inside «Pantalla» (owner, 1 Nov 2026: «add
+        # button para esconder el notch»). The cursor at the top edge brings it back.
+        self.hide_notch_button = QPushButton(t("hide_notch"), objectName="quiet")
+        self.hide_notch_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.hide_notch_button.clicked.connect(lambda: (self.hide(), self.actions.hide_notch()))
+        col.addWidget(self.hide_notch_button)
         self._sync_quick()
         return _scroll(page)
 
