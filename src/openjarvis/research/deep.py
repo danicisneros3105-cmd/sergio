@@ -75,6 +75,8 @@ class Report:
     questions: List[str]
     stats: Dict[str, int]
     open_questions: List[str] = field(default_factory=list)
+    confidence_score: float = 0.0
+    perspectives: List[str] = field(default_factory=list)
 
     def markdown(self) -> str:
         lines = [self.text.strip(), "", "## Fuentes"]
@@ -542,16 +544,169 @@ def research(
     ).run(question)
 
 
+# -- Ultra Deep Research: 10 Specialist Perspectives & Concurrency ------------
+
+ULTRA_PERSPECTIVES = [
+    ("Técnico & Arquitectura", "especificaciones técnicas, arquitectura interna, planos o fórmulas científicas"),
+    ("Métricas & Benchmarks", "pruebas de rendimiento, benchmarks cuantitativos, mediciones reales"),
+    ("Precios & Valor de Mercado", "precios históricos, mercado secundario, distribuidores autorizados y coste real"),
+    ("Fuentes Primarias & Registros", "patentes, manuales oficiales del fabricante, bases de datos o registros gubernamentales"),
+    ("Consenso de Especialistas", "revisiones de expertos acreditados, análisis de laboratorios y publicaciones de la industria"),
+    ("Controversias & Contra-argumentos", "críticas, puntos en disputa, vulnerabilidades conocidas y desmentidos"),
+    ("Normativa, Legal & Seguridad", "certificaciones, cumplimiento normativo, garantías de autenticidad y seguridad"),
+    ("Alternativas & Comparativa", "comparación frente a opciones competidoras o generaciones previas"),
+    ("Disponibilidad & Procedencia", "canales de compra verificados, procedencia de stock y plazos de entrega"),
+    ("Matriz Táctica & Decisión", "análisis de pros y contras, relación riesgo/beneficio y recomendación ejecutiva"),
+]
+
+
+class UltraDeepResearch(DeepResearch):
+    """Ultra Deep Research: divides the inquiry into 10 multi-dimensional specialist angles
+    (equivalent to 10 human subject-matter experts working concurrently), executes parallel
+    forensic verification across up to 10 worker threads, calculates an explicit confidence
+    score, and synthesizes an executive dossier."""
+
+    def __init__(
+        self,
+        ask: Ask,
+        search: Search,
+        fetch: Fetch,
+        *,
+        rounds: int = 3,
+        pages_per_round: int = 15,
+        per_query: int = 8,
+        on_event: Optional[Event] = None,
+        workers: int = 10,
+    ) -> None:
+        super().__init__(
+            ask,
+            search,
+            fetch,
+            rounds=rounds,
+            pages_per_round=pages_per_round,
+            per_query=per_query,
+            on_event=on_event,
+            workers=workers,
+        )
+        self.confidence_score: float = 0.0
+        self.perspectives: List[str] = [p[0] for p in ULTRA_PERSPECTIVES]
+
+    def plan(self, question: str) -> Dict[str, List[str]]:
+        default_subs = [f"[{name}] {desc} sobre: {question}" for name, desc in ULTRA_PERSPECTIVES]
+        default_queries = [
+            f"{question} especificaciones tecnicas",
+            f"{question} precio mercado compra oficial",
+            f"{question} review analisis expertos",
+            f"{question} problemas fallos criticas",
+            f"{question} comparativa alternativas",
+            f"{question} manual patente fabricante oficial",
+            f"{question} certificacion seguridad normativa",
+            f"{question} disponibilidad comprar entrega",
+        ]
+        out = _ask_json(
+            self.ask,
+            "Eres un director de investigación de élite coordinando a 10 analistas humanos especializados. "
+            "Descompón la siguiente pregunta en 8 a 10 subpreguntas rigurosas que cubran todas las dimensiones "
+            "(técnica, económica/precios, fuentes primarias/patentes, contrargumentos/críticas, benchmarks y matriz de decisión), "
+            "y formula de 8 a 10 búsquedas web quirúrgicas y distintas. Responde solo JSON:\n"
+            '{"subpreguntas": [...], "busquedas": [...]}\n\nPregunta: ' + question,
+            {"subpreguntas": default_subs, "busquedas": default_queries},
+        )
+        subs = (
+            [str(s) for s in (out.get("subpreguntas") or []) if str(s).strip()][:10]
+            if isinstance(out, dict)
+            else []
+        )
+        queries = (
+            [str(s) for s in (out.get("busquedas") or []) if str(s).strip()][:10]
+            if isinstance(out, dict)
+            else []
+        )
+        plan = {
+            "subpreguntas": subs or default_subs,
+            "busquedas": queries or default_queries,
+            "modo": "ultra",
+            "angulos": len(subs or default_subs),
+        }
+        self.on_event("ultra_plan", plan)
+        return plan
+
+    def cross_check(self) -> List[Finding]:
+        findings = super().cross_check()
+        if not findings:
+            self.confidence_score = 0.0
+            return findings
+        confirmed = sum(1 for f in findings if f.status == "confirmado")
+        single_src = sum(1 for f in findings if f.status == "una fuente")
+        disputed = sum(1 for f in findings if f.status == "en disputa")
+        total = max(1, len(findings))
+        raw_score = (confirmed * 1.0 + single_src * 0.55 + disputed * 0.25) / total * 100.0
+        unique_sites = len({s.site for s in self.sources})
+        site_bonus = min(15.0, unique_sites * 2.5)
+        self.confidence_score = round(min(99.0, max(15.0, raw_score * 0.85 + site_bonus)), 1)
+        return findings
+
+    def write(self, question: str, findings: List[Finding], missing: List[str]) -> str:
+        base_report = super().write(question, findings, missing)
+        conf = getattr(self, "confidence_score", 0.0)
+        level = "Alta" if conf >= 75 else ("Media" if conf >= 50 else "Moderada / Preliminar")
+        header = (
+            f"# 🔬 Informe Ejecutivo de Ultra Deep Research (10 Especialistas)\n"
+            f"> **Objetivo:** {question}\n"
+            f"> **Score de Certeza y Rigor:** `{conf}%` ({level}) · **Fuentes verificadas:** `{len(self.sources)}` · **Contraste cruzado:** `{len(findings)}` hallazgos\n\n"
+        )
+        if base_report.startswith("No encontré"):
+            return base_report
+        return header + base_report
+
+    def run(self, question: str) -> Report:
+        report = super().run(question)
+        report.confidence_score = getattr(self, "confidence_score", 0.0)
+        report.perspectives = list(self.perspectives)
+        self.on_event("ultra_listo", {"confidence_score": report.confidence_score, "perspectives": len(report.perspectives)})
+        return report
+
+
+def ultra_research(
+    question: str,
+    *,
+    rounds: int = 3,
+    on_event: Optional[Event] = None,
+    ask: Optional[Ask] = None,
+    search: Optional[Search] = None,
+    fetch: Optional[Fetch] = None,
+    workers: int = 10,
+) -> Report:
+    """Ultra Deep Research with 10 specialist perspectives and parallel workers."""
+    if ask is None:
+        from openjarvis.creator.llm import ask as gemini_ask
+
+        def ask(prompt: str) -> str:
+            return gemini_ask(prompt, effort="high", max_tokens=8192)
+
+    return UltraDeepResearch(
+        ask,
+        search or web_search,
+        fetch or web_fetch,
+        rounds=rounds,
+        on_event=on_event,
+        workers=workers,
+    ).run(question)
+
+
 __all__ = [
     "Claim",
     "DeepResearch",
     "Finding",
     "Report",
     "Source",
+    "ULTRA_PERSPECTIVES",
+    "UltraDeepResearch",
     "parse_results",
     "quote_in",
     "research",
     "site_of",
+    "ultra_research",
     "web_fetch",
     "web_search",
 ]

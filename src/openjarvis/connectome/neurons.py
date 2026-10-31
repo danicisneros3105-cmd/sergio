@@ -55,7 +55,9 @@ SUPER_SKILLS: Dict[str, str] = {
         "  8) Leer bandeja de correos y responderlos o enviar correo nuevo → `sergio_app(action='email_inbox', platform='gmail', content=..., auto_reply=True)` o `sergio_app(action='send_email', ...)`.\n"
         "  9) Leer plataforma del colegio/universidad, programar recordatorios de exámenes y crear Mini-Tests para estudiar → `sergio_app(action='academic_study', content=..., platform=..., when=...)`.\n"
         "  10) Hacer llamadas, responder mensajes, subir historias de Instagram, buscar clientes a gran escala o aplicar a una VISA → `sergio_app(action='make_call' | 'reply_messages' | 'social_publish' | 'lead_generation' | 'visa_apply', ...)`.\n"
-        "  11) Cualquier otra tarea universal en PC, web o teléfono → `sergio_app(action='pc_control', content=...)`."
+        "  11) Enjambre autónomo en segundo plano (equivalente a 10 humanos trabajando simultáneamente) → `sergio_app(action='background_swarm', content=..., parallel=10)` para coordinar 10 especialistas concurrentes, monitorear con `action='background_status'` o cancelar con `action='background_cancel'`.\n"
+        "  12) Ultra Deep Research autónomo en segundo plano o en vivo → `sergio_app(action='ultra_deep_research', content=..., background=True)` con informe en ~/Sergio/investigaciones/ y recordatorio proactivo.\n"
+        "  13) Cualquier otra tarea universal en PC, web o teléfono → `sergio_app(action='pc_control', content=...)`."
     ),
     "video": (
         "[SUPER-SKILL NEURONAL: DIRECTOR MAESTRO DE VIDEO, 3D Y RETENCIÓN]\n"
@@ -82,8 +84,10 @@ SUPER_SKILLS: Dict[str, str] = {
         "• Lee antes de modificar, escribe código limpio sin placeholders y verifícalo ejecutando `code_interpreter`, `python_run` o `terminal_run` en el mismo turno."
     ),
     "investigar": (
-        "[SUPER-SKILL NEURONAL: INVESTIGACIÓN PROFUNDA MULTIFUENTE]\n"
-        "• Contrasta múltiples fuentes primarias con `investigacion_profunda` y `web_search`, cita datos verificables con fechas y cifras exactas, y sintetiza primero la conclusión ejecutiva."
+        "[SUPER-SKILL NEURONAL: ULTRA DEEP RESEARCH & ANÁLISIS FORENSE DE 10 ÁNGULOS]\n"
+        "• Protocolo de 10 Especialistas: Descompón en 10 dimensiones simultáneas (técnica, benchmarks cuantitativos, precios históricos, fuentes primarias/patentes, consenso de expertos, controversias/críticas, marco legal/seguridad, comparativa de alternativas, disponibilidad/logística y matriz táctica de decisión).\n"
+        "• Ejecución concurrente: Despliega hasta 10 trabajadores en paralelo con `investigacion_profunda(mode='ultra', workers=10)` o `sergio_app(action='ultra_deep_research', content=...)`.\n"
+        "• Verificación forense: Descarta cualquier cita no literal, calcula el score de confianza porcentual y sintetiza el informe ejecutivo con citas verificables [n] sin inventar datos."
     ),
     "web": (
         "[SUPER-SKILL NEURONAL: BÚSQUEDA EN TIEMPO REAL]\n"
@@ -180,7 +184,9 @@ NEURONS: Dict[str, Neuron] = {
                 "tarjeta escrita a mano", "colegio", "perfumes", "gourmand", "casas perfumistas",
                 "pasaporte", "abogado", "bilingue", "reemplazo de emergencia", "desde mi telefono",
                 "grabar video", "empieze a grabar", "empiece a grabar", "plataforma del colegio",
-                "examenes", "mini test", "minitest", "visa", "historias de instagram", "llamada"),
+                "examenes", "mini test", "minitest", "visa", "historias de instagram", "llamada",
+                "en segundo plano", "segundo plano", "background", "enjambre de 10", "10 humanos",
+                "diez humanos", "swarm en segundo plano", "enjambre autonomo"),
                ("screen_read", "desktop_action", "browser_navigate", "browser_click",
                 "browser_type", "browser_extract", "face_approval", "investigacion_profunda", "sergio_app", "meeting_notes")),
         Neuron("pc", "Su PC", "Revisa por qué va lenta y la deja ligera.",
@@ -204,8 +210,10 @@ NEURONS: Dict[str, Neuron] = {
         Neuron("investigar", "Investigación profunda",
                "Investiga a fondo: muchas fuentes leídas, contrastadas y citadas.",
                ("investiga a fondo", "a fondo", "investigacion profunda", "deep research",
+                "ultra deep", "ultra deep research", "ultra profunda", "investigacion ultra profunda",
+                "10 especialistas", "diez analistas", "investigacion masiva",
                 "compara", "que dice la evidencia", "estado del arte", "informe sobre"),
-               ("investigacion_profunda", "web_search")),
+               ("investigacion_profunda", "web_search", "sergio_app")),
         Neuron("calculo", "Cálculo", "Hace cuentas exactas y verifica matemáticas.",
                ("cuanto es", "calcula", "porcentaje", "suma", "resta", "multiplica",
                 "divide", "ecuacion", "matematic", "presupuesto"),

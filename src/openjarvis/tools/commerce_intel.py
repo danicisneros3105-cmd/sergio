@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import os
 import re
+import threading
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -1144,6 +1145,159 @@ def build_visa_application_plan(
     }
 
 
+_SHARED_SWARM_ENGINE: Optional[Any] = None
+_SWARM_LOCK = threading.Lock()
+
+
+def get_shared_swarm_engine() -> Any:
+    """Return a process-shared SwarmEngine instance synchronized with current storage root."""
+    global _SHARED_SWARM_ENGINE
+    from openjarvis.swarm.engine import SwarmEngine, _home
+
+    expected_home = Path(_home())
+    with _SWARM_LOCK:
+        if _SHARED_SWARM_ENGINE is None or getattr(_SHARED_SWARM_ENGINE, "home", None) != expected_home:
+            _SHARED_SWARM_ENGINE = SwarmEngine(home=expected_home)
+        return _SHARED_SWARM_ENGINE
+
+
+def launch_background_swarm(
+    task: str,
+    parallel: int = 10,
+    budget: int = 4000,
+) -> Dict[str, Any]:
+    """Launch an autonomous background mission with parallel subagents
+    (equivalent to 10 human specialists working concurrently)."""
+    task_clean = (task or "").strip()
+    if not task_clean:
+        raise ValueError("Se requiere una tarea o misión para el enjambre.")
+
+    engine = get_shared_swarm_engine()
+    run = engine.start(task_clean, parallel=max(1, min(parallel, 64)), background=True, budget=budget)
+    try:
+        engine._save(run)
+    except Exception:
+        pass
+    rem = schedule_proactive_reminder(
+        f"Misión de 10 especialistas en segundo plano completada: {task_clean[:60]}",
+        when_hint="Al completar",
+        category="enjambre",
+        hours_from_now=0.5,
+    )
+    return {
+        "id": run.id,
+        "tarea": task_clean,
+        "paralelo": run.parallel,
+        "estado": run.status,
+        "creado_en": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "recordatorio_proactivo": rem,
+    }
+
+
+def get_background_task_status(task_id: str = "") -> Dict[str, Any]:
+    """Retrieve status, live metrics and result of a background swarm task."""
+    engine = get_shared_swarm_engine()
+    if task_id:
+        run = engine.get(task_id)
+        if run is None:
+            try:
+                engine._load_previous()
+                run = engine.get(task_id)
+            except Exception:
+                pass
+    else:
+        runs = engine.list()
+        run = runs[0] if runs else None
+    if run is None:
+        return {"encontrado": False, "mensaje": f"No se encontró la tarea en segundo plano `{task_id}`"}
+    data = run.to_dict()
+    return {
+        "encontrado": True,
+        "id": run.id,
+        "tarea": run.task,
+        "estado": run.status,
+        "subtareas_conteo": data.get("counts", {}),
+        "llamadas_herramientas": data.get("tool_calls", 0),
+        "segundos_transcurridos": data.get("elapsed", 0),
+        "informe_disponible": bool(run.report),
+        "resumen_informe": run.report[:500] if run.report else "",
+    }
+
+
+def cancel_background_task(task_id: str) -> Dict[str, Any]:
+    """Cancel a running background swarm mission."""
+    engine = get_shared_swarm_engine()
+    ok = engine.cancel(task_id)
+    return {"id": task_id, "cancelado": ok}
+
+
+def execute_ultra_deep_research_task(
+    question: str,
+    background: bool = False,
+    rounds: int = 3,
+    workers: int = 10,
+) -> Dict[str, Any]:
+    """Execute or background an Ultra Deep Research investigation across 10 dimensions."""
+    q_clean = question.strip()
+    from openjarvis.research.deep import ultra_research
+
+    out_dir = Path.home() / "Sergio" / "investigaciones"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    file_path = out_dir / f"ultra_investigacion_{int(time.time() * 1000)}.md"
+
+    if background:
+        import threading
+
+        def _worker():
+            try:
+                rep = ultra_research(q_clean, rounds=rounds, workers=workers)
+                file_path.write_text(rep.markdown(), encoding="utf-8")
+                schedule_proactive_reminder(
+                    f"Investigación Ultra Profunda completada: {q_clean[:60]}",
+                    when_hint="Completada ahora",
+                    category="investigacion",
+                    hours_from_now=0.1,
+                )
+            except Exception:
+                pass
+
+        t = threading.Thread(target=_worker, daemon=True)
+        t.start()
+        rem = schedule_proactive_reminder(
+            f"Seguimiento: Investigación Ultra Profunda en curso: {q_clean[:60]}",
+            when_hint="En proceso en segundo plano",
+            category="investigacion",
+            hours_from_now=0.25,
+        )
+        return {
+            "pregunta": q_clean,
+            "estado": "ejecutando_en_segundo_plano",
+            "trabajadores_concurrentes": workers,
+            "dimensiones": 10,
+            "archivo_destino": str(file_path),
+            "recordatorio_proactivo": rem,
+        }
+
+    rep = ultra_research(q_clean, rounds=rounds, workers=workers)
+    file_path.write_text(rep.markdown(), encoding="utf-8")
+    rem = schedule_proactive_reminder(
+        f"Investigación Ultra Profunda archivada: {q_clean[:60]}",
+        when_hint="Completada hoy",
+        category="investigacion",
+        hours_from_now=1.0,
+    )
+    return {
+        "pregunta": q_clean,
+        "estado": "completado",
+        "informe_markdown": rep.markdown(),
+        "score_confianza": getattr(rep, "confidence_score", 0.0),
+        "fuentes_totales": len(rep.sources),
+        "hallazgos": len(rep.findings),
+        "archivo_guardado": str(file_path),
+        "recordatorio_proactivo": rem,
+    }
+
+
 __all__ = [
     "CONCIERGE_CATEGORIES",
     "PHOTO_EXTS",
@@ -1151,12 +1305,16 @@ __all__ = [
     "build_academic_study_plan",
     "build_buyer_autoreply_plan",
     "build_visa_application_plan",
+    "cancel_background_task",
     "classify_concierge_category",
     "deep_search_product",
     "estimate_market_price",
     "execute_concierge_plan",
+    "execute_ultra_deep_research_task",
     "find_gallery_photos",
     "generate_leads_campaign",
+    "get_background_task_status",
+    "launch_background_swarm",
     "parse_minutes",
     "parse_money",
     "resolve_location",

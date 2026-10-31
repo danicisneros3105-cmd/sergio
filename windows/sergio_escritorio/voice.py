@@ -555,6 +555,15 @@ _TOOL_WORDS = {
     "llamada",
     "llamadas",
     "llamar",
+    # Ultra Deep Research, Background Swarm & 10 Humans Parallel
+    "ultra",
+    "enjambre",
+    "segundo",
+    "plano",
+    "background",
+    "humano",
+    "humanos",
+    "investigacion",
 }
 _CONFIRM = {
     "si",

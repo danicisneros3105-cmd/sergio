@@ -82,7 +82,12 @@ class SergioAppControlTool(BaseTool):
                 "14) 'reminder_add': crea recordatorios manuales o proactivos sin que el señor tenga que pedirlos. "
                 "15) 'video_create' / 'find_clips' / 'niche_trends': crea videos profesionales (Zack D. Films 3D, MrBeast, cine), "
                 "busca clips de películas y automatiza canales por tendencias. "
-                "16) 'swarm_launch' / 'node_create' / 'health_status' / 'health_log' / 'nutrition_log' / 'connectors_list' / "
+                "16) 'background_swarm' / 'swarm_launch': lanza una misión autónoma en segundo plano con 10 subagentes paralelos "
+                "(equivalente a 10 humanos trabajando simultáneamente), ejecutando tareas complejas con recordatorio proactivo al terminar. "
+                "17) 'background_status' / 'background_cancel': monitorea en tiempo real el avance de los 10 agentes en segundo plano o cancela la misión. "
+                "18) 'ultra_deep_research': investigación ultra profunda en 10 dimensiones con 10 analistas en paralelo, score de certeza forense "
+                "y dossier archivado en ~/Sergio/investigaciones/. "
+                "19) 'node_create' / 'health_status' / 'health_log' / 'nutrition_log' / 'connectors_list' / "
                 "'connector_sync' / 'create_image' / 'create_godot_game' / 'pc_control': control completo de Sergio y la computadora."
             ),
             parameters={
@@ -115,6 +120,10 @@ class SergioAppControlTool(BaseTool):
                             "niche_trends",
                             "pc_control",
                             "swarm_launch",
+                            "background_swarm",
+                            "background_status",
+                            "background_cancel",
+                            "ultra_deep_research",
                             "node_create",
                             "health_status",
                             "health_log",
@@ -212,6 +221,22 @@ class SergioAppControlTool(BaseTool):
                             "vip_events, lifestyle_gifting, bespoke_advisory, emergency_security) o categoría de salud para 'health_log'."
                         ),
                     },
+                    "parallel": {
+                        "type": "integer",
+                        "description": "Número de subagentes paralelos en segundo plano (por defecto 10, equivalente a 10 humanos simultáneos).",
+                    },
+                    "workers": {
+                        "type": "integer",
+                        "description": "Número de analistas concurrentes para ultra deep research (por defecto 10).",
+                    },
+                    "rounds": {
+                        "type": "integer",
+                        "description": "Número de rondas de investigación profunda (1 a 4).",
+                    },
+                    "background": {
+                        "type": "boolean",
+                        "description": "Ejecutar la misión o investigación en segundo plano de manera autónoma sin interrumpir.",
+                    },
                     "payload": {
                         "type": "object",
                         "description": "Datos numéricos o parámetros adicionales.",
@@ -302,14 +327,90 @@ class SergioAppControlTool(BaseTool):
                     ),
                 )
 
-            if action == "swarm_launch":
-                task = str(params.get("content") or params.get("title") or "").strip()
-                route = f"/swarm?tarea={task}" if task else "/swarm"
+            if action in ("swarm_launch", "background_swarm"):
+                from openjarvis.tools import commerce_intel as ci
+
+                task = str(params.get("content") or params.get("title") or "Misión autónoma masiva").strip()
+                parallel_n = int(params.get("parallel") or 10)
+                res = ci.launch_background_swarm(task=task, parallel=parallel_n)
+                route = f"/swarm?tarea={task}"
                 return ToolResult(
                     tool_name=self.tool_id,
                     content=(
-                        f"Agent Swarm preparado para la tarea: «{task}»."
+                        f"🚀 **Enjambre de {res['paralelo']} Especialistas en Segundo Plano Iniciado**\n"
+                        f"- **Misión:** «{res['tarea']}»\n"
+                        f"- **Capacidad paralela:** {res['paralelo']} subagentes concurrentes (equivalente al trabajo de 10 humanos simultáneos)\n"
+                        f"- **ID de misión:** `{res['id']}` · **Estado:** `{res['estado']}`\n"
+                        f"- **Recordatorio proactivo agendado:** {res['recordatorio_proactivo']['titulo']} ({res['recordatorio_proactivo']['cuando']})\n"
+                        f"- **Seguimiento:** Consulte el progreso en cualquier momento con `action='background_status', id='{res['id']}'` o véalo en tiempo real en `/swarm`."
                         + _ui_event({"type": "navigate", "route": route})
+                    ),
+                )
+
+            if action == "background_status":
+                from openjarvis.tools import commerce_intel as ci
+
+                task_id = str(params.get("id") or "").strip()
+                st = ci.get_background_task_status(task_id=task_id)
+                if not st.get("encontrado"):
+                    return ToolResult(
+                        tool_name=self.tool_id,
+                        content=st.get("mensaje", "No se encontró la tarea en segundo plano."),
+                        success=False,
+                    )
+                sub_counts = " · ".join(f"{k}: {v}" for k, v in st.get("subtareas_conteo", {}).items())
+                report_md = f"\n\n**Informe disponible:**\n{st['resumen_informe']}" if st.get("resumen_informe") else ""
+                return ToolResult(
+                    tool_name=self.tool_id,
+                    content=(
+                        f"📊 **Estado de Misión en Segundo Plano (`{st['id']}`)**\n"
+                        f"- **Tarea:** «{st['tarea']}»\n"
+                        f"- **Estado:** `{st['estado']}` · **Tiempo:** `{st['segundos_transcurridos']}s`\n"
+                        f"- **Progreso de subagentes:** {sub_counts}\n"
+                        f"- **Llamadas a herramientas:** `{st['llamadas_herramientas']}`"
+                        + report_md
+                    ),
+                )
+
+            if action == "background_cancel":
+                from openjarvis.tools import commerce_intel as ci
+
+                task_id = str(params.get("id") or "").strip()
+                res = ci.cancel_background_task(task_id=task_id)
+                return ToolResult(
+                    tool_name=self.tool_id,
+                    content=f"Misión en segundo plano `{task_id}` cancelada y recursos liberados ({res}).",
+                )
+
+            if action == "ultra_deep_research":
+                from openjarvis.tools import commerce_intel as ci
+
+                q = str(params.get("content") or params.get("title") or "").strip()
+                if not q:
+                    raise ValueError("Falta el tema o pregunta para Ultra Deep Research.")
+                bg = params.get("background", True) is not False
+                rnds = int(params.get("rounds") or 3)
+                wrkrs = int(params.get("workers") or params.get("parallel") or 10)
+                res = ci.execute_ultra_deep_research_task(q, background=bg, rounds=rnds, workers=wrkrs)
+                if bg:
+                    return ToolResult(
+                        tool_name=self.tool_id,
+                        content=(
+                            f"🔬 **Ultra Deep Research Iniciado en Segundo Plano**\n"
+                            f"- **Pregunta / Objetivo:** «{res['pregunta']}»\n"
+                            f"- **Despliegue analítico:** {res['trabajadores_concurrentes']} especialistas concurrentes en 10 dimensiones\n"
+                            f"- **Destino del dossier:** `{res['archivo_destino']}`\n"
+                            f"- **Recordatorio proactivo agendado:** {res['recordatorio_proactivo']['titulo']} ({res['recordatorio_proactivo']['cuando']})\n"
+                            f"- **Autonomía:** Sergio investiga en paralelo sin interrumpirle y le notificará al concluir."
+                        ),
+                    )
+                return ToolResult(
+                    tool_name=self.tool_id,
+                    content=(
+                        f"🔬 **Ultra Deep Research Completado ({res['fuentes_totales']} fuentes, {res['hallazgos']} hallazgos contrastados)**\n"
+                        f"- **Score de Certeza:** `{res.get('score_confianza', 0.0)}%`\n"
+                        f"- **Dossier guardado:** `{res['archivo_guardado']}`\n\n"
+                        + res.get("informe_markdown", "")
                     ),
                 )
 
