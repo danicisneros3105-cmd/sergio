@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-import time
-from openjarvis.connectome import neurons
-from openjarvis.core.types import ToolResult
-from openjarvis.tools.app_control import SergioAppControlTool
 from sergio_escritorio.voice import needs_agent
+
+from openjarvis.connectome import neurons
+from openjarvis.tools.app_control import SergioAppControlTool
 
 
 def test_voice_recognizes_ultra_deep_and_background_swarm():
@@ -24,7 +23,9 @@ def test_voice_recognizes_ultra_deep_and_background_swarm():
 
 def test_background_swarm_launch_status_and_cancel(monkeypatch, tmp_path):
     monkeypatch.setattr("pathlib.Path.home", lambda: tmp_path)
-    monkeypatch.setattr("openjarvis.swarm.engine._home", lambda: tmp_path / ".openjarvis" / "swarm")
+    monkeypatch.setattr(
+        "openjarvis.swarm.engine._home", lambda: tmp_path / ".openjarvis" / "swarm"
+    )
 
     tool = SergioAppControlTool()
 
@@ -41,6 +42,7 @@ def test_background_swarm_launch_status_and_cancel(monkeypatch, tmp_path):
 
     # Extract ID
     import re
+
     m = re.search(r"`(sw_[a-f0-9]+)`", res.content)
     assert m is not None
     swarm_id = m.group(1)

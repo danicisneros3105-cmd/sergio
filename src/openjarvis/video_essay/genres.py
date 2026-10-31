@@ -160,8 +160,8 @@ GENRES: Dict[str, Genre] = {
                "6) Seamless infinite loop: the final sentence grammatically flows back into the hook for >100% retention. "
                "7) Kinetic neon subtitles synced word-by-word without delay."),
         skills={
-            "guion": ("resultaquee-hook-engine", "viral-curiosity-loop", "tts-director"),
-            "motion": ("kinetic-neon-typography", "blender-schematic-3d", "motion-design"),
+            "guion": ("youtube-retention-hooks", "explainer script-director", "tts-director"),
+            "motion": ("video-typography", "blender-mcp", "motion-design"),
         },
     ),
 }  # fmt: skip
@@ -268,7 +268,7 @@ def finish(shots: Sequence, words: Sequence, genre: str) -> int:
     elif genre in ("resultaaquee", "explicado3d", "corto3d"):
         inside = re.compile(
             r"\b(dentro|interior|por dentro|huesos?|organos?|órganos?|sangre|"
-            r"cerebro|coraz[oó]n|pulm[oó]n|motor|piezas?|capas?|c[eé]lulas?|pantalla|sensor|vidrio|cristal|electr[oó]n|electrones|circuito|cable|presi[oó]n|chip|bater[ií]a)",
+            r"cerebro|coraz[oó]n|pulm[oó]n|motor|piezas?|capas?|c[eé]lulas?|pantalla|sensor|vidrio|cristal|electr[oó]n|electrones|circuito|cable|presi[oó]n|chip|bater[ií]a)\b",
             re.I,
         )
         for i, s in enumerate(shots):

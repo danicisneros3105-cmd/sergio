@@ -66,7 +66,9 @@ class LiveCodebaseEvolutionNexus:
                 repo_root = Path.cwd()
         self.repo_root = repo_root
         self._lock = threading.RLock()
-        self.state_file = Path.home() / ".openjarvis" / "evidencias" / "evolution_state.json"
+        self.state_file = (
+            Path.home() / ".openjarvis" / "evidencias" / "evolution_state.json"
+        )
         self.state_file.parent.mkdir(parents=True, exist_ok=True)
         self._load_state()
 
@@ -84,7 +86,9 @@ class LiveCodebaseEvolutionNexus:
             "history": [],
         }
         try:
-            self.state_file.write_text(json.dumps(default_state, indent=2), encoding="utf-8")
+            self.state_file.write_text(
+                json.dumps(default_state, indent=2), encoding="utf-8"
+            )
         except Exception:
             pass
         return default_state
@@ -133,8 +137,17 @@ class LiveCodebaseEvolutionNexus:
                 # Symptom keyword triage
                 low = symptom.lower()
                 real_defect_markers = [
-                    "traceback", "exception", "error", "fail", "crash", "bug",
-                    "timed out", "unhandled", "broken", "syntaxerror", "typeerror",
+                    "traceback",
+                    "exception",
+                    "error",
+                    "fail",
+                    "crash",
+                    "bug",
+                    "timed out",
+                    "unhandled",
+                    "broken",
+                    "syntaxerror",
+                    "typeerror",
                 ]
                 is_reproducible = any(m in low for m in real_defect_markers)
                 output = f"Heuristic analysis for markers: {is_reproducible}"
@@ -143,7 +156,9 @@ class LiveCodebaseEvolutionNexus:
                 defect_id=defect_id,
                 symptom=symptom,
                 component_affected=self._infer_component(symptom),
-                severity="major" if "crash" in symptom.lower() or "exception" in symptom.lower() else "minor",
+                severity="major"
+                if "crash" in symptom.lower() or "exception" in symptom.lower()
+                else "minor",
                 is_reproducible=is_reproducible,
                 reproduction_output=output[:1000],
             )
@@ -163,7 +178,9 @@ class LiveCodebaseEvolutionNexus:
             return "tools.commerce_intel"
         return "core.agi_engine"
 
-    def run_regression_suite(self, test_target: str = "tests/core/") -> Tuple[bool, str]:
+    def run_regression_suite(
+        self, test_target: str = "tests/core/"
+    ) -> Tuple[bool, str]:
         """Runs the test suite inside the active environment to guarantee zero regressions."""
         python_bin = sys.executable
         # Try uv if available, otherwise python -m pytest
@@ -197,14 +214,20 @@ class LiveCodebaseEvolutionNexus:
             target_file = self.repo_root / file_relative_path
 
             if not target_file.exists():
-                raise FileNotFoundError(f"Archivo objetivo no encontrado: {file_relative_path}")
+                raise FileNotFoundError(
+                    f"Archivo objetivo no encontrado: {file_relative_path}"
+                )
 
             original_content = target_file.read_text(encoding="utf-8")
             if target_snippet not in original_content:
-                raise ValueError(f"Snippet objetivo no coincide en {file_relative_path}")
+                raise ValueError(
+                    f"Snippet objetivo no coincide en {file_relative_path}"
+                )
 
             # 1. Apply patch in memory and write
-            patched_content = original_content.replace(target_snippet, replacement_snippet, 1)
+            patched_content = original_content.replace(
+                target_snippet, replacement_snippet, 1
+            )
             target_file.write_text(patched_content, encoding="utf-8")
 
             # 2. Run verification tests
@@ -212,13 +235,20 @@ class LiveCodebaseEvolutionNexus:
             if not tests_ok:
                 # Rollback immediately
                 target_file.write_text(original_content, encoding="utf-8")
-                raise RuntimeError(f"Pruebas de regresión fallaron. Parche revertido: {test_output[:500]}")
+                raise RuntimeError(
+                    f"Pruebas de regresión fallaron. Parche revertido: {test_output[:500]}"
+                )
 
             # 3. Git commit
             commit_sha = None
             pushed = False
             try:
-                subprocess.run(["git", "add", str(target_file)], cwd=self.repo_root, check=True, capture_output=True)
+                subprocess.run(
+                    ["git", "add", str(target_file)],
+                    cwd=self.repo_root,
+                    check=True,
+                    capture_output=True,
+                )
                 commit_res = subprocess.run(
                     ["git", "commit", "-m", f"fix(auto-heal): {commit_message}"],
                     cwd=self.repo_root,
@@ -253,6 +283,7 @@ class LiveCodebaseEvolutionNexus:
                 from openjarvis.telemetry.evidence_nexus import (
                     get_evidence_nexus_ledger,
                 )
+
                 ledger = get_evidence_nexus_ledger()
                 proof = ledger.record_proof(
                     action_name="self_evolution:auto_patch",
@@ -271,13 +302,15 @@ class LiveCodebaseEvolutionNexus:
             state["last_cycle_timestamp"] = time.time()
             state["cycle_count"] = state.get("cycle_count", 0) + 1
             state["defects_repaired_total"] = state.get("defects_repaired_total", 0) + 1
-            state.setdefault("history", []).append({
-                "cycle_id": cycle_id,
-                "file": file_relative_path,
-                "commit": commit_sha,
-                "pushed": pushed,
-                "timestamp": time.time(),
-            })
+            state.setdefault("history", []).append(
+                {
+                    "cycle_id": cycle_id,
+                    "file": file_relative_path,
+                    "commit": commit_sha,
+                    "pushed": pushed,
+                    "timestamp": time.time(),
+                }
+            )
             self._save_state(state)
 
             return EvolutionCycleResult(
@@ -296,7 +329,11 @@ class LiveCodebaseEvolutionNexus:
     def is_evolution_due(self, max_days: Optional[float] = None) -> Tuple[bool, float]:
         """Checks if the 7-day (or custom) self-evolution interval has elapsed."""
         state = self._load_state()
-        interval_days = max_days if max_days is not None else state.get("max_evolution_interval_days", 7.0)
+        interval_days = (
+            max_days
+            if max_days is not None
+            else state.get("max_evolution_interval_days", 7.0)
+        )
         last_t = state.get("last_cycle_timestamp", 0.0)
         elapsed_days = (time.time() - last_t) / 86400.0
         is_due = elapsed_days >= interval_days

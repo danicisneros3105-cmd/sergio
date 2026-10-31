@@ -71,7 +71,7 @@ def detect_cloud_keys() -> Optional[CloudProvider]:
 # Initial config writer
 # ---------------------------------------------------------------------------
 
-from openjarvis.persona import SERGIO_PROMPT_DOCTRINE
+from openjarvis.persona import SERGIO_PROMPT_DOCTRINE  # noqa: E402
 
 _DEFAULT_SOUL = f"# El Asistente Sergio Definitivo\n\n{SERGIO_PROMPT_DOCTRINE}\n"
 _DEFAULT_MEMORY = "# Agent Memory\n\n"

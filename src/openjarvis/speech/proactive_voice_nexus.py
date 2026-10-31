@@ -32,9 +32,9 @@ class VoiceNexusState(str, enum.Enum):
 class ProsodyParameters:
     """Modulated vocal acoustic properties adapted to user cognitive state."""
 
-    speech_rate: float = 1.05     # 0.85 (calm) to 1.30 (high-tempo)
+    speech_rate: float = 1.05  # 0.85 (calm) to 1.30 (high-tempo)
     pitch_semitones: float = -0.5  # -2.0 (reassuring baritone) to +1.0
-    pause_duration_ms: int = 140   # milliseconds between clauses
+    pause_duration_ms: int = 140  # milliseconds between clauses
     acoustic_warmth: float = 0.85  # 0.0 to 1.0 warmth index
 
 
@@ -54,15 +54,37 @@ class UltraLowLatencyBargeIn:
     """Acoustic energy & semantic filter executing in sub-15ms intervals."""
 
     # Words that indicate affirmation / listening, NOT interruption
-    _BACKCHANNEL_TOKENS = {"ajá", "aha", "sí", "si", "ya", "vale", "entiendo", "ok", "claro", "bien"}
+    _BACKCHANNEL_TOKENS = {
+        "ajá",
+        "aha",
+        "sí",
+        "si",
+        "ya",
+        "vale",
+        "entiendo",
+        "ok",
+        "claro",
+        "bien",
+    }
     # Words that immediately trigger hard execution cutoff
-    _HARD_INTERRUPT_TOKENS = {"espera", "para", "detente", "alto", "cancela", "silencio", "sergio", "no"}
+    _HARD_INTERRUPT_TOKENS = {
+        "espera",
+        "para",
+        "detente",
+        "alto",
+        "cancela",
+        "silencio",
+        "sergio",
+        "no",
+    }
 
     def __init__(self, energy_threshold_rms: float = 0.035) -> None:
         self.energy_threshold_rms = energy_threshold_rms
         self.last_interruption_time: float = 0.0
 
-    def evaluate_audio_frame(self, rms_energy: float, partial_transcript: Optional[str] = None) -> Tuple[bool, str]:
+    def evaluate_audio_frame(
+        self, rms_energy: float, partial_transcript: Optional[str] = None
+    ) -> Tuple[bool, str]:
         """Evaluates whether current audio frame constitutes a legitimate conversational barge-in."""
         t0 = time.perf_counter()
 
@@ -79,7 +101,9 @@ class UltraLowLatencyBargeIn:
             if tokens.intersection(self._HARD_INTERRUPT_TOKENS):
                 self.last_interruption_time = time.time()
                 dt_ms = (time.perf_counter() - t0) * 1000
-                log.info("Interrupción táctica procesada en %.2f ms: '%s'", dt_ms, cleaned)
+                log.info(
+                    "Interrupción táctica procesada en %.2f ms: '%s'", dt_ms, cleaned
+                )
                 return True, "hard_interrupt_confirmed"
 
         self.last_interruption_time = time.time()
@@ -133,7 +157,9 @@ class ProactiveVoiceNexus:
         self._is_active = True
         self._speech_callback: Optional[Callable[[str, ProsodyParameters], None]] = None
 
-    def register_speech_output_callback(self, callback: Callable[[str, ProsodyParameters], None]) -> None:
+    def register_speech_output_callback(
+        self, callback: Callable[[str, ProsodyParameters], None]
+    ) -> None:
         with self._lock:
             self._speech_callback = callback
 
@@ -143,9 +169,16 @@ class ProactiveVoiceNexus:
             self._seq_counter += 1
             # Push priority tuple with counter to break ties safely
             self.alert_queue.put((-alert.urgency_score, self._seq_counter, alert))
-            log.info("Alerta táctica proactiva encolada: %s (Urgencia: %.2f)", alert.headline, alert.urgency_score)
+            log.info(
+                "Alerta táctica proactiva encolada: %s (Urgencia: %.2f)",
+                alert.headline,
+                alert.urgency_score,
+            )
 
-            if alert.urgency_score >= 0.70 and self.state in (VoiceNexusState.IDLE, VoiceNexusState.LISTENING):
+            if alert.urgency_score >= 0.70 and self.state in (
+                VoiceNexusState.IDLE,
+                VoiceNexusState.LISTENING,
+            ):
                 return self.trigger_spontaneous_speech()
         return False
 
@@ -162,7 +195,9 @@ class ProactiveVoiceNexus:
             spoken_phrase = f"Disculpe la iniciativa, señor. {top_alert.speech_text}"
 
             log.info("Sergio tomando iniciativa vocal: '%s'", spoken_phrase)
-            self.dialogue_history.append({"role": "sergio_proactive", "content": spoken_phrase})
+            self.dialogue_history.append(
+                {"role": "sergio_proactive", "content": spoken_phrase}
+            )
 
             if self._speech_callback:
                 self._speech_callback(spoken_phrase, prosody_params)
@@ -178,10 +213,14 @@ class ProactiveVoiceNexus:
         """Processes real-time audio chunk and handles seamless barge-in interruption."""
         with self._lock:
             if self.state == VoiceNexusState.SPEAKING:
-                interrupted, reason = self.barge_in.evaluate_audio_frame(rms_energy, transcript_snippet)
+                interrupted, reason = self.barge_in.evaluate_audio_frame(
+                    rms_energy, transcript_snippet
+                )
                 if interrupted:
                     self.state = VoiceNexusState.INTERRUPTED
-                    log.info("Sergio interrumpido de inmediato (<15ms). Razón: %s", reason)
+                    log.info(
+                        "Sergio interrumpido de inmediato (<15ms). Razón: %s", reason
+                    )
                     return {
                         "action": "HALT_TTS_STREAM_IMMEDIATELY",
                         "barge_in": True,
@@ -195,7 +234,9 @@ class ProactiveVoiceNexus:
                 "new_state": self.state.value,
             }
 
-    def generate_human_response(self, user_query: str, biometrics: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    def generate_human_response(
+        self, user_query: str, biometrics: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
         """Synthesizes human-fluent response reflecting Andy Sachs / J.A.R.V.I.S. persona."""
         with self._lock:
             self.state = VoiceNexusState.PROCESSING

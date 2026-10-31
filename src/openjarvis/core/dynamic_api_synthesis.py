@@ -7,8 +7,6 @@ and extract mission-critical logistical data.
 
 from __future__ import annotations
 
-import hashlib
-import json
 import logging
 import random
 import re
@@ -37,96 +35,35 @@ class StealthBrowserFingerprint:
 
 
 class StealthAntiBotEvasion:
-    """Orchestrates deep fingerprint masquerade and antibot challenge evasion."""
+    """Kept for old imports. Sergio never disguises itself or slips past a
+    site's bot checks (owner rules, 31 Oct 2026 review): it says who it is,
+    and anything behind a sign-in or a check runs on the owner's own browser
+    on the real screen (``desktop_action operate``)."""
 
-    _USER_AGENTS = [
-        (
-            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36"
-        ),
-        (
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
-        ),
-        (
-            "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_7) "
-            "AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.6 Safari/605.1.15"
-        ),
-    ]
-
-    _WEBGL_CONFIGS = [
-        ("Apple Inc.", "Apple M2 Max"),
-        ("Apple Inc.", "Apple M3 Pro"),
-        ("Google Inc. (NVIDIA)", "ANGLE (NVIDIA, NVIDIA GeForce RTX 4090 Direct3D11 vs_5_0 ps_5_0, D3D11)"),
-    ]
+    USER_AGENT = "Mozilla/5.0 (compatible; Sergio/1.0; asistente personal)"
 
     @classmethod
     def generate_stealth_fingerprint(cls) -> StealthBrowserFingerprint:
-        """Generates a coherent, non-synthetic looking browser profile."""
-        ua = random.choice(cls._USER_AGENTS)
-        vendor, renderer = random.choice(cls._WEBGL_CONFIGS)
+        """An honest, fixed profile (no spoofed browser or hardware)."""
         return StealthBrowserFingerprint(
-            user_agent=ua,
-            ja4_signature=f"t13d1516h2_{hashlib.sha256(ua.encode()).hexdigest()[:12]}_0270a4427599",
-            webgl_vendor=vendor,
-            webgl_renderer=renderer,
-            canvas_noise_seed=random.randint(1000, 9999),
-            audio_fingerprint_offset=random.uniform(0.0001, 0.0009),
-            screen_resolution=random.choice([(2560, 1440), (1920, 1080), (3456, 2234)]),
+            user_agent=cls.USER_AGENT,
+            ja4_signature="",
+            webgl_vendor="",
+            webgl_renderer="",
+            canvas_noise_seed=0,
+            audio_fingerprint_offset=0.0,
+            screen_resolution=(1920, 1080),
             language="es-ES,es;q=0.9,en;q=0.8",
-            hardware_concurrency=random.choice([8, 12, 16]),
-            device_memory_gb=random.choice([16, 32, 64]),
+            hardware_concurrency=0,
+            device_memory_gb=0,
         )
 
     @classmethod
-    def get_playwright_stealth_script(cls, fp: Optional[StealthBrowserFingerprint] = None) -> str:
-        """Returns JavaScript payload injected before page load to defeat bot detectors."""
-        fp = fp or cls.generate_stealth_fingerprint()
-        vendor_json = json.dumps(fp.webgl_vendor)
-        renderer_json = json.dumps(fp.webgl_renderer)
-
-        return f"""
-        // 1. Remove navigator.webdriver
-        Object.defineProperty(navigator, 'webdriver', {{
-            get: () => undefined,
-        }});
-
-        // 2. Mock Chrome runtime
-        window.chrome = {{
-            app: {{ isInstalled: false }},
-            webstore: {{ onInstallStageChanged: {{}}, onDownloadProgress: {{}} }},
-            runtime: {{
-                PlatformOs: {{
-                    MAC: 'mac', WIN: 'win', ANDROID: 'android', CROS: 'cros', LINUX: 'linux', OPENBSD: 'openbsd'
-                }},
-                PlatformArch: {{ ARM: 'arm', X86_32: 'x86-32', X86_64: 'x86-64' }},
-                PlatformNaclArch: {{ ARM: 'arm', X86_32: 'x86-32', X86_64: 'x86-64' }}
-            }}
-        }};
-
-        // 3. WebGL Spoofing with safe JSON string literals
-        const getParameter = WebGLRenderingContext.prototype.getParameter;
-        WebGLRenderingContext.prototype.getParameter = function(parameter) {{
-            if (parameter === 37445) return {vendor_json};
-            if (parameter === 37446) return {renderer_json};
-            return getParameter.apply(this, arguments);
-        }};
-
-        // 4. Hardware and Languages
-        Object.defineProperty(navigator, 'languages', {{ get: () => ['es-ES', 'es', 'en'] }});
-        Object.defineProperty(navigator, 'hardwareConcurrency', {{ get: () => {fp.hardware_concurrency} }});
-        Object.defineProperty(navigator, 'deviceMemory', {{ get: () => {fp.device_memory_gb} }});
-
-        // 5. Canvas Noise Injection
-        const getImageData = CanvasRenderingContext2D.prototype.getImageData;
-        CanvasRenderingContext2D.prototype.getImageData = function(x, y, w, h) {{
-            const image = getImageData.apply(this, arguments);
-            for (let i = 0; i < image.data.length; i += 4) {{
-                image.data[i] ^= ({fp.canvas_noise_seed} & 1);
-            }}
-            return image;
-        }};
-        """
+    def get_playwright_stealth_script(
+        cls, fp: Optional[StealthBrowserFingerprint] = None
+    ) -> str:
+        """No masking script: pages see an automated browser as what it is."""
+        return ""
 
 
 class DynamicAPISynthesizer:
@@ -152,9 +89,6 @@ class DynamicAPISynthesizer:
             "User-Agent": fp.user_agent,
             "Accept": "application/json, text/plain, */*",
             "Accept-Language": fp.language,
-            "Sec-Ch-Ua": '"Chromium";v="131", "Not_A Brand";v="24"',
-            "Sec-Ch-Ua-Mobile": "?0",
-            "Sec-Ch-Ua-Platform": '"macOS"',
             "Sec-Fetch-Dest": "empty",
             "Sec-Fetch-Mode": "cors",
             "Sec-Fetch-Site": "same-origin",
@@ -168,7 +102,9 @@ class DynamicAPISynthesizer:
             self.session_cookies.update(cookies)
 
         if self.session_cookies:
-            headers["Cookie"] = "; ".join(f"{k}={v}" for k, v in self.session_cookies.items())
+            headers["Cookie"] = "; ".join(
+                f"{k}={v}" for k, v in self.session_cookies.items()
+            )
 
         request_spec = {
             "method": method.upper(),
@@ -242,7 +178,9 @@ class ResilientDeepScraper:
             if val is not None:
                 extracted[key] = val
             elif visual_fallback_frames:
-                extracted[key] = self._extract_field_by_vision(key, visual_fallback_frames)
+                extracted[key] = self._extract_field_by_vision(
+                    key, visual_fallback_frames
+                )
             else:
                 extracted[key] = f"Extracción heurística de {key} completada"
 

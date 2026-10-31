@@ -4,7 +4,7 @@ description: Creación de videos virales estilo ResultaQuee, guiones de alta ret
 license: Apache-2.0
 metadata:
   openjarvis:
-    user_invocable: true
+    user_invocable: false
 ---
 
 # ResultaQuee Viral Video Studio

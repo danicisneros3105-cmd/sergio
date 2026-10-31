@@ -29,9 +29,15 @@ log = logging.getLogger("openjarvis.security.vertu_enclave")
 
 
 class OperationRiskTier(str, enum.Enum):
-    TIER_0_PERCEPTION = "tier_0_perception"       # 100% autonomous (ambient reading, scraping)
-    TIER_1_LOGISTICS = "tier_1_logistics"         # 100% autonomous (reservations, video pipeline, drafting)
-    TIER_2_CRITICAL = "tier_2_critical"           # STRICT CONFIRMATION (wire transfers, deletion, contracts)
+    TIER_0_PERCEPTION = (
+        "tier_0_perception"  # 100% autonomous (ambient reading, scraping)
+    )
+    TIER_1_LOGISTICS = (
+        "tier_1_logistics"  # 100% autonomous (reservations, video pipeline, drafting)
+    )
+    TIER_2_CRITICAL = (
+        "tier_2_critical"  # STRICT CONFIRMATION (wire transfers, deletion, contracts)
+    )
 
 
 @dataclass
@@ -80,9 +86,15 @@ class VertuCryptographicEnclave:
                 if len(raw) >= 32:
                     return raw[:32]
                 # Corrupted key file detected: preserve it with backup to avoid silent data loss
-                backup = key_path.with_name(f"{key_path.name}.corrupted.{int(time.time())}")
+                backup = key_path.with_name(
+                    f"{key_path.name}.corrupted.{int(time.time())}"
+                )
                 key_path.rename(backup)
-                log.error("Clave Vertu corrupta en %s (<32 bytes). Respaldada en %s", key_path, backup)
+                log.error(
+                    "Clave Vertu corrupta en %s (<32 bytes). Respaldada en %s",
+                    key_path,
+                    backup,
+                )
             except Exception as exc:
                 log.error("Error al leer clave Vertu: %s", exc)
 
@@ -97,7 +109,9 @@ class VertuCryptographicEnclave:
             with os.fdopen(fd, "wb") as f:
                 f.write(new_key)
         except Exception as exc:
-            log.warning("No se pudo restringir permisos atómicamente en clave Vertu: %s", exc)
+            log.warning(
+                "No se pudo restringir permisos atómicamente en clave Vertu: %s", exc
+            )
             key_path.write_bytes(new_key)
             try:
                 key_path.chmod(stat.S_IRUSR | stat.S_IWUSR)
@@ -143,9 +157,13 @@ class VertuCryptographicEnclave:
             "aad": context_aad,
             "timestamp": time.time(),
         }
-        return "vertu:" + base64.b64encode(json.dumps(packet).encode("utf-8")).decode("ascii")
+        return "vertu:" + base64.b64encode(json.dumps(packet).encode("utf-8")).decode(
+            "ascii"
+        )
 
-    def unseal_envelope(self, sealed_token: str, expected_aad: Optional[str] = None) -> bytes:
+    def unseal_envelope(
+        self, sealed_token: str, expected_aad: Optional[str] = None
+    ) -> bytes:
         """Unseals authenticated envelope with constant-time AAD validation."""
         if not sealed_token.startswith("vertu:"):
             raise ValueError("Token inválido: Formato de sobre Vertu no reconocido")
@@ -154,7 +172,9 @@ class VertuCryptographicEnclave:
 
         aad = packet.get("aad", "")
         if expected_aad is not None and not hmac.compare_digest(aad, expected_aad):
-            raise ValueError(f"Falla de autenticación AAD: esperada '{expected_aad}', recibida '{aad}'")
+            raise ValueError(
+                f"Falla de autenticación AAD: esperada '{expected_aad}', recibida '{aad}'"
+            )
 
         salt = base64.b64decode(packet["salt_b64"])
         nonce = base64.b64decode(packet["nonce_b64"])
@@ -169,7 +189,9 @@ class VertuCryptographicEnclave:
 
         return cipher.decrypt(nonce, ciphertext, aad.encode())
 
-    def seal_file_securely(self, target_path: Path, data: bytes, context_label: str) -> None:
+    def seal_file_securely(
+        self, target_path: Path, data: bytes, context_label: str
+    ) -> None:
         """Writes sealed envelope to disk and locks POSIX permissions to 0600."""
         sealed_str = self.seal_envelope(data, context_aad=context_label)
         target_path.parent.mkdir(parents=True, exist_ok=True)
@@ -207,12 +229,16 @@ class IdentityBlindingNexus:
         """Zeroes and invalidates disposable persona after mission completion."""
         if persona_id in self._active_personas:
             del self._active_personas[persona_id]
-            log.info("Persona descartable [%s] revocada y purgada del enclave", persona_id)
+            log.info(
+                "Persona descartable [%s] revocada y purgada del enclave", persona_id
+            )
 
     def prune_expired_personas(self) -> int:
         """Prunes personas that have exceeded their 24h validity window."""
         now = time.time()
-        expired = [pid for pid, p in self._active_personas.items() if p.expires_at <= now]
+        expired = [
+            pid for pid, p in self._active_personas.items() if p.expires_at <= now
+        ]
         for pid in expired:
             del self._active_personas[pid]
         return len(expired)
@@ -232,9 +258,16 @@ class StrictConfirmationGate:
         is_destructive: bool = False,
     ) -> OperationRiskTier:
         """Determines if operation can proceed autonomously or requires human sign-off."""
-        if is_destructive or financial_amount > 5000.0 or "eliminar" in action_name.lower():
+        if (
+            is_destructive
+            or financial_amount > 5000.0
+            or "eliminar" in action_name.lower()
+        ):
             return OperationRiskTier.TIER_2_CRITICAL
-        elif financial_amount > 0 or any(w in action_name.lower() for w in ["reservar", "comprar", "postear", "subir"]):
+        elif financial_amount > 0 or any(
+            w in action_name.lower()
+            for w in ["reservar", "comprar", "postear", "subir"]
+        ):
             return OperationRiskTier.TIER_1_LOGISTICS
         return OperationRiskTier.TIER_0_PERCEPTION
 
@@ -267,7 +300,9 @@ class StrictConfirmationGate:
             confirmation_token=auth_token,
         )
         self._pending_confirmations[req_id] = req
-        log.warning("Acción crítica detenida por puerta Vertu [%s]: %s", req_id, action_name)
+        log.warning(
+            "Acción crítica detenida por puerta Vertu [%s]: %s", req_id, action_name
+        )
         return False, req
 
     def authorize_request(self, request_id: str, confirmation_token: str) -> bool:
@@ -283,7 +318,9 @@ class StrictConfirmationGate:
 
         if hmac.compare_digest(expected_token, confirmation_token):
             req.approved = True
-            log.info("Acción crítica [%s] formalmente autorizada por el Señor", request_id)
+            log.info(
+                "Acción crítica [%s] formalmente autorizada por el Señor", request_id
+            )
             return True
         return False
 

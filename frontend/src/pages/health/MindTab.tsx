@@ -5,11 +5,12 @@ import ReactMarkdown from 'react-markdown';
 import { Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { apiFetch } from '../../lib/api';
-import { clock, countdown, salud, type MindWidget, type ScaleScore, type SurveyResult, type SurveyVariant } from '../../lib/salud';
+import { clock, countdown, salud, type ScaleScore, type SurveyResult, type SurveyVariant } from '../../lib/salud';
 import portada from '../../assets/salud/portada-salud-mental.webp';
 import { HealthGym } from './HealthGym';
 import { Credits } from './Credits';
-import { MindSurvey, SURVEY_IMAGES, hasDraft } from './MindSurvey';
+import { MindSurvey, SURVEY_IMAGES } from './MindSurvey';
+import { MindWidgets } from './MindWidgets';
 
 const PICTURE_IMAGE: Record<string, string> = {
   pic_suficiente: 'no-suficiente',
@@ -189,60 +190,6 @@ function Gym() {
   return <HealthGym hub={hub} setHub={setHub} />;
 }
 
-/** How the last answer of a card reads, in one word. */
-function widgetState(w: MindWidget): string {
-  if (!w.last) return 'Sin responder';
-  if (w.last.status !== 'ready') return `Listo a las ${clock(w.last.ready_at)}`;
-  const s = w.last.scores?.scales[0];
-  return s?.words ? s.words.charAt(0).toUpperCase() + s.words.slice(1) : 'Listo';
-}
-
-/** «¿Cómo está hoy?»: five cards of one to five validated questions each. */
-function Widgets({ onPick, onOpen }: { onPick: (v: SurveyVariant) => void; onOpen: (id: string) => void }) {
-  // Five cards and the complete survey as the sixth: two even rows of three.
-  const [cards, setCards] = useState<MindWidget[] | null>(null);
-  useEffect(() => {
-    salud.widgets().then((r) => setCards(r.widgets)).catch(() => setCards([]));
-  }, []);
-  if (!cards || cards.length === 0) return null;
-  return (
-    <div className="mind-widgets">
-      {cards.map((w) => (
-        <div key={w.key} className="mind-widget">
-          <b>{w.label}</b>
-          <span>
-            {w.count} {w.count === 1 ? 'pregunta' : 'preguntas'}
-          </span>
-          <em data-ready={w.last?.status === 'ready'}>{widgetState(w)}</em>
-          <div className="mind-widget-actions">
-            <button type="button" className="mind-widget-go" onClick={() => onPick(w.key)}>
-              {w.last ? 'Otra vez' : 'Responder'}
-            </button>
-            {w.last && (
-              <button type="button" className="mind-widget-see" onClick={() => onOpen(w.last!.id)}>
-                Ver
-              </button>
-            )}
-          </div>
-        </div>
-      ))}
-      <div className="mind-widget mind-widget-full">
-        <b>Encuesta completa</b>
-        <span>12 o 56 preguntas</span>
-        <em>{hasDraft('corta') || hasDraft('larga') ? 'Tiene una a medias' : 'Con las tres imágenes'}</em>
-        <div className="mind-widget-actions">
-          <button type="button" className="mind-widget-go" onClick={() => onPick('corta')}>
-            Corta
-          </button>
-          <button type="button" className="mind-widget-see" onClick={() => onPick('larga')}>
-            Larga
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export function MindTab() {
   const [mode, setMode] = useState<'home' | 'survey' | 'view'>('home');
   const [variant, setVariant] = useState<SurveyVariant>('corta');
@@ -298,36 +245,25 @@ export function MindTab() {
 
   return (
     <div className="mind-home">
+      {/* The brain in a suit stays in front (owner, 29 Oct 2026). */}
       <section className="mind-cover">
         <img className="mind-cover-art" src={portada} width={754} height={1000} alt="Un cerebro flotando sobre un traje con corbata, sobre fondo rojo" />
         <div className="mind-cover-body">
           <h2>¿Cómo está hoy?</h2>
-          <Widgets
-            onPick={(v) => {
-              setVariant(v);
-              setMode('survey');
-            }}
-            onOpen={(id) => void open(id)}
-          />
+          <p className="mind-cover-lead">Responda aquí mismo, una tarjeta a la vez.</p>
           <p className="paper-meta">El resultado llega unos 30 minutos después. No es un diagnóstico.</p>
           <LocalOnly />
         </div>
       </section>
 
-      <div className="mind-strip" aria-label="Las tres preguntas con imagen">
-        {(
-          [
-            ['no-suficiente', 'Un espejo roto frente a una silueta con sombrero', 'No sentirse suficiente'],
-            ['pensar-demasiado', 'Una figura enterrada bajo montones de periódicos', 'Pensar demasiado'],
-            ['encajar', 'Un hombre con máscara de león rodeado de leones rojos', 'Querer encajar'],
-          ] as const
-        ).map(([image, alt, caption]) => (
-          <figure key={image}>
-            <img src={SURVEY_IMAGES[image]} alt={alt} loading="lazy" />
-            <figcaption>{caption}</figcaption>
-          </figure>
-        ))}
-      </div>
+      <MindWidgets
+        onPick={(v) => {
+          setVariant(v);
+          setMode('survey');
+        }}
+        onOpen={(id) => void open(id)}
+        onSent={() => load()}
+      />
 
       {list.length > 0 && (
         <section className="salud-block">

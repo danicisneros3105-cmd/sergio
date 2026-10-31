@@ -27,9 +27,9 @@ router = APIRouter(prefix="/v1/permisos", tags=["permisos"])
 
 
 class RiskLevel(str, Enum):
-    LOW = "bajo"          # Read-only telemetry, safe queries
-    MEDIUM = "medio"      # PowerShell scripts, service restarts, device sync
-    HIGH = "alto"         # File modifications, external hardware actuation
+    LOW = "bajo"  # Read-only telemetry, safe queries
+    MEDIUM = "medio"  # PowerShell scripts, service restarts, device sync
+    HIGH = "alto"  # File modifications, external hardware actuation
     CRITICAL = "critico"  # Financial transactions, account purge, master vault unlock
 
 
@@ -72,7 +72,9 @@ class PermissionGatewayStore:
     def __init__(self) -> None:
         self._lock = threading.RLock()
         self._requests: Dict[str, PermissionRequest] = {}
-        self._mode: str = "asistente_soberano"  # "asistente_soberano" | "estricto_total"
+        self._mode: str = (
+            "asistente_soberano"  # "asistente_soberano" | "estricto_total"
+        )
         self._events: Dict[str, threading.Event] = {}
 
     @classmethod
@@ -115,7 +117,9 @@ class PermissionGatewayStore:
 
         return req
 
-    def grant_permission(self, request_id: str, resolved_by: str = "usuario_portal") -> bool:
+    def grant_permission(
+        self, request_id: str, resolved_by: str = "usuario_portal"
+    ) -> bool:
         """Grant authorization for the pending request."""
         with self._lock:
             req = self._requests.get(request_id)
@@ -130,7 +134,9 @@ class PermissionGatewayStore:
             log.info("Permiso concedido por usuario: %s (%s)", req.title, request_id)
             return True
 
-    def deny_permission(self, request_id: str, resolved_by: str = "usuario_portal") -> bool:
+    def deny_permission(
+        self, request_id: str, resolved_by: str = "usuario_portal"
+    ) -> bool:
         """Deny authorization for the pending request."""
         with self._lock:
             req = self._requests.get(request_id)
@@ -219,13 +225,17 @@ def get_permission_history(limit: int = 30) -> Dict[str, Any]:
 
 
 @router.post("/{request_id}/conceder")
-def grant_permission_endpoint(request_id: str, body: Optional[PermissionActionBody] = None) -> Dict[str, Any]:
+def grant_permission_endpoint(
+    request_id: str, body: Optional[PermissionActionBody] = None
+) -> Dict[str, Any]:
     """Grant approval for Sergio to execute the requested system command."""
     store = get_permission_gateway_store()
     operador = body.operador if body else "usuario_web"
     success = store.grant_permission(request_id, resolved_by=operador)
     if not success:
-        raise HTTPException(404, f"No se encontró la solicitud de permiso '{request_id}'.")
+        raise HTTPException(
+            404, f"No se encontró la solicitud de permiso '{request_id}'."
+        )
     return {
         "ok": True,
         "request_id": request_id,
@@ -235,13 +245,17 @@ def grant_permission_endpoint(request_id: str, body: Optional[PermissionActionBo
 
 
 @router.post("/{request_id}/denegar")
-def deny_permission_endpoint(request_id: str, body: Optional[PermissionActionBody] = None) -> Dict[str, Any]:
+def deny_permission_endpoint(
+    request_id: str, body: Optional[PermissionActionBody] = None
+) -> Dict[str, Any]:
     """Deny approval for the requested system command."""
     store = get_permission_gateway_store()
     operador = body.operador if body else "usuario_web"
     success = store.deny_permission(request_id, resolved_by=operador)
     if not success:
-        raise HTTPException(404, f"No se encontró la solicitud de permiso '{request_id}'.")
+        raise HTTPException(
+            404, f"No se encontró la solicitud de permiso '{request_id}'."
+        )
     return {
         "ok": True,
         "request_id": request_id,
@@ -255,7 +269,9 @@ def set_permission_mode_endpoint(body: PermissionModeBody) -> Dict[str, Any]:
     """Configure authorization mode: 'asistente_soberano' (smart auto-approve low risk) or 'estricto_total'."""
     store = get_permission_gateway_store()
     if body.modo not in ("asistente_soberano", "estricto_total"):
-        raise HTTPException(400, "Modo inválido. Opciones: 'asistente_soberano', 'estricto_total'.")
+        raise HTTPException(
+            400, "Modo inválido. Opciones: 'asistente_soberano', 'estricto_total'."
+        )
     store.set_mode(body.modo)
     return {
         "ok": True,
@@ -265,7 +281,9 @@ def set_permission_mode_endpoint(body: PermissionModeBody) -> Dict[str, Any]:
 
 
 @router.post("/solicitar-ejemplo")
-def create_sample_permission_endpoint(body: CreateSimulatedPermissionBody) -> Dict[str, Any]:
+def create_sample_permission_endpoint(
+    body: CreateSimulatedPermissionBody,
+) -> Dict[str, Any]:
     """Helper to simulate an autonomous command permission request from Sergio."""
     store = get_permission_gateway_store()
     risk_map = {

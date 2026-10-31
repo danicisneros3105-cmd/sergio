@@ -514,3 +514,47 @@ msgstr "Deep research on the web: many sources, cross-checked and cited."
 #: help
 msgid "Rondas de búsqueda."
 msgstr "Search rounds."
+
+#: help
+msgid "Sergio AGI — Motor de razonamiento universal y auditoría criptográfica Merkle."
+msgstr "Sergio AGI — universal reasoning engine and Merkle cryptographic audit."
+
+#: help
+msgid "Ejecuta una misión logística o de negociación compleja de forma autónoma."
+msgstr "Plans a complex logistics or negotiation mission (the last step waits for your yes)."
+
+#: help
+msgid "Muestra el estado del libro mayor criptográfico Merkle y sus raíces."
+msgstr "Shows the Merkle cryptographic ledger and its roots."
+
+#: help
+msgid "Número de entradas recientes a mostrar."
+msgstr "Number of recent entries to show."
+
+#: help
+msgid "Verifica matemáticamente todas las pruebas de inclusión Merkle O(log N)."
+msgstr "Verifies every Merkle O(log N) inclusion proof."
+
+#: help
+msgid "Exporta o muestra el recibo de auditoría con prueba de inclusión para una misión."
+msgstr "Exports or shows a mission's audit receipt with its inclusion proof."
+
+#: help
+msgid "Muestra el estado del ciclo adaptativo de autoevolución (máximo 7 días)."
+msgstr "Shows the adaptive self-evolution cycle (7 days at most)."
+
+#: help
+msgid "Inspecciona y auto-corrige un fallo real en el código base en vivo."
+msgstr "Inspects and fixes a real fault in the live code base."
+
+#: help
+msgid "Inspeccionar el estado del blindaje biométrico vocal y cancelación de eco loopback."
+msgstr "Shows the voice biometric shield and loopback echo cancellation."
+
+#: help
+msgid "Calibrar y registrar la huella biométrica vocal del operador principal."
+msgstr "Calibrates and enrolls the main operator's voiceprint."
+
+#: help
+msgid "Frecuencia fundamental F0 de calibración (Hz)"
+msgstr "Calibration fundamental frequency F0 (Hz)"

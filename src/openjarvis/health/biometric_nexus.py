@@ -142,9 +142,18 @@ class BiometricTelemetryNexus:
             latest = self.history[-1]
             hist_copy = list(self.history)
 
-        hour = time.localtime(latest.timestamp).tm_hour + time.localtime(latest.timestamp).tm_min / 60.0
-        analysis = PredictivePhysiologicalModel.estimate_cognitive_capacity(hist_copy, hour)
-        battery_alert = "Batería baja en wearable (<15%)" if latest.device_battery_pct < 15 else "Batería óptima"
+        hour = (
+            time.localtime(latest.timestamp).tm_hour
+            + time.localtime(latest.timestamp).tm_min / 60.0
+        )
+        analysis = PredictivePhysiologicalModel.estimate_cognitive_capacity(
+            hist_copy, hour
+        )
+        battery_alert = (
+            "Batería baja en wearable (<15%)"
+            if latest.device_battery_pct < 15
+            else "Batería óptima"
+        )
 
         return {
             "dispositivo_primario": latest.device_type.value,

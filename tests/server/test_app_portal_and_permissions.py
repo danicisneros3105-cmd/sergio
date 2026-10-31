@@ -43,7 +43,10 @@ def client():
 def test_download_windows_launcher(client: TestClient):
     response = client.get("/descargar/windows")
     assert response.status_code == 200
-    assert 'attachment; filename="Iniciar_Sergio_AI.bat"' in response.headers["content-disposition"]
+    assert (
+        'attachment; filename="Iniciar_Sergio_AI.bat"'
+        in response.headers["content-disposition"]
+    )
     text = response.text
     assert "@echo off" in text
     assert "msedge.exe" in text
@@ -53,7 +56,10 @@ def test_download_windows_launcher(client: TestClient):
 def test_download_macos_launcher(client: TestClient):
     response = client.get("/descargar/macos")
     assert response.status_code == 200
-    assert 'attachment; filename="Iniciar_Sergio_AI.command"' in response.headers["content-disposition"]
+    assert (
+        'attachment; filename="Iniciar_Sergio_AI.command"'
+        in response.headers["content-disposition"]
+    )
     assert "#!/bin/bash" in response.text
     assert "/portal" in response.text
 
@@ -61,7 +67,10 @@ def test_download_macos_launcher(client: TestClient):
 def test_download_linux_launcher(client: TestClient):
     response = client.get("/descargar/linux")
     assert response.status_code == 200
-    assert 'attachment; filename="Iniciar_Sergio_AI.sh"' in response.headers["content-disposition"]
+    assert (
+        'attachment; filename="Iniciar_Sergio_AI.sh"'
+        in response.headers["content-disposition"]
+    )
     assert "#!/bin/bash" in response.text
     assert "/portal" in response.text
 
@@ -80,7 +89,9 @@ def test_portal_html_serving(client: TestClient):
     assert res_portal.status_code == 200
     assert "text/html" in res_portal.headers["content-type"]
     assert "Sergio" in res_portal.text
-    assert "Conceder Permiso" in res_portal.text or "Centro de Permisos" in res_portal.text
+    assert (
+        "Conceder Permiso" in res_portal.text or "Centro de Permisos" in res_portal.text
+    )
 
     res_app = client.get("/app")
     assert res_app.status_code == 200

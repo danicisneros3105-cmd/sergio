@@ -66,7 +66,9 @@ class EconomicFeasibilityAudit:
             "calibrated_cash_rate": self.calibrated_cash_rate,
             "calibrated_cash_savings": self.calibrated_cash_savings,
             "calibrated_discount_pct": self.calibrated_discount_pct,
-            "stacked_value_additions": [asdict(b) for b in self.stacked_value_additions],
+            "stacked_value_additions": [
+                asdict(b) for b in self.stacked_value_additions
+            ],
             "total_stacked_value_usd": self.total_stacked_value_usd,
             "total_real_economic_yield_usd": self.total_real_economic_yield_usd,
             "effective_yield_pct": self.effective_yield_pct,
@@ -142,7 +144,11 @@ def audit_economic_feasibility(
       statistically impossible, calibrated to the realistic maximum achievable ceiling (40% cash
       discount), and reinforced with verified high-value amenities (suite upgrades, spa/property credits).
     """
-    std = float(standard_rate) if (standard_rate is not None and standard_rate > 0) else 3000.0
+    std = (
+        float(standard_rate)
+        if (standard_rate is not None and standard_rate > 0)
+        else 3000.0
+    )
 
     if target_rate is not None and target_rate > 0:
         raw_target = float(target_rate)
@@ -210,7 +216,9 @@ def audit_economic_feasibility(
         ),
     ]
 
-    total_stacked_val = round(sum(b.fair_market_value_usd for b in stacked_additions), 2)
+    total_stacked_val = round(
+        sum(b.fair_market_value_usd for b in stacked_additions), 2
+    )
     total_yield = round(cal_savings + total_stacked_val, 2)
     effective_yield_pct = round((total_yield / std) * 100.0, 1)
 

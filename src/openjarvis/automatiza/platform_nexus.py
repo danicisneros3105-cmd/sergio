@@ -38,10 +38,10 @@ class CommunicationChannel(str, enum.Enum):
 
 
 class MessagePriority(str, enum.Enum):
-    CRITICAL_VIP = "critical_vip"       # Board, partners, family, critical deals
-    ACTIONABLE = "actionable"           # Routine business tasks requiring execution
-    INFORMATIONAL = "informational"     # Updates, status reports
-    NOISE_FILTERED = "noise_filtered"   # Newsletters, promotional, cold spam
+    CRITICAL_VIP = "critical_vip"  # Board, partners, family, critical deals
+    ACTIONABLE = "actionable"  # Routine business tasks requiring execution
+    INFORMATIONAL = "informational"  # Updates, status reports
+    NOISE_FILTERED = "noise_filtered"  # Newsletters, promotional, cold spam
 
 
 @dataclass
@@ -81,7 +81,9 @@ class YouTubeAutonomousPipeline:
     RELEASE_INTERVAL_SECONDS = 7 * 3600  # Exactly 7 hours
 
     def __init__(self, storage_dir: Optional[Path] = None) -> None:
-        self.storage_dir = storage_dir or (Path.home() / ".openjarvis" / "media_pipeline")
+        self.storage_dir = storage_dir or (
+            Path.home() / ".openjarvis" / "media_pipeline"
+        )
         self.storage_dir.mkdir(parents=True, exist_ok=True)
         self.production_ledger: List[VideoProductionAsset] = []
 
@@ -97,8 +99,12 @@ class YouTubeAutonomousPipeline:
 
         title = f"La Verdad Detrás de {topic.title()}: Lo Que Nadie Te Dice"
         tags = [
-            topic.lower(), "productividad extrema", "tecnología avanzada",
-            "estrategia de élite", "innovación disruptiva", "análisis profundo"
+            topic.lower(),
+            "productividad extrema",
+            "tecnología avanzada",
+            "estrategia de élite",
+            "innovación disruptiva",
+            "análisis profundo",
         ]
 
         asset = VideoProductionAsset(
@@ -107,10 +113,18 @@ class YouTubeAutonomousPipeline:
             topic=topic,
             duration_seconds=58,
             script_segments=[
-                {"hook_0_3s": f"¿Sabías que el 99% analiza {topic} de forma totalmente equivocada?"},
-                {"reframe_3_15s": "La mayoría busca atajos, pero los líderes de élite usan esta regla exacta."},
-                {"proof_15_40s": "Tres métricas inquebrantables que cambian todo el panorama operativo."},
-                {"call_to_action_40_58s": "Si busca dominar esta ventaja, comience hoy mismo."},
+                {
+                    "hook_0_3s": f"¿Sabías que el 99% analiza {topic} de forma totalmente equivocada?"
+                },
+                {
+                    "reframe_3_15s": "La mayoría busca atajos, pero los líderes de élite usan esta regla exacta."
+                },
+                {
+                    "proof_15_40s": "Tres métricas inquebrantables que cambian todo el panorama operativo."
+                },
+                {
+                    "call_to_action_40_58s": "Si busca dominar esta ventaja, comience hoy mismo."
+                },
             ],
             b_roll_cues=[
                 "Cyberpunk hud motion graphics",
@@ -126,13 +140,22 @@ class YouTubeAutonomousPipeline:
         self.production_ledger.append(asset)
         try:
             manifest_path = self.storage_dir / f"{aid}_manifest.json"
-            manifest_path.write_text(json.dumps({
-                "asset_id": asset.asset_id,
-                "title": asset.title,
-                "schedule": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(asset.upload_schedule_epoch)),
-                "status": asset.status,
-                "tags": asset.seo_tags,
-            }, indent=2), encoding="utf-8")
+            manifest_path.write_text(
+                json.dumps(
+                    {
+                        "asset_id": asset.asset_id,
+                        "title": asset.title,
+                        "schedule": time.strftime(
+                            "%Y-%m-%d %H:%M:%S",
+                            time.localtime(asset.upload_schedule_epoch),
+                        ),
+                        "status": asset.status,
+                        "tags": asset.seo_tags,
+                    },
+                    indent=2,
+                ),
+                encoding="utf-8",
+            )
         except Exception as exc:
             log.warning("No se pudo escribir manifest de video en disco: %s", exc)
 
@@ -187,9 +210,20 @@ class UnifiedCommunicationsNexus:
 
         is_vip = any(
             w in lowered
-            for w in ["urgente", "consejo", "reunión", "contrato", "firma", "inversión", "directorio"]
+            for w in [
+                "urgente",
+                "consejo",
+                "reunión",
+                "contrato",
+                "firma",
+                "inversión",
+                "directorio",
+            ]
         )
-        is_spam = any(w in lowered for w in ["newsletter", "unsubscribe", "oferta", "descuento", "promo"])
+        is_spam = any(
+            w in lowered
+            for w in ["newsletter", "unsubscribe", "oferta", "descuento", "promo"]
+        )
 
         if is_vip:
             priority = MessagePriority.CRITICAL_VIP
@@ -219,7 +253,12 @@ class UnifiedCommunicationsNexus:
         )
         with self._lock:
             self.inbox.append(comm)
-        log.info("Mensaje triado [%s] Canal=%s Prioridad=%s", mid, channel.value, priority.value)
+        log.info(
+            "Mensaje triado [%s] Canal=%s Prioridad=%s",
+            mid,
+            channel.value,
+            priority.value,
+        )
         return comm
 
     def dispatch_outgoing_response(
@@ -251,7 +290,11 @@ class UnifiedCommunicationsNexus:
             }
             self.outbox_queue.append(receipt)
 
-        log.info("Mensaje despachado con éxito a %s vía %s", target.sender, target.channel.value)
+        log.info(
+            "Mensaje despachado con éxito a %s vía %s",
+            target.sender,
+            target.channel.value,
+        )
         return {"exito": True, "recibo": receipt}
 
 
@@ -264,17 +307,27 @@ class PlatformAutomationNexus:
 
     def run_full_autonomous_cycle(self) -> Dict[str, Any]:
         """Executes one pass of media creation and executive communication triage."""
-        vid = self.youtube.synthesize_video_release("Inteligencia Artificial AGI y Automatización Absoluta")
-        vip_pending = [m for m in self.comms.inbox if m.priority == MessagePriority.CRITICAL_VIP]
+        vid = self.youtube.synthesize_video_release(
+            "Inteligencia Artificial AGI y Automatización Absoluta"
+        )
+        vip_pending = [
+            m for m in self.comms.inbox if m.priority == MessagePriority.CRITICAL_VIP
+        ]
 
         return {
             "plataformas_digitales": {
                 "youtube_7h_pipeline": {
                     "video_preparado": vid.title,
-                    "slot_programado": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(vid.upload_schedule_epoch)),
+                    "slot_programado": time.strftime(
+                        "%Y-%m-%d %H:%M:%S", time.localtime(vid.upload_schedule_epoch)
+                    ),
                     "estado": vid.status,
                 },
-                "canales_sociales": ["Instagram Reels (Listo)", "TikTok (Listo)", "X/Twitter (Listo)"],
+                "canales_sociales": [
+                    "Instagram Reels (Listo)",
+                    "TikTok (Listo)",
+                    "X/Twitter (Listo)",
+                ],
             },
             "comunicaciones_unificadas": {
                 "mensajes_en_inbox": len(self.comms.inbox),

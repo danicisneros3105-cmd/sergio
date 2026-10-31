@@ -161,6 +161,7 @@ def test_edge_recall_uses_short_reversible_transition(notch_app):
 
 def test_always_on_call_listening_collapses_after_silence_and_caches_mask(notch_app):
     import time
+
     from sergio_escritorio.notch import Notch
 
     n = Notch()
@@ -184,4 +185,3 @@ def test_always_on_call_listening_collapses_after_silence_and_caches_mask(notch_
     finally:
         n._edge.stop()
         n.close()
-

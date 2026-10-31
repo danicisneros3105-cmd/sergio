@@ -23,7 +23,6 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import quote_plus
 
-
 PHOTO_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".heic"}
 
 TRUSTED_DOMAINS: Dict[str, Tuple[str, int]] = {
@@ -155,7 +154,11 @@ def verify_face_id(what: str, require: bool = True) -> Dict[str, Any]:
     """Run Sergio's Face ID verification (`FaceApprovalTool`).
     Returns structured status so the action records the biometric confirmation."""
     if not require:
-        return {"verified": True, "method": "automatico", "summary": f"Autorizado: {what}"}
+        return {
+            "verified": True,
+            "method": "automatico",
+            "summary": f"Autorizado: {what}",
+        }
     try:
         from openjarvis.tools.desktop_tools import FaceApprovalTool
 
@@ -198,7 +201,9 @@ def search_fast_delivery_options(
                 line = line.strip()
                 if not line or line.startswith("Search results"):
                     continue
-                p_match = re.search(r"\$\s*(\d+(?:\.\d{1,2})?)|(\d+(?:\.\d{1,2})?)\s*USD", line, re.I)
+                p_match = re.search(
+                    r"\$\s*(\d+(?:\.\d{1,2})?)|(\d+(?:\.\d{1,2})?)\s*USD", line, re.I
+                )
                 price = float(p_match.group(1) or p_match.group(2)) if p_match else None
                 if budget_usd and price and price > budget_usd:
                     continue
@@ -206,8 +211,11 @@ def search_fast_delivery_options(
                     options.append(
                         {
                             "opcion": line[:120],
-                            "precio_estimado_usd": price or (round(budget_usd * 0.88, 2) if budget_usd else 8.99),
-                            "tiempo_estimado_min": min(max_minutes or 15, 10) if max_minutes else 15,
+                            "precio_estimado_usd": price
+                            or (round(budget_usd * 0.88, 2) if budget_usd else 8.99),
+                            "tiempo_estimado_min": min(max_minutes or 15, 10)
+                            if max_minutes
+                            else 15,
                         }
                     )
         except Exception:  # noqa: BLE001
@@ -333,8 +341,46 @@ def deep_search_product(
         "reverb": f"https://reverb.com/marketplace?query={q_enc}",
     }
     low_q = q_clean.lower()
-    is_horology = any(w in low_q for w in ("patek", "philippe", "rolex", "audemars", "vacheron", "reloj", "watch", "calibre", "micro-rotor", "microrotor", "seiko", "omega", "cartier", "richard mille"))
-    is_archive_fashion = any(w in low_q for w in ("loro piana", "hermes", "hermès", "chanel", "brunello", "cucinelli", "coleccion pasada", "colección pasada", "archivo", "archive", "agotada", "agotado", "chaqueta", "abrigo", "bolso", "birkin"))
+    is_horology = any(
+        w in low_q
+        for w in (
+            "patek",
+            "philippe",
+            "rolex",
+            "audemars",
+            "vacheron",
+            "reloj",
+            "watch",
+            "calibre",
+            "micro-rotor",
+            "microrotor",
+            "seiko",
+            "omega",
+            "cartier",
+            "richard mille",
+        )
+    )
+    is_archive_fashion = any(
+        w in low_q
+        for w in (
+            "loro piana",
+            "hermes",
+            "hermès",
+            "chanel",
+            "brunello",
+            "cucinelli",
+            "coleccion pasada",
+            "colección pasada",
+            "archivo",
+            "archive",
+            "agotada",
+            "agotado",
+            "chaqueta",
+            "abrigo",
+            "bolso",
+            "birkin",
+        )
+    )
     if not findings:
         if is_horology:
             findings = [
@@ -419,7 +465,9 @@ def deep_search_product(
     }
 
 
-def find_gallery_photos(item_query: str, home: Optional[Path] = None, max_photos: int = 6) -> List[str]:
+def find_gallery_photos(
+    item_query: str, home: Optional[Path] = None, max_photos: int = 6
+) -> List[str]:
     """Scan the owner's photo gallery folders for photos matching `item_query`
     (e.g., 'iphone', 'telefono', 'samsung', 'celular') or fallback to the sharpest recent photos."""
     base = home or Path.home()
@@ -455,7 +503,13 @@ def find_gallery_photos(item_query: str, home: Optional[Path] = None, max_photos
                             "wsiaccount",
                         ) or udir.name.lower().startswith("defaultuser"):
                             continue
-                        for sub in ("Pictures", "OneDrive/Pictures", "OneDrive/Imágenes", "Downloads", "Desktop"):
+                        for sub in (
+                            "Pictures",
+                            "OneDrive/Pictures",
+                            "OneDrive/Imágenes",
+                            "Downloads",
+                            "Desktop",
+                        ):
                             p = udir / sub
                             try:
                                 if p.is_dir() and p not in roots:
@@ -470,11 +524,39 @@ def find_gallery_photos(item_query: str, home: Optional[Path] = None, max_photos
     raw_words = [
         w.lower()
         for w in re.findall(r"[a-zA-Z0-9]+", item_query or "")
-        if len(w) >= 3 and w.lower() not in {"vender", "vende", "telefono", "celular", "para", "con", "por", "fotos"}
+        if len(w) >= 3
+        and w.lower()
+        not in {"vender", "vende", "telefono", "celular", "para", "con", "por", "fotos"}
     ]
     synonyms = set(raw_words)
-    if any(w in (item_query or "").lower() for w in ("telefono", "teléfono", "celular", "iphone", "samsung", "xiaomi", "pixel")):
-        synonyms.update({"iphone", "samsung", "galaxy", "pixel", "xiaomi", "telefono", "celular", "phone", "img_", "pxl_", "whatsapp", "dsc"})
+    if any(
+        w in (item_query or "").lower()
+        for w in (
+            "telefono",
+            "teléfono",
+            "celular",
+            "iphone",
+            "samsung",
+            "xiaomi",
+            "pixel",
+        )
+    ):
+        synonyms.update(
+            {
+                "iphone",
+                "samsung",
+                "galaxy",
+                "pixel",
+                "xiaomi",
+                "telefono",
+                "celular",
+                "phone",
+                "img_",
+                "pxl_",
+                "whatsapp",
+                "dsc",
+            }
+        )
 
     matched: List[Tuple[float, int, str]] = []
     recent: List[Tuple[float, int, str]] = []
@@ -483,8 +565,11 @@ def find_gallery_photos(item_query: str, home: Optional[Path] = None, max_photos
         try:
             for dirpath, dirnames, filenames in os.walk(root):
                 dirnames[:] = [
-                    d for d in dirnames
-                    if not d.startswith(".") and "duplicados" not in d.lower() and "node_modules" not in d.lower()
+                    d
+                    for d in dirnames
+                    if not d.startswith(".")
+                    and "duplicados" not in d.lower()
+                    and "node_modules" not in d.lower()
                 ]
                 for fname in filenames:
                     ext = Path(fname).suffix.lower()
@@ -500,7 +585,9 @@ def find_gallery_photos(item_query: str, home: Optional[Path] = None, max_photos
                     low_name = f"{fpath.parent.name.lower()}/{fname.lower()}"
                     hits = sum(1 for kw in synonyms if kw in low_name)
                     if hits > 0:
-                        matched.append((hits * 1e10 + st.st_mtime, st.st_size, str(fpath)))
+                        matched.append(
+                            (hits * 1e10 + st.st_mtime, st.st_size, str(fpath))
+                        )
                     else:
                         recent.append((st.st_mtime, st.st_size, str(fpath)))
         except OSError:
@@ -533,11 +620,15 @@ def estimate_market_price(item_title: str, explicit_price: str = "") -> Tuple[st
 
             raw = (
                 WebSearchTool(max_results=5)
-                .execute(query=f"{item_title} usado precio segunda mano USD ebay mercadolibre")
+                .execute(
+                    query=f"{item_title} usado precio segunda mano USD ebay mercadolibre"
+                )
                 .content
                 or ""
             )
-            for m in re.finditer(r"\$\s*(\d{2,4}(?:\.\d{1,2})?)|(\d{2,4})\s*USD", raw, re.I):
+            for m in re.finditer(
+                r"\$\s*(\d{2,4}(?:\.\d{1,2})?)|(\d{2,4})\s*USD", raw, re.I
+            ):
                 val = float(m.group(1) or m.group(2))
                 if 40.0 <= val <= 3500.0:
                     prices.append(val)
@@ -618,7 +709,9 @@ def build_buyer_autoreply_plan(
             except Exception:  # noqa: BLE001
                 existing = []
         existing.append(rule)
-        auto_file.write_text(json.dumps(existing, ensure_ascii=False, indent=2), "utf-8")
+        auto_file.write_text(
+            json.dumps(existing, ensure_ascii=False, indent=2), "utf-8"
+        )
     except Exception:  # noqa: BLE001
         pass
     return rule
@@ -673,17 +766,51 @@ CONCIERGE_CATEGORIES: Dict[str, Dict[str, Any]] = {
         "numero": 1,
         "nombre": "Compras Personales y Búsqueda de Artículos Raros (Personal Shopping)",
         "keywords": (
-            "patek", "philippe", "rolex", "audemars", "calibre", "micro-rotor", "microrotor",
-            "edicion limitada", "edición limitada", "loro piana", "hermes", "hermès", "birkin",
-            "coleccion pasada", "colección pasada", "agotada", "agotado", "moda de archivo",
-            "pieza de coleccion", "pieza de colección", "sothebys", "christies", "chrono24",
-            "farfetch", "vestiaire", "grailed", "1stdibs",
+            "patek",
+            "philippe",
+            "rolex",
+            "audemars",
+            "calibre",
+            "micro-rotor",
+            "microrotor",
+            "edicion limitada",
+            "edición limitada",
+            "loro piana",
+            "hermes",
+            "hermès",
+            "birkin",
+            "coleccion pasada",
+            "colección pasada",
+            "agotada",
+            "agotado",
+            "moda de archivo",
+            "pieza de coleccion",
+            "pieza de colección",
+            "sothebys",
+            "christies",
+            "chrono24",
+            "farfetch",
+            "vestiaire",
+            "grailed",
+            "1stdibs",
         ),
         "providers": [
-            ("Chrono24 Escrow & Private Client", "https://www.chrono24.com/search/index.htm?query={q}"),
-            ("Sotheby's Buy Now Salon", "https://www.sothebys.com/en/search?query={q}&tab=buy-now"),
-            ("Farfetch Private Client & Archive", "https://www.farfetch.com/shopping/men/search/items.aspx?q={q}"),
-            ("Vestiaire Collective Expert Auth", "https://www.vestiairecollective.com/search/?q={q}"),
+            (
+                "Chrono24 Escrow & Private Client",
+                "https://www.chrono24.com/search/index.htm?query={q}",
+            ),
+            (
+                "Sotheby's Buy Now Salon",
+                "https://www.sothebys.com/en/search?query={q}&tab=buy-now",
+            ),
+            (
+                "Farfetch Private Client & Archive",
+                "https://www.farfetch.com/shopping/men/search/items.aspx?q={q}",
+            ),
+            (
+                "Vestiaire Collective Expert Auth",
+                "https://www.vestiairecollective.com/search/?q={q}",
+            ),
             ("1stDibs Global Luxury Dealers", "https://www.1stdibs.com/search/?q={q}"),
         ],
         "logistics": "Courier prioritario asegurado puerta a puerta (DHL Express Time Definite / FedEx Priority / Brinks Global Services) con entrega en hotel o domicilio.",
@@ -692,20 +819,55 @@ CONCIERGE_CATEGORIES: Dict[str, Dict[str, Any]] = {
         "numero": 2,
         "nombre": "Gastronomía y Vida Nocturna (Dining & Nightlife)",
         "keywords": (
-            "michelin", "estrella michelin", "estrellas michelin", "alta cocina", "esferificacion",
-            "esferificación", "menu degustacion", "menú degustación", "lista de espera",
-            "cancellation sniper", "cancelacion", "cancelación", "lista de espera 6 meses",
-            "sniper de restaurantes", "french laundry", "diverxo", "el celler", "disfrutar",
-            "mesa para", "reserva una mesa", "reservar mesa", "club privado", "bar exclusivo",
-            "resy", "tock", "opentable", "sevenrooms", "maitre", "sommelier",
+            "michelin",
+            "estrella michelin",
+            "estrellas michelin",
+            "alta cocina",
+            "esferificacion",
+            "esferificación",
+            "menu degustacion",
+            "menú degustación",
+            "lista de espera",
+            "cancellation sniper",
+            "cancelacion",
+            "cancelación",
+            "lista de espera 6 meses",
+            "sniper de restaurantes",
+            "french laundry",
+            "diverxo",
+            "el celler",
+            "disfrutar",
+            "mesa para",
+            "reserva una mesa",
+            "reservar mesa",
+            "club privado",
+            "bar exclusivo",
+            "resy",
+            "tock",
+            "opentable",
+            "sevenrooms",
+            "maitre",
+            "sommelier",
         ),
         "providers": [
-            ("MICHELIN Guide Official Booking", "https://guide.michelin.com/en/restaurants?q={q}"),
+            (
+                "MICHELIN Guide Official Booking",
+                "https://guide.michelin.com/en/restaurants?q={q}",
+            ),
             ("Resy Notify Sniper & Cancellation Desk", "https://resy.com/"),
-            ("SevenRooms VIP Table Release & Maître D' Desk", "https://www.sevenrooms.com/"),
-            ("Tock — Tasting Menus & Chef's Table", "https://www.exploretock.com/search?query={q}"),
+            (
+                "SevenRooms VIP Table Release & Maître D' Desk",
+                "https://www.sevenrooms.com/",
+            ),
+            (
+                "Tock — Tasting Menus & Chef's Table",
+                "https://www.exploretock.com/search?query={q}",
+            ),
             ("OpenTable VIP & Fine Dining", "https://www.opentable.com/s?term={q}"),
-            ("TheFork Insider / Michelin", "https://www.thefork.com/search?queryText={q}"),
+            (
+                "TheFork Insider / Michelin",
+                "https://www.thefork.com/search?queryText={q}",
+            ),
         ],
         "logistics": "Sniping continuo de cancelaciones de última hora y contacto directo con Maître D' para liberación de mesa VIP fuera de lista de espera.",
     },
@@ -713,16 +875,46 @@ CONCIERGE_CATEGORIES: Dict[str, Dict[str, Any]] = {
         "numero": 3,
         "nombre": "Viajes, Transporte y Logística (Travel Management)",
         "keywords": (
-            "jet privado", "vuelo comercial se cancelo", "vuelo comercial se canceló",
-            "vuelo cancelado", "flete de jet", "alquiler de yate", "yate", "pista de aterrizaje",
-            "chofer esperando", "suite habitual", "upgrade", "cinco estrellas", "5 estrellas",
-            "hotel", "habitacion de hotel", "habitación de hotel", "3k a 1.5k", "descuento hotel",
-            "tarifa corporativa", "virtuoso", "amex fhr", "fine hotels", "arbitraje hotelero", "suite",
-            "vistajet", "netjets", "jettly", "blacklane", "fbo", "helipuerto",
+            "jet privado",
+            "vuelo comercial se cancelo",
+            "vuelo comercial se canceló",
+            "vuelo cancelado",
+            "flete de jet",
+            "alquiler de yate",
+            "yate",
+            "pista de aterrizaje",
+            "chofer esperando",
+            "suite habitual",
+            "upgrade",
+            "cinco estrellas",
+            "5 estrellas",
+            "hotel",
+            "habitacion de hotel",
+            "habitación de hotel",
+            "3k a 1.5k",
+            "descuento hotel",
+            "tarifa corporativa",
+            "virtuoso",
+            "amex fhr",
+            "fine hotels",
+            "arbitraje hotelero",
+            "suite",
+            "vistajet",
+            "netjets",
+            "jettly",
+            "blacklane",
+            "fbo",
+            "helipuerto",
         ),
         "providers": [
-            ("Virtuoso / Amex FHR Luxury Arbitrage ($3k a $1.5k)", "https://www.virtuoso.com/hotels"),
-            ("Luxury Hotel Corporate & Wholesale Rate Desk", "https://www.hoteltonight.com/"),
+            (
+                "Virtuoso / Amex FHR Luxury Arbitrage ($3k a $1.5k)",
+                "https://www.virtuoso.com/hotels",
+            ),
+            (
+                "Luxury Hotel Corporate & Wholesale Rate Desk",
+                "https://www.hoteltonight.com/",
+            ),
             ("Jettly Instant Private Jet Charter", "https://www.jettly.com/"),
             ("VistaJet On-Demand Private Aviation", "https://www.vistajet.com/"),
             ("Air Charter Service (Ready in 2h)", "https://www.aircharterservice.com/"),
@@ -735,13 +927,35 @@ CONCIERGE_CATEGORIES: Dict[str, Dict[str, Any]] = {
         "numero": 4,
         "nombre": "Acceso Exclusivo a Eventos (VIP Access & Ticketing)",
         "keywords": (
-            "pases vip", "pase vip", "paddock", "acceso a boxes", "boxes", "entradas agotadas",
-            "oficialmente agotados", "gala", "estreno de cine", "desfile de moda", "fashion week",
-            "karts", "karting", "motocross", "mxgp", "formula 1", "f1", "hospitality", "palco",
+            "pases vip",
+            "pase vip",
+            "paddock",
+            "acceso a boxes",
+            "boxes",
+            "entradas agotadas",
+            "oficialmente agotados",
+            "gala",
+            "estreno de cine",
+            "desfile de moda",
+            "fashion week",
+            "karts",
+            "karting",
+            "motocross",
+            "mxgp",
+            "formula 1",
+            "f1",
+            "hospitality",
+            "palco",
         ),
         "providers": [
-            ("Official Paddock & VIP Hospitality (QuintEvents / F1 / Motorsport)", "https://f1experiences.com/"),
-            ("StubHub VIP & Paddock Passes", "https://www.stubhub.com/secure/search?q={q}"),
+            (
+                "Official Paddock & VIP Hospitality (QuintEvents / F1 / Motorsport)",
+                "https://f1experiences.com/",
+            ),
+            (
+                "StubHub VIP & Paddock Passes",
+                "https://www.stubhub.com/secure/search?q={q}",
+            ),
             ("SeatGeek VIP & Hospitality", "https://seatgeek.com/search?search={q}"),
             ("Viagogo Global Sold-Out Access", "https://www.viagogo.com/"),
         ],
@@ -751,16 +965,38 @@ CONCIERGE_CATEGORIES: Dict[str, Dict[str, Any]] = {
         "numero": 5,
         "nombre": "Gestión de Estilo de Vida y Tareas Cotidianas (Lifestyle Management)",
         "keywords": (
-            "cumpleanos", "cumpleaños", "accesorio de disenador", "accesorio de diseñador",
-            "envuelvan", "envuelto", "tarjeta escrita a mano", "entreguen en su colegio",
-            "primera hora", "personal domestico", "personal doméstico", "evento privado",
-            "regalo", "sorpresa", "flores", "mayordomo", "chef privado",
+            "cumpleanos",
+            "cumpleaños",
+            "accesorio de disenador",
+            "accesorio de diseñador",
+            "envuelvan",
+            "envuelto",
+            "tarjeta escrita a mano",
+            "entreguen en su colegio",
+            "primera hora",
+            "personal domestico",
+            "personal doméstico",
+            "evento privado",
+            "regalo",
+            "sorpresa",
+            "flores",
+            "mayordomo",
+            "chef privado",
         ),
         "providers": [
-            ("Farfetch Same-Day Luxury Gifting", "https://www.farfetch.com/shopping/women/search/items.aspx?q={q}"),
-            ("Net-a-Porter EIP Gifting & Bespoke Packaging", "https://www.net-a-porter.com/"),
+            (
+                "Farfetch Same-Day Luxury Gifting",
+                "https://www.farfetch.com/shopping/women/search/items.aspx?q={q}",
+            ),
+            (
+                "Net-a-Porter EIP Gifting & Bespoke Packaging",
+                "https://www.net-a-porter.com/",
+            ),
             ("Cartier / Hermès Boutique Gift Concierge", "https://www.cartier.com/"),
-            ("DHL / Uber Flash Priority White-Glove Delivery", "https://www.ubereats.com/"),
+            (
+                "DHL / Uber Flash Priority White-Glove Delivery",
+                "https://www.ubereats.com/",
+            ),
         ],
         "logistics": "Compra en boutique de diseñador, empaque de gala hecho a medida, tarjeta caligrafiada a mano y mensajería dedicada a primera hora de la mañana.",
     },
@@ -768,17 +1004,46 @@ CONCIERGE_CATEGORIES: Dict[str, Dict[str, Any]] = {
         "numero": 6,
         "nombre": "Asesoramiento Especializado y Proyectos a Medida",
         "keywords": (
-            "linea de perfumes", "línea de perfumes", "perfumes de lujo", "notas gourmand",
-            "gourmand", "empaque magnetico", "empaque magnético", "casas perfumistas",
-            "perfumista", "bellas artes", "vinos de guarda", "inversion en vinos",
-            "inversión en vinos", "pieza a medida", "givaudan", "firmenich", "iff", "symrise",
+            "linea de perfumes",
+            "línea de perfumes",
+            "perfumes de lujo",
+            "notas gourmand",
+            "gourmand",
+            "empaque magnetico",
+            "empaque magnético",
+            "casas perfumistas",
+            "perfumista",
+            "bellas artes",
+            "vinos de guarda",
+            "inversion en vinos",
+            "inversión en vinos",
+            "pieza a medida",
+            "givaudan",
+            "firmenich",
+            "iff",
+            "symrise",
         ),
         "providers": [
-            ("Givaudan Fine Fragrances Bespoke Studio", "https://www.givaudan.com/fragrance-beauty/fine-fragrances"),
-            ("dsm-firmenich Fine Fragrance Atelier", "https://www.firmenich.com/fragrance/fine-fragrance"),
-            ("IFF (International Flavors & Fragrances) Haute Parfumerie", "https://www.iff.com/"),
-            ("Robertet Grasse Natural & Gourmand Extraction", "https://www.robertet.com/"),
-            ("Pochet du Courval & Aptar Luxury Magnetic Packaging", "https://www.groupe-pochet.fr/"),
+            (
+                "Givaudan Fine Fragrances Bespoke Studio",
+                "https://www.givaudan.com/fragrance-beauty/fine-fragrances",
+            ),
+            (
+                "dsm-firmenich Fine Fragrance Atelier",
+                "https://www.firmenich.com/fragrance/fine-fragrance",
+            ),
+            (
+                "IFF (International Flavors & Fragrances) Haute Parfumerie",
+                "https://www.iff.com/",
+            ),
+            (
+                "Robertet Grasse Natural & Gourmand Extraction",
+                "https://www.robertet.com/",
+            ),
+            (
+                "Pochet du Courval & Aptar Luxury Magnetic Packaging",
+                "https://www.groupe-pochet.fr/",
+            ),
         ],
         "logistics": "Contacto ejecutivo B2B y agendamiento de reuniones privadas con directores creativos, maestros perfumistas e ingenieros de packaging magnético.",
     },
@@ -786,16 +1051,40 @@ CONCIERGE_CATEGORIES: Dict[str, Dict[str, Any]] = {
         "numero": 7,
         "nombre": "Asistencia de Emergencia y Seguridad (Emergency & Security Services)",
         "keywords": (
-            "perdi mi pasaporte", "perdí mi pasaporte", "pasaporte", "reemplazo de emergencia",
-            "abogado local", "abogado bilingue", "abogado bilingüe", "evacuacion medica",
-            "evacuación médica", "asistencia legal", "proteccion ejecutiva", "protección ejecutiva",
-            "consulado", "embajada", "salvoconducto", "emergencia en el extranjero",
+            "perdi mi pasaporte",
+            "perdí mi pasaporte",
+            "pasaporte",
+            "reemplazo de emergencia",
+            "abogado local",
+            "abogado bilingue",
+            "abogado bilingüe",
+            "evacuacion medica",
+            "evacuación médica",
+            "asistencia legal",
+            "proteccion ejecutiva",
+            "protección ejecutiva",
+            "consulado",
+            "embajada",
+            "salvoconducto",
+            "emergencia en el extranjero",
         ),
         "providers": [
-            ("Directorio Oficial de Embajadas y Consulados (Pasaporte de Emergencia / Salvoconducto)", "https://www.embassypages.com/"),
-            ("International Bar Association / Abogados Locales Bilingües", "https://www.ibanet.org/"),
-            ("International SOS — Asistencia Médica, Legal y Seguridad Global", "https://www.internationalsos.com/"),
-            ("Global Rescue — Evacuación Médica y Protección Ejecutiva", "https://www.globalrescue.com/"),
+            (
+                "Directorio Oficial de Embajadas y Consulados (Pasaporte de Emergencia / Salvoconducto)",
+                "https://www.embassypages.com/",
+            ),
+            (
+                "International Bar Association / Abogados Locales Bilingües",
+                "https://www.ibanet.org/",
+            ),
+            (
+                "International SOS — Asistencia Médica, Legal y Seguridad Global",
+                "https://www.internationalsos.com/",
+            ),
+            (
+                "Global Rescue — Evacuación Médica y Protección Ejecutiva",
+                "https://www.globalrescue.com/",
+            ),
         ],
         "logistics": "Cita consular urgente en el día para pasaporte de emergencia/salvoconducto, asignación de abogado local bilingüe y escolta/asistencia ejecutiva inmediata.",
     },
@@ -817,7 +1106,6 @@ def classify_concierge_category(request_text: str, explicit_category: str = "") 
     return best_cat
 
 
-
 def generate_vip_requisition_letter(
     cat_key: str,
     request_text: str,
@@ -837,7 +1125,7 @@ def generate_vip_requisition_letter(
         "",
         "A: Director de Operaciones / Maître D' / Despacho Consular / Boutique VIP",
         "",
-        f"Por la presente se autoriza y formaliza la ejecución del requerimiento prioritario a nombre del Titular:",
+        "Por la presente se autoriza y formaliza la ejecución del requerimiento prioritario a nombre del Titular:",
         f"«{request_text}»",
         "",
         "CONDICIONES EJECUTIVAS VINCULANTES:",
@@ -850,7 +1138,6 @@ def generate_vip_requisition_letter(
         "AUTORIZADO POR: SERGIO CONCIERGE — TOP-LIFESTYLE DESK",
     ]
     return "\n".join(lines)
-
 
 
 def generate_concierge_dashboard_card(plan: Dict[str, Any]) -> str:
@@ -867,8 +1154,8 @@ def generate_concierge_dashboard_card(plan: Dict[str, Any]) -> str:
 
     lines = [
         "```text",
-        f"╔═══════════════════════════════════════════════════════════════════════════╗",
-        f"  💎 DESPACHO DE CONSERJERÍA PRIVADA TOP-LIFESTYLE",
+        "╔═══════════════════════════════════════════════════════════════════════════╗",
+        "  💎 DESPACHO DE CONSERJERÍA PRIVADA TOP-LIFESTYLE",
         f"  • Orden Oficial: {code} | SLA de Despacho: {sla} min",
         f"  • Operador Asignado: {operator}",
         f"  • Dominio: {cat_name}",
@@ -876,8 +1163,8 @@ def generate_concierge_dashboard_card(plan: Dict[str, Any]) -> str:
         f"  • Cobertura / Destino: {dest} | Plazo: {deadline}",
         f"  • Canal Tier 1 (Directo): {tier1.get('nombre', 'Oficial')}",
         f"  • Canal Tier 2 (Respaldo): {tier2.get('nombre', 'Secundario')}",
-        f"  • Biometría Presencial: Face ID Confirmado (98%+ coincidencia)",
-        f"╚═══════════════════════════════════════════════════════════════════════════╝",
+        "  • Biometría Presencial: Face ID Confirmado (98%+ coincidencia)",
+        "╚═══════════════════════════════════════════════════════════════════════════╝",
         "```",
     ]
     return "\n".join(lines)
@@ -908,7 +1195,9 @@ def execute_concierge_plan(
     # Run deep search if personal shopping or rare item
     sourcing_intel = None
     if cat_key == "personal_shopping":
-        sourcing_intel = deep_search_product(q_clean, target_price=parse_money(budget) or parse_money(q_clean))
+        sourcing_intel = deep_search_product(
+            q_clean, target_price=parse_money(budget) or parse_money(q_clean)
+        )
 
     # Live web snippets when not in pytest
     live_findings: List[str] = []
@@ -916,10 +1205,19 @@ def execute_concierge_plan(
         try:
             from openjarvis.tools.web_search import WebSearchTool
 
-            raw = WebSearchTool(max_results=4).execute(query=f"{q_clean} {destination}".strip()).content or ""
+            raw = (
+                WebSearchTool(max_results=4)
+                .execute(query=f"{q_clean} {destination}".strip())
+                .content
+                or ""
+            )
             for ln in raw.splitlines():
                 ln = ln.strip()
-                if len(ln) > 25 and not ln.startswith("Search results") and len(live_findings) < 4:
+                if (
+                    len(ln) > 25
+                    and not ln.startswith("Search results")
+                    and len(live_findings) < 4
+                ):
                     live_findings.append(ln[:160])
         except Exception:  # noqa: BLE001
             pass
@@ -944,9 +1242,17 @@ def execute_concierge_plan(
         else verified_Portals[0]["url"]
     )
 
-    tracking_code = f"CNG-{cat_key[:3].upper()}-{int(time.time() * 1000) % 90000 + 10000}"
-    sla_minutos = 15 if cat_key in ("travel_aviation", "emergency_security") else (25 if cat_key == "dining_nightlife" else 30)
-    vip_letter = generate_vip_requisition_letter(cat_key, q_clean, destination, when, tracking_code)
+    tracking_code = (
+        f"CNG-{cat_key[:3].upper()}-{int(time.time() * 1000) % 90000 + 10000}"
+    )
+    sla_minutos = (
+        15
+        if cat_key in ("travel_aviation", "emergency_security")
+        else (25 if cat_key == "dining_nightlife" else 30)
+    )
+    vip_letter = generate_vip_requisition_letter(
+        cat_key, q_clean, destination, when, tracking_code
+    )
 
     tier1 = verified_Portals[0]
     tier2 = verified_Portals[1] if len(verified_Portals) > 1 else verified_Portals[0]
@@ -956,7 +1262,10 @@ def execute_concierge_plan(
     try:
         out_dir = Path.home() / "Sergio" / "concierge"
         out_dir.mkdir(parents=True, exist_ok=True)
-        f = out_dir / f"orden_{cat_key}_{int(time.time() * 1000)}_{len(list(out_dir.glob('orden_*.md')))}.md"
+        f = (
+            out_dir
+            / f"orden_{cat_key}_{int(time.time() * 1000)}_{len(list(out_dir.glob('orden_*.md')))}.md"
+        )
         lines = [
             f"# Orden Confirmada — {meta['nombre']}",
             f"> **Código de Orden VIP:** `{tracking_code}` | **SLA de Despacho:** {sla_minutos} min",
@@ -1024,7 +1333,8 @@ def build_academic_study_plan(
         hours_from_now=2.0,
     )
     rem2 = schedule_proactive_reminder(
-        f"Simulacro final antes del examen: {clean_topic}" + (f" ({exam_date})" if exam_date else ""),
+        f"Simulacro final antes del examen: {clean_topic}"
+        + (f" ({exam_date})" if exam_date else ""),
         when_hint=exam_date or "Mañana por la mañana",
         category="estudio",
         hours_from_now=18.0,
@@ -1073,7 +1383,7 @@ def build_academic_study_plan(
             f"# Mini-Test de Estudio y Plan de Examen: {clean_topic}",
             f"- **Plataforma escolar/universitaria:** {platform_url or 'Sincronizada con el navegador del señor'}",
             f"- **Fecha de evaluación:** {exam_date or 'Próxima evaluación detectada'}",
-            f"- **Recordatorios proactivos agendados:**",
+            "- **Recordatorios proactivos agendados:**",
             f"  1. {rem1['titulo']} ({rem1['cuando']})",
             f"  2. {rem2['titulo']} ({rem2['cuando']})",
             "",
@@ -1083,7 +1393,9 @@ def build_academic_study_plan(
             md_lines.append(f"\n### Pregunta {q['n']}: {q['pregunta']}")
             for opt in q["opciones"]:
                 md_lines.append(f"- {opt}")
-            md_lines.append(f"**Respuesta correcta:** `{q['respuesta_correcta']}` — *{q['explicacion']}*")
+            md_lines.append(
+                f"**Respuesta correcta:** `{q['respuesta_correcta']}` — *{q['explicacion']}*"
+            )
         qf.write_text("\n".join(md_lines) + "\n", "utf-8")
         quiz_path = str(qf)
     except Exception:  # noqa: BLE001
@@ -1113,13 +1425,19 @@ def generate_leads_campaign(
 
             raw = (
                 WebSearchTool(max_results=6)
-                .execute(query=f"{q_clean} {loc_clean} contacto email telefono empresas directorio")
+                .execute(
+                    query=f"{q_clean} {loc_clean} contacto email telefono empresas directorio"
+                )
                 .content
                 or ""
             )
             for idx, ln in enumerate(raw.splitlines()):
                 ln = ln.strip()
-                if len(ln) > 25 and not ln.startswith("Search results") and len(leads) < 8:
+                if (
+                    len(ln) > 25
+                    and not ln.startswith("Search results")
+                    and len(leads) < 8
+                ):
                     leads.append(
                         {
                             "prospecto": ln[:90],
@@ -1152,8 +1470,8 @@ def generate_leads_campaign(
         out_dir.mkdir(parents=True, exist_ok=True)
         f = out_dir / f"campana_clientes_{int(time.time())}.csv"
         rows = ["Prospecto,Ubicacion,Canal,Estado"] + [
-            f"\"{l['prospecto']}\",\"{l['ubicacion']}\",\"{l['canal']}\",\"{l['estado']}\""
-            for l in leads
+            f'"{lead["prospecto"]}","{lead["ubicacion"]}","{lead["canal"]}","{lead["estado"]}"'
+            for lead in leads
         ]
         f.write_text("\n".join(rows) + "\n", "utf-8")
         csv_path = str(f)
@@ -1181,7 +1499,10 @@ def build_visa_application_plan(
 ) -> Dict[str, Any]:
     """Prepare and open official Visa application portals, document checklists, and proactive appointment reminders."""
     low = destination_and_type.lower()
-    if any(w in low for w in ("usa", "estados unidos", "eeuu", "ds-160", "ds160", "b1", "b2", "f1")):
+    if any(
+        w in low
+        for w in ("usa", "estados unidos", "eeuu", "ds-160", "ds160", "b1", "b2", "f1")
+    ):
         portal_name = "CEAC U.S. Department of State — Formulario Oficial DS-160 & AIS Visa Appointment"
         portal_url = "https://ceac.state.gov/genniv/"
         checklist = [
@@ -1190,7 +1511,18 @@ def build_visa_application_plan(
             "Recibo de pago de tasa consular MRV y programación de cita en Embajada/Consulado.",
             "Soporte de arraigo financiero, laboral o académico (extractos bancarios, carta laboral/matrícula).",
         ]
-    elif any(w in low for w in ("schengen", "europa", "espana", "españa", "francia", "italia", "alemania")):
+    elif any(
+        w in low
+        for w in (
+            "schengen",
+            "europa",
+            "espana",
+            "españa",
+            "francia",
+            "italia",
+            "alemania",
+        )
+    ):
         portal_name = "Portal Oficial Visa Schengen / BLS / VFS Global"
         portal_url = "https://visa.vfsglobal.com/"
         checklist = [
@@ -1250,7 +1582,10 @@ def get_shared_swarm_engine() -> Any:
 
     expected_home = Path(_home())
     with _SWARM_LOCK:
-        if _SHARED_SWARM_ENGINE is None or getattr(_SHARED_SWARM_ENGINE, "home", None) != expected_home:
+        if (
+            _SHARED_SWARM_ENGINE is None
+            or getattr(_SHARED_SWARM_ENGINE, "home", None) != expected_home
+        ):
             _SHARED_SWARM_ENGINE = SwarmEngine(home=expected_home)
         return _SHARED_SWARM_ENGINE
 
@@ -1267,7 +1602,9 @@ def launch_background_swarm(
         raise ValueError("Se requiere una tarea o misión para el enjambre.")
 
     engine = get_shared_swarm_engine()
-    run = engine.start(task_clean, parallel=max(1, min(parallel, 64)), background=True, budget=budget)
+    run = engine.start(
+        task_clean, parallel=max(1, min(parallel, 64)), background=True, budget=budget
+    )
     try:
         engine._save(run)
     except Exception:
@@ -1303,7 +1640,10 @@ def get_background_task_status(task_id: str = "") -> Dict[str, Any]:
         runs = engine.list()
         run = runs[0] if runs else None
     if run is None:
-        return {"encontrado": False, "mensaje": f"No se encontró la tarea en segundo plano `{task_id}`"}
+        return {
+            "encontrado": False,
+            "mensaje": f"No se encontró la tarea en segundo plano `{task_id}`",
+        }
     data = run.to_dict()
     return {
         "encontrado": True,
@@ -1392,7 +1732,6 @@ def execute_ultra_deep_research_task(
     }
 
 
-
 def execute_hotel_arbitrage(
     hotel_name: str,
     destination: str = "",
@@ -1411,7 +1750,11 @@ def execute_hotel_arbitrage(
     h_name = hotel_name.strip()
     dest = destination.strip() or "Destino Premium / Internacional"
     d_range = dates.strip() or "Próxima estancia prioritaria"
-    std = float(standard_rate) if (standard_rate is not None and standard_rate > 0) else 3000.0
+    std = (
+        float(standard_rate)
+        if (standard_rate is not None and standard_rate > 0)
+        else 3000.0
+    )
     if target_rate is not None and target_rate > 0:
         tgt = float(target_rate)
     else:
@@ -1478,7 +1821,9 @@ def execute_hotel_arbitrage(
     result["recordatorio_proactivo"] = rem
 
     try:
-        dossier_file.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
+        dossier_file.write_text(
+            json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
     except Exception:
         pass
 
@@ -1520,12 +1865,11 @@ def execute_michelin_sniper(
         "comensales": size,
         "fecha_objetivo": t_date,
         "plataforma": plat,
-        "estado": "sniper_activo_en_segundo_plano",
+        "estado": "plan_pendiente_de_su_si",
         "estrategia_sniper": (
-            "Monitorización continua a milisegundos de ventanas de liberación y detección instantánea de cancelaciones "
-            "de última hora (24-48h). Reserva automática con depósito protegido en Bóveda Vertu."
+            "Revisar en su navegador, con su sesión, las ventanas en que el restaurante libera mesas y las cancelaciones "
+            "de última hora (24-48h). Sergio avisa cuando hay mesa; reservar y pagar el depósito lo confirma usted."
         ),
-        "bypass_antibot": "Playwright Stealth activo (huella digital humana, evasión de Cloudflare Turnstile/Akamai)",
         "mesa_solicitada": "Chef's Table o Mesa Principal (sin prisa de rotación)",
         "carta_maitre_d": letter,
         "face_id": face_res,
@@ -1533,7 +1877,7 @@ def execute_michelin_sniper(
     }
 
     rem = schedule_proactive_reminder(
-        f"Mesa confirmada en {r_name} ({t_date}) — Preparativos y vestimenta recomendada",
+        f"Revisar si hay mesa en {r_name} ({t_date}) — aún no está reservada",
         when_hint=t_date,
         category="gastronomia",
         hours_from_now=6.0,
@@ -1541,7 +1885,9 @@ def execute_michelin_sniper(
     result["recordatorio_proactivo"] = rem
 
     try:
-        sniper_file.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
+        sniper_file.write_text(
+            json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
     except Exception:
         pass
 
@@ -1580,7 +1926,10 @@ def execute_youtube_growth_pipeline(
         "frecuencia_diaria": f"{daily_quota} producciones al día (cada {hours} horas)",
         "horarios_optimizados": ["07:00", "14:00", "21:00"],
         "estilo_edicion": "resultaaquee / explicado3d (Hook inicial <2s, subtítulos dinámicos en caja amarilla palabra por palabra, zooms y recortes rítmicos, ducking de voz sobre música y SFX whoosh/pop)",
-        "plataformas_destino": ["YouTube Shorts (Data API v3)", "Instagram Reels (Graph API)"],
+        "plataformas_destino": [
+            "YouTube Shorts (Data API v3)",
+            "Instagram Reels (Graph API)",
+        ],
         "automatizacion_programada": sched_info,
         "estado_canales": yt_status,
         "config_pipeline_path": str(pipe_file),
@@ -1595,7 +1944,9 @@ def execute_youtube_growth_pipeline(
     result["recordatorio_proactivo"] = rem
 
     try:
-        pipe_file.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
+        pipe_file.write_text(
+            json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
     except Exception:
         pass
 
@@ -1649,7 +2000,11 @@ def execute_health_biometrics_sync(
     from openjarvis.health import devices
     from openjarvis.server.desktop_routes import load_health_hub, save_health_hub
 
-    dev_name = device.strip() if device != "auto" else "Dispositivos Conectados (Apple Watch / Oura / Whoop)"
+    dev_name = (
+        device.strip()
+        if device != "auto"
+        else "Dispositivos Conectados (Apple Watch / Oura / Whoop)"
+    )
     hub = load_health_hub()
 
     # Active sync

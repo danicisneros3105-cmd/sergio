@@ -50,7 +50,9 @@ def test_acoustic_voiceprint_extraction_and_matching(tmp_path):
     assert not mgr.is_enrolled()
 
     # Owner: Baritone speaker ~125 Hz
-    owner_pcm = _generate_synthetic_voice_sample(fundamental_f0=125.0, duration_seconds=1.2)
+    owner_pcm = _generate_synthetic_voice_sample(
+        fundamental_f0=125.0, duration_seconds=1.2
+    )
     enroll_res = mgr.enroll_audio_sample(owner_pcm)
     assert enroll_res["success"] is True
     assert mgr.is_enrolled() is True
@@ -62,7 +64,9 @@ def test_acoustic_voiceprint_extraction_and_matching(tmp_path):
     assert ver_owner.is_enrolled is True
 
     # Different speaker (e.g. Actor in series or companion ~260 Hz tenor/soprano)
-    other_pcm = _generate_synthetic_voice_sample(fundamental_f0=260.0, duration_seconds=1.2)
+    other_pcm = _generate_synthetic_voice_sample(
+        fundamental_f0=260.0, duration_seconds=1.2
+    )
     ver_other = mgr.verify_speaker(other_pcm)
     # The two distinct frequencies and formant profiles produce low similarity
     assert ver_other.is_owner is False
@@ -73,22 +77,32 @@ def test_addressee_intent_classifier_human_side_talk():
     classifier = AddresseeClassifier("Sergio")
 
     # 1. Interpersonal side-conversations with humans
-    target1, conf1, _ = classifier.classify_utterance("Oye mamá, pásame la sal por favor")
+    target1, conf1, _ = classifier.classify_utterance(
+        "Oye mamá, pásame la sal por favor"
+    )
     assert target1 == AddresseeTarget.OTHER_PERSON
     assert conf1 >= 0.80
 
-    target2, conf2, _ = classifier.classify_utterance("No te hablo a ti, estoy hablando por teléfono con mi jefe")
+    target2, conf2, _ = classifier.classify_utterance(
+        "No te hablo a ti, estoy hablando por teléfono con mi jefe"
+    )
     assert target2 == AddresseeTarget.OTHER_PERSON
     assert conf2 >= 0.90
 
-    target3, conf3, _ = classifier.classify_utterance("Entonces le dije que no podíamos ir a esa fiesta")
+    target3, conf3, _ = classifier.classify_utterance(
+        "Entonces le dije que no podíamos ir a esa fiesta"
+    )
     assert target3 == AddresseeTarget.OTHER_PERSON
 
     # 2. Movie and TV scripted series dialogue
-    target4, conf4, _ = classifier.classify_utterance("¡Dispara al traidor antes de que escape con el dinero!")
+    target4, conf4, _ = classifier.classify_utterance(
+        "¡Dispara al traidor antes de que escape con el dinero!"
+    )
     assert target4 == AddresseeTarget.AMBIENT_MEDIA
 
-    target5, conf5, _ = classifier.classify_utterance("En el próximo episodio de esta serie veremos la verdad")
+    target5, conf5, _ = classifier.classify_utterance(
+        "En el próximo episodio de esta serie veremos la verdad"
+    )
     assert target5 == AddresseeTarget.AMBIENT_MEDIA
 
 
@@ -96,7 +110,9 @@ def test_addressee_intent_classifier_agent_commands():
     classifier = AddresseeClassifier("Sergio")
 
     # Explicit vocative commands
-    target1, conf1, _ = classifier.classify_utterance("Sergio, busca vuelos a Tokio para el próximo mes")
+    target1, conf1, _ = classifier.classify_utterance(
+        "Sergio, busca vuelos a Tokio para el próximo mes"
+    )
     assert target1 == AddresseeTarget.AGENT
     assert conf1 >= 0.90
 
@@ -108,11 +124,15 @@ def test_addressee_intent_classifier_agent_commands():
     assert conf2 >= 0.70
 
     # Imperative directive & delegation
-    target3, conf3, _ = classifier.classify_utterance("Abre la terminal y ejecuta las pruebas")
+    target3, conf3, _ = classifier.classify_utterance(
+        "Abre la terminal y ejecuta las pruebas"
+    )
     assert target3 == AddresseeTarget.AGENT
 
     # Delegation directives to assistant (should NOT be classified as side-talk)
-    target4, conf4, _ = classifier.classify_utterance("Sergio, dile a Juan que llego en 10 minutos")
+    target4, conf4, _ = classifier.classify_utterance(
+        "Sergio, dile a Juan que llego en 10 minutos"
+    )
     assert target4 == AddresseeTarget.AGENT
 
     target5, conf5, _ = classifier.classify_utterance(
@@ -124,7 +144,9 @@ def test_addressee_intent_classifier_agent_commands():
 def test_attention_pipeline_rejects_third_party_and_media(tmp_path, monkeypatch):
     # Setup enrolled owner voiceprint
     mgr = VoiceprintManager(storage_dir=tmp_path)
-    owner_pcm = _generate_synthetic_voice_sample(fundamental_f0=130.0, duration_seconds=1.0)
+    owner_pcm = _generate_synthetic_voice_sample(
+        fundamental_f0=130.0, duration_seconds=1.0
+    )
     mgr.enroll_audio_sample(owner_pcm)
 
     now = [0.0]
@@ -132,20 +154,27 @@ def test_attention_pipeline_rejects_third_party_and_media(tmp_path, monkeypatch)
     attention.voiceprint_mgr = mgr
 
     # 1. Owner speaking with explicit vocative -> ACCEPTED
-    assert attention.accepts("Sergio, dime el resumen de noticias", audio_pcm=owner_pcm) is True
+    assert (
+        attention.accepts("Sergio, dime el resumen de noticias", audio_pcm=owner_pcm)
+        is True
+    )
 
     # 2. Side-talk while attention is open -> REJECTED and window closed
     assert attention.accepts("Pásame eso, mamá", audio_pcm=owner_pcm) is False
     assert attention.until == 0
 
     # 3. Third-party or TV voice -> REJECTED by acoustic biometrics
-    tv_actor_pcm = _generate_synthetic_voice_sample(fundamental_f0=280.0, duration_seconds=1.0)
+    tv_actor_pcm = _generate_synthetic_voice_sample(
+        fundamental_f0=280.0, duration_seconds=1.0
+    )
     assert attention.accepts("Sergio, abre mi correo", audio_pcm=tv_actor_pcm) is False
 
 
 def test_loopback_aec_suppresses_media_playback(monkeypatch):
     now = [0.0]
-    attention = Attention(name="Sergio", clock=lambda: now[0], enable_biometrics=False, enable_aec=True)
+    attention = Attention(
+        name="Sergio", clock=lambda: now[0], enable_biometrics=False, enable_aec=True
+    )
 
     # Mock active media playback (e.g. YouTube playing in Chrome)
     mock_aec = LoopbackAEC()

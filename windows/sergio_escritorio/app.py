@@ -425,6 +425,7 @@ def run(config: dict[str, Any]) -> None:
         peek = Signal()  # open the camera window (Sergio is looking)
         point = Signal(int, int, str)  # fly the orb to a spot (screen help)
         guide = Signal(object, str)  # arrows, circles and a ghost cursor (guia.py)
+        fold = Signal()  # the iPhone Duo blur while windows go side by side
         pressed = Signal()  # the companion presses (a click is happening)
         clicked = Signal()  # a mouse click anywhere: he hops
         camera_off = Signal()
@@ -482,6 +483,13 @@ def run(config: dict[str, Any]) -> None:
             guide_overlay.show_marks(cleaned, caption, steps=steps)
 
     bridge.guide.connect(show_guide)
+
+    # Two programs side by side open with the iPhone Duo fold (blur, glide,
+    # focus), like the web's split screen (owner, 29 Oct 2026).
+    from sergio_escritorio.duo_veil import make_veil
+
+    duo_veil = make_veil()
+    bridge.fold.connect(lambda: duo_veil.fold())
     bridge.clicked.connect(guide_overlay.clicked)
 
     class UIAdapter:
@@ -527,6 +535,7 @@ def run(config: dict[str, Any]) -> None:
     from sergio_escritorio.live_screen import LiveScreen
 
     backend = WindowsBackend(speed=str(config.get("control_speed") or "rapido"))
+    backend.on_fold = bridge.fold.emit
     # The live eye: watches the screen in the background, so every look and
     # every check after an action is instant (live_screen.py).
     live = LiveScreen(backend.screenshot, lambda: getattr(backend, "shot_origin", (0, 0)))

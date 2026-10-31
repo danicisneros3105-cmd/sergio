@@ -83,7 +83,9 @@ class MetacognitiveMemory:
 
     def __init__(self, storage_path: Optional[Path] = None) -> None:
         if storage_path is None:
-            storage_path = Path.home() / ".openjarvis" / "memoria" / "experiencias_agi.json"
+            storage_path = (
+                Path.home() / ".openjarvis" / "memoria" / "experiencias_agi.json"
+            )
         self.storage_path = storage_path
         self._lock = threading.RLock()
         self._ensure_storage()
@@ -92,7 +94,9 @@ class MetacognitiveMemory:
         self.storage_path.parent.mkdir(parents=True, exist_ok=True)
         if not self.storage_path.exists():
             with self._lock:
-                self.storage_path.write_text(json.dumps({"experiencias": []}, indent=2), encoding="utf-8")
+                self.storage_path.write_text(
+                    json.dumps({"experiencias": []}, indent=2), encoding="utf-8"
+                )
 
     def load_experiences(self) -> List[Dict[str, Any]]:
         with self._lock:
@@ -114,17 +118,24 @@ class MetacognitiveMemory:
                     "entidad": mission_dossier.target_entity,
                     "exito": mission_dossier.success,
                     "estrategia_utilizada": [
-                        {"fase": s.phase.value, "nombre": s.name} for s in mission_dossier.phases
+                        {"fase": s.phase.value, "nombre": s.name}
+                        for s in mission_dossier.phases
                     ],
-                    "ahorro_o_beneficio": mission_dossier.final_outcome.get("beneficio_clave", "Ejecución confirmada"),
-                    "tiempo_ejecucion": round(mission_dossier.completed_at - mission_dossier.created_at, 3),
+                    "ahorro_o_beneficio": mission_dossier.final_outcome.get(
+                        "beneficio_clave", "Ejecución confirmada"
+                    ),
+                    "tiempo_ejecucion": round(
+                        mission_dossier.completed_at - mission_dossier.created_at, 3
+                    ),
                     "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
                 }
                 experiences.append(entry)
                 # Keep last 100 high-value tactical memories
                 if len(experiences) > 100:
                     experiences = experiences[-100:]
-                json_str = json.dumps({"experiencias": experiences}, indent=2, ensure_ascii=False)
+                json_str = json.dumps(
+                    {"experiencias": experiences}, indent=2, ensure_ascii=False
+                )
                 self.storage_path.write_text(json_str, encoding="utf-8")
             except Exception as exc:
                 log.warning("No se pudo registrar experiencia AGI: %s", exc)
@@ -136,7 +147,14 @@ class MetacognitiveMemory:
         best_match = None
         best_score = 0
         for exp in reversed(experiences):
-            exp_tokens = set(re.findall(r"\w+", (exp.get("prompt_clave", "") + " " + exp.get("objetivo", "")).lower()))
+            exp_tokens = set(
+                re.findall(
+                    r"\w+",
+                    (
+                        exp.get("prompt_clave", "") + " " + exp.get("objetivo", "")
+                    ).lower(),
+                )
+            )
             overlap = len(tokens & exp_tokens)
             if overlap > best_score and overlap >= 2:
                 best_score = overlap
@@ -174,7 +192,18 @@ class UniversalAGIEngine:
         budget = ci.parse_money(clean)
         # Classify target entity (hotel, restaurant, rare luxury item, flight/jet, IoT device, mass media, diplomatic)
         low = clean.lower()
-        if any(w in low for w in ("hotel", "suite", "habitacion", "habitación", "reserva hotel", "virtuoso", "fhr")):
+        if any(
+            w in low
+            for w in (
+                "hotel",
+                "suite",
+                "habitacion",
+                "habitación",
+                "reserva hotel",
+                "virtuoso",
+                "fhr",
+            )
+        ):
             cat = "arbitraje_hotelero_lujo"
             entity = re.sub(
                 r"(?i).*\b(?:en|del?|para)\s+([A-ZÁÉÍÓÚ][\w\s'-]+(?:\bhotel|\bseasons|\britz|\bmandarin|\bpalace)?).*",
@@ -183,29 +212,100 @@ class UniversalAGIEngine:
             ).strip()
             if entity == clean or len(entity) > 50:
                 entity = "Propiedad Hotelera 5 Estrellas / Gran Lujo"
-        elif any(w in low for w in ("michelin", "restaurante", "cena", "mesa", "chef", "resy", "tock", "sevenrooms")):
+        elif any(
+            w in low
+            for w in (
+                "michelin",
+                "restaurante",
+                "cena",
+                "mesa",
+                "chef",
+                "resy",
+                "tock",
+                "sevenrooms",
+            )
+        ):
             cat = "sniper_gastronomia_michelin"
-            entity = re.sub(r"(?i).*\b(?:en|de|restaurante|mesa en)\s+([A-ZÁÉÍÓÚ][\w\s'-]+).*", r"\1", clean).strip()
+            entity = re.sub(
+                r"(?i).*\b(?:en|de|restaurante|mesa en)\s+([A-ZÁÉÍÓÚ][\w\s'-]+).*",
+                r"\1",
+                clean,
+            ).strip()
             if entity == clean or len(entity) > 40:
                 entity = "Restaurante Alta Cocina / 3 Estrellas Michelin"
-        elif any(w in low for w in ("patek", "reloj", "loro piana", "hermes", "bolso", "subasta", "raro", "coleccion")):
+        elif any(
+            w in low
+            for w in (
+                "patek",
+                "reloj",
+                "loro piana",
+                "hermes",
+                "bolso",
+                "subasta",
+                "raro",
+                "coleccion",
+            )
+        ):
             cat = "sourcing_forense_articulos_raros"
             entity = "Artículo Exclusivo / Pieza de Archivo Verificada"
-        elif any(w in low for w in ("youtube", "video", "canal", "shorts", "reels", "publicar cada", "cada 7 horas")):
+        elif any(
+            w in low
+            for w in (
+                "youtube",
+                "video",
+                "canal",
+                "shorts",
+                "reels",
+                "publicar cada",
+                "cada 7 horas",
+            )
+        ):
             cat = "automatizacion_masiva_medios"
             entity = "Canal de Alta Retención y Distribución 7h"
-        elif any(w in low for w in ("telefono", "celular", "grabar", "camara", "dispositivo", "iot", "adb", "sonar")):
+        elif any(
+            w in low
+            for w in (
+                "telefono",
+                "celular",
+                "grabar",
+                "camara",
+                "dispositivo",
+                "iot",
+                "adb",
+                "sonar",
+            )
+        ):
             cat = "control_iot_multidispositivo"
             entity = "Ecosistema Multidispositivo (PC / Móvil / Sensores)"
         elif any(
             w in low
-            for w in ("vertu", "boveda", "bóveda", "cifrado", "secreto", "contrasena", "clave", "blindar")
+            for w in (
+                "vertu",
+                "boveda",
+                "bóveda",
+                "cifrado",
+                "secreto",
+                "contrasena",
+                "clave",
+                "blindar",
+            )
         ):
             cat = "blindaje_criptografico_soberano"
             entity = "Bóveda Local Cifrada Zero-Knowledge"
         elif any(
             w in low
-            for w in ("salud", "reloj", "anillo", "oura", "whoop", "garmin", "glucosa", "hrv", "sueno", "sueño")
+            for w in (
+                "salud",
+                "reloj",
+                "anillo",
+                "oura",
+                "whoop",
+                "garmin",
+                "glucosa",
+                "hrv",
+                "sueno",
+                "sueño",
+            )
         ):
             cat = "sintesis_biometrica_salud"
             entity = "Biometría y Dispositivos de Salud Wearable"
@@ -232,7 +332,9 @@ class UniversalAGIEngine:
         """Autonomously synthesize strategy, evade anti-bots, negotiate/execute, and cryptographically seal."""
         t_start = time.perf_counter()
         mission_id = f"agi-{int(time.time() * 1000)}-{hashlib.sha256(mission_prompt.encode()).hexdigest()[:6]}"
-        cat, entity, budget, deadline = self.deconstruct_mission(mission_prompt, context)
+        cat, entity, budget, deadline = self.deconstruct_mission(
+            mission_prompt, context
+        )
 
         # 1. Check past experience memory for tactical precedent
         past_tactic = self.memory.recall_similar_tactic(mission_prompt)
@@ -248,7 +350,10 @@ class UniversalAGIEngine:
         # Phase 1: PERCEPTION & INTELLIGENCE
         s1_t0 = time.perf_counter()
         from openjarvis.tools import commerce_intel as ci
-        loc_hint = (context.get("location") if context else "") or "Ubicación preferente del Señor"
+
+        loc_hint = (
+            context.get("location") if context else ""
+        ) or "Ubicación preferente del Señor"
         loc = ci.resolve_location(loc_hint)
         bio_hub = ci.execute_health_biometrics_sync(device="auto", sync_now=False)
         step1 = TacticalStep(
@@ -266,23 +371,17 @@ class UniversalAGIEngine:
 
         # Phase 2: ANTIBOT EVASION
         s2_t0 = time.perf_counter()
+        # Sergio never disguises itself or slips past bot checks (owner rules,
+        # review of 1 Nov 2026): pages behind a sign-in or a check are opened
+        # in the owner's own browser on the real screen.
         antibot_spec = {
-            "motor": "Playwright Stealth Custom Engine",
-            "evasion": [
-                "navigator.webdriver=undefined",
-                "chrome.runtime mock",
-                "WebGL vendor randomization",
-                "Curvas Bézier humanas",
-            ],
-            "resistencia_cloudflare_turnstile": "Activa / Sigilosa",
-            "resistencia_akamai": "Activa / Resuelta",
+            "motor": "Navegador del dueño en la pantalla real (sesiones propias)",
+            "identidad": "Sergio se identifica; no oculta que es un asistente",
         }
         step2 = TacticalStep(
             phase=MissionPhase.ANTIBOT_EVASION,
-            name="Despliegue de Perfil de Evasión Antibot",
-            description=(
-                "Huella digital humana autenticada para transitar portales protegidos sin detección ni bloqueos."
-            ),
+            name="Navegación con las sesiones del dueño",
+            description="Las páginas con inicio de sesión o verificación se abren en su navegador, a la vista.",
             status="completed",
             result=antibot_spec,
             latency_seconds=round(time.perf_counter() - s2_t0, 4),
@@ -354,7 +453,10 @@ class UniversalAGIEngine:
             }
         elif cat == "control_iot_multidispositivo":
             from openjarvis.server.meeting_routes import dispatch_device_command
-            cmd_dev = dispatch_device_command("phone", "record_video", {"instruction": mission_prompt})
+
+            cmd_dev = dispatch_device_command(
+                "phone", "record_video", {"instruction": mission_prompt}
+            )
             final_payload = {
                 "tipo": "control_iot",
                 "dispositivo": "phone",
@@ -362,7 +464,9 @@ class UniversalAGIEngine:
                 "beneficio_clave": f"Comando '{cmd_dev['action']}' ejecutado en teléfono móvil vía puente ADB",
             }
         elif cat == "blindaje_criptografico_soberano":
-            v_res = ci.execute_vertu_vault_lock("secreto_operativo", mission_prompt, f"mision_{mission_id}")
+            v_res = ci.execute_vertu_vault_lock(
+                "secreto_operativo", mission_prompt, f"mision_{mission_id}"
+            )
             final_payload = {
                 "tipo": "blindaje_vertu",
                 "etiqueta": v_res["etiqueta"],
@@ -372,6 +476,7 @@ class UniversalAGIEngine:
         else:
             # Universal fallback: execute dynamic plan using high-speed HTN & MCTS reasoning
             from openjarvis.core.agi_reasoning import get_agi_reasoning_orchestrator
+
             orch = get_agi_reasoning_orchestrator()
             orch_res = orch.execute_mission(mission_prompt, context=context)
             t_ms = orch_res["execution_time_ms"]
@@ -398,14 +503,21 @@ class UniversalAGIEngine:
         # Phase 5: VERTU-GRADE ZERO-KNOWLEDGE SEALING
         s5_t0 = time.perf_counter()
         from openjarvis.pagos import cifrado
+
         sensitive_dossier_data = json.dumps(final_payload, ensure_ascii=False)
-        vertu_token = cifrado.seal(sensitive_dossier_data, aad=f"vertu_mission_{mission_id}")
+        vertu_token = cifrado.seal(
+            sensitive_dossier_data, aad=f"vertu_mission_{mission_id}"
+        )
         step5 = TacticalStep(
             phase=MissionPhase.VERTU_SEALING,
             name="Sellado Criptográfico Grado Vertu",
             description="Todos los tokens, credenciales y transacciones sellados localmente bajo AES-256-GCM.",
             status="completed",
-            result={"token_prefix": vertu_token[:25], "algoritmo": "AES-256-GCM + HKDF-SHA256", "aislamiento": "0600"},
+            result={
+                "token_prefix": vertu_token[:25],
+                "algoritmo": "AES-256-GCM + HKDF-SHA256",
+                "aislamiento": "0600",
+            },
             latency_seconds=round(time.perf_counter() - s5_t0, 4),
         )
         steps.append(step5)
@@ -415,7 +527,9 @@ class UniversalAGIEngine:
         total_time = round(t_finish - t_start, 4)
 
         # J.A.R.V.I.S. proactive spoken briefing
-        jarvis_brief = self.generate_jarvis_proactive_brief(cat, entity, final_payload, total_time)
+        jarvis_brief = self.generate_jarvis_proactive_brief(
+            cat, entity, final_payload, total_time
+        )
 
         dossier_path = self._dossiers_dir / f"dossier_{mission_id}.json"
         dossier = MissionDossier(
@@ -442,7 +556,9 @@ class UniversalAGIEngine:
             dossier_dict["phases"] = [
                 {**asdict(s), "phase": s.phase.value} for s in dossier.phases
             ]
-            dossier_path.write_text(json.dumps(dossier_dict, indent=2, ensure_ascii=False), encoding="utf-8")
+            dossier_path.write_text(
+                json.dumps(dossier_dict, indent=2, ensure_ascii=False), encoding="utf-8"
+            )
         except Exception as exc:
             log.warning("No se pudo escribir archivo dossier: %s", exc)
 
@@ -452,11 +568,16 @@ class UniversalAGIEngine:
         # Record cryptographic Merkle proof in evidence nexus
         try:
             from openjarvis.telemetry.evidence_nexus import get_evidence_nexus_ledger
+
             ledger = get_evidence_nexus_ledger()
             ledger.record_proof(
                 action_name=f"agi_solve:{cat}",
                 domain="universal_agi_engine",
-                input_data={"prompt": mission_prompt, "entity": entity, "budget": budget},
+                input_data={
+                    "prompt": mission_prompt,
+                    "entity": entity,
+                    "budget": budget,
+                },
                 output_data=final_payload,
                 latency_ms=total_time * 1000,
                 status="EXITOSO",
@@ -475,7 +596,9 @@ class UniversalAGIEngine:
         duration: float,
     ) -> str:
         """Formulate a proactive, distinguished J.A.R.V.I.S. audio/chat briefing."""
-        benefit = outcome.get("beneficio_clave", "Operación resuelta con precisión absoluta.")
+        benefit = outcome.get(
+            "beneficio_clave", "Operación resuelta con precisión absoluta."
+        )
         brief = (
             f"Misión cumplida, señor. He resuelto la operación para «{entity}» en {duration:.2f} segundos. "
             f"{benefit}. Los registros han sido asegurados bajo cifrado Vertu. "

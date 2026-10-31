@@ -5,7 +5,9 @@ set -euo pipefail
 for d in "$HOME"/.local/share/sergio-toolchain/node-*/bin; do
   if [[ -d "$d" ]]; then PATH="$d:$PATH"; fi
 done
-export PATH="$HOME/.local/share/mise/shims:$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
+# Tools installed for the user come after what is already on PATH (mise shims
+# included), so the PATH the caller chose still wins.
+export PATH="$PATH:$HOME/.local/share/mise/shims:$HOME/.local/bin:$HOME/.cargo/bin"
 branch="${1:-main}"
 requested="${2:-}"
 root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -22,9 +24,11 @@ if [[ -d "$static" ]]; then
   git checkout -- "$static" 2>/dev/null || true
   git clean -fdq -- "$static" 2>/dev/null || true
 fi
+# Only the generated web build is cleaned above. Anything else changed here is
+# the owner's own work: never wipe it (no reset --hard, no clean), stop and say so.
 if [[ -n "$(git status --porcelain --untracked-files=normal)" ]]; then
-  git reset --hard HEAD 2>/dev/null || true
-  git clean -fdq 2>/dev/null || true
+  echo "Guarda o confirma tus cambios locales antes de actualizar." >&2
+  exit 1
 fi
 command -v uv >/dev/null || { echo "Instala uv antes de actualizar." >&2; exit 1; }
 command -v node >/dev/null || { echo "Instala Node 22.22+ antes de actualizar." >&2; exit 1; }

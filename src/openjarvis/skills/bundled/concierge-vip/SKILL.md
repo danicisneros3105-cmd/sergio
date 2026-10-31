@@ -4,7 +4,7 @@ description: Protocolo de conserjería de ultra lujo, adquisición de piezas rar
 license: Apache-2.0
 metadata:
   openjarvis:
-    user_invocable: true
+    user_invocable: false
 ---
 
 # Concierge VIP & Top-Lifestyle Management

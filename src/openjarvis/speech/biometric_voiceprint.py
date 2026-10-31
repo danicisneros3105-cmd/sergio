@@ -25,7 +25,7 @@ log = logging.getLogger("openjarvis.speech.biometric_voiceprint")
 
 DEFAULT_SAMPLE_RATE = 16000
 DEFAULT_FRAME_LENGTH = 400  # 25ms @ 16kHz
-DEFAULT_FRAME_HOP = 160     # 10ms @ 16kHz
+DEFAULT_FRAME_HOP = 160  # 10ms @ 16kHz
 DEFAULT_NUM_MEL_BANDS = 32
 DEFAULT_NUM_MFCC = 16
 DEFAULT_EMBEDDING_DIM = 64
@@ -65,9 +65,9 @@ def _create_mel_filterbank(
         right = bin_points[i + 1]
 
         if center > left:
-            filterbank[i - 1, left:center] = (
-                np.arange(left, center) - left
-            ) / float(center - left)
+            filterbank[i - 1, left:center] = (np.arange(left, center) - left) / float(
+                center - left
+            )
         if right > center:
             filterbank[i - 1, center:right] = (
                 right - np.arange(center, right)
@@ -117,13 +117,17 @@ class OwnerVoiceprintProfile:
         return cls(
             owner_id=str(data.get("owner_id", "primary_operator")),
             embedding=[float(x) for x in data.get("embedding", [])],
-            embedding_dimension=int(data.get("embedding_dimension", DEFAULT_EMBEDDING_DIM)),
+            embedding_dimension=int(
+                data.get("embedding_dimension", DEFAULT_EMBEDDING_DIM)
+            ),
             sample_count=int(data.get("sample_count", 0)),
             enrolled_at=float(data.get("enrolled_at", 0.0)),
             last_calibrated_at=float(data.get("last_calibrated_at", 0.0)),
             baseline_pitch_f0_mean=float(data.get("baseline_pitch_f0_mean", 120.0)),
             baseline_pitch_f0_std=float(data.get("baseline_pitch_f0_std", 25.0)),
-            verification_threshold=float(data.get("verification_threshold", DEFAULT_VERIFICATION_THRESHOLD)),
+            verification_threshold=float(
+                data.get("verification_threshold", DEFAULT_VERIFICATION_THRESHOLD)
+            ),
         )
 
 
@@ -158,7 +162,9 @@ class AcousticVoiceprintExtractor:
         # Precompute DCT-II matrix for MFCC extraction
         n = np.arange(self.num_mel_bands)
         k = np.arange(self.num_mfcc)[:, np.newaxis]
-        self.dct_matrix = np.cos(np.pi * k * (2 * n + 1) / (2.0 * self.num_mel_bands)).astype(np.float32)
+        self.dct_matrix = np.cos(
+            np.pi * k * (2 * n + 1) / (2.0 * self.num_mel_bands)
+        ).astype(np.float32)
 
     def pcm_to_float(self, pcm_bytes: bytes) -> np.ndarray:
         """Decode raw 16-bit signed integer linear PCM bytes into normalized float32."""
@@ -173,8 +179,12 @@ class AcousticVoiceprintExtractor:
         if len(signal) < 800:
             return 0.0
 
-        min_lag = int(self.sample_rate / 400.0)  # 400 Hz maximum human pitch (lag 40 @ 16kHz)
-        max_lag = int(self.sample_rate / 65.0)   # 65 Hz minimum human pitch (lag 246 @ 16kHz)
+        min_lag = int(
+            self.sample_rate / 400.0
+        )  # 400 Hz maximum human pitch (lag 40 @ 16kHz)
+        max_lag = int(
+            self.sample_rate / 65.0
+        )  # 65 Hz minimum human pitch (lag 246 @ 16kHz)
 
         if len(signal) <= max_lag:
             return 0.0
@@ -234,7 +244,9 @@ class AcousticVoiceprintExtractor:
         snr = 10.0 * math.log10(max(1.0, signal_ceiling / noise_floor))
         return round(float(snr), 2)
 
-    def extract_embedding(self, audio_data: bytes | np.ndarray) -> Tuple[np.ndarray, Dict[str, float]]:
+    def extract_embedding(
+        self, audio_data: bytes | np.ndarray
+    ) -> Tuple[np.ndarray, Dict[str, float]]:
         """Compute normalized 64-dimensional speaker acoustic identity vector."""
         if isinstance(audio_data, bytes):
             signal = self.pcm_to_float(audio_data)
@@ -273,7 +285,9 @@ class AcousticVoiceprintExtractor:
 
         for i in range(num_frames):
             start = i * self.frame_hop
-            frame = pre_emphasized[start : start + self.frame_length] * self.hamming_window
+            frame = (
+                pre_emphasized[start : start + self.frame_length] * self.hamming_window
+            )
 
             # Real FFT and Power Spectrum
             fft_complex = np.fft.rfft(frame, n=self.fft_size)
@@ -291,7 +305,9 @@ class AcousticVoiceprintExtractor:
             total_power = np.sum(power_spectrum)
             if total_power > 1e-7:
                 centroid = np.sum(fft_freqs * power_spectrum) / total_power
-                spread = np.sqrt(np.sum(((fft_freqs - centroid) ** 2) * power_spectrum) / total_power)
+                spread = np.sqrt(
+                    np.sum(((fft_freqs - centroid) ** 2) * power_spectrum) / total_power
+                )
                 # Spectral flatness (geometric mean / arithmetic mean)
                 geom_mean = np.exp(np.mean(np.log(np.maximum(power_spectrum, 1e-9))))
                 arith_mean = total_power / len(power_spectrum)
@@ -312,13 +328,13 @@ class AcousticVoiceprintExtractor:
 
         # Statistical pooling across frames — drop c0 (energy) to prevent amplitude-dominated false matches
         mfcc_mean = np.mean(mfcc_frames[:, 1:], axis=0)  # 15 dims (c1 to c15)
-        mfcc_std = np.std(mfcc_frames[:, 1:], axis=0)    # 15 dims
+        mfcc_std = np.std(mfcc_frames[:, 1:], axis=0)  # 15 dims
 
         # Delta MFCC (temporal velocity)
         if num_frames >= 3:
             delta_mfcc = np.diff(mfcc_frames[:, 1:], axis=0)
             delta_mean = np.mean(delta_mfcc, axis=0)  # 15 dims
-            delta_std = np.std(delta_mfcc, axis=0)    # 15 dims
+            delta_std = np.std(delta_mfcc, axis=0)  # 15 dims
         else:
             delta_mean = np.zeros(self.num_mfcc - 1, dtype=np.float32)
             delta_std = np.zeros(self.num_mfcc - 1, dtype=np.float32)
@@ -454,7 +470,9 @@ class VoiceprintManager:
         else:
             old_emb = np.array(self.profile.embedding, dtype=np.float32)
             # Running barycenter average
-            new_emb = (old_emb * float(current_samples) + emb) / float(current_samples + 1)
+            new_emb = (old_emb * float(current_samples) + emb) / float(
+                current_samples + 1
+            )
             norm = float(np.linalg.norm(new_emb))
             if norm > 1e-7:
                 new_emb = new_emb / norm
@@ -463,7 +481,9 @@ class VoiceprintManager:
             self.profile.last_calibrated_at = now
             if metrics["pitch_f0"] > 50.0:
                 old_f0 = float(self.profile.baseline_pitch_f0_mean)
-                new_f0 = (old_f0 * float(current_samples) + metrics["pitch_f0"]) / float(current_samples + 1)
+                new_f0 = (
+                    old_f0 * float(current_samples) + metrics["pitch_f0"]
+                ) / float(current_samples + 1)
                 self.profile.baseline_pitch_f0_mean = round(new_f0, 1)
 
         self.save_profile()
@@ -518,7 +538,9 @@ class VoiceprintManager:
             # Only tolerate octave doubling/halving if spectral envelope formants already match
             if raw_similarity >= 0.70:
                 oct_up = min(sample_f0 * 0.5, owner_f0) / max(sample_f0 * 0.5, owner_f0)
-                oct_down = min(sample_f0, owner_f0 * 0.5) / max(sample_f0, owner_f0 * 0.5)
+                oct_down = min(sample_f0, owner_f0 * 0.5) / max(
+                    sample_f0, owner_f0 * 0.5
+                )
                 pitch_ratio = max(base_ratio, oct_up, oct_down)
             else:
                 pitch_ratio = base_ratio

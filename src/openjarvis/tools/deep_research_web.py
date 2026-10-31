@@ -43,7 +43,12 @@ class DeepResearchWebTool(BaseTool):
                         "description": "Modo de investigación: 'ultra' (10 analistas concurrentes, 10 dimensiones, 3 rondas) o 'standard' (2 rondas).",
                     },
                     "rounds": {"type": "integer", "minimum": 1, "maximum": 4},
-                    "workers": {"type": "integer", "minimum": 1, "maximum": 16, "description": "Trabajadores paralelos (por defecto 10 en ultra)."},
+                    "workers": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 16,
+                        "description": "Trabajadores paralelos (por defecto 10 en ultra).",
+                    },
                 },
                 "required": ["question"],
             },
@@ -63,7 +68,15 @@ class DeepResearchWebTool(BaseTool):
 
         is_ultra = mode == "ultra" or any(
             w in question.lower()
-            for w in ("ultra", "a fondo", "10 humanos", "diez humanos", "exhaustiv", "completa", "profundisima")
+            for w in (
+                "ultra",
+                "a fondo",
+                "10 humanos",
+                "diez humanos",
+                "exhaustiv",
+                "completa",
+                "profundisima",
+            )
         )
         try:
             if is_ultra:

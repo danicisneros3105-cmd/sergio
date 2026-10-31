@@ -103,8 +103,9 @@ def _schedule_meeting_task_reminders(minutes: Dict[str, Any]) -> List[str]:
         when = str(t.get("cuando") or "").strip()
         if not what:
             continue
-        label = f"[Acta: {minutes.get('titulo', 'Reunión')}] {who + ': ' if who else ''}{what}" + (
-            f" ({when})" if when else ""
+        label = (
+            f"[Acta: {minutes.get('titulo', 'Reunión')}] {who + ': ' if who else ''}{what}"
+            + (f" ({when})" if when else "")
         )
         schedule_proactive_reminder(
             label,
@@ -200,7 +201,9 @@ async def meeting_control(req: MeetingControlRequest) -> dict[str, Any]:
     if req.device in ("phone", "both"):
         cmd = dispatch_device_command(
             target_device="phone",
-            action="record_meeting" if act in ("start", "empezar", "grabar") else "stop_meeting",
+            action="record_meeting"
+            if act in ("start", "empezar", "grabar")
+            else "stop_meeting",
             params={"kind": req.kind},
         )
         results.append(f"Teléfono/Web: orden «{cmd['action']}» enviada ({cmd['id']})")
@@ -326,7 +329,8 @@ async def device_heartbeat(req: DeviceHeartbeatRequest) -> dict[str, Any]:
         _DEVICES[did] = {
             "device_id": did,
             "kind": kind,
-            "name": req.name or ("Teléfono del señor" if kind == "phone" else "PC del señor"),
+            "name": req.name
+            or ("Teléfono del señor" if kind == "phone" else "PC del señor"),
             "capabilities": req.capabilities,
             "last_seen": now,
         }
@@ -358,8 +362,7 @@ async def list_devices() -> dict[str, Any]:
     now = time.time()
     with _LOCK:
         active = [
-            {**d, "online": (now - d["last_seen"]) < 45}
-            for d in _DEVICES.values()
+            {**d, "online": (now - d["last_seen"]) < 45} for d in _DEVICES.values()
         ]
         recent_cmds = list(reversed(_DEVICE_QUEUE[-15:]))
     return {"devices": active, "recent_commands": recent_cmds}
@@ -378,7 +381,9 @@ async def device_upload(
     folder_name = "Videos" if kind == "video" else "Pictures"
     out_dir = Path.home() / folder_name / "Sergio" / "Telefono"
     out_dir.mkdir(parents=True, exist_ok=True)
-    ext = Path(file.filename or "captura.webm").suffix or (".webm" if kind == "video" else ".jpg")
+    ext = Path(file.filename or "captura.webm").suffix or (
+        ".webm" if kind == "video" else ".jpg"
+    )
     stamp = time.strftime("%Y%m%d-%H%M%S")
     out_path = out_dir / f"telefono-{kind}-{stamp}{ext}"
     out_path.write_bytes(raw)

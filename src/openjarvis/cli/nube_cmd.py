@@ -66,17 +66,38 @@ def find_kimi(key: str, http: httpx.Client | None = None) -> tuple[str, list[str
 
 @click.group()
 def nube() -> None:
-    """Cloud models (ChatGPT, Claude, OpenRouter, DeepSeek, Kimi, Gemini) for Sergio's brain."""
+    """Cloud models (ChatGPT, Claude, OpenRouter, DeepSeek, Gemini) for Sergio's brain."""
 
 
 @nube.command("configurar")
 @click.option("--kimi", "kimi_key", default="", help="Kimi (Moonshot) API key.")
 @click.option("--gemini", "gemini_key", default="", help="Gemini / Google API key.")
-@click.option("--openai", "openai_key", default="", help="OpenAI API key (ChatGPT, GPT-4o, o3-mini).")
-@click.option("--anthropic", "anthropic_key", default="", help="Anthropic API key (Claude 3.5 Sonnet, Claude Opus).")
-@click.option("--openrouter", "openrouter_key", default="", help="OpenRouter API key (Universal multi-model).")
-@click.option("--deepseek", "deepseek_key", default="", help="DeepSeek API key (DeepSeek-V3, R1).")
-@click.option("--modelo", default="", help="Force a model id (e.g. gpt-4o, claude-sonnet-4-20250514, gemini-3.8-flash, kimi-k2.6).")
+@click.option(
+    "--openai",
+    "openai_key",
+    default="",
+    help="OpenAI API key (ChatGPT, GPT-4o, o3-mini).",
+)
+@click.option(
+    "--anthropic",
+    "anthropic_key",
+    default="",
+    help="Anthropic API key (Claude 3.5 Sonnet, Claude Opus).",
+)
+@click.option(
+    "--openrouter",
+    "openrouter_key",
+    default="",
+    help="OpenRouter API key (Universal multi-model).",
+)
+@click.option(
+    "--deepseek", "deepseek_key", default="", help="DeepSeek API key (DeepSeek-V3, R1)."
+)
+@click.option(
+    "--modelo",
+    default="",
+    help="Force a model id (e.g. gpt-4o, claude-sonnet-4-20250514, gemini-3.8-flash).",
+)
 @click.option(
     "--tripo",
     "tripo_key",
@@ -114,9 +135,20 @@ def configurar(
             )
         write_env(env_path, {"TRIPO_API_KEY": tripo_key})
         console.print("[green]Tripo listo[/green]: «hazme en 3D con Tripo …».")
-        if not any([kimi_key, gemini_key, openai_key, anthropic_key, openrouter_key, deepseek_key]):
+        if not any(
+            [
+                kimi_key,
+                gemini_key,
+                openai_key,
+                anthropic_key,
+                openrouter_key,
+                deepseek_key,
+            ]
+        ):
             return
-    if not any([kimi_key, gemini_key, openai_key, anthropic_key, openrouter_key, deepseek_key]):
+    if not any(
+        [kimi_key, gemini_key, openai_key, anthropic_key, openrouter_key, deepseek_key]
+    ):
         # Prompt for key if none provided
         gemini_key = click.prompt(
             "Clave de API (Gemini / OpenAI / Anthropic)",
@@ -130,7 +162,9 @@ def configurar(
     anthropic_key = clean_key(anthropic_key or env.get("ANTHROPIC_API_KEY", ""))
     openrouter_key = clean_key(openrouter_key or env.get("OPENROUTER_API_KEY", ""))
     deepseek_key = clean_key(deepseek_key or env.get("DEEPSEEK_API_KEY", ""))
-    if not any([kimi_key, gemini_key, openai_key, anthropic_key, openrouter_key, deepseek_key]):
+    if not any(
+        [kimi_key, gemini_key, openai_key, anthropic_key, openrouter_key, deepseek_key]
+    ):
         raise click.ClickException("No keys given.")
 
     updates: dict[str, str] = {}

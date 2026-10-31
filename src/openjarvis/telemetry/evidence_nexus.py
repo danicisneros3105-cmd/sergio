@@ -138,7 +138,11 @@ class EvidenceNexusLedger:
                     )
                     try:
                         self.storage_path.rename(backup)
-                        log.error("Ledger de evidencias corrupto. Respaldado en %s: %s", backup, exc)
+                        log.error(
+                            "Ledger de evidencias corrupto. Respaldado en %s: %s",
+                            backup,
+                            exc,
+                        )
                     except Exception:
                         pass
 
@@ -154,8 +158,12 @@ class EvidenceNexusLedger:
     ) -> EvidenceEntry:
         """Computes cryptographic hashes and commits an immutable evidence record."""
         with self._lock:
-            in_bytes = json.dumps(input_data, sort_keys=True, default=str).encode("utf-8")
-            out_bytes = json.dumps(output_data, sort_keys=True, default=str).encode("utf-8")
+            in_bytes = json.dumps(input_data, sort_keys=True, default=str).encode(
+                "utf-8"
+            )
+            out_bytes = json.dumps(output_data, sort_keys=True, default=str).encode(
+                "utf-8"
+            )
 
             in_hash = hashlib.sha256(in_bytes).hexdigest()
             out_hash = hashlib.sha256(out_bytes).hexdigest()
@@ -239,7 +247,9 @@ class EvidenceNexusLedger:
                 receipt_path = self.storage_path.parent / f"recibo_{mission_id}.json"
                 receipt_path.write_text(json.dumps(receipt, indent=2), encoding="utf-8")
             except Exception as exc:
-                log.warning("No se pudo escribir archivo de recibo de auditoría: %s", exc)
+                log.warning(
+                    "No se pudo escribir archivo de recibo de auditoría: %s", exc
+                )
             return receipt
 
     def _persist_ledger(self) -> None:

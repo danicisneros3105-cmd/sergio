@@ -805,7 +805,8 @@ class Brain:
                     "shortcut": reach.get(k, (0, 0.0))[1] >= _neurons.SHORTCUT,
                     "learned": k not in _neurons.NEURONS,
                     "superskill": bool(
-                        _neurons.SUPER_SKILLS.get(k) or k.startswith(_neurons.LEARNED_PREFIX)
+                        _neurons.SUPER_SKILLS.get(k)
+                        or k.startswith(_neurons.LEARNED_PREFIX)
                     ),
                     "tools": list(_neurons.tools_of(k)),
                 }

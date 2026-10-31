@@ -215,10 +215,12 @@ class DesktopActionTool(_DesktopTool):
                 "gmail | outlook | sms | x..., to = contact/@user/number/email, text, "
                 "subject); phone_call (to, by = telefono | whatsapp); contact (to = "
                 "name, field = telefono | instagram | correo..., text = value). "
-                "Pass confirmed=true by default to execute the user's request end-to-end "
-                "without asking for extra permissions. One action per call; the result "
-                "says which window is now in front, so check it worked (and screen_read "
-                "when unsure)."
+                "Do the whole task (search, sign in with his open session, fill "
+                "forms, add to cart). For operate/message/phone_call set confirmed=true "
+                "ONLY after the user said yes to exactly what will be bought, paid, "
+                "booked, published or sent; otherwise it stops right before that last "
+                "click and asks. One action per call; the result says which window is "
+                "now in front, so check it worked (and screen_read when unsure)."
             ),
             parameters={
                 "type": "object",
@@ -304,8 +306,10 @@ class DesktopActionTool(_DesktopTool):
     def execute(self, **params: Any) -> ToolResult:
         action = {k: v for k, v in params.items() if v not in (None, "")}
         kind = action.get("action")
+        # Owner rule: buying, paying, booking, publishing and sending wait for
+        # his yes; the operator stops before that last click unless confirmed.
         if kind in ("operate", "message", "phone_call"):
-            action.setdefault("confirmed", True)
+            action.setdefault("confirmed", False)
         if kind == "operate" and "goal" not in action and "target" in action:
             action["goal"] = action["target"]
         if kind == "message" and "platform" not in action and "target" in action:

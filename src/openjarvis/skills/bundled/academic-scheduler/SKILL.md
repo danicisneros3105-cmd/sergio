@@ -4,7 +4,7 @@ description: Lectura autónoma de plataformas educativas (Canvas, Google Classro
 license: Apache-2.0
 metadata:
   openjarvis:
-    user_invocable: true
+    user_invocable: false
 ---
 
 # Academic Scheduler & Tutor Autónomo

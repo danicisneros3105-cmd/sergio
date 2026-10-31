@@ -677,7 +677,9 @@ class DeleteMyAccountRequest(BaseModel):
 
 
 @router.post("/eliminar-mi-cuenta")
-def eliminar_mi_cuenta(body: DeleteMyAccountRequest, request: Request) -> Dict[str, Any]:
+def eliminar_mi_cuenta(
+    body: DeleteMyAccountRequest, request: Request
+) -> Dict[str, Any]:
     """Self-service account deletion (GDPR Right to be Forgotten / Reset local session)."""
     token = _bearer(request)
     me = _me(request)

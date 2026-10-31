@@ -17,21 +17,29 @@ def test_dynamic_intent_deconstruction():
     engine = get_universal_agi_engine()
 
     # 1. Extreme hotel arbitrage
-    cat1, ent1, b1, d1 = engine.deconstruct_mission("Conseguir suite de 4000 USD en Four Seasons por 2000 USD mañana")
+    cat1, ent1, b1, d1 = engine.deconstruct_mission(
+        "Conseguir suite de 4000 USD en Four Seasons por 2000 USD mañana"
+    )
     assert cat1 == "arbitraje_hotelero_lujo"
     assert b1 == 4000.0
     assert "mañana" in d1.lower()
 
     # 2. Impossible Michelin reservation
-    cat2, ent2, b2, d2 = engine.deconstruct_mission("Mesa urgente en DiverXO de Dabiz Muñoz para este fin de semana")
+    cat2, ent2, b2, d2 = engine.deconstruct_mission(
+        "Mesa urgente en DiverXO de Dabiz Muñoz para este fin de semana"
+    )
     assert cat2 == "sniper_gastronomia_michelin"
 
     # 3. Rare watch sourcing
-    cat3, ent3, b3, d3 = engine.deconstruct_mission("Localizar Patek Philippe 5711 con certificado de autenticidad")
+    cat3, ent3, b3, d3 = engine.deconstruct_mission(
+        "Localizar Patek Philippe 5711 con certificado de autenticidad"
+    )
     assert cat3 == "sourcing_forense_articulos_raros"
 
     # 4. Unknown arbitrary mission
-    cat4, ent4, b4, d4 = engine.deconstruct_mission("Desplegar convoy de seguridad discreta para reunión en Zúrich")
+    cat4, ent4, b4, d4 = engine.deconstruct_mission(
+        "Desplegar convoy de seguridad discreta para reunión en Zúrich"
+    )
     assert cat4 == "mision_logistica_general_extrema"
 
 
@@ -75,16 +83,23 @@ def test_metacognitive_learning_and_adaptation(tmp_path):
     engine.memory = memory
 
     # Mission 1
-    dossier1 = engine.solve("Negociar acceso VIP y descuento corporativo para conferencia en Ginebra")
+    dossier1 = engine.solve(
+        "Negociar acceso VIP y descuento corporativo para conferencia en Ginebra"
+    )
     assert dossier1.success
 
     # Verify experience was stored
     exps = memory.load_experiences()
     assert len(exps) == 1
-    assert "ginebra" in exps[0]["prompt_clave"].lower() or "acceso" in exps[0]["prompt_clave"].lower()
+    assert (
+        "ginebra" in exps[0]["prompt_clave"].lower()
+        or "acceso" in exps[0]["prompt_clave"].lower()
+    )
 
     # Mission 2: Recall tactic
-    tactic = memory.recall_similar_tactic("Nueva conferencia en Ginebra para el equipo directivo")
+    tactic = memory.recall_similar_tactic(
+        "Nueva conferencia en Ginebra para el equipo directivo"
+    )
     assert tactic is not None
     assert tactic["id"] == dossier1.mission_id
 

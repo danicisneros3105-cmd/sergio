@@ -35,7 +35,9 @@ class Neuron:
     job: str
     words: Tuple[str, ...]  # innate triggers, without accents, as word starts
     tools: Tuple[str, ...]
-    superskill: str = ""  # in-context retraining protocol injected when this neuron fires
+    superskill: str = (
+        ""  # in-context retraining protocol injected when this neuron fires
+    )
 
 
 # High-density Super-Skills injected into the active context when a neuron fires,
@@ -331,9 +333,7 @@ def select(
     return Selection(tuple(fired[:4]), frozenset(tools), shortcut)
 
 
-def superskill_for(
-    selection: Optional[Selection] = None, text: str = ""
-) -> str:
+def superskill_for(selection: Optional[Selection] = None, text: str = "") -> str:
     """Build the in-context `<super_skill_neuronal>` block for the neurons that
     fired (innate or learned), retraining the model on the fly for this turn."""
     if selection is None and text:
@@ -368,8 +368,8 @@ def superskill_for(
         except Exception:  # noqa: BLE001
             pass
     header = (
-        f"<super_skill_neuronal neuronas=\"{','.join(selection.neurons[:3])}\""
-        + (" atajo=\"true\"" if selection.shortcut else "")
+        f'<super_skill_neuronal neuronas="{",".join(selection.neurons[:3])}"'
+        + (' atajo="true"' if selection.shortcut else "")
         + ">\n"
     )
     return header + "\n\n".join(blocks) + "\n</super_skill_neuronal>"

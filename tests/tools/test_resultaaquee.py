@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import json
+
 from openjarvis.connectome import neurons
-from openjarvis.tools.app_control import SergioAppControlTool
-from openjarvis.tools.video_create import VideoCreateTool, plan, build_social_pack
-from openjarvis.tools.video_style import find_style, available
 from openjarvis.tools import commerce_intel as ci
+from openjarvis.tools.app_control import SergioAppControlTool
+from openjarvis.tools.video_create import build_social_pack, plan
+from openjarvis.tools.video_style import available, find_style
 from openjarvis.video_essay import genres
 
 
@@ -46,41 +47,57 @@ def test_plan_uses_resultaaquee_script_formula(monkeypatch):
 
     def fake_ask(prompt_text, json_mode=True, check=None):
         captured_prompt.append(prompt_text)
-        return json.dumps({
-            "title": "El Secreto de la Pantalla",
-            "scenes": [
-                {
-                    "say": "¿Por qué tu móvil detecta tu dedo pero un lápiz plástico no hace nada?",
-                    "picture": "3D isometric cutaway render of a modern smartphone glass screen showing capacitive grid layer and glowing electrons on dark studio background."
-                },
-                {
-                    "say": "Todos creen que es por la presión o el calor de tu piel, pero eso es falso.",
-                    "picture": "Macro X-Ray view of glass cross section showing capacitive electrostatic field lines undisturbed by plastic pen."
-                },
-                {
-                    "say": "Resulta que tu cuerpo conduce electricidad y distorsiona el campo electrostático al tocar el cristal.",
-                    "picture": "Neon green energy discharge and electron flux from human fingertip into indium tin oxide sensor matrix."
-                },
-                {
-                    "say": "Por eso con guantes de lana no funciona, a menos que tengan hilo de plata conductor.",
-                    "picture": "Exploded 3D view of capacitive touch controller IC chip processing touch coordinates with high precision."
-                }
-            ]
-        })
+        return json.dumps(
+            {
+                "title": "El Secreto de la Pantalla",
+                "scenes": [
+                    {
+                        "say": "¿Por qué tu móvil detecta tu dedo pero un lápiz plástico no hace nada?",
+                        "picture": "3D isometric cutaway render of a modern smartphone glass screen showing capacitive grid layer and glowing electrons on dark studio background.",
+                    },
+                    {
+                        "say": "Todos creen que es por la presión o el calor de tu piel, pero eso es falso.",
+                        "picture": "Macro X-Ray view of glass cross section showing capacitive electrostatic field lines undisturbed by plastic pen.",
+                    },
+                    {
+                        "say": "Resulta que tu cuerpo conduce electricidad y distorsiona el campo electrostático al tocar el cristal.",
+                        "picture": "Neon green energy discharge and electron flux from human fingertip into indium tin oxide sensor matrix.",
+                    },
+                    {
+                        "say": "Por eso con guantes de lana no funciona, a menos que tengan hilo de plata conductor.",
+                        "picture": "Exploded 3D view of capacitive touch controller IC chip processing touch coordinates with high precision.",
+                    },
+                ],
+            }
+        )
 
-    script = plan("Por qué la pantalla táctil detecta tu dedo", 4, ask=fake_ask, style="resultaaquee")
+    script = plan(
+        "Por qué la pantalla táctil detecta tu dedo",
+        4,
+        ask=fake_ask,
+        style="resultaaquee",
+    )
     assert len(script["scenes"]) == 4
     assert len(captured_prompt) == 1
-    assert "RESULTA_QUE_SCRIPT_PROMPT" in str(plan) or "@resultaaquee" in captured_prompt[0]
+    assert (
+        "RESULTA_QUE_SCRIPT_PROMPT" in str(plan)
+        or "@resultaaquee" in captured_prompt[0]
+    )
 
 
 def test_build_social_pack_generates_viral_kit():
     scenes = [
         {"say": "¿Por qué las ventanas de los aviones tienen un agujero diminuto?"},
-        {"say": "Resulta que equilibra la presión entre el cristal exterior y la cabina."},
+        {
+            "say": "Resulta que equilibra la presión entre el cristal exterior y la cabina."
+        },
         {"say": "Por eso nunca debes preocuparte cuando veas..."},
     ]
-    pack = build_social_pack("Por qué los aviones tienen un agujero en la ventana", "El Agujero del Avión", scenes)
+    pack = build_social_pack(
+        "Por qué los aviones tienen un agujero en la ventana",
+        "El Agujero del Avión",
+        scenes,
+    )
     assert "¿Por qué" in pack["titulo_viral"]
     assert "#resultaque" in pack["copy_publicacion"]
     assert "💬" in pack["comentario_fijado"]
@@ -100,7 +117,9 @@ def test_sergio_app_control_handles_resultaaquee_action():
 
 
 def test_connectome_neuron_selects_video_for_resultaaquee():
-    phrase = "Sergio, haz un video estilo resultaaquee explicando como funciona el Face ID"
+    phrase = (
+        "Sergio, haz un video estilo resultaaquee explicando como funciona el Face ID"
+    )
     sel = neurons.select(neurons.normalise(phrase), {})
     assert sel is not None
     assert "video" in sel.neurons or "sergio_app" in sel.tools

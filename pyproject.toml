@@ -330,6 +330,22 @@ max-line-length = 120
 # research_loop.py carries long prompt strings too (documented in CLAUDE.md);
 # the ignore was missing here.
 "src/openjarvis/agents/research_loop.py" = ["E501"]
+# Prompt and copy text in Spanish (persona, voice, concierge and research
+# prompts, genre briefs): long sentences are kept whole on purpose.
+"src/openjarvis/persona.py" = ["E501"]
+"src/openjarvis/speech/gemini_live.py" = ["E501"]
+"src/openjarvis/connectome/neurons.py" = ["E501"]
+"src/openjarvis/tools/app_control.py" = ["E501"]
+"src/openjarvis/tools/commerce_intel.py" = ["E501"]
+"src/openjarvis/tools/video_create.py" = ["E501"]
+"src/openjarvis/tools/deep_research_web.py" = ["E501"]
+"src/openjarvis/research/deep.py" = ["E501"]
+"src/openjarvis/video_essay/genres.py" = ["E501"]
+"src/openjarvis/server/meeting_routes.py" = ["E501"]
+"src/openjarvis/cli/agi_cmd.py" = ["E501"]
+"tests/escritorio/test_control_total.py" = ["E501"]
+"tests/research/test_ultra_deep.py" = ["E501"]
+"tests/tools/test_resultaaquee.py" = ["E501"]
 # Blender scripts: the seed examples run inside Blender with Sergio's kit
 # already defined (kit_lathe, kit_tube, ...), and the kit is Blender source
 # kept as one string.

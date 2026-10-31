@@ -91,7 +91,9 @@ class ReasoningNode:
         if self.visits == 0:
             return float("inf")
         exploitation = self.total_reward / self.visits
-        exploration = exploration_weight * math.sqrt(math.log(max(1, parent_visits)) / self.visits)
+        exploration = exploration_weight * math.sqrt(
+            math.log(max(1, parent_visits)) / self.visits
+        )
         risk_penalty = self.action.risk_score * 0.5
         return exploitation + exploration - risk_penalty
 
@@ -122,7 +124,9 @@ class HierarchicalTaskNetwork:
     def __init__(self) -> None:
         self._rules: List[Callable[[str, Dict[str, Any]], List[TacticalAction]]] = []
 
-    def decompose(self, goal: str, context: Optional[Dict[str, Any]] = None) -> List[TacticalAction]:
+    def decompose(
+        self, goal: str, context: Optional[Dict[str, Any]] = None
+    ) -> List[TacticalAction]:
         """Deconstructs arbitrary goal into an ordered sequence of tactical actions."""
         lowered = goal.lower()
         actions: List[TacticalAction] = []
@@ -143,8 +147,20 @@ class HierarchicalTaskNetwork:
         needs_stealth = any(
             w in lowered
             for w in [
-                "hotel", "vuelo", "reserva", "comprar", "restaurante", "precio", "buscar",
-                "extraer", "scraping", "instagram", "youtube", "web", "entrada", "ticket"
+                "hotel",
+                "vuelo",
+                "reserva",
+                "comprar",
+                "restaurante",
+                "precio",
+                "buscar",
+                "extraer",
+                "scraping",
+                "instagram",
+                "youtube",
+                "web",
+                "entrada",
+                "ticket",
             ]
         )
         if needs_stealth:
@@ -187,7 +203,17 @@ class HierarchicalTaskNetwork:
                 )
             )
         elif any(w in lowered for w in ["mensaje", "correo", "responder", "whatsapp"]):
-            is_critical = any(w in lowered for w in ["firmar", "banco", "transferir", "dinero", "urgente", "contrato"])
+            is_critical = any(
+                w in lowered
+                for w in [
+                    "firmar",
+                    "banco",
+                    "transferir",
+                    "dinero",
+                    "urgente",
+                    "contrato",
+                ]
+            )
             actions.append(
                 TacticalAction(
                     action_id=f"act_comm_{uuid.uuid4().hex[:8]}",
@@ -199,7 +225,10 @@ class HierarchicalTaskNetwork:
                     timeout_ms=1500,
                 )
             )
-        elif any(w in lowered for w in ["dispositivo", "hardware", "movil", "telefono", "reloj"]):
+        elif any(
+            w in lowered
+            for w in ["dispositivo", "hardware", "movil", "telefono", "reloj"]
+        ):
             actions.append(
                 TacticalAction(
                     action_id=f"act_iot_{uuid.uuid4().hex[:8]}",
@@ -225,7 +254,16 @@ class HierarchicalTaskNetwork:
 
         # 4. Strict Confirmation Gating for Critical Financial/Destructive Actions
         is_high_risk = any(
-            w in lowered for w in ["transferir", "pagar", "comprar", "gastar", "eliminar", "borrar", "firmar"]
+            w in lowered
+            for w in [
+                "transferir",
+                "pagar",
+                "comprar",
+                "gastar",
+                "eliminar",
+                "borrar",
+                "firmar",
+            ]
         )
         if is_high_risk:
             actions.append(
@@ -282,7 +320,11 @@ class MonteCarloTreeSearch:
                     break
                 curr = max(curr.children, key=lambda c: c.visits)
 
-            log.debug("MCTS completado en %.3f ms para %d nodos", (time.perf_counter() - t_start) * 1000, len(path))
+            log.debug(
+                "MCTS completado en %.3f ms para %d nodos",
+                (time.perf_counter() - t_start) * 1000,
+                len(path),
+            )
             return path
 
     def _select(self, node: ReasoningNode) -> ReasoningNode:
@@ -291,7 +333,10 @@ class MonteCarloTreeSearch:
             unvisited = [c for c in curr.children if c.visits == 0]
             if unvisited:
                 return random.choice(unvisited)
-            curr = max(curr.children, key=lambda c: c.uct_score(curr.visits, self.exploration_weight))
+            curr = max(
+                curr.children,
+                key=lambda c: c.uct_score(curr.visits, self.exploration_weight),
+            )
         return curr
 
     def _simulate(self, node: ReasoningNode) -> float:
@@ -315,7 +360,9 @@ class SubsecondReasoningPlanner:
         self.htn = HierarchicalTaskNetwork()
         self.mcts = MonteCarloTreeSearch(iterations=40)
 
-    def formulate_plan(self, goal: str, context: Optional[Dict[str, Any]] = None) -> ReasoningGraph:
+    def formulate_plan(
+        self, goal: str, context: Optional[Dict[str, Any]] = None
+    ) -> ReasoningGraph:
         """Constructs an optimal tactical execution graph in milliseconds."""
         t0 = time.perf_counter()
         graph = ReasoningGraph(goal=goal, context=context)
@@ -344,7 +391,11 @@ class SubsecondReasoningPlanner:
         self.mcts.plan_optimal_sequence(root_node)
 
         dt_ms = (time.perf_counter() - t0) * 1000
-        log.info("Plan AGI formulado en %.2f ms con %d nodos tácticos", dt_ms, len(graph.nodes))
+        log.info(
+            "Plan AGI formulado en %.2f ms con %d nodos tácticos",
+            dt_ms,
+            len(graph.nodes),
+        )
         return graph
 
 
@@ -358,7 +409,9 @@ class AutonomousExecutionOrchestrator:
         self,
         goal: str,
         context: Optional[Dict[str, Any]] = None,
-        dispatcher_callback: Optional[Callable[[TacticalAction, Dict[str, Any]], Dict[str, Any]]] = None,
+        dispatcher_callback: Optional[
+            Callable[[TacticalAction, Dict[str, Any]], Dict[str, Any]]
+        ] = None,
     ) -> Dict[str, Any]:
         """Deconstructs, verifies, and executes the mission from end to end."""
         t_start = time.perf_counter()
@@ -391,7 +444,9 @@ class AutonomousExecutionOrchestrator:
             node_t0 = time.perf_counter()
 
             try:
-                if curr.action.requires_human_confirmation and not ctx.get("confirmacion_autorizada", False):
+                if curr.action.requires_human_confirmation and not ctx.get(
+                    "confirmacion_autorizada", False
+                ):
                     curr.status = NodeStatus.PENDING
                     curr.result_data = {
                         "alerta": "Decisión Crítica en Espera de Confirmación Humana",
@@ -403,7 +458,9 @@ class AutonomousExecutionOrchestrator:
                     curr.result_data = dispatcher_callback(curr.action, ctx)
                     curr.status = NodeStatus.COMPLETED
                 else:
-                    curr.result_data = self._execute_tactical_step_builtin(curr.action, ctx)
+                    curr.result_data = self._execute_tactical_step_builtin(
+                        curr.action, ctx
+                    )
                     curr.status = NodeStatus.COMPLETED
 
             except Exception as exc:
@@ -422,27 +479,33 @@ class AutonomousExecutionOrchestrator:
                 "detalles": curr.result_data or {},
             }
             results["nodes_executed"].append(node_record)
-            results["evidence_ledger"].append({
-                "action": curr.action.name,
-                "domain": curr.action.domain.value,
-                "status": curr.status.value,
-                "latency_ms": curr.execution_time_ms,
-            })
+            results["evidence_ledger"].append(
+                {
+                    "action": curr.action.name,
+                    "domain": curr.action.domain.value,
+                    "status": curr.status.value,
+                    "latency_ms": curr.execution_time_ms,
+                }
+            )
 
             # If node failed, mark its immediate children as skipped to prevent cascading errors
             if curr.status == NodeStatus.FAILED:
                 for child in curr.children:
                     child.status = NodeStatus.SKIPPED
-                    child.result_data = {"motivo": f"Prerrequisito fallido: {curr.action.name}"}
+                    child.result_data = {
+                        "motivo": f"Prerrequisito fallido: {curr.action.name}"
+                    }
                     visited_ids.add(child.node_id)
-                    results["nodes_executed"].append({
-                        "id": child.node_id,
-                        "nombre": child.action.name,
-                        "dominio": child.action.domain.value,
-                        "estado": NodeStatus.SKIPPED.value,
-                        "tiempo_ms": 0.0,
-                        "detalles": child.result_data,
-                    })
+                    results["nodes_executed"].append(
+                        {
+                            "id": child.node_id,
+                            "nombre": child.action.name,
+                            "dominio": child.action.domain.value,
+                            "estado": NodeStatus.SKIPPED.value,
+                            "tiempo_ms": 0.0,
+                            "detalles": child.result_data,
+                        }
+                    )
             else:
                 for child in curr.children:
                     if child.node_id not in visited_ids:
@@ -455,7 +518,9 @@ class AutonomousExecutionOrchestrator:
         results["proactive_brief"] = self._synthesize_jarvis_briefing(goal, results)
         return results
 
-    def _execute_tactical_step_builtin(self, action: TacticalAction, context: Dict[str, Any]) -> Dict[str, Any]:
+    def _execute_tactical_step_builtin(
+        self, action: TacticalAction, context: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """Default tactical executions when external modules are routed."""
         if action.domain == TacticalDomain.PERCEPTION:
             return {

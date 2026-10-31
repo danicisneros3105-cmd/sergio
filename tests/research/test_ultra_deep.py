@@ -4,11 +4,11 @@ forensic quote verification, confidence score, and executive synthesis."""
 from __future__ import annotations
 
 import json
+
 from openjarvis.research.deep import (
     ULTRA_PERSPECTIVES,
     Report,
     UltraDeepResearch,
-    ultra_research,
 )
 from openjarvis.tools.deep_research_web import DeepResearchWebTool
 
@@ -22,8 +22,7 @@ PAGES = {
 
 def fake_search(query, count):
     return [
-        {"title": "Doc", "url": u, "snippet": PAGES.get(u, "")[:40]}
-        for u in PAGES
+        {"title": "Doc", "url": u, "snippet": PAGES.get(u, "")[:40]} for u in PAGES
     ][:count]
 
 
@@ -39,10 +38,15 @@ class FakeUltraModel:
 
     def __call__(self, prompt: str) -> str:
         self.calls.append(prompt[:40])
-        if "Eres un director de investigación" in prompt or "Eres un investigador" in prompt:
+        if (
+            "Eres un director de investigación" in prompt
+            or "Eres un investigador" in prompt
+        ):
             return json.dumps(
                 {
-                    "subpreguntas": [f"[{p[0]}] ¿Detalles de {p[1]}?" for p in ULTRA_PERSPECTIVES],
+                    "subpreguntas": [
+                        f"[{p[0]}] ¿Detalles de {p[1]}?" for p in ULTRA_PERSPECTIVES
+                    ],
                     "busquedas": [f"query {p[0]}" for p in ULTRA_PERSPECTIVES],
                 }
             )
@@ -118,7 +122,6 @@ def test_ultra_deep_research_runs_10_perspectives_and_computes_confidence_score(
 
 
 def test_deep_research_web_tool_supports_ultra_mode():
-    model = FakeUltraModel()
     tool = DeepResearchWebTool()
     assert tool.spec.name == "investigacion_profunda"
     assert "workers" in tool.spec.parameters["properties"]

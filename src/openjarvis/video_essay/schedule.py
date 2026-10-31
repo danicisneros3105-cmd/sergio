@@ -77,7 +77,9 @@ def add(
     if len(idea) < 3:
         raise ValueError("Diga de qué tratan los videos.")
     if every_hours not in EVERY_HOURS:
-        raise ValueError("Cada cuánto: 1, 3, 6, 7, 8, 12 o 24 horas, 2 días o una semana.")
+        raise ValueError(
+            "Cada cuánto: 1, 3, 6, 7, 8, 12 o 24 horas, 2 días o una semana."
+        )
     item = {
         "id": secrets.token_hex(4),
         "idea": idea,

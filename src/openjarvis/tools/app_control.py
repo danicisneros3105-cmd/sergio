@@ -341,7 +341,11 @@ class SergioAppControlTool(BaseTool):
             if action in ("swarm_launch", "background_swarm"):
                 from openjarvis.tools import commerce_intel as ci
 
-                task = str(params.get("content") or params.get("title") or "Misión autónoma masiva").strip()
+                task = str(
+                    params.get("content")
+                    or params.get("title")
+                    or "Misión autónoma masiva"
+                ).strip()
                 parallel_n = int(params.get("parallel") or 10)
                 res = ci.launch_background_swarm(task=task, parallel=parallel_n)
                 route = f"/swarm?tarea={task}"
@@ -366,11 +370,19 @@ class SergioAppControlTool(BaseTool):
                 if not st.get("encontrado"):
                     return ToolResult(
                         tool_name=self.tool_id,
-                        content=st.get("mensaje", "No se encontró la tarea en segundo plano."),
+                        content=st.get(
+                            "mensaje", "No se encontró la tarea en segundo plano."
+                        ),
                         success=False,
                     )
-                sub_counts = " · ".join(f"{k}: {v}" for k, v in st.get("subtareas_conteo", {}).items())
-                report_md = f"\n\n**Informe disponible:**\n{st['resumen_informe']}" if st.get("resumen_informe") else ""
+                sub_counts = " · ".join(
+                    f"{k}: {v}" for k, v in st.get("subtareas_conteo", {}).items()
+                )
+                report_md = (
+                    f"\n\n**Informe disponible:**\n{st['resumen_informe']}"
+                    if st.get("resumen_informe")
+                    else ""
+                )
                 return ToolResult(
                     tool_name=self.tool_id,
                     content=(
@@ -398,11 +410,15 @@ class SergioAppControlTool(BaseTool):
 
                 q = str(params.get("content") or params.get("title") or "").strip()
                 if not q:
-                    raise ValueError("Falta el tema o pregunta para Ultra Deep Research.")
+                    raise ValueError(
+                        "Falta el tema o pregunta para Ultra Deep Research."
+                    )
                 bg = params.get("background", True) is not False
                 rnds = int(params.get("rounds") or 3)
                 wrkrs = int(params.get("workers") or params.get("parallel") or 10)
-                res = ci.execute_ultra_deep_research_task(q, background=bg, rounds=rnds, workers=wrkrs)
+                res = ci.execute_ultra_deep_research_task(
+                    q, background=bg, rounds=rnds, workers=wrkrs
+                )
                 if bg:
                     return ToolResult(
                         tool_name=self.tool_id,
@@ -562,11 +578,21 @@ class SergioAppControlTool(BaseTool):
 
             if action in ("delivery_order", "uber_ride"):
                 from urllib.parse import quote_plus
+
                 from openjarvis.tools import commerce_intel as ci
                 from openjarvis.tools.desktop_tools import DesktopActionTool
 
-                item = str(params.get("content") or params.get("title") or "comida").strip()
-                plat = str(params.get("platform") or ("uber" if action == "uber_ride" else "ubereats")).strip().lower()
+                item = str(
+                    params.get("content") or params.get("title") or "comida"
+                ).strip()
+                plat = (
+                    str(
+                        params.get("platform")
+                        or ("uber" if action == "uber_ride" else "ubereats")
+                    )
+                    .strip()
+                    .lower()
+                )
                 dest = str(params.get("to") or "").strip()
                 from_loc = str(params.get("from_location") or "").strip()
                 budget_raw = params.get("budget") or params.get("price")
@@ -575,13 +601,27 @@ class SergioAppControlTool(BaseTool):
                 use_face = params.get("face_id", True) is not False
 
                 loc = ci.resolve_location(from_loc)
-                is_ride = action == "uber_ride" or plat in ("uber", "didi", "cabify") or (
-                    "uber" in item.lower() and "eats" not in plat and ("lleve" in item.lower() or "viaje" in item.lower() or bool(dest))
+                is_ride = (
+                    action == "uber_ride"
+                    or plat in ("uber", "didi", "cabify")
+                    or (
+                        "uber" in item.lower()
+                        and "eats" not in plat
+                        and (
+                            "lleve" in item.lower()
+                            or "viaje" in item.lower()
+                            or bool(dest)
+                        )
+                    )
                 )
 
                 if is_ride:
                     destination = dest or item
-                    eta_str = f"en máximo {max_min} minutos (Prioridad / UberX más cercano)" if max_min else "inmediato (vehículo más cercano)"
+                    eta_str = (
+                        f"en máximo {max_min} minutos (Prioridad / UberX más cercano)"
+                        if max_min
+                        else "inmediato (vehículo más cercano)"
+                    )
                     face_res = ci.verify_face_id(
                         f"Pedir Uber desde {loc['label']} hasta {destination} ({eta_str})",
                         require=use_face,
@@ -596,7 +636,9 @@ class SergioAppControlTool(BaseTool):
                         + (f" dentro de {budget_usd:g} USD" if budget_usd else "")
                         + ", completa los campos y solicita el Uber ahora mismo."
                     )
-                    op_res = desk.execute(action="operate", target=goal, confirmed=True)
+                    op_res = desk.execute(
+                        action="operate", target=goal, confirmed=False
+                    )
                     return ToolResult(
                         tool_name=self.tool_id,
                         content=(
@@ -609,9 +651,15 @@ class SergioAppControlTool(BaseTool):
                         ),
                     )
 
-                options = ci.search_fast_delivery_options(item, budget_usd=budget_usd, max_minutes=max_min)
+                options = ci.search_fast_delivery_options(
+                    item, budget_usd=budget_usd, max_minutes=max_min
+                )
                 best_opt = options[0]
-                budget_note = f"máximo {budget_usd:g} USD" if budget_usd else "mejor precio disponible"
+                budget_note = (
+                    f"máximo {budget_usd:g} USD"
+                    if budget_usd
+                    else "mejor precio disponible"
+                )
                 time_note = f"máximo {max_min} minutos" if max_min else "entrega rápida"
                 face_res = ci.verify_face_id(
                     f"Pedir por {plat.title()}: «{item}» ({budget_note}, llegada en {time_note})",
@@ -634,7 +682,7 @@ class SergioAppControlTool(BaseTool):
                     f"(mejor opción detectada: {best_opt['opcion']} por ~${best_opt['precio_estimado_usd']} USD en ~{best_opt['tiempo_estimado_min']} min). "
                     "Selecciona los productos exactos (incluyendo acompañantes y bebida si se pidieron), llena todos los formularios/opciones obligatorias y finaliza el pedido."
                 )
-                op_res = desk.execute(action="operate", target=goal, confirmed=True)
+                op_res = desk.execute(action="operate", target=goal, confirmed=False)
                 return ToolResult(
                     tool_name=self.tool_id,
                     content=(
@@ -649,37 +697,71 @@ class SergioAppControlTool(BaseTool):
 
             if action in ("shop_cart", "rare_item_search"):
                 from urllib.parse import quote_plus
+
                 from openjarvis.tools import commerce_intel as ci
                 from openjarvis.tools.desktop_tools import DesktopActionTool
 
-                item = str(params.get("content") or params.get("title") or "producto").strip()
-                plat = str(params.get("platform") or ("ebay" if action == "rare_item_search" else "amazon")).strip().lower()
-                target_price = ci.parse_money(params.get("price") or params.get("budget")) or ci.parse_money(item)
+                item = str(
+                    params.get("content") or params.get("title") or "producto"
+                ).strip()
+                plat = (
+                    str(
+                        params.get("platform")
+                        or ("ebay" if action == "rare_item_search" else "amazon")
+                    )
+                    .strip()
+                    .lower()
+                )
+                target_price = ci.parse_money(
+                    params.get("price") or params.get("budget")
+                ) or ci.parse_money(item)
                 use_face = params.get("face_id", True) is not False
 
-                intel = ci.deep_search_product(item, target_price=target_price, platform_hint=plat)
+                intel = ci.deep_search_product(
+                    item, target_price=target_price, platform_hint=plat
+                )
                 q = quote_plus(item)
                 stores = {
                     "amazon": intel["busquedas_directas_filtradas"]["amazon"],
-                    "mercadolibre": intel["busquedas_directas_filtradas"]["mercadolibre"],
-                    "mercado libre": intel["busquedas_directas_filtradas"]["mercadolibre"],
+                    "mercadolibre": intel["busquedas_directas_filtradas"][
+                        "mercadolibre"
+                    ],
+                    "mercado libre": intel["busquedas_directas_filtradas"][
+                        "mercadolibre"
+                    ],
                     "shein": f"https://es.shein.com/pdsearch/{q}/",
                     "temu": f"https://www.temu.com/search_result.html?search_key={q}",
                     "aliexpress": f"https://es.aliexpress.com/w/wholesale-{q}.html",
                     "ebay": intel["busquedas_directas_filtradas"]["ebay"],
                     "chrono24": intel["busquedas_directas_filtradas"]["chrono24"],
-                    "sothebys": intel["busquedas_directas_filtradas"].get("sothebys", f"https://www.sothebys.com/en/search?query={q}"),
-                    "farfetch": intel["busquedas_directas_filtradas"].get("farfetch", f"https://www.farfetch.com/shopping/men/search/items.aspx?q={q}"),
-                    "vestiaire": intel["busquedas_directas_filtradas"].get("vestiaire", f"https://www.vestiairecollective.com/search/?q={q}"),
-                    "grailed": intel["busquedas_directas_filtradas"].get("grailed", f"https://www.grailed.com/shop/{q}"),
-                    "1stdibs": intel["busquedas_directas_filtradas"].get("1stdibs", f"https://www.1stdibs.com/search/?q={q}"),
+                    "sothebys": intel["busquedas_directas_filtradas"].get(
+                        "sothebys", f"https://www.sothebys.com/en/search?query={q}"
+                    ),
+                    "farfetch": intel["busquedas_directas_filtradas"].get(
+                        "farfetch",
+                        f"https://www.farfetch.com/shopping/men/search/items.aspx?q={q}",
+                    ),
+                    "vestiaire": intel["busquedas_directas_filtradas"].get(
+                        "vestiaire",
+                        f"https://www.vestiairecollective.com/search/?q={q}",
+                    ),
+                    "grailed": intel["busquedas_directas_filtradas"].get(
+                        "grailed", f"https://www.grailed.com/shop/{q}"
+                    ),
+                    "1stdibs": intel["busquedas_directas_filtradas"].get(
+                        "1stdibs", f"https://www.1stdibs.com/search/?q={q}"
+                    ),
                     "stockx": intel["busquedas_directas_filtradas"]["stockx"],
                     "reverb": intel["busquedas_directas_filtradas"]["reverb"],
                     "zara": f"https://www.zara.com/ec/es/search?searchTerm={q}",
                     "nike": f"https://www.nike.com/w?q={q}",
                     "adidas": f"https://www.adidas.com/us/search?q={q}",
                 }
-                url = stores.get(plat) or intel["mejor_url"] or f"https://www.amazon.com/s?k={q}"
+                url = (
+                    stores.get(plat)
+                    or intel["mejor_url"]
+                    or f"https://www.amazon.com/s?k={q}"
+                )
                 dest_note = str(params.get("to") or "").strip()
                 when_note = str(params.get("when") or "").strip()
                 face_res = ci.verify_face_id(
@@ -690,13 +772,21 @@ class SergioAppControlTool(BaseTool):
                 )
                 desk = DesktopActionTool()
                 desk.execute(action="open", target=url)
-                price_goal = f" con precio alrededor de ${target_price:g} USD" if target_price else ""
-                delivery_goal = f" y configura el envío prioritario a «{dest_note}» ({when_note or 'express'})" if dest_note else ""
+                price_goal = (
+                    f" con precio alrededor de ${target_price:g} USD"
+                    if target_price
+                    else ""
+                )
+                delivery_goal = (
+                    f" y configura el envío prioritario a «{dest_note}» ({when_note or 'express'})"
+                    if dest_note
+                    else ""
+                )
                 goal = (
                     f"En la tienda {plat} ({url}), busca «{item}»{price_goal}, verifica que sea un vendedor confiable "
                     f"con garantía de autenticidad, abre la mejor oferta disponible y haz clic en 'Agregar al carrito' / 'Add to Cart'{delivery_goal}."
                 )
-                op_res = desk.execute(action="operate", target=goal, confirmed=True)
+                op_res = desk.execute(action="operate", target=goal, confirmed=False)
                 pro_rem = ci.schedule_proactive_reminder(
                     f"Seguimiento de compra/envío: {item[:65]}",
                     when_hint=when_note or "Seguimiento automático en 2 horas",
@@ -707,17 +797,32 @@ class SergioAppControlTool(BaseTool):
                 if intel["mejores_vendedores"]:
                     lines = []
                     for s in intel["mejores_vendedores"][:4]:
-                        p_str = f"${s['precio_detectado_usd']:g} USD" if s["precio_detectado_usd"] else "Ver en tienda"
+                        p_str = (
+                            f"${s['precio_detectado_usd']:g} USD"
+                            if s["precio_detectado_usd"]
+                            else "Ver en tienda"
+                        )
                         lines.append(
                             f"  • **{s['titulo']}** — {p_str} · *{s['vendedor_confianza']} ({s['puntaje_confianza']}/100)* — {s['url']}"
                         )
-                    sellers_md = "\n- **Deep Research (Vendedores Confiables):**\n" + "\n".join(lines)
+                    sellers_md = (
+                        "\n- **Deep Research (Vendedores Confiables):**\n"
+                        + "\n".join(lines)
+                    )
                 return ToolResult(
                     tool_name=self.tool_id,
                     content=(
                         f"🛍️ **Búsqueda profunda y carrito en {plat.title()}** para «{item}»:\n"
-                        + (f"- **Precio objetivo:** ~${target_price:g} USD\n" if target_price else "")
-                        + (f"- **Destino de entrega:** {dest_note} ({when_note or 'Prioritario'})\n" if dest_note else "")
+                        + (
+                            f"- **Precio objetivo:** ~${target_price:g} USD\n"
+                            if target_price
+                            else ""
+                        )
+                        + (
+                            f"- **Destino de entrega:** {dest_note} ({when_note or 'Prioritario'})\n"
+                            if dest_note
+                            else ""
+                        )
                         + f"- **Seguridad:** {face_res['summary']}"
                         + sellers_md
                         + f"\n- **Recordatorio proactivo:** {pro_rem['titulo']} ({pro_rem['cuando']})"
@@ -729,9 +834,15 @@ class SergioAppControlTool(BaseTool):
                 from openjarvis.tools import commerce_intel as ci
                 from openjarvis.tools.desktop_tools import DesktopActionTool
 
-                req_text = str(params.get("content") or params.get("title") or "Solicitud de Conserjería").strip()
+                req_text = str(
+                    params.get("content")
+                    or params.get("title")
+                    or "Solicitud de Conserjería"
+                ).strip()
                 cat_hint = str(params.get("category") or "").strip().lower()
-                dest = str(params.get("to") or params.get("from_location") or "").strip()
+                dest = str(
+                    params.get("to") or params.get("from_location") or ""
+                ).strip()
                 budget = str(params.get("budget") or params.get("price") or "").strip()
                 when = str(params.get("when") or "").strip()
                 use_face = params.get("face_id", True) is not False
@@ -748,23 +859,31 @@ class SergioAppControlTool(BaseTool):
                 primary_url = plan["url_principal"]
                 desk.execute(action="open", target=primary_url)
                 if len(plan["portales_verificados"]) > 1:
-                    desk.execute(action="open", target=plan["portales_verificados"][1]["url"])
+                    desk.execute(
+                        action="open", target=plan["portales_verificados"][1]["url"]
+                    )
                 goal = (
                     f"Ejecuta la orden de Conserjería Privada Categoría #{plan['categoria_numero']} ({plan['categoria_nombre']}): "
                     f"«{req_text}». Destino/Ubicación: «{plan['destino']}». Plazo: «{plan['plazo']}». "
                     f"Completa los formularios de solicitud/reserva/compra en `{primary_url}` aplicando logística: {plan['logistica']}"
                 )
-                op_res = desk.execute(action="operate", target=goal, confirmed=True)
+                op_res = desk.execute(action="operate", target=goal, confirmed=False)
                 portals_md = "\n".join(
-                    f"  • **{p['nombre']}:** {p['url']}" for p in plan["portales_verificados"][:4]
+                    f"  • **{p['nombre']}:** {p['url']}"
+                    for p in plan["portales_verificados"][:4]
                 )
                 sourcing_md = ""
-                if plan.get("sourcing_intel") and plan["sourcing_intel"].get("mejores_vendedores"):
+                if plan.get("sourcing_intel") and plan["sourcing_intel"].get(
+                    "mejores_vendedores"
+                ):
                     v_lines = [
                         f"  • **{s['titulo']}** — *{s['vendedor_confianza']} ({s['puntaje_confianza']}/100)* — {s['url']}"
                         for s in plan["sourcing_intel"]["mejores_vendedores"][:3]
                     ]
-                    sourcing_md = "\n- **Sourcing y Autenticidad Verificada:**\n" + "\n".join(v_lines)
+                    sourcing_md = (
+                        "\n- **Sourcing y Autenticidad Verificada:**\n"
+                        + "\n".join(v_lines)
+                    )
                 card_md = ci.generate_concierge_dashboard_card(plan)
                 return ToolResult(
                     tool_name=self.tool_id,
@@ -790,26 +909,50 @@ class SergioAppControlTool(BaseTool):
                 from openjarvis.server.meeting_routes import dispatch_device_command
                 from openjarvis.tools.desktop_tools import DesktopActionTool
 
-                raw_text = str(params.get("content") or params.get("title") or "").strip().lower()
+                raw_text = (
+                    str(params.get("content") or params.get("title") or "")
+                    .strip()
+                    .lower()
+                )
                 cmd = str(params.get("device_command") or "").strip().lower()
                 if not cmd:
-                    if any(w in raw_text for w in ("deten", "detén", "para", "stop")) and "reunion" in raw_text:
+                    if (
+                        any(w in raw_text for w in ("deten", "detén", "para", "stop"))
+                        and "reunion" in raw_text
+                    ):
                         cmd = "stop_meeting"
                     elif any(w in raw_text for w in ("deten", "detén", "para", "stop")):
                         cmd = "stop_video"
                     elif any(w in raw_text for w in ("foto", "captura", "selfie")):
                         cmd = "take_photo"
-                    elif any(w in raw_text for w in ("reunion", "reunión", "meeting", "audio", "voz")):
+                    elif any(
+                        w in raw_text
+                        for w in ("reunion", "reunión", "meeting", "audio", "voz")
+                    ):
                         cmd = "record_meeting"
-                    elif any(w in raw_text for w in ("sonar", "timbrar", "encontrar mi")):
+                    elif any(
+                        w in raw_text for w in ("sonar", "timbrar", "encontrar mi")
+                    ):
                         cmd = "ring"
                     elif any(w in raw_text for w in ("llama", "llamar", "call")):
                         cmd = "call"
                     else:
                         cmd = "record_video"
 
-                target_dev = str(params.get("platform") or params.get("id") or "phone").strip().lower()
-                if target_dev in ("telefono", "teléfono", "celular", "movil", "móvil", "android", "iphone"):
+                target_dev = (
+                    str(params.get("platform") or params.get("id") or "phone")
+                    .strip()
+                    .lower()
+                )
+                if target_dev in (
+                    "telefono",
+                    "teléfono",
+                    "celular",
+                    "movil",
+                    "móvil",
+                    "android",
+                    "iphone",
+                ):
                     target_dev = "phone"
                 payload = dict(params.get("payload") or {})
                 if params.get("to"):
@@ -824,9 +967,11 @@ class SergioAppControlTool(BaseTool):
                 )
                 if target_dev in ("pc", "computadora", "desktop", "all"):
                     DesktopActionTool().execute(
-                        action="camera" if cmd in ("record_video", "take_photo") else "operate",
+                        action="camera"
+                        if cmd in ("record_video", "take_photo")
+                        else "operate",
                         target=str(params.get("content") or cmd),
-                        confirmed=True,
+                        confirmed=False,
                     )
                 return ToolResult(
                     tool_name=self.tool_id,
@@ -841,6 +986,7 @@ class SergioAppControlTool(BaseTool):
 
             if action == "meeting_control":
                 import asyncio
+
                 from openjarvis.server.meeting_routes import (
                     MeetingControlRequest,
                     meeting_control,
@@ -848,7 +994,9 @@ class SergioAppControlTool(BaseTool):
                 )
                 from openjarvis.tools.meeting_notes import MeetingNotesTool
 
-                raw_text = str(params.get("content") or params.get("title") or "iniciar").strip()
+                raw_text = str(
+                    params.get("content") or params.get("title") or "iniciar"
+                ).strip()
                 low = raw_text.lower()
                 target_dev = str(params.get("platform") or "both").strip().lower()
                 if any(w in low for w in ("telefono", "teléfono", "celular", "movil")):
@@ -860,7 +1008,17 @@ class SergioAppControlTool(BaseTool):
                         content=json.dumps(hist, ensure_ascii=False)
                         + _ui_event({"type": "navigate", "route": "/reunion"}),
                     )
-                if any(w in low for w in ("deten", "detén", "termina", "finaliza", "stop", "resumen")):
+                if any(
+                    w in low
+                    for w in (
+                        "deten",
+                        "detén",
+                        "termina",
+                        "finaliza",
+                        "stop",
+                        "resumen",
+                    )
+                ):
                     asyncio.run(
                         meeting_control(
                             MeetingControlRequest(
@@ -902,10 +1060,18 @@ class SergioAppControlTool(BaseTool):
                 from openjarvis.tools.desktop_tools import DesktopActionTool
 
                 plat = str(params.get("platform") or "gmail").strip().lower()
-                query_or_reply = str(params.get("content") or params.get("title") or "Revisar correos nuevos").strip()
+                query_or_reply = str(
+                    params.get("content")
+                    or params.get("title")
+                    or "Revisar correos nuevos"
+                ).strip()
                 to_addr = str(params.get("to") or "").strip()
                 auto_reply = params.get("auto_reply", True) is not False
-                inbox_url = "https://outlook.live.com/mail/0/inbox" if "outlook" in plat else "https://mail.google.com/mail/u/0/#inbox"
+                inbox_url = (
+                    "https://outlook.live.com/mail/0/inbox"
+                    if "outlook" in plat
+                    else "https://mail.google.com/mail/u/0/#inbox"
+                )
                 desk = DesktopActionTool()
                 desk.execute(action="open", target=inbox_url)
                 goal = (
@@ -918,7 +1084,7 @@ class SergioAppControlTool(BaseTool):
                         else " y extrae el resumen de puntos clave y fechas límite."
                     )
                 )
-                op_res = desk.execute(action="operate", target=goal, confirmed=True)
+                op_res = desk.execute(action="operate", target=goal, confirmed=False)
                 rem = ci.schedule_proactive_reminder(
                     f"Seguimiento de correos importantes ({plat.title()}): {query_or_reply[:60]}",
                     when_hint="En 3 horas",
@@ -940,7 +1106,11 @@ class SergioAppControlTool(BaseTool):
                 from openjarvis.tools import commerce_intel as ci
                 from openjarvis.tools.desktop_tools import DesktopActionTool
 
-                topic = str(params.get("content") or params.get("title") or "Exámenes y tareas de la semana").strip()
+                topic = str(
+                    params.get("content")
+                    or params.get("title")
+                    or "Exámenes y tareas de la semana"
+                ).strip()
                 plat = str(params.get("platform") or "").strip()
                 when = str(params.get("when") or "").strip()
                 platform_urls = {
@@ -952,8 +1122,15 @@ class SergioAppControlTool(BaseTool):
                     "idukay": "https://idukay.net/",
                     "runachay": "https://runachay.com/",
                 }
-                p_url = platform_urls.get(plat.lower(), plat if plat.startswith("http") else "https://classroom.google.com/")
-                study_plan = ci.build_academic_study_plan(topic, platform_url=p_url, exam_date=when)
+                p_url = platform_urls.get(
+                    plat.lower(),
+                    plat
+                    if plat.startswith("http")
+                    else "https://classroom.google.com/",
+                )
+                study_plan = ci.build_academic_study_plan(
+                    topic, platform_url=p_url, exam_date=when
+                )
                 desk = DesktopActionTool()
                 desk.execute(action="open", target=p_url)
                 op_res = desk.execute(
@@ -962,7 +1139,7 @@ class SergioAppControlTool(BaseTool):
                         f"En la plataforma académica ({p_url}), revisa el calendario de evaluaciones, tareas y temario "
                         f"de «{topic}», extrae las fechas exactas de exámenes y sincronízalas."
                     ),
-                    confirmed=True,
+                    confirmed=False,
                 )
                 q_lines = []
                 for q in study_plan["mini_test"]:
@@ -973,7 +1150,8 @@ class SergioAppControlTool(BaseTool):
                         f"  • Respuesta: **{q['respuesta_correcta']}** (*{q['explicacion']}*)"
                     )
                 rem_lines = "\n".join(
-                    f"  • `{r['titulo']}` — {r['cuando']}" for r in study_plan["recordatorios"]
+                    f"  • `{r['titulo']}` — {r['cuando']}"
+                    for r in study_plan["recordatorios"]
                 )
                 return ToolResult(
                     tool_name=self.tool_id,
@@ -992,19 +1170,25 @@ class SergioAppControlTool(BaseTool):
                 from openjarvis.tools import commerce_intel as ci
                 from openjarvis.tools.desktop_tools import DesktopActionTool
 
-                target_contact = str(params.get("to") or params.get("title") or "Contacto").strip()
-                msg_text = str(params.get("content") or "Hola, te contacto de parte del señor.").strip()
+                target_contact = str(
+                    params.get("to") or params.get("title") or "Contacto"
+                ).strip()
+                msg_text = str(
+                    params.get("content") or "Hola, te contacto de parte del señor."
+                ).strip()
                 plat = str(params.get("platform") or "whatsapp").strip().lower()
                 use_face = params.get("face_id", True) is not False
                 desk = DesktopActionTool()
 
                 if action == "make_call":
-                    face_res = ci.verify_face_id(f"Llamar a {target_contact} vía {plat}", require=use_face)
+                    face_res = ci.verify_face_id(
+                        f"Llamar a {target_contact} vía {plat}", require=use_face
+                    )
                     res = desk.execute(
                         action="phone_call",
                         target=target_contact,
                         text=msg_text,
-                        confirmed=True,
+                        confirmed=False,
                     )
                     return ToolResult(
                         tool_name=self.tool_id,
@@ -1021,7 +1205,7 @@ class SergioAppControlTool(BaseTool):
                     target=plat,
                     to=target_contact,
                     text=msg_text,
-                    confirmed=True,
+                    confirmed=False,
                 )
                 return ToolResult(
                     tool_name=self.tool_id,
@@ -1034,10 +1218,13 @@ class SergioAppControlTool(BaseTool):
 
             if action == "social_publish":
                 from pathlib import Path
+
                 from openjarvis.tools import commerce_intel as ci
                 from openjarvis.tools.desktop_tools import DesktopActionTool
 
-                caption = str(params.get("content") or params.get("title") or "Nueva historia").strip()
+                caption = str(
+                    params.get("content") or params.get("title") or "Nueva historia"
+                ).strip()
                 plat = str(params.get("platform") or "instagram").strip().lower()
                 use_face = params.get("face_id", True) is not False
                 photos = ci.find_gallery_photos(caption)
@@ -1064,7 +1251,7 @@ class SergioAppControlTool(BaseTool):
                     f"En {plat.title()} ({url}), abre el creador de Historias (Story) / Publicación, "
                     f"{media_note}, agrega el texto/caption «{caption}» y publícalo ahora."
                 )
-                op_res = desk.execute(action="operate", target=goal, confirmed=True)
+                op_res = desk.execute(action="operate", target=goal, confirmed=False)
                 return ToolResult(
                     tool_name=self.tool_id,
                     content=(
@@ -1078,10 +1265,15 @@ class SergioAppControlTool(BaseTool):
 
             if action == "lead_generation":
                 from urllib.parse import quote_plus
+
                 from openjarvis.tools import commerce_intel as ci
                 from openjarvis.tools.desktop_tools import DesktopActionTool
 
-                niche = str(params.get("content") or params.get("title") or "Empresas y clientes potenciales").strip()
+                niche = str(
+                    params.get("content")
+                    or params.get("title")
+                    or "Empresas y clientes potenciales"
+                ).strip()
                 loc = str(params.get("to") or params.get("from_location") or "").strip()
                 campaign = ci.generate_leads_campaign(niche, location=loc)
                 desk = DesktopActionTool()
@@ -1093,11 +1285,11 @@ class SergioAppControlTool(BaseTool):
                         f"Extrae prospectos calificados de «{niche}» en «{campaign['ubicacion']}», "
                         f"prepara el envío de la propuesta comercial y guarda los contactos en `{campaign['archivo_crm_csv']}`."
                     ),
-                    confirmed=True,
+                    confirmed=False,
                 )
                 leads_md = "\n".join(
-                    f"  • **{l['prospecto']}** ({l['ubicacion']}) — *{l['canal']}* [{l['estado']}]"
-                    for l in campaign["prospectos"][:5]
+                    f"  • **{lead['prospecto']}** ({lead['ubicacion']}) — *{lead['canal']}* [{lead['estado']}]"
+                    for lead in campaign["prospectos"][:5]
                 )
                 return ToolResult(
                     tool_name=self.tool_id,
@@ -1116,10 +1308,17 @@ class SergioAppControlTool(BaseTool):
                 from openjarvis.tools import commerce_intel as ci
                 from openjarvis.tools.desktop_tools import DesktopActionTool
 
-                dest_visa = str(params.get("to") or params.get("content") or params.get("title") or "Estados Unidos B1/B2").strip()
+                dest_visa = str(
+                    params.get("to")
+                    or params.get("content")
+                    or params.get("title")
+                    or "Estados Unidos B1/B2"
+                ).strip()
                 notes = str(params.get("content") or "").strip()
                 use_face = params.get("face_id", True) is not False
-                visa_plan = ci.build_visa_application_plan(dest_visa, applicant_notes=notes)
+                visa_plan = ci.build_visa_application_plan(
+                    dest_visa, applicant_notes=notes
+                )
                 face_res = ci.verify_face_id(
                     f"Iniciar solicitud oficial de Visa: {dest_visa} ({visa_plan['portal_oficial']})",
                     require=use_face,
@@ -1133,9 +1332,11 @@ class SergioAppControlTool(BaseTool):
                         f"inicia la solicitud de visa para «{dest_visa}», rellena los campos del formulario con los datos del señor "
                         "y deja lista la programación de cita consular."
                     ),
-                    confirmed=True,
+                    confirmed=False,
                 )
-                req_md = "\n".join(f"  • {r}" for r in visa_plan["requisitos_verificados"])
+                req_md = "\n".join(
+                    f"  • {r}" for r in visa_plan["requisitos_verificados"]
+                )
                 return ToolResult(
                     tool_name=self.tool_id,
                     content=(
@@ -1151,20 +1352,38 @@ class SergioAppControlTool(BaseTool):
 
             if action == "sell_multiplatform":
                 from pathlib import Path
+
                 from openjarvis.tools import commerce_intel as ci
                 from openjarvis.tools.desktop_tools import DesktopActionTool
 
-                raw_item = str(params.get("title") or params.get("content") or "Teléfono").strip()
+                raw_item = str(
+                    params.get("title") or params.get("content") or "Teléfono"
+                ).strip()
                 details = str(params.get("content") or raw_item).strip()
-                raw_price = str(params.get("price") or params.get("budget") or "").strip()
+                raw_price = str(
+                    params.get("price") or params.get("budget") or ""
+                ).strip()
                 price, price_reason = ci.estimate_market_price(raw_item, raw_price)
                 gallery_photos = ci.find_gallery_photos(f"{raw_item} {details}")
                 use_face = params.get("face_id", True) is not False
                 enable_autoreply = params.get("auto_reply", True) is not False
 
                 title = raw_item if len(raw_item) <= 80 else raw_item[:77] + "..."
-                if not any(w in title.lower() for w in ("excelente", "impecable", "nuevo", "venta", "original", "pro", "gb")):
-                    listing_title = f"{title} — Impecable Estado, Liberado y Listo para Entrega"
+                if not any(
+                    w in title.lower()
+                    for w in (
+                        "excelente",
+                        "impecable",
+                        "nuevo",
+                        "venta",
+                        "original",
+                        "pro",
+                        "gb",
+                    )
+                ):
+                    listing_title = (
+                        f"{title} — Impecable Estado, Liberado y Listo para Entrega"
+                    )
                 else:
                     listing_title = title
                 description = (
@@ -1179,7 +1398,11 @@ class SergioAppControlTool(BaseTool):
                 out_dir = Path.home() / "Sergio" / "ventas"
                 out_dir.mkdir(parents=True, exist_ok=True)
                 listing_file = out_dir / f"anuncio_{int(time.time())}.txt"
-                photos_block = "\n".join(gallery_photos) if gallery_photos else "(Listo para subir desde Galería)"
+                photos_block = (
+                    "\n".join(gallery_photos)
+                    if gallery_photos
+                    else "(Listo para subir desde Galería)"
+                )
                 listing_file.write_text(
                     f"TÍTULO: {listing_title}\nPRECIO: {price} ({price_reason})\nFOTOS:\n{photos_block}\n\n{description}\n",
                     encoding="utf-8",
@@ -1215,7 +1438,9 @@ class SergioAppControlTool(BaseTool):
                     require=use_face,
                 )
                 autoreply_rule = (
-                    ci.build_buyer_autoreply_plan(listing_title, price, details, chosen_names)
+                    ci.build_buyer_autoreply_plan(
+                        listing_title, price, details, chosen_names
+                    )
                     if enable_autoreply
                     else None
                 )
@@ -1232,7 +1457,7 @@ class SergioAppControlTool(BaseTool):
                     f"rellena el formulario de venta con Título: «{listing_title}», Precio: «{price}» "
                     f"y Descripción: «{description}», y deja publicada la venta."
                 )
-                op_res = desk.execute(action="operate", target=goal, confirmed=True)
+                op_res = desk.execute(action="operate", target=goal, confirmed=False)
                 photos_summary = (
                     f"{len(gallery_photos)} fotos encontradas en su galería ({', '.join(Path(p).name for p in gallery_photos[:4])})"
                     if gallery_photos
@@ -1261,9 +1486,15 @@ class SergioAppControlTool(BaseTool):
                 from openjarvis.tools import commerce_intel as ci
                 from openjarvis.tools.desktop_tools import DesktopActionTool
 
-                item = str(params.get("title") or params.get("content") or "Artículo en venta").strip()
-                price, _ = ci.estimate_market_price(item, str(params.get("price") or ""))
-                plat_raw = str(params.get("platform") or "marketplace,mercadolibre,ebay").lower()
+                item = str(
+                    params.get("title") or params.get("content") or "Artículo en venta"
+                ).strip()
+                price, _ = ci.estimate_market_price(
+                    item, str(params.get("price") or "")
+                )
+                plat_raw = str(
+                    params.get("platform") or "marketplace,mercadolibre,ebay"
+                ).lower()
                 platforms = [p.strip() for p in plat_raw.split(",") if p.strip()]
                 rule = ci.build_buyer_autoreply_plan(item, price, item, platforms)
                 desk = DesktopActionTool()
@@ -1273,7 +1504,7 @@ class SergioAppControlTool(BaseTool):
                         f"Revisa la bandeja de mensajes de {', '.join(platforms)} y responde a los interesados en «{item}» "
                         f"con: «{rule['plantilla_respuesta']}». {rule['regla_negociacion']}"
                     ),
-                    confirmed=True,
+                    confirmed=False,
                 )
                 return ToolResult(
                     tool_name=self.tool_id,
@@ -1301,7 +1532,7 @@ class SergioAppControlTool(BaseTool):
                     to=to,
                     subject=subject,
                     text=body,
-                    confirmed=True,
+                    confirmed=False,
                 )
                 return ToolResult(
                     tool_name=self.tool_id,
@@ -1311,7 +1542,9 @@ class SergioAppControlTool(BaseTool):
             if action == "reminder_add":
                 from openjarvis.tools.reminders import RemindersTool
 
-                title = str(params.get("title") or params.get("content") or "Recordatorio").strip()
+                title = str(
+                    params.get("title") or params.get("content") or "Recordatorio"
+                ).strip()
                 when = str(params.get("when") or "en 30 minutos").strip()
                 notes = str(params.get("content") or "").strip()
                 return RemindersTool().execute(
@@ -1322,8 +1555,14 @@ class SergioAppControlTool(BaseTool):
                 from openjarvis.video_essay import genres
                 from openjarvis.video_essay import job as video_job
 
-                prompt = str(params.get("content") or params.get("title") or "Video").strip()
-                raw_style = str(params.get("platform") or params.get("category") or "").strip().lower()
+                prompt = str(
+                    params.get("content") or params.get("title") or "Video"
+                ).strip()
+                raw_style = (
+                    str(params.get("platform") or params.get("category") or "")
+                    .strip()
+                    .lower()
+                )
                 genre_map = {
                     "resultaaquee": "resultaaquee",
                     "resulta que": "resultaaquee",
@@ -1347,18 +1586,30 @@ class SergioAppControlTool(BaseTool):
                     "documental": "documental",
                     "inspiracional": "inspiracional",
                 }
-                genre = genre_map.get(raw_style) or genres.detect(prompt) or "explicado3d"
-                style_key = genres.GENRES[genre].style if genre in genres.GENRES else "metas-grandes"
+                genre = (
+                    genre_map.get(raw_style) or genres.detect(prompt) or "explicado3d"
+                )
+                style_key = (
+                    genres.GENRES[genre].style
+                    if genre in genres.GENRES
+                    else "metas-grandes"
+                )
                 state = video_job.start(
                     {
                         "prompt": prompt,
                         "genre": genre,
                         "style": style_key,
-                        "aspect": "9:16" if genre in ("resultaaquee", "explicado3d", "corto3d") else "16:9",
-                        "duration": 40 if genre == "resultaaquee" else (45 if genre in ("explicado3d", "corto3d") else 90),
+                        "aspect": "9:16"
+                        if genre in ("resultaaquee", "explicado3d", "corto3d")
+                        else "16:9",
+                        "duration": 40
+                        if genre == "resultaaquee"
+                        else (45 if genre in ("explicado3d", "corto3d") else 90),
                     }
                 )
-                job_id = getattr(state, "id", None) or (state.get("id") if isinstance(state, dict) else str(state))
+                job_id = getattr(state, "id", None) or (
+                    state.get("id") if isinstance(state, dict) else str(state)
+                )
                 return ToolResult(
                     tool_name=self.tool_id,
                     content=(
@@ -1400,7 +1651,9 @@ class SergioAppControlTool(BaseTool):
                 from openjarvis.video_essay import schedule as video_schedule
 
                 niche = str(params.get("content") or params.get("title") or "").strip()
-                country = str(params.get("platform") or "EC").strip().upper()[:2] or "EC"
+                country = (
+                    str(params.get("platform") or "EC").strip().upper()[:2] or "EC"
+                )
                 trend_data = tendencias.read(country=country, niche=niche)
                 top_signals = (trend_data.get("senales") or [])[:12]
                 auto_when = str(params.get("when") or "").strip()
@@ -1433,7 +1686,7 @@ class SergioAppControlTool(BaseTool):
 
                 goal = str(params.get("content") or params.get("title") or "").strip()
                 res = DesktopActionTool().execute(
-                    action="operate", target=goal, confirmed=True
+                    action="operate", target=goal, confirmed=False
                 )
                 return ToolResult(
                     tool_name=self.tool_id,
@@ -1444,8 +1697,12 @@ class SergioAppControlTool(BaseTool):
                 from openjarvis.tools import commerce_intel as ci
                 from openjarvis.tools.desktop_tools import DesktopActionTool
 
-                hotel = str(params.get("title") or params.get("content") or "Hotel de Lujo").strip()
-                dest = str(params.get("to") or params.get("from_location") or "").strip()
+                hotel = str(
+                    params.get("title") or params.get("content") or "Hotel de Lujo"
+                ).strip()
+                dest = str(
+                    params.get("to") or params.get("from_location") or ""
+                ).strip()
                 dates = str(params.get("when") or "").strip()
                 std_price = ci.parse_money(params.get("budget")) or 3000.0
                 tgt_price = ci.parse_money(params.get("price")) or 1500.0
@@ -1469,9 +1726,11 @@ class SergioAppControlTool(BaseTool):
                         f"Aplica la tarifa corporativa/consortia negociada (${res['tarifa_arbitrada_conseguida']} USD frente a tarifa normal ${res['tarifa_publica_estandar']} USD), "
                         f"incluye desayuno gourmet, crédito de $100 USD y upgrade garantizado a Suite."
                     ),
-                    confirmed=True,
+                    confirmed=False,
                 )
-                benefits_md = "\n".join(f"  • {b}" for b in res["beneficios_vip_incluidos"])
+                benefits_md = "\n".join(
+                    f"  • {b}" for b in res["beneficios_vip_incluidos"]
+                )
                 channels_md = "\n".join(f"  • {c}" for c in res["canales_arbitraje"])
                 return ToolResult(
                     tool_name=self.tool_id,
@@ -1494,7 +1753,11 @@ class SergioAppControlTool(BaseTool):
                 from openjarvis.tools import commerce_intel as ci
                 from openjarvis.tools.desktop_tools import DesktopActionTool
 
-                rest = str(params.get("title") or params.get("content") or "Restaurante Estrella Michelin").strip()
+                rest = str(
+                    params.get("title")
+                    or params.get("content")
+                    or "Restaurante Estrella Michelin"
+                ).strip()
                 party = int(params.get("budget") or 2)
                 t_date = str(params.get("when") or "").strip()
                 plat = str(params.get("platform") or "resy").strip().lower()
@@ -1519,34 +1782,37 @@ class SergioAppControlTool(BaseTool):
                 op_res = desk.execute(
                     action="operate",
                     target=(
-                        f"En {primary_url}, activa el monitor sigiloso a milisegundos para «{rest}» ({party} personas, {t_date}). "
-                        f"Detecta la primera cancelación o drop de mesa disponible, asegura la reserva con depósito pre-autorizado "
+                        f"En {primary_url}, busca disponibilidad para «{rest}» ({party} personas, {t_date}). "
+                        f"Detecta la primera cancelación o drop de mesa disponible, deja lista la reserva sin confirmarla ni pagar "
                         "y solicita la Mesa Principal / Chef's Table."
                     ),
-                    confirmed=True,
+                    confirmed=False,
                 )
                 return ToolResult(
                     tool_name=self.tool_id,
                     content=(
-                        f"🍽️ **Sniper de Cancelaciones Michelin Activo (Reserva en Restaurante Imposible)**\n"
+                        f"🍽️ **Plan para conseguir mesa (aún sin reservar)**\n"
                         f"- **Restaurante:** {res['restaurante']}\n"
                         f"- **Comensales:** {res['comensales']} personas\n"
                         f"- **Fecha / Turno objetivo:** {res['fecha_objetivo']}\n"
                         f"- **Estrategia:** {res['estrategia_sniper']}\n"
-                        f"- **Bypass Anti-Bot:** {res['bypass_antibot']}\n"
                         f"- **Mesa solicitada:** {res['mesa_solicitada']}\n"
                         f"- **Seguridad:** {res['face_id']['summary']}\n"
                         f"- **Carta Maître D' VIP:** Redactada y lista para recepción.\n"
                         f"- **Dossier:** `{res['dossier_path']}`\n"
                         f"- **Recordatorio proactivo agendado:** {res['recordatorio_proactivo']['titulo']} ({res['recordatorio_proactivo']['cuando']})\n"
-                        f"- **Operador:** Abrí `{primary_url}` y fijé el sniper ({op_res.content})."
+                        f"- **Operador:** Abrí `{primary_url}` ({op_res.content})."
                     ),
                 )
 
             if action == "youtube_growth_pipeline":
                 from openjarvis.tools import commerce_intel as ci
 
-                niche = str(params.get("content") or params.get("title") or "curiosidades y ciencia").strip()
+                niche = str(
+                    params.get("content")
+                    or params.get("title")
+                    or "curiosidades y ciencia"
+                ).strip()
                 hours = int(params.get("budget") or 7)
                 auto = params.get("auto_reply", True) is not False
 
@@ -1618,7 +1884,11 @@ class SergioAppControlTool(BaseTool):
             if action == "agi_solve":
                 from openjarvis.core.agi_engine import get_universal_agi_engine
 
-                prompt = str(params.get("content") or params.get("title") or "Misión Logística AGI").strip()
+                prompt = str(
+                    params.get("content")
+                    or params.get("title")
+                    or "Misión Logística AGI"
+                ).strip()
                 engine = get_universal_agi_engine()
                 dossier = engine.solve(prompt, context=params)
                 phases_md = "\n".join(
@@ -1641,6 +1911,7 @@ class SergioAppControlTool(BaseTool):
 
             if action == "biometric_nexus_status":
                 from openjarvis.health.biometric_nexus import get_biometric_nexus
+
                 status = get_biometric_nexus().get_realtime_status()
                 return ToolResult(
                     tool_name=self.tool_id,
@@ -1654,9 +1925,14 @@ class SergioAppControlTool(BaseTool):
                 )
 
             if action == "iot_hardware_orchestrate":
-                from openjarvis.hardware.iot_orchestrator import get_physical_iot_orchestrator
+                from openjarvis.hardware.iot_orchestrator import (
+                    get_physical_iot_orchestrator,
+                )
+
                 user_act = str(params.get("content") or "focus_flow")
-                res = get_physical_iot_orchestrator().synchronize_hardware_state(user_act)
+                res = get_physical_iot_orchestrator().synchronize_hardware_state(
+                    user_act
+                )
                 return ToolResult(
                     tool_name=self.tool_id,
                     content=(
@@ -1669,6 +1945,7 @@ class SergioAppControlTool(BaseTool):
 
             if action == "vertu_enclave_shield":
                 from openjarvis.security.vertu_enclave import get_vertu_enclave
+
                 raw = str(params.get("content") or "secreto_aislado").encode()
                 label = str(params.get("title") or "enclave_shield")
                 token = get_vertu_enclave().seal_envelope(raw, context_aad=label)
@@ -1683,7 +1960,10 @@ class SergioAppControlTool(BaseTool):
                 )
 
             if action == "platform_media_cycle":
-                from openjarvis.automatiza.platform_nexus import get_platform_automation_nexus
+                from openjarvis.automatiza.platform_nexus import (
+                    get_platform_automation_nexus,
+                )
+
                 cycle = get_platform_automation_nexus().run_full_autonomous_cycle()
                 yt = cycle["plataformas_digitales"]["youtube_7h_pipeline"]
                 return ToolResult(
@@ -1698,7 +1978,10 @@ class SergioAppControlTool(BaseTool):
                 )
 
             if action == "merkle_evidence_receipt":
-                from openjarvis.telemetry.evidence_nexus import get_evidence_nexus_ledger
+                from openjarvis.telemetry.evidence_nexus import (
+                    get_evidence_nexus_ledger,
+                )
+
                 mission_id = str(params.get("content") or "sesion_maestra")
                 rec = get_evidence_nexus_ledger().generate_audit_receipt(mission_id)
                 return ToolResult(
@@ -1714,7 +1997,9 @@ class SergioAppControlTool(BaseTool):
 
             from openjarvis.core.agi_engine import get_universal_agi_engine
 
-            unknown_mission = f"{action} — {params.get('content') or params.get('title') or ''}".strip(" —")
+            unknown_mission = f"{action} — {params.get('content') or params.get('title') or ''}".strip(
+                " —"
+            )
             engine = get_universal_agi_engine()
             dossier = engine.solve(unknown_mission, context=params)
             return ToolResult(

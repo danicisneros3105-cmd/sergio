@@ -135,8 +135,9 @@ def test_an_always_on_call_ends_after_ten_minutes_without_a_real_exchange():
 
 
 def test_everyday_orders_route_to_agent_and_activate_neurons():
-    from openjarvis.connectome import neurons
     from sergio_escritorio.voice import needs_agent
+
+    from openjarvis.connectome import neurons
 
     orders = (
         "pídeme una pizza por Uber Eats",
@@ -156,7 +157,9 @@ def test_everyday_orders_route_to_agent_and_activate_neurons():
         assert ("desktop_action" in sel.tools) or ("reminders" in sel.tools), phrase
 
 
-def test_sergio_app_executes_delivery_shopping_selling_email_and_reminders(monkeypatch, tmp_path):
+def test_sergio_app_executes_delivery_shopping_selling_email_and_reminders(
+    monkeypatch, tmp_path
+):
     from openjarvis.core.types import ToolResult
     from openjarvis.tools.app_control import SergioAppControlTool
     from openjarvis.tools.desktop_tools import DesktopActionTool
@@ -165,21 +168,35 @@ def test_sergio_app_executes_delivery_shopping_selling_email_and_reminders(monke
 
     def fake_execute(self, **params):
         recorded.append(params)
-        return ToolResult(tool_name="desktop_action", content=" ejecutado en pantalla", success=True)
+        return ToolResult(
+            tool_name="desktop_action", content=" ejecutado en pantalla", success=True
+        )
 
     monkeypatch.setattr(DesktopActionTool, "execute", fake_execute)
     monkeypatch.setattr("pathlib.Path.home", lambda: tmp_path)
 
     tool = SergioAppControlTool()
 
-    r1 = tool.execute(action="delivery_order", platform="ubereats", content="Hamburguesa doble", to="Casa")
+    r1 = tool.execute(
+        action="delivery_order",
+        platform="ubereats",
+        content="Hamburguesa doble",
+        to="Casa",
+    )
     assert r1.success and "Uber" in r1.content
-    assert any(c.get("action") == "operate" and c.get("confirmed") is True for c in recorded)
+    # Owner rule: the order is placed only after his yes (it stops before paying).
+    assert any(c.get("action") == "operate" for c in recorded)
+    assert not any(c.get("confirmed") is True for c in recorded)
 
     recorded.clear()
-    r2 = tool.execute(action="shop_cart", platform="amazon", content="Chaqueta negra talla M")
+    r2 = tool.execute(
+        action="shop_cart", platform="amazon", content="Chaqueta negra talla M"
+    )
     assert r2.success and "Amazon" in r2.content
-    assert any(c.get("action") == "operate" and "carrito" in c.get("target", "") for c in recorded)
+    assert any(
+        c.get("action") == "operate" and "carrito" in c.get("target", "")
+        for c in recorded
+    )
 
     recorded.clear()
     r3 = tool.execute(
@@ -189,7 +206,11 @@ def test_sergio_app_executes_delivery_shopping_selling_email_and_reminders(monke
         content="Batería al 94%, caja original y cable USB-C.",
         platform="marketplace,mercadolibre,ebay",
     )
-    assert r3.success and "iPhone 15 Pro 256GB Titanio" in r3.content and "850 USD" in r3.content
+    assert (
+        r3.success
+        and "iPhone 15 Pro 256GB Titanio" in r3.content
+        and "850 USD" in r3.content
+    )
     open_calls = [c for c in recorded if c.get("action") == "open"]
     assert len(open_calls) == 3
 
@@ -202,12 +223,15 @@ def test_sergio_app_executes_delivery_shopping_selling_email_and_reminders(monke
         content="Adjunto los términos finales.",
     )
     assert r4.success and "socio@empresa.com" in r4.content
-    assert recorded[-1]["action"] == "message" and recorded[-1]["confirmed"] is True
+    assert (
+        recorded[-1]["action"] == "message" and recorded[-1]["confirmed"] is False
+    )  # drafted, he says yes
 
 
 def test_faster_operator_zero_lag_subtitles_and_video_trend_skills(monkeypatch):
-    from openjarvis.tools.app_control import SergioAppControlTool
     from sergio_escritorio import operador, video_pro
+
+    from openjarvis.tools.app_control import SergioAppControlTool
 
     # 1. Operator settle times are fast and responsive
     assert operador.SETTLE["click"] <= 0.35
@@ -243,7 +267,9 @@ def test_faster_operator_zero_lag_subtitles_and_video_trend_skills(monkeypatch):
     )
     assert v_beast.success and "pesada" in v_beast.content
 
-    clips_res = tool.execute(action="find_clips", content="no rendirse entrenar subir escaleras")
+    clips_res = tool.execute(
+        action="find_clips", content="no rendirse entrenar subir escaleras"
+    )
     assert clips_res.success and "Rocky" in clips_res.content
 
     monkeypatch.setattr(
@@ -266,7 +292,9 @@ def test_faster_operator_zero_lag_subtitles_and_video_trend_skills(monkeypatch):
     assert trends_res.success and "IA en 3D" in trends_res.content
 
 
-def test_real_world_uber_food_budget_rare_item_and_gallery_selling(monkeypatch, tmp_path):
+def test_real_world_uber_food_budget_rare_item_and_gallery_selling(
+    monkeypatch, tmp_path
+):
     from openjarvis.connectome import neurons
     from openjarvis.core.types import ToolResult
     from openjarvis.tools.app_control import SergioAppControlTool
@@ -277,7 +305,9 @@ def test_real_world_uber_food_budget_rare_item_and_gallery_selling(monkeypatch, 
 
     def fake_desktop_execute(self, **params):
         recorded.append(params)
-        return ToolResult(tool_name="desktop_action", content=" ejecutado en pantalla", success=True)
+        return ToolResult(
+            tool_name="desktop_action", content=" ejecutado en pantalla", success=True
+        )
 
     def fake_face_execute(self, **params):
         face_checks.append(params)
@@ -372,25 +402,33 @@ def test_real_world_uber_food_budget_rare_item_and_gallery_selling(monkeypatch, 
     assert "2 fotos encontradas en su galería" in r_sell.content
     assert "iphone_15_pro_frontal.jpg" in r_sell.content
     assert "740 USD" in r_sell.content
-    assert "Autorespuesta a compradores interesados:** Activa en marketplace, ebay" in r_sell.content
+    assert (
+        "Autorespuesta a compradores interesados:** Activa en marketplace, ebay"
+        in r_sell.content
+    )
     autoreply_file = tmp_path / "Sergio" / "ventas" / "autorespuestas_activas.json"
     assert autoreply_file.exists()
     assert len(face_checks) >= 4
 
 
-def test_seven_top_lifestyle_concierge_categories_real_and_confirmed(monkeypatch, tmp_path):
+def test_seven_top_lifestyle_concierge_categories_real_and_confirmed(
+    monkeypatch, tmp_path
+):
+    from sergio_escritorio.voice import needs_agent
+
     from openjarvis.connectome import neurons
     from openjarvis.core.types import ToolResult
     from openjarvis.tools.app_control import SergioAppControlTool
     from openjarvis.tools.desktop_tools import DesktopActionTool, FaceApprovalTool
-    from sergio_escritorio.voice import needs_agent
 
     recorded = []
     face_checks = []
 
     def fake_desktop_execute(self, **params):
         recorded.append(params)
-        return ToolResult(tool_name="desktop_action", content="ejecutado en pantalla", success=True)
+        return ToolResult(
+            tool_name="desktop_action", content="ejecutado en pantalla", success=True
+        )
 
     def fake_face_execute(self, **params):
         face_checks.append(params)
@@ -468,7 +506,9 @@ def test_seven_top_lifestyle_concierge_categories_real_and_confirmed(monkeypatch
     for expected_cat, prompt, expected_portal, dest, when in cases:
         assert needs_agent(prompt), f"needs_agent failed for: {prompt}"
         sel = neurons.select(neurons.normalise(prompt), {})
-        assert sel is not None and "pantalla" in sel.neurons, f"neuron failed for: {prompt}"
+        assert sel is not None and "pantalla" in sel.neurons, (
+            f"neuron failed for: {prompt}"
+        )
         assert "sergio_app" in sel.tools
 
         res = tool.execute(
@@ -478,18 +518,27 @@ def test_seven_top_lifestyle_concierge_categories_real_and_confirmed(monkeypatch
             when=when,
         )
         assert res.success, res.content
-        assert expected_portal in res.content, f"Expected {expected_portal} in {res.content}"
+        assert expected_portal in res.content, (
+            f"Expected {expected_portal} in {res.content}"
+        )
         assert "Confirmado con Face ID de Sergio" in res.content
         assert "Recordatorio proactivo creado automáticamente" in res.content
 
     concierge_files = list((tmp_path / "Sergio" / "concierge").glob("orden_*.md"))
     assert len(concierge_files) == len(cases)
-    proactive_file = tmp_path / "Sergio" / "recordatorios" / "recordatorios_proactivos.json"
+    proactive_file = (
+        tmp_path / "Sergio" / "recordatorios" / "recordatorios_proactivos.json"
+    )
     assert proactive_file.exists()
 
 
-def test_multidevice_phone_video_meetings_academic_minitest_email_social_leads_and_visa(monkeypatch, tmp_path):
+def test_multidevice_phone_video_meetings_academic_minitest_email_social_leads_and_visa(
+    monkeypatch, tmp_path
+):
     import asyncio
+
+    from sergio_escritorio.voice import needs_agent
+
     from openjarvis.core.types import ToolResult
     from openjarvis.server.meeting_routes import (
         DeviceHeartbeatRequest,
@@ -500,21 +549,27 @@ def test_multidevice_phone_video_meetings_academic_minitest_email_social_leads_a
     )
     from openjarvis.tools.app_control import SergioAppControlTool
     from openjarvis.tools.desktop_tools import DesktopActionTool, FaceApprovalTool
-    from sergio_escritorio.voice import needs_agent
 
     recorded = []
 
     def fake_desktop_execute(self, **params):
         recorded.append(params)
-        return ToolResult(tool_name="desktop_action", content="ejecutado en pantalla", success=True)
+        return ToolResult(
+            tool_name="desktop_action", content="ejecutado en pantalla", success=True
+        )
 
     def fake_face_execute(self, **params):
-        return ToolResult(tool_name="face_approval", content="Rostro verificado 97 %", success=True)
+        return ToolResult(
+            tool_name="face_approval", content="Rostro verificado 97 %", success=True
+        )
 
     monkeypatch.setattr(DesktopActionTool, "execute", fake_desktop_execute)
     monkeypatch.setattr(FaceApprovalTool, "execute", fake_face_execute)
     monkeypatch.setattr("pathlib.Path.home", lambda: tmp_path)
-    monkeypatch.setattr("openjarvis.server.meeting_routes.get_config_dir", lambda: tmp_path / ".openjarvis")
+    monkeypatch.setattr(
+        "openjarvis.server.meeting_routes.get_config_dir",
+        lambda: tmp_path / ".openjarvis",
+    )
 
     tool = SergioAppControlTool()
 
@@ -545,10 +600,17 @@ def test_multidevice_phone_video_meetings_academic_minitest_email_social_leads_a
         "titulo": "Consejo Directivo",
         "resumen": "Revisión ejecutiva de contratos y presupuesto.",
         "tareas": [
-            {"quien": "Juan", "que": "Enviar contrato final firmado", "cuando": "mañana"},
+            {
+                "quien": "Juan",
+                "que": "Enviar contrato final firmado",
+                "cuando": "mañana",
+            },
             {"quien": "María", "que": "Validar presupuesto Q4", "cuando": "viernes"},
         ],
-        "live_notes": ["[01:15] Cerrar cláusula de exclusividad", "[04:30] Confirmar firma digital"],
+        "live_notes": [
+            "[01:15] Cerrar cláusula de exclusividad",
+            "[04:30] Confirmar firma digital",
+        ],
         "markdown": "# Consejo Directivo\n- Enviar contrato final firmado",
     }
     reminders_created = _schedule_meeting_task_reminders(minutes_record)
@@ -564,7 +626,10 @@ def test_multidevice_phone_video_meetings_academic_minitest_email_social_leads_a
         content="Responder a los correos urgentes de proveedores y clientes",
         auto_reply=True,
     )
-    assert r_mail.success and "Bandeja de Entrada de Gmail leída y gestionada" in r_mail.content
+    assert (
+        r_mail.success
+        and "Bandeja de Entrada de Gmail leída y gestionada" in r_mail.content
+    )
 
     # 4. Student school platform + proactive exam reminders + Mini-Test
     r_study = tool.execute(
@@ -578,13 +643,24 @@ def test_multidevice_phone_video_meetings_academic_minitest_email_social_leads_a
     assert "Pregunta" in r_study.content or "Respuesta:" in r_study.content
 
     # 5. Make calls, reply to messages, upload Instagram Stories
-    r_call = tool.execute(action="make_call", to="Dr. Martínez", content="Confirmar cita de las 17:00")
+    r_call = tool.execute(
+        action="make_call", to="Dr. Martínez", content="Confirmar cita de las 17:00"
+    )
     assert r_call.success and "Llamada iniciada" in r_call.content
 
-    r_msg = tool.execute(action="reply_messages", platform="whatsapp", to="Equipo", content="Ya voy en camino")
+    r_msg = tool.execute(
+        action="reply_messages",
+        platform="whatsapp",
+        to="Equipo",
+        content="Ya voy en camino",
+    )
     assert r_msg.success and "Mensajes respondidos en Whatsapp" in r_msg.content
 
-    r_ig = tool.execute(action="social_publish", platform="instagram", content="Entrenamiento completado hoy")
+    r_ig = tool.execute(
+        action="social_publish",
+        platform="instagram",
+        content="Entrenamiento completado hoy",
+    )
     assert r_ig.success and "Instagram" in r_ig.content
 
     # 6. Large-scale client lead generation
@@ -593,7 +669,10 @@ def test_multidevice_phone_video_meetings_academic_minitest_email_social_leads_a
         content="Clínicas estéticas y odontológicas premium",
         to="Quito y Cuenca",
     )
-    assert r_leads.success and "Campaña de Búsqueda de Clientes a Gran Escala" in r_leads.content
+    assert (
+        r_leads.success
+        and "Campaña de Búsqueda de Clientes a Gran Escala" in r_leads.content
+    )
 
     # 7. Apply for a VISA
     r_visa = tool.execute(
@@ -603,7 +682,10 @@ def test_multidevice_phone_video_meetings_academic_minitest_email_social_leads_a
     )
     assert r_visa.success and "DS-160" in r_visa.content
 
-def test_sergio_impossible_tasks_luxury_arbitrage_sniper_vault_and_biometrics(monkeypatch, tmp_path):
+
+def test_sergio_impossible_tasks_luxury_arbitrage_sniper_vault_and_biometrics(
+    monkeypatch, tmp_path
+):
     from openjarvis.core.types import ToolResult
     from openjarvis.tools.app_control import SergioAppControlTool
     from openjarvis.tools.desktop_tools import DesktopActionTool
@@ -612,7 +694,9 @@ def test_sergio_impossible_tasks_luxury_arbitrage_sniper_vault_and_biometrics(mo
 
     def fake_execute(self, **params):
         recorded.append(params)
-        return ToolResult(tool_name="desktop_action", content="operado con éxito", success=True)
+        return ToolResult(
+            tool_name="desktop_action", content="operado con éxito", success=True
+        )
 
     monkeypatch.setattr(DesktopActionTool, "execute", fake_execute)
     monkeypatch.setattr("pathlib.Path.home", lambda: tmp_path)
@@ -629,7 +713,11 @@ def test_sergio_impossible_tasks_luxury_arbitrage_sniper_vault_and_biometrics(mo
         price="1500 USD",
     )
     assert r_hotel.success
-    assert "1500" in r_hotel.content and "3000" in r_hotel.content and "50" in r_hotel.content
+    assert (
+        "1500" in r_hotel.content
+        and "3000" in r_hotel.content
+        and "50" in r_hotel.content
+    )
     assert "Virtuoso" in r_hotel.content
 
     # 2. Michelin cancellation sniper
@@ -643,7 +731,9 @@ def test_sergio_impossible_tasks_luxury_arbitrage_sniper_vault_and_biometrics(mo
     )
     assert r_michelin.success
     assert "Disfrutar Barcelona" in r_michelin.content
-    assert "Playwright Stealth" in r_michelin.content
+    # Never hides from a site's bot checks, never says a table is booked.
+    assert "Stealth" not in r_michelin.content
+    assert "aún sin reservar" in r_michelin.content
 
     # 3. 7-hour YouTube growth pipeline
     r_yt = tool.execute(
@@ -674,4 +764,3 @@ def test_sergio_impossible_tasks_luxury_arbitrage_sniper_vault_and_biometrics(mo
     assert r_health.success
     assert "Sincronización Biométrica" in r_health.content
     assert "HRV" in r_health.content
-

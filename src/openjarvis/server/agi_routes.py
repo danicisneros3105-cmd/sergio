@@ -24,9 +24,15 @@ router = APIRouter(prefix="/v1/agi", tags=["agi"])
 
 
 class AGISolveRequest(BaseModel):
-    mission: str = Field(..., min_length=3, description="Objetivo o misión táctica para Sergio")
-    context: Optional[Dict[str, Any]] = Field(default=None, description="Contexto adicional")
-    require_confirmation: bool = Field(default=True, description="Puerta de confirmación estricta Vertu")
+    mission: str = Field(
+        ..., min_length=3, description="Objetivo o misión táctica para Sergio"
+    )
+    context: Optional[Dict[str, Any]] = Field(
+        default=None, description="Contexto adicional"
+    )
+    require_confirmation: bool = Field(
+        default=True, description="Puerta de confirmación estricta Vertu"
+    )
     stealth: bool = Field(default=True, description="Activar evasión antibot sigilosa")
 
 
@@ -88,7 +94,11 @@ async def list_dossiers(limit: int = 20) -> List[Dict[str, Any]]:
     if not dossier_dir.exists():
         return []
 
-    files = sorted(dossier_dir.glob("dossier_*.json"), key=lambda p: p.stat().st_mtime, reverse=True)
+    files = sorted(
+        dossier_dir.glob("dossier_*.json"),
+        key=lambda p: p.stat().st_mtime,
+        reverse=True,
+    )
     results = []
     for f in files[:limit]:
         try:
@@ -107,7 +117,11 @@ async def get_evidence_ledger() -> Dict[str, Any]:
             "version": "2.0_rfc6962_merkle_ledger",
             "total_entradas": len(ledger.entries),
             "merkle_root": (
-                ledger.entries and get_evidence_nexus_ledger().verify_ledger_integrity().get("merkle_root") or ""
+                ledger.entries
+                and get_evidence_nexus_ledger()
+                .verify_ledger_integrity()
+                .get("merkle_root")
+                or ""
             ),
             "entradas_recientes": [asdict(e) for e in ledger.entries[-50:]],
         }
@@ -146,7 +160,9 @@ async def get_evolution_status() -> Dict[str, Any]:
 
 
 class SelfHealRequest(BaseModel):
-    symptom: str = Field(..., min_length=3, description="Descripción del síntoma o fallo observado")
+    symptom: str = Field(
+        ..., min_length=3, description="Descripción del síntoma o fallo observado"
+    )
 
 
 @router.post("/self-heal")
@@ -179,4 +195,3 @@ __all__ = [
     "trigger_self_heal",
     "verify_evidence_integrity",
 ]
-

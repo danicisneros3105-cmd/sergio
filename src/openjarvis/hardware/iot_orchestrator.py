@@ -24,10 +24,10 @@ class HardwareDomain(str, enum.Enum):
 
 
 class EnvironmentPreset(str, enum.Enum):
-    FOCUS_FLOW = "focus_flow"               # High-contrast lighting, 21°C, audio ANC
-    TACTICAL_BRIEFING = "tactical_briefing" # Neutral lighting, multi-monitor dashboard
-    DEEP_REST = "deep_rest"                 # 18.5°C, amber 2200K dimmed lighting, silent mode
-    SECURITY_LOCKDOWN = "security_lockdown" # All doors locked, perimeter sensors armed
+    FOCUS_FLOW = "focus_flow"  # High-contrast lighting, 21°C, audio ANC
+    TACTICAL_BRIEFING = "tactical_briefing"  # Neutral lighting, multi-monitor dashboard
+    DEEP_REST = "deep_rest"  # 18.5°C, amber 2200K dimmed lighting, silent mode
+    SECURITY_LOCKDOWN = "security_lockdown"  # All doors locked, perimeter sensors armed
 
 
 @dataclass
@@ -90,7 +90,9 @@ class AndroidADBController:
             },
         ]
 
-    def access_gallery_securely(self, query_tag: str, confirm_token: Optional[str] = None) -> Dict[str, Any]:
+    def access_gallery_securely(
+        self, query_tag: str, confirm_token: Optional[str] = None
+    ) -> Dict[str, Any]:
         """Provides verified access to mobile gallery under strict privacy gating and path sanitization."""
         if not confirm_token:
             return {
@@ -105,7 +107,11 @@ class AndroidADBController:
             "autorizado": True,
             "fotos_encontradas": 3,
             "tag": clean_tag,
-            "fotos": ["IMG_4091_doc.jpg", "IMG_4092_receipt.jpg", "IMG_4093_blueprint.jpg"],
+            "fotos": [
+                "IMG_4091_doc.jpg",
+                "IMG_4092_receipt.jpg",
+                "IMG_4093_blueprint.jpg",
+            ],
             "entorno_aislado": "Vertu Memory Sandbox",
         }
 
@@ -116,7 +122,11 @@ class SmartHomeIoTController:
     def __init__(self) -> None:
         self.active_preset = EnvironmentPreset.TACTICAL_BRIEFING
         self.devices = {
-            "clima_principal": {"temp_c": 21.0, "modo": "auto", "ventilacion": "silent"},
+            "clima_principal": {
+                "temp_c": 21.0,
+                "modo": "auto",
+                "ventilacion": "silent",
+            },
             "iluminacion_despacho": {"brillo": 85, "kelvin": 4000, "estado": "on"},
             "cerradura_principal": {"bloqueada": True, "bateria": 92},
             "purificador_aire": {"pm25": 4.2, "velocidad": "eco"},
@@ -149,7 +159,9 @@ class WorkstationHostController:
     """Controls workstation audio, displays, and system power states."""
 
     @classmethod
-    def set_display_topology(cls, mode: str = "multi_monitor_dashboard") -> Dict[str, Any]:
+    def set_display_topology(
+        cls, mode: str = "multi_monitor_dashboard"
+    ) -> Dict[str, Any]:
         """Coordinates primary and auxiliary screens for maximum productivity."""
         return {
             "modo": mode,

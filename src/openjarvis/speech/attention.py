@@ -17,10 +17,13 @@ import logging
 import re
 import time
 import unicodedata
-from typing import Any, Callable, Optional
+from typing import Callable, Optional
 
 from openjarvis.speech.addressee_classifier import AddresseeClassifier, AddresseeTarget
-from openjarvis.speech.biometric_voiceprint import VoiceprintManager, get_voiceprint_manager
+from openjarvis.speech.biometric_voiceprint import (
+    VoiceprintManager,
+    get_voiceprint_manager,
+)
 from openjarvis.speech.loopback_aec import LoopbackAEC, get_loopback_aec
 
 log = logging.getLogger("openjarvis.speech.attention")

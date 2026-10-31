@@ -271,13 +271,27 @@ def brief(analysis: Dict[str, Any], model: str) -> str:
         parts = [
             f"<objective>\n{a.get('intent', '')}\n</objective>",
             f"<deliverable>\n{a.get('deliverable', '')} (audience: {a.get('audience', 'user')})\n</deliverable>",
-            ("<requirements>\n" + "\n".join(f"- {r}" for r in reqs) + "\n</requirements>") if reqs else "",
+            (
+                "<requirements>\n"
+                + "\n".join(f"- {r}" for r in reqs)
+                + "\n</requirements>"
+            )
+            if reqs
+            else "",
             f"<role>\nExpert specialist in: {skills}.\n</role>",
             f"<format_and_tone>\nFormat: {a.get('format', '')}\nTone: {a.get('tone', '')}\n</format_and_tone>",
-            ("<negative_constraints>\n" + "\n".join(f"- {t}" for t in traps) + "\n</negative_constraints>")
+            (
+                "<negative_constraints>\n"
+                + "\n".join(f"- {t}" for t in traps)
+                + "\n</negative_constraints>"
+            )
             if traps
             else "",
-            ("<success_metrics>\n" + "\n".join(f"- {s}" for s in success) + "\n</success_metrics>")
+            (
+                "<success_metrics>\n"
+                + "\n".join(f"- {s}" for s in success)
+                + "\n</success_metrics>"
+            )
             if success
             else "",
             "Conduct structured internal chain-of-thought analysis, then output the authoritative response directly.",
@@ -306,11 +320,17 @@ def brief(analysis: Dict[str, Any], model: str) -> str:
         parts = [
             f"## Mission Objective\n{a.get('intent', '')}",
             f"## Deliverable Specification\n{a.get('deliverable', '')} (Audience: {a.get('audience', 'user')})",
-            ("## Operational Requirements\n" + "\n".join(f"- {r}" for r in reqs)) if reqs else "",
+            ("## Operational Requirements\n" + "\n".join(f"- {r}" for r in reqs))
+            if reqs
+            else "",
             f"## Domain Mastery\nOperate with verified precision in: {skills}.",
             f"## Structural Constraints\nFormat: {a.get('format', '')}\nTone: {a.get('tone', '')}",
-            ("## Failure Prevention Checklist\n" + "\n".join(f"- {t}" for t in traps)) if traps else "",
-            ("## Benchmark Criteria\n" + "\n".join(f"- {s}" for s in success)) if success else "",
+            ("## Failure Prevention Checklist\n" + "\n".join(f"- {t}" for t in traps))
+            if traps
+            else "",
+            ("## Benchmark Criteria\n" + "\n".join(f"- {s}" for s in success))
+            if success
+            else "",
             "Execute reasoning step-by-step before delivering the final unpadded result.",
         ]
     lang = str(a.get("language") or "").strip()
@@ -348,6 +368,7 @@ def prepare(
 ) -> Tuple[str, Dict[str, Any]]:
     """(the brief for *model*, Terry's analysis). Raises when Terry fails."""
     if ask is None:
+
         def ask(prompt: str, **kw: Any) -> str:
             try:
                 from openjarvis.creator.llm import ask as multi_ask
@@ -363,19 +384,34 @@ def prepare(
                 )
             except Exception:
                 # Resilient universal fallback: synthesize structured brief directly
-                return json.dumps({
-                    "intent": request.strip()[:100],
-                    "deliverable": "Respuesta directa y autoritativa con máxima precisión ejecutiva",
-                    "audience": "el usuario",
-                    "constraints": ["Máximo rigor analítico", "Sin relleno superficial", "Solución directa"],
-                    "hidden_needs": ["Anticipación táctica", "Siguientes pasos estructurados"],
-                    "format": "Markdown estructurado de alta legibilidad",
-                    "tone": "Tranquilo, aristocrático, estratégico y conciso",
-                    "language": language(request),
-                    "skills": ["Estrategia ejecutiva", "Ingeniería de software de alta fidelidad"],
-                    "pitfalls": ["Respuestas genéricas o condescendientes", "Excusas sobre límites de IA"],
-                    "success": ["Resolución inmediata comprobable de la necesidad"],
-                })
+                return json.dumps(
+                    {
+                        "intent": request.strip()[:100],
+                        "deliverable": "Respuesta directa y autoritativa con máxima precisión ejecutiva",
+                        "audience": "el usuario",
+                        "constraints": [
+                            "Máximo rigor analítico",
+                            "Sin relleno superficial",
+                            "Solución directa",
+                        ],
+                        "hidden_needs": [
+                            "Anticipación táctica",
+                            "Siguientes pasos estructurados",
+                        ],
+                        "format": "Markdown estructurado de alta legibilidad",
+                        "tone": "Tranquilo, aristocrático, estratégico y conciso",
+                        "language": language(request),
+                        "skills": [
+                            "Estrategia ejecutiva",
+                            "Ingeniería de software de alta fidelidad",
+                        ],
+                        "pitfalls": [
+                            "Respuestas genéricas o condescendientes",
+                            "Excusas sobre límites de IA",
+                        ],
+                        "success": ["Resolución inmediata comprobable de la necesidad"],
+                    }
+                )
 
     raw = ask(
         ANALYZE_PROMPT.format(history=history, request=request[:6000]),

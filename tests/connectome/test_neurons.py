@@ -115,4 +115,3 @@ def test_fired_neurons_inject_retraining_superskill_and_rank_by_specificity(
     ctx = brain_mod.mind_context("pídeme una pizza por Uber Eats y agrégala al carrito")
     assert "<super_skill_neuronal" in ctx
     assert "OPERADOR TOTAL DE PANTALLA" in ctx
-

@@ -410,14 +410,29 @@ class WindowsBackend:
         monitor = user32.MonitorFromWindow(first[0], 2)  # MONITOR_DEFAULTTONEAREST
         user32.GetMonitorInfoW(monitor, ctypes.byref(info))
         work = info.rcWork
-        placed = []
+        from sergio_escritorio.duo_veil import run_glide
+
+        placed, moves = [], []
         pair = [first, second] if second is not None else [first]
-        for (hwnd, title), (x, y, w, h) in zip(
+        for (hwnd, title), target in zip(
             pair, halves((work.left, work.top, work.right, work.bottom))
         ):
             user32.ShowWindow(hwnd, 9)  # SW_RESTORE (a maximised window cannot move)
-            user32.SetWindowPos(hwnd, 0, x, y, w, h, 0x0040)  # SWP_SHOWWINDOW
+            rect = wintypes.RECT()
+            user32.GetWindowRect(hwnd, ctypes.byref(rect))
+            start = (rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top)
+            moves.append((hwnd, start, target))
             placed.append(title)
+        # The iPhone Duo fold: the screen blurs, the windows glide, it sharpens.
+        fold = getattr(self, "on_fold", None)
+        if callable(fold):
+            fold()
+            time.sleep(0.1)  # out of focus before anything moves
+
+        def place(hwnd: int, r: tuple[int, int, int, int]) -> None:
+            user32.SetWindowPos(hwnd, 0, *r, 0x0040 | 0x0010)  # SHOWWINDOW | NOACTIVATE
+
+        run_glide(moves, place, time.sleep)
         if second is not None:
             user32.SetForegroundWindow(second[0])
         user32.SetForegroundWindow(first[0])

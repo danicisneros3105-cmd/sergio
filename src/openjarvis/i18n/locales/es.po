@@ -2740,3 +2740,27 @@ msgstr "consulta al modelo"
 #: help
 msgid "Connect an installed CLI (not an MCP server), asking before each call."
 msgstr "Conecta un programa de línea de órdenes instalado (no un servidor MCP), preguntando antes de cada llamada."
+
+#: help
+msgid "Cloud models (ChatGPT, Claude, OpenRouter, DeepSeek, Gemini) for Sergio's brain."
+msgstr "Modelos en la nube (ChatGPT, Claude, OpenRouter, DeepSeek, Gemini) para el cerebro de Sergio."
+
+#: help
+msgid "OpenAI API key (ChatGPT, GPT-4o, o3-mini)."
+msgstr "Clave de OpenAI (ChatGPT, GPT-4o, o3-mini)."
+
+#: help
+msgid "Anthropic API key (Claude 3.5 Sonnet, Claude Opus)."
+msgstr "Clave de Anthropic (Claude 3.5 Sonnet, Claude Opus)."
+
+#: help
+msgid "OpenRouter API key (Universal multi-model)."
+msgstr "Clave de OpenRouter (todos los modelos con una)."
+
+#: help
+msgid "DeepSeek API key (DeepSeek-V3, R1)."
+msgstr "Clave de DeepSeek (DeepSeek-V3, R1)."
+
+#: help
+msgid "Force a model id (e.g. gpt-4o, claude-sonnet-4-20250514, gemini-3.8-flash)."
+msgstr "Fija un modelo (p. ej. gpt-4o, claude-sonnet-4-20250514, gemini-3.8-flash)."

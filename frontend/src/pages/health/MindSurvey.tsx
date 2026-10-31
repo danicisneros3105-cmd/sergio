@@ -26,7 +26,7 @@ interface Step {
   firstOfSection: boolean;
 }
 
-function readDraft(variant: SurveyVariant): Answers {
+export function readDraft(variant: SurveyVariant): Answers {
   try {
     return JSON.parse(localStorage.getItem(draftKey(variant)) || '{}') as Answers;
   } catch {
@@ -34,7 +34,7 @@ function readDraft(variant: SurveyVariant): Answers {
   }
 }
 
-function writeDraft(variant: SurveyVariant, answers: Answers | null) {
+export function writeDraft(variant: SurveyVariant, answers: Answers | null) {
   try {
     if (answers) localStorage.setItem(draftKey(variant), JSON.stringify(answers));
     else localStorage.removeItem(draftKey(variant));

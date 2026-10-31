@@ -117,7 +117,10 @@ def find_scenes_for_text(text: str, max_results: int = 5) -> List[Dict[str, Any]
         if hits > 0 or not have:
             scored.append((hits, name, year, scene))
     if not scored:
-        scored = [(1, name, year, scene) for _, name, year, scene in KNOWN_SCENES[:max_results]]
+        scored = [
+            (1, name, year, scene)
+            for _, name, year, scene in KNOWN_SCENES[:max_results]
+        ]
     scored.sort(key=lambda r: -r[0])
     out: List[Dict[str, Any]] = []
     for _, name, year, scene in scored[:max_results]:
@@ -130,7 +133,9 @@ def find_scenes_for_text(text: str, max_results: int = 5) -> List[Dict[str, Any]
             ]
         except Exception:  # noqa: BLE001
             clips = []
-        out.append({"film": name, "year": year, "scene": scene, "query": query, "clips": clips})
+        out.append(
+            {"film": name, "year": year, "scene": scene, "query": query, "clips": clips}
+        )
     return out
 
 

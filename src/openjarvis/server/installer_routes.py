@@ -97,7 +97,9 @@ async def download_windows_app(request: Request) -> Response:
         "Content-Disposition": 'attachment; filename="Iniciar_Sergio_AI.bat"',
         "Content-Type": "application/x-bat",
     }
-    return Response(content=script_content, media_type="application/x-bat", headers=headers)
+    return Response(
+        content=script_content, media_type="application/x-bat", headers=headers
+    )
 
 
 @router.get("/descargar/macos", response_class=Response)
@@ -109,7 +111,9 @@ async def download_macos_app(request: Request) -> Response:
         "Content-Disposition": 'attachment; filename="Iniciar_Sergio_AI.command"',
         "Content-Type": "application/x-sh",
     }
-    return Response(content=script_content, media_type="application/x-sh", headers=headers)
+    return Response(
+        content=script_content, media_type="application/x-sh", headers=headers
+    )
 
 
 @router.get("/descargar/linux", response_class=Response)
@@ -121,7 +125,9 @@ async def download_linux_app(request: Request) -> Response:
         "Content-Disposition": 'attachment; filename="Iniciar_Sergio_AI.sh"',
         "Content-Type": "application/x-sh",
     }
-    return Response(content=script_content, media_type="application/x-sh", headers=headers)
+    return Response(
+        content=script_content, media_type="application/x-sh", headers=headers
+    )
 
 
 @router.get("/descargar/info", response_model=Dict[str, Any])

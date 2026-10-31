@@ -697,7 +697,9 @@ class ToolExecutor:
             except (TypeError, ValueError):
                 given = None
         if given is None:
-            top_extra = {k: v for k, v in args.items() if k not in ("nombre", "argumentos")}
+            top_extra = {
+                k: v for k, v in args.items() if k not in ("nombre", "argumentos")
+            }
             if top_extra:
                 given = top_extra
         required = (target.spec.parameters or {}).get("required") or []

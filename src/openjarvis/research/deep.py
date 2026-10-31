@@ -547,16 +547,46 @@ def research(
 # -- Ultra Deep Research: 10 Specialist Perspectives & Concurrency ------------
 
 ULTRA_PERSPECTIVES = [
-    ("Técnico & Arquitectura", "especificaciones técnicas, arquitectura interna, planos o fórmulas científicas"),
-    ("Métricas & Benchmarks", "pruebas de rendimiento, benchmarks cuantitativos, mediciones reales"),
-    ("Precios & Valor de Mercado", "precios históricos, mercado secundario, distribuidores autorizados y coste real"),
-    ("Fuentes Primarias & Registros", "patentes, manuales oficiales del fabricante, bases de datos o registros gubernamentales"),
-    ("Consenso de Especialistas", "revisiones de expertos acreditados, análisis de laboratorios y publicaciones de la industria"),
-    ("Controversias & Contra-argumentos", "críticas, puntos en disputa, vulnerabilidades conocidas y desmentidos"),
-    ("Normativa, Legal & Seguridad", "certificaciones, cumplimiento normativo, garantías de autenticidad y seguridad"),
-    ("Alternativas & Comparativa", "comparación frente a opciones competidoras o generaciones previas"),
-    ("Disponibilidad & Procedencia", "canales de compra verificados, procedencia de stock y plazos de entrega"),
-    ("Matriz Táctica & Decisión", "análisis de pros y contras, relación riesgo/beneficio y recomendación ejecutiva"),
+    (
+        "Técnico & Arquitectura",
+        "especificaciones técnicas, arquitectura interna, planos o fórmulas científicas",
+    ),
+    (
+        "Métricas & Benchmarks",
+        "pruebas de rendimiento, benchmarks cuantitativos, mediciones reales",
+    ),
+    (
+        "Precios & Valor de Mercado",
+        "precios históricos, mercado secundario, distribuidores autorizados y coste real",
+    ),
+    (
+        "Fuentes Primarias & Registros",
+        "patentes, manuales oficiales del fabricante, bases de datos o registros gubernamentales",
+    ),
+    (
+        "Consenso de Especialistas",
+        "revisiones de expertos acreditados, análisis de laboratorios y publicaciones de la industria",
+    ),
+    (
+        "Controversias & Contra-argumentos",
+        "críticas, puntos en disputa, vulnerabilidades conocidas y desmentidos",
+    ),
+    (
+        "Normativa, Legal & Seguridad",
+        "certificaciones, cumplimiento normativo, garantías de autenticidad y seguridad",
+    ),
+    (
+        "Alternativas & Comparativa",
+        "comparación frente a opciones competidoras o generaciones previas",
+    ),
+    (
+        "Disponibilidad & Procedencia",
+        "canales de compra verificados, procedencia de stock y plazos de entrega",
+    ),
+    (
+        "Matriz Táctica & Decisión",
+        "análisis de pros y contras, relación riesgo/beneficio y recomendación ejecutiva",
+    ),
 ]
 
 
@@ -592,7 +622,9 @@ class UltraDeepResearch(DeepResearch):
         self.perspectives: List[str] = [p[0] for p in ULTRA_PERSPECTIVES]
 
     def plan(self, question: str) -> Dict[str, List[str]]:
-        default_subs = [f"[{name}] {desc} sobre: {question}" for name, desc in ULTRA_PERSPECTIVES]
+        default_subs = [
+            f"[{name}] {desc} sobre: {question}" for name, desc in ULTRA_PERSPECTIVES
+        ]
         default_queries = [
             f"{question} especificaciones tecnicas",
             f"{question} precio mercado compra oficial",
@@ -640,16 +672,24 @@ class UltraDeepResearch(DeepResearch):
         single_src = sum(1 for f in findings if f.status == "una fuente")
         disputed = sum(1 for f in findings if f.status == "en disputa")
         total = max(1, len(findings))
-        raw_score = (confirmed * 1.0 + single_src * 0.55 + disputed * 0.25) / total * 100.0
+        raw_score = (
+            (confirmed * 1.0 + single_src * 0.55 + disputed * 0.25) / total * 100.0
+        )
         unique_sites = len({s.site for s in self.sources})
         site_bonus = min(15.0, unique_sites * 2.5)
-        self.confidence_score = round(min(99.0, max(15.0, raw_score * 0.85 + site_bonus)), 1)
+        self.confidence_score = round(
+            min(99.0, max(15.0, raw_score * 0.85 + site_bonus)), 1
+        )
         return findings
 
     def write(self, question: str, findings: List[Finding], missing: List[str]) -> str:
         base_report = super().write(question, findings, missing)
         conf = getattr(self, "confidence_score", 0.0)
-        level = "Alta" if conf >= 75 else ("Media" if conf >= 50 else "Moderada / Preliminar")
+        level = (
+            "Alta"
+            if conf >= 75
+            else ("Media" if conf >= 50 else "Moderada / Preliminar")
+        )
         header = (
             f"# 🔬 Informe Ejecutivo de Ultra Deep Research (10 Especialistas)\n"
             f"> **Objetivo:** {question}\n"
@@ -663,7 +703,13 @@ class UltraDeepResearch(DeepResearch):
         report = super().run(question)
         report.confidence_score = getattr(self, "confidence_score", 0.0)
         report.perspectives = list(self.perspectives)
-        self.on_event("ultra_listo", {"confidence_score": report.confidence_score, "perspectives": len(report.perspectives)})
+        self.on_event(
+            "ultra_listo",
+            {
+                "confidence_score": report.confidence_score,
+                "perspectives": len(report.perspectives),
+            },
+        )
         return report
 
 

@@ -58,7 +58,6 @@ Answer ONLY JSON:
 {{"title": "...", "scenes": [{{"say": "...", "picture": "..."}}]}}"""
 
 
-
 def ffmpeg_exe() -> str:
     found = shutil.which("ffmpeg")
     if found:
@@ -98,8 +97,21 @@ def plan(topic: str, scenes: int, ask: Any = None, style: str = "") -> dict[str,
             raise ValueError("pocas escenas")
         return {"title": str(data.get("title") or topic)[:60], "scenes": items[:10]}
 
-    is_rq = style in ("resultaaquee", "resulta_que", "resultaque", "resulta que") or any(
-        w in topic.lower() for w in ("resultaaquee", "resulta que", "curiosidad cotidiana", "por que la pantalla", "por que el ", "por que los ")
+    is_rq = style in (
+        "resultaaquee",
+        "resulta_que",
+        "resultaque",
+        "resulta que",
+    ) or any(
+        w in topic.lower()
+        for w in (
+            "resultaaquee",
+            "resulta que",
+            "curiosidad cotidiana",
+            "por que la pantalla",
+            "por que el ",
+            "por que los ",
+        )
     )
     prompt_tpl = RESULTA_QUE_SCRIPT_PROMPT if is_rq else SCRIPT_PROMPT
     raw = (ask or gemini_ask)(
@@ -130,8 +142,9 @@ def _caption(text: str, width: int) -> str:
     return "\n".join(lines[:4])
 
 
-
-def build_social_pack(topic: str, title: str, scenes: list[dict[str, Any]]) -> dict[str, Any]:
+def build_social_pack(
+    topic: str, title: str, scenes: list[dict[str, Any]]
+) -> dict[str, Any]:
     """Generate a viral social publication pack for Instagram Reels, TikTok and Shorts."""
     hook = scenes[0]["say"] if scenes else topic
     hashtags = [
@@ -147,7 +160,13 @@ def build_social_pack(topic: str, title: str, scenes: list[dict[str, Any]]) -> d
         "#shorts",
     ]
     loop_hint = scenes[-1]["say"] if scenes else ""
-    clean_topic = topic.replace("Por qué", "").replace("por que", "").replace("¿", "").replace("?", "").strip()
+    clean_topic = (
+        topic.replace("Por qué", "")
+        .replace("por que", "")
+        .replace("¿", "")
+        .replace("?", "")
+        .strip()
+    )
     return {
         "titulo_viral": f"¿Por qué {clean_topic}?"[:50],
         "copy_publicacion": (
@@ -250,7 +269,8 @@ def _render(
             subs = work / "subtitulos.ass"
             subs_kwargs = {"accent": accent} if accent else {}
             subs.write_text(
-                ass_document(sentences, durations, width, height, **subs_kwargs), encoding="utf-8"
+                ass_document(sentences, durations, width, height, **subs_kwargs),
+                encoding="utf-8",
             )
             cmd += ["-vf", filter_for(subs), "-c:v", "libx264", "-preset", "veryfast",
                     "-crf", "20", "-pix_fmt", "yuv420p"]  # fmt: skip
@@ -310,12 +330,27 @@ class VideoCreateTool(BaseTool):
         topic = " ".join(str(params.get("topic") or "").split())[:400]
         if len(topic) < 3:
             return self._fail("Dígame de qué trata el video.")
-        raw_style = str(params.get("style") or params.get("platform") or "").lower().strip()
-        is_rq = raw_style in ("resultaaquee", "resulta_que", "resultaque", "resulta que") or any(
-            w in topic.lower() for w in ("resultaaquee", "resulta que", "curiosidad cotidiana", "por que la pantalla")
+        raw_style = (
+            str(params.get("style") or params.get("platform") or "").lower().strip()
+        )
+        is_rq = raw_style in (
+            "resultaaquee",
+            "resulta_que",
+            "resultaque",
+            "resulta que",
+        ) or any(
+            w in topic.lower()
+            for w in (
+                "resultaaquee",
+                "resulta que",
+                "curiosidad cotidiana",
+                "por que la pantalla",
+            )
         )
         chosen_style = "resultaaquee" if is_rq else raw_style
-        seconds = min(90.0, max(15.0, float(params.get("seconds") or (40 if is_rq else 30))))
+        seconds = min(
+            90.0, max(15.0, float(params.get("seconds") or (40 if is_rq else 30)))
+        )
         aspect = str(params.get("aspect") or ("9:16" if is_rq else "16:9"))
         if aspect not in SIZES:
             aspect = "9:16" if is_rq else "16:9"
@@ -325,7 +360,9 @@ class VideoCreateTool(BaseTool):
             )
         try:
             try:
-                script = plan(topic, max(3, min(8, round(seconds / 6))), style=chosen_style)
+                script = plan(
+                    topic, max(3, min(8, round(seconds / 6))), style=chosen_style
+                )
             except TypeError:
                 script = plan(topic, max(3, min(8, round(seconds / 6))))
         except Exception as exc:  # noqa: BLE001
@@ -371,12 +408,18 @@ class VideoCreateTool(BaseTool):
                 t_cur = 0.0
                 for idx, dur in enumerate(durations):
                     if idx > 0:
-                        fx = "impact" if (is_rq and idx == 2) else ("pop" if idx % 2 else "whoosh")
+                        fx = (
+                            "impact"
+                            if (is_rq and idx == 2)
+                            else ("pop" if idx % 2 else "whoosh")
+                        )
                         events.append((t_cur, fx))
                     t_cur += dur
                 fx_samples = va.effects_track(events, v_total_s)
                 bed_samples = va.music_bed(v_total_s, bpm=86.0)
-                mixed = va.mix(v_samples, bed_samples, fx_samples, music_level=0.26, duck=0.70)
+                mixed = va.mix(
+                    v_samples, bed_samples, fx_samples, music_level=0.26, duck=0.70
+                )
                 voice = va.write_wav(mixed)
             except Exception:
                 pass
@@ -385,7 +428,15 @@ class VideoCreateTool(BaseTool):
         name = studio.media_name("video", ".mp4")
         out = studio.projects_root() / "videos" / name
         try:
-            render(pictures, sentences, durations, out, aspect=aspect, voice=voice, accent="&H00A3FF00" if is_rq else "")
+            render(
+                pictures,
+                sentences,
+                durations,
+                out,
+                aspect=aspect,
+                voice=voice,
+                accent="&H00A3FF00" if is_rq else "",
+            )
         except Exception as exc:  # noqa: BLE001
             detail = getattr(exc, "stderr", b"") or b""
             text = (
@@ -404,7 +455,10 @@ class VideoCreateTool(BaseTool):
             social_pack = build_social_pack(topic, script["title"], scenes)
             try:
                 pack_path = out.parent / f"{out.stem}_pack.json"
-                pack_path.write_text(json.dumps(social_pack, ensure_ascii=False, indent=2), encoding="utf-8")
+                pack_path.write_text(
+                    json.dumps(social_pack, ensure_ascii=False, indent=2),
+                    encoding="utf-8",
+                )
             except Exception:
                 pass
             social_md = (
@@ -419,10 +473,14 @@ class VideoCreateTool(BaseTool):
             tool_name=self.tool_id,
             content=(
                 f"Video listo: «{script['title']}», {len(scenes)} escenas{note}. "
-                f"Guardado en {out}.\n\n![{script['title']}]({url})"
-                + social_md
+                f"Guardado en {out}.\n\n![{script['title']}]({url})" + social_md
             ),
-            metadata={"url": url, "path": str(out), "title": script["title"], "social_pack": social_pack},
+            metadata={
+                "url": url,
+                "path": str(out),
+                "title": script["title"],
+                "social_pack": social_pack,
+            },
         )
 
     def _fail(self, text: str) -> ToolResult:

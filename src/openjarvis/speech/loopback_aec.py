@@ -123,11 +123,15 @@ class SystemLoopbackDetector:
                     ("szExeFile", ctypes.c_char * 260),
                 ]
 
-            h_snapshot = ctypes.windll.kernel32.CreateToolhelp32Snapshot(th32cs_snapprocess, 0)
+            h_snapshot = ctypes.windll.kernel32.CreateToolhelp32Snapshot(
+                th32cs_snapprocess, 0
+            )
             if h_snapshot != -1:
                 pe32 = PROCESSENTRY32()
                 pe32.dwSize = ctypes.sizeof(PROCESSENTRY32)
-                success = ctypes.windll.kernel32.Process32First(h_snapshot, ctypes.byref(pe32))
+                success = ctypes.windll.kernel32.Process32First(
+                    h_snapshot, ctypes.byref(pe32)
+                )
                 seen = set()
                 while success:
                     exe_name = pe32.szExeFile.decode("latin1", errors="ignore").lower()
@@ -141,7 +145,9 @@ class SystemLoopbackDetector:
                                 volume_level=1.0,
                             )
                         )
-                    success = ctypes.windll.kernel32.Process32Next(h_snapshot, ctypes.byref(pe32))
+                    success = ctypes.windll.kernel32.Process32Next(
+                        h_snapshot, ctypes.byref(pe32)
+                    )
                 ctypes.windll.kernel32.CloseHandle(h_snapshot)
                 return sessions
         except Exception as exc:
@@ -179,6 +185,7 @@ class SystemLoopbackDetector:
         sessions: List[ActiveMediaSession] = []
         try:
             from pathlib import Path
+
             proc_root = Path("/proc")
             if proc_root.exists():
                 seen = set()

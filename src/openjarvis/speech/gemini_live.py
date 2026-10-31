@@ -171,7 +171,8 @@ cuando el señor te ordene hacer algo (abrir y cerrar apps o webs, mirar y contr
 la pantalla, pedir comida o Uber, buscar productos y agregarlos al carrito, publicar \
 ventas en plataformas, enviar correos o mensajes pedidos, poner recordatorios y \
 temporizadores, señalar, cámara, manos, hologramas, estado del sistema, buscar, \
-el clima). Antes de una herramienta lenta di una frase corta ("Un momento.").
+el clima). Lo único que espera su sí es el último paso de comprar, pagar, \
+reservar, publicar o enviar: lo dejas listo, le dices qué es y lo confirma él. Antes de una herramienta lenta di una frase corta ("Un momento.").
 - Hologramas 3D (crear, modelar con las manos, esculpir, dibujar en el aire): \
 hologramas y manos; para llevarlos a Blender: hologramas_a_blender; para \
 modelar un objeto real que el usuario sostiene: objeto_a_blender.

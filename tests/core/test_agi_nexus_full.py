@@ -61,7 +61,9 @@ from openjarvis.tools.app_control import SergioAppControlTool
 
 def test_htn_decomposition_and_mcts():
     htn = HierarchicalTaskNetwork()
-    actions = htn.decompose("Reservar suite de 3000 USD por 1500 USD con cena Michelin y transferir 20000 USD")
+    actions = htn.decompose(
+        "Reservar suite de 3000 USD por 1500 USD con cena Michelin y transferir 20000 USD"
+    )
     assert len(actions) >= 4
 
     domains = [a.domain for a in actions]
@@ -72,7 +74,9 @@ def test_htn_decomposition_and_mcts():
     assert TacticalDomain.CRYPTOGRAPHIC_SEAL in domains
 
     planner = SubsecondReasoningPlanner()
-    graph = planner.formulate_plan("Organizar evento privado VIP en Ginebra con seguridad IoT")
+    graph = planner.formulate_plan(
+        "Organizar evento privado VIP en Ginebra con seguridad IoT"
+    )
     assert graph.root is not None
     assert len(graph.nodes) >= 3
 
@@ -94,17 +98,10 @@ def test_autonomous_execution_orchestrator():
 # ==============================================================================
 
 
-def test_stealth_antibot_fingerprint():
+def test_sergio_never_disguises_itself_from_bot_checks():
     fp = StealthAntiBotEvasion.generate_stealth_fingerprint()
-    assert fp.user_agent.startswith("Mozilla/5.0")
-    assert fp.ja4_signature.startswith("t13d")
-    assert fp.hardware_concurrency in [8, 12, 16]
-
-    script = StealthAntiBotEvasion.get_playwright_stealth_script(fp)
-    assert "navigator.webdriver" in script
-    assert "window.chrome" in script
-    assert "WebGLRenderingContext" in script
-    assert "CanvasRenderingContext2D" in script
+    assert "Sergio" in fp.user_agent
+    assert StealthAntiBotEvasion.get_playwright_stealth_script(fp) == ""
 
 
 def test_dynamic_api_synthesis_and_deep_scraper():
@@ -163,12 +160,16 @@ def test_identity_blinding_and_strict_confirmation_gate():
 
     gate = StrictConfirmationGate(enclave)
     # 1. Perception action: 100% autonomous
-    is_auto_1, req_1 = gate.request_authorization_if_needed("escanear_precios_hoteles", "Búsqueda web", 0.0)
+    is_auto_1, req_1 = gate.request_authorization_if_needed(
+        "escanear_precios_hoteles", "Búsqueda web", 0.0
+    )
     assert is_auto_1 is True
     assert req_1 is None
 
     # 2. Critical transfer action: GATED
-    is_auto_2, req_2 = gate.request_authorization_if_needed("transferencia_fondos", "Pago VIP", 25000.0)
+    is_auto_2, req_2 = gate.request_authorization_if_needed(
+        "transferencia_fondos", "Pago VIP", 25000.0
+    )
     assert is_auto_2 is False
     assert req_2 is not None
     assert req_2.risk_tier == OperationRiskTier.TIER_2_CRITICAL
@@ -196,15 +197,21 @@ def test_low_latency_barge_in_and_prosody():
     assert reason == "passive_backchannel_ignored"
 
     # 3. Hard command ("espera Sergio"): instant cutoff
-    interrupted, reason = barge.evaluate_audio_frame(0.060, partial_transcript="espera Sergio")
+    interrupted, reason = barge.evaluate_audio_frame(
+        0.060, partial_transcript="espera Sergio"
+    )
     assert interrupted is True
     assert reason == "hard_interrupt_confirmed"
 
     # Prosody adaptation
-    prosody_calm = BiometricProsodyModulator.compute_prosody(hrv_ms=35.0, stress_index=0.75)
+    prosody_calm = BiometricProsodyModulator.compute_prosody(
+        hrv_ms=35.0, stress_index=0.75
+    )
     assert prosody_calm.speech_rate < 1.0  # Slower, reassuring
 
-    prosody_flow = BiometricProsodyModulator.compute_prosody(hrv_ms=75.0, stress_index=0.15)
+    prosody_flow = BiometricProsodyModulator.compute_prosody(
+        hrv_ms=75.0, stress_index=0.15
+    )
     assert prosody_flow.speech_rate > 1.0  # Crisp, high-tempo
 
 
@@ -236,12 +243,17 @@ def test_biometric_telemetry_nexus():
     status = nexus.get_realtime_status()
     assert status["frecuencia_cardiaca_bpm"] > 50
     assert status["hrv_rmssd_ms"] > 40
-    assert status["evaluacion_predictiva"]["estado_alerta"] in ["enfoque_maximo", "moderado"]
+    assert status["evaluacion_predictiva"]["estado_alerta"] in [
+        "enfoque_maximo",
+        "moderado",
+    ]
 
 
 def test_physical_iot_orchestrator():
     orchestrator = PhysicalIoTOrchestrator()
-    res = orchestrator.synchronize_hardware_state("Sesión de trabajo de máxima concentración")
+    res = orchestrator.synchronize_hardware_state(
+        "Sesión de trabajo de máxima concentración"
+    )
     assert res["orquestacion_fisica"] == "completada"
     assert res["ambiente"]["preset_aplicado"] == EnvironmentPreset.FOCUS_FLOW.value
     assert res["audio"]["cancelacion_activa_ruido"] is True
@@ -262,7 +274,9 @@ def test_physical_iot_orchestrator():
 
 def test_platform_automation_nexus(tmp_path):
     pipeline = YouTubeAutonomousPipeline(storage_dir=tmp_path)
-    asset = pipeline.synthesize_video_release("Estrategias de Inversión y Arbitraje Cuántico")
+    asset = pipeline.synthesize_video_release(
+        "Estrategias de Inversión y Arbitraje Cuántico"
+    )
     assert "yt_vid_" in asset.asset_id
     assert len(asset.script_segments) == 4
     assert asset.duration_seconds == 58
@@ -277,11 +291,15 @@ def test_platform_automation_nexus(tmp_path):
     assert inbound.requires_approval_to_send is True
 
     # Attempt to dispatch without confirmation must fail
-    res_fail = comms.dispatch_outgoing_response(inbound.message_id, human_confirmation_token=None)
+    res_fail = comms.dispatch_outgoing_response(
+        inbound.message_id, human_confirmation_token=None
+    )
     assert res_fail["exito"] is False
 
     # Dispatch with confirmation succeeds
-    res_ok = comms.dispatch_outgoing_response(inbound.message_id, human_confirmation_token="tok_aprobado")
+    res_ok = comms.dispatch_outgoing_response(
+        inbound.message_id, human_confirmation_token="tok_aprobado"
+    )
     assert res_ok["exito"] is True
 
 
@@ -294,8 +312,12 @@ def test_evidence_nexus_merkle_tree(tmp_path):
     storage = tmp_path / "ledger.json"
     ledger = EvidenceNexusLedger(storage_path=storage)
 
-    p1 = ledger.record_proof("arbitraje_hotelero", "conserjeria", {"hotel": "Ritz"}, {"ahorro": 1500}, 24.5)
-    p2 = ledger.record_proof("sniper_michelin", "gastronomia", {"venue": "DiverXO"}, {"mesa": "VIP"}, 18.2)
+    p1 = ledger.record_proof(
+        "arbitraje_hotelero", "conserjeria", {"hotel": "Ritz"}, {"ahorro": 1500}, 24.5
+    )
+    p2 = ledger.record_proof(
+        "sniper_michelin", "gastronomia", {"venue": "DiverXO"}, {"mesa": "VIP"}, 18.2
+    )
 
     assert p1.merkle_leaf_hash != ""
     assert p2.merkle_leaf_hash != ""
@@ -320,12 +342,18 @@ def test_sergio_app_control_all_new_agi_actions(tmp_path, monkeypatch):
     assert "Telemetría Biométrica Activa" in r1.content
 
     # 2. iot_hardware_orchestrate
-    r2 = tool.execute(action="iot_hardware_orchestrate", content="concentracion_profunda")
+    r2 = tool.execute(
+        action="iot_hardware_orchestrate", content="concentracion_profunda"
+    )
     assert r2.success
     assert "Orquestación de Hardware Físico" in r2.content
 
     # 3. vertu_enclave_shield
-    r3 = tool.execute(action="vertu_enclave_shield", content="clave_bancaria_suiza", title="boveda_privada")
+    r3 = tool.execute(
+        action="vertu_enclave_shield",
+        content="clave_bancaria_suiza",
+        title="boveda_privada",
+    )
     assert r3.success
     assert "Sobre Criptográfico Vertu Generado" in r3.content
 
@@ -358,7 +386,9 @@ def test_mcts_branching_and_work_queue():
     )
     c2 = ReasoningNode(
         node_id="child_2",
-        action=TacticalAction("act_c2", "Rama B", TacticalDomain.ANTIBOT_EVASION, "Desc B"),
+        action=TacticalAction(
+            "act_c2", "Rama B", TacticalDomain.ANTIBOT_EVASION, "Desc B"
+        ),
         parent=root,
     )
     root.children = [c1, c2]
@@ -371,7 +401,9 @@ def test_mcts_branching_and_work_queue():
 def test_vertu_chacha20_dual_cipher():
     enclave = VertuCryptographicEnclave()
     raw = b"Datos sellados con ChaCha20-Poly1305"
-    sealed = enclave.seal_envelope(raw, context_aad="chacha_aad", cipher_algo="chacha20")
+    sealed = enclave.seal_envelope(
+        raw, context_aad="chacha_aad", cipher_algo="chacha20"
+    )
     assert "vertu:" in sealed
     unsealed = enclave.unseal_envelope(sealed, expected_aad="chacha_aad")
     assert unsealed == raw
@@ -436,7 +468,10 @@ def test_merkle_inclusion_proof_mathematical_validation(tmp_path):
     # Tampered sibling hash must fail verification
     tampered_proof = list(proof_3)
     tampered_proof[0] = {"position": tampered_proof[0]["position"], "hash": "0" * 64}
-    assert MerkleAuditTree.verify_inclusion_proof(leaf_hashes[3], tampered_proof, root) is False
+    assert (
+        MerkleAuditTree.verify_inclusion_proof(leaf_hashes[3], tampered_proof, root)
+        is False
+    )
 
 
 def test_agi_routes_endpoints(tmp_path):
@@ -501,5 +536,3 @@ def test_agi_cli_subcommands():
     r_sol = runner.invoke(agi, ["solve", "reservar Four Seasons noche"])
     assert r_sol.exit_code == 0
     assert "Misión Cumplida" in r_sol.output
-
-
