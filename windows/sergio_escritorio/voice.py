@@ -791,11 +791,38 @@ class SergioClient:
     last_brain = ""
 
     def brain(self, text: str) -> str:
-        """Model (with effort) for this request: Flash or Pro, low..high."""
+        """Model (with effort) for this request: Flash/Pro, Haiku/Sonnet, Mini/4o."""
         base = self.model()
-        if not base.startswith("gemini"):
-            return base  # Kimi or the local model: no effort levels
-        return choose_brain(text, self.effort, self.fast_model, self.deep_model)
+        m_low = base.lower()
+        if m_low.startswith(("gpt", "o1", "o3", "chatgpt")):
+            fast = "gpt-4o-mini"
+            deep = "gpt-4o"
+        elif m_low.startswith("claude"):
+            fast = "claude-haiku-3-5-20241022"
+            deep = "claude-sonnet-4-20250514"
+        elif m_low.startswith("openrouter"):
+            fast = "openrouter/anthropic/claude-3.5-haiku"
+            deep = "openrouter/anthropic/claude-3.5-sonnet"
+        elif m_low.startswith("deepseek"):
+            fast = "deepseek-v4-flash"
+            deep = "deepseek-v4-pro"
+        elif m_low.startswith("gemini"):
+            return choose_brain(text, self.effort, self.fast_model, self.deep_model)
+        else:
+            return base
+
+        if self.effort == "profundo":
+            return deep
+        if self.effort in ("rapido", "equilibrado"):
+            return fast
+        plain = _plain(text)
+        words = len(plain.split())
+        hard = _HARD_WORDS.intersection(plain.split()) or any(
+            p in plain for p in _HARD_PHRASES
+        )
+        if words > 35 or hard:
+            return deep
+        return fast
 
     def _chat(self, model: str, messages: list[dict]) -> httpx.Response:
         return self.http.post(

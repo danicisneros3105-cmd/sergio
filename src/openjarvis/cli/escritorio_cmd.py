@@ -157,14 +157,28 @@ def enable_tools(config_path: Path) -> None:
     config_path.write_text(tomlkit.dumps(doc))
 
 
-CLOUD_PREFIXES = ("kimi", "moonshot", "gemini")
+CLOUD_PREFIXES = (
+    "kimi",
+    "moonshot",
+    "gemini",
+    "claude",
+    "anthropic",
+    "gpt",
+    "o1",
+    "o3",
+    "chatgpt",
+    "openai",
+    "openrouter",
+    "deepseek",
+    "minimax",
+)
 GEMINI_MAIN = "gemini-3.8-flash"
 # Older Gemini defaults Sergio used before; upgraded automatically.
 OLD_GEMINI = {"gemini-2.5-flash", "gemini-3-flash-preview", "gemini-3-flash"}
 
 
 def prefer_cloud(config_path: Path, env: dict[str, str]) -> str:
-    """Use Kimi (or Gemini) as the brain when its key is saved.
+    """Use the best configured cloud model (Claude, ChatGPT, OpenRouter, DeepSeek, Gemini, Kimi).
 
     The local model is slow with Sergio's long instructions and some GPUs
     crash on them, so a saved cloud key always wins; the local model stays as
@@ -185,7 +199,15 @@ def prefer_cloud(config_path: Path, env: dict[str, str]) -> str:
         return GEMINI_MAIN
     if current.lower().startswith(CLOUD_PREFIXES):
         return current
-    if env.get("GEMINI_API_KEY"):
+    if env.get("ANTHROPIC_API_KEY"):
+        chosen = "claude-sonnet-4-20250514"
+    elif env.get("OPENAI_API_KEY"):
+        chosen = "gpt-4o"
+    elif env.get("OPENROUTER_API_KEY"):
+        chosen = "openrouter/anthropic/claude-3.5-sonnet"
+    elif env.get("DEEPSEEK_API_KEY"):
+        chosen = "deepseek-v4-flash"
+    elif env.get("GEMINI_API_KEY"):
         chosen = GEMINI_MAIN
     elif env.get("MOONSHOT_API_KEY"):
         chosen = "kimi-k2.6"

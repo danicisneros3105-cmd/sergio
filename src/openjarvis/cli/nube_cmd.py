@@ -66,13 +66,17 @@ def find_kimi(key: str, http: httpx.Client | None = None) -> tuple[str, list[str
 
 @click.group()
 def nube() -> None:
-    """Cloud models (Kimi, Gemini) for Sergio's brain."""
+    """Cloud models (ChatGPT, Claude, OpenRouter, DeepSeek, Kimi, Gemini) for Sergio's brain."""
 
 
 @nube.command("configurar")
 @click.option("--kimi", "kimi_key", default="", help="Kimi (Moonshot) API key.")
 @click.option("--gemini", "gemini_key", default="", help="Gemini / Google API key.")
-@click.option("--modelo", default="", help="Force a model id (e.g. kimi-k2.6).")
+@click.option("--openai", "openai_key", default="", help="OpenAI API key (ChatGPT, GPT-4o, o3-mini).")
+@click.option("--anthropic", "anthropic_key", default="", help="Anthropic API key (Claude 3.5 Sonnet, Claude Opus).")
+@click.option("--openrouter", "openrouter_key", default="", help="OpenRouter API key (Universal multi-model).")
+@click.option("--deepseek", "deepseek_key", default="", help="DeepSeek API key (DeepSeek-V3, R1).")
+@click.option("--modelo", default="", help="Force a model id (e.g. gpt-4o, claude-sonnet-4-20250514, gemini-3.8-flash, kimi-k2.6).")
 @click.option(
     "--tripo",
     "tripo_key",
@@ -80,7 +84,14 @@ def nube() -> None:
     help="Tripo 3D API key (tsk_..., platform.tripo3d.ai).",
 )
 def configurar(
-    kimi_key: str, gemini_key: str, modelo: str, tripo_key: str = ""
+    kimi_key: str = "",
+    gemini_key: str = "",
+    modelo: str = "",
+    tripo_key: str = "",
+    openai_key: str = "",
+    anthropic_key: str = "",
+    openrouter_key: str = "",
+    deepseek_key: str = "",
 ) -> None:
     """Save the keys, check them and pick Sergio's main cloud model."""
     from openjarvis.tiers import require
@@ -103,23 +114,43 @@ def configurar(
             )
         write_env(env_path, {"TRIPO_API_KEY": tripo_key})
         console.print("[green]Tripo listo[/green]: «hazme en 3D con Tripo …».")
-        if not kimi_key and not gemini_key:
+        if not any([kimi_key, gemini_key, openai_key, anthropic_key, openrouter_key, deepseek_key]):
             return
-    if not kimi_key and not gemini_key:
-        # Gemini is Sergio's cloud brain; Kimi stays possible with --kimi.
+    if not any([kimi_key, gemini_key, openai_key, anthropic_key, openrouter_key, deepseek_key]):
+        # Prompt for key if none provided
         gemini_key = click.prompt(
-            "Clave de Gemini",
+            "Clave de API (Gemini / OpenAI / Anthropic)",
             default="",
             hide_input=True,
             show_default=False,
         ).strip()
     kimi_key = clean_key(kimi_key or env.get("MOONSHOT_API_KEY", ""))
     gemini_key = clean_key(gemini_key or env.get("GEMINI_API_KEY", ""))
-    if not kimi_key and not gemini_key:
+    openai_key = clean_key(openai_key or env.get("OPENAI_API_KEY", ""))
+    anthropic_key = clean_key(anthropic_key or env.get("ANTHROPIC_API_KEY", ""))
+    openrouter_key = clean_key(openrouter_key or env.get("OPENROUTER_API_KEY", ""))
+    deepseek_key = clean_key(deepseek_key or env.get("DEEPSEEK_API_KEY", ""))
+    if not any([kimi_key, gemini_key, openai_key, anthropic_key, openrouter_key, deepseek_key]):
         raise click.ClickException("No keys given.")
 
     updates: dict[str, str] = {}
     main_model = modelo
+    if openai_key:
+        updates["OPENAI_API_KEY"] = openai_key
+        main_model = main_model or "gpt-4o"
+        console.print(f"[green]OpenAI / ChatGPT listo[/green]: modelo {main_model}")
+    if anthropic_key:
+        updates["ANTHROPIC_API_KEY"] = anthropic_key
+        main_model = main_model or "claude-sonnet-4-20250514"
+        console.print(f"[green]Claude / Anthropic listo[/green]: modelo {main_model}")
+    if openrouter_key:
+        updates["OPENROUTER_API_KEY"] = openrouter_key
+        main_model = main_model or "openrouter/anthropic/claude-3.5-sonnet"
+        console.print(f"[green]OpenRouter listo[/green]: modelo {main_model}")
+    if deepseek_key:
+        updates["DEEPSEEK_API_KEY"] = deepseek_key
+        main_model = main_model or "deepseek-v4-flash"
+        console.print(f"[green]DeepSeek listo[/green]: modelo {main_model}")
     if kimi_key:
         # A bad Kimi key must not stop Gemini from being saved.
         try:
