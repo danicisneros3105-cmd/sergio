@@ -130,6 +130,41 @@ def _caption(text: str, width: int) -> str:
     return "\n".join(lines[:4])
 
 
+
+def build_social_pack(topic: str, title: str, scenes: list[dict[str, Any]]) -> dict[str, Any]:
+    """Generate a viral social publication pack for Instagram Reels, TikTok and Shorts."""
+    hook = scenes[0]["say"] if scenes else topic
+    hashtags = [
+        "#curiosidades",
+        "#resultaque",
+        "#ciencia",
+        "#sabiasque",
+        "#datoscuriosos",
+        "#tecnologia",
+        "#aprendeconmigo",
+        "#reelsviral",
+        "#tiktokviral",
+        "#shorts",
+    ]
+    loop_hint = scenes[-1]["say"] if scenes else ""
+    clean_topic = topic.replace("Por qué", "").replace("por que", "").replace("¿", "").replace("?", "").strip()
+    return {
+        "titulo_viral": f"¿Por qué {clean_topic}?"[:50],
+        "copy_publicacion": (
+            f"🤯 {hook}\n\n"
+            f"¿Alguna vez te lo habías preguntado? Resulta que la explicación real te va a volar la cabeza. "
+            f"Mira el video hasta el final para ver la animación 3D del interior. 👇\n\n"
+            f"{' '.join(hashtags)}"
+        ),
+        "comentario_fijado": (
+            "💬 ¿Tú ya sabías esto o también creías que era por otra razón? "
+            "Déjamelo en los comentarios. 👇"
+        ),
+        "bucle_infinito": f"La última frase ('{loop_hint[:35]}...') conecta gramaticalmente con el gancho inicial para retención >100%.",
+        "hashtags": hashtags,
+    }
+
+
 def render(
     pictures: list[bytes],
     sentences: list[str],
@@ -340,13 +375,31 @@ class VideoCreateTool(BaseTool):
             if voice
             else " (sin voz: hoy no hubo cuota de voz; lleva el texto en pantalla)"
         )
+        social_md = ""
+        social_pack = {}
+        if is_rq:
+            social_pack = build_social_pack(topic, script["title"], scenes)
+            try:
+                pack_path = out.parent / f"{out.stem}_pack.json"
+                pack_path.write_text(json.dumps(social_pack, ensure_ascii=False, indent=2), encoding="utf-8")
+            except Exception:
+                pass
+            social_md = (
+                f"\n\n📱 **Ficha de Publicación para Redes (Reels / TikTok / Shorts):**\n"
+                f"- **Título sugerido:** «{social_pack['titulo_viral']}»\n"
+                f"- **Comentario fijado (Engagement):** «{social_pack['comentario_fijado']}»\n"
+                f"- **Bucle infinito:** {social_pack['bucle_infinito']}\n"
+                f"- **Hashtags:** `{' '.join(social_pack['hashtags'][:5])}`"
+            )
+
         return ToolResult(
             tool_name=self.tool_id,
             content=(
                 f"Video listo: «{script['title']}», {len(scenes)} escenas{note}. "
                 f"Guardado en {out}.\n\n![{script['title']}]({url})"
+                + social_md
             ),
-            metadata={"url": url, "path": str(out), "title": script["title"]},
+            metadata={"url": url, "path": str(out), "title": script["title"], "social_pack": social_pack},
         )
 
     def _fail(self, text: str) -> ToolResult:

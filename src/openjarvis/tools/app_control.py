@@ -758,11 +758,14 @@ class SergioAppControlTool(BaseTool):
                     tool_name=self.tool_id,
                     content=(
                         f"🎩 **Conserjería Privada Confirmada — Categoría #{plan['categoria_numero']}: {plan['categoria_nombre']}**\n"
+                        f"- **Código de Orden VIP:** `{plan.get('codigo_seguimiento', 'CNG-VIP')}` (SLA de despacho: {plan.get('sla_minutos', 30)} min)\n"
                         f"- **Solicitud:** {plan['solicitud']}\n"
                         f"- **Destino / Ubicación:** {plan['destino']}\n"
                         f"- **Plazo / Prioridad:** {plan['plazo']}\n"
                         f"- **Logística VIP activada:** {plan['logistica']}\n"
                         f"- **Seguridad:** {plan['face_id']['summary']}\n"
+                        f"- **Ruta de Despacho:** Tier 1: `{plan.get('ruta_tier1', {}).get('nombre', 'Primario')}` | Tier 2 (Respaldo): `{plan.get('ruta_tier2', {}).get('nombre', 'Secundario')}`\n"
+                        f"- **Carta de Requerimiento Oficial:** Pre-redactada y lista para envío al Maître D' / FBO / Boutique.\n"
                         f"- **Portales y Canales Oficiales Abiertos:**\n{portals_md}"
                         + sourcing_md
                         + f"\n- **Recordatorio proactivo creado automáticamente:** {plan['recordatorio_proactivo']['titulo']} ({plan['recordatorio_proactivo']['cuando']})\n"

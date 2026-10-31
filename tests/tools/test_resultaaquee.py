@@ -5,8 +5,9 @@ from __future__ import annotations
 import json
 from openjarvis.connectome import neurons
 from openjarvis.tools.app_control import SergioAppControlTool
-from openjarvis.tools.video_create import VideoCreateTool, plan
+from openjarvis.tools.video_create import VideoCreateTool, plan, build_social_pack
 from openjarvis.tools.video_style import find_style, available
+from openjarvis.tools import commerce_intel as ci
 from openjarvis.video_essay import genres
 
 
@@ -73,6 +74,19 @@ def test_plan_uses_resultaaquee_script_formula(monkeypatch):
     assert "RESULTA_QUE_SCRIPT_PROMPT" in str(plan) or "@resultaaquee" in captured_prompt[0]
 
 
+def test_build_social_pack_generates_viral_kit():
+    scenes = [
+        {"say": "¿Por qué las ventanas de los aviones tienen un agujero diminuto?"},
+        {"say": "Resulta que equilibra la presión entre el cristal exterior y la cabina."},
+        {"say": "Por eso nunca debes preocuparte cuando veas..."},
+    ]
+    pack = build_social_pack("Por qué los aviones tienen un agujero en la ventana", "El Agujero del Avión", scenes)
+    assert "¿Por qué" in pack["titulo_viral"]
+    assert "#resultaque" in pack["copy_publicacion"]
+    assert "💬" in pack["comentario_fijado"]
+    assert "conecta gramaticalmente" in pack["bucle_infinito"]
+
+
 def test_sergio_app_control_handles_resultaaquee_action():
     tool = SergioAppControlTool()
     res = tool.execute(
@@ -90,3 +104,29 @@ def test_connectome_neuron_selects_video_for_resultaaquee():
     sel = neurons.select(neurons.normalise(phrase), {})
     assert sel is not None
     assert "video" in sel.neurons or "sergio_app" in sel.tools
+
+
+def test_concierge_enhanced_mandate_and_tracking_code(tmp_path, monkeypatch):
+    monkeypatch.setattr("pathlib.Path.home", lambda: tmp_path)
+
+    plan_res = ci.execute_concierge_plan(
+        "Mi vuelo comercial se canceló. Necesito un jet privado listo en dos horas y suite de lujo preparada.",
+        category_hint="travel_aviation",
+        destination="Ginebra / Suiza",
+        when="en 2 horas",
+    )
+    assert plan_res["codigo_seguimiento"].startswith("CNG-TRA-")
+    assert plan_res["sla_minutos"] == 15
+    assert "VIP MANDATE & EXECUTIVE REQUISITION" in plan_res["carta_vip_mandato"]
+    assert "travel_aviation" == plan_res["categoria_clave"]
+    assert plan_res["ruta_tier1"]["nombre"] != ""
+    assert plan_res["ruta_tier2"]["nombre"] != ""
+
+    dossier = tmp_path / "Sergio" / "concierge"
+    files = list(dossier.glob("orden_*.md"))
+    assert len(files) == 1
+    content = files[0].read_text(encoding="utf-8")
+    assert plan_res["codigo_seguimiento"] in content
+    assert "Carta de Requerimiento VIP" in content
+    assert "Ruta Tier 1" in content
+    assert "Ruta Tier 2" in content
