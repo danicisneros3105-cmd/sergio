@@ -324,7 +324,10 @@ class VideoCreateTool(BaseTool):
                 "Falta el programa de video (ffmpeg). Actualice Sergio y vuelva a pedirlo."
             )
         try:
-            script = plan(topic, max(3, min(8, round(seconds / 6))), style=chosen_style)
+            try:
+                script = plan(topic, max(3, min(8, round(seconds / 6))), style=chosen_style)
+            except TypeError:
+                script = plan(topic, max(3, min(8, round(seconds / 6))))
         except Exception as exc:  # noqa: BLE001
             return self._fail(f"No pude escribir el guion: {str(exc)[:200]}")
         scenes = script["scenes"]
@@ -357,6 +360,26 @@ class VideoCreateTool(BaseTool):
                 for s in sentences
             ]
             durations = [total * w / sum(weights) for w in weights]
+
+            # Studio Audio Mix: Ducked Music Bed + Transition SFX
+            try:
+                from openjarvis.video_essay import audio as va
+
+                v_samples = va.read_wav(voice)
+                v_total_s = len(v_samples) / float(va.SR or 48000)
+                events = []
+                t_cur = 0.0
+                for idx, dur in enumerate(durations):
+                    if idx > 0:
+                        fx = "impact" if (is_rq and idx == 2) else ("pop" if idx % 2 else "whoosh")
+                        events.append((t_cur, fx))
+                    t_cur += dur
+                fx_samples = va.effects_track(events, v_total_s)
+                bed_samples = va.music_bed(v_total_s, bpm=86.0)
+                mixed = va.mix(v_samples, bed_samples, fx_samples, music_level=0.26, duck=0.70)
+                voice = va.write_wav(mixed)
+            except Exception:
+                pass
         else:
             durations = [max(3.0, seconds / len(scenes))] * len(scenes)
         name = studio.media_name("video", ".mp4")

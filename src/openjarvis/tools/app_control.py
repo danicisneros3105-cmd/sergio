@@ -754,6 +754,7 @@ class SergioAppControlTool(BaseTool):
                         for s in plan["sourcing_intel"]["mejores_vendedores"][:3]
                     ]
                     sourcing_md = "\n- **Sourcing y Autenticidad Verificada:**\n" + "\n".join(v_lines)
+                card_md = ci.generate_concierge_dashboard_card(plan)
                 return ToolResult(
                     tool_name=self.tool_id,
                     content=(
@@ -768,6 +769,7 @@ class SergioAppControlTool(BaseTool):
                         f"- **Carta de Requerimiento Oficial:** Pre-redactada y lista para envío al Maître D' / FBO / Boutique.\n"
                         f"- **Portales y Canales Oficiales Abiertos:**\n{portals_md}"
                         + sourcing_md
+                        + f"\n\n{card_md}"
                         + f"\n- **Recordatorio proactivo creado automáticamente:** {plan['recordatorio_proactivo']['titulo']} ({plan['recordatorio_proactivo']['cuando']})\n"
                         + f"- **Ejecución en vivo:** Dossier guardado en `{plan['dossier_path']}` y operación ejecutada ({op_res.content})."
                     ),

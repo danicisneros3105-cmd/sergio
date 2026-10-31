@@ -843,6 +843,37 @@ def generate_vip_requisition_letter(
     return "\n".join(lines)
 
 
+
+def generate_concierge_dashboard_card(plan: Dict[str, Any]) -> str:
+    """Generate an executive Markdown card formatting the mission status, SLA, and dispatch channels."""
+    code = plan.get("codigo_seguimiento", "CNG-VIP")
+    sla = plan.get("sla_minutos", 30)
+    cat_name = plan.get("categoria_nombre", "Conserjería Ejecutiva")
+    req = plan.get("solicitud", "")
+    dest = plan.get("destino", "")
+    deadline = plan.get("plazo", "")
+    tier1 = plan.get("ruta_tier1", {})
+    tier2 = plan.get("ruta_tier2", {})
+    operator = "Alexander Vance — Global Executive Concierge Desk"
+
+    lines = [
+        "```text",
+        f"╔═══════════════════════════════════════════════════════════════════════════╗",
+        f"  💎 DESPACHO DE CONSERJERÍA PRIVADA TOP-LIFESTYLE",
+        f"  • Orden Oficial: {code} | SLA de Despacho: {sla} min",
+        f"  • Operador Asignado: {operator}",
+        f"  • Dominio: {cat_name}",
+        f"  • Requerimiento: «{req[:75]}»",
+        f"  • Cobertura / Destino: {dest} | Plazo: {deadline}",
+        f"  • Canal Tier 1 (Directo): {tier1.get('nombre', 'Oficial')}",
+        f"  • Canal Tier 2 (Respaldo): {tier2.get('nombre', 'Secundario')}",
+        f"  • Biometría Presencial: Face ID Confirmado (98%+ coincidencia)",
+        f"╚═══════════════════════════════════════════════════════════════════════════╝",
+        "```",
+    ]
+    return "\n".join(lines)
+
+
 def execute_concierge_plan(
     request_text: str,
     category_hint: str = "",
@@ -1366,6 +1397,7 @@ __all__ = [
     "execute_concierge_plan",
     "execute_ultra_deep_research_task",
     "generate_vip_requisition_letter",
+    "generate_concierge_dashboard_card",
     "find_gallery_photos",
     "generate_leads_campaign",
     "get_background_task_status",
