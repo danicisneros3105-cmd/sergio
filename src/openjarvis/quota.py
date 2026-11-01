@@ -88,11 +88,27 @@ def today(now: Optional[float] = None) -> str:
 def multiplier() -> int:
     """How many times Free's use the current plan allows."""
     from openjarvis import tiers
+    from openjarvis.accounts import provision
 
+    who = provision.CUSTOMER.get()
+    if who:  # a customer: THEIR plan and what they pay, never the owner's
+        mine = provision.plan_info(who)
+        return tiers.mult_for_usd(mine["plan"], mine.get("usd"))
     mine = tiers.current()
     info = tiers.PLAN_INFO[mine["plan"]]
     chosen = int(mine.get("mult") or info.mult)
     return max(info.mult, min(info.mult_max or info.mult, chosen))
+
+
+def plan_now() -> str:
+    """The plan whose limits apply now: the customer's own, or the owner's."""
+    from openjarvis import tiers
+    from openjarvis.accounts import provision
+
+    who = provision.CUSTOMER.get()
+    if who:
+        return tiers.plan_id(provision.plan_info(who)["plan"])
+    return tiers.current()["plan"]
 
 
 def limits(mult: Optional[int] = None) -> Dict[str, int]:
@@ -136,7 +152,7 @@ def check(kind: str) -> None:
 
     limit = limits()[kind]
     if used().get(kind, 0) >= limit:
-        raise QuotaExceeded(kind, limit, tiers.PLAN_INFO[tiers.current()["plan"]].name)
+        raise QuotaExceeded(kind, limit, tiers.PLAN_INFO[plan_now()].name)
 
 
 def take(kind: str, n: float = 1) -> None:

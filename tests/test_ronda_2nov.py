@@ -577,3 +577,39 @@ def test_today_reads_a_connected_calendar_with_its_own_list_tool():
 
     got = agenda._connected_calendar(Hub(), day="2026-11-02")
     assert "Reunión con Ana" in got
+
+
+# -- polish round (plans) ----------------------------------------------------------------
+
+
+def test_a_customer_gets_their_own_plan_and_paid_multiplier(monkeypatch):
+    from openjarvis import quota, tiers
+    from openjarvis.accounts import provision
+
+    monkeypatch.setattr(tiers, "current", lambda: {"plan": "founders", "mult": 60})
+    monkeypatch.setattr(provision, "plan_info", lambda uid: {"plan": "dev", "usd": 115})
+    token = provision.CUSTOMER.set("cliente-1")
+    try:
+        assert quota.multiplier() == 23  # Dev at its top price, not the owner's 60
+        assert quota.plan_now() == "dev"
+    finally:
+        provision.CUSTOMER.reset(token)
+    assert quota.multiplier() == 60  # the owner keeps his own
+
+
+def test_mult_for_usd_is_the_inverse_of_the_price():
+    from openjarvis import tiers
+
+    for mult in (10, 15, 23):
+        assert tiers.mult_for_usd("dev", tiers.stretch_usd("dev", mult)) == mult
+    assert tiers.mult_for_usd("dev", None) == 10
+    assert tiers.mult_for_usd("work", 21) == 5
+
+
+def test_unbuilt_plan_features_say_coming_soon():
+    from openjarvis import tiers
+
+    assert "sso" in tiers.SOON and "custom_api" not in tiers.SOON
+    texts = [h for p in tiers.PLAN_INFO.values() for h in p.includes]
+    assert any("(próximamente)" in h for h in texts)
+    assert "Acceso prioritario" not in texts  # only with «(próximamente)»

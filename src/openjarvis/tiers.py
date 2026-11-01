@@ -106,8 +106,9 @@ PLAN_INFO: Dict[str, Plan] = {
         "Ideal para profesionales.",
         [
             "Todo lo de Go",
-            "Sincronización alojada, skills y plugins premium",
-            "Actualizaciones anticipadas",
+            "Skills y plugins premium",
+            "Sincronización alojada (próximamente)",
+            "Actualizaciones anticipadas (próximamente)",
         ],
     ),
     "dev": Plan(
@@ -118,8 +119,8 @@ PLAN_INFO: Dict[str, Plan] = {
         "Centrado en desarrolladores. Se estira según lo que necesite.",
         [
             "Todo lo de Work",
-            "Acceso prioritario",
-            "Modelos y herramientas avanzadas",
+            "Acceso prioritario (próximamente)",
+            "Modelos y herramientas avanzadas (próximamente)",
             "Claves de API propias y API de Sergio para sus programas",
         ],
         usd_max=115,
@@ -135,13 +136,25 @@ PLAN_INFO: Dict[str, Plan] = {
             "Todo lo de Dev",
             "Acceso completo a todas las herramientas y funciones",
             "Organización por proyectos",
-            "Acceso prioritario",
-            "Varios usuarios, roles y exportación de auditoría",
+            "Varios usuarios",
+            "Roles, exportación de auditoría e inicio de sesión único (próximamente)",
         ],
         usd_max=235,
         mult_max=60,
     ),
 }
+
+
+def mult_for_usd(plan: str, usd: Optional[float]) -> int:
+    """The multiplier a payment of *usd* buys on *plan* (the inverse of
+    :func:`stretch_usd`; the plan's lowest when the amount is unknown)."""
+    info = PLAN_INFO[plan_id(plan)]
+    if not info.stretch or not usd:
+        return info.mult
+    span = info.mult_max - info.mult
+    share = (float(usd) - info.usd) / max(1e-9, info.usd_max - info.usd)
+    mult = info.mult + int(round(share * span + 1e-9))
+    return max(info.mult, min(info.mult_max, mult))
 
 
 def stretch_usd(plan: str, mult: int) -> int:
@@ -171,6 +184,21 @@ FEATURES: Dict[str, str] = {
     "on_prem": "founders",
     "sla_support": "founders",
 }
+# Promised on the plans but not built yet (owner rule: never sell what is not
+# there). The page says «Próximamente»; remove an id here once it works.
+SOON = frozenset(
+    {
+        "hosted_sync",
+        "early_updates",
+        "priority",
+        "advanced_models",
+        "sso",
+        "rbac",
+        "audit_export",
+        "on_prem",
+        "sla_support",
+    }
+)
 FEATURES_ES = {
     "hosted_sync": "sincronización alojada",
     "premium_skills": "skills y plugins premium",

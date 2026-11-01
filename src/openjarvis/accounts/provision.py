@@ -214,6 +214,7 @@ def ensure(
             "hash": info.get("hash", ""),
             "limit": limit,
             "plan": plan,
+            "usd": usd,  # what they pay: the multiplier of a plan that stretches
         }
         _save(data, home)
         return True
@@ -236,15 +237,24 @@ def set_plan(
             return False
         limit = budget(plan, usd)
         if entry.get("plan") == plan and entry.get("limit") == limit:
+            if entry.get("usd") != usd:
+                entry["usd"] = usd
+                _save(data, home)
             return True  # already so: nothing to send
         try:
             _call("PATCH", f"{API}/{entry['hash']}", {"limit": limit}, http)
         except Exception as exc:  # noqa: BLE001
             log.warning("customer limit not changed: %s", exc)
             return False
-        entry.update(limit=limit, plan=plan)
+        entry.update(limit=limit, plan=plan, usd=usd)
         _save(data, home)
         return True
+
+
+def plan_info(uid: str, home: Optional[Path] = None) -> Dict[str, Any]:
+    """The customer's own plan and what they pay (``{"plan", "usd"}``)."""
+    entry = _load(home).get(uid) or {}
+    return {"plan": entry.get("plan") or "free", "usd": entry.get("usd")}
 
 
 def disable(uid: str, *, http: Any = None, home: Optional[Path] = None) -> bool:

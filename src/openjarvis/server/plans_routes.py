@@ -79,6 +79,7 @@ def _account() -> Dict[str, Any]:
                 "label": tiers.FEATURES_ES[f],
                 "on": tiers.has_feature(f),
                 "plan": tiers.FEATURES[f],
+                "soon": f in tiers.SOON,
             }
             for f in tiers.FEATURES
         ],

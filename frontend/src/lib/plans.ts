@@ -39,7 +39,7 @@ export interface Account {
   expires_text: string;
   mult: number;
   problem: string;
-  features: Array<{ id: string; label: string; on: boolean; plan: string }>;
+  features: Array<{ id: string; label: string; on: boolean; plan: string; soon?: boolean }>;
 }
 
 export interface Me {

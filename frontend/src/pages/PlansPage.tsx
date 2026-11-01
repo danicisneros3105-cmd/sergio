@@ -398,7 +398,13 @@ export function PlansPage() {
             {account.features.map((f) => (
               <div key={f.id}>
                 <span>{f.label}</span>
-                <span>{f.on ? 'Incluido' : `Desde ${f.plan === 'founders' ? 'Founders' : f.plan[0].toUpperCase() + f.plan.slice(1)}`}</span>
+                <span>
+                  {f.soon
+                    ? 'Próximamente'
+                    : f.on
+                      ? 'Incluido'
+                      : `Desde ${f.plan === 'founders' ? 'Founders' : f.plan[0].toUpperCase() + f.plan.slice(1)}`}
+                </span>
               </div>
             ))}
           </div>
