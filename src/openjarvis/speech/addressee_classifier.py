@@ -10,10 +10,10 @@ Prevents Sergio from interrupting the user when conversing with third parties in
 
 from __future__ import annotations
 
-from enum import Enum
 import re
 import unicodedata
-from typing import Any, Dict, List, Optional, Tuple
+from enum import Enum
+from typing import Tuple
 
 
 class AddresseeTarget(str, Enum):
@@ -43,7 +43,7 @@ class AddresseeClassifier:
     # Explicit phrases indicating speaker is on phone or addressing a room companion
     _SIDE_CONVERSATION_MARKERS = [
         r"\b(no te hablo|no era para ti|hablo con otra persona|estoy hablando por telefono|no te estoy hablando)\b",
-        r"\b(hablaba con|hablo con|estoy en llamada|estoy al telefono|me estan llamando|dile a|preguntale a)\b",
+        r"\b(hablaba con|hablo con|estoy en llamada|estoy al telefono|me estan llamando)\b",
         r"\b(oye mama|mama|papa|amor|carino|hijo|hija|hermano|hermana|amigo|tia|tio|abuela|abuelo)\b",
         r"\b(pasame (el|la|los|las|eso)|alcanzame|sirveme|quieres comer|vamos a comer|que vas a querer)\b",
         r"\b(entonces le dije|fijate que|sabes que paso|te cuento que|me dijo que|estaba pensando que nosotros)\b",
@@ -57,6 +57,7 @@ class AddresseeClassifier:
         r"\b(dime|cuentame|explicame|leeme|resume|muestra|muestrame|ensename)\b",
         r"\b(pon|reproduce|cambia|sube|baja|silencia|pausa)\b",
         r"\b(reserva|compra|cotiza|arbitra|envia|manda|redacta)\b",
+        r"\b(dile a|preguntale a|avisale a|escribele a|comentale a)\b",
         r"\b(que hora es|como esta el clima|cual es el precio|cuanto cuesta|que significa|como se dice)\b",
         r"\b(ayudame|necesito que|quiero que|puedes (abrir|buscar|decirme|ver|hacer))\b",
     ]

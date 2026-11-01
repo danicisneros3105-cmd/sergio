@@ -14,9 +14,9 @@ from __future__ import annotations
 import json
 import logging
 import math
+import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-import time
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
@@ -461,6 +461,10 @@ class VoiceprintManager:
             self.profile.embedding = new_emb.tolist()
             self.profile.sample_count += 1
             self.profile.last_calibrated_at = now
+            if metrics["pitch_f0"] > 50.0:
+                old_f0 = float(self.profile.baseline_pitch_f0_mean)
+                new_f0 = (old_f0 * float(current_samples) + metrics["pitch_f0"]) / float(current_samples + 1)
+                self.profile.baseline_pitch_f0_mean = round(new_f0, 1)
 
         self.save_profile()
         return {
@@ -506,11 +510,18 @@ class VoiceprintManager:
         raw_similarity = float(np.dot(owner_emb, emb))
         raw_similarity = max(-1.0, min(1.0, raw_similarity))
 
-        # Physiological F0 vocal cord harmonic matching
+        # Physiological F0 vocal cord harmonic matching with octave-jump tolerance
         sample_f0 = float(metrics["pitch_f0"])
         owner_f0 = float(self.profile.baseline_pitch_f0_mean)
         if sample_f0 > 50.0 and owner_f0 > 50.0:
-            pitch_ratio = min(sample_f0, owner_f0) / max(sample_f0, owner_f0)
+            base_ratio = min(sample_f0, owner_f0) / max(sample_f0, owner_f0)
+            # Only tolerate octave doubling/halving if spectral envelope formants already match
+            if raw_similarity >= 0.70:
+                oct_up = min(sample_f0 * 0.5, owner_f0) / max(sample_f0 * 0.5, owner_f0)
+                oct_down = min(sample_f0, owner_f0 * 0.5) / max(sample_f0, owner_f0 * 0.5)
+                pitch_ratio = max(base_ratio, oct_up, oct_down)
+            else:
+                pitch_ratio = base_ratio
             similarity = 0.65 * raw_similarity + 0.35 * pitch_ratio
         else:
             similarity = raw_similarity

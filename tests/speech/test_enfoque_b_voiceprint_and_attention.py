@@ -107,9 +107,18 @@ def test_addressee_intent_classifier_agent_commands():
     assert target2 == AddresseeTarget.AGENT
     assert conf2 >= 0.70
 
-    # Imperative directive
+    # Imperative directive & delegation
     target3, conf3, _ = classifier.classify_utterance("Abre la terminal y ejecuta las pruebas")
     assert target3 == AddresseeTarget.AGENT
+
+    # Delegation directives to assistant (should NOT be classified as side-talk)
+    target4, conf4, _ = classifier.classify_utterance("Sergio, dile a Juan que llego en 10 minutos")
+    assert target4 == AddresseeTarget.AGENT
+
+    target5, conf5, _ = classifier.classify_utterance(
+        "Ahora pregúntale a María si tiene el informe", recent_exchange_active=True
+    )
+    assert target5 == AddresseeTarget.AGENT
 
 
 def test_attention_pipeline_rejects_third_party_and_media(tmp_path, monkeypatch):
