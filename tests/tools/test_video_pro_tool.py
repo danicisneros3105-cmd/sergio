@@ -38,7 +38,9 @@ def test_video_pro_sends_the_brief_and_reports_every_deliverable(monkeypatch):
         and "ProRes" in result.content
         and "face_approval" in result.content
     )
-    assert "video_pro" in tool.spec.name and tool.spec.timeout_seconds == 3600
+    assert (
+        "video_pro" in tool.spec.name and tool.spec.timeout_seconds == 6 * 3600
+    )  # long edits of his own clips
 
 
 def test_video_pro_reports_a_failure_plainly(monkeypatch):

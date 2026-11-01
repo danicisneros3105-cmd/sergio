@@ -26,7 +26,10 @@ def test_many_clips_are_edited_in_groups_and_joined(tmp_path, monkeypatch):
         seen_groups.append((len(sheets), request))
         return {"youtube": {"title": "T", "description": "D", "tags": ["a"]}}
 
+    musics = []
+
     def render_command(group, plan, out, **kw):
+        musics.append(kw.get("music"))
         return ["make", str(out)]
 
     joined = []
@@ -42,10 +45,18 @@ def test_many_clips_are_edited_in_groups_and_joined(tmp_path, monkeypatch):
 
     monkeypatch.setattr(video_pro, "render_command", render_command)
     monkeypatch.setattr(video_pro.subprocess, "run", run)
-    done = video_pro.edit("", "un resumen del viaje", planner, clips=clips)
+    song = tmp_path / "cancion.mp3"
+    song.write_bytes(b"mp3")
+    done = video_pro.edit(
+        "", "un resumen del viaje", planner, clips=clips, music=str(song)
+    )
     assert [n for n, _r in seen_groups] == [12, 12, 6]
     assert "Parte 2 de 3" in seen_groups[1][1]
     assert len(joined) == 1 and Path(done["path"]).exists()
+    assert musics == ["", "", ""]  # the groups have no music...
+    assert str(song) in joined[0] and "amix" in " ".join(
+        joined[0]
+    )  # ...it runs once, under all
     assert done["clips"] == 30
     assert not list((tmp_path / "Videos" / "Sergio").glob("*parte*"))
 

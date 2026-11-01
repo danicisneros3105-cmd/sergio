@@ -259,10 +259,10 @@ def edit(
         for n, group in enumerate(groups, 1):
             part = out_dir / f"video-pro-{stamp}-parte{n:02d}.mp4"
             note = f"{request}\n(Parte {n} de {len(groups)} de un video largo: sigue el mismo estilo.)"
-            got = _edit_group(group, note, planner, music, part, exe)
+            got = _edit_group(group, note, planner, "", part, exe)  # music once, at the end
             plan = plan or got
             parts.append(part)
-        _join(parts, out, exe)
+        _join(parts, out, exe, music=music)
         for p in parts:
             p.unlink(missing_ok=True)
     yt = plan["youtube"]
@@ -290,9 +290,10 @@ def _edit_group(
     return plan
 
 
-def _join(parts: list[Path], out: Path, exe: str) -> None:
+def _join(parts: list[Path], out: Path, exe: str, music: str = "") -> None:
     """The edited groups into one video (re-encoded once, so sizes and audio
-    always match)."""
+    always match); *music* runs once under the whole video, low, not again
+    at every group."""
     listing = out.with_suffix(".partes.txt")
     listing.write_text("".join(f"file '{p.as_posix()}'\n" for p in parts), encoding="utf-8")
     cmd = [
@@ -300,6 +301,16 @@ def _join(parts: list[Path], out: Path, exe: str) -> None:
         "-c:v", "libx264", "-preset", "fast", "-crf", "18", "-pix_fmt", "yuv420p",
         "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", str(out),
     ]  # fmt: skip
+    if music and Path(music).is_file():
+        cmd = [
+            exe, "-y", "-v", "error", "-f", "concat", "-safe", "0", "-i", str(listing),
+            "-stream_loop", "-1", "-i", music,
+            "-filter_complex",
+            "[1:a]volume=0.16,afade=t=in:d=2[m];[0:a][m]amix=inputs=2:duration=first:dropout_transition=3[a]",
+            "-map", "0:v", "-map", "[a]",
+            "-c:v", "libx264", "-preset", "fast", "-crf", "18", "-pix_fmt", "yuv420p",
+            "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", str(out),
+        ]  # fmt: skip
     done = subprocess.run(cmd, capture_output=True, text=True, check=False)
     listing.unlink(missing_ok=True)
     if done.returncode != 0 or not out.exists():
