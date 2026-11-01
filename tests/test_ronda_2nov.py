@@ -513,3 +513,47 @@ def test_social_pack_has_no_emojis_or_made_up_metrics():
     src = open(video_create.__file__, encoding="utf-8").read()
     assert not re.search("[\U0001f300-\U0001faff]", src)
     assert ">100%" not in src
+
+
+# -- polish round (voice without Gemini) --------------------------------------------------
+
+
+def test_own_voice_uses_openai_when_nothing_else_is_there(monkeypatch):
+    import builtins
+
+    from openjarvis.speech import voz_propia
+
+    for k in ("GEMINI_API_KEY", "GOOGLE_API_KEY", "ELEVENLABS_API_KEY", "SERGIO_VOZ"):
+        monkeypatch.delenv(k, raising=False)
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    monkeypatch.setenv("SERGIO_OIDO", "nube")
+    real = builtins.__import__
+
+    def no_kokoro(name, *a, **k):
+        if name.startswith("kokoro_onnx"):
+            raise ImportError(name)
+        return real(name, *a, **k)
+
+    monkeypatch.setattr(builtins, "__import__", no_kokoro)
+    assert voz_propia.engine() == "openai" and voz_propia.available()
+
+
+def test_cloud_ear_and_voice_call_openai(monkeypatch):
+    import numpy as np
+
+    from openjarvis.speech import voz_propia
+
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    calls = []
+
+    class Http:
+        def post(self, url, **kw):
+            calls.append((url.rsplit("/", 1)[1], kw))
+            if url.endswith("/speech"):
+                return Resp(content=b"\x00\x01" * 10)
+            return Resp({"text": " hola Sergio "})
+
+    assert voz_propia._openai_pcm("Hola", http=Http()) == b"\x00\x01" * 10
+    assert calls[0][1]["json"]["voice"] == voz_propia.OPENAI_VOICE
+    text = voz_propia._openai_transcribe(np.zeros(1600, dtype=np.float32), http=Http())
+    assert text == "hola Sergio" and calls[1][0] == "transcriptions"

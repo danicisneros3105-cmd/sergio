@@ -151,15 +151,30 @@ def engine() -> str:
         try:
             import kokoro_onnx  # noqa: F401
         except ImportError:
-            return ""
+            # Nothing installed here either: a male voice of OpenAI's API
+            # (owner, 1 Nov 2026: «todo lo que sea solo para Gemini, universal»).
+            return "openai" if _openai_key() else ""
         return "kokoro"
     return ""
 
 
-def available() -> bool:
+def _openai_key() -> str:
+    return os.environ.get("OPENAI_API_KEY", "").strip()
+
+
+def _local_ear() -> bool:
+    if os.environ.get("SERGIO_OIDO", "").strip().lower() == "nube":
+        return False
     try:
         import faster_whisper  # noqa: F401
     except ImportError:
+        return False
+    return True
+
+
+def available() -> bool:
+    """An ear (faster-whisper here, or OpenAI's transcription) and a voice."""
+    if not (_local_ear() or _openai_key()):
         return False
     return bool(engine())
 
@@ -206,7 +221,8 @@ _ACK_PCM: List[bytes] = []
 def warm() -> None:
     """Load both engines and run them once, so the first turn is fast; the
     short acknowledgements are synthesized now, ready to sound at once."""
-    transcribe(np.zeros(IN_RATE // 2, dtype=np.float32))
+    if _local_ear():  # the cloud ear needs no warming (and silence costs a call)
+        transcribe(np.zeros(IN_RATE // 2, dtype=np.float32))
     if not _ACK_PCM and engine():
         _ACK_PCM.extend(speak_pcm(word) for word in ACKS)
 
@@ -228,6 +244,8 @@ def ready() -> bool:
 
 
 def transcribe(audio: np.ndarray, language: str = "es") -> str:
+    if not _local_ear():
+        return _openai_transcribe(audio, language)
     segments, _ = stt().transcribe(
         audio,
         language=language,
@@ -244,14 +262,76 @@ def transcribe(audio: np.ndarray, language: str = "es") -> str:
 def speak_pcm(text: str, speed: float = 1.05, previous: str = "") -> bytes:
     """One phrase in Sergio's voice: 16-bit PCM at 24 kHz. *previous*: the
     phrase said just before, so the intonation runs on (ElevenLabs)."""
-    if engine() == "elevenlabs":
+    which = engine()
+    if which == "elevenlabs":
         from openjarvis.speech import elevenlabs_voice
 
         try:
             return elevenlabs_voice.pcm(text, previous=previous, timeout=12)
         except Exception as exc:  # noqa: BLE001 — out of credit or offline
-            log.warning("ElevenLabs failed, local voice for this phrase: %s", exc)
-    return _kokoro_pcm(text, speed)
+            log.warning("ElevenLabs failed, another voice for this phrase: %s", exc)
+    if which == "openai":
+        return _openai_pcm(text)
+    try:
+        return _kokoro_pcm(text, speed)
+    except ImportError:
+        if _openai_key():
+            return _openai_pcm(text)
+        raise
+
+
+OPENAI_VOICE = os.environ.get("SERGIO_VOZ_OPENAI", "onyx")  # a male voice
+OPENAI_TTS = os.environ.get("SERGIO_TTS_OPENAI", "gpt-4o-mini-tts")
+OPENAI_STT = os.environ.get("SERGIO_STT_OPENAI", "gpt-4o-mini-transcribe")
+
+
+def _openai_pcm(text: str, http: Any = None) -> bytes:
+    """OpenAI's speech, already as 16-bit PCM at 24 kHz (its «pcm» format)."""
+    import httpx
+
+    client = http or httpx.Client(timeout=30)
+    r = client.post(
+        "https://api.openai.com/v1/audio/speech",
+        headers={"Authorization": f"Bearer {_openai_key()}"},
+        json={
+            "model": OPENAI_TTS,
+            "voice": OPENAI_VOICE,
+            "input": text,
+            "response_format": "pcm",
+            "instructions": "Voz masculina cálida y segura, ritmo natural de conversación.",
+        },
+    )
+    r.raise_for_status()
+    return r.content
+
+
+def _openai_transcribe(
+    audio: np.ndarray, language: str = "es", http: Any = None
+) -> str:
+    """What was said, by OpenAI's transcription (when faster-whisper is not here)."""
+    import io
+    import wave
+
+    import httpx
+
+    if not _openai_key():
+        raise RuntimeError("Sin oído: instale faster-whisper o ponga OPENAI_API_KEY.")
+    pcm = (np.clip(audio, -1, 1) * 32767).astype("<i2").tobytes()
+    buf = io.BytesIO()
+    with wave.open(buf, "wb") as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(IN_RATE)
+        w.writeframes(pcm)
+    client = http or httpx.Client(timeout=30)
+    r = client.post(
+        "https://api.openai.com/v1/audio/transcriptions",
+        headers={"Authorization": f"Bearer {_openai_key()}"},
+        data={"model": OPENAI_STT, "language": language[:2]},
+        files={"file": ("voz.wav", buf.getvalue(), "audio/wav")},
+    )
+    r.raise_for_status()
+    return str((r.json() or {}).get("text") or "").strip()
 
 
 def _kokoro_pcm(text: str, speed: float) -> bytes:
