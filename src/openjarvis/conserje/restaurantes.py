@@ -119,9 +119,10 @@ def plan(
         "un día entre semana, o el restaurante hermano.",
         "Reservar, dejar tarjeta de garantía o pagar: lo confirma usted.",
     ]
+    of = "del " + owner[3:] if owner.lower().startswith("el ") else f"de {owner}"
     r.guion_llamada = (
         f"Buenas, le habla Sergio, un asistente de inteligencia artificial que llama de "
-        f"parte de {owner}. Quisiera saber si tienen mesa para {r.personas} {when}"
+        f"parte {of}. Quisiera saber si tienen mesa para {r.personas} {when}"
         + (f" alrededor de las {time}" if time else "")
         + ", o si puedo dejarle en la lista de espera por si se libera algo. "
         "¿Cuándo abren las reservas para esa fecha? Muchas gracias."

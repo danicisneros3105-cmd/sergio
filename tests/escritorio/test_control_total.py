@@ -401,10 +401,10 @@ def test_real_world_uber_food_budget_rare_item_and_gallery_selling(
     assert r_sell.success
     assert "2 fotos encontradas en su galería" in r_sell.content
     assert "iphone_15_pro_frontal.jpg" in r_sell.content
-    assert "740 USD" in r_sell.content
+    # No real prices in the test: never a made-up number (owner rule).
+    assert "precio a definir" in r_sell.content
     assert (
-        "Autorespuesta a compradores interesados:** Activa en marketplace, ebay"
-        in r_sell.content
+        "Respuestas a interesados:** borradores en marketplace, ebay" in r_sell.content
     )
     autoreply_file = tmp_path / "Sergio" / "ventas" / "autorespuestas_activas.json"
     assert autoreply_file.exists()

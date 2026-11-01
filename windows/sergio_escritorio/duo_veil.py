@@ -14,10 +14,12 @@ from __future__ import annotations
 import math
 from typing import Any, Callable
 
-FRAMES = 14  # the glide, about a quarter of a second
+# Slower so it can be seen (owner, 1 Nov 2026: «haz la animación de iPhone Duo
+# de split screen más lenta para que el usuario pueda apreciarla»).
+FRAMES = 34  # the glide, about 0.6 s
 FRAME_S = 0.018
-VEIL_IN = 0.12  # seconds to go out of focus
-VEIL_OUT = 0.42  # seconds to come back into focus
+VEIL_IN = 0.28  # seconds to go out of focus
+VEIL_OUT = 0.95  # seconds to come back into focus
 BLUR_DOWN = 18  # the screen shrunk this many times and grown back = blur
 
 Rect = tuple[int, int, int, int]

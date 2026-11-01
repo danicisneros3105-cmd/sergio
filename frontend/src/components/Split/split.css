@@ -53,7 +53,7 @@
 .split-close { width: 32px; flex-shrink: 0; margin-left: auto; display: grid; place-items: center; }
 
 /* -- the fold ------------------------------------------------------------- */
-.split { --duo-ease: cubic-bezier(0.2, 0.9, 0.25, 1.05); --duo-in: 620ms; --duo-out: 420ms; }
+.split { --duo-ease: cubic-bezier(0.2, 0.9, 0.25, 1.05); --duo-in: 1400ms; --duo-out: 950ms; /* slower, to be seen (owner, 1 Nov 2026) */ }
 .split[data-phase='opening'] .split-a { animation: duo-stretch var(--duo-in) var(--duo-ease) both; transform-origin: left center; }
 .split[data-phase='opening'] .split-b { animation: duo-unfold var(--duo-in) var(--duo-ease) both; }
 .split[data-phase='opening'] .split-hinge::before { animation: duo-crease var(--duo-in) ease-out both; }

@@ -211,23 +211,20 @@ def search_fast_delivery_options(
                     options.append(
                         {
                             "opcion": line[:120],
-                            "precio_estimado_usd": price
-                            or (round(budget_usd * 0.88, 2) if budget_usd else 8.99),
-                            "tiempo_estimado_min": min(max_minutes or 15, 10)
-                            if max_minutes
-                            else 15,
+                            # only what the page said; the rest the app shows
+                            "precio_estimado_usd": price or "según la app",
+                            "tiempo_estimado_min": "según la app",
                         }
                     )
         except Exception:  # noqa: BLE001
             pass
     if not options:
-        est_price = round(budget_usd * 0.90, 2) if budget_usd else 9.50
-        est_min = max_minutes if max_minutes else 12
+        # Nothing real found: the app itself shows prices and times (never invented).
         options.append(
             {
-                "opcion": f"Combo Exprés «{item}» (Restaurante con entrega prioritaria más cercano)",
-                "precio_estimado_usd": est_price,
-                "tiempo_estimado_min": est_min,
+                "opcion": f"«{item}»: la mejor opción que muestre la app",
+                "precio_estimado_usd": "según la app",
+                "tiempo_estimado_min": "según la app",
             }
         )
     return options
@@ -644,20 +641,10 @@ def estimate_market_price(item_title: str, explicit_price: str = "") -> Tuple[st
             f"Precio razonable calculado por mercado ({fair} USD, media competitiva sobre {len(prices)} anuncios reales).",
         )
 
-    low = item_title.lower()
-    if "16 pro" in low:
-        fair = 890
-    elif "15 pro" in low or "s24 ultra" in low:
-        fair = 740
-    elif "14 pro" in low or "15" in low or "s23" in low:
-        fair = 560
-    elif "13" in low or "12" in low:
-        fair = 380
-    else:
-        fair = 320
+    # No real prices found: never a made-up number (owner rule).
     return (
-        f"{fair} USD",
-        f"Precio razonable de mercado estimado ({fair} USD para venta rápida y segura).",
+        "precio a definir",
+        "No encontré precios reales suficientes; dígame un precio.",
     )
 
 
@@ -682,8 +669,8 @@ def build_buyer_autoreply_plan(
     )
     template = (
         f"¡Hola! Sí, el {listing_title} sigue disponible por {price}. "
-        f"Está en impecable estado ({details}), libre de fábrica y listo para probar y entregar hoy mismo. "
-        "¿A qué hora te queda bien verlo o prefieres envío seguro?"
+        f"Detalles: {details}. "
+        "¿A qué hora te queda bien verlo o prefieres envío?"
     )
     rule = {
         "id": f"venta-{int(time.time())}",

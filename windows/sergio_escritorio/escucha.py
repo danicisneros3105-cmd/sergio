@@ -60,6 +60,8 @@ def clear_wav(wav: bytes) -> bytes:
         if pcm.size < rate // 10:
             return wav
         x = pcm.astype(np.float32) / 32768.0
+        if float(np.max(np.abs(x))) < 0.003:
+            return wav  # silence: nothing to clean, nothing to bring up
         x = _high_pass(x, rate, 85.0)
         x = _gate(x, rate)
         peak = float(np.max(np.abs(x))) or 1.0
@@ -145,9 +147,11 @@ def clean(text: str, *, dictation: bool = False) -> str:
     t = re.sub(r"[ \t]{2,}", " ", t).strip(" ,")
     if not t:
         return ""
+    if not dictation:
+        return t  # an order keeps his words as he said them
     t = t[0].upper() + t[1:]
     t = re.sub(r"([.?!][ \t]+|\n)(\w)", lambda g: g.group(1) + g.group(2).upper(), t)
-    if dictation and t[-1] not in ".?!:\n":
+    if t[-1] not in ".?!:\n":
         t += "."
     return t
 

@@ -634,7 +634,8 @@ class SergioAppControlTool(BaseTool):
                         f"(usa la ubicación actual del GPS si ya aparece marcada) y el destino en «{destination}». "
                         f"Selecciona el viaje que llegue {eta_str}"
                         + (f" dentro de {budget_usd:g} USD" if budget_usd else "")
-                        + ", completa los campos y solicita el Uber ahora mismo."
+                        + ", completa los campos y DETENTE antes de «Confirmar» o «Solicitar»: "
+                        "lo confirma el señor."
                     )
                     op_res = desk.execute(
                         action="operate", target=goal, confirmed=False
@@ -642,14 +643,20 @@ class SergioAppControlTool(BaseTool):
                     return ToolResult(
                         tool_name=self.tool_id,
                         content=(
-                            f"🚗 **Viaje en Uber solicitado**\n"
+                            f"**Viaje en Uber listo para confirmar**\n"
                             f"- **Origen (GPS):** {loc['label']}\n"
                             f"- **Destino:** {destination}\n"
                             f"- **Tiempo objetivo:** {eta_str}\n"
                             f"- **Seguridad:** {face_res['summary']}\n"
-                            f"- **Ejecución en pantalla:** Abrí `{uber_url}` y completé la solicitud ({op_res.content})."
+                            f"- **En pantalla:** abrí `{uber_url}` y dejé el viaje listo; falta su «Confirmar» ({op_res.content})."
                         ),
                     )
+
+                def _money(v: object) -> str:
+                    return f"~{v:g} USD" if isinstance(v, (int, float)) else str(v)
+
+                def _mins(v: object) -> str:
+                    return f"~{v} min" if isinstance(v, (int, float)) else str(v)
 
                 options = ci.search_fast_delivery_options(
                     item, budget_usd=budget_usd, max_minutes=max_min
@@ -679,19 +686,19 @@ class SergioAppControlTool(BaseTool):
                 goal = (
                     f"En {plat} ({url}), verifica que la dirección de entrega sea «{dest or loc['label']}». "
                     f"Busca «{item}», filtra restaurantes con tiempo de entrega de {time_note} y precio total de {budget_note} "
-                    f"(mejor opción detectada: {best_opt['opcion']} por ~${best_opt['precio_estimado_usd']} USD en ~{best_opt['tiempo_estimado_min']} min). "
-                    "Selecciona los productos exactos (incluyendo acompañantes y bebida si se pidieron), llena todos los formularios/opciones obligatorias y finaliza el pedido."
+                    f"(referencia: {best_opt['opcion']}, {_money(best_opt['precio_estimado_usd'])}, {_mins(best_opt['tiempo_estimado_min'])}). "
+                    "Selecciona los productos exactos (incluyendo acompañantes y bebida si se pidieron), llena las opciones obligatorias y DETENTE antes de pagar o «Hacer pedido»: lo confirma el señor."
                 )
                 op_res = desk.execute(action="operate", target=goal, confirmed=False)
                 return ToolResult(
                     tool_name=self.tool_id,
                     content=(
-                        f"🍔 **Pedido en marcha en {plat.title()}** para «{item}»:\n"
+                        f"**Pedido listo para confirmar en {plat.title()}** para «{item}»:\n"
                         f"- **Ubicación de entrega:** {dest or loc['label']}\n"
                         f"- **Filtro aplicado:** Presupuesto {budget_note} · Llegada en {time_note}\n"
-                        f"- **Opción seleccionada:** {best_opt['opcion']} (~${best_opt['precio_estimado_usd']} USD, ~{best_opt['tiempo_estimado_min']} min)\n"
+                        f"- **Opción seleccionada:** {best_opt['opcion']} ({_money(best_opt['precio_estimado_usd'])}, {_mins(best_opt['tiempo_estimado_min'])})\n"
                         f"- **Seguridad:** {face_res['summary']}\n"
-                        f"- **Operador:** Abrí `{url}`, llené los formularios y ejecuté el pedido ({op_res.content})."
+                        f"- **En pantalla:** abrí `{url}` y dejé el pedido listo; falta su sí para pagar ({op_res.content})."
                     ),
                 )
 
@@ -1381,19 +1388,15 @@ class SergioAppControlTool(BaseTool):
                         "gb",
                     )
                 ):
-                    listing_title = (
-                        f"{title} — Impecable Estado, Liberado y Listo para Entrega"
-                    )
+                    listing_title = title
                 else:
                     listing_title = title
+                # Only what the owner said: no invented condition or checks.
                 description = (
-                    f"📱 {listing_title}\n"
-                    f"💰 Precio: {price}\n\n"
-                    f"✅ Descripción y estado:\n{details}\n\n"
-                    "• Funcionamiento 10/10 verificado (pantalla, batería, cámaras, Face ID/biometría y conectividad).\n"
-                    "• Libre de fábrica para cualquier operadora y sin cuentas bloqueadas.\n"
-                    "• Entrega inmediata en persona o envío seguro.\n"
-                    "• Escríbeme para coordinar prueba y entrega hoy mismo."
+                    f"{listing_title}\n"
+                    f"Precio: {price}\n\n"
+                    f"Descripción y estado:\n{details}\n\n"
+                    "Entrega en persona o envío a convenir."
                 )
                 out_dir = Path.home() / "Sergio" / "ventas"
                 out_dir.mkdir(parents=True, exist_ok=True)
@@ -1455,7 +1458,7 @@ class SergioAppControlTool(BaseTool):
                 goal = (
                     f"En las páginas de publicación abiertas, {photos_instruction}"
                     f"rellena el formulario de venta con Título: «{listing_title}», Precio: «{price}» "
-                    f"y Descripción: «{description}», y deja publicada la venta."
+                    f"y Descripción: «{description}», y DETENTE antes de «Publicar»: lo publica el señor."
                 )
                 op_res = desk.execute(action="operate", target=goal, confirmed=False)
                 photos_summary = (
@@ -1464,19 +1467,19 @@ class SergioAppControlTool(BaseTool):
                     else "Selector de galería preparado automáticamente"
                 )
                 auto_summary = (
-                    f"Activa en {', '.join(chosen_names)} — responderá al instante con disponibilidad, estado y agendamiento de entrega ({autoreply_rule['regla_negociacion']})."
+                    f"borradores en {', '.join(chosen_names)}; cada respuesta sale con su sí ({autoreply_rule['regla_negociacion']})."
                     if autoreply_rule
-                    else "Desactivada"
+                    else "desactivadas"
                 )
                 return ToolResult(
                     tool_name=self.tool_id,
                     content=(
-                        f"Publicación multiplataforma preparada y abierta en {len(chosen_urls)} plataformas ({', '.join(chosen_urls)}).\n\n"
+                        f"Venta preparada y abierta en {len(chosen_urls)} plataformas ({', '.join(chosen_urls)}); publicarla lo confirma usted.\n\n"
                         f"**Título:** {listing_title}\n"
                         f"**Precio:** {price} (*{price_reason}*)\n"
                         f"**Fotos de galería:** {photos_summary}\n"
                         f"**Seguridad:** {face_res['summary']}\n"
-                        f"**Autorespuesta a compradores interesados:** {auto_summary}\n\n"
+                        f"**Respuestas a interesados:** {auto_summary}\n\n"
                         f"**Descripción:**\n{description}\n\n"
                         f"Guardado en `{listing_file}` ({op_res.content})."
                     ),
@@ -1501,16 +1504,17 @@ class SergioAppControlTool(BaseTool):
                 op_res = desk.execute(
                     action="operate",
                     target=(
-                        f"Revisa la bandeja de mensajes de {', '.join(platforms)} y responde a los interesados en «{item}» "
-                        f"con: «{rule['plantilla_respuesta']}». {rule['regla_negociacion']}"
+                        f"Revisa la bandeja de mensajes de {', '.join(platforms)} y escribe a los interesados en «{item}» "
+                        f"esta respuesta: «{rule['plantilla_respuesta']}». {rule['regla_negociacion']} "
+                        "DETENTE antes de enviar: cada mensaje lo envía el señor."
                     ),
                     confirmed=False,
                 )
                 return ToolResult(
                     tool_name=self.tool_id,
                     content=(
-                        f"🤝 **Autorespuesta a compradores activada y ejecutada** para «{item}» ({price}):\n"
-                        f"- **Mensaje automático:** {rule['plantilla_respuesta']}\n"
+                        f"**Respuestas a compradores preparadas** para «{item}» ({price}); salen con su sí:\n"
+                        f"- **Mensaje:** {rule['plantilla_respuesta']}\n"
                         f"- **Regla de negociación:** {rule['regla_negociacion']}\n"
                         f"- **Operador:** {op_res.content}"
                     ),
@@ -1536,7 +1540,7 @@ class SergioAppControlTool(BaseTool):
                 )
                 return ToolResult(
                     tool_name=self.tool_id,
-                    content=f"Correo enviado por {plat.title()} a `{to}` con asunto «{subject}» ({res.content}).",
+                    content=f"Correo listo en {plat.title()} para `{to}` con asunto «{subject}»; lo envía usted ({res.content}).",
                 )
 
             if action == "reminder_add":

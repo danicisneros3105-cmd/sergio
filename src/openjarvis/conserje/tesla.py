@@ -156,7 +156,7 @@ def do(
     note = NO_SUMMON + " " if move else ""
     if move and not re.search(
         r"\b(calefacci[oó]n|calienta|clima|aire|climatiza|temperatura|desempa|"
-        r"asiento|bloquea|desbloquea|maletero|cajuela|bocina|pita|luces|bateria|batería)",
+        r"asiento|bloque|desbloqu|maletero|cajuela|bocina|pita|luces|bateria|batería)",
         t,
     ):
         return NO_SUMMON
@@ -199,13 +199,13 @@ def do(
     if re.search(r"\b(asiento|asientos)\b", t):
         command(car, "remote_seat_heater_request", {"heater": 0, "level": 3}, http)
         done.append("asiento del conductor caliente")
-    if re.search(r"\b(desbloquea|abre el auto|abre el carro|unlock)\b", t):
+    if re.search(r"\b(desbloqu\w*|abre el auto|abre el carro|unlock)\b", t):
         if owner_yes("Desbloquear su Tesla", {"vin": car[-6:]}, approver=approver):
             command(car, "door_unlock", http=http)
             done.append("desbloqueado")
         else:
             done.append("no lo desbloqueé (sin su sí)")
-    elif re.search(r"\b(bloquea|cierra el auto|cierra el carro|lock)\b", t):
+    elif re.search(r"\b(bloquea\w*|cierra el auto|cierra el carro|lock)\b", t):
         command(car, "door_lock", http=http)
         done.append("cerrado")
     if re.search(r"\b(maletero|cajuela|baul|baúl|trunk)\b", t):

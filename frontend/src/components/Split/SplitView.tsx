@@ -49,7 +49,7 @@ export function SplitView({ children }: { children: ReactNode }) {
   // If the fold's end never reports (an animation turned off), settle anyway.
   useEffect(() => {
     if (phase === 'still') return;
-    const t = window.setTimeout(settle, 900);
+    const t = window.setTimeout(settle, 1700); // a little longer than --duo-in
     return () => window.clearTimeout(t);
   }, [phase, settle]);
 
