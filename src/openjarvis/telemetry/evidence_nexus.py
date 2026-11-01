@@ -6,14 +6,13 @@ with SHA-256 hashes, microsecond latency measurements, and Merkle tree root vali
 
 from __future__ import annotations
 
-import base64
 import hashlib
 import json
 import logging
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 log = logging.getLogger("openjarvis.telemetry.evidence_nexus")
 
@@ -39,7 +38,8 @@ class MerkleAuditTree:
 
     @classmethod
     def hash_leaf(cls, data_str: str) -> str:
-        return hashlib.sha256(data_str.encode("utf-8")).hexdigest()
+        # RFC 6962 compliance: 0x00 domain separator for leaves
+        return hashlib.sha256(b"\x00" + data_str.encode("utf-8")).hexdigest()
 
     @classmethod
     def compute_merkle_root(cls, leaf_hashes: List[str]) -> str:
@@ -53,7 +53,8 @@ class MerkleAuditTree:
             for i in range(0, len(current_level), 2):
                 left = current_level[i]
                 right = current_level[i + 1] if i + 1 < len(current_level) else left
-                combined = hashlib.sha256((left + right).encode("utf-8")).hexdigest()
+                # RFC 6962 compliance: 0x01 domain separator for internal nodes to prevent second-preimage attacks
+                combined = hashlib.sha256(b"\x01" + (left + right).encode("utf-8")).hexdigest()
                 next_level.append(combined)
             current_level = next_level
 
@@ -64,7 +65,9 @@ class EvidenceNexusLedger:
     """Persistent cryptographic audit ledger on disk."""
 
     def __init__(self, storage_path: Optional[Path] = None) -> None:
-        self.storage_path = storage_path or (Path.home() / ".openjarvis" / "evidencias" / "ledger_evidencias_master.json")
+        self.storage_path = storage_path or (
+            Path.home() / ".openjarvis" / "evidencias" / "ledger_evidencias_master.json"
+        )
         self.storage_path.parent.mkdir(parents=True, exist_ok=True)
         self.entries: List[EvidenceEntry] = []
         self._load_existing_ledger()
@@ -77,7 +80,14 @@ class EvidenceNexusLedger:
                     entry = EvidenceEntry(**item)
                     self.entries.append(entry)
             except Exception as exc:
-                log.warning("No se pudo leer ledger previo: %s", exc)
+                backup = self.storage_path.with_name(
+                    f"{self.storage_path.name}.corrupted.{int(time.time())}"
+                )
+                try:
+                    self.storage_path.rename(backup)
+                    log.error("Ledger de evidencias corrupto. Respaldado en %s: %s", backup, exc)
+                except Exception:
+                    pass
 
     def record_proof(
         self,
@@ -138,8 +148,11 @@ class EvidenceNexusLedger:
                 for e in self.entries[-10:]
             ],
         }
-        receipt_path = self.storage_path.parent / f"recibo_{mission_id}.json"
-        receipt_path.write_text(json.dumps(receipt, indent=2), encoding="utf-8")
+        try:
+            receipt_path = self.storage_path.parent / f"recibo_{mission_id}.json"
+            receipt_path.write_text(json.dumps(receipt, indent=2), encoding="utf-8")
+        except Exception as exc:
+            log.warning("No se pudo escribir archivo de recibo de auditoría: %s", exc)
         return receipt
 
     def _persist_ledger(self) -> None:
@@ -148,7 +161,7 @@ class EvidenceNexusLedger:
                 "version": "1.0_merkle_ledger",
                 "merkle_root": MerkleAuditTree.compute_merkle_root([e.merkle_leaf_hash for e in self.entries]),
                 "total_entradas": len(self.entries),
-                "entradas": [e.__dict__ for e in self.entries[-200:]],  # Keep 200 on disk
+                "entradas": [e.__dict__ for e in self.entries[-200:]],
             }
             self.storage_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
         except Exception as exc:
@@ -164,3 +177,11 @@ def get_evidence_nexus_ledger() -> EvidenceNexusLedger:
     if _global_evidence_ledger is None:
         _global_evidence_ledger = EvidenceNexusLedger()
     return _global_evidence_ledger
+
+
+__all__ = [
+    "EvidenceEntry",
+    "MerkleAuditTree",
+    "EvidenceNexusLedger",
+    "get_evidence_nexus_ledger",
+]

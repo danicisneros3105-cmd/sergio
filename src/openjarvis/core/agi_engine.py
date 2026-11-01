@@ -26,14 +26,13 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-import os
 import re
 import threading
 import time
 from dataclasses import asdict, dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 log = logging.getLogger(__name__)
 
@@ -125,7 +124,8 @@ class MetacognitiveMemory:
                 # Keep last 100 high-value tactical memories
                 if len(experiences) > 100:
                     experiences = experiences[-100:]
-                self.storage_path.write_text(json.dumps({"experiencias": experiences}, indent=2, ensure_ascii=False), encoding="utf-8")
+                json_str = json.dumps({"experiencias": experiences}, indent=2, ensure_ascii=False)
+                self.storage_path.write_text(json_str, encoding="utf-8")
             except Exception as exc:
                 log.warning("No se pudo registrar experiencia AGI: %s", exc)
 
@@ -162,7 +162,11 @@ class UniversalAGIEngine:
                 cls._instance = cls()
             return cls._instance
 
-    def deconstruct_mission(self, prompt: str, context: Optional[Dict[str, Any]] = None) -> Tuple[str, str, Optional[float], str]:
+    def deconstruct_mission(
+        self,
+        prompt: str,
+        context: Optional[Dict[str, Any]] = None,
+    ) -> Tuple[str, str, Optional[float], str]:
         """Deconstruct any arbitrary, extreme logistical prompt into core operational vectors."""
         clean = prompt.strip()
         from openjarvis.tools import commerce_intel as ci
@@ -172,7 +176,11 @@ class UniversalAGIEngine:
         low = clean.lower()
         if any(w in low for w in ("hotel", "suite", "habitacion", "habitación", "reserva hotel", "virtuoso", "fhr")):
             cat = "arbitraje_hotelero_lujo"
-            entity = re.sub(r"(?i).*\b(?:en|del?|para)\s+([A-ZÁÉÍÓÚ][\w\s'-]+(?:\bhotel|\bseasons|\britz|\bmandarin|\bpalace)?).*", r"\1", clean).strip()
+            entity = re.sub(
+                r"(?i).*\b(?:en|del?|para)\s+([A-ZÁÉÍÓÚ][\w\s'-]+(?:\bhotel|\bseasons|\britz|\bmandarin|\bpalace)?).*",
+                r"\1",
+                clean,
+            ).strip()
             if entity == clean or len(entity) > 50:
                 entity = "Propiedad Hotelera 5 Estrellas / Gran Lujo"
         elif any(w in low for w in ("michelin", "restaurante", "cena", "mesa", "chef", "resy", "tock", "sevenrooms")):
@@ -189,10 +197,16 @@ class UniversalAGIEngine:
         elif any(w in low for w in ("telefono", "celular", "grabar", "camara", "dispositivo", "iot", "adb", "sonar")):
             cat = "control_iot_multidispositivo"
             entity = "Ecosistema Multidispositivo (PC / Móvil / Sensores)"
-        elif any(w in low for w in ("vertu", "boveda", "bóveda", "cifrado", "secreto", "contrasena", "clave", "blindar")):
+        elif any(
+            w in low
+            for w in ("vertu", "boveda", "bóveda", "cifrado", "secreto", "contrasena", "clave", "blindar")
+        ):
             cat = "blindaje_criptografico_soberano"
             entity = "Bóveda Local Cifrada Zero-Knowledge"
-        elif any(w in low for w in ("salud", "reloj", "anillo", "oura", "whoop", "garmin", "glucosa", "hrv", "sueno", "sueño")):
+        elif any(
+            w in low
+            for w in ("salud", "reloj", "anillo", "oura", "whoop", "garmin", "glucosa", "hrv", "sueno", "sueño")
+        ):
             cat = "sintesis_biometrica_salud"
             entity = "Biometría y Dispositivos de Salud Wearable"
         else:
@@ -223,7 +237,8 @@ class UniversalAGIEngine:
         # 1. Check past experience memory for tactical precedent
         past_tactic = self.memory.recall_similar_tactic(mission_prompt)
         precedent_note = (
-            f"Estrategia optimizada a partir de precedente táctico `{past_tactic['id']}` ({past_tactic['ahorro_o_beneficio']})"
+            f"Estrategia optimizada a partir de precedente táctico `{past_tactic['id']}` "
+            f"({past_tactic['ahorro_o_beneficio']})"
             if past_tactic
             else "Estrategia de síntesis autónoma zero-shot de alto impacto"
         )
@@ -239,7 +254,10 @@ class UniversalAGIEngine:
         step1 = TacticalStep(
             phase=MissionPhase.PERCEPTION,
             name="Exploración Forense y Contexto Biométrico",
-            description=f"Localización GPS/IP confirmada en {loc['label']}. Estado psicofísico: {bio_hub['adaptacion_conductual_sergio']}",
+            description=(
+                f"Localización GPS/IP confirmada en {loc['label']}. "
+                f"Estado psicofísico: {bio_hub['adaptacion_conductual_sergio']}"
+            ),
             status="completed",
             result={"ubicacion": loc, "salud": bio_hub, "precedente": precedent_note},
             latency_seconds=round(time.perf_counter() - s1_t0, 4),
@@ -250,14 +268,21 @@ class UniversalAGIEngine:
         s2_t0 = time.perf_counter()
         antibot_spec = {
             "motor": "Playwright Stealth Custom Engine",
-            "evasion": ["navigator.webdriver=undefined", "chrome.runtime mock", "WebGL vendor randomization", "Curvas Bézier humanas"],
+            "evasion": [
+                "navigator.webdriver=undefined",
+                "chrome.runtime mock",
+                "WebGL vendor randomization",
+                "Curvas Bézier humanas",
+            ],
             "resistencia_cloudflare_turnstile": "Activa / Sigilosa",
             "resistencia_akamai": "Activa / Resuelta",
         }
         step2 = TacticalStep(
             phase=MissionPhase.ANTIBOT_EVASION,
             name="Despliegue de Perfil de Evasión Antibot",
-            description="Huella digital humana autenticada para transitar portales protegidos sin detección ni bloqueos.",
+            description=(
+                "Huella digital humana autenticada para transitar portales protegidos sin detección ni bloqueos."
+            ),
             status="completed",
             result=antibot_spec,
             latency_seconds=round(time.perf_counter() - s2_t0, 4),
@@ -286,7 +311,9 @@ class UniversalAGIEngine:
                 "tarifa_conseguida": h_res["tarifa_arbitrada_conseguida"],
                 "beneficios_vip": h_res["beneficios_vip_incluidos"],
                 "canales": h_res["canales_arbitraje"],
-                "beneficio_clave": f"Ahorro de ${h_res['ahorro_total_usd']} USD ({h_res['porcentaje_ahorro']}%) con consorcio Virtuoso",
+                "beneficio_clave": (
+                    f"Ahorro de ${h_res['ahorro_total_usd']} USD ({h_res['porcentaje_ahorro']}%) con consorcio Virtuoso"
+                ),
             }
         elif cat == "sniper_gastronomia_michelin":
             m_res = ci.execute_michelin_sniper(
@@ -305,14 +332,19 @@ class UniversalAGIEngine:
             }
         elif cat == "sourcing_forense_articulos_raros":
             p_res = ci.deep_search_product(entity, target_price=budget or 45000.0)
+            score_confianza = p_res["mejores_vendedores"][0]["puntaje_confianza"]
             final_payload = {
                 "tipo": "sourcing_lujo",
                 "articulo": p_res["query"],
                 "vendedores_confiables": len(p_res["mejores_vendedores"]),
-                "beneficio_clave": f"Autenticidad verificada {p_res['mejores_vendedores'][0]['puntaje_confianza']}/100 con custodia Escrow",
+                "beneficio_clave": f"Autenticidad verificada {score_confianza}/100 con custodia Escrow",
             }
         elif cat == "automatizacion_masiva_medios":
-            y_res = ci.execute_youtube_growth_pipeline(channel_niche=entity, upload_interval_hours=7, auto_publish=True)
+            y_res = ci.execute_youtube_growth_pipeline(
+                channel_niche=entity,
+                upload_interval_hours=7,
+                auto_publish=True,
+            )
             final_payload = {
                 "tipo": "pipeline_medios_7h",
                 "canal": y_res["nicho"],
@@ -341,13 +373,15 @@ class UniversalAGIEngine:
             from openjarvis.core.agi_reasoning import get_agi_reasoning_orchestrator
             orch = get_agi_reasoning_orchestrator()
             orch_res = orch.execute_mission(mission_prompt, context=context)
+            t_ms = orch_res["execution_time_ms"]
+            n_nodes = len(orch_res["nodes_executed"])
             final_payload = {
                 "tipo": "razonamiento_mcts_universal",
                 "mision_id": orch_res["graph_id"],
-                "nodos_resueltos": len(orch_res["nodes_executed"]),
-                "tiempo_ms": orch_res["execution_time_ms"],
+                "nodos_resueltos": n_nodes,
+                "tiempo_ms": t_ms,
                 "estrategia": "Descomposición jerárquica HTN con evaluación MCTS en sub-segundo",
-                "beneficio_clave": f"Misión resuelta en {orch_res['execution_time_ms']:.1f}ms a través de {len(orch_res['nodes_executed'])} nodos tácticos",
+                "beneficio_clave": f"Misión resuelta en {t_ms:.1f}ms a través de {n_nodes} nodos tácticos",
             }
 
         step3 = TacticalStep(
@@ -376,7 +410,6 @@ class UniversalAGIEngine:
         steps.append(step5)
 
         # Phase 6: METACOGNITIVE VERIFICATION & PROACTIVE BRIEFING
-        s6_t0 = time.perf_counter()
         t_finish = time.perf_counter()
         total_time = round(t_finish - t_start, 4)
 

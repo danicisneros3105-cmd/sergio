@@ -14,7 +14,7 @@ import queue
 import threading
 import time
 from dataclasses import dataclass, field
-from typing import Any, Callable, Deque, Dict, List, Optional, Tuple
+from typing import Any, Callable, Deque, Dict, Optional, Tuple
 
 log = logging.getLogger("openjarvis.speech.proactive_voice_nexus")
 
@@ -69,23 +69,19 @@ class UltraLowLatencyBargeIn:
         if rms_energy < self.energy_threshold_rms:
             return False, "below_energy_threshold"
 
-        # If partial transcription is available, perform semantic disambiguation
         if partial_transcript:
             cleaned = partial_transcript.strip().lower()
             tokens = set(cleaned.split())
 
-            # Check if strictly conversational backchannel (user just acknowledging)
             if tokens and tokens.issubset(self._BACKCHANNEL_TOKENS):
                 return False, "passive_backchannel_ignored"
 
-            # Check for hard cancellation trigger
             if tokens.intersection(self._HARD_INTERRUPT_TOKENS):
                 self.last_interruption_time = time.time()
                 dt_ms = (time.perf_counter() - t0) * 1000
                 log.info("Interrupción táctica procesada en %.2f ms: '%s'", dt_ms, cleaned)
                 return True, "hard_interrupt_confirmed"
 
-        # Default fast acoustic barge-in
         self.last_interruption_time = time.time()
         return True, "acoustic_barge_in_triggered"
 
@@ -94,9 +90,13 @@ class BiometricProsodyModulator:
     """Dynamically shapes speech delivery based on user physiological telemetry."""
 
     @classmethod
-    def compute_prosody(cls, hrv_ms: float = 65.0, stress_index: float = 0.20, fatigue_score: float = 0.10) -> ProsodyParameters:
+    def compute_prosody(
+        cls,
+        hrv_ms: float = 65.0,
+        stress_index: float = 0.20,
+        fatigue_score: float = 0.10,
+    ) -> ProsodyParameters:
         """Calculates optimal cadence, pitch, and pauses to maximize user clarity and comfort."""
-        # High stress or low HRV -> More deliberate, grounded, calm baritone
         if stress_index > 0.60 or hrv_ms < 40.0:
             return ProsodyParameters(
                 speech_rate=0.92,
@@ -104,7 +104,6 @@ class BiometricProsodyModulator:
                 pause_duration_ms=220,
                 acoustic_warmth=0.95,
             )
-        # High fatigue -> Direct, succinct, reduced cognitive friction
         elif fatigue_score > 0.65:
             return ProsodyParameters(
                 speech_rate=1.00,
@@ -112,7 +111,6 @@ class BiometricProsodyModulator:
                 pause_duration_ms=180,
                 acoustic_warmth=0.90,
             )
-        # Optimal focused state -> Fast, razor-sharp, energetic
         return ProsodyParameters(
             speech_rate=1.12,
             pitch_semitones=-0.4,
@@ -128,23 +126,27 @@ class ProactiveVoiceNexus:
         self.state = VoiceNexusState.IDLE
         self.barge_in = UltraLowLatencyBargeIn()
         self.prosody = BiometricProsodyModulator()
-        self.alert_queue: "queue.PriorityQueue[Tuple[float, ProactiveTacticalAlert]]" = queue.PriorityQueue()
+        self.alert_queue: "queue.PriorityQueue[Tuple[float, int, ProactiveTacticalAlert]]" = queue.PriorityQueue()
         self.dialogue_history: Deque[Dict[str, str]] = collections.deque(maxlen=20)
         self._lock = threading.RLock()
+        self._seq_counter = 0
         self._is_active = True
         self._speech_callback: Optional[Callable[[str, ProsodyParameters], None]] = None
 
     def register_speech_output_callback(self, callback: Callable[[str, ProsodyParameters], None]) -> None:
-        self._speech_callback = callback
+        with self._lock:
+            self._speech_callback = callback
 
     def dispatch_alert_proactively(self, alert: ProactiveTacticalAlert) -> bool:
         """Pushes a spontaneous alert into the proactive speech queue."""
-        # Negate urgency so PriorityQueue pops highest urgency first
-        self.alert_queue.put((-alert.urgency_score, alert))
-        log.info("Alerta táctica proactiva encolada: %s (Urgencia: %.2f)", alert.headline, alert.urgency_score)
+        with self._lock:
+            self._seq_counter += 1
+            # Push priority tuple with counter to break ties safely
+            self.alert_queue.put((-alert.urgency_score, self._seq_counter, alert))
+            log.info("Alerta táctica proactiva encolada: %s (Urgencia: %.2f)", alert.headline, alert.urgency_score)
 
-        if alert.urgency_score >= 0.70 and self.state in (VoiceNexusState.IDLE, VoiceNexusState.LISTENING):
-            return self.trigger_spontaneous_speech()
+            if alert.urgency_score >= 0.70 and self.state in (VoiceNexusState.IDLE, VoiceNexusState.LISTENING):
+                return self.trigger_spontaneous_speech()
         return False
 
     def trigger_spontaneous_speech(self) -> bool:
@@ -153,7 +155,7 @@ class ProactiveVoiceNexus:
             if self.alert_queue.empty():
                 return False
 
-            _, top_alert = self.alert_queue.get()
+            _, _, top_alert = self.alert_queue.get()
             self.state = VoiceNexusState.PROACTIVE_TAKEOVER
 
             prosody_params = self.prosody.compute_prosody()
@@ -206,10 +208,9 @@ class ProactiveVoiceNexus:
                 fatigue_score=bio.get("fatigue", 0.10),
             )
 
-            # Response tailored with precision, absolute loyalty, and zero fluff
             reply = (
-                f"Entendido, señor. Ya he anticipado las contingencias y la orden está en curso con precisión milimétrica. "
-                "Cualquier novedad se la notificaré al instante."
+                "Entendido, señor. Ya he anticipado las contingencias y la orden está en curso "
+                "con precisión milimétrica. Cualquier novedad se la notificaré al instante."
             )
             self.dialogue_history.append({"role": "sergio", "content": reply})
             self.state = VoiceNexusState.SPEAKING
@@ -231,3 +232,14 @@ def get_proactive_voice_nexus() -> ProactiveVoiceNexus:
     if _global_voice_nexus is None:
         _global_voice_nexus = ProactiveVoiceNexus()
     return _global_voice_nexus
+
+
+__all__ = [
+    "VoiceNexusState",
+    "ProsodyParameters",
+    "ProactiveTacticalAlert",
+    "UltraLowLatencyBargeIn",
+    "BiometricProsodyModulator",
+    "ProactiveVoiceNexus",
+    "get_proactive_voice_nexus",
+]

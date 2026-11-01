@@ -9,7 +9,6 @@ from openjarvis.core.agi_engine import (
     UniversalAGIEngine,
     get_universal_agi_engine,
 )
-from openjarvis.core.types import ToolResult
 from openjarvis.pagos import cifrado
 from openjarvis.tools.app_control import SergioAppControlTool
 

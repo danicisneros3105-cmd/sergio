@@ -7,23 +7,17 @@ telemetry, IoT hardware orchestration, digital platform automation, and Merkle l
 
 from __future__ import annotations
 
-import json
-from pathlib import Path
-
 import pytest
 
 from openjarvis.automatiza.platform_nexus import (
     CommunicationChannel,
     MessagePriority,
-    PlatformAutomationNexus,
     UnifiedCommunicationsNexus,
     YouTubeAutonomousPipeline,
 )
 from openjarvis.core.agi_reasoning import (
     AutonomousExecutionOrchestrator,
     HierarchicalTaskNetwork,
-    MonteCarloTreeSearch,
-    NodeStatus,
     ReasoningNode,
     SubsecondReasoningPlanner,
     TacticalAction,
@@ -38,12 +32,9 @@ from openjarvis.hardware.iot_orchestrator import (
     AndroidADBController,
     EnvironmentPreset,
     PhysicalIoTOrchestrator,
-    SmartHomeIoTController,
 )
 from openjarvis.health.biometric_nexus import (
-    BiometricSnapshot,
     BiometricTelemetryNexus,
-    WearableDeviceType,
 )
 from openjarvis.security.vertu_enclave import (
     IdentityBlindingNexus,
@@ -56,14 +47,11 @@ from openjarvis.speech.proactive_voice_nexus import (
     ProactiveTacticalAlert,
     ProactiveVoiceNexus,
     UltraLowLatencyBargeIn,
-    VoiceNexusState,
 )
 from openjarvis.telemetry.evidence_nexus import (
     EvidenceNexusLedger,
-    MerkleAuditTree,
 )
 from openjarvis.tools.app_control import SergioAppControlTool
-
 
 # ==============================================================================
 # 1. Subsecond Reasoning Engine (HTN + MCTS) Tests
@@ -129,7 +117,10 @@ def test_dynamic_api_synthesis_and_deep_scraper():
     assert "SERGIO-" in res["response"]["confirmation_code"]
 
     scraper = ResilientDeepScraper()
-    mock_html = "<html><body><h1>Grand Hotel</h1><span class='price'>$1,500.00</span><p>Contacto: desk@hotel.com</p></body></html>"
+    mock_html = (
+        "<html><body><h1>Grand Hotel</h1><span class='price'>$1,500.00</span>"
+        "<p>Contacto: desk@hotel.com</p></body></html>"
+    )
     extracted = scraper.extract_structured_data(mock_html, ["precio", "email"])
     assert extracted["campos_extraidos"]["precio"] == "$1,500.00"
     assert extracted["campos_extraidos"]["email"] == "desk@hotel.com"
@@ -346,3 +337,67 @@ def test_sergio_app_control_all_new_agi_actions(tmp_path, monkeypatch):
     r5 = tool.execute(action="merkle_evidence_receipt", content="mision_ejecutiva_alfa")
     assert r5.success
     assert "Recibo Criptográfico de Auditoría Merkle" in r5.content
+
+
+# ==============================================================================
+# 9. Bug Fix Regression Verification Tests
+# ==============================================================================
+
+
+def test_mcts_branching_and_work_queue():
+    orchestrator = AutonomousExecutionOrchestrator()
+    graph = orchestrator.planner.formulate_plan("Misión con ramificación múltiple")
+    # Add two parallel children to root
+    root = graph.root
+    assert root is not None
+    c1 = ReasoningNode(
+        node_id="child_1",
+        action=TacticalAction("act_c1", "Rama A", TacticalDomain.PERCEPTION, "Desc A"),
+        parent=root,
+    )
+    c2 = ReasoningNode(
+        node_id="child_2",
+        action=TacticalAction("act_c2", "Rama B", TacticalDomain.ANTIBOT_EVASION, "Desc B"),
+        parent=root,
+    )
+    root.children = [c1, c2]
+
+    res = orchestrator.execute_mission("Misión con ramificación múltiple")
+    executed_names = [n["nombre"] for n in res["nodes_executed"]]
+    assert len(executed_names) >= 2
+
+
+def test_vertu_chacha20_dual_cipher():
+    enclave = VertuCryptographicEnclave()
+    raw = b"Datos sellados con ChaCha20-Poly1305"
+    sealed = enclave.seal_envelope(raw, context_aad="chacha_aad", cipher_algo="chacha20")
+    assert "vertu:" in sealed
+    unsealed = enclave.unseal_envelope(sealed, expected_aad="chacha_aad")
+    assert unsealed == raw
+
+
+def test_priority_queue_equal_urgency():
+    nexus = ProactiveVoiceNexus()
+    a1 = ProactiveTacticalAlert("al_1", 0.50, "Alerta 1", "Texto 1")
+    a2 = ProactiveTacticalAlert("al_2", 0.50, "Alerta 2", "Texto 2")
+    # Must not raise TypeError when pushing same urgency
+    nexus.dispatch_alert_proactively(a1)
+    nexus.dispatch_alert_proactively(a2)
+    assert not nexus.alert_queue.empty()
+    assert nexus.alert_queue.qsize() == 2
+
+
+def test_adb_negative_coordinate_rejection():
+    adb = AndroidADBController()
+    res = adb.execute_tap(-10, 50)
+    assert res.success is False
+    assert "inválidas" in res.error.lower()
+
+
+def test_gallery_path_traversal_sanitization():
+    adb = AndroidADBController()
+    res = adb.access_gallery_securely("../../etc/passwd", confirm_token="tok_123")
+    assert res["autorizado"] is True
+    assert ".." not in res["tag"]
+    assert "/" not in res["tag"]
+

@@ -9,14 +9,14 @@ from __future__ import annotations
 
 import collections
 import enum
-import hashlib
 import json
 import logging
 import secrets
+import threading
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Deque, Dict, List, Optional, Tuple
+from typing import Any, Deque, Dict, List, Optional
 
 log = logging.getLogger("openjarvis.automatiza.platform_nexus")
 
@@ -85,7 +85,11 @@ class YouTubeAutonomousPipeline:
         self.storage_dir.mkdir(parents=True, exist_ok=True)
         self.production_ledger: List[VideoProductionAsset] = []
 
-    def synthesize_video_release(self, topic: str, target_audience: str = "High-Agency Tech & Finance") -> VideoProductionAsset:
+    def synthesize_video_release(
+        self,
+        topic: str,
+        target_audience: str = "High-Agency Tech & Finance",
+    ) -> VideoProductionAsset:
         """Synthesizes high-retention script, audio cues, visuals, and tags."""
         aid = f"yt_vid_{secrets.token_hex(6)}"
         now = time.time()
@@ -101,7 +105,7 @@ class YouTubeAutonomousPipeline:
             asset_id=aid,
             title=title,
             topic=topic,
-            duration_seconds=58,  # Optimized for short-form retention
+            duration_seconds=58,
             script_segments=[
                 {"hook_0_3s": f"¿Sabías que el 99% analiza {topic} de forma totalmente equivocada?"},
                 {"reframe_3_15s": "La mayoría busca atajos, pero los líderes de élite usan esta regla exacta."},
@@ -119,16 +123,18 @@ class YouTubeAutonomousPipeline:
             status="rendered_and_staged",
         )
 
-        # Record to local ledger
         self.production_ledger.append(asset)
-        manifest_path = self.storage_dir / f"{aid}_manifest.json"
-        manifest_path.write_text(json.dumps({
-            "asset_id": asset.asset_id,
-            "title": asset.title,
-            "schedule": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(asset.upload_schedule_epoch)),
-            "status": asset.status,
-            "tags": asset.seo_tags,
-        }, indent=2), encoding="utf-8")
+        try:
+            manifest_path = self.storage_dir / f"{aid}_manifest.json"
+            manifest_path.write_text(json.dumps({
+                "asset_id": asset.asset_id,
+                "title": asset.title,
+                "schedule": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(asset.upload_schedule_epoch)),
+                "status": asset.status,
+                "tags": asset.seo_tags,
+            }, indent=2), encoding="utf-8")
+        except Exception as exc:
+            log.warning("No se pudo escribir manifest de video en disco: %s", exc)
 
         log.info("Nuevo video sintetizado para YouTube: '%s' (Slot: cada 7h)", title)
         return asset
@@ -140,6 +146,7 @@ class UnifiedCommunicationsNexus:
     def __init__(self) -> None:
         self.inbox: Deque[InboundCommunication] = collections.deque(maxlen=500)
         self.outbox_queue: List[Dict[str, Any]] = []
+        self._lock = threading.RLock()
         self._seed_sample_communications()
 
     def _seed_sample_communications(self) -> None:
@@ -178,8 +185,10 @@ class UnifiedCommunicationsNexus:
         mid = f"comm_{secrets.token_hex(6)}"
         lowered = content.lower()
 
-        # Priority classification (Andy Sachs doctrine)
-        is_vip = any(w in lowered for w in ["urgente", "consejo", "reunión", "contrato", "firma", "inversión", "directorio"])
+        is_vip = any(
+            w in lowered
+            for w in ["urgente", "consejo", "reunión", "contrato", "firma", "inversión", "directorio"]
+        )
         is_spam = any(w in lowered for w in ["newsletter", "unsubscribe", "oferta", "descuento", "promo"])
 
         if is_vip:
@@ -195,7 +204,7 @@ class UnifiedCommunicationsNexus:
             req_confirm = False
         else:
             priority = MessagePriority.ACTIONABLE
-            draft = f"Recibido conforme. Procedemos con la gestión solicitada."
+            draft = "Recibido conforme. Procedemos con la gestión solicitada."
             req_confirm = False
 
         comm = InboundCommunication(
@@ -208,7 +217,8 @@ class UnifiedCommunicationsNexus:
             draft_response=draft,
             requires_approval_to_send=req_confirm,
         )
-        self.inbox.append(comm)
+        with self._lock:
+            self.inbox.append(comm)
         log.info("Mensaje triado [%s] Canal=%s Prioridad=%s", mid, channel.value, priority.value)
         return comm
 
@@ -218,28 +228,29 @@ class UnifiedCommunicationsNexus:
         human_confirmation_token: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Dispatches draft response; enforces confirmation token for VIP / critical messages."""
-        target = next((m for m in self.inbox if m.message_id == message_id), None)
-        if not target:
-            return {"exito": False, "error": "Mensaje no encontrado en buzón"}
+        with self._lock:
+            target = next((m for m in self.inbox if m.message_id == message_id), None)
+            if not target:
+                return {"exito": False, "error": "Mensaje no encontrado en buzón"}
 
-        if target.requires_approval_to_send and not human_confirmation_token:
-            return {
-                "exito": False,
-                "motivo": "Este mensaje VIP requiere confirmación explícita del Señor antes de ser enviado.",
-                "borrador_listo": target.draft_response,
-                "token_requerido": True,
+            if target.requires_approval_to_send and not human_confirmation_token:
+                return {
+                    "exito": False,
+                    "motivo": "Este mensaje VIP requiere confirmación explícita del Señor antes de ser enviado.",
+                    "borrador_listo": target.draft_response,
+                    "token_requerido": True,
+                }
+
+            receipt = {
+                "mensaje_id": target.message_id,
+                "canal": target.channel.value,
+                "destinatario": target.sender,
+                "texto_enviado": target.draft_response,
+                "timestamp": time.time(),
+                "estado": "ENVIADO_CON_EXITO",
             }
+            self.outbox_queue.append(receipt)
 
-        # Dispatch transmission
-        receipt = {
-            "mensaje_id": target.message_id,
-            "canal": target.channel.value,
-            "destinatario": target.sender,
-            "texto_enviado": target.draft_response,
-            "timestamp": time.time(),
-            "estado": "ENVIADO_CON_EXITO",
-        }
-        self.outbox_queue.append(receipt)
         log.info("Mensaje despachado con éxito a %s vía %s", target.sender, target.channel.value)
         return {"exito": True, "recibo": receipt}
 
@@ -282,3 +293,16 @@ def get_platform_automation_nexus() -> PlatformAutomationNexus:
     if _global_platform_nexus is None:
         _global_platform_nexus = PlatformAutomationNexus()
     return _global_platform_nexus
+
+
+__all__ = [
+    "DigitalPlatform",
+    "CommunicationChannel",
+    "MessagePriority",
+    "VideoProductionAsset",
+    "InboundCommunication",
+    "YouTubeAutonomousPipeline",
+    "UnifiedCommunicationsNexus",
+    "PlatformAutomationNexus",
+    "get_platform_automation_nexus",
+]

@@ -10,10 +10,10 @@ from __future__ import annotations
 import collections
 import enum
 import logging
-import math
+import threading
 import time
-from dataclasses import dataclass, field
-from typing import Any, Deque, Dict, List, Optional, Tuple
+from dataclasses import dataclass
+from typing import Any, Deque, Dict, List, Optional
 
 log = logging.getLogger("openjarvis.health.biometric_nexus")
 
@@ -63,13 +63,12 @@ class PredictivePhysiologicalModel:
             }
 
         latest = history[-1]
-        hrv = latest.hrv_rmssd_ms
-        stress = latest.stress_index
+        hrv = max(10.0, float(latest.hrv_rmssd_ms))
+        stress = max(0.0, min(1.0, float(latest.stress_index)))
 
-        # Circadian baseline: peak 9-12h and 16-19h, dip 13-15h
         circadian_mult = 0.95
         if 13.0 <= current_hour <= 15.0:
-            circadian_mult = 0.78  # Post-prandial dip
+            circadian_mult = 0.78
         elif 9.0 <= current_hour <= 12.0:
             circadian_mult = 1.05
 
@@ -101,6 +100,7 @@ class BiometricTelemetryNexus:
     def __init__(self) -> None:
         self.history: Deque[BiometricSnapshot] = collections.deque(maxlen=1000)
         self.connected_devices: Dict[WearableDeviceType, Dict[str, Any]] = {}
+        self._lock = threading.RLock()
         self._initialize_synthetic_baseline()
 
     def _initialize_synthetic_baseline(self) -> None:
@@ -125,17 +125,26 @@ class BiometricTelemetryNexus:
 
     def register_reading(self, snapshot: BiometricSnapshot) -> None:
         """Stores incoming hardware telemetry frame."""
-        self.history.append(snapshot)
-        log.debug("Telemetría biométrica registrada: HR=%.1f, HRV=%.1f", snapshot.heart_rate_bpm, snapshot.hrv_rmssd_ms)
+        with self._lock:
+            self.history.append(snapshot)
+            log.debug(
+                "Telemetría biométrica registrada: HR=%.1f, HRV=%.1f",
+                snapshot.heart_rate_bpm,
+                snapshot.hrv_rmssd_ms,
+            )
 
     def get_realtime_status(self) -> Dict[str, Any]:
         """Provides instant physiological snapshot for executive decision-making."""
-        if not self.history:
-            return {"status": "sin_sensores_activos"}
+        with self._lock:
+            if not self.history:
+                return {"status": "sin_sensores_activos"}
 
-        latest = self.history[-1]
+            latest = self.history[-1]
+            hist_copy = list(self.history)
+
         hour = time.localtime(latest.timestamp).tm_hour + time.localtime(latest.timestamp).tm_min / 60.0
-        analysis = PredictivePhysiologicalModel.estimate_cognitive_capacity(list(self.history), hour)
+        analysis = PredictivePhysiologicalModel.estimate_cognitive_capacity(hist_copy, hour)
+        battery_alert = "Batería baja en wearable (<15%)" if latest.device_battery_pct < 15 else "Batería óptima"
 
         return {
             "dispositivo_primario": latest.device_type.value,
@@ -145,6 +154,7 @@ class BiometricTelemetryNexus:
             "temperatura_cutanea": latest.skin_temp_celsius,
             "recuperacion_score": latest.recovery_score,
             "bateria_sensor": f"{latest.device_battery_pct}%",
+            "alerta_bateria": battery_alert,
             "evaluacion_predictiva": analysis,
         }
 
@@ -158,3 +168,12 @@ def get_biometric_nexus() -> BiometricTelemetryNexus:
     if _global_biometric_nexus is None:
         _global_biometric_nexus = BiometricTelemetryNexus()
     return _global_biometric_nexus
+
+
+__all__ = [
+    "WearableDeviceType",
+    "BiometricSnapshot",
+    "PredictivePhysiologicalModel",
+    "BiometricTelemetryNexus",
+    "get_biometric_nexus",
+]

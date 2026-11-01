@@ -19,7 +19,7 @@ import stat
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Dict, Optional, Tuple
 
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM, ChaCha20Poly1305
@@ -79,17 +79,30 @@ class VertuCryptographicEnclave:
                 raw = key_path.read_bytes()
                 if len(raw) >= 32:
                     return raw[:32]
-            except Exception:
-                pass
-        # Generate pristine 256-bit entropy
+                # Corrupted key file detected: preserve it with backup to avoid silent data loss
+                backup = key_path.with_name(f"{key_path.name}.corrupted.{int(time.time())}")
+                key_path.rename(backup)
+                log.error("Clave Vertu corrupta en %s (<32 bytes). Respaldada en %s", key_path, backup)
+            except Exception as exc:
+                log.error("Error al leer clave Vertu: %s", exc)
+
         new_key = secrets.token_bytes(32)
         try:
             key_path.parent.mkdir(parents=True, exist_ok=True)
-            key_path.write_bytes(new_key)
-            # Enforce 0600 file permission (owner read/write only)
-            key_path.chmod(stat.S_IRUSR | stat.S_IWUSR)
+            # Create atomically with restricted permissions (0600)
+            flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
+            if hasattr(os, "O_NOFOLLOW"):
+                flags |= os.O_NOFOLLOW
+            fd = os.open(str(key_path), flags, stat.S_IRUSR | stat.S_IWUSR)
+            with os.fdopen(fd, "wb") as f:
+                f.write(new_key)
         except Exception as exc:
-            log.warning("No se pudo restringir permisos de clave Vertu: %s", exc)
+            log.warning("No se pudo restringir permisos atómicamente en clave Vertu: %s", exc)
+            key_path.write_bytes(new_key)
+            try:
+                key_path.chmod(stat.S_IRUSR | stat.S_IWUSR)
+            except Exception:
+                pass
         return new_key
 
     def _derive_enclave_key(self, salt: bytes, context_aad: str) -> bytes:
@@ -101,16 +114,29 @@ class VertuCryptographicEnclave:
         )
         return hkdf.derive(self._master_key)
 
-    def seal_envelope(self, plaintext_data: bytes, context_aad: str = "vertu_shield") -> str:
-        """Seals data using AES-256-GCM with SHA512 derived key and authenticated AAD."""
+    def seal_envelope(
+        self,
+        plaintext_data: bytes,
+        context_aad: str = "vertu_shield",
+        cipher_algo: str = "aesgcm",
+    ) -> str:
+        """Seals data using AES-256-GCM or ChaCha20-Poly1305 with SHA512 derived key."""
         salt = secrets.token_bytes(16)
         nonce = secrets.token_bytes(12)
         derived_key = self._derive_enclave_key(salt, context_aad)
-        aesgcm = AESGCM(derived_key)
-        ciphertext = aesgcm.encrypt(nonce, plaintext_data, context_aad.encode())
+
+        algo_norm = cipher_algo.lower().strip()
+        if "chacha" in algo_norm:
+            cipher = ChaCha20Poly1305(derived_key)
+            version_str = "vertu_v2_chacha20"
+        else:
+            cipher = AESGCM(derived_key)
+            version_str = "vertu_v2_aesgcm"
+
+        ciphertext = cipher.encrypt(nonce, plaintext_data, context_aad.encode())
 
         packet = {
-            "version": "vertu_v2_aesgcm",
+            "version": version_str,
             "salt_b64": base64.b64encode(salt).decode("ascii"),
             "nonce_b64": base64.b64encode(nonce).decode("ascii"),
             "ciphertext_b64": base64.b64encode(ciphertext).decode("ascii"),
@@ -120,23 +146,28 @@ class VertuCryptographicEnclave:
         return "vertu:" + base64.b64encode(json.dumps(packet).encode("utf-8")).decode("ascii")
 
     def unseal_envelope(self, sealed_token: str, expected_aad: Optional[str] = None) -> bytes:
-        """Unseals authenticated envelope, verifying cryptographic integrity."""
+        """Unseals authenticated envelope with constant-time AAD validation."""
         if not sealed_token.startswith("vertu:"):
             raise ValueError("Token inválido: Formato de sobre Vertu no reconocido")
         raw_json = base64.b64decode(sealed_token[6:])
         packet = json.loads(raw_json)
 
         aad = packet.get("aad", "")
-        if expected_aad and aad != expected_aad:
+        if expected_aad is not None and not hmac.compare_digest(aad, expected_aad):
             raise ValueError(f"Falla de autenticación AAD: esperada '{expected_aad}', recibida '{aad}'")
 
         salt = base64.b64decode(packet["salt_b64"])
         nonce = base64.b64decode(packet["nonce_b64"])
         ciphertext = base64.b64decode(packet["ciphertext_b64"])
+        version = packet.get("version", "vertu_v2_aesgcm")
 
         derived_key = self._derive_enclave_key(salt, aad)
-        aesgcm = AESGCM(derived_key)
-        return aesgcm.decrypt(nonce, ciphertext, aad.encode())
+        if "chacha" in version:
+            cipher = ChaCha20Poly1305(derived_key)
+        else:
+            cipher = AESGCM(derived_key)
+
+        return cipher.decrypt(nonce, ciphertext, aad.encode())
 
     def seal_file_securely(self, target_path: Path, data: bytes, context_label: str) -> None:
         """Writes sealed envelope to disk and locks POSIX permissions to 0600."""
@@ -158,6 +189,7 @@ class IdentityBlindingNexus:
 
     def spawn_disposable_persona(self, mission_tag: str) -> DisposablePersona:
         """Creates a completely detached operational persona for external tasks."""
+        self.prune_expired_personas()
         pid = f"persona_{secrets.token_hex(6)}"
         persona = DisposablePersona(
             persona_id=pid,
@@ -176,6 +208,14 @@ class IdentityBlindingNexus:
         if persona_id in self._active_personas:
             del self._active_personas[persona_id]
             log.info("Persona descartable [%s] revocada y purgada del enclave", persona_id)
+
+    def prune_expired_personas(self) -> int:
+        """Prunes personas that have exceeded their 24h validity window."""
+        now = time.time()
+        expired = [pid for pid, p in self._active_personas.items() if p.expires_at <= now]
+        for pid in expired:
+            del self._active_personas[pid]
+        return len(expired)
 
 
 class StrictConfirmationGate:
@@ -257,3 +297,14 @@ def get_vertu_enclave() -> VertuCryptographicEnclave:
     if _global_enclave is None:
         _global_enclave = VertuCryptographicEnclave()
     return _global_enclave
+
+
+__all__ = [
+    "OperationRiskTier",
+    "DisposablePersona",
+    "ConfirmationRequest",
+    "VertuCryptographicEnclave",
+    "IdentityBlindingNexus",
+    "StrictConfirmationGate",
+    "get_vertu_enclave",
+]

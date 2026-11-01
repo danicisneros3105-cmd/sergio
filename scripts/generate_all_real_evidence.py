@@ -2,6 +2,7 @@
 """Run real end-to-end evidence generation across all Sergio capabilities.
 Produces concrete, verifiable proof files, hashes, and execution metrics.
 """
+# ruff: noqa: E402, F401
 
 import hashlib
 import json
@@ -15,19 +16,21 @@ repo_root = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(repo_root / "src"))
 sys.path.insert(0, str(repo_root / "windows"))
 
+# AGI Nexus imports
+from openjarvis.core.agi_reasoning import get_agi_reasoning_orchestrator
+from openjarvis.core.dynamic_api_synthesis import (
+    DynamicAPISynthesizer,
+    StealthAntiBotEvasion,
+)
 from openjarvis.core.types import ToolResult
+from openjarvis.pagos import cifrado
+from openjarvis.security.vertu_enclave import StrictConfirmationGate, get_vertu_enclave
+from openjarvis.server.meeting_routes import dispatch_device_command
+from openjarvis.telemetry.evidence_nexus import get_evidence_nexus_ledger
 from openjarvis.tools import commerce_intel as ci
 from openjarvis.tools.app_control import SergioAppControlTool
 from openjarvis.tools.desktop_tools import DesktopActionTool
-from openjarvis.pagos import cifrado
-from openjarvis.server.meeting_routes import dispatch_device_command
 from openjarvis.video_essay import schedule as video_schedule
-
-# AGI Nexus imports
-from openjarvis.core.agi_reasoning import get_agi_reasoning_orchestrator
-from openjarvis.core.dynamic_api_synthesis import DynamicAPISynthesizer, StealthAntiBotEvasion
-from openjarvis.security.vertu_enclave import get_vertu_enclave, StrictConfirmationGate
-from openjarvis.telemetry.evidence_nexus import get_evidence_nexus_ledger
 
 evidence_report = {
     "timestamp": time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime()),

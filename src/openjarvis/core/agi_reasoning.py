@@ -7,14 +7,16 @@ and orchestrates autonomous resolution in milliseconds.
 
 from __future__ import annotations
 
+import collections
 import enum
 import logging
 import math
 import random
+import threading
 import time
 import uuid
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional
 
 log = logging.getLogger("openjarvis.core.agi_reasoning")
 
@@ -59,6 +61,10 @@ class TacticalAction:
     metadata: Dict[str, Any] = field(default_factory=dict)
     payload: Optional[Dict[str, Any]] = None
 
+    def __post_init__(self) -> None:
+        self.risk_score = max(0.0, min(1.0, float(self.risk_score)))
+        self.timeout_ms = max(50, int(self.timeout_ms))
+
 
 @dataclass
 class ReasoningNode:
@@ -86,7 +92,6 @@ class ReasoningNode:
             return float("inf")
         exploitation = self.total_reward / self.visits
         exploration = exploration_weight * math.sqrt(math.log(max(1, parent_visits)) / self.visits)
-        # Risk penalty reduces score if high risk without authorization
         risk_penalty = self.action.risk_score * 0.5
         return exploitation + exploration - risk_penalty
 
@@ -116,15 +121,9 @@ class HierarchicalTaskNetwork:
 
     def __init__(self) -> None:
         self._rules: List[Callable[[str, Dict[str, Any]], List[TacticalAction]]] = []
-        self._register_default_tactical_decompositions()
-
-    def _register_default_tactical_decompositions(self) -> None:
-        # Default generalized heuristic rules for sub-second decomposition
-        pass
 
     def decompose(self, goal: str, context: Optional[Dict[str, Any]] = None) -> List[TacticalAction]:
         """Deconstructs arbitrary goal into an ordered sequence of tactical actions."""
-        ctx = context or {}
         lowered = goal.lower()
         actions: List[TacticalAction] = []
 
@@ -161,20 +160,22 @@ class HierarchicalTaskNetwork:
                 )
             )
 
-        # 3. Dynamic API Synthesis & Deep Scraping
-        if "hotel" in lowered or "reserva" in lowered or "vuelo" in lowered or "restaurante" in lowered:
+        # 3. Dynamic API Synthesis & Domain-specific execution
+        if any(w in lowered for w in ["hotel", "reserva", "vuelo", "restaurante"]):
             actions.append(
                 TacticalAction(
                     action_id=f"act_neg_{uuid.uuid4().hex[:8]}",
                     name="Arbitraje & Negociación Consortia VIP",
                     domain=TacticalDomain.FINANCIAL_ARBITRAGE,
-                    description="Ejecutar sniper de tarifas privadas, inventario oculto y cancelaciones de última hora.",
+                    description=(
+                        "Ejecutar sniper de tarifas privadas, inventario oculto y cancelaciones de última hora."
+                    ),
                     risk_score=0.15,
                     timeout_ms=2500,
                     metadata={"goal": goal},
                 )
             )
-        elif "youtube" in lowered or "video" in lowered or "instagram" in lowered or "post" in lowered:
+        elif any(w in lowered for w in ["youtube", "video", "instagram", "post"]):
             actions.append(
                 TacticalAction(
                     action_id=f"act_media_{uuid.uuid4().hex[:8]}",
@@ -185,7 +186,7 @@ class HierarchicalTaskNetwork:
                     timeout_ms=3000,
                 )
             )
-        elif "mensaje" in lowered or "correo" in lowered or "responder" in lowered or "whatsapp" in lowered:
+        elif any(w in lowered for w in ["mensaje", "correo", "responder", "whatsapp"]):
             is_critical = any(w in lowered for w in ["firmar", "banco", "transferir", "dinero", "urgente", "contrato"])
             actions.append(
                 TacticalAction(
@@ -198,7 +199,7 @@ class HierarchicalTaskNetwork:
                     timeout_ms=1500,
                 )
             )
-        elif "dispositivo" in lowered or "hardware" in lowered or "movil" in lowered or "telefono" in lowered or "reloj" in lowered:
+        elif any(w in lowered for w in ["dispositivo", "hardware", "movil", "telefono", "reloj"]):
             actions.append(
                 TacticalAction(
                     action_id=f"act_iot_{uuid.uuid4().hex[:8]}",
@@ -210,7 +211,6 @@ class HierarchicalTaskNetwork:
                 )
             )
         else:
-            # Universal Dynamic API Synthesis for arbitrary missions
             actions.append(
                 TacticalAction(
                     action_id=f"act_syn_{uuid.uuid4().hex[:8]}",
@@ -259,40 +259,35 @@ class MonteCarloTreeSearch:
     """Monte Carlo Tree Search for tactical planning under uncertainty."""
 
     def __init__(self, iterations: int = 50, exploration_weight: float = 1.414) -> None:
-        self.iterations = iterations
-        self.exploration_weight = exploration_weight
+        self.iterations = max(10, iterations)
+        self.exploration_weight = max(0.1, exploration_weight)
+        self._lock = threading.RLock()
 
     def plan_optimal_sequence(self, root: ReasoningNode) -> List[ReasoningNode]:
         """Runs fast MCTS simulation in <20 milliseconds to identify the optimal path."""
         t_start = time.perf_counter()
-        for _ in range(self.iterations):
-            # 1. Selection
-            node = self._select(root)
-            # 2. Expansion
-            if node.children:
-                node = random.choice(node.children)
-            # 3. Simulation (Rollout)
-            reward = self._simulate(node)
-            # 4. Backpropagation
-            self._backpropagate(node, reward)
+        with self._lock:
+            for _ in range(self.iterations):
+                node = self._select(root)
+                if node.children:
+                    node = random.choice(node.children)
+                reward = self._simulate(node)
+                self._backpropagate(node, reward)
 
-        # Extract optimal execution chain
-        path: List[ReasoningNode] = []
-        curr = root
-        while curr:
-            path.append(curr)
-            if not curr.children:
-                break
-            # Choose best child by visit count (most robust)
-            curr = max(curr.children, key=lambda c: c.visits)
+            path: List[ReasoningNode] = []
+            curr: Optional[ReasoningNode] = root
+            while curr:
+                path.append(curr)
+                if not curr.children:
+                    break
+                curr = max(curr.children, key=lambda c: c.visits)
 
-        log.debug("MCTS completado en %.3f ms para %d nodos", (time.perf_counter() - t_start) * 1000, len(path))
-        return path
+            log.debug("MCTS completado en %.3f ms para %d nodos", (time.perf_counter() - t_start) * 1000, len(path))
+            return path
 
     def _select(self, node: ReasoningNode) -> ReasoningNode:
         curr = node
         while curr.children:
-            # If any unvisited child, pick it
             unvisited = [c for c in curr.children if c.visits == 0]
             if unvisited:
                 return random.choice(unvisited)
@@ -300,10 +295,9 @@ class MonteCarloTreeSearch:
         return curr
 
     def _simulate(self, node: ReasoningNode) -> float:
-        # Heuristic reward calculation based on domain and safety
         base_reward = 1.0 - (node.action.risk_score * 0.4)
         if node.action.requires_human_confirmation:
-            base_reward += 0.2  # Safety compliant bonus
+            base_reward += 0.2
         return max(0.1, min(1.0, base_reward))
 
     def _backpropagate(self, node: ReasoningNode, reward: float) -> None:
@@ -315,7 +309,7 @@ class MonteCarloTreeSearch:
 
 
 class SubsecondReasoningPlanner:
-    """Orchestrator that combines HTN decomposition with MCTS heuristic refinement."""
+    """Orchestrator combining HTN decomposition with MCTS heuristic refinement."""
 
     def __init__(self) -> None:
         self.htn = HierarchicalTaskNetwork()
@@ -330,7 +324,6 @@ class SubsecondReasoningPlanner:
         if not actions:
             return graph
 
-        # Build sequential root and children chain
         root_node = ReasoningNode(
             node_id=f"node_{uuid.uuid4().hex[:8]}",
             action=actions[0],
@@ -348,7 +341,6 @@ class SubsecondReasoningPlanner:
             graph.add_node(child_node)
             prev_node = child_node
 
-        # Optimize via MCTS
         self.mcts.plan_optimal_sequence(root_node)
 
         dt_ms = (time.perf_counter() - t0) * 1000
@@ -357,7 +349,7 @@ class SubsecondReasoningPlanner:
 
 
 class AutonomousExecutionOrchestrator:
-    """Executes the reasoning graph nodes with millisecond monitoring and adaptive fallback."""
+    """Executes reasoning graph nodes with breadth-first dependency management and fallback."""
 
     def __init__(self) -> None:
         self.planner = SubsecondReasoningPlanner()
@@ -383,13 +375,22 @@ class AutonomousExecutionOrchestrator:
             "proactive_brief": "",
         }
 
-        curr = graph.root
-        while curr:
+        # Queue-based graph traversal to support branching and skip dependents on failure
+        work_queue: collections.deque[ReasoningNode] = (
+            collections.deque([graph.root]) if graph.root else collections.deque()
+        )
+        visited_ids: set[str] = set()
+
+        while work_queue:
+            curr = work_queue.popleft()
+            if curr.node_id in visited_ids:
+                continue
+            visited_ids.add(curr.node_id)
+
             curr.status = NodeStatus.EXECUTING
             node_t0 = time.perf_counter()
 
             try:
-                # If confirmation is required and no token provided, record gated status
                 if curr.action.requires_human_confirmation and not ctx.get("confirmacion_autorizada", False):
                     curr.status = NodeStatus.PENDING
                     curr.result_data = {
@@ -402,7 +403,6 @@ class AutonomousExecutionOrchestrator:
                     curr.result_data = dispatcher_callback(curr.action, ctx)
                     curr.status = NodeStatus.COMPLETED
                 else:
-                    # Built-in synthetic execution for core domains
                     curr.result_data = self._execute_tactical_step_builtin(curr.action, ctx)
                     curr.status = NodeStatus.COMPLETED
 
@@ -429,14 +429,29 @@ class AutonomousExecutionOrchestrator:
                 "latency_ms": curr.execution_time_ms,
             })
 
-            # Advance to next child
-            curr = curr.children[0] if curr.children else None
+            # If node failed, mark its immediate children as skipped to prevent cascading errors
+            if curr.status == NodeStatus.FAILED:
+                for child in curr.children:
+                    child.status = NodeStatus.SKIPPED
+                    child.result_data = {"motivo": f"Prerrequisito fallido: {curr.action.name}"}
+                    visited_ids.add(child.node_id)
+                    results["nodes_executed"].append({
+                        "id": child.node_id,
+                        "nombre": child.action.name,
+                        "dominio": child.action.domain.value,
+                        "estado": NodeStatus.SKIPPED.value,
+                        "tiempo_ms": 0.0,
+                        "detalles": child.result_data,
+                    })
+            else:
+                for child in curr.children:
+                    if child.node_id not in visited_ids:
+                        work_queue.append(child)
 
         results["execution_time_ms"] = round((time.perf_counter() - t_start) * 1000, 2)
         graph.completed_at = time.time()
         graph.success = results["success"]
 
-        # Generate J.A.R.V.I.S. proactive speech briefing
         results["proactive_brief"] = self._synthesize_jarvis_briefing(goal, results)
         return results
 
@@ -498,3 +513,17 @@ def get_agi_reasoning_orchestrator() -> AutonomousExecutionOrchestrator:
     if _global_orchestrator is None:
         _global_orchestrator = AutonomousExecutionOrchestrator()
     return _global_orchestrator
+
+
+__all__ = [
+    "NodeStatus",
+    "TacticalDomain",
+    "TacticalAction",
+    "ReasoningNode",
+    "ReasoningGraph",
+    "HierarchicalTaskNetwork",
+    "MonteCarloTreeSearch",
+    "SubsecondReasoningPlanner",
+    "AutonomousExecutionOrchestrator",
+    "get_agi_reasoning_orchestrator",
+]

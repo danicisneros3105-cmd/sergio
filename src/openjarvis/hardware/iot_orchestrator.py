@@ -9,9 +9,10 @@ from __future__ import annotations
 
 import enum
 import logging
+import re
 import time
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from dataclasses import dataclass
+from typing import Any, Dict, List, Optional
 
 log = logging.getLogger("openjarvis.hardware.iot_orchestrator")
 
@@ -49,9 +50,19 @@ class AndroidADBController:
         self.device_serial = device_serial
 
     def execute_tap(self, x: int, y: int) -> HardwareCommandResult:
-        """Simulates physical screen touch at coordinate (x, y)."""
+        """Simulates physical screen touch at coordinate (x, y) with coordinate bounds checking."""
         t0 = time.perf_counter()
-        # Simulated ADB shell input tap
+        if x < 0 or y < 0:
+            return HardwareCommandResult(
+                device_id=self.device_serial,
+                domain=HardwareDomain.MOBILE_ANDROID,
+                command=f"input tap {x} {y}",
+                success=False,
+                latency_ms=0.0,
+                state_after={},
+                error="Coordenadas de pantalla inválidas (negativas)",
+            )
+
         dt_ms = (time.perf_counter() - t0) * 1000
         return HardwareCommandResult(
             device_id=self.device_serial,
@@ -80,16 +91,20 @@ class AndroidADBController:
         ]
 
     def access_gallery_securely(self, query_tag: str, confirm_token: Optional[str] = None) -> Dict[str, Any]:
-        """Provides verified access to mobile gallery under strict privacy gating."""
+        """Provides verified access to mobile gallery under strict privacy gating and path sanitization."""
         if not confirm_token:
             return {
                 "autorizado": False,
                 "motivo": "Acceso a la galería de fotos requiere confirmación biométrica o token.",
             }
+
+        # Sanitize query tag to avoid path traversal / injection attacks
+        clean_tag = re.sub(r"[^a-zA-Z0-9_\-\s]", "", query_tag).strip() or "general"
+
         return {
             "autorizado": True,
             "fotos_encontradas": 3,
-            "tag": query_tag,
+            "tag": clean_tag,
             "fotos": ["IMG_4091_doc.jpg", "IMG_4092_receipt.jpg", "IMG_4093_blueprint.jpg"],
             "entorno_aislado": "Vertu Memory Sandbox",
         }
@@ -192,3 +207,15 @@ def get_physical_iot_orchestrator() -> PhysicalIoTOrchestrator:
     if _global_iot_orchestrator is None:
         _global_iot_orchestrator = PhysicalIoTOrchestrator()
     return _global_iot_orchestrator
+
+
+__all__ = [
+    "HardwareDomain",
+    "EnvironmentPreset",
+    "HardwareCommandResult",
+    "AndroidADBController",
+    "SmartHomeIoTController",
+    "WorkstationHostController",
+    "PhysicalIoTOrchestrator",
+    "get_physical_iot_orchestrator",
+]
