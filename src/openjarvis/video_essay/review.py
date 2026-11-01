@@ -128,12 +128,17 @@ def ask_review(
     buf = io.BytesIO()
     sheet_img.save(buf, "JPEG", quality=80)
     if ask is None:
-        from google.genai import types
-
         from openjarvis.creator.llm import ask as gemini_ask
         from openjarvis.video_essay.style import models
 
-        part = types.Part.from_bytes(data=buf.getvalue(), mime_type="image/jpeg")
+        try:
+            from google.genai import types
+
+            part: Any = types.Part.from_bytes(
+                data=buf.getvalue(), mime_type="image/jpeg"
+            )
+        except ImportError:  # no Gemini SDK: the sheet goes as bytes (other vision)
+            part = buf.getvalue()
         raw = gemini_ask(
             [part, prompt],
             json_mode=True,
@@ -157,7 +162,10 @@ def apply(
     applied = 0
     for change in notes.get("changes") or []:
         try:
-            shot = shots[int(change.get("shot"))]
+            index = int(change.get("shot"))
+            if index < 0:  # «-1» would silently change the last shot
+                continue
+            shot = shots[index]
         except (TypeError, ValueError, IndexError):
             continue
         sets = change.get("set") if isinstance(change.get("set"), dict) else {}

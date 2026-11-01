@@ -95,7 +95,11 @@ OPEN_VISION = (
 
 
 def _open_vision(
-    jpeg: bytes, prompt: str, http: httpx.Client, mime: str = "image/jpeg"
+    jpeg: bytes,
+    prompt: str,
+    http: httpx.Client,
+    mime: str = "image/jpeg",
+    max_tokens: int = 700,
 ) -> str:
     image = f"data:{mime};base64," + base64.b64encode(jpeg).decode("ascii")
     last: Exception | None = None
@@ -124,7 +128,7 @@ def _open_vision(
                                 ],
                             }
                         ],
-                        "max_tokens": 700,
+                        "max_tokens": max_tokens,
                     },  # fmt: skip
                     timeout=90,
                 )

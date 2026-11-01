@@ -427,8 +427,14 @@ def fetch(c: Candidate, dest: Path, seconds: float, ffmpeg: str) -> Optional[str
             if not base:
                 return None
             raw = dest / f"web-{tag}.%(ext)s"
+            # yt-dlp cuts sections with ffmpeg: tell it where Sergio's is (on
+            # Windows it is often not on PATH, and every clip failed).
+            from openjarvis.tools.video_create import ffmpeg_exe
+
+            exe = ffmpeg_exe()
+            where = ["--ffmpeg-location", exe] if exe else []
             subprocess.run(
-                base + ["-q", "--no-warnings", "--no-playlist",
+                base + ["-q", "--no-warnings", "--no-playlist", *where,
                         "-f", "bv*[height<=1080][ext=mp4]/bv*[height<=1080]/best",
                         "--download-sections", f"*{c.start:.1f}-{c.start + length:.1f}", "-o", str(raw), c.url],
                 check=True, capture_output=True, timeout=240,

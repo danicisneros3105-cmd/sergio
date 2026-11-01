@@ -124,8 +124,13 @@ def ask(
 ) -> str:
     """The answer that passed *check*: Gemini's, or another company's model
     when the owner chose one or Gemini cannot (raises CreatorError
-    otherwise). Pictures in *prompt* (a list) go only to Gemini."""
+    otherwise). Pictures in *prompt* (a list) go to Gemini and, without it or
+    when it fails, to a vision model of OpenRouter or OpenAI."""
     text_only = isinstance(prompt, str)
+    if not text_only:
+        images, words = _split_parts(prompt)
+    else:
+        images, words = [], ""
     chosen = os.environ.get("SERGIO_VIDEO_MODELO", "").strip()
     has_gemini = bool(
         os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY") or client
@@ -142,11 +147,20 @@ def ask(
         except CreatorError:
             if not has_gemini:
                 raise
+    if images and not has_gemini:
+        return _ask_vision_others(images, words, json_mode=json_mode, check=check)
     try:
         return _ask_gemini(prompt, json_mode=json_mode, effort=effort, max_tokens=max_tokens,
                            check=check, models=models, client=client, hedge_after=hedge_after,
                            timeout=timeout)  # fmt: skip
     except CreatorError as exc:
+        if images:
+            try:
+                return _ask_vision_others(
+                    images, words, json_mode=json_mode, check=check
+                )
+            except CreatorError as other:
+                raise CreatorError(f"{exc} · {other}") from other
         if text_only and other_models():
             try:
                 return ask_others(
@@ -155,6 +169,76 @@ def ask(
             except CreatorError as other:
                 raise CreatorError(f"{exc} · {other}") from other
         raise
+
+
+def _split_parts(parts: list[Any]) -> tuple[list[bytes], str]:
+    """Pictures (raw bytes or Gemini parts) and the words of a mixed prompt."""
+    images: list[bytes] = []
+    words: list[str] = []
+    for p in parts:
+        if isinstance(p, (bytes, bytearray)):
+            images.append(bytes(p))
+        elif isinstance(p, str):
+            words.append(p)
+        else:
+            data = getattr(getattr(p, "inline_data", None), "data", None)
+            if isinstance(data, (bytes, bytearray)):
+                images.append(bytes(data))
+            elif getattr(p, "text", None):
+                words.append(str(p.text))
+    return images, "\n".join(words)
+
+
+def _sheet(images: list[bytes]) -> bytes:
+    """Up to six pictures in one JPEG (OpenAI-style APIs take one easily)."""
+    from io import BytesIO
+
+    from PIL import Image
+
+    if len(images) == 1:
+        return images[0]
+    tiles = []
+    for raw in images[:6]:
+        with Image.open(BytesIO(raw)) as im:
+            im = im.convert("RGB")
+            im.thumbnail((640, 640))
+            tiles.append(im.copy())
+    cols = min(3, len(tiles))
+    rows = (len(tiles) + cols - 1) // cols
+    w = max(t.width for t in tiles)
+    h = max(t.height for t in tiles)
+    sheet = Image.new("RGB", (cols * w, rows * h), (16, 16, 18))
+    for i, tile in enumerate(tiles):
+        sheet.paste(tile, ((i % cols) * w, (i // cols) * h))
+    buf = BytesIO()
+    sheet.save(buf, "JPEG", quality=82)
+    return buf.getvalue()
+
+
+def _ask_vision_others(
+    images: list[bytes],
+    words: str,
+    *,
+    json_mode: bool,
+    check: Callable[[str], Any] | None,
+) -> str:
+    """The same question with its pictures to OpenRouter's or OpenAI's vision."""
+    import httpx
+
+    from openjarvis.tools.vision_look import _open_vision
+
+    prompt = words + ("\nAnswer only with valid JSON." if json_mode else "")
+    try:
+        with httpx.Client(timeout=120) as http:
+            raw = _open_vision(_sheet(images), prompt, http, max_tokens=8000)
+    except Exception as exc:  # noqa: BLE001 — no key or no answer
+        raise CreatorError(f"Ningún modelo con visión respondió ({exc}).") from exc
+    if check is not None:
+        try:
+            check(raw)
+        except Exception as exc:  # noqa: BLE001
+            raise CreatorError(f"La respuesta con visión no sirvió: {exc}") from exc
+    return raw
 
 
 def _ask_gemini(

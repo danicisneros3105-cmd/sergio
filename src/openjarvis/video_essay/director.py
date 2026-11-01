@@ -96,15 +96,17 @@ def vision_asker(strong: bool, budget: Any = None) -> Callable[..., str]:
     """Like :func:`asker`, for prompts that carry pictures (JPEG/PNG bytes)."""
 
     def ask(parts: List[Any], prompt: str = "", **kw: Any) -> str:
-        from google.genai import types
-
         from openjarvis.creator.llm import ask as gemini_ask
 
+        try:
+            from google.genai import types
+        except ImportError:  # no Gemini SDK: the pictures go as bytes (other vision)
+            types = None
         if budget is not None:
             budget.spend("llm")
         items: List[Any] = []
         for p in list(parts) + ([prompt] if prompt else []):
-            if isinstance(p, (bytes, bytearray)):
+            if isinstance(p, (bytes, bytearray)) and types is not None:
                 mime = "image/png" if bytes(p[:4]) == b"\x89PNG" else "image/jpeg"
                 items.append(types.Part.from_bytes(data=bytes(p), mime_type=mime))
             else:

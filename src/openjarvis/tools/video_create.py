@@ -171,16 +171,16 @@ def build_social_pack(
     return {
         "titulo_viral": f"¿Por qué {clean_topic}?"[:50],
         "copy_publicacion": (
-            f"🤯 {hook}\n\n"
+            f"{hook}\n\n"
             f"¿Alguna vez te lo habías preguntado? Resulta que la explicación real te va a volar la cabeza. "
-            f"Mira el video hasta el final para ver la animación 3D del interior. 👇\n\n"
+            f"Míralo hasta el final.\n\n"
             f"{' '.join(hashtags)}"
         ),
         "comentario_fijado": (
-            "💬 ¿Tú ya sabías esto o también creías que era por otra razón? "
-            "Déjamelo en los comentarios. 👇"
+            "¿Tú ya sabías esto o también creías que era por otra razón? "
+            "Déjamelo en los comentarios."
         ),
-        "bucle_infinito": f"La última frase ('{loop_hint[:35]}...') conecta gramaticalmente con el gancho inicial para retención >100%.",
+        "bucle_infinito": f"La última frase ('{loop_hint[:35]}...') enlaza con el gancho, para que el video se vuelva a ver.",
         "hashtags": hashtags,
     }
 
@@ -228,10 +228,19 @@ def _render(
     with tempfile.TemporaryDirectory(prefix="sergio-video-") as tmp:
         work = Path(tmp)
         parts = []
-        for i, (pic, text, seconds) in enumerate(zip(pictures, sentences, durations)):
+        # Whole frames, rounded on the running total: the pictures and the
+        # subtitles keep the same clock (before, each picture lost a part of a
+        # frame and the captions drifted ahead over a long video).
+        frame_counts, done, wanted = [], 0, 0.0
+        for seconds in durations:
+            wanted += seconds
+            target = max(done + FPS, round(wanted * FPS))  # at least one second each
+            frame_counts.append(target - done)
+            done = target
+        timed = [n / FPS for n in frame_counts]
+        for i, (pic, text, frames) in enumerate(zip(pictures, sentences, frame_counts)):
             src = work / f"p{i}.img"
             src.write_bytes(pic)
-            frames = max(FPS, int(seconds * FPS))
             zoom = (
                 f"scale={width * 2}:{height * 2}:force_original_aspect_ratio=increase,"
                 f"crop={width * 2}:{height * 2},"
@@ -270,7 +279,7 @@ def _render(
             subs = work / "subtitulos.ass"
             subs_kwargs = {"accent": accent} if accent else {}
             subs.write_text(
-                ass_document(sentences, durations, width, height, **subs_kwargs),
+                ass_document(sentences, timed, width, height, **subs_kwargs),
                 encoding="utf-8",
             )
             cmd += ["-vf", filter_for(subs), "-c:v", "libx264", "-preset", "veryfast",
@@ -450,7 +459,7 @@ class VideoCreateTool(BaseTool):
             except Exception:
                 pass
             social_md = (
-                f"\n\n📱 **Ficha de Publicación para Redes (Reels / TikTok / Shorts):**\n"
+                f"\n\n**Ficha para publicar (Reels / TikTok / Shorts):**\n"
                 f"- **Título sugerido:** «{social_pack['titulo_viral']}»\n"
                 f"- **Comentario fijado (Engagement):** «{social_pack['comentario_fijado']}»\n"
                 f"- **Bucle infinito:** {social_pack['bucle_infinito']}\n"

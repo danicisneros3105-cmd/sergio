@@ -443,3 +443,73 @@ def test_instagram_story_publishes_a_photo_as_a_story(monkeypatch, tmp_path):
         sent[0][1]["media_type"] == "STORIES"
         and sent[0][1]["image_url"] == "https://pub/once"
     )
+
+
+# -- polish round (video) ---------------------------------------------------------------
+
+
+def test_review_never_applies_a_change_to_a_negative_shot():
+    from openjarvis.video_essay import review
+    from openjarvis.video_essay.plan import Shot
+
+    key, allowed = next(iter(review.FIELDS.items()))
+    value = sorted(allowed)[-1]
+    shots = [Shot(first=0, last=1), Shot(first=1, last=2)]
+    before = getattr(shots[-1], key)
+    _out, applied = review.apply(
+        shots, [], {"changes": [{"shot": -1, "set": {key: value}}]}
+    )
+    assert applied == 0 and getattr(shots[-1], key) == before
+
+
+def test_24_and_8_bit_wav_are_read():
+    import io
+    import wave
+
+    import numpy as np
+
+    from openjarvis.video_essay import audio
+
+    def wav(width, frames):
+        buf = io.BytesIO()
+        with wave.open(buf, "wb") as w:
+            w.setnchannels(1)
+            w.setsampwidth(width)
+            w.setframerate(audio.SR)
+            w.writeframes(frames)
+        return buf.getvalue()
+
+    # 24-bit: +half scale, -half scale
+    half = (4194304).to_bytes(3, "little", signed=True) + (-4194304).to_bytes(
+        3, "little", signed=True
+    )
+    x = audio.read_wav(wav(3, half))
+    assert np.allclose(x, [0.5, -0.5], atol=1e-6)
+    x8 = audio.read_wav(wav(1, bytes([128, 255, 0])))
+    assert abs(x8[0]) < 1e-6 and x8[1] > 0.98 and x8[2] == -1.0
+
+
+def test_vision_prompts_reach_other_models_without_gemini(monkeypatch):
+    from openjarvis.creator import llm
+
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
+    seen = []
+
+    def fake(images, words, *, json_mode, check):
+        seen.append((len(images), words, json_mode))
+        return '{"ok": true}'
+
+    monkeypatch.setattr(llm, "_ask_vision_others", fake)
+    out = llm.ask([b"\xff\xd8jpeg", "¿Qué falla en estas tomas?"], json_mode=True)
+    assert out == '{"ok": true}' and seen == [(1, "¿Qué falla en estas tomas?", True)]
+
+
+def test_social_pack_has_no_emojis_or_made_up_metrics():
+    import re
+
+    from openjarvis.tools import video_create
+
+    src = open(video_create.__file__, encoding="utf-8").read()
+    assert not re.search("[\U0001f300-\U0001faff]", src)
+    assert ">100%" not in src

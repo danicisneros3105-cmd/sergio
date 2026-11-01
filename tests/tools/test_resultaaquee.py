@@ -100,7 +100,7 @@ def test_build_social_pack_generates_viral_kit():
     )
     assert "¿Por qué" in pack["titulo_viral"]
     assert "#resultaque" in pack["copy_publicacion"]
-    assert "💬" in pack["comentario_fijado"]
+    assert "comentarios" in pack["comentario_fijado"]  # no emojis (owner rule)
     assert "conecta gramaticalmente" in pack["bucle_infinito"]
 
 

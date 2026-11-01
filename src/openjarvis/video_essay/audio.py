@@ -407,9 +407,19 @@ def read_wav(data: bytes) -> np.ndarray:
     with wave.open(io.BytesIO(data)) as w:
         sr, ch, width = w.getframerate(), w.getnchannels(), w.getsampwidth()
         raw = w.readframes(w.getnframes())
-    dtype = {1: np.int8, 2: np.int16, 4: np.int32}[width]
-    x = np.frombuffer(raw, dtype=dtype).astype(np.float32)
-    x /= float(np.iinfo(dtype).max)
+    if width == 1:  # 8-bit WAV is unsigned, centred on 128
+        x = (np.frombuffer(raw, dtype=np.uint8).astype(np.float32) - 128.0) / 128.0
+    elif width == 3:  # 24-bit (studio recordings): three bytes, little-endian
+        b = np.frombuffer(raw, dtype=np.uint8).reshape(-1, 3).astype(np.int32)
+        v = b[:, 0] | (b[:, 1] << 8) | (b[:, 2] << 16)
+        v = np.where(v & 0x800000, v - 0x1000000, v)
+        x = v.astype(np.float32) / 8388608.0
+    elif width in (2, 4):
+        dtype = {2: np.int16, 4: np.int32}[width]
+        x = np.frombuffer(raw, dtype=dtype).astype(np.float32)
+        x /= float(np.iinfo(dtype).max)
+    else:
+        raise ValueError(f"WAV de {width * 8} bits no soportado")
     if ch > 1:
         x = x.reshape(-1, ch).mean(axis=1)
     if sr != SR and len(x):
