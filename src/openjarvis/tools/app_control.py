@@ -138,6 +138,11 @@ class SergioAppControlTool(BaseTool):
                             "vertu_vault",
                             "health_biometrics_sync",
                             "agi_solve",
+                            "biometric_nexus_status",
+                            "iot_hardware_orchestrate",
+                            "vertu_enclave_shield",
+                            "platform_media_cycle",
+                            "merkle_evidence_receipt",
                         ],
                     },
                     "route": {
@@ -1631,6 +1636,79 @@ class SergioAppControlTool(BaseTool):
                         f"- **Blindaje Criptográfico Vertu:** Token `{dossier.vertu_seal_token[:25]}...` (0600)\n"
                         f"- **Dossier Maestro Guardado:** `{dossier.dossier_path}`\n\n"
                         f"🎙️ **Voz Proactiva J.A.R.V.I.S.:**\n> *«{dossier.proactive_jarvis_brief}»*"
+                    ),
+                )
+
+            if action == "biometric_nexus_status":
+                from openjarvis.health.biometric_nexus import get_biometric_nexus
+                status = get_biometric_nexus().get_realtime_status()
+                return ToolResult(
+                    tool_name=self.tool_id,
+                    content=(
+                        f"🫀 **Telemetría Biométrica Activa (Wearables Nexus)**\n"
+                        f"- **Dispositivo Principal:** `{status.get('dispositivo_primario')}`\n"
+                        f"- **Frecuencia Cardíaca:** {status.get('frecuencia_cardiaca_bpm')} BPM | **HRV (rMSSD):** {status.get('hrv_rmssd_ms')} ms\n"
+                        f"- **SpO2:** {status.get('spo2')}% | **Batería:** {status.get('bateria_sensor')}\n"
+                        f"- **Evaluación Fisiológica:** {status.get('evaluacion_predictiva', {}).get('recomendacion_agenda')}"
+                    ),
+                )
+
+            if action == "iot_hardware_orchestrate":
+                from openjarvis.hardware.iot_orchestrator import get_physical_iot_orchestrator
+                user_act = str(params.get("content") or "focus_flow")
+                res = get_physical_iot_orchestrator().synchronize_hardware_state(user_act)
+                return ToolResult(
+                    tool_name=self.tool_id,
+                    content=(
+                        f"🏠 **Orquestación de Hardware Físico & Domótica**\n"
+                        f"- **Preset Ambiental:** `{res['ambiente'].get('preset_aplicado')}`\n"
+                        f"- **Matriz de Audio:** `{res['audio'].get('perfil_audio')}` (ANC Activo)\n"
+                        f"- **Topología de Pantallas:** `{res['pantallas'].get('resolucion_total')}` @ {res['pantallas'].get('tasa_refresco_hz')}Hz"
+                    ),
+                )
+
+            if action == "vertu_enclave_shield":
+                from openjarvis.security.vertu_enclave import get_vertu_enclave
+                raw = str(params.get("content") or "secreto_aislado").encode()
+                label = str(params.get("title") or "enclave_shield")
+                token = get_vertu_enclave().seal_envelope(raw, context_aad=label)
+                return ToolResult(
+                    tool_name=self.tool_id,
+                    content=(
+                        f"🛡️ **Sobre Criptográfico Vertu Generado**\n"
+                        f"- **Algoritmo:** AES-256-GCM + HKDF-SHA512 Zero-Knowledge\n"
+                        f"- **AAD Vinculado:** `{label}`\n"
+                        f"- **Token de Seguridad:** `{token[:35]}...` (Permisos 0600)"
+                    ),
+                )
+
+            if action == "platform_media_cycle":
+                from openjarvis.automatiza.platform_nexus import get_platform_automation_nexus
+                cycle = get_platform_automation_nexus().run_full_autonomous_cycle()
+                yt = cycle["plataformas_digitales"]["youtube_7h_pipeline"]
+                return ToolResult(
+                    tool_name=self.tool_id,
+                    content=(
+                        f"🎬 **Ciclo Autónomo de Medios Digitales (Pipeline 7h)**\n"
+                        f"- **Video YouTube:** {yt.get('video_preparado')}\n"
+                        f"- **Slot Programado:** {yt.get('slot_programado')} (Estado: `{yt.get('estado')}`)\n"
+                        f"- **Canales Sindicados:** {', '.join(cycle['plataformas_digitales']['canales_sociales'])}\n"
+                        f"- **Comunicaciones VIP:** {cycle['comunicaciones_unificadas']['mensajes_vip_prioritarios']} pendientes de despacho"
+                    ),
+                )
+
+            if action == "merkle_evidence_receipt":
+                from openjarvis.telemetry.evidence_nexus import get_evidence_nexus_ledger
+                mission_id = str(params.get("content") or "sesion_maestra")
+                rec = get_evidence_nexus_ledger().generate_audit_receipt(mission_id)
+                return ToolResult(
+                    tool_name=self.tool_id,
+                    content=(
+                        f"📜 **Recibo Criptográfico de Auditoría Merkle**\n"
+                        f"- **Misión:** `{rec.get('mision_id')}`\n"
+                        f"- **Merkle Root:** `{rec.get('merkle_root')}`\n"
+                        f"- **Operaciones Auditadas:** {rec.get('total_operaciones_registradas')}\n"
+                        f"- **Verificación:** {rec.get('verificacion_criptografica')}"
                     ),
                 )
 

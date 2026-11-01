@@ -337,13 +337,17 @@ class UniversalAGIEngine:
                 "beneficio_clave": "Cifrado militar AES-256-GCM inviolable y aislado en 0600",
             }
         else:
-            # Universal fallback: execute dynamic plan using high-priority desktop & swarm synthesis
-            swarm_res = ci.launch_background_swarm(task=f"Misión táctica de alta prioridad: {mission_prompt}", parallel=10)
+            # Universal fallback: execute dynamic plan using high-speed HTN & MCTS reasoning
+            from openjarvis.core.agi_reasoning import get_agi_reasoning_orchestrator
+            orch = get_agi_reasoning_orchestrator()
+            orch_res = orch.execute_mission(mission_prompt, context=context)
             final_payload = {
-                "tipo": "enjambre_agi_10_humanos",
-                "mision_id": swarm_res["id"],
-                "estrategia": "10 agentes autónomos en paralelo deconstruyendo variables logísticas complejas",
-                "beneficio_clave": "Despliegue concurrente equivalente a 10 especialistas humanos",
+                "tipo": "razonamiento_mcts_universal",
+                "mision_id": orch_res["graph_id"],
+                "nodos_resueltos": len(orch_res["nodes_executed"]),
+                "tiempo_ms": orch_res["execution_time_ms"],
+                "estrategia": "Descomposición jerárquica HTN con evaluación MCTS en sub-segundo",
+                "beneficio_clave": f"Misión resuelta en {orch_res['execution_time_ms']:.1f}ms a través de {len(orch_res['nodes_executed'])} nodos tácticos",
             }
 
         step3 = TacticalStep(
@@ -410,6 +414,22 @@ class UniversalAGIEngine:
 
         # Record into metacognitive memory for continuous self-improvement
         self.memory.record_experience(dossier)
+
+        # Record cryptographic Merkle proof in evidence nexus
+        try:
+            from openjarvis.telemetry.evidence_nexus import get_evidence_nexus_ledger
+            ledger = get_evidence_nexus_ledger()
+            ledger.record_proof(
+                action_name=f"agi_solve:{cat}",
+                domain="universal_agi_engine",
+                input_data={"prompt": mission_prompt, "entity": entity, "budget": budget},
+                output_data=final_payload,
+                latency_ms=total_time * 1000,
+                status="EXITOSO",
+                metadata={"mission_id": mission_id, "vertu_token": vertu_token[:25]},
+            )
+        except Exception as exc:
+            log.warning("No se pudo asentar prueba en Merkle ledger: %s", exc)
 
         return dossier
 
