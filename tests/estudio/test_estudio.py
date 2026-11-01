@@ -157,3 +157,16 @@ def test_four_tools_in_their_neuron():
         "titulos_video",
         "radar_tendencias",
     }
+
+
+def test_gym_is_an_optional_addon(tmp_path):
+    from openjarvis import personal
+
+    assert personal.addon_on("gimnasio", personal.load(tmp_path)) is False
+    gym = next(
+        a for a in personal.addons(personal.load(tmp_path)) if a["clave"] == "gimnasio"
+    )
+    assert gym["nombre"] == "Gimnasio Mental" and "redes sociales" in gym["lema"]
+    personal.save({"complementos": ["gimnasio", "no-existe"]}, tmp_path)
+    assert personal.load(tmp_path)["complementos"] == ["gimnasio"]
+    assert personal.addon_on("gimnasio", personal.load(tmp_path))

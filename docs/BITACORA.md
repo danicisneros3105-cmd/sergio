@@ -2,6 +2,13 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-11-02 · Claude · estudio de video y gimnasio opcional
+- Gimnasio Mental pasa a complemento opcional, apagado hasta que el dueño lo añade («El cerebro humano está frito por las redes sociales; el tuyo puede volverse un genio.»): `personal.ADDONS`, `/v1/personal/complementos`, Ajustes → Complementos, tarjeta en Salud mental y el interruptor del escritorio (`gym_addon`, se sincroniza con el servidor cada 5 min).
+- Estudio de video (`src/openjarvis/estudio/`), cuatro programas con un solo trabajo cada uno, herramienta, ruta `/v1/estudio/*` y neurona «estudio»: `clips_cine` (escenas reales de películas y series, clips oficiales, nunca películas completas), `miniaturas` (mejores cuadros, palabras en el lado libre, prueba a tamaño de teléfono, 3 variantes), `titulos_video` (muchos candidatos juzgados por código: largo, tema primero, sin mentiras ni gritos, par A/B) y `radar_tendencias` (tendencias, autocompletar de YouTube y Google, competencia y sus patrones, lo que cada plataforma dijo de su algoritmo, público; nada sin dato).
+- La portada de `video_essay` usa ahora el programa de miniaturas (si falla, la de antes).
+- Revisé `research/deep.py`: el informe ultra llevaba un emoji en el título; quitado (regla sin emojis).
+- Pendiente: los cuatro programas aún no tienen pantalla propia en la web (se usan desde el chat); no probados con internet real aquí.
+
 ## 2026-11-01 · Claude · mini errores
 - Pantallas que se rompían enteras cuando el servidor devolvía datos incompletos (recordatorios «n is not iterable» en cada página cada minuto; Cerebro, Atajos, Automatizar, Pagar, Planes, Salud, Ajustes, Uso, Caras, Nodes, Proyectos, Swarm): ahora muestran vacío o «—» en vez de caerse.
 - Encontrado recorriendo todas las rutas con un servidor de prueba que responde vacío.

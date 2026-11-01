@@ -8,6 +8,7 @@ import { apiFetch } from '../../lib/api';
 import { clock, countdown, salud, type ScaleScore, type SurveyResult, type SurveyVariant } from '../../lib/salud';
 import portada from '../../assets/salud/portada-salud-mental.webp';
 import { HealthGym } from './HealthGym';
+import { useAddons } from '../../lib/addons';
 import { Credits } from './Credits';
 import { MindSurvey, SURVEY_IMAGES } from './MindSurvey';
 import { MindWidgets } from './MindWidgets';
@@ -190,6 +191,33 @@ function Gym() {
   return <HealthGym hub={hub} setHub={setHub} />;
 }
 
+/** The mental gym is an optional add-on: an offer until it is added. */
+function GymAddon() {
+  const { addons, set } = useAddons();
+  const gym = addons?.find((a) => a.clave === 'gimnasio');
+  if (!gym) return null;
+  return (
+    <section className="salud-block">
+      <h3 className="paper-label">{gym.nombre}</h3>
+      {gym.activo ? (
+        <>
+          <Gym />
+          <button type="button" className="paper-button" style={{ marginTop: 8 }} onClick={() => void set('gimnasio', false)}>
+            Quitar el complemento
+          </button>
+        </>
+      ) : (
+        <div>
+          <p className="text-sm">{gym.lema}</p>
+          <button type="button" className="paper-button" style={{ marginTop: 8 }} onClick={() => void set('gimnasio', true)}>
+            Añadir el Gimnasio Mental
+          </button>
+        </div>
+      )}
+    </section>
+  );
+}
+
 export function MindTab() {
   const [mode, setMode] = useState<'home' | 'survey' | 'view'>('home');
   const [variant, setVariant] = useState<SurveyVariant>('corta');
@@ -295,10 +323,7 @@ export function MindTab() {
 
       <Credits scope="mente" />
 
-      <section className="salud-block">
-        <h3 className="paper-label">Gimnasio mental</h3>
-        <Gym />
-      </section>
+      <GymAddon />
     </div>
   );
 }

@@ -41,6 +41,7 @@ import {
 } from '../lib/api';
 import { AccountsPanel } from '../components/Accounts/AccountsPanel';
 import { PersonalPanel, SkillsPanel } from '../components/Settings/PersonalPanel';
+import { AddonsPanel } from '../components/Settings/AddonsPanel';
 import { isAutoUpdateDisabled, setAutoUpdateDisabled } from '../components/Desktop/UpdateChecker';
 
 const CLOUD_KEY_STATUS_CHANGED = 'openjarvis-cloud-key-status-changed';
@@ -517,6 +518,10 @@ export function SettingsPage() {
 
           <Section title="Habilidades">
             <SkillsPanel />
+          </Section>
+
+          <Section title="Complementos">
+            <AddonsPanel />
           </Section>
 
           {/* Appearance */}

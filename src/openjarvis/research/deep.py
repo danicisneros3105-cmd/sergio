@@ -691,7 +691,7 @@ class UltraDeepResearch(DeepResearch):
             else ("Media" if conf >= 50 else "Moderada / Preliminar")
         )
         header = (
-            f"# 🔬 Informe Ejecutivo de Ultra Deep Research (10 Especialistas)\n"
+            f"# Informe Ejecutivo de Ultra Deep Research (10 Especialistas)\n"
             f"> **Objetivo:** {question}\n"
             f"> **Score de Certeza y Rigor:** `{conf}%` ({level}) · **Fuentes verificadas:** `{len(self.sources)}` · **Contraste cruzado:** `{len(findings)}` hallazgos\n\n"
         )

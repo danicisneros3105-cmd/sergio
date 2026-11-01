@@ -94,6 +94,9 @@ def load_config() -> dict[str, Any]:
     data.setdefault("reduce_motion", False)
     # Mental gym: an exercise you cannot skip every 12 minutes (real time).
     data.setdefault("gym", True)
+    # ...but only as an optional add-on (owner, 2 Nov 2026): off until added,
+    # here or in Settings → Complementos (``/v1/personal/complementos``).
+    data.setdefault("gym_addon", False)
     data.setdefault("gym_camera", True)  # look (locally) that you are there first
     if data.get("gym_minutes") in (None, 28, 28.0):  # the old default
         data["gym_minutes"] = 12
@@ -838,6 +841,9 @@ def run(config: dict[str, Any]) -> None:
     results_action = QAction("Mis resultados del gimnasio", menu)
     results_action.triggered.connect(lambda: open_results())
     menu.addAction(results_action)
+    gym_menu = [gym_action, results_action]
+    for item in gym_menu:
+        item.setVisible(bool(config.get("gym_addon")))
     consult_action = QAction("Consulta (hablar con Sergio)", menu)
     consult_action.triggered.connect(lambda: open_consult())
     menu.addAction(consult_action)
@@ -1022,7 +1028,8 @@ def run(config: dict[str, Any]) -> None:
                 # Sergio sees in the background; this shows his camera window too.
                 Toggle("Ver la cámara", "camera", camera_window.isVisible,
                        lambda on: camera_window.open(show=True) if on else camera_window.hide()),
-                Toggle("Gimnasio mental", "brain", lambda: bool(config.get("gym", True)),
+                Toggle("Gimnasio Mental", "brain",
+                       lambda: bool(config.get("gym_addon") and config.get("gym", True)),
                        lambda on: set_gym(on)),
             ],
         )
@@ -4073,7 +4080,40 @@ def run(config: dict[str, Any]) -> None:
         due=gym_stats.next_due,
         on_change=remember_due,
     )
-    schedule.enabled = bool(config.get("gym", True))
+    schedule.enabled = bool(config.get("gym_addon") and config.get("gym", True))
+
+    def apply_gym_addon(on: bool) -> None:
+        config["gym_addon"] = bool(on)
+        save_config(config)
+        schedule.enabled = bool(on and config.get("gym", True))
+        for item in gym_menu:
+            item.setVisible(bool(on))
+
+    def sync_gym_addon() -> None:
+        """The add-on as the server has it (also changed from the web)."""
+        import httpx
+
+        try:
+            data = httpx.get(api_base(config["server_url"]) + "/v1/personal/complementos", timeout=5).json()
+        except Exception:  # noqa: BLE001 — server off: what this PC last knew
+            return
+        on = any(a.get("clave") == "gimnasio" and a.get("activo") for a in data.get("complementos") or [])
+        if on != bool(config.get("gym_addon")):
+            on_ui(lambda: apply_gym_addon(on))
+
+    def push_gym_addon(on: bool) -> None:
+        import httpx
+
+        try:
+            httpx.put(api_base(config["server_url"]) + "/v1/personal/complementos/gimnasio",
+                      json={"activa": bool(on)}, timeout=5)
+        except Exception:  # noqa: BLE001 — server off: this PC keeps it
+            pass
+
+    threading.Thread(target=sync_gym_addon, daemon=True).start()
+    gym_sync = QTimer()
+    gym_sync.timeout.connect(lambda: threading.Thread(target=sync_gym_addon, daemon=True).start())
+    gym_sync.start(5 * 60 * 1000)
     gym_windows: list[Any] = []
     snoozed_once = [False]
 
@@ -4084,6 +4124,9 @@ def run(config: dict[str, Any]) -> None:
         ).start()
 
     def open_gym() -> str:
+        if not config.get("gym_addon"):
+            return ("El Gimnasio Mental es un complemento opcional. El cerebro humano está frito por "
+                    "las redes sociales; el tuyo puede volverse un genio. Actívelo en Ajustes, Complementos.")
         if gym_windows:
             return "Ya hay un ejercicio en curso."
         if call_active():
@@ -4366,11 +4409,11 @@ def run(config: dict[str, Any]) -> None:
     gym_timer.start(10_000)
 
     def set_gym(on: bool) -> None:
-        schedule.enabled = on
+        config["gym"] = on
+        apply_gym_addon(on)  # the toggle adds or removes the add-on itself
+        threading.Thread(target=push_gym_addon, args=(on,), daemon=True).start()
         if on:
             schedule.postpone_from_now()
-        config["gym"] = on
-        save_config(config)
         bridge.caption.emit(
             f"Gimnasio mental cada {int(schedule.interval // 60)} minutos."
             if on

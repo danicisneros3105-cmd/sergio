@@ -320,6 +320,12 @@ DEFAULT_TOOL_CAPABILITIES: Dict[str, List[str]] = {
         Capability.FILE_WRITE,
     ],
     "skill_manage": [Capability.FILE_READ, Capability.FILE_WRITE],
+    # The video studio: four programs, one job each (estudio/). They read the
+    # web; thumbnails read a local video and write pictures; nothing is sent.
+    "clips_cine": [Capability.NETWORK_FETCH],
+    "miniaturas": [Capability.FILE_READ, Capability.FILE_WRITE],
+    "titulos_video": [Capability.NETWORK_FETCH],
+    "radar_tendencias": [Capability.NETWORK_FETCH],
     # The concierge: prepares bookings, trips, ads and drafts (network, files);
     # its last steps go through the owner's yes (conserje/aprobar.py).
     "conserje": [

@@ -66,3 +66,6 @@ def radar(body: Radar) -> Dict[str, Any]:
     from openjarvis.estudio import radar as r
 
     return r.analizar(body.nicho, body.pais, body.plataforma, profundo=body.profundo)
+
+
+__all__ = ["router"]

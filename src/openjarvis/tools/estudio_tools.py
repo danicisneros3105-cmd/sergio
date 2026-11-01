@@ -195,3 +195,6 @@ class TrendRadarTool(BaseTool):
         return _run(self.tool_id, lambda: radar.texto(radar.analizar(
             str(p.get("nicho") or ""), str(p.get("pais") or "EC"), str(p.get("plataforma") or "youtube"),
             profundo=bool(p.get("profundo")))))  # fmt: skip
+
+
+__all__ = ["FilmClipsTool", "ThumbnailsTool", "TitlesTool", "TrendRadarTool"]
