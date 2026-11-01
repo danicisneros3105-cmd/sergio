@@ -77,7 +77,7 @@ export function NodesPage() {
   };
 
   // The team is always there; an empty list only means the server is still starting.
-  if (nodes === null || !nodes.length) return <div className="paper-page" aria-busy="true" />;
+  if (!Array.isArray(nodes) || !nodes.length) return <div className="paper-page" aria-busy="true" />;
 
   return (
     <div className="nodes">

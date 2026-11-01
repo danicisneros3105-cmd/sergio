@@ -91,15 +91,15 @@ export function UsagePage() {
           <dl className="usage-totals">
             <div>
               <dt>Respuestas</dt>
-              <dd>{fmt.format(data.totals.calls)}</dd>
+              <dd>{fmt.format(data.totals?.calls ?? 0)}</dd>
             </div>
             <div>
               <dt>Tokens</dt>
-              <dd>{fmt.format(data.totals.tokens)}</dd>
+              <dd>{fmt.format(data.totals?.tokens ?? 0)}</dd>
             </div>
             <div>
               <dt>Costo estimado</dt>
-              <dd>{money(data.totals.cost)}</dd>
+              <dd>{money(data.totals?.cost ?? 0)}</dd>
             </div>
           </dl>
 

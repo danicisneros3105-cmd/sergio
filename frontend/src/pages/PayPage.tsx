@@ -29,7 +29,7 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
   return body as T;
 }
 
-const money = (usd: number) => `$${usd.toFixed(2)}`;
+const money = (usd: number) => `$${(Number(usd) || 0).toFixed(2)}`;
 
 function Checkout() {
   const [params] = useSearchParams();
@@ -76,7 +76,7 @@ function Checkout() {
             <small>{once ? ' una vez' : ' / mes'}</small>
           </div>
           <ul>
-            {price.incluye.map((x) => (
+            {(price.incluye ?? []).map((x) => (
               <li key={x}>{x}</li>
             ))}
           </ul>

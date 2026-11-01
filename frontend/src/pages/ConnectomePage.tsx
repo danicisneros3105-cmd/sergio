@@ -32,13 +32,13 @@ export function ConnectomePage() {
         <>
           <p className="cn-lead">
             El cerebro real de una mosca, mapeado por Google y Princeton: lo que usted dice cruza sus{' '}
-            {map.facts.neurons} y aprende de lo que responde después.
+            {map.facts?.neurons ?? '—'} y aprende de lo que responde después.
           </p>
 
           <CoreProof />
 
           <ol className="cn-flow">
-            {map.regions.map((r) => (
+            {(map.regions ?? []).map((r) => (
               <li key={r.key} className="cn-region" data-key={r.key}>
                 <div className="cn-fly">
                   <span className="paper-label">{r.fly}</span>

@@ -39,7 +39,7 @@ export const reminders = {
   add: (item: Partial<Reminder> & { kind: ReminderKind; title: string }) => call<Reminder>('', body('POST', item)),
   change: (id: string, changes: Partial<Reminder>) => call<Reminder>(`/${encodeURIComponent(id)}`, body('PUT', changes)),
   remove: (id: string) => call<{ ok: boolean }>(`/${encodeURIComponent(id)}`, { method: 'DELETE' }),
-  due: () => call<{ due: DueReminder[] }>('/due').then((r) => r.due),
+  due: () => call<{ due: DueReminder[] }>('/due').then((r) => r?.due ?? []),
   done: (id: string, slot: string, status: 'hecho' | 'saltado' = 'hecho') =>
     call<{ ok: boolean }>(`/${encodeURIComponent(id)}/done`, body('POST', { slot, status })),
 };

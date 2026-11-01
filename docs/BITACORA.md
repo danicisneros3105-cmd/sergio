@@ -2,6 +2,11 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-11-01 · Claude · mini errores
+- Pantallas que se rompían enteras cuando el servidor devolvía datos incompletos (recordatorios «n is not iterable» en cada página cada minuto; Cerebro, Atajos, Automatizar, Pagar, Planes, Salud, Ajustes, Uso, Caras, Nodes, Proyectos, Swarm): ahora muestran vacío o «—» en vez de caerse.
+- Encontrado recorriendo todas las rutas con un servidor de prueba que responde vacío.
+- Pendiente: nada nuevo.
+
 ## 2026-11-02 · Claude · Notch nítido y fluido, IA con un clic, app instalable, chat más claro
 - **Notch**: las capas (instantánea y pliegue Duo) se dibujan a los píxeles reales de la pantalla (antes, borrosas con escala 125–200 %); Qt con escalado exacto (PassThrough). Mientras anima, la forma de clic es un rectángulo en pasos de 8 px y la forma curva exacta se calcula una vez quieto: darle a Windows una región curva por cuadro era el tirón.
 - **IA con un clic** (`server/conectar_routes.py`, `/v1/conectar/openrouter`): OAuth PKCE de OpenRouter. «Conectar la IA con un clic» en «Modelo» (arriba si no hay nada conectado) → inicia sesión en OpenRouter → Sergio cambia el código por la clave y la guarda en `cloud-keys.env` (0600). Solo desde el propio equipo; el código sirve una vez y caduca a los 15 min. Al volver, un aviso dice si salió.

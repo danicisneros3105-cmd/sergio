@@ -93,7 +93,7 @@ export default function ProjectsPage() {
               <FolderPlus size={16} aria-hidden /> Nuevo proyecto
             </button>
           )}
-          {projects === null ? null : projects.length === 0 && !making ? (
+          {!Array.isArray(projects) ? null : projects.length === 0 && !making ? (
             <p className="pj-empty">Un proyecto junta chats con las mismas instrucciones y archivos. Cree el primero.</p>
           ) : (
             <ul className="pj-list">

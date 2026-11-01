@@ -204,13 +204,13 @@ export function AutomatizarPage() {
     }, 'Hecho.');
 
   const live = [
-    { n: st?.programados.length ?? 0, label: 'canales programados' },
-    { n: st?.canales.por_dia ?? 3, label: 'publicaciones al día, como mucho' },
-    { n: st?.oportunidades.total ?? 0, label: 'clientes y empleos guardados' },
-    { n: st?.canales.respuestas_pendientes ?? 0, label: 'respuestas esperando su visto bueno' },
+    { n: st?.programados?.length ?? 0, label: 'canales programados' },
+    { n: st?.canales?.por_dia ?? 3, label: 'publicaciones al día, como mucho' },
+    { n: st?.oportunidades?.total ?? 0, label: 'clientes y empleos guardados' },
+    { n: st?.canales?.respuestas_pendientes ?? 0, label: 'respuestas esperando su visto bueno' },
   ];
   const connected = (key: string) =>
-    key === 'youtube' ? !!st?.canales.youtube.conectado : key === 'instagram' ? !!st?.canales.instagram.conectado : false;
+    key === 'youtube' ? !!st?.canales?.youtube.conectado : key === 'instagram' ? !!st?.canales?.instagram.conectado : false;
 
   return (
     <div className="ax">
@@ -333,7 +333,7 @@ export function AutomatizarPage() {
           {err && <p className="auto-note">{err}</p>}
           <div className="auto-grid">
             <Channels st={st} busy={busy} act={act} />
-            <Replies busy={busy} act={act} pending={st?.canales.respuestas_pendientes ?? 0} />
+            <Replies busy={busy} act={act} pending={st?.canales?.respuestas_pendientes ?? 0} />
             <Opportunities st={st} busy={busy} act={act} />
             <Trading st={st} busy={busy} act={act} />
             <Health />
@@ -367,8 +367,8 @@ function Channels({ st, busy, act }: { st: Estado | null; busy: string; act: Act
   const [auto, setAuto] = useState(true);
   const [where, setWhere] = useState<string[]>(['youtube']);
   const [ig, setIg] = useState({ user_id: '', token: '' });
-  const yt = st?.canales.youtube;
-  const insta = st?.canales.instagram;
+  const yt = st?.canales?.youtube;
+  const insta = st?.canales?.instagram;
   const toggle = (w: string) => setWhere((v) => (v.includes(w) ? v.filter((x) => x !== w) : [...v, w]));
   return (
     <Card icon={Clapperboard} title="Canales">
@@ -479,7 +479,7 @@ function Channels({ st, busy, act }: { st: Estado | null; busy: string; act: Act
           ))}
         </ul>
       )}
-      <p className="auto-note">Tope: {st?.canales.por_dia ?? 3} publicaciones al día. Las cuentas nuevas las crea usted; Sergio no abre cuentas.</p>
+      <p className="auto-note">Tope: {st?.canales?.por_dia ?? 3} publicaciones al día. Las cuentas nuevas las crea usted; Sergio no abre cuentas.</p>
     </Card>
   );
 }
@@ -533,7 +533,7 @@ function Opportunities({ st, busy, act }: { st: Estado | null; busy: string; act
   const [skills, setSkills] = useState('');
   const [service, setService] = useState('');
   const [kind, setKind] = useState('ambos');
-  const prof = st?.oportunidades.perfil;
+  const prof = st?.oportunidades?.perfil;
   useEffect(() => {
     if (!prof) return;
     setSkills((prof.habilidades || []).join(', '));
@@ -545,7 +545,7 @@ function Opportunities({ st, busy, act }: { st: Estado | null; busy: string; act
       .then((d) => setItems(d.lista || []))
       .catch(() => setItems([]));
   }, []);
-  useEffect(load, [load, st?.oportunidades.total]);
+  useEffect(load, [load, st?.oportunidades?.total]);
   return (
     <Card icon={Briefcase} title="Clientes y empleos">
       <form

@@ -218,9 +218,9 @@ export function SummaryTab({
   onChanged: () => void;
   onConnect: () => void;
 }) {
-  const defs = Object.fromEntries(catalog.metrics.map((m) => [m.key, m]));
-  const pinned = summary.pins.map((k) => summary.metrics[k]).filter(Boolean);
-  const others = Object.values(summary.metrics).filter((m) => !summary.pins.includes(m.metric));
+  const defs = Object.fromEntries((catalog?.metrics ?? []).map((m) => [m.key, m]));
+  const pinned = (summary.pins ?? []).map((k) => summary.metrics?.[k]).filter(Boolean);
+  const others = Object.values(summary.metrics ?? {}).filter((m) => !(summary.pins ?? []).includes(m.metric));
   const togglePin = async (key: string) => {
     const next = summary.pins.includes(key) ? summary.pins.filter((p) => p !== key) : [...summary.pins, key];
     await salud.pins(next);

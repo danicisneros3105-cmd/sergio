@@ -204,8 +204,8 @@ export function PlansPage() {
                 setCountry(e.target.value);
               }}
             >
-              {!catalog.countries.some((c) => c.code === country) && <option value={country}>{country}</option>}
-              {catalog.countries.map((c) => (
+              {!(catalog.countries ?? []).some((c) => c.code === country) && <option value={country}>{country}</option>}
+              {(catalog.countries ?? []).map((c) => (
                 <option key={c.code} value={c.code}>
                   {c.name}
                 </option>

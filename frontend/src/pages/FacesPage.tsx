@@ -517,7 +517,7 @@ export function FacesPage() {
         <section className="faceid-people">
           <h2>Personas que Sergio reconoce</h2>
           <p>Solo con su permiso. Útil para saber quién habla o quién está en una foto.</p>
-          {people.map((p) => (
+          {(people ?? []).map((p) => (
             <div key={p.name} className="faceid-person">
               <span className="faceid-avatar">{p.name.slice(0, 1).toUpperCase()}</span>
               <span className="flex-1 min-w-0">

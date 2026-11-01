@@ -461,7 +461,7 @@ function Launcher() {
         ))}
       </div>
 
-      {runs.length > 0 && (
+      {(runs ?? []).length > 0 && (
         <section className="swarm-history" aria-label="Enjambres anteriores">
           <h2 className="paper-label">Anteriores</h2>
           <ul>

@@ -110,7 +110,7 @@ export function AccountsPanel() {
   if (list === null) return null;
   return (
     <div className="acc">
-      {list.length === 0 ? (
+      {(list ?? []).length === 0 ? (
         <button type="button" className="paper-button" onClick={() => navigate('/entrar')}>
           Crear la cuenta del dueño
         </button>
@@ -146,7 +146,7 @@ export function AccountsPanel() {
           ))}
         </ul>
       )}
-      {list.length > 0 && <Faces />}
+      {(list ?? []).length > 0 && <Faces />}
     </div>
   );
 }
