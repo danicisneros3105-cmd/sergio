@@ -161,7 +161,7 @@ def test_hard_restaurant_plan_quotes_when_the_book_opens():
     page = "https://example.com/noma - Reservations open 30 days in advance at 10 am."
     r = restaurantes.plan("Noma", city="Copenhague", date="2026-12-12", people=2,
                           search=lambda q: page)  # fmt: skip
-    assert r.apertura.startswith("30 days antes") and "10 am" in r.apertura
+    assert r.apertura.startswith("30 días antes") and "10 am" in r.apertura
     assert r.fuente == "https://example.com/noma"
     assert (
         "inteligencia artificial" in r.guion_llamada
@@ -169,6 +169,20 @@ def test_hard_restaurant_plan_quotes_when_the_book_opens():
     )
     assert "OpenTable" in r.enlaces
     assert "DETENTE" in restaurantes.operator_goal(r)
+
+
+def test_the_reminder_is_saved_five_minutes_before_the_book_opens():
+    from openjarvis.conserje import restaurantes
+
+    page = "Reservations open 30 days in advance at 10 am."
+    r = restaurantes.plan("Noma", date="2026-12-12", search=lambda q: page)
+    saved = []
+    said = restaurantes.remind(r, add=lambda *a: saved.append(a))
+    assert saved and saved[0][1:] == ("2026-11-12", "09:55")
+    assert "09:55" in said
+    # no date: nothing promised, nothing saved
+    r2 = restaurantes.plan("Noma", search=lambda q: page)
+    assert restaurantes.remind(r2, add=lambda *a: saved.append(a)) == ""
 
 
 def test_restaurant_plan_never_invents_the_opening_time():
@@ -245,12 +259,20 @@ def _photo(path):
 
 
 def test_gallery_photos_are_checked_by_looking_at_them(tmp_path):
+    from pathlib import Path
+
     from openjarvis.conserje import venta
 
     a, b = _photo(tmp_path / "IMG_1.jpg"), _photo(tmp_path / "IMG_2.jpg")
-    answers = iter(["Sí, es un iPhone", "no"])
+    from PIL import Image
+
+    Image.new("RGB", (40, 40), (10, 10, 200)).save(b)  # a different photo
+    phone = venta._jpeg(Path(a))
+    # the looks run in parallel: the answer depends on the photo, not the order
     got = venta.find_photos(
-        "iPhone 15", candidates=[a, b], look=lambda img, q: next(answers)
+        "iPhone 15",
+        candidates=[a, b],
+        look=lambda img, q: "Sí" if img == phone else "no",
     )
     assert got == {"fotos": [a], "comprobadas": True}
 

@@ -71,7 +71,13 @@ def booking_window(
         m = _WINDOW.search(line)
         if m:
             hour = _HOUR.search(line)
-            when = f"{m.group(1)} {m.group(2)} antes" + (
+            unit = m.group(2).lower()
+            unit_es = (
+                "semanas" if unit.startswith(("week", "seman"))
+                else "meses" if unit.startswith(("month", "mes"))
+                else "días"
+            )  # fmt: skip
+            when = f"{m.group(1)} {unit_es} antes" + (
                 f", a las {hour.group(1)}" if hour else ""
             )
             url = re.search(r"https?://\S+", line)
@@ -105,8 +111,8 @@ def plan(
         + (f" a las {time}" if time else "")
         + " en las plataformas de reserva (enlaces abajo).",
         (
-            f"Si no hay: la agenda abre {r.apertura} (fuente: {r.fuente}). "
-            "Le dejo un recordatorio 5 minutos antes con el enlace listo."
+            f"Si no hay: la agenda abre {r.apertura} (fuente: {r.fuente}); "
+            "un recordatorio 5 minutos antes le deja el enlace listo."
             if r.apertura
             else "No encontré cuándo abre su agenda en una fuente fiable; lo pregunto por "
             "teléfono o en su web."
@@ -130,6 +136,61 @@ def plan(
     return r
 
 
+_UNIT_DAYS = {"day": 1, "dia": 1, "week": 7, "semana": 7, "month": 30, "mes": 30}
+
+
+def opening_moment(r: Reserva) -> Optional[tuple]:
+    """(``AAAA-MM-DD``, ``HH:MM``) when the book opens for his date, or None
+    when the date or the rule is not known (then nothing is promised)."""
+    from datetime import date, timedelta
+
+    if not (r.fecha and r.apertura):
+        return None
+    try:
+        day = date.fromisoformat(r.fecha)
+    except ValueError:
+        return None
+    m = re.match(r"(\d{1,3})\s+([a-zíá]+)", r.apertura.lower())
+    if not m:
+        return None
+    unit = m.group(2).replace("í", "i").rstrip("s")
+    unit = {"mese": "mes"}.get(unit, unit)
+    days = int(m.group(1)) * _UNIT_DAYS.get(unit, 0)
+    if not days:
+        return None
+    opens = day - timedelta(days=days)
+    hour = re.search(
+        r"a las (\d{1,2})(?::(\d{2}))?\s*(a\.?m\.?|p\.?m\.?)?", r.apertura.lower()
+    )
+    hh, mm = 9, 0
+    if hour:
+        hh, mm = int(hour.group(1)), int(hour.group(2) or 0)
+        if (hour.group(3) or "").startswith("p") and hh < 12:
+            hh += 12
+    total = max(0, hh * 60 + mm - 5)  # five minutes before it opens
+    return opens.isoformat(), f"{total // 60:02d}:{total % 60:02d}"
+
+
+def remind(r: Reserva, add: Optional[Callable[..., Any]] = None) -> str:
+    """Save the reminder for the moment the book opens; says what it did."""
+    moment = opening_moment(r)
+    if moment is None:
+        return ""
+    day, at = moment
+    link = next(iter(r.enlaces.values()), "")
+    title = f"Abre la agenda de {r.restaurante} en 5 min: {link}"
+    try:
+        if add is None:
+            from openjarvis.reminders import get_store
+
+            get_store().add("recordatorio", title, times=[at], date=day)
+        else:
+            add(title, day, at)
+    except Exception:  # noqa: BLE001 — say it, never pretend
+        return "No pude guardar el recordatorio; anótelo: " + f"{day} {at}."
+    return f"Recordatorio guardado: {day} a las {at} (5 min antes de que abra)."
+
+
 def operator_goal(r: Reserva, platform: str = "OpenTable") -> str:
     """What the screen operator does on the owner's PC (stops before booking)."""
     url = r.enlaces.get(platform) or next(iter(r.enlaces.values()))
@@ -143,4 +204,11 @@ def operator_goal(r: Reserva, platform: str = "OpenTable") -> str:
     )
 
 
-__all__ = ["Reserva", "booking_window", "operator_goal", "plan"]
+__all__ = [
+    "Reserva",
+    "booking_window",
+    "opening_moment",
+    "operator_goal",
+    "plan",
+    "remind",
+]

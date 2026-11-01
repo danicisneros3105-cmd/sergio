@@ -255,7 +255,7 @@ def plan_trip(
         "2. Vuelos: abro la mejor opción en su pantalla y la dejo lista; usted paga.",
         "3. Hotel: igual, con cancelación gratis cuando la haya.",
         "4. Transporte local y entradas que se agotan: los reservo en el mismo orden.",
-        "5. Le dejo recordatorios: check-in del vuelo, salida al aeropuerto y cada reserva.",
+        "5. Con cada reserva hecha, le dejo su recordatorio (check-in, salida al aeropuerto).",
     ]
     folder = root or _home()
     folder.mkdir(parents=True, exist_ok=True)

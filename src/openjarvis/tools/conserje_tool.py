@@ -142,6 +142,9 @@ class ConciergeTool(BaseTool):
             people=int(p.get("personas") or 2),
         )
         out = [f"Reserva en {r.restaurante}:", *[f"- {s}" for s in r.pasos]]
+        saved = restaurantes.remind(r)
+        if saved:
+            out.append(saved)
         out += [
             "Enlaces:",
             enlaces.lines(r.enlaces),

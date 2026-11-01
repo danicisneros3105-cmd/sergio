@@ -85,18 +85,20 @@ def find_photos(
         f"¿En esta foto se ve claramente un {item} (el objeto mismo, no una captura "
         "de pantalla ni un anuncio)? Responde solo «sí» o «no»."
     )
-    yes: List[str] = []
-    checked = False
-    for path in candidates[:MAX_LOOKS]:
+    from concurrent.futures import ThreadPoolExecutor
+
+    def seen(path: str) -> Optional[bool]:
         try:
             answer = look(_jpeg(Path(path)), question)
-        except Exception:  # noqa: BLE001 — no vision model: say so
-            break
-        checked = True
-        if re.match(r"\s*(s[ií]|yes)\b", (answer or "").lower()):
-            yes.append(path)
-        if len(yes) >= limit:
-            break
+        except Exception:  # noqa: BLE001 — no vision model for this one
+            return None
+        return bool(re.match(r"\s*(s[ií]|yes)\b", (answer or "").lower()))
+
+    # four looks at a time (the order of the gallery is kept)
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        verdicts = list(pool.map(seen, candidates[:MAX_LOOKS]))
+    checked = any(v is not None for v in verdicts)
+    yes = [p for p, v in zip(candidates[:MAX_LOOKS], verdicts) if v][:limit]
     if checked:
         return {"fotos": yes, "comprobadas": True}
     words = [w for w in re.findall(r"[a-z0-9]+", item.lower()) if len(w) > 2]
