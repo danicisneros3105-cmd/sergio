@@ -30,7 +30,7 @@
 
 /* widgets */
 .tw-chat { display: flex; flex-direction: column; gap: 6px; width: 100%; max-width: 300px; }
-.tw-bubble { align-self: flex-start; padding: 7px 11px; border-radius: 16px; font-size: 12.5px; background: #e9e9eb; color: #111; animation: tw-pop 400ms both; }
+.tw-bubble { align-self: flex-start; padding: 7px 11px; border-radius: 16px; font-size: 12.5px; background: var(--imsg-them, #e9e9eb); color: var(--imsg-them-text, #111); animation: tw-pop 400ms both; }
 .tw-bubble.me { align-self: flex-end; background: var(--color-accent, #007aff); color: #fff; }
 .tw-bubble:nth-child(2) { animation-delay: 0.35s; } .tw-bubble:nth-child(3) { animation-delay: 0.7s; }
 .tw-voice { display: flex; flex-direction: column; align-items: center; gap: 10px; }
@@ -45,7 +45,7 @@
 .tw-node { padding: 10px; border-radius: 14px; background: var(--color-surface, #fff); display: flex; flex-direction: column; animation: tw-pop 400ms both; }
 .tw-node b { font-size: 13px; } .tw-node small { font-size: 11.5px; color: var(--color-text-secondary); }
 .tw-video { display: flex; flex-direction: column; gap: 8px; width: 100%; max-width: 300px; align-items: center; }
-.tw-frame { width: 100%; height: 92px; border-radius: 12px; background: linear-gradient(135deg, #2b3a2f, #1d2433); display: grid; place-items: end start; padding: 10px; }
+.tw-frame { width: 100%; height: 92px; border-radius: 12px; background: #1c1c1e; /* a dark video frame, no gradient (Apple look) */ display: grid; place-items: end start; padding: 10px; }
 .tw-cap { font-weight: 900; font-size: 15px; color: #fff; letter-spacing: -0.01em; text-shadow: 0 2px 6px rgba(0,0,0,.5); }
 .tw-cap em { font-style: normal; background: #ff3b30; padding: 0 4px; border-radius: 4px; }
 .tw-track { display: flex; gap: 3px; width: 100%; height: 12px; }

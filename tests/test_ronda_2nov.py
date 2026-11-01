@@ -377,11 +377,15 @@ def test_today_joins_calendar_reminders_and_trips(tmp_path):
     (tmp_path / "t.json").write_text(
         json.dumps({"fecha": "2026-11-02", "destino": "China"})
     )
-    text = agenda.today(calendar=lambda: "10:00 Dentista", reminders=lambda: "Pastilla 8:00",
+    text = agenda.today(connected=lambda: "", calendar=lambda: "10:00 Dentista", reminders=lambda: "Pastilla 8:00",
                         root=tmp_path, day="2026-11-02")  # fmt: skip
     assert "Dentista" in text and "Pastilla" in text and "China" in text
     empty = agenda.today(
-        calendar=lambda: "", reminders=lambda: "", root=tmp_path, day="2026-01-01"
+        connected=lambda: "",
+        calendar=lambda: "",
+        reminders=lambda: "",
+        root=tmp_path,
+        day="2026-01-01",
     )
     assert "No veo nada" in empty
 
@@ -557,3 +561,19 @@ def test_cloud_ear_and_voice_call_openai(monkeypatch):
     assert calls[0][1]["json"]["voice"] == voz_propia.OPENAI_VOICE
     text = voz_propia._openai_transcribe(np.zeros(1600, dtype=np.float32), http=Http())
     assert text == "hola Sergio" and calls[1][0] == "transcriptions"
+
+
+def test_today_reads_a_connected_calendar_with_its_own_list_tool():
+    from openjarvis.conserje import agenda
+
+    class Hub:
+        def list(self):
+            return [{"id": "gc", "name": "Google Calendar", "connected": True,
+                     "tools": [{"name": "create_event"}, {"name": "list_events"}]}]  # fmt: skip
+
+        def call(self, sid, tool, args):
+            assert tool == "list_events" and args["timeMin"].startswith("2026-11-02")
+            return {"content": [{"type": "text", "text": "11:00 Reunión con Ana"}]}
+
+    got = agenda._connected_calendar(Hub(), day="2026-11-02")
+    assert "Reunión con Ana" in got
