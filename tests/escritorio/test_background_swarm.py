@@ -36,7 +36,7 @@ def test_background_swarm_launch_status_and_cancel(monkeypatch, tmp_path):
         parallel=10,
     )
     assert res.success
-    assert "Enjambre de 10 Especialistas en Segundo Plano Iniciado" in res.content
+    assert "Enjambre de 10 especialistas trabajando en segundo plano" in res.content
     assert "10 subagentes concurrentes" in res.content
     assert "Recordatorio proactivo agendado" in res.content
 
@@ -51,7 +51,7 @@ def test_background_swarm_launch_status_and_cancel(monkeypatch, tmp_path):
     st_res = tool.execute(action="background_status", id=swarm_id)
     assert st_res.success
     assert swarm_id in st_res.content
-    assert "Estado de Misión en Segundo Plano" in st_res.content
+    assert "Estado de la tarea en segundo plano" in st_res.content
 
     # 3. Cancel the background swarm
     cancel_res = tool.execute(action="background_cancel", id=swarm_id)
@@ -73,7 +73,7 @@ def test_ultra_deep_research_background_execution(monkeypatch, tmp_path):
         rounds=3,
     )
     assert res.success
-    assert "Ultra Deep Research Iniciado en Segundo Plano" in res.content
+    assert "Investigación a fondo en marcha" in res.content
     assert "10 especialistas concurrentes en 10 dimensiones" in res.content
     assert "Recordatorio proactivo agendado" in res.content
     assert "investigaciones" in res.content
