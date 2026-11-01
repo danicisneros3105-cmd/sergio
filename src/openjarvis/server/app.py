@@ -782,6 +782,12 @@ def create_app(
     from openjarvis.server.pagos_routes import router as pagos_router
 
     app.include_router(pagos_router)
+    from openjarvis.server.permission_gateway import router as permisos_router
+
+    app.include_router(permisos_router)
+    from openjarvis.server.installer_routes import router as installer_router
+
+    app.include_router(installer_router)
     from openjarvis.server.automatiza_routes import router as automatiza_router
     from openjarvis.server.automatiza_routes import start_loop as automatiza_loop
 

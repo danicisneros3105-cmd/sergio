@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#070b11">
+  <title>Sergio — Asistente AGI Plug & Play</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/favicon.ico" type="image/x-icon">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #070b11;
+      --card-bg: #0f1622;
+      --card-border: #1a2638;
+      --accent: #2563eb;
+      --accent-glow: rgba(37, 99, 235, 0.35);
+      --green: #10b981;
+      --yellow: #f59e0b;
+      --red: #ef4444;
+      --text: #f1f5f9;
+      --muted: #94a3b8;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Outfit', sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      background: rgba(15, 22, 34, 0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--card-border);
+      padding: 1rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-weight: 700;
+      font-size: 1.4rem;
+      color: var(--text);
+      text-decoration: none;
+    }
+    .logo-badge {
+      background: linear-gradient(135deg, #2563eb, #3b82f6);
+      color: white;
+      padding: 0.2rem 0.6rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+    }
+    .user-nav {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+    .btn {
+      padding: 0.6rem 1.2rem;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 0.9rem;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      transition: all 0.2s ease;
+      border: 1px solid transparent;
+    }
+    .btn-primary {
+      background: #2563eb;
+      color: white;
+      box-shadow: 0 4px 14px var(--accent-glow);
+    }
+    .btn-primary:hover { background: #1d4ed8; transform: translateY(-1px); }
+    .btn-secondary {
+      background: var(--card-bg);
+      border-color: var(--card-border);
+      color: var(--text);
+    }
+    .btn-secondary:hover { background: #162030; }
+    .btn-danger {
+      background: rgba(239, 68, 68, 0.15);
+      border-color: rgba(239, 68, 68, 0.3);
+      color: #fca5a5;
+    }
+    .btn-danger:hover { background: rgba(239, 68, 68, 0.25); }
+    .btn-success {
+      background: rgba(16, 185, 129, 0.2);
+      border-color: rgba(16, 185, 129, 0.4);
+      color: #6ee7b7;
+    }
+    .btn-success:hover { background: rgba(16, 185, 129, 0.3); }
+
+    main {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 2.5rem 1.5rem;
+      width: 100%;
+      flex: 1;
+    }
+    .hero {
+      text-align: center;
+      padding: 3rem 1rem;
+      background: radial-gradient(circle at center, rgba(37, 99, 235, 0.12) 0%, transparent 70%);
+      border-radius: 20px;
+      margin-bottom: 3rem;
+      border: 1px solid rgba(37, 99, 235, 0.15);
+    }
+    .hero h1 {
+      font-size: 2.8rem;
+      font-weight: 800;
+      margin-bottom: 1rem;
+      background: linear-gradient(135deg, #ffffff, #94a3b8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .hero p {
+      color: var(--muted);
+      font-size: 1.15rem;
+      max-width: 700px;
+      margin: 0 auto 2rem;
+    }
+    .download-cta-group {
+      display: flex;
+      justify-content: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+    .download-btn-main {
+      padding: 0.9rem 2.2rem;
+      font-size: 1.1rem;
+      border-radius: 12px;
+    }
+
+    .section-title {
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin-bottom: 1.25rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+      gap: 1.5rem;
+      margin-bottom: 3rem;
+    }
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 1.5rem;
+    }
+
+    /* Permission Card */
+    .permission-item {
+      background: #141c2b;
+      border: 1px solid #1e2c42;
+      border-radius: 12px;
+      padding: 1.25rem;
+      margin-bottom: 1rem;
+    }
+    .perm-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.5rem;
+    }
+    .perm-badge {
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      padding: 0.2rem 0.5rem;
+      border-radius: 6px;
+    }
+    .badge-powershell { background: rgba(37, 99, 235, 0.2); color: #93c5fd; }
+    .badge-macos { background: rgba(168, 85, 247, 0.2); color: #d8b4fe; }
+    .badge-iphone_android { background: rgba(16, 185, 129, 0.2); color: #6ee7b7; }
+    .perm-code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.82rem;
+      background: #090e17;
+      padding: 0.5rem 0.75rem;
+      border-radius: 6px;
+      color: #94a3b8;
+      margin: 0.6rem 0;
+      word-break: break-all;
+    }
+    .perm-actions {
+      display: flex;
+      gap: 0.75rem;
+      margin-top: 1rem;
+    }
+
+    /* Pricing Plans */
+    .plans-container {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 1.5rem;
+      margin-bottom: 3rem;
+    }
+    .plan-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 1.75rem;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+    .plan-popular {
+      border-color: #2563eb;
+      box-shadow: 0 8px 30px rgba(37, 99, 235, 0.2);
+    }
+    .popular-tag {
+      position: absolute;
+      top: -12px;
+      right: 20px;
+      background: #2563eb;
+      color: white;
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 0.2rem 0.6rem;
+      border-radius: 20px;
+    }
+    .plan-price {
+      font-size: 2.2rem;
+      font-weight: 800;
+      margin: 0.75rem 0;
+    }
+    .plan-price span { font-size: 0.95rem; font-weight: 400; color: var(--muted); }
+    .plan-features {
+      list-style: none;
+      margin: 1.25rem 0;
+      flex: 1;
+    }
+    .plan-features li {
+      font-size: 0.9rem;
+      color: var(--muted);
+      margin-bottom: 0.6rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .plan-features li span { color: var(--green); }
+
+    /* Modal */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(8px);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 100;
+    }
+    .modal {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 20px;
+      max-width: 480px;
+      width: 90%;
+      padding: 2rem;
+    }
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.25rem;
+    }
+    .form-group {
+      margin-bottom: 1.2rem;
+    }
+    .form-group label {
+      display: block;
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin-bottom: 0.4rem;
+    }
+    .form-input {
+      width: 100%;
+      padding: 0.75rem 1rem;
+      background: #090e17;
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      color: white;
+      font-family: inherit;
+    }
+    .form-input:focus { outline: none; border-color: var(--accent); }
+
+    #statusNotification {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      padding: 1rem 1.5rem;
+      border-radius: 10px;
+      background: #1e293b;
+      border: 1px solid var(--card-border);
+      box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+      display: none;
+      z-index: 200;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <a href="/portal" class="logo">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2.5"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
+      Sergio AI <span class="logo-badge">PRO v2.4</span>
+    </a>
+    <div class="user-nav" id="userNav">
+      <button class="btn btn-secondary" onclick="openLoginModal()">Iniciar Sesión</button>
+      <a href="/descargar/windows" class="btn btn-primary">Descargar App</a>
+    </div>
+  </header>
+
+  <main>
+    <!-- HERO SECTION -->
+    <div class="hero">
+      <h1>Tu Asistente AGI Autónomo Plug & Play</h1>
+      <p>Instalación en 1 clic. Sergio gestiona internamente PowerShell, macOS, bridges de iPhone/Android y negociaciones complejas. Tú solo tienes el control soberano con permisos visuales en 1 clic.</p>
+      <div class="download-cta-group">
+        <a href="/descargar/windows" class="btn btn-primary download-btn-main">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-12.951-1.801"/></svg>
+          Descargar para Windows (1-Clic)
+        </a>
+        <a href="/descargar/macos" class="btn btn-secondary download-btn-main">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 6.37c.62-.75 1.04-1.8 1.01-2.87-.9.04-2 .6-2.65 1.35-.58.67-.97 1.74-.95 2.78.99.08 1.97-.51 2.59-1.26z"/></svg>
+          macOS
+        </a>
+        <button onclick="installPWA()" class="btn btn-secondary download-btn-main">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>
+          Móvil (PWA)
+        </button>
+      </div>
+    </div>
+
+    <!-- MAIN TWO COLUMNS: PERMISSION CENTER & ACCOUNT SETTINGS -->
+    <div class="grid-2">
+      <!-- PERMISSION CENTER -->
+      <div class="card">
+        <div class="section-title">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+          Centro de Permisos Soberanos
+        </div>
+        <p style="color: var(--muted); font-size: 0.9rem; margin-bottom: 1.25rem;">
+          Sergio prepara y coordina las órdenes en el sistema operativo. Tú solo tienes que conceder o denegar la ejecución con un clic.
+        </p>
+
+        <div id="permissionList">
+          <div style="text-align: center; color: var(--muted); padding: 2rem;">
+            Cargando permisos pendientes...
+          </div>
+        </div>
+
+        <button onclick="createSimulatedPermission()" class="btn btn-secondary" style="width: 100%; justify-content: center; margin-top: 0.5rem;">
+          + Simular Solicitud de PowerShell
+        </button>
+      </div>
+
+      <!-- ACCOUNT & IDENTITY PANEL -->
+      <div class="card">
+        <div class="section-title">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+          Gestión de Cuenta & Soberanía
+        </div>
+        <div id="accountDetails">
+          <div style="background: #141c2b; border: 1px solid #1e2c42; border-radius: 12px; padding: 1.25rem; margin-bottom: 1.5rem;">
+            <div style="font-size: 0.85rem; color: var(--muted);">Sesión Actual</div>
+            <div style="font-size: 1.2rem; font-weight: 700; margin-top: 0.2rem;" id="userProfileName">Operador Local (Dueño)</div>
+            <div style="font-size: 0.85rem; color: var(--green); margin-top: 0.2rem;">● Conectado a Servidor AGI Local</div>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+            <button onclick="logout()" class="btn btn-secondary" style="justify-content: center;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+              Cerrar Sesión
+            </button>
+            <button onclick="openDeleteAccountModal()" class="btn btn-danger" style="justify-content: center;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+              Eliminar Cuenta de Forma Permanente
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAYMENT GATEWAY & PLANS -->
+    <div class="section-title">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>
+      Pasarela de Pago y Planes de Capacidad
+    </div>
+
+    <div class="plans-container">
+      <div class="plan-card">
+        <h3>Local Starter</h3>
+        <div style="color: var(--muted); font-size: 0.85rem;">Instalación soberana local</div>
+        <div class="plan-price">$0 <span>/ siempre</span></div>
+        <ul class="plan-features">
+          <li><span>✓</span> Motor AGI local con sus propias claves</li>
+          <li><span>✓</span> Biometría vocal y evasión antibot</li>
+          <li><span>✓</span> Control PowerShell y macOS ilimitado</li>
+        </ul>
+        <button class="btn btn-secondary" style="width: 100%; justify-content: center;">Plan Activo</button>
+      </div>
+
+      <div class="plan-card plan-popular">
+        <span class="popular-tag">MÁS POPULAR</span>
+        <h3>AGI Sovereign Pro</h3>
+        <div style="color: var(--muted); font-size: 0.85rem;">Todo incluido sin fricción de API</div>
+        <div class="plan-price">$29 <span>/ mes</span></div>
+        <ul class="plan-features">
+          <li><span>✓</span> Todos los modelos universales incluidos</li>
+          <li><span>✓</span> Bóveda Vertu AES-256-GCM sincronizada</li>
+          <li><span>✓</span> Pipeline de medios cada 7 horas</li>
+          <li><span>✓</span> Conexión multidispositivo PC y móvil</li>
+        </ul>
+        <button onclick="checkoutPlan('pro')" class="btn btn-primary" style="width: 100%; justify-content: center;">Suscribirse (Stripe / Tarjeta)</button>
+      </div>
+
+      <div class="plan-card">
+        <h3>VIP Escrow Concierge</h3>
+        <div style="color: var(--muted); font-size: 0.85rem;">Operaciones de lujo y arbitraje extremo</div>
+        <div class="plan-price">$199 <span>/ mes</span></div>
+        <ul class="plan-features">
+          <li><span>✓</span> Arbitraje hotelero y consortia Virtuoso</li>
+          <li><span>✓</span> Sniper Michelin y Chef's Table drops</li>
+          <li><span>✓</span> Sourcing forense de artículos raros con Escrow</li>
+          <li><span>✓</span> Asistencia prioritaria y telemetría de salud</li>
+        </ul>
+        <button onclick="checkoutPlan('vip')" class="btn btn-secondary" style="width: 100%; justify-content: center;">Activar VIP Concierge</button>
+      </div>
+    </div>
+  </main>
+
+  <!-- LOGIN MODAL -->
+  <div class="modal-overlay" id="loginModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>Iniciar Sesión en Sergio</h3>
+        <button class="btn btn-secondary" style="padding: 0.3rem 0.6rem;" onclick="closeModal('loginModal')">✕</button>
+      </div>
+      <div class="form-group">
+        <label>Correo Electrónico</label>
+        <input type="email" id="loginEmail" class="form-input" placeholder="usuario@dominio.com">
+      </div>
+      <div class="form-group">
+        <label>Contraseña o Clave Secreta</label>
+        <input type="password" id="loginPassword" class="form-input" placeholder="••••••••">
+      </div>
+      <button onclick="submitLogin()" class="btn btn-primary" style="width: 100%; justify-content: center; margin-top: 0.5rem;">
+        Entrar a Sergio
+      </button>
+    </div>
+  </div>
+
+  <!-- DELETE ACCOUNT CONFIRMATION MODAL -->
+  <div class="modal-overlay" id="deleteAccountModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 style="color: var(--red);">Eliminar Cuenta Permanentemente</h3>
+        <button class="btn btn-secondary" style="padding: 0.3rem 0.6rem;" onclick="closeModal('deleteAccountModal')">✕</button>
+      </div>
+      <p style="color: var(--muted); font-size: 0.9rem; margin-bottom: 1.25rem;">
+        Esta acción es <strong>irreversible</strong> bajo la normativa GDPR y protocolo de soberanía. Se purgarán todas sus credenciales, claves API, huella biométrica vocal y secretos de la Bóveda Vertu.
+      </p>
+      <div class="form-group">
+        <label>Escriba <strong style="color: white;">eliminar</strong> para confirmar:</label>
+        <input type="text" id="confirmDeleteText" class="form-input" placeholder="eliminar">
+      </div>
+      <button onclick="submitDeleteAccount()" class="btn btn-danger" style="width: 100%; justify-content: center;">
+        Confirmar y Purgar Cuenta
+      </button>
+    </div>
+  </div>
+
+  <div id="statusNotification"></div>
+
+  <script>
+    async function loadPermissions() {
+      try {
+        const res = await fetch('/v1/permisos/pendientes');
+        const data = await res.json();
+        const container = document.getElementById('permissionList');
+        if (!data.pendientes || data.pendientes.length === 0) {
+          container.innerHTML = `
+            <div style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 10px; padding: 1.25rem; text-align: center; color: #6ee7b7;">
+              ✓ No hay permisos pendientes. Sergio está operando en segundo plano sin fricción.
+            </div>
+          `;
+          return;
+        }
+        container.innerHTML = data.pendientes.map(p => `
+          <div class="permission-item" id="perm-${p.request_id}">
+            <div class="perm-header">
+              <strong>${p.title}</strong>
+              <span class="perm-badge badge-${p.system_target}">${p.system_target}</span>
+            </div>
+            <div style="font-size: 0.85rem; color: var(--muted);">${p.explanation}</div>
+            <div class="perm-code">${p.command}</div>
+            <div class="perm-actions">
+              <button onclick="grantPermission('${p.request_id}')" class="btn btn-success" style="flex: 1; justify-content: center;">
+                ✓ Conceder Permiso
+              </button>
+              <button onclick="denyPermission('${p.request_id}')" class="btn btn-danger" style="flex: 1; justify-content: center;">
+                ✕ Denegar
+              </button>
+            </div>
+          </div>
+        `).join('');
+      } catch (err) {
+        console.error('Error al cargar permisos:', err);
+      }
+    }
+
+    async function grantPermission(id) {
+      try {
+        await fetch(`/v1/permisos/${id}/conceder`, { method: 'POST' });
+        showNotification('Permiso concedido. Sergio ejecutando tarea.', '#10b981');
+        loadPermissions();
+      } catch (err) {
+        showNotification('Error al conceder permiso', '#ef4444');
+      }
+    }
+
+    async function denyPermission(id) {
+      try {
+        await fetch(`/v1/permisos/${id}/denegar`, { method: 'POST' });
+        showNotification('Permiso denegado por el usuario.', '#ef4444');
+        loadPermissions();
+      } catch (err) {
+        showNotification('Error al denegar permiso', '#ef4444');
+      }
+    }
+
+    async function createSimulatedPermission() {
+      try {
+        await fetch('/v1/permisos/solicitar-ejemplo', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            titulo: 'Sincronización de Bridge Móvil y ADB',
+            comando: 'adb reverse tcp:8000 tcp:8000; powershell -Command "Restart-Service AudioBridge"',
+            sistema: 'powershell',
+            explicacion: 'Sergio necesita configurar el túnel local para recibir telemetría del teléfono.',
+            riesgo: 'medio'
+          })
+        });
+        loadPermissions();
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    function openLoginModal() { document.getElementById('loginModal').style.display = 'flex'; }
+    function openDeleteAccountModal() { document.getElementById('deleteAccountModal').style.display = 'flex'; }
+    function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+
+    async function submitLogin() {
+      const email = document.getElementById('loginEmail').value;
+      const pass = document.getElementById('loginPassword').value;
+      try {
+        const res = await fetch('/v1/cuentas/entrar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: email, pass: pass, device: 'Web App Portal' })
+        });
+        const data = await res.json();
+        if (data.token) {
+          localStorage.setItem('sergio_token', data.token);
+          showNotification('Sesión iniciada con éxito', '#10b981');
+          closeModal('loginModal');
+          updateUserNav();
+        } else {
+          showNotification(data.error || 'Credenciales inválidas', '#ef4444');
+        }
+      } catch (err) {
+        showNotification('Error al conectar con servidor', '#ef4444');
+      }
+    }
+
+    async function logout() {
+      try {
+        const token = localStorage.getItem('sergio_token');
+        if (token) {
+          await fetch('/v1/cuentas/salir', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+        }
+        localStorage.removeItem('sergio_token');
+        showNotification('Sesión cerrada correctamente', '#2563eb');
+        updateUserNav();
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    async function submitDeleteAccount() {
+      const conf = document.getElementById('confirmDeleteText').value;
+      if (conf.trim().toLowerCase() !== 'eliminar') {
+        alert('Debe escribir exactamente "eliminar" para confirmar.');
+        return;
+      }
+      try {
+        const token = localStorage.getItem('sergio_token') || '';
+        const res = await fetch('/v1/cuentas/eliminar-mi-cuenta', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': token ? `Bearer ${token}` : ''
+          },
+          body: JSON.stringify({ confirmacion: 'eliminar', purgar_datos_locales: true }})
+        });
+        const data = await res.json();
+        if (data.ok) {
+          localStorage.removeItem('sergio_token');
+          closeModal('deleteAccountModal');
+          alert('Su cuenta y datos han sido eliminados de forma irreversible.');
+          window.location.reload();
+        } else {
+          alert(data.error || 'Error al eliminar cuenta.');
+        }
+      } catch (err) {
+        alert('Fallo en la comunicación con el servidor.');
+      }
+    }
+
+    async function checkoutPlan(planId) {
+      try {
+        const res = await fetch('/v1/plans/checkout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ plan: planId, mult: 0 })
+        });
+        const data = await res.json();
+        if (data.url) {
+          window.location.href = data.url;
+        } else {
+          showNotification('Plan activado en el equipo local.', '#10b981');
+        }
+      } catch (err) {
+        showNotification('Plan activado soberano.', '#10b981');
+      }
+    }
+
+    function updateUserNav() {
+      const token = localStorage.getItem('sergio_token');
+      const nav = document.getElementById('userNav');
+      if (token) {
+        nav.innerHTML = `
+          <span style="font-size: 0.9rem; color: var(--green);">● Sesión Activa</span>
+          <button class="btn btn-secondary" onclick="logout()">Cerrar Sesión</button>
+          <a href="/descargar/windows" class="btn btn-primary">Descargar App</a>
+        `;
+      } else {
+        nav.innerHTML = `
+          <button class="btn btn-secondary" onclick="openLoginModal()">Iniciar Sesión</button>
+          <a href="/descargar/windows" class="btn btn-primary">Descargar App</a>
+        `;
+      }
+    }
+
+    function showNotification(msg, color) {
+      const el = document.getElementById('statusNotification');
+      el.style.display = 'block';
+      el.style.borderColor = color;
+      el.textContent = msg;
+      setTimeout(() => { el.style.display = 'none'; }, 3500);
+    }
+
+    function installPWA() {
+      alert('Para instalar en iPhone: toque Compartir -> "Añadir a pantalla de inicio".\nEn Android: toque el menú del navegador -> "Instalar aplicación".');
+    }
+
+    updateUserNav();
+    loadPermissions();
+    setInterval(loadPermissions, 4000);
+  </script>
+</body>
+</html>

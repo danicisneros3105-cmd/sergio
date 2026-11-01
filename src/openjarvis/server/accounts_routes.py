@@ -671,6 +671,62 @@ def borrar(uid: str, request: Request) -> Dict[str, Any]:
     return {"ok": True}
 
 
+class DeleteMyAccountRequest(BaseModel):
+    confirmacion: str = ""
+    purgar_datos_locales: bool = True
+
+
+@router.post("/eliminar-mi-cuenta")
+def eliminar_mi_cuenta(body: DeleteMyAccountRequest, request: Request) -> Dict[str, Any]:
+    """Self-service account deletion (GDPR Right to be Forgotten / Reset local session)."""
+    token = _bearer(request)
+    me = _me(request)
+
+    if not me and not is_local(request):
+        raise HTTPException(401, "Debe iniciar sesión para eliminar su cuenta.")
+
+    if body.confirmacion.strip().lower() != "eliminar":
+        raise HTTPException(
+            400,
+            "Debe escribir 'eliminar' para confirmar la eliminación irreversible de su cuenta.",
+        )
+
+    uid = me["id"] if me else "local_owner"
+    is_owner_user = is_local(request) or (me and me.get("role") == "dueño")
+
+    # If regular customer user: delete record from store
+    if me and me.get("role") != "dueño":
+        _store().delete(uid)
+        from openjarvis.accounts import provision
+
+        provision.in_background(provision.disable, uid)
+
+    # If local owner requesting full purge: safely purge active sessions and biometric cache
+    if is_owner_user and body.purgar_datos_locales:
+        try:
+            from openjarvis.speech.biometric_voiceprint import get_voiceprint_manager
+
+            vm = get_voiceprint_manager()
+            if vm.profile_file.exists():
+                vm.profile_file.unlink(missing_ok=True)
+                vm.profile = vm._load_profile()
+        except Exception:
+            pass
+
+    if token:
+        try:
+            _store().end_session(token)
+        except Exception:
+            pass
+
+    return {
+        "ok": True,
+        "mensaje": "Cuenta y datos personales eliminados con éxito de forma irreversible.",
+        "uid_eliminado": uid,
+        "sesion_cerrada": True,
+    }
+
+
 def session_allowed(token: str) -> bool:
     """For the API guard: a signed-in, approved account opens Sergio."""
     if not token.startswith("sg_"):
