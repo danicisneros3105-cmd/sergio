@@ -320,9 +320,21 @@ DEFAULT_TOOL_CAPABILITIES: Dict[str, List[str]] = {
         Capability.FILE_WRITE,
     ],
     "skill_manage": [Capability.FILE_READ, Capability.FILE_WRITE],
+    # The concierge: prepares bookings, trips, ads and drafts (network, files);
+    # its last steps go through the owner's yes (conserje/aprobar.py).
+    "conserje": [
+        Capability.NETWORK_FETCH,
+        Capability.FILE_READ,
+        Capability.FILE_WRITE,
+        Capability.TOOL_INVOKE,
+    ],
     # Cinematic AI video: the owner's Higgsfield connector (its own permission
     # per call) or Sergio's AI video; the film is saved in ~/.openjarvis/cine_ia.
-    "cine_ia": [Capability.NETWORK_FETCH, Capability.FILE_WRITE, Capability.TOOL_INVOKE],
+    "cine_ia": [
+        Capability.NETWORK_FETCH,
+        Capability.FILE_WRITE,
+        Capability.TOOL_INVOKE,
+    ],
     # Builds an Unreal project zip and asks the desktop to open it.
     "juego_unreal": [Capability.FILE_READ, Capability.TOOL_INVOKE],
     # Sergio's own code: edits in a separate git worktree, runs ruff/tests,

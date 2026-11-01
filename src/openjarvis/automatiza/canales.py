@@ -368,6 +368,47 @@ def instagram_publish(video: Path, caption: str, *, home: Optional[Path] = None,
     return {"canal": "instagram", "id": pub["id"]}
 
 
+def instagram_story(media: Path, *, home: Optional[Path] = None, http: Any = None,
+                    wait: Callable[[float], None] = time.sleep) -> Dict[str, Any]:  # fmt: skip
+    """A photo or a video as an Instagram story (Graph API, media_type STORIES).
+
+    Only for the owner's Business/Creator account he connected; the caller asks
+    for his yes first (publishing is never automatic)."""
+    acc = account("instagram", home)
+    if not acc.get("token"):
+        raise RuntimeError("Instagram no está conectado.")
+    http = http or _http()
+    uid, token = acc["user_id"], acc["token"]
+    video = media.suffix.lower() in (".mp4", ".mov", ".m4v")
+    data = {"media_type": "STORIES", "access_token": token}
+    data["video_url" if video else "image_url"] = share_once(media)
+    made = http.post(f"{IG_API}/{uid}/media", data=data).json()
+    container = made.get("id")
+    if not container:
+        raise RuntimeError(
+            f"Instagram no aceptó la historia: {(made.get('error') or {}).get('message', made)}"
+        )
+    for _ in range(40 if video else 0):  # a video is processed first
+        st = http.get(
+            f"{IG_API}/{container}",
+            params={"fields": "status_code", "access_token": token},
+        ).json()
+        if st.get("status_code") == "FINISHED":
+            break
+        if st.get("status_code") == "ERROR":
+            raise RuntimeError("Instagram no pudo procesar la historia.")
+        wait(10)
+    pub = http.post(
+        f"{IG_API}/{uid}/media_publish",
+        data={"creation_id": container, "access_token": token},
+    ).json()
+    if not pub.get("id"):
+        raise RuntimeError(
+            f"Instagram no publicó la historia: {(pub.get('error') or {}).get('message', pub)}"
+        )
+    return {"canal": "instagram", "historia": pub["id"]}
+
+
 # -- comments: read, draft, send when approved ---------------------------------------------
 
 
@@ -540,6 +581,7 @@ def estado(home: Optional[Path] = None) -> Dict[str, Any]:
 
 __all__ = [
     "account",
+    "instagram_story",
     "draft_replies",
     "estado",
     "forget",
