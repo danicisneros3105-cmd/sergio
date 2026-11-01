@@ -2,6 +2,15 @@
 
 from __future__ import annotations
 
+from openjarvis.core.agi_engine import (
+    MetacognitiveMemory,
+    MissionDossier,
+    MissionPhase,
+    TacticalStep,
+    UniversalAGIEngine,
+    get_universal_agi_engine,
+)
+
 from openjarvis.core.registry import (
     AgentRegistry,
     EngineRegistry,
@@ -27,6 +36,12 @@ from openjarvis.core.utils import (
 )
 
 __all__ = [
+        "MetacognitiveMemory",
+    "MissionDossier",
+    "MissionPhase",
+    "TacticalStep",
+    "UniversalAGIEngine",
+    "get_universal_agi_engine",
     "AgentRegistry",
     "Conversation",
     "EngineRegistry",

@@ -137,6 +137,7 @@ class SergioAppControlTool(BaseTool):
                             "youtube_growth_pipeline",
                             "vertu_vault",
                             "health_biometrics_sync",
+                            "agi_solve",
                         ],
                     },
                     "route": {
@@ -1609,7 +1610,45 @@ class SergioAppControlTool(BaseTool):
                     ),
                 )
 
-            raise ValueError(f"Acción no reconocida: {action}")
+            if action == "agi_solve":
+                from openjarvis.core.agi_engine import get_universal_agi_engine
+
+                prompt = str(params.get("content") or params.get("title") or "Misión Logística AGI").strip()
+                engine = get_universal_agi_engine()
+                dossier = engine.solve(prompt, context=params)
+                phases_md = "\n".join(
+                    f"  • **{s.name}** (`{s.phase.value}`): {s.description} *({s.latency_seconds:.3f}s)*"
+                    for s in dossier.phases
+                )
+                return ToolResult(
+                    tool_name=self.tool_id,
+                    content=(
+                        f"⚡ **Misión Logística AGI Resuelta Autónomamente (`{dossier.mission_id}`)**\n"
+                        f"- **Objetivo Deconstruido:** {dossier.objective_classified} → `{dossier.target_entity}`\n"
+                        f"- **Plazo / Prioridad:** {dossier.deadline_hint}\n"
+                        f"- **Fases Operativas Ejecutadas:**\n{phases_md}\n"
+                        f"- **Resultado Clave:** {dossier.final_outcome.get('beneficio_clave', 'Completado')}\n"
+                        f"- **Blindaje Criptográfico Vertu:** Token `{dossier.vertu_seal_token[:25]}...` (0600)\n"
+                        f"- **Dossier Maestro Guardado:** `{dossier.dossier_path}`\n\n"
+                        f"🎙️ **Voz Proactiva J.A.R.V.I.S.:**\n> *«{dossier.proactive_jarvis_brief}»*"
+                    ),
+                )
+
+            from openjarvis.core.agi_engine import get_universal_agi_engine
+
+            unknown_mission = f"{action} — {params.get('content') or params.get('title') or ''}".strip(" —")
+            engine = get_universal_agi_engine()
+            dossier = engine.solve(unknown_mission, context=params)
+            return ToolResult(
+                tool_name=self.tool_id,
+                content=(
+                    f"⚡ **Acción Dinámica Resuelta por el Motor AGI (`{action}`)**\n"
+                    f"- **Deconstrucción:** {dossier.objective_classified} → `{dossier.target_entity}`\n"
+                    f"- **Resultado:** {dossier.final_outcome.get('beneficio_clave', 'Resuelto autónomamente')}\n"
+                    f"- **Dossier:** `{dossier.dossier_path}`\n"
+                    f"- **J.A.R.V.I.S.:** *«{dossier.proactive_jarvis_brief}»*"
+                ),
+            )
         except Exception as exc:  # noqa: BLE001
             return ToolResult(tool_name=self.tool_id, content=str(exc), success=False)
 
