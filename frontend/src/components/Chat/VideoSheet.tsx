@@ -23,6 +23,15 @@ const FORMATS = [
   { id: '16:9', nombre: 'Horizontal' },
   { id: '1:1', nombre: 'Cuadrado' },
 ];
+// From scratch up to 8 minutes (owner, 2 Nov 2026); a long one is made in
+// the background, in chapters, and says when it is ready.
+const LENGTHS = [
+  { s: 30, label: '30 s' },
+  { s: 60, label: '1 min' },
+  { s: 180, label: '3 min' },
+  { s: 300, label: '5 min' },
+  { s: 480, label: '8 min' },
+];
 const EVERY: { h: number; label: string }[] = [
   { h: 0, label: 'Una vez' },
   { h: 3, label: 'Cada 3 h' },
@@ -59,6 +68,7 @@ export function VideoSheet({ onClose, onAsk }: { onClose: () => void; onAsk: (te
   const [idea, setIdea] = useState('');
   const [effort, setEffort] = useState(1);
   const [format, setFormat] = useState('9:16');
+  const [length, setLength] = useState(60);
   const [every, setEvery] = useState(0);
   const [ready, setReady] = useState<Ready[]>([]);
   const [scheduled, setScheduled] = useState<Scheduled[]>([]);
@@ -78,7 +88,9 @@ export function VideoSheet({ onClose, onAsk }: { onClose: () => void; onAsk: (te
     const mode = EFFORT[effort];
     const shape = FORMATS.find((f) => f.id === format)?.nombre.toLowerCase();
     if (!every) {
-      onAsk(`Haz un video sobre: ${idea.trim()}. Formato ${shape} (${format}). Esfuerzo: ${mode.nombre} (modo ${mode.id}).`);
+      onAsk(
+        `Haz un video sobre: ${idea.trim()}. Formato ${shape} (${format}). Duración: ${length} segundos. Esfuerzo: ${mode.nombre} (modo ${mode.id}).`,
+      );
       onClose();
       return;
     }
@@ -86,7 +98,7 @@ export function VideoSheet({ onClose, onAsk }: { onClose: () => void; onAsk: (te
       await call('/v1/personal/videos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ idea, cada_horas: every, modo: mode.id, formato: format }),
+        body: JSON.stringify({ idea, cada_horas: every, modo: mode.id, formato: format, segundos: length }),
       });
       toast.success('Programado. Le aviso cuando cada video esté listo; nada se publica sin usted.');
       setIdea('');
@@ -138,6 +150,11 @@ export function VideoSheet({ onClose, onAsk }: { onClose: () => void; onAsk: (te
         <div className="msheet-effort" role="radiogroup" aria-label="Formato" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
           {FORMATS.map((f) => (
             <button key={f.id} type="button" role="radio" aria-checked={format === f.id} onClick={() => setFormat(f.id)}>{f.nombre}</button>
+          ))}
+        </div>
+        <div className="msheet-effort" role="radiogroup" aria-label="Duración" style={{ gridTemplateColumns: 'repeat(5, 1fr)' }}>
+          {LENGTHS.map((x) => (
+            <button key={x.s} type="button" role="radio" aria-checked={length === x.s} onClick={() => setLength(x.s)}>{x.label}</button>
           ))}
         </div>
         <label className="vsheet-effort">

@@ -465,6 +465,7 @@ def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
                 share = genres.GENRES[genre].film_share if genre else P.FILM_SHARE
                 P.add_film(shots, share, allowed=allowed)
             genres.finish(shots, words, genre)
+            genres.story_graphics(shots, words, genre)  # years, VS, places, names
             try:  # a named scene of a real film for every film shot
                 films.plan_scenes(
                     shots,
@@ -501,7 +502,7 @@ def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
             make_image=deps.make_image,
             ai_provider=deps.ai_provider,
             blender=deps.blender or _blender_maker(edit, profile, sc, aspect),
-            choose_ask=look_choose if mode.candidates > 1 else None,
+            choose_ask=look_choose,  # every mode: the footage is looked at
             allow_web=_web_allowed(params),
             on_spend=save,
         )
@@ -509,6 +510,7 @@ def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
 
         def fill(label: str) -> None:
             filler.fill(shots, progress=lambda f, n: job.progress(label, f, n))
+            genres.after_fill(shots, job.state().get("genre") or "")  # 2.5D photos
             job.write("plan.json", P.to_json(shots))
             job.update(credits=filler.credits, budget=budget.to_dict())
 

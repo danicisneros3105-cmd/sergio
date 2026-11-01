@@ -210,6 +210,84 @@ _NUM = re.compile(
 )
 
 
+_YEAR = re.compile(r"\b(1[5-9]\d\d|20[0-4]\d)\b")
+_VERSUS = re.compile(
+    r"\b([A-ZÁÉÍÓÚÑ][\wáéíóúñ]+)\s+(?:vs\.?|versus|contra|frente a)\s+([A-ZÁÉÍÓÚÑ][\wáéíóúñ]+)"
+)
+_PLACE = re.compile(
+    r"(?<![.!?]\s)\b(?:en|desde|hacia|de)\s+([A-ZÁÉÍÓÚÑ][\wáéíóúñ]+(?:\s[A-ZÁÉÍÓÚÑ][\wáéíóúñ]+)?)"
+)
+_PERSON = re.compile(r"\b([A-ZÁÉÍÓÚÑ][a-záéíóúñ]+\s[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+)\b")
+_NOT_PLACES = {
+    "Dios",
+    "Navidad",
+    "Internet",
+    "Google",
+    "YouTube",
+    "Instagram",
+    "TikTok",
+}
+
+
+def story_graphics(shots: Sequence, words: Sequence, genre: str) -> int:
+    """Graphics that follow what is said, for every genre but «cine» (a film
+    breathes): a year gets its timeline, «A contra B» the VS badge, a place a
+    map pin (documentary and explainers) and the first time a person is named,
+    a lower third with the name. Only empty overlays; never two in a row."""
+    if genre == "cine":
+        return 0
+    changed, last, named = 0, -2, set()
+    for i, s in enumerate(shots):
+        if s.overlay or i - last < 2 or getattr(s, "kind", "") == "card":
+            continue
+        spoken = " ".join(w.text for w in words[s.first : s.last])
+        m = _VERSUS.search(spoken)
+        if m:
+            s.overlay = f"vs:{m.group(1)}|{m.group(2)}"
+        elif _YEAR.search(spoken):
+            s.overlay = f"year:{_YEAR.search(spoken).group(1)}"
+        elif genre in ("documental", "explicado3d", "resultaaquee", "inspiracional"):
+            person = next(
+                (
+                    p
+                    for p in _PERSON.findall(spoken)
+                    if p not in named and p.split()[0] not in _NOT_PLACES
+                ),
+                "",
+            )
+            place = _PLACE.search(spoken)
+            if person and genre in ("documental", "inspiracional"):
+                named.add(person)
+                s.overlay = f"lower:{person}"
+            elif place and place.group(1) not in _NOT_PLACES:
+                s.overlay = f"pin:{place.group(1)}"
+        if s.overlay:
+            changed += 1
+            last = i
+    return changed
+
+
+def after_fill(shots: Sequence, genre: str) -> int:
+    """Once the pictures are chosen: photos (not clips) of documentaries,
+    films and inspirational videos get the 2.5D move every other still."""
+    if genre not in ("documental", "cine", "inspiracional", "animacion"):
+        return 0
+    changed = 0
+    for i, s in enumerate(shots):
+        asset = str(getattr(s, "asset", "") or "")
+        still = asset and not asset.lower().endswith(
+            (".mp4", ".mov", ".webm", ".mkv", ".m4v")
+        )
+        if (
+            still
+            and s.effect in ("none", "push")
+            and (genre == "animacion" or i % 2 == 0)
+        ):
+            s.effect = "parallax"
+            changed += 1
+    return changed
+
+
 def finish(shots: Sequence, words: Sequence, genre: str) -> int:
     """Dress the plan for its genre; returns how many shots it changed.
 
@@ -237,7 +315,9 @@ def finish(shots: Sequence, words: Sequence, genre: str) -> int:
                 )
             if not s.overlay:
                 m = _NUM.search(spoken)
-                if m and any(c.isdigit() for c in m.group(0)):
+                if m and _YEAR.fullmatch(m.group(0).strip()):
+                    s.overlay = f"year:{m.group(0).strip()}"  # a year is not a counter
+                elif m and any(c.isdigit() for c in m.group(0)):
                     s.overlay = m.group(0).strip()[:24]
                 elif s.highlight and i % 3 == 1:
                     s.overlay = "circle"
@@ -292,9 +372,14 @@ def finish(shots: Sequence, words: Sequence, genre: str) -> int:
                 changed += 1
     elif genre == "animacion":
         for s in shots:
+            before = (s.frame, s.grade, s.effect)
             if s.frame in ("crt", "film") or s.grade == "bw":
                 s.frame, s.grade = "none", "natural"
+            if s.effect in ("none", "push"):
+                s.effect = "parallax"  # drawings come alive in 2.5D
+            if (s.frame, s.grade, s.effect) != before:
                 changed += 1
+
     return changed
 
 

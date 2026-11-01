@@ -91,7 +91,7 @@ def find_clips(source: str, home: Path | None = None) -> list[Path]:
         ]
     if not clips:
         raise ValueError(f"No encontré videos en {source!r}.")
-    return clips[:40]
+    return clips[:400]  # editing his own clips: almost no limit
 
 
 def probe(clip: Path) -> tuple[bool, float]:

@@ -33,7 +33,7 @@ POSITIONS = (
 )
 # the typefaces of typo.FACES ("" lets the text style choose, as before)
 FONTS = ("", "base", "impacto", "pesada", "elegante", "tecnica", "mano")
-EFFECTS = ("none", "punch", "push", "shake", "glitch")
+EFFECTS = ("none", "punch", "push", "shake", "glitch", "parallax")
 GRADES = ("natural", "bw", "warm", "cold")
 FRAMES = ("none", "crt", "film", "letterbox")
 DEVICES = ("none", "computer", "phone")

@@ -439,14 +439,15 @@ class VideoEditTool(_DesktopTool):
                 "required": ["source"],
             },
             category="desktop",
-            timeout_seconds=1800,
+            timeout_seconds=6 * 3600,
         )
 
     def execute(self, **params: Any) -> ToolResult:
         action = {k: v for k, v in params.items() if v not in (None, "")}
         action["action"] = "make_video"
         try:
-            data = self._call("POST", "/act", json=action, timeout=1800)
+            # a long edit of his own clips (hundreds) can take hours
+            data = self._call("POST", "/act", json=action, timeout=EDIT_TIMEOUT)
         except RuntimeError as exc:
             return self._fail(f"No pude editar el video: {exc}")
         return self._ok(
@@ -454,6 +455,9 @@ class VideoEditTool(_DesktopTool):
             + ". Ya lo abrí para que el usuario lo revise; no lo publiques sin "
             "su aprobación con face_approval."
         )
+
+
+EDIT_TIMEOUT = 6 * 3600  # editing his own clips: almost no limit (owner, 2 Nov 2026)
 
 
 @ToolRegistry.register("video_pro")
@@ -503,14 +507,14 @@ class VideoProTool(_DesktopTool):
                 "required": ["source", "request"],
             },
             category="desktop",
-            timeout_seconds=3600,
+            timeout_seconds=6 * 3600,
         )
 
     def execute(self, **params: Any) -> ToolResult:
         args = {k: v for k, v in params.items() if v not in (None, "")}
         try:
             data = self._call(
-                "POST", "/skill", json={"name": "video_pro", "args": args}, timeout=3600
+                "POST", "/skill", json={"name": "video_pro", "args": args}, timeout=EDIT_TIMEOUT
             )
         except RuntimeError as exc:
             return self._fail(f"No pude editar el video: {exc}")

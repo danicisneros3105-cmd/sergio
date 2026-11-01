@@ -54,14 +54,19 @@ class Mode:
 
 
 MODES: Dict[str, Mode] = {
+    # «looks»: the editor's eye on the chosen footage (one per 8 shots), apart
+    # from the model calls of the director and the editor (owner, 2 Nov 2026:
+    # «la coherencia de lo que se muestra y lo que se dice»).
     "test": Mode("test", 0, "720", "veryfast", 1, False, False, "", False,
-                 {"llm": 6, "images": 8, "downloads": 25, "ai_seconds": 0, "blender": 0, "minutes": 30}),
+                 {"llm": 6, "looks": 4, "images": 8, "downloads": 30, "ai_seconds": 0, "blender": 0, "minutes": 30}),
     "basic": Mode("basic", 1, "1080", "fast", 2, False, False, "", False,
-                  {"llm": 14, "images": 25, "downloads": 60, "ai_seconds": 0, "blender": 1, "minutes": 75}),
+                  {"llm": 14, "looks": 8, "images": 25, "downloads": 80, "ai_seconds": 0, "blender": 1, "minutes": 75}),
     "post": Mode("post", 2, "1080", "medium", 3, True, True, "", True,
-                 {"llm": 36, "images": 60, "downloads": 150, "ai_seconds": 40, "blender": 3, "minutes": 240}),
+                 {"llm": 36, "looks": 16, "images": 60, "downloads": 190, "ai_seconds": 40, "blender": 3,
+                  "minutes": 240}),
     "cinema": Mode("cinema", 4, "2160", "slow", 5, True, True, "hevc10", True,
-                   {"llm": 80, "images": 140, "downloads": 320, "ai_seconds": 120, "blender": 8, "minutes": 720}),
+                   {"llm": 80, "looks": 30, "images": 140, "downloads": 400, "ai_seconds": 120, "blender": 8,
+                    "minutes": 720}),
 }  # fmt: skip
 
 
@@ -77,7 +82,7 @@ def limits_for(mode: Mode, seconds: float = 0) -> Dict[str, float]:
     limits = dict(mode.limits)
     scale = max(1.0, float(seconds or 0) / 90)
     if scale > 1:
-        for kind in ("images", "downloads", "minutes"):
+        for kind in ("images", "downloads", "minutes", "looks"):
             limits[kind] = round(limits.get(kind, 0) * scale)
         # one more editor call per ~2.5 minutes (the plan goes in stretches)
         limits["llm"] = limits.get("llm", 0) + round(seconds / 150)

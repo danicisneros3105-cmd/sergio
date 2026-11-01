@@ -343,8 +343,8 @@ def gather(source: str) -> tuple[Path, list[Path]]:
     path = resolve(source)
     if path.is_dir():
         items = [p for p in sorted(path.iterdir()) if p.suffix.lower() in (*VIDEO_EXT, *PHOTO)]
-        return path, items[:12]
-    items = find_clips(source)[:12]
+        return path, items[:400]
+    items = find_clips(source)[:400]
     return (items[0].parent if items else path.parent), items
 
 

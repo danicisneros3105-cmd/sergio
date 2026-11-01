@@ -230,6 +230,10 @@ def style_named(request: str) -> str:
     return found.group(1).strip() if found else ""
 
 
+GROUP = 12  # clips the planner sees at once (one contact sheet each)
+MAX_CLIPS = 400  # «casi sin límite si es solo editar» (owner, 2 Nov 2026)
+
+
 def edit(
     source: str,
     request: str,
@@ -239,29 +243,67 @@ def edit(
     clips: list[Path] | None = None,
 ) -> dict[str, Any]:
     """Clips in *source* (or the prepared *clips*) -> an edited video (+ its
-    YouTube metadata file)."""
-    clips = (clips or find_clips(source))[:12]
-    exe = ffmpeg()
-    probes = [probe(c) for c in clips]
-    hdr = [is_hdr(c, exe) for c in clips]
-    hdr = hdr if any(hdr) and has_zscale(exe) else None
-    lengths = [d for _, d in probes]
-    sheets = [contact_sheet(c, max(d, 1.0), exe=exe) for c, d in zip(clips, lengths)]
-    plan = planner(request, sheets, lengths)
+    YouTube metadata file). More than :data:`GROUP` clips are edited a group
+    at a time, in order, and the groups joined into one video."""
+    clips = (clips or find_clips(source))[:MAX_CLIPS]
     out_dir = Path.home() / "Videos" / "Sergio"
     out_dir.mkdir(parents=True, exist_ok=True)
-    out = out_dir / f"video-pro-{time.strftime('%Y%m%d-%H%M%S')}.mp4"
-    cmd = render_command(clips, plan, out, has_audio=[a for a, _ in probes], music=music, exe=exe, hdr=hdr)
-    done = subprocess.run(cmd, capture_output=True, text=True, check=False)
-    if done.returncode != 0 or not out.exists():
-        raise RuntimeError("ffmpeg falló: " + done.stderr[-500:])
+    stamp = time.strftime("%Y%m%d-%H%M%S")
+    out = out_dir / f"video-pro-{stamp}.mp4"
+    exe = ffmpeg()
+    if len(clips) <= GROUP:
+        plan = _edit_group(clips, request, planner, music, out, exe)
+    else:
+        parts, plan = [], {}
+        groups = [clips[i : i + GROUP] for i in range(0, len(clips), GROUP)]
+        for n, group in enumerate(groups, 1):
+            part = out_dir / f"video-pro-{stamp}-parte{n:02d}.mp4"
+            note = f"{request}\n(Parte {n} de {len(groups)} de un video largo: sigue el mismo estilo.)"
+            got = _edit_group(group, note, planner, music, part, exe)
+            plan = plan or got
+            parts.append(part)
+        _join(parts, out, exe)
+        for p in parts:
+            p.unlink(missing_ok=True)
     yt = plan["youtube"]
     meta = out.with_suffix(".txt")
     meta.write_text(
         f"TÍTULO:\n{yt['title']}\n\nDESCRIPCIÓN:\n{yt['description']}\n\nETIQUETAS:\n{', '.join(yt['tags'])}\n",
         encoding="utf-8",
     )
-    return {"path": str(out), "meta": str(meta), "plan": plan}
+    return {"path": str(out), "meta": str(meta), "plan": plan, "clips": len(clips)}
+
+
+def _edit_group(
+    clips: list[Path], request: str, planner: Any, music: str, out: Path, exe: str
+) -> dict[str, Any]:
+    probes = [probe(c) for c in clips]
+    hdr = [is_hdr(c, exe) for c in clips]
+    hdr = hdr if any(hdr) and has_zscale(exe) else None
+    lengths = [d for _, d in probes]
+    sheets = [contact_sheet(c, max(d, 1.0), exe=exe) for c, d in zip(clips, lengths)]
+    plan = planner(request, sheets, lengths)
+    cmd = render_command(clips, plan, out, has_audio=[a for a, _ in probes], music=music, exe=exe, hdr=hdr)
+    done = subprocess.run(cmd, capture_output=True, text=True, check=False)
+    if done.returncode != 0 or not out.exists():
+        raise RuntimeError("ffmpeg falló: " + done.stderr[-500:])
+    return plan
+
+
+def _join(parts: list[Path], out: Path, exe: str) -> None:
+    """The edited groups into one video (re-encoded once, so sizes and audio
+    always match)."""
+    listing = out.with_suffix(".partes.txt")
+    listing.write_text("".join(f"file '{p.as_posix()}'\n" for p in parts), encoding="utf-8")
+    cmd = [
+        exe, "-y", "-v", "error", "-f", "concat", "-safe", "0", "-i", str(listing),
+        "-c:v", "libx264", "-preset", "fast", "-crf", "18", "-pix_fmt", "yuv420p",
+        "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", str(out),
+    ]  # fmt: skip
+    done = subprocess.run(cmd, capture_output=True, text=True, check=False)
+    listing.unlink(missing_ok=True)
+    if done.returncode != 0 or not out.exists():
+        raise RuntimeError("ffmpeg no pudo unir las partes: " + done.stderr[-500:])
 
 
 __all__ = ["contact_sheet", "edit", "render_command"]

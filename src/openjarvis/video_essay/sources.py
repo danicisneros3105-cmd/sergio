@@ -47,6 +47,7 @@ class Candidate:
     path: str = ""  # the local cut, once fetched
     query: str = ""  # what it was found for
     title: str = ""  # the clip's own title, to check it fits what was asked
+    seconds: float = 0.0  # how long the whole source is (0 = unknown)
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
@@ -297,6 +298,8 @@ def search_web(
             continue
         if dur and (dur < 6 or dur > 3 * 3600):
             continue
+        if _PIRATED.search(str(item.get("title") or "")):
+            continue  # whole films uploaded by someone else: never (no piracy)
         url = item.get("url") or f"https://www.youtube.com/watch?v={item['id']}"
         start = round(dur * 0.35, 1) if dur > 20 else 0.0  # skip intros and logos
         out.append(
@@ -307,11 +310,67 @@ def search_web(
                 "Uso con cita (no libre)",
                 start,
                 title=str(item.get("title") or "")[:200],
+                seconds=dur,
             )
         )
         if len(out) >= n:
             break
     return out
+
+
+# -- ranking: the best candidate first, before anything is downloaded ----------------------
+
+# Official channels of studios, distributors and clip libraries: the scene is
+# the real one, in good quality, without someone's face or commentary on it.
+TRUSTED_CHANNELS = (
+    "movieclips", "rotten tomatoes", "fandango", "imdb", "warner bros", "universal pictures",
+    "sony pictures", "paramount", "20th century", "disney", "pixar", "marvel", "dreamworks",
+    "lionsgate", "a24", "netflix", "hbo", "prime video", "apple tv", "focus features",
+    "searchlight", "neon", "mubi", "criterion", "bbc", "national geographic", "nasa",
+    "smithsonian", "pbs", "discovery", "nat geo", "studiocanal", "gaumont", "pathé",
+)  # fmt: skip
+# Not the footage itself: someone talking over it, edits, games, lyrics.
+_NOT_FOOTAGE = re.compile(
+    r"\b(reaction|reacts?|reaccion|review|rese[nñ]a|explained|explicad[oa]|resumen|recap|"
+    r"tiktok|#shorts|compilation|compilaci[oó]n|fan ?made|fan edit|ai generated|"
+    r"generad[oa] con ia|lyrics?|letra|meme|parod(y|ia)|gameplay|walkthrough|unboxing|"
+    r"podcast|live stream|en vivo|vlog|tutorial|how to|c[oó]mo hacer|top \d+|ranking|"
+    r"theory|teor[ií]a|analysis|an[aá]lisis|behind the scenes|bloopers?)\b",
+    re.I,
+)
+_PIRATED = re.compile(
+    r"\b(full movie|pel[ií]cula completa|completa en espa[nñ]ol|full film|"
+    r"full episode|cap[ií]tulo completo|watch online|ver online|free movie)\b",
+    re.I,
+)
+
+
+def score(c: Candidate, wanted: str) -> float:
+    """How well a candidate fits a shot, before it is downloaded: the words
+    of its title that mean the same as the shot, an official channel, a real
+    clip length, and nothing that is commentary over the footage."""
+    title = c.title or ""
+    s = 2.0 * related(title, wanted) if title else 0.5
+    if c.source == "web":
+        who = (c.credit or "").lower()
+        if any(t in who for t in TRUSTED_CHANNELS):
+            s += 2.5
+        if _NOT_FOOTAGE.search(title):
+            s -= 3.0
+        if c.seconds:
+            if 20 <= c.seconds <= 600:
+                s += 0.8  # a scene or a clip, not a two-hour upload
+            elif c.seconds > 1800:
+                s -= 1.0
+    elif c.source in ("pexels", "pixabay", "stock"):
+        s += 0.6  # clean, licensed, no burned-in text
+    return s
+
+
+def rank(cands: List[Candidate], wanted: str) -> List[Candidate]:
+    """The candidates best first (stable: equal scores keep the search order)."""
+    order = sorted(range(len(cands)), key=lambda i: -score(cands[i], wanted))
+    return [cands[i] for i in order]
 
 
 SCENE_WORDS = (

@@ -307,7 +307,8 @@ class VideoCreateTool(BaseTool):
                 "«haz un video sobre la contaminación». Sergio writes the script, "
                 "makes a picture for each scene, narrates it in his voice and "
                 "shows the video in the chat to review. 'seconds' 15-90 (default "
-                "30); 'aspect' 16:9, 9:16 (Shorts, Reels, TikTok) or 1:1. To edit "
+                "30) for a quick one; more than 90 (up to 1800, e.g. 480 for 8 "
+                "minutes) starts the full production in the background; 'aspect' 16:9, 9:16 (Shorts, Reels, TikTok) or 1:1. To edit "
                 "the user's own clips use video_pro instead. Never publish it "
                 "without the user's OK."
             ),
@@ -340,6 +341,24 @@ class VideoCreateTool(BaseTool):
         topic = " ".join(str(params.get("topic") or "").split())[:400]
         if len(topic) < 3:
             return self._fail("Dígame de qué trata el video.")
+        try:
+            wanted = float(params.get("seconds") or 0)
+        except (TypeError, ValueError):
+            wanted = 0.0
+        if wanted > 90:
+            # Longer than a short: the full production (script in chapters,
+            # real clips, editor, music), up to 30 minutes from scratch
+            # (owner, 2 Nov 2026: «videos de hasta 8 minutos creados desde cero»).
+            from openjarvis.tools.video_essay_tool import VideoEssayTool
+
+            return VideoEssayTool().execute(
+                action="start",
+                topic=topic,
+                seconds=min(1800.0, wanted),
+                aspect=str(params.get("aspect") or "16:9"),
+                style=str(params.get("style") or ""),
+                mode=str(params.get("mode") or "basic"),
+            )
         raw_style = (
             str(params.get("style") or params.get("platform") or "").lower().strip()
         )

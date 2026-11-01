@@ -401,15 +401,50 @@ class Card(Background):
             yield self.img
 
 
+def depth_layers(img: Image.Image) -> Optional[Tuple[Image.Image, Image.Image]]:
+    """(background with the subject painted out, subject with its alpha) for
+    the 2.5D move; None when the cut-out model is not on this computer."""
+    try:
+        import cv2
+
+        from openjarvis.creator import segment
+
+        bgr = cv2.cvtColor(np.asarray(img.convert("RGB")), cv2.COLOR_RGB2BGR)
+        a = segment.alpha(bgr)
+    except Exception:  # noqa: BLE001 — no model: a plain push instead
+        return None
+    if float(a.mean()) < 0.03 or float(a.mean()) > 0.85:
+        return None  # nothing stands out (a landscape) or it is all subject
+    mask = (a > 0.35).astype(np.uint8) * 255
+    mask = cv2.dilate(mask, np.ones((15, 15), np.uint8))  # the halo goes too
+    small = max(1, max(bgr.shape[:2]) // 640)  # inpaint at ~640 px: fast
+    sb = cv2.resize(bgr, (bgr.shape[1] // small, bgr.shape[0] // small))
+    sm = cv2.resize(mask, (sb.shape[1], sb.shape[0]))
+    filled = cv2.inpaint(sb, sm, 7, cv2.INPAINT_TELEA)
+    filled = cv2.resize(filled, (bgr.shape[1], bgr.shape[0]))
+    back = Image.fromarray(cv2.cvtColor(filled, cv2.COLOR_BGR2RGB)).filter(
+        ImageFilter.GaussianBlur(1.2)  # a touch of depth of field
+    )
+    front = img.convert("RGBA")
+    front.putalpha(Image.fromarray((np.clip(a, 0, 1) * 255).astype(np.uint8)))
+    return back, front
+
+
 class Still(Background):
-    """A picture that keeps moving: a slow push, or a punch-in that settles."""
+    """A picture that keeps moving: a slow push, a punch-in that settles, or
+    «parallax»: the subject cut out and moving apart from its background, a
+    2.5D shot (the documentary and animation technique), breathing a little."""
 
     def __init__(self, path: str, size: Tuple[int, int], effect: str) -> None:
         self.size = size
         self.big = _cover(Image.open(path), (int(size[0] * 1.2), int(size[1] * 1.2)))
         self.effect = effect
+        self.layers = depth_layers(self.big) if effect == "parallax" else None
 
     def frames(self, n: int) -> Iterator[Image.Image]:
+        if self.layers is not None:
+            yield from self._parallax(n)
+            return
         W, H = self.big.size
         for i in range(n):
             p = i / max(1, n - 1)
@@ -421,6 +456,32 @@ class Still(Background):
             cx, cy = W / 2 + (p - 0.5) * W * 0.02, H / 2
             box = (cx - cw / 2, cy - ch / 2, cx + cw / 2, cy + ch / 2)
             yield self.big.resize(self.size, Image.BILINEAR, box=box)
+
+    def _parallax(self, n: int) -> Iterator[Image.Image]:
+        back, front = self.layers  # type: ignore[misc]
+        W, H = back.size
+        for i in range(n):
+            p = i / max(1, n - 1)
+            e = p * p * (3 - 2 * p)  # smooth start and stop
+            # far layer: barely moves; near layer: more push and a side drift
+            zb, zf = 1.0 + 0.03 * e, 1.0 + 0.11 * e
+            dx = (e - 0.5) * W * 0.035
+            breathe = math.sin(i / FPS * 2.2) * H * 0.003
+            frame = _crop_zoom(back, zb, -dx * 0.3, 0.0, self.size)
+            fg = _crop_zoom(front, zf, dx, breathe, self.size)
+            frame = frame.convert("RGBA")
+            frame.alpha_composite(fg)
+            yield frame.convert("RGB")
+
+
+def _crop_zoom(
+    img: Image.Image, z: float, dx: float, dy: float, size: Tuple[int, int]
+) -> Image.Image:
+    W, H = img.size
+    cw, ch = W / z * 0.84, H / z * 0.84
+    cx, cy = W / 2 + dx, H / 2 + dy
+    box = (cx - cw / 2, cy - ch / 2, cx + cw / 2, cy + ch / 2)
+    return img.resize(size, Image.BILINEAR, box=box)
 
 
 class Clip(Background):
@@ -679,7 +740,12 @@ def draw_motion(
       the part names of a 3D explainer;
     * «spot»: everything but the subject dims (a spotlight);
     * «xray»: the frame turns into a cool see-through scan with a sweeping
-      line, for «what happens inside».
+      line, for «what happens inside»;
+    * «lower:TITLE|SUB»: a lower third that slides in (a name, a place, a role);
+    * «pin:PLACE»: a map pin that drops on the subject with the place's name;
+    * «vs:A|B»: two labels that meet at a VS badge (a comparison);
+    * «year:1969»: a timeline that slides to the year, ticks every decade;
+    * «frame»: a focus frame whose corners draw themselves round the subject.
 
     Every stroke has a dark under-stroke so it reads on any picture. Returns
     False when *kind* is not one of them."""
@@ -790,6 +856,120 @@ def draw_motion(
         scan[band, :, :3] = (180, 240, 255)
         scan[band, :, 3] = 230
         layer = Image.fromarray(scan)
+    elif kind.startswith("lower:"):
+        title, _, sub = kind.partition(":")[2].partition("|")
+        size = max(18, int(h * 0.052))
+        title_img = word_image(
+            title.upper()[:28], "black", size, PALETTE["white"], True
+        )
+        x = int(w * 0.06 - (1 - k) * w * 0.4)
+        y = int(h * 0.74)
+        bar_w = title_img.size[0] + int(w * 0.04)
+        d.rectangle(
+            (x, y, x + int(bar_w * k), y + title_img.size[1]), fill=accent + (235,)
+        )
+        layer.alpha_composite(title_img, (max(0, x + int(w * 0.02)), y))
+        if sub and k > 0.5:
+            small = word_image(
+                sub[:40], "base", int(size * 0.62), PALETTE["white"], True
+            )
+            layer.alpha_composite(
+                small, (max(0, x + int(w * 0.02)), y + title_img.size[1] + 4)
+            )
+    elif kind.startswith("pin:"):
+        place = kind.partition(":")[2][:24]
+        drop = (1 - k) * h * 0.25
+        r = max(12, int(h * 0.042))
+        cx, cy = sx, sy - drop
+        d.ellipse(
+            (cx - r * 0.9, sy + r * 0.3, cx + r * 0.9, sy + r * 0.7),
+            fill=(0, 0, 0, int(120 * k)),
+        )
+        d.polygon(
+            [(cx - r, cy - r), (cx + r, cy - r), (cx, cy + r * 1.4)],
+            fill=accent + (255,),
+        )
+        d.ellipse(
+            (cx - r, cy - r * 2, cx + r, cy),
+            fill=accent + (255,),
+            outline=(255, 255, 255, 240),
+        )
+        d.ellipse(
+            (cx - r * 0.4, cy - r * 1.4, cx + r * 0.4, cy - r * 0.6),
+            fill=(255, 255, 255, 255),
+        )
+        if place and k > 0.8:
+            img = word_image(
+                place.upper(), "black", max(16, int(h * 0.04)), PALETTE["white"], True
+            )
+            layer.alpha_composite(
+                img,
+                (int(min(w - img.size[0], max(0, cx - img.size[0] / 2))),
+                 int(max(0, cy - r * 2 - img.size[1] - 6))),
+            )  # fmt: skip
+    elif kind.startswith("vs:"):
+        left, _, right = kind.partition(":")[2].partition("|")
+        size = max(18, int(h * 0.055))
+        a = word_image(left.upper()[:16], "black", size, PALETTE["white"], True)
+        b = word_image(right.upper()[:16], "black", size, PALETTE["white"], True)
+        y = int(h * 0.12)
+        slide = (1 - k) * w * 0.5
+        layer.alpha_composite(a, (int(max(0, w * 0.47 - a.size[0] - slide)), y))
+        layer.alpha_composite(b, (int(min(w - b.size[0], w * 0.53 + slide)), y))
+        if k > 0.7:
+            r = int(size * 0.75)
+            cx, cy = w // 2, y + a.size[1] // 2
+            d.ellipse(
+                (cx - r, cy - r, cx + r, cy + r),
+                fill=accent + (255,),
+                outline=(255, 255, 255, 255),
+                width=3,
+            )
+            vs = word_image("VS", "black", int(size * 0.7), PALETTE["white"], False)
+            layer.alpha_composite(vs, (cx - vs.size[0] // 2, cy - vs.size[1] // 2))
+    elif kind.startswith("year:"):
+        try:
+            year = int(kind[5:9])
+        except ValueError:
+            return False
+        y = int(h * 0.86)
+        d.line(
+            (w * 0.08, y, w * 0.92, y),
+            fill=(255, 255, 255, 200),
+            width=max(2, stroke // 2),
+        )
+        start = year - 40 + int(40 * k)  # the ruler slides from 40 years before
+        for j in range(-4, 5):
+            decade = (start // 10 + j) * 10
+            x = w * 0.5 + (decade - start) * w * 0.009
+            if w * 0.08 <= x <= w * 0.92:
+                d.line(
+                    (x, y - h * 0.012, x, y + h * 0.012),
+                    fill=(255, 255, 255, 200),
+                    width=2,
+                )
+        d.ellipse((w * 0.5 - 8, y - 8, w * 0.5 + 8, y + 8), fill=accent + (255,))
+        label = word_image(
+            str(start if k < 1 else year),
+            "tecnica",
+            max(20, int(h * 0.06)),
+            PALETTE["white"],
+            True,
+        )
+        layer.alpha_composite(
+            label, (int(w * 0.5 - label.size[0] / 2), int(y - label.size[1] - h * 0.02))
+        )
+    elif kind == "frame":
+        half = h * 0.2
+        arm = half * 0.45 * k
+        for ex, ey in ((-1, -1), (1, -1), (-1, 1), (1, 1)):
+            cx, cy = sx + ex * half, sy + ey * half
+            for seg in (
+                ((cx, cy), (cx - ex * arm, cy)),
+                ((cx, cy), (cx, cy - ey * arm)),
+            ):
+                d.line(seg, fill=halo, width=stroke + 4)
+                d.line(seg, fill=accent + (255,), width=stroke)
     else:
         return False
     canvas.alpha_composite(layer)
@@ -959,33 +1139,16 @@ def render_video(
     preset: str = "medium",
     progress: Optional[Callable[[float], None]] = None,
 ) -> Path:
-    """All the shots into one mp4 (with the mixed audio when given)."""
+    """All the shots into one mp4 (with the mixed audio when given). Long
+    videos are drawn in parallel, a stretch of shots per processor core, and
+    the stretches joined without re-encoding (owner, 2 Nov 2026: «0 retraso»)."""
     out.parent.mkdir(parents=True, exist_ok=True)
     silent = out.with_suffix(".video.mp4")
-    w, h = size
-    cmd = [
-        ffmpeg(), "-y", "-v", "error", "-f", "rawvideo", "-pix_fmt", "rgb24",
-        "-s", f"{w}x{h}", "-r", str(FPS), "-i", "-",
-        "-c:v", "libx264", "-preset", preset, "-crf", "18", "-pix_fmt", "yuv420p",
-        str(silent),
-    ]  # fmt: skip
-    proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
-    total = sum(max(1, round(s.dur * FPS)) for s in shots) or 1
-    done = 0
-    try:
-        for k, shot in enumerate(shots):
-            for frame in shot_frames(shot, words, size, k):
-                assert proc.stdin is not None
-                proc.stdin.write(frame.tobytes())
-                done += 1
-                if progress and done % 30 == 0:
-                    progress(done / total)
-    finally:
-        if proc.stdin:
-            proc.stdin.close()
-        err = proc.stderr.read().decode("utf-8", "replace") if proc.stderr else ""
-        if proc.wait() != 0:
-            raise RuntimeError(f"ffmpeg no pudo codificar el video: {err[-400:]}")
+    pieces = _stretches(shots, workers())
+    if len(pieces) <= 1:
+        _encode(list(enumerate(shots)), words, size, preset, silent, progress)
+    else:
+        _parallel(pieces, words, size, preset, silent, progress)
     if audio is None:
         silent.replace(out)
         return out
@@ -999,6 +1162,104 @@ def render_video(
     )  # fmt: skip
     silent.unlink(missing_ok=True)
     return out
+
+
+def workers() -> int:
+    """Processes that draw at once (``SERGIO_VIDEO_HILOS``; one core left free)."""
+    import os
+
+    chosen = os.environ.get("SERGIO_VIDEO_HILOS", "").strip()
+    if chosen.isdigit():
+        return max(1, int(chosen))
+    return max(1, min(6, (os.cpu_count() or 2) - 1))
+
+
+def _stretches(shots: Sequence[Shot], n: int) -> List[List[Tuple[int, Shot]]]:
+    """Consecutive shots in *n* stretches of about the same length (shots are
+    independent: their transitions start inside each shot)."""
+    total = sum(s.dur for s in shots)
+    if n <= 1 or total < 45 or len(shots) < 2 * n:
+        return [list(enumerate(shots))]
+    target = total / n
+    out: List[List[Tuple[int, Shot]]] = [[]]
+    acc = 0.0
+    for k, s in enumerate(shots):
+        if acc >= target and len(out) < n:
+            out.append([])
+            acc = 0.0
+        out[-1].append((k, s))
+        acc += s.dur
+    return [p for p in out if p]
+
+
+def _encode(
+    numbered: List[Tuple[int, Shot]],
+    words: List[Word],
+    size: Tuple[int, int],
+    preset: str,
+    target: Path,
+    progress: Optional[Callable[[float], None]] = None,
+) -> Path:
+    w, h = size
+    cmd = [
+        ffmpeg(), "-y", "-v", "error", "-f", "rawvideo", "-pix_fmt", "rgb24",
+        "-s", f"{w}x{h}", "-r", str(FPS), "-i", "-",
+        "-c:v", "libx264", "-preset", preset, "-crf", "18", "-pix_fmt", "yuv420p",
+        "-g", str(FPS * 2), str(target),
+    ]  # fmt: skip
+    proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
+    total = sum(max(1, round(s.dur * FPS)) for _, s in numbered) or 1
+    done = 0
+    try:
+        for k, shot in numbered:
+            for frame in shot_frames(shot, words, size, k):
+                assert proc.stdin is not None
+                proc.stdin.write(frame.tobytes())
+                done += 1
+                if progress and done % 30 == 0:
+                    progress(done / total)
+    finally:
+        if proc.stdin:
+            proc.stdin.close()
+        err = proc.stderr.read().decode("utf-8", "replace") if proc.stderr else ""
+        if proc.wait() != 0:
+            raise RuntimeError(f"ffmpeg no pudo codificar el video: {err[-400:]}")
+    return target
+
+
+def _encode_piece(args: Tuple[Any, ...]) -> str:
+    numbered, words, size, preset, target = args
+    return str(_encode(numbered, words, size, preset, Path(target)))
+
+
+def _parallel(
+    pieces: List[List[Tuple[int, Shot]]],
+    words: List[Word],
+    size: Tuple[int, int],
+    preset: str,
+    silent: Path,
+    progress: Optional[Callable[[float], None]] = None,
+) -> None:
+    from concurrent.futures import ProcessPoolExecutor, as_completed
+
+    parts = [silent.with_suffix(f".part{i:02d}.mp4") for i in range(len(pieces))]
+    jobs = [(p, words, size, preset, str(t)) for p, t in zip(pieces, parts)]
+    with ProcessPoolExecutor(max_workers=len(pieces)) as pool:
+        futures = [pool.submit(_encode_piece, j) for j in jobs]
+        for n, fut in enumerate(as_completed(futures), 1):
+            fut.result()  # a failed stretch fails the render (it says why)
+            if progress:
+                progress(n / len(futures))
+    listing = silent.with_suffix(".parts.txt")
+    listing.write_text("".join(f"file '{p.as_posix()}'\n" for p in parts), "utf-8")
+    subprocess.run(
+        [ffmpeg(), "-y", "-v", "error", "-f", "concat", "-safe", "0", "-i", str(listing),
+         "-c", "copy", str(silent)],
+        check=True, capture_output=True, timeout=1800,
+    )  # fmt: skip
+    for p in parts:
+        p.unlink(missing_ok=True)
+    listing.unlink(missing_ok=True)
 
 
 def still_of(

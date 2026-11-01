@@ -140,6 +140,9 @@ class Filler:
         # source was used (the same piece never twice)
         self.pool: List[S.Candidate] = []
         self.used: Dict[str, int] = {}
+        # candidates found but not downloaded, best first, per shot: the next
+        # one is tried when the editor's eye rejects what was chosen
+        self.reserve: Dict[int, List[S.Candidate]] = {}
 
     # -- one source -------------------------------------------------------------------
     def _spend(self, kind: str, amount: float = 1) -> bool:
@@ -165,6 +168,9 @@ class Filler:
             )
             if found:
                 break
+        # the best first (title that means the same as the shot, an official
+        # channel, a real clip length), before anything is downloaded
+        found = S.rank(found, f"{shot.visual} {shot.text} {shot.search}")
         got: List[S.Candidate] = []
         for c in found:
             if len(got) >= want or not self._spend("downloads"):
@@ -176,6 +182,8 @@ class Filler:
                 self.used[c.url] = seen + 1
                 self.pool.append(c)
                 got.append(c)
+        tried = {c.url for c in got}
+        self.reserve[id(shot)] = [c for c in found if c.url not in tried][:3]
         return got
 
     def _reuse(self, shot: Shot, recent: List[str]) -> Optional[S.Candidate]:
@@ -350,7 +358,10 @@ class Filler:
         for i in range(0, len(waiting), 8):
             group = waiting[i : i + 8]
             picks: Dict[int, int] = {}
-            if self.choose_ask is not None and self._spend("llm"):
+            # every shot is looked at (SAY = SHOW), with its own small budget
+            # so the director and the editor keep theirs
+            looks = "looks" if self.budget.limits.get("looks") else "llm"
+            if self.choose_ask is not None and self._spend(looks):
                 rows = [
                     {
                         "shot": s.visual or s.text,
@@ -377,6 +388,19 @@ class Filler:
         never footage that makes no sense."""
         bad = {c.url for c in rejected}
         self.pool = [c for c in self.pool if c.url not in bad]
+        wanted = f"{shot.visual} {shot.text} {shot.search}"
+        for c in self.reserve.pop(id(shot), []):
+            # the next found clip, only if its title clearly means the same
+            if c.url in bad or S.related(c.title, wanted) < 2:
+                continue
+            if self._spend("downloads") and self.fetch(
+                c, self.folder / "clips", shot.dur, self.ffmpeg
+            ):
+                shot.asset = c.path
+                self.pool.append(c)
+                self.credits.append(c.to_dict())
+                shot.notes.append(f"imagen: {c.source} (la primera no encajaba)")
+                return
         made = self._image(shot)
         if made:
             shot.asset = made
