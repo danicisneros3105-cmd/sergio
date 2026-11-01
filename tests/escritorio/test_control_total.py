@@ -603,6 +603,75 @@ def test_multidevice_phone_video_meetings_academic_minitest_email_social_leads_a
     )
     assert r_visa.success and "DS-160" in r_visa.content
 
+def test_sergio_impossible_tasks_luxury_arbitrage_sniper_vault_and_biometrics(monkeypatch, tmp_path):
+    from openjarvis.core.types import ToolResult
+    from openjarvis.tools.app_control import SergioAppControlTool
+    from openjarvis.tools.desktop_tools import DesktopActionTool
 
+    recorded = []
 
+    def fake_execute(self, **params):
+        recorded.append(params)
+        return ToolResult(tool_name="desktop_action", content="operado con éxito", success=True)
+
+    monkeypatch.setattr(DesktopActionTool, "execute", fake_execute)
+    monkeypatch.setattr("pathlib.Path.home", lambda: tmp_path)
+
+    tool = SergioAppControlTool()
+
+    # 1. Hotel luxury arbitrage ($3k to $1.5k)
+    r_hotel = tool.execute(
+        action="hotel_arbitrage",
+        title="Four Seasons George V Paris",
+        to="París, Francia",
+        when="15 al 20 de Noviembre",
+        budget="3000 USD",
+        price="1500 USD",
+    )
+    assert r_hotel.success
+    assert "1500" in r_hotel.content and "3000" in r_hotel.content and "50" in r_hotel.content
+    assert "Virtuoso" in r_hotel.content
+
+    # 2. Michelin cancellation sniper
+    recorded.clear()
+    r_michelin = tool.execute(
+        action="michelin_sniper",
+        title="Disfrutar Barcelona",
+        budget="2",
+        when="Viernes 21:00",
+        platform="resy",
+    )
+    assert r_michelin.success
+    assert "Disfrutar Barcelona" in r_michelin.content
+    assert "Playwright Stealth" in r_michelin.content
+
+    # 3. 7-hour YouTube growth pipeline
+    r_yt = tool.execute(
+        action="youtube_growth_pipeline",
+        content="curiosidades y hechos asombrosos del mundo",
+        budget="7",
+    )
+    assert r_yt.success
+    assert "7 Horas" in r_yt.content
+    assert "resultaaquee" in r_yt.content
+
+    # 4. Vertu-grade zero knowledge encrypted vault
+    r_vault = tool.execute(
+        action="vertu_vault",
+        title="pasaporte_diplomatico_llave",
+        content="DATOS_ULTRA_CONFIDENCIALES_DEL_SEÑOR",
+        platform="credencial_maestra",
+    )
+    assert r_vault.success
+    assert "Bóveda Vertu" in r_vault.content
+    assert "AES-256-GCM" in r_vault.content
+
+    # 5. Active health biometrics sync across wearables
+    r_health = tool.execute(
+        action="health_biometrics_sync",
+        platform="Apple Watch Ultra & Anillo Oura",
+    )
+    assert r_health.success
+    assert "Sincronización Biométrica" in r_health.content
+    assert "HRV" in r_health.content
 

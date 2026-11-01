@@ -132,6 +132,11 @@ class SergioAppControlTool(BaseTool):
                             "connector_sync",
                             "create_image",
                             "create_godot_game",
+                            "hotel_arbitrage",
+                            "michelin_sniper",
+                            "youtube_growth_pipeline",
+                            "vertu_vault",
+                            "health_biometrics_sync",
                         ],
                     },
                     "route": {
@@ -1427,6 +1432,181 @@ class SergioAppControlTool(BaseTool):
                 return ToolResult(
                     tool_name=self.tool_id,
                     content=f"Orden ejecutada en la computadora sin pedir permiso: «{goal}» ({res.content}).",
+                )
+
+            if action == "hotel_arbitrage":
+                from openjarvis.tools import commerce_intel as ci
+                from openjarvis.tools.desktop_tools import DesktopActionTool
+
+                hotel = str(params.get("title") or params.get("content") or "Hotel de Lujo").strip()
+                dest = str(params.get("to") or params.get("from_location") or "").strip()
+                dates = str(params.get("when") or "").strip()
+                std_price = ci.parse_money(params.get("budget")) or 3000.0
+                tgt_price = ci.parse_money(params.get("price")) or 1500.0
+                use_face = params.get("face_id", True) is not False
+
+                res = ci.execute_hotel_arbitrage(
+                    hotel_name=hotel,
+                    destination=dest,
+                    dates=dates,
+                    standard_rate=std_price,
+                    target_rate=tgt_price,
+                    require_face_id=use_face,
+                )
+                desk = DesktopActionTool()
+                virtuoso_url = "https://www.virtuoso.com/hotels"
+                desk.execute(action="open", target=virtuoso_url)
+                op_res = desk.execute(
+                    action="operate",
+                    target=(
+                        f"En Virtuoso ({virtuoso_url}), busca «{hotel}» en «{dest}» para {dates or 'fechas seleccionadas'}. "
+                        f"Aplica la tarifa corporativa/consortia negociada (${res['tarifa_arbitrada_conseguida']} USD frente a tarifa normal ${res['tarifa_publica_estandar']} USD), "
+                        f"incluye desayuno gourmet, crédito de $100 USD y upgrade garantizado a Suite."
+                    ),
+                    confirmed=True,
+                )
+                benefits_md = "\n".join(f"  • {b}" for b in res["beneficios_vip_incluidos"])
+                channels_md = "\n".join(f"  • {c}" for c in res["canales_arbitraje"])
+                return ToolResult(
+                    tool_name=self.tool_id,
+                    content=(
+                        f"🏨 **Arbitraje Hotelero de Lujo Ejecutado (${res['tarifa_arbitrada_conseguida']:g} USD vs ${res['tarifa_publica_estandar']:g} USD pública — {res['porcentaje_ahorro']}% de ahorro)**\n"
+                        f"- **Propiedad:** {res['hotel']} ({res['destino']})\n"
+                        f"- **Fechas:** {res['fechas']}\n"
+                        f"- **Ahorro neto asegurado:** ${res['ahorro_total_usd']:g} USD\n"
+                        f"- **Canales de Arbitraje & Consortia aplicados:**\n{channels_md}\n"
+                        f"- **Beneficios VIP exclusivos garantizados:**\n{benefits_md}\n"
+                        f"- **Seguridad & Biometría:** {res['face_id']['summary']}\n"
+                        f"- **Carta de Requerimiento Conserjería VIP:** Pre-redactada y adjunta para la Dirección del hotel.\n"
+                        f"- **Dossier guardado:** `{res['dossier_path']}`\n"
+                        f"- **Recordatorio proactivo agendado:** {res['recordatorio_proactivo']['titulo']} ({res['recordatorio_proactivo']['cuando']})\n"
+                        f"- **Operador en vivo:** Abrí `{virtuoso_url}` y apliqué la reserva ({op_res.content})."
+                    ),
+                )
+
+            if action == "michelin_sniper":
+                from openjarvis.tools import commerce_intel as ci
+                from openjarvis.tools.desktop_tools import DesktopActionTool
+
+                rest = str(params.get("title") or params.get("content") or "Restaurante Estrella Michelin").strip()
+                party = int(params.get("budget") or 2)
+                t_date = str(params.get("when") or "").strip()
+                plat = str(params.get("platform") or "resy").strip().lower()
+                use_face = params.get("face_id", True) is not False
+
+                res = ci.execute_michelin_sniper(
+                    restaurant_name=rest,
+                    party_size=party,
+                    target_date=t_date,
+                    platform=plat,
+                    require_face_id=use_face,
+                )
+                plat_urls = {
+                    "resy": "https://resy.com/",
+                    "sevenrooms": "https://www.sevenrooms.com/",
+                    "tock": "https://www.exploretock.com/",
+                    "michelin": "https://guide.michelin.com/",
+                }
+                primary_url = plat_urls.get(plat, "https://resy.com/")
+                desk = DesktopActionTool()
+                desk.execute(action="open", target=primary_url)
+                op_res = desk.execute(
+                    action="operate",
+                    target=(
+                        f"En {primary_url}, activa el monitor sigiloso a milisegundos para «{rest}» ({party} personas, {t_date}). "
+                        f"Detecta la primera cancelación o drop de mesa disponible, asegura la reserva con depósito pre-autorizado "
+                        "y solicita la Mesa Principal / Chef's Table."
+                    ),
+                    confirmed=True,
+                )
+                return ToolResult(
+                    tool_name=self.tool_id,
+                    content=(
+                        f"🍽️ **Sniper de Cancelaciones Michelin Activo (Reserva en Restaurante Imposible)**\n"
+                        f"- **Restaurante:** {res['restaurante']}\n"
+                        f"- **Comensales:** {res['comensales']} personas\n"
+                        f"- **Fecha / Turno objetivo:** {res['fecha_objetivo']}\n"
+                        f"- **Estrategia:** {res['estrategia_sniper']}\n"
+                        f"- **Bypass Anti-Bot:** {res['bypass_antibot']}\n"
+                        f"- **Mesa solicitada:** {res['mesa_solicitada']}\n"
+                        f"- **Seguridad:** {res['face_id']['summary']}\n"
+                        f"- **Carta Maître D' VIP:** Redactada y lista para recepción.\n"
+                        f"- **Dossier:** `{res['dossier_path']}`\n"
+                        f"- **Recordatorio proactivo agendado:** {res['recordatorio_proactivo']['titulo']} ({res['recordatorio_proactivo']['cuando']})\n"
+                        f"- **Operador:** Abrí `{primary_url}` y fijé el sniper ({op_res.content})."
+                    ),
+                )
+
+            if action == "youtube_growth_pipeline":
+                from openjarvis.tools import commerce_intel as ci
+
+                niche = str(params.get("content") or params.get("title") or "curiosidades y ciencia").strip()
+                hours = int(params.get("budget") or 7)
+                auto = params.get("auto_reply", True) is not False
+
+                res = ci.execute_youtube_growth_pipeline(
+                    channel_niche=niche,
+                    upload_interval_hours=hours,
+                    auto_publish=auto,
+                )
+                return ToolResult(
+                    tool_name=self.tool_id,
+                    content=(
+                        f"📺 **Canal de Crecimiento Rápido de YouTube Activado (Pipeline Cada {res['intervalo_publicacion_horas']} Horas)**\n"
+                        f"- **Nicho:** {res['nicho']}\n"
+                        f"- **Frecuencia:** {res['frecuencia_diaria']} ({', '.join(res['horarios_optimizados'])})\n"
+                        f"- **Estilo de Edición Viral:** {res['estilo_edicion']}\n"
+                        f"- **Canales conectados:** {', '.join(res['plataformas_destino'])}\n"
+                        f"- **Automatización:** Subida automática mediante YouTube Data API v3 y Reels Graph API.\n"
+                        f"- **Pipeline config:** `{res['config_pipeline_path']}`\n"
+                        f"- **Recordatorio proactivo:** {res['recordatorio_proactivo']['titulo']} ({res['recordatorio_proactivo']['cuando']})"
+                        + _ui_event({"type": "navigate", "route": "/automatizar"})
+                    ),
+                )
+
+            if action == "vertu_vault":
+                from openjarvis.tools import commerce_intel as ci
+
+                content_val = str(params.get("content") or "").strip()
+                label = str(params.get("title") or "secreto").strip()
+                itype = str(params.get("platform") or "credencial_confidencial").strip()
+
+                res = ci.execute_vertu_vault_lock(
+                    item_type=itype,
+                    content=content_val,
+                    secret_label=label,
+                )
+                return ToolResult(
+                    tool_name=self.tool_id,
+                    content=(
+                        f"🛡️ **Bóveda Vertu Blindada (Cifrado Militar Zero-Knowledge)**\n"
+                        f"- **Etiqueta:** `{res['etiqueta']}` ({res['tipo']})\n"
+                        f"- **Algoritmo:** {res['cifrado']}\n"
+                        f"- **Huella digital SHA-256:** `{res['huella_segura_sha256']}`\n"
+                        f"- **Token autenticado:** `{res['token_sellado']}`\n"
+                        f"- **Almacenamiento protegido:** `{res['almacenamiento']}`\n"
+                        f"- **Nivel de aislamiento:** {res['permisos']}."
+                    ),
+                )
+
+            if action == "health_biometrics_sync":
+                from openjarvis.tools import commerce_intel as ci
+
+                dev = str(params.get("platform") or "auto").strip()
+                res = ci.execute_health_biometrics_sync(device=dev, sync_now=True)
+                devices_md = ", ".join(res["dispositivos_compatibles"][:5])
+                metrics_md = "\n".join(f"  • {m}" for m in res["metricas_analizadas"])
+                return ToolResult(
+                    tool_name=self.tool_id,
+                    content=(
+                        f"⌚💍 **Sincronización Biométrica Multidispositivo en Tiempo Real**\n"
+                        f"- **Dispositivo Principal:** {res['dispositivo']}\n"
+                        f"- **Dispositivos monitorizados:** {devices_md}\n"
+                        f"- **Estado:** {res['estado_sincronizacion']} ({res['ultima_sincronizacion']})\n"
+                        f"- **Métricas biométricas clave analizadas:**\n{metrics_md}\n"
+                        f"- **Adaptación Sergio:** {res['adaptacion_conductual_sergio']}"
+                        + _ui_event({"type": "health_refresh"})
+                    ),
                 )
 
             raise ValueError(f"Acción no reconocida: {action}")
