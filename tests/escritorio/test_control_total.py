@@ -626,10 +626,7 @@ def test_multidevice_phone_video_meetings_academic_minitest_email_social_leads_a
         content="Responder a los correos urgentes de proveedores y clientes",
         auto_reply=True,
     )
-    assert (
-        r_mail.success
-        and "Bandeja de Entrada de Gmail leída y gestionada" in r_mail.content
-    )
+    assert r_mail.success and "Bandeja de Gmail revisada" in r_mail.content
 
     # 4. Student school platform + proactive exam reminders + Mini-Test
     r_study = tool.execute(
@@ -639,14 +636,14 @@ def test_multidevice_phone_video_meetings_academic_minitest_email_social_leads_a
         when="Viernes 8:00 AM",
     )
     assert r_study.success
-    assert "Mini-Test Interactivo para Estudiar" in r_study.content
+    assert "Mini-test para estudiar" in r_study.content
     assert "Pregunta" in r_study.content or "Respuesta:" in r_study.content
 
     # 5. Make calls, reply to messages, upload Instagram Stories
     r_call = tool.execute(
         action="make_call", to="Dr. Martínez", content="Confirmar cita de las 17:00"
     )
-    assert r_call.success and "Llamada iniciada" in r_call.content
+    assert r_call.success and "lista para marcar" in r_call.content
 
     r_msg = tool.execute(
         action="reply_messages",
@@ -654,7 +651,7 @@ def test_multidevice_phone_video_meetings_academic_minitest_email_social_leads_a
         to="Equipo",
         content="Ya voy en camino",
     )
-    assert r_msg.success and "Mensajes respondidos en Whatsapp" in r_msg.content
+    assert r_msg.success and "Respuesta escrita en Whatsapp" in r_msg.content
 
     r_ig = tool.execute(
         action="social_publish",
@@ -669,10 +666,7 @@ def test_multidevice_phone_video_meetings_academic_minitest_email_social_leads_a
         content="Clínicas estéticas y odontológicas premium",
         to="Quito y Cuenca",
     )
-    assert (
-        r_leads.success
-        and "Campaña de Búsqueda de Clientes a Gran Escala" in r_leads.content
-    )
+    assert r_leads.success and "Búsqueda de clientes hecha" in r_leads.content
 
     # 7. Apply for a VISA
     r_visa = tool.execute(
@@ -753,7 +747,7 @@ def test_sergio_impossible_tasks_luxury_arbitrage_sniper_vault_and_biometrics(
         platform="credencial_maestra",
     )
     assert r_vault.success
-    assert "Bóveda Vertu" in r_vault.content
+    assert "Guardado cifrado" in r_vault.content
     assert "AES-256-GCM" in r_vault.content
 
     # 5. Active health biometrics sync across wearables
@@ -762,5 +756,5 @@ def test_sergio_impossible_tasks_luxury_arbitrage_sniper_vault_and_biometrics(
         platform="Apple Watch Ultra & Anillo Oura",
     )
     assert r_health.success
-    assert "Sincronización Biométrica" in r_health.content
+    assert "Sincronización de sus dispositivos" in r_health.content
     assert "HRV" in r_health.content

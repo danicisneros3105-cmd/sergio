@@ -84,7 +84,7 @@ def _run_solve(
             f"[bold blue]🔒 Sello Criptográfico Vertu:[/bold blue] [dim]{dossier.vertu_seal_token[:32]}...[/dim]\n"
             f"[bold magenta]📁 Expediente Guardado:[/bold magenta] [dim]{dossier.dossier_path}[/dim]\n"
             f"[bold green]⏱ Tiempo Total:[/bold green] {elapsed:.3f} s",
-            title=f"[bold green]✔ Misión Cumplida ({dossier.mission_id})[/bold green]",
+            title=f"[bold green]Plan listo ({dossier.mission_id})[/bold green]",
             border_style="green",
         )
     )

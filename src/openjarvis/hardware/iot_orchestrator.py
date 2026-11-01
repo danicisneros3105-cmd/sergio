@@ -151,7 +151,7 @@ class SmartHomeIoTController:
         return {
             "preset_aplicado": preset.value,
             "estado_dispositivos": self.devices,
-            "confirmacion": "Ambiente físico sincronizado con éxito",
+            "confirmacion": "Preajuste guardado; no hay aparatos reales conectados",
         }
 
 

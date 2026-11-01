@@ -71,30 +71,29 @@ def test_terry_prepare_resilient_fallback():
     assert "deliverable" in analysis
 
 
-def test_parametric_hotel_arbitrage_scaling(tmp_path):
-    # Test boutique scale: $400/night
-    res_boutique = ci.execute_hotel_arbitrage(
+def test_hotel_rate_plan_never_invents_a_rate(tmp_path):
+    # (Owner rule: a «conseguida» rate is never invented. Before, a discount
+    # curve made up 240 USD and 5 000 USD as if obtained.)
+    res = ci.execute_hotel_arbitrage(
         hotel_name="Boutique Relais & Chateaux",
         standard_rate=400.0,
         target_discount_ratio=0.40,
         require_face_id=False,
     )
-    assert res_boutique["tarifa_publica_estandar"] == 400.0
-    assert res_boutique["tarifa_arbitrada_conseguida"] == 240.0
-    assert res_boutique["ahorro_total_usd"] == 160.0
-    assert res_boutique["porcentaje_ahorro"] == 40.0
+    assert res["tarifa_publica_estandar"] == 400.0
+    assert res["tarifa_arbitrada_conseguida"] is None
+    assert res["ahorro_total_usd"] == 0.0
 
-    # Test presidential scale: $10,000/night
-    res_presidential = ci.execute_hotel_arbitrage(
+    # His own goal: the saving is what he would save if the hotel offers it.
+    res = ci.execute_hotel_arbitrage(
         hotel_name="Aman Tokyo Villa",
         standard_rate=10000.0,
-        target_discount_ratio=0.50,
+        target_rate=5000.0,
         require_face_id=False,
     )
-    assert res_presidential["tarifa_publica_estandar"] == 10000.0
-    assert res_presidential["tarifa_arbitrada_conseguida"] == 5000.0
-    assert res_presidential["ahorro_total_usd"] == 5000.0
-    assert res_presidential["porcentaje_ahorro"] == 50.0
+    assert res["tarifa_arbitrada_conseguida"] == 5000.0
+    assert res["ahorro_total_usd"] == 5000.0 and res["porcentaje_ahorro"] == 50.0
+    assert "si el hotel o el asesor la ofrecen" in res["resumen_tarifas"]
 
 
 def test_self_evolution_defect_verification(tmp_path):

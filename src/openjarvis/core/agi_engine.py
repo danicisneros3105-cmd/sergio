@@ -394,8 +394,8 @@ class UniversalAGIEngine:
 
         if cat == "arbitraje_hotelero_lujo":
             # Parametric scaling: dynamic budget curves, unconstrained by fixed 3k/1.5k constants
-            std = float(budget) if (budget and budget > 0) else 3000.0
-            tgt = round(std * 0.50, 2)
+            std = float(budget) if (budget and budget > 0) else None
+            tgt = None  # a target only when he names one: never an invented rate
             h_res = ci.execute_hotel_arbitrage(
                 hotel_name=entity,
                 destination=loc["label"],
@@ -412,7 +412,7 @@ class UniversalAGIEngine:
                 "beneficios_vip": h_res["beneficios_vip_incluidos"],
                 "canales": h_res["canales_arbitraje"],
                 "beneficio_clave": (
-                    f"Ahorro de ${h_res['ahorro_total_usd']} USD ({h_res['porcentaje_ahorro']}%) con consorcio Virtuoso"
+                    f"Plan para pedir mejor tarifa ({h_res['resumen_tarifas']}); nada reservado aún"
                 ),
             }
         elif cat == "sniper_gastronomia_michelin":
@@ -428,16 +428,18 @@ class UniversalAGIEngine:
                 "restaurante": m_res["restaurante"],
                 "mesa": m_res["mesa_solicitada"],
                 "estrategia": m_res["estrategia_sniper"],
-                "beneficio_clave": "Mesa Chef's Table asegurada en ventana de drop sub-segundo",
+                "beneficio_clave": "Plan para conseguir mesa (aún sin reservar)",
             }
         elif cat == "sourcing_forense_articulos_raros":
-            p_res = ci.deep_search_product(entity, target_price=budget or 45000.0)
-            score_confianza = p_res["mejores_vendedores"][0]["puntaje_confianza"]
+            p_res = ci.deep_search_product(entity, target_price=budget or None)
             final_payload = {
                 "tipo": "sourcing_lujo",
                 "articulo": p_res["query"],
                 "vendedores_confiables": len(p_res["mejores_vendedores"]),
-                "beneficio_clave": f"Autenticidad verificada {score_confianza}/100 con custodia Escrow",
+                "beneficio_clave": (
+                    "Vendedores para revisar; la autenticidad la confirma un experto o la "
+                    "garantía de la plataforma antes de pagar"
+                ),
             }
         elif cat == "automatizacion_masiva_medios":
             y_res = ci.execute_youtube_growth_pipeline(
@@ -449,7 +451,9 @@ class UniversalAGIEngine:
                 "tipo": "pipeline_medios_7h",
                 "canal": y_res["nicho"],
                 "cadencia": y_res["frecuencia_diaria"],
-                "beneficio_clave": "3 videos de alta retención/día programados en YouTube y Reels",
+                "beneficio_clave": (
+                    "Plan de canal listo; sube solo si conectó los canales y activó «Publicar solo»"
+                ),
             }
         elif cat == "control_iot_multidispositivo":
             from openjarvis.server.meeting_routes import dispatch_device_command
@@ -461,7 +465,9 @@ class UniversalAGIEngine:
                 "tipo": "control_iot",
                 "dispositivo": "phone",
                 "orden_id": cmd_dev["id"],
-                "beneficio_clave": f"Comando '{cmd_dev['action']}' ejecutado en teléfono móvil vía puente ADB",
+                "beneficio_clave": (
+                    f"Orden '{cmd_dev['action']}' enviada al teléfono (se cumple cuando la app la recoge)"
+                ),
             }
         elif cat == "blindaje_criptografico_soberano":
             v_res = ci.execute_vertu_vault_lock(
@@ -471,7 +477,7 @@ class UniversalAGIEngine:
                 "tipo": "blindaje_vertu",
                 "etiqueta": v_res["etiqueta"],
                 "huella_sha256": v_res["huella_segura_sha256"],
-                "beneficio_clave": "Cifrado militar AES-256-GCM inviolable y aislado en 0600",
+                "beneficio_clave": "Guardado cifrado (AES-256-GCM) en este equipo, archivo 0600",
             }
         else:
             # Universal fallback: execute dynamic plan using high-speed HTN & MCTS reasoning
@@ -487,14 +493,14 @@ class UniversalAGIEngine:
                 "nodos_resueltos": n_nodes,
                 "tiempo_ms": t_ms,
                 "estrategia": "Descomposición jerárquica HTN con evaluación MCTS en sub-segundo",
-                "beneficio_clave": f"Misión resuelta en {t_ms:.1f}ms a través de {n_nodes} nodos tácticos",
+                "beneficio_clave": f"Plan en {n_nodes} pasos (propuesto; nada ejecutado todavía)",
             }
 
         step3 = TacticalStep(
             phase=MissionPhase.TACTICAL_NEGOTIATION,
-            name="Negociación, Arbitraje y Ejecución Táctica",
-            description=f"Objetivo: {entity}. {final_payload.get('beneficio_clave', 'Resuelto')}",
-            status="completed",
+            name="Plan de acción",
+            description=f"Objetivo: {entity}. {final_payload.get('beneficio_clave', 'plan listo')}",
+            status="preparado",
             result=final_payload,
             latency_seconds=round(time.perf_counter() - s3_t0, 4),
         )

@@ -114,8 +114,8 @@ def test_sergio_app_control_dynamic_agi_solve(tmp_path, monkeypatch):
         content="Coordinar vuelo charter de emergencia y suite con peritaje forense en Tokio",
     )
     assert res.success
-    assert "Misión Logística AGI Resuelta Autónomamente" in res.content
-    assert "J.A.R.V.I.S." in res.content
+    assert "Plan de la misión" in res.content and "espera su sí" in res.content
+    assert "En pocas palabras" in res.content
 
     # 2. Dynamic handling of unseen/unknown action via AGI meta-solver
     res_dynamic = tool.execute(
@@ -123,5 +123,5 @@ def test_sergio_app_control_dynamic_agi_solve(tmp_path, monkeypatch):
         content="Rescatar equipaje extraviado en aeropuerto Charles de Gaulle en 3 horas",
     )
     assert res_dynamic.success
-    assert "Acción Dinámica Resuelta por el Motor AGI" in res_dynamic.content
-    assert "J.A.R.V.I.S." in res_dynamic.content
+    assert "preparado, no ejecutado" in res_dynamic.content
+    assert "En pocas palabras" in res_dynamic.content

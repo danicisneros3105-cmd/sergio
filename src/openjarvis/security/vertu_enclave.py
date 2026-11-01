@@ -41,20 +41,6 @@ class OperationRiskTier(str, enum.Enum):
 
 
 @dataclass
-class DisposablePersona:
-    """Masked identity to protect user privacy against surveillance and correlation."""
-
-    persona_id: str
-    alias_name: str
-    masked_email: str
-    burner_phone_proxy: str
-    virtual_card_token: str
-    proxy_tunnel_node: str
-    created_at: float = field(default_factory=time.time)
-    expires_at: float = field(default_factory=lambda: time.time() + 86400)
-
-
-@dataclass
 class ConfirmationRequest:
     """Formal request for human dual-key authorization of critical operations."""
 
@@ -202,48 +188,6 @@ class VertuCryptographicEnclave:
             pass
 
 
-class IdentityBlindingNexus:
-    """Synthesizes isolated disposable personas to prevent tracking during operations."""
-
-    def __init__(self, enclave: VertuCryptographicEnclave) -> None:
-        self.enclave = enclave
-        self._active_personas: Dict[str, DisposablePersona] = {}
-
-    def spawn_disposable_persona(self, mission_tag: str) -> DisposablePersona:
-        """Creates a completely detached operational persona for external tasks."""
-        self.prune_expired_personas()
-        pid = f"persona_{secrets.token_hex(6)}"
-        persona = DisposablePersona(
-            persona_id=pid,
-            alias_name=f"E. {secrets.choice(['Vance', 'Sterling', 'Mercer', 'Davenport', 'Sinclair'])}",
-            masked_email=f"client.desk.{secrets.token_hex(4)}@privatemail.ch",
-            burner_phone_proxy=f"+41-22-{secrets.randbelow(899) + 100}-{secrets.randbelow(8999) + 1000}",
-            virtual_card_token=f"vcc_tok_{secrets.token_urlsafe(16)}",
-            proxy_tunnel_node=f"ch-zrh-node{secrets.randbelow(15) + 1}.secure-tunnel.net",
-        )
-        self._active_personas[pid] = persona
-        log.info("Persona descartable activada [%s] para misión: %s", pid, mission_tag)
-        return persona
-
-    def revoke_persona(self, persona_id: str) -> None:
-        """Zeroes and invalidates disposable persona after mission completion."""
-        if persona_id in self._active_personas:
-            del self._active_personas[persona_id]
-            log.info(
-                "Persona descartable [%s] revocada y purgada del enclave", persona_id
-            )
-
-    def prune_expired_personas(self) -> int:
-        """Prunes personas that have exceeded their 24h validity window."""
-        now = time.time()
-        expired = [
-            pid for pid, p in self._active_personas.items() if p.expires_at <= now
-        ]
-        for pid in expired:
-            del self._active_personas[pid]
-        return len(expired)
-
-
 class StrictConfirmationGate:
     """Dual-key cryptographic gate requiring explicit human authorization strictly for critical actions."""
 
@@ -338,10 +282,8 @@ def get_vertu_enclave() -> VertuCryptographicEnclave:
 
 __all__ = [
     "OperationRiskTier",
-    "DisposablePersona",
     "ConfirmationRequest",
     "VertuCryptographicEnclave",
-    "IdentityBlindingNexus",
     "StrictConfirmationGate",
     "get_vertu_enclave",
 ]

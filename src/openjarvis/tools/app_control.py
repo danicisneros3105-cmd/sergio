@@ -352,7 +352,7 @@ class SergioAppControlTool(BaseTool):
                 return ToolResult(
                     tool_name=self.tool_id,
                     content=(
-                        f"🚀 **Enjambre de {res['paralelo']} Especialistas en Segundo Plano Iniciado**\n"
+                        f"**Enjambre de {res['paralelo']} especialistas trabajando en segundo plano**\n"
                         f"- **Misión:** «{res['tarea']}»\n"
                         f"- **Capacidad paralela:** {res['paralelo']} subagentes concurrentes (equivalente al trabajo de 10 humanos simultáneos)\n"
                         f"- **ID de misión:** `{res['id']}` · **Estado:** `{res['estado']}`\n"
@@ -386,7 +386,7 @@ class SergioAppControlTool(BaseTool):
                 return ToolResult(
                     tool_name=self.tool_id,
                     content=(
-                        f"📊 **Estado de Misión en Segundo Plano (`{st['id']}`)**\n"
+                        f"**Estado de la tarea en segundo plano (`{st['id']}`)**\n"
                         f"- **Tarea:** «{st['tarea']}»\n"
                         f"- **Estado:** `{st['estado']}` · **Tiempo:** `{st['segundos_transcurridos']}s`\n"
                         f"- **Progreso de subagentes:** {sub_counts}\n"
@@ -423,7 +423,7 @@ class SergioAppControlTool(BaseTool):
                     return ToolResult(
                         tool_name=self.tool_id,
                         content=(
-                            f"🔬 **Ultra Deep Research Iniciado en Segundo Plano**\n"
+                            f"**Investigación a fondo en marcha (segundo plano)**\n"
                             f"- **Pregunta / Objetivo:** «{res['pregunta']}»\n"
                             f"- **Despliegue analítico:** {res['trabajadores_concurrentes']} especialistas concurrentes en 10 dimensiones\n"
                             f"- **Destino del dossier:** `{res['archivo_destino']}`\n"
@@ -434,7 +434,7 @@ class SergioAppControlTool(BaseTool):
                 return ToolResult(
                     tool_name=self.tool_id,
                     content=(
-                        f"🔬 **Ultra Deep Research Completado ({res['fuentes_totales']} fuentes, {res['hallazgos']} hallazgos contrastados)**\n"
+                        f"**Investigación a fondo terminada ({res['fuentes_totales']} fuentes, {res['hallazgos']} hallazgos contrastados)**\n"
                         f"- **Score de Certeza:** `{res.get('score_confianza', 0.0)}%`\n"
                         f"- **Dossier guardado:** `{res['archivo_guardado']}`\n\n"
                         + res.get("informe_markdown", "")
@@ -819,7 +819,7 @@ class SergioAppControlTool(BaseTool):
                 return ToolResult(
                     tool_name=self.tool_id,
                     content=(
-                        f"🛍️ **Búsqueda profunda y carrito en {plat.title()}** para «{item}»:\n"
+                        f"**Búsqueda y carrito en {plat.title()}** para «{item}» (comprar lo confirma usted):\n"
                         + (
                             f"- **Precio objetivo:** ~${target_price:g} USD\n"
                             if target_price
@@ -895,7 +895,7 @@ class SergioAppControlTool(BaseTool):
                 return ToolResult(
                     tool_name=self.tool_id,
                     content=(
-                        f"🎩 **Conserjería Privada Confirmada — Categoría #{plan['categoria_numero']}: {plan['categoria_nombre']}**\n"
+                        f"**Conserjería preparada (nada confirmado aún) — Categoría #{plan['categoria_numero']}: {plan['categoria_nombre']}**\n"
                         f"- **Código de Orden VIP:** `{plan.get('codigo_seguimiento', 'CNG-VIP')}` (SLA de despacho: {plan.get('sla_minutos', 30)} min)\n"
                         f"- **Solicitud:** {plan['solicitud']}\n"
                         f"- **Destino / Ubicación:** {plan['destino']}\n"
@@ -983,7 +983,7 @@ class SergioAppControlTool(BaseTool):
                 return ToolResult(
                     tool_name=self.tool_id,
                     content=(
-                        f"📱↔️💻 **Control Multidispositivo Ejecutado (`{target_dev}` → `{cmd}`)**\n"
+                        f"**Orden enviada a `{target_dev}` → `{cmd}`** (se cumple cuando ese aparato la recoge)\n"
                         f"- **Orden:** {cmd_obj['id']} enviada a `{target_dev}`\n"
                         f"- **Puente local/ADB:** {cmd_obj.get('adb_bridge') or 'Cola multidispositivo activa'}\n"
                         f"- **Sincronización en vivo:** El dispositivo conectado recibe la orden al instante y sube automáticamente la grabación a `~/Videos/Sergio/Telefono/`."
@@ -1039,7 +1039,7 @@ class SergioAppControlTool(BaseTool):
                     return ToolResult(
                         tool_name=self.tool_id,
                         content=(
-                            f"🎙️ **Grabación de reunión finalizada y procesada** (`{target_dev}`): {m_res.content}"
+                            f"**Grabación de reunión terminada y procesada** (`{target_dev}`): {m_res.content}"
                             + _ui_event({"type": "navigate", "route": "/reunion"})
                         ),
                     )
@@ -1056,7 +1056,7 @@ class SergioAppControlTool(BaseTool):
                 return ToolResult(
                     tool_name=self.tool_id,
                     content=(
-                        f"🎙️ **Grabación de Reunión Pro iniciada** (Micrófono + Audio del Sistema/Llamada en `{target_dev}`, "
+                        f"**Grabación de reunión iniciada** (Micrófono + Audio del Sistema/Llamada en `{target_dev}`, "
                         f"notas en vivo y recordatorios automáticos de acuerdos): {m_res.content}"
                         + _ui_event({"type": "navigate", "route": "/reunion"})
                     ),
@@ -1101,7 +1101,7 @@ class SergioAppControlTool(BaseTool):
                 return ToolResult(
                     tool_name=self.tool_id,
                     content=(
-                        f"📧 **Bandeja de Entrada de {plat.title()} leída y gestionada**\n"
+                        f"**Bandeja de {plat.title()} revisada** (las respuestas quedan como borradores)\n"
                         f"- **Foco / Instrucción:** {query_or_reply}\n"
                         f"- **Respuesta ejecutiva:** {'Activada y enviada a los remitentes correspondientes' if auto_reply else 'Solo lectura y resumen'}\n"
                         f"- **Recordatorio proactivo agendado:** {rem['titulo']} ({rem['cuando']})\n"
@@ -1163,11 +1163,11 @@ class SergioAppControlTool(BaseTool):
                 return ToolResult(
                     tool_name=self.tool_id,
                     content=(
-                        f"🎓 **Plataforma Académica Sincronizada + Mini-Test de Estudio Generado**\n"
+                        f"**Plataforma académica revisada y mini-test listo**\n"
                         f"- **Materia / Tema:** {study_plan['tema']}\n"
                         f"- **Plataforma revisada:** `{p_url}` ({op_res.content})\n"
                         f"- **Recordatorios proactivos creados automáticamente:**\n{rem_lines}\n\n"
-                        f"📝 **Mini-Test Interactivo para Estudiar:**\n"
+                        f"**Mini-test para estudiar:**\n"
                         + "\n".join(q_lines)
                         + f"\n\n*(Guía completa guardada en `{study_plan['archivo_estudio']}`)*"
                     ),
@@ -1200,7 +1200,7 @@ class SergioAppControlTool(BaseTool):
                     return ToolResult(
                         tool_name=self.tool_id,
                         content=(
-                            f"📞 **Llamada iniciada a `{target_contact}`** ({plat.title()})\n"
+                            f"**Llamada a `{target_contact}` lista para marcar** ({plat.title()}; llama con su sí)\n"
                             f"- **Motivo / Guion:** {msg_text}\n"
                             f"- **Seguridad:** {face_res['summary']}\n"
                             f"- **Estado:** {res.content}"
@@ -1217,7 +1217,7 @@ class SergioAppControlTool(BaseTool):
                 return ToolResult(
                     tool_name=self.tool_id,
                     content=(
-                        f"💬 **Mensajes respondidos en {plat.title()}** para `{target_contact}`:\n"
+                        f"**Respuesta escrita en {plat.title()}** para `{target_contact}` (sale con su sí):\n"
                         f"- **Respuesta enviada:** «{msg_text}»\n"
                         f"- **Operador:** {res.content}"
                     ),
@@ -1262,7 +1262,7 @@ class SergioAppControlTool(BaseTool):
                 return ToolResult(
                     tool_name=self.tool_id,
                     content=(
-                        f"📸 **Historia / Publicación subida en {plat.title()}**\n"
+                        f"**Historia / publicación lista en {plat.title()}** (la publica usted)\n"
                         f"- **Contenido / Texto:** «{caption}»\n"
                         f"- **Archivo de galería:** {Path(photos[0]).name if photos else 'Último archivo multimedia de galería'}\n"
                         f"- **Seguridad:** {face_res['summary']}\n"
@@ -1301,7 +1301,7 @@ class SergioAppControlTool(BaseTool):
                 return ToolResult(
                     tool_name=self.tool_id,
                     content=(
-                        f"🚀 **Campaña de Búsqueda de Clientes a Gran Escala Ejecutada**\n"
+                        f"**Búsqueda de clientes hecha y mensajes como borradores**\n"
                         f"- **Nicho / Objetivo:** {campaign['nicho']} ({campaign['ubicacion']})\n"
                         f"- **Prospectos detectados y calificados:**\n{leads_md}\n"
                         f"- **Base de datos CRM exportada:** `{campaign['archivo_crm_csv']}`\n"
@@ -1347,7 +1347,7 @@ class SergioAppControlTool(BaseTool):
                 return ToolResult(
                     tool_name=self.tool_id,
                     content=(
-                        f"🛂 **Solicitud de VISA Iniciada en Portal Oficial**\n"
+                        f"**Solicitud de visa preparada en el portal oficial** (la envía usted)\n"
                         f"- **Destino / Tipo de Visa:** {visa_plan['destino_y_tipo']}\n"
                         f"- **Portal Consular Oficial:** {visa_plan['portal_oficial']} (`{visa_plan['url_oficial']}`)\n"
                         f"- **Seguridad:** {face_res['summary']}\n"
@@ -1717,8 +1717,8 @@ class SergioAppControlTool(BaseTool):
                     params.get("to") or params.get("from_location") or ""
                 ).strip()
                 dates = str(params.get("when") or "").strip()
-                std_price = ci.parse_money(params.get("budget")) or 3000.0
-                tgt_price = ci.parse_money(params.get("price")) or 1500.0
+                std_price = ci.parse_money(params.get("budget"))
+                tgt_price = ci.parse_money(params.get("price"))
                 use_face = params.get("face_id", True) is not False
 
                 res = ci.execute_hotel_arbitrage(
@@ -1736,8 +1736,8 @@ class SergioAppControlTool(BaseTool):
                     action="operate",
                     target=(
                         f"En Virtuoso ({virtuoso_url}), busca «{hotel}» en «{dest}» para {dates or 'fechas seleccionadas'}. "
-                        f"Aplica la tarifa corporativa/consortia negociada (${res['tarifa_arbitrada_conseguida']} USD frente a tarifa normal ${res['tarifa_publica_estandar']} USD), "
-                        f"incluye desayuno gourmet, crédito de $100 USD y upgrade garantizado a Suite."
+                        "Compara la tarifa con beneficios de Virtuoso con la pública y deja elegida la mejor. "
+                        "DETENTE antes de reservar o pagar: lo confirma el señor."
                     ),
                     confirmed=False,
                 )
@@ -1748,17 +1748,15 @@ class SergioAppControlTool(BaseTool):
                 return ToolResult(
                     tool_name=self.tool_id,
                     content=(
-                        f"🏨 **Arbitraje Hotelero de Lujo Ejecutado (${res['tarifa_arbitrada_conseguida']:g} USD vs ${res['tarifa_publica_estandar']:g} USD pública — {res['porcentaje_ahorro']}% de ahorro)**\n"
-                        f"- **Propiedad:** {res['hotel']} ({res['destino']})\n"
-                        f"- **Fechas:** {res['fechas']}\n"
-                        f"- **Ahorro neto asegurado:** ${res['ahorro_total_usd']:g} USD\n"
-                        f"- **Canales de Arbitraje & Consortia aplicados:**\n{channels_md}\n"
-                        f"- **Beneficios VIP exclusivos garantizados:**\n{benefits_md}\n"
-                        f"- **Seguridad & Biometría:** {res['face_id']['summary']}\n"
-                        f"- **Carta de Requerimiento Conserjería VIP:** Pre-redactada y adjunta para la Dirección del hotel.\n"
-                        f"- **Dossier guardado:** `{res['dossier_path']}`\n"
-                        f"- **Recordatorio proactivo agendado:** {res['recordatorio_proactivo']['titulo']} ({res['recordatorio_proactivo']['cuando']})\n"
-                        f"- **Operador en vivo:** Abrí `{virtuoso_url}` y apliqué la reserva ({op_res.content})."
+                        f"**Plan para pedir mejor tarifa en {res['hotel']}** ({res['destino']}, {res['fechas']}) — nada reservado aún\n"
+                        f"- **Tarifas:** {res['resumen_tarifas']}\n"
+                        f"- **Dónde se piden las tarifas con beneficios:**\n{channels_md}\n"
+                        f"- **Beneficios que suelen incluir (no garantizados):**\n{benefits_md}\n"
+                        f"- **Seguridad:** {res['face_id']['summary']}\n"
+                        f"- **Carta para el hotel:** redactada y guardada (la envía usted).\n"
+                        f"- **Dossier:** `{res['dossier_path']}`\n"
+                        f"- **Recordatorio:** {res['recordatorio_proactivo']['titulo']} ({res['recordatorio_proactivo']['cuando']})\n"
+                        f"- **En pantalla:** abrí `{virtuoso_url}` y dejé la búsqueda lista ({op_res.content})."
                     ),
                 )
 
@@ -1804,7 +1802,7 @@ class SergioAppControlTool(BaseTool):
                 return ToolResult(
                     tool_name=self.tool_id,
                     content=(
-                        f"🍽️ **Plan para conseguir mesa (aún sin reservar)**\n"
+                        f"**Plan para conseguir mesa (aún sin reservar)**\n"
                         f"- **Restaurante:** {res['restaurante']}\n"
                         f"- **Comensales:** {res['comensales']} personas\n"
                         f"- **Fecha / Turno objetivo:** {res['fecha_objetivo']}\n"
@@ -1837,12 +1835,12 @@ class SergioAppControlTool(BaseTool):
                 return ToolResult(
                     tool_name=self.tool_id,
                     content=(
-                        f"📺 **Canal de Crecimiento Rápido de YouTube Activado (Pipeline Cada {res['intervalo_publicacion_horas']} Horas)**\n"
+                        f"**Plan de canal de YouTube preparado (un video cada {res['intervalo_publicacion_horas']} Horas)**\n"
                         f"- **Nicho:** {res['nicho']}\n"
                         f"- **Frecuencia:** {res['frecuencia_diaria']} ({', '.join(res['horarios_optimizados'])})\n"
                         f"- **Estilo de Edición Viral:** {res['estilo_edicion']}\n"
                         f"- **Canales conectados:** {', '.join(res['plataformas_destino'])}\n"
-                        f"- **Automatización:** Subida automática mediante YouTube Data API v3 y Reels Graph API.\n"
+                        f"- **Publicación:** sube sola solo si conectó YouTube/Instagram en Automatizar y activó «Publicar solo»; si no, cada video espera su «Publicar».\n"
                         f"- **Pipeline config:** `{res['config_pipeline_path']}`\n"
                         f"- **Recordatorio proactivo:** {res['recordatorio_proactivo']['titulo']} ({res['recordatorio_proactivo']['cuando']})"
                         + _ui_event({"type": "navigate", "route": "/automatizar"})
@@ -1864,7 +1862,7 @@ class SergioAppControlTool(BaseTool):
                 return ToolResult(
                     tool_name=self.tool_id,
                     content=(
-                        f"🛡️ **Bóveda Vertu Blindada (Cifrado Militar Zero-Knowledge)**\n"
+                        f"**Guardado cifrado en este equipo (AES-256-GCM)**\n"
                         f"- **Etiqueta:** `{res['etiqueta']}` ({res['tipo']})\n"
                         f"- **Algoritmo:** {res['cifrado']}\n"
                         f"- **Huella digital SHA-256:** `{res['huella_segura_sha256']}`\n"
@@ -1884,7 +1882,7 @@ class SergioAppControlTool(BaseTool):
                 return ToolResult(
                     tool_name=self.tool_id,
                     content=(
-                        f"⌚💍 **Sincronización Biométrica Multidispositivo en Tiempo Real**\n"
+                        f"**Sincronización de sus dispositivos de salud**\n"
                         f"- **Dispositivo Principal:** {res['dispositivo']}\n"
                         f"- **Dispositivos monitorizados:** {devices_md}\n"
                         f"- **Estado:** {res['estado_sincronizacion']} ({res['ultima_sincronizacion']})\n"
@@ -1911,14 +1909,14 @@ class SergioAppControlTool(BaseTool):
                 return ToolResult(
                     tool_name=self.tool_id,
                     content=(
-                        f"⚡ **Misión Logística AGI Resuelta Autónomamente (`{dossier.mission_id}`)**\n"
+                        f"**Plan de la misión (`{dossier.mission_id}`)** — pasos preparados; lo que compra, reserva o envía espera su sí\n"
                         f"- **Objetivo Deconstruido:** {dossier.objective_classified} → `{dossier.target_entity}`\n"
                         f"- **Plazo / Prioridad:** {dossier.deadline_hint}\n"
-                        f"- **Fases Operativas Ejecutadas:**\n{phases_md}\n"
-                        f"- **Resultado Clave:** {dossier.final_outcome.get('beneficio_clave', 'Completado')}\n"
-                        f"- **Blindaje Criptográfico Vertu:** Token `{dossier.vertu_seal_token[:25]}...` (0600)\n"
+                        f"- **Pasos:**\n{phases_md}\n"
+                        f"- **Resultado:** {dossier.final_outcome.get('beneficio_clave', 'plan listo')}\n"
+                        f"- **Guardado cifrado:** token `{dossier.vertu_seal_token[:25]}...` (0600)\n"
                         f"- **Dossier Maestro Guardado:** `{dossier.dossier_path}`\n\n"
-                        f"🎙️ **Voz Proactiva J.A.R.V.I.S.:**\n> *«{dossier.proactive_jarvis_brief}»*"
+                        f"**En pocas palabras:** {dossier.proactive_jarvis_brief}"
                     ),
                 )
 
@@ -1929,7 +1927,7 @@ class SergioAppControlTool(BaseTool):
                 return ToolResult(
                     tool_name=self.tool_id,
                     content=(
-                        f"🫀 **Telemetría Biométrica Activa (Wearables Nexus)**\n"
+                        f"**Datos de sus sensores (último registro real)**\n"
                         f"- **Dispositivo Principal:** `{status.get('dispositivo_primario')}`\n"
                         f"- **Frecuencia Cardíaca:** {status.get('frecuencia_cardiaca_bpm')} BPM | **HRV (rMSSD):** {status.get('hrv_rmssd_ms')} ms\n"
                         f"- **SpO2:** {status.get('spo2')}% | **Batería:** {status.get('bateria_sensor')}\n"
@@ -1949,10 +1947,10 @@ class SergioAppControlTool(BaseTool):
                 return ToolResult(
                     tool_name=self.tool_id,
                     content=(
-                        f"🏠 **Orquestación de Hardware Físico & Domótica**\n"
-                        f"- **Preset Ambiental:** `{res['ambiente'].get('preset_aplicado')}`\n"
-                        f"- **Matriz de Audio:** `{res['audio'].get('perfil_audio')}` (ANC Activo)\n"
-                        f"- **Topología de Pantallas:** `{res['pantallas'].get('resolucion_total')}` @ {res['pantallas'].get('tasa_refresco_hz')}Hz"
+                        "**Casa inteligente: no hay aparatos conectados.** No cambié luces, "
+                        "clima ni cerraduras reales. Preparé el ambiente "
+                        f"«{res['ambiente'].get('preset_aplicado')}» para cuando conecte su casa "
+                        "(Home Assistant, Google Home o Alexa en Conectores)."
                     ),
                 )
 
@@ -1965,8 +1963,8 @@ class SergioAppControlTool(BaseTool):
                 return ToolResult(
                     tool_name=self.tool_id,
                     content=(
-                        f"🛡️ **Sobre Criptográfico Vertu Generado**\n"
-                        f"- **Algoritmo:** AES-256-GCM + HKDF-SHA512 Zero-Knowledge\n"
+                        f"**Sobre cifrado generado**\n"
+                        f"- **Algoritmo:** AES-256-GCM con clave derivada (HKDF), local\n"
                         f"- **AAD Vinculado:** `{label}`\n"
                         f"- **Token de Seguridad:** `{token[:35]}...` (Permisos 0600)"
                     ),
@@ -1982,11 +1980,10 @@ class SergioAppControlTool(BaseTool):
                 return ToolResult(
                     tool_name=self.tool_id,
                     content=(
-                        f"🎬 **Ciclo Autónomo de Medios Digitales (Pipeline 7h)**\n"
-                        f"- **Video YouTube:** {yt.get('video_preparado')}\n"
-                        f"- **Slot Programado:** {yt.get('slot_programado')} (Estado: `{yt.get('estado')}`)\n"
-                        f"- **Canales Sindicados:** {', '.join(cycle['plataformas_digitales']['canales_sociales'])}\n"
-                        f"- **Comunicaciones VIP:** {cycle['comunicaciones_unificadas']['mensajes_vip_prioritarios']} pendientes de despacho"
+                        f"**Idea de video preparada:** {yt.get('video_preparado')}\n"
+                        f"- **Hora sugerida:** {yt.get('slot_programado')}\n"
+                        "- **Esto no publica nada.** Para videos que se hacen y esperan su «Publicar»: "
+                        "Chat → + → Video → «repetir cada…»; para que suban solos, conecte los canales en Automatizar."
                     ),
                 )
 
@@ -2000,7 +1997,7 @@ class SergioAppControlTool(BaseTool):
                 return ToolResult(
                     tool_name=self.tool_id,
                     content=(
-                        f"📜 **Recibo Criptográfico de Auditoría Merkle**\n"
+                        f"**Recibo de auditoría (árbol de Merkle)**\n"
                         f"- **Misión:** `{rec.get('mision_id')}`\n"
                         f"- **Merkle Root:** `{rec.get('merkle_root')}`\n"
                         f"- **Operaciones Auditadas:** {rec.get('total_operaciones_registradas')}\n"
@@ -2018,11 +2015,11 @@ class SergioAppControlTool(BaseTool):
             return ToolResult(
                 tool_name=self.tool_id,
                 content=(
-                    f"⚡ **Acción Dinámica Resuelta por el Motor AGI (`{action}`)**\n"
+                    f"**Plan para «{action}»** (preparado, no ejecutado)\n"
                     f"- **Deconstrucción:** {dossier.objective_classified} → `{dossier.target_entity}`\n"
-                    f"- **Resultado:** {dossier.final_outcome.get('beneficio_clave', 'Resuelto autónomamente')}\n"
+                    f"- **Resultado:** {dossier.final_outcome.get('beneficio_clave', 'plan listo')}\n"
                     f"- **Dossier:** `{dossier.dossier_path}`\n"
-                    f"- **J.A.R.V.I.S.:** *«{dossier.proactive_jarvis_brief}»*"
+                    f"- **En pocas palabras:** {dossier.proactive_jarvis_brief}"
                 ),
             )
         except Exception as exc:  # noqa: BLE001

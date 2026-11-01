@@ -37,7 +37,6 @@ from openjarvis.health.biometric_nexus import (
     BiometricTelemetryNexus,
 )
 from openjarvis.security.vertu_enclave import (
-    IdentityBlindingNexus,
     OperationRiskTier,
     StrictConfirmationGate,
     VertuCryptographicEnclave,
@@ -146,18 +145,9 @@ def test_vertu_enclave_cryptography(tmp_path):
         enclave.unseal_envelope(sealed, expected_aad="wrong_aad")
 
 
-def test_identity_blinding_and_strict_confirmation_gate():
+def test_strict_confirmation_gate():
+    # (The disposable fake identities were removed: Sergio never disguises itself.)
     enclave = VertuCryptographicEnclave()
-    blinding = IdentityBlindingNexus(enclave)
-
-    persona = blinding.spawn_disposable_persona("reserva_suiza")
-    assert persona.persona_id.startswith("persona_")
-    assert "@privatemail.ch" in persona.masked_email
-    assert "vcc_tok_" in persona.virtual_card_token
-
-    blinding.revoke_persona(persona.persona_id)
-    assert persona.persona_id not in blinding._active_personas
-
     gate = StrictConfirmationGate(enclave)
     # 1. Perception action: 100% autonomous
     is_auto_1, req_1 = gate.request_authorization_if_needed(
@@ -339,14 +329,14 @@ def test_sergio_app_control_all_new_agi_actions(tmp_path, monkeypatch):
     # 1. biometric_nexus_status
     r1 = tool.execute(action="biometric_nexus_status")
     assert r1.success
-    assert "Telemetría Biométrica Activa" in r1.content
+    assert "Datos de sus sensores" in r1.content
 
     # 2. iot_hardware_orchestrate
     r2 = tool.execute(
         action="iot_hardware_orchestrate", content="concentracion_profunda"
     )
     assert r2.success
-    assert "Orquestación de Hardware Físico" in r2.content
+    assert "no hay aparatos conectados" in r2.content
 
     # 3. vertu_enclave_shield
     r3 = tool.execute(
@@ -355,17 +345,17 @@ def test_sergio_app_control_all_new_agi_actions(tmp_path, monkeypatch):
         title="boveda_privada",
     )
     assert r3.success
-    assert "Sobre Criptográfico Vertu Generado" in r3.content
+    assert "Sobre cifrado generado" in r3.content
 
     # 4. platform_media_cycle
     r4 = tool.execute(action="platform_media_cycle")
     assert r4.success
-    assert "Ciclo Autónomo de Medios Digitales" in r4.content
+    assert "Esto no publica nada" in r4.content
 
     # 5. merkle_evidence_receipt
     r5 = tool.execute(action="merkle_evidence_receipt", content="mision_ejecutiva_alfa")
     assert r5.success
-    assert "Recibo Criptográfico de Auditoría Merkle" in r5.content
+    assert "Recibo de auditoría" in r5.content
 
 
 # ==============================================================================
@@ -535,4 +525,4 @@ def test_agi_cli_subcommands():
     # 4. Solve command resolves mission
     r_sol = runner.invoke(agi, ["solve", "reservar Four Seasons noche"])
     assert r_sol.exit_code == 0
-    assert "Misión Cumplida" in r_sol.output
+    assert "Plan listo" in r_sol.output

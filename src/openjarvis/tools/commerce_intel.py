@@ -382,70 +382,70 @@ def deep_search_product(
         if is_horology:
             findings = [
                 {
-                    "titulo": f"{q_clean} — Pieza Certificada con Custodia Escrow y Envío Asegurado",
+                    "titulo": f"{q_clean}: buscar en Chrono24 (verificar vendedor y certificado)",
                     "url": direct_stores["chrono24"],
                     "dominio": "chrono24.com",
                     "vendedor_confianza": TRUSTED_DOMAINS["chrono24.com"][0],
                     "puntaje_confianza": TRUSTED_DOMAINS["chrono24.com"][1],
-                    "precio_detectado_usd": target_price,
-                    "dentro_de_presupuesto": True,
-                    "diferencia_precio": 0.0,
+                    "precio_detectado_usd": None,
+                    "dentro_de_presupuesto": False,
+                    "diferencia_precio": None,
                 },
                 {
-                    "titulo": f"{q_clean} — Salón Privado de Alta Relojería (Entrega Inmediata)",
+                    "titulo": f"{q_clean}: buscar en Sotheby's (compra directa)",
                     "url": direct_stores["sothebys"],
                     "dominio": "sothebys.com",
                     "vendedor_confianza": TRUSTED_DOMAINS["sothebys.com"][0],
                     "puntaje_confianza": TRUSTED_DOMAINS["sothebys.com"][1],
-                    "precio_detectado_usd": target_price,
-                    "dentro_de_presupuesto": True,
-                    "diferencia_precio": 0.0,
+                    "precio_detectado_usd": None,
+                    "dentro_de_presupuesto": False,
+                    "diferencia_precio": None,
                 },
             ]
         elif is_archive_fashion:
             findings = [
                 {
-                    "titulo": f"{q_clean} — Archivo Autenticado / Private Client Sourcing",
+                    "titulo": f"{q_clean}: buscar en Vestiaire Collective (con autenticación)",
                     "url": direct_stores["vestiaire"],
                     "dominio": "vestiairecollective.com",
                     "vendedor_confianza": TRUSTED_DOMAINS["vestiairecollective.com"][0],
                     "puntaje_confianza": TRUSTED_DOMAINS["vestiairecollective.com"][1],
-                    "precio_detectado_usd": target_price,
-                    "dentro_de_presupuesto": True,
-                    "diferencia_precio": 0.0,
+                    "precio_detectado_usd": None,
+                    "dentro_de_presupuesto": False,
+                    "diferencia_precio": None,
                 },
                 {
-                    "titulo": f"{q_clean} — Farfetch Private Client & Archive",
+                    "titulo": f"{q_clean}: buscar en Farfetch",
                     "url": direct_stores["farfetch"],
                     "dominio": "farfetch.com",
                     "vendedor_confianza": TRUSTED_DOMAINS["farfetch.com"][0],
                     "puntaje_confianza": TRUSTED_DOMAINS["farfetch.com"][1],
-                    "precio_detectado_usd": target_price,
-                    "dentro_de_presupuesto": True,
-                    "diferencia_precio": 0.0,
+                    "precio_detectado_usd": None,
+                    "dentro_de_presupuesto": False,
+                    "diferencia_precio": None,
                 },
             ]
         else:
             findings = [
                 {
-                    "titulo": f"{q_clean} (Vendedores Top Rated / Garantía al Comprador)",
+                    "titulo": f"{q_clean}: buscar en eBay (vendedores Top Rated)",
                     "url": direct_stores["ebay"],
                     "dominio": "ebay.com",
                     "vendedor_confianza": TRUSTED_DOMAINS["ebay.com"][0],
                     "puntaje_confianza": TRUSTED_DOMAINS["ebay.com"][1],
-                    "precio_detectado_usd": target_price,
-                    "dentro_de_presupuesto": True,
-                    "diferencia_precio": 0.0,
+                    "precio_detectado_usd": None,
+                    "dentro_de_presupuesto": False,
+                    "diferencia_precio": None,
                 },
                 {
-                    "titulo": f"{q_clean} (Catálogo Oficial / Prime)",
+                    "titulo": f"{q_clean}: buscar en Amazon",
                     "url": direct_stores["amazon"],
                     "dominio": "amazon.com",
                     "vendedor_confianza": TRUSTED_DOMAINS["amazon.com"][0],
                     "puntaje_confianza": TRUSTED_DOMAINS["amazon.com"][1],
-                    "precio_detectado_usd": target_price,
-                    "dentro_de_presupuesto": True,
-                    "diferencia_precio": 0.0,
+                    "precio_detectado_usd": None,
+                    "dentro_de_presupuesto": False,
+                    "diferencia_precio": None,
                 },
             ]
     best_url = (
@@ -1142,7 +1142,7 @@ def generate_concierge_dashboard_card(plan: Dict[str, Any]) -> str:
     lines = [
         "```text",
         "╔═══════════════════════════════════════════════════════════════════════════╗",
-        "  💎 DESPACHO DE CONSERJERÍA PRIVADA TOP-LIFESTYLE",
+        "  DESPACHO DE CONSERJERÍA PRIVADA",
         f"  • Orden Oficial: {code} | SLA de Despacho: {sla} min",
         f"  • Operador Asignado: {operator}",
         f"  • Dominio: {cat_name}",
@@ -1734,39 +1734,44 @@ def execute_hotel_arbitrage(
     any budget scale (from $300 boutique suites to $25,000 presidential villas) via Virtuoso,
     Amex FHR, private wholesale consortia, and 1:1 reward point transfers.
     """
+    # Honest (owner rule): a public rate and a target come only from him; a
+    # target is a goal to ask for, never a rate "obtained".
     h_name = hotel_name.strip()
-    dest = destination.strip() or "Destino Premium / Internacional"
-    d_range = dates.strip() or "Próxima estancia prioritaria"
+    dest = destination.strip() or "destino por definir"
+    d_range = dates.strip() or "fechas por definir"
     std = (
         float(standard_rate)
         if (standard_rate is not None and standard_rate > 0)
-        else 3000.0
+        else None
     )
-    if target_rate is not None and target_rate > 0:
-        tgt = float(target_rate)
+    tgt = float(target_rate) if (target_rate is not None and target_rate > 0) else None
+    savings = round(std - tgt, 2) if (std and tgt and tgt < std) else 0.0
+    pct = round(savings / std * 100, 1) if (std and savings) else 0.0
+    if std and tgt:
+        summary = (
+            f"pública {std:g} USD, su meta {tgt:g} USD (ahorraría {savings:g} USD, {pct}%, "
+            "si el hotel o el asesor la ofrecen)"
+        )
+    elif std:
+        summary = f"pública {std:g} USD; le pido la mejor tarifa con beneficios"
     else:
-        # Dynamic parametric discount target based on consortia wholesale curve
-        discount_factor = max(0.15, min(0.80, float(target_discount_ratio)))
-        tgt = round(std * (1.0 - discount_factor), 2)
-
-    savings = max(0.0, std - tgt)
-    pct = round((savings / std) * 100, 1) if std else 50.0
+        summary = "las veo en la página: no invento precios"
 
     face_res = verify_face_id(
-        f"Arbitraje Hotelero de Lujo: {h_name} en {dest} (${tgt:g} USD vs tarifa pública ${std:g} USD)",
+        f"Plan de tarifa para {h_name} en {dest} ({summary})",
         require=require_face_id,
     )
 
     letter = generate_vip_requisition_letter(
         cat_key="travel_aviation",
         request_text=(
-            f"Reserva y Upgrade VIP: {h_name}. Suite Ejecutiva con tarifa corporativa negociada "
-            f"de ${tgt:g} USD/noche (ahorro del {pct}% frente a BAR de ${std:g} USD). "
-            "Desayuno incluido, $100 property credit y late check-out."
+            f"Consulta de tarifa y beneficios para {h_name}"
+            + (f" (meta: {tgt:g} USD por noche)" if tgt else "")
+            + ". Me interesa desayuno incluido, crédito en el hotel y salida tardía si es posible."
         ),
         destination=dest,
         when=d_range,
-        tracking_code=f"ARB-HTL-{int(time.time())}",
+        tracking_code=f"HTL-{int(time.time())}",
     )
 
     out_dir = Path.home() / "Sergio" / "conserjeria"
@@ -1778,21 +1783,21 @@ def execute_hotel_arbitrage(
         "destino": dest,
         "fechas": d_range,
         "tarifa_publica_estandar": std,
-        "tarifa_arbitrada_conseguida": tgt,
+        "tarifa_arbitrada_conseguida": tgt,  # his goal, never a rate obtained
         "ahorro_total_usd": savings,
         "porcentaje_ahorro": pct,
+        "resumen_tarifas": summary,
         "canales_arbitraje": [
-            "Virtuoso Private Member Desk",
-            "American Express Fine Hotels + Resorts (FHR) Corporate Escrow",
-            "Hyatt Privé / Marriott STARS Consortia Wholesale Rate",
-            "Puntos 1:1 Transfer Arbitrage (Chase Ultimate Rewards / Amex Membership Rewards)",
+            "Virtuoso: a través de un asesor de viajes afiliado",
+            "Amex Fine Hotels + Resorts: con una tarjeta Amex Platinum o Centurion",
+            "Programas de la cadena (Hyatt Privé, Marriott STARS): por un asesor afiliado",
+            "Puntos de tarjeta transferidos a la cadena del hotel, si los tiene",
         ],
         "beneficios_vip_incluidos": [
-            "Desayuno buffet gourmet diario para dos personas",
-            "Crédito de propiedad de $100 USD para spa o gastronomía",
-            "Upgrade de categoría de habitación confirmado al momento del check-in",
-            "Check-in temprano a las 12:00 y check-out tardío garantizado a las 16:00",
-            "Carta de bienvenida personalizada de la Dirección General",
+            "Desayuno para dos",
+            "Crédito en el hotel (spa o restaurante)",
+            "Mejor habitación si hay disponibilidad",
+            "Entrada temprana y salida tardía si hay disponibilidad",
         ],
         "carta_conserjeria": letter,
         "face_id": face_res,
@@ -1800,7 +1805,7 @@ def execute_hotel_arbitrage(
     }
 
     rem = schedule_proactive_reminder(
-        f"Confirmación y check-in VIP en {h_name} ({dest})",
+        f"Revisar la respuesta del hotel o del asesor: {h_name} ({dest})",
         when_hint=d_range,
         category="viajes",
         hours_from_now=24.0,
@@ -1971,11 +1976,11 @@ def execute_vertu_vault_lock(
     return {
         "tipo": i_type,
         "etiqueta": label,
-        "cifrado": "AES-256-GCM + HKDF-SHA256 (Vertu Zero-Knowledge)",
+        "cifrado": "AES-256-GCM con clave derivada (HKDF-SHA256)",
         "huella_segura_sha256": fingerprint,
         "token_sellado": token[:24] + "..." + token[-16:],
         "almacenamiento": str(vault_file),
-        "permisos": "0600 (Restringido localmente al señor, inviolable por red)",
+        "permisos": "0600 (solo su usuario de este equipo lo lee)",
     }
 
 
@@ -1985,7 +1990,7 @@ def execute_health_biometrics_sync(
 ) -> Dict[str, Any]:
     """Active biometric synchronization across wearable devices (Apple Watch, Oura, Whoop, Garmin, CGM)."""
     from openjarvis.health import devices
-    from openjarvis.server.desktop_routes import load_health_hub, save_health_hub
+    from openjarvis.server.desktop_routes import load_health_hub
 
     dev_name = (
         device.strip()
@@ -1994,30 +1999,31 @@ def execute_health_biometrics_sync(
     )
     hub = load_health_hub()
 
-    # Active sync
-    now_str = f"Sincronizado {time.strftime('%H:%M')}"
-    for c in hub.get("connectors", []):
-        c["connected"] = True
-        c["last_sync"] = now_str
-    save_health_hub(hub)
+    # Only what is really connected (owner rule: never invent health data).
+    connected = [c for c in hub.get("connectors", []) if c.get("connected")]
+    now_str = (
+        f"{len(connected)} conectado(s): "
+        + ", ".join(str(c.get("name") or c.get("id")) for c in connected)
+        if connected
+        else "ningún dispositivo conectado todavía (Salud → Dispositivos)"
+    )
 
     known_devices = [d["name"] for d in devices.DEVICES]
 
     adaptation = (
-        "Estado psicofísico óptimo. Sergio habilita modo de máxima concentración ejecutiva, "
-        "filtra llamadas no esenciales y calibra la agenda para máxima productividad."
+        "Con datos reales de sueño, HRV y actividad, Sergio ajusta la agenda y los avisos; "
+        "sin datos no deduce nada."
     )
 
     return {
         "dispositivo": dev_name,
         "dispositivos_compatibles": known_devices,
-        "estado_sincronizacion": "activo_en_tiempo_real",
+        "estado_sincronizacion": "conectado" if connected else "sin dispositivos",
         "ultima_sincronizacion": now_str,
         "metricas_analizadas": [
-            "Variabilidad de la Frecuencia Cardíaca (HRV)",
-            "Fases del sueño (Profundo, REM, Ligero)",
-            "Carga y recuperación física (Strain / Recovery)",
-            "Monitoreo de glucosa continua y ritmos circadianos",
+            "Variabilidad de la frecuencia cardíaca (HRV), si el dispositivo la da",
+            "Fases del sueño, si el dispositivo las da",
+            "Carga y recuperación, si el dispositivo las da",
         ],
         "adaptacion_conductual_sergio": adaptation,
         "salud_hub": hub,
