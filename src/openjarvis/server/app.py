@@ -785,6 +785,9 @@ def create_app(
     from openjarvis.server.actividad_routes import router as actividad_router
 
     app.include_router(actividad_router)
+    from openjarvis.server.conectar_routes import router as conectar_router
+
+    app.include_router(conectar_router)  # the AI with one click
     from openjarvis.server.accounts_routes import router as accounts_router
 
     app.include_router(accounts_router)

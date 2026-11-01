@@ -126,7 +126,7 @@ export class VoiceCall {
         audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 },
       });
     } catch {
-      this.fail('Necesito permiso para el micrófono.');
+      this.fail('Para hablar con Sergio, permita el micrófono. También puede escribir.');
       return;
     }
     if (this.stopped) {

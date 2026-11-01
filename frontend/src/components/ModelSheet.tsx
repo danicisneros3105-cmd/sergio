@@ -11,7 +11,7 @@ import { useAppStore } from '../lib/store';
 import { CommandPalette } from './CommandPalette';
 import { celebrate } from '../lib/celebrate';
 import { EFFORTS, fetchModelOptions, modelName, type Company, type Effort, type ModelOption } from '../lib/modelChoice';
-import { saveCloudKey, fetchModels } from '../lib/api';
+import { apiFetch, saveCloudKey, fetchModels } from '../lib/api';
 
 export function ModelSheet() {
   const [advanced, setAdvanced] = useState(false);
@@ -77,6 +77,17 @@ export function ModelSheet() {
       setProblem((e as Error).message || 'No se pudo guardar la clave.');
     }
   };
+  // One click: OpenRouter's own sign-in page gives Sergio the key (no pasting).
+  const oneClick = async () => {
+    try {
+      const r = await apiFetch(`/v1/conectar/openrouter?vuelta=${encodeURIComponent(window.location.pathname)}`);
+      const body = (await r.json().catch(() => ({}))) as { url?: string; detail?: string };
+      if (!r.ok || !body.url) throw new Error(body.detail || 'No pude abrir la conexión.');
+      window.location.assign(body.url);
+    } catch (e) {
+      setProblem((e as Error).message);
+    }
+  };
   const useOther = () => {
     const id = other.trim();
     if (!id) return;
@@ -101,6 +112,15 @@ export function ModelSheet() {
           ))}
         </div>
 
+        {groups.length > 0 && !groups.some((g) => g.company.conectada) && (
+          <div className="msheet-connect msheet-first">
+            <button type="button" className="msheet-primary" onClick={() => void oneClick()}>
+              Conectar la IA con un clic
+            </button>
+            <p>Inicie sesión en OpenRouter y apruebe: Sergio guarda la clave solo y quedan listos cientos de modelos. Nada que copiar.</p>
+          </div>
+        )}
+
         <div className="msheet-scroll">
           {groups.map(({ company: c, models: list }) => (
             <section key={c.id} className="msheet-group">
@@ -112,6 +132,14 @@ export function ModelSheet() {
                   </button>
                 )}
               </h3>
+              {open === c.id && c.id === 'openrouter' && (
+                <div className="msheet-connect">
+                  <button type="button" className="msheet-primary" onClick={() => void oneClick()}>
+                    Conectar con un clic
+                  </button>
+                  <p>Inicia sesión en OpenRouter, aprueba y vuelve aquí con todos los modelos listos. Sin copiar claves.</p>
+                </div>
+              )}
               {open === c.id && (
                 <div className="msheet-connect">
                   <p>

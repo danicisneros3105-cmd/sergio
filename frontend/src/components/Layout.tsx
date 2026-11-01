@@ -4,6 +4,8 @@ import { Tour } from './Tour/Tour';
 import { RunningPill } from './Shell/RunningPill';
 import { sessionNeed, tourSeen } from '../lib/session';
 import { Menu } from 'lucide-react';
+import { toast } from 'sonner';
+import { InstallPrompt } from './Install/InstallPrompt';
 import { ApprovalBell } from './ApprovalBell';
 import { SystemPulse } from './SystemPulse';
 import { Toolbar } from './Shell/Toolbar';
@@ -34,6 +36,17 @@ export function Layout() {
       return false;
     }
   });
+
+  // Back from «Conectar con un clic» (OpenRouter): say how it went, once.
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const ia = url.searchParams.get('ia');
+    if (!ia) return;
+    if (ia === 'conectada') toast.success('IA conectada. Ya puede elegir cualquier modelo.');
+    else toast.error('No se pudo conectar la IA. Inténtelo otra vez desde «Modelo».');
+    url.searchParams.delete('ia');
+    window.history.replaceState(null, '', url.pathname + url.search + url.hash);
+  }, []);
 
   useEffect(() => {
     const check = () => checkHealth().then(setApiReachable);
@@ -156,6 +169,7 @@ export function Layout() {
     <div className="app-shell">
       <SystemPulse apiReachable={apiReachable} />
       <LiveStarter />
+      <InstallPrompt />
       <ReminderWatcher />
       <Toolbar historyOpen={historyOpen} onToggleHistory={toggleHistory} />
       <div className="app-main">

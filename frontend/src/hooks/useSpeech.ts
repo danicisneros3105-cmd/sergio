@@ -43,7 +43,7 @@ export function useSpeech() {
       mediaRecorderRef.current = recorder;
       setState('recording');
     } catch (err) {
-      setError('Necesito permiso para el micrófono.');
+      setError('Para dictar, permita el micrófono. También puede escribir.');
       setState('idle');
     }
   }, []);

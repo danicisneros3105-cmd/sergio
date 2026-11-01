@@ -119,7 +119,9 @@ export function greetingLine(
 ): string {
   const now = opts.now ?? new Date();
   const kind = opts.kind ?? 'chat';
-  const lang = opts.lang ?? personalLanguage(p);
+  // The app speaks Spanish: the greeting too, unless he chose another language
+  // (an English browser said «At your service, sir.» over a Spanish screen).
+  const lang = opts.lang ?? (p.idioma && p.idioma !== 'auto' ? personalLanguage(p) : 'es');
   const word = addressWord(p, lang);
   const c: Ctx = { w: word ? `, ${word}` : '', n: p.nombre.trim(), tu: p.trato === 'tu', hour: now.getHours() };
   // Stable for three hours, then another one.

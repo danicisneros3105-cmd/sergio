@@ -794,7 +794,10 @@ export function InputArea() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={selectedModel ? (quick ? 'Pregunta rápida' : 'Mensaje') : 'Elige un modelo primero'}
+            placeholder={selectedModel ? (quick ? 'Pregunta rápida' : 'Mensaje') : 'Toque aquí para conectar la IA'}
+            onFocus={() => {
+              if (!selectedModel) useAppStore.getState().setCommandPaletteOpen(true);
+            }}
             aria-label="Mensaje para Sergio"
             rows={1}
             className="imsg-input"
@@ -813,7 +816,7 @@ export function InputArea() {
             <button
               onClick={sendMessage}
               disabled={!canSend}
-              title={selectedModel ? 'Enviar' : 'Elige un modelo primero'}
+              title={selectedModel ? 'Enviar' : 'Conecte la IA primero'}
               aria-label="Enviar mensaje"
               className="imsg-send"
             >

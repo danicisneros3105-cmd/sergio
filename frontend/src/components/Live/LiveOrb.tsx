@@ -17,7 +17,7 @@ export const LIVE_ES: Record<LiveStatus, string> = {
   speaking: 'Hablando',
   ended: 'Reconectando…',
   error: 'Reconectando…',
-  blocked: 'Necesito permiso para el micrófono: haga clic para concederlo',
+  blocked: 'Para hablar con Sergio, toque aquí y permita el micrófono',
   replaced: 'Le escucho (haga clic para hablar aquí)',
 };
 
@@ -94,7 +94,7 @@ export function LiveCaptions() {
   return (
     <div className="live-captions" role="status" aria-live="polite">
       {!text && showError ? (
-        <p className="live-captions-error">{error}</p>
+        <p className={/micr[oó]fono/i.test(error) ? 'live-captions-hint' : 'live-captions-error'}>{error}</p>
       ) : (
         <p data-who={said ? 'sergio' : 'you'}>
           <b>{said ? 'Sergio' : 'Usted'}</b>

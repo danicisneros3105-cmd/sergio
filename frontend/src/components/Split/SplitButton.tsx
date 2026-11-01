@@ -14,7 +14,7 @@ export function SplitButton({
 }) {
   const open = useSplit((s) => s.open);
   const label = open ? 'Unir pantalla' : 'Dividir pantalla';
-  const shortLabel = open ? 'Unir' : 'Split';
+  const shortLabel = open ? 'Unir' : 'Dividir';
   const shortcut = `${typeof navigator !== 'undefined' && navigator.platform.includes('Mac') ? '⌘' : 'Ctrl'} \\`;
   return (
     <button

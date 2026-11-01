@@ -2,6 +2,14 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-11-02 · Claude · Notch nítido y fluido, IA con un clic, app instalable, chat más claro
+- **Notch**: las capas (instantánea y pliegue Duo) se dibujan a los píxeles reales de la pantalla (antes, borrosas con escala 125–200 %); Qt con escalado exacto (PassThrough). Mientras anima, la forma de clic es un rectángulo en pasos de 8 px y la forma curva exacta se calcula una vez quieto: darle a Windows una región curva por cuadro era el tirón.
+- **IA con un clic** (`server/conectar_routes.py`, `/v1/conectar/openrouter`): OAuth PKCE de OpenRouter. «Conectar la IA con un clic» en «Modelo» (arriba si no hay nada conectado) → inicia sesión en OpenRouter → Sergio cambia el código por la clave y la guarda en `cloud-keys.env` (0600). Solo desde el propio equipo; el código sirve una vez y caduca a los 15 min. Al volver, un aviso dice si salió.
+- **App instalable**: el manifiesto ya existía; faltaba el botón. `components/Install/InstallPrompt.tsx`: «Instalar Sergio como app» cuando el navegador lo permite; en iPhone/iPad dice los dos toques; «Ahora no» lo esconde 30 días. No entra a la barra lateral.
+- **Claridad** (capturas en teléfono, tableta y PC, sin desbordes): el chat sin modelo decía «Elige un modelo primero» sin forma de hacerlo → «Toque aquí para conectar la IA» y abre «Modelo»; el saludo salía en inglés con un navegador en inglés sobre una pantalla en español → español salvo que él elija otro idioma; «Split» → «Dividir»; el aviso del micrófono ya no sale en rojo como error y explica que también se puede escribir.
+- Pruebas: `tests/server/test_conectar_ia.py` (4). Python 11 713 (7 fallos de entorno de siempre, 1 de tiempo que pasa solo), escritorio 788, web 316.
+- Pendiente: Quick Chat sin cambios de fondo en esta ronda; el notch no se probó en un Windows real (solo pruebas sin pantalla); la conexión de un clic depende de que OpenRouter acepte la vuelta a la dirección local.
+
 ## 2026-11-02 · Claude · Video: clips con sentido, gráficos que siguen lo que se dice, 2.5D, render en paralelo, videos largos
 - **Selección de clips** (`sources.rank`, `score`): antes de bajar nada se ordenan los candidatos por las palabras del título que significan lo mismo que la toma, canal oficial (estudios, distribuidoras, bibliotecas de clips), largo de escena (20 s–10 min) y sin comentarios encima (reacciones, reseñas, resúmenes, compilaciones, tutoriales). Las «películas completas» subidas por otros nunca se toman.
 - **Coherencia (SAY = SHOW)**: el editor mira lo elegido en **todos** los modos (antes Prueba no miraba nada), con su propio presupuesto `looks` (una mirada cada 8 tomas). Si rechaza una toma, se prueba el siguiente clip encontrado cuyo título dice lo mismo (`Filler.reserve`) antes de hacer una imagen.
