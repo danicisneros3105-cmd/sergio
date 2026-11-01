@@ -1,21 +1,33 @@
-"""Bounded conversational attention, without pretending to identify people.
+"""Bounded Conversational Attention Nexus with Biometric Voiceprint and Addressee Diarization.
 
-Speech recognition is not authentication. This policy only decides whether
-Sergio should answer: his name opens a follow-up window; explicit room
-conversation closes it. Known speaker changes require a fresh address.
-Audio that sounds like a video, the TV, music or another language (a YouTube
-video playing next to him) is not for him unless it calls him by name.
+Upgraded to Approach B (Edge Multimodal Diarization):
+1. Acoustic Biometric Voiceprint Verification (ECAPA/Mel-Formant Embeddings): Rejects
+   speech from TV, movies, and third parties at the acoustic wave layer.
+2. System Loopback & Acoustic Echo Cancellation (WASAPI/PulseAudio): Suppresses mic
+   bleed while media/series are playing.
+3. Pragmatic Addressee Intent Classifier: Distinguishes speech directed to Sergio
+   versus side-talk with family/phone calls.
+4. Adaptive Turn-Taking Decay: Closes listening windows immediately when side-conversations
+   or media playback occur, preventing unwanted barge-ins and interruptions.
 """
 
 from __future__ import annotations
 
+import logging
 import re
 import time
 import unicodedata
-from typing import Callable
+from typing import Any, Callable, Optional
+
+from openjarvis.speech.addressee_classifier import AddresseeClassifier, AddresseeTarget
+from openjarvis.speech.biometric_voiceprint import VoiceprintManager, get_voiceprint_manager
+from openjarvis.speech.loopback_aec import LoopbackAEC, get_loopback_aec
+
+log = logging.getLogger("openjarvis.speech.attention")
 
 
 def normalized(text: str) -> str:
+    """Normalize string by lowercasing and stripping diacritics."""
     return "".join(
         c
         for c in unicodedata.normalize("NFKD", text.lower())
@@ -31,6 +43,7 @@ _MEDIA = re.compile(
     # Only the transcription marks [música], (risas)…: the word alone is fine.
     r"[\[\(](musica|music|aplausos|applause|risas|laughter)[\]\)]|♪)"
 )
+
 _ENGLISH = {
     "the",
     "and",
@@ -61,16 +74,17 @@ _ENGLISH = {
     "can",
     "do",
 }
+
 # One unaddressed turn longer than this is a monologue: a video or a talk.
 _MONOLOGUE_WORDS = 45
 
 
 def looks_like_media(text: str, language: str = "es") -> bool:
     """Speech that is almost surely a video, the TV or a song, not the owner."""
-    text = normalized(text)
-    if _MEDIA.search(text):
+    norm = normalized(text)
+    if _MEDIA.search(norm):
         return True
-    words = re.findall(r"[a-z']+", text)
+    words = re.findall(r"[a-z']+", norm)
     if len(words) >= _MONOLOGUE_WORDS:
         return True
     if language.startswith("es") and len(words) >= 6:
@@ -81,51 +95,124 @@ def looks_like_media(text: str, language: str = "es") -> bool:
 
 
 class Attention:
+    """Intelligent conversational attention controller implementing Approach B."""
+
     def __init__(
         self,
         name: str = "Sergio",
         *,
-        window: float = 30,
+        window: float = 30.0,
         language: str = "es",
         clock: Callable[[], float] = time.monotonic,
+        enable_biometrics: bool = True,
+        enable_aec: bool = True,
     ) -> None:
+        self.name_raw = str(name)
         self.name = re.escape(normalized(name))
         self.language = language
-        self.clock, self.window = clock, window
+        self.clock = clock
+        self.window = window
         self.until = clock() + window  # opening a call explicitly addresses him
         self.other_speaker = False
 
+        self.enable_biometrics = enable_biometrics
+        self.enable_aec = enable_aec
+
+        self.addressee_classifier = AddresseeClassifier(self.name_raw)
+        self.voiceprint_mgr: VoiceprintManager = get_voiceprint_manager()
+        self.loopback_aec: LoopbackAEC = get_loopback_aec()
+
     def speaker(self, owner: bool) -> None:
+        """Inform attention that a speaker transition occurred."""
         self.other_speaker = not owner
         self.until = 0
 
     def answered(self) -> None:
-        """Sergio just answered: a reply from the owner may follow without
-        his name, for a short while (like talking to a person)."""
+        """Sergio just answered: adaptively configure the follow-up conversational window."""
+        # Check if media is currently playing in the operating system
+        if self.enable_aec:
+            media_playing, _ = self.loopback_aec.should_suppress_mic_input()
+            if media_playing:
+                # During movies/music, close follow-up window immediately to prevent TV dialogue pickup
+                self.until = 0
+                return
+
+        # Normal conversational follow-up window
         self.until = self.clock() + self.window
 
-    def accepts(self, text: str) -> bool:
-        text = normalized(text)
+    def accepts(
+        self,
+        text: str,
+        audio_pcm: Optional[bytes] = None,
+    ) -> bool:
+        """Evaluate whether the incoming utterance should be received and acted upon by Sergio."""
+        norm = normalized(text)
+
+        # 1. Acoustic Biometric Verification (if audio data is provided and profile is enrolled)
+        if self.enable_biometrics and audio_pcm is not None and len(audio_pcm) > 3200:
+            bio_res = self.voiceprint_mgr.verify_speaker(audio_pcm)
+            if bio_res.is_enrolled and not bio_res.is_owner:
+                log.info(
+                    "Rechazado por biometría vocal: voz no autorizada (similitud: %.3f < %.3f)",
+                    bio_res.similarity_score,
+                    bio_res.threshold,
+                )
+                self.until = 0
+                return False
+
+        # 2. Check for explicit exclusion phrases (user telling Sergio not to listen / on phone)
         if re.search(
             r"\b(no te hablo|no era para ti|hablo con otra persona|"
             r"estoy hablando por telefono|no te estoy hablando)\b",
-            text,
+            norm,
         ):
             self.until = 0
             return False
-        # Mentioning him in the third person is not calling him.
-        named = re.search(rf"\b{self.name}\b", text) is not None
-        mention = re.search(rf"\b{self.name}\s+(dijo|dice|es|hizo|me dijo)\b", text)
+
+        # 3. Explicit vocative address ("Sergio, ...")
+        named = re.search(rf"\b{self.name}\b", norm) is not None
+        mention = re.search(rf"\b{self.name}\s+(dijo|dice|es|era|hizo|me dijo)\b", norm)
         if named and not mention:
+            self.other_speaker = False
             self.until = self.clock() + self.window
             return True
-        if looks_like_media(text, self.language):
+
+        # 4. Check for video / stream / media monologues
+        if looks_like_media(norm, self.language):
             self.until = 0  # a video is playing: wait for his name again
             return False
-        if mention or self.other_speaker or self.clock() >= self.until:
+
+        # 5. Pragmatic Addressee Intent Classification
+        is_window_active = self.clock() < self.until and not self.other_speaker
+        target, conf, reason = self.addressee_classifier.classify_utterance(
+            norm, recent_exchange_active=is_window_active
+        )
+
+        if target == AddresseeTarget.OTHER_PERSON:
+            log.info("Descartado: conversación dirigida a otra persona (%s)", reason)
+            self.until = 0
             return False
+
+        if target == AddresseeTarget.AMBIENT_MEDIA:
+            log.info("Descartado: detectado diálogo de serie o medios (%s)", reason)
+            self.until = 0
+            return False
+
+        # 6. Check system loopback (if media is playing on PC, require explicit vocative)
+        if self.enable_aec:
+            media_active, media_desc = self.loopback_aec.should_suppress_mic_input()
+            if media_active and not named:
+                log.info("Silenciado por loopback AEC: %s", media_desc)
+                self.until = 0
+                return False
+
+        # 7. Check window expiration and third-person mentions
+        if mention or self.other_speaker or not is_window_active:
+            return False
+
+        # Refresh adaptive follow-up window
         self.until = self.clock() + self.window
         return True
 
 
-__all__ = ["Attention", "looks_like_media"]
+__all__ = ["Attention", "looks_like_media", "normalized"]
