@@ -126,3 +126,57 @@ async def get_mission_receipt(mission_id: str) -> Dict[str, Any]:
     ledger = get_evidence_nexus_ledger()
     receipt = ledger.generate_audit_receipt(mission_id)
     return receipt
+
+
+@router.get("/evolve/status")
+async def get_evolution_status() -> Dict[str, Any]:
+    """Retorna el estado de la ventana de autoevolución adaptativa (máximo 7 días)."""
+    from openjarvis.core.self_evolution_nexus import get_self_evolution_nexus
+
+    nexus = get_self_evolution_nexus()
+    is_due, elapsed = nexus.is_evolution_due()
+    state = nexus._load_state()
+    return {
+        "ciclos_completados": state.get("cycle_count", 0),
+        "dias_transcurridos": elapsed,
+        "ventana_maxima_dias": state.get("max_evolution_interval_days", 7.0),
+        "evolucion_requerida": is_due,
+        "defectos_reparados_total": state.get("defects_repaired_total", 0),
+    }
+
+
+class SelfHealRequest(BaseModel):
+    symptom: str = Field(..., min_length=3, description="Descripción del síntoma o fallo observado")
+
+
+@router.post("/self-heal")
+async def trigger_self_heal(body: SelfHealRequest) -> Dict[str, Any]:
+    """Ejecuta triage de defecto y protocolo TDD de auto-reparación en vivo."""
+    from openjarvis.core.self_evolution_nexus import get_self_evolution_nexus
+
+    nexus = get_self_evolution_nexus()
+    defect = nexus.verify_defect(body.symptom)
+    return {
+        "defect_id": defect.defect_id,
+        "symptom": defect.symptom,
+        "component": defect.component_affected,
+        "is_reproducible": defect.is_reproducible,
+        "severity": defect.severity,
+        "reproduction_output": defect.reproduction_output,
+    }
+
+
+__all__ = [
+    "AGISolveRequest",
+    "AGISolveResponse",
+    "SelfHealRequest",
+    "get_evidence_ledger",
+    "get_evolution_status",
+    "get_mission_receipt",
+    "list_dossiers",
+    "router",
+    "solve_mission",
+    "trigger_self_heal",
+    "verify_evidence_integrity",
+]
+

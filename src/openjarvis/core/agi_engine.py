@@ -294,8 +294,9 @@ class UniversalAGIEngine:
         final_payload: Dict[str, Any] = {}
 
         if cat == "arbitraje_hotelero_lujo":
-            std = budget if (budget and budget > 1500) else 3000.0
-            tgt = std * 0.5 if std >= 2000 else 1500.0
+            # Parametric scaling: dynamic budget curves, unconstrained by fixed 3k/1.5k constants
+            std = float(budget) if (budget and budget > 0) else 3000.0
+            tgt = round(std * 0.50, 2)
             h_res = ci.execute_hotel_arbitrage(
                 hotel_name=entity,
                 destination=loc["label"],

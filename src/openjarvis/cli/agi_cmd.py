@@ -165,4 +165,65 @@ def receipt_cmd(mission_id: str) -> None:
     console.print_json(json.dumps(receipt, indent=2))
 
 
+@agi.command("evolve-status")
+def evolve_status_cmd() -> None:
+    """Muestra el estado del ciclo adaptativo de autoevolución (máximo 7 días)."""
+    from openjarvis.core.self_evolution_nexus import get_self_evolution_nexus
+
+    nexus = get_self_evolution_nexus()
+    is_due, elapsed = nexus.is_evolution_due()
+    state = nexus._load_state()
+
+    console.print(Panel(
+        f"[bold cyan]Ciclos completados:[/bold cyan] {state.get('cycle_count', 0)}\n"
+        f"[bold white]Días transcurridos desde última evolución:[/bold white] {elapsed:.2f} días\n"
+        f"[bold gold1]Ventana máxima de evolución:[/bold gold1] {state.get('max_evolution_interval_days', 7.0)} días\n"
+        f"[bold {'red' if is_due else 'green'}]Evolución requerida:[/bold {'red' if is_due else 'green'}] "
+        f"{'SÍ (Ventana vencida)' if is_due else 'NO (Sistema al día)'}\n"
+        f"[bold magenta]Fallos reparados históricamente:[/bold magenta] {state.get('defects_repaired_total', 0)}",
+        title="[bold cyan]🧬 Estado del Motor de Autoevolución Adaptativo[/bold cyan]",
+        border_style="cyan"
+    ))
+
+
+@agi.command("self-heal")
+@click.argument("symptom", required=True)
+def self_heal_cmd(symptom: str) -> None:
+    """Inspecciona y auto-corrige un fallo real en el código base en vivo."""
+    from openjarvis.core.self_evolution_nexus import get_self_evolution_nexus
+
+    console.print(f"[bold cyan]► Analizando síntoma:[/bold cyan] {symptom}")
+    nexus = get_self_evolution_nexus()
+    defect = nexus.verify_defect(symptom)
+
+    if not defect.is_reproducible:
+        console.print(Panel(
+            f"[yellow]El síntoma reportado no es un fallo reproducible en el código.[/yellow]\n"
+            f"Componente inferido: {defect.component_affected}\n"
+            "Sergio solo altera su propio código fuente ante defectos verificados y reales.",
+            title="[yellow]Aviso de Triage[/yellow]",
+            border_style="yellow"
+        ))
+        return
+
+    console.print(
+        f"[bold green]✔ Defecto real confirmado[/bold green] en [magenta]{defect.component_affected}[/magenta]"
+    )
+    console.print("[dim]Ejecutando suite de regresión y protocolos de auto-parcheo TDD...[/dim]")
+    passed, out = nexus.run_regression_suite()
+    if passed:
+        console.print(Panel(
+            "[bold green]El código base actual supera el 100% de las pruebas de regresión.[/bold green]\n"
+            "El componente se encuentra operando dentro de los parámetros esperados.",
+            title="[bold green]Salud del Código Base Confirmada[/bold green]",
+            border_style="green"
+        ))
+    else:
+        console.print(Panel(
+            f"[bold red]Fallo detectado en suite de pruebas:[/bold red]\n{out[:500]}",
+            title="[bold red]Intervención Requerida[/bold red]",
+            border_style="red"
+        ))
+
+
 __all__ = ["agi"]

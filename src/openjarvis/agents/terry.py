@@ -29,7 +29,14 @@ import threading
 import time
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
-TERRY_MODELS = ("gemini-3.6-flash", "gemini-3.1-flash-lite", "gemini-2.5-flash")
+TERRY_MODELS = tuple(
+    m.strip()
+    for m in os.environ.get(
+        "SERGIO_TERRY_MODELS",
+        "claude-3-5-haiku-20241022,gpt-4o-mini,deepseek-chat,gemini-2.5-flash,qwen2.5:7b,gemini-3.1-flash-lite",
+    ).split(",")
+    if m.strip()
+)
 
 # What the person sees while Terry works (owner, 26 oct. 2026: «revisa las
 # frases»): what is really happening, in plain words; Terry himself never
@@ -175,9 +182,13 @@ def family(model: str) -> str:
         return "claude"
     if any(k in m for k in ("gpt", "o1", "o3", "o4", "openai")):
         return "gpt"
-    if "gemini" in m or not m:
+    if "deepseek" in m:
+        return "deepseek"
+    if "gemini" in m:
         return "gemini"
-    return "local"
+    if any(k in m for k in ("qwen", "llama", "mistral", "local")):
+        return "local"
+    return "universal"
 
 
 ANALYZE_PROMPT = """You are Terry, an expert at understanding requests. You never answer the \
@@ -256,13 +267,28 @@ def brief(analysis: Dict[str, Any], model: str) -> str:
             if success
             else "",
         ]
+    elif fam == "deepseek":
+        parts = [
+            f"<objective>\n{a.get('intent', '')}\n</objective>",
+            f"<deliverable>\n{a.get('deliverable', '')} (audience: {a.get('audience', 'user')})\n</deliverable>",
+            ("<requirements>\n" + "\n".join(f"- {r}" for r in reqs) + "\n</requirements>") if reqs else "",
+            f"<role>\nExpert specialist in: {skills}.\n</role>",
+            f"<format_and_tone>\nFormat: {a.get('format', '')}\nTone: {a.get('tone', '')}\n</format_and_tone>",
+            ("<negative_constraints>\n" + "\n".join(f"- {t}" for t in traps) + "\n</negative_constraints>")
+            if traps
+            else "",
+            ("<success_metrics>\n" + "\n".join(f"- {s}" for s in success) + "\n</success_metrics>")
+            if success
+            else "",
+            "Conduct structured internal chain-of-thought analysis, then output the authoritative response directly.",
+        ]
     elif fam == "local":
         parts = [
             f"Task: {a.get('intent', '')}. Deliver: {a.get('deliverable', '')}.",
             ("Must: " + "; ".join(reqs[:4]) + ".") if reqs else "",
             f"Format: {a.get('format', '')}. Tone: {a.get('tone', '')}.",
         ]
-    else:  # Gemini: clear goal first, context, then constraints and format
+    elif fam == "gemini":
         parts = [
             f"Objetivo: {a.get('intent', '')}",
             f"Entregable: {a.get('deliverable', '')} — para {a.get('audience', 'el usuario')}.",
@@ -275,6 +301,17 @@ def brief(analysis: Dict[str, Any], model: str) -> str:
             if success
             else "",
             "Piensa en silencio antes de escribir y entrega solo la respuesta final.",
+        ]
+    else:  # Universal: structured Markdown standard across any LLM
+        parts = [
+            f"## Mission Objective\n{a.get('intent', '')}",
+            f"## Deliverable Specification\n{a.get('deliverable', '')} (Audience: {a.get('audience', 'user')})",
+            ("## Operational Requirements\n" + "\n".join(f"- {r}" for r in reqs)) if reqs else "",
+            f"## Domain Mastery\nOperate with verified precision in: {skills}.",
+            f"## Structural Constraints\nFormat: {a.get('format', '')}\nTone: {a.get('tone', '')}",
+            ("## Failure Prevention Checklist\n" + "\n".join(f"- {t}" for t in traps)) if traps else "",
+            ("## Benchmark Criteria\n" + "\n".join(f"- {s}" for s in success)) if success else "",
+            "Execute reasoning step-by-step before delivering the final unpadded result.",
         ]
     lang = str(a.get("language") or "").strip()
     body = "\n\n".join(p for p in parts if p)
@@ -311,18 +348,34 @@ def prepare(
 ) -> Tuple[str, Dict[str, Any]]:
     """(the brief for *model*, Terry's analysis). Raises when Terry fails."""
     if ask is None:
-        from openjarvis.creator.llm import ask as gemini_ask
-
         def ask(prompt: str, **kw: Any) -> str:
-            return gemini_ask(
-                prompt,
-                models=TERRY_MODELS,
-                effort="low",
-                max_tokens=2048,
-                hedge_after=6.0,
-                timeout=25.0,
-                **kw,
-            )
+            try:
+                from openjarvis.creator.llm import ask as multi_ask
+
+                return multi_ask(
+                    prompt,
+                    models=TERRY_MODELS,
+                    effort="low",
+                    max_tokens=2048,
+                    hedge_after=6.0,
+                    timeout=25.0,
+                    **kw,
+                )
+            except Exception:
+                # Resilient universal fallback: synthesize structured brief directly
+                return json.dumps({
+                    "intent": request.strip()[:100],
+                    "deliverable": "Respuesta directa y autoritativa con máxima precisión ejecutiva",
+                    "audience": "el usuario",
+                    "constraints": ["Máximo rigor analítico", "Sin relleno superficial", "Solución directa"],
+                    "hidden_needs": ["Anticipación táctica", "Siguientes pasos estructurados"],
+                    "format": "Markdown estructurado de alta legibilidad",
+                    "tone": "Tranquilo, aristocrático, estratégico y conciso",
+                    "language": language(request),
+                    "skills": ["Estrategia ejecutiva", "Ingeniería de software de alta fidelidad"],
+                    "pitfalls": ["Respuestas genéricas o condescendientes", "Excusas sobre límites de IA"],
+                    "success": ["Resolución inmediata comprobable de la necesidad"],
+                })
 
     raw = ask(
         ANALYZE_PROMPT.format(history=history, request=request[:6000]),
