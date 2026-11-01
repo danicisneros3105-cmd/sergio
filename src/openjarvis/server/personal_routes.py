@@ -114,6 +114,21 @@ def put_skill(key: str, body: Switch) -> Dict[str, Any]:
     return {"habilidades": personal.skills()}
 
 
+@router.get("/complementos")
+def get_addons() -> Dict[str, Any]:
+    return {"complementos": personal.addons()}
+
+
+@router.put("/complementos/{key}")
+def put_addon(key: str, body: Switch) -> Dict[str, Any]:
+    if key not in personal.ADDONS:
+        raise HTTPException(404, "Ese complemento no existe.")
+    on = set(personal.load().get("complementos") or [])
+    on.add(key) if body.activa else on.discard(key)
+    personal.save({"complementos": sorted(on)})
+    return {"complementos": personal.addons()}
+
+
 @router.get("/modelos")
 def models(request: Request) -> Dict[str, Any]:
     available: List[str] = []

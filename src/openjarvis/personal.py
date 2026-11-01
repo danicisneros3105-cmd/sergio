@@ -31,6 +31,16 @@ DEFAULTS: Dict[str, Any] = {
     "tono_saludo": "formal",
     "saludos_propios": [],
     "habilidades_apagadas": [],
+    "complementos": [],
+}
+# Optional add-ons: off until the person adds them (owner, 2 Nov 2026: «quita
+# el gimnasio mental y configúralo como un add-on opcional»).
+ADDONS: Dict[str, Dict[str, str]] = {
+    "gimnasio": {
+        "nombre": "Gimnasio Mental",
+        "lema": "El cerebro humano está frito por las redes sociales; el tuyo puede volverse un genio.",
+        "hace": "Ejercicios cortos de memoria, atención y lógica cada cierto tiempo, en el escritorio y en Salud.",
+    },
 }
 _LOCK = threading.Lock()
 
@@ -73,6 +83,8 @@ def save(changes: Dict[str, Any], home: Optional[Path] = None) -> Dict[str, Any]
                 ][:12]
             if key == "habilidades_apagadas":
                 value = sorted({str(v) for v in (value or [])})
+            if key == "complementos":
+                value = sorted({str(v) for v in (value or []) if str(v) in ADDONS})
             now[key] = value
         path = _path(home)
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -126,8 +138,24 @@ def skills(profile: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
     ]
 
 
+def addon_on(key: str, profile: Optional[Dict[str, Any]] = None) -> bool:
+    """Whether the person added the optional add-on *key*."""
+    p = profile or load()
+    return key in (p.get("complementos") or [])
+
+
+def addons(profile: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+    """Every optional add-on and whether it is added."""
+    p = profile or load()
+    on = set(p.get("complementos") or [])
+    return [{"clave": k, **v, "activo": k in on} for k, v in ADDONS.items()]
+
+
 __all__ = [
+    "ADDONS",
     "ADDRESS",
+    "addon_on",
+    "addons",
     "DEFAULTS",
     "TONES",
     "address_line",

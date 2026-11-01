@@ -6,6 +6,7 @@ import logging as _logging
 
 import openjarvis.tools.automejora_tool  # noqa: F401
 import openjarvis.tools.conserje_tool  # noqa: F401
+import openjarvis.tools.estudio_tools  # noqa: F401
 import openjarvis.tools.creator_tools  # noqa: F401
 import openjarvis.tools.scene_reason  # noqa: F401
 import openjarvis.tools.verified_math  # noqa: F401

@@ -825,6 +825,10 @@ def create_app(
     from openjarvis.server.personal_routes import router as personal_router
 
     app.include_router(personal_router)
+    # The video studio: film scenes, thumbnails, titles, the trend radar.
+    from openjarvis.server.estudio_routes import router as estudio_router
+
+    app.include_router(estudio_router)
     # Universal AGI Operations & Cryptographic Merkle Evidence Ledger
     from openjarvis.server.agi_routes import router as agi_router
 

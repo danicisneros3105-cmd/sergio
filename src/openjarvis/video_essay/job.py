@@ -727,11 +727,16 @@ def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
                 )
                 if best is not None:
                     cover_name = studio.media_name("portada", ".jpg")
-                    finish.cover(
-                        render.still_of(best, words, render.SIZES[aspect]),
-                        pkg["thumbnail_text"],
-                        videos / cover_name,
-                    )
+                    still = render.still_of(best, words, render.SIZES[aspect])
+                    try:  # the thumbnail program: free side, accent, phone test
+                        from openjarvis.estudio import miniaturas
+
+                        thumb, _ = miniaturas.compose(
+                            still, pkg["thumbnail_text"].split()[:4], "lado"
+                        )
+                        thumb.save(videos / cover_name, quality=92)
+                    except Exception:  # noqa: BLE001 — the old cover still works
+                        finish.cover(still, pkg["thumbnail_text"], videos / cover_name)
                     pkg["cover_url"] = f"/v1/creator/media/{cover_name}"
                 pkg["capitulos"] = pro.chapters_text(chapters)
                 job.write("publicar.json", pkg)
