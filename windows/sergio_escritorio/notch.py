@@ -372,8 +372,16 @@ class Notch(QWidget):
             self._edge_since = None
             self.pour_in(pos.x())
 
+    def _hidpi(self, w: int, h: int) -> QPixmap:
+        """A layer at the screen's real pixels (125–200 % scaling on laptops):
+        drawn at the logical size it came out blurry."""
+        ratio = max(1.0, float(self.devicePixelRatioF()))
+        image = QPixmap(int(math.ceil(w * ratio)), int(math.ceil(h * ratio)))
+        image.setDevicePixelRatio(ratio)
+        return image
+
     def _snapshot(self) -> QPixmap:
-        image = QPixmap(CANVAS_W, CANVAS_H)
+        image = self._hidpi(CANVAS_W, CANVAS_H)
         image.fill(Qt.GlobalColor.transparent)
         q = QPainter(image)
         q.setRenderHint(QPainter.RenderHint.Antialiasing)
@@ -553,7 +561,21 @@ class Notch(QWidget):
             round(self._duo.angle),
             1 if self.reduced_motion else 0,
         )
-        if mask_key != self._mask_key:
+        settled = (self._sw.settled() and self._sh.settled()
+                   and self._duo.angle == self._duo.target)  # fmt: skip
+        if not settled:
+            # Moving: a plain rectangle a little larger, in 8 px steps. Giving
+            # Windows a curved shape every frame made the island stutter.
+            box = rect if bubble is None else rect.united(bubble)
+            q = box.adjusted(-4, -2, 4, 4).toAlignedRect()
+            moving_key = ("moving", q.left() // 8, q.width() // 8 + 1, q.height() // 8 + 1)
+            if moving_key != self._mask_key:
+                self._mask_key = moving_key
+                x0, w0, h0 = moving_key[1] * 8, moving_key[2] * 8, moving_key[3] * 8
+                region = QRegion(x0, 0, w0, h0)
+                self._mask_rect = region
+                self.setMask(region)
+        elif mask_key != self._mask_key:
             self._mask_key = mask_key
             region = QRegion(notch_path(rect).toFillPolygon().toPolygon())
             if bubble is not None:
@@ -931,7 +953,7 @@ class Notch(QWidget):
         a little perspective (the far edge shrinks as it turns)."""
         fold = self._duo
         size = int(BUBBLE)
-        face = QPixmap(size, size)
+        face = self._hidpi(size, size)
         face.fill(Qt.GlobalColor.transparent)
         q = QPainter(face)
         q.setRenderHint(QPainter.RenderHint.Antialiasing)
@@ -952,7 +974,10 @@ class Notch(QWidget):
             # Blur by shrinking and enlarging smoothly: cheap, and soft enough.
             small = max(2, int(size * (1.0 - 0.85 * fold.tilt() / Fold.MAX_TILT)))
             mode = Qt.TransformationMode.SmoothTransformation
-            face = face.scaled(small, small, mode=mode).scaled(size, size, mode=mode)
+            ratio = face.devicePixelRatio()
+            full = face.width()  # real pixels
+            face = face.scaled(int(small * ratio), int(small * ratio), mode=mode).scaled(full, full, mode=mode)
+            face.setDevicePixelRatio(ratio)
         scale_x = fold.reach()  # -1 (lying over the pill) .. 1 (open)
         depth = 0.25 * math.sin(math.radians(fold.angle)) / BUBBLE
         # Local (x from the hinge, y from the middle) → screen, projective.

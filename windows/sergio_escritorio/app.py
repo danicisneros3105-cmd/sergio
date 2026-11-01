@@ -337,6 +337,13 @@ def run(config: dict[str, Any]) -> None:
     from sergio_escritorio import taskbar
 
     taskbar.claim_process()  # one taskbar identity: Sergio, not Python
+    # Exact scaling (125 %, 150 %…) instead of rounding: sharp text and shapes.
+    from PySide6.QtCore import Qt as _Qt
+    from PySide6.QtGui import QGuiApplication
+
+    QGuiApplication.setHighDpiScaleFactorRoundingPolicy(
+        _Qt.HighDpiScaleFactorRoundingPolicy.PassThrough
+    )
     app = QApplication(sys.argv)
     from PySide6.QtGui import QIcon
 
