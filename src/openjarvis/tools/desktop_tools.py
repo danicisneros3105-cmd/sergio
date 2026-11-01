@@ -514,7 +514,10 @@ class VideoProTool(_DesktopTool):
         args = {k: v for k, v in params.items() if v not in (None, "")}
         try:
             data = self._call(
-                "POST", "/skill", json={"name": "video_pro", "args": args}, timeout=EDIT_TIMEOUT
+                "POST",
+                "/skill",
+                json={"name": "video_pro", "args": args},
+                timeout=EDIT_TIMEOUT,
             )
         except RuntimeError as exc:
             return self._fail(f"No pude editar el video: {exc}")
