@@ -50,6 +50,7 @@ from openjarvis.speech.proactive_voice_nexus import (
 )
 from openjarvis.telemetry.evidence_nexus import (
     EvidenceNexusLedger,
+    MerkleAuditTree,
 )
 from openjarvis.tools.app_control import SergioAppControlTool
 
@@ -400,4 +401,105 @@ def test_gallery_path_traversal_sanitization():
     assert res["autorizado"] is True
     assert ".." not in res["tag"]
     assert "/" not in res["tag"]
+
+
+# ==============================================================================
+# 8. Merkle Inclusion Proofs & AGI Routes / CLI Tests
+# ==============================================================================
+
+
+def test_merkle_inclusion_proof_mathematical_validation(tmp_path):
+    ledger = EvidenceNexusLedger(storage_path=tmp_path / "test_merkle_ledger.json")
+    for i in range(7):
+        ledger.record_proof(
+            action_name=f"test_action_{i}",
+            domain="unit_test",
+            input_data={"idx": i},
+            output_data={"res": i * 10},
+            latency_ms=1.5,
+        )
+
+    assert len(ledger.entries) == 7
+    integrity = ledger.verify_ledger_integrity()
+    assert integrity["integridad_verificada"] is True
+    assert integrity["total_hojas"] == 7
+    assert integrity["pruebas_inclusion_validadas"] == 7
+
+    # Verify O(log N) inclusion proof for leaf #3
+    leaf_hashes = [e.merkle_leaf_hash for e in ledger.entries]
+    root = MerkleAuditTree.compute_merkle_root(leaf_hashes)
+    proof_3 = MerkleAuditTree.generate_inclusion_proof(leaf_hashes, 3)
+    assert len(proof_3) <= 4  # ceil(log2(7)) = 3 or 4 levels
+    valid = MerkleAuditTree.verify_inclusion_proof(leaf_hashes[3], proof_3, root)
+    assert valid is True
+
+    # Tampered sibling hash must fail verification
+    tampered_proof = list(proof_3)
+    tampered_proof[0] = {"position": tampered_proof[0]["position"], "hash": "0" * 64}
+    assert MerkleAuditTree.verify_inclusion_proof(leaf_hashes[3], tampered_proof, root) is False
+
+
+def test_agi_routes_endpoints(tmp_path):
+    from unittest.mock import MagicMock
+
+    from fastapi.testclient import TestClient
+
+    from openjarvis.server.app import create_app
+
+    app = create_app(MagicMock(), model="test-model")
+    client = TestClient(app)
+
+    # 1. Test GET /v1/agi/evidence/verify
+    res_verify = client.get("/v1/agi/evidence/verify")
+    assert res_verify.status_code == 200
+    data_verify = res_verify.json()
+    assert "integridad_verificada" in data_verify
+
+    # 2. Test POST /v1/agi/solve
+    res_solve = client.post(
+        "/v1/agi/solve",
+        json={"mission": "Reservar mesa en restaurante Michelin tres estrellas"},
+    )
+    assert res_solve.status_code == 200
+    data_solve = res_solve.json()
+    assert data_solve["success"] is True
+    assert "agi-" in data_solve["mission_id"]
+    assert "vertu_seal_token" in data_solve
+    assert len(data_solve["phases"]) >= 3
+
+    # 3. Test GET /v1/agi/evidence/receipt/{id}
+    res_receipt = client.get(f"/v1/agi/evidence/receipt/{data_solve['mission_id']}")
+    assert res_receipt.status_code == 200
+    receipt = res_receipt.json()
+    assert receipt["mision_id"] == data_solve["mission_id"]
+    assert "merkle_root" in receipt
+
+
+def test_agi_cli_subcommands():
+    from click.testing import CliRunner
+
+    from openjarvis.cli.agi_cmd import agi
+
+    runner = CliRunner()
+
+    # 1. Bare group prints help panel
+    r_bare = runner.invoke(agi, [])
+    assert r_bare.exit_code == 0
+    assert "Sergio AGI Nexus" in r_bare.output
+
+    # 2. Verify command executes mathematical verification
+    r_ver = runner.invoke(agi, ["verify"])
+    assert r_ver.exit_code == 0
+    assert "INTEGRIDAD MATEMÁTICA" in r_ver.output
+
+    # 3. Evidence command outputs ledger table
+    r_ev = runner.invoke(agi, ["evidence"])
+    assert r_ev.exit_code == 0
+    assert "Libro Mayor de Evidencias Merkle" in r_ev.output
+
+    # 4. Solve command resolves mission
+    r_sol = runner.invoke(agi, ["solve", "reservar Four Seasons noche"])
+    assert r_sol.exit_code == 0
+    assert "Misión Cumplida" in r_sol.output
+
 

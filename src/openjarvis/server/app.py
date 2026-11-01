@@ -807,6 +807,10 @@ def create_app(
     from openjarvis.server.personal_routes import router as personal_router
 
     app.include_router(personal_router)
+    # Universal AGI Operations & Cryptographic Merkle Evidence Ledger
+    from openjarvis.server.agi_routes import router as agi_router
+
+    app.include_router(agi_router)
     try:  # videos made on a schedule (never posted without the owner)
         from openjarvis.video_essay import schedule as video_schedule
 
