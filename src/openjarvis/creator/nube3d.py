@@ -11,8 +11,16 @@ key in ``~/.openjarvis/sergio.env`` (no key, that service is skipped):
   the refine with PBR textures) and image to 3D, remeshed for clean topology;
 * **Tripo** (``TRIPO_API_KEY``, ``tools/tripo.py``) — text or image to a
   PBR model;
+* **Rodin / Hyper3D** (``HYPER3D_API_KEY`` or ``RODIN_API_KEY``, hyper3d.ai)
+  — text or up to five photos to a high-detail PBR GLB (owner, 1 Nov 2026:
+  «para la generación de modelos usará como ayuda Tripo AI, junto con Meshy
+  AI y Rodin»);
 * **fal.ai** (``FAL_KEY``) — Hunyuan3D and TRELLIS from a photo; a
   description first becomes a picture with Sergio's image model.
+
+Order: Tripo, Meshy, Rodin, then fal.ai. ``compare=True`` asks every service
+with a key for its own version, so the owner keeps the best one (each one
+spends that service's credits, so it is never the default).
 
 The model comes back as GLB and lands where the chat's 3D viewer opens it
 piece by piece (``creator/despiece.register_file``). Nothing is invented: if
@@ -29,6 +37,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
 MESHY = "https://api.meshy.ai/openapi"
+RODIN = "https://api.hyper3d.com/api/v2"
 FAL_QUEUE = "https://queue.fal.run"
 FAL_MODELS = ("fal-ai/hunyuan3d/v2", "fal-ai/trellis")
 POLL = 5.0
@@ -50,10 +59,12 @@ def services() -> List[str]:
     from openjarvis.tools import tripo
 
     out = []
-    if _key("MESHY_API_KEY"):
-        out.append("meshy")
     if tripo.configured():
         out.append("tripo")
+    if _key("MESHY_API_KEY"):
+        out.append("meshy")
+    if _rodin_key():
+        out.append("rodin")
     if _key("FAL_KEY"):
         out.append("fal")
     return out
@@ -148,6 +159,79 @@ def meshy(
     return got.content
 
 
+# -- Rodin (Hyper3D) -------------------------------------------------------------------
+
+
+def _rodin_key() -> str:
+    return _key("HYPER3D_API_KEY") or _key("RODIN_API_KEY")
+
+
+def rodin(
+    prompt: str = "",
+    image: bytes = b"",
+    *,
+    http: Optional[Http] = None,
+    sleep: Callable[[float], None] = time.sleep,
+    timeout: float = TIMEOUT,
+) -> bytes:
+    """GLB bytes from Rodin: submit, follow the job, download right away
+    (its links expire in minutes)."""
+    http = http or _http()
+    headers = {"Authorization": f"Bearer {_rodin_key()}"}
+    form = {
+        "geometry_file_format": "glb",
+        "material": "PBR",
+        "quality": "high",
+        "mesh_mode": "Quad",
+    }
+    if prompt:
+        form["prompt"] = prompt[:600]
+    files = None
+    if image:
+        kind = "png" if image[:4] == b"\x89PNG" else "jpeg"
+        files = [("images", (f"foto.{kind}", image, f"image/{kind}"))]
+    r = http.post(f"{RODIN}/rodin", headers=headers, data=form, files=files)
+    r.raise_for_status()
+    job = r.json() or {}
+    if job.get("error"):
+        raise Nube3DError(f"Rodin no aceptó el pedido: {job['error']}")
+    task = job.get("uuid") or ""
+    key = (job.get("jobs") or {}).get("subscription_key") or ""
+    if not task or not key:
+        raise Nube3DError("Rodin no devolvió el trabajo.")
+    start = time.monotonic()
+    while True:
+        s = http.post(
+            f"{RODIN}/status", headers=headers, json={"subscription_key": key}
+        )
+        s.raise_for_status()
+        jobs = (s.json() or {}).get("jobs") or []
+        states = [str(j.get("status", "")).lower() for j in jobs]
+        if any(x == "failed" for x in states):
+            raise Nube3DError("Rodin no pudo hacer el modelo.")
+        if states and all(x == "done" for x in states):
+            break
+        if time.monotonic() - start > timeout:
+            raise Nube3DError("Rodin tardó demasiado; lo dejé de esperar.")
+        sleep(POLL)
+    d = http.post(f"{RODIN}/download", headers=headers, json={"task_uuid": task})
+    d.raise_for_status()
+    items = (d.json() or {}).get("list") or []
+    url = next(
+        (
+            i.get("url")
+            for i in items
+            if str(i.get("name", "")).lower().endswith(".glb")
+        ),
+        "",
+    )
+    if not url:
+        raise Nube3DError("Rodin terminó sin devolver el archivo GLB.")
+    got = http.get(url)
+    got.raise_for_status()
+    return got.content
+
+
 # -- fal.ai (Hunyuan3D, TRELLIS) ----------------------------------------------------------
 
 
@@ -219,16 +303,19 @@ def generate(
     make_image: Optional[Callable[[str], bytes]] = None,
     runners: Optional[Dict[str, Callable[..., bytes]]] = None,
     home: Optional[Path] = None,
+    compare: bool = False,
 ) -> Dict[str, Any]:
     """The model for *request* (a description) or *image* (a photo), ready in
-    the chat's 3D viewer: ``{"name", "titulo", "fuente", ...}``."""
+    the chat's 3D viewer: ``{"name", "titulo", "fuente", ...}``. With
+    *compare*, every service makes its own and ``"versiones"`` lists them."""
     if not request.strip() and not image:
         raise Nube3DError("Dígame qué modelar o mándeme una foto.")
     order = order if order is not None else services()
     if not order:
         raise Nube3DError(
             "Para modelos 3D profesionales en la nube falta una clave en sergio.env: "
-            "MESHY_API_KEY (meshy.ai), TRIPO_API_KEY (tripo3d.ai) o FAL_KEY (fal.ai). "
+            "TRIPO_API_KEY (tripo3d.ai), MESHY_API_KEY (meshy.ai), "
+            "HYPER3D_API_KEY (Rodin, hyper3d.ai) o FAL_KEY (fal.ai). "
             "Mientras tanto puedo dibujarlo yo por piezas."
         )
     prompt = f"{request.strip()}. {DETAIL}" if request.strip() else ""
@@ -237,10 +324,12 @@ def generate(
     table: Dict[str, Callable[..., bytes]] = {
         "meshy": lambda: meshy(prompt, image),
         "tripo": lambda: tripo.generate(prompt, image, quality="detailed")["glb"],
+        "rodin": lambda: rodin(prompt, image),
         "fal": lambda: fal(image or _picture(prompt, make_image)),
     }
     table.update(runners or {})
     problems = []
+    made: List[Dict[str, Any]] = []
     for name in order:
         try:
             glb = table[name]()
@@ -257,11 +346,17 @@ def generate(
             path = Path(tmp) / "modelo.glb"
             path.write_bytes(glb)
             meta = despiece.register_file(str(path), title=title, home=home)
-        meta["fuente"] = {"meshy": "Meshy", "tripo": "Tripo", "fal": "fal.ai"}.get(
-            name, name
-        )
+        meta["fuente"] = {
+            "meshy": "Meshy", "tripo": "Tripo", "rodin": "Rodin", "fal": "fal.ai",
+        }.get(name, name)  # fmt: skip
         meta["licencia"] = "suya (generado con su cuenta)"
-        return meta
+        if not compare:
+            return meta
+        made.append(meta)
+    if made:
+        best = dict(made[0])
+        best["versiones"] = made
+        return best
     raise Nube3DError("Ningún servicio 3D pudo hacerlo: " + "; ".join(problems))
 
 
@@ -278,4 +373,4 @@ def _picture(prompt: str, make_image: Optional[Callable[[str], bytes]]) -> bytes
     return shot
 
 
-__all__ = ["DETAIL", "Nube3DError", "fal", "generate", "meshy", "services"]
+__all__ = ["DETAIL", "Nube3DError", "fal", "generate", "meshy", "rodin", "services"]

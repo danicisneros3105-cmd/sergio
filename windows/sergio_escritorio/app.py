@@ -698,6 +698,7 @@ def run(config: dict[str, Any]) -> None:
     assistant.guide = lambda marks, caption: bridge.guide.emit(marks, caption)
     assistant.guide_showing = lambda: guide_overlay.showing
     assistant.guide_dismiss = lambda: bridge.run.emit(guide_overlay.dismiss)
+    assistant.type_text = backend.type_text  # «dicta: …» writes where the cursor is
     _level_gate = [0.0, 0.0]  # [last_emit_monotonic, last_level]
 
     def emit_level_throttled(lvl: float) -> None:

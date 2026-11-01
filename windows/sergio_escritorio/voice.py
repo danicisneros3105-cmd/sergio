@@ -1839,6 +1839,8 @@ class Assistant:
         self._last_stt_error = -1e9
         self._last_hint = -1e9
         self._typed = threading.Lock()  # typed orders wait their turn
+        # Dictation: «dicta: …» types the clean text where the cursor is.
+        self.type_text: Callable[[str], None] | None = None
         # Streams Gemini Live's voice (a call.Speaker); None = WAV by sentence.
         self.speaker_factory: Callable[[], Any] | None = None
 
@@ -1871,6 +1873,9 @@ class Assistant:
         for_me = addressed or self.expecting
         if self.busy:
             return
+        from sergio_escritorio.escucha import clear_wav
+
+        wav = clear_wav(wav)  # rumble and hiss out before speech-to-text
         text: str | None = None
         if not for_me:
             try:
@@ -1969,15 +1974,32 @@ class Assistant:
         if not addressed and text and is_self_echo(text, self.said):
             log.info("ignored my own voice: %r", text[:80])
             return  # his own words heard again: not a new order
+        if in_conversation and text and not self._for_sergio(text):
+            self._follow_up_until = 0.0
+            return  # a chat with someone or a video: not an order for Sergio
         self._follow_up_until = 0.0
         if not text:
             if not in_conversation:  # silence after an answer is just silence
                 self.ui.say("No te escuché. Intenta otra vez.")
             return
+        from sergio_escritorio.escucha import clean
+
+        text = clean(text) or text
         if labeller is not None:
             labeller.join(timeout=0.8)
             self._speaker_note = who[0] if who else ""
         self._respond(text)
+
+    def _for_sergio(self, text: str) -> bool:
+        """Inside the follow-up window (no «Sergio»): is this for him, or a chat
+        with someone in the room, or a video playing?"""
+        from sergio_escritorio.escucha import addressee, media_playing
+
+        who = addressee(text, in_conversation=True, media_playing=media_playing())
+        if who in ("persona", "video"):
+            log.info("not for Sergio (%s): %r", who, text[:80])
+            return False
+        return True
 
     def on_text(self, text: str) -> None:
         """A request typed in the notch (same as saying it, no microphone)."""
@@ -2013,6 +2035,16 @@ class Assistant:
 
         if self.guide_showing() and understood(text):
             self.guide_dismiss()  # «entendido»: the drawings go, nothing to answer
+            return
+        from sergio_escritorio.escucha import dictation
+
+        typed = dictation(text) if self.type_text is not None else None
+        if typed:
+            try:
+                self.type_text(typed)  # type: ignore[misc]
+                self.ui.say(typed)
+            except Exception as exc:  # noqa: BLE001
+                self._fail(f"No pude escribirlo: {explain(exc)}")
             return
         self.ui.state("thinking")
         self.ui.say(f"«{text}»")

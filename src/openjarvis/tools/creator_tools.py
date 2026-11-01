@@ -107,8 +107,10 @@ class TakeApartModelTool(BaseTool):
                 "gets one by 'id'; 'abrir' shows a .glb/.gltf on this computer "
                 "('path'); 'nube' makes a professional, very detailed model from "
                 "'request' (a description) or 'image' (a photo on this computer) "
-                "with the cloud 3D services the professionals use (Meshy, Tripo, "
-                "fal.ai Hunyuan3D/TRELLIS), 2-10 minutes. Put the returned link in "
+                "with the cloud 3D services the professionals use (Tripo, Meshy, "
+                "Rodin/Hyper3D, fal.ai Hunyuan3D/TRELLIS), 2-10 minutes; "
+                "'comparar': true asks each service for its own version (spends "
+                "each one's credits; only when asked). Put the returned link in "
                 "the answer as is."
             ),
             parameters={
@@ -133,6 +135,10 @@ class TakeApartModelTool(BaseTool):
                     "image": {
                         "type": "string",
                         "description": "a photo on this computer to turn into 3D (nube)",
+                    },
+                    "comparar": {
+                        "type": "boolean",
+                        "description": "nube: one version from every 3D service",
                     },
                 },
                 "required": ["action"],
@@ -167,7 +173,11 @@ class TakeApartModelTool(BaseTool):
                 photo = str(params.get("image") or "").strip()
                 picture = Path(photo).expanduser().read_bytes() if photo else b""
                 try:
-                    meta = nube3d.generate(str(params.get("request") or ""), picture)
+                    meta = nube3d.generate(
+                        str(params.get("request") or ""),
+                        picture,
+                        compare=bool(params.get("comparar")),
+                    )
                 except nube3d.Nube3DError as exc:
                     return ToolResult(
                         tool_name=self.tool_id, content=str(exc), success=False
@@ -186,9 +196,13 @@ class TakeApartModelTool(BaseTool):
         credit = f" Fuente: {meta['fuente']}" + (
             f", licencia {meta['licencia']}." if meta.get("licencia") else "."
         )
+        others = "".join(
+            f"\n- Versión de {v['fuente']}: {despiece.view(v['name'])}"
+            for v in (meta.get("versiones") or [])[1:]
+        )
         return self._ok(
             f"Modelo «{meta['titulo']}» listo{parts}; aparece en el chat con este enlace: "
-            f"{despiece.view(meta['name'])}.{credit}"
+            f"{despiece.view(meta['name'])}.{credit}{others}"
         )
 
     def _ok(self, text: str) -> ToolResult:
@@ -273,4 +287,106 @@ class UnrealGameTool(BaseTool):
         )
 
 
-__all__ = ["AnatomyFigureTool", "TakeApartModelTool", "UnrealGameTool", "view"]
+@ToolRegistry.register("cine_ia")
+class CinematicAIVideoTool(BaseTool):
+    """Cinematic AI short films, shot by shot (``creator/cine_ia.py``)."""
+
+    tool_id = "cine_ia"
+
+    @property
+    def spec(self) -> ToolSpec:
+        return ToolSpec(
+            name="cine_ia",
+            description=(
+                "Cinematic AI video for creators, directors and animators: a short film "
+                "made shot by shot with real camera moves (dolly, crane, orbit, FPV, "
+                "whip pan…), made for the owner's audience, platform and brand. It uses "
+                "the owner's Higgsfield account (its marketplace of presets and video "
+                "models, with his credits) when that connector is connected, otherwise "
+                "Sergio's own AI video (Veo or fal.ai). action='plan' writes the shot "
+                "list and shows what it costs (spends nothing); 'crear' makes it (several "
+                "minutes; spends credits); 'catalogo' searches the Higgsfield marketplace "
+                "('idea' = what to look for). Show the plan first, then make it."
+            ),
+            parameters={
+                "type": "object",
+                "properties": {
+                    "action": {"type": "string", "enum": ["plan", "crear", "catalogo"]},
+                    "idea": {"type": "string"},
+                    "audiencia": {"type": "string"},
+                    "plataforma": {
+                        "type": "string",
+                        "description": "reels, tiktok, shorts, youtube largo, cuadrado",
+                    },
+                    "marca": {
+                        "type": "string",
+                        "description": "brand or personal style",
+                    },
+                    "tomas": {"type": "integer", "minimum": 1, "maximum": 8},
+                },
+                "required": ["action"],
+            },
+            category="creative",
+            timeout_seconds=1800,
+        )
+
+    def execute(self, **params: Any) -> ToolResult:
+        from openjarvis.creator import cine_ia
+
+        action = str(params.get("action") or "plan")
+        idea = str(params.get("idea") or "")
+        try:
+            if action == "catalogo":
+                items = cine_ia.catalog(idea)
+                if not items:
+                    return self._say("No encontré presets con eso en Higgsfield.")
+                lines = [
+                    f"- {i['nombre'] or i['id']} ({i['tipo'] or 'preset'})"
+                    for i in items
+                ]
+                return self._say("Del mercado de Higgsfield:\n" + "\n".join(lines))
+            film = cine_ia.brief(
+                idea,
+                audience=str(params.get("audiencia") or ""),
+                platform=str(params.get("plataforma") or "reels"),
+                brand=str(params.get("marca") or ""),
+                shots=int(params.get("tomas") or 4),
+            )
+            shots = "\n".join(
+                f"{n}. [{s.beat}] {s.action} — cámara {s.camera}, {s.lens}, {s.seconds} s"
+                for n, s in enumerate(film.shots, 1)
+            )
+            if action == "plan":
+                try:
+                    price = cine_ia.cost(film)
+                except Exception as exc:  # noqa: BLE001 — the plan still helps
+                    price = f"No pude consultar el precio: {str(exc)[:120]}"
+                return self._say(
+                    f"Plan ({film.aspect}, {film.look or 'look cinematográfico'}):\n"
+                    f"{shots}\n{price}\nSi le parece, lo hago con action='crear'."
+                )
+            film = cine_ia.render(film)
+        except cine_ia.CineError as exc:
+            return ToolResult(tool_name=self.tool_id, content=str(exc), success=False)
+        except Exception as exc:  # noqa: BLE001 — the connector, the internet
+            return ToolResult(
+                tool_name=self.tool_id,
+                content=f"No pude hacer el video: {str(exc)[:200]}",
+                success=False,
+            )
+        return self._say(
+            f"Video listo con {film.engine}: {film.output} ({len(film.files)} de "
+            f"{len(film.shots)} tomas).\n{shots}\nNo lo publiqué."
+        )
+
+    def _say(self, text: str) -> ToolResult:
+        return ToolResult(tool_name=self.tool_id, content=text, success=True)
+
+
+__all__ = [
+    "AnatomyFigureTool",
+    "CinematicAIVideoTool",
+    "TakeApartModelTool",
+    "UnrealGameTool",
+    "view",
+]
