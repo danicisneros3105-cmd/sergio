@@ -144,6 +144,8 @@ class Register(BaseModel):
     password: str = Field(..., max_length=200)
     name: str = Field("", max_length=80)
     device: str = Field("", max_length=64)
+    acepta: bool = False  # the terms and the privacy notice
+    mayor: bool = False  # of age (accounts/registro.py: MIN_AGE)
 
 
 class Verify(BaseModel):
@@ -173,7 +175,7 @@ class Role(BaseModel):
 
 @router.get("/estado")
 def estado(request: Request) -> Dict[str, Any]:
-    from openjarvis.accounts import autoconfig, oauth, senders
+    from openjarvis.accounts import autoconfig, oauth, registro, senders
     from openjarvis.accounts import email as mail
     from openjarvis.accounts.store import public
 
@@ -187,21 +189,40 @@ def estado(request: Request) -> Dict[str, Any]:
         "local": is_local(request),
         "me": public(me) if me else None,
         "ia": autoconfig.ready(),
+        "registro": "abierto" if registro.abierto() else "aprobacion",
+        "terminos": registro.TERMS_VERSION,
+        "edad_minima": registro.MIN_AGE,
     }
 
 
 @router.post("/registro")
 def registro(body: Register, request: Request) -> Dict[str, Any]:
     from openjarvis.accounts import email as mail
-    from openjarvis.accounts import security, senders
+    from openjarvis.accounts import registro, security, senders
 
     _limit(request)
     email = body.email.strip()
     if not mail.valid(email):
         raise HTTPException(400, "Ese correo no parece válido.")
+    if registro.abierto() and not _first_local(request):
+        if not body.acepta:
+            raise HTTPException(
+                400, "Para crear la cuenta acepte los términos y la privacidad."
+            )
+        if not body.mayor:
+            raise HTTPException(
+                400,
+                f"Para crear la cuenta confirme que tiene {registro.MIN_AGE} años o más.",
+            )
     problem = security.password_problem(body.password, email)
     if problem:
         raise HTTPException(400, problem)
+    if registro.abierto() and not _first_local(request) and not senders.smtp_ready():
+        # open sign-up without a way to verify the e-mail is not open
+        raise HTTPException(
+            503,
+            "El registro necesita enviar el código por correo y todavía no está listo.",
+        )
     verdict = _guard(email=email, device=body.device, request=request)
     first = _first_local(request)
     user = _store().create(
@@ -212,6 +233,13 @@ def registro(body: Register, request: Request) -> Dict[str, Any]:
     _store().note_signup(user["id"], body.device, verdict["network"])
     if first:
         return _signed_in(user, body.device)
+    if registro.abierto():
+        _store().record_consent(
+            user["id"],
+            registro.TERMS_VERSION,
+            body.mayor,
+            registro.can_open_by_itself(verdict),
+        )
     if senders.smtp_ready():
         try:
             senders.send_email_code(
@@ -238,6 +266,16 @@ def verificar(body: Verify, request: Request) -> Dict[str, Any]:
     if not user or not _store().check_code(canon, body.code, "correo"):
         raise HTTPException(400, "El código no es correcto o caducó.")
     _store().set(user["id"], email_ok=1)
+    from openjarvis.accounts import registro
+
+    consent = _store().consent_of(user["id"])
+    if (
+        user["role"] == "pendiente"
+        and consent
+        and consent["auto"]
+        and registro.abierto()
+    ):
+        _store().set(user["id"], role="aprobado")  # clean sign-up + the e-mail code
     return _signed_in(_store().get(user["id"]) or user, body.device)
 
 

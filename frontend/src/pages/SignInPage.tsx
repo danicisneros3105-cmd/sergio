@@ -23,6 +23,9 @@ interface State {
   email_codes: boolean;
   local: boolean;
   me: { email?: string; phone?: string; role: string } | null;
+  /** «abierto»: anyone may sign up, with the terms, their age and the e-mail code. */
+  registro?: 'abierto' | 'aprobacion';
+  edad_minima?: number;
 }
 
 interface Answer {
@@ -95,6 +98,8 @@ function SignInPage() {
   );
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [accepts, setAccepts] = useState(false);
+  const [adult, setAdult] = useState(false);
   const [phone, setPhone] = useState('');
   const [code, setCode] = useState('');
   const [step, setStep] = useState<'datos' | 'codigo'>('datos');
@@ -239,7 +244,14 @@ function SignInPage() {
             className="signin-form"
             onSubmit={(e) => {
               e.preventDefault();
-              void run(() => post(mode === 'crear' ? 'registro' : 'entrar', { email, password, device: dev }));
+              void run(() =>
+                post(mode === 'crear' ? 'registro' : 'entrar', {
+                  email,
+                  password,
+                  device: dev,
+                  ...(mode === 'crear' ? { acepta: accepts, mayor: adult } : {}),
+                }),
+              );
             }}
           >
             <label className="signin-field">
@@ -263,6 +275,19 @@ function SignInPage() {
               />
               {mode === 'crear' && <small>10 caracteres o más.</small>}
             </label>
+            {mode === 'crear' && info?.registro === 'abierto' && (
+              <div className="signin-consent">
+                <label>
+                  <input type="checkbox" checked={accepts} onChange={(e) => setAccepts(e.target.checked)} required />
+                  <span>Acepto los términos de uso y el aviso de privacidad.</span>
+                </label>
+                <label>
+                  <input type="checkbox" checked={adult} onChange={(e) => setAdult(e.target.checked)} required />
+                  <span>Tengo {info.edad_minima ?? 16} años o más.</span>
+                </label>
+                <small>Le enviaremos un código a su correo para confirmar que es suyo.</small>
+              </div>
+            )}
             <button type="submit" className="signin-go" disabled={busy}>
               {mode === 'crear' ? 'Crear cuenta' : 'Entrar'}
             </button>

@@ -4289,3 +4289,9 @@ button:focus-visible {
   letter-spacing: 0.3em;
 }
 .app-lock-said { margin: 0; font-size: 13px; color: var(--color-text-secondary); }
+
+/* Sign-up consent: terms and age (accounts/registro.py). */
+.signin-consent { display: grid; gap: 8px; margin: 4px 0 2px; font-size: 13.5px; color: var(--color-text-secondary); }
+.signin-consent label { display: flex; align-items: flex-start; gap: 8px; cursor: pointer; }
+.signin-consent input { margin-top: 3px; accent-color: var(--color-accent); }
+.signin-consent small { color: var(--color-text-tertiary); }

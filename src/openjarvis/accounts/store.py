@@ -37,6 +37,9 @@ CREATE TABLE IF NOT EXISTS signups (
   id INTEGER PRIMARY KEY AUTOINCREMENT, user TEXT, device TEXT, network TEXT, at REAL
 );
 CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT);
+CREATE TABLE IF NOT EXISTS consents (
+  user TEXT PRIMARY KEY, terms TEXT, adult INTEGER, auto INTEGER DEFAULT 0, at REAL
+);
 CREATE TABLE IF NOT EXISTS passkeys (
   id TEXT PRIMARY KEY, user TEXT NOT NULL, public TEXT NOT NULL, alg INTEGER, count INTEGER DEFAULT 0,
   name TEXT DEFAULT '', created REAL, used REAL DEFAULT 0
@@ -295,6 +298,17 @@ class AccountStore:
                     "UPDATE codes SET tries = tries + 1 WHERE target = ?", (target,)
                 )
             return ok
+
+    # -- terms accepted and who may open by itself (accounts/registro.py) -------------------
+    def record_consent(self, uid: str, terms: str, adult: bool, auto: bool) -> None:
+        with self._db() as db:
+            db.execute("INSERT OR REPLACE INTO consents VALUES (?,?,?,?,?)",
+                       (uid, terms, int(adult), int(auto), time.time()))  # fmt: skip
+
+    def consent_of(self, uid: str) -> Optional[Dict[str, Any]]:
+        with self._db() as db:
+            r = db.execute("SELECT * FROM consents WHERE user = ?", (uid,)).fetchone()
+        return dict(r) if r else None
 
     # -- sign-up events (fraud signals) ---------------------------------------------------------
     def note_signup(self, uid: str, device: str, network: str) -> None:

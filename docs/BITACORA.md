@@ -2,6 +2,11 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-11-02 · Claude · registro abierto verificado y economía de los planes
+- `accounts/registro.py` + `SERGIO_REGISTRO=abierto`: términos y edad aceptados (se guarda la versión), código por correo y aprobación automática solo si el antifraude lo ve limpio; si no hay forma de enviar el código, se rechaza **antes** de crear la cuenta. La web muestra las dos casillas. Sin la variable, todo igual que antes.
+- `pagos/economia.py` (`GET /v1/pagos/economia`) y `docs/ECONOMIA.md`: lo que deja cada plan en el peor caso y en el típico. Go es el frágil ($0,90 en el peor caso). Tasas = supuestos por confirmar.
+- Pendiente: términos y privacidad escritos y revisados por un abogado; arquitectura híbrida y en la nube (el dueño la define después).
+
 ## 2026-11-02 · Claude · bóveda, edición pública, licencias y lista de funciones
 - `security/boveda.py`: notas y encuestas de salud (salud mental incluida) y la memoria de conversaciones ahora se guardan cifradas (AES-256-GCM, clave por propósito, atadas a su fila); lo viejo se sella al abrir. Los números de salud no, porque SQL los suma: eso lo cubre cifrar el disco. `docs/SEGURIDAD.md` dice con claridad qué es y qué no es «nivel bancario». Revisé `faces/book.py` de Codex: ya cifraba la galería.
 - `SERGIO_EDICION=publica` (`edicion.py`): apaga para clientes clips de internet y películas, canciones con derechos, prompts GPL, Jamendo y OpenSky (no comerciales).
