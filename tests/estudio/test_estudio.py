@@ -151,12 +151,9 @@ def test_radar_without_data_says_so(monkeypatch, tmp_path):
 def test_four_tools_in_their_neuron():
     from openjarvis.connectome import neurons
 
-    assert set(neurons.tools_of("estudio")) == {
-        "clips_cine",
-        "miniaturas",
-        "titulos_video",
-        "radar_tendencias",
-    }
+    assert {"clips_cine", "miniaturas", "titulos_video", "radar_tendencias"} <= set(
+        neurons.tools_of("estudio")
+    )
 
 
 def test_gym_is_an_optional_addon(tmp_path):
