@@ -109,3 +109,65 @@ def test_owner_adds_links(tmp_path, monkeypatch):
     assert escuela.references()["mis-favoritos"]["links"] == [
         "https://www.youtube.com/watch?v=abcdefghijk"
     ]
+
+
+def _studied(root: Path) -> None:
+    """A studied reference: 6 s vertical, cuts at 1.5/2.5/4.5, text at the bottom of second 2."""
+    secs = [{"t": t, "cortes": 0, "brillo": 0.5, "color": 0.3, "principal": "#ffffff", "movimiento": 0.1,
+             "caras": 0, "texto": {"arriba": 0.0, "centro": 0.0, "abajo": 0.3 if t == 2 else 0.0},
+             "volumen_db": -20, "golpes": 1, "palabras": 2, "dice": "hola"} for t in range(6)]  # fmt: skip
+    data = {
+        "url": "https://www.youtube.com/watch?v=abcdefghijk",
+        "categoria": "shorts-virales",
+        "medido": {"cortes": [1.5, 2.5, 4.5], "tomas": [1.5, 1.0, 2.0, 1.5], "segundos": secs,
+                   "resumen": {"duracion_s": 6.0, "vertical": True, "tomas": 4, "toma_mediana_s": 1.5,
+                               "cortes_primeros_3s": 2, "texto_en_pantalla": 0.17, "texto_donde": "abajo",
+                               "golpes_por_segundo": 1.0, "palabras_por_segundo": 2.0, "gancho": "Nadie sabe esto"}},
+        "tomas_modelo": {"shots": [{"t": 2.5, "dur": 2.0, "effect": "zoom", "transition_in": "whip", "sfx": "whoosh"}]},
+    }  # fmt: skip
+    (root / "shorts-virales").mkdir(parents=True)
+    (root / "shorts-virales" / "abcdefghijk.json").write_text(json.dumps(data))
+
+
+def test_blueprint_scales_and_recut_follows_it(tmp_path):
+    from openjarvis.video_essay import plan as P
+
+    _studied(tmp_path)
+    bp = escuela.blueprint("https://youtube.com/shorts/abcdefghijk", 12, root=tmp_path)
+    assert [t["desde"] for t in bp["tomas"]] == [0.0, 3.0, 5.0, 9.0] and bp[
+        "aspect"
+    ] == "9:16"
+    assert bp["tomas"][1]["posicion"] == "lower" and bp["tomas"][2]["efecto"] == "zoom"
+    words = [
+        P.Word(f"w{i}", i * 0.5, i * 0.5 + 0.4) for i in range(24)
+    ]  # 12 s of speech
+    shots = [
+        P.Shot(first=0, last=12, visual="city"),
+        P.Shot(first=12, last=24, visual="sea"),
+    ]
+    for s in shots:
+        P._times(s, words)
+    out = escuela.recut(shots, words, bp)
+    assert [round(s.start, 1) for s in out] == [0.0, 3.0, 5.0, 9.0]
+    assert (
+        out[1].position == "lower"
+        and out[2].effect == "zoom"
+        and out[2].transition == "whip"
+    )
+    assert (
+        out[0].visual == "city" and out[3].visual == "sea"
+    )  # what the editor chose to show stays
+    note = escuela.blueprint_note(bp)
+    assert "RECREATE THIS EDIT EXACTLY" in note and "4 shots in 12" in note
+
+
+def test_ficha_tells_every_second(tmp_path):
+    _studied(tmp_path)
+    text = escuela.ficha("abcdefghijk", root=tmp_path)
+    assert "6.0 s, vertical" in text and "Gancho (0-3 s): «Nadie sabe esto»" in text
+    assert "2s · texto abajo · 1 golpes · «hola»" in text and "efecto: zoom" in text
+
+
+def test_unknown_reference_says_to_study_first(tmp_path):
+    with pytest.raises(RuntimeError, match="estudia las referencias"):
+        escuela.find("zzzzzzzzzzz", root=tmp_path)

@@ -817,3 +817,31 @@ def test_tool_turns_on_trends_when_the_order_says_so() -> None:
     assert TREND_WORDS.search("hazme un video con los trends de hoy")
     assert TREND_WORDS.search("algo viral sobre ahorro")
     assert not TREND_WORDS.search("un video sobre metas")
+
+
+@needs_ffmpeg
+def test_video_recreates_a_studied_reference(tmp_path: Path) -> None:
+    """«molde»: the director hears the skeleton and the plan is cut where the reference cuts."""
+    import json as _json
+
+    from openjarvis.video_essay import escuela
+
+    secs = [{"t": t, "cortes": 0, "caras": 0, "texto": {"abajo": 0.3}, "golpes": 1, "palabras": 2,
+             "dice": "x", "movimiento": 0.1} for t in range(15)]  # fmt: skip
+    data = {"url": "https://www.youtube.com/watch?v=abcdefghijk", "categoria": "shorts-virales",
+            "medido": {"cortes": [3.0, 7.5, 11.0], "tomas": [3.0, 4.5, 3.5, 4.0], "segundos": secs,
+                       "resumen": {"duracion_s": 15.0, "vertical": True, "gancho": ""}},
+            "tomas_modelo": {"shots": [{"t": 7.5, "dur": 3.5, "effect": "zoom"}]}}  # fmt: skip
+    folder = escuela.home() / "shorts-virales"
+    folder.mkdir(parents=True)
+    (folder / "abcdefghijk.json").write_text(_json.dumps(data))
+    told: list = []
+    calls: dict = {}
+    job = J.create({"topic": "metas grandes", "seconds": 15, "mode": "basic", "draft": True, "preset": "ultrafast",
+                    "molde": "https://youtube.com/shorts/abcdefghijk"}, tmp_path / "jobs")  # fmt: skip
+    st = J.run(job, _deps(tmp_path, told, calls))
+    assert st["status"] == "listo", st.get("error")
+    assert st["molde"]["tomas"] == 4
+    plan = job.read("plan.json")
+    assert any("molde: toma" in " ".join(s.get("notes") or []) for s in plan)
+    assert any(s.get("position") == "lower" for s in plan)

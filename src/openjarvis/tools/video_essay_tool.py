@@ -105,6 +105,11 @@ class VideoEssayTool(BaseTool):
                         "description": "two letters for the trends (EC)",
                     },
                     "nicho": {"type": "string"},
+                    "molde": {
+                        "type": "string",
+                        "description": "a reference video already studied by escuela_video (its link): the "
+                        "new video recreates its edit exactly (cuts, text places, effects, sounds) with new content",
+                    },
                 },
                 "required": ["action"],
             },
@@ -179,7 +184,19 @@ class VideoEssayTool(BaseTool):
             or bool(TREND_WORDS.search(f"{prompt} {topic}")),
             "pais": str(params.get("pais") or "").strip().upper()[:2],
             "nicho": str(params.get("nicho") or "").strip()[:80],
+            "molde": str(params.get("molde") or "").strip()[:300],
         }
+        if order["molde"]:  # its length and shape, unless he said otherwise
+            try:
+                from openjarvis.video_essay import escuela
+
+                ref = escuela.find(order["molde"])["medido"]["resumen"]
+                if not params.get("seconds"):
+                    order["seconds"] = max(15.0, float(ref["duracion_s"]))
+                if not params.get("aspect"):
+                    order["aspect"] = "9:16" if ref["vertical"] else "16:9"
+            except Exception as exc:  # noqa: BLE001
+                return self._ok(str(exc), False)
         existing, why = jobs.guard(order)
         if existing is not None:
             st = existing.state()

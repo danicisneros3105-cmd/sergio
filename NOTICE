@@ -175,3 +175,18 @@ meta.json and on screen.
   lo más leído de Wikipedia (Wikimedia REST, CC BY-SA), los más votados del
   día de Reddit y, con la conexión del dueño, YouTube Data API v3. Son marcas
   de sus dueños y no avalan a Sergio.
+- La física de la presentación de los Nodes usa matter-js (MIT, © Liam
+  Brummitt y colaboradores). El puntero de Sergio, la caída de figuras y la
+  galería en abanico son componentes propios inspirados en los de
+  reactdrops.dev, sin copiar su código.
+- Movimiento de personajes para juegos, instalado solo si el dueño lo pide y
+  nunca incluido en este repositorio: Kimodo (nv-tlabs/kimodo, código
+  Apache-2.0; checkpoints SOMA/G1 bajo la NVIDIA Open Model License; el de
+  SMPL-X es solo de investigación y no se usa), MotionBricks
+  (NVlabs/motionbricks, código Apache-2.0, modelos bajo el NVIDIA Open Model
+  Agreement, datos de muestra solo para evaluar) y Audio2Face-3D
+  (NVIDIA/Audio2Face-3D-SDK, MIT; modelos NVIDIA Open Model; Audio2Emotion
+  solo junto a Audio2Face). Son marcas de NVIDIA y no avalan a Sergio.
+- La escuela de video mide en el equipo del dueño los videos de referencia
+  que él elige, solo para aprender cómo están editados; no copia ni publica
+  su imagen, sonido ni texto.

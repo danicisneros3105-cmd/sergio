@@ -247,6 +247,33 @@ def _specialist_learns(state: Dict[str, Any]) -> None:
         pass
 
 
+def _molde(job: Job, params: Dict[str, Any]) -> str:
+    """Recreating a studied reference («molde»): its skeleton, scaled to
+    this video's length, kept for the plan and told to the director."""
+    ref = str(params.get("molde") or "").strip()
+    if not ref:
+        return ""
+    from openjarvis.video_essay import escuela
+
+    try:
+        bp = escuela.blueprint(ref, float(params.get("seconds") or 0))
+    except Exception as exc:  # noqa: BLE001 — the video goes on without it
+        job.log(f"sin molde: {exc}")
+        return ""
+    job.write("molde.json", bp)
+    job.update(molde={"url": bp["url"], "tomas": len(bp["tomas"])})
+    return escuela.blueprint_note(bp)
+
+
+def escuela_recut(shots: Any, words: Any, bp: Dict[str, Any]) -> Any:
+    from openjarvis.video_essay import escuela
+
+    try:
+        return escuela.recut(shots, words, bp)
+    except Exception:  # noqa: BLE001 — the editor's own cut stays
+        return shots
+
+
 def _trends(job: Job, params: Dict[str, Any], brief: str, ask: Any, budget: Any) -> str:
     """The trend radar before the script (``tendencias``): the strongest real
     opportunity becomes a note for the director; all of it is kept."""
@@ -466,6 +493,7 @@ def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
                 profiles = [style.load(k, deps.styles) for k in dict.fromkeys(keys)]
                 brief = str(params.get("prompt") or params.get("topic") or "")
                 trend_note = _trends(job, params, brief, direct, budget)
+                trend_note += _molde(job, params)
                 sc = director.treatment(
                     str(params.get("prompt") or params.get("topic") or ""),
                     profiles,
@@ -562,6 +590,10 @@ def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
                     str(params.get("prompt") or params.get("topic") or sc["title"]),
                 ),
             )
+            bp = job.read("molde.json") if (job.dir / "molde.json").is_file() else None
+            if bp:  # the reference's cuts, places, effects and sounds
+                shots = P.from_json(P.to_json(escuela_recut(shots, words, bp)))
+                job.log(f"molde: {len(shots)} tomas como la referencia")
             if params.get("film", True) and profile.get("production") not in (
                 "3d",
                 "ai",

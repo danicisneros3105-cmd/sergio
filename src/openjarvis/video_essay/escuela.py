@@ -665,6 +665,160 @@ def guidance(brief: str, genre: str = "", aspect: str = "") -> str:
             f"Follow it closely; reproduce the editing, never their content:\n{body[:4000]}\n")  # fmt: skip
 
 
+# -- recreating one reference exactly («molde») -------------------------------------------------
+
+
+def find(ref: str, root: Optional[Path] = None) -> Dict[str, Any]:
+    """A studied reference by its link or id (any category)."""
+    root = root or home()
+    vid = video_id(clean_link(ref)) if "/" in ref else ref.strip()
+    for path in sorted(root.glob(f"*/{vid}.json")):
+        if path.parent.name != "superskills":
+            return json.loads(path.read_text("utf-8"))
+    raise RuntimeError(
+        f"Todavía no estudié ese video ({vid}). Diga «estudia las referencias» primero."
+    )
+
+
+def ficha(ref: str, root: Optional[Path] = None) -> str:
+    """Everything Sergio knows about one reference, second by second."""
+    data = find(ref, root)
+    m = data["medido"]
+    r = m["resumen"]
+    lines = [
+        f"{data['url']} ({data['categoria']}): {r['duracion_s']} s, {'vertical' if r['vertical'] else 'horizontal'}, "
+        f"{r['tomas']} tomas (mediana {r['toma_mediana_s']} s), {r['cortes_primeros_3s']} cortes en los primeros 3 s, "
+        f"texto en pantalla {int(r['texto_en_pantalla'] * 100)} % ({r['texto_donde'] or '—'}), "
+        f"{r['golpes_por_segundo']} golpes de sonido por segundo, {r['palabras_por_segundo']} palabras por segundo.",
+    ]
+    if r.get("gancho"):
+        lines.append(f"Gancho (0-3 s): «{r['gancho']}»")
+    lines.append("Cortes (s): " + ", ".join(str(c) for c in m["cortes"][:80]))
+    for sec in m["segundos"]:
+        where = (
+            max(sec["texto"], key=sec["texto"].get)
+            if sec.get("texto") and max(sec["texto"].values()) >= 0.08
+            else ""
+        )
+        bits = [f"{sec['t']}s", f"{sec['cortes']} cortes" if sec["cortes"] else "", f"texto {where}" if where else "",
+                "cara" if sec["caras"] else "", f"{sec['golpes']} golpes" if sec["golpes"] else "",
+                f"«{sec['dice']}»" if sec.get("dice") else ""]  # fmt: skip
+        lines.append(" · ".join(b for b in bits if b))
+    shots = (data.get("tomas_modelo") or {}).get("shots") or []
+    for sh in shots[:120]:
+        lines.append(
+            f"toma {sh.get('t')}s ({sh.get('dur')} s): {sh.get('visual', '')} | texto: {sh.get('on_screen_text', '')} "
+            f"({sh.get('text_style', '')}) | efecto: {sh.get('effect', '')} | entra: {sh.get('transition_in', '')} "
+            f"| sonido: {sh.get('sfx', '')}"
+        )
+    return "\n".join(lines)
+
+
+def blueprint(
+    ref: str, seconds: float = 0.0, root: Optional[Path] = None
+) -> Dict[str, Any]:
+    """The reference's skeleton scaled to *seconds*: where each cut falls,
+    and what each shot does (text place, effect, way in, sound)."""
+    data = find(ref, root)
+    m = data["medido"]
+    dur = float(m["resumen"]["duracion_s"] or 1)
+    scale = (seconds or dur) / dur
+    shots = (data.get("tomas_modelo") or {}).get("shots") or []
+    bounds = [0.0, *m["cortes"], dur]
+    out = []
+    for i, (a, b) in enumerate(zip(bounds, bounds[1:])):
+        mid = (a + b) / 2
+        sh = (
+            min(
+                shots,
+                key=lambda s: abs(
+                    float(s.get("t") or 0) + float(s.get("dur") or 0) / 2 - mid
+                ),
+            )
+            if shots
+            else {}
+        )
+        sec = (
+            m["segundos"][min(len(m["segundos"]) - 1, int(mid))]
+            if m["segundos"]
+            else {}
+        )
+        text = sec.get("texto") or {}
+        where = max(text, key=text.get) if text and max(text.values()) >= 0.08 else ""
+        out.append({
+            "desde": round(a * scale, 2), "hasta": round(b * scale, 2),
+            "posicion": {"arriba": "upper", "centro": "center", "abajo": "lower"}.get(where, ""),
+            "efecto": str(sh.get("effect") or ""), "entra": str(sh.get("transition_in") or ""),
+            "sonido": str(sh.get("sfx") or ""), "texto_estilo": str(sh.get("text_style") or ""),
+            "visual": str(sh.get("visual") or ""), "golpes": int(sec.get("golpes") or 0),
+        })  # fmt: skip
+    return {
+        "url": data["url"],
+        "duracion": round(seconds or dur, 1),
+        "aspect": "9:16" if m["resumen"]["vertical"] else "16:9",
+        "tomas": out,
+        "gancho": m["resumen"].get("gancho", ""),
+        "resumen": m["resumen"],
+    }
+
+
+def blueprint_note(bp: Dict[str, Any]) -> str:
+    """The skeleton as instructions for the director and the editor."""
+    rows = "\n".join(
+        f"- {t['desde']}-{t['hasta']} s: text {t['posicion'] or 'free'} ({t['texto_estilo'] or 'any'}), effect "
+        f"{t['efecto'] or 'none'}, in {t['entra'] or 'cut'}, sound {t['sonido'] or 'none'}; shows: {t['visual'][:80]}"
+        for t in bp["tomas"][:150]
+    )
+    return (
+        f"\nRECREATE THIS EDIT EXACTLY (owner's reference {bp['url']}, measured second by second): "
+        f"{len(bp['tomas'])} shots in {bp['duracion']} s, cuts at the same moments, the same kind of hook "
+        f"in the first 3 s, words in the same places, the same effects, ways in and sounds. New content "
+        f"(the order's topic), never the reference's footage, words or people.\n{rows}\n"
+    )
+
+
+def recut(shots: List[Any], words: List[Any], bp: Dict[str, Any]) -> List[Any]:
+    """The planned shots cut again at the reference's moments (snapped to
+    the nearest gap between words), each one dressed like the reference's
+    shot at that moment. What the editor chose to show is kept."""
+    from dataclasses import asdict
+
+    if not shots or not words or not bp.get("tomas"):
+        return shots
+    shot_cls = type(shots[0])
+    gaps = [(i, words[i].start) for i in range(1, len(words))]
+    starts = [0]
+    for t in bp["tomas"][1:]:
+        if not gaps:
+            break
+        i, _ = min(gaps, key=lambda g: abs(g[1] - t["desde"]))
+        if i > starts[-1]:
+            starts.append(i)
+    starts.append(len(words))
+    out = []
+    for k, (a, b) in enumerate(zip(starts, starts[1:])):
+        if b <= a:
+            continue
+        mid = (words[a].start + words[b - 1].end) / 2
+        base = min(shots, key=lambda s: abs((s.start + s.end) / 2 - mid))
+        ref = bp["tomas"][min(k, len(bp["tomas"]) - 1)]
+        new = shot_cls(**{**asdict(base), "first": a, "last": b, "text": ""})
+        new.start, new.end = words[a].start, words[b - 1].end
+        if ref["posicion"]:
+            new.position = ref["posicion"]
+        for field, key in (
+            ("effect", "efecto"),
+            ("transition", "entra"),
+            ("sfx", "sonido"),
+        ):
+            value = ref[key].split(",")[0].strip().lower()
+            if value and hasattr(new, field):
+                setattr(new, field, value[:40])
+        new.notes = list(new.notes) + [f"molde: toma {k + 1} de la referencia"]
+        out.append(new)
+    return out
+
+
 # -- the whole school, in the background --------------------------------------------------------
 
 
@@ -734,6 +888,26 @@ def status() -> Dict[str, Any]:
     }  # fmt: skip
 
 
-__all__ = ["add", "category_for", "clean_link", "cuts_of", "guidance", "measure", "merge", "references",
-           "rules_from_numbers", "run_all", "skill_text", "start", "status", "study", "synthesize",
-           "train_brain"]  # fmt: skip
+__all__ = [
+    "add",
+    "blueprint",
+    "blueprint_note",
+    "category_for",
+    "clean_link",
+    "cuts_of",
+    "ficha",
+    "find",
+    "guidance",
+    "measure",
+    "merge",
+    "recut",
+    "references",
+    "rules_from_numbers",
+    "run_all",
+    "skill_text",
+    "start",
+    "status",
+    "study",
+    "synthesize",
+    "train_brain",
+]

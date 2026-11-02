@@ -211,17 +211,29 @@ class VideoSchoolTool(BaseTool):
                 "faces, motion, sound hits, words per second), watches it with a model, and "
                 "writes one superskill per category that every later video of that kind follows. "
                 "action 'estudiar' (all, or 'categoria'), 'estado', 'agregar' ('links' and "
-                "'categoria'), 'superskill' ('categoria': read it). Runs in the background."
+                "'categoria'), 'superskill' ('categoria': read it), 'ficha' ('video': everything measured "
+                "about one reference, second by second). To recreate one exactly, call video_essay "
+                "with 'molde' = its link. Runs in the background."
             ),
             parameters={
                 "type": "object",
                 "properties": {
                     "action": {
                         "type": "string",
-                        "enum": ["estudiar", "estado", "agregar", "superskill"],
+                        "enum": [
+                            "estudiar",
+                            "estado",
+                            "agregar",
+                            "superskill",
+                            "ficha",
+                        ],
                     },
                     "categoria": {"type": "string"},
                     "links": {"type": "array", "items": {"type": "string"}},
+                    "video": {
+                        "type": "string",
+                        "description": "ficha: the studied reference's link",
+                    },
                 },
                 "required": ["action"],
             },
@@ -241,6 +253,8 @@ class VideoSchoolTool(BaseTool):
                     f"Agregué {r['agregados']} enlaces a «{r['categoria']}». "
                     "Diga «estudia las referencias» para aprenderlos."
                 )
+            if action == "ficha":
+                return escuela.ficha(str(p.get("video") or (p.get("links") or [""])[0]))
             if action == "superskill":
                 return (
                     escuela.skill_text(cat)
