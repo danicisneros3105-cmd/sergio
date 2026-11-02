@@ -50,6 +50,7 @@ Thumbs.db
 *.npz
 # the fly's real wiring (FlyWire 783, CC BY 4.0) ships with Sergio: connectome/mosca.py
 !src/openjarvis/connectome/data/mosca_sinapsis.npz
+!src/openjarvis/connectome/data/mosca_completa_sinapsis.npz
 *.log
 results/
 logs/

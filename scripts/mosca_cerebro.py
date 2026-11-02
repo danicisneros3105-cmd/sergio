@@ -9,7 +9,10 @@ brain, the senses other than the eyes, the visual projection neurons and the
 neurons that ascend from and descend to the body, with every connection of at
 least ``MIN_SYNAPSES`` measured synapses between two of them.
 
-    python scripts/mosca_cerebro.py [carpeta_de_descarga]
+    python scripts/mosca_cerebro.py [carpeta_de_descarga] [--completo]
+
+``--completo`` keeps the WHOLE brain (all 139 255 neurons, the optic lobes
+too) in ``mosca_completa_*`` (owner, 2 Nov 2026: «neuronas reales completas»).
 
 writes ``src/openjarvis/connectome/data/mosca_*`` and their SHA-256 in
 ``mosca.json`` (``connectome/mosca.py`` refuses files that do not match).
@@ -56,11 +59,15 @@ def fetch(folder: Path) -> None:
             urllib.request.urlretrieve(BASE + name, path)
 
 
-def build(folder: Path) -> dict:
+def build(folder: Path, complete: bool = False) -> dict:
     cl = pd.read_csv(folder / "classification.csv.gz")
     keep = cl.super_class.isin(KEEP) | (
         (cl.super_class == "sensory") & (cl["class"] != "visual")
     )
+    if complete:
+        keep = pd.Series(True, index=cl.index)
+    prefix = "mosca_completa" if complete else "mosca"
+    idx_type = np.uint32 if complete else np.uint16
     cells = cl[keep].reset_index(drop=True)
     index = pd.Series(np.arange(len(cells)), index=cells.root_id)
     co = pd.read_csv(
@@ -80,13 +87,13 @@ def build(folder: Path) -> dict:
     )
     pairs = co.groupby(["pre_root_id", "post_root_id"]).syn_count.sum().reset_index()
     pairs = pairs[pairs.syn_count >= MIN_SYNAPSES]
-    pre = index[pairs.pre_root_id].to_numpy(np.uint16)
-    post = index[pairs.post_root_id].to_numpy(np.uint16)
+    pre = index[pairs.pre_root_id].to_numpy(idx_type)
+    post = index[pairs.post_root_id].to_numpy(idx_type)
     syn = np.minimum(pairs.syn_count.to_numpy(), 65535).astype(np.uint16)
     order = np.lexsort((post, pre))
     OUT.mkdir(parents=True, exist_ok=True)
     np.savez_compressed(
-        OUT / "mosca_sinapsis.npz", pre=pre[order], post=post[order], syn=syn[order]
+        OUT / f"{prefix}_sinapsis.npz", pre=pre[order], post=post[order], syn=syn[order]
     )
     table = pd.DataFrame(
         {
@@ -100,7 +107,7 @@ def build(folder: Path) -> dict:
     )
     buf = io.StringIO()
     table.to_csv(buf, index=False)
-    (OUT / "mosca_neuronas.csv.gz").write_bytes(
+    (OUT / f"{prefix}_neuronas.csv.gz").write_bytes(
         gzip.compress(buf.getvalue().encode(), mtime=0)
     )
     meta = {
@@ -108,7 +115,9 @@ def build(folder: Path) -> dict:
         "Drosophila melanogaster, versión 783",
         "url": BASE,
         "licencia": "CC BY 4.0",
-        "region": "cerebro de la mosca sin los lóbulos ópticos (cerebro central, "
+        "region": "cerebro completo de la mosca, con los lóbulos ópticos"
+        if complete
+        else "cerebro de la mosca sin los lóbulos ópticos (cerebro central, "
         "sentidos, neuronas ascendentes y descendentes)",
         "neuronas_cerebro_completo": int(len(cl)),
         "neuronas": int(len(cells)),
@@ -117,17 +126,22 @@ def build(folder: Path) -> dict:
         "minimo_sinapsis": MIN_SYNAPSES,
         "sha256": {
             name: hashlib.sha256((OUT / name).read_bytes()).hexdigest()
-            for name in ("mosca_neuronas.csv.gz", "mosca_sinapsis.npz")
+            for name in (f"{prefix}_neuronas.csv.gz", f"{prefix}_sinapsis.npz")
         },
         "fecha": datetime.date.today().isoformat(),
     }
-    (OUT / "mosca.json").write_text(
+    (OUT / f"{prefix}.json").write_text(
         json.dumps(meta, ensure_ascii=False, indent=1), "utf-8"
     )
     return meta
 
 
 if __name__ == "__main__":
-    folder = Path(sys.argv[1] if len(sys.argv) > 1 else "flywire_783")
+    args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    folder = Path(args[0] if args else "flywire_783")
     fetch(folder)
-    print(json.dumps(build(folder), ensure_ascii=False, indent=1))
+    print(
+        json.dumps(
+            build(folder, "--completo" in sys.argv), ensure_ascii=False, indent=1
+        )
+    )

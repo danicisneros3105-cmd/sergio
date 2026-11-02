@@ -79,16 +79,18 @@ CLASS_ES = {
 class Fly:
     """The FlyWire wiring, ready to carry activity."""
 
-    def __init__(self, folder: Path = DATA) -> None:
+    def __init__(self, folder: Path = DATA, prefix: str = "") -> None:
         self.folder = Path(folder)
+        prefix = prefix or default_prefix(self.folder)
+        self.prefix = prefix
         self.meta: Dict[str, Any] = json.loads(
-            (self.folder / "mosca.json").read_text("utf-8")
+            (self.folder / f"{prefix}.json").read_text("utf-8")
         )
         self.verified = all(
             hashlib.sha256((self.folder / name).read_bytes()).hexdigest() == digest
             for name, digest in self.meta.get("sha256", {}).items()
         )
-        raw = gzip.decompress((self.folder / "mosca_neuronas.csv.gz").read_bytes())
+        raw = gzip.decompress((self.folder / f"{prefix}_neuronas.csv.gz").read_bytes())
         rows = list(csv.DictReader(io.StringIO(raw.decode("utf-8"))))
         self.n = len(rows)
         self.super_class = [r["superclase"] for r in rows]
@@ -101,7 +103,7 @@ class Fly:
             ],
             dtype=np.float32,
         )
-        data = np.load(self.folder / "mosca_sinapsis.npz")
+        data = np.load(self.folder / f"{prefix}_sinapsis.npz")
         self.pre = data["pre"].astype(np.int32)
         self.post = data["post"].astype(np.int32)
         syn = data["syn"].astype(np.float32)
@@ -113,6 +115,7 @@ class Fly:
         np.add.at(heard, self.post, np.abs(weight))
         self.weight = weight / (1.0 + heard[self.post])
         self.indptr = np.searchsorted(self.pre, np.arange(self.n + 1)).astype(np.int64)
+        self.vectorised = True  # one numpy pass per step (see _spread)
         self.inputs = np.array(
             [
                 i
@@ -147,11 +150,14 @@ class Fly:
         steps = [on]
         seen = set(on.tolist())
         for _ in range(STEPS):
-            nxt = np.zeros(self.n, dtype=np.float32)
-            for a in on:
-                lo, hi = self.indptr[a], self.indptr[a + 1]
-                if hi > lo:
-                    nxt[self.post[lo:hi]] += self.weight[lo:hi] * v[a]
+            if self.vectorised:
+                nxt = self._spread(on, v)
+            else:
+                nxt = np.zeros(self.n, dtype=np.float32)
+                for a in on:
+                    lo, hi = self.indptr[a], self.indptr[a + 1]
+                    if hi > lo:
+                        nxt[self.post[lo:hi]] += self.weight[lo:hi] * v[a]
             v = np.maximum(nxt, 0.0) + 0.2 * v  # what was on fades, it does not vanish
             on = _top(v, self.k_active)
             if not len(on):
@@ -159,6 +165,23 @@ class Fly:
             steps.append(on)
             seen.update(on.tolist())
         return {"pasos": steps, "activas": np.array(sorted(seen), dtype=np.int32)}
+
+    def _spread(self, on: np.ndarray, v: np.ndarray) -> np.ndarray:
+        """Every synapse leaving the neurons that are on, in one numpy pass:
+        their outgoing ranges gathered and summed per receiver (bincount)."""
+        if not len(on):
+            return np.zeros(self.n, dtype=np.float32)
+        starts = self.indptr[on]
+        lens = self.indptr[on + 1] - starts
+        total = int(lens.sum())
+        if not total:
+            return np.zeros(self.n, dtype=np.float32)
+        offsets = np.repeat(starts - np.concatenate(([0], np.cumsum(lens)[:-1])), lens)
+        idx = offsets + np.arange(total)
+        pushed = self.weight[idx] * np.repeat(v[on], lens)
+        return np.bincount(self.post[idx], weights=pushed, minlength=self.n).astype(
+            np.float32
+        )
 
     def code(self, cells: Sequence[int]) -> List[int]:
         """The brain's response as slots the decision stage can read."""
@@ -213,6 +236,21 @@ def _top(v: np.ndarray, k: int) -> np.ndarray:
     k = min(k, live)
     idx = np.argpartition(-v, k - 1)[:k]
     return idx[v[idx] > 0].astype(np.int32)
+
+
+def default_prefix(folder: Path = DATA) -> str:
+    """The whole brain when its files are here (owner, 2 Nov 2026: «neuronas
+    reales completas»), else the brain without the optic lobes;
+    ``SERGIO_MOSCA=central`` keeps the smaller one."""
+    import os
+
+    if os.environ.get("SERGIO_MOSCA", "").strip().lower() == "central":
+        return "mosca"
+    return (
+        "mosca_completa"
+        if (Path(folder) / "mosca_completa.json").is_file()
+        else "mosca"
+    )
 
 
 _FLY: Optional[Fly] = None

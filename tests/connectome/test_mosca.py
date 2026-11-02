@@ -12,9 +12,16 @@ def test_the_real_wiring_is_there_and_verified():
     f = mosca.fly()
     assert f is not None, "the FlyWire files are missing or do not match their SHA-256"
     d = f.describe()
-    assert d["verificado"] and d["neuronas"] == 49434
-    assert d["conexiones"] > 500_000 and d["sinapsis"] > 10_000_000
+    # the WHOLE brain by default (owner, 2 Nov 2026: «neuronas reales completas»)
+    assert d["verificado"] and d["neuronas"] == 139255
+    assert d["conexiones"] > 1_000_000 and d["sinapsis"] > 20_000_000
     assert d["neuronas_cerebro_completo"] == 139255
+    central = mosca.Fly(prefix="mosca").describe()
+    assert (
+        central["verificado"]
+        and central["neuronas"] == 49434
+        and central["conexiones"] > 500_000
+    )
     assert d["zonas"]["células de Kenyon"] > 5000
     assert "FlyWire" in d["fuente"] and "Google" in d["fuente"]
 
@@ -60,10 +67,12 @@ def test_altered_files_are_refused(tmp_path):
     for f in mosca.DATA.iterdir():
         if f.name.startswith("mosca"):
             shutil.copy(f, tmp_path / f.name)
-    data = dict(np.load(tmp_path / "mosca_sinapsis.npz"))
-    data["syn"] = data["syn"] + 1
-    np.savez_compressed(tmp_path / "mosca_sinapsis.npz", **data)
+    for name in ("mosca_sinapsis.npz", "mosca_completa_sinapsis.npz"):
+        data = dict(np.load(tmp_path / name))
+        data["syn"] = data["syn"] + 1
+        np.savez_compressed(tmp_path / name, **data)
     assert not mosca.Fly(tmp_path).verified
+    assert not mosca.Fly(tmp_path, prefix="mosca").verified
 
 
 def test_the_old_folder_moves_over(tmp_path):

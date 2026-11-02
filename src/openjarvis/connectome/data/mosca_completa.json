@@ -1,0 +1,16 @@
+{
+ "fuente": "FlyWire (Google y Princeton), Nature 2024 — cerebro completo de Drosophila melanogaster, versión 783",
+ "url": "https://storage.googleapis.com/flywire-data/codex/data/fafb/783/",
+ "licencia": "CC BY 4.0",
+ "region": "cerebro completo de la mosca, con los lóbulos ópticos",
+ "neuronas_cerebro_completo": 139255,
+ "neuronas": 139255,
+ "conexiones": 1066822,
+ "sinapsis": 23664861,
+ "minimo_sinapsis": 10,
+ "sha256": {
+  "mosca_completa_neuronas.csv.gz": "c8cb7a2908726509dfcda0147cf11fe4dcfa6ae5c7f5fdb3c0c034ccbfb807e0",
+  "mosca_completa_sinapsis.npz": "61aa2a303dabc3544be67349f011d5b0d1f03a64fc6e8b539e3bc750acc4e18e"
+ },
+ "fecha": "2026-11-02"
+}

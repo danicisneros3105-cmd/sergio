@@ -229,8 +229,10 @@ termina en la rama `main`, y el dueño actualiza con un único comando.
   reflexionar / a fondo), octopamina, acetilcolina, serotonina y sueño. Lo
   que llega cruza el **cableado real** de `connectome/mosca.py`: FlyWire
   versión 783 (reconstrucción de Google, corrección de Princeton y el
-  consorcio, CC BY 4.0), 49 434 neuronas fuera de los lóbulos ópticos y sus
-  573 006 conexiones de 10 o más sinapsis, en `connectome/data/mosca_*` con
+  consorcio, CC BY 4.0), **el cerebro completo** (dueño, 2 nov. 2026: «neuronas
+  reales completas»): 139 255 neuronas con los lóbulos ópticos y 1 066 822
+  conexiones de 10 o más sinapsis (`mosca_completa_*`; `SERGIO_MOSCA=central`
+  vuelve a las 49 434 sin lóbulos ópticos, `mosca_*`), en `connectome/data/` con
   SHA-256 (`scripts/mosca_cerebro.py` las rehace desde el bucket público). El
   signo sigue al transmisor (acetilcolina excita; GABA y glutamato inhiben)
   y queda encendido ~2 %. Lo aprendido se guarda en
