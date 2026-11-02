@@ -206,6 +206,20 @@ def serve(
         if resolved is None:
             resolved = get_engine(config, engine_key)
     if resolved is None:
+        # No AI connected yet (a new install, or no key): the server still
+        # starts, so the app opens and offers «Conectar la IA con un clic»
+        # (/v1/conectar/openrouter); a chat before that says what is missing.
+        try:
+            from openjarvis.engine.cloud import CloudEngine
+
+            resolved = ("cloud", CloudEngine())
+            console.print(
+                "[yellow]Todavía no hay una IA conectada. Sergio abre igual: "
+                "conéctela desde la app.[/yellow]"
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("cloud engine stand-in failed: %s", exc)
+    if resolved is None:
         console.print(
             "[red bold]No inference engine available.[/red bold]\n\n"
             "Make sure an engine is running."
@@ -309,6 +323,9 @@ def serve(
             "[yellow]Configured model "
             f"{configured_model!r} is not reachable; using {model_name!r}.[/yellow]"
         )
+    if not model_name and engine_name == "cloud" and not _has_cloud:
+        # the no-AI-yet stand-in: the model he picks when he connects it
+        model_name = configured_model or "openrouter/auto"
     if not model_name:
         console.print(
             "[red]No model available on any reachable engine.[/red]\n\n"
