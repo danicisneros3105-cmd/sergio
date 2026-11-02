@@ -130,8 +130,13 @@ def build(
     genre: str = "",
     models: List[Dict[str, Any]] | None = None,
     model_files: Dict[str, bytes] | None = None,
+    extra_files: Dict[str, bytes] | None = None,
+    notes: List[str] | None = None,
 ) -> bytes:
-    """The whole project as a zip the desktop unpacks and opens."""
+    """The whole project as a zip the desktop unpacks and opens.
+
+    *extra_files* go under ``Content/`` at their own paths (animations,
+    MotionBricks' model); *notes* are added to the brief."""
     if not (idea or "").strip():
         raise UnrealError("Dígame de qué trata el juego.")
     genre = (
@@ -150,9 +155,15 @@ def build(
     with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
         z.writestr(f"{key}/{key}.uproject", json.dumps(uproject(title), indent=2))
         z.writestr(f"{key}/Content/Python/init_unreal.py", level_script(models))
-        z.writestr(f"{key}/LEEME.md", brief(title, idea, genre))
+        z.writestr(
+            f"{key}/LEEME.md",
+            brief(title, idea, genre) + "".join(f"- {n}\n" for n in notes or []),
+        )
         for fname, data in (model_files or {}).items():
             z.writestr(f"{key}/Content/Modelos/{Path(fname).name}", data)
+        for rel, data in (extra_files or {}).items():
+            safe = "/".join(p for p in Path(rel).parts if p not in ("..", "/", ""))
+            z.writestr(f"{key}/Content/{safe}", data)
     return out.getvalue()
 
 

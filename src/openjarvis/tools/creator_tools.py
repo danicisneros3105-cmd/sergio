@@ -222,9 +222,13 @@ class UnrealGameTool(BaseTool):
             description=(
                 "Create a video game project in Unreal Engine 5 from 'idea' (and 'nombre', "
                 "'genero': tercera persona | primera persona | plataformas | carreras | puzle | "
-                "mundo abierto). It places the 3D models already made in Creator (names in "
-                "'modelos', from modelo_por_piezas) in the first level and opens the project "
-                "in Unreal on the owner's PC. Make the models first with modelo_por_piezas."
+                "mundo abierto). It places 3D models in the first level: 'modelos' (names already "
+                "made with modelo_por_piezas) and 'crear_modelos' (descriptions made now by the "
+                "cloud 3D services: Tripo, Meshy, Rodin, fal). Character motion: 'movimientos' "
+                "(sentences, e.g. 'salta un muro y aterriza rodando') become body animations with "
+                "Kimodo (FBX in Content/Animaciones); 'locomocion': true adds MotionBricks' "
+                "real-time walk/run/crouch model. Faces from voice: Audio2Face in Unreal. Opens "
+                "the project in Unreal on the owner's PC."
             ),
             parameters={
                 "type": "object",
@@ -233,6 +237,9 @@ class UnrealGameTool(BaseTool):
                     "nombre": {"type": "string"},
                     "genero": {"type": "string"},
                     "modelos": {"type": "array", "items": {"type": "string"}},
+                    "crear_modelos": {"type": "array", "items": {"type": "string"}},
+                    "movimientos": {"type": "array", "items": {"type": "string"}},
+                    "locomocion": {"type": "boolean"},
                 },
                 "required": ["idea"],
             },
@@ -260,6 +267,11 @@ class UnrealGameTool(BaseTool):
             fname = f"{despiece.slug(str(name))}.glb"
             files[fname] = path.read_bytes()
             placed.append({"file": fname, "x": 400 * (i + 1), "y": 0})
+        notes: list = []
+        made_now = self._cloud_models(
+            params.get("crear_modelos") or [], files, placed, notes
+        )
+        extra = self._motion(params, notes)
         try:
             data = unreal.build(
                 str(params.get("nombre") or ""),
@@ -267,6 +279,8 @@ class UnrealGameTool(BaseTool):
                 genre=str(params.get("genero") or ""),
                 models=placed,
                 model_files=files,
+                extra_files=extra,
+                notes=notes,
             )
         except unreal.UnrealError as exc:
             return ToolResult(tool_name=self.tool_id, content=str(exc), success=False)
@@ -279,12 +293,96 @@ class UnrealGameTool(BaseTool):
                 content=f"Proyecto «{key}» creado, pero no pude abrirlo en su PC: {exc}",
                 success=False,
             )
-        extra = f" con {len(placed)} modelos en el nivel" if placed else ""
+        what = f" con {len(placed)} modelos en el nivel" if placed else ""
+        if made_now:
+            what += f" ({made_now} hechos ahora en la nube)"
+        anims = sum(
+            1 for k in extra if k.startswith("Animaciones/") and k.endswith(".fbx")
+        )
+        if anims:
+            what += f", {anims} animaciones"
+        tail = (" " + " ".join(notes)) if notes else ""
         return ToolResult(
             tool_name=self.tool_id,
-            content=f"Juego «{key}» creado{extra}. {said}",
+            content=f"Juego «{key}» creado{what}. {said}{tail}",
             success=True,
         )
+
+    @staticmethod
+    def _cloud_models(wanted: list, files: dict, placed: list, notes: list) -> int:
+        """Each description, made now by the first cloud 3D service with a key."""
+        from openjarvis.creator import despiece, nube3d
+
+        made = 0
+        for text in [str(w).strip() for w in wanted if str(w).strip()][:8]:
+            try:
+                meta = nube3d.generate(text)
+            except nube3d.Nube3DError as exc:
+                notes.append(f"«{text}» no se pudo modelar: {exc}")
+                continue
+            name = str(meta.get("name") or "")
+            rel = next(
+                (
+                    f
+                    for f in (meta.get("files") or [meta.get("file", "")])
+                    if str(f).endswith(".glb")
+                ),
+                "",
+            )
+            try:
+                path = despiece.file_path(name, rel or "modelo.glb")
+            except Exception:  # noqa: BLE001
+                continue
+            fname = f"{despiece.slug(name)}.glb"
+            files[fname] = path.read_bytes()
+            placed.append({"file": fname, "x": 400 * (len(placed) + 1), "y": 0})
+            made += 1
+        return made
+
+    @staticmethod
+    def _motion(params: dict, notes: list) -> dict:
+        """Kimodo animations and MotionBricks' model, when installed."""
+        import tempfile
+        from pathlib import Path
+
+        from openjarvis.creator import movimiento
+
+        extra: dict = {}
+        wanted = [
+            str(m).strip() for m in params.get("movimientos") or [] if str(m).strip()
+        ][:12]
+        if not wanted and not params.get("locomocion"):
+            return extra
+        with tempfile.TemporaryDirectory() as tmp:
+            for text in wanted:
+                try:
+                    res = movimiento.texto_a_movimiento(
+                        text, out_dir=Path(tmp) / "anim"
+                    )
+                except movimiento.MovimientoError as exc:
+                    notes.append(str(exc))
+                    break  # the same reason for every other one
+                best = res.get("fbx") or res.get("bvh") or (res.get("npz") or [""])[0]
+                if best:
+                    extra[f"Animaciones/{Path(best).name}"] = Path(best).read_bytes()
+                if res.get("aviso"):
+                    notes.append(res["aviso"])
+            if params.get("locomocion"):
+                try:
+                    res = movimiento.motionbricks_onnx(Path(tmp) / "mb")
+                    for f in res["onnx"]:
+                        extra[f"MotionBricks/{Path(f).name}"] = Path(f).read_bytes()
+                    notes.append(
+                        "MotionBricks: modelo de locomoción (caminar, correr, lateral, agachado) "
+                        "en Content/MotionBricks."
+                    )
+                except movimiento.MovimientoError as exc:
+                    notes.append(str(exc))
+        if extra:
+            notes.append(
+                "Las animaciones usan el esqueleto SOMA de NVIDIA: en Unreal, el IK Retargeter las pasa a su personaje."
+            )
+        return extra
 
 
 @ToolRegistry.register("cine_ia")
@@ -383,8 +481,88 @@ class CinematicAIVideoTool(BaseTool):
         return ToolResult(tool_name=self.tool_id, content=text, success=True)
 
 
+@ToolRegistry.register("movimiento_personaje")
+class CharacterMotionTool(BaseTool):
+    """Character motion for games (``creator/movimiento.py``)."""
+
+    tool_id = "movimiento_personaje"
+
+    @property
+    def spec(self) -> ToolSpec:
+        return ToolSpec(
+            name="movimiento_personaje",
+            description=(
+                "Character motion for games with NVIDIA's open models on the owner's PC (needs an "
+                "NVIDIA GPU). action 'texto' ('texto', 'segundos'): Kimodo turns a sentence into a "
+                "body animation (FBX/BVH for Unreal). 'cara' ('audio'): Audio2Face moves the face "
+                "from a voice line. 'vista': opens MotionBricks' real-time locomotion preview. "
+                "'estado', 'instalar' (several GB, in the background)."
+            ),
+            parameters={
+                "type": "object",
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": ["texto", "cara", "vista", "estado", "instalar"],
+                    },
+                    "texto": {"type": "string"},
+                    "segundos": {"type": "number"},
+                    "audio": {"type": "string"},
+                },
+                "required": ["action"],
+            },
+            timeout_seconds=1800,
+        )
+
+    def execute(self, **params: Any) -> ToolResult:
+        from pathlib import Path
+
+        from openjarvis.creator import movimiento, studio
+
+        action = str(params.get("action") or "estado")
+        try:
+            if action == "instalar":
+                text = movimiento.instalar()
+            elif action == "vista":
+                text = movimiento.motionbricks_vista()
+            elif action == "texto":
+                out = studio.projects_root() / "animaciones"
+                res = movimiento.texto_a_movimiento(
+                    str(params.get("texto") or ""),
+                    float(params.get("segundos") or 5),
+                    out_dir=out,
+                )
+                made = res.get("fbx") or res.get("bvh") or (res.get("npz") or [""])[0]
+                text = f"Animación lista con Kimodo: {made}." + (
+                    f" {res['aviso']}" if res.get("aviso") else ""
+                )
+            elif action == "cara":
+                out = studio.projects_root() / "animaciones" / "caras"
+                res = movimiento.cara_desde_audio(
+                    Path(str(params.get("audio") or "")), out
+                )
+                text = (
+                    f"Expresiones de la cara listas (Audio2Face): {res['blendshapes']}."
+                )
+            else:
+                st = movimiento.estado()
+                g = st["gpu"]
+                gpu = (
+                    f"{g['nombre']} ({g['vram_gb']} GB)" if g else "sin tarjeta NVIDIA"
+                )
+                have = [n for n in ("kimodo", "motionbricks", "audio2face") if st[n]]
+                text = (
+                    f"Tarjeta: {gpu}. Instalados: {', '.join(have) or 'ninguno'}."
+                    + ("" if have else " Diga «instala los movimientos» para ponerlos.")
+                )
+        except movimiento.MovimientoError as exc:
+            return ToolResult(tool_name=self.tool_id, content=str(exc), success=False)
+        return ToolResult(tool_name=self.tool_id, content=text, success=True)
+
+
 __all__ = [
     "AnatomyFigureTool",
+    "CharacterMotionTool",
     "CinematicAIVideoTool",
     "TakeApartModelTool",
     "UnrealGameTool",
