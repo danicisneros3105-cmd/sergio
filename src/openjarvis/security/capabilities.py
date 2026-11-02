@@ -323,6 +323,7 @@ DEFAULT_TOOL_CAPABILITIES: Dict[str, List[str]] = {
     # The video studio: four programs, one job each (estudio/). They read the
     # web; thumbnails read a local video and write pictures; nothing is sent.
     "clips_cine": [Capability.NETWORK_FETCH],
+    "imagenes_web": [Capability.NETWORK_FETCH, Capability.FILE_WRITE],
     "miniaturas": [Capability.FILE_READ, Capability.FILE_WRITE],
     "titulos_video": [Capability.NETWORK_FETCH],
     "radar_tendencias": [Capability.NETWORK_FETCH],
