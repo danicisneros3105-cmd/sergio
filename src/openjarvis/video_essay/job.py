@@ -21,6 +21,7 @@ what was done:
 from __future__ import annotations
 
 import json
+import logging
 import secrets
 import shutil
 import subprocess
@@ -29,6 +30,8 @@ import time
 import traceback
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
+
+log = logging.getLogger(__name__)
 
 STAGES = (
     "estudio",
@@ -244,6 +247,106 @@ def _specialist_learns(state: Dict[str, Any]) -> None:
         pass
 
 
+def _trends(job: Job, params: Dict[str, Any], brief: str, ask: Any, budget: Any) -> str:
+    """The trend radar before the script (``tendencias``): the strongest real
+    opportunity becomes a note for the director; all of it is kept."""
+    if not params.get("tendencias"):
+        return ""
+    from openjarvis.estudio import radar
+
+    job.update(note="Leyendo tendencias, búsquedas y la competencia…")
+    platform = "instagram" if str(params.get("aspect")) == "9:16" else "youtube"
+    try:
+        res = radar.analizar(
+            str(params.get("nicho") or brief)[:80],
+            str(params.get("pais") or "EC"),
+            platform,
+            n=3,
+            ask=ask if budget.can("llm") else (lambda p: ""),
+        )
+    except Exception as exc:  # noqa: BLE001 — the video goes on without it
+        log.warning("trend radar failed: %s", exc)
+        return ""
+    job.write("radar.json", res)
+    opps = res.get("oportunidades") or []
+    used: Dict[str, Any] = {}
+    if opps:
+        o = opps[0]
+        d = o["dato"]
+        used = {
+            "gancho": o["gancho"],
+            "dato": d.get("tema") or d.get("busqueda"),
+            "fuente": d.get("fuente") or d.get("donde"),
+        }
+    elif res.get("busquedas"):
+        b = res["busquedas"][0]
+        used = {"gancho": "", "dato": b["busqueda"], "fuente": b["donde"]}
+    elif res.get("tendencias"):
+        t = res["tendencias"][0]
+        used = {"gancho": "", "dato": t["tema"], "fuente": t["fuente"]}
+    job.update(tendencia=used or None, note="")
+    if not used:
+        return ""
+    lines = [f"\n\nREAL TREND TO RIDE (from {used['fuente']}): «{used['dato']}»."]
+    if used["gancho"]:
+        lines.append(f"Suggested hook: «{used['gancho']}».")
+    pats = res.get("patrones") or {}
+    if pats.get("palabras_comunes"):
+        lines.append(
+            "Words the top videos of the niche share: "
+            + ", ".join(pats["palabras_comunes"][:8])
+            + "."
+        )
+    lines.append(
+        "Use it only if it fits the brief; never claim a number that is not here."
+    )
+    return " ".join(lines)
+
+
+def _studio_package(job: Job, pkg: Dict[str, Any], sc: Dict[str, Any], shots: Any, words: Any,
+                    aspect: str, videos: Path, ask: Any) -> None:  # fmt: skip
+    """Titles judged by the title program, and three thumbnails to test."""
+    from openjarvis.estudio import miniaturas, titulos
+
+    platform = {"9:16": "shorts", "1:1": "reels"}.get(aspect, "youtube")
+    trend = [str((job.state().get("tendencia") or {}).get("dato") or "")]
+    try:
+        res = titulos.generar(
+            f"{sc.get('title', '')}. {sc.get('logline', '')}"[:300], platform,
+            tendencias=[t for t in trend if t], ask=ask or (lambda p: ""),
+        )  # fmt: skip
+        mine = titulos.judge(pkg["title"], sc.get("title", ""), platform)
+        best = (res.get("titulos") or [None])[0]
+        if best and res.get("origen") == "modelo" and best["puntos"] > mine["puntos"]:
+            pkg["title_director"] = pkg["title"]
+            pkg["title"] = best["titulo"]
+        pkg["titulos"] = res.get("titulos") or []
+    except Exception as exc:  # noqa: BLE001
+        log.warning("titles program failed: %s", exc)
+    try:
+        from openjarvis.video_essay import render
+
+        longest = sorted((s for s in shots if s.kind != "card"), key=lambda s: -s.dur)[
+            :6
+        ]
+        stills = [render.still_of(s, words, render.SIZES[aspect]) for s in longest]
+        picked = miniaturas.pick([(float(i * 2), im) for i, im in enumerate(stills)], 3)
+        text = (pkg.get("thumbnail_text") or pkg["title"]).split()[:4]
+        covers = []
+        for k, (_, im, fs) in enumerate(picked):
+            layout = ("lado", "abajo", "bloque")[k]
+            thumb, info = miniaturas.compose(im, text, layout)
+            name = f"{job.id}-portada-{k + 1}.jpg"
+            thumb.save(videos / name, quality=92)
+            covers.append(
+                {"url": f"/v1/creator/media/{name}", "diseno": layout, **info}
+            )
+        if covers:
+            pkg["portadas"] = covers
+    except Exception as exc:  # noqa: BLE001
+        log.warning("thumbnail program failed: %s", exc)
+
+
 def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
     """Do (or finish) every stage of *job*; returns its final state."""
     import numpy as np
@@ -362,6 +465,7 @@ def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
                 keys = [s["key"] for s in style.available(deps.styles)]
                 profiles = [style.load(k, deps.styles) for k in dict.fromkeys(keys)]
                 brief = str(params.get("prompt") or params.get("topic") or "")
+                trend_note = _trends(job, params, brief, direct, budget)
                 sc = director.treatment(
                     str(params.get("prompt") or params.get("topic") or ""),
                     profiles,
@@ -372,7 +476,8 @@ def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
                     words_per_second=script.WORDS_PER_SECOND,
                     advice=_specialist(job, fixed, brief)
                     + _skills("guion", brief, job.state().get("genre", ""))
-                    + genres.notes(job.state().get("genre", "")),
+                    + genres.notes(job.state().get("genre", ""))
+                    + trend_note,
                 )
             job.write("script.json", sc)
             job.update(
@@ -738,6 +843,16 @@ def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
                     except Exception:  # noqa: BLE001 — the old cover still works
                         finish.cover(still, pkg["thumbnail_text"], videos / cover_name)
                     pkg["cover_url"] = f"/v1/creator/media/{cover_name}"
+                _studio_package(
+                    job,
+                    pkg,
+                    sc,
+                    shots,
+                    words,
+                    aspect,
+                    videos,
+                    edit if budget.can("llm") else None,
+                )
                 pkg["capitulos"] = pro.chapters_text(chapters)
                 job.write("publicar.json", pkg)
                 result["package"] = pkg
@@ -1008,6 +1123,13 @@ def summary(st: Dict[str, Any]) -> str:
         )
         if pkg.get("note"):
             extra += " " + pkg["note"]
+        trend = st.get("tendencia") or {}
+        if trend.get("dato"):
+            extra += f"\nTendencia usada: «{trend['dato']}» ({trend.get('fuente') or 'fuente real'})."
+        if len(pkg.get("portadas") or []) > 1:
+            extra += f" {len(pkg['portadas'])} portadas para probar."
+        if len(pkg.get("titulos") or []) > 1:
+            extra += " Otro título para probar: «" + pkg["titulos"][1]["titulo"] + "»."
         return f"«{title}» está listo ({res.get('shots', 0)} tomas).{score}{extra}\n\n![{title}]({res.get('url', '')})"
     if status == "error":
         where = LABELS.get(st.get("stage", ""), st.get("stage"))

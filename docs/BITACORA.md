@@ -2,6 +2,11 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-11-02 · Claude · el estudio entra en el video
+- `video_essay` usa los cuatro programas: con `tendencias` (o si el pedido dice tendencias, trends o viral) el radar corre antes del guion y su dato real llega al director (`job._trends`, `radar.json`, `tendencia` en el estado); el paquete pasa por el programa de títulos (solo cambia el título del director si un candidato del modelo saca más nota) y trae tres portadas para probar (`job._studio_package`). El resumen dice qué tendencia se usó y de qué fuente.
+- Radar: guarda la última lectura una hora y, sin datos nuevos, devuelve la anterior diciendo cuántas horas tiene. Escenas: si la escena exacta no aparece, busca la película por su nombre; un clip nunca sirve a dos escenas; fuera los de menos de 8 s.
+- No pude hacer el video de prueba desde la app: esta sesión no tiene el PC del dueño conectado, ni claves de modelos, y su red bloquea YouTube, Google Trends y el autocompletar. La prueba `test_video_with_trends_titles_and_three_covers` arma un video entero con modelos simulados.
+
 ## 2026-11-02 · Claude · estudio de video y gimnasio opcional
 - Gimnasio Mental pasa a complemento opcional, apagado hasta que el dueño lo añade («El cerebro humano está frito por las redes sociales; el tuyo puede volverse un genio.»): `personal.ADDONS`, `/v1/personal/complementos`, Ajustes → Complementos, tarjeta en Salud mental y el interruptor del escritorio (`gym_addon`, se sincroniza con el servidor cada 5 min).
 - Estudio de video (`src/openjarvis/estudio/`), cuatro programas con un solo trabajo cada uno, herramienta, ruta `/v1/estudio/*` y neurona «estudio»: `clips_cine` (escenas reales de películas y series, clips oficiales, nunca películas completas), `miniaturas` (mejores cuadros, palabras en el lado libre, prueba a tamaño de teléfono, 3 variantes), `titulos_video` (muchos candidatos juzgados por código: largo, tema primero, sin mentiras ni gritos, par A/B) y `radar_tendencias` (tendencias, autocompletar de YouTube y Google, competencia y sus patrones, lo que cada plataforma dijo de su algoritmo, público; nada sin dato).

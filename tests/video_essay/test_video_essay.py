@@ -780,3 +780,40 @@ def test_pace_follows_the_reference() -> None:
         {"min_s": 0.45, "max_s": 3.6}
     )
     assert P.pace({"median_shot_s": 6, "min_shot_s": 0.1})["max_s"] == 6.0
+
+
+@needs_ffmpeg
+def test_video_with_trends_titles_and_three_covers(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """«Con tendencias»: the radar runs first and its real signal reaches the
+    director; the package gets the titles program and three covers to test."""
+    from openjarvis.estudio import radar
+
+    seen: dict = {}
+
+    def fake_radar(nicho, pais, plataforma, **kw):
+        seen["nicho"], seen["plataforma"] = nicho, plataforma
+        return {"oportunidades": [{"gancho": "Nadie te dice esto", "formato": "short", "por_que": "x",
+                                   "dato": {"tema": "metas de año nuevo", "fuente": "Google Trends"}}],
+                "patrones": {"palabras_comunes": ["metas", "habitos"]}}  # fmt: skip
+
+    monkeypatch.setattr(radar, "analizar", fake_radar)
+    told: list = []
+    job = J.create({"topic": "metas", "seconds": 15, "mode": "post", "draft": True, "preset": "ultrafast",
+                    "tendencias": True, "pais": "EC"}, tmp_path / "jobs")  # fmt: skip
+    st = J.run(job, _deps(tmp_path, told, {}))
+    assert st["status"] == "listo", st.get("error")
+    assert seen["nicho"] == "metas" and seen["plataforma"] == "youtube"
+    assert st["tendencia"]["dato"] == "metas de año nuevo"
+    pkg = st["result"]["package"]
+    assert 1 <= len(pkg["portadas"]) <= 3
+    assert "Tendencia usada: «metas de año nuevo» (Google Trends)" in J.summary(st)
+
+
+def test_tool_turns_on_trends_when_the_order_says_so() -> None:
+    from openjarvis.tools.video_essay_tool import TREND_WORDS
+
+    assert TREND_WORDS.search("hazme un video con los trends de hoy")
+    assert TREND_WORDS.search("algo viral sobre ahorro")
+    assert not TREND_WORDS.search("un video sobre metas")

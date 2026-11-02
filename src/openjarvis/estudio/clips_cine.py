@@ -116,15 +116,25 @@ def buscar(
             "aviso": "La búsqueda en internet está apagada (SERGIO_CLIPS_WEB=0).",
         }
     found = []
+    used: set = set()  # one clip never serves two scenes
     for s in scenes_for(tema, n, ask):
         query = f"{s['pelicula']} ({s['anio']}) {s['escena']}"
-        try:
-            cands = sources.rank(
-                sources.search_scenes(query, por_escena * 2, runner), query
-            )
-        except Exception:  # noqa: BLE001
-            cands = []
+        cands: List[Any] = []
+        # the exact scene; then the film by name (its clips and trailer)
+        for q in (query, f"{s['pelicula']} ({s['anio']})"):
+            try:
+                found_now = sources.search_scenes(q, por_escena * 2, runner)
+            except Exception:  # noqa: BLE001
+                found_now = []
+            cands = [
+                c
+                for c in sources.rank(found_now, query)
+                if c.url not in used and not (c.seconds and c.seconds < 8)
+            ]
+            if cands:
+                break
         clips = [_clip(c, query) for c in cands[:por_escena]]
+        used.update(c["url"] for c in clips)
         found.append({**s, "busqueda": query, "clips": clips})
     reserve: List[Dict[str, Any]] = []
     if dominio_publico:

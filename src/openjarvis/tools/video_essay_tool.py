@@ -16,11 +16,14 @@ posted without the owner's face_approval.
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from openjarvis.core.registry import ToolRegistry
 from openjarvis.core.types import ToolResult
 from openjarvis.tools._stubs import BaseTool, ToolSpec
+
+TREND_WORDS = re.compile(r"\b(tendencias?|trends?|trending|viral(es)?|de moda)\b", re.I)
 
 
 @ToolRegistry.register("video_essay")
@@ -92,6 +95,16 @@ class VideoEssayTool(BaseTool):
                     "ai_video": {"type": "boolean"},
                     "web_clips": {"type": "boolean"},
                     "job": {"type": "string"},
+                    "tendencias": {
+                        "type": "boolean",
+                        "description": "read real trends, searches and the competition first "
+                        "and ride the strongest one (also when the order says trends/viral)",
+                    },
+                    "pais": {
+                        "type": "string",
+                        "description": "two letters for the trends (EC)",
+                    },
+                    "nicho": {"type": "string"},
                 },
                 "required": ["action"],
             },
@@ -161,6 +174,11 @@ class VideoEssayTool(BaseTool):
             "ai_video": bool(params.get("ai_video", False)),
             "web_clips": bool(params.get("web_clips", True)),
             "monetize": params.get("monetize", True) is not False,
+            # the trend radar first: asked for, or the order speaks of trends
+            "tendencias": bool(params.get("tendencias"))
+            or bool(TREND_WORDS.search(f"{prompt} {topic}")),
+            "pais": str(params.get("pais") or "").strip().upper()[:2],
+            "nicho": str(params.get("nicho") or "").strip()[:80],
         }
         existing, why = jobs.guard(order)
         if existing is not None:

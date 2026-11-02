@@ -170,3 +170,50 @@ def test_gym_is_an_optional_addon(tmp_path):
     personal.save({"complementos": ["gimnasio", "no-existe"]}, tmp_path)
     assert personal.load(tmp_path)["complementos"] == ["gimnasio"]
     assert personal.addon_on("gimnasio", personal.load(tmp_path))
+
+
+def test_radar_keeps_the_last_reading_and_says_how_old(monkeypatch, tmp_path):
+    from openjarvis.automatiza import tendencias
+
+    monkeypatch.setattr(tendencias, "read", lambda *a, **k: {
+        "pais": "EC", "fuentes": ["Reddit"],
+        "senales": [{"tema": "ahorro", "fuente": "Reddit", "cifra": 10, "unidad": "votos",
+                     "detalle": ""}]})  # fmt: skip
+    empty = lambda *a, **k: _R([])  # noqa: E731
+    first = radar.analizar(
+        "ahorro", get=empty, runner=lambda a: "", ask=lambda p: "", home=tmp_path
+    )
+    assert first["tendencias"] and not first.get("aviso")
+    monkeypatch.setattr(radar, "CACHE_SECONDS", 0)
+    monkeypatch.setattr(tendencias, "read", lambda *a, **k: {})
+    again = radar.analizar(
+        "ahorro", get=empty, runner=lambda a: "", ask=lambda p: "", home=tmp_path
+    )
+    assert again["tendencias"] and "hace" in again["aviso_viejo"]
+    assert radar.texto(again).startswith("Sin datos nuevos")
+
+
+def test_clips_never_repeat_a_clip_and_try_the_film_by_name(monkeypatch):
+    monkeypatch.setattr("openjarvis.video_essay.sources.web_allowed", lambda: True)
+    monkeypatch.setattr(
+        "openjarvis.video_essay.sources.search_archive", lambda q, n: []
+    )
+    asked: list = []
+
+    def runner(args):
+        asked.append(args[-1])
+        return json.dumps({"id": "z9", "title": "Rocky (1976) official trailer", "channel": "Movieclips",
+                           "duration": 140})  # fmt: skip
+
+    def ask(p):
+        scenes = [
+            {"film": "Rocky", "year": 1976, "scene": "steps"},
+            {"film": "Rocky II", "year": 1979, "scene": "run"},
+        ]
+        return json.dumps({"scenes": scenes})
+
+    res = clips_cine.buscar(
+        "no rendirse", ask=ask, runner=runner, dominio_publico=False
+    )
+    urls = [c["url"] for s in res["escenas"] for c in s["clips"]]
+    assert len(urls) == len(set(urls))

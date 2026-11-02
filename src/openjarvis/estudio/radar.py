@@ -251,7 +251,77 @@ def analizar(
     runner: Optional[Callable[[List[str]], str]] = None,
     home: Optional[Path] = None,
 ) -> Dict[str, Any]:
-    """The whole reading for *nicho*; every opportunity tied to real data."""
+    """The whole reading for *nicho*; every opportunity tied to real data.
+
+    Kept one hour per niche, country and platform; when nothing can be read
+    now, the last reading is given back saying how old it is."""
+
+    key = f"{_norm(nicho)}|{(pais or 'EC').upper()[:2]}|{plataforma}|{int(profundo)}"
+    cached = _cache_get(key, home)
+    if cached and time.time() - float(cached.get("at") or 0) < CACHE_SECONDS:
+        return cached
+    fresh = _analizar(nicho, pais, plataforma, n=n, profundo=profundo, idioma=idioma,
+                      ask=ask, get=get, runner=runner, home=home)  # fmt: skip
+    if fresh.get("aviso") and cached:
+        hours = max(1, round((time.time() - float(cached.get("at") or 0)) / 3600))
+        return {
+            **cached,
+            "aviso_viejo": f"Sin datos nuevos ahora; esta lectura es de hace {hours} h.",
+        }
+    if not fresh.get("aviso"):
+        _cache_put(key, {**fresh, "at": time.time()}, home)
+    return fresh
+
+
+CACHE_SECONDS = 3600
+
+
+def _cache_file(home: Optional[Path]) -> Path:
+    if home is None:
+        from openjarvis.core.paths import get_config_dir
+
+        home = Path(get_config_dir())
+    return Path(home) / "estudio" / "radar.json"
+
+
+def _cache_get(key: str, home: Optional[Path]) -> Dict[str, Any]:
+    try:
+        return json.loads(_cache_file(home).read_text("utf-8")).get(key) or {}
+    except (OSError, ValueError, AttributeError):
+        return {}
+
+
+def _cache_put(key: str, value: Dict[str, Any], home: Optional[Path]) -> None:
+    path = _cache_file(home)
+    try:
+        data = json.loads(path.read_text("utf-8"))
+    except (OSError, ValueError):
+        data = {}
+    data[key] = value
+    if len(data) > 40:  # the newest 40 readings
+        data = dict(
+            sorted(data.items(), key=lambda kv: -float(kv[1].get("at") or 0))[:40]
+        )
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(data, ensure_ascii=False), "utf-8")
+    except OSError:
+        pass
+
+
+def _analizar(
+    nicho: str,
+    pais: str,
+    plataforma: str,
+    *,
+    n: int,
+    profundo: bool,
+    idioma: str,
+    ask: Optional[Callable[[str], str]],
+    get: Callable[..., Any],
+    runner: Optional[Callable[[List[str]], str]],
+    home: Optional[Path],
+) -> Dict[str, Any]:
     from openjarvis.automatiza import tendencias
 
     plataforma = plataforma if plataforma in ALGORITMO else "youtube"
@@ -357,6 +427,7 @@ def _deep(niche: str, ask: Optional[Callable[[str], str]]) -> str:
 def texto(res: Dict[str, Any]) -> str:
     if res.get("aviso"):
         return res["aviso"]
+    old = [res["aviso_viejo"]] if res.get("aviso_viejo") else []
     lines = [
         f"Radar de «{res['nicho'] or 'general'}» ({res['pais']}, {res['plataforma']}). "
         f"Fuentes: {', '.join(res['fuentes'])}."
@@ -388,7 +459,7 @@ def texto(res: Dict[str, Any]) -> str:
         + f" ({a['fuente']}). {a['limite']}"
     )
     lines.append(res["audiencia_real"])
-    return "\n".join(lines)
+    return "\n".join(old + lines)
 
 
 __all__ = [
