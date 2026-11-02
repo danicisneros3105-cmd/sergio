@@ -2,6 +2,13 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-11-02 · Claude · juegos con movimiento, Nodes con física, galería, puntero y molde
+- Juegos: `creator/movimiento.py` (Kimodo texto→movimiento con el checkpoint SOMA de la NVIDIA Open Model License, nunca el SMPL-X de investigación; MotionBricks para locomoción; Audio2Face para la cara desde la voz), instalador a pedido `scripts/instalar-movimiento.sh` (solo con NVIDIA), herramienta `movimiento_personaje`; `juego_unreal` crea modelos con la nube (Tripo, Meshy, Rodin, fal) y mete animaciones y locomoción en el proyecto.
+- Web: puntero de Sergio (`components/Pointer`, `lib/pointer.ts`, marca `[[señalar: …]]` en las respuestas, ya en `persona.py`), intro de Nodes con física (matter-js) y mini tour, Galería en abanico (`/galeria`, `/v1/creator/galeria`). reactdrops.dev está bloqueado en la nube: los componentes son propios.
+- Escuela: `ficha` (todo lo medido de un video) y `molde` en `video_essay` (recrea los cortes, posiciones, efectos y sonidos de una referencia estudiada con contenido nuevo).
+- Arreglado (era de antes): en modo liviano (`lib/perf.ts`) o con movimiento reducido los Nodes salían invisibles: la regla `.critter-frame:first-child` no encontraba el primer cuadro porque `<defs>` va antes; ahora `:first-of-type` y animación apagada en ese modo.
+- Sin probar: los motores de NVIDIA en un PC real (aquí no hay GPU ni acceso a GitHub de NVIDIA); la exportación a BVH usa la función de Kimodo y, si falla, deja el NPZ y lo dice; la llamada al ejemplo de Audio2Face depende de su versión.
+
 ## 2026-11-02 · Claude · escuela de video con las referencias del dueño
 - `video_essay/escuela.py` + `referencias.json` (sus 17 enlaces en tres categorías: shorts virales, animación, explicativos de entretenimiento). En su PC: descarga cada video solo para estudiarlo (yt-dlp; Instagram con `SERGIO_NAVEGADOR` si pide sesión), lo mide segundo a segundo por código (cortes a 4 cuadros/s, duración de tomas, palabras en pantalla y dónde, caras, movimiento, golpes de sonido, volumen, palabras por segundo con faster-whisper y el gancho de los 3 primeros segundos), lo mira con un modelo (`style.watch`) y escribe por categoría la superskill (`~/.openjarvis/escuela/superskills/<cat>/SKILL.md`) y el estilo `ref-<cat>`. Un cerebro de la escuela (mosca) aprende de los títulos a qué categoría pertenece un pedido.
 - Cada video nuevo recibe la superskill que le toca en el guion y en la edición (`job._skills`). Herramienta `escuela_video` (estudiar, estado, agregar, superskill), `/v1/estudio/escuela`, fila en «En marcha».

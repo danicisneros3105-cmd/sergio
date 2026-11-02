@@ -48,7 +48,7 @@ export function ShapePhysics({ shapes, height = 320, stagger = 260, onSettle, cl
       Bodies.rectangle(-30, height / 2, 60, height * 4, wall),
       Bodies.rectangle(width + 30, height / 2, 60, height * 4, wall),
     ]);
-    const bodies: Array<{ key: string; size: number; body: Matter.Body }> = [];
+    const bodies: Array<{ key: string; size: number; body: Matter.Body; round: boolean }> = [];
     const timers = shapes.map((s, i) =>
       window.setTimeout(() => {
         const x = width * (0.25 + 0.5 * ((i * 0.618) % 1));
@@ -59,7 +59,7 @@ export function ShapePhysics({ shapes, height = 320, stagger = 260, onSettle, cl
             : Bodies.circle(x, -s.size, s.size / 2, opts);
         Body.setAngularVelocity(body, (i % 2 ? 1 : -1) * 0.05);
         Composite.add(engine.world, body);
-        bodies.push({ key: s.key, size: s.size, body });
+        bodies.push({ key: s.key, size: s.size, body, round: s.shape !== 'box' });
       }, i * stagger),
     );
     const mouse = Mouse.create(host);
@@ -73,9 +73,10 @@ export function ShapePhysics({ shapes, height = 320, stagger = 260, onSettle, cl
     let quietFrames = 0;
     let settled = false;
     const draw = () => {
-      for (const { key, size, body } of bodies) {
+      for (const { key, size, body, round } of bodies) {
         const el = els.current[key];
-        if (el) el.style.transform = `translate(${body.position.x - size / 2}px, ${body.position.y - size / 2}px) rotate(${body.angle}rad)`;
+        // a round shape looks the same turned: its face and name stay upright
+        if (el) el.style.transform = `translate(${body.position.x - size / 2}px, ${body.position.y - size / 2}px)${round ? '' : ` rotate(${body.angle}rad)`}`;
       }
       if (!settled && bodies.length === shapes.length) {
         const moving = bodies.some(({ body }) => body.speed > 0.15);

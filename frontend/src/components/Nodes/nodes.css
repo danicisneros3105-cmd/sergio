@@ -27,7 +27,11 @@
 .critter[data-status='working'], .critter[data-talking] { --d: 0.9s; }
 .critter svg { display: block; overflow: visible; }
 .critter-frame { visibility: hidden; animation: critter-show var(--d) steps(1, end) infinite; animation-delay: calc(var(--d) * var(--n) * -1); }
-.critter-frame:first-child { visibility: visible; }
+/* With animations off (reduced motion, or the light mode of slow PCs) the
+   first frame stays. It is the first <g>, not the first child: <defs> comes
+   before it, so «:first-child» matched nothing and the Nodes disappeared. */
+html[data-ligero] .critter-frame { animation: none !important; }
+html[data-ligero] .critter-frame:first-of-type { visibility: visible; }
 @keyframes critter-show { 0% { visibility: visible; } 8.3333% { visibility: hidden; } 100% { visibility: hidden; } }
 .critter[data-status='paused'] { filter: grayscale(1); opacity: 0.55; }
 .critter[data-status='paused'] .critter-frame { animation-play-state: paused; }
@@ -35,6 +39,7 @@
 @keyframes critter-alert { 50% { opacity: 0.25; } }
 @media (prefers-reduced-motion: reduce) {
   .critter-frame, .critter-alert { animation: none; }
+  .critter-frame:first-of-type { visibility: visible; }
 }
 /* On a dark page the black ink would vanish: a thin white edge, like a sticker. */
 .dark .critter svg { filter: drop-shadow(0 0 0.8px #fff) drop-shadow(0 0 0.8px #fff); }

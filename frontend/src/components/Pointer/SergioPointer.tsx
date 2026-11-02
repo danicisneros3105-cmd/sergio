@@ -38,7 +38,7 @@ export function SergioPointer() {
           next();
           return;
         }
-        el.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+        el.scrollIntoView?.({ block: 'center', inline: 'nearest', behavior: 'instant' as ScrollBehavior });
         const r = el.getBoundingClientRect();
         x = r.left + Math.min(r.width * 0.5, 40);
         y = r.top + r.height * 0.6;

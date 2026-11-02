@@ -35,7 +35,8 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
-  max-width: 240px;
+  width: max-content;
+  max-width: 260px;
   padding: 6px 10px;
   border-radius: 12px 12px 12px 4px;
   background: #007aff;

@@ -33,15 +33,17 @@ export function findTarget(target: string, root: ParentNode = document): HTMLEle
     /* not a selector: words */
   }
   const want = plain(t);
+  // anything drawn counts, also further down the page (it is scrolled to);
+  // on a tie, what is already on screen wins
   const candidates = Array.from(
-    root.querySelectorAll<HTMLElement>('button, a, [role="button"], [role="tab"], h1, h2, h3, label, [aria-label]'),
-  ).filter(visible);
+    root.querySelectorAll<HTMLElement>('button, a, [role="button"], [role="tab"], h1, h2, h3, h4, label, [aria-label]'),
+  ).filter(drawn);
   let best: HTMLElement | null = null;
   let score = 0;
   for (const el of candidates) {
     const name = plain(el.getAttribute('aria-label') || el.textContent || '');
-    if (!name) continue;
-    const s = name === want ? 3 : name.startsWith(want) ? 2 : name.includes(want) ? 1 : 0;
+    if (!name || name.length > want.length * 4 + 20) continue;
+    const s = (name === want ? 6 : name.startsWith(want) ? 4 : name.includes(want) ? 2 : 0) + (s0(el) && name.includes(want) ? 1 : 0);
     if (s > score) {
       best = el;
       score = s;
@@ -50,9 +52,15 @@ export function findTarget(target: string, root: ParentNode = document): HTMLEle
   return best;
 }
 
-function visible(el: HTMLElement): boolean {
+function drawn(el: HTMLElement): boolean {
   const r = el.getBoundingClientRect();
-  return r.width > 0 && r.height > 0 && r.bottom > 0 && r.right > 0 && r.top < window.innerHeight && r.left < window.innerWidth;
+  return r.width > 0 && r.height > 0;
+}
+
+/** On screen now. */
+function s0(el: HTMLElement): boolean {
+  const r = el.getBoundingClientRect();
+  return r.bottom > 0 && r.right > 0 && r.top < window.innerHeight && r.left < window.innerWidth;
 }
 
 function plain(s: string): string {
