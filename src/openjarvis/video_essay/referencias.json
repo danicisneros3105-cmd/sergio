@@ -66,6 +66,91 @@
     "datos curiosos explicados rápido",
     "cómo funciona esto, explicado en 60 segundos"
    ]
+  },
+  "shorts-animados": {
+   "nombre": "Shorts animados",
+   "formato": "9:16",
+   "generos": [
+    "animacion",
+    "pesada"
+   ],
+   "fps": 30,
+   "links": [],
+   "canales": [
+    {
+     "url": "https://www.youtube.com/@RicksClips3000",
+     "pestana": "shorts",
+     "ultimos": 20
+    }
+   ],
+   "ejemplos": [
+    "short animado con un personaje y un remate al final",
+    "historia animada corta con gancho en el primer segundo"
+   ]
+  },
+  "explicativo-tipografico": {
+   "nombre": "Explicativos con tipografía en movimiento",
+   "formato": "9:16",
+   "generos": [
+    "explicado3d",
+    "documental"
+   ],
+   "fps": 30,
+   "links": [],
+   "canales": [
+    {
+     "url": "https://www.youtube.com/@your.nextcore",
+     "pestana": "shorts",
+     "ultimos": 20
+    }
+   ],
+   "ejemplos": [
+    "explicación corta con palabras grandes en distintas letras y lugares",
+    "dato curioso explicado con texto animado"
+   ]
+  },
+  "ensayo-documental": {
+   "nombre": "Ensayo documental con mapas y archivo",
+   "formato": "16:9",
+   "generos": [
+    "documental",
+    "explicado3d"
+   ],
+   "fps": 30,
+   "links": [],
+   "canales": [
+    {
+     "url": "https://www.youtube.com/@johnnyharris",
+     "pestana": "videos",
+     "ultimos": 20
+    }
+   ],
+   "ejemplos": [
+    "por qué un país tiene esta frontera tan rara",
+    "la historia oculta detrás de un mapa"
+   ]
+  },
+  "reto-narrado": {
+   "nombre": "Retos y viajes narrados en primera persona",
+   "formato": "16:9",
+   "generos": [
+    "pesada",
+    "documental"
+   ],
+   "fps": 30,
+   "links": [],
+   "canales": [
+    {
+     "url": "https://www.youtube.com/@ryan",
+     "pestana": "videos",
+     "ultimos": 20
+    }
+   ],
+   "ejemplos": [
+    "intenté sobrevivir una semana con un dólar",
+    "un reto de varios días contado como una aventura"
+   ]
   }
- }
+ },
+ "_canales": "Canales que eligió el dueño (2 nov. 2026: «mira sus últimos 20 videos a 30 fps; la luz, el contraste, las sombras, el movimiento, los efectos, el corte, todo; transcribe cómo está escrito el guion»). Sergio baja en su equipo los últimos 20 de cada uno solo para estudiarlos, los mide a 30 cuadros por segundo y transcribe el guion; aprende la técnica, nunca usa su imagen, su voz ni sus palabras, y nunca los nombra en pantalla."
 }

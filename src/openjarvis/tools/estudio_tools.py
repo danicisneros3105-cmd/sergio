@@ -206,10 +206,13 @@ class VideoSchoolTool(BaseTool):
         return ToolSpec(
             name="escuela_video",
             description=(
-                "Sergio's school of the owner's reference videos: downloads each one (only to "
-                "study it), measures every second by code (cuts, shot length, words on screen, "
-                "faces, motion, sound hits, words per second), watches it with a model, and "
-                "writes one superskill per category that every later video of that kind follows. "
+                "Sergio's school of the owner's reference videos and channels (the latest 20 of a "
+                "channel): downloads each one (only to study it), measures every second by code, at "
+                "30 fps for channels (cuts, shot length, light, contrast, shadows, warm or cool grade, "
+                "camera movement and shake, flashes, words on screen, faces, sound hits) and reads how "
+                "the script is written (pace, hook, sentences, questions, turns, open loops, ending), "
+                "watches it with a model, and writes one superskill per category that every later "
+                "video of that kind follows. 'agregar' also takes a channel link (youtube.com/@name). "
                 "action 'estudiar' (all, or 'categoria'), 'estado', 'agregar' ('links' and "
                 "'categoria'), 'superskill' ('categoria': read it), 'ficha' ('video': everything measured "
                 "about one reference, second by second). To recreate one exactly, call video_essay "
@@ -265,7 +268,14 @@ class VideoSchoolTool(BaseTool):
                 cats = [cat] if cat in refs else None
                 if not escuela.start(cats):
                     return "Ya estoy estudiando las referencias; le aviso al terminar (ver «En marcha»)."
-                n = sum(len(refs[c]["links"]) for c in (cats or refs))
+                n = sum(
+                    len(refs[c]["links"])
+                    + sum(
+                        int(x.get("ultimos") or 20)
+                        for x in refs[c].get("canales") or []
+                    )
+                    for c in (cats or refs)
+                )
                 return (f"Empecé a estudiar {n} videos de referencia segundo a segundo, en segundo plano. "
                         "Cada uno tarda unos minutos; al final escribo la superskill de cada categoría.")  # fmt: skip
             st = escuela.status()

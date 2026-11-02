@@ -2,6 +2,12 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-11-02 · Claude · la escuela estudia canales: últimos 20, 30 fps, luz, cámara y guion
+- Cuatro estilos nuevos en `referencias.json`, cada uno con el canal que el dueño eligió (últimos 20): Shorts animados, Explicativos con tipografía en movimiento, Ensayo documental con mapas y Retos narrados. El nombre del estilo nunca dice de quién viene.
+- `escuela.py`: lee los últimos N de un canal con yt-dlp (`channel_links`, una pestaña y la otra si está vacía, guardados un día); mide a 30 fps leyendo **un segundo a la vez** (un ensayo de 30 min cabe); mide luz (brillo, contraste, sombras profundas, luces quemadas, calidez, viñeta), cámara (desplazamiento y temblor por correlación de fase), destellos y negros; y lee el guion (palabras por minuto, gancho, largo de frase, preguntas, giros, lazos abiertos, números, pausas, partes, final). Las reglas del superskill salen de esos números y el modelo escribe además 5–8 reglas de guion sin copiar palabras.
+- «Agregar» acepta el enlace de un canal. En la edición pública no se descarga nada ajeno.
+- No lo he corrido con los videos reales: aquí no se puede bajar de YouTube. Lo corre el PC del dueño («estudia las referencias»).
+
 ## 2026-11-02 · Claude · registro abierto verificado y economía de los planes
 - `accounts/registro.py` + `SERGIO_REGISTRO=abierto`: términos y edad aceptados (se guarda la versión), código por correo y aprobación automática solo si el antifraude lo ve limpio; si no hay forma de enviar el código, se rechaza **antes** de crear la cuenta. La web muestra las dos casillas. Sin la variable, todo igual que antes.
 - `pagos/economia.py` (`GET /v1/pagos/economia`) y `docs/ECONOMIA.md`: lo que deja cada plan en el peor caso y en el típico. Go es el frágil ($0,90 en el peor caso). Tasas = supuestos por confirmar.
