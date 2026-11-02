@@ -525,7 +525,7 @@ def llave_entrar(body: KeyLogin, request: Request) -> Dict[str, Any]:
 
 @router.post("/cara/reto")
 def cara_reto(request: Request) -> Dict[str, Any]:
-    """The one-time movement for signing in with Sergio's Face ID."""
+    """The one-time movement for signing in with Sergio's Visage."""
     from openjarvis.faces import routes as faces
 
     _limit(request)
@@ -535,13 +535,13 @@ def cara_reto(request: Request) -> Dict[str, Any]:
     if reason:
         return {"passcode_required": True, "reason": reason}
     if not faces._owner_key():
-        return {"ready": False, "reason": "Primero configure el Face ID de Sergio."}
+        return {"ready": False, "reason": "Primero configure el Visage de Sergio."}
     return {"ready": True, **gate.challenge().to_dict()}
 
 
 @router.post("/cara/entrar")
 async def cara_entrar(request: Request) -> Dict[str, Any]:
-    """Sign in with Sergio's own Face ID, on this computer (owner, 29 Oct
+    """Sign in with Sergio's own Visage, on this computer (owner, 29 Oct
     2026: «en Windows Hello aparecen símbolos raros y pide PIN siempre»).
     The page sends the one-time challenge and a short burst from the camera;
     ``faces.faceid.unlock`` decides (live face, looking, the owner and nobody
@@ -555,7 +555,7 @@ async def cara_entrar(request: Request) -> Dict[str, Any]:
     images = [f for f in form.getlist("images") if hasattr(f, "read")][:16]
     owner = faces._owner_key()
     if not owner:
-        raise HTTPException(409, "Primero configure el Face ID de Sergio.")
+        raise HTTPException(409, "Primero configure el Visage de Sergio.")
     frames = [await img.read() for img in images]
     import asyncio
 

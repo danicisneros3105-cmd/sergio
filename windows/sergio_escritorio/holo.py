@@ -21,7 +21,7 @@
   Anything else ("un teléfono", "una silla") is designed part by part.
 
 They look like frosted glass by default (the camera behind them blurred,
-iridescent edges); "estilo holograma" brings back the JARVIS blue light.
+iridescent edges); "estilo holograma" brings back the hologram blue light.
 Grabbing is forgiving: whatever your fingers are over glows before you
 pinch, a pinch that flickers for a frame does not drop it, and the wrist
 must turn a few degrees before the object turns (no jitter).
@@ -885,7 +885,7 @@ class HoloScene:
             return "Estilo cristal: vidrio esmerilado con reflejos de arcoíris."
         if re.search(r"\b(estilo|aspecto|modo) (de )?(holograma|jarvis|azul|iron man)\b", t):
             self.style = "holograma"
-            return "Estilo holograma: luz azul, estilo JARVIS."
+            return "Estilo holograma: luz azul."
         if "gravedad" in t or "fisica" in t:
             self.gravity = not re.search(r"\b(sin|quita|apaga|cero)\b", t)
             return (

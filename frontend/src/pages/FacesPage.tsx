@@ -1,4 +1,4 @@
-// Sergio's own Face ID: it also approves sensitive actions in the desktop app
+// Sergio's own Visage: it also approves sensitive actions in the desktop app
 // (owner, 26 Oct 2026), with the backup code after five misses.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -32,7 +32,7 @@ type Mode =
 
 const TICKS = 60;
 const REASON_ES: Record<string, string> = {
-  sin_codigo: 'Face ID necesita un código de respaldo.',
+  sin_codigo: 'Visage necesita un código de respaldo.',
   reinicio: 'Sergio se reinició: introduzca su código una vez.',
   intentos: 'Cinco intentos fallidos: introduzca su código.',
   inactivo: 'Hace más de 48 horas que no desbloquea: introduzca su código.',
@@ -287,7 +287,7 @@ export function FacesPage() {
       }
       await load();
       const mine = mode.who === (status?.owner || mode.who);
-      // Face ID can only unlock with a backup code: ask for it now, once.
+      // Visage can only unlock with a backup code: ask for it now, once.
       if (mine && !status?.passcode_set) {
         setError('');
         setFirstCode('');
@@ -297,7 +297,7 @@ export function FacesPage() {
       setMode({
         kind: 'done',
         ok: true,
-        title: mine ? 'Face ID está listo' : `${mode.who} guardado`,
+        title: mine ? 'Visage está listo' : `${mode.who} guardado`,
         text: mine ? 'Ya puede desbloquear mirando a la pantalla.' : 'Sergio ya le reconoce.',
       });
     })();
@@ -384,13 +384,13 @@ export function FacesPage() {
       if (!res.ok) return setError(await readError(res));
       setFirstCode('');
       await load();
-      return setMode({ kind: 'done', ok: true, title: 'Face ID está listo', text: 'Ya puede desbloquear mirando a la pantalla.' });
+      return setMode({ kind: 'done', ok: true, title: 'Visage está listo', text: 'Ya puede desbloquear mirando a la pantalla.' });
     }
     const res = await apiFetch('/v1/faces/faceid/passcode/check', { method: 'POST', body: form });
     const out = res.ok ? await res.json() : { ok: false };
     if (!out.ok) return setError(out.wait ? `Espere ${out.wait} s antes de volver a intentarlo.` : 'Código incorrecto.');
     await load();
-    setMode(then === 'after' ? { kind: 'home' } : { kind: 'done', ok: true, title: 'Desbloqueado', text: 'Face ID vuelve a estar disponible.' });
+    setMode(then === 'after' ? { kind: 'home' } : { kind: 'done', ok: true, title: 'Desbloqueado', text: 'Visage vuelve a estar disponible.' });
   };
 
   // One tap: the camera opens and Sergio learns the face. The code comes afterwards.
@@ -493,7 +493,7 @@ export function FacesPage() {
                 <li data-on={status.face_allowed ? '1' : undefined}>
                   {status.face_allowed
                     ? `Reconocimiento disponible · ${status.attempts_left} intentos`
-                    : REASON_ES[status.passcode_reason] || 'Face ID no disponible'}
+                    : REASON_ES[status.passcode_reason] || 'Visage no disponible'}
                 </li>
                 <li data-on="1">Su cara se guarda cifrada, nunca como foto</li>
               </ul>
@@ -511,7 +511,7 @@ export function FacesPage() {
         )}
       </div>
 
-      <aside className="face-system-proof"><Lock size={20} /><div><strong>Usted confirma con su cara.</strong><p>Las acciones importantes (enviar, comprar, borrar, publicar) se aprueban con este Face ID: mire a la pantalla y gire un poco la cabeza. Tras 5 fallos, o si pasa mucho tiempo, Sergio pide su código.</p></div></aside>
+      <aside className="face-system-proof"><Lock size={20} /><div><strong>Usted confirma con su cara.</strong><p>Las acciones importantes (enviar, comprar, borrar, publicar) se aprueban con este Visage: mire a la pantalla y gire un poco la cabeza. Tras 5 fallos, o si pasa mucho tiempo, Sergio pide su código.</p></div></aside>
 
       {mode.kind === 'home' && (
         <section className="faceid-people">

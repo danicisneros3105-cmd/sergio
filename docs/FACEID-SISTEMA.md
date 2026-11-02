@@ -1,4 +1,4 @@
-# ¿Puede el Face ID de Sergio desbloquear el PC o el Mac?
+# ¿Puede el Visage de Sergio desbloquear el PC o el Mac?
 
 Respuesta corta: **no de forma segura con una webcam normal**, y por eso Sergio
 no lo hace.
@@ -19,5 +19,5 @@ Lo seguro que sí hay:
    la trae) y activarla en Configuración → Cuentas → Opciones de inicio de
    sesión. Sergio ya usa Windows Hello para confirmar acciones sensibles.
 2. **Mac:** Touch ID o «Desbloquear con Apple Watch».
-3. El Face ID de Sergio sigue sirviendo para Sergio: reconocerle y desbloquear
+3. El Visage de Sergio sigue sirviendo para Sergio: reconocerle y desbloquear
    la app, con su código de respaldo.

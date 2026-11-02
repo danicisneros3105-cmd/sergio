@@ -72,7 +72,7 @@ def glance(t: float) -> float:
 
 
 class FaceIDGlyph:
-    """One Face ID moment: ``start('scan')`` then ``start('success')``/'fail'."""
+    """One Visage moment: ``start('scan')`` then ``start('success')``/'fail'."""
 
     def __init__(self, clock=time.monotonic) -> None:
         self.clock = clock

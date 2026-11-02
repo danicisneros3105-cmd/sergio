@@ -93,7 +93,7 @@ class AgentConfig:
     system_prompt: str = ""  # inline system prompt (takes precedence if set)
     system_prompt_path: str = ""  # path to system prompt file (.txt, .md)
     context_from_memory: bool = True  # inject relevant memory context into prompts
-    # Sergio's written character (persona.py): «señor», JARVIS-style gentleman.
+    # Sergio's written character (persona.py): «señor» gentleman.
     default_system_prompt: str = SERGIO_CHAT_PERSONA
 
     # Backward-compat property for old field name

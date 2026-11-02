@@ -61,11 +61,11 @@ def test_48_hours_without_unlock_and_the_156_hour_rule(gate):
     clock.t += 2 * 3600
     assert gate.passcode_reason() == "inactivo"
     gate.check_passcode("246810")
-    # Face ID unlocks every day, but the passcode is not used for 156 h ...
+    # Visage unlocks every day, but the passcode is not used for 156 h ...
     for _ in range(7):
         clock.t += 23 * 3600
         gate.record(True)
-    assert gate.passcode_reason() == ""  # Face ID used in the last 4 hours
+    assert gate.passcode_reason() == ""  # Visage used in the last 4 hours
     clock.t += 5 * 3600
     assert gate.passcode_reason() == "codigo_antiguo"
 

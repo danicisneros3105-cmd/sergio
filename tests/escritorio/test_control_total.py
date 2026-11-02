@@ -335,7 +335,7 @@ def test_real_world_uber_food_budget_rare_item_and_gallery_selling(
 
     tool = SergioAppControlTool()
 
-    # 1. Uber ride: A to B in 5 minutes using live location + Face ID
+    # 1. Uber ride: A to B in 5 minutes using live location + Visage
     r_uber = tool.execute(
         action="uber_ride",
         from_location="mi ubicacion",
@@ -345,10 +345,10 @@ def test_real_world_uber_food_budget_rare_item_and_gallery_selling(
     assert r_uber.success
     assert "Aeropuerto Internacional" in r_uber.content
     assert "máximo 5 minutos" in r_uber.content
-    assert "Confirmado con Face ID de Sergio" in r_uber.content
+    assert "Confirmado con Visage de Sergio" in r_uber.content
     assert any("m.uber.com" in str(c.get("target", "")) for c in recorded)
 
-    # 2. Food delivery: 2 burgers + french fries + soda in <= 10 min and <= 10 USD + Face ID
+    # 2. Food delivery: 2 burgers + french fries + soda in <= 10 min and <= 10 USD + Visage
     recorded.clear()
     r_food = tool.execute(
         action="delivery_order",
@@ -361,7 +361,7 @@ def test_real_world_uber_food_budget_rare_item_and_gallery_selling(
     assert r_food.success
     assert "máximo 10 USD" in r_food.content
     assert "máximo 10 minutos" in r_food.content
-    assert "Confirmado con Face ID de Sergio" in r_food.content
+    assert "Confirmado con Visage de Sergio" in r_food.content
     assert any(
         c.get("action") == "operate"
         and "10 USD" in c.get("target", "")
@@ -369,7 +369,7 @@ def test_real_world_uber_food_budget_rare_item_and_gallery_selling(
         for c in recorded
     )
 
-    # 3. Rare item Deep Research: trusted sellers + target price + Face ID
+    # 3. Rare item Deep Research: trusted sellers + target price + Visage
     recorded.clear()
     r_rare = tool.execute(
         action="rare_item_search",
@@ -379,7 +379,7 @@ def test_real_world_uber_food_budget_rare_item_and_gallery_selling(
     assert r_rare.success
     assert "Vendedores Confiables" in r_rare.content
     assert "450 USD" in r_rare.content
-    assert "Confirmado con Face ID de Sergio" in r_rare.content
+    assert "Confirmado con Visage de Sergio" in r_rare.content
 
     # 4. Sell phone from Gallery + Fair Market Price + Auto-Reply to interested buyers
     recorded.clear()
@@ -521,7 +521,7 @@ def test_seven_top_lifestyle_concierge_categories_real_and_confirmed(
         assert expected_portal in res.content, (
             f"Expected {expected_portal} in {res.content}"
         )
-        assert "Confirmado con Face ID de Sergio" in res.content
+        assert "Confirmado con Visage de Sergio" in res.content
         assert "Recordatorio proactivo creado automáticamente" in res.content
 
     concierge_files = list((tmp_path / "Sergio" / "concierge").glob("orden_*.md"))

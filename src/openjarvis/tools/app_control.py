@@ -59,13 +59,13 @@ class SergioAppControlTool(BaseTool):
                 "médica y protección ejecutiva). "
                 "3) 'delivery_order' / 'uber_ride': pide comida por delivery (Uber Eats, Rappi, PedidosYa, Didi) "
                 "revisando restaurantes, filtrando por presupuesto (p.ej. <= 10 USD) y tiempo máximo (p.ej. <= 10 min), "
-                "llenando formularios y pidiendo tras confirmar con Face ID; o pide un viaje en Uber de A (o tu ubicación GPS actual) a B en X minutos. "
+                "llenando formularios y pidiendo tras confirmar con Visage; o pide un viaje en Uber de A (o tu ubicación GPS actual) a B en X minutos. "
                 "4) 'shop_cart' / 'rare_item_search': busca productos, ropa o artículos raros/coleccionables con Deep Research "
                 "y precios objetivo, filtra vendedores confiables con garantía de autenticidad (Amazon, eBay, Mercado Libre, "
-                "Chrono24, Sotheby's, Farfetch, Vestiaire Collective, 1stDibs, StockX, Reverb, Shein, Zara, Nike) y los agrega al carrito o compra tras confirmar con Face ID. "
+                "Chrono24, Sotheby's, Farfetch, Vestiaire Collective, 1stDibs, StockX, Reverb, Shein, Zara, Nike) y los agrega al carrito o compra tras confirmar con Visage. "
                 "5) 'sell_multiplatform' / 'buyer_autoreply': entra en la galería de fotos del señor, encuentra las fotos del teléfono o artículo, "
                 "calcula un precio razonable de mercado, publica en múltiples plataformas (Marketplace, Mercado Libre, eBay, Wallapop, OLX) "
-                "tras confirmar con Face ID, y activa respuestas automáticas para negociar con interesados. "
+                "tras confirmar con Visage, y activa respuestas automáticas para negociar con interesados. "
                 "6) 'device_control': control multidispositivo real (PC ↔ Teléfono) para ordenar desde la computadora que el teléfono "
                 "empiece a grabar video ('record_video'), detenga video ('stop_video'), tome una foto ('take_photo'), grabe una reunión "
                 "('record_meeting'), suene ('ring'), haga una llamada ('call') o abra cualquier app/URL ('open_url'). "
@@ -203,7 +203,7 @@ class SergioAppControlTool(BaseTool):
                     },
                     "face_id": {
                         "type": "boolean",
-                        "description": "Confirmar la operación con Face ID de Sergio (por defecto True).",
+                        "description": "Confirmar la operación con Visage de Sergio (por defecto True).",
                     },
                     "auto_reply": {
                         "type": "boolean",

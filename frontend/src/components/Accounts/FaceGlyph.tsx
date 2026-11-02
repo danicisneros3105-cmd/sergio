@@ -1,4 +1,4 @@
-// The Face ID glyph, in Sergio's colours: still, scanning, the check, or a shake.
+// The Visage glyph, in Sergio's colours: still, scanning, the check, or a shake.
 
 /** Apple-style Face ID glyph, Sergio's colours. */
 export function FaceGlyph({ size = 72, state = 'idle' }: { size?: number; state?: 'idle' | 'scan' | 'ok' | 'fail' }) {

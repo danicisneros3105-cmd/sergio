@@ -1,4 +1,4 @@
-"""JARVIS-style abilities that run on the laptop itself.
+"""Gentleman-assistant abilities that run on the laptop itself.
 
 * :func:`system_status` — battery, CPU, memory, disk and uptime (Windows API
   through ctypes, nothing to install) and :func:`status_sentence` to say it.

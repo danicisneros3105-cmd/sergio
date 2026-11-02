@@ -1,6 +1,6 @@
 // The lock over Sergio: after a while without use (or «Bloquear ahora»),
 // everything is covered until the owner looks at the camera (Sergio's own
-// Face ID) or types Sergio's code. Only on this computer, and only once Face
+// Visage) or types Sergio's code. Only on this computer, and only once Face
 // ID is set up: a lock nobody can open would be worse than none.
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ScanFace } from 'lucide-react';
@@ -18,7 +18,7 @@ export function AppLock() {
   const [code, setCode] = useState('');
   const last = useRef(Date.now());
 
-  // Face ID set up on this computer? Otherwise the lock never closes.
+  // Visage set up on this computer? Otherwise the lock never closes.
   useEffect(() => {
     if (!isThisComputer()) return;
     apiFetch('/v1/faces/faceid')
@@ -114,7 +114,7 @@ export function AppLock() {
         {!useCode ? (
           <>
             <button type="button" className="app-lock-go" disabled={busy} onClick={() => void face()}>
-              {busy ? 'Mirando…' : 'Desbloquear con Face ID'}
+              {busy ? 'Mirando…' : 'Desbloquear con Visage'}
             </button>
             <button type="button" className="app-lock-alt" onClick={() => setUseCode(true)}>
               Usar mi código
@@ -141,7 +141,7 @@ export function AppLock() {
               Desbloquear
             </button>
             <button type="button" className="app-lock-alt" onClick={() => setUseCode(false)}>
-              Volver a Face ID
+              Volver a Visage
             </button>
           </form>
         )}

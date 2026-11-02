@@ -45,7 +45,7 @@ for _code, (_native, _english) in MORE_LANGUAGES.items():
     LANGUAGES.setdefault(_code, _native)
     LANGUAGE_NAMES_EN.setdefault(_code, _english)
 UI_LANGUAGES = ("es", "en", "pt", "fr", "de", "it")  # the interface is translated in these
-# How Sergio addresses the owner in each language (the JARVIS «señor»).
+# How Sergio addresses the owner in each language (the «señor»).
 SIR = {"es": "señor", "en": "sir", "pt": "senhor", "fr": "monsieur", "de": "mein Herr", "it": "signore"}
 
 

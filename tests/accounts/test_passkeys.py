@@ -48,7 +48,7 @@ def cbor_encode(value) -> bytes:
 
 
 class Phone:
-    """A fake platform authenticator: a P-256 key, Face ID always passes."""
+    """A fake platform authenticator: a P-256 key, Visage always passes."""
 
     def __init__(self, rp_id: str = HOST, verified: bool = True):
         self.key = ec.generate_private_key(ec.SECP256R1())

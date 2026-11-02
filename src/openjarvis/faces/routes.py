@@ -309,7 +309,7 @@ def _local_only(request: Request) -> None:
 
     host = request.client.host if request.client else ""
     if host != "testclient" and not from_this_computer(request):
-        raise HTTPException(status_code=403, detail="Face ID solo desde este equipo.")
+        raise HTTPException(status_code=403, detail="Visage solo desde este equipo.")
 
 
 def _owner_key() -> str:
@@ -375,7 +375,7 @@ async def faceid_unlock(
 
     owner = _owner_key()
     if not owner:
-        raise HTTPException(status_code=409, detail="Primero configure Face ID.")
+        raise HTTPException(status_code=409, detail="Primero configure Visage.")
     frames = [await _read(image) for image in images[:16]]
     try:
         return await asyncio.to_thread(

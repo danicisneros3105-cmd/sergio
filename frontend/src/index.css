@@ -4238,7 +4238,7 @@ button:focus-visible {
 .pagos-use { display: block; height: 3px; margin-top: 4px; border-radius: 3px; background: color-mix(in srgb, var(--color-text) 10%, transparent); overflow: hidden; }
 .pagos-use b { display: block; height: 100%; background: var(--color-accent); }
 
-/* Sergio locked: opens with Face ID or the code (owner, 2 Nov 2026). */
+/* Sergio locked: opens with Visage or the code (owner, 2 Nov 2026). */
 .app-lock {
   position: fixed;
   inset: 0;

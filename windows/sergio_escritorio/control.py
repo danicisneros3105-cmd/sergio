@@ -86,7 +86,7 @@ APPROVAL_WINDOW_S = 600.0
 # cosa y se vuelve tedioso». Ordinary moves (click, type, keys, open an app,
 # a web page or a document) run at once, as when he does them himself. Only
 # what cannot be taken back or reaches other people asks, and then Sergio's
-# own Face ID confirms by itself through the camera (no button, no PIN).
+# own Visage confirms by itself through the camera (no button, no PIN).
 RISKY = ("python", "terminal", "close_app", "message", "phone_call", "contact")
 RISKY_KEYS = ("shift+delete", "shift+del", "ctrl+shift+delete", "alt+f4")
 RUNS_CODE = (".exe", ".msi", ".bat", ".cmd", ".ps1", ".vbs", ".js", ".jar", ".scr",
@@ -96,7 +96,7 @@ RISKY_SKILLS = ("face_scan", "voice_enroll", "meeting_start")
 
 
 def risky(action: dict) -> bool:
-    """Does this action need the owner's Face ID before it runs?"""
+    """Does this action need the owner's Visage before it runs?"""
     kind = str(action.get("action") or "")
     if kind in RISKY:
         return True

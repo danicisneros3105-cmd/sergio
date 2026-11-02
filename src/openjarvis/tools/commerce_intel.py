@@ -1,8 +1,8 @@
 """Real-world commerce, mobility, rare-item deep research, and gallery-to-marketplace selling intelligence.
 
-Powers Sergio's 1-sentence autonomous real-world execution with Face ID verification:
+Powers Sergio's 1-sentence autonomous real-world execution with Visage verification:
 1. ``resolve_location()`` — Reads live GPS/Wi-Fi/IP coordinates and city so Uber rides and food delivery use the owner's real origin.
-2. ``verify_face_id()`` — Confirms the action with Sergio's Face ID (`face_approval`) before finalizing rides, food orders, purchases, or listings.
+2. ``verify_face_id()`` — Confirms the action with Sergio's Visage (`face_approval`) before finalizing rides, food orders, purchases, or listings.
 3. ``plan_uber_ride()`` — Builds a real Uber ride plan from origin A (or live GPS) to destination B within an target ETA (`max_minutes`) and budget (`budget`).
 4. ``plan_food_delivery()`` — Searches real restaurant/menu options across Uber Eats, Rappi, and PedidosYa, filters by `budget` (e.g. <= 10 USD) and `max_minutes` (e.g. <= 10 min), and generates the complete form-filling + checkout operator plan.
 5. ``deep_search_product()`` — Performs multi-store and Deep Research search across Amazon, eBay, Mercado Libre, Chrono24, StockX, Reverb, and specialized dealers, extracting prices, filtering by target price range, and scoring seller trust/reliability.
@@ -151,7 +151,7 @@ def resolve_location(origin_hint: str = "") -> Dict[str, Any]:
 
 
 def verify_face_id(what: str, require: bool = True) -> Dict[str, Any]:
-    """Run Sergio's Face ID verification (`FaceApprovalTool`).
+    """Run Sergio's Visage verification (`FaceApprovalTool`).
     Returns structured status so the action records the biometric confirmation."""
     if not require:
         return {
@@ -167,18 +167,18 @@ def verify_face_id(what: str, require: bool = True) -> Dict[str, Any]:
             return {
                 "verified": True,
                 "method": "faceid",
-                "summary": f"Confirmado con Face ID de Sergio: «{what}»",
+                "summary": f"Confirmado con Visage de Sergio: «{what}»",
             }
         return {
             "verified": False,
             "method": "faceid_pendiente",
-            "summary": f"Face ID solicitado en pantalla para confirmar: «{what}» ({res.content})",
+            "summary": f"Visage solicitado en pantalla para confirmar: «{what}» ({res.content})",
         }
     except Exception as exc:  # noqa: BLE001
         return {
             "verified": False,
             "method": "faceid_pendiente",
-            "summary": f"Verificación Face ID preparada para «{what}» ({exc})",
+            "summary": f"Verificación Visage preparada para «{what}» ({exc})",
         }
 
 
@@ -1120,7 +1120,7 @@ def generate_vip_requisition_letter(
         f"• Ventana de Entrega / Despacho: {deadline}",
         "• Fondos y Liquidación: Respaldo en custodia Escrow / Tarjeta VIP Concierge confirmada.",
         "• Confidencialidad: Protocolo estricto de no divulgación (NDA).",
-        "• Confirmación de Identidad: Biometría presencial verificada (Face ID 98%+).",
+        "• Confirmación de Identidad: pendiente del sí del señor con Visage (aún no confirmada).",
         "",
         "AUTORIZADO POR: SERGIO CONCIERGE — TOP-LIFESTYLE DESK",
     ]
@@ -1150,7 +1150,7 @@ def generate_concierge_dashboard_card(plan: Dict[str, Any]) -> str:
         f"  • Cobertura / Destino: {dest} | Plazo: {deadline}",
         f"  • Canal Tier 1 (Directo): {tier1.get('nombre', 'Oficial')}",
         f"  • Canal Tier 2 (Respaldo): {tier2.get('nombre', 'Secundario')}",
-        "  • Biometría Presencial: Face ID Confirmado (98%+ coincidencia)",
+        "  • Identidad: pendiente del sí del señor con Visage (no confirmada todavía)",
         "╚═══════════════════════════════════════════════════════════════════════════╝",
         "```",
     ]
@@ -1166,7 +1166,7 @@ def execute_concierge_plan(
     require_face_id: bool = True,
 ) -> Dict[str, Any]:
     """Build and verify a real, confirmed execution plan across the 7 Top-Lifestyle Concierge
-    categories, combining live web research, verified luxury/specialist portals, Face ID confirmation,
+    categories, combining live web research, verified luxury/specialist portals, Visage confirmation,
     and proactive reminders."""
     cat_key = classify_concierge_category(request_text, category_hint)
     meta = CONCIERGE_CATEGORIES[cat_key]

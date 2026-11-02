@@ -454,7 +454,7 @@ BONES = (
 class CameraWindow(QWidget):
     """Sergio's eyes on screen: drag to move, wheel to resize.
 
-    JARVIS-style overlay: every person, animal and object gets a frame and
+    HUD-style overlay: every person, animal and object gets a frame and
     its name (known people by name, strangers as "Persona 2", animals with
     their species), the face mesh with the expression, and the holograms
     (``holo.py``) you grab, turn, throw, sculpt and draw with your hands.
@@ -522,7 +522,7 @@ class CameraWindow(QWidget):
     show_window = False
     # Owner (2 Nov 2026): «Sergio ve está fallando, así que lo podemos
     # esconder». While hidden the window never opens, whatever asks for it;
-    # the eyes behind (Face ID, faces) keep working. ``sergio_ve: true`` in
+    # the eyes behind (Visage, faces) keep working. ``sergio_ve: true`` in
     # config.json brings it back.
     vista_off = True
     active = False
@@ -823,7 +823,7 @@ class CameraWindow(QWidget):
         p.end()
 
     def _draw_tracks(self, p: QPainter) -> None:
-        """JARVIS frames: corner brackets + a name tag per thing."""
+        """HUD frames: corner brackets + a name tag per thing."""
         now = time.monotonic()
         faces = list(getattr(self.vision, "faces", []) or []) if getattr(self.vision, "mesh", True) else []
         from sergio_escritorio.vision import salient
@@ -930,7 +930,7 @@ class CameraWindow(QWidget):
                 p.drawLine(pts[a], pts[b])
 
     def _draw_vitals(self, p: QPainter, card: QRectF) -> None:
-        """JARVIS read-out: distance, posture, gaze, blinks, hands, body."""
+        """HUD read-out: distance, posture, gaze, blinks, hands, body."""
         v = self.vision
         rows: list[str] = []
         if getattr(v, "distance_cm", None):
@@ -1263,13 +1263,13 @@ class CameraWindow(QWidget):
         ("Agárrala con las dos manos y sepáralas", "más grande / más pequeña"),
         ("Abre la mano mientras la mueves", "la lanzas"),
         ("«crea una estrella» · «un corazón rojo» · «un teléfono»", "cualquier figura u objeto"),
-        ("«estilo cristal» / «estilo holograma»", "vidrio esmerilado o luz azul JARVIS"),
+        ("«estilo cristal» / «estilo holograma»", "vidrio esmerilado o luz azul de holograma"),
         ("«pásalo a Blender»", "se abre en Blender y lo sigue moviendo tu mano"),
         ("Sin manos: arrastra · clic derecho gira · Ctrl+rueda", "con el ratón"),
     )
 
     def _draw_holo_guide(self, p: QPainter, card: QRectF) -> None:
-        """The how-to, JARVIS style, while it is new (or when asked)."""
+        """The how-to, while it is new (or when asked)."""
         now = time.monotonic()
         holo_on = getattr(self.hands, "mode", "off") == "holo"
         if not holo_on or now > self.guide_until:
@@ -1316,7 +1316,7 @@ class CameraWindow(QWidget):
         self._draw_holo_guide(p, card)  # on top of everything
 
     def _draw_jarvis(self, p: QPainter, card: QRectF) -> None:
-        """The JARVIS-blue light look («estilo holograma»)."""
+        """The hologram-blue light look («estilo holograma»)."""
         scene = self.holo
         ox, oy = card.left(), card.top()
         w, h = card.width(), card.height()
@@ -1374,7 +1374,7 @@ class CameraWindow(QWidget):
                 p.setPen(QPen(fill, 0.6))
                 p.drawPolygon(poly)
                 continue
-            # Hologram light: every colour glows toward JARVIS blue.
+            # Hologram light: every colour glows toward hologram blue.
             r, g, b = 0.45 * r + 0.25, 0.45 * g + 0.5, 0.45 * b + 0.55
             if face["front"]:
                 k = face["shade"]

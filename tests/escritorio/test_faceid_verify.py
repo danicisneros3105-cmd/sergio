@@ -1,4 +1,4 @@
-"""Actions are approved with Sergio's own Face ID (owner, 26 Oct 2026)."""
+"""Actions are approved with Sergio's own Visage (owner, 26 Oct 2026)."""
 
 import threading
 

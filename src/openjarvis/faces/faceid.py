@@ -1,6 +1,6 @@
-"""Sergio's own Face ID: webcam recognition with attention and movement checks.
+"""Sergio's own Visage: webcam recognition with attention and movement checks.
 
-The owner (26 Oct 2026): «todo se verifica vía nuestro propio ultra Face ID»,
+The owner (26 Oct 2026): «todo se verifica vía nuestro propio ultra Visage»,
 so the desktop app approves sensitive actions with this (``faceid_verify``)
 instead of Windows Hello. Honest limit: RGB images have no depth camera or
 hardware keys like an iPhone; the one-time movement challenge, the attention
@@ -87,7 +87,7 @@ class Challenge:
 
 @dataclass
 class Gate:
-    """Passcode, attempts and the rules for when Face ID may be used."""
+    """Passcode, attempts and the rules for when Visage may be used."""
 
     root: Path
     clock: Callable[[], float] = _now
@@ -172,10 +172,10 @@ class Gate:
             state["locked"] = True
             self._save(state)
 
-    # -- when Face ID may be used ------------------------------------------
+    # -- when Visage may be used ------------------------------------------
 
     def passcode_reason(self) -> str:
-        """Why the passcode is needed now ('' = Face ID may be used)."""
+        """Why the passcode is needed now ('' = Visage may be used)."""
         state = self._state()
         now = self.clock()
         if not state.get("passcode"):
@@ -225,7 +225,7 @@ class Gate:
         return c if c and c.expires >= self.clock() else None
 
     def record(self, ok: bool) -> int:
-        """Count a Face ID attempt; returns the attempts left."""
+        """Count a Visage attempt; returns the attempts left."""
         with self._lock:
             state = self._state()
             now = self.clock()
@@ -442,7 +442,7 @@ def match_owner(
 
     mine = gallery.get(owner)
     if mine is None or not len(mine):
-        return False, 0.0, "Aún no hay un Face ID guardado."
+        return False, 0.0, "Aún no hay un Visage guardado."
     others = [v for k, v in gallery.items() if k != owner and len(v)]
     scores = [float(np.max(mine @ f.feature)) for f in frames]
     best = max(scores)
@@ -463,7 +463,7 @@ def match_owner(
 def unlock(
     book: Any, gate: Gate, nonce: str, frames: list[bytes], owner: str
 ) -> dict[str, Any]:
-    """One Face ID attempt: passcode rules, challenge, attention, match."""
+    """One Visage attempt: passcode rules, challenge, attention, match."""
     reason = gate.passcode_reason()
     if reason:
         return {"ok": False, "passcode_required": True, "reason": reason}

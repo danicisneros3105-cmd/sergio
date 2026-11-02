@@ -149,6 +149,7 @@ def test_ring_and_head_draw():
         ("aprende mi cara en 3D", ""),
         ("escanea mi cara, soy Daniel Cisneros", "Daniel Cisneros"),
         ("aprende la cara de María José como Face ID", "María José"),
+        ("aprende la cara de María José como Visage", "María José"),
         ("guarda mi cara de nuevo", ""),
     ],
 )

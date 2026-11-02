@@ -227,7 +227,7 @@ _SCAN = re.compile(
     r"memorizate|graba|guarda)(?: me)? (?:mi|la|el|tu) (?:cara|rostro)"
     r"|escaneame(?: la cara| el rostro)?|(?:haz|hazme) un escaneo(?: facial| de (?:mi )?cara)?|escaneo facial)"
     r"(?: (?:de|a) (?!nuevo\b)(?P<who>[a-zñ]+(?: [a-zñ]+){0,3}?))?"
-    r"(?: (?:en 3d|en tres d|como (?:el )?face id|a la perfeccion|completa|completo|entera|bien|otra vez|de nuevo))*"
+    r"(?: (?:en 3d|en tres d|como (?:el )?(?:face id|visage)|a la perfeccion|completa|completo|entera|bien|otra vez|de nuevo))*"
     r"(?:,? (?:yo )?soy (?P<me>[a-zñ]+(?: [a-zñ]+){0,3}))?"
 )
 

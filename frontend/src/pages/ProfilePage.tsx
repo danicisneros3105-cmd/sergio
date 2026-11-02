@@ -22,7 +22,7 @@ interface Profile {
 
 // Parts of the profile that live in the PC app's own windows.
 const SECTIONS: DesktopSection[] = [
-  { key: 'faces', label: 'Mi cara', meta: 'Face ID de Sergio', icon: ScanFace, to: '/faces' },
+  { key: 'faces', label: 'Mi cara', meta: 'Visage de Sergio', icon: ScanFace, to: '/faces' },
   { key: 'goals', label: 'Mis metas', meta: 'Planes y práctica', icon: Target },
   { key: 'results', label: 'Resultados', meta: 'Lo que ha practicado', icon: UserRound },
 ];

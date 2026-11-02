@@ -1930,8 +1930,8 @@ def run(config: dict[str, Any]) -> None:
         now = _dt.datetime.now()
         watcher = camera_window.watcher
         boss = watcher is not None and watcher.owner and watcher.owner.lower() == name.lower()
-        who = "señor" if boss else name  # JARVIS: the owner is «señor»
-        if first_today and now.hour < 12:  # the morning report, JARVIS-style
+        who = "señor" if boss else name  # the owner is «señor»
+        if first_today and now.hour < 12:  # the morning report
             text = briefing(now, system_status(), reminders.pending(), who)
         else:
             text = f"Bienvenido de vuelta, {who}." if boss else f"Hola, {name}."
@@ -2195,7 +2195,7 @@ def run(config: dict[str, Any]) -> None:
             return "Veo a varias personas: haz clic en su recuadro y dime su nombre."
         return enroll_face(name, strangers[0].face_box)
 
-    # -- reminders, system status, protocols (JARVIS) ------------------------
+    # -- reminders, system status, protocols ------------------------
     from sergio_escritorio.jarvis import (
         PROTOCOLS,
         Reminders,
@@ -2346,7 +2346,7 @@ def run(config: dict[str, Any]) -> None:
         return str(plan.get("say") or f"Protocolo {name} listo.")
 
     def run_jarvis(q: Any, now: Any) -> str | None:
-        """The JARVIS quick commands; None = not one of them."""
+        """The quick commands; None = not one of them."""
         for extra in quick_handlers:  # world, blocking, language (set up at the end)
             handled = extra(q)
             if handled is not None:
@@ -3629,7 +3629,7 @@ def run(config: dict[str, Any]) -> None:
         return out.get("ok") is True
 
     def owner_approves(request: str, seconds: float = 10.0) -> bool:
-        """Explicit action consent with Sergio's own Face ID (owner, 26 Oct
+        """Explicit action consent with Sergio's own Visage (owner, 26 Oct
         2026: no Windows Hello); its backup code when Face ID asks for it."""
         if not bool(config.get("strict_permissions", False)):
             return True
@@ -3659,8 +3659,8 @@ def run(config: dict[str, Any]) -> None:
         try:
             return on_ui(ask, timeout=70.0) is True
         except Exception:  # noqa: BLE001 — fail closed if the OS is unavailable
-            logging.exception("Face ID verification unavailable")
-            bridge.caption.emit("No aprobado: confirme con Face ID en este equipo.")
+            logging.exception("Visage verification unavailable")
+            bridge.caption.emit("No aprobado: confirme con Visage en este equipo.")
             return False
 
     assistant.approve = owner_approves

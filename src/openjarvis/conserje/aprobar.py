@@ -16,7 +16,7 @@ def owner_yes(
     approver: Optional[Approver] = None,
     timeout: float = WAIT,
 ) -> bool:
-    """True only when the owner said yes: Sergio's Face ID on the PC, or the
+    """True only when the owner said yes: Sergio's Visage on the PC, or the
     approvals bell in the app. No answer is a no."""
     if approver is not None:
         return bool(approver(what, payload or {}))

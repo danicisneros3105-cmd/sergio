@@ -79,7 +79,7 @@ termina en la rama `main`, y el dueño actualiza con un único comando.
   «Detener» es la parada de emergencia y lo deja en pausa.
   La página: `pages/NodesPage.tsx` (marco) y una pestaña por archivo en
   `pages/nodes/`.
-- Salud, Perfil, Face ID y Post-its (dueño, oct. 2026): **Salud como la app
+- Salud, Perfil, Visage y Post-its (dueño, oct. 2026): **Salud como la app
   Salud del teléfono (iOS 27.2)** más lo que sus usuarios piden: pestañas
   Resumen (preparación, lo destacado, fijadas, anotar, nota y etiquetas del
   día, «qué influye», preguntar), Longevidad (siete áreas contra guías
@@ -99,7 +99,7 @@ termina en la rama `main`, y el dueño actualiza con un único comando.
   El **Perfil** lo arma Sergio
   Escritorio; con la app cerrada se dice, no se rellena. Los botones «Abrir
   en el PC» no dicen «abierto» si la app no responde (`companion: false`).
-  **Face ID** se configura de un toque: se abre la cámara, se mira, y el
+  **Visage** se configura de un toque: se abre la cámara, se mira, y el
   código de respaldo (dos veces) se pide después y puede esperar. Basta un
   ángulo (de frente); «Volver a configurar» empieza de cero; avisa si falta
   luz; un fallo de cámara o de movimiento no gasta intentos (solo una cara que
@@ -386,12 +386,12 @@ termina en la rama `main`, y el dueño actualiza con un único comando.
   una app (`docs/FACEID-SISTEMA.md`); no lo prometa.
 - **Todo se aprueba con el Face ID propio de Sergio, no con Windows Hello**
   (dueño, 26 oct. 2026: «recuerda que todo se verifica vía nuestro propio
-  ultra Face ID»). La hoja de confirmación del escritorio (`facegate.py`)
+  ultra Visage»). La hoja de confirmación del escritorio (`facegate.py`)
   usa `faceid_verify.py`: reto de movimiento de un solo uso, ráfaga de la
   webcam y `/v1/faces/faceid/unlock` (cara viva, mirando, el dueño y nadie
   más). Luz o un movimiento fallido no gastan intento; tras 5 caras que no
   coinciden, o si pasó mucho tiempo, pide el código de Sergio en la misma
-  hoja. Sin cámara, sin servidor o sin Face ID configurado: «no». Límite
+  hoja. Sin cámara, sin servidor o sin Visage configurado: «no». Límite
   honesto: una webcam no tiene cámara de profundidad como un iPhone.
   `platform_auth.py` (Windows Hello) queda en el código pero ya no se usa
   para aprobar.
@@ -730,7 +730,7 @@ termina en la rama `main`, y el dueño actualiza con un único comando.
 - **Reglas de diseño editorial** (dueño, 28 oct. 2026), por ahora en Automatizar: sin degradados violeta/azul eléctrico/rosa, sin brillos ni cuadrículas flotantes, sin ilustraciones genéricas; tres colores como mucho (papel, tinta, un azul profundo); secciones claras y oscuras alternadas; apertura asimétrica; una serif o display con carácter para títulos y una sans industrial para texto (no Inter ni Geist); botones con cambio de color sólido o 1 px de desplazamiento; bordes de 1 px. El dueño dirá qué sección sigue; mientras, el resto conserva el diseño Apple. **Reemplazado el 2 nov. 2026** («el diseño del apartado de automatizaciones»): Automatizar usa el mismo «Cristal y burdeos» que el resto, con un creador en tres pasos (Cuándo, Qué, Quién; `lib/automation.ts`, `components/Automatizar/`) que guarda rutinas de los Nodes, plantillas y la lista de todas las automatizaciones.
 - **Sonido, música e imágenes con sentido** (dueño, 28 oct. 2026: «los efectos de sonido están meh, la música trending pero acorde, las fotos no tienen sentido, faltan clips de películas»): efectos por capas, variados, espaciados (`audio.thin`) y bajo la voz; los sonidos propios del dueño en `~/.openjarvis/sonidos/` mandan. Música: lo más escuchado de la semana con licencia para ganar dinero (Jamendo con `JAMENDO_CLIENT_ID`), según el género (`music.GENRE_MUSIC`, `rank`); una canción comercial solo si él la nombra. **Una toma nunca muestra algo sin relación con lo que se dice**: biblioteca y clips reutilizados necesitan palabras con significado en común (`sources.related`), y el editor puede rechazar todas las tomas («-»); entonces imagen hecha para esa toma o ficha, nunca relleno sin sentido. Las escenas de cine se reintentan si el modelo está ocupado y, si no responde, salen de `films.KNOWN_SCENES` (películas reales, nunca inventadas).
 - **Menos permisos, app que siempre abre y todo más simple** (dueño, 29 oct. 2026: «Sergio pide demasiados permisos para hacer cualquier cosa… aparecen cosas de Python de la nada… esconde Sergio ve… Windows Hello pide PIN siempre… el centro de control más simple… no veo dónde creas proyectos… la app no abre»). Cambia decisiones anteriores:
-  - **Permisos**: clics, escribir, teclas, abrir apps, páginas o documentos y la guía corren sin preguntar. Solo piden el Face ID propio de Sergio lo que no se deshace o llega a otros (`control.risky`: código y terminal, cerrar apps, `shift+delete`/`alt+f4`, abrir ejecutables, mensajes y llamadas, aplicar un orden de archivos, aprender una cara o una voz, grabar una reunión). El Face ID se confirma solo con la cámara, sin botón ni PIN. Cerrar apps u ordenar archivos, una vez aprobado, no vuelve a preguntar en 10 min.
+  - **Permisos**: clics, escribir, teclas, abrir apps, páginas o documentos y la guía corren sin preguntar. Solo piden el Visage propio de Sergio lo que no se deshace o llega a otros (`control.risky`: código y terminal, cerrar apps, `shift+delete`/`alt+f4`, abrir ejecutables, mensajes y llamadas, aplicar un orden de archivos, aprender una cara o una voz, grabar una reunión). El Visage se confirma solo con la cámara, sin botón ni PIN. Cerrar apps u ordenar archivos, una vez aprobado, no vuelve a preguntar en 10 min.
   - **Sin Windows Hello**: «Entrar con la cara» en este equipo usa la cámara y el Face ID de Sergio (`/v1/cuentas/cara/reto` y `/cara/entrar`, `lib/faceLogin.ts`); la llave del dispositivo (passkey) queda para el teléfono u otro equipo.
   - **Sin ventanas de Python**: todo programa que abre el escritorio sale oculto (`sergio_escritorio/sin_consola.py`, instalado al importar el paquete).
   - **Vista escondida**: Sergio mira por la cámara sin abrir la ventana (`CameraWindow.show_window`); la primera vez pregunta una sola vez si puede usar la cámara (`camera_ok`). La ventana sale solo si se pide («muéstrame la cámara», hologramas, aprender una cara) o con «Ver la cámara» en «Pantalla».
@@ -753,7 +753,8 @@ termina en la rama `main`, y el dueño actualiza con un único comando.
 - **Cristal y burdeos** (dueño, 2 nov. 2026: «diseño más tipo ElevenLabs… los colores primarios serán glass, burgundy»; **reemplaza el acento azul de Apple y el azul de iMessage en el chat**): lienzo blanco cálido (#ffffff / #f7f6f4; de noche #0c0a09 / #161311), superficies de cristal (translúcidas con desenfoque, opacas en modo liviano), tinta casi negra, botones píldora negros, **un solo acento burdeos** (#7a1f3d; de noche #c4516f) y champán (#b8925a) como segunda nota rara; verde, ámbar y rojo solo para estados. Tokens en la última capa de `index.css` («Cristal y burdeos»); nunca colores escritos a mano en componentes.
 - **Enganche sano, no dependencia** (dueño, 2 nov. 2026, pidió «dependencia psicológica»): Sergio engancha por lo que sirve (`semana.py`, retomar, menos fricción); nunca rachas que culpan, recompensas al azar, falsa escasez, avisos no pedidos ni salidas difíciles (`docs/ENGANCHE-SANO.md`).
 - Modelos por plan (2 nov. 2026, «acceso a modelos y el costo de API»): Free y Go solo modelos rápidos; Work hasta nivel medio (Sonnet, GPT-5); Dev y Founders todos (`pagos/clientes.MODEL_ACCESS`). Lo que el plan no incluye va al modelo barato (`SERGIO_MODELO_BARATO`). La ganancia por cliente se calcula con el gasto real de su clave en OpenRouter; si no se puede leer, se muestra «no se pudo leer», nunca un número inventado.
-- **Sergio ve escondido y bloqueo con Face ID** (dueño, 2 nov. 2026: «Sergio ve está fallando, lo podemos esconder… desbloquear el dispositivo con Face ID»): la ventana de la cámara no se abre aunque se pida (`CameraWindow.vista_off`; `"sergio_ve": true` en config.json la devuelve); los ojos de fondo y el Face ID siguen. Sergio se bloquea tras un rato sin uso o con «Bloquear ahora» y se abre con su Face ID o su código (`components/AppLock`, `lib/appLock.ts`, Ajustes → Bloqueo con Face ID); solo en este equipo y solo con Face ID configurado. Bloquea Sergio, no Windows: desbloquear el sistema no lo permite ningún sistema a una app; no lo prometa.
+- **Sergio ve escondido y bloqueo con Visage** (dueño, 2 nov. 2026: «Sergio ve está fallando, lo podemos esconder… desbloquear el dispositivo con Visage»): la ventana de la cámara no se abre aunque se pida (`CameraWindow.vista_off`; `"sergio_ve": true` en config.json la devuelve); los ojos de fondo y el Visage siguen. Sergio se bloquea tras un rato sin uso o con «Bloquear ahora» y se abre con su Visage o su código (`components/AppLock`, `lib/appLock.ts`, Ajustes → Bloqueo con Visage); solo en este equipo y solo con Visage configurado. Bloquea Sergio, no Windows: desbloquear el sistema no lo permite ningún sistema a una app; no lo prometa.
+- **Producto híbrido, internacional y con otros nombres** (dueño, 2 nov. 2026): Sergio será **híbrido** (la mayoría de la gente no puede correr modelos en su equipo: chat, Nodes, automatizaciones y cuentas en la nube; el control del PC y lo local, opcionales) e **instalable en cualquier dispositivo**. La compañía y la app **no son para Ecuador**: se pueden usar allí, pero Sergio es una compañía **internacional**, como OpenAI (precios en USD, términos y privacidad para todo el mundo, procesadores con licencia fuera de Ecuador). «Face ID» es marca de Apple: el nombre provisional del reconocimiento facial de Sergio es **Visage** (cámbielo en un solo paso: `lib/faceLogin.ts`, `AppLock.tsx`, `FacesPage.tsx`; solo se nombra «Face ID» al hablar del iPhone). **JARVIS** (de Marvel) ya no aparece en ningún texto ni indicación de Sergio: la personalidad es la de un caballero elegante (el paquete interno aún se llama `openjarvis` por el crédito al proyecto original; renombrarlo es una migración aparte antes de publicar).
 - Kimi como proveedor y «Digitalsnickers» están descartados.
 - Licencia Apache-2.0 y autoría honesta: no se borran créditos del original.
 

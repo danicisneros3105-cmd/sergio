@@ -1,8 +1,8 @@
-// Sergio locks itself and opens with his own Face ID (owner, 2 Nov 2026:
-// «debes poder desbloquear el dispositivo con Face ID»). What an app can lock
+// Sergio locks itself and opens with his own Visage (owner, 2 Nov 2026:
+// «debes poder desbloquear el dispositivo con Visage»). What an app can lock
 // is the app: Windows, macOS or a phone unlock only through their own system
 // (docs/FACEID-SISTEMA.md), so this never claims to unlock the computer.
-// Only on this computer, where Sergio's Face ID lives.
+// Only on this computer, where Sergio's Visage lives.
 
 export interface LockPrefs {
   on: boolean;

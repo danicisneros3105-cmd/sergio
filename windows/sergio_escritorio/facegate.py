@@ -1,4 +1,4 @@
-"""A calm native confirmation sheet. Only Sergio's Face ID (or its backup
+"""A calm native confirmation sheet. Only Sergio's Visage (or its backup
 code) grants consent; the owner (26 Oct 2026) wants no Windows Hello here."""
 
 from __future__ import annotations
@@ -25,7 +25,7 @@ from sergio_escritorio.platform_auth import Consent
 
 
 def _no_verifier(_hwnd, _request, cancel):  # noqa: ANN001
-    return Consent(False, "Face ID no está listo en este equipo.", "faceid")
+    return Consent(False, "Visage no está listo en este equipo.", "faceid")
 
 
 class ConsentDialog(QDialog):
@@ -42,7 +42,7 @@ class ConsentDialog(QDialog):
     ):
         super().__init__()
         self.verifier = verifier
-        self.check_code = check_code  # Sergio's backup code, when Face ID asks for it
+        self.check_code = check_code  # Sergio's backup code, when Visage asks for it
         self.reduce_motion = reduce_motion
         self.cancelled = threading.Event()
         self.verified = False
@@ -50,7 +50,7 @@ class ConsentDialog(QDialog):
         self.started = time.monotonic()
         self.request = request
         long_request = len(self.request) > 240 or "\n" in self.request
-        self.setWindowTitle("Confirmar con Face ID")
+        self.setWindowTitle("Confirmar con Visage")
         QTimer.singleShot(60_000, self.reject)
         self.setWindowFlag(Qt.WindowType.FramelessWindowHint)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
@@ -78,7 +78,7 @@ class ConsentDialog(QDialog):
             details.setStyleSheet("color:#eef1f7;background:#18212d;border:1px solid #323c4a;border-radius:8px")
             layout.addWidget(details)
         self.detail = QLabel(
-            "Face ID de Sergio · mire a la pantalla"
+            "Visage de Sergio · mire a la pantalla"
         )
         self.detail.setWordWrap(True)
         self.detail.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -97,7 +97,7 @@ class ConsentDialog(QDialog):
         self.code.returnPressed.connect(self._use_code)
         self.code.hide()
         layout.addWidget(self.code)
-        self.button = QPushButton("Verificar con Face ID")
+        self.button = QPushButton("Verificar con Visage")
         self.button.setMinimumHeight(44)
         self.button.clicked.connect(self._start)
         layout.addWidget(self.button)
@@ -166,7 +166,7 @@ class ConsentDialog(QDialog):
             result.reason if isinstance(result, Consent) else "No verificado"
         )
         if not self.verified and getattr(result, "method", "") == "codigo" and self.check_code:
-            # Face ID needs the backup code now (too many tries or a long pause).
+            # Visage needs the backup code now (too many tries or a long pause).
             self.code.show()
             self.code.setFocus()
             self.button.setText("Confirmar con el código")

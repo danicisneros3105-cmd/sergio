@@ -57,7 +57,7 @@ async function post(path: string, body: unknown): Promise<Answer> {
 
 const LABEL: Record<string, string> = { google: 'Google', microsoft: 'Microsoft', apple: 'Apple' };
 
-export /** The page is open on the computer where Sergio runs (Face ID only there). */
+export /** The page is open on the computer where Sergio runs (Visage only there). */
 function isThisComputer(): boolean {
   const h = window.location.hostname;
   return h === 'localhost' || h === '127.0.0.1' || h === '[::1]';
@@ -106,7 +106,7 @@ function SignInPage() {
   const [faceOk, setFaceOk] = useState(false);
   const [face, setFace] = useState<'idle' | 'scan' | 'ok' | 'fail'>('idle');
   useEffect(() => {
-    // Sergio's own Face ID on this computer (camera); the device's passkey
+    // Sergio's own Visage on this computer (camera); the device's passkey
     // (iPhone Face ID, Touch ID) only where Sergio's camera check cannot run.
     if (cameraReady() && isThisComputer()) setFaceOk(true);
     else void passkeyReady().then(setFaceOk);

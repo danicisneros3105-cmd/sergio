@@ -341,7 +341,7 @@ class FaceBook(_IdentifyMixin):
     @property
     def _key_path(self) -> Path:
         # Kept away from the faces folder: copying people.json alone (a
-        # backup, a sync) reveals nothing without this key (Face ID keeps its
+        # backup, a sync) reveals nothing without this key (Visage keeps its
         # key in the Secure Enclave; this file is NOT hardware-protected).
         return self._root.parent / "keys" / "faces.key"
 

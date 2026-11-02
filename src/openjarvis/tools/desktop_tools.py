@@ -614,7 +614,7 @@ class FaceApprovalTool(_DesktopTool):
         return ToolSpec(
             name="face_approval",
             description=(
-                "Confirm with Sergio's own Face ID that the OWNER "
+                "Confirm with Sergio's own Visage that the OWNER "
                 "approves something. REQUIRED before publishing/uploading, "
                 "sending, buying, paying or deleting. Display the exact action "
                 "and request system verification; only proceed on APROBADO."
@@ -640,7 +640,7 @@ class FaceApprovalTool(_DesktopTool):
                 timeout=100,
             )
         except RuntimeError as exc:
-            return self._fail(f"NO APROBADO: Face ID no disponible ({exc}).")
+            return self._fail(f"NO APROBADO: Visage no disponible ({exc}).")
         except Exception as exc:  # noqa: BLE001 — models missing, etc.
             return self._fail(
                 f"NO APROBADO: verificación del sistema no disponible ({exc})."

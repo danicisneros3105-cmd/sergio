@@ -51,9 +51,9 @@ async function burst(video: HTMLVideoElement, n: number): Promise<Blob[]> {
 export async function signInWithSergioFace(device: string, say: (text: string) => void): Promise<FaceAnswer> {
   const r = await apiFetch('/v1/cuentas/cara/reto', { method: 'POST' });
   const reto = (await r.json().catch(() => ({}))) as Reto;
-  if (!r.ok) throw new Error((reto as { detail?: string }).detail || 'Face ID solo funciona en este equipo.');
+  if (!r.ok) throw new Error((reto as { detail?: string }).detail || 'Visage solo funciona en este equipo.');
   if (reto.passcode_required) return { status: 'codigo', message: reto.reason || 'Use su código de Sergio.' };
-  if (!reto.ready || !reto.nonce) return { status: 'no', message: reto.reason || 'Primero configure el Face ID de Sergio.' };
+  if (!reto.ready || !reto.nonce) return { status: 'no', message: reto.reason || 'Primero configure el Visage de Sergio.' };
 
   const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480, facingMode: 'user' }, audio: false });
   const video = document.createElement('video');
@@ -87,14 +87,14 @@ export interface UnlockAnswer {
   reason?: string;
 }
 
-/** Unlock Sergio (the app lock) with his own Face ID, on this computer: the
+/** Unlock Sergio (the app lock) with his own Visage, on this computer: the
  * same one-time movement and burst, but no new session is opened. */
 export async function unlockWithSergioFace(say: (text: string) => void): Promise<UnlockAnswer> {
   const r = await apiFetch('/v1/faces/faceid/challenge', { method: 'POST' });
   const reto = (await r.json().catch(() => ({}))) as Reto & { detail?: string; action?: string };
-  if (!r.ok) throw new Error(reto.detail || 'Face ID solo funciona en este equipo.');
+  if (!r.ok) throw new Error(reto.detail || 'Visage solo funciona en este equipo.');
   if (reto.passcode_required) return { ok: false, passcode_required: true, reason: reto.reason };
-  if (!reto.nonce) return { ok: false, message: 'Primero configure el Face ID de Sergio.' };
+  if (!reto.nonce) return { ok: false, message: 'Primero configure el Visage de Sergio.' };
   const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480, facingMode: 'user' }, audio: false });
   const video = document.createElement('video');
   video.muted = true;

@@ -302,7 +302,7 @@ const themeOptions: { value: ThemeMode; label: string; icon: typeof Sun }[] = [
 export const MORE_PAGES = [
   { path: '/pensar', label: 'Pensar a fondo' },
   { path: '/data-sources', label: 'Fuentes de datos' },
-  { path: '/faces', label: 'Face ID' },
+  { path: '/faces', label: 'Visage' },
   { path: '/clacky', label: 'Agente de código' },
   { path: '/planes', label: 'Planes y facturación' },
   { path: '/ayuda', label: 'Ayuda' },
@@ -310,7 +310,7 @@ export const MORE_PAGES = [
   { path: '/get-started', label: 'Primeros pasos' },
 ];
 
-/** Sergio locks after a while without use and opens with Face ID or the
+/** Sergio locks after a while without use and opens with Visage or the
  * code (lib/appLock.ts). It locks Sergio, never Windows. */
 function LockSettings() {
   const [p, setP] = useState<LockPrefs>(lockPrefs);
@@ -616,7 +616,7 @@ export function SettingsPage() {
             <AccountsPanel />
           </Section>
 
-          <Section title="Bloqueo con Face ID">
+          <Section title="Bloqueo con Visage">
             <LockSettings />
           </Section>
 

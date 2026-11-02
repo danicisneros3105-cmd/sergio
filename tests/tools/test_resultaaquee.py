@@ -118,7 +118,7 @@ def test_sergio_app_control_handles_resultaaquee_action():
 
 def test_connectome_neuron_selects_video_for_resultaaquee():
     phrase = (
-        "Sergio, haz un video estilo resultaaquee explicando como funciona el Face ID"
+        "Sergio, haz un video estilo resultaaquee explicando como funciona el Visage"
     )
     sel = neurons.select(neurons.normalise(phrase), {})
     assert sel is not None

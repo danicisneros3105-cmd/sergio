@@ -2,6 +2,12 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-11-02 · Claude · Visage, sin JARVIS, producto híbrido e internacional
+- «Face ID» (marca de Apple) pasa a llamarse **Visage** en todo lo que ve el usuario (web, escritorio, avisos, herramientas); solo se nombra Face ID al hablar del iPhone. La voz acepta «como Visage» y «como Face ID». Los nombres internos (`faceid.py`, rutas) no cambian.
+- JARVIS (marca de Marvel) fuera de toda indicación o texto de Sergio. El paquete interno sigue llamándose `openjarvis` (crédito al proyecto original, Apache-2.0): renombrarlo es una migración aparte antes de publicar.
+- **Revisé un error de Codex/Claude anterior**: `commerce_intel.py` escribía en sus documentos «Biometría verificada (98 %+ coincidencia)» y «Visage confirmado» sin que nadie hubiera verificado nada (cifra inventada). Ahora dice «pendiente del sí del señor».
+- Decisión del dueño anotada en AGENTS: híbrido, cualquier dispositivo, compañía internacional.
+
 ## 2026-11-02 · Claude · galería fluida, automatizar en tres pasos
 - Galería: el abanico sigue el puntero de forma continua (como el Dock): la carta de debajo sube y las vecinas un poco menos, con un muelle escrito directo en el DOM (sin renders por cuadro, el bucle se para al quedarse quieto). Inclinación 3D y brillo que siguen al puntero, halo del color de la foto detrás, cartas que se reparten al entrar. Respeta «reducir movimiento».
 - Automatizar: plantillas de un toque, creador Cuándo · Qué · Quién (simple = una frase; compleja = pasos numerados que el Node hace en orden), frase de vista previa antes de crear, y la lista de todas las automatizaciones con pausar y quitar. Usa las rutinas de los Nodes (un solo sistema). La charla sigue debajo. Diseño cambiado al de la app.

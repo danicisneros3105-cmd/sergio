@@ -69,7 +69,7 @@ ACCESSORIES = {
 }
 PERSONALITIES = {
     "Caballero británico": (
-        "Estilo JARVIS: a tu dueño le dices «señor», con respeto elegante y un "
+        "Estilo de caballero: a tu dueño le dices «señor», con respeto elegante y un "
         "brillo de ironía. Brillante, carismático y sarcástico: humor seco, "
         "remates rápidos y la seguridad relajada de una estrella de cine. De vez "
         "en cuando, humor negro ingenioso, nunca sobre grupos de personas ni "
