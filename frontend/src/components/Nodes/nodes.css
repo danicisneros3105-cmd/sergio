@@ -61,3 +61,40 @@ html[data-ligero] .critter-frame:first-of-type { visibility: visible; }
 .node-msg .node-cancel { align-self: center; margin-left: 4px; display: inline-flex; align-items: center; gap: 5px; }
 /* What only this Node does, under its role (nodes/specialty.py). */
 .critter-card-does { max-width: 240px; text-align: center; font-size: 12.5px; line-height: 1.35; color: var(--color-text-secondary); }
+
+/* -- Nodes, calmer (owner, 2 Nov 2026: «mejora el diseño de los Nodes,
+   inspírate en Dots»): the characters lead, each row is a soft card, the
+   chosen one sits on glass with its own colour as a thin edge, and the
+   emergency stop is a quiet outline until the pointer reaches it. */
+.nodes-item {
+  border-radius: 16px;
+  padding: 10px 12px;
+  gap: 12px;
+  transition: background 0.18s ease, transform 0.18s var(--ease-out, ease);
+}
+.nodes-item:hover { background: var(--color-hover); }
+.nodes-item[aria-current='true'] {
+  background: var(--glass-strong, var(--color-surface));
+  box-shadow: inset 3px 0 0 var(--node, var(--color-accent)), var(--shadow-card);
+}
+.nodes-item-name { font-weight: 600; letter-spacing: -0.005em; }
+.nodes-item-status { color: var(--color-text-secondary); }
+.node-head {
+  background: var(--glass-strong, var(--color-surface));
+  -webkit-backdrop-filter: var(--glass-blur, none);
+  backdrop-filter: var(--glass-blur, none);
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+.node-name { letter-spacing: -0.01em; }
+.paper-button.node-stop[data-variant='danger'] {
+  background: transparent;
+  color: var(--color-error);
+  border: 1px solid color-mix(in srgb, var(--color-error) 45%, transparent);
+  border-radius: 999px;
+}
+.paper-button.node-stop[data-variant='danger']:hover {
+  background: var(--color-error);
+  color: #fff;
+}
+.nodes-badge { background: var(--color-accent); }
+html[data-ligero] .node-head { -webkit-backdrop-filter: none; backdrop-filter: none; background: var(--color-surface); }

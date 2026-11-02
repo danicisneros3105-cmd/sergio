@@ -1,3 +1,4 @@
+import { WeekLine } from './WeekLine';
 import { Fragment, useMemo, useRef, useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router';
 import { MessageBubble } from './MessageBubble';
@@ -235,6 +236,7 @@ export function ChatArea() {
         {isEmpty ? (
           <div className="mac-rise text-center" style={{ ['--i' as string]: 0 }}>
             <h1 className="chat-hello">{hello}</h1>
+            <WeekLine />
           </div>
         ) : (
           <div className="imsg-thread max-w-[var(--chat-max-width)] mx-auto px-4 py-6">

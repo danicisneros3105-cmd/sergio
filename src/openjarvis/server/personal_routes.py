@@ -114,6 +114,14 @@ def put_skill(key: str, body: Switch) -> Dict[str, Any]:
     return {"habilidades": personal.skills()}
 
 
+@router.get("/semana")
+def get_week() -> Dict[str, Any]:
+    """The week in real numbers and what is waiting (semana.py)."""
+    from openjarvis import semana
+
+    return semana.resumen()
+
+
 @router.get("/complementos")
 def get_addons() -> Dict[str, Any]:
     return {"complementos": personal.addons()}

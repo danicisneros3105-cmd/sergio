@@ -99,7 +99,7 @@ export function NodesPage() {
             aria-current={node?.id === n.id ? 'true' : undefined}
             onClick={() => open(n)}
           >
-            <NodeCritter look={look(n)} status={n.status} size={40} />
+            <NodeCritter look={look(n)} status={n.status} size={48} />
             <span className="min-w-0 flex-1 text-left">
               <span className="nodes-item-name">{n.name}</span>
               <span className="nodes-item-status">{n.status === 'idle' ? memberOf(n, catalog)?.does || memberOf(n, catalog)?.role || statusLine(n) : statusLine(n)}</span>

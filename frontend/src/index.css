@@ -4146,3 +4146,8 @@ button:focus-visible {
 :root, :root.light { --imsg-them: #f1efec; --imsg-them-text: #0c0a09; --imsg-meta: #8a837d; }
 :root.dark { --imsg-them: #26211e; --imsg-them-text: #f5f2ee; }
 @media (prefers-color-scheme: dark) { :root:not(.light) { --imsg-them: #26211e; --imsg-them-text: #f5f2ee; } }
+/* The week in real numbers under the greeting (Chat/WeekLine.tsx). */
+.week-line { display: grid; justify-items: center; gap: 8px; margin-top: 10px; font-size: 13.5px; color: var(--color-text-secondary); }
+.week-line p { margin: 0; }
+.week-continue { display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px; border-radius: 999px; border: 1px solid var(--color-border); background: var(--glass-strong, var(--color-surface)); color: var(--color-text); font-size: 13.5px; }
+.week-continue span { color: var(--color-accent); font-variant-numeric: tabular-nums; }
