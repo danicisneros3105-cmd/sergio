@@ -66,13 +66,18 @@ class TestCLI:
         result = CliRunner().invoke(cli, ["ask"])
         assert result.exit_code != 0
 
-    def test_serve_needs_engine(self) -> None:
-        """Serve requires a running engine; exits with error when none available."""
-        result = CliRunner().invoke(cli, ["serve"])
-        # Either exits with error (no engine) or succeeds (deps missing)
-        # Both are valid states for testing
+    def test_serve_needs_engine(self, monkeypatch) -> None:
+        """With no AI connected the server still starts (owner, 2 Nov 2026: the
+        app must open so «Conectar la IA con un clic» can be used); it says so.
+        The server itself is not started here."""
+        import openjarvis.server.daemon as daemon
+
+        started = {}
+        monkeypatch.setenv("SERGIO_VIGIA", "0")
+        monkeypatch.setattr(daemon, "run_server", lambda app, **kw: started.update(kw))
+        result = CliRunner().invoke(cli, ["serve", "--port", "8799"])
         out = result.output.lower()
-        assert result.exit_code != 0 or "not installed" in out or "no inference" in out
+        assert started.get("port") == 8799 or "not installed" in out, out[-400:]
 
     def test_model_subcommands_exist(self) -> None:
         result = CliRunner().invoke(cli, ["model", "--help"])
