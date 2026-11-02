@@ -4223,3 +4223,17 @@ button:focus-visible {
 }
 .ia-gestion button:disabled { opacity: 0.5; cursor: default; }
 .ia-gestion p { flex-basis: 100%; }
+
+/* Earnings per customer: price, real AI cost, margin (owner, 2 Nov 2026). */
+.pagos-gestion { display: grid; gap: 4px; margin: 14px 0; padding: 14px 16px; border-radius: 16px; background: var(--glass, var(--color-bg-secondary)); border: 1px solid color-mix(in srgb, var(--color-text) 8%, transparent); }
+.pagos-gestion small { color: var(--color-text-secondary); }
+.pagos-empty { font-size: 13px; color: var(--color-text-tertiary); margin: 6px 0 12px; }
+.pagos-table { display: grid; border-radius: 16px; overflow: hidden; border: 1px solid color-mix(in srgb, var(--color-text) 8%, transparent); margin-bottom: 12px; }
+.pagos-table > div { display: grid; grid-template-columns: minmax(0, 1.6fr) repeat(3, minmax(0, 1fr)); gap: 8px; padding: 10px 14px; align-items: center; font-size: 13px; border-top: 1px solid color-mix(in srgb, var(--color-text) 6%, transparent); font-variant-numeric: tabular-nums; }
+.pagos-table > div > span:not(:first-child) { text-align: right; }
+.pagos-table > div > span:first-child small { display: block; color: var(--color-text-tertiary); font-size: 11px; }
+.pagos-table .pagos-th { border-top: 0; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--color-text-tertiary); }
+.pagos-table .pagos-tf { font-weight: 600; background: color-mix(in srgb, var(--color-text) 3%, transparent); }
+.pagos-table [data-loss='true'] > span:last-child { color: var(--color-error, #b42318); }
+.pagos-use { display: block; height: 3px; margin-top: 4px; border-radius: 3px; background: color-mix(in srgb, var(--color-text) 10%, transparent); overflow: hidden; }
+.pagos-use b { display: block; height: 100%; background: var(--color-accent); }

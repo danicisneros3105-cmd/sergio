@@ -120,7 +120,7 @@ PLAN_INFO: Dict[str, Plan] = {
         [
             "Todo lo de Work",
             "Acceso prioritario (próximamente)",
-            "Modelos y herramientas avanzadas (próximamente)",
+            "Todos los modelos, también los más avanzados",
             "Claves de API propias y API de Sergio para sus programas",
         ],
         usd_max=115,

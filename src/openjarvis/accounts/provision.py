@@ -278,10 +278,20 @@ def in_background(fn: Callable[..., Any], *args: Any, **kwargs: Any) -> None:
     threading.Thread(target=fn, args=args, kwargs=kwargs, daemon=True).start()
 
 
-def customer_model(model: str) -> str:
-    """A customer's request goes through their own key at OpenRouter: an id
-    already from OpenRouter stays; any other lets OpenRouter pick the best."""
-    return model if model.startswith("openrouter/") else "openrouter/auto"
+def customer_model(model: str, plan: Optional[str] = None) -> str:
+    """A customer's request goes through their own key at OpenRouter, with
+    the models their plan includes (``pagos.clientes.MODEL_ACCESS``; owner,
+    2 Nov 2026: «acceso a modelos» por plan). An OpenRouter id the plan allows
+    stays; any other becomes ``openrouter/auto`` on plans with every model and
+    the cheap model on the rest. The key's monthly cap is the hard stop."""
+    from openjarvis.pagos import clientes
+
+    plan = plan or CUSTOMER_PLAN.get() or "free"
+    if model.startswith("openrouter/") and clientes.allowed(model, plan):
+        return model
+    if clientes.max_weight(plan) >= 99:
+        return "openrouter/auto"
+    return clientes.cheap_model()
 
 
 __all__ = [

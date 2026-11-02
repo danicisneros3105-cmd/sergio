@@ -2,6 +2,10 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-11-02 · Claude · planes: ganancia real, costo de IA y modelos por plan
+- `pagos/clientes.py` + `GET /v1/pagos/clientes` (solo el dueño): por cada cliente con plan pagado, lo que paga, la comisión anotada, lo que su clave gastó de verdad este mes en OpenRouter (`usage_monthly`) y la ganancia; peor margen arriba; totales. Si OpenRouter no responde, «No se pudo leer» y no se suma.
+- Modelos por plan aplicados en `provision.customer_model` (antes cualquier plan podía usar cualquier modelo). Panel de Cobros: tabla de ganancia, barra de uso del tope, «Modelos por plan» y la casilla de la clave de gestión si falta.
+
 ## 2026-11-02 · Claude · «inicié sesión y no tengo ninguna clave»
 - Las claves no pueden salir de la nada: viven en la cuenta de OpenRouter del dueño, y nadie puede crearle esa cuenta. Sin `OPENROUTER_MANAGEMENT_KEY`, `autoconfig` no creaba nada y el aviso pedía editar `sergio.env` a mano.
 - Ahora, en este equipo y sin IA, el chat vacío muestra «Falta conectar la IA» (`IaSetupCard`): un clic abre OpenRouter y vuelve con la clave guardada. Debajo, «¿Va a vender planes?» con una casilla de contraseña para la clave de gestión (`POST /v1/conectar/gestion`, solo local): se comprueba con OpenRouter, se guarda 0600 y crea al momento la clave del dueño; las de clientes se crean solas al entrar. Nunca en el chat.

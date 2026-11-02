@@ -336,6 +336,16 @@ def totals(since: float = 0.0, home: Any = None) -> Dict[str, float]:
     return out
 
 
+def order_fee(order_id: str, home: Any = None) -> float:
+    """The processor's fee recorded for one order (0 when none)."""
+    with _db(home) as db:
+        r = db.execute(
+            "SELECT SUM(usd) AS usd FROM entries WHERE order_id = ? AND kind = 'comision'",
+            (order_id,),
+        ).fetchone()
+    return round(float(r["usd"] or 0.0), 2)
+
+
 def recent(limit: int = 20, home: Any = None) -> List[Dict[str, Any]]:
     with _db(home) as db:
         rows = db.execute(
@@ -355,6 +365,7 @@ __all__ = [
     "mark",
     "mark_paid",
     "new_order",
+    "order_fee",
     "opened_since",
     "paid_until",
     "recent",

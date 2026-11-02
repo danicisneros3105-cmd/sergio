@@ -129,6 +129,17 @@ def resumen(request: Request) -> Dict[str, Any]:
     return service.summary()
 
 
+@router.get("/clientes")
+def clientes(request: Request) -> Dict[str, Any]:
+    """Each paying customer: price, real AI cost this month, margin; and the
+    models each plan includes. Only the owner."""
+    from openjarvis.pagos import clientes as C
+    from openjarvis.server.accounts_routes import _owner
+
+    _owner(request)
+    return C.report()
+
+
 @router.get("/estado")
 def estado(request: Request, revisar: bool = False) -> Dict[str, Any]:
     """What is ready to charge and what is missing (``revisar`` asks each

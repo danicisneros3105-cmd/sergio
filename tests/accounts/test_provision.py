@@ -55,9 +55,11 @@ def test_customer_key_life(tmp_path, monkeypatch):
 
 
 def test_a_customer_goes_through_their_own_key():
-    assert provision.customer_model("gemini-4-argon") == "openrouter/auto"
+    # Founders has every model, as every plan had before model access per plan.
+    assert provision.customer_model("gemini-4-argon", "founders") == "openrouter/auto"
     assert (
-        provision.customer_model("openrouter/x-ai/grok-4") == "openrouter/x-ai/grok-4"
+        provision.customer_model("openrouter/x-ai/grok-4", "founders")
+        == "openrouter/x-ai/grok-4"
     )
     from openjarvis.server.cloud_router import _load_keys
 
@@ -66,3 +68,28 @@ def test_a_customer_goes_through_their_own_key():
         assert _load_keys()["OPENROUTER_API_KEY"] == "sk-or-cliente"
     finally:
         provision.CUSTOMER_KEY.reset(mark)
+
+
+def test_each_plan_gets_only_its_models(monkeypatch):
+    from openjarvis.pagos import clientes
+
+    monkeypatch.delenv("SERGIO_MODELO_BARATO", raising=False)
+    cheap = clientes.CHEAP_DEFAULT
+    # Free and Go: fast models only; a big one or «auto» becomes the cheap one.
+    assert provision.customer_model("openrouter/x-ai/grok-4", "free") == cheap
+    assert provision.customer_model("gemini-4-argon", "go") == cheap
+    fast = "openrouter/openai/gpt-5-mini"
+    assert provision.customer_model(fast, "free") == fast
+    # Work: up to the middle class (Sonnet yes, Opus no).
+    sonnet = "openrouter/anthropic/claude-sonnet-4.5"
+    assert provision.customer_model(sonnet, "work") == sonnet
+    assert (
+        provision.customer_model("openrouter/anthropic/claude-opus-4.1", "work")
+        == cheap
+    )
+    # Dev: everything.
+    assert provision.customer_model(
+        "openrouter/anthropic/claude-opus-4.1", "dev"
+    ).endswith("opus-4.1")
+    monkeypatch.setenv("SERGIO_MODELO_BARATO", "openrouter/x/barato")
+    assert provision.customer_model("openrouter/auto", "go") == "openrouter/x/barato"

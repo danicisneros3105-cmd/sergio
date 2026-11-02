@@ -8,6 +8,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { toast } from 'sonner';
 import { apiFetch } from '../../lib/api';
+import { ManagementKeyForm } from '../../components/Chat/IaSetupCard';
 
 type Totals = { ingreso: number; comision: number; proveedor: number; margen: number };
 type Order = { id: string; plan: string; usd: number; method: string; status: string; created: number; recibo: string };
@@ -22,6 +23,24 @@ type Summary = {
   libro: { integro: boolean; lineas: number; rota_en: number | null };
   ultimos: Order[];
 };
+type Customer = {
+  cliente: string;
+  plan: string;
+  paga: number;
+  comision: number;
+  tope_ia: number;
+  gasto_ia: number | null;
+  ganancia: number | null;
+  uso: number | null;
+  modelos: string;
+};
+type Customers = {
+  clientes: Customer[];
+  totales: { paga: number; comision: number; gasto_ia: number; ganancia: number; sin_dato: number };
+  acceso: Record<string, string>;
+  claves_ia: boolean;
+};
+const PLAN_NAME: Record<string, string> = { free: 'Free', go: 'Go', work: 'Work', dev: 'Dev', founders: 'Founders' };
 type Ready = { listo: boolean; pasos: Array<{ paso: string; ok: boolean; detalle: string }>; avisos: Record<string, string> };
 
 const money = (usd: number) => `${usd < 0 ? '-' : ''}$${Math.abs(usd).toFixed(2)}`;
@@ -40,12 +59,17 @@ export function PagosPanel() {
   const [s, setS] = useState<Summary | null>(null);
   const [ready, setReady] = useState<Ready | null>(null);
   const [checking, setChecking] = useState(false);
+  const [people, setPeople] = useState<Customers | null>(null);
 
   const load = useCallback((online = false) => {
     apiFetch('/v1/pagos/resumen')
       .then((r) => (r.ok ? r.json() : null))
       .then(setS)
       .catch(() => setS(null));
+    apiFetch('/v1/pagos/clientes')
+      .then((r) => (r.ok ? r.json() : null))
+      .then(setPeople)
+      .catch(() => setPeople(null));
     setChecking(online);
     apiFetch(`/v1/pagos/estado${online ? '?revisar=true' : ''}`)
       .then((r) => (r.ok ? r.json() : null))
@@ -156,6 +180,73 @@ export function PagosPanel() {
           El saldo de OpenRouter no cubre lo que sus clientes pueden gastar este mes. Active la recarga automática en
           OpenRouter.
         </p>
+      )}
+
+      {!s.claves_ia && (
+        <div className="pagos-gestion">
+          <strong>Clave de gestión de OpenRouter</strong>
+          <small>
+            Con ella Sergio crea la clave de cada cliente con el tope de su plan y lee lo que gasta de verdad. Créela en
+            openrouter.ai → Settings → Provisioning API keys.
+          </small>
+          <ManagementKeyForm onSaved={() => load()} />
+        </div>
+      )}
+
+      {people && (
+        <>
+          <h2 className="paper-label">Ganancia por cliente (este mes)</h2>
+          {people.clientes.length === 0 ? (
+            <p className="pagos-empty">Aún no hay clientes con un plan pagado.</p>
+          ) : (
+            <div className="pagos-table" role="table" aria-label="Ganancia por cliente">
+              <div role="row" className="pagos-th">
+                <span>Cliente</span>
+                <span>Paga</span>
+                <span>IA usada</span>
+                <span>Ganancia</span>
+              </div>
+              {people.clientes.map((c, i) => (
+                <div role="row" key={i} data-loss={c.ganancia != null && c.ganancia < 0}>
+                  <span>
+                    {c.cliente}
+                    <small>{PLAN_NAME[c.plan] || c.plan}</small>
+                  </span>
+                  <span>{money(c.paga)}</span>
+                  <span>
+                    {c.gasto_ia == null ? 'No se pudo leer' : money(c.gasto_ia)}
+                    {c.uso != null && (
+                      <i className="pagos-use" aria-label={`${Math.round(c.uso * 100)} % del tope`}>
+                        <b style={{ width: `${Math.round(c.uso * 100)}%` }} />
+                      </i>
+                    )}
+                  </span>
+                  <span>{c.ganancia == null ? '—' : money(c.ganancia)}</span>
+                </div>
+              ))}
+              <div role="row" className="pagos-tf">
+                <span>Total</span>
+                <span>{money(people.totales.paga)}</span>
+                <span>{money(people.totales.gasto_ia)}</span>
+                <span>{money(people.totales.ganancia)}</span>
+              </div>
+            </div>
+          )}
+          {people.totales.sin_dato > 0 && (
+            <p className="pagos-empty">
+              {people.totales.sin_dato} cliente(s) sin dato de gasto: OpenRouter no respondió. No se suma nada inventado.
+            </p>
+          )}
+          <h2 className="paper-label">Modelos por plan</h2>
+          <div className="plans-rows">
+            {Object.entries(people.acceso).map(([plan, words]) => (
+              <div key={plan}>
+                <span>{PLAN_NAME[plan] || plan}</span>
+                <span>{words}</span>
+              </div>
+            ))}
+          </div>
+        </>
       )}
 
       {s.ultimos.length > 0 && (
