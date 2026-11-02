@@ -35,6 +35,26 @@ class Radar(BaseModel):
     profundo: bool = False
 
 
+class School(BaseModel):
+    categoria: str = ""
+
+
+@router.get("/escuela")
+def school_status() -> Dict[str, Any]:
+    from openjarvis.video_essay import escuela
+
+    return escuela.status()
+
+
+@router.post("/escuela")
+def school_start(body: School) -> Dict[str, Any]:
+    from openjarvis.video_essay import escuela
+
+    refs = escuela.references()
+    started = escuela.start([body.categoria] if body.categoria in refs else None)
+    return {"empezado": started, **escuela.status()}
+
+
 @router.post("/clips")
 def clips(body: Clips) -> Dict[str, Any]:
     from openjarvis.estudio import clips_cine

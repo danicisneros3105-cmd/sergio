@@ -326,6 +326,11 @@ DEFAULT_TOOL_CAPABILITIES: Dict[str, List[str]] = {
     "miniaturas": [Capability.FILE_READ, Capability.FILE_WRITE],
     "titulos_video": [Capability.NETWORK_FETCH],
     "radar_tendencias": [Capability.NETWORK_FETCH],
+    "escuela_video": [
+        Capability.NETWORK_FETCH,
+        Capability.FILE_READ,
+        Capability.FILE_WRITE,
+    ],
     # The concierge: prepares bookings, trips, ads and drafts (network, files);
     # its last steps go through the owner's yes (conserje/aprobar.py).
     "conserje": [

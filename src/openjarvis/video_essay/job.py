@@ -1002,12 +1002,20 @@ def _home() -> Optional[Path]:
 def _skills(kind: str, about: str, genre: str = "") -> str:
     """The GitHub skills that fit (script or motion), never in the way: the
     genre's own three when it has them."""
+    out = ""
     try:
         from openjarvis.video_essay import skillbook
 
-        return "\n" + skillbook.guidance(kind, about, genre=genre) + "\n"
+        out = "\n" + skillbook.guidance(kind, about, genre=genre) + "\n"
     except Exception:  # noqa: BLE001
-        return ""
+        out = ""
+    try:  # the owner's own references, studied second by second (escuela.py)
+        from openjarvis.video_essay import escuela
+
+        out += escuela.guidance(about, genre)
+    except Exception:  # noqa: BLE001
+        pass
+    return out
 
 
 def _beat_notes(sc: Dict[str, Any]) -> str:

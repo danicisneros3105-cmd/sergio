@@ -1,0 +1,71 @@
+{
+ "_nota": "Videos de referencia que eligió el dueño (2 nov. 2026). Sergio los estudia en su equipo para aprender CÓMO están editados; nunca usa su imagen, su audio ni sus palabras.",
+ "categorias": {
+  "shorts-virales": {
+   "nombre": "Edición y temáticas virales para YouTube Shorts",
+   "formato": "9:16",
+   "generos": [
+    "pesada",
+    "inspiracional",
+    "cine"
+   ],
+   "links": [
+    "https://www.youtube.com/shorts/DQnqfT0LO3A",
+    "https://www.youtube.com/shorts/ZD1saam9tKY",
+    "https://www.youtube.com/shorts/S0G6pqnZgqc",
+    "https://www.youtube.com/shorts/CmzZkmPLCSU",
+    "https://www.youtube.com/shorts/jXq9de0aJuM",
+    "https://www.youtube.com/shorts/tFiLRzIjvM4",
+    "https://www.youtube.com/shorts/dFbUovi4WNk",
+    "https://www.youtube.com/shorts/bHDHsR9w_ME",
+    "https://www.instagram.com/reels/DdjwUyxBc5k/"
+   ],
+   "ejemplos": [
+    "How Chris Pratt Was Stealing Food",
+    "Weirdly LEGAL Things You Can Do on a Cruise",
+    "$4 auction ended up $50K | White Chicks (2004)",
+    "MARGE LE REGALA UN CELULAR A BART",
+    "School cafeteria scam",
+    "These outfits were never meant to be worn easily",
+    "Ranking Craziest Rock Thrown In Water",
+    "IShowSpeed Really SENT His Brother $1"
+   ]
+  },
+  "animacion": {
+   "nombre": "Animación",
+   "formato": "16:9",
+   "generos": [
+    "animacion"
+   ],
+   "links": [
+    "https://www.youtube.com/watch?v=p7LDk4D3Q3U",
+    "https://www.youtube.com/watch?v=3pxrECZYEAA"
+   ],
+   "ejemplos": [
+    "The Turning Point: animated short about the destruction of the environment and consumerism",
+    "Cosmohedron: a surreal animated journey through the interconnections between all things",
+    "cortometraje animado surrealista con mensaje"
+   ]
+  },
+  "explicativo-entretenido": {
+   "nombre": "Videos explicativos de entretenimiento",
+   "formato": "9:16",
+   "generos": [
+    "explicado3d",
+    "documental"
+   ],
+   "links": [
+    "https://www.instagram.com/p/DfI65MZRCkn/",
+    "https://www.instagram.com/reels/DdjwUyxBc5k/",
+    "https://www.instagram.com/reels/Del0IKQCjQL/",
+    "https://www.instagram.com/reels/De3IuvyhMVD/",
+    "https://www.instagram.com/reels/De79fyPBf5j/"
+   ],
+   "ejemplos": [
+    "explicado de forma entretenida en un reel",
+    "datos curiosos explicados rápido",
+    "cómo funciona esto, explicado en 60 segundos"
+   ]
+  }
+ }
+}

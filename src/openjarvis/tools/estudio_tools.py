@@ -197,4 +197,85 @@ class TrendRadarTool(BaseTool):
             profundo=bool(p.get("profundo")))))  # fmt: skip
 
 
-__all__ = ["FilmClipsTool", "ThumbnailsTool", "TitlesTool", "TrendRadarTool"]
+@ToolRegistry.register("escuela_video")
+class VideoSchoolTool(BaseTool):
+    tool_id = "escuela_video"
+
+    @property
+    def spec(self) -> ToolSpec:
+        return ToolSpec(
+            name="escuela_video",
+            description=(
+                "Sergio's school of the owner's reference videos: downloads each one (only to "
+                "study it), measures every second by code (cuts, shot length, words on screen, "
+                "faces, motion, sound hits, words per second), watches it with a model, and "
+                "writes one superskill per category that every later video of that kind follows. "
+                "action 'estudiar' (all, or 'categoria'), 'estado', 'agregar' ('links' and "
+                "'categoria'), 'superskill' ('categoria': read it). Runs in the background."
+            ),
+            parameters={
+                "type": "object",
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": ["estudiar", "estado", "agregar", "superskill"],
+                    },
+                    "categoria": {"type": "string"},
+                    "links": {"type": "array", "items": {"type": "string"}},
+                },
+                "required": ["action"],
+            },
+            category="media",
+            timeout_seconds=120,
+        )
+
+    def execute(self, **p: Any) -> ToolResult:
+        from openjarvis.video_essay import escuela
+
+        def go() -> str:
+            action = str(p.get("action") or "estado")
+            cat = str(p.get("categoria") or "").strip()
+            if action == "agregar":
+                r = escuela.add(list(p.get("links") or []), cat or "mis-referencias")
+                return (
+                    f"Agregué {r['agregados']} enlaces a «{r['categoria']}». "
+                    "Diga «estudia las referencias» para aprenderlos."
+                )
+            if action == "superskill":
+                return (
+                    escuela.skill_text(cat)
+                    or "Esa categoría todavía no tiene superskill: falta estudiarla."
+                )
+            if action == "estudiar":
+                refs = escuela.references()
+                cats = [cat] if cat in refs else None
+                if not escuela.start(cats):
+                    return "Ya estoy estudiando las referencias; le aviso al terminar (ver «En marcha»)."
+                n = sum(len(refs[c]["links"]) for c in (cats or refs))
+                return (f"Empecé a estudiar {n} videos de referencia segundo a segundo, en segundo plano. "
+                        "Cada uno tarda unos minutos; al final escribo la superskill de cada categoría.")  # fmt: skip
+            st = escuela.status()
+            lines = []
+            if st["en_curso"]:
+                lines.append(f"Estudiando ahora: {st['en_curso'].get('que', '')}")
+            for k, c in st["categorias"].items():
+                done = "con superskill" if c["superskill"] else "sin superskill aún"
+                lines.append(
+                    f"- {c['nombre']}: {c['estudiados']}/{c['videos']} estudiados, {done}."
+                )
+            for f in (st["ultimo"] or {}).get("fallos", [])[:6]:
+                lines.append(
+                    f"  No pude: {f.get('url') or f.get('categoria')}: {f['por_que']}"
+                )
+            return "\n".join(lines)
+
+        return _run(self.tool_id, go)
+
+
+__all__ = [
+    "FilmClipsTool",
+    "ThumbnailsTool",
+    "TitlesTool",
+    "TrendRadarTool",
+    "VideoSchoolTool",
+]

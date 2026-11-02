@@ -2,6 +2,12 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-11-02 · Claude · escuela de video con las referencias del dueño
+- `video_essay/escuela.py` + `referencias.json` (sus 17 enlaces en tres categorías: shorts virales, animación, explicativos de entretenimiento). En su PC: descarga cada video solo para estudiarlo (yt-dlp; Instagram con `SERGIO_NAVEGADOR` si pide sesión), lo mide segundo a segundo por código (cortes a 4 cuadros/s, duración de tomas, palabras en pantalla y dónde, caras, movimiento, golpes de sonido, volumen, palabras por segundo con faster-whisper y el gancho de los 3 primeros segundos), lo mira con un modelo (`style.watch`) y escribe por categoría la superskill (`~/.openjarvis/escuela/superskills/<cat>/SKILL.md`) y el estilo `ref-<cat>`. Un cerebro de la escuela (mosca) aprende de los títulos a qué categoría pertenece un pedido.
+- Cada video nuevo recibe la superskill que le toca en el guion y en la edición (`job._skills`). Herramienta `escuela_video` (estudiar, estado, agregar, superskill), `/v1/estudio/escuela`, fila en «En marcha».
+- Los modelos de lenguaje no se reentrenan: reciben la superskill en cada video; los cerebros locales sí cambian sus pesos. Se aprende cómo están editados, nunca su imagen, voz, dibujos ni palabras.
+- Probado con videos generados aquí (cortes, golpes y texto exactos). No probado con los enlaces reales: esta nube bloquea YouTube e Instagram. La prueba del conteo de herramientas de la neurona «estudio» ahora pide que estén las cuatro (hay una quinta, `escuela_video`).
+
 ## 2026-11-02 · Claude · la app probada en la nube
 - Arranqué Sergio en un contenedor limpio, sin claves, y lo recorrí con un navegador automático (PC y teléfono): entrar, chat, Ajustes → Complementos, Salud mental.
 - Arreglado: sin IA conectada el servidor no arrancaba («No inference engine available»); ahora abre con el motor de la nube a la espera (`cli/serve.py`).

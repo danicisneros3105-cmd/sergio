@@ -440,6 +440,15 @@ def running(request: Request) -> Dict[str, Any]:
             })  # fmt: skip
     except Exception:  # noqa: BLE001
         logger.debug("video jobs unavailable", exc_info=True)
+    try:  # the school studying the owner's reference videos
+        from openjarvis.video_essay import escuela
+
+        now = escuela.status().get("en_curso") or {}
+        if now:
+            rows.append({"tipo": "escuela", "id": "escuela", "quien": "Escuela de video",
+                         "que": str(now.get("que", ""))[:90]})  # fmt: skip
+    except Exception:  # noqa: BLE001
+        logger.debug("school unavailable", exc_info=True)
     try:  # channels that post by themselves, and the trading robot
         from openjarvis.automatiza import trading
         from openjarvis.video_essay import schedule
