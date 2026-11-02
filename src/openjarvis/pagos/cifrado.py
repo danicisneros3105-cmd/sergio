@@ -65,27 +65,36 @@ def master_key(home: Any = None) -> bytes:
         return key
 
 
+_DERIVED: Dict[tuple, bytes] = {}
+
+
 def _derive(purpose: str, home: Any = None) -> bytes:
     from cryptography.hazmat.primitives import hashes
     from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 
-    return HKDF(
-        algorithm=hashes.SHA256(),
-        length=32,
-        salt=b"sergio-pagos",
-        info=purpose.encode(),
-    ).derive(master_key(home))
+    master = master_key(home)
+    key = (purpose, hashlib.sha256(master).digest())  # one derivation per key
+    cached = _DERIVED.get(key)
+    if cached is None:
+        cached = HKDF(
+            algorithm=hashes.SHA256(),
+            length=32,
+            salt=b"sergio-pagos",
+            info=purpose.encode(),
+        ).derive(master)
+        _DERIVED[key] = cached
+    return cached
 
 
-def seal(text: str, aad: str = "", home: Any = None) -> str:
+def seal(text: str, aad: str = "", home: Any = None, purpose: str = "cifrar") -> str:
     from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
     nonce = secrets.token_bytes(12)
-    box = AESGCM(_derive("cifrar", home)).encrypt(nonce, text.encode(), aad.encode())
+    box = AESGCM(_derive(purpose, home)).encrypt(nonce, text.encode(), aad.encode())
     return PREFIX + base64.urlsafe_b64encode(nonce + box).decode()
 
 
-def unseal(token: str, aad: str = "", home: Any = None) -> str:
+def unseal(token: str, aad: str = "", home: Any = None, purpose: str = "cifrar") -> str:
     from cryptography.exceptions import InvalidTag
     from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
@@ -93,9 +102,7 @@ def unseal(token: str, aad: str = "", home: Any = None) -> str:
         raise SealError("no está cifrado")
     blob = base64.urlsafe_b64decode(token[len(PREFIX) :])
     try:
-        out = AESGCM(_derive("cifrar", home)).decrypt(
-            blob[:12], blob[12:], aad.encode()
-        )
+        out = AESGCM(_derive(purpose, home)).decrypt(blob[:12], blob[12:], aad.encode())
     except InvalidTag as exc:
         raise SealError("no se puede abrir: otra clave o datos alterados") from exc
     return out.decode()

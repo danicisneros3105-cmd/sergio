@@ -165,6 +165,14 @@ class Brain:
     def _legacy(self) -> Path:
         return self.folder / "cerebro.json"
 
+    @staticmethod
+    def _seal_engram(eid: str, data: Any) -> str:
+        from openjarvis.security import boveda
+
+        return boveda.seal_text(
+            json.dumps(data, ensure_ascii=False), f"engram:{eid}", "memoria"
+        )
+
     def _conn(self) -> sqlite3.Connection:
         if self._db is None:
             self.folder.mkdir(parents=True, exist_ok=True)
@@ -206,8 +214,17 @@ class Brain:
                 self.syn.setdefault(cell, {})[item] = w
             for a, b, w in db.execute("SELECT a, b, w FROM assoc"):
                 self.assoc.setdefault(a, {})[b] = w
-            for eid, data in db.execute("SELECT id, data FROM engrams"):
-                self.engrams[eid] = json.loads(data)
+            from openjarvis.security import boveda
+
+            for eid, data in db.execute("SELECT id, data FROM engrams").fetchall():
+                try:  # a memory of a conversation is sealed (security/boveda.py)
+                    self.engrams[eid] = json.loads(
+                        boveda.open_text(data, f"engram:{eid}", "memoria")
+                    )
+                except ValueError:  # another key or altered: skip it, keep the row
+                    continue
+                if not boveda.is_sealed(data) and boveda.enabled():
+                    self._dirty_eng.add(eid)  # an old plain row: sealed on next save
             meta = dict(db.execute("SELECT k, v FROM meta").fetchall())
         except (sqlite3.Error, ValueError):
             return
@@ -264,10 +281,7 @@ class Brain:
                 db.execute("DELETE FROM engrams")
                 db.executemany(
                     "INSERT INTO engrams VALUES (?, ?)",
-                    (
-                        (e, json.dumps(d, ensure_ascii=False))
-                        for e, d in self.engrams.items()
-                    ),
+                    ((e, self._seal_engram(e, d)) for e, d in self.engrams.items()),
                 )
             else:
                 for cell, item in self._dirty_syn:
@@ -295,7 +309,7 @@ class Brain:
                     if eid in self.engrams:
                         db.execute(
                             "INSERT OR REPLACE INTO engrams VALUES (?, ?)",
-                            (eid, json.dumps(self.engrams[eid], ensure_ascii=False)),
+                            (eid, self._seal_engram(eid, self.engrams[eid])),
                         )
             stats = {k: v for k, v in self.stats_.items() if not k.startswith("prev_")}
             prev = {k: v for k, v in self.stats_.items() if k.startswith("prev_")}

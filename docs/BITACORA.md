@@ -2,6 +2,12 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-11-02 · Claude · bóveda, edición pública, licencias y lista de funciones
+- `security/boveda.py`: notas y encuestas de salud (salud mental incluida) y la memoria de conversaciones ahora se guardan cifradas (AES-256-GCM, clave por propósito, atadas a su fila); lo viejo se sella al abrir. Los números de salud no, porque SQL los suma: eso lo cubre cifrar el disco. `docs/SEGURIDAD.md` dice con claridad qué es y qué no es «nivel bancario». Revisé `faces/book.py` de Codex: ya cifraba la galería.
+- `SERGIO_EDICION=publica` (`edicion.py`): apaga para clientes clips de internet y películas, canciones con derechos, prompts GPL, Jamendo y OpenSky (no comerciales).
+- `docs/LEGAL-TERCEROS.md` (auditoría) y `docs/FUNCIONES.md` (118 herramientas y lo demás, sacado del código).
+- Pendiente: verificación de cuentas abiertas y economía (ganancias y costos), nube híbrida.
+
 ## 2026-11-02 · Claude · Visage, sin JARVIS, producto híbrido e internacional
 - «Face ID» (marca de Apple) pasa a llamarse **Visage** en todo lo que ve el usuario (web, escritorio, avisos, herramientas); solo se nombra Face ID al hablar del iPhone. La voz acepta «como Visage» y «como Face ID». Los nombres internos (`faceid.py`, rutas) no cambian.
 - JARVIS (marca de Marvel) fuera de toda indicación o texto de Sergio. El paquete interno sigue llamándose `openjarvis` (crédito al proyecto original, Apache-2.0): renombrarlo es una migración aparte antes de publicar.

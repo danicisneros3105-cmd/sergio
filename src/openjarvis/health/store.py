@@ -78,6 +78,62 @@ class HealthStore:
         from openjarvis.health.privacy import private
 
         private(self.path)  # health data: only the owner's account reads it
+        self.seal_missing()  # notes and surveys written before the vault
+
+    # -- the vault (security/boveda.py): the sensitive text is sealed -----------
+    @property
+    def _home(self) -> Path:
+        return self.path.parent.parent
+
+    def _seal(self, text: str, aad: str) -> str:
+        from openjarvis.security import boveda
+
+        return boveda.seal_text(text, aad, "salud", self._home) if text else text
+
+    def _open(self, value: str, aad: str) -> str:
+        from openjarvis.security import boveda
+
+        return boveda.open_text(value, aad, "salud", self._home)
+
+    def seal_missing(self) -> int:
+        """Seal what an older version left readable; returns how many rows."""
+        from openjarvis.security import boveda
+
+        if not boveda.enabled():
+            return 0
+        n = 0
+        with self._lock, self._db() as db:
+            for r in db.execute("SELECT day, text, tags FROM notes").fetchall():
+                if boveda.is_sealed(r["text"]) and boveda.is_sealed(r["tags"]):
+                    continue
+                db.execute(
+                    "UPDATE notes SET text=?, tags=? WHERE day=?",
+                    (
+                        self._seal(r["text"], f"notes:{r['day']}:text"),
+                        self._seal(r["tags"], f"notes:{r['day']}:tags"),
+                        r["day"],
+                    ),
+                )
+                n += 1
+            for r in db.execute(
+                "SELECT id, answers, scores, reading FROM surveys"
+            ).fetchall():
+                if all(
+                    boveda.is_sealed(r[k]) or not r[k]
+                    for k in ("answers", "scores", "reading")
+                ):
+                    continue
+                db.execute(
+                    "UPDATE surveys SET answers=?, scores=?, reading=? WHERE id=?",
+                    (
+                        self._seal(r["answers"], f"surveys:{r['id']}:answers"),
+                        self._seal(r["scores"], f"surveys:{r['id']}:scores"),
+                        self._seal(r["reading"], f"surveys:{r['id']}:reading"),
+                        r["id"],
+                    ),
+                )
+                n += 1
+        return n
 
     @contextmanager
     def _db(self) -> Iterator[sqlite3.Connection]:
@@ -226,7 +282,13 @@ class HealthStore:
                 db.execute(
                     "INSERT INTO notes(day, text, tags) VALUES (?,?,?) "
                     "ON CONFLICT(day) DO UPDATE SET text=excluded.text, tags=excluded.tags",
-                    (day, text.strip()[:500], json.dumps(tags, ensure_ascii=False)),
+                    (
+                        day,
+                        self._seal(text.strip()[:500], f"notes:{day}:text"),
+                        self._seal(
+                            json.dumps(tags, ensure_ascii=False), f"notes:{day}:tags"
+                        ),
+                    ),
                 )
         return {"day": day, "text": text.strip()[:500], "tags": tags}
 
@@ -237,7 +299,11 @@ class HealthStore:
                 "SELECT day, text, tags FROM notes WHERE day>=? ORDER BY day", (since,)
             ).fetchall()
         return {
-            r["day"]: {"text": r["text"], "tags": json.loads(r["tags"])} for r in rows
+            r["day"]: {
+                "text": self._open(r["text"], f"notes:{r['day']}:text"),
+                "tags": json.loads(self._open(r["tags"], f"notes:{r['day']}:tags")),
+            }
+            for r in rows
         }
 
     # -- settings ---------------------------------------------------------------
@@ -309,8 +375,8 @@ class HealthStore:
                     kind,
                     time.time(),
                     ready_at,
-                    json.dumps(answers),
-                    json.dumps(scores),
+                    self._seal(json.dumps(answers), f"surveys:{sid}:answers"),
+                    self._seal(json.dumps(scores), f"surveys:{sid}:scores"),
                 ),
             )
         return sid
@@ -321,9 +387,13 @@ class HealthStore:
             "kind": row["kind"],
             "created": row["created"],
             "ready_at": row["ready_at"],
-            "answers": json.loads(row["answers"]),
-            "scores": json.loads(row["scores"]),
-            "reading": row["reading"],
+            "answers": json.loads(
+                self._open(row["answers"], f"surveys:{row['id']}:answers")
+            ),
+            "scores": json.loads(
+                self._open(row["scores"], f"surveys:{row['id']}:scores")
+            ),
+            "reading": self._open(row["reading"], f"surveys:{row['id']}:reading"),
             "reading_by": row["reading_by"],
             "read_at": row["read_at"],
         }
@@ -345,7 +415,7 @@ class HealthStore:
         with self._lock, self._db() as db:
             db.execute(
                 "UPDATE surveys SET reading = ?, reading_by = ?, read_at = ? WHERE id = ?",
-                (text, by, time.time(), sid),
+                (self._seal(text, f"surveys:{sid}:reading"), by, time.time(), sid),
             )
 
     def delete_survey(self, sid: str) -> bool:
