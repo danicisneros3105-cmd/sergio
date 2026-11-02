@@ -23,6 +23,28 @@ from openjarvis.core.registry import ToolRegistry
 from openjarvis.core.types import ToolResult
 from openjarvis.tools._stubs import BaseTool, ToolSpec
 
+
+def mark(job_id: str) -> str:
+    """The chat turns this into the video's live card (VideoJobCard)."""
+    return f"\n[[video:{job_id}]]"
+
+
+def ai_ready() -> bool:
+    """Some model can write the script: Gemini or another company's key."""
+    import os
+
+    if any(os.environ.get(k, "").strip() for k in ("GEMINI_API_KEY", "GOOGLE_API_KEY")):
+        return True
+    try:
+        from openjarvis.accounts.autoconfig import _key
+        from openjarvis.creator import llm
+
+        _key("OPENROUTER_API_KEY")  # loads the keys file Sergio writes
+        return bool(llm.other_models())
+    except Exception:  # noqa: BLE001
+        return False
+
+
 TREND_WORDS = re.compile(r"\b(tendencias?|trends?|trending|viral(es)?|de moda)\b", re.I)
 
 
@@ -145,7 +167,8 @@ class VideoEssayTool(BaseTool):
             if not found:
                 return self._ok("No hay videos en curso.")
             return self._ok(
-                "\n\n".join(jobs.summary(j.state()) for j in found), job=found[0].id
+                "\n\n".join(jobs.summary(j.state()) for j in found) + mark(found[0].id),
+                job=found[0].id,
             )
 
         from openjarvis.tools.video_create import ffmpeg_exe
@@ -156,6 +179,12 @@ class VideoEssayTool(BaseTool):
         if len(prompt) < 3 and len(topic) < 3 and len(own.split()) < 20:
             return self._ok(
                 "Dígame de qué trata el video (o deme su guion o una descripción).",
+                False,
+            )
+        if not ai_ready():
+            return self._ok(
+                "No puedo hacer el video todavía: no hay ninguna IA conectada para escribir el guion. "
+                "Toque «Sergio» arriba y luego «Conectar la IA con un clic»; después pídamelo otra vez.",
                 False,
             )
         if not ffmpeg_exe():
@@ -205,7 +234,11 @@ class VideoEssayTool(BaseTool):
                 "repetido": "Ese mismo video ya está hecho o en camino; no lo repito.",
                 "tope diario": "Hoy ya hice el máximo de videos del día (SERGIO_VIDEO_JOBS_DIA).",
             }[why]
-            return self._ok(f"{lead} {jobs.summary(st)}", job=existing.id, reused=True)
+            return self._ok(
+                f"{lead} {jobs.summary(st)}{mark(existing.id)}",
+                job=existing.id,
+                reused=True,
+            )
         job = jobs.start(order)
         ref = (
             " Primero estudio la referencia toma por toma."
@@ -222,7 +255,8 @@ class VideoEssayTool(BaseTool):
             f"Empecé el video en modo {modes.NAMES[mode.key]}.{ref} El director escribe el "
             f"tratamiento y el editor lo corta toma por toma; tarda {time_note}, con un tope "
             "de gasto para este modo. Hous le avisa en su chat cuando esté, y no lo publico "
-            "sin su permiso.",
+            "sin su permiso. El avance se ve aquí mismo, en la tarjeta del video."
+            + mark(job.id),
             job=job.id,
         )
 

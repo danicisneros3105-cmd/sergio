@@ -1,6 +1,7 @@
 import { pointAt } from '../../lib/pointer';
 import { ApprovalCard } from './ApprovalCard';
-import { plainReply } from '../../lib/plainReply';
+import { plainReply, videoMarks } from '../../lib/plainReply';
+import { VideoJobCard } from './VideoJobCard';
 import { Suspense, lazy, useEffect, useState, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import rehypeHighlight from 'rehype-highlight';
@@ -167,6 +168,14 @@ export function MessageBubble({ message, isLive = false, tail = true, receipt = 
   // Figure links become the figures themselves (drawn below), never raw text.
   const cleanContent = useMemo(() => withoutDespieceLinks(withoutAnatomyLinks(plain.text)), [plain.text]);
   const extraMedia = useMemo(() => mediaOf(message), [message]);
+  // Video jobs started in this reply, followed live right here.
+  const videoJobs = useMemo(() => {
+    const ids = [...plain.videos];
+    for (const tc of message.toolCalls ?? []) {
+      for (const id of videoMarks(tc.result || '').videos) if (!ids.includes(id)) ids.push(id);
+    }
+    return ids;
+  }, [plain.videos, message.toolCalls]);
 
   // Build a ref→source lookup once per render. Memoized so the rehype plugin
   // identity stays stable until the source list actually changes.
@@ -248,6 +257,8 @@ export function MessageBubble({ message, isLive = false, tail = true, receipt = 
           <Media src={src} />
         </div>
       ))}
+
+      {!isLive && videoJobs.map((id) => <VideoJobCard key={id} id={id} />)}
 
       {/* Anatomy figures Sergio drew for this answer (the hidden skill) */}
       {!isLive &&

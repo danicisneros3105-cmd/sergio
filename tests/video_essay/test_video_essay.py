@@ -437,6 +437,9 @@ def test_guards_one_at_a_time_no_repeats_daily_cap(
     order = {"topic": "metas", "mode": "basic"}
     assert J.guard(order, tmp_path) == (None, "")
     first = J.create(order, tmp_path)
+    # «en curso» with no thread behind it is dead, not «ya está en camino».
+    assert J.guard(order, tmp_path) == (None, "")
+    first.update(status="listo")
     assert J.guard(order, tmp_path)[1] == "repetido"
     first.update(status="error")
     assert J.guard(order, tmp_path) == (None, "")
@@ -721,17 +724,24 @@ def test_finishing_uses_creators_colour_chain() -> None:
 def test_tool_starts_a_job_and_reports(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    import threading
+
     from openjarvis.tools.video_essay_tool import VideoEssayTool
 
     started = {}
+    hold = threading.Event()
 
     def fake_start(order, deps=None, root=None):
         started.update(order)
-        return J.create(order, tmp_path)
+        job = J.create(order, tmp_path)
+        J._running[job.id] = threading.Thread(target=hold.wait, args=(5,), daemon=True)
+        J._running[job.id].start()  # alive, as a real start would be
+        return job
 
     monkeypatch.setattr(J, "start", fake_start)
     monkeypatch.setattr(J, "resume_unfinished", lambda *a, **k: [])
     monkeypatch.setattr(J, "jobs_dir", lambda: tmp_path)
+    monkeypatch.setattr("openjarvis.tools.video_essay_tool.ai_ready", lambda: True)
     tool = VideoEssayTool()
     res = tool.execute(
         action="start",
@@ -754,6 +764,44 @@ def test_tool_starts_a_job_and_reports(
     assert f"paso 1 de {len(J.STAGES)}" in status.content
     assert not tool.execute(action="start", topic="").success
     assert "corto-3d" in tool.execute(action="styles").content
+    assert f"[[video:{res.metadata['job']}]]" in res.content  # the live card
+    hold.set()
+    J._running.pop(res.metadata["job"], None)
+
+
+def test_tool_says_at_once_when_no_ai_is_connected(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from openjarvis.tools.video_essay_tool import VideoEssayTool
+
+    started = []
+    monkeypatch.setattr(J, "start", lambda *a, **k: started.append(1))
+    monkeypatch.setattr(J, "jobs_dir", lambda: tmp_path)
+    monkeypatch.setattr("openjarvis.tools.video_essay_tool.ai_ready", lambda: False)
+    res = VideoEssayTool().execute(action="start", topic="metas")
+    assert not res.success and not started
+    assert "Conectar la IA" in res.content
+
+
+def test_job_route_shows_a_dead_job_as_stopped(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from openjarvis.server.personal_routes import router
+
+    monkeypatch.setattr(J, "jobs_dir", lambda: tmp_path)
+    job = J.create({"topic": "metas"}, tmp_path)
+    app = FastAPI()
+    app.include_router(router)
+    c = TestClient(app)
+    d = c.get(f"/v1/personal/videos/trabajos/{job.id}").json()
+    assert d["estado"] == "detenido" and d["pasos"] == len(J.STAGES)
+    job.update(status="listo", result={"url": "/v.mp4"})
+    d = c.get(f"/v1/personal/videos/trabajos/{job.id}").json()
+    assert d["estado"] == "listo" and d["video"] == "/v.mp4"
+    assert c.get("/v1/personal/videos/trabajos/nada").status_code == 404
 
 
 def test_tool_is_wired_everywhere() -> None:

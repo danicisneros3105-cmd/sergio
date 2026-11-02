@@ -21,6 +21,20 @@ export interface PlainReply {
   approvals: PlainApproval[];
   /** Where Sergio moves his pointer («[[señalar: …]]», never shown). */
   points: PointRequest[];
+  /** Video jobs to follow live in the chat («[[video:<id>]]», never shown). */
+  videos: string[];
+}
+
+const VIDEO_MARK = /\[\[\s*video\s*:\s*([\w.-]+)\s*\]\]/g;
+
+/** The video jobs a text names, and the text without the marks. */
+export function videoMarks(text: string): { clean: string; videos: string[] } {
+  const videos: string[] = [];
+  const clean = (text ?? '').replace(VIDEO_MARK, (_m, id: string) => {
+    if (!videos.includes(id)) videos.push(id);
+    return '';
+  });
+  return { clean, videos };
 }
 
 const CATEGORY_LABEL: Record<string, string> = {
@@ -110,6 +124,7 @@ export function plainReply(text: string): PlainReply {
   }
   // A stray closing tag left by any of the above.
   out = out.replace(/<\/(aprobaci[oó]n|recordar|cli|mcp|api|enjambre|equipo|mente|usuario|siguiente)>/gi, '');
-  const { clean, points } = pointMarks(out);
-  return { text: clean.replace(/\n{3,}/g, '\n\n').trim(), approvals, points };
+  const { clean: noVideo, videos } = videoMarks(out);
+  const { clean, points } = pointMarks(noVideo);
+  return { text: clean.replace(/\n{3,}/g, '\n\n').trim(), approvals, points, videos };
 }

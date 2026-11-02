@@ -386,6 +386,39 @@ def approve_post(job_id: str) -> Dict[str, Any]:
     }
 
 
+@router.get("/videos/trabajos/{job_id}")
+def video_job(job_id: str) -> Dict[str, Any]:
+    """One video job as the chat card shows it: stage, progress, the video
+    when it is ready, or why it stopped (plain words)."""
+    from openjarvis.video_essay import job as jobs
+
+    job = jobs.get(job_id)
+    if job is None:
+        raise HTTPException(404, "No encuentro ese video.")
+    st = job.state()
+    alive = job.id in {j.id for j in jobs.running()}
+    status = st.get("status") or "en curso"
+    if status == "en curso" and not alive:
+        status = "detenido"  # no thread behind it: never «en curso» for nothing
+    res = st.get("result") or {}
+    pkg = res.get("package") or {}
+    return {
+        "id": job.id,
+        "titulo": st.get("title") or (st.get("params") or {}).get("topic") or "Video",
+        "estado": status,
+        "etapa": jobs.LABELS.get(st.get("stage", ""), st.get("stage", "")),
+        "paso": (jobs.STAGES.index(st["stage"]) + 1)
+        if st.get("stage") in jobs.STAGES
+        else 0,
+        "pasos": len(jobs.STAGES),
+        "avance": float(st.get("stage_progress") or 0),
+        "error": str(st.get("error") or "")[:300],
+        "video": res.get("url", ""),
+        "portada": pkg.get("cover_url", ""),
+        "resumen": jobs.summary(st),
+    }
+
+
 @router.post("/videos/trabajos/{job_id}/cancel")
 def cancel_video(job_id: str) -> Dict[str, Any]:
     from openjarvis.video_essay import job as jobs

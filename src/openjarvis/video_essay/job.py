@@ -1375,7 +1375,12 @@ def guard(params: Dict[str, Any], root: Optional[Path] = None) -> tuple:
             _same(st.get("params") or {}, params)
             and now - float(st.get("created") or 0) < SAME_ORDER_MINUTES * 60
         ):
-            if st.get("status") in ("en curso", "listo"):
+            # «en curso» with no thread behind it is a dead job, not a repeat:
+            # saying «ya está en camino» for it was the owner's «no me lo manda».
+            alive = j.id in {b.id for b in busy}
+            if st.get("status") == "listo" or (
+                st.get("status") == "en curso" and alive
+            ):
                 return j, "repetido"
     try:
         cap = int(os.environ.get("SERGIO_VIDEO_JOBS_DIA", "6"))

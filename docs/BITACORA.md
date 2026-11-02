@@ -2,6 +2,10 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-11-02 · Claude · el video llega al chat donde se pidió
+- El dueño: «dice que ya se está ejecutando… pero no me lo manda». Tres causas: sin ninguna IA conectada el trabajo moría en el guion; un trabajo «en curso» sin hilo vivo se contaba como «ya está en camino» (`guard`); y el resultado solo llegaba al chat de Hous en Nodes.
+- Ahora: si no hay IA, Sergio lo dice al momento y señala «Conectar la IA con un clic» (`video_essay_tool.ai_ready`). Un trabajo muerto ya no bloquea uno nuevo. La respuesta lleva `[[video:<id>]]` y el chat muestra la tarjeta en vivo (`VideoJobCard`: etapa, avance, luego el video; o por qué se detuvo). Ruta `GET /v1/personal/videos/trabajos/{id}`.
+
 ## 2026-11-02 · Claude · cristal y burdeos, cerebro completo, imágenes de internet
 - Diseño «Cristal y burdeos» estilo ElevenLabs (última capa de `index.css`): lienzo blanco cálido, superficies de cristal, tinta casi negra, botones píldora negros, acento burdeos. Los azules escritos a mano en componentes pasan a `var(--color-accent)`. Burbujas del chat en burdeos. El logo sigue siendo el disco azul (decisión aparte del dueño): pendiente de que diga si cambia.
 - Cowork: «Sus apps» con logos (Gmail, Notion, Shopify, Calendar, Drive, Slack, GitHub, Figma, Canva, Stripe, Linear, Zapier), un toque conecta. Nodes más limpios (tarjetas, cristal, «Detener» en contorno).

@@ -4151,3 +4151,25 @@ button:focus-visible {
 .week-line p { margin: 0; }
 .week-continue { display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px; border-radius: 999px; border: 1px solid var(--color-border); background: var(--glass-strong, var(--color-surface)); color: var(--color-text); font-size: 13.5px; }
 .week-continue span { color: var(--color-accent); font-variant-numeric: tabular-nums; }
+
+/* A video being made, live in the chat (owner, 2 Nov 2026). */
+.vjob {
+  margin: 6px 0 2px;
+  max-width: 360px;
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 18px;
+  background: var(--glass, var(--color-bg-secondary));
+  backdrop-filter: blur(var(--glass-blur, 16px));
+  -webkit-backdrop-filter: blur(var(--glass-blur, 16px));
+  border: 1px solid color-mix(in srgb, var(--color-text) 8%, transparent);
+  min-height: 44px;
+  animation: sg-arrive 0.35s ease both;
+}
+.vjob-head { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; }
+.vjob-head b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vjob-head span { color: var(--color-text-tertiary); white-space: nowrap; }
+.vjob-bar { margin-top: 10px; height: 4px; border-radius: 4px; background: color-mix(in srgb, var(--color-text) 10%, transparent); overflow: hidden; }
+.vjob-bar i { display: block; height: 100%; background: var(--color-accent); transition: width 0.6s ease; }
+.vjob-video { margin-top: 10px; width: 100%; border-radius: 12px; background: #000; }
+.vjob-why { margin: 8px 0 0; font-size: 13px; color: var(--color-text-secondary); }
