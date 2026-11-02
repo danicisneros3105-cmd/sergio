@@ -17,16 +17,29 @@ whether Terry helped (action ``terry``): when the owner corrects an answer
 Terry prepared, Terry is punished for requests like that one.
 
 ``SERGIO_TERRY=0`` turns him off.
+
+Faster and stronger (owner, 2 Nov 2026: «Terry debe ser más potente, las
+respuestas más rápidas e inteligentes»): Terry only uses the fast model of
+each company this computer has a key for (before, without Gemini, he asked
+the big ones one after the other and could take 25 s); he has a hard
+deadline (``SERGIO_TERRY_TIEMPO``, 4 s): when he is late the answer starts
+without him instead of waiting. The same request in the same conversation
+reuses his brief (10 min). And he now writes the plan to solve it and what
+must be checked before answering (facts, numbers, code), so the answering
+model reasons better. When he fails, nothing is invented: no brief at all.
 """
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import random
 import re
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import TimeoutError as _Late
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 TERRY_MODELS = tuple(
@@ -37,6 +50,36 @@ TERRY_MODELS = tuple(
     ).split(",")
     if m.strip()
 )
+
+# The fast model of each company, used when its key is here (first wins).
+FAST_GEMINI = ("gemini-3.6-flash", "gemini-2.5-flash", "gemini-3.1-flash-lite")
+FAST_OTHERS = (
+    ("ANTHROPIC_API_KEY", "claude-haiku-5-5"),
+    ("OPENAI_API_KEY", "gpt-5.6-luna"),
+    ("DEEPSEEK_API_KEY", "deepseek-chat"),
+    ("OPENROUTER_API_KEY", "openrouter/google/gemini-2.5-flash"),
+)
+CACHE_S = 600
+_cache: Dict[str, Tuple[float, str, Dict[str, Any]]] = {}
+_pool = ThreadPoolExecutor(max_workers=4, thread_name_prefix="terry")
+
+
+def deadline() -> float:
+    try:
+        return max(1.0, min(20.0, float(os.environ.get("SERGIO_TERRY_TIEMPO", "4"))))
+    except ValueError:
+        return 4.0
+
+
+def fast_others() -> List[str]:
+    """Fast models of the other companies with a key here (owner's
+    ``SERGIO_TERRY_MODELS`` first when set)."""
+    out = [m for m in TERRY_MODELS if os.environ.get("SERGIO_TERRY_MODELS")]
+    for env, model in FAST_OTHERS:
+        if os.environ.get(env, "").strip() and model not in out:
+            out.append(model)
+    return [m for m in out if not m.startswith("gemini")]
+
 
 # What the person sees while Terry works (owner, 26 oct. 2026: «revisa las
 # frases»): what is really happening, in plain words; Terry himself never
@@ -211,7 +254,11 @@ Answer ONLY JSON:
 "language": "language to answer in",
 "skills": ["expert skills the task needs, e.g. copywriting, data analysis, UX writing, Python"],
 "pitfalls": ["what a mediocre answer would get wrong"],
-"success": ["how to tell the answer is excellent"]}}"""
+"plan": ["the 2-5 steps an expert would follow to get it right"],
+"checks": ["facts, numbers, code or claims to verify before answering"],
+"success": ["how to tell the answer is excellent"]}}
+
+Be specific to THIS request; never generic advice. Keep every item short."""
 
 
 def _check(text: str) -> Dict[str, Any]:
@@ -333,6 +380,12 @@ def brief(analysis: Dict[str, Any], model: str) -> str:
             else "",
             "Execute reasoning step-by-step before delivering the final unpadded result.",
         ]
+    plan = _lines(a.get("plan"))
+    checks = _lines(a.get("checks"))
+    if plan and fam != "local":
+        parts.append("Plan:\n" + "\n".join(f"{i}. {x}" for i, x in enumerate(plan, 1)))
+    if checks:
+        parts.append("Before answering, check: " + "; ".join(checks[:5]) + ".")
     lang = str(a.get("language") or "").strip()
     body = "\n\n".join(p for p in parts if p)
     if lang:
@@ -368,51 +421,7 @@ def prepare(
 ) -> Tuple[str, Dict[str, Any]]:
     """(the brief for *model*, Terry's analysis). Raises when Terry fails."""
     if ask is None:
-
-        def ask(prompt: str, **kw: Any) -> str:
-            try:
-                from openjarvis.creator.llm import ask as multi_ask
-
-                return multi_ask(
-                    prompt,
-                    models=TERRY_MODELS,
-                    effort="low",
-                    max_tokens=2048,
-                    hedge_after=6.0,
-                    timeout=25.0,
-                    **kw,
-                )
-            except Exception:
-                # Resilient universal fallback: synthesize structured brief directly
-                return json.dumps(
-                    {
-                        "intent": request.strip()[:100],
-                        "deliverable": "Respuesta directa y autoritativa con máxima precisión ejecutiva",
-                        "audience": "el usuario",
-                        "constraints": [
-                            "Máximo rigor analítico",
-                            "Sin relleno superficial",
-                            "Solución directa",
-                        ],
-                        "hidden_needs": [
-                            "Anticipación táctica",
-                            "Siguientes pasos estructurados",
-                        ],
-                        "format": "Markdown estructurado de alta legibilidad",
-                        "tone": "Tranquilo, aristocrático, estratégico y conciso",
-                        "language": language(request),
-                        "skills": [
-                            "Estrategia ejecutiva",
-                            "Ingeniería de software de alta fidelidad",
-                        ],
-                        "pitfalls": [
-                            "Respuestas genéricas o condescendientes",
-                            "Excusas sobre límites de IA",
-                        ],
-                        "success": ["Resolución inmediata comprobable de la necesidad"],
-                    }
-                )
-
+        ask = _ask_fast
     raw = ask(
         ANALYZE_PROMPT.format(history=history, request=request[:6000]),
         json_mode=True,
@@ -420,6 +429,58 @@ def prepare(
     )
     analysis = _check(raw)
     return brief(analysis, model), analysis
+
+
+def _ask_fast(prompt: str, **kw: Any) -> str:
+    """Gemini's fast models (hedged) when there is a key, else the fast model
+    of each other company here. Raises when none answers: Terry then simply
+    does not write a brief."""
+    from openjarvis.creator import llm
+
+    if os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY"):
+        try:
+            return llm._ask_gemini(
+                prompt, effort="low", max_tokens=1200, models=FAST_GEMINI,
+                client=None, hedge_after=1.5, timeout=deadline(), **kw,
+            )  # fmt: skip
+        except Exception:  # noqa: BLE001 — the other companies next
+            pass
+    others = fast_others()
+    if not others:
+        raise RuntimeError("Terry no tiene un modelo rápido")
+    return llm.ask_others(prompt, max_tokens=1200, models=others, **kw)
+
+
+def _key(request: str, history: str, model: str) -> str:
+    raw = f"{family(model)}\n{history[-1500:]}\n{request}"
+    return hashlib.sha256(raw.encode("utf-8", "ignore")).hexdigest()
+
+
+def prepare_in_time(
+    request: str,
+    history: str,
+    model: str,
+    *,
+    within: Optional[float] = None,
+    ask: Optional[Callable[..., str]] = None,
+) -> Optional[Tuple[str, Dict[str, Any]]]:
+    """:func:`prepare` with a hard deadline and a short cache. ``None`` when
+    Terry was late or failed: the answer starts without him."""
+    key = _key(request, history, model)
+    hit = _cache.get(key)
+    if hit and time.time() - hit[0] < CACHE_S:
+        return hit[1], hit[2]
+    fut = _pool.submit(prepare, request, history, model, ask=ask)
+    try:
+        out = fut.result(timeout=deadline() if within is None else within)
+    except _Late:
+        return None
+    except Exception:  # noqa: BLE001 — Terry is a bonus
+        return None
+    if len(_cache) > 200:
+        _cache.clear()
+    _cache[key] = (time.time(), out[0], out[1])
+    return out
 
 
 def statuses(lang: str, n: int = 12, seed: Optional[int] = None) -> List[str]:
@@ -441,6 +502,7 @@ __all__ = [
     "language",
     "learned",
     "prepare",
+    "prepare_in_time",
     "prepared",
     "statuses",
     "wanted",

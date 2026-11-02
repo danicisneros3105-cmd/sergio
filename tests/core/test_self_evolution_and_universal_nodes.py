@@ -59,16 +59,20 @@ def test_terry_brief_generation_multi_model():
     assert "## Domain Mastery" in universal_brief
 
 
-def test_terry_prepare_resilient_fallback():
-    # Calling prepare without internet / keys must not crash
-    brief_out, analysis = terry.prepare(
-        "Analizar topología de red distribuida",
-        history="User: Hola",
-        model="gpt-4o",
+def test_terry_without_any_model_adds_nothing_and_never_crashes(monkeypatch):
+    # Without internet or keys Terry writes no brief (before, a made-up
+    # generic brief was sent as if he had understood the request).
+    for env in ("GEMINI_API_KEY", "GOOGLE_API_KEY", "ANTHROPIC_API_KEY",
+                "OPENAI_API_KEY", "DEEPSEEK_API_KEY", "OPENROUTER_API_KEY",
+                "SERGIO_TERRY_MODELS"):  # fmt: skip
+        monkeypatch.delenv(env, raising=False)
+    terry._cache.clear()
+    assert (
+        terry.prepare_in_time(
+            "Analizar topología de red distribuida", "User: Hola", "gpt-4o", within=3
+        )
+        is None
     )
-    assert len(brief_out) > 50
-    assert "intent" in analysis
-    assert "deliverable" in analysis
 
 
 def test_hotel_rate_plan_never_invents_a_rate(tmp_path):

@@ -2,6 +2,11 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-11-02 · Claude · Terry más rápido y más fuerte
+- Sin Gemini, Terry preguntaba a los modelos grandes uno tras otro (Sonnet, GPT-5.6 Terra, openrouter/auto) con 25 s de margen: la respuesta esperaba. Ahora usa solo el modelo rápido de cada empresa con clave (Flash, Haiku 5.5, GPT-5.6 Luna, DeepSeek chat) y tiene un tope duro (`SERGIO_TERRY_TIEMPO`, 4 s): si llega tarde, se responde sin él.
+- Su encargo ahora trae el plan para resolverlo y lo que hay que comprobar antes de responder. El mismo pedido en la misma conversación reutiliza su encargo (10 min).
+- Quité el encargo genérico que se inventaba cuando Terry fallaba («tono aristocrático…»): si falla, no se añade nada.
+
 ## 2026-11-02 · Claude · planes: ganancia real, costo de IA y modelos por plan
 - `pagos/clientes.py` + `GET /v1/pagos/clientes` (solo el dueño): por cada cliente con plan pagado, lo que paga, la comisión anotada, lo que su clave gastó de verdad este mes en OpenRouter (`usage_monthly`) y la ganancia; peor margen arriba; totales. Si OpenRouter no responde, «No se pudo leer» y no se suma.
 - Modelos por plan aplicados en `provision.customer_model` (antes cualquier plan podía usar cualquier modelo). Panel de Cobros: tabla de ganancia, barra de uso del tope, «Modelos por plan» y la casilla de la clave de gestión si falta.

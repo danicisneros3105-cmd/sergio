@@ -120,3 +120,65 @@ def test_the_owners_next_words_teach_the_fly_about_terry(monkeypatch):
     assert terry.judge_previous("y para el mes siguiente?") == terry.NO_COMPLAINT
     assert [t[1] for t in taught] == ["terry", "terry"]
     assert taught[0][0] == "plan de marketing"
+
+
+def test_terry_never_makes_the_answer_wait_past_his_deadline():
+    import time
+
+    def slow(prompt, **kw):
+        time.sleep(1.5)
+        return json.dumps({"intent": "x"})
+
+    t = time.time()
+    assert (
+        terry.prepare_in_time(
+            "analiza mi plan de negocio", "", "gemini", within=0.2, ask=slow
+        )
+        is None
+    )
+    assert time.time() - t < 1.0
+
+
+def test_terry_reuses_his_brief_and_adds_plan_and_checks():
+    calls = []
+
+    def ask(prompt, **kw):
+        calls.append(1)
+        return json.dumps(
+            {
+                "intent": "comparar dos planes",
+                "plan": ["listar costos", "comparar"],
+                "checks": ["sumas"],
+            }
+        )
+
+    terry._cache.clear()
+    a = terry.prepare_in_time(
+        "compara estos dos planes", "h", "claude-x", within=2, ask=ask
+    )
+    b = terry.prepare_in_time(
+        "compara estos dos planes", "h", "claude-x", within=2, ask=ask
+    )
+    assert a == b and len(calls) == 1
+    assert "1. listar costos" in a[0] and "check: sumas" in a[0]
+
+
+def test_a_failed_terry_invents_no_brief():
+    def broken(prompt, **kw):
+        raise RuntimeError("sin modelo")
+
+    terry._cache.clear()
+    assert (
+        terry.prepare_in_time(
+            "redacta un informe largo", "", "gpt", within=2, ask=broken
+        )
+        is None
+    )
+
+
+def test_terry_uses_only_fast_models(monkeypatch):
+    monkeypatch.delenv("SERGIO_TERRY_MODELS", raising=False)
+    for env in ("ANTHROPIC_API_KEY", "OPENAI_API_KEY", "DEEPSEEK_API_KEY"):
+        monkeypatch.delenv(env, raising=False)
+    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-or-x")
+    assert terry.fast_others() == ["openrouter/google/gemini-2.5-flash"]

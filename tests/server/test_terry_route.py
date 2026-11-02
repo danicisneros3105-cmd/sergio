@@ -35,6 +35,7 @@ def setup(monkeypatch):
         }
 
     monkeypatch.setattr(terry, "prepare", prepare)
+    terry._cache.clear()  # each test asks Terry afresh (his brief is cached)
     engine = _make_engine()
     client = TestClient(create_app(engine, "test-model", config=_test_config()))
     return client, engine, calls

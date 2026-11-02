@@ -181,12 +181,11 @@ def _apply_terry(request_body: ChatCompletionRequest, query: str, model: str) ->
     from openjarvis.agents import terry
     from openjarvis.server.models import ChatMessage
 
-    try:
-        brief, _analysis = terry.prepare(
-            query, terry.history_text(request_body.messages), model
-        )
-    except Exception:  # noqa: BLE001 — Terry is a bonus: the request goes as it came
+    # A hard deadline: when Terry is late the answer starts without him.
+    out = terry.prepare_in_time(query, terry.history_text(request_body.messages), model)
+    if out is None:  # late or failed: the request goes as it came
         return False
+    brief = out[0]
     terry.prepared(query)
     msgs = list(request_body.messages)
     if msgs and msgs[0].role == "system":
