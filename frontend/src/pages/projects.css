@@ -3,19 +3,19 @@
 .pj-new { display: grid; gap: 12px; max-width: 560px; padding: 16px; border: 1px solid var(--color-border); border-radius: 14px; background: var(--color-bg); }
 .pj-label { display: grid; gap: 6px; font-size: 13px; color: var(--color-text-secondary); }
 .pj-input { font: inherit; font-size: 15px; color: var(--color-text); background: var(--color-bg-secondary); border: 1px solid var(--color-border); border-radius: 10px; padding: 10px 12px; }
-.pj-input:focus { outline: none; border-color: var(--color-accent, #007aff); }
+.pj-input:focus { outline: none; border-color: var(--color-accent, var(--color-accent)); }
 .pj-area { min-height: 96px; resize: vertical; width: 100%; box-sizing: border-box; }
 .pj-row { display: flex; gap: 8px; }
 .pj-btn { display: inline-flex; align-items: center; gap: 8px; font: inherit; font-size: 14px; padding: 9px 16px; border-radius: 999px; border: 1px solid var(--color-border); background: var(--color-bg); color: var(--color-text); cursor: pointer; }
-.pj-btn[data-primary] { background: var(--color-accent, #007aff); border-color: transparent; color: #fff; }
+.pj-btn[data-primary] { background: var(--color-accent, var(--color-accent)); border-color: transparent; color: #fff; }
 .pj-btn:disabled { opacity: 0.45; cursor: default; }
 .pj-danger { color: #ff3b30; margin-top: 28px; }
 .pj-empty { color: var(--color-text-secondary); font-size: 14px; }
 .pj-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 .pj-item { width: 100%; display: flex; justify-content: space-between; gap: 12px; align-items: baseline; text-align: left; font: inherit; padding: 14px 16px; border: 1px solid var(--color-border); border-radius: 12px; background: var(--color-bg); color: var(--color-text); cursor: pointer; }
-.pj-item:hover { border-color: var(--color-accent, #007aff); }
+.pj-item:hover { border-color: var(--color-accent, var(--color-accent)); }
 .pj-item span { color: var(--color-text-secondary); font-size: 13px; }
-.pj-back { font: inherit; font-size: 14px; background: none; border: 0; color: var(--color-accent, #007aff); cursor: pointer; padding: 0; margin-bottom: 8px; }
+.pj-back { font: inherit; font-size: 14px; background: none; border: 0; color: var(--color-accent, var(--color-accent)); cursor: pointer; padding: 0; margin-bottom: 8px; }
 .pj-h2 { font-size: 24px; margin: 0 0 14px; }
 .pj-section { margin-top: 26px; display: grid; gap: 10px; max-width: 640px; }
 .pj-section h3 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--color-text-secondary); margin: 0; }

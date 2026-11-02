@@ -23,7 +23,7 @@
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.25));
 }
 .sp-cursor path {
-  fill: #007aff;
+  fill: var(--color-accent);
   stroke: #fff;
   stroke-width: 1.6;
   stroke-linejoin: round;
@@ -39,7 +39,7 @@
   max-width: 260px;
   padding: 6px 10px;
   border-radius: 12px 12px 12px 4px;
-  background: #007aff;
+  background: var(--color-accent);
   color: #fff;
   font-size: 13px;
   line-height: 1.35;
@@ -59,18 +59,18 @@
 .sp-ring {
   position: fixed;
   border-radius: 12px;
-  box-shadow: 0 0 0 2px #007aff, 0 0 0 6px rgba(0, 122, 255, 0.18);
+  box-shadow: 0 0 0 2px var(--color-accent), 0 0 0 6px color-mix(in srgb, var(--color-accent) 18%, transparent);
   transition: all 0.5s cubic-bezier(0.22, 1, 0.36, 1);
 }
 @media (prefers-color-scheme: dark) {
   .sp-cursor path {
-    fill: #0a84ff;
+    fill: var(--color-accent);
   }
   .sp-tag {
-    background: #0a84ff;
+    background: var(--color-accent);
   }
   .sp-ring {
-    box-shadow: 0 0 0 2px #0a84ff, 0 0 0 6px rgba(10, 132, 255, 0.2);
+    box-shadow: 0 0 0 2px var(--color-accent), 0 0 0 6px color-mix(in srgb, var(--color-accent) 20%, transparent);
   }
 }
 @media (prefers-reduced-motion: reduce) {

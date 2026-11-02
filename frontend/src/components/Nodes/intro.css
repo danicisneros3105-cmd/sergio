@@ -51,7 +51,7 @@
   margin-top: -6px;
 }
 .ni-node[data-on] {
-  box-shadow: 0 0 0 3px #007aff, 0 6px 16px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 0 0 3px var(--color-accent), 0 6px 16px rgba(0, 0, 0, 0.12);
 }
 .ni-text {
   padding: 18px 22px 6px;
@@ -88,7 +88,7 @@
 }
 .ni-dots i[data-on] {
   width: 18px;
-  background: #007aff;
+  background: var(--color-accent);
 }
 .ni-ghost,
 .ni-primary {
@@ -103,7 +103,7 @@
 }
 .ni-primary {
   border: 0;
-  background: #007aff;
+  background: var(--color-accent);
   color: #fff;
 }
 @media (prefers-color-scheme: dark) {
@@ -118,6 +118,6 @@
   }
   .ni-primary,
   .ni-dots i[data-on] {
-    background: #0a84ff;
+    background: var(--color-accent);
   }
 }

@@ -38,6 +38,7 @@ import {
   type ComposerOptions,
 } from '../lib/cowork';
 import { BrandMark } from '../components/Brand/BrandMark';
+import { AppsStrip } from '../components/Cowork/AppsStrip';
 import { brandsIn } from '../lib/brands';
 import '../components/Cowork/cowork.css';
 
@@ -550,6 +551,7 @@ export function CoworkPage() {
               ))}
             </ul>
           )}
+          {!text && <AppsStrip />}
           {runs.length > 0 && (
             <section className="cw-tasks" aria-label="Tareas">
               <h2>Tareas</h2>

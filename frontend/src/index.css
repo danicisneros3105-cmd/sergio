@@ -3903,8 +3903,8 @@ li.msheet-for { padding: 10px 14px; }
 .start-tile { all: unset; box-sizing: border-box; cursor: pointer; display: flex; flex-direction: column; gap: 4px; padding: 18px; border-radius: 20px; background: var(--color-surface); border: 1px solid var(--color-border-subtle); transition: transform 160ms ease, box-shadow 160ms ease; }
 .start-tile:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08); }
 .start-tile:active { transform: scale(0.98); }
-.start-tile:focus-visible { outline: 2px solid var(--color-accent, #007aff); outline-offset: 2px; }
-.start-tile-icon { width: 38px; height: 38px; border-radius: 12px; display: grid; place-items: center; color: #fff; background: var(--color-accent, #007aff); margin-bottom: 8px; }
+.start-tile:focus-visible { outline: 2px solid var(--color-accent, var(--color-accent)); outline-offset: 2px; }
+.start-tile-icon { width: 38px; height: 38px; border-radius: 12px; display: grid; place-items: center; color: #fff; background: var(--color-accent, var(--color-accent)); margin-bottom: 8px; }
 .start-tile b { font-size: 16px; }
 .start-tile small { font-size: 13.5px; color: var(--color-text-secondary); line-height: 1.35; }
 .start-tour { margin: 0; }
@@ -3918,9 +3918,9 @@ details.start-update summary { cursor: pointer; font-weight: 600; font-size: 14p
 .signin-field { display: grid; gap: 6px; font-size: 13.5px; color: var(--color-text-secondary); }
 .signin-field > span { display: flex; justify-content: space-between; align-items: baseline; }
 .signin-field small { font-size: 12.5px; }
-.signin-peek { border: 0; background: none; padding: 0; font: inherit; font-size: 13px; color: var(--color-accent, #007aff); cursor: pointer; }
-.signin-form input:focus { outline: 2px solid var(--color-accent, #007aff); outline-offset: -1px; }
-.signin-go { background: var(--color-accent, #007aff); color: #fff; transition: transform 120ms ease, opacity 120ms ease; }
+.signin-peek { border: 0; background: none; padding: 0; font: inherit; font-size: 13px; color: var(--color-accent, var(--color-accent)); cursor: pointer; }
+.signin-form input:focus { outline: 2px solid var(--color-accent, var(--color-accent)); outline-offset: -1px; }
+.signin-go { background: var(--color-accent, var(--color-accent)); color: #fff; transition: transform 120ms ease, opacity 120ms ease; }
 .signin-go:active:not(:disabled) { transform: scale(0.98); }
 .signin-card { animation: signin-in 280ms cubic-bezier(0.16, 1, 0.3, 1); }
 @keyframes signin-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
@@ -3933,7 +3933,7 @@ details.start-update summary { cursor: pointer; font-weight: 600; font-size: 14p
 .activity-film header b { font-weight: 600; white-space: nowrap; }
 .activity-goal { color: var(--color-text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .activity-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--color-text-tertiary); flex: none; }
-.activity-film[data-state='working'] .activity-dot { background: #0a84ff; animation: activity-pulse 1.2s ease-in-out infinite; }
+.activity-film[data-state='working'] .activity-dot { background: var(--color-accent); animation: activity-pulse 1.2s ease-in-out infinite; }
 .activity-film[data-state='done'] .activity-dot { background: #30d158; }
 .activity-film[data-state='failed'] .activity-dot { background: #ff453a; }
 .activity-film ol { list-style: none; margin: 0; padding: 0; display: flex; gap: 8px; overflow-x: auto; scroll-snap-type: x mandatory; }
@@ -3948,9 +3948,201 @@ details.start-update summary { cursor: pointer; font-weight: 600; font-size: 14p
   display: flex; align-items: center; gap: 8px; max-width: min(420px, calc(100vw - 32px));
   padding: 8px 8px 8px 12px; border-radius: 999px; background: var(--color-surface); color: var(--color-text);
   border: 1px solid var(--color-border); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12); font-size: 13px; }
-.install-chip .install-go { all: unset; cursor: pointer; font-weight: 600; color: var(--color-accent, #007aff); }
+.install-chip .install-go { all: unset; cursor: pointer; font-weight: 600; color: var(--color-accent, var(--color-accent)); }
 .install-chip .install-close { all: unset; cursor: pointer; display: grid; place-items: center; width: 24px; height: 24px; border-radius: 999px; color: var(--color-text-secondary, #8e8e93); }
 .install-chip .install-close:hover { background: var(--color-border-subtle, rgba(0,0,0,.06)); }
 
 /* A microphone hint is a suggestion, not a failure: no red. */
 .live-captions-hint { color: var(--color-text-secondary, #6e6e73) !important; pointer-events: auto; }
+
+/* -- Cristal y burdeos (owner, 2 Nov 2026: «diseño más tipo ElevenLabs …
+   los colores primarios de la app serán glass, burgundy») -------------------
+   Replaces the Apple layer above (its tokens stay, these win). ElevenLabs'
+   calm: a warm off-white canvas, white or frosted-glass surfaces, near-black
+   ink, hairline borders, black pill buttons, generous space. ONE accent, the
+   burgundy, on what is chosen or pressed; champagne only as a rare second
+   note; green / amber / red only to say how something went. Glass is real
+   translucency with blur; the light mode of slow PCs drops the blur and
+   keeps the colours (lib/perf.ts). */
+:root,
+:root.light {
+  --color-bg: #ffffff;
+  --color-bg-secondary: #f7f6f4;
+  --color-bg-tertiary: #edebe8;
+  --color-surface: #ffffff;
+  --color-sidebar: #f7f6f4;
+  --color-tile: #f3f2ef;
+  --color-border: rgba(28, 25, 23, 0.09);
+  --color-border-subtle: rgba(28, 25, 23, 0.05);
+  --color-text: #0c0a09;
+  --color-text-secondary: #57534e;
+  --color-text-tertiary: #8a837d;
+  --color-accent: #7a1f3d;
+  --color-accent-hover: #64172f;
+  --color-accent-text: #7a1f3d;
+  --color-accent-subtle: rgba(122, 31, 61, 0.08);
+  --color-accent-glow: rgba(122, 31, 61, 0.2);
+  --color-accent-blue-subtle: rgba(122, 31, 61, 0.08);
+  --color-champagne: #b8925a;
+  --color-ink: #0c0a09;
+  --color-on-ink: #ffffff;
+  --color-success: #2f9e5b;
+  --color-warning: #c27a12;
+  --color-error: #c8322b;
+  --color-hover: rgba(28, 25, 23, 0.045);
+  --color-selected: rgba(122, 31, 61, 0.09);
+  --glass: rgba(255, 255, 255, 0.72);
+  --glass-strong: rgba(255, 255, 255, 0.86);
+  --glass-edge: rgba(255, 255, 255, 0.6);
+  --glass-blur: blur(22px) saturate(1.5);
+  --shadow-card: 0 1px 2px rgba(28, 25, 23, 0.04), 0 8px 24px rgba(28, 25, 23, 0.05);
+  --radius-card: 18px;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --imsg-me: #7a1f3d;
+  --sec-chat: #7a1f3d;
+  accent-color: #7a1f3d;
+}
+:root.dark {
+  --color-bg: #0c0a09;
+  --color-bg-secondary: #161311;
+  --color-bg-tertiary: #24201d;
+  --color-surface: #161311;
+  --color-sidebar: #110f0d;
+  --color-tile: #1f1b18;
+  --color-sheet: #1f1b18;
+  --color-border: rgba(255, 250, 245, 0.09);
+  --color-border-subtle: rgba(255, 250, 245, 0.05);
+  --color-text: #f5f2ee;
+  --color-text-secondary: #b3aca5;
+  --color-text-tertiary: #8a837d;
+  --color-accent: #c4516f;
+  --color-accent-hover: #d46a86;
+  --color-accent-text: #e07d97;
+  --color-accent-subtle: rgba(196, 81, 111, 0.16);
+  --color-accent-glow: rgba(196, 81, 111, 0.3);
+  --color-accent-blue-subtle: rgba(196, 81, 111, 0.16);
+  --color-champagne: #d4b27a;
+  --color-ink: #f5f2ee;
+  --color-on-ink: #0c0a09;
+  --color-success: #4cc27a;
+  --color-warning: #e3a03b;
+  --color-error: #ef5a52;
+  --color-hover: rgba(255, 250, 245, 0.06);
+  --color-selected: rgba(196, 81, 111, 0.18);
+  --glass: rgba(28, 25, 23, 0.62);
+  --glass-strong: rgba(28, 25, 23, 0.82);
+  --glass-edge: rgba(255, 250, 245, 0.08);
+  --shadow-card: 0 0 0 1px rgba(255, 250, 245, 0.05);
+  --imsg-me: #8e2747;
+  --sec-chat: #c4516f;
+  accent-color: #c4516f;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) {
+    --color-bg: #0c0a09;
+    --color-bg-secondary: #161311;
+    --color-bg-tertiary: #24201d;
+    --color-surface: #161311;
+    --color-sidebar: #110f0d;
+    --color-tile: #1f1b18;
+    --color-sheet: #1f1b18;
+    --color-border: rgba(255, 250, 245, 0.09);
+    --color-border-subtle: rgba(255, 250, 245, 0.05);
+    --color-text: #f5f2ee;
+    --color-text-secondary: #b3aca5;
+    --color-text-tertiary: #8a837d;
+    --color-accent: #c4516f;
+    --color-accent-hover: #d46a86;
+    --color-accent-text: #e07d97;
+    --color-accent-subtle: rgba(196, 81, 111, 0.16);
+    --color-champagne: #d4b27a;
+    --color-ink: #f5f2ee;
+    --color-on-ink: #0c0a09;
+    --color-success: #4cc27a;
+    --color-warning: #e3a03b;
+    --color-error: #ef5a52;
+    --color-hover: rgba(255, 250, 245, 0.06);
+    --color-selected: rgba(196, 81, 111, 0.18);
+    --glass: rgba(28, 25, 23, 0.62);
+    --glass-strong: rgba(28, 25, 23, 0.82);
+    --glass-edge: rgba(255, 250, 245, 0.08);
+    --shadow-card: 0 0 0 1px rgba(255, 250, 245, 0.05);
+    --imsg-me: #8e2747;
+    --sec-chat: #c4516f;
+    accent-color: #c4516f;
+  }
+}
+
+/* Glass: sheets, dialogs, the sidebar and floating bars float over the page. */
+.glass,
+.msheet,
+.tour-card,
+.ni-card,
+.approval-card,
+.running-pill,
+.sp-tag {
+  background: var(--glass-strong);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-edge);
+}
+.sp-tag {
+  background: var(--color-accent);
+  border-color: transparent;
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass, .msheet, .tour-card, .ni-card, .approval-card, .running-pill { background: var(--color-surface); }
+}
+html[data-ligero] .glass, html[data-ligero] .msheet, html[data-ligero] .tour-card,
+html[data-ligero] .ni-card, html[data-ligero] .approval-card, html[data-ligero] .running-pill {
+  background: var(--color-surface);
+}
+
+/* ElevenLabs buttons: a black pill for the main action, a hairline pill for
+   the rest; a 1 px lift on hover, never a glow. */
+.paper-button:not([data-variant]),
+.ni-primary,
+.tour-actions .paper-button:last-child {
+  background: var(--color-ink);
+  color: var(--color-on-ink);
+  border: 1px solid var(--color-ink);
+  border-radius: 999px;
+  transition: transform 0.18s var(--ease-out), opacity 0.18s ease;
+}
+.paper-button:not([data-variant]):hover,
+.ni-primary:hover {
+  transform: translateY(-1px);
+  opacity: 0.92;
+}
+.paper-button[data-variant='quiet'],
+.ni-ghost {
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  background: transparent;
+  color: var(--color-text);
+}
+.paper-button:focus-visible,
+.ni-primary:focus-visible,
+.ni-ghost:focus-visible,
+button:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* Cards: white on the warm canvas, a soft shadow, rounder corners. */
+.cp-card, .salud-block, .approval-card { border-radius: var(--radius-card); }
+.ext-switch[aria-checked='true'] { background: var(--color-accent); }
+.ni-dots i[data-on], .tour-dots .on { background: var(--color-accent); }
+
+/* Calm motion: things arrive, they do not bounce. */
+@media (prefers-reduced-motion: no-preference) {
+  .paper-page, .ni-card, .msheet, .tour-card { animation: sg-arrive 0.32s var(--ease-out) both; }
+}
+@keyframes sg-arrive {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+/* Sergio's bubbles in a warm grey that sits with the burgundy. */
+:root, :root.light { --imsg-them: #f1efec; --imsg-them-text: #0c0a09; --imsg-meta: #8a837d; }
+:root.dark { --imsg-them: #26211e; --imsg-them-text: #f5f2ee; }
+@media (prefers-color-scheme: dark) { :root:not(.light) { --imsg-them: #26211e; --imsg-them-text: #f5f2ee; } }
