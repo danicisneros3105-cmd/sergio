@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { FanGallery } from './FanGallery';
+import { FanGallery, rise } from './FanGallery';
 
 describe('FanGallery', () => {
   it('fans out the cards and pages after the hand', () => {
@@ -15,5 +15,13 @@ describe('FanGallery', () => {
     const html = renderToStaticMarkup(<FanGallery items={[{ key: 'a', kind: '3d', title: 'Auto' }]} onOpen={() => {}} />);
     expect(html).toContain('Modelo 3D');
     expect(html).not.toContain('fan-pager');
+  });
+
+  it('raises the card under the pointer most and its neighbours a little', () => {
+    expect(rise(3, 3)).toBe(1);
+    expect(rise(2, 3)).toBeGreaterThan(0.4);
+    expect(rise(2, 3)).toBeLessThan(1);
+    expect(rise(0, 3)).toBeLessThan(0.01);
+    expect(rise(1, null)).toBe(0);
   });
 });

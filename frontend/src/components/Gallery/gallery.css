@@ -7,9 +7,30 @@
 .fan {
   position: relative;
   width: 100%;
-  height: 420px;
+  height: 440px;
   outline: none;
   overflow: hidden;
+  perspective: 1400px;
+  touch-action: pan-y;
+}
+/* The lifted picture's own colour, blurred, behind the hand. */
+.fan-glow {
+  position: absolute;
+  left: 50%;
+  bottom: -40px;
+  width: 70%;
+  height: 80%;
+  translate: -50% 0;
+  border-radius: 50%;
+  background-size: cover;
+  background-position: center;
+  filter: blur(70px) saturate(1.5);
+  opacity: 0;
+  transition: opacity 0.6s ease, background-image 0.6s ease;
+  pointer-events: none;
+}
+.fan-glow[data-on] {
+  opacity: 0.55;
 }
 .fan-card {
   position: absolute;
@@ -19,24 +40,67 @@
   height: 300px;
   padding: 0;
   border: 0;
+  background: none;
+  transform-origin: 50% 160%;
+  will-change: transform;
+  cursor: pointer;
+  animation: fan-deal 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: calc(var(--i, 0) * 45ms);
+}
+@keyframes fan-deal {
+  from {
+    translate: 0 160px;
+    opacity: 0;
+  }
+}
+/* The card itself: tilts toward the pointer when lifted. */
+.fan-face {
+  position: absolute;
+  inset: 0;
+  display: block;
   border-radius: 18px;
   overflow: hidden;
   background: var(--color-bg, #fff);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
-  transform-origin: 50% 160%;
-  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.35s ease;
-  cursor: pointer;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.25) inset, 0 10px 30px rgba(0, 0, 0, 0.18);
+  transform: rotateX(0deg) rotateY(0deg);
+  transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.45s ease;
 }
-.fan-card[data-up] {
+.fan-card[data-up] .fan-face {
+  transform: rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
+  transition: transform 0.12s linear, box-shadow 0.45s ease;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent) 85%, transparent), 0 26px 60px -12px rgba(0, 0, 0, 0.45);
+}
+.fan-card:focus-visible {
+  outline: none;
+}
+.fan-card:focus-visible .fan-face {
   box-shadow: 0 0 0 3px var(--color-accent), 0 18px 40px rgba(0, 0, 0, 0.25);
 }
-.fan-card img,
-.fan-card video {
+.fan-face img,
+.fan-face video {
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
   pointer-events: none;
+  transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.fan-card[data-up] .fan-face img,
+.fan-card[data-up] .fan-face video {
+  transform: scale(1.05);
+}
+/* A soft light that follows the pointer over the lifted card. */
+.fan-sheen {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at var(--mx, 50%) var(--my, 20%), rgba(255, 255, 255, 0.35), transparent 45%);
+  mix-blend-mode: soft-light;
+  opacity: 0;
+  transition: opacity 0.35s ease;
+  pointer-events: none;
+}
+.fan-card[data-up] .fan-sheen {
+  opacity: 1;
 }
 .fan-3d {
   display: grid;
@@ -57,7 +121,14 @@
   padding: 8px 12px 10px;
   text-align: left;
   color: #fff;
-  background: rgba(0, 0, 0, 0.55);
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.62), rgba(0, 0, 0, 0.18) 75%, transparent);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  transform: translateY(6px);
+  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.fan-card[data-up] .fan-label {
+  transform: translateY(0);
 }
 .fan-label b {
   font-size: 14px;
@@ -144,7 +215,7 @@
 }
 @media (max-width: 640px) {
   .fan {
-    height: 340px;
+    height: 350px;
   }
   .fan-card {
     left: calc(50% - 80px);
@@ -154,8 +225,8 @@
   }
 }
 @media (prefers-color-scheme: dark) {
-  .fan-card[data-up] {
-    box-shadow: 0 0 0 3px var(--color-accent), 0 18px 40px rgba(0, 0, 0, 0.5);
+  .fan-glow[data-on] {
+    opacity: 0.4;
   }
   .gal-tabs button[aria-pressed='true'] {
     border-color: var(--color-accent);
@@ -164,6 +235,12 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .fan-card {
+    animation: none;
+  }
+  .fan-face,
+  .fan-face img,
+  .fan-face video,
+  .fan-label {
     transition: none;
   }
 }

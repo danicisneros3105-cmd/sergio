@@ -2,20 +2,20 @@
 // Instagram y YouTube»): he says what should happen without him; Sergio answers
 // with what it understood and a card with a button for anything that changes
 // something (POST /v1/automatiza/charla). Nothing runs without that tap.
-// Design by the owner's editorial rules: no gradients, glows or floating
-// grids; three colours (paper, ink, one deep blue); light and dark sections
-// in turn; an asymmetric opening; a display serif for titles and an
-// industrial sans for text; 1px rules and mechanical hovers.
-// The full panel (channels, replies, clients, trading, stability) stays below.
+// Simpler (owner, 2 Nov 2026: «aún se complican las automatizaciones
+// complejas y simples, y el diseño del apartado»): first a builder in three
+// choices (when, what, who) with templates, then every automation in one
+// list, then the conversation. Same «Cristal y burdeos» look as the rest of
+// the app. The full panel (channels, replies, clients, trading, stability)
+// stays below.
 
-import '@fontsource/instrument-serif/400.css';
-import '@fontsource/ibm-plex-sans/400.css';
-import '@fontsource/ibm-plex-sans/500.css';
-import '@fontsource/ibm-plex-sans/600.css';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { Activity, ArrowUp, Briefcase, Clapperboard, LineChart, MessageCircle } from 'lucide-react';
 import { apiFetch } from '../lib/api';
+import { nodesApi, type SergioNode } from '../lib/nodes';
+import { Builder } from '../components/Automatizar/Builder';
+import { MyAutomations } from '../components/Automatizar/MyAutomations';
 import './automatizar.css';
 
 interface Estado {
@@ -170,6 +170,16 @@ export function AutomatizarPage() {
     }
   };
 
+  const [nodes, setNodes] = useState<SergioNode[]>([]);
+  const loadNodes = useCallback(() => {
+    nodesApi
+      .list()
+      .then((list) => setNodes(Array.isArray(list) ? list : []))
+      .catch(() => setNodes([]));
+  }, []);
+  useEffect(loadNodes, [loadNodes]);
+  const routines = nodes.reduce((n, x) => n + (x.routines?.length ?? 0), 0);
+
   const [thread, setThread] = useState<Mensaje[]>(loadThread);
   const [text, setText] = useState('');
   const [thinking, setThinking] = useState(false);
@@ -214,61 +224,77 @@ export function AutomatizarPage() {
 
   return (
     <div className="ax">
-      <section className="ax-open">
-        <div className="ax-lead">
-          <p className="ax-kicker">Automatizar</p>
-          <h1 className="ax-title">Lo que Sergio hace mientras usted no está.</h1>
-          <form
-            className="ax-compose"
-            onSubmit={(e) => {
-              e.preventDefault();
-              void send(text);
+      <header className="ax-head">
+        <p className="ax-kicker">Automatizar</p>
+        <h1 className="ax-title">Lo que Sergio hace mientras usted no está.</h1>
+        <dl className="ax-stats" aria-label="En marcha">
+          <div>
+            <dt>{routines}</dt>
+            <dd>automatizaciones</dd>
+          </div>
+          {live.map((x) => (
+            <div key={x.label}>
+              <dt>{x.n}</dt>
+              <dd>{x.label}</dd>
+            </div>
+          ))}
+        </dl>
+      </header>
+
+      <section className="ax-block" aria-labelledby="ax-new">
+        <h2 id="ax-new" className="ax-h2">
+          Nueva automatización
+        </h2>
+        <Builder nodes={nodes} onCreated={loadNodes} />
+      </section>
+
+      <section className="ax-block" aria-labelledby="ax-mine">
+        <h2 id="ax-mine" className="ax-h2">
+          Sus automatizaciones
+        </h2>
+        <MyAutomations nodes={nodes} onChanged={loadNodes} />
+      </section>
+
+      <section className="ax-block ax-talk" aria-labelledby="ax-say">
+        <h2 id="ax-say" className="ax-h2">
+          O dígaselo con sus palabras
+        </h2>
+        <form
+          className="ax-compose"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void send(text);
+          }}
+        >
+          <label className="ax-sr" htmlFor="ax-text">
+            Qué quiere que pase sin usted
+          </label>
+          <textarea
+            id="ax-text"
+            rows={2}
+            value={text}
+            placeholder="Escriba lo que quiere que pase solo…"
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                void send(text);
+              }
             }}
-          >
-            <label className="ax-sr" htmlFor="ax-text">
-              Qué quiere que pase sin usted
-            </label>
-            <textarea
-              id="ax-text"
-              rows={2}
-              value={text}
-              placeholder="Escriba lo que quiere que pase solo…"
-              onChange={(e) => setText(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  void send(text);
-                }
-              }}
-            />
-            <button className="ax-send" type="submit" disabled={!text.trim() || thinking} aria-label="Enviar">
-              <ArrowUp size={18} strokeWidth={2.5} />
-            </button>
-          </form>
-          <ul className="ax-prompts">
-            {PROMPTS.map((p) => (
-              <li key={p}>
-                <button type="button" onClick={() => void send(p)} disabled={thinking}>
-                  {p}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
-        <aside className="ax-live" aria-label="En marcha">
-          <p className="ax-kicker">En marcha</p>
-          <dl>
-            {live.map((x) => (
-              <div key={x.label}>
-                <dt>{x.n}</dt>
-                <dd>{x.label}</dd>
-              </div>
-            ))}
-          </dl>
-          <p className="ax-live-foot">
-            Trading {st ? (st.trading.detenido ? 'detenido' : st.trading.activo ? (st.trading.dinero_real ? 'con dinero real' : 'en papel') : 'apagado') : '…'}
-          </p>
-        </aside>
+          />
+          <button className="ax-send" type="submit" disabled={!text.trim() || thinking} aria-label="Enviar">
+            <ArrowUp size={18} strokeWidth={2.5} />
+          </button>
+        </form>
+        <ul className="ax-prompts">
+          {PROMPTS.map((p) => (
+            <li key={p}>
+              <button type="button" onClick={() => void send(p)} disabled={thinking}>
+                {p}
+              </button>
+            </li>
+          ))}
+        </ul>
       </section>
 
       {(thread.length > 0 || thinking) && (

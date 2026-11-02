@@ -2,6 +2,10 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-11-02 · Claude · galería fluida, automatizar en tres pasos
+- Galería: el abanico sigue el puntero de forma continua (como el Dock): la carta de debajo sube y las vecinas un poco menos, con un muelle escrito directo en el DOM (sin renders por cuadro, el bucle se para al quedarse quieto). Inclinación 3D y brillo que siguen al puntero, halo del color de la foto detrás, cartas que se reparten al entrar. Respeta «reducir movimiento».
+- Automatizar: plantillas de un toque, creador Cuándo · Qué · Quién (simple = una frase; compleja = pasos numerados que el Node hace en orden), frase de vista previa antes de crear, y la lista de todas las automatizaciones con pausar y quitar. Usa las rutinas de los Nodes (un solo sistema). La charla sigue debajo. Diseño cambiado al de la app.
+
 ## 2026-11-02 · Claude · Sergio ve escondido, bloqueo con Face ID
 - La ventana de «Sergio ve» ya no se abre (ni por voz, ni con la tecla, ni con «Ver la cámara», que desaparece de Pantalla). Reconocer la cara por detrás sigue. Prueba nueva en `test_menos_permisos.py`; aquí se salta porque no hay PySide6.
 - Bloqueo de Sergio: tras 15 min sin uso (Ajustes → Bloqueo con Face ID) o «Bloquear Sergio» en la paleta, todo se tapa hasta mirar a la cámara (reto de movimiento y `/v1/faces/faceid/unlock`) o escribir el código. No bloquea ni desbloquea Windows (`docs/FACEID-SISTEMA.md`).

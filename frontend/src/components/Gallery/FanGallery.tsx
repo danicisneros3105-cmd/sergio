@@ -1,6 +1,11 @@
 // A fan of cards: the pictures, videos and 3D models people made with Sergio
-// spread from one pivot like a hand of cards. Hover (or arrow keys) lifts one;
-// a click opens it. On a phone the fan is narrower and swipes.
+// spread from one pivot like a hand of cards. Smooth like a dock (owner,
+// 2 Nov 2026: «más smooth el movimiento de la galería y más cool
+// visualmente»): the pointer is followed continuously, the card under it rises
+// and its neighbours a little less, everything eases with a spring written to
+// the DOM directly (no React render per frame, and the loop stops once still).
+// The lifted card tilts toward the pointer with a moving sheen, the picture's
+// own colour glows behind the fan, and a new hand is dealt in.
 import { useCallback, useEffect, useRef, useState } from 'react';
 import './gallery.css';
 
@@ -19,21 +24,124 @@ interface Props {
   hand?: number;
 }
 
+const EASE = 0.16; // how much of the way each frame covers
+const REACH = 0.9; // how far the rise spreads to the neighbours (in cards)
+
+/** The rise of card *i* when the pointer is over card *at* (0..1). */
+export function rise(i: number, at: number | null): number {
+  if (at === null) return 0;
+  const d = i - at;
+  return Math.exp(-(d * d) / (2 * REACH * REACH));
+}
+
+function transformOf(angle: number, lift: number, push: number): string {
+  return `rotate(${(angle + push).toFixed(2)}deg) translateY(${(-44 * lift).toFixed(1)}px) scale(${(1 + 0.08 * lift).toFixed(3)})`;
+}
+
+function reducedMotion(): boolean {
+  return typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+}
+
 export function FanGallery({ items, onOpen, hand = 9 }: Props) {
   const [start, setStart] = useState(0);
   const [lift, setLift] = useState<number | null>(null);
   const host = useRef<HTMLDivElement>(null);
+  const cards = useRef<(HTMLButtonElement | null)[]>([]);
+  const target = useRef<number | null>(null);
+  const now = useRef<number[]>([]);
+  const tilt = useRef<number[]>([]);
+  const frame = useRef(0);
   const shown = items.slice(start, start + hand);
   const n = shown.length;
   const spread = Math.min(70, 8 * (n - 1));
+  const angleOf = useCallback((i: number) => (n > 1 ? (i / (n - 1) - 0.5) * spread : 0), [n, spread]);
+
+  // The spring: every card eases toward its rise; the loop ends when still.
+  const step = useCallback(() => {
+    frame.current = 0;
+    const k = reducedMotion() ? 1 : EASE;
+    let moving = false;
+    let top = -1;
+    let best = 0.02;
+    for (let i = 0; i < n; i++) {
+      const el = cards.current[i];
+      if (!el) continue;
+      const goal = rise(i, target.current);
+      const was = now.current[i] ?? 0;
+      const v = was + (goal - was) * k;
+      now.current[i] = Math.abs(goal - v) < 0.001 ? goal : v;
+      if (now.current[i] !== goal) moving = true;
+      const at = target.current;
+      // neighbours lean away from the raised card, as fingers spread a hand
+      const lean = at === null ? 0 : Math.sign(i - at) * 6 * Math.min(1, Math.abs(i - at)) * (1 - rise(i, at));
+      const p0 = tilt.current[i] ?? 0;
+      const p = p0 + (lean - p0) * k;
+      tilt.current[i] = Math.abs(lean - p) < 0.01 ? lean : p;
+      if (tilt.current[i] !== lean) moving = true;
+      el.style.transform = transformOf(angleOf(i), now.current[i], tilt.current[i]);
+      el.style.zIndex = String(Math.round(10 + i + now.current[i] * 100));
+      if (now.current[i] > best) {
+        best = now.current[i];
+        top = i;
+      }
+    }
+    for (let i = 0; i < n; i++) cards.current[i]?.toggleAttribute('data-up', i === top && best > 0.6);
+    if (moving) frame.current = requestAnimationFrame(step);
+  }, [n, angleOf]);
+
+  const kick = useCallback(() => {
+    if (!frame.current) frame.current = requestAnimationFrame(step);
+  }, [step]);
+
+  useEffect(() => () => cancelAnimationFrame(frame.current), []);
+
+  const aim = useCallback(
+    (at: number | null) => {
+      target.current = at;
+      const nearest = at === null ? null : Math.max(0, Math.min(n - 1, Math.round(at)));
+      setLift((l) => (l === nearest ? l : nearest));
+      kick();
+    },
+    [n, kick],
+  );
 
   const page = useCallback(
     (dir: number) => {
+      target.current = null;
+      now.current = [];
+      tilt.current = [];
       setLift(null);
       setStart((s) => Math.max(0, Math.min(Math.max(0, items.length - hand), s + dir * Math.max(1, hand - 2))));
     },
     [items.length, hand],
   );
+
+  // Which card the pointer is over: its angle around the fan's pivot.
+  const onMove = (e: React.PointerEvent) => {
+    const el = host.current;
+    if (!el || n === 0 || e.pointerType === 'touch') return;
+    const r = el.getBoundingClientRect();
+    const phone = r.width <= 640;
+    const pivotY = r.top + r.height + (phone ? 212 : 300);
+    const deg = (Math.atan2(e.clientX - (r.left + r.width / 2), pivotY - e.clientY) * 180) / Math.PI;
+    const at = n > 1 && spread > 0 ? (deg / spread + 0.5) * (n - 1) : 0;
+    aim(Math.max(-0.6, Math.min(n - 0.4, at)));
+  };
+
+  // Tilt and sheen of the card under the pointer (CSS variables only).
+  const onCardMove = (e: React.PointerEvent<HTMLButtonElement>) => {
+    const b = e.currentTarget.getBoundingClientRect();
+    const x = (e.clientX - b.left) / b.width;
+    const y = (e.clientY - b.top) / b.height;
+    e.currentTarget.style.setProperty('--mx', `${(x * 100).toFixed(1)}%`);
+    e.currentTarget.style.setProperty('--my', `${(y * 100).toFixed(1)}%`);
+    e.currentTarget.style.setProperty('--ry', `${((x - 0.5) * 14).toFixed(2)}deg`);
+    e.currentTarget.style.setProperty('--rx', `${((0.5 - y) * 10).toFixed(2)}deg`);
+  };
+  const onCardLeave = (e: React.PointerEvent<HTMLButtonElement>) => {
+    e.currentTarget.style.setProperty('--ry', '0deg');
+    e.currentTarget.style.setProperty('--rx', '0deg');
+  };
 
   useEffect(() => {
     const el = host.current;
@@ -55,12 +163,14 @@ export function FanGallery({ items, onOpen, hand = 9 }: Props) {
   }, [page]);
 
   const onKey = (e: React.KeyboardEvent) => {
-    if (e.key === 'ArrowRight') setLift((l) => Math.min(n - 1, (l ?? -1) + 1));
-    else if (e.key === 'ArrowLeft') setLift((l) => Math.max(0, (l ?? n) - 1));
+    if (e.key === 'ArrowRight') aim(Math.min(n - 1, (lift ?? -1) + 1));
+    else if (e.key === 'ArrowLeft') aim(Math.max(0, (lift ?? n) - 1));
     else if (e.key === 'Enter' && lift !== null) onOpen(shown[lift], start + lift);
     else if (e.key === 'PageDown') page(1);
     else if (e.key === 'PageUp') page(-1);
   };
+
+  const glow = lift !== null ? shown[lift] : undefined;
 
   return (
     <div className="fan-wrap">
@@ -71,30 +181,37 @@ export function FanGallery({ items, onOpen, hand = 9 }: Props) {
         tabIndex={0}
         aria-label="Su galería"
         onKeyDown={onKey}
-        onMouseLeave={() => setLift(null)}
+        onPointerMove={onMove}
+        onPointerLeave={() => aim(null)}
       >
-        {shown.map((it, i) => {
-          const t = n > 1 ? i / (n - 1) - 0.5 : 0;
-          const angle = t * spread;
-          const up = lift === i;
-          const near = lift !== null && Math.abs(lift - i) === 1;
-          return (
-            <button
-              key={it.key}
-              type="button"
-              role="option"
-              aria-selected={up}
-              className="fan-card"
-              data-up={up || undefined}
-              style={{
-                transform: `rotate(${angle + (near ? (lift! < i ? 4 : -4) : 0)}deg) translateY(${up ? -36 : 0}px) scale(${up ? 1.06 : 1})`,
-                zIndex: up ? 100 : 10 + i,
-              }}
-              onMouseEnter={() => setLift(i)}
-              onFocus={() => setLift(i)}
-              onClick={() => onOpen(it, start + i)}
-              title={it.title}
-            >
+        <div
+          className="fan-glow"
+          aria-hidden="true"
+          data-on={glow?.kind === 'imagen' && glow.src ? true : undefined}
+          style={glow?.kind === 'imagen' && glow.src ? { backgroundImage: `url("${glow.src}")` } : undefined}
+        />
+        {shown.map((it, i) => (
+          <button
+            key={`${start}-${it.key}`}
+            ref={(el) => {
+              cards.current[i] = el;
+            }}
+            type="button"
+            role="option"
+            aria-selected={lift === i}
+            className="fan-card"
+            style={{
+              transform: transformOf(angleOf(i), 0, 0),
+              zIndex: 10 + i,
+              ['--i' as string]: i,
+            }}
+            onFocus={() => aim(i)}
+            onPointerMove={onCardMove}
+            onPointerLeave={onCardLeave}
+            onClick={() => onOpen(it, start + i)}
+            title={it.title}
+          >
+            <span className="fan-face">
               {it.kind === 'imagen' && it.src && <img src={it.src} alt={it.title} loading="lazy" draggable={false} />}
               {it.kind === 'video' && it.src && <video src={`${it.src}#t=0.5`} muted playsInline preload="metadata" />}
               {it.kind === '3d' && (
@@ -105,13 +222,14 @@ export function FanGallery({ items, onOpen, hand = 9 }: Props) {
                   </svg>
                 </span>
               )}
+              <span className="fan-sheen" aria-hidden="true" />
               <span className="fan-label">
                 <b>{it.title}</b>
                 <small>{it.note || { imagen: 'Imagen', video: 'Video', '3d': 'Modelo 3D' }[it.kind]}</small>
               </span>
-            </button>
-          );
-        })}
+            </span>
+          </button>
+        ))}
       </div>
       {items.length > hand && (
         <div className="fan-pager">
