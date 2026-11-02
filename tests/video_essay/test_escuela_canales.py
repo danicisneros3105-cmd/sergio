@@ -19,7 +19,10 @@ def test_the_four_channels_are_styles_with_their_latest_20_at_30_fps():
     refs = escuela.references()
     want = {
         "shorts-animados": ("@RicksClips3000", "shorts"),
-        "explicativo-tipografico": ("@your.nextcore", "shorts"),
+        "explicativo-tipografico": (
+            "@your.nextcore",
+            "videos",
+        ),  # its Shorts tab is empty
         "ensayo-documental": ("@johnnyharris", "videos"),
         "reto-narrado": ("@ryan", "videos"),
     }
@@ -42,7 +45,7 @@ def test_channel_links_asks_the_tab_then_the_other_and_keeps_a_day(tmp_path):
         asked.append(args[-1])
         if args[-1].endswith("/shorts"):
             return ""  # no shorts: the videos tab is used
-        return "\n".join(f"abcdefghij{i}" for i in range(10)) + "\nnot-an-id\n"
+        return "\n".join(f"abcdefghij{i} 600" for i in range(10)) + "\nnot-an-id 5\n"
 
     ch = {"url": "https://www.youtube.com/@canal", "pestana": "shorts", "ultimos": 5}
     links = escuela.channel_links(ch, root=tmp_path, run=run)
@@ -198,3 +201,50 @@ def test_a_channel_can_be_added_by_its_link(tmp_path, monkeypatch):
         ["https://www.youtube.com/@otro.canal"], "Mis shorts"
     )  # the same channel twice
     assert len(escuela.references()["mis-shorts"]["canales"]) == 1
+
+
+def test_videos_longer_than_the_limit_are_not_studied(tmp_path):
+    out = "\n".join(
+        ["shortvideo1 1800", "compile0001 10800", "livestream1 NA", "shortvideo2 3000"]
+    )
+    ch = {
+        "url": "https://www.youtube.com/@canal",
+        "pestana": "videos",
+        "ultimos": 3,
+        "max_minutos": 60,
+    }
+    links = escuela.channel_links(ch, root=tmp_path, run=lambda a: out)
+    ids = [x.rsplit("=", 1)[1] for x in links]
+    assert ids == ["shortvideo1", "livestream1", "shortvideo2"]  # the 3-hour one is out
+    ch2 = {**ch, "max_minutos": 0}
+    assert (
+        len(escuela.channel_links(ch2, root=tmp_path, run=lambda a: out)) == 3
+    )  # no limit: first 3 asked
+
+
+def test_the_hand_written_script_rules_join_the_superskill(tmp_path, monkeypatch):
+    monkeypatch.setattr(escuela, "home", lambda: tmp_path / "escuela")
+    monkeypatch.setattr(
+        "openjarvis.video_essay.style.learned_dir", lambda: tmp_path / "estilos"
+    )
+    folder = tmp_path / "escuela" / "shorts-animados"
+    folder.mkdir(parents=True)
+    summary = {"duracion_s": 60, "toma_mediana_s": 2.0, "cortes_por_segundo": 0.5, "cortes_primeros_3s": 1,
+               "texto_en_pantalla": 0.1, "caras": 0.0, "movimiento_medio": 0.1, "vertical": True,
+               "colores": ["#112233"], "gancho": "x"}  # fmt: skip
+    (folder / "a.json").write_text(
+        json.dumps({"url": "u", "medido": {"resumen": summary, "tomas": [2.0]}})
+    )
+    res = escuela.synthesize(
+        "shorts-animados",
+        ask=lambda p: "\n".join(
+            f"{i}. Rule {i} from the data here." for i in range(1, 7)
+        ),
+    )
+    assert any("middle of the strangest moment" in r for r in res["reglas"])
+    assert (
+        "cliffhanger"
+        in (
+            tmp_path / "escuela" / "superskills" / "shorts-animados" / "SKILL.md"
+        ).read_text()
+    )

@@ -177,26 +177,37 @@ CHANNEL_TTL_S = 24 * 3600
 
 
 def _list_ids(
-    url: str, n: int, run: Optional[Callable[[List[str]], str]] = None
+    url: str,
+    n: int,
+    run: Optional[Callable[[List[str]], str]] = None,
+    max_min: float = 0.0,
 ) -> List[str]:
-    """The ids of the first *n* entries of a channel tab, newest first."""
+    """The ids of the first *n* entries of a channel tab, newest first; those
+    longer than *max_min* minutes are left out (a 3-hour compilation is not
+    studied: it would be gigabytes for one lesson)."""
     from openjarvis.video_essay.sources import ytdlp
 
     cmd = ytdlp()
     if not cmd and run is None:
         raise RuntimeError("falta yt-dlp (la actualización lo instala)")
     args = (cmd or ["yt-dlp"]) + ["--no-warnings", "--flat-playlist", "--playlist-end", str(n),
-                                  "--print", "id", url]  # fmt: skip
+                                  "--print", "%(id)s %(duration)s", url]  # fmt: skip
     out = (
         run(args)
         if run
         else subprocess.run(args, capture_output=True, text=True, timeout=180).stdout
     )
-    ids = [
-        ln.strip()
-        for ln in str(out).splitlines()
-        if re.fullmatch(r"[\w-]{11}", ln.strip())
-    ]
+    ids: List[str] = []
+    for ln in str(out).splitlines():
+        vid, _, dur = ln.strip().partition(" ")
+        if not re.fullmatch(r"[\w-]{11}", vid):
+            continue
+        try:
+            long = bool(max_min) and float(dur) / 60 > max_min
+        except ValueError:  # no duration (a live, a premiere): it stays
+            long = False
+        if not long:
+            ids.append(vid)
     return list(dict.fromkeys(ids))[:n]
 
 
@@ -212,9 +223,10 @@ def channel_links(
     if not re.match(r"https://(www\.)?youtube\.com/@[\w.-]+$", url):
         raise ValueError(f"canal no válido: {url}")
     n = max(1, min(50, int(channel.get("ultimos") or 20)))
+    max_min = float(channel.get("max_minutos") or 0)
     tab = str(channel.get("pestana") or "videos")
     slug = re.sub(r"[^\w.-]+", "-", url.rsplit("/", 1)[-1])
-    cache = (root or home()) / "canales" / f"{slug}-{tab}-{n}.json"
+    cache = (root or home()) / "canales" / f"{slug}-{tab}-{n}-{int(max_min)}.json"
     try:
         saved = json.loads(cache.read_text("utf-8"))
         if time.time() - float(saved.get("at") or 0) < CHANNEL_TTL_S and saved.get(
@@ -225,7 +237,8 @@ def channel_links(
         pass
     ids: List[str] = []
     for t in [tab] + [x for x in ("videos", "shorts") if x != tab]:
-        ids = _list_ids(f"{url}/{t}", n, run)
+        # ask for more than n when long ones are skipped, so n short ones remain
+        ids = _list_ids(f"{url}/{t}", n + 12 if max_min else n, run, max_min)
         if ids:
             break
     links = [f"https://www.youtube.com/watch?v={i}" for i in ids]
@@ -875,6 +888,7 @@ def synthesize(category: str, *, root: Optional[Path] = None, ask: Optional[Call
                                                                 "transitions", "music_and_sound", "color_grade")},
                                          ensure_ascii=False)[:1500])  # fmt: skip
     rules = rules_from_numbers(m)
+    seed = [str(x) for x in cat.get("guion_semilla") or []]
     by = "código"
     if ask is None:
         try:
@@ -898,6 +912,7 @@ def synthesize(category: str, *, root: Optional[Path] = None, ask: Optional[Call
                 rules, by = lines, "modelo con los números medidos"
         except Exception as exc:  # noqa: BLE001
             log.info("superskill by code only: %s", exc)
+    rules = rules + seed  # the hand-written script rules (read from real transcripts)
     key = f"ref-{category}"
     profiles = [style.profile_from(s["tomas_modelo"], key, cat["nombre"], s["url"])
                 for s in studies if s.get("tomas_modelo")]  # fmt: skip

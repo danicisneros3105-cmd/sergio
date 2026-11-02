@@ -2,6 +2,11 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-11-02 · Claude · los cuatro canales, leídos de verdad
+- Con la herramienta de YouTube (solo lectura) listé los canales y leí el guion de tres shorts del primero (calculado con `escuela.script_of`: 194–215 palabras por minuto, frases de 10–17 palabras, primera frase de 9–19 palabras, sin preguntas al público). De ahí salieron 8 reglas de guion escritas a mano (`guion_semilla` en `referencias.json`, en palabras nuestras) que entran en la superskill de «Shorts animados de historias con giro».
+- Correcciones al comprobar los canales: `@your.nextcore` es de autosuperación y filosofía (47 videos, su pestaña de Shorts está vacía: usa «videos»); `@ryan` es Ryan Trahan; entre los últimos 20 de Johnny Harris hay compilaciones de 2 y 3 horas: los videos de más de `max_minutos` (60) se saltan.
+- **No vi los fotogramas aquí**: esta máquina no puede bajar videos de YouTube. La luz, la sombra, el movimiento y los efectos a 30 fps los mide la escuela en el PC del dueño («estudia las referencias»).
+
 ## 2026-11-02 · Claude · la escuela estudia canales: últimos 20, 30 fps, luz, cámara y guion
 - Cuatro estilos nuevos en `referencias.json`, cada uno con el canal que el dueño eligió (últimos 20): Shorts animados, Explicativos con tipografía en movimiento, Ensayo documental con mapas y Retos narrados. El nombre del estilo nunca dice de quién viene.
 - `escuela.py`: lee los últimos N de un canal con yt-dlp (`channel_links`, una pestaña y la otra si está vacía, guardados un día); mide a 30 fps leyendo **un segundo a la vez** (un ensayo de 30 min cabe); mide luz (brillo, contraste, sombras profundas, luces quemadas, calidez, viñeta), cámara (desplazamiento y temblor por correlación de fase), destellos y negros; y lee el guion (palabras por minuto, gancho, largo de frase, preguntas, giros, lazos abiertos, números, pausas, partes, final). Las reglas del superskill salen de esos números y el modelo escribe además 5–8 reglas de guion sin copiar palabras.

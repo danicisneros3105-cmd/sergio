@@ -68,7 +68,7 @@
    ]
   },
   "shorts-animados": {
-   "nombre": "Shorts animados",
+   "nombre": "Shorts animados de historias con giro",
    "formato": "9:16",
    "generos": [
     "animacion",
@@ -84,12 +84,25 @@
     }
    ],
    "ejemplos": [
-    "short animado con un personaje y un remate al final",
-    "historia animada corta con gancho en el primer segundo"
+    "Why Perfect Railroads Don't Work",
+    "The Ancient Jar That Warned an Empire",
+    "The Job Nobody Wants in Japan",
+    "The Burglar Who Only Moved Furniture",
+    "How a Mirror Rigged a Horse Race"
+   ],
+   "guion_semilla": [
+    "Open in the middle of the strangest moment, in one line of 9-19 words that states the result before the cause (a man who tells an emperor to run, a law that makes firing impossible), then back up with «You see,» and tell how it came about.",
+    "Say it at about 3.2-3.6 words per second (195-215 a minute) in sentences of 10-17 words, with no filler and no questions to the viewer.",
+    "Give the hero something to lose in the first 10 seconds (a race, a job, an emperor's trust) and make everyone around him wrong and laughing at him.",
+    "Use hard numbers and objects, never adjectives: a gap every 39 feet, eight dragons, three years in a room. One fact per sentence.",
+    "Raise the stakes in steps with «Then», «Weeks later», «The next morning»; each step makes the hero look more foolish before the turn.",
+    "Hold the explanation for the last sentence: the mechanism (a pendulum, a rail that grows in heat, a law with a loophole) arrives as the reveal, in plain words.",
+    "Put one short line of dialogue inside the story so the story is not only narrated; the viewer hears a voice.",
+    "Do not ask for a like or a subscription and do not recap; end on the reveal or on the cliffhanger so the video can loop back to its first line."
    ]
   },
   "explicativo-tipografico": {
-   "nombre": "Explicativos con tipografía en movimiento",
+   "nombre": "Autosuperación y filosofía con texto en movimiento",
    "formato": "9:16",
    "generos": [
     "explicado3d",
@@ -100,13 +113,15 @@
    "canales": [
     {
      "url": "https://www.youtube.com/@your.nextcore",
-     "pestana": "shorts",
+     "pestana": "videos",
      "ultimos": 20
     }
    ],
    "ejemplos": [
-    "explicación corta con palabras grandes en distintas letras y lugares",
-    "dato curioso explicado con texto animado"
+    "cómo funciona el estoicismo moderno",
+    "hábitos para enfocarte más rápido",
+    "modelos mentales para decidir mejor",
+    "disciplina cuando no tienes ganas"
    ]
   },
   "ensayo-documental": {
@@ -122,12 +137,15 @@
     {
      "url": "https://www.youtube.com/@johnnyharris",
      "pestana": "videos",
-     "ultimos": 20
+     "ultimos": 20,
+     "max_minutos": 60
     }
    ],
    "ejemplos": [
-    "por qué un país tiene esta frontera tan rara",
-    "la historia oculta detrás de un mapa"
+    "How Switzerland Engineered the Perfect Country",
+    "The Dark Truth of the Panama Canal",
+    "Why This Island Could Trigger World War 3",
+    "The Prison Break That Embarrassed an Entire Country"
    ]
   },
   "reto-narrado": {
@@ -143,14 +161,17 @@
     {
      "url": "https://www.youtube.com/@ryan",
      "pestana": "videos",
-     "ultimos": 20
+     "ultimos": 20,
+     "max_minutos": 60
     }
    ],
    "ejemplos": [
-    "intenté sobrevivir una semana con un dólar",
-    "un reto de varios días contado como una aventura"
+    "I Took the Longest Train Ride in America",
+    "I Tested Every 1-Star Hotel",
+    "How Many Days Can I Survive an Abandoned Mall?",
+    "How Many Countries Can I Visit in 7 Days?"
    ]
   }
  },
- "_canales": "Canales que eligió el dueño (2 nov. 2026: «mira sus últimos 20 videos a 30 fps; la luz, el contraste, las sombras, el movimiento, los efectos, el corte, todo; transcribe cómo está escrito el guion»). Sergio baja en su equipo los últimos 20 de cada uno solo para estudiarlos, los mide a 30 cuadros por segundo y transcribe el guion; aprende la técnica, nunca usa su imagen, su voz ni sus palabras, y nunca los nombra en pantalla."
+ "_canales": "Canales que eligió el dueño (2 nov. 2026: «mira sus últimos 20 videos a 30 fps; la luz, el contraste, las sombras, el movimiento, los efectos, el corte, todo; transcribe cómo está escrito el guion»). Sergio baja en su equipo los últimos 20 de cada uno solo para estudiarlos, los mide a 30 cuadros por segundo y transcribe el guion; aprende la técnica, nunca usa su imagen, su voz ni sus palabras, y nunca los nombra en pantalla. «@ryan» es Ryan Trahan y «@your.nextcore» un canal de autosuperación; los videos de más de «max_minutos» (por defecto 60) se saltan: no se bajan compilaciones de horas."
 }
