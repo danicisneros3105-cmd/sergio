@@ -9,6 +9,7 @@ const GetStartedPage = lazy(() => import('./pages/GetStartedPage').then((m) => (
 const DataSourcesPage = lazy(() => import('./pages/DataSourcesPage').then((m) => ({ default: m.DataSourcesPage })));
 const LogsPage = lazy(() => import('./pages/LogsPage').then((m) => ({ default: m.LogsPage })));
 const ExtensionPage = lazy(() => import('./pages/ExtensionPage').then((m) => ({ default: m.ExtensionPage })));
+const GalleryPage = lazy(() => import('./pages/GalleryPage').then((m) => ({ default: m.GalleryPage })));
 const FacesPage = lazy(() => import('./pages/FacesPage').then((m) => ({ default: m.FacesPage })));
 const ThinkPage = lazy(() => import('./pages/ThinkPage').then((m) => ({ default: m.ThinkPage })));
 const HealthPage = lazy(() => import('./pages/HealthPage').then((m) => ({ default: m.HealthPage })));
@@ -196,6 +197,7 @@ export default function App() {
         <Route element={<Layout />}>
           <Route index element={<ChatPage />} />
           <Route path="biblioteca" element={<HomePage />} />
+          <Route path="galeria" element={<GalleryPage />} />
           <Route path="nodes" element={<NodesPage />} />
           <Route path="nodes/:id" element={<NodesPage />} />
           <Route path="swarm" element={<SwarmPage />} />

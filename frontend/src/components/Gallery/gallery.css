@@ -1,0 +1,169 @@
+.fan-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+}
+.fan {
+  position: relative;
+  width: 100%;
+  height: 420px;
+  outline: none;
+  overflow: hidden;
+}
+.fan-card {
+  position: absolute;
+  left: calc(50% - 110px);
+  bottom: -120px;
+  width: 220px;
+  height: 300px;
+  padding: 0;
+  border: 0;
+  border-radius: 18px;
+  overflow: hidden;
+  background: var(--color-bg, #fff);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
+  transform-origin: 50% 160%;
+  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.35s ease;
+  cursor: pointer;
+}
+.fan-card[data-up] {
+  box-shadow: 0 0 0 3px #007aff, 0 18px 40px rgba(0, 0, 0, 0.25);
+}
+.fan-card img,
+.fan-card video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  pointer-events: none;
+}
+.fan-3d {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  color: #007aff;
+  background: var(--color-bg-secondary, #f5f5f7);
+}
+.fan-label {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 12px 10px;
+  text-align: left;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.55);
+}
+.fan-label b {
+  font-size: 14px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.fan-label small {
+  font-size: 12px;
+  opacity: 0.85;
+}
+.fan-pager {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-size: 14px;
+  color: var(--color-text-secondary, #555);
+}
+.fan-pager button {
+  width: 36px;
+  height: 36px;
+  border-radius: 18px;
+  border: 1px solid var(--color-border, #d1d1d6);
+  background: transparent;
+  font-size: 20px;
+  line-height: 1;
+}
+.fan-pager button:disabled {
+  opacity: 0.35;
+}
+.gal-tabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.gal-tabs button {
+  min-height: 34px;
+  padding: 0 14px;
+  border-radius: 17px;
+  border: 1px solid var(--color-border, #d1d1d6);
+  background: transparent;
+  font-size: 14px;
+}
+.gal-tabs button[aria-pressed='true'] {
+  border-color: #007aff;
+  background: #007aff;
+  color: #fff;
+}
+.gal-view {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.82);
+}
+.gal-view img,
+.gal-view video {
+  max-width: min(1100px, 100%);
+  max-height: 80vh;
+  border-radius: 14px;
+}
+.gal-view .gal-3d {
+  width: min(900px, 100%);
+  height: 70vh;
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--color-bg, #fff);
+}
+.gal-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 40px;
+  height: 40px;
+  border-radius: 20px;
+  border: 0;
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+  font-size: 20px;
+}
+@media (max-width: 640px) {
+  .fan {
+    height: 340px;
+  }
+  .fan-card {
+    left: calc(50% - 80px);
+    width: 160px;
+    height: 220px;
+    bottom: -80px;
+  }
+}
+@media (prefers-color-scheme: dark) {
+  .fan-card[data-up] {
+    box-shadow: 0 0 0 3px #0a84ff, 0 18px 40px rgba(0, 0, 0, 0.5);
+  }
+  .gal-tabs button[aria-pressed='true'] {
+    border-color: #0a84ff;
+    background: #0a84ff;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fan-card {
+    transition: none;
+  }
+}

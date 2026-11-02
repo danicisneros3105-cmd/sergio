@@ -6,6 +6,7 @@ import { CircleSlash, Hand, Octagon, Play } from 'lucide-react';
 import { toast } from 'sonner';
 import { NodeCritter } from '../components/Nodes/NodeCritter';
 import { NodeGoals, ReviewedIntegrations } from '../components/Nodes/NodeGoals';
+import { NodesIntro, introSeen } from '../components/Nodes/NodesIntro';
 import { nodesApi, STATUS_ES, statusLine, type Catalog, type SergioNode } from '../lib/nodes';
 import { ActivityTab } from './nodes/ActivityTab';
 import { AppsTab } from './nodes/AppsTab';
@@ -38,6 +39,7 @@ export function NodesPage() {
   const [nodes, setNodes] = useState<SergioNode[] | null>(null);
   const [catalog, setCatalog] = useState<Catalog | null>(null);
   const [tab, setTab] = useState<Tab>('chat');
+  const [intro, setIntro] = useState(() => !introSeen());
 
   const refresh = useCallback(() => {
     nodesApi
@@ -81,6 +83,9 @@ export function NodesPage() {
 
   return (
     <div className="nodes">
+      {intro && nodes.some((n) => n.team) && (
+        <NodesIntro nodes={nodes} catalog={catalog} onClose={() => setIntro(false)} />
+      )}
       <aside className="nodes-list" aria-label="Sus Nodes">
         <div className="nodes-list-head">
           <span className="wordmark">Nodes</span>

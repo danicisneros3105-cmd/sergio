@@ -1,0 +1,81 @@
+/* Sergio's pointer: the system blue (the one accent), a white outline so it
+   reads on any page, and a short label like a showcase cursor. */
+.sp-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2147483000;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+.sp-layer[data-shown] {
+  opacity: 1;
+}
+.sp-cursor {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transition: transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
+}
+.sp-cursor svg {
+  display: block;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.25));
+}
+.sp-cursor path {
+  fill: #007aff;
+  stroke: #fff;
+  stroke-width: 1.6;
+  stroke-linejoin: round;
+}
+.sp-tag {
+  position: absolute;
+  left: 18px;
+  top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-width: 240px;
+  padding: 6px 10px;
+  border-radius: 12px 12px 12px 4px;
+  background: #007aff;
+  color: #fff;
+  font-size: 13px;
+  line-height: 1.35;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
+  white-space: normal;
+}
+.sp-tag[data-flip] {
+  left: auto;
+  right: 6px;
+  border-radius: 12px 12px 4px 12px;
+}
+.sp-tag b {
+  font-size: 11px;
+  font-weight: 600;
+  opacity: 0.85;
+}
+.sp-ring {
+  position: fixed;
+  border-radius: 12px;
+  box-shadow: 0 0 0 2px #007aff, 0 0 0 6px rgba(0, 122, 255, 0.18);
+  transition: all 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+@media (prefers-color-scheme: dark) {
+  .sp-cursor path {
+    fill: #0a84ff;
+  }
+  .sp-tag {
+    background: #0a84ff;
+  }
+  .sp-ring {
+    box-shadow: 0 0 0 2px #0a84ff, 0 0 0 6px rgba(10, 132, 255, 0.2);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sp-cursor,
+  .sp-ring,
+  .sp-layer {
+    transition: none;
+  }
+}

@@ -14,9 +14,13 @@ export interface PlainApproval {
   details: string;
 }
 
+import { pointMarks, type PointRequest } from './pointer';
+
 export interface PlainReply {
   text: string;
   approvals: PlainApproval[];
+  /** Where Sergio moves his pointer («[[señalar: …]]», never shown). */
+  points: PointRequest[];
 }
 
 const CATEGORY_LABEL: Record<string, string> = {
@@ -106,5 +110,6 @@ export function plainReply(text: string): PlainReply {
   }
   // A stray closing tag left by any of the above.
   out = out.replace(/<\/(aprobaci[oó]n|recordar|cli|mcp|api|enjambre|equipo|mente|usuario|siguiente)>/gi, '');
-  return { text: out.replace(/\n{3,}/g, '\n\n').trim(), approvals };
+  const { clean, points } = pointMarks(out);
+  return { text: clean.replace(/\n{3,}/g, '\n\n').trim(), approvals, points };
 }

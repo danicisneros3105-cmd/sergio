@@ -182,6 +182,55 @@ async def image_edit(
     return Response(out, media_type="image/png")
 
 
+@router.get("/galeria")
+async def gallery(limit: int = 300) -> dict[str, Any]:
+    """Everything the owner made with Sergio that the chat can show: images,
+    videos and the 3D models to take apart; newest first."""
+    from openjarvis.server.auth_middleware import _OPEN_MEDIA
+
+    def collect() -> list[dict[str, Any]]:
+        root = studio.projects_root()
+        rows: list[dict[str, Any]] = []
+        for folder in (root / "imagenes", root / "videos", root):
+            if not folder.is_dir():
+                continue
+            for p in folder.iterdir():
+                url = f"/v1/creator/media/{p.name}"
+                if not p.is_file() or not _OPEN_MEDIA.fullmatch(url):
+                    continue
+                kind = "video" if p.suffix.lower() == ".mp4" else "imagen"
+                rows.append({"url": url, "tipo": kind, "nombre": p.stem.rsplit("-", 1)[0],
+                             "fecha": p.stat().st_mtime, "bytes": p.stat().st_size})  # fmt: skip
+        try:
+            from openjarvis.creator import despiece
+
+            base = despiece.root()
+            for m in despiece.models():
+                name = str(m.get("name", ""))
+                when = (
+                    (base / name / "meta.json").stat().st_mtime
+                    if (base / name).is_dir()
+                    else 0.0
+                )
+                rows.append(
+                    {
+                        "url": "",
+                        "modelo": name,
+                        "tipo": "3d",
+                        "nombre": m.get("titulo") or name,
+                        "fecha": when,
+                        "piezas": m.get("piezas"),
+                    }
+                )
+        except Exception:  # noqa: BLE001 — no 3D models yet
+            pass
+        rows.sort(key=lambda r: -r["fecha"])
+        return rows[: max(1, min(limit, 1000))]
+
+    items = await asyncio.to_thread(collect)
+    return {"elementos": items, "total": len(items)}
+
+
 @router.get("/media/{filename}")
 async def creator_media(filename: str) -> Response:
     """Serve generated Creator images/assets so chat messages can render them inline."""

@@ -1,3 +1,4 @@
+import { SergioPointer } from './Pointer/SergioPointer';
 import { Suspense, useEffect, useState } from 'react';
 import { Outlet, useNavigate } from 'react-router';
 import { Tour } from './Tour/Tour';
@@ -221,6 +222,7 @@ export function Layout() {
       </div>
       <RunningPill />
       {tour && <Tour onClose={() => setTour(false)} />}
+      <SergioPointer />
     </div>
   );
 }

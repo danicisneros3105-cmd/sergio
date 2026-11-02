@@ -1,6 +1,7 @@
+import { pointAt } from '../../lib/pointer';
 import { ApprovalCard } from './ApprovalCard';
 import { plainReply } from '../../lib/plainReply';
-import { Suspense, lazy, useState, useMemo } from 'react';
+import { Suspense, lazy, useEffect, useState, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import rehypeHighlight from 'rehype-highlight';
 import rehypeKatex from 'rehype-katex';
@@ -147,12 +148,22 @@ const markdownComponents = {
   img: ({ src, alt }: { src?: string; alt?: string }) => (src ? <Media src={src} alt={alt} /> : null),
 };
 
+const POINTED = new Set<string>();
+
 export function MessageBubble({ message, isLive = false, tail = true, receipt = '' }: Props) {
   const isUser = message.role === 'user';
 
   const rawContent = useMemo(() => stripThinkTags(message.content), [message.content]);
   // Internal tags never reach the screen; a permission request becomes a card.
   const plain = useMemo(() => plainReply(rawContent), [rawContent]);
+  // Sergio's pointer: once per reply, when it has finished and is fresh
+  // (never when an old conversation is opened again).
+  useEffect(() => {
+    if (isUser || isLive || !plain.points.length || POINTED.has(message.id)) return;
+    if (Date.now() - message.timestamp > 120_000) return;
+    POINTED.add(message.id);
+    plain.points.slice(0, 4).forEach((p) => pointAt(p));
+  }, [isUser, isLive, plain.points, message.id, message.timestamp]);
   // Figure links become the figures themselves (drawn below), never raw text.
   const cleanContent = useMemo(() => withoutDespieceLinks(withoutAnatomyLinks(plain.text)), [plain.text]);
   const extraMedia = useMemo(() => mediaOf(message), [message]);

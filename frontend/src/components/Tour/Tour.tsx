@@ -8,6 +8,7 @@ import { useNavigate } from 'react-router';
 import { X } from 'lucide-react';
 import { TOUR_SEEN, setFlag } from '../../lib/session';
 import { useAppStore } from '../../lib/store';
+import { pointAt } from '../../lib/pointer';
 import './tour.css';
 
 interface Step {
@@ -20,6 +21,8 @@ interface Step {
   then?: 'modelo' | 'video';
   /** Opens the second screen instead of going to a page. */
   split?: boolean;
+  /** What Sergio's pointer shows once there (words of a button or a selector). */
+  point?: string;
   widget: () => React.ReactNode;
 }
 
@@ -106,15 +109,15 @@ const Hello = () => (
 
 const STEPS: Step[] = [
   { key: 'hola', title: 'Bienvenido a Sergio', text: 'Su asistente con todas las IA del mundo, no solo una. En diez pasos verá lo que puede hacer.', widget: Hello },
-  { key: 'chat', title: 'Escriba o hable', text: 'Pídale lo que sea, como a una persona. Recuerda lo que hablaron antes.', to: '/chat', cta: 'Abrir el chat', widget: Chat },
-  { key: 'voz', title: 'Conversación por voz', text: 'Diga «Sergio» y hable. Responde en voz alta y se le puede interrumpir.', to: '/chat', cta: 'Probar la voz', widget: Voice },
+  { key: 'chat', title: 'Escriba o hable', text: 'Pídale lo que sea, como a una persona. Recuerda lo que hablaron antes.', to: '/chat', cta: 'Abrir el chat', point: 'textarea', widget: Chat },
+  { key: 'voz', title: 'Conversación por voz', text: 'Diga «Sergio» y hable. Responde en voz alta y se le puede interrumpir.', to: '/chat', cta: 'Probar la voz', point: 'Conversación', widget: Voice },
   { key: 'modelos', title: 'Todos los modelos', text: 'Gemini, GPT, Claude, DeepSeek y cientos más. Elija uno o deje que Sergio elija el mejor.', to: '/chat', then: 'modelo', cta: 'Elegir modelo', widget: Models },
   { key: 'nodes', title: 'Su equipo: Nodes', text: 'Cuatro empleados que trabajan sin parar: organizan, investigan, diseñan y deciden.', to: '/nodes', cta: 'Conocer al equipo', widget: Nodes },
   { key: 'video', title: 'Videos de nivel', text: 'Del tema al video terminado: guion, voz, clips reales de internet, subtítulos y música.', to: '/chat', then: 'video', cta: 'Hacer un video', widget: Video },
   { key: 'auto', title: 'Automatice', text: 'Canales que publican solos, clientes y empleos que llegan, trading con límites.', to: '/automatizar', cta: 'Ver Automatizar', widget: Auto },
   { key: 'salud', title: 'Salud simple', text: 'Medicinas a su hora, metas y cómo se siente. Sin inventar datos.', to: '/salud', cta: 'Abrir Salud', widget: Health },
   { key: 'uso', title: 'Uso y plan', text: 'Cuánto lleva usado hoy y qué plan tiene, en una mirada.', to: '/uso', cta: 'Ver el uso', widget: Usage },
-  { key: 'dividir', title: 'Dos cosas a la vez', text: 'El botón de dos columnas (arriba a la derecha del chat) abre una segunda pantalla al lado, como un iPhone plegable. Vuelva a tocarlo para unirlas.', cta: 'Probarlo ahora', split: true, widget: Split },
+  { key: 'dividir', title: 'Dos cosas a la vez', text: 'El botón de dos columnas (arriba a la derecha del chat) abre una segunda pantalla al lado, como un iPhone plegable. Vuelva a tocarlo para unirlas.', cta: 'Probarlo ahora', split: true, point: 'Dividir', widget: Split },
   { key: 'atajos', title: 'Un atajo para todo', text: 'Ctrl K (⌘ K en Mac) busca páginas, acciones y modelos. Este tour vuelve desde Ayuda.', to: '/atajos', cta: 'Ver atajos', widget: Palette },
 ]
 
@@ -181,6 +184,7 @@ export function Tour({ onClose }: { onClose: () => void }) {
               data-variant="quiet"
               onClick={() => {
                 close();
+                if (step.point) window.setTimeout(() => pointAt({ target: step.point!, text: step.title }), 700);
                 if (step.split) {
                   navigate('/chat');
                   window.setTimeout(() => window.dispatchEvent(new CustomEvent('sergio:split', { detail: 'on' })), 250);
