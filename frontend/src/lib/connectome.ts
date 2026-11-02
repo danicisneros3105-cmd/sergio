@@ -49,6 +49,7 @@ export const SHORTCUTS: Shortcut[] = [
   { id: 'reunion', title: 'Grabar reunión o llamada', words: ['reunion', 'grabar', 'graba', 'llamada', 'acta', 'actas', 'resumen de la reunion', 'meeting'], keys: 'g t', group: 'Hacer', run: { kind: 'go', to: '/reunion' } },
   { id: 'dividir', title: 'Dividir pantalla', words: ['dividir', 'pantalla dividida', 'multitasking', 'dos pantallas', 'al lado', 'split', 'unir pantalla'], keys: 'g d', group: 'Hacer', run: { kind: 'event', name: 'sergio:split' } },
   { id: 'nuevo-chat', title: 'Nueva conversación', words: ['nuevo chat', 'nueva conversacion', 'empezar de cero'], group: 'Hacer', run: { kind: 'event', name: 'sergio:new-chat' } },
+  { id: 'bloquear', title: 'Bloquear Sergio', words: ['bloquear', 'bloquea', 'candado', 'lock'], group: 'Hacer', run: { kind: 'event', name: 'sergio:lock' } },
   { id: 'modelo', title: 'Cambiar de modelo', words: ['modelo', 'cambiar modelo', 'ia', 'motor'], group: 'Hacer', run: { kind: 'event', name: 'sergio:model-picker' } },
   { id: 'escape', title: 'Detener todo lo que está haciendo Sergio', words: ['detener', 'parar', 'stop', 'cancelar todo', 'escape', 'panico'], keys: 'Esc Esc Esc', group: 'Hacer', run: { kind: 'event', name: 'sergio:escape' } },
 ];

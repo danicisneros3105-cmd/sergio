@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { lockNow, lockPrefs, saveLockPrefs, type LockPrefs } from '../lib/appLock';
 import { useDevApi } from '../lib/dev-api';
 import { useNavigate } from 'react-router';
 import { useLive, voiceLanguage } from '../lib/liveSession';
@@ -309,6 +310,40 @@ export const MORE_PAGES = [
   { path: '/get-started', label: 'Primeros pasos' },
 ];
 
+/** Sergio locks after a while without use and opens with Face ID or the
+ * code (lib/appLock.ts). It locks Sergio, never Windows. */
+function LockSettings() {
+  const [p, setP] = useState<LockPrefs>(lockPrefs);
+  const change = (next: LockPrefs) => {
+    setP(next);
+    saveLockPrefs(next);
+  };
+  return (
+    <>
+      <SettingRow label="Bloquear Sergio cuando no lo uso" description="Se abre mirando a la cámara o con su código. Bloquea Sergio, no Windows.">
+        <select
+          value={p.on ? String(p.minutes) : 'no'}
+          onChange={(e) => change(e.target.value === 'no' ? { ...p, on: false } : { on: true, minutes: Number(e.target.value) })}
+          className="text-sm px-3 py-1.5 rounded-lg outline-none cursor-pointer"
+          style={{ background: 'var(--color-bg-secondary)', color: 'var(--color-text)', border: '1px solid var(--color-border)' }}
+          aria-label="Bloquear tras"
+        >
+          <option value="no">Nunca</option>
+          <option value="5">Tras 5 min</option>
+          <option value="15">Tras 15 min</option>
+          <option value="60">Tras 1 hora</option>
+          <option value="0">Solo cuando lo pida</option>
+        </select>
+      </SettingRow>
+      <SettingRow label="Bloquear ahora">
+        <button type="button" className="text-sm px-3 py-1.5 rounded-full" style={{ border: '1px solid var(--color-border)', color: 'var(--color-text)' }} onClick={lockNow}>
+          Bloquear
+        </button>
+      </SettingRow>
+    </>
+  );
+}
+
 export function SettingsPage() {
   const liveOn = useLive((s) => s.enabled);
   const setLiveOn = useLive((s) => s.setEnabled);
@@ -579,6 +614,10 @@ export function SettingsPage() {
           {/* Connection */}
           <Section title="Cuentas">
             <AccountsPanel />
+          </Section>
+
+          <Section title="Bloqueo con Face ID">
+            <LockSettings />
           </Section>
 
           <Section title="Conexión">

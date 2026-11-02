@@ -372,6 +372,9 @@ def run(config: dict[str, Any]) -> None:
     # Sergio sees in the background; the window only on request (owner,
     # 29 Oct 2026). The one thing asked is the camera, once.
     camera_window.show_window = bool(config.get("vista_visible", False))
+    # Hidden while it fails (owner, 2 Nov 2026); «sergio_ve» brings it back.
+    camera_window.vista_off = config.get("sergio_ve") is not True
+    VISTA_OFF = "La vista de la cámara está escondida por ahora; Sergio sigue reconociéndole por detrás."
 
     def camera_allowed() -> bool:
         if config.get("camera_ok") is True:
@@ -1026,8 +1029,10 @@ def run(config: dict[str, Any]) -> None:
                 Toggle("Night Shift", "moon", night_warm, lambda on: set_night_warmth(on)),
                 Toggle("Junto al cursor", "pointer", companion.isVisible, show_action.setChecked),
                 # Sergio sees in the background; this shows his camera window too.
-                Toggle("Ver la cámara", "camera", camera_window.isVisible,
-                       lambda on: camera_window.open(show=True) if on else camera_window.hide()),
+                *([] if camera_window.vista_off else [
+                    Toggle("Ver la cámara", "camera", camera_window.isVisible,
+                           lambda on: camera_window.open(show=True) if on else camera_window.hide()),
+                ]),
                 Toggle("Gimnasio Mental", "brain",
                        lambda: bool(config.get("gym_addon") and config.get("gym", True)),
                        lambda on: set_gym(on)),
@@ -4807,8 +4812,8 @@ def run(config: dict[str, Any]) -> None:
         consult=lambda _a="": open_consult(),
         gym=lambda _a="": on_ui(open_gym),
         results=lambda _a="": open_results(),
-        camera=lambda _a="": (on_ui(lambda: camera_window.open(show=True)), "")[1],
-        holo=lambda _a="": (on_ui(lambda: camera_window.open(show=True)), set_hands("holo"))[1],
+        camera=lambda _a="": VISTA_OFF if camera_window.vista_off else (on_ui(lambda: camera_window.open(show=True)), "")[1],
+        holo=lambda _a="": VISTA_OFF if camera_window.vista_off else (on_ui(lambda: camera_window.open(show=True)), set_hands("holo"))[1],
         globe=lambda _a="": globe_tool(_a) if _a else run_quick(_quick_kind("globe")),
         blender=prefill("en Blender haz "),
         video=prefill("edita un video con la carpeta "),

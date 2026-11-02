@@ -1,0 +1,13 @@
+import { describe, expect, it } from 'vitest';
+import { shouldLock } from './appLock';
+
+describe('app lock', () => {
+  it('locks only after the chosen minutes without use', () => {
+    expect(shouldLock({ on: true, minutes: 15 }, 14 * 60_000)).toBe(false);
+    expect(shouldLock({ on: true, minutes: 15 }, 15 * 60_000)).toBe(true);
+  });
+  it('never locks by time when off or «only when asked»', () => {
+    expect(shouldLock({ on: false, minutes: 5 }, 60 * 60_000)).toBe(false);
+    expect(shouldLock({ on: true, minutes: 0 }, 60 * 60_000)).toBe(false);
+  });
+});

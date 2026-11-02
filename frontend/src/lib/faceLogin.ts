@@ -78,3 +78,52 @@ export async function signInWithSergioFace(device: string, say: (text: string) =
     stream.getTracks().forEach((t) => t.stop());
   }
 }
+
+export interface UnlockAnswer {
+  ok: boolean;
+  retry?: boolean;
+  message?: string;
+  passcode_required?: boolean;
+  reason?: string;
+}
+
+/** Unlock Sergio (the app lock) with his own Face ID, on this computer: the
+ * same one-time movement and burst, but no new session is opened. */
+export async function unlockWithSergioFace(say: (text: string) => void): Promise<UnlockAnswer> {
+  const r = await apiFetch('/v1/faces/faceid/challenge', { method: 'POST' });
+  const reto = (await r.json().catch(() => ({}))) as Reto & { detail?: string; action?: string };
+  if (!r.ok) throw new Error(reto.detail || 'Face ID solo funciona en este equipo.');
+  if (reto.passcode_required) return { ok: false, passcode_required: true, reason: reto.reason };
+  if (!reto.nonce) return { ok: false, message: 'Primero configure el Face ID de Sergio.' };
+  const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480, facingMode: 'user' }, audio: false });
+  const video = document.createElement('video');
+  video.muted = true;
+  video.playsInline = true;
+  video.srcObject = stream;
+  try {
+    await video.play();
+    say(`Mire a la pantalla. ${reto.say ?? ''}…`);
+    await wait(READ_FIRST_MS);
+    const frames = await burst(video, FRAMES);
+    say('Verificando…');
+    const form = new FormData();
+    form.append('nonce', reto.nonce);
+    frames.forEach((b, i) => form.append('images', b, `f${i}.jpg`));
+    const res = await apiFetch('/v1/faces/faceid/unlock', { method: 'POST', body: form });
+    const data = (await res.json().catch(() => ({}))) as UnlockAnswer & { detail?: string };
+    if (!res.ok) throw new Error(data.detail || 'No se pudo verificar.');
+    return data;
+  } finally {
+    stream.getTracks().forEach((t) => t.stop());
+  }
+}
+
+/** Unlock with Sergio's code instead (always possible). */
+export async function unlockWithCode(code: string): Promise<{ ok: boolean; wait?: number }> {
+  const form = new FormData();
+  form.append('code', code);
+  const r = await apiFetch('/v1/faces/faceid/passcode/check', { method: 'POST', body: form });
+  const d = (await r.json().catch(() => ({}))) as { ok?: boolean; wait?: number; detail?: string };
+  if (!r.ok) throw new Error(d.detail || 'No se pudo comprobar el código.');
+  return { ok: !!d.ok, wait: d.wait };
+}

@@ -520,6 +520,11 @@ class CameraWindow(QWidget):
     # The eyes work in the background (faces, objects, what you hold); the
     # window shows only when asked («muéstrame la cámara») or for holograms.
     show_window = False
+    # Owner (2 Nov 2026): «Sergio ve está fallando, así que lo podemos
+    # esconder». While hidden the window never opens, whatever asks for it;
+    # the eyes behind (Face ID, faces) keep working. ``sergio_ve: true`` in
+    # config.json brings it back.
+    vista_off = True
     active = False
     allow: Callable[[], bool] = staticmethod(lambda: True)  # the camera permission
 
@@ -535,7 +540,7 @@ class CameraWindow(QWidget):
             self.vision.start()
         if self.hands is not None and getattr(self.hands, "mode", "off") == "off":
             self.hands.set_mode("ver")  # your hands: never mistaken for things
-        if not (self.show_window if show is None else show):
+        if self.vista_off or not (self.show_window if show is None else show):
             return  # seeing without the window
         if not self.isVisible():
             screen = self.screen().availableGeometry()
@@ -561,7 +566,7 @@ class CameraWindow(QWidget):
         """The camera hotkey shows or hides the window (the owner asked)."""
         if self.isVisible():
             self.close_camera()
-        else:
+        elif not self.vista_off:
             self.open(show=True)
 
     def show_overlay(self, text: str, seconds: float = 0.0) -> None:

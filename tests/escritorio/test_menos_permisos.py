@@ -121,6 +121,31 @@ def test_vista_sees_without_showing_its_window():
     assert not window.active  # no permission: the camera stays off
 
 
+def test_sergio_ve_is_hidden_even_when_asked():
+    pytest.importorskip("PySide6")
+    import os
+
+    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+    from PySide6.QtWidgets import QApplication
+    from sergio_escritorio.camera import CameraWindow
+
+    QApplication.instance() or QApplication([])
+
+    class Feed:
+        keep_on = False
+
+        def start(self):
+            pass
+
+    window = CameraWindow(Feed())
+    assert window.vista_off  # owner, 2 Nov 2026: hidden while it fails
+    window.open(show=True)
+    assert window.active and not window.isVisible()
+    window.toggle()
+    assert not window.isVisible()
+    window.close_camera()
+
+
 def test_risky_requests_carry_the_whole_action():
     asked = []
     c = control.Controller.__new__(control.Controller)

@@ -3,6 +3,7 @@ import { Suspense, useEffect, useState } from 'react';
 import { Outlet, useNavigate } from 'react-router';
 import { Tour } from './Tour/Tour';
 import { RunningPill } from './Shell/RunningPill';
+import { AppLock } from './AppLock/AppLock';
 import { sessionNeed, tourSeen } from '../lib/session';
 import { Menu } from 'lucide-react';
 import { toast } from 'sonner';
@@ -221,6 +222,7 @@ export function Layout() {
         </main>
       </div>
       <RunningPill />
+      <AppLock />
       {tour && <Tour onClose={() => setTour(false)} />}
       <SergioPointer />
     </div>

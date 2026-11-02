@@ -2,6 +2,10 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-11-02 · Claude · Sergio ve escondido, bloqueo con Face ID
+- La ventana de «Sergio ve» ya no se abre (ni por voz, ni con la tecla, ni con «Ver la cámara», que desaparece de Pantalla). Reconocer la cara por detrás sigue. Prueba nueva en `test_menos_permisos.py`; aquí se salta porque no hay PySide6.
+- Bloqueo de Sergio: tras 15 min sin uso (Ajustes → Bloqueo con Face ID) o «Bloquear Sergio» en la paleta, todo se tapa hasta mirar a la cámara (reto de movimiento y `/v1/faces/faceid/unlock`) o escribir el código. No bloquea ni desbloquea Windows (`docs/FACEID-SISTEMA.md`).
+
 ## 2026-11-02 · Claude · Terry más rápido y más fuerte
 - Sin Gemini, Terry preguntaba a los modelos grandes uno tras otro (Sonnet, GPT-5.6 Terra, openrouter/auto) con 25 s de margen: la respuesta esperaba. Ahora usa solo el modelo rápido de cada empresa con clave (Flash, Haiku 5.5, GPT-5.6 Luna, DeepSeek chat) y tiene un tope duro (`SERGIO_TERRY_TIEMPO`, 4 s): si llega tarde, se responde sin él.
 - Su encargo ahora trae el plan para resolverlo y lo que hay que comprobar antes de responder. El mismo pedido en la misma conversación reutiliza su encargo (10 min).
