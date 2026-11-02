@@ -18,6 +18,7 @@ from urllib.parse import urlencode
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import RedirectResponse
+from pydantic import BaseModel, Field
 
 router = APIRouter(prefix="/v1/conectar", tags=["conectar"])
 
@@ -105,4 +106,68 @@ def back(request: Request, state: str = "", code: str = "") -> RedirectResponse:
     return RedirectResponse(f"{pending['back']}{sep}ia=conectada", status_code=303)
 
 
-__all__ = ["exchange", "router"]
+@router.get("/estado")
+def estado(request: Request) -> Dict[str, Any]:
+    """Whether some AI is connected (no secrets), for the first-run card."""
+    from openjarvis.accounts import autoconfig
+
+    r = autoconfig.ready()
+    return {
+        "ia": bool(r["openrouter"] or r["gemini"]),
+        "gestion": bool(r["gestion"]),
+        "local": _local(request),
+    }
+
+
+class Gestion(BaseModel):
+    clave: str = Field(..., min_length=10, max_length=200)
+
+
+def check_management(key: str, http: Any = None) -> bool:
+    """True when OpenRouter accepts *key* as a management (provisioning) key:
+    only those may list keys. A normal key answers 401/403."""
+    import httpx
+
+    client = http or httpx.Client(timeout=20)
+    r = client.get(
+        "https://openrouter.ai/api/v1/keys", headers={"Authorization": f"Bearer {key}"}
+    )
+    return r.status_code == 200
+
+
+@router.post("/gestion")
+def gestion(body: Gestion, request: Request) -> Dict[str, Any]:
+    """Save the owner's OpenRouter management key, typed in a password field on
+    this computer (never in the chat). With it Sergio creates the owner's own
+    key and each customer's capped key by itself."""
+    if not _local(request):
+        raise HTTPException(403, "Guarde la clave desde el propio equipo de Sergio.")
+    key = body.clave.strip()
+    if not key.startswith("sk-or-"):
+        raise HTTPException(
+            400, "Esa no parece una clave de OpenRouter (empieza por sk-or-)."
+        )
+    try:
+        ok = check_management(key)
+    except Exception:  # noqa: BLE001 — never the key in a log
+        raise HTTPException(502, "No pude hablar con OpenRouter; pruebe en un momento.")
+    if not ok:
+        raise HTTPException(
+            400,
+            "OpenRouter no la aceptó como clave de gestión. Créela en "
+            "openrouter.ai, Settings, «Provisioning API keys».",
+        )
+    from openjarvis.accounts import autoconfig
+
+    autoconfig._save_env("OPENROUTER_MANAGEMENT_KEY", key)
+    own = autoconfig.owner_key()  # the owner's own key, created from it
+    try:
+        from openjarvis.server.cloud_router import _load_keys
+
+        _load_keys()
+    except Exception:  # noqa: BLE001
+        pass
+    return {"gestion": True, "ia": bool(own)}
+
+
+__all__ = ["check_management", "exchange", "router"]

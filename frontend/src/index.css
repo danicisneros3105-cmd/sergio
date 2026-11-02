@@ -4173,3 +4173,53 @@ button:focus-visible {
 .vjob-bar i { display: block; height: 100%; background: var(--color-accent); transition: width 0.6s ease; }
 .vjob-video { margin-top: 10px; width: 100%; border-radius: 12px; background: #000; }
 .vjob-why { margin: 8px 0 0; font-size: 13px; color: var(--color-text-secondary); }
+
+/* First run with no AI connected: one clear step (owner, 2 Nov 2026). */
+.ia-setup {
+  margin: 14px auto 0;
+  max-width: 440px;
+  padding: 16px 18px;
+  border-radius: 20px;
+  text-align: left;
+  background: var(--glass-strong, var(--color-bg-secondary));
+  backdrop-filter: blur(var(--glass-blur, 16px));
+  -webkit-backdrop-filter: blur(var(--glass-blur, 16px));
+  border: 1px solid color-mix(in srgb, var(--color-text) 8%, transparent);
+  animation: sg-arrive 0.35s ease both;
+}
+.ia-setup b { font-size: 15px; }
+.ia-setup p { margin: 6px 0 0; font-size: 13px; color: var(--color-text-secondary); line-height: 1.45; }
+.ia-setup-go {
+  margin-top: 12px;
+  padding: 9px 18px;
+  border-radius: 999px;
+  border: 0;
+  background: var(--color-text);
+  color: var(--color-bg);
+  font-weight: 600;
+  cursor: pointer;
+}
+.ia-setup-problem { color: var(--color-error, #b42318) !important; }
+.ia-setup details { margin-top: 12px; font-size: 13px; }
+.ia-setup summary { cursor: pointer; color: var(--color-accent); }
+.ia-gestion { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.ia-gestion input {
+  flex: 1 1 200px;
+  min-width: 0;
+  padding: 8px 12px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--color-text) 14%, transparent);
+  background: var(--color-bg);
+  color: var(--color-text);
+  font: inherit;
+}
+.ia-gestion button {
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--color-text) 18%, transparent);
+  background: transparent;
+  color: var(--color-text);
+  cursor: pointer;
+}
+.ia-gestion button:disabled { opacity: 0.5; cursor: default; }
+.ia-gestion p { flex-basis: 100%; }

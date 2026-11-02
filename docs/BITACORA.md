@@ -2,6 +2,10 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-11-02 · Claude · «inicié sesión y no tengo ninguna clave»
+- Las claves no pueden salir de la nada: viven en la cuenta de OpenRouter del dueño, y nadie puede crearle esa cuenta. Sin `OPENROUTER_MANAGEMENT_KEY`, `autoconfig` no creaba nada y el aviso pedía editar `sergio.env` a mano.
+- Ahora, en este equipo y sin IA, el chat vacío muestra «Falta conectar la IA» (`IaSetupCard`): un clic abre OpenRouter y vuelve con la clave guardada. Debajo, «¿Va a vender planes?» con una casilla de contraseña para la clave de gestión (`POST /v1/conectar/gestion`, solo local): se comprueba con OpenRouter, se guarda 0600 y crea al momento la clave del dueño; las de clientes se crean solas al entrar. Nunca en el chat.
+
 ## 2026-11-02 · Claude · el video llega al chat donde se pidió
 - El dueño: «dice que ya se está ejecutando… pero no me lo manda». Tres causas: sin ninguna IA conectada el trabajo moría en el guion; un trabajo «en curso» sin hilo vivo se contaba como «ya está en camino» (`guard`); y el resultado solo llegaba al chat de Hous en Nodes.
 - Ahora: si no hay IA, Sergio lo dice al momento y señala «Conectar la IA con un clic» (`video_essay_tool.ai_ready`). Un trabajo muerto ya no bloquea uno nuevo. La respuesta lleva `[[video:<id>]]` y el chat muestra la tarjeta en vivo (`VideoJobCard`: etapa, avance, luego el video; o por qué se detuvo). Ruta `GET /v1/personal/videos/trabajos/{id}`.

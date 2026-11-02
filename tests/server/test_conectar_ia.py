@@ -76,3 +76,45 @@ def test_only_from_this_computer():
 
     assert C._local(Fake()) is False  # type: ignore[arg-type]
     assert Request  # imported for typing clarity
+
+
+def test_management_key_is_checked_saved_and_makes_the_owner_key(monkeypatch):
+    import openjarvis.accounts.autoconfig as A
+
+    saved = {}
+    monkeypatch.setattr(A, "_save_env", lambda k, v: saved.update({k: v}))
+    monkeypatch.setattr(A, "owner_key", lambda http=None: True)
+    monkeypatch.setattr(
+        C, "check_management", lambda key, http=None: key.endswith("ok")
+    )
+    c = _client()
+    assert (
+        c.post("/v1/conectar/gestion", json={"clave": "abc-not-openrouter"}).status_code
+        == 400
+    )
+    bad = c.post("/v1/conectar/gestion", json={"clave": "sk-or-v1-normal-key"})
+    assert (
+        bad.status_code == 400 and "Provisioning" in bad.json()["detail"] and not saved
+    )
+    r = c.post("/v1/conectar/gestion", json={"clave": "sk-or-v1-gestion-ok"})
+    assert r.json() == {"gestion": True, "ia": True}
+    assert saved == {"OPENROUTER_MANAGEMENT_KEY": "sk-or-v1-gestion-ok"}
+
+
+def test_management_key_only_from_this_computer(monkeypatch):
+    monkeypatch.setattr(C, "_local", lambda request: False)
+    r = _client().post("/v1/conectar/gestion", json={"clave": "sk-or-v1-gestion-ok"})
+    assert r.status_code == 403
+
+
+def test_estado_says_whether_any_ai_is_connected(monkeypatch):
+    import openjarvis.accounts.autoconfig as A
+
+    monkeypatch.setattr(
+        A, "ready", lambda: {"openrouter": False, "gemini": False, "gestion": False}
+    )
+    assert _client().get("/v1/conectar/estado").json() == {
+        "ia": False,
+        "gestion": False,
+        "local": True,
+    }

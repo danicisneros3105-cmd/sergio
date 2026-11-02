@@ -116,5 +116,5 @@ def test_the_owner_key_written_before_a_restart_is_found_again(keys, tmp_path):
 
 def test_without_a_management_key_the_page_is_told_why(keys):
     out = autoconfig.on_sign_in({"id": "1", "role": "dueño"}, Http())
-    assert "OPENROUTER_MANAGEMENT_KEY" in out["motivo"]
+    assert "Conectar la IA con un clic" in out["motivo"]
     assert autoconfig.ready()["ultimo"]["motivo"] == out["motivo"]

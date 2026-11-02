@@ -151,8 +151,8 @@ def _why(user: Dict[str, Any], done: Dict[str, Any]) -> str:
         return f"Listo: la IA quedó configurada ({done.get('modelos', 0)} modelos disponibles)."
     if not provision.enabled() and not _key("OPENROUTER_API_KEY"):
         return (
-            "Falta la clave de gestión de OpenRouter (OPENROUTER_MANAGEMENT_KEY) en "
-            "~/.openjarvis/sergio.env; con ella creo las demás solo. Reinicie Sergio al añadirla."
+            "Aún no hay IA conectada: toque «Conectar la IA con un clic» en el chat "
+            "(inicia sesión en OpenRouter y Sergio guarda la clave solo)."
         )
     if user.get("role") != "dueño" and provision.key_for(user["id"]):
         return "Su IA ya estaba configurada."
