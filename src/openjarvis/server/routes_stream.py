@@ -431,6 +431,8 @@ async def _handle_agent_stream(
                     yield piece(text)
             response = task.result()
         except Exception as exc:
+            from openjarvis.server.stream_bridge import plain_error
+
             _routes.logging.getLogger("openjarvis.server").error(
                 "Agent stream error: %s",
                 exc,
@@ -442,7 +444,7 @@ async def _handle_agent_stream(
                 choices=[
                     _routes.StreamChoice(
                         delta=_routes.DeltaMessage(
-                            content=f"Sorry, an error occurred: {exc}",
+                            content=plain_error(str(exc)),
                         ),
                         finish_reason="stop",
                     )

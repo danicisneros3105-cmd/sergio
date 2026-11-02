@@ -2,6 +2,13 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-11-02 · Claude · la app probada en la nube
+- Arranqué Sergio en un contenedor limpio, sin claves, y lo recorrí con un navegador automático (PC y teléfono): entrar, chat, Ajustes → Complementos, Salud mental.
+- Arreglado: sin IA conectada el servidor no arrancaba («No inference engine available»); ahora abre con el motor de la nube a la espera (`cli/serve.py`).
+- Arreglado: un fallo del chat salía en inglés («Sorry, an error occurred: OpenRouter client not available…»); ahora `stream_bridge.plain_error` lo dice en español y, si falta la IA, cómo conectarla. `colmena.BROKEN` reconoce las frases nuevas.
+- El tour de bienvenida ya no se abre si la persona empezó a escribir o tocar antes de que cargue (`Layout.tsx`, `sergio-busy` en la sesión). La habilidad «Salud y mente» ya no promete el gimnasio. Sin «..» en el resumen de un video detenido.
+- El video de prueba se detiene en el guion: aquí no hay clave de IA y la red bloquea YouTube, Google Trends y el autocompletar.
+
 ## 2026-11-02 · Claude · el estudio entra en el video
 - `video_essay` usa los cuatro programas: con `tendencias` (o si el pedido dice tendencias, trends o viral) el radar corre antes del guion y su dato real llega al director (`job._trends`, `radar.json`, `tendencia` en el estado); el paquete pasa por el programa de títulos (solo cambia el título del director si un candidato del modelo saca más nota) y trae tres portadas para probar (`job._studio_package`). El resumen dice qué tendencia se usó y de qué fuente.
 - Radar: guarda la última lectura una hora y, sin datos nuevos, devuelve la anterior diciendo cuántas horas tiene. Escenas: si la escena exacta no aparece, busca la película por su nombre; un clip nunca sirve a dos escenas; fuera los de menos de 8 s.

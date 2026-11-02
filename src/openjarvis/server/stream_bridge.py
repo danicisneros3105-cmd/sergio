@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 import uuid
 from typing import AsyncGenerator
 
@@ -55,6 +56,34 @@ def _estimate_prompt_tokens(messages: list) -> int:
                 args = fn.get("arguments", "") if isinstance(fn, dict) else ""
                 total += max(1, len(str(args)) // 4)
     return total
+
+
+NO_AI = re.compile(
+    r"(client not available|api[_ ]?key|no inference engine|no model available)", re.I
+)
+
+
+def plain_error(error: str) -> str:
+    """A failed answer in words the owner understands (never English
+    exception text): no AI connected, too long, or try again."""
+    text = str(error or "")
+    if NO_AI.search(text):
+        return (
+            "Todavía no hay una IA conectada. Toque «Sergio» arriba y luego «Conectar "
+            "la IA con un clic»; después vuelva a pedírmelo."
+        )
+    if (
+        text == "too long"
+        or "too long" in text.lower()
+        or "context window" in text.lower()
+    ):
+        return "El mensaje es demasiado largo para este modelo. Pruebe con uno más corto o con otro modelo."
+    short = " ".join(text.split())[:140]
+    return (
+        f"No pude responder ahora ({short}). Vuelva a intentarlo en un momento."
+        if short
+        else ("No pude responder ahora. Vuelva a intentarlo en un momento.")
+    )
 
 
 class AgentStreamBridge:
@@ -206,14 +235,9 @@ class AgentStreamBridge:
                     or looks_like_context_length_error(error_str)
                     or ("400" in error_str and "too long" in error_str.lower())
                 ):
-                    error_content = (
-                        "The input is too long for the model's context window. "
-                        "Please try a shorter message."
-                    )
-                elif "400" in error_str:
-                    error_content = f"The model returned an error: {error_str}"
+                    error_content = plain_error("too long")
                 else:
-                    error_content = f"Sorry, an error occurred: {error_str}"
+                    error_content = plain_error(error_str)
                 error_chunk = ChatCompletionChunk(
                     id=self._chunk_id,
                     model=self._model,

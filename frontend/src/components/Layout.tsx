@@ -82,19 +82,42 @@ export function Layout() {
     if (PANE) return;
     let alive = true;
     const path = window.location.pathname;
+    // Someone who already started typing or tapping is busy: the tour waits
+    // for the next visit instead of covering what they are doing.
+    const BUSY = 'sergio-busy';
+    let busy = false;
+    try {
+      busy = sessionStorage.getItem(BUSY) === '1';
+    } catch {
+      /* no storage: this visit only */
+    }
+    const onBusy = () => {
+      busy = true;
+      try {
+        sessionStorage.setItem(BUSY, '1');
+      } catch {
+        /* no storage */
+      }
+    };
+    window.addEventListener('keydown', onBusy, { once: true });
+    window.addEventListener('pointerdown', onBusy, { once: true });
     void sessionNeed().then((need) => {
+      window.removeEventListener('keydown', onBusy);
+      window.removeEventListener('pointerdown', onBusy);
       if (!alive) return;
       if (need !== 'ok' && !path.startsWith('/pagar')) {
         navigate(need === 'crear' ? '/entrar?crear=1' : '/entrar', { replace: true });
         return;
       }
       const asked = new URLSearchParams(window.location.search).get('tour') === '1';
-      if (asked || ((path === '/' || path === '') && !tourSeen())) setTour(true);
+      if (asked || ((path === '/' || path === '') && !tourSeen() && !busy)) setTour(true);
     });
     const onTour = () => setTour(true);
     window.addEventListener('sergio:tour', onTour);
     return () => {
       alive = false;
+      window.removeEventListener('keydown', onBusy);
+      window.removeEventListener('pointerdown', onBusy);
       window.removeEventListener('sergio:tour', onTour);
     };
   }, [navigate]);

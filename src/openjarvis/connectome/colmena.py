@@ -44,7 +44,8 @@ CORRECTION = re.compile(
     re.I,
 )
 BROKEN = re.compile(
-    r"(Sorry, an error occurred|Traceback \(most recent|Error interno|no pude completar)",
+    r"(Sorry, an error occurred|No pude responder ahora|Todav[ií]a no hay una IA conectada|"
+    r"Traceback \(most recent|Error interno|no pude completar)",
     re.I,
 )
 

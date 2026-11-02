@@ -1133,7 +1133,8 @@ def summary(st: Dict[str, Any]) -> str:
         return f"«{title}» está listo ({res.get('shots', 0)} tomas).{score}{extra}\n\n![{title}]({res.get('url', '')})"
     if status == "error":
         where = LABELS.get(st.get("stage", ""), st.get("stage"))
-        return f"«{title}» se detuvo en «{where}»: {st.get('error', '')}. Puedo reintentarlo desde ahí."
+        why = str(st.get("error", "")).rstrip(". ")
+        return f"«{title}» se detuvo en «{where}»: {why}. Puedo reintentarlo desde ahí."
     if status == "cancelado":
         return f"«{title}» está cancelado."
     stage = st.get("stage", "")

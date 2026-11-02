@@ -268,7 +268,7 @@ NEURONS: Dict[str, Neuron] = {
         Neuron("memoria", "Memoria", "Recuerda lo que usted le contó.",
                ("recuerdas", "te dije", "acuerdate", "te conte", "mi nombre", "sabes que"),
                ("memory_search", "memory_store")),
-        Neuron("salud", "Salud y mente", "Registra y analiza salud, nutrición, sueño y gimnasio mental.",
+        Neuron("salud", "Salud y mente", "Registra y analiza salud, nutrición y sueño (y el Gimnasio Mental si lo añade).",
                ("salud", "nutricion", "caloria", "calorias", "proteina", "macros", "gimnasio mental",
                 "n back", "frecuencia cardiaca", "hrv", "oura", "garmin", "apple health", "strava",
                 "hidratacion", "vasos de agua"),
