@@ -2,6 +2,15 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-11-02 · Claude · cristal y burdeos, cerebro completo, imágenes de internet
+- Diseño «Cristal y burdeos» estilo ElevenLabs (última capa de `index.css`): lienzo blanco cálido, superficies de cristal, tinta casi negra, botones píldora negros, acento burdeos. Los azules escritos a mano en componentes pasan a `var(--color-accent)`. Burbujas del chat en burdeos. El logo sigue siendo el disco azul (decisión aparte del dueño): pendiente de que diga si cambia.
+- Cowork: «Sus apps» con logos (Gmail, Notion, Shopify, Calendar, Drive, Slack, GitHub, Figma, Canva, Stripe, Linear, Zapier), un toque conecta. Nodes más limpios (tarjetas, cristal, «Detener» en contorno).
+- `imagenes_web`: fotos reales de Pexels/Pixabay (con clave), Openverse y Commons con crédito en el chat.
+- Superskills siempre activas (`persona.SERGIO_SUPERSKILLS`) y seis skills empaquetadas nuevas.
+- `semana.py`: la semana en números reales y retomar lo que quedó a medias; `docs/ENGANCHE-SANO.md`. No se añadieron mecanismos de dependencia (rachas, recompensas al azar, falsa escasez): se lo dije al dueño.
+- **Revisé el cerebro de la mosca de Codex**: `*.npz` en `.gitignore` dejaba fuera `mosca_sinapsis.npz`; el cableado real nunca viajó y `test_mosca` fallaba siempre. Reconstruido desde FlyWire (SHA-256 idéntico) y ahora el cerebro **completo** (139 255 neuronas, 1 066 822 conexiones) es el predeterminado, con la actividad vectorizada (4,8 ms por turno).
+- Sin probar: la búsqueda de imágenes contra los sitios reales (la red de la nube los bloquea); el diseño nuevo en Windows real.
+
 ## 2026-11-02 · Claude · juegos con movimiento, Nodes con física, galería, puntero y molde
 - Juegos: `creator/movimiento.py` (Kimodo texto→movimiento con el checkpoint SOMA de la NVIDIA Open Model License, nunca el SMPL-X de investigación; MotionBricks para locomoción; Audio2Face para la cara desde la voz), instalador a pedido `scripts/instalar-movimiento.sh` (solo con NVIDIA), herramienta `movimiento_personaje`; `juego_unreal` crea modelos con la nube (Tripo, Meshy, Rodin, fal) y mete animaciones y locomoción en el proyecto.
 - Web: puntero de Sergio (`components/Pointer`, `lib/pointer.ts`, marca `[[señalar: …]]` en las respuestas, ya en `persona.py`), intro de Nodes con física (matter-js) y mini tour, Galería en abanico (`/galeria`, `/v1/creator/galeria`). reactdrops.dev está bloqueado en la nube: los componentes son propios.
