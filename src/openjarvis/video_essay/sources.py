@@ -54,12 +54,9 @@ class Candidate:
 
 
 def web_allowed() -> bool:
-    return os.environ.get("SERGIO_CLIPS_WEB", "1").strip().lower() not in (
-        "0",
-        "no",
-        "false",
-        "off",
-    )
+    from openjarvis import edicion
+
+    return edicion.allowed("SERGIO_CLIPS_WEB")  # never in the public edition
 
 
 def own_folders(extra: Iterable[str] = ()) -> List[str]:

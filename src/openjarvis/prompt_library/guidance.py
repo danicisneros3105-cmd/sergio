@@ -32,12 +32,9 @@ FRAGMENTS_INTRO = (
 
 
 def _enabled() -> bool:
-    return os.environ.get("SERGIO_PROMPT_LIBRARY", "1").strip().lower() not in (
-        "0",
-        "no",
-        "false",
-        "off",
-    )
+    from openjarvis import edicion
+
+    return edicion.allowed("SERGIO_PROMPT_LIBRARY")  # GPL / unlicensed: never sold
 
 
 def _installed(folder: Path) -> bool:

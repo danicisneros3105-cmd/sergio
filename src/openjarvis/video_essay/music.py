@@ -159,8 +159,10 @@ def search_jamendo(query: str, n: int, for_money: bool = True) -> List[Track]:
     """The most played instrumentals of the week on Jamendo for the mood."""
     import os
 
+    from openjarvis import edicion
+
     key = os.environ.get("JAMENDO_CLIENT_ID", "").strip()
-    if not key:
+    if not key or edicion.publica():  # the free key is non-commercial
         return []
     try:
         data = _get("https://api.jamendo.com/v3.0/tracks/", params={
@@ -445,6 +447,10 @@ def pick(
     """The music for a video: the song he named, or a free track for the mood."""
     get = fetcher or fetch
     asked = ASKED.match(wish or "")
+    from openjarvis import edicion
+
+    if asked and edicion.publica():
+        return None  # a song with rights is the owner's own risk, never sold
     if asked:
         for t in (song or search_song)(asked.group(2).strip(), 2):
             if get(t, dest, total, ffmpeg):

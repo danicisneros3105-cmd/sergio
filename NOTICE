@@ -135,6 +135,7 @@ Otras piezas de terceros que Sergio usa (créditos y licencias):
 - Salud mental: WHO-5 (© Organización Mundial de la Salud, de uso libre con
   cita) y la escala de autoestima de un ítem (Robins et al., 2001), citadas
   en la app con su DOI.
+Edición pública (SERGIO_EDICION=publica): lo que solo es seguro bajo el riesgo del dueño (clips de internet y películas, canciones con derechos, colecciones de prompts GPL o sin licencia, Jamendo y OpenSky no comerciales) queda apagado para los clientes. Ver docs/LEGAL-TERCEROS.md.
 Detalle legal y decisiones: docs/LEGAL.md.
 
 Lucide icons (https://lucide.dev) — ISC License, Copyright (c) Lucide Contributors.

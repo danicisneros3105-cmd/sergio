@@ -324,7 +324,13 @@ def fetch_aircraft(
     """All networks at once; merged by aircraft, freshest position wins."""
     from concurrent.futures import ThreadPoolExecutor, wait
 
-    pool = ThreadPoolExecutor(max_workers=len(ADSB_SOURCES))
+    from openjarvis import edicion
+
+    # OpenSky's licence is non-commercial: not in the public edition.
+    sources = tuple(
+        s for s in ADSB_SOURCES if not (edicion.publica() and s[0] == "opensky")
+    )
+    pool = ThreadPoolExecutor(max_workers=len(sources))
     dlat = nm * KT / 111.0
     dlon = dlat / max(0.2, math.cos(math.radians(lat)))
     box = {
@@ -337,7 +343,7 @@ def fetch_aircraft(
         pool.submit(
             http_get, url.format(lat=f"{lat:.4f}", lon=f"{lon:.4f}", nm=nm, **box), {}
         ): name
-        for name, url in ADSB_SOURCES
+        for name, url in sources
     }
     done, _late = wait(jobs, timeout=budget)
     pool.shutdown(wait=False, cancel_futures=True)
