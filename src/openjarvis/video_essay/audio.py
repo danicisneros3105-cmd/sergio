@@ -195,6 +195,87 @@ def ding(seed: int = 9) -> np.ndarray:
     return _norm(_room(tone * _env(n, 0.002, 0.2), 0.6, 0.2, seed), 0.45)
 
 
+def subdrop(seed: int = 10) -> np.ndarray:
+    """The low boom under a reveal: a sine that falls from 90 to 30 Hz, driven
+    a little so it is heard on a phone speaker too (its second harmonic)."""
+    rng = np.random.default_rng(seed)
+    n = int(1.4 * SR)
+    t = np.arange(n) / SR
+    f = 30 + rng.uniform(55, 65) * np.exp(-t * 3.2)
+    tone = np.sin(2 * np.pi * np.cumsum(f) / SR)
+    env = (1 - np.exp(-t * 400)) * np.exp(-t * 2.3)
+    return _norm(np.tanh(tone * env * 2.2), 0.85)
+
+
+def reverse(seconds: float = 0.9, seed: int = 11) -> np.ndarray:
+    """A reversed cymbal: air that swells and stops dead on the cut (the
+    sound of the edits in trailers and fast explainers)."""
+    rng = np.random.default_rng(seed)
+    n = int(seconds * rng.uniform(0.9, 1.1) * SR)
+    t = np.arange(n) / SR
+    crash = _bandnoise(n, rng, 2500, 14000) * np.exp(-t * 5.5)
+    shimmer = (
+        sum(np.sin(2 * np.pi * rng.uniform(3000, 9000) * t) for _ in range(4))
+        * 0.04
+        * np.exp(-t * 4)
+    )
+    wet = _room(crash + shimmer, 0.5, 0.3, seed)[:n]
+    out = wet[::-1].copy()
+    out[-int(0.006 * SR) :] *= np.linspace(1, 0, int(0.006 * SR), dtype=np.float32)
+    return _norm(out, 0.55)
+
+
+def glitch(seed: int = 12) -> np.ndarray:
+    """A digital stutter for a jump cut or a screen: short crushed bursts."""
+    rng = np.random.default_rng(seed)
+    n = int(0.34 * SR)
+    out = np.zeros(n, dtype=np.float32)
+    at = 0
+    while at < n - int(0.02 * SR):
+        m = int(rng.uniform(0.012, 0.045) * SR)
+        t = np.arange(m) / SR
+        f = rng.uniform(180, 2600)
+        burst = (
+            np.sign(np.sin(2 * np.pi * f * t)) * 0.5
+            + _bandnoise(m, rng, 800, 9000) * 0.6
+        )
+        hold = int(rng.integers(2, 9))  # sample-and-hold: the crushed, digital edge
+        burst = np.repeat(burst[::hold], hold)[:m]
+        burst = np.round(burst * 4) / 4
+        end = min(n, at + m)
+        out[at:end] += burst[: end - at] * _env(m, 0.001, 0.004)[: end - at]
+        at = end + int(rng.uniform(0.004, 0.03) * SR)
+    return _norm(out, 0.42)
+
+
+def shutter(seed: int = 13) -> np.ndarray:
+    """A camera shutter for a photo or a freeze: two mechanical clacks."""
+    rng = np.random.default_rng(seed)
+    n = int(0.16 * SR)
+    t = np.arange(n) / SR
+    out = np.zeros(n, dtype=np.float32)
+    for at, level in ((0, 1.0), (int(rng.uniform(0.055, 0.075) * SR), 0.7)):
+        m = n - at
+        clack = _bandnoise(m, rng, 900, 8000) * np.exp(-t[:m] * 260)
+        spring = (
+            np.sin(2 * np.pi * rng.uniform(2200, 2800) * t[:m])
+            * np.exp(-t[:m] * 180)
+            * 0.3
+        )
+        out[at:] += (clack + spring) * level
+    return _norm(_room(out, 0.2, 0.08, seed)[: n + int(0.1 * SR)], 0.5)
+
+
+def swipe(seed: int = 14) -> np.ndarray:
+    """A short bright swish for text or a panel sliding in (lighter than a whoosh)."""
+    rng = np.random.default_rng(seed)
+    n = int(rng.uniform(0.18, 0.26) * SR)
+    t = np.linspace(0, 1, n, dtype=np.float32)
+    air = _bandnoise(n, rng, 2200, 11000)
+    shape = np.where(t < 0.45, (t / 0.45) ** 1.5, np.exp(-(t - 0.45) * 9))
+    return _norm(_room(air * shape, 0.2, 0.08, seed), 0.5)
+
+
 EFFECTS = {
     "pop": pop,
     "sizzle": sizzle,
@@ -204,10 +285,16 @@ EFFECTS = {
     "impact": impact,
     "typewriter": typewriter,
     "riser": riser,
+    "subdrop": subdrop,
+    "reverse": reverse,
+    "glitch": glitch,
+    "shutter": shutter,
+    "swipe": swipe,
 }
 # what matters most when two effects compete for the same moment
-PRIORITY = {"impact": 5, "riser": 5, "ding": 4, "whoosh": 3, "sizzle": 3,
-            "typewriter": 2, "pop": 1, "click": 1}  # fmt: skip
+PRIORITY = {"impact": 5, "riser": 5, "subdrop": 5, "reverse": 4, "ding": 4, "whoosh": 3,
+            "sizzle": 3, "glitch": 3, "shutter": 3, "typewriter": 2, "swipe": 2, "pop": 1,
+            "click": 1}  # fmt: skip
 VARIANTS = 4  # the same effect never sounds exactly the same twice in a row
 SOUNDS_DIR = "sonidos"  # ~/.openjarvis/sonidos/<effect>*.wav: the owner's own sounds
 
@@ -283,6 +370,115 @@ def effects_track(
         start = max(0, start)
         end = min(len(out), start + len(sound))
         out[start:end] += sound[: end - start]
+    return out[: int(total * SR)]
+
+
+# -- effects in stereo ---------------------------------------------------------------------
+# Owner, 3 Nov 2026: «los efectos son mediocres». A mono effect copied to both
+# speakers sits in the middle, on top of the voice. In a studio mix the
+# effects move: a whoosh crosses the picture, a riser opens up wide, a hit has
+# its punch in the centre and its tail around you, small UI sounds sit a little
+# to one side, never twice on the same side.
+PAN = {"whoosh": "sweep", "swipe": "sweep", "riser": "widen", "reverse": "widen", "impact": "wide",
+       "sizzle": "wide", "subdrop": "centre", "glitch": "jitter", "pop": "side", "click": "side",
+       "typewriter": "side", "ding": "side", "shutter": "side"}  # fmt: skip
+ENDS_ON_CUT = ("riser", "reverse")  # these finish on the cut
+PEAKS_ON_CUT = ("whoosh", "swipe")  # their loudest moment is the cut
+
+
+def _decorrelated(x: np.ndarray, seed: int) -> np.ndarray:
+    """The same sound with its phases scrambled (smoothly across frequency):
+    what each ear gets differently in a real room."""
+    rng = np.random.default_rng(seed + 501)
+    spec = np.fft.rfft(x)
+    walk = np.cumsum(rng.normal(0, 0.35, len(spec)))
+    return np.fft.irfft(spec * np.exp(1j * walk), len(x)).astype(np.float32)
+
+
+def _pan(x: np.ndarray, pos: np.ndarray | float) -> np.ndarray:
+    """Balance pan, -1 left … 1 right: in the centre both sides as the mono
+    copy, and the far side fades (the near side never gets louder: no clip)."""
+    p = np.clip(np.asarray(pos, dtype=np.float32), -1, 1)
+    return np.stack([x * np.minimum(1, 1 - p), x * np.minimum(1, 1 + p)], axis=1)
+
+
+def spatial(x: np.ndarray, kind: str, k: int = 0, seed: int = 0) -> np.ndarray:
+    """One effect placed in the stereo picture (*k*: its how-many-th use)."""
+    mode = PAN.get(kind, "centre")
+    n = len(x)
+    side = 1.0 if k % 2 == 0 else -1.0
+    if mode == "sweep":  # from one side, through the centre on the cut, out the other
+        t = (np.arange(n, dtype=np.float32) - _onset(x, "whoosh")) / np.float32(
+            0.15 * SR
+        )
+        return _pan(x, 0.75 * np.tanh(t) * side)
+    if mode == "side":
+        return _pan(x, 0.28 * side)
+    if mode == "jitter":
+        rng = np.random.default_rng(seed + k)
+        block = int(0.04 * SR)
+        pos = np.repeat(rng.uniform(-0.6, 0.6, n // block + 1), block)[:n].astype(
+            np.float32
+        )
+        return _pan(x, pos)
+    if mode in ("widen", "wide"):
+        t = np.arange(n, dtype=np.float32) / SR
+        width = (
+            0.85 * (t / max(t[-1], 1e-6)) ** 1.5 if mode == "widen"
+            else np.clip((t - 0.03) / 0.15, 0, 1) * 0.7
+        )  # fmt: skip
+        s = _decorrelated(x, seed + k) * width
+        wide = np.stack([x + s, x - s], axis=1)
+        peak = float(np.max(np.abs(wide))) or 1.0
+        return wide * np.float32(
+            min(1.0, float(np.max(np.abs(x))) / peak)
+        )  # never over the dry peak
+    return np.stack([x, x], axis=1)
+
+
+def _onset(sound: np.ndarray, kind: str) -> int:
+    """How many samples before the cut the sound starts."""
+    if kind in ENDS_ON_CUT:
+        return len(sound)
+    if kind in PEAKS_ON_CUT:
+        w = max(1, int(0.01 * SR))
+        env = np.convolve(np.abs(sound), np.ones(w, dtype=np.float32) / w, mode="same")
+        return int(np.argmax(env))
+    return int(
+        0.012 * SR
+    )  # a hit lands on the cut (12 ms early: the ear hears it on time)
+
+
+def effects_stereo(
+    events: List[Tuple[float, str]], total: float, home: Optional[Path] = None
+) -> np.ndarray:
+    """All the effects in stereo, (samples, 2): each placed by ``spatial`` and
+    lined up so it lands on its cut (``_onset``). The owner's own sounds
+    still win, placed the same way."""
+    out = np.zeros((int(total * SR) + SR, 2), dtype=np.float32)
+    cache: Dict[Tuple[str, int], np.ndarray] = {}
+    own = _owner_sounds(home)
+    count: Dict[str, int] = {}
+    for at, kind in events:
+        make = EFFECTS.get(kind)
+        if make is None:
+            continue
+        k = count.get(kind, 0)
+        count[kind] = k + 1
+        if own.get(kind):
+            sound = own[kind][k % len(own[kind])]
+        else:
+            v = k % VARIANTS
+            if (kind, v) not in cache:
+                cache[(kind, v)] = make(seed=sum(map(ord, kind)) + 17 * v)
+            sound = cache[(kind, v)]
+        placed = spatial(sound, kind, k, seed=sum(map(ord, kind)))
+        start = max(0, int(at * SR) - _onset(sound, kind))
+        end = min(len(out), start + len(placed))
+        out[start:end] += placed[: end - start]
+    peak = float(np.max(np.abs(out))) if len(out) else 0.0
+    if peak > 0.98:  # two effects on top of each other: down, never clipped
+        out *= np.float32(0.98 / peak)
     return out[: int(total * SR)]
 
 
@@ -429,10 +625,11 @@ def read_wav(data: bytes) -> np.ndarray:
 
 
 def write_wav(samples: np.ndarray, sr: int = SR) -> bytes:
+    """16-bit WAV; a (samples, 2) array is written in stereo."""
     pcm = (np.clip(samples, -1, 1) * 32767).astype(np.int16)
     buf = io.BytesIO()
     with wave.open(buf, "wb") as w:
-        w.setnchannels(1)
+        w.setnchannels(2 if pcm.ndim == 2 else 1)
         w.setsampwidth(2)
         w.setframerate(sr)
         w.writeframes(pcm.tobytes())
@@ -442,11 +639,13 @@ def write_wav(samples: np.ndarray, sr: int = SR) -> bytes:
 __all__ = [
     "EFFECTS",
     "SR",
+    "effects_stereo",
     "effects_track",
     "mix",
     "thin",
     "music_bed",
     "read_wav",
+    "spatial",
     "voice_envelope",
     "voiced_spans",
     "write_wav",

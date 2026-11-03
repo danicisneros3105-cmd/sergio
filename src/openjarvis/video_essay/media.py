@@ -261,6 +261,7 @@ class Filler:
             f"{query}. {self.style.get('look', '')[:200]}",
             self.folder / f"{tag}-img",
             self.make_image,
+            retry=lambda: self._spend("images"),  # a second try counts against the cap
         )
         if made is None:
             self._failed("image")  # no image quota today: stop asking

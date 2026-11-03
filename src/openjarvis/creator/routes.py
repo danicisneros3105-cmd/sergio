@@ -428,6 +428,152 @@ async def creator_document(filename: str) -> Response:
     )
 
 
+@router.get("/inspiracion/{rid}")
+async def inspiration(rid: str) -> dict[str, Any]:
+    """The three videos found for a brief (the chat draws them as a card)."""
+    from openjarvis.video_essay import inspiracion
+
+    try:
+        return inspiracion.load(rid)
+    except (KeyError, OSError, ValueError):
+        raise HTTPException(status_code=404, detail="No encuentro esa búsqueda.")
+
+
+class InspirationChoice(BaseModel):
+    opcion: int
+
+
+@router.post("/inspiracion/{rid}/elegir")
+async def inspiration_choose(rid: str, body: InspirationChoice) -> dict[str, Any]:
+    from openjarvis.video_essay import inspiracion
+
+    try:
+        return inspiracion.choose(rid, body.opcion)
+    except (KeyError, OSError, ValueError, IndexError):
+        raise HTTPException(status_code=404, detail="No encuentro esa opción.")
+
+
+@router.get("/inspiracion/{rid}/miniatura/{name}")
+async def inspiration_thumb(rid: str, name: str) -> Response:
+    import re as _re
+
+    from openjarvis.video_essay import inspiracion
+
+    if not _re.fullmatch(r"[0-9a-f]{24}", rid) or not _re.fullmatch(
+        r"[0-9]\.jpg", name
+    ):
+        raise HTTPException(status_code=404, detail="No.")
+    path = inspiracion.home() / rid / name
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="Sin miniatura.")
+    return FileResponse(
+        path,
+        media_type="image/jpeg",
+        headers={"Cache-Control": "public, max-age=86400"},
+    )
+
+
+# -- video plans (planear.py) and the edit with the creator's takes (montaje.py) -----
+
+_EDITS: dict[str, Any] = {}
+
+
+def _plan_folder(pid: str) -> Path:
+    from openjarvis.video_essay import planear
+
+    try:
+        path = planear.folder(pid)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="No encuentro ese plan.")
+    if not (path / "plan.json").is_file():
+        raise HTTPException(status_code=404, detail="No encuentro ese plan.")
+    return path
+
+
+@router.get("/plan/{pid}")
+async def plan_get(pid: str) -> dict[str, Any]:
+    from openjarvis.video_essay import planear
+
+    _plan_folder(pid)
+    data = planear.load(pid)
+    data["montando"] = bool(_EDITS.get(pid) and _EDITS[pid].is_alive())
+    return data
+
+
+@router.get("/plan/{pid}/animatic.mp4")
+async def plan_animatic(pid: str) -> Response:
+    path = _plan_folder(pid) / "animatic.mp4"
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="Sin animación.")
+    return FileResponse(path, media_type="video/mp4")
+
+
+@router.get("/plan/{pid}/cuadro/{name}")
+async def plan_frame(pid: str, name: str) -> Response:
+    import re as _re
+
+    if not _re.fullmatch(r"toma-\d{2}\.png", name):
+        raise HTTPException(status_code=404, detail="No.")
+    path = _plan_folder(pid) / "cuadros" / name
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="Sin cuadro.")
+    return FileResponse(path, media_type="image/png")
+
+
+@router.post("/plan/{pid}/toma/{n}")
+async def plan_take(pid: str, n: int, file: UploadFile = File(...)) -> dict[str, Any]:
+    """One of the creator's takes for shot *n* (any video format)."""
+    from openjarvis.video_essay import planear
+
+    folder = _plan_folder(pid)
+    data = planear.load(pid)
+    shot = next((s for s in data["tomas"] if s["n"] == n), None)
+    if shot is None:
+        raise HTTPException(status_code=404, detail="Esa toma no está en el plan.")
+    ext = Path(file.filename or "toma.mp4").suffix.lower()
+    if ext not in (".mp4", ".mov", ".m4v", ".webm", ".mkv", ".avi"):
+        raise HTTPException(status_code=400, detail="Suba un video (mp4, mov, webm…).")
+    dest = folder / "tomas"
+    dest.mkdir(parents=True, exist_ok=True)
+    name = f"toma-{n:02d}{ext}"
+    with (dest / name).open("wb") as fh:
+        while chunk := await file.read(1 << 20):
+            fh.write(chunk)
+    shot["archivo"] = name
+    planear.save(pid, data)
+    return {
+        "ok": True,
+        "toma": n,
+        "subidas": sum(1 for s in data["tomas"] if s.get("archivo")),
+    }
+
+
+@router.post("/plan/{pid}/montar")
+async def plan_edit(pid: str) -> dict[str, Any]:
+    """Starts the edit with the takes uploaded so far (in the background)."""
+    import threading
+
+    from openjarvis.video_essay import montaje, planear
+
+    _plan_folder(pid)
+    running = _EDITS.get(pid)
+    if running and running.is_alive():
+        return {"estado": "montando"}
+
+    def work() -> None:
+        try:
+            montaje.edit(pid)
+        except Exception as exc:  # noqa: BLE001 — said in the plan, never silent
+            data = planear.load(pid)
+            data["montaje_error"] = str(exc)[:300]
+            planear.save(pid, data)
+
+    t = threading.Thread(target=work, daemon=True, name=f"montaje-{pid[:6]}")
+    _EDITS[pid] = t
+    t.start()
+    return {"estado": "montando"}
+
+
 @router.get("/artefacto/{filename}")
 async def creator_artifact(filename: str) -> Response:
     """An artifact (a self-contained page Sergio made) for the chat's frame. The

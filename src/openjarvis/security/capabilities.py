@@ -329,6 +329,8 @@ DEFAULT_TOOL_CAPABILITIES: Dict[str, List[str]] = {
     "en_segundo_plano": [Capability.NETWORK_FETCH],
     "hoja_calculo": [Capability.FILE_READ, Capability.FILE_WRITE],
     "criterio_estetico": [Capability.FILE_READ],
+    "inspiracion_video": [Capability.NETWORK_FETCH, Capability.FILE_WRITE],
+    "planear_video": [Capability.FILE_READ, Capability.FILE_WRITE],
     "buscar_fotos": [Capability.FILE_READ, Capability.NETWORK_FETCH],
     "miniaturas": [Capability.FILE_READ, Capability.FILE_WRITE],
     "titulos_video": [Capability.NETWORK_FETCH],

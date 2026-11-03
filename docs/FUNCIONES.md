@@ -78,6 +78,11 @@ reales. Eso es lo que debe hacer la beta cerrada.
 | Video rápido desde una idea, con subtítulos animados | Hecho | IA + ffmpeg |
 | Video ensayo profesional (tratamiento, tomas, clips, voz de locutor, música, color, subtítulos con varias letras, control de calidad) en 4 modos y varios géneros | Hecho | IA, ffmpeg; varias horas |
 | Escuela de video: mide segundo a segundo los videos de referencia y escribe una superskill por categoría | Hecho | Su PC |
+| Inspiración: 3 videos reales que hoy funcionan para su idea (YouTube, Instagram de su cuenta; hashtags de TikTok como señal), elige uno como estilo | Con servicio | `YOUTUBE_API_KEY` o yt-dlp; Instagram conectado |
+| Plan de video para grabar usted: guion toma por toma, animación (storyboard al ritmo del corte) y una subida por toma | Hecho | IA + ffmpeg |
+| Montaje de sus tomas al plan: cortes al hablar, encuadre 9:16/16:9, subtítulos, música, efectos y sonido de estudio | Hecho | ffmpeg |
+| Sonido de estudio: estéreo, la música baja bajo la voz, −14 LUFS y picos por debajo de −1,5 dBTP; efectos en estéreo que caen en el corte | Hecho | ffmpeg |
+| Imágenes de video revisadas (contraste, luces quemadas, negros, color) y rehechas una vez si salen pobres | Hecho | Clave de imágenes |
 | Edición profesional (`video_pro`: máster, color, interpolación) y montaje rápido (`video_edit`) | Windows | ffmpeg |
 | Videos programados y subida a YouTube e Instagram con API oficial | Con servicio | Cuentas del dueño |
 | Cine con IA toma por toma (Higgsfield) | Con servicio | Cuenta del dueño |

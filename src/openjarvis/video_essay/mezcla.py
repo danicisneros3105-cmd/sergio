@@ -159,14 +159,19 @@ def master(
     # mastering engineer does). A second, smaller gain only if the limiter
     # had to take more than half a LU away.
     gain = TARGET["I"] - first["I"]
-    for _ in range(2):
+    ceiling = LIMIT
+    for _ in range(3):
         subprocess.run(
             [ffmpeg, "-y", "-v", "error", "-i", str(raw), "-af",
-             f"volume={gain:.2f}dB,alimiter=limit={LIMIT}:attack=2:release=80:level=false,{resampler(ffmpeg)}",
+             f"volume={gain:.2f}dB,alimiter=limit={ceiling:.4f}:attack=2:release=80:level=false",
              "-ar", str(SR), "-ac", "2", "-c:a", "pcm_s24le", str(out)],
             check=True, capture_output=True, timeout=1800,
         )  # fmt: skip
         got = measure(out, ffmpeg)
+        # inter-sample peaks over the ceiling: a lower ceiling
+        if got["TP"] > TARGET["TP"]:
+            ceiling *= 10 ** (-(got["TP"] - TARGET["TP"] + 0.2) / 20)
+            continue
         if got["I"] >= TARGET["I"] - 0.5 or gain > 30:
             break
         gain += TARGET["I"] - got["I"]

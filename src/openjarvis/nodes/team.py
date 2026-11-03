@@ -231,6 +231,10 @@ HOUS = Member(
         "Fija el sistema: paleta (con códigos), tipografías, retícula y textura.",
         "Crea las piezas con las herramientas de diseño de Sergio y las guarda en su computadora.",
         "Revisa lo hecho con ojo crítico: deja un solo «error» a propósito, nunca descuido.",
+        "Para un video de creador: primero tres referencias reales que hoy funcionan "
+        "(inspiracion_video) y que él elija; si él graba, el plan con guion y animación "
+        "(planear_video) y después el montaje de sus tomas; si no, el video entero con esa "
+        "referencia (video_essay).",
         "Explica cada decisión en una línea.",
     ),
     delivers=(

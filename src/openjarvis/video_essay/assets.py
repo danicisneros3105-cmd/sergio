@@ -31,6 +31,12 @@ LOOK = (
     "cinematic film still, 35mm, shallow depth of field, dramatic natural light, "
     "rich texture, no text, no letters, no logos, no watermark"
 )
+# What a director of photography asks of every frame, whatever the style: one
+# subject that reads at a glance, and room for the words that go on top.
+FRAME = (
+    "Composition: one clear subject placed on a third, a clean side with room for on-screen words, "
+    "a readable silhouette, motivated light with a key and a separating rim"
+)
 
 
 def _words(text: str) -> set:
@@ -146,25 +152,69 @@ def pixabay(query: str, dest: Path) -> Optional[str]:
     return None
 
 
+def picture_check(data: bytes, own_look: bool = False) -> tuple:
+    """What a picture editor rejects at a glance, measured on the picture
+    (``estetica.medir``): flat or muddy light, blown highlights, crushed
+    blacks and, when the style has no look of its own, garish colour.
+    Returns (points 0-100, the fixes to ask for)."""
+    import io
+
+    from PIL import Image
+
+    from openjarvis.estetica import medir
+
+    try:
+        m = medir.measure(Image.open(io.BytesIO(data)))
+    except Exception:  # noqa: BLE001 — not a picture it can read: no verdict
+        return 100, []
+    fixes = []
+    if m["contraste"] < 0.3:
+        fixes.append(("more contrast: a clear light direction and deeper shadows", 30))
+    if m["luces"] > 0.06:
+        fixes.append(("no blown highlights: detail in the brights", 20))
+    if m["negro"] > 0.35:
+        fixes.append(("lift the shadows: detail in the darks", 20))
+    if not own_look and m["saturacion_media"] > 0.72:
+        fixes.append(("natural colour, less saturation, a single accent colour", 15))
+    return 100 - sum(p for _, p in fixes), [f for f, _ in fixes]
+
+
 def generated(
-    prompt: str, dest: Path, make: Optional[Callable[[str], bytes]] = None
+    prompt: str,
+    dest: Path,
+    make: Optional[Callable[[str], bytes]] = None,
+    retry: Optional[Callable[[], bool]] = None,
 ) -> Optional[str]:
+    """A picture made for the shot. It is checked (``picture_check``) and,
+    if it would look cheap, made once more with the fix asked for; the better
+    of the two is kept. *retry* says whether the budget allows the second
+    one (``SERGIO_IMAGEN_REVISION=0``: never)."""
     if not prompt:
         return None
-    try:
-        if make is None:
-            from openjarvis.creator import studio
+    if make is None:
+        from openjarvis.creator import studio
 
-            make = studio.generate_image
-        # the style's own look already came in the prompt: the film look only
-        # when there is none (it fought animation, 3D and neon schematics)
-        data = make(
-            prompt
-            if "look:" in prompt.lower() or len(prompt) > 220
-            else f"{prompt}. {LOOK}"
-        )
+        make = studio.generate_image
+    # the style's own look already came in the prompt: the film look only
+    # when there is none (it fought animation, 3D and neon schematics)
+    own_look = "look:" in prompt.lower() or len(prompt) > 220
+    full = f"{prompt}. {FRAME}" if own_look else f"{prompt}. {LOOK}. {FRAME}"
+    try:
+        data = make(full)
     except Exception:  # noqa: BLE001
         return None
+    points, fixes = picture_check(data, own_look)
+    if (
+        fixes
+        and os.environ.get("SERGIO_IMAGEN_REVISION", "1") != "0"
+        and (retry is None or retry())
+    ):
+        try:
+            again = make(f"{full}. Fix: {'; '.join(fixes)}")
+            if picture_check(again, own_look)[0] > points:
+                data = again
+        except Exception:  # noqa: BLE001 — the first one stays
+            pass
     ext = ".jpg" if data[:3] == b"\xff\xd8\xff" else ".png"
     path = dest.with_suffix(ext)
     path.write_bytes(data)
@@ -211,4 +261,4 @@ def fill(
     return shots
 
 
-__all__ = ["Library", "fill", "generated", "pexels", "pixabay"]
+__all__ = ["Library", "fill", "generated", "pexels", "picture_check", "pixabay"]

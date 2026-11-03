@@ -1,7 +1,9 @@
 import { pointAt } from '../../lib/pointer';
 import { ApprovalCard } from './ApprovalCard';
-import { artifactMarks, plainReply, videoMarks, type Artifact } from '../../lib/plainReply';
+import { artifactMarks, idMarks, plainReply, videoMarks, type Artifact } from '../../lib/plainReply';
 import { ArtifactCard } from './ArtifactCard';
+import { InspirationCard } from '../Creator/InspirationCard';
+import { PlanCard } from '../Creator/PlanCard';
 import { VideoJobCard } from './VideoJobCard';
 import { Suspense, lazy, useEffect, useState, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
@@ -178,6 +180,16 @@ export function MessageBubble({ message, isLive = false, tail = true, receipt = 
     }
     return out;
   }, [plain.artifacts, message.toolCalls]);
+  // Inspiration options and video plans (cards), from the reply or its tools.
+  const panels = useMemo(() => {
+    const insp = [...plain.inspirations];
+    const plans = [...plain.plans];
+    for (const tc of message.toolCalls ?? []) {
+      for (const id of idMarks(tc.result || '', 'inspiracion').ids) if (!insp.includes(id)) insp.push(id);
+      for (const id of idMarks(tc.result || '', 'plan').ids) if (!plans.includes(id)) plans.push(id);
+    }
+    return { insp, plans };
+  }, [plain.inspirations, plain.plans, message.toolCalls]);
   const videoJobs = useMemo(() => {
     const ids = [...plain.videos];
     for (const tc of message.toolCalls ?? []) {
@@ -269,6 +281,8 @@ export function MessageBubble({ message, isLive = false, tail = true, receipt = 
 
       {!isLive && videoJobs.map((id) => <VideoJobCard key={id} id={id} />)}
       {!isLive && artifacts.map((a) => <ArtifactCard key={a.file} artifact={a} />)}
+      {!isLive && panels.insp.map((id) => <InspirationCard key={id} id={id} />)}
+      {!isLive && panels.plans.map((id) => <PlanCard key={id} id={id} />)}
 
       {/* Anatomy figures Sergio drew for this answer (the hidden skill) */}
       {!isLive &&

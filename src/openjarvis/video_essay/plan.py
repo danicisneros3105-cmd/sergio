@@ -48,6 +48,11 @@ SFX = (
     "pop",
     "sizzle",
     "ding",
+    "subdrop",
+    "reverse",
+    "glitch",
+    "shutter",
+    "swipe",
 )
 # where a shot's picture comes from ("auto": the first that has one)
 SOURCES = ("auto", "library", "stock", "web", "film", "archive", "ai", "3d", "image")
@@ -104,7 +109,10 @@ class Shot:
 
 def _pick(value: Any, allowed: tuple, default: str) -> str:
     value = str(value or "").strip().lower()
-    return value if value in allowed else default
+    if value in allowed:
+        return value
+    head = value.replace("(", " ").split()[:1]  # «subdrop (boom…)» → subdrop
+    return head[0] if head and head[0] in allowed else default
 
 
 def _box(value: Any) -> str:
@@ -384,7 +392,9 @@ tecnica (numbers, data)|mano (an aside) or empty",
 "box": "word" (the highlight on a block of the accent colour) | "all" (every word on blocks) | "",
 "effect": "none|punch|push|shake|glitch", "grade": "natural|bw|warm|cold",
 "frame": "none|crt|film", "device": "none|computer|phone",
-"transition": "cut|flash|whip|fade", "sfx": "none|whoosh|click|impact|typewriter|riser|pop|sizzle|ding",
+"transition": "cut|flash|whip|fade",
+"sfx": "none|whoosh|click|impact|typewriter|riser|pop|sizzle|ding|subdrop (boom under a reveal)|
+reverse (swell into a cut)|glitch|shutter|swipe (text sliding in)",
 "source": "where the picture comes from: {sources} (film: a scene of a movie or series that shows the idea)",
 "overlay": "optional counter or stamp shown on top, max 3 words (e.g. DAY 1, $1,000,000) or empty",
 "camera": "for ai/3d shots: lens and move (e.g. 35mm slow dolly-in, low angle)"}}]}}

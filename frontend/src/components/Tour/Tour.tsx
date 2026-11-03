@@ -65,14 +65,14 @@ const Video = () => (
     <div className="tw-track">
       {[3, 2, 4, 2, 3, 5, 2, 3].map((w, i) => <i key={i} style={{ flex: w }} />)}
     </div>
-    <small>Guion · voz · clips reales · subtítulos · música</small>
+    <small>Inspiración · plan · sus tomas · edición</small>
   </div>
 )
 const Auto = () => (
   <div className="tw-rows" aria-hidden="true">
-    <span><b>YouTube</b> 3 shorts al día <em>auto</em></span>
-    <span><b>Clientes</b> 12 nuevos · 8 propuestas</span>
-    <span><b>Trading</b> en papel · límites activos</span>
+    <span><b>Cada mañana</b> Rihno · resumen del día</span>
+    <span><b>Si cambia una web</b> le avisa</span>
+    <span><b>Cada 3 horas</b> un video · espera su «Publicar»</span>
   </div>
 )
 const Health = () => (
@@ -113,8 +113,8 @@ const STEPS: Step[] = [
   { key: 'voz', title: 'Conversación por voz', text: 'Diga «Sergio» y hable. Responde en voz alta y se le puede interrumpir.', to: '/chat', cta: 'Probar la voz', point: 'Conversación', widget: Voice },
   { key: 'modelos', title: 'Todos los modelos', text: 'Gemini, GPT, Claude, DeepSeek y cientos más. Elija uno o deje que Sergio elija el mejor.', to: '/chat', then: 'modelo', cta: 'Elegir modelo', widget: Models },
   { key: 'nodes', title: 'Su equipo: Nodes', text: 'Cuatro empleados que trabajan sin parar: organizan, investigan, diseñan y deciden.', to: '/nodes', cta: 'Conocer al equipo', widget: Nodes },
-  { key: 'video', title: 'Videos de nivel', text: 'Del tema al video terminado: guion, voz, clips reales de internet, subtítulos y música.', to: '/chat', then: 'video', cta: 'Hacer un video', widget: Video },
-  { key: 'auto', title: 'Automatice', text: 'Canales que publican solos, clientes y empleos que llegan, trading con límites.', to: '/automatizar', cta: 'Ver Automatizar', widget: Auto },
+  { key: 'video', title: 'Videos de creador', text: 'Le muestra 3 videos que hoy funcionan para su idea, planea con usted el guion y una animación de cada toma, y edita lo que usted grabe con subtítulos, música y sonido de estudio. O lo hace entero.', to: '/chat', then: 'video', cta: 'Hacer un video', widget: Video },
+  { key: 'auto', title: 'Automatice', text: 'Elija cuándo, qué y quién lo hace (uno de sus Nodes): un resumen cada mañana, vigilar una web, videos programados. Lo que envía, compra o borra espera su sí.', to: '/automatizar', cta: 'Ver Automatizar', widget: Auto },
   { key: 'salud', title: 'Salud simple', text: 'Medicinas a su hora, metas y cómo se siente. Sin inventar datos.', to: '/salud', cta: 'Abrir Salud', widget: Health },
   { key: 'uso', title: 'Uso y plan', text: 'Cuánto lleva usado hoy y qué plan tiene, en una mirada.', to: '/uso', cta: 'Ver el uso', widget: Usage },
   { key: 'dividir', title: 'Dos cosas a la vez', text: 'El botón de dos columnas (arriba a la derecha del chat) abre una segunda pantalla al lado, como un iPhone plegable. Vuelva a tocarlo para unirlas.', cta: 'Probarlo ahora', split: true, point: 'Dividir', widget: Split },

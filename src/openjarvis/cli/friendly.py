@@ -99,6 +99,20 @@ def explain(exc: BaseException, server_port: Optional[int] = None) -> tuple[str,
     who, fix = _who(url or text, server_port)
     if "gemini" in low or "google rechaz" in low or "aistudio" in low:
         who, fix = "Google Gemini", GEMINI_FIX
+    no_route = status == 404 or "405" in low or "method not allowed" in low
+    if (
+        who == "el servidor de Sergio"
+        and no_route
+        and any(
+            p in (url or text).lower()
+            for p in ("/chat/completions", "/api/generate", "/api/chat")
+        )
+    ):  # a model engine pointed at Sergio's own port: there is no model behind it
+        return (
+            "No hay un modelo de IA conectado (el motor local apuntaba al propio Sergio).",
+            "Conecte uno en Ajustes → Modelos (una clave de Gemini, OpenAI, Anthropic u OpenRouter) "
+            "o abra Ollama en este equipo.",
+        )
 
     if (
         status in (401, 403)

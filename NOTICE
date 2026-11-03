@@ -99,9 +99,14 @@ Otras piezas de terceros que Sergio usa (créditos y licencias):
   para eso. Una canción con derechos solo si el dueño la pide por nombre.
 - Saliencia por residuo espectral (Hou y Zhang, CVPR 2007) y contraste WCAG
   2.x (W3C) en `video_essay/color.py`, escritos aquí.
-- Clips de la web: yt-dlp (Unlicense); Wikimedia Commons (cada archivo con
+- Clips de la web: yt-dlp (Unlicense) y yt-dlp-ejs, su resolvedor de los retos
+  de YouTube (Unlicense, MIT e ISC); Wikimedia Commons (cada archivo con
   su licencia, citada), NASA (dominio público) e Internet Archive (dominio
   público). Video con IA: Veo (Google) o fal.ai, bajo sus términos.
+- Inspiración para videos (`video_essay/inspiracion.py`): YouTube Data API v3
+  y la Graph API de Instagram (con la cuenta profesional del dueño), bajo sus
+  términos; de TikTok solo se leen los hashtags públicos del Creative Center.
+  Se muestran título, canal, enlace y miniatura; nada se descarga ni se copia.
 - Núcleo de la mosca: el conectoma FlyWire / MaleCNS v1.0 (CC-BY-4.0, ©
   FlyEM / HHMI Janelia, Universidad de Cambridge, MRC LMB y Google Research),
   en la versión «fly-connectome-49k» de Hugging Face

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { artifactMarks, categoryLabel, plainReply } from './plainReply';
+import { artifactMarks, categoryLabel, idMarks, plainReply } from './plainReply';
 
 describe('plainReply', () => {
   it('turns a leaked, unclosed approval into a plain question', () => {
@@ -41,5 +41,24 @@ describe('artifact marks', () => {
   });
   it('ignores a mark that is not a plain html file name', () => {
     expect(artifactMarks('[[artefacto:../../x.html|mal]]').artifacts).toEqual([]);
+  });
+});
+
+describe('inspiration and plan marks', () => {
+  const ins = 'a'.repeat(24);
+  const plan = 'b1'.repeat(12);
+  const text = `Tres opciones:\n1. YouTube\n\n[[inspiracion:${ins}]]\n[[ plan : ${plan} ]]`;
+
+  it('finds each id once and never a wrong one', () => {
+    expect(idMarks(text + `[[inspiracion:${ins}]]`, 'inspiracion').ids).toEqual([ins]);
+    expect(idMarks(text, 'plan').ids).toEqual([plan]);
+    expect(idMarks('[[plan:../../etc]] [[plan:abc]]', 'plan').ids).toEqual([]);
+  });
+
+  it('never shows the marks as text', () => {
+    const out = plainReply(text);
+    expect(out.text).not.toContain('[[');
+    expect(out.inspirations).toEqual([ins]);
+    expect(out.plans).toEqual([plan]);
   });
 });

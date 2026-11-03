@@ -1,0 +1,206 @@
+/* Creator cards in the chat: inspiration options and the video plan. */
+.cr-insp,
+.cr-plan {
+  margin: 10px 0 4px;
+  padding: 14px;
+  border-radius: var(--radius-card, 18px);
+  background: var(--color-surface, #fff);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-card);
+  max-width: min(760px, 100%);
+}
+.cr-insp header,
+.cr-plan header {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 12px;
+}
+.cr-insp header span,
+.cr-plan header span {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+.cr-insp-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+.cr-insp-card {
+  display: flex;
+  flex-direction: column;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  transition: transform 0.25s var(--ease-out, ease), box-shadow 0.25s ease;
+}
+.cr-insp-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-card);
+}
+.cr-insp-card[data-chosen] {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 2px var(--color-accent-subtle);
+}
+.cr-insp-thumb {
+  position: relative;
+  display: grid;
+  place-items: center;
+  aspect-ratio: 9 / 12;
+  background: var(--color-tile);
+  color: var(--color-text-secondary);
+  overflow: hidden;
+}
+.cr-insp-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.cr-insp-thumb i {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 11px;
+  font-style: normal;
+}
+.cr-insp-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px;
+  flex: 1;
+}
+.cr-insp-body b {
+  font-size: 13.5px;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.cr-insp-body small,
+.cr-insp-body p {
+  margin: 0;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+.cr-insp-body button,
+.cr-plan button {
+  margin-top: auto;
+  min-height: 34px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--color-ink);
+  color: var(--color-on-ink);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.cr-insp-body button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.cr-note {
+  margin: 8px 0 0;
+  font-size: 12.5px;
+  color: var(--color-text-secondary);
+}
+@media (max-width: 640px) {
+  .cr-insp-grid {
+    grid-template-columns: 1fr;
+  }
+  .cr-insp-thumb {
+    aspect-ratio: 16 / 9;
+  }
+}
+.cr-plan-hook {
+  margin: 0 0 10px;
+  font-size: 14px;
+}
+.cr-plan-animatic video,
+.cr-plan-result video {
+  width: 100%;
+  max-height: 520px;
+  border-radius: 12px;
+  background: #000;
+}
+.cr-shots {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.cr-shots li {
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-secondary);
+}
+.cr-shots li[data-done] {
+  border-color: color-mix(in srgb, var(--color-success) 45%, transparent);
+}
+.cr-shots p {
+  margin: 4px 0 0;
+  font-size: 13.5px;
+}
+.cr-shots small {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+.cr-shot-line {
+  font-style: italic;
+}
+.cr-shot-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--color-text-secondary);
+}
+.cr-shot-head b {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--color-ink);
+  color: var(--color-on-ink);
+  font-size: 12px;
+}
+.cr-shot-head span {
+  flex: 1;
+}
+.cr-plan .cr-shot-up {
+  margin: 0;
+  min-height: 28px;
+  padding: 0 12px;
+  background: transparent;
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  font-weight: 500;
+}
+.cr-plan-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 12px;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+.cr-plan-actions button {
+  padding: 0 16px;
+}
+.cr-plan-actions button:disabled {
+  opacity: 0.5;
+}
+.cr-plan-result {
+  margin-top: 12px;
+}

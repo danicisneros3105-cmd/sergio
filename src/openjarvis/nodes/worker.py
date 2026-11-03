@@ -594,8 +594,8 @@ class NodeWorker:
                     node_id, "failed", f"No pudo terminar el turno. {plain(exc)}"[:400]
                 )
                 self.store.update(node_id, status="idle", doing="")
-                if job.get("routine"):
-                    self.store.routine_result(node_id, job["routine"], str(exc))
+                if job.get("routine"):  # shown in «Mis automatizaciones»: plain words
+                    self.store.routine_result(node_id, job["routine"], plain(exc)[:300])
 
     def _connections_help(self, node: Node) -> str:
         lines = []

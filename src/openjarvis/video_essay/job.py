@@ -787,15 +787,19 @@ def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
             events = audio.thin(
                 events, total, gap=0.9 if heavy else 1.8, per_minute=28 if heavy else 14
             )
-            fx = audio.effects_track(events, total, _home())
+            fx = audio.effects_track(events, total, _home())  # mono, for the simple mix
             level = 0.32 if job.state().get("voice") else 0.8
             try:  # the studio master: stereo, real ducking, loudness set once
                 from openjarvis.video_essay import mezcla
 
                 voice_file = job.dir / "voz_pro.wav"
                 voice_file.write_bytes(audio.write_wav(voice))
-                fx_file = job.dir / "efectos.wav"
-                fx_file.write_bytes(audio.write_wav(fx))
+                fx_file = (
+                    job.dir / "efectos.wav"
+                )  # in stereo: each effect moves and lands on its cut
+                fx_file.write_bytes(
+                    audio.write_wav(audio.effects_stereo(events, total, _home()))
+                )
                 measured = mezcla.master(
                     mix_path,
                     voice=voice_file if job.state().get("voice") else None,

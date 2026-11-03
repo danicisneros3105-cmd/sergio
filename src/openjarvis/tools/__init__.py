@@ -12,6 +12,8 @@ import openjarvis.tools.creator_tools  # noqa: F401
 import openjarvis.tools.estetica_tool  # noqa: F401
 import openjarvis.tools.estudio_tools  # noqa: F401
 import openjarvis.tools.imagenes_web  # noqa: F401
+import openjarvis.tools.inspiracion_tool  # noqa: F401
+import openjarvis.tools.planear_tool  # noqa: F401
 import openjarvis.tools.scene_reason  # noqa: F401
 import openjarvis.tools.verified_math  # noqa: F401
 from openjarvis.tools._stubs import BaseTool, ToolExecutor, ToolSpec

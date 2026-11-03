@@ -25,6 +25,21 @@ export interface PlainReply {
   videos: string[];
   /** Artifacts Sergio made («[[artefacto:<file>|<title>]]», never shown). */
   artifacts: Artifact[];
+  /** Three inspiration videos to choose from («[[inspiracion:<id>]]»). */
+  inspirations: string[];
+  /** A video plan: script, animatic and shot list («[[plan:<id>]]»). */
+  plans: string[];
+}
+
+/** Ids named by «[[<word>:<24 hex>]]», and the text without the marks. */
+export function idMarks(text: string, word: string): { clean: string; ids: string[] } {
+  const ids: string[] = [];
+  const re = new RegExp(`\\[\\[\\s*${word}\\s*:\\s*([0-9a-f]{24})\\s*\\]\\]`, 'g');
+  const clean = (text ?? '').replace(re, (_m, id: string) => {
+    if (!ids.includes(id)) ids.push(id);
+    return '';
+  });
+  return { clean, ids };
 }
 
 export interface Artifact {
@@ -145,6 +160,8 @@ export function plainReply(text: string): PlainReply {
   out = out.replace(/<\/(aprobaci[oó]n|recordar|cli|mcp|api|enjambre|equipo|mente|usuario|siguiente)>/gi, '');
   const { clean: noVideo, videos } = videoMarks(out);
   const { clean: noArtifact, artifacts } = artifactMarks(noVideo);
-  const { clean, points } = pointMarks(noArtifact);
-  return { text: clean.replace(/\n{3,}/g, '\n\n').trim(), approvals, points, videos, artifacts };
+  const { clean: noInspiration, ids: inspirations } = idMarks(noArtifact, 'inspiracion');
+  const { clean: noPlan, ids: plans } = idMarks(noInspiration, 'plan');
+  const { clean, points } = pointMarks(noPlan);
+  return { text: clean.replace(/\n{3,}/g, '\n\n').trim(), approvals, points, videos, artifacts, inspirations, plans };
 }

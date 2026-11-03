@@ -2,6 +2,14 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-11-03 · Claude · video para creadores: inspiración, plan con animación, montaje de sus tomas, sonido de estudio
+- Inspiración: `inspiracion_video` busca en YouTube (API o yt-dlp), Instagram (su cuenta) y lee hashtags de TikTok; tres opciones, una por creador, con su porqué; tarjeta en el chat con «Usar este estilo» (`InspirationCard.tsx`).
+- Plan: `planear_video` escribe el guion toma por toma y hace la animación (storyboard con encuadre dibujado, zoom y clic en cada corte); tarjeta con la lista, «Subir toma» por plano y «Editar con mis tomas» (`PlanCard.tsx`, `/v1/creator/plan/*`). `montaje.py` corta, encuadra, subtitula y masteriza; probado de punta a punta con tomas generadas (−14 LUFS, pico ≤ −1 dBTP, la toma que falta con su cuadro).
+- Sonido: mezcla de estudio en estéreo (commit anterior) ahora también en el montaje; efectos en estéreo que caen en el corte y cinco efectos nuevos. Imágenes de video revisadas y rehechas una vez si salen planas o quemadas.
+- Automatizaciones comprobadas en vivo (servidor de prueba): una rutina a su hora se disparó sola, el vigía de una web detectó el cambio de precio y despertó al Node, pausar y borrar funcionan. El Node no pudo responder solo porque aquí no hay modelo; el mensaje decía «contraseña» y ahora dice que no hay modelo conectado. `list_models` ya no se cae si el motor responde HTML. El tour explica Automatizar (cuándo, qué, quién) sin cifras inventadas y el paso de video habla del flujo de creador.
+- Corregí: el orden de palabras de la búsqueda de inspiración salía al azar (venía de un `set`).
+- No probado: YouTube/Instagram/TikTok reales (el proxy los bloquea), el modelo escribiendo un plan real y la generación de imágenes del storyboard. «20x» no se puede medir: lo medible es el sonido (−14 LUFS, estéreo, picos) y las pruebas.
+
 ## 2026-11-03 · Claude · llavero, segundo plano, escuela por tipo de edición, criterio estético
 - Cifrado: llavero con versiones (`v2:<id>:`), `sergio boveda rotar/proteger/desproteger/estado`, frase con scrypt; los `v1` de antes abren y el libro se firma con la primera clave. `sergio lanzamiento` da por buena la clave si el llavero tiene frase.
 - Asistente: `en_segundo_plano` (navegador propio sin ventana; probado en Chromium real: leyó la página de prueba en 2 s, se detuvo en «Enviar tarea» y detectó el inicio de sesión), `hoja_calculo` (xlsx propio; LibreOffice lo abrió y calculó SUM y SUMIF) y `buscar_fotos`. La actualización instala el extra `browser` y Chromium.

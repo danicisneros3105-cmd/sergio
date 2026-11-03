@@ -325,8 +325,16 @@ class _OpenAICompatibleEngine(AsyncHTTPEngineMixin, InferenceEngine):
                 exc,
             )
             return []
-        data = resp.json()
-        return [m["id"] for m in data.get("data", [])]
+        try:  # a proxy or a login page answers HTML: no models, not a crash
+            data = resp.json()
+        except ValueError:
+            logger.warning(
+                "%s at %s did not answer JSON for /models", self.engine_id, self._host
+            )
+            return []
+        return [
+            m["id"] for m in data.get("data", []) if isinstance(m, dict) and "id" in m
+        ]
 
     def health(self) -> bool:
         try:

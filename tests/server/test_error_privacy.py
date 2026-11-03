@@ -38,3 +38,16 @@ def test_error_detail_only_on_the_owners_computer():
     away = client.get("/v1/_boom", headers={"X-Forwarded-For": "203.0.113.9"})
     if away.status_code == 500:  # the outside guard may already refuse it
         assert "secreto interno" not in away.json()["detail"]
+
+
+def test_a_model_engine_pointing_at_sergio_itself_says_there_is_no_model():
+    from openjarvis.cli.friendly import explain
+
+    what, fix = explain(
+        RuntimeError(
+            "uzu engine at http://localhost:8000/chat/completions returned HTTP 405"
+        ),
+        server_port=8000,
+    )
+    assert "No hay un modelo" in what and "Ajustes" in fix
+    assert "contraseña" not in what + fix
