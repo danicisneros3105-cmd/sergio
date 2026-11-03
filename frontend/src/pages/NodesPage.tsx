@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { CircleSlash, Hand, Octagon, Play } from 'lucide-react';
 import { toast } from 'sonner';
+import { QueueStrip } from './nodes/QueueStrip';
 import { NodeCritter } from '../components/Nodes/NodeCritter';
 import { NodeGoals, ReviewedIntegrations } from '../components/Nodes/NodeGoals';
 import { NodesIntro, introSeen } from '../components/Nodes/NodesIntro';
@@ -147,6 +148,7 @@ export function NodesPage() {
               </button>
             )}
           </header>
+          <QueueStrip nodeId={node.id} />
           <nav className="node-tabs paper-tabs" role="tablist">
             {TABS.map((t) => (
               <button key={t.key} type="button" role="tab" className="paper-tab" aria-selected={tab === t.key} onClick={() => setTab(t.key)}>

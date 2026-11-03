@@ -474,6 +474,32 @@ async def cancel(node_id: str, request: Request) -> Dict[str, Any]:
     return _full(worker, node_id)
 
 
+@router.get("/{node_id}/queue")
+async def queue(node_id: str, request: Request) -> Dict[str, Any]:
+    """What the Node has waiting, in order."""
+    worker = get_worker(request)
+    _node(worker, node_id)
+    return {"busy": worker.busy(node_id), "queue": worker.queued(node_id)}
+
+
+@router.delete("/{node_id}/queue/{index}")
+async def queue_drop(node_id: str, index: int, request: Request) -> Dict[str, Any]:
+    worker = get_worker(request)
+    _node(worker, node_id)
+    if not worker.drop_queued(node_id, index):
+        raise HTTPException(404, "Esa tarea ya no está en la cola.")
+    return {"busy": worker.busy(node_id), "queue": worker.queued(node_id)}
+
+
+@router.post("/{node_id}/queue/{index}/first")
+async def queue_first(node_id: str, index: int, request: Request) -> Dict[str, Any]:
+    worker = get_worker(request)
+    _node(worker, node_id)
+    if not worker.first_queued(node_id, index):
+        raise HTTPException(404, "Esa tarea ya no está en la cola.")
+    return {"busy": worker.busy(node_id), "queue": worker.queued(node_id)}
+
+
 @router.post("/{node_id}/resume")
 async def resume(node_id: str, request: Request) -> Dict[str, Any]:
     worker = get_worker(request)

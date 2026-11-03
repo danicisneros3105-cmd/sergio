@@ -169,6 +169,13 @@ const send = (method: string, body?: unknown): RequestInit => ({
   body: body === undefined ? undefined : JSON.stringify(body),
 });
 
+export interface QueuedTask {
+  i: number;
+  request: string;
+  source: string;
+  routine: string;
+}
+
 export const nodesApi = {
   list: () => json<{ nodes: SergioNode[] }>('/v1/nodes').then((r) => r.nodes),
   rules: () => json<{ rules: RuleSpec[]; colors: string[] }>('/v1/nodes/rules'),
@@ -219,6 +226,10 @@ export const nodesApi = {
   resume: (id: string) => json<SergioNode>(`/v1/nodes/${id}/resume`, send('POST', {})),
   /** Drop what it is doing now (queue and pending approvals); it stays available. */
   cancel: (id: string) => json<SergioNode>(`/v1/nodes/${id}/cancel`, send('POST', {})),
+  /** What it has waiting, in order; drop one or move it first. */
+  queue: (id: string) => json<{ busy: boolean; queue: QueuedTask[] }>(`/v1/nodes/${id}/queue`),
+  dropQueued: (id: string, i: number) => json<{ busy: boolean; queue: QueuedTask[] }>(`/v1/nodes/${id}/queue/${i}`, send('DELETE')),
+  firstQueued: (id: string, i: number) => json<{ busy: boolean; queue: QueuedTask[] }>(`/v1/nodes/${id}/queue/${i}/first`, send('POST', {})),
   computer: (id: string) =>
     json<{ files: Array<{ path: string; size: number; modified: number }>; path: string; doing: string; recent: ActivityItem[] }>(
       `/v1/nodes/${id}/computer`,

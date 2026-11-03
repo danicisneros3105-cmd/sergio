@@ -506,6 +506,33 @@ class NodeWorker:
             self._busy[node_id] = thread_
         thread_.start()
 
+    # -- the queue, under the owner's control (owner, 3 Nov 2026: «nodes con más control»)
+    def queued(self, node_id: str) -> List[Dict[str, Any]]:
+        """What the Node still has to do, in order (the running turn is not here)."""
+        with self._lock:
+            return [
+                {"i": i, "request": str(j.get("request") or "")[:300], "source": j.get("source", ""),
+                 "routine": j.get("routine", "")}
+                for i, j in enumerate(self._queues.get(node_id) or [])
+            ]  # fmt: skip
+
+    def drop_queued(self, node_id: str, index: int) -> bool:
+        with self._lock:
+            queue = self._queues.get(node_id) or []
+            if not 0 <= index < len(queue):
+                return False
+            queue.pop(index)
+        self.store.log(node_id, "queue", "Quitó una tarea de la cola.")
+        return True
+
+    def first_queued(self, node_id: str, index: int) -> bool:
+        with self._lock:
+            queue = self._queues.get(node_id) or []
+            if not 0 <= index < len(queue):
+                return False
+            queue.insert(0, queue.pop(index))
+        return True
+
     def busy(self, node_id: str) -> bool:
         thread = self._busy.get(node_id)
         return bool(thread and thread.is_alive())

@@ -539,7 +539,7 @@ export function SettingsPage() {
           </>
           )}
 
-          {show('personalizar') && (
+          {show('general') && (
           <>
           <Section title="Habilidades">
             <SkillsPanel />

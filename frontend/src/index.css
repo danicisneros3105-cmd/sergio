@@ -4375,3 +4375,13 @@ h2:not(.paper-title):not([class*="hello"]) { letter-spacing: -0.012em; }
 @keyframes swarm-todo-pulse { 50% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-accent) 25%, transparent); } }
 @media (prefers-reduced-motion: reduce) { .swarm-todo li[data-status='running'] .swarm-todo-box { animation: none; } }
 .lp-in-chat { margin-top: 10px; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
+
+/* A Node's queue */
+.node-queue { margin: 0 0 12px; padding: 10px 14px; border: 1px solid var(--color-border); border-radius: 14px; }
+.node-queue h3 { margin: 0 0 6px; font-size: 13px; color: var(--color-text-secondary); font-weight: 600; }
+.node-queue ol { margin: 0; padding: 0; list-style: none; }
+.node-queue li { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-top: 1px solid var(--color-border); font-size: 13.5px; }
+.node-queue li:first-child { border-top: none; }
+.node-queue li span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.node-queue li small { color: var(--color-text-tertiary); font-size: 12px; }
+.node-queue li button { border: 1px solid var(--color-border); background: transparent; border-radius: 999px; width: 26px; height: 26px; display: grid; place-items: center; color: var(--color-text-secondary); cursor: pointer; }
