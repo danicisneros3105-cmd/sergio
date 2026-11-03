@@ -2,6 +2,13 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-11-03 · Claude · Visage: icono nuevo y reconocimiento más seguro y rápido
+- Icono (`FaceGlyph.tsx` + `index.css`): anillo tenue con un arco de acento y su punto que barre el aro al mirar, rostro simple; verde al aprobar, rojo al fallar, sin movimiento si el sistema lo pide.
+- `faces/faceid.py`: reduce la imagen a 640 px antes de detectar (`fit`), mide calidad (`quality`: luz, enfoque, tamaño) y la trata como reintento; `head_roll` rechaza una foto inclinada en la mano; imágenes repetidas se rechazan; `match_owner` exige también el promedio de los cuadros; `Gate.audit/recent` guarda un registro local sin imágenes ni nombres; `warm()` carga los modelos al arrancar solo si hay Visage configurado.
+- Pruebas nuevas en `tests/faces/test_faceid.py` (calidad, foto inclinada, un cuadro con suerte, roll/fit, registro). No cambié ninguna prueba existente.
+- Sin probar: el tiempo real con una cámara y una cara (aquí no hay cámara ni modelos descargados); los umbrales de calidad son prudentes y conviene ajustarlos con el registro. Una webcam no tiene profundidad: no se promete a prueba de máscaras o video de alta calidad.
+
+
 ## 2026-11-03 · Claude · sonido sin «agua», app ordenada, Personalizar, privacidad, multitarea, Nodes con cola
 - «Bajo el agua»: medido. La música propia tenía el 99,9 % de la energía bajo 1 kHz; ahora es una producción con medios y agudos (prueba por octavas). La voz de 24 kHz se subía con interpolación lineal; ahora remuestreo de banda limitada. Fuera `afftdn` en una voz sintética.
 - Orden: Biblioteca fuera; menú de la cuenta; Workspace → Organizador (recordatorios, pendientes, correo, notas); Configuración en pestañas con Personalizar (skills, conectores, plugins, programas, cuentas) y guías; Privacidad y Términos con aceptación al crear cuenta; «Automático» real; Perfil simple; Visage con logo propio y sin bloqueo de la app.

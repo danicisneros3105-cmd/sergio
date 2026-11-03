@@ -326,6 +326,13 @@ async def faceid_status(request: Request) -> dict[str, Any]:
     return {**_get_gate().status(), "owner": _owner_key()}
 
 
+@router.get("/faceid/registro")
+async def faceid_log(request: Request) -> dict[str, Any]:
+    """The last Visage attempts on this computer (no pictures, no names)."""
+    _local_only(request)
+    return {"attempts": _get_gate().recent(30)}
+
+
 @router.post("/faceid/passcode")
 async def faceid_set_passcode(
     request: Request, code: str = Form(...), current: str = Form("")
@@ -414,13 +421,23 @@ async def forget(name: str) -> dict[str, Any]:
     return {"forgotten": name}
 
 
+def warm() -> None:
+    """Load the face models at start, but only for someone who has enrolled
+    (never a download for a person who does not use Visage)."""
+    book = _get_book()
+    if book.people():
+        book._models()
+
+
 __all__ = [
+    "warm",
     "describe_kinship",
     "describe_photo",
     "enroll",
     "faceid_challenge",
     "faceid_check_passcode",
     "faceid_lock",
+    "faceid_log",
     "faceid_set_passcode",
     "faceid_status",
     "faceid_unlock",

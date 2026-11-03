@@ -237,3 +237,68 @@ def test_a_camera_problem_never_spends_an_attempt(gate, monkeypatch):
     out = faceid.unlock(object(), gate, c.nonce, [b"x"] * 8, "Dani")
     assert not out["ok"] and out["retry"]
     assert out["attempts_left"] == left == gate.status()["attempts_left"]
+
+
+def _q(**kw):
+    f = _frame()
+    for k, v in kw.items():
+        setattr(f, k, v)
+    return f
+
+
+def test_picture_quality_is_a_retry_with_a_plain_reason():
+    assert faceid.quality([_q() for _ in range(4)]) == (True, "")
+    assert "Acérquese" in faceid.quality([_q(face_px=40.0)])[1]
+    assert "poca luz" in faceid.quality([_q(bright=20.0)])[1]
+    assert "demasiada luz" in faceid.quality([_q(bright=250.0)])[1]
+    assert "borrosa" in faceid.quality([_q(sharp=1.0)])[1]
+    assert not faceid.quality([])[0]
+
+
+def test_a_tilted_photo_in_the_hand_is_not_a_live_turn():
+    # The yaw looks like a real turn, but the eye line swings like a photo.
+    yaws = (0, 1, 4, 9, 15, 18, 19, 20)
+    rolls = (0, 20, -18, 25, -20, 18, -15, 20)
+    frames = [_q(yaw=y, roll=r, seed=0) for y, r in zip(yaws, rolls)]
+    for i, f in enumerate(frames):
+        f.crop = _frame(seed=i).crop
+    ok, why = faceid.alive(frames, "izquierda")
+    assert not ok and "foto" in why
+    level = [_q(yaw=y, roll=2.0) for y in yaws]
+    for i, f in enumerate(level):
+        f.crop = _frame(seed=i).crop
+    assert faceid.alive(level, "izquierda")[0]
+
+
+def test_one_lucky_frame_is_not_enough():
+    rng = np.random.default_rng(5)
+    me = _unit(rng.normal(size=128))
+    gallery = {"Daniel": np.stack([me])}
+    # Every frame is a different person except one that matches.
+    frames = [_frame(feature=me, seed=0)] + [
+        _frame(feature=_unit(me + rng.normal(0, 0.9, 128)), seed=i) for i in range(1, 4)
+    ]
+    assert not faceid.match_owner(frames, gallery, "Daniel")[0]
+
+
+def test_head_roll_and_fit():
+    row = [0, 0, 100, 100, 30, 50, 70, 50]
+    assert abs(faceid.head_roll(row)) < 1e-6
+    row = [0, 0, 100, 100, 30, 50, 70, 80]
+    assert faceid.head_roll(row) == pytest.approx(36.87, abs=0.01)  # a 3-4-5 triangle
+    big = np.zeros((1080, 1920, 3), np.uint8)
+    small, scale = faceid.fit(big)
+    assert max(small.shape[:2]) == faceid.DETECT_SIDE and scale == pytest.approx(1 / 3)
+    tiny, one = faceid.fit(np.zeros((200, 300, 3), np.uint8))
+    assert tiny.shape[:2] == (200, 300) and one == 1.0
+
+
+def test_attempts_are_logged_without_pictures_or_names(gate):
+    gate.audit(False, "poca luz", 0.0, 120)
+    gate.audit(True, "", 0.71, 95)
+    rows = gate.recent()
+    assert [r["ok"] for r in rows] == [False, True]
+    assert set(rows[0]) == {"t", "ok", "why", "score", "ms"}
+    for i in range(faceid.LOG_LINES + 30):
+        gate.audit(True, "", 0.7, 1)
+    assert len(gate.recent(10_000)) == faceid.LOG_LINES

@@ -4319,17 +4319,26 @@ h2:not(.paper-title):not([class*="hello"]) { letter-spacing: -0.012em; }
 /* Pictures and video never show a hard edge against the page: a hairline of ink. */
 .imsg-media, .gs-tile img { outline: 1px solid color-mix(in srgb, var(--color-text) 6%, transparent); outline-offset: -1px; }
 
-/* Visage mark (FaceGlyph): contour lines, thinner than the outline; they light in turn while scanning. */
-.visage-mark .visage-line { stroke-width: 2; opacity: 0.75; }
-.visage-mark .visage-eye { fill: currentColor; stroke: none; }
-.visage-mark .visage-eye { fill: var(--color-accent); }
-.visage-mark[data-state='scan'] .visage-line { animation: visage-scan 1.2s ease-in-out infinite; }
-.visage-mark[data-state='scan'] .visage-line:nth-of-type(2) { animation-delay: 0.2s; }
-.visage-mark[data-state='scan'] .visage-line:nth-of-type(3) { animation-delay: 0.4s; }
+/* Visage mark (FaceGlyph): faint ring, one accent arc and dot that sweeps the ring while scanning, a simple face. */
+.visage-mark { overflow: visible; }
+.visage-mark .visage-ring { stroke: var(--color-text); stroke-width: 2; opacity: 0.16; }
+.visage-mark .visage-arc { stroke: var(--color-accent); stroke-width: 3.4; }
+.visage-mark .visage-dot { fill: var(--color-accent); stroke: none; }
+.visage-mark .visage-eye, .visage-mark .visage-smile { stroke: var(--color-text); stroke-width: 3.2; }
+.visage-mark .visage-sweep { transform-origin: 32px 32px; transform: rotate(-12deg); transition: transform 320ms var(--ease-mac); }
+.visage-mark[data-state='scan'] .visage-sweep { animation: visage-sweep 1.4s cubic-bezier(.45,.05,.35,1) infinite; }
+.visage-mark[data-state='scan'] .visage-eye { animation: visage-blink 2.8s ease-in-out infinite; transform-origin: 32px 29px; }
+.visage-mark[data-state='ok'] .visage-arc { stroke: var(--color-success); }
+.visage-mark[data-state='ok'] .visage-ring { stroke: var(--color-success); opacity: 0.35; }
+.visage-mark[data-state='ok'] .visage-dot { fill: var(--color-success); }
+.visage-mark[data-state='ok'] .visage-sweep { transform: rotate(0deg); }
+.visage-mark[data-state='fail'] .visage-arc { stroke: var(--color-error); }
+.visage-mark[data-state='fail'] .visage-dot { fill: var(--color-error); }
 .visage-mark[data-state='fail'] { animation: visage-shake 0.4s ease-in-out; }
-@keyframes visage-scan { 0%, 100% { opacity: 0.25; } 50% { opacity: 1; } }
+@keyframes visage-sweep { from { transform: rotate(-12deg); } to { transform: rotate(348deg); } }
+@keyframes visage-blink { 0%, 44%, 52%, 100% { transform: scaleY(1); } 48% { transform: scaleY(0.15); } }
 @keyframes visage-shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
-@media (prefers-reduced-motion: reduce) { .visage-mark, .visage-mark .visage-line { animation: none !important; } }
+@media (prefers-reduced-motion: reduce) { .visage-mark, .visage-mark .visage-sweep, .visage-mark .visage-eye { animation: none !important; transition: none !important; } }
 .face-system-proof-line { max-width: 520px; margin: 16px auto 0; text-align: center; font-size: 13px; color: var(--color-text-tertiary); }
 
 /* Guides (Configuración → Personalizar, Ayuda) */

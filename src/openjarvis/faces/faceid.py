@@ -44,6 +44,18 @@ MIN_FRAMES = 4
 MAX_FRAMES = 16
 # Wrong passcodes: after the 5th, wait (seconds) — longer each time (Apple).
 PASSCODE_WAITS = (60, 300, 900, 3600)
+# Speed: faces are found on a copy no larger than this (a 1080p webcam frame
+# took several times longer for the same answer).
+DETECT_SIDE = 640
+# A tilted photo swings the eye line far more than a person turning.
+ROLL_RANGE_DEG = 35.0
+# Picture quality below these is a retry (no attempt spent), not a wrong face.
+MIN_SHARP = 6.0  # variance of the Laplacian on the aligned face
+MIN_BRIGHT, MAX_BRIGHT = 45.0, 225.0
+MIN_FACE_PX = 80.0  # width of the face in the camera picture
+# The mean of the frames must also match, not just one lucky frame.
+OWNER_MEAN = 0.50
+LOG_LINES = 200
 
 
 def _now() -> float:
@@ -224,6 +236,44 @@ class Gate:
             c = self._challenges.pop(nonce or "", None)
         return c if c and c.expires >= self.clock() else None
 
+    def audit(self, ok: bool, why: str, score: float, ms: int) -> None:
+        """A line per attempt, only on this computer: when, how it ended, the
+        score. Never a picture, a name or an embedding."""
+        path = Path(self.root) / "faceid-registro.jsonl"
+        line = json.dumps(
+            {
+                "t": round(self.clock()),
+                "ok": ok,
+                "why": why[:80],
+                "score": score,
+                "ms": ms,
+            }
+        )
+        try:
+            with self._lock:
+                try:
+                    old = path.read_text().splitlines()
+                except OSError:
+                    old = []
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text("\n".join([*old, line][-LOG_LINES:]) + "\n")
+                os.chmod(path, 0o600)
+        except OSError:
+            pass
+
+    def recent(self, n: int = 20) -> list[dict[str, Any]]:
+        try:
+            lines = (Path(self.root) / "faceid-registro.jsonl").read_text().splitlines()
+        except OSError:
+            return []
+        out = []
+        for line in lines[-n:]:
+            try:
+                out.append(json.loads(line))
+            except ValueError:
+                continue
+        return out
+
     def record(self, ok: bool) -> int:
         """Count a Visage attempt; returns the attempts left."""
         with self._lock:
@@ -252,6 +302,10 @@ class Frame:
     eye_light: float = (
         1.0  # eye patches' brightness / the face's: lids are lighter than pupils
     )
+    roll: float = 0.0  # sideways tilt of the eye line, degrees
+    sharp: float = 100.0  # focus of the aligned face (variance of the Laplacian)
+    bright: float = 120.0  # mean grey of the aligned face, 0-255
+    face_px: float = 200.0  # face width in the camera picture, pixels
 
 
 def eye_state(image: Any, row: Any) -> tuple[int, float]:
@@ -307,8 +361,34 @@ def _cascade() -> Any:
     return _CASCADE
 
 
+def head_roll(row: Any) -> float:
+    """Sideways tilt of the eye line in degrees (0 = level)."""
+    import math
+
+    try:
+        rx, ry, lx, ly = (float(v) for v in row[4:8])
+    except (TypeError, ValueError, IndexError):
+        return 0.0
+    return math.degrees(math.atan2(ly - ry, lx - rx))
+
+
+def fit(image: Any, side: int = DETECT_SIDE) -> tuple[Any, float]:
+    """The picture shrunk so its long side is at most *side* (and the scale
+    used, 1.0 when it was already small)."""
+    import cv2
+
+    h, w = image.shape[:2]
+    big = max(h, w)
+    if big <= side:
+        return image, 1.0
+    scale = side / big
+    return cv2.resize(
+        image, (round(w * scale), round(h * scale)), interpolation=cv2.INTER_AREA
+    ), scale
+
+
 def read_frames(book: Any, frames: list[bytes]) -> list[Frame]:
-    """The largest face of each frame, with its pose and open eyes."""
+    """The largest face of each frame, with its pose, quality and open eyes."""
     import cv2
     import numpy as np
 
@@ -321,6 +401,7 @@ def read_frames(book: Any, frames: list[bytes]) -> list[Frame]:
             image = book._decode(data)
         except FaceError:
             continue
+        image, scale = fit(image)
         with book._lock:
             h, w = image.shape[:2]
             detector.setInputSize((w, h))
@@ -333,7 +414,8 @@ def read_frames(book: Any, frames: list[bytes]) -> list[Frame]:
             feature = recognizer.feature(aligned).flatten()
         feature = feature / (np.linalg.norm(feature) + 1e-9)
         yaw, pitch = head_pose(row)
-        crop = cv2.resize(cv2.cvtColor(aligned, cv2.COLOR_BGR2GRAY), (48, 48))
+        grey = cv2.cvtColor(aligned, cv2.COLOR_BGR2GRAY)
+        crop = cv2.resize(grey, (48, 48))
         seen, light = eye_state(image, row)
         out.append(
             Frame(
@@ -345,9 +427,31 @@ def read_frames(book: Any, frames: list[bytes]) -> list[Frame]:
                 len(rows),
                 seen,
                 light,
+                head_roll(row),
+                float(cv2.Laplacian(grey, cv2.CV_64F).var()),
+                float(grey.mean()),
+                float(row[2]) / scale,
             )
         )
     return out
+
+
+def quality(frames: list[Frame]) -> tuple[bool, str]:
+    """Is the picture good enough to judge? (A retry, never a spent attempt.)"""
+    import statistics
+
+    if not frames:
+        return False, "No vi su cara: acérquese y mire a la pantalla."
+    if statistics.median(f.face_px for f in frames) < MIN_FACE_PX:
+        return False, "Acérquese un poco a la cámara."
+    bright = statistics.median(f.bright for f in frames)
+    if bright < MIN_BRIGHT:
+        return False, "Hay poca luz: busque una luz que le dé en la cara."
+    if bright > MAX_BRIGHT:
+        return False, "Hay demasiada luz en la cara: aléjese de la ventana."
+    if statistics.median(f.sharp for f in frames) < MIN_SHARP:
+        return False, "La imagen sale borrosa: limpie la cámara y quédese quieto."
+    return True, ""
 
 
 def alive(frames: list[Frame], action: str) -> tuple[bool, str]:
@@ -361,6 +465,9 @@ def alive(frames: list[Frame], action: str) -> tuple[bool, str]:
     ]
     if max(diffs, default=0.0) < 0.8:
         return False, "La imagen no se mueve: parece una foto."
+    rolls = [f.roll for f in frames]
+    if max(rolls) - min(rolls) > ROLL_RANGE_DEG:
+        return False, "La imagen se inclina como una foto en la mano."
     if action in ("izquierda", "derecha", "arriba"):
         angles = [f.pitch if action == "arriba" else f.yaw for f in frames]
         sign = -1 if action == "derecha" else 1
@@ -455,7 +562,15 @@ def match_owner(
     )
     if not same_person:
         return False, best, "Vi más de una cara distinta durante la prueba."
-    if best >= OWNER_STRONG and strong >= 2 and best - rival >= OWNER_MARGIN:
+    mean = np.mean([f.feature for f in frames], axis=0)
+    mean = mean / (np.linalg.norm(mean) + 1e-9)
+    average = float(np.max(mine @ mean))
+    if (
+        best >= OWNER_STRONG
+        and strong >= 2
+        and best - rival >= OWNER_MARGIN
+        and average >= OWNER_MEAN
+    ):
         return True, best, ""
     return False, best, "No le reconozco."
 
@@ -475,8 +590,25 @@ def unlock(
             "message": "El reto caducó: inténtelo de nuevo.",
         }
     t0 = time.perf_counter()
+    if len(frames) > 1 and len({hashlib.sha1(f).digest() for f in frames}) < max(
+        2, int(len(frames) * 0.6)
+    ):
+        # The same picture sent again and again is not a camera.
+        gate.audit(False, "imágenes repetidas", 0.0, 0)
+        return {
+            "ok": False,
+            "retry": True,
+            "name": "",
+            "message": "Las imágenes se repiten: parece una foto fija.",
+            "attempts_left": gate.status()["attempts_left"],
+            "passcode_required": False,
+            "ms": round((time.perf_counter() - t0) * 1000),
+            "score": 0.0,
+        }
     seen = read_frames(book, frames)
-    ok_live, why = alive(seen, challenge.action)
+    ok_live, why = quality(seen)
+    if ok_live:
+        ok_live, why = alive(seen, challenge.action)
     message = why
     ok = False
     score = 0.0
@@ -487,6 +619,7 @@ def unlock(
     if not ok_live:
         # Light, framing or a missed movement is not a wrong face: like the
         # phone, only a face that does not match spends an attempt.
+        gate.audit(False, message, 0.0, round((time.perf_counter() - t0) * 1000))
         return {
             "ok": False,
             "retry": True,
@@ -498,6 +631,12 @@ def unlock(
             "score": 0.0,
         }
     left = gate.record(ok)
+    gate.audit(
+        ok,
+        "" if ok else message,
+        round(score, 3),
+        round((time.perf_counter() - t0) * 1000),
+    )
     if ok:
         front = max(
             (f for f in seen if abs(f.yaw) <= FRONT_DEG),
@@ -529,9 +668,12 @@ __all__ = [
     "MAX_FAILS",
     "alive",
     "attentive",
+    "fit",
     "hash_passcode",
+    "head_roll",
     "match_owner",
     "passcode_matches",
+    "quality",
     "unlock",
     "valid_passcode",
 ]
