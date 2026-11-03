@@ -475,7 +475,7 @@ termina en la rama `main`, y el dueño actualiza con un único comando.
   Simple Icons (CC0) y solo nombran el servicio que el dueño conecta; no se
   dibujan a mano: se regeneran del paquete. Sin logo conocido, monograma.
 - Todo es Sergio: ningún logo ni nombre de empresa externa a la vista
-  (los créditos de licencias van en NOTICE, LICENSE y «Acerca de»), salvo
+  (los créditos de licencias van en NOTICE y LICENSE; «Acerca de» se quitó el 3 nov. 2026), salvo
   los logos de servicios de arriba. El agente
   de código (OpenClacky en `extensions/clacky`) se ve como «Agente de código»:
   nombre, logo, colores grises, español y sin la pasarela de pago ni las
@@ -775,6 +775,16 @@ termina en la rama `main`, y el dueño actualiza con un único comando.
   - `video_essay/derechos.py`: **no existe un vacío legal que garantice nada** y Sergio nunca dice «legal» ni «seguro». Fair use (17 U.S.C. § 107) y el derecho de cita son defensas caso por caso; el texto «Copyright Disclaimer Under Section 107» no protege; Content ID reclama igual. Cada video con clips ajenos dice su riesgo de reclamo (trozos ≤ 5 s, ≤ 15 s por película, comentario propio); sin riesgo: dominio público y películas libres (Blender Foundation).
   - Neuronas de **camino** (`neurons.CHAIN_PREFIX`): cuando las mismas herramientas funcionan en el mismo orden dos veces, nace una neurona que trae todas y el orden. Es aprendizaje del cerebro de Sergio, no del modelo.
   - Ciclo de la noche (`evolution/ciclo.py`, 03:00): toma el fallo real más repetido de la semana (videos detenidos), pide un arreglo pequeño y solo lo aplica `automejora.improve` si pasan ruff y las pruebas; nunca toca claves, cuentas ni pagos, nunca sube a GitHub, `SERGIO_AUTOMEJORA_NOCHE=0` lo apaga. Lo que aplica en su PC se pierde con la siguiente actualización (el comando pone `main` igual que GitHub): queda en `automejora/registro.json` para que un agente lo suba.
+- **App ordenada y profesional** (dueño, 3 nov. 2026: «organizar app… perfil más común… quitar Acerca de… políticas… dividir pantalla NO es para la app… bloqueo con Visage NO para desbloquear app»). Cambia decisiones anteriores:
+  - Barra lateral: Chat, Nodes, Salud, Proyectos y, bajo «Más», Uso, Agent Swarm, Organizador, Cowork, Automatizar y Galería. **Biblioteca se quitó** (sin uso propio; `/biblioteca` va a la Galería); Rostros, Extensiones y Perfil viven en el **menú de la cuenta** (Perfil, Personalizar, Configuración, Planes, Ayuda y tutoriales, Cerrar sesión).
+  - **Workspace = Organizador** (`pages/OrganizerPage.tsx`): Hoy (recordatorios), Pendientes (tipo `pendiente` en `reminders/`), Correo (con su cuenta conectada; solo borradores) y Notas (el workspace tipo Notion de antes).
+  - **Configuración en cinco pestañas** (General, Personalizar, Modelos, Seguridad, Cuenta; `?tab=`): Personalizar reúne skills, conectores, plugins, programas y cuentas con guías paso a paso (`components/Settings/Guides.tsx`, también en Ayuda). «Acerca de» sale; entran Privacidad y Términos (`/legal/privacidad`, `/legal/terminos`, públicas) y **crear cuenta exige aceptarlos**; cada cuenta guarda la versión (`registro.TERMS_VERSION`). Los textos legales son un borrador honesto: revisarlos con un abogado antes de vender.
+  - «Automático» en Apariencia sigue al sistema en vivo (clase `.dark`).
+  - **Dividir pantalla es multitarea del equipo, no de la app**: el botón pone dos apps lado a lado en el PC (`desktop_action split`, lo pide al chat) y en Mac, iPad o Android dice cómo hacerlo con su sistema. La pantalla dividida dentro de la app ya no tiene botón (reemplaza la decisión del 24 oct.).
+  - **Sin bloqueo de la app con Visage** (`AppLock` ya no se monta): el dueño quería desbloquear el dispositivo y eso solo lo hace su sistema (Face ID, Windows Hello, Android); Sergio lo dice. Visage sigue para aprobar lo que no se deshace, con logo propio (`FaceGlyph`, ya no el de Face ID).
+  - Perfil como en otras apps de IA: cuenta, cómo le llamo y lo que Sergio recuerda; sin «Mis metas», y los resultados solo con el Gimnasio Mental activado.
+  - Cowork: logos grandes y tareas listas por app conectada (`AppsStrip`, `APP_TASKS`). Agent Swarm: lista de tareas y fuentes con vista previa. Vistas previas de páginas (`research/preview.py`, `/v1/vista-previa`, imagen servida por Sergio porque la política de la app no carga imágenes de otros sitios; solo sitios públicos). Nodes: cola visible con Primero y Quitar.
+  - Video: la música propia ya no es un grave sin agudos (fue la causa del «bajo el agua»), la voz se remuestrea con banda limitada y no se le quita ruido que no tiene (`audio.music_bed`, `audio.resample`, `pro.VOICE_FILTERS`).
 - Kimi como proveedor y «Digitalsnickers» están descartados.
 - Licencia Apache-2.0 y autoría honesta: no se borran créditos del original.
 

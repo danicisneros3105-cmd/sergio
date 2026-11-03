@@ -2,6 +2,14 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-11-03 · Claude · sonido sin «agua», app ordenada, Personalizar, privacidad, multitarea, Nodes con cola
+- «Bajo el agua»: medido. La música propia tenía el 99,9 % de la energía bajo 1 kHz; ahora es una producción con medios y agudos (prueba por octavas). La voz de 24 kHz se subía con interpolación lineal; ahora remuestreo de banda limitada. Fuera `afftdn` en una voz sintética.
+- Orden: Biblioteca fuera; menú de la cuenta; Workspace → Organizador (recordatorios, pendientes, correo, notas); Configuración en pestañas con Personalizar (skills, conectores, plugins, programas, cuentas) y guías; Privacidad y Términos con aceptación al crear cuenta; «Automático» real; Perfil simple; Visage con logo propio y sin bloqueo de la app.
+- Multitarea del equipo (dos apps lado a lado en el PC; en otros sistemas se explica cómo). Notch: nace de un punto y crece bajo el puntero (no probado aquí: no hay PySide6).
+- Cowork con logos grandes y tareas por app; Swarm con lista de tareas y fuentes con imagen; vistas previas de páginas; Nodes con cola controlable. Proyectos comprobado en vivo: instrucciones y archivos entran en cada mensaje.
+- Revisé de Codex: la superskill «pantalla» de `connectome/neurons.py` sigue hablando de `auto_reply=True`, `send_email` y `visa_apply`; choca con «mensajes y correos esperan su sí». No la toqué (es suya); que la revise.
+- Pendiente: Gimnasio Mental más variado (es Qt; no se puede probar aquí) y nada promete que «haga más inteligente»: la evidencia de transferencia es débil. Rentabilidad: el peor caso de Go sigue en ~0,90 $ (`docs/ECONOMIA.md`); subir Go o bajar su tope es decisión del dueño. Textos legales: borrador para revisar con abogado.
+
 ## 2026-11-03 · Claude · shorts virales medidos, derechos de clips, neuronas de camino y ciclo de la noche
 - Medí las referencias del dueño con datos públicos (conector de YouTube): 10 videos de YouTube con vistas, duración y canal, y 4 transcripciones. Los narrados van a 3,0-3,7 palabras por segundo, duran 25-43 s y abren con el título dicho; la historia con giro trae ~10 veces más comentarios por vista. Va en `video_essay/viral.py` y entra en el guion vertical y en cada plan. Las 5 de Instagram no se pudieron leer desde aquí.
 - `derechos.py`: riesgo de reclamo por clips ajenos en el resumen de cada video, sin prometer nada legal.
