@@ -238,8 +238,26 @@ class Notch(QWidget):
 
     def showEvent(self, event) -> None:
         super().showEvent(event)
+        # It is born from a dot under the camera and springs open (owner, 3 Nov
+        # 2026: «ponerle animación al notch»); still with reduced motion.
+        calm = getattr(self, "reduced_motion", False) or getattr(self, "reduce_motion", False)
+        if hasattr(self, "_sw") and not calm:
+            self._sw.value, self._sh.value = 18.0, 6.0
+            self._sw.velocity = self._sh.velocity = 0.0
         if hasattr(self, "_timer"):
             self._wake()
+
+    def enterEvent(self, event) -> None:  # noqa: N802 (Qt API)
+        self._hovered = True  # it grows a little under the pointer, like a button that listens
+        if hasattr(self, "_timer"):
+            self._wake()
+        super().enterEvent(event)
+
+    def leaveEvent(self, event) -> None:  # noqa: N802 (Qt API)
+        self._hovered = False
+        if hasattr(self, "_timer"):
+            self._wake()
+        super().leaveEvent(event)
 
     def hideEvent(self, event) -> None:
         if hasattr(self, "_timer"):
@@ -507,6 +525,8 @@ class Notch(QWidget):
         if self._faceid is not None and self._faceid.finished():
             self._faceid = None
         tw, th = self.target_size()
+        if getattr(self, "_hovered", False) and not self.expanded() and not self.reduced_motion:
+            tw, th = tw + 14, th + 3
         # Real springs toward the target size: growing overshoots softly,
         # shrinking settles cleanly (Apple's island does both).
         growing = tw * th > self._sw.value * self._sh.value + 1
