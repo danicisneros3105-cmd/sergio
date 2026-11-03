@@ -161,3 +161,10 @@
   align-items: center;
   gap: 6px;
 }
+
+/* Phones: the icon alone is enough; the header stays calm. */
+@media (max-width: 640px) {
+  .split-btn-label {
+    display: none;
+  }
+}

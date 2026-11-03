@@ -6,6 +6,9 @@ Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 - Recordatorios (título, detalle, extra) y Nodes (`memory.md`, mensajes, actividad, `secrets.json`) se guardan con AES-256-GCM por la bóveda; lo antiguo en claro se lee y se sella al abrir. Pruebas en `tests/security/test_boveda.py`.
 - `sergio lanzamiento [--json]` y `GET /v1/pagos/lanzamiento`: 7 pasos que el código puede comprobar y 9 que solo puede dar el dueño (nunca se marcan solos). Guía en `docs/LANZAMIENTO.md`.
 - La herramienta `artefacto` entra en el inventario de capacidades (escribe archivo). Las cartas de la galería muestran su rótulo.
+- Autoevolución: `mejorarme` gana la acción `lecciones` (por qué se rechazaron los últimos intentos) y avisa tras 2 rechazos sobre los mismos archivos para no repetir a ciegas. Pruebas en `tests/evolution/test_lecciones.py`.
+- Teléfono: el botón «Dividir» queda solo con su icono. Texto de ayuda de `sergio lanzamiento` traducido (`en.po`).
+- Suite completa: 6 fallos en la primera pasada (1 mío, de traducción, ya corregido; `test_routes` de creator conocido por el entorno; hedge y data_boundary fallaron solo con carga y pasan solos).
 
 ## 2026-11-03 · Claude · galería, pantalla negra, artefactos, racha sana y menos ruido
 - Galería: las cartas cargaban la imagen completa (varios MB cada una) y un fallo de red se veía como «galería vacía». Ahora hay miniaturas (`/v1/creator/miniatura`, JPEG de 480 px guardado una vez), el error se dice con «Reintentar», y las cartas ya no se cortan por abajo.

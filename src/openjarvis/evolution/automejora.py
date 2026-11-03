@@ -122,6 +122,39 @@ def history() -> List[Dict]:
         return []
 
 
+def lessons(limit: int = 5) -> List[Dict]:
+    """Recent rejected self-changes, so Sergio does not repeat a failed try.
+
+    Each row is ``{files, reason, why}``; ``why`` is the last line of the checks
+    (the failing step), not the whole log.
+    """
+    rows: List[Dict] = []
+    for r in reversed(history()):
+        if r.get("state") != "rechazada":
+            continue
+        checks = [x for x in str(r.get("checks", "")).splitlines() if x.strip()]
+        rows.append(
+            {
+                "files": list(r.get("files", [])),
+                "reason": str(r.get("reason", ""))[:120],
+                "why": (checks[-1] if checks else "")[:200],
+            }
+        )
+        if len(rows) >= limit:
+            break
+    return rows
+
+
+def failed_before(files: List[str]) -> int:
+    """How many times a change to these same files was already rejected."""
+    want = set(files)
+    return sum(
+        1
+        for r in history()
+        if r.get("state") == "rechazada" and want & set(r.get("files", []))
+    )
+
+
 def _save(m: Mejora) -> None:
     items = [x for x in history() if x.get("id") != m.id]
     items.append(asdict(m))

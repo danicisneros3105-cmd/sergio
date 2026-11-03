@@ -28,7 +28,9 @@ class AutomejoraTool(BaseTool):
                 "action='probar' tries 'cambios' (list of {path, old, new}: exact text to "
                 "replace once; old='' creates a new file) for 'motivo' in a separate copy, "
                 "runs ruff and the matching tests, and applies it only if they pass; "
-                "'historial' lists past self-changes; 'deshacer' undoes one by 'id'. Use it "
+                "'historial' lists past self-changes; 'lecciones' lists why recent tries were "
+                "rejected (read it BEFORE retrying the same file); 'deshacer' undoes one "
+                "by 'id'. Use it "
                 "after an error you can explain, or when you see a clear improvement; add "
                 "or update a test with the fix. Never touches key files, never pushes."
             ),
@@ -37,7 +39,7 @@ class AutomejoraTool(BaseTool):
                 "properties": {
                     "action": {
                         "type": "string",
-                        "enum": ["probar", "historial", "deshacer"],
+                        "enum": ["probar", "historial", "lecciones", "deshacer"],
                     },
                     "motivo": {"type": "string"},
                     "cambios": {
@@ -73,6 +75,16 @@ class AutomejoraTool(BaseTool):
                     or "Todavía no me he cambiado nada."
                 )
                 return ToolResult(tool_name=self.tool_id, content=text, success=True)
+            if action == "lecciones":
+                rows = A.lessons()
+                text = (
+                    "\n".join(
+                        f"{', '.join(r['files'])} · {r['reason']} · {r['why']}"
+                        for r in rows
+                    )
+                    or "No hay intentos rechazados que recordar."
+                )
+                return ToolResult(tool_name=self.tool_id, content=text, success=True)
             if action == "deshacer":
                 m = A.revert(str(params.get("id") or ""))
                 return ToolResult(
@@ -89,12 +101,19 @@ class AutomejoraTool(BaseTool):
                     )
                     for c in params.get("cambios") or []
                 ]
+                before = A.failed_before([c.path for c in changes])
                 m = A.improve(str(params.get("motivo") or "mejora"), changes)
                 ok = m.state == "aplicada"
                 head = "Aplicada" if ok else "No la apliqué"
+                note = ""
+                if not ok and before >= 2:
+                    note = (
+                        f" Ya rechacé {before} intentos sobre estos archivos: "
+                        "pida 'lecciones', cambie de enfoque o dígaselo al señor."
+                    )
                 return ToolResult(
                     tool_name=self.tool_id,
-                    content=f"{head} (id {m.id}). Comprobaciones: {m.checks[:1500]}",
+                    content=f"{head} (id {m.id}). Comprobaciones: {m.checks[:1500]}{note}",
                     success=ok,
                 )
         except A.AutomejoraError as exc:

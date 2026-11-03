@@ -558,3 +558,11 @@ msgstr "Calibrates and enrolls the main operator's voiceprint."
 #: help
 msgid "Frecuencia fundamental F0 de calibración (Hz)"
 msgstr "Calibration fundamental frequency F0 (Hz)"
+
+#: help
+msgid "Qué está listo, qué falta en el servidor y qué solo puede hacer el dueño."
+msgstr "What is ready, what is missing on the server and what only the owner can do."
+
+#: help
+msgid "Salida para programas."
+msgstr "Output for programs."
