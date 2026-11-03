@@ -42,7 +42,8 @@ class RemindersTool(BaseTool):
             name=self.tool_id,
             description=(
                 "Guarda y consulta las metas, medicinas y recordatorios del señor (avisos para él "
-                "mismo en la app). action: 'add' (kind: medicina|meta|recordatorio, title, times "
+                "mismo en la app). action: 'add' (kind: medicina|meta|recordatorio|pendiente "
+                "(pendiente: a to-do with no time), title, times "
                 "['08:00'], days [0=lunes..6=domingo, vacío = todos], date 'AAAA-MM-DD' para una sola "
                 "vez, dose para medicinas, why para metas), 'list', 'done' (id; slot opcional "
                 "'AAAA-MM-DDTHH:MM'), 'pause' (id), 'remove' (id). Nunca des consejo médico."
@@ -56,7 +57,7 @@ class RemindersTool(BaseTool):
                     },
                     "kind": {
                         "type": "string",
-                        "enum": ["medicina", "meta", "recordatorio"],
+                        "enum": ["medicina", "meta", "recordatorio", "pendiente"],
                     },
                     "title": {"type": "string"},
                     "times": {"type": "array", "items": {"type": "string"}},

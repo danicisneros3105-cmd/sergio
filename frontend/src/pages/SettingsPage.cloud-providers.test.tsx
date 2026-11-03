@@ -8,13 +8,13 @@ describe('desktop cloud provider settings', () => {
     vi.stubGlobal('window', { __TAURI_INTERNALS__: {} });
     const { SettingsPage } = await import('./SettingsPage');
     const html = renderToStaticMarkup(
-      <MemoryRouter>
+      <MemoryRouter initialEntries={['/settings?tab=modelos']}>
         <SettingsPage />
       </MemoryRouter>,
     );
 
     expect(html).toContain('Atlas Cloud');
-    expect(html).toContain('Fuentes de datos'); // the «Más» links
+    expect(html).toContain('Personalizar'); // the section tabs (the «Más» links moved to Cuenta)
     const atlasKeyInput = html.match(/<input[^>]*placeholder="Clave de Atlas Cloud"[^>]*>/)?.[0];
     expect(atlasKeyInput).toBeDefined();
     expect(atlasKeyInput).toContain('disabled'); // locked until server verifies Dev

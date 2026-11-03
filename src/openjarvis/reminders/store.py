@@ -13,7 +13,8 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, Iterator, List, Optional
 
-KINDS = ("medicina", "meta", "recordatorio")
+# «pendiente»: a to-do with no time (the organiser's list, owner 3 Nov 2026)
+KINDS = ("medicina", "meta", "recordatorio", "pendiente")
 _TIME = re.compile(r"^([01]?\d|2[0-3]):([0-5]\d)$")
 DUE_WINDOW_MIN = 90  # a dose is still «due» this long after its time
 

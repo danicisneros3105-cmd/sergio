@@ -231,15 +231,16 @@ def registro(body: Register, request: Request) -> Dict[str, Any]:
         email_ok=first,
     )  # fmt: skip
     _store().note_signup(user["id"], body.device, verdict["network"])
+    if body.acepta:  # every account keeps which terms it accepted (owner, 3 Nov 2026)
+        try:
+            _store().record_consent(
+                user["id"], registro.TERMS_VERSION, body.mayor,
+                registro.can_open_by_itself(verdict) if registro.abierto() else False,
+            )  # fmt: skip
+        except Exception:  # noqa: BLE001 — a consent row never blocks the account
+            pass
     if first:
         return _signed_in(user, body.device)
-    if registro.abierto():
-        _store().record_consent(
-            user["id"],
-            registro.TERMS_VERSION,
-            body.mayor,
-            registro.can_open_by_itself(verdict),
-        )
     if senders.smtp_ready():
         try:
             senders.send_email_code(

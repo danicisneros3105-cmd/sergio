@@ -117,7 +117,7 @@ const STEPS: Step[] = [
   { key: 'auto', title: 'Automatice', text: 'Elija cuándo, qué y quién lo hace (uno de sus Nodes): un resumen cada mañana, vigilar una web, videos programados. Lo que envía, compra o borra espera su sí.', to: '/automatizar', cta: 'Ver Automatizar', widget: Auto },
   { key: 'salud', title: 'Salud simple', text: 'Medicinas a su hora, metas y cómo se siente. Sin inventar datos.', to: '/salud', cta: 'Abrir Salud', widget: Health },
   { key: 'uso', title: 'Uso y plan', text: 'Cuánto lleva usado hoy y qué plan tiene, en una mirada.', to: '/uso', cta: 'Ver el uso', widget: Usage },
-  { key: 'dividir', title: 'Dos cosas a la vez', text: 'El botón de dos columnas (arriba a la derecha del chat) abre una segunda pantalla al lado, como un iPhone plegable. Vuelva a tocarlo para unirlas.', cta: 'Probarlo ahora', split: true, point: 'Dividir', widget: Split },
+  { key: 'dividir', title: 'Multitarea', text: 'El botón de dos columnas, arriba a la derecha del chat, pone dos apps de su equipo lado a lado (por ejemplo Chrome y Word). En el teléfono o el Mac le dice cómo hacerlo con su sistema.', cta: 'Probarlo ahora', split: true, point: 'Multitarea', widget: Split },
   { key: 'atajos', title: 'Un atajo para todo', text: 'Ctrl K (⌘ K en Mac) busca páginas, acciones y modelos. Este tour vuelve desde Ayuda.', to: '/atajos', cta: 'Ver atajos', widget: Palette },
 ]
 
@@ -187,7 +187,7 @@ export function Tour({ onClose }: { onClose: () => void }) {
                 if (step.point) window.setTimeout(() => pointAt({ target: step.point!, text: step.title }), 700);
                 if (step.split) {
                   navigate('/chat');
-                  window.setTimeout(() => window.dispatchEvent(new CustomEvent('sergio:split', { detail: 'on' })), 250);
+                  window.setTimeout(() => window.dispatchEvent(new CustomEvent('sergio:multitarea')), 250);
                   return;
                 }
                 navigate(step.to!);

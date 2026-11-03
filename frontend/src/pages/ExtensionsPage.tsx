@@ -216,9 +216,11 @@ function Skills({ skills, reload }: { skills: HubSkill[]; reload: () => void }) 
   );
 }
 
-export function ExtensionsPage() {
+/** *embedded*: inside Configuración → Personalizar (tabs kept in the page, no route). */
+export function ExtensionsPage({ embedded = false }: { embedded?: boolean } = {}) {
   const { tab } = useParams();
-  const current: Tab = (TABS.find((t) => t.id === tab)?.id ?? 'conectores') as Tab;
+  const [own, setOwn] = useState<Tab>('conectores');
+  const current: Tab = embedded ? own : ((TABS.find((t) => t.id === tab)?.id ?? 'conectores') as Tab);
   const [hub, setHub] = useState<{ plugins: HubPlugin[]; skills: HubSkill[] }>({ plugins: [], skills: [] });
   const reload = useCallback(() => {
     fetchHub().then(setHub, fail);
@@ -228,15 +230,22 @@ export function ExtensionsPage() {
   }, [reload]);
 
   return (
-    <div className="ext-page">
-      <h1 className="ext-title">Extensiones</h1>
+    <div className={embedded ? 'ext-page ext-embedded' : 'ext-page'}>
+      {!embedded && <h1 className="ext-title">Extensiones</h1>}
       <nav className="ext-tabs" aria-label="Extensiones">
-        {TABS.map(({ id, label, icon: Icon }) => (
-          <NavLink key={id} to={`/extensiones/${id}`} className="ext-tab" aria-current={current === id ? 'page' : undefined}>
-            <Icon size={15} strokeWidth={1.8} />
-            {label}
-          </NavLink>
-        ))}
+        {TABS.map(({ id, label, icon: Icon }) =>
+          embedded ? (
+            <button key={id} type="button" className="ext-tab" aria-current={current === id ? 'page' : undefined} onClick={() => setOwn(id)}>
+              <Icon size={15} strokeWidth={1.8} />
+              {label}
+            </button>
+          ) : (
+            <NavLink key={id} to={`/extensiones/${id}`} className="ext-tab" aria-current={current === id ? 'page' : undefined}>
+              <Icon size={15} strokeWidth={1.8} />
+              {label}
+            </NavLink>
+          ),
+        )}
       </nav>
       {current === 'programas' && <Programs />}
       {current === 'plugins' && (

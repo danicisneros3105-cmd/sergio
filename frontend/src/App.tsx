@@ -4,6 +4,8 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { Layout } from './components/Layout';
 import { ChatPage } from './pages/ChatPage';
 // Everything else loads on demand: the first screen opens in milliseconds.
+const OrganizerPage = lazy(() => import('./pages/OrganizerPage').then((m) => ({ default: m.OrganizerPage })));
+const LegalPage = lazy(() => import('./pages/LegalPage').then((m) => ({ default: m.LegalPage })));
 const SettingsPage = lazy(() => import('./pages/SettingsPage').then((m) => ({ default: m.SettingsPage })));
 const GetStartedPage = lazy(() => import('./pages/GetStartedPage').then((m) => ({ default: m.GetStartedPage })));
 const DataSourcesPage = lazy(() => import('./pages/DataSourcesPage').then((m) => ({ default: m.DataSourcesPage })));
@@ -17,7 +19,6 @@ const ProfilePage = lazy(() => import('./pages/ProfilePage').then((m) => ({ defa
 const CoworkPage = lazy(() => import('./pages/CoworkPage').then((m) => ({ default: m.CoworkPage })));
 const WorkspacePage = lazy(() => import('./pages/WorkspacePage'));
 const CapturePage = lazy(() => import('./pages/CapturePage'));
-const HomePage = lazy(() => import('./pages/HomePage'));
 const NodesPage = lazy(() => import('./pages/NodesPage'));
 const ConnectomePage = lazy(() => import('./pages/ConnectomePage'));
 const SignInPage = lazy(() => import('./pages/SignInPage'));
@@ -67,11 +68,20 @@ export default function App() {
   const savings = useAppStore((s) => s.savings);
 
   // Apply theme class to <html>
+  // «Automático» follows the system and changes live with it (most dark rules
+  // hang on the .dark class, so the class is set here too).
   useEffect(() => {
     const root = document.documentElement;
-    root.classList.remove('dark', 'light');
-    if (settings.theme === 'dark') root.classList.add('dark');
-    else if (settings.theme === 'light') root.classList.add('light');
+    const media = window.matchMedia?.('(prefers-color-scheme: dark)');
+    const apply = () => {
+      const dark = settings.theme === 'dark' || (settings.theme !== 'light' && !!media?.matches);
+      root.classList.toggle('dark', dark);
+      root.classList.toggle('light', !dark);
+    };
+    apply();
+    if (settings.theme === 'dark' || settings.theme === 'light' || !media) return;
+    media.addEventListener?.('change', apply);
+    return () => media.removeEventListener?.('change', apply);
   }, [settings.theme]);
 
   // Sync overlay conversations into the main app
@@ -194,9 +204,11 @@ export default function App() {
       <Suspense fallback={<div role="status" aria-live="polite" className="p-6">Cargando espacio de trabajo…</div>}>
       <Routes>
         <Route path="entrar" element={<SignInPage />} />
+        <Route path="legal" element={<LegalPage />} />
+        <Route path="legal/:doc" element={<LegalPage />} />
         <Route element={<Layout />}>
           <Route index element={<ChatPage />} />
-          <Route path="biblioteca" element={<HomePage />} />
+          <Route path="biblioteca" element={<Navigate to="/galeria" replace />} />
           <Route path="galeria" element={<GalleryPage />} />
           <Route path="nodes" element={<NodesPage />} />
           <Route path="nodes/:id" element={<NodesPage />} />
@@ -204,7 +216,7 @@ export default function App() {
           <Route path="swarm/:id" element={<SwarmPage />} />
           <Route path="creator/*" element={<Navigate to="/chat" replace />} />
           <Route path="chat" element={<ChatPage />} />
-          <Route path="workspace" element={<WorkspacePage />} />
+          <Route path="workspace" element={<OrganizerPage />} />
           <Route path="workspace/:id" element={<WorkspacePage />} />
           <Route path="capturar" element={<CapturePage />} />
           <Route path="reunion" element={<MeetingPage />} />

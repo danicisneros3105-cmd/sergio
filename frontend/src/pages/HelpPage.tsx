@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { PaperPage } from '../components/Paper/PaperPage';
+import { CONNECT_GUIDES, GuideList, LEARN_GUIDES } from '../components/Settings/Guides';
 import { apiFetch } from '../lib/api';
 import { clearCrashes, crashReport, readCrashes } from '../lib/crashlog';
 import './plans.css';
@@ -13,10 +14,10 @@ const TOPICS: Array<{ q: string; a: string[] }> = [
     a: ['Escríbale en el chat o dígale «Sergio» en voz alta. Recuerda lo que hablaron antes, por chat o por voz.'],
   },
   {
-    q: 'Dividir la pantalla (dos cosas a la vez)',
+    q: 'Multitarea: dos apps lado a lado',
     a: [
-      'Toque el botón de dos columnas, arriba a la derecha del chat, o pulse Ctrl \\ (⌘ \\ en Mac). La segunda pantalla se abre desde el centro, como un iPhone plegable.',
-      'Arriba de la segunda pantalla elige qué ver al lado: chat, Nodes, Salud… Arrastre el centro para repartir el espacio. El mismo botón la cierra. En un teléfono se apila una sobre otra.',
+      'Toque el botón de dos columnas, arriba a la derecha del chat, escriba las dos apps (por ejemplo Chrome y Word) y Sergio las pone una al lado de la otra en su PC. También puede decirlo: «pon Chrome y Word lado a lado».',
+      'En el Mac, el iPad o Android, el mismo botón le dice cómo hacerlo con la pantalla dividida de su sistema.',
     ],
   },
   {
@@ -106,7 +107,12 @@ export function HelpPage() {
       .catch(() => setSupport(''));
   }, []);
   return (
-    <PaperPage title="Ayuda">
+    <PaperPage title="Ayuda y tutoriales">
+      <h2 className="paper-label">Aprenda a usar Sergio</h2>
+      <GuideList guides={LEARN_GUIDES} />
+      <h2 className="paper-label" style={{ marginTop: 24 }}>Conectar claves, cuentas, plugins y skills</h2>
+      <GuideList guides={CONNECT_GUIDES} />
+      <h2 className="paper-label" style={{ marginTop: 24 }}>Preguntas</h2>
       <div className="help-list">
         {TOPICS.map((t) => (
           <details key={t.q}>

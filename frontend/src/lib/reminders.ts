@@ -2,7 +2,7 @@
 
 import { apiFetch } from './api';
 
-export type ReminderKind = 'medicina' | 'meta' | 'recordatorio';
+export type ReminderKind = 'medicina' | 'meta' | 'recordatorio' | 'pendiente';
 
 export interface Reminder {
   id: string;

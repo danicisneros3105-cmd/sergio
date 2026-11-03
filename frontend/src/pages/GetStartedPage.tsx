@@ -49,7 +49,7 @@ export function GetStartedPage() {
               navigate('/chat');
               window.setTimeout(() => {
                 if (run === 'video') window.dispatchEvent(new CustomEvent('sergio:video'));
-                if (run === 'split') window.dispatchEvent(new CustomEvent('sergio:split', { detail: 'on' }));
+                if (run === 'split') window.dispatchEvent(new CustomEvent('sergio:multitarea'));
               }, 250);
             }}
           >

@@ -462,7 +462,7 @@ export function FacesPage() {
           <div className="faceid-home">
             <span className="face-presence-mark"><FaceGlyph size={84} /></span>
             <h1>Reconocimiento facial</h1>
-            <p>Un toque, mire a la cámara y listo. Una webcam no reemplaza la cámara de profundidad de un iPhone.</p>
+            <p>Mire a la cámara y listo.</p>
             {error && <p className="faceid-error">{error}</p>}
             <div className="faceid-actions">
               {enrolled ? (
@@ -495,23 +495,13 @@ export function FacesPage() {
                     ? `Reconocimiento disponible · ${status.attempts_left} intentos`
                     : REASON_ES[status.passcode_reason] || 'Visage no disponible'}
                 </li>
-                <li data-on="1">Su cara se guarda cifrada, nunca como foto</li>
               </ul>
-            )}
-            {status?.passcode_set && (
-              <button
-                type="button"
-                className="faceid-link"
-                onClick={async () => (await apiFetch('/v1/faces/faceid/lock', { method: 'POST' }), load())}
-              >
-                <Lock size={13} /> Bloquear ahora
-              </button>
             )}
           </div>
         )}
       </div>
 
-      <aside className="face-system-proof"><Lock size={20} /><div><strong>Usted confirma con su cara.</strong><p>Las acciones importantes (enviar, comprar, borrar, publicar) se aprueban con este Visage: mire a la pantalla y gire un poco la cabeza. Tras 5 fallos, o si pasa mucho tiempo, Sergio pide su código.</p></div></aside>
+      <p className="face-system-proof-line">Lo importante (enviar, comprar, borrar, publicar) se aprueba mirando a la cámara. Su cara se guarda cifrada, nunca como foto.</p>
 
       {mode.kind === 'home' && (
         <section className="faceid-people">

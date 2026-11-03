@@ -25,7 +25,7 @@ def _store():
 
 
 class NewItem(BaseModel):
-    kind: str = Field(..., pattern="^(medicina|meta|recordatorio)$")
+    kind: str = Field(..., pattern="^(medicina|meta|recordatorio|pendiente)$")
     title: str = Field(..., min_length=1, max_length=160)
     detail: str = Field("", max_length=1000)
     times: List[str] = Field(default_factory=list, max_length=12)

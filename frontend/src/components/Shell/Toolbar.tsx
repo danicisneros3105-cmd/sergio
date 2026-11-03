@@ -1,19 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import {
-  Puzzle,
   SquarePen,
   Search,
   PanelLeft,
   NotebookPen,
   Briefcase,
   HeartPulse,
-  UserRound,
   Settings,
   Images,
-  Library,
   MessageSquare,
-  ScanFace,
   Gauge,
   FolderKanban,
   ChevronDown,
@@ -67,14 +63,10 @@ export const TOOLBAR_ITEMS = [
   { path: '/proyectos', icon: FolderKanban, label: 'Proyectos', more: false },
   { path: '/uso', icon: Gauge, label: 'Uso', more: true },
   { path: '/swarm', icon: SwarmIcon, label: 'Agent Swarm', more: true },
-  { path: '/workspace', icon: NotebookPen, label: 'Workspace', more: true },
+  { path: '/workspace', icon: NotebookPen, label: 'Organizador', more: true },
   { path: '/cowork', icon: Briefcase, label: 'Cowork', more: true },
   { path: '/automatizar', icon: Zap, label: 'Automatizar', more: true },
   { path: '/galeria', icon: Images, label: 'Galería', more: true },
-  { path: '/biblioteca', icon: Library, label: 'Biblioteca', more: true },
-  { path: '/extensiones', icon: Puzzle, label: 'Extensiones', more: true },
-  { path: '/faces', icon: ScanFace, label: 'Rostros', more: true },
-  { path: '/perfil', icon: UserRound, label: 'Perfil', more: true },
 ] as const;
 
 const MORE_KEY = 'sergio-sidebar-more';
@@ -141,6 +133,7 @@ export function Toolbar({ historyOpen, onToggleHistory }: { historyOpen: boolean
       // a convenience only
     }
   };
+  const [userMenu, setUserMenu] = useState(false);
   const [planName, setPlanName] = useState('');
   const [usedToday, setUsedToday] = useState<number | null>(null);
   useEffect(() => {
@@ -237,10 +230,8 @@ export function Toolbar({ historyOpen, onToggleHistory }: { historyOpen: boolean
             />
             <Item
               icon={<Columns2 size={18} strokeWidth={1.7} />}
-              label={splitOpen ? 'Unir pantalla' : 'Dividir pantalla'}
-              hint={mac ? '⌘\\' : 'Ctrl \\'}
-              active={splitOpen}
-              onClick={() => window.dispatchEvent(new CustomEvent('sergio:split'))}
+              label="Multitarea"
+              onClick={() => (navigate('/chat'), window.setTimeout(() => window.dispatchEvent(new CustomEvent('sergio:multitarea')), 200))}
             />
           </div>
 
@@ -289,13 +280,42 @@ export function Toolbar({ historyOpen, onToggleHistory }: { historyOpen: boolean
             <span className="sb-label">Conversación</span>
           </div>
           <UpdateButton />
+          {userMenu && (
+            <div className="sb-user-menu" role="menu" aria-label="Su cuenta">
+              {[
+                { to: '/perfil', label: 'Perfil' },
+                { to: '/settings?tab=personalizar', label: 'Personalizar' },
+                { to: '/settings', label: 'Configuración' },
+                { to: '/planes', label: 'Planes' },
+                { to: '/ayuda', label: 'Ayuda y tutoriales' },
+              ].map((m) => (
+                <button key={m.to} type="button" role="menuitem" onClick={() => (setUserMenu(false), go(m.to))}>
+                  {m.label}
+                </button>
+              ))}
+              <button
+                type="button"
+                role="menuitem"
+                data-quiet
+                onClick={() =>
+                  void apiFetch('/v1/cuentas/salir', { method: 'POST' })
+                    .catch(() => null)
+                    .finally(() => (setUserMenu(false), go('/entrar')))
+                }
+              >
+                Cerrar sesión
+              </button>
+            </div>
+          )}
           <button
             type="button"
             className="sb-user"
-            aria-label="Ajustes"
-            title="Ajustes"
+            aria-label="Su cuenta"
+            title="Su cuenta"
+            aria-haspopup="menu"
+            aria-expanded={userMenu}
             aria-current={isActive('/settings', pathname) ? 'page' : undefined}
-            onClick={() => go('/settings')}
+            onClick={() => setUserMenu((o) => !o)}
           >
             <span className="sb-avatar" aria-hidden="true">
               S

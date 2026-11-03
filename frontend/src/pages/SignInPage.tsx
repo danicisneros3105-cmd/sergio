@@ -225,6 +225,11 @@ function SignInPage() {
                 <span>Continuar con {LABEL[key]}</span>
               </button>
             ))}
+            <small className="signin-legal">
+              Al continuar con {providers.map(([k]) => LABEL[k]).join(', ')} acepta los{' '}
+              <a href="/legal/terminos" target="_blank" rel="noreferrer">términos</a> y la{' '}
+              <a href="/legal/privacidad" target="_blank" rel="noreferrer">privacidad</a>.
+            </small>
             <div className="signin-or">
               <span>o</span>
             </div>
@@ -275,17 +280,21 @@ function SignInPage() {
               />
               {mode === 'crear' && <small>10 caracteres o más.</small>}
             </label>
-            {mode === 'crear' && info?.registro === 'abierto' && (
+            {mode === 'crear' && (
               <div className="signin-consent">
                 <label>
                   <input type="checkbox" checked={accepts} onChange={(e) => setAccepts(e.target.checked)} required />
-                  <span>Acepto los términos de uso y el aviso de privacidad.</span>
+                  <span>
+                    Acepto los{' '}
+                    <a href="/legal/terminos" target="_blank" rel="noreferrer">términos de uso</a> y el{' '}
+                    <a href="/legal/privacidad" target="_blank" rel="noreferrer">aviso de privacidad</a>.
+                  </span>
                 </label>
                 <label>
                   <input type="checkbox" checked={adult} onChange={(e) => setAdult(e.target.checked)} required />
-                  <span>Tengo {info.edad_minima ?? 16} años o más.</span>
+                  <span>Tengo {info?.edad_minima ?? 16} años o más.</span>
                 </label>
-                <small>Le enviaremos un código a su correo para confirmar que es suyo.</small>
+                {info?.registro === 'abierto' && <small>Le enviaremos un código a su correo para confirmar que es suyo.</small>}
               </div>
             )}
             <button type="submit" className="signin-go" disabled={busy}>
@@ -313,6 +322,10 @@ function SignInPage() {
               Enviar código
             </button>
             {info?.sms === false && <p className="signin-note">Los SMS no están configurados en este Sergio.</p>}
+            <small className="signin-legal">
+              Al continuar acepta los <a href="/legal/terminos" target="_blank" rel="noreferrer">términos</a> y la{' '}
+              <a href="/legal/privacidad" target="_blank" rel="noreferrer">privacidad</a>.
+            </small>
           </form>
         )}
 

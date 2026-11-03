@@ -4,7 +4,6 @@ import { Outlet, useLocation, useNavigate } from 'react-router';
 import { ErrorBoundary } from './ErrorBoundary';
 import { Tour } from './Tour/Tour';
 import { RunningPill } from './Shell/RunningPill';
-import { AppLock } from './AppLock/AppLock';
 import { sessionNeed, tourSeen } from '../lib/session';
 import { Menu } from 'lucide-react';
 import { toast } from 'sonner';
@@ -227,7 +226,7 @@ export function Layout() {
         </main>
       </div>
       <RunningPill />
-      <AppLock />
+      {/* The app lock is retired (owner, 3 Nov 2026: «bloqueo con Visage NO para desbloquear app»). */}
       {tour && <Tour onClose={() => setTour(false)} />}
       <SergioPointer />
     </div>

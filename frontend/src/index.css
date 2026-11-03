@@ -4318,3 +4318,45 @@ table, .tabular, time, [data-number] { font-variant-numeric: tabular-nums; }
 h2:not(.paper-title):not([class*="hello"]) { letter-spacing: -0.012em; }
 /* Pictures and video never show a hard edge against the page: a hairline of ink. */
 .imsg-media, .gs-tile img { outline: 1px solid color-mix(in srgb, var(--color-text) 6%, transparent); outline-offset: -1px; }
+
+/* Visage mark (FaceGlyph): contour lines, thinner than the outline; they light in turn while scanning. */
+.visage-mark .visage-line { stroke-width: 2; opacity: 0.75; }
+.visage-mark .visage-eye { fill: currentColor; stroke: none; }
+.visage-mark .visage-eye { fill: var(--color-accent); }
+.visage-mark[data-state='scan'] .visage-line { animation: visage-scan 1.2s ease-in-out infinite; }
+.visage-mark[data-state='scan'] .visage-line:nth-of-type(2) { animation-delay: 0.2s; }
+.visage-mark[data-state='scan'] .visage-line:nth-of-type(3) { animation-delay: 0.4s; }
+.visage-mark[data-state='fail'] { animation: visage-shake 0.4s ease-in-out; }
+@keyframes visage-scan { 0%, 100% { opacity: 0.25; } 50% { opacity: 1; } }
+@keyframes visage-shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
+@media (prefers-reduced-motion: reduce) { .visage-mark, .visage-mark .visage-line { animation: none !important; } }
+.face-system-proof-line { max-width: 520px; margin: 16px auto 0; text-align: center; font-size: 13px; color: var(--color-text-tertiary); }
+
+/* Guides (Configuración → Personalizar, Ayuda) */
+.guides { display: flex; flex-direction: column; gap: 8px; }
+.guide { border: 1px solid var(--color-border); border-radius: 14px; padding: 12px 14px; }
+.guide summary { cursor: pointer; font-weight: 600; font-size: 14px; color: var(--color-text); }
+.guide ol { margin: 10px 0 12px; padding-left: 20px; }
+.guide li { font-size: 14px; line-height: 1.55; color: var(--color-text-secondary); margin: 4px 0; }
+.set-tabs { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+.set-tabs .mac-chip[data-on] { background: var(--color-text); color: var(--color-bg); border-color: var(--color-text); }
+.ext-embedded { padding: 0 !important; max-width: none !important; }
+
+/* The account menu above the owner's row (like other AI apps) */
+.sb-foot { position: relative; }
+.sb-user-menu { position: absolute; left: 8px; right: 8px; bottom: calc(100% - 4px); z-index: 40; display: flex; flex-direction: column; padding: 6px; border-radius: 14px; border: 1px solid var(--color-border); background: var(--color-bg); box-shadow: 0 12px 32px rgba(0, 0, 0, 0.14); }
+.sb-user-menu button { text-align: left; padding: 9px 12px; border: none; background: transparent; color: var(--color-text); border-radius: 9px; font-size: 14px; cursor: pointer; }
+.sb-user-menu button:hover { background: var(--color-bg-secondary); }
+.sb-user-menu button[data-quiet] { color: var(--color-text-secondary); border-top: 1px solid var(--color-border); border-radius: 0 0 9px 9px; margin-top: 4px; }
+.signin-legal { display: block; font-size: 12px; color: var(--color-text-tertiary); text-align: center; margin: 4px 0 8px; }
+.signin-legal a, .signin-consent a { color: inherit; text-decoration: underline; }
+
+/* Multitasking on the device (SplitButton) */
+.split-wrap { position: relative; display: inline-flex; }
+.split-pop { position: absolute; right: 0; top: calc(100% + 8px); z-index: 50; width: 280px; padding: 14px; border-radius: 16px; border: 1px solid var(--color-border); background: var(--color-bg); box-shadow: 0 14px 34px rgba(0, 0, 0, 0.16); display: flex; flex-direction: column; gap: 10px; }
+.split-pop form { display: flex; flex-direction: column; gap: 8px; }
+.split-pop b { font-size: 14px; }
+.split-pop input { padding: 8px 10px; border-radius: 10px; border: 1px solid var(--color-border); background: transparent; color: var(--color-text); font-size: 14px; }
+.split-pop button[type='submit'] { border: none; border-radius: 999px; padding: 9px 14px; background: var(--color-text); color: var(--color-bg); cursor: pointer; }
+.split-pop button[type='submit']:disabled { opacity: 0.45; }
+.split-pop small { font-size: 12px; color: var(--color-text-tertiary); line-height: 1.45; }

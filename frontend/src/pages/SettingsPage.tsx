@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { lockNow, lockPrefs, saveLockPrefs, type LockPrefs } from '../lib/appLock';
 import { useDevApi } from '../lib/dev-api';
-import { useNavigate } from 'react-router';
+import { useNavigate, useSearchParams } from 'react-router';
+import { ExtensionsPage } from './ExtensionsPage';
+import { Guides } from '../components/Settings/Guides';
 import { useLive, voiceLanguage } from '../lib/liveSession';
 import {
   Palette,
@@ -298,57 +299,37 @@ const themeOptions: { value: ThemeMode; label: string; icon: typeof Sun }[] = [
   { value: 'system', label: 'Automático', icon: Monitor },
 ];
 
-// Everything that is not one of the six sections lives here, one tap away.
+// Settings in five tabs, like other AI apps (owner, 3 Nov 2026: «en el
+// apartado de personalizar, poder personalizar como en otras plataformas de
+// AI, con skills, conectores, plugins… y allí conectar cuentas»).
+export const SETTINGS_TABS = [
+  { id: 'general', label: 'General' },
+  { id: 'personalizar', label: 'Personalizar' },
+  { id: 'modelos', label: 'Modelos' },
+  { id: 'seguridad', label: 'Seguridad' },
+  { id: 'cuenta', label: 'Cuenta' },
+] as const;
+export type SettingsTab = (typeof SETTINGS_TABS)[number]['id'];
+
+// Everything that is not one of the sections lives here, one tap away.
 export const MORE_PAGES = [
   { path: '/pensar', label: 'Pensar a fondo' },
   { path: '/data-sources', label: 'Fuentes de datos' },
-  { path: '/faces', label: 'Visage' },
   { path: '/clacky', label: 'Agente de código' },
   { path: '/planes', label: 'Planes y facturación' },
-  { path: '/ayuda', label: 'Ayuda' },
+  { path: '/ayuda', label: 'Ayuda y tutoriales' },
   { path: '/logs', label: 'Registro' },
   { path: '/get-started', label: 'Primeros pasos' },
 ];
-
-/** Sergio locks after a while without use and opens with Visage or the
- * code (lib/appLock.ts). It locks Sergio, never Windows. */
-function LockSettings() {
-  const [p, setP] = useState<LockPrefs>(lockPrefs);
-  const change = (next: LockPrefs) => {
-    setP(next);
-    saveLockPrefs(next);
-  };
-  return (
-    <>
-      <SettingRow label="Tapar la ventana de Sergio cuando no la uso" description="Solo tapa Sergio y se abre con Visage o con su código. No bloquea ni desbloquea Windows: eso solo lo hace Windows (Windows Hello).">
-        <select
-          value={p.on ? String(p.minutes) : 'no'}
-          onChange={(e) => change(e.target.value === 'no' ? { ...p, on: false } : { on: true, minutes: Number(e.target.value) })}
-          className="text-sm px-3 py-1.5 rounded-lg outline-none cursor-pointer"
-          style={{ background: 'var(--color-bg-secondary)', color: 'var(--color-text)', border: '1px solid var(--color-border)' }}
-          aria-label="Bloquear tras"
-        >
-          <option value="no">Nunca</option>
-          <option value="5">Tras 5 min</option>
-          <option value="15">Tras 15 min</option>
-          <option value="60">Tras 1 hora</option>
-          <option value="0">Solo cuando lo pida</option>
-        </select>
-      </SettingRow>
-      <SettingRow label="Bloquear ahora">
-        <button type="button" className="text-sm px-3 py-1.5 rounded-full" style={{ border: '1px solid var(--color-border)', color: 'var(--color-text)' }} onClick={lockNow}>
-          Bloquear
-        </button>
-      </SettingRow>
-    </>
-  );
-}
 
 export function SettingsPage() {
   const liveOn = useLive((s) => s.enabled);
   const setLiveOn = useLive((s) => s.setEnabled);
   const customApiAllowed = useDevApi();
   const navigate = useNavigate();
+  const [params, setParams] = useSearchParams();
+  const tab: SettingsTab = (SETTINGS_TABS.find((t) => t.id === params.get('tab'))?.id ?? 'general') as SettingsTab;
+  const show = (t: SettingsTab) => tab === t;
   const settings = useAppStore((s) => s.settings);
   const updateSettings = useAppStore((s) => s.updateSettings);
   const conversations = useAppStore((s) => s.conversations);
@@ -533,32 +514,49 @@ export function SettingsPage() {
           </div>
         </header>
 
-        <nav aria-label="Más" className="mb-8">
-          <div className="flex items-end justify-between pb-2 mb-3" style={{ borderBottom: '1px solid var(--color-border)' }}>
-            <h2 className="paper-label">Más</h2>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {MORE_PAGES.map((page) => (
-              <button key={page.path} className="mac-chip" onClick={() => navigate(page.path)}>
-                {page.label}
-              </button>
-            ))}
-          </div>
+        <nav aria-label="Secciones" className="set-tabs mb-8" role="tablist">
+          {SETTINGS_TABS.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              role="tab"
+              aria-selected={tab === t.id}
+              className="mac-chip"
+              data-on={tab === t.id ? true : undefined}
+              onClick={() => setParams(t.id === 'general' ? {} : { tab: t.id })}
+            >
+              {t.label}
+            </button>
+          ))}
         </nav>
 
         <div className="flex flex-col gap-4">
+          {show('general') && (
+          <>
           <Section title="Tú">
             <PersonalPanel />
           </Section>
+          </>
+          )}
 
+          {show('personalizar') && (
+          <>
           <Section title="Habilidades">
             <SkillsPanel />
           </Section>
+          </>
+          )}
 
+          {show('general') && (
+          <>
           <Section title="Complementos">
             <AddonsPanel />
           </Section>
+          </>
+          )}
 
+          {show('general') && (
+          <>
           {/* Appearance */}
           <Section title="Apariencia">
             <SettingRow label="Tema" description="Cómo se ve Sergio">
@@ -610,16 +608,32 @@ export function SettingsPage() {
               </select>
             </SettingRow>
           </Section>
+          </>
+          )}
 
+          {show('personalizar') && (
+          <>
           {/* Connection */}
           <Section title="Cuentas">
             <AccountsPanel />
           </Section>
+          </>
+          )}
 
-          <Section title="Bloqueo con Visage">
-            <LockSettings />
-          </Section>
+          {show('seguridad') && (
+            <Section title="Visage">
+              <SettingRow label="Reconocimiento facial de Sergio" description="Confirma lo que no se deshace (mensajes, borrados, código) mirando a la cámara.">
+                <button type="button" className="mac-chip" onClick={() => navigate('/faces')}>Configurar</button>
+              </SettingRow>
+              <p className="text-xs" style={{ color: 'var(--color-text-tertiary)' }}>
+                Desbloquear el teléfono o el ordenador con la cara solo lo puede hacer su propio sistema (Face ID, Windows Hello,
+                desbloqueo facial de Android). Ninguna app tiene ese permiso, tampoco Sergio.
+              </p>
+            </Section>
+          )}
 
+          {show('modelos') && (
+          <>
           <Section title="Conexión">
             <SettingRow label="Estado de Sergio" description={serverInfo ? `${serverInfo.engine} / ${serverInfo.model}` : 'Sin conexión'}>
               <div className="flex items-center gap-2">
@@ -669,7 +683,11 @@ export function SettingsPage() {
               </div>
             </details>
           </Section>
+          </>
+          )}
 
+          {show('modelos') && (
+          <>
           {/* Inference source */}
           <Section title="Origen del modelo">
             <SettingRow label="Origen" description="Dónde se ejecutan los modelos locales. Se aplica al reiniciar.">
@@ -719,7 +737,11 @@ export function SettingsPage() {
               </button>
             </SettingRow>
           </Section>
+          </>
+          )}
 
+          {show('modelos') && (
+          <>
           {/* Models */}
           <Section title="Modelos">
             <SettingRow label="Modelos en su PC" description="Los que funcionan sin internet en su equipo">
@@ -735,7 +757,11 @@ export function SettingsPage() {
               </div>
             </SettingRow>
           </Section>
+          </>
+          )}
 
+          {show('modelos') && (
+          <>
           {/* API Keys */}
           <Section title="Claves de API · Dev">
             <SettingRow label="OpenAI" description="GPT-4, GPT-3.5, etc.">
@@ -754,14 +780,22 @@ export function SettingsPage() {
               <ApiKeyInput keyName="ATLASCLOUD_API_KEY" placeholder="Clave de Atlas Cloud" />
             </SettingRow>
           </Section>
+          </>
+          )}
 
+          {show('modelos') && (
+          <>
           {/* Tools */}
           <Section title="Herramientas">
             <SettingRow label="Búsqueda web" description="Clave de Tavily para buscar en la web">
               <ApiKeyInput keyName="TAVILY_API_KEY" placeholder="tvly-..." toolName="web_search" />
             </SettingRow>
           </Section>
+          </>
+          )}
 
+          {show('modelos') && (
+          <>
           {/* Memory */}
           <Section title="Memoria">
             <MemoryStatusRow status={memoryStatus} onRetry={() => { void refreshMemoryStatus(); }} />
@@ -861,7 +895,11 @@ export function SettingsPage() {
               />
             </SettingRow>
           </Section>
+          </>
+          )}
 
+          {show('modelos') && (
+          <>
           {/* Model defaults */}
           <Section title="Ajustes del modelo">
             <SettingRow label="Creatividad" description={`${settings.temperature}`}>
@@ -887,7 +925,11 @@ export function SettingsPage() {
               />
             </SettingRow>
           </Section>
+          </>
+          )}
 
+          {show('general') && (
+          <>
           {/* Speech */}
           <Section title="Voz">
             <SettingRow
@@ -1011,7 +1053,11 @@ export function SettingsPage() {
               </div>
             )}
           </Section>
+          </>
+          )}
 
+          {show('seguridad') && (
+          <>
           {/* Data */}
           <Section title="Datos">
             <SettingRow label="Conversaciones" description={`${conversations.length} guardadas en este equipo`}>
@@ -1052,7 +1098,11 @@ export function SettingsPage() {
               </button>
             </SettingRow>
           </Section>
+          </>
+          )}
 
+          {show('cuenta') && (
+          <>
           {/* Updates */}
           <Section title="Actualizaciones">
             <SettingRow label="Actualizar solo" description="Busca versiones nuevas de la app cada 30 minutos">
@@ -1088,21 +1138,38 @@ export function SettingsPage() {
               </button>
             </SettingRow>
           </Section>
+          </>
+          )}
 
-          {/* About */}
-          <Section title="Acerca de">
-            <div className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-              <p className="mb-2">
-                <span className="font-semibold" style={{ color: 'var(--color-text)' }}>Sergio</span> — su asistente de IA,
-                en su propio equipo.
-              </p>
-              {/* Apache-2.0 asks to keep the original's notice; it stays here, as text, not as a brand. */}
-              <p className="text-xs" style={{ color: 'var(--color-text-tertiary)' }}>
-                Licencias: incluye software de código abierto bajo Apache-2.0 y otras licencias libres (ver LICENSE y
-                NOTICE).
-              </p>
-            </div>
-          </Section>
+          {show('cuenta') && (
+            <>
+              <Section title="Privacidad y términos">
+                <div className="flex flex-wrap gap-2">
+                  <button type="button" className="mac-chip" onClick={() => navigate('/legal/privacidad')}>Aviso de privacidad</button>
+                  <button type="button" className="mac-chip" onClick={() => navigate('/legal/terminos')}>Términos de uso</button>
+                </div>
+              </Section>
+              <Section title="Más">
+                <div className="flex flex-wrap gap-2">
+                  {MORE_PAGES.map((page) => (
+                    <button key={page.path} className="mac-chip" onClick={() => navigate(page.path)}>
+                      {page.label}
+                    </button>
+                  ))}
+                </div>
+              </Section>
+            </>
+          )}
+          {show('personalizar') && (
+            <>
+              <Section title="Skills, conectores y plugins">
+                <ExtensionsPage embedded />
+              </Section>
+              <Section title="Cómo conectar">
+                <Guides />
+              </Section>
+            </>
+          )}
         </div>
       </div>
     </div>

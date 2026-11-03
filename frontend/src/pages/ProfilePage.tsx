@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react';
-import { ScanFace, Target, UserRound } from 'lucide-react';
+import { ScanFace, UserRound } from 'lucide-react';
+import { useNavigate } from 'react-router';
+import { useAddons } from '../lib/addons';
+import { PersonalPanel } from '../components/Settings/PersonalPanel';
 import { apiFetch } from '../lib/api';
 import { PaperPage, PaperSection } from '../components/Paper/PaperPage';
 import { DesktopSections, type DesktopSection } from '../components/Paper/DesktopSections';
@@ -20,12 +23,38 @@ interface Profile {
   talk?: { detalle?: string; humor?: string; nota?: string };
 }
 
-// Parts of the profile that live in the PC app's own windows.
-const SECTIONS: DesktopSection[] = [
-  { key: 'faces', label: 'Mi cara', meta: 'Visage de Sergio', icon: ScanFace, to: '/faces' },
-  { key: 'goals', label: 'Mis metas', meta: 'Planes y práctica', icon: Target },
-  { key: 'results', label: 'Resultados', meta: 'Lo que ha practicado', icon: UserRound },
-];
+// Parts of the profile that live in the PC app's own windows. «Mis metas» is
+// gone from the profile (owner, 3 Nov 2026: «esconder mis metas y
+// resultados»); the results show only with the Mental Gym added.
+const SECTIONS: DesktopSection[] = [{ key: 'faces', label: 'Mi cara', meta: 'Visage de Sergio', icon: ScanFace, to: '/faces' }];
+const GYM_SECTIONS: DesktopSection[] = [{ key: 'results', label: 'Resultados del Gimnasio', meta: 'Lo que ha practicado', icon: UserRound }];
+
+function Account() {
+  const navigate = useNavigate();
+  const [me, setMe] = useState<{ email?: string; name?: string; role?: string } | null>(null);
+  const [plan, setPlan] = useState('');
+  useEffect(() => {
+    apiFetch('/v1/cuentas/estado')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setMe(d?.me ?? null))
+      .catch(() => setMe(null));
+    apiFetch('/v1/plans/me')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setPlan(String(d?.account?.plan_name ?? '')))
+      .catch(() => setPlan(''));
+  }, []);
+  const name = me?.name || 'Señor';
+  return (
+    <div className="profile-account">
+      <span className="profile-avatar" aria-hidden="true">{name.slice(0, 1).toUpperCase()}</span>
+      <div>
+        <b>{name}</b>
+        <small>{[me?.email, plan && `Plan ${plan}`].filter(Boolean).join(' · ') || 'Cuenta en este equipo'}</small>
+      </div>
+      <button type="button" className="mac-chip" onClick={() => navigate('/planes')}>Planes</button>
+    </div>
+  );
+}
 
 function List({ title, items }: { title: string; items?: string[] }) {
   if (!items?.length) return null;
@@ -113,6 +142,8 @@ function Constancy() {
 export function ProfilePage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [problem, setProblem] = useState('');
+  const { addons } = useAddons();
+  const gym = !!addons?.some((a) => a.clave === 'gimnasio' && a.activo);
 
   useEffect(() => {
     let cancelled = false;
@@ -142,8 +173,14 @@ export function ProfilePage() {
 
   return (
     <PaperPage title="Perfil" wide>
+      <PaperSection label="Su cuenta">
+        <Account />
+      </PaperSection>
+      <PaperSection label="Cómo le llamo">
+        <PersonalPanel />
+      </PaperSection>
       <PaperSection
-        label="Resumen"
+        label="Lo que Sergio recuerda"
         aside={
           profile && profile.updates > 0 ? (
             <span className="paper-meta">
@@ -163,7 +200,6 @@ export function ProfilePage() {
           <div className="profile-grid">
             <List title="Rasgos" items={profile.traits} />
             <List title="Intereses" items={profile.interests} />
-            <List title="Metas" items={profile.goals} />
             <List title="Horas en que suele estar" items={profile.hours} />
             <List title="Cómo le hablo" items={talkLines} />
             <List title="Me lo ha contado" items={profile.facts} />
@@ -175,10 +211,10 @@ export function ProfilePage() {
         </PaperSection>
       )}
 
-      <Constancy />
+      {gym && <Constancy />}
 
       <PaperSection label="Abrir">
-        <DesktopSections sections={SECTIONS} />
+        <DesktopSections sections={gym ? [...SECTIONS, ...GYM_SECTIONS] : SECTIONS} />
       </PaperSection>
     </PaperPage>
   );

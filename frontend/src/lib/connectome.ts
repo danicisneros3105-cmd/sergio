@@ -47,7 +47,7 @@ export const SHORTCUTS: Shortcut[] = [
   { id: 'salud:explorar', title: 'Explorar mis medidas', words: ['medidas', 'presion', 'tension', 'glucosa', 'frecuencia', 'variabilidad', 'explorar'], group: 'Salud', run: { kind: 'go', to: '/salud?tab=explorar' } },
   { id: 'salud:dispositivos', title: 'Conectar reloj o anillo', words: ['reloj', 'anillo', 'bascula', 'dispositivos', 'sincronizar', 'importar'], group: 'Salud', run: { kind: 'go', to: '/salud?tab=dispositivos' } },
   { id: 'reunion', title: 'Grabar reunión o llamada', words: ['reunion', 'grabar', 'graba', 'llamada', 'acta', 'actas', 'resumen de la reunion', 'meeting'], keys: 'g t', group: 'Hacer', run: { kind: 'go', to: '/reunion' } },
-  { id: 'dividir', title: 'Dividir pantalla', words: ['dividir', 'pantalla dividida', 'multitasking', 'dos pantallas', 'al lado', 'split', 'unir pantalla'], keys: 'g d', group: 'Hacer', run: { kind: 'event', name: 'sergio:split' } },
+  { id: 'dividir', title: 'Multitarea: dos apps lado a lado', words: ['dividir', 'pantalla dividida', 'multitasking', 'multitarea', 'dos pantallas', 'al lado', 'lado a lado', 'split'], keys: 'g d', group: 'Hacer', run: { kind: 'event', name: 'sergio:multitarea' } },
   { id: 'nuevo-chat', title: 'Nueva conversación', words: ['nuevo chat', 'nueva conversacion', 'empezar de cero'], group: 'Hacer', run: { kind: 'event', name: 'sergio:new-chat' } },
   { id: 'bloquear', title: 'Bloquear Sergio', words: ['bloquear', 'bloquea', 'candado', 'lock'], group: 'Hacer', run: { kind: 'event', name: 'sergio:lock' } },
   { id: 'modelo', title: 'Cambiar de modelo', words: ['modelo', 'cambiar modelo', 'ia', 'motor'], group: 'Hacer', run: { kind: 'event', name: 'sergio:model-picker' } },
