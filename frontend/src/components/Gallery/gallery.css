@@ -36,7 +36,7 @@
 .fan-card {
   position: absolute;
   left: calc(50% - 110px);
-  bottom: 28px;
+  bottom: 96px;
   width: 220px;
   height: 300px;
   padding: 0;
@@ -222,7 +222,7 @@
     left: calc(50% - 80px);
     width: 160px;
     height: 220px;
-    bottom: 24px;
+    bottom: 72px;
   }
 }
 @media (prefers-color-scheme: dark) {

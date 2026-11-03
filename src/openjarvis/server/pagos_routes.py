@@ -129,6 +129,16 @@ def resumen(request: Request) -> Dict[str, Any]:
     return service.summary()
 
 
+@router.get("/lanzamiento")
+def lanzamiento(request: Request) -> Dict[str, Any]:
+    """Ready to open to the public? What was checked and what only the owner can do."""
+    from openjarvis.lanzamiento import revisar
+    from openjarvis.server.accounts_routes import _owner
+
+    _owner(request)
+    return revisar()
+
+
 @router.get("/economia")
 def economia(request: Request) -> Dict[str, Any]:
     """What each plan leaves after fees and AI, worst and typical case. Owner only."""

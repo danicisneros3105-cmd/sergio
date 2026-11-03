@@ -50,6 +50,55 @@ class ReminderStore:
         self._lock = threading.Lock()
         with self._db() as db:
             db.executescript(_SCHEMA)
+        self.seal_missing()  # medicines and goals written before the vault
+
+    # -- the vault (security/boveda.py): what the person takes and wants is sealed --
+    @property
+    def _home(self) -> Path:
+        return self.path.parent
+
+    def _seal(self, text: str, iid: str, field: str) -> str:
+        from openjarvis.security import boveda
+
+        return (
+            boveda.seal_text(text, f"recordatorio:{iid}:{field}", "salud", self._home)
+            if text
+            else text
+        )
+
+    def _open(self, value: str, iid: str, field: str) -> str:
+        from openjarvis.security import boveda
+
+        return boveda.open_text(
+            value, f"recordatorio:{iid}:{field}", "salud", self._home
+        )
+
+    def seal_missing(self) -> int:
+        from openjarvis.security import boveda
+
+        if not boveda.enabled():
+            return 0
+        n = 0
+        with self._db() as db:
+            for r in db.execute(
+                "SELECT id, title, detail, extra FROM items"
+            ).fetchall():
+                if all(
+                    boveda.is_sealed(r[k]) or not r[k]
+                    for k in ("title", "detail", "extra")
+                ):
+                    continue
+                db.execute(
+                    "UPDATE items SET title=?, detail=?, extra=? WHERE id=?",
+                    (
+                        self._seal(r["title"], r["id"], "title"),
+                        self._seal(r["detail"], r["id"], "detail"),
+                        self._seal(r["extra"], r["id"], "extra"),
+                        r["id"],
+                    ),
+                )
+                n += 1
+        return n
 
     @contextmanager
     def _db(self) -> Iterator[sqlite3.Connection]:
@@ -94,9 +143,10 @@ class ReminderStore:
         with self._db() as db:
             db.execute(
                 "INSERT INTO items VALUES (?,?,?,?,?,?,?,?,?,?)",
-                (item["id"], kind, item["title"], item["detail"], json.dumps(item["times"]),
+                (item["id"], kind, self._seal(item["title"], item["id"], "title"),
+                 self._seal(item["detail"], item["id"], "detail"), json.dumps(item["times"]),
                  json.dumps(item["days"]), item["date"], 1, item["created"],
-                 json.dumps(item["extra"], ensure_ascii=False)),
+                 self._seal(json.dumps(item["extra"], ensure_ascii=False), item["id"], "extra")),
             )  # fmt: skip
         return item
 
@@ -114,8 +164,9 @@ class ReminderStore:
         with self._db() as db:
             db.execute(
                 "UPDATE items SET title=?, detail=?, times=?, days=?, date=?, active=?, extra=? WHERE id=?",
-                (item["title"], item["detail"], json.dumps(item["times"]), json.dumps(item["days"]),
-                 item["date"], int(bool(item["active"])), json.dumps(item["extra"], ensure_ascii=False), iid),
+                (self._seal(item["title"], iid, "title"), self._seal(item["detail"], iid, "detail"),
+                 json.dumps(item["times"]), json.dumps(item["days"]), item["date"], int(bool(item["active"])),
+                 self._seal(json.dumps(item["extra"], ensure_ascii=False), iid, "extra"), iid),
             )  # fmt: skip
         return item
 
@@ -125,13 +176,14 @@ class ReminderStore:
             db.execute("DELETE FROM log WHERE item = ?", (iid,))
         return bool(gone)
 
-    @staticmethod
-    def _row(r: sqlite3.Row) -> Dict[str, Any]:
+    def _row(self, r: sqlite3.Row) -> Dict[str, Any]:
+        iid = r["id"]
         return {
-            "id": r["id"], "kind": r["kind"], "title": r["title"], "detail": r["detail"],
+            "id": iid, "kind": r["kind"], "title": self._open(r["title"], iid, "title"),
+            "detail": self._open(r["detail"], iid, "detail"),
             "times": json.loads(r["times"] or "[]"), "days": json.loads(r["days"] or "[]"),
             "date": r["date"] or "", "active": bool(r["active"]), "created": r["created"],
-            "extra": json.loads(r["extra"] or "{}"),
+            "extra": json.loads(self._open(r["extra"] or "{}", iid, "extra")),
         }  # fmt: skip
 
     def get(self, iid: str) -> Optional[Dict[str, Any]]:

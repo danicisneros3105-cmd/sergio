@@ -2,6 +2,11 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-11-03 · Claude · cifrado de recordatorios y Nodes, revisión de lanzamiento
+- Recordatorios (título, detalle, extra) y Nodes (`memory.md`, mensajes, actividad, `secrets.json`) se guardan con AES-256-GCM por la bóveda; lo antiguo en claro se lee y se sella al abrir. Pruebas en `tests/security/test_boveda.py`.
+- `sergio lanzamiento [--json]` y `GET /v1/pagos/lanzamiento`: 7 pasos que el código puede comprobar y 9 que solo puede dar el dueño (nunca se marcan solos). Guía en `docs/LANZAMIENTO.md`.
+- La herramienta `artefacto` entra en el inventario de capacidades (escribe archivo). Las cartas de la galería muestran su rótulo.
+
 ## 2026-11-03 · Claude · galería, pantalla negra, artefactos, racha sana y menos ruido
 - Galería: las cartas cargaban la imagen completa (varios MB cada una) y un fallo de red se veía como «galería vacía». Ahora hay miniaturas (`/v1/creator/miniatura`, JPEG de 480 px guardado una vez), el error se dice con «Reintentar», y las cartas ya no se cortan por abajo.
 - Pantalla negra: `frontend/public/arranque.js` (script clásico) muestra «Sergio no pudo abrirse» con «Recargar» si un archivo no carga, hay un error antes de pintar, o pasan 8 s sin pintar nada (típico justo tras actualizar).

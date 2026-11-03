@@ -507,6 +507,19 @@ def _atomic(path: Path, text: str, private: bool = False) -> None:
     os.replace(tmp, path)
 
 
+def _seal(text: str, node_id: str, name: str) -> str:
+    """What a Node remembers and says is sealed on disk (security/boveda.py)."""
+    from openjarvis.security import boveda
+
+    return boveda.seal_text(text, f"node:{node_id}:{name}", "nodes") if text else text
+
+
+def _open(value: str, node_id: str, name: str) -> str:
+    from openjarvis.security import boveda
+
+    return boveda.open_text(value, f"node:{node_id}:{name}", "nodes")
+
+
 class NodeStore:
     """Files on disk; one lock for writes."""
 
@@ -855,7 +868,7 @@ class NodeStore:
                 secrets_[item["id"]] = secret
                 _atomic(
                     self.dir(node_id) / "secrets.json",
-                    json.dumps(secrets_),
+                    _seal(json.dumps(secrets_), node_id, "secrets"),
                     private=True,
                 )
         return item
@@ -874,7 +887,7 @@ class NodeStore:
             if secrets_.pop(conn_id, None) is not None:
                 _atomic(
                     self.dir(node_id) / "secrets.json",
-                    json.dumps(secrets_),
+                    _seal(json.dumps(secrets_), node_id, "secrets"),
                     private=True,
                 )
             return len(node.connections[kind]) < before
@@ -882,8 +895,10 @@ class NodeStore:
     def _secrets(self, node_id: str) -> Dict[str, str]:
         path = self.dir(node_id) / "secrets.json"
         try:
-            return (
-                json.loads(path.read_text(encoding="utf-8")) if path.is_file() else {}
+            if not path.is_file():
+                return {}
+            return json.loads(
+                _open(path.read_text(encoding="utf-8"), node_id, "secrets")
             )
         except (OSError, ValueError):
             return {}
@@ -894,11 +909,16 @@ class NodeStore:
     # -- memory ------------------------------------------------------------------
     def memory(self, node_id: str) -> str:
         path = self.dir(node_id) / "memory.md"
-        return path.read_text(encoding="utf-8") if path.is_file() else ""
+        if not path.is_file():
+            return ""
+        try:
+            return _open(path.read_text(encoding="utf-8"), node_id, "memory")
+        except ValueError:  # another key or altered: never a silent wrong memory
+            return ""
 
     def set_memory(self, node_id: str, text: str) -> str:
         text = (text or "")[-MEMORY_LIMIT:]
-        _atomic(self.dir(node_id) / "memory.md", text)
+        _atomic(self.dir(node_id) / "memory.md", _seal(text, node_id, "memory"))
         return text
 
     def remember(self, node_id: str, facts: Iterable[str]) -> List[str]:
@@ -924,7 +944,9 @@ class NodeStore:
         with self._lock:
             path.parent.mkdir(parents=True, exist_ok=True)
             with path.open("a", encoding="utf-8") as f:
-                f.write(json.dumps(item, ensure_ascii=False) + "\n")
+                f.write(
+                    _seal(json.dumps(item, ensure_ascii=False), node_id, name) + "\n"
+                )
             if path.stat().st_size > keep * 600:
                 lines = path.read_text(encoding="utf-8").splitlines()[-keep:]
                 _atomic(path, "\n".join(lines) + "\n")
@@ -939,7 +961,7 @@ class NodeStore:
         out = []
         for line in path.read_text(encoding="utf-8").splitlines():
             try:
-                item = json.loads(line)
+                item = json.loads(_open(line, node_id, name))
             except ValueError:
                 continue
             if float(item.get("at", 0)) > after:

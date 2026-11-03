@@ -34,6 +34,8 @@ reales. Eso es lo que debe hacer la beta cerrada.
 | Tarjetas de aprobación en palabras simples | Hecho | — |
 | Tarjeta de video en vivo en el chat (avance, resultado o motivo del fallo) | Hecho | — |
 | «Mi semana»: lo que de verdad hizo esta semana y lo que quedó a medias | Hecho | — |
+| Artefactos: Sergio entrega páginas HTML (tablas, calculadoras, juegos) como tarjeta en el chat, en un marco aislado y sin red | Hecho | — |
+| Constancia en el perfil: días seguidos y mejor racha, sana (sin culpa ni avisos) | Hecho | — |
 | Puntero propio: Sergio señala lo que explica | Hecho | — |
 | Paleta de comandos (Ctrl/⌘ K), atajos, pantalla dividida | Hecho | — |
 
@@ -109,7 +111,8 @@ reales. Eso es lo que debe hacer la beta cerrada.
 | Bloqueo de Sergio con Visage o código | Hecho |
 | Todo lo de afuera es 403 salvo cuentas y avisos firmados; XML y CSS endurecidos | Hecho |
 | Claves de IA de clientes cifradas con AES-256-GCM | Hecho |
-| Cifrado de datos sensibles (salud, caras, memoria) en reposo | Ver `docs/SEGURIDAD.md` |
+| Cifrado de datos sensibles (salud, recordatorios, caras, memoria, Nodes) en reposo | Hecho (`docs/SEGURIDAD.md`) |
+| `sergio lanzamiento`: qué falta para publicar, separando código y pasos del dueño | Hecho (`docs/LANZAMIENTO.md`) |
 
 ## 7. Salud y bienestar
 

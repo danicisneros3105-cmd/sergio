@@ -11,7 +11,7 @@ que se puede cerrar y comprobarlo con pruebas.
 | Puerta de entrada | Desde fuera (túnel o red) todo responde 403 salvo entrar a una cuenta y los avisos firmados de pagos. Probado ruta por ruta. |
 | Cuentas | Contraseñas con scrypt, códigos y sesiones guardados con HMAC, freno de intentos, antifraude y llaves de acceso con la cara del dispositivo. |
 | Secretos | Claves solo en `~/.openjarvis/sergio.env` (0600). Al arrancar, Sergio vuelve a dejar privados sus archivos secretos si algo los abrió (`security/permisos.py`). |
-| Cifrado | Claves de IA de clientes, notas y encuestas de salud (incluida salud mental), memoria de conversaciones y galería de caras con AES-256-GCM, una clave derivada por propósito y atada a su fila (`security/boveda.py`). Libro de pagos sellado con HMAC encadenado (`docs/PAGOS.md`). |
+| Cifrado | Claves de IA de clientes, notas y encuestas de salud (incluida salud mental), memoria de conversaciones, recordatorios, memoria y mensajes de los Nodes, sus secretos y galería de caras con AES-256-GCM, una clave derivada por propósito y atada a su fila (`security/boveda.py`). Libro de pagos sellado con HMAC encadenado (`docs/PAGOS.md`). |
 | Navegador | CSP con `frame-ancestors 'self'`, `object-src 'none'` y `base-uri 'self'`, HSTS, nosniff, Referrer-Policy y Permissions-Policy. Sin CORS para sitios ajenos. El servidor no dice qué programa es. |
 | Errores | Desde fuera solo una frase. El detalle técnico se ve solo en el PC del dueño. |
 | Datos de fuera | Los feeds RSS y las listas de respaldo no pueden traer DOCTYPE ni entidades XML (`security/safe_xml.py`). |
