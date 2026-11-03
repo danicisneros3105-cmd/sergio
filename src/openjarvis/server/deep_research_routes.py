@@ -89,4 +89,33 @@ async def investigar(body: Pedido) -> StreamingResponse:
     return StreamingResponse(stream(), media_type="text/event-stream")
 
 
+@router.get("/vista-previa")
+def link_preview(url: str) -> Dict[str, Any]:
+    """Title, description, picture and site of a public web page (research/preview.py)."""
+    from fastapi import HTTPException
+
+    from openjarvis.research import preview as P
+
+    try:
+        return P.preview(url)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+    except Exception:  # noqa: BLE001 — the page did not answer: a plain link instead
+        raise HTTPException(502, "La página no respondió.")
+
+
+
+@router.get("/vista-previa/img/{name}")
+def link_preview_image(name: str) -> Any:
+    from fastapi import HTTPException
+    from fastapi.responses import FileResponse
+
+    from openjarvis.research import preview as P
+
+    path = P.image_file(name)
+    if path is None:
+        raise HTTPException(404, "No hay imagen.")
+    return FileResponse(path, headers={"Cache-Control": "public, max-age=86400"})
+
+
 __all__ = ["router"]

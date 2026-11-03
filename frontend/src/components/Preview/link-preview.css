@@ -1,0 +1,75 @@
+.lp {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  overflow: hidden;
+  text-decoration: none;
+  color: var(--color-text);
+  background: var(--color-surface, var(--color-bg));
+  transition: border-color 0.15s ease, transform 0.15s ease;
+  min-width: 0;
+}
+.lp:hover {
+  border-color: var(--color-text-tertiary);
+  transform: translateY(-1px);
+}
+.lp-pic {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1.91 / 1;
+  background: var(--color-bg-secondary);
+  color: var(--color-text-tertiary);
+  font-size: 22px;
+  font-weight: 700;
+  overflow: hidden;
+}
+.lp-pic img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.lp-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 10px 12px 12px;
+  min-width: 0;
+}
+.lp-text b {
+  font-size: 13.5px;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.lp-text small {
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: var(--color-text-secondary);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.lp-text i {
+  font-style: normal;
+  font-size: 11.5px;
+  color: var(--color-text-tertiary);
+}
+.lp[data-compact] {
+  flex-direction: row;
+  align-items: center;
+}
+.lp[data-compact] .lp-pic {
+  aspect-ratio: 1;
+  width: 52px;
+  flex: 0 0 auto;
+  font-size: 16px;
+}
+.lp-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px;
+}

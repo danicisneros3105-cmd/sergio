@@ -5,6 +5,7 @@ import { plainReply } from '../lib/plainReply';
 import remarkGfm from 'remark-gfm';
 import { ArrowLeft, ArrowUp, Check, Compass, Copy, Download, FileSpreadsheet, NotebookPen, Paperclip, ShieldCheck, Square, X } from 'lucide-react';
 import { toast } from 'sonner';
+import { LinkPreview } from '../components/Preview/LinkPreview';
 import {
   AGENT_ES,
   checkIssues,
@@ -314,6 +315,27 @@ function RunView({ id }: { id: string }) {
         </details>
       )}
 
+      {run.subtasks.length > 0 && (
+        <section aria-label="Lista de tareas">
+          <h2 className="paper-label swarm-section">
+            Lista de tareas · {run.subtasks.filter((a) => a.status === 'done').length} de {run.subtasks.length}
+          </h2>
+          <ul className="swarm-todo">
+            {run.subtasks.map((a) => (
+              <li key={a.id} data-status={a.status}>
+                <span className="swarm-todo-box" aria-hidden="true">
+                  {a.status === 'done' ? <Check size={12} strokeWidth={2.4} /> : a.status === 'failed' ? <X size={12} strokeWidth={2.4} /> : null}
+                </span>
+                <span className="swarm-todo-text">{a.title || a.instruction}</span>
+                <small>
+                  {a.status === 'running' ? (a.current ? `usando ${a.current}` : 'trabajando') : a.status === 'queued' ? 'en cola' : a.status === 'done' ? `${a.sources.length} fuentes` : a.status === 'failed' ? 'falló' : 'cancelada'}
+                </small>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       <section aria-label="Subagentes">
         <h2 className="paper-label swarm-section">Subagentes</h2>
         <div className="swarm-grid">
@@ -328,13 +350,20 @@ function RunView({ id }: { id: string }) {
       {run.sources.length > 0 && (
         <section aria-label="Fuentes">
           <h2 className="paper-label swarm-section">Fuentes visitadas</h2>
-          <div className="swarm-sources">
-            {run.sources.slice(0, 60).map((u) => (
-              <a key={u} href={u} target="_blank" rel="noreferrer">
-                {host(u)}
-              </a>
+          <div className="lp-grid">
+            {run.sources.slice(0, 12).map((u) => (
+              <LinkPreview key={u} url={u} />
             ))}
           </div>
+          {run.sources.length > 12 && (
+            <div className="swarm-sources">
+              {run.sources.slice(12, 60).map((u) => (
+                <a key={u} href={u} target="_blank" rel="noreferrer">
+                  {host(u)}
+                </a>
+              ))}
+            </div>
+          )}
         </section>
       )}
     </div>

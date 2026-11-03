@@ -24,6 +24,7 @@ _OPEN_MEDIA = re.compile(
     r"|inspiracion/[0-9a-f]{24}/miniatura/[0-9]\.jpg"
     r"|plan/[0-9a-f]{24}/(?:animatic\.mp4|cuadro/toma-[0-9]{2}\.png)"
     r"|artefacto/[\w\-]*-[0-9a-f]{24}\.html)"
+    r"|/v1/vista-previa/img/[0-9a-f]{32}\.(?:jpg|png|webp|gif)"
 )
 
 _WS_AUTH_PROTOCOL = "openjarvis.auth.v1"

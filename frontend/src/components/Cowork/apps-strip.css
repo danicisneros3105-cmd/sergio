@@ -9,7 +9,7 @@
 }
 .apps-strip ul {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
   gap: 8px;
   margin: 0;
   padding: 0;
@@ -20,12 +20,12 @@
   width: 100%;
   display: grid;
   justify-items: center;
-  gap: 6px;
-  padding: 14px 6px 10px;
+  gap: 8px;
+  padding: 18px 8px 12px;
   border-radius: 16px;
   border: 1px solid var(--color-border);
   background: var(--color-surface);
-  font-size: 12.5px;
+  font-size: 13.5px;
   color: var(--color-text);
   transition: transform 0.18s var(--ease-out, ease), border-color 0.18s ease;
 }
@@ -45,3 +45,8 @@
   border-radius: 50%;
   background: var(--color-success);
 }
+
+.apps-strip li { position: relative; }
+.apps-tasks { position: absolute; z-index: 30; top: calc(100% + 6px); left: 0; width: 260px; padding: 6px; border-radius: 14px; border: 1px solid var(--color-border); background: var(--color-bg); box-shadow: 0 14px 30px rgba(0, 0, 0, 0.14); display: flex; flex-direction: column; }
+.apps-tasks button { text-align: left; padding: 9px 10px; border: none; border-radius: 9px; background: transparent; color: var(--color-text); font-size: 13.5px; line-height: 1.35; cursor: pointer; }
+.apps-tasks button:hover { background: var(--color-bg-secondary); }

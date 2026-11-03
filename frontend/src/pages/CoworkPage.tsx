@@ -551,7 +551,7 @@ export function CoworkPage() {
               ))}
             </ul>
           )}
-          {!text && <AppsStrip />}
+          {!text && <AppsStrip onPick={setText} />}
           {runs.length > 0 && (
             <section className="cw-tasks" aria-label="Tareas">
               <h2>Tareas</h2>

@@ -3,6 +3,7 @@ import { ApprovalCard } from './ApprovalCard';
 import { artifactMarks, idMarks, plainReply, videoMarks, type Artifact } from '../../lib/plainReply';
 import { ArtifactCard } from './ArtifactCard';
 import { InspirationCard } from '../Creator/InspirationCard';
+import { LinkPreview } from '../Preview/LinkPreview';
 import { PlanCard } from '../Creator/PlanCard';
 import { VideoJobCard } from './VideoJobCard';
 import { Suspense, lazy, useEffect, useState, useMemo } from 'react';
@@ -208,6 +209,20 @@ export function MessageBubble({ message, isLive = false, tail = true, receipt = 
     return m;
   }, [message.researchSources]);
 
+  // The pages a web search or a research step read, as preview cards (4 at most).
+  const webLinks = useMemo(() => {
+    const out: string[] = [];
+    const add = (u?: string) => {
+      if (u && /^https?:\/\//.test(u) && !out.includes(u) && out.length < 4) out.push(u);
+    };
+    for (const src of message.researchSources ?? []) add(src.url);
+    for (const tc of message.toolCalls ?? []) {
+      if (!/web_search|buscar_web|investigacion/.test(tc.tool || '')) continue;
+      for (const m of (tc.result || '').matchAll(/https?:\/\/[^\s)\]"'<>]+/g)) add(m[0].replace(/[.,;]+$/, ''));
+    }
+    return out;
+  }, [message.researchSources, message.toolCalls]);
+
   const rehypePlugins = useMemo(() => {
     const base: any[] = [[rehypeHighlight, { detect: true }], rehypeKatex];
     if (sourcesMap.size > 0) base.push([rehypeCitations, { sources: sourcesMap }]);
@@ -283,6 +298,13 @@ export function MessageBubble({ message, isLive = false, tail = true, receipt = 
       {!isLive && artifacts.map((a) => <ArtifactCard key={a.file} artifact={a} />)}
       {!isLive && panels.insp.map((id) => <InspirationCard key={id} id={id} />)}
       {!isLive && panels.plans.map((id) => <PlanCard key={id} id={id} />)}
+      {!isLive && webLinks.length > 0 && (
+        <div className="lp-grid lp-in-chat" aria-label="Páginas que usó">
+          {webLinks.map((u) => (
+            <LinkPreview key={u} url={u} />
+          ))}
+        </div>
+      )}
 
       {/* Anatomy figures Sergio drew for this answer (the hidden skill) */}
       {!isLive &&
