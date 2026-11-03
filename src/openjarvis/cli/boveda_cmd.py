@@ -69,3 +69,6 @@ def desproteger() -> None:
     phrase = click.prompt("Frase actual", hide_input=True)
     cifrado.unprotect(phrase)
     click.echo("Llavero sin frase (sigue con permisos 0600).")
+
+
+__all__ = ["boveda"]

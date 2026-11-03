@@ -45,3 +45,6 @@ def medir_cmd(ruta: str) -> None:
             indent=1,
         )
     )
+
+
+__all__ = ["estetica"]
