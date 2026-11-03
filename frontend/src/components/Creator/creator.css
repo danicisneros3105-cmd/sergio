@@ -51,6 +51,12 @@
   color: var(--color-text-secondary);
   overflow: hidden;
 }
+/* no picture (the thumbnail could not be fetched): a short band, not an empty poster */
+.cr-insp-thumb[data-empty] {
+  aspect-ratio: auto;
+  min-height: 56px;
+  font-size: 13px;
+}
 .cr-insp-thumb img {
   width: 100%;
   height: 100%;

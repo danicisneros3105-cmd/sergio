@@ -726,6 +726,17 @@ class Brain:
                     sup.rewards += 1
                 else:
                     sup.punishments += 1
+            # A path that worked again grows a neuron of its own (neurons.CHAIN_*).
+            chain = _neurons.chain_key(tools)
+            if chain and judged.get("respuesta", 0) >= 0:
+                counts = self.stats_.setdefault("cadenas", {})
+                counts[chain] = counts.get(chain, 0) + 1
+                if counts[chain] >= _neurons.CHAIN_BIRTH:
+                    mb.learn(kc, f"neurona:{chain}", 1.0)
+                    actions.append(f"neurona:{chain}")
+                if len(counts) > 300:  # keep the paths that happen most
+                    for k in sorted(counts, key=counts.get)[: len(counts) - 300]:
+                        del counts[k]
             self.stats_["prev_fly"] = {
                 "kc": list(kc)[:64],
                 "actions": sorted(set(actions)),

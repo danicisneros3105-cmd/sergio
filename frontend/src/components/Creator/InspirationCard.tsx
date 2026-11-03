@@ -70,8 +70,8 @@ export function InspirationCard({ id }: { id: string }) {
           const chosen = data.elegida === i;
           return (
             <article key={o.url} className="cr-insp-card" data-chosen={chosen || undefined}>
-              <a href={o.url} target="_blank" rel="noreferrer" className="cr-insp-thumb" aria-label={`Ver «${o.titulo}»`}>
-                {o.mini ? <img src={o.mini} alt="" loading="lazy" /> : <span>{o.plataforma}</span>}
+              <a href={o.url} target="_blank" rel="noreferrer" className="cr-insp-thumb" data-empty={o.mini ? undefined : true} aria-label={`Ver «${o.titulo}»`}>
+                {o.mini ? <img src={o.mini} alt="" loading="lazy" /> : <span>{o.segundos ? `${Math.round(o.segundos)} s` : 'Ver video'}</span>}
                 <i>{o.plataforma}</i>
               </a>
               <div className="cr-insp-body">

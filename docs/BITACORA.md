@@ -2,6 +2,15 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-11-03 · Claude · shorts virales medidos, derechos de clips, neuronas de camino y ciclo de la noche
+- Medí las referencias del dueño con datos públicos (conector de YouTube): 10 videos de YouTube con vistas, duración y canal, y 4 transcripciones. Los narrados van a 3,0-3,7 palabras por segundo, duran 25-43 s y abren con el título dicho; la historia con giro trae ~10 veces más comentarios por vista. Va en `video_essay/viral.py` y entra en el guion vertical y en cada plan. Las 5 de Instagram no se pudieron leer desde aquí.
+- `derechos.py`: riesgo de reclamo por clips ajenos en el resumen de cada video, sin prometer nada legal.
+- Montaje: la música calla en el gancho, se corta en una toma «silencio» y sube en el «drop» (`montaje.music_cues`); el texto en pantalla del plan sale sobre las tomas grabadas (antes solo en los cuadros).
+- Cerebro: neuronas de camino; video con palabras nuevas («viral», «storyboard», «mis tomas»). Ciclo de la noche con `automejora`.
+- Tarjeta de inspiración sin miniatura: una franja corta en vez de un póster gris vacío.
+- Para Codex: la superskill «pantalla» de `connectome/neurons.py` habla de `auto_reply=True`, `send_email` y `visa_apply`; choca con «mensajes y correos esperan su sí». Revísela.
+- Pendiente: lo que el ciclo de la noche aplique en el PC se pierde al actualizar; habría que subirlo (decisión del dueño).
+
 ## 2026-11-03 · Claude · video para creadores: inspiración, plan con animación, montaje de sus tomas, sonido de estudio
 - Inspiración: `inspiracion_video` busca en YouTube (API o yt-dlp), Instagram (su cuenta) y lee hashtags de TikTok; tres opciones, una por creador, con su porqué; tarjeta en el chat con «Usar este estilo» (`InspirationCard.tsx`).
 - Plan: `planear_video` escribe el guion toma por toma y hace la animación (storyboard con encuadre dibujado, zoom y clic en cada corte); tarjeta con la lista, «Subir toma» por plano y «Editar con mis tomas» (`PlanCard.tsx`, `/v1/creator/plan/*`). `montaje.py` corta, encuadra, subtitula y masteriza; probado de punta a punta con tomas generadas (−14 LUFS, pico ≤ −1 dBTP, la toma que falta con su cuadro).

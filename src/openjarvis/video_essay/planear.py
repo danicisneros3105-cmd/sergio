@@ -345,6 +345,12 @@ def create(idea: str, *, seconds: float = 45, vertical: bool = True, reference: 
                 inspiration += "\nMeasured from it: " + escuela.ficha(reference)[:900]
         except Exception:  # noqa: BLE001 — the link alone still guides
             pass
+    try:  # the measured Shorts formats of his references (viral.py)
+        from openjarvis.video_essay import viral
+
+        inspiration += "\n" + viral.guide(idea, "", vertical=vertical)
+    except Exception:  # noqa: BLE001
+        pass
     raw = ask(
         PLAN_PROMPT.format(fmt="vertical 9:16 short" if vertical else "horizontal 16:9", idea=idea[:600],
                            seconds=int(seconds), inspiration=inspiration, kinds=", ".join(KINDS),

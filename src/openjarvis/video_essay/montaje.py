@@ -20,13 +20,62 @@ from __future__ import annotations
 import subprocess
 import time
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 FPS = 30
 SFX_WORDS = {"whoosh": "whoosh", "swish": "whoosh", "hit": "impact", "golpe": "impact", "impact": "impact",
              "riser": "riser", "sube": "riser", "boom": "subdrop", "drop": "subdrop", "reverse": "reverse",
              "swell": "reverse", "glitch": "glitch", "shutter": "shutter", "foto": "shutter", "obturador": "shutter",
              "swipe": "swipe", "desliza": "swipe", "pop": "pop", "click": "click", "ding": "ding"}  # fmt: skip
+
+
+SILENCE_WORDS = (
+    "silencio",
+    "silence",
+    "sin musica",
+    "sin música",
+    "corte de musica",
+    "music cut",
+)
+LIFT_WORDS = (
+    "drop",
+    "music up",
+    "sube la musica",
+    "sube la música",
+    "musica arriba",
+    "música arriba",
+)
+
+
+def music_cues(shots: List[Tuple[float, str]], total: float, sr: int) -> "Any":
+    """The music's volume along the cut (``viral.MUSICA``): quiet under the
+    hook, out on a shot marked «silencio» (the beat before the payoff), up on
+    a «drop». *shots*: (seconds, its planned sound) in order. Gains are
+    smoothed over 60 ms so nothing clicks."""
+    import numpy as np
+
+    gain = np.ones(int(total * sr) + 1, dtype=np.float32)
+    at = 0.0
+    for k, (secs, sound) in enumerate(shots):
+        a, b = int(at * sr), int((at + secs) * sr)
+        low = (sound or "").lower()
+        if any(w in low for w in SILENCE_WORDS):
+            gain[a:b] = 0.0
+        elif any(w in low for w in LIFT_WORDS):
+            gain[a:b] = 1.5
+        elif (
+            k == 0
+            and len(shots) > 2
+            and "music" not in low
+            and "musica" not in low
+            and "música" not in low
+        ):
+            gain[a:b] = 0.25  # the hook speaks first; the music enters after it
+        at += secs
+    w = max(1, int(0.06 * sr))
+    return np.convolve(gain, np.ones(w, dtype=np.float32) / w, mode="same")[
+        : int(total * sr)
+    ]
 
 
 def probe(path: Path, ffmpeg: str) -> Tuple[float, bool]:
@@ -86,8 +135,24 @@ def _move(mv: str, frames: int) -> str:
     return ""
 
 
+FONTS = Path(__file__).parent / "fonts"
+
+
+def _label(text: str, h: int) -> str:
+    """The plan's on-screen words (max 5) over a real take: big, high, with a
+    soft shadow, in the punch face (``typo``: «impacto»)."""
+    t = (text or "").strip().upper()[:40]
+    if not t:
+        return ""
+    t = t.replace("\\", "").replace("'", "’")  # inside '…' nothing else is special
+    font = (FONTS / "Anton-Regular.ttf").as_posix()
+    size = max(28, int(h * (0.075 if len(t) <= 6 else 0.05)))
+    return (f"drawtext=fontfile='{font}':text='{t}':expansion=none:fontsize={size}:fontcolor=white:"
+            f"shadowcolor=black@0.55:shadowx=0:shadowy={max(2, size // 14)}:x=(w-tw)/2:y=h*0.14")  # fmt: skip
+
+
 def segment(src: Path, out: Path, *, start: float, seconds: float, size: Tuple[int, int], move: str,
-            ffmpeg: str, still: bool = False) -> Path:  # fmt: skip
+            ffmpeg: str, still: bool = False, label: str = "") -> Path:  # fmt: skip
     w, h = size
     frames = max(2, int(round(seconds * FPS)))
     vf = [
@@ -98,6 +163,9 @@ def segment(src: Path, out: Path, *, start: float, seconds: float, size: Tuple[i
     zp = _move(move, frames)
     if zp:
         vf.append(zp + f":s={w}x{h}:fps={FPS}")
+    drawn = _label(label, h) if not still else ""
+    if drawn:
+        vf.append(drawn)
     vf.append("format=yuv420p")
     cmd = [ffmpeg, "-y", "-v", "error"]
     if still:
@@ -120,7 +188,15 @@ def segment(src: Path, out: Path, *, start: float, seconds: float, size: Tuple[i
     if still:
         cmd += ["-map", "0:v", "-map", "1:a"]
     cmd += ["-c:a", "aac", "-ar", "48000", "-ac", "2", "-shortest", str(out)]
-    subprocess.run(cmd, check=True, capture_output=True, timeout=900)
+    try:
+        subprocess.run(cmd, check=True, capture_output=True, timeout=900)
+    except subprocess.CalledProcessError:
+        if not drawn:
+            raise
+        # an ffmpeg without drawtext: the take without its words, never no take
+        i = cmd.index(",".join(vf))
+        cmd[i] = ",".join(x for x in vf if x != drawn)
+        subprocess.run(cmd, check=True, capture_output=True, timeout=900)
     return out
 
 
@@ -170,6 +246,7 @@ def edit(
                 size=size,
                 move=shot.get("movimiento", ""),
                 ffmpeg=ffmpeg,
+                label=shot.get("texto", ""),
             )
         else:
             missing.append(shot["n"])
@@ -223,7 +300,18 @@ def edit(
     subprocess.run([ffmpeg, "-y", "-v", "error", "-i", str(joined), "-vn", "-ac", "1", "-ar", "48000", str(voice)],
                    check=True, capture_output=True, timeout=600)  # fmt: skip
     bed = work / "musica.wav"
-    bed.write_bytes(audio.write_wav(audio.music_bed(total)))
+    music = audio.music_bed(total)
+    cues = music_cues(
+        [(sec, sh.get("sonido") or "") for sec, sh in zip(lengths, plan["tomas"])],
+        total,
+        audio.SR,
+    )
+    n = min(len(music), len(cues))
+    shaped = music[:n] * cues[:n]
+    peak = float(abs(shaped).max()) if n else 0.0
+    bed.write_bytes(
+        audio.write_wav(shaped * (0.98 / peak if peak > 0.98 else 1.0))
+    )  # never clipped
     fx_file = work / "efectos.wav"
     fx_file.write_bytes(
         audio.write_wav(
@@ -265,4 +353,12 @@ def status_line(m: Dict[str, Any]) -> str:
     )
 
 
-__all__ = ["cut_window", "edit", "probe", "segment", "speech_span", "status_line"]
+__all__ = [
+    "cut_window",
+    "edit",
+    "music_cues",
+    "probe",
+    "segment",
+    "speech_span",
+    "status_line",
+]

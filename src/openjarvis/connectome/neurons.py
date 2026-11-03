@@ -153,7 +153,9 @@ NEURONS: Dict[str, Neuron] = {
                 "resultaaquee", "resulta que", "resulta quee", "curiosidad cotidiana",
                 "shorts curiosidades", "estilo resulta que", "videos explicativos", "diseccion 3d",
                 "higgsfield", "cinematografico", "cinematica", "toma por toma", "storytelling",
-                "cine con ia", "video con ia", "movimiento de camara", "preset de video"),
+                "cine con ia", "video con ia", "movimiento de camara", "preset de video",
+                "viral", "tendencias de video", "inspiracion para", "storyboard", "planea el video",
+                "planear un video", "youtube shorts", "mis tomas"),
                ("inspiracion_video", "planear_video", "video_create", "video_essay", "video_pro", "video_edit",
                 "cine_ia", "sergio_app")),
         Neuron("pantalla", "Pantalla y apps", "Ve la pantalla y usa ratón y teclado.",
@@ -289,6 +291,25 @@ CORE = ("think", "web_search", "memory_search", "calculator", "sergio_app", "art
 FIRE = 0.5  # activation that lights a neuron
 SHORTCUT = 0.6  # a learned synapse this strong is a shortcut
 LEARNED_PREFIX = "aprendida:"  # a neuron the brain grew for one tool
+# A neuron the brain grows for a PATH: tools that worked one after the other
+# for the same kind of request (owner, 3 Nov 2026: «que siempre esté creando
+# nuevas neuronas»). It is born after CHAIN_BIRTH such turns and, when it
+# fires, brings all its tools and the order that worked.
+CHAIN_PREFIX = "cadena:"
+CHAIN_BIRTH = 2
+CHAIN_MAX = 4
+
+
+def chain_key(tools: Iterable[Tuple[str, bool]]) -> str:
+    """The path of a turn: the distinct tools that worked, in order (2-4 of
+    them, the always-there ones left out); "" when there is no path."""
+    seen: List[str] = []
+    for name, ok in tools:
+        if ok and name and name not in CORE and name not in seen and ">" not in name:
+            seen.append(name)
+    if not 2 <= len(seen) <= CHAIN_MAX:
+        return ""
+    return CHAIN_PREFIX + ">".join(seen)
 
 
 def normalise(text: str) -> str:
@@ -310,6 +331,8 @@ def innate(text: str) -> Dict[str, float]:
 
 
 def tools_of(key: str) -> Tuple[str, ...]:
+    if key.startswith(CHAIN_PREFIX):
+        return tuple(t for t in key[len(CHAIN_PREFIX) :].split(">") if t)
     if key.startswith(LEARNED_PREFIX):
         return (key[len(LEARNED_PREFIX) :],)
     n = NEURONS.get(key)
@@ -325,6 +348,8 @@ def neurons_for_tool(tool: str) -> List[str]:
 
 
 def label(key: str) -> str:
+    if key.startswith(CHAIN_PREFIX):
+        return "Camino: " + " → ".join(tools_of(key))
     if key.startswith(LEARNED_PREFIX):
         return "Aprendida: " + key[len(LEARNED_PREFIX) :]
     n = NEURONS.get(key)
@@ -375,6 +400,13 @@ def superskill_for(selection: Optional[Selection] = None, text: str = "") -> str
         )
         if skill_text:
             blocks.append(skill_text)
+        elif key.startswith(CHAIN_PREFIX):
+            path = " → ".join(f"`{t}`" for t in tools_of(key))
+            blocks.append(
+                "[SUPER-SKILL NEURONAL NACIDA: CAMINO APRENDIDO]\n"
+                f"• Para pedidos como este, lo que funcionó varias veces fue, en orden: {path}. "
+                "Siga ese camino salvo que el pedido pida otra cosa."
+            )
         elif key.startswith(LEARNED_PREFIX):
             tool_name = key[len(LEARNED_PREFIX) :]
             blocks.append(

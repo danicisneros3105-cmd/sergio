@@ -504,6 +504,7 @@ def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
                     words_per_second=script.WORDS_PER_SECOND,
                     advice=_specialist(job, fixed, brief)
                     + _skills("guion", brief, job.state().get("genre", ""))
+                    + _viral(brief, job.state().get("genre", ""), params)
                     + genres.notes(job.state().get("genre", ""))
                     + trend_note,
                 )
@@ -833,6 +834,23 @@ def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
                 preset=str(params.get("preset") or mode.preset),
                 progress=lambda f: job.progress("render", f),
             )  # fmt: skip
+            try:  # clips of films and series: the risk of a claim, said plainly
+                from openjarvis.video_essay import derechos
+
+                borrowed = [
+                    {"film": s.search or "", "seconds": max(0.0, s.end - s.start)}
+                    for s in shots
+                    if any(
+                        n.startswith(("imagen: film", "imagen: web")) for n in s.notes
+                    )
+                ]
+                job.update(
+                    derechos=derechos.review(
+                        borrowed, narrated=bool(job.state().get("voice"))
+                    )
+                )
+            except Exception:  # noqa: BLE001 — a note, never a failure
+                pass
             job.finish("render")
 
         # 10. finishing with Creator's tools, and the posting package
@@ -1074,6 +1092,19 @@ def _home() -> Optional[Path]:
         return None
 
 
+def _viral(about: str, genre: str, params: Dict[str, Any]) -> str:
+    """The measured Shorts formats (viral.py) for a vertical video or an animation."""
+    try:
+        from openjarvis.video_essay import viral
+
+        note = viral.guide(
+            about, genre, vertical=str(params.get("aspect") or "") == "9:16"
+        )
+        return "\n" + note + "\n" if note else ""
+    except Exception:  # noqa: BLE001
+        return ""
+
+
 def _skills(kind: str, about: str, genre: str = "") -> str:
     """The GitHub skills that fit (script or motion), never in the way: the
     genre's own three when it has them."""
@@ -1207,6 +1238,11 @@ def summary(st: Dict[str, Any]) -> str:
         if pkg.get("note"):
             extra += " " + pkg["note"]
         trend = st.get("tendencia") or {}
+        if st.get("derechos"):
+            from openjarvis.video_essay import derechos
+
+            risk = derechos.line(st["derechos"])
+            extra += f"\n{risk}" if risk else ""
         if st.get("clips_web_motivo"):
             extra += f"\nNo pude bajar algunos clips de YouTube o de películas: {st['clips_web_motivo']}."
         if trend.get("dato"):

@@ -410,7 +410,7 @@ def start_loop(interval: float = 300.0) -> None:
         import logging
 
         log = logging.getLogger(__name__)
-        last_trade, last_hunt, last_repair = 0.0, "", 0.0
+        last_trade, last_hunt, last_repair, last_night = 0.0, "", 0.0, 0.0
         while True:
             time.sleep(interval)
             try:
@@ -432,6 +432,17 @@ def start_loop(interval: float = 300.0) -> None:
                     last_repair = time.time()
             except Exception:  # noqa: BLE001
                 log.exception("estabilidad")
+            try:  # once a night: one real failure fixed, only if the tests pass
+                from openjarvis.evolution import ciclo
+
+                if (
+                    time.localtime().tm_hour == 3
+                    and time.time() - last_night > 20 * 3600
+                ):
+                    last_night = time.time()
+                    ciclo.night()
+            except Exception:  # noqa: BLE001
+                log.exception("automejora de la noche")
             try:
                 from openjarvis.automatiza import oportunidades
 

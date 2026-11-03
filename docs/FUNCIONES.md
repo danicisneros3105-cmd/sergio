@@ -79,6 +79,8 @@ reales. Eso es lo que debe hacer la beta cerrada.
 | Video ensayo profesional (tratamiento, tomas, clips, voz de locutor, música, color, subtítulos con varias letras, control de calidad) en 4 modos y varios géneros | Hecho | IA, ffmpeg; varias horas |
 | Escuela de video: mide segundo a segundo los videos de referencia y escribe una superskill por categoría | Hecho | Su PC |
 | Inspiración: 3 videos reales que hoy funcionan para su idea (YouTube, Instagram de su cuenta; hashtags de TikTok como señal), elige uno como estilo | Con servicio | `YOUTUBE_API_KEY` o yt-dlp; Instagram conectado |
+| Manual de shorts virales medido en sus referencias (formato, ritmo, gancho, música) en cada guion y plan | Hecho | — |
+| Riesgo de reclamo de clips de películas en cada video, y películas libres o de dominio público | Hecho | — |
 | Plan de video para grabar usted: guion toma por toma, animación (storyboard al ritmo del corte) y una subida por toma | Hecho | IA + ffmpeg |
 | Montaje de sus tomas al plan: cortes al hablar, encuadre 9:16/16:9, subtítulos, música, efectos y sonido de estudio | Hecho | ffmpeg |
 | Sonido de estudio: estéreo, la música baja bajo la voz, −14 LUFS y picos por debajo de −1,5 dBTP; efectos en estéreo que caen en el corte | Hecho | ffmpeg |
