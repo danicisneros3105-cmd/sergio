@@ -411,6 +411,23 @@ async def creator_video_web(filename: str) -> Response:
     return FileResponse(path, media_type="video/mp4")
 
 
+@router.get("/archivo/{filename}")
+async def creator_document(filename: str) -> Response:
+    """A document Sergio made (an .xlsx from ``hoja_calculo``), to download."""
+    import re as _re
+
+    safe = _re.sub(r"[^\w.\-]+", "", filename)
+    path = studio.projects_root() / "documentos" / safe
+    if not safe or safe != filename or not safe.endswith(".xlsx") or not path.is_file():
+        raise HTTPException(status_code=404, detail="No encuentro ese archivo.")
+    nice = safe.rsplit("-", 1)[0] + ".xlsx"
+    return FileResponse(
+        path,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{nice}"'},
+    )
+
+
 @router.get("/artefacto/{filename}")
 async def creator_artifact(filename: str) -> Response:
     """An artifact (a self-contained page Sergio made) for the chat's frame. The

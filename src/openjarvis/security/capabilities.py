@@ -326,6 +326,9 @@ DEFAULT_TOOL_CAPABILITIES: Dict[str, List[str]] = {
     "imagenes_web": [Capability.NETWORK_FETCH, Capability.FILE_WRITE],
     # a self-contained page written to Creator's folder; it cannot reach the network when shown
     "artefacto": [Capability.FILE_WRITE],
+    "en_segundo_plano": [Capability.NETWORK_FETCH],
+    "hoja_calculo": [Capability.FILE_READ, Capability.FILE_WRITE],
+    "buscar_fotos": [Capability.FILE_READ, Capability.NETWORK_FETCH],
     "miniaturas": [Capability.FILE_READ, Capability.FILE_WRITE],
     "titulos_video": [Capability.NETWORK_FETCH],
     "radar_tendencias": [Capability.NETWORK_FETCH],

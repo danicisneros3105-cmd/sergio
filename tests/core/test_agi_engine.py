@@ -64,7 +64,7 @@ def test_autonomous_solve_and_vertu_cryptographic_sealing(tmp_path, monkeypatch)
     assert MissionPhase.VERTU_SEALING in phases_present
 
     # Check Vertu Zero-Knowledge cryptographic sealing
-    assert dossier.vertu_seal_token.startswith("v1:")
+    assert dossier.vertu_seal_token.startswith(("v1:", "v2:"))
     aad = f"vertu_mission_{dossier.mission_id}"
     decrypted_raw = cifrado.unseal(dossier.vertu_seal_token, aad=aad)
     decrypted_data = json.loads(decrypted_raw)

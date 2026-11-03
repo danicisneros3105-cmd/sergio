@@ -54,7 +54,10 @@ git update-ref "$rollback_ref" "$previous"
 git merge --ff-only "$target"
 echo "Respaldo del código: $rollback_ref ($previous)."
 # Use exact locked versions, retaining manually installed optional dependencies.
-uv sync --locked --inexact --extra server --extra desktop
+uv sync --locked --inexact --extra server --extra desktop --extra browser
+# Sergio's own browser (works in the background, without a window): Chromium
+# for Playwright. A failed download only turns that one tool off.
+uv run --no-sync playwright install chromium || echo "Aviso: no pude instalar el navegador de Sergio; «en segundo plano» queda apagado hasta la próxima actualización." >&2
 uv run --no-sync python -c 'from google import genai; from google.genai import types; assert genai.Client and types.LiveConnectConfig; print("SDK Gemini Live: listo")'
 # The prompt library (public system and persona prompts, downloaded whole to
 # ~/.openjarvis/prompt_library); a failed download keeps the previous copy.

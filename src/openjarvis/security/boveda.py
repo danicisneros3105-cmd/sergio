@@ -26,6 +26,9 @@ What is NOT sealed, and why, so nobody believes more than is true:
   disk must be encrypted too.
 * Faces: ``faces/book.py`` already encrypts the gallery.
 
+Keys have versions and can be rotated, and the keyring can be encrypted with a
+passphrase (``pagos/cifrado.py``, ``sergio boveda``).
+
 This is the same kind of cipher banks use, not a certification: PCI DSS,
 SOC 2 or ISO 27001 need an outside audit, which Sergio does not have.
 ``SERGIO_CIFRAR=0`` turns sealing off (never in the public edition).
@@ -55,7 +58,7 @@ def enabled() -> bool:
 
 
 def is_sealed(value: Any) -> bool:
-    return isinstance(value, str) and value.startswith(PREFIX)
+    return cifrado.is_sealed(value)
 
 
 def seal_text(text: str, aad: str, purpose: str, home: Any = None) -> str:

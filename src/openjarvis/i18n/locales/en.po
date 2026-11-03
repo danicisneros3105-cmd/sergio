@@ -566,3 +566,23 @@ msgstr "What is ready, what is missing on the server and what only the owner can
 #: help
 msgid "Salida para programas."
 msgstr "Output for programs."
+
+#: help
+msgid "Llavero de cifrado: estado, rotar claves y proteger con frase."
+msgstr "Encryption keyring: state, key rotation and passphrase."
+
+#: help
+msgid "Qué clave está activa, cuántas hay y si el llavero tiene frase."
+msgstr "Which key is active, how many there are and whether the keyring has a passphrase."
+
+#: help
+msgid "Crea una clave nueva para lo que se guarde desde ahora."
+msgstr "Creates a new key for what is saved from now on."
+
+#: help
+msgid "Cifra el llavero con una frase (el servidor la necesitará para arrancar)."
+msgstr "Encrypts the keyring with a passphrase (the server will need it to start)."
+
+#: help
+msgid "Quita la frase del llavero."
+msgstr "Removes the passphrase from the keyring."

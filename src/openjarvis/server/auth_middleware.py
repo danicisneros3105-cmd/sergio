@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 _OPEN_MEDIA = re.compile(
     r"/v1/creator/(?:(?:media|miniatura)/[\w\-]*-[0-9a-f]{24}\.(?:png|jpe?g|webp|mp4)"
     r"|reproducir/[\w\-]*-[0-9a-f]{24}\.mp4"
+    r"|archivo/[\w\-]*-[0-9a-f]{24}\.xlsx"
     r"|artefacto/[\w\-]*-[0-9a-f]{24}\.html)"
 )
 

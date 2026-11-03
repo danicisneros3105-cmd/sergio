@@ -105,6 +105,7 @@ if not _DATA_BOUNDARY_BOOTSTRAP:
     from openjarvis.cli.approvals_cmd import approvals
     from openjarvis.cli.ask import ask
     from openjarvis.cli.bench_cmd import bench
+    from openjarvis.cli.boveda_cmd import boveda
     from openjarvis.cli.cerebro_cmd import cerebro
     from openjarvis.cli.channel_cmd import channel
     from openjarvis.cli.channels_cmd import channels
@@ -163,6 +164,7 @@ if not _DATA_BOUNDARY_BOOTSTRAP:
 
     cli.add_command(agi, "agi")
     cli.add_command(lanzamiento, "lanzamiento")
+    cli.add_command(boveda, "boveda")
     cli.add_command(init, "init")
     cli.add_command(ask, "ask")
     cli.add_command(chat, "chat")

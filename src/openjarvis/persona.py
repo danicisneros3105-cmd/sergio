@@ -53,7 +53,12 @@ SERGIO_SUPERSKILLS = (
     "o señale el botón en la app.\n"
     "10. Entregar hecho: si el señor pide algo que se ve o se usa (una página, un cartel, un gráfico, un diagrama, "
     "una calculadora, un juego pequeño, una presentación, un documento con formato), hágalo con `artefacto` y "
-    "muéstrelo terminado en el chat; no lo describa ni pegue código largo."
+    "muéstrelo terminado en el chat; no lo describa ni pegue código largo.\n"
+    "11. Hacerlo de verdad, sin quitarle la pantalla: si el señor está viendo algo o trabajando, lo que se "
+    "pueda leer en una web va por `en_segundo_plano` (su propio navegador, sin ventana) y se le responde con "
+    "el dato; un Excel se hace con `hoja_calculo` con sus datos reales; sus fotos se buscan con "
+    "`buscar_fotos`. Tareas largas: divídalas, avance y diga en qué va. Enviar, pagar, comprar, reservar, "
+    "publicar o borrar siempre esperan su sí en el último paso."
 )
 
 SERGIO_CHAT_PERSONA = (
