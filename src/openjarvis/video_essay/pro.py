@@ -27,12 +27,15 @@ from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 import numpy as np
 
 SR = 48000
+# No noise reduction (afftdn): the narration is synthetic and has no room noise to
+# remove, and spectral denoising on a clean voice leaves the watery, warbling
+# sound of «bajo el agua» (owner, 3 Nov 2026).
 VOICE_FILTERS = (
-    "highpass=f=80",  # rumble and handling noise
-    "afftdn=nr=14:nf=-40:tn=1",  # steady background noise
+    "highpass=f=80",  # rumble
     "deesser=i=0.4:m=0.5:f=0.5",  # sharp «s»
     "equalizer=f=200:t=q:w=1:g=-2",  # boxiness
     "equalizer=f=3500:t=q:w=1.2:g=2.5",  # presence: words easy to follow
+    "highshelf=f=8500:g=2.5",  # air: a 24 kHz voice has little above 10 kHz
     "acompressor=threshold=-20dB:ratio=3:attack=8:release=120:makeup=2dB",
     # The compressor lifts the room between words too: a soft gate puts it
     # back down (only by 10 dB, so breaths stay natural).

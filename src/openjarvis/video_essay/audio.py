@@ -490,42 +490,163 @@ def _midi(n: int) -> float:
     return 440.0 * 2 ** ((n - 69) / 12)
 
 
-def music_bed(total: float, bpm: float = 84.0, seed: int = 7) -> np.ndarray:
-    """A bed that builds: pads from the start, a pulse from a third in, and
-    more air and weight toward the end."""
+MOODS = {  # bpm, drums enter at this share of the length, 16th-note hats from this share
+    "calm": (78.0, 0.45, 2.0),
+    "inspiring": (96.0, 0.30, 0.65),
+    "drive": (112.0, 0.12, 0.45),
+    "tension": (92.0, 0.25, 0.5),
+}
+
+
+def _partials(f: float, t: np.ndarray, roll: float, top: float = 7000.0) -> np.ndarray:
+    """A saw-like tone as a sum of harmonics, each 1/h**roll as loud and none
+    above *top* Hz (no aliasing, and a bright but not harsh colour)."""
+    out = np.zeros(len(t), dtype=np.float32)
+    for h in range(1, max(2, min(40, int(top / f)))):
+        out += np.sin(2 * np.pi * f * h * t).astype(np.float32) / (h**roll)
+    return out
+
+
+def _pluck(f: float, seconds: float, seed: int) -> np.ndarray:
+    """A short plucked note: bright at the start, mellow at the end."""
+    n = int(seconds * SR)
+    t = np.arange(n, dtype=np.float32) / SR
+    out = np.zeros(n, dtype=np.float32)
+    rng = np.random.default_rng(seed)
+    for h in range(1, max(2, min(14, int(6500 / f)))):
+        out += (
+            np.sin(2 * np.pi * f * h * t + rng.uniform(0, 6.28))
+            / h**1.1
+            * np.exp(-t * (5 + 2.2 * h))
+        ).astype(np.float32)
+    out[: int(0.002 * SR)] *= np.linspace(0, 1, int(0.002 * SR), dtype=np.float32)
+    return out
+
+
+def _kick(seed: int = 1) -> np.ndarray:
+    n = int(0.34 * SR)
+    t = np.arange(n, dtype=np.float32) / SR
+    body = np.sin(2 * np.pi * np.cumsum(46 + 95 * np.exp(-t * 38)) / SR) * np.exp(
+        -t * 9
+    )
+    click = (
+        _bandnoise(n, np.random.default_rng(seed), 1800, 6500) * np.exp(-t * 400) * 0.35
+    )
+    return np.tanh((body + click) * 1.4).astype(np.float32)
+
+
+def _snare(seed: int = 2) -> np.ndarray:
+    n = int(0.28 * SR)
+    t = np.arange(n, dtype=np.float32) / SR
+    rng = np.random.default_rng(seed)
+    noise = _bandnoise(n, rng, 1400, 11000) * np.exp(-t * 20)
+    tone = np.sin(2 * np.pi * 185 * t) * np.exp(-t * 28) * 0.7
+    return np.tanh((noise * 1.1 + tone) * 1.3).astype(np.float32)
+
+
+def _hat(seed: int, open_: bool = False) -> np.ndarray:
+    n = int((0.22 if open_ else 0.055) * SR)
+    t = np.arange(n, dtype=np.float32) / SR
+    return (
+        _bandnoise(n, np.random.default_rng(seed), 7000, 16000)
+        * np.exp(-t * (16 if open_ else 75))
+    ).astype(np.float32)
+
+
+def _stamp(out: np.ndarray, hit: np.ndarray, at: float, gain: float) -> None:
+    s = int(at * SR)
+    if s >= len(out):
+        return
+    e = min(len(out), s + len(hit))
+    out[s:e] += hit[: e - s] * gain
+
+
+def music_bed(
+    total: float, bpm: Optional[float] = None, seed: int = 7, mood: str = "inspiring"
+) -> np.ndarray:
+    """A small production, not a drone (owner, 3 Nov 2026: «el sonido de los
+    videos parece bajo el agua»: the old bed was pure low sines, 99.9 % of its
+    energy under 1 kHz). Now: a warm saw pad, a bass with harmonics, a plucked
+    arpeggio, and drums (kick, snare, hats) that come in as the video builds.
+    The spectrum is checked in the tests (clear mids and highs, not a wash)."""
+    base_bpm, drums_at, fast_hats_at = MOODS.get(mood, MOODS["inspiring"])
+    bpm = float(bpm or base_bpm)
     n = int(total * SR)
     t = np.arange(n, dtype=np.float32) / SR
     bar = 4 * 60.0 / bpm
-    out = np.zeros(n, dtype=np.float32)
+    step = 60.0 / bpm / 4  # a 16th note
     growth = np.clip(t / max(total, 1.0), 0, 1)
-    for i, chord in enumerate(PROGRESSION * int(total / bar / 4 + 2)):
-        a, b = int(i * bar * SR), int((i + 1) * bar * SR)
+    pad_bus = np.zeros(n, dtype=np.float32)
+    bass_bus = np.zeros(n, dtype=np.float32)
+    notes_bus = np.zeros(n, dtype=np.float32)
+    drums = np.zeros(n, dtype=np.float32)
+    bars = int(total / bar) + 2
+    for i in range(bars):
+        chord = PROGRESSION[i % len(PROGRESSION)]
+        a = int(i * bar * SR)
         if a >= n:
             break
-        b = min(b, n)
+        b = min(
+            n, int((i + 1) * bar * SR) + int(0.3 * SR)
+        )  # a little overlap: no gaps between bars
         seg = t[a:b] - t[a]
         pad = np.zeros(b - a, dtype=np.float32)
         for note in chord:
-            f = _midi(note)
-            pad += np.sin(2 * np.pi * f * seg) * 0.10
-            pad += np.sin(2 * np.pi * f * 2.003 * seg) * 0.03  # a slow shimmer
-        bass = np.sin(2 * np.pi * _midi(chord[0] - 12) * seg) * 0.18
-        pad *= _env(b - a, 0.6, 0.6)
-        out[a:b] += pad + bass * growth[a:b]
-    beat = 60.0 / bpm
+            f = _midi(note + 12)
+            for detune in (0.9965, 1.0035):  # two voices a few cents apart: width
+                pad += _partials(f * detune, seg, 1.5, 3800.0) * 0.07
+        pad *= _env(b - a, 0.35, 0.5)
+        pad_bus[a:b] += pad
+        root = _midi(chord[0] - 12)
+        bass = _partials(root, seg, 1.6, 900.0) * 0.5
+        bass_bus[a:b] += bass * _env(b - a, 0.02, 0.25) * (0.55 + 0.45 * growth[a:b])
+    # the arpeggio: eighth notes through the chord, an octave up, in the second half of each bar
+    for i in range(bars):
+        chord = PROGRESSION[i % len(PROGRESSION)]
+        for k in range(8):
+            at = i * bar + k * 2 * step
+            if at >= total:
+                break
+            note = chord[(k * 2 + (k // 4)) % 3] + (12 if k % 4 < 2 else 24)
+            if growth[min(n - 1, int(at * SR))] < 0.08:
+                continue
+            _stamp(notes_bus, _pluck(_midi(note), 0.45, seed + i * 8 + k), at, 0.22)
+    # the drums
+    kick, snare = _kick(seed), _snare(seed + 1)
+    hats = [_hat(seed + 10 + v) for v in range(4)]
+    open_hat = _hat(seed + 30, open_=True)
+    half_time = bpm < 100
     rng = np.random.default_rng(seed)
-    for k in range(int(total / beat)):
-        at = k * beat
-        if at < total / 3:
-            continue
-        hit = impact(seed + k)[: int(0.25 * SR)] * 0.25 * float(growth[int(at * SR)])
-        s = int(at * SR)
-        out[s : s + len(hit)] += hit[: n - s]
-        if k % 2:
-            hat = rng.standard_normal(int(0.04 * SR)).astype(np.float32)
-            hat *= np.exp(-np.arange(len(hat)) / SR * 90) * 0.05
-            out[s : s + len(hat)] += hat[: n - s]
-    out *= _env(n, 2.0, 2.5)
+    for i in range(bars):
+        for k in range(16):
+            at = i * bar + k * step
+            if at >= total:
+                break
+            share = at / max(total, 1.0)
+            if share < drums_at:
+                continue
+            g = 0.55 + 0.45 * min(1.0, (share - drums_at) / 0.2)
+            if k in ((0, 10) if half_time else (0, 4, 8, 12)):
+                _stamp(drums, kick, at, 0.85 * g)
+            if k in ((8,) if half_time else (4, 12)):
+                _stamp(drums, snare, at, 0.55 * g)
+            hat_here = (k % 2 == 0) if share < fast_hats_at else True
+            if hat_here and k not in (4, 12) or k == 14:
+                _stamp(
+                    drums,
+                    open_hat if k == 14 else hats[k % 4],
+                    at + rng.uniform(0, 0.004),
+                    (0.2 if k % 2 else 0.3) * g,
+                )
+    out = pad_bus * 0.9 + bass_bus * 0.9 + notes_bus * 0.9 + drums * 0.8
+    # glue: the kick pushes the pad and the bass down a little (sidechain feel)
+    if np.any(drums):
+        env = np.abs(drums)
+        w = int(0.12 * SR)
+        smooth = np.convolve(env, np.ones(w, dtype=np.float32) / w, mode="same")
+        duck = 1.0 - 0.28 * np.clip(smooth / (float(smooth.max()) or 1.0) * 2.2, 0, 1)
+        out = (pad_bus + bass_bus) * 0.9 * duck + notes_bus * 0.9 + drums * 0.8
+    out = np.tanh(out * 1.2).astype(np.float32) * _env(n, 1.5, 2.5)
     peak = float(np.max(np.abs(out))) or 1.0
     return out / peak * 0.6
 
@@ -619,9 +740,29 @@ def read_wav(data: bytes) -> np.ndarray:
     if ch > 1:
         x = x.reshape(-1, ch).mean(axis=1)
     if sr != SR and len(x):
-        pos = np.arange(int(len(x) * SR / sr)) * (sr / SR)
-        x = np.interp(pos, np.arange(len(x)), x).astype(np.float32)
+        x = resample(x, sr, SR)
     return x
+
+
+def resample(x: np.ndarray, sr_from: int, sr_to: int) -> np.ndarray:
+    """Band-limited resampling (the Fourier method): going from a 24 kHz voice
+    to 48 kHz leaves the top half empty instead of smearing it. The old
+    linear interpolation dulled 8-12 kHz by up to 6 dB and added images
+    above the original band, which is part of why a narration sounded
+    «bajo el agua» (owner, 3 Nov 2026)."""
+    x = np.asarray(x, dtype=np.float32)
+    if sr_from == sr_to or not len(x):
+        return x
+    n_out = int(round(len(x) * sr_to / sr_from))
+    spec = np.fft.rfft(x)
+    out_bins = n_out // 2 + 1
+    resized = np.zeros(out_bins, dtype=np.complex64)
+    keep = min(len(spec), out_bins)
+    resized[:keep] = spec[:keep]
+    if n_out % 2 == 0 and keep == out_bins and sr_to < sr_from:
+        resized[-1] = resized[-1].real  # the Nyquist bin of a real signal
+    y = np.fft.irfft(resized, n_out) * (n_out / len(x))
+    return y.astype(np.float32)
 
 
 def write_wav(samples: np.ndarray, sr: int = SR) -> bytes:
@@ -645,6 +786,7 @@ __all__ = [
     "thin",
     "music_bed",
     "read_wav",
+    "resample",
     "spatial",
     "voice_envelope",
     "voiced_spans",
