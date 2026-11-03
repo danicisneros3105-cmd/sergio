@@ -673,6 +673,16 @@ def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
         if stage("imagenes"):
             fill("imagenes")
             dress()
+            try:  # web and film clips that could not be had: say why, never silently
+                from openjarvis.video_essay import sources as _src
+
+                if _src.FAILURES:
+                    reason = max(set(_src.FAILURES), key=_src.FAILURES.count)
+                    job.update(clips_web_motivo=reason)
+                    job.log(f"clips de internet: {reason}")
+                    _src.FAILURES.clear()
+            except Exception:  # noqa: BLE001
+                pass
             job.finish("imagenes")
 
         # 7. review passes: the editor first, the director has the last word
@@ -736,14 +746,22 @@ def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
                 voice = pro.voice_chain(voice, render.ffmpeg(), audio.SR)
             total = max(shots[-1].end if shots else 0, len(voice) / audio.SR)
             music = None
+            music_file: Optional[Path] = None  # the stereo file the master mixes
             beats: List[float] = []
             if params.get("music") != "ninguna":
                 music = _music(str(params.get("music") or ""), total, job.dir)
+                if music is not None:
+                    music_file = job.dir / "musica.wav"
                 if music is None and deps.stock:
                     music = _music_online(job, deps, params, profile, total, filler)
+                    track = (job.state().get("music") or {}).get("path")
+                    if music is not None and track and Path(track).is_file():
+                        music_file = Path(track)
                 if music is None:
                     music = audio.music_bed(total)
                     beats = pro.bed_beats(total, 84.0)
+                    music_file = job.dir / "musica_propia.wav"
+                    music_file.write_bytes(audio.write_wav(music))
                 else:
                     beats = pro.beat_times(music, audio.SR)
             if beats and len(shots) > 1:  # the cuts land on the beat
@@ -771,10 +789,31 @@ def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
             )
             fx = audio.effects_track(events, total, _home())
             level = 0.32 if job.state().get("voice") else 0.8
-            mix_path.write_bytes(
-                audio.write_wav(audio.mix(voice, music, fx, music_level=level))
-            )
-            _loudness(mix_path)
+            try:  # the studio master: stereo, real ducking, loudness set once
+                from openjarvis.video_essay import mezcla
+
+                voice_file = job.dir / "voz_pro.wav"
+                voice_file.write_bytes(audio.write_wav(voice))
+                fx_file = job.dir / "efectos.wav"
+                fx_file.write_bytes(audio.write_wav(fx))
+                measured = mezcla.master(
+                    mix_path,
+                    voice=voice_file if job.state().get("voice") else None,
+                    music=music_file,
+                    fx=fx_file if events else None,
+                    total=total,
+                    ffmpeg=render.ffmpeg(),
+                )
+                job.update(sound=measured)
+                job.log(
+                    f"sonido: {measured['lufs']} LUFS, pico {measured['pico_dbtp']} dBTP, estéreo"
+                )
+            except Exception as exc:  # noqa: BLE001 — the simple mix rather than no sound
+                job.log(f"mezcla de estudio falló ({str(exc)[:120]}): mezcla sencilla")
+                mix_path.write_bytes(
+                    audio.write_wav(audio.mix(voice, music, fx, music_level=level))
+                )
+                _loudness(mix_path)
             job.finish("sonido")
 
         # 9. the render
@@ -1099,9 +1138,9 @@ def _music(path: str, total: float, folder: Path) -> Any:
     if not path or not src.is_file():
         return None
     out = folder / "musica.wav"
-    try:
+    try:  # kept in stereo: the master mixes it as it was recorded
         subprocess.run(
-            [render.ffmpeg(), "-y", "-v", "error", "-i", str(src), "-ac", "1",
+            [render.ffmpeg(), "-y", "-v", "error", "-i", str(src), "-ac", "2",
              "-ar", str(audio.SR), "-t", str(total + 1), str(out)],
             check=True, capture_output=True, timeout=600,
         )  # fmt: skip
@@ -1164,6 +1203,8 @@ def summary(st: Dict[str, Any]) -> str:
         if pkg.get("note"):
             extra += " " + pkg["note"]
         trend = st.get("tendencia") or {}
+        if st.get("clips_web_motivo"):
+            extra += f"\nNo pude bajar algunos clips de YouTube o de películas: {st['clips_web_motivo']}."
         if trend.get("dato"):
             extra += f"\nTendencia usada: «{trend['dato']}» ({trend.get('fuente') or 'fuente real'})."
         if len(pkg.get("portadas") or []) > 1:

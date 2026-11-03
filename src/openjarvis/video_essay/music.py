@@ -387,7 +387,7 @@ def find(
 def fetch(
     t: Track, dest: Path, total: float, ffmpeg: str, sr: int = 48_000
 ) -> Optional[str]:
-    """The track as a mono wav of *total* seconds: looped when short, faded out."""
+    """The track as a stereo wav of *total* seconds: looped when short, faded out."""
     dest.mkdir(parents=True, exist_ok=True)
     tag = hashlib.sha1(
         f"{t.url}|{total:.1f}".encode(), usedforsecurity=False
@@ -415,7 +415,7 @@ def fetch(
             src = str(raw)
         fade = min(2.5, max(0.5, total * 0.08))
         cmd = [ffmpeg, "-y", "-v", "error", "-stream_loop", "-1", "-i", src, "-t", f"{total + 0.5:.2f}",
-               "-ac", "1", "-ar", str(sr),
+               "-ac", "2", "-ar", str(sr),
                "-af", f"afade=t=in:d=0.4,afade=t=out:st={max(0.0, total + 0.5 - fade):.2f}:d={fade:.2f}",
                str(out)]  # fmt: skip
         subprocess.run(cmd, check=True, capture_output=True, timeout=600)

@@ -110,6 +110,7 @@ if not _DATA_BOUNDARY_BOOTSTRAP:
     from openjarvis.cli.channel_cmd import channel
     from openjarvis.cli.channels_cmd import channels
     from openjarvis.cli.chat_cmd import chat
+    from openjarvis.cli.clips_cmd import clips
     from openjarvis.cli.codigo_cmd import codigo
     from openjarvis.cli.compose_cmd import compose
     from openjarvis.cli.config_cmd import config
@@ -167,6 +168,7 @@ if not _DATA_BOUNDARY_BOOTSTRAP:
     cli.add_command(lanzamiento, "lanzamiento")
     cli.add_command(boveda, "boveda")
     cli.add_command(estetica, "estetica")
+    cli.add_command(clips, "clips")
     cli.add_command(init, "init")
     cli.add_command(ask, "ask")
     cli.add_command(chat, "chat")

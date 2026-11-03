@@ -1155,8 +1155,9 @@ def render_video(
     subprocess.run(
         [
             ffmpeg(), "-y", "-v", "error", "-i", str(silent), "-i", str(audio),
-            "-c:v", "copy", "-af", "loudnorm=I=-14:TP=-1.5:LRA=11",
-            "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-shortest", "-movflags", "+faststart", str(out),
+            # the sound arrives mastered (mezcla.py): no second loudness pass
+            "-c:v", "copy", "-c:a", "aac", "-b:a", "256k", "-ar", "48000",
+            "-shortest", "-movflags", "+faststart", str(out),
         ],
         check=True, capture_output=True, timeout=1800,
     )  # fmt: skip

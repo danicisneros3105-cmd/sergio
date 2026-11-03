@@ -606,3 +606,11 @@ msgstr "Images at most."
 #: help
 msgid "Mide una imagen y la puntúa con las matrices medibles."
 msgstr "Measures an image and scores it with the measurable matrices."
+
+#: help
+msgid "Clips de YouTube y escenas de películas para los videos."
+msgstr "YouTube clips and film scenes for the videos."
+
+#: help
+msgid "Prueba si YouTube entrega videos a este equipo y dice por qué no."
+msgstr "Checks whether YouTube serves videos to this computer and says why not."

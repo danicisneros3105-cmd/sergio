@@ -57,6 +57,9 @@ echo "Respaldo del código: $rollback_ref ($previous)."
 uv sync --locked --inexact --extra server --extra desktop --extra browser
 # Sergio's own browser (works in the background, without a window): Chromium
 # for Playwright. A failed download only turns that one tool off.
+# yt-dlp changes every few weeks as YouTube does: always the newest, with its
+# challenge solver (the locked one stays as a fallback if this fails).
+uv pip install --upgrade yt-dlp yt-dlp-ejs >/dev/null 2>&1 || echo "Aviso: no pude actualizar yt-dlp; los clips de YouTube pueden fallar." >&2
 uv run --no-sync playwright install chromium || echo "Aviso: no pude instalar el navegador de Sergio; «en segundo plano» queda apagado hasta la próxima actualización." >&2
 uv run --no-sync python -c 'from google import genai; from google.genai import types; assert genai.Client and types.LiveConnectConfig; print("SDK Gemini Live: listo")'
 # The prompt library (public system and persona prompts, downloaded whole to

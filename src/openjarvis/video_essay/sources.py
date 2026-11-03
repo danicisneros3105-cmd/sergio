@@ -249,18 +249,87 @@ def search_archive(query: str, n: int) -> List[Candidate]:
     return out
 
 
-def ytdlp() -> List[str]:
-    exe = shutil.which("yt-dlp")
-    if exe:
-        return [exe]
-    try:
-        import sys
+def js_runtime() -> List[str]:
+    """YouTube asks yt-dlp to solve a JavaScript challenge before it gives the
+    video (since late 2025). yt-dlp runs it with deno by default; most of
+    Sergio's computers have node (the web is built with it), so it is named."""
+    if shutil.which("deno"):
+        return []
+    node = shutil.which("node")
+    return ["--js-runtimes", f"node:{node}"] if node else []
 
+
+def ytdlp() -> List[str]:
+    """The yt-dlp command: the one installed with Sergio first (kept current
+    by the update, with its challenge solver), then one on the PATH."""
+    import sys
+
+    try:
         import yt_dlp  # noqa: F401
 
-        return [sys.executable, "-m", "yt_dlp"]
+        return [sys.executable, "-m", "yt_dlp", *js_runtime()]
     except ImportError:
-        return []
+        pass
+    exe = shutil.which("yt-dlp")
+    return [exe, *js_runtime()] if exe else []
+
+
+FAILURES: List[str] = []  # the last reasons a web clip could not be had
+
+
+def why(stderr: str) -> str:
+    """What went wrong with yt-dlp, in plain words."""
+    s = stderr or ""
+    if re.search(r"Sign in to confirm|not a bot|429|Too Many Requests", s, re.I):
+        return "YouTube pide confirmar que no es un robot desde esta conexión"
+    if re.search(
+        r"n challenge|JavaScript runtime|js-runtimes|EJS|challenge solving", s, re.I
+    ):
+        return "falta resolver el reto de YouTube (instale node o deno y actualice)"
+    if re.search(r"Video unavailable|Private video|removed|copyright", s, re.I):
+        return "el video ya no está disponible"
+    if re.search(
+        r"Unable to connect|timed out|Temporary failure|Name or service", s, re.I
+    ):
+        return "sin conexión con el sitio"
+    if re.search(r"ffmpeg", s, re.I):
+        return "ffmpeg no pudo cortar el trozo"
+    line = next((ln for ln in s.splitlines() if "ERROR" in ln), s.strip()[:160])
+    return line[:200] or "error desconocido"
+
+
+def _note(reason: str) -> None:
+    FAILURES.append(reason)
+    del FAILURES[:-20]
+
+
+def diagnose(
+    runner: Optional[Callable[[List[str]], subprocess.CompletedProcess]] = None,
+) -> Dict[str, Any]:
+    """Can this computer take clips from YouTube right now? Tries the first
+    video ever uploaded (19 s, public) without downloading it."""
+    cmd = ytdlp()
+    if not cmd:
+        return {
+            "ok": False,
+            "motivo": "yt-dlp no está instalado (se instala con la actualización)",
+        }
+    args = cmd + ["--simulate", "--no-warnings", "--print", "%(format_id)s %(height)s",
+                  "https://www.youtube.com/watch?v=jNQXAC9IVRw"]  # fmt: skip
+    try:
+        r = (
+            runner
+            or (lambda a: subprocess.run(a, capture_output=True, text=True, timeout=90))
+        )(args)
+    except Exception as exc:  # noqa: BLE001
+        return {"ok": False, "motivo": str(exc)[:200]}
+    if r.returncode == 0 and r.stdout.strip():
+        return {
+            "ok": True,
+            "motivo": "YouTube responde y entrega el video",
+            "js": " ".join(js_runtime()) or "deno",
+        }
+    return {"ok": False, "motivo": why(r.stderr), "detalle": (r.stderr or "")[-400:]}
 
 
 def search_web(
@@ -489,12 +558,15 @@ def fetch(c: Candidate, dest: Path, seconds: float, ffmpeg: str) -> Optional[str
 
             exe = ffmpeg_exe()
             where = ["--ffmpeg-location", exe] if exe else []
-            subprocess.run(
+            r = subprocess.run(
                 base + ["-q", "--no-warnings", "--no-playlist", *where,
                         "-f", "bv*[height<=1080][ext=mp4]/bv*[height<=1080]/best",
                         "--download-sections", f"*{c.start:.1f}-{c.start + length:.1f}", "-o", str(raw), c.url],
-                check=True, capture_output=True, timeout=240,
+                capture_output=True, text=True, timeout=240,
             )  # fmt: skip
+            if r.returncode != 0:
+                _note(why(r.stderr))
+                return None
             got = next(iter(sorted(dest.glob(f"web-{tag}.*"))), None)
             if got is None:
                 return None

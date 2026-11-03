@@ -99,7 +99,10 @@ server = [
     "python-multipart>=0.0.9",
     # ffmpeg for «haz un video sobre…» (tools/video_create.py) without apt
     "imageio-ffmpeg>=0.5",
-    "yt-dlp>=2025.1.1",
+    "yt-dlp>=2025.11.12",
+    # YouTube now needs its challenge solver (JavaScript run by node or deno);
+    # without it no clip downloads. Not «yt-dlp[default]»: that pulls mutagen (GPL).
+    "yt-dlp-ejs>=0.8.0",
 ]
 desktop = [
     "google-genai>=2.29,<3",
