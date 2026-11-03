@@ -3,6 +3,7 @@
 // 2 Nov 2026: «dice que ya se está ejecutando… pero no me lo manda»).
 import { useEffect, useState } from 'react';
 import { apiFetch } from '../../lib/api';
+import { WebVideo } from '../Gallery/WebVideo';
 
 interface Job {
   id: string;
@@ -69,7 +70,7 @@ export function VideoJobCard({ id }: { id: string }) {
         </div>
       )}
       {job.estado === 'listo' && job.video && (
-        <video className="vjob-video" src={job.video} poster={job.portada || undefined} controls playsInline preload="metadata" />
+        <WebVideo className="vjob-video" src={job.video} poster={job.portada || undefined} preload="metadata" />
       )}
       {(job.estado === 'error' || job.estado === 'detenido') && (
         <p className="vjob-why">

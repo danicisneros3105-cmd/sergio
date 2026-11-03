@@ -17,6 +17,13 @@ describe('FanGallery', () => {
     expect(html).not.toContain('fan-pager');
   });
 
+  it('offers a plain button to open the whole gallery', () => {
+    const items = Array.from({ length: 5 }, (_, i) => ({ key: `k${i}`, kind: 'video' as const, title: `V${i}`, src: `/x${i}.mp4` }));
+    const html = renderToStaticMarkup(<FanGallery items={items} onOpen={() => {}} />);
+    expect(html).toContain('Abrir la galería · 5');
+    expect(html).toContain('data-i="0"');
+  });
+
   it('raises the card under the pointer most and its neighbours a little', () => {
     expect(rise(3, 3)).toBe(1);
     expect(rise(2, 3)).toBeGreaterThan(0.4);

@@ -2,6 +2,12 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-11-03 · Claude · galería estilo Apple, videos que reproducen, menos pantallas rotas
+- Galería: el abanico es la vista previa; un clic abre la galería completa (cuadrícula por día, se abre desde el rectángulo del abanico; el visor crece desde la miniatura, flechas/Esc/deslizar). Antes el clic dependía de la carta exacta bajo el puntero, que se mueve: ahora el abanico entero recibe el clic. Botón «Abrir la galería».
+- Videos que «no hacían nada»: causa probable, el máster HEVC 10 bits del modo más alto, que los navegadores no reproducen. `GET /v1/creator/video-listo/{archivo}` mira el archivo (ffmpeg) y, si no sirve, hace una copia H.264 en `.web/` (`/v1/creator/reproducir/`, abierta solo por nombre aleatorio). `WebVideo` espera la copia, y si el navegador aun así falla dice por qué y ofrece descargar. Lo usan la galería, el chat y los Nodes. No pude reproducirlo con un video real del dueño: probado con un clip HEVC 10 bits propio.
+- «La app se bugea»: no pude reproducirlo (recorrí todas las pantallas en móvil y escritorio sin errores). Lo que sí: cada página tiene su propio aviso de error y la barra lateral sigue; los errores se guardan solo en el equipo y salen en Ayuda → «Si algo falla» con «Copiar». Si vuelve a pasar, ese texto dirá qué es.
+- Miniaturas de video usan el ffmpeg de respaldo si no hay uno en el sistema.
+
 ## 2026-11-03 · Claude · cifrado de recordatorios y Nodes, revisión de lanzamiento
 - Recordatorios (título, detalle, extra) y Nodes (`memory.md`, mensajes, actividad, `secrets.json`) se guardan con AES-256-GCM por la bóveda; lo antiguo en claro se lee y se sella al abrir. Pruebas en `tests/security/test_boveda.py`.
 - `sergio lanzamiento [--json]` y `GET /v1/pagos/lanzamiento`: 7 pasos que el código puede comprobar y 9 que solo puede dar el dueño (nunca se marcan solos). Guía en `docs/LANZAMIENTO.md`.

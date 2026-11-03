@@ -2,9 +2,12 @@ import { Component } from 'react';
 import type { ReactNode, ErrorInfo } from 'react';
 import { AlertTriangle, RotateCcw } from 'lucide-react';
 import { dropOldCopy } from '../lib/freshness';
+import { noteCrash } from '../lib/crashlog';
 
 interface Props {
   children: ReactNode;
+  /** when this changes (e.g. the address), a shown error is cleared */
+  resetKey?: string;
 }
 
 interface State {
@@ -29,8 +32,16 @@ export class ErrorBoundary extends Component<Props, State> {
     return { hasError: true, error };
   }
 
+  componentDidUpdate(prev: Props) {
+    // Moving to another page leaves the broken one behind.
+    if (this.state.hasError && prev.resetKey !== this.props.resetKey) {
+      this.setState({ hasError: false, error: null });
+    }
+  }
+
   componentDidCatch(error: Error, info: ErrorInfo) {
     console.error('ErrorBoundary caught:', error, info);
+    noteCrash(error);
     if (isChunkLoadError(error)) {
       const key = 'sergio-chunk-reload';
       try {

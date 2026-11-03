@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { PaperPage } from '../components/Paper/PaperPage';
 import { apiFetch } from '../lib/api';
+import { clearCrashes, crashReport, readCrashes } from '../lib/crashlog';
 import './plans.css';
 
 const TOPICS: Array<{ q: string; a: string[] }> = [
@@ -61,6 +62,40 @@ const TOPICS: Array<{ q: string; a: string[] }> = [
   },
 ];
 
+/** «Si algo falla»: the last errors kept on this device, to copy for whoever helps. */
+function Faults() {
+  const [list, setList] = useState(readCrashes);
+  const [copied, setCopied] = useState(false);
+  if (!list.length) return null;
+  return (
+    <details className="help-faults">
+      <summary>Si algo falla ({list.length})</summary>
+      <p>Sergio guarda en este equipo los últimos errores (nada se envía). Cópielos y mándelos a quien le ayude.</p>
+      <pre style={{ maxHeight: 220, overflow: 'auto', whiteSpace: 'pre-wrap', fontSize: 12 }}>{crashReport(list)}</pre>
+      <button
+        type="button"
+        className="paper-button"
+        onClick={() => {
+          void navigator.clipboard?.writeText(crashReport(list)).then(() => setCopied(true));
+        }}
+      >
+        {copied ? 'Copiado' : 'Copiar'}
+      </button>{' '}
+      <button
+        type="button"
+        className="paper-button"
+        data-variant="quiet"
+        onClick={() => {
+          clearCrashes();
+          setList([]);
+        }}
+      >
+        Borrar
+      </button>
+    </details>
+  );
+}
+
 export function HelpPage() {
   const navigate = useNavigate();
   const [support, setSupport] = useState('');
@@ -82,6 +117,7 @@ export function HelpPage() {
           </details>
         ))}
       </div>
+      <Faults />
       <p>
         <button type="button" className="paper-button" onClick={() => window.dispatchEvent(new CustomEvent('sergio:tour'))}>
           Ver el tour

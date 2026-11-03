@@ -245,9 +245,9 @@ def make_thumbnail(src: Path, dest: Path, size: int = 480) -> bool:
     tmp = dest.with_suffix(".tmp.jpg")
     try:
         if src.suffix.lower() == ".mp4":
-            import shutil
+            from openjarvis.tools.video_create import ffmpeg_exe
 
-            ffmpeg = shutil.which("ffmpeg")
+            ffmpeg = ffmpeg_exe()
             if not ffmpeg:
                 return False
             subprocess.run(
@@ -301,6 +301,114 @@ async def creator_thumbnail(filename: str) -> Response:
         media_type="image/jpeg",
         headers={"Cache-Control": "public, max-age=86400"},
     )
+
+
+_WEB_JOBS: dict[str, str] = {}  # name -> "preparando" | "error: why"
+
+
+def web_playable(src: Path) -> bool | None:
+    """Can a browser play this file as it is? H.264 8-bit (yuv420p) with AAC or
+    MP3 sound. ``None`` when it cannot be told (no ffmpeg): the page then just
+    tries the original. The «máster» of the highest mode is HEVC 10-bit, which
+    most browsers refuse: that was a video that did nothing when clicked."""
+    import re as _re
+    import subprocess
+
+    from openjarvis.tools.video_create import ffmpeg_exe
+
+    ffmpeg = ffmpeg_exe()
+    if not ffmpeg:
+        return None
+    try:
+        out = subprocess.run(
+            [ffmpeg, "-hide_banner", "-i", str(src)],
+            capture_output=True, text=True, timeout=30,
+        ).stderr  # fmt: skip
+    except Exception:  # noqa: BLE001
+        return None
+    video = _re.search(r"Video: (\w+)[^\n]*?,\s*(yuv\w+|[a-z0-9_]+)[,( ]", out)
+    if not video:
+        return None
+    codec, pix = video.group(1), video.group(2)
+    if codec != "h264" or pix != "yuv420p":
+        return False
+    audio = _re.search(r"Audio: (\w+)", out)
+    return not audio or audio.group(1) in ("aac", "mp3")
+
+
+def _make_web_copy(src: Path, dest: Path, name: str) -> None:
+    """A copy every browser plays (H.264 8-bit, AAC, at most 1080p wide)."""
+    import subprocess
+
+    from openjarvis.tools.video_create import ffmpeg_exe
+
+    tmp = dest.with_suffix(".tmp.mp4")
+    try:
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        subprocess.run(
+            [ffmpeg_exe(), "-v", "error", "-y", "-i", str(src),
+             "-vf", "scale='min(1920,iw)':-2,format=yuv420p",
+             "-c:v", "libx264", "-preset", "veryfast", "-crf", "22",
+             "-c:a", "aac", "-b:a", "160k", "-movflags", "+faststart", str(tmp)],
+            check=True, timeout=3600, capture_output=True,
+        )  # fmt: skip
+        tmp.replace(dest)
+        _WEB_JOBS.pop(name, None)
+    except Exception as exc:  # noqa: BLE001 — told to the person, never hidden
+        tmp.unlink(missing_ok=True)
+        _WEB_JOBS[name] = f"error: {str(exc)[:160]}"
+
+
+@router.get("/video-listo/{filename}")
+async def creator_video_ready(filename: str, forzar: bool = False) -> dict[str, Any]:
+    """Is this video ready to play in a browser? ``listo`` with the address to
+    use, ``preparando`` (a browser-friendly copy is being made: ask again in a
+    few seconds) or ``error`` with the reason."""
+    import re as _re
+    import threading
+
+    safe = _re.sub(r"[^\w.\-]+", "", filename)
+    if not safe or safe != filename or not safe.endswith(".mp4"):
+        raise HTTPException(status_code=400, detail="Nombre de archivo inválido.")
+    root = studio.projects_root()
+    src = next((p for p in (root / "videos" / safe, root / safe) if p.is_file()), None)
+    if src is None:
+        raise HTTPException(status_code=404, detail="No encuentro ese video.")
+    original = {"estado": "listo", "url": f"/v1/creator/media/{safe}"}
+    copy = root / ".web" / safe
+    if copy.is_file() and copy.stat().st_mtime >= src.stat().st_mtime:
+        return {"estado": "listo", "url": f"/v1/creator/reproducir/{safe}"}
+    state = _WEB_JOBS.get(safe)
+    if state:
+        if state.startswith("error"):
+            return {"estado": "error", "motivo": state[7:]}
+        return {"estado": "preparando"}
+    # ``forzar``: the page tried the original and the browser refused it
+    ok = False if forzar else await asyncio.to_thread(web_playable, src)
+    if ok is not False:
+        return original
+    from openjarvis.tools.video_create import ffmpeg_exe
+
+    if not ffmpeg_exe():
+        return {
+            "estado": "error",
+            "motivo": "Este video usa un formato que el navegador no reproduce y no hay ffmpeg para convertirlo.",
+        }
+    _WEB_JOBS[safe] = "preparando"
+    threading.Thread(target=_make_web_copy, args=(src, copy, safe), daemon=True).start()
+    return {"estado": "preparando"}
+
+
+@router.get("/reproducir/{filename}")
+async def creator_video_web(filename: str) -> Response:
+    """The browser-friendly copy made by ``/video-listo`` (supports Range)."""
+    import re as _re
+
+    safe = _re.sub(r"[^\w.\-]+", "", filename)
+    path = studio.projects_root() / ".web" / safe
+    if not safe or safe != filename or not path.is_file():
+        raise HTTPException(status_code=404, detail="Todavía no está listo.")
+    return FileResponse(path, media_type="video/mp4")
 
 
 @router.get("/artefacto/{filename}")

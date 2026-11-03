@@ -33,6 +33,7 @@ reales. Eso es lo que debe hacer la beta cerrada.
 | Proyectos: chats con instrucciones y archivos propios | Hecho | — |
 | Tarjetas de aprobación en palabras simples | Hecho | — |
 | Tarjeta de video en vivo en el chat (avance, resultado o motivo del fallo) | Hecho | — |
+| Galería: abanico como vista previa y galería completa estilo Fotos (por día, visor con zoom), videos convertidos para que cualquier navegador los reproduzca | Hecho | ffmpeg para convertir |
 | «Mi semana»: lo que de verdad hizo esta semana y lo que quedó a medias | Hecho | — |
 | Artefactos: Sergio entrega páginas HTML (tablas, calculadoras, juegos) como tarjeta en el chat, en un marco aislado y sin red | Hecho | — |
 | Constancia en el perfil: días seguidos y mejor racha, sana (sin culpa ni avisos) | Hecho | — |

@@ -1,20 +1,9 @@
 // Galería: everything made with Sergio (pictures, videos, 3D models), in a fan.
-import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { apiFetch } from '../lib/api';
 import { FanGallery, type FanItem } from '../components/Gallery/FanGallery';
+import { GalleryStage, rowKey, rowTitle, type GalleryRow as Row } from '../components/Gallery/GalleryStage';
 import { pointAt } from '../lib/pointer';
-
-const PartsViewer = lazy(() => import('../components/Chat/PartsViewer'));
-
-interface Row {
-  url: string;
-  mini?: string;
-  tipo: 'imagen' | 'video' | '3d';
-  nombre: string;
-  fecha: number;
-  modelo?: string;
-  piezas?: number;
-}
 
 const FILTERS: Array<{ key: 'todo' | FanItem['kind']; label: string }> = [
   { key: 'todo', label: 'Todo' },
@@ -23,14 +12,12 @@ const FILTERS: Array<{ key: 'todo' | FanItem['kind']; label: string }> = [
   { key: '3d', label: '3D' },
 ];
 
-const NICE: Record<string, string> = { portada: 'Portada', video: 'Video', imagen: 'Imagen', foto: 'Foto' };
-
 export function GalleryPage() {
   const [rows, setRows] = useState<Row[] | null>(null);
   const [failed, setFailed] = useState('');
   const [tries, setTries] = useState(0);
   const [filter, setFilter] = useState<(typeof FILTERS)[number]['key']>('todo');
-  const [open, setOpen] = useState<Row | null>(null);
+  const [stage, setStage] = useState<{ from: DOMRect | null; focus?: string } | null>(null);
 
   useEffect(() => {
     setFailed('');
@@ -51,7 +38,7 @@ export function GalleryPage() {
         .map((r, i) => ({
           key: `${r.tipo}-${r.url || r.modelo}-${i}`,
           kind: r.tipo,
-          title: NICE[r.nombre] ?? r.nombre,
+          title: rowTitle(r),
           src: r.url || undefined,
           thumb: r.mini || undefined,
           note: r.fecha ? new Date(r.fecha * 1000).toLocaleDateString() : undefined,
@@ -60,15 +47,8 @@ export function GalleryPage() {
   );
 
   useEffect(() => {
-    if (rows && rows.length) pointAt({ target: '.fan', text: 'Pase el ratón por las cartas o use las flechas.', ms: 2600 });
+    if (rows && rows.length) pointAt({ target: '.fan', text: 'Pase el ratón por las cartas y haga clic para abrir toda la galería.', ms: 2600 });
   }, [rows]);
-
-  useEffect(() => {
-    if (!open) return;
-    const esc = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(null);
-    window.addEventListener('keydown', esc);
-    return () => window.removeEventListener('keydown', esc);
-  }, [open]);
 
   const visible = (rows ?? []).filter((r) => filter === 'todo' || r.tipo === filter);
 
@@ -96,25 +76,10 @@ export function GalleryPage() {
           Aquí aparecerá lo que cree con Sergio: imágenes, videos y modelos 3D.
         </p>
       ) : (
-        <FanGallery items={items} onOpen={(_it, i) => setOpen(visible[i] ?? null)} />
+        <FanGallery items={items} onOpen={(_it, i, from) => setStage({ from, focus: visible[i] ? rowKey(visible[i]) : undefined })} />
       )}
-      {open && (
-        <div className="gal-view" role="dialog" aria-modal="true" aria-label={open.nombre} onClick={() => setOpen(null)}>
-          <button type="button" className="gal-close" aria-label="Cerrar" onClick={() => setOpen(null)}>
-            ×
-          </button>
-          <div onClick={(e) => e.stopPropagation()}>
-            {open.tipo === 'imagen' && <img src={open.url} alt={open.nombre} />}
-            {open.tipo === 'video' && <video src={open.url} controls autoPlay playsInline />}
-            {open.tipo === '3d' && open.modelo && (
-              <div className="gal-3d">
-                <Suspense fallback={null}>
-                  <PartsViewer name={open.modelo} />
-                </Suspense>
-              </div>
-            )}
-          </div>
-        </div>
+      {stage && rows && (
+        <GalleryStage rows={rows} from={stage.from} focus={stage.focus} filter={filter} onClose={() => setStage(null)} />
       )}
     </div>
   );

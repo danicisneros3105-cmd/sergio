@@ -22,6 +22,7 @@ import { stripThinkTags } from '../../lib/message-text';
 import { anatomyNames, withoutAnatomyLinks } from '../../lib/anatomy';
 import { despieceNames, withoutDespieceLinks } from '../../lib/despiece';
 import { AnatomyEmbed } from './AnatomyEmbed';
+import { WebVideo } from '../Gallery/WebVideo';
 
 const PartsViewer = lazy(() => import('./PartsViewer'));
 import { isVideo, mediaOf } from '../../lib/imessage';
@@ -139,7 +140,7 @@ function toolSummary(calls: NonNullable<ChatMessage['toolCalls']>): string {
 
 function Media({ src, alt }: { src: string; alt?: string }) {
   if (isVideo(src)) {
-    return <video className="imsg-media" src={src} controls playsInline preload="metadata" />;
+    return <WebVideo className="imsg-media" src={src} preload="metadata" />;
   }
   return <img className="imsg-media" src={src} alt={alt || 'Imagen'} loading="lazy" />;
 }

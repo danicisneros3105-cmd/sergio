@@ -760,6 +760,7 @@ termina en la rama `main`, y el dueño actualiza con un único comando.
 - Racha: el dueño pidió una que dé culpa; se decidió una constancia sana (sin culpa, sin avisos, ocultable). Una app de bienestar no castiga un día de descanso.
 - El bloqueo de la ventana de Sergio queda apagado por defecto; desbloquear el dispositivo no es posible para una app.
 - Recordatorios y Nodes (memoria, mensajes, secretos) se guardan cifrados; `sergio lanzamiento` lista lo que falta para publicar y nunca marca los pasos del dueño.
+- Galería (dueño, 3 nov. 2026): el abanico es solo la **vista previa**; un clic en él abre la galería completa estilo Fotos de Apple (cuadrícula por día que se abre desde el abanico, visor que crece desde la miniatura; `components/Gallery/GalleryStage.tsx`). Un video que el navegador no puede reproducir (el máster HEVC de 10 bits) se convierte en el servidor (`/v1/creator/video-listo`) y, si aun así falla, se dice y se ofrece el archivo (`WebVideo.tsx`, también en el chat). Cada página tiene su propio aviso de error (la barra lateral sigue) y los últimos errores se guardan solo en el equipo (Ayuda → «Si algo falla»).
 - Kimi como proveedor y «Digitalsnickers» están descartados.
 - Licencia Apache-2.0 y autoría honesta: no se borran créditos del original.
 

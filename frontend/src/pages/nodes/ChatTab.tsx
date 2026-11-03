@@ -9,6 +9,7 @@ import { latestWork, withoutWork, type Work } from '../../lib/nodeCanvas';
 import { nodesApi, type NodeMessage, type SergioNode } from '../../lib/nodes';
 import { look } from './shared';
 import { ApprovalCard } from '../../components/Chat/ApprovalCard';
+import { WebVideo } from '../../components/Gallery/WebVideo';
 import { plainReply, summarize } from '../../lib/plainReply';
 
 type SpeechRec = { lang: string; interimResults: boolean; onresult: (e: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void; onend: () => void; start: () => void; stop: () => void };
@@ -237,7 +238,7 @@ function WorkPanel({ work }: { work: Work }) {
         </a>
       </header>
       <div className="nchat-work-body">
-        {work.kind === 'video' && <video key={work.url} src={work.url} controls playsInline preload="metadata" />}
+        {work.kind === 'video' && <WebVideo key={work.url} src={work.url} preload="metadata" />}
         {work.kind === 'image' && <img src={work.url} alt={work.title} />}
         {work.kind === 'page' && (
           <a className="nchat-work-page" href={work.url} target="_blank" rel="noreferrer">

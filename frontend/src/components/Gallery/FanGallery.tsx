@@ -21,7 +21,9 @@ export interface FanItem {
 
 interface Props {
   items: FanItem[];
-  onOpen: (item: FanItem, index: number) => void;
+  /** a click anywhere on the fan: the preview opens the whole gallery, on this
+   *  card, out of the fan's own rectangle */
+  onOpen: (item: FanItem, index: number, from: DOMRect | null) => void;
   /** how many cards are in the hand at once */
   hand?: number;
 }
@@ -53,6 +55,7 @@ export function FanGallery({ items, onOpen, hand = 9 }: Props) {
   const now = useRef<number[]>([]);
   const tilt = useRef<number[]>([]);
   const frame = useRef(0);
+  const pointer = useRef<string>('mouse');
   const shown = items.slice(start, start + hand);
   const n = shown.length;
   const spread = Math.min(70, 8 * (n - 1));
@@ -164,10 +167,25 @@ export function FanGallery({ items, onOpen, hand = 9 }: Props) {
     };
   }, [page]);
 
+  // One click handler for the whole fan. The cards move under the pointer, so a
+  // press can start on one card and end on another: the click then lands here,
+  // on the fan, and opens the card that is lifted (the one the person is on).
+  const openFrom = (e: React.MouseEvent) => {
+    if (n === 0) return;
+    let at: number | null = null;
+    if (pointer.current === 'touch' || lift === null) {
+      const card = (e.target as HTMLElement).closest?.('[data-i]') as HTMLElement | null;
+      if (card) at = Number(card.dataset.i);
+    }
+    if (at === null) at = lift ?? Math.floor((n - 1) / 2);
+    at = Math.max(0, Math.min(n - 1, at));
+    onOpen(shown[at], start + at, host.current?.getBoundingClientRect() ?? null);
+  };
+
   const onKey = (e: React.KeyboardEvent) => {
     if (e.key === 'ArrowRight') aim(Math.min(n - 1, (lift ?? -1) + 1));
     else if (e.key === 'ArrowLeft') aim(Math.max(0, (lift ?? n) - 1));
-    else if (e.key === 'Enter' && lift !== null) onOpen(shown[lift], start + lift);
+    else if (e.key === 'Enter' && e.target === e.currentTarget && lift !== null) onOpen(shown[lift], start + lift, host.current?.getBoundingClientRect() ?? null);
     else if (e.key === 'PageDown') page(1);
     else if (e.key === 'PageUp') page(-1);
   };
@@ -184,7 +202,11 @@ export function FanGallery({ items, onOpen, hand = 9 }: Props) {
         aria-label="Su galería"
         onKeyDown={onKey}
         onPointerMove={onMove}
+        onPointerDown={(e) => {
+          pointer.current = e.pointerType;
+        }}
         onPointerLeave={() => aim(null)}
+        onClick={openFrom}
       >
         <div
           className="fan-glow"
@@ -207,10 +229,10 @@ export function FanGallery({ items, onOpen, hand = 9 }: Props) {
               zIndex: 10 + i,
               ['--i' as string]: i,
             }}
+            data-i={i}
             onFocus={() => aim(i)}
             onPointerMove={onCardMove}
             onPointerLeave={onCardLeave}
-            onClick={() => onOpen(it, start + i)}
             title={it.title}
           >
             <span className="fan-face">
@@ -247,6 +269,13 @@ export function FanGallery({ items, onOpen, hand = 9 }: Props) {
           </button>
         ))}
       </div>
+      <button
+        type="button"
+        className="fan-open"
+        onClick={() => onOpen(shown[Math.floor((n - 1) / 2)] ?? items[0], start + Math.floor((n - 1) / 2), host.current?.getBoundingClientRect() ?? null)}
+      >
+        Abrir la galería · {items.length}
+      </button>
       {items.length > hand && (
         <div className="fan-pager">
           <button type="button" onClick={() => page(-1)} disabled={start === 0} aria-label="Anteriores">

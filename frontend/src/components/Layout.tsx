@@ -1,6 +1,7 @@
 import { SergioPointer } from './Pointer/SergioPointer';
 import { Suspense, useEffect, useState } from 'react';
-import { Outlet, useNavigate } from 'react-router';
+import { Outlet, useLocation, useNavigate } from 'react-router';
+import { ErrorBoundary } from './ErrorBoundary';
 import { Tour } from './Tour/Tour';
 import { RunningPill } from './Shell/RunningPill';
 import { AppLock } from './AppLock/AppLock';
@@ -74,6 +75,7 @@ export function Layout() {
   };
 
   const navigate = useNavigate();
+  const { pathname } = useLocation();
 
   // Sign in first (owner, 27 Oct 2026): nobody signed in → «/entrar» (or
   // «Crear cuenta» the first time); payment pages stay open. Then the tour,
@@ -214,9 +216,12 @@ export function Layout() {
         )}
         <main className="flex-1 min-h-0 relative">
           <SplitView>
-            <Suspense fallback={<div className="paper-page" aria-busy="true" />}>
-              <Outlet />
-            </Suspense>
+            {/* A page that breaks shows its own message; the sidebar stays. */}
+            <ErrorBoundary resetKey={pathname}>
+              <Suspense fallback={<div className="paper-page" aria-busy="true" />}>
+                <Outlet />
+              </Suspense>
+            </ErrorBoundary>
           </SplitView>
           <LiveCaptions />
         </main>
