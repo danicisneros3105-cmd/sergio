@@ -8,6 +8,7 @@ const PartsViewer = lazy(() => import('../components/Chat/PartsViewer'));
 
 interface Row {
   url: string;
+  mini?: string;
   tipo: 'imagen' | 'video' | '3d';
   nombre: string;
   fecha: number;
@@ -26,15 +27,22 @@ const NICE: Record<string, string> = { portada: 'Portada', video: 'Video', image
 
 export function GalleryPage() {
   const [rows, setRows] = useState<Row[] | null>(null);
+  const [failed, setFailed] = useState('');
+  const [tries, setTries] = useState(0);
   const [filter, setFilter] = useState<(typeof FILTERS)[number]['key']>('todo');
   const [open, setOpen] = useState<Row | null>(null);
 
   useEffect(() => {
+    setFailed('');
     apiFetch('/v1/creator/galeria')
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
       .then((d) => setRows(Array.isArray(d?.elementos) ? d.elementos : []))
-      .catch(() => setRows([]));
-  }, []);
+      .catch((e: Error) => {
+        // never show a failed load as an empty gallery
+        setRows([]);
+        setFailed(e.message === '401' || e.message === '403' ? 'Sergio necesita que vuelva a entrar.' : 'No pude cargar la galería.');
+      });
+  }, [tries]);
 
   const items = useMemo<FanItem[]>(
     () =>
@@ -45,6 +53,7 @@ export function GalleryPage() {
           kind: r.tipo,
           title: NICE[r.nombre] ?? r.nombre,
           src: r.url || undefined,
+          thumb: r.mini || undefined,
           note: r.fecha ? new Date(r.fecha * 1000).toLocaleDateString() : undefined,
         })),
     [rows, filter],
@@ -75,6 +84,13 @@ export function GalleryPage() {
       </div>
       {rows === null ? (
         <div aria-busy="true" style={{ height: 420 }} />
+      ) : failed ? (
+        <p className="paper-meta" role="alert" style={{ textAlign: 'center', marginTop: 48 }}>
+          {failed}{' '}
+          <button type="button" className="gal-retry" onClick={() => { setRows(null); setTries((n) => n + 1); }}>
+            Reintentar
+          </button>
+        </p>
       ) : items.length === 0 ? (
         <p className="paper-meta" style={{ textAlign: 'center', marginTop: 48 }}>
           Aquí aparecerá lo que cree con Sergio: imágenes, videos y modelos 3D.

@@ -23,6 +23,25 @@ export interface PlainReply {
   points: PointRequest[];
   /** Video jobs to follow live in the chat («[[video:<id>]]», never shown). */
   videos: string[];
+  /** Artifacts Sergio made («[[artefacto:<file>|<title>]]», never shown). */
+  artifacts: Artifact[];
+}
+
+export interface Artifact {
+  file: string;
+  title: string;
+}
+
+const ARTIFACT_MARK = /\[\[\s*artefacto\s*:\s*([\w.-]+\.html)\s*(?:\|([^\]]*))?\]\]/g;
+
+/** The artifacts a text names, and the text without the marks. */
+export function artifactMarks(text: string): { clean: string; artifacts: Artifact[] } {
+  const artifacts: Artifact[] = [];
+  const clean = (text ?? '').replace(ARTIFACT_MARK, (_m, file: string, title?: string) => {
+    if (!artifacts.some((a) => a.file === file)) artifacts.push({ file, title: (title ?? '').trim() || 'Artefacto' });
+    return '';
+  });
+  return { clean, artifacts };
 }
 
 const VIDEO_MARK = /\[\[\s*video\s*:\s*([\w.-]+)\s*\]\]/g;
@@ -125,6 +144,7 @@ export function plainReply(text: string): PlainReply {
   // A stray closing tag left by any of the above.
   out = out.replace(/<\/(aprobaci[oó]n|recordar|cli|mcp|api|enjambre|equipo|mente|usuario|siguiente)>/gi, '');
   const { clean: noVideo, videos } = videoMarks(out);
-  const { clean, points } = pointMarks(noVideo);
-  return { text: clean.replace(/\n{3,}/g, '\n\n').trim(), approvals, points, videos };
+  const { clean: noArtifact, artifacts } = artifactMarks(noVideo);
+  const { clean, points } = pointMarks(noArtifact);
+  return { text: clean.replace(/\n{3,}/g, '\n\n').trim(), approvals, points, videos, artifacts };
 }

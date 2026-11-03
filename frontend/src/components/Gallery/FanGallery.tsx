@@ -14,6 +14,8 @@ export interface FanItem {
   kind: 'imagen' | 'video' | '3d';
   title: string;
   src?: string;
+  /** a small JPEG of it (the card shows this, the full file opens on click) */
+  thumb?: string;
   note?: string;
 }
 
@@ -212,8 +214,22 @@ export function FanGallery({ items, onOpen, hand = 9 }: Props) {
             title={it.title}
           >
             <span className="fan-face">
-              {it.kind === 'imagen' && it.src && <img src={it.src} alt={it.title} loading="lazy" draggable={false} />}
-              {it.kind === 'video' && it.src && <video src={`${it.src}#t=0.5`} muted playsInline preload="metadata" />}
+              {it.kind !== '3d' && it.src && (
+                <img
+                  src={it.thumb || it.src}
+                  alt={it.title}
+                  loading="lazy"
+                  decoding="async"
+                  draggable={false}
+                  onError={(e) => {
+                    // no thumbnail: the picture itself (a video then shows its title only)
+                    const img = e.currentTarget;
+                    if (it.kind === 'imagen' && it.src && img.src.indexOf(it.src) === -1) img.src = it.src;
+                    else img.style.visibility = 'hidden';
+                  }}
+                />
+              )}
+              {it.kind === 'video' && <span className="fan-play" aria-hidden="true" />}
               {it.kind === '3d' && (
                 <span className="fan-3d" aria-hidden="true">
                   <svg viewBox="0 0 24 24" width="44" height="44" fill="none" stroke="currentColor" strokeWidth="1.4">

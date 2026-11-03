@@ -18,7 +18,8 @@ logger = logging.getLogger(__name__)
 # <video> (no Authorization header). Only names with 24 random hex digits
 # (studio.media_name) pass; anything else under /v1 still needs the key.
 _OPEN_MEDIA = re.compile(
-    r"/v1/creator/media/[\w\-]*-[0-9a-f]{24}\.(png|jpe?g|webp|mp4)"
+    r"/v1/creator/(?:(?:media|miniatura)/[\w\-]*-[0-9a-f]{24}\.(?:png|jpe?g|webp|mp4)"
+    r"|artefacto/[\w\-]*-[0-9a-f]{24}\.html)"
 )
 
 _WS_AUTH_PROTOCOL = "openjarvis.auth.v1"

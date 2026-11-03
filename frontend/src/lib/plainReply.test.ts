@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { categoryLabel, plainReply } from './plainReply';
+import { artifactMarks, categoryLabel, plainReply } from './plainReply';
 
 describe('plainReply', () => {
   it('turns a leaked, unclosed approval into a plain question', () => {
@@ -23,5 +23,23 @@ describe('plainReply', () => {
 
   it('leaves normal answers alone', () => {
     expect(plainReply('Un **texto** normal con `código`.').text).toBe('Un **texto** normal con `código`.');
+  });
+});
+
+describe('artifact marks', () => {
+  it('turns «[[artefacto:file|title]]» into a card and never shows it', () => {
+    const r = plainReply('Aquí está.\n[[artefacto:artefacto-aaaaaaaaaaaaaaaaaaaaaaaa.html|Mi cartel]]');
+    expect(r.text).toBe('Aquí está.');
+    expect(r.artifacts).toEqual([{ file: 'artefacto-aaaaaaaaaaaaaaaaaaaaaaaa.html', title: 'Mi cartel' }]);
+  });
+  it('keeps each one once and gives a title when none is there', () => {
+    const t = '[[artefacto:a-1.html]] [[artefacto:a-1.html|otra vez]] [[artefacto:b-2.html| ]]';
+    expect(artifactMarks(t).artifacts).toEqual([
+      { file: 'a-1.html', title: 'Artefacto' },
+      { file: 'b-2.html', title: 'Artefacto' },
+    ]);
+  });
+  it('ignores a mark that is not a plain html file name', () => {
+    expect(artifactMarks('[[artefacto:../../x.html|mal]]').artifacts).toEqual([]);
   });
 });

@@ -8,7 +8,11 @@ rewards, no «you are missing out», nothing that makes leaving hard (see
 * **the week in real numbers** — answers, minutes of voice, things the Nodes
   and Cowork did, videos finished (from ``quota`` and the video jobs; a
   number that is not counted is not shown);
-* **pick up where you left** — the unfinished video or task, one tap away.
+* **pick up where you left** — the unfinished video or task, one tap away;
+* **constancia** (:func:`racha`) — days in a row and the best run, as a thing to
+  be proud of. The owner asked on 2 Nov 2026 for a streak «que dé culpa»: the
+  streak is here, the guilt is not (a mental-health app must not punish a
+  rest day); it is shown only in the profile and can be hidden.
 
 Nothing here is sent anywhere; it is read on this PC.
 """
@@ -74,6 +78,53 @@ def videos(since: float) -> Dict[str, Any]:
     }  # fmt: skip
 
 
+def active_days(back: int = 400) -> List[date]:
+    """The days the owner used Sergio (any use counted by ``quota``)."""
+    from openjarvis import quota
+
+    since = (date.today() - timedelta(days=back)).isoformat()
+    try:
+        with quota._lock, quota._db() as db:
+            rows = db.execute(
+                "SELECT DISTINCT day FROM use WHERE day >= ? AND n > 0", (since,)
+            ).fetchall()
+    except Exception:  # noqa: BLE001 — no data yet
+        return []
+    out = []
+    for (d,) in rows:
+        try:
+            out.append(date.fromisoformat(str(d)))
+        except ValueError:
+            continue
+    return sorted(set(out))
+
+
+def racha(
+    days: Optional[List[date]] = None, today: Optional[date] = None
+) -> Dict[str, Any]:
+    """Days in a row, the best run and the days this month: **a number to be
+    proud of, never a debt**. Today does not have to be over for the run to
+    count (yesterday's run stays alive until the day ends), a break is simply
+    not shown (no «you lost…»), and the person can hide all of it. Nothing
+    here warns, nags or sends a notification."""
+    today = today or date.today()
+    days = sorted(set(days if days is not None else active_days()))
+    have = set(days)
+    cursor = today if today in have else today - timedelta(days=1)
+    now = 0
+    while cursor in have:
+        now += 1
+        cursor -= timedelta(days=1)
+    best = run = 0
+    prev: Optional[date] = None
+    for d in days:
+        run = run + 1 if prev and (d - prev).days == 1 else 1
+        best = max(best, run)
+        prev = d
+    month = sum(1 for d in days if d.year == today.year and d.month == today.month)
+    return {"seguidos": now, "mejor": best, "este_mes": month, "total": len(days)}
+
+
 def resumen(
     today: Optional[date] = None, now: Optional[float] = None
 ) -> Dict[str, Any]:
@@ -93,7 +144,8 @@ def resumen(
         "semana": lines,
         "seguir": vids["en_curso"],
         "numeros": {**use, "videos": vids["hechos"]},
+        "racha": racha(),
     }
 
 
-__all__ = ["counted", "resumen", "videos"]
+__all__ = ["active_days", "counted", "racha", "resumen", "videos"]

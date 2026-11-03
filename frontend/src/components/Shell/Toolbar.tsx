@@ -129,8 +129,9 @@ export function Toolbar({ historyOpen, onToggleHistory }: { historyOpen: boolean
       return false;
     }
   });
-  const onMorePage = TOOLBAR_ITEMS.some((i) => i.more && isActive(i.path, pathname));
-  const showMore = moreChosen || onMorePage;
+  // «Más» stays folded on its own: opening one of its pages shows just that
+  // page next to the everyday four, not the whole list (less noise).
+  const showMore = moreChosen;
   const toggleMore = () => {
     const next = !showMore;
     setMoreChosen(next);
@@ -244,7 +245,7 @@ export function Toolbar({ historyOpen, onToggleHistory }: { historyOpen: boolean
           </div>
 
           <div className="sb-group">
-            {TOOLBAR_ITEMS.filter((i) => i.path !== '/chat' && (!i.more || showMore)).map((item) => (
+            {TOOLBAR_ITEMS.filter((i) => i.path !== '/chat' && (!i.more || showMore || isActive(i.path, pathname))).map((item) => (
               <Item
                 key={item.path}
                 icon={<item.icon size={18} strokeWidth={1.7} />}

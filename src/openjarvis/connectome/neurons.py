@@ -282,7 +282,7 @@ NEURONS: Dict[str, Neuron] = {
 
 # Always offered when the brain narrows: thinking, a quick search, memory
 # and plain arithmetic help with almost anything.
-CORE = ("think", "web_search", "memory_search", "calculator", "sergio_app")
+CORE = ("think", "web_search", "memory_search", "calculator", "sergio_app", "artefacto")
 FIRE = 0.5  # activation that lights a neuron
 SHORTCUT = 0.6  # a learned synapse this strong is a shortcut
 LEARNED_PREFIX = "aprendida:"  # a neuron the brain grew for one tool

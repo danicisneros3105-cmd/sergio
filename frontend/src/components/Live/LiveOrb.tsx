@@ -86,6 +86,16 @@ export function LiveCaptions() {
   const [showError, setShowError] = useState(false);
   useEffect(() => {
     if (!(status === 'blocked' && error)) return setShowError(false);
+    // The «allow the microphone» hint appeared on every page: said once per
+    // browser (owner, 2 Nov 2026: «quita el ruido»); the orb keeps showing it.
+    if (/micr[oó]fono/i.test(error)) {
+      try {
+        if (localStorage.getItem('sergio-mic-hint') === '1') return setShowError(false);
+        localStorage.setItem('sergio-mic-hint', '1');
+      } catch {
+        /* private window: said each time */
+      }
+    }
     setShowError(true);
     const t = window.setTimeout(() => setShowError(false), 7000);
     return () => window.clearTimeout(t);

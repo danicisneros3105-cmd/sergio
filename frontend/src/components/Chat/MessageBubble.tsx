@@ -1,6 +1,7 @@
 import { pointAt } from '../../lib/pointer';
 import { ApprovalCard } from './ApprovalCard';
-import { plainReply, videoMarks } from '../../lib/plainReply';
+import { artifactMarks, plainReply, videoMarks, type Artifact } from '../../lib/plainReply';
+import { ArtifactCard } from './ArtifactCard';
 import { VideoJobCard } from './VideoJobCard';
 import { Suspense, lazy, useEffect, useState, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
@@ -169,6 +170,13 @@ export function MessageBubble({ message, isLive = false, tail = true, receipt = 
   const cleanContent = useMemo(() => withoutDespieceLinks(withoutAnatomyLinks(plain.text)), [plain.text]);
   const extraMedia = useMemo(() => mediaOf(message), [message]);
   // Video jobs started in this reply, followed live right here.
+  const artifacts = useMemo<Artifact[]>(() => {
+    const out = [...plain.artifacts];
+    for (const tc of message.toolCalls ?? []) {
+      for (const a of artifactMarks(tc.result || '').artifacts) if (!out.some((x) => x.file === a.file)) out.push(a);
+    }
+    return out;
+  }, [plain.artifacts, message.toolCalls]);
   const videoJobs = useMemo(() => {
     const ids = [...plain.videos];
     for (const tc of message.toolCalls ?? []) {
@@ -259,6 +267,7 @@ export function MessageBubble({ message, isLive = false, tail = true, receipt = 
       ))}
 
       {!isLive && videoJobs.map((id) => <VideoJobCard key={id} id={id} />)}
+      {!isLive && artifacts.map((a) => <ArtifactCard key={a.file} artifact={a} />)}
 
       {/* Anatomy figures Sergio drew for this answer (the hidden skill) */}
       {!isLive &&

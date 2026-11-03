@@ -320,7 +320,7 @@ function LockSettings() {
   };
   return (
     <>
-      <SettingRow label="Bloquear Sergio cuando no lo uso" description="Se abre mirando a la cámara o con su código. Bloquea Sergio, no Windows.">
+      <SettingRow label="Tapar la ventana de Sergio cuando no la uso" description="Solo tapa Sergio y se abre con Visage o con su código. No bloquea ni desbloquea Windows: eso solo lo hace Windows (Windows Hello).">
         <select
           value={p.on ? String(p.minutes) : 'no'}
           onChange={(e) => change(e.target.value === 'no' ? { ...p, on: false } : { on: true, minutes: Number(e.target.value) })}

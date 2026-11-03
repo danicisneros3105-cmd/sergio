@@ -2,6 +2,14 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-11-03 · Claude · galería, pantalla negra, artefactos, racha sana y menos ruido
+- Galería: las cartas cargaban la imagen completa (varios MB cada una) y un fallo de red se veía como «galería vacía». Ahora hay miniaturas (`/v1/creator/miniatura`, JPEG de 480 px guardado una vez), el error se dice con «Reintentar», y las cartas ya no se cortan por abajo.
+- Pantalla negra: `frontend/public/arranque.js` (script clásico) muestra «Sergio no pudo abrirse» con «Recargar» si un archivo no carga, hay un error antes de pintar, o pasan 8 s sin pintar nada (típico justo tras actualizar).
+- El tapado de la ventana de Sergio con Visage queda **apagado por defecto**: el dueño quería desbloquear el equipo, y eso no lo permite ningún sistema a una app (`docs/FACEID-SISTEMA.md`).
+- Artefactos: herramienta `artefacto` (siempre a mano, en `CORE`): Sergio escribe una página HTML completa y el chat la muestra como tarjeta (abrir, descargar, agrandar) en un marco `sandbox` sin acceso a la app y con una política que prohíbe toda petición de red. La superskill 10 le pide entregar así lo que se ve o se usa.
+- Perfil: «Su constancia» con días seguidos, mejor racha y días del mes. **No se hizo la racha que da culpa** (dueño lo pidió): una app de salud mental no debe castigar un día de descanso; se puede ocultar, no avisa ni notifica y un corte solo es un número menor.
+- Menos ruido: el aviso «permita el micrófono» sale una vez por navegador, y «Más» ya no se abre entero al entrar a una de sus páginas.
+
 ## 2026-11-02 · Claude · los cuatro canales, leídos de verdad
 - Con la herramienta de YouTube (solo lectura) listé los canales y leí el guion de tres shorts del primero (calculado con `escuela.script_of`: 194–215 palabras por minuto, frases de 10–17 palabras, primera frase de 9–19 palabras, sin preguntas al público). De ahí salieron 8 reglas de guion escritas a mano (`guion_semilla` en `referencias.json`, en palabras nuestras) que entran en la superskill de «Shorts animados de historias con giro».
 - Correcciones al comprobar los canales: `@your.nextcore` es de autosuperación y filosofía (47 videos, su pestaña de Shorts está vacía: usa «videos»); `@ryan` es Ryan Trahan; entre los últimos 20 de Johnny Harris hay compilaciones de 2 y 3 horas: los videos de más de `max_minutos` (60) se saltan.

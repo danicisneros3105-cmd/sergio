@@ -11,7 +11,11 @@ export interface LockPrefs {
 }
 
 const KEY = 'sergio-bloqueo';
-export const DEFAULT_LOCK: LockPrefs = { on: true, minutes: 15 };
+// Off until the owner turns it on (2 Nov 2026: «se debía desbloquear el
+// dispositivo del usuario, no la app»). An app cannot unlock Windows, a Mac or a
+// phone (docs/FACEID-SISTEMA.md): this only covers Sergio's own window, so it
+// must never surprise anyone by closing itself.
+export const DEFAULT_LOCK: LockPrefs = { on: false, minutes: 15 };
 
 export function lockPrefs(): LockPrefs {
   try {

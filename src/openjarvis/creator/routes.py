@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
@@ -199,7 +200,8 @@ async def gallery(limit: int = 300) -> dict[str, Any]:
                 if not p.is_file() or not _OPEN_MEDIA.fullmatch(url):
                     continue
                 kind = "video" if p.suffix.lower() == ".mp4" else "imagen"
-                rows.append({"url": url, "tipo": kind, "nombre": p.stem.rsplit("-", 1)[0],
+                rows.append({"url": url, "mini": f"/v1/creator/miniatura/{p.name}", "tipo": kind,
+                             "nombre": p.stem.rsplit("-", 1)[0],
                              "fecha": p.stat().st_mtime, "bytes": p.stat().st_size})  # fmt: skip
         try:
             from openjarvis.creator import despiece
@@ -229,6 +231,102 @@ async def gallery(limit: int = 300) -> dict[str, Any]:
 
     items = await asyncio.to_thread(collect)
     return {"elementos": items, "total": len(items)}
+
+
+def make_thumbnail(src: Path, dest: Path, size: int = 480) -> bool:
+    """A small JPEG of a picture, or of the first moments of a video, kept
+    next to the others (the gallery shows 9 cards at once: nine 5 MB pictures
+    were why it felt like nothing loaded)."""
+    import subprocess
+
+    from PIL import Image
+
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    tmp = dest.with_suffix(".tmp.jpg")
+    try:
+        if src.suffix.lower() == ".mp4":
+            import shutil
+
+            ffmpeg = shutil.which("ffmpeg")
+            if not ffmpeg:
+                return False
+            subprocess.run(
+                [ffmpeg, "-v", "error", "-y", "-ss", "0.5", "-i", str(src), "-frames:v", "1",
+                 "-vf", f"scale='min({size},iw)':-2", str(tmp)],
+                check=True, timeout=60,
+            )  # fmt: skip
+            if not tmp.is_file():  # a clip shorter than half a second
+                subprocess.run(
+                    [ffmpeg, "-v", "error", "-y", "-i", str(src), "-frames:v", "1",
+                     "-vf", f"scale='min({size},iw)':-2", str(tmp)],
+                    check=True, timeout=60,
+                )  # fmt: skip
+        else:
+            with Image.open(src) as im:
+                im = im.convert("RGB")
+                im.thumbnail((size, size * 2))
+                im.save(tmp, "JPEG", quality=80)
+        tmp.replace(dest)
+        return True
+    except Exception:  # noqa: BLE001 — the card then shows the original
+        tmp.unlink(missing_ok=True)
+        return False
+
+
+@router.get("/miniatura/{filename}")
+async def creator_thumbnail(filename: str) -> Response:
+    """The small version of a media file (made once, then served from disk)."""
+    import re as _re
+
+    safe = _re.sub(r"[^\w.\-]+", "", filename)
+    if not safe or safe != filename:
+        raise HTTPException(status_code=400, detail="Nombre de archivo inválido.")
+    root = studio.projects_root()
+    src = next(
+        (
+            p
+            for p in (root / "imagenes" / safe, root / "videos" / safe, root / safe)
+            if p.is_file()
+        ),
+        None,
+    )
+    if src is None:
+        raise HTTPException(status_code=404, detail="No encuentro ese archivo.")
+    thumb = root / ".miniaturas" / (src.stem + ".jpg")
+    if not thumb.is_file() or thumb.stat().st_mtime < src.stat().st_mtime:
+        if not await asyncio.to_thread(make_thumbnail, src, thumb):
+            raise HTTPException(status_code=404, detail="Sin miniatura.")
+    return FileResponse(
+        thumb,
+        media_type="image/jpeg",
+        headers={"Cache-Control": "public, max-age=86400"},
+    )
+
+
+@router.get("/artefacto/{filename}")
+async def creator_artifact(filename: str) -> Response:
+    """An artifact (a self-contained page Sergio made) for the chat's frame. The
+    content policy is put on top again here, and the frame is a sandbox with no
+    access to Sergio's page: see ``tools/artefacto.py``."""
+    import re as _re
+
+    from openjarvis.tools import artefacto
+
+    safe = _re.sub(r"[^\w.\-]+", "", filename)
+    if not safe or safe != filename or not safe.endswith(".html"):
+        raise HTTPException(status_code=400, detail="Nombre de archivo inválido.")
+    path = studio.projects_root() / "artefactos" / safe
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="No encuentro ese artefacto.")
+    html = artefacto.inject_policy(path.read_text("utf-8"))
+    return Response(
+        html,
+        media_type="text/html; charset=utf-8",
+        headers={
+            "Content-Disposition": f'inline; filename="{safe}"',
+            "Cache-Control": "private, max-age=300",
+        },
+    )
 
 
 @router.get("/media/{filename}")

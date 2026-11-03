@@ -41,6 +41,75 @@ function List({ title, items }: { title: string; items?: string[] }) {
   );
 }
 
+interface Streak {
+  seguidos: number;
+  mejor: number;
+  este_mes: number;
+  total: number;
+}
+
+const STREAK_KEY = 'sergio-racha-oculta';
+
+/** Days with Sergio: something to be proud of, never a debt. No warnings, no
+ * «you lost it», no notifications; it only exists on this page and can be
+ * hidden (owner asked for a guilt streak on 2 Nov 2026; a rest day is not a
+ * failure, so the number only goes up what it was). */
+function Constancy() {
+  const [streak, setStreak] = useState<Streak | null>(null);
+  const [hidden, setHidden] = useState(() => {
+    try {
+      return localStorage.getItem(STREAK_KEY) === '1';
+    } catch {
+      return false;
+    }
+  });
+  useEffect(() => {
+    apiFetch('/v1/personal/semana')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => d?.racha && setStreak(d.racha as Streak))
+      .catch(() => {});
+  }, []);
+  if (!streak || streak.total === 0) return null;
+  const toggle = () => {
+    const next = !hidden;
+    setHidden(next);
+    try {
+      localStorage.setItem(STREAK_KEY, next ? '1' : '0');
+    } catch {
+      /* a convenience only */
+    }
+  };
+  return (
+    <PaperSection
+      label="Su constancia"
+      aside={
+        <button type="button" className="paper-meta" onClick={toggle}>
+          {hidden ? 'Mostrar' : 'Ocultar'}
+        </button>
+      }
+    >
+      {hidden ? null : (
+        <div className="streak">
+          {streak.seguidos >= 2 && (
+            <div>
+              <b>{streak.seguidos}</b>
+              <span>días seguidos</span>
+            </div>
+          )}
+          <div>
+            <b>{streak.este_mes}</b>
+            <span>{streak.este_mes === 1 ? 'día este mes' : 'días este mes'}</span>
+          </div>
+          <div>
+            <b>{streak.mejor}</b>
+            <span>su mejor racha</span>
+          </div>
+        </div>
+      )}
+    </PaperSection>
+  );
+}
+
 export function ProfilePage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [problem, setProblem] = useState('');
@@ -105,6 +174,8 @@ export function ProfilePage() {
           )}
         </PaperSection>
       )}
+
+      <Constancy />
 
       <PaperSection label="Abrir">
         <DesktopSections sections={SECTIONS} />

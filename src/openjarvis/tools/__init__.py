@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging as _logging
 
+import openjarvis.tools.artefacto  # noqa: F401
 import openjarvis.tools.automejora_tool  # noqa: F401
 import openjarvis.tools.conserje_tool  # noqa: F401
 import openjarvis.tools.creator_tools  # noqa: F401
