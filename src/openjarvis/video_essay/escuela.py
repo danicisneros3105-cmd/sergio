@@ -546,6 +546,147 @@ def script_of(words: Sequence[Dict[str, Any]], dur: float) -> Dict[str, Any]:
     }
 
 
+# -- what kind of editing (owner, 3 Nov 2026: «mejora el análisis de los cuatro
+# canales y su tipo de edición»). Four channels, four grammars: flat animation
+# with captions, moving type, a documentary of maps and archive, a first-person
+# vlog of punch-ins. These numbers tell them apart.
+
+ZOOMS = (0.94, 0.97, 1.0, 1.03, 1.06)
+PUNCH = (1.15, 1.3, 1.5)
+
+
+def _zoomed(gray: Any, s: float) -> Any:
+    """*gray* seen through a lens *s* times closer (s > 1) or farther, same size."""
+    import numpy as np
+
+    h, w = gray.shape
+    ys = np.clip(((np.arange(h) - h / 2) / s + h / 2).round().astype(int), 0, h - 1)
+    xs = np.clip(((np.arange(w) - w / 2) / s + w / 2).round().astype(int), 0, w - 1)
+    return gray[ys][:, xs]
+
+
+def scale_between(a: Any, b: Any) -> float:
+    """How much closer *b* is than *a* (1.03 = a 3 % push in). Grey frames, no cut."""
+    import numpy as np
+
+    m = max(2, a.shape[0] // 8), max(2, a.shape[1] // 8)  # leave the edges out
+    errs = {
+        s: float(
+            np.abs(
+                _zoomed(a, s)[m[0] : -m[0], m[1] : -m[1]]
+                - b[m[0] : -m[0], m[1] : -m[1]]
+            ).mean()
+        )
+        for s in ZOOMS
+    }
+    best = min(errs, key=errs.get)
+    # only a clear win counts: a sideways move or a moving object is not a zoom
+    return best if errs[best] < 0.8 * errs[1.0] else 1.0
+
+
+def punch_in(before: Any, after: Any) -> bool:
+    """A cut that only moves closer to the same picture (the vlog «punch-in»):
+    the frame after the cut is the frame before, magnified."""
+    import numpy as np
+
+    flat = float(np.abs(after - before).mean())
+    for s in PUNCH:
+        e = float(np.abs(_zoomed(before, s) - after).mean())
+        if e < 0.6 * flat and e < 0.06:
+            return True
+    return False
+
+
+def flatness(rgb: Any) -> float:
+    """Share of the picture in perfectly even areas. Drawn, flat animation and
+    graphics are mostly even; filmed footage almost never is (grain, light)."""
+    import numpy as np
+
+    g = rgb.astype("int16")
+    dx = np.abs(np.diff(g, axis=1)).max(axis=2)[:-1, :]
+    dy = np.abs(np.diff(g, axis=0)).max(axis=2)[:, :-1]
+    return float(((dx <= 2) & (dy <= 2)).mean())
+
+
+def kind_of_shot(rgb: Any, faces: int, text: Dict[str, float]) -> str:
+    """cara (someone talking to camera), texto (a card of words), grafico (flat
+    drawing, map or animation) or real (filmed footage)."""
+    flat = flatness(rgb)
+    words = max(text.values()) if text else 0.0
+    if words >= 0.12 and flat >= 0.45:
+        return "texto"
+    if flat >= 0.55:
+        return "grafico"
+    if faces:
+        return "cara"
+    return "real"
+
+
+def rhythm(cuts: Sequence[float], dur: float, parts: int = 10) -> List[float]:
+    """Cuts per second in each tenth of the video: where the edit speeds up."""
+    if dur <= 0:
+        return []
+    step = dur / parts
+    return [
+        round(sum(1 for c in cuts if i * step <= c < (i + 1) * step) / step, 2)
+        for i in range(parts)
+    ]
+
+
+def on_hits(cuts: Sequence[float], hits: Sequence[float], tol: float = 0.12) -> float:
+    """Share of cuts that land on a sound hit (a whoosh, a drum, a click)."""
+    if not cuts:
+        return 0.0
+    import bisect
+
+    hs = sorted(hits)
+    n = 0
+    for c in cuts:
+        i = bisect.bisect_left(hs, c - tol)
+        if i < len(hs) and hs[i] <= c + tol:
+            n += 1
+    return round(n / len(cuts), 2)
+
+
+def silences(words: Sequence[Dict[str, Any]], dur: float, gap: float = 1.2) -> float:
+    """Pauses in the narration (no new word for *gap* s or more) per minute."""
+    times = sorted(float(w.get("t", 0)) for w in words if w.get("t") is not None)
+    if len(times) < 2 or dur <= 0:
+        return 0.0
+    n = sum(1 for a, b in zip(times, times[1:]) if b - a >= gap)
+    return round(n / max(1 / 60, dur / 60), 2)
+
+
+def editing_type(m: Dict[str, Any]) -> str:
+    """One line that names the grammar, from the numbers."""
+    planos = m.get("planos") or {}
+    top = max(planos, key=planos.get) if planos else ""
+    pace = m.get("toma_mediana_s") or 0
+    bits = {
+        "grafico": "animación o gráficos planos",
+        "texto": "tipografía en movimiento",
+        "cara": "a cámara, en primera persona",
+        "real": "imagen filmada y de archivo",
+    }
+    out = [bits.get(top, "mixta")]
+    out.append(
+        "cortes muy rápidos"
+        if pace and pace < 1.2
+        else "cortes medios"
+        if pace and pace < 3
+        else "planos largos"
+    )
+    if (m.get("punch_ins_por_min") or 0) >= 2:
+        out.append("acercamientos de golpe")
+    if abs(m.get("zoom_medio") or 0) >= 0.01:
+        out.append("zoom lento constante")
+    if (m.get("cortes_en_golpe") or 0) >= 0.4:
+        out.append("cortes sobre golpes de sonido")
+    if (m.get("texto_en_pantalla") or 0) >= 0.5:
+        out.append("texto casi siempre en pantalla")
+    return ", ".join(out)
+
+
 def measure(
     path: Path,
     *,
@@ -571,6 +712,8 @@ def measure(
     prev_hist = None
     prev_lum = None
     seconds: List[Dict[str, Any]] = []
+    punches: List[float] = []  # cuts that only move closer
+    hit_times: List[float] = []
     frames_seen = 0
     luma = np.asarray(LUMA, dtype="float32")
     for s, chunk in enumerate(_chunks(path, w, h, fps, ffmpeg)):
@@ -599,6 +742,15 @@ def measure(
             if steps[i - 1] < 0.25
         ]
         speed = [abs(x) + abs(y) for x, y in moves]
+        scales = [
+            scale_between(lum[i - 1], lum[i])
+            for i in range(1, len(lum))
+            if steps[i - 1] < 0.25
+        ]
+        zoom = float(np.median([np.log(x) for x in scales])) * fps if scales else 0.0
+        for i in range(1, len(lum)):  # a cut that only moves closer
+            if steps[i - 1] >= 0.25 and punch_in(lum[i - 1], lum[i]):
+                punches.append(s + i / max(1, len(lum)))
         pan = float(np.median(speed)) * fps if speed else 0.0
         shake = float(np.std(np.diff(speed))) * fps if len(speed) > 2 else 0.0
         # effects: a flash jumps up and comes back; black frames are fades
@@ -623,7 +775,11 @@ def measure(
             else np.zeros(1)
         )
         avg = np.convolve(e, np.ones(10) / 10, "same") + 1e-7
-        hits = int(((e > 3 * avg) & (e > 1e-4)).sum() // 2)
+        loud = (e > 3 * avg) & (e > 1e-4)
+        hits = int(loud.sum() // 2)
+        hit_times.extend(
+            s + i * 0.02 for i in np.flatnonzero(loud[1:] & ~loud[:-1]) + 1
+        )
         try:  # one larger frame a second for faces and words
             big = _one_frame(path, s + 0.5, ffmpeg)
             gray = np.asarray(big.convert("L"))
@@ -632,12 +788,13 @@ def measure(
             main = color.hex_of(color.palette(big, 3)[0][0])
         except Exception:  # noqa: BLE001
             faces, rows, main = 0, {}, ""
+        kind = kind_of_shot(f, faces, rows)
         said = [x["w"] for x in words if s <= float(x.get("t", -1)) < s + 1]
         light = light_of(f)
         seconds.append({
             "t": s, "cortes": 0,
             "brillo": round(float(f.mean() / 255), 3), "color": round(float(hsv_s), 3), "principal": main,
-            "movimiento": round(motion, 3), "caras": faces,
+            "movimiento": round(motion, 3), "caras": faces, "plano": kind, "zoom": round(zoom, 3),
             "luz": light, "camara": round(pan, 3), "temblor": round(shake, 3),
             "destellos": flashes, "negro": round(blacks, 2),
             "texto": {k: round(v, 2) for k, v in rows.items()},
@@ -684,7 +841,15 @@ def measure(
         "destellos_por_min": round(sum(s["destellos"] for s in seconds) / minutes, 2),
         "negro": avg("negro"),
         "guion": script_of(words, dur),
+        "planos": {k: round(sum(1 for x in seconds if x.get("plano") == k) / max(1, len(seconds)), 2)
+                   for k in ("cara", "texto", "grafico", "real")},
+        "zoom_medio": avg("zoom"),
+        "punch_ins_por_min": round(len(punches) / minutes, 2),
+        "ritmo_por_tramo": rhythm(cuts, dur),
+        "cortes_en_golpe": on_hits(cuts, hit_times),
+        "silencios_por_min": silences(words, dur),
     }  # fmt: skip
+    summary["tipo_de_edicion"] = editing_type(summary)
     return {
         "meta": meta,
         "cortes": cuts,
@@ -787,8 +952,21 @@ def merge(studies: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
     keys = ["duracion_s", "toma_mediana_s", "cortes_por_segundo", "cortes_primeros_3s", "texto_en_pantalla",
             "caras", "movimiento_medio", "golpes_por_segundo", "volumen_medio_db", "palabras_por_segundo",
             "brillo_medio", "contraste", "sombras", "luces", "calidez", "vineta", "camara", "temblor",
-            "destellos_por_min", "negro"]  # fmt: skip
+            "destellos_por_min", "negro", "zoom_medio", "punch_ins_por_min", "cortes_en_golpe",
+            "silencios_por_min"]  # fmt: skip
     out: Dict[str, Any] = {k: _median([s.get(k) for s in sums]) for k in keys}
+    planos = [s["planos"] for s in sums if s.get("planos")]
+    if planos:
+        out["planos"] = {
+            k: _median([p.get(k) for p in planos])
+            for k in ("cara", "texto", "grafico", "real")
+        }
+    curves = [
+        s["ritmo_por_tramo"] for s in sums if len(s.get("ritmo_por_tramo") or []) == 10
+    ]
+    if curves:
+        out["ritmo_por_tramo"] = [_median([c[i] for c in curves]) for i in range(10)]
+    out["tipo_de_edicion"] = editing_type(out)
     scripts = [s["guion"] for s in sums if s.get("guion")]
     if scripts:
         skeys = ["palabras_por_minuto", "frase_mediana", "preguntas_por_min", "tu_por_frase", "giros_por_min",
@@ -861,7 +1039,66 @@ def rules_from_numbers(m: Dict[str, Any]) -> List[str]:
             f"«you» {g.get('tu_por_frase')} times a sentence; {g.get('pausas_por_min')} pauses a minute; "
             f"{g.get('partes')} parts."
         )
+    if m.get("tipo_de_edicion"):
+        out.append(f"Editing grammar: {m['tipo_de_edicion']}.")
+    p = m.get("planos") or {}
+    if p:
+        names = {"cara": "a face talking to camera", "texto": "cards of words", "grafico": "flat drawing, map or "
+                 "animation", "real": "filmed or archive footage"}  # fmt: skip
+        mix = ", ".join(
+            f"{int(v * 100)} % {names[k]}"
+            for k, v in sorted(p.items(), key=lambda x: -x[1])
+            if v
+        )
+        out.append(f"Shots: {mix}.")
+    if m.get("punch_ins_por_min"):
+        out.append(
+            f"{m['punch_ins_por_min']} punch-ins a minute: cut closer on the same shot to stress a word."
+        )
+    if m.get("zoom_medio"):
+        way = "in" if m["zoom_medio"] > 0 else "out"
+        out.append(
+            f"A slow constant zoom {way} ({abs(m['zoom_medio']):.3f} a second) keeps still images alive."
+        )
+    curve = m.get("ritmo_por_tramo") or []
+    if len(curve) == 10 and max(curve) > 0:
+        peak = curve.index(max(curve)) + 1
+        out.append(
+            f"Rhythm across the video (cuts/s per tenth): {curve}; fastest in tenth {peak}. "
+            "Follow the same curve, not one flat pace."
+        )
+    if m.get("cortes_en_golpe"):
+        out.append(
+            f"{int(m['cortes_en_golpe'] * 100)} % of the cuts land on a sound hit."
+        )
+    if m.get("silencios_por_min"):
+        out.append(
+            f"{m['silencios_por_min']} narration pauses (1.2 s+) a minute: silence is part of the edit."
+        )
     out.append("Vertical 9:16." if m.get("vertical") else "Horizontal 16:9.")
+    return out
+
+
+def compare(
+    categories: Optional[Sequence[str]] = None, root: Optional[Path] = None
+) -> List[Dict[str, Any]]:
+    """The studied categories side by side: what tells their editing apart."""
+    out = []
+    for cat in categories or list(references().keys()):
+        try:
+            m = json.loads(
+                ((root or home()) / "superskills" / cat / "medido.json").read_text(
+                    "utf-8"
+                )
+            )
+        except (OSError, ValueError):
+            continue
+        out.append({
+            "categoria": cat, "tipo": m.get("tipo_de_edicion", ""), "toma_s": m.get("toma_mediana_s"),
+            "planos": m.get("planos", {}), "punch_ins_min": m.get("punch_ins_por_min"),
+            "texto": m.get("texto_en_pantalla"), "golpes": m.get("cortes_en_golpe"),
+            "palabras_min": (m.get("guion") or {}).get("palabras_por_minuto"), "videos": m.get("videos"),
+        })  # fmt: skip
     return out
 
 
@@ -909,7 +1146,13 @@ def synthesize(category: str, *, root: Optional[Path] = None, ask: Optional[Call
             ]
             lines = [ln for ln in lines if len(ln) > 12][:20]
             if len(lines) >= 5:
-                rules, by = lines, "modelo con los números medidos"
+                # the measured grammar stays, whatever the model wrote
+                keep = [
+                    r
+                    for r in rules
+                    if r.startswith(("Editing grammar", "Shots:", "Rhythm across"))
+                ]
+                rules, by = keep + lines, "modelo con los números medidos"
         except Exception as exc:  # noqa: BLE001
             log.info("superskill by code only: %s", exc)
     rules = rules + seed  # the hand-written script rules (read from real transcripts)
@@ -936,6 +1179,9 @@ def synthesize(category: str, *, root: Optional[Path] = None, ask: Optional[Call
     )
     skill = root / "superskills" / category / "SKILL.md"
     skill.parent.mkdir(parents=True, exist_ok=True)
+    (skill.parent / "medido.json").write_text(
+        json.dumps(m, ensure_ascii=False, indent=1), "utf-8"
+    )
     skill.write_text(
         f"---\nname: {key}\ndescription: Edición como las referencias del dueño: {cat['nombre']}\n---\n\n"
         f"# {cat['nombre']}\n\nMedido segundo a segundo en {m['videos']} videos; reglas escritas por {by}.\n\n"

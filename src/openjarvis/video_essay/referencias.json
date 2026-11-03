@@ -99,7 +99,8 @@
     "Hold the explanation for the last sentence: the mechanism (a pendulum, a rail that grows in heat, a law with a loophole) arrives as the reveal, in plain words.",
     "Put one short line of dialogue inside the story so the story is not only narrated; the viewer hears a voice.",
     "Do not ask for a like or a subscription and do not recap; end on the reveal or on the cliffhanger so the video can loop back to its first line."
-   ]
+   ],
+   "guion_fuente": "Leído de 3 transcripciones reales de sus shorts, 2 nov. 2026."
   },
   "explicativo-tipografico": {
    "nombre": "Autosuperación y filosofía con texto en movimiento",
@@ -122,7 +123,18 @@
     "hábitos para enfocarte más rápido",
     "modelos mentales para decidir mejor",
     "disciplina cuando no tienes ganas"
-   ]
+   ],
+   "guion_semilla": [
+    "Open with a contrast question in two sentences: a fact everyone accepts, then «So why…?» (we have more knowledge than ever — so why are so few self-educated?). Answer it in the third sentence with a reframe of 2-4 words («Understanding is.»).",
+    "Promise the structure out loud right after the hook («Here's the exact framework.») and then label each block «Part one», «Part two»… or «First», «Second», «Third»; 3-4 blocks for 2-3 minutes.",
+    "Each block: a counter-intuitive claim («This is going to sound backwards»), one concrete everyday example (learning video editing, a walk, a phone), then one or two famous cases by name (Darwin's notebooks, Feynman's pages), then a one-line aphorism that closes it («A blank page is often a better teacher than another book»).",
+    "Speak at about 185-190 words a minute in short sentences (8-14 words), with paradox lines of 3-6 words («It's actually the opposite.», «It's just less.») after every longer explanation.",
+    "Use the first person once early as proof («This is exactly what I did when I was learning editing», «Last year, I couldn't focus for more than 20 minutes»), never as a long story.",
+    "Write in triads: three items, three adjectives, three «less»: «fast, loud, chaotic»; «less input, less switching, less noise».",
+    "End calm and anti-hype in one or two short lines («It's not viral. It's not a hack, but it works.») or a soft pointer to more; no loud call to action.",
+    "Music under the whole voice, never silence; the voice stays in front."
+   ],
+   "guion_fuente": "Leído de 2 transcripciones reales (The Art of Becoming Dangerously Self-Educated; How to Reset Your Overstimulated Brain), 3 nov. 2026."
   },
   "ensayo-documental": {
    "nombre": "Ensayo documental con mapas y archivo",
@@ -146,7 +158,18 @@
     "The Dark Truth of the Panama Canal",
     "Why This Island Could Trigger World War 3",
     "The Prison Break That Embarrassed an Entire Country"
-   ]
+   ],
+   "guion_semilla": [
+    "Open on a thesis line of 3-5 words that will come back as a refrain («Information is power.») and repeat it at the end of each act, so the long video has a spine.",
+    "Tell history as a fast chronological ride (kings and the Church → the printing press → radio and television → the internet), one era per few sentences, each era ending with what changed in power.",
+    "Narrate in the first person plural and singular with on-location presence («here in America», «We're in one of those moments right now»), at about 190 words a minute in sentences of about 15 words.",
+    "Let archive speak: drop in short real clips of the period (a newsreel line, a TV announcer) between narrated sentences, then continue the sentence over it.",
+    "Carry numbers and named institutions, never vague claims: about 2 numbers a minute and every actor named (a company, a law, a regulator).",
+    "Turn with «But…» about twice a minute: each turn shows the powerful moving back in («But the elites didn't suddenly stop trying to control information»).",
+    "Build in acts of 2-4 minutes (about 17 parts in 13 minutes), each one on a map, a document or a place, and end each act on an open question that the next one answers.",
+    "Close by bringing the history to the present and to the viewer's choice, with the refrain once more; a project or sponsor mention goes at the very end, clearly as such."
+   ],
+   "guion_fuente": "Leído de 1 transcripción real (The Internet Didn't Fail. It Was Taken.), 3 nov. 2026: medir más videos en su PC."
   },
   "reto-narrado": {
    "nombre": "Retos y viajes narrados en primera persona",
@@ -170,7 +193,18 @@
     "I Tested Every 1-Star Hotel",
     "How Many Days Can I Survive an Abandoned Mall?",
     "How Many Countries Can I Visit in 7 Days?"
-   ]
+   ],
+   "guion_semilla": [
+    "Open in 4 words, in the moment, to the viewer («Good morning, sleepy heads.»), then restate the challenge and where the series stands in one sentence (the final day of testing the top 10 attractions).",
+    "Narrate in very short sentences (median 7 words, about 190 words a minute) in the present or just-past tense, with the clock and the place always said (a 4:00 a.m. wake-up, a connection in Phoenix).",
+    "Put a problem in the way within the first minute (a 2-hour delay that risks the concert) and solve it with self-deprecating humor («luckily, I'm really fast»).",
+    "Let other people talk: real lines from the companion, a pilot, a stranger, cut in between the narration (about every 20-40 seconds).",
+    "Count everything on screen and in words: «Number one… number two…», rankings, stamps, days, dollars (about 6 numbers a minute).",
+    "Read the sponsor inside the story at a natural beat (a delay, a wait), never as a cold block.",
+    "Score each stop and keep the running ranking, so every part ends with a verdict («We ranked Red Rocks at number seven»).",
+    "End sincere: thank the companion and the viewers in plain words, the final verdict, and «Take care, guys. See you soon.»"
+   ],
+   "guion_fuente": "Leído de 1 transcripción real (I Visited the Top 10 Places in America - Finale), 3 nov. 2026: medir más videos en su PC."
   }
  },
  "_canales": "Canales que eligió el dueño (2 nov. 2026: «mira sus últimos 20 videos a 30 fps; la luz, el contraste, las sombras, el movimiento, los efectos, el corte, todo; transcribe cómo está escrito el guion»). Sergio baja en su equipo los últimos 20 de cada uno solo para estudiarlos, los mide a 30 cuadros por segundo y transcribe el guion; aprende la técnica, nunca usa su imagen, su voz ni sus palabras, y nunca los nombra en pantalla. «@ryan» es Ryan Trahan y «@your.nextcore» un canal de autosuperación; los videos de más de «max_minutos» (por defecto 60) se saltan: no se bajan compilaciones de horas."

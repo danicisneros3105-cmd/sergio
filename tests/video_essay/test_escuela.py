@@ -71,7 +71,10 @@ def test_study_synthesize_and_guide(tmp_path, monkeypatch):
         f"{i}. Rule number {i} measured from the data." for i in range(1, 9)
     )
     res = escuela.synthesize("shorts-virales", ask=lambda p: rules)
-    assert res["por"].startswith("modelo") and len(res["reglas"]) == 8
+    assert res["por"].startswith("modelo") and res["reglas"][0].startswith(
+        "Editing grammar"
+    )
+    assert sum(1 for r in res["reglas"] if r.startswith("Rule number")) == 8
     prof = json.loads((tmp_path / "estilos" / "ref-shorts-virales.json").read_text())
     assert (
         prof["median_shot_s"] == 1.5
