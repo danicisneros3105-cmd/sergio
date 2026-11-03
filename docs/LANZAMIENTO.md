@@ -16,7 +16,7 @@ El comando separa dos listas:
 | Dirección pública con https | `SERGIO_PUBLIC_URL=https://…` |
 | Claves de IA por cliente | Clave de gestión de OpenRouter en `~/.openjarvis/sergio.env` |
 | Cifrado de datos sensibles | Ya viene activo (`SERGIO_CIFRAR=0` lo apaga: no usarlo) |
-| Clave maestra fuera del disco | `SERGIO_CLAVE_MAESTRA` desde un gestor de secretos del servidor |
+| Clave maestra fuera del disco | `sergio boveda proteger` (llavero con frase) o `SERGIO_CLAVE_MAESTRA` desde un gestor de secretos |
 | Cobros | Stripe o PayPal con sus claves en `sergio.env` |
 
 Las claves viven solo en `sergio.env`, nunca en el repositorio.

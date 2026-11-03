@@ -328,6 +328,7 @@ DEFAULT_TOOL_CAPABILITIES: Dict[str, List[str]] = {
     "artefacto": [Capability.FILE_WRITE],
     "en_segundo_plano": [Capability.NETWORK_FETCH],
     "hoja_calculo": [Capability.FILE_READ, Capability.FILE_WRITE],
+    "criterio_estetico": [Capability.FILE_READ],
     "buscar_fotos": [Capability.FILE_READ, Capability.NETWORK_FETCH],
     "miniaturas": [Capability.FILE_READ, Capability.FILE_WRITE],
     "titulos_video": [Capability.NETWORK_FETCH],

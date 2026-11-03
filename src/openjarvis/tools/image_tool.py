@@ -7,6 +7,7 @@ when that key has no image quota. The picture is saved and shown in the chat.
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Any
 
@@ -60,6 +61,16 @@ class ImageGenerateTool(BaseTool):
         from openjarvis.creator import studio
         from openjarvis.creator.llm import CreatorError
 
+        asked = prompt
+        try:  # art direction from the superskills that fit (never on a brief without design intent)
+            if os.environ.get("SERGIO_ESTETICA", "1").strip() not in ("0", "no", "off"):
+                from openjarvis.estetica.superskills import brief_for_images
+
+                note = brief_for_images(prompt)
+                if note:
+                    prompt = f"{prompt}\n\nArt direction: {note}."
+        except Exception:  # noqa: BLE001 — the picture never waits on this
+            pass
         try:
             data = studio.generate_image(prompt)
         except CreatorError as exc:
@@ -81,7 +92,7 @@ class ImageGenerateTool(BaseTool):
         url = f"/v1/creator/media/{name}"
         return ToolResult(
             tool_name="image_generate",
-            content=f"Imagen lista ({saved}).\n\n![{prompt[:60]}]({url})",
+            content=f"Imagen lista ({saved}).\n\n![{asked[:60]}]({url})",
             success=True,
             metadata={"url": url, "path": str(saved)},
         )

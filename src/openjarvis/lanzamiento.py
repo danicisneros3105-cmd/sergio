@@ -27,6 +27,35 @@ def _step(who: str, name: str, ok: bool, detail: str) -> Dict[str, Any]:
     return {"quien": who, "paso": name, "ok": bool(ok), "detalle": detail}
 
 
+def _key_step() -> Dict[str, Any]:
+    """The master key is safe off the disk: in the environment (a secret
+    manager) or in a keyring encrypted with a passphrase (``sergio boveda proteger``)."""
+    if os.environ.get("SERGIO_CLAVE_MAESTRA", "").strip():
+        return _step(
+            "codigo",
+            "Clave maestra fuera del disco",
+            True,
+            "En una variable de entorno (gestor de secretos).",
+        )
+    try:
+        from openjarvis.pagos import cifrado
+
+        wrapped = bool(cifrado.status().get("protegida_con_frase"))
+    except Exception:  # noqa: BLE001 — a locked or missing keyring is «not yet»
+        wrapped = False
+    return _step(
+        "codigo",
+        "Clave maestra fuera del disco",
+        wrapped,
+        "El llavero está cifrado con frase (sergio boveda proteger)."
+        if wrapped
+        else (
+            "Está en ~/.openjarvis/clave_maestra, junto a los datos: protéjala con "
+            "`sergio boveda proteger` o póngala en un gestor de secretos."
+        ),
+    )
+
+
 def revisar(base: str = "") -> Dict[str, Any]:
     """The list, and whether the code-checkable part is ready."""
     from openjarvis import edicion
@@ -75,17 +104,7 @@ def revisar(base: str = "") -> Dict[str, Any]:
             if boveda.enabled()
             else "SERGIO_CIFRAR=0: está apagado.",
         ),
-        _step(
-            "codigo",
-            "Clave maestra fuera del disco",
-            bool(os.environ.get("SERGIO_CLAVE_MAESTRA", "").strip()),
-            "En una variable de entorno (gestor de secretos)."
-            if os.environ.get("SERGIO_CLAVE_MAESTRA", "").strip()
-            else (
-                "Está en ~/.openjarvis/clave_maestra, junto a los datos: "
-                "en un servidor debe ir en un gestor de secretos."
-            ),
-        ),
+        _key_step(),
     ]
     try:
         from openjarvis.pagos import service

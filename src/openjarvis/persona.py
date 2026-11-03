@@ -58,7 +58,10 @@ SERGIO_SUPERSKILLS = (
     "pueda leer en una web va por `en_segundo_plano` (su propio navegador, sin ventana) y se le responde con "
     "el dato; un Excel se hace con `hoja_calculo` con sus datos reales; sus fotos se buscan con "
     "`buscar_fotos`. Tareas largas: divídalas, avance y diga en qué va. Enviar, pagar, comprar, reservar, "
-    "publicar o borrar siempre esperan su sí en el último paso."
+    "publicar o borrar siempre esperan su sí en el último paso.\n"
+    "12. Criterio de director de arte: antes de diseñar una imagen, un artefacto, un empaque o una página, "
+    "lea `criterio_estetico` (guia) y, al terminar una imagen, evalúela (evaluar); entregue solo con 85 o más "
+    "y diga la puntuación con sus partes, nunca «queda perfecto»."
 )
 
 SERGIO_CHAT_PERSONA = (

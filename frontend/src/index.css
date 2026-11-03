@@ -4306,3 +4306,15 @@ button:focus-visible {
 .artifact-frame { display: block; width: 100%; height: 380px; border: 0; background: #fff; transition: height 0.3s ease; }
 .artifact[data-big] .artifact-frame { height: min(78vh, 760px); }
 @media (prefers-reduced-motion: reduce) { .artifact-frame { transition: none; } }
+
+/* -- Typographic polish (owner, 3 Nov 2026: «hazlo más estético»), from the
+   superskills 14 and 5: headings break into balanced lines (no lone word on the
+   last line), paragraphs avoid orphans, numbers line up, kerning and ligatures on,
+   and big headings get the slight negative tracking they need at size. */
+h1, h2, h3, .paper-title, .chat-hello, .gs-bar h2 { text-wrap: balance; }
+p, li, dd, figcaption, .imsg-bubble { text-wrap: pretty; }
+body { font-kerning: normal; font-feature-settings: "kern" 1, "liga" 1, "calt" 1; }
+table, .tabular, time, [data-number] { font-variant-numeric: tabular-nums; }
+h2:not(.paper-title):not([class*="hello"]) { letter-spacing: -0.012em; }
+/* Pictures and video never show a hard edge against the page: a hairline of ink. */
+.imsg-media, .gs-tile img { outline: 1px solid color-mix(in srgb, var(--color-text) 6%, transparent); outline-offset: -1px; }

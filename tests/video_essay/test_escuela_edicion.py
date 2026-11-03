@@ -81,4 +81,8 @@ def test_compare_lists_the_studied_categories(tmp_path):
     )
     rows = e.compare(["reto-narrado", "shorts-animados"], root=tmp_path)
     assert len(rows) == 1 and rows[0]["categoria"] == "reto-narrado"
-    assert rows[0]["tipo"] == "a cámara" and rows[0]["toma_s"] == 2.1 and rows[0]["videos"] == 20
+    assert (
+        rows[0]["tipo"] == "a cámara"
+        and rows[0]["toma_s"] == 2.1
+        and rows[0]["videos"] == 20
+    )

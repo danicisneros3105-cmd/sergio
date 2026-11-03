@@ -144,7 +144,7 @@ NEURONS: Dict[str, Neuron] = {
         Neuron("imagen", "Imágenes", "Crea y edita imágenes, logos y diseños.",
                ("imagen", "dibuj", "ilustra", "logo", "poster", "portada", "diseña",
                 "diseno", "banner", "fondo de pantalla", "wallpaper"),
-               ("image_generate", "professional_apps", "opendesign")),
+               ("image_generate", "criterio_estetico", "professional_apps", "opendesign")),
         Neuron("video", "Videos", "Hace videos desde una idea o con sus clips.",
                ("video", "clip", "clips", "reel", "short", "tiktok", "montaje", "edita el video",
                 "ensayo", "edicion", "anuncio", "animacion", "cortometraje", "cinema",

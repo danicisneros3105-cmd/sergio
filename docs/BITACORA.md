@@ -2,6 +2,13 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-11-03 · Claude · llavero, segundo plano, escuela por tipo de edición, criterio estético
+- Cifrado: llavero con versiones (`v2:<id>:`), `sergio boveda rotar/proteger/desproteger/estado`, frase con scrypt; los `v1` de antes abren y el libro se firma con la primera clave. `sergio lanzamiento` da por buena la clave si el llavero tiene frase.
+- Asistente: `en_segundo_plano` (navegador propio sin ventana; probado en Chromium real: leyó la página de prueba en 2 s, se detuvo en «Enviar tarea» y detectó el inicio de sesión), `hoja_calculo` (xlsx propio; LibreOffice lo abrió y calculó SUM y SUMIF) y `buscar_fotos`. La actualización instala el extra `browser` y Chromium.
+- Escuela: zoom, punch-ins, tipo de plano, curva de ritmo, cortes en golpes y silencios; `compare()`; guiones de NextCore (2 transcripciones), Johnny Harris (1) y Ryan (1) con su fuente anotada. Falta medir los videos de verdad en su PC.
+- Estética: 25 superskills (18 789 palabras, todas ≥ 700), `estetica/` (medir, Pinterest por API oficial con su token, rangos de su perfil), herramienta `criterio_estetico`, dirección de arte en `image_generate`, superskill 12 de la persona. Pase visual: titulares equilibrados, párrafos sin huérfanas, números tabulares, filete fino en fotos.
+- No probado: Pinterest real (sin token aquí), el navegador en el WSL del dueño, la búsqueda de fotos por contenido con un modelo real.
+
 ## 2026-11-03 · Claude · galería estilo Apple, videos que reproducen, menos pantallas rotas
 - Galería: el abanico es la vista previa; un clic abre la galería completa (cuadrícula por día, se abre desde el rectángulo del abanico; el visor crece desde la miniatura, flechas/Esc/deslizar). Antes el clic dependía de la carta exacta bajo el puntero, que se mueve: ahora el abanico entero recibe el clic. Botón «Abrir la galería».
 - Videos que «no hacían nada»: causa probable, el máster HEVC 10 bits del modo más alto, que los navegadores no reproducen. `GET /v1/creator/video-listo/{archivo}` mira el archivo (ffmpeg) y, si no sirve, hace una copia H.264 en `.web/` (`/v1/creator/reproducir/`, abierta solo por nombre aleatorio). `WebVideo` espera la copia, y si el navegador aun así falla dice por qué y ofrece descargar. Lo usan la galería, el chat y los Nodes. No pude reproducirlo con un video real del dueño: probado con un clip HEVC 10 bits propio.

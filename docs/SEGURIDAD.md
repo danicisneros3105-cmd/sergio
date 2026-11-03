@@ -75,3 +75,27 @@ comprueba que el texto privado no aparece en el archivo del disco.
 3. TLS 1.2+ siempre y HSTS en el dominio público; copias de seguridad cifradas.
 4. Registro de accesos a datos sensibles, borrado verificable de la cuenta y exportación.
 5. Prueba de penetración y auditoría de un tercero antes de lanzar.
+
+## El llavero: versiones, rotación y frase (3 nov. 2026)
+
+El dueño pidió cifrado «nivel Vertu o bancario». Vertu es una marca de teléfonos
+de lujo, no un estándar de seguridad; «bancario» sin certificar tampoco lo es. Lo que
+Sergio hace ahora es lo mismo que hace un servicio de claves de un banco
+(KMS), en pequeño:
+
+- **Versiones de clave.** Cada valor cifrado lleva el id de su clave
+  (`v2:<id>:…`). `sergio boveda rotar` crea una clave nueva para todo lo que se
+  guarde desde ese momento; lo anterior sigue abriéndose con su clave. Los
+  valores de antes del llavero (`v1:`) abren con la clave original.
+- **Llavero cifrado con frase.** `sergio boveda proteger` cifra el propio
+  llavero (AES-256-GCM) con una clave sacada de una frase por scrypt
+  (N=2^17, r=8, p=1: unos 128 MB por intento, para que adivinarla sea lento). El
+  disco ya no guarda ninguna clave usable; el servidor necesita la frase en
+  `SERGIO_FRASE_MAESTRA` para arrancar. Si la frase vive en el mismo disco, la
+  ganancia es poca: debe ir en un gestor de secretos o escribirse al arrancar.
+- **El libro de pagos** se firma siempre con la primera clave, así su cadena se
+  sigue comprobando después de rotar.
+- `sergio boveda estado` dice la clave activa, cuántas hay y si hay frase.
+
+Lo que sigue sin existir: certificación (PCI DSS, SOC 2, ISO 27001), módulo de
+hardware (HSM) y auditoría externa. Hasta tenerlos no se dice «nivel bancario».

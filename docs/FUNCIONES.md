@@ -85,6 +85,8 @@ reales. Eso es lo que debe hacer la beta cerrada.
 | Modelos 3D por piezas dentro del chat, y 3D en la nube (Meshy, Tripo, fal) | Con servicio | Clave |
 | Blender, Unreal Engine 5, movimiento de personajes (NVIDIA) | Windows | Programas y GPU |
 | Láminas «Anatomy» dentro del chat | Hecho | — |
+| Criterio estético: 25 superskills de dirección de arte con matriz 1–100, medidor de imágenes y dirección de arte en cada imagen generada | Hecho | — |
+| Sus tableros de Pinterest medidos (API oficial, su token) para calibrar el criterio | Con servicio | `PINTEREST_TOKEN` |
 | Diseño, código, planos, BIM: programas reales que Sergio abre | Con servicio | Se instalan aparte |
 
 ## 5. Control del equipo y de la pantalla (Windows)
@@ -99,6 +101,9 @@ reales. Eso es lo que debe hacer la beta cerrada.
 | Deshacer lo último que Sergio hizo (30 min) | Windows |
 | Cámara: ver, reconocer personas (con su permiso), manos, hologramas | Windows (la ventana «Sergio ve» está escondida) |
 | Dictado limpio y detección de a quién se le habla | Windows |
+| En segundo plano: su propio navegador sin ventana lee una web en la que usted inició sesión una vez (colegio, banco, pedidos) mientras usa la pantalla; nunca envía, paga ni borra | Hecho (necesita la actualización que instala el navegador) |
+| Excel real (formatos, totales con fórmulas) desde datos y lectura de .xlsx/.csv | Hecho |
+| Buscar fotos en sus carpetas por fecha, nombre, tipo y, si se pide, por lo que muestran | Hecho (lo que muestran: con un modelo de visión) |
 | Confirmar con Visage lo que no tiene vuelta | Windows |
 
 ## 6. Seguridad y cuentas
@@ -114,6 +119,7 @@ reales. Eso es lo que debe hacer la beta cerrada.
 | Claves de IA de clientes cifradas con AES-256-GCM | Hecho |
 | Cifrado de datos sensibles (salud, recordatorios, caras, memoria, Nodes) en reposo | Hecho (`docs/SEGURIDAD.md`) |
 | `sergio lanzamiento`: qué falta para publicar, separando código y pasos del dueño | Hecho (`docs/LANZAMIENTO.md`) |
+| Llavero con versiones de clave, rotación y frase (`sergio boveda`) | Hecho |
 
 ## 7. Salud y bienestar
 

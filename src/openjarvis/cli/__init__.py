@@ -121,6 +121,7 @@ if not _DATA_BOUNDARY_BOOTSTRAP:
     from openjarvis.cli.doctor_cmd import doctor
     from openjarvis.cli.ecc_cmd import ecc
     from openjarvis.cli.escritorio_cmd import escritorio
+    from openjarvis.cli.estetica_cmd import estetica
     from openjarvis.cli.eval_cmd import eval_group
     from openjarvis.cli.evolve_cmd import evolve
     from openjarvis.cli.extensions_cmd import extensions
@@ -165,6 +166,7 @@ if not _DATA_BOUNDARY_BOOTSTRAP:
     cli.add_command(agi, "agi")
     cli.add_command(lanzamiento, "lanzamiento")
     cli.add_command(boveda, "boveda")
+    cli.add_command(estetica, "estetica")
     cli.add_command(init, "init")
     cli.add_command(ask, "ask")
     cli.add_command(chat, "chat")

@@ -586,3 +586,23 @@ msgstr "Encrypts the keyring with a passphrase (the server will need it to start
 #: help
 msgid "Quita la frase del llavero."
 msgstr "Removes the passphrase from the keyring."
+
+#: help
+msgid "Criterio estético: sus tableros de Pinterest y medir imágenes."
+msgstr "Aesthetic judgement: your Pinterest boards and measuring images."
+
+#: help
+msgid "Lee sus tableros (API oficial, su token), mide cada imagen y guarda su perfil."
+msgstr "Reads your boards (official API, your token), measures each image and saves your profile."
+
+#: help
+msgid "Solo este tablero (se puede repetir)."
+msgstr "Only this board (can repeat)."
+
+#: help
+msgid "Imágenes como mucho."
+msgstr "Images at most."
+
+#: help
+msgid "Mide una imagen y la puntúa con las matrices medibles."
+msgstr "Measures an image and scores it with the measurable matrices."
