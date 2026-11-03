@@ -104,7 +104,6 @@ def link_preview(url: str) -> Dict[str, Any]:
         raise HTTPException(502, "La página no respondió.")
 
 
-
 @router.get("/vista-previa/img/{name}")
 def link_preview_image(name: str) -> Any:
     from fastapi import HTTPException

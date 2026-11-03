@@ -80,10 +80,17 @@ def parse(page: str, url: str) -> Dict[str, str]:
 
 
 MAX_IMAGE = 2_000_000
-IMAGE_TYPES = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp", "image/gif": ".gif"}
+IMAGE_TYPES = {
+    "image/jpeg": ".jpg",
+    "image/png": ".png",
+    "image/webp": ".webp",
+    "image/gif": ".gif",
+}
 
 
-def keep_image(image_url: str, get: Callable[..., Any], is_public: Callable[[str], bool]) -> str:
+def keep_image(
+    image_url: str, get: Callable[..., Any], is_public: Callable[[str], bool]
+) -> str:
     """The picture saved on this computer, served by Sergio (the app's content
     policy never loads pictures from other sites). Returns its path under
     /v1/vista-previa/img/, or "" when it cannot be used."""
@@ -157,7 +164,9 @@ def preview(
     page = resp.text[:MAX_BYTES] if "html" in kind else ""
     data = parse(page, final) if page else {"url": url, "title": "", "description": "", "image": "",
                                             "site": parsed.hostname, "host": parsed.hostname}  # fmt: skip
-    data["picture"] = keep_image(data["image"], get, is_public) if data.get("image") else ""
+    data["picture"] = (
+        keep_image(data["image"], get, is_public) if data.get("image") else ""
+    )
     try:
         cache.write_text(json.dumps({**data, "_at": now}, ensure_ascii=False), "utf-8")
     except OSError:
