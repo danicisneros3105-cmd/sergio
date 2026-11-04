@@ -70,9 +70,9 @@ const Video = () => (
 )
 const Auto = () => (
   <div className="tw-rows" aria-hidden="true">
-    <span><b>Cada mañana</b> Rihno · resumen del día</span>
-    <span><b>Si cambia una web</b> le avisa</span>
-    <span><b>Cada 3 horas</b> un video · espera su «Publicar»</span>
+    <span><b>Organizador</b> recordatorios y pendientes de hoy</span>
+    <span><b>Automatizaciones</b> cada mañana, si cambia una web…</span>
+    <span><b>Cowork</b> las dos, a un toque de su tarea</span>
   </div>
 )
 const Health = () => (
@@ -108,13 +108,13 @@ const Hello = () => (
 )
 
 const STEPS: Step[] = [
-  { key: 'hola', title: 'Bienvenido a Sergio', text: 'Su asistente con todas las IA del mundo, no solo una. En diez pasos verá lo que puede hacer.', widget: Hello },
+  { key: 'hola', title: 'Bienvenido a Sergio', text: 'Su asistente con todas las IA del mundo, no solo una. En pocos pasos verá lo que puede hacer y dónde está cada cosa.', widget: Hello },
   { key: 'chat', title: 'Escriba o hable', text: 'Pídale lo que sea, como a una persona. Recuerda lo que hablaron antes.', to: '/chat', cta: 'Abrir el chat', point: 'textarea', widget: Chat },
   { key: 'voz', title: 'Conversación por voz', text: 'Diga «Sergio» y hable. Responde en voz alta y se le puede interrumpir.', to: '/chat', cta: 'Probar la voz', point: 'Conversación', widget: Voice },
   { key: 'modelos', title: 'Todos los modelos', text: 'Gemini, GPT, Claude, DeepSeek y cientos más. Elija uno o deje que Sergio elija el mejor.', to: '/chat', then: 'modelo', cta: 'Elegir modelo', widget: Models },
   { key: 'nodes', title: 'Su equipo: Nodes', text: 'Cuatro empleados que trabajan sin parar: organizan, investigan, diseñan y deciden.', to: '/nodes', cta: 'Conocer al equipo', widget: Nodes },
   { key: 'video', title: 'Videos de creador', text: 'Le muestra 3 videos que hoy funcionan para su idea, planea con usted el guion y una animación de cada toma, y edita lo que usted grabe con subtítulos, música y sonido de estudio. O lo hace entero.', to: '/chat', then: 'video', cta: 'Hacer un video', widget: Video },
-  { key: 'auto', title: 'Automatice', text: 'Elija cuándo, qué y quién lo hace (uno de sus Nodes): un resumen cada mañana, vigilar una web, videos programados. Lo que envía, compra o borra espera su sí.', to: '/cowork?ver=automatizar', cta: 'Ver Automatizar', widget: Auto },
+  { key: 'auto', title: 'Cowork: su día en un lugar', text: 'Cowork hace las tareas largas por usted. Debajo de la caja hay dos filas cerradas, «Organizador» (recordatorios y pendientes de hoy) y «Automatizaciones» (un resumen cada mañana, vigilar una web, videos programados). Ábralas con un toque. Lo que envía, compra o borra espera su sí.', to: '/cowork?ver=organizador', cta: 'Verlas en Cowork', point: 'Organizador', widget: Auto },
   { key: 'salud', title: 'Salud simple', text: 'Medicinas a su hora, metas y cómo se siente. Sin inventar datos.', to: '/salud', cta: 'Abrir Salud', widget: Health },
   { key: 'uso', title: 'Uso y plan', text: 'Cuánto lleva usado hoy y qué plan tiene, en una mirada.', to: '/uso', cta: 'Ver el uso', widget: Usage },
   { key: 'dividir', title: 'Multitarea', text: 'El botón de dos columnas, arriba a la derecha del chat, pone dos apps de su equipo lado a lado (por ejemplo Chrome y Word). En el teléfono o el Mac le dice cómo hacerlo con su sistema.', cta: 'Probarlo ahora', split: true, point: 'Multitarea', widget: Split },

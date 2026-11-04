@@ -2,6 +2,12 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-11-04 · Claude · Cowork menos amontonado y presente en la bienvenida
+- Inicio de Cowork: dos ideas en vez de cuatro, una fila de apps con «Ver todas (10)», más aire entre secciones y las dos filas en una tarjeta bajo «Su día en Cowork». Capturado y revisado.
+- El tour de bienvenida tiene el paso «Cowork: su día en un lugar» (con el puntero en «Organizador»), «Primeros pasos» tiene el mosaico «Su día en Cowork» y las guías de Ayuda dicen la ruta nueva. 346 pruebas del frontend pasan, tsc limpio.
+- Sin probar: el puntero del tour sobre la fila en un equipo con la ventana pequeña.
+
+
 ## 2026-11-04 · Claude · Organizador y Automatizaciones dentro de Cowork
 - Quité ambos de la barra lateral; Cowork los muestra como filas cerradas (se abren en su sitio) con enlace a la página completa. Cargados con `lazy` para no pesar en Cowork. Probado: tsc, 346 pruebas del frontend y captura de las tres vistas (cerrado, organizador abierto); sin errores de consola.
 - Sin probar: el uso real de Nueva automatización dentro de Cowork con modelo conectado.

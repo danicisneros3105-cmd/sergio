@@ -26,7 +26,7 @@
 .cw-suggest { list-style: none; margin: 18px 0 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .cw-suggest button { width: 100%; height: 100%; text-align: left; padding: 12px 14px; border: 1px solid var(--cw-line) !important; border-radius: 16px; color: var(--cw-2); font-size: 14px; line-height: 1.4; }
 .cw-suggest button:hover { background: var(--cw-hover); color: var(--color-text); }
-.cw-tasks { margin-top: 44px; }
+.cw-tasks { margin-top: 40px; }
 .cw-tasks h2 { margin: 0 0 6px; padding: 0 12px; font-size: 13px; font-weight: 500; color: var(--cw-2); }
 .cw-tasks ul { list-style: none; margin: 0; padding: 0; }
 .cw-tasks li button { width: 100%; display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 12px; text-align: left; }
@@ -165,3 +165,6 @@
   .cw-top { padding-left: 52px; }
   .cw-task-meta { display: none; }
 }
+
+/* calmer home (4 Nov 2026: «que no se vea amontonada la info»): two ideas, one row of apps, then the folded rows */
+.cw-suggest li:nth-child(n + 3) { display: none; }

@@ -109,9 +109,9 @@ export const LEARN_GUIDES: Guide[] = [
   },
   {
     id: 'organizador',
-    title: 'Organizador: recordatorios, pendientes y correo',
+    title: 'Cowork: Organizador (recordatorios, pendientes y correo)',
     steps: [
-      'Organizador → Hoy: añada un recordatorio con su hora. Le avisa en la app.',
+      'Cowork → «Su día en Cowork» → Organizador → Hoy: añada un recordatorio con su hora. Le avisa en la app.',
       'Pendientes: escriba lo que tiene que hacer y táchelo al terminar.',
       'Correo: conecte su cuenta una vez; Sergio resume y prepara borradores, nunca envía.',
     ],
@@ -121,9 +121,9 @@ export const LEARN_GUIDES: Guide[] = [
     id: 'automatizar',
     title: 'Automatizar',
     steps: [
-      'Automatizar → elija cuándo (cada mañana, cada hora, cuando cambie una web).',
+      'Cowork → «Su día en Cowork» → Automatizaciones → elija cuándo (cada mañana, cada hora, cuando cambie una web).',
       'Escriba qué hacer, en uno o varios pasos, y quién lo hace (uno de sus Nodes).',
-      'Guarde. Lo verá en «Mis automatizaciones», donde puede pausarla o borrarla.',
+      'Guarde. Lo verá en «Sus automatizaciones», donde puede pausarla o borrarla. Canales, clientes y bolsa están en «Abrir todas las automatizaciones».',
     ],
     go: { to: '/cowork?ver=automatizar', label: 'Ir a Automatizar' },
   },

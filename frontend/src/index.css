@@ -4395,13 +4395,17 @@ h2:not(.paper-title):not([class*="hello"]) { letter-spacing: -0.012em; }
 .node-queue li small { color: var(--color-text-tertiary); font-size: 12px; }
 .node-queue li button { border: 1px solid var(--color-border); background: transparent; border-radius: 999px; width: 26px; height: 26px; display: grid; place-items: center; color: var(--color-text-secondary); cursor: pointer; }
 
-/* Cowork: organizer and automations, folded away until opened (4 Nov 2026). */
-.cw-more { width: 100%; margin-top: 18px; display: grid; gap: 8px; }
-.cw-more-row { border: 1px solid var(--color-border); border-radius: 16px; background: var(--color-surface, var(--color-bg)); overflow: hidden; }
-.cw-more-head { width: 100%; display: flex; align-items: center; gap: 10px; padding: 12px 14px; background: transparent; border: 0; color: var(--color-text); cursor: pointer; font: inherit; font-size: 14px; text-align: left; }
+/* Cowork: organizer and automations, folded away until opened (4 Nov 2026).
+   One quiet card with a divider, under a small heading like «Sus apps». */
+.cw-more { width: 100%; margin-top: 40px; }
+.cw-more-label { margin: 0 0 10px; font-size: 13px; font-weight: 600; color: var(--color-text-secondary); }
+.cw-more-card { border: 1px solid var(--color-border); border-radius: 16px; background: var(--color-surface, var(--color-bg)); overflow: hidden; }
+.cw-more-row + .cw-more-row { border-top: 1px solid var(--color-border); }
+.cw-more-head { width: 100%; display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: transparent; border: 0; color: var(--color-text); cursor: pointer; font: inherit; font-size: 14.5px; text-align: left; }
+.cw-more-head:hover { background: var(--color-hover, rgba(0,0,0,.03)); }
 .cw-more-title { font-weight: 600; }
 .cw-more-hint { flex: 1; color: var(--color-text-tertiary); font-size: 13px; }
-.cw-more-body { padding: 4px 14px 16px; border-top: 1px solid var(--color-border); }
-.cw-more-sub { font-size: 14px; font-weight: 600; margin: 18px 0 8px; }
-.cw-more-full { margin-top: 14px; background: none; border: 0; padding: 0; color: var(--color-accent-text, var(--color-accent)); cursor: pointer; font: inherit; font-size: 13px; }
+.cw-more-body { padding: 4px 16px 18px; border-top: 1px solid var(--color-border); }
+.cw-more-sub { font-size: 14px; font-weight: 600; margin: 22px 0 10px; }
+.cw-more-full { margin-top: 16px; background: none; border: 0; padding: 0; color: var(--color-accent-text, var(--color-accent)); cursor: pointer; font: inherit; font-size: 13px; }
 @media (max-width: 640px) { .cw-more-hint { display: none; } }

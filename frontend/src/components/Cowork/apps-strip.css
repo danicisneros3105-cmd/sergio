@@ -1,5 +1,5 @@
 .apps-strip {
-  margin-top: 28px;
+  margin-top: 40px;
 }
 .apps-strip h2 {
   margin: 0 0 10px;
@@ -50,3 +50,5 @@
 .apps-tasks { position: absolute; z-index: 30; top: calc(100% + 6px); left: 0; width: 260px; padding: 6px; border-radius: 14px; border: 1px solid var(--color-border); background: var(--color-bg); box-shadow: 0 14px 30px rgba(0, 0, 0, 0.14); display: flex; flex-direction: column; }
 .apps-tasks button { text-align: left; padding: 9px 10px; border: none; border-radius: 9px; background: transparent; color: var(--color-text); font-size: 13.5px; line-height: 1.35; cursor: pointer; }
 .apps-tasks button:hover { background: var(--color-bg-secondary); }
+
+.apps-more { display: block; margin: 12px auto 0; background: none; border: 0; padding: 4px 8px; font: inherit; font-size: 13px; color: var(--color-accent-text, var(--color-accent)); cursor: pointer; }

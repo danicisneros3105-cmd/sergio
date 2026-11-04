@@ -16,7 +16,7 @@ const TILES: Array<{ icon: typeof Check; title: string; text: string; run: 'chat
   { icon: MessageSquare, title: 'Pregúntele algo', text: 'Escriba o diga «Sergio». Recuerda lo que hablaron.', run: 'chat' },
   { icon: Clapperboard, title: 'Pídale un video', text: 'Del tema al video terminado, con clips reales.', run: 'video' },
   { icon: Columns2, title: 'Dos cosas a la vez', text: 'Divida la pantalla, como un iPhone plegable.', run: 'split' },
-  { icon: Zap, title: 'Que trabaje solo', text: 'Canales, clientes y empleos en segundo plano.', run: 'auto' },
+  { icon: Zap, title: 'Su día en Cowork', text: 'Tareas largas, recordatorios, pendientes y rutinas, en un solo lugar.', run: 'auto' },
 ];
 
 export const ONBOARDED = 'sergio-onboarded';
@@ -45,7 +45,7 @@ export function GetStartedPage() {
             type="button"
             className="start-tile"
             onClick={() => {
-              if (run === 'auto') return navigate('/cowork?ver=automatizar');
+              if (run === 'auto') return navigate('/cowork?ver=organizador');
               navigate('/chat');
               window.setTimeout(() => {
                 if (run === 'video') window.dispatchEvent(new CustomEvent('sergio:video'));

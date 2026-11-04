@@ -80,12 +80,15 @@ export function AppsStrip({ limit = 12, onPick }: { limit?: number; onPick?: (ta
     }
   };
 
+  const [all, setAll] = useState(false);
+  const ONE_ROW = 5; // one row: the rest wait behind «Ver todas»
+  const visible = all ? shown : shown.slice(0, ONE_ROW);
   if (!shown.length) return null;
   return (
     <section className="apps-strip" aria-label="Conecte sus apps">
       <h2>Sus apps</h2>
       <ul>
-        {shown.map((e) => {
+        {visible.map((e) => {
           const s = stateOf(e.id);
           const on = s?.status === 'connected';
           return (
@@ -116,6 +119,11 @@ export function AppsStrip({ limit = 12, onPick }: { limit?: number; onPick?: (ta
           );
         })}
       </ul>
+      {shown.length > ONE_ROW && (
+        <button type="button" className="apps-more" onClick={() => setAll(!all)}>
+          {all ? 'Ver menos' : `Ver todas (${shown.length})`}
+        </button>
+      )}
     </section>
   );
 }
