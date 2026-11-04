@@ -43,7 +43,8 @@ describe('AutomatizarPage', () => {
   it('opens with the composer, what runs and every platform, not only two', async () => {
     render(<AutomatizarPage />);
     expect(screen.getByRole('heading', { level: 1 }).textContent).toMatch(/mientras usted no está/);
-    await waitFor(() => expect(screen.getByText('canales programados')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('Conectado')).toBeTruthy());
+    expect(screen.queryByText('canales programados')).toBeNull();  // the counters were removed (owner, 4 Nov 2026)
     for (const name of ['YouTube', 'Instagram', 'TikTok', 'Facebook', 'LinkedIn', 'X']) {
       expect(screen.getAllByText(name).length).toBeGreaterThan(0);
     }

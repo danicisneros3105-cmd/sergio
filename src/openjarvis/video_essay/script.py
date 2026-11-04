@@ -209,6 +209,36 @@ def even(
     return a
 
 
+ROOM_DB = -62.0  # the quiet of a room, so a pause is not a dead cut
+
+
+def trim_edges(piece: np.ndarray, keep_s: float = 0.04) -> np.ndarray:
+    """The part without the silence a voice call adds at both ends, so the
+    pauses are exactly the ones asked for (40 ms are kept for the breath)."""
+    a = np.asarray(piece, dtype=np.float32)
+    if not a.size:
+        return a
+    loud = np.flatnonzero(np.abs(a) > max(0.004, float(np.max(np.abs(a))) * 0.02))
+    if not loud.size:
+        return a
+    keep = int(keep_s * audio.SR)
+    return a[max(0, loud[0] - keep) : min(len(a), loud[-1] + keep + 1)]
+
+
+def room_tone(n: int, seed: int = 0) -> np.ndarray:
+    """Very quiet, soft-edged room noise for *n* samples (never digital silence
+    between sentences: with it the voice sounds recorded in one place)."""
+    if n <= 0:
+        return np.zeros(0, dtype=np.float32)
+    rng = np.random.default_rng(seed)
+    white = rng.normal(0.0, 1.0, n).astype(np.float32)
+    soft = np.cumsum(white)  # brown noise: weight in the lows, like a room
+    soft -= np.linspace(soft[0], soft[-1], n, dtype=np.float32)
+    soft /= float(np.max(np.abs(soft))) + 1e-9
+    rms = float(np.sqrt(np.mean(soft**2))) + 1e-9
+    return (soft * (10 ** (ROOM_DB / 20) / rms)).astype(np.float32)
+
+
 def narrate_beats(
     beats: List[Dict[str, Any]],
     *,
@@ -242,10 +272,15 @@ def narrate_beats(
         made = list(pool.map(say, range(len(parts))))
     pieces_out: List[np.ndarray] = [np.zeros(int(0.15 * audio.SR), dtype=np.float32)]
     for part, wav in zip(parts, made):
-        pieces_out.append(even(audio.read_wav(wav)))
+        pieces_out.append(even(trim_edges(audio.read_wav(wav))))
         gap = max(breath, part["pause"])
         pieces_out.append(np.zeros(int(gap * audio.SR), dtype=np.float32))
-    return audio.write_wav(np.concatenate(pieces_out))
+    return audio.write_wav(_with_room(np.concatenate(pieces_out)))
+
+
+def _with_room(voice: np.ndarray) -> np.ndarray:
+    """The narration over one continuous room tone."""
+    return (voice + room_tone(len(voice))).astype(np.float32)
 
 
 def _parallel(speak: Optional[Callable[..., bytes]]) -> int:
@@ -398,9 +433,9 @@ def narrate(
     for wav in made:
         if pieces:
             pieces.append(gap)
-        pieces.append(even(audio.read_wav(wav)))
+        pieces.append(even(trim_edges(audio.read_wav(wav))))
     lead = np.zeros(int(0.15 * audio.SR), dtype=np.float32)
-    return audio.write_wav(np.concatenate([lead, *pieces, gap]))
+    return audio.write_wav(_with_room(np.concatenate([lead, *pieces, gap])))
 
 
 def _norm(w: str) -> str:

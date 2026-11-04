@@ -178,7 +178,6 @@ export function AutomatizarPage() {
       .catch(() => setNodes([]));
   }, []);
   useEffect(loadNodes, [loadNodes]);
-  const routines = nodes.reduce((n, x) => n + (x.routines?.length ?? 0), 0);
 
   const [thread, setThread] = useState<Mensaje[]>(loadThread);
   const [text, setText] = useState('');
@@ -213,12 +212,6 @@ export function AutomatizarPage() {
       setThread((t) => t.map((x) => (x.id === m.id ? { ...x, hecho: [...(x.hecho || []), card.titulo] } : x)));
     }, 'Hecho.');
 
-  const live = [
-    { n: st?.programados?.length ?? 0, label: 'canales programados' },
-    { n: st?.canales?.por_dia ?? 3, label: 'publicaciones al día, como mucho' },
-    { n: st?.oportunidades?.total ?? 0, label: 'clientes y empleos guardados' },
-    { n: st?.canales?.respuestas_pendientes ?? 0, label: 'respuestas esperando su visto bueno' },
-  ];
   const connected = (key: string) =>
     key === 'youtube' ? !!st?.canales?.youtube.conectado : key === 'instagram' ? !!st?.canales?.instagram.conectado : false;
 
@@ -227,18 +220,6 @@ export function AutomatizarPage() {
       <header className="ax-head">
         <p className="ax-kicker">Automatizar</p>
         <h1 className="ax-title">Lo que Sergio hace mientras usted no está.</h1>
-        <dl className="ax-stats" aria-label="En marcha">
-          <div>
-            <dt>{routines}</dt>
-            <dd>automatizaciones</dd>
-          </div>
-          {live.map((x) => (
-            <div key={x.label}>
-              <dt>{x.n}</dt>
-              <dd>{x.label}</dd>
-            </div>
-          ))}
-        </dl>
       </header>
 
       <section className="ax-block" aria-labelledby="ax-new">

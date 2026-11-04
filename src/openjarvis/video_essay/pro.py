@@ -37,9 +37,9 @@ VOICE_FILTERS = (
     "equalizer=f=3500:t=q:w=1.2:g=2.5",  # presence: words easy to follow
     "highshelf=f=8500:g=2.5",  # air: a 24 kHz voice has little above 10 kHz
     "acompressor=threshold=-20dB:ratio=3:attack=8:release=120:makeup=2dB",
-    # The compressor lifts the room between words too: a soft gate puts it
-    # back down (only by 10 dB, so breaths stay natural).
-    "agate=threshold=0.05:ratio=3:range=0.3:attack=4:release=180",
+    # No gate (owner, 4 Nov 2026: «el sonido aún está mal»): a synthetic voice
+    # has no room to shut out, and the gate pulled the soft ends of words and
+    # the quiet consonants 2-3 dB down (measured), which sounds chopped.
     "alimiter=limit=0.89:level=false",
 )
 TARGET_LUFS = -14.0  # YouTube, Spotify, TikTok, Instagram normalise here

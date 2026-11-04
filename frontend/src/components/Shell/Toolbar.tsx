@@ -10,7 +10,6 @@ import {
   Settings,
   Images,
   MessageSquare,
-  Gauge,
   FolderKanban,
   ChevronDown,
   Zap,
@@ -61,7 +60,6 @@ export const TOOLBAR_ITEMS = [
   // Owner, 29 Oct 2026: «no veo dónde creas proyectos»: Proyectos in view;
   // Uso moves under «Más» (and stays on the notch).
   { path: '/proyectos', icon: FolderKanban, label: 'Proyectos', more: false },
-  { path: '/uso', icon: Gauge, label: 'Uso', more: true },
   { path: '/swarm', icon: SwarmIcon, label: 'Agent Swarm', more: true },
   { path: '/workspace', icon: NotebookPen, label: 'Organizador', more: true },
   { path: '/cowork', icon: Briefcase, label: 'Cowork', more: true },

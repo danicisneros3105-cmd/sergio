@@ -30,6 +30,10 @@ from typing import Any, Dict, Optional
 
 SR = 48_000
 TARGET = {"I": -14.0, "TP": -1.5, "LRA": 11.0}
+# Effects are accents: under a voice they sit well below it (-3 dB covered the
+# words; owner, 4 Nov 2026: «el sonido aún está mal»).
+FX_UNDER_VOICE_DB = -9
+FX_ALONE_DB = -4
 LIMIT = 0.8  # -1.9 dBFS sample peak: true peak stays under -1.5 dBTP
 
 
@@ -109,7 +113,8 @@ def _graph(
         parts.append("[vkey]anullsink")
     if has_fx:
         parts.append(
-            f"[{i}:a]{rs},aformat=sample_fmts=fltp:channel_layouts=stereo,volume=-3dB[f]"
+            f"[{i}:a]{rs},aformat=sample_fmts=fltp:channel_layouts=stereo,"
+            f"volume={FX_UNDER_VOICE_DB if has_voice else FX_ALONE_DB}dB[f]"
         )
         mix.append("[f]")
         i += 1

@@ -45,7 +45,7 @@ const PERIODS = [
 const fmt = new Intl.NumberFormat('es');
 const money = (v: number) => (v > 0 && v < 0.01 ? '< $0,01' : `$${v.toFixed(2).replace('.', ',')}`);
 
-export function UsagePage() {
+export function UsagePage({ embedded = false }: { embedded?: boolean }) {
   const [days, setDays] = useState(7);
   const [data, setData] = useState<Usage | null>(null);
   const [problem, setProblem] = useState('');
@@ -67,8 +67,15 @@ export function UsagePage() {
 
   const names = Object.fromEntries((data?.providers ?? []).map((p) => [p.key, p.name]));
 
+  const Frame = embedded
+    ? ({ children }: { children: React.ReactNode }) => <div className="usage-embedded">{children}</div>
+    : ({ children }: { children: React.ReactNode }) => (
+        <PaperPage title="Uso y modelos" wide>
+          {children}
+        </PaperPage>
+      );
   return (
-    <PaperPage title="Uso y modelos" wide>
+    <Frame>
       <UsageMeters />
       <div className="usage-periods" role="tablist" aria-label="Periodo">
         {PERIODS.map((p) => (
@@ -168,7 +175,7 @@ export function UsagePage() {
           </section>
         </>
       )}
-    </PaperPage>
+    </Frame>
   );
 }
 

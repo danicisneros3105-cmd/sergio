@@ -13,7 +13,6 @@ const LogsPage = lazy(() => import('./pages/LogsPage').then((m) => ({ default: m
 const ExtensionPage = lazy(() => import('./pages/ExtensionPage').then((m) => ({ default: m.ExtensionPage })));
 const GalleryPage = lazy(() => import('./pages/GalleryPage').then((m) => ({ default: m.GalleryPage })));
 const FacesPage = lazy(() => import('./pages/FacesPage').then((m) => ({ default: m.FacesPage })));
-const ThinkPage = lazy(() => import('./pages/ThinkPage').then((m) => ({ default: m.ThinkPage })));
 const HealthPage = lazy(() => import('./pages/HealthPage').then((m) => ({ default: m.HealthPage })));
 const ProfilePage = lazy(() => import('./pages/ProfilePage').then((m) => ({ default: m.ProfilePage })));
 const CoworkPage = lazy(() => import('./pages/CoworkPage').then((m) => ({ default: m.CoworkPage })));
@@ -23,7 +22,6 @@ const NodesPage = lazy(() => import('./pages/NodesPage'));
 const ConnectomePage = lazy(() => import('./pages/ConnectomePage'));
 const SignInPage = lazy(() => import('./pages/SignInPage'));
 const MeetingPage = lazy(() => import('./pages/MeetingPage'));
-const UsagePage = lazy(() => import('./pages/UsagePage'));
 const ProjectsPage = lazy(() => import('./pages/ProjectsPage'));
 const PlansPage = lazy(() => import('./pages/PlansPage').then((m) => ({ default: m.PlansPage })));
 const PayPage = lazy(() => import('./pages/PayPage'));
@@ -236,13 +234,13 @@ export default function App() {
           <Route path="extensiones/:tab" element={<ExtensionsPage />} />
           <Route path="studio" element={<Navigate to="/extensiones" replace />} />
           <Route path="developer" element={<Navigate to="/extensiones" replace />} />
-          <Route path="pensar" element={<ThinkPage />} />
+          <Route path="pensar" element={<Navigate to="/chat" replace />} />
           <Route path="cowork" element={<CoworkPage />} />
           <Route path="automatizar" element={<AutomatizarPage />} />
           <Route path="salud" element={<HealthPage />} />
           <Route path="perfil" element={<ProfilePage />} />
           <Route path="atajos" element={<ConnectomePage />} />
-          <Route path="uso" element={<UsagePage />} />
+          <Route path="uso" element={<Navigate to="/settings?tab=cuenta" replace />} />
           <Route path="proyectos" element={<ProjectsPage />} />
           <Route path="cerebro" element={<ConnectomePage />} />
           {/* An address that does not exist goes home, never to a blank page. */}

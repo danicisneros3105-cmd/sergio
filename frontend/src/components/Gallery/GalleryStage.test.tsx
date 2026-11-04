@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render, cleanup } from '@testing-library/react';
 import { GalleryStage, dayLabel, groupByDay, type GalleryRow } from './GalleryStage';
 
@@ -32,6 +32,9 @@ describe('GalleryStage', () => {
   });
 
   it('shows a tile for each item, with its kind, and a play mark on videos', () => {
+    // The test dates are fixed; the clock must be too, or «Hoy» expires at midnight.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(NOW);
     render(<GalleryStage rows={rows} from={null} onClose={() => {}} />);
     expect(document.querySelectorAll('.gs-tile').length).toBe(4);
     expect(html()).toContain('4 elementos');

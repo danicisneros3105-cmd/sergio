@@ -91,7 +91,9 @@ def test_a_pause_is_real_silence_in_the_narration():
         {"text": "Después.", "delivery": {"tone": "urgent", "pause": 0}},
     ]
     out = audio.read_wav(script.narrate_beats(beats, speak=lambda t: _wav(0.5)))
-    silent = np.abs(out) < 1e-4
+    # A pause is quiet, not bit-exact zeros: it carries room tone (-62 dB) so
+    # the voice does not cut to dead air (4 Nov 2026). Speech here is 0.3.
+    silent = np.abs(out) < 0.01
     run = best = 0
     for s in silent:
         run = run + 1 if s else 0

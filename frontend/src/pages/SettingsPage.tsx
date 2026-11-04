@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useDevApi } from '../lib/dev-api';
 import { useNavigate, useSearchParams } from 'react-router';
 import { ExtensionsPage } from './ExtensionsPage';
+import { UsagePage } from './UsagePage';
 import { Guides } from '../components/Settings/Guides';
 import { useLive, voiceLanguage } from '../lib/liveSession';
 import {
@@ -313,7 +314,6 @@ export type SettingsTab = (typeof SETTINGS_TABS)[number]['id'];
 
 // Everything that is not one of the sections lives here, one tap away.
 export const MORE_PAGES = [
-  { path: '/pensar', label: 'Pensar a fondo' },
   { path: '/data-sources', label: 'Fuentes de datos' },
   { path: '/clacky', label: 'Agente de código' },
   { path: '/planes', label: 'Planes y facturación' },
@@ -1143,6 +1143,9 @@ export function SettingsPage() {
 
           {show('cuenta') && (
             <>
+              <Section title="Uso y plan">
+                <UsagePage embedded />
+              </Section>
               <Section title="Privacidad y términos">
                 <div className="flex flex-wrap gap-2">
                   <button type="button" className="mac-chip" onClick={() => navigate('/legal/privacidad')}>Aviso de privacidad</button>

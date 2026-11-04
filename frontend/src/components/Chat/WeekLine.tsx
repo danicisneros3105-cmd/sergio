@@ -19,10 +19,9 @@ export function WeekLine() {
       .then((d) => d && setWeek({ semana: Array.isArray(d.semana) ? d.semana : [], seguir: d.seguir ?? null }))
       .catch(() => {});
   }, []);
-  if (!week || (!week.semana.length && !week.seguir)) return null;
+  if (!week || !week.seguir) return null;
   return (
     <div className="week-line">
-      {week.semana.length > 0 && <p>Esta semana: {week.semana.join(' · ')}.</p>}
       {week.seguir && (
         <button type="button" className="week-continue" onClick={() => navigate('/nodes')}>
           Seguir con «{week.seguir.titulo}»

@@ -13,7 +13,6 @@ import { liveIsSpeaking } from '../../lib/liveSession';
 import { stripThinkTags } from '../../lib/message-text';
 import { bubbleFlags as flagsFor } from '../../lib/imessage';
 import {
-  Brain,
   CalendarCheck,
   ChevronDown,
   CircleDot,
@@ -44,18 +43,44 @@ const MODES: Array<{
   icon: typeof Search;
   label: string;
   hint: string;
-  to?: string;
-  text?: string;
+  text: string;
+  send?: boolean;
 }> = [
-  { icon: CalendarCheck, label: 'Mi semana', hint: 'Tareas, horarios y recordatorios', text: 'Ayúdame a organizar mi semana: ' },
-  { icon: FileText, label: 'Resumir texto', hint: 'Adjunte un PDF o pegue el texto', text: 'Resume esto en cinco puntos: ' },
-  { icon: Shapes, label: 'Crear algo', hint: 'Imagen, diseño o modelo 3D', text: 'Ayúdame a crear: ' },
-  { icon: CircleDot, label: 'Vigilar algo', hint: 'Un Node que avisa cuando cambia', to: '/nodes?nuevo=1' },
-  { icon: Network, label: 'Investigar', hint: 'Muchos agentes a la vez', to: '/swarm' },
+  {
+    icon: CalendarCheck,
+    label: 'Mi semana',
+    hint: 'Su semana con sus recordatorios y pendientes, como página',
+    send: true,
+    text: 'Hazme mi semana como artefacto (tipo página): lee mis recordatorios y pendientes reales con la herramienta de recordatorios, agrúpalos por día, marca lo urgente y deja un hueco para lo nuevo. No inventes ninguno.',
+  },
+  {
+    icon: FileText,
+    label: 'Resumir texto',
+    hint: 'Adjunte un PDF o pegue el texto: sale como documento',
+    text: 'Resume esto en cinco puntos y entrégalo como artefacto (tipo documento), con una línea final de qué hacer: ',
+  },
+  {
+    icon: Shapes,
+    label: 'Crear algo',
+    hint: 'Página, cartel, gráfico, calculadora o juego, ya hecho',
+    text: 'Crea como artefacto (página, cartel, gráfico, calculadora o juego pequeño; elija lo que mejor sirva): ',
+  },
+  {
+    icon: CircleDot,
+    label: 'Vigilar algo',
+    hint: 'Un tablero de lo que encuentra ahora; para seguirlo, una automatización',
+    text: 'Revisa ahora esto y entrégame un tablero como artefacto (tipo página) con lo que encontraste, la fecha de cada dato y qué cambiaría; al final ofrécete a vigilarlo con una automatización: ',
+  },
+  {
+    icon: Network,
+    label: 'Investigar',
+    hint: 'Investigación profunda con fuentes, como informe',
+    text: 'Investígalo a fondo con fuentes reales y entrégame el informe como artefacto (tipo documento), con lo confirmado, lo dudoso y los enlaces: ',
+  },
 ];
 
-function prefill(text: string) {
-  window.dispatchEvent(new CustomEvent('sergio:prefill', { detail: text }));
+function prefill(text: string, send = false) {
+  window.dispatchEvent(new CustomEvent(send ? 'sergio:send' : 'sergio:prefill', { detail: text }));
 }
 
 export function ChatArea() {
@@ -64,8 +89,6 @@ export function ChatArea() {
   const streamState = useAppStore((s) => s.streamState);
   const systemPanelOpen = useAppStore((s) => s.systemPanelOpen);
   const toggleSystemPanel = useAppStore((s) => s.toggleSystemPanel);
-  const reasoningPanelOpen = useAppStore((s) => s.reasoningPanelOpen);
-  const toggleReasoningPanel = useAppStore((s) => s.toggleReasoningPanel);
   const navigate = useNavigate();
   const conversations = useAppStore((s) => s.conversations);
   const selectedModel = useAppStore((s) => s.selectedModel);
@@ -210,15 +233,6 @@ export function ChatArea() {
         <div className="flex items-center gap-1.5">
           <SplitButton className="split-pill-btn" showLabel />
           <button
-            onClick={toggleReasoningPanel}
-            className="mac-icon-btn"
-            title={`${reasoningPanelOpen ? 'Ocultar' : 'Mostrar'} el razonamiento paso a paso`}
-            aria-label="Razonamiento"
-            aria-pressed={reasoningPanelOpen}
-          >
-            <Brain size={18} strokeWidth={1.5} />
-          </button>
-          <button
             onClick={toggleSystemPanel}
             className="mac-icon-btn hidden lg:inline-grid"
             title={`${systemPanelOpen ? 'Ocultar' : 'Mostrar'} el panel del sistema (${navigator.platform.includes('Mac') ? '⌘' : 'Ctrl'}+I)`}
@@ -291,13 +305,13 @@ export function ChatArea() {
             className="mac-rise mx-auto starter-pills pt-1"
             style={{ maxWidth: 'var(--chat-max-width)', ['--i' as string]: 2 }}
           >
-            {MODES.map(({ icon: Icon, label, hint, to, text }) => (
+            {MODES.map(({ icon: Icon, label, hint, text, send }) => (
               <button
                 key={label}
                 type="button"
                 className="starter-pill"
                 title={hint}
-                onClick={() => (to ? navigate(to) : prefill(text || ''))}
+                onClick={() => prefill(text, send)}
               >
                 <Icon size={16} strokeWidth={1.8} aria-hidden="true" />
                 {label}
