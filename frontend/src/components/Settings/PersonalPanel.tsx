@@ -97,8 +97,9 @@ export function PersonalPanel() {
           {TONE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
       </Row>
-      <div className="py-3">
-        <div className="text-sm mb-2" style={{ color: 'var(--color-text)' }}>Sus frases (una por línea; {'{nombre}'} pone su nombre)</div>
+      <details className="py-3">
+        <summary className="text-sm cursor-pointer" style={{ color: 'var(--color-text-secondary)' }}>Saludos propios</summary>
+        <div className="text-xs my-2" style={{ color: 'var(--color-text-tertiary)' }}>Uno por línea; {'{nombre}'} pone su nombre.</div>
         <textarea
           className="w-full text-sm px-3 py-2 rounded-lg outline-none"
           style={{ ...field, minHeight: 76 }}
@@ -107,7 +108,7 @@ export function PersonalPanel() {
           onChange={(e) => setDraft({ ...draft, saludos_propios: e.target.value.split('\n') })}
           onBlur={() => save({ saludos_propios: draft.saludos_propios.map((s) => s.trim()).filter(Boolean) })}
         />
-      </div>
+      </details>
       {problem && <p className="text-xs" style={{ color: 'var(--color-error)' }}>{problem}</p>}
     </div>
   );

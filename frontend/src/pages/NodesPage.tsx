@@ -33,6 +33,9 @@ const TABS: Array<{ key: Tab; label: string }> = [
   { key: 'connections', label: 'Conexiones' },
   { key: 'settings', label: 'Ajustes' },
 ];
+// At sight only what is used every day; the rest behind «Más» (4 Nov 2026:
+// «quita información inútil o mayormente irrelevante»).
+const MAIN: Tab[] = ['chat', 'activity', 'routines', 'memory'];
 
 export function NodesPage() {
   const { id } = useParams();
@@ -40,6 +43,7 @@ export function NodesPage() {
   const [nodes, setNodes] = useState<SergioNode[] | null>(null);
   const [catalog, setCatalog] = useState<Catalog | null>(null);
   const [tab, setTab] = useState<Tab>('chat');
+  const [showMore, setShowMore] = useState(false);
   const [intro, setIntro] = useState(() => !introSeen());
 
   const refresh = useCallback(() => {
@@ -150,12 +154,21 @@ export function NodesPage() {
           </header>
           <QueueStrip nodeId={node.id} />
           <nav className="node-tabs paper-tabs" role="tablist">
-            {TABS.map((t) => (
+            {TABS.filter((t) => MAIN.includes(t.key) || (!showMore && t.key === tab)).map((t) => (
               <button key={t.key} type="button" role="tab" className="paper-tab" aria-selected={tab === t.key} onClick={() => setTab(t.key)}>
                 {t.label}
                 {t.key === 'chat' && node.approvals.length > 0 && <span className="node-tab-dot" />}
               </button>
             ))}
+            <button type="button" className="paper-tab" aria-expanded={showMore} onClick={() => setShowMore(!showMore)}>
+              {showMore ? 'Menos' : 'Más'}
+            </button>
+            {showMore &&
+              TABS.filter((t) => !MAIN.includes(t.key)).map((t) => (
+                <button key={t.key} type="button" role="tab" className="paper-tab" aria-selected={tab === t.key} onClick={() => setTab(t.key)}>
+                  {t.label}
+                </button>
+              ))}
           </nav>
           <div className="node-body">
             {tab === 'chat' && <ChatTab key={node.id} node={node} onChanged={refresh} onCancel={() => void cancel(node)} />}

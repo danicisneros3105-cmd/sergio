@@ -56,7 +56,11 @@ class SegundoPlanoTool(BaseTool):
                 "person from it. 'necesita_sesion' → offer action='iniciar_sesion' (opens a "
                 "window where THEY sign in once; never ask for passwords). 'guardar_sitio' "
                 "(nombre, url) remembers «mi colegio = …»; 'sitios' lists them. Steps that "
-                "send, pay, buy, book, publish or delete stop with 'espera_su_si': ask first."
+                "send, pay, buy, book, publish or delete stop with 'espera_su_si': ask first. "
+                "LEAVE IT RUNNING (answer at once, the person keeps going): 'luego' = read the "
+                "site in the background and notify when done; 'vigilar' (sitio, cada_min, "
+                "optional buscar = a word to wait for) checks every N minutes and notifies on a "
+                "change; 'tareas' lists them with results; 'cancelar' (id) stops one."
             ),
             parameters={
                 "type": "object",
@@ -69,6 +73,10 @@ class SegundoPlanoTool(BaseTool):
                             "guardar_sitio",
                             "sitios",
                             "olvidar_sitio",
+                            "luego",
+                            "vigilar",
+                            "tareas",
+                            "cancelar",
                         ],
                     },
                     "sitio": {"type": "string"},
@@ -76,6 +84,9 @@ class SegundoPlanoTool(BaseTool):
                     "url": {"type": "string"},
                     "nota": {"type": "string"},
                     "pasos": {"type": "array", "items": {"type": "object"}},
+                    "cada_min": {"type": "number"},
+                    "buscar": {"type": "string"},
+                    "id": {"type": "string"},
                 },
                 "required": ["action"],
             },
@@ -102,6 +113,30 @@ class SegundoPlanoTool(BaseTool):
                     self.tool_id, "Olvidado." if done else "No lo tenía guardado."
                 )
             target = str(params.get("sitio") or params.get("url") or "")
+            if action in ("luego", "vigilar", "tareas", "cancelar"):
+                from openjarvis.asistente import tareas
+
+                if action == "tareas":
+                    rows = [tareas.plain(t) for t in tareas.load()[-12:]]
+                    return _ok(self.tool_id, rows or "No hay tareas en segundo plano.")
+                if action == "cancelar":
+                    done = tareas.cancel(str(params.get("id") or ""))
+                    return _ok(
+                        self.tool_id, "Detenida." if done else "No estaba en marcha."
+                    )
+                steps = params.get("pasos") or []
+                task = tareas.start(
+                    "vigilar" if action == "vigilar" else "revisar",
+                    target,
+                    pasos=steps if isinstance(steps, list) else [],
+                    cada_min=float(params.get("cada_min") or 30),
+                    buscar=str(params.get("buscar") or ""),
+                )
+                return _ok(
+                    self.tool_id,
+                    {"en_marcha": tareas.plain(task),
+                     "nota": "Sigue en segundo plano; avisa en la pantalla al terminar o si cambia."},
+                )  # fmt: skip
             if action == "iniciar_sesion":
                 return _ok(self.tool_id, nav.open_to_sign_in(target))
             if action == "revisar":

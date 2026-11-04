@@ -44,8 +44,10 @@ def test_run_device_steps():
             return "exit code 0\noutput:\n70\nerrors:\n"
         return "ok"
 
-    assert run_device(parse_device("pon el brillo al 70"), act) == "Brillo al 70%."
-    assert "WmiSetBrightness" in done[-1]["command"]
+    # an exact level and the theme go through the fixed «system» action
+    # (no free command, so no Visage prompt: 4 Nov 2026)
+    assert run_device(parse_device("pon el brillo al 70"), act) == "ok"
+    assert done[-1] == {"action": "system", "target": "brightness", "value": 70}
     done.clear()
     run_device(parse_device("pon el volumen al 30"), act)
     assert [(a["keys"], a["repeat"]) for a in done] == [
@@ -54,7 +56,7 @@ def test_run_device_steps():
     ]
     done.clear()
     run_device(parse_device("activa el modo oscuro"), act)
-    assert "AppsUseLightTheme -Value 0" in done[-1]["command"]
+    assert done[-1] == {"action": "system", "target": "theme", "value": "dark"}
     failing = lambda a: "exit code 1\noutput:\n\nerrors:\nnot supported"  # noqa: E731
     assert "no deja cambiar el brillo" in run_device(
         parse_device("sube el brillo"), failing
@@ -196,3 +198,64 @@ def test_fast_hands_glide_quickly_and_type_at_once():
     hands._send_text = sent.append
     hands.type_text("hola, ¿qué tal? ñ 👍")
     assert sent == ["hola, ¿qué tal? ñ 👍"]  # one burst, not key by key
+
+
+# -- the «system» action: the device from a fixed list (4 Nov 2026) ----------
+
+
+def test_system_plans_are_fixed_and_never_take_free_text():
+    import pytest
+    from sergio_escritorio import sistema
+
+    vol = sistema.plan("volume", "30")
+    assert (vol.keys, vol.repeat, vol.then, vol.then_repeat) == (
+        "volumedown",
+        50,
+        "volumeup",
+        15,
+    )
+    assert sistema.plan("volume", 0).then == ""
+    assert sistema.plan("volume", 250).say == "Volumen al 100 %."
+    bright = sistema.plan("brightness", "45%")
+    assert (
+        "Brightness=[byte]$n" in bright.script
+        and "{level}" not in bright.script
+        and "45" in bright.script
+    )
+    # a value that is not a number never reaches a script
+    with pytest.raises(sistema.SistemaError):
+        sistema.plan("brightness", "50; Remove-Item C:\\\\")
+    assert "Value 0" in sistema.plan("theme", "oscuro").script
+    with pytest.raises(sistema.SistemaError):
+        sistema.plan("theme", "rosa")
+    assert sistema.plan("window", "left").keys == "win+left"
+    assert sistema.plan("media", "next").keys == "nexttrack"
+    assert sistema.plan("settings", "bluetooth").open == "ms-settings:bluetooth"
+    assert sistema.plan("clipboard_get").special == "clipboard_get"
+    with pytest.raises(sistema.SistemaError):
+        sistema.plan("format_disk")
+
+
+def test_system_answers_in_plain_words():
+    from sergio_escritorio import sistema
+
+    assert sistema.battery_line("85|2") == "Batería al 85 %, cargando."
+    assert sistema.battery_line("40|1") == "Batería al 40 %."
+    assert "no tiene batería" in sistema.battery_line("sin bateria")
+    out = "    State   : connected\n    SSID    : Casa\n    Signal  : 92%\n"
+    assert sistema.wifi_line(out) == "Conectado a «Casa», señal 92%."
+    assert "desconectado" in sistema.wifi_line("    State : disconnected")
+
+
+def test_system_runs_through_the_control_server_without_visage(desktop):
+    from sergio_escritorio.control import Controller, risky
+
+    assert not risky({"action": "system", "target": "lock"})
+    asked = []
+    c = Controller(desktop, approve=lambda p: asked.append(p) or True)
+    c.strict_permissions = True
+    out = c.act({"action": "system", "target": "volume", "value": 10})
+    assert out == "Volumen al 10 %." and not asked
+    assert (
+        c.act({"action": "system", "target": "window", "value": "maximize"}) == "Listo."
+    )

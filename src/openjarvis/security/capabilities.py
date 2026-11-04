@@ -335,6 +335,8 @@ DEFAULT_TOOL_CAPABILITIES: Dict[str, List[str]] = {
     "miniaturas": [Capability.FILE_READ, Capability.FILE_WRITE],
     "titulos_video": [Capability.NETWORK_FETCH],
     "radar_tendencias": [Capability.NETWORK_FETCH],
+    "recortes_video": [Capability.FILE_READ, Capability.FILE_WRITE],
+    "calendario_contenido": [Capability.NETWORK_FETCH, Capability.FILE_WRITE],
     "escuela_video": [
         Capability.NETWORK_FETCH,
         Capability.FILE_READ,

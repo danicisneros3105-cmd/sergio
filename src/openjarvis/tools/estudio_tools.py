@@ -303,3 +303,127 @@ __all__ = [
     "TrendRadarTool",
     "VideoSchoolTool",
 ]
+
+
+@ToolRegistry.register("recortes_video")
+class ClipFinderTool(BaseTool):
+    tool_id = "recortes_video"
+
+    @property
+    def spec(self) -> ToolSpec:
+        return ToolSpec(
+            name="recortes_video",
+            description=(
+                "ONLY for turning a LONG video of the person (podcast, stream, class, vlog) into "
+                "shorts. action='buscar' (archivo = path of the video): transcribes it and returns "
+                "the best 20-60 s moments that stand alone, each with start/end, its hook line, a "
+                "0-100 score and why (hook, concrete facts, open question, pace, filler words). "
+                "action='cortar' (archivo, momentos = the list returned by buscar, or the numbers "
+                "chosen): cuts them as 9:16 files with burned captions next to the video. Nothing "
+                "is posted."
+            ),
+            parameters={
+                "type": "object",
+                "properties": {
+                    "action": {"type": "string", "enum": ["buscar", "cortar"]},
+                    "archivo": {"type": "string"},
+                    "cuantos": {"type": "integer"},
+                    "min_s": {"type": "number"},
+                    "max_s": {"type": "number"},
+                    "momentos": {"type": "array", "items": {"type": "object"}},
+                    "elegidos": {"type": "array", "items": {"type": "integer"}},
+                    "formato": {"type": "string", "enum": ["9:16", "1:1", "16:9"]},
+                    "idioma": {"type": "string"},
+                },
+                "required": ["action", "archivo"],
+            },
+            category="media",
+            timeout_seconds=1800,
+        )
+
+    def execute(self, **p: Any) -> ToolResult:
+        from openjarvis.estudio import recortes
+
+        path = str(p.get("archivo") or "")
+        lang = str(p.get("idioma") or "es")
+
+        def go() -> str:
+            if p.get("action") == "cortar":
+                picks = [m for m in (p.get("momentos") or []) if isinstance(m, dict)]
+                if not picks:
+                    found = recortes.find(
+                        path, n=int(p.get("cuantos") or 5), language=lang
+                    )
+                    picks = found["momentos"]
+                chosen = {int(n) for n in (p.get("elegidos") or [])}
+                if chosen:
+                    picks = [m for m in picks if int(m.get("n") or 0) in chosen]
+                files = recortes.cut(
+                    path, picks, aspect=str(p.get("formato") or "9:16"), language=lang
+                )
+                return "Recortes listos (no se publicó nada):\n" + "\n".join(
+                    f"- {f}" for f in files
+                )
+            found = recortes.find(path, n=int(p.get("cuantos") or 5), min_s=float(p.get("min_s") or 20),
+                                  max_s=float(p.get("max_s") or 60), language=lang)  # fmt: skip
+            return recortes.texto(found)
+
+        return _run(self.tool_id, go)
+
+
+@ToolRegistry.register("calendario_contenido")
+class ContentCalendarTool(BaseTool):
+    tool_id = "calendario_contenido"
+
+    @property
+    def spec(self) -> ToolSpec:
+        return ToolSpec(
+            name="calendario_contenido",
+            description=(
+                "ONLY for a content calendar: N weeks of posts about the person's topic, spread over "
+                "the week, formats rotating, each with a hook judged by code (flags the weak ones). "
+                "Optional real trend words. Never invents a 'best hour'. guardar=true saves an .xlsx "
+                "in Documents/Sergio. Nothing is posted."
+            ),
+            parameters={
+                "type": "object",
+                "properties": {
+                    "tema": {"type": "string"},
+                    "semanas": {"type": "integer"},
+                    "por_semana": {"type": "integer"},
+                    "plataforma": {"type": "string"},
+                    "con_tendencias": {"type": "boolean"},
+                    "pais": {"type": "string"},
+                    "guardar": {"type": "boolean"},
+                },
+                "required": ["tema"],
+            },
+            category="media",
+            timeout_seconds=180,
+        )
+
+    def execute(self, **p: Any) -> ToolResult:
+        from openjarvis.estudio import calendario
+
+        def go() -> str:
+            trend: list = []
+            if p.get("con_tendencias"):
+                from openjarvis.automatiza import tendencias
+
+                data = tendencias.read(
+                    str(p.get("pais") or "EC"), str(p.get("tema") or "")
+                )
+                trend = [s["tema"] for s in (data.get("senales") or [])[:20]]
+            result = calendario.plan(
+                str(p.get("tema") or ""),
+                semanas=int(p.get("semanas") or 4),
+                por_semana=int(p.get("por_semana") or 3),
+                plataforma=str(p.get("plataforma") or "shorts"),
+                tendencias=trend,
+            )
+            out = calendario.texto(result)
+            if p.get("guardar"):
+                out += f"\nGuardado en {calendario.save_xlsx(result)}"
+            return out
+
+        return _run(self.tool_id, go)

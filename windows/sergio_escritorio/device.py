@@ -344,6 +344,9 @@ def run_device(step: Step, act: Callable[[dict], Any]) -> str:
         act({"action": "key", "keys": "volumedown", "repeat": 50})  # to zero (2 % a press)
         if level >= 2:
             act({"action": "key", "keys": "volumeup", "repeat": round(level / 2)})
+    elif step.kind == "brightness" and step.arg.strip().isdigit():
+        # an exact level: the fixed device action, no Visage (sistema.py)
+        return str(act({"action": "system", "target": "brightness", "value": int(step.arg)}) or step.say)
     elif step.kind == "brightness":
         expr = step.arg if step.arg.startswith("$c") else step.arg
         out = str(act({"action": "terminal", "command": BRIGHTNESS.format(expr=expr), "seconds": 20}) or "")
@@ -352,8 +355,9 @@ def run_device(step: Step, act: Callable[[dict], Any]) -> str:
         got = re.search(r"output:\s*(\d+)", out)
         return f"Brillo al {got.group(1)}%." if got else step.say
     elif step.kind == "theme":
-        out = str(act({"action": "terminal", "command": THEME.format(v=step.arg), "seconds": 20}) or "")
-        if "exit code 0" not in out:
+        light = "light" if str(step.arg) == "1" else "dark"
+        out = str(act({"action": "system", "target": "theme", "value": light}) or "")
+        if not out or out.startswith("No pude"):
             return "No pude cambiar el tema."
     return step.say
 

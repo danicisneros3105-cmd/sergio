@@ -2,6 +2,14 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-11-04 · Claude · Mini videos del tour, limpieza, control del equipo, segundo plano, creadores
+- Tour: un clip animado sin sonido por paso (11). Grabé el tour real a un mp4 de muestra para el dueño (no está en el repositorio).
+- Limpieza de información repetida o poco útil (ver AGENTS §3); capturas revisadas de Configuración, Modelos, Perfil, Salud, Visage y Nodes.
+- `desktop_action system` (`sistema.py`) y la voz (`device.run_device`) ya no piden Visage para brillo exacto ni tema: usan la acción fija. Probado con el servidor de control falso; **no probado en un Windows real** (aviso, captura, batería y Wi-Fi dependen del equipo).
+- Segundo plano (`tareas.py`) y creadores (`recortes.py`, `calendario.py`) con pruebas; el corte real de un video de prueba a 9:16 pasa con ffmpeg aquí. La transcripción necesita faster-whisper en su PC (o un .srt al lado del video).
+- Pruebas cambiadas, con motivo: `test_device.test_run_device_steps` (brillo exacto y tema van por la acción `system`, ya no por `terminal`).
+
+
 ## 2026-11-04 · Claude · Cowork menos amontonado y presente en la bienvenida
 - Inicio de Cowork: dos ideas en vez de cuatro, una fila de apps con «Ver todas (10)», más aire entre secciones y las dos filas en una tarjeta bajo «Su día en Cowork». Capturado y revisado.
 - El tour de bienvenida tiene el paso «Cowork: su día en un lugar» (con el puntero en «Organizador»), «Primeros pasos» tiene el mosaico «Su día en Cowork» y las guías de Ayuda dicen la ruta nueva. 346 pruebas del frontend pasan, tsc limpio.

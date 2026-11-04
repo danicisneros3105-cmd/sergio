@@ -43,7 +43,7 @@ import {
   type MemoryStats,
 } from '../lib/api';
 import { AccountsPanel } from '../components/Accounts/AccountsPanel';
-import { PersonalPanel, SkillsPanel } from '../components/Settings/PersonalPanel';
+import { SkillsPanel } from '../components/Settings/PersonalPanel';
 import { AddonsPanel } from '../components/Settings/AddonsPanel';
 import { isAutoUpdateDisabled, setAutoUpdateDisabled } from '../components/Desktop/UpdateChecker';
 
@@ -379,6 +379,8 @@ export function SettingsPage() {
   });
 
   const [srcKind, setSrcKind] = useState<InferenceSource['kind']>('ollama');
+  // Local models, tools, memory and sampling: for the few who need them (4 Nov 2026).
+  const [advanced, setAdvanced] = useState(false);
   const [customHost, setCustomHost] = useState('http://localhost:1234/v1');
   const [customModel, setCustomModel] = useState('');
   const [customEngine, setCustomEngine] = useState('lmstudio');
@@ -533,14 +535,6 @@ export function SettingsPage() {
         <div className="flex flex-col gap-4">
           {show('general') && (
           <>
-          <Section title="Tú">
-            <PersonalPanel />
-          </Section>
-          </>
-          )}
-
-          {show('general') && (
-          <>
           <Section title="Habilidades">
             <SkillsPanel />
           </Section>
@@ -686,7 +680,7 @@ export function SettingsPage() {
           </>
           )}
 
-          {show('modelos') && (
+          {show('modelos') && advanced && (
           <>
           {/* Inference source */}
           <Section title="Origen del modelo">
@@ -744,9 +738,11 @@ export function SettingsPage() {
           <>
           {/* Models */}
           <Section title="Modelos">
-            <SettingRow label="Modelos en su PC" description="Los que funcionan sin internet en su equipo">
-              <OllamaModelList />
-            </SettingRow>
+            {advanced && (
+              <SettingRow label="Modelos en su PC" description="Los que funcionan sin internet en su equipo">
+                <OllamaModelList />
+              </SettingRow>
+            )}
             <SettingRow label="Proveedores en la nube" description="El punto lleno indica que la clave está puesta">
               <div className="flex flex-wrap gap-3">
                 <CloudProviderStatus label="OpenAI" keyName="OPENAI_API_KEY" />
@@ -763,8 +759,8 @@ export function SettingsPage() {
           {show('modelos') && (
           <>
           {/* API Keys */}
-          <Section title="Claves de API · Dev">
-            <SettingRow label="OpenAI" description="GPT-4, GPT-3.5, etc.">
+          <Section title="Claves de API">
+            <SettingRow label="OpenAI" description="Modelos GPT">
               <ApiKeyInput keyName="OPENAI_API_KEY" placeholder="sk-..." />
             </SettingRow>
             <SettingRow label="Anthropic" description="Modelos Claude">
@@ -784,6 +780,12 @@ export function SettingsPage() {
           )}
 
           {show('modelos') && (
+            <button type="button" className="mac-chip self-start" aria-expanded={advanced} onClick={() => setAdvanced(!advanced)}>
+              {advanced ? 'Ocultar opciones avanzadas' : 'Opciones avanzadas: modelos locales, herramientas, memoria'}
+            </button>
+          )}
+
+          {show('modelos') && advanced && (
           <>
           {/* Tools */}
           <Section title="Herramientas">
@@ -794,7 +796,7 @@ export function SettingsPage() {
           </>
           )}
 
-          {show('modelos') && (
+          {show('modelos') && advanced && (
           <>
           {/* Memory */}
           <Section title="Memoria">
@@ -898,7 +900,7 @@ export function SettingsPage() {
           </>
           )}
 
-          {show('modelos') && (
+          {show('modelos') && advanced && (
           <>
           {/* Model defaults */}
           <Section title="Ajustes del modelo">

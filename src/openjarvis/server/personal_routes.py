@@ -426,6 +426,23 @@ def cancel_video(job_id: str) -> Dict[str, Any]:
     return {"ok": jobs.cancel(job_id)}
 
 
+@router.get("/segundo-plano")
+def background_tasks() -> Dict[str, Any]:
+    """Checks left running in the background, newest last."""
+    from openjarvis.asistente import tareas
+
+    return {"tareas": [tareas.plain(t) for t in tareas.load()[-30:]]}
+
+
+@router.post("/segundo-plano/{task_id}/cancel")
+def background_cancel(task_id: str) -> Dict[str, Any]:
+    from openjarvis.asistente import tareas
+
+    if not tareas.cancel(task_id):
+        raise HTTPException(status_code=404, detail="No está en marcha.")
+    return {"ok": True}
+
+
 @router.get("/en-marcha")
 def running(request: Request) -> Dict[str, Any]:
     """What Sergio, the Nodes, the swarms and Cowork are doing now."""
@@ -468,6 +485,19 @@ def running(request: Request) -> Dict[str, Any]:
                     })  # fmt: skip
         except Exception:  # noqa: BLE001
             logger.debug("%s unavailable", name, exc_info=True)
+    try:  # checks left running in the background (asistente/tareas.py)
+        from openjarvis.asistente import tareas
+
+        for t in tareas.load():
+            if t.get("estado") in tareas.ACTIVE:
+                verb = "Vigilando " if t.get("tipo") == "vigilar" else "Revisando "
+                rows.append({
+                    "tipo": "segundo_plano", "id": t["id"], "quien": "Segundo plano",
+                    "que": verb + str(t.get("sitio", ""))[:70],
+                    "detener": f"/v1/personal/segundo-plano/{t['id']}/cancel",
+                })  # fmt: skip
+    except Exception:  # noqa: BLE001
+        logger.debug("background tasks unavailable", exc_info=True)
     try:  # the video being made (one at a time)
         from openjarvis.video_essay import job as jobs
 

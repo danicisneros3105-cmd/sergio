@@ -470,6 +470,53 @@ class WindowsBackend:
                     break
         return closed
 
+    def system_special(self, op: str, value: str) -> str:
+        """The device operations that are not keys or a fixed script
+        (sistema.py): the clipboard, the open windows, a screenshot, a notice."""
+        if op == "clipboard_get":
+            import pyperclip
+
+            text = str(pyperclip.paste() or "")
+            return f"Portapapeles ({len(text)} caracteres):\n{text[:4000]}" if text else "El portapapeles está vacío."
+        if op == "clipboard_set":
+            import pyperclip
+
+            pyperclip.copy(value[:20000])
+            return f"Copié {len(value[:20000])} caracteres al portapapeles."
+        if op == "windows":
+            titles = [t for _, t in _visible_windows(minimized=True) if t.strip()][:30]
+            if not titles:
+                return "No hay ventanas abiertas."
+            return "Ventanas abiertas:\n" + "\n".join(f"- {t}" for t in titles)
+        if op == "screenshot":
+            import time as _t
+            from pathlib import Path
+
+            folder = Path.home() / "Pictures" / "Sergio"
+            folder.mkdir(parents=True, exist_ok=True)
+            path = folder / _t.strftime("captura-%Y%m%d-%H%M%S.png")
+            self.screenshot().save(path)
+            return f"Captura guardada en {path}"
+        if op == "notify":
+            import tempfile
+
+            from sergio_escritorio import files
+            from sergio_escritorio.sistema import NOTIFY_PS
+
+            with tempfile.NamedTemporaryFile("w", suffix=".txt", delete=False, encoding="utf-8") as fh:
+                fh.write(value[:240])
+            os.environ["SERGIO_AVISO"] = fh.name
+            try:
+                files.run_shell(NOTIFY_PS, timeout=15)
+            finally:
+                os.environ.pop("SERGIO_AVISO", None)
+                try:
+                    os.unlink(fh.name)
+                except OSError:
+                    pass
+            return "Aviso mostrado."
+        raise LookupError(op)
+
     def shell(self, command: str, timeout: float) -> dict:
         from sergio_escritorio import files
 

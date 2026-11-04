@@ -32,6 +32,7 @@ from typing import Any, Callable, Protocol
 MAX_SHOT_WIDTH = 1280
 MAX_TEXT = 4000
 ACTIONS = (
+    "system",
     "click",
     "click_name",
     "double_click",
@@ -608,6 +609,24 @@ class Controller:
             if not placed:
                 raise ActionError(f"No open window matches {left!r}.")
             result = "split screen: " + " | ".join(placed)
+        elif kind == "system":
+            # the device from a fixed list (volume, brightness, windows,
+            # clipboard, lock…): no free command, so no Visage (sistema.py)
+            from sergio_escritorio import sistema
+
+            def press(keys: str, times: int) -> None:
+                for _ in range(min(max(times, 1), 60)):
+                    b.hotkey(keys.split("+"))
+
+            try:
+                result = sistema.run(
+                    str(action.get("target") or action.get("op") or ""),
+                    action.get("value", action.get("text")),
+                    b,
+                    press,
+                )
+            except sistema.SistemaError as exc:
+                raise ActionError(str(exc)) from exc
         elif kind == "make_video":
             source = str(action.get("source") or "").strip()
             if not source:
@@ -712,6 +731,8 @@ class Controller:
         self._remember_undo(kind, action, result)
         if kind == "key" and set(result.split()[1].split("+")) <= MEDIA_KEYS:
             return result  # the window in front does not change
+        if kind == "system":
+            return result
         return result + self._verify(kind, before)
 
     def _remember_undo(self, kind: str, action: dict, result: str) -> None:

@@ -839,6 +839,12 @@ def create_app(
         video_schedule.start_loop()
     except Exception:  # noqa: BLE001
         logger.debug("video schedule not started", exc_info=True)
+    try:  # watches left running in the background (asistente/tareas.py)
+        from openjarvis.asistente import tareas as background_tasks
+
+        background_tasks.start_loop()
+    except Exception:  # noqa: BLE001
+        logger.debug("background tasks not started", exc_info=True)
     include_all_routes(app)
 
     # Restore SendBlue channel bindings from database on startup

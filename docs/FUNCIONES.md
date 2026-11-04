@@ -168,6 +168,10 @@ reales. Eso es lo que debe hacer la beta cerrada.
 - Web instalable (PWA) en Windows, macOS, iPhone, iPad y Android.
 - App de Windows con el Python oficial firmado.
 - Funciona con modo liviano en equipos lentos.
+- Tour de bienvenida con un mini video animado sin sonido por paso (11).
+- Control del equipo sin pedir permiso: volumen, música, brillo, tema, ventanas, escritorios virtuales, bloquear, batería, Wi-Fi, portapapeles, captura, avisos y páginas de Configuración (`desktop_action system`).
+- Revisar o vigilar un sitio en segundo plano, con aviso en la pantalla al terminar o si cambia (`en_segundo_plano`: luego, vigilar).
+- Creadores: mejores momentos de un video largo cortados como shorts 9:16 con subtítulos (`recortes_video`) y calendario de contenido con ganchos revisados, en .xlsx (`calendario_contenido`).
 
 ## Lo que NO existe todavía (para no prometerlo)
 

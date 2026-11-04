@@ -179,6 +179,7 @@ export function ProfilePage() {
       <PaperSection label="Cómo le llamo">
         <PersonalPanel />
       </PaperSection>
+      {(profile?.text || problem) && (
       <PaperSection
         label="Lo que Sergio recuerda"
         aside={
@@ -191,9 +192,10 @@ export function ProfilePage() {
         }
       >
         <p className="profile-summary" data-muted={!profile?.text ? '1' : undefined}>
-          {problem || profile?.message || profile?.text || (profile ? 'Aún no hay perfil: se arma con el uso.' : 'Leyendo…')}
+          {problem || profile?.text}
         </p>
       </PaperSection>
+      )}
 
       {profile?.companion && (
         <PaperSection label="Lo que sé de usted">

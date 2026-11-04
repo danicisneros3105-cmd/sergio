@@ -487,9 +487,6 @@ export function FacesPage() {
             </div>
             {status && (
               <ul className="faceid-facts">
-                <li data-on={status.passcode_set ? '1' : undefined}>
-                  {status.passcode_set ? 'Código de respaldo activo' : 'Sin código de respaldo todavía'}
-                </li>
                 <li data-on={status.face_allowed ? '1' : undefined}>
                   {status.face_allowed
                     ? `Reconocimiento disponible · ${status.attempts_left} intentos`

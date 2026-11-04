@@ -23,6 +23,7 @@ export function MetricCard({ s, onOpen, def }: { s: MetricSummary; onOpen: () =>
 
 function Readiness({ summary }: { summary: Summary }) {
   const r = summary.readiness;
+  if (r.score === null && !r.inputs.length) return null; // nothing measured yet: the «connect» card says it
   return (
     <div className="salud-readiness" data-empty={r.score === null ? '1' : undefined}>
       <div className="salud-ring" style={{ '--p': r.score ?? 0 } as React.CSSProperties}>

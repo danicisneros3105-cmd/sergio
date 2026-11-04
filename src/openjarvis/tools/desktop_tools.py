@@ -184,6 +184,15 @@ class DesktopActionTool(_DesktopTool):
                 "(target = the visible name of a button, link, tab or menu, e.g. "
                 "'Suscribirse'; button = left | right | double): finds it in the "
                 "window in front and clicks it at once, no screen_read needed. "
+                "DEVICE (instant, no approval): system with target = volume (value "
+                "0-100) | mute | media (value play/pause/next/previous) | brightness "
+                "(value 0-100) | theme (dark/light) | window (maximize/minimize/left/"
+                "right/fullscreen/switch/next_desktop/prev_desktop/new_desktop/"
+                "task_view) | desktop | lock | battery | wifi | windows (lists open "
+                "windows) | clipboard_get | clipboard_set (text) | screenshot (saved "
+                "in Pictures/Sergio) | notify (text: a notice on the screen) | "
+                "settings (value wifi/bluetooth/display/sound/battery/notifications/"
+                "update/apps/privacy/storage/focus) | night_light. "
                 "Other actions: click, "
                 "double_click, right_click, move (element id from screen_read, or "
                 "x,y); type (text into the focused field); key ('enter', 'ctrl+s', "
@@ -228,6 +237,7 @@ class DesktopActionTool(_DesktopTool):
                     "action": {
                         "type": "string",
                         "enum": [
+                            "system",
                             "click_name",
                             "click",
                             "double_click",
@@ -287,6 +297,10 @@ class DesktopActionTool(_DesktopTool):
                         },
                     },
                     "keys": {"type": "string"},
+                    "value": {
+                        "type": "string",
+                        "description": "system: the level or choice",
+                    },
                     "button": {"type": "string", "enum": ["left", "right", "double"]},
                     "amount": {"type": "integer"},
                     "target": {"type": "string"},
