@@ -51,7 +51,7 @@ def test_chapters_start_at_zero_and_last_ten_seconds():
 
 
 @needs_ffmpeg
-def test_the_voice_chain_keeps_length_and_lowers_hiss_between_words():
+def test_the_voice_chain_keeps_length_and_does_not_lift_the_hiss_between_words():
     sr = 48000
     t = np.arange(sr * 4) / sr
     voice = (
@@ -63,7 +63,10 @@ def test_the_voice_chain_keeps_length_and_lowers_hiss_between_words():
     gap = (np.sin(2 * np.pi * 1.5 * t) < -0.5) & (
         t > 1.0
     )  # silence after the denoiser learned
-    assert np.sqrt(np.mean(out[gap] ** 2)) < np.sqrt(np.mean(hiss[gap] ** 2))
+    # No gate any more (4 Nov 2026: it chopped soft word ends of a synthetic
+    # voice, which has no room noise to shut out), so the hiss is not lowered;
+    # it must not be lifted by more than the compressor's makeup and the EQ.
+    assert np.sqrt(np.mean(out[gap] ** 2)) < 2.0 * np.sqrt(np.mean(hiss[gap] ** 2))
 
 
 @needs_ffmpeg
