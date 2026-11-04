@@ -115,7 +115,7 @@ export const LEARN_GUIDES: Guide[] = [
       'Pendientes: escriba lo que tiene que hacer y táchelo al terminar.',
       'Correo: conecte su cuenta una vez; Sergio resume y prepara borradores, nunca envía.',
     ],
-    go: { to: '/workspace', label: 'Abrir el Organizador' },
+    go: { to: '/cowork?ver=organizador', label: 'Abrir el Organizador' },
   },
   {
     id: 'automatizar',
@@ -125,7 +125,7 @@ export const LEARN_GUIDES: Guide[] = [
       'Escriba qué hacer, en uno o varios pasos, y quién lo hace (uno de sus Nodes).',
       'Guarde. Lo verá en «Mis automatizaciones», donde puede pausarla o borrarla.',
     ],
-    go: { to: '/automatizar', label: 'Ir a Automatizar' },
+    go: { to: '/cowork?ver=automatizar', label: 'Ir a Automatizar' },
   },
 ];
 

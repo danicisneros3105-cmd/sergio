@@ -2,6 +2,11 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-11-04 · Claude · Organizador y Automatizaciones dentro de Cowork
+- Quité ambos de la barra lateral; Cowork los muestra como filas cerradas (se abren en su sitio) con enlace a la página completa. Cargados con `lazy` para no pesar en Cowork. Probado: tsc, 346 pruebas del frontend y captura de las tres vistas (cerrado, organizador abierto); sin errores de consola.
+- Sin probar: el uso real de Nueva automatización dentro de Cowork con modelo conectado.
+
+
 ## 2026-11-04 · Claude · Limpieza, artefactos, sonido, video por partes, automatizaciones
 - Quité el razonamiento («Pensar a fondo»), la línea semanal y los contadores de Automatizar; Uso pasó a Configuración → Cuenta. Los cinco atajos del chat piden un artefacto.
 - Sonido: sin compuerta en la voz, recorte del silencio de cada llamada, sala de -62 dB en las pausas, efectos 9 dB bajo la voz. Probado con mediciones y pruebas; **no escuché un video real** (aquí no hay modelo de voz), conviene que el señor lo oiga y me diga qué sigue mal.

@@ -186,6 +186,19 @@ function MailTab() {
   );
 }
 
+/** The useful part, for Cowork: today's reminders and the to-dos (no mail or
+ *  notes: those stay in the full Organizer). */
+export function OrganizerPeek() {
+  return (
+    <div className="org org-peek">
+      <div className="org-grid">
+        <Today />
+        <Todos />
+      </div>
+    </div>
+  );
+}
+
 export function OrganizerPage() {
   const [tab, setTab] = useState<Tab>(() => {
     try {

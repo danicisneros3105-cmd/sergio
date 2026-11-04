@@ -45,7 +45,7 @@ export function GetStartedPage() {
             type="button"
             className="start-tile"
             onClick={() => {
-              if (run === 'auto') return navigate('/automatizar');
+              if (run === 'auto') return navigate('/cowork?ver=automatizar');
               navigate('/chat');
               window.setTimeout(() => {
                 if (run === 'video') window.dispatchEvent(new CustomEvent('sergio:video'));

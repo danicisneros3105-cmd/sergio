@@ -4394,3 +4394,14 @@ h2:not(.paper-title):not([class*="hello"]) { letter-spacing: -0.012em; }
 .node-queue li span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .node-queue li small { color: var(--color-text-tertiary); font-size: 12px; }
 .node-queue li button { border: 1px solid var(--color-border); background: transparent; border-radius: 999px; width: 26px; height: 26px; display: grid; place-items: center; color: var(--color-text-secondary); cursor: pointer; }
+
+/* Cowork: organizer and automations, folded away until opened (4 Nov 2026). */
+.cw-more { width: 100%; margin-top: 18px; display: grid; gap: 8px; }
+.cw-more-row { border: 1px solid var(--color-border); border-radius: 16px; background: var(--color-surface, var(--color-bg)); overflow: hidden; }
+.cw-more-head { width: 100%; display: flex; align-items: center; gap: 10px; padding: 12px 14px; background: transparent; border: 0; color: var(--color-text); cursor: pointer; font: inherit; font-size: 14px; text-align: left; }
+.cw-more-title { font-weight: 600; }
+.cw-more-hint { flex: 1; color: var(--color-text-tertiary); font-size: 13px; }
+.cw-more-body { padding: 4px 14px 16px; border-top: 1px solid var(--color-border); }
+.cw-more-sub { font-size: 14px; font-weight: 600; margin: 18px 0 8px; }
+.cw-more-full { margin-top: 14px; background: none; border: 0; padding: 0; color: var(--color-accent-text, var(--color-accent)); cursor: pointer; font: inherit; font-size: 13px; }
+@media (max-width: 640px) { .cw-more-hint { display: none; } }

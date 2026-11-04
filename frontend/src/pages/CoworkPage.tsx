@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowUp,
   Ban,
@@ -39,6 +39,7 @@ import {
 } from '../lib/cowork';
 import { BrandMark } from '../components/Brand/BrandMark';
 import { AppsStrip } from '../components/Cowork/AppsStrip';
+const MoreOfCowork = lazy(() => import('../components/Cowork/MoreOfCowork'));
 import { brandsIn } from '../lib/brands';
 import '../components/Cowork/cowork.css';
 
@@ -552,6 +553,11 @@ export function CoworkPage() {
             </ul>
           )}
           {!text && <AppsStrip onPick={setText} />}
+          {!text && (
+            <Suspense fallback={null}>
+              <MoreOfCowork />
+            </Suspense>
+          )}
           {runs.length > 0 && (
             <section className="cw-tasks" aria-label="Tareas">
               <h2>Tareas</h2>

@@ -4,7 +4,6 @@ import {
   SquarePen,
   Search,
   PanelLeft,
-  NotebookPen,
   Briefcase,
   HeartPulse,
   Settings,
@@ -12,7 +11,6 @@ import {
   MessageSquare,
   FolderKanban,
   ChevronDown,
-  Zap,
   Columns2,
 } from 'lucide-react';
 import { useAppStore } from '../../lib/store';
@@ -61,9 +59,7 @@ export const TOOLBAR_ITEMS = [
   // Uso moves under «Más» (and stays on the notch).
   { path: '/proyectos', icon: FolderKanban, label: 'Proyectos', more: false },
   { path: '/swarm', icon: SwarmIcon, label: 'Agent Swarm', more: true },
-  { path: '/workspace', icon: NotebookPen, label: 'Organizador', more: true },
   { path: '/cowork', icon: Briefcase, label: 'Cowork', more: true },
-  { path: '/automatizar', icon: Zap, label: 'Automatizar', more: true },
   { path: '/galeria', icon: Images, label: 'Galería', more: true },
 ] as const;
 
