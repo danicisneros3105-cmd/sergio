@@ -27,6 +27,12 @@ Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
   regresión para rechazar invenciones. LiveSession usa jsdom: Node 24 aporta
   navigator.locks nativo y alteraba su base; los casos de locks siguen usando
   FakeLocks explícitos. No se cambió el motor de voz.
+- Cierre audiovisual: batería ampliada 260 pasan, 12 saltadas y 2 fallos
+  iniciales. Uno era yt-dlp ausente en el entorno (instalado: repetición pasa);
+  el otro excedió 120 s al exportar formato alternativo. Reframe ahora limita
+  hilos a 2 y usa fast con CRF 18; la repetición completa de calidad Post pasa
+  en 59,65 s. No se afirma un porcentaje de aceleración general. La ruta de
+  herramientas 2D/3D y creadores tiene 18 pruebas adicionales pasando.
 - Pendiente: Windows/cámara/audio reales, APIs personales y Blender. Los Nexus
   de core aún tienen salidas fijas; no se certifican como acciones reales.
 

@@ -309,3 +309,12 @@ Lista completa de carpetas de primer nivel bajo `src/openjarvis/` presentes en l
 - `video_essay/`: 34 archivos Python.
 - `workflow/`: 6 archivos Python.
 - `workspace/`: 5 archivos Python.
+
+## Verificación de esta entrega
+
+- 1216 pruebas seleccionadas de código/permisos/creadores pasan; 12 de Blender se omiten por no estar instalado.
+- Frontend: 347 pruebas, TypeScript y build de producción pasan. Ruff y formato de src/tests pasan.
+- Batería audiovisual más amplia: 260 pasan, 12 omitidas y 2 fallos iniciales; ambos casos pasan al repetirse tras instalar yt-dlp en el entorno y ajustar exportación. No se presenta esa primera corrida como verde.
+- Calidad Post: repetición de la prueba completa pasa en 59,65 s; no es una medición de velocidad garantizada para otros equipos. Exportación usa fast, CRF 18 y dos hilos para limitar consumo.
+- Demo: ffprobe confirma 720 × 1280, 24 fps y 6 segundos. Los colores de acento medidos dan contrastes 4,58:1 (botón azul/blanco), 6,56:1 (texto de acento claro) y 9,19:1 (acento oscuro). No certifica cada combinación de toda la app.
+- No se probaron cuentas externas personales, publicación real ni Blender/Windows/cámara/micrófono reales.

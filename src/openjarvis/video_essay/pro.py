@@ -218,8 +218,8 @@ def reframe(
     else:
         vf = f"crop={cw}:{ch}:0:(ih-{ch})/2"
     res = _run(
-        [ffmpeg, "-y", "-v", "error", "-i", str(src), "-vf", vf + ",format=yuv420p",
-         "-c:v", "libx264", "-crf", "18", "-preset", "medium", "-c:a", "copy",
+        [ffmpeg, "-y", "-v", "error", "-threads", "2", "-i", str(src), "-vf", vf + ",format=yuv420p",
+         "-c:v", "libx264", "-crf", "18", "-preset", "fast", "-threads", "2", "-c:a", "copy",
          "-movflags", "+faststart", str(out)]
     )  # fmt: skip
     return out if res.returncode == 0 and out.exists() else None
