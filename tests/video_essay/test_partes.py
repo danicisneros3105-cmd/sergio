@@ -21,6 +21,13 @@ FIRM = (
 )
 
 
+SAFE_REWRITE = (
+    "Nada cambia igual para todos. Las personas ven las cosas de formas distintas, "
+    "pero las ideas siguen moviéndose con el tiempo. ¿por qué importa? "
+    "Cada época tiene su propio estilo y obliga a mirar lo conocido desde otro ángulo."
+)
+
+
 def script(*texts):
     return {
         "title": "t",
@@ -63,10 +70,10 @@ def test_only_a_better_rewrite_of_a_weak_part_is_kept():
 
     def good(prompt, **kw):
         asked.append(prompt)
-        return json.dumps({"beats": [{"text": FIRM}]})
+        return json.dumps({"beats": [{"text": SAFE_REWRITE}]})
 
     better, report = partes.improve(sc, good, passes=1, seconds=60)
-    assert better["beats"][1]["text"] == FIRM and report["rewritten"] == 1
+    assert better["beats"][1]["text"] == SAFE_REWRITE and report["rewritten"] == 1
     assert report["after"] > report["before"]
     assert sc["beats"][1]["text"] == DRY  # the input is untouched
     assert "Keep EVERY name, number" in asked[0] and "stock phrases" in asked[0]
@@ -99,13 +106,13 @@ def test_the_effort_follows_the_mode_and_test_makes_no_calls(tmp_path):
 
     def ask(p, **k):
         calls.append(p)
-        return json.dumps({"beats": [{"text": FIRM}]})
+        return json.dumps({"beats": [{"text": SAFE_REWRITE}]})
 
     job = J.create({"topic": "x", "seconds": 60}, root=tmp_path)
     out = J._by_parts(job, sc, {"seconds": 60}, modes.get("test"), ask)
     assert out is sc and not calls and job.state()["partes"]["rewritten"] == 0
     out = J._by_parts(job, sc, {"seconds": 60}, modes.get("basic"), ask)
-    assert out["beats"][1]["text"] == FIRM and len(calls) == 1
+    assert out["beats"][1]["text"] == SAFE_REWRITE and len(calls) == 1
     # a script the owner wrote is never rewritten
     assert J._by_parts(job, sc, {"script": "mío"}, modes.get("post"), ask) is sc
     assert "interés" in partes.line(job.state()["partes"])

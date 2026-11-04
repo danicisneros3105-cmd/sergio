@@ -21,10 +21,11 @@ video» only queues the video like the «+ → Video» button.
 from __future__ import annotations
 
 import json
+import math
 import re
 import time
 import unicodedata
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
@@ -37,7 +38,8 @@ LANG_OF = {"EC": "es", "MX": "es", "ES": "es", "CO": "es", "AR": "es", "PE": "es
 def _get(url: str, **kw: Any) -> Any:
     import httpx
 
-    r = httpx.get(url, headers=UA, timeout=25, follow_redirects=True, **kw)
+    headers = {**UA, **kw.pop("headers", {})}
+    r = httpx.get(url, headers=headers, timeout=25, follow_redirects=True, **kw)
     r.raise_for_status()
     return r
 
@@ -166,7 +168,9 @@ def youtube(country: str, niche: str = "", get: Callable[..., Any] = _get,
         for v in data.get("items", []):
             out.append({"tema": v["snippet"]["title"][:140], "fuente": "YouTube",
                         "cifra": int((v.get("statistics") or {}).get("viewCount") or 0), "unidad": "vistas",
-                        "detalle": v["snippet"].get("channelTitle", "")})  # fmt: skip
+                        "detalle": v["snippet"].get("channelTitle", ""),
+                        "url": f"https://www.youtube.com/watch?v={v['id']}",
+                        "publicado_en": v["snippet"].get("publishedAt", "")})  # fmt: skip
         if niche:
             found = get("https://www.googleapis.com/youtube/v3/search", params={
                 **base, "part": "snippet", "q": niche, "type": "video", "order": "viewCount",
@@ -188,26 +192,71 @@ def _words(text: str) -> set:
 
 
 def rank(signals: List[Dict[str, Any]], niche: str = "") -> List[Dict[str, Any]]:
-    """Each signal's weight: its size within its own source (0–1), plus a
-    bonus when other sources share its words (the same topic everywhere)
-    and when it touches the owner's niche."""
-    by_source: Dict[str, int] = {}
-    for s in signals:
-        by_source[s["fuente"]] = max(
-            by_source.get(s["fuente"], 0), int(s.get("cifra") or 0)
-        )
+    """Source-relative popularity, recency and independent corroboration.
+
+    Scores are editorial heuristics, never a probability of virality. A shared
+    generic word alone is not independent corroboration. Input is not mutated.
+    """
+    clean = []
+    seen = set()
+    for original in signals:
+        s = dict(original)
+        identity = (s.get("fuente"), plain(str(s.get("tema") or "")))
+        if not all(identity) or identity in seen:
+            continue
+        seen.add(identity)
+        try:
+            size = float(s.get("cifra") or 0)
+        except (TypeError, ValueError):
+            size = 0
+        s["cifra"] = int(max(0, size)) if math.isfinite(size) else 0
+        clean.append(s)
+    by_source = {}
+    for s in clean:
+        by_source[s["fuente"]] = max(by_source.get(s["fuente"], 0), s["cifra"])
     want = _words(niche)
-    for s in signals:
-        top = by_source.get(s["fuente"]) or 0
-        size = (s.get("cifra") or 0) / top if top else 0.3
-        mine = _words(s["tema"] + " " + s.get("detalle", ""))
-        echoes = {o["fuente"] for o in signals if o is not s and o["fuente"] != s["fuente"]
-                  and len(mine & _words(o["tema"])) >= 1}  # fmt: skip
+    now = datetime.now(timezone.utc)
+    for s in clean:
+        top = by_source[s["fuente"]]
+        size = math.log1p(s["cifra"]) / math.log1p(top) if top else 0.0
+        mine = _words(s["tema"])
+        echoes = set()
+        for other in clean:
+            theirs = _words(other["tema"])
+            overlap = mine & theirs
+            union = mine | theirs
+            if (
+                other["fuente"] != s["fuente"]
+                and (len(overlap) >= 2 or (mine == theirs and bool(mine)))
+                and len(overlap) / max(1, len(union)) >= 0.3
+            ):
+                echoes.add(other["fuente"])
+        freshness = 1.0
+        stamp = s.get("publicado_en")
+        if stamp:
+            try:
+                published = datetime.fromisoformat(str(stamp).replace("Z", "+00:00"))
+                if published.tzinfo is None:
+                    published = published.replace(tzinfo=timezone.utc)
+                age_days = max(0.0, (now - published).total_seconds() / 86400)
+                freshness = 1 / (1 + age_days / 7)
+            except ValueError:
+                freshness = 0.5
         s["fuentes"] = sorted({s["fuente"], *echoes})
         s["peso"] = round(
-            size + 0.6 * len(echoes) + (0.8 if want and mine & want else 0.0), 3
+            size * freshness
+            + 0.6 * len(echoes)
+            + (
+                0.8
+                if want and (_words(s["tema"] + " " + s.get("detalle", "")) & want)
+                else 0
+            ),
+            3,
         )
-    return sorted(signals, key=lambda s: -s["peso"])
+        s["criterio"] = (
+            "popularidad relativa + actualidad conocida + coincidencia temática + nicho"
+        )
+    return sorted(clean, key=lambda s: (-s["peso"], plain(s["tema"]), s["fuente"]))
 
 
 def _cache(home: Optional[Path] = None) -> Path:
@@ -306,9 +355,7 @@ def ideas(country: str = "EC", niche: str = "", *, n: int = 6, ask: Optional[Cal
         if not isinstance(idea, dict):
             continue
         sig = plain(str(idea.get("signal") or ""))
-        match = known.get(sig) or next(
-            (s for k, s in known.items() if sig and (sig in k or k in sig)), None
-        )
+        match = known.get(sig)
         if match is None:
             continue  # its signal is not in the list: invented
         genre = str(idea.get("genre") or "")

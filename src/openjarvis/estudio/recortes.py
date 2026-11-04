@@ -22,6 +22,7 @@ Nothing is posted. The clips are the person's own video.
 
 from __future__ import annotations
 
+import math
 import re
 import subprocess
 import tempfile
@@ -65,7 +66,18 @@ def _words(words: Iterable[Any]) -> List[W]:
             out.append(W(str(w.get("text", "")), float(w["start"]), float(w["end"])))
         else:
             out.append(W(str(w.text), float(w.start), float(w.end)))
-    return [w for w in out if w.text.strip()]
+    out = [w for w in out if w.text.strip()]
+    if any(
+        not math.isfinite(w.start)
+        or not math.isfinite(w.end)
+        or w.start < 0
+        or w.end <= w.start
+        for w in out
+    ):
+        raise ValueError("La transcripción contiene tiempos inválidos.")
+    if any(b.start < a.start for a, b in zip(out, out[1:])):
+        raise ValueError("Las palabras deben estar ordenadas por tiempo.")
+    return out
 
 
 def sentences(words: Iterable[Any]) -> List[List[W]]:
@@ -133,6 +145,16 @@ def moments(
     words: Iterable[Any], *, min_s: float = 20, max_s: float = 60, n: int = 5
 ) -> List[Moment]:
     """The *n* best moments that do not overlap, best first."""
+    if (
+        not math.isfinite(min_s)
+        or not math.isfinite(max_s)
+        or not 0 < min_s <= max_s <= 300
+    ):
+        raise ValueError("Use una duración válida entre 0 y 300 segundos.")
+    if not 0 <= n <= 20:
+        raise ValueError("Pida entre 0 y 20 recortes.")
+    if n == 0:
+        return []
     sents = sentences(words)
     cands: List[Moment] = []
     for i in range(len(sents)):
@@ -144,8 +166,10 @@ def moments(
                 continue
             group = sents[i : j + 1]
             score, reasons = judge(group)
+            padding = min(0.4, max(0, max_s - (end - start)))
+            lead = min(start, padding * 0.375)
             cands.append(Moment(
-                round(max(0.0, start - 0.15), 2), round(end + 0.25, 2),
+                round(start - lead, 3), round(end + padding - lead, 3),
                 " ".join(_say(s) for s in group), _say(group[0]), score, reasons,
             ))  # fmt: skip
     cands.sort(key=lambda m: (-m.score, m.start))
@@ -167,9 +191,11 @@ def from_srt(text: str) -> List[W]:
         if not m:
             continue
         g = [int(x) for x in m.groups()]
-        a = g[0] * 3600 + g[1] * 60 + g[2] + g[3] / 1000
-        b = g[4] * 3600 + g[5] * 60 + g[6] + g[7] / 1000
-        body = " ".join(block[m.end() :].split())
+        a = g[0] * 3600 + g[1] * 60 + g[2] + g[3] / 10 ** len(m.groups()[3])
+        b = g[4] * 3600 + g[5] * 60 + g[6] + g[7] / 10 ** len(m.groups()[7])
+        if b <= a:
+            continue
+        body = " ".join(re.sub(r"<[^>]+>|\{[^}]+\}", "", block[m.end() :]).split())
         tokens = body.split()
         for k, tok in enumerate(tokens):
             span = (b - a) / max(1, len(tokens))
@@ -248,18 +274,37 @@ def cut(path: str, picks: Sequence[Dict[str, Any]], *, aspect: str = "9:16",
     from openjarvis.video_essay import pro
 
     video = Path(path).expanduser()
+    if not video.is_file():
+        raise FileNotFoundError(f"No encuentro el video: {path}")
+    validated = []
+    if not 1 <= len(picks) <= 20:
+        raise ValueError("Elija entre 1 y 20 recortes.")
+    if aspect not in ("9:16", "16:9", "1:1"):
+        raise ValueError("Formato no compatible.")
+    for m in picks:
+        a, b = float(m["desde"]), float(m["hasta"])
+        if (
+            not math.isfinite(a)
+            or not math.isfinite(b)
+            or a < 0
+            or not a < b
+            or b - a > 300
+        ):
+            raise ValueError("El recorte tiene tiempos inválidos.")
+        validated.append((a, b))
     ff = _ffmpeg()
     probe = shutil.which("ffprobe") or "ffprobe"
     words = transcribe(video, language) if subtitles else []
+    if subtitles and not words:
+        raise RuntimeError("No hay palabras con tiempos para crear los subtítulos.")
     out_dir = video.with_name(video.stem + "-recortes")
     out_dir.mkdir(exist_ok=True)
     made: List[str] = []
-    for k, m in enumerate(picks, 1):
-        a, b = float(m["desde"]), float(m["hasta"])
+    for k, (a, b) in enumerate(validated, 1):
         with tempfile.TemporaryDirectory() as tmp:
             raw = Path(tmp) / "raw.mp4"
             subprocess.run(
-                [ff, "-y", "-v", "error", "-ss", f"{a:.2f}", "-to", f"{b:.2f}", "-i", str(video),
+                [ff, "-y", "-v", "error", "-ss", f"{a:.3f}", "-i", str(video), "-t", f"{b-a:.3f}",
                  "-c:v", "libx264", "-crf", "18", "-preset", "medium", "-c:a", "aac", "-b:a", "192k",
                  str(raw)],
                 check=True, timeout=1800,
@@ -268,6 +313,10 @@ def cut(path: str, picks: Sequence[Dict[str, Any]], *, aspect: str = "9:16",
                 pro.reframe(raw, aspect, ff, probe, Path(tmp) / "framed.mp4") or raw
             )
             final = out_dir / f"recorte-{k:02d}.mp4"
+            suffix = 2
+            while final.exists():
+                final = out_dir / f"recorte-{k:02d}-{suffix}.mp4"
+                suffix += 1
             info = pro._probe(framed, probe)
             ass = (
                 _captions(words, a, b, info["w"], info["h"], Path(tmp))
@@ -284,9 +333,23 @@ def cut(path: str, picks: Sequence[Dict[str, Any]], *, aspect: str = "9:16",
                     timeout=1800,
                 )  # fmt: skip
                 if done.returncode != 0:
-                    shutil.copyfile(framed, final)
+                    final.unlink(missing_ok=True)
+                    raise RuntimeError(
+                        "No pude incrustar los subtítulos; no entregué un recorte sin ellos."
+                    )
             else:
                 shutil.copyfile(framed, final)
+            check = pro._probe(final, probe)
+            aw, ah = (int(x) for x in aspect.split(":"))
+            if (
+                check["w"] <= 0
+                or check["h"] <= 0
+                or check["dur"] <= 0
+                or abs(check["w"] / max(1, check["h"]) - aw / ah) > 0.02
+                or abs(check["dur"] - (b - a)) > max(0.2, (b - a) * 0.05)
+            ):
+                final.unlink(missing_ok=True)
+                raise RuntimeError("No pude verificar el video exportado.")
         made.append(str(final))
     return made
 

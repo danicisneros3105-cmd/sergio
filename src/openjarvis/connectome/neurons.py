@@ -270,7 +270,7 @@ NEURONS: Dict[str, Neuron] = {
                 "mejores momentos", "clips cortos de mi video", "de mi podcast", "de mi stream",
                 "calendario de contenido", "plan de publicaciones", "que publico esta semana"),
                ("clips_cine", "miniaturas", "titulos_video", "radar_tendencias", "escuela_video",
-                "recortes_video", "calendario_contenido")),
+                "recortes_video", "calendario_contenido", "motion_design")),
         Neuron("conserje", "Conserje", "Reservas, vuelos, viajes, transporte, comida, ventas y su auto.",
                ("reserva", "reservar", "restaurante", "mesa para", "lista de espera", "vuelo",
                 "vuelos", "pasaje", "boleto de avion", "hotel", "hoteles", "viaje a", "itinerario",

@@ -98,3 +98,13 @@ html[data-ligero] .critter-frame:first-of-type { visibility: visible; }
 }
 .nodes-badge { background: var(--color-accent); }
 html[data-ligero] .node-head { -webkit-backdrop-filter: none; backdrop-filter: none; background: var(--color-surface); }
+
+/* Resting characters stay crisp and still; movement communicates actual work. */
+.critter[data-status='idle']:not([data-talking]) .critter-frame,
+.critter[data-status='paused']:not([data-talking]) .critter-frame { animation: none; visibility: hidden; }
+.critter[data-status='idle']:not([data-talking]) .critter-frame:first-of-type,
+.critter[data-status='paused']:not([data-talking]) .critter-frame:first-of-type { visibility: visible; }
+.nodes-item:focus-visible { outline: 2px solid var(--color-accent-text); outline-offset: 3px; }
+.nodes-item[aria-current='true'] { background: var(--color-accent-subtle); box-shadow: inset 3px 0 0 var(--color-accent); }
+.nodes-item-status { line-height: 1.4; }
+.node-head { box-shadow: 0 1px 0 var(--color-border-subtle); }

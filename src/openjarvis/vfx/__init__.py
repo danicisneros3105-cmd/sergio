@@ -22,6 +22,7 @@ EFFECTS = (
     "volumetrics",
     "shaders",
     "geo_nodes",
+    "motion_graphics",
 )
 
 

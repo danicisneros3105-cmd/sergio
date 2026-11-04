@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import json
 import re
+from collections import Counter
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
@@ -243,6 +244,17 @@ def _validate(text: str, count: int) -> List[str]:
     return out
 
 
+def _anchors(text: str) -> Tuple[Counter, Counter]:
+    """Conservative integrity check, not a fact-check of the claims themselves.
+
+    A rewrite cannot add/remove numerical facts or names found by the existing
+    detector. Keeping anchors is necessary, but does not prove semantic truth.
+    """
+    numbers = Counter(re.findall(r"\b\d+(?:[.,:/-]\d+)*\b", text))
+    names = Counter(n.casefold() for n in _NAME.findall(text))
+    return numbers, names
+
+
 def improve(
     sc: Dict[str, Any],
     ask: Callable[..., str],
@@ -261,9 +273,10 @@ def improve(
         "before": before,
         "after": before,
         "rewritten": 0,
+        "rejected_facts": 0,
         "parts": [],
     }
-    for _ in range(max(0, passes)):
+    for _ in range(min(3, max(0, passes))):
         weak = [p for p in measure(out, seconds) if p.score < WEAK_BELOW and p.problems]
         if not weak:
             break
@@ -312,6 +325,9 @@ def improve(
             except Exception:  # noqa: BLE001 — a failed rewrite changes nothing
                 continue
             words = sum(len(t.split()) for t in new)
+            if _anchors(_text(out, here)) != _anchors(" ".join(new)):
+                report["rejected_facts"] += 1
+                continue
             if not KEEP_LENGTH[0] * here.words <= words <= KEEP_LENGTH[1] * here.words:
                 continue
             if score(" ".join(new), hook=(idx == 0)) <= here.score:

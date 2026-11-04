@@ -142,7 +142,12 @@ def _probe(path: Path, ffprobe: str) -> Dict[str, Any]:
 def interest_track(path: Path, every: float = 0.5) -> List[Tuple[float, float]]:
     """(time, x from 0 to 1) of what matters in the frame: faces first, else
     where things move, else the centre. Smoothed so the frame glides."""
-    import cv2
+    try:
+        import cv2
+    except ImportError:
+        # Reframing still works without the optional vision package. This is
+        # explicitly a centre crop, not face or subject tracking.
+        return [(0.0, 0.5)]
 
     cap = cv2.VideoCapture(str(path))
     fps = cap.get(cv2.CAP_PROP_FPS) or 30

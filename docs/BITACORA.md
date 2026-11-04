@@ -2,6 +2,34 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-11-03 · Codex · Creadores, identidad azul e inventario verificable
+- Revisé la actualización de Claude: inspiración, plan por tomas, montaje,
+  recortes y calendario. Corregí la petición OAuth de tendencias (headers
+  duplicados), las coincidencias demasiado amplias y señales repetidas; el
+  ranking considera fecha conocida, nicho y corroboración temática sin mutar
+  los datos. YouTube conserva enlace y fecha.
+- Protegí nombres/cifras en reescrituras; recortes validan tiempos, formato y
+  duración, conservan archivos anteriores y fallan con claridad si no pueden
+  incrustar subtítulos. Sin OpenCV se usa recorte central, no seguimiento.
+- Nueva plantilla Blender de motion graphics 2D/3D con keyframes, accesible como
+  motion_design, con capacidades declaradas. Requiere Blender real y verifica
+  archivos; aquí se compiló el guion, no se renderizó con Blender.
+- Acento azul coherente con el círculo oficial (SVG intacto), foco visible y
+  personajes Nodes quietos en reposo. Inventario completo de herramientas
+  declaradas, pantallas, arquitectura y límites en docs/SERGIO_COMPLETO.md.
+- Demo procedural original: scripts/demo_creadores.py; MP4 real verificado
+  720x1280, 24 fps, 6 s. No es un video de una tarea de IA ni un render Blender.
+- Pruebas: 1216 pasan y 12 saltadas por faltar Blender en la selección de código,
+  permisos y creadores; frontend 347 pasan, TypeScript y build de producción
+  correctos; Ruff de src/tests y formato correctos.
+- Cambié la prueba de reescritura: el ejemplo anterior añadía personas/años
+  que no estaban en el texto; ahora la mejora válida conserva datos y hay
+  regresión para rechazar invenciones. LiveSession usa jsdom: Node 24 aporta
+  navigator.locks nativo y alteraba su base; los casos de locks siguen usando
+  FakeLocks explícitos. No se cambió el motor de voz.
+- Pendiente: Windows/cámara/audio reales, APIs personales y Blender. Los Nexus
+  de core aún tienen salidas fijas; no se certifican como acciones reales.
+
 ## 2026-11-04 · Claude · Mini videos del tour, limpieza, control del equipo, segundo plano, creadores
 - Tour: un clip animado sin sonido por paso (11). Grabé el tour real a un mp4 de muestra para el dueño (no está en el repositorio).
 - Limpieza de información repetida o poco útil (ver AGENTS §3); capturas revisadas de Configuración, Modelos, Perfil, Salud, Visage y Nodes.

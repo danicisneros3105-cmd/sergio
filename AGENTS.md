@@ -802,6 +802,24 @@ termina en la rama `main`, y el dueño actualiza con un único comando.
 - Kimi como proveedor y «Digitalsnickers» están descartados.
 - Licencia Apache-2.0 y autoría honesta: no se borran créditos del original.
 
+## Identidad y creadores: revisión de Codex
+
+- Marca oficial confirmada por el dueño: círculo azul, con su anillo blanco
+  (`assets/marca/sergio.svg`). Acento azul coherente con la marca, texto de
+  acento con contraste y superficies neutras; nunca cambiar el SVG por otro logo.
+- `motion_design` genera una escena Blender editable con fotogramas clave
+  (`vfx/motion_graphics.py`): títulos 2D o producto 3D. Requiere Blender y
+  comprueba el .blend y las vistas previas antes de anunciar éxito.
+- Tendencias: conservar las fuentes; una coincidencia genérica o una cifra de
+  vistas no prueban tendencia ni éxito futuro. El guion no debe ganar puntuación
+  añadiendo nombres o números inventados (`partes._anchors`).
+- Recortes: validar tiempos, relación de aspecto y duración de exportación.
+  No entregar silenciosamente sin subtítulos si falla su incrustación. Sin
+  OpenCV el encuadre es central: nunca decir que está siguiendo a una persona.
+- Inventario para el dueño: `docs/SERGIO_COMPLETO.md`. Los módulos Nexus con
+  resultados fijos siguen siendo experimentales; no son evidencia de una
+  reserva, medición o acción ejecutada.
+
 ## 4. Antes de subir (las dos herramientas igual)
 
 ```bash

@@ -427,3 +427,73 @@ class ContentCalendarTool(BaseTool):
             return out
 
         return _run(self.tool_id, go)
+
+
+@ToolRegistry.register("motion_design")
+class MotionDesignTool(BaseTool):
+    """Fixed, inspectable Blender templates; never generated arbitrary Python."""
+
+    tool_id = "motion_design"
+
+    @property
+    def spec(self) -> ToolSpec:
+        return ToolSpec(
+            name=self.tool_id,
+            description=(
+                "Create an editable animated 2D title or 3D product reveal in Blender. "
+                "Requires installed Blender. Returns a .blend and preview; does not publish."
+            ),
+            parameters={
+                "type": "object",
+                "properties": {
+                    "titulo": {"type": "string"},
+                    "modo": {"type": "string", "enum": ["2d", "3d"]},
+                },
+                "required": ["titulo"],
+            },
+            category="media",
+            timeout_seconds=300,
+        )
+
+    def execute(self, **p: Any) -> ToolResult:
+        def go():
+            import uuid
+            from pathlib import Path
+
+            from openjarvis.core.config import get_config_dir
+            from openjarvis.vfx import build_scene, run
+
+            folder = Path(get_config_dir()) / "motion" / uuid.uuid4().hex
+            folder.mkdir(parents=True, exist_ok=True)
+            blend, preview = folder / "motion.blend", folder / "preview.png"
+            script = build_scene(
+                [
+                    (
+                        "motion_graphics",
+                        {
+                            "title": str(p.get("titulo") or ""),
+                            "mode": p.get("modo", "3d"),
+                        },
+                    )
+                ],
+                save=str(blend),
+                preview=str(preview),
+                frames=(1, 36, 72),
+            )
+            result = run(script, timeout=240)
+            previews = [Path(f) for f in result.info.get("previews", [])]
+            if (
+                not result.ok
+                or not blend.is_file()
+                or not previews
+                or not all(f.is_file() for f in previews)
+            ):
+                raise RuntimeError(
+                    "No pude verificar el render. Instale Blender y revise su configuración."
+                )
+            return (
+                f"Animación editable (3 s, 24 fps): {blend}\nVistas previas: "
+                + ", ".join(map(str, previews))
+            )
+
+        return _run(self.tool_id, go)

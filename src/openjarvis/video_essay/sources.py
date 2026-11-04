@@ -436,7 +436,27 @@ def score(c: Candidate, wanted: str) -> float:
 def rank(cands: List[Candidate], wanted: str) -> List[Candidate]:
     """The candidates best first (stable: equal scores keep the search order)."""
     order = sorted(range(len(cands)), key=lambda i: -score(cands[i], wanted))
-    return [cands[i] for i in order]
+    from urllib.parse import parse_qs, urlsplit
+
+    out: List[Candidate] = []
+    seen = set()
+    for i in order:
+        candidate = cands[i]
+        parsed = urlsplit(candidate.url)
+        host = (parsed.hostname or "").lower().removeprefix("www.")
+        video = ""
+        if host == "youtu.be":
+            video = parsed.path.strip("/")
+        elif host in ("youtube.com", "m.youtube.com"):
+            video = (parse_qs(parsed.query).get("v") or [""])[0]
+            if parsed.path.startswith(("/shorts/", "/embed/")):
+                video = parsed.path.split("/")[2]
+        key = f"youtube:{video}" if video else candidate.url
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(candidate)
+    return out
 
 
 SCENE_WORDS = (

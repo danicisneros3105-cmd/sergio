@@ -1,3 +1,6 @@
+// @vitest-environment jsdom
+// Browser lifecycle test: Node 24's native navigator.locks otherwise changes
+// the baseline; lock-specific cases below explicitly install FakeLocks.
 import { beforeEach, expect, it, vi } from 'vitest';
 
 const calls = vi.hoisted(() => [] as Array<{ cb: Record<string, (...a: unknown[]) => void>; language: string; started: number; stopped: number }>);
