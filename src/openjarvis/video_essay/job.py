@@ -207,6 +207,46 @@ def _counted(
     return call
 
 
+def _by_parts(
+    job: Job, sc: Dict[str, Any], params: Dict[str, Any], mode: Any, direct: Any
+) -> Dict[str, Any]:
+    """The script worked part by part until its weak parts are better by the
+    rules (owner, 4 Nov 2026). Only the director's own script (never one the
+    owner wrote); the effort follows the mode; it never stops the video."""
+    from openjarvis.video_essay import partes
+
+    if params.get("script") or not sc.get("beats") or sc.get("narration") != "voice":
+        return sc
+    seconds = float(params.get("seconds") or 60)
+    passes = {"test": 0, "basic": 1, "post": 2, "cinema": 3}.get(mode.key, 1)
+    if not passes:
+        job.update(
+            partes=partes.improve(sc, lambda *a, **k: "", passes=0, seconds=seconds)[1]
+        )
+        return sc
+
+    def progress(k: int, n: int, name: str) -> None:
+        job.update(
+            note=f"Guion por partes: {name} ({k} de {n})", stage_progress=k / max(n, 1)
+        )
+
+    try:
+        better, report = partes.improve(
+            sc,
+            direct,
+            passes=passes,
+            seconds=seconds,
+            language=str(params.get("language") or "Spanish"),
+            progress=progress,
+        )
+    except Exception as exc:  # noqa: BLE001 — the director's script is still good
+        job.log(f"guion por partes: {str(exc)[:120]}")
+        return sc
+    job.update(partes=report)
+    job.log(partes.line(report))
+    return better
+
+
 def _specialist(job: Job, style_key: str, brief: str) -> str:
     """The film or creator specialist's advice for this video (its own fly
     brain); remembered so it can learn from how the video turned out."""
@@ -508,6 +548,7 @@ def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
                     + genres.notes(job.state().get("genre", ""))
                     + trend_note,
                 )
+            sc = _by_parts(job, sc, params, mode, direct)
             job.write("script.json", sc)
             job.update(
                 title=sc["title"], style_key=sc.get("style") or fixed or style.DEFAULT
@@ -1238,6 +1279,11 @@ def summary(st: Dict[str, Any]) -> str:
         if pkg.get("note"):
             extra += " " + pkg["note"]
         trend = st.get("tendencia") or {}
+        if st.get("partes"):
+            from openjarvis.video_essay import partes as _partes
+
+            said = _partes.line(st["partes"])
+            extra += f"\n{said}" if said else ""
         if st.get("derechos"):
             from openjarvis.video_essay import derechos
 

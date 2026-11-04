@@ -301,7 +301,10 @@ def hunt(
             def ask(p: str, **kw: Any) -> str:
                 return llm_ask(p, max_tokens=1200)
 
+        from openjarvis.automatiza import humano
+
         made = 0
+        written: List[str] = [r.get("borrador") or "" for r in rows[:30]]
         for r in fresh[:drafts]:
             what = (
                 "cover letter"
@@ -315,6 +318,9 @@ def hunt(
                     item=json.dumps({k: r.get(k, "") for k in ("titulo", "empresa", "lugar", "texto", "url")},
                                     ensure_ascii=False)[:2500],
                 )).strip()[:2000]  # fmt: skip
+                # reads like a careful person, not a template (4 Nov 2026)
+                r["borrador"] = humano.polish(r["borrador"], ask, written[-12:])
+                written.append(r["borrador"])
                 r["estado"] = "borrador"
                 made += 1
             except Exception:  # noqa: BLE001 — listed without a draft

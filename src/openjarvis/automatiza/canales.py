@@ -447,11 +447,15 @@ def draft_replies(comments: List[Dict[str, str]], ask: Optional[Callable[..., st
     """A reply drafted for each comment, kept for his approval."""
     if not comments:
         return []
+    plain = ask  # a plain-text call for polishing (the default one answers JSON)
     if ask is None:
         from openjarvis.creator.llm import ask as llm_ask
 
         def ask(p: str, **kw: Any) -> str:
             return llm_ask(p, json_mode=True, max_tokens=4000)
+
+        def plain(p: str, **kw: Any) -> str:
+            return llm_ask(p, max_tokens=600)
 
     data = json.loads(
         ask(
@@ -460,9 +464,18 @@ def draft_replies(comments: List[Dict[str, str]], ask: Optional[Callable[..., st
             )
         )
     )
+    from openjarvis.automatiza import humano
+
     by_id = {c["id"]: c for c in comments}
-    drafts = [{**by_id[r["id"]], "respuesta": str(r.get("reply") or "")[:500]}
-              for r in data.get("replies") or [] if r.get("id") in by_id and r.get("reply")]  # fmt: skip
+    drafts: List[Dict[str, str]] = []
+    said: List[str] = []
+    for r in data.get("replies") or []:
+        if r.get("id") not in by_id or not r.get("reply"):
+            continue
+        # not ten replies that all open the same way (4 Nov 2026)
+        text = humano.polish(str(r["reply"])[:500], plain, said[-10:])
+        said.append(text)
+        drafts.append({**by_id[r["id"]], "respuesta": text[:500]})
     path = _dir(home) / "respuestas.json"
     with _LOCK:
         old = json.loads(path.read_text()) if path.exists() else []

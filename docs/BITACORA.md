@@ -2,6 +2,14 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-11-04 · Claude · Limpieza, artefactos, sonido, video por partes, automatizaciones
+- Quité el razonamiento («Pensar a fondo»), la línea semanal y los contadores de Automatizar; Uso pasó a Configuración → Cuenta. Los cinco atajos del chat piden un artefacto.
+- Sonido: sin compuerta en la voz, recorte del silencio de cada llamada, sala de -62 dB en las pausas, efectos 9 dB bajo la voz. Probado con mediciones y pruebas; **no escuché un video real** (aquí no hay modelo de voz), conviene que el señor lo oiga y me diga qué sigue mal.
+- Video por partes (`partes.py`) y automatizaciones con criterio (`humano.py`): ver AGENTS §3. La reescritura por partes solo se queda si el puntaje medido sube.
+- Pruebas cambiadas, con motivo: la de Automatizar (los contadores ya no están), la de la Galería (el reloj fijo: fallaba al pasar la medianoche porque «Hoy» estaba fijo al 3 nov), la de la pausa real (una pausa ahora lleva sala de -62 dB, no ceros) y la de programados (la próxima hora se desplaza hasta 45 min). Borré la prueba de ThinkPage con la página.
+- Pendiente: el puntaje por reglas es en español e inglés; otros idiomas solo usan las reglas de ritmo y datos.
+
+
 ## 2026-11-03 · Claude · Visage: icono nuevo y reconocimiento más seguro y rápido
 - Icono (`FaceGlyph.tsx` + `index.css`): anillo tenue con un arco de acento y su punto que barre el aro al mirar, rostro simple; verde al aprobar, rojo al fallar, sin movimiento si el sistema lo pide.
 - `faces/faceid.py`: reduce la imagen a 640 px antes de detectar (`fit`), mide calidad (`quality`: luz, enfoque, tamaño) y la trata como reintento; `head_roll` rechaza una foto inclinada en la mano; imágenes repetidas se rechazan; `match_owner` exige también el promedio de los cuadros; `Gate.audit/recent` guarda un registro local sin imágenes ni nombres; `warm()` carga los modelos al arrancar solo si hay Visage configurado.

@@ -38,7 +38,9 @@ def test_a_schedule_starts_on_time_with_a_new_angle_each_time(tmp_path):
     assert (
         schedule.tick(home=tmp_path, now=1061 + 3600, start=start, guard=free) == []
     )  # every 3 h
-    schedule.tick(home=tmp_path, now=1061 + 3 * 3600, start=start, guard=free)
+    # the next one drifts a little (humano.stagger: up to 45 min), so it is
+    # due by 3 h 46 min, not to the second at 3 h
+    schedule.tick(home=tmp_path, now=1061 + 3 * 3600 + 46 * 60, start=start, guard=free)
     assert "número 2" in orders[1]["prompt"]
     assert schedule.load(tmp_path)[0]["hechos"] == ["job1", "job2"]
 

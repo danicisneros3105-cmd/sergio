@@ -153,6 +153,7 @@ def tick(
     guard: Optional[Callable[[Dict[str, Any]], tuple]] = None,
 ) -> List[str]:
     """Start the videos that are due; the ids of the schedules that started one."""
+    from openjarvis.automatiza import humano
     from openjarvis.video_essay import job as jobs
 
     start = start or jobs.start
@@ -183,7 +184,12 @@ def tick(
                 list(s.get("hechos") or []) + [getattr(made, "id", str(made))]
             )[-50:]
             s["nota"] = ""
-            s["proximo"] = now + float(s["cada_horas"]) * 3600
+            # a person's day drifts a little: not every 3 hours to the second
+            s["proximo"] = humano.stagger(
+                now + float(s["cada_horas"]) * 3600,
+                float(s["cada_horas"]),
+                str(s.get("id") or ""),
+            )
             started.append(s["id"])
         _save(items, home)
     return started
