@@ -2,6 +2,11 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-11-05 · Codex · Recuperación del arranque de la ventana principal
+- La ventana muestra el logo, el estado y Recargar desde el HTML, incluso si faltan el bundle o el script de recuperación. Se oculta cuando React pinta.
+- Recargar actúa solo sobre el worker y las cachés de Sergio, con un límite de 1,5 s. Tauri deja de bloquear el arranque si su puente tarda más de 2 s en indicar el servidor.
+- Probado con DOM simulado sin JavaScript, error de carga, tiempo agotado, montaje y caché bloqueada. La captura no determina la causa original; falta probar en Windows.
+
 ## 2026-11-05 · Codex · Pantalla oscura y espera del chat
 - El Gimnasio Mental usa una ventana acotada, con controles del sistema y Esc. Ya no oscurece todos los monitores ni vuelve al frente por temporizador. Cerrar antes del resultado no registra puntuación.
 - Night Shift conserva los controles de color de Windows y prescinde del velo negro cuando fallan.

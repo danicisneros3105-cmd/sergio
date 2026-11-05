@@ -45,7 +45,19 @@ watchCrashes();
 // The demo lives inside another page: its own memory router, no URLs.
 const Router = import.meta.env.VITE_DEMO ? MemoryRouter : BrowserRouter;
 
-initApiBase().finally(() => {
+async function prepareApiBase() {
+  let timer: number | undefined;
+  try {
+    await Promise.race([
+      initApiBase(),
+      new Promise<void>((resolve) => { timer = window.setTimeout(resolve, 2000); }),
+    ]);
+  } finally {
+    window.clearTimeout(timer);
+  }
+}
+
+prepareApiBase().finally(() => {
   // Kick off analytics init in the background — it's never awaited so
   // a slow/failed identity fetch never delays UI render.
   void initAnalytics();
