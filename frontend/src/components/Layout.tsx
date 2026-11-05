@@ -3,7 +3,6 @@ import { Suspense, useEffect, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router';
 import { ErrorBoundary } from './ErrorBoundary';
 import { Tour } from './Tour/Tour';
-import { RunningPill } from './Shell/RunningPill';
 import { sessionNeed, tourSeen } from '../lib/session';
 import { Menu } from 'lucide-react';
 import { toast } from 'sonner';
@@ -225,7 +224,6 @@ export function Layout() {
           <LiveCaptions />
         </main>
       </div>
-      <RunningPill />
       {/* The app lock is retired (owner, 3 Nov 2026: «bloqueo con Visage NO para desbloquear app»). */}
       {tour && <Tour onClose={() => setTour(false)} />}
       <SergioPointer />

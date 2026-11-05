@@ -2,6 +2,11 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-11-04 · Codex · Ocultar indicador En marcha
+- Se quitó el indicador global de la interfaz a petición del dueño; las tareas y sus rutas siguen funcionando.
+- Revisión: componente global localizado en Layout; se retira su montaje y su importación.
+- Pendiente: los cambios de voz, modelos y video de la sesión anterior no se publicaron y deben recuperarse.
+
 ## 2026-11-03 · Codex · Creadores, identidad azul e inventario verificable
 - Revisé la actualización de Claude: inspiración, plan por tomas, montaje,
   recortes y calendario. Corregí la petición OAuth de tendencias (headers
