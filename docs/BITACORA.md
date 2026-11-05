@@ -2,6 +2,11 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-11-05 · Codex · Auditoría de actualización de escritorio
+- Se retiró el montaje automático de UpdateChecker: su configuración aún consultaba las versiones firmadas del proyecto original OpenJarvis. Sergio conserva su actualización mediante el script propio; no se configura un canal de instaladores de Sergio inexistente.
+- Revisado: voz propia con agente configurable y Gemini Live como alternativa; no se confirma voz en tiempo real nativa con todos los modelos. PWA móvil depende del equipo anfitrión, permisos y red.
+- Verificación: inspección del componente y comprobación de que ya no se importa ni monta; no se compiló ni probó un instalador de escritorio firmado.
+
 ## 2026-11-05 · Codex · Terry, herramientas multi-IA y activación explícita
 - Terry (Tennessee) entrega la decisión primero, separa evidencia de supuestos y no afirma haber usado herramientas sin resultados. Conserva su identidad y permisos.
 - Video Pro admite las hojas de contacto completas con Kimi, Gemini, OpenAI, OpenRouter u Ollama. Una selección local nunca deriva las imágenes a la nube. La API valida cantidad, tamaño, duración y JPEG antes del modelo.
