@@ -17,6 +17,7 @@ import '@fontsource-variable/josefin-sans';
 import '@fontsource-variable/inter';
 import './index.css';
 import './components/Studio/refinement.css';
+import './sergio-surfaces.css';
 
 function applyTheme() {
   try {

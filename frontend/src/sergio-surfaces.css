@@ -1,0 +1,92 @@
+/* Sergio: warm paper, ink and a restrained coral accent. */
+:root, :root.light {
+  --color-bg: #f5f3ee;
+  --color-bg-secondary: #ebe8e1;
+  --color-bg-tertiary: #e3e0d8;
+  --color-surface: #fffcf6;
+  --color-sidebar: #eae7df;
+  --color-tile: #ece9e1;
+  --color-sheet: #fffcf6;
+  --color-border: rgba(25, 25, 23, .14);
+  --color-border-subtle: rgba(25, 25, 23, .08);
+  --color-text: #171715;
+  --color-text-secondary: #514f4b;
+  --color-text-tertiary: #6c6963;
+  --color-input-bg: #fffcf6;
+  --color-composer: #fffcf6;
+  --color-user-bubble: #e6e2da;
+  --color-user-bubble-text: #171715;
+  --sergio-coral: #f04a32;
+  --sergio-coral-hover: #f65a41;
+  --sergio-coral-ink: #11110f;
+}
+:root.dark {
+  --color-bg: #101010;
+  --color-bg-secondary: #191919;
+  --color-bg-tertiary: #252525;
+  --color-surface: #1c1c1c;
+  --color-sidebar: #141414;
+  --color-tile: #222222;
+  --color-sheet: #222222;
+  --color-border: rgba(255, 252, 246, .17);
+  --color-border-subtle: rgba(255, 252, 246, .09);
+  --color-text: #f5f3ee;
+  --color-text-secondary: #c3c0ba;
+  --color-text-tertiary: #a5a19a;
+  --color-input-bg: #252525;
+  --color-composer: #1c1c1c;
+  --color-user-bubble: #30302e;
+  --color-user-bubble-text: #f5f3ee;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not(.light):not(.dark) {
+    --color-bg: #101010;
+    --color-bg-secondary: #191919;
+    --color-bg-tertiary: #252525;
+    --color-surface: #1c1c1c;
+    --color-sidebar: #141414;
+    --color-tile: #222222;
+    --color-sheet: #222222;
+    --color-border: rgba(255, 252, 246, .17);
+    --color-border-subtle: rgba(255, 252, 246, .09);
+    --color-text: #f5f3ee;
+    --color-text-secondary: #c3c0ba;
+    --color-text-tertiary: #a5a19a;
+    --color-input-bg: #252525;
+    --color-composer: #1c1c1c;
+    --color-user-bubble: #30302e;
+    --color-user-bubble-text: #f5f3ee;
+  }
+}
+
+/* Cards stay readable in either theme and retain each page's layout. */
+:root .paper-sheet, :root .cw-more-card, :root .artifact {
+  border-radius: 22px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+:root .cw-composer { border-radius: 26px; background: var(--color-surface); }
+:root .cw-suggest button {
+  border-radius: 22px;
+  min-height: 74px;
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+/* A single editorial coral tile, echoing the supplied reference. */
+:root .cw-suggest li:first-child button {
+  background: var(--sergio-coral);
+  border-color: transparent !important;
+  color: var(--sergio-coral-ink);
+}
+:root .cw-suggest li:first-child button:hover { background: var(--sergio-coral-hover); color: var(--sergio-coral-ink); }
+:root .paper-title { letter-spacing: -.025em; }
+:root .artifact-head { padding: 12px 14px; }
+:root .artifact-head button:focus-visible, :root .artifact-head a:focus-visible,
+:root .cw-suggest button:focus-visible { outline: 3px solid var(--color-accent); outline-offset: 2px; }
+@media (max-width: 640px) {
+  :root .paper-sheet, :root .cw-more-card, :root .artifact { border-radius: 18px; }
+  :root .cw-suggest button { min-height: 64px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  :root .cw-suggest button { transition: none; }
+}

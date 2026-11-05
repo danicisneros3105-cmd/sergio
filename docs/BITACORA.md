@@ -2,6 +2,11 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-11-05 · Codex · Paleta y tarjetas inspiradas en las referencias
+- Nueva capa visual para Sergio: marfil cálido y grafito en claro, negro y carbón en oscuro, tarjetas redondeadas y una tarjeta coral en Cowork. El logo azul y el foco accesible se conservan.
+- Se mantienen los diseños y funcionalidades existentes, las preferencias de tema y movimiento reducido. Colores de texto principales y coral comprobados con contraste mínimo 4,5:1.
+- Verificación: esbuild analizó y minificó el CSS; se comprobaron contrastes. Sin captura visual ni prueba manual en Windows o móviles en esta sesión.
+
 ## 2026-11-05 · Codex · Auditoría de actualización de escritorio
 - Se retiró el montaje automático de UpdateChecker: su configuración aún consultaba las versiones firmadas del proyecto original OpenJarvis. Sergio conserva su actualización mediante el script propio; no se configura un canal de instaladores de Sergio inexistente.
 - Revisado: voz propia con agente configurable y Gemini Live como alternativa; no se confirma voz en tiempo real nativa con todos los modelos. PWA móvil depende del equipo anfitrión, permisos y red.
