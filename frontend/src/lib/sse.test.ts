@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { readSSE } from './sse';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { readSSE, streamChat } from './sse';
 
 function streamOf(chunks: string[]): Response {
   const encoder = new TextEncoder();
@@ -35,5 +35,19 @@ describe('readSSE', () => {
     const seen: { answer: string }[] = [];
     await readSSE<{ answer: string }>(new Response(body), (e) => seen.push(e));
     expect(seen[0].answer).toBe('llegó');
+  });
+});
+
+
+describe('streamChat', () => {
+  afterEach(() => vi.unstubAllGlobals());
+  it('keeps the event type across chunks and accepts CRLF framing', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(streamOf([
+      'event: phase\\n', 'data: {"x":1}\\n\\n',
+      'event: token\\r\\n', 'data: {"text":"ho', 'la"}\\r\\n\\r\\n', 'data: [DONE]\\r\\n\\r\\n',
+    ])));
+    const seen = [];
+    for await (const event of streamChat({ model: 'test', messages: [], stream: true })) seen.push(event);
+    expect(seen).toEqual([{ event: 'phase', data: '{"x":1}' }, { event: 'token', data: '{"text":"hola"}' }]);
   });
 });

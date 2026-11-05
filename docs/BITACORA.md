@@ -2,6 +2,11 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-11-04 · Codex · Flujo de texto para todos los modelos
+- Corregido el flujo SSE común: conserva el tipo de evento entre paquetes y admite saltos CRLF, sin esperar a que llegue toda la respuesta.
+- Verificación: ejecutado el parser real con paquetes divididos y CRLF; dos eventos y texto completo. Sin pruebas contra cuentas reales de proveedores.
+- La conversación de audio en vivo usa Gemini Live; no se afirma compatibilidad de voz en tiempo real con otros proveedores.
+
 ## 2026-11-04 · Codex · Texto y voz sin espera evitable
 - La transcripción retenida se entrega antes de vaciar la cola de audio, al confirmarse que se habla a Sergio; se conserva en el registro del turno.
 - Prueba aislada: texto primero, audio en orden, memoria del turno y vaciado de colas; compilación Python correcta. Sin prueba con cuenta Gemini ni dispositivo real.
