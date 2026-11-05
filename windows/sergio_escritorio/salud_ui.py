@@ -8,15 +8,17 @@ from html import escape
 from pathlib import Path
 from typing import Any, Callable
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QDate, Qt
 from PySide6.QtGui import QFont, QGuiApplication
 from PySide6.QtWidgets import (
     QComboBox,
+    QDateEdit,
     QFileDialog,
     QFormLayout,
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QPlainTextEdit,
     QPushButton,
     QScrollArea,
     QTabWidget,
@@ -36,7 +38,7 @@ QTabWidget::pane { border: none; }
 QTabBar::tab { background: transparent; color: #8E8E93; padding: 8px 14px; font-size: 13px; }
 QTabBar::tab:selected { color: white; border-bottom: 2px solid #30D158; }
 QTextBrowser { background: #2C2C2E; color: #F5F5F7; border: none; border-radius: 12px; padding: 12px; font-size: 13px; }
-QLineEdit, QComboBox { background: #2C2C2E; color: white; border: none; border-radius: 8px; padding: 6px 8px; font-size: 13px; }
+QLineEdit, QComboBox, QDateEdit, QPlainTextEdit { background: #2C2C2E; color: white; border: none; border-radius: 8px; padding: 6px 8px; font-size: 13px; }
 QPushButton { background: #30D158; color: #0b2414; border: none; border-radius: 10px; padding: 8px 16px; font-size: 13px; font-weight: 600; }
 QPushButton#plain { background: #3A3A3C; color: white; }
 QScrollArea { border: none; background: transparent; }
@@ -172,6 +174,37 @@ class HealthWindow(QWidget):
         self.q_form.addRow(save_q)
         scroll.setWidget(qpage)
         self.tabs.addTab(scroll, "Cuestionario")
+        # A private, dated medical timeline. Health.save() stores this alongside
+        # the questionnaire in the Windows DPAPI-sealed file.
+        self.history_page = history_page = QWidget()
+        history_layout = QVBoxLayout(history_page)
+        history_intro = QLabel("Añada consultas, diagnósticos, medicamentos, alergias o resultados. Se guarda cifrado en este PC.")
+        history_intro.setObjectName("muted")
+        history_intro.setWordWrap(True)
+        history_layout.addWidget(history_intro)
+        history_form = QFormLayout()
+        self.history_date = QDateEdit(QDate.currentDate())
+        self.history_date.setCalendarPopup(True)
+        self.history_date.setMaximumDate(QDate.currentDate())
+        self.history_kind = QComboBox()
+        self.history_kind.addItems(["consulta", "diagnóstico", "medicación", "alergia", "procedimiento", "resultado", "nota"])
+        self.history_note = QPlainTextEdit()
+        self.history_note.setPlaceholderText("Detalle que quiera recordar…")
+        self.history_note.setMinimumHeight(92)
+        history_form.addRow(QLabel("Fecha"), self.history_date)
+        history_form.addRow(QLabel("Tipo"), self.history_kind)
+        history_form.addRow(QLabel("Detalle"), self.history_note)
+        history_layout.addLayout(history_form)
+        save_history = QPushButton("Guardar en el historial")
+        save_history.clicked.connect(self._save_history_record)
+        history_layout.addWidget(save_history)
+        self.history_status = QLabel("")
+        self.history_status.setObjectName("muted")
+        history_layout.addWidget(self.history_status)
+        self.history_view = QTextBrowser()
+        self.history_view.setOpenExternalLinks(False)
+        history_layout.addWidget(self.history_view, 1)
+        self.tabs.addTab(history_page, "Historial médico")
         # devices
         dpage = QWidget()
         dv = QVBoxLayout(dpage)
@@ -196,6 +229,18 @@ class HealthWindow(QWidget):
 
     def refresh(self) -> None:
         self.summary.setHtml(report_html(self.health))
+        records = sorted(self.health.medical_history, key=lambda item: item["fecha"], reverse=True)
+        if records:
+            cards = []
+            for record in records:
+                cards.append(
+                    "<section style='margin:0 0 10px;padding:12px 14px;background:#3A3A3C;border-radius:12px'>"
+                    f"<span style='color:#C7C7CC'>{escape(record['fecha'])} · {escape(record['tipo'].title())}</span>"
+                    f"<p style='margin:7px 0 0;white-space:pre-wrap'>{escape(record['nota'])}</p></section>"
+                )
+            self.history_view.setHtml("".join(cards))
+        else:
+            self.history_view.setHtml("<p style='color:#8E8E93'>Su historial aparecerá aquí después de guardar el primer registro.</p>")
         sources = ", ".join(self.health.sources) or "ninguna aún"
         self.folder_label.setText(f"Carpeta: {self._folder() or 'sin elegir'} · Fuentes: {sources}")
         while self.today_form.rowCount():
@@ -214,6 +259,20 @@ class HealthWindow(QWidget):
         save = QPushButton("Guardar el día")
         save.clicked.connect(self._save_today)
         self.today_form.addRow(save)
+
+    def _save_history_record(self) -> None:
+        try:
+            self.health.add_medical_record(
+                self.history_date.date().toString("yyyy-MM-dd"),
+                self.history_kind.currentText(),
+                self.history_note.toPlainText(),
+            )
+        except (ValueError, OSError) as exc:
+            self.history_status.setText(str(exc))
+            return
+        self.history_note.clear()
+        self.history_status.setText("Registro guardado en este PC.")
+        self.refresh()
 
     def _save_today(self) -> None:
         values = {k: f.text() for k, f in self.today_fields.items() if f.text().strip()}
@@ -261,9 +320,12 @@ class HealthWindow(QWidget):
             self.status.setText(f"Importados {days} días." if days else "No reconocí datos en ese archivo.")
             self.refresh()
 
-    def open(self, tab: int = 0) -> None:
+    def open(self, tab: int | str = 0) -> None:
         self.refresh()
-        self.tabs.setCurrentIndex(tab)
+        if tab == "history":
+            self.tabs.setCurrentWidget(self.history_page)
+        elif isinstance(tab, int):
+            self.tabs.setCurrentIndex(tab)
         self.show()
         self.raise_()
         self.activateWindow()

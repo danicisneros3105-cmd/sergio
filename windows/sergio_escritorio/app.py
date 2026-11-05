@@ -58,7 +58,7 @@ def load_config() -> dict[str, Any]:
         data = {}
     data.setdefault("server_url", "http://localhost:8000")
     data.setdefault("port", 8765)
-    data.setdefault("wake_word", True)
+    data["wake_word"] = False
     data.setdefault("show_companion", True)
     data.setdefault("show_notch", True)
     data.setdefault("theme", "Océano")
@@ -88,7 +88,7 @@ def load_config() -> dict[str, Any]:
     data.setdefault("conversation", "llamada")
     # Always on: the call stays open (reconnects by itself, never hangs up on
     # silence); only Ctrl+Space (or the tile) puts it away until you call him.
-    data.setdefault("call_always", True)
+    data["call_always"] = False
     data.setdefault("live_screen", True)
     data.setdefault("allow_turn_fallback", False)
     data.setdefault("reduce_motion", False)
@@ -319,6 +319,7 @@ def start_click_watch(on_click: Callable[[], None], every: float = 0.05) -> None
 
 
 def run(config: dict[str, Any]) -> None:
+    config.update(wake_word=False, call_always=False)
     # Hand the interpreter over every 2 ms instead of 5: the audio callbacks,
     # the notch and the control server get their turn sooner while the eyes
     # or a capture are busy (voice and cursor without stutter).
@@ -826,7 +827,7 @@ def run(config: dict[str, Any]) -> None:
     # -- tray --------------------------------------------------------------
     tray = QSystemTrayIcon(tray_icon(STATE_COLORS["idle"]))
     tray.setToolTip(
-        "Sergio: di «Sergio…», pulsa Ctrl+Espacio, o mantén Ctrl+Alt para "
+        "Sergio: pulsa Ctrl+Espacio o mantén Ctrl+Alt para "
         "preguntarle por tu pantalla"
     )
     menu = QMenu()
@@ -853,6 +854,9 @@ def run(config: dict[str, Any]) -> None:
     health_action = QAction("Mi salud", menu)
     health_action.triggered.connect(lambda: open_health())
     menu.addAction(health_action)
+    history_action = QAction("Historial médico", menu)
+    history_action.triggered.connect(lambda: open_health("history"))
+    menu.addAction(history_action)
     goals_action = QAction("Mis metas (coach)", menu)
     goals_action.triggered.connect(lambda: open_goals())
     menu.addAction(goals_action)
@@ -861,15 +865,6 @@ def run(config: dict[str, Any]) -> None:
     menu.addAction(organizer_action)
     menu.addSeparator()
 
-    wake_action = QAction("Escuchar cuando digo «Sergio»", menu, checkable=True)
-    wake_action.setChecked(bool(config["wake_word"]))
-
-    def set_wake(on: bool) -> None:
-        ears.wake_word = on
-        remember("wake_word", on)
-
-    wake_action.toggled.connect(set_wake)
-    menu.addAction(wake_action)
 
     live_screen_action = QAction("Compartir pantalla con Gemini en la llamada", menu, checkable=True)
     live_screen_action.setChecked(bool(config.get("live_screen", True)))
@@ -992,12 +987,6 @@ def run(config: dict[str, Any]) -> None:
                 target=assistant.on_text, args=(text,), daemon=True
             ).start(),
             toggles=[
-                Toggle(
-                    "Escuchar",
-                    "wave",
-                    lambda: ears.wake_word,
-                    wake_action.setChecked,
-                ),
                 Toggle(
                     "Usar el PC",
                     "hand",
@@ -1675,7 +1664,7 @@ def run(config: dict[str, Any]) -> None:
         health.save()
         return report
 
-    def open_health(tab: int = 0) -> str:
+    def open_health(tab: int | str = 0) -> str:
         from sergio_escritorio.salud_ui import HealthWindow
 
         def show() -> None:
@@ -1684,6 +1673,8 @@ def run(config: dict[str, Any]) -> None:
             health_windows["main"].open(tab)
 
         on_ui(show)
+        if tab == "history":
+            return ""
         if not health.answers:
             return "Empecemos por el cuestionario, señor: con eso calculo todo y lo analizo."
         return health.describe() or "Su salud, señor."
@@ -3962,7 +3953,8 @@ def run(config: dict[str, Any]) -> None:
             ears.spotter = spotter
             logging.info("instant wake word on")
 
-    threading.Thread(target=load_wake_word, daemon=True).start()
+    if ears.wake_word:
+        threading.Thread(target=load_wake_word, daemon=True).start()
 
     def end_call(why: str = "colgaste") -> None:
         session = current_call[0]
@@ -3989,7 +3981,8 @@ def run(config: dict[str, Any]) -> None:
                 logging.exception("always-on call keeper")
             time.sleep(3)
 
-    threading.Thread(target=keep_call, daemon=True, name="call-keeper").start()
+    if config["call_always"]:
+        threading.Thread(target=keep_call, daemon=True, name="call-keeper").start()
 
     def talk_hotkey() -> bool:
         """Ctrl+Space: start or end the call (else push-to-talk)."""
@@ -4455,6 +4448,17 @@ def run(config: dict[str, Any]) -> None:
             ears.hold_start()
 
     detector = HoldDetector(hold_start, ears.hold_end, ears.hold_cancel)
+
+    def notch_hold_start() -> None:
+        # Do not make the Qt event loop wait for playback to stop.
+        if assistant.busy and not call_active():
+            assistant.stop_speaking()
+        else:
+            hold_start()
+
+    notch.on_hold_start = notch_hold_start
+    notch.on_hold_end = ears.hold_end
+    notch.on_hold_cancel = ears.hold_cancel
     keys: Any = None
 
     def key_down(key: Any) -> None:
@@ -4809,6 +4813,7 @@ def run(config: dict[str, Any]) -> None:
         organizer=lambda _a="": open_organizer(),
         goals=lambda _a="": open_goals(),
         health=lambda _a="": open_health(),
+        health_history=lambda _a="": open_health("history"),
         consult=lambda _a="": open_consult(),
         gym=lambda _a="": on_ui(open_gym),
         results=lambda _a="": open_results(),
@@ -4900,8 +4905,8 @@ def run(config: dict[str, Any]) -> None:
 
     threading.Thread(target=_wake_and_open_app, daemon=True).start()
     show_text(
-        f"Hola, soy {config['name']}. Di «Sergio…», o mantén Ctrl+Alt y "
-        "pregúntame por lo que ves en pantalla.",
+        f"Hola, soy {config['name']}. Mantén Ctrl+Alt o el notch para hablar. "
+        "Suelta para enviar.",
         7,
     )
     app.aboutToQuit.connect(orchestrator.close)

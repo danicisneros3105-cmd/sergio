@@ -238,7 +238,8 @@ class Fold:
             return self.angle
         self._elapsed += max(0.0, dt)
         p = min(self._elapsed / self.DURATION, 1.0)
-        ease = p * p * (3 - 2 * p)
+        # Fade into and out of the hinge motion with zero endpoint acceleration.
+        ease = p ** 3 * (10 + p * (-15 + 6 * p))
         self.angle = self._from + (self.target - self._from) * ease
         if p >= 1.0:
             self.angle, self._elapsed = self.target, None

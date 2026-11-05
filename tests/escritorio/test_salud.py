@@ -151,3 +151,13 @@ def test_health_windows_draw(tmp_path):
     assert "pasos" not in card.fields
     for x in (w, card):
         x.close()
+
+
+def test_medical_history_stays_local(tmp_path):
+    path = tmp_path / "salud.json"
+    day = date.today().isoformat()
+    h = Health(path)
+    row = h.add_medical_record(day, "consulta", "Nota clínica privada")
+    reloaded = Health(path)
+    assert reloaded.medical_history == [row]
+    assert "Nota clínica privada" not in repr(reloaded.overview())

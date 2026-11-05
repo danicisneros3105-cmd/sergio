@@ -1,7 +1,7 @@
 """Video Pro: an editor that watches your clips before cutting them.
 
 The companion sends, for every clip, a contact sheet (frames every few
-seconds, each stamped with its time) and its length. Gemini plays editor:
+seconds, each stamped with its time) and its length. The configured vision model plays editor:
 picks the best moments in a strong order (hook first), writes short
 captions, a title for the video and the YouTube metadata (title,
 description, tags). The companion renders it with ffmpeg (smooth cross
@@ -11,6 +11,7 @@ fades, captions, loudness normalised, music under the voices).
 from __future__ import annotations
 
 import json
+import math
 import re
 from typing import Any, Callable
 
@@ -40,7 +41,7 @@ ZOOMS = ("none", "punch", "push")
 
 
 def parse_plan(text: str, lengths: list[float]) -> dict[str, Any]:
-    """Gemini's plan, checked: real clips, times inside each clip."""
+    """The model's plan, checked: real clips, times inside each clip."""
     found = re.search(r"\{.*\}", text or "", re.S)
     try:
         data = json.loads(found.group(0)) if found else {}
@@ -53,9 +54,11 @@ def parse_plan(text: str, lengths: list[float]) -> dict[str, Any]:
             start, end = float(seg.get("start")), float(seg.get("end"))
         except (TypeError, ValueError, AttributeError):
             continue
-        if not 0 <= clip < len(lengths):
+        if not 0 <= clip < len(lengths) or not all(map(math.isfinite, (start, end))):
             continue
-        length = lengths[clip] or end
+        length = lengths[clip]
+        if not math.isfinite(length) or length <= 0:
+            continue
         start, end = max(0.0, start), min(end, length)
         if end - start < 0.5:
             continue
@@ -79,7 +82,8 @@ def parse_plan(text: str, lengths: list[float]) -> dict[str, Any]:
         )
     if not segments:
         raise RuntimeError("El editor no propuso cortes válidos.")
-    yt = data.get("youtube") or {}
+    yt = data.get("youtube")
+    yt = yt if isinstance(yt, dict) else {}
     tags = [str(t)[:30] for t in (yt.get("tags") or []) if str(t).strip()][:12]
     return {
         "aspect": "9:16" if str(data.get("aspect")) == "9:16" else "16:9",
@@ -135,45 +139,9 @@ def plan(
 
 
 def _ask(sheets: list[bytes], prompt: str) -> str:
-    import os
+    from openjarvis.tools.vision_look import ask_images
 
-    from google.genai import types
-
-    from openjarvis.engine.cloud import google_config_kwargs
-    from openjarvis.engine.google_client import SwitchingClient
-
-    key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
-    if not key:
-        raise RuntimeError("Falta GEMINI_API_KEY")
-    client = SwitchingClient(key)
-    errors = []
-    for model in (
-        "gemini-3.8-flash",
-        "gemini-3.1-pro-preview",
-        "gemini-3.7-flash",
-        "gemini-2.5-flash",
-    ):
-        try:
-            resp = client.models.generate_content(
-                model=model,
-                contents=[
-                    *(
-                        types.Part.from_bytes(data=s, mime_type="image/jpeg")
-                        for s in sheets
-                    ),
-                    prompt,
-                ],
-                config=types.GenerateContentConfig(
-                    **google_config_kwargs(model, 0.5, 8000, "medium"),
-                    response_mime_type="application/json",
-                ),
-            )
-            return str(resp.text or "")
-        except Exception as exc:  # noqa: BLE001
-            errors.append(f"{model}: {str(exc)[:100]}")
-    raise RuntimeError(
-        "El editor de video (Gemini) no respondió: " + " | ".join(errors)
-    )
+    return ask_images(sheets, prompt)
 
 
 __all__ = ["parse_plan", "plan"]

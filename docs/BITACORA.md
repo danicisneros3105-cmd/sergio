@@ -2,6 +2,14 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-11-05 · Codex · Terry, herramientas multi-IA y activación explícita
+- Terry (Tennessee) entrega la decisión primero, separa evidencia de supuestos y no afirma haber usado herramientas sin resultados. Conserva su identidad y permisos.
+- Video Pro admite las hojas de contacto completas con Kimi, Gemini, OpenAI, OpenRouter u Ollama. Una selección local nunca deriva las imágenes a la nube. La API valida cantidad, tamaño, duración y JPEG antes del modelo.
+- Los índices de memoria de endpoints compatibles se aíslan por URL y modelo, incluso si tienen las mismas dimensiones; se conserva la recuperación local.
+- Historial médico cifrado en Windows, accesible desde Salud → Más y la bandeja, sin incluir las notas en el contexto de IA. Tarjetas de artefactos plegables; notch con pulsación larga, bisagra suavizada y sin llamada ni activación por nombre al arrancar.
+- El actualizador avisa si falta Gemini Live sin bloquear la instalación de los demás proveedores.
+- Verificación: 27 pruebas Python dirigidas pasan (una omitida y una vista Qt excluida); sintaxis de Python y Bash y transpilación TSX correctas. Sin prueba de dispositivo Windows ni credenciales reales.
+
 ## 2026-11-04 · Codex · Flujo de texto para todos los modelos
 - Corregido el flujo SSE común: conserva el tipo de evento entre paquetes y admite saltos CRLF, sin esperar a que llegue toda la respuesta.
 - Verificación: ejecutado el parser real con paquetes divididos y CRLF; dos eventos y texto completo. Sin pruebas contra cuentas reales de proveedores.

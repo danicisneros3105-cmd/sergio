@@ -1,7 +1,7 @@
 """Long-term memory: a vector store of tasks, verdicts and feedback.
 
 chromadb keeps it on disk (``~/.openjarvis/memoria``). Texts are embedded
-with Gemini (``gemini-embedding-001``) when a key is set, and always with a
+with a configured compatible endpoint or Gemini when a key is set, and always with a
 local hashing embedder too, so recall works offline and costs nothing.
 Without chromadb a small JSON-lines store with the same API is used, so
 semantic recall works there too.
@@ -98,6 +98,59 @@ def gemini_embedder() -> Callable[..., list[list[float]]] | None:
 
     embed.takes_task = True  # type: ignore[attr-defined]
     return embed
+
+
+def openai_compatible_embedder() -> Callable[[list[str]], list[list[float]]] | None:
+    """Use any configured OpenAI-compatible embedding endpoint.
+
+    This lets memory use OpenAI, vLLM, Ollama-compatible servers, and other
+    providers without coupling retrieval to Sergio's chat model vendor.
+    A failing endpoint is handled by the existing local-hash fallback.
+    """
+    base = os.environ.get("SERGIO_EMBEDDING_BASE_URL", "").strip().rstrip("/")
+    model = os.environ.get("SERGIO_EMBEDDING_MODEL", "").strip()
+    if not base or not model:
+        return None
+    key = os.environ.get("SERGIO_EMBEDDING_API_KEY", "").strip()
+
+    def embed(texts: list[str]) -> list[list[float]]:
+        if not texts:
+            return []
+        import httpx
+
+        headers = {"Authorization": f"Bearer {key}"} if key else {}
+        response = httpx.post(
+            f"{base}/embeddings",
+            headers=headers,
+            json={"model": model, "input": texts},
+            timeout=httpx.Timeout(30.0, connect=5.0),
+        )
+        response.raise_for_status()
+        rows = response.json().get("data")
+        if not isinstance(rows, list) or len(rows) != len(texts):
+            raise ValueError("El proveedor devolvió un número distinto de embeddings")
+        rows.sort(key=lambda row: row["index"])
+        if [row["index"] for row in rows] != list(range(len(texts))):
+            raise ValueError("El proveedor devolvió índices de embeddings inválidos")
+        vectors = [row.get("embedding") for row in rows]
+        if any(not isinstance(vec, list) or not vec for vec in vectors):
+            raise ValueError("El proveedor devolvió un embedding vacío")
+        dims = len(vectors[0])
+        if any(len(vec) != dims for vec in vectors):
+            raise ValueError("El proveedor devolvió embeddings de tamaños distintos")
+        clean = [[float(value) for value in vec] for vec in vectors]
+        if any(not math.isfinite(value) for vec in clean for value in vec):
+            raise ValueError("El proveedor devolvió valores no finitos")
+        return [_unit(vec) for vec in clean]
+
+    # Same dimension does not mean the same vector space.
+    embed.space_id = hashlib.sha256(f"{base}\0{model}".encode()).hexdigest()[:16]  # type: ignore[attr-defined]
+    return embed
+
+
+def configured_embedder() -> Callable[..., list[list[float]]] | None:
+    """Prefer an explicitly configured compatible endpoint, then Gemini."""
+    return openai_compatible_embedder() or gemini_embedder()
 
 
 class JsonCollection:
@@ -206,7 +259,7 @@ BACKFILL = 64  # memories copied into the semantic store per recall
 class LongTermMemory:
     """remember / recall / lessons_for / feedback over a persistent store.
 
-    Every memory always lands in the local store. The semantic (Gemini)
+    Every memory always lands in the local store. The semantic
     store can miss some — written while offline, out of quota, or before a
     key existed — so recall backfills it and, while it is incomplete, also
     searches the local store, so nothing is ever lost from recall."""
@@ -222,8 +275,9 @@ class LongTermMemory:
         self.semantic = (
             semantic
             if semantic is not None
-            else (gemini_embedder() if use_gemini else None)
+            else (configured_embedder() if use_gemini else None)
         )
+        self._sem_namespace = getattr(self.semantic, "space_id", "")
         self._sem = None
         self._sem_retry_at = 0.0
         try:
@@ -282,7 +336,8 @@ class LongTermMemory:
         """Open the semantic collection for vectors of *dims* (or the one used
         last time). Each size has its own collection, so a model with other
         dimensions never collides with old vectors."""
-        marker = self.folder / "semantic.json"
+        suffix = f"_{self._sem_namespace}" if self._sem_namespace else ""
+        marker = self.folder / f"semantic{suffix}.json"
         if dims is None:
             try:
                 dims = int(json.loads(marker.read_text(encoding="utf-8"))["dims"])
@@ -291,7 +346,8 @@ class LongTermMemory:
         if self._sem is not None and self._sem.metadata.get("dims") == dims:
             return
         self._sem = self._client.get_or_create_collection(
-            f"sergio_semantic_{dims}", metadata={"hnsw:space": "cosine", "dims": dims}
+            f"sergio_semantic{suffix}_{dims}",
+            metadata={"hnsw:space": "cosine", "dims": dims},
         )
         marker.write_text(json.dumps({"dims": dims}), encoding="utf-8")
 

@@ -9,6 +9,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useLocation } from 'react-router';
 import { Brain, CalendarCheck, Ellipsis, Pill, Salad, type LucideIcon } from 'lucide-react';
+import { apiFetch } from '../lib/api';
 import { salud, type Catalog, type Summary } from '../lib/salud';
 import { PaperPage } from '../components/Paper/PaperPage';
 import portada from '../assets/salud/portada-salud.webp';
@@ -23,7 +24,7 @@ import { SummaryTab } from './health/SummaryTab';
 import { TodayBlock } from './health/TodayBlock';
 import './health/health.css';
 
-type Tab = 'resumen' | 'medicinas' | 'plan' | 'mente' | 'longevidad' | 'explorar' | 'compartir' | 'dispositivos';
+type Tab = 'resumen' | 'medicinas' | 'plan' | 'mente' | 'longevidad' | 'explorar' | 'compartir' | 'dispositivos' | 'historial';
 // Simple first (owner, 24 Oct. 2026): four sections in sight, the rest under «Más».
 const TABS: Array<{ key: Tab; label: string; icon: LucideIcon }> = [
   { key: 'resumen', label: 'Hoy', icon: CalendarCheck },
@@ -36,11 +37,46 @@ const MORE: Array<{ key: Tab; label: string }> = [
   { key: 'explorar', label: 'Explorar' },
   { key: 'compartir', label: 'Compartir' },
   { key: 'dispositivos', label: 'Dispositivos' },
+  { key: 'historial', label: 'Historial médico' },
 ];
 
 function tabFrom(search: string): Tab | null {
   const asked = new URLSearchParams(search).get('tab');
   return [...TABS, ...MORE].some((t) => t.key === asked) ? (asked as Tab) : null;
+}
+
+function MedicalHistory() {
+  const [busy, setBusy] = useState(false);
+  const [status, setStatus] = useState('');
+  async function openHistory() {
+    setBusy(true);
+    setStatus('');
+    try {
+      const response = await apiFetch('/v1/desktop/open', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ section: 'health_history' }),
+      });
+      if (!response.ok || (await response.json()).companion !== true) {
+        throw new Error();
+      }
+      setStatus('Historial abierto en Sergio Escritorio.');
+    } catch {
+      setStatus('Abra Sergio Escritorio en Windows y vuelva a intentarlo.');
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <section className="paper-sheet p-5">
+      <h2 className="mb-2 font-semibold">Historial médico</h2>
+      <p className="paper-meta mb-4">Sus registros se guardan cifrados en Windows. No se incluyen en el análisis de IA.</p>
+      <button type="button" className="mac-chip" disabled={busy} onClick={() => void openHistory()}>
+        {busy ? 'Abriendo…' : 'Abrir historial en Windows'}
+      </button>
+      {status && <p className="paper-meta mt-3" role="status">{status}</p>}
+    </section>
+  );
 }
 
 export function HealthPage() {
@@ -122,13 +158,15 @@ export function HealthPage() {
           ))}
         </div>
       )}
-      {problem && !['mente', 'medicinas', 'plan'].includes(tab) && <p className="paper-meta">{problem}</p>}
+      {problem && !['mente', 'medicinas', 'plan', 'historial'].includes(tab) && <p className="paper-meta">{problem}</p>}
       {tab === 'mente' && !open ? (
         <MindTab />
       ) : tab === 'medicinas' && !open ? (
         <MedsTab />
       ) : tab === 'plan' && !open ? (
         <PlanTab />
+      ) : tab === 'historial' && !open ? (
+        <MedicalHistory />
       ) : !catalog || !summary ? (
         !problem && <p className="paper-meta">Leyendo…</p>
       ) : open ? (

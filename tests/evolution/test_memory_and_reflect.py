@@ -239,3 +239,36 @@ def test_without_chromadb_semantic_recall_still_works_and_old_memories_move_in(
         "semantic_memories": 2,
     }
     assert (tmp_path / "memoria.jsonl.migrated").exists()
+
+
+def test_embedding_models_with_same_dimensions_keep_separate_indexes(
+    tmp_path, monkeypatch
+):
+    import httpx
+
+    monkeypatch.setenv("SERGIO_EMBEDDING_BASE_URL", "https://embed.example/v1")
+    monkeypatch.setenv("SERGIO_EMBEDDING_MODEL", "model-one")
+
+    def post(url, *, headers, json, timeout):
+        assert url == "https://embed.example/v1/embeddings"
+        return httpx.Response(
+            200,
+            request=httpx.Request("POST", url),
+            json={
+                "data": [
+                    {"index": i, "embedding": [4.0, 0.0]}
+                    for i, _ in enumerate(json["input"])
+                ]
+            },
+        )
+
+    monkeypatch.setattr(httpx, "post", post)
+    first = mem.LongTermMemory(tmp_path)
+    first.remember("lesson", "Revisar costos antes de decidir")
+    assert first._sem is not None
+    monkeypatch.setenv("SERGIO_EMBEDDING_MODEL", "model-two")
+    second = mem.LongTermMemory(tmp_path)
+    assert second._sem is None
+    assert second.recall("costos", 1)[0]["text"] == "Revisar costos antes de decidir"
+    assert second._sem is not None
+    assert first._sem_namespace != second._sem_namespace

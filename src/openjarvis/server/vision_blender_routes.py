@@ -71,18 +71,39 @@ async def video_plan_route(
     sheets: list[UploadFile] = _vision.File(...),
     style: str = _vision.Form(""),
 ) -> dict[str, Any]:
-    """Video Pro: Gemini watches the contact sheets and plans the edit
-    (in a learned editing style, when one is named)."""
+    """Plan the edit with the configured vision model."""
+    import math
     from openjarvis.tools.video_pro import plan
     from openjarvis.tools.video_style import find_style
 
     try:
-        lens = [float(x) for x in _vision.json.loads(lengths)]
+        raw = _vision.json.loads(lengths)
+        if not isinstance(raw, list):
+            raise ValueError
+        lens = [float(x) for x in raw]
+        if not 1 <= len(sheets) <= 32 or len(lens) != len(sheets):
+            raise ValueError
+        if any(not math.isfinite(x) or x <= 0 for x in lens):
+            raise ValueError
     except (ValueError, TypeError) as exc:
         raise _vision.HTTPException(
-            status_code=400, detail="lengths must be a JSON list"
+            status_code=400,
+            detail="Envíe de 1 a 32 hojas, con una duración positiva por clip.",
         ) from exc
-    images = [await f.read(_vision.MAX_IMAGE_BYTES + 1) for f in sheets]
+    images = []
+    total = 0
+    for sheet in sheets:
+        image = await sheet.read(_vision.MAX_IMAGE_BYTES + 1)
+        total += len(image)
+        if len(image) > _vision.MAX_IMAGE_BYTES or total > 16 * 1024 * 1024:
+            raise _vision.HTTPException(
+                status_code=413, detail="Las hojas de contacto son demasiado grandes."
+            )
+        if not image.startswith(b"\xff\xd8"):
+            raise _vision.HTTPException(
+                status_code=400, detail="Las hojas deben ser JPEG."
+            )
+        images.append(image)
     chosen = find_style(style) if style.strip() else None
     if style.strip() and chosen is None:
         raise _vision.HTTPException(

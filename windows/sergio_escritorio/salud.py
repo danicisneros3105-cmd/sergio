@@ -24,6 +24,7 @@ import io
 import re
 import threading
 import unicodedata
+import uuid
 import zipfile
 from dataclasses import dataclass
 from datetime import date, datetime
@@ -295,7 +296,7 @@ class Health:
 
     def __init__(self, path: Path | None) -> None:
         self.path = path
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
         data = secure.read_json(path, {}) if path is not None else {}
         data = data if isinstance(data, dict) else {}
         self.answers: dict[str, Any] = dict(data.get("cuestionario") or {})
@@ -303,6 +304,15 @@ class Health:
         self.report: dict[str, Any] = dict(data.get("informe") or {})
         self.imported: dict[str, float] = dict(data.get("importados") or {})  # file -> mtime
         self.sources: list[str] = list(data.get("fuentes") or [])
+        # Free-form medical timeline entries stay inside the same DPAPI-sealed file.
+        saved_history = data.get("historial_medico", [])
+        if not isinstance(saved_history, list):
+            saved_history = []
+        self.medical_history: list[dict[str, str]] = [
+            item for item in saved_history
+            if isinstance(item, dict)
+            and all(isinstance(item.get(key), str) for key in ("id", "fecha", "tipo", "nota"))
+        ]
 
     def save(self) -> None:
         if self.path is None:
@@ -311,14 +321,38 @@ class Health:
             payload = {
                 "cuestionario": self.answers, "dias": self.days, "informe": self.report,
                 "importados": self.imported, "fuentes": self.sources,
+                "historial_medico": self.medical_history,
             }  # fmt: skip
-        secure.write_json(self.path, payload)
+            secure.write_json(self.path, payload)
 
     # questionnaire and log
     def answer(self, answers: dict[str, Any]) -> None:
         keys = {q.key for q in QUESTIONS}
         self.answers.update({k: v for k, v in answers.items() if k in keys and str(v).strip() != ""})
         self.save()
+
+    def add_medical_record(self, day: str, kind: str, note: str) -> dict[str, str]:
+        """Save one dated health record locally; reject malformed or oversized data."""
+        parsed = date.fromisoformat(str(day))
+        if parsed > date.today():
+            raise ValueError("La fecha del registro no puede estar en el futuro")
+        kind = str(kind).strip().lower()
+        if kind not in {"consulta", "diagnóstico", "medicación", "alergia", "procedimiento", "resultado", "nota"}:
+            raise ValueError("Tipo de registro médico no válido")
+        note = str(note).strip()
+        if not note:
+            raise ValueError("Escriba una nota antes de guardarla")
+        if len(note) > 5000:
+            raise ValueError("La nota supera el límite de 5000 caracteres")
+        record = {"id": uuid.uuid4().hex, "fecha": parsed.isoformat(), "tipo": kind, "nota": note}
+        with self._lock:
+            self.medical_history.append(record)
+            try:
+                self.save()
+            except OSError:
+                self.medical_history.pop()
+                raise
+        return record
 
     def missing_questions(self) -> list[Question]:
         return [q for q in QUESTIONS if not q.optional and q.key not in self.answers]

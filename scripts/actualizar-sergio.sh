@@ -61,7 +61,7 @@ uv sync --locked --inexact --extra server --extra desktop --extra browser
 # challenge solver (the locked one stays as a fallback if this fails).
 uv pip install --upgrade yt-dlp yt-dlp-ejs >/dev/null 2>&1 || echo "Aviso: no pude actualizar yt-dlp; los clips de YouTube pueden fallar." >&2
 uv run --no-sync playwright install chromium || echo "Aviso: no pude instalar el navegador de Sergio; «en segundo plano» queda apagado hasta la próxima actualización." >&2
-uv run --no-sync python -c 'from google import genai; from google.genai import types; assert genai.Client and types.LiveConnectConfig; print("SDK Gemini Live: listo")'
+uv run --no-sync python -c 'from google import genai; from google.genai import types; assert genai.Client and types.LiveConnectConfig; print("SDK Gemini Live: listo")' || echo "Aviso: Gemini Live no está disponible; la actualización continúa." >&2
 # The prompt library (public system and persona prompts, downloaded whole to
 # ~/.openjarvis/prompt_library); a failed download keeps the previous copy.
 uv run --no-sync sergio prompts sincronizar || echo "Aviso: no pude actualizar la biblioteca de prompts; se reintenta en la próxima actualización." >&2

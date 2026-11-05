@@ -173,7 +173,7 @@ class Notch(QWidget):
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setToolTip("Clic para pedirle algo a Sergio")
+        self.setToolTip("Toque para abrir · mantenga para hablar")
         self.resize(CANVAS_W, CANVAS_H)
         self.on_click = on_click
         self.reduced_motion = system_reduced_motion() if reduced_motion is None else reduced_motion
@@ -203,6 +203,13 @@ class Notch(QWidget):
         # A touch squeezes it a little and it springs back (like a tap on iOS).
         self._press = Spring(1.0, response=0.28, damping=0.6)
         self._pressed = False
+        self._hold_started = False
+        self.on_hold_start: Callable[[], None] | None = None
+        self.on_hold_end: Callable[[], None] | None = None
+        self.on_hold_cancel: Callable[[], None] | None = None
+        self._hold_timer = QTimer(self)
+        self._hold_timer.setSingleShot(True)
+        self._hold_timer.timeout.connect(self._begin_hold)
         self._faceid = None  # faceid_anim.FaceIDGlyph while approving with the face
         self._duo = Fold()  # the iPhone Duo fold: 0° merged .. 180° split
         # «Sergio, activa multitasking» splits the island; off folds it back.
@@ -260,6 +267,8 @@ class Notch(QWidget):
         super().leaveEvent(event)
 
     def hideEvent(self, event) -> None:
+        if hasattr(self, "_hold_timer"):
+            self._cancel_hold()
         if hasattr(self, "_timer"):
             self._timer.stop()
         super().hideEvent(event)
@@ -300,7 +309,7 @@ class Notch(QWidget):
     def set_screen_sharing(self, active: bool) -> None:
         self.screen_sharing = bool(active)
         self.setToolTip("Pantalla compartida con Gemini · diga «deja de ver mi pantalla»"
-                        if active else "Clic para pedirle algo a Sergio")
+                        if active else "Toque para abrir · mantenga para hablar")
 
     def set_reduce_motion(self, enabled: bool) -> None:
         self.reduce_motion = bool(enabled)
@@ -642,15 +651,37 @@ class Notch(QWidget):
             self.setWindowOpacity(1.0)
 
     def mousePressEvent(self, event: object) -> None:  # noqa: N802 (Qt API)
-        self._pressed = True  # squeezes while held (spring), opens on release
+        if event.button() != Qt.MouseButton.LeftButton:
+            return
+        self._pressed = True
+        if self.on_hold_start is not None:
+            self._hold_timer.start(520)
         self._wake()
 
     def mouseReleaseEvent(self, event: object) -> None:  # noqa: N802 (Qt API)
-        was = self._pressed
-        self._pressed = False
+        if event.button() != Qt.MouseButton.LeftButton:
+            return
+        self._hold_timer.stop()
+        was, held = self._pressed, self._hold_started
+        self._pressed = self._hold_started = False
         self._wake()
-        if was and self.on_click is not None:
+        if held:
+            if self.on_hold_end is not None:
+                self.on_hold_end()
+        elif was and self.on_click is not None:
             self.on_click()
+
+    def _begin_hold(self) -> None:
+        if self._pressed and self.on_hold_start is not None:
+            self._hold_started = True
+            self.on_hold_start()
+
+    def _cancel_hold(self) -> None:
+        self._hold_timer.stop()
+        held = self._hold_started
+        self._pressed = self._hold_started = False
+        if held and self.on_hold_cancel is not None:
+            self.on_hold_cancel()
 
     # -- drawing ----------------------------------------------------------------
     def paintEvent(self, _event: object) -> None:  # noqa: N802 (Qt API)

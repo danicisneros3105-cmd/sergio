@@ -47,3 +47,59 @@ def test_plan_asks_with_one_sheet_per_clip():
         and "short vertical" in seen["prompt"]
         and got["aspect"] == "16:9"
     )
+
+
+@pytest.mark.parametrize("model", ["gpt-4o-mini", "qwen2.5vl:7b"])
+def test_video_vision_sends_all_sheets_and_uses_configured_provider(monkeypatch, model):
+    import base64
+    import json
+
+    import httpx
+
+    from openjarvis.tools.vision_look import ask_images
+
+    monkeypatch.setenv("SERGIO_VISION_MODEL", model)
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    monkeypatch.setenv("MOONSHOT_API_KEY", "other-test-key")
+    monkeypatch.setenv("OLLAMA_HOST", "http://localhost:11434")
+    frames = [base64.b64encode(image).decode() for image in (b"first", b"second")]
+
+    def handle(request):
+        body = json.loads(request.content)
+        assert body["model"] == model
+        message = body["messages"][0]
+        if model.startswith("gpt-"):
+            assert request.url.host == "api.openai.com"
+            assert [
+                part["image_url"]["url"].split(",")[1]
+                for part in message["content"][:-1]
+            ] == frames
+            return httpx.Response(
+                200, json={"choices": [{"message": {"content": "plan"}}]}
+            )
+        assert request.url.host == "localhost"
+        assert message["images"] == frames
+        return httpx.Response(200, json={"message": {"content": "plan"}})
+
+    with httpx.Client(transport=httpx.MockTransport(handle)) as client:
+        assert ask_images([b"first", b"second"], "montaje", client) == "plan"
+
+
+def test_local_video_vision_does_not_upload_on_failure(monkeypatch):
+    import httpx
+
+    from openjarvis.tools.vision_look import ask_images
+
+    monkeypatch.setenv("SERGIO_VISION_MODEL", "qwen2.5vl:7b")
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    monkeypatch.setenv("OLLAMA_HOST", "http://localhost:11434")
+    requests = []
+
+    def handle(request):
+        requests.append(request.url.host)
+        return httpx.Response(503)
+
+    with httpx.Client(transport=httpx.MockTransport(handle)) as client:
+        with pytest.raises(RuntimeError, match="Ollama"):
+            ask_images([b"frame"], "montaje", client)
+    assert requests == ["localhost"]

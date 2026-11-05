@@ -37,6 +37,7 @@ router = APIRouter(prefix="/v1/desktop", tags=["desktop"])
 SECTIONS = frozenset(
     {
         "health",
+        "health_history",
         "night",
         "gym",
         "results",

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import base64
 import os
+from contextlib import nullcontext
 from typing import Any
 
 import httpx
@@ -41,32 +42,52 @@ GEMINI_LITE_VISION_MODELS = (
 )
 
 
+def _frames(images: bytes | list[bytes]) -> list[bytes]:
+    return [images] if isinstance(images, bytes) else images
+
+
+def _image_parts(images: bytes | list[bytes], mime: str) -> list[dict]:
+    return [
+        {
+            "type": "image_url",
+            "image_url": {
+                "url": f"data:{mime};base64,{base64.b64encode(image).decode('ascii')}",
+            },
+        }
+        for image in _frames(images)
+    ]
+
+
 def _kimi(
-    jpeg: bytes, prompt: str, http: httpx.Client, mime: str = "image/jpeg"
+    jpeg: bytes | list[bytes],
+    prompt: str,
+    http: httpx.Client,
+    mime: str = "image/jpeg",
+    max_tokens: int = 700,
 ) -> str:
     key = os.environ.get("MOONSHOT_API_KEY") or os.environ.get("KIMI_API_KEY")
     if not key:
         raise RuntimeError("no Kimi key")
     base = os.environ.get("MOONSHOT_BASE_URL", "https://api.moonshot.ai/v1").rstrip("/")
-    image = f"data:{mime};base64," + base64.b64encode(jpeg).decode("ascii")
+    parts = _image_parts(jpeg, mime)
     wanted = os.environ.get("SERGIO_VISION_MODEL", "")
     models = ([wanted] if wanted.startswith(("kimi", "moonshot")) else []) + list(
         KIMI_VISION_MODELS
     )
     last: Exception | None = None
-    for model in models:
+    for model in dict.fromkeys(models):
         body: dict[str, Any] = {
             "model": model,
             "messages": [
                 {
                     "role": "user",
                     "content": [
-                        {"type": "image_url", "image_url": {"url": image}},
+                        *parts,
                         {"type": "text", "text": prompt},
                     ],
                 }
             ],
-            "max_tokens": 700,
+            "max_tokens": max_tokens,
         }
         if model.startswith("kimi-k2."):
             body["thinking"] = {"type": "disabled"}
@@ -78,7 +99,9 @@ def _kimi(
                 timeout=90,
             )
             resp.raise_for_status()
-            return str(resp.json()["choices"][0]["message"]["content"]).strip()
+            answer = str(resp.json()["choices"][0]["message"]["content"] or "").strip()
+            if answer:
+                return answer
         except Exception as exc:  # noqa: BLE001 — try the next model
             last = exc
     raise RuntimeError(f"Kimi vision failed: {last}")
@@ -95,23 +118,26 @@ OPEN_VISION = (
 
 
 def _open_vision(
-    jpeg: bytes,
+    jpeg: bytes | list[bytes],
     prompt: str,
     http: httpx.Client,
     mime: str = "image/jpeg",
     max_tokens: int = 700,
 ) -> str:
-    image = f"data:{mime};base64," + base64.b64encode(jpeg).decode("ascii")
+    parts = _image_parts(jpeg, mime)
     last: Exception | None = None
     tried = False
-    for env, base, models in OPEN_VISION:
+    wanted = os.environ.get("SERGIO_VISION_MODEL", "").strip()
+    prefer_openai = wanted.startswith(("gpt-", "o1", "o3", "o4"))
+    providers = reversed(OPEN_VISION) if prefer_openai else OPEN_VISION
+    for env, base, models in providers:
         key = os.environ.get(env, "").strip()
         if not key:
             continue
-        wanted = os.environ.get("SERGIO_VISION_MODEL", "")
-        for model in (
-            [wanted] if "/" in wanted and env == "OPENROUTER_API_KEY" else []
-        ) + list(models):
+        explicit = (prefer_openai and env == "OPENAI_API_KEY") or (
+            "/" in wanted and env == "OPENROUTER_API_KEY"
+        )
+        for model in dict.fromkeys((wanted, *models) if explicit else models):
             tried = True
             try:
                 resp = http.post(
@@ -123,7 +149,7 @@ def _open_vision(
                             {
                                 "role": "user",
                                 "content": [
-                                    {"type": "image_url", "image_url": {"url": image}},
+                                    *parts,
                                     {"type": "text", "text": prompt},
                                 ],
                             }
@@ -149,10 +175,11 @@ _GEMINI: Any = None  # remembers which Google service the key works with
 
 
 def _gemini(
-    jpeg: bytes,
+    jpeg: bytes | list[bytes],
     prompt: str,
     mime: str = "image/jpeg",
     models: tuple[str, ...] = GEMINI_VISION_MODELS,
+    max_tokens: int = 1024,
 ) -> str:
     key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
     if not key:
@@ -167,26 +194,33 @@ def _gemini(
         _GEMINI = SwitchingClient(key)
     client = _GEMINI
     last: Exception | None = None
-    for model in models:
+    wanted = os.environ.get("SERGIO_VISION_MODEL", "")
+    ordered = (wanted, *models) if wanted.startswith("gemini") else models
+    for model in dict.fromkeys(ordered):
         try:
             resp = client.models.generate_content(
                 model=model,
                 contents=[
-                    types.Part.from_bytes(data=jpeg, mime_type=mime),
+                    *(
+                        types.Part.from_bytes(data=image, mime_type=mime)
+                        for image in _frames(jpeg)
+                    ),
                     prompt,
                 ],
                 # Seeing should feel instant: think a little, not a lot.
                 config=types.GenerateContentConfig(
-                    **google_config_kwargs(model, 0.4, 1024, "low")
+                    **google_config_kwargs(model, 0.4, max_tokens, "low")
                 ),
             )
-            return str(resp.text or "").strip()
+            answer = str(resp.text or "").strip()
+            if answer:
+                return answer
         except Exception as exc:  # noqa: BLE001
             last = exc
     raise RuntimeError(f"Gemini vision failed: {last}")
 
 
-def _ollama(jpeg: bytes, prompt: str, http: httpx.Client) -> str:
+def _ollama(jpeg: bytes | list[bytes], prompt: str, http: httpx.Client) -> str:
     model = os.environ.get("SERGIO_VISION_MODEL", "")
     if not model or model.startswith(("kimi", "moonshot", "gemini")):
         raise RuntimeError("no local vision model")
@@ -202,7 +236,10 @@ def _ollama(jpeg: bytes, prompt: str, http: httpx.Client) -> str:
                 {
                     "role": "user",
                     "content": prompt,
-                    "images": [base64.b64encode(jpeg).decode("ascii")],
+                    "images": [
+                        base64.b64encode(image).decode("ascii")
+                        for image in _frames(jpeg)
+                    ],
                 }
             ],
         },
@@ -245,9 +282,50 @@ def ask_image(
     raise RuntimeError("Ningún modelo con visión respondió. " + " | ".join(errors))
 
 
+def ask_images(
+    images: list[bytes],
+    prompt: str,
+    http: httpx.Client | None = None,
+) -> str:
+    """Plan with all frames. An explicitly local choice never uploads them."""
+    if not images or not all(images):
+        raise ValueError("Se necesitan imágenes válidas.")
+    model = os.environ.get("SERGIO_VISION_MODEL", "").strip()
+    with nullcontext(http) if http is not None else httpx.Client() as client:
+        calls = {
+            "Kimi": lambda: _kimi(images, prompt, client, max_tokens=8000),
+            "Gemini": lambda: _gemini(images, prompt, max_tokens=8000),
+            "OpenRouter/OpenAI": lambda: _open_vision(
+                images, prompt, client, max_tokens=8000
+            ),
+            "Ollama": lambda: _ollama(images, prompt, client),
+        }
+        cloud = ["Kimi", "Gemini", "OpenRouter/OpenAI"]
+        if model.startswith("gemini"):
+            order = ["Gemini", "Kimi", "OpenRouter/OpenAI"]
+        elif model.startswith(("kimi", "moonshot")):
+            order = cloud
+        elif model.startswith(("gpt-", "o1", "o3", "o4")) or (
+            "/" in model and not model.startswith("hf.co/") and ":" not in model
+        ):
+            order = ["OpenRouter/OpenAI", "Kimi", "Gemini"]
+        elif model:
+            order = ["Ollama"]
+        else:
+            order = cloud
+        for name in order:
+            try:
+                answer = calls[name]()
+                if answer:
+                    return answer
+            except Exception:  # noqa: BLE001 — do not expose provider payloads or secrets
+                continue
+    raise RuntimeError("No respondió ningún modelo de visión: " + ", ".join(order))
+
+
 def ask_vision(jpeg: bytes, question: str, http: httpx.Client | None = None) -> str:
     """Answer *question* about a webcam photo."""
     return ask_image(jpeg, PROMPT.format(question=question or "¿Qué ves?"), http)
 
 
-__all__ = ["ask_image", "ask_vision"]
+__all__ = ["ask_image", "ask_images", "ask_vision"]
