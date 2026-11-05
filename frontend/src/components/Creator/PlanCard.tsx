@@ -18,6 +18,12 @@ interface Shot {
   texto: string;
   sonido: string;
   consejo: string;
+  funcion?: string;
+  animacion?: string;
+  continuidad?: string;
+  entrada?: string;
+  inicio_fotograma?: number;
+  fin_fotograma?: number;
   archivo: string;
 }
 
@@ -27,6 +33,8 @@ interface Plan {
   gancho: string;
   musica: string;
   notas: string[];
+  fps?: number;
+  referencia_estado?: 'medida' | 'sin_medicion' | '';
   tomas: Shot[];
   animatic?: string;
   animatic_error?: string;
@@ -41,6 +49,10 @@ const KIND: Record<string, string> = {
   producto: 'Producto',
   pantalla: 'Pantalla',
   texto: 'Texto',
+};
+const BEAT: Record<string, string> = {
+  gancho: 'Gancho', contexto: 'Contexto', mecanismo: 'Mecanismo',
+  giro: 'Giro', cierre: 'Cierre',
 };
 
 export function PlanCard({ id }: { id: string }) {
@@ -103,12 +115,16 @@ export function PlanCard({ id }: { id: string }) {
       <header>
         <b>{plan.titulo}</b>
         <span>
-          {plan.tomas.length} tomas · {Math.round(total)} s{plan.musica ? ` · Música: ${plan.musica}` : ''}
+          {plan.tomas.length} tomas · {Math.round(total)} s{plan.fps ? ` · ${plan.fps} FPS` : ''}
         </span>
       </header>
       {plan.gancho && <p className="cr-plan-hook">Gancho: {plan.gancho}</p>}
+      {plan.referencia_estado === 'sin_medicion' && (
+        <p className="cr-note">Referencia sin medir. Este plan sigue el tema y el estilo que pediste.</p>
+      )}
       {plan.animatic ? (
         <div className="cr-plan-animatic">
+          <p className="cr-note">Animática · Vista previa de encuadres y ritmo</p>
           <WebVideo src={plan.animatic} preload="metadata" />
         </div>
       ) : plan.animatic_error ? (
@@ -120,7 +136,10 @@ export function PlanCard({ id }: { id: string }) {
             <div className="cr-shot-head">
               <b>{s.n}</b>
               <span>
-                {s.segundos.toFixed(1)} s · {KIND[s.tipo] || s.tipo}
+                {plan.fps && s.inicio_fotograma != null && s.fin_fotograma != null
+                  ? `${(s.inicio_fotograma / plan.fps).toFixed(2)}–${(s.fin_fotograma / plan.fps).toFixed(2)} s`
+                  : `${s.segundos.toFixed(1)} s`}
+                {' · '}{KIND[s.tipo] || s.tipo}
                 {s.encuadre ? ` · ${s.encuadre}` : ''}
                 {s.movimiento ? ` · ${s.movimiento}` : ''}
               </span>
@@ -136,6 +155,7 @@ export function PlanCard({ id }: { id: string }) {
                 {uploading === s.n ? 'Subiendo…' : s.archivo ? 'Cambiar toma' : 'Subir toma'}
               </button>
             </div>
+            {s.funcion && BEAT[s.funcion] && <span className="cr-shot-beat">{BEAT[s.funcion]}</span>}
             <p>{s.que_se_ve}</p>
             {s.dice && <p className="cr-shot-line">«{s.dice}»</p>}
             {(s.texto || s.sonido || s.consejo) && (
@@ -145,9 +165,24 @@ export function PlanCard({ id }: { id: string }) {
                   .join(' · ')}
               </small>
             )}
+            {(s.animacion || s.continuidad || s.entrada) && (
+              <details className="cr-shot-direction">
+                <summary>Dirección de la toma</summary>
+                {s.animacion && <p><strong>Animación:</strong> {s.animacion}</p>}
+                {s.continuidad && <p><strong>Continuidad:</strong> {s.continuidad}</p>}
+                {s.entrada && <p><strong>Corte de entrada:</strong> {s.entrada}</p>}
+              </details>
+            )}
           </li>
         ))}
       </ol>
+      {(plan.musica || !!plan.notas?.length) && (
+        <details className="cr-shot-direction">
+          <summary>Notas de edición</summary>
+          {plan.musica && <p>Música: {plan.musica}</p>}
+          {plan.notas?.map((item, index) => <p key={index}>{item}</p>)}
+        </details>
+      )}
       <input
         ref={pick}
         type="file"

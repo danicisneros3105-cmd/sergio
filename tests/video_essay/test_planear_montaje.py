@@ -110,7 +110,8 @@ def test_plan_animatic_takes_and_edit(home):
 
     plan = planear.create("una receta de pasta", seconds=4.5, reference="https://www.youtube.com/shorts/a1",
                           ask=ask, gen=_no_pictures, ffmpeg=FF)  # fmt: skip
-    assert "STYLE and INSPIRATION" in asked[0] and "shorts/a1" in asked[0]
+    assert "not measured" in asked[0]
+    assert plan["referencia_estado"] == "sin_medicion"
     pid = plan["id"]
     folder = planear.folder(pid)
     assert plan["animatic"] == f"/v1/creator/plan/{pid}/animatic.mp4"

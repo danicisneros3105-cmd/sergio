@@ -2,6 +2,12 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-11-05 · Codex · Terry, tomas y referencias a 30 FPS
+- Corregida la confusión histórica: Tennessee sigue siendo el Node de estrategia; Terry prepara instrucciones para el modelo de respuesta, conserva el encargo original y no encola más trabajo si sus cuatro trabajadores están ocupados.
+- Plan y animática comparten fotogramas a 30 FPS. Dirección y continuidad por toma, portada coral y aviso visible cuando una referencia no se pudo medir.
+- Los cinco enlaces del usuario requieren mediciones a 30 FPS; los datos de 4 FPS no se reutilizan. Sin los videos accesibles, no se certifica fidelidad a las referencias.
+- Verificación aislada de Terry, escuela, planificación, exportación y API de tomas. Sin prueba visual en Windows ni render de proveedor externo en esta sesión.
+
 ## 2026-11-05 · Codex · Inicio visual de Sergio
 - Inicio de Chat con saludo editorial, logo azul, compositor ancho, cuadrícula de acciones y acceso destacado a Cowork. Los chats con historial conservan su flujo.
 - Portada coral en Cowork, accesos a Chat, Cowork, Nodes y Proyectos en la barra móvil y sugerencias visibles en pantallas pequeñas.
@@ -33,8 +39,8 @@ Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 - Revisado: voz propia con agente configurable y Gemini Live como alternativa; no se confirma voz en tiempo real nativa con todos los modelos. PWA móvil depende del equipo anfitrión, permisos y red.
 - Verificación: inspección del componente y comprobación de que ya no se importa ni monta; no se compiló ni probó un instalador de escritorio firmado.
 
-## 2026-11-05 · Codex · Terry, herramientas multi-IA y activación explícita
-- Terry (Tennessee) entrega la decisión primero, separa evidencia de supuestos y no afirma haber usado herramientas sin resultados. Conserva su identidad y permisos.
+## 2026-11-05 · Codex · Tennessee, herramientas multi-IA y activación explícita
+- Tennessee, el Node de estrategia, entrega la decisión primero, separa evidencia de supuestos y no afirma haber usado herramientas sin resultados. Conserva su identidad y permisos.
 - Video Pro admite las hojas de contacto completas con Kimi, Gemini, OpenAI, OpenRouter u Ollama. Una selección local nunca deriva las imágenes a la nube. La API valida cantidad, tamaño, duración y JPEG antes del modelo.
 - Los índices de memoria de endpoints compatibles se aíslan por URL y modelo, incluso si tienen las mismas dimensiones; se conserva la recuperación local.
 - Historial médico cifrado en Windows, accesible desde Salud → Más y la bandeja, sin incluir las notas en el contexto de IA. Tarjetas de artefactos plegables; notch con pulsación larga, bisagra suavizada y sin llamada ni activación por nombre al arrancar.

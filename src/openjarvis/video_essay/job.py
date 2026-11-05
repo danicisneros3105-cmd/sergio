@@ -47,7 +47,7 @@ STAGES = (
     "listo",
 )
 LABELS = {
-    "estudio": "Estudiando la referencia toma por toma",
+    "estudio": "Revisando el estilo y la referencia",
     "guion": "El director escribe el tratamiento",
     "voz": "Narrando con la voz de Sergio",
     "tiempos": "Midiendo cuándo se dice cada palabra",
@@ -479,16 +479,34 @@ def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
         # 1. the reference (or the style asked for)
         if stage("estudio"):
             ref = str(params.get("reference") or "").strip()
+            learned = False
             if ref:
-                budget.spend("llm")
-                profile = style.learn(
-                    ref,
-                    str(params.get("style_name") or ""),
-                    folder=deps.styles,
-                    watcher=deps.watcher,
-                )
-                job.update(style_key=profile["key"], style_fixed=True)
-            elif params.get("style"):
+                from openjarvis.video_essay import escuela
+
+                try:
+                    escuela.find(ref)
+                except (OSError, RuntimeError, ValueError, TypeError):
+                    # Instagram/TikTok URLs aren't file inputs for the vision
+                    # model. Use Escuela's measured cache or continue openly.
+                    if not ref.startswith(("http://", "https://")) or style.YOUTUBE.match(ref):
+                        budget.spend("llm")
+                        try:
+                            profile = style.learn(
+                                ref,
+                                str(params.get("style_name") or ""),
+                                folder=deps.styles,
+                                watcher=deps.watcher,
+                            )
+                            learned = True
+                        except Exception as exc:  # noqa: BLE001 — preserve the brief
+                            job.log(f"referencia sin análisis: {type(exc).__name__}")
+                    if learned:
+                        job.update(style_key=profile["key"], style_fixed=True, referencia_estado="analizada")
+                    else:
+                        job.update(referencia_estado="sin_medicion")
+                else:
+                    job.update(referencia_estado="medida")
+            if not learned and params.get("style"):
                 job.update(
                     style_key=style.load(str(params["style"]), deps.styles)["key"],
                     style_fixed=True,
@@ -614,12 +632,22 @@ def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
 
         # 5. the editor's plan
         if stage("plan"):
+            reference_note = ""
+            if words and job.state().get("referencia_estado") == "medida":
+                from openjarvis.video_essay import escuela
+
+                try:
+                    reference_note = escuela.rhythm_note(
+                        escuela.blueprint(str(params["reference"]), words[-1].end)
+                    )
+                except (OSError, RuntimeError, ValueError, TypeError, KeyError):
+                    job.update(referencia_estado="sin_medicion")
             shots = P.plan_shots(
                 words,
                 profile,
                 ask=lambda p: edit(p, json_mode=True),
                 sources=allowed,
-                extra=_beat_notes(sc)
+                extra=reference_note + _beat_notes(sc)
                 + genres.notes(genre)
                 + _skills(
                     "motion",

@@ -58,6 +58,23 @@ def test_it_can_be_switched_off(monkeypatch):
     assert not terry.wanted("analiza y compara estas tres estrategias de negocio " * 4)
 
 
+def test_terry_is_not_a_node_and_inferences_are_optional():
+    from openjarvis.nodes import team
+
+    assert team.by_name("Terry") is None
+    assert team.by_name("Tennessee") is team.TENNESSEE
+    brief = terry.brief(ANALYSIS, "gpt-5")
+    assert "respeta el mensaje original" in brief
+    assert "Optional suggestions" in brief
+    assert "que se pueda hacer solo" not in brief.split("Optional suggestions")[0]
+
+
+def test_cached_prompt_accounts_for_the_whole_history():
+    common = "y" * 1500
+    assert terry._key("hazlo", "proyecto A" + common, "gpt") != terry._key(
+        "hazlo", "proyecto B" + common, "gpt"
+    )
+
 @pytest.mark.parametrize(
     "model,family,marker",
     [

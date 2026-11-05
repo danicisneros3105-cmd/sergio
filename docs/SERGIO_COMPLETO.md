@@ -15,6 +15,7 @@ La marca oficial es `assets/marca/sergio.svg`: círculo azul y anillo blanco. La
 | Pantalla y control del PC | Capturas, accesibilidad, clics, teclado, ventanas, programas, guías superpuestas y acciones del sistema | `tools/desktop_tools.py`, `windows/sergio_escritorio/` | Las operaciones dependen del SO; webcam y permisos reales no se prueban en un servidor sin dispositivos |
 | Multitarea | Dos programas del equipo lado a lado y tareas en marcha | Botón de multitarea; `SplitButton`, backend de Windows | El soporte exacto varía por dispositivo |
 | Nodes | Equipo fijo Rihno, Manchas, Hous y Tennessee; chat, actividad, rutinas, memoria, cola, pausar/cancelar | Nodes; `nodes/`, `pages/nodes/` | Son agentes persistentes, no personas ni réplicas verificadas de Dots/Muse |
+| Terry | Un modelo rápido prepara un encargo más claro y se lo pasa al modelo de respuesta. Tennessee es un Node de estrategia y datos, sin relación con Terry. | `agents/terry.py`, antes de la respuesta | No sustituye el texto original ni concede permisos. Si está ocupado, falla o supera su plazo, la IA responde directamente. |
 | Agent Swarm | División de tareas, trabajadores paralelos, estados, resultados y fuentes | Swarm; `swarm/`, `SwarmPage.tsx` | Su capacidad depende de modelos, herramientas, permisos y presupuesto |
 | Cowork | Tareas con plan, archivos, registro, indicaciones y apps conectadas | Cowork; `cowork/`, `CoworkPage.tsx` | No implica que todas las herramientas externas estén autorizadas |
 | Organizador | Hoy, pendientes, correo y notas/workspace | Dentro de Cowork, Organizador; `/workspace`, `reminders/`, `workspace/` | El correo necesita conexión; preparar un borrador no equivale a enviarlo |
@@ -29,7 +30,7 @@ La marca oficial es `assets/marca/sergio.svg`: círculo azul y anillo blanco. La
 | Video completo | Brief, investigación, tratamiento, guion, voz, plan, tomas, música, montaje, efectos, subtítulos, exportación y créditos | Chat → Video; `video_essay/` | La generación externa cuesta cuota; el tiempo y la calidad dependen de las fuentes y del modelo |
 | Inspiración | Selección de referencias, diversidad por creador y estudio del estilo | `inspiracion_video`, `video_essay/inspiracion.py` | YouTube/Instagram/TikTok no ofrecen las mismas APIs; una referencia no concede derechos sobre ella |
 | Tendencias | Google Trends, Wikipedia, Reddit, YouTube, consultas, competencia y propuestas vinculadas a señales | `radar_tendencias`, `automatiza/tendencias.py`, `estudio/radar.py` | Popularidad no garantiza relevancia futura ni viralidad; datos privados de audiencia requieren analítica propia |
-| Storyboard y tomas propias | Plan por plano, animática, subir cada toma y montar material del usuario | `planear_video`, `video_essay/montaje.py`, tarjetas del Chat | Un plano ausente no debe presentarse como filmado |
+| Storyboard y tomas propias | Plan por plano con cortes a 30 FPS, función narrativa, dirección de movimiento y continuidad; animática y montaje de tomas propias | `planear_video`, `video_essay/planear.py`, `video_essay/montaje.py`, tarjetas del Chat | La animática es una vista previa; no sustituye una producción 2D/3D ni acredita que una toma se haya filmado |
 | Recortes y calendario | Detectar momentos de una transcripción, cortar verticales, subtitular y planificar publicaciones en XLSX | `recortes_video`, `calendario_contenido`, `estudio/` | Sin transcripción se necesita Whisper o SRT; el ranking es una heurística editorial |
 | Animación y VFX | Blender, Geometry Nodes, materiales, humo/fuego, fluidos, tela, destrucción, pelo, volumetría y nueva plantilla 2D/3D | `vfx/`, `blender_*`, `motion_design` | Blender es necesario. No se afirma haber ejecutado aquí las simulaciones sin Blender |
 | 3D y arquitectura | Modelos, despieces y adaptadores a programas externos | `creator/`, `professional/` | FreeCAD, Bonsai/BlenderBIM, LibreCAD, Blender y demás siguen siendo programas que se instalan por separado |
@@ -44,7 +45,7 @@ La marca oficial es `assets/marca/sergio.svg`: círculo azul y anillo blanco. La
 
 1. La interfaz envía el mensaje y sus archivos al servidor autenticado.
 2. Cuenta, permisos, proyecto y contexto determinan qué datos y herramientas pueden usarse.
-3. El motor selecciona el modelo configurado; memoria, skills y contexto aportan información.
+3. El motor selecciona el modelo configurado; memoria, skills y contexto aportan información. Cuando corresponde, Terry prepara en segundo plano una interpretación para ese modelo. El mensaje original sigue siendo la fuente de requisitos.
 4. El agente propone llamadas de herramientas. Los permisos y aprobaciones controlan sus efectos.
 5. El resultado vuelve en streaming o como artefacto/archivo; las tareas largas publican estado.
 6. Una integración no conectada debe explicar el bloqueo. No debería anunciar que reservó, publicó o midió algo solo porque preparó un plan.
@@ -54,7 +55,7 @@ La marca oficial es `assets/marca/sergio.svg`: círculo azul y anillo blanco. La
 - **Explorar:** radar, tendencias, inspiración y competencia con fuente identificable.
 - **Preparar:** idea, título, miniatura, gancho y calendario; no inventar la mejor hora sin estadísticas.
 - **Escribir:** tratamiento, partes del guion, revisión del ritmo y protección de nombres/cifras.
-- **Planificar:** storyboard, encuadre, duración y tomas que hacen falta.
+- **Planificar:** storyboard, encuadre, duración, tomas que hacen falta y qué cuenta cada una. Para animación, describir pose inicial, acción, pose final y continuidad de sujeto, luz y dirección.
 - **Producir:** grabaciones propias, material con sus condiciones de uso, generación por proveedor, 2D/3D o programas externos.
 - **Editar:** selección de clips, encuadre, transiciones, motion graphics, efectos y color.
 - **Sonido:** voz, música, pausas, efectos y cadena de mezcla. La escucha humana sigue siendo necesaria.
@@ -101,8 +102,9 @@ Ejemplos para pedir en Chat (requieren las conexiones indicadas): «Busca refere
 - Los módulos Nexus de `core/agi_engine.py` y `core/agi_reasoning.py` todavía contienen rutas con resultados predeterminados (`success=True`, reserva garantizada y biometría fija). **No se deben usar como prueba de ejecución real ni anunciar como AGI operativa.** Esta revisión de creadores no migra esas rutas.
 - No están certificados control de vehículos, todas las marcas de wearables ni todos los servicios externos. Un adaptador o nombre en un catálogo no es una conexión probada.
 - No se garantiza eludir barreras de sitios, conseguir descuentos ni reservas agotadas.
-- No hay equivalencia demostrada con Face ID, ChatGPT, Muse o Kimi, ni retraso cero ni interpretación de pantalla con FPS fraccionarios exactos.
-- No se probó aquí Windows real, cámara, micrófono, GPU/Blender ni publicación con las cuentas del dueño.
+- Los 30 FPS de la animática y del muestreo solicitado a la escuela audiovisual son distintos de la cadencia de Gemini Live o de cualquier proveedor. El modelo puede procesar menos imágenes y la red introduce retraso.
+- Los cinco enlaces de Instagram están configurados para estudio a 30 FPS. Configurado no significa medido. Sin una medición válida, la app lo indica y el plan usa el tema y estilo pedidos. No se verificó acceso a los cinco videos en esta revisión.
+- La experiencia de Windows, cámara, micrófono, proveedores de video, Blender y publicación con cuentas del dueño aún requiere una prueba en el equipo. No se certifica equivalencia con Face ID, ChatGPT, Muse o Kimi.
 - El repositorio contiene páginas y módulos heredados. Una página de código no necesariamente es una sección visible: Creator está redirigido al chat, Organizador/Automatizaciones viven dentro de Cowork y Uso está en Configuración → Cuenta.
 
 ## Inventario de herramientas declaradas

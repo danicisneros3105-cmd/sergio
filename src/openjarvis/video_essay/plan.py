@@ -326,10 +326,13 @@ def fallback(
             s.effect = "punch" if i % 3 == 0 else "push"
         s.sfx = "whoosh" if s.kind == "card" else "none"
     film = style.get("production") in ("3d", "ai", "animation")
-    for s in shots:
-        if film and s.kind == "card":  # a film, not an essay: no cards in it
+    for i, s in enumerate(shots):
+        if film:
             s.kind = "broll"
             s.visual = " ".join(w.text for w in words[s.first : s.last])
+            s.camera = ("medium, gentle dolly in", "close-up, locked camera", "detail, gentle dolly in")[i % 3]
+            s.effect, s.grade, s.frame = "push", "natural", "none"
+            s.transition = "cut"
         if s.kind != "card" and sources:
             s.source = sources[0] if sources[0] in SOURCES else "auto"
         if style.get("narration_mode") in ("none", "song") and s.kind != "card":
@@ -398,17 +401,28 @@ reverse (swell into a cut)|glitch|shutter|swipe (text sliding in)",
 "source": "where the picture comes from: {sources} (film: a scene of a movie or series that shows the idea)",
 "overlay": "optional counter or stamp shown on top, max 3 words (e.g. DAY 1, $1,000,000) or empty",
 "camera": "for ai/3d shots: lens and move (e.g. 35mm slow dolly-in, low angle)"}}]}}
-Rules: cover every word exactly once and in order; cut only between words; \
-short punchy words (1-3) on cards; problems and the past in bw with a crt or \
-film frame; the payoff in natural colour; the last shot a red-on-cream card. \
+Rules: cover every word exactly once and in order; cut only between words. \
 Use only the sources listed; text_style "none" when the style shows no text. \
 Move the words around the frame (thirds, never over a face) and vary the \
-typeface by what the words are, as a motion designer would. Pictures are REAL \
-footage: clips from the web, scenes of films and series, stock and archive \
-(source web|film|stock|archive); an AI-made picture only when nothing real \
-could ever show it.
+typeface by what the words are, as a motion designer would.
 {extra}"""
 
+ANIMATED_EDIT = """
+Animated edit: open on the surprising outcome, then give context with a readable wide
+shot. Reveal the mechanism with a sequence of visible actions (cause, change, effect).
+Give each shot one new action and describe start pose, motion and end pose in "visual".
+Repeat a short subject description across shots (shape, material, colour, scale) so the
+generator keeps the same design. Preserve screen direction and lighting. Use a cutaway
+only when the viewer needs to see inside something; label illustrations or simulations.
+Keep labels away from the bottom and right edges in vertical video. Save the strongest
+sound cue for the reveal and end on a visual payoff connected to the opening.
+Use the style and allowed sources for 2D or 3D; no obligatory cards, CRT or archive.
+"""
+
+LIVE_EDIT = """
+Prefer relevant permitted footage for events that really happened. Use short
+words on cards and use archive effects only when the selected style calls for them.
+"""
 
 SEGMENT_WORDS = 220  # a long narration is planned in stretches this size
 
@@ -459,6 +473,8 @@ def plan_shots(
                 "grade",
                 "look",
                 "overlays",
+                "production",
+                "camera",
             )
         },
         ensure_ascii=False,
@@ -466,6 +482,9 @@ def plan_shots(
     median = float(style.get("median_shot_s") or 1.6)
     items: List[Dict[str, Any]] = []
     context = ""
+    direction = (
+        ANIMATED_EDIT if style.get("production") in ("3d", "ai", "animation") else LIVE_EDIT
+    )
     for a, b in segments(words):
         seg = words[a:b]
         prompt = PLAN_PROMPT.format(
@@ -473,7 +492,7 @@ def plan_shots(
             style=style_json,
             words=" ".join(f"{i}:{w.text}" for i, w in enumerate(seg, a)),
             sources="|".join(sources or ["auto"]),
-            extra=extra + context,
+            extra=direction + extra + context,
         )
         span = seg[-1].end - seg[0].start
         # models plan lazily (one shot every 5-6 s) unless told the count

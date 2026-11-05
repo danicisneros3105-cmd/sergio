@@ -50,6 +50,7 @@
   "explicativo-entretenido": {
    "nombre": "Videos explicativos de entretenimiento",
    "formato": "9:16",
+   "fps": 30,
    "generos": [
     "explicado3d",
     "documental"

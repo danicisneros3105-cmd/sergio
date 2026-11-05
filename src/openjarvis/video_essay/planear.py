@@ -20,6 +20,7 @@ convierte a videos reales y Sergio lo edita».
 from __future__ import annotations
 
 import json
+import math
 import re
 import secrets
 import subprocess
@@ -33,14 +34,26 @@ KINDS = ("cara", "broll", "producto", "pantalla", "texto")
 KIND_NAMES = {"cara": "A cámara", "broll": "Recurso (b-roll)", "producto": "Producto", "pantalla": "Pantalla",
               "texto": "Texto en pantalla"}  # fmt: skip
 MAX_SHOTS = 24
+FPS = 30
+MIN_FRAMES = 18
+MAX_FRAMES = 12 * FPS
+BEATS = ("gancho", "contexto", "mecanismo", "giro", "cierre")
 FONTS = Path(__file__).parent / "fonts"
 
 PLAN_PROMPT = """You are a senior content director planning a {fmt} video for a professional creator \
 who will FILM it themselves. Idea: {idea}
 Length: about {seconds} seconds. {inspiration}
-Write the plan as a director's shot list that a creator can film with a phone. Rules:
-- A hook in the first 1.5 seconds (a result, a contradiction or a question shown, not explained).
+Write a director's shot list a creator can film or animate. Rules:
+- Show an unexpected outcome or a clear question in the first 1.5 seconds. Then show the cause, reveal
+  the mechanism in steps, and end with a payoff that visually answers or echoes the opening.
 - Shots of 0.8-4 s for vertical shorts, 2-8 s for horizontal; vary framing every cut.
+- Return up to {max_shots} shots. Their seconds must add up to the requested duration.
+- Give every shot a narrative function (one of {beats}) and a distinct visible action.
+- For 2D/3D, describe start pose, change and end pose, plus a continuity anchor (same subject,
+  silhouette, light and screen direction). Use an overview, a close-up and a cutaway only where
+  each reveals something new. Describe simulated or illustrative details as such.
+- For vertical layouts, keep key labels clear of the lower and right edges; cut on an action or
+  sound cue rather than adding an effect to every edit. Never copy footage, wording or likenesses.
 - Each shot: kind (one of {kinds}), framing (extreme close-up, close-up, medium, wide), camera move \
 (static, push in, pull out, pan, handheld follow, top shot), what is seen, the exact words said in it (may be \
 empty), words on screen (max 5 words, may be empty), sound (whoosh, hit, riser, boom, \
@@ -50,7 +63,9 @@ practical filming tip (light, angle, where to stand).
 Answer ONLY JSON:
 {{"titulo": "...", "gancho": "...", "musica": "mood and tempo", "notas": ["edit note", "..."],
  "tomas": [{{"segundos": 2.0, "tipo": "cara", "encuadre": "...", "movimiento": "...", "que_se_ve": "...",
- "dice": "...", "texto": "...", "sonido": "...", "consejo": "..."}}]}}"""
+ "dice": "...", "texto": "...", "sonido": "...", "consejo": "...", "funcion": "gancho",
+ "animacion": "start pose → action → end pose (empty if filmed)", "continuidad": "visual anchor",
+ "entrada": "how to cut into this shot"}}]}}"""
 
 
 def home() -> Path:
@@ -78,37 +93,79 @@ def save(pid: str, data: Dict[str, Any]) -> None:
 
 
 def clean_plan(raw: Dict[str, Any], seconds: float) -> Dict[str, Any]:
-    """The model's plan, checked: known kinds, sane lengths, at most 24 shots,
-    and the lengths scaled to the asked total."""
+    """Validate the shot list and put every cut on the same 30 fps grid."""
+    if not isinstance(raw, dict) or not isinstance(raw.get("tomas"), list):
+        raise ValueError("el plan no trae una lista de tomas")
     shots = []
-    for t in (raw.get("tomas") or [])[:MAX_SHOTS]:
+    weights = []
+    for t in raw["tomas"]:
+        if not isinstance(t, dict):
+            continue
         kind = str(t.get("tipo") or "broll").lower()
         kind = next((k for k in KINDS if k in kind), "broll")
         try:
             secs = float(t.get("segundos") or 2)
         except (TypeError, ValueError):
             secs = 2.0
+        weights.append(max(0.6, min(12.0, secs)) if math.isfinite(secs) else 2.0)
+        beat = str(t.get("funcion") or "").strip().lower()
         shots.append({
-            "n": len(shots) + 1, "segundos": max(0.6, min(12.0, secs)), "tipo": kind,
+            "n": len(shots) + 1, "tipo": kind,
             "encuadre": str(t.get("encuadre") or "")[:60], "movimiento": str(t.get("movimiento") or "fija")[:60],
             "que_se_ve": str(t.get("que_se_ve") or "")[:300], "dice": str(t.get("dice") or "")[:400],
             "texto": str(t.get("texto") or "")[:60], "sonido": str(t.get("sonido") or "")[:60],
             "consejo": str(t.get("consejo") or "")[:200], "archivo": "",
+            "funcion": beat if beat in BEATS else "",
+            "animacion": str(t.get("animacion") or "")[:300],
+            "continuidad": str(t.get("continuidad") or "")[:200],
+            "entrada": str(t.get("entrada") or "")[:120],
         })  # fmt: skip
+        if len(shots) == MAX_SHOTS:
+            break
     if not shots:
         raise ValueError("el plan no trae tomas")
-    total = sum(s["segundos"] for s in shots)
-    if seconds and abs(total - seconds) / seconds > 0.25:
-        k = seconds / total
-        for s in shots:
-            s["segundos"] = round(max(0.6, s["segundos"] * k), 2)
+    if not math.isfinite(seconds) or seconds < 0:
+        raise ValueError("la duración no es válida")
+    total = round((seconds or sum(weights)) * FPS)
+    frames = _shot_frames(weights, total)
+    start = 0
+    for s, length in zip(shots, frames):
+        s.update(inicio_fotograma=start, fin_fotograma=start + length, segundos=length / FPS)
+        start += length
+    notes = raw.get("notas")
     return {
         "titulo": str(raw.get("titulo") or "Video")[:120],
         "gancho": str(raw.get("gancho") or "")[:300],
         "musica": str(raw.get("musica") or "")[:120],
-        "notas": [str(n)[:200] for n in (raw.get("notas") or [])][:8],
+        "notas": [n[:200] for n in notes[:8] if isinstance(n, str)] if isinstance(notes, list) else [],
+        "fps": FPS,
+        "fotogramas": total,
         "tomas": shots,
     }
+
+
+def _shot_frames(weights: List[float], total: int) -> List[int]:
+    n = len(weights)
+    if not n * MIN_FRAMES <= total <= n * MAX_FRAMES:
+        raise ValueError(
+            f"{n} tomas no cubren {total / FPS:g} s respetando 0,6–12 s por toma"
+        )
+    low, high = 0.0, MAX_FRAMES / min(weights)
+    for _ in range(40):
+        scale = (low + high) / 2
+        if sum(min(MAX_FRAMES, max(MIN_FRAMES, w * scale)) for w in weights) < total:
+            low = scale
+        else:
+            high = scale
+    scaled = [min(MAX_FRAMES, max(MIN_FRAMES, w * high)) for w in weights]
+    frames = [math.floor(x) for x in scaled]
+    order = sorted(range(n), key=lambda i: scaled[i] - frames[i], reverse=True)
+    for i in order:
+        if sum(frames) == total:
+            break
+        if frames[i] < MAX_FRAMES:
+            frames[i] += 1
+    return frames
 
 
 # -- the storyboard frames -----------------------------------------------------------------
@@ -252,7 +309,8 @@ def _picture(
     prompt = (
         f"Storyboard frame, loose pencil and ink sketch on warm paper, grey wash shading, no colour, no text. "
         f"{'Vertical 9:16' if vertical else 'Horizontal 16:9'} frame. Shot: {shot.get('encuadre')}, "
-        f"{shot.get('movimiento')}. Shows: {shot.get('que_se_ve')}. {look}"
+        f"{shot.get('movimiento')}. Shows: {shot.get('que_se_ve')}. "
+        f"Continuity: {shot.get('continuidad', '')}. Action: {shot.get('animacion', '')}. {look}"
     )
     try:
         return gen(prompt)
@@ -285,20 +343,23 @@ def animatic(plan: Dict[str, Any], out: Path, *, vertical: bool, ffmpeg: str,
         frame = work / f"toma-{shot['n']:02d}.png"
         draw_frame(shot, size, pic).save(frame)
         shot["cuadro"] = frame.name
-        dur = shot["segundos"]
-        frames = max(2, int(round(dur * 25)))
+        frames = max(2, round(shot["segundos"] * FPS))
+        p = f"on/{frames - 1}"
+        ease = f"(0.5-0.5*cos(PI*{p}))"
         mv = (shot.get("movimiento") or "").lower()
         if "push" in mv or "acerc" in mv or "zoom in" in mv:
-            z = f"zoom='1+0.12*on/{frames}'"
+            z = f"zoom='1+0.12*{ease}'"
         elif "pull" in mv or "alej" in mv or "zoom out" in mv:
-            z = f"zoom='1.12-0.12*on/{frames}'"
+            z = f"zoom='1.12-0.12*{ease}'"
         else:
-            z = "zoom='1.04'"
-        x = f"x='iw/2-(iw/zoom/2)+({'1' if 'pan' in mv or 'paneo' in mv else '0'})*on*2'"
+            z = "zoom='1.08'"
+        pan = "pan" in mv or "paneo" in mv
+        pan_ease = f"1-{ease}" if "izquierda" in mv or "left" in mv else ease
+        x = f"x='(iw-iw/zoom)*({pan_ease if pan else '0.5'})'"
         clip = work / f"toma-{shot['n']:02d}.mp4"
         subprocess.run(
-            [ffmpeg, "-y", "-v", "error", "-loop", "1", "-i", str(frame), "-t", f"{dur:.2f}",
-             "-vf", f"zoompan={z}:{x}:y='ih/2-(ih/zoom/2)':d={frames}:s={size[0]}x{size[1]}:fps=25,format=yuv420p",
+            [ffmpeg, "-y", "-v", "error", "-i", str(frame), "-frames:v", str(frames),
+             "-vf", f"zoompan={z}:{x}:y='ih/2-(ih/zoom/2)':d={frames}:s={size[0]}x{size[1]}:fps={FPS},format=yuv420p",
              "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", str(clip)],
             check=True, capture_output=True, timeout=300,
         )  # fmt: skip
@@ -335,15 +396,21 @@ def create(idea: str, *, seconds: float = 45, vertical: bool = True, reference: 
             return llm.ask(p, effort="medium", **kw)
 
     inspiration = ""
+    reference_state = ""
     if reference:
-        inspiration = f"Take as STYLE and INSPIRATION (pacing, framing, energy; never copy its content): {reference}."
+        reference_state = "sin_medicion"
+        inspiration = (
+            "A reference was supplied but not measured. Use the brief and general editorial "
+            "principles; do not claim to have seen the reference."
+        )
         try:
             from openjarvis.video_essay import escuela
 
-            bp = escuela.find(reference)
-            if bp:
-                inspiration += "\nMeasured from it: " + escuela.ficha(reference)[:900]
-        except Exception:  # noqa: BLE001 — the link alone still guides
+            bp = escuela.blueprint(reference, seconds)
+            if bp.get("tomas"):
+                inspiration = escuela.rhythm_note(bp)
+                reference_state = "medida"
+        except Exception:  # noqa: BLE001 — the brief alone still guides
             pass
     try:  # the measured Shorts formats of his references (viral.py)
         from openjarvis.video_essay import viral
@@ -351,22 +418,27 @@ def create(idea: str, *, seconds: float = 45, vertical: bool = True, reference: 
         inspiration += "\n" + viral.guide(idea, "", vertical=vertical)
     except Exception:  # noqa: BLE001
         pass
-    raw = ask(
-        PLAN_PROMPT.format(fmt="vertical 9:16 short" if vertical else "horizontal 16:9", idea=idea[:600],
-                           seconds=int(seconds), inspiration=inspiration, kinds=", ".join(KINDS),
-                           wps=getattr(script, "WORDS_PER_SECOND", 2.6)),
-        json_mode=True, max_tokens=6000,
+    if not math.isfinite(seconds) or not MIN_FRAMES / FPS <= seconds <= MAX_SHOTS * MAX_FRAMES / FPS:
+        raise ValueError("pida entre 0,6 y 288 segundos por plan")
+    prompt = PLAN_PROMPT.format(
+        fmt="vertical 9:16 short" if vertical else "horizontal 16:9", idea=idea[:1200],
+        seconds=seconds, inspiration=inspiration, kinds=", ".join(KINDS), max_shots=MAX_SHOTS,
+        beats=", ".join(BEATS), wps=getattr(script, "WORDS_PER_SECOND", 2.6),
     )  # fmt: skip
-    plan = clean_plan(json.loads(raw), seconds)
+    try:
+        plan = clean_plan(json.loads(ask(prompt, json_mode=True, max_tokens=6000)), seconds)
+    except ValueError:
+        repair = (
+            f"\nReturn valid JSON. The plan needs between {math.ceil(seconds / 12)} and "
+            f"{min(MAX_SHOTS, round(seconds * FPS) // MIN_FRAMES)} shots for this duration."
+        )
+        plan = clean_plan(json.loads(ask(prompt + repair, json_mode=True, max_tokens=6000)), seconds)
     pid = secrets.token_hex(12)
     folder(pid).mkdir(parents=True, exist_ok=True)
-    plan.update(id=pid, idea=idea, vertical=vertical, referencia=reference, creado=time.time(),
+    plan.update(id=pid, idea=idea, vertical=vertical, referencia=reference,
+                referencia_estado=reference_state, creado=time.time(),
                 estado="animando", montaje=None)  # fmt: skip
     save(pid, plan)
-    if ffmpeg is None:
-        from openjarvis.video_essay import render
-
-        ffmpeg = render.ffmpeg()
     if gen is None:
         try:
             from openjarvis.creator import studio
@@ -375,6 +447,10 @@ def create(idea: str, *, seconds: float = 45, vertical: bool = True, reference: 
         except Exception:  # noqa: BLE001
             gen = None
     try:
+        if ffmpeg is None:
+            from openjarvis.video_essay import render
+
+            ffmpeg = render.ffmpeg()
         animatic(
             plan,
             folder(pid) / "animatic.mp4",

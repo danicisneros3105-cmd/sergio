@@ -122,9 +122,10 @@ def clean_link(url: str) -> str:
     m = re.search(r"(?:shorts/|v=|youtu\.be/)([\w-]{11})", url)
     if m and "youtu" in url:
         return f"https://www.youtube.com/watch?v={m.group(1)}"
-    m = re.search(r"instagram\.com/(?:reels?|p)/([\w-]+)", url)
+    m = re.search(r"instagram\.com/(reels?|p)/([\w-]+)", url)
     if m:
-        return f"https://www.instagram.com/reel/{m.group(1)}/"
+        kind = "p" if m.group(1) == "p" else "reel"
+        return f"https://www.instagram.com/{kind}/{m.group(2)}/"
     return url.split("&")[0]
 
 
@@ -167,7 +168,7 @@ def add(
 
 
 def video_id(url: str) -> str:
-    m = re.search(r"(?:v=|reel/)([\w-]+)", url)
+    m = re.search(r"(?:v=|reels?/|/p/)([\w-]+)", url)
     return m.group(1) if m else re.sub(r"\W+", "-", url)[-24:]
 
 
@@ -903,7 +904,9 @@ def study(url: str, category: str, *, root: Optional[Path] = None,
     folder = root / category
     out = folder / f"{video_id(url)}.json"
     if out.is_file():
-        return json.loads(out.read_text("utf-8"))
+        cached = json.loads(out.read_text("utf-8"))
+        if _measured_fps(cached) == fps:
+            return cached
     path = (fetch or download)(url, root / "videos")
     data: Dict[str, Any] = {
         "url": url,
@@ -1114,6 +1117,8 @@ def synthesize(category: str, *, root: Optional[Path] = None, ask: Optional[Call
         json.loads(p.read_text("utf-8"))
         for p in sorted((root / category).glob("*.json"))
     ]
+    if cat.get("fps"):
+        studies = [s for s in studies if _measured_fps(s) == cat["fps"]]
     if not studies:
         raise RuntimeError(f"no hay videos estudiados en «{category}»")
     m = merge(studies)
@@ -1294,13 +1299,31 @@ def guidance(brief: str, genre: str = "", aspect: str = "") -> str:
 # -- recreating one reference exactly («molde») -------------------------------------------------
 
 
+def _measured_fps(study: Dict[str, Any]) -> int:
+    return int((study.get("medido") or {}).get("resumen", {}).get("fps_medido") or 0)
+
+
 def find(ref: str, root: Optional[Path] = None) -> Dict[str, Any]:
     """A studied reference by its link or id (any category)."""
     root = root or home()
     vid = video_id(clean_link(ref)) if "/" in ref else ref.strip()
-    for path in sorted(root.glob(f"*/{vid}.json")):
-        if path.parent.name != "superskills":
-            return json.loads(path.read_text("utf-8"))
+    if not re.fullmatch(r"[\w-]+", vid):
+        raise ValueError("identificador de referencia no válido")
+    candidates = [
+        json.loads(path.read_text("utf-8"))
+        for path in sorted(root.glob(f"*/{vid}.json"))
+        if path.parent.name != "superskills"
+    ]
+    # A link shared by multiple categories should use its highest requested
+    # sampling rate, even if a lower-rate study already exists.
+    min_fps = max(
+        (int(cat.get("fps") or 0) for cat in references().values()
+         if any(video_id(url) == vid for url in cat["links"])),
+        default=0,
+    )
+    candidates = [data for data in candidates if _measured_fps(data) >= min_fps]
+    if candidates:
+        return max(candidates, key=_measured_fps)
     raise RuntimeError(
         f"Todavía no estudié ese video ({vid}). Diga «estudia las referencias» primero."
     )
@@ -1400,6 +1423,15 @@ def blueprint_note(bp: Dict[str, Any]) -> str:
         f"{len(bp['tomas'])} shots in {bp['duracion']} s, cuts at the same moments, the same kind of hook "
         f"in the first 3 s, words in the same places, the same effects, ways in and sounds. New content "
         f"(the order's topic), never the reference's footage, words or people.\n{rows}\n"
+    )
+
+
+def rhythm_note(bp: Dict[str, Any]) -> str:
+    """Measured cut timings only; keep source words and footage out of the brief."""
+    cuts = ", ".join(str(shot["desde"]) for shot in bp["tomas"][1:30])
+    return (
+        f"\nReference rhythm scaled to {bp['duracion']:g} s. Cut targets (s): {cuts or 'no cuts'}. "
+        "Use them where the new story supports them. Use original visuals and wording."
     )
 
 
@@ -1539,6 +1571,7 @@ __all__ = [
     "merge",
     "recut",
     "references",
+    "rhythm_note",
     "rules_from_numbers",
     "run_all",
     "skill_text",

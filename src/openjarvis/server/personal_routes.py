@@ -415,6 +415,7 @@ def video_job(job_id: str) -> Dict[str, Any]:
         "error": str(st.get("error") or "")[:300],
         "video": res.get("url", ""),
         "portada": pkg.get("cover_url", ""),
+        "referencia_estado": st.get("referencia_estado", ""),
         "resumen": jobs.summary(st),
     }
 

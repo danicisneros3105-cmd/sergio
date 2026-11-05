@@ -6,6 +6,7 @@ import { apiFetch } from '../../lib/api';
 import { WebVideo } from '../Gallery/WebVideo';
 
 interface Job {
+  referencia_estado?: 'medida' | 'analizada' | 'sin_medicion';
   id: string;
   titulo: string;
   estado: string;
@@ -71,6 +72,9 @@ export function VideoJobCard({ id }: { id: string }) {
       )}
       {job.estado === 'listo' && job.video && (
         <WebVideo className="vjob-video" src={job.video} poster={job.portada || undefined} preload="metadata" />
+      )}
+      {job.referencia_estado === 'sin_medicion' && (
+        <p className="vjob-why">Referencia sin medir. El video usa el tema y el estilo pedidos.</p>
       )}
       {(job.estado === 'error' || job.estado === 'detenido') && (
         <p className="vjob-why">

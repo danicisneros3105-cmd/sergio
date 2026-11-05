@@ -9,6 +9,34 @@
   box-shadow: var(--shadow-card);
   max-width: min(760px, 100%);
 }
+
+:root .cr-plan {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 24px;
+  padding: clamp(12px, 3vw, 20px);
+}
+:root .cr-plan > header {
+  background: var(--sergio-coral, #f04a32);
+  color: var(--sergio-coral-ink, #11110f);
+  padding: 14px;
+  border-radius: 16px;
+  flex-wrap: wrap;
+  overflow-wrap: anywhere;
+}
+:root .cr-plan > header span { color: inherit; }
+.cr-shot-beat {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--color-bg-tertiary);
+  color: var(--color-text);
+  font-size: 11px;
+  font-weight: 650;
+}
+.cr-shot-direction { margin-top: 8px; overflow-wrap: anywhere; }
+.cr-shot-direction summary { cursor: pointer; color: var(--color-text-secondary); }
+.cr-shot-direction summary:focus-visible { outline: 2px solid var(--color-accent); }
 .cr-insp header,
 .cr-plan header {
   display: flex;
