@@ -265,6 +265,8 @@ class VideoSchoolTool(BaseTool):
                 )
             if action == "estudiar":
                 refs = escuela.references()
+                if cat and cat not in refs:
+                    return f"No existe la categoría «{cat}». Para Ricks Clips use «shorts-animados»."
                 cats = [cat] if cat in refs else None
                 if not escuela.start(cats):
                     return "Ya estoy estudiando las referencias; le aviso al terminar (ver «En marcha»)."
@@ -277,13 +279,26 @@ class VideoSchoolTool(BaseTool):
                     for c in (cats or refs)
                 )
                 return (f"Empecé a estudiar {n} videos de referencia segundo a segundo, en segundo plano. "
-                        "Cada uno tarda unos minutos; al final escribo la superskill de cada categoría.")  # fmt: skip
+                        "Al terminar indicaré cuántos pude medir y qué perfiles se actualizaron.")  # fmt: skip
             st = escuela.status()
             lines = []
             if st["en_curso"]:
                 lines.append(f"Estudiando ahora: {st['en_curso'].get('que', '')}")
             for k, c in st["categorias"].items():
+                if cat and cat != k:
+                    continue
                 done = "con superskill" if c["superskill"] else "sin superskill aún"
+                cohort = st["ultimo"].get("cohortes", {}).get(k)
+                if cohort:
+                    profile = "perfil actualizado" if cohort["perfil_actualizado"] else "perfil sin actualizar"
+                    lines.append(
+                        f"- {c['nombre']}: última tanda: {cohort['medidos']}/{cohort['solicitados']} "
+                        f"a {cohort['fps']} FPS; {cohort['encontrados']} enlaces encontrados, {profile}."
+                    )
+                    continue
+                if k == "shorts-animados":
+                    lines.append(f"- {c['nombre']}: sin tanda de 20 verificada aún; {done}.")
+                    continue
                 lines.append(
                     f"- {c['nombre']}: {c['estudiados']}/{c['videos']} estudiados, {done}."
                 )

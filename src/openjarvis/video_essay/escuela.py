@@ -217,6 +217,7 @@ def channel_links(
     *,
     root: Optional[Path] = None,
     run: Optional[Callable[[List[str]], str]] = None,
+    refresh: bool = False,
 ) -> List[str]:
     """The latest ``ultimos`` videos of a channel (its ``pestana`` first:
     shorts or videos; the other one if that is empty), kept a day."""
@@ -226,18 +227,20 @@ def channel_links(
     n = max(1, min(50, int(channel.get("ultimos") or 20)))
     max_min = float(channel.get("max_minutos") or 0)
     tab = str(channel.get("pestana") or "videos")
+    strict = bool(channel.get("solo_pestana"))
     slug = re.sub(r"[^\w.-]+", "-", url.rsplit("/", 1)[-1])
-    cache = (root or home()) / "canales" / f"{slug}-{tab}-{n}-{int(max_min)}.json"
+    scope = "-solo" if strict else ""
+    cache = (root or home()) / "canales" / f"{slug}-{tab}-{n}-{int(max_min)}{scope}.json"
     try:
         saved = json.loads(cache.read_text("utf-8"))
-        if time.time() - float(saved.get("at") or 0) < CHANNEL_TTL_S and saved.get(
+        if not refresh and time.time() - float(saved.get("at") or 0) < CHANNEL_TTL_S and saved.get(
             "links"
         ):
             return list(saved["links"])
     except (OSError, ValueError):
         pass
     ids: List[str] = []
-    for t in [tab] + [x for x in ("videos", "shorts") if x != tab]:
+    for t in [tab] + ([] if strict else [x for x in ("videos", "shorts") if x != tab]):
         # ask for more than n when long ones are skipped, so n short ones remain
         ids = _list_ids(f"{url}/{t}", n + 12 if max_min else n, run, max_min)
         if ids:
@@ -350,6 +353,8 @@ def _chunks(path: Path, w: int, h: int, fps: int, ffmpeg: str) -> Any:
             raw = proc.stdout.read(size * fps) if proc.stdout else b""
             n = len(raw) // size
             if not n:
+                if proc.wait(timeout=30):
+                    raise RuntimeError(f"no se pudo decodificar el video: {path.name}")
                 break
             yield np.frombuffer(raw[: n * size], dtype=np.uint8).reshape(n, h, w, 3)
     finally:
@@ -370,8 +375,8 @@ def _hist(f: Any) -> Any:
     return h / max(1.0, float(h.sum()))
 
 
-def _cut_times(d: Sequence[float], fps: int) -> List[float]:
-    """Hard cuts from the histogram jumps between consecutive frames."""
+def _cut_times(d: Sequence[float], fps: int, spatial: Sequence[float] = ()) -> List[float]:
+    """Hard cuts from colour jumps or abrupt changes in the layout."""
     import numpy as np
 
     if not len(d):
@@ -382,7 +387,11 @@ def _cut_times(d: Sequence[float], fps: int) -> List[float]:
     )
     out: List[float] = []
     for i, v in enumerate(d, start=1):
-        if v >= thr and (not out or i / fps - out[-1] >= 0.2):
+        changed = False
+        if spatial and spatial[i - 1] >= 0.14:
+            nearby = [*spatial[max(0, i - 4):i - 1], *spatial[i:i + 3]]
+            changed = bool(nearby) and spatial[i - 1] >= 3 * float(np.median(nearby))
+        if (v >= thr or changed) and (not out or i / fps - out[-1] >= 0.2):
             out.append(round(i / fps, 2))
     return out
 
@@ -460,7 +469,11 @@ def cuts_of(frames: Any, fps: int = FPS) -> List[float]:
         return []
     hist = [_hist(f) for f in frames]
     d = [float(0.5 * np.abs(hist[i] - hist[i - 1]).sum()) for i in range(1, len(hist))]
-    return _cut_times(d, fps)
+    spatial = [
+        float(np.abs(b.astype("int16") - a).mean() / 255)
+        for a, b in zip(frames, frames[1:])
+    ]
+    return _cut_times(d, fps, spatial)
 
 
 def text_rows(gray: Any) -> Dict[str, float]:
@@ -709,6 +722,7 @@ def measure(
     rate = 8000
     words = words if words is not None else transcribe(path)
     jumps: List[float] = []  # histogram jump between every two frames (cuts)
+    spatial: List[float] = []
     prev = None
     prev_hist = None
     prev_lum = None
@@ -733,6 +747,8 @@ def measure(
             if len(seq) > 1
             else np.zeros(1)
         )
+        if len(seq) > 1:
+            spatial.extend(steps.tolist())
         motion = float(np.median(steps))  # a cut is not motion
         lum = (seq.astype("float32") / 255) @ luma  # (n, h, w)
         means = lum.mean(axis=(1, 2))
@@ -802,8 +818,10 @@ def measure(
             "volumen_db": round(20 * float(np.log10(rms + 1e-6)), 1), "golpes": hits,
             "palabras": len(said), "dice": " ".join(said)[:120],
         })  # fmt: skip
+    if not frames_seen:
+        raise RuntimeError(f"el video no tiene fotogramas: {path.name}")
     dur = meta["dur"] or frames_seen / fps
-    cuts = _cut_times(jumps, fps)
+    cuts = _cut_times(jumps, fps, spatial)
     for sec in seconds:
         sec["cortes"] = sum(1 for c in cuts if sec["t"] <= c < sec["t"] + 1)
     bounds = [0.0, *cuts, round(dur, 2)]
@@ -851,6 +869,7 @@ def measure(
         "silencios_por_min": silences(words, dur),
     }  # fmt: skip
     summary["tipo_de_edicion"] = editing_type(summary)
+    summary["fotogramas_muestreados"] = frames_seen
     return {
         "meta": meta,
         "cortes": cuts,
@@ -898,14 +917,18 @@ def transcribe(path: Path) -> List[Dict[str, Any]]:
 
 def study(url: str, category: str, *, root: Optional[Path] = None,
           watcher: Optional[Callable[[str], Dict[str, Any]]] = None,
-          fetch: Optional[Callable[[str, Path], Path]] = None, fps: int = FPS) -> Dict[str, Any]:  # fmt: skip
+          fetch: Optional[Callable[[str, Path], Path]] = None, fps: int = FPS,
+          require_frames: bool = False) -> Dict[str, Any]:  # fmt: skip
     """Download, measure every second and (with a model) watch one video."""
     root = root or home()
     folder = root / category
     out = folder / f"{video_id(url)}.json"
     if out.is_file():
         cached = json.loads(out.read_text("utf-8"))
-        if _measured_fps(cached) == fps:
+        summary = (cached.get("medido") or {}).get("resumen") or {}
+        if _measured_fps(cached) == fps and (
+            not require_frames or summary.get("fotogramas_muestreados")
+        ):
             return cached
     path = (fetch or download)(url, root / "videos")
     data: Dict[str, Any] = {
@@ -1106,19 +1129,27 @@ def compare(
 
 
 def synthesize(category: str, *, root: Optional[Path] = None, ask: Optional[Callable[[str], str]] = None,
-               refs: Optional[Dict[str, Dict[str, Any]]] = None) -> Dict[str, Any]:  # fmt: skip
+               refs: Optional[Dict[str, Dict[str, Any]]] = None,
+               cohort: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Any]:  # fmt: skip
     """Join a category's studies into its style and its superskill."""
     from openjarvis.video_essay import style
 
     root = root or home()
     refs = refs or references()
     cat = refs[category]
-    studies = [
+    studies = list(cohort) if cohort is not None else [
         json.loads(p.read_text("utf-8"))
         for p in sorted((root / category).glob("*.json"))
     ]
     if cat.get("fps"):
         studies = [s for s in studies if _measured_fps(s) == cat["fps"]]
+    if cat.get("cohorte_canal") and (
+        cohort is None or len({s["url"] for s in studies}) != sum(
+            int(c["ultimos"]) for c in cat["canales"] if c.get("solo_pestana")
+        )
+        or not all(s["medido"]["resumen"].get("fotogramas_muestreados") for s in studies)
+    ):
+        raise RuntimeError("la cohorte de Shorts aún no está completa")
     if not studies:
         raise RuntimeError(f"no hay videos estudiados en «{category}»")
     m = merge(studies)
@@ -1176,7 +1207,10 @@ def synthesize(category: str, *, root: Optional[Path] = None, ask: Optional[Call
         "transitions_seen": sorted({e for p in profiles for e in p.get("transitions_seen") or []})[:12],
         "pacing": f"{m['cortes_por_segundo']} cuts/s, {m['cortes_primeros_3s']} in the first 3 s",
         "superskill": rules, "medido": m, "aspect": "9:16" if m["vertical"] else "16:9",
+        **({"cohorte": [s["url"] for s in studies]} if cohort is not None else {}),
     }  # fmt: skip
+    if cat.get("cohorte_canal"):
+        prof.update(production="animation", narration_mode="voice", sources=["ai", "3d", "image"])
     folder = style.learned_dir()
     folder.mkdir(parents=True, exist_ok=True)
     (folder / f"{key}.json").write_text(
@@ -1488,14 +1522,23 @@ def run_all(
     is reported and the rest go on."""
     refs = references()
     todo = [c for c in (categories or refs) if c in refs]
-    done: Dict[str, Any] = {"estudiados": 0, "fallos": [], "superskills": []}
+    done: Dict[str, Any] = {"estudiados": 0, "fallos": [], "superskills": [], "cohortes": {}}
     for cat in todo:
+        category = refs[cat]
+        strict = bool(category.get("cohorte_canal"))
+        channels = [c for c in category.get("canales", []) if c.get("solo_pestana")]
+        wanted = sum(int(c["ultimos"]) for c in channels)
         try:
-            links = links_of(refs[cat])
+            if strict:
+                links = list(dict.fromkeys(url for ch in channels for url in channel_links(ch, refresh=True)))
+            else:
+                links = links_of(category)
         except Exception as exc:  # noqa: BLE001 — a channel that fails: its links still count
             done["fallos"].append({"categoria": cat, "por_que": str(exc)[:200]})
-            links = list(refs[cat]["links"])
-        fps = int(refs[cat].get("fps") or FPS)
+            links = [] if strict else list(category["links"])
+        fps = int(category.get("fps") or FPS)
+        cohort: List[Dict[str, Any]] = []
+        videos = []
         for url in links:
             _running.update(
                 que=f"{cat}: {url}", desde=_running.get("desde") or time.time()
@@ -1503,15 +1546,44 @@ def run_all(
             if on_step:
                 on_step(f"Estudiando {url} ({cat})")
             try:
-                data = study(url, cat, fps=fps)
+                data = study(url, cat, fps=fps, require_frames=True) if strict else study(url, cat, fps=fps)
+                if strict:
+                    measured = data["medido"]["resumen"]
+                    if _measured_fps(data) != fps or not measured.get("fotogramas_muestreados"):
+                        raise RuntimeError("la referencia no tiene cobertura de fotogramas comprobada")
+                    cohort.append(data)
+                    videos.append({
+                        "url": url, "estado": "medido", "fps_original": measured.get("fps"),
+                        "fps_medido": fps, "fotogramas": measured["fotogramas_muestreados"],
+                        "duracion_s": measured.get("duracion_s"), "tomas": measured.get("tomas"),
+                        "toma_mediana_s": measured.get("toma_mediana_s"),
+                        "cortes_primeros_3s": measured.get("cortes_primeros_3s"),
+                        "cortes_en_golpe": measured.get("cortes_en_golpe"),
+                        "analisis_visual": bool((data.get("tomas_modelo") or {}).get("shots")),
+                    })
                 done["estudiados"] += 1
                 title = (data.get("tomas_modelo") or {}).get("summary") or ""
                 if title:
                     refs[cat].setdefault("ejemplos", []).append(str(title)[:160])
             except Exception as exc:  # noqa: BLE001
                 done["fallos"].append({"url": url, "por_que": str(exc)[:200]})
+                if strict:
+                    videos.append({"url": url, "estado": "no_medido"})
+        if strict:
+            complete = wanted > 0 and len(links) == len(cohort) == wanted
+            done["cohortes"][cat] = {
+                "solicitados": wanted, "encontrados": len(links), "medidos": len(cohort),
+                "fps": fps, "completa": complete, "videos": videos, "perfil_actualizado": False,
+            }
+            if not complete:
+                done["fallos"].append({
+                    "categoria": cat, "por_que": f"Cohorte incompleta: {len(cohort)}/{wanted} medidos. No se reemplazó el perfil.",
+                })
+                continue
         try:
-            done["superskills"].append(synthesize(cat, refs=refs))
+            done["superskills"].append(synthesize(cat, refs=refs, cohort=cohort if strict else None))
+            if strict:
+                done["cohortes"][cat]["perfil_actualizado"] = True
         except Exception as exc:  # noqa: BLE001
             done["fallos"].append({"categoria": cat, "por_que": str(exc)[:200]})
     _running.clear()

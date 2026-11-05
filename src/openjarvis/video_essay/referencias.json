@@ -76,11 +76,13 @@
     "pesada"
    ],
    "fps": 30,
+   "cohorte_canal": true,
    "links": [],
    "canales": [
     {
      "url": "https://www.youtube.com/@RicksClips3000",
      "pestana": "shorts",
+     "solo_pestana": true,
      "ultimos": 20
     }
    ],

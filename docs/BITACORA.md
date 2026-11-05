@@ -2,6 +2,11 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-11-05 · Codex · Escuela de los 20 Shorts y demo de animación
+- Ricks Clips: solo la pestaña Shorts; el perfil se rehace cuando los 20 enlaces actuales tienen mediciones a 30 FPS. Una tanda incompleta conserva el perfil anterior y se informa por video.
+- La escuela registra FPS del archivo, FPS de muestreo y fotogramas leídos. Detecta cortes bruscos por cambio de color o de composición. Los análisis no se confunden con un listado de títulos.
+- Demo original reproducible con `scripts/demo_short_giro.py`, 23 s y 690 fotogramas. No es un estudio de los 20 videos: YouTube no entregó el material audiovisual en este entorno.
+
 ## 2026-11-05 · Codex · Terry, tomas y referencias a 30 FPS
 - Corregida la confusión histórica: Tennessee sigue siendo el Node de estrategia; Terry prepara instrucciones para el modelo de respuesta, conserva el encargo original y no encola más trabajo si sus cuatro trabajadores están ocupados.
 - Plan y animática comparten fotogramas a 30 FPS. Dirección y continuidad por toma, portada coral y aviso visible cuando una referencia no se pudo medir.

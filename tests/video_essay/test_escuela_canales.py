@@ -227,16 +227,17 @@ def test_the_hand_written_script_rules_join_the_superskill(tmp_path, monkeypatch
     monkeypatch.setattr(
         "openjarvis.video_essay.style.learned_dir", lambda: tmp_path / "estilos"
     )
-    folder = tmp_path / "escuela" / "shorts-animados"
-    folder.mkdir(parents=True)
     summary = {"duracion_s": 60, "toma_mediana_s": 2.0, "cortes_por_segundo": 0.5, "cortes_primeros_3s": 1,
                "texto_en_pantalla": 0.1, "caras": 0.0, "movimiento_medio": 0.1, "vertical": True,
-               "colores": ["#112233"], "gancho": "x"}  # fmt: skip
-    (folder / "a.json").write_text(
-        json.dumps({"url": "u", "medido": {"resumen": summary, "tomas": [2.0]}})
-    )
+               "colores": ["#112233"], "gancho": "x", "fps_medido": 30, "fotogramas_muestreados": 1800}  # fmt: skip
+    cohort = [
+        {"url": f"https://www.youtube.com/watch?v=clip{i:07d}",
+         "medido": {"resumen": summary, "tomas": [2.0]}}
+        for i in range(20)
+    ]
     res = escuela.synthesize(
         "shorts-animados",
+        cohort=cohort,
         ask=lambda p: "\n".join(
             f"{i}. Rule {i} from the data here." for i in range(1, 7)
         ),
