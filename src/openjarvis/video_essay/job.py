@@ -437,6 +437,7 @@ def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
     deps = deps or Deps()
     st = job.state()
     params = st.get("params") or {}
+    verified_animation = params.get("verificar_animacion") is True
     mode = M.get(str(params.get("mode") or "basic"))
     budget = M.Budget.from_dict(
         st.get("budget") or {}, mode, float(params.get("seconds") or 60)
@@ -476,6 +477,15 @@ def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
         return True
 
     try:
+        if verified_animation:
+            from openjarvis.video_essay import aivideo, blender3d, verificacion
+
+            if mode.key not in ("post", "cinema"):
+                raise RuntimeError("Usa modo Post o Cinema para verificar un Short animado completo.")
+            if not shutil.which(_ffprobe(render.ffmpeg())):
+                raise RuntimeError("Falta FFprobe. Instala FFmpeg con FFprobe antes de empezar.")
+            if not (deps.ai_provider or aivideo.available() or deps.blender or blender3d.blender_cmd()):
+                raise RuntimeError("No hay proveedor de animación disponible. Conecta un modelo de video o instala Blender.")
         # 1. the reference (or the style asked for)
         if stage("estudio"):
             ref = str(params.get("reference") or "").strip()
@@ -567,6 +577,10 @@ def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
                     + trend_note,
                 )
             sc = _by_parts(job, sc, params, mode, direct)
+            if verified_animation:
+                if not str(sc.get("text") or "").strip():
+                    raise RuntimeError("No se generó un guion narrable para el Short.")
+                sc["narration"] = "voice"
             job.write("script.json", sc)
             job.update(
                 title=sc["title"], style_key=sc.get("style") or fixed or style.DEFAULT
@@ -591,11 +605,15 @@ def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
                         wav = script.narrate_beats(beats, speak=deps.speak)
                     else:
                         wav = script.narrate(sc["text"], speak=deps.speak)
+                    if verified_animation:
+                        verificacion.require_voice(audio.read_wav(wav), audio.SR)
                     wav_path.write_bytes(wav)
                     voiced = True
                 except Exception as exc:  # noqa: BLE001 — words on screen still carry it
                     job.update(voice_error=str(exc)[:200])
                     job.log(f"sin voz: {exc}")
+                    if verified_animation:
+                        raise RuntimeError(f"No pude obtener una narración audible: {str(exc)[:180]}") from exc
             if not voiced:
                 total = _silent_length(
                     sc, float(params.get("seconds") or 60), script.WORDS_PER_SECOND
@@ -603,7 +621,7 @@ def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
                 wav_path.write_bytes(
                     audio.write_wav(np.zeros(int(total * audio.SR), dtype=np.float32))
                 )
-            job.update(voice=voiced)
+            job.update(voice=voiced, voice_error="" if voiced else job.state().get("voice_error", ""))
             job.finish("voz")
         wav = wav_path.read_bytes()
 
@@ -629,6 +647,13 @@ def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
             ),
         )
         profile = {**profile, "search_words": genres.search_words(genre)}
+        if verified_animation:
+            allowed = [
+                source for source in ("ai", "3d")
+                if (source == "ai" and (deps.ai_provider or aivideo.available()))
+                or (source == "3d" and (deps.blender or blender3d.blender_cmd()))
+            ]
+            profile["production"] = "animation"
 
         # 5. the editor's plan
         if stage("plan"):
@@ -711,12 +736,25 @@ def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
             blender=deps.blender or _blender_maker(edit, profile, sc, aspect),
             choose_ask=look_choose,  # every mode: the footage is looked at
             allow_web=_web_allowed(params),
+            animation_only=verified_animation,
             on_spend=save,
         )
         filler.credits = list(job.state().get("credits") or [])
 
         def fill(label: str) -> None:
+            if verified_animation:
+                for shot in shots:
+                    if shot.kind == "card":
+                        shot.kind, shot.asset = "broll", ""
+                        shot.visual = shot.visual or " ".join(w.text for w in words[shot.first:shot.last])
             filler.fill(shots, progress=lambda f, n: job.progress(label, f, n))
+            if verified_animation:
+                try:
+                    verificacion.require_shots(shots, render.ffmpeg(), _ffprobe(render.ffmpeg()))
+                except verificacion.InvalidShot as exc:
+                    shots[exc.number - 1].asset = ""
+                    job.write("plan.json", P.to_json(shots))
+                    raise
             genres.after_fill(shots, job.state().get("genre") or "")  # 2.5D photos
             job.write("plan.json", P.to_json(shots))
             job.update(credits=filler.credits, budget=budget.to_dict())
@@ -757,6 +795,8 @@ def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
 
         # 7. review passes: the editor first, the director has the last word
         if stage("revision"):
+            if verified_animation and any(not s.asset for s in shots):
+                fill("revision")
             passes = list(job.state().get("passes") or [])
             want = min(mode.passes, int(params.get("passes", mode.passes)))
             draft = render.DRAFT_SIZES[aspect]
@@ -893,6 +933,8 @@ def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
         # 9. the render
         out = job.dir / "final.mp4"
         if stage("render"):
+            if verified_animation:
+                verificacion.require_shots(shots, render.ffmpeg(), _ffprobe(render.ffmpeg()))
             size = (
                 render.DRAFT_SIZES[aspect]
                 if params.get("draft")
@@ -952,12 +994,23 @@ def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
                 job.log(f"sin control de calidad: {exc}")
             from openjarvis.creator import studio
 
+            captions_srt = pro.srt(words)
+            if verified_animation:
+                if not job.state().get("voice"):
+                    raise RuntimeError("El montaje no tiene narración verificada.")
+                extras["verificacion"] = verificacion.check_delivery(
+                    delivered, _ffprobe(ff), aspect=aspect, fps=render.FPS,
+                    subtitles=captions_srt, shots=len(shots), script=sc["text"],
+                    timing=str(job.state().get("timing") or ""),
+                    quality=extras.get("control") or {},
+                    requested_seconds=float(params.get("seconds") or 60),
+                )
             name = studio.media_name("video", ".mp4")
             videos = deps.videos or studio.projects_root() / "videos"
             videos.mkdir(parents=True, exist_ok=True)
             shutil.copy2(delivered, videos / name)
             subs = videos / (Path(name).stem + ".srt")
-            subs.write_text(pro.srt(words), encoding="utf-8")
+            subs.write_text(captions_srt, encoding="utf-8")
             extras["subtitulos"] = f"/v1/creator/media/{subs.name}"
             if mode.package:  # the same video for the other screens
                 others = [a for a in ("9:16", "1:1", "16:9") if a != aspect]
@@ -1325,6 +1378,13 @@ def summary(st: Dict[str, Any]) -> str:
             extra += f" {len(pkg['portadas'])} portadas para probar."
         if len(pkg.get("titulos") or []) > 1:
             extra += " Otro título para probar: «" + pkg["titulos"][1]["titulo"] + "»."
+        if check := res.get("verificacion"):
+            extra += (
+                f"\nVerificación técnica: guion, narración audible, {check['tomas_animadas']} tomas animadas, "
+                f"subtítulos y MP4 a {check['fps']} FPS."
+            )
+        elif st.get("voice_error"):
+            extra += "\nLa narración falló; este montaje se entregó sin voz."
         return f"«{title}» está listo ({res.get('shots', 0)} tomas).{score}{extra}\n\n![{title}]({res.get('url', '')})"
     if status == "error":
         where = LABELS.get(st.get("stage", ""), st.get("stage"))
@@ -1503,6 +1563,8 @@ def running(root: Optional[Path] = None) -> List[Job]:
 
 
 def _same(a: Dict[str, Any], b: Dict[str, Any]) -> bool:
+    if bool(a.get("verificar_animacion")) != bool(b.get("verificar_animacion")):
+        return False
     keys = ("topic", "prompt", "script", "reference", "style", "mode", "aspect")
     return all(
         str(a.get(k) or "").strip().lower() == str(b.get(k) or "").strip().lower()

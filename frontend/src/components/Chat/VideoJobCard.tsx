@@ -17,6 +17,8 @@ interface Job {
   error: string;
   video: string;
   portada: string;
+  verificacion?: { tomas_animadas: number; fps: number; alineacion: string } | null;
+  sin_voz?: boolean;
 }
 
 export function VideoJobCard({ id }: { id: string }) {
@@ -72,6 +74,16 @@ export function VideoJobCard({ id }: { id: string }) {
       )}
       {job.estado === 'listo' && job.video && (
         <WebVideo className="vjob-video" src={job.video} poster={job.portada || undefined} preload="metadata" />
+      )}
+      {job.estado === 'listo' && job.verificacion && (
+        <p className="vjob-why">
+          Verificación técnica: guion, voz audible, {job.verificacion.tomas_animadas} tomas animadas,
+          subtítulos y video a {job.verificacion.fps} FPS.
+          {job.verificacion.alineacion !== 'reconocedor' && ' La sincronía de subtítulos es estimada.'}
+        </p>
+      )}
+      {job.estado === 'listo' && job.sin_voz && (
+        <p className="vjob-why">La narración falló. Este montaje se entregó sin voz.</p>
       )}
       {job.referencia_estado === 'sin_medicion' && (
         <p className="vjob-why">Referencia sin medir. El video usa el tema y el estilo pedidos.</p>

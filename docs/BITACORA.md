@@ -2,6 +2,11 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-11-05 · Codex · Verificación de un Short animado completo
+- La opción `verificar_animacion` exige guion narrable, voz audible, tomas generadas con movimiento, subtítulos y un MP4 de la duración y formato pedidos, con audio y 30 FPS. No sustituye las tomas por fotos ni la narración por silencio. La tarjeta indica si los tiempos de subtítulos son estimados.
+- Se probaron silencio, clip congelado y una exportación real de principio a fin usando guion de prueba, voz sintetizada localmente y clips de movimiento de control. No es una prueba de calidad creativa ni de los modelos externos.
+- El intento con la configuración real de este entorno no pudo iniciar por falta de proveedor de animación o Blender. Sigue pendiente ejecutar con los proveedores del dueño y comparar el resultado con Ricks Clips.
+
 ## 2026-11-05 · Codex · Tanda verificada de Ricks Clips y análisis local
 - Se verificaron los 20 IDs en el orden «Latest» del canal. El reproductor no entregó los fotogramas; no se declara una medición de los videos originales.
 - `scripts/estudiar_shorts_ricks.py` mide a 30 FPS esa lista fija con el origen habitual o con archivos locales nombrados por ID. Mantiene el perfil previo ante una tanda incompleta y no envía los videos a un modelo de visión.

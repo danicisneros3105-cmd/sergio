@@ -112,6 +112,7 @@ class Filler:
         blender: Optional[Callable[[Shot, Path], str]] = None,
         choose_ask: Optional[Callable[[List[Any], str], str]] = None,
         allow_web: bool = True,
+        animation_only: bool = False,
         on_spend: Optional[Callable[[], None]] = None,
     ) -> None:
         self.folder = folder
@@ -132,6 +133,7 @@ class Filler:
         self.blender = blender
         self.choose_ask = choose_ask
         self.allow_web = allow_web
+        self.animation_only = animation_only
         self.on_spend = on_spend or (lambda: None)
         self.broken: set = set()  # sources that cannot work in this job
         self.credits: List[Dict[str, Any]] = []
@@ -300,7 +302,12 @@ class Filler:
                 ),
             )
             used = ""
-            for src in order_for(shot, self.preferred):
+            order = order_for(shot, self.preferred)
+            if self.animation_only:
+                order = list(dict.fromkeys(
+                    s for s in [shot.source, *self.preferred] if s in self.preferred
+                ))
+            for src in order:
                 if src in self.broken or (
                     src in ("web", "film") and not self.allow_web
                 ):
@@ -345,7 +352,7 @@ class Filler:
             recent = (recent + [_url_of(self, shot.asset) if used else ""])[-2:]
             if used:
                 shot.notes.append(f"imagen: {used}")
-            else:
+            elif not self.animation_only:
                 shot.kind, shot.card = "card", "black"
                 if shot.text_style == "none":
                     shot.text_style = "pop"  # never seconds of plain black
