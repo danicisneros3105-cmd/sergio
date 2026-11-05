@@ -26,7 +26,7 @@ BEATS = (
         2.8,
         5.8,
         "UNA META · DOS ROBOTS",
-        "Two robots. One gate. The fastest one had a huge lead.",
+        "Two robots. One gate. Red took the lead.",
     ),
     (
         5.8,
@@ -56,7 +56,7 @@ BEATS = (
         19.7,
         23.0,
         "GANÓ SIN HACER RUIDO",
-        "To win a race, sometimes you have to slow down.",
+        "Sometimes slowing down is how you win.",
     ),
 )
 BLUE, CORAL, CREAM, INK = "#47BFFF", "#FF754E", "#F5F0DD", "#121827"
