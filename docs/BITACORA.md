@@ -2,6 +2,11 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-11-05 · Codex · Inicio visual de Sergio
+- Inicio de Chat con saludo editorial, logo azul, compositor ancho, cuadrícula de acciones y acceso destacado a Cowork. Los chats con historial conservan su flujo.
+- Portada coral en Cowork, accesos a Chat, Cowork, Nodes y Proyectos en la barra móvil y sugerencias visibles en pantallas pequeñas.
+- TSX y CSS analizados con esbuild; comprobado el render aislado de Chat, Cowork y navegación móvil. Sin prueba visual en Windows.
+
 ## 2026-11-05 · Codex · Recuperación del arranque de la ventana principal
 - La ventana muestra el logo, el estado y Recargar desde el HTML, incluso si faltan el bundle o el script de recuperación. Se oculta cuando React pinta.
 - Recargar actúa solo sobre el worker y las cachés de Sergio, con un límite de 1,5 s. Tauri deja de bloquear el arranque si su puente tarda más de 2 s en indicar el servidor.

@@ -526,7 +526,11 @@ export function CoworkPage() {
     return (
       <div className="cw cw-home">
         <div className="cw-home-inner">
-          <h1 className="cw-hero">¿En qué trabajamos?</h1>
+          <header className="sg-cowork-cover">
+            <span className="sg-kicker">Espacio de trabajo</span>
+            <h1 className="cw-hero">¿En qué trabajamos?</h1>
+            <span className="sg-cowork-ring" aria-hidden="true" />
+          </header>
           <Composer
             big
             value={text}

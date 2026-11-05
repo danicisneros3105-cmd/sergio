@@ -1,7 +1,7 @@
 import { WeekLine } from './WeekLine';
 import { IaSetupCard } from './IaSetupCard';
 import { Fragment, useMemo, useRef, useEffect, useState, useCallback } from 'react';
-import { useNavigate } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 import { MessageBubble } from './MessageBubble';
 import { SplitButton } from '../Split/SplitButton';
 import { InputArea } from './InputArea';
@@ -13,6 +13,7 @@ import { liveIsSpeaking } from '../../lib/liveSession';
 import { stripThinkTags } from '../../lib/message-text';
 import { bubbleFlags as flagsFor } from '../../lib/imessage';
 import {
+  ArrowUpRight,
   CalendarCheck,
   ChevronDown,
   CircleDot,
@@ -225,7 +226,7 @@ export function ChatArea() {
           onClick={() => setCommandPaletteOpen(true)}
           title={`${title !== 'Chat' && messages.length ? title + ' · ' : ''}Modo: ${modelLabel} (cambiar con Ctrl+K)`}
         >
-          <span className="imsg-avatar" aria-hidden="true">S</span>
+          <img className="sg-chat-mark" src="/sergio.svg" width={32} height={32} alt="" />
           <span className="imsg-name">
             Sergio <ChevronDown size={11} strokeWidth={2.5} />
           </span>
@@ -243,89 +244,100 @@ export function ChatArea() {
         </div>
       </header>
 
-      <div
-        ref={listRef}
-        onScroll={handleScroll}
-        className={isEmpty ? 'flex-[1] flex flex-col justify-end px-4 pb-8' : 'flex-1 overflow-y-auto'}
-      >
-        {isEmpty ? (
-          <div className="mac-rise text-center" style={{ ['--i' as string]: 0 }}>
-            <h1 className="chat-hello">{hello}</h1>
-            <IaSetupCard />
-            <WeekLine />
-          </div>
-        ) : (
-          <div className="imsg-thread max-w-[var(--chat-max-width)] mx-auto px-4 py-6">
-            {messages.map((msg, i) => {
-              const isLastAssistant =
-                i === messages.length - 1 && msg.role === 'assistant';
-              const flags = bubbleFlags[i];
-              return (
-                <Fragment key={msg.id}>
-                  {flags?.stamp && <div className="imsg-stamp">{flags.stamp}</div>}
-                  <MessageBubble
-                    message={msg}
-                    isLive={isLastAssistant && isCurrentChatStreaming}
-                    tail={flags?.tail ?? true}
-                    receipt={flags?.receipt ?? ''}
-                  />
-                </Fragment>
-              );
-            })}
-            {(() => {
-              if (!isCurrentChatStreaming || streamState.content !== '') return null;
-              // For research messages the ResearchTimeline handles its own
-              // pre-content loading state — suppress the generic dots.
-              const last = messages[messages.length - 1];
-              if (last?.role === 'assistant' && last.isResearch) return null;
-              return (
-                <div className="imsg-row them end">
-                  <div className="imsg-bubble them tail imsg-typing" aria-label="Sergio está escribiendo">
-                    <StreamingDots phase={streamState.phase} />
+      <div className={isEmpty ? 'sg-chat-body sg-chat-body-home' : 'sg-chat-body'}>
+        <div
+          ref={listRef}
+          onScroll={handleScroll}
+          className={isEmpty ? 'sg-chat-intro' : 'flex-1 min-h-0 overflow-y-auto'}
+        >
+          {isEmpty ? (
+            <div>
+              <header className="sg-chat-heading">
+                <span className="sg-kicker">Espacio personal</span>
+                <h1>{hello}</h1>
+              </header>
+              <IaSetupCard />
+              <WeekLine />
+            </div>
+          ) : (
+            <div className="imsg-thread max-w-[var(--chat-max-width)] mx-auto px-4 py-6">
+              {messages.map((msg, i) => {
+                const isLastAssistant =
+                  i === messages.length - 1 && msg.role === 'assistant';
+                const flags = bubbleFlags[i];
+                return (
+                  <Fragment key={msg.id}>
+                    {flags?.stamp && <div className="imsg-stamp">{flags.stamp}</div>}
+                    <MessageBubble
+                      message={msg}
+                      isLive={isLastAssistant && isCurrentChatStreaming}
+                      tail={flags?.tail ?? true}
+                      receipt={flags?.receipt ?? ''}
+                    />
+                  </Fragment>
+                );
+              })}
+              {(() => {
+                if (!isCurrentChatStreaming || streamState.content !== '') return null;
+                // For research messages the ResearchTimeline handles its own
+                // pre-content loading state — suppress the generic dots.
+                const last = messages[messages.length - 1];
+                if (last?.role === 'assistant' && last.isResearch) return null;
+                return (
+                  <div className="imsg-row them end">
+                    <div className="imsg-bubble them tail imsg-typing" aria-label="Sergio está escribiendo">
+                      <StreamingDots phase={streamState.phase} />
+                    </div>
                   </div>
-                </div>
-              );
-            })()}
+                );
+              })()}
+            </div>
+          )}
+        </div>
+
+        {!isEmpty && (
+          <div className="activity-film-wrap">
+            <ActivityFilm active={isCurrentChatStreaming} />
           </div>
         )}
-      </div>
-
-      {!isEmpty && (
-        <div className="activity-film-wrap">
-          <ActivityFilm active={isCurrentChatStreaming} />
+        <div className={isEmpty ? 'sg-chat-composer' : undefined}>
+          <InputArea />
         </div>
-      )}
-      <div className={isEmpty ? 'mac-rise' : undefined} style={{ ['--i' as string]: 1 }}>
-        <InputArea />
-      </div>
 
-      {isEmpty && (
-        <div className="flex-[1.4] px-4 overflow-y-auto">
-          <div
-            className="mac-rise mx-auto starter-pills pt-1"
-            style={{ maxWidth: 'var(--chat-max-width)', ['--i' as string]: 2 }}
-          >
-            {MODES.map(({ icon: Icon, label, hint, text, send }) => (
-              <button
-                key={label}
-                type="button"
-                className="starter-pill"
-                title={hint}
-                onClick={() => prefill(text, send)}
-              >
-                <Icon size={16} strokeWidth={1.8} aria-hidden="true" />
-                {label}
-              </button>
-            ))}
-            {hasConnectedSources === false && (
-              <button type="button" className="starter-pill" onClick={() => navigate('/data-sources')}>
-                <Database size={16} strokeWidth={1.8} aria-hidden="true" />
-                Conectar mis apps
-              </button>
-            )}
-          </div>
-        </div>
-      )}
+        {isEmpty && (
+          <section className="sg-chat-board" aria-labelledby="sg-chat-board-title">
+            <h2 id="sg-chat-board-title">Empieza aquí</h2>
+            <div className="sg-chat-tiles">
+              <Link className="sg-chat-tile sg-chat-feature" to="/cowork">
+                <span className="sg-kicker">Espacio de trabajo</span>
+                <span className="sg-feature-ring" aria-hidden="true" />
+                <span className="sg-feature-caption">
+                  <span><strong>Cowork</strong><small>Organiza un proyecto paso a paso.</small></span>
+                  <ArrowUpRight size={22} aria-hidden="true" />
+                </span>
+              </Link>
+              {MODES.map(({ icon: Icon, label, hint, text, send }) => (
+                <button
+                  key={label}
+                  type="button"
+                  className="sg-chat-tile"
+                  title={hint}
+                  onClick={() => prefill(text, send)}
+                >
+                  <Icon size={20} strokeWidth={1.7} aria-hidden="true" />
+                  <strong>{label}</strong>
+                </button>
+              ))}
+              {hasConnectedSources === false && (
+                <button type="button" className="sg-chat-tile" onClick={() => navigate('/data-sources')}>
+                  <Database size={20} strokeWidth={1.7} aria-hidden="true" />
+                  <strong>Conectar mis apps</strong>
+                </button>
+              )}
+            </div>
+          </section>
+        )}
+      </div>
     </div>
   );
 }

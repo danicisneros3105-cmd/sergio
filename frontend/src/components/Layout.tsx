@@ -1,6 +1,6 @@
 import { SergioPointer } from './Pointer/SergioPointer';
 import { Suspense, useEffect, useState } from 'react';
-import { Outlet, useLocation, useNavigate } from 'react-router';
+import { Link, Outlet, useLocation, useNavigate } from 'react-router';
 import { ErrorBoundary } from './ErrorBoundary';
 import { Tour } from './Tour/Tour';
 import { sessionNeed, tourSeen } from '../lib/session';
@@ -9,7 +9,7 @@ import { toast } from 'sonner';
 import { InstallPrompt } from './Install/InstallPrompt';
 import { ApprovalBell } from './ApprovalBell';
 import { SystemPulse } from './SystemPulse';
-import { Toolbar } from './Shell/Toolbar';
+import { isActive, Toolbar, TOOLBAR_ITEMS } from './Shell/Toolbar';
 import { checkHealth } from '../lib/api';
 import { LiveCaptions, LiveStarter } from './Live/LiveOrb';
 import { ReminderWatcher } from './Reminders/ReminderWatcher';
@@ -22,6 +22,7 @@ import { SplitView } from './Split/SplitView';
 const PANE = inPane() || (typeof window !== 'undefined' && window.name === 'sergio-pane');
 
 const HISTORY_KEY = 'sergio-history-open';
+const MOBILE_DESTINATIONS = ['/chat', '/cowork', '/nodes', '/proyectos'] as const;
 
 // The shell, like ChatGPT's: one sidebar on the left (open with names and
 // chats, or folded into a rail of icons; a drawer on a phone), the page in
@@ -223,6 +224,18 @@ export function Layout() {
           </SplitView>
           <LiveCaptions />
         </main>
+        <nav className="sg-mobile-dock" aria-label="Accesos principales">
+          {MOBILE_DESTINATIONS.map((path) => {
+            const item = TOOLBAR_ITEMS.find((entry) => entry.path === path);
+            if (!item) return null;
+            return (
+              <Link key={path} to={path} aria-current={isActive(path, pathname) ? 'page' : undefined}>
+                <item.icon size={19} strokeWidth={1.7} aria-hidden="true" />
+                <span>{item.label}</span>
+              </Link>
+            );
+          })}
+        </nav>
       </div>
       {/* The app lock is retired (owner, 3 Nov 2026: «bloqueo con Visage NO para desbloquear app»). */}
       {tour && <Tour onClose={() => setTour(false)} />}
