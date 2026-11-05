@@ -2,6 +2,12 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-11-05 · Codex · Equipo creativo, clips del teléfono y entrega
+- Tres especialistas trabajan en paralelo antes del director, dentro del presupuesto. Pausas según el momento del relato, música atenuada durante la narración y subtítulos animados. El checklist distingue voz fallida y señales no disponibles.
+- La consulta actual de YouTube e Instagram corre en el trabajo de fondo; los clips de película requieren petición explícita. En el móvil se seleccionan hasta seis clips y el montaje usa todos en orden.
+- La tarjeta permite pedir una subida privada a YouTube con aprobación del dueño. Abrir un archivo no marca publicación; la miniatura puede reintentarse sin resubir el video.
+- Pruebas de generación y mezcla con material de control, cortes FFmpeg, API y aprobación simulada. Sigue pendiente comprobar calidad comparable a Ricks Clips y una subida con la cuenta del dueño.
+
 ## 2026-11-05 · Codex · Verificación de un Short animado completo
 - La opción `verificar_animacion` exige guion narrable, voz audible, tomas generadas con movimiento, subtítulos y un MP4 de la duración y formato pedidos, con audio y 30 FPS. No sustituye las tomas por fotos ni la narración por silencio. La tarjeta indica si los tiempos de subtítulos son estimados.
 - Se probaron silencio, clip congelado y una exportación real de principio a fin usando guion de prueba, voz sintetizada localmente y clips de movimiento de control. No es una prueba de calidad creativa ni de los modelos externos.

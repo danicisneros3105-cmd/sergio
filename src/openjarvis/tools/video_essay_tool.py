@@ -80,6 +80,10 @@ class VideoEssayTool(BaseTool):
                 "'verificar_animacion' (use Post or Cinema, require an audible narrator, generated "
                 "moving shots, subtitles and a verified 30 FPS export; use for explicit complete "
                 "animated Shorts without fallback); "
+                "'equipo_creativo' (parallel script, edit and sound specialists); "
+                "'tendencias_en_vivo' (search both YouTube and Instagram during this background job); "
+                "'galeria_id' (a server-issued batch from the user's phone picker, never invent it); "
+                "'film' (use movie clips only when the user explicitly requests them); "
                 "'ai_video' (allow AI video shots); 'web_clips' (false to "
                 "avoid clips from the web). Action 'start' returns at once (ONE video at "
                 "a time: if one is running it returns that one; never call start again "
@@ -119,7 +123,11 @@ class VideoEssayTool(BaseTool):
                     },
                     "ai_video": {"type": "boolean"},
                     "verificar_animacion": {"type": "boolean"},
+                    "equipo_creativo": {"type": "boolean"},
+                    "tendencias_en_vivo": {"type": "boolean"},
+                    "galeria_id": {"type": "string"},
                     "web_clips": {"type": "boolean"},
+                    "film": {"type": "boolean"},
                     "job": {"type": "string"},
                     "tendencias": {
                         "type": "boolean",
@@ -197,6 +205,16 @@ class VideoEssayTool(BaseTool):
                 False,
             )
         verified = params.get("verificar_animacion") is True
+        gallery_id = str(params.get("galeria_id") or "")
+        if gallery_id:
+            from openjarvis.video_essay import galeria
+
+            try:
+                galeria.sources(gallery_id)
+            except ValueError as exc:
+                return self._ok(str(exc), False)
+            if verified:
+                return self._ok("Elige edición de galería o animación nueva para este trabajo.", False)
         mode = modes.get(str(params.get("mode") or ("post" if verified else "basic")))
         if verified and mode.key not in ("post", "cinema"):
             return self._ok("La verificación de un Short animado requiere modo Post o Cinema.", False)
@@ -207,14 +225,20 @@ class VideoEssayTool(BaseTool):
             "topic": topic,
             "script": own,
             "reference": str(params.get("reference") or "").strip(),
-            "style": str(params.get("style") or "").strip(),
+            "style": str(params.get("style") or (
+                "reto-viral" if re.search(r"ryan\s+trahan", f"{prompt} {topic}", re.I) else ""
+            )).strip(),
             "seconds": min(1800.0, max(15.0, float(params.get("seconds") or (18 if verified else 120)))),
             "aspect": aspect if aspect in ("16:9", "9:16", "1:1") else "16:9",
             "clips": str(params.get("clips") or "").strip(),
             "music": str(params.get("music") or "").strip(),
             "ai_video": bool(params.get("ai_video", False)),
             "verificar_animacion": verified,
+            "equipo_creativo": params.get("equipo_creativo") is True or bool(gallery_id),
+            "tendencias_en_vivo": params.get("tendencias_en_vivo") is True,
+            "galeria_id": gallery_id,
             "web_clips": bool(params.get("web_clips", True)),
+            "film": params.get("film") is True and not gallery_id,
             "monetize": params.get("monetize", True) is not False,
             # the trend radar first: asked for, or the order speaks of trends
             "tendencias": bool(params.get("tendencias"))

@@ -185,6 +185,27 @@ def groups(beats: List[Dict[str, Any]], limit: int = CHUNK) -> List[Dict[str, An
     return out
 
 
+def performance(beats: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Give undirected beats a spoken arc and keep long silences intentional."""
+    direction = {
+        "hook": ("curious", 0.27), "problem": ("serious", 0.26),
+        "escalation": ("urgent", 0.18), "turn": ("curious", 0.27),
+        "climax": ("urgent", 0.34), "reveal": ("warm", 0.30),
+        "payoff": ("warm", 0.18),
+    }
+    out = []
+    for index, beat in enumerate(beats):
+        tone, pause = direction.get(str(beat.get("beat")), ("warm", 0.12))
+        if index + 1 < len(beats) and beats[index + 1].get("beat") in ("reveal", "payoff"):
+            pause = 0.42
+        said = beat.get("delivery") or {}
+        out.append({**beat, "delivery": {
+            "tone": said.get("tone") or tone,
+            "pause": max(0.0, min(0.55, float(said.get("pause") or pause))),
+        }})
+    return out
+
+
 def even(
     piece: np.ndarray, target_rms: float = 0.08, fade_s: float = 0.012
 ) -> np.ndarray:
@@ -532,4 +553,4 @@ def timings(
     return estimate_words(text, spans, total), "energía"
 
 
-__all__ = ["align", "chunks", "from_text", "narrate", "recognise", "timings", "write"]
+__all__ = ["align", "chunks", "from_text", "narrate", "performance", "recognise", "timings", "write"]

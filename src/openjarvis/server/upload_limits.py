@@ -18,8 +18,9 @@ class UploadLimitsMiddleware:
         self.slots = asyncio.Semaphore(max_concurrent)
 
     async def __call__(self, scope, receive, send):
-        if scope["type"] != "http" or not scope.get("path", "").startswith(
-            "/v1/connectors/upload/"
+        path = scope.get("path", "")
+        if scope["type"] != "http" or not (
+            path.startswith("/v1/connectors/upload/") or path.rstrip("/") == "/v1/personal/videos/galeria"
         ):
             await self.app(scope, receive, send)
             return
@@ -46,7 +47,8 @@ class UploadLimitsMiddleware:
         try:
             with tempfile.SpooledTemporaryFile(max_size=1024 * 1024) as body:
                 total = 0
-                deadline = asyncio.get_running_loop().time() + self.receive_timeout
+                timeout = max(self.receive_timeout, 180) if path.rstrip("/") == "/v1/personal/videos/galeria" else self.receive_timeout
+                deadline = asyncio.get_running_loop().time() + timeout
                 while True:
                     remaining = deadline - asyncio.get_running_loop().time()
                     if remaining <= 0:

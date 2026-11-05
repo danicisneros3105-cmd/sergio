@@ -438,6 +438,9 @@ def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
     st = job.state()
     params = st.get("params") or {}
     verified_animation = params.get("verificar_animacion") is True
+    crew_requested = params.get("equipo_creativo") is True
+    live = params.get("tendencias_en_vivo") is True
+    gallery_id = str(params.get("galeria_id") or "")
     mode = M.get(str(params.get("mode") or "basic"))
     budget = M.Budget.from_dict(
         st.get("budget") or {}, mode, float(params.get("seconds") or 60)
@@ -477,6 +480,11 @@ def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
         return True
 
     try:
+        from openjarvis.video_essay import equipo, galeria
+
+        selected = galeria.sources(gallery_id) if gallery_id else []
+        if selected and verified_animation:
+            raise RuntimeError("La edición de galería usa tus videos; el modo animado verifica tomas nuevas.")
         if verified_animation:
             from openjarvis.video_essay import aivideo, blender3d, verificacion
 
@@ -560,7 +568,18 @@ def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
                 keys = [s["key"] for s in style.available(deps.styles)]
                 profiles = [style.load(k, deps.styles) for k in dict.fromkeys(keys)]
                 brief = str(params.get("prompt") or params.get("topic") or "")
-                trend_note = _trends(job, params, brief, direct, budget)
+                team = job.state().get("equipo") or []
+                signals = job.state().get("tendencias_en_vivo") or {}
+                if crew_requested and not team:
+                    job.update(note="Trabajan en paralelo guion, montaje y sonido…")
+                    raw_ask = deps.direct or director.asker(strong, max_tokens=480)
+                    team = equipo.prepare(brief, raw_ask, budget)
+                    job.update(equipo=team, budget=budget.to_dict())
+                if live and not signals:
+                    job.update(note="Buscando señales actuales en YouTube e Instagram…")
+                    signals = equipo.live_signals(str(params.get("nicho") or brief), str(params.get("aspect")) == "9:16")
+                    job.update(tendencias_en_vivo=signals)
+                trend_note = "" if live else _trends(job, params, brief, direct, budget)
                 trend_note += _molde(job, params)
                 sc = director.treatment(
                     str(params.get("prompt") or params.get("topic") or ""),
@@ -574,7 +593,9 @@ def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
                     + _skills("guion", brief, job.state().get("genre", ""))
                     + _viral(brief, job.state().get("genre", ""), params)
                     + genres.notes(job.state().get("genre", ""))
-                    + trend_note,
+                    + trend_note
+                    + equipo.editorial_notes(team, signals)
+                    + ("\nThe edit must use all selected gallery videos in order. Do not invent what appears in them." if selected else ""),
                 )
             sc = _by_parts(job, sc, params, mode, direct)
             if verified_animation:
@@ -600,7 +621,9 @@ def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
             if narration == "voice" and sc.get("text"):
                 try:
                     beats = sc.get("beats") or []
-                    if any((b.get("delivery") or {}).get("tone") for b in beats):
+                    if crew_requested and beats:
+                        wav = script.narrate_beats(script.performance(beats), speak=deps.speak, breath=0.14)
+                    elif any((b.get("delivery") or {}).get("tone") for b in beats):
                         # performed: each part in its tone, real pauses
                         wav = script.narrate_beats(beats, speak=deps.speak)
                     else:
@@ -696,6 +719,10 @@ def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
             ):
                 share = genres.GENRES[genre].film_share if genre else P.FILM_SHARE
                 P.add_film(shots, share, allowed=allowed)
+            if params.get("film") is False:
+                for shot in shots:
+                    if shot.source == "film":
+                        shot.source, shot.search = "auto", ""
             genres.finish(shots, words, genre)
             genres.story_graphics(shots, words, genre)  # years, VS, places, names
             try:  # a named scene of a real film for every film shot
@@ -747,7 +774,11 @@ def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
                     if shot.kind == "card":
                         shot.kind, shot.asset = "broll", ""
                         shot.visual = shot.visual or " ".join(w.text for w in words[shot.first:shot.last])
-            filler.fill(shots, progress=lambda f, n: job.progress(label, f, n))
+            if selected:
+                galeria.fill(shots, selected, job.dir / "clips-galeria", render.ffmpeg())
+                job.update(galeria_clips=len(selected))
+            else:
+                filler.fill(shots, progress=lambda f, n: job.progress(label, f, n))
             if verified_animation:
                 try:
                     verificacion.require_shots(shots, render.ffmpeg(), _ffprobe(render.ffmpeg()))
@@ -772,6 +803,13 @@ def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
 
             from openjarvis.video_essay import color
 
+            if crew_requested and narration == "voice":
+                for shot in shots:
+                    if shot.kind != "card":
+                        shot.text_style = "pop"
+                        # Let typography pick a legible, safe area on the image.
+                        if "tipo:auto" not in shot.notes:
+                            shot.position = "center"
             touched = typo.dress(shots, words, still, profile)
             touched += color.unify(shots, still)  # one colour across the shots
             if touched:
@@ -917,6 +955,7 @@ def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
                     fx=fx_file if events else None,
                     total=total,
                     ffmpeg=render.ffmpeg(),
+                    music_db=-18.0 if crew_requested and job.state().get("voice") else None,
                 )
                 job.update(sound=measured)
                 job.log(
@@ -1131,6 +1170,8 @@ def _allowed_sources(
         out = [s for s in out if s != "3d"]
     if not _web_allowed(params):
         out = [s for s in out if s not in ("web", "film")]
+    if params.get("film") is False:
+        out = [s for s in out if s != "film"]
     return ["library"] + [s for s in out if s != "library"]
 
 
@@ -1336,6 +1377,28 @@ def _music_online(
     job.update(music=track.to_dict(), credits=filler.credits)
     job.log(f"música: {track.title or track.url} ({track.licence})")
     return samples
+
+
+def checklist(st: Dict[str, Any]) -> list[dict[str, str]]:
+    done = set(st.get("done") or [])
+    rows = []
+    for worker in st.get("equipo") or []:
+        rows.append({"tarea": f"Especialista: {worker['rol']}", "estado": worker["estado"]})
+    for platform in ("YouTube", "Instagram"):
+        signal = (st.get("tendencias_en_vivo") or {}).get(platform)
+        if signal:
+            rows.append({"tarea": f"Tendencias: {platform}", "estado": signal["estado"]})
+    for stage, label in (
+        ("guion", "Guion"), ("voz", "Narración"), ("plan", "Plan de tomas"),
+        ("imagenes", "Clips"), ("sonido", "Mezcla"), ("acabado", "MP4 y subtítulos"),
+    ):
+        state = "completo" if stage in done else "pendiente"
+        if stage == "voz" and st.get("voice_error") and not st.get("voice"):
+            state = "sin voz"
+        if stage == st.get("stage") and st.get("status") == "error":
+            state = "falló"
+        rows.append({"tarea": label, "estado": state})
+    return rows
 
 
 def summary(st: Dict[str, Any]) -> str:
@@ -1565,7 +1628,7 @@ def running(root: Optional[Path] = None) -> List[Job]:
 def _same(a: Dict[str, Any], b: Dict[str, Any]) -> bool:
     if bool(a.get("verificar_animacion")) != bool(b.get("verificar_animacion")):
         return False
-    keys = ("topic", "prompt", "script", "reference", "style", "mode", "aspect")
+    keys = ("topic", "prompt", "script", "reference", "style", "mode", "aspect", "galeria_id")
     return all(
         str(a.get(k) or "").strip().lower() == str(b.get(k) or "").strip().lower()
         for k in keys
@@ -1609,7 +1672,7 @@ def guard(params: Dict[str, Any], root: Optional[Path] = None) -> tuple:
 
 
 __all__ = [
-    "Deps", "Job", "LABELS", "STAGES", "all_jobs", "cancel", "create", "get",
+    "Deps", "Job", "LABELS", "STAGES", "all_jobs", "cancel", "checklist", "create", "get",
     "guard", "jobs_dir", "launch", "resume_unfinished", "retry", "run", "running", "start", "summary", "truth",
 ]  # fmt: skip
 

@@ -128,11 +128,12 @@ def _since(days: int) -> str:
 
 
 def youtube_api(
-    q: str, vertical: bool, get: Callable[..., Any], auth: Dict[str, Any], n: int = 15
+    q: str, vertical: bool, get: Callable[..., Any], auth: Dict[str, Any], n: int = 15,
+    *, days: int = 120,
 ) -> List[Dict[str, Any]]:
     params = {**auth.get("params", {}), "part": "snippet", "q": q + (" #shorts" if vertical else ""), "type": "video",
               "order": "viewCount", "maxResults": n, "videoDuration": "short" if vertical else "medium",
-              "publishedAfter": _since(120)}  # fmt: skip
+              "publishedAfter": _since(days)}  # fmt: skip
     found = get(f"{YT}/search", params=params, headers=auth.get("headers", UA)).json()
     ids = [
         i["id"]["videoId"]
@@ -213,7 +214,7 @@ def youtube_ytdlp(
 # -- Instagram (his professional account) ---------------------------------------------------
 
 
-def instagram(tag: str, get: Callable[..., Any]) -> List[Dict[str, Any]]:
+def instagram(tag: str, get: Callable[..., Any], *, recent: bool = False) -> List[Dict[str, Any]]:
     try:
         from openjarvis.automatiza import canales
 
@@ -230,7 +231,8 @@ def instagram(tag: str, get: Callable[..., Any]) -> List[Dict[str, Any]]:
     hid = ((found.get("data") or [{}])[0]).get("id")
     if not hid:
         return []
-    media = get(f"{IG}/{hid}/top_media", params={
+    feed = "recent_media" if recent else "top_media"
+    media = get(f"{IG}/{hid}/{feed}", params={
         "user_id": uid, "access_token": token, "limit": 25,
         "fields": IG_FIELDS}).json()  # fmt: skip
     out = []

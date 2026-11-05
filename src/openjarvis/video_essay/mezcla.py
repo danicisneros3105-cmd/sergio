@@ -99,10 +99,10 @@ def _graph(
             f"volume={music_db:.1f}dB"
         )
         if has_voice:  # room for the words: a dip where speech lives
-            chain += ",equalizer=f=2800:t=q:w=1.4:g=-4,equalizer=f=250:t=q:w=1:g=-2"
+            chain += ",equalizer=f=2800:t=q:w=1.4:g=-5,equalizer=f=250:t=q:w=1:g=-2"
             parts.append(chain + "[mraw]")
             parts.append(
-                "[mraw][vkey]sidechaincompress=threshold=0.06:ratio=3:attack=15:release=350:"
+                "[mraw][vkey]sidechaincompress=threshold=0.035:ratio=4:attack=12:release=280:"
                 "knee=4:makeup=1:mix=1[m]"
             )
         else:

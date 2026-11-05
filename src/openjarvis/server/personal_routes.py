@@ -11,9 +11,13 @@ from __future__ import annotations
 
 import logging
 import re
+import shutil
+import threading
+import uuid
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, File, HTTPException, Request, UploadFile
 from pydantic import BaseModel
 
 from openjarvis import personal
@@ -319,6 +323,30 @@ def videos() -> Dict[str, Any]:
     return _videos()
 
 
+@router.post("/videos/galeria")
+async def import_gallery(files: list[UploadFile] = File(...)) -> Dict[str, Any]:
+    from openjarvis.video_essay import galeria
+
+    extensions = [Path(f.filename or "").suffix.lower() for f in files]
+    if not 1 <= len(files) <= 6 or any(ext not in galeria.EXTENSIONS for ext in extensions):
+        raise HTTPException(400, "Selecciona de uno a seis videos compatibles.")
+    batch = uuid.uuid4().hex
+    folder = galeria.batch_path(batch)
+    folder.mkdir(parents=True, exist_ok=False)
+    try:
+        for index, (file, ext) in enumerate(zip(files, extensions), 1):
+            with (folder / f"{index:02d}{ext}").open("wb") as output:
+                while chunk := await file.read(1024 * 1024):
+                    output.write(chunk)
+                if output.tell() == 0:
+                    raise HTTPException(400, f"El video {index} está vacío.")
+        (folder / "completo").touch()
+    except BaseException:
+        shutil.rmtree(folder, ignore_errors=True)
+        raise
+    return {"id": batch, "videos": len(files)}
+
+
 @router.post("/videos")
 def add_video_schedule(body: VideoSchedule) -> Dict[str, Any]:
     from openjarvis.video_essay import schedule
@@ -369,14 +397,12 @@ def remove_video_schedule(item_id: str) -> Dict[str, Any]:
 @router.post("/videos/listos/{job_id}/publicar")
 def approve_post(job_id: str) -> Dict[str, Any]:
     """The owner's OK for one video: Sergio hands over everything to post it
-    (the file, title and description) and marks it as posted. Nothing is
-    uploaded by itself."""
+    (the file, title and description). Opening it is not a publication."""
     from openjarvis.video_essay import job as jobs
 
     job = jobs.get(job_id)
     if job is None or job.state().get("status") != "listo":
         raise HTTPException(404, "Ese video no está listo.")
-    job.update(publicado=True)
     res = job.state().get("result") or {}
     pkg = res.get("package") or {}
     return {
@@ -384,6 +410,80 @@ def approve_post(job_id: str) -> Dict[str, Any]:
         "titulo": pkg.get("title", ""),
         "descripcion": pkg.get("description", ""),
     }
+
+
+_YOUTUBE_UPLOADS: set[str] = set()
+_YOUTUBE_LOCK = threading.Lock()
+
+
+@router.post("/videos/listos/{job_id}/youtube")
+def request_youtube_upload(job_id: str) -> Dict[str, Any]:
+    """Queue approval for a private upload; a cover retry never sends the video again."""
+    from openjarvis.automatiza import canales
+    from openjarvis.conserje.aprobar import owner_yes
+    from openjarvis.video_essay import job as jobs
+    from openjarvis.video_essay import schedule
+
+    job = jobs.get(job_id)
+    if job is None or job.state().get("status") != "listo":
+        raise HTTPException(404, "Ese video no está listo.")
+    if not canales.account("youtube").get("refresh_token"):
+        raise HTTPException(409, "Conecta YouTube en Automatizar.")
+    if any(s.get("auto") and "youtube" in (s.get("publicar_en") or []) and job_id in (s.get("hechos") or [])
+           for s in schedule.load()):
+        raise HTTPException(409, "Este video pertenece a una publicación programada de YouTube.")
+    with _YOUTUBE_LOCK:
+        if job_id in _YOUTUBE_UPLOADS:
+            return {"estado": "en curso"}
+        state = job.state()
+        result = state.get("result") or {}
+        video = Path(result.get("path") or "")
+        if not video.is_file():
+            raise HTTPException(404, "El archivo final no está disponible.")
+        package = result.get("package") or {}
+        cover_name = str(package.get("cover_url") or "").rsplit("/", 1)[-1]
+        cover = video.parent / cover_name if re.fullmatch(r"portada-[\w-]+\.jpg", cover_name) else None
+        previous = state.get("subida_youtube") or {}
+        if state.get("publicado"):
+            raise HTTPException(409, "Este video ya se registró como publicado.")
+        if previous.get("id") and previous.get("miniatura") == "aplicada":
+            return previous
+        if not previous.get("id") and previous.get("estado") in ("subiendo", "revisar_canal"):
+            raise HTTPException(409, "La subida anterior quedó sin confirmación. Revisa tu canal antes de intentar otra.")
+        _YOUTUBE_UPLOADS.add(job_id)
+        job.update(subida_youtube={**previous, "estado": "miniatura" if previous.get("id") else "esperando_aprobacion"})
+
+    def work() -> None:
+        info = dict(previous)
+        title = package.get("title") or state.get("title") or "Video de Sergio"
+        try:
+            if not info.get("id"):
+                if not owner_yes(f"Subir «{title}» como privado a YouTube", {"job": job_id, "privacidad": "private"}):
+                    job.update(subida_youtube={"estado": "no_aprobado"})
+                    return
+                job.update(subida_youtube={"estado": "subiendo"})
+                params = state.get("params") or {}
+                actual = (result.get("verificacion") or {}).get("segundos") or params.get("seconds") or 60
+                info = canales.youtube_upload(
+                    video, title, package.get("description") or "", tags=package.get("tags") or [],
+                    short=canales.is_short(str(params.get("aspect") or ""), float(actual)), privacy="private",
+                )
+                job.update(subida_youtube={**info, "estado": "recibido", "miniatura": "pendiente"})
+            thumbnail = "sin_archivo"
+            if cover and cover.is_file() and cover.stat().st_size <= 2 * 1024 * 1024:
+                thumbnail = canales.youtube_thumbnail(info["id"], cover, short=bool(info.get("short")))
+            job.update(subida_youtube={**info, "estado": "recibido", "miniatura": thumbnail})
+        except Exception:  # noqa: BLE001 — an ambiguous upload is never repeated automatically
+            if info.get("id"):
+                job.update(subida_youtube={**info, "estado": "recibido", "miniatura": "no_aplicada"})
+            else:
+                job.update(subida_youtube={"estado": "revisar_canal"})
+        finally:
+            with _YOUTUBE_LOCK:
+                _YOUTUBE_UPLOADS.discard(job_id)
+
+    threading.Thread(target=work, name=f"youtube-{job_id[-6:]}", daemon=True).start()
+    return {"estado": "en curso"}
 
 
 @router.get("/videos/trabajos/{job_id}")
@@ -417,6 +517,8 @@ def video_job(job_id: str) -> Dict[str, Any]:
         "portada": pkg.get("cover_url", ""),
         "referencia_estado": st.get("referencia_estado", ""),
         "verificacion": res.get("verificacion"),
+        "subida_youtube": st.get("subida_youtube"),
+        "checklist": jobs.checklist(st),
         "sin_voz": bool(st.get("voice_error")) and not st.get("voice"),
         "resumen": jobs.summary(st),
     }

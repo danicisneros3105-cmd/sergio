@@ -279,6 +279,28 @@ def youtube_upload(
             "privacidad": status, "short": short}  # fmt: skip
 
 
+def youtube_thumbnail(video_id: str, cover: Path, *, short: bool, http: Any = None) -> str:
+    """Apply a JPEG cover to a video already received by YouTube."""
+    http = http or _http()
+    token = _yt_token(account("youtube"), http, None)
+    headers = {"Authorization": f"Bearer {token}"}
+    if short:
+        result = http.get(f"{YT_API}/videos", params={"id": video_id, "part": "processingDetails"}, headers=headers)
+        result.raise_for_status()
+        items = result.json().get("items") or [{}]
+        if (items[0].get("processingDetails") or {}).get("processingStatus") != "succeeded":
+            return "procesando"
+    with cover.open("rb") as body:
+        result = http.post(
+            "https://www.googleapis.com/upload/youtube/v3/thumbnails/set",
+            params={"videoId": video_id, "uploadType": "media"},
+            headers={**headers, "Content-Type": "image/jpeg"},
+            content=body.read(2 * 1024 * 1024 + 1),
+        )
+    result.raise_for_status()
+    return "aplicada"
+
+
 # -- Instagram (professional account, Graph API) ----------------------------------------------
 
 
@@ -611,5 +633,6 @@ __all__ = [
     "youtube_comments",
     "youtube_connect_url",
     "youtube_finish",
+    "youtube_thumbnail",
     "youtube_upload",
 ]

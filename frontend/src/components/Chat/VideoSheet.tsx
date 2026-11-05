@@ -71,6 +71,9 @@ export function VideoSheet({ onClose, onAsk }: { onClose: () => void; onAsk: (te
   const [length, setLength] = useState(60);
   const [every, setEvery] = useState(0);
   const [ready, setReady] = useState<Ready[]>([]);
+  const [clips, setClips] = useState<File[]>([]);
+  const [sending, setSending] = useState(false);
+  const [liveTrends, setLiveTrends] = useState(false);
   const [scheduled, setScheduled] = useState<Scheduled[]>([]);
 
   const load = () =>
@@ -88,8 +91,27 @@ export function VideoSheet({ onClose, onAsk }: { onClose: () => void; onAsk: (te
     const mode = EFFORT[effort];
     const shape = FORMATS.find((f) => f.id === format)?.nombre.toLowerCase();
     if (!every) {
+      let gallery = '';
+      if (clips.length) {
+        if (clips.length > 6 || clips.reduce((size, file) => size + file.size, 0) > 64 * 1024 * 1024) {
+          toast.error('Elige hasta seis videos que sumen menos de 64 MB.');
+          return;
+        }
+        setSending(true);
+        try {
+          const body = new FormData();
+          clips.forEach((file) => body.append('files', file));
+          const batch = await call<{ id: string; videos: number }>('/v1/personal/videos/galeria', { method: 'POST', body });
+          gallery = ` Usa exactamente mis ${batch.videos} clips en el orden seleccionado: galeria_id=${batch.id} en video_essay. Activa equipo_creativo y crea una miniatura en modo post.`;
+        } catch (e) {
+          toast.error(e instanceof Error ? e.message : 'No pude importar los clips.');
+          return;
+        } finally {
+          setSending(false);
+        }
+      }
       onAsk(
-        `Haz un video sobre: ${idea.trim()}. Formato ${shape} (${format}). Duración: ${length} segundos. Esfuerzo: ${mode.nombre} (modo ${mode.id}).`,
+        `Haz un video sobre: ${idea.trim()}. Formato ${shape} (${format}). Duración: ${length} segundos. Modo ${clips.length ? 'post' : mode.id}. Activa equipo_creativo.${liveTrends ? ' Consulta YouTube e Instagram ahora con tendencias_en_vivo=true.' : ''}${gallery}`,
       );
       onClose();
       return;
@@ -147,6 +169,16 @@ export function VideoSheet({ onClose, onAsk }: { onClose: () => void; onAsk: (te
           placeholder="De qué trata: «la historia del primer auto eléctrico», «3 recetas en 30 segundos»…"
           rows={3}
         />
+        <label className="vsheet-effort">
+          <span>Videos de tu galería (opcional)</span>
+          <input type="file" accept="video/*,.mov,.mp4,.webm,.mkv,.m4v" multiple
+            onChange={(e) => setClips(Array.from(e.target.files ?? []))} disabled={sending} />
+          {clips.length > 0 && <small>{clips.length} videos seleccionados. Se usarán en ese orden, con nueva narración y música.</small>}
+        </label>
+        {!every && <label className="msheet-for">
+          <input type="checkbox" checked={liveTrends} onChange={(e) => setLiveTrends(e.target.checked)} />
+          {' '}Consultar tendencias de YouTube e Instagram en segundo plano
+        </label>}
         <div className="msheet-effort" role="radiogroup" aria-label="Formato" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
           {FORMATS.map((f) => (
             <button key={f.id} type="button" role="radio" aria-checked={format === f.id} onClick={() => setFormat(f.id)}>{f.nombre}</button>
@@ -170,8 +202,9 @@ export function VideoSheet({ onClose, onAsk }: { onClose: () => void; onAsk: (te
         <p className="msheet-for">
           Sergio escribe el guion, elige los clips, corta, pone subtítulos y música. Nada se publica sin que usted lo apruebe.
         </p>
-        <button type="button" className="msheet-primary vsheet-go" disabled={idea.trim().length < 3} onClick={() => void go()}>
-          {every ? 'Programar' : 'Hacer el video'}
+        {every > 0 && clips.length > 0 && <p className="msheet-for">Los clips de galería son para un video único. Elige «Una vez».</p>}
+        <button type="button" className="msheet-primary vsheet-go" disabled={idea.trim().length < 3 || sending || (every > 0 && clips.length > 0)} onClick={() => void go()}>
+          {sending ? 'Importando clips…' : every ? 'Programar' : 'Hacer el video'}
         </button>
 
         {ready.length > 0 && (
@@ -180,7 +213,7 @@ export function VideoSheet({ onClose, onAsk }: { onClose: () => void; onAsk: (te
             {ready.map((r) => (
               <div key={r.job} className="vsheet-row">
                 <span>{r.titulo || 'Video'}</span>
-                <button type="button" className="msheet-primary" onClick={() => void post(r)}>Publicar</button>
+                <button type="button" className="msheet-primary" onClick={() => void post(r)}>Abrir para subir</button>
               </div>
             ))}
           </section>
