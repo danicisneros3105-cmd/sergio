@@ -275,6 +275,15 @@ export function InputArea() {
     let lastFlush = 0;
     let ttftMs: number | undefined;
     let answeredOk = false;
+    let stalled = false;
+    let stallTimer: ReturnType<typeof setTimeout> | undefined;
+    const resetStallTimer = () => {
+      clearTimeout(stallTimer);
+      stallTimer = setTimeout(() => {
+        stalled = true;
+        controller.abort();
+      }, 180_000);
+    };
 
     setStreamState({
       conversationId: convId,
@@ -419,6 +428,7 @@ export function InputArea() {
           }
         }
       } else {
+      resetStallTimer();
       for await (const sseEvent of streamChat(
         { model: withEffort(selectedModel, useAppStore.getState().settings.effort), messages: apiMessages, stream: true, temperature, max_tokens: maxTokens },
         controller.signal,
@@ -506,6 +516,7 @@ export function InputArea() {
             if (data.complexity) complexity = data.complexity;
             routedEngine = engineFromCompletionChunk(data) ?? routedEngine;
             if (delta?.content) {
+              if (typeof delta.content === 'string' && delta.content.trim()) resetStallTimer();
               if (!ttftMs) ttftMs = Date.now() - startTime;
               accumulatedContent += delta.content;
               setStreamState({ content: accumulatedContent, phase: '' });
@@ -527,7 +538,10 @@ export function InputArea() {
       answeredOk = !!accumulatedContent;
       }
     } catch (err: any) {
-      if (err.name === 'AbortError') {
+      if (stalled) {
+        const notice = 'Sergio detuvo esta respuesta tras 3 minutos sin texto nuevo. Puedes volver a intentarlo.';
+        accumulatedContent = accumulatedContent ? `${accumulatedContent}\n\n${notice}` : notice;
+      } else if (err.name === 'AbortError') {
         // User cancelled or model switch — keep whatever was accumulated
         if (!accumulatedContent) accumulatedContent = '(Respuesta detenida)';
       } else if (isNetworkError(err) && !accumulatedContent) {
@@ -551,6 +565,7 @@ export function InputArea() {
       // numbers don't get stuck on the last sample.
       useAppStore.getState().setLiveEnergy(null);
     } finally {
+      clearTimeout(stallTimer);
       if (!accumulatedContent) {
         accumulatedContent = 'No llegó ninguna respuesta. Inténtalo otra vez.';
       }
@@ -578,7 +593,7 @@ export function InputArea() {
       // Check if the response has digest audio available
       let audioMeta: { url: string } | undefined;
       // Only a morning-digest answer can carry audio; asking on every reply 404s.
-      if (toolCalls.some((t) => /digest/i.test(t.tool))) {
+      if (!controller.signal.aborted && toolCalls.some((t) => /digest/i.test(t.tool))) {
         try {
           const digestRes = await fetch(`${getBase()}/api/digest`);
           if (digestRes.ok) {

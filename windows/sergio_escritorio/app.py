@@ -4152,7 +4152,6 @@ def run(config: dict[str, Any]) -> None:
             snoozed_once[0] = False
             schedule.done()
             if session.absent:
-                bridge.caption.emit("Gimnasio mental: no estabas; vuelve en unos minutos.")
                 return
             bridge.caption.emit(
                 f"Gimnasio mental, {exercise.title}: {session.summary()} {session.verdict()}"
@@ -4232,13 +4231,11 @@ def run(config: dict[str, Any]) -> None:
     import datetime as _dt
 
     from sergio_escritorio import nocturno
-    from sergio_escritorio.nocturno_ui import NightScreen, NightSheet, VeilTint
+    from sergio_escritorio.nocturno_ui import NightSheet
 
     night_diary = nocturno.Diary.load(SERGIO_HOME / "sueno.json")
-    night_screen = NightScreen()
-    # The screen is tinted on its own thread: Windows' colour matrix first, a
-    # verified gamma ramp next, the veil only as a last resort.
-    night_engine = nocturno.NightEngine(nocturno.ChainTint([*nocturno.windows_tints(), VeilTint(night_screen)]))
+    # If the OS cannot tint the screen, leave the display alone.
+    night_engine = nocturno.NightEngine(nocturno.ChainTint(nocturno.windows_tints()))
     night_engine.start()
     night_state: dict[str, Any] = {"look": None, "said": set(), "preview_until": 0.0}
 

@@ -1,19 +1,7 @@
-"""Mental gym pop-up: every 12 minutes, one exercise you cannot skip.
+"""Mental gym exercises in a dismissible window.
 
-A full-screen, always-on-top card (all monitors are covered) with no close
-button: Esc and Alt+F4 do nothing, and if another window steals the focus it
-comes back on top. It ends by itself when the exercise is done or its time
-is up, shows your score, and Sergio tells you how you did. The ten
-exercises take turns (``brain.py`` holds their logic).
-
-The 12 minutes are real clock time (start to start, the laptop's sleep
-counts too) and survive restarting Sergio. If you are away from the computer
-(no mouse or keyboard for 5 minutes) or it is locked, the exercise waits
-until you are back.
-
-The first pop-up of each day is the control test (``brain.PROBE``), never
-trained: comparing it over the days says whether the gym improves anything
-beyond the exercises themselves (``brain.effectiveness``).
+The schedule waits while the computer is locked or the user is away.
+The first exercise of the day measures progress separately from practice.
 """
 
 from __future__ import annotations
@@ -38,6 +26,8 @@ from PySide6.QtGui import (
     QPainterPath,
     QPen,
     QPolygonF,
+    QKeySequence,
+    QShortcut,
 )
 from PySide6.QtWidgets import QLineEdit, QPushButton, QWidget
 
@@ -1407,10 +1397,8 @@ class GymWindow(QWidget):
         unskippable: bool = True,
         ticker: Callable[[], float] = time.monotonic,
     ) -> None:
-        flags = Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint
-        if unskippable:
-            flags |= Qt.WindowType.Tool
-        super().__init__(None, flags)
+        # Keep the old constructor argument for callers; dismissal is always allowed.
+        super().__init__(None, Qt.WindowType.Window)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, False)
         self.exercise = exercise
@@ -1420,7 +1408,6 @@ class GymWindow(QWidget):
         self.speak = speak
         self.validate_word = validate_word
         self.letter_voice = letter_voice
-        self.unskippable = unskippable
         self.session = brain.Session(exercise)
         self.phase = "intro"
         self.started_at = clock()
@@ -1443,8 +1430,8 @@ class GymWindow(QWidget):
         self.entry.hide()
         self._timer = QTimer(self)
         self._timer.timeout.connect(self._tick)
-        self._guard = QTimer(self)
-        self._guard.timeout.connect(lambda: force_front(self))
+        self._escape = QShortcut(QKeySequence(Qt.Key.Key_Escape), self)
+        self._escape.activated.connect(self.close)
         # «Ahora no»: while the how-to is on screen, once per exercise, ten
         # minutes later (the exercise itself still cannot be skipped).
         self.snoozed = False
@@ -1461,20 +1448,16 @@ class GymWindow(QWidget):
 
     # -- geometry -----------------------------------------------------------------------
     def cover_screens(self) -> None:
-        area = QRect()
-        for screen in QGuiApplication.screens():
-            area = area.united(screen.geometry())
-        if area.isEmpty():
-            area = QRect(0, 0, 1280, 800)
-        self.setGeometry(area)
+        """Size the exercise window to the primary monitor's usable area."""
+        primary = QGuiApplication.primaryScreen()
+        geo = primary.availableGeometry() if primary is not None else QRect(0, 0, 1280, 800)
+        width = min(960, max(1, geo.width() - 48))
+        height = min(680, max(1, geo.height() - 48))
+        self.setGeometry(geo.x() + (geo.width() - width) // 2,
+                         geo.y() + (geo.height() - height) // 2, width, height)
 
     def card_rect(self) -> QRectF:
-        primary = QGuiApplication.primaryScreen()
-        geo = primary.geometry() if primary is not None else self.geometry()
-        centre = QPointF(geo.center() - self.geometry().topLeft())
-        width = min(960.0, geo.width() - 80.0)
-        height = min(680.0, geo.height() - 80.0)
-        return QRectF(centre.x() - width / 2, centre.y() - height / 2, width, height)
+        return QRectF(self.rect()).adjusted(1, 1, -1, -1)
 
     def content_rect(self) -> QRectF:
         card = self.card_rect()
@@ -1496,10 +1479,7 @@ class GymWindow(QWidget):
             self.snooze_button.move(int(card.left() + 36), int(card.bottom() - 56))
             self.snooze_button.show()
         self.show()
-        force_front(self)
         self._timer.start(33)
-        if self.unskippable:
-            self._guard.start(400)
         if self.speak is not None:
             self.speak(f"Hora del gimnasio mental: {self.exercise.title}.")
 
@@ -1578,11 +1558,6 @@ class GymWindow(QWidget):
         self.update()
 
     def _close(self) -> None:
-        self._closing = True
-        self._timer.stop()
-        self._guard.stop()
-        self.hide()
-        self.finished.emit(self.session)
         self.close()
 
     # -- input ---------------------------------------------------------------------------------
@@ -1595,7 +1570,9 @@ class GymWindow(QWidget):
 
     def keyPressEvent(self, event: Any) -> None:  # noqa: N802
         if event.key() == Qt.Key.Key_Escape:
-            return  # cannot be skipped
+            self.close()
+            event.accept()
+            return
         if self.phase == "play" and event.text():
             self.touched = True
             self.runner.key(event.text())
@@ -1606,10 +1583,14 @@ class GymWindow(QWidget):
             self.runner.click(event.position())
 
     def closeEvent(self, event: Any) -> None:  # noqa: N802
-        if self._closing or not self.unskippable:
-            event.accept()
-        else:
-            event.ignore()  # Alt+F4 and friends: not until it is done
+        event.accept()
+        if self._closing:
+            return
+        self._closing = True
+        self._timer.stop()
+        if self.phase != "result":
+            self.session.absent = True  # dismissed before scoring
+        self.finished.emit(self.session)
 
     # -- drawing ----------------------------------------------------------------------------------
     def paintEvent(self, _event: Any) -> None:  # noqa: N802

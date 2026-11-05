@@ -2,6 +2,12 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-11-05 · Codex · Pantalla oscura y espera del chat
+- El Gimnasio Mental usa una ventana acotada, con controles del sistema y Esc. Ya no oscurece todos los monitores ni vuelve al frente por temporizador. Cerrar antes del resultado no registra puntuación.
+- Night Shift conserva los controles de color de Windows y prescinde del velo negro cuando fallan.
+- El chat cancela su solicitud tras tres minutos sin texto visible y conserva el texto parcial. Esto limita la espera en la interfaz; no garantiza cancelar un proceso externo del proveedor.
+- Comprobados tres casos aislados de cierre, el temporizador del chat y la compilación de los archivos. Falta prueba visual en Windows.
+
 ## 2026-11-05 · Codex · Perfil adaptable, coral en Chat y cortes de Video Pro
 - Perfil conserva el desplazamiento de PaperPage, permite tarjetas estrechas y envuelve textos y cuenta en paneles angostos; el coral ya aparece en el avatar y los mensajes propios del chat.
 - Video Pro respeta 9:16/16:9 solicitados (Shorts/Reels/TikTok en vertical por defecto), descarta rangos solapados de un mismo clip y limpia metadatos inválidos.
