@@ -2,6 +2,11 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-11-05 · Codex · Perfil adaptable, coral en Chat y cortes de Video Pro
+- Perfil conserva el desplazamiento de PaperPage, permite tarjetas estrechas y envuelve textos y cuenta en paneles angostos; el coral ya aparece en el avatar y los mensajes propios del chat.
+- Video Pro respeta 9:16/16:9 solicitados (Shorts/Reels/TikTok en vertical por defecto), descarta rangos solapados de un mismo clip y limpia metadatos inválidos.
+- Verificación: cuatro casos de planificación ejecutados y análisis aislado de TSX/CSS con esbuild. Sin comprobación visual en Windows ni exportación con material real.
+
 ## 2026-11-05 · Codex · Paleta y tarjetas inspiradas en las referencias
 - Nueva capa visual para Sergio: marfil cálido y grafito en claro, negro y carbón en oscuro, tarjetas redondeadas y una tarjeta coral en Cowork. El logo azul y el foco accesible se conservan.
 - Se mantienen los diseños y funcionalidades existentes, las preferencias de tema y movimiento reducido. Colores de texto principales y coral comprobados con contraste mínimo 4,5:1.

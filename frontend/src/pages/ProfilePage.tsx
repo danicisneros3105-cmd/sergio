@@ -172,7 +172,8 @@ export function ProfilePage() {
   ].filter(Boolean) as string[];
 
   return (
-    <PaperPage title="Perfil" wide>
+    <div className="profile-page">
+      <PaperPage title="Perfil" wide>
       <PaperSection label="Su cuenta">
         <Account />
       </PaperSection>
@@ -218,7 +219,8 @@ export function ProfilePage() {
       <PaperSection label="Abrir">
         <DesktopSections sections={gym ? [...SECTIONS, ...GYM_SECTIONS] : SECTIONS} />
       </PaperSection>
-    </PaperPage>
+      </PaperPage>
+    </div>
   );
 }
 

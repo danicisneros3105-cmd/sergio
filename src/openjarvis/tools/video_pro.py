@@ -47,12 +47,16 @@ def parse_plan(text: str, lengths: list[float]) -> dict[str, Any]:
         data = json.loads(found.group(0)) if found else {}
     except ValueError:
         data = {}
+    cuts = data.get("segments") if isinstance(data, dict) else None
+    if not isinstance(cuts, list):
+        raise RuntimeError("El editor no propuso cortes válidos.")
     segments = []
-    for seg in data.get("segments") or []:
+    used: dict[int, list[tuple[float, float]]] = {}
+    for seg in cuts:
         try:
             clip = int(seg.get("clip")) - 1
             start, end = float(seg.get("start")), float(seg.get("end"))
-        except (TypeError, ValueError, AttributeError):
+        except (TypeError, ValueError, AttributeError, OverflowError):
             continue
         if not 0 <= clip < len(lengths) or not all(map(math.isfinite, (start, end))):
             continue
@@ -62,11 +66,17 @@ def parse_plan(text: str, lengths: list[float]) -> dict[str, Any]:
         start, end = max(0.0, start), min(end, length)
         if end - start < 0.5:
             continue
-        caption = " ".join(str(seg.get("caption") or "").split())[:60]
+        start, end = round(start, 2), round(end, 2)
+        if any(start < previous_end and end > previous_start
+               for previous_start, previous_end in used.get(clip, [])):
+            continue
+        used.setdefault(clip, []).append((start, end))
+        caption = " ".join(str(seg.get("caption") or "").split()[:6])[:60]
         transition = str(seg.get("transition") or "fade").lower()
         zoom = str(seg.get("zoom") or "none").lower()
         try:
-            speed = max(0.5, min(2.0, float(seg.get("speed") or 1.0)))
+            speed = float(seg.get("speed", 1.0))
+            speed = max(0.5, min(2.0, speed)) if math.isfinite(speed) else 1.0
         except (TypeError, ValueError):
             speed = 1.0
         segments.append(
@@ -84,7 +94,8 @@ def parse_plan(text: str, lengths: list[float]) -> dict[str, Any]:
         raise RuntimeError("El editor no propuso cortes válidos.")
     yt = data.get("youtube")
     yt = yt if isinstance(yt, dict) else {}
-    tags = [str(t)[:30] for t in (yt.get("tags") or []) if str(t).strip()][:12]
+    raw_tags = yt.get("tags")
+    tags = [t.strip()[:30] for t in raw_tags if isinstance(t, str) and t.strip()][:12] if isinstance(raw_tags, list) else []
     return {
         "aspect": "9:16" if str(data.get("aspect")) == "9:16" else "16:9",
         "title_overlay": " ".join(str(data.get("title_overlay") or "").split())[:50],
@@ -106,11 +117,19 @@ def plan(
 ) -> dict[str, Any]:
     """The edit plan; with *style* (video_style) the cut follows a style
     learned from real videos, and the render gets its look and captions."""
-    target = (
-        "short vertical (under 60 s)"
-        if re.search(r"short|reel|tiktok|vertical|corto", request.lower())
-        else "well-paced"
-    )
+    words = request.lower()
+    explicit_aspect = re.search(r"\b(9\s*:\s*16|16\s*:\s*9)\b", words)
+    if explicit_aspect:
+        aspect = explicit_aspect.group(1).replace(" ", "").replace("\t", "")
+    elif re.search(r"\bhorizontal\b", words):
+        aspect = "16:9"
+    elif re.search(r"\b(shorts?|reels?|tiktok|vertical)\b", words):
+        aspect = "9:16"
+    else:
+        aspect = None
+    target = "short vertical (under 60 s)" if aspect == "9:16" else "well-paced"
+    if aspect:
+        target += f" in {aspect} (required)"
     brief = ""
     if style:
         from openjarvis.tools.video_style import style_brief
@@ -129,6 +148,8 @@ def plan(
     except Exception:  # noqa: BLE001 — memory is a bonus
         pass
     result = parse_plan((ask or _ask)(sheets, prompt), lengths)
+    if aspect:
+        result["aspect"] = aspect
     if style:
         result["style"] = {
             "name": style.get("name", ""),

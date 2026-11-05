@@ -1,6 +1,6 @@
 .profile-summary { font-size: 16px; line-height: 1.6; max-width: 62ch; margin: 0; }
 .profile-summary[data-muted='1'] { color: var(--color-text-secondary); }
-.profile-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 24px 32px; }
+.profile-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr)); gap: 24px 32px; }
 .profile-list h3 { margin-bottom: 8px; }
 .profile-list ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: 14.5px; line-height: 1.45; }
 .profile-list li { padding-left: 14px; position: relative; }
@@ -15,3 +15,20 @@
 .profile-account > div { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .profile-account small { color: var(--color-text-secondary); font-size: 13px; overflow: hidden; text-overflow: ellipsis; }
 .profile-avatar { width: 48px; height: 48px; border-radius: 50%; display: grid; place-items: center; background: var(--color-text); color: var(--color-bg); font-weight: 700; font-size: 20px; flex: 0 0 auto; }
+
+/* Keep the page scrollable inside the desktop shell, including split panes. */
+.profile-page { width: 100%; height: 100%; min-width: 0; min-height: 0; }
+.profile-page > .paper-page { width: 100%; box-sizing: border-box; }
+.profile-page .paper-page-inner { min-width: 0; padding-bottom: env(safe-area-inset-bottom, 0px); }
+.profile-page .paper-head { grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); }
+.profile-page .paper-page-inner section > div:first-child { flex-wrap: wrap; gap: 6px 12px; }
+.profile-summary, .profile-list, .profile-account b, .profile-account small { overflow-wrap: anywhere; }
+.profile-account {
+  padding: clamp(14px, 3vw, 24px);
+  flex-wrap: wrap;
+  border: 1px solid var(--color-border);
+  border-radius: 24px;
+  background: var(--color-surface);
+}
+.profile-account > div { flex: 1 1 120px; }
+.profile-account .profile-avatar { background: var(--sergio-coral); color: var(--sergio-coral-ink); }

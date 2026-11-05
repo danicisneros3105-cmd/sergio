@@ -45,7 +45,7 @@ def test_plan_asks_with_one_sheet_per_clip():
     assert (
         seen["n"] == 2
         and "short vertical" in seen["prompt"]
-        and got["aspect"] == "16:9"
+        and got["aspect"] == "9:16"
     )
 
 
@@ -103,3 +103,17 @@ def test_local_video_vision_does_not_upload_on_failure(monkeypatch):
         with pytest.raises(RuntimeError, match="Ollama"):
             ask_images([b"frame"], "montaje", client)
     assert requests == ["localhost"]
+
+
+def test_video_plan_drops_repeated_ranges_and_honors_requested_aspect():
+    def ask(_sheets, _prompt):
+        return """{"aspect": "9:16", "segments": [
+          {"clip": 1, "start": 0, "end": 2},
+          {"clip": 1, "start": 1, "end": 3},
+          {"clip": 1, "start": 2, "end": 4}
+        ], "youtube": {"tags": "invalid"}}"""
+
+    result = plan("Un reel horizontal 16:9", [b"sheet"], [4.0], ask)
+    assert result["aspect"] == "16:9"
+    assert [(cut["start"], cut["end"]) for cut in result["segments"]] == [(0, 2), (2, 4)]
+    assert result["youtube"]["tags"] == []

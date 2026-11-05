@@ -90,3 +90,13 @@
 @media (prefers-reduced-motion: reduce) {
   :root .cw-suggest button { transition: none; }
 }
+
+/* The color is visible in the main conversation, not just Cowork. */
+:root .imsg-thread {
+  --imsg-me: var(--sergio-coral);
+  --imsg-me-text: var(--sergio-coral-ink);
+  --imsg-them: var(--color-surface);
+  --imsg-them-text: var(--color-text);
+  --imsg-meta: var(--color-text-secondary);
+}
+:root .imsg-bubble.them { box-shadow: inset 0 0 0 1px var(--color-border-subtle); }
