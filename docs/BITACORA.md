@@ -2,6 +2,11 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-11-04 · Codex · Texto y voz sin espera evitable
+- La transcripción retenida se entrega antes de vaciar la cola de audio, al confirmarse que se habla a Sergio; se conserva en el registro del turno.
+- Prueba aislada: texto primero, audio en orden, memoria del turno y vaciado de colas; compilación Python correcta. Sin prueba con cuenta Gemini ni dispositivo real.
+- El reconocimiento del destinatario sigue activo; la latencia de Gemini y de la red no está bajo control de la aplicación.
+
 ## 2026-11-04 · Codex · Ocultar indicador En marcha
 - Se quitó el indicador global de la interfaz a petición del dueño; las tareas y sus rutas siguen funcionando.
 - Revisión: componente global localizado en Layout; se retira su montaje y su importación.

@@ -893,11 +893,13 @@ class LiveCall:
     async def _release_held(self) -> None:
         held, said = self._held, self._held_said
         self._held, self._held_said = [], []
+        if said:
+            text = "".join(said)
+            self._said_text = (getattr(self, "_said_text", "") + text)[-4000:]
+            await self.send_json({"type": "said", "text": text})
         for chunk in held:
             self._response_started = True
             await self.send_audio(chunk)
-        if said:
-            await self.send_json({"type": "said", "text": "".join(said)})
 
     async def _content(self, content: Any) -> None:
         heard = getattr(content, "input_transcription", None)
