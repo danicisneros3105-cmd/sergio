@@ -2,6 +2,11 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-11-05 · Codex · Tanda verificada de Ricks Clips y análisis local
+- Se verificaron los 20 IDs en el orden «Latest» del canal. El reproductor no entregó los fotogramas; no se declara una medición de los videos originales.
+- `scripts/estudiar_shorts_ricks.py` mide a 30 FPS esa lista fija con el origen habitual o con archivos locales nombrados por ID. Mantiene el perfil previo ante una tanda incompleta y no envía los videos a un modelo de visión.
+- Se añadió una guía visual observada en miniaturas, separada de las mediciones de edición. Se probó la tanda incompleta, el origen local y un video de control.
+
 ## 2026-11-05 · Codex · Escuela de los 20 Shorts y demo de animación
 - Ricks Clips: solo la pestaña Shorts; el perfil se rehace cuando los 20 enlaces actuales tienen mediciones a 30 FPS. Una tanda incompleta conserva el perfil anterior y se informa por video.
 - La escuela registra FPS del archivo, FPS de muestreo y fotogramas leídos. Detecta cortes bruscos por cambio de color o de composición. Los análisis no se confunden con un listado de títulos.

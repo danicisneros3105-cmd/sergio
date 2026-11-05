@@ -10,6 +10,44 @@ def test_hard_cut_can_keep_the_same_colour_histogram():
     assert escuela.cuts_of([a] * 15 + [b] * 15, fps=30) == [0.5]
 
 
+def test_fixed_cohort_accepts_local_media_without_listing_or_upload(
+    tmp_path, monkeypatch
+):
+    ids = [f"clip{i:07d}" for i in range(20)]
+    media = tmp_path / "media"
+    media.mkdir()
+    for vid in ids[:-1]:
+        (media / f"{vid}.mp4").touch()
+
+    def unexpected(*_args, **_kwargs):
+        raise AssertionError(
+            "La tanda fija no debe pedir otra lista ni descargar archivos."
+        )
+
+    def measure(path, *, fps):
+        assert path.parent == media and fps == 30
+        return {"resumen": {"fps_medido": fps, "fotogramas_muestreados": 30}}
+
+    def synthesize(category, *, refs, cohort, ask):
+        assert len(cohort) == 20 and ask("cualquier prompt") == ""
+        assert [escuela.video_id(v["url"]) for v in cohort] == ids
+        return {"categoria": category}
+
+    monkeypatch.setattr(escuela, "home", lambda: tmp_path / "escuela")
+    monkeypatch.setattr(escuela, "channel_links", unexpected)
+    monkeypatch.setattr(escuela, "download", unexpected)
+    monkeypatch.setattr(escuela, "measure", measure)
+    monkeypatch.setattr(escuela, "synthesize", synthesize)
+    key = "shorts-animados"
+    options = {"shorts_ids": ids, "shorts_media": media}
+    partial = escuela.run_all([key], **options)["cohortes"][key]
+    assert partial["medidos"] == 19 and not partial["perfil_actualizado"]
+    (media / f"{ids[-1]}.mp4").touch()
+    full = escuela.run_all([key], **options)["cohortes"][key]
+    assert full["medidos"] == 20 and full["perfil_actualizado"]
+    assert full["origen"] == "archivos_locales"
+
+
 def test_channel_never_replaces_missing_shorts_with_other_uploads(tmp_path):
     calls = []
 

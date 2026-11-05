@@ -1192,6 +1192,9 @@ def synthesize(category: str, *, root: Optional[Path] = None, ask: Optional[Call
         except Exception as exc:  # noqa: BLE001
             log.info("superskill by code only: %s", exc)
     rules = rules + seed  # the hand-written script rules (read from real transcripts)
+    visual_seed = str(cat.get("guia_miniaturas") or "").strip()
+    if visual_seed:
+        rules.append(visual_seed)
     key = f"ref-{category}"
     profiles = [style.profile_from(s["tomas_modelo"], key, cat["nombre"], s["url"])
                 for s in studies if s.get("tomas_modelo")]  # fmt: skip
@@ -1211,6 +1214,8 @@ def synthesize(category: str, *, root: Optional[Path] = None, ask: Optional[Call
     }  # fmt: skip
     if cat.get("cohorte_canal"):
         prof.update(production="animation", narration_mode="voice", sources=["ai", "3d", "image"])
+        if visual_seed:
+            prof["look"] = visual_seed
     folder = style.learned_dir()
     folder.mkdir(parents=True, exist_ok=True)
     (folder / f"{key}.json").write_text(
@@ -1517,11 +1522,34 @@ def recut(shots: List[Any], words: List[Any], bp: Dict[str, Any]) -> List[Any]:
 def run_all(
     categories: Optional[Sequence[str]] = None,
     on_step: Optional[Callable[[str], None]] = None,
+    *,
+    shorts_ids: Optional[Sequence[str]] = None,
+    shorts_media: Optional[Path] = None,
 ) -> Dict[str, Any]:
     """Study every reference and write every superskill; a video that fails
     is reported and the rest go on."""
     refs = references()
     todo = [c for c in (categories or refs) if c in refs]
+    if shorts_media is not None and shorts_ids is None:
+        raise ValueError("los archivos locales necesitan una lista fija de IDs")
+    if shorts_ids is not None and (
+        todo != ["shorts-animados"] or len(shorts_ids) != 20
+        or len(set(shorts_ids)) != 20
+        or not all(re.fullmatch(r"[A-Za-z0-9_-]{11}", vid) for vid in shorts_ids)
+    ):
+        raise ValueError("la tanda fija necesita 20 IDs de Shorts distintos")
+
+    def local_video(url: str, _cache: Path) -> Path:
+        vid = video_id(url)
+        assert shorts_media is not None
+        files = [
+            p for ext in (".mp4", ".mkv", ".webm", ".mov")
+            if (p := shorts_media / (vid + ext)).is_file()
+        ]
+        if len(files) != 1:
+            raise RuntimeError(f"Se necesita un único archivo de video para {vid}.")
+        return files[0]
+
     done: Dict[str, Any] = {"estudiados": 0, "fallos": [], "superskills": [], "cohortes": {}}
     for cat in todo:
         category = refs[cat]
@@ -1529,7 +1557,9 @@ def run_all(
         channels = [c for c in category.get("canales", []) if c.get("solo_pestana")]
         wanted = sum(int(c["ultimos"]) for c in channels)
         try:
-            if strict:
+            if strict and shorts_ids is not None:
+                links = [f"https://www.youtube.com/watch?v={vid}" for vid in shorts_ids]
+            elif strict:
                 links = list(dict.fromkeys(url for ch in channels for url in channel_links(ch, refresh=True)))
             else:
                 links = links_of(category)
@@ -1546,7 +1576,15 @@ def run_all(
             if on_step:
                 on_step(f"Estudiando {url} ({cat})")
             try:
-                data = study(url, cat, fps=fps, require_frames=True) if strict else study(url, cat, fps=fps)
+                if shorts_ids is not None:
+                    data = study(
+                        url, cat, fps=fps, require_frames=True, watcher=lambda _: {},
+                        fetch=local_video if shorts_media is not None else None,
+                    )
+                elif strict:
+                    data = study(url, cat, fps=fps, require_frames=True)
+                else:
+                    data = study(url, cat, fps=fps)
                 if strict:
                     measured = data["medido"]["resumen"]
                     if _measured_fps(data) != fps or not measured.get("fotogramas_muestreados"):
@@ -1575,13 +1613,16 @@ def run_all(
                 "solicitados": wanted, "encontrados": len(links), "medidos": len(cohort),
                 "fps": fps, "completa": complete, "videos": videos, "perfil_actualizado": False,
             }
+            if shorts_ids is not None:
+                done["cohortes"][cat]["origen"] = "archivos_locales" if shorts_media else "lista_fija"
             if not complete:
                 done["fallos"].append({
                     "categoria": cat, "por_que": f"Cohorte incompleta: {len(cohort)}/{wanted} medidos. No se reemplazó el perfil.",
                 })
                 continue
         try:
-            done["superskills"].append(synthesize(cat, refs=refs, cohort=cohort if strict else None))
+            kwargs: Dict[str, Any] = {"ask": lambda _: ""} if shorts_ids is not None else {}
+            done["superskills"].append(synthesize(cat, refs=refs, cohort=cohort if strict else None, **kwargs))
             if strict:
                 done["cohortes"][cat]["perfil_actualizado"] = True
         except Exception as exc:  # noqa: BLE001
