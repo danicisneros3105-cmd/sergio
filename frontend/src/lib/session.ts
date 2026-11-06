@@ -53,3 +53,21 @@ export async function sessionNeed(): Promise<SessionNeed> {
 export function tourSeen(): boolean {
   return flag(TOUR_SEEN);
 }
+
+
+// Closing the session on the server and clearing browser credentials are
+// separate: a disconnected server must not leave this browser signed in.
+export async function closeAccountSession(clearLocalSession: () => void): Promise<boolean> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 5000);
+  try {
+    const pending = apiFetch('/v1/cuentas/salir', { method: 'POST', signal: controller.signal });
+    clearLocalSession();
+    setFlag(NO_ACCOUNT, false);
+    return (await pending).ok;
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
+}

@@ -80,6 +80,14 @@ describe('authHeaders', () => {
     expect(authHeaders()).toEqual({ Authorization: 'Bearer sk-local-123' });
   });
 
+  it('preserves an explicit session header instead of substituting a saved API key', async () => {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify({ apiKey: 'sk-local-123' }));
+    const { authHeaders } = await freshApi();
+    expect(authHeaders({ authorization: 'Bearer sg-session' })).toEqual({
+      authorization: 'Bearer sg-session',
+    });
+  });
+
   it('merges extra headers alongside Authorization', async () => {
     localStorage.setItem(SETTINGS_KEY, JSON.stringify({ apiKey: 'sk-local-123' }));
     const { authHeaders } = await freshApi();

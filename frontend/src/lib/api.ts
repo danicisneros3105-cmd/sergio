@@ -101,7 +101,8 @@ export const authHeaders = (
   extra: Record<string, string> = {},
 ): Record<string, string> => {
   const key = getApiKey();
-  return key ? { ...extra, Authorization: `Bearer ${key}` } : { ...extra };
+  if (!key || Object.keys(extra).some((name) => name.toLowerCase() === 'authorization')) return { ...extra };
+  return { ...extra, Authorization: `Bearer ${key}` };
 };
 
 // How reads to the local server behave (see apiFetch).
@@ -190,7 +191,8 @@ const rawApiFetch = (
     method === 'GET' && !init.body && !init.signal && init.cache !== 'no-store' && !API_STREAMING.test(path);
   if (!shareable) return fetchWithRetry(path, url, request, readOnly);
 
-  const key = `${url}\n${headers.Authorization ?? ''}`;
+  const auth = Object.entries(headers).find(([name]) => name.toLowerCase() === 'authorization')?.[1];
+  const key = `${url}\n${auth ?? ''}`;
   if (pageHidden()) {
     const hit = hiddenCache.get(key);
     if (hit && Date.now() - hit.at < API_HIDDEN_TTL_MS) return Promise.resolve(hit.res.clone());

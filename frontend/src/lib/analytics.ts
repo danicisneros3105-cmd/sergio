@@ -89,6 +89,8 @@ export async function initAnalytics(): Promise<void> {
       bootstrap: { distinctID: identity.anon_id },
       // No surprise data collection — only events we call out by name.
       autocapture: false,
+      persistence: 'memory', // no analytics cookies or browser storage
+      disable_persistence: true,
       capture_pageview: false,
       capture_pageleave: false,
       disable_session_recording: true,

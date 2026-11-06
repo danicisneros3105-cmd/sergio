@@ -23,6 +23,17 @@ function Privacy() {
         Lo que corre en su equipo se queda en su equipo. Recordatorios, memoria de los Nodes y claves se guardan cifrados. Lo que
         usa la nube (el chat con un modelo de IA, por ejemplo) viaja cifrado al proveedor del modelo que usted eligió.
       </p>
+      <h2>Cookies y almacenamiento del navegador</h2>
+      <p>
+        El inicio de sesión de Sergio usa una credencial guardada en el navegador, no una cookie de sesión.
+        Este navegador también puede guardar preferencias, chats y archivos en almacenamiento local.
+        Cerrar sesión elimina la credencial, pero no borra los chats ni los archivos de este navegador.
+      </p>
+      <p>
+        Si el administrador activa la analítica de uso, Sergio puede enviar eventos técnicos. Su
+        cliente de analítica no guarda cookies ni usa almacenamiento persistente del navegador.
+        Los servicios externos que abra por separado aplican sus propias políticas.
+      </p>
       <h2>Con quién se comparte</h2>
       <ul>
         <li>El proveedor del modelo de IA que responde (Google, OpenAI, Anthropic, OpenRouter u otro que usted elija), solo lo necesario para responder.</li>

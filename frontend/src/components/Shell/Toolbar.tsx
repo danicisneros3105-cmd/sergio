@@ -13,6 +13,8 @@ import {
   ChevronDown,
   Columns2,
 } from 'lucide-react';
+import { toast } from 'sonner';
+import { closeAccountSession } from '../../lib/session';
 import { useAppStore } from '../../lib/store';
 import { useSplit } from '../../lib/split';
 import { LiveOrb } from '../Live/LiveOrb';
@@ -291,11 +293,16 @@ export function Toolbar({ historyOpen, onToggleHistory }: { historyOpen: boolean
                 type="button"
                 role="menuitem"
                 data-quiet
-                onClick={() =>
-                  void apiFetch('/v1/cuentas/salir', { method: 'POST' })
-                    .catch(() => null)
-                    .finally(() => (setUserMenu(false), go('/entrar')))
-                }
+                onClick={() => {
+                  const done = closeAccountSession(() => {
+                    useAppStore.getState().updateSettings({ apiKey: '' });
+                  });
+                  setUserMenu(false);
+                  go('/entrar');
+                  void done.then((revoked) => {
+                    if (!revoked) toast.warning('La sesión se quitó de este navegador, pero no se pudo confirmar su cierre en el servidor.');
+                  });
+                }}
               >
                 Cerrar sesión
               </button>
@@ -309,7 +316,10 @@ export function Toolbar({ historyOpen, onToggleHistory }: { historyOpen: boolean
             aria-haspopup="menu"
             aria-expanded={userMenu}
             aria-current={isActive('/settings', pathname) ? 'page' : undefined}
-            onClick={() => setUserMenu((o) => !o)}
+            onClick={() => {
+              if (!userMenu && !historyOpen) onToggleHistory();
+              setUserMenu((o) => !o);
+            }}
           >
             <span className="sb-avatar" aria-hidden="true">
               S

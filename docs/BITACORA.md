@@ -2,6 +2,11 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-11-06 · Codex · Sesión, privacidad y prueba de usuario
+- El cierre de sesión retira la credencial del navegador aunque el servidor no responda. La interfaz advierte si no pudo confirmar la revocación. Se respeta la credencial explícita que indique una petición.
+- El cliente de analítica no persiste cookies o identificadores en el navegador. El aviso explica el almacenamiento local y el menú de cuenta abre la barra lateral para que no se corte.
+- Probé en Chromium entrada y salida con una cuenta ficticia y lectura pública de términos. La prueba HTTP usa una base SQLite temporal y un buzón simulado. Pendientes: aislar los datos entre cuentas, unificar los flujos de aceptación y verificar HTTPS, proveedores y servicios del entorno público.
+
 ## 2026-11-06 · Codex · Preparación del candidato Windows
 - El botón de actualización ejecuta el script con fast-forward, conserva commits y cambios locales y muestra el resultado al terminar.
 - Nexus prepara propuestas; no inicia grabaciones, publica ni devuelve reservas o mediciones simuladas como acciones hechas. Se actualizaron las pruebas que trataban esas simulaciones como éxito.
