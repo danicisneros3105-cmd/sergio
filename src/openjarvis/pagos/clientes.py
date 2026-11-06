@@ -113,7 +113,7 @@ def report(*, http: Any = None, home: Any = None, limit: int = 60) -> Dict[str, 
         )
         fee = ledger.order_fee(o["id"], home)
         price = round(float(o["usd"] or 0), 2)
-        cap = provision.budget(o["plan"], o["usd"])
+        cap = provision.budget(o["plan"], o.get("list_usd") or o["usd"])
         rows.append(
             {
                 "cliente": _label(uid),

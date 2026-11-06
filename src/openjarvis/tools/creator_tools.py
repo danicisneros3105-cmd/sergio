@@ -403,13 +403,17 @@ class CinematicAIVideoTool(BaseTool):
                 "models, with his credits) when that connector is connected, otherwise "
                 "Sergio's own AI video (Veo or fal.ai). action='plan' writes the shot "
                 "list and shows what it costs (spends nothing); 'crear' makes it (several "
-                "minutes; spends credits); 'catalogo' searches the Higgsfield marketplace "
+                "minutes; spends credits); 'catalogo' searches the Higgsfield marketplace; "
+                "'modelos' lists capabilities reported by the connected account. "
                 "('idea' = what to look for). Show the plan first, then make it."
             ),
             parameters={
                 "type": "object",
                 "properties": {
-                    "action": {"type": "string", "enum": ["plan", "crear", "catalogo"]},
+                    "action": {
+                        "type": "string",
+                        "enum": ["plan", "crear", "catalogo", "modelos"],
+                    },
                     "idea": {"type": "string"},
                     "audiencia": {"type": "string"},
                     "plataforma": {
@@ -434,6 +438,25 @@ class CinematicAIVideoTool(BaseTool):
         action = str(params.get("action") or "plan")
         idea = str(params.get("idea") or "")
         try:
+            if action == "modelos":
+                items = cine_ia.inventory()
+                if not items:
+                    raise cine_ia.CineError(
+                        "Higgsfield no anunció herramientas para esta cuenta."
+                    )
+                lines = [
+                    f"- {item['nombre']} ({item['id']}): "
+                    + (
+                        ", ".join(item["modelos"])
+                        or "sin lista de modelos publicada por MCP"
+                    )
+                    + f" · permiso: {item['permiso']}"
+                    for item in items
+                ]
+                return self._say(
+                    "Herramientas anunciadas por la cuenta de Higgsfield:\n"
+                    + "\n".join(lines)
+                )
             if action == "catalogo":
                 items = cine_ia.catalog(idea)
                 if not items:

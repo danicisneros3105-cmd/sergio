@@ -42,8 +42,13 @@ CREATE TABLE IF NOT EXISTS entries (
   prev TEXT DEFAULT '', sig TEXT DEFAULT ''
 );
 """
-_ADDED = (("orders", "recibo", "TEXT DEFAULT ''"), ("entries", "prev", "TEXT DEFAULT ''"),
-          ("entries", "sig", "TEXT DEFAULT ''"), ("events", "order_id", "TEXT DEFAULT ''"))  # fmt: skip
+_ADDED = (
+    ("orders", "recibo", "TEXT DEFAULT ''"),
+    ("orders", "list_usd", "REAL"),
+    ("entries", "prev", "TEXT DEFAULT ''"),
+    ("entries", "sig", "TEXT DEFAULT ''"),
+    ("events", "order_id", "TEXT DEFAULT ''"),
+)
 
 
 def _path(home: Optional[Path] = None) -> Path:
@@ -56,6 +61,8 @@ def _path(home: Optional[Path] = None) -> Path:
 
 @contextmanager
 def _db(home: Optional[Path] = None) -> Iterator[sqlite3.Connection]:
+    from openjarvis.pagos.referidos import SCHEMA
+
     path = _path(home)
     path.parent.mkdir(parents=True, exist_ok=True)
     new = not path.exists()
@@ -67,11 +74,20 @@ def _db(home: Optional[Path] = None) -> Iterator[sqlite3.Connection]:
                 os.chmod(path, 0o600)
             except OSError:
                 pass
-        con.executescript(_SCHEMA)
-        for table, col, kind in _ADDED:
-            cols = {r[1] for r in con.execute(f"PRAGMA table_info({table})")}
-            if col not in cols:
-                con.execute(f"ALTER TABLE {table} ADD COLUMN {col} {kind}")
+        con.executescript(_SCHEMA + SCHEMA)
+        missing = [
+            (table, col, kind)
+            for table, col, kind in _ADDED
+            if col not in {r[1] for r in con.execute(f"PRAGMA table_info({table})")}
+        ]
+        if missing:
+            con.execute("BEGIN IMMEDIATE")
+            for table, col, kind in missing:
+                if col not in {
+                    r[1] for r in con.execute(f"PRAGMA table_info({table})")
+                }:
+                    con.execute(f"ALTER TABLE {table} ADD COLUMN {col} {kind}")
+            con.commit()
         yield con
         con.commit()
     finally:
@@ -79,14 +95,39 @@ def _db(home: Optional[Path] = None) -> Iterator[sqlite3.Connection]:
 
 
 def new_order(
-    uid: str, plan: str, mult: int, usd: float, method: str, home: Any = None
+    uid: str,
+    plan: str,
+    mult: int,
+    usd: float,
+    method: str,
+    home: Any = None,
+    *,
+    referral_fee: Optional[float] = None,
 ) -> Dict[str, Any]:
+    from openjarvis.pagos.referidos import reserve
+
     oid = "pd_" + uuid.uuid4().hex[:20]
     with _LOCK, _db(home) as db:
+        db.execute("BEGIN IMMEDIATE")
+        discount = (
+            reserve(db, uid, oid, plan, usd, referral_fee)
+            if referral_fee is not None
+            else 0.0
+        )
         db.execute(
-            "INSERT INTO orders (id, uid, plan, mult, usd, method, status, created)"
-            " VALUES (?,?,?,?,?,?,?,?)",
-            (oid, uid, plan, mult, round(usd, 2), method, "abierto", time.time()),
+            "INSERT INTO orders (id,uid,plan,mult,usd,method,status,created,list_usd)"
+            " VALUES (?,?,?,?,?,?,?,?,?)",
+            (
+                oid,
+                uid,
+                plan,
+                mult,
+                round(usd - discount, 2),
+                method,
+                "abierto",
+                time.time(),
+                usd if discount else None,
+            ),
         )
     return get(oid, home) or {}
 
@@ -199,14 +240,26 @@ def settle_paid(
     until: float,
     lines: Dict[str, float],
     home: Any = None,
+    *,
+    qualify_referral: bool = False,
 ) -> Optional[str]:
     """Record a confirmed payment all at once: the processor's event, the
     order paid with its receipt and its ledger lines. A crash leaves either
     all of it or none of it. None if that event was already recorded."""
+    from openjarvis.pagos.referidos import qualify
+
     now = time.time()
     year = time.strftime("%Y", time.localtime(now))
     with _LOCK, _db(home) as db:
         db.execute("BEGIN IMMEDIATE")
+        current = db.execute("SELECT status FROM orders WHERE id=?", (oid,)).fetchone()
+        if not current or current["status"] not in (
+            "abierto",
+            "fallido",
+            "importe_incorrecto",
+            "moneda_incorrecta",
+        ):
+            return None
         if event:
             seen = db.execute(
                 "SELECT 1 FROM events WHERE method = ? AND event = ?", (method, event)
@@ -228,7 +281,87 @@ def settle_paid(
             (now, until, receipt, oid),
         )
         _write_lines(db, oid, lines, now, home)
+        if qualify_referral:
+            qualify(db, oid, lines["comision"])
     return receipt
+
+
+def refund_order(
+    oid: str, method: str, event: str, usd: float, home: Any = None
+) -> float:
+    """Record a refund and invalidate its referral awards in the same transaction."""
+    with _LOCK, _db(home) as db:
+        db.execute("BEGIN IMMEDIATE")
+        order = db.execute(
+            "SELECT usd,status FROM orders WHERE id=? AND method=?", (oid, method)
+        ).fetchone()
+        if not order or order["status"] not in ("pagado", "vencido", "reembolsado"):
+            return 0.0
+        if (
+            event
+            and not db.execute(
+                "INSERT OR IGNORE INTO events(method,event,at,order_id) VALUES (?,?,?,?)",
+                (method, event, time.time(), oid),
+            ).rowcount
+        ):
+            return 0.0
+        returned = db.execute(
+            "SELECT COALESCE(SUM(-usd),0) FROM entries WHERE order_id=? AND kind='ingreso' AND usd<0",
+            (oid,),
+        ).fetchone()[0]
+        remaining = round(max(0.0, order["usd"] - returned), 2)
+        amount = round(min(usd, remaining), 2)
+        if amount > 0:
+            _write_lines(
+                db, oid, {"ingreso": -amount, "margen": -amount}, time.time(), home
+            )
+            db.execute("UPDATE orders SET status='reembolsado' WHERE id=?", (oid,))
+        return amount
+
+
+def payment_mismatch(oid: str, state: str, home: Any = None) -> None:
+    with _LOCK, _db(home) as db:
+        db.execute(
+            "UPDATE orders SET status=? WHERE id=? AND status IN "
+            "('abierto','fallido','importe_incorrecto','moneda_incorrecta')",
+            (state, oid),
+        )
+
+
+def stripe_session(uid: str, home: Any = None) -> str:
+    with _db(home) as db:
+        row = db.execute(
+            "SELECT ext FROM orders WHERE uid=? AND method='stripe' AND plan!='prueba' "
+            "AND paid IS NOT NULL AND ext GLOB 'cs_*' ORDER BY paid DESC LIMIT 1",
+            (uid,),
+        ).fetchone()
+    return row["ext"] if row else ""
+
+
+def expire_checkout(oid: str, method: str, home: Any = None) -> None:
+    """Release a reward after the processor confirms the session closed."""
+    with _LOCK, _db(home) as db:
+        changed = db.execute(
+            "UPDATE orders SET status='cancelado' WHERE id=? AND method=? "
+            "AND status IN ('abierto','fallido')",
+            (oid, method),
+        )
+        if changed.rowcount:
+            db.execute(
+                "UPDATE referral_awards SET checkout=NULL WHERE checkout=?", (oid,)
+            )
+
+
+def active_stripe(uid: str, home: Any = None) -> bool:
+    with _db(home) as db:
+        return (
+            db.execute(
+                "SELECT 1 FROM orders WHERE uid=? AND method='stripe' AND plan!='prueba' "
+                "AND status='pagado' AND until>? LIMIT 1",
+                (uid, time.time()),
+            ).fetchone()
+            is not None
+        )
 
 
 def add_lines(oid: str, lines: Dict[str, float], home: Any = None) -> None:

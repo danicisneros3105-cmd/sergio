@@ -2,6 +2,12 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-11-05 · Codex · Cobros, referidos e integraciones verificables
+- Rediseñé Planes, Pago y la tarjeta de referidos en Perfil con grafito, crema y coral. Work es la recomendación visible; los planes mantienen los precios y los permisos ya implementados.
+- Revisé el cobro de Claude: Stripe ignoraba el aviso asíncrono y podía registrar otra mensualidad por el mismo checkout. Ahora se valida el cobro y se incluye el portal alojado y un cupón de referidos con espera y margen mínimo.
+- Corregí la detección de Higgsfield: Cine consultaba un campo ausente del estado público del MCP. Ahora muestra las herramientas y modelos anunciados, según el permiso de la cuenta. Deep Research evita búsquedas repetidas y no da por confirmadas fuentes que solo vio en extractos.
+- Tesla conserva climatización por API oficial y no hace Summon. Para cuentas con varios autos exige seleccionar el VIN. Sin pruebas con una tarjeta, cuenta de Higgsfield o vehículo reales; referidos apagado hasta comprobar el entorno y la conciliación.
+
 ## 2026-11-05 · Codex · Equipo creativo, clips del teléfono y entrega
 - Tres especialistas trabajan en paralelo antes del director, dentro del presupuesto. Pausas según el momento del relato, música atenuada durante la narración y subtítulos animados. El checklist distingue voz fallida y señales no disponibles.
 - La consulta actual de YouTube e Instagram corre en el trabajo de fondo; los clips de película requieren petición explícita. En el móvil se seleccionan hasta seis clips y el montaje usa todos en orden.

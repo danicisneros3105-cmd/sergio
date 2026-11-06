@@ -17,6 +17,9 @@ ALLOW = {
     ("GET", "/v1/pagos/metodos"),
     ("GET", "/v1/pagos/precio"),
     ("POST", "/v1/pagos/checkout"),
+    ("POST", "/v1/pagos/portal"),
+    ("GET", "/v1/pagos/referidos"),
+    ("POST", "/v1/pagos/referidos"),
 }
 ALLOW_PREFIX = (
     ("GET", "/v1/pagos/pedido/"),

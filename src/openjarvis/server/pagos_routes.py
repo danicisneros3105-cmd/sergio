@@ -22,7 +22,7 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 
-from openjarvis.pagos import service
+from openjarvis.pagos import referidos, service
 from openjarvis.pagos.gateways import GatewayError
 
 router = APIRouter(prefix="/v1/pagos", tags=["pagos"])
@@ -60,6 +60,43 @@ def metodos() -> Dict[str, Any]:
 def precio(plan: str, mult: int = 0) -> Dict[str, Any]:
     try:
         return service.price(plan, mult)
+    except service.PaymentError as exc:
+        raise HTTPException(400, str(exc)) from exc
+
+
+@router.get("/referidos")
+def referral_status(request: Request) -> Dict[str, Any]:
+    if not referidos.enabled():
+        return {"activo": False}
+    me = _payer(request)
+    return (
+        {"activo": False}
+        if me["owner"]
+        else {"activo": True, **referidos.status(me["id"])}
+    )
+
+
+class ReferralBody(BaseModel):
+    codigo: str
+
+
+@router.post("/referidos")
+def referral_link(body: ReferralBody, request: Request) -> Dict[str, Any]:
+    me = _payer(request)
+    if me["owner"] or not referidos.enabled():
+        raise HTTPException(404, "Referidos no está activado.")
+    if len(body.codigo) != 16 or not referidos.link(me["id"], body.codigo):
+        raise HTTPException(400, "Código no válido o cuenta no elegible.")
+    return {"activo": True, **referidos.status(me["id"])}
+
+
+@router.post("/portal")
+def portal(request: Request) -> Dict[str, str]:
+    me = _payer(request)
+    if me["owner"]:
+        raise HTTPException(403, "La cuenta del dueño no tiene suscripción.")
+    try:
+        return {"url": service.billing_portal(me["id"], _base(request))}
     except service.PaymentError as exc:
         raise HTTPException(400, str(exc)) from exc
 

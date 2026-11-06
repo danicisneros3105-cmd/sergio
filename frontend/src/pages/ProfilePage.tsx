@@ -1,3 +1,4 @@
+import { ReferralPanel } from './plans/ReferralPanel';
 import { useEffect, useState } from 'react';
 import { ScanFace, UserRound } from 'lucide-react';
 import { useNavigate } from 'react-router';
@@ -177,6 +178,7 @@ export function ProfilePage() {
       <PaperSection label="Su cuenta">
         <Account />
       </PaperSection>
+      <ReferralPanel />
       <PaperSection label="Cómo le llamo">
         <PersonalPanel />
       </PaperSection>

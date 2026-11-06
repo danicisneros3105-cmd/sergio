@@ -32,3 +32,11 @@
 }
 .profile-account > div { flex: 1 1 120px; }
 .profile-account .profile-avatar { background: var(--sergio-coral); color: var(--sergio-coral-ink); }
+
+.profile-referrals { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: clamp(9px, 2vw, 17px); padding: clamp(14px, 4vw, 25px); margin-block: 14px; border: 1px solid var(--color-border); border-radius: 24px; background: var(--color-surface); }
+.profile-referrals-icon { display: grid; place-items: center; width: 46px; height: 46px; border-radius: 50%; background: #1c1c1e; color: #f3eee4; }
+.profile-referrals h2 { margin: 0; font-size: clamp(18px, 3vw, 24px); letter-spacing: -.035em; }
+.profile-referrals p { color: var(--color-text-secondary); line-height: 1.5; margin: 8px 0; }
+.profile-referrals-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; }
+.profile-referrals-actions .paper-input { min-width: 0; max-width: 100%; }
+.profile-referrals-actions code { overflow-wrap: anywhere; }

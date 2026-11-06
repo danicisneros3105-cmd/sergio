@@ -43,8 +43,12 @@ STRIPE_WEBHOOK_SECRET=whsec_...
 
 En el panel de Stripe, en Webhooks, cree un destino con la dirección
 `https://<su-dirección>/v1/pagos/aviso/stripe` y estos eventos:
-`checkout.session.completed`, `invoice.paid` y
-`customer.subscription.deleted`.
+`checkout.session.completed`, `checkout.session.async_payment_succeeded`,
+`checkout.session.async_payment_failed`, `checkout.session.expired`,
+`invoice.paid` y `customer.subscription.deleted`. Habilite el portal de
+clientes en el panel de Stripe para que el cliente pueda gestionar su
+suscripción. Configure métodos dinámicos en ese panel: Stripe enseña los
+medios compatibles con la moneda, el país, el dispositivo y la suscripción.
 
 **PayPal**: cobra un mes por cada pago.
 
@@ -56,8 +60,10 @@ PAYPAL_MODO=sandbox   # bórrelo para cobrar de verdad
 ```
 
 En el panel de desarrollador de PayPal, cree un webhook con la dirección
-`https://<su-dirección>/v1/pagos/aviso/paypal` y el evento
-`PAYMENT.CAPTURE.COMPLETED`.
+`https://<su-dirección>/v1/pagos/aviso/paypal` y estos eventos:
+`PAYMENT.CAPTURE.COMPLETED`, `PAYMENT.CAPTURE.DENIED`,
+`PAYMENT.CAPTURE.REFUNDED`, `PAYMENT.CAPTURE.REVERSED` y
+`CHECKOUT.PAYMENT-APPROVAL.REVERSED`.
 
 **Tarjeta y pagos locales (Hyperswitch, código abierto Apache-2.0, alojado por
 usted)**: un orquestador propio que conecta con pasarelas de su país.
@@ -142,3 +148,45 @@ Cuando todo salga bien, cambie a las claves `sk_live_...` y quite
 - Las pruebas usan respuestas simuladas de los procesadores. El primer cobro
   real conviene hacerlo en modo de prueba (claves `sk_test_`,
   `PAYPAL_MODO=sandbox`).
+
+## Cuenta bancaria, saldo de IA y referidos
+
+1. Registre la cuenta bancaria del negocio en el portal del procesador;
+   el retiro a débito solo existe para cuentas y tarjetas elegibles. Use la
+   jurisdicción real de su negocio y un representante autorizado. No ponga
+   números de tarjeta en Sergio, GitHub, ni en su archivo de configuración.
+2. En [OpenRouter → Saldo](https://openrouter.ai/settings/credits) el titular
+   registra su medio de pago y, si lo elige, habilita la recarga automática.
+   Es un cargo separado del depósito de la pasarela: reserve caja suficiente.
+   Configure una clave de gestión de OpenRouter en el servidor para que Sergio
+   active y limite las claves de sus clientes; los clientes no copian claves.
+   Para cuentas privadas de Higgsfield u otros servicios sigue siendo necesaria
+   una autorización personal mediante el proveedor.
+3. Compare comisiones y consumos reales con `/v1/pagos/economia`, incluido el
+   costo de infraestructura y de recarga. El margen del libro no es ganancia
+   contable ni incluye impuestos o contracargos.
+
+Referidos es un piloto **apagado por defecto** (`SERGIO_REFERIDOS=1` y Stripe
+o PayPal en vivo). No habilite el piloto hasta configurar los avisos y el portal, y
+verificar el recorrido en una cuenta de prueba. Un cliente activo comparte
+su código desde Perfil; el invitado lo ingresa antes de abrir su primer
+checkout. Solo el primer plan pagado y elegible de una cuenta, confirmado por
+una pasarela en vivo, otorga dos descuentos. Nunca cuentan los cobros de prueba
+ni un pago no confirmado. Hay 30 días de espera.
+
+El descuento se aplica al siguiente pago elegible en PayPal o a la primera
+factura de una **nueva** suscripción en Stripe. No se acumula ni modifica
+suscripciones vigentes o renovaciones de Stripe. Es de hasta
+5% del nuevo plan y nunca mayor al 5% del primer pago que generó el descuento.
+El cálculo reserva el costo total de IA, recarga, comisiones e infraestructura,
+y exige al menos 15% de margen de contribución o $1, el mayor. Con los
+supuestos del repositorio, Go queda fuera; Work, Dev y Founders califican.
+Eso no garantiza ganancias con tarifas o costos distintos. Compruebe que
+la comisión, gastos y reserva real correspondan a sus valores.
+
+Registre inmediatamente en Cobros los reembolsos y contracargos de Stripe
+que se gestionen en su panel: no se reconcilian automáticamente todos los
+reembolsos de suscripción de Stripe. Un reembolso registrado antes de usar
+el cupón invalida el saldo disponible para ambos. Si una sesión no se pudo
+abrir y no llega un aviso de cierre de la pasarela, revise el intento antes de abrir
+otro con descuento. Mantenga el piloto apagado si no puede conciliarlo.

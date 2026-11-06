@@ -96,6 +96,7 @@ PLAN_INFO: Dict[str, Plan] = {
         "Para empezar a usar Sergio todos los días.",
         [
             "Todo lo de Free",
+            "El doble de uso de los modelos rápidos",
         ],
     ),
     "work": Plan(
@@ -106,6 +107,7 @@ PLAN_INFO: Dict[str, Plan] = {
         "Ideal para profesionales.",
         [
             "Todo lo de Go",
+            "Modelos de nivel intermedio y 5× el uso de Free",
             "Skills y plugins premium",
             "Sincronización alojada (próximamente)",
             "Actualizaciones anticipadas (próximamente)",
@@ -120,7 +122,7 @@ PLAN_INFO: Dict[str, Plan] = {
         [
             "Todo lo de Work",
             "Acceso prioritario (próximamente)",
-            "Todos los modelos, también los más avanzados",
+            "Modelos avanzados y de 10× a 23× el uso de Free",
             "Claves de API propias y API de Sergio para sus programas",
         ],
         usd_max=115,
@@ -134,7 +136,7 @@ PLAN_INFO: Dict[str, Plan] = {
         "Centrado en fundadores de startups.",
         [
             "Todo lo de Dev",
-            "Acceso completo a todas las herramientas y funciones",
+            "De 25× a 60× el uso de Free",
             "Organización por proyectos",
             "Varios usuarios",
             "Roles, exportación de auditoría e inicio de sesión único (próximamente)",

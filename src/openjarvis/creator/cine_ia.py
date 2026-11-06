@@ -39,7 +39,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
-SERVER = "higgsfield"
+SERVER_URL = "https://mcp.higgsfield.ai/mcp"
 DEFAULT_MODEL = "seedance_2_5"  # Higgsfield's general video model
 MULTI_SHOT_MODEL = "kling3_0"
 MAX_SHOTS = 8
@@ -211,10 +211,15 @@ def brief(
 def _json(text: str) -> Any:
     if not text:
         return {}
-    m = re.search(r"\{.*\}", text, re.S)
+    decoder = json.JSONDecoder()
     try:
-        return json.loads(m.group(0) if m else text)
-    except (ValueError, TypeError):
+        return decoder.raw_decode(text.lstrip())[0]
+    except ValueError:
+        for match in re.finditer(r"[{\[]", text):
+            try:
+                return decoder.raw_decode(text, match.start())[0]
+            except ValueError:
+                continue
         return {}
 
 
@@ -234,11 +239,51 @@ def connector(hub: Any = None) -> str:
         servers = hub.list()
     except Exception:  # noqa: BLE001 — no hub: no connector
         return ""
-    for s in servers:
-        name = f"{s.get('directory_id', '')} {s.get('name', '')} {s.get('id', '')}"
-        if SERVER in name.lower() and s.get("connected") and s.get("enabled", True):
-            return str(s["id"])
+    for server in servers:
+        if (
+            str(server.get("url", "")).rstrip("/") == SERVER_URL
+            and server.get("status") == "connected"
+            and server.get("enabled", True)
+        ):
+            return str(server["id"])
     return ""
+
+
+def inventory(*, hub: Any = None) -> List[Dict[str, Any]]:
+    """Tools and model IDs advertised by the connected Higgsfield account."""
+    hub = hub or _hub()
+    sid = connector(hub)
+    if not sid:
+        raise CineError(_connect_hint())
+
+    def models(value: Any, name: str = "") -> set[str]:
+        if isinstance(value, dict):
+            direct = (
+                {v for v in (value.get("enum") or []) if isinstance(v, str)}
+                if name in {"model", "model_id", "modelId"}
+                else set()
+            )
+            for key, child in value.items():
+                direct.update(
+                    models(
+                        child, key if key not in {"anyOf", "oneOf", "allOf"} else name
+                    )
+                )
+            return direct
+        if isinstance(value, list):
+            return set().union(*(models(item, name) for item in value))
+        return set()
+
+    return [
+        {
+            "id": t["name"],
+            "nombre": t.get("title") or t["name"],
+            "modelos": sorted(models(hub.tool_schema(sid, t["name"]))),
+            "permiso": t.get("permission", "ask"),
+        }
+        for t in hub.get(sid).get("tools", [])
+        if t.get("name")
+    ]
 
 
 def _result_text(result: Any) -> str:
@@ -311,7 +356,9 @@ def catalog(
         args["query"] = query.strip()[:200]
     data = _json(_result_text(hub.call(sid, "get_presets", args)))
     items: List[Any] = []
-    if isinstance(data, dict):
+    if isinstance(data, list):
+        items = data
+    elif isinstance(data, dict):
         for key in ("presets", "items", "results", "data"):
             if isinstance(data.get(key), list):
                 items = data[key]
@@ -507,6 +554,7 @@ __all__ = [
     "Shot",
     "brief",
     "catalog",
+    "inventory",
     "connector",
     "cost",
     "render",

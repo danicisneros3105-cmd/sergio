@@ -94,6 +94,12 @@ export function PagosPanel() {
   return (
     <section className="pagos-panel" aria-label="Cobros">
       <h2 className="paper-label">Cobros de Sergio</h2>
+      <div className="pagos-funding">
+        <div><strong>Recibir cobros</strong><p>Registre la cuenta de depósito de su negocio en el panel del procesador. La tarjeta de débito solo aparece si es elegible.</p>
+          <a href="https://dashboard.stripe.com/settings/payouts" target="_blank" rel="noreferrer">Depósitos en Stripe ↗</a></div>
+        <div><strong>Pagar la IA</strong><p>Agregue el medio de pago del negocio en OpenRouter y configure la recarga automática con un umbral conservador.</p>
+          <a href="https://openrouter.ai/settings/credits" target="_blank" rel="noreferrer">Saldo y recarga ↗</a></div>
+      </div>
 
       {ready && (
         <div className="pagos-steps">
@@ -152,7 +158,7 @@ export function PagosPanel() {
           <span>{money(s.mes.proveedor)}</span>
         </div>
         <div>
-          <span>Su ganancia</span>
+          <span>Margen estimado, antes de otros gastos</span>
           <span>{money(s.mes.margen)}</span>
         </div>
         <div>

@@ -4,6 +4,7 @@
 // until the plan is on. Data from /v1/pagos.
 
 import { useEffect, useState } from 'react';
+import { ArrowUpRight, CreditCard, LockKeyhole, WalletCards } from 'lucide-react';
 import { useNavigate, useParams, useSearchParams } from 'react-router';
 import { PaperPage } from '../components/Paper/PaperPage';
 import { apiFetch } from '../lib/api';
@@ -34,20 +35,28 @@ const money = (usd: number) => `$${(Number(usd) || 0).toFixed(2)}`;
 function Checkout() {
   const [params] = useSearchParams();
   const plan = params.get('plan') || 'go';
-  const mult = Number(params.get('mult') || 0);
+  const rawMult = Number(params.get('mult') || 0);
+  const mult = Number.isSafeInteger(rawMult) ? rawMult : 0;
   const once = plan === 'prueba';
   const [price, setPrice] = useState<Price | null>(null);
   const [methods, setMethods] = useState<Method[] | null>(null);
   const [busy, setBusy] = useState('');
-  const [problem, setProblem] = useState(params.get('cancelado') ? 'El pago se canceló. No se cobró nada.' : '');
+  const [problem, setProblem] = useState(params.get('cancelado') ? 'Salió de la pasarela. Si autorizó un pago, compruebe su recibo antes de volver a intentar.' : '');
+  const [methodProblem, setMethodProblem] = useState(false);
 
   useEffect(() => {
-    call<Price>(`/v1/pagos/precio?plan=${encodeURIComponent(plan)}&mult=${mult}`)
-      .then(setPrice)
-      .catch((e: Error) => setProblem(e.message));
-    call<{ metodos: Method[] }>('/v1/pagos/metodos')
-      .then((d) => setMethods(d.metodos))
-      .catch(() => setMethods([]));
+    const controller = new AbortController();
+    setPrice(null);
+    setMethods(null);
+    setMethodProblem(false);
+    const init = { signal: controller.signal };
+    call<Price>(`/v1/pagos/precio?plan=${encodeURIComponent(plan)}&mult=${mult}`, init)
+      .then((p) => { if (!controller.signal.aborted) setPrice(p); })
+      .catch((e: Error) => { if (!controller.signal.aborted) setProblem(e.message); });
+    call<{ metodos: Method[] }>('/v1/pagos/metodos', init)
+      .then((d) => { if (!controller.signal.aborted) setMethods(d.metodos); })
+      .catch(() => { if (!controller.signal.aborted) setMethodProblem(true); });
+    return () => controller.abort();
   }, [plan, mult]);
 
   const pay = async (m: Method) => {
@@ -57,7 +66,7 @@ function Checkout() {
       const { url } = await call<{ url: string }>('/v1/pagos/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan, mult, metodo: m.id }),
+        body: JSON.stringify({ plan: price?.plan, mult: price?.mult, metodo: m.id }),
       });
       window.location.assign(url);
     } catch (e) {
@@ -66,14 +75,26 @@ function Checkout() {
     }
   };
 
+  const billing = async () => {
+    setBusy('billing');
+    try {
+      const { url } = await call<{ url: string }>('/v1/pagos/portal', { method: 'POST' });
+      window.location.assign(url);
+    } catch (e) {
+      setProblem(e instanceof Error ? e.message : 'No pude abrir la suscripción.');
+      setBusy('');
+    }
+  };
+
   return (
-    <section className="pay-box">
+    <section className="pay-box pay-checkout">
       {price && (
         <div className="pay-summary">
+          <span className="commerce-kicker"><LockKeyhole size={14} aria-hidden="true" /> Pago seguro · USD</span>
           <h2>{once ? price.nombre : `Sergio ${price.nombre}`}</h2>
           <div className="plan-price">
             {money(price.usd)}
-            <small>{once ? ' una vez' : ' / mes'}</small>
+            <small>{once ? ' una vez' : ' / mes, precio de lista'}</small>
           </div>
           <ul>
             {(price.incluye ?? []).map((x) => (
@@ -93,7 +114,9 @@ function Checkout() {
       {methods && methods.length === 0 && (
         <p className="plans-note">Los pagos todavía no están activados en este Sergio.</p>
       )}
-      <div className="pay-methods">
+      {methodProblem && <p role="alert">No pude consultar las formas de pago. Recargue la pantalla.</p>}
+      {!methods && !methodProblem && <p role="status">Consultando formas de pago…</p>}
+      <div className="pay-methods" aria-label="Formas de pago">
         {(methods || []).map((m) => (
           <button
             key={m.id}
@@ -102,15 +125,26 @@ function Checkout() {
             disabled={!!busy || !price}
             onClick={() => void pay(m)}
           >
-            <strong>{busy === m.id ? 'Abriendo…' : m.nombre}</strong>
-            <span>{once ? 'Pago único, sin renovación.' : m.detalle}</span>
+            <span className="pay-mark" data-processor={m.id} aria-hidden="true">
+              {m.id === 'stripe' ? <b>stripe</b> : m.id === 'paypal' ? <b>PayPal</b> : m.id === 'hyperswitch' ? <b>Hyperswitch</b> : <WalletCards size={20} />}
+            </span>
+            <span className="pay-method-copy">
+              <strong>{busy === m.id ? 'Abriendo…' : m.nombre}</strong>
+              <small>{once ? 'Pago único, sin renovación.' : m.detalle}{!m.real && ' · Prueba'}</small>
+            </span>
+            <ArrowUpRight size={16} aria-hidden="true" />
           </button>
         ))}
       </div>
-      <p className="plans-note">
+      {!once && methods?.some((m) => m.id === 'stripe') && (
+        <button type="button" className="paper-button" data-variant="quiet" disabled={!!busy} onClick={() => void billing()}>
+          {busy === 'billing' ? 'Abriendo…' : 'Gestionar mi suscripción de Stripe'}
+        </button>
+      )}
+      <p className="plans-note pay-trust"><CreditCard size={16} aria-hidden="true" />
         {once
           ? 'Escriba su tarjeta solo en la página segura del procesador. Después, devuelva el dólar desde su panel.'
-          : 'La tarjeta se escribe en la página segura del procesador de pagos: Sergio nunca la ve ni la guarda. Al pagar, su plan se activa solo.'}
+          : 'La pasarela muestra los medios disponibles, sus logos y el total final con los descuentos aplicables. El plan se activa tras la confirmación del procesador.'}
       </p>
     </section>
   );
@@ -172,7 +206,7 @@ function Back({ problem }: { problem: boolean }) {
           : paid
           ? `Su plan ${order?.plan} está activo${order?.hasta ? ` hasta el ${new Date(order.hasta * 1000).toLocaleDateString()}` : ''}.`
           : problem
-            ? 'No se cobró nada. Puede intentarlo otra vez.'
+            ? 'No hay un pago confirmado en Sergio. Si autorizó un cargo, revise su recibo antes de volver a intentarlo.'
             : tries >= 20
               ? 'El procesador todavía no confirma. Si ya pagó, su plan se activará solo en unos minutos.'
               : 'El procesador de pagos está confirmando. Esto tarda unos segundos.'}

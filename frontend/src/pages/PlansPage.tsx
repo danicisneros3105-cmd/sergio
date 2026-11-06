@@ -57,19 +57,17 @@ function PlanCard({
 }) {
   const s = plan.stretch;
   return (
-    <article className="plan-card" data-current={current}>
+    <article className="plan-card" data-current={current} data-recommended={plan.id === 'work'}>
       <h2>
         {plan.name}
-        {current && <small>Su plan</small>}
+        {current ? <small>Su plan</small> : plan.id === 'work' ? <small>Para el día a día</small> : null}
       </h2>
       <div className="plan-price">
         {plan.id === 'free' ? 'Gratis' : plan.price.text}
         {plan.id !== 'free' && <small> / mes</small>}
       </div>
       <p>{plan.tagline}</p>
-      <p>
-        {plan.id === 'free' ? 'Uso base' : `${plan.mult} ${plan.mult === 1 ? 'vez' : 'veces'} el uso de Free`}
-      </p>
+      <div className="plan-capacity"><strong>{mult}×</strong><span>capacidad frente a Free</span></div>
       {s && (
         <label className="plan-range">
           <span>
@@ -238,6 +236,11 @@ export function PlansPage() {
 
       {tab === 'planes' && catalog && (
         <>
+          <div className="commerce-hero">
+            <div><span className="commerce-kicker">Sergio · Planes</span><h2>Más espacio para lo que hace.</h2>
+            <p>Empiece gratis. Elija Work para el uso profesional diario, o Dev cuando necesite API y modelos avanzados.</p></div>
+            <div className="commerce-ring" aria-hidden="true" />
+          </div>
           {bar}
           <div className="plans-grid">
             {catalog.plans.map((p) => (
@@ -247,7 +250,7 @@ export function PlansPage() {
                 current={p.id === currentId}
                 mult={mults[p.id] || p.mult}
                 setMult={(n) => setMults((m) => ({ ...m, [p.id]: n }))}
-                onChoose={() => void choose(p)}
+                onChoose={() => void choose({ ...p, mult: mults[p.id] || p.mult })}
               />
             ))}
           </div>

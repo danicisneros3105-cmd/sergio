@@ -66,3 +66,35 @@
 .pagos-step code { font-size: 12px; }
 .pagos-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
 .pagos-link { margin-left: 10px; background: none; border: 0; padding: 0; color: var(--color-accent); cursor: pointer; font: inherit; }
+
+/* Graphite, warm paper, bold type and simple rings from the design references. */
+.commerce-hero { display: flex; align-items: center; justify-content: space-between; gap: 20px; overflow: hidden; padding: clamp(18px, 4vw, 42px); margin-bottom: 20px; border-radius: 28px; background: #1c1c1e; color: #f3eee4; }
+.commerce-hero h2 { margin: 10px 0; max-width: 17ch; font-size: clamp(27px, 5vw, 55px); line-height: .99; letter-spacing: -.055em; }
+.commerce-hero p { color: #ded6cd; max-width: 55ch; margin: 0; font-size: 14px; line-height: 1.5; }
+.commerce-kicker { display: inline-flex; gap: 7px; align-items: center; font-size: 12px; font-weight: 650; }
+.commerce-ring { border: clamp(12px, 4vw, 36px) solid #ff694c; border-top-color: #fc947c; border-radius: 50%; width: clamp(65px, 17vw, 188px); aspect-ratio: 1; flex: 0 0 auto; transform: rotate(-30deg); }
+.plans-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 225px), 1fr)); }
+.plan-card { border-radius: 24px; padding: 22px; }
+.plan-card[data-recommended='true'] { border-color: var(--color-accent); }
+.plan-card[data-recommended='true'] h2 small { color: var(--color-text); }
+.plan-card .plan-price { font-size: clamp(28px, 3vw, 40px); letter-spacing: -.045em; }
+.plan-capacity { display: flex; align-items: baseline; gap: 7px; font-size: 12px; color: var(--color-text-secondary); }
+.plan-capacity strong { font-size: 19px; color: var(--color-text); font-variant-numeric: tabular-nums; }
+.pay-checkout { max-width: 610px; }
+.pay-checkout .pay-summary { background: #1c1c1e; color: #f3eee4; border-radius: 26px; padding: 26px; }
+.pay-checkout .pay-summary .plan-price { font-size: 44px; letter-spacing: -.045em; }
+.pay-checkout .pay-summary small, .pay-checkout .pay-summary li::before { color: #ded6cd; }
+.pay-checkout .pay-summary h2 { margin-top: 12px; }
+.pay-method { grid-template-columns: minmax(68px, max-content) minmax(0, 1fr) auto; align-items: center; gap: 12px; min-height: 60px; }
+.pay-mark { border-radius: 8px; min-height: 32px; display: grid; place-items: center; padding: 4px 6px; background: var(--color-bg-tertiary); font-size: 12px; }
+.pay-method .pay-mark[data-processor='stripe'] { color: #4b38df; background: #eeebff; letter-spacing: -.045em; }
+.pay-method .pay-mark[data-processor='paypal'] { color: #123a76; background: #e7f2ff; font-style: italic; }
+.pay-method-copy { min-width: 0; display: grid; gap: 3px; }
+.pay-method-copy small { line-height: 1.35; }
+.pay-trust { display: flex; align-items: flex-start; gap: 8px; line-height: 1.5; }
+.pay-trust svg { flex: 0 0 auto; }
+.pagos-funding { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 215px), 1fr)); gap: 12px; margin-bottom: 10px; }
+.pagos-funding > div { padding: 16px; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 18px; }
+.pagos-funding p { font-size: 13px; line-height: 1.5; color: var(--color-text-secondary); }
+.pagos-funding a { font-size: 13px; color: var(--color-accent); text-decoration: underline; }
+@media (max-width: 430px) { .commerce-ring { align-self: start; } .pay-method { gap: 8px; padding-inline: 10px; } }

@@ -74,7 +74,14 @@ def vin(http: Any = None) -> str:
     cars = (r.json() or {}).get("response") or []
     if not cars:
         raise TeslaError("Su cuenta de Tesla no tiene autos.")
-    return str(cars[0].get("vin") or cars[0].get("id"))
+    if len(cars) != 1:
+        raise TeslaError(
+            "Hay varios Tesla. Configure TESLA_VIN para elegir el vehículo."
+        )
+    vin_value = str(cars[0].get("vin") or "")
+    if not vin_value:
+        raise TeslaError("Tesla no devolvió el VIN del vehículo.")
+    return vin_value
 
 
 def wake(
@@ -184,7 +191,7 @@ def do(
             command(car, "auto_conditioning_stop", http=http)
             done.append("clima apagado")
         else:
-            m = re.search(r"(\d{2})(?:[.,](\d))?\s*(?:°|grados)?", t)
+            m = re.search(r"(?<![\d-])([12]\d)(?:[.,](\d))?\s*(?:°|grados\b)", t)
             temp = float(f"{m.group(1)}.{m.group(2) or 0}") if m else (
                 24.0 if "calef" in t or "calienta" in t else 21.0)  # fmt: skip
             temp = max(15.0, min(28.0, temp))

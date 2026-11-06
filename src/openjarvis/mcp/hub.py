@@ -724,6 +724,13 @@ class ConnectorHub:
             )
         )
 
+    def tool_schema(self, server_id: str, tool: str) -> Dict[str, Any]:
+        """The cached input contract discovered by MCP, never credentials."""
+        for item in self._get(server_id).get("tools") or []:
+            if item.get("name") == tool:
+                return item.get("inputSchema") or {}
+        return {}
+
     def permission(self, server_id: str, tool: str) -> str:
         server = self._get(server_id)
         perms = server.get("permissions") or {}

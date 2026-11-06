@@ -121,7 +121,9 @@ def _lower(headers: Mapping[str, str]) -> Dict[str, str]:
 class Stripe(Gateway):
     key = "stripe"
     label = "Tarjeta"
-    detail = "Visa, Mastercard, Apple Pay y Google Pay. Se renueva sola cada mes."
+    detail = (
+        "Tarjetas y opciones compatibles con su país y dispositivo. Renovación mensual."
+    )
     fee_rate, fee_fixed = 0.029, 0.30
     API = "https://api.stripe.com/v1"
 
@@ -142,7 +144,8 @@ class Stripe(Gateway):
         return "" if resp.status_code < 400 else "Stripe no acepta la clave."
 
     def start(self, order, title, back, cancel):  # noqa: ANN001, ANN201
-        cents = int(round(float(order["usd"]) * 100))
+        cents = round(float(order.get("list_usd") or order["usd"]) * 100)
+        rebate = cents - round(float(order["usd"]) * 100)
         once = order.get("plan") == "prueba"  # the owner's one-off real test
         form = {
             "mode": "payment" if once else "subscription",
@@ -160,6 +163,23 @@ class Stripe(Gateway):
         else:
             form["line_items[0][price_data][recurring][interval]"] = "month"
             form["subscription_data[metadata][pedido]"] = order["id"]
+        if rebate:
+            coupon = self.http.post(
+                f"{self.API}/coupons",
+                data={
+                    "amount_off": str(rebate),
+                    "currency": "usd",
+                    "duration": "once",
+                    "max_redemptions": "1",
+                    "name": "Referidos Sergio",
+                },
+                headers={**self._auth(), "Idempotency-Key": f"referido-{order['id']}"},
+            )
+            if coupon.status_code >= 400:
+                raise GatewayError(
+                    f"Stripe no pudo crear el descuento ({coupon.status_code})"
+                )
+            form["discounts[0][coupon]"] = coupon.json()["id"]
         resp = self.http.post(
             f"{self.API}/checkout/sessions",
             data=form,
@@ -169,6 +189,36 @@ class Stripe(Gateway):
             raise GatewayError(f"Stripe respondió {resp.status_code}")
         out = resp.json()
         return {"url": out["url"], "ext": out.get("id", "")}
+
+    def portal(self, session_id: str, back: str) -> str:
+        """A signed-in customer's own self-service billing portal."""
+        import re
+
+        if not re.fullmatch(r"cs_[A-Za-z0-9_]+", session_id):
+            raise GatewayError("Stripe no devolvió una sesión de cliente válida.")
+        session = self.http.get(
+            f"{self.API}/checkout/sessions/{session_id}", headers=self._auth()
+        )
+        if session.status_code >= 400:
+            raise GatewayError("No pude recuperar la suscripción en Stripe.")
+        customer = session.json().get("customer")
+        if not isinstance(customer, str) or not customer.startswith("cus_"):
+            raise GatewayError("No hay una cuenta de Stripe asociada al pago.")
+        response = self.http.post(
+            f"{self.API}/billing_portal/sessions",
+            data={"customer": customer, "return_url": back},
+            headers=self._auth(),
+        )
+        if response.status_code >= 400:
+            raise GatewayError(
+                "El portal de clientes de Stripe todavía no está configurado."
+            )
+        url = response.json().get("url") or ""
+        if not url.startswith("https://billing.stripe.com/"):
+            raise GatewayError(
+                "Stripe no devolvió una dirección de facturación válida."
+            )
+        return url
 
     def notice(self, headers, body):  # noqa: ANN001, ANN201
         sig = _lower(headers).get("stripe-signature", "")
@@ -189,7 +239,26 @@ class Stripe(Gateway):
         obj = (event.get("data") or {}).get("object") or {}
         kind = event.get("type", "")
         eid = event.get("id", "")
-        if kind == "checkout.session.completed" and obj.get("payment_status") == "paid":
+        if kind in (
+            "checkout.session.expired",
+            "checkout.session.async_payment_failed",
+        ):
+            return [
+                Paid(
+                    order=obj.get("client_reference_id") or "",
+                    usd=0.0,
+                    event=eid,
+                    kind="expirado",
+                )
+            ]
+        if (
+            kind
+            in (
+                "checkout.session.completed",
+                "checkout.session.async_payment_succeeded",
+            )
+            and obj.get("payment_status") == "paid"
+        ):
             return [
                 Paid(
                     order=obj.get("client_reference_id")
@@ -212,7 +281,7 @@ class Stripe(Gateway):
                 Paid(
                     order=meta.get("pedido", ""),
                     usd=(obj.get("amount_paid") or 0) / 100,
-                    event=eid,
+                    event=obj.get("id") or eid,
                     kind="renovacion",
                     currency=str(obj.get("currency") or "").upper(),
                 )
@@ -377,6 +446,17 @@ class PayPal(Gateway):
                     currency=amount.get("currency_code", ""),
                 )
             ]
+        if kind in ("PAYMENT.CAPTURE.DENIED", "CHECKOUT.PAYMENT-APPROVAL.REVERSED"):
+            related = (res.get("supplementary_data") or {}).get("related_ids") or {}
+            return [
+                Paid(
+                    order=res.get("custom_id", ""),
+                    usd=0,
+                    ext=related.get("order_id", ""),
+                    event=event.get("id", ""),
+                    kind="expirado",
+                )
+            ]
         # Money given back (a refund) or taken back by the bank (a chargeback).
         if kind in ("PAYMENT.CAPTURE.REFUNDED", "PAYMENT.CAPTURE.REVERSED"):
             return [
@@ -385,6 +465,9 @@ class PayPal(Gateway):
                     usd=float(amount.get("value") or 0),
                     event=event.get("id", "") or res.get("id", ""),
                     kind="reembolso",
+                    ext=(
+                        (res.get("supplementary_data") or {}).get("related_ids") or {}
+                    ).get("order_id", ""),
                     currency=amount.get("currency_code", ""),
                 )
             ]

@@ -13,12 +13,13 @@ covers what his customers may still spend.
 from __future__ import annotations
 
 import logging
+import math
 import threading
 import time
 from typing import Any, Dict, List, Optional
 
-from openjarvis.pagos import ledger
-from openjarvis.pagos.gateways import GATEWAYS, Gateway, GatewayError, Paid, get
+from openjarvis.pagos import ledger, referidos
+from openjarvis.pagos.gateways import GATEWAYS, Gateway, GatewayError, Paid, Stripe, get
 
 MONTH = 31 * 86400
 EXPIRY_EVERY = 3600
@@ -119,7 +120,24 @@ def checkout(
         )
     if ledger.opened_since(uid, time.time() - WINDOW, home) >= MAX_OPEN:
         raise PaymentError("Demasiados intentos de pago. Espere unos minutos.")
-    order = ledger.new_order(uid, p["plan"], p["mult"], p["usd"], gw.key, home)
+    if not owner and gw.key == "stripe" and ledger.active_stripe(uid, home):
+        raise PaymentError(
+            "Ya tiene un plan de Stripe activo. Gestione la suscripción en Stripe."
+        )
+    order = ledger.new_order(
+        uid,
+        p["plan"],
+        p["mult"],
+        p["usd"],
+        gw.key,
+        home,
+        referral_fee=gw.fee(p["usd"])
+        if gw.key in ("stripe", "paypal")
+        and gw.live()
+        and not owner
+        and referidos.enabled()
+        else None,
+    )
     base = base.rstrip("/")
     back = f"{base}/v1/pagos/vuelta/{gw.key}?pedido={order['id']}"
     cancel = f"{base}/pagar?plan={p['plan']}&mult={p['mult']}&cancelado=1"
@@ -140,6 +158,19 @@ def checkout(
     return {"url": page["url"], "pedido": order["id"]}
 
 
+def billing_portal(uid: str, base: str, *, http: Any = None, home: Any = None) -> str:
+    stripe = Stripe(http)
+    if not stripe.ready() or not uid or (stripe.live() and not _https(base)):
+        raise PaymentError("El portal de Stripe no está disponible.")
+    session = ledger.stripe_session(uid, home)
+    if not session:
+        raise PaymentError("Esta cuenta no tiene un pago de Stripe.")
+    try:
+        return stripe.portal(session, base.rstrip("/") + "/planes")
+    except GatewayError as exc:
+        raise PaymentError(str(exc)) from exc
+
+
 def _activate(uid: str, plan: str, usd: float) -> bool:
     from openjarvis.accounts import provision
 
@@ -155,45 +186,71 @@ def settle(paid: Paid, method: str, *, home: Any = None) -> Dict[str, Any]:
     from openjarvis.accounts import provision
 
     order = ledger.get(paid.order, home) if paid.order else None
+    if order is None and paid.ext and paid.kind in ("expirado", "reembolso"):
+        order = ledger.by_ext(method, paid.ext, home)
     if order is None or order["method"] != method:
         return {"ok": False, "motivo": "pedido desconocido"}
+    if paid.kind == "expirado":
+        ledger.expire_checkout(order["id"], method, home)
+        return {"ok": True, "pedido": order["id"]}
+    if paid.kind == "pago" and order["status"] in (
+        "pagado",
+        "vencido",
+        "reembolsado",
+        "cancelado",
+    ):
+        if (
+            order["status"] == "pagado"
+            and order["plan"] != "prueba"
+            and order["until"] > time.time()
+        ):
+            _activate(
+                order["uid"], order["plan"], float(order["list_usd"] or order["usd"])
+            )
+        return {"ok": True, "repetido": True, "pedido": order["id"]}
+    expected = float(
+        (order["list_usd"] if paid.kind == "renovacion" else None) or order["usd"]
+    )
     if paid.currency and paid.currency.upper() != "USD":
-        ledger.mark(order["id"], "moneda_incorrecta", home)
+        if paid.kind == "pago":
+            ledger.payment_mismatch(order["id"], "moneda_incorrecta", home)
         log.warning("order %s paid in %s", order["id"], paid.currency)
         return {"ok": False, "motivo": "moneda incorrecta"}
-    if paid.kind in ("baja", "reembolso") and not ledger.first_time(
-        method, paid.event, home
-    ):
+    if paid.kind == "baja" and not ledger.first_time(method, paid.event, home):
         return {"ok": True, "repetido": True, "pedido": order["id"]}
     if paid.kind == "baja":
         ledger.end_now(order["uid"], home)
         return {"ok": True, "baja": True, "pedido": order["id"]}
     if paid.kind == "reembolso":
-        return _give_back(order, paid.usd, home)
+        return _give_back(order, paid.usd, home, event=paid.event)
     done = ledger.event_order(method, paid.event, home)
     if done is not None:
         # Already recorded. Switch the plan on again (it is idempotent): a
         # crash right after recording must not leave the customer without it.
         first = ledger.get(done, home) if done else None
         if first and first["status"] == "pagado" and first["plan"] != "prueba":
-            _activate(first["uid"], first["plan"], float(first["usd"]))
+            _activate(
+                first["uid"], first["plan"], float(first["list_usd"] or first["usd"])
+            )
         return {"ok": True, "repetido": True, "pedido": done or order["id"]}
-    if paid.usd + 0.01 < float(order["usd"]):
-        ledger.mark(order["id"], "importe_incorrecto", home)
+    if not math.isfinite(paid.usd) or abs(paid.usd - expected) >= 0.005:
+        if paid.kind == "pago":
+            ledger.payment_mismatch(order["id"], "importe_incorrecto", home)
         log.warning(
             "order %s paid %.2f, expected %.2f", order["id"], paid.usd, order["usd"]
         )
         return {"ok": False, "motivo": "importe incorrecto"}
-    if paid.kind == "renovacion" or order["status"] == "pagado":
+    if paid.kind == "renovacion":
         order = ledger.new_order(
-            order["uid"], order["plan"], order["mult"], order["usd"], method, home
+            order["uid"], order["plan"], order["mult"], expected, method, home
         )
         ledger.set_ext(order["id"], paid.ext, home)
     gw = get(method)
     usd = float(order["usd"])
     fee = gw.fee(usd) if gw else 0.0
     test = order["plan"] == "prueba"
-    ai = 0.0 if test else provision.budget(order["plan"], usd)
+    list_usd = float(order["list_usd"] or usd)
+    ai = 0.0 if test else provision.budget(order["plan"], list_usd)
     start = max(time.time(), 0 if test else ledger.paid_until(order["uid"], home))
     receipt = ledger.settle_paid(
         method,
@@ -207,21 +264,28 @@ def settle(paid: Paid, method: str, *, home: Any = None) -> Dict[str, Any]:
             "margen": usd - fee - ai,
         },
         home,
+        qualify_referral=referidos.enabled() and bool(gw and gw.live()),
     )
     if receipt is None:  # the same event, recorded meanwhile by another thread
         return {"ok": True, "repetido": True, "pedido": order["id"]}
-    active = False if test else _activate(order["uid"], order["plan"], usd)
+    active = False if test else _activate(order["uid"], order["plan"], list_usd)
     return {"ok": True, "pedido": order["id"], "recibo": receipt, "clave_ia": active}
 
 
-def _give_back(order: Dict[str, Any], usd: float, home: Any) -> Dict[str, Any]:
+def _give_back(
+    order: Dict[str, Any], usd: float, home: Any, *, event: str = ""
+) -> Dict[str, Any]:
     """Money returned (refund or chargeback): the books say so with new lines
     and the customer's paid time ends now."""
     from openjarvis.accounts import provision
 
-    usd = min(abs(usd) or float(order["usd"]), float(order["usd"]))
-    ledger.add_lines(order["id"], {"ingreso": -usd, "margen": -usd}, home)
-    ledger.mark(order["id"], "reembolsado", home)
+    if not math.isfinite(usd):
+        return {"ok": False, "motivo": "importe incorrecto"}
+    usd = ledger.refund_order(
+        order["id"], order["method"], event, abs(usd) or float(order["usd"]), home
+    )
+    if not usd:
+        return {"ok": True, "repetido": True, "pedido": order["id"]}
     if order["plan"] != "prueba":
         ledger.end_now(order["uid"], home)
         if provision.key_for(order["uid"]):
@@ -377,7 +441,9 @@ def summary(*, http: Any = None, home: Any = None) -> Dict[str, Any]:
     active = [o for o in ledger.latest_paid(home) if (o["until"] or 0) > now]
     from openjarvis.accounts import provision
 
-    owed = round(sum(provision.budget(o["plan"], o["usd"]) for o in active), 2)
+    owed = round(
+        sum(provision.budget(o["plan"], o["list_usd"] or o["usd"]) for o in active), 2
+    )
     balance = _openrouter_balance(http)
     return {
         "metodos": methods(http),
