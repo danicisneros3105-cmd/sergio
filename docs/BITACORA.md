@@ -2,6 +2,11 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-11-06 · Codex · Preparación de publicación
+- Unifiqué el lector de eventos de chat e investigación; acepta LF, CRLF y eventos con varias líneas. El chat conserva el texto parcial y avisa si el servidor cierra sin terminar.
+- El actualizador ya no descarta archivos del árbol de trabajo y detecta fallos de compilación antes de descargar extras. El README separa el instalador del proyecto base de Sergio.
+- Pasaron 352 pruebas de frontend, la compilación PWA, 5 pruebas del actualizador y la comprobación de uv.lock. Quedan pendientes CI verde y una prueba real del paquete y de instalación/actualización en Windows limpio. No se publicó una release.
+
 
 ## 2026-11-06 · Codex · Superficies burgundy y vidrio
 - Añadí gradiente suave al fondo y la barra lateral, y superficies translúcidas con bordes burgundy; se mantiene el azul de identidad.

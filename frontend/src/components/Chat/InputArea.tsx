@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router';
 import { ArrowUp, CircleDot, Clapperboard, MonitorSmartphone, Network, Plus, Search, Square, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { chatKindOf, useAppStore, generateId } from '../../lib/store';
-import { streamChat, streamResearch } from '../../lib/sse';
+import { IncompleteChatStreamError, streamChat, streamResearch } from '../../lib/sse';
 import { fetchSavings, getBase } from '../../lib/api';
 import { listConnectors, getSyncStatus } from '../../lib/connectors-api';
 import { serializeToolCallArguments } from '../../lib/tool-call';
@@ -544,6 +544,8 @@ export function InputArea() {
       } else if (err.name === 'AbortError') {
         // User cancelled or model switch — keep whatever was accumulated
         if (!accumulatedContent) accumulatedContent = '(Respuesta detenida)';
+      } else if (err instanceof IncompleteChatStreamError) {
+        accumulatedContent = accumulatedContent ? `${accumulatedContent}\n\n${err.message}` : err.message;
       } else if (isNetworkError(err) && !accumulatedContent) {
         const cached = await findAnswer(content, { previousAnswer });
         if (cached) {

@@ -17,6 +17,11 @@ def checkout(tmp_path):
     shutil.copyfile(source, root / "scripts/actualizar-sergio.sh")
     (root / "frontend").mkdir()
     (root / "frontend/package.json").write_text("{}")
+    static = root / "src/openjarvis/server/static"
+    static.mkdir(parents=True)
+    (static / "index.html").write_text("tracked fallback")
+    (root / ".gitignore").write_text("src/openjarvis/server/static_local/\n")
+    (root / "scripts/instalar-programas.sh").write_text("exit 0\n")
     git = shutil.which("git")
 
     def run(*args):
@@ -106,19 +111,11 @@ def test_update_build_failure_preserves_rollback_and_does_not_launch_desktop(che
     assert "escritorio instalar" not in events
 
 
-def test_a_previous_web_build_does_not_block_the_next_update(checkout):
+def test_update_preserves_legacy_static_changes(checkout):
     root, env, run, base = checkout
     static = root / "src/openjarvis/server/static"
-    static.mkdir(parents=True)
-    (static / "index.html").write_text("old build")
-    run("add", ".")
-    run("commit", "-m", "built web")
-    subprocess.run(
-        ["git", "push", "-q", env["TEST_REMOTE"], "main"], cwd=root, check=True
-    )
-    (static / "index.html").write_text("rebuilt by the last update")  # tracked, changed
-    (static / "assets").mkdir()
-    (static / "assets/new-chunk.js").write_text("x")  # untracked
+    (static / "index.html").write_text("local edit")
+    (static / "notes.txt").write_text("untracked work")
     result = subprocess.run(
         ["bash", "scripts/actualizar-sergio.sh"],
         cwd=root,
@@ -126,5 +123,29 @@ def test_a_previous_web_build_does_not_block_the_next_update(checkout):
         capture_output=True,
         text=True,
     )
-    assert "cambios locales" not in result.stderr, result.stderr
-    assert (static / "index.html").read_text() == "old build"
+    assert result.returncode != 0 and "cambios locales" in result.stderr
+    assert (static / "index.html").read_text() == "local edit"
+    assert (static / "notes.txt").read_text() == "untracked work"
+    assert run("rev-parse", "HEAD") == base
+    assert not Path(env["TEST_EVENTS"]).exists()
+
+
+def test_previous_ignored_build_does_not_block_update(checkout):
+    root, env, run, base = checkout
+    static_local = root / "src/openjarvis/server/static_local"
+    static_local.mkdir(parents=True)
+    (static_local / "index.html").write_text("previous build")
+    result = subprocess.run(
+        ["bash", "scripts/actualizar-sergio.sh"],
+        cwd=root,
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr
+    events = Path(env["TEST_EVENTS"]).read_text()
+    assert events.index("npm run build") < events.index("playwright install")
+    assert "escritorio instalar" in events
+    assert (root / "src/openjarvis/server/static/index.html").read_text() == (
+        "tracked fallback"
+    )
