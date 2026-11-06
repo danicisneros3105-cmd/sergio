@@ -1,7 +1,6 @@
 import { WeekLine } from './WeekLine';
 import { IaSetupCard } from './IaSetupCard';
-import { Fragment, useMemo, useRef, useEffect, useState, useCallback } from 'react';
-import { Link, useNavigate } from 'react-router';
+import { Fragment, useMemo, useRef, useEffect } from 'react';
 import { MessageBubble } from './MessageBubble';
 import { SplitButton } from '../Split/SplitButton';
 import { InputArea } from './InputArea';
@@ -13,19 +12,10 @@ import { liveIsSpeaking } from '../../lib/liveSession';
 import { stripThinkTags } from '../../lib/message-text';
 import { bubbleFlags as flagsFor } from '../../lib/imessage';
 import {
-  ArrowUpRight,
-  CalendarCheck,
   ChevronDown,
-  CircleDot,
   PanelRightOpen,
   PanelRightClose,
-  Database,
-  FileText,
-  Network,
-  Shapes,
-  Search,
 } from 'lucide-react';
-import { listConnectors } from '../../lib/connectors-api';
 import { usePersonal } from '../../lib/personal';
 import { greetingLine } from '../../lib/greetings';
 
@@ -37,60 +27,12 @@ export function friendlyModel(id: string): string {
   return 'En su PC';
 }
 
-// What people actually do with Sergio, as ChatGPT's pills under the
-// composer: some open their section, the rest fill the composer with an
-// editable start.
-const MODES: Array<{
-  icon: typeof Search;
-  label: string;
-  hint: string;
-  text: string;
-  send?: boolean;
-}> = [
-  {
-    icon: CalendarCheck,
-    label: 'Mi semana',
-    hint: 'Su semana con sus recordatorios y pendientes, como página',
-    send: true,
-    text: 'Hazme mi semana como artefacto (tipo página): lee mis recordatorios y pendientes reales con la herramienta de recordatorios, agrúpalos por día, marca lo urgente y deja un hueco para lo nuevo. No inventes ninguno.',
-  },
-  {
-    icon: FileText,
-    label: 'Resumir texto',
-    hint: 'Adjunte un PDF o pegue el texto: sale como documento',
-    text: 'Resume esto en cinco puntos y entrégalo como artefacto (tipo documento), con una línea final de qué hacer: ',
-  },
-  {
-    icon: Shapes,
-    label: 'Crear algo',
-    hint: 'Página, cartel, gráfico, calculadora o juego, ya hecho',
-    text: 'Crea como artefacto (página, cartel, gráfico, calculadora o juego pequeño; elija lo que mejor sirva): ',
-  },
-  {
-    icon: CircleDot,
-    label: 'Vigilar algo',
-    hint: 'Un tablero de lo que encuentra ahora; para seguirlo, una automatización',
-    text: 'Revisa ahora esto y entrégame un tablero como artefacto (tipo página) con lo que encontraste, la fecha de cada dato y qué cambiaría; al final ofrécete a vigilarlo con una automatización: ',
-  },
-  {
-    icon: Network,
-    label: 'Investigar',
-    hint: 'Investigación profunda con fuentes, como informe',
-    text: 'Investígalo a fondo con fuentes reales y entrégame el informe como artefacto (tipo documento), con lo confirmado, lo dudoso y los enlaces: ',
-  },
-];
-
-function prefill(text: string, send = false) {
-  window.dispatchEvent(new CustomEvent(send ? 'sergio:send' : 'sergio:prefill', { detail: text }));
-}
-
 export function ChatArea() {
   const activeId = useAppStore((s) => s.activeId);
   const messages = useAppStore((s) => s.messages);
   const streamState = useAppStore((s) => s.streamState);
   const systemPanelOpen = useAppStore((s) => s.systemPanelOpen);
   const toggleSystemPanel = useAppStore((s) => s.toggleSystemPanel);
-  const navigate = useNavigate();
   const conversations = useAppStore((s) => s.conversations);
   const selectedModel = useAppStore((s) => s.selectedModel);
   const chatKind = useAppStore((s) => s.chatKind);
@@ -168,15 +110,6 @@ export function ChatArea() {
   // iMessage: groups, tails, centred times and «Entregado» / «Leído».
   const bubbleFlags = useMemo(() => flagsFor(messages), [messages]);
 
-  // Check if any data sources are connected
-  const [hasConnectedSources, setHasConnectedSources] = useState<boolean | null>(null);
-
-  useEffect(() => {
-    listConnectors()
-      .then((list) => setHasConnectedSources(list.some((c) => c.connected)))
-      .catch(() => setHasConnectedSources(null));
-  }, []);
-
   useEffect(() => {
     // Sending a message always pins the view to the bottom, even if the
     // user had scrolled up to read earlier messages.
@@ -232,7 +165,7 @@ export function ChatArea() {
           </span>
         </button>
         <div className="flex items-center gap-1.5">
-          <SplitButton className="split-pill-btn" showLabel />
+          <SplitButton className="split-pill-btn" />
           <button
             onClick={toggleSystemPanel}
             className="mac-icon-btn hidden lg:inline-grid"
@@ -252,12 +185,11 @@ export function ChatArea() {
         >
           {isEmpty ? (
             <div>
-              <header className="sg-chat-heading">
+              <header className="sg-chat-heading sg-editorial-cover">
                 <span className="sg-kicker">Espacio personal</span>
                 <h1>{hello}</h1>
               </header>
               <IaSetupCard />
-              <WeekLine />
             </div>
           ) : (
             <div className="imsg-thread max-w-[var(--chat-max-width)] mx-auto px-4 py-6">
@@ -304,39 +236,7 @@ export function ChatArea() {
           <InputArea />
         </div>
 
-        {isEmpty && (
-          <section className="sg-chat-board" aria-labelledby="sg-chat-board-title">
-            <h2 id="sg-chat-board-title">Empieza aquí</h2>
-            <div className="sg-chat-tiles">
-              <Link className="sg-chat-tile sg-chat-feature" to="/cowork">
-                <span className="sg-kicker">Espacio de trabajo</span>
-                <span className="sg-feature-ring" aria-hidden="true" />
-                <span className="sg-feature-caption">
-                  <span><strong>Cowork</strong><small>Organiza un proyecto paso a paso.</small></span>
-                  <ArrowUpRight size={22} aria-hidden="true" />
-                </span>
-              </Link>
-              {MODES.map(({ icon: Icon, label, hint, text, send }) => (
-                <button
-                  key={label}
-                  type="button"
-                  className="sg-chat-tile"
-                  title={hint}
-                  onClick={() => prefill(text, send)}
-                >
-                  <Icon size={20} strokeWidth={1.7} aria-hidden="true" />
-                  <strong>{label}</strong>
-                </button>
-              ))}
-              {hasConnectedSources === false && (
-                <button type="button" className="sg-chat-tile" onClick={() => navigate('/data-sources')}>
-                  <Database size={20} strokeWidth={1.7} aria-hidden="true" />
-                  <strong>Conectar mis apps</strong>
-                </button>
-              )}
-            </div>
-          </section>
-        )}
+        {isEmpty && <div className="sg-chat-context"><WeekLine /></div>}
       </div>
     </div>
   );

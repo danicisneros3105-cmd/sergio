@@ -2,6 +2,11 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-11-05 · Codex · Portadas cálidas y menos controles
+- Retiré la cuadrícula de atajos del chat y su consulta de conectores. Se mantienen el compositor, los controles existentes y el resumen semanal.
+- Chat y Cowork comparten una portada de grafito con luz cálida; las burbujas usan colores neutros y se conserva el logo azul. No se añadió navegación ni botones.
+- Verifiqué sintaxis de TSX y CSS y contraste de la paleta. Falta revisar la apariencia en el ejecutable de Windows.
+
 ## 2026-11-05 · Codex · Señales de error y render completo
 - El orquestador general identifica los resultados fallidos antes de devolverlos al modelo; esto reduce respuestas que presentan una herramienta fallida como éxito.
 - La toma 3D exige todos los fotogramas y un archivo de salida no vacío. Se comprobó un render pequeño con Blender y FFmpeg; no demuestra calidad comparable a un creador.
