@@ -301,3 +301,22 @@ def test_a_follow_up_task_knows_the_earlier_one(engine_factory):
     second = engine.start("Ahora haz un gráfico", follows=first.id, wait=True)
     assert second.follows == first.id and "tabla.xlsx" in second.context
     assert "tabla.xlsx" in seen[1] and "tabla.xlsx" in runner.prompts[1][0]
+
+
+def test_unknown_answer_does_not_complete_or_unblock(engine_factory):
+    runner = FakeRunner(["Estoy trabajando", "Todavía revisando"])
+    engine = engine_factory(
+        _plan(_step("Buscar portátiles"), _step("Hacer la tabla", depende_de=[1])),
+        runner,
+    )
+    run = engine.start(GOAL, wait=True)
+    assert run.steps[0].status == "failed"
+    assert run.status != "done"
+
+
+def test_retry_uses_the_latest_answer(engine_factory):
+    runner = FakeRunner(["FALTA: comprobar", "TERMINADO: archivo verificado"])
+    engine = engine_factory(_plan(_step("Buscar portátiles")), runner)
+    run = engine.start(GOAL, wait=True)
+    assert run.status == "done"
+    assert "archivo verificado" in run.steps[0].result

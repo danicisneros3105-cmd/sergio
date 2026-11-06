@@ -2,6 +2,11 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-11-05 · Codex · Estado honesto de Cowork
+- Las respuestas sin estado reconocido ya no cuentan como terminadas; se pide una comprobación y se conservan los pasos dependientes sin ejecutar.
+- Se conserva la respuesta más reciente del reintento. Las pruebas simuladas cubren resultados ambiguos y reintentos.
+- El marcador del modelo sigue sin demostrar por sí solo que un archivo o acción exista: hacen falta verificadores específicos para cada herramienta.
+
 ## 2026-11-05 · Codex · Sistema visual compartido
 - Unifiqué grafito, crema, azul de acción y coral editorial en la hoja común; Chat, Cowork, Nodes, Perfil y Pagos usan el mismo vocabulario visual.
 - Revisé el diseño anterior: los valores fijos de Pagos y el coral de las burbujas competían con el logo azul. Se conservan la marca y los estados funcionales.

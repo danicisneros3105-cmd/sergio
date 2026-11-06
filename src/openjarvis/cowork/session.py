@@ -447,20 +447,21 @@ class CoworkEngine:
         step.actions += used
         try:
             budget.spend(used)
-            if status == "more" and budget.remaining > 0 and not cancel.is_set():
+            if status in ("more", "unknown") and budget.remaining > 0 and not cancel.is_set():
                 again, used2 = runner(
                     f"{prompt}\nFalta: {detail or 'verificar'}. Compruébalo y termina.",
                     step.tools,
                     budget.remaining,
                 )
                 step.actions += used2
-                status, detail = step_status(again)
+                answer = again
+                status, detail = step_status(answer)
                 budget.spend(used2)
         finally:
             run.actions_used = budget.used
             step.result = (detail or answer or "")[-600:]
             step.status = (
-                "done" if status in ("done", "unknown") and answer else "failed"
+                "done" if status == "done" and answer else "failed"
             )
             scrutiny.note_outcome(step.status == "done")
             audit.record(
