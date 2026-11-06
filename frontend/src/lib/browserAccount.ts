@@ -45,7 +45,7 @@ export function clearBrowserAccount(): void {
 
 // A page restored from the browser's back/forward cache may still contain
 // the old React tree. Rebuild it when the tab's account changed meanwhile.
-if (typeof window !== 'undefined') {
+if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
   window.addEventListener('pageshow', (event) => {
     if (event.persisted && readAccount()?.id !== accountAtPageLoad) window.location.reload();
   });
