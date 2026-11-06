@@ -1,73 +1,86 @@
-/* Sergio: warm paper, ink and a restrained coral accent. */
+/* Sergio: one palette for the shell, interaction, and editorial covers.
+   Blue means an action or selection. Coral belongs to artwork, not status. */
+:root {
+  --sergio-graphite: #201f1e;
+  --sergio-cream: #f7f1e7;
+  --sergio-on-graphite-muted: #ddd4c8;
+  --sergio-coral: #f57658;
+  --sergio-coral-hover: #ff896e;
+  --sergio-coral-ink: #201f1e;
+  --sergio-card-radius: 22px;
+  --sergio-cover-radius: 28px;
+}
+/* Explicit theme overrides the system preference. */
 :root, :root.light {
-  --color-bg: #f5f3ee;
-  --color-bg-secondary: #ebe8e1;
-  --color-bg-tertiary: #e3e0d8;
+  color-scheme: light;
+  --color-bg: #f5f2ec;
+  --color-bg-secondary: #ede8e0;
+  --color-bg-tertiary: #e5dfd5;
   --color-surface: #fffcf6;
-  --color-sidebar: #eae7df;
-  --color-tile: #ece9e1;
+  --color-sidebar: #ede8e0;
+  --color-tile: #f0ebe3;
   --color-sheet: #fffcf6;
-  --color-border: rgba(25, 25, 23, .14);
-  --color-border-subtle: rgba(25, 25, 23, .08);
-  --color-text: #171715;
-  --color-text-secondary: #514f4b;
-  --color-text-tertiary: #6c6963;
-  --color-input-bg: #fffcf6;
-  --color-composer: #fffcf6;
-  --color-user-bubble: #e6e2da;
-  --color-user-bubble-text: #171715;
-  --sergio-coral: #f04a32;
-  --sergio-coral-hover: #f65a41;
-  --sergio-coral-ink: #11110f;
+  --color-border: #d6cec2;
+  --color-border-subtle: #e5ddd2;
+  --color-text: #201f1e;
+  --color-text-secondary: #514c46;
+  --color-text-tertiary: #635d55;
+  --color-input-bg: var(--color-surface);
+  --color-composer: var(--color-surface);
+  --color-user-bubble: #dfebff;
+  --color-user-bubble-text: #172e4d;
+  --color-accent: #005bce;
+  --color-accent-hover: #004ba9;
+  --color-accent-text: #0054bb;
+  --color-accent-subtle: #e5edfb;
+  --color-accent-blue-subtle: var(--color-accent-subtle);
+  --color-accent-glow: #005bce33;
+  --color-selected: #dce8fb;
+  --color-ink: var(--color-accent);
+  --color-on-ink: #fff;
+  --sergio-focus: #005bce;
+  accent-color: var(--color-accent);
 }
 :root.dark {
-  --color-bg: #101010;
-  --color-bg-secondary: #191919;
-  --color-bg-tertiary: #252525;
-  --color-surface: #1c1c1c;
-  --color-sidebar: #141414;
-  --color-tile: #222222;
-  --color-sheet: #222222;
-  --color-border: rgba(255, 252, 246, .17);
-  --color-border-subtle: rgba(255, 252, 246, .09);
-  --color-text: #f5f3ee;
-  --color-text-secondary: #c3c0ba;
-  --color-text-tertiary: #a5a19a;
-  --color-input-bg: #252525;
-  --color-composer: #1c1c1c;
-  --color-user-bubble: #30302e;
-  --color-user-bubble-text: #f5f3ee;
-}
-@media (prefers-color-scheme: dark) {
-  :root:not(.light):not(.dark) {
-    --color-bg: #101010;
-    --color-bg-secondary: #191919;
-    --color-bg-tertiary: #252525;
-    --color-surface: #1c1c1c;
-    --color-sidebar: #141414;
-    --color-tile: #222222;
-    --color-sheet: #222222;
-    --color-border: rgba(255, 252, 246, .17);
-    --color-border-subtle: rgba(255, 252, 246, .09);
-    --color-text: #f5f3ee;
-    --color-text-secondary: #c3c0ba;
-    --color-text-tertiary: #a5a19a;
-    --color-input-bg: #252525;
-    --color-composer: #1c1c1c;
-    --color-user-bubble: #30302e;
-    --color-user-bubble-text: #f5f3ee;
-  }
+  color-scheme: dark;
+  --color-bg: #171615;
+  --color-bg-secondary: #201f1e;
+  --color-bg-tertiary: #302d2a;
+  --color-surface: #22201e;
+  --color-sidebar: #1d1b1a;
+  --color-tile: #2a2724;
+  --color-sheet: #282522;
+  --color-border: #49423b;
+  --color-border-subtle: #3a342e;
+  --color-text: #f7f1e7;
+  --color-text-secondary: #d0c7bb;
+  --color-text-tertiary: #b5ac9f;
+  --color-input-bg: var(--color-tile);
+  --color-composer: var(--color-surface);
+  --color-user-bubble: #253e62;
+  --color-user-bubble-text: #edf4ff;
+  --color-accent: #2169d5;
+  --color-accent-hover: #1556b5;
+  --color-accent-text: #91bcff;
+  --color-accent-subtle: #23344d;
+  --color-accent-blue-subtle: var(--color-accent-subtle);
+  --color-accent-glow: #91bcff44;
+  --color-selected: #263950;
+  --color-ink: var(--color-accent);
+  --color-on-ink: #fff;
+  --sergio-focus: #91bcff;
+  accent-color: var(--sergio-focus);
 }
 
 /* Cards stay readable in either theme and retain each page's layout. */
 :root .paper-sheet, :root .cw-more-card, :root .artifact {
-  border-radius: 22px;
+  border-radius: var(--sergio-card-radius);
   border: 1px solid var(--color-border);
   background: var(--color-surface);
 }
 :root .cw-composer { border-radius: 26px; background: var(--color-surface); }
 :root .cw-suggest button {
-  border-radius: 22px;
+  border-radius: var(--sergio-card-radius);
   min-height: 74px;
   background: var(--color-surface);
   color: var(--color-text);
@@ -75,7 +88,7 @@
 :root .paper-title { letter-spacing: -.025em; }
 :root .artifact-head { padding: 12px 14px; }
 :root .artifact-head button:focus-visible, :root .artifact-head a:focus-visible,
-:root .cw-suggest button:focus-visible { outline: 3px solid var(--color-accent); outline-offset: 2px; }
+:root .cw-suggest button:focus-visible { outline: 3px solid var(--sergio-focus); outline-offset: 2px; }
 @media (max-width: 640px) {
   :root .paper-sheet, :root .cw-more-card, :root .artifact { border-radius: 18px; }
   :root .cw-suggest button { min-height: 64px; }
@@ -86,8 +99,8 @@
 
 /* The color is visible in the main conversation, not just Cowork. */
 :root .imsg-thread {
-  --imsg-me: var(--sergio-coral);
-  --imsg-me-text: var(--sergio-coral-ink);
+  --imsg-me: var(--color-user-bubble);
+  --imsg-me-text: var(--color-user-bubble-text);
   --imsg-them: var(--color-surface);
   --imsg-them-text: var(--color-text);
   --imsg-meta: var(--color-text-secondary);
@@ -103,7 +116,7 @@
 }
 .sg-chat-heading {
   margin-bottom: 16px; padding: clamp(20px, 4vw, 40px);
-  border: 1px solid var(--color-border); border-radius: 28px;
+  border: 1px solid var(--color-border); border-radius: var(--sergio-cover-radius);
   background: var(--color-surface);
 }
 .sg-kicker { display: block; font-size: 12px; font-weight: 650; line-height: 1.3; }
@@ -129,15 +142,15 @@
 .sg-chat-tile strong { font-size: 14px; font-weight: 650; }
 .sg-chat-tile:hover { background: var(--color-tile); }
 .sg-chat-tile:focus-visible, .sg-mobile-dock a:focus-visible {
-  outline: 3px solid var(--color-accent); outline-offset: -4px;
+  outline: 3px solid var(--sergio-focus); outline-offset: -4px;
 }
 .sg-chat-tile.sg-chat-feature {
   grid-column: span 2; grid-row: span 2;
-  background: var(--sergio-coral); border-color: transparent; color: var(--sergio-coral-ink);
+  background: var(--sergio-graphite); border-color: transparent; color: var(--sergio-cream);
 }
-.sg-chat-tile.sg-chat-feature:hover { background: var(--sergio-coral-hover); }
+.sg-chat-tile.sg-chat-feature:hover { background: #302c28; }
 .sg-feature-ring {
-  width: 58px; height: 58px; border: 14px solid currentColor; border-radius: 50%;
+  width: 58px; height: 58px; border: 14px solid var(--sergio-coral); border-bottom-color: #d5513b; border-radius: 50%;
   align-self: center;
 }
 .sg-feature-caption { display: flex; justify-content: space-between; align-items: flex-end; gap: 8px; width: 100%; }
@@ -151,13 +164,14 @@
   position: relative; isolation: isolate; overflow: hidden;
   display: flex; flex-direction: column; justify-content: space-between;
   min-height: 206px; padding: clamp(20px, 4vw, 34px); margin-bottom: 14px;
-  border-radius: 28px; background: var(--sergio-coral); color: var(--sergio-coral-ink);
+  border-radius: var(--sergio-cover-radius); background: var(--sergio-coral); color: var(--sergio-coral-ink);
 }
 .cw .sg-cowork-cover .cw-hero { max-width: min(62%, 430px); text-align: left; }
 .sg-cowork-ring {
   position: absolute; z-index: -1; top: 15%; right: 5%;
   width: clamp(80px, 22vw, 165px); height: clamp(80px, 22vw, 165px); border-radius: 50%;
   border: clamp(18px, 5vw, 38px) solid currentColor;
+  border-inline-end-color: #874333; rotate: -28deg;
 }
 :root .sg-cowork-cover ~ .cw-suggest { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 :root .sg-cowork-cover ~ .cw-suggest li { display: list-item; }
@@ -167,7 +181,7 @@
   .sg-mobile-dock {
     display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); flex: 0 0 auto;
     gap: 2px; padding: 4px; margin: 3px 10px max(6px, env(safe-area-inset-bottom));
-    border: 1px solid var(--color-border); border-radius: 22px;
+    border: 1px solid var(--color-border); border-radius: var(--sergio-card-radius);
     background: var(--color-surface);
   }
   .sg-mobile-dock a {
@@ -175,7 +189,7 @@
     border-radius: 17px; color: var(--color-text-secondary); text-decoration: none;
     font-size: 10px; font-weight: 650; line-height: 1.15;
   }
-  .sg-mobile-dock a[aria-current='page'] { background: var(--color-bg-tertiary); color: var(--color-text); }
+  .sg-mobile-dock a[aria-current='page'] { background: var(--color-selected); color: var(--color-accent-text); }
   .cw.cw-home .cw-home-inner { padding-top: 56px; }
   .pane-shell .cw.cw-home .cw-home-inner { padding-top: 16px; }
 }
@@ -184,4 +198,38 @@
   .sg-chat-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .sg-chat-tile.sg-chat-feature { grid-row: span 1; min-height: 150px; }
   .sg-cowork-cover { min-height: 166px; }
+}
+
+/* Quiet chrome, with blue reserved for the active destination. */
+:root .sb-ico { color: var(--color-text-secondary); }
+:root .sb-item[aria-current='page'] .sb-ico { color: var(--color-accent-text); }
+:root :is(.paper-tab, .sb-item, .paper-button, .pay-method, .nodes-item, .cw-primary):focus-visible {
+  outline: 2px solid var(--sergio-focus);
+  outline-offset: 2px;
+}
+:root .paper-tab[aria-selected='true'],
+:root .node-page .paper-tab[aria-selected='true'] { color: var(--color-accent-text); }
+:root .paper-title { font-size: clamp(23px, 3vw, 34px); letter-spacing: -.04em; }
+:root .cw-primary { background: var(--color-accent); color: var(--color-on-ink); }
+:root .cw-primary:hover { background: var(--color-accent-hover); }
+:root .cw-card { border-radius: var(--sergio-card-radius); }
+:root .nodes-item[aria-current='true'] { background: var(--color-selected); }
+:root .node-head {
+  margin: 12px 16px 8px;
+  padding: clamp(10px, 2.5vw, 20px);
+  border: 1px solid var(--color-border);
+  border-radius: var(--sergio-card-radius);
+  background: var(--color-surface);
+}
+:root .node-name {
+  font-size: clamp(21px, 3vw, 32px);
+  letter-spacing: -.045em;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 640px) {
+  :root .node-head { margin-inline: 8px; gap: 8px; }
+  :root .paper-head .paper-title { overflow-wrap: anywhere; }
+}
+@media (forced-colors: active) {
+  .sg-feature-ring, .sg-cowork-ring, .commerce-ring { border-color: ButtonText; }
 }

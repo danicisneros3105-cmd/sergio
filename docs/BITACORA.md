@@ -2,6 +2,11 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-11-05 · Codex · Sistema visual compartido
+- Unifiqué grafito, crema, azul de acción y coral editorial en la hoja común; Chat, Cowork, Nodes, Perfil y Pagos usan el mismo vocabulario visual.
+- Revisé el diseño anterior: los valores fijos de Pagos y el coral de las burbujas competían con el logo azul. Se conservan la marca y los estados funcionales.
+- Verifiqué sintaxis y contraste de las parejas de color en ambos temas. Queda pendiente una inspección visual de la app instalada en Windows.
+
 ## 2026-11-05 · Codex · Cobros, referidos e integraciones verificables
 - Rediseñé Planes, Pago y la tarjeta de referidos en Perfil con grafito, crema y coral. Work es la recomendación visible; los planes mantienen los precios y los permisos ya implementados.
 - Revisé el cobro de Claude: Stripe ignoraba el aviso asíncrono y podía registrar otra mensualidad por el mismo checkout. Ahora se valida el cobro y se incluye el portal alojado y un cupón de referidos con espera y margen mínimo.
