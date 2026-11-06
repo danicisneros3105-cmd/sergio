@@ -233,3 +233,14 @@
 @media (forced-colors: active) {
   .sg-feature-ring, .sg-cowork-ring, .commerce-ring { border-color: ButtonText; }
 }
+
+/* Clear focus and long-label handling across desktop and touch layouts. */
+:root :is(.sg-chat-tile, .paper-button, .cw-icon, .nodes-item, .sb-item, .sg-mobile-dock a):focus-visible {
+  outline: 2px solid var(--sergio-focus);
+  outline-offset: 3px;
+}
+:root :is(.sg-chat-tile, .cw-suggest button, .nodes-item, .plan-card) { min-width: 0; overflow-wrap: anywhere; }
+@media (max-width: 520px) {
+  :root .sg-chat-heading, :root .sg-cowork-cover { border-radius: 22px; }
+  :root .sg-chat-heading h1, :root .cw .sg-cowork-cover .cw-hero { font-size: clamp(28px, 8vw, 38px); }
+}

@@ -179,8 +179,12 @@ def render_shot(
             else subprocess.run(args, capture_output=True, timeout=timeout).returncode
         )
         pngs = sorted(frames_dir.glob("*.png"))
-        if code_rc != 0 or not pngs:
-            raise RuntimeError("Blender no pudo renderizar la toma.")
+        expected = {f"{i:04d}.png" for i in range(1, frames + 1)}
+        present = {p.name for p in pngs if p.is_file() and p.stat().st_size > 0}
+        if code_rc != 0 or present != expected:
+            raise RuntimeError(
+                f"Blender no terminó la toma: {len(present)} de {frames} fotogramas."
+            )
         subprocess.run(
             [ffmpeg, "-y", "-v", "error", "-framerate", str(fps), "-pattern_type", "glob",
              "-i", str(frames_dir / "*.png"),

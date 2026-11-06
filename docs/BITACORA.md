@@ -2,6 +2,11 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-11-05 · Codex · Señales de error y render completo
+- El orquestador general identifica los resultados fallidos antes de devolverlos al modelo; esto reduce respuestas que presentan una herramienta fallida como éxito.
+- La toma 3D exige todos los fotogramas y un archivo de salida no vacío. Se comprobó un render pequeño con Blender y FFmpeg; no demuestra calidad comparable a un creador.
+- Se refinaron foco, textos largos y tamaños móviles; falta revisión visual en la aplicación instalada y verificadores de resultados específicos por herramienta.
+
 ## 2026-11-05 · Codex · Estado honesto de Cowork
 - Las respuestas sin estado reconocido ya no cuentan como terminadas; se pide una comprobación y se conservan los pasos dependientes sin ejecutar.
 - Se conserva la respuesta más reciente del reintento. Las pruebas simuladas cubren resultados ambiguos y reintentos.

@@ -28,6 +28,17 @@ from openjarvis.tools._stubs import BaseTool
 logger = logging.getLogger(__name__)
 
 
+def _tool_observation(result: ToolResult) -> str:
+    """Do not let an unsuccessful call look like evidence of completion."""
+    if result.success:
+        return result.content
+    return (
+        f"ERROR: La herramienta {result.tool_name} no completó esta acción. "
+        "No la presentes como terminada; explica lo pendiente o busca otra forma.\\n"
+        f"{result.content}"
+    )
+
+
 @AgentRegistry.register("orchestrator")
 class OrchestratorAgent(ToolUsingAgent):
     """Multi-turn agent that routes between tools and the LLM.
@@ -467,7 +478,7 @@ class OrchestratorAgent(ToolUsingAgent):
                     messages.append(
                         Message(
                             role=Role.TOOL,
-                            content=tool_result.content,
+                            content=_tool_observation(tool_result),
                             tool_call_id=tc.id,
                             name=tc.name,
                         )
@@ -482,7 +493,7 @@ class OrchestratorAgent(ToolUsingAgent):
                         messages.append(
                             Message(
                                 role=Role.TOOL,
-                                content=denial.content,
+                                content=_tool_observation(denial),
                                 tool_call_id=tc.id,
                                 name=tc.name,
                             )
@@ -505,7 +516,7 @@ class OrchestratorAgent(ToolUsingAgent):
                             messages.append(
                                 Message(
                                     role=Role.TOOL,
-                                    content=tool_result.content,
+                                    content=_tool_observation(tool_result),
                                     tool_call_id=tc.id,
                                     name=tc.name,
                                 )
@@ -519,7 +530,7 @@ class OrchestratorAgent(ToolUsingAgent):
                     messages.append(
                         Message(
                             role=Role.TOOL,
-                            content=tool_result.content,
+                            content=_tool_observation(tool_result),
                             tool_call_id=tc.id,
                             name=tc.name,
                         )
