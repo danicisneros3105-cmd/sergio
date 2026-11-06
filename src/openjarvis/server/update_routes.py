@@ -1,17 +1,13 @@
-"""«Actualizar» from inside Sergio: the owner's universal command, one click.
-
-It runs exactly what the owner would type in PowerShell — fetch main, put
-the local ``main`` on it and ``scripts/actualizar-sergio.sh main`` — but in
-its own systemd scope (or a new session), because the update restarts this
-very server. Only from this computer (never through a tunnel).
-"""
+"""Start the non-destructive WSL updater from the local Sergio app."""
 
 from __future__ import annotations
 
 import os
+import re
 import shlex
 import shutil
 import subprocess
+import threading
 import time
 from pathlib import Path
 from typing import Any, Callable, Dict, List
@@ -20,10 +16,8 @@ from fastapi import APIRouter, HTTPException, Request
 
 router = APIRouter(prefix="/v1/sistema", tags=["sistema"])
 ROOT = Path(__file__).resolve().parents[3]
-COMMAND = (
-    "git fetch origin main && git checkout -B main origin/main && "
-    "bash scripts/actualizar-sergio.sh main"
-)
+COMMAND = "bash scripts/actualizar-sergio.sh main"
+_START_LOCK = threading.Lock()
 
 
 def _home() -> Path:
@@ -50,9 +44,10 @@ def running(now: float | None = None) -> bool:
 def launcher(root: Path = ROOT) -> List[str]:
     log, lock = log_path(), lock_path()
     script = (
-        f"cd {shlex.quote(str(root))} && date +%s > {shlex.quote(str(lock))} && "
-        f"( {COMMAND} ) >> {shlex.quote(str(log))} 2>&1; "
-        f'echo "== fin: $? ($(date))" >> {shlex.quote(str(log))}; rm -f {shlex.quote(str(lock))}'
+        f"trap {shlex.quote('rm -f -- ' + shlex.quote(str(lock)))} EXIT; "
+        f"( cd -- {shlex.quote(str(root))} && {COMMAND} ) "
+        f">> {shlex.quote(str(log))} 2>&1; rc=$?; "
+        f'echo "== fin: $rc ($(date))" >> {shlex.quote(str(log))}; exit "$rc"'
     )
     if shutil.which("systemd-run"):
         return [
@@ -69,26 +64,50 @@ def launcher(root: Path = ROOT) -> List[str]:
 
 
 def start(popen: Callable[..., Any] = subprocess.Popen) -> Dict[str, Any]:
-    if running():
-        return {"started": False, "running": True}
-    log_path().parent.mkdir(parents=True, exist_ok=True)
-    with log_path().open("a", encoding="utf-8") as f:
-        f.write(f"\n== Actualización pedida desde Sergio ({time.ctime()})\n")
-    popen(
-        launcher(),
-        stdin=subprocess.DEVNULL,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        start_new_session=True,
-    )
-    return {"started": True, "running": True}
+    with _START_LOCK:
+        if running():
+            return {"started": False, "running": True}
+        log_path().parent.mkdir(parents=True, exist_ok=True)
+        lock = lock_path()
+        lock.write_text(str(time.time()), encoding="utf-8")
+        try:
+            with log_path().open("a", encoding="utf-8") as f:
+                f.write(f"\n== Actualización pedida desde Sergio ({time.ctime()})\n")
+                cmd = launcher()
+                # A failed systemd launch (e.g. no user bus) must not leave
+                # a permanent in-progress flag. Fall back to a detached shell.
+                if cmd[0] == "systemd-run":
+                    try:
+                        subprocess.run(
+                            cmd,
+                            stdin=subprocess.DEVNULL,
+                            stdout=f,
+                            stderr=f,
+                            check=True,
+                            timeout=5,
+                        )
+                    except (OSError, subprocess.CalledProcessError):
+                        cmd = ["setsid", *cmd[-3:]]
+                    else:
+                        return {"started": True, "running": True}
+                popen(
+                    cmd,
+                    stdin=subprocess.DEVNULL,
+                    stdout=f,
+                    stderr=f,
+                    start_new_session=True,
+                )
+        except Exception:
+            lock.unlink(missing_ok=True)
+            raise
+        return {"started": True, "running": True}
 
 
 def status() -> Dict[str, Any]:
     try:
-        tail = (
-            log_path().read_text(encoding="utf-8", errors="replace").splitlines()[-12:]
-        )
+        with log_path().open("rb") as f:
+            f.seek(max(f.seek(0, os.SEEK_END) - 65536, 0))
+            tail = f.read().decode("utf-8", errors="replace").splitlines()[-12:]
     except OSError:
         tail = []
     try:
@@ -101,7 +120,13 @@ def status() -> Dict[str, Any]:
         ).stdout.strip()
     except (OSError, subprocess.SubprocessError):
         version = ""
-    return {"running": running(), "version": version, "log": tail}
+    completed = re.match(r"^== fin: (\d+) ", tail[-1]) if tail else None
+    return {
+        "running": running(),
+        "version": version,
+        "log": tail,
+        "last_exit_code": int(completed[1]) if completed else None,
+    }
 
 
 def _local_only(request: Request) -> None:
@@ -118,9 +143,17 @@ async def update_status(request: Request) -> Dict[str, Any]:
 
 
 @router.post("/actualizar")
-async def update_now(request: Request) -> Dict[str, Any]:
+def update_now(request: Request) -> Dict[str, Any]:
     _local_only(request)
-    return start()
+    if request.headers.get("sec-fetch-site") in ("cross-site", "same-site"):
+        raise HTTPException(status_code=403, detail="Actualización desde otro origen.")
+    try:
+        return start()
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="No pude iniciar la actualización. Revisa el registro.",
+        ) from exc
 
 
 __all__ = ["COMMAND", "launcher", "router", "running", "start", "status"]

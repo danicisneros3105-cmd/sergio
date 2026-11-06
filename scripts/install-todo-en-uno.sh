@@ -13,6 +13,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 WITH_GLOBE=false  # God's Eye View is hidden: only its data is used
 TOKEN_SAVER=false
 PERMANENT=false
+PACKAGES_READY=false
 MODEL="qwen3:8b"
 while [[ $# -gt 0 ]]; do
   case $1 in
@@ -20,6 +21,7 @@ while [[ $# -gt 0 ]]; do
     --con-globo) WITH_GLOBE=true ;;  # the visible 3D globe server, as before
     --ahorro-tokens) TOKEN_SAVER=true ;;
     --permanente) PERMANENT=true ;;
+    --paquetes-listos) PACKAGES_READY=true ;;
     --modelo) MODEL=$2; shift ;;
     *) echo "Opción desconocida: $1" >&2; exit 2 ;;
   esac
@@ -28,7 +30,9 @@ done
 say() { printf '\n\033[1;36m== %s\033[0m\n' "$*"; }
 
 say "1/6 Paquetes del sistema"
-if command -v apt-get >/dev/null; then
+if $PACKAGES_READY; then
+  echo "El instalador de Windows ya preparó los paquetes del sistema."
+elif command -v apt-get >/dev/null; then
   sudo apt-get update -y
   sudo apt-get install -y git curl build-essential libssl-dev libyaml-dev \
     zlib1g-dev libffi-dev pkg-config unzip ca-certificates
@@ -38,7 +42,7 @@ fi
 
 # En WSL, systemd hace falta para el modo permanente (`sergio servicio`).
 NEEDS_WSL_RESTART=false
-if grep -qi microsoft /proc/version 2>/dev/null \
+if ! $PACKAGES_READY && grep -qi microsoft /proc/version 2>/dev/null \
    && ! grep -qs '^systemd=true' /etc/wsl.conf; then
   if grep -qs '^\[boot\]' /etc/wsl.conf; then
     sudo sed -i '/^\[boot\]/a systemd=true' /etc/wsl.conf
@@ -80,7 +84,7 @@ else
 fi
 
 # ngrok: dirección pública fija para llamadas y WhatsApp (cuenta gratuita).
-if ! command -v ngrok >/dev/null && command -v apt-get >/dev/null; then
+if ! $PACKAGES_READY && ! command -v ngrok >/dev/null && command -v apt-get >/dev/null; then
   curl -sSL https://ngrok-agent.s3.amazonaws.com/ngrok.asc \
     | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null \
     && echo "deb https://ngrok-agent.s3.amazonaws.com buster main" \
@@ -94,7 +98,7 @@ cd "$ROOT"
 EXTRAS=(--extra server --extra desktop --extra tools-search --extra inference-cloud
         --extra phone --extra faces)
 if $TOKEN_SAVER; then EXTRAS+=(--extra token-saver); fi
-uv sync "${EXTRAS[@]}"
+uv sync --locked "${EXTRAS[@]}"
 # Motor nativo en Rust: lo necesitan la memoria de documentos y la búsqueda.
 # Primero la versión ya compilada (sin Rust); si no hay, se compila aquí.
 # Si falla, Sergio funciona igual pero sin esas funciones.
@@ -105,7 +109,13 @@ say "5/6 Extensiones"
 if $WITH_GLOBE; then
   ( cd extensions/globe && npm ci )
 fi
-( cd frontend && npx -y npm@11 ci )
+(
+  cd frontend
+  npx --yes --package npm@11.19.0 -- npm ci --no-audit --no-fund
+  VITE_DEMO=0 SERGIO_WEB_OUT=../src/openjarvis/server/static_local \
+    npx --yes --package npm@11.19.0 -- npm run build
+  test -s ../src/openjarvis/server/static_local/index.html
+)
 
 say "6/6 Configuración y modelo"
 CONFIG_DIR="${OPENJARVIS_HOME:-$HOME/.openjarvis}"

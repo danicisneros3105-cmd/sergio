@@ -24,6 +24,7 @@ permissions:
 
 jobs:
   publish:
+    if: github.repository == 'open-jarvis/OpenJarvis'
     runs-on: ubuntu-latest
     environment: pypi
     steps:

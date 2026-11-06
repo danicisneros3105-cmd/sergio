@@ -22,7 +22,6 @@ import {
   Key,
   Search,
   Brain,
-  RefreshCw,
 } from 'lucide-react';
 import { useAppStore, type ThemeMode } from '../lib/store';
 import {
@@ -45,7 +44,6 @@ import {
 import { AccountsPanel } from '../components/Accounts/AccountsPanel';
 import { SkillsPanel } from '../components/Settings/PersonalPanel';
 import { AddonsPanel } from '../components/Settings/AddonsPanel';
-import { isAutoUpdateDisabled, setAutoUpdateDisabled } from '../components/Desktop/UpdateChecker';
 
 const CLOUD_KEY_STATUS_CHANGED = 'openjarvis-cloud-key-status-changed';
 
@@ -338,27 +336,6 @@ export function SettingsPage() {
   const [speechBackendAvailable, setSpeechBackendAvailable] = useState<boolean | null>(null);
   const [ttsBackend, setTtsBackend] = useState<{ available: boolean; backend?: string; voice_id?: string } | null>(null);
   const [saved, setSaved] = useState(false);
-
-  const [autoUpdateEnabled, setAutoUpdateEnabled] = useState(() => !isAutoUpdateDisabled());
-  const [updateCheckState, setUpdateCheckState] = useState<'idle' | 'checking' | 'available' | 'latest'>('idle');
-
-  const handleAutoUpdateToggle = useCallback((enabled: boolean) => {
-    setAutoUpdateEnabled(enabled);
-    setAutoUpdateDisabled(!enabled);
-  }, []);
-
-  const handleCheckNow = useCallback(async () => {
-    if (!(window as any).__TAURI_INTERNALS__) return;
-    setUpdateCheckState('checking');
-    try {
-      const { check } = await import('@tauri-apps/plugin-updater');
-      const update = await check();
-      setUpdateCheckState(update ? 'available' : 'latest');
-      setTimeout(() => setUpdateCheckState('idle'), 4000);
-    } catch {
-      setUpdateCheckState('idle');
-    }
-  }, []);
 
   const [memoryStatus, setMemoryStatus] = useState<MemoryStatus>({ kind: 'loading' });
   const memoryRequestId = useRef(0);
@@ -1107,38 +1084,7 @@ export function SettingsPage() {
           <>
           {/* Updates */}
           <Section title="Actualizaciones">
-            <SettingRow label="Actualizar solo" description="Busca versiones nuevas de la app cada 30 minutos">
-              <button
-                role="switch"
-                aria-checked={autoUpdateEnabled}
-                aria-label="Actualizar solo"
-                onClick={() => handleAutoUpdateToggle(!autoUpdateEnabled)}
-                className="relative inline-flex h-5 w-9 items-center rounded-full transition-colors"
-                style={{ background: autoUpdateEnabled ? 'var(--color-accent)' : 'var(--color-bg-tertiary)', border: '1px solid var(--color-border)' }}
-              >
-                <span
-                  className="inline-block h-3.5 w-3.5 rounded-full transition-transform"
-                  style={{
-                    background: 'white',
-                    transform: autoUpdateEnabled ? 'translateX(18px)' : 'translateX(2px)',
-                  }}
-                />
-              </button>
-            </SettingRow>
-            <SettingRow label="Buscar actualizaciones" description="Comprueba ahora si hay una versión nueva">
-              <button
-                onClick={handleCheckNow}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
-                style={{ background: 'var(--color-bg-tertiary)', border: '1px solid var(--color-border)', color: 'var(--color-text)', cursor: 'pointer' }}
-                disabled={updateCheckState === 'checking'}
-              >
-                <RefreshCw size={12} className={updateCheckState === 'checking' ? 'animate-spin' : ''} />
-                {updateCheckState === 'checking' && 'Comprobando…'}
-                {updateCheckState === 'available' && 'Actualización disponible — vea el aviso arriba'}
-                {updateCheckState === 'latest' && 'Ya está al día'}
-                {updateCheckState === 'idle' && 'Comprobar ahora'}
-              </button>
-            </SettingRow>
+            <SettingRow label="Actualizaciones" description="Use «Actualizar» en la barra lateral en su equipo.">{null}</SettingRow>
           </Section>
           </>
           )}

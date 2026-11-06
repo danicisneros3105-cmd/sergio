@@ -86,7 +86,8 @@ def test_autonomous_execution_orchestrator():
         "Reservar mesa en DiverXO y coordinar suite Four Seasons",
         context={"location": "Madrid, España"},
     )
-    assert res["success"] is True
+    assert res["success"] is False
+    assert all(n["estado"] == "proposed" for n in res["nodes_executed"])
     assert res["execution_time_ms"] > 0
     assert len(res["nodes_executed"]) >= 3
     assert "Señor" in res["proactive_brief"] or "señor" in res["proactive_brief"]
@@ -465,13 +466,13 @@ def test_merkle_inclusion_proof_mathematical_validation(tmp_path):
 
 
 def test_agi_routes_endpoints(tmp_path):
-    from unittest.mock import MagicMock
-
+    from fastapi import FastAPI
     from fastapi.testclient import TestClient
 
-    from openjarvis.server.app import create_app
+    from openjarvis.server.agi_routes import router
 
-    app = create_app(MagicMock(), model="test-model")
+    app = FastAPI()
+    app.include_router(router)
     client = TestClient(app)
 
     # 1. Test GET /v1/agi/evidence/verify
@@ -487,7 +488,8 @@ def test_agi_routes_endpoints(tmp_path):
     )
     assert res_solve.status_code == 200
     data_solve = res_solve.json()
-    assert data_solve["success"] is True
+    assert data_solve["success"] is False
+    assert data_solve["final_outcome"]["estado"] == "propuesto"
     assert "agi-" in data_solve["mission_id"]
     assert "vertu_seal_token" in data_solve
     assert len(data_solve["phases"]) >= 3

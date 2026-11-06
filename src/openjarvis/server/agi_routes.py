@@ -1,7 +1,7 @@
 """FastAPI routes for Universal AGI Operations and Cryptographic Merkle Evidence.
 
 Exposes REST endpoints for:
-- POST /v1/agi/solve: Autonomous end-to-end mission resolution.
+- POST /v1/agi/solve: Experimental mission proposal, with no execution.
 - GET  /v1/agi/dossiers: Retrieve historical mission dossiers.
 - GET  /v1/agi/evidence/ledger: Inspect Merkle ledger and cryptographic root.
 - GET  /v1/agi/evidence/verify: Mathematically verify all Merkle inclusion proofs.
@@ -33,7 +33,7 @@ class AGISolveRequest(BaseModel):
     require_confirmation: bool = Field(
         default=True, description="Puerta de confirmación estricta Vertu"
     )
-    stealth: bool = Field(default=True, description="Activar evasión antibot sigilosa")
+    stealth: bool = Field(default=True, description="Parámetro legado sin efecto")
 
 
 class AGISolveResponse(BaseModel):
@@ -52,7 +52,7 @@ class AGISolveResponse(BaseModel):
 
 @router.post("/solve", response_model=AGISolveResponse)
 async def solve_mission(request: AGISolveRequest) -> AGISolveResponse:
-    """Ejecuta una misión logística/táctica autónoma con razonamiento AGI, evasión y sellado Vertu."""
+    """Prepara una propuesta experimental sin ejecutar acciones externas."""
     engine = get_universal_agi_engine()
     dossier = engine.solve(
         request.mission,

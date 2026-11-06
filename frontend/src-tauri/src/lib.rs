@@ -1233,92 +1233,13 @@ async fn boot_backend(backend: SharedBackend, status: SharedStatus) {
         return;
     }
 
-    let mut project_root = find_project_root();
-
+    let project_root = find_project_root();
     if project_root.is_none() {
-        // Auto-clone on first launch
-        let git_bin = resolve_bin("git");
-
-        // Check that git is installed
-        if !std::path::Path::new(&git_bin).exists() && git_bin == "git" {
-            let mut s = status.lock().await;
-            s.error = Some(
-                "Could not find 'git'. \
-                 Install it from https://git-scm.com then relaunch."
-                    .into(),
-            );
-            return;
-        }
-
-        let target_path = std::path::PathBuf::from(home_dir()).join("OpenJarvis");
-        let clone_target = target_path.display().to_string();
-
-        // If the directory exists but is not a valid project, don't overwrite
-        if target_path.exists() && !target_path.join("pyproject.toml").exists() {
-            let mut s = status.lock().await;
-            s.error = Some(format!(
-                "{} exists but is not a valid OpenJarvis project. \
-                 Remove it and relaunch, or set OPENJARVIS_ROOT to the correct path.",
-                clone_target,
-            ));
-            return;
-        }
-
-        {
-            let mut s = status.lock().await;
-            s.detail = "Downloading OpenJarvis (first launch)...".into();
-        }
-
-        let mut clone_cmd = tokio::process::Command::new(&git_bin);
-        clone_cmd
-            .args([
-                "clone",
-                "--depth",
-                "1",
-                "https://github.com/open-jarvis/OpenJarvis.git",
-                &clone_target,
-            ])
-            .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::piped());
-        prepare_subprocess_for_appimage(&mut clone_cmd);
-        let clone_result = spawn_owned_child(&mut clone_cmd);
-
-        match clone_result {
-            Ok(child) => match child.wait_with_output().await {
-                Ok(output) if output.status.success() => {
-                    project_root = Some(target_path);
-                }
-                Ok(output) => {
-                    let stderr = String::from_utf8_lossy(&output.stderr);
-                    let mut s = status.lock().await;
-                    s.error = Some(format!(
-                        "Failed to download OpenJarvis: {}. \
-                         Clone manually: git clone https://github.com/open-jarvis/OpenJarvis.git {}",
-                        stderr.trim(),
-                        clone_target,
-                    ));
-                    return;
-                }
-                Err(e) => {
-                    let mut s = status.lock().await;
-                    s.error = Some(format!(
-                        "Failed to download OpenJarvis: {}. \
-                         Clone manually: git clone https://github.com/open-jarvis/OpenJarvis.git {}",
-                        e, clone_target,
-                    ));
-                    return;
-                }
-            },
-            Err(e) => {
-                let mut s = status.lock().await;
-                s.error = Some(format!(
-                    "Could not run git: {}. \
-                     Install git from https://git-scm.com then relaunch.",
-                    e,
-                ));
-                return;
-            }
-        }
+        status.lock().await.error = Some(
+            "No se encontró el código de Sergio. Instale Sergio o configure OPENJARVIS_ROOT con su carpeta."
+                .into(),
+        );
+        return;
     }
 
     // If something is already serving on our port, decide what to do based
@@ -3338,7 +3259,6 @@ pub fn run() {
             MacosLauncher::LaunchAgent,
             Some(vec!["--hidden"]),
         ))
-        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {

@@ -1,4 +1,4 @@
-> **Sergio** es un fork de OpenJarvis. Este README conserva la documentación y los créditos del proyecto original: sus instaladores y releases públicos instalan **OpenJarvis**. Para actualizar una copia existente de Sergio en Windows con WSL, use `wsl -d Ubuntu -- bash -lc "cd ~/sergio && git fetch origin main && bash scripts/actualizar-sergio.sh main"`. El repositorio de Sergio es privado y requiere acceso.
+> **Sergio** es un fork de OpenJarvis. Este README conserva la documentación y los créditos del proyecto original: sus instaladores y releases públicos instalan **OpenJarvis**. Para actualizar una copia existente de Sergio en Windows con WSL, use `wsl -d Ubuntu -- bash -lc "cd ~/sergio && git fetch origin main && bash scripts/actualizar-sergio.sh main"`. El repositorio de Sergio es privado y requiere acceso. Consulta la [guía del candidato de Windows](docs/es/LANZAMIENTO-WINDOWS.md) antes de distribuirlo.
 
 <div align="center">
   <img alt="OpenJarvis" src="assets/OpenJarvis_Horizontal_Logo.png" width="400">

@@ -329,173 +329,52 @@ class UniversalAGIEngine:
         require_confirmation: bool = True,
         stealth: bool = True,
     ) -> MissionDossier:
-        """Autonomously synthesize strategy, evade anti-bots, negotiate/execute, and cryptographically seal."""
+        """Prepare and record a proposal. This path never executes the mission."""
         t_start = time.perf_counter()
         mission_id = f"agi-{int(time.time() * 1000)}-{hashlib.sha256(mission_prompt.encode()).hexdigest()[:6]}"
         cat, entity, budget, deadline = self.deconstruct_mission(
             mission_prompt, context
         )
 
-        # 1. Check past experience memory for tactical precedent
-        past_tactic = self.memory.recall_similar_tactic(mission_prompt)
-        precedent_note = (
-            f"Estrategia optimizada a partir de precedente táctico `{past_tactic['id']}` "
-            f"({past_tactic['ahorro_o_beneficio']})"
-            if past_tactic
-            else "Estrategia de síntesis autónoma zero-shot de alto impacto"
-        )
-
-        steps: List[TacticalStep] = []
-
-        # Phase 1: PERCEPTION & INTELLIGENCE
-        s1_t0 = time.perf_counter()
-        from openjarvis.tools import commerce_intel as ci
-
-        loc_hint = (
-            context.get("location") if context else ""
-        ) or "Ubicación preferente del Señor"
-        loc = ci.resolve_location(loc_hint)
-        bio_hub = ci.execute_health_biometrics_sync(device="auto", sync_now=False)
-        step1 = TacticalStep(
-            phase=MissionPhase.PERCEPTION,
-            name="Exploración Forense y Contexto Biométrico",
-            description=(
-                f"Localización GPS/IP confirmada en {loc['label']}. "
-                f"Estado psicofísico: {bio_hub['adaptacion_conductual_sergio']}"
+        # Keep the old arguments for API/CLI compatibility. Neither grants
+        # permissions to take actions or bypass verification.
+        steps = [
+            TacticalStep(
+                phase=MissionPhase.PERCEPTION,
+                name="Contexto del encargo",
+                description=(
+                    "Solo se utilizó el contexto proporcionado; "
+                    "sin mediciones biométricas ni ubicación verificada."
+                ),
+                status="preparado",
             ),
-            status="completed",
-            result={"ubicacion": loc, "salud": bio_hub, "precedente": precedent_note},
-            latency_seconds=round(time.perf_counter() - s1_t0, 4),
-        )
-        steps.append(step1)
+            TacticalStep(
+                phase=MissionPhase.ANTIBOT_EVASION,
+                name="Verificación de fuentes",
+                description="Pendiente de consultar las fuentes y cuentas autorizadas.",
+                status="pendiente",
+            ),
+        ]
 
-        # Phase 2: ANTIBOT EVASION
-        s2_t0 = time.perf_counter()
-        # Sergio never disguises itself or slips past bot checks (owner rules,
-        # review of 1 Nov 2026): pages behind a sign-in or a check are opened
-        # in the owner's own browser on the real screen.
-        antibot_spec = {
-            "motor": "Navegador del dueño en la pantalla real (sesiones propias)",
-            "identidad": "Sergio se identifica; no oculta que es un asistente",
+        from openjarvis.core.agi_reasoning import get_agi_reasoning_orchestrator
+
+        orch_res = get_agi_reasoning_orchestrator().execute_mission(
+            mission_prompt, context=context
+        )
+        n_nodes = len(orch_res["nodes_executed"])
+        final_payload: Dict[str, Any] = {
+            "tipo": "plan_experimental",
+            "estado": "propuesto",
+            "mision_id": orch_res["graph_id"],
+            "nodos_propuestos": n_nodes,
+            "tiempo_ms": orch_res["execution_time_ms"],
+            "pasos": [
+                {"nombre": node["nombre"], "estado": node["estado"]}
+                for node in orch_res["nodes_executed"]
+            ],
+            "beneficio_clave": f"Plan en {n_nodes} pasos; no se ejecutó la operación.",
         }
-        step2 = TacticalStep(
-            phase=MissionPhase.ANTIBOT_EVASION,
-            name="Navegación con las sesiones del dueño",
-            description="Las páginas con inicio de sesión o verificación se abren en su navegador, a la vista.",
-            status="completed",
-            result=antibot_spec,
-            latency_seconds=round(time.perf_counter() - s2_t0, 4),
-        )
-        steps.append(step2)
-
-        # Phase 3 & 4: TACTICAL EXECUTION & NEGOTIATION
         s3_t0 = time.perf_counter()
-        final_payload: Dict[str, Any] = {}
-
-        if cat == "arbitraje_hotelero_lujo":
-            # Parametric scaling: dynamic budget curves, unconstrained by fixed 3k/1.5k constants
-            std = float(budget) if (budget and budget > 0) else None
-            tgt = None  # a target only when he names one: never an invented rate
-            h_res = ci.execute_hotel_arbitrage(
-                hotel_name=entity,
-                destination=loc["label"],
-                dates=deadline,
-                standard_rate=std,
-                target_rate=tgt,
-                require_face_id=False,
-            )
-            final_payload = {
-                "tipo": "arbitraje_hotelero",
-                "propiedad": h_res["hotel"],
-                "ahorro_usd": h_res["ahorro_total_usd"],
-                "tarifa_conseguida": h_res["tarifa_arbitrada_conseguida"],
-                "beneficios_vip": h_res["beneficios_vip_incluidos"],
-                "canales": h_res["canales_arbitraje"],
-                "beneficio_clave": (
-                    f"Plan para pedir mejor tarifa ({h_res['resumen_tarifas']}); nada reservado aún"
-                ),
-            }
-        elif cat == "sniper_gastronomia_michelin":
-            m_res = ci.execute_michelin_sniper(
-                restaurant_name=entity,
-                party_size=2,
-                target_date=deadline,
-                platform="resy",
-                require_face_id=False,
-            )
-            final_payload = {
-                "tipo": "sniper_michelin",
-                "restaurante": m_res["restaurante"],
-                "mesa": m_res["mesa_solicitada"],
-                "estrategia": m_res["estrategia_sniper"],
-                "beneficio_clave": "Plan para conseguir mesa (aún sin reservar)",
-            }
-        elif cat == "sourcing_forense_articulos_raros":
-            p_res = ci.deep_search_product(entity, target_price=budget or None)
-            final_payload = {
-                "tipo": "sourcing_lujo",
-                "articulo": p_res["query"],
-                "vendedores_confiables": len(p_res["mejores_vendedores"]),
-                "beneficio_clave": (
-                    "Vendedores para revisar; la autenticidad la confirma un experto o la "
-                    "garantía de la plataforma antes de pagar"
-                ),
-            }
-        elif cat == "automatizacion_masiva_medios":
-            y_res = ci.execute_youtube_growth_pipeline(
-                channel_niche=entity,
-                upload_interval_hours=7,
-                auto_publish=True,
-            )
-            final_payload = {
-                "tipo": "pipeline_medios_7h",
-                "canal": y_res["nicho"],
-                "cadencia": y_res["frecuencia_diaria"],
-                "beneficio_clave": (
-                    "Plan de canal listo; sube solo si conectó los canales y activó «Publicar solo»"
-                ),
-            }
-        elif cat == "control_iot_multidispositivo":
-            from openjarvis.server.meeting_routes import dispatch_device_command
-
-            cmd_dev = dispatch_device_command(
-                "phone", "record_video", {"instruction": mission_prompt}
-            )
-            final_payload = {
-                "tipo": "control_iot",
-                "dispositivo": "phone",
-                "orden_id": cmd_dev["id"],
-                "beneficio_clave": (
-                    f"Orden '{cmd_dev['action']}' enviada al teléfono (se cumple cuando la app la recoge)"
-                ),
-            }
-        elif cat == "blindaje_criptografico_soberano":
-            v_res = ci.execute_vertu_vault_lock(
-                "secreto_operativo", mission_prompt, f"mision_{mission_id}"
-            )
-            final_payload = {
-                "tipo": "blindaje_vertu",
-                "etiqueta": v_res["etiqueta"],
-                "huella_sha256": v_res["huella_segura_sha256"],
-                "beneficio_clave": "Guardado cifrado (AES-256-GCM) en este equipo, archivo 0600",
-            }
-        else:
-            # Universal fallback: execute dynamic plan using high-speed HTN & MCTS reasoning
-            from openjarvis.core.agi_reasoning import get_agi_reasoning_orchestrator
-
-            orch = get_agi_reasoning_orchestrator()
-            orch_res = orch.execute_mission(mission_prompt, context=context)
-            t_ms = orch_res["execution_time_ms"]
-            n_nodes = len(orch_res["nodes_executed"])
-            final_payload = {
-                "tipo": "razonamiento_mcts_universal",
-                "mision_id": orch_res["graph_id"],
-                "nodos_resueltos": n_nodes,
-                "tiempo_ms": t_ms,
-                "estrategia": "Descomposición jerárquica HTN con evaluación MCTS en sub-segundo",
-                "beneficio_clave": f"Plan en {n_nodes} pasos (propuesto; nada ejecutado todavía)",
-            }
-
         step3 = TacticalStep(
             phase=MissionPhase.TACTICAL_NEGOTIATION,
             name="Plan de acción",
@@ -517,7 +396,7 @@ class UniversalAGIEngine:
         step5 = TacticalStep(
             phase=MissionPhase.VERTU_SEALING,
             name="Sellado Criptográfico Grado Vertu",
-            description="Todos los tokens, credenciales y transacciones sellados localmente bajo AES-256-GCM.",
+            description="Se cifró el resumen del plan; no hubo transacciones.",
             status="completed",
             result={
                 "token_prefix": vertu_token[:25],
@@ -545,14 +424,14 @@ class UniversalAGIEngine:
             target_entity=entity,
             budget_usd=budget,
             deadline_hint=deadline,
-            biometric_context={"recuperacion": bio_hub.get("estado_sincronizacion")},
-            stealth_active=stealth,
+            biometric_context={},
+            stealth_active=False,
             phases=steps,
             final_outcome=final_payload,
             vertu_seal_token=vertu_token,
             dossier_path=str(dossier_path),
             completed_at=time.time(),
-            success=True,
+            success=False,
             proactive_jarvis_brief=jarvis_brief,
         )
 
@@ -586,7 +465,7 @@ class UniversalAGIEngine:
                 },
                 output_data=final_payload,
                 latency_ms=total_time * 1000,
-                status="EXITOSO",
+                status="PROPUESTO",
                 metadata={"mission_id": mission_id, "vertu_token": vertu_token[:25]},
             )
         except Exception as exc:
@@ -601,16 +480,9 @@ class UniversalAGIEngine:
         outcome: Dict[str, Any],
         duration: float,
     ) -> str:
-        """Formulate a proactive, distinguished J.A.R.V.I.S. audio/chat briefing."""
-        benefit = outcome.get(
-            "beneficio_clave", "Operación resuelta con precisión absoluta."
-        )
-        brief = (
-            f"Misión cumplida, señor. He resuelto la operación para «{entity}» en {duration:.2f} segundos. "
-            f"{benefit}. Los registros han sido asegurados bajo cifrado Vertu. "
-            "Todo está listo para su decisión estratégica; ¿desea que proceda con el siguiente movimiento?"
-        )
-        return brief
+        """Describe the plan without claiming execution."""
+        benefit = outcome.get("beneficio_clave", "Ninguna acción ejecutada.")
+        return f"Plan preparado, señor, para «{entity}». {benefit}"
 
 
 def get_universal_agi_engine() -> UniversalAGIEngine:

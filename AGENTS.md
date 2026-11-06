@@ -848,23 +848,13 @@ Al terminar cada sesión, añada arriba de `docs/BITACORA.md`:
 En PowerShell de Windows, siempre el mismo:
 
 ```powershell
-wsl -d Ubuntu -- bash -lc "cd ~/sergio && git fetch origin main && git checkout -B main origin/main && bash scripts/actualizar-sergio.sh main"
+wsl -d Ubuntu -- bash -lc "cd ~/sergio && git fetch origin main && bash scripts/actualizar-sergio.sh main"
 ```
 
-Instalación nueva (sin PowerShell): `installer/Sergio-Instalador.exe`
-(se construye con `bash scripts/build-instalador.sh`; pide permiso de
-administrador una vez y continúa solo tras reiniciar). Dentro de la app,
-«Actualizar» (barra lateral y menú del icono) ejecuta este mismo comando.
-
-`scripts/actualizar-sergio.sh` instala las dependencias exactas, compila la
-web, instala la app de Windows y deja el servicio apuntando a `~/sergio`.
-Si cambian lo que hace la actualización, cambien ese script: el comando del
-dueño no cambia nunca.
-
-El actualizador exige fast-forward y guarda un respaldo. El `checkout -B
-main origin/main` del comando solo pone la rama `main` del PC del dueño
-igual que la de GitHub (así funciona aunque su copia esté en otra rama; el
-dueño no hace commits propios). No añada `reset --hard` ni otros pasos.
+Instalación y pruebas de publicación: [candidato de Windows](docs/es/LANZAMIENTO-WINDOWS.md).
+El botón «Actualizar» delega al mismo script, que obtiene el commit remoto,
+exige fast-forward y guarda un respaldo. No anteponga un cambio forzado de
+rama: se saltaría esas comprobaciones.
 
 ## 7. Cómo informar al dueño
 

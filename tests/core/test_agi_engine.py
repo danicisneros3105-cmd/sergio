@@ -43,7 +43,7 @@ def test_dynamic_intent_deconstruction():
     assert cat4 == "mision_logistica_general_extrema"
 
 
-def test_autonomous_solve_and_vertu_cryptographic_sealing(tmp_path, monkeypatch):
+def test_proposal_and_cryptographic_sealing(tmp_path, monkeypatch):
     monkeypatch.setattr("pathlib.Path.home", lambda: tmp_path)
     engine = UniversalAGIEngine()
 
@@ -52,7 +52,9 @@ def test_autonomous_solve_and_vertu_cryptographic_sealing(tmp_path, monkeypatch)
         stealth=True,
     )
 
-    assert dossier.success is True
+    assert dossier.success is False
+    assert dossier.biometric_context == {}
+    assert not dossier.stealth_active
     assert dossier.objective_classified == "arbitraje_hotelero_lujo"
     assert len(dossier.phases) >= 4
 
@@ -68,7 +70,7 @@ def test_autonomous_solve_and_vertu_cryptographic_sealing(tmp_path, monkeypatch)
     aad = f"vertu_mission_{dossier.mission_id}"
     decrypted_raw = cifrado.unseal(dossier.vertu_seal_token, aad=aad)
     decrypted_data = json.loads(decrypted_raw)
-    assert decrypted_data["tipo"] == "arbitraje_hotelero"
+    assert decrypted_data["estado"] == "propuesto"
 
     # Check proactive J.A.R.V.I.S. briefing
     assert "señor" in dossier.proactive_jarvis_brief.lower()
@@ -86,7 +88,7 @@ def test_metacognitive_learning_and_adaptation(tmp_path):
     dossier1 = engine.solve(
         "Negociar acceso VIP y descuento corporativo para conferencia en Ginebra"
     )
-    assert dossier1.success
+    assert not dossier1.success
 
     # Verify experience was stored
     exps = memory.load_experiences()
@@ -125,3 +127,25 @@ def test_sergio_app_control_dynamic_agi_solve(tmp_path, monkeypatch):
     assert res_dynamic.success
     assert "preparado, no ejecutado" in res_dynamic.content
     assert "En pocas palabras" in res_dynamic.content
+
+
+def test_proposal_does_not_dispatch_device_actions(tmp_path, monkeypatch):
+    monkeypatch.setattr("pathlib.Path.home", lambda: tmp_path)
+    import sys
+    from types import SimpleNamespace
+    from unittest.mock import Mock
+
+    dispatch = Mock()
+    monkeypatch.setitem(
+        sys.modules,
+        "openjarvis.server.meeting_routes",
+        SimpleNamespace(dispatch_device_command=dispatch),
+    )
+    dossier = UniversalAGIEngine().solve(
+        "Graba video con mi teléfono y controla el dispositivo",
+        context={"confirmacion_autorizada": True},
+        require_confirmation=False,
+    )
+    dispatch.assert_not_called()
+    assert dossier.final_outcome["estado"] == "propuesto"
+    assert not dossier.success

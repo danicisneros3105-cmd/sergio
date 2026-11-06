@@ -2,6 +2,12 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-11-06 · Codex · Preparación del candidato Windows
+- El botón de actualización ejecuta el script con fast-forward, conserva commits y cambios locales y muestra el resultado al terminar.
+- Nexus prepara propuestas; no inicia grabaciones, publica ni devuelve reservas o mediciones simuladas como acciones hechas. Se actualizaron las pruebas que trataban esas simulaciones como éxito.
+- Separé Sergio del actualizador Tauri de OpenJarvis. El instalador compila la interfaz con dependencias bloqueadas, evita cambios globales de WSL y genera un candidato separado con SHA-256.
+- Pasaron 35 pruebas dirigidas y 352 de frontend, compilación y lint de los archivos Python tocados. Pendientes: ejecutar CI, construir y firmar el EXE y validar instalación y servicios reales en Windows limpio. No se publicó.
+
 ## 2026-11-06 · Codex · Preparación de publicación
 - Unifiqué el lector de eventos de chat e investigación; acepta LF, CRLF y eventos con varias líneas. El chat conserva el texto parcial y avisa si el servidor cierra sin terminar.
 - El actualizador ya no descarta archivos del árbol de trabajo y detecta fallos de compilación antes de descargar extras. El README separa el instalador del proyecto base de Sergio.

@@ -22,6 +22,7 @@ log = logging.getLogger("openjarvis.core.agi_reasoning")
 
 
 class NodeStatus(str, enum.Enum):
+    PROPOSED = "proposed"
     PENDING = "pending"
     EVALUATING = "evaluating"
     EXECUTING = "executing"
@@ -413,7 +414,7 @@ class AutonomousExecutionOrchestrator:
             Callable[[TacticalAction, Dict[str, Any]], Dict[str, Any]]
         ] = None,
     ) -> Dict[str, Any]:
-        """Deconstructs, verifies, and executes the mission from end to end."""
+        """Propose steps or run an explicit dispatcher for non-sensitive steps."""
         t_start = time.perf_counter()
         ctx = context or {}
         graph = self.planner.formulate_plan(goal, ctx)
@@ -421,7 +422,7 @@ class AutonomousExecutionOrchestrator:
         results: Dict[str, Any] = {
             "graph_id": graph.graph_id,
             "goal": goal,
-            "success": True,
+            "success": bool(dispatcher_callback and graph.root),
             "nodes_executed": [],
             "evidence_ledger": [],
             "execution_time_ms": 0.0,
@@ -444,24 +445,21 @@ class AutonomousExecutionOrchestrator:
             node_t0 = time.perf_counter()
 
             try:
-                if curr.action.requires_human_confirmation and not ctx.get(
-                    "confirmacion_autorizada", False
-                ):
+                if dispatcher_callback is None:
+                    curr.result_data = {"estado": "propuesto", "ejecutado": False}
+                    curr.status = NodeStatus.PROPOSED
+                elif curr.action.requires_human_confirmation:
+                    # Caller-supplied context is not proof of authorization.
                     curr.status = NodeStatus.PENDING
-                    curr.result_data = {
-                        "alerta": "Decisión Crítica en Espera de Confirmación Humana",
-                        "accion": curr.action.name,
-                        "motivo": curr.action.description,
-                        "token_requerido": True,
-                    }
-                elif dispatcher_callback:
-                    curr.result_data = dispatcher_callback(curr.action, ctx)
-                    curr.status = NodeStatus.COMPLETED
+                    curr.result_data = {"motivo": "Requiere autorización verificable"}
+                    results["success"] = False
                 else:
-                    curr.result_data = self._execute_tactical_step_builtin(
-                        curr.action, ctx
-                    )
-                    curr.status = NodeStatus.COMPLETED
+                    curr.result_data = dispatcher_callback(curr.action, ctx)
+                    if curr.result_data.get("success") is True:
+                        curr.status = NodeStatus.COMPLETED
+                    else:
+                        curr.status = NodeStatus.FAILED
+                        results["success"] = False
 
             except Exception as exc:
                 log.error("Error en ejecución de nodo %s: %s", curr.action.name, exc)
@@ -488,12 +486,12 @@ class AutonomousExecutionOrchestrator:
                 }
             )
 
-            # If node failed, mark its immediate children as skipped to prevent cascading errors
-            if curr.status == NodeStatus.FAILED:
+            # Do not dispatch a dependent step after failure or pending approval.
+            if curr.status in (NodeStatus.FAILED, NodeStatus.PENDING):
                 for child in curr.children:
                     child.status = NodeStatus.SKIPPED
                     child.result_data = {
-                        "motivo": f"Prerrequisito fallido: {curr.action.name}"
+                        "motivo": f"Prerrequisito incompleto: {curr.action.name}"
                     }
                     visited_ids.add(child.node_id)
                     results["nodes_executed"].append(
@@ -518,55 +516,10 @@ class AutonomousExecutionOrchestrator:
         results["proactive_brief"] = self._synthesize_jarvis_briefing(goal, results)
         return results
 
-    def _execute_tactical_step_builtin(
-        self, action: TacticalAction, context: Dict[str, Any]
-    ) -> Dict[str, Any]:
-        """Default tactical executions when external modules are routed."""
-        if action.domain == TacticalDomain.PERCEPTION:
-            return {
-                "hrv_ms": 68.4,
-                "frecuencia_cardiaca_bpm": 62,
-                "nivel_estres": 0.15,
-                "energia_cognitiva": "alta",
-                "ubicacion": context.get("location", "Ubicación preferente del Señor"),
-            }
-        elif action.domain == TacticalDomain.ANTIBOT_EVASION:
-            return {
-                "fingerprint_ja4": "t13d1516h2_8daaf6152771_0270a4427599",
-                "webgl_vendor": "Apple Inc. (Apple M2 Max)",
-                "canvas_noise": "injected",
-                "stealth_profile": "evasion_activa_nivel_5",
-            }
-        elif action.domain == TacticalDomain.FINANCIAL_ARBITRAGE:
-            return {
-                "ahorro_porcentaje": 50.0,
-                "canal_consortia": "Virtuoso Private Member Desk",
-                "status": "Reserva garantizada con tarifa mayorista",
-            }
-        elif action.domain == TacticalDomain.CRYPTOGRAPHIC_SEAL:
-            return {
-                "cifrado": "AES-256-GCM / HKDF-SHA512",
-                "enclave": "vertu_isolated_v2",
-                "permisos_posix": "0600",
-                "integridad": "verificada_100%",
-            }
-        return {"operacion": action.name, "resultado": "Completado con éxito absoluto"}
-
     def _synthesize_jarvis_briefing(self, goal: str, results: Dict[str, Any]) -> str:
-        """Crafts a proactive, human-like, unflappable briefing."""
-        time_ms = results["execution_time_ms"]
-        nodes_count = len(results["nodes_executed"])
         if results["success"]:
-            return (
-                f"Señor, la operación solicitada ha sido completada en {time_ms:.1f} milisegundos "
-                f"a través de {nodes_count} fases tácticas de ejecución sin fricción. "
-                "Los canales de evasión y el blindaje Vertu se mantienen impecables."
-            )
-        else:
-            return (
-                f"Señor, hemos completado las fases preliminares en {time_ms:.1f} ms, "
-                "pero una acción crítica requiere su confirmación explícita para evitar riesgos operacionales."
-            )
+            return "Señor, el ejecutor confirmó todos los pasos del plan."
+        return "Señor, hay un plan; no se confirmó la ejecución completa."
 
 
 # Global singleton factory

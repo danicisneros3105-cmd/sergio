@@ -1,0 +1,31 @@
+name: Candidato Windows de Sergio
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Versión del instalador (X.Y.Z)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: sudo apt-get update && sudo apt-get install -y nsis
+      - name: Compilar y verificar el candidato sin firmar
+        env:
+          SERGIO_VERSION: ${{ inputs.version }}
+        run: |
+          bash scripts/build-instalador.sh "$SERGIO_VERSION"
+          cd dist/sergio-windows
+          sha256sum --check SHA256SUMS.txt
+      - uses: actions/upload-artifact@v7
+        with:
+          name: sergio-windows-candidato-sin-firmar
+          path: dist/sergio-windows/
+          if-no-files-found: error
