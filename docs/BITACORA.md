@@ -2,6 +2,12 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+
+## 2026-11-06 · Codex · Superficies burgundy y vidrio
+- Añadí gradiente suave al fondo y la barra lateral, y superficies translúcidas con bordes burgundy; se mantiene el azul de identidad.
+- Revisé los tokens y componentes existentes para reutilizarlos, sin añadir controles.
+- Pendiente: validar visualmente en la app instalada y mejorar los recorridos entre funciones.
+
 ## 2026-11-05 · Codex · Video con menos pasos y revisión más útil
 - Crear video deja a la vista la idea, el tipo y la acción principal; formato, duración, producción, clips, tendencias y repetición quedan en Ajustes. Animación con voz solicita el modo verificado existente.
 - Revisé el editor: pedía texto cinético en todas las tomas y el acabado volvía a aplicar pop aunque el revisor lo quitara. Se respeta la decisión de cada toma y se pide continuidad y menos efectos simultáneos.
