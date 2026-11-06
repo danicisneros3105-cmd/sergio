@@ -1,3 +1,4 @@
+import { scopedDataKey } from '../../lib/browserAccount';
 // Creator's 3D studio, laid out like Blender: tools on the left, the
 // viewport in the middle, the outliner and properties on the right, and a
 // bar where you ask Sergio for an object. Shortcuts as in Blender: G move,
@@ -53,7 +54,7 @@ import {
 
 type Tool = 'select' | 'translate' | 'rotate' | 'scale' | 'wall' | 'door' | 'window';
 
-const STORE = 'sergio.creator.scene';
+const STORE = scopedDataKey('sergio.creator.scene');
 
 function loadScene(key: string): Item[] {
   try {

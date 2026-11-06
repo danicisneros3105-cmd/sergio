@@ -25,9 +25,9 @@ function Privacy() {
       </p>
       <h2>Cookies y almacenamiento del navegador</h2>
       <p>
-        El inicio de sesión de Sergio usa una credencial guardada en el navegador, no una cookie de sesión.
+        Sergio guarda la credencial de la cuenta en el almacenamiento de sesión de la pestaña, no en una cookie.
         Este navegador también puede guardar preferencias, chats y archivos en almacenamiento local.
-        Cerrar sesión elimina la credencial, pero no borra los chats ni los archivos de este navegador.
+        Cerrar sesión elimina la credencial de esa pestaña. Los datos guardados se conservan en el perfil local de la cuenta.
       </p>
       <p>
         Si el administrador activa la analítica de uso, Sergio puede enviar eventos técnicos. Su

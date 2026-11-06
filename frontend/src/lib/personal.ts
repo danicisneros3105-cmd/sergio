@@ -1,3 +1,4 @@
+import { scopedDataKey } from './browserAccount';
 // Who Sergio is talking to and how they want it (`/v1/personal/perfil`,
 // `personal.py` on the server): how to be addressed («señor», «señora», by
 // name, neutral or «tú»), language, country and the line above the chat.
@@ -44,7 +45,7 @@ export const TONE_OPTIONS: { value: GreetingTone; label: string }[] = [
   { value: 'divertido', label: 'Divertido' },
 ];
 
-const KEY = 'sergio:personal';
+const KEY = scopedDataKey('sergio:personal');
 let current: Personal = read();
 let fetched = false;
 const listeners = new Set<() => void>();

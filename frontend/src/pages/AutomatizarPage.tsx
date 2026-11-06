@@ -1,3 +1,4 @@
+import { scopedDataKey } from '../lib/browserAccount';
 // Automatizar (owner, 28 Oct 2026: «tipo chat, pero mejor, y sin caer en solo
 // Instagram y YouTube»): he says what should happen without him; Sergio answers
 // with what it understood and a card with a button for anything that changes
@@ -124,7 +125,7 @@ const PLATFORMS: Array<{ key: string; name: string; how: string; auto: boolean }
   { key: 'x', name: 'X', how: 'Paquete listo para subir', auto: false },
 ];
 
-const STORE = 'sergio.automatizar.charla';
+const STORE = scopedDataKey('sergio.automatizar.charla');
 
 function loadThread(): Mensaje[] {
   try {

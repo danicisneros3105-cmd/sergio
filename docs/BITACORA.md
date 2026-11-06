@@ -2,6 +2,11 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-11-06 · Codex · Aislamiento local y registro público
+- Separé historial, Workspace, borradores, proyectos creativos y caché por identificador de cuenta. El token dura la sesión de la pestaña y no se envía a otro servidor. Los datos anteriores sin perfil se conservan aparte; no se atribuyen a una cuenta nueva.
+- El registro abierto registra la versión aceptada en la misma transacción que crea la cuenta. OAuth y SMS no pueden crear cuentas públicas sin pasar por registro por correo.
+- Probé dos perfiles en el mismo almacenamiento, acceso y verificación por HTTP y bloqueo de alta por SMS/OAuth. Queda verificar el entorno público HTTPS, el instalador firmado en Windows y completar el aviso con datos operativos reales.
+
 ## 2026-11-06 · Codex · Sesión, privacidad y prueba de usuario
 - El cierre de sesión retira la credencial del navegador aunque el servidor no responda. La interfaz advierte si no pudo confirmar la revocación. Se respeta la credencial explícita que indique una petición.
 - El cliente de analítica no persiste cookies o identificadores en el navegador. El aviso explica el almacenamiento local y el menú de cuenta abre la barra lateral para que no se corte.

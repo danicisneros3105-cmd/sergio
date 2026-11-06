@@ -1,3 +1,4 @@
+import { scopedDataKey } from './browserAccount';
 // What went wrong, kept on this device only (nothing is sent anywhere).
 //
 // «La app se bugea… no sé qué onda»: a fault that does not blank the screen is
@@ -6,7 +7,7 @@
 // whoever is helping. No messages, keys or page contents: only the error text,
 // the first lines of its trace and the address (without parameters).
 
-const KEY = 'sergio-crashes';
+const KEY = scopedDataKey('sergio-crashes');
 const MAX = 20;
 
 export interface Crash {

@@ -1,3 +1,4 @@
+import { scopedDataKey } from './browserAccount';
 // The Home library (the e-paper home screen): everything Sergio keeps for
 // you as documents on a shelf — conversations, workspace pages and the
 // sections — sorted, filtered, marked and paged. Pure helpers, no store.
@@ -111,7 +112,7 @@ export function paginate<T>(items: T[], page: number, perPage: number): { items:
 }
 
 // Marks live in this browser only (a per-viewer convenience).
-const MARKS_KEY = 'sergio-marks';
+const MARKS_KEY = scopedDataKey('sergio-marks');
 
 export function loadMarks(): string[] {
   try {

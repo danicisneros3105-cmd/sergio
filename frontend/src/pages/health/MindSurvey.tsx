@@ -1,3 +1,4 @@
+import { scopedDataKey } from '../../lib/browserAccount';
 // The Salud mental survey: one question per screen, three picture questions first,
 // then the validated scales, then the open questions. Keys 1-7 answer, Enter goes on,
 // arrow left goes back; the draft survives closing the page.
@@ -28,7 +29,7 @@ interface Step {
 
 export function readDraft(variant: SurveyVariant): Answers {
   try {
-    return JSON.parse(localStorage.getItem(draftKey(variant)) || '{}') as Answers;
+    return JSON.parse(localStorage.getItem(scopedDataKey(draftKey(variant))) || '{}') as Answers;
   } catch {
     return {};
   }
@@ -36,8 +37,8 @@ export function readDraft(variant: SurveyVariant): Answers {
 
 export function writeDraft(variant: SurveyVariant, answers: Answers | null) {
   try {
-    if (answers) localStorage.setItem(draftKey(variant), JSON.stringify(answers));
-    else localStorage.removeItem(draftKey(variant));
+    if (answers) localStorage.setItem(scopedDataKey(draftKey(variant)), JSON.stringify(answers));
+    else localStorage.removeItem(scopedDataKey(draftKey(variant)));
   } catch {
     /* private window: the draft just is not kept */
   }

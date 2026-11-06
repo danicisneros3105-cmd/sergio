@@ -1,3 +1,4 @@
+import { scopedDataKey } from './browserAccount';
 import { create } from 'zustand';
 import type {
   ChatKind,
@@ -36,13 +37,13 @@ export interface AgentEvent {
 
 // ── localStorage persistence ──────────────────────────────────────────
 
-const CONVERSATIONS_KEY = 'openjarvis-conversations';
+const CONVERSATIONS_KEY = scopedDataKey('openjarvis-conversations');
 const SETTINGS_KEY = 'openjarvis-settings';
-const OPTIN_KEY = 'openjarvis-optin';
-const OPTIN_NAME_KEY = 'openjarvis-display-name';
-const OPTIN_EMAIL_KEY = 'openjarvis-email';
-const OPTIN_ANONID_KEY = 'openjarvis-anon-id';
-const OPTIN_SEEN_KEY = 'openjarvis-optin-seen';
+const OPTIN_KEY = scopedDataKey('openjarvis-optin');
+const OPTIN_NAME_KEY = scopedDataKey('openjarvis-display-name');
+const OPTIN_EMAIL_KEY = scopedDataKey('openjarvis-email');
+const OPTIN_ANONID_KEY = scopedDataKey('openjarvis-anon-id');
+const OPTIN_SEEN_KEY = scopedDataKey('openjarvis-optin-seen');
 
 interface ConversationStore {
   version: 1;

@@ -1,3 +1,4 @@
+import { scopedDataKey } from './browserAccount';
 // Offline mode: the last answers Sergio gave, kept in IndexedDB so the
 // phone (or a laptop on a plane) can still show them without a connection.
 // Conversations already live in localStorage; this adds a lookup by
@@ -5,7 +6,7 @@
 // with its date.
 
 export const MAX_ANSWERS = 200;
-const DB_NAME = 'sergio-offline';
+const DB_NAME = scopedDataKey('sergio-offline');
 const STORE = 'answers';
 
 export interface SavedAnswer {

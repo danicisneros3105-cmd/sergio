@@ -87,7 +87,7 @@ class AccountStore:
 
     def create(self, *, email: str = "", canonical: str = "", phone: str = "", name: str = "",
                password: str = "", provider: str = "", subject: str = "", role: str = "pendiente",
-               email_ok: bool = False) -> Dict[str, Any]:  # fmt: skip
+               email_ok: bool = False, consent: Optional[tuple[str, bool, bool]] = None) -> Dict[str, Any]:  # fmt: skip
         uid = secrets.token_hex(8)
         with self._db() as db:
             db.execute(
@@ -97,6 +97,12 @@ class AccountStore:
                  security.hash_password(password) if password else "", int(email_ok), provider, subject,
                  role, time.time()),
             )  # fmt: skip
+            if consent:
+                terms, adult, auto = consent
+                db.execute(
+                    "INSERT INTO consents VALUES (?,?,?,?,?)",
+                    (uid, terms, int(adult), int(auto), time.time()),
+                )
         return self.get(uid) or {}
 
     @staticmethod

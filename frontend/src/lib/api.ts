@@ -1,3 +1,4 @@
+import { sessionToken } from './browserAccount';
 import type { ModelInfo, SavingsData, ServerInfo } from '../types';
 import { SUPABASE_ANON_KEY, SUPABASE_URL } from './supabase';
 import { serializeToolCallArguments } from './tool-call';
@@ -81,11 +82,14 @@ export const getBase = (): string => {
 // same settings blob as the API URL, with an optional build-time env override.
 // Returns '' when unset, so a keyless local server keeps working unchanged.
 export const getApiKey = (): string => {
+  const accountToken = sessionToken(getBase());
+  if (accountToken) return accountToken;
   try {
     const raw = localStorage.getItem('openjarvis-settings');
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (parsed.apiKey) return String(parsed.apiKey);
+      if (parsed.apiKey && !String(parsed.apiKey).startsWith('sg_')) return String(parsed.apiKey);
+      if (parsed.apiKey) localStorage.setItem('openjarvis-settings', JSON.stringify({ ...parsed, apiKey: '' }));
     }
   } catch {}
   if (import.meta.env.VITE_OPENJARVIS_API_KEY) {

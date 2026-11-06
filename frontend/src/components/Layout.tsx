@@ -81,8 +81,8 @@ export function Layout() {
   // once, instead of the old «Primeros pasos» redirect (still at
   // /get-started). «?tour=1» or «sergio:tour» opens it again.
   const [tour, setTour] = useState(false);
+  const [sessionReady, setSessionReady] = useState(false);
   useEffect(() => {
-    if (PANE) return;
     let alive = true;
     const path = window.location.pathname;
     // Someone who already started typing or tapping is busy: the tour waits
@@ -112,6 +112,8 @@ export function Layout() {
         navigate(need === 'crear' ? '/entrar?crear=1' : '/entrar', { replace: true });
         return;
       }
+      setSessionReady(true);
+      if (PANE) return;
       const asked = new URLSearchParams(window.location.search).get('tour') === '1';
       if (asked || ((path === '/' || path === '') && !tourSeen() && !busy)) setTour(true);
     });
@@ -175,6 +177,8 @@ export function Layout() {
     window.addEventListener('sergio:needs-login', onLogin);
     return () => window.removeEventListener('sergio:needs-login', onLogin);
   }, [navigate]);
+
+  if (!sessionReady) return <main className="paper-page" aria-busy="true" />;
 
   if (PANE) {
     // The second screen of a split: the page alone, no sidebar, no voice.

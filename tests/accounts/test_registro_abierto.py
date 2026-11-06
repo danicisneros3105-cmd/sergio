@@ -115,3 +115,32 @@ def test_open_without_a_way_to_send_the_code_is_refused_before_creating(
         "/v1/cuentas/registro", json={**GOOD, "acepta": True, "mayor": True}
     )
     assert r.status_code == 503 and st.users() == []
+
+
+def test_oauth_and_sms_cannot_create_public_accounts_without_consent(api, monkeypatch):
+    from urllib.parse import unquote
+
+    from openjarvis.accounts import oauth
+
+    client, st, _ = api
+    monkeypatch.setenv("SERGIO_REGISTRO", "abierto")
+    monkeypatch.setattr(senders, "check_sms_code", lambda number, code: True)
+    monkeypatch.setattr(
+        oauth,
+        "finish",
+        lambda *args: {
+            "subject": "testing-only",
+            "email": GOOD["email"],
+            "email_ok": True,
+            "device": "d1",
+        },
+    )
+    sms = client.post(
+        "/v1/cuentas/telefono/entrar",
+        json={"phone": "+593991234567", "code": "123456", "device": "d1"},
+    )
+    assert sms.status_code == 403
+    callback = client.get("/v1/cuentas/oauth/google/vuelta", follow_redirects=False)
+    assert callback.status_code == 303
+    assert "Cree primero su cuenta por correo" in unquote(callback.headers["location"])
+    assert st.users() == []

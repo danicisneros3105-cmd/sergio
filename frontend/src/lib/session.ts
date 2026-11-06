@@ -5,6 +5,7 @@
 // out); on the owner's own computer «Seguir sin cuenta» is always there.
 
 import { apiFetch } from './api';
+import { accountAtPageLoad } from './browserAccount';
 
 export const NO_ACCOUNT = 'sergio-sin-cuenta';
 export const TOUR_SEEN = 'sergio-tour-v1';
@@ -43,10 +44,12 @@ export function needFrom(estado: Estado | null, skipped: boolean): SessionNeed {
 export async function sessionNeed(): Promise<SessionNeed> {
   try {
     const res = await apiFetch('/v1/cuentas/estado');
-    if (!res.ok) return 'ok';
-    return needFrom((await res.json()) as Estado, flag(NO_ACCOUNT));
+    if (!res.ok) return accountAtPageLoad ? 'entrar' : 'ok';
+    const estado = (await res.json()) as Estado;
+    if (accountAtPageLoad && (estado.me as { id?: string } | null)?.id !== accountAtPageLoad) return 'entrar';
+    return needFrom(estado, flag(NO_ACCOUNT));
   } catch {
-    return 'ok';
+    return accountAtPageLoad ? 'entrar' : 'ok';
   }
 }
 

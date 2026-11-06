@@ -1,3 +1,4 @@
+import { scopedDataKey } from '../../lib/browserAccount';
 import { useState, useEffect, useCallback } from 'react';
 import type React from 'react';
 import { invoke } from '@tauri-apps/api/core';
@@ -269,9 +270,9 @@ function isProfane(text: string): boolean {
 }
 
 const OPTIN_KEY = 'openjarvis-desktop-optin';
-const OPTIN_NAME_KEY = 'openjarvis-desktop-display-name';
-const OPTIN_EMAIL_KEY = 'openjarvis-desktop-email';
-const OPTIN_ANONID_KEY = 'openjarvis-desktop-anon-id';
+const OPTIN_NAME_KEY = scopedDataKey('openjarvis-desktop-display-name');
+const OPTIN_EMAIL_KEY = scopedDataKey('openjarvis-desktop-email');
+const OPTIN_ANONID_KEY = scopedDataKey('openjarvis-desktop-anon-id');
 
 function getOrCreateAnonId(): string {
   const stored = localStorage.getItem(OPTIN_ANONID_KEY);

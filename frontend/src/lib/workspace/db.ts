@@ -1,3 +1,4 @@
+import { scopedDataKey } from '../browserAccount';
 // The Workspace's local copy: IndexedDB on this device, so every page opens
 // in milliseconds and works with no network. Archived pages live in their
 // own store («vault») and are not read at start-up, so the app stays light.
@@ -38,7 +39,7 @@ export function memoryDB(): LocalDB {
   };
 }
 
-const DB_NAME = 'sergio-workspace';
+const DB_NAME = scopedDataKey('sergio-workspace');
 const VERSION = 1;
 
 export function idbDB(factory: IDBFactory = indexedDB): LocalDB {

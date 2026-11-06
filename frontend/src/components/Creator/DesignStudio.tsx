@@ -1,3 +1,4 @@
+import { scopedDataKey } from '../../lib/browserAccount';
 // Creator's design and image studio (Fabric.js). "Diseño" is a Canva-style
 // canvas: formats, texts, shapes, photos, a brush, layers, and Sergio
 // designing the whole layout from one sentence. "Imagen" is the photo
@@ -186,7 +187,7 @@ export function DesignStudio({ mode }: { mode: Mode }) {
   const elapsed = useElapsed(busy);
   const [, force] = useState(0);
   const history = useRef<{ undo: string[]; redo: string[]; quiet: boolean }>({ undo: [], redo: [], quiet: false });
-  const storeKey = `sergio.creator.${mode}`;
+  const storeKey = scopedDataKey(`sergio.creator.${mode}`);
   const fileInput = useRef<HTMLInputElement>(null);
 
   const refresh = useCallback(() => {

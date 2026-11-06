@@ -1,3 +1,4 @@
+import { scopedDataKey } from '../lib/browserAccount';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useDevApi } from '../lib/dev-api';
 import { useNavigate, useSearchParams } from 'react-router';
@@ -430,7 +431,7 @@ export function SettingsPage() {
   };
 
   const handleExport = () => {
-    const data = localStorage.getItem('openjarvis-conversations') || '{}';
+    const data = localStorage.getItem(scopedDataKey('openjarvis-conversations')) || '{}';
     const blob = new Blob([data], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -452,7 +453,7 @@ export function SettingsPage() {
         try {
           const data = JSON.parse(ev.target?.result as string);
           if (data.version === 1) {
-            localStorage.setItem('openjarvis-conversations', JSON.stringify(data));
+            localStorage.setItem(scopedDataKey('openjarvis-conversations'), JSON.stringify(data));
             useAppStore.getState().loadConversations();
             showSaved();
           }
@@ -470,7 +471,7 @@ export function SettingsPage() {
       setTimeout(() => setConfirmClear(false), 3000);
       return;
     }
-    localStorage.removeItem('openjarvis-conversations');
+    localStorage.removeItem(scopedDataKey('openjarvis-conversations'));
     useAppStore.getState().loadConversations();
     setConfirmClear(false);
     showSaved();

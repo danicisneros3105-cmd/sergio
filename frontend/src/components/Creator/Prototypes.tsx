@@ -1,3 +1,4 @@
+import { scopedDataKey } from '../../lib/browserAccount';
 // Creator › Prototipos: design by talking. The conversation with Sergio on
 // the left, the live design on the right; comment on any element, edit its
 // text in place, turn its knobs (the design's CSS variables), go back to any
@@ -41,7 +42,7 @@ import {
 import { newId } from '../../lib/workspace/model';
 import './prototypes.css';
 
-const STORE = 'sergio.prototipos';
+const STORE = scopedDataKey('sergio.prototipos');
 
 function loadProjects(): Project[] {
   try {

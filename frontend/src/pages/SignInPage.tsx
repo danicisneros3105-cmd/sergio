@@ -1,11 +1,11 @@
+import { saveBrowserAccount } from '../lib/browserAccount';
 // Entrar / Crear cuenta: the device's own face first (a passkey), then Google,
 // Microsoft or Apple; email with a code, or the phone with an SMS. The token
 // Sergio gives back works like the key.
 
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router';
 import { toast } from 'sonner';
-import { apiFetch } from '../lib/api';
+import { getBase, apiFetch } from '../lib/api';
 import { newUuid } from '../lib/compat';
 import { useAppStore } from '../lib/store';
 import { BrandMark } from '../components/Brand/BrandMark';
@@ -89,7 +89,6 @@ export async function reportAiSetup(token: string, tries = 6, wait = 2500): Prom
 }
 
 function SignInPage() {
-  const navigate = useNavigate();
   const updateSettings = useAppStore((s) => s.updateSettings);
   const [info, setInfo] = useState<State | null>(null);
   const [way, setWay] = useState<'correo' | 'telefono'>('correo');
@@ -117,14 +116,21 @@ function SignInPage() {
     else void passkeyReady().then(setFaceOk);
   }, []);
 
-  const done = (a: Answer) => {
+  const done = async (a: Answer) => {
     if (a.status === 'dentro' && a.token) {
-      updateSettings({ apiKey: a.token });
+      const res = await apiFetch('/v1/cuentas/estado', {
+        headers: { Authorization: `Bearer ${a.token}` },
+        cache: 'no-store',
+      });
+      const verified = res.ok ? await res.json() : null;
+      if (!verified?.me?.id) throw new Error('No se pudo verificar la cuenta. Vuelva a entrar.');
+      saveBrowserAccount({ id: verified.me.id, token: a.token, base: getBase() });
+      updateSettings({ apiKey: '' });
       toast.success(`${welcome()}.`);
       setFlag(NO_ACCOUNT, false);
       void reportAiSetup(a.token);
       // The first time in: the tour shows how the app works.
-      navigate(tourSeen() ? '/' : '/?tour=1');
+      window.location.replace(tourSeen() ? '/' : '/?tour=1');
       return;
     }
     if (a.status === 'codigo') setStep('codigo');
@@ -135,7 +141,7 @@ function SignInPage() {
     const hash = new URLSearchParams(window.location.hash.slice(1));
     if (hash.get('token')) {
       window.history.replaceState(null, '', '/entrar');
-      done({ status: 'dentro', token: hash.get('token')! });
+      void done({ status: 'dentro', token: hash.get('token')! }).catch(() => setNote('No se pudo verificar la cuenta. Vuelva a entrar.'));
       return;
     }
     if (hash.get('error')) setNote(hash.get('error')!);
@@ -154,7 +160,7 @@ function SignInPage() {
     setBusy(true);
     setNote('');
     try {
-      done(await fn());
+      await done(await fn());
     } catch (e) {
       setNote(e instanceof Error ? e.message : 'No se pudo.');
     } finally {
@@ -181,10 +187,10 @@ function SignInPage() {
       if (a.status === 'dentro') {
         setFace('ok');
         setNote('Es usted. Adelante.');
-        window.setTimeout(() => done(a), 650);
+        await done(a);
       } else {
         setFace('fail');
-        done(a);
+        await done(a);
       }
     } catch (e) {
       setFace('fail');
@@ -226,9 +232,10 @@ function SignInPage() {
               </button>
             ))}
             <small className="signin-legal">
-              Al continuar con {providers.map(([k]) => LABEL[k]).join(', ')} acepta los{' '}
+              Consulte los{' '}
               <a href="/legal/terminos" target="_blank" rel="noreferrer">términos</a> y la{' '}
               <a href="/legal/privacidad" target="_blank" rel="noreferrer">privacidad</a>.
+              {info?.registro === 'abierto' && ' Para crear una cuenta, utilice el registro por correo.'}
             </small>
             <div className="signin-or">
               <span>o</span>
@@ -325,6 +332,7 @@ function SignInPage() {
             <small className="signin-legal">
               Al continuar acepta los <a href="/legal/terminos" target="_blank" rel="noreferrer">términos</a> y la{' '}
               <a href="/legal/privacidad" target="_blank" rel="noreferrer">privacidad</a>.
+              {info?.registro === 'abierto' && ' Para crear una cuenta, utilice el registro por correo.'}
             </small>
           </form>
         )}
@@ -365,7 +373,7 @@ function SignInPage() {
             className="signin-switch"
             onClick={() => {
               setFlag(NO_ACCOUNT);
-              navigate(tourSeen() ? '/' : '/?tour=1');
+              window.location.replace(tourSeen() ? '/' : '/?tour=1');
             }}
           >
             Seguir sin cuenta en este equipo

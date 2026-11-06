@@ -204,7 +204,7 @@ def registro(body: Register, request: Request) -> Dict[str, Any]:
     email = body.email.strip()
     if not mail.valid(email):
         raise HTTPException(400, "Ese correo no parece válido.")
-    if registro.abierto() and not _first_local(request):
+    if registro.abierto():
         if not body.acepta:
             raise HTTPException(
                 400, "Para crear la cuenta acepte los términos y la privacidad."
@@ -225,20 +225,16 @@ def registro(body: Register, request: Request) -> Dict[str, Any]:
         )
     verdict = _guard(email=email, device=body.device, request=request)
     first = _first_local(request)
+    consent = (
+        (registro.TERMS_VERSION, body.mayor, registro.can_open_by_itself(verdict))
+        if body.acepta
+        else None
+    )
     user = _store().create(
         email=email, canonical=mail.canonical(email), name=body.name.strip(), password=body.password,
-        role="dueño" if first else "pendiente",
-        email_ok=first,
+        role="dueño" if first else "pendiente", email_ok=first, consent=consent,
     )  # fmt: skip
     _store().note_signup(user["id"], body.device, verdict["network"])
-    if body.acepta:  # every account keeps which terms it accepted (owner, 3 Nov 2026)
-        try:
-            _store().record_consent(
-                user["id"], registro.TERMS_VERSION, body.mayor,
-                registro.can_open_by_itself(verdict) if registro.abierto() else False,
-            )  # fmt: skip
-        except Exception:  # noqa: BLE001 — a consent row never blocks the account
-            pass
     if first:
         return _signed_in(user, body.device)
     if senders.smtp_ready():
@@ -332,7 +328,7 @@ def telefono_codigo(body: PhoneStart, request: Request) -> Dict[str, Any]:
 
 @router.post("/telefono/entrar")
 def telefono_entrar(body: PhoneLogin, request: Request) -> Dict[str, Any]:
-    from openjarvis.accounts import fraud, senders
+    from openjarvis.accounts import fraud, registro, senders
 
     _limit(request)
     number = senders.phone(body.phone)
@@ -340,6 +336,11 @@ def telefono_entrar(body: PhoneLogin, request: Request) -> Dict[str, Any]:
         raise HTTPException(400, "El código no es correcto o caducó.")
     user = _store().find(phone=number)
     if user is None:
+        if registro.abierto():
+            raise HTTPException(
+                403,
+                "Cree primero su cuenta por correo para aceptar los términos y confirmar la edad.",
+            )
         verdict = fraud.check(
             _store(), phone=number, device=body.device, ip=_ip(request)
         )
@@ -378,7 +379,7 @@ def oauth_inicio(key: str, request: Request, device: str = "") -> Dict[str, Any]
 
 async def _oauth_back(key: str, request: Request) -> RedirectResponse:
     from openjarvis.accounts import email as mail
-    from openjarvis.accounts import fraud, oauth
+    from openjarvis.accounts import fraud, oauth, registro
 
     params = dict(request.query_params)
     if request.method == "POST":
@@ -390,6 +391,10 @@ async def _oauth_back(key: str, request: Request) -> RedirectResponse:
         if user is None and claims["email_ok"]:
             user = store.find(canonical=mail.canonical(claims["email"]))
         if user is None:
+            if registro.abierto():
+                raise ValueError(
+                    "Cree primero su cuenta por correo para aceptar los términos y confirmar la edad."
+                )
             verdict = fraud.check(
                 store, email=claims["email"], device=claims["device"], ip=_ip(request)
             )

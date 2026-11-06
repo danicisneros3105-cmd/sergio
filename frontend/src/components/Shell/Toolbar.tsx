@@ -1,3 +1,4 @@
+import { clearBrowserAccount } from '../../lib/browserAccount';
 import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import {
@@ -295,12 +296,13 @@ export function Toolbar({ historyOpen, onToggleHistory }: { historyOpen: boolean
                 data-quiet
                 onClick={() => {
                   const done = closeAccountSession(() => {
+                    clearBrowserAccount();
                     useAppStore.getState().updateSettings({ apiKey: '' });
                   });
                   setUserMenu(false);
                   go('/entrar');
                   void done.then((revoked) => {
-                    if (!revoked) toast.warning('La sesión se quitó de este navegador, pero no se pudo confirmar su cierre en el servidor.');
+                    if (!revoked) toast.warning('La sesión se quitó de esta pestaña; no pude confirmar el cierre en el servidor.');
                   });
                 }}
               >

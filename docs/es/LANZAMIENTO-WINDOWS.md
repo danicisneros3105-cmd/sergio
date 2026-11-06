@@ -36,3 +36,16 @@ Tras firmar, vuelva a calcular la suma sobre el archivo firmado.
 El instalador no reemplaza la configuración de WSL ni cambia los permisos
 del usuario de Ubuntu. El instalador y la app necesitan verificarse en Windows;
 la compilación del frontend por sí sola no acredita una instalación.
+
+## Requisitos de privacidad del entorno público
+
+- Verifique en HTTPS registro, inicio, cierre, caducidad y revocación. Pruebe que
+  dos cuentas no ven los datos de la otra y que volver atrás no reabre la sesión.
+  La separación local no cifra los datos frente a alguien con acceso al perfil
+  del navegador. Utilice perfiles del sistema distintos en equipos compartidos.
+- Termine el aviso público con la identidad y contacto del responsable,
+  plazos de conservación por tipo de dato y un canal verificado para ejercer
+  derechos. Pruebe exportación, corrección y borrado antes de prometerlos.
+- En registro abierto, las cuentas nuevas pasan por correo; SMS y OAuth
+  autentican cuentas existentes. Configure y pruebe el correo de verificación
+  del entorno de producción.

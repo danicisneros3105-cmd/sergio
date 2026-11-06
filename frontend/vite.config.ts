@@ -88,24 +88,12 @@ export default defineConfig({
         // then stay cached (their file names change when they change).
         globIgnores: ['**/{CodeStudio,Studio3D,DesignStudio,editor.worker}-*.{js,css}'],
         navigateFallbackDenylist: [/^\/version\.json/, /^\/v1\//, /^\/health/, /^\/dashboard/, /^\/api\//],
-        // Offline: the model list and server info come from the last time
-        // there was a connection, so the chat still opens. Answers are kept
-        // separately in IndexedDB (src/lib/offline.ts).
+        // Cache only static assets, never account-authenticated API responses.
         runtimeCaching: [
           {
             urlPattern: ({ url }) => /\/assets\/(CodeStudio|Studio3D|DesignStudio|editor\.worker)-[\w-]+\.(js|css)$/.test(url.pathname),
             handler: 'CacheFirst',
             options: { cacheName: 'sergio-creator', expiration: { maxEntries: 24, maxAgeSeconds: 90 * 86400 } },
-          },
-          {
-            urlPattern: ({ url, request }) =>
-              request.method === 'GET' && /^\/v1\/(models|info)$/.test(url.pathname),
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'sergio-api',
-              networkTimeoutSeconds: 4,
-              expiration: { maxEntries: 10, maxAgeSeconds: 30 * 86400 },
-            },
           },
         ],
       },

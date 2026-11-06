@@ -1,3 +1,4 @@
+import { scopedDataKey } from '../../lib/browserAccount';
 // Sergio, next to a page: what it relates to, what to verify, how the
 // project will go, relations nobody configured, how its template should
 // evolve, and an agent that carries the page's goal out step by step — each
@@ -13,7 +14,7 @@ import { block as makeBlock, plainText, TEMPLATES, type Block, type Page } from 
 import { useAppStore } from '../../lib/store';
 import { nodesRequest } from '../../lib/nodes-api';
 
-const TEMPLATE_KEY = 'sergio-templates';
+const TEMPLATE_KEY = scopedDataKey('sergio-templates');
 
 function saveTemplate(key: string, blocks: Block[]) {
   try {
