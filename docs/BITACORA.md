@@ -2,6 +2,12 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-11-05 · Codex · Video con menos pasos y revisión más útil
+- Crear video deja a la vista la idea, el tipo y la acción principal; formato, duración, producción, clips, tendencias y repetición quedan en Ajustes. Animación con voz solicita el modo verificado existente.
+- Revisé el editor: pedía texto cinético en todas las tomas y el acabado volvía a aplicar pop aunque el revisor lo quitara. Se respeta la decisión de cada toma y se pide continuidad y menos efectos simultáneos.
+- La verificación de animación recorre toda la toma con muestras acotadas y distingue cambio de luz de movimiento espacial. La tarjeta avisa si no puede consultar el estado o falta el video.
+- Cinco pruebas de video pasaron, incluida la exportación controlada con voz y subtítulos a 30 FPS. Falta validar apariencia en Windows y la calidad con proveedores de producción.
+
 ## 2026-11-05 · Codex · Portadas cálidas y menos controles
 - Retiré la cuadrícula de atajos del chat y su consulta de conectores. Se mantienen el compositor, los controles existentes y el resumen semanal.
 - Chat y Cowork comparten una portada de grafito con luz cálida; las burbujas usan colores neutros y se conserva el logo azul. No se añadió navegación ni botones.

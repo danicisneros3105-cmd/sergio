@@ -27,6 +27,7 @@ interface Job {
 export function VideoJobCard({ id }: { id: string }) {
   const [job, setJob] = useState<Job | null>(null);
   const [gone, setGone] = useState(false);
+  const [offline, setOffline] = useState(false);
   const [refresh, setRefresh] = useState(0);
   const [requesting, setRequesting] = useState(false);
 
@@ -40,14 +41,19 @@ export function VideoJobCard({ id }: { id: string }) {
           if (alive) setGone(true);
           return;
         }
+        if (!r.ok) throw new Error('Estado no disponible');
         const d = (await r.json()) as Job;
         if (!alive) return;
+        setOffline(false);
         setJob(d);
         if (d.estado === 'en curso' || ['esperando_aprobacion', 'subiendo', 'miniatura'].includes(d.subida_youtube?.estado ?? '')) {
           timer = window.setTimeout(tick, 4000);
         }
       } catch {
-        if (alive) timer = window.setTimeout(tick, 8000);
+        if (alive) {
+          setOffline(true);
+          timer = window.setTimeout(tick, 8000);
+        }
       }
     };
     void tick();
@@ -57,8 +63,8 @@ export function VideoJobCard({ id }: { id: string }) {
     };
   }, [id, refresh]);
 
-  if (gone) return null;
-  if (!job) return <div className="vjob" aria-busy="true" />;
+  if (gone) return <p className="vjob-why">Ya no encuentro este trabajo de video.</p>;
+  if (!job) return <div className="vjob" role="status" aria-busy={!offline}>{offline ? "No pude consultar el video. Volveré a intentar." : "Consultando el video…"}</div>;
   const upload = job.subida_youtube;
   const uploading = ['esperando_aprobacion', 'subiendo', 'miniatura'].includes(upload?.estado ?? '');
   const requestUpload = async () => {
@@ -82,7 +88,7 @@ export function VideoJobCard({ id }: { id: string }) {
         <b>{job.titulo}</b>
         <span>
           {job.estado === 'listo'
-            ? 'Listo'
+            ? job.video ? 'Listo para revisar' : 'Sin archivo de video'
             : job.estado === 'en curso'
               ? `${job.etapa} · ${pct} %`
               : job.estado === 'cancelado'
@@ -90,6 +96,7 @@ export function VideoJobCard({ id }: { id: string }) {
                 : 'Se detuvo'}
         </span>
       </div>
+      {offline && <p className="vjob-why" role="status">Mostrando el último estado. Volveré a intentar la conexión.</p>}
       {job.estado === 'en curso' && (
         <div className="vjob-bar" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
           <i style={{ width: `${pct}%` }} />

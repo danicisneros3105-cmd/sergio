@@ -1,10 +1,5 @@
-// «Video» in the chat's «+» menu: what the video is about, its shape, how much
-// effort (a bar with the four modes, from a quick test to Absolut Cinema) and,
-// if wanted, «repetir cada 3 horas». A one-off video is asked in the chat (the
-// director and editor answer there); a repeating one is saved as a schedule
-// (/v1/personal/videos). Finished scheduled videos wait here for the person's
-// OK: nothing is posted without them, and «Publicar» hands over the file,
-// title and description to upload.
+// Start a video from the composer. One-off jobs go through the chat;
+// recurring jobs are saved in /v1/personal/videos for review before publishing.
 
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -13,10 +8,10 @@ import { toast } from 'sonner';
 import { apiFetch } from '../../lib/api';
 
 const EFFORT = [
-  { id: 'test', nombre: 'Prueba', tarda: 'unos minutos' },
-  { id: 'basic', nombre: 'Básico', tarda: 'un rato' },
-  { id: 'post', nombre: 'Para publicar', tarda: 'horas' },
-  { id: 'cinema', nombre: 'Absolut Cinema', tarda: 'muchas horas' },
+  { id: 'test', nombre: 'Prueba' },
+  { id: 'basic', nombre: 'Básico' },
+  { id: 'post', nombre: 'Para publicar' },
+  { id: 'cinema', nombre: 'Absolut Cinema' },
 ];
 const FORMATS = [
   { id: '9:16', nombre: 'Vertical' },
@@ -67,6 +62,7 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
 export function VideoSheet({ onClose, onAsk }: { onClose: () => void; onAsk: (text: string) => void }) {
   const [idea, setIdea] = useState('');
   const [effort, setEffort] = useState(1);
+  const [animation, setAnimation] = useState(false);
   const [format, setFormat] = useState('9:16');
   const [length, setLength] = useState(60);
   const [every, setEvery] = useState(0);
@@ -87,20 +83,23 @@ export function VideoSheet({ onClose, onAsk }: { onClose: () => void; onAsk: (te
     void load();
   }, []);
 
+  const repeat = animation ? 0 : every;
+  const selectedClips = animation ? [] : clips;
+
   const go = async () => {
-    const mode = EFFORT[effort];
+    const mode = EFFORT[animation ? Math.max(effort, 2) : effort];
     const shape = FORMATS.find((f) => f.id === format)?.nombre.toLowerCase();
-    if (!every) {
+    if (!repeat) {
       let gallery = '';
-      if (clips.length) {
-        if (clips.length > 6 || clips.reduce((size, file) => size + file.size, 0) > 64 * 1024 * 1024) {
+      if (selectedClips.length) {
+        if (selectedClips.length > 6 || selectedClips.reduce((size, file) => size + file.size, 0) > 64 * 1024 * 1024) {
           toast.error('Elige hasta seis videos que sumen menos de 64 MB.');
           return;
         }
         setSending(true);
         try {
           const body = new FormData();
-          clips.forEach((file) => body.append('files', file));
+          selectedClips.forEach((file) => body.append('files', file));
           const batch = await call<{ id: string; videos: number }>('/v1/personal/videos/galeria', { method: 'POST', body });
           gallery = ` Usa exactamente mis ${batch.videos} clips en el orden seleccionado: galeria_id=${batch.id} en video_essay. Activa equipo_creativo y crea una miniatura en modo post.`;
         } catch (e) {
@@ -111,22 +110,25 @@ export function VideoSheet({ onClose, onAsk }: { onClose: () => void; onAsk: (te
         }
       }
       onAsk(
-        `Haz un video sobre: ${idea.trim()}. Formato ${shape} (${format}). Duración: ${length} segundos. Modo ${clips.length ? 'post' : mode.id}. Activa equipo_creativo.${liveTrends ? ' Consulta YouTube e Instagram ahora con tendencias_en_vivo=true.' : ''}${gallery}`,
+        `Haz un video sobre: ${idea.trim()}. Formato ${shape} (${format}). Duración: ${length} segundos. Modo ${selectedClips.length ? 'post' : mode.id}. Activa equipo_creativo.${animation ? ' Usa video_essay con verificar_animacion=true y narración en español. No sustituyas tomas por imágenes fijas.' : ''}${liveTrends ? ' Consulta YouTube e Instagram ahora con tendencias_en_vivo=true.' : ''}${gallery}`,
       );
       onClose();
       return;
     }
+    setSending(true);
     try {
       await call('/v1/personal/videos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ idea, cada_horas: every, modo: mode.id, formato: format, segundos: length }),
+        body: JSON.stringify({ idea, cada_horas: repeat, modo: mode.id, formato: format, segundos: length }),
       });
       toast.success('Programado. Le aviso cuando cada video esté listo; nada se publica sin usted.');
       setIdea('');
       void load();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'No pude programarlo.');
+    } finally {
+      setSending(false);
     }
   };
 
@@ -157,54 +159,73 @@ export function VideoSheet({ onClose, onAsk }: { onClose: () => void; onAsk: (te
   // On the page itself: the composer around it would trap a fixed layer.
   return createPortal(
     <div className="msheet-layer" onClick={onClose}>
-      <div className="msheet vsheet" role="dialog" aria-label="Video" onClick={(e) => e.stopPropagation()}>
+      <div className="msheet vsheet" role="dialog" aria-label="Crear video" onClick={(e) => e.stopPropagation()}>
         <header className="msheet-head">
-          <h2>Video</h2>
+          <h2>Crear video</h2>
           <button type="button" className="mac-icon-btn" aria-label="Cerrar" onClick={onClose}><X size={18} /></button>
         </header>
         <textarea
           className="vsheet-idea"
+          aria-label="Idea del video"
           value={idea}
           onChange={(e) => setIdea(e.target.value)}
-          placeholder="De qué trata: «la historia del primer auto eléctrico», «3 recetas en 30 segundos»…"
+          placeholder="¿Qué quiere contar?"
           rows={3}
         />
         <label className="vsheet-effort">
-          <span>Videos de tu galería (opcional)</span>
-          <input type="file" accept="video/*,.mov,.mp4,.webm,.mkv,.m4v" multiple
-            onChange={(e) => setClips(Array.from(e.target.files ?? []))} disabled={sending} />
-          {clips.length > 0 && <small>{clips.length} videos seleccionados. Se usarán en ese orden, con nueva narración y música.</small>}
+          <span>Tipo de video</span>
+          <select className="paper-input" value={animation ? 'animation' : 'edit'} disabled={sending} onChange={(e) => setAnimation(e.target.value === 'animation')}>
+            <option value="edit">Montaje narrado</option>
+            <option value="animation">Animación con voz</option>
+          </select>
         </label>
-        {!every && <label className="msheet-for">
-          <input type="checkbox" checked={liveTrends} onChange={(e) => setLiveTrends(e.target.checked)} />
-          {' '}Consultar tendencias de YouTube e Instagram en segundo plano
-        </label>}
-        <div className="msheet-effort" role="radiogroup" aria-label="Formato" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
-          {FORMATS.map((f) => (
-            <button key={f.id} type="button" role="radio" aria-checked={format === f.id} onClick={() => setFormat(f.id)}>{f.nombre}</button>
-          ))}
-        </div>
-        <div className="msheet-effort" role="radiogroup" aria-label="Duración" style={{ gridTemplateColumns: 'repeat(5, 1fr)' }}>
-          {LENGTHS.map((x) => (
-            <button key={x.s} type="button" role="radio" aria-checked={length === x.s} onClick={() => setLength(x.s)}>{x.label}</button>
-          ))}
-        </div>
-        <label className="vsheet-effort">
-          <span>Esfuerzo: <b>{EFFORT[effort].nombre}</b> · tarda {EFFORT[effort].tarda}</span>
-          <input type="range" min={0} max={3} step={1} value={effort} onChange={(e) => setEffort(Number(e.target.value))} aria-label="Esfuerzo" />
-          <span className="vsheet-ticks">{EFFORT.map((x) => <i key={x.id}>{x.nombre}</i>)}</span>
-        </label>
-        <div className="vsheet-every" role="radiogroup" aria-label="Repetir">
-          {EVERY.map((x) => (
-            <button key={x.h} type="button" role="radio" aria-checked={every === x.h} onClick={() => setEvery(x.h)}>{x.label}</button>
-          ))}
-        </div>
+        <details className="vjob-why">
+          <summary>Ajustes del video</summary>
+          <label className="vsheet-effort">
+            <span>Formato</span>
+            <select className="paper-input" value={format} onChange={(e) => setFormat(e.target.value)} disabled={sending}>
+              {FORMATS.map((f) => <option key={f.id} value={f.id}>{f.nombre}</option>)}
+            </select>
+          </label>
+          <label className="vsheet-effort">
+            <span>Duración</span>
+            <select className="paper-input" value={length} onChange={(e) => setLength(Number(e.target.value))} disabled={sending}>
+              {LENGTHS.map((x) => <option key={x.s} value={x.s}>{x.label}</option>)}
+            </select>
+          </label>
+          <label className="vsheet-effort">
+            <span>Producción</span>
+            <select className="paper-input" value={selectedClips.length ? 2 : animation ? Math.max(2, effort) : effort}
+              onChange={(e) => setEffort(Number(e.target.value))} disabled={sending || selectedClips.length > 0}>
+              {EFFORT.map((x, i) => (!animation || i >= 2) && <option key={x.id} value={i}>{x.nombre}</option>)}
+            </select>
+          </label>
+          {!animation && <label className="vsheet-effort">
+            <span>Repetir</span>
+            <select className="paper-input" value={every} onChange={(e) => setEvery(Number(e.target.value))}
+              disabled={sending || selectedClips.length > 0}>
+              {EVERY.map((x) => <option key={x.h} value={x.h}>{x.label}</option>)}
+            </select>
+          </label>}
+          {!animation && !every && <label className="vsheet-effort">
+            <span>Usar mis clips</span>
+            <input type="file" accept="video/*,.mov,.mp4,.webm,.mkv,.m4v" multiple
+              onChange={(e) => setClips(Array.from(e.target.files ?? []))} disabled={sending} />
+            {clips.length > 0 && <small>{clips.length} clips · se usan en orden, en modo Para publicar.</small>}
+          </label>}
+          {!repeat && <label className="msheet-for">
+            <input type="checkbox" checked={liveTrends} onChange={(e) => setLiveTrends(e.target.checked)} disabled={sending} />
+            {' '}Consultar tendencias actuales
+          </label>}
+        </details>
         <p className="msheet-for">
-          Sergio escribe el guion, elige los clips, corta, pone subtítulos y música. Nada se publica sin que usted lo apruebe.
+          {animation
+            ? 'Requiere un proveedor de voz y un generador de video o Blender. Puede tardar horas.'
+            : `${FORMATS.find((f) => f.id === format)?.nombre} · ${LENGTHS.find((x) => x.s === length)?.label}`}
+          {' '}No se publica automáticamente desde aquí.
         </p>
-        {every > 0 && clips.length > 0 && <p className="msheet-for">Los clips de galería son para un video único. Elige «Una vez».</p>}
-        <button type="button" className="msheet-primary vsheet-go" disabled={idea.trim().length < 3 || sending || (every > 0 && clips.length > 0)} onClick={() => void go()}>
-          {sending ? 'Importando clips…' : every ? 'Programar' : 'Hacer el video'}
+        <button type="button" className="msheet-primary vsheet-go" disabled={idea.trim().length < 3 || sending} onClick={() => void go()}>
+          {sending ? 'Preparando…' : repeat ? 'Programar video' : 'Crear video'}
         </button>
 
         {ready.length > 0 && (

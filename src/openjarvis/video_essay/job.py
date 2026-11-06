@@ -803,13 +803,6 @@ def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
 
             from openjarvis.video_essay import color
 
-            if crew_requested and narration == "voice":
-                for shot in shots:
-                    if shot.kind != "card":
-                        shot.text_style = "pop"
-                        # Let typography pick a legible, safe area on the image.
-                        if "tipo:auto" not in shot.notes:
-                            shot.position = "center"
             touched = typo.dress(shots, words, still, profile)
             touched += color.unify(shots, still)  # one colour across the shots
             if touched:

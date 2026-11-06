@@ -63,8 +63,16 @@ def require_shots(shots: list[Any], ffmpeg: str, ffprobe: str) -> int:
             stream = next(
                 s for s in _streams(path, ffprobe) if s["codec_type"] == "video"
             )
-            if float(stream["duration"]) + 0.12 < shot.dur:
+            duration = float(stream["duration"])
+            if (
+                not math.isfinite(shot.dur)
+                or shot.dur <= 0
+                or not math.isfinite(duration)
+                or duration + 0.12 < shot.dur
+            ):
                 raise ValueError("duración insuficiente")
+            # Cover the used portion with a bounded number of samples.
+            sample_fps = min(8.0, 24.0 / shot.dur)
             sample = subprocess.run(
                 [
                     ffmpeg,
@@ -76,9 +84,9 @@ def require_shots(shots: list[Any], ffmpeg: str, ffprobe: str) -> int:
                     "-filter_threads",
                     "1",
                     "-t",
-                    str(min(3.0, shot.dur)),
+                    str(shot.dur),
                     "-vf",
-                    "fps=8,scale=64:64,format=gray",
+                    f"fps={sample_fps:.6f},scale=64:64,format=gray",
                     "-f",
                     "rawvideo",
                     "-",
@@ -92,10 +100,22 @@ def require_shots(shots: list[Any], ffmpeg: str, ffprobe: str) -> int:
                 .reshape(-1, 4096)
                 .astype(np.int16)
             )
-            if len(pictures) < 2 or not np.any(
-                np.count_nonzero(np.abs(pictures[1:] - pictures[0]) >= 16, axis=1) >= 32
-            ):
+            if len(pictures) < 2:
                 raise ValueError("no se detectó movimiento")
+            visible = np.percentile(pictures, 95, axis=1) - np.percentile(
+                pictures, 5, axis=1
+            )
+            if np.count_nonzero(visible >= 12) < max(1, (len(pictures) + 1) // 2):
+                raise ValueError(
+                    "no se detectó movimiento: predominan fotogramas planos u oscuros"
+                )
+            # Ignore global brightness shifts and look for changes in detail.
+            diffs = np.diff(pictures, axis=0)
+            detail = diffs - np.median(diffs, axis=1, keepdims=True)
+            usable = (visible[1:] >= 12) & (visible[:-1] >= 12)
+            changed = np.count_nonzero(np.abs(detail) >= 14, axis=1) >= 40
+            if not np.any(usable & changed):
+                raise ValueError("no se detectó movimiento; solo luz o una imagen fija")
         except (
             OSError,
             subprocess.SubprocessError,

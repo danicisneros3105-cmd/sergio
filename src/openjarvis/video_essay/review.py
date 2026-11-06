@@ -37,7 +37,7 @@ FREE = {"visual": 400, "text": 200, "highlight": 40, "overlay": 24, "camera": 16
 REVIEW_PROMPT = """You are the senior editor reviewing a cut of a video essay before it \
 goes out. The sheet shows one frame of every shot, numbered in order (#0 first). \
 It must reach the level of the reference style below: a cut every ~{median}s, \
-kinetic text in every shot, the right mix of cards / archive / device / b-roll, \
+selective kinetic text only when it helps, the right mix of cards / archive / device / b-roll, \
 strong literal visuals, readable text, rhythm that builds to the payoff.
 
 REFERENCE STYLE: {style}
@@ -47,7 +47,9 @@ SAY = SHOW: the picture of a shot must show what is said at that very moment. \
 When the words name a thing, a place or an action, the picture IS that thing; \
 when they speak of a feeling or a human situation, prefer a scene of a film or \
 series (source film) over a stock clip. A generic picture over a precise phrase \
-is the worst fault: fix those first.
+is the worst fault: fix those first. Keep subject, screen direction and palette \
+consistent across related shots. Let a reveal breathe. Do not stack zoom, glitch, \
+motion text and transition on the same beat. Keep key objects clear of subtitles.
 
 Find what most hurts the edit: unreadable or crowded text, a picture that does \
 not match its words, too many similar shots in a row, wrong mix, weak payoff, \
