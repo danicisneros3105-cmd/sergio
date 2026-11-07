@@ -288,6 +288,7 @@ class Jarvis:
         max_tokens: Optional[int] = None,
         context: bool = True,
         channel: Optional[Any] = None,
+        file_receipts: bool = False,
     ) -> Dict[str, Any]:
         """Send a query and return the full result dict.
 
@@ -320,6 +321,7 @@ class Jarvis:
                 max_tokens=max_tokens,
                 context=context,
                 channel=channel,
+                file_receipts=file_receipts,
             )
 
         # Direct engine mode
@@ -468,6 +470,7 @@ class Jarvis:
         max_tokens: int,
         context: bool,
         channel: Optional[Any] = None,
+        file_receipts: bool = False,
     ) -> Dict[str, Any]:
         """Run an agent and return the result dict."""
         import openjarvis.agents  # noqa: F401
@@ -607,6 +610,11 @@ class Jarvis:
                     "tool_name": tr.tool_name,
                     "content": tr.content,
                     "success": tr.success,
+                    **(
+                        {"file_path": tr.metadata.get("path")}
+                        if file_receipts and tr.tool_name in ("file_write", "file_read")
+                        else {}
+                    ),
                 }
                 for tr in result.tool_results
             ],

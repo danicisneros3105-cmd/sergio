@@ -81,6 +81,42 @@ def verified_read(results: list, check: str) -> bool:
     return _read_evidence(results, check) is not None
 
 
+def _written_file_evidence(results: list, check: str) -> str | None:
+    """Require a write and a successful reread of the requested text file."""
+    kind, sep, rule = check.partition(" | ")
+    if kind != "ARCHIVO" or not sep:
+        return None
+    path, sep, expected = rule.partition(" | ")
+    if (
+        not sep
+        or not expected.strip()
+        or len(path) > 280
+        or not os.path.isabs(path)
+        or any(ord(char) < 32 for char in path)
+    ):
+        return None
+    key = os.path.normcase(os.path.normpath(path))
+    wrote = confirmed = False
+    for item in results:
+        actual = item.get("file_path")
+        if (
+            not isinstance(actual, str)
+            or os.path.normcase(os.path.normpath(actual)) != key
+        ):
+            continue
+        if item.get("tool_name") == "file_write":
+            wrote = item.get("success") is True
+            confirmed = False
+        elif item.get("tool_name") == "file_read" and wrote:
+            content = item.get("content")
+            confirmed = (
+                item.get("success") is True
+                and isinstance(content, str)
+                and expected in content
+            )
+    return path if confirmed else None
+
+
 def sdk_step_runner(
     prompt: str, tools: List[str], budget: int, *, expected_check: str = ""
 ) -> Tuple[str, int]:
@@ -102,7 +138,10 @@ def sdk_step_runner(
     jarvis._bus.subscribe(EventType.TOOL_CALL_START, count)
     try:
         result = jarvis.ask_full(
-            prompt, agent="native_react", tools=usable_tools(tools)
+            prompt,
+            agent="native_react",
+            tools=usable_tools(tools),
+            file_receipts=expected_check.startswith("ARCHIVO | "),
         )
     finally:
         try:
@@ -117,7 +156,14 @@ def sdk_step_runner(
 
     status, detail = step_status(answer)
     if status == "done":
-        evidence = _read_evidence(result.get("tool_results") or [], expected_check)
+        receipts = result.get("tool_results") or []
+        file_path = _written_file_evidence(receipts, expected_check)
+        if file_path is not None:
+            return (
+                f"TERMINADO: Archivo guardado y contenido comprobado: {file_path}",
+                used,
+            )
+        evidence = _read_evidence(receipts, expected_check)
         if evidence is not None:
             extract = " ".join(evidence["extracto"].split())
             return (

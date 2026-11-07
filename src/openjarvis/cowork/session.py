@@ -36,7 +36,8 @@ HARD_MAX_ACTIONS = 500
 FINAL_STATES = ("done", "partial", "failed", "capped", "cancelled", "interrupted")
 END_RULE = (
     "No inventes datos. Si la comprobación es URL | texto exacto, llama a en_segundo_plano con "
-    "acción revisar, la URL y buscar igual al texto exacto. Termina con "
+    "acción revisar, la URL y buscar igual al texto exacto. Si es ARCHIVO | ruta absoluta "
+    "| texto exacto, usa file_write y después file_read en esa misma ruta. Termina con "
     "exactamente una línea: 'TERMINADO: <qué hiciste y dónde quedó>', 'FALTA: <qué falta>' "
     "o 'NO POSIBLE: <por qué>'."
 )

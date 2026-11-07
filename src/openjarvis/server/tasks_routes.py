@@ -104,7 +104,9 @@ mostrar el resultado, clics en una web que exige iniciar sesión),
 - "herramientas": las herramientas de la lista que usará,
 - "comprobar": cómo se verifica que el paso salió bien. Si el pedido exige \
 que un texto exacto aparezca en una URL concreta, usa "URL | texto exacto" \
-e incluye en_segundo_plano en las herramientas del paso si está disponible,
+e incluye en_segundo_plano en las herramientas del paso si está disponible. \
+Para crear un archivo de texto que deba contener algo concreto, usa \
+"ARCHIVO | ruta absoluta | texto exacto", e incluye file_write y file_read,
 - "para_cada": SOLO si el mismo paso se repite por elemento (cada producto, \
 ciudad, archivo…): la lista de elementos (hasta 300); se lanza un subagente \
 por elemento, todos a la vez. Si no, omítelo.
@@ -137,6 +139,9 @@ def validate_plan(data: Any, request: str) -> dict[str, Any]:
         if any(t in NEVER for t in tools):
             dropped.append(text)
             continue
+        check = str(raw.get("comprobar") or raw.get("check") or "").strip()
+        if len(check) > 480 or "\n" in check or "\r" in check:
+            check = ""  # Never silently shorten a literal and verify the wrong outcome.
         unknown = [t for t in tools if t not in TOOLS]
         tools = [t for t in tools if t in TOOLS]
         where = str(raw.get("donde") or raw.get("where") or "").lower()
@@ -161,9 +166,7 @@ def validate_plan(data: Any, request: str) -> dict[str, Any]:
                 "donde": where,
                 "plataforma": platform,
                 "herramientas": tools,
-                "comprobar": " ".join(
-                    str(raw.get("comprobar") or raw.get("check") or "").split()
-                )[:200],
+                "comprobar": check,
                 "importante": bool(RISKY.search(text)),
                 "inventadas": unknown,  # tools the model made up (removed)
                 "bloqueado": bool(unknown),

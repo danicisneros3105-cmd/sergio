@@ -1,0 +1,64 @@
+name: Sergio release smoke
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/ci/pwa_release_smoke.py'
+      - '.github/workflows/sergio-release-smoke.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'frontend/**'
+      - 'scripts/ci/pwa_release_smoke.py'
+      - '.github/workflows/sergio-release-smoke.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  pwa:
+    name: PWA / ${{ matrix.os }} / ${{ matrix.engine }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            engine: chromium
+          - os: windows-latest
+            engine: chromium
+          - os: macos-latest
+            engine: webkit
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          enable-cache: true
+      - name: Build from the committed npm lock
+        working-directory: frontend
+        run: |
+          npm install --global npm@11.19.0
+          npm ci
+          npm test
+          npm run build
+      - name: Verify the production build left the tracked installer portal intact
+        run: git diff --exit-code -- src/openjarvis/server/static
+      - name: Install browser from the committed Python lock
+        if: runner.os == 'Linux'
+        run: uv run --locked --extra browser playwright install --with-deps ${{ matrix.engine }}
+      - name: Install browser from the committed Python lock
+        if: runner.os != 'Linux'
+        run: uv run --locked --extra browser playwright install ${{ matrix.engine }}
+      - name: Verify install files, sign-in and task recovery in a browser
+        run: uv run --locked --extra browser python scripts/ci/pwa_release_smoke.py src/openjarvis/server/static_local --engine ${{ matrix.engine }}

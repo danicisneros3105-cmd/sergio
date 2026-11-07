@@ -79,3 +79,57 @@ def test_sdk_completion_uses_tool_evidence_instead_of_model_claim(monkeypatch):
     assert used == 1
     assert url in answer and "jueves" in answer
     assert "viernes" not in answer
+
+
+def test_cowork_confirms_a_written_file_only_after_readback(tmp_path, monkeypatch):
+    from unittest.mock import MagicMock
+
+    from openjarvis import sdk
+    from openjarvis.cowork import runner
+    from openjarvis.tools.file_read import FileReadTool
+    from openjarvis.tools.file_write import FileWriteTool
+
+    target = tmp_path / "acta QA.txt"
+    expected = "Entregar el jueves"
+    write = FileWriteTool().execute(path=str(target), content=f"Acuerdos: {expected}")
+    read = FileReadTool().execute(path=str(target))
+    assert write.success and read.success
+
+    def receipt(result):
+        return {
+            "tool_name": result.tool_name,
+            "success": result.success,
+            "content": result.content,
+            "file_path": result.metadata["path"],
+        }
+
+    sdk_instance = MagicMock()
+    monkeypatch.setattr(sdk, "Jarvis", lambda **_kw: sdk_instance)
+    for receipts, finished in (
+        ([receipt(write), receipt(read)], True),
+        ([receipt(read)], False),
+        (
+            [
+                receipt(write),
+                {**receipt(read), "file_path": str(tmp_path / "otro.txt")},
+            ],
+            False,
+        ),
+        ([receipt(write), {**receipt(read), "content": "Entregar el viernes"}], False),
+        ([receipt(write), receipt(read), receipt(write)], False),
+    ):
+        sdk_instance.ask_full.return_value = {
+            "content": "TERMINADO: no importa lo que diga el archivo",
+            "tool_results": receipts,
+        }
+        answer, used = runner.sdk_step_runner(
+            "crear un acta",
+            ["file_write", "file_read"],
+            5,
+            expected_check=f"ARCHIVO | {target.resolve()} | {expected}",
+        )
+        assert used == len(receipts)
+        assert answer.startswith("TERMINADO:" if finished else "NO POSIBLE:")
+        if finished:
+            assert str(target.resolve()) in answer
+    assert sdk_instance.ask_full.call_args.kwargs["file_receipts"] is True

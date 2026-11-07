@@ -2,6 +2,11 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-11-06 · Codex · Preparación del candidato de lanzamiento
+- Vite ya no borra el portal del instalador al compilar; el empaquetado legado conserva el portal al incorporar la web. Cowork confirma la creación de texto mediante escritura y relectura de la misma ruta y el literal solicitado.
+- Añadí un smoke reproducible del cliente con API sintética en Chromium/WebKit, con build desde los locks, y el [recorrido de lanzamiento](es/VERIFICAR-CANDIDATO.md). Las pruebas locales pasaron: 63 de backend sin red, 360 de frontend con las dependencias disponibles, y comprobación de iconos, manifiesto y conservación del portal.
+- La matriz del candidato no equivale a instalación en equipos reales. Faltan una corrida verde, el entorno HTTPS, la verificación en dispositivos y el instalador público firmado con un canal que no requiera acceso al GitHub privado.
+
 ## 2026-11-06 · Codex · Pruebas de instalación y reconexión
 - Cowork muestra la URL y el extracto de la herramienta al confirmar una lectura. No muestra como evidencia un resultado redactado por el modelo. Las tareas interrumpidas, parciales o detenidas por límite no aparecen activas; el flujo de eventos termina también tras una interrupción.
 - Probé una instalación HTTPS aislada con las rutas reales: archivos PWA, inicio de sesión, reconexión, confirmación con evidencia y rechazo de una coincidencia inexistente. Una cuenta no propietaria no pudo leer ni cancelar las tareas del dueño. El modelo y el adaptador de navegador fueron dobles de prueba; la página fuente y las llamadas HTTP sí se ejecutaron.
