@@ -2,6 +2,11 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-11-06 · Codex · Pruebas de instalación y reconexión
+- Cowork muestra la URL y el extracto de la herramienta al confirmar una lectura. No muestra como evidencia un resultado redactado por el modelo. Las tareas interrumpidas, parciales o detenidas por límite no aparecen activas; el flujo de eventos termina también tras una interrupción.
+- Probé una instalación HTTPS aislada con las rutas reales: archivos PWA, inicio de sesión, reconexión, confirmación con evidencia y rechazo de una coincidencia inexistente. Una cuenta no propietaria no pudo leer ni cancelar las tareas del dueño. El modelo y el adaptador de navegador fueron dobles de prueba; la página fuente y las llamadas HTTP sí se ejecutaron.
+- La suite de frontend se ejecutó con las dependencias disponibles. Falta verificar un build limpio con el lockfile y probar instalación, permisos y reapertura en los dispositivos reales. GitHub Actions informó fallos sin logs accesibles; no se certifica el lanzamiento.
+
 ## 2026-11-06 · Codex · Instalación y comprobación de tareas
 - Arreglé la detección de iPad y la captura temprana de la instalación del cliente.
 - Las lecturas web inmediatas y de fondo usan la misma comprobación y guardan el motivo cuando no hay evidencia. Cowork exige evidencia de herramienta para el criterio de lectura compatible. Escritorio comprueba archivos declarados en el criterio o el resultado.

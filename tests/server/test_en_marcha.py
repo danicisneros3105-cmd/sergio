@@ -37,3 +37,17 @@ def test_a_channel_and_paper_trading_show_up_and_can_be_stopped(tmp_path, monkey
     rows = client.get("/v1/personal/en-marcha").json()["en_marcha"]
     assert not [r for r in rows if r["tipo"] in ("canal", "trading")]
     assert item["id"]
+
+
+def test_finished_cowork_runs_are_not_listed_as_active(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+
+    client = _client(tmp_path, monkeypatch)
+    client.app.state.cowork_engine = SimpleNamespace(
+        list=lambda: [
+            SimpleNamespace(id=state, status=state, goal="QA")
+            for state in ("running", "partial", "capped", "interrupted", "done")
+        ]
+    )
+    rows = client.get("/v1/personal/en-marcha").json()["en_marcha"]
+    assert [r["id"] for r in rows if r["tipo"] == "cowork"] == ["running"]

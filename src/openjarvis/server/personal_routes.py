@@ -449,7 +449,9 @@ def request_youtube_upload(job_id: str) -> Dict[str, Any]:
         if previous.get("id") and previous.get("miniatura") == "aplicada":
             return previous
         if not previous.get("id") and previous.get("estado") in ("subiendo", "revisar_canal"):
-            raise HTTPException(409, "La subida anterior quedó sin confirmación. Revisa tu canal antes de intentar otra.")
+            raise HTTPException(
+                409, "La subida anterior quedó sin confirmación. Revisa tu canal antes de intentar otra."
+            )
         _YOUTUBE_UPLOADS.add(job_id)
         job.update(subida_youtube={**previous, "estado": "miniatura" if previous.get("id") else "esperando_aprobacion"})
 
@@ -579,6 +581,9 @@ def running(request: Request) -> Dict[str, Any]:
                     "done",
                     "failed",
                     "cancelled",
+                    "partial",
+                    "capped",
+                    "interrupted",
                     "error",
                     "finished",
                     "stopped",

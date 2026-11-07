@@ -52,11 +52,13 @@ def usable_tools(names: List[str]) -> List[str]:
     ]
 
 
-def verified_read(results: list, check: str) -> bool:
-    """Only a tool reading the exact URL and literal in the plan counts."""
+def _read_evidence(results: list, check: str) -> dict | None:
+    """Accept only the tool receipt for this URL and expected literal."""
+    from openjarvis.asistente.navegador import verify_read
+
     url, sep, expected = check.partition(" | ")
     if not sep or not url.startswith(("https://", "http://")) or not expected.strip():
-        return False
+        return None
     for item in results:
         if (
             item.get("tool_name") != "en_segundo_plano"
@@ -65,16 +67,18 @@ def verified_read(results: list, check: str) -> bool:
             continue
         try:
             data = json.loads(item["content"])
-            if (
-                data["estado"] == "leido"
-                and data["url"].rstrip("/") == url.rstrip("/")
-                and expected.strip().casefold() in data["texto"].casefold()
-                and data["evidencia"]["verificado"] is True
-            ):
-                return True
+            if data["url"] == url and data["evidencia"]["verificado"] is True:
+                evidence = verify_read(data, expected)
+                if evidence["verificado"]:
+                    return evidence
         except (KeyError, TypeError, AttributeError, ValueError):
             continue
-    return False
+    return None
+
+
+def verified_read(results: list, check: str) -> bool:
+    """Only a tool reading the exact URL and literal in the plan counts."""
+    return _read_evidence(results, check) is not None
 
 
 def sdk_step_runner(
@@ -112,9 +116,14 @@ def sdk_step_runner(
     from openjarvis.cowork.session import step_status
 
     status, detail = step_status(answer)
-    if status == "done" and not verified_read(
-        result.get("tool_results") or [], expected_check
-    ):
+    if status == "done":
+        evidence = _read_evidence(result.get("tool_results") or [], expected_check)
+        if evidence is not None:
+            extract = " ".join(evidence["extracto"].split())
+            return (
+                f"TERMINADO: Texto verificado en {evidence['url']}: «{extract}».",
+                used,
+            )
         return (
             "NO POSIBLE: No pude verificar el resultado esperado. "
             f"Resultado informado: {detail or answer}"[:600],

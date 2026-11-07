@@ -19,7 +19,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from openjarvis.cowork.scrutiny import AXES, AXIS_LABELS_ES, AdaptiveScrutiny
-from openjarvis.cowork.session import CoworkEngine
+from openjarvis.cowork.session import FINAL_STATES, CoworkEngine
 
 router = APIRouter(prefix="/v1/cowork", tags=["cowork"])
 _engine_lock = threading.Lock()
@@ -167,13 +167,7 @@ async def events(run_id: str, request: Request) -> StreamingResponse:
     async def stream() -> AsyncIterator[str]:
         try:
             yield f"data: {json.dumps({'type': 'snapshot', 'run': run.to_dict()}, ensure_ascii=False)}\n\n"
-            while run.status not in (
-                "done",
-                "partial",
-                "failed",
-                "capped",
-                "cancelled",
-            ):
+            while run.status not in FINAL_STATES:
                 if await request.is_disconnected():
                     return
                 try:

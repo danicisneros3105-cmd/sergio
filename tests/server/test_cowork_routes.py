@@ -178,3 +178,28 @@ def test_plan_mode_refused_does_nothing(client):
     run = _wait(client, run["id"], ("cancelled",))
     assert all(s["status"] == "pending" for s in run["steps"])
     assert "plan" in run["summary"]
+
+
+def test_interrupted_run_events_close_without_waiting(client, monkeypatch):
+    from openjarvis.cowork.session import CoworkRun
+
+    engine = client.app.state.cowork_engine
+    run = CoworkRun(
+        id="interrupted-qa", goal="Verificar una tarea", status="interrupted"
+    )
+    engine.runs[run.id] = run
+    box = engine.listen(run.id)
+
+    def unexpected_wait(*_args, **_kwargs):
+        pytest.fail("An interrupted run must not wait for another event")
+
+    monkeypatch.setattr(box, "get", unexpected_wait)
+    monkeypatch.setattr(engine, "listen", lambda _run_id: box)
+    response = client.get(f"/v1/cowork/{run.id}/events")
+    assert response.status_code == 200
+    snapshots = [
+        json.loads(line.removeprefix("data: "))
+        for line in response.text.splitlines()
+        if line.startswith("data: ")
+    ]
+    assert snapshots and snapshots[-1]["run"]["status"] == "interrupted"
