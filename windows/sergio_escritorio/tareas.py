@@ -304,7 +304,9 @@ class Orchestrator:
                         ) or not self._replan(task, failed):
                             break
                 if task.status == "running":
-                    ok = all(s.status in ("done", "skipped") for s in task.steps)
+                    ok = any(s.status == "done" for s in task.steps) and all(
+                        s.status in ("done", "skipped") for s in task.steps
+                    )
                     if (
                         ok
                         and self.review
@@ -563,17 +565,22 @@ class Orchestrator:
                     f"{prompt}\nFalta: {detail or 'verificar'}. Compruébalo y termina."
                 )
         status, detail = step_status(answer)
-        missing = self._missing_files(detail) if status == "done" else []
+        missing = (
+            self._missing_files(f"{step.check}\n{detail}") if status == "done" else []
+        )
         if missing:  # it says it saved something that is not there: one more try
             answer = ask(
                 f"{prompt}\nDijiste que guardaste {', '.join(missing)}, pero no existe. "
                 "Créalo de verdad y comprueba que está."
             )
             status, detail = step_status(answer)
-            if status == "done" and self._missing_files(detail):
+            missing = (
+                self._missing_files(f"{step.check}\n{detail}") if status == "done" else []
+            )
+            if missing:
                 status, detail = (
                     "more",
-                    f"no encuentro {', '.join(self._missing_files(detail))}",
+                    f"no pude verificar {', '.join(missing)}",
                 )
         step.result = detail or answer[-300:]
         step.status = "done" if status == "done" else "failed"
@@ -581,10 +588,11 @@ class Orchestrator:
             task.result = f"Me quedé en el paso {n}: {step.result}"
 
     def _missing_files(self, text: str) -> list[str]:
+        paths = list(dict.fromkeys(claimed_paths(text)))
         if self.exists is None:
-            return []
+            return paths
         missing = []
-        for path in claimed_paths(text):
+        for path in paths:
             try:
                 if self.exists(path) is not True:
                     missing.append(path)

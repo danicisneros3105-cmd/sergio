@@ -35,7 +35,8 @@ DEFAULT_MAX_ACTIONS = 50
 HARD_MAX_ACTIONS = 500
 FINAL_STATES = ("done", "partial", "failed", "capped", "cancelled", "interrupted")
 END_RULE = (
-    "No inventes datos: si algo no lo verificaste con una herramienta, dilo. Termina con "
+    "No inventes datos. Si la comprobación es URL | texto exacto, llama a en_segundo_plano con "
+    "acción revisar, la URL y buscar igual al texto exacto. Termina con "
     "exactamente una línea: 'TERMINADO: <qué hiciste y dónde quedó>', 'FALTA: <qué falta>' "
     "o 'NO POSIBLE: <por qué>'."
 )
@@ -441,13 +442,22 @@ class CoworkEngine:
         )
         audit.record("step_started", step=step.index, tools=step.tools)
         prompt = self._prompt(run, step)
-        runner = self.runner or _default_runner()
+        if self.runner is None:
+            from functools import partial
+
+            runner = partial(_default_runner(), expected_check=step.check)
+        else:
+            runner = self.runner
         answer, used = runner(prompt, step.tools, budget.remaining)
         status, detail = step_status(answer)
         step.actions += used
         try:
             budget.spend(used)
-            if status in ("more", "unknown") and budget.remaining > 0 and not cancel.is_set():
+            if (
+                status in ("more", "unknown")
+                and budget.remaining > 0
+                and not cancel.is_set()
+            ):
                 again, used2 = runner(
                     f"{prompt}\nFalta: {detail or 'verificar'}. Compruébalo y termina.",
                     step.tools,
@@ -460,9 +470,7 @@ class CoworkEngine:
         finally:
             run.actions_used = budget.used
             step.result = (detail or answer or "")[-600:]
-            step.status = (
-                "done" if status == "done" and answer else "failed"
-            )
+            step.status = "done" if status == "done" and answer else "failed"
             scrutiny.note_outcome(step.status == "done")
             audit.record(
                 "step_finished",

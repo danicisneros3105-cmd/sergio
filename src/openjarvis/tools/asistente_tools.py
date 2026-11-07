@@ -53,7 +53,8 @@ class SegundoPlanoTool(BaseTool):
                 "orders, mail web, any site they signed in to once. action='revisar' with "
                 "'sitio' (saved name like 'colegio', or https URL) and optional 'pasos' "
                 "[{ir|clic|escribir+campo|tecla|esperar}] returns the page text: answer the "
-                "person from it. 'necesita_sesion' → offer action='iniciar_sesion' (opens a "
+                "person from it. In revisar/luego, buscar is optional expected text. "
+                "'necesita_sesion' → offer action='iniciar_sesion' (opens a "
                 "window where THEY sign in once; never ask for passwords). 'guardar_sitio' "
                 "(nombre, url) remembers «mi colegio = …»; 'sitios' lists them. Steps that "
                 "send, pay, buy, book, publish or delete stop with 'espera_su_si': ask first. "
@@ -141,10 +142,14 @@ class SegundoPlanoTool(BaseTool):
                 return _ok(self.tool_id, nav.open_to_sign_in(target))
             if action == "revisar":
                 steps = params.get("pasos") or []
-                return _ok(
-                    self.tool_id,
-                    nav.check(target, steps if isinstance(steps, list) else []),
-                )
+                data = nav.check(target, steps if isinstance(steps, list) else [])
+                evidence = nav.verify_read(data, str(params.get("buscar") or ""))
+                if not evidence["verificado"]:
+                    return _fail(
+                        self.tool_id,
+                        f"{data.get('estado', 'error')}: {evidence['motivo']}",
+                    )
+                return _ok(self.tool_id, {**data, "evidencia": evidence})
         except nav.NavegadorError as exc:
             return _fail(self.tool_id, str(exc))
         except Exception as exc:  # noqa: BLE001 — the site, not Sergio: say what happened

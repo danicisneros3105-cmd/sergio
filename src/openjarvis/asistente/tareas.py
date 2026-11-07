@@ -42,6 +42,7 @@ RETRY_WAIT_S = 20.0
 KEEP = 60  # finished tasks kept on disk
 _LOCK = threading.RLock()
 _STOP: Dict[str, threading.Event] = {}
+_RUNNING: set[str] = set()
 _loop_started = False
 
 
@@ -164,7 +165,7 @@ def start(
         "sitio": sitio,
         "pasos": pasos if isinstance(pasos, list) else [],
         "cada_min": every if kind == "vigilar" else 0,
-        "buscar": str(buscar or "").strip()[:80],
+        "buscar": str(buscar or "").strip(),
         "veces": int(veces or (round(24 * 60 / every) if kind == "vigilar" else 1)),
         "hechas": 0,
         "estado": "en_cola",
@@ -189,7 +190,20 @@ def start(
     return task
 
 
-def run_once(
+def run_once(task_id: str, **kwargs: Any) -> Optional[Dict[str, Any]]:
+    """Run a single task at most once concurrently in this process."""
+    with _LOCK:
+        if task_id in _RUNNING:
+            return get(task_id, kwargs.get("home"))
+        _RUNNING.add(task_id)
+    try:
+        return _run_once(task_id, **kwargs)
+    finally:
+        with _LOCK:
+            _RUNNING.discard(task_id)
+
+
+def _run_once(
     task_id: str,
     *,
     home: Optional[Path] = None,
@@ -237,21 +251,42 @@ def run_once(
         )  # fmt: skip
         tell(f"{task['sitio'] if task else 'El sitio'} pide iniciar sesión una vez.")
         return task
+    from openjarvis.asistente.navegador import verify_read
+
+    expected = task.get("buscar") or ""
+    evidence = verify_read(data, expected if task["tipo"] == "revisar" else "")
+    if not evidence["verificado"]:
+        reason = evidence["motivo"]
+        out = _update(
+            task_id, home, estado="error", hechas=done, error=reason, evidencia=evidence
+        )
+        tell(f"No pude confirmar {task['sitio']}: {reason}")
+        return out
     if task["tipo"] == "revisar":
         task = _update(
-            task_id, home, estado="listo", hechas=done, texto=text[:6000],
+            task_id, home, estado="listo", hechas=done, texto=text[:6000], evidencia=evidence,
             resultado=f"Revisado {task['sitio']}: {len(text)} caracteres leídos.",
         )  # fmt: skip
-        tell(f"Listo: revisé {task['sitio'] if task else ''}. Pregúnteme qué encontré.")
+        tell(
+            f"Listo: revisé {task['sitio'] if task else 'el sitio'} y comprobé la lectura solicitada."
+        )
         return task
     # vigilar
     mark = fingerprint(text)
-    found_word = bool(task.get("buscar")) and task["buscar"].lower() in text.lower()
+    found_word = (
+        bool(task.get("buscar")) and task["buscar"].casefold() in text.casefold()
+    )
     changes = list(task.get("cambios") or [])
+    match = task.get("coincidencia")
+    first_match = (
+        found_word and not match and not any(c.get("palabra") for c in changes)
+    )
+    if found_word and not match:
+        match = verify_read(data, expected)
     first = not task.get("huella")
     changed = not first and mark != task.get("huella")
     note = ""
-    if changed or (found_word and not any(c.get("palabra") for c in changes)):
+    if changed or first_match:
         lines = what_changed(task.get("texto") or "", text)
         changes.append({
             "cuando": time.time(), "lineas": lines,
@@ -265,10 +300,18 @@ def run_once(
         )
         tell(note)
     finished = done >= int(task.get("veces") or 1)
+    prior_match = any(c.get("palabra") for c in changes)
+    missing = finished and bool(expected) and not (match or prior_match)
+    if missing:
+        note = f"Terminó la vigilancia sin encontrar «{expected}»."
+        tell(note)
     return _update(
         task_id, home,
-        estado="listo" if finished else "vigilando",
+        estado="sin_coincidencia" if missing else ("listo" if finished else "vigilando"),
         hechas=done, huella=mark, texto=text[:6000], cambios=changes[-20:],
+        coincidencia=match, evidencia=(
+            match or verify_read(data, expected) if expected else evidence
+        ),
         proxima=time.time() + float(task.get("cada_min") or 30) * 60,
         resultado=note or (task.get("resultado") or "Sin cambios por ahora."),
     )  # fmt: skip
@@ -334,6 +377,7 @@ def plain(task: Dict[str, Any]) -> Dict[str, Any]:
     """What the chat and «En marcha» show (no page text unless finished)."""
     out = {k: task.get(k) for k in ("id", "tipo", "sitio", "estado", "hechas", "veces",
                                     "cada_min", "buscar", "resultado", "error")}  # fmt: skip
+    out["evidencia"] = task.get("evidencia")
     out["cambios"] = (task.get("cambios") or [])[-3:]
     if task.get("estado") == "listo" and task.get("tipo") == "revisar":
         out["texto"] = (task.get("texto") or "")[:4000]

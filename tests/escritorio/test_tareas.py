@@ -561,3 +561,25 @@ def test_legacy_liquid_geometry_and_minimal_edge_recall():
         assert n.hidden
     finally:
         notch_mod.QCursor = old
+
+
+def test_planned_file_must_exist_even_if_the_model_omits_its_path():
+    def plan(_request):
+        return {
+            "pasos": [
+                {
+                    "paso": "hacer la tabla",
+                    "donde": "fondo",
+                    "comprobar": "Existe C:\\x\\tabla.xlsx",
+                }
+            ]
+        }
+
+    for exists in (False, True):
+        orch, _acts, _told, calls = make(plan, lambda _p: "TERMINADO: lista")
+        orch.exists = lambda path: exists and path == "C:\\x\\tabla.xlsx"
+        orch.submit("tabla")
+        wait(orch)
+        assert orch.tasks[0].status == ("done" if exists else "failed")
+        if not exists:
+            assert "no existe" in calls[1]

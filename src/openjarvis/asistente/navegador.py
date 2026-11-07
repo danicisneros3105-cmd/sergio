@@ -171,7 +171,7 @@ def open_to_sign_in(target: str) -> Dict[str, Any]:
                 str(profile()), headless=False, **_exe()
             )
             page = ctx.pages[0] if ctx.pages else ctx.new_page()
-            page.goto(url, timeout=NAV_TIMEOUT_MS)
+            _visit(page, url)
             try:
                 page.wait_for_event("close", timeout=0)
             finally:
@@ -210,10 +210,59 @@ def _needs_sign_in(page: Any) -> bool:
     return bool(LOGIN.search(page.url or ""))
 
 
+def _visit(page: Any, url: str) -> None:
+    response = page.goto(url, timeout=NAV_TIMEOUT_MS)
+    if response is not None and not response.ok:
+        raise NavegadorError(f"El sitio respondió HTTP {response.status}.")
+
+
+def verify_read(data: Dict[str, Any], expected: str = "") -> Dict[str, Any]:
+    """Check the observable outcome, not the model's statement about it."""
+    state = data.get("estado")
+    text = data.get("texto")
+    url = data.get("url")
+    expected = expected.strip()
+    evidence = {
+        "verificado": False,
+        "url": url if isinstance(url, str) else "",
+        "buscado": expected,
+    }
+    if state != "leido":
+        evidence["motivo"] = (
+            data.get("paso") or data.get("nota") or "La lectura no terminó."
+        )
+    elif (
+        not isinstance(text, str)
+        or not text.strip()
+        or not isinstance(url, str)
+        or not url.startswith(("https://", "http://"))
+    ):
+        evidence["motivo"] = (
+            "El sitio no devolvió texto visible con una dirección verificable."
+        )
+    elif evidence["buscado"] and evidence["buscado"].casefold() not in text.casefold():
+        evidence["motivo"] = f"No encontré «{evidence['buscado']}» en el texto leído."
+    else:
+        evidence["verificado"] = True
+        evidence["caracteres"] = len(text)
+        visible = text.strip()
+        if expected:
+            # A casefold can expand characters; locate the start in the original.
+            before = visible.casefold().split(expected.casefold(), 1)[0]
+            start = 0
+            remaining = len(before)
+            while remaining > 0:
+                remaining -= len(visible[start].casefold())
+                start += 1
+            visible = visible[max(0, start - 30) :]
+        evidence["extracto"] = visible[:220]
+    return evidence
+
+
 def _step(page: Any, step: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     """One step. Returns a stop (dict) when the step must wait for a person."""
     if "ir" in step:
-        page.goto(resolve(str(step["ir"])), timeout=NAV_TIMEOUT_MS)
+        _visit(page, resolve(str(step["ir"])))
     elif "clic" in step:
         label = str(step["clic"])
         if FINAL.search(label):
@@ -237,11 +286,13 @@ def _step(page: Any, step: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         box.fill(str(step["escribir"]), timeout=8000)
     elif "tecla" in step:
         key = str(step["tecla"])
-        if key.lower() == "enter" and step.get("envia"):
+        if key.casefold() in ("enter", "return") or step.get("envia"):
             return {"estado": "espera_su_si", "paso": "Enviar el formulario"}
         page.keyboard.press(key)
     elif "esperar" in step:
         page.wait_for_timeout(min(10_000, int(float(step["esperar"]) * 1000)))
+    else:
+        raise NavegadorError("El plan contiene un paso de navegación no reconocido.")
     page.wait_for_load_state("domcontentloaded", timeout=NAV_TIMEOUT_MS)
     return None
 
@@ -261,7 +312,7 @@ def check(
         )
         try:
             page = ctx.pages[0] if ctx.pages else ctx.new_page()
-            page.goto(url, timeout=NAV_TIMEOUT_MS)
+            _visit(page, url)
             try:
                 page.wait_for_load_state("networkidle", timeout=6000)
             except Exception:  # noqa: BLE001 — busy pages never go idle
@@ -278,6 +329,8 @@ def check(
                 if stop:
                     stop.update(url=page.url, texto=_visible_text(page)[:3000])
                     return stop
+                if _needs_sign_in(page):
+                    return {"estado": "necesita_sesion", "url": page.url}
             return {
                 "estado": "leido",
                 "url": page.url,
@@ -296,6 +349,7 @@ __all__ = [
     "forget_site",
     "open_to_sign_in",
     "resolve",
+    "verify_read",
     "save_site",
     "sites",
 ]

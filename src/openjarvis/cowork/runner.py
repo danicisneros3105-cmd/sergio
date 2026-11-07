@@ -9,7 +9,9 @@ counted from the event bus, so the run's hard cap holds.
 from __future__ import annotations
 
 import copy
+import json
 import logging
+import os
 from typing import List, Tuple
 
 from openjarvis.cowork.scrutiny import EXTERNAL_TOOLS
@@ -30,16 +32,54 @@ FORBIDDEN_TOOLS = frozenset(EXTERNAL_TOOLS) | {
 BASE_TOOLS = ("think", "calculator")
 
 
+def personal_browser_enabled() -> bool:
+    """A persisted browser profile is only for a dedicated installation."""
+    return os.environ.get("SERGIO_COWORK_PERSONAL_BROWSER") == "1"
+
+
 def usable_tools(names: List[str]) -> List[str]:
     """The plan's tools that exist in this install and are allowed."""
     import openjarvis.tools  # noqa: F401 - registers the built-in tools
     from openjarvis.core.registry import ToolRegistry
 
     wanted = [n for n in dict.fromkeys(list(names) + list(BASE_TOOLS)) if n]
-    return [n for n in wanted if n not in FORBIDDEN_TOOLS and ToolRegistry.contains(n)]
+    return [
+        n
+        for n in wanted
+        if n not in FORBIDDEN_TOOLS
+        and (n != "en_segundo_plano" or personal_browser_enabled())
+        and ToolRegistry.contains(n)
+    ]
 
 
-def sdk_step_runner(prompt: str, tools: List[str], budget: int) -> Tuple[str, int]:
+def verified_read(results: list, check: str) -> bool:
+    """Only a tool reading the exact URL and literal in the plan counts."""
+    url, sep, expected = check.partition(" | ")
+    if not sep or not url.startswith(("https://", "http://")) or not expected.strip():
+        return False
+    for item in results:
+        if (
+            item.get("tool_name") != "en_segundo_plano"
+            or item.get("success") is not True
+        ):
+            continue
+        try:
+            data = json.loads(item["content"])
+            if (
+                data["estado"] == "leido"
+                and data["url"].rstrip("/") == url.rstrip("/")
+                and expected.strip().casefold() in data["texto"].casefold()
+                and data["evidencia"]["verificado"] is True
+            ):
+                return True
+        except (KeyError, TypeError, AttributeError, ValueError):
+            continue
+    return False
+
+
+def sdk_step_runner(
+    prompt: str, tools: List[str], budget: int, *, expected_check: str = ""
+) -> Tuple[str, int]:
     """Run one step; returns (answer, tool calls made)."""
     from openjarvis.core.config import load_config
     from openjarvis.core.events import EventType
@@ -66,7 +106,28 @@ def sdk_step_runner(prompt: str, tools: List[str], budget: int) -> Tuple[str, in
         except Exception:  # noqa: BLE001
             logger.debug("Jarvis close failed", exc_info=True)
     used = max(calls["n"], len(result.get("tool_results") or []))
-    return str(result.get("content") or ""), used
+    answer = str(result.get("content") or "")
+    # The SDK returns model text and a record of calls, not a verifier for
+    # the user's requested outcome. Do not certify the model's own marker.
+    from openjarvis.cowork.session import step_status
+
+    status, detail = step_status(answer)
+    if status == "done" and not verified_read(
+        result.get("tool_results") or [], expected_check
+    ):
+        return (
+            "NO POSIBLE: No pude verificar el resultado esperado. "
+            f"Resultado informado: {detail or answer}"[:600],
+            used,
+        )
+    return answer, used
 
 
-__all__ = ["BASE_TOOLS", "FORBIDDEN_TOOLS", "sdk_step_runner", "usable_tools"]
+__all__ = [
+    "BASE_TOOLS",
+    "FORBIDDEN_TOOLS",
+    "personal_browser_enabled",
+    "sdk_step_runner",
+    "usable_tools",
+    "verified_read",
+]

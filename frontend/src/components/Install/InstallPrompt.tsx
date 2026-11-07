@@ -13,6 +13,15 @@ interface InstallEvent extends Event {
 
 const KEY = 'sergio.install.hidden';
 const DAYS = 30;
+// The browser can fire this while the sign-in check still hides the app.
+let deferredInstall: InstallEvent | null = null;
+if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredInstall = e as InstallEvent;
+  });
+  window.addEventListener('appinstalled', () => { deferredInstall = null; });
+}
 
 function standalone(): boolean {
   return (
@@ -31,11 +40,11 @@ function hiddenRecently(): boolean {
 }
 
 export function isAppleMobile(ua: string = navigator.userAgent): boolean {
-  return /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && 'ontouchend' in document);
+  return /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
 }
 
 export function InstallPrompt() {
-  const [event, setEvent] = useState<InstallEvent | null>(null);
+  const [event, setEvent] = useState<InstallEvent | null>(() => deferredInstall);
   const [apple, setApple] = useState(false);
   const [gone, setGone] = useState(() => standalone() || hiddenRecently());
 
@@ -67,10 +76,16 @@ export function InstallPrompt() {
   };
   const install = async () => {
     if (!event) return;
-    await event.prompt();
-    const choice = await event.userChoice.catch(() => ({ outcome: '' }));
-    if (choice.outcome === 'accepted') setGone(true);
-    setEvent(null);
+    try {
+      await event.prompt();
+      const choice = await event.userChoice;
+      if (choice.outcome === 'accepted') setGone(true);
+    } catch {
+      // An expired prompt cannot be reused. Wait for a new browser event.
+    } finally {
+      deferredInstall = null;
+      setEvent(null);
+    }
   };
 
   return (

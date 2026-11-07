@@ -130,3 +130,43 @@ def test_a_page_that_asks_for_a_password_says_so():
     page = _Page(password=True, url="https://aula.test/login")
     got = nav.check("https://aula.test/", launcher=_launcher(page))
     assert got["estado"] == "necesita_sesion"
+
+
+def test_read_verifier_requires_literal_and_a_real_read():
+    read = {
+        "estado": "leido",
+        "url": "https://aula.test/",
+        "texto": "Entrega de Matemáticas",
+    }
+    assert nav.verify_read(read, "matemáticas")["verificado"]
+    assert not nav.verify_read(read, "historia")["verificado"]
+    assert not nav.verify_read({**read, "estado": "espera_su_si"})["verificado"]
+
+
+def test_http_error_is_not_a_read(monkeypatch):
+    from types import SimpleNamespace
+
+    page = _Page()
+    monkeypatch.setattr(
+        page, "goto", lambda *_a, **_k: SimpleNamespace(ok=False, status=403)
+    )
+    with pytest.raises(nav.NavegadorError, match="HTTP 403"):
+        nav.check("https://aula.test/", launcher=_launcher(page))
+
+
+def test_foreground_tool_reports_blocked_and_only_confirms_expected_result(monkeypatch):
+    from openjarvis.tools.asistente_tools import SegundoPlanoTool
+
+    data = {
+        "estado": "leido",
+        "url": "https://aula.test/",
+        "texto": "Entrega de Matemáticas",
+    }
+    monkeypatch.setattr(nav, "check", lambda *_: data)
+    tool = SegundoPlanoTool()
+    assert tool.execute(action="revisar", sitio="colegio", buscar="matemáticas").success
+    assert not tool.execute(
+        action="revisar", sitio="colegio", buscar="historia"
+    ).success
+    data["estado"] = "espera_su_si"
+    assert not tool.execute(action="revisar", sitio="colegio").success

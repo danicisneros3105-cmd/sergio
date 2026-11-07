@@ -37,6 +37,7 @@ skills_router = APIRouter(prefix="/v1/skills", tags=["skills"])
 TOOLS = {
     # background (no screen)
     "web_search": ("fondo", "web"),
+    "en_segundo_plano": ("fondo", "web"),
     "http_request": ("fondo", "web"),
     "python_run": ("fondo", "ubuntu"),
     "terminal_run": ("fondo", "ubuntu"),
@@ -101,7 +102,9 @@ solo si hace falta ver o usar la pantalla del usuario (abrir una app y \
 mostrar el resultado, clics en una web que exige iniciar sesión),
 - "plataforma": "windows", "ubuntu" o "web",
 - "herramientas": las herramientas de la lista que usará,
-- "comprobar": cómo se verifica que el paso salió bien,
+- "comprobar": cómo se verifica que el paso salió bien. Si el pedido exige \
+que un texto exacto aparezca en una URL concreta, usa "URL | texto exacto" \
+e incluye en_segundo_plano en las herramientas del paso si está disponible,
 - "para_cada": SOLO si el mismo paso se repite por elemento (cada producto, \
 ciudad, archivo…): la lista de elementos (hasta 300); se lanza un subagente \
 por elemento, todos a la vez. Si no, omítelo.
@@ -236,7 +239,16 @@ def plan_task(
     role: str = "",
 ) -> dict[str, Any]:
     """*tools*: an agent's own toolbox (a subset); *role*: its instructions."""
-    key = _key(request, tools, role) if ask is None else ""  # tests pass their own ask
+    from openjarvis.cowork.runner import personal_browser_enabled
+
+    allowed = sorted(
+        t
+        for t in (TOOLS if tools is None else tools)
+        if t in TOOLS and (t != "en_segundo_plano" or personal_browser_enabled())
+    )
+    key = (
+        _key(request, allowed, role) if ask is None else ""
+    )  # tests pass their own ask
     with _cache_lock:
         hit = _cache.get(key) if key else None
     if hit and time.time() - hit[0] < CACHE_SECONDS:
@@ -245,7 +257,6 @@ def plan_task(
         from openjarvis.coach.brain import ask
     from openjarvis.coach.skills import rules_for
 
-    allowed = sorted(t for t in (TOOLS if tools is None else tools) if t in TOOLS)
     prompt = PROMPT.format(
         max_steps=MAX_STEPS, tools=", ".join(allowed), request=request
     )
@@ -285,7 +296,10 @@ def validate_agent(data: Any, description: str) -> dict[str, Any]:
     tools = [
         t
         for t in data.get("herramientas") or []
-        if isinstance(t, str) and t in TOOLS and t not in NEVER
+        if isinstance(t, str)
+        and t in TOOLS
+        and t not in NEVER
+        and t != "en_segundo_plano"
     ]
     when = data.get("horario") if isinstance(data.get("horario"), dict) else {}
     hour = str(when.get("hora") or "")
@@ -317,7 +331,8 @@ def design_agent(
     if ask is None:
         from openjarvis.coach.brain import ask
     prompt = AGENT_PROMPT.format(
-        description=description, tools=", ".join(sorted(TOOLS))
+        description=description,
+        tools=", ".join(sorted(set(TOOLS) - {"en_segundo_plano"})),
     )
     return validate_agent(ask(prompt, effort="medium", deep=True), description)
 

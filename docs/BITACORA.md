@@ -2,6 +2,11 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-11-06 · Codex · Instalación y comprobación de tareas
+- Arreglé la detección de iPad y la captura temprana de la instalación del cliente.
+- Las lecturas web inmediatas y de fondo usan la misma comprobación y guardan el motivo cuando no hay evidencia. Cowork exige evidencia de herramienta para el criterio de lectura compatible. Escritorio comprueba archivos declarados en el criterio o el resultado.
+- La [guía de compatibilidad](es/COMPATIBILIDAD-Y-VERIFICACION.md) separa las pruebas automatizadas de las que requieren equipos reales y una instalación HTTPS.
+
 ## 2026-11-06 · Codex · Aislamiento local y registro público
 - Separé historial, Workspace, borradores, proyectos creativos y caché por identificador de cuenta. El token dura la sesión de la pestaña y no se envía a otro servidor. Los datos anteriores sin perfil se conservan aparte; no se atribuyen a una cuenta nueva.
 - El registro abierto registra la versión aceptada en la misma transacción que crea la cuenta. OAuth y SMS no pueden crear cuentas públicas sin pasar por registro por correo.
