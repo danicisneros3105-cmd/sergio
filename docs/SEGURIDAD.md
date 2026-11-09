@@ -10,7 +10,7 @@ que se puede cerrar y comprobarlo con pruebas.
 |---|---|
 | Puerta de entrada | Desde fuera (túnel o red) todo responde 403 salvo entrar a una cuenta y los avisos firmados de pagos. Probado ruta por ruta. |
 | Cuentas | Contraseñas con scrypt, códigos y sesiones guardados con HMAC, freno de intentos, antifraude y llaves de acceso con la cara del dispositivo. |
-| Secretos | Claves solo en `~/.openjarvis/sergio.env` (0600). Al arrancar, Sergio vuelve a dejar privados sus archivos secretos si algo los abrió (`security/permisos.py`). |
+| Secretos | Claves solo en `~/.openjarvis/sergio.env` (0600 en POSIX; ACL del usuario actual en Windows). Al arrancar, Sergio vuelve a dejar privados sus archivos secretos si algo los abrió (`security/permisos.py`). |
 | Cifrado | Claves de IA de clientes, notas y encuestas de salud (incluida salud mental), memoria de conversaciones, recordatorios, memoria y mensajes de los Nodes, sus secretos y galería de caras con AES-256-GCM, una clave derivada por propósito y atada a su fila (`security/boveda.py`). Libro de pagos sellado con HMAC encadenado (`docs/PAGOS.md`). |
 | Navegador | CSP con `frame-ancestors 'self'`, `object-src 'none'` y `base-uri 'self'`, HSTS, nosniff, Referrer-Policy y Permissions-Policy. Sin CORS para sitios ajenos. El servidor no dice qué programa es. |
 | Errores | Desde fuera solo una frase. El detalle técnico se ve solo en el PC del dueño. |
@@ -29,9 +29,9 @@ que se puede cerrar y comprobarlo con pruebas.
 
 ## Copias del código
 
-- **El repositorio de GitHub es público.** Cualquiera puede leer y copiar lo que está ahí. Sergio nació de OpenJarvis (Apache-2.0), y esa licencia permite copiar lo que ya se publicó.
-- **Para que nadie copie lo nuevo:**
-  1. Hacer el repositorio **privado**. En GitHub: Settings → General → Danger Zone → Change visibility. Antes, su PC necesita permiso para seguir actualizando (`gh auth login` en Ubuntu); si no, el comando de actualizar fallará.
+- **El repositorio de trabajo de GitHub es privado.** Una consulta pública sin sesión no debe poder abrirlo. Sergio nació de OpenJarvis (Apache-2.0), y esa licencia sigue permitiendo copiar lo que ya se publicó.
+- **Para proteger lo nuevo:**
+  1. Mantener el repositorio **privado** y revisar quién tiene acceso. Si cambia su visibilidad, su PC necesita permiso para seguir actualizando (`gh auth login` en Ubuntu); si no, el comando de actualizar fallará.
   2. Registrar la marca «Sergio» y el logo en el SENADI (Ecuador). El nombre y la marca sí se pueden proteger aunque el código haya sido abierto.
   3. Para clientes: que usen Sergio desde su servidor, con cuenta, y no instalen el código. Lo que nunca sale de su servidor no se puede copiar.
 

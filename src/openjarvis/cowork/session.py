@@ -182,10 +182,12 @@ class CoworkEngine:
         trust: Optional[TrustStore] = None,
         approval_timeout: float = 2 * 3600,
         notify_every: float = 20.0,
+        allowed_tools: Optional[frozenset[str]] = None,
     ) -> None:
         self.planner = planner
         self.runner = runner
         self.send_owner = send_owner
+        self.allowed_tools = allowed_tools
         self.root = root or _home()
         self.trust = (
             trust if trust is not None else TrustStore(self.root / "trust.json")
@@ -324,6 +326,11 @@ class CoworkEngine:
             run.title = str(plan.get("titulo") or run.goal[:50])
             run.steps = steps_from_plan(plan) or [CoworkStep(0, run.goal, "fondo")]
             run.dropped = [str(d) for d in plan.get("descartados") or []]
+            if self.allowed_tools is not None:
+                for step in run.steps:
+                    removed = [t for t in step.tools if t not in self.allowed_tools]
+                    step.tools = [t for t in step.tools if t in self.allowed_tools]
+                    step.invented.extend(t for t in removed if t not in step.invented)
             run.status = "running"
             audit.record(
                 "planned",
@@ -596,7 +603,9 @@ class CoworkEngine:
         audit.record(
             "finished", status=run.status, summary=run.summary, actions=run.actions_used
         )
-        if run.status in ("done", "partial"):
+        from openjarvis.accounts.provision import CUSTOMER
+
+        if run.status in ("done", "partial") and not CUSTOMER.get():
             from openjarvis.connectome.brain import remember_exchange
 
             remember_exchange(run.goal, run.summary, channel="cowork")

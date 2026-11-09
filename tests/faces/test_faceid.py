@@ -31,7 +31,9 @@ def test_face_id_needs_a_passcode_first(gate):
         gate.set_passcode("123")  # too short
     gate.set_passcode("246810")
     assert gate.passcode_reason() == ""
-    assert (gate.root / "faceid.json").stat().st_mode & 0o077 == 0
+    from openjarvis.security.file_utils import is_private
+
+    assert is_private(gate.root / "faceid.json")
     assert "246810" not in (gate.root / "faceid.json").read_text()
 
 

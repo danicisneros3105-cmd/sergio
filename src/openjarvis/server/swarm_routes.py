@@ -45,9 +45,32 @@ DOC_TYPES = (
 )
 
 
+CUSTOMER_TOOLS = frozenset(
+    {"web_search", "http_request", "calculator", "verified_math", "think"}
+)
+
+
 def get_engine(request: Request) -> SwarmEngine:
+    from openjarvis.accounts.provision import CUSTOMER
+
     state = request.app.state
+    customer_id = CUSTOMER.get()
     with _lock:
+        if customer_id:
+            engines = getattr(state, "swarm_customer_engines", None)
+            if engines is None:
+                engines = {}
+                state.swarm_customer_engines = engines
+            engine = engines.get(customer_id)
+            if engine is None:
+                from openjarvis.core.paths import get_config_dir
+
+                engine = SwarmEngine(
+                    home=get_config_dir() / "customers" / customer_id / "swarm",
+                    allowed_tools=CUSTOMER_TOOLS,
+                )
+                engines[customer_id] = engine
+            return engine
         engine = getattr(state, "swarm_engine", None)
         if engine is None:
             engine = SwarmEngine()
@@ -70,8 +93,21 @@ async def start(
     scout: Optional[bool] = Form(None),
     files: Optional[List[UploadFile]] = File(None),
 ) -> Dict[str, Any]:
+    from openjarvis.accounts.provision import CUSTOMER
     from openjarvis.quota import guard
 
+    customer_id = CUSTOMER.get()
+    if customer_id:
+        from openjarvis import tiers
+
+        try:
+            tiers.require("agent_swarm")
+        except PermissionError as exc:
+            raise HTTPException(402, str(exc)) from exc
+        if files:
+            raise HTTPException(
+                403, "La carga de documentos de Swarm requiere la app del dueño."
+            )
     guard("swarm")
     engine = get_engine(request)
     documents: List[Document] = []
@@ -162,9 +198,12 @@ async def export(run_id: str, request: Request, format: str = "md") -> Response:
 
 @router.post("/{run_id}/workspace")
 async def to_workspace(run_id: str, request: Request) -> Dict[str, Any]:
+    from openjarvis.accounts.provision import CUSTOMER
     from openjarvis.swarm.report import workspace_page
     from openjarvis.workspace.store import default_store
 
+    if CUSTOMER.get():
+        raise HTTPException(403, "El Workspace compartido no está disponible aquí.")
     run = _run_or_404(get_engine(request), run_id)
     if run.status not in FINAL or not run.report:
         raise HTTPException(409, "El informe aún no está listo.")

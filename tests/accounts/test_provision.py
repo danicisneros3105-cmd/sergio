@@ -1,6 +1,7 @@
 """One AI sub-key per customer, inside the owner's account (accounts/provision.py)."""
 
 from openjarvis.accounts import provision
+from openjarvis.security.file_utils import is_private
 
 
 class _Resp:
@@ -33,6 +34,14 @@ def test_budget_is_the_plan_minus_the_margin(monkeypatch):
     assert provision.budget("free", usd=0) == provision.FREE_BUDGET_USD
 
 
+def test_go_reserves_a_safer_margin_by_default(monkeypatch):
+    monkeypatch.delenv("SERGIO_MARGEN", raising=False)
+    monkeypatch.delenv("SERGIO_MARGEN_GO", raising=False)
+    assert provision.budget("go", usd=5) == 2.5
+    monkeypatch.setenv("SERGIO_MARGEN_GO", "0.6")
+    assert provision.budget("go", usd=5) == 2.0
+
+
 def test_customer_key_life(tmp_path, monkeypatch):
     monkeypatch.setenv("OPENROUTER_MANAGEMENT_KEY", "mgmt")
     http = _Http()
@@ -51,7 +60,7 @@ def test_customer_key_life(tmp_path, monkeypatch):
     assert provision.disable("u1", http=http, home=tmp_path)
     assert http.calls[-1][2] == {"disabled": True}
     assert provision.key_for("u1", home=tmp_path) == ""
-    assert (tmp_path / "cuentas_claves.json").stat().st_mode & 0o077 == 0
+    assert is_private(tmp_path / "cuentas_claves.json")
 
 
 def test_a_customer_goes_through_their_own_key():

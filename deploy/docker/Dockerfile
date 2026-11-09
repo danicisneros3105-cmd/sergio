@@ -10,7 +10,7 @@ ARG OPENJARVIS_LEADERBOARD_PUBLIC_ANON=
 
 WORKDIR /frontend
 COPY frontend/package.json frontend/package-lock.json* ./
-RUN npm ci --ignore-scripts 2>/dev/null || npm install
+RUN npm ci --ignore-scripts
 COPY frontend/ .
 RUN VITE_SUPABASE_ANON_KEY="${OPENJARVIS_LEADERBOARD_PUBLIC_ANON}" npm run build
 
@@ -49,7 +49,7 @@ COPY scripts/install scripts/install
 COPY deploy/windows deploy/windows
 
 # Copy built frontend into the server static directory
-COPY --from=frontend /src/openjarvis/server/static src/openjarvis/server/static/
+COPY --from=frontend /src/openjarvis/server/static_local src/openjarvis/server/static/
 
 # Install the project itself without re-resolving dependencies.
 RUN uv pip install --system --no-deps . && \

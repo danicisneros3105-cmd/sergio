@@ -33,14 +33,18 @@ def content_security_policy(embed_ports: tuple[int, ...] = _DEFAULT_EMBED_PORTS)
         for host in ("127.0.0.1", "localhost")
     )
     return (
-        "default-src 'self' 'unsafe-inline' 'unsafe-eval'; "
+        "default-src 'self'; "
+        "script-src 'self'; "
+        "style-src 'self' 'unsafe-inline'; "
+        "connect-src 'self' https: wss:; "
         "media-src 'self' blob:; "
         "img-src 'self' data: blob:; "
         "font-src 'self' data:; "
         f"frame-src 'self' {frames}; "
         "frame-ancestors 'self'; "
         "object-src 'none'; "
-        "base-uri 'self'"
+        "base-uri 'self'; "
+        "form-action 'self'"
     )
 
 

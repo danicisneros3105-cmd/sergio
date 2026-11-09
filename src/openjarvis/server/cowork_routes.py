@@ -51,10 +51,38 @@ class ScrutinizeRequest(BaseModel):
     autonomy: Optional[str] = None
 
 
+CUSTOMER_TOOLS = frozenset(
+    {"web_search", "http_request", "calculator", "verified_math", "think"}
+)
+
+
 def get_engine(request: Request) -> CoworkEngine:
-    """One engine per app, built on first use with the owner notifier."""
+    """Separate each customer's storage and tools from the owner's runtime."""
+    from openjarvis.accounts.provision import CUSTOMER
+
     state = request.app.state
+    customer_id = CUSTOMER.get()
     with _engine_lock:
+        if customer_id:
+            engines = getattr(state, "cowork_customer_engines", None)
+            if engines is None:
+                engines = {}
+                state.cowork_customer_engines = engines
+            engine = engines.get(customer_id)
+            if engine is None:
+                from functools import partial
+
+                from openjarvis.core.paths import get_config_dir
+                from openjarvis.server.tasks_routes import plan_task
+
+                engine = CoworkEngine(
+                    root=get_config_dir() / "customers" / customer_id / "cowork",
+                    planner=partial(plan_task, tools=sorted(CUSTOMER_TOOLS)),
+                    allowed_tools=CUSTOMER_TOOLS,
+                )
+                engines[customer_id] = engine
+            return engine
+
         engine = getattr(state, "cowork_engine", None)
         if engine is None:
             from openjarvis.core.config import load_config
@@ -78,9 +106,17 @@ def _run_or_404(engine: CoworkEngine, run_id: str):
 
 @router.post("")
 async def start_run(req: StartRequest, request: Request) -> Dict[str, Any]:
+    from openjarvis.accounts.provision import CUSTOMER
     from openjarvis.core.config import load_config
     from openjarvis.quota import guard
 
+    if CUSTOMER.get():
+        from openjarvis import tiers
+
+        try:
+            tiers.require("long_tasks")
+        except PermissionError as exc:
+            raise HTTPException(402, str(exc)) from exc
     guard("cowork")
     config = load_config()
     engine = get_engine(request)

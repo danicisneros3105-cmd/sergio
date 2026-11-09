@@ -83,7 +83,7 @@ PLAN_INFO: Dict[str, Plan] = {
         1,
         "Bueno para tareas casuales; justo para el uso de todos los días.",
         [
-            "Chat, voz, Nodes, Swarm, Cowork, Salud y Workspace",
+            "Chat, voz y funciones esenciales",
             "Todo lo que corre en su equipo, código abierto",
             "Uso limitado cada día",
         ],
@@ -96,6 +96,7 @@ PLAN_INFO: Dict[str, Plan] = {
         "Para empezar a usar Sergio todos los días.",
         [
             "Todo lo de Free",
+            "Cowork y tareas largas en la nube",
             "El doble de uso de los modelos rápidos",
         ],
     ),
@@ -108,6 +109,7 @@ PLAN_INFO: Dict[str, Plan] = {
         [
             "Todo lo de Go",
             "Modelos de nivel intermedio y 5× el uso de Free",
+            "Agent Swarm para investigación paralela",
             "Skills y plugins premium",
             "Sincronización alojada (próximamente)",
             "Actualizaciones anticipadas (próximamente)",
@@ -171,6 +173,8 @@ def stretch_usd(plan: str, mult: int) -> int:
 
 # The lowest plan that includes each paid feature.
 FEATURES: Dict[str, str] = {
+    "long_tasks": "go",
+    "agent_swarm": "work",
     "hosted_sync": "work",
     "premium_skills": "work",
     "early_updates": "work",
@@ -193,7 +197,6 @@ SOON = frozenset(
         "hosted_sync",
         "early_updates",
         "priority",
-        "advanced_models",
         "sso",
         "rbac",
         "audit_export",
@@ -202,6 +205,8 @@ SOON = frozenset(
     }
 )
 FEATURES_ES = {
+    "long_tasks": "Cowork y tareas largas en la nube",
+    "agent_swarm": "Agent Swarm para investigación paralela",
     "hosted_sync": "sincronización alojada",
     "premium_skills": "skills y plugins premium",
     "early_updates": "actualizaciones anticipadas",

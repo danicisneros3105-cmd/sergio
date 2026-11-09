@@ -69,11 +69,15 @@ def enabled() -> bool:
     return bool(management_key())
 
 
-def margin() -> float:
+def margin(plan: str = "") -> float:
+    plan = str(plan or "").strip().lower()
+    default = 0.50 if plan == "go" else MARGIN
+    specific = os.environ.get(f"SERGIO_MARGEN_{plan.upper()}") if plan else None
+    raw = specific or os.environ.get("SERGIO_MARGEN") or str(default)
     try:
-        value = float(os.environ.get("SERGIO_MARGEN", MARGIN))
+        value = float(raw)
     except ValueError:
-        value = MARGIN
+        value = default
     return min(0.95, max(0.0, value))
 
 
@@ -87,7 +91,7 @@ def budget(plan: str, usd: Optional[float] = None) -> float:
         usd = float(info.usd)
     if usd <= 0:
         return FREE_BUDGET_USD
-    return round(usd * (1.0 - margin()), 2)
+    return round(usd * (1.0 - margin(plan)), 2)
 
 
 def _path(home: Optional[Path] = None) -> Path:
@@ -130,15 +134,9 @@ def _open(uid: str, sealed: str, home: Optional[Path] = None) -> str:
 
 
 def _save(data: Dict[str, Dict[str, Any]], home: Optional[Path] = None) -> None:
-    path = _path(home)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(".tmp")
-    tmp.write_text(json.dumps(data, indent=1), encoding="utf-8")
-    try:
-        os.chmod(tmp, 0o600)
-    except OSError:
-        pass
-    tmp.replace(path)
+    from openjarvis.security.file_utils import secure_write_json
+
+    secure_write_json(_path(home), data)
 
 
 def _http() -> Any:

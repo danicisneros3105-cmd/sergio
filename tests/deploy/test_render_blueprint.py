@@ -1,6 +1,7 @@
 """Render Blueprint stays aligned with settings the server consumes."""
 
 import json
+import os
 import shlex
 import subprocess
 from pathlib import Path
@@ -47,8 +48,13 @@ def _run_fake_jarvis(tmp_path: Path, argv: list[str]) -> list[str]:
         encoding="utf-8",
     )
     fake_jarvis.chmod(0o755)
+    command = (
+        ["bash", str(fake_jarvis), *argv[1:]]
+        if os.name == "nt"
+        else [str(fake_jarvis), *argv[1:]]
+    )
     completed = subprocess.run(
-        [str(fake_jarvis), *argv[1:]],
+        command,
         check=True,
         capture_output=True,
     )
@@ -75,13 +81,13 @@ def test_render_selects_cloud_engine_through_the_serve_cli(tmp_path: Path) -> No
         "--engine",
         "cloud",
         "--model",
-        "gpt-4o-mini",
+        "openrouter/google/gemini-2.5-flash",
     ]
     parsed = serve.make_context("serve", args[1:])
     assert parsed.params["host"] == "0.0.0.0"
     assert parsed.params["port"] == 10000
     assert parsed.params["engine_key"] == "cloud"
-    assert parsed.params["model_name"] == "gpt-4o-mini"
+    assert parsed.params["model_name"] == "openrouter/google/gemini-2.5-flash"
     assert "OPENJARVIS_ENGINE" not in _env_vars(service)
     assert _env_vars(service)["PORT"] == {"key": "PORT", "value": "10000"}
 
@@ -130,28 +136,51 @@ def test_render_public_bind_generates_an_api_key() -> None:
     }
 
 
-def test_render_contract_requires_one_supported_cloud_provider() -> None:
+def test_render_contract_requires_hosted_provider_and_operator_inputs() -> None:
     service = _service()
     env = _env_vars(service)
 
     assert service["runtime"] == "docker"
     assert service["dockerfilePath"] == "./deploy/docker/Dockerfile"
     assert service["healthCheckPath"] == "/health"
-    assert env["OPENAI_API_KEY"] == {"key": "OPENAI_API_KEY", "sync": False}
-    # Every sync:false entry is mandatory during initial Blueprint creation.
+    assert service["autoDeployTrigger"] == "checksPass"
+    assert env["OPENROUTER_API_KEY"] == {"key": "OPENROUTER_API_KEY", "sync": False}
+    assert env["OPENROUTER_MANAGEMENT_KEY"]["sync"] is False
+    assert env["STRIPE_SECRET_KEY"]["sync"] is False
+    assert env["STRIPE_WEBHOOK_SECRET"]["sync"] is False
+    # Every sync:false entry is an explicit operator input, never a Git secret.
     assert [
         item["key"] for item in service["envVars"] if item.get("sync") is False
-    ] == ["OPENAI_API_KEY"]
+    ] == [
+        "OPENROUTER_API_KEY",
+        "OPENROUTER_MANAGEMENT_KEY",
+        "SERGIO_CLAVE_MAESTRA",
+        "SERGIO_PUBLIC_URL",
+        "STRIPE_SECRET_KEY",
+        "STRIPE_WEBHOOK_SECRET",
+        "SERGIO_SMTP_HOST",
+        "SERGIO_SMTP_FROM",
+        "SERGIO_LEGAL_OPERATOR",
+        "SERGIO_LEGAL_CONTACT",
+        "SERGIO_LEGAL_JURISDICTION",
+    ]
 
 
-def test_render_free_tier_ephemeral_storage_is_explicitly_documented() -> None:
+def test_render_production_disk_and_documentation_are_aligned() -> None:
     service = _service()
     env = _env_vars(service)
     docs = RENDER_DOC.read_text(encoding="utf-8").lower()
 
-    assert service["plan"] == "free"
-    assert "disk" not in service
-    assert env["OPENJARVIS_HOME"]["value"] == "/home/openjarvis/.openjarvis"
-    assert "ephemeral" in docs
-    assert "lost" in docs
+    assert service["plan"] == "1c-2g"
+    assert service["disk"] == {
+        "name": "sergio-data",
+        "mountPath": "/home/openjarvis/.openjarvis",
+        "sizeGB": 10,
+    }
+    assert env["OPENJARVIS_HOME"]["value"] == service["disk"]["mountPath"]
+    assert env["SERGIO_REGISTRO"]["value"] == "abierto"
+    assert env["SERGIO_PLANES_ACTIVOS"]["value"] == "1"
     assert "persistent disk" in docs
+    assert "sandbox" in docs
+    assert "vite_openjarvis_api_key" in docs
+    assert "static_local" in DOCKERFILE.read_text(encoding="utf-8")

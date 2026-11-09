@@ -76,11 +76,9 @@ export const getBase = (): string => {
   return '';
 };
 
-// Resolve the local server API key (OPENJARVIS_API_KEY). When `jarvis serve`
-// is started with a key, AuthMiddleware 401s every /v1 and /api request that
-// lacks a Bearer token — so the frontend must send it (#266). Sourced from the
-// same settings blob as the API URL, with an optional build-time env override.
-// Returns '' when unset, so a keyless local server keeps working unchanged.
+// Hosted accounts use a per-tab session token. A local server key can only be
+// entered explicitly in local settings; shared/provider keys are never baked
+// into the browser bundle through VITE_* variables.
 export const getApiKey = (): string => {
   const accountToken = sessionToken(getBase());
   if (accountToken) return accountToken;
@@ -92,9 +90,6 @@ export const getApiKey = (): string => {
       if (parsed.apiKey) localStorage.setItem('openjarvis-settings', JSON.stringify({ ...parsed, apiKey: '' }));
     }
   } catch {}
-  if (import.meta.env.VITE_OPENJARVIS_API_KEY) {
-    return import.meta.env.VITE_OPENJARVIS_API_KEY as string;
-  }
   return '';
 };
 

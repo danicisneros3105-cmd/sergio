@@ -46,6 +46,7 @@ def test_closed_by_default_the_owner_still_approves(api, monkeypatch):
 def test_open_needs_terms_and_age(api, monkeypatch):
     client, st, _ = api
     monkeypatch.setenv("SERGIO_REGISTRO", "abierto")
+    assert client.get("/v1/cuentas/estado").json()["edad_minima"] == 18
     assert client.post("/v1/cuentas/registro", json=GOOD).status_code == 400
     assert (
         client.post("/v1/cuentas/registro", json={**GOOD, "acepta": True}).status_code
@@ -65,7 +66,7 @@ def test_open_clean_signup_opens_only_after_the_email_code(api, monkeypatch):
     assert user["role"] == "pendiente"  # no code yet, no access
     consent = st.consent_of(user["id"])
     assert (
-        consent["terms"] == "2026-11-02"
+        consent["terms"] == "2026-11-08"
         and consent["adult"] == 1
         and consent["auto"] == 1
     )

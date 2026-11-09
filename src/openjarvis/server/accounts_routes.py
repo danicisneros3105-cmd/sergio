@@ -25,6 +25,7 @@ is the owner's; every other one waits for the owner's approval.
 
 from __future__ import annotations
 
+import os
 import time
 from collections import defaultdict, deque
 from typing import Any, Deque, Dict, Optional
@@ -192,6 +193,11 @@ def estado(request: Request) -> Dict[str, Any]:
         "registro": "abierto" if registro.abierto() else "aprobacion",
         "terminos": registro.TERMS_VERSION,
         "edad_minima": registro.MIN_AGE,
+        "legal": {
+            "operator": os.environ.get("SERGIO_LEGAL_OPERATOR", "").strip(),
+            "contact": os.environ.get("SERGIO_LEGAL_CONTACT", "").strip(),
+            "jurisdiction": os.environ.get("SERGIO_LEGAL_JURISDICTION", "").strip(),
+        },
     }
 
 

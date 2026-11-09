@@ -150,6 +150,10 @@ def test_csp_allows_only_local_extension_frames_and_inline_assets():
     assert "http://127.0.0.1:4173" in csp and "https://" not in csp
     assert "font-src 'self' data:" in csp and "img-src 'self' data: blob:" in csp
     assert "media-src 'self' blob:" in csp
+    assert "default-src 'self';" in csp
+    assert "script-src 'self';" in csp
+    assert "unsafe-eval" not in csp
+    assert "object-src 'none';" in csp and "form-action 'self'" in csp
 
 
 def test_answers_travel_compressed_and_hashed_files_are_kept(tmp_path, monkeypatch):

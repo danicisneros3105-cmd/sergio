@@ -140,12 +140,9 @@ def _write(path: Path, ring: Keyring, phrase: str = "") -> None:
         }
     else:
         body.update(_inner(ring))
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_name(path.name + f".{secrets.token_hex(4)}.tmp")
-    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-    with os.fdopen(fd, "w", encoding="utf-8") as fh:
-        json.dump(body, fh)
-    os.replace(tmp, path)
+    from openjarvis.security.file_utils import secure_write_json
+
+    secure_write_json(path, body)
 
 
 def _read(path: Path, phrase: str) -> Keyring:

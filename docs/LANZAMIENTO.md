@@ -32,7 +32,7 @@ Las claves viven solo en `sergio.env`, nunca en el repositorio.
    nombre provisional «Visage» (la marca «Face ID» es de Apple).
 4. **Certificado de firma de código** para el instalador de Windows; sin él
    Windows avisa «aplicación no reconocida».
-5. **Repositorio privado.** Hoy es público: cualquiera puede copiar el código.
+5. **Repositorio privado.** Manténgalo privado y compruebe que una consulta sin sesión no pueda abrirlo.
 6. **Cifrado del disco y copias cifradas** en el servidor. El cifrado por campo
    no cubre archivos de proyectos ni registros.
 7. **Auditoría externa de seguridad.** Hasta tenerla no se dice «nivel

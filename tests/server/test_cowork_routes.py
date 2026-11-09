@@ -48,9 +48,9 @@ def client(tmp_path, monkeypatch):
     return TestClient(app)
 
 
-def _wait(client, run_id, status, tries=1000):
+def _wait(client, run_id, status, tries=1000, headers=None):
     for _ in range(tries):
-        run = client.get(f"/v1/cowork/{run_id}").json()
+        run = client.get(f"/v1/cowork/{run_id}", headers=headers).json()
         if run["status"] in status:
             return run
         time.sleep(0.01)
@@ -203,3 +203,108 @@ def test_interrupted_run_events_close_without_waiting(client, monkeypatch):
         if line.startswith("data: ")
     ]
     assert snapshots and snapshots[-1]["run"]["status"] == "interrupted"
+
+
+def test_customer_cowork_is_isolated_and_keeps_its_identity(tmp_path, monkeypatch):
+    from openjarvis.accounts.provision import CUSTOMER, CUSTOMER_PLAN
+    from openjarvis.cowork.session import CoworkEngine
+
+    monkeypatch.setenv("OPENJARVIS_HOME", str(tmp_path))
+    memories = []
+    monkeypatch.setattr(
+        "openjarvis.connectome.brain.remember_exchange",
+        lambda *args, **kwargs: memories.append((args, kwargs)),
+    )
+    app = FastAPI()
+
+    @app.middleware("http")
+    async def customer_context(request, call_next):
+        uid = request.headers.get("X-Test-Customer", "")
+        mark = CUSTOMER.set(uid)
+        plan_mark = CUSTOMER_PLAN.set("go")
+        try:
+            return await call_next(request)
+        finally:
+            CUSTOMER_PLAN.reset(plan_mark)
+            CUSTOMER.reset(mark)
+
+    app.include_router(router)
+    client = TestClient(app)
+    seen = []
+    for uid in ("a" * 16, "b" * 16):
+        headers = {"X-Test-Customer": uid}
+        assert client.get("/v1/cowork/axes", headers=headers).status_code == 200
+        engine = app.state.cowork_customer_engines[uid]
+        assert isinstance(engine, CoworkEngine)
+        engine.planner = lambda _goal: {
+            "titulo": "Investigación",
+            "pasos": [
+                {
+                    "paso": "Buscar una fuente",
+                    "herramientas": ["web_search"],
+                    "donde": "fondo",
+                }
+            ],
+        }
+
+        def run_step(_prompt, _tools, _budget, uid=uid):
+            seen.append(CUSTOMER.get())
+            return "TERMINADO: fuente revisada", 1
+
+        engine.runner = run_step
+        started = client.post(
+            "/v1/cowork", json={"goal": "Buscar una fuente"}, headers=headers
+        ).json()
+        run = _wait(client, started["id"], ("done",), headers=headers)
+        assert run["status"] == "done" and run["progress"] == 1
+        listed = client.get("/v1/cowork", headers=headers).json()["runs"]
+        assert [item["id"] for item in listed] == [started["id"]]
+
+    engines = app.state.cowork_customer_engines
+    assert engines["a" * 16].root != engines["b" * 16].root
+    assert seen == ["a" * 16, "b" * 16]
+    assert memories == []
+
+
+def test_customer_engine_blocks_tools_outside_its_allowlist(tmp_path):
+    from openjarvis.cowork.session import CoworkEngine
+
+    engine = CoworkEngine(
+        root=tmp_path,
+        allowed_tools=frozenset({"web_search"}),
+        planner=lambda _goal: {
+            "pasos": [
+                {
+                    "paso": "Leer un archivo local",
+                    "herramientas": ["file_read"],
+                    "donde": "fondo",
+                }
+            ]
+        },
+        runner=lambda *_args: pytest.fail("A blocked tool must never run"),
+    )
+    run = engine.start("Leer un archivo local", wait=True)
+    assert run.status == "failed"
+    assert run.steps[0].status == "blocked"
+    assert run.steps[0].invented == ["file_read"]
+
+
+def test_free_customer_is_offered_an_upgrade_before_starting_cowork():
+    from openjarvis.accounts.provision import CUSTOMER, CUSTOMER_PLAN
+
+    app = FastAPI()
+
+    @app.middleware("http")
+    async def free_customer(request, call_next):
+        mark = CUSTOMER.set("c" * 16)
+        plan_mark = CUSTOMER_PLAN.set("free")
+        try:
+            return await call_next(request)
+        finally:
+            CUSTOMER_PLAN.reset(plan_mark)
+            CUSTOMER.reset(mark)
+
+    app.include_router(router)
+    response = TestClient(app).post("/v1/cowork", json={"goal": "Investigar"})
+    assert response.status_code == 402
+    assert "Go" in response.json()["detail"]

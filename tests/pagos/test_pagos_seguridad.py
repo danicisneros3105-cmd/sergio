@@ -9,6 +9,7 @@ import pytest
 
 from openjarvis.accounts import provision
 from openjarvis.pagos import cifrado, gateways, ledger, service
+from openjarvis.security.file_utils import is_private
 
 
 class _Resp:
@@ -63,7 +64,7 @@ def test_ai_keys_are_sealed_and_tied_to_their_customer(tmp_path, monkeypatch):
     raw = (tmp_path / "cuentas_claves.json").read_text()
     assert "sk-or-secreta" not in raw and '"sealed": "v2:' in raw
     assert provision.key_for("ana", home=tmp_path) == "sk-or-secreta"
-    assert (tmp_path / "clave_maestra").stat().st_mode & 0o077 == 0
+    assert is_private(tmp_path / "clave_maestra")
     # Copied to another customer, the sealed key does not open.
     data = json.loads(raw)
     data["luis"] = dict(data["ana"])

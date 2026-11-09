@@ -148,7 +148,10 @@ def revisar(base: str = "") -> Dict[str, Any]:
             "Certificado de firma de código para el instalador de Windows",
             "Sin él, Windows avisa «aplicación no reconocida».",
         ),
-        ("Repositorio privado", "Hoy es público: cualquiera puede copiar el código."),
+        (
+            "Privacidad del repositorio verificada",
+            "Confirme que el repositorio es privado; una consulta pública sin sesión no debe abrirlo.",
+        ),
         (
             "Cifrado del disco del servidor (y copias de seguridad cifradas)",
             "Cierra lo que el cifrado por campo no cubre.",

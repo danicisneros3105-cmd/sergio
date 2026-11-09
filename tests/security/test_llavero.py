@@ -69,7 +69,9 @@ def test_a_passphrase_leaves_no_usable_key_on_disk(tmp_path, monkeypatch):
     cifrado.protect("una frase bien larga", home=tmp_path)
     raw = json.loads((tmp_path / "clave_maestra").read_text())
     assert "envuelta" in raw and "claves" not in raw
-    assert (tmp_path / "clave_maestra").stat().st_mode & 0o077 == 0
+    from openjarvis.security.file_utils import is_private
+
+    assert is_private(tmp_path / "clave_maestra")
     cifrado._CACHE.clear()
     with pytest.raises(cifrado.SealError, match="SERGIO_FRASE_MAESTRA"):
         cifrado.unseal(box, home=tmp_path)

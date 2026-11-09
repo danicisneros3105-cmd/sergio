@@ -2,9 +2,9 @@
 
 Sergio is the owner's assistant: his profile, files, PC, connectors, Nodes,
 health and memory are his. A customer (an approved account that is not the
-owner) gets the chat through their own AI key, the model list, their account
-and paying for a plan. Everything else answers 403. A new customer feature
-must be added here on purpose.
+owner) gets the chat through their own AI key, the model list, their account,
+payments, isolated Cowork tasks and plan-gated Swarm research. Everything else
+answers 403. A new customer feature must be added here on purpose.
 """
 
 from __future__ import annotations
@@ -14,6 +14,11 @@ ALLOW = {
     ("GET", "/v1/models"),
     ("GET", "/v1/personal/modelos"),
     ("GET", "/v1/plans"),
+    ("GET", "/v1/plans/me"),
+    ("GET", "/v1/cowork"),
+    ("POST", "/v1/cowork"),
+    ("GET", "/v1/swarm"),
+    ("POST", "/v1/swarm"),
     ("GET", "/v1/pagos/metodos"),
     ("GET", "/v1/pagos/precio"),
     ("POST", "/v1/pagos/checkout"),
@@ -24,6 +29,8 @@ ALLOW = {
 ALLOW_PREFIX = (
     ("GET", "/v1/pagos/pedido/"),
     ("*", "/v1/cuentas/"),
+    ("*", "/v1/cowork/"),
+    ("*", "/v1/swarm/"),
 )
 
 

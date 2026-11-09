@@ -12,7 +12,6 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
-import os
 import secrets
 import threading
 import time
@@ -119,12 +118,9 @@ class Gate:
             return {}
 
     def _save(self, state: dict[str, Any]) -> None:
-        path = self._path
-        path.parent.mkdir(parents=True, exist_ok=True)
-        tmp = path.with_suffix(".tmp")
-        tmp.write_text(json.dumps(state))
-        os.chmod(tmp, 0o600)
-        tmp.replace(path)
+        from openjarvis.security.file_utils import secure_write_json
+
+        secure_write_json(self._path, state)
 
     # -- the passcode ------------------------------------------------------
 
@@ -255,9 +251,9 @@ class Gate:
                     old = path.read_text().splitlines()
                 except OSError:
                     old = []
-                path.parent.mkdir(parents=True, exist_ok=True)
-                path.write_text("\n".join([*old, line][-LOG_LINES:]) + "\n")
-                os.chmod(path, 0o600)
+                from openjarvis.security.file_utils import secure_write_text
+
+                secure_write_text(path, "\n".join([*old, line][-LOG_LINES:]) + "\n")
         except OSError:
             pass
 
@@ -590,7 +586,7 @@ def unlock(
             "message": "El reto caducó: inténtelo de nuevo.",
         }
     t0 = time.perf_counter()
-    if len(frames) > 1 and len({hashlib.sha1(f).digest() for f in frames}) < max(
+    if len(frames) > 1 and len({hashlib.sha256(f).digest() for f in frames}) < max(
         2, int(len(frames) * 0.6)
     ):
         # The same picture sent again and again is not a camera.

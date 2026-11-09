@@ -19,8 +19,8 @@ from __future__ import annotations
 
 import os
 
-TERMS_VERSION = "2026-11-02"
-MIN_AGE = 16  # GDPR's highest age of consent for a service like this
+TERMS_VERSION = "2026-11-08"
+MIN_AGE = 18  # OpenRouter's current customer terms require users to be adults
 
 
 def abierto() -> bool:

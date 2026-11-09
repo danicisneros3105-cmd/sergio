@@ -29,6 +29,7 @@ Cowork), and each sub-agent has a hard cap on tool calls.
 
 from __future__ import annotations
 
+import contextvars
 import inspect
 import json
 import logging
@@ -461,12 +462,14 @@ class SwarmEngine:
         runner: Optional[Runner] = None,
         home: Optional[Path] = None,
         retry_delays: Tuple[float, ...] = RETRY_DELAYS,
+        allowed_tools: Optional[frozenset[str]] = None,
     ) -> None:
         self.ask = ask or _ask_default
         self.runner = runner or _runner_default
         self._live = _takes_on_tool(self.runner)
         self.retry_delays = tuple(retry_delays)
         self.home = home or _home()
+        self.allowed_tools = allowed_tools
         self._reserved: Dict[str, int] = {}
         self._runs: Dict[str, SwarmRun] = {}
         self._cancel: Dict[str, threading.Event] = {}
@@ -501,8 +504,12 @@ class SwarmEngine:
             self._runs[run.id] = run
             self._cancel[run.id] = threading.Event()
         if background:
+            ctx = contextvars.copy_context()
             threading.Thread(
-                target=self._work, args=(run,), daemon=True, name=f"swarm-{run.id}"
+                target=ctx.run,
+                args=(self._work, run),
+                daemon=True,
+                name=f"swarm-{run.id}",
             ).start()
         else:
             self._work(run)
@@ -577,7 +584,7 @@ class SwarmEngine:
                 if run.scout
                 else "",
                 max_subtasks=MAX_SUBTASKS,
-                tools=", ".join(SWARM_TOOLS),
+                tools=", ".join(self.allowed_tools or SWARM_TOOLS),
                 per_document="Habrá un subagente lector por documento: di en «por_documento» "
                 "qué debe extraer cada uno; añade solo las subtareas extra que hagan falta (comparar, buscar fuera…)."
                 if docs
@@ -591,6 +598,13 @@ class SwarmEngine:
             run.title, run.roles, run.subtasks, run.synthesis = plan_subtasks(
                 run.task, data, run.documents, run.scout
             )
+            if self.allowed_tools is not None:
+                for sub in run.subtasks:
+                    sub.tools = [t for t in sub.tools if t in self.allowed_tools]
+                    if not sub.tools:
+                        sub.tools = [
+                            t for t in DEFAULT_TOOLS if t in self.allowed_tools
+                        ]
             names = ", ".join(r["nombre"] for r in run.roles[:4])
             self._say(
                 run,
@@ -644,14 +658,17 @@ class SwarmEngine:
                     + next((s.result for s in run.subtasks if s.result), "")[:300]
                 )
             else:
-                from openjarvis.connectome.brain import remember_exchange
-                from openjarvis.swarm.report import summary_line
+                from openjarvis.accounts.provision import CUSTOMER
 
-                remember_exchange(
-                    run.task,
-                    summary_line(run.report) or run.report[:400],
-                    channel="swarm",
-                )
+                if not CUSTOMER.get():
+                    from openjarvis.connectome.brain import remember_exchange
+                    from openjarvis.swarm.report import summary_line
+
+                    remember_exchange(
+                        run.task,
+                        summary_line(run.report) or run.report[:400],
+                        channel="swarm",
+                    )
         except Exception as exc:  # noqa: BLE001
             logger.exception("swarm %s failed", run.id)
             run.status = "failed"
@@ -925,10 +942,10 @@ class SwarmEngine:
     def _save(self, run: SwarmRun) -> None:
         try:
             self.home.mkdir(parents=True, exist_ok=True)
+            from openjarvis.security.file_utils import secure_write_text
+
             path = self.home / f"{run.id}.json"
-            path.write_text(
-                json.dumps(run.to_dict(), ensure_ascii=False), encoding="utf-8"
-            )
+            secure_write_text(path, json.dumps(run.to_dict(), ensure_ascii=False))
             old = sorted(self.home.glob("sw_*.json"), key=lambda p: p.stat().st_mtime)
             for stale in old[:-50]:  # the last 50 reports stay
                 stale.unlink(missing_ok=True)

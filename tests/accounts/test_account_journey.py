@@ -70,3 +70,22 @@ def test_open_signup_verify_login_logout_and_replay(tmp_path, monkeypatch):
     assert client.post(f"{path}/salir", headers=headers).status_code == 200
     assert client.get("/v1/test/private", headers=headers).status_code == 401
     assert not client.cookies
+
+
+def test_public_legal_identity_comes_from_runtime_not_secrets(tmp_path, monkeypatch):
+    app = FastAPI()
+    app.include_router(accounts_routes.router)
+    monkeypatch.setattr(
+        accounts_routes, "_store", lambda: AccountStore(tmp_path / "a.db")
+    )
+    monkeypatch.setenv("SERGIO_LEGAL_OPERATOR", "Sergio International")
+    monkeypatch.setenv("SERGIO_LEGAL_CONTACT", "legal@example.com")
+    monkeypatch.setenv("SERGIO_LEGAL_JURISDICTION", "Delaware, USA")
+    monkeypatch.setenv("STRIPE_SECRET_KEY", "must-not-leak")
+    data = TestClient(app).get("/v1/cuentas/estado").json()
+    assert data["legal"] == {
+        "operator": "Sergio International",
+        "contact": "legal@example.com",
+        "jurisdiction": "Delaware, USA",
+    }
+    assert "must-not-leak" not in str(data)

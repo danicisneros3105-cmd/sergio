@@ -28,7 +28,7 @@ gasta el 30 % del suyo, y el hosting cuesta 0,40 $ por cliente de pago y
 
 | Plan | Precio | Comisión | Tope de IA | Peor caso (gasta todo el tope) | Típico (35 % del tope) |
 |---|---|---|---|---|---|
-| Go | $5 | $0,53 | $3,00 | **$0,90 (18 %)** | $2,96 (59 %) |
+| Go | $5 | $0,53 | $2,50 | **$1,43 (29 %)** | $3,15 (63 %) |
 | Work | $21 | $1,28 | $12,60 | $6,03 (29 %) | $14,67 (70 %) |
 | Dev | $50 | $2,62 | $30,00 | $15,33 (31 %) | $35,90 (72 %) |
 | Dev (máx.) | $115 | $5,65 | $69,00 | $36,15 (31 %) | $83,47 (73 %) |
@@ -36,17 +36,17 @@ gasta el 30 % del suyo, y el hosting cuesta 0,40 $ por cliente de pago y
 | Founders (máx.) | $235 | $11,23 | $141,00 | $74,62 (32 %) | $171,31 (73 %) |
 
 **Free**: cada usuario cuesta entre $0,21 (típico) y $0,58 (peor caso). Con
-estos números, **un cliente Go típico paga por unos 14 usuarios Free**.
+estos números, **un cliente Go típico paga por unos 15 usuarios Free**.
 
 ## Lo que dice este cálculo
 
 1. **Ningún plan pierde dinero aunque el cliente use todo su tope**, porque la
-   clave de IA tiene un tope mensual que corta a OpenRouter (`SERGIO_MARGEN`,
-   0,40 por defecto: el tope de IA es el 60 % del precio).
-2. **Go es el plan frágil**: en el peor caso deja 90 centavos. Un solo
-   reembolso, una devolución de cargo o una tarjeta extranjera con cambio de
-   moneda se los come. Opciones: subir `SERGIO_MARGEN` a 0,50 solo para Go
-   (tope de IA de $2,50), o poner Go en $6.
+   clave de IA tiene un tope mensual que corta a OpenRouter. El margen general
+   (`SERGIO_MARGEN`, 0,40) deja el 60 % del precio para IA; Go reserva 50 %
+   (`SERGIO_MARGEN_GO`) y deja un tope de $2,50.
+2. **Go sigue siendo el plan más frágil**: en el peor caso deja $1,43. Un
+   reembolso o contracargo puede superar esa cantidad. Por eso su tope ya usa
+   un margen propio del 50 %; hay que revisarlo con facturas reales.
 3. **Free es el costo de adquirir clientes**, no un regalo gratis: si de cada
    100 usuarios Free menos de 7 pasan a Go, el Free pierde dinero. Hay que
    medir esa conversión en la beta.
@@ -73,6 +73,6 @@ estos números, **un cliente Go típico paga por unos 14 usuarios Free**.
 - **Costo variable**: IA (acotado por el tope de cada clave), comisión de pago.
 - **Costo fijo**: nube, firma, legales, soporte.
 - **Punto de equilibrio**: costos fijos del mes ÷ ganancia típica por cliente.
-  Con $2,96 en Go y $14,67 en Work, cubrir por ejemplo $1.000 al mes de costos
-  fijos pide unos 70 clientes Work, o unos 340 Go. Son cuentas de ejemplo con
+  Con $3,15 en Go y $14,67 en Work, cubrir por ejemplo $1.000 al mes de costos
+  fijos pide unos 69 clientes Work, o unos 318 Go. Son cuentas de ejemplo con
   supuestos, no una previsión.

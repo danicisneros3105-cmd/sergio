@@ -66,6 +66,12 @@ describe('getApiKey', () => {
     const { getApiKey } = await freshApi();
     expect(getApiKey()).toBe('');
   });
+
+  it('never accepts a shared server key from a public build variable', async () => {
+    vi.stubEnv('VITE_OPENJARVIS_API_KEY', 'must-not-be-embedded');
+    const { getApiKey } = await freshApi();
+    expect(getApiKey()).toBe('');
+  });
 });
 
 describe('authHeaders', () => {

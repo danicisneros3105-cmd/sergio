@@ -60,7 +60,7 @@ function PlanCard({
     <article className="plan-card" data-current={current} data-recommended={plan.id === 'work'}>
       <h2>
         {plan.name}
-        {current ? <small>Su plan</small> : plan.id === 'work' ? <small>Para el día a día</small> : null}
+        {current ? <small>Su plan</small> : plan.id === 'work' ? <small>Recomendado</small> : null}
       </h2>
       <div className="plan-price">
         {plan.id === 'free' ? 'Gratis' : plan.price.text}

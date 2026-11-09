@@ -2,6 +2,15 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-11-08 · Kimi · Candidato web, pagos, seguridad y tareas
+- Trabajé sobre el `main` privado (`cb233eaa`), no sobre la copia local antigua. Amplié privacidad/términos, configuración pública del titular y consentimiento con versión `2026-11-08`; la edad mínima es 18 años por los términos actuales de OpenRouter.
+- Quité la clave maestra como posible variable pública de Vite. Los secretos usan escritura atómica y permisos POSIX o ACL reales de Windows; Visage usa el mismo helper y SHA-256 para detectar fotogramas repetidos.
+- Cowork y Swarm tienen aislamiento por cuenta, contexto conservado en los workers, herramientas permitidas y estados finales honestos. Go añade tareas largas; Work añade Swarm; los modelos avanzados ya no dicen «próximamente». Go reserva 50 % de margen por defecto: peor caso estimado 1,43 $.
+- Render usa instancia `1c-2g`, disco persistente, CI antes de desplegar y secretos del operador. Dockerfile copia el build `static_local` y exige `npm ci`, sin fallback que altere el lock.
+- Verificación: frontend 357 pruebas y build PWA; producción `npm audit` sin vulnerabilidades. La selección final de backend tuvo 88 pruebas aprobadas antes de la última aserción antigua de Visage; tras corregirla, su archivo tuvo 18 aprobadas y 2 omitidas. Ruff y diff limpios; Bandit sin hallazgos en el archivo corregido.
+- La matriz amplia anterior tuvo 735 aprobadas y 12 fallos; se corrigieron los relacionados con ACL/Visage. Quedan fallos preexistentes de Windows/configuración en capabilities, data boundaries y sandbox que no se arreglaron aquí. No se hicieron cobros reales.
+- Pendiente: CI verde del commit, credenciales HTTPS/OpenRouter/Stripe/SMTP, pago sandbox, titular/contacto legal y revisión jurídica, dispositivos reales, instalador firmado, copias cifradas y auditoría externa. No publicar como «listo» ni «inhackeable» todavía.
+
 ## 2026-11-06 · Codex · Preparación del candidato de lanzamiento
 - Vite ya no borra el portal del instalador al compilar; el empaquetado legado conserva el portal al incorporar la web. Cowork confirma la creación de texto mediante escritura y relectura de la misma ruta y el literal solicitado.
 - Añadí un smoke reproducible del cliente con API sintética en Chromium/WebKit, con build desde los locks, y el [recorrido de lanzamiento](es/VERIFICAR-CANDIDATO.md). Las pruebas locales pasaron: 63 de backend sin red, 360 de frontend con las dependencias disponibles, y comprobación de iconos, manifiesto y conservación del portal.

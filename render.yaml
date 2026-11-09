@@ -1,47 +1,56 @@
-# Render Blueprint for the OpenJarvis FastAPI server.
-# Deploys src/openjarvis/server/app.py via deploy/docker/Dockerfile.
-# Apply at: https://dashboard.render.com/blueprint/new?repo=https://github.com/open-jarvis/OpenJarvis
+# Production web deployment for Sergio. Every sync:false value is supplied by
+# the operator in Render; no provider, payment or SMTP secret belongs in Git.
 services:
   - type: web
-    name: openjarvis-server
+    name: sergio-web
     runtime: docker
-    plan: free
+    plan: 1c-2g
     region: oregon
     dockerfilePath: ./deploy/docker/Dockerfile
     dockerContext: .
-    # Override the Dockerfile CMD while preserving its `jarvis` entrypoint.
-    # Render's default web-service port is 10000. Pin PORT and the CLI argument
-    # to that same value because Docker commands do not interpolate `$PORT`.
-    # Pin a cloud model as well as the engine. The repository's default model
-    # is local-only, so omitting this would make `jarvis serve` reject the
-    # otherwise healthy cloud engine during startup.
-    dockerCommand: serve --host 0.0.0.0 --port 10000 --engine cloud --model gpt-4o-mini
+    dockerCommand: serve --host 0.0.0.0 --port 10000 --engine cloud --model openrouter/google/gemini-2.5-flash
     healthCheckPath: /health
-    autoDeploy: true
+    autoDeployTrigger: checksPass
+    maxShutdownDelaySeconds: 300
+    disk:
+      name: sergio-data
+      mountPath: /home/openjarvis/.openjarvis
+      sizeGB: 10
     envVars:
-      # Force the cloud engine path. The free Render plan has no GPU and the
-      # bundled local backends (Ollama/vLLM) cannot run here. The command above
-      # selects the OpenAI-backed cloud engine and a model it can serve.
-
-      # Keep Render's expected public port aligned with the fixed Docker
-      # command above. Change both values together when customizing the port.
       - key: PORT
         value: "10000"
-
-      # Auth for the OpenJarvis API itself. Required because the server refuses
-      # to bind to a non-loopback host without an API key (check_bind_safety).
-      - key: OPENJARVIS_API_KEY
-        generateValue: true
-
-      # Required at initial Blueprint creation. Render's `sync: false` fields
-      # are operator-supplied secrets; using one provider here keeps the
-      # one-click contract deterministic instead of incorrectly requiring a
-      # key for every supported cloud provider.
-      - key: OPENAI_API_KEY
-        sync: false
-
-      # The free service filesystem is ephemeral. OpenJarvis state under this
-      # directory is lost on every restart, spin-down, or deploy. See
-      # docs/deployment/render.md before storing credentials or durable state.
       - key: OPENJARVIS_HOME
         value: /home/openjarvis/.openjarvis
+      # Administrative key for the operator's API clients, never a VITE value.
+      - key: OPENJARVIS_API_KEY
+        generateValue: true
+      - key: SERGIO_EDICION
+        value: publica
+      - key: SERGIO_REGISTRO
+        value: abierto
+      - key: SERGIO_PLANES_ACTIVOS
+        value: "1"
+      - key: SERGIO_CIFRAR
+        value: "1"
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: OPENROUTER_MANAGEMENT_KEY
+        sync: false
+      - key: SERGIO_CLAVE_MAESTRA
+        sync: false
+      - key: SERGIO_PUBLIC_URL
+        sync: false
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: SERGIO_SMTP_HOST
+        sync: false
+      - key: SERGIO_SMTP_FROM
+        sync: false
+      - key: SERGIO_LEGAL_OPERATOR
+        sync: false
+      - key: SERGIO_LEGAL_CONTACT
+        sync: false
+      - key: SERGIO_LEGAL_JURISDICTION
+        sync: false

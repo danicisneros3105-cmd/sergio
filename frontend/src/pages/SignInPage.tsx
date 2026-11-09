@@ -299,7 +299,7 @@ function SignInPage() {
                 </label>
                 <label>
                   <input type="checkbox" checked={adult} onChange={(e) => setAdult(e.target.checked)} required />
-                  <span>Tengo {info?.edad_minima ?? 16} años o más.</span>
+                  <span>Tengo {info?.edad_minima ?? 18} años o más.</span>
                 </label>
                 {info?.registro === 'abierto' && <small>Le enviaremos un código a su correo para confirmar que es suyo.</small>}
               </div>
