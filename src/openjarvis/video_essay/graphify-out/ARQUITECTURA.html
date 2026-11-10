@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>video_essay — Complete Call Flow &amp; Architecture Documentation</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<style>
+:root {
+  --bg: #0f172a; --surface: #1e293b; --border: #334155;
+  --text: #e2e8f0; --muted: #94a3b8; --accent: #38bdf8;
+  --warn: #fbbf24; --err: #f87171; --ok: #34d399;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); line-height: 1.7; }
+.container { max-width: 1200px; margin: 0 auto; padding: 40px 24px; }
+h1 { font-size: 2.4rem; margin-bottom: 8px; background: linear-gradient(135deg, var(--accent), #a78bfa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+h2 { font-size: 1.7rem; margin: 48px 0 16px; padding-bottom: 8px; border-bottom: 2px solid var(--accent); }
+h3 { font-size: 1.25rem; margin: 32px 0 12px; color: var(--accent); }
+h4 { font-size: 1.05rem; margin: 20px 0 8px; color: var(--warn); }
+p { margin: 8px 0; color: var(--muted); }
+.subtitle { color: var(--muted); font-size: 1.1rem; margin-bottom: 32px; }
+.mermaid { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 24px; margin: 20px 0; overflow-x: auto; position: relative; }
+.mermaid.is-enhanced { padding: 0; overflow: hidden; min-height: 260px; }
+.mermaid-viewport { padding: 54px 24px 24px; overflow: hidden; cursor: grab; touch-action: none; min-height: 260px; }
+.mermaid-viewport.is-dragging { cursor: grabbing; }
+.mermaid-viewport svg { max-width: none !important; height: auto; transform-origin: 0 0; transition: transform 120ms ease; }
+.mermaid-toolbar { position: absolute; top: 10px; right: 10px; z-index: 3; display: flex; align-items: center; gap: 6px; padding: 6px; background: rgba(15,23,42,0.92); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.28); }
+.mermaid-toolbar button, .mermaid-toolbar .zoom-level { height: 28px; min-width: 32px; border: 1px solid var(--border); border-radius: 6px; background: #1e293b; color: var(--text); font: 600 0.78rem system-ui, sans-serif; display: inline-flex; align-items: center; justify-content: center; }
+.mermaid-toolbar button { cursor: pointer; }
+.mermaid-toolbar button:hover { border-color: var(--accent); color: var(--accent); }
+.mermaid-toolbar .zoom-level { min-width: 52px; color: var(--muted); background: transparent; }
+.call-table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 0.92rem; }
+.call-table th { background: #1a2744; color: var(--accent); text-align: left; padding: 10px 14px; border: 1px solid var(--border); }
+.call-table td { padding: 8px 14px; border: 1px solid var(--border); vertical-align: top; }
+.call-table tr:nth-child(even) { background: rgba(255,255,255,0.02); }
+.tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: 600; }
+.tag-async { background: #7c3aed33; color: #a78bfa; }
+.tag-class { background: #05966933; color: var(--ok); }
+.tag-func { background: #2563eb33; color: var(--accent); }
+.tag-cmd { background: #d9770633; color: var(--warn); }
+.tag-endpoint { background: #dc262633; color: var(--err); }
+.tag-hook { background: #db277733; color: #f472b6; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px; margin: 16px 0; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 16px; margin: 16px 0; }
+.arrow-chain { font-family: 'Fira Code', monospace; font-size: 0.85rem; color: var(--accent); padding: 10px; background: rgba(56,189,248,0.06); border-radius: 6px; }
+code { font-family: 'Fira Code', 'Cascadia Code', monospace; background: rgba(255,255,255,0.06); padding: 1px 6px; border-radius: 3px; font-size: 0.88em; }
+ul, ol { margin: 8px 0 8px 24px; color: var(--muted); }
+li { margin: 4px 0; }
+a { color: var(--accent); }
+hr { border: none; border-top: 1px solid var(--border); margin: 40px 0; }
+.nav { position: sticky; top: 0; background: var(--bg); z-index: 10; padding: 12px 0; border-bottom: 1px solid var(--border); display: flex; gap: 20px; flex-wrap: wrap; font-size: 0.9rem; }
+.nav a { text-decoration: none; }
+.nav a:hover { text-decoration: underline; }
+@media (max-width: 768px) { .container { padding: 16px; } h1 { font-size: 1.8rem; } }
+
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>video_essay — Complete Call Flow &amp; Architecture Documentation</h1>
+<p class="subtitle">Generated from graphify knowledge graph: 1083 nodes, 2855 edges, 1 communities. Commit: unknown</p>
+
+<div class="nav">
+    <a href="#overview">Architecture Overview</a>
+    <a href="#ingest-cache-update">Ingestion &amp; Updates</a>
+</div>
+
+<!-- ====== Architecture Overview ====== -->
+<h2 id="overview">1. Architecture Overview</h2>
+
+<div class="mermaid">
+
+%%{init: {"theme": "dark", "themeVariables": {"fontSize": "15.0px", "fontFamily": "Segoe UI, system-ui, sans-serif", "primaryColor": "#1e293b", "primaryTextColor": "#e2e8f0", "primaryBorderColor": "#38bdf8", "secondaryColor": "#0f172a", "tertiaryColor": "#334155", "lineColor": "#64748b", "textColor": "#e2e8f0"}, "flowchart": {"htmlLabels": true, "curve": "basis", "nodeSpacing": 48, "rankSpacing": 64, "padding": 14, "diagramPadding": 10, "useMaxWidth": true}}}%%
+flowchart LR
+    INGEST_CACHE_UPDATE_FF457338("Ingestion &amp; Updates<br/><small>1083 nodes</small>")
+    class INGEST_CACHE_UPDATE_FF457338 module;
+    classDef entry fill:#422006,stroke:#fbbf24,color:#fde68a,stroke-width:1px;
+    classDef api fill:#450a0a,stroke:#f87171,color:#fee2e2,stroke-width:1px;
+    classDef async fill:#2e1065,stroke:#a78bfa,color:#ede9fe,stroke-width:1px;
+    classDef klass fill:#064e3b,stroke:#34d399,color:#d1fae5,stroke-width:1px;
+    classDef ui fill:#831843,stroke:#f472b6,color:#fce7f3,stroke-width:1px;
+    classDef module fill:#172554,stroke:#60a5fa,color:#dbeafe,stroke-width:1px;
+    classDef test fill:#3f3f46,stroke:#a1a1aa,color:#f4f4f5,stroke-width:1px;
+    classDef concept fill:#292524,stroke:#a8a29e,color:#fafaf9,stroke-dasharray:4 3;
+    classDef function fill:#0f172a,stroke:#38bdf8,color:#e0f2fe,stroke-width:1px;
+</div>
+
+<div class="grid">
+  <div class="card">
+    <h4>Architecture Layers</h4>
+    <table style="width:100%;font-size:0.85rem;">
+      <tr><th>Layer</th><th>Nodes</th><th>Communities</th></tr>
+      <tr><td>Ingestion &amp; Updates</td><td>1083</td><td><code>unknown</code></td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h4>Core Flow</h4>
+    <div class="arrow-chain">Ingestion &amp; Updates</div>
+  </div>
+</div>
+<hr>
+<!-- ====== 2. Ingestion & Updates ====== -->
+<h2 id="ingest-cache-update">2. Ingestion &amp; Updates</h2>
+<p>Ingestion &amp; Updates groups implementation around video, essay, openjarvis, escuelapy, mostly in openjarvis/video_essay/escuela.py, openjarvis/video_essay/job.py, openjarvis/video_essay/audio.py. This section covers 1083 nodes and 2855 internal edges; the diagram shows only representative relationships to stay readable.</p>
+
+<div class="mermaid">
+%%{init: {"theme": "dark", "themeVariables": {"fontSize": "15.0px", "fontFamily": "Segoe UI, system-ui, sans-serif", "primaryColor": "#1e293b", "primaryTextColor": "#e2e8f0", "primaryBorderColor": "#38bdf8", "secondaryColor": "#0f172a", "tertiaryColor": "#334155", "lineColor": "#64748b", "textColor": "#e2e8f0"}, "flowchart": {"htmlLabels": true, "curve": "basis", "nodeSpacing": 48, "rankSpacing": 64, "padding": 14, "diagramPadding": 10, "useMaxWidth": true}}}%%
+flowchart LR
+    %% Section: Ingestion &amp; Updates (1083 nodes, 2855 edges)
+    subgraph ingest_cache_update_openjarvis_video_essay_aivid_9e633012["openjarvis/video_essay/aivideo.py"]
+        aivideo_shot_prompt_d7778a2c("shot_prompt()<br/><small>openjarvis/video_essay/aivideo.py</small>")
+        aivideo_bible_text_b34413ab("bible_text()<br/><small>openjarvis/video_essay/aivideo.py</small>")
+        aivideo_veo_0306a627("veo()<br/><small>openjarvis/video_essay/aivideo.py</small>")
+        aivideo_fal_62422bb6("fal()<br/><small>openjarvis/video_essay/aivideo.py</small>")
+        aivideo_generate_bc397ef9("generate()<br/><small>openjarvis/video_essay/aivideo.py</small>")
+        aivideo_available_8f4269a8("available()<br/><small>openjarvis/video_essay/aivideo.py</small>")
+    end
+    subgraph ingest_cache_update_openjarvis_video_essay_asset_8eb8409a["openjarvis/video_essay/assets.py"]
+        assets_words_42dec09c("_words()<br/><small>openjarvis/video_essay/assets.py</small>")
+        assets_library_9a79816d("Library<br/><small>openjarvis/video_essay/assets.py</small>")
+        assets_library_init_3f365e31("__init__()<br/><small>openjarvis/video_essay/assets.py</small>")
+        assets_library_pick_157be7e0("pick()<br/><small>openjarvis/video_essay/assets.py</small>")
+    end
+    subgraph ingest_cache_update_External_generated_9d67cab5["External / generated"]
+        time_714eea0f("time")
+        re_c387c982("re")
+    end
+    subgraph ingest_cache_update_openjarvis_video_essay_job_p_bcab514d["openjarvis/video_essay/job.py"]
+        job_run_c3a46a9b("run()<br/><small>openjarvis/video_essay/job.py</small>")
+        job_2eda8ad1("job.py")
+    end
+    escuela_measure_3f5919b7("measure()<br/><small>openjarvis/video_essay/escuela.py</small>")
+    inspiracion_search_86dd8f0c("search()<br/><small>openjarvis/video_essay/inspiracion.py</small>")
+    montaje_edit_973d7d76("edit()<br/><small>openjarvis/video_essay/montaje.py</small>")
+    render_shot_frames_03cf42b8("shot_frames()<br/><small>openjarvis/video_essay/render.py</small>")
+    aivideo_shot_prompt_d7778a2c -->|calls| aivideo_bible_text_b34413ab
+    aivideo_veo_0306a627 -->|calls| time_714eea0f
+    aivideo_fal_62422bb6 -->|calls| time_714eea0f
+    aivideo_generate_bc397ef9 -->|calls| aivideo_available_8f4269a8
+    aivideo_generate_bc397ef9 -->|calls| aivideo_fal_62422bb6
+    aivideo_generate_bc397ef9 -->|calls| aivideo_veo_0306a627
+    assets_words_42dec09c -->|calls| re_c387c982
+    assets_library_9a79816d -->|method| assets_library_init_3f365e31
+    assets_library_9a79816d -->|method| assets_library_pick_157be7e0
+    inspiracion_search_86dd8f0c -->|calls| re_c387c982
+    inspiracion_search_86dd8f0c -->|calls| time_714eea0f
+    job_run_c3a46a9b -->|calls| aivideo_available_8f4269a8
+    job_run_c3a46a9b -->|calls| assets_library_9a79816d
+    job_run_c3a46a9b -->|calls| time_714eea0f
+    montaje_edit_973d7d76 -->|calls| time_714eea0f
+    job_2eda8ad1 -->|imports| time_714eea0f
+    %% Omitted for readability: 1065 nodes, 0 edges
+    class aivideo_shot_prompt_d7778a2c function;
+    class aivideo_bible_text_b34413ab function;
+    class aivideo_veo_0306a627 function;
+    class aivideo_fal_62422bb6 function;
+    class aivideo_generate_bc397ef9 function;
+    class aivideo_available_8f4269a8 function;
+    class assets_words_42dec09c function;
+    class assets_library_9a79816d klass;
+    class assets_library_init_3f365e31 function;
+    class assets_library_pick_157be7e0 function;
+    class time_714eea0f function;
+    class re_c387c982 function;
+    class job_run_c3a46a9b function;
+    class job_2eda8ad1 module;
+    class escuela_measure_3f5919b7 function;
+    class inspiracion_search_86dd8f0c function;
+    class montaje_edit_973d7d76 function;
+    class render_shot_frames_03cf42b8 function;
+    classDef entry fill:#422006,stroke:#fbbf24,color:#fde68a,stroke-width:1px;
+    classDef api fill:#450a0a,stroke:#f87171,color:#fee2e2,stroke-width:1px;
+    classDef async fill:#2e1065,stroke:#a78bfa,color:#ede9fe,stroke-width:1px;
+    classDef klass fill:#064e3b,stroke:#34d399,color:#d1fae5,stroke-width:1px;
+    classDef ui fill:#831843,stroke:#f472b6,color:#fce7f3,stroke-width:1px;
+    classDef module fill:#172554,stroke:#60a5fa,color:#dbeafe,stroke-width:1px;
+    classDef test fill:#3f3f46,stroke:#a1a1aa,color:#f4f4f5,stroke-width:1px;
+    classDef concept fill:#292524,stroke:#a8a29e,color:#fafaf9,stroke-dasharray:4 3;
+    classDef function fill:#0f172a,stroke:#38bdf8,color:#e0f2fe,stroke-width:1px;
+</div>
+
+<h3>Call Details</h3>
+<table class="call-table">
+<tr>
+  <th style="width:5%">#</th>
+  <th style="width:28%">Node</th>
+  <th style="width:10%">Type</th>
+  <th style="width:17%">Caller</th>
+  <th style="width:20%">Callees</th>
+  <th style="width:20%">Description</th>
+</tr>
+<tr>
+  <td>1</td>
+  <td><code>__init__.py</code><br><small style="color:var(--muted)">openjarvis/video_essay/__init__.py</small></td>
+  <td><span class="tag tag-class">Module</span></td>
+  <td><code>media.py</code><br><small style="color:var(--muted)">openjarvis/video_essay/media.py</small><br><code>review.py</code><br><small style="color:var(--muted)">openjarvis/video_essay/review.py</small><br><code>script.py</code><br><small style="color:var(--muted)">openjarvis/video_essay/script.py</small></td>
+  <td>No direct outbound edge</td>
+  <td>Module file in openjarvis/video_essay/__init__.py.</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td><code>Video essays at the level of a reference edit. The owner gives a reference (a…</code><br><small style="color:var(--muted)">openjarvis/video_essay/__init__.py</small></td>
+  <td><span class="tag tag-func">Concept</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Design note for Video essays at the level of a reference edit. The owner gives a reference (a….</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td><code>aivideo.py</code><br><small style="color:var(--muted)">openjarvis/video_essay/aivideo.py</small></td>
+  <td><span class="tag tag-class">Module</span></td>
+  <td><code>job.py</code><br><small style="color:var(--muted)">openjarvis/video_essay/job.py</small><br><code>media.py</code><br><small style="color:var(--muted)">openjarvis/video_essay/media.py</small></td>
+  <td><code>os</code><br><code>pathlib</code><br><code>time</code><br>+1 more</td>
+  <td>Module file in openjarvis/video_essay/aivideo.py.</td>
+</tr>
+<tr>
+  <td>4</td>
+  <td><code>bible_text()</code><br><small style="color:var(--muted)">openjarvis/video_essay/aivideo.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td><code>make()</code><br><small style="color:var(--muted)">openjarvis/video_essay/job.py</small><br><code>shot_prompt()</code><br><small style="color:var(--muted)">openjarvis/video_essay/aivideo.py</small></td>
+  <td>No direct outbound edge</td>
+  <td>bible_text() node in openjarvis/video_essay/aivideo.py.</td>
+</tr>
+<tr>
+  <td>5</td>
+  <td><code>shot_prompt()</code><br><small style="color:var(--muted)">openjarvis/video_essay/aivideo.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td><code>_ai()</code><br><small style="color:var(--muted)">openjarvis/video_essay/media.py</small></td>
+  <td><code>bible_text()</code><br><small style="color:var(--muted)">openjarvis/video_essay/aivideo.py</small></td>
+  <td>Builds structured prompts for model calls.</td>
+</tr>
+<tr>
+  <td>6</td>
+  <td><code>Any</code><br><small style="color:var(--muted)"></small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Any node in project.</td>
+</tr>
+<tr>
+  <td>7</td>
+  <td><code>available()</code><br><small style="color:var(--muted)">openjarvis/video_essay/aivideo.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td><code>_ai()</code><br><small style="color:var(--muted)">openjarvis/video_essay/media.py</small><br><code>generate()</code><br><small style="color:var(--muted)">openjarvis/video_essay/aivideo.py</small><br><code>run()</code><br><small style="color:var(--muted)">openjarvis/video_essay/job.py</small></td>
+  <td>No direct outbound edge</td>
+  <td>available() node in openjarvis/video_essay/aivideo.py.</td>
+</tr>
+<tr>
+  <td>8</td>
+  <td><code>veo()</code><br><small style="color:var(--muted)">openjarvis/video_essay/aivideo.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td><code>generate()</code><br><small style="color:var(--muted)">openjarvis/video_essay/aivideo.py</small></td>
+  <td><code>time</code></td>
+  <td>veo() node in openjarvis/video_essay/aivideo.py.</td>
+</tr>
+<tr>
+  <td>9</td>
+  <td><code>Path</code><br><small style="color:var(--muted)"></small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Path node in project.</td>
+</tr>
+<tr>
+  <td>10</td>
+  <td><code>fal()</code><br><small style="color:var(--muted)">openjarvis/video_essay/aivideo.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td><code>generate()</code><br><small style="color:var(--muted)">openjarvis/video_essay/aivideo.py</small></td>
+  <td><code>time</code></td>
+  <td>fal() node in openjarvis/video_essay/aivideo.py.</td>
+</tr>
+<tr>
+  <td>11</td>
+  <td><code>generate()</code><br><small style="color:var(--muted)">openjarvis/video_essay/aivideo.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td><code>_ai()</code><br><small style="color:var(--muted)">openjarvis/video_essay/media.py</small></td>
+  <td><code>available()</code><br><small style="color:var(--muted)">openjarvis/video_essay/aivideo.py</small><br><code>fal()</code><br><small style="color:var(--muted)">openjarvis/video_essay/aivideo.py</small><br><code>veo()</code><br><small style="color:var(--muted)">openjarvis/video_essay/aivideo.py</small></td>
+  <td>generate() node in openjarvis/video_essay/aivideo.py.</td>
+</tr>
+<tr>
+  <td>12</td>
+  <td><code>Shots made with an AI video model, directed like a film crew. The director…</code><br><small style="color:var(--muted)">openjarvis/video_essay/aivideo.py</small></td>
+  <td><span class="tag tag-func">Concept</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Design note for Shots made with an AI video model, directed like a film crew. The director….</td>
+</tr>
+<tr>
+  <td>13</td>
+  <td><code>The full direction for one shot.</code><br><small style="color:var(--muted)">openjarvis/video_essay/aivideo.py</small></td>
+  <td><span class="tag tag-func">Concept</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Design note for The full direction for one shot..</td>
+</tr>
+<tr>
+  <td>14</td>
+  <td><code>The provider that would be used (&quot;&quot; when none).</code><br><small style="color:var(--muted)">openjarvis/video_essay/aivideo.py</small></td>
+  <td><span class="tag tag-func">Concept</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Design note for The provider that would be used (&quot;&quot; when none)..</td>
+</tr>
+<tr>
+  <td>15</td>
+  <td><code>A clip for *prompt* (raises when no provider can make it).</code><br><small style="color:var(--muted)">openjarvis/video_essay/aivideo.py</small></td>
+  <td><span class="tag tag-func">Concept</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Design note for A clip for *prompt* (raises when no provider can make it)..</td>
+</tr>
+<tr>
+  <td>16</td>
+  <td><code>assets.py</code><br><small style="color:var(--muted)">openjarvis/video_essay/assets.py</small></td>
+  <td><span class="tag tag-async">Async</span></td>
+  <td><code>job.py</code><br><small style="color:var(--muted)">openjarvis/video_essay/job.py</small></td>
+  <td><code>hashlib</code><br><code>meaning()</code><br><small style="color:var(--muted)">openjarvis/video_essay/sources.py</small><br><code>os</code><br>+5 more</td>
+  <td>Module file in openjarvis/video_essay/assets.py.</td>
+</tr>
+<tr>
+  <td>17</td>
+  <td><code>_words()</code><br><small style="color:var(--muted)">openjarvis/video_essay/assets.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td><code>re</code></td>
+  <td>_words() node in openjarvis/video_essay/assets.py.</td>
+</tr>
+<tr>
+  <td>18</td>
+  <td><code>Library</code><br><small style="color:var(--muted)">openjarvis/video_essay/assets.py</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td><code>run()</code><br><small style="color:var(--muted)">openjarvis/video_essay/job.py</small></td>
+  <td><code>__init__()</code><br><small style="color:var(--muted)">openjarvis/video_essay/assets.py</small><br><code>pick()</code><br><small style="color:var(--muted)">openjarvis/video_essay/assets.py</small><br><code>Shot</code><br><small style="color:var(--muted)">openjarvis/video_essay/plan.py</small></td>
+  <td>Library node in openjarvis/video_essay/assets.py.</td>
+</tr>
+<tr>
+  <td>19</td>
+  <td><code>.__init__()</code><br><small style="color:var(--muted)">openjarvis/video_essay/assets.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td><code>Library</code><br><small style="color:var(--muted)">openjarvis/video_essay/assets.py</small></td>
+  <td>No direct outbound edge</td>
+  <td>.__init__() node in openjarvis/video_essay/assets.py.</td>
+</tr>
+<tr>
+  <td>20</td>
+  <td><code>.pick()</code><br><small style="color:var(--muted)">openjarvis/video_essay/assets.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td><code>fill()</code><br><small style="color:var(--muted)">openjarvis/video_essay/assets.py</small><br><code>Library</code><br><small style="color:var(--muted)">openjarvis/video_essay/assets.py</small></td>
+  <td><code>meaning()</code><br><small style="color:var(--muted)">openjarvis/video_essay/sources.py</small></td>
+  <td>.pick() node in openjarvis/video_essay/assets.py.</td>
+</tr>
+<tr>
+  <td>21</td>
+  <td><code>_download()</code><br><small style="color:var(--muted)">openjarvis/video_essay/assets.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td><code>pexels()</code><br><small style="color:var(--muted)">openjarvis/video_essay/assets.py</small><br><code>pixabay()</code><br><small style="color:var(--muted)">openjarvis/video_essay/assets.py</small></td>
+  <td>No direct outbound edge</td>
+  <td>_download() node in openjarvis/video_essay/assets.py.</td>
+</tr>
+<tr>
+  <td>22</td>
+  <td><code>Path</code><br><small style="color:var(--muted)"></small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Path node in project.</td>
+</tr>
+<tr>
+  <td>23</td>
+  <td><code>pexels()</code><br><small style="color:var(--muted)">openjarvis/video_essay/assets.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td><code>fill()</code><br><small style="color:var(--muted)">openjarvis/video_essay/assets.py</small></td>
+  <td><code>_download()</code><br><small style="color:var(--muted)">openjarvis/video_essay/assets.py</small></td>
+  <td>pexels() node in openjarvis/video_essay/assets.py.</td>
+</tr>
+<tr>
+  <td>24</td>
+  <td><code>pixabay()</code><br><small style="color:var(--muted)">openjarvis/video_essay/assets.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td><code>fill()</code><br><small style="color:var(--muted)">openjarvis/video_essay/assets.py</small></td>
+  <td><code>_download()</code><br><small style="color:var(--muted)">openjarvis/video_essay/assets.py</small></td>
+  <td>pixabay() node in openjarvis/video_essay/assets.py.</td>
+</tr>
+<tr>
+  <td>25</td>
+  <td><code>picture_check()</code><br><small style="color:var(--muted)">openjarvis/video_essay/assets.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td><code>generated()</code><br><small style="color:var(--muted)">openjarvis/video_essay/assets.py</small></td>
+  <td>No direct outbound edge</td>
+  <td>picture_check() node in openjarvis/video_essay/assets.py.</td>
+</tr>
+<tr>
+  <td>26</td>
+  <td><code>generated()</code><br><small style="color:var(--muted)">openjarvis/video_essay/assets.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td><code>_image()</code><br><small style="color:var(--muted)">openjarvis/video_essay/media.py</small><br><code>fill()</code><br><small style="color:var(--muted)">openjarvis/video_essay/assets.py</small><br><code>media.py</code><br><small style="color:var(--muted)">openjarvis/video_essay/media.py</small></td>
+  <td><code>picture_check()</code><br><small style="color:var(--muted)">openjarvis/video_essay/assets.py</small></td>
+  <td>generated() node in openjarvis/video_essay/assets.py.</td>
+</tr>
+<tr>
+  <td>27</td>
+  <td><code>fill()</code><br><small style="color:var(--muted)">openjarvis/video_essay/assets.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td><code>generated()</code><br><small style="color:var(--muted)">openjarvis/video_essay/assets.py</small><br><code>hashlib</code><br><code>pexels()</code><br><small style="color:var(--muted)">openjarvis/video_essay/assets.py</small><br>+3 more</td>
+  <td>fill() node in openjarvis/video_essay/assets.py.</td>
+</tr>
+<tr>
+  <td>28</td>
+  <td><code>What each shot shows: the owner&#x27;s clips first, then free stock, then a picture…</code><br><small style="color:var(--muted)">openjarvis/video_essay/assets.py</small></td>
+  <td><span class="tag tag-func">Concept</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Design note for What each shot shows: the owner&#x27;s clips first, then free stock, then a picture….</td>
+</tr>
+<tr>
+  <td>29</td>
+  <td><code>The owner&#x27;s clips and pictures, matched by the words in their names.</code><br><small style="color:var(--muted)">openjarvis/video_essay/assets.py</small></td>
+  <td><span class="tag tag-func">Concept</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Design note for The owner&#x27;s clips and pictures, matched by the words in their names..</td>
+</tr>
+<tr>
+  <td>30</td>
+  <td><code>What a picture editor rejects at a glance, measured on the picture…</code><br><small style="color:var(--muted)">openjarvis/video_essay/assets.py</small></td>
+  <td><span class="tag tag-func">Concept</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Design note for What a picture editor rejects at a glance, measured on the picture….</td>
+</tr>
+</table>
+
+<div class="grid">
+  <div class="card">
+    <h4>Key Files</h4>
+    <table style="width:100%;font-size:0.85rem;">
+      <tr><th>File</th><th>Coverage</th></tr>
+      <tr><td><code>openjarvis/video_essay/escuela.py</code></td><td>113 nodes</td></tr>
+<tr><td><code>openjarvis/video_essay/job.py</code></td><td>89 nodes</td></tr>
+<tr><td><code>openjarvis/video_essay/audio.py</code></td><td>75 nodes</td></tr>
+<tr><td><code>openjarvis/video_essay/render.py</code></td><td>75 nodes</td></tr>
+<tr><td><code>openjarvis/video_essay/sources.py</code></td><td>49 nodes</td></tr>
+<tr><td><code>openjarvis/video_essay/color.py</code></td><td>48 nodes</td></tr>
+<tr><td><code>openjarvis/video_essay/script.py</code></td><td>47 nodes</td></tr>
+<tr><td><code>openjarvis/video_essay/plan.py</code></td><td>33 nodes</td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h4>Design Notes</h4>
+    <p>This section comes from graphify community clustering. Relationship summary: calls x1004, contains x555, references x521, explains x350. The diagram prioritizes high-confidence calls or usage relationships; the table keeps the broader node inventory.</p>
+  </div>
+</div>
+<hr>
+
+<h2 id="stats">Project Statistics</h2>
+
+<div class="grid">
+  <div class="card">
+    <h4>Graph</h4>
+    <table style="width:100%;font-size:0.85rem;">
+      <tr><td>Nodes</td><td>1083</td></tr>
+      <tr><td>Edges</td><td>2855</td></tr>
+      <tr><td>Hyperedges</td><td>0</td></tr>
+      <tr><td>Communities</td><td>1</td></tr>
+      <tr><td>Documented Sections</td><td>1</td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h4>Edge Confidence</h4>
+    <table style="width:100%;font-size:0.85rem;">
+      <tr><td>EXTRACTED</td><td>2746</td></tr>
+      <tr><td>INFERRED</td><td>109</td></tr>
+      <tr><td>AMBIGUOUS</td><td>0</td></tr>
+    </table>
+  </div>
+</div>
+
+<div style="text-align:center; padding:40px 0; color: var(--muted); font-size:0.9rem;">
+  <p>video_essay — Architecture Documentation</p>
+  <p>Generated: 2026-11-09 19:53 UTC · graphify callflow-html</p>
+</div>
+
+</div><!-- .container -->
+
+<script>
+(function () {
+  const mermaidConfig = {
+    startOnLoad: false,
+    theme: 'dark',
+    securityLevel: 'loose',
+    flowchart: { htmlLabels: true, useMaxWidth: true },
+    themeVariables: {
+      primaryColor: '#1e293b',
+      primaryTextColor: '#e2e8f0',
+      primaryBorderColor: '#38bdf8',
+      secondaryColor: '#0f172a',
+      tertiaryColor: '#334155',
+      lineColor: '#64748b',
+      textColor: '#e2e8f0',
+    }
+  };
+
+  mermaid.initialize(mermaidConfig);
+
+  function clamp(value, min, max) {
+    return Math.min(max, Math.max(min, value));
+  }
+
+  function enhanceMermaidDiagrams() {
+    document.querySelectorAll('.mermaid').forEach((container) => {
+      if (container.dataset.zoomReady === 'true') return;
+      const svg = container.querySelector('svg');
+      if (!svg) return;
+
+      container.dataset.zoomReady = 'true';
+      container.classList.add('is-enhanced');
+
+      const viewport = document.createElement('div');
+      viewport.className = 'mermaid-viewport';
+      svg.parentNode.insertBefore(viewport, svg);
+      viewport.appendChild(svg);
+
+      const toolbar = document.createElement('div');
+      toolbar.className = 'mermaid-toolbar';
+      toolbar.innerHTML = [
+        '<button type="button" data-action="zoom-out" title="Zoom out">-</button>',
+        '<span class="zoom-level" data-role="level">100%</span>',
+        '<button type="button" data-action="zoom-in" title="Zoom in">+</button>',
+        '<button type="button" data-action="fit" title="Fit width">Fit</button>',
+        '<button type="button" data-action="reset" title="Reset view">Reset</button>'
+      ].join('');
+      container.insertBefore(toolbar, viewport);
+
+      const state = { scale: 1, x: 0, y: 0, dragging: false, startX: 0, startY: 0, originX: 0, originY: 0 };
+      const level = toolbar.querySelector('[data-role="level"]');
+
+      function applyTransform() {
+        svg.style.transform = `translate(${state.x}px, ${state.y}px) scale(${state.scale})`;
+        level.textContent = `${Math.round(state.scale * 100)}%`;
+      }
+
+      function zoomBy(delta) {
+        state.scale = clamp(state.scale + delta, 0.25, 3);
+        applyTransform();
+      }
+
+      function reset() {
+        state.scale = 1;
+        state.x = 0;
+        state.y = 0;
+        applyTransform();
+      }
+
+      function fitWidth() {
+        const rawWidth = svg.viewBox && svg.viewBox.baseVal && svg.viewBox.baseVal.width
+          ? svg.viewBox.baseVal.width
+          : svg.getBoundingClientRect().width / state.scale;
+        if (!rawWidth) {
+          reset();
+          return;
+        }
+        state.scale = clamp((viewport.clientWidth - 48) / rawWidth, 0.25, 1.4);
+        state.x = 0;
+        state.y = 0;
+        applyTransform();
+      }
+
+      toolbar.addEventListener('click', (event) => {
+        const button = event.target.closest('button[data-action]');
+        if (!button) return;
+        const action = button.dataset.action;
+        if (action === 'zoom-in') zoomBy(0.15);
+        if (action === 'zoom-out') zoomBy(-0.15);
+        if (action === 'fit') fitWidth();
+        if (action === 'reset') reset();
+      });
+
+      viewport.addEventListener('wheel', (event) => {
+        if (!event.ctrlKey && !event.metaKey) return;
+        event.preventDefault();
+        zoomBy(event.deltaY < 0 ? 0.1 : -0.1);
+      }, { passive: false });
+
+      viewport.addEventListener('pointerdown', (event) => {
+        if (event.button !== 0) return;
+        state.dragging = true;
+        state.startX = event.clientX;
+        state.startY = event.clientY;
+        state.originX = state.x;
+        state.originY = state.y;
+        viewport.classList.add('is-dragging');
+        viewport.setPointerCapture(event.pointerId);
+      });
+
+      viewport.addEventListener('pointermove', (event) => {
+        if (!state.dragging) return;
+        state.x = state.originX + event.clientX - state.startX;
+        state.y = state.originY + event.clientY - state.startY;
+        applyTransform();
+      });
+
+      function endDrag(event) {
+        if (!state.dragging) return;
+        state.dragging = false;
+        viewport.classList.remove('is-dragging');
+        if (viewport.hasPointerCapture(event.pointerId)) {
+          viewport.releasePointerCapture(event.pointerId);
+        }
+      }
+
+      viewport.addEventListener('pointerup', endDrag);
+      viewport.addEventListener('pointercancel', endDrag);
+      applyTransform();
+    });
+  }
+
+  function renderMermaid() {
+    const result = mermaid.run
+      ? mermaid.run({ querySelector: '.mermaid' })
+      : Promise.resolve();
+    Promise.resolve(result)
+      .then(enhanceMermaidDiagrams)
+      .catch((error) => {
+        console.error('Mermaid render failed:', error);
+        enhanceMermaidDiagrams();
+      });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', renderMermaid);
+  } else {
+    renderMermaid();
+  }
+})();
+</script>
+
+</body>
+</html>

@@ -131,6 +131,53 @@ def _body(text: str) -> str:
     return "\n".join(lines)
 
 
+def _section(text: str, start: str, end: str) -> str:
+    a = text.find(start)
+    b = text.find(end, a + len(start)) if a >= 0 else -1
+    return text[a:b].strip() if a >= 0 and b > a else ""
+
+
+def cartoon_guidance(kind: str, about: str, genre: str = "") -> str:
+    """Apply the owner's bundled cartoon skill to suitable animated videos."""
+    animated = genre in ("animacion", "corto3d", "explicado3d") or bool(
+        re.search(r"cartoon|animad[oa]|animation|bean.head", about, re.I)
+    )
+    if not animated:
+        return ""
+    path = (
+        Path(__file__).parents[1]
+        / "skills"
+        / "bundled"
+        / "cartoon-audio-short"
+        / "SKILL.md"
+    )
+    try:
+        text = path.read_text("utf-8")
+    except OSError:
+        return ""
+    rules = _section(text, "## Rules", "## Stage 1")
+    if kind == "guion":
+        specific = _section(text, "## Stage 3", "## Stage 4")
+    else:
+        specific = "\n".join(
+            part
+            for part in (
+                _section(text, "### 4.2", "### 4.3"),
+                _section(text, "### 4.5", "### 4.6"),
+                _section(text, "### 4.7", "### 4.8"),
+            )
+            if part
+        )
+    return (
+        "\nBUNDLED SKILL cartoon-audio-short (apply its original-story, visual and "
+        "audio rules; its missing kit is never claimed to exist):\n"
+        + rules
+        + "\n"
+        + specific
+        + "\n"
+    )
+
+
 def guidance(
     kind: str,
     about: str,
@@ -170,13 +217,14 @@ def guidance(
         "SKILLS FROM GITHUB (proven practice of top creators; follow them where they fit, "
         "Sergio's rules win on conflict):\n"
     )
+    cartoon = cartoon_guidance(kind, about, genre)
     parts: List[str] = []
-    left = budget - len(head) - (len(DELIVERY) if kind == "guion" else 0)
+    left = budget - len(head) - len(cartoon) - (len(DELIVERY) if kind == "guion" else 0)
     for _, e, text in scored[:top]:
         share = max(400, left // max(1, top))
         piece = _body(text)[:share] if text else e["what"]
         parts.append(f"- {e['name']} ({e['repo']}): {piece}")
-    out = head + "\n".join(parts)
+    out = head + "\n".join(parts) + cartoon
     if kind == "guion":
         out += "\n" + DELIVERY
     return out[:budget]

@@ -54,6 +54,21 @@ REFERENCIAS: List[Dict[str, object]] = [
     {"id": "dFbUovi4WNk", "formato": "ranking-sin-narrador", "vistas": 2_700_977, "me_gusta": 19_219,
      "comentarios": 35, "segundos": 25, "titulo": "Ranking Craziest Rock Thrown In Water",
      "nota": "sin voz en off; números en pantalla de menor a mayor; el audio es el de los clips"},
+    {"id": "-aJQzVZ9FB8", "formato": "ranking-sin-narrador", "vistas": 1_143_155, "me_gusta": 10_655,
+     "comentarios": 86, "segundos": 26, "titulo": "Ranking Craziest Haircut Moments",
+     "nota": "seis cortes de peluquería; título y lista persistentes, valoración grande y cambio de escena al remate"},
+    {"id": "ZX5Daz55GNU", "formato": "ranking-sin-narrador", "vistas": 816_852, "me_gusta": 12_912,
+     "comentarios": 130, "segundos": 29, "titulo": "Ranking Funniest Billiard Moments",
+     "nota": "seis momentos de billar; la lista se revela después de cada gag y conserva el contexto"},
+    {"id": "7D1a9bJJ9C0", "formato": "ranking-sin-narrador", "vistas": 335_720, "me_gusta": 4_870,
+     "comentarios": 98, "segundos": 33, "titulo": "Ranking Satisfying Close-Up ASMR",
+     "nota": "seis macros; el sonido del material es el contenido, no un adorno bajo una narración"},
+    {"id": "v6__FPIOWf4", "formato": "ranking-sin-narrador", "vistas": 6_165_166, "me_gusta": 92_675,
+     "comentarios": 549, "segundos": 31, "titulo": "Ranking Funniest Halloween Moments",
+     "nota": "seis sustos con reacción visible; cada escena termina antes de revelar la siguiente posición"},
+    {"id": "7sKAk3sAAmc", "formato": "ranking-sin-narrador", "vistas": 18_526_835, "me_gusta": 116_679,
+     "comentarios": 284, "segundos": 24, "titulo": "Ranking Funniest Alligator Moments",
+     "nota": "seis escenas muy breves; lista fija a la izquierda, título superior y corte seco entre remates"},
     {"id": "p7LDk4D3Q3U", "formato": "animacion-musical", "vistas": 11_773_135, "me_gusta": 578_554,
      "comentarios": 16_104, "segundos": 207, "titulo": "The Turning Point",
      "nota": "sátira sin diálogo; una canción lleva todo el corto; una sola idea que escala"},
@@ -62,14 +77,10 @@ REFERENCIAS: List[Dict[str, object]] = [
      "nota": "viaje surrealista; música y diseño de sonido hechos por personas distintas, al nivel de la imagen"},
 ]  # fmt: skip
 
-# Not readable from here (Instagram needs a session): measured on his PC.
-PENDIENTES_EN_SU_PC = [
-    "https://www.instagram.com/reels/DdjwUyxBc5k/",
-    "https://www.instagram.com/p/DfI65MZRCkn/",
-    "https://www.instagram.com/reels/Del0IKQCjQL/",
-    "https://www.instagram.com/reels/De3IuvyhMVD/",
-    "https://www.instagram.com/reels/De79fyPBf5j/",
-]
+NOTA_INSTAGRAM = (
+    "Instagram puede pedir sesión según la conexión. Las cinco referencias ya fueron descargadas "
+    "y medidas; la plataforma no entregó vistas públicas, así que no se calcula interacción por vista."
+)
 
 # What each format asks for, from the measures above.
 FORMATOS: Dict[str, Dict[str, object]] = {
@@ -98,11 +109,12 @@ FORMATOS: Dict[str, Dict[str, object]] = {
     "ranking-sin-narrador": {
         "nombre": "Ranking sin narrador",
         "palabras": ("ranking", "top", "mejores", "peores", "mas loco", "craziest", "best", "worst"),
-        "segundos": (20, 30), "wps": 0.0, "puntos": (4, 6),
+        "segundos": (24, 33), "wps": 0.0, "puntos": (6, 6),
         "reglas": (
-            "Sin voz en off: el número grande en pantalla y el sonido real de cada clip.",
-            "De menor a mayor; el último es el más fuerte y dura más.",
-            "Corte al golpe de la música en cada número.",
+            "Sin voz en off: seis posiciones y el sonido real de cada clip; el ASMR hace del sonido el protagonista.",
+            "Título fijo arriba y lista visible desde el inicio; cada posición se revela solo después de su remate.",
+            "De menor a mayor; la última es la más fuerte. Algunas variantes añaden una puntuación grande al terminar.",
+            "Corte seco tras el gag o golpe sonoro; no alargar una escena cuando ya entregó su remate.",
         ),
     },
     "clip-reencuadrado": {
@@ -214,9 +226,7 @@ def report() -> str:
             talk = 1e6 * int(r["comentarios"]) / max(1, int(r["vistas"]))
             rows.append(f"  - «{r['titulo']}»: {int(r['vistas']):,} vistas, {r['segundos']} s, "
                         f"{ratio:.1f} % me gusta, {talk:.0f} comentarios por millón. {r['nota']}.")  # fmt: skip
-    rows.append(
-        "Pendiente en su PC (Instagram pide sesión): " + ", ".join(PENDIENTES_EN_SU_PC)
-    )
+    rows.append(NOTA_INSTAGRAM)
     return "\n".join(rows)
 
 

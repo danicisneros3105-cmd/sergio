@@ -207,16 +207,14 @@ class VideoSchoolTool(BaseTool):
             name="escuela_video",
             description=(
                 "Sergio's school of the owner's reference videos and channels (the latest 20 of a "
-                "channel): downloads each one (only to study it), measures every second by code, at "
-                "30 fps for channels (cuts, shot length, light, contrast, shadows, warm or cool grade, "
-                "camera movement and shake, flashes, words on screen, faces, sound hits) and reads how "
-                "the script is written (pace, hook, sentences, questions, turns, open loops, ending), "
-                "watches it with a model, and writes one superskill per category that every later "
-                "video of that kind follows. 'agregar' also takes a channel link (youtube.com/@name). "
-                "action 'estudiar' (all, or 'categoria'), 'estado', 'agregar' ('links' and "
-                "'categoria'), 'superskill' ('categoria': read it), 'ficha' ('video': everything measured "
-                "about one reference, second by second). To recreate one exactly, call video_essay "
-                "with 'molde' = its link. Runs in the background."
+                "channel): downloads each one only to study it, measures every sampled frame by code "
+                "(32 fps for the owner's Shorts, animation and entertaining explainers; 30 fps for "
+                "channel cohorts), sound hits, voiceover, light, cuts, zooms and effects. It writes one "
+                "superskill per category that later videos follow. 'agregar' also takes a channel link. "
+                "Actions: 'estudiar', 'estado', 'agregar', 'superskill', 'ficha' (second by second) and "
+                "'fotogramas' ('video', optional 'desde' and 'hasta', maximum 60 s). To create an "
+                "original video with a reference's exact editing skeleton, call video_essay with "
+                "'molde' = its link. Runs in the background and never reuses the reference's content."
             ),
             parameters={
                 "type": "object",
@@ -229,14 +227,17 @@ class VideoSchoolTool(BaseTool):
                             "agregar",
                             "superskill",
                             "ficha",
+                            "fotogramas",
                         ],
                     },
                     "categoria": {"type": "string"},
                     "links": {"type": "array", "items": {"type": "string"}},
                     "video": {
                         "type": "string",
-                        "description": "ficha: the studied reference's link",
+                        "description": "ficha/fotogramas: the studied reference's link",
                     },
+                    "desde": {"type": "number", "minimum": 0},
+                    "hasta": {"type": "number", "exclusiveMinimum": 0},
                 },
                 "required": ["action"],
             },
@@ -258,6 +259,12 @@ class VideoSchoolTool(BaseTool):
                 )
             if action == "ficha":
                 return escuela.ficha(str(p.get("video") or (p.get("links") or [""])[0]))
+            if action == "fotogramas":
+                return escuela.frame_ficha(
+                    str(p.get("video") or (p.get("links") or [""])[0]),
+                    float(p.get("desde") or 0),
+                    float(p.get("hasta") or 10),
+                )
             if action == "superskill":
                 return (
                     escuela.skill_text(cat)
@@ -290,14 +297,20 @@ class VideoSchoolTool(BaseTool):
                 done = "con superskill" if c["superskill"] else "sin superskill aún"
                 cohort = st["ultimo"].get("cohortes", {}).get(k)
                 if cohort:
-                    profile = "perfil actualizado" if cohort["perfil_actualizado"] else "perfil sin actualizar"
+                    profile = (
+                        "perfil actualizado"
+                        if cohort["perfil_actualizado"]
+                        else "perfil sin actualizar"
+                    )
                     lines.append(
                         f"- {c['nombre']}: última tanda: {cohort['medidos']}/{cohort['solicitados']} "
                         f"a {cohort['fps']} FPS; {cohort['encontrados']} enlaces encontrados, {profile}."
                     )
                     continue
                 if k == "shorts-animados":
-                    lines.append(f"- {c['nombre']}: sin tanda de 20 verificada aún; {done}.")
+                    lines.append(
+                        f"- {c['nombre']}: sin tanda de 20 verificada aún; {done}."
+                    )
                     continue
                 lines.append(
                     f"- {c['nombre']}: {c['estudiados']}/{c['videos']} estudiados, {done}."

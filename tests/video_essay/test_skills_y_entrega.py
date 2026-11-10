@@ -50,6 +50,22 @@ def test_guidance_fits_the_budget_and_carries_the_delivery_rules(tmp_path):
     assert "DELIVERY" not in motion and "---" not in motion.split("\n", 1)[1][:10]
 
 
+def test_the_bundled_cartoon_skill_guides_script_and_motion(tmp_path):
+    skillbook.sync(tmp_path, get=lambda url: "# Hook\nOpen with a question.")
+    script_note = skillbook.guidance(
+        "guion", "historia animada original", home=tmp_path, genre="animacion"
+    )
+    motion_note = skillbook.guidance(
+        "motion", "historia animada original", home=tmp_path, genre="animacion"
+    )
+    assert "cartoon-audio-short" in script_note and "3.7 words/s" in script_note
+    assert "cartoon-audio-short" in motion_note and "50 %" in motion_note
+    assert "camFromKeys" in motion_note
+    assert "cartoon-audio-short" not in skillbook.guidance(
+        "guion", "documental de ciencia", home=tmp_path
+    )
+
+
 def test_delivery_is_cleaned():
     assert director._delivery({"tone": "Serious", "pause": 9}) == {
         "tone": "serious",

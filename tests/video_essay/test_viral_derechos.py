@@ -38,7 +38,7 @@ def test_every_reference_number_is_whole_and_every_format_has_proof():
         "animacion-musical",
     ):
         assert viral.evidence(key), key
-    assert "Instagram pide sesión" in viral.report()
+    assert "Las cinco referencias ya fueron descargadas" in viral.report()
 
 
 def test_clip_review_never_says_legal():

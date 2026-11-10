@@ -58,6 +58,7 @@ import statistics
 import subprocess
 import threading
 import time
+from functools import lru_cache
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Sequence
 
@@ -230,11 +231,15 @@ def channel_links(
     strict = bool(channel.get("solo_pestana"))
     slug = re.sub(r"[^\w.-]+", "-", url.rsplit("/", 1)[-1])
     scope = "-solo" if strict else ""
-    cache = (root or home()) / "canales" / f"{slug}-{tab}-{n}-{int(max_min)}{scope}.json"
+    cache = (
+        (root or home()) / "canales" / f"{slug}-{tab}-{n}-{int(max_min)}{scope}.json"
+    )
     try:
         saved = json.loads(cache.read_text("utf-8"))
-        if not refresh and time.time() - float(saved.get("at") or 0) < CHANNEL_TTL_S and saved.get(
-            "links"
+        if (
+            not refresh
+            and time.time() - float(saved.get("at") or 0) < CHANNEL_TTL_S
+            and saved.get("links")
         ):
             return list(saved["links"])
     except (OSError, ValueError):
@@ -282,8 +287,13 @@ def download(
     cmd = ytdlp()
     if not cmd and runner is None:
         raise RuntimeError("falta yt-dlp (la actualización lo instala)")
-    args = cmd + ["--no-warnings", "--no-playlist", "-f", "bv*[height<=1080]+ba/b[height<=1080]/b",
-                  "--merge-output-format", "mp4", "-o", str(dest / f"{vid}.%(ext)s"), url]  # fmt: skip
+    args = cmd + ["--no-warnings", "--no-playlist", "--write-info-json", "-f",
+                  "bv*[height<=1080]+ba/b[height<=1080]/b", "--merge-output-format", "mp4",
+                  "-o", str(dest / f"{vid}.%(ext)s"), url]  # fmt: skip
+    try:
+        args[len(cmd) : len(cmd)] = ["--ffmpeg-location", _ffmpeg()]
+    except RuntimeError:
+        pass
     browser = os.environ.get("SERGIO_NAVEGADOR", "").strip()
     if browser and "instagram.com" in url:
         args[len(cmd) : len(cmd)] = ["--cookies-from-browser", browser]
@@ -310,21 +320,49 @@ def download(
 # -- 2. every second, measured by code ----------------------------------------------------------
 
 
+def _ffmpeg() -> str:
+    found = shutil.which("ffmpeg")
+    if found:
+        return found
+    from openjarvis.video_essay.render import ffmpeg
+
+    return ffmpeg()
+
+
 def _probe(path: Path) -> Dict[str, float]:
-    exe = shutil.which("ffprobe") or "ffprobe"
-    out = subprocess.run(
-        [exe, "-v", "error", "-select_streams", "v:0", "-show_entries",
-         "stream=width,height,r_frame_rate:format=duration", "-of", "json", str(path)],
-        capture_output=True, text=True, timeout=60,
-    ).stdout  # fmt: skip
-    data = json.loads(out or "{}")
-    st = (data.get("streams") or [{}])[0]
-    num, _, den = str(st.get("r_frame_rate") or "30/1").partition("/")
+    exe = shutil.which("ffprobe")
+    if exe:
+        out = subprocess.run(
+            [exe, "-v", "error", "-select_streams", "v:0", "-show_entries",
+             "stream=width,height,r_frame_rate:format=duration", "-of", "json", str(path)],
+            capture_output=True, text=True, timeout=60,
+        ).stdout  # fmt: skip
+        data = json.loads(out or "{}")
+        st = (data.get("streams") or [{}])[0]
+        num, _, den = str(st.get("r_frame_rate") or "30/1").partition("/")
+        return {
+            "w": float(st.get("width") or 0),
+            "h": float(st.get("height") or 0),
+            "fps": round(float(num) / float(den or 1), 2) if float(den or 1) else 30.0,
+            "dur": float((data.get("format") or {}).get("duration") or 0),
+        }
+
+    # imageio-ffmpeg ships FFmpeg without ffprobe. Its input report contains
+    # the same measurements needed here; a zero exit is not expected with -i alone.
+    report = subprocess.run(
+        [_ffmpeg(), "-i", str(path)], capture_output=True, text=True, timeout=60
+    ).stderr
+    duration = re.search(r"Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)", report)
+    dimensions = re.search(r"Video:.*?\b(\d{2,5})x(\d{2,5})\b", report)
+    rate = re.search(r"\b(\d+(?:\.\d+)?)\s*fps\b", report)
+    if not duration or not dimensions:
+        raise RuntimeError(f"no se pudieron medir las propiedades de {path.name}")
+    hours, minutes, seconds = duration.groups()
     return {
-        "w": float(st.get("width") or 0),
-        "h": float(st.get("height") or 0),
-        "fps": round(float(num) / float(den or 1), 2) if float(den or 1) else 30.0,
-        "dur": float((data.get("format") or {}).get("duration") or 0),
+        "w": float(dimensions.group(1)),
+        "h": float(dimensions.group(2)),
+        "fps": float(rate.group(1)) if rate else 30.0,
+        "dur": int(hours) * 3600 + int(minutes) * 60 + float(seconds),
     }
 
 
@@ -375,7 +413,9 @@ def _hist(f: Any) -> Any:
     return h / max(1.0, float(h.sum()))
 
 
-def _cut_times(d: Sequence[float], fps: int, spatial: Sequence[float] = ()) -> List[float]:
+def _cut_times(
+    d: Sequence[float], fps: int, spatial: Sequence[float] = ()
+) -> List[float]:
     """Hard cuts from colour jumps or abrupt changes in the layout."""
     import numpy as np
 
@@ -389,10 +429,10 @@ def _cut_times(d: Sequence[float], fps: int, spatial: Sequence[float] = ()) -> L
     for i, v in enumerate(d, start=1):
         changed = False
         if spatial and spatial[i - 1] >= 0.14:
-            nearby = [*spatial[max(0, i - 4):i - 1], *spatial[i:i + 3]]
+            nearby = [*spatial[max(0, i - 4) : i - 1], *spatial[i : i + 3]]
             changed = bool(nearby) and spatial[i - 1] >= 3 * float(np.median(nearby))
         if (v >= thr or changed) and (not out or i / fps - out[-1] >= 0.2):
-            out.append(round(i / fps, 2))
+            out.append(round(i / fps, 5))
     return out
 
 
@@ -707,38 +747,53 @@ def measure(
     words: Optional[List[Dict[str, Any]]] = None,
     fps: int = FPS,
 ) -> Dict[str, Any]:
-    """Every second of *path*, measured: the cut timeline and what is seen and
-    heard. Frames are read one second at a time (``fps`` of them), so a long
-    video at 30 fps never sits whole in memory."""
+    """Measure every sampled frame and aggregate its timeline by second.
+
+    Frames are decoded one second at a time, so sampling a long video at 32 fps
+    never requires holding the whole video in memory. Frame rows describe code
+    measurements, not semantic labels invented for frames a model did not see.
+    """
+    import bisect
+
     import numpy as np
 
     from openjarvis.video_essay import color
 
-    ffmpeg = shutil.which("ffmpeg") or "ffmpeg"
+    ffmpeg = _ffmpeg()
     meta = _probe(path)
     w = 96
     h = max(2, int(round(w * (meta["h"] or 16) / (meta["w"] or 9) / 2) * 2))
     audio = _audio(path, ffmpeg)
     rate = 8000
-    words = words if words is not None else transcribe(path)
-    jumps: List[float] = []  # histogram jump between every two frames (cuts)
+    if words is None:
+        words, transcription_status = transcribe_detailed(path)
+    else:
+        transcription_status = "proporcionada"
+    jumps: List[float] = []
     spatial: List[float] = []
     prev = None
     prev_hist = None
     prev_lum = None
     seconds: List[Dict[str, Any]] = []
-    punches: List[float] = []  # cuts that only move closer
+    frame_rows: List[Dict[str, Any]] = []
+    punches: List[float] = []
     hit_times: List[float] = []
     frames_seen = 0
+    big_w = 360
+    big_h = max(2, int(round(big_w * h / w / 2) * 2))
+    big_chunks = _chunks(path, big_w, big_h, 1, ffmpeg)
     luma = np.asarray(LUMA, dtype="float32")
     for s, chunk in enumerate(_chunks(path, w, h, fps, ffmpeg)):
+        frame_start = frames_seen
         frames_seen += len(chunk)
+        has_prev = prev is not None
+        offset = 1 if has_prev else 0
         for f in chunk:
             hist = _hist(f)
             if prev_hist is not None:
                 jumps.append(float(0.5 * np.abs(hist - prev_hist).sum()))
             prev_hist = hist
-        seq = chunk if prev is None else np.concatenate([prev[None], chunk])
+        seq = chunk if not has_prev else np.concatenate([prev[None], chunk])
         prev = chunk[-1]
         f = chunk[len(chunk) // 2]
         hsv_s = (f.max(axis=2).astype("int16") - f.min(axis=2)).mean() / 255
@@ -749,28 +804,30 @@ def measure(
         )
         if len(seq) > 1:
             spatial.extend(steps.tolist())
-        motion = float(np.median(steps))  # a cut is not motion
-        lum = (seq.astype("float32") / 255) @ luma  # (n, h, w)
+        motion = float(np.median(steps))
+        lum = (seq.astype("float32") / 255) @ luma
         means = lum.mean(axis=(1, 2))
-        # the camera: how the picture slides between frames, cuts left out
         moves = [
             _shift(lum[i - 1], lum[i])
             for i in range(1, len(lum))
             if steps[i - 1] < 0.25
         ]
         speed = [abs(x) + abs(y) for x, y in moves]
-        scales = [
-            scale_between(lum[i - 1], lum[i])
-            for i in range(1, len(lum))
-            if steps[i - 1] < 0.25
-        ]
+        scales: List[float] = []
+        scale_by_frame: Dict[int, float] = {}
+        for i in range(1, len(lum)):
+            if steps[i - 1] >= 0.25:
+                continue
+            scale = scale_between(lum[i - 1], lum[i])
+            scales.append(scale)
+            if scale != 1.0:
+                scale_by_frame[frame_start + i - offset] = scale
         zoom = float(np.median([np.log(x) for x in scales])) * fps if scales else 0.0
-        for i in range(1, len(lum)):  # a cut that only moves closer
+        for i in range(1, len(lum)):
             if steps[i - 1] >= 0.25 and punch_in(lum[i - 1], lum[i]):
                 punches.append(s + i / max(1, len(lum)))
         pan = float(np.median(speed)) * fps if speed else 0.0
         shake = float(np.std(np.diff(speed))) * fps if len(speed) > 2 else 0.0
-        # effects: a flash jumps up and comes back; black frames are fades
         flashes = sum(
             1
             for i in range(1, len(means) - 1)
@@ -785,20 +842,46 @@ def measure(
         prev_lum = means[-1]
         a = audio[s * rate : (s + 1) * rate]
         rms = float(np.sqrt((a**2).mean())) if len(a) else 0.0
-        # hits: 20 ms energies that jump to 3x their recent average
         e = (
             (a[: len(a) // 160 * 160].reshape(-1, 160) ** 2).mean(axis=1)
             if len(a) >= 160
             else np.zeros(1)
         )
-        avg = np.convolve(e, np.ones(10) / 10, "same") + 1e-7
+        avg = (
+            np.asarray(
+                [e[max(0, i - 4) : min(len(e), i + 5)].mean() for i in range(len(e))]
+            )
+            + 1e-7
+        )
         loud = (e > 3 * avg) & (e > 1e-4)
         hits = int(loud.sum() // 2)
         hit_times.extend(
             s + i * 0.02 for i in np.flatnonzero(loud[1:] & ~loud[:-1]) + 1
         )
-        try:  # one larger frame a second for faces and words
-            big = _one_frame(path, s + 0.5, ffmpeg)
+        for i in range(len(chunk)):
+            index = frame_start + i
+            start = round(index * rate / fps)
+            end = round((index + 1) * rate / fps)
+            frame_audio = audio[start:end]
+            frame_rms = (
+                float(np.sqrt((frame_audio**2).mean())) if len(frame_audio) else 0.0
+            )
+            frame_rows.append(
+                {
+                    "i": index,
+                    "t": round(index / fps, 5),
+                    "brillo": round(float(means[i + offset]), 4),
+                    "cambio_color": round(jumps[index - 1], 4) if index else 0.0,
+                    "cambio_visual": round(spatial[index - 1], 4) if index else 0.0,
+                    "zoom": scale_by_frame.get(index, 1.0),
+                    "volumen_db": round(20 * float(np.log10(frame_rms + 1e-6)), 1),
+                }
+            )
+        try:
+            from PIL import Image
+
+            big_chunk = next(big_chunks)
+            big = Image.fromarray(big_chunk[0])
             gray = np.asarray(big.convert("L"))
             faces = len(color._faces(gray))
             rows = text_rows(gray)
@@ -822,6 +905,27 @@ def measure(
         raise RuntimeError(f"el video no tiene fotogramas: {path.name}")
     dur = meta["dur"] or frames_seen / fps
     cuts = _cut_times(jumps, fps, spatial)
+    cut_frames = {round(cut * fps) for cut in cuts}
+    hit_times.sort()
+    brightness = [float(row["brillo"]) for row in frame_rows]
+    for i, row in enumerate(frame_rows):
+        hit = bisect.bisect_left(hit_times, float(row["t"]) - 0.02)
+        row["corte"] = i in cut_frames
+        row["golpe"] = bool(
+            hit < len(hit_times) and hit_times[hit] <= float(row["t"]) + 0.02
+        )
+        effects = []
+        if row["zoom"] != 1.0:
+            effects.append("zoom-in" if row["zoom"] > 1.0 else "zoom-out")
+        if brightness[i] < 0.04:
+            effects.append("negro")
+        if (
+            0 < i < len(frame_rows) - 1
+            and brightness[i] - brightness[i - 1] > 0.15
+            and brightness[i] - brightness[min(i + 4, len(frame_rows) - 1)] > 0.1
+        ):
+            effects.append("destello")
+        row["efecto_visual"] = ",".join(effects)
     for sec in seconds:
         sec["cortes"] = sum(1 for c in cuts if sec["t"] <= c < sec["t"] + 1)
     bounds = [0.0, *cuts, round(dur, 2)]
@@ -841,6 +945,8 @@ def measure(
     minutes = max(1 / 60, dur / 60)
     summary = {
         "duracion_s": round(dur, 1), "vertical": meta["h"] > meta["w"], "fps": meta["fps"], "fps_medido": fps,
+        "fps_muestreo_real": round(frames_seen / max(0.01, dur), 3),
+        "intervalo_fotograma_s": round(1 / fps, 5),
         "tomas": len(shots), "toma_mediana_s": round(statistics.median(shots), 2) if shots else round(dur, 1),
         "cortes_por_segundo": round(len(cuts) / max(1.0, dur), 2), "cortes_primeros_3s": len(first3),
         "toma_mas_larga_s": max(shots) if shots else round(dur, 1),
@@ -860,6 +966,8 @@ def measure(
         "destellos_por_min": round(sum(s["destellos"] for s in seconds) / minutes, 2),
         "negro": avg("negro"),
         "guion": script_of(words, dur),
+        "transcripcion_estado": transcription_status,
+        "transcripcion_palabras": len(words),
         "planos": {k: round(sum(1 for x in seconds if x.get("plano") == k) / max(1, len(seconds)), 2)
                    for k in ("cara", "texto", "grafico", "real")},
         "zoom_medio": avg("zoom"),
@@ -874,6 +982,9 @@ def measure(
         "meta": meta,
         "cortes": cuts,
         "tomas": shots,
+        "fotogramas": frame_rows,
+        "eventos_sonido": [round(t, 3) for t in hit_times],
+        "transcripcion": words,
         "segundos": seconds,
         "resumen": summary,
     }
@@ -891,35 +1002,156 @@ def _one_frame(path: Path, at: float, ffmpeg: str) -> Any:
     return Image.open(io.BytesIO(raw)).convert("RGB")
 
 
-def transcribe(path: Path) -> List[Dict[str, Any]]:
-    """Words and their times (faster-whisper on this PC); none if it is missing."""
-    try:
-        from faster_whisper import WhisperModel
-    except Exception:  # noqa: BLE001
-        return []
-    try:
-        model = WhisperModel(
-            os.environ.get("SERGIO_ESCUELA_WHISPER", "small"), compute_type="int8"
+def _vtt_seconds(value: str) -> float:
+    hours, minutes, seconds = value.replace(",", ".").split(":")
+    return int(hours) * 3600 + int(minutes) * 60 + float(seconds)
+
+
+def vtt_words(path: Path) -> tuple[List[Dict[str, Any]], bool]:
+    """Read YouTube VTT, including inline word timings when present."""
+    text = path.read_text("utf-8-sig")
+    out: List[Dict[str, Any]] = []
+    exact = False
+    previous_plain: List[str] = []
+    for block in re.split(r"\n\s*\n", text):
+        timing = re.search(
+            r"(\d{2,}:\d{2}:\d{2}[.,]\d{3})\s+-->\s+"
+            r"(\d{2,}:\d{2}:\d{2}[.,]\d{3})",
+            block,
         )
+        if not timing:
+            continue
+        start, end = map(_vtt_seconds, timing.groups())
+        payload = block[timing.end() :].strip().replace("\n", " ")
+        inline = bool(re.search(r"<\d{2,}:\d{2}:\d{2}[.,]\d{3}>", payload))
+        exact = exact or inline
+        current = start
+        words: List[Dict[str, Any]] = []
+        for part in re.split(r"(<[^>]+>)", payload):
+            stamp = re.fullmatch(r"<(\d{2,}:\d{2}:\d{2}[.,]\d{3})>", part.strip())
+            if stamp:
+                current = _vtt_seconds(stamp.group(1))
+                continue
+            clean = re.sub(r"<[^>]+>", "", part).strip()
+            for word in clean.split():
+                words.append({"t": round(current, 2), "w": word})
+        if not inline:
+            plain = [row["w"] for row in words]
+            overlap = len(previous_plain)
+            while overlap and plain[:overlap] != previous_plain[:overlap]:
+                overlap -= 1
+            words = words[overlap:]
+            previous_plain = plain
+            if words:
+                step = max(0.0, end - start) / len(words)
+                for i, row in enumerate(words):
+                    row["t"] = round(start + i * step, 2)
+        out.extend(words)
+    unique = {(row["t"], row["w"]): row for row in out}
+    return sorted(unique.values(), key=lambda row: row["t"]), exact
+
+
+@lru_cache(maxsize=2)
+def _whisper_model(name: str) -> Any:
+    from faster_whisper import WhisperModel
+
+    return WhisperModel(name, device="cpu", compute_type="int8")
+
+
+def transcribe_detailed(path: Path) -> tuple[List[Dict[str, Any]], str]:
+    """Words and a machine-readable status; an error is never called silence."""
+    for suffix in (".en.vtt", ".es.vtt", ".en-orig.vtt", ".es-orig.vtt"):
+        candidate = path.with_suffix(suffix)
+        if candidate.is_file():
+            words, exact = vtt_words(candidate)
+            if words:
+                return words, "subtitulos_youtube" if exact else "subtitulos_estimados"
+    try:
+        model = _whisper_model(os.environ.get("SERGIO_ESCUELA_WHISPER", "small"))
         segs, _ = model.transcribe(str(path), word_timestamps=True, vad_filter=True)
-        return [
-            {"t": round(w.start, 2), "w": w.word.strip()}
+        words = [
+            {"t": round(float(w.start), 2), "w": w.word.strip()}
             for s in segs
             for w in (s.words or [])
+            if w.word.strip()
         ]
+        return words, "ok" if words else "sin_voz_detectada"
     except Exception as exc:  # noqa: BLE001
         log.info("no transcription: %s", exc)
-        return []
+        return [], f"error: {exc}"
+
+
+def transcribe(path: Path) -> List[Dict[str, Any]]:
+    """Words and their times (faster-whisper on this PC)."""
+    return transcribe_detailed(path)[0]
+
+
+def update_transcription(
+    measured: Dict[str, Any], words: List[Dict[str, Any]], status: str
+) -> None:
+    """Replace only the language layer of a study, keeping its frame measurements."""
+    measured["transcripcion"] = words
+    for sec in measured.get("segundos") or []:
+        s = int(sec["t"])
+        said = [x["w"] for x in words if s <= float(x.get("t", -1)) < s + 1]
+        sec["palabras"] = len(said)
+        sec["dice"] = " ".join(said)[:120]
+    summary = measured["resumen"]
+    seconds = measured.get("segundos") or []
+    spoken = [s["palabras"] for s in seconds if s.get("palabras")]
+    duration = float(summary["duracion_s"])
+    summary["palabras_por_segundo"] = (
+        round(sum(spoken) / max(1, len(seconds)), 2) if spoken else 0
+    )
+    summary["gancho"] = " ".join(x["w"] for x in words if float(x.get("t", 99)) < 3)[
+        :160
+    ]
+    summary["guion"] = script_of(words, duration)
+    summary["silencios_por_min"] = silences(words, duration)
+    summary["transcripcion_estado"] = status
+    summary["transcripcion_palabras"] = len(words)
 
 
 # -- 3. study one video ------------------------------------------------------------------------
+
+
+def source_metadata(path: Path) -> Dict[str, Any]:
+    """Public source and music fields supplied by the platform, never guessed."""
+    try:
+        info = json.loads(path.with_suffix(".info.json").read_text("utf-8"))
+    except (OSError, ValueError):
+        return {}
+    fields = {
+        "titulo": "title",
+        "canal": "channel",
+        "vistas": "view_count",
+        "me_gusta": "like_count",
+        "comentarios": "comment_count",
+        "fecha": "upload_date",
+        "pista": "track",
+        "artista": "artist",
+        "album": "album",
+    }
+    out = {
+        key: info[source]
+        for key, source in fields.items()
+        if info.get(source) is not None
+    }
+    credits = [
+        line.strip()
+        for line in str(info.get("description") or "").splitlines()
+        if re.match(r"(?:music|sound design)\s+by\b", line.strip(), re.I)
+    ]
+    if credits:
+        out["creditos_sonido"] = "; ".join(dict.fromkeys(credits))
+    return out
 
 
 def study(url: str, category: str, *, root: Optional[Path] = None,
           watcher: Optional[Callable[[str], Dict[str, Any]]] = None,
           fetch: Optional[Callable[[str, Path], Path]] = None, fps: int = FPS,
           require_frames: bool = False) -> Dict[str, Any]:  # fmt: skip
-    """Download, measure every second and (with a model) watch one video."""
+    """Download, measure every frame and (with a model) watch one video."""
     root = root or home()
     folder = root / category
     out = folder / f"{video_id(url)}.json"
@@ -934,6 +1166,7 @@ def study(url: str, category: str, *, root: Optional[Path] = None,
     data: Dict[str, Any] = {
         "url": url,
         "categoria": category,
+        "fuente": source_metadata(path),
         "medido": measure(path, fps=fps),
     }
     try:
@@ -1137,17 +1370,23 @@ def synthesize(category: str, *, root: Optional[Path] = None, ask: Optional[Call
     root = root or home()
     refs = refs or references()
     cat = refs[category]
-    studies = list(cohort) if cohort is not None else [
-        json.loads(p.read_text("utf-8"))
-        for p in sorted((root / category).glob("*.json"))
-    ]
+    studies = (
+        list(cohort)
+        if cohort is not None
+        else [
+            json.loads(p.read_text("utf-8"))
+            for p in sorted((root / category).glob("*.json"))
+        ]
+    )
     if cat.get("fps"):
         studies = [s for s in studies if _measured_fps(s) == cat["fps"]]
     if cat.get("cohorte_canal") and (
-        cohort is None or len({s["url"] for s in studies}) != sum(
-            int(c["ultimos"]) for c in cat["canales"] if c.get("solo_pestana")
+        cohort is None
+        or len({s["url"] for s in studies})
+        != sum(int(c["ultimos"]) for c in cat["canales"] if c.get("solo_pestana"))
+        or not all(
+            s["medido"]["resumen"].get("fotogramas_muestreados") for s in studies
         )
-        or not all(s["medido"]["resumen"].get("fotogramas_muestreados") for s in studies)
     ):
         raise RuntimeError("la cohorte de Shorts aún no está completa")
     if not studies:
@@ -1213,7 +1452,11 @@ def synthesize(category: str, *, root: Optional[Path] = None, ask: Optional[Call
         **({"cohorte": [s["url"] for s in studies]} if cohort is not None else {}),
     }  # fmt: skip
     if cat.get("cohorte_canal"):
-        prof.update(production="animation", narration_mode="voice", sources=["ai", "3d", "image"])
+        prof.update(
+            production="animation",
+            narration_mode="voice",
+            sources=["ai", "3d", "image"],
+        )
         if visual_seed:
             prof["look"] = visual_seed
     folder = style.learned_dir()
@@ -1356,8 +1599,11 @@ def find(ref: str, root: Optional[Path] = None) -> Dict[str, Any]:
     # A link shared by multiple categories should use its highest requested
     # sampling rate, even if a lower-rate study already exists.
     min_fps = max(
-        (int(cat.get("fps") or 0) for cat in references().values()
-         if any(video_id(url) == vid for url in cat["links"])),
+        (
+            int(cat.get("fps") or 0)
+            for cat in references().values()
+            if any(video_id(url) == vid for url in cat["links"])
+        ),
         default=0,
     )
     candidates = [data for data in candidates if _measured_fps(data) >= min_fps]
@@ -1378,7 +1624,34 @@ def ficha(ref: str, root: Optional[Path] = None) -> str:
         f"{r['tomas']} tomas (mediana {r['toma_mediana_s']} s), {r['cortes_primeros_3s']} cortes en los primeros 3 s, "
         f"texto en pantalla {int(r['texto_en_pantalla'] * 100)} % ({r['texto_donde'] or '—'}), "
         f"{r['golpes_por_segundo']} golpes de sonido por segundo, {r['palabras_por_segundo']} palabras por segundo.",
+        f"Cobertura: {r.get('fotogramas_muestreados', 0)} fotogramas a {r.get('fps_medido')} FPS de análisis; "
+        f"archivo original {r.get('fps')} FPS; intervalo {r.get('intervalo_fotograma_s')} s.",
     ]
+    source = data.get("fuente") or {}
+    if source.get("titulo"):
+        lines.append(
+            f"Fuente: {source['titulo']} — {source.get('canal', 'canal no disponible')}."
+        )
+    if source.get("vistas") is not None:
+        lines.append(
+            f"Métricas públicas al descargar: {source['vistas']} vistas, "
+            f"{source.get('me_gusta', '—')} me gusta, {source.get('comentarios', '—')} comentarios."
+        )
+    if source.get("pista") or source.get("artista"):
+        lines.append(
+            f"Música declarada por la plataforma: {source.get('pista', '—')} — "
+            f"{source.get('artista', '—')}."
+        )
+    elif source.get("creditos_sonido"):
+        lines.append(f"Créditos de sonido: {source['creditos_sonido']}.")
+    else:
+        lines.append(
+            "Música: sin título fiable en los metadatos; no se identifica de oído ni se inventa."
+        )
+    if data.get("sin_modelo"):
+        lines.append(
+            "Etiquetas semánticas por toma no disponibles; las mediciones de código sí están guardadas."
+        )
     if r.get("gancho"):
         lines.append(f"Gancho (0-3 s): «{r['gancho']}»")
     lines.append("Cortes (s): " + ", ".join(str(c) for c in m["cortes"][:80]))
@@ -1400,6 +1673,38 @@ def ficha(ref: str, root: Optional[Path] = None) -> str:
             f"| sonido: {sh.get('sfx', '')}"
         )
     return "\n".join(lines)
+
+
+def frame_ficha(
+    ref: str, start: float = 0.0, end: float = 10.0, root: Optional[Path] = None
+) -> str:
+    """Measured frame rows for a bounded interval (60 s at most per response)."""
+    data = find(ref, root)
+    measured = data["medido"]
+    duration = float(measured["resumen"]["duracion_s"])
+    start = max(0.0, float(start))
+    requested_end = float(end)
+    if requested_end - start > 60:
+        raise ValueError("el intervalo debe ser positivo y de 60 segundos como máximo")
+    end = min(duration, requested_end)
+    if end <= start:
+        raise ValueError("el intervalo debe ser positivo y de 60 segundos como máximo")
+    rows = [
+        row
+        for row in measured.get("fotogramas") or []
+        if start <= float(row["t"]) < end
+    ]
+    return json.dumps(
+        {
+            "url": data["url"],
+            "desde": start,
+            "hasta": end,
+            "fps_analisis": measured["resumen"]["fps_medido"],
+            "total_fotogramas_video": measured["resumen"]["fotogramas_muestreados"],
+            "fotogramas": rows,
+        },
+        ensure_ascii=False,
+    )
 
 
 def blueprint(
@@ -1533,7 +1838,8 @@ def run_all(
     if shorts_media is not None and shorts_ids is None:
         raise ValueError("los archivos locales necesitan una lista fija de IDs")
     if shorts_ids is not None and (
-        todo != ["shorts-animados"] or len(shorts_ids) != 20
+        todo != ["shorts-animados"]
+        or len(shorts_ids) != 20
         or len(set(shorts_ids)) != 20
         or not all(re.fullmatch(r"[A-Za-z0-9_-]{11}", vid) for vid in shorts_ids)
     ):
@@ -1543,14 +1849,20 @@ def run_all(
         vid = video_id(url)
         assert shorts_media is not None
         files = [
-            p for ext in (".mp4", ".mkv", ".webm", ".mov")
+            p
+            for ext in (".mp4", ".mkv", ".webm", ".mov")
             if (p := shorts_media / (vid + ext)).is_file()
         ]
         if len(files) != 1:
             raise RuntimeError(f"Se necesita un único archivo de video para {vid}.")
         return files[0]
 
-    done: Dict[str, Any] = {"estudiados": 0, "fallos": [], "superskills": [], "cohortes": {}}
+    done: Dict[str, Any] = {
+        "estudiados": 0,
+        "fallos": [],
+        "superskills": [],
+        "cohortes": {},
+    }
     for cat in todo:
         category = refs[cat]
         strict = bool(category.get("cohorte_canal"))
@@ -1560,7 +1872,13 @@ def run_all(
             if strict and shorts_ids is not None:
                 links = [f"https://www.youtube.com/watch?v={vid}" for vid in shorts_ids]
             elif strict:
-                links = list(dict.fromkeys(url for ch in channels for url in channel_links(ch, refresh=True)))
+                links = list(
+                    dict.fromkeys(
+                        url
+                        for ch in channels
+                        for url in channel_links(ch, refresh=True)
+                    )
+                )
             else:
                 links = links_of(category)
         except Exception as exc:  # noqa: BLE001 — a channel that fails: its links still count
@@ -1578,7 +1896,11 @@ def run_all(
             try:
                 if shorts_ids is not None:
                     data = study(
-                        url, cat, fps=fps, require_frames=True, watcher=lambda _: {},
+                        url,
+                        cat,
+                        fps=fps,
+                        require_frames=True,
+                        watcher=lambda _: {},
                         fetch=local_video if shorts_media is not None else None,
                     )
                 elif strict:
@@ -1587,18 +1909,30 @@ def run_all(
                     data = study(url, cat, fps=fps)
                 if strict:
                     measured = data["medido"]["resumen"]
-                    if _measured_fps(data) != fps or not measured.get("fotogramas_muestreados"):
-                        raise RuntimeError("la referencia no tiene cobertura de fotogramas comprobada")
+                    if _measured_fps(data) != fps or not measured.get(
+                        "fotogramas_muestreados"
+                    ):
+                        raise RuntimeError(
+                            "la referencia no tiene cobertura de fotogramas comprobada"
+                        )
                     cohort.append(data)
-                    videos.append({
-                        "url": url, "estado": "medido", "fps_original": measured.get("fps"),
-                        "fps_medido": fps, "fotogramas": measured["fotogramas_muestreados"],
-                        "duracion_s": measured.get("duracion_s"), "tomas": measured.get("tomas"),
-                        "toma_mediana_s": measured.get("toma_mediana_s"),
-                        "cortes_primeros_3s": measured.get("cortes_primeros_3s"),
-                        "cortes_en_golpe": measured.get("cortes_en_golpe"),
-                        "analisis_visual": bool((data.get("tomas_modelo") or {}).get("shots")),
-                    })
+                    videos.append(
+                        {
+                            "url": url,
+                            "estado": "medido",
+                            "fps_original": measured.get("fps"),
+                            "fps_medido": fps,
+                            "fotogramas": measured["fotogramas_muestreados"],
+                            "duracion_s": measured.get("duracion_s"),
+                            "tomas": measured.get("tomas"),
+                            "toma_mediana_s": measured.get("toma_mediana_s"),
+                            "cortes_primeros_3s": measured.get("cortes_primeros_3s"),
+                            "cortes_en_golpe": measured.get("cortes_en_golpe"),
+                            "analisis_visual": bool(
+                                (data.get("tomas_modelo") or {}).get("shots")
+                            ),
+                        }
+                    )
                 done["estudiados"] += 1
                 title = (data.get("tomas_modelo") or {}).get("summary") or ""
                 if title:
@@ -1610,19 +1944,33 @@ def run_all(
         if strict:
             complete = wanted > 0 and len(links) == len(cohort) == wanted
             done["cohortes"][cat] = {
-                "solicitados": wanted, "encontrados": len(links), "medidos": len(cohort),
-                "fps": fps, "completa": complete, "videos": videos, "perfil_actualizado": False,
+                "solicitados": wanted,
+                "encontrados": len(links),
+                "medidos": len(cohort),
+                "fps": fps,
+                "completa": complete,
+                "videos": videos,
+                "perfil_actualizado": False,
             }
             if shorts_ids is not None:
-                done["cohortes"][cat]["origen"] = "archivos_locales" if shorts_media else "lista_fija"
+                done["cohortes"][cat]["origen"] = (
+                    "archivos_locales" if shorts_media else "lista_fija"
+                )
             if not complete:
-                done["fallos"].append({
-                    "categoria": cat, "por_que": f"Cohorte incompleta: {len(cohort)}/{wanted} medidos. No se reemplazó el perfil.",
-                })
+                done["fallos"].append(
+                    {
+                        "categoria": cat,
+                        "por_que": f"Cohorte incompleta: {len(cohort)}/{wanted} medidos. No se reemplazó el perfil.",
+                    }
+                )
                 continue
         try:
-            kwargs: Dict[str, Any] = {"ask": lambda _: ""} if shorts_ids is not None else {}
-            done["superskills"].append(synthesize(cat, refs=refs, cohort=cohort if strict else None, **kwargs))
+            kwargs: Dict[str, Any] = (
+                {"ask": lambda _: ""} if shorts_ids is not None else {}
+            )
+            done["superskills"].append(
+                synthesize(cat, refs=refs, cohort=cohort if strict else None, **kwargs)
+            )
             if strict:
                 done["cohortes"][cat]["perfil_actualizado"] = True
         except Exception as exc:  # noqa: BLE001
@@ -1678,6 +2026,7 @@ __all__ = [
     "clean_link",
     "cuts_of",
     "ficha",
+    "frame_ficha",
     "find",
     "guidance",
     "measure",

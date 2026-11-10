@@ -2,6 +2,20 @@
 
 Lo más reciente arriba. Cada sesión añade una entrada (ver AGENTS.md §5).
 
+## 2026-11-09 · Kimi · Ranking original verificado
+- Creé un ranking animado propio de seis errores domésticos con `scripts/demo_ranking_original.py`: sin narrador, clips, bancos, música, efectos ni proveedores externos. La receta está documentada en `docs/ESCUELA-REFERENCIAS.md`.
+- El MP4 real quedó en `~/.openjarvis/video_jobs/ranking-original/6-errores-domesticos.mp4`: H.264, 576 × 1024, 24,0 s, 720 fotogramas a 30 FPS, AAC estéreo a 48 kHz, −14,1 LUFS y pico −1,7 dBTP.
+- Revisé las seis escenas en `qa-sheet.jpg`. La escuela volvió a leer el máster a 32 FPS y obtuvo 768 muestras. `fuentes.json` declara listas vacías de recursos externos y proveedores.
+- Verificación adicional: prueba de `original_only`, Ruff, formato y diff limpios. No se publicó el video.
+
+## 2026-11-09 · Kimi · Escuela a 32 FPS y skill animada
+- Analicé 19 de 20 vídeos únicos a 32 FPS: 44.270 fotogramas, con cortes, zooms, efectos, volumen, golpes, transcripción y metadatos. El único pendiente es `dFbUovi4WNk`, privado en YouTube. El informe y las recetas originales están en `docs/ESCUELA-REFERENCIAS.md`.
+- Instalé y apliqué `cartoon-audio-short` al guion y montaje animados. Su `kit/` no fue entregado, así que el render específico de esa skill queda bloqueado hasta recibirlo. `original_only` excluye imágenes y música de terceros.
+- Graphify relaciona escuela, skills y generador en `video_essay/graphify-out` (1.083 nodos, 2.855 relaciones), con `ARQUITECTURA.html` navegable.
+- Corregí bordes de audio cortos, serialización NumPy, compatibilidad sin ffprobe y decodificación continua. Whisper queda en CPU y PyAV <19; subtítulos de YouTube se usan cuando existen.
+- Verificación: 313 pruebas aprobadas y 25 omitidas en `tests/video_essay` y `tests/skills/test_bundled_skills.py`; Ruff, formato, lock y diff limpios en los archivos tocados. Hay cinco E501 preexistentes en `equipo.py` y `galeria.py` que no se tocaron.
+- Pendiente: recibir `cartoon-audio-short/kit/` para el render específico y confirmar la siguiente parte con el dueño. No se publicó ningún vídeo.
+
 ## 2026-11-08 · Kimi · Candidato web, pagos, seguridad y tareas
 - Trabajé sobre el `main` privado (`cb233eaa`), no sobre la copia local antigua. Amplié privacidad/términos, configuración pública del titular y consentimiento con versión `2026-11-08`; la edad mínima es 18 años por los términos actuales de OpenRouter.
 - Quité la clave maestra como posible variable pública de Vite. Los secretos usan escritura atómica y permisos POSIX o ACL reales de Windows; Visage usa el mismo helper y SHA-256 para detectar fotogramas repetidos.

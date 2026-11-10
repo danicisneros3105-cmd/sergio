@@ -111,6 +111,8 @@ desktop = [
     "pydantic>=2.0",
     "python-multipart>=0.0.9",
     "faster-whisper>=1.0",
+    # PyAV 19 removed metadata_errors used by faster-whisper 1.2.1 audio decoding.
+    "av>=11,<19",
     # 1.24.x declares Python 3.10 support but publishes no cp310 wheels (#917).
     "onnxruntime<1.24; python_version < '3.11'",
     "numpy>=1.24",
@@ -197,6 +199,8 @@ sandbox-docker = ["docker>=7.0"]
 dashboard = ["textual>=0.80"]
 speech = [
     "faster-whisper>=1.0",
+    # PyAV 19 removed metadata_errors used by faster-whisper 1.2.1 audio decoding.
+    "av>=11,<19",
     # Keep the pip-visible speech extra installable on supported Python 3.10.
     "onnxruntime<1.24; python_version < '3.11'",
     "numpy>=1.24",

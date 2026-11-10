@@ -484,16 +484,29 @@ def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
 
         selected = galeria.sources(gallery_id) if gallery_id else []
         if selected and verified_animation:
-            raise RuntimeError("La edición de galería usa tus videos; el modo animado verifica tomas nuevas.")
+            raise RuntimeError(
+                "La edición de galería usa tus videos; el modo animado verifica tomas nuevas."
+            )
         if verified_animation:
             from openjarvis.video_essay import aivideo, blender3d, verificacion
 
             if mode.key not in ("post", "cinema"):
-                raise RuntimeError("Usa modo Post o Cinema para verificar un Short animado completo.")
+                raise RuntimeError(
+                    "Usa modo Post o Cinema para verificar un Short animado completo."
+                )
             if not shutil.which(_ffprobe(render.ffmpeg())):
-                raise RuntimeError("Falta FFprobe. Instala FFmpeg con FFprobe antes de empezar.")
-            if not (deps.ai_provider or aivideo.available() or deps.blender or blender3d.blender_cmd()):
-                raise RuntimeError("No hay proveedor de animación disponible. Conecta un modelo de video o instala Blender.")
+                raise RuntimeError(
+                    "Falta FFprobe. Instala FFmpeg con FFprobe antes de empezar."
+                )
+            if not (
+                deps.ai_provider
+                or aivideo.available()
+                or deps.blender
+                or blender3d.blender_cmd()
+            ):
+                raise RuntimeError(
+                    "No hay proveedor de animación disponible. Conecta un modelo de video o instala Blender."
+                )
         # 1. the reference (or the style asked for)
         if stage("estudio"):
             ref = str(params.get("reference") or "").strip()
@@ -506,7 +519,9 @@ def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
                 except (OSError, RuntimeError, ValueError, TypeError):
                     # Instagram/TikTok URLs aren't file inputs for the vision
                     # model. Use Escuela's measured cache or continue openly.
-                    if not ref.startswith(("http://", "https://")) or style.YOUTUBE.match(ref):
+                    if not ref.startswith(
+                        ("http://", "https://")
+                    ) or style.YOUTUBE.match(ref):
                         budget.spend("llm")
                         try:
                             profile = style.learn(
@@ -519,7 +534,11 @@ def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
                         except Exception as exc:  # noqa: BLE001 — preserve the brief
                             job.log(f"referencia sin análisis: {type(exc).__name__}")
                     if learned:
-                        job.update(style_key=profile["key"], style_fixed=True, referencia_estado="analizada")
+                        job.update(
+                            style_key=profile["key"],
+                            style_fixed=True,
+                            referencia_estado="analizada",
+                        )
                     else:
                         job.update(referencia_estado="sin_medicion")
                 else:
@@ -577,7 +596,10 @@ def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
                     job.update(equipo=team, budget=budget.to_dict())
                 if live and not signals:
                     job.update(note="Buscando señales actuales en YouTube e Instagram…")
-                    signals = equipo.live_signals(str(params.get("nicho") or brief), str(params.get("aspect")) == "9:16")
+                    signals = equipo.live_signals(
+                        str(params.get("nicho") or brief),
+                        str(params.get("aspect")) == "9:16",
+                    )
                     job.update(tendencias_en_vivo=signals)
                 trend_note = "" if live else _trends(job, params, brief, direct, budget)
                 trend_note += _molde(job, params)
@@ -595,7 +617,11 @@ def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
                     + genres.notes(job.state().get("genre", ""))
                     + trend_note
                     + equipo.editorial_notes(team, signals)
-                    + ("\nThe edit must use all selected gallery videos in order. Do not invent what appears in them." if selected else ""),
+                    + (
+                        "\nThe edit must use all selected gallery videos in order. Do not invent what appears in them."
+                        if selected
+                        else ""
+                    ),
                 )
             sc = _by_parts(job, sc, params, mode, direct)
             if verified_animation:
@@ -622,7 +648,9 @@ def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
                 try:
                     beats = sc.get("beats") or []
                     if crew_requested and beats:
-                        wav = script.narrate_beats(script.performance(beats), speak=deps.speak, breath=0.14)
+                        wav = script.narrate_beats(
+                            script.performance(beats), speak=deps.speak, breath=0.14
+                        )
                     elif any((b.get("delivery") or {}).get("tone") for b in beats):
                         # performed: each part in its tone, real pauses
                         wav = script.narrate_beats(beats, speak=deps.speak)
@@ -636,7 +664,9 @@ def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
                     job.update(voice_error=str(exc)[:200])
                     job.log(f"sin voz: {exc}")
                     if verified_animation:
-                        raise RuntimeError(f"No pude obtener una narración audible: {str(exc)[:180]}") from exc
+                        raise RuntimeError(
+                            f"No pude obtener una narración audible: {str(exc)[:180]}"
+                        ) from exc
             if not voiced:
                 total = _silent_length(
                     sc, float(params.get("seconds") or 60), script.WORDS_PER_SECOND
@@ -644,7 +674,10 @@ def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
                 wav_path.write_bytes(
                     audio.write_wav(np.zeros(int(total * audio.SR), dtype=np.float32))
                 )
-            job.update(voice=voiced, voice_error="" if voiced else job.state().get("voice_error", ""))
+            job.update(
+                voice=voiced,
+                voice_error="" if voiced else job.state().get("voice_error", ""),
+            )
             job.finish("voz")
         wav = wav_path.read_bytes()
 
@@ -672,7 +705,8 @@ def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
         profile = {**profile, "search_words": genres.search_words(genre)}
         if verified_animation:
             allowed = [
-                source for source in ("ai", "3d")
+                source
+                for source in ("ai", "3d")
                 if (source == "ai" and (deps.ai_provider or aivideo.available()))
                 or (source == "3d" and (deps.blender or blender3d.blender_cmd()))
             ]
@@ -695,7 +729,8 @@ def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
                 profile,
                 ask=lambda p: edit(p, json_mode=True),
                 sources=allowed,
-                extra=reference_note + _beat_notes(sc)
+                extra=reference_note
+                + _beat_notes(sc)
                 + genres.notes(genre)
                 + _skills(
                     "motion",
@@ -773,15 +808,21 @@ def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
                 for shot in shots:
                     if shot.kind == "card":
                         shot.kind, shot.asset = "broll", ""
-                        shot.visual = shot.visual or " ".join(w.text for w in words[shot.first:shot.last])
+                        shot.visual = shot.visual or " ".join(
+                            w.text for w in words[shot.first : shot.last]
+                        )
             if selected:
-                galeria.fill(shots, selected, job.dir / "clips-galeria", render.ffmpeg())
+                galeria.fill(
+                    shots, selected, job.dir / "clips-galeria", render.ffmpeg()
+                )
                 job.update(galeria_clips=len(selected))
             else:
                 filler.fill(shots, progress=lambda f, n: job.progress(label, f, n))
             if verified_animation:
                 try:
-                    verificacion.require_shots(shots, render.ffmpeg(), _ffprobe(render.ffmpeg()))
+                    verificacion.require_shots(
+                        shots, render.ffmpeg(), _ffprobe(render.ffmpeg())
+                    )
                 except verificacion.InvalidShot as exc:
                     shots[exc.number - 1].asset = ""
                     job.write("plan.json", P.to_json(shots))
@@ -890,7 +931,11 @@ def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
             music_file: Optional[Path] = None  # the stereo file the master mixes
             beats: List[float] = []
             if params.get("music") != "ninguna":
-                music = _music(str(params.get("music") or ""), total, job.dir)
+                music = (
+                    None
+                    if params.get("original_only")
+                    else _music(str(params.get("music") or ""), total, job.dir)
+                )
                 if music is not None:
                     music_file = job.dir / "musica.wav"
                 if music is None and deps.stock:
@@ -948,7 +993,9 @@ def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
                     fx=fx_file if events else None,
                     total=total,
                     ffmpeg=render.ffmpeg(),
-                    music_db=-18.0 if crew_requested and job.state().get("voice") else None,
+                    music_db=-18.0
+                    if crew_requested and job.state().get("voice")
+                    else None,
                 )
                 job.update(sound=measured)
                 job.log(
@@ -966,7 +1013,9 @@ def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
         out = job.dir / "final.mp4"
         if stage("render"):
             if verified_animation:
-                verificacion.require_shots(shots, render.ffmpeg(), _ffprobe(render.ffmpeg()))
+                verificacion.require_shots(
+                    shots, render.ffmpeg(), _ffprobe(render.ffmpeg())
+                )
             size = (
                 render.DRAFT_SIZES[aspect]
                 if params.get("draft")
@@ -1031,8 +1080,13 @@ def run(job: Job, deps: Optional[Deps] = None) -> Dict[str, Any]:
                 if not job.state().get("voice"):
                     raise RuntimeError("El montaje no tiene narración verificada.")
                 extras["verificacion"] = verificacion.check_delivery(
-                    delivered, _ffprobe(ff), aspect=aspect, fps=render.FPS,
-                    subtitles=captions_srt, shots=len(shots), script=sc["text"],
+                    delivered,
+                    _ffprobe(ff),
+                    aspect=aspect,
+                    fps=render.FPS,
+                    subtitles=captions_srt,
+                    shots=len(shots),
+                    script=sc["text"],
                     timing=str(job.state().get("timing") or ""),
                     quality=extras.get("control") or {},
                     requested_seconds=float(params.get("seconds") or 60),
@@ -1165,6 +1219,8 @@ def _allowed_sources(
         out = [s for s in out if s not in ("web", "film")]
     if params.get("film") is False:
         out = [s for s in out if s != "film"]
+    if params.get("original_only"):
+        return [s for s in ("ai", "3d", "image") if s in out]
     return ["library"] + [s for s in out if s != "library"]
 
 
@@ -1352,6 +1408,8 @@ def _music_online(
     credited; None when none could be had (Sergio's own bed then)."""
     from openjarvis.video_essay import audio, music, render
 
+    if params.get("original_only"):
+        return None
     wish = str(params.get("music") or "")
     try:
         track = music.pick(
@@ -1376,14 +1434,22 @@ def checklist(st: Dict[str, Any]) -> list[dict[str, str]]:
     done = set(st.get("done") or [])
     rows = []
     for worker in st.get("equipo") or []:
-        rows.append({"tarea": f"Especialista: {worker['rol']}", "estado": worker["estado"]})
+        rows.append(
+            {"tarea": f"Especialista: {worker['rol']}", "estado": worker["estado"]}
+        )
     for platform in ("YouTube", "Instagram"):
         signal = (st.get("tendencias_en_vivo") or {}).get(platform)
         if signal:
-            rows.append({"tarea": f"Tendencias: {platform}", "estado": signal["estado"]})
+            rows.append(
+                {"tarea": f"Tendencias: {platform}", "estado": signal["estado"]}
+            )
     for stage, label in (
-        ("guion", "Guion"), ("voz", "Narración"), ("plan", "Plan de tomas"),
-        ("imagenes", "Clips"), ("sonido", "Mezcla"), ("acabado", "MP4 y subtítulos"),
+        ("guion", "Guion"),
+        ("voz", "Narración"),
+        ("plan", "Plan de tomas"),
+        ("imagenes", "Clips"),
+        ("sonido", "Mezcla"),
+        ("acabado", "MP4 y subtítulos"),
     ):
         state = "completo" if stage in done else "pendiente"
         if stage == "voz" and st.get("voice_error") and not st.get("voice"):
@@ -1621,7 +1687,16 @@ def running(root: Optional[Path] = None) -> List[Job]:
 def _same(a: Dict[str, Any], b: Dict[str, Any]) -> bool:
     if bool(a.get("verificar_animacion")) != bool(b.get("verificar_animacion")):
         return False
-    keys = ("topic", "prompt", "script", "reference", "style", "mode", "aspect", "galeria_id")
+    keys = (
+        "topic",
+        "prompt",
+        "script",
+        "reference",
+        "style",
+        "mode",
+        "aspect",
+        "galeria_id",
+    )
     return all(
         str(a.get(k) or "").strip().lower() == str(b.get(k) or "").strip().lower()
         for k in keys

@@ -4,6 +4,7 @@
   "shorts-virales": {
    "nombre": "Edición y temáticas virales para YouTube Shorts",
    "formato": "9:16",
+   "fps": 32,
    "generos": [
     "pesada",
     "inspiracional",
@@ -18,7 +19,12 @@
     "https://www.youtube.com/shorts/tFiLRzIjvM4",
     "https://www.youtube.com/shorts/dFbUovi4WNk",
     "https://www.youtube.com/shorts/bHDHsR9w_ME",
-    "https://www.instagram.com/reels/DdjwUyxBc5k/"
+    "https://www.instagram.com/reels/DdjwUyxBc5k/",
+    "https://www.youtube.com/shorts/-aJQzVZ9FB8",
+    "https://www.youtube.com/shorts/ZX5Daz55GNU",
+    "https://www.youtube.com/shorts/7D1a9bJJ9C0",
+    "https://www.youtube.com/shorts/v6__FPIOWf4",
+    "https://www.youtube.com/shorts/7sKAk3sAAmc"
    ],
    "ejemplos": [
     "How Chris Pratt Was Stealing Food",
@@ -34,6 +40,7 @@
   "animacion": {
    "nombre": "Animación",
    "formato": "16:9",
+   "fps": 32,
    "generos": [
     "animacion"
    ],
@@ -50,7 +57,7 @@
   "explicativo-entretenido": {
    "nombre": "Videos explicativos de entretenimiento",
    "formato": "9:16",
-   "fps": 30,
+   "fps": 32,
    "generos": [
     "explicado3d",
     "documental"

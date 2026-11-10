@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from openjarvis.skills.loader import load_skill
+from openjarvis.skills.loader import load_skill, load_skill_directory
 
 # Resolve the skills/builtin/ directory relative to the project root.
 BUILTIN_DIR = (
@@ -95,3 +95,18 @@ class TestStepsHaveToolNames:
         manifest = load_skill(toml_path)
         for i, step in enumerate(manifest.steps):
             assert step.tool_name, f"{toml_path.name} step {i} has empty tool_name"
+
+
+def test_cartoon_audio_short_is_discoverable_and_honest_about_its_kit():
+    folder = (
+        Path(__file__).resolve().parents[2]
+        / "src"
+        / "openjarvis"
+        / "skills"
+        / "bundled"
+        / "cartoon-audio-short"
+    )
+    manifest = load_skill_directory(folder)
+    assert manifest.name == "cartoon-audio-short"
+    assert "Stage 1: Intake" in manifest.markdown_content
+    assert "sin el directorio `kit/`" in manifest.markdown_content

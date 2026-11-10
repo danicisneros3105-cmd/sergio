@@ -32,7 +32,12 @@ def _video(path: Path) -> Path:
 def test_links_are_cleaned_and_deduplicated(tmp_path):
     refs = escuela.references()
     shorts = refs["shorts-virales"]["links"]
-    assert len(shorts) == len(set(shorts)) == 9  # tFiLRzIjvM4 was twice
+    assert len(shorts) == len(set(shorts)) == 14
+    assert all(
+        refs[k]["fps"] == 32
+        for k in ("shorts-virales", "animacion", "explicativo-entretenido")
+    )
+    assert "https://www.youtube.com/watch?v=7sKAk3sAAmc" in shorts
     assert "https://www.youtube.com/watch?v=p7LDk4D3Q3U" in refs["animacion"]["links"]
     assert escuela.clean_link("https://www.instagram.com/reels/DdjwUyxBc5k/?hl=es") == (
         "https://www.instagram.com/reel/DdjwUyxBc5k/"
@@ -48,11 +53,53 @@ def test_every_second_is_measured(tmp_path):
     assert m["cortes"] == [1.5, 2.5, 4.5]
     assert m["tomas"] == [1.5, 1.0, 2.0, 1.5]
     assert [s["golpes"] for s in m["segundos"]] == [1] * 6
+    assert len(m["fotogramas"]) == 24
+    assert m["fotogramas"][6]["t"] == 1.5
+    assert m["fotogramas"][6]["corte"]
+    assert not m["fotogramas"][5]["corte"]
+    assert m["fotogramas"][0]["volumen_db"] < 0
     r = m["resumen"]
     assert (
         r["vertical"] and r["cortes_primeros_3s"] == 2 and r["gancho"] == "Nadie sabe"
     )
-    assert r["movimiento_medio"] == 0.0  # a cut is not motion
+    assert r["movimiento_medio"] == 0.0
+    assert r["intervalo_fotograma_s"] == 0.25
+    json.dumps(m)  # NumPy comparisons must not leak into the saved study.
+
+
+def test_transcription_uses_cpu_and_returns_json_numbers(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+
+    import numpy as np
+
+    class FakeModel:
+        def __init__(self, *args, **kwargs):
+            assert kwargs["device"] == "cpu"
+
+        def transcribe(self, *args, **kwargs):
+            segment = SimpleNamespace(
+                words=[SimpleNamespace(start=np.float64(0.25), word=" Hola")]
+            )
+            return [segment], None
+
+    monkeypatch.setattr("faster_whisper.WhisperModel", FakeModel)
+    escuela._whisper_model.cache_clear()
+    words, status = escuela.transcribe_detailed(tmp_path / "v.mp4")
+    assert status == "ok" and words == [{"t": 0.25, "w": "Hola"}]
+    json.dumps(words)
+    escuela._whisper_model.cache_clear()
+
+
+def test_youtube_vtt_supplies_word_times_before_whisper(tmp_path):
+    video = tmp_path / "v.mp4"
+    video.touch()
+    video.with_suffix(".en.vtt").write_text(
+        "WEBVTT\n\n00:00:00.000 --> 00:00:01.000\nHola <00:00:00.250>mundo\n",
+        "utf-8",
+    )
+    words, status = escuela.transcribe_detailed(video)
+    assert status == "subtitulos_youtube"
+    assert words == [{"t": 0.0, "w": "Hola"}, {"t": 0.25, "w": "mundo"}]
 
 
 @needs_ffmpeg
@@ -123,9 +170,12 @@ def _studied(root: Path) -> None:
         "url": "https://www.youtube.com/watch?v=abcdefghijk",
         "categoria": "shorts-virales",
         "medido": {"cortes": [1.5, 2.5, 4.5], "tomas": [1.5, 1.0, 2.0, 1.5], "segundos": secs,
+                   "fotogramas": [{"i": 0, "t": 0.0, "corte": False}, {"i": 32, "t": 1.0, "corte": True}],
                    "resumen": {"duracion_s": 6.0, "vertical": True, "tomas": 4, "toma_mediana_s": 1.5,
                                "cortes_primeros_3s": 2, "texto_en_pantalla": 0.17, "texto_donde": "abajo",
-                               "golpes_por_segundo": 1.0, "palabras_por_segundo": 2.0, "gancho": "Nadie sabe esto"}},
+                               "golpes_por_segundo": 1.0, "palabras_por_segundo": 2.0, "gancho": "Nadie sabe esto",
+                               "fps_medido": 32, "fps": 24, "fotogramas_muestreados": 192,
+                               "intervalo_fotograma_s": 0.03125}},
         "tomas_modelo": {"shots": [{"t": 2.5, "dur": 2.0, "effect": "zoom", "transition_in": "whip", "sfx": "whoosh"}]},
     }  # fmt: skip
     (root / "shorts-virales").mkdir(parents=True)
@@ -169,6 +219,16 @@ def test_ficha_tells_every_second(tmp_path):
     text = escuela.ficha("abcdefghijk", root=tmp_path)
     assert "6.0 s, vertical" in text and "Gancho (0-3 s): «Nadie sabe esto»" in text
     assert "2s · texto abajo · 1 golpes · «hola»" in text and "efecto: zoom" in text
+    assert "192 fotogramas a 32 FPS" in text
+
+
+def test_frame_ficha_returns_a_bounded_json_timeline(tmp_path):
+    _studied(tmp_path)
+    data = json.loads(escuela.frame_ficha("abcdefghijk", 0.5, 1.5, root=tmp_path))
+    assert data["fps_analisis"] == 32
+    assert data["fotogramas"] == [{"i": 32, "t": 1.0, "corte": True}]
+    with pytest.raises(ValueError, match="60 segundos"):
+        escuela.frame_ficha("abcdefghijk", 0, 61, root=tmp_path)
 
 
 def test_unknown_reference_says_to_study_first(tmp_path):

@@ -418,6 +418,19 @@ def test_the_job_uses_internet_music_and_credits_it(tmp_path, monkeypatch):
     assert st["music"]["title"] == "Bed" and st["credits"][0]["licence"] == "CC BY 4.0"
 
 
+def test_original_only_excludes_third_party_visuals_and_music():
+    from openjarvis.video_essay import job as J
+    from openjarvis.video_essay import modes
+
+    allowed = J._allowed_sources(
+        ["library", "stock", "web", "film", "archive", "ai", "3d", "image"],
+        {"original_only": True, "ai_video": True, "web_clips": False, "film": False},
+        modes.get("post"),
+    )
+    assert allowed == ["ai", "3d", "image"]
+    assert J._music_online(None, None, {"original_only": True}, {}, 3.0, None) is None
+
+
 def test_a_face_is_never_under_the_words_even_to_vary_the_place(monkeypatch):
     """The last shot's place costs a little; a face costs everything."""
     img = Image.new("RGB", (320, 180), (40, 40, 44))

@@ -73,7 +73,7 @@ def test_animatic_uses_the_same_30_fps_timeline(tmp_path):
 
 def test_explainer_reference_is_remeasured_before_cache_reuse(tmp_path, monkeypatch):
     cat = escuela.references()["explicativo-entretenido"]
-    assert cat["fps"] == 30 and len(cat["links"]) == 5
+    assert cat["fps"] == 32 and len(cat["links"]) == 5
     url = cat["links"][0]
     assert "/p/" in url
     target = tmp_path / "explicativo-entretenido" / f"{escuela.video_id(url)}.json"
@@ -93,10 +93,10 @@ def test_explainer_reference_is_remeasured_before_cache_reuse(tmp_path, monkeypa
         "fetch": lambda *_: tmp_path / "source.mp4",
         "watcher": lambda _: {},
     }
-    escuela.study(url, "explicativo-entretenido", fps=30, **kwargs)
-    escuela.study(url, "explicativo-entretenido", fps=30, **kwargs)
-    assert escuela.find(url, root=tmp_path)["medido"]["resumen"]["fps_medido"] == 30
-    assert calls == [30]
+    escuela.study(url, "explicativo-entretenido", fps=32, **kwargs)
+    escuela.study(url, "explicativo-entretenido", fps=32, **kwargs)
+    assert escuela.find(url, root=tmp_path)["medido"]["resumen"]["fps_medido"] == 32
+    assert calls == [32]
 
 
 def test_animation_fallback_does_not_add_archive_cards():

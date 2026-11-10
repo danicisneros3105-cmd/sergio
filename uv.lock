@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = ">=3.10, <3.14"
 resolution-markers = [
     "python_full_version >= '3.13' and sys_platform == 'linux'",
@@ -6118,6 +6118,7 @@ wheels = [
 [[package]]
 name = "openjarvis"
 source = { editable = "." }
+default-groups = ["build"]
 dependencies = [
     { name = "click" },
     { name = "croniter" },
@@ -6206,6 +6207,7 @@ dashboard = [
     { name = "textual" },
 ]
 desktop = [
+    { name = "av" },
     { name = "fastapi" },
     { name = "faster-whisper" },
     { name = "google-genai" },
@@ -6353,6 +6355,7 @@ server = [
     { name = "yt-dlp-ejs" },
 ]
 speech = [
+    { name = "av" },
     { name = "faster-whisper" },
     { name = "numpy" },
     { name = "onnxruntime", version = "1.23.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
@@ -6395,6 +6398,8 @@ requires-dist = [
     { name = "amdsmi", marker = "extra == 'energy-amd'", specifier = ">=6.1" },
     { name = "anthropic", marker = "extra == 'inference-cloud'", specifier = ">=0.30" },
     { name = "apple-fm-sdk", marker = "sys_platform == 'darwin' and extra == 'afm'", specifier = ">=0.2.1" },
+    { name = "av", marker = "extra == 'desktop'", specifier = ">=11,<19" },
+    { name = "av", marker = "extra == 'speech'", specifier = ">=11,<19" },
     { name = "chromadb", marker = "extra == 'dev'", specifier = ">=1.0" },
     { name = "chromadb", marker = "extra == 'evolution'", specifier = ">=1.0" },
     { name = "click", specifier = ">=8" },
